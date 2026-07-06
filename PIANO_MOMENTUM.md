@@ -151,6 +151,11 @@ Scritta per essere eseguita passo-passo senza dover ricostruire il contesto. Leg
 8. Ogni testo UI: comprensibile a un bambino di 8 anni. Colori: verde=puoi, giallo=attenzione, rosso=fermati.
 9. A fine sessione: aggiornare questo file + copiarlo in Obsidian (`cp PIANO_MOMENTUM.md "/Users/giorgiopiredda/Documents/claude_obsidian/Claude Memory/Momentum — Piano Potenziamento 2026-07-06.md"`) + aggiornare la memoria del progetto + commit e push su GitHub (repo privato GPire/momentum).
 
+## ONDATA 2 — stato (2026-07-06, sera; 186/186 test verdi)
+- ✅ **W4** Ghost Radar v2 (`findUnknownMerchants` in anomaly.js, 3 test): anomalie con esercente mai visto → bottoni "È mia" (addestra modelStats) / "Non la riconosco" (tag `suspect` additivo, hash chain intatta). Cablato in renderRadarAlerts + handler window.
+- ✅ **Compute Planner adattivo** (`src/device/compute-planner.js`, 8 test): risposta REALE alla richiesta "adattivo per tipo di risorsa". Sopra il profiler: sceglie backend WebGPU→WebNN→SIMD→JS, precisione fp16/fp32, profondità Monte Carlo, worker, tier modello dalle capacità MISURATE. Onesto sui limiti (Metal/Vulkan li gestisce il browser; niente "25x"; nessun rilevamento di chip che il web non espone).
+- ✅ **V6_ASSESSMENT.md**: valutazione onesta del blueprint V6 incollato dall'utente — buildable/oversold/rifiutato. RIFIUTATO esplicitamente il "mesh come virus che entra nei dispositivi" (malware/reato, distruggerebbe la fiducia-privacy che è l'unico asset). La mesh potente e legale = consenso esplicito, già costruita.
+
 ## ONDATA 2 — stato (2026-07-06, sera; 175/175 test verdi)
 - ✅ **W1** Predittore contestuale (`src/predict/context-predictor.js`, 6 test): quick-add ordinati per probabilità ADESSO (lift orario+settimanale misurato, neutro senza pattern), motivo spiegato sul primo chip. Cablato nel form.
 - ✅ **W2** Sweep one-tap (`getSweepSuggestion` in advisor.js, 4 test): avanzo settimana scorsa ≥10€ → card "li metto da parte?" → `window.applySweep` registra invest + `lastSweepWeek` additivo. Renderer azioni generalizzato (handler+payload JSON).

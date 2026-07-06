@@ -7,7 +7,7 @@ import { NeuralNexus, AntiFOMO, QuantumRL } from './ai/neural-nexus.js';
 import { VoiceCore } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
-import { AnomalyDetector } from './predict/anomaly.js';
+import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection } from './predict/advisor.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -1132,12 +1132,25 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   alertsBox.innerHTML = '';
 
   const anomalies = AnomalyDetector.detectAll().filter(a => monthKey(new Date(a.tx.date)) === k);
+  // Ghost Radar v2: le anomalie con esercente MAI visto prima diventano
+  // interattive — "È mia" conferma e addestra l'AI (modelStats), "Non la
+  // riconosco" marca la tx come sospetta (campo additivo, mai tocca importo).
+  const unknownIds = new Set(findUnknownMerchants(anomalies, VaultDAO.state.transactions).map(a => a.tx.id));
   if (anomalies.length > 0) {
     alertsBox.innerHTML += `
       <div class="card p-4 border border-rose-500/20 bg-rose-950/5">
-        <h4 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Anomalie Rilevate</h4>
-        <div class="space-y-1.5 text-xs text-slate-300">
-          ${anomalies.map(a => `<div>${a.tx.description} (+${a.zScore.toFixed(1)}σ) → <b>${formatMoney(a.tx.amount)}</b></div>`).join('')}
+        <h4 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Spese insolite: le riconosci?</h4>
+        <div class="space-y-2 text-xs text-slate-300">
+          ${anomalies.map(a => {
+            const suspect = a.tx.suspect;
+            const feedback = unknownIds.has(a.tx.id) && !suspect
+              ? `<div class="flex gap-2 mt-1">
+                   <button onclick="window.confirmAnomalyMine('${a.tx.id}')" class="text-[10px] font-bold text-emerald-400 underline">È mia</button>
+                   <button onclick="window.flagAnomalySuspect('${a.tx.id}')" class="text-[10px] font-bold text-rose-400 underline">Non la riconosco</button>
+                 </div>`
+              : suspect ? `<div class="text-[10px] text-rose-400 font-bold mt-0.5">⚠️ segnata come sospetta</div>` : '';
+            return `<div>${a.tx.description} (+${a.zScore.toFixed(1)}σ) → <b>${formatMoney(a.tx.amount)}</b>${feedback}</div>`;
+          }).join('')}
         </div>
       </div>
     `;
@@ -1236,6 +1249,37 @@ window.applySweep = (sweep) => {
   VaultDAO.save();
   showToast(`${formatMoney(sweep.amount)} messi da parte. Bravo.`, 'success');
   renderDashboard();
+  renderAnalysis({ skipHeavyForecast: true });
+};
+
+// Ghost Radar v2: feedback che addestra. Trova la tx per id in qualsiasi mese.
+function findTxById(id) {
+  for (const m of Object.keys(VaultDAO.state.transactions)) {
+    const t = VaultDAO.state.transactions[m].find(t => String(t.id) === String(id));
+    if (t) return t;
+  }
+  return null;
+}
+// "È mia": conferma la categoria attuale → l'orchestratore impara (modelStats,
+// v3) che quella descrizione va in quella categoria. Rinforzo reale.
+window.confirmAnomalyMine = (id) => {
+  const t = findTxById(id);
+  if (!t) return;
+  if (window.momentumOrchestrator) {
+    window.momentumOrchestrator.classify(t.description, t.amount, new Date(t.date));
+    window.momentumOrchestrator.learn(t.description, t.category, t.amount, new Date(t.date));
+  }
+  showToast('Ok, ho imparato che è una spesa tua.', 'success');
+  renderAnalysis({ skipHeavyForecast: true });
+};
+// "Non la riconosco": marca la tx come sospetta (campo additivo, MAI tocca
+// amount/category/hash → hash chain intatta) per l'evidenza rossa nel ledger.
+window.flagAnomalySuspect = (id) => {
+  const t = findTxById(id);
+  if (!t) return;
+  t.suspect = true;
+  VaultDAO.save();
+  showToast('Segnata come sospetta. Controllala sul tuo conto.', 'info');
   renderAnalysis({ skipHeavyForecast: true });
 };
 
