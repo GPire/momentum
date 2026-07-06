@@ -136,6 +136,14 @@ Versioni etichettate SOLO dove il salto è reale (regola del progetto):
 
 ---
 
+
+## 🚀 MOMENTUM CORE — modello proprietario (2026-07-06, notte tarda; 212 test)
+Rispondendo alla domanda "Phi-4 o costruire da zero?": costruito il modello PROPRIETARIO reale su questo Mac i5. Decisione documentata: no Phi-4, no transformer-da-zero (serve GPU cluster), sì architettura-sistema ibrida.
+- **Salto benchmark MISURATO 51.5% → 92.5%** (`npm run bench`): architettura ibrida dizionario esercenti (`src/ai/merchant-dictionary.js`, come Plaid/Yodlee) + Meso v2 riaddestrato su CPU (vocabolario esercenti reali) + fallback ML. Generalizzazione ML pura dichiarata a parte (59.4%) per onestà. Cross-check Python↔JS 2.2e-16 esatto.
+- **Astensione** (`orchestrator.js`): l'AI dichiara `abstain` quando incerta ("non sono sicuro, confermi?") invece di forzare — il "capisce a priori gli errori" richiesto. UI del form aggiornata. 3 test.
+- **Documenti per investitori/acquirenti**: `MOMENTUM_CORE.md` (whitepaper architettura onesto, decisione Phi-4, 5 pilastri, mappatura sigle V7.5), `COPERTURA.md` (matrice frizioni-utente + domande due-diligence, con onestà sulla valutazione). Su repo + Obsidian.
+- Restano (roadmap, non promesse): C7 feature multi-segnale, C8 quantizzazione int8, C4 orchestrator v4 API unica, C6 modello globale in UI, forecast-bench, riaddestramento con dati reali utenti.
+
 # GUIDA OPERATIVA PER LA PROSSIMA SESSIONE (qualsiasi modello: Opus, Sonnet, Fable)
 
 Scritta per essere eseguita passo-passo senza dover ricostruire il contesto. Leggi PRIMA le trappole note in fondo.
