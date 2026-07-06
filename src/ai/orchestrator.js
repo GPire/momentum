@@ -190,10 +190,25 @@ class MomentumOrchestrator {
 
     const agree = new Set(candidates.map(c => c.category)).size === 1;
     const detail = candidates.map(c => `${c.source}:${c.category}(${Math.round(c.confidence * 100)}%)`).join(' · ');
+
+    // ── Astensione: "so di non sapere" ──
+    // Il punto chiave di un'AI che capisce a priori i propri errori: quando
+    // i modelli sono in disaccordo E la confidenza combinata è bassa, invece
+    // di forzare una categoria (sbagliando con sicurezza) l'esito è
+    // `abstain: true`. La UI chiede conferma all'utente e quella risposta
+    // diventa training (active learning, via modelStats). Un dizionario-hit
+    // non arriva mai qui (ha già restituito ad alta confidenza sopra).
+    // Soglie dichiarate; nessuna astensione se i modelli concordano.
+    const ABSTAIN_CONFIDENCE = 55; // sotto → non abbastanza sicuri
+    const abstain = !agree && confidence < ABSTAIN_CONFIDENCE;
+
     return {
       cat: bestCategory,
       confidence,
-      advice: agree ? `Ensemble concorde (${detail}).` : `Ensemble in disaccordo, vince ${bestCategory} per punteggio pesato (${detail}).`,
+      abstain,
+      advice: abstain
+        ? `Non sono sicuro (${confidence}%): ${detail}. Confermi tu la categoria?`
+        : agree ? `Ensemble concorde (${detail}).` : `Ensemble in disaccordo, vince ${bestCategory} per punteggio pesato (${detail}).`,
     };
   }
 

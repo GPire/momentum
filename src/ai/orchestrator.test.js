@@ -37,9 +37,12 @@ test("ensemble a 3 vie: il Meso, più accurato, pesa di più del Nano quando son
   const meso = { metrics: { hard_noisy_test_accuracy: 0.897 }, predict: () => ({ category: "spesa", confidence: 0.9 }) };
   const orch = new MomentumOrchestrator({ vaultDAO: mockVault(0), neuralNexus: nexus, trainedCategorizer: trained, trainedMeso: meso });
   const result = orch.classify("acme xyz corp", 12, new Date());
-  // il Meso ha peso maggiore (accuratezza misurata più alta) e confidenza più alta: deve vincere
+  // il Meso ha peso e confidenza maggiori: resta la categoria in testa (spesa).
+  // Ma con 3 modelli su 3 categorie diverse la confidenza combinata è bassa,
+  // quindi il sistema ONESTAMENTE si astiene invece di forzare (comportamento
+  // corretto dell'astensione: sa di non sapere abbastanza).
   assert.equal(result.cat, "spesa");
-  assert.ok(result.advice.includes("disaccordo"));
+  assert.equal(result.abstain, true);
 });
 
 test("setMeso attiva l'ensemble a 3 vie dopo il caricamento asincrono", () => {
@@ -112,4 +115,33 @@ test("v3: learn senza classify precedente non inventa statistiche", () => {
   const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus });
   orch.learn("bolletta enel", "utenze", 78, new Date());
   assert.equal(orch.vault.state.mlData.modelStats, undefined);
+});
+
+// ---- astensione ("so di non sapere") ----
+
+test("astensione: modelli in disaccordo e confidenza bassa → abstain true", () => {
+  // tre modelli, tre categorie diverse, tutti a bassa confidenza → nessuno domina
+  const nexus = { predict: () => ({ cat: "trasporti", confidence: 30 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: "ristoranti", confidence: 0.34 }) };
+  const meso = { metrics: { hard_noisy_test_accuracy: 0.85 }, predict: () => ({ category: "shopping", confidence: 0.33 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus, trainedCategorizer: trained, trainedMeso: meso });
+  const r = orch.classify("acme xyz corp", 12, new Date());
+  assert.equal(r.abstain, true);
+  assert.ok(r.advice.includes("Non sono sicuro"));
+});
+
+test("astensione: modelli concordi → mai astensione (anche se ambiguo)", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 40 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: "spesa", confidence: 0.4 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus, trainedCategorizer: trained });
+  const r = orch.classify("acme xyz corp", 12, new Date());
+  assert.equal(r.abstain, false);
+});
+
+test("astensione: esercente noto (dizionario) non astiene mai", () => {
+  const nexus = { predict: () => ({ cat: "trasporti", confidence: 30 }), tokenize: t => t.split(' '), train: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus });
+  const r = orch.classify("netflix", 12, new Date());
+  assert.equal(r.cat, "abbonamenti");
+  assert.ok(!r.abstain);
 });

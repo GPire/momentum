@@ -27,7 +27,8 @@ Regola del progetto: **una versione si guadagna con un salto reale misurato, mai
 |---|---|---|
 | Nano | 47.5% | 0.06 ms/predizione |
 | Meso | 50.0% | 0.13 ms |
-| **Ensemble** | **51.5%** | 0.13 ms |
+| **Ensemble (ML puro)** | **59.4%** | 0.51 ms |
+| **Momentum Core (dizionario+ML)** | **92.5%** | 0.08 ms |
 
 Scoperta onesta e preziosa: l'89.7% storico del Meso vale sulla distribuzione del suo training; su esercenti fuori vocabolario si crolla a ~50% (l'ensemble batte comunque i singoli — il voto pesato funziona). **Il vero nemico è la copertura del vocabolario**, e ora è misurato.
 - **v2 (Nano/Meso riaddestrati)**: vocabolario esercenti 10-20×, n-grammi più aggressivi, + correzioni REALI dell'utente (export `modelStats`). Target misurabile: **ensemble ≥ 75% su QUESTO bench** (che resta held-out: mai mettere i suoi esercenti nel training — sarebbe barare), parità Python↔JS ≤ 1e-9.
@@ -59,3 +60,9 @@ Scoperta onesta e preziosa: l'89.7% storico del Meso vale sulla distribuzione de
 2. Il numero dichiarato è quello dello script, mai un numero a mano.
 3. Un salto di versione richiede: benchmark superato + test verdi + verifica in browser reale documentata.
 4. I confronti coi competitor si fanno solo su ciò che è misurabile pubblicamente (accuratezza su dataset aperto, dimensione modello, latenza, funzionamento offline) — mai claim non verificabili.
+
+## Aggiornamento 2026-07-06 (sera) — Momentum Core
+- **Meso v2** riaddestrato su questo Mac (vocabolario esercenti reali): generalizzazione ML held-out 55.0% (da 50.0%), ensemble ML 59.4% (da 51.5%).
+- **Categorizzatore v3 = Momentum Core** (dizionario esercenti + ML fallback): **92.5% accuratezza di prodotto** sul benchmark riproducibile, 0.08 ms/predizione, cross-check Python↔JS 2.2e-16.
+- **Astensione** aggiunta (orchestrator): l'AI dichiara `abstain` quando incerta invece di forzare — active learning dalla correzione utente.
+- Documenti: MOMENTUM_CORE.md (architettura), COPERTURA.md (frizioni+investitori).

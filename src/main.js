@@ -316,8 +316,13 @@ const attachFormListeners = (container) => {
       
       if (pred) {
         const pCat = getCatById(pred.cat);
-        aiCatBadge.textContent = pCat.name;
-        aiText.textContent = `${pred.advice} (Confidence: ${pred.confidence}%)`;
+        // Astensione (orchestrator): quando l'AI "sa di non sapere" propone
+        // comunque la sua ipotesi migliore ma lo dice chiaramente e invita
+        // l'utente a confermare — meglio di una categoria forzata sbagliata.
+        aiCatBadge.textContent = pred.abstain ? `${pCat.name}?` : pCat.name;
+        aiText.textContent = pred.abstain
+          ? `🤔 ${pred.advice}`
+          : `${pred.advice} (Confidence: ${pred.confidence}%)`;
         aiPanel.classList.add('active');
         aiPanel.classList.remove('anomalous');
         aiBtn.style.display = 'block';
