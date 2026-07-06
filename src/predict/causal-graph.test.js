@@ -1,0 +1,84 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+globalThis.window = globalThis.window || {};
+globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
+
+const { buildCategorySeries, buildCausalGraph, propagateImpact } = await import('./causal-graph.js');
+
+const REF = new Date(2026, 6, 6); // lunedì 6 luglio 2026
+
+// Storia sintetica con nesso VERO incorporato: nelle settimane "sociali"
+// salgono INSIEME Ristorante e Trasporti (esci a cena → taxi), e la
+// settimana DOPO sale Farmacia. Alimentari resta costante (nessun legame).
+function syntheticHistory() {
+  const allTx = {};
+  const add = (date, amount, category) => {
+    const mk = date.slice(0, 7);
+    (allTx[mk] = allTx[mk] || []).push({ date, amount, category, type: 'uscita', description: category });
+  };
+  const monday0 = new Date(2026, 0, 5); // lunedì 5 gen 2026, ~26 settimane prima di REF
+  for (let w = 0; w < 25; w++) {
+    const d = new Date(monday0.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000);
+    const iso = d.toISOString().slice(0, 10);
+    const social = w % 2 === 0; // settimane alterne: alta/bassa vita sociale
+    add(iso, social ? 120 : 30, 'Ristorante');
+    add(iso, social ? 60 : 15, 'Trasporti');
+    add(iso, 80, 'Alimentari'); // piatto: nessuna informazione
+    // Farmacia segue la settimana DOPO quella sociale
+    const prevSocial = w > 0 && (w - 1) % 2 === 0;
+    add(iso, prevSocial ? 40 : 10, 'Farmacia');
+  }
+  return allTx;
+}
+
+test('buildCategorySeries: serie settimanali complete e allineate', () => {
+  const s = buildCategorySeries(syntheticHistory(), REF, 26);
+  assert.ok(s['Ristorante']);
+  assert.equal(s['Ristorante'].length, 26);
+  assert.ok(s['Ristorante'].some(v => v === 120) && s['Ristorante'].some(v => v === 30));
+});
+
+test('buildCausalGraph: trova il legame stessa-settimana Ristorante↔Trasporti', () => {
+  const links = buildCausalGraph(syntheticHistory(), REF);
+  const same = links.find(l => l.lagWeeks === 0 && ((l.from === 'Ristorante' && l.to === 'Trasporti') || (l.from === 'Trasporti' && l.to === 'Ristorante')));
+  assert.ok(same, 'legame lag-0 mancante');
+  assert.ok(same.r > 0.8, `r atteso alto, trovato ${same?.r}`);
+});
+
+test('buildCausalGraph: trova il legame ritardato Ristorante → Farmacia (settimana dopo)', () => {
+  const links = buildCausalGraph(syntheticHistory(), REF);
+  const lagged = links.find(l => l.lagWeeks === 1 && l.from === 'Ristorante' && l.to === 'Farmacia');
+  assert.ok(lagged, 'legame lag-1 mancante');
+  assert.ok(lagged.r > 0.8);
+  assert.equal(lagged.direction, 'settimana dopo');
+});
+
+test('buildCausalGraph: la categoria piatta (Alimentari) NON entra nel grafo', () => {
+  const links = buildCausalGraph(syntheticHistory(), REF);
+  assert.equal(links.filter(l => l.from === 'Alimentari' || l.to === 'Alimentari').length, 0);
+});
+
+test('propagateImpact: toccare Ristorante muove i vicini, con percorso spiegato', () => {
+  const links = buildCausalGraph(syntheticHistory(), REF);
+  const effects = propagateImpact(links, 'Ristorante', 50); // +50% su Ristorante
+  const trasporti = effects.find(e => e.category === 'Trasporti');
+  const farmacia = effects.find(e => e.category === 'Farmacia');
+  assert.ok(trasporti && trasporti.expectedPct > 20, 'effetto su Trasporti mancante');
+  assert.ok(farmacia && farmacia.lagWeeks >= 1, 'effetto ritardato su Farmacia mancante');
+  assert.deepEqual(trasporti.path[0], 'Ristorante'); // il percorso spiega il perché
+});
+
+test('propagateImpact: effetti sotto soglia scartati, niente rumore', () => {
+  const links = [{ from: 'A', to: 'B', lagWeeks: 0, r: 0.06, samples: 20, direction: 'insieme' }];
+  assert.equal(propagateImpact(links, 'A', 50).length, 0); // 50×0.06 = 3% < soglia 5%
+});
+
+test('propagateImpact: nessun ciclo infinito su grafi circolari', () => {
+  const links = [
+    { from: 'A', to: 'B', lagWeeks: 0, r: 0.9, samples: 20, direction: 'insieme' },
+    { from: 'B', to: 'A', lagWeeks: 0, r: 0.9, samples: 20, direction: 'insieme' },
+  ];
+  const effects = propagateImpact(links, 'A', 50);
+  assert.equal(effects.length, 1); // solo B: il ritorno su A è bloccato
+});

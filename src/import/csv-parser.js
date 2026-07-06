@@ -1,0 +1,143 @@
+import { monthKey } from '../core/constants.js';
+import { levenshtein, logETL } from '../core/utils.js';
+import { getCatById, VaultDAO } from '../core/vault.js';
+import { showSignatureAlert, showToast } from '../ui/feedback.js';
+import { NeuralNexus } from '../ai/neural-nexus.js';
+import { parseCellAmount, COLUMN_KEYWORDS } from './pdf-parser.js';
+
+// ==========================================
+// CSV PARSING & QUANTUM DEDUPLICATION
+// ==========================================
+const handleUniversalCSV = (e) => {
+  const file = e.target.files[0]; if(!file) return; const reader = new FileReader();
+  logETL(`Inizio parsing CSV: ${file.name}...`);
+
+  reader.onload = (ev) => {
+    const text = ev.target.result; const lines = text.split('\n').filter(l => l.trim().length > 0);
+    if(lines.length < 2) { logETL("Errore: CSV vuoto.", true); return showToast("CSV vuoto", "error"); }
+    
+    const delim = lines[0].includes(';') ? ';' : ','; let added = 0;
+    let existingTxs = []; Object.keys(VaultDAO.state.transactions).forEach(m => existingTxs.push(...VaultDAO.state.transactions[m]));
+
+    const headers = lines[0].split(delim).map(h => h.replace(/["']/g, '').trim().toLowerCase());
+    let dateIdx = -1, descIdx = -1, amountIdx = -1, expenseIdx = -1, incomeIdx = -1;
+
+    headers.forEach((h, idx) => {
+      if (COLUMN_KEYWORDS.date.test(h)) dateIdx = idx;
+      else if (COLUMN_KEYWORDS.desc.test(h)) descIdx = idx;
+      else if (/(importo|ammontare|cifra|cassa|valore|totale|saldo)/i.test(h)) amountIdx = idx;
+      else if (/(addebito|uscita|spesa|addebiti)/i.test(h)) expenseIdx = idx;
+      else if (/(accredito|entrata|accrediti)/i.test(h)) incomeIdx = idx;
+    });
+
+    lines.slice(1).forEach(line => {
+       const cols = line.split(delim).map(c => c.replace(/["']/g, '').trim());
+       if (cols.length < 2) return;
+
+       let dateStr = '';
+       let descVal = 'Operazione Importata';
+       let amountVal = null;
+       let isExpense = true;
+
+       if (dateIdx !== -1 && cols[dateIdx]) dateStr = cols[dateIdx];
+       if (descIdx !== -1 && cols[descIdx]) descVal = cols[descIdx];
+
+       if (amountIdx !== -1 && cols[amountIdx]) {
+         const parsed = parseCellAmount(cols[amountIdx]);
+         if (parsed !== null) {
+           amountVal = Math.abs(parsed);
+           isExpense = parsed < 0;
+         }
+       } else if (expenseIdx !== -1 || incomeIdx !== -1) {
+         const expVal = expenseIdx !== -1 && cols[expenseIdx] ? parseCellAmount(cols[expenseIdx]) : null;
+         const incVal = incomeIdx !== -1 && cols[incomeIdx] ? parseCellAmount(cols[incomeIdx]) : null;
+         if (expVal !== null && expVal !== 0) {
+           amountVal = Math.abs(expVal);
+           isExpense = true;
+         } else if (incVal !== null && incVal !== 0) {
+           amountVal = Math.abs(incVal);
+           isExpense = false;
+         }
+       }
+
+       // Fallbacks
+       if (!dateStr) {
+         dateStr = cols.find(c => /^\d{2}[\/\-]\d{2}[\/\-]\d{2,4}$/.test(c) || /^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(c)) || '';
+       }
+       if (amountVal === null) {
+         const rawAmt = cols.find(c => /^-?\d+([.,]\d{1,2})?$/.test(c) || /^-?\d{1,3}([.,]\d{3})*([.,]\d{2})?$/.test(c));
+         if (rawAmt) {
+           const parsed = parseCellAmount(rawAmt);
+           if (parsed !== null) {
+             amountVal = Math.abs(parsed);
+             isExpense = parsed < 0;
+           }
+         }
+       }
+       if (descVal === 'Operazione Importata' || !descVal) {
+         descVal = cols.find(c => c !== dateStr && isNaN(parseCellAmount(c))) || "Operazione Ledger";
+       }
+
+       if (dateStr && amountVal !== null && amountVal > 0) {
+          let dObj = null;
+          if (dateStr.includes('/')) {
+            const p = dateStr.split('/');
+            const year = p[2].length === 2 ? parseInt('20' + p[2]) : parseInt(p[2]);
+            dObj = new Date(year, parseInt(p[1]) - 1, parseInt(p[0]));
+          } else if (dateStr.includes('-')) {
+            const p = dateStr.split('-');
+            if (p[0].length === 4) {
+              dObj = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+            } else {
+              dObj = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+            }
+          } else {
+            dObj = new Date(dateStr);
+          }
+
+          if (dObj && !isNaN(dObj.getTime())) {
+             const k = monthKey(dObj);
+             const type = isExpense ? 'uscita' : 'entrata';
+             
+             const isDuplicate = existingTxs.some(t => {
+                 if (t.amount === amountVal && t.type === type) {
+                     const tDate = t.date ? new Date(t.date) : new Date();
+                     const timeDiffHours = Math.abs(dObj.getTime() - tDate.getTime()) / 36e5;
+                     return timeDiffHours <= 72 && levenshtein(t.description.toLowerCase(), descVal.toLowerCase()) < 5;
+                 }
+                 return false;
+             });
+             
+             if (!isDuplicate) {
+                let catId = type === 'entrata' ? 'stipendio' : 'spesa';
+                const prediction = window.momentumOrchestrator
+                  ? window.momentumOrchestrator.classify(descVal, amountVal, dObj)
+                  : NeuralNexus.predict(descVal, amountVal, dObj);
+                if (prediction && prediction.confidence > 40) {
+                  catId = prediction.cat;
+                }
+                
+                const newTx = { id: Date.now() + Math.random(), amount: amountVal, type, category: catId, description: descVal.substring(0, 40), color: getCatById(catId).color, date: dObj.toISOString() };
+                VaultDAO.addTransaction(k, newTx);
+                if (window.momentumOrchestrator) {
+                  window.momentumOrchestrator.learn(descVal, catId, amountVal, dObj);
+                } else {
+                  NeuralNexus.train(descVal, catId, amountVal, dObj);
+                }
+                existingTxs.push(newTx);
+                added++;
+             }
+          }
+       }
+    });
+    if(added > 0) { 
+        window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("ETL Completato", `Importate ${added} nuove operazioni.`);
+    } else { 
+        showToast("Nessuna nuova operazione trovata nel CSV.", "info"); 
+    }
+  };
+  reader.readAsText(file);
+};
+
+
+export { handleUniversalCSV };

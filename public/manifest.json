@@ -1,0 +1,26 @@
+{
+  "name": "Momentum Vault",
+  "short_name": "Momentum",
+  "description": "Quantum Financial Ledger & Neuro-Friction Engine",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "share_target": {
+    "action": "./share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [{ "name": "image", "accept": ["image/*"] }]
+    }
+  },
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='140' fill='%23090d16'/><circle cx='256' cy='256' r='180' fill='none' stroke='url(%23g)' stroke-width='24' stroke-dasharray='10 5'/><path d='M200 340V172h48l48 80 48-80h48v168h-40V232l-56 92h-16l-56-92v108z' fill='%2306b6d4'/><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%236366f1'/><stop offset='100%25' stop-color='%2306b6d4'/></linearGradient></defs></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
