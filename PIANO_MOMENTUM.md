@@ -133,3 +133,72 @@ Versioni etichettate SOLO dove il salto è reale (regola del progetto):
 8. **Benchmark pubblico** — pubblicare il confronto misurato di categorizzazione vs competitor (dataset sintetico bancario open) — il claim "89,7% su testo sporco, on-device, 400KB" è verificabile e fa PR da solo.
 
 **Verdetto onesto**: il prodotto ha già una base tecnica VERA e differenziata (rara nel settore, dove quasi tutto è wrapper di API cloud). Il valore da 1,5B non è bloccato dalla tecnologia: è bloccato da distribuzione, prova di retention e struttura societaria. La strada: beta misurata → store → Open Banking → audit sicurezza → metriche → round.
+
+---
+
+# GUIDA OPERATIVA PER LA PROSSIMA SESSIONE (qualsiasi modello: Opus, Sonnet, Fable)
+
+Scritta per essere eseguita passo-passo senza dover ricostruire il contesto. Leggi PRIMA le trappole note in fondo.
+
+## Regole d'oro (violarle = rompere il progetto)
+1. `cd ~/Downloads/momentum_app` — il progetto è QUESTO. `~/Downloads/momentum_real_ai/` è solo il laboratorio Python di training.
+2. Dopo OGNI modifica: `node --test src/` (devono restare TUTTI verdi, oggi 167) e `npm run build` (pulita).
+3. `node --check` e i test unitari NON bastano: i bug veri emergono solo aprendo `localhost:5173` in un browser vero e guardando la console PRIMA di interagire.
+4. Mai riscrivere `amount`/`category`/`hash` di transazioni esistenti (hash chain a cascata).
+5. Campi di stato NUOVI in VaultDAO.state = additivi (lo spread di init() li copre). Ristrutturare un campo esistente = serve entry in MIGRATIONS (vault.js).
+6. Ogni modulo nuovo: funzioni pure in src/predict|ai|import + file .test.js accanto (shim: `globalThis.window = globalThis.window || {}; globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };` prima dell'import dinamico). DOM solo in main.js.
+7. Mai moduli decorativi, mai numeri non misurati. Le versioni si guadagnano coi benchmark (`VERSIONI.md`).
+8. Ogni testo UI: comprensibile a un bambino di 8 anni. Colori: verde=puoi, giallo=attenzione, rosso=fermati.
+9. A fine sessione: aggiornare questo file + copiarlo in Obsidian (`cp PIANO_MOMENTUM.md "/Users/giorgiopiredda/Documents/claude_obsidian/Claude Memory/Momentum — Piano Potenziamento 2026-07-06.md"`) + aggiornare la memoria del progetto + commit e push su GitHub (repo privato GPire/momentum).
+
+## Lavori pronti da eseguire, in ordine
+
+### A. W2 — Sweep settimanale one-tap (≈1h)
+1. In `src/predict/advisor.js` aggiungi `getSweepSuggestion({ allTx, monthlyBudget, savingsGoals, lastSweepWeek, referenceDate })`:
+   - usa `getWeeklyStatus` sulla settimana SCORSA (referenceDate - 7gg): se `remaining ≥ 10` e la settimana corrente ≠ `lastSweepWeek` → ritorna `{ amount: remaining, goalId: savingsGoals[0]?.id ?? null, weekKey }`; altrimenti null.
+2. Includi l'insight `kind:'sweep'` in `getAdvisorInsights` (severity info, action con payload).
+3. In `main.js`: handler `window.applySweep(payload)` → registra tx `type:'invest'`, `description:'Messo da parte (avanzo settimana)'` via `VaultDAO.addTransaction` + salva `VaultDAO.state.lastSweepWeek = weekKey` (campo additivo) + `renderAnalysis({skipHeavyForecast:true})`.
+4. Test in `advisor.test.js`: avanzo→proposta; sforamento→null; stessa settimana già fatta→null.
+
+### B. W3 — What-If v2 per categoria (≈1.5h)
+1. Nuovo `src/predict/what-if.js`: `simulateCategoryChange({ allTx, catId, deltaPct, monthlyBudget, referenceDate })` →
+   - spesa media mensile della categoria (ultimi 3 mesi) × deltaPct = risparmio/aggravio diretto;
+   - `propagateImpact(buildCausalGraph(allTx, referenceDate), catId, deltaPct)` = effetti a catena (in € usando la media mensile di ogni categoria toccata);
+   - nuovo `projectedDelta` fine mese = quello di `getMonthEndProjection` + effetto diretto pro-rata sui giorni rimasti.
+   - Ritorna `{ directMonthly, chainEffects:[{category, pct, monthlyEur}], newMonthEndDelta }`.
+2. UI: nella card "Simulatore What-If" (index.html ~riga 519) aggiungi `<select id="whatif-cat">` (popolato da main.js con le categorie usate) + slider ±50% + area risultato. Testo semplice: "Se tagli X del 20%: +Y€ al mese, e di solito scende anche Z".
+3. Test con la storia sintetica di `causal-graph.test.js` (riusa il generatore).
+
+### C. W4 — Ghost Radar v2 (≈1h)
+1. Nuovo modulo o estensione `src/predict/anomaly.js`: `findUnknownMerchants(anomalies, allTx)` → anomalie la cui `description` non somiglia (descriptionSimilarity < 0.72) a NESSUNA tx precedente alla loro data.
+2. In `renderRadarAlerts` (main.js): per queste, due bottoni — `window.confirmAnomalyMine(txId)` (chiama `momentumOrchestrator.learn(desc, cat, ...)` → aggiorna modelStats) e `window.flagAnomalySuspect(txId)` (trova la tx, `tx.suspect = true` — campo additivo OK, MAI toccare amount/hash — + save + evidenza rossa nel ledger render).
+3. Test per findUnknownMerchants (esercente nuovo sì, esercente noto no).
+
+### D. W6 — Voce "il solito" (≈45min)
+1. In `voice.js`, PRIMA del parser transazioni (dopo il blocco Q&A): regex `/(aggiungi|metti|segna)\s+il solito\s*(.*)/i` → match fuzzy del gruppo 2 contro `getQuickAddSuggestions(VaultDAO.state.transactions)` (descriptionSimilarity ≥ 0.6); se trovato → registra la tx col suo importo/categoria + toast + return. Se gruppo 2 vuoto → usa il primo suggerimento contestuale (`rankSuggestionsByContext`).
+2. Guardia: la frase deve INIZIARE con il verbo — "ho preso il solito treno" NON deve matchare (test).
+3. Test in voice.test.js con lo shim già presente lì.
+
+### E. W5 — Addebiti attesi sul calendario (≈30min)
+In main.js, dove si renderizza il calendario eventi (`renderCalendarEvents`): aggiungi gli item da `getUpcomingCharges(VaultDAO.state.transactions, new Date(), 30)` come voci "💳 {desc} ~{amount}€ atteso {data}" non cliccabili (o con export .ics via `exportSingleEventToICS`). Nessuna logica nuova: solo UI su dato già testato.
+
+### F. W7 — Export dataset correzioni (≈30min)
+`window.exportTrainingData()` in main.js + bottone nel pannello Momentum Vault: scarica JSON `{ examples: [{text: description, label: category}...] da tutte le tx con description non vuota, modelStats: VaultDAO.state.mlData.modelStats }` (Blob + a.download, stesso pattern .ics). Servirà a `~/Downloads/momentum_real_ai/train_meso.py` per il riaddestramento v2.
+
+### G. Riaddestramento Nano/Meso v2 (sessione dedicata, richiede questo Mac)
+1. `cd ~/Downloads/momentum_real_ai && source .venv/bin/activate` (venv già pronto, scikit-learn installato, CPU-only: questo Mac non ha MPS).
+2. In `train_meso.py`: ampliare il vocabolario esercenti 10-20× (nuovi nomi plausibili per le 8 categorie; NON usare gli esercenti di `momentum_app/bench/categorizer-bench.mjs` — quel bench è held-out, usarli = barare) + includere l'export delle correzioni reali (punto F).
+3. Rigenerare `momentum_meso_model.json` → copiarlo in `momentum_app/public/` → rifare il cross-check numerico Python↔JS (pattern di `verify_meso_inference.py`, diff ≤ 1e-9).
+4. Verifica: `npm run bench` → target ensemble ≥ 75% (oggi 51.5%). Aggiornare VERSIONI.md coi numeri VERI stampati.
+
+### H. F7b — App nativa Android (sessione dedicata, PREREQUISITO: installare Android Studio + device fisico)
+Scaffold: `npm i -D @capacitor/cli @capacitor/core @capacitor/android && npx cap init Momentum com.momentum.vault --web-dir dist && npx cap add android`. Plugin Kotlin `NotificationListenerService` che filtra `KNOWN_WALLET_PACKAGES` (già in `src/import/notification-parser.js`) e consegna `{title,text,package,ts}` al WebView → `parseNativeNotification` → `VaultDAO.addTransaction`. Senza device reale: scrivere e marcare NON VERIFICATO.
+
+## Trappole note (successe davvero in questo progetto)
+- Commenti contenenti tag script letterali dentro i sorgenti rompono il parsing HTML se il codice finisce inline (bug storico MomentumOrchestrator undefined).
+- In un modulo ES, chiamare `renderDashboard()` nudo = ReferenceError silenzioso dentro i catch: usare `window.renderDashboard?.()`.
+- Il service worker può servire moduli stantii: dopo modifiche a sw.js, bump di `APP_CACHE` e hard-reload; controllare la console.
+- `max-h-[92vh]` è inaffidabile su iOS: usare `dvh`. Il modal deve avere `padding-bottom: var(--safe-bottom)`.
+- Date a 1 cifra in stringhe ISO fatte a mano nei test ("T8:00") = Invalid Date silenzioso: sempre padStart.
+- I test con date: MAI `new Date()` senza argomenti dentro le aspettative.
+- L'ambiente browser di test resta bloccato a ~586px di larghezza: il responsive sotto quella soglia non è verificabile da qui.

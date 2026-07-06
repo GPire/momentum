@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "build:singlefile": "vite build --mode singlefile",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bench": "node bench/categorizer-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",

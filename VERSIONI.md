@@ -22,7 +22,15 @@ Regola del progetto: **una versione si guadagna con un salto reale misurato, mai
 ## Benchmark-target per i prossimi salti (misurabili, non negoziabili)
 
 ### Categorizzazione → v3/v5
-- **v2 (Nano/Meso riaddestrati)**: riaddestramento Python con le correzioni REALI dell'utente (export già pronto via dataset `modelStats` + storico confermato). Target: **+3 punti** sul test set sporco rispetto a v1 (Meso ≥ 92.7%), stessa parità Python↔JS ≤ 1e-9.
+**Primo benchmark eseguito (2026-07-06, `npm run bench`, seed 20260706, 480 esempi)** — esercenti MAI visti in training + rumore bancario pesante:
+| | accuratezza | latenza |
+|---|---|---|
+| Nano | 47.5% | 0.06 ms/predizione |
+| Meso | 50.0% | 0.13 ms |
+| **Ensemble** | **51.5%** | 0.13 ms |
+
+Scoperta onesta e preziosa: l'89.7% storico del Meso vale sulla distribuzione del suo training; su esercenti fuori vocabolario si crolla a ~50% (l'ensemble batte comunque i singoli — il voto pesato funziona). **Il vero nemico è la copertura del vocabolario**, e ora è misurato.
+- **v2 (Nano/Meso riaddestrati)**: vocabolario esercenti 10-20×, n-grammi più aggressivi, + correzioni REALI dell'utente (export `modelStats`). Target misurabile: **ensemble ≥ 75% su QUESTO bench** (che resta held-out: mai mettere i suoi esercenti nel training — sarebbe barare), parità Python↔JS ≤ 1e-9.
 - **v5**: ≥ **97%** su un benchmark pubblico riproducibile di descrizioni bancarie italiane sporche (da costruire e pubblicare — diventa anche l'argomento marketing verificabile: "97% on-device in 400KB"), su 12+ categorie, con calibrazione della confidenza (ECE ≤ 0.05: quando dice 80% ha ragione l'80% delle volte).
 
 ### Forecast → v3/v5
