@@ -12,11 +12,12 @@ import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection } from './predict/advisor.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { answerQuestion } from './ai/qa-engine.js';
-import { predictAmount, getQuickAddSuggestions } from './predict/amount-memory.js';
+import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext } from './predict/context-predictor.js';
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
+import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handlePDFUpload } from './import/pdf-parser.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
@@ -2029,8 +2030,18 @@ function initMomentumRealAI() {
       showToast('Dispositivo collegato: le due AI ora imparano insieme.', 'success');
     };
     momentumMeshNode.onGradientReceived = (peerId, stats) => {
-      if (stats.accepted) console.log(`Mesh: conoscenza ricevuta e fusa (esempi totali: ${stats.totalExamples}).`);
-      else console.warn('Mesh: aggiornamento remoto RIFIUTATO dal controllo anti-avvelenamento.', stats);
+      // Registro di integrità (src/mesh/update-ledger.js): ogni merge, accettato
+      // o rifiutato, entra nella catena hash a prova di manomissione. La
+      // reputazione del peer si aggiorna da sola: un nodo che prova ad avvelenare
+      // il modello perde peso senza doverlo bandire a mano.
+      const before = VaultDAO.state.mlData?.totalWords || 0;
+      VaultDAO.state.updateLedger = appendUpdate(VaultDAO.state.updateLedger || [], {
+        peerId, accepted: !!stats.accepted, examplesBefore: before,
+        examplesAfter: stats.totalExamples || before, reason: stats.accepted ? null : (stats.reason || 'anti-poisoning'),
+      });
+      VaultDAO.save();
+      if (stats.accepted) console.log(`Mesh: conoscenza fusa (esempi ${stats.totalExamples}). Reputazione peer: ${peerReputation(VaultDAO.state.updateLedger, peerId).score}`);
+      else console.warn('Mesh: aggiornamento RIFIUTATO dall\'anti-avvelenamento, registrato in catena.', stats);
     };
     momentumOrchestrator.mesh = momentumMeshNode;
     window.momentumMeshNode = momentumMeshNode;
@@ -2092,4 +2103,16 @@ window.renderAnalysis = renderAnalysis;
 // ...e per il voice core (una domanda parlata viene instradata al motore
 // Q&A invece che al parser delle transazioni).
 window.askMomentum = askMomentum;
+// Voce "il solito" (src/voice/voice.js chiama questi): matching + registrazione
+window.matchSolito = (phrase) => matchSolito(phrase, VaultDAO.state.transactions, new Date());
+window.registerQuickAdd = (hit) => {
+  const now = new Date();
+  const { route } = VaultDAO.addTransaction(monthKey(now), {
+    id: Date.now(), amount: hit.amount, type: hit.type || 'uscita',
+    category: hit.category, description: hit.description, date: now.toISOString(),
+  });
+  if (window.momentumOrchestrator) window.momentumOrchestrator.learn(hit.description, hit.category, hit.amount, now);
+  renderDashboard();
+  renderAnalysis({ skipHeavyForecast: route === 'fast' });
+};
 

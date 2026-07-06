@@ -62,6 +62,25 @@ const VoiceCore = {
         return;
       }
 
+      // "Aggiungi il solito [caffè]" → quick-add via memoria importi
+      // (src/predict/amount-memory.js): registra in 2 secondi l'acquisto
+      // abituale, con la sua cifra stabile. La guardia richiede che la frase
+      // INIZI col verbo — "ho preso il solito treno" resta una spesa normale
+      // gestita dal parser sotto.
+      const solitoMatch = window.matchSolito && text.trim().match(/^(aggiungi|metti|segna|registra)\s+il solito\s*(.*)$/i);
+      if (solitoMatch) {
+        const hit = window.matchSolito(solitoMatch[2].trim());
+        if (hit) {
+          window.registerQuickAdd?.(hit);
+          AudioSynth.play('success');
+          showToast(`Registrato: ${hit.description} ${hit.amount}€`, 'success');
+        } else {
+          AudioSynth.play('friction');
+          showToast('Non ho ancora un "solito" abbastanza chiaro. Registralo qualche volta prima.', 'error');
+        }
+        return;
+      }
+
       // VoiceParser.parse() ora ritorna un array (gestisce frasi composte
       // con più azioni distinte, es. "ho speso 20 euro e ricordami di...").
       const results = VoiceParser.parse(text);

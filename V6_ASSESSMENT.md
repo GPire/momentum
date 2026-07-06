@@ -33,3 +33,24 @@ Rinominare tutto "V6" non aggiunge potenza. In questo progetto una versione si g
 ## Sintesi per un acquirente/investitore
 
 Ciò che rende Momentum appetibile NON è un blueprint di transformer mai addestrato. È: **codice reale e testato (186 test), un'architettura on-device che nessuno che monetizzi i dati può copiare, federazione P2P a consenso verificata, categorizzazione con benchmark riproducibile, e onestà tecnica totale** — che è precisamente ciò che un due diligence tecnico premia e le facciate distruggono.
+
+---
+
+# Aggiornamento: valutazione blueprint "V7.5" (stesso giorno)
+
+L'utente ha incollato un secondo blueprint ancora più elaborato (V7.5) con decine di sigle di paper 2026 (TGFL, TCGformer, FinInvest-GTCN, AXL/Yggdrasil, ecc.). Verdetto, con la stessa disciplina:
+
+## ✅ Preso e COSTRUITO (la parte reale e nuova del V7.5)
+- **"Blockchain audit trail + Byzantine Fault Tolerance + reputation-weighted FedAvg"** → costruito in versione onesta e funzionante: `src/mesh/update-ledger.js` (6 test). Catena hash a prova di manomissione su ogni aggiornamento federato + reputazione per peer: un nodo che prova ad avvelenare il modello **perde peso da solo**, senza autorità centrale. È la vera "tolleranza bizantina", emergente e testata — senza far girare una blockchain (che in una mesh a consenso esplicito sarebbe overhead inutile). Cablato nel percorso mesh reale (onGradientReceived).
+
+## ⚠️ Oversold (di nuovo) — invariato rispetto al V6
+- TCGformer / TGFL / decoder-only causale / homomorphic encryption end-to-end / SLM < 2MB addestrato da zero: tutte richiedono cluster GPU + dataset + mesi di R&S. Sono nomi di paper, non moduli importabili. La crittografia omomorfica completa su un budget edge è oggi impraticabile per l'inferenza in tempo reale.
+- **"25x la potenza hardware"**: ripetuto, sempre fisicamente impossibile. Il compute-planner (già costruito) usa BENE le risorse; non le moltiplica. I numeri "13.5% latenza / 30.1% NPU" sono di paper su hardware/scenari specifici, non trasferibili come garanzia.
+- **Navigazione autonoma Fed/Yahoo/Bloomberg + fake-news**: respinto per la terza volta (CORS/no-server, ricerca irrisolta, Bloomberg a pagamento).
+- **Valutazione 2 miliardi**: si guadagna, non si dichiara.
+
+## 🛑 Confermato rifiutato
+Qualsiasi comportamento "virale/intrusivo" della mesh. La crescita è per consenso esplicito.
+
+## Cosa è cambiato di concreto oggi
+`update-ledger.js` è esattamente il tipo di feature che un due diligence tecnico ama: prende un'idea altisonante del blueprint ("blockchain BFT") e la consegna come **codice piccolo, testato e realmente utile** (integrità + reputazione anti-poisoning) invece che come slide. Questo, moltiplicato, è ciò che vale — non le sigle.

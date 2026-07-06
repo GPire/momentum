@@ -77,3 +77,39 @@ test('getQuickAddSuggestions: ordina per frequenza', () => {
   assert.equal(s[0].description, 'Caffè');
   assert.equal(s[1].description, 'Sigarette');
 });
+
+// ---- matchSolito (comando vocale "il solito") ----
+
+const { matchSolito } = await import('./amount-memory.js');
+
+test('matchSolito: "caffè" trova l\'abituale caffè', () => {
+  const hit = matchSolito('caffè', SIGARETTE_E_CAFFE(), REF);
+  assert.ok(hit);
+  assert.equal(hit.description, 'Caffè bar');
+});
+
+test('matchSolito: frase vuota → il più frequente', () => {
+  const hit = matchSolito('', SIGARETTE_E_CAFFE(), REF);
+  assert.ok(hit);
+  assert.equal(hit.description, 'Caffè bar'); // più frequente
+});
+
+test('matchSolito: parola senza abituale corrispondente → null', () => {
+  assert.equal(matchSolito('elicottero', SIGARETTE_E_CAFFE(), REF), null);
+});
+
+test('matchSolito: senza storia → null', () => {
+  assert.equal(matchSolito('caffè', {}, REF), null);
+});
+
+function SIGARETTE_E_CAFFE() {
+  const allTx = {};
+  const add = (iso, amount, description, category) => {
+    const mk = iso.slice(0, 7);
+    (allTx[mk] = allTx[mk] || []).push({ date: `${iso}T08:15:00`, amount, description, category, type: 'uscita' });
+  };
+  // caffè 5 volte, sigarette 3 volte (giugno 2026)
+  for (let d = 1; d <= 5; d++) add(`2026-06-0${d}`, 1.20, 'Caffè bar', 'Ristorante');
+  for (const d of [10, 17, 24]) add(`2026-06-${d}`, 5.40, 'Sigarette', 'Shopping');
+  return allTx;
+}

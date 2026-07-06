@@ -151,6 +151,10 @@ Scritta per essere eseguita passo-passo senza dover ricostruire il contesto. Leg
 8. Ogni testo UI: comprensibile a un bambino di 8 anni. Colori: verde=puoi, giallo=attenzione, rosso=fermati.
 9. A fine sessione: aggiornare questo file + copiarlo in Obsidian (`cp PIANO_MOMENTUM.md "/Users/giorgiopiredda/Documents/claude_obsidian/Claude Memory/Momentum — Piano Potenziamento 2026-07-06.md"`) + aggiornare la memoria del progetto + commit e push su GitHub (repo privato GPire/momentum).
 
+## ONDATA 2 — stato (2026-07-06, sera; 196/196 test verdi)
+- ✅ **Mesh Update Ledger** (`src/mesh/update-ledger.js`, 6 test): catena hash a prova di manomissione sugli aggiornamenti federati + reputazione per peer (un avvelenatore perde peso da solo = Byzantine tolerance emergente). Versione ONESTA del "blockchain audit trail" del blueprint V7.5, cablata in onGradientReceived. Vedi V6_ASSESSMENT.md per il verdetto completo su V7.5.
+- ✅ **W6** Voce "aggiungi il solito X" (`matchSolito` in amount-memory.js, 4 test): match fuzzy sull'abituale, registrazione vocale in 2s, guardia anti-falsi-positivi ("ho preso il solito treno" resta spesa normale).
+
 ## ONDATA 2 — stato (2026-07-06, sera; 186/186 test verdi)
 - ✅ **W4** Ghost Radar v2 (`findUnknownMerchants` in anomaly.js, 3 test): anomalie con esercente mai visto → bottoni "È mia" (addestra modelStats) / "Non la riconosco" (tag `suspect` additivo, hash chain intatta). Cablato in renderRadarAlerts + handler window.
 - ✅ **Compute Planner adattivo** (`src/device/compute-planner.js`, 8 test): risposta REALE alla richiesta "adattivo per tipo di risorsa". Sopra il profiler: sceglie backend WebGPU→WebNN→SIMD→JS, precisione fp16/fp32, profondità Monte Carlo, worker, tier modello dalle capacità MISURATE. Onesto sui limiti (Metal/Vulkan li gestisce il browser; niente "25x"; nessun rilevamento di chip che il web non espone).

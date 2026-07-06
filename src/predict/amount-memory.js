@@ -58,6 +58,23 @@ export function predictAmount(catId, description, allTx, opts = {}) {
   return null;
 }
 
+// "Il solito X": trova tra gli acquisti abituali quello che somiglia di più
+// alla frase detta a voce. Se la frase è vuota ("aggiungi il solito"),
+// ritorna il più frequente. null se non c'è un abituale plausibile —
+// mai registrare una spesa a caso.
+export function matchSolito(phrase, allTx, referenceDate = new Date()) {
+  const suggestions = getQuickAddSuggestions(allTx, referenceDate);
+  if (suggestions.length === 0) return null;
+  const p = (phrase || '').trim();
+  if (!p) return suggestions[0]; // già ordinati per frequenza
+  let best = null, bestSim = 0;
+  for (const s of suggestions) {
+    const sim = descriptionSimilarity(s.description, p);
+    if (sim > bestSim) { bestSim = sim; best = s; }
+  }
+  return bestSim >= 0.4 ? best : null;
+}
+
 // Tasti rapidi: gruppi di spese con descrizione simile, frequenti negli
 // ultimi `windowDays` giorni e con importo stabile (quota modale ≥60%).
 // Ordinati per frequenza: il caffè quotidiano prima dell'acquisto mensile.
