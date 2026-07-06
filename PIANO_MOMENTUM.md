@@ -151,6 +151,11 @@ Scritta per essere eseguita passo-passo senza dover ricostruire il contesto. Leg
 8. Ogni testo UI: comprensibile a un bambino di 8 anni. Colori: verde=puoi, giallo=attenzione, rosso=fermati.
 9. A fine sessione: aggiornare questo file + copiarlo in Obsidian (`cp PIANO_MOMENTUM.md "/Users/giorgiopiredda/Documents/claude_obsidian/Claude Memory/Momentum — Piano Potenziamento 2026-07-06.md"`) + aggiornare la memoria del progetto + commit e push su GitHub (repo privato GPire/momentum).
 
+## ONDATA 2 — stato (2026-07-06, notte; 203/203 test verdi)
+- ✅ **Backup cifrato "DNA"** (`src/core/backup.js`, 7 test): risolve il limite REALE "perdo il dispositivo = perdo i dati". AES-GCM-256 + PBKDF2 SHA-256 210k iterazioni via Web Crypto (reale, non teatro). Export .momentum protetto da passphrase + ripristino con conferma. **Verificato nel browser**: nessun dato in chiaro nel file, round-trip ok, passphrase errata respinta (autenticità GCM). UI nel Momentum Vault.
+- ✅ **W7** Export dataset (`window.exportTrainingData`): storico descrizione→categoria + modelStats in JSON, pronto per train_meso.py (riaddestramento v2).
+- ✅ **W5** Calendario addebiti attesi: `getUpcomingCharges` (30gg) mostrati come voci "fantasma" 💳 accanto agli eventi reali, "~importo" ambrato, stima dagli abbonamenti.
+
 ## ONDATA 2 — stato (2026-07-06, sera; 196/196 test verdi)
 - ✅ **Mesh Update Ledger** (`src/mesh/update-ledger.js`, 6 test): catena hash a prova di manomissione sugli aggiornamenti federati + reputazione per peer (un avvelenatore perde peso da solo = Byzantine tolerance emergente). Versione ONESTA del "blockchain audit trail" del blueprint V7.5, cablata in onGradientReceived. Vedi V6_ASSESSMENT.md per il verdetto completo su V7.5.
 - ✅ **W6** Voce "aggiungi il solito X" (`matchSolito` in amount-memory.js, 4 test): match fuzzy sull'abituale, registrazione vocale in 2s, guardia anti-falsi-positivi ("ho preso il solito treno" resta spesa normale).

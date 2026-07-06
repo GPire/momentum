@@ -606,7 +606,22 @@
                       <span>Genera QR-Sync</span>
                       <span class="text-indigo-400">→</span>
                     </button>
-                    
+
+                    <!-- Backup cifrato "DNA" (src/core/backup.js): salva/ripristina
+                         tutti i dati protetti da passphrase — risposta alla perdita
+                         del dispositivo, senza mai mettere i dati su un server -->
+                    <div class="border-t border-[var(--outline)] pt-3 mt-3 space-y-2">
+                      <p class="text-[10px] text-slate-400">Backup cifrato del tuo DNA finanziario (per non perdere i dati se cambi telefono):</p>
+                      <div class="flex gap-2">
+                        <button onclick="window.exportEncryptedBackup()" class="btn-action flex-1 text-xs justify-center">💾 Esporta (cifrato)</button>
+                        <label class="btn-action flex-1 text-xs justify-center cursor-pointer text-center">
+                          ♻️ Ripristina
+                          <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" />
+                        </label>
+                      </div>
+                      <button onclick="window.exportTrainingData()" class="text-[10px] text-slate-400 underline">Esporta dati per riaddestrare il modello (per gli sviluppatori)</button>
+                    </div>
+
                     <div class="border-t border-[var(--outline)] pt-3 mt-3">
                       <p class="text-[10px] text-slate-400 mb-2">Inserisci codice WebRTC Peer-Id per sincronizzare in tempo reale:</p>
                       <div class="flex gap-2">

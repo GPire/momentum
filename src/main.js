@@ -9,7 +9,7 @@ import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
-import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection } from './predict/advisor.js';
+import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
@@ -18,6 +18,7 @@ import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
+import { encryptBackup, decryptBackup } from './core/backup.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handlePDFUpload } from './import/pdf-parser.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
@@ -785,25 +786,35 @@ window.renderCalendarEvents = () => {
   if (!list) return;
   
   const events = VaultDAO.state.events || [];
-  if (events.length === 0) {
+
+  // Addebiti ricorrenti ATTESI nei prossimi 30 giorni (src/predict/advisor.js):
+  // previsioni, non impegni — mostrate come voci "fantasma" accanto agli
+  // eventi reali, così l'utente vede cosa lo aspetta senza doverlo inserire.
+  const upcoming = getUpcomingCharges(VaultDAO.state.transactions, new Date(), 30)
+    .map(c => ({ predicted: true, title: `${c.description} (previsto)`, amount: c.amount, date: c.expectedDate.toISOString() }));
+
+  const all = [...events, ...upcoming];
+  if (all.length === 0) {
     list.innerHTML = `<p class="text-xs text-[var(--on-surface-secondary)] text-center py-4">Nessuna scadenza pianificata.</p>`;
     return;
   }
-  
-  events.sort((a,b) => new Date(a.date) - new Date(b.date));
-  
-  list.innerHTML = events.map(ev => {
+
+  all.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  list.innerHTML = all.map(ev => {
     const dt = new Date(ev.date);
     const ItalianDate = dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const border = ev.predicted ? 'border-amber-500/20 bg-amber-950/5' : 'border-[var(--outline)] bg-[var(--surface-solid)]';
+    const icon = ev.predicted ? '💳 ' : '';
     return `
-      <div class="flex items-center justify-between p-2.5 rounded-lg bg-[var(--surface-solid)] border border-[var(--outline)] hover:border-[var(--primary)]/30 transition-colors">
+      <div class="flex items-center justify-between p-2.5 rounded-lg border ${border} hover:border-[var(--primary)]/30 transition-colors">
         <div class="min-w-0 pr-2">
-          <p class="font-bold text-xs text-white truncate">${ev.title}</p>
-          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${ItalianDate}</p>
+          <p class="font-bold text-xs text-white truncate">${icon}${ev.title}</p>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${ItalianDate}${ev.predicted ? ' · stima dai tuoi abbonamenti' : ''}</p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
-          <span class="font-mono font-bold text-xs text-[var(--red)]">−${formatMoney(ev.amount)}</span>
-          <button onclick="window.deleteCalendarEvent(${ev.id})" class="text-[10px] font-bold text-[var(--red)] hover:underline p-1">✕</button>
+          <span class="font-mono font-bold text-xs ${ev.predicted ? 'text-amber-400' : 'text-[var(--red)]'}">${ev.predicted ? '~' : '−'}${formatMoney(ev.amount)}</span>
+          ${ev.predicted ? '' : `<button onclick="window.deleteCalendarEvent(${ev.id})" class="text-[10px] font-bold text-[var(--red)] hover:underline p-1">✕</button>`}
         </div>
       </div>
     `;
@@ -1230,6 +1241,59 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     `;
   }
 }
+
+// Backup cifrato "DNA" (src/core/backup.js): esporta tutto lo stato del
+// vault in un file .momentum protetto da passphrase. Risposta alla perdita
+// del dispositivo senza tradire il principio "nessun dato su server".
+window.exportEncryptedBackup = async () => {
+  const pass = prompt('Scegli una passphrase per proteggere il backup (ricordala: senza, i dati non si recuperano):');
+  if (!pass) return;
+  try {
+    const envelope = await encryptBackup(VaultDAO.state, pass);
+    const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `momentum-backup-${new Date().toISOString().slice(0, 10)}.momentum`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Backup cifrato salvato. Conservalo al sicuro.', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
+window.restoreEncryptedBackup = async (file) => {
+  const pass = prompt('Passphrase del backup:');
+  if (!pass) return;
+  try {
+    const envelope = JSON.parse(await file.text());
+    const restored = await decryptBackup(envelope, pass);
+    if (!confirm('Ripristinare sovrascriverà i dati attuali su questo dispositivo. Procedere?')) return;
+    VaultDAO.state = { ...VaultDAO.state, ...restored, currentDate: new Date() };
+    VaultDAO.save();
+    showToast('Dati ripristinati. Ricarico…', 'success');
+    setTimeout(() => window.location.reload(), 1000);
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
+// Export dataset correzioni (W7): storico descrizione→categoria + modelStats,
+// pronto per il riaddestramento Python (train_meso.py) verso il modello v2.
+window.exportTrainingData = () => {
+  const examples = [];
+  for (const m of Object.keys(VaultDAO.state.transactions)) {
+    for (const t of VaultDAO.state.transactions[m]) {
+      if (t.description && t.description.trim() && t.category) {
+        examples.push({ text: t.description, label: t.category });
+      }
+    }
+  }
+  const payload = { examples, modelStats: VaultDAO.state.mlData?.modelStats || {}, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `momentum-training-data-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast(`${examples.length} esempi esportati per il riaddestramento.`, 'success');
+};
 
 // Sweep dell'avanzo settimanale: registra il trasferimento come investimento
 // (mai automatico: parte solo dal tocco dell'utente) e ricorda la settimana
@@ -1882,6 +1946,11 @@ const initApp = () => {
   const pdfIn = $('#pdf-upload'); if (pdfIn) pdfIn.addEventListener('change', e => {
     const file = e.target.files[0];
     if (file) handlePDFUpload(file);
+  });
+  const backupIn = $('#backup-restore-input'); if (backupIn) backupIn.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) window.restoreEncryptedBackup(file);
+    backupIn.value = '';
   });
   const screenshotIn = $('#screenshot-upload'); if (screenshotIn) screenshotIn.addEventListener('change', async e => {
     const file = e.target.files[0];
