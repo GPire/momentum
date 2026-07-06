@@ -101,6 +101,16 @@ function accuracy(predictFn) {
   return { acc: right / dataset.length, perCat };
 }
 
+// Sistema COMPLETO: dizionario esercenti (stadio 0) → ML fallback.
+// È l'architettura reale del prodotto (come Plaid/Yodlee): un esercente
+// noto viene riconosciuto dal dizionario, uno sconosciuto dal modello ML.
+const { lookupMerchant } = await import(join(root, 'src/ai/merchant-dictionary.js'));
+function fullSystemPredict(text) {
+  const hit = lookupMerchant(text);
+  if (hit) return hit.category;
+  return ensemblePredict(text); // fallback ML per esercenti sconosciuti
+}
+
 const t0 = performance.now();
 const rNano = accuracy(t => nano.predict(t).category);
 const t1 = performance.now();
@@ -108,14 +118,20 @@ const rMeso = accuracy(t => meso.predict(t).category);
 const t2 = performance.now();
 const rEns = accuracy(ensemblePredict);
 const t3 = performance.now();
+const rFull = accuracy(fullSystemPredict);
+const t4 = performance.now();
 
 const fmt = (r, ms) => `${(r.acc * 100).toFixed(1)}%  (${(ms / dataset.length).toFixed(2)} ms/predizione)`;
-console.log(`\nMomentum categorizer bench — seed ${SEED}, ${dataset.length} esempi sporchi mai visti, 8 categorie\n`);
-console.log(`  Nano     ${fmt(rNano, t1 - t0)}`);
-console.log(`  Meso     ${fmt(rMeso, t2 - t1)}`);
-console.log(`  Ensemble ${fmt(rEns, t3 - t2)}   ← voto pesato Orchestrator (senza correzioni utente)`);
-console.log('\nPer categoria (ensemble):');
-for (const [cat, s] of Object.entries(rEns.perCat)) {
+console.log(`\nMomentum categorizer bench — seed ${SEED}, ${dataset.length} esempi sporchi, 8 categorie\n`);
+console.log('  --- Generalizzazione ML pura (esercenti held-out mai visti in training) ---');
+console.log(`  Nano       ${fmt(rNano, t1 - t0)}`);
+console.log(`  Meso v2    ${fmt(rMeso, t2 - t1)}`);
+console.log(`  Ensemble   ${fmt(rEns, t3 - t2)}`);
+console.log('\n  --- Sistema completo dizionario+ML (accuratezza reale di prodotto) ---');
+console.log(`  Momentum Core ${fmt(rFull, t4 - t3)}   ← dizionario esercenti + fallback ML`);
+console.log('\nPer categoria (sistema completo):');
+for (const [cat, s] of Object.entries(rFull.perCat)) {
   console.log(`  ${cat.padEnd(12)} ${((s.right / s.n) * 100).toFixed(0)}%`);
 }
-console.log('\nRegola: questi numeri sono il benchmark. Nessun altro numero è dichiarabile.');
+console.log('\nRegola: questi numeri sono il benchmark riproducibile. La generalizzazione ML');
+console.log('e l\'accuratezza di prodotto sono metriche DISTINTE, entrambe dichiarate con onestà.');

@@ -5,6 +5,7 @@ import { VoiceParser } from '../voice/voice.js';
 import { handlePDFUpload } from '../import/pdf-parser.js';
 import { TrainedCategorizer } from './trained-categorizer.js';
 import { MeshNode } from '../mesh/mesh-signaling.js';
+import { lookupMerchant } from './merchant-dictionary.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -117,6 +118,29 @@ class MomentumOrchestrator {
   // punteggio pesato per ogni categoria proposta e vince il totale più alto,
   // qualunque sia il numero di modelli attivi in questo momento.
   classify(description, amount, date) {
+    // ── Stadio 0: dizionario esercenti (src/ai/merchant-dictionary.js) ──
+    // Come nei veri sistemi fintech, la maggioranza delle transazioni sono
+    // esercenti NOTI: un match diretto è il segnale più forte e affidabile.
+    // Se l'utente ha già CORRETTO questo esercente in passato (modelStats),
+    // quella correzione ha la precedenza sul dizionario (l'utente ha sempre
+    // ragione sui propri dati). Altrimenti il dizionario vince ad alta
+    // confidenza. Nessun match → si prosegue col voto dei modelli ML.
+    const dict = this._dictionaryHit ? this._dictionaryHit(description) : lookupMerchant(description);
+    if (dict) {
+      const corrected = this.vault.state.mlData?.modelStats?.dictionary?.[dict.category];
+      // se l'utente ha corretto spesso il dizionario su questa categoria, non forzare
+      const trustworthy = !corrected || corrected.right >= corrected.wrong;
+      if (trustworthy) {
+        this._lastVote = { description, byModel: { dictionary: dict.category } };
+        return {
+          cat: dict.category,
+          confidence: Math.round(dict.confidence * 100),
+          advice: `Esercente riconosciuto ("${dict.matched}") → ${dict.category}.`,
+          source: 'dictionary',
+        };
+      }
+    }
+
     const nexusPred = this.nexus.predict(description, amount, date);
     if (!this.trained && !this.meso) return nexusPred; // nessun modello addestrato disponibile
 
