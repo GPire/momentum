@@ -116,13 +116,55 @@ export function getMonthEndProjection({ monthTxs, monthlyBudget = 0, referenceDa
   };
 }
 
+// Sweep del salvadanaio: se la settimana SCORSA è chiusa in avanzo, proponi
+// di metterlo da parte (verso il primo obiettivo, o il salvadanaio se non
+// ce ne sono) — un tocco, mai automatico: spostare soldi è una decisione
+// dell'utente. `lastSweepWeek` (chiave lunedì corrente) evita di riproporre.
+export function getSweepSuggestion({ allTx, monthlyBudget, savingsGoals = [], lastSweepWeek = null, referenceDate = new Date() }) {
+  if (!monthlyBudget || monthlyBudget <= 0) return null;
+
+  const ref = startOfDay(referenceDate);
+  const day = ref.getDay();
+  const thisMonday = new Date(ref);
+  thisMonday.setDate(thisMonday.getDate() + (day === 0 ? -6 : 1) - day);
+  const weekKey = `${thisMonday.getFullYear()}-${String(thisMonday.getMonth() + 1).padStart(2, '0')}-${String(thisMonday.getDate()).padStart(2, '0')}`;
+  if (lastSweepWeek === weekKey) return null; // già fatto questa settimana
+
+  // stato della settimana scorsa, osservata dalla sua domenica
+  const lastSunday = new Date(thisMonday.getTime() - DAY_MS);
+  const mk = `${lastSunday.getFullYear()}-${String(lastSunday.getMonth() + 1).padStart(2, '0')}`;
+  const { weeks } = getWeeklyStatus(allTx?.[mk] || [], monthlyBudget, lastSunday);
+  const lastWeek = weeks.find(w => w.isCurrent);
+  if (!lastWeek || lastWeek.remaining < 10) return null; // niente avanzo significativo
+
+  return {
+    amount: +lastWeek.remaining.toFixed(2),
+    goalId: savingsGoals[0]?.id ?? null,
+    goalName: savingsGoals[0]?.name ?? null,
+    weekKey,
+  };
+}
+
 // Consolidatore: unico produttore degli insight per la UI. Ogni insight è
 // { kind, severity: 'info'|'warn'|'danger', title, body, action?, items? }.
 // Linguaggio volutamente semplice (regola "lo capirebbe un bambino di 8
 // anni"): mai gergo statistico nei testi mostrati.
-export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referenceDate = new Date(), hwDailyLevel = null, staleness = null }) {
+export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referenceDate = new Date(), hwDailyLevel = null, staleness = null, savingsGoals = [], lastSweepWeek = null }) {
   const insights = [];
   const fmt = n => `${n.toFixed(2).replace('.', ',')}€`;
+
+  // Sweep dell'avanzo della settimana scorsa (salvadanaio → obiettivo)
+  const sweep = getSweepSuggestion({ allTx, monthlyBudget, savingsGoals, lastSweepWeek, referenceDate });
+  if (sweep) {
+    insights.push({
+      kind: 'sweep', severity: 'info',
+      title: `Hai avanzato ${fmt(sweep.amount)} la settimana scorsa`,
+      body: sweep.goalName
+        ? `Li metto da parte per "${sweep.goalName}"? Un tocco e il tuo obiettivo fa un passo avanti.`
+        : `Li metto nel salvadanaio? Un tocco e sono al sicuro.`,
+      action: { label: 'Sì, mettili da parte', handler: 'applySweep', payload: sweep },
+    });
+  }
 
   const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget, referenceDate });
   if (sts) {
@@ -191,7 +233,7 @@ export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referen
       kind: 'budget-stale', severity: 'info',
       title: 'Budget da aggiornare',
       body: `Il tetto attuale è ${staleness.diffPct}% ${staleness.direction} la tua spesa media reale (${fmt(staleness.suggestion.rawAverage)}).`,
-      action: { label: `Aggiorna a ${fmt(staleness.suggestion.suggested)}`, payload: staleness.suggestion.suggested },
+      action: { label: `Aggiorna a ${fmt(staleness.suggestion.suggested)}`, handler: 'applyBudgetSuggestion', payload: staleness.suggestion.suggested },
     });
   }
 

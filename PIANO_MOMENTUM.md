@@ -151,6 +151,13 @@ Scritta per essere eseguita passo-passo senza dover ricostruire il contesto. Leg
 8. Ogni testo UI: comprensibile a un bambino di 8 anni. Colori: verde=puoi, giallo=attenzione, rosso=fermati.
 9. A fine sessione: aggiornare questo file + copiarlo in Obsidian (`cp PIANO_MOMENTUM.md "/Users/giorgiopiredda/Documents/claude_obsidian/Claude Memory/Momentum — Piano Potenziamento 2026-07-06.md"`) + aggiornare la memoria del progetto + commit e push su GitHub (repo privato GPire/momentum).
 
+## ONDATA 2 — stato (2026-07-06, sera; 175/175 test verdi)
+- ✅ **W1** Predittore contestuale (`src/predict/context-predictor.js`, 6 test): quick-add ordinati per probabilità ADESSO (lift orario+settimanale misurato, neutro senza pattern), motivo spiegato sul primo chip. Cablato nel form.
+- ✅ **W2** Sweep one-tap (`getSweepSuggestion` in advisor.js, 4 test): avanzo settimana scorsa ≥10€ → card "li metto da parte?" → `window.applySweep` registra invest + `lastSweepWeek` additivo. Renderer azioni generalizzato (handler+payload JSON).
+- ✅ **W3** What-If v2 (`src/predict/what-if.js`, 4 test): select categoria + slider ±50% → risparmio diretto dalla media reale 3 mesi + effetti a catena dal grafo causale in €, linguaggio semplice. UI nella card what-if esistente.
+- ✅ **W9** Repo GitHub PRIVATO: https://github.com/GPire/momentum (account GPire) — README completo, VERSIONI.md (manifesto versioni + benchmark-target v5), primo benchmark riproducibile `npm run bench` (seed 20260706): Nano 47.5% / Meso 50.0% / **Ensemble 51.5%** su 480 esercenti MAI visti col rumore pesante — scoperta: l'89.7% storico vale in-distribution, il vero nemico è la copertura vocabolario. Target v2 riaddestrato: ensemble ≥75% su questo bench (held-out, mai barare).
+- ⬜ **W4/W6/W5/W7/W8**: passi esatti nella Guida Operativa qui sotto (sezioni C, D, E, F).
+
 ## Lavori pronti da eseguire, in ordine
 
 ### A. W2 — Sweep settimanale one-tap (≈1h)

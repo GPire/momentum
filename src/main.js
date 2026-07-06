@@ -14,6 +14,7 @@ import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscripti
 import { answerQuestion } from './ai/qa-engine.js';
 import { predictAmount, getQuickAddSuggestions } from './predict/amount-memory.js';
 import { rankSuggestionsByContext } from './predict/context-predictor.js';
+import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
@@ -1155,6 +1156,8 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     referenceDate: realNow,
     hwDailyLevel,
     staleness,
+    savingsGoals: VaultDAO.state.savingsGoals || [],
+    lastSweepWeek: VaultDAO.state.lastSweepWeek || null,
   }).filter(i => i.kind !== 'safe-to-spend');
 
   for (const ins of insights) {
@@ -1163,7 +1166,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
       ? `<div class="space-y-1.5 text-xs text-slate-300 mt-1.5">${ins.items.map(h => `<div>${h.description}: ${formatMoney(h.previousAmount)} → <b>${formatMoney(h.newAmount)}</b> (+${h.increasePct}%)</div>`).join('')}</div>`
       : '';
     const actionHtml = ins.action
-      ? `<button onclick="window.applyBudgetSuggestion(${ins.action.payload})" class="text-[11px] font-bold ${style.text} underline mt-1.5">${ins.action.label}</button>`
+      ? `<button onclick='window.${ins.action.handler || 'applyBudgetSuggestion'}(${JSON.stringify(ins.action.payload).replace(/'/g, "&#39;")})' class="text-[11px] font-bold ${style.text} underline mt-1.5">${ins.action.label}</button>`
       : '';
     alertsBox.innerHTML += `
       <div class="card p-4 border ${style.border}">
@@ -1213,6 +1216,28 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     `;
   }
 }
+
+// Sweep dell'avanzo settimanale: registra il trasferimento come investimento
+// (mai automatico: parte solo dal tocco dell'utente) e ricorda la settimana
+// per non riproporre. Il progresso dell'obiettivo si aggiorna da solo
+// (computeGoalProgress conta il netto entrate-uscite-invest... no: conta
+// entrate-uscite; la tx invest riduce la liquidità e finisce nel salvadanaio).
+window.applySweep = (sweep) => {
+  const now = new Date();
+  VaultDAO.addTransaction(monthKey(now), {
+    id: Date.now(),
+    amount: sweep.amount,
+    type: 'invest',
+    category: 'risparmio',
+    description: sweep.goalName ? `Messo da parte per ${sweep.goalName}` : 'Messo da parte (avanzo settimana)',
+    date: now.toISOString(),
+  });
+  VaultDAO.state.lastSweepWeek = sweep.weekKey; // campo additivo
+  VaultDAO.save();
+  showToast(`${formatMoney(sweep.amount)} messi da parte. Bravo.`, 'success');
+  renderDashboard();
+  renderAnalysis({ skipHeavyForecast: true });
+};
 
 // Registrazione one-tap di un abbonamento rilevato: entra in
 // state.subscriptions con la stessa forma usata da oracle.js (campo amount).
@@ -1821,6 +1846,36 @@ const initApp = () => {
       screenshotIn.value = '';
     }
   });
+
+  // What-If v2 per categoria (src/predict/what-if.js): select + slider →
+  // effetto diretto + catena causale, in linguaggio semplice.
+  const wCat = document.getElementById('whatif-cat');
+  const wSlider = document.getElementById('whatif-slider');
+  const wPct = document.getElementById('whatif-pct');
+  const wResult = document.getElementById('whatif-result');
+  if (wCat && wSlider && wResult) {
+    const usedCats = [...new Set(Object.values(VaultDAO.state.transactions).flat().filter(t => t.type === 'uscita').map(t => t.category))];
+    wCat.innerHTML = usedCats.map(c => `<option value="${c}">${getCatById(c).name}</option>`).join('');
+    const runWhatIf = () => {
+      const pct = parseInt(wSlider.value);
+      wPct.textContent = `${pct > 0 ? '+' : ''}${pct}%`;
+      const sim = simulateCategoryChange({ allTx: VaultDAO.state.transactions, catId: wCat.value, deltaPct: pct });
+      if (!sim) { wResult.textContent = 'Non ho ancora abbastanza storia recente su questa categoria per simulare.'; return; }
+      const verb = sim.directMonthly >= 0 ? 'risparmi' : 'spendi in più';
+      let txt = `${verb} ${formatMoney(Math.abs(sim.directMonthly))} al mese`;
+      if (sim.chainEffects.length > 0) {
+        const e = sim.chainEffects[0];
+        txt += ` — e nei tuoi dati ${getCatById(e.category).name} di solito ${e.pct < 0 ? 'scende' : 'sale'} con lei (${e.monthlyEur > 0 ? '+' : ''}${formatMoney(e.monthlyEur)} in più${e.lagWeeks > 0 ? ', la settimana dopo' : ''})`;
+        txt += `. Totale stimato: ${formatMoney(sim.totalMonthly)}/mese.`;
+      } else {
+        txt += '.';
+      }
+      wResult.textContent = txt;
+    };
+    wSlider.addEventListener('input', runWhatIf);
+    wCat.addEventListener('change', runWhatIf);
+    if (usedCats.length > 0) runWhatIf();
+  }
 
   // What-if simulator live updates
   const slider = document.getElementById('scenario-slider');

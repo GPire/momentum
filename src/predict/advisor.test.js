@@ -160,3 +160,37 @@ test('getAdvisorInsights: senza budget nessuna card inventata', () => {
   const insights = getAdvisorInsights({ allTx: {}, monthTxs: [], monthlyBudget: 0, referenceDate: REF });
   assert.equal(insights.length, 0);
 });
+
+// ---- getSweepSuggestion (sweep salvadanaio → obiettivi) ----
+
+const { getSweepSuggestion } = await import('./advisor.js');
+
+test('sweep: avanzo della settimana scorsa → proposta con importo esatto', () => {
+  // REF mercoledì 15 lug: settimana scorsa = 6-12 lug. Budget 3100 (100/gg):
+  // w1 (1-5 lug, 5gg) base 500, spese 100 → riporto 400; w2 (6-12) base 700
+  // +400 = 1100, spese 300 → avanzo 800.
+  const allTx = { '2026-07': [
+    tx('2026-07-03', 100, 'Spese w1'),
+    tx('2026-07-08', 300, 'Spese w2'),
+  ]};
+  const s = getSweepSuggestion({ allTx, monthlyBudget: 3100, savingsGoals: [{ id: 9, name: 'Vacanza' }], referenceDate: REF });
+  assert.ok(s);
+  assert.equal(s.amount, 800);
+  assert.equal(s.goalName, 'Vacanza');
+  assert.equal(s.weekKey, '2026-07-13'); // lunedì della settimana corrente
+});
+
+test('sweep: settimana scorsa sforata → nessuna proposta', () => {
+  const allTx = { '2026-07': [tx('2026-07-08', 99999, 'Follia')] };
+  assert.equal(getSweepSuggestion({ allTx, monthlyBudget: 1000, referenceDate: REF }), null);
+});
+
+test('sweep: già fatto questa settimana → non riproporre', () => {
+  const allTx = { '2026-07': [tx('2026-07-08', 10, 'Poco')] };
+  const s = getSweepSuggestion({ allTx, monthlyBudget: 3100, lastSweepWeek: '2026-07-13', referenceDate: REF });
+  assert.equal(s, null);
+});
+
+test('sweep: senza budget → null (mai proposte inventate)', () => {
+  assert.equal(getSweepSuggestion({ allTx: {}, monthlyBudget: 0, referenceDate: REF }), null);
+});
