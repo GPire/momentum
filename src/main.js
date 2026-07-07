@@ -2149,10 +2149,14 @@ function initMomentumRealAI() {
     // 404), l'ensemble resta a due vie senza errori visibili all'utente.
     const tier = window.momentumDeviceProfile?.tier;
     if (tier && tier !== 'minimo') {
-      TrainedMeso.load('/momentum_meso_model.json')
+      // Ottimizzazione hardware (src/ai/quantize.js): su tier MEDIO il Meso
+      // gira quantizzato int8 (8× meno memoria, accuratezza invariata —
+      // misurato); su tier MASSIMO resta float per la massima precisione.
+      const useInt8 = tier === 'medio';
+      TrainedMeso.load('/momentum_meso_model.json', { int8: useInt8 })
         .then(meso => {
           momentumOrchestrator.setMeso(meso);
-          console.log(`Momentum Meso caricato (tier ${tier}): ensemble ora a 3 vie.`);
+          console.log(`Momentum Meso caricato (tier ${tier}, ${useInt8 ? 'int8' : 'float'}): ensemble ora a 3 vie.`);
         })
         .catch(e => console.warn('Meso non disponibile, resto sull\'ensemble Nano+NeuralNexus:', e));
     }

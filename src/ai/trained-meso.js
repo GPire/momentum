@@ -9,8 +9,10 @@
 // ============================================================
 'use strict';
 
+import { quantizeModel, matmulQuantized } from './quantize.js';
+
 class TrainedMeso {
-  constructor(modelJson) {
+  constructor(modelJson, opts = {}) {
     this.wordVocab = modelJson.word_vocabulary;
     this.wordIdf = modelJson.word_idf;
     this.charVocab = modelJson.char_vocabulary;
@@ -18,15 +20,22 @@ class TrainedMeso {
     this.categories = modelJson.categories;
     this.coefs = modelJson.coefs;           // [W1, W2, ..., Wn] uno per strato
     this.intercepts = modelJson.intercepts; // [b1, b2, ..., bn]
+    this.temperature = modelJson.temperature || 1.0; // calibrazione confidenza (v3)
     this.metrics = modelJson.metrics;
     this.wordVocabSize = Object.keys(this.wordVocab).length;
     this.charVocabSize = Object.keys(this.charVocab).length;
+    // Path int8 opzionale per hardware debole (src/ai/quantize.js): pesi 8×
+    // più piccoli in memoria, dequantizzati al volo. Attivato dal
+    // compute-planner su tier minimo. L'accuratezza cala in modo trascurabile
+    // (misurato nel bench); su tier medio/alto si resta in float per la
+    // massima precisione.
+    this.quantized = opts.int8 ? quantizeModel(this.coefs) : null;
   }
 
-  static async load(url) {
+  static async load(url, opts = {}) {
     const res = await fetch(url);
     const json = await res.json();
-    return new TrainedMeso(json);
+    return new TrainedMeso(json, opts);
   }
 
   // Identico a TfidfVectorizer di default (token_pattern standard sklearn:
@@ -105,18 +114,29 @@ class TrainedMeso {
   predict(text) {
     let activation = Array.from(this._featureVector(text));
     for (let layer = 0; layer < this.coefs.length; layer++) {
-      const W = this.coefs[layer];
       const b = this.intercepts[layer];
-      const outDim = W[0].length;
-      const out = new Array(outDim).fill(0);
-      for (let k = 0; k < outDim; k++) {
-        let s = b[k];
-        for (let i = 0; i < activation.length; i++) s += activation[i] * W[i][k];
-        out[k] = s;
+      let out;
+      if (this.quantized) {
+        // path int8: pesi quantizzati, dequantizzati al volo; poi si somma il bias
+        const acc = matmulQuantized(activation, this.quantized[layer]);
+        out = new Array(acc.length);
+        for (let k = 0; k < acc.length; k++) out[k] = acc[k] + b[k];
+      } else {
+        const W = this.coefs[layer];
+        const outDim = W[0].length;
+        out = new Array(outDim).fill(0);
+        for (let k = 0; k < outDim; k++) {
+          let s = b[k];
+          for (let i = 0; i < activation.length; i++) s += activation[i] * W[i][k];
+          out[k] = s;
+        }
       }
       const isLastLayer = layer === this.coefs.length - 1;
       activation = isLastLayer ? out : this._relu(out);
     }
+    // Calibrazione a temperatura (Meso 3.0): logits/T prima del softmax rende
+    // la confidenza onesta ("80%" ≈ giusto 80% delle volte). T=1 = nessun effetto.
+    if (this.temperature !== 1.0) activation = activation.map(v => v / this.temperature);
     const probs = this._softmax(activation);
     const idx = probs.indexOf(Math.max(...probs));
     return {

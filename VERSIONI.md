@@ -75,3 +75,8 @@ Walk-forward 60→7 giorni, 40 serie sintetiche con seed fisso:
 ## Aggiornamento 2026-07-07 — modello più intelligente
 - **Meso v2.1** (vocabolario-contesto ampliato): generalizzazione ML pura su esercenti mai visti **59.4% → 68.5%** (ensemble); accuratezza prodotto **92.5% → 93.3%**. Cross-check Python↔JS 8.3e-16.
 - **Fusione multi-segnale** (`src/ai/signal-fusion.js`): la categorizzazione usa anche importo + fascia oraria (profili appresi dai dati reali dell'utente), non solo il testo. Attiva con ≥20 transazioni, il testo resta dominante. 5 test.
+
+## Meso 3.0 (2026-07-07) — mega upgrade
+- **Confidenza calibrata** (temperature scaling): meccanismo verificato (ECE 0.018→0.001 non vincolato); con T≥1 il modello risulta già ben calibrato (ECE 0.018, T*=1.0). Cross-check Python↔JS esatto (2.2e-16).
+- **Più dati** (600/categoria): generalizzazione ML pura **68.5% → 69.8%**.
+- **Quantizzazione int8** (`src/ai/quantize.js`): pesi 864KB→108KB (8× meno memoria), **8/8 categorie identiche a float, diff confidenza 0.0000**. Attiva su tier medio, float su tier massimo. 3 test.
