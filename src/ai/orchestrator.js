@@ -6,6 +6,7 @@ import { handlePDFUpload } from '../import/pdf-parser.js';
 import { TrainedCategorizer } from './trained-categorizer.js';
 import { MeshNode } from '../mesh/mesh-signaling.js';
 import { lookupMerchant } from './merchant-dictionary.js';
+import { fuseSignals } from './signal-fusion.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -185,8 +186,23 @@ class MomentumOrchestrator {
       scoreByCategory[c.category] = (scoreByCategory[c.category] || 0) + c.confidence * c.weight;
     }
     const totalWeight = candidates.reduce((s, c) => s + c.weight, 0) || 1;
-    const bestCategory = Object.keys(scoreByCategory).reduce((a, b) => scoreByCategory[a] >= scoreByCategory[b] ? a : b);
-    const confidence = Math.round((scoreByCategory[bestCategory] / totalWeight) * 100);
+
+    // ── Fusione multi-segnale (src/ai/signal-fusion.js): il voto testuale
+    // viene aggiustato con i profili di IMPORTO e ORARIO appresi dai dati
+    // reali dell'utente. Attiva solo con ≥20 transazioni e una data valida;
+    // il testo resta dominante. Rende la predizione un vero multi-segnale
+    // senza toccare il modello sklearn verificato.
+    let bestCategory, confidence;
+    const normalized = {};
+    for (const cat of Object.keys(scoreByCategory)) normalized[cat] = scoreByCategory[cat] / totalWeight;
+    if (date && (this.vault.state.mlData?.totalWords || 0) >= 0) {
+      const fused = fuseSignals(normalized, { amount, date, allTx: this.vault.state.transactions || {} });
+      bestCategory = fused.category;
+      confidence = Math.round((fused.allProbs[bestCategory] || normalized[bestCategory]) * 100);
+    } else {
+      bestCategory = Object.keys(scoreByCategory).reduce((a, b) => scoreByCategory[a] >= scoreByCategory[b] ? a : b);
+      confidence = Math.round(normalized[bestCategory] * 100);
+    }
 
     const agree = new Set(candidates.map(c => c.category)).size === 1;
     const detail = candidates.map(c => `${c.source}:${c.category}(${Math.round(c.confidence * 100)}%)`).join(' · ');

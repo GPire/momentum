@@ -71,3 +71,7 @@ Scoperta onesta e preziosa: l'89.7% storico del Meso vale sulla distribuzione de
 Walk-forward 60→7 giorni, 40 serie sintetiche con seed fisso:
 - Baseline naive (media ultima settimana): MAPE 27.8%
 - **Holt-Winters (motore Momentum): MAPE 8.6% — 68.9% meglio del naive, batte il naive in 40/40 serie.**
+
+## Aggiornamento 2026-07-07 — modello più intelligente
+- **Meso v2.1** (vocabolario-contesto ampliato): generalizzazione ML pura su esercenti mai visti **59.4% → 68.5%** (ensemble); accuratezza prodotto **92.5% → 93.3%**. Cross-check Python↔JS 8.3e-16.
+- **Fusione multi-segnale** (`src/ai/signal-fusion.js`): la categorizzazione usa anche importo + fascia oraria (profili appresi dai dati reali dell'utente), non solo il testo. Attiva con ≥20 transazioni, il testo resta dominante. 5 test.
