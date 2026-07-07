@@ -4,10 +4,12 @@
 // la previsione a 7 giorni di Holt-Winters (il motore reale dell'app) col
 // baseline naive "domani = media recente". Metrica: MAE relativo (MAPE-like).
 // Regola: il numero dichiarato è SOLO quello di questo script.
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const { HoltWinters } = await import(join(root, 'src/predict/engines.js'));
+// import() cross-platform (vedi nota in categorizer-bench.mjs): pathToFileURL
+// per un path assoluto Windows; su macOS/Linux comportamento identico.
+const { HoltWinters } = await import(pathToFileURL(join(root, 'src/predict/engines.js')).href);
 
 function mulberry32(seed) {
   return function () {

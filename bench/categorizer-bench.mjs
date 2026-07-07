@@ -11,13 +11,16 @@ globalThis.window = {};
 globalThis.navigator = { maxTouchPoints: 0 };
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const { TrainedCategorizer } = await import(join(root, 'src/ai/trained-categorizer.js'));
-const { TrainedMeso } = await import(join(root, 'src/ai/trained-meso.js'));
-const { MOMENTUM_TRAINED_MODEL_DATA } = await import(join(root, 'src/ai/trained-model-data.js'));
+// import() cross-platform: su Windows un path assoluto (C:\...) non è un URL ESM
+// valido → serve pathToFileURL. Su macOS/Linux il comportamento è identico.
+const imp = (rel) => import(pathToFileURL(join(root, rel)).href);
+const { TrainedCategorizer } = await imp('src/ai/trained-categorizer.js');
+const { TrainedMeso } = await imp('src/ai/trained-meso.js');
+const { MOMENTUM_TRAINED_MODEL_DATA } = await imp('src/ai/trained-model-data.js');
 
 // ── RNG deterministico (mulberry32): stesso seed = stesso dataset, sempre ──
 function mulberry32(seed) {
@@ -104,7 +107,7 @@ function accuracy(predictFn) {
 // Sistema COMPLETO: dizionario esercenti (stadio 0) → ML fallback.
 // È l'architettura reale del prodotto (come Plaid/Yodlee): un esercente
 // noto viene riconosciuto dal dizionario, uno sconosciuto dal modello ML.
-const { lookupMerchant } = await import(join(root, 'src/ai/merchant-dictionary.js'));
+const { lookupMerchant } = await imp('src/ai/merchant-dictionary.js');
 function fullSystemPredict(text) {
   const hit = lookupMerchant(text);
   if (hit) return hit.category;

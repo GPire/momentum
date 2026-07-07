@@ -9,7 +9,8 @@
     "build:singlefile": "vite build --mode singlefile",
     "preview": "vite preview",
     "bench": "node bench/categorizer-bench.mjs",
-    "bench:forecast": "node bench/forecast-bench.mjs"
+    "bench:forecast": "node bench/forecast-bench.mjs",
+    "bench:graph": "node bench/graph-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",
