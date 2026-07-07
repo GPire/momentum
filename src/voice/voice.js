@@ -222,7 +222,10 @@ const VoiceParser = {
       }
       if (time) date.setHours(time.hour, time.minute, 0, 0);
 
-      let cleanDesc = textNoTime.replace(/\b(ricorda|promemoria|sveglia|alarm|remind|reminder|schedule|calendar|calendario|fissa|un|appuntamento|appointment|meeting)\b/gi, '').trim();
+      // Rimuove parole di comando + articoli/preposizioni/verbi di servizio
+      // + giorni della settimana, così "ho un appuntamento dal dentista
+      // giovedì" → "Dentista" invece del residuo "Ho dal dentista giovedì".
+      let cleanDesc = textNoTime.replace(/\b(ricorda(mi)?|promemoria|sveglia|alarm|remind|reminder|schedule|calendar|calendario|fissa|appuntamento|appointment|meeting|ho|hai|un|una|uno|il|lo|la|di|da|dal|dalla|dallo|con|per|alle|alla|al|delle|della|prossimo|prossima|lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica|domani|dopodomani|oggi|stasera|monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today)\b/gi, '').trim();
       cleanDesc = cleanDesc.replace(/\b\d+([.,]\d{1,2})?\s*(euro|dollari|dollars|usd|eur|e|cent|centesimi)?\b/gi, '');
       Object.keys(FUZZY_AMOUNTS).forEach(w => {
         const reg = new RegExp('\\b' + w + '\\b', 'gi');
@@ -245,7 +248,11 @@ const VoiceParser = {
 
     let type = 'uscita';
     if (['stipendio', 'entrata', 'guadagnato', 'salary', 'earned', 'income', 'received', 'got paid', 'paid me', 'payment received', 'i earned', 'accredito', 'accreditati'].some(w => lower.includes(w))) type = 'entrata';
-    else if (['etf', 'investito', 'crypto', 'invest', 'invested', 'stocks', 'risparmio', 'risparmiato', 'accantonato', 'messo da parte', 'saving', 'savings', 'saved', 'set aside', 'put aside'].some(w => lower.includes(w))) type = 'invest';
+    // "messo da parte" spesso NON è contiguo ("ho messo 100 euro da parte"):
+    // si riconosce anche il pattern "messo/metto ... da parte" e il solo
+    // "da parte"/"accanton" come segnale di risparmio.
+    else if (['etf', 'investito', 'crypto', 'invest', 'invested', 'stocks', 'risparmio', 'risparmiato', 'accantonato', 'accantonare', 'saving', 'savings', 'saved', 'set aside', 'put aside'].some(w => lower.includes(w))
+             || /\bda parte\b/.test(lower) || /\bmess[oa]\b.*\bparte\b/.test(lower)) type = 'invest';
 
     let desc = textNoTime;
     desc = desc.replace(/\b\d+([.,]\d{1,2})?\s*(euro|dollari|dollars|usd|eur|e|cent|centesimi)?\b/gi, '');
@@ -297,7 +304,7 @@ const VoiceParser = {
       catId = 'stipendio'; // unica categoria di entrata prevista dall'app
     } else if (type === 'invest') {
       if (['bitcoin', 'crypto', 'ethereum', 'btc'].some(w => lower.includes(w))) catId = 'crypto';
-      else if (['risparmio', 'risparmiato', 'accantonato', 'messo da parte', 'saving', 'savings', 'saved', 'set aside', 'put aside'].some(w => lower.includes(w))) catId = 'risparmio';
+      else if (['risparmio', 'risparmiato', 'accantonato', 'saving', 'savings', 'saved', 'set aside', 'put aside'].some(w => lower.includes(w)) || /\bda parte\b/.test(lower) || /\bmess[oa]\b.*\bparte\b/.test(lower)) catId = 'risparmio';
       else catId = 'etf';
     } else {
       catId = NeuralNexus.predict(desc, amount).cat;

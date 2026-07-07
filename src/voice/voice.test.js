@@ -68,3 +68,19 @@ test("orario di un appuntamento resta corretto dopo la pulizia della descrizione
   const localHour = new Date(result.date).getUTCHours(); // confronto diretto sull'orario UTC salvato
   assert.ok(result.hasTime);
 });
+
+test('"ho messo 100 euro da parte" → risparmio (non spesa), anche non contiguo', () => {
+  const r = VoiceParser.parse('ho messo 100 euro da parte');
+  assert.ok(r && r.length >= 1);
+  const tx = r.find(x => x.intent === 'transaction');
+  assert.equal(tx.type, 'invest');
+  assert.equal(tx.category, 'risparmio');
+});
+
+test('discorso lungo misto: 5 azioni distinte riconosciute con intent corretti', () => {
+  const r = VoiceParser.parse('ho speso 25 euro al supermercato e ho pagato 12 euro di benzina e ricordami di chiamare il commercialista domani e ho un appuntamento dal dentista giovedì e ho messo 100 euro da parte');
+  assert.equal(r.length, 5);
+  assert.equal(r.filter(x => x.intent === 'transaction').length, 3);
+  assert.equal(r.filter(x => x.intent === 'reminder').length, 1);
+  assert.equal(r.filter(x => x.intent === 'appointment').length, 1);
+});
