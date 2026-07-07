@@ -144,6 +144,13 @@ Rispondendo alla domanda "Phi-4 o costruire da zero?": costruito il modello PROP
 - **Documenti per investitori/acquirenti**: `MOMENTUM_CORE.md` (whitepaper architettura onesto, decisione Phi-4, 5 pilastri, mappatura sigle V7.5), `COPERTURA.md` (matrice frizioni-utente + domande due-diligence, con onestà sulla valutazione). Su repo + Obsidian.
 - Restano (roadmap, non promesse): C7 feature multi-segnale, C8 quantizzazione int8, C4 orchestrator v4 API unica, C6 modello globale in UI, forecast-bench, riaddestramento con dati reali utenti.
 
+
+## MOMENTUM CORE — completamento fasi (2026-07-07; 214 test)
+- ✅ C4: API unificata `momentumOrchestrator.infer(desc, amount, date)` → {category, confidence, abstain, sources, explanation}. `classify()` resta alias retro-compatibile. È il nome pubblico dell'architettura Momentum Core.
+- ✅ C5: `npm run bench:forecast` — Holt-Winters MAPE 8.6% vs naive 27.8% = **68.9% meglio, 40/40 serie**. Secondo numero difendibile per gli investitori.
+- ✅ C6: stato del "modello globale emergente" visibile nel Momentum Vault (esempi totali, fusioni accettate/rifiutate, reputazione peer dalla catena hash).
+- ⬜ Restano opzionali (roadmap, non promesse): C7 feature multi-segnale (importo+ora+giorno nel modello), C8 quantizzazione int8 per hardware debole, calibrazione temperature-scaling formale (ECE).
+
 # GUIDA OPERATIVA PER LA PROSSIMA SESSIONE (qualsiasi modello: Opus, Sonnet, Fable)
 
 Scritta per essere eseguita passo-passo senza dover ricostruire il contesto. Leggi PRIMA le trappole note in fondo.

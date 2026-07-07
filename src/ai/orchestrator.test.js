@@ -145,3 +145,19 @@ test("astensione: esercente noto (dizionario) non astiene mai", () => {
   assert.equal(r.cat, "abbonamenti");
   assert.ok(!r.abstain);
 });
+
+// ---- Momentum Core: API unificata infer() ----
+
+test("infer(): API unificata restituisce category/confidence/abstain/sources", () => {
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: { predict: () => ({ cat: "spesa", confidence: 60 }), tokenize: t => t.split(' '), train: () => {} } });
+  const r = orch.infer("netflix", 12, new Date());
+  assert.equal(r.category, "abbonamenti"); // dizionario
+  assert.equal(typeof r.confidence, "number");
+  assert.equal(r.abstain, false);
+  assert.ok(Array.isArray(r.sources));
+});
+
+test("infer(): retro-compatibile con classify() sulla categoria", () => {
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: { predict: () => ({ cat: "spesa", confidence: 60 }), tokenize: t => t.split(' '), train: () => {} } });
+  assert.equal(orch.infer("acme xyz", 10, new Date()).category, orch.classify("acme xyz", 10, new Date()).cat);
+});

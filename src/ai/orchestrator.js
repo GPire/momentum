@@ -206,9 +206,26 @@ class MomentumOrchestrator {
       cat: bestCategory,
       confidence,
       abstain,
+      sources: candidates.map(c => c.source),
       advice: abstain
         ? `Non sono sicuro (${confidence}%): ${detail}. Confermi tu la categoria?`
         : agree ? `Ensemble concorde (${detail}).` : `Ensemble in disaccordo, vince ${bestCategory} per punteggio pesato (${detail}).`,
+    };
+  }
+
+  // ── Momentum Core: API unificata dell'architettura proprietaria ──
+  // Un solo punto d'ingresso che restituisce la categoria + confidenza +
+  // astensione + le fonti che hanno votato. `classify()` resta l'alias
+  // retro-compatibile usato dai call-site esistenti. Questo è il nome
+  // pubblico dell'architettura-sistema (vedi MOMENTUM_CORE.md).
+  infer(description, amount, date) {
+    const r = this.classify(description, amount, date);
+    return {
+      category: r.cat,
+      confidence: r.confidence,
+      abstain: !!r.abstain,
+      sources: r.sources || (r.source ? [r.source] : ['nexus']),
+      explanation: r.advice,
     };
   }
 
