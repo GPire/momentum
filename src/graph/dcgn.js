@@ -40,7 +40,10 @@ export function tokenize(text) {
   for (const w of words) {
     tokens.add('w:' + w);
     const s = '^' + w + '$';
-    for (let n = 3; n <= 4; n++) {
+    // n-grammi di caratteri 3..5: i 5-grammi catturano stem più lunghi e
+    // discriminanti ("cquis", "istor", "izzer") → migliore generalizzazione
+    // sugli esercenti mai visti (misurata in bench:graph, non dichiarata).
+    for (let n = 3; n <= 5; n++) {
       for (let i = 0; i + n <= s.length; i++) tokens.add('c:' + s.slice(i, i + n));
     }
   }
