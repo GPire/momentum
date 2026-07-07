@@ -511,6 +511,25 @@ const attachFormListeners = (container) => {
   };
 };
 
+// Stato del "modello globale emergente" (src/mesh/update-ledger.js): rende
+// visibile e concreta la crescita collettiva — esempi totali su cui l'AI di
+// questo dispositivo è addestrata, dispositivi fidati collegati, e la
+// reputazione dei peer dalla catena hash. Non teoria: numeri veri.
+function renderMeshStatus() {
+  const el = document.getElementById('mesh-status');
+  if (!el) return;
+  const peers = window.momentumMeshNode?.peers?.size || 0;
+  const examples = VaultDAO.state.mlData?.totalWords || 0;
+  const ledger = VaultDAO.state.updateLedger || [];
+  if (peers === 0) {
+    el.innerHTML = `Nessun dispositivo collegato: l'AI impara solo da questo (${examples} esempi finora).`;
+    return;
+  }
+  const merges = ledger.filter(e => e.accepted).length;
+  const rejected = ledger.length - merges;
+  el.innerHTML = `🟢 ${peers} dispositivo/i fidato/i collegato/i · modello su <b>${examples}</b> esempi · ${merges} fusioni accettate${rejected > 0 ? `, ${rejected} rifiutate (anti-manomissione)` : ''}.`;
+}
+
 // Web Share Target (Android): il SW ha parcheggiato lo screenshot condiviso
 // nella cache come './__shared-image' e ci ha aperti con ?shared=1. Qui lo
 // si raccoglie, si pulisce URL e mailbox (mai ri-consumare al reload) e lo
@@ -1642,6 +1661,7 @@ const endGenesis = () => {
 
 const bootUI = () => {
   try {
+    renderMeshStatus();
     const agg = VaultDAO.state.aiAggression;
     const btn = document.querySelector(`.segment-btn[data-ai-mode="${agg}"]`);
     if (btn) {
@@ -2099,8 +2119,7 @@ function initMomentumRealAI() {
     // ogni apprendimento locale si propaga da solo ai dispositivi collegati.
     momentumMeshNode = new MeshNode(undefined, createNexusMeshMind(momentumOrchestrator, VaultDAO));
     momentumMeshNode.onPeerConnected = () => {
-      const el = document.getElementById('mesh-status');
-      if (el) el.textContent = `🟢 ${momentumMeshNode.peers.size} dispositivo/i collegato/i: l'AI impara da tutti.`;
+      renderMeshStatus();
       showToast('Dispositivo collegato: le due AI ora imparano insieme.', 'success');
     };
     momentumMeshNode.onGradientReceived = (peerId, stats) => {
@@ -2116,6 +2135,7 @@ function initMomentumRealAI() {
       VaultDAO.save();
       if (stats.accepted) console.log(`Mesh: conoscenza fusa (esempi ${stats.totalExamples}). Reputazione peer: ${peerReputation(VaultDAO.state.updateLedger, peerId).score}`);
       else console.warn('Mesh: aggiornamento RIFIUTATO dall\'anti-avvelenamento, registrato in catena.', stats);
+      renderMeshStatus();
     };
     momentumOrchestrator.mesh = momentumMeshNode;
     window.momentumMeshNode = momentumMeshNode;

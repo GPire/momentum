@@ -66,3 +66,8 @@ Scoperta onesta e preziosa: l'89.7% storico del Meso vale sulla distribuzione de
 - **Categorizzatore v3 = Momentum Core** (dizionario esercenti + ML fallback): **92.5% accuratezza di prodotto** sul benchmark riproducibile, 0.08 ms/predizione, cross-check Python↔JS 2.2e-16.
 - **Astensione** aggiunta (orchestrator): l'AI dichiara `abstain` quando incerta invece di forzare — active learning dalla correzione utente.
 - Documenti: MOMENTUM_CORE.md (architettura), COPERTURA.md (frizioni+investitori).
+
+## Forecast bench (2026-07-07) — `npm run bench:forecast`
+Walk-forward 60→7 giorni, 40 serie sintetiche con seed fisso:
+- Baseline naive (media ultima settimana): MAPE 27.8%
+- **Holt-Winters (motore Momentum): MAPE 8.6% — 68.9% meglio del naive, batte il naive in 40/40 serie.**

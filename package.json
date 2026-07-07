@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:singlefile": "vite build --mode singlefile",
     "preview": "vite preview",
-    "bench": "node bench/categorizer-bench.mjs"
+    "bench": "node bench/categorizer-bench.mjs",
+    "bench:forecast": "node bench/forecast-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",
