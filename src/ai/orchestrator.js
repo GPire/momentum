@@ -8,6 +8,7 @@ import { MeshNode } from '../mesh/mesh-signaling.js';
 import { lookupMerchant } from './merchant-dictionary.js';
 import { fuseSignals } from './signal-fusion.js';
 import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay } from '../graph/dcgn.js';
+import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -175,7 +176,14 @@ class MomentumOrchestrator {
       const p = this.trained.predict(description);
       candidates.push({ source: 'nano', category: p.category, confidence: p.confidence, weight: trainedBudget * (nanoAcc / accSum) });
     }
-    if (this.meso) {
+    // ── Sparse-MoE reale (src/device/adaptive-runtime.js): il budget di
+    // esperti del dispositivo decide CHI vota davvero. Su tier minimo solo il
+    // Nano (gatekeeper), salendo si sbloccano Meso e DCGN — meno calcolo su
+    // hardware debole, mai crash. Senza profilo: tutti attivabili (invariato).
+    const _plan = adaptiveExecutionPlan(typeof window !== 'undefined' ? window.momentumDeviceProfile : null);
+    const _can = (e) => !window?.momentumDeviceProfile || canActivate(e, _plan);
+
+    if (this.meso && _can('meso')) {
       const p = this.meso.predict(description);
       candidates.push({ source: 'meso', category: p.category, confidence: p.confidence, weight: trainedBudget * (mesoAcc / accSum) });
     }
@@ -184,7 +192,7 @@ class MomentumOrchestrator {
     // altrimenti tace (mai rumore da un grafo vuoto). Il suo peso parte
     // moderato e cresce con la precisione misurata (come nano/meso). È il
     // modello che migliora ONLINE con l'uso, senza retraining.
-    if ((this.graph?.docs || 0) >= 30) {
+    if ((this.graph?.docs || 0) >= 30 && _can('dcgn')) {
       // Adattività hardware: su tier minimo il DCGN usa meno token (più
       // veloce, perdita minima); tier medio/massimo usano tutto. Lo stesso
       // grafo si plasma al dispositivo (src/graph/dcgn.js + compute-planner).

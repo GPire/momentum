@@ -182,3 +182,30 @@ test("DCGN: grafo vuoto non vota (nessun rumore al primo avvio)", () => {
   assert.equal(orch.graph.docs, 0);
   assert.equal(r.cat, "spesa"); // solo NeuralNexus
 });
+
+// ---- Sparse-MoE reale: budget esperti gatea il voto in produzione ----
+
+test("sparse-MoE: su tier minimo solo Nano vota (Meso escluso dal budget device)", () => {
+  const prevProfile = globalThis.window.momentumDeviceProfile;
+  globalThis.window.momentumDeviceProfile = { tier: 'minimo' };
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 50 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: "spesa", confidence: 0.8 }) };
+  const meso = { metrics: { hard_noisy_test_accuracy: 0.9 }, predict: () => ({ category: "ristoranti", confidence: 0.9 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus, trainedCategorizer: trained, trainedMeso: meso });
+  const r = orch.classify("acme xyz", 10, new Date());
+  // su minimo il Meso NON è nel budget → non deve comparire tra le fonti
+  assert.ok(!(r.sources || []).includes('meso'), 'Meso non deve votare su tier minimo');
+  globalThis.window.momentumDeviceProfile = prevProfile;
+});
+
+test("sparse-MoE: su tier massimo Meso è attivabile", () => {
+  const prevProfile = globalThis.window.momentumDeviceProfile;
+  globalThis.window.momentumDeviceProfile = { tier: 'massimo' };
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 50 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: "spesa", confidence: 0.8 }) };
+  const meso = { metrics: { hard_noisy_test_accuracy: 0.9 }, predict: () => ({ category: "spesa", confidence: 0.9 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus, trainedCategorizer: trained, trainedMeso: meso });
+  const r = orch.classify("acme xyz", 10, new Date());
+  assert.ok((r.sources || []).includes('meso'), 'Meso deve votare su tier massimo');
+  globalThis.window.momentumDeviceProfile = prevProfile;
+});

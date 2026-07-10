@@ -89,3 +89,9 @@ Consolidamento del branch v3 (superset) in main + potenziamenti di sessione. **2
 - **Categorizzazione**: prodotto 94,6% / ML held-out 76,0% (Nano++/Meso++).
 - **Confronto onesto**: CONFRONTO_BENCHMARK.md (metodologia + assi strutturali + tabella competitor con fonti, mai inventate).
 - 6 benchmark: bench, bench:forecast, bench:graph, bench:alpha, bench:reasoning, bench:vs-llm.
+
+## MOMENTUM v7.1 (2026-07-10) — unificazione sparse-MoE
+Fuso il branch v3 (adaptive-runtime) con main (M1-M4) senza perdere nulla. **293 test verdi**, 7 benchmark.
+- **Sparse-MoE reale in produzione** (`src/device/adaptive-runtime.js` cablato in orchestrator): il budget di esperti per tier decide CHI vota — tier minimo solo Nano, salendo si sbloccano Meso e DCGN. Meno calcolo su hardware debole, mai crash. + self-tuning sotto throttling (riduce esperti se rallenta, target 60ms).
+- `npm run bench:adaptive`: dimostra sparse-MoE per tier + self-tuning.
+- Tutto il resto di v7.0 preservato (DCGN online, reasoning 12/12, layer investimenti, confronto onesto).
