@@ -10,6 +10,7 @@ import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
+import { investableSurplus } from './alpha/bridge.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
@@ -1150,7 +1151,32 @@ const renderAnalysis = (opts = {}) => {
   // Alerts & Anomalie: prima chiamata sincrona (proiezione run-rate), poi
   // il forecast worker la ri-renderizza con il livello Holt-Winters vero.
   renderRadarAlerts(k, budgetLimit, window.__hwDailyLevel ?? null);
+  renderInvestments();
 };
+
+// Layer investimenti (src/alpha/): quanto investire (bridge, fondo emergenza
+// prima) + regime di mercato se l'utente ha fornito una serie prezzi.
+function renderInvestments() {
+  const surplusEl = $('#invest-surplus'), noteEl = $('#invest-note'), regimeEl = $('#invest-regime');
+  if (!surplusEl) return;
+  // media uscite/entrate e fondo (investimenti accumulati) dallo storico
+  const months = {}; let invested = 0;
+  for (const t of Object.values(VaultDAO.state.transactions || {}).flat()) {
+    const mk = (t.date || '').slice(0, 7); if (!mk) continue;
+    const m = months[mk] = months[mk] || { inc: 0, out: 0 };
+    if (t.type === 'entrata') m.inc += t.amount;
+    else if (t.type === 'uscita') m.out += t.amount;
+    else if (t.type === 'invest') invested += t.amount;
+  }
+  const keys = Object.keys(months); const n = keys.length || 1;
+  const avgExp = keys.reduce((s, kk) => s + months[kk].out, 0) / n;
+  const nowMk = monthKey(new Date());
+  const cur = months[nowMk] || { inc: 0, out: 0 };
+  const r = investableSurplus({ netMonthlyFlow: cur.inc - cur.out, avgMonthlyExpense: avgExp, currentEmergencyFund: invested, emergencyMonths: 6 });
+  surplusEl.textContent = r.investable > 0 ? formatMoney(r.investable) : (r.toEmergencyFund ? formatMoney(r.toEmergencyFund) : '0€');
+  noteEl.textContent = r.note;
+  regimeEl.textContent = '';
+}
 
 // Rende uniformi tutti gli avvisi in #radar-alerts-container: anomalie
 // (AnomalyDetector, invariato) + insight consolidati dell'advisor
