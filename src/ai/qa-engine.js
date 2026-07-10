@@ -12,7 +12,29 @@ import { getDailySafeToSpend, getMonthEndProjection, getUpcomingCharges } from '
 import { detectRecurring } from '../predict/subscriptions.js';
 import { computeGoalProgress } from '../predict/engagement.js';
 import { buildCausalGraph, propagateImpact } from '../predict/causal-graph.js';
+import { investableSurplus } from '../alpha/bridge.js';
 import { monthKey } from '../core/constants.js';
+
+// Media mensile di uscite ed entrate + fondo d'emergenza stimato (investimenti
+// accumulati) dallo storico — per rispondere "quanto posso investire".
+function monthlyFinance(allTx, ref) {
+  const months = {};
+  let invested = 0;
+  for (const t of Object.values(allTx || {}).flat()) {
+    const mk = (t.date || '').slice(0, 7);
+    if (!mk) continue;
+    const m = months[mk] = months[mk] || { inc: 0, out: 0 };
+    if (t.type === 'entrata') m.inc += t.amount;
+    else if (t.type === 'uscita') m.out += t.amount;
+    else if (t.type === 'invest') invested += t.amount;
+  }
+  const keys = Object.keys(months);
+  const n = keys.length || 1;
+  const avgExp = keys.reduce((s, k) => s + months[k].out, 0) / n;
+  const thisMk = monthKey(ref);
+  const cur = months[thisMk] || { inc: 0, out: 0 };
+  return { avgMonthlyExpense: avgExp, netMonthlyFlow: cur.inc - cur.out, invested };
+}
 
 const MONTH_NAMES = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 
@@ -65,7 +87,19 @@ export function answerQuestion(question, ctx) {
   const ref = ctx.referenceDate || new Date();
   const allTx = ctx.allTx || {};
   const monthTxs = allTx[monthKey(ref)] || [];
-  if (!q) return { intent: 'unknown', answer: 'Fammi una domanda sui tuoi soldi: spese, risparmi, budget, abbonamenti, obiettivi.' };
+  if (!q) return { intent: 'unknown', answer: 'Fammi una domanda sui tuoi soldi: spese, risparmi, budget, abbonamenti, obiettivi, investimenti.' };
+
+  // — "quanto posso investire?" (motore alpha/bridge: fondo emergenza prima)
+  if (/(quanto posso investire|posso investire|quanto investire|investire questo mese)/.test(q)) {
+    const f = monthlyFinance(allTx, ref);
+    const r = investableSurplus({
+      netMonthlyFlow: f.netMonthlyFlow,
+      avgMonthlyExpense: f.avgMonthlyExpense,
+      currentEmergencyFund: ctx.emergencyFund ?? f.invested,
+      emergencyMonths: ctx.emergencyMonths ?? 6,
+    });
+    return { intent: 'invest', data: r, answer: r.note };
+  }
 
   // — "posso permettermi X?" (prima di "quanto posso spendere": contiene un importo)
   if (/(posso permettermi|posso spendere|ce la faccio a spendere|posso comprare)/.test(q) && extractAmount(q) !== null) {

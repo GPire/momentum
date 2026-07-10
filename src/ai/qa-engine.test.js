@@ -140,3 +140,18 @@ test('ragionamento a catena: senza legami nei dati lo dice, non inventa', () => 
   assert.equal(r.intent, 'causal');
   assert.ok(/non vedo|Dimmi la categoria/.test(r.answer));
 });
+
+test('intent investimento: "quanto posso investire" usa il motore alpha/bridge', () => {
+  // storia con avanzo e fondo emergenza accumulato (invest)
+  const allTx = {
+    '2026-05': [{ date: '2026-05-05', amount: 5000, type: 'invest', category: 'etf', description: 'pac' }],
+    '2026-07': [
+      { date: '2026-07-05', amount: 2000, type: 'entrata', category: 'stipendio', description: 'stipendio' },
+      { date: '2026-07-10', amount: 800, type: 'uscita', category: 'spesa', description: 'spesa' },
+    ],
+  };
+  const r = answerQuestion('quanto posso investire questo mese?', { allTx, referenceDate: new Date(2026, 6, 15), emergencyFund: 10000 });
+  assert.equal(r.intent, 'invest');
+  assert.ok(typeof r.answer === 'string' && r.answer.length > 0);
+  assert.ok('investable' in r.data);
+});
