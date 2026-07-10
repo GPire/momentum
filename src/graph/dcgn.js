@@ -99,7 +99,22 @@ export function classify(graph, text, opts = {}) {
   if (!cats.length) return { category: null, confidence: 0, scores: {}, path: [] };
   const priorWeight = opts.priorWeight ?? 0.3;
   const docs = graph.docs || 1;
-  const toks = tokenize(text);
+  let toks = tokenize(text);
+
+  // ── Adattività al dispositivo: lo STESSO grafo modula il proprio costo
+  // di calcolo. `maxTokens` (dal compute-planner via l'orchestratore) limita
+  // la spreading activation ai token PIÙ SPECIFICI (IDF più alto) — quelli
+  // che portano più segnale. Su hardware debole meno token = più veloce, con
+  // perdita minima; su hardware potente si usano tutti. Il substrato si
+  // "plasma" al device senza cambiare struttura né dati. Onesto: è potatura
+  // per specificità, non magia.
+  if (opts.maxTokens && toks.length > opts.maxTokens) {
+    toks = toks
+      .map(t => ({ t, spec: Math.log((docs + 1) / ((graph.df[t] || 0) + 1)) }))
+      .sort((a, b) => b.spec - a.spec)
+      .slice(0, opts.maxTokens)
+      .map(x => x.t);
+  }
 
   const scores = {};
   for (const c of cats) scores[c] = priorWeight * Math.log((graph.cats[c] + 1) / (docs + cats.length));

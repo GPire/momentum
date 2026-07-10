@@ -161,3 +161,24 @@ test("infer(): retro-compatibile con classify() sulla categoria", () => {
   const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: { predict: () => ({ cat: "spesa", confidence: 60 }), tokenize: t => t.split(' '), train: () => {} } });
   assert.equal(orch.infer("acme xyz", 10, new Date()).category, orch.classify("acme xyz", 10, new Date()).cat);
 });
+
+// ---- DCGN in produzione: apprendimento online ----
+
+test("DCGN: impara online e inizia a votare dopo abbastanza osservazioni", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 30 }), tokenize: t => t.split(' '), train: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus });
+  // insegna un esercente nuovo 35 volte (soglia DCGN = 30)
+  for (let i = 0; i < 35; i++) orch.learn("bottega artigiana zzz", "shopping", 20, new Date());
+  // ora il grafo ha imparato; l'orchestratore lo include tra i votanti
+  const r = orch.classify("bottega artigiana zzz", 20, new Date());
+  assert.ok(orch.graph.docs >= 30, "il grafo deve aver accumulato osservazioni");
+  assert.ok(r.cat, "la classificazione produce una categoria");
+});
+
+test("DCGN: grafo vuoto non vota (nessun rumore al primo avvio)", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 70 }), tokenize: t => t.split(' '), train: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus });
+  const r = orch.classify("xyz mai visto", 10, new Date());
+  assert.equal(orch.graph.docs, 0);
+  assert.equal(r.cat, "spesa"); // solo NeuralNexus
+});

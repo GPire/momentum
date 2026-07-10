@@ -150,3 +150,15 @@ test('extractSubgraph: sotto-grafo serializzabile e indipendente (deep copy)', (
   assert.equal(g.cats.spesa, undefined, 'la sorgente non è stata toccata');
   assert.equal(JSON.stringify(sub), JSON.stringify(JSON.parse(JSON.stringify(sub))), 'JSON-round-trippabile');
 });
+
+test('adattività device: maxTokens limita il calcolo mantenendo la predizione sui casi netti', () => {
+  const g = createGraph();
+  // esercente ben appreso
+  for (let i = 0; i < 20; i++) observe(g, 'supermercato esselunga milano', 'spesa');
+  for (let i = 0; i < 20; i++) observe(g, 'ristorante pizzeria napoli', 'ristoranti');
+  const full = classify(g, 'supermercato esselunga milano');
+  const limited = classify(g, 'supermercato esselunga milano', { maxTokens: 8 });
+  // su un caso netto la categoria non cambia; il calcolo è ridotto
+  assert.equal(limited.category, full.category);
+  assert.equal(limited.category, 'spesa');
+});

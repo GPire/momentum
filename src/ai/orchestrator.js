@@ -7,6 +7,7 @@ import { TrainedCategorizer } from './trained-categorizer.js';
 import { MeshNode } from '../mesh/mesh-signaling.js';
 import { lookupMerchant } from './merchant-dictionary.js';
 import { fuseSignals } from './signal-fusion.js';
+import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay } from '../graph/dcgn.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -47,6 +48,13 @@ class MomentumOrchestrator {
     this.trained = trainedCategorizer;
     this.meso = trainedMeso || null;
     this._validationSet = []; // { tokens, catId } — mai usati per il training
+    // ── DCGN (src/graph/dcgn.js): il 3° modello REALE, un grafo che impara
+    // ONLINE da ogni transazione confermata (nessun retraining). Vive nel
+    // vault (serializzabile) e sopravvive ai riavvii. Al primo avvio è vuoto
+    // e non vota (la cascata degrada all'ensemble Nano+Meso).
+    this.graph = this.vault.state?.mlData?.dcgn || createGraph();
+    if (this.vault.state?.mlData) this.vault.state.mlData.dcgn = this.graph;
+    this._learnCount = 0;
   }
 
   setMeso(trainedMeso) { this.meso = trainedMeso; }
@@ -96,6 +104,11 @@ class MomentumOrchestrator {
       this._validationSet.push({ tokens, catId });
     } else {
       this.nexus.train(description, catId, amount, date);
+      // DCGN: apprendimento online Hebbiano — la transazione È il training.
+      dcgnObserve(this.graph, description, catId);
+      // Decadimento periodico (ogni ~200 osservazioni): il grafo resta
+      // rilevante e limitato invece di crescere all'infinito.
+      if (++this._learnCount % 200 === 0) dcgnDecay(this.graph);
     }
     this.mesh?.broadcastLearning?.();
   }
@@ -165,6 +178,22 @@ class MomentumOrchestrator {
     if (this.meso) {
       const p = this.meso.predict(description);
       candidates.push({ source: 'meso', category: p.category, confidence: p.confidence, weight: trainedBudget * (mesoAcc / accSum) });
+    }
+
+    // ── DCGN: vota SOLO quando ha imparato abbastanza (≥30 osservazioni),
+    // altrimenti tace (mai rumore da un grafo vuoto). Il suo peso parte
+    // moderato e cresce con la precisione misurata (come nano/meso). È il
+    // modello che migliora ONLINE con l'uso, senza retraining.
+    if ((this.graph?.docs || 0) >= 30) {
+      // Adattività hardware: su tier minimo il DCGN usa meno token (più
+      // veloce, perdita minima); tier medio/massimo usano tutto. Lo stesso
+      // grafo si plasma al dispositivo (src/graph/dcgn.js + compute-planner).
+      const tier = (typeof window !== 'undefined' && window.momentumDeviceProfile?.tier) || 'medio';
+      const maxTokens = tier === 'minimo' ? 24 : tier === 'medio' ? 60 : 0; // 0 = illimitato
+      const p = dcgnClassify(this.graph, description, maxTokens ? { maxTokens } : {});
+      if (p.category) {
+        candidates.push({ source: 'dcgn', category: p.category, confidence: (p.confidence || 0) / 100, weight: 0.3 });
+      }
     }
 
     // ── v3: il peso di ogni voto è modulato dalla precisione MISURATA di
