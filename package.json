@@ -12,7 +12,8 @@
     "bench:forecast": "node bench/forecast-bench.mjs",
     "bench:graph": "node bench/graph-bench.mjs",
     "bench:vs-llm": "node bench/vs-llm-bench.mjs",
-    "bench:alpha": "node bench/alpha-bench.mjs"
+    "bench:alpha": "node bench/alpha-bench.mjs",
+    "bench:adaptive": "node bench/adaptive-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",
