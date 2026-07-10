@@ -68,6 +68,26 @@ test('la competenza per-categoria (reliability) può ribaltare il vincitore', ()
   assert.equal(r.category, 'ristoranti', 'la competenza misurata pesa il voto');
 });
 
+test('budget device (sparse-MoE): su tier minimo Meso/DCGN non si attivano nemmeno', () => {
+  const nano = spy({ category: 'spesa', confidence: 0.4 }); // incerto: vorrebbe scalare
+  const meso = spy({ category: 'ristoranti', confidence: 0.9 });
+  const dcgn = spy({ category: 'shopping', confidence: 0.9 });
+  const plan = { experts: ['nano'] }; // device minimo
+  const r = executiveCascade('ambiguo', { nano, meso, dcgn }, { plan });
+  assert.deepEqual(r.ran, ['nano'], 'solo il gatekeeper gira');
+  assert.equal(meso.calls, 0);
+  assert.equal(dcgn.calls, 0);
+});
+
+test('budget device medio: Meso attivabile, DCGN no', () => {
+  const nano = spy({ category: 'ristoranti', confidence: 0.4 });
+  const meso = spy({ category: 'spesa', confidence: 0.45 });
+  const dcgn = spy({ category: 'shopping', confidence: 0.9 });
+  const r = executiveCascade('x', { nano, meso, dcgn }, { plan: { experts: ['nano', 'meso'] } });
+  assert.ok(r.ran.includes('meso'));
+  assert.equal(dcgn.calls, 0, 'DCGN fuori budget su tier medio');
+});
+
 test('determinismo: stessi input → stesso esito', () => {
   const mk = () => ({ nano: spy({ category: 'etf', confidence: 0.5 }), meso: spy({ category: 'etf', confidence: 0.65 }) });
   const a = executiveCascade('pac etf', mk());

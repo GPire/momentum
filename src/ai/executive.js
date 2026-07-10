@@ -43,6 +43,10 @@ export function executiveCascade(text, stages, opts = {}) {
   const cfg = { ...DEFAULTS, ...opts };
   const reliability = opts.reliability || null;
   const ran = [];
+  // Budget esperti del device (adaptive-runtime): su hardware debole un
+  // esperto pesante non è nemmeno attivabile → sparse-MoE reale, non solo
+  // early-exit. Senza plan, tutti attivabili (comportamento invariato).
+  const allowed = (e) => !opts.plan || (opts.plan.experts || []).includes(e);
 
   // ── Stadio 1: Nano gatekeeper ──
   const nano = stages.nano(text); ran.push('nano');
@@ -51,8 +55,8 @@ export function executiveCascade(text, stages, opts = {}) {
     return { category: nano.category, confidence: nano.confidence, ran, abstain: false, agreement: true };
   }
 
-  // ── Stadio 2: escalation allo specialista Meso ──
-  if (!stages.meso) {
+  // ── Stadio 2: escalation allo specialista Meso (se il device lo consente) ──
+  if (!stages.meso || !allowed('meso')) {
     return { category: nano.category, confidence: nano.confidence, ran, abstain: nano.confidence < cfg.abstainConf, agreement: true };
   }
   const meso = stages.meso(text); ran.push('meso');
@@ -65,7 +69,7 @@ export function executiveCascade(text, stages, opts = {}) {
 
   // ── Stadio 3: segnale di contesto DCGN (solo se ancora ambiguo) ──
   const votes = [nanoVote, mesoVote];
-  if (stages.dcgn) {
+  if (stages.dcgn && allowed('dcgn')) {
     const dcgn = stages.dcgn(text); ran.push('dcgn');
     votes.push({ source: 'dcgn', category: dcgn.category, confidence: dcgn.confidence });
     combined = fuse(votes, reliability);
