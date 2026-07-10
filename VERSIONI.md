@@ -80,3 +80,12 @@ Walk-forward 60→7 giorni, 40 serie sintetiche con seed fisso:
 - **Confidenza calibrata** (temperature scaling): meccanismo verificato (ECE 0.018→0.001 non vincolato); con T≥1 il modello risulta già ben calibrato (ECE 0.018, T*=1.0). Cross-check Python↔JS esatto (2.2e-16).
 - **Più dati** (600/categoria): generalizzazione ML pura **68.5% → 69.8%**.
 - **Quantizzazione int8** (`src/ai/quantize.js`): pesi 864KB→108KB (8× meno memoria), **8/8 categorie identiche a float, diff confidenza 0.0000**. Attiva su tier medio, float su tier massimo. 3 test.
+
+## 🚀 MOMENTUM v7 (2026-07-10) — MEGA UPGRADE
+Consolidamento del branch v3 (superset) in main + potenziamenti di sessione. **282 test verdi**, 6 benchmark riproducibili.
+- **DCGN in produzione**: 3° modello reale nell'orchestratore, apprendimento Hebbiano ONLINE (nessun retraining) + adattività hardware (maxTokens per tier hardware — il grafo si plasma al dispositivo).
+- **Layer investimenti** (Buffett/Graham/Lynch/Simons/Dalio/Bogle/Munger): factors + arbiter a regime + portfolio risk-parity + bridge cashflow↔investimenti + regime + nowcast. Cablato nella UI ("quanto puoi investire") + Q&A ("quanto posso investire?").
+- **bench:reasoning**: 12/12 domande finanziarie a risposta verificabile, 0,002 ms — dove un motore deterministico batte gli LLM (che allucinano sull'aritmetica).
+- **Categorizzazione**: prodotto 94,6% / ML held-out 76,0% (Nano++/Meso++).
+- **Confronto onesto**: CONFRONTO_BENCHMARK.md (metodologia + assi strutturali + tabella competitor con fonti, mai inventate).
+- 6 benchmark: bench, bench:forecast, bench:graph, bench:alpha, bench:reasoning, bench:vs-llm.
