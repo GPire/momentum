@@ -23,6 +23,12 @@ const DICTIONARY = {
   auchan: 'spesa', simply: 'spesa', supermercato: 'spesa', alimentari: 'spesa',
   ipermercato: 'spesa', discount: 'spesa', macelleria: 'spesa', panetteria: 'spesa',
   ortofrutta: 'spesa', salumeria: 'spesa',
+  // Spagna + Europa (spesa)
+  mercadona: 'spesa', dia: 'spesa', alcampo: 'spesa', consum: 'spesa', ahorramas: 'spesa',
+  caprabo: 'spesa', 'el corte ingles': 'spesa', 'supermercado': 'spesa', 'supermarche': 'spesa',
+  edeka: 'spesa', rewe: 'spesa', aldi: 'spesa', kaufland: 'spesa', 'super u': 'spesa',
+  intermarche: 'spesa', 'e leclerc': 'spesa', jumbo: 'spesa', albertheijn: 'spesa', tesco: 'spesa',
+  sainsbury: 'spesa', asda: 'spesa', continente: 'spesa', pingo: 'spesa',
   // ristoranti
   mcdonald: 'ristoranti', mcdonalds: 'ristoranti', burger: 'ristoranti', kfc: 'ristoranti',
   ristorante: 'ristoranti', pizzeria: 'ristoranti', trattoria: 'ristoranti', osteria: 'ristoranti',
@@ -31,7 +37,8 @@ const DICTIONARY = {
   birreria: 'ristoranti', enoteca: 'ristoranti', paninoteca: 'ristoranti', rosticceria: 'ristoranti',
   bistrot: 'ristoranti', poke: 'ristoranti', spritz: 'ristoranti', aperitivo: 'ristoranti',
   glovo: 'ristoranti', deliveroo: 'ristoranti', justeat: 'ristoranti', 'just eat': 'ristoranti',
-  starbucks: 'ristoranti',
+  starbucks: 'ristoranti', restaurante: 'ristoranti', cafeteria: 'ristoranti', cerveceria: 'ristoranti',
+  tapas: 'ristoranti', 'uber eats': 'ristoranti', restaurant: 'ristoranti',
   // shopping
   zara: 'shopping', bershka: 'shopping', 'h m': 'shopping', hm: 'shopping', ovs: 'shopping',
   zalando: 'shopping', amazon: 'shopping', mediaworld: 'shopping', unieuro: 'shopping',

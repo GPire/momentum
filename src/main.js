@@ -14,6 +14,8 @@ import { investableSurplus } from './alpha/bridge.js';
 import { taxSetAsideForPeriod } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { answerQuestion } from './ai/qa-engine.js';
+import { chat as chatMultilingual } from './ai/chat.js';
+import { detectLanguage } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext } from './predict/context-predictor.js';
 import { simulateCategoryChange } from './predict/what-if.js';
@@ -88,13 +90,23 @@ window.QuantumReasoningEngine = {
 // Punto unico delle risposte in linguaggio naturale (src/ai/qa-engine.js):
 // usato sia dalla card "Chiedi a Momentum" sia dalla console.
 function askMomentum(text) {
-  return answerQuestion(text, {
+  const ctx = {
     allTx: VaultDAO.state.transactions,
     monthlyBudget: VaultDAO.state.monthlyBudget,
     savingsGoals: VaultDAO.state.savingsGoals,
     referenceDate: new Date(),
     hwDailyLevel: window.__hwDailyLevel ?? null,
-  });
+    taxRegime: VaultDAO.state.taxRegime,
+  };
+  // Chatbot multilingua (src/ai/chat.js): se rileva EN/ES risponde in quella
+  // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
+  // completo esistente. Così l'app "arriva" anche in Spagna/LatAm ed EU.
+  const det = detectLanguage(text);
+  if (det.lang === 'en' || det.lang === 'es') {
+    const r = chatMultilingual(text, ctx);
+    if (r.intent !== 'unknown') return { intent: r.intent, answer: r.answer, lang: r.lang };
+  }
+  return answerQuestion(text, ctx);
 }
 
 // Accessible console entry point
