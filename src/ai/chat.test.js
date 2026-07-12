@@ -52,12 +52,31 @@ test('chat: intent invest e tax riconosciuti in ES', () => {
   assert.equal(chat('¿cuánto para impuestos?', { ...CTX, taxRegime: 'forfettario' }).intent, 'tax');
 });
 
-test('chat: FR rilevato ma non completo → fallback EN, mai crash', () => {
+test('chat: francese ora completo → risponde in FR (non più fallback)', () => {
   const r = chat('combien puis-je dépenser aujourd\'hui', CTX);
-  assert.ok(['en', 'it'].includes(r.lang)); // fallback
+  assert.equal(r.lang, 'fr');
   assert.ok(typeof r.answer === 'string');
 });
 
 test('chat: messaggio incomprensibile → unknown localizzato', () => {
   assert.equal(chat('bardzo dziwne zdanie', CTX).intent, 'unknown');
+});
+
+test('chat: francese completo → risposta in francese', () => {
+  const r = chat('combien j\'ai dépensé ce mois?', CTX);
+  assert.equal(r.lang, 'fr');
+  assert.equal(r.intent, 'spent');
+  assert.ok(/Ce mois-ci tu as dépensé/.test(r.answer));
+});
+
+test('chat: tedesco completo → risposta in tedesco', () => {
+  const r = chat('wie viel habe ich diesen monat ausgegeben?', CTX);
+  assert.equal(r.lang, 'de');
+  assert.equal(r.intent, 'spent');
+  assert.ok(/ausgegeben/.test(r.answer));
+});
+
+test('chat: safe-to-spend in FR e DE', () => {
+  assert.equal(chat('combien puis-je dépenser aujourd\'hui?', CTX).intent, 'safeToSpend');
+  assert.equal(chat('wie viel kann ich heute ausgeben?', CTX).intent, 'safeToSpend');
 });

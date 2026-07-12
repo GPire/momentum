@@ -42,6 +42,6 @@ export function detectLanguage(text) {
 
 // Lingue con supporto COMPLETO del chatbot (risposte localizzate) vs
 // rilevate ma non ancora complete (fallback a EN).
-export const SUPPORTED = ['it', 'en', 'es'];
+export const SUPPORTED = ['it', 'en', 'es', 'fr', 'de'];
 export const DETECTED = ['it', 'en', 'es', 'fr', 'de'];
 export function isSupported(lang) { return SUPPORTED.includes(lang); }

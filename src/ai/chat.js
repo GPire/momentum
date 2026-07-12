@@ -42,8 +42,20 @@ const INTENTS = {
     it: /(quanto metto da parte per le tasse|tasse|partita iva|accantonare)/,
     en: /(how much for taxes|set aside for tax|tax)/,
     es: /(cuánto para impuestos|apartar para impuestos|impuestos|autónomo)/,
+    fr: /(combien pour les impôts|mettre de côté pour|impôts|tva)/,
+    de: /(wie viel für steuern|für steuern zurücklegen|steuern|mehrwertsteuer)/,
   },
 };
+
+// Pattern FR/DE per gli altri intenti (aggiunti dopo per non spezzare i primi 4)
+INTENTS.spent.fr = /(combien j.?ai dépensé|combien je dépense|mes dépenses)/;
+INTENTS.spent.de = /(wie viel habe ich .{0,20}ausgegeben|wie viel gebe ich aus|meine ausgaben)/;
+INTENTS.safeToSpend.fr = /(combien puis-je dépenser|budget d.?aujourd|combien me reste)/;
+INTENTS.safeToSpend.de = /(wie viel kann ich .{0,15}ausgeben|budget für heute|wie viel bleibt)/;
+INTENTS.savings.fr = /(combien j.?ai économisé|épargne|mis de côté)/;
+INTENTS.savings.de = /(wie viel habe ich gespart|ersparnis|zurückgelegt)/;
+INTENTS.invest.fr = /(combien puis-je investir|puis-je investir)/;
+INTENTS.invest.de = /(wie viel kann ich investieren|kann ich investieren)/;
 
 // Frasi di risposta localizzate (template; i numeri arrivano dal motore).
 const L = {
@@ -76,6 +88,26 @@ const L = {
     tax: (note) => note,
     noBudget: () => `Primero define un presupuesto mensual y te diré cuánto puedes gastar.`,
     unknown: () => `No lo he entendido. Prueba: "¿cuánto he gastado este mes?", "¿cuánto puedo invertir?", "¿cuánto para impuestos?".`,
+  },
+  fr: {
+    spent: (v) => `Ce mois-ci tu as dépensé ${v}.`,
+    safe: (v, d) => `Tu peux dépenser ${v} aujourd'hui (${d} restants pour la semaine).`,
+    safeOver: () => `Mieux vaut ne pas dépenser aujourd'hui : tu es déjà au-dessus du budget cette semaine.`,
+    savings: (v) => `Ce mois-ci tu as mis de côté ${v}.`,
+    invest: (note) => note,
+    tax: (note) => note,
+    noBudget: () => `Définis d'abord un budget mensuel, puis je te dirai combien tu peux dépenser.`,
+    unknown: () => `Je n'ai pas compris. Essaie : « combien j'ai dépensé ce mois ? », « combien puis-je investir ? », « combien pour les impôts ? ».`,
+  },
+  de: {
+    spent: (v) => `Diesen Monat hast du ${v} ausgegeben.`,
+    safe: (v, d) => `Du kannst heute ${v} ausgeben (${d} übrig für die Woche).`,
+    safeOver: () => `Heute besser nichts ausgeben: Du bist diese Woche schon über dem Budget.`,
+    savings: (v) => `Diesen Monat hast du ${v} zurückgelegt.`,
+    invest: (note) => note,
+    tax: (note) => note,
+    noBudget: () => `Lege zuerst ein Monatsbudget fest, dann sage ich dir, wie viel du ausgeben kannst.`,
+    unknown: () => `Das habe ich nicht verstanden. Versuche: „Wie viel habe ich diesen Monat ausgegeben?", „Wie viel kann ich investieren?", „Wie viel für Steuern?".`,
   },
 };
 

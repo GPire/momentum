@@ -103,7 +103,7 @@ function askMomentum(text) {
   // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
   // completo esistente. Così l'app "arriva" anche in Spagna/LatAm ed EU.
   const det = detectLanguage(text);
-  if (det.lang === 'en' || det.lang === 'es') {
+  if (det.lang !== 'it') { // EN/ES/FR/DE → chatbot multilingua; IT → Q&A completo
     const r = chatMultilingual(text, ctx);
     if (r.intent !== 'unknown') return { intent: r.intent, answer: r.answer, lang: r.lang };
   }
