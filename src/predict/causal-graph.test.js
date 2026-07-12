@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { buildCategorySeries, buildCausalGraph, propagateImpact } = await import('./causal-graph.js');
+const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain } = await import('./causal-graph.js');
 
 const REF = new Date(2026, 6, 6); // lunedì 6 luglio 2026
 
@@ -81,4 +81,33 @@ test('propagateImpact: nessun ciclo infinito su grafi circolari', () => {
   ];
   const effects = propagateImpact(links, 'A', 50);
   assert.equal(effects.length, 1); // solo B: il ritorno su A è bloccato
+});
+
+test('buildCausalGraph maxLag>1: cattura effetto ritardato a 2 settimane', () => {
+  // Farmacia segue Ristorante con 2 settimane di ritardo (lag variabile)
+  const REF2 = new Date('2026-07-06');
+  const allTx = {};
+  const push = (dateStr, cat, amt) => { const mk = dateStr.slice(0,7); (allTx[mk] = allTx[mk] || []).push({ date: dateStr, type: 'uscita', category: cat, amount: amt }); };
+  // 16 settimane: Ristorante oscilla, Farmacia copia con 2 settimane di ritardo
+  const rist = [50,120,60,140,55,130,65,150,50,120,60,140,55,130,65,150];
+  for (let w = 0; w < rist.length; w++) {
+    const d = new Date('2026-03-16'); d.setDate(d.getDate() + w*7);
+    const ds = d.toISOString().slice(0,10);
+    push(ds, 'Ristorante', rist[w]);
+    if (w >= 2) push(ds, 'Farmacia', rist[w-2]); // stessa forma, +2 settimane
+  }
+  const links = buildCausalGraph(allTx, REF2, { maxLag: 3, minWeeks: 6, minR: 0.5 });
+  const lagged = links.find(l => l.from === 'Ristorante' && l.to === 'Farmacia' && l.lagWeeks >= 1);
+  assert.ok(lagged, 'legame ritardato Ristorante→Farmacia non trovato');
+});
+
+test('explainChain: narrazione "se A allora B, e forse C" col caveat', () => {
+  const links = [
+    { from: 'A', to: 'B', lagWeeks: 0, r: 0.9, samples: 20, direction: 'insieme' },
+    { from: 'B', to: 'C', lagWeeks: 1, r: 0.7, samples: 20, direction: 'settimana dopo' },
+  ];
+  const { text, steps } = explainChain(links, 'A', 50);
+  assert.ok(steps.length >= 1);
+  assert.ok(/correlazione/i.test(text)); // caveat presente
+  assert.ok(/Se A sale/i.test(text));
 });

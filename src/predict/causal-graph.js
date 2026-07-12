@@ -69,10 +69,16 @@ export function buildCausalGraph(allTx, referenceDate = new Date(), opts = {}) {
   const minR = opts.minR ?? 0.5;
   const minWeeks = opts.minWeeks ?? 8;
   const weeks = opts.weeks ?? 26;
+  // Lag VARIABILE (W4): scansiona i ritardi 1..maxLag e tiene il più forte per
+  // coppia direzionale — cattura effetti differiti ("una spesa oggi si riflette
+  // sul risparmio fra N settimane"). Default 1 = comportamento storico invariato.
+  const maxLag = Math.max(1, opts.maxLag ?? 1);
 
   const series = buildCategorySeries(allTx, referenceDate, weeks);
   const cats = Object.keys(series).filter(c => series[c].filter(v => v > 0).length >= Math.min(4, minWeeks / 2));
   const links = [];
+
+  const lagLabel = (n) => n === 0 ? 'insieme' : n === 1 ? 'settimana dopo' : `dopo ${n} settimane`;
 
   for (const a of cats) {
     for (const b of cats) {
@@ -88,10 +94,18 @@ export function buildCausalGraph(allTx, referenceDate = new Date(), opts = {}) {
           links.push({ from: a, to: b, lagWeeks: 0, r: +r0.toFixed(3), samples: da.length, direction: 'insieme' });
         }
       }
-      // lag 1: Δa di questa settimana ↔ Δb della settimana dopo (direzionale)
-      const r1 = pearson(da.slice(0, -1), db.slice(1));
-      if (r1 !== null && Math.abs(r1) >= minR) {
-        links.push({ from: a, to: b, lagWeeks: 1, r: +r1.toFixed(3), samples: da.length - 1, direction: 'settimana dopo' });
+      // lag 1..maxLag direzionale: Δa ↔ Δb spostata di L settimane. Tiene solo
+      // il ritardo con |r| massimo per la coppia (a→b), non tutti.
+      let bestLag = null;
+      for (let L = 1; L <= maxLag; L++) {
+        if (da.length - L < 3) break;
+        const rL = pearson(da.slice(0, -L), db.slice(L));
+        if (rL !== null && Math.abs(rL) >= minR && (!bestLag || Math.abs(rL) > Math.abs(bestLag.r))) {
+          bestLag = { r: rL, lagWeeks: L, samples: da.length - L };
+        }
+      }
+      if (bestLag) {
+        links.push({ from: a, to: b, lagWeeks: bestLag.lagWeeks, r: +bestLag.r.toFixed(3), samples: bestLag.samples, direction: lagLabel(bestLag.lagWeeks) });
       }
     }
   }
@@ -126,4 +140,42 @@ export function propagateImpact(links, catId, deltaPct, opts = {}) {
 
   walk(catId, deltaPct, [catId], 1, 0);
   return Array.from(effects.values()).sort((a, b) => Math.abs(b.expectedPct) - Math.abs(a.expectedPct));
+}
+
+// Narrazione a catena spiegabile (W4): "se A allora B, e forse C/D" con
+// confidenza ONESTA per ciascun effetto e il caveat correlazione≠causalità.
+// È il ragionamento causale richiesto ("se succede A potrebbe muoversi B e C,
+// e forse anche D"), ma etichettato per forza reale del legame — mai una
+// certezza spacciata. Ritorna { text, steps } dove steps ha category, path,
+// lagWeeks, strength ('forte'|'probabile'|'possibile'), expectedPct.
+export function explainChain(links, catId, deltaPct, opts = {}) {
+  const effects = propagateImpact(links, catId, deltaPct, opts);
+  const bucket = (s) => s >= 0.75 ? 'forte' : s >= 0.6 ? 'probabile' : 'possibile';
+  const lagPhrase = (n) => n === 0 ? 'nella stessa settimana' : n === 1 ? 'la settimana dopo' : `dopo circa ${n} settimane`;
+
+  const steps = effects.map(e => {
+    const strength = deltaPct !== 0 ? Math.abs(e.expectedPct / deltaPct) : 0; // prodotto degli r lungo il percorso
+    return {
+      category: e.category,
+      path: e.path,
+      lagWeeks: e.lagWeeks,
+      expectedPct: e.expectedPct,
+      strength: bucket(Math.min(1, strength)),
+      strengthValue: +Math.min(1, strength).toFixed(2),
+    };
+  });
+
+  if (!steps.length) {
+    return { text: `Nei tuoi dati non emergono effetti a catena affidabili muovendo ${catId}.`, steps: [] };
+  }
+
+  const dir = deltaPct >= 0 ? 'sale' : 'scende';
+  const forti = steps.filter(s => s.strength !== 'possibile');
+  const forse = steps.filter(s => s.strength === 'possibile');
+  const say = (s) => `${s.category} (${s.strength}, ${lagPhrase(s.lagWeeks)}, ~${s.expectedPct > 0 ? '+' : ''}${s.expectedPct}%)`;
+
+  let text = `Se ${catId} ${dir} del ${Math.abs(deltaPct)}%: probabilmente si muove anche ${forti.map(say).join('; ')}`;
+  if (forse.length) text += `; e forse ${forse.map(say).join('; ')}`;
+  text += '. Nota: è co-variazione osservata nei tuoi dati (correlazione), non una causalità certa.';
+  return { text, steps };
 }
