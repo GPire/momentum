@@ -95,3 +95,15 @@ Fuso il branch v3 (adaptive-runtime) con main (M1-M4) senza perdere nulla. **293
 - **Sparse-MoE reale in produzione** (`src/device/adaptive-runtime.js` cablato in orchestrator): il budget di esperti per tier decide CHI vota — tier minimo solo Nano, salendo si sbloccano Meso e DCGN. Meno calcolo su hardware debole, mai crash. + self-tuning sotto throttling (riduce esperti se rallenta, target 60ms).
 - `npm run bench:adaptive`: dimostra sparse-MoE per tier + self-tuning.
 - Tutto il resto di v7.0 preservato (DCGN online, reasoning 12/12, layer investimenti, confronto onesto).
+
+## 🚀 MOMENTUM v9 (2026-07-12) — NeuroSym + dati reali + saggezza investitori
+**321 test verdi.** Salto v9 (parziale, in corso):
+- **NeuroSym** (`src/ai/neurosym.js` + NEUROSYM.md): motore AI unificato — un cervello, un'API, spiegazione tracciabile. Onesto: no param-count inventati, no "batte GPT".
+- **Dati mercato reali gratuiti** (`market-data.js`): stock/crypto, resiliente a CORS/offline (fallback multi-endpoint → CSV → cache).
+- **Import + analisi portafoglio reale** (`portfolio-import.js`): P/L, allocazione, rischio, fattori, consigli Buffett/Graham/Dalio.
+- **Saggezza investitori**: aggiunto Soros (reflexivity, 8° fattore) + evoluzione per-utente delle strategie (arbitro personalizzato).
+- **Partita IVA** (`tax.js`): accantonamento fiscale automatico (forfettario/startup/ordinario). Card UI verificata.
+- **Fix bug bloccante**: onboarding "Consacra" su iOS (Pointer Events + touch-action:none, no long-press selection).
+- **Onboarding utile**: le domande iniziali ora parametrizzano il motore investimenti (quota investibile, fondo emergenza, riskFloor).
+- **Readiness grande modello** (`expert-adapter.js`): slot pluggable per un modello compresso futuro (PrismML-style), oggi vuoto e dichiarato tale.
+- RESTANO (prossimo batch): voice chatbot NL IT/EN, sync multi-device cifrato, PDF potenziato, INT4, public-bench Banking77, riaddestramento modelli.
