@@ -2,6 +2,7 @@ import { SCHEMA_VERSION, DEFAULT_CATEGORIES, ALL_CATS } from './constants.js';
 import { simpleHash } from './utils.js';
 import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
+import { mergeTransactions, reconcileHead } from '../mesh/sync.js';
 
 // ==========================================
 // MIGRAZIONI DI SCHEMA — sicurezza dati tra versioni dell'app
@@ -201,6 +202,18 @@ const VaultDAO = {
       this.state.transactions[month] = this.state.transactions[month].filter(t => t.id !== id);
       this.save();
     }
+  },
+
+  // Applica un merge di sync differenziale (src/mesh/sync.js): unisce le
+  // transazioni ricevute da un device fidato senza toccare quelle esistenti
+  // (hash chain intatta) e riallinea la testa della catena. Ritorna quante
+  // ne sono state aggiunte. Usato dalla mesh al pairing e per il recupero.
+  applySyncMerge(incomingByMonth) {
+    const { merged, added } = mergeTransactions(this.state.transactions, incomingByMonth);
+    this.state.transactions = merged;
+    this.state.lastHash = reconcileHead(merged);
+    if (added > 0) this.save();
+    return added;
   }
 };
 

@@ -198,9 +198,31 @@ class MeshNode {
         this._relayToTarget(msg.targetId, msg);
       } else if (msg.type === 'relay_answer') {
         this._relayToTarget(msg.targetId, msg);
+      } else if (msg.type === 'sync_digest') {
+        // Il peer manda il suo digest → gli rispondo con le SOLE tx mancanti.
+        this._handleSyncDigest(peerId, msg.digest);
+      } else if (msg.type === 'sync_txs') {
+        // Ricevo le tx mancanti → merge deterministico nel vault.
+        const added = this.onSyncReceived ? this.onSyncReceived(msg.txs) : 0;
+        if (added > 0) console.log(`Sync: ${added} transazioni ricevute e unite da un device fidato.`);
       }
     };
     channel.onclose = () => this.peers.delete(peerId);
+  }
+
+  // Avvia il sync differenziale verso un peer: gli mando il MIO digest, lui
+  // mi risponderà con ciò che mi manca (e viceversa). Scambio simmetrico.
+  requestSync(peerId) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel.readyState !== 'open' || !this.getSyncDigest) return;
+    entry.channel.send(JSON.stringify({ type: 'sync_digest', digest: this.getSyncDigest() }));
+  }
+
+  _handleSyncDigest(peerId, peerDigest) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel.readyState !== 'open' || !this.getMissingForPeer) return;
+    const txs = this.getMissingForPeer(peerDigest); // { month: [tx…] } solo i delta
+    if (Object.keys(txs).length) entry.channel.send(JSON.stringify({ type: 'sync_txs', txs }));
   }
 
   async _handleRemoteWeights(peerId, weights) {

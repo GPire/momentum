@@ -22,6 +22,7 @@ import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
+import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
 import { encryptBackup, decryptBackup } from './core/backup.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handlePDFUpload } from './import/pdf-parser.js';
@@ -2206,9 +2207,20 @@ function initMomentumRealAI() {
     // learn() dell'orchestratore chiama già mesh.broadcastLearning() — quindi
     // ogni apprendimento locale si propaga da solo ai dispositivi collegati.
     momentumMeshNode = new MeshNode(undefined, createNexusMeshMind(momentumOrchestrator, VaultDAO));
+    // Sync differenziale dei DATI tra device fidati (src/mesh/sync.js):
+    // callback che la mesh usa per scambiare digest→delta e per il merge.
+    momentumMeshNode.getSyncDigest = () => computeSyncDigest(VaultDAO.state.transactions);
+    momentumMeshNode.getMissingForPeer = (peerDigest) => transactionsMissingFromPeer(VaultDAO.state.transactions, peerDigest);
+    momentumMeshNode.onSyncReceived = (txs) => {
+      const added = VaultDAO.applySyncMerge(txs);
+      if (added > 0) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); showToast(`${added} transazioni sincronizzate da un tuo dispositivo.`, 'success'); }
+      return added;
+    };
     momentumMeshNode.onPeerConnected = () => {
       renderMeshStatus();
-      showToast('Dispositivo collegato: le due AI ora imparano insieme.', 'success');
+      showToast('Dispositivo collegato: dati e AI ora si sincronizzano.', 'success');
+      // sync automatico al pairing: scambio simmetrico dei soli delta
+      for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.requestSync(pid);
     };
     momentumMeshNode.onGradientReceived = (peerId, stats) => {
       // Registro di integrità (src/mesh/update-ledger.js): ogni merge, accettato

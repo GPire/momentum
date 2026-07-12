@@ -107,3 +107,6 @@ Fuso il branch v3 (adaptive-runtime) con main (M1-M4) senza perdere nulla. **293
 - **Onboarding utile**: le domande iniziali ora parametrizzano il motore investimenti (quota investibile, fondo emergenza, riskFloor).
 - **Readiness grande modello** (`expert-adapter.js`): slot pluggable per un modello compresso futuro (PrismML-style), oggi vuoto e dichiarato tale.
 - RESTANO (prossimo batch): voice chatbot NL IT/EN, sync multi-device cifrato, PDF potenziato, INT4, public-bench Banking77, riaddestramento modelli.
+
+## Sync multi-dispositivo (2026-07-12) — la paura "perdo i dati" risolta
+`src/mesh/sync.js` (8 test) + `VaultDAO.applySyncMerge` + mesh cablata: sync differenziale tra device fidati senza server. Ottimizzato (scambia digest→solo delta), deterministico/CRDT-like (A∪B=B∪A, converge), integro (mai riscrive amount/category/hash → hash chain intatta), recupero da perdita (merge da vuoto = ripristino completo). Auto-sync al pairing. 337 test.
