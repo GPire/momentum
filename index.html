@@ -549,6 +549,15 @@
                     </div>
                  </div>
 
+                 <!-- Partita IVA (src/predict/tax.js): accantonamento fiscale -->
+                 <div class="card p-6 hidden" id="tax-card">
+                    <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--red)] mb-1">Tasse da parte (Partita IVA)</h3>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)] mb-3">Su ogni incasso, quanto mettere via per fisco e contributi — il tuo vero disponibile</p>
+                    <p id="tax-setaside" class="text-2xl font-black font-mono text-[var(--red)] mb-1">—</p>
+                    <p id="tax-note" class="text-[11px] text-slate-300"></p>
+                    <p class="text-[9px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Non è consulenza fiscale: stime su aliquote dichiarate. Verifica col tuo commercialista.</p>
+                 </div>
+
                  <!-- Investimenti (src/alpha/): quanto puoi investire + regime -->
                  <div class="card p-6" id="invest-card">
                     <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--gold)] mb-1">Investimenti</h3>

@@ -11,6 +11,7 @@ import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
+import { taxSetAsideForPeriod } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
@@ -1152,7 +1153,24 @@ const renderAnalysis = (opts = {}) => {
   // il forecast worker la ri-renderizza con il livello Holt-Winters vero.
   renderRadarAlerts(k, budgetLimit, window.__hwDailyLevel ?? null);
   renderInvestments();
+  renderTax(k);
 };
+
+// Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
+// abilitato il regime P.IVA (VaultDAO.state.taxRegime) o ha entrate rilevanti.
+function renderTax(monthK) {
+  const card = $('#tax-card'), setEl = $('#tax-setaside'), noteEl = $('#tax-note');
+  if (!card) return;
+  const regime = VaultDAO.state.taxRegime;
+  const monthTxs = VaultDAO.state.transactions[monthK] || [];
+  const hasIncome = monthTxs.some(t => t.type === 'entrata');
+  if (!regime || !hasIncome) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const r = taxSetAsideForPeriod(monthTxs, { regime });
+  setEl.textContent = formatMoney(r.daAccantonare);
+  noteEl.textContent = r.note;
+}
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); renderAnalysis(); };
 
 // Layer investimenti (src/alpha/): quanto investire (bridge, fondo emergenza
 // prima) + regime di mercato se l'utente ha fornito una serie prezzi.
