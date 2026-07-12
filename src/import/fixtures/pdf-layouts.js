@@ -62,3 +62,25 @@ export function saldoColumnLayout() {
     { text: '08/06/2026', x: 40, y: 700 }, { text: 'Bonifico ricevuto', x: 140, y: 700 }, { text: '300,00', x: 460, y: 700 }, { text: '1.275,00', x: 540, y: 700 },
   ];
 }
+
+// Estratto conto SPAGNOLO (BBVA/Santander-style): Fecha | Concepto | Cargo | Abono
+export function spanishLayout() {
+  return [
+    { text: 'Fecha', x: 40, y: 750 }, { text: 'Concepto', x: 140, y: 750 },
+    { text: 'Cargo', x: 400, y: 750 }, { text: 'Abono', x: 480, y: 750 },
+
+    { text: '02/06/2026', x: 40, y: 720 }, { text: 'COMPRA MERCADONA', x: 140, y: 720 }, { text: '45,80', x: 400, y: 720 },
+    { text: '05/06/2026', x: 40, y: 700 }, { text: 'NOMINA EMPRESA SL', x: 140, y: 700 }, { text: '1.850,00', x: 480, y: 700 },
+  ];
+}
+
+// Estratto conto TEDESCO (Sparkasse-style): Datum | Verwendungszweck | Soll | Haben
+export function germanLayout() {
+  return [
+    { text: 'Datum', x: 40, y: 750 }, { text: 'Verwendungszweck', x: 140, y: 750 },
+    { text: 'Soll', x: 400, y: 750 }, { text: 'Haben', x: 480, y: 750 },
+
+    { text: '02.06.2026', x: 40, y: 720 }, { text: 'EDEKA MARKT', x: 140, y: 720 }, { text: '32,50', x: 400, y: 720 },
+    { text: '05.06.2026', x: 40, y: 700 }, { text: 'GEHALT FIRMA GMBH', x: 140, y: 700 }, { text: '2.100,00', x: 480, y: 700 },
+  ];
+}

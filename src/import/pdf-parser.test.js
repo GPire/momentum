@@ -93,3 +93,22 @@ test('parseCellAmount: formati IT/US e segni invariati', () => {
   assert.equal(parseCellAmount('-32,90'), -32.9);
   assert.equal(parseCellAmount('1.500'), 1500);
 });
+
+test('estratto SPAGNOLO (Cargo/Abono): 2 transazioni, verso corretto', async () => {
+  const { spanishLayout } = await import('./fixtures/pdf-layouts.js');
+  const txs = extractTransactionsFromItems(spanishLayout());
+  assert.equal(txs.length, 2);
+  assert.equal(txs[0].type, 'uscita'); // Cargo = uscita
+  assert.equal(txs[0].amount, 45.80);
+  assert.equal(txs[1].type, 'entrata'); // Abono = entrata (nomina)
+  assert.equal(txs[1].amount, 1850);
+});
+
+test('estratto TEDESCO (Soll/Haben): 2 transazioni, verso corretto', async () => {
+  const { germanLayout } = await import('./fixtures/pdf-layouts.js');
+  const txs = extractTransactionsFromItems(germanLayout());
+  assert.equal(txs.length, 2);
+  assert.equal(txs[0].type, 'uscita'); // Soll = dare/uscita
+  assert.equal(txs[1].type, 'entrata'); // Haben = avere/entrata (Gehalt)
+  assert.equal(txs[1].amount, 2100);
+});

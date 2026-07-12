@@ -380,14 +380,16 @@ const parseCellAmount = (text) => {
 // "saldo"/"balance" NON stanno più in expense (bug reale: la colonna del
 // saldo progressivo veniva importata come spese) — sono una colonna da
 // riconoscere e IGNORARE esplicitamente (chiave `ignore`).
+// Multilingua (espansione EU): IT + EN + ES + FR + DE. Estratti conto di
+// banche spagnole/francesi/tedesche usano header nella loro lingua.
 const COLUMN_KEYWORDS = {
-  date: /(data|valuta|date|booking)/i,
-  desc: /(descrizione|causale|operazione|dettagli|note|description|reference|details|payee)/i,
+  date: /(data|valuta|date|booking|fecha|datum|buchung)/i,
+  desc: /(descrizione|causale|operazione|dettagli|note|description|reference|details|payee|concepto|libelle|libellé|verwendungszweck|buchungstext|beschreibung)/i,
   // temi, non parole intere: gli header reali usano spesso i plurali
   // ("Addebiti"/"Accrediti" su Intesa) che il singolare non matchava
-  expense: /(uscit|addebit|importo|ammontare|valore|totale|debit|amount|money\s*out|paid\s*out)/i,
-  income: /(entrat|accredit|credit|money\s*in|paid\s*in)/i,
-  ignore: /(saldo|balance)/i
+  expense: /(uscit|addebit|importo|ammontare|valore|totale|debit|amount|money\s*out|paid\s*out|cargo|adeudo|débit|debit|soll|belastung|ausgang)/i,
+  income: /(entrat|accredit|credit|money\s*in|paid\s*in|abono|ingreso|crédit|haben|gutschrift|eingang)/i,
+  ignore: /(saldo|balance|solde|kontostand)/i
 };
 
 
