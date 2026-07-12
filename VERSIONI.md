@@ -110,3 +110,9 @@ Fuso il branch v3 (adaptive-runtime) con main (M1-M4) senza perdere nulla. **293
 
 ## Sync multi-dispositivo (2026-07-12) — la paura "perdo i dati" risolta
 `src/mesh/sync.js` (8 test) + `VaultDAO.applySyncMerge` + mesh cablata: sync differenziale tra device fidati senza server. Ottimizzato (scambia digest→solo delta), deterministico/CRDT-like (A∪B=B∪A, converge), integro (mai riscrive amount/category/hash → hash chain intatta), recupero da perdita (merge da vuoto = ripristino completo). Auto-sync al pairing. 337 test.
+
+## MOMENTUM v9.2 (2026-07-12) — espansione europea a 5 lingue
+- **Chatbot NL completo IT/EN/ES/FR/DE** (`src/ai/chat.js` + `i18n/detect.js`): rileva la lingua e risponde in quella, verificato in browser. Apre Germania/Francia (fintech ricco) oltre a Spagna/LatAm.
+- **PDF bancario multilingua**: header ES/FR/DE (Cargo/Abono, Soll/Haben, Débit/Crédit), fixture banche spagnola/tedesca, date DD.MM.YYYY. Estratti EU importabili.
+- **Dizionario esercenti EU**: Mercadona/Dia/Edeka/Rewe/Tesco/Carrefour... 342 test.
+- Roadmap: localizzazione note invest/tax in EN/ES/FR/DE; PT/Brasile.
