@@ -1172,7 +1172,9 @@ function renderInvestments() {
   const avgExp = keys.reduce((s, kk) => s + months[kk].out, 0) / n;
   const nowMk = monthKey(new Date());
   const cur = months[nowMk] || { inc: 0, out: 0 };
-  const r = investableSurplus({ netMonthlyFlow: cur.inc - cur.out, avgMonthlyExpense: avgExp, currentEmergencyFund: invested, emergencyMonths: 6 });
+  // Preferenze dal profilo di onboarding (le domande iniziali che ora servono):
+  const prefs = VaultDAO.state.investmentPrefs || {};
+  const r = investableSurplus({ netMonthlyFlow: cur.inc - cur.out, avgMonthlyExpense: avgExp, currentEmergencyFund: invested, emergencyMonths: prefs.emergencyMonths ?? 6, investFraction: prefs.investFraction ?? 0.7 });
   surplusEl.textContent = r.investable > 0 ? formatMoney(r.investable) : (r.toEmergencyFund ? formatMoney(r.toEmergencyFund) : '0€');
   noteEl.textContent = r.note;
   regimeEl.textContent = '';
@@ -1648,7 +1650,19 @@ const endGenesis = () => {
     } else {
       VaultDAO.state.monthlyBudget = 1500;
     }
-    
+
+    // Le domande iniziali ora SERVONO davvero: il profilo rischio+orizzonte
+    // parametrizza il motore investimenti (bridge/arbiter). Un profilo
+    // aggressivo/lungo → più quota investibile, fondo emergenza più snello,
+    // riskFloor più basso; conservativo/breve → cuscinetto più grande, quota
+    // bassa. Campo additivo, usato da renderInvestments() e dai consigli.
+    const risk = VaultDAO.state.onboardingProfile.riskProfile;
+    const hz = VaultDAO.state.onboardingProfile.horizon;
+    const investFraction = risk === 'aggressivo' ? 0.85 : risk === 'conservativo' ? 0.4 : 0.65;
+    const emergencyMonths = risk === 'conservativo' ? 9 : risk === 'aggressivo' ? 4 : 6;
+    const riskFloor = risk === 'conservativo' ? 0.35 : risk === 'aggressivo' ? 0.15 : 0.25;
+    VaultDAO.state.investmentPrefs = { investFraction, emergencyMonths, riskFloor, horizon: hz };
+
     // Train HBNSN with initial profile weights (MASE prior seeding)
     NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile);
     
