@@ -80,3 +80,25 @@ test('chat: safe-to-spend in FR e DE', () => {
   assert.equal(chat('combien puis-je dépenser aujourd\'hui?', CTX).intent, 'safeToSpend');
   assert.equal(chat('wie viel kann ich heute ausgeben?', CTX).intent, 'safeToSpend');
 });
+
+test('chat: portoghese completo → risposta in PT', () => {
+  const r = chat('quanto gastei este mês?', CTX);
+  assert.equal(r.lang, 'pt');
+  assert.equal(r.intent, 'spent');
+  assert.ok(/gastou/.test(r.answer));
+});
+
+test('chat: invest localizzato (non più italiano) in EN/ES', () => {
+  const en = chat('how much can I invest?', CTX);
+  assert.equal(en.lang, 'en');
+  assert.ok(!/avanza|fondo d'emergenza/.test(en.answer)); // niente italiano
+  const es = chat('¿cuánto puedo invertir?', CTX);
+  assert.equal(es.lang, 'es');
+  assert.ok(/presupuesto|emergencia|invertir/.test(es.answer));
+});
+
+test('chat: tax localizzato in EN', () => {
+  const en = chat('how much for taxes?', { ...CTX, taxRegime: 'forfettario' });
+  assert.equal(en.lang, 'en');
+  assert.ok(!/incassati|metti da parte/.test(en.answer)); // niente italiano
+});

@@ -17,6 +17,7 @@ const MARKERS = {
   es: ['cuánto', 'cuanto', 'puedo', 'gastado', 'gastar', 'mes', 'dinero', 'este', 'por qué', 'cómo', 'cuándo', 'ahorro', 'invertir', 'impuestos', 'mis'],
   fr: ['combien', 'puis', 'dépensé', 'dépenser', 'mois', 'argent', 'pourquoi', 'comment', 'quand', 'épargne', 'investir', 'impôts', 'mes'],
   de: ['wie', 'viel', 'kann', 'ausgegeben', 'monat', 'geld', 'warum', 'wann', 'sparen', 'investieren', 'steuern', 'diesen', 'meine'],
+  pt: ['quanto', 'posso', 'gastei', 'gastar', 'mês', 'mes', 'dinheiro', 'este', 'porquê', 'porque', 'como', 'quando', 'poupança', 'poupar', 'investir', 'impostos', 'meus'],
 };
 
 // Ritorna { lang, confidence, scores }. Default 'it' se nessun segnale
@@ -42,6 +43,6 @@ export function detectLanguage(text) {
 
 // Lingue con supporto COMPLETO del chatbot (risposte localizzate) vs
 // rilevate ma non ancora complete (fallback a EN).
-export const SUPPORTED = ['it', 'en', 'es', 'fr', 'de'];
-export const DETECTED = ['it', 'en', 'es', 'fr', 'de'];
+export const SUPPORTED = ['it', 'en', 'es', 'fr', 'de', 'pt'];
+export const DETECTED = ['it', 'en', 'es', 'fr', 'de', 'pt'];
 export function isSupported(lang) { return SUPPORTED.includes(lang); }

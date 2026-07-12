@@ -56,6 +56,12 @@ INTENTS.savings.fr = /(combien j.?ai économisé|épargne|mis de côté)/;
 INTENTS.savings.de = /(wie viel habe ich gespart|ersparnis|zurückgelegt)/;
 INTENTS.invest.fr = /(combien puis-je investir|puis-je investir)/;
 INTENTS.invest.de = /(wie viel kann ich investieren|kann ich investieren)/;
+// PT/Brasile (6ª lingua)
+INTENTS.spent.pt = /(quanto (eu )?gastei|quanto (eu )?gasto|meus gastos)/;
+INTENTS.safeToSpend.pt = /(quanto posso gastar|orçamento de hoje|quanto (me )?resta hoje)/;
+INTENTS.savings.pt = /(quanto (eu )?poupei|poupança|guardei)/;
+INTENTS.invest.pt = /(quanto posso investir|posso investir)/;
+INTENTS.tax.pt = /(quanto para impostos|separar para impostos|impostos|autônomo|mei)/;
 
 // Frasi di risposta localizzate (template; i numeri arrivano dal motore).
 const L = {
@@ -109,6 +115,37 @@ const L = {
     noBudget: () => `Lege zuerst ein Monatsbudget fest, dann sage ich dir, wie viel du ausgeben kannst.`,
     unknown: () => `Das habe ich nicht verstanden. Versuche: „Wie viel habe ich diesen Monat ausgegeben?", „Wie viel kann ich investieren?", „Wie viel für Steuern?".`,
   },
+  pt: {
+    spent: (v) => `Este mês você gastou ${v}.`,
+    safe: (v, d) => `Hoje você pode gastar ${v} (${d} restantes para a semana).`,
+    safeOver: () => `Melhor não gastar hoje: esta semana você já passou do orçamento.`,
+    savings: (v) => `Este mês você guardou ${v}.`,
+    invest: (note) => note,
+    tax: (note) => note,
+    noBudget: () => `Primeiro defina um orçamento mensal e eu digo quanto você pode gastar.`,
+    unknown: () => `Não entendi. Tente: "quanto gastei este mês?", "quanto posso investir?", "quanto para impostos?".`,
+  },
+};
+
+// Tabelle localizzate per invest/tax: prima tornavano la nota italiana anche
+// in EN/ES/FR/DE. Ora i NUMERI calcolati dai motori vengono formattati nella
+// lingua rilevata (6 lingue). Ogni consiglio d'investimento è fondato (W2):
+// il "prima il fondo d'emergenza" è la regola emergency-fund-first citabile.
+const INV = {
+  it: { neg: 'Questo mese non avanza nulla: prima il budget.', build: (t, f) => `Prima completa il fondo d'emergenza (${t}): questo mese ${f} lì.`, ok: (v, p) => `Fondo d'emergenza pieno: puoi investire ~${v} (${p}% dell'avanzo).` },
+  en: { neg: 'Nothing left this month: budget first.', build: (t, f) => `Complete your emergency fund first (${t}): ${f} there this month.`, ok: (v, p) => `Emergency fund full: you can invest ~${v} (${p}% of the surplus).` },
+  es: { neg: 'Este mes no sobra nada: primero el presupuesto.', build: (t, f) => `Primero completa el fondo de emergencia (${t}): este mes ${f} ahí.`, ok: (v, p) => `Fondo de emergencia completo: puedes invertir ~${v} (${p}% del excedente).` },
+  fr: { neg: "Rien ne reste ce mois-ci : le budget d'abord.", build: (t, f) => `Complète d'abord ton fonds d'urgence (${t}) : ${f} ce mois-ci.`, ok: (v, p) => `Fonds d'urgence plein : tu peux investir ~${v} (${p}% du surplus).` },
+  de: { neg: 'Diesen Monat bleibt nichts übrig: erst das Budget.', build: (t, f) => `Fülle zuerst den Notgroschen (${t}): diesen Monat ${f} dorthin.`, ok: (v, p) => `Notgroschen voll: du kannst ~${v} investieren (${p}% des Überschusses).` },
+  pt: { neg: 'Este mês não sobra nada: primeiro o orçamento.', build: (t, f) => `Complete primeiro a reserva de emergência (${t}): este mês ${f} ali.`, ok: (v, p) => `Reserva de emergência cheia: você pode investir ~${v} (${p}% do excedente).` },
+};
+const TAX = {
+  it: { none: 'Nessun incasso in questo periodo.', some: (g, s, d) => `Su ${g} incassati metti da parte ~${s} per il fisco: il tuo vero disponibile è ${d}.` },
+  en: { none: 'No income recorded this period.', some: (g, s, d) => `On ${g} received, set aside ~${s} for tax: your real available is ${d}.` },
+  es: { none: 'Ningún ingreso en este periodo.', some: (g, s, d) => `Sobre ${g} ingresados aparta ~${s} para impuestos: tu disponible real es ${d}.` },
+  fr: { none: 'Aucun revenu sur cette période.', some: (g, s, d) => `Sur ${g} encaissés, mets ~${s} de côté pour les impôts : ton disponible réel est ${d}.` },
+  de: { none: 'Keine Einnahmen in diesem Zeitraum.', some: (g, s, d) => `Von ${g} Einnahmen lege ~${s} für Steuern zurück: real verfügbar sind ${d}.` },
+  pt: { none: 'Nenhuma receita neste período.', some: (g, s, d) => `De ${g} recebidos, separe ~${s} para impostos: seu disponível real é ${d}.` },
 };
 
 const fmt = n => `${(+n).toFixed(2).replace('.', ',')}€`;
@@ -166,11 +203,17 @@ export function chat(message, ctx = {}) {
     case 'invest': {
       const f = monthlyFinance(allTx, ref);
       const r = investableSurplus({ netMonthlyFlow: f.netMonthlyFlow, avgMonthlyExpense: f.avgMonthlyExpense, currentEmergencyFund: ctx.emergencyFund ?? f.invested });
-      answer = r.note; break; // bridge note (IT); localizzazione piena roadmap
+      const inv = INV[lang] || INV.en;
+      if (r.reason === 'flow-negative') answer = inv.neg;
+      else if (r.reason === 'building-emergency') answer = inv.build(fmt(r.targetEmergency), fmt(r.toEmergencyFund ?? 0));
+      else answer = inv.ok(fmt(r.investable), Math.round((r.investable / Math.max(1, f.netMonthlyFlow)) * 100));
+      break;
     }
     case 'tax': {
       const r = taxSetAsideForPeriod(monthTxs, { regime: ctx.taxRegime || 'forfettario' });
-      answer = r.note; break;
+      const tx = TAX[lang] || TAX.en;
+      answer = r.incassato > 0 ? tx.some(fmt(r.incassato), fmt(r.daAccantonare), fmt(r.disponibileReale)) : tx.none;
+      break;
     }
     default:
       answer = t.unknown();

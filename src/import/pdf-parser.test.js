@@ -112,3 +112,13 @@ test('estratto TEDESCO (Soll/Haben): 2 transazioni, verso corretto', async () =>
   assert.equal(txs[1].type, 'entrata'); // Haben = avere/entrata (Gehalt)
   assert.equal(txs[1].amount, 2100);
 });
+
+test('estratto BRASILE/PT (Débito/Crédito, Descrição): 2 transazioni, verso corretto', async () => {
+  const { brazilLayout } = await import('./fixtures/pdf-layouts.js');
+  const txs = extractTransactionsFromItems(brazilLayout());
+  assert.equal(txs.length, 2);
+  assert.equal(txs[0].type, 'uscita'); // Débito = uscita
+  assert.equal(txs[0].amount, 85.40);
+  assert.equal(txs[1].type, 'entrata'); // Crédito = entrata (salario)
+  assert.equal(txs[1].amount, 3200);
+});

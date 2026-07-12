@@ -29,6 +29,9 @@ const DICTIONARY = {
   edeka: 'spesa', rewe: 'spesa', aldi: 'spesa', kaufland: 'spesa', 'super u': 'spesa',
   intermarche: 'spesa', 'e leclerc': 'spesa', jumbo: 'spesa', albertheijn: 'spesa', tesco: 'spesa',
   sainsbury: 'spesa', asda: 'spesa', continente: 'spesa', pingo: 'spesa',
+  // Brasile/Portogallo (spesa)
+  extra: 'spesa', 'pao de acucar': 'spesa', assai: 'spesa', atacadao: 'spesa',
+  'mercado': 'spesa', mercearia: 'spesa', minipreco: 'spesa', 'pingo doce': 'spesa',
   // ristoranti
   mcdonald: 'ristoranti', mcdonalds: 'ristoranti', burger: 'ristoranti', kfc: 'ristoranti',
   ristorante: 'ristoranti', pizzeria: 'ristoranti', trattoria: 'ristoranti', osteria: 'ristoranti',

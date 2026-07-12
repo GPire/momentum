@@ -84,3 +84,14 @@ export function germanLayout() {
     { text: '05.06.2026', x: 40, y: 700 }, { text: 'GEHALT FIRMA GMBH', x: 140, y: 700 }, { text: '2.100,00', x: 480, y: 700 },
   ];
 }
+
+// Estratto conto BRASILIANO/PORTOGHESE: Data | Descrição | Débito | Crédito
+export function brazilLayout() {
+  return [
+    { text: 'Data', x: 40, y: 750 }, { text: 'Descrição', x: 140, y: 750 },
+    { text: 'Débito', x: 400, y: 750 }, { text: 'Crédito', x: 480, y: 750 },
+
+    { text: '02/06/2026', x: 40, y: 720 }, { text: 'COMPRA PAO DE ACUCAR', x: 140, y: 720 }, { text: '85,40', x: 400, y: 720 },
+    { text: '05/06/2026', x: 40, y: 700 }, { text: 'SALARIO EMPRESA LTDA', x: 140, y: 700 }, { text: '3.200,00', x: 480, y: 700 },
+  ];
+}

@@ -384,7 +384,7 @@ const parseCellAmount = (text) => {
 // banche spagnole/francesi/tedesche usano header nella loro lingua.
 const COLUMN_KEYWORDS = {
   date: /(data|valuta|date|booking|fecha|datum|buchung)/i,
-  desc: /(descrizione|causale|operazione|dettagli|note|description|reference|details|payee|concepto|libelle|libellé|verwendungszweck|buchungstext|beschreibung)/i,
+  desc: /(descrizione|causale|operazione|dettagli|note|description|reference|details|payee|concepto|libelle|libellé|verwendungszweck|buchungstext|beschreibung|descrição|descricao|histórico|historico)/i,
   // temi, non parole intere: gli header reali usano spesso i plurali
   // ("Addebiti"/"Accrediti" su Intesa) che il singolare non matchava
   expense: /(uscit|addebit|importo|ammontare|valore|totale|debit|amount|money\s*out|paid\s*out|cargo|adeudo|débit|debit|soll|belastung|ausgang)/i,
