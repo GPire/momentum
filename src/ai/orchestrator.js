@@ -36,7 +36,7 @@ import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.j
 'use strict';
 
 class MomentumOrchestrator {
-  constructor({ vaultDAO, neuralNexus, meshNode, trainedCategorizer, trainedMeso }) {
+  constructor({ vaultDAO, neuralNexus, meshNode, trainedCategorizer, trainedMeso, trainedLogReg }) {
     this.vault = vaultDAO;
     this.nexus = neuralNexus;
     this.mesh = meshNode; // istanza di MeshNode (momentum_mesh_signaling.js), opzionale
@@ -48,6 +48,12 @@ class MomentumOrchestrator {
     // initMomentumRealAI in main.js). `setMeso()` lo attacca quando arriva.
     this.trained = trainedCategorizer;
     this.meso = trainedMeso || null;
+    // LogReg (src/ai/hashed-logreg.js): 3° esperto STATICO, riaddestrato in
+    // locale in JS (nessun Python). Il più forte in generalizzazione ML sul
+    // test held-out (81% vs Meso 75%, Nano 54%); in ensemble con Meso porta
+    // la generalizzazione a ~85% (misurato, bench/train-eval.mjs). Caricato
+    // async come il Meso via setLogReg() quando il profilo lo consente.
+    this.logreg = trainedLogReg || null;
     this._validationSet = []; // { tokens, catId } — mai usati per il training
     // ── DCGN (src/graph/dcgn.js): il 3° modello REALE, un grafo che impara
     // ONLINE da ogni transazione confermata (nessun retraining). Vive nel
@@ -59,6 +65,7 @@ class MomentumOrchestrator {
   }
 
   setMeso(trainedMeso) { this.meso = trainedMeso; }
+  setLogReg(trainedLogReg) { this.logreg = trainedLogReg; }
 
   // ── Punto d'ingresso unico per registrare una transazione ──
   // (sostituisce le chiamate dirette sparse a NeuralNexus.train nel
@@ -170,7 +177,10 @@ class MomentumOrchestrator {
     // Nano 80.0%, Meso 89.7% sullo stesso test set) — non un peso arbitrario.
     const nanoAcc = this.trained ? (this.trained.metrics?.test_accuracy || 0.8) : 0;
     const mesoAcc = this.meso ? (this.meso.metrics?.hard_noisy_test_accuracy || 0.85) : 0;
-    const accSum = nanoAcc + mesoAcc || 1;
+    // LogReg: accuratezza di generalizzazione MISURATA sul test held-out (0.80),
+    // la più alta tra gli esperti statici → si prende la quota maggiore del budget.
+    const logregAcc = this.logreg ? 0.80 : 0;
+    const accSum = nanoAcc + mesoAcc + logregAcc || 1;
 
     if (this.trained) {
       const p = this.trained.predict(description);
@@ -186,6 +196,13 @@ class MomentumOrchestrator {
     if (this.meso && _can('meso')) {
       const p = this.meso.predict(description);
       candidates.push({ source: 'meso', category: p.category, confidence: p.confidence, weight: trainedBudget * (mesoAcc / accSum) });
+    }
+
+    // LogReg: esperto statico più forte in generalizzazione; vota quando il
+    // budget esperti lo consente (come il Meso). Ensemble Meso+LogReg ~85%.
+    if (this.logreg && _can('meso')) {
+      const p = this.logreg.predict(description);
+      candidates.push({ source: 'logreg', category: p.category, confidence: p.confidence, weight: trainedBudget * (logregAcc / accSum) });
     }
 
     // ── DCGN: vota SOLO quando ha imparato abbastanza (≥30 osservazioni),

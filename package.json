@@ -15,7 +15,9 @@
     "bench:alpha": "node bench/alpha-bench.mjs",
     "bench:reasoning": "node bench/reasoning-bench.mjs",
     "bench:adaptive": "node bench/adaptive-bench.mjs",
-    "bench:public": "node bench/public-bench.mjs"
+    "bench:public": "node bench/public-bench.mjs",
+    "train:eval": "node bench/train-eval.mjs",
+    "train:logreg": "node bench/train-logreg.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",

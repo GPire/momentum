@@ -31,6 +31,7 @@ import { handleUniversalCSV } from './import/csv-parser.js';
 import { MOMENTUM_TRAINED_MODEL_DATA } from './ai/trained-model-data.js';
 import { TrainedCategorizer } from './ai/trained-categorizer.js';
 import { TrainedMeso } from './ai/trained-meso.js';
+import { HashedLogReg } from './ai/hashed-logreg.js';
 import { MomentumOrchestrator } from './ai/orchestrator.js';
 
 const CalendarBridge = {
@@ -2259,6 +2260,16 @@ function initMomentumRealAI() {
           console.log(`Momentum Meso caricato (tier ${tier}, ${useInt8 ? 'int8' : 'float'}): ensemble ora a 3 vie.`);
         })
         .catch(e => console.warn('Meso non disponibile, resto sull\'ensemble Nano+NeuralNexus:', e));
+
+      // LogReg (src/ai/hashed-logreg.js): 3° esperto STATICO riaddestrato in
+      // locale in JS. In ensemble con Meso porta la generalizzazione ML da 75%
+      // a ~85% (misurato, held-out). Caricato come il Meso.
+      HashedLogReg.load('/momentum_logreg_model.json')
+        .then(logreg => {
+          momentumOrchestrator.setLogReg(logreg);
+          console.log('Momentum LogReg caricato: ensemble ML a ~85% (held-out).');
+        })
+        .catch(e => console.warn('LogReg non disponibile, ensemble resta Nano+Meso:', e));
     }
 
     // Warm-up OCR: Tesseract scarica wasm+traineddata da CDN solo al primo

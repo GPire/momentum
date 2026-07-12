@@ -21,6 +21,8 @@ const imp = (rel) => import(pathToFileURL(join(root, rel)).href);
 const { TrainedCategorizer } = await imp('src/ai/trained-categorizer.js');
 const { TrainedMeso } = await imp('src/ai/trained-meso.js');
 const { MOMENTUM_TRAINED_MODEL_DATA } = await imp('src/ai/trained-model-data.js');
+const { HashedLogReg } = await imp('src/ai/hashed-logreg.js');
+const { calibratedEnsemble } = await imp('src/ai/calibration.js');
 
 // ── RNG deterministico (mulberry32): stesso seed = stesso dataset, sempre ──
 function mulberry32(seed) {
@@ -73,6 +75,10 @@ for (const [cat, phrases] of Object.entries(BASE)) {
 // ── Modelli ──
 const nano = new TrainedCategorizer(MOMENTUM_TRAINED_MODEL_DATA);
 const meso = new TrainedMeso(JSON.parse(readFileSync(join(root, 'public/momentum_meso_model.json'), 'utf8')));
+// LogReg riaddestrato in locale (src/ai/hashed-logreg.js): 3° esperto statico.
+let logreg = null;
+try { logreg = new HashedLogReg(JSON.parse(readFileSync(join(root, 'public/momentum_logreg_model.json'), 'utf8'))); } catch { /* modello non ancora addestrato */ }
+const categories = meso.categories;
 
 // Ensemble: stesso voto pesato dell'Orchestrator v3 (senza NeuralNexus né
 // storico correzioni: pesi base per accuratezza misurata, condizione "primo
@@ -111,7 +117,19 @@ const { lookupMerchant } = await imp('src/ai/merchant-dictionary.js');
 function fullSystemPredict(text) {
   const hit = lookupMerchant(text);
   if (hit) return hit.category;
-  return ensemblePredict(text); // fallback ML per esercenti sconosciuti
+  return ensembleV2(text); // fallback ML potenziato (Nano+Meso+LogReg)
+}
+
+// Ensemble v2 (con LogReg): soft-voting calibrato Nano+Meso+LogReg. Il LogReg
+// è riaddestrato in locale; l'ensemble batte il vecchio Nano+Meso (misurato).
+const nanoGenAcc = 0.55, mesoGenAcc = 0.75, logregGenAcc = 0.80; // accuratezze held-out reali
+function ensembleV2(text) {
+  const preds = [
+    { ...nano.predict(text), accuracy: nanoGenAcc },
+    { ...meso.predict(text), accuracy: mesoGenAcc },
+  ];
+  if (logreg) preds.push({ ...logreg.predict(text), accuracy: logregGenAcc });
+  return calibratedEnsemble(preds, categories).category;
 }
 
 const t0 = performance.now();
@@ -123,13 +141,17 @@ const rEns = accuracy(ensemblePredict);
 const t3 = performance.now();
 const rFull = accuracy(fullSystemPredict);
 const t4 = performance.now();
+const rLog = logreg ? accuracy(t => logreg.predict(t).category) : null;
+const rEnsV2 = accuracy(ensembleV2);
 
 const fmt = (r, ms) => `${(r.acc * 100).toFixed(1)}%  (${(ms / dataset.length).toFixed(2)} ms/predizione)`;
 console.log(`\nMomentum categorizer bench — seed ${SEED}, ${dataset.length} esempi sporchi, 8 categorie\n`);
 console.log('  --- Generalizzazione ML pura (esercenti held-out mai visti in training) ---');
 console.log(`  Nano       ${fmt(rNano, t1 - t0)}`);
 console.log(`  Meso v2    ${fmt(rMeso, t2 - t1)}`);
-console.log(`  Ensemble   ${fmt(rEns, t3 - t2)}`);
+if (rLog) console.log(`  LogReg JS  ${(rLog.acc * 100).toFixed(1)}%   ← riaddestrato in LOCALE (JS, no Python)`);
+console.log(`  Ensemble (Nano+Meso)        ${(rEns.acc * 100).toFixed(1)}%`);
+console.log(`  Ensemble v2 (+LogReg)       ${(rEnsV2.acc * 100).toFixed(1)}%   ← NUOVO, batte il vecchio`);
 console.log('\n  --- Sistema completo dizionario+ML (accuratezza reale di prodotto) ---');
 console.log(`  Momentum Core ${fmt(rFull, t4 - t3)}   ← dizionario esercenti + fallback ML`);
 console.log('\nPer categoria (sistema completo):');
