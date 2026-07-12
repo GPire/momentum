@@ -14,7 +14,8 @@
     "bench:vs-llm": "node bench/vs-llm-bench.mjs",
     "bench:alpha": "node bench/alpha-bench.mjs",
     "bench:reasoning": "node bench/reasoning-bench.mjs",
-    "bench:adaptive": "node bench/adaptive-bench.mjs"
+    "bench:adaptive": "node bench/adaptive-bench.mjs",
+    "bench:public": "node bench/public-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",

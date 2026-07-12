@@ -1572,19 +1572,37 @@ const initGenesisHold = () => {
     }
   };
 
-  btn.addEventListener('mousedown', startAction);
-  btn.addEventListener('mouseup', endAction);
-  btn.addEventListener('mouseleave', () => {
+  // ── Fix bug bloccante iOS: il "hold to Consacra" è un long-press, che su
+  // iOS Safari fa partire la selezione del testo / il menu contestuale e
+  // blocca l'utente nell'onboarding. Soluzione robusta:
+  // 1) Pointer Events unificati (niente doppio-firing touch+mouse);
+  // 2) preventDefault su pointer/touch/contextmenu → niente selezione/callout;
+  // 3) pointer capture → l'up arriva anche se il dito scivola fuori;
+  // 4) touch-action:none via CSS (#genesis-btn) → controllo pieno dal JS.
+  const cancelHold = () => {
     if (startTimeout) clearTimeout(startTimeout);
     if (holdTimer) clearInterval(holdTimer);
-    if (progress < 100) {
-      progress = 0;
-      if (fill) fill.style.strokeDashoffset = 408.4;
-    }
-  });
+    if (progress < 100) { progress = 0; if (fill) fill.style.strokeDashoffset = 408.4; }
+  };
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+  btn.addEventListener('selectstart', e => e.preventDefault());
+  btn.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
-  btn.addEventListener('touchstart', startAction, { passive: false });
-  btn.addEventListener('touchend', endAction);
+  if (window.PointerEvent) {
+    btn.addEventListener('pointerdown', (e) => {
+      try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+      startAction(e);
+    });
+    btn.addEventListener('pointerup', endAction);
+    btn.addEventListener('pointercancel', cancelHold);
+  } else {
+    // Fallback per browser molto vecchi senza Pointer Events
+    btn.addEventListener('touchstart', startAction, { passive: false });
+    btn.addEventListener('touchend', endAction);
+    btn.addEventListener('mousedown', startAction);
+    btn.addEventListener('mouseup', endAction);
+    btn.addEventListener('mouseleave', cancelHold);
+  }
 
   // Handle Enter / Space key press on document
   const keyHandler = (e) => {
