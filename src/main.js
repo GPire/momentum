@@ -1549,6 +1549,7 @@ const initGenesisHold = () => {
   const btn = document.getElementById('genesis-btn');
   const fill = document.getElementById('genesis-ring-fill');
   if (!btn || !fill) return;
+  endGenesis._done = false; // nuovo onboarding (anche dopo un reset): riarma
 
   let holdTimer = null;
   let startTimeout = null;
@@ -1658,12 +1659,27 @@ const initGenesisHold = () => {
   };
   document.addEventListener('keydown', keyHandler);
 
+  // TAP UNIVERSALE A PROVA DI DEVICE: il `click` è l'evento più affidabile su
+  // ogni browser/OS (desktop, iOS, Android). Se il percorso pointer/hold non
+  // scatta (bug iOS segnalato: il tap non registrava e l'utente restava
+  // bloccato), il click GARANTISCE la consacrazione. endGenesis è idempotente,
+  // quindi non c'è doppia esecuzione col percorso hold.
   btn.addEventListener('click', (e) => {
     try { e.preventDefault(); } catch(err) {}
+    if (!endGenesis._done) {
+      if (fill) fill.style.strokeDashoffset = 0; // anello pieno immediato
+      haptic('medium');
+      endGenesis();
+    }
   });
 };
 
 const endGenesis = () => {
+  // Idempotente: qualunque percorso (hold, tap, click, tastiera) può chiamarla,
+  // ma la consacrazione avviene UNA sola volta — niente doppia esecuzione né
+  // conflitti tra pointer e click.
+  if (endGenesis._done) return;
+  endGenesis._done = true;
   try {
     haptic('heavy');
     VaultDAO.state.isFirstLaunch = false;
