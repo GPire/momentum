@@ -11,7 +11,7 @@
 'use strict';
 
 import { riskParityWeights, portfolioReturns, portfolioStats, covarianceMatrix } from './portfolio.js';
-import { riskScore, momentumScore } from './factors.js';
+import { riskScore, momentumScore, reflexivityScore } from './factors.js';
 import { detectRegime } from './regime.js';
 import { arbitrate } from './arbiter.js';
 
@@ -84,19 +84,29 @@ export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceB
   const proxy = rows.filter(r => r.series?.length > 25).sort((a, b) => b.series.length - a.series.length)[0];
   const regime = proxy ? detectRegime(proxy.series.map(x => x.close)) : { regime: 'neutral', explanation: 'Dati di prezzo insufficienti per il regime.' };
 
+  // Reflexivity (Soros) sull'asset con più momentum riflessivo: segnala i loop
+  // prezzo↔percezione (bolle in corso) tra le posizioni.
+  let reflexive = null;
+  for (const r of rows) {
+    if (!r.series || r.series.length < 20) continue;
+    const rx = reflexivityScore(r.series.map(x => x.close));
+    if (!reflexive || rx.score > reflexive.score) reflexive = { ticker: r.ticker, ...rx };
+  }
+
   // Consigli tracciabili alle strategie
   const advice = [];
   if (topWeight > 0.35) advice.push({ rule: 'Graham — margine di sicurezza', text: `Concentrazione alta: una posizione è il ${Math.round(topWeight * 100)}% del portafoglio. Valuta di diversificare per ridurre il rischio idiosincratico.` });
   if ((allocation.crypto || 0) > 0.3) advice.push({ rule: 'Dalio — bilanciamento del rischio', text: `Crypto al ${Math.round((allocation.crypto) * 100)}%: classe ad alta volatilità. Un peso così alto aumenta il rischio di coda.` });
   if (stats && stats.sharpe < 0.3) advice.push({ rule: 'Bogle/Dalio — rischio/rendimento', text: `Sharpe storico basso (${stats.sharpe}): il portafoglio rende poco per il rischio che corre. Il risk-parity qui sotto tende a migliorarlo.` });
   if (rebalance && rebalance[0] && Math.abs(rebalance[0].delta) > 0.1) advice.push({ rule: 'Dalio — risk parity', text: `Ribilanciamento suggerito: porta ${rebalance[0].ticker} dal ${Math.round(rebalance[0].current * 100)}% verso il ${Math.round(rebalance[0].target * 100)}% (contributo di rischio più equo).` });
+  if (reflexive && reflexive.score > 0.66) advice.push({ rule: 'Soros — riflessività', text: `${reflexive.ticker} mostra un trend che si auto-alimenta (score ${reflexive.score}): opportunità di momentum ma rischio di inversione — cavalca il loop, non innamorartene.` });
   if (!advice.length) advice.push({ rule: 'ok', text: 'Allocazione ragionevole sui dati disponibili. Continua a monitorare diversificazione e rischio.' });
 
   return {
     rows, totalValue, totalCost, totalPl,
     plPct: totalCost > 0 ? +((totalPl / totalCost) * 100).toFixed(1) : 0,
     allocation, topWeight: +topWeight.toFixed(3),
-    stats, rebalance, regime: regime.regime, regimeNote: regime.explanation,
+    stats, rebalance, regime: regime.regime, regimeNote: regime.explanation, reflexive,
     advice,
     disclaimer: 'Non è consulenza finanziaria: sono proprietà calcolate sui dati forniti e strategie pubbliche. Le performance passate non garantiscono quelle future.',
   };

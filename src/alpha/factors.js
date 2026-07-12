@@ -95,3 +95,46 @@ export function riskScore(returns, opts = {}) {
   const score = clamp01(mean(parts.map(x => x.s)));
   return { score: +score.toFixed(4), factor: 'risk', vol: +vol.toFixed(4), maxDrawdown: +mdd.toFixed(4), sharpe: +sharpe.toFixed(3), parts };
 }
+
+// ── Reflexivity (Soros): i feedback loop prezzo↔percezione ──
+// Onestà: non "prevede" la riflessività — la MISURA con proxy osservabili:
+// (1) auto-correlazione dei rendimenti (i trend che si auto-alimentano = loop
+// positivo, tipico delle bolle riflessive), (2) accelerazione (i rendimenti
+// che crescono in modulo = il loop si sta rinforzando), (3) sganciamento dal
+// trend di fondo (prezzo che corre lontano dalla media = eccesso riflessivo).
+// Score alto = forte dinamica riflessiva IN CORSO (opportunità di trend, ma
+// anche rischio di inversione: Soros cavalca il loop e ne esce prima del crollo).
+// `prices`: serie storica (vecchio→nuovo).
+export function reflexivityScore(prices) {
+  const p = (prices || []).filter(Number.isFinite);
+  if (p.length < 20) return { score: 0.5, factor: 'reflexivity', parts: [{ k: 'dati insufficienti', s: 0.5 }] };
+  const rets = [];
+  for (let i = 1; i < p.length; i++) rets.push((p[i] - p[i - 1]) / p[i - 1]);
+
+  // (1) auto-correlazione lag-1 dei rendimenti (loop che si auto-alimenta)
+  const mr = mean(rets);
+  let num = 0, den = 0;
+  for (let i = 1; i < rets.length; i++) { num += (rets[i] - mr) * (rets[i - 1] - mr); }
+  for (const x of rets) den += (x - mr) ** 2;
+  const acf1 = den > 0 ? num / den : 0;
+
+  // (2) accelerazione: |rendimenti| recenti vs storici (il loop si rinforza?)
+  const half = Math.floor(rets.length / 2);
+  const magOld = mean(rets.slice(0, half).map(Math.abs));
+  const magNew = mean(rets.slice(half).map(Math.abs));
+  const accel = magOld > 0 ? (magNew - magOld) / magOld : 0;
+
+  // (3) sganciamento dalla media mobile (eccesso riflessivo)
+  const look = Math.min(20, p.length - 1);
+  const sma = mean(p.slice(-look));
+  const gap = sma > 0 ? Math.abs(p[p.length - 1] - sma) / sma : 0;
+
+  const parts = [
+    { k: 'trend auto-alimentato (autocorrelazione)', s: clamp01(0.5 + acf1) },
+    { k: 'loop in rafforzamento (accelerazione)', s: clamp01(0.5 + accel) },
+    { k: 'sganciamento dalla media (eccesso)', s: clamp01(gap * 3) },
+  ];
+  const score = clamp01(mean(parts.map(x => x.s)));
+  return { score: +score.toFixed(4), factor: 'reflexivity', acf1: +acf1.toFixed(3), accel: +accel.toFixed(3), gap: +gap.toFixed(3), parts,
+    note: score > 0.66 ? 'Forte dinamica riflessiva: il trend si auto-alimenta (opportunità, ma occhio all\'inversione).' : 'Dinamica riflessiva debole.' };
+}
