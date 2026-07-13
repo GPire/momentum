@@ -72,3 +72,20 @@ test('GARANZIA aggancio data→mese→giorno: ogni importo mantiene la sua data 
   assert.equal(byDate['2026-07-11'].date.getDate(), 11);
   assert.equal(byDate['2024-08-15'].date.getFullYear(), 2024);
 });
+
+test('GARANZIA anti-doppione: externalId unico → re-import non duplica, dato già presente saltato', () => {
+  const csv = HEADER + '\n'
+    + row({ date:'2024-09-03', type:'CARD_TRANSACTION', name:'MC DONALD S', amount:'-7.50', mcc_code:'5812', transaction_id:'AAA' }) + '\n'
+    + row({ date:'2024-09-04', type:'CARD_TRANSACTION', name:'MC DONALD S', amount:'-7.50', mcc_code:'5812', transaction_id:'BBB' });
+  const txs = parseRevolutExport(csv);
+  // due McDonald's da 7,50 in 2 giorni: id DIVERSI → NON vanno fusi
+  assert.equal(txs.length, 2);
+  assert.notEqual(txs[0].externalId, txs[1].externalId);
+  // simula import + re-import per externalId
+  const seen = new Set(); let added1 = 0;
+  for (const t of txs) { if (seen.has(t.externalId)) continue; seen.add(t.externalId); added1++; }
+  let added2 = 0;
+  for (const t of txs) { if (seen.has(t.externalId)) continue; added2++; }
+  assert.equal(added1, 2);  // primo import: entrambe
+  assert.equal(added2, 0);  // re-import: nessun doppione
+});

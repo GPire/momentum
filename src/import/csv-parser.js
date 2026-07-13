@@ -24,9 +24,15 @@ const handleUniversalCSV = (e) => {
     // azionari/crypto, dividendi, interessi, depositi e spese (categoria via MCC),
     // col verso giusto (entrata/uscita/invest). Verificato su file reali.
     if (isRevolutExport(lines[0])) {
-      let addedR = 0;
+      let addedR = 0, skippedR = 0;
+      // Indice degli id già presenti → dedup ESATTA (niente doppio inserimento
+      // se il file è già stato caricato, anche parzialmente).
+      const seenIds = new Set();
+      for (const m of Object.values(VaultDAO.state.transactions)) for (const tx of m) if (tx.externalId) seenIds.add(tx.externalId);
       for (const t of parseRevolutExport(text)) {
         if (!t.date || !t.amount) continue;
+        if (t.externalId && seenIds.has(t.externalId)) { skippedR++; continue; } // già importata
+        if (t.externalId) seenIds.add(t.externalId);
         const k = monthKey(t.date);
         // categoria: quella del parser (MCC/asset) ha precedenza; altrimenti ML.
         let catId = t.category;
@@ -37,7 +43,7 @@ const handleUniversalCSV = (e) => {
           catId = ml && ml.confidence > 60 ? ml.cat : (t.type === 'entrata' ? 'stipendio' : 'spesa');
         }
         const cat = getCatById(catId) || getCatById('spesa');
-        const newTx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString() };
+        const newTx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: t.externalId || '' };
         const { duplicate } = VaultDAO.addTransaction(k, newTx);
         if (!duplicate) {
           if (window.momentumOrchestrator) window.momentumOrchestrator.learn(t.description, cat.id, t.amount, t.date);
@@ -45,8 +51,8 @@ const handleUniversalCSV = (e) => {
         }
       }
       if (input) input.value = '';
-      if (addedR > 0) { window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("Revolut importato", `${addedR} operazioni (investimenti, dividendi, spese) riconosciute.`); }
-      else showToast("Nessuna nuova operazione (già importate).", "info");
+      if (addedR > 0) { window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("Revolut importato", `${addedR} operazioni riconosciute (investimenti, dividendi, spese)${skippedR ? `; ${skippedR} già presenti, saltate` : ''}.`); }
+      else showToast(skippedR ? `Tutte le ${skippedR} operazioni erano già presenti (nessun doppione).` : "Nessuna operazione trovata.", "info");
       return;
     }
 

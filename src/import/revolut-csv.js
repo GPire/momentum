@@ -64,7 +64,7 @@ export function parseRevolutExport(text) {
   const iDate = col('date'), iType = col('type'), iAsset = col('asset_class'),
         iName = col('name'), iSymbol = col('symbol'), iAmount = col('amount'),
         iDesc = col('description'), iCparty = col('counterparty_name'), iMcc = col('mcc_code'),
-        iShares = col('shares'), iPrice = col('price');
+        iShares = col('shares'), iPrice = col('price'), iTxId = col('transaction_id');
 
   const txs = [];
   for (let r = 1; r < lines.length; r++) {
@@ -125,6 +125,10 @@ export function parseRevolutExport(text) {
       date, amount: Math.abs(amount), type: txType,
       ...(category ? { category } : {}),
       description: description.slice(0, 80),
+      // externalId = transaction_id UNICO di Revolut → dedup ESATTA: nessun
+      // doppio inserimento re-importando, e nessuna fusione di spese distinte
+      // ma di pari importo (il rischio della dedup fuzzy su 5 anni di dati).
+      externalId: iTxId >= 0 ? (c[iTxId] || '') : '',
       meta: { source: 'revolut', rawType: type, asset, symbol: c[iSymbol] || '' },
     });
   }
