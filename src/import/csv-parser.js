@@ -9,25 +9,36 @@ import { parseCellAmount, COLUMN_KEYWORDS } from './pdf-parser.js';
 // CSV PARSING & QUANTUM DEDUPLICATION
 // ==========================================
 const handleUniversalCSV = (e) => {
-  const file = e.target.files[0]; if(!file) return; const reader = new FileReader();
+  const input = e.target; // riferimento all'<input type=file> per azzerarlo dopo
+  const file = input.files[0]; if(!file) return; const reader = new FileReader();
   logETL(`Inizio parsing CSV: ${file.name}...`);
 
   reader.onload = (ev) => {
-    const text = ev.target.result; const lines = text.split('\n').filter(l => l.trim().length > 0);
+    // \r?\n: gli estratti conto Windows usano CRLF; senza questo ogni riga
+    // porta un \r finale che sporca l'ultima colonna (date/importi non parsati).
+    const text = ev.target.result; const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
     if(lines.length < 2) { logETL("Errore: CSV vuoto.", true); return showToast("CSV vuoto", "error"); }
-    
-    const delim = lines[0].includes(';') ? ';' : ','; let added = 0;
+
+    // Delimitatore per FREQUENZA nell'header (non solo ';' vs ','): molti
+    // export bancari usano il TAB o il ';'. Prima si sceglieva sempre ',' se
+    // non c'era ';' → un file tab-separato dava 1 colonna e 0 righe importate
+    // ("prende 1 valore su 2000"). Ora si conta e si prende il più frequente.
+    const delim = [';', '\t', ',', '|'].map(d => ({ d, n: (lines[0].split(d).length - 1) })).sort((a, b) => b.n - a.n)[0].d || ',';
+    let added = 0;
     let existingTxs = []; Object.keys(VaultDAO.state.transactions).forEach(m => existingTxs.push(...VaultDAO.state.transactions[m]));
 
     const headers = lines[0].split(delim).map(h => h.replace(/["']/g, '').trim().toLowerCase());
     let dateIdx = -1, descIdx = -1, amountIdx = -1, expenseIdx = -1, incomeIdx = -1;
 
     headers.forEach((h, idx) => {
+      // 'saldo'/'totale' ESCLUSI: sono il saldo progressivo, non l'importo del
+      // movimento — prenderli faceva importare il balance al posto della spesa.
+      if (COLUMN_KEYWORDS.ignore.test(h)) return; // colonna saldo/balance → ignorata
       if (COLUMN_KEYWORDS.date.test(h)) dateIdx = idx;
       else if (COLUMN_KEYWORDS.desc.test(h)) descIdx = idx;
-      else if (/(importo|ammontare|cifra|cassa|valore|totale|saldo)/i.test(h)) amountIdx = idx;
-      else if (/(addebito|uscita|spesa|addebiti)/i.test(h)) expenseIdx = idx;
-      else if (/(accredito|entrata|accrediti)/i.test(h)) incomeIdx = idx;
+      else if (/(importo|ammontare|cifra|cassa|valore)/i.test(h)) amountIdx = idx;
+      else if (/(addebito|uscita|spesa|addebiti|dare)/i.test(h)) expenseIdx = idx;
+      else if (/(accredito|entrata|accrediti|avere)/i.test(h)) incomeIdx = idx;
     });
 
     lines.slice(1).forEach(line => {
@@ -130,11 +141,14 @@ const handleUniversalCSV = (e) => {
           }
        }
     });
-    if(added > 0) { 
+    if(added > 0) {
         window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("ETL Completato", `Importate ${added} nuove operazioni.`);
-    } else { 
-        showToast("Nessuna nuova operazione trovata nel CSV.", "info"); 
+    } else {
+        showToast("Nessuna nuova operazione trovata nel CSV.", "info");
     }
+    // Azzera l'input: senza questo, riselezionare un file (soprattutto LO STESSO)
+    // non rilancia l'evento 'change' e sembra che l'import "non parta più".
+    if (input) input.value = '';
   };
   reader.readAsText(file);
 };
