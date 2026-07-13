@@ -44,7 +44,10 @@ function charTokens(text, minN = 3, maxN = 5) {
 // Feature hashing con segno (riduce il bias da collisioni): ogni token va in
 // un indice [0,D) e contribuisce con ±1. Ritorna vettore sparso L2-normalizzato
 // come Map(index→value). Condiviso IDENTICO tra training e inferenza.
-export function hashFeatures(text, dim = 8192) {
+// `idf` opzionale (Float array dim): pesa ogni feature per l'inverse-document-
+// frequency (down-pesa gli n-grammi ubiqui) PRIMA della normalizzazione L2 —
+// tecnica TF-IDF che alza l'accuratezza sulla classificazione di testo.
+export function hashFeatures(text, dim = 8192, idf = null) {
   const toks = [...wordTokens(text), ...charTokens(text)];
   const vec = new Map();
   for (const t of toks) {
@@ -53,10 +56,26 @@ export function hashFeatures(text, dim = 8192) {
     const sign = (h & 0x80000000) ? -1 : 1; // bit alto → segno
     vec.set(idx, (vec.get(idx) || 0) + sign);
   }
+  if (idf) for (const [k, v] of vec) vec.set(k, v * (idf[k] || 1));
   let norm = 0; for (const v of vec.values()) norm += v * v;
   norm = Math.sqrt(norm) || 1;
   for (const [k, v] of vec) vec.set(k, v / norm);
   return vec;
+}
+
+// IDF su feature HASHATE: df[idx] = #documenti che attivano l'indice idx;
+// idf = log((N+1)/(df+1)) + 1 (smoothed). Ritorna Float array [dim].
+export function computeHashedIdf(pairs, dim) {
+  const df = new Float64Array(dim);
+  for (const [text] of pairs) {
+    const seen = new Set();
+    for (const t of [...wordTokens(text), ...charTokens(text)]) seen.add(fnv1a(t) % dim);
+    for (const idx of seen) df[idx]++;
+  }
+  const N = pairs.length || 1;
+  const idf = new Float32Array(dim);
+  for (let i = 0; i < dim; i++) idf[i] = Math.log((N + 1) / (df[i] + 1)) + 1;
+  return idf;
 }
 
 function softmax(logits) {
@@ -75,6 +94,7 @@ export class HashedLogReg {
     this.b = model.b;
     // W memorizzato come array piatto dim*nC per compattezza
     this.W = model.W;
+    this.idf = model.idf || null; // pesi IDF opzionali (TF-IDF), retrocompatibile
   }
 
   _logits(vec) {
@@ -87,7 +107,7 @@ export class HashedLogReg {
   }
 
   predict(text) {
-    const vec = hashFeatures(text, this.dim);
+    const vec = hashFeatures(text, this.dim, this.idf);
     const probs = softmax(this._logits(vec));
     let best = 0; for (let c = 1; c < this.nC; c++) if (probs[c] > probs[best]) best = c;
     const allProbs = {}; this.classes.forEach((c, i) => { allProbs[c] = probs[i]; });
@@ -116,8 +136,11 @@ export function trainHashedLogReg(pairs, opts = {}) {
   const W = new Float32Array(dim * nC); // init a 0
   const b = new Array(nC).fill(0);
 
+  // IDF opzionale (TF-IDF): calcolato UNA volta dal train, applicato alle
+  // feature e salvato nel modello (usato identico in inferenza).
+  const idf = opts.useIdf ? computeHashedIdf(pairs, dim) : null;
   // pre-calcolo delle feature (una volta) per velocità
-  const data = pairs.map(([text, cat]) => ({ vec: hashFeatures(text, dim), y: classIndex[cat] }));
+  const data = pairs.map(([text, cat]) => ({ vec: hashFeatures(text, dim, idf), y: classIndex[cat] }));
 
   // RNG deterministico per lo shuffle (riproducibilità → numeri onesti)
   let s = seed >>> 0;
@@ -145,5 +168,7 @@ export function trainHashedLogReg(pairs, opts = {}) {
       }
     }
   }
-  return { W: Array.from(W), b, classes, dim };
+  const out = { W: Array.from(W), b, classes, dim };
+  if (idf) out.idf = Array.from(idf);
+  return out;
 }

@@ -40,29 +40,43 @@ function load(path) {
   return out;
 }
 
-const train = load(TRAIN);
-const test = load(TEST);
-const classes = [...new Set(train.map(r => r[1]))];
-console.log(`\nBanking77 — ${train.length} train, ${test.length} test, ${classes.length} intent\n`);
-
 const DIM = Number(process.env.DIM || 32768);
 const EPOCHS = Number(process.env.EPOCHS || 25);
-console.log(`Addestro HashedLogReg IN LOCALE (JS, no Python): dim=${DIM}, epochs=${EPOCHS}…`);
-const t0 = Date.now();
-const model = trainHashedLogReg(train, { dim: DIM, epochs: EPOCHS, lr: 0.5, l2: 1e-6, seed: 1 });
-const trainMs = Date.now() - t0;
-const clf = new HashedLogReg(model);
 
-let correct = 0; const t1 = Date.now();
-for (const [text, cat] of test) if (clf.predict(text).category === cat) correct++;
-const inferMs = (Date.now() - t1) / test.length;
-const acc = (correct / test.length * 100);
+// Addestra il HashedLogReg in locale sul train e valuta sul test ufficiale.
+function runBenchmark(name, train, test, references) {
+  const classes = [...new Set(train.map(r => r[1]))];
+  console.log(`\n=== ${name} — ${train.length} train, ${test.length} test, ${classes.length} intent ===`);
+  const t0 = Date.now();
+  const model = trainHashedLogReg(train, { dim: DIM, epochs: EPOCHS, lr: 0.5, l2: 1e-6, seed: 1, useIdf: process.env.IDF !== '0' });
+  const trainMs = Date.now() - t0;
+  const clf = new HashedLogReg(model);
+  let correct = 0; const t1 = Date.now();
+  for (const [text, cat] of test) if (clf.predict(text).category === cat) correct++;
+  const inferMs = (Date.now() - t1) / test.length;
+  console.log(`  HashedLogReg (locale, JS)   ${(correct / test.length * 100).toFixed(1)}%   (train ${(trainMs / 1000).toFixed(1)}s, ${inferMs.toFixed(3)} ms/pred)`);
+  for (const r of references) console.log(`    ${r}`);
+}
 
-console.log(`\n=== RISULTATO (Banking77 test ufficiale) ===`);
-console.log(`  HashedLogReg (locale, JS)   ${acc.toFixed(1)}%   (addestrato in ${(trainMs / 1000).toFixed(1)}s, ${inferMs.toFixed(3)} ms/predizione)`);
-console.log(`\n  Riferimenti PUBBLICATI (fonti, non nostri numeri):`);
-console.log(`    BERT/RoBERTa fine-tuned      ~93-94%   (grande, cloud, secondi/ore di training GPU)`);
-console.log(`    USE+ConveRT (PolyAI 2020)    ~85-93%`);
-console.log(`    Baseline BoW/SVM             ~80-85%`);
-console.log(`\n  Onestà: un modello lineare che si addestra in secondi ON-DEVICE non batte un BERT`);
-console.log(`  fine-tuned; il valore è locale+minuscolo+istantaneo+privato. Numero = questo script.`);
+runBenchmark('Banking77 (PolyAI)', load(TRAIN), load(TEST), [
+  'rif. pubblicati: BERT/RoBERTa fine-tuned ~93-94% (grande, cloud, GPU); USE+ConveRT ~85-93%; BoW/SVM ~80-85%',
+]);
+
+// CLINC150 (clinc/oos-eval): 150 intent, più ampio. Formato JSON {train,test:[[testo,intent]]}.
+const CLINC = join(root, 'bench/data/clinc150.json');
+if (existsSync(CLINC)) {
+  const j = JSON.parse(readFileSync(CLINC, 'utf8'));
+  runBenchmark('CLINC150 (in-scope)', j.train, j.test, [
+    'rif. pubblicati: BERT ~96%; USE ~95%; il set è più ampio (150 classi)',
+  ]);
+}
+
+// HWU64 (NLU benchmark, 64 intent): TSV "testo\tlabel".
+const HWU_TR = join(root, 'bench/data/hwu64_train.tsv'), HWU_TE = join(root, 'bench/data/hwu64_test.tsv');
+if (existsSync(HWU_TR) && existsSync(HWU_TE)) {
+  const loadTsv = (p) => readFileSync(p, 'utf8').trim().split(/\r?\n/).map(l => { const i = l.lastIndexOf('\t'); return [l.slice(0, i), l.slice(i + 1).trim()]; });
+  runBenchmark('HWU64 (NLU)', loadTsv(HWU_TR), loadTsv(HWU_TE), ['rif. pubblicati: BERT ~92%; USE+ConveRT ~90-91%']);
+}
+
+console.log(`\nOnestà: un modello LINEARE che si addestra in ~1 minuto ON-DEVICE (no Python/GPU/cloud)`);
+console.log(`non batte un BERT fine-tuned; il valore è locale+minuscolo+istantaneo+privato. Numeri = questo script.`);
