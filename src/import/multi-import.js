@@ -43,6 +43,25 @@ function addParsed(txs, seenIds, learned) {
 // import, ma a CHUNK durante l'idle del browser → non blocca la UI anche con
 // migliaia di transazioni. Ogni coppia (descrizione→categoria) rinforza
 // l'orchestratore (DCGN online + reliability per-categoria).
+// AUTO-ADATTAMENTO ai nuovi modelli senza perdere dati: se la firma dei modelli
+// AI è cambiata (nuova versione dell'app / nuovi modelli/tecnologie), i modelli
+// ONLINE (DCGN, affidabilità per-categoria) si RI-ADDESTRANO dai dati PRESERVATI
+// dell'utente → convergenza. I dati (transazioni) sono la fonte di verità e
+// sopravvivono via le migrazioni schema; i modelli ci si riallineano da soli.
+// "Gli utenti non possono perdere dati tra una versione e 50 dopo."
+export function reconcileModelsWithHistory(currentSignature) {
+  if (typeof window === 'undefined' || !VaultDAO.state) return { reconciled: false };
+  const ml = VaultDAO.state.mlData = VaultDAO.state.mlData || {};
+  if (ml.modelSignature === currentSignature) return { reconciled: false };
+  const pairs = [];
+  for (const m of Object.values(VaultDAO.state.transactions || {}))
+    for (const tx of m) if (tx.description && tx.category) pairs.push({ description: tx.description, category: tx.category, amount: tx.amount, date: new Date(tx.date) });
+  learnInBackground(pairs);                 // ri-apprende in background (non blocca)
+  ml.modelSignature = currentSignature;
+  try { VaultDAO.save(); } catch (_) {}
+  return { reconciled: true, count: pairs.length };
+}
+
 export function learnInBackground(pairs, chunk = 40) {
   if (typeof window === 'undefined' || !window.momentumOrchestrator || !pairs || !pairs.length) return;
   const orch = window.momentumOrchestrator;

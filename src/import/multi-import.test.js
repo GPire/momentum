@@ -19,3 +19,23 @@ test('learnInBackground: addestra i modelli da OGNI operazione importata (idle-c
   assert.equal(learned.length, 95); // TUTTE le operazioni addestrano i modelli
   assert.equal(learned[0][0], 'tx 0');
 });
+
+test('reconcileModelsWithHistory: al cambio firma modelli, ri-addestra dai dati preservati (no data loss)', async () => {
+  learned.length = 0;
+  const { reconcileModelsWithHistory } = await import('./multi-import.js');
+  // shim VaultDAO minimale con storico transazioni
+  const { VaultDAO } = await import('../core/vault.js');
+  VaultDAO.state.transactions = { '2026-06': [
+    { description: 'Netflix', category: 'abbonamenti', amount: 14.99, date: '2026-06-05' },
+    { description: 'Esselunga', category: 'spesa', amount: 40, date: '2026-06-10' },
+  ] };
+  VaultDAO.state.mlData = { modelSignature: 'vecchia' };
+  VaultDAO.save = () => {};
+  const r1 = reconcileModelsWithHistory('nuova-v2');   // firma diversa → ri-addestra
+  await new Promise(r => setTimeout(r, 60));
+  assert.equal(r1.reconciled, true);
+  assert.equal(r1.count, 2);
+  assert.equal(learned.length, 2);                     // ha riappreso da tutto lo storico
+  const r2 = reconcileModelsWithHistory('nuova-v2');   // stessa firma → non ripete
+  assert.equal(r2.reconciled, false);
+});

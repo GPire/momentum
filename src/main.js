@@ -29,7 +29,10 @@ import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js
 import { handlePDFUpload } from './import/pdf-parser.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { handleUniversalCSV } from './import/csv-parser.js';
-import { importFiles } from './import/multi-import.js';
+import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
+// Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
+// l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
+const MODEL_SIGNATURE = 'v10-omega-nano+meso+logreg-dcgn-2026-07';
 import { MOMENTUM_TRAINED_MODEL_DATA } from './ai/trained-model-data.js';
 import { TrainedCategorizer } from './ai/trained-categorizer.js';
 import { TrainedMeso } from './ai/trained-meso.js';
@@ -2059,11 +2062,20 @@ const initApp = () => {
     navigator.serviceWorker.register('./sw.js')
       .then(reg => {
         console.log('ServiceWorker registered:', reg);
-        // Controlla periodicamente una versione più recente anche se la
-        // scheda resta aperta per ore (comune per una PWA da home screen) —
-        // senza questo, l'app potrebbe restare bloccata su una versione
-        // vecchia finché l'utente non la chiude e riapre manualmente.
         setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+        // FEEDBACK aggiornamento: quando è pronta una NUOVA versione (non il
+        // primo install), lo diciamo all'utente e rassicuriamo sui dati. Il
+        // riallineamento dei modelli avviene da solo dopo il reload
+        // (reconcileModelsWithHistory), senza perdere nulla.
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              try { showToast('🔄 Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info'); } catch (_) {}
+            }
+          });
+        });
       })
       .catch(err => console.error('ServiceWorker registration failed:', err));
 
@@ -2344,6 +2356,15 @@ function initMomentumRealAI() {
         .then(logreg => {
           momentumOrchestrator.setLogReg(logreg);
           console.log('Momentum LogReg caricato: ensemble ML a ~85% (held-out).');
+          // Auto-adattamento ai nuovi modelli SENZA perdere dati: se la firma
+          // dei modelli è cambiata (aggiornamento app / nuovi modelli), l'AI si
+          // ri-allinea dai dati preservati dell'utente, in background, e lo dice.
+          try {
+            const rec = reconcileModelsWithHistory(MODEL_SIGNATURE);
+            if (rec.reconciled && rec.count > 0) {
+              showToast(`Aggiornamento applicato ✓ i tuoi dati sono al sicuro — l'AI si sta riallineando su ${rec.count} operazioni.`, 'success');
+            }
+          } catch (e) { console.warn('reconcile modelli:', e); }
         })
         .catch(e => console.warn('LogReg non disponibile, ensemble resta Nano+Meso:', e));
     }
