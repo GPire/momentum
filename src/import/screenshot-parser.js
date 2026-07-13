@@ -103,44 +103,120 @@ export function parseScreenshotText(rawText) {
   };
 }
 
-// Mesi italiani abbreviati (le liste movimenti mobile scrivono "12 Lug").
-const SCREEN_MONTHS = { gen:0, feb:1, mar:2, apr:3, mag:4, giu:5, lug:6, ago:7, set:8, ott:9, nov:10, dic:11 };
-// Data SENZA anno ("12 Lug - 09:49"): assume l'anno corrente; se cadrebbe nel
-// futuro, è dell'anno scorso.
-function parseYearlessDate(text) {
-  const m = text.match(/(\d{1,2})\s+(gen|feb|mar|apr|mag|giu|lug|ago|set|ott|nov|dic)/i);
-  if (!m) return null;
-  const mo = SCREEN_MONTHS[m[2].toLowerCase()];
+// Mesi MULTI-LINGUA (banche globali, non solo IT): chiave = prefisso a 3 lettere
+// senza accenti. IT/EN/ES/FR/DE/PT. Le sovrapposizioni mappano allo stesso mese.
+const MONTHS_MULTI = {};
+[
+  ['gen','jan','ene','jan','jan','jan'],                     // 0 gennaio
+  ['feb','feb','feb','fev','feb','fev'],                     // 1
+  ['mar','mar','mar','mar','mar','mar'],                     // 2
+  ['apr','apr','abr','avr','apr','abr'],                     // 3
+  ['mag','may','may','mai','mai','mai'],                     // 4
+  ['giu','jun','jun','jui','jun','jun'],                     // 5 (giugno/june/junio/juin)
+  ['lug','jul','jul','jul','jul','jul'],                     // 6
+  ['ago','aug','ago','aou','aug','ago'],                     // 7
+  ['set','sep','sep','sep','sep','set'],                     // 8
+  ['ott','oct','oct','oct','okt','out'],                     // 9
+  ['nov','nov','nov','nov','nov','nov'],                     // 10
+  ['dic','dec','dic','dec','dez','dez'],                     // 11
+].forEach((keys, mo) => keys.forEach(k => { MONTHS_MULTI[k] = mo; }));
+// giugno/luglio in FR ("juin"/"juillet") condividono "jui": disambigua sotto.
+const RELATIVE = /^(oggi|today|hoy|aujourd|heute|hoje)$/i;
+const RELATIVE_YEST = /^(ieri|yesterday|ayer|hier|gestern|ontem)$/i;
+const stripA = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Data da un'intestazione/riga, multi-lingua e multi-formato:
+// "13 Luglio", "13 Jul 2025", "July 13", "2025-07-13", "13/07/2025", "13/07",
+// "Oggi/Today/Yesterday...". Senza anno: corrente (o -1 se nel futuro).
+function parseListDate(text) {
+  const t = text.trim();
   const now = new Date();
-  let d = new Date(now.getFullYear(), mo, parseInt(m[1]));
-  if (d.getTime() - now.getTime() > 86400000) d.setFullYear(now.getFullYear() - 1);
+  if (RELATIVE.test(stripA(t))) return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (RELATIVE_YEST.test(stripA(t))) { const d = new Date(now); d.setDate(d.getDate() - 1); return d; }
+  // ISO 2025-07-13
+  let m = t.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  // gg/mm[/aaaa]
+  m = t.match(/\b(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?\b/);
+  if (m && +m[1] <= 31 && +m[2] <= 12) { let y = m[3] ? +m[3] : now.getFullYear(); if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]); }
+  // "13 Luglio [2025]" (giorno-mese) oppure "July 13[, 2025]" (mese-giorno)
+  const dm = t.match(/(\d{1,2})\s+([a-zà-üçñ]{3,})\.?(?:\s+(\d{4}))?/i);
+  const md = t.match(/([a-zà-üçñ]{3,})\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?/i);
+  let day, mo, yr;
+  if (dm && MONTHS_MULTI[stripA(dm[2]).slice(0, 3)] !== undefined) { day = +dm[1]; mo = MONTHS_MULTI[stripA(dm[2]).slice(0, 3)]; yr = dm[3] ? +dm[3] : null; }
+  else if (md && MONTHS_MULTI[stripA(md[1]).slice(0, 3)] !== undefined) { mo = MONTHS_MULTI[stripA(md[1]).slice(0, 3)]; day = +md[2]; yr = md[3] ? +md[3] : null; }
+  else return null;
+  const year = yr ?? now.getFullYear();
+  let d = new Date(year, mo, day);
+  if (yr == null && d.getTime() - now.getTime() > 86400000) d.setFullYear(year - 1);
   return d;
 }
 
-// Parser MULTI-transazione per liste movimenti mobile (buddybank, Revolut app,
-// ecc.): una riga per movimento "Esercente -X,YY €". Corregge il bug per cui il
-// vecchio parser prendeva UN solo importo (il massimo) da tutta la schermata.
-// Gestisce anche il formato OCR "-2 50€" (virgola persa → spazio) e le date
-// senza anno. Puro e testabile.
+// Una riga è SOLO un'intestazione-data? (niente valuta/importo, e parsabile)
+function isDateHeader(line) {
+  const t = line.trim();
+  if (/[€$£¥]|\d+[.,]\d{2}/.test(t)) return false;
+  if (t.length > 24) return false;
+  return parseListDate(t) !== null;
+}
+
+// Pulisce il nome esercente dal rumore: codici località ("Ita16100ita",
+// "Genova Ita16126ita"), circuiti di pagamento, diciture di stato.
+function cleanMerchant(s) {
+  return s
+    .replace(/\b[Ii]ta\d{3,}\w*/g, '')                               // codici tipo "Ita16100ita"/"Ita999"
+    .replace(/(apple pay|google pay|pagamento nfc|pagamento cless con device|pagamento con device|contactless|da contabilizzare|nfc)/ig, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[-–—|:·*]+\s*$/,'')
+    .trim();
+}
+
+// Parser MULTI-transazione con CONTESTO-DATA (architettura innovativa): scorre
+// le righe dall'alto, ricorda l'ultima intestazione-data ("13 Luglio") e la
+// assegna a ogni movimento sotto — così OGNI importo prende la SUA data reale,
+// non quella di oggi. Corregge il bug "prende 1 su N": ora estrae tutti i
+// movimenti della lista. Gestisce il formato OCR "-2 50€" (virgola persa).
+// Puro e testabile.
+// Importo ANCORATO alla valuta (€ $ £ ¥), simbolo prima o dopo, segno davanti o
+// in coda ("12,00-"). Ancorare alla valuta evita che codici località ("Ita16100",
+// "466") o numeri di carta vengano scambiati per importi. Gestisce anche il
+// caso OCR "-2 50€" (virgola persa → spazio). Ritorna { start, neg, val } o null.
+const isNeg = (...s) => s.some(x => x === '-' || x === '−');
+const isPos = (...s) => s.some(x => x === '+');
+function detectAmount(line) {
+  // numero SEGUITO dalla valuta: "-5,00 €", "-2 50€", "12,00-" (segno in coda)
+  let m = line.match(/([-−+])?\s*(\d{1,3}(?:[.\s]\d{3})*)[.,\s](\d{2})\s*([€$£¥])\s*([-−])?/);
+  if (m) return { start: m.index, end: m.index + m[0].length, neg: isNeg(m[1], m[5]), pos: isPos(m[1]), val: parseFloat(m[2].replace(/[.\s]/g, '') + '.' + m[3]) };
+  // valuta SEGUITA dal numero, con segno EVENTUALE prima della valuta: "-£4,50", "$5.00", "€ 5,00"
+  m = line.match(/([-−+])?\s*([€$£¥])\s*([-−+])?\s*(\d{1,3}(?:[.\s]\d{3})*)[.,](\d{2})\s*([-−])?/);
+  if (m) return { start: m.index, end: m.index + m[0].length, neg: isNeg(m[1], m[3], m[6]), pos: isPos(m[1], m[3]), val: parseFloat(m[4].replace(/[.\s]/g, '') + '.' + m[5]) };
+  return null;
+}
+
+// Parole di ENTRATA (multi-lingua): un movimento senza segno esplicito in una
+// lista è di norma una SPESA, ma questi indizi lo rendono un'entrata.
+const SCREEN_INCOME = /(ricevut|accredit|bonifico.*ricev|rimbors|versament|stipendio|received|refund|salary|payout|cashback|incoming|deposit|top.?up|abono|ingreso|gutschrift)/i;
+
 export function parseScreenshotTransactions(rawText) {
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
-  // int (con eventuali separatori migliaia) + separatore decimale (,/./spazio) + 2 cifre + €
-  const amountRe = /([-−+])?\s*(\d{1,3}(?:[.\s]\d{3})*)\s*[.,\s]\s*(\d{2})\s*€/;
-  const NOISE = /(carta di debito|mastercard|myone|cerca movimenti|^home$|prodotti|pagamenti|^altro$|saldo|disponibile|totale)/i;
+  const NOISE = /(carta di debito|mastercard|myone|cerca movimenti|^home$|prodotti|^pagamenti$|^altro$|saldo disponibile|^disponibile|available balance)/i;
   const txs = [];
+  let currentDate = null;
   for (const line of lines) {
+    if (isDateHeader(line)) { currentDate = parseListDate(line); continue; } // cambia contesto-data
     if (NOISE.test(line)) continue;
-    const m = line.match(amountRe);
-    if (!m) continue;
-    const intPart = m[2].replace(/[.\s]/g, '');
-    const val = parseFloat(intPart + '.' + m[3]);
-    if (!val || isNaN(val)) continue;
-    const type = (m[1] === '-' || m[1] === '−') ? 'uscita' : 'entrata';
-    let desc = line.slice(0, m.index)
-      .replace(/(da contabilizzare|pagamento cless con device|pagamento con device)/ig, '')
-      .replace(/[-–—|:·]+$/,'').trim();
-    if (desc.replace(/[^a-zà-ù]/ig, '').length < 2) continue; // niente esercente plausibile
-    txs.push({ amount: val, type, description: desc.slice(0, 60), date: parseYearlessDate(line) });
+    const a = detectAmount(line);
+    if (!a || !a.val || isNaN(a.val)) continue;
+    // esercente: testo PRIMA dell'importo; se vuoto (valuta a inizio riga), DOPO.
+    let desc = cleanMerchant(line.slice(0, a.start));
+    if (desc.replace(/[^a-zà-ü]/ig, '').length < 2) desc = cleanMerchant(line.slice(a.end));
+    if (desc.replace(/[^a-zà-ü]/ig, '').length < 2) continue; // niente esercente plausibile
+    // Verso PREDITTIVO: segno '-' → uscita; '+' o parola d'entrata → entrata;
+    // senza segno in una lista movimenti → spesa (il caso dominante).
+    const type = a.neg ? 'uscita' : (a.pos || SCREEN_INCOME.test(desc)) ? 'entrata' : 'uscita';
+    // data: inline sulla riga stessa, altrimenti contesto-data della sezione.
+    const inline = parseListDate(line);
+    txs.push({ amount: a.val, type, description: desc.slice(0, 60), date: inline || currentDate });
   }
   return txs;
 }

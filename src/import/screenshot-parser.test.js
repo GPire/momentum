@@ -126,3 +126,53 @@ test('parseScreenshotTransactions: data senza anno "12 Lug" + formato virgola', 
   assert.equal(txs[0].date.getMonth(), 6); // luglio
   assert.equal(txs[0].date.getDate(), 12);
 });
+
+test('parseScreenshotTransactions: CONTESTO-DATA per intestazione di sezione (13 Luglio / 09 Luglio)', async () => {
+  const { parseScreenshotTransactions } = await import('./screenshot-parser.js');
+  const ocr = `Cerca movimenti
+13 Luglio
+Gelateria Costa Turche Olbia Ita07026ss -5,00 €
+Apple Pay - Pagamento Nfc
+Moby Genova Pax Genova Ita16126ita -121,10 €
+Apple Pay - Pagamento Nfc
+Lidl 466 Genova Ita16100ita -7,74 €
+Sumup *Sartoria Genova Ita16100 -35,00 €
+09 Luglio
+Ristorante Da Nino -22,50 €`;
+  const txs = parseScreenshotTransactions(ocr);
+  assert.equal(txs.length, 5);                          // tutti e 5, non 2!
+  assert.deepEqual(txs.map(t => t.amount), [5, 121.10, 7.74, 35, 22.50]);
+  // i primi 4 → 13 luglio; l'ultimo → 9 luglio (contesto-data cambiato)
+  assert.equal(txs[0].date.getDate(), 13); assert.equal(txs[0].date.getMonth(), 6);
+  assert.equal(txs[3].date.getDate(), 13);
+  assert.equal(txs[4].date.getDate(), 9);
+  // esercente pulito dai codici località e dal circuito
+  assert.ok(/Gelateria Costa Turche/.test(txs[0].description));
+  assert.ok(!/Ita07026|Apple Pay|Nfc/i.test(txs[0].description));
+});
+
+test('GARANZIA multi-banca/multi-lingua/multi-valuta: ogni movimento catturato', async () => {
+  const { parseScreenshotTransactions } = await import('./screenshot-parser.js');
+  // Mix di formati globali: header data IT/EN/ISO, valute €/$/£, segno in coda,
+  // valuta prima/dopo, codici località da ignorare.
+  const ocr = `13 July 2025
+Starbucks London Ita999 -£4,50
+Amazon UK -£29.99
+July 12
+Whole Foods Market $52,30
+Shell Gas Station $40.00-
+2025-07-10
+Mercadona Barcelona -18,75 €
+€ 12,00 Bonifico Ricevuto`;
+  const txs = parseScreenshotTransactions(ocr);
+  assert.equal(txs.length, 6);                            // TUTTI e 6
+  // importi corretti a prescindere da valuta/posizione
+  assert.deepEqual(txs.map(t => t.amount), [4.50, 29.99, 52.30, 40.00, 18.75, 12.00]);
+  // verso: i primi 5 spese, l'ultimo (senza -, "€ 12,00") entrata
+  assert.deepEqual(txs.map(t => t.type), ['uscita','uscita','uscita','uscita','uscita','entrata']);
+  // date per sezione: 13 lug, 13 lug, 12 lug, 12 lug, 10 lug, 10 lug
+  assert.deepEqual(txs.map(t => t.date.getDate()), [13,13,12,12,10,10]);
+  assert.ok(txs.every(t => t.date.getMonth() === 6)); // luglio
+  // esercente pulito
+  assert.ok(!/Ita999/.test(txs[0].description));
+});
