@@ -98,3 +98,31 @@ test("extractMerchant: null quando le prime righe sono tutte rumore (mai nomi in
 test("extractMerchant: salta righe con importi anche se contengono lettere", () => {
   assert.equal(extractMerchant(["TOTALE 45,80", "BAR SPORT"]), "BAR SPORT");
 });
+
+test('parseScreenshotTransactions: lista movimenti mobile (OCR reale buddybank) → 4 uscite', async () => {
+  const { parseScreenshotTransactions } = await import('./screenshot-parser.js');
+  const ocr = `12:08 ZI 35)
+Carta Di Debito (GP)
+Myone Mastercard
+
+Stegab S.a.s Di Stefan -2 50€
+Sumup Stegab Sas Di -19 60 €
+Intro Food N Soul -18 50 €
+Moby Orli -8 60 €
+Home Prodotti Pagamenti Altro`;
+  const txs = parseScreenshotTransactions(ocr);
+  assert.equal(txs.length, 4);                       // non più 1 sola!
+  assert.deepEqual(txs.map(t => t.amount), [2.5, 19.6, 18.5, 8.6]);
+  assert.ok(txs.every(t => t.type === 'uscita'));
+  assert.ok(/Stegab/.test(txs[0].description));
+  assert.ok(/Moby Orli/.test(txs[3].description));
+});
+
+test('parseScreenshotTransactions: data senza anno "12 Lug" + formato virgola', async () => {
+  const { parseScreenshotTransactions } = await import('./screenshot-parser.js');
+  const txs = parseScreenshotTransactions('Ristorante Roma -45,80 € 12 Lug - 09:49');
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 45.8);
+  assert.equal(txs[0].date.getMonth(), 6); // luglio
+  assert.equal(txs[0].date.getDate(), 12);
+});

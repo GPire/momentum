@@ -103,6 +103,48 @@ export function parseScreenshotText(rawText) {
   };
 }
 
+// Mesi italiani abbreviati (le liste movimenti mobile scrivono "12 Lug").
+const SCREEN_MONTHS = { gen:0, feb:1, mar:2, apr:3, mag:4, giu:5, lug:6, ago:7, set:8, ott:9, nov:10, dic:11 };
+// Data SENZA anno ("12 Lug - 09:49"): assume l'anno corrente; se cadrebbe nel
+// futuro, è dell'anno scorso.
+function parseYearlessDate(text) {
+  const m = text.match(/(\d{1,2})\s+(gen|feb|mar|apr|mag|giu|lug|ago|set|ott|nov|dic)/i);
+  if (!m) return null;
+  const mo = SCREEN_MONTHS[m[2].toLowerCase()];
+  const now = new Date();
+  let d = new Date(now.getFullYear(), mo, parseInt(m[1]));
+  if (d.getTime() - now.getTime() > 86400000) d.setFullYear(now.getFullYear() - 1);
+  return d;
+}
+
+// Parser MULTI-transazione per liste movimenti mobile (buddybank, Revolut app,
+// ecc.): una riga per movimento "Esercente -X,YY €". Corregge il bug per cui il
+// vecchio parser prendeva UN solo importo (il massimo) da tutta la schermata.
+// Gestisce anche il formato OCR "-2 50€" (virgola persa → spazio) e le date
+// senza anno. Puro e testabile.
+export function parseScreenshotTransactions(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  // int (con eventuali separatori migliaia) + separatore decimale (,/./spazio) + 2 cifre + €
+  const amountRe = /([-−+])?\s*(\d{1,3}(?:[.\s]\d{3})*)\s*[.,\s]\s*(\d{2})\s*€/;
+  const NOISE = /(carta di debito|mastercard|myone|cerca movimenti|^home$|prodotti|pagamenti|^altro$|saldo|disponibile|totale)/i;
+  const txs = [];
+  for (const line of lines) {
+    if (NOISE.test(line)) continue;
+    const m = line.match(amountRe);
+    if (!m) continue;
+    const intPart = m[2].replace(/[.\s]/g, '');
+    const val = parseFloat(intPart + '.' + m[3]);
+    if (!val || isNaN(val)) continue;
+    const type = (m[1] === '-' || m[1] === '−') ? 'uscita' : 'entrata';
+    let desc = line.slice(0, m.index)
+      .replace(/(da contabilizzare|pagamento cless con device|pagamento con device)/ig, '')
+      .replace(/[-–—|:·]+$/,'').trim();
+    if (desc.replace(/[^a-zà-ù]/ig, '').length < 2) continue; // niente esercente plausibile
+    txs.push({ amount: val, type, description: desc.slice(0, 60), date: parseYearlessDate(line) });
+  }
+  return txs;
+}
+
 export async function scanScreenshot(imageFileOrBlob) {
   if (typeof Tesseract === 'undefined') {
     throw new Error('Tesseract.js non caricato in pagina.');
@@ -111,12 +153,43 @@ export async function scanScreenshot(imageFileOrBlob) {
   return parseScreenshotText(data.text);
 }
 
+// OCR → più transazioni (per le liste movimenti). Ritorna { transactions, rawText }.
+export async function scanScreenshotMulti(imageFileOrBlob) {
+  if (typeof Tesseract === 'undefined') throw new Error('Tesseract.js non caricato in pagina.');
+  const { data } = await Tesseract.recognize(imageFileOrBlob, 'ita+eng');
+  return { transactions: parseScreenshotTransactions(data.text), rawText: data.text };
+}
+
 // Flusso completo collegato alla UI: OCR -> categorizzazione via
 // orchestratore -> inserimento (la deduplicazione fuzzy è già gestita
 // centralmente da VaultDAO.addTransaction, non va ripetuta qui).
 export async function handleScreenshotUpload(file) {
   try {
     showToast('Lettura screenshot in corso...', 'info');
+
+    // Prima si prova la LISTA (più movimenti in una schermata): il caso reale
+    // delle app bancarie. Se ne trova ≥1 li inserisce tutti; altrimenti ricade
+    // sul parser a singola transazione (scontrino/notifica).
+    const multi = await scanScreenshotMulti(file);
+    if (multi.transactions.length >= 1) {
+      let added = 0;
+      for (const t of multi.transactions) {
+        const date = t.date || new Date();
+        const ml = window.momentumOrchestrator
+          ? window.momentumOrchestrator.classify(t.description, t.amount, date)
+          : NeuralNexus.predict(t.description, t.amount, date);
+        const catId = ml && ml.confidence > 60 ? ml.cat : (t.type === 'entrata' ? 'stipendio' : 'spesa');
+        const cat = getCatById(catId) || getCatById('spesa');
+        const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: date.toISOString(), source: 'screenshot_ocr' };
+        const { duplicate } = VaultDAO.addTransaction(monthKey(date), tx);
+        if (!duplicate) { window.momentumOrchestrator?.learn(t.description, cat.id, t.amount, date); added++; }
+      }
+      if (added > 0) { window.renderDashboard?.(); window.renderAnalysis?.(); }
+      showToast(added > 0 ? `${added} movimenti riconosciuti dallo screenshot.` : 'Movimenti già presenti (nessun nuovo).', added > 0 ? 'success' : 'info');
+      return { count: added, transactions: multi.transactions };
+    }
+
+    // Fallback: singola transazione (scontrino/notifica).
     const parsed = await scanScreenshot(file);
     if (parsed.amount === null) {
       showToast('Nessun importo riconosciuto nello screenshot.', 'error');

@@ -54,3 +54,21 @@ test('CUSTOMER_INPAYMENT → entrata; corporate action a 0 → saltata', () => {
   assert.equal(txs.length, 1); // lo split a 0 è saltato
   assert.equal(txs[0].type, 'entrata');
 });
+
+test('GARANZIA aggancio data→mese→giorno: ogni importo mantiene la sua data esatta', () => {
+  const csv = HEADER + '\n'
+    + row({ date:'2024-09-03', category:'TRADING', type:'BUY', asset_class:'STOCK', name:'Snowflake (A)', amount:'-99.73' }) + '\n'
+    + row({ date:'2025-01-06', category:'TRADING', type:'BUY', asset_class:'STOCK', name:'Tesla', amount:'-2.00' }) + '\n'
+    + row({ date:'2026-07-11', type:'CARD_TRANSACTION', name:'MC DONALD S', amount:'-7.50', mcc_code:'5812' }) + '\n'
+    + row({ date:'2024-08-15', type:'DIVIDEND', asset_class:'STOCK', name:'Apple', amount:'0.45' });
+  const txs = parseRevolutExport(csv);
+  assert.equal(txs.length, 4);
+  const byDate = Object.fromEntries(txs.map(t => [t.date.toISOString().slice(0,10), t]));
+  // ogni transazione è agganciata al SUO giorno/mese/anno esatti
+  assert.ok(byDate['2024-09-03'] && byDate['2024-09-03'].description.match(/Snowflake/));
+  assert.equal(byDate['2025-01-06'].date.getMonth(), 0);   // gennaio
+  assert.equal(byDate['2025-01-06'].date.getDate(), 6);
+  assert.equal(byDate['2026-07-11'].date.getMonth(), 6);   // luglio
+  assert.equal(byDate['2026-07-11'].date.getDate(), 11);
+  assert.equal(byDate['2024-08-15'].date.getFullYear(), 2024);
+});
