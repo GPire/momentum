@@ -14,6 +14,7 @@ import { monthKey } from '../core/constants.js';
 import { getCatById, VaultDAO } from '../core/vault.js';
 import { showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
+import { safeCategorize } from './categorize.js';
 
 // Cattura importi con o senza separatore delle migliaia (1.500,00 / 1500,00
 // col separatore assente non è distinguibile in modo affidabile da OCR e
@@ -125,6 +126,23 @@ const RELATIVE = /^(oggi|today|hoy|aujourd|heute|hoje)$/i;
 const RELATIVE_YEST = /^(ieri|yesterday|ayer|hier|gestern|ontem)$/i;
 const stripA = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+// Nomi di mese COMPLETI (IT/EN/ES/FR/DE/PT). Servono per NON scambiare una
+// parola qualunque che inizia per un prefisso-mese (es. "Genova"→"gen") per un
+// mese: un mese valido è o un nome completo, o un'abbreviazione ≤4 lettere.
+const FULL_MONTHS = new Set(([
+  'gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre',
+  'january','february','march','april','may','june','july','august','september','october','november','december',
+  'enero','febrero','abril','mayo','junio','julio','septiembre','octubre','noviembre','diciembre',
+  'janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','decembre',
+  'januar','februar','maerz','marz','juni','juli','oktober','dezember',
+  'janeiro','fevereiro','marco','maio','junho','julho','setembro','outubro','dezembro',
+]).map(s => s.normalize('NFD').replace(/[̀-ͯ]/g, '')));
+function isMonthWord(w) {
+  const s = stripA(w);
+  return FULL_MONTHS.has(s) || (s.length <= 4 && MONTHS_MULTI[s.slice(0, 3)] !== undefined);
+}
+function monthOf(w) { return MONTHS_MULTI[stripA(w).slice(0, 3)]; }
+
 // Data da un'intestazione/riga, multi-lingua e multi-formato:
 // "13 Luglio", "13 Jul 2025", "July 13", "2025-07-13", "13/07/2025", "13/07",
 // "Oggi/Today/Yesterday...". Senza anno: corrente (o -1 se nel futuro).
@@ -139,12 +157,14 @@ function parseListDate(text) {
   // gg/mm[/aaaa]
   m = t.match(/\b(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?\b/);
   if (m && +m[1] <= 31 && +m[2] <= 12) { let y = m[3] ? +m[3] : now.getFullYear(); if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]); }
-  // "13 Luglio [2025]" (giorno-mese) oppure "July 13[, 2025]" (mese-giorno)
+  // "13 Luglio [2025]" (giorno-mese) oppure "July 13[, 2025]" (mese-giorno).
+  // Il mese dev'essere una PAROLA-MESE valida (isMonthWord), non un prefisso
+  // dentro un'altra parola ("Genova" non è "Gennaio").
   const dm = t.match(/(\d{1,2})\s+([a-zà-üçñ]{3,})\.?(?:\s+(\d{4}))?/i);
   const md = t.match(/([a-zà-üçñ]{3,})\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?/i);
   let day, mo, yr;
-  if (dm && MONTHS_MULTI[stripA(dm[2]).slice(0, 3)] !== undefined) { day = +dm[1]; mo = MONTHS_MULTI[stripA(dm[2]).slice(0, 3)]; yr = dm[3] ? +dm[3] : null; }
-  else if (md && MONTHS_MULTI[stripA(md[1]).slice(0, 3)] !== undefined) { mo = MONTHS_MULTI[stripA(md[1]).slice(0, 3)]; day = +md[2]; yr = md[3] ? +md[3] : null; }
+  if (dm && isMonthWord(dm[2])) { day = +dm[1]; mo = monthOf(dm[2]); yr = dm[3] ? +dm[3] : null; }
+  else if (md && isMonthWord(md[1])) { mo = monthOf(md[1]); day = +md[2]; yr = md[3] ? +md[3] : null; }
   else return null;
   const year = yr ?? now.getFullYear();
   let d = new Date(year, mo, day);
@@ -164,7 +184,7 @@ function isDateHeader(line) {
 // "Genova Ita16126ita"), circuiti di pagamento, diciture di stato.
 function cleanMerchant(s) {
   return s
-    .replace(/\b[Ii]ta\d{3,}\w*/g, '')                               // codici tipo "Ita16100ita"/"Ita999"
+    .replace(/\b[Il1]ta\d{2,}\w*/gi, '')                             // codici "Ita16100ita"/"Ita999" (OCR: I→1/l)
     .replace(/(apple pay|google pay|pagamento nfc|pagamento cless con device|pagamento con device|contactless|da contabilizzare|nfc)/ig, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/[-–—|:·*]+\s*$/,'')
@@ -214,9 +234,11 @@ export function parseScreenshotTransactions(rawText) {
     // Verso PREDITTIVO: segno '-' → uscita; '+' o parola d'entrata → entrata;
     // senza segno in una lista movimenti → spesa (il caso dominante).
     const type = a.neg ? 'uscita' : (a.pos || SCREEN_INCOME.test(desc)) ? 'entrata' : 'uscita';
-    // data: inline sulla riga stessa, altrimenti contesto-data della sezione.
+    // data: PRIORITÀ al contesto-data della sezione (intestazione "13 Luglio");
+    // l'inline solo se non c'è un header (liste con la data per-riga). Evita che
+    // un numero dentro il nome esercente ("Lidl 466...") venga preso per data.
     const inline = parseListDate(line);
-    txs.push({ amount: a.val, type, description: desc.slice(0, 60), date: inline || currentDate });
+    txs.push({ amount: a.val, type, description: desc.slice(0, 60), date: currentDate || inline });
   }
   return txs;
 }
@@ -251,10 +273,7 @@ export async function handleScreenshotUpload(file) {
       let added = 0;
       for (const t of multi.transactions) {
         const date = t.date || new Date();
-        const ml = window.momentumOrchestrator
-          ? window.momentumOrchestrator.classify(t.description, t.amount, date)
-          : NeuralNexus.predict(t.description, t.amount, date);
-        const catId = ml && ml.confidence > 60 ? ml.cat : (t.type === 'entrata' ? 'stipendio' : 'spesa');
+        const catId = safeCategorize(t.description, t.amount, date, t.type); // guardrail anti-crypto spurie
         const cat = getCatById(catId) || getCatById('spesa');
         const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: date.toISOString(), source: 'screenshot_ocr' };
         const { duplicate } = VaultDAO.addTransaction(monthKey(date), tx, { bulk: true });
@@ -272,10 +291,7 @@ export async function handleScreenshotUpload(file) {
       return null;
     }
 
-    const mlResult = window.momentumOrchestrator
-      ? window.momentumOrchestrator.classify(parsed.description, parsed.amount, parsed.date)
-      : NeuralNexus.predict(parsed.description, parsed.amount, parsed.date);
-    const catId = mlResult && mlResult.confidence > 60 ? mlResult.cat : (parsed.type === 'entrata' ? 'stipendio' : 'spesa');
+    const catId = safeCategorize(parsed.description, parsed.amount, parsed.date, parsed.type); // guardrail
 
     const tx = {
       id: Date.now() + Math.random(),

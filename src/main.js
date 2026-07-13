@@ -28,6 +28,7 @@ import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js
 import { handlePDFUpload } from './import/pdf-parser.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { handleUniversalCSV } from './import/csv-parser.js';
+import { importFiles } from './import/multi-import.js';
 import { MOMENTUM_TRAINED_MODEL_DATA } from './ai/trained-model-data.js';
 import { TrainedCategorizer } from './ai/trained-categorizer.js';
 import { TrainedMeso } from './ai/trained-meso.js';
@@ -2073,11 +2074,28 @@ const initApp = () => {
   }
 
   // Ingest listeners
-  const csvIn = $('#csv-upload'); if (csvIn) csvIn.addEventListener('change', handleUniversalCSV);
-  const pdfIn = $('#pdf-upload'); if (pdfIn) pdfIn.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (file) handlePDFUpload(file);
-  });
+  // Import UNIFICATO multi-file (N file, formati MISTI insieme): un solo save +
+  // una sola render alla fine, dedup unica, progress per file. Vale anche per
+  // gli input singoli quando l'utente seleziona più file dello stesso tipo.
+  const runMulti = async (files, srcInput) => {
+    const list = Array.from(files || []);
+    if (!list.length) return;
+    if (list.length === 1) { // singolo file → percorso dedicato (mantiene i toast specifici)
+      const f = list[0]; const ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (ext === 'csv' || f.type === 'text/csv') { handleUniversalCSV({ target: { files: [f], value: '' } }); if (srcInput) srcInput.value = ''; return; }
+      if (ext === 'pdf' || f.type === 'application/pdf') { await handlePDFUpload(f); if (srcInput) srcInput.value = ''; return; }
+      if ((f.type || '').startsWith('image/')) { const r = await handleScreenshotUpload(f); if (r) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); } if (srcInput) srcInput.value = ''; return; }
+    }
+    showToast(`Import di ${list.length} file in corso…`, 'info');
+    const res = await importFiles(list, { onProgress: ({ i, n, name }) => { try { logETL(`(${i}/${n}) ${name}`); } catch (_) {} } });
+    if (srcInput) srcInput.value = '';
+    const bt = res.byType;
+    showSignatureAlert('Import completato', `${res.added} operazioni da ${res.files} file (CSV ${bt.csv}, PDF ${bt.pdf}, screenshot ${bt.image})${res.errors.length ? `; ${res.errors.length} file con problemi` : ''}.`);
+    if (res.errors.length) console.warn('Import — file con problemi:', res.errors);
+  };
+  const multiIn = $('#multi-upload'); if (multiIn) multiIn.addEventListener('change', e => runMulti(e.target.files, multiIn));
+  const csvIn = $('#csv-upload'); if (csvIn) csvIn.addEventListener('change', e => runMulti(e.target.files, csvIn));
+  const pdfIn = $('#pdf-upload'); if (pdfIn) pdfIn.addEventListener('change', e => runMulti(e.target.files, pdfIn));
   const backupIn = $('#backup-restore-input'); if (backupIn) backupIn.addEventListener('change', e => {
     const file = e.target.files[0];
     if (file) window.restoreEncryptedBackup(file);

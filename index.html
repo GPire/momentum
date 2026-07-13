@@ -598,11 +598,14 @@
                  
                  <div class="etl-terminal mb-4" id="etl-log-box"></div>
 
-                 <input type="file" id="csv-upload" accept=".csv" class="hidden">
-                 <input type="file" id="pdf-upload" accept=".pdf" class="hidden">
-                 <input type="file" id="screenshot-upload" accept="image/*" class="hidden">
+                 <input type="file" id="csv-upload" accept=".csv" multiple class="hidden">
+                 <input type="file" id="pdf-upload" accept=".pdf" multiple class="hidden">
+                 <input type="file" id="screenshot-upload" accept="image/*" multiple class="hidden">
+                 <!-- Import UNIFICATO: N file di formato MISTO (CSV+PDF+screenshot) in una sola selezione -->
+                 <input type="file" id="multi-upload" accept=".csv,.pdf,image/*" multiple class="hidden">
+                 <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold">⬆︎ Importa tutto (CSV · PDF · Screenshot — anche 50 insieme)</button>
                  <div class="flex gap-3 mt-auto">
-                   <button onclick="document.getElementById('csv-upload').click()" class="btn-action flex-1">Ingestion CSV</button>
+                   <button onclick="document.getElementById('csv-upload').click()" class="btn-action flex-1">CSV</button>
                    <button onclick="document.getElementById('pdf-upload').click()" class="btn-action flex-1">PDF Banca</button>
                    <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action flex-1">Screenshot</button>
                    <button onclick="exportOmegaDNA()" class="btn-action flex-1">DNA</button>

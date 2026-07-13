@@ -13,14 +13,14 @@
 // Parser CSV robusto: rispetta le virgolette (le descrizioni Revolut contengono
 // virgole, es. "SNOWFLAKE INC. A DL-,0001, quantity: 1") e le doppie-virgolette
 // escape (""). Uno split(',') naive spezzerebbe quei campi.
-export function parseCsvRow(line) {
+export function parseCsvRow(line, delim = ',') {
   const out = []; let cur = ''; let inQ = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (c === '"') {
       if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
       else inQ = !inQ;
-    } else if (c === ',' && !inQ) { out.push(cur); cur = ''; }
+    } else if (c === delim && !inQ) { out.push(cur); cur = ''; }
     else cur += c;
   }
   out.push(cur);

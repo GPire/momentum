@@ -3,6 +3,7 @@ import { logETL } from '../core/utils.js';
 import { getCatById, VaultDAO } from '../core/vault.js';
 import { showSignatureAlert, showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
+import { safeCategorize } from './categorize.js';
 
 // ==========================================
 // PDF BANK PARSER (COLUMN RESONANCE)
@@ -280,12 +281,10 @@ const handlePDFUpload = async (file) => {
         // grezzo < 5) da quella usata ovunque il resto — due fonti di verità
         // sullo stesso problema potevano disaccordare sullo stesso caso.
         // Ora l'inserimento decide da solo se è un duplicato o una nuova riga.
-        const mlResult = window.momentumOrchestrator
-          ? window.momentumOrchestrator.classify(description, absAmt, date)
-          : NeuralNexus.predict(description, absAmt, date);
         // Il parser di conferme può SUGGERIRE la categoria (crypto/etf per un
-        // acquisto di investimenti): ha la precedenza sul ML generico.
-        const catId = category || (mlResult && mlResult.confidence > 60 ? mlResult.cat : (type === 'entrata' ? 'stipendio' : 'spesa'));
+        // acquisto di investimenti): ha la precedenza. Altrimenti categorizzazione
+        // SICURA (dizionario + ML con guardrail anti-crypto/etf spurie).
+        const catId = category || safeCategorize(description, absAmt, date, type);
         const newTx = {
           id: Date.now() + Math.random(),
           amount: absAmt,
