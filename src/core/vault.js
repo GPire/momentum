@@ -164,7 +164,12 @@ const VaultDAO = {
   // dispatcher a soglia (src/predict/dispatcher.js): dice al chiamante se vale la
   // pena svegliare subito il worker di forecast pesante o se questa transazione è
   // abbastanza di routine da aspettare il prossimo render naturale.
-  addTransaction(month, tx) {
+  // opts.bulk = true: import di massa (CSV/PDF di 5 anni). Salta il save() e il
+  // novelty() PER-RIGA — che serializzavano/scansionavano l'INTERO vault a ogni
+  // inserimento (O(n²) → l'app si congelava su file grandi). In bulk il
+  // chiamante fa UN solo save() alla fine (flushBulk()). Il dedup per-mese
+  // resta (economico: scansiona solo il mese, non tutto).
+  addTransaction(month, tx, opts = {}) {
     if (!this.state.transactions[month]) this.state.transactions[month] = [];
     const existingList = this.state.transactions[month];
 
@@ -177,24 +182,30 @@ const VaultDAO = {
       merged.prevHash = match.prevHash;
       const idx = existingList.findIndex(t => t.id === match.id);
       existingList[idx] = merged;
-      this.save();
+      if (!opts.bulk) this.save();
       return { duplicate: true, mergedInto: match.id };
     }
 
     // calcolato PRIMA dell'inserimento: la storia di riferimento non deve
-    // includere la transazione che sta arrivando ora.
-    let route = 'heavy'; // default prudente se il dispatcher fallisce per qualsiasi motivo
-    try {
-      route = novelty(tx, this.state.transactions, { monthlyBudget: this.state.monthlyBudget }).route;
-    } catch (e) { console.warn('Dispatcher novelty() fallito, uso percorso pesante di default:', e); }
+    // includere la transazione che sta arrivando ora. In bulk si salta (il
+    // "route" del dispatcher non serve durante un import massivo).
+    let route = 'bulk';
+    if (!opts.bulk) {
+      route = 'heavy'; // default prudente se il dispatcher fallisce per qualsiasi motivo
+      try {
+        route = novelty(tx, this.state.transactions, { monthlyBudget: this.state.monthlyBudget }).route;
+      } catch (e) { console.warn('Dispatcher novelty() fallito, uso percorso pesante di default:', e); }
+    }
 
     tx.prevHash = this.state.lastHash;
     tx.hash = simpleHash(tx.id + tx.amount + tx.category + tx.prevHash);
     this.state.lastHash = tx.hash;
     existingList.push(tx);
-    this.save();
-    // log append-only: base per il sync federato differenziale (mai riscritto)
-    DurableStore.append('tx_log', { month, tx, ts: Date.now() }).catch(() => {});
+    if (!opts.bulk) {
+      this.save();
+      // log append-only: base per il sync federato differenziale (mai riscritto)
+      DurableStore.append('tx_log', { month, tx, ts: Date.now() }).catch(() => {});
+    }
     return { duplicate: false, route };
   },
   deleteTransaction(month, id) {

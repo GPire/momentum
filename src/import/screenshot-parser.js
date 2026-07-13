@@ -257,10 +257,10 @@ export async function handleScreenshotUpload(file) {
         const catId = ml && ml.confidence > 60 ? ml.cat : (t.type === 'entrata' ? 'stipendio' : 'spesa');
         const cat = getCatById(catId) || getCatById('spesa');
         const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: date.toISOString(), source: 'screenshot_ocr' };
-        const { duplicate } = VaultDAO.addTransaction(monthKey(date), tx);
-        if (!duplicate) { window.momentumOrchestrator?.learn(t.description, cat.id, t.amount, date); added++; }
+        const { duplicate } = VaultDAO.addTransaction(monthKey(date), tx, { bulk: true });
+        if (!duplicate) added++;
       }
-      if (added > 0) { window.renderDashboard?.(); window.renderAnalysis?.(); }
+      if (added > 0) { VaultDAO.save(); window.renderDashboard?.(); window.renderAnalysis?.(); }
       showToast(added > 0 ? `${added} movimenti riconosciuti dallo screenshot.` : 'Movimenti già presenti (nessun nuovo).', added > 0 ? 'success' : 'info');
       return { count: added, transactions: multi.transactions };
     }

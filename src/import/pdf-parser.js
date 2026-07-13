@@ -295,7 +295,7 @@ const handlePDFUpload = async (file) => {
           color: getCatById(catId).color,
           date: date.toISOString()
         };
-        const { duplicate } = VaultDAO.addTransaction(k, newTx);
+        const { duplicate } = VaultDAO.addTransaction(k, newTx, { bulk: true });
         if (!duplicate) {
           if (window.momentumOrchestrator) {
             window.momentumOrchestrator.learn(description, catId, absAmt, date);
@@ -308,6 +308,7 @@ const handlePDFUpload = async (file) => {
       });
     }
 
+    if (addedCount > 0) VaultDAO.save(); // UN solo salvataggio finale (estratti conto lunghi = molte pagine)
     logETL(`PDF completato: ${addedCount} nuove transazioni intestate.`);
     if (addedCount > 0) {
       // via window: questo è un modulo ES, il nome nudo sarebbe un

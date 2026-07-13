@@ -44,12 +44,10 @@ const handleUniversalCSV = (e) => {
         }
         const cat = getCatById(catId) || getCatById('spesa');
         const newTx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: t.externalId || '' };
-        const { duplicate } = VaultDAO.addTransaction(k, newTx);
-        if (!duplicate) {
-          if (window.momentumOrchestrator) window.momentumOrchestrator.learn(t.description, cat.id, t.amount, t.date);
-          addedR++;
-        }
+        const { duplicate } = VaultDAO.addTransaction(k, newTx, { bulk: true }); // bulk: no save per-riga
+        if (!duplicate) addedR++;
       }
+      VaultDAO.save(); // UN solo salvataggio alla fine (evita O(n²) su file grandi)
       if (input) input.value = '';
       if (addedR > 0) { window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("Revolut importato", `${addedR} operazioni riconosciute (investimenti, dividendi, spese)${skippedR ? `; ${skippedR} già presenti, saltate` : ''}.`); }
       else showToast(skippedR ? `Tutte le ${skippedR} operazioni erano già presenti (nessun doppione).` : "Nessuna operazione trovata.", "info");
@@ -166,18 +164,14 @@ const handleUniversalCSV = (e) => {
                 }
                 
                 const newTx = { id: Date.now() + Math.random(), amount: amountVal, type, category: catId, description: descVal.substring(0, 40), color: getCatById(catId).color, date: dObj.toISOString() };
-                VaultDAO.addTransaction(k, newTx);
-                if (window.momentumOrchestrator) {
-                  window.momentumOrchestrator.learn(descVal, catId, amountVal, dObj);
-                } else {
-                  NeuralNexus.train(descVal, catId, amountVal, dObj);
-                }
+                VaultDAO.addTransaction(k, newTx, { bulk: true }); // bulk: no save per-riga
                 existingTxs.push(newTx);
                 added++;
              }
           }
        }
     });
+    if (added > 0) VaultDAO.save(); // UN solo salvataggio finale (niente O(n²) su CSV grandi)
     if(added > 0) {
         window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("ETL Completato", `Importate ${added} nuove operazioni.`);
     } else {
