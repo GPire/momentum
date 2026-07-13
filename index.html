@@ -166,6 +166,24 @@
     #pdf-progress-overlay.active { opacity: 1; pointer-events: auto; }
     .pdf-progress-ring { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--outline); border-top-color: var(--primary); animation: spin 1s linear infinite; mb-6; }
 
+    /* === HARDENING RESPONSIVE GLOBALE (W15) ===
+       Risolve alla radice "sezioni/testi/button che escono" su qualunque
+       dispositivo (iPhone 1ª gen piccolo → tablet → desktop → TV):
+       - niente scroll orizzontale della pagina;
+       - i figli di flex/grid possono restringersi (min-width:0) → i nomi lunghi
+         si troncano invece di sforare la sezione;
+       - media e contenuti larghi non superano mai il contenitore;
+       - i contenitori noti-larghi (heatmap, tabelle) scrollano da soli. */
+    html, body { max-width: 100%; overflow-x: hidden; }
+    #app-core, .card, main, section { max-width: 100%; }
+    .flex > *, .grid > * { min-width: 0; }       /* fix chiave: evita overflow da contenuto largo */
+    img, canvas, svg, video { max-width: 100%; height: auto; }
+    .heatmap-grid, .overflow-scroll-x, table { max-width: 100%; overflow-x: auto; }
+    /* Button leggibili e toccabili su OGNI schermo: area minima comoda anche su
+       iPhone piccolo, senza diventare enormi su desktop. */
+    .btn-action { min-height: 40px; font-size: clamp(11px, 2.6vw, 15px); padding: 0.5rem 0.75rem; white-space: nowrap; }
+    @media (min-width: 1280px) { .btn-action { min-height: 44px; } }
+
     /* === IMPORT PROGRESS (multi-file): feedback chiaro parte/avanzamento/fine === */
     #import-progress { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(20px); z-index: 260; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
     #import-progress.active { display: flex; }
