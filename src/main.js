@@ -2086,11 +2086,32 @@ const initApp = () => {
       if (ext === 'pdf' || f.type === 'application/pdf') { await handlePDFUpload(f); if (srcInput) srcInput.value = ''; return; }
       if ((f.type || '').startsWith('image/')) { const r = await handleScreenshotUpload(f); if (r) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); } if (srcInput) srcInput.value = ''; return; }
     }
-    showToast(`Import di ${list.length} file in corso…`, 'info');
-    const res = await importFiles(list, { onProgress: ({ i, n, name }) => { try { logETL(`(${i}/${n}) ${name}`); } catch (_) {} } });
+    // Overlay di progresso: feedback CHIARO (parte, a che punto è, quando finisce).
+    // Attrito minimo: l'utente vede subito che sta lavorando, senza dover indovinare.
+    const ov = document.getElementById('import-progress');
+    const elTitle = document.getElementById('import-title');
+    const elFile = document.getElementById('import-file');
+    const elBar = document.getElementById('import-bar-fill');
+    const elCount = document.getElementById('import-count');
+    const elClose = document.getElementById('import-close');
+    const elSpin = document.getElementById('import-spinner');
+    if (ov) { ov.classList.add('active'); elClose?.classList.add('hidden'); elSpin && (elSpin.style.display = ''); }
+    if (elTitle) elTitle.textContent = `Sto leggendo ${list.length} file…`;
+    const res = await importFiles(list, { onProgress: ({ i, n, name, kind }) => {
+      const icon = kind === 'pdf' ? '📄' : kind === 'image' ? '🖼️' : '📑';
+      if (elFile) elFile.textContent = `${icon} ${name}`;
+      if (elBar) elBar.style.width = `${Math.round((i - 1) / n * 100)}%`;
+      if (elCount) elCount.textContent = `${i} / ${n} file`;
+      try { logETL(`(${i}/${n}) ${name}`); } catch (_) {}
+    }});
     if (srcInput) srcInput.value = '';
     const bt = res.byType;
-    showSignatureAlert('Import completato', `${res.added} operazioni da ${res.files} file (CSV ${bt.csv}, PDF ${bt.pdf}, screenshot ${bt.image})${res.errors.length ? `; ${res.errors.length} file con problemi` : ''}.`);
+    if (elBar) elBar.style.width = '100%';
+    if (elSpin) elSpin.style.display = 'none';
+    if (elTitle) elTitle.textContent = res.added > 0 ? `✅ Fatto! ${res.added} movimenti aggiunti` : '✅ Tutto già presente';
+    if (elFile) elFile.textContent = `${res.files} file · CSV ${bt.csv} · PDF ${bt.pdf} · foto ${bt.image}${res.errors.length ? ` · ${res.errors.length} saltati` : ''}`;
+    if (elCount) elCount.textContent = res.learned?.length ? `L'AI sta imparando da ${res.learned.length} operazioni…` : '';
+    elClose?.classList.remove('hidden');
     if (res.errors.length) console.warn('Import — file con problemi:', res.errors);
   };
   const multiIn = $('#multi-upload'); if (multiIn) multiIn.addEventListener('change', e => runMulti(e.target.files, multiIn));

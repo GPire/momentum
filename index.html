@@ -166,6 +166,13 @@
     #pdf-progress-overlay.active { opacity: 1; pointer-events: auto; }
     .pdf-progress-ring { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--outline); border-top-color: var(--primary); animation: spin 1s linear infinite; mb-6; }
 
+    /* === IMPORT PROGRESS (multi-file): feedback chiaro parte/avanzamento/fine === */
+    #import-progress { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(20px); z-index: 260; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
+    #import-progress.active { display: flex; }
+    #import-progress .box { width: min(92vw, 420px); background: var(--surface, #14151a); border: 1px solid var(--outline, #2a2c34); border-radius: 20px; padding: 1.5rem; }
+    #import-progress .bar { height: 10px; border-radius: 6px; background: var(--outline, #2a2c34); overflow: hidden; margin: 1rem 0 0.5rem; }
+    #import-progress .bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary, #6366f1), var(--green, #10b981)); transition: width 0.25s; }
+
     /* === OTA SPLASH SCREEN === */
     #ota-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); backdrop-filter: blur(40px); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1); padding: 1rem; text-align: center;}
     #ota-overlay.active { opacity: 1; pointer-events: auto; }
@@ -291,6 +298,18 @@
     <div class="pdf-progress-ring"></div>
     <p class="text-white font-bold text-sm mb-1" id="pdf-progress-text">Decodifica in corso...</p>
     <p class="text-[var(--on-surface-secondary)] text-xs font-mono" id="pdf-progress-page">Pagina 0/0</p>
+  </div>
+
+  <!-- Progresso import multi-file: dice se parte, a che punto è, e quando finisce -->
+  <div id="import-progress">
+    <div class="box">
+      <div class="pdf-progress-ring" style="margin:0 auto 1rem;" id="import-spinner"></div>
+      <p class="text-white font-black text-lg" id="import-title">Importazione…</p>
+      <p class="text-[var(--on-surface-secondary)] text-sm mt-1 font-mono truncate" id="import-file">—</p>
+      <div class="bar"><i id="import-bar-fill"></i></div>
+      <p class="text-[var(--on-surface-secondary)] text-xs" id="import-count">0 / 0 file</p>
+      <button id="import-close" class="btn-action w-full mt-4 hidden" onclick="document.getElementById('import-progress').classList.remove('active')">Chiudi</button>
+    </div>
   </div>
 
   <!-- ===================== MAIN APPLICATION STRUCTURE ===================== -->
@@ -603,12 +622,12 @@
                  <input type="file" id="screenshot-upload" accept="image/*" multiple class="hidden">
                  <!-- Import UNIFICATO: N file di formato MISTO (CSV+PDF+screenshot) in una sola selezione -->
                  <input type="file" id="multi-upload" accept=".csv,.pdf,image/*" multiple class="hidden">
-                 <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold">⬆︎ Importa tutto (CSV · PDF · Screenshot — anche 50 insieme)</button>
-                 <div class="flex gap-3 mt-auto">
-                   <button onclick="document.getElementById('csv-upload').click()" class="btn-action flex-1">CSV</button>
-                   <button onclick="document.getElementById('pdf-upload').click()" class="btn-action flex-1">PDF Banca</button>
-                   <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action flex-1">Screenshot</button>
-                   <button onclick="exportOmegaDNA()" class="btn-action flex-1">DNA</button>
+                 <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold text-sm sm:text-base">⬆︎ Importa tutto <span class="hidden sm:inline">(CSV · PDF · Screenshot — anche 50 insieme)</span></button>
+                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-auto">
+                   <button onclick="document.getElementById('csv-upload').click()" class="btn-action">CSV</button>
+                   <button onclick="document.getElementById('pdf-upload').click()" class="btn-action">PDF Banca</button>
+                   <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action">Screenshot</button>
+                   <button onclick="exportOmegaDNA()" class="btn-action">DNA</button>
                  </div>
               </div>
 

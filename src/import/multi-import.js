@@ -20,7 +20,7 @@ import { safeCategorize } from './categorize.js';
 
 // Categorizza (MCC/asset dal parser, altrimenti ML) e aggiunge in BULK una lista
 // di transazioni normalizzate. `seenIds` = dedup esatta condivisa tra i file.
-function addParsed(txs, seenIds) {
+function addParsed(txs, seenIds, learned) {
   let added = 0;
   for (const t of txs) {
     if (!t.date || !t.amount) continue;
@@ -34,9 +34,30 @@ function addParsed(txs, seenIds) {
     const cat = getCatById(catId) || getCatById('spesa');
     const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: extId };
     const { duplicate } = VaultDAO.addTransaction(monthKey(t.date), tx, { bulk: true, noDedup: !!extId });
-    if (!duplicate) added++;
+    if (!duplicate) { added++; if (learned) learned.push({ description: t.description, category: cat.id, amount: t.amount, date: t.date }); }
   }
   return added;
+}
+
+// APPRENDIMENTO in BACKGROUND: i modelli imparano dalle categorizzazioni degli
+// import, ma a CHUNK durante l'idle del browser → non blocca la UI anche con
+// migliaia di transazioni. Ogni coppia (descrizione→categoria) rinforza
+// l'orchestratore (DCGN online + reliability per-categoria).
+export function learnInBackground(pairs, chunk = 40) {
+  if (typeof window === 'undefined' || !window.momentumOrchestrator || !pairs || !pairs.length) return;
+  const orch = window.momentumOrchestrator;
+  let i = 0;
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 30));
+  const step = () => {
+    let n = 0;
+    while (i < pairs.length && n < chunk) {
+      const p = pairs[i++];
+      try { orch.learn(p.description, p.category, p.amount, p.date); } catch (_) {}
+      n++;
+    }
+    if (i < pairs.length) idle(step);
+  };
+  idle(step);
 }
 
 async function parseCsvFile(file) {
@@ -81,7 +102,8 @@ export async function importFiles(fileList, { onProgress } = {}) {
   const seenIds = new Set();
   for (const m of Object.values(VaultDAO.state.transactions || {})) for (const tx of m) if (tx.externalId) seenIds.add(tx.externalId);
 
-  const result = { files: files.length, added: 0, byType: { csv: 0, pdf: 0, image: 0 }, perFile: [], errors: [] };
+  const learned = [];
+  const result = { files: files.length, added: 0, byType: { csv: 0, pdf: 0, image: 0 }, perFile: [], errors: [], learned };
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     const kind = fileKind(f);
@@ -89,7 +111,7 @@ export async function importFiles(fileList, { onProgress } = {}) {
     if (kind === 'unknown') { result.errors.push(`${f.name}: formato non supportato`); continue; }
     try {
       const txs = kind === 'csv' ? await parseCsvFile(f) : kind === 'pdf' ? await parsePdfFile(f) : await parseImageFile(f);
-      const added = addParsed(txs, seenIds);
+      const added = addParsed(txs, seenIds, learned);
       result.added += added;
       result.byType[kind] += 1;
       result.perFile.push({ name: f.name, kind, parsed: txs.length, added });
@@ -100,5 +122,7 @@ export async function importFiles(fileList, { onProgress } = {}) {
   // UN solo salvataggio + UNA sola render alla fine di TUTTI i file.
   VaultDAO.save();
   if (typeof window !== 'undefined') (window.renderAfterImport ? window.renderAfterImport() : (window.renderDashboard?.(), window.renderAnalysis?.()));
+  // I modelli imparano dagli import, ma in background (non blocca la UI).
+  learnInBackground(learned);
   return result;
 }
