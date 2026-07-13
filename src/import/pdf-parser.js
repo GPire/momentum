@@ -11,6 +11,78 @@ import { NeuralNexus } from '../ai/neural-nexus.js';
 // pagina e restituisce le transazioni. Separato da processPageWithColumnMap
 // (che fa solo l'estrazione via pdf.js) per essere testabile in Node con
 // layout sintetici delle varie banche, senza PDF reali.
+// Parser di CONFERME di singola transazione (Revolut, broker, wallet, ecc.):
+// layout chiave-valore invece che a colonne. Estrae importo, data, descrizione,
+// verso (entrata/uscita) e riconosce investimenti/acquisti di stock/crypto.
+// `rows` = righe già raggruppate per y; `items` = item grezzi (per il full-text).
+// Ritorna [] se non riconosce una conferma, o [tx] con la singola transazione.
+// Regex STRETTE per evitare falsi positivi dai campi/boilerplate del documento
+// (es. il campo Revolut "Payment Token" NON è crypto). Si applicano SOLO al
+// testo significativo (descrizione/riferimento/beneficiario), mai all'intero PDF.
+const CONFIRM_INVEST = /\b(shares?|stock|equity|etf|dividend|obbligazion|azioni)\b/i;
+const CONFIRM_CRYPTO = /\b(crypto|bitcoin|btc|ethereum|eth|litecoin|solana|cardano|ripple|dogecoin|binance|coinbase|kraken)\b/i;
+const CONFIRM_INCOMING = /\b(received|incoming|top.?up|refund|rimborso|ricevut|accredito|salary|stipendio|payout|cashback)\b/i;
+
+const extractConfirmationTransaction = (rows, items) => {
+  const fullText = items.map(i => i.text).join(' ');
+  // Deve sembrare una conferma/ricevuta con un importo, non uno statement vuoto.
+  const looksConfirmation = /(confirmation|receipt|conferma|ricevuta|transfer details|beneficiary|payment|transaction)/i.test(fullText)
+    && /(amount|importo|total|totale|€|\$|£)/i.test(fullText);
+  if (!looksConfirmation) return [];
+
+  // Valore sulla stessa riga di un'etichetta: trova la riga con l'etichetta e
+  // restituisce, tra gli item a x maggiore, quello che soddisfa `pick`.
+  const valueFor = (labelRe, pick) => {
+    for (const row of rows) {
+      const li = row.findIndex(it => labelRe.test(it.text.trim()));
+      if (li === -1) continue;
+      for (let j = 0; j < row.length; j++) {
+        if (j === li) continue;
+        const v = pick(row[j].text.trim());
+        if (v !== null && v !== undefined && v !== '') return v;
+      }
+    }
+    return null;
+  };
+
+  // Importo: la riga con etichetta "Amount/Importo" (NON "Fee"). Prende il primo
+  // valore monetario > 0 su quella riga.
+  let amount = valueFor(/^(amount|importo|total|totale|importe|montant|betrag|valor)$/i, (t) => {
+    const a = parseCellAmount(t); return (a !== null && Math.abs(a) > 0) ? Math.abs(a) : null;
+  });
+  // Fallback: il valore monetario più grande del documento (l'importo domina la fee).
+  if (amount === null) {
+    let best = 0;
+    for (const it of items) { const a = parseCellAmount(it.text); if (a !== null && Math.abs(a) > best) best = Math.abs(a); }
+    amount = best > 0 ? best : null;
+  }
+  if (amount === null) return [];
+
+  // Data: preferisci "Operation/Value Date", poi qualunque data ISO/gg-mm nel testo.
+  let date = valueFor(/^(operation date|value date|date|data|fecha|datum|booking date)$/i, (t) => parseCellDate(t));
+  if (!date) { for (const it of items) { const d = parseCellDate(it.text); if (d) { date = d; break; } } }
+  if (!date) date = new Date();
+
+  // Descrizione: Reference/Details + beneficiario (Name). Combinati per dare al
+  // categorizzatore il massimo segnale ("Pagamento Bolletta - IREN MERCATO SPA").
+  const ref = valueFor(/^(reference|transfer details|details|causale|descrizione|concept|motivo|payment for)$/i, (t) => t && !/^€|^\$|^\d+[.,]\d/.test(t) ? t : null);
+  const beneficiary = valueFor(/^(name|beneficiary|beneficiary details|payee|to|merchant|counterparty)$/i, (t) => t && t.length > 1 ? t : null);
+  let description = [ref, beneficiary].filter(Boolean).join(' - ') || (ref || beneficiary || 'Operazione importata');
+
+  // Verso + riconoscimento investimenti/stock/crypto — SOLO sul testo
+  // significativo (ref + beneficiario), non sul boilerplate del documento.
+  const signal = [ref, beneficiary].filter(Boolean).join(' ');
+  let type = 'uscita';        // una conferma di trasferimento/pagamento è in uscita
+  let category = null;
+  if (CONFIRM_CRYPTO.test(signal)) { category = 'crypto'; type = 'uscita'; }
+  else if (CONFIRM_INVEST.test(signal)) { category = 'etf'; type = 'uscita'; }
+  else if (CONFIRM_INCOMING.test(signal)) { type = 'entrata'; }
+
+  const tx = { date, amount, type, description: description.slice(0, 80) };
+  if (category) tx.category = category; // suggerimento al categorizzatore a valle
+  return [tx];
+};
+
 const extractTransactionsFromItems = (items) => {
   // Bug reale corretto: nello spazio PDF la y cresce verso l'ALTO, quindi
   // l'ordinamento ascendente processava le righe dal fondo pagina — l'header
@@ -34,7 +106,12 @@ const extractTransactionsFromItems = (items) => {
   if (curRow.length) rows.push(curRow.sort((a,b) => a.x - b.x));
 
   const columnMap = detectColumnMap(rows);
-  if (!columnMap || (columnMap.expense === -1 && columnMap.income === -1)) return [];
+  // Nessuna tabella riconosciuta: potrebbe essere una CONFERMA di singola
+  // transazione (Revolut/broker: layout chiave-valore, non a colonne). Provo
+  // il parser dedicato prima di arrendermi all'OCR.
+  if (!columnMap || (columnMap.expense === -1 && columnMap.income === -1)) {
+    return extractConfirmationTransaction(rows, items);
+  }
 
   const transactions = [];
   let lastDate = null;
@@ -192,7 +269,7 @@ const handlePDFUpload = async (file) => {
         }
       }
 
-      txs.forEach(({ date, amount, type, description }) => {
+      txs.forEach(({ date, amount, type, description, category }) => {
         if (!date || !amount || isNaN(amount) || amount === 0) return;
         const absAmt = amount;
         const k = monthKey(date);
@@ -206,7 +283,9 @@ const handlePDFUpload = async (file) => {
         const mlResult = window.momentumOrchestrator
           ? window.momentumOrchestrator.classify(description, absAmt, date)
           : NeuralNexus.predict(description, absAmt, date);
-        const catId = mlResult && mlResult.confidence > 60 ? mlResult.cat : (type === 'entrata' ? 'stipendio' : 'spesa');
+        // Il parser di conferme può SUGGERIRE la categoria (crypto/etf per un
+        // acquisto di investimenti): ha la precedenza sul ML generico.
+        const catId = category || (mlResult && mlResult.confidence > 60 ? mlResult.cat : (type === 'entrata' ? 'stipendio' : 'spesa'));
         const newTx = {
           id: Date.now() + Math.random(),
           amount: absAmt,

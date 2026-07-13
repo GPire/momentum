@@ -95,3 +95,41 @@ export function brazilLayout() {
     { text: '05/06/2026', x: 40, y: 700 }, { text: 'SALARIO EMPRESA LTDA', x: 140, y: 700 }, { text: '3.200,00', x: 480, y: 700 },
   ];
 }
+
+// Conferma Revolut di PAGAMENTO (layout chiave-valore, non tabella): il caso
+// reale che il parser a colonne non vedeva. "Payment Token" è un campo, NON crypto.
+export function revolutPaymentConfirmation() {
+  return [
+    { text: 'Transfer Confirmation', x: 60, y: 780 },
+    { text: 'Operation Date', x: 312, y: 689 }, { text: '2026-05-26', x: 492, y: 689 },
+    { text: 'Value Date', x: 312, y: 709 }, { text: '2026-05-26', x: 492, y: 709 },
+    { text: 'Payment Token', x: 71, y: 604 }, { text: '309380251139015683', x: 266, y: 604 },
+    { text: 'Amount', x: 71, y: 584 }, { text: '€38.08', x: 266, y: 584 },
+    { text: 'Fee', x: 71, y: 563 }, { text: '€0', x: 281, y: 563 },
+    { text: 'Reference', x: 71, y: 543 }, { text: 'Pagamento Bolletta', x: 224, y: 543 },
+    { text: 'Beneficiary Details', x: 60, y: 412 },
+    { text: 'Name', x: 71, y: 376 }, { text: 'IREN MERCATO SPA', x: 221, y: 376 },
+  ];
+}
+
+// Conferma di ACQUISTO INVESTIMENTO (stock): deve → categoria etf, uscita.
+export function brokerStockConfirmation() {
+  return [
+    { text: 'Order Confirmation', x: 60, y: 780 },
+    { text: 'Date', x: 312, y: 689 }, { text: '2026-06-15', x: 492, y: 689 },
+    { text: 'Amount', x: 71, y: 584 }, { text: '€500.00', x: 266, y: 584 },
+    { text: 'Reference', x: 71, y: 543 }, { text: 'Buy 3 shares AAPL', x: 224, y: 543 },
+    { text: 'Name', x: 71, y: 376 }, { text: 'Apple Inc Stock', x: 221, y: 376 },
+  ];
+}
+
+// Conferma di ACQUISTO CRYPTO: deve → categoria crypto, uscita.
+export function cryptoBuyConfirmation() {
+  return [
+    { text: 'Transaction Receipt', x: 60, y: 780 },
+    { text: 'Date', x: 312, y: 689 }, { text: '2026-06-20', x: 492, y: 689 },
+    { text: 'Amount', x: 71, y: 584 }, { text: '€250.00', x: 266, y: 584 },
+    { text: 'Reference', x: 71, y: 543 }, { text: 'Bought Bitcoin', x: 224, y: 543 },
+    { text: 'Name', x: 71, y: 376 }, { text: 'BTC Wallet', x: 221, y: 376 },
+  ];
+}

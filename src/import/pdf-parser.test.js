@@ -122,3 +122,31 @@ test('estratto BRASILE/PT (Débito/Crédito, Descrição): 2 transazioni, verso 
   assert.equal(txs[1].type, 'entrata'); // Crédito = entrata (salario)
   assert.equal(txs[1].amount, 3200);
 });
+
+test('CONFERMA Revolut pagamento (chiave-valore): importo, data, descrizione, uscita, NO falso crypto', async () => {
+  const { revolutPaymentConfirmation } = await import('./fixtures/pdf-layouts.js');
+  const txs = extractTransactionsFromItems(revolutPaymentConfirmation());
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 38.08);        // importo (non la fee €0)
+  assert.equal(txs[0].type, 'uscita');
+  assert.equal(txs[0].date.getMonth(), 4);   // maggio
+  assert.equal(txs[0].date.getDate(), 26);
+  assert.ok(/IREN MERCATO SPA/.test(txs[0].description));
+  assert.notEqual(txs[0].category, 'crypto'); // "Payment Token" NON deve dare crypto
+});
+
+test('CONFERMA acquisto STOCK → categoria etf', async () => {
+  const { brokerStockConfirmation } = await import('./fixtures/pdf-layouts.js');
+  const txs = extractTransactionsFromItems(brokerStockConfirmation());
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 500);
+  assert.equal(txs[0].category, 'etf');
+});
+
+test('CONFERMA acquisto CRYPTO → categoria crypto', async () => {
+  const { cryptoBuyConfirmation } = await import('./fixtures/pdf-layouts.js');
+  const txs = extractTransactionsFromItems(cryptoBuyConfirmation());
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 250);
+  assert.equal(txs[0].category, 'crypto');
+});
