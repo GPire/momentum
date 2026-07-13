@@ -71,6 +71,75 @@ export const POOL = {
     'polkadot dot', 'avalanche avax', 'chainlink link', 'wallet freddo'],
 };
 
+// Seconda ondata (dataset PIÙ POTENTE): altri esercenti/pattern reali,
+// multilingua e per il mondo reale, + categorie mancanti (risparmio, più
+// stipendio). Fusi nel POOL. "Crea un dataset nostro, avanzato" → questo.
+const MORE = {
+  spesa: ['carrefour market', 'coop supermercato', 'conad superstore', 'lidl discount', 'eurospin risparmio',
+    'esselunga la esse', 'penny market spesa', 'md discount', 'famila superstore', 'tigros supermercati',
+    'mercadona compra semanal', 'aldi nord', 'edeka center', 'rewe markt', 'auchan hypermarche',
+    'spar express', 'proxi alimentari', 'coop migros', 'delhaize', 'monoprix courses'],
+  ristoranti: ['old wild west', 'roadhouse grill', 'spontini pizza', 'rossopomodoro', 'alice pizza',
+    'la piadineria', 'temakinho sushi', 'pokeria', 'burger king menu', 'kfc pollo',
+    'five guys', 'wagamama', 'taco bell', 'nandos', 'pret a manger', 'yo sushi',
+    'bar tabacchi caffe', 'gelateria grom', 'venchi cioccolato', 'chocolat cafe'],
+  shopping: ['zara home', 'bershka store', 'stradivarius', 'pull and bear', 'massimo dutti',
+    'uniqlo', 'foot locker', 'jd sports', 'game stop', 'gamestop videogiochi',
+    'apple store', 'samsung store', 'xiaomi store', 'action store', 'tiger negozio',
+    'flying tiger', 'normal store', 'kasanova casalinghi', 'maisons du monde', 'westwing'],
+  abbonamenti: ['netflix premium', 'disney plus mensile', 'amazon prime video', 'apple tv plus', 'paramount plus',
+    'dazn calcio', 'now tv sky', 'spotify family', 'youtube music premium', 'nintendo online',
+    'playstation plus', 'xbox game pass', 'chatgpt plus', 'notion abbonamento', 'dropbox pro',
+    'linkedin premium', 'audible libri', 'nytimes', 'financial times abbonamento', 'onlyfans'],
+  trasporti: ['q8 easy carburante', 'eni station', 'ip gas', 'tamoil rifornimento', 'esso self',
+    'trenord biglietto', 'italo alta velocita', 'trenitalia frecciarossa', 'atac roma', 'gtt torino',
+    'uber corsa', 'freenow taxi', 'bolt ride', 'lime monopattino', 'dott scooter',
+    'telepass pedaggio', 'autostrade per italia', 'easypark parcheggio', 'flixbus bus', 'ryanair volo'],
+  stipendio: ['bonifico stipendio azienda', 'accredito busta paga', 'emolumenti mensili', 'compenso co.co.co',
+    'onorario fattura', 'rimborso spese trasferta', 'accredito f24 rimborso', 'tredicesima mensilita',
+    'quattordicesima', 'premio risultato', 'salary payment company', 'gehalt monat', 'salaire mensuel', 'nomina mensual'],
+  etf: ['acquisto vwce etf', 'etf iShares core', 'xtrackers msci world', 'amundi prime global', 'vanguard sp500 etf',
+    'pac etf mensile', 'etf obbligazionario euro', 'etf nasdaq 100', 'etf emerging markets', 'etf dividendi aristocratici',
+    'trade republic risparmio etf', 'scalable capital etf', 'directa etf', 'fineco etf', 'degiro etf'],
+  crypto: ['bitpanda crypto acquisto', 'young platform btc', 'crypto.com carta ricarica', 'ledger wallet hardware',
+    'metamask defi swap', 'revolut crypto', 'etoro bitcoin', 'nexo interessi crypto', 'usdc stablecoin',
+    'nft opensea acquisto', 'bitget exchange', 'okx crypto deposito', 'kucoin trade', 'gate.io'],
+  risparmio: ['bonifico verso salvadanaio', 'accantonamento risparmio', 'giroconto conto deposito', 'versamento libretto',
+    'piano di risparmio', 'accantonamento fondo emergenza', 'trasferimento a deposito', 'risparmio automatico',
+    'salvadanaio digitale', 'round up risparmio', 'accantonamento obiettivo', 'deposito vincolato'],
+};
+for (const k in MORE) POOL[k] = [...(POOL[k] || []), ...MORE[k]];
+
+// ONDATA PAN-EUROPEA (architettura del dataset: multilingua per OGNI nazione
+// europea, non solo Italia): NL/PL/BE/AT/GR + rinforzo ES/FR/DE/PT sulle
+// categorie deboli (shopping/spesa). Esercenti/pattern reali per ciascun paese.
+const EURO = {
+  spesa: ['albert heijn boodschappen', 'jumbo supermarkt', 'lidl polska', 'biedronka zakupy', 'zabka sklep',
+    'delhaize courses', 'colruyt', 'spar osterreich', 'billa markt', 'hofer lebensmittel',
+    'sklep spozywczy', 'mercadona espana', 'carrefour france', 'auchan polska', 'continente portugal',
+    'pingo doce compras', 'lidl deutschland', 'kaufland einkauf', 'penny markt', 'netto discount'],
+  ristoranti: ['brasserie belge', 'taverna griega', 'restauracja polska', 'cafe wien', 'kebab berlin',
+    'frituur friet', 'pizzeria portugal', 'bistro lyon', 'tapas bar madrid', 'imbiss currywurst',
+    'restauracja pierogi', 'gyros athina', 'creperie bretonne', 'sushi amsterdam', 'doner istanbul'],
+  shopping: ['h&m sverige', 'primark espana', 'zalando lounge', 'mediamarkt elektro', 'saturn technik',
+    'fnac france', 'el corte ingles', 'douglas parfumerie', 'action nederland', 'hema winkel',
+    'rossmann drogerie', 'dm drogerie markt', 'leroy merlin', 'obi baumarkt', 'ikea nederland',
+    'decathlon france', 'intersport', 'cortefiel moda', 'c&a mode', 'kik textil'],
+  trasporti: ['ns nederland trein', 'deutsche bahn ice', 'sncf tgv', 'renfe ave', 'pkp intercity',
+    'shell tanken', 'aral tankstelle', 'total energies', 'bp station', 'omv tankstelle',
+    'ov chipkaart', 'wiener linien', 'ratp paris metro', 'emt madrid', 'blablacar covoiturage'],
+  abbonamenti: ['spotify sverige', 'canal plus france', 'sky deutschland', 'movistar plus', 'ziggo abonnement',
+    'orange telecom', 'vodafone abbonamento', 'proton vpn', 'nordvpn', 'strava premium',
+    'duolingo plus', 'headspace', 'audible de', 'skyshowtime', 'viaplay'],
+  etf: ['etf msci europe', 'etf stoxx 600', 'etf dax', 'etf cac 40', 'etf ibex',
+    'trade republic sparplan', 'scalable capital etf', 'bux zero etf', 'etf ftse all world', 'etf euro stoxx 50'],
+  crypto: ['bitvavo btc', 'kriptomat', 'coinbase europe', 'kraken eu', 'swissborg',
+    'nexo earn', 'bitstamp eth', 'bitpanda wien'],
+  risparmio: ['spaarrekening storting', 'sparkonto einzahlung', 'livret epargne', 'cuenta ahorro', 'konto oszczednosciowe',
+    'trade republic risparmio', 'deposito vincolato', 'piano accumulo risparmio'],
+};
+for (const k in EURO) POOL[k] = [...(POOL[k] || []), ...EURO[k]];
+
 // Categorie del bench (per allineare le etichette).
 export const CATEGORIES = Object.keys(POOL);
 
