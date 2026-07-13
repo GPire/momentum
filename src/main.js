@@ -840,7 +840,13 @@ window.renderCalendarEvents = () => {
 
   const all = [...events, ...upcoming];
   if (all.length === 0) {
-    list.innerHTML = `<p class="text-xs text-[var(--on-surface-secondary)] text-center py-4">Nessuna scadenza pianificata.</p>`;
+    // Empty state INTELLIGENTE (non "dead"): spiega cosa comparirà qui e come,
+    // così l'app è utile e chiara già dal primo avvio, anche senza dati.
+    list.innerHTML = `<div class="text-center py-4 px-2">
+      <p class="text-2xl mb-1">🔮</p>
+      <p class="text-xs font-bold text-white">Qui prevedo cosa ti aspetta</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Appena aggiungi o importi qualche spesa, scovo da solo gli abbonamenti e le bollette ricorrenti e ti dico <b>quando</b> arriva il prossimo addebito — senza che tu inserisca nulla.</p>
+    </div>`;
     return;
   }
 

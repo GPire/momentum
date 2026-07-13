@@ -60,3 +60,20 @@ test('toReturns: rendimenti giornalieri corretti', () => {
   assert.ok(Math.abs(r[0] - 0.1) < 1e-9);
   assert.ok(Math.abs(r[1] - (-0.1)) < 1e-9);
 });
+
+test('estimateCurrentPrice: estrapola col trend (Holt), etichettata coi giorni', async () => {
+  const { estimateCurrentPrice } = await import('./market-data.js');
+  // serie in salita lineare +1/giorno fino al 2026-06-10 (close 110)
+  const prices = [];
+  for (let i = 0; i < 11; i++) { const d = new Date('2026-06-01'); d.setDate(d.getDate() + i); prices.push({ date: d.toISOString().slice(0, 10), close: 100 + i }); }
+  const est = estimateCurrentPrice(prices, { asOfDate: '2026-06-10', now: new Date('2026-06-15') }); // 5 giorni dopo
+  assert.equal(est.daysAhead, 5);
+  assert.ok(est.estimate > 110);            // trend positivo → stima sopra l'ultimo
+  assert.ok(est.estimate < 130);            // ma ragionevole (~115 col trend +1/g)
+  assert.equal(est.method, 'holt');
+});
+
+test('estimateCurrentPrice: null se troppo pochi dati', async () => {
+  const { estimateCurrentPrice } = await import('./market-data.js');
+  assert.equal(estimateCurrentPrice([{ date: '2026-06-01', close: 100 }]), null);
+});

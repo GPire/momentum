@@ -104,15 +104,38 @@ export async function fetchPrices({ symbol, kind = 'crypto', days = 180, fetchIm
     }
   }
 
-  // Tutte le fonti fallite (offline, CORS, rate-limit) → ultima copia buona
+  // Tutte le fonti fallite (offline, CORS, rate-limit) → ultima copia buona +
+  // STIMA del valore corrente (Holt) se i dati sono vecchi. Onesto: è una stima
+  // etichettata, mai spacciata per prezzo reale.
   if (cache) {
     const cached = await cache.get(`mkt:${kind}:${symbol}`);
     if (cached && cached.prices?.length) {
-      return { ...cached, stale: true, note: `Dati aggiornati al ${cached.asOf?.slice(0, 10)} (offline o fonte non raggiungibile). ${errors.join('; ')}` };
+      const est = estimateCurrentPrice(cached.prices, { asOfDate: cached.asOf });
+      return { ...cached, stale: true, estimatedNow: est, note: `Dati aggiornati al ${cached.asOf?.slice(0, 10)}${est && est.daysAhead > 0 ? ` · stima oggi ~${est.estimate} (Holt, ${est.daysAhead}g)` : ''} (offline o fonte non raggiungibile). ${errors.join('; ')}` };
     }
   }
   // Nessuna copia: si dichiara, si offre l'import CSV manuale. Mai inventare.
   return { prices: [], source: null, asOf: null, stale: true, note: `Prezzi non disponibili (${errors.join('; ')}). Puoi importare un CSV di prezzi dal tuo broker.` };
+}
+
+// Stima del prezzo CORRENTE quando i dati sono vecchi/offline: estrapola con
+// il metodo di Holt (livello + trend, doppio smoothing esponenziale) di
+// `daysAhead` passi dall'ultimo dato disponibile. Onesto (regola #1): è una
+// STIMA etichettata, con quanti giorni di estrapolazione — mai un prezzo reale.
+export function estimateCurrentPrice(prices, { asOfDate, now = new Date(), alpha = 0.5, beta = 0.3 } = {}) {
+  const closes = (prices || []).map(p => p.close).filter(Number.isFinite);
+  if (closes.length < 3) return null;
+  let level = closes[0], trend = closes[1] - closes[0];
+  for (let i = 1; i < closes.length; i++) {
+    const prevLevel = level;
+    level = alpha * closes[i] + (1 - alpha) * (level + trend);
+    trend = beta * (level - prevLevel) + (1 - beta) * trend;
+  }
+  const last = prices[prices.length - 1];
+  const lastDate = new Date(asOfDate || last.date);
+  const daysAhead = Math.max(0, Math.round((new Date(now) - lastDate) / 86_400_000));
+  const estimate = +(level + daysAhead * trend).toFixed(4);
+  return { estimate, method: 'holt', daysAhead, lastClose: last.close, lastDate: last.date };
 }
 
 // Rendimenti giornalieri da una serie di prezzi (per i moduli alpha).
