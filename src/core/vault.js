@@ -173,7 +173,11 @@ const VaultDAO = {
     if (!this.state.transactions[month]) this.state.transactions[month] = [];
     const existingList = this.state.transactions[month];
 
-    const match = findDuplicate(tx, existingList);
+    // opts.noDedup: la sorgente ha già un ID univoco (es. transaction_id
+    // Revolut, dedotto a monte) → si SALTA la dedup fuzzy, che altrimenti
+    // fonderebbe transazioni DISTINTE di pari importo/giorno (es. due acquisti
+    // ricorrenti dello stesso titolo). La dedup fuzzy resta per screenshot/manuale.
+    const match = opts.noDedup ? null : findDuplicate(tx, existingList);
     if (match) {
       const merged = mergeTransaction(match, tx);
       merged.amount = match.amount;

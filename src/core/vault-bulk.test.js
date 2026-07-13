@@ -33,3 +33,22 @@ test('non-bulk: comportamento invariato (salva a ogni inserimento)', () => {
   VaultDAO.save = realSave;
   assert.equal(saves, 2); // un save per inserimento (default)
 });
+
+test('noDedup: due transazioni distinte di pari importo/giorno NON vengono fuse (id fidato)', () => {
+  VaultDAO.state.transactions = {};
+  VaultDAO.state.lastHash = 'GENESIS';
+  VaultDAO.save = () => {};
+  // stesse identiche (importo/data/descrizione) ma con externalId diversi = distinte
+  const a = { id: 'a', amount: 40, category: 'etf', type: 'invest', description: 'Acquisto Snowflake', date: '2024-10-16', externalId: 'ID_A' };
+  const b = { id: 'b', amount: 40, category: 'etf', type: 'invest', description: 'Acquisto Snowflake', date: '2024-10-16', externalId: 'ID_B' };
+  VaultDAO.addTransaction('2024-10', a, { bulk: true, noDedup: true });
+  VaultDAO.addTransaction('2024-10', b, { bulk: true, noDedup: true });
+  assert.equal(VaultDAO.state.transactions['2024-10'].length, 2); // entrambe, non fuse
+
+  // senza noDedup, la fuzzy le fonderebbe (comportamento per screenshot/manuale)
+  VaultDAO.state.transactions = {}; VaultDAO.state.lastHash = 'GENESIS';
+  VaultDAO.addTransaction('2024-10', { ...a, externalId: '' }, { bulk: true });
+  const r = VaultDAO.addTransaction('2024-10', { ...b, externalId: '' }, { bulk: true });
+  assert.equal(r.duplicate, true);
+  assert.equal(VaultDAO.state.transactions['2024-10'].length, 1);
+});

@@ -12,9 +12,11 @@ import { parseRevolutExport, isRevolutExport } from './revolut-csv.js';
 const handleUniversalCSV = (e) => {
   const input = e.target; // riferimento all'<input type=file> per azzerarlo dopo
   const file = input.files[0]; if(!file) return; const reader = new FileReader();
-  logETL(`Inizio parsing CSV: ${file.name}...`);
+  try { logETL(`Inizio parsing CSV: ${file.name}...`); } catch (_) {}
+  reader.onerror = () => { try { showToast('Impossibile leggere il file.', 'error'); } catch (_) {} };
 
   reader.onload = (ev) => {
+   try {
     // \r?\n: gli estratti conto Windows usano CRLF; senza questo ogni riga
     // porta un \r finale che sporca l'ultima colonna (date/importi non parsati).
     const text = ev.target.result; const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
@@ -44,7 +46,9 @@ const handleUniversalCSV = (e) => {
         }
         const cat = getCatById(catId) || getCatById('spesa');
         const newTx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: t.externalId || '' };
-        const { duplicate } = VaultDAO.addTransaction(k, newTx, { bulk: true }); // bulk: no save per-riga
+        // noDedup quando c'è un transaction_id fidato: la dedup esatta è già
+        // fatta col Set di externalId sopra; evita che la fuzzy fonda distinti.
+        const { duplicate } = VaultDAO.addTransaction(k, newTx, { bulk: true, noDedup: !!t.externalId });
         if (!duplicate) addedR++;
       }
       VaultDAO.save(); // UN solo salvataggio alla fine (evita O(n²) su file grandi)
@@ -180,6 +184,14 @@ const handleUniversalCSV = (e) => {
     // Azzera l'input: senza questo, riselezionare un file (soprattutto LO STESSO)
     // non rilancia l'evento 'change' e sembra che l'import "non parta più".
     if (input) input.value = '';
+   } catch (err) {
+     // Qualunque errore nell'import non deve restare silenzioso (era la causa
+     // per cui "l'import non faceva niente"): lo si mostra e si logga.
+     console.error('Errore import CSV:', err);
+     try { logETL('Errore import CSV: ' + (err?.message || err), true); } catch (_) {}
+     try { showToast('Errore durante l\'import: ' + (err?.message || 'sconosciuto'), 'error'); } catch (_) {}
+     if (input) input.value = '';
+   }
   };
   reader.readAsText(file);
 };
