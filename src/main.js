@@ -2077,15 +2077,13 @@ const initApp = () => {
   // Import UNIFICATO multi-file (N file, formati MISTI insieme): un solo save +
   // una sola render alla fine, dedup unica, progress per file. Vale anche per
   // gli input singoli quando l'utente seleziona più file dello stesso tipo.
+  // OGNI import (1 o N file, formati misti) passa per importFiles: un solo
+  // percorso unificato → dato integrato in TUTTO (ledger + rete neurale +
+  // grafo DCGN + causale + affidabilità), guardrail categorie, progress,
+  // apprendimento in background. "Ogni dato serve e viene integrato ovunque."
   const runMulti = async (files, srcInput) => {
     const list = Array.from(files || []);
     if (!list.length) return;
-    if (list.length === 1) { // singolo file → percorso dedicato (mantiene i toast specifici)
-      const f = list[0]; const ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (ext === 'csv' || f.type === 'text/csv') { handleUniversalCSV({ target: { files: [f], value: '' } }); if (srcInput) srcInput.value = ''; return; }
-      if (ext === 'pdf' || f.type === 'application/pdf') { await handlePDFUpload(f); if (srcInput) srcInput.value = ''; return; }
-      if ((f.type || '').startsWith('image/')) { const r = await handleScreenshotUpload(f); if (r) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); } if (srcInput) srcInput.value = ''; return; }
-    }
     // Overlay di progresso: feedback CHIARO (parte, a che punto è, quando finisce).
     // Attrito minimo: l'utente vede subito che sta lavorando, senza dover indovinare.
     const ov = document.getElementById('import-progress');
@@ -2122,14 +2120,7 @@ const initApp = () => {
     if (file) window.restoreEncryptedBackup(file);
     backupIn.value = '';
   });
-  const screenshotIn = $('#screenshot-upload'); if (screenshotIn) screenshotIn.addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (file) {
-      const result = await handleScreenshotUpload(file);
-      if (result) { renderDashboard(); renderAnalysis({ skipHeavyForecast: result.route === 'fast' }); }
-      screenshotIn.value = '';
-    }
-  });
+  const screenshotIn = $('#screenshot-upload'); if (screenshotIn) screenshotIn.addEventListener('change', e => runMulti(e.target.files, screenshotIn));
 
   // What-If v2 per categoria (src/predict/what-if.js): select + slider →
   // effetto diretto + catena causale, in linguaggio semplice.

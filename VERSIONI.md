@@ -116,3 +116,14 @@ Fuso il branch v3 (adaptive-runtime) con main (M1-M4) senza perdere nulla. **293
 - **PDF bancario multilingua**: header ES/FR/DE (Cargo/Abono, Soll/Haben, Débit/Crédit), fixture banche spagnola/tedesca, date DD.MM.YYYY. Estratti EU importabili.
 - **Dizionario esercenti EU**: Mercadona/Dia/Edeka/Rewe/Tesco/Carrefour... 342 test.
 - Roadmap: localizzazione note invest/tax in EN/ES/FR/DE; PT/Brasile.
+
+## Import robusto multi-file + AI (2026-07-13) — verificato su file bancari REALI
+Sessione dedicata a import/categorizzazione, testata sui file reali dell'utente (export Revolut 1846 righe/5 anni, 4 PDF conferme, 15 screenshot buddybank).
+- **Modelli riaddestrati IN LOCALE in JS** (nessun Python): nuovo esperto `HashedLogReg` (regressione logistica softmax, feature hashing word+char). Ensemble ML 76%→83.8% (held-out, +7.8). `bench/train-eval.mjs`, `bench/train-logreg.mjs`, modello in `public/momentum_logreg_model.json`, 3° esperto nell'orchestratore.
+- **Import CSV Revolut** (`src/import/revolut-csv.js`): riconosce investimenti (Snowflake/Tesla→invest/etf), dividendi (→entrata/etf), spese carta via MCC. Verificato Chrome: 1777 tx, 301ms, 28 mesi, 0 date sbagliate.
+- **parseGenericCsv ULTRA**: inferenza di contenuto (colonne dedotte dal dato), virgolette, negativi tra parentesi, Dare/Avere, D/C, header assenti/lingue sconosciute.
+- **PDF conferme** (`extractConfirmationTransaction`): layout chiave-valore (Revolut/broker), stock/crypto riconosciuti.
+- **Screenshot** (`parseScreenshotTransactions`): multi-transazione, contesto-data per intestazione ("13 Luglio"), multi-banca/valuta (€$£¥), fix "Genova≠Gennaio".
+- **FIX freeze O(n²)**: `addTransaction({bulk})` → 1 save finale. **Dedup esatta** via transaction_id (`noDedup`). **Guardrail categorie** (`src/import/categorize.js`): crypto/etf solo con evidenza (fix "Sumup Sartoria→Crypto", verificato Chrome).
+- **Multi-file MISTO** (`src/import/multi-import.js`): N file (anche 50) di formati diversi in una selezione, 1 save/render, dedup unica, **overlay di progresso** + **apprendimento in background** (learnInBackground, idle-chunked). UI: pulsante "Importa tutto". ETL responsive.
+- 396 test verdi.
