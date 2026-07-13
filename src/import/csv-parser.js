@@ -49,7 +49,7 @@ const handleUniversalCSV = (e) => {
       }
       VaultDAO.save(); // UN solo salvataggio alla fine (evita O(n²) su file grandi)
       if (input) input.value = '';
-      if (addedR > 0) { window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("Revolut importato", `${addedR} operazioni riconosciute (investimenti, dividendi, spese)${skippedR ? `; ${skippedR} già presenti, saltate` : ''}.`); }
+      if (addedR > 0) { window.renderAfterImport ? window.renderAfterImport() : (window.renderDashboard?.(), window.renderAnalysis?.()); showSignatureAlert("Revolut importato", `${addedR} operazioni riconosciute (investimenti, dividendi, spese)${skippedR ? `; ${skippedR} già presenti, saltate` : ''}.`); }
       else showToast(skippedR ? `Tutte le ${skippedR} operazioni erano già presenti (nessun doppione).` : "Nessuna operazione trovata.", "info");
       return;
     }
@@ -173,7 +173,7 @@ const handleUniversalCSV = (e) => {
     });
     if (added > 0) VaultDAO.save(); // UN solo salvataggio finale (niente O(n²) su CSV grandi)
     if(added > 0) {
-        window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("ETL Completato", `Importate ${added} nuove operazioni.`);
+        window.renderAfterImport ? window.renderAfterImport() : (window.renderDashboard?.(), window.renderAnalysis?.()); showSignatureAlert("ETL Completato", `Importate ${added} nuove operazioni.`);
     } else {
         showToast("Nessuna nuova operazione trovata nel CSV.", "info");
     }

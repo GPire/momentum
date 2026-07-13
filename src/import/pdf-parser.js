@@ -314,8 +314,7 @@ const handlePDFUpload = async (file) => {
       // via window: questo è un modulo ES, il nome nudo sarebbe un
       // ReferenceError silenziato dal catch (bug reale: import riuscito
       // ma dashboard mai aggiornata)
-      window.renderDashboard?.();
-      window.renderAnalysis?.();
+      window.renderAfterImport ? window.renderAfterImport() : (window.renderDashboard?.(), window.renderAnalysis?.());
       showSignatureAlert("PDF Decodificato", `Column Resonance™ ha estratto ${addedCount} operazioni.`);
     } else {
       showToast("Nessuna nuova transazione nel PDF.", "info");

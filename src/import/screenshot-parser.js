@@ -260,7 +260,7 @@ export async function handleScreenshotUpload(file) {
         const { duplicate } = VaultDAO.addTransaction(monthKey(date), tx, { bulk: true });
         if (!duplicate) added++;
       }
-      if (added > 0) { VaultDAO.save(); window.renderDashboard?.(); window.renderAnalysis?.(); }
+      if (added > 0) { VaultDAO.save(); window.renderAfterImport ? window.renderAfterImport() : (window.renderDashboard?.(), window.renderAnalysis?.()); }
       showToast(added > 0 ? `${added} movimenti riconosciuti dallo screenshot.` : 'Movimenti già presenti (nessun nuovo).', added > 0 ? 'success' : 'info');
       return { count: added, transactions: multi.transactions };
     }

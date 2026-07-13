@@ -2325,6 +2325,15 @@ window.showSignatureAlert = showSignatureAlert;
 // ReferenceError, serve il riferimento globale esplicito).
 window.renderDashboard = renderDashboard;
 window.renderAnalysis = renderAnalysis;
+// Render dopo un import di massa: DIFFERITA (requestAnimationFrame → l'import
+// finisce e la UI resta reattiva) e LEGGERA (skipHeavyForecast → niente Monte
+// Carlo/GARCH sincrono). Così un import di 5 anni di dati non congela mai l'app.
+window.renderAfterImport = () => {
+  requestAnimationFrame(() => {
+    try { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); }
+    catch (e) { console.error('render post-import:', e); }
+  });
+};
 // ...e per il voice core (una domanda parlata viene instradata al motore
 // Q&A invece che al parser delle transazioni).
 window.askMomentum = askMomentum;
