@@ -22,6 +22,7 @@ import { answerQuestion } from './qa-engine.js';
 import { analyzePortfolio } from '../alpha/portfolio-import.js';
 import { taxSetAsideForPeriod } from '../predict/tax.js';
 import { activatableHeavyExperts } from './expert-adapter.js';
+import { explainMacro, investorFor } from '../graph/market-knowledge.js';
 
 export const NeuroSym = {
   // Categorizzazione: delega all'orchestratore (unico cervello di categoria).
@@ -42,6 +43,16 @@ export const NeuroSym = {
   // Accantonamento fiscale P.IVA su un periodo.
   taxForPeriod(transactions, opts) {
     return taxSetAsideForPeriod(transactions, opts);
+  },
+
+  // Conoscenza di mercato (investment banking / ETF / azionario / cause-effetto
+  // macro consolidate + principi dei grandi investitori e case istituzionali).
+  // Ritorna { macro?, investor? } pertinenti alla domanda — knowledge REALE e
+  // citabile, non previsioni. (src/graph/market-knowledge.js)
+  marketInsight(query) {
+    const macro = explainMacro(query);
+    const inv = investorFor(query);
+    return { macro: macro ? macro.text : null, investor: inv ? `${inv.who}: ${inv.principle}` : null };
   },
 
   // Auto-descrizione onesta dell'architettura ATTIVA su questo device: cosa è
