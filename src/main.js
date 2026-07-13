@@ -8,6 +8,7 @@ import { VoiceCore } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
+import { subscriptionSummary } from './predict/subscriptions.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
@@ -1213,6 +1214,34 @@ function renderInvestments() {
   regimeEl.textContent = '';
 }
 
+// Ghost Charge Radar VISIBILE: mostra gli abbonamenti ricorrenti scovati dal
+// motore (src/predict/subscriptions.js) — prima esisteva ma non era in UI.
+// Predittivo: prossimo addebito stimato dalla cadenza; segnala gli aumenti di
+// prezzo. Semplice e chiaro (nome · prossima data · importo).
+const renderSubscriptions = () => {
+  const list = document.getElementById('subs-list');
+  const totalEl = document.getElementById('subs-total');
+  if (!list) return;
+  const s = subscriptionSummary(VaultDAO.state.transactions, new Date());
+  if (totalEl) totalEl.textContent = s.count ? `${formatMoney(s.monthlyTotal)}/mese` : '';
+  if (!s.count) {
+    list.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Nessun abbonamento ricorrente per ora. Appena importi qualche mese di spese, te li scovo qui — col prossimo addebito previsto.</p>`;
+    return;
+  }
+  const hikeMap = new Map(s.hikes.map(h => [h.description, h]));
+  const fmtDay = d => new Date(d).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  list.innerHTML = s.subscriptions.slice(0, 12).map(sub => {
+    const hike = hikeMap.get(sub.name);
+    return `<div class="flex items-center justify-between gap-3 p-2 rounded-xl" style="background:rgba(255,255,255,0.03)">
+      <div class="min-w-0">
+        <p class="text-sm font-bold truncate">${sub.name}</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)]">prossimo ~${fmtDay(sub.nextDate)}${hike ? ` · <span class="text-rose-400">↑ +${hike.increasePct}% (era ${formatMoney(hike.previousAmount)})</span>` : ''}</p>
+      </div>
+      <span class="text-sm font-black font-mono shrink-0">${formatMoney(sub.amount)}</span>
+    </div>`;
+  }).join('');
+};
+
 // Rende uniformi tutti gli avvisi in #radar-alerts-container: anomalie
 // (AnomalyDetector, invariato) + insight consolidati dell'advisor
 // (src/predict/advisor.js — prima erano blocchi HTML inline separati per
@@ -1224,6 +1253,7 @@ const SEVERITY_STYLE = {
 };
 
 function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
+  try { renderSubscriptions(); } catch (e) { console.error('renderSubscriptions:', e); } // abbonamenti trovati (Ghost Charge Radar)
   const alertsBox = $('#radar-alerts-container');
   if (!alertsBox) return;
   alertsBox.innerHTML = '';

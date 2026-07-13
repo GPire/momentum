@@ -55,6 +55,29 @@ export function detectRecurring(allTx, opts = {}) {
 // Per ogni serie ricorrente, confronta l'ultimo addebito con la media dei
 // precedenti: se l'aumento supera la soglia, lo segnala con i numeri veri
 // (mai un giudizio, solo il fatto misurato — coerente col resto del progetto).
+// Riepilogo pronto per la UI e PREDITTIVO: abbonamenti trovati + PROSSIMO
+// addebito stimato (dalla cadenza reale) + costo mensile totale + aumenti di
+// prezzo + addebiti in arrivo nei prossimi 31 giorni. Semplice e chiaro
+// (usabile da un bambino di 8 anni): "questi ti si ripetono, questo il totale,
+// il prossimo arriva il …". Onestà: sono fatti misurati, non giudizi.
+export function subscriptionSummary(allTx, referenceDate = new Date(), opts = {}) {
+  const recurring = detectRecurring(allTx, opts);
+  const hikes = detectPriceHikes(allTx, opts);
+  const now = new Date(referenceDate);
+  const subs = recurring.map(g => {
+    const items = g.items;
+    const last = items[items.length - 1];
+    const recent = items.slice(-3);
+    const amount = +(recent.reduce((a, t) => a + t.amount, 0) / recent.length).toFixed(2); // media ultimi 3 = prezzo attuale
+    const next = new Date(last.date); next.setDate(next.getDate() + Math.round(g.avgInterval || 30));
+    return { name: g.representative, category: g.category, amount, occurrences: items.length, lastDate: last.date, nextDate: next.toISOString(), avgInterval: Math.round(g.avgInterval || 30) };
+  }).sort((a, b) => new Date(a.nextDate) - new Date(b.nextDate));
+  const monthlyTotal = +subs.reduce((s, x) => s + x.amount, 0).toFixed(2);
+  const upcoming = subs.filter(s => { const days = (new Date(s.nextDate) - now) / 86_400_000; return days >= -2 && days <= 31; });
+  const upcomingTotal = +upcoming.reduce((s, x) => s + x.amount, 0).toFixed(2);
+  return { subscriptions: subs, count: subs.length, monthlyTotal, hikes, upcoming, upcomingTotal };
+}
+
 export function detectPriceHikes(allTx, opts = {}) {
   const { hikeThreshold } = { ...DEFAULT_OPTS, ...opts };
   const recurring = detectRecurring(allTx, opts);

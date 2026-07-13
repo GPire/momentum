@@ -67,3 +67,17 @@ test("più abbonamenti diversi vengono rilevati come gruppi separati", () => {
   assert.equal(hikes.length, 1);
   assert.equal(hikes[0].description, "Netflix");
 });
+
+test('subscriptionSummary: trova abbonamenti, stima il prossimo addebito e il totale mensile', async () => {
+  const { subscriptionSummary } = await import('./subscriptions.js');
+  const allTx = { '2026-04': [], '2026-05': [], '2026-06': [] };
+  // Netflix mensile ~14,99 per 3 mesi + Spotify ~9,99 per 3 mesi
+  const push = (mk, date, desc, amt) => allTx[mk].push({ date, type: 'uscita', category: 'abbonamenti', description: desc, amount: amt });
+  push('2026-04', '2026-04-05', 'Netflix', 14.99); push('2026-05', '2026-05-05', 'Netflix', 14.99); push('2026-06', '2026-06-05', 'Netflix', 14.99);
+  push('2026-04', '2026-04-10', 'Spotify Premium', 9.99); push('2026-05', '2026-05-10', 'Spotify Premium', 9.99); push('2026-06', '2026-06-10', 'Spotify Premium', 9.99);
+  const s = subscriptionSummary(allTx, new Date('2026-06-15'));
+  assert.equal(s.count, 2);
+  assert.ok(Math.abs(s.monthlyTotal - 24.98) < 0.02);   // 14.99 + 9.99
+  const netflix = s.subscriptions.find(x => /netflix/i.test(x.name));
+  assert.ok(netflix && netflix.nextDate.startsWith('2026-07')); // prossimo ~5 luglio
+});
