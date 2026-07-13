@@ -4,6 +4,7 @@ import { getCatById, VaultDAO } from '../core/vault.js';
 import { showSignatureAlert, showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
 import { parseCellAmount, COLUMN_KEYWORDS } from './pdf-parser.js';
+import { parseRevolutExport, isRevolutExport } from './revolut-csv.js';
 
 // ==========================================
 // CSV PARSING & QUANTUM DEDUPLICATION
@@ -18,6 +19,36 @@ const handleUniversalCSV = (e) => {
     // porta un \r finale che sporca l'ultima colonna (date/importi non parsati).
     const text = ev.target.result; const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
     if(lines.length < 2) { logETL("Errore: CSV vuoto.", true); return showToast("CSV vuoto", "error"); }
+
+    // Percorso DEDICATO export Revolut (schema ricco): riconosce investimenti
+    // azionari/crypto, dividendi, interessi, depositi e spese (categoria via MCC),
+    // col verso giusto (entrata/uscita/invest). Verificato su file reali.
+    if (isRevolutExport(lines[0])) {
+      let addedR = 0;
+      for (const t of parseRevolutExport(text)) {
+        if (!t.date || !t.amount) continue;
+        const k = monthKey(t.date);
+        // categoria: quella del parser (MCC/asset) ha precedenza; altrimenti ML.
+        let catId = t.category;
+        if (!catId) {
+          const ml = window.momentumOrchestrator
+            ? window.momentumOrchestrator.classify(t.description, t.amount, t.date)
+            : NeuralNexus.predict(t.description, t.amount, t.date);
+          catId = ml && ml.confidence > 60 ? ml.cat : (t.type === 'entrata' ? 'stipendio' : 'spesa');
+        }
+        const cat = getCatById(catId) || getCatById('spesa');
+        const newTx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString() };
+        const { duplicate } = VaultDAO.addTransaction(k, newTx);
+        if (!duplicate) {
+          if (window.momentumOrchestrator) window.momentumOrchestrator.learn(t.description, cat.id, t.amount, t.date);
+          addedR++;
+        }
+      }
+      if (input) input.value = '';
+      if (addedR > 0) { window.renderDashboard?.(); window.renderAnalysis?.(); showSignatureAlert("Revolut importato", `${addedR} operazioni (investimenti, dividendi, spese) riconosciute.`); }
+      else showToast("Nessuna nuova operazione (già importate).", "info");
+      return;
+    }
 
     // Delimitatore per FREQUENZA nell'header (non solo ';' vs ','): molti
     // export bancari usano il TAB o il ';'. Prima si sceglieva sempre ',' se
