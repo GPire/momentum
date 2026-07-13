@@ -3,3 +3,4 @@ dist/
 dist-singlefile/
 .DS_Store
 public/_test/
+bench/data/
