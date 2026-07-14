@@ -84,3 +84,30 @@ test('discorso lungo misto: 5 azioni distinte riconosciute con intent corretti',
   assert.equal(r.filter(x => x.intent === 'reminder').length, 1);
   assert.equal(r.filter(x => x.intent === 'appointment').length, 1);
 });
+
+// Casistiche di discorso naturale trovate SIMULANDO (metodo: falsificazione):
+// bug reali corretti — decimali detti a voce, numeri-parola composti, azioni
+// concatenate senza "e", split solo quando c'è un PROPRIO importo.
+test('decimale detto a voce: "12 e 50 al bar" → 12.50 (non 12)', () => {
+  const r = VoiceParser.parse('ho speso 12 e 50 al bar');
+  const tx = r.find(x => x.intent === 'transaction');
+  assert.equal(tx.amount, 12.5);
+});
+
+test('numeri-parola composti: "mille e duecento" → 1200 (un solo importo)', () => {
+  const r = VoiceParser.parse('ho speso mille e duecento euro di affitto');
+  assert.equal(r.filter(x => x.intent === 'transaction').length, 1);
+  assert.equal(r[0].amount, 1200);
+});
+
+test('azioni concatenate SENZA "e": "ho pagato 30 di benzina ho comprato 15 di libri"', () => {
+  const r = VoiceParser.parse('ho pagato 30 di benzina ho comprato 15 euro di libri e ho investito 200 in etf');
+  const tx = r.filter(x => x.intent === 'transaction');
+  assert.equal(tx.length, 3);
+  assert.deepEqual(tx.map(t => t.amount).sort((a,b)=>a-b), [15, 30, 200]);
+});
+
+test('due importi propri splittano, un solo importo condiviso NO', () => {
+  assert.equal(VoiceParser.parse('coffee 3 euros and lunch 12 euros').filter(x=>x.intent==='transaction').length, 2);
+  assert.equal(VoiceParser.parse('pane e latte 5 euro').filter(x=>x.intent==='transaction').length, 1);
+});
