@@ -29,7 +29,25 @@ motori CORE esistenti (NeuroSym/Momentum Core/DCGN/mesh), poi le feature perifer
 **Ogni wave verificata end-to-end in Chrome con dati reali**, non solo unit test — i bug
 veri emergono solo lì (2 bug reali trovati e corretti così questa sessione).
 
-Ordine eseguito: Wave 0 → 1 → 13 → 12 → 14 (+Granger) → 15 → 6. Da 468 a 530 test, 10 commit puliti.
+Ordine eseguito: Wave 0 → 1 → 13 → 12 → 14 (+Granger) → 15 → 6 → 11 → dati reali mercato →
+cicli di mercato → lifestyle inference → tap-to-today. Da 468 a **557 test, 17 commit puliti**.
+
+### Moduli NUOVI di questa sessione (oltre le wave core sopra)
+- **`bench/vs-llm-bench.mjs`** (Wave 11): roster aggiornato (Kimi K3 id verificato) + Blocco 3
+  ragionamento aritmetico in NL (Momentum 5/5 per costruzione). 3 blocchi separati, mai fusi.
+- **`src/alpha/historical-backtest.js`** + `bench/alpha-bench-real.mjs`: backtest walk-forward su
+  dati REALI (S&P 500 1984-2026 41 anni, SPY 1993, BTC 2014, Yahoo Finance, cache gitignored).
+  Sanity-check rileva i crash storici noti. Bug reale corretto (crollo multi-anno spezzato).
+- **`src/alpha/market-cycles.js`**: base-rate storici di recupero da drawdown + stagionalità —
+  il "predittivo" ONESTO (probabilità dalla storia, mai previsioni inventate). Verificato:
+  S&P crolli 35%+ recuperati in mediana 17 mesi; BTC ora -43.6%, base-rate 13 mesi.
+- **`src/predict/lifestyle.js`** + card UI in main.js: legge la VITA dietro le spese vs baseline
+  personale (vita sociale/casalinga, cucini di più, shopping, viaggi, abitudine d'investimento).
+  Evidenza numerica, MAI giudizi. Verificato live: maggio "molto in movimento" 653€ vs 172€.
+- **Tap-to-today** (main.js): titolo mese diventa tap-target con affordance (pulse+tooltip) solo
+  fuori dal mese corrente → tap torna a oggi con haptic+suono+toast. Verificato live.
+- **`src/ai/train/model-gate.js`** + `bench/model-regression.mjs` (Wave 6): blocca un retrain che
+  migliora la media ma fa crollare una categoria. Verificato con modello sabotato → gate blocca.
 
 - **Wave 0**: chiuso il batch appeso di sessione precedente (Net Worth+Monte Carlo,
   sources.js W17, mesh prezzi P2P, modulo bandit). **Bug reale corretto**: chat.js
