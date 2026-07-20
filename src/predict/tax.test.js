@@ -127,7 +127,7 @@ test('projectAnnualTax: annualizza le fatture e stima le tasse di fine anno', ()
   ];
   const r = projectAnnualTax(txs, { regime: 'forfettario', referenceDate: ref });
   assert.equal(r.invoicedYTD, 6000);
-  assert.ok(r.annualizedRevenue > 11000 && r.annualizedRevenue < 13000, `annualizzato ${r.annualizedRevenue}`);
+  assert.ok(r.annualizedRevenue > 13000 && r.annualizedRevenue < 15500, `annualizzato ${r.annualizedRevenue}`);
   assert.ok(r.estimatedAnnualTax > 0);
   assert.ok(/proiezione lineare/.test(r.note));
 });

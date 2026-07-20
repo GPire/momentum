@@ -160,7 +160,10 @@ export function projectAnnualTax(transactions = [], opts = {}) {
     if (d.getFullYear() !== year) continue;
     if (classifyIncome(t, learned, model).kind === 'invoice') invoicedYTD += t.amount;
   }
-  const monthsElapsed = ref.getMonth() + 1 + (ref.getDate() / 30); // frazione del mese corrente
+  // mesi trascorsi = mesi pieni prima del corrente + frazione del mese corrente
+  // (giorno / giorni-del-mese). Più accurato del +1 fisso.
+  const daysInMonth = new Date(year, ref.getMonth() + 1, 0).getDate();
+  const monthsElapsed = ref.getMonth() + (ref.getDate() / daysInMonth);
   const annualized = monthsElapsed > 0 ? invoicedYTD * (12 / monthsElapsed) : 0;
   const regime = opts.regime || 'forfettario';
   const taxOnAnnual = taxSetAside(annualized, { regime, overrides: opts.overrides }).setAside;
