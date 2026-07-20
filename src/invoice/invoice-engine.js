@@ -108,21 +108,50 @@ export function suggestFromHistory(invoices = [], clientQuery = '') {
 export function renderInvoiceHTML(inv = {}, meta = {}) {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const accent = /^#[0-9a-fA-F]{3,8}$/.test(meta.accent || '') ? meta.accent : '#0ea5e9';
+  // Logo: SOLO data:image (on-device, niente richieste esterne) → sicurezza.
+  const logo = /^data:image\//.test(meta.logo || '') ? meta.logo : null;
   const righe = (inv.righe || []).map(r =>
-    `<tr><td>${esc(r.voce)}</td><td style="text-align:right">${eur(r.importo)}</td></tr>`).join('');
-  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Fattura ${esc(meta.number || '')}/${esc(meta.year || '')}</title>
-<style>body{font-family:system-ui,Arial,sans-serif;max-width:720px;margin:40px auto;color:#111;padding:0 20px}
-h1{font-size:22px;margin:0 0 4px}.muted{color:#666;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:24px}
-td,th{padding:8px 0;border-bottom:1px solid #eee}.tot{font-weight:800;font-size:18px}.note{margin-top:24px;font-size:12px;color:#555}
-.head{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}</style></head><body>
-<div class="head"><div><h1>Fattura n. ${esc(meta.number || '—')}/${esc(meta.year || new Date().getFullYear())}</h1>
-<div class="muted">Data: ${esc(meta.date || new Date().toLocaleDateString('it-IT'))}</div></div>
-<div class="muted" style="text-align:right"><b>${esc(meta.emitter || '')}</b><br>${esc(meta.emitterInfo || '')}</div></div>
-<div style="margin-top:20px"><div class="muted">Cliente</div><b>${esc(meta.client || '')}</b><br><span class="muted">${esc(meta.clientInfo || '')}</span></div>
-<div style="margin-top:16px">${esc(meta.description || '')}</div>
+    `<tr><td>${esc(r.voce)}</td><td class="r">${r.importo < 0 ? '−' : ''}${eur(Math.abs(r.importo))}</td></tr>`).join('');
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fattura ${esc(meta.number || '')}/${esc(meta.year || '')}</title>
+<style>
+:root{--accent:${accent}}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;max-width:760px;margin:0 auto;color:#0f172a;padding:48px 32px;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;border-bottom:3px solid var(--accent);padding-bottom:20px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand img{max-height:56px;max-width:180px;object-fit:contain}
+.brand .name{font-size:20px;font-weight:800}
+.doc{text-align:right}
+.doc .n{font-size:22px;font-weight:800;color:var(--accent)}
+.doc .muted,.muted{color:#64748b;font-size:13px}
+.parties{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:28px}
+.parties .lbl{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;margin-bottom:4px}
+.desc{margin-top:22px;font-size:15px}
+table{width:100%;border-collapse:collapse;margin-top:22px}
+td{padding:11px 0;border-bottom:1px solid #eef2f7;font-size:14px}
+td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.totbox{margin-top:22px;margin-left:auto;width:min(320px,100%)}
+.totbox .row{display:flex;justify-content:space-between;padding:6px 0}
+.totbox .net{border-top:2px solid var(--accent);margin-top:6px;padding-top:12px;font-size:20px;font-weight:800;color:#047857}
+.note{margin-top:28px;font-size:12px;color:#64748b;line-height:1.5}
+@media print{body{padding:24px}}
+</style></head><body>
+<div class="top">
+  <div class="brand">${logo ? `<img src="${logo}" alt="logo">` : ''}<div class="name">${esc(meta.emitter || '')}</div></div>
+  <div class="doc"><div class="n">Fattura n. ${esc(meta.number || '—')}/${esc(meta.year || new Date().getFullYear())}</div>
+  <div class="muted">Data: ${esc(meta.date || new Date().toLocaleDateString('it-IT'))}</div></div>
+</div>
+<div class="parties">
+  <div><div class="lbl">Da</div><b>${esc(meta.emitter || '')}</b><br><span class="muted">${esc(meta.emitterInfo || '')}</span></div>
+  <div style="text-align:right"><div class="lbl">A</div><b>${esc(meta.client || '')}</b><br><span class="muted">${esc(meta.clientInfo || '')}</span></div>
+</div>
+${meta.description ? `<div class="desc">${esc(meta.description)}</div>` : ''}
 <table><tbody>${righe}</tbody></table>
-<div style="text-align:right;margin-top:16px"><div class="muted">Totale fattura ${eur(inv.totaleFattura)}</div>
-<div class="tot">Netto a ricevere ${eur(inv.nettoARicevere)}</div></div>
+<div class="totbox">
+  <div class="row"><span class="muted">Totale fattura</span><b>${eur(inv.totaleFattura)}</b></div>
+  <div class="row net"><span>Netto a ricevere</span><span>${eur(inv.nettoARicevere)}</span></div>
+</div>
 ${inv.note ? `<div class="note">${esc(inv.note)}</div>` : ''}
 <div class="note">Documento generato on-device da Momentum. Non è fattura elettronica SdI: per la trasmissione ufficiale usa il tuo gestionale/commercialista.</div>
 </body></html>`;

@@ -14,6 +14,7 @@ import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpco
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
+import { computeInvoice, nextInvoiceNumber, suggestFromHistory, renderInvoiceHTML } from './invoice/invoice-engine.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1350,10 +1351,119 @@ function renderTax(monthK) {
         </div>`).join('');
       html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} entrat${r.uncertainCount > 1 ? 'e' : 'a'} da confermare</div><div class="text-xs text-slate-300">${rows}</div></div>`;
     }
+    // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
+    html += `<button onclick="window.openCreateInvoice()" class="btn-action w-full py-2.5 font-bold rounded-xl mt-3 text-sm">＋ Crea fattura</button>`;
     extraEl.innerHTML = html;
   }
 }
 window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); renderAnalysis(); };
+
+// ── CREA FATTURA (v10): semplice come un tap, nativa per ogni schermo, coerente
+// con gli stili dell'app. 3 campi (cliente, quanto, per cosa), regime pre-scelto,
+// anteprima LIVE del netto a ricevere, un bottone che genera e stampa (→PDF
+// on-device). Numero e data automatici. Impara i clienti dallo storico.
+function getInvoiceFormHTML() {
+  const regime = VaultDAO.state.taxRegime || 'forfettario';
+  const year = new Date().getFullYear();
+  const num = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
+  const prof = VaultDAO.state.invoiceProfile || {};
+  const inputCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0';
+  const hasProfile = !!(prof.emitter && prof.emitter.trim());
+  return `
+  <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+    <div class="flex items-baseline justify-between">
+      <h3 class="text-base font-black">Crea fattura</h3>
+      <span class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Date().toLocaleDateString('it-IT')}</span>
+    </div>
+    <!-- I tuoi dati (emittente + logo): compilati UNA volta e ricordati -->
+    <details ${hasProfile ? '' : 'open'} class="rounded-xl border border-[var(--glass-border)] bg-black/20">
+      <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">I tuoi dati e logo ${hasProfile ? `· <span class="text-emerald-400">${(prof.emitter || '').slice(0, 24)}</span>` : '(compila una volta)'}</summary>
+      <div class="flex flex-col gap-2 p-3 pt-0">
+        <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${(prof.emitter || '').replace(/"/g, '&quot;')}" />
+        <input id="inv-emitterinfo" class="${inputCls}" placeholder="P.IVA, indirizzo, IBAN..." value="${(prof.emitterInfo || '').replace(/"/g, '&quot;')}" />
+        <div class="flex items-center gap-3">
+          <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">Carica logo<input id="inv-logo" type="file" accept="image/*" class="hidden" /></label>
+          <span id="inv-logo-status" class="text-[10px] text-[var(--on-surface-secondary)]">${prof.logo ? 'logo salvato ✓' : 'nessun logo'}</span>
+          <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="Colore accento" />
+        </div>
+      </div>
+    </details>
+    <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
+    <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
+    <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
+    <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
+    <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
+      <span>Regime:</span>
+      <select id="inv-regime" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1">
+        ${Object.entries(REGIMI).map(([k, v]) => `<option value="${k}" ${k === regime ? 'selected' : ''}>${v.label.split('(')[0].trim()}</option>`).join('')}
+      </select>
+    </div>
+    <div id="inv-preview" class="card p-3 text-xs text-slate-300 hidden"></div>
+    <button id="inv-generate" class="btn-action w-full py-3 font-bold rounded-xl mt-1">Genera e stampa</button>
+    <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Documento generato on-device. Non è fattura elettronica SdI: per l'invio ufficiale usa il tuo gestionale/commercialista.</p>
+  </div>`;
+}
+
+window.openCreateInvoice = () => {
+  openModal(getInvoiceFormHTML());
+  const clientEl = $('#inv-client'), amountEl = $('#inv-amount'), descEl = $('#inv-desc'), regimeEl = $('#inv-regime'), prevEl = $('#inv-preview');
+  const eur = (n) => `${(+n).toFixed(2).replace('.', ',')} €`;
+  // Anteprima LIVE: mostra netto a ricevere e scomposizione a ogni modifica.
+  const refresh = () => {
+    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
+    if (!(imp > 0)) { prevEl.classList.add('hidden'); return; }
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value });
+    prevEl.classList.remove('hidden');
+    prevEl.innerHTML = `${inv.righe.map(r => `<div class="flex justify-between"><span>${r.voce}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
+      <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">Totale fattura</span><span class="font-mono">${eur(inv.totaleFattura)}</span></div>
+      <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span class="font-mono">${eur(inv.nettoARicevere)}</span></div>`;
+  };
+  // Autocompletamento intelligente: scelto un cliente noto, pre-compila importo/descrizione dallo storico.
+  clientEl.addEventListener('change', () => {
+    const s = suggestFromHistory(VaultDAO.state.invoices || [], clientEl.value);
+    if (s) { if (!amountEl.value && s.suggestedImponibile) amountEl.value = s.suggestedImponibile; if (!descEl.value && s.lastDescription) descEl.value = s.lastDescription; refresh(); }
+  });
+  amountEl.addEventListener('input', refresh);
+  regimeEl.addEventListener('change', refresh);
+  // Logo → data URI on-device (nessun upload esterno), tenuto in una var locale
+  // e salvato nel profilo alla generazione. Limite dimensione per non gonfiare
+  // il vault: se troppo grande, avvisa.
+  let logoData = (VaultDAO.state.invoiceProfile || {}).logo || '';
+  $('#inv-logo').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > 400 * 1024) { showToast('Logo troppo grande (max 400KB).', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { logoData = reader.result; $('#inv-logo-status').textContent = 'logo caricato ✓'; };
+    reader.readAsDataURL(f);
+  });
+  $('#inv-generate').addEventListener('click', () => {
+    const client = clientEl.value.trim();
+    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
+    if (!client || !(imp > 0)) { showToast('Inserisci cliente e importo.', 'error'); return; }
+    // salva/aggiorna il profilo emittente (ricordato per le prossime fatture)
+    VaultDAO.state.invoiceProfile = {
+      emitter: ($('#inv-emitter').value || '').trim(),
+      emitterInfo: ($('#inv-emitterinfo').value || '').trim(),
+      logo: logoData || '',
+      accent: $('#inv-accent').value || '#0ea5e9',
+    };
+    const prof = VaultDAO.state.invoiceProfile;
+    const year = new Date().getFullYear();
+    const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value });
+    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo: prof.emitterInfo, logo: prof.logo, accent: prof.accent, clientInfo: '' };
+    // salva nello storico (per numerazione + apprendimento clienti)
+    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value }];
+    VaultDAO.save();
+    // apri il documento in una nuova finestra per stampa/PDF (on-device)
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(renderInvoiceHTML(inv, meta)); w.document.close(); setTimeout(() => { try { w.print(); } catch (_) {} }, 300); }
+    closeModal();
+    showToast(`Fattura n.${number}/${year} creata.`, 'success');
+    renderAnalysis();
+  });
+};
 // Auto-apprendimento fiscale: la conferma dell'utente insegna a Momentum come
 // classificare quel mittente d'ora in poi (integrato nel loop di apprendimento).
 window.learnIncome = (description, kind) => {

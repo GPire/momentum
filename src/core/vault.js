@@ -118,6 +118,8 @@ const VaultDAO = {
     engagement: { lastActiveDay: null, streak: 0, bestStreak: 0 },
     achievements: {}, // { id: isoDate } — traguardi sbloccati (Wave 3 v10, additivo)
     taxLearned: {},   // { tokenMittente: 'invoice'|'salary'|'personal' } — apprendimento fiscale dalle conferme utente
+    invoices: [],     // fatture create on-device: { number, year, date, client, imponibile, description, regime }
+    invoiceProfile: { emitter: '', emitterInfo: '', logo: '', accent: '' }, // i tuoi dati emittente + logo (ricordati)
     savingsGoals: [],
     // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
     // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,
