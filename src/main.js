@@ -844,7 +844,14 @@ const renderDashboard = () => {
         <div class="flex flex-col items-end shrink-0 pl-2">
           <span class="font-mono font-black text-lg sm:text-xl tracking-tighter ${isInc ? 'text-[var(--green)]' : isInv ? 'text-[var(--gold)]' : ''}">${isInc ? '+' : isInv ? '⟳' : '−'}${formatMoney(t.amount)}</span>
           <div class="flex mt-1 items-center">
-            <button onclick="deleteTx('${k}', ${t.id})" class="text-[10px] font-black text-[var(--red)] opacity-0 group-hover:opacity-100 transition-opacity p-1">ELIMINA</button>
+            <!-- Neuro-UX + fix responsive: era "ELIMINA" testo su hover (invisibile
+                 su touch → impossibile cancellare da mobile) e un muro di bottoni
+                 rossi urlati. Ora: icona cestino DISCRETA (azione distruttiva a
+                 bassa prominenza, principio "non rendere facile lo sbaglio") ma
+                 SEMPRE accessibile su ogni dispositivo, area tocco adeguata. -->
+            <button onclick="deleteTx('${k}', ${t.id})" aria-label="Elimina transazione" title="Elimina" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] focus:opacity-100 active:text-[var(--red)] transition p-2 -m-1">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+            </button>
           </div>
         </div>
       </div>
