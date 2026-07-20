@@ -101,6 +101,51 @@ export function suggestFromHistory(invoices = [], clientQuery = '') {
   };
 }
 
+// Rileva i CLIENTI RICORRENTI dallo storico fatture e predice la prossima
+// fattura: cadenza (mensile/settimanale/trimestrale dai gap tra le date),
+// importo tipico (mediana), e se la fattura di QUESTO mese è ancora da emettere
+// (per i clienti mensili). Serve al "riutilizzo intelligente": un tap ricrea la
+// fattura ricorrente. Onestà: serve ≥2 fatture per una cadenza; se i gap non
+// sono regolari, cadenza = null (nessuna invenzione). Funzione pura.
+export function detectRecurringClients(invoices = [], referenceDate = new Date()) {
+  const med = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const byClient = {};
+  for (const inv of invoices) { if (inv && inv.client) (byClient[inv.client] = byClient[inv.client] || []).push(inv); }
+  const curMonth = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, '0')}`;
+  const out = [];
+  for (const [client, list] of Object.entries(byClient)) {
+    if (list.length < 2) continue;
+    const sorted = [...list].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+    const gaps = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const d1 = new Date(sorted[i - 1].date), d2 = new Date(sorted[i].date);
+      if (!isNaN(d1) && !isNaN(d2)) gaps.push((d2 - d1) / 86400000);
+    }
+    const g = med(gaps);
+    let cadence = null, monthly = false;
+    if (g != null) {
+      if (g >= 24 && g <= 36) { cadence = 'mensile'; monthly = true; }
+      else if (g >= 6 && g <= 8) cadence = 'settimanale';
+      else if (g >= 80 && g <= 100) cadence = 'trimestrale';
+    }
+    const amounts = sorted.map(s => s.imponibile).filter(Number.isFinite);
+    const last = sorted[sorted.length - 1];
+    // email/descrizione/regime: il valore più RECENTE disponibile (non per forza
+    // dell'ultima fattura, che potrebbe non averlo) → riuso robusto.
+    const lastWith = (field) => { for (let i = sorted.length - 1; i >= 0; i--) if (sorted[i][field]) return sorted[i][field]; return null; };
+    const emittedThisMonth = list.some(i => String(i.date || '').slice(0, 7) === curMonth);
+    out.push({
+      client, invoiceCount: list.length, cadence, monthly,
+      typicalAmount: med(amounts), lastDescription: lastWith('description'),
+      lastEmail: lastWith('clientEmail'), lastRegime: lastWith('regime') || last.regime || null,
+      dueThisMonth: monthly && !emittedThisMonth,
+    });
+  }
+  // Prima le fatture DOVUTE questo mese, poi i clienti più frequenti.
+  out.sort((a, b) => (b.dueThisMonth ? 1 : 0) - (a.dueThisMonth ? 1 : 0) || b.invoiceCount - a.invoiceCount);
+  return out;
+}
+
 // Genera l'EMAIL di accompagnamento in modo predittivo: destinatario (se noto
 // dallo storico), oggetto e corpo professionale con gli importi REALI. Zero
 // invenzione: se manca un dato, non lo si mette. Ritorna { to, subject, body }

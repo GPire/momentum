@@ -14,7 +14,7 @@ import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpco
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
-import { computeInvoice, nextInvoiceNumber, suggestFromHistory, renderInvoiceHTML, buildInvoiceEmail } from './invoice/invoice-engine.js';
+import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail } from './invoice/invoice-engine.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1388,6 +1388,14 @@ function getInvoiceFormHTML() {
         </div>
       </div>
     </details>
+    ${(() => {
+      // Chip clienti RICORRENTI: un tap ricompila tutto. Priorità a quelli con
+      // fattura del mese ancora da fare (dueThisMonth) — pallino oro pulsante.
+      const rec = detectRecurringClients(VaultDAO.state.invoices || [], new Date()).slice(0, 5);
+      if (!rec.length) return '';
+      return `<div class="flex gap-2 overflow-x-auto pb-1">${rec.map((c, i) =>
+        `<button type="button" data-recidx="${i}" class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${c.dueThisMonth ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${c.dueThisMonth ? '● ' : ''}${c.client}${c.typicalAmount ? ` · ${Math.round(c.typicalAmount)}€` : ''}${c.cadence ? `/${c.cadence.slice(0, 4)}` : ''}</button>`).join('')}</div>`;
+    })()}
     <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
     <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
     <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
@@ -1423,6 +1431,17 @@ window.openCreateInvoice = () => {
       <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span class="font-mono">${eur(inv.nettoARicevere)}</span></div>`;
   };
   const emailEl = $('#inv-email');
+  // Chip clienti ricorrenti: un tap ricompila TUTTO (riuso intelligente).
+  const recurring = detectRecurringClients(VaultDAO.state.invoices || [], new Date()).slice(0, 5);
+  document.querySelectorAll('[data-recidx]').forEach(btn => btn.addEventListener('click', () => {
+    const c = recurring[+btn.dataset.recidx]; if (!c) return;
+    clientEl.value = c.client;
+    if (c.typicalAmount) amountEl.value = c.typicalAmount;
+    if (c.lastDescription) descEl.value = c.lastDescription;
+    if (c.lastEmail) emailEl.value = c.lastEmail;
+    if (c.lastRegime && regimeEl.querySelector(`option[value="${c.lastRegime}"]`)) regimeEl.value = c.lastRegime;
+    refresh();
+  }));
   // Autocompletamento intelligente: scelto un cliente noto, pre-compila importo/descrizione/email dallo storico.
   clientEl.addEventListener('change', () => {
     const s = suggestFromHistory(VaultDAO.state.invoices || [], clientEl.value);

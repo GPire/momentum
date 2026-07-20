@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { computeInvoice, nextInvoiceNumber, suggestFromHistory, renderInvoiceHTML, buildInvoiceEmail, BOLLO_IMPORTO } = await import('./invoice-engine.js');
+const { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, BOLLO_IMPORTO } = await import('./invoice-engine.js');
 
 test('forfettario 1000€: no IVA, no ritenuta, bollo 2€ sopra soglia', () => {
   const r = computeInvoice({ imponibile: 1000, regime: 'forfettario' });
@@ -110,4 +110,55 @@ test('buildInvoiceEmail: senza email cliente → to vuoto, nessun dato inventato
 test('suggestFromHistory: restituisce anche l\'email appresa del cliente', () => {
   const invoices = [{ client: 'Acme', imponibile: 1000, description: 'X', date: '2026-01-10', clientEmail: 'a@acme.it' }];
   assert.equal(suggestFromHistory(invoices, 'acme').lastEmail, 'a@acme.it');
+});
+
+test('detectRecurringClients: rileva cliente MENSILE + importo tipico + fattura del mese da fare', () => {
+  const invoices = [
+    { client: 'Studio Rossi', imponibile: 1000, description: 'Consulenza', date: '2026-05-05', clientEmail: 'a@rossi.it', regime: 'forfettario' },
+    { client: 'Studio Rossi', imponibile: 1000, description: 'Consulenza', date: '2026-06-05' },
+    { client: 'Studio Rossi', imponibile: 1100, description: 'Consulenza', date: '2026-07-05' },
+  ];
+  // ad agosto (mese senza fattura) → dovuta
+  const r = detectRecurringClients(invoices, new Date(2026, 7, 20));
+  const rossi = r.find(x => x.client === 'Studio Rossi');
+  assert.equal(rossi.cadence, 'mensile');
+  assert.equal(rossi.monthly, true);
+  assert.equal(rossi.dueThisMonth, true);
+  assert.ok(rossi.typicalAmount >= 1000 && rossi.typicalAmount <= 1100);
+  assert.equal(rossi.lastEmail, 'a@rossi.it');
+});
+
+test('detectRecurringClients: se la fattura del mese è già emessa → non è "dovuta"', () => {
+  const invoices = [
+    { client: 'Acme', imponibile: 500, date: '2026-06-10' },
+    { client: 'Acme', imponibile: 500, date: '2026-07-10' },
+  ];
+  const r = detectRecurringClients(invoices, new Date(2026, 6, 20)); // luglio, già emessa il 10
+  assert.equal(r.find(x => x.client === 'Acme').dueThisMonth, false);
+});
+
+test('detectRecurringClients: cliente con una sola fattura → non ricorrente', () => {
+  const r = detectRecurringClients([{ client: 'UnaVolta', imponibile: 300, date: '2026-05-01' }], new Date(2026, 6, 1));
+  assert.equal(r.length, 0);
+});
+
+test('detectRecurringClients: gap irregolari → cadenza null (nessuna invenzione)', () => {
+  const invoices = [
+    { client: 'Sporadico', imponibile: 200, date: '2026-01-01' },
+    { client: 'Sporadico', imponibile: 800, date: '2026-05-15' },
+  ];
+  const r = detectRecurringClients(invoices, new Date(2026, 6, 1));
+  assert.equal(r[0].cadence, null);
+  assert.equal(r[0].dueThisMonth, false);
+});
+
+test('detectRecurringClients: le fatture DOVUTE questo mese vengono prima', () => {
+  const invoices = [
+    { client: 'Mensile', imponibile: 1000, date: '2026-06-05' },
+    { client: 'Mensile', imponibile: 1000, date: '2026-07-05' },
+    { client: 'AltraTantum', imponibile: 500, date: '2026-06-01' },
+    { client: 'AltraTantum', imponibile: 500, date: '2026-06-20' },
+  ];
+  const r = detectRecurringClients(invoices, new Date(2026, 7, 15)); // agosto
+  assert.equal(r[0].client, 'Mensile'); // dovuta questo mese → prima
 });
