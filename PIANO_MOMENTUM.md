@@ -93,13 +93,30 @@ scala, è DIPENDENZA da pesi di terzi (PrismML/Alibaba) al centro del "cervello"
 "Sharpe 1.8+/rendimento 18%+ annuo" come benchmark target: fermato esplicitamente
 — è una promessa di rendimento, non un problema di scala tecnologica.
 
+**Wave 11 chiusa**: `bench/vs-llm-bench.mjs` aggiornato — roster con Kimi K3 (id
+verificato "kimi-k3", non inventato) + NUOVO Blocco 3 (5 domande finanziarie in
+linguaggio naturale a risposta calcolabile, Momentum 5/5 per costruzione, dove
+i frontier LLM tipicamente allucinano). Output in 3 blocchi separati, mai fusi.
+Girato in DRY: 94.6% categorizzazione, 5/5 ragionamento.
+
+**Fuori piano, richiesta esplicita "dati borsa 40 anni/ETF/crypto"**:
+`src/alpha/historical-backtest.js` + `bench/alpha-bench-real.mjs` — backtest
+walk-forward su dati REALI (S&P 500 1984-2026, SPY 1993-2026, BTC 2014-2026,
+Yahoo Finance, cache locale gitignored). Sanity-check rileva correttamente i
+crash storici noti (1987, dot-com, 2008, covid, crypto winter 2018/2022) —
+prova di autenticità. Risultato onesto anche sfavorevole: buy&hold batte il
+momentum-timing sull'S&P 500 puro. Questa È la risposta onesta a "predittivo,
+cicli, eventi di mercato": rilevamento di cicli/drawdown REALI misurati sui
+dati, non un forecasting macro (quello richiederebbe un modello sequenziale
+enorme + dataset istituzionale, fuori scope on-device — dichiarato).
+
 **RESTA nel piano** (16 wave totali): Wave 2 (NLU quick-add testuale), 3
 (achievements/badge onesti), 4 (onboarding valore-immediato + FAQ), 5 (simulatore
 utenti sintetici per validare retention), 8 (splitting P2P alla Splitwise), 9
 (envelopes/round-up/PAC/runway 90gg), 10 (strategy scorecard investitori — 7-8
 investitori già referenziati ma da approfondire con quality/carry/concentration/
-mean-reversion + motivazione testuale), 11 (bench vs-LLM aggiornato), 7 (sync
-bulletproof E2E cifrato, rischio alto — richiede 2 device fisici, per ultima).
+mean-reversion + motivazione testuale), 7 (sync bulletproof E2E cifrato, rischio
+alto — richiede 2 device fisici, per ultima).
 
 ---
 
