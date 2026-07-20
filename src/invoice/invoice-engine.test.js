@@ -162,3 +162,14 @@ test('detectRecurringClients: le fatture DOVUTE questo mese vengono prima', () =
   const r = detectRecurringClients(invoices, new Date(2026, 7, 15)); // agosto
   assert.equal(r[0].client, 'Mensile'); // dovuta questo mese → prima
 });
+
+test('detectRecurringClients: flag ESPLICITO recurring vale già dalla PRIMA fattura', () => {
+  const invoices = [{ client: 'NuovoCliente', imponibile: 800, description: 'Retainer', date: '2026-06-10', recurring: true, cadence: 'mensile', clientEmail: 'x@y.it' }];
+  // a luglio (mese senza fattura) → dovuta, anche con UNA sola fattura
+  const r = detectRecurringClients(invoices, new Date(2026, 6, 20));
+  const c = r.find(x => x.client === 'NuovoCliente');
+  assert.ok(c, 'il cliente esplicitamente ricorrente deve comparire con 1 sola fattura');
+  assert.equal(c.monthly, true);
+  assert.equal(c.dueThisMonth, true);
+  assert.equal(c.typicalAmount, 800);
+});

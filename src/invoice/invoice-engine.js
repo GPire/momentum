@@ -114,7 +114,10 @@ export function detectRecurringClients(invoices = [], referenceDate = new Date()
   const curMonth = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, '0')}`;
   const out = [];
   for (const [client, list] of Object.entries(byClient)) {
-    if (list.length < 2) continue;
+    // Flag ESPLICITO "ricorrente" (definito dall'utente): vale anche con UNA
+    // sola fattura → memorizza l'intenzione subito. Altrimenti serve la storia.
+    const explicit = list.find(i => i.recurring);
+    if (list.length < 2 && !explicit) continue;
     const sorted = [...list].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
     const gaps = [];
     for (let i = 1; i < sorted.length; i++) {
@@ -128,6 +131,8 @@ export function detectRecurringClients(invoices = [], referenceDate = new Date()
       else if (g >= 6 && g <= 8) cadence = 'settimanale';
       else if (g >= 80 && g <= 100) cadence = 'trimestrale';
     }
+    // L'esplicito ha la precedenza sull'inferenza (l'utente sa meglio).
+    if (explicit) { cadence = explicit.cadence || 'mensile'; monthly = cadence === 'mensile'; }
     const amounts = sorted.map(s => s.imponibile).filter(Number.isFinite);
     const last = sorted[sorted.length - 1];
     // email/descrizione/regime: il valore più RECENTE disponibile (non per forza

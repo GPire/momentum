@@ -1411,6 +1411,10 @@ function getInvoiceFormHTML() {
     <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
     <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
     <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
+    <label class="flex items-center gap-2 text-[12px] text-slate-300 cursor-pointer select-none px-1">
+      <input id="inv-recurring" type="checkbox" class="w-4 h-4 accent-[var(--gold)]" />
+      🔁 Cliente ricorrente ogni mese (te lo ricordo io)
+    </label>
     <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
       <span>Regime:</span>
       <select id="inv-regime" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1">
@@ -1450,6 +1454,7 @@ window.openCreateInvoice = (prefillClient) => {
     if (c.lastDescription) descEl.value = c.lastDescription;
     if (c.lastEmail) emailEl.value = c.lastEmail;
     if (c.lastRegime && regimeEl.querySelector(`option[value="${c.lastRegime}"]`)) regimeEl.value = c.lastRegime;
+    if ($('#inv-recurring')) $('#inv-recurring').checked = !!c.monthly; // coerenza: resta ricorrente
     refresh();
   }));
   // Autocompletamento intelligente: scelto un cliente noto, pre-compila importo/descrizione/email dallo storico.
@@ -1489,8 +1494,10 @@ window.openCreateInvoice = (prefillClient) => {
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value });
     const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo: prof.emitterInfo, logo: prof.logo, accent: prof.accent, clientInfo: '' };
-    // salva nello storico (numerazione + apprendimento cliente/email)
-    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail }];
+    // salva nello storico (numerazione + apprendimento cliente/email + flag
+    // ricorrente esplicito per il promemoria proattivo mensile)
+    const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
+    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail, ...(recurring ? { recurring: true, cadence: 'mensile' } : {}) }];
     VaultDAO.save();
     return { inv, meta, clientEmail, number, year };
   };
@@ -1528,6 +1535,7 @@ window.openCreateInvoice = (prefillClient) => {
       if (c.lastDescription) descEl.value = c.lastDescription;
       if (c.lastEmail) emailEl.value = c.lastEmail;
       if (c.lastRegime && regimeEl.querySelector(`option[value="${c.lastRegime}"]`)) regimeEl.value = c.lastRegime;
+      if ($('#inv-recurring')) $('#inv-recurring').checked = !!c.monthly;
       refresh();
     }
   }
