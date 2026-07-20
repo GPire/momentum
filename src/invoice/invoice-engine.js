@@ -12,6 +12,8 @@
 // Funzioni pure, nessun DOM, nessuna rete.
 'use strict';
 
+import { invoiceCountry } from './country-invoicing.js';
+
 // Marca da bollo 2€ obbligatoria sulle fatture SENZA IVA (es. forfettario)
 // oltre 77,47€. Regola reale italiana.
 export const BOLLO_SOGLIA = 77.47;
@@ -33,12 +35,16 @@ const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 //  - bolloACliente: se true (default) il bollo è ADDEBITATO al cliente (entra
 //    nel totale); se false lo paga l'emittente (resta un costo suo, non nel
 //    totale fattura) — non sempre si fa pagare il bollo al cliente.
-export function computeInvoice({ imponibile, regime = 'forfettario', ivaPct, ritenutaPct, cassaPct, bollo = true, bolloACliente = true } = {}) {
+export function computeInvoice({ imponibile, regime = 'forfettario', ivaPct, ritenutaPct, cassaPct, bollo, bolloACliente = true, country = 'IT' } = {}) {
+  const c = invoiceCountry(country); // default per-Paese (IT completo; altri: internazionale)
   const base = Math.max(0, +imponibile || 0);
   const isForfettario = regime === 'forfettario';
-  const iva = isForfettario ? 0 : (ivaPct != null ? ivaPct : 0.22);
-  const ritenuta = isForfettario ? 0 : (ritenutaPct != null ? ritenutaPct : 0.20);
-  const cassa = isForfettario ? 0 : (cassaPct != null ? cassaPct : 0.04);
+  // I default (IVA/ritenuta/cassa/bollo) vengono dal Paese; l'utente può sempre
+  // sovrascriverli. Il forfettario italiano resta esente IVA/ritenuta.
+  const iva = isForfettario ? 0 : (ivaPct != null ? ivaPct : c.vatDefault);
+  const ritenuta = isForfettario ? 0 : (ritenutaPct != null ? ritenutaPct : c.defaultRitenuta);
+  const cassa = isForfettario ? 0 : (cassaPct != null ? cassaPct : c.defaultCassa);
+  if (bollo == null) bollo = c.bollo;
 
   const cassaImporto = round2(base * cassa);
   const imponibileIva = round2(base + cassaImporto);       // l'IVA si applica anche sulla cassa
@@ -233,6 +239,6 @@ ${meta.description ? `<div class="desc">${esc(meta.description)}</div>` : ''}
   <div class="row net"><span>Netto a ricevere</span><span>${eur(inv.nettoARicevere)}</span></div>
 </div>
 ${inv.note ? `<div class="note">${esc(inv.note)}</div>` : ''}
-<div class="note"><b>Documento fattura</b> con calcoli corretti — valido per la contabilità del cliente e come fattura nei Paesi <b>senza</b> obbligo di fattura elettronica. In <b>Italia</b> la fattura fiscale va emessa in formato elettronico via SdI (col tuo gestionale/commercialista): lì questa è una <b>copia di cortesia</b> che puoi comunque usare per comunicare/rivedere l'importo col cliente.</div>
+<div class="note">${esc(invoiceCountry(meta.country).disclaimerLines.join(' '))}</div>
 </body></html>`;
 }

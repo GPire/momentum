@@ -71,13 +71,13 @@ test('suggestFromHistory: cliente mai visto → null, nessuna invenzione', () =>
 
 test('renderInvoiceHTML: documento valido, importi e note presenti, input escapato', () => {
   const inv = computeInvoice({ imponibile: 1000, regime: 'forfettario' });
-  const html = renderInvoiceHTML(inv, { number: 3, year: 2026, client: 'Acme <SRL>', description: 'Consulenza' });
+  const html = renderInvoiceHTML(inv, { number: 3, year: 2026, client: 'Acme <SRL>', description: 'Consulenza', country: 'IT' });
   assert.ok(/Fattura n\. 3\/2026/.test(html));
   assert.ok(/Netto a ricevere/.test(html));
   assert.ok(/1002,00/.test(html));                 // totale col bollo
   assert.ok(/Acme &lt;SRL&gt;/.test(html));         // input escapato (no XSS)
   assert.ok(/forfettario/i.test(html));             // nota regime
-  assert.ok(/SdI/.test(html) && /cortesia/i.test(html)); // disclaimer chiaro presente
+  assert.ok(/SdI/.test(html) && /cortesia/i.test(html)); // disclaimer IT chiaro
 });
 
 test('bollo a carico dell\'emittente: non entra nel totale addebitato al cliente', () => {

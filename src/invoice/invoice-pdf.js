@@ -11,6 +11,8 @@
 // per il logo resta la stampa HTML→PDF. Funzioni pure, nessun DOM.
 'use strict';
 
+import { invoiceCountry } from './country-invoicing.js';
+
 // Mappa un carattere Unicode al byte WinAnsi (Windows-1252) corrispondente.
 // Copre i simboli/accenti comuni delle fatture italiane; ignoto → '?'.
 const WINANSI_SPECIAL = { '€': 0x80, '‚': 0x82, 'ƒ': 0x83, '„': 0x84, '…': 0x85, '†': 0x86, '‡': 0x87, 'ˆ': 0x88, '‰': 0x89, 'Š': 0x8a, '‹': 0x8b, 'Œ': 0x8c, 'Ž': 0x8e, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '•': 0x95, '–': 0x96, '—': 0x97, '˜': 0x98, '™': 0x99, 'š': 0x9a, '›': 0x9b, 'œ': 0x9c, 'ž': 0x9e, 'Ÿ': 0x9f };
@@ -61,11 +63,11 @@ export function invoicePdfBytes(inv = {}, meta = {}) {
   push(0, y, `Totale fattura: ${eur(inv.totaleFattura)}`, 12, true, A4W - 50); y -= 18;
   push(0, y, `Netto a ricevere: ${eur(inv.nettoARicevere)}`, 14, true, A4W - 50); y -= 30;
   if (inv.note) { push(50, y, inv.note, 8); y -= 12; }
-  // Disclaimer onesto e a DOPPIA verità: il documento è utile e con calcoli
-  // corretti (valido per la contabilità del cliente e come fattura nei Paesi
-  // senza obbligo di e-fattura); in Italia la fattura fiscale va via SdI.
-  push(50, 52, 'Documento fattura con calcoli corretti: valido per la contabilita\' del cliente e come fattura nei', 8);
-  push(50, 42, 'Paesi senza obbligo di fattura elettronica. In Italia la fattura fiscale va emessa via SdI (qui: copia di cortesia).', 8);
+  // Disclaimer PER-PAESE (architettura pronta a ogni mercato): IT = copia di
+  // cortesia + SdI; altri = fattura-documento valida. Onesto, mai fuorviante.
+  const disc = invoiceCountry(meta.country).disclaimerLines;
+  push(50, 52, disc[0] || '', 8);
+  if (disc[1]) push(50, 42, disc[1], 8);
 
   // Larghezza approssimata Helvetica (per l'allineamento a destra), ~0.52em.
   const textWidth = (t, size) => [...String(t)].length * size * 0.52;

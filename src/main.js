@@ -16,6 +16,7 @@ import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
+import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1400,6 +1401,9 @@ function getInvoiceFormHTML() {
         <div class="flex items-center gap-3">
           <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">Carica logo<input id="inv-logo" type="file" accept="image/*" class="hidden" /></label>
           <span id="inv-logo-status" class="text-[10px] text-[var(--on-surface-secondary)]">${prof.logo ? 'logo salvato ✓' : 'nessun logo'}</span>
+          <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="Paese (regole fattura)">
+            ${selectableInvoiceCountries().map(c => `<option value="${c.code}" ${(prof.country || 'IT') === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
+          </select>
           <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="Colore accento" />
         </div>
       </div>
@@ -1451,7 +1455,8 @@ window.openCreateInvoice = (prefillClient) => {
   const refresh = () => {
     const imp = parseFloat(String(amountEl.value).replace(',', '.'));
     if (!(imp > 0)) { prevEl.classList.add('hidden'); return; }
-    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value });
+    const country = ($('#inv-country') && $('#inv-country').value) || 'IT';
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country });
     prevEl.classList.remove('hidden');
     prevEl.innerHTML = `${inv.righe.map(r => `<div class="flex justify-between"><span>${r.voce}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
       <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">Totale fattura</span><span class="font-mono">${eur(inv.totaleFattura)}</span></div>
@@ -1477,6 +1482,7 @@ window.openCreateInvoice = (prefillClient) => {
   });
   amountEl.addEventListener('input', refresh);
   regimeEl.addEventListener('change', refresh);
+  $('#inv-country')?.addEventListener('change', refresh);
   // Logo → data URI on-device (nessun upload esterno), tenuto in una var locale
   // e salvato nel profilo alla generazione. Limite dimensione per non gonfiare
   // il vault: se troppo grande, avvisa.
@@ -1510,13 +1516,14 @@ window.openCreateInvoice = (prefillClient) => {
       emitterInfo: ($('#inv-emitterinfo').value || '').trim(),
       logo: logoData || '',
       accent: $('#inv-accent').value || '#0ea5e9',
+      country: ($('#inv-country') && $('#inv-country').value) || 'IT',
     };
     const prof = VaultDAO.state.invoiceProfile;
     const clientEmail = (emailEl.value || '').trim();
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
-    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value });
-    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo: prof.emitterInfo, logo: prof.logo, accent: prof.accent, clientInfo: '' };
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country: prof.country });
+    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo: prof.emitterInfo, logo: prof.logo, accent: prof.accent, country: prof.country, clientInfo: '' };
     // salva nello storico (numerazione + apprendimento cliente/email + flag
     // ricorrente esplicito per il promemoria proattivo mensile)
     const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
