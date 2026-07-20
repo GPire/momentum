@@ -13,7 +13,7 @@ import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
-import { taxSetAsideForPeriod } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1278,12 +1278,25 @@ function renderTax(monthK) {
   if (!card) return;
   const regime = VaultDAO.state.taxRegime;
   const monthTxs = VaultDAO.state.transactions[monthK] || [];
-  const hasIncome = monthTxs.some(t => t.type === 'entrata');
-  if (!regime || !hasIncome) { card.classList.add('hidden'); return; }
+  // COMPRENSIONE INTELLIGENTE (fix "tasse messe a caso"): il modulo P.IVA ha
+  // senso solo per chi FATTURA. Momentum rileva se c'è mai stata una fattura
+  // nella storia; se l'utente non ha attivato un regime E non fattura mai, la
+  // card resta nascosta (niente modulo fiscale spaventoso per chi non serve).
+  const everInvoice = Object.values(VaultDAO.state.transactions || {}).flat()
+    .some(t => t.type === 'entrata' && classifyIncome(t).kind === 'invoice');
+  if (!regime && !everInvoice) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
-  const r = taxSetAsideForPeriod(monthTxs, { regime });
-  setEl.textContent = formatMoney(r.daAccantonare);
-  noteEl.textContent = r.note;
+  const r = taxSetAsideForPeriod(monthTxs, { regime: regime || 'forfettario' });
+  if (r.count > 0) {
+    setEl.textContent = formatMoney(r.daAccantonare);
+    noteEl.textContent = r.note;
+  } else {
+    // Nessuna fattura questo mese: mai un numero inventato, un messaggio chiaro.
+    setEl.textContent = '—';
+    noteEl.textContent = everInvoice
+      ? 'Nessuna fattura registrata questo mese: niente da accantonare.'
+      : 'Non vedo fatture P.IVA. Se sei un libero professionista, registra un\'entrata come fattura (parole tipo "fattura", "compenso"): calcolo io quanto mettere da parte per il fisco.';
+  }
 }
 window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); renderAnalysis(); };
 
