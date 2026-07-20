@@ -9,6 +9,7 @@ import { lookupMerchant } from './merchant-dictionary.js';
 import { fuseSignals } from './signal-fusion.js';
 import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay } from '../graph/dcgn.js';
 import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
+import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -100,8 +101,19 @@ class MomentumOrchestrator {
       for (const [model, predictedCat] of Object.entries(this._lastVote.byModel)) {
         const m = stats[model] = stats[model] || {};
         const cell = m[predictedCat] = m[predictedCat] || { right: 0, wrong: 0 };
-        if (predictedCat === catId) cell.right++;
+        const correct = predictedCat === catId;
+        if (correct) cell.right++;
         else cell.wrong++;
+        // ── Wave 13 (Meta-Bandit Ensemble): stesso segnale, in più al
+        // contesto fine (categoria x lunghezza-descrizione x tier) invece
+        // che solo per-categoria. Additivo: se non c'era un contesto
+        // registrato in classify() (es. voto dal dizionario) si salta.
+        const ctx = this._lastVote.expertContexts?.[model];
+        if (ctx) {
+          this.vault.state.mlData.expertBandit = observeExpertOutcome(
+            this.vault.state.mlData.expertBandit, { context: ctx, source: model, correct }
+          );
+        }
       }
       this._lastVote = null;
     }
@@ -227,12 +239,23 @@ class MomentumOrchestrator {
     // Moltiplicatore (0.5 + precisione Laplace): neutro (×1.0) senza dati,
     // fino a ×1.5 per un modello sempre giusto su quella categoria, giù
     // verso ×0.5 per uno che lì sbaglia sempre.
+    // ── Wave 13 (Meta-Bandit Ensemble, Momentum Core v4): sopra il voto
+    // Laplace per-categoria, un secondo fattore più fine — categoria x
+    // lunghezza-descrizione x tier-hardware — impara CHI ascoltare in
+    // QUESTO contesto specifico. A freddo è 1.0 (neutro): comportamento
+    // IDENTICO alla v3 finché non ci sono osservazioni in quel contesto.
+    const _tier = (typeof window !== 'undefined' && window.momentumDeviceProfile?.tier) || 'medio';
+    const expertContexts = {};
     for (const c of candidates) {
       c.weight *= 0.5 + this._measuredReliability(c.source, c.category);
+      const ctx = expertContext(c.category, description, _tier);
+      expertContexts[c.source] = ctx;
+      c.weight *= expertWeightFactor(this.vault.state.mlData.expertBandit, ctx, c.source);
     }
     this._lastVote = {
       description,
       byModel: Object.fromEntries(candidates.map(c => [c.source, c.category])),
+      expertContexts,
     };
 
     const scoreByCategory = {};

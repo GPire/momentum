@@ -107,7 +107,9 @@ const VaultDAO = {
     ghostRadarActive: true,
     soundActive: true,
     onboardingProfile: { riskProfile: 'bilanciato', horizon: 'medio' },
-    mlData: { vocab: {}, catCounts: {}, totalWords: 0, lastTraining: Date.now() },
+    // expertBandit (Wave 13 v10, src/ai/expert-bandit.js): additivo dentro
+    // mlData, cresce solo con l'uso — vedi commento su advisorBandit sotto.
+    mlData: { vocab: {}, catCounts: {}, totalWords: 0, lastTraining: Date.now(), expertBandit: { version: 1, arms: {} } },
     lastHash: "GENESIS",
     events: [],
     // Campi ADDITIVI (retention layer, src/predict/engagement.js): coperti
