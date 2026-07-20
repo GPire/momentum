@@ -701,22 +701,46 @@ const renderDashboard = () => {
   // dettaglio completo resta in Analisi — qui è solo l'headline, mai un muro.
   const insightEl = $('#dashboard-insight');
   if (insightEl) {
+    // NEURODESIGN (skill neuro-copy, applicata a favore dell'utente): il
+    // colore È il significato. Verde = comportamento sano (rinforzo positivo,
+    // dopamina). Ambra = "momento consapevole" — micro-frizione gentile sugli
+    // spend fuori-norma (l'INVERSO del supermercato: non spinge a spendere,
+    // invita a fermarsi un attimo). Oro = traguardo (anticipazione). MAI
+    // rosso/vergogna sulla persona (ansia → abbandono). Tono: agency, numeri
+    // specifici, presente. Una riga sola, zero disordine.
+    const TONE = {
+      gold:   { bd: 'border-amber-500/25', bg: 'bg-amber-950/10', tx: 'text-amber-200' },
+      green:  { bd: 'border-emerald-500/25', bg: 'bg-emerald-950/10', tx: 'text-emerald-200' },
+      amber:  { bd: 'border-orange-500/25', bg: 'bg-orange-950/10', tx: 'text-orange-200' },
+      calm:   { bd: 'border-[var(--glass-border)]', bg: 'bg-[var(--surface-elevated)]/40', tx: 'text-slate-300' },
+    };
+    const POSITIVE = new Set(['investor-habit', 'home-cooking', 'social-quiet']);
+    const CAUTION = new Set(['shopping-surge', 'social-active', 'on-the-move']);
     let line = null;
     if (isCurrentMonth) {
       const aStats = computeStats(VaultDAO.state, realNow);
       const nm = nextMilestone(VaultDAO.state.achievements || {}, aStats);
       if (nm && nm.pct >= 0.6) {
         const manca = nm.target - nm.current;
-        line = { emoji: nm.icon, text: `Ti manca ${manca} al traguardo <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
+        line = { emoji: nm.icon, tone: 'gold', text: `Ti manca ${manca} al traguardo <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
       } else {
         const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
-        if (life.patterns.length) line = { emoji: '💡', text: `<b>${life.patterns[0].label}.</b> ${life.patterns[0].evidence}` };
-        else if (nm && nm.pct >= 0.3) line = { emoji: nm.icon, text: `Prossimo traguardo: <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
+        if (life.patterns.length) {
+          const p = life.patterns[0];
+          const tone = POSITIVE.has(p.id) ? 'green' : CAUTION.has(p.id) ? 'amber' : 'calm';
+          // ambra = momento consapevole: aggiungo un invito gentile a fermarsi,
+          // mai un giudizio ("va bene, è la tua scelta — solo per consapevolezza").
+          const tail = tone === 'amber' ? ' <span class="opacity-70">— solo per consapevolezza, la scelta è tua.</span>' : '';
+          line = { emoji: tone === 'green' ? '🌱' : tone === 'amber' ? '🧭' : '💡', tone, text: `<b>${p.label}.</b> ${p.evidence}${tail}` };
+        } else if (nm && nm.pct >= 0.3) {
+          line = { emoji: nm.icon, tone: 'gold', text: `Prossimo traguardo: <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
+        }
       }
     }
     if (line) {
+      const t = TONE[line.tone] || TONE.calm;
       insightEl.classList.remove('hidden');
-      insightEl.innerHTML = `<div class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--surface-elevated)]/40 border border-[var(--glass-border)] text-[13px] text-slate-300"><span class="text-base shrink-0">${line.emoji}</span><span class="min-w-0">${line.text}</span></div>`;
+      insightEl.innerHTML = `<div class="flex items-center gap-2 px-4 py-2.5 rounded-xl ${t.bg} border ${t.bd} text-[13px] ${t.tx}"><span class="text-base shrink-0">${line.emoji}</span><span class="min-w-0">${line.text}</span></div>`;
     } else {
       insightEl.classList.add('hidden');
       insightEl.innerHTML = '';
