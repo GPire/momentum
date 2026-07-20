@@ -233,6 +233,6 @@ ${meta.description ? `<div class="desc">${esc(meta.description)}</div>` : ''}
   <div class="row net"><span>Netto a ricevere</span><span>${eur(inv.nettoARicevere)}</span></div>
 </div>
 ${inv.note ? `<div class="note">${esc(inv.note)}</div>` : ''}
-<div class="note"><b>Copia di cortesia</b> — i calcoli sono corretti. Questa NON è la fattura elettronica ufficiale: in Italia la fattura va emessa in formato elettronico via SdI (col tuo gestionale/commercialista). Questo documento non la sostituisce, ma puoi usarlo per condividere/rivedere l'importo col cliente.</div>
+<div class="note"><b>Documento fattura</b> con calcoli corretti — valido per la contabilità del cliente e come fattura nei Paesi <b>senza</b> obbligo di fattura elettronica. In <b>Italia</b> la fattura fiscale va emessa in formato elettronico via SdI (col tuo gestionale/commercialista): lì questa è una <b>copia di cortesia</b> che puoi comunque usare per comunicare/rivedere l'importo col cliente.</div>
 </body></html>`;
 }
