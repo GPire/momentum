@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { computeInvoice, nextInvoiceNumber, suggestFromHistory, renderInvoiceHTML, BOLLO_IMPORTO } = await import('./invoice-engine.js');
+const { computeInvoice, nextInvoiceNumber, suggestFromHistory, renderInvoiceHTML, buildInvoiceEmail, BOLLO_IMPORTO } = await import('./invoice-engine.js');
 
 test('forfettario 1000€: no IVA, no ritenuta, bollo 2€ sopra soglia', () => {
   const r = computeInvoice({ imponibile: 1000, regime: 'forfettario' });
@@ -85,4 +85,29 @@ test('bollo a carico dell\'emittente: non entra nel totale addebitato al cliente
   const emittente = computeInvoice({ imponibile: 1000, regime: 'forfettario', bolloACliente: false });
   assert.equal(cliente.totaleFattura, 1002);   // bollo addebitato
   assert.equal(emittente.totaleFattura, 1000);  // bollo NON addebitato (lo paga l'emittente)
+});
+
+test('buildInvoiceEmail: genera oggetto, corpo con importi reali, destinatario e mailto', () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'ordinario' });
+  const e = buildInvoiceEmail({ inv, meta: { number: 5, year: 2026, client: 'Studio Rossi', description: 'Consulenza', emitter: 'Mario Bianchi', emitterInfo: 'IBAN IT60X...', date: '20/07/2026' }, clientEmail: 'studio@rossi.it' });
+  assert.equal(e.to, 'studio@rossi.it');
+  assert.ok(/Fattura n\. 5\/2026 — Mario Bianchi/.test(e.subject));
+  assert.ok(/Gentile Studio Rossi/.test(e.body));
+  assert.ok(/1\.?268,80/.test(e.body) || /Totale fattura: 1268,80/.test(e.body)); // totale reale ordinario
+  assert.ok(/netto a ricevere: 1068,80/.test(e.body));                            // netto reale
+  assert.ok(/IBAN IT60X/.test(e.body));
+  assert.ok(e.mailto.startsWith('mailto:studio%40rossi.it?subject='));
+});
+
+test('buildInvoiceEmail: senza email cliente → to vuoto, nessun dato inventato', () => {
+  const inv = computeInvoice({ imponibile: 500, regime: 'forfettario' });
+  const e = buildInvoiceEmail({ inv, meta: { number: 1, year: 2026, client: 'Beta' } });
+  assert.equal(e.to, '');
+  assert.ok(e.mailto.startsWith('mailto:?subject='));
+  assert.ok(!/netto a ricevere/.test(e.body)); // forfettario senza ritenuta: netto == totale, non lo ripete
+});
+
+test('suggestFromHistory: restituisce anche l\'email appresa del cliente', () => {
+  const invoices = [{ client: 'Acme', imponibile: 1000, description: 'X', date: '2026-01-10', clientEmail: 'a@acme.it' }];
+  assert.equal(suggestFromHistory(invoices, 'acme').lastEmail, 'a@acme.it');
 });

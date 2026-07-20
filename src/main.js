@@ -14,7 +14,7 @@ import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpco
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
-import { computeInvoice, nextInvoiceNumber, suggestFromHistory, renderInvoiceHTML } from './invoice/invoice-engine.js';
+import { computeInvoice, nextInvoiceNumber, suggestFromHistory, renderInvoiceHTML, buildInvoiceEmail } from './invoice/invoice-engine.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1392,6 +1392,7 @@ function getInvoiceFormHTML() {
     <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
     <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
     <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
+    <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
     <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
       <span>Regime:</span>
       <select id="inv-regime" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1">
@@ -1399,7 +1400,10 @@ function getInvoiceFormHTML() {
       </select>
     </div>
     <div id="inv-preview" class="card p-3 text-xs text-slate-300 hidden"></div>
-    <button id="inv-generate" class="btn-action w-full py-3 font-bold rounded-xl mt-1">Genera e stampa</button>
+    <div class="flex gap-2 mt-1">
+      <button id="inv-generate" class="btn-action flex-1 py-3 font-bold rounded-xl">Genera e stampa</button>
+      <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">✉️ Email al cliente</button>
+    </div>
     <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Documento generato on-device. Non è fattura elettronica SdI: per l'invio ufficiale usa il tuo gestionale/commercialista.</p>
   </div>`;
 }
@@ -1418,10 +1422,11 @@ window.openCreateInvoice = () => {
       <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">Totale fattura</span><span class="font-mono">${eur(inv.totaleFattura)}</span></div>
       <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span class="font-mono">${eur(inv.nettoARicevere)}</span></div>`;
   };
-  // Autocompletamento intelligente: scelto un cliente noto, pre-compila importo/descrizione dallo storico.
+  const emailEl = $('#inv-email');
+  // Autocompletamento intelligente: scelto un cliente noto, pre-compila importo/descrizione/email dallo storico.
   clientEl.addEventListener('change', () => {
     const s = suggestFromHistory(VaultDAO.state.invoices || [], clientEl.value);
-    if (s) { if (!amountEl.value && s.suggestedImponibile) amountEl.value = s.suggestedImponibile; if (!descEl.value && s.lastDescription) descEl.value = s.lastDescription; refresh(); }
+    if (s) { if (!amountEl.value && s.suggestedImponibile) amountEl.value = s.suggestedImponibile; if (!descEl.value && s.lastDescription) descEl.value = s.lastDescription; if (!emailEl.value && s.lastEmail) emailEl.value = s.lastEmail; refresh(); }
   });
   amountEl.addEventListener('input', refresh);
   regimeEl.addEventListener('change', refresh);
@@ -1437,11 +1442,12 @@ window.openCreateInvoice = () => {
     reader.onload = () => { logoData = reader.result; $('#inv-logo-status').textContent = 'logo caricato ✓'; };
     reader.readAsDataURL(f);
   });
-  $('#inv-generate').addEventListener('click', () => {
+  // Crea+salva la fattura (riusata da "Genera e stampa" e "Email al cliente").
+  // Ritorna { inv, meta, clientEmail } o null se dati mancanti.
+  const buildAndSave = () => {
     const client = clientEl.value.trim();
     const imp = parseFloat(String(amountEl.value).replace(',', '.'));
-    if (!client || !(imp > 0)) { showToast('Inserisci cliente e importo.', 'error'); return; }
-    // salva/aggiorna il profilo emittente (ricordato per le prossime fatture)
+    if (!client || !(imp > 0)) { showToast('Inserisci cliente e importo.', 'error'); return null; }
     VaultDAO.state.invoiceProfile = {
       emitter: ($('#inv-emitter').value || '').trim(),
       emitterInfo: ($('#inv-emitterinfo').value || '').trim(),
@@ -1449,18 +1455,37 @@ window.openCreateInvoice = () => {
       accent: $('#inv-accent').value || '#0ea5e9',
     };
     const prof = VaultDAO.state.invoiceProfile;
+    const clientEmail = (emailEl.value || '').trim();
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value });
     const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo: prof.emitterInfo, logo: prof.logo, accent: prof.accent, clientInfo: '' };
-    // salva nello storico (per numerazione + apprendimento clienti)
-    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value }];
+    // salva nello storico (numerazione + apprendimento cliente/email)
+    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail }];
     VaultDAO.save();
-    // apri il documento in una nuova finestra per stampa/PDF (on-device)
+    return { inv, meta, clientEmail, number, year };
+  };
+
+  $('#inv-generate').addEventListener('click', () => {
+    const res = buildAndSave();
+    if (!res) return;
     const w = window.open('', '_blank');
-    if (w) { w.document.write(renderInvoiceHTML(inv, meta)); w.document.close(); setTimeout(() => { try { w.print(); } catch (_) {} }, 300); }
+    if (w) { w.document.write(renderInvoiceHTML(res.inv, res.meta)); w.document.close(); setTimeout(() => { try { w.print(); } catch (_) {} }, 300); }
     closeModal();
-    showToast(`Fattura n.${number}/${year} creata.`, 'success');
+    showToast(`Fattura n.${res.number}/${res.year} creata.`, 'success');
+    renderAnalysis();
+  });
+
+  // ✉️ Email al cliente: apre il client email GIÀ COMPILATO (destinatario,
+  // oggetto, corpo predittivo con gli importi reali). L'allegato PDF si aggiunge
+  // a mano (mailto non supporta allegati) — lo diciamo con onestà.
+  $('#inv-email-send').addEventListener('click', () => {
+    const res = buildAndSave();
+    if (!res) return;
+    const email = buildInvoiceEmail({ inv: res.inv, meta: res.meta, clientEmail: res.clientEmail });
+    window.location.href = email.mailto;
+    closeModal();
+    showToast('Email aperta e già scritta: allega il PDF e invia.', 'success');
     renderAnalysis();
   });
 };

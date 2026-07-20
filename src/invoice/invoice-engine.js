@@ -96,8 +96,38 @@ export function suggestFromHistory(invoices = [], clientQuery = '') {
     client: last.client,
     suggestedImponibile: median,
     lastDescription: last.description || null,
+    lastEmail: last.clientEmail || null,   // email appresa dalle fatture passate
     invoiceCount: matches.length,
   };
+}
+
+// Genera l'EMAIL di accompagnamento in modo predittivo: destinatario (se noto
+// dallo storico), oggetto e corpo professionale con gli importi REALI. Zero
+// invenzione: se manca un dato, non lo si mette. Ritorna { to, subject, body }
+// + un mailto pronto (apre il client email dell'utente già compilato, on-device,
+// nessun server). L'allegato PDF si aggiunge a mano (mailto non supporta
+// allegati) — dichiarato nell'hint UI.
+export function buildInvoiceEmail({ inv = {}, meta = {}, clientEmail = '' } = {}) {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const num = `${meta.number ?? '—'}/${meta.year ?? new Date().getFullYear()}`;
+  const subject = `Fattura n. ${num}${meta.emitter ? ' — ' + meta.emitter : ''}`;
+  const nettoDiverso = inv.nettoARicevere != null && inv.totaleFattura != null && Math.abs(inv.nettoARicevere - inv.totaleFattura) > 0.001;
+  const linee = [
+    `Gentile ${meta.client || 'cliente'},`,
+    ``,
+    `in allegato trova la fattura n. ${num} del ${meta.date || new Date().toLocaleDateString('it-IT')}${meta.description ? ` relativa a: ${meta.description}` : ''}.`,
+    ``,
+    `Totale fattura: ${eur(inv.totaleFattura)}${nettoDiverso ? ` (netto a ricevere: ${eur(inv.nettoARicevere)})` : ''}.`,
+    meta.emitterInfo ? `Riferimenti per il pagamento: ${meta.emitterInfo}.` : '',
+    ``,
+    `Resto a disposizione per qualsiasi chiarimento.`,
+    `Cordiali saluti,`,
+    meta.emitter || '',
+  ].filter((l, i, arr) => !(l === '' && arr[i - 1] === '')); // niente doppie righe vuote
+  const body = linee.join('\n');
+  const to = clientEmail || '';
+  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return { to, subject, body, mailto };
 }
 
 // Genera il DOCUMENTO fattura come HTML stampabile/esportabile (il browser lo
