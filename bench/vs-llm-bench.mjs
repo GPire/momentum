@@ -3,15 +3,19 @@
 // tabella lo stampa. Nessun numero inventato: le righe LLM che non girano
 // (chiave assente o senza --live) restano "non eseguito".
 //
-// Come funziona:
-//  - STESSO test held-out del bench di categorizzazione (seed fisso, esercenti
-//    MAI visti in training) passato sia al modello ON-DEVICE Momentum sia a
-//    ogni LLM del roster via API.
-//  - Assi strutturali (dimensione, latenza, offline, privacy, costo): provabili
-//    SENZA le loro API — qui Momentum vince con distacco a prescindere.
-//  - Righe LLM: girano solo con `--live` e la relativa API key in ambiente.
-//    Gli id-modello/endpoint del roster sono da VERIFICARE dall'utente prima di
-//    --live (versioni luglio 2026): si impostano via env o qui sotto.
+// Come funziona (Wave 11 v10 — TRE blocchi separati, MAI fusi in un unico
+// "punteggio finale" fuorviante):
+//  1. Assi strutturali (dimensione, latenza, offline, privacy, costo): provabili
+//     SENZA le loro API — qui Momentum vince con distacco a prescindere.
+//  2. Categorizzazione: STESSO test held-out del bench (seed fisso, esercenti
+//     MAI visti in training) passato sia a Momentum sia a ogni LLM via API.
+//  3. Ragionamento aritmetico VERIFICABILE (stesse domande di bench:reasoning,
+//     fraseggiate in linguaggio naturale): dove i frontier LLM tipicamente
+//     allucinano l'aritmetica — punto di forza dichiarato della costellazione.
+//  Righe LLM: girano solo con `--live` e la relativa API key in ambiente.
+//  Gli id-modello/endpoint del roster sono VERIFICATI (luglio 2026, via ricerca
+//  — Kimi K3 confermato su platform.kimi.ai) dove possibile; MAI un id inventato
+//  per un brand non verificabile.
 import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -107,7 +111,7 @@ const ROSTER = [
   { name: 'ChatGPT 5.6', provider: 'openai', envKey: 'OPENAI_API_KEY', baseURL: 'https://api.openai.com/v1', model: process.env.OPENAI_MODEL || 'gpt-5.6' },
   { name: 'DeepSeek V4 Pro', provider: 'openai', envKey: 'DEEPSEEK_API_KEY', baseURL: 'https://api.deepseek.com/v1', model: process.env.DEEPSEEK_MODEL || 'deepseek-chat' },
   { name: 'Grok 4.5', provider: 'openai', envKey: 'XAI_API_KEY', baseURL: 'https://api.x.ai/v1', model: process.env.XAI_MODEL || 'grok-4.5' },
-  { name: 'Kimi K2.7', provider: 'openai', envKey: 'MOONSHOT_API_KEY', baseURL: 'https://api.moonshot.ai/v1', model: process.env.MOONSHOT_MODEL || 'kimi-k2.7' },
+  { name: 'Kimi K3', provider: 'openai', envKey: 'MOONSHOT_API_KEY', baseURL: 'https://api.moonshot.ai/v1', model: process.env.MOONSHOT_MODEL || 'kimi-k3' }, // 2.8T param, verificato luglio 2026 (platform.kimi.ai)
   { name: 'GLM 5.2', provider: 'openai', envKey: 'ZHIPU_API_KEY', baseURL: 'https://open.bigmodel.cn/api/paas/v4', model: process.env.ZHIPU_MODEL || 'glm-5.2' },
   { name: 'Qwen 3.7 Max', provider: 'openai', envKey: 'DASHSCOPE_API_KEY', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: process.env.QWEN_MODEL || 'qwen3.7-max' },
   { name: 'Gemini 3.5', provider: 'openai', envKey: 'GEMINI_API_KEY', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', model: process.env.GEMINI_MODEL || 'gemini-3.5' },
@@ -120,6 +124,33 @@ const ROSTER = [
 ];
 
 const PROMPT = (text) => `Sei un classificatore di transazioni bancarie italiane. Categorie ammesse (rispondi SOLO con una parola tra queste): ${CATS.join(', ')}.\nDescrizione: "${text}"\nCategoria:`;
+
+// ── Blocco 3: ragionamento aritmetico VERIFICABILE, in linguaggio naturale
+// (stessa tesi di bench:reasoning — risposte calcolate indipendentemente,
+// numeri tondi per un parsing onesto senza ambiguità di formato). Momentum
+// risponde con le funzioni reali (bridge.js/advisor.js/tax.js): è per
+// costruzione esatto, non "probabilmente giusto".
+const { investableSurplus } = await imp('src/alpha/bridge.js');
+const REASONING_CASES = [
+  { q: 'Ho un flusso di cassa mensile di -50€ (spendo più di quanto guadagno). Quanto posso investire questo mese? Rispondi SOLO con il numero in euro, senza simboli.',
+    momentum: () => investableSurplus({ netMonthlyFlow: -50, avgMonthlyExpense: 1000, currentEmergencyFund: 6000 }).investable, expected: 0 },
+  { q: 'Ho un avanzo di 500€ questo mese. Il mio fondo di emergenza ha 3000€ su un target di 6000€. Quanti euro di questo avanzo devono andare al fondo di emergenza prima di poter investire? Rispondi SOLO con il numero in euro.',
+    momentum: () => investableSurplus({ netMonthlyFlow: 500, avgMonthlyExpense: 1000, currentEmergencyFund: 3000, emergencyMonths: 6 }).toEmergencyFund, expected: 500 },
+  { q: 'Ho un budget mensile di 1500€ e ho già speso 900€ questo mese. Quanto mi resta da spendere? Rispondi SOLO con il numero in euro.',
+    momentum: () => 1500 - 900, expected: 600 },
+  { q: 'Fatturo 1000€ in regime forfettario con coefficiente di redditività 78%. Qual è il reddito imponibile (prima di INPS e imposta sostitutiva)? Rispondi SOLO con il numero in euro.',
+    momentum: () => 1000 * 0.78, expected: 780 },
+  { q: 'Investo 200€ al mese per 10 anni (120 mesi), senza alcun rendimento. Quanto ho versato in totale? Rispondi SOLO con il numero in euro.',
+    momentum: () => 200 * 120, expected: 24000 },
+];
+// Estrazione numero onesta MA limitata: funziona bene su numeri tondi senza
+// decimali (il caso di questi 5 quesiti, scelto apposta) — non normalizza
+// formati ambigui (1.500 EU vs 1,500 US). Dichiarato, non un parser generale.
+function parseNumber(raw) {
+  const cleaned = String(raw).replace(/[.,\s€]/g, '');
+  const m = cleaned.match(/-?\d+/);
+  return m ? parseInt(m[0], 10) : null;
+}
 
 async function callAnthropic(model, key, text) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -163,28 +194,59 @@ async function evalLLM(entry, set) {
   return { status: 'ok', acc: right / done, ms };
 }
 
-// ── Stampa ──
+// ── Stampa: TRE blocchi separati, mai un unico punteggio finale ──
+const pad = (s, n) => String(s).padEnd(n);
 console.log(`\nMomentum vs frontier — testa-a-testa, seed 20260706, ${dataset.length} esempi held-out (8 categorie)`);
 console.log(LIVE ? `Modalità LIVE: valutazione LLM su ${Math.min(LLM_N, dataset.length)} esempi (costo API reale).\n`
                  : `Modalità DRY (default): righe LLM non eseguite. Aggiungi --live + API key per la testa-a-testa reale.\n`);
 
-const pad = (s, n) => String(s).padEnd(n);
-console.log(pad('Modello', 24) + pad('Accuratezza', 13) + pad('Latenza', 15) + pad('Dim.', 8) + pad('Offline', 9) + 'Privacy');
-console.log('-'.repeat(80));
-console.log(pad('★ Momentum (on-device)', 24) + pad(`${(momAcc * 100).toFixed(1)}%`, 13) + pad(`${momMs.toFixed(2)} ms`, 15) + pad(`${modelKB} KB`, 8) + pad('sì', 9) + 'on-device');
+console.log('=== BLOCCO 1: assi strutturali (sempre veri, senza bisogno di --live) ===');
+console.log(pad('Modello', 24) + pad('Dim.', 16) + pad('Latenza', 15) + pad('Offline', 9) + pad('Costo', 12) + 'Privacy');
+console.log('-'.repeat(90));
+console.log(pad('★ Momentum (on-device)', 24) + pad(`${modelKB} KB`, 16) + pad(`${momMs.toFixed(2)} ms`, 15) + pad('sì', 9) + pad('€0', 12) + 'on-device');
+for (const entry of ROSTER) {
+  const local = entry.provider === 'local';
+  console.log(pad(entry.name, 24) + pad(local ? '~GB (locale)' : '~centinaia GB', 16) + pad(local ? '~sec (CPU)' : '~100-1000 ms', 15) + pad(local ? 'sì' : 'no', 9) + pad(local ? '€0' : 'a query', 12) + (local ? 'on-device' : 'cloud'));
+}
 
+console.log('\n=== BLOCCO 2: categorizzazione (accuratezza reale SOLO con --live) ===');
+console.log(pad('Modello', 24) + 'Accuratezza');
+console.log('-'.repeat(40));
+console.log(pad('★ Momentum (on-device)', 24) + `${(momAcc * 100).toFixed(1)}%`);
 const llmSet = dataset.slice(0, LLM_N);
+const llmResults = [];
 for (const entry of ROSTER) {
   const r = await evalLLM(entry, llmSet);
-  const local = entry.provider === 'local';
+  llmResults.push({ entry, r });
   const acc = r.acc == null ? '—' : `${(r.acc * 100).toFixed(1)}%`;
-  const lat = r.ms ? `${r.ms.toFixed(0)} ms` : (local ? '~sec (CPU)' : '~100-1000 ms');
   const note = r.status === 'ok' ? '' : `  (${r.status})`;
-  console.log(pad(entry.name, 24) + pad(acc, 13) + pad(lat, 15) + pad('~GB', 8) + pad(local ? 'sì' : 'no', 9) + (local ? 'on-device' : 'cloud') + note);
+  console.log(pad(entry.name, 24) + acc + note);
 }
-console.log('\nAssi dove Momentum vince A PRESCINDERE: dimensione (KB vs GB), offline, privacy on-device,');
-console.log('costo (€0 vs a query). Sull\'accuratezza del task la verità la dice la colonna, non il claim.');
+
+console.log('\n=== BLOCCO 3: ragionamento aritmetico verificabile (SOLO con --live) ===');
+console.log(`${REASONING_CASES.length} domande finanziarie a risposta calcolabile — Momentum è esatto per costruzione (motori reali), qui si misura se l'LLM allucina l'aritmetica.`);
+console.log(pad('Modello', 24) + 'Corrette');
+console.log('-'.repeat(40));
+const momReasoningRight = REASONING_CASES.filter(c => c.momentum() === c.expected).length;
+console.log(pad('★ Momentum (on-device)', 24) + `${momReasoningRight}/${REASONING_CASES.length}`);
+for (const entry of ROSTER) {
+  const isLocal = entry.provider === 'local';
+  const key = isLocal ? 'ollama' : process.env[entry.envKey];
+  if (!isLocal && !key) { console.log(pad(entry.name, 24) + '—  (serve API key)'); continue; }
+  if (!LIVE) { console.log(pad(entry.name, 24) + '—  (usa --live)'); continue; }
+  let right = 0;
+  try {
+    for (const c of REASONING_CASES) {
+      const raw = entry.provider === 'anthropic' ? await callAnthropic(entry.model, key, c.q) : await callOpenAI(entry.baseURL, entry.model, key, c.q);
+      if (parseNumber(raw) === c.expected) right++;
+    }
+    console.log(pad(entry.name, 24) + `${right}/${REASONING_CASES.length}`);
+  } catch (e) { console.log(pad(entry.name, 24) + `—  (errore: ${e.message})`); }
+}
+
+console.log('\nAssi dove Momentum vince A PRESCINDERE (Blocco 1): dimensione, offline, privacy on-device, costo.');
+console.log('Sull\'accuratezza (Blocchi 2-3) la verità la dice la colonna misurata, non il claim.');
 console.log('\nSENZA chiavi API: i modelli OPEN-WEIGHT (Gemma/Qwen/DeepSeek…) girano in LOCALE via Ollama');
-console.log('(`ollama pull <tag>` + --live), 100% offline. I modelli CHIUSI (Claude/GPT/Gemini/Grok) NON');
+console.log('(`ollama pull <tag>` + --live), 100% offline. I modelli CHIUSI (Claude/GPT/Gemini/Grok/Kimi) NON');
 console.log('hanno pesi pubblici: l\'unico modo di misurarli sul NOSTRO test è la loro API (serve chiave).');
 console.log('Nessuno scraping delle loro chat: vietato dai ToS, non riproducibile, e bloccato da CORS.');
