@@ -48,6 +48,9 @@ cicli di mercato → lifestyle inference → tap-to-today. Da 468 a **557 test, 
   fuori dal mese corrente → tap torna a oggi con haptic+suono+toast. Verificato live.
 - **`src/ai/train/model-gate.js`** + `bench/model-regression.mjs` (Wave 6): blocca un retrain che
   migliora la media ma fa crollare una categoria. Verificato con modello sabotato → gate blocca.
+- **`src/predict/achievements.js`** + UI (Wave 3): 11 traguardi misurati (mai regalati) + dopamina
+  anticipatoria (nextMilestone "sei a 5/7"). Toast sui nuovi sblocchi, riconoscimento silenzioso
+  al boot dei già-guadagnati. Verificato live: 6 traguardi sui dati reali (1820 tx).
 
 - **Wave 0**: chiuso il batch appeso di sessione precedente (Net Worth+Monte Carlo,
   sources.js W17, mesh prezzi P2P, modulo bandit). **Bug reale corretto**: chat.js
