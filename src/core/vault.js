@@ -117,6 +117,7 @@ const VaultDAO = {
     // cambia STRUTTURA (non solo si aggiunge), serve una entry in MIGRATIONS.
     engagement: { lastActiveDay: null, streak: 0, bestStreak: 0 },
     achievements: {}, // { id: isoDate } — traguardi sbloccati (Wave 3 v10, additivo)
+    taxLearned: {},   // { tokenMittente: 'invoice'|'salary'|'personal' } — apprendimento fiscale dalle conferme utente
     savingsGoals: [],
     // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
     // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,

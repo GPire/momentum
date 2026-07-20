@@ -20,6 +20,24 @@ export const REGIMI = {
   ordinario: { coeffRedditivita: 1.0, impostaSostitutiva: 0.27, inps: 0.24, iva: 0.22, label: 'Ordinario (IRPEF media stimata + IVA 22%)' },
 };
 
+// Coefficiente di redditività forfettario per gruppo ATECO (valori reali IT):
+// l'imposta forfettaria si calcola sul fatturato × questo coefficiente. Senza
+// conoscerlo, il calcolo è arbitrario — per questo va CHIESTO/appreso, non
+// assunto. Default 78% (servizi/professionisti), il più comune.
+export const ATECO_COEFFICIENTI = {
+  professionisti: { coeff: 0.78, label: 'Professionisti / servizi (78%)' },
+  commercio: { coeff: 0.40, label: 'Commercio ingrosso/dettaglio (40%)' },
+  ambulante_alimentari: { coeff: 0.40, label: 'Ambulante alimentari (40%)' },
+  intermediari: { coeff: 0.62, label: 'Intermediari del commercio (62%)' },
+  costruzioni: { coeff: 0.86, label: 'Costruzioni / immobiliare (86%)' },
+  altre: { coeff: 0.67, label: 'Altre attività (67%)' },
+};
+
+// Tetto di ricavi per restare nel regime forfettario (Italia, 85.000€/anno).
+// Superarlo obbliga al regime ordinario: è un'informazione predittiva reale
+// e utile, non una previsione inventata.
+export const FORFETTARIO_CEILING = 85000;
+
 // Quanto accantonare da UN incasso lordo. Ritorna la scomposizione completa
 // e tracciabile (mai un numero orfano).
 // `amount` = importo incassato (imponibile per forfettario; per ordinario si
@@ -70,14 +88,76 @@ const PERSONAL_KW = /(rimborso|refund|regalo|gift|restituzione|giroconto|storno|
 // segnale forte e specifico); (3) la categoria da sola NON basta — 'stipendio'
 // è la categoria DI DEFAULT di Momentum per ogni entrata, quindi non informa:
 // meglio 'uncertain' (da confermare) che un'etichetta sbagliata.
-export function classifyIncome(tx = {}) {
+// `learned` = mappa APPRESA dalle correzioni dell'utente { tokenNormalizzato:
+// kind }. È l'integrazione con l'auto-apprendimento: quando l'utente conferma
+// "questa è una fattura" (o non lo è), Momentum lo ricorda per quel mittente
+// e non lo richiede più — come l'orchestratore impara le categorie.
+function incomeKey(description = '') {
+  return String(description).toLowerCase().replace(/[0-9]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+export function classifyIncome(tx = {}, learned = null) {
   if (tx.taxable === true) return { kind: 'invoice', reason: 'marcata come fattura dall\'utente' };
   if (tx.taxable === false) return { kind: 'personal', reason: 'marcata come non imponibile dall\'utente' };
   const desc = String(tx.description || '').toLowerCase();
+  if (learned) {
+    const key = incomeKey(desc);
+    if (key && learned[key]) return { kind: learned[key], reason: 'appreso da una tua conferma precedente' };
+  }
   if (INVOICE_KW.test(desc)) return { kind: 'invoice', reason: 'sembra una fattura/compenso P.IVA' };
   if (PERSONAL_KW.test(desc)) return { kind: 'personal', reason: 'sembra un rimborso/regalo/interessi/giroconto (non imponibile)' };
   if (SALARY_KW.test(desc)) return { kind: 'salary', reason: 'sembra uno stipendio (già tassato alla fonte)' };
   return { kind: 'uncertain', reason: 'origine non chiara: confermala tu (è una fattura?)' };
+}
+
+// Auto-apprendimento: registra la correzione dell'utente sul mittente. Ritorna
+// la NUOVA mappa (immutabile). Da qui in poi entrate simili si classificano da
+// sole. Integra le tasse nel loop di apprendimento di Momentum.
+export function learnIncomeType(learned = {}, description, kind) {
+  const key = incomeKey(description);
+  if (!key || !['invoice', 'salary', 'personal'].includes(kind)) return learned;
+  return { ...learned, [key]: kind };
+}
+
+// Suggerisce il regime in base al fatturato ANNUO imponibile: sopra il tetto
+// forfettario (85.000€) non si può stare nel forfettario → ordinario. Sotto,
+// il forfettario è tipicamente più conveniente. Informazione reale, con caveat.
+export function suggestRegime(annualInvoiced = 0) {
+  if (annualInvoiced > FORFETTARIO_CEILING) {
+    return { suggested: 'ordinario', reason: `Fatturato annuo ~${Math.round(annualInvoiced).toLocaleString('it-IT')}€ oltre il tetto forfettario (${FORFETTARIO_CEILING.toLocaleString('it-IT')}€): serve il regime ordinario.`, overCeiling: true };
+  }
+  const pct = Math.round((annualInvoiced / FORFETTARIO_CEILING) * 100);
+  return { suggested: 'forfettario', reason: `Fatturato annuo ~${Math.round(annualInvoiced).toLocaleString('it-IT')}€ (${pct}% del tetto forfettario): il forfettario è di solito più conveniente. Verifica col commercialista.`, overCeiling: false, pctOfCeiling: pct };
+}
+
+// Proiezione fiscale annuale PREDITTIVA: dalle fatture dell'anno in corso
+// annualizza il fatturato e stima le tasse di fine anno + avviso tetto. Onesto:
+// è una proiezione lineare sul ritmo attuale, dichiarata tale, non una certezza.
+export function projectAnnualTax(transactions = [], opts = {}) {
+  const ref = opts.referenceDate || new Date();
+  const learned = opts.learned || null;
+  const year = ref.getFullYear();
+  let invoicedYTD = 0;
+  for (const t of transactions) {
+    if (t.type !== 'entrata') continue;
+    const d = new Date(t.date);
+    if (d.getFullYear() !== year) continue;
+    if (classifyIncome(t, learned).kind === 'invoice') invoicedYTD += t.amount;
+  }
+  const monthsElapsed = ref.getMonth() + 1 + (ref.getDate() / 30); // frazione del mese corrente
+  const annualized = monthsElapsed > 0 ? invoicedYTD * (12 / monthsElapsed) : 0;
+  const regime = opts.regime || 'forfettario';
+  const taxOnAnnual = taxSetAside(annualized, { regime, overrides: opts.overrides }).setAside;
+  const suggestion = suggestRegime(annualized);
+  return {
+    invoicedYTD: +invoicedYTD.toFixed(2),
+    annualizedRevenue: +annualized.toFixed(2),
+    estimatedAnnualTax: +taxOnAnnual.toFixed(2),
+    monthsElapsed: +monthsElapsed.toFixed(1),
+    regimeSuggestion: suggestion,
+    note: invoicedYTD > 0
+      ? `A questo ritmo fatturi ~${Math.round(annualized).toLocaleString('it-IT')}€ nel ${year}: metti da parte ~${Math.round(taxOnAnnual).toLocaleString('it-IT')}€ di tasse totali (proiezione lineare, non una certezza).`
+      : `Nessuna fattura nel ${year}: nessuna proiezione fiscale.`,
+  };
 }
 
 // Totale da accantonare su un periodo — SOLO sulle entrate imponibili
@@ -90,12 +170,13 @@ export function classifyIncome(tx = {}) {
 // per la modalità cautelativa (accantona anche sull'incerto).
 export function taxSetAsideForPeriod(transactions, opts = {}) {
   const taxUncertain = opts.taxUncertain === true;
+  const learned = opts.learned || null;
   const entrate = (transactions || []).filter(t => t.type === 'entrata');
   let taxableGross = 0, totalSet = 0, excludedGross = 0, uncertainGross = 0;
   let taxableCount = 0, excludedCount = 0, uncertainCount = 0;
   const uncertain = [];
   for (const t of entrate) {
-    const { kind } = classifyIncome(t);
+    const { kind } = classifyIncome(t, learned);
     const isTaxable = kind === 'invoice' || (kind === 'uncertain' && taxUncertain);
     if (kind === 'uncertain') { uncertainGross += t.amount; uncertainCount++; uncertain.push(t); }
     if (isTaxable) {

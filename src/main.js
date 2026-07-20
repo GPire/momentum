@@ -13,7 +13,7 @@ import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
-import { taxSetAsideForPeriod, classifyIncome } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, REGIMI } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1281,31 +1281,79 @@ const renderAnalysis = (opts = {}) => {
 // Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
 // abilitato il regime P.IVA (VaultDAO.state.taxRegime) o ha entrate rilevanti.
 function renderTax(monthK) {
-  const card = $('#tax-card'), setEl = $('#tax-setaside'), noteEl = $('#tax-note');
+  const card = $('#tax-card'), setEl = $('#tax-setaside'), noteEl = $('#tax-note'), extraEl = $('#tax-extra');
   if (!card) return;
+  if (extraEl) extraEl.innerHTML = '';
   const regime = VaultDAO.state.taxRegime;
+  const learned = VaultDAO.state.taxLearned || {};
   const monthTxs = VaultDAO.state.transactions[monthK] || [];
-  // COMPRENSIONE INTELLIGENTE (fix "tasse messe a caso"): il modulo P.IVA ha
-  // senso solo per chi FATTURA. Momentum rileva se c'è mai stata una fattura
-  // nella storia; se l'utente non ha attivato un regime E non fattura mai, la
-  // card resta nascosta (niente modulo fiscale spaventoso per chi non serve).
-  const everInvoice = Object.values(VaultDAO.state.transactions || {}).flat()
-    .some(t => t.type === 'entrata' && classifyIncome(t).kind === 'invoice');
+  const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
+  // Il modulo P.IVA ha senso solo per chi FATTURA. Se non c'è regime E non
+  // c'è mai stata una fattura, resta nascosto (niente modulo per chi non serve).
+  const everInvoice = allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned).kind === 'invoice');
   if (!regime && !everInvoice) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
-  const r = taxSetAsideForPeriod(monthTxs, { regime: regime || 'forfettario' });
+
+  // ── INTELLIGENZA REGIME: senza regime NON si inventa un numero (IRPEF/INPS/
+  // coefficiente dipendono dal regime). Se ci sono fatture ma manca il regime,
+  // si CHIEDE con un tocco — poi il calcolo diventa reale.
+  if (everInvoice && !regime) {
+    setEl.textContent = '?';
+    noteEl.textContent = 'Vedo delle fatture ma non so il tuo regime fiscale: senza, il calcolo sarebbe a caso. Dimmelo con un tocco e calcolo tasse + contributi giusti.';
+    if (extraEl) {
+      extraEl.innerHTML = `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
+        `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 hover:border-[var(--red)]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
+    }
+    return;
+  }
+
+  const r = taxSetAsideForPeriod(monthTxs, { regime: regime || 'forfettario', learned });
   if (r.count > 0) {
     setEl.textContent = formatMoney(r.daAccantonare);
     noteEl.textContent = r.note;
   } else {
-    // Nessuna fattura questo mese: mai un numero inventato, un messaggio chiaro.
     setEl.textContent = '—';
     noteEl.textContent = everInvoice
       ? 'Nessuna fattura registrata questo mese: niente da accantonare.'
       : 'Non vedo fatture P.IVA. Se sei un libero professionista, registra un\'entrata come fattura (parole tipo "fattura", "compenso"): calcolo io quanto mettere da parte per il fisco.';
   }
+
+  if (extraEl) {
+    let html = '';
+    // ── PROIEZIONE ANNUALE PREDITTIVA + avviso tetto forfettario ──
+    if (regime && everInvoice) {
+      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned });
+      if (proj.invoicedYTD > 0) {
+        const ceil = proj.regimeSuggestion;
+        html += `<div class="text-[11px] text-slate-300 border-t border-[var(--glass-border)] pt-2">📅 ${proj.note}</div>`;
+        if (ceil.overCeiling) html += `<div class="text-[11px] text-orange-300 mt-1">⚠️ ${ceil.reason}</div>`;
+        else if (ceil.pctOfCeiling >= 80) html += `<div class="text-[11px] text-orange-300 mt-1">⚠️ Sei al ${ceil.pctOfCeiling}% del tetto forfettario: occhio a non superarlo.</div>`;
+      }
+    }
+    // ── CONFERMA APPRESA: le entrate incerte diventano un tap "è una fattura?" ──
+    if (r.uncertainCount > 0) {
+      const rows = r.uncertain.slice(0, 4).map(t =>
+        `<div class="flex items-center justify-between gap-2 py-1">
+          <span class="min-w-0 truncate">${t.description || 'entrata'} · <b>${formatMoney(t.amount)}</b></span>
+          <span class="shrink-0 flex gap-2">
+            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "invoice")' class="text-[11px] font-bold text-emerald-400 underline">è fattura</button>
+            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "personal")' class="text-[11px] font-bold text-slate-400 underline">no</button>
+          </span>
+        </div>`).join('');
+      html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} entrat${r.uncertainCount > 1 ? 'e' : 'a'} da confermare</div><div class="text-xs text-slate-300">${rows}</div></div>`;
+    }
+    extraEl.innerHTML = html;
+  }
 }
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); renderAnalysis(); };
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); renderAnalysis(); };
+// Auto-apprendimento fiscale: la conferma dell'utente insegna a Momentum come
+// classificare quel mittente d'ora in poi (integrato nel loop di apprendimento).
+window.learnIncome = (description, kind) => {
+  VaultDAO.state.taxLearned = learnIncomeType(VaultDAO.state.taxLearned || {}, description, kind);
+  VaultDAO.save();
+  showToast(kind === 'invoice' ? 'Segnata come fattura: la ricorderò.' : 'Segnata come non imponibile.', 'success');
+  renderAnalysis();
+};
 
 // Layer investimenti (src/alpha/): quanto investire (bridge, fondo emergenza
 // prima) + regime di mercato se l'utente ha fornito una serie prezzi.
