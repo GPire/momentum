@@ -695,6 +695,34 @@ const renderDashboard = () => {
     }
   }
 
+  // ── Riga-insight umana della Dashboard: UNA sola cosa notata, in una riga
+  // semplice (principio "un bambino di 8 anni"): priorità alla dopamina
+  // anticipatoria (traguardo vicino), poi al pattern di vita del mese. Il
+  // dettaglio completo resta in Analisi — qui è solo l'headline, mai un muro.
+  const insightEl = $('#dashboard-insight');
+  if (insightEl) {
+    let line = null;
+    if (isCurrentMonth) {
+      const aStats = computeStats(VaultDAO.state, realNow);
+      const nm = nextMilestone(VaultDAO.state.achievements || {}, aStats);
+      if (nm && nm.pct >= 0.6) {
+        const manca = nm.target - nm.current;
+        line = { emoji: nm.icon, text: `Ti manca ${manca} al traguardo <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
+      } else {
+        const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
+        if (life.patterns.length) line = { emoji: '💡', text: `<b>${life.patterns[0].label}.</b> ${life.patterns[0].evidence}` };
+        else if (nm && nm.pct >= 0.3) line = { emoji: nm.icon, text: `Prossimo traguardo: <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
+      }
+    }
+    if (line) {
+      insightEl.classList.remove('hidden');
+      insightEl.innerHTML = `<div class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--surface-elevated)]/40 border border-[var(--glass-border)] text-[13px] text-slate-300"><span class="text-base shrink-0">${line.emoji}</span><span class="min-w-0">${line.text}</span></div>`;
+    } else {
+      insightEl.classList.add('hidden');
+      insightEl.innerHTML = '';
+    }
+  }
+
   // WebGL orb — disattivato su hardware debole (profilo misurato, non stimato)
   if (window.momentumDeviceProfile?.enable3D !== false) {
     initWebGLOrb('financial-orb-canvas', liquidity, score / 10);
@@ -1446,49 +1474,25 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     `;
   }
 
-  // "La tua vita questo mese" (src/predict/lifestyle.js): legge il COMPORTAMENTO
-  // dietro le spese confrontandolo con la norma personale — cosa che nessuna
-  // app di budgeting fa. Solo pattern misurati con evidenza, mai un giudizio;
-  // appare solo con abbastanza storia (baseline ≥1 mese) e pattern robusti.
-  const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
-  if (life.patterns.length) {
-    const items = life.patterns.slice(0, 3).map(p =>
-      `<div><b class="text-fuchsia-300">${p.label}.</b> ${p.evidence}</div>`).join('');
-    alertsBox.innerHTML += `
-      <div class="card p-4 border border-fuchsia-500/20 bg-fuchsia-950/5">
-        <h4 class="text-[10px] font-bold text-fuchsia-400 uppercase tracking-widest mb-2">La tua vita questo mese</h4>
-        <div class="text-xs text-slate-300 space-y-1">${items}</div>
-      </div>
-    `;
-  }
+  // NOTA UX (feedback utente 2026-07-20): "La tua vita questo mese" e "Prossimo
+  // traguardo" sono stati SPOSTATI sulla Dashboard (riga-insight semplice), per
+  // non trasformare Analisi in un muro di card difficile da capire. Qui restano
+  // solo gli avvisi azionabili + il recap + gli abbonamenti CONSOLIDATI.
 
-  // "Prossimo traguardo" (src/predict/achievements.js): dopamina anticipatoria
-  // alla Streaks — mostra QUANTO manca al prossimo traguardo misurabile, con
-  // barra. Appare solo se c'è un progressivo in corso e già avviato (>15%).
-  const stats = computeStats(VaultDAO.state, realNow);
-  const nm = nextMilestone(VaultDAO.state.achievements || {}, stats);
-  const unlockedCount = Object.keys(VaultDAO.state.achievements || {}).length;
-  if (nm && nm.pct >= 0.15) {
-    const pct = Math.round(nm.pct * 100);
-    alertsBox.innerHTML += `
-      <div class="card p-4 border border-amber-500/20 bg-amber-950/5">
-        <h4 class="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">Prossimo traguardo</h4>
-        <div class="text-xs text-slate-300">${nm.icon} <b>${nm.name}</b> — sei a ${nm.current}/${nm.target}${unlockedCount ? ` · ${unlockedCount} traguardi sbloccati` : ''}.</div>
-        <div class="mt-2 h-1.5 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full bg-[var(--gold)]" style="width:${pct}%"></div></div>
-      </div>
-    `;
-  }
-
-  // Proposta zero-input: abbonamenti rilevati nei dati ma non registrati.
-  // Un tap li registra — e da lì migliorano anche il forecast (oracle.js
-  // usa state.subscriptions in gatherSeries), non è cosmetica.
-  const proposals = suggestSubscriptionRegistrations(VaultDAO.state.transactions, VaultDAO.state.subscriptions).slice(0, 3);
-  for (const p of proposals) {
+  // Abbonamenti rilevati ma non registrati: UNA sola card che li raccoglie
+  // tutti (prima erano 3 card "Abbonamento trovato" identiche impilate — il
+  // peggior offensore del disordine). Un tap per ciascuno li registra.
+  const proposals = suggestSubscriptionRegistrations(VaultDAO.state.transactions, VaultDAO.state.subscriptions).slice(0, 4);
+  if (proposals.length) {
+    const rows = proposals.map(p =>
+      `<div class="flex items-center justify-between gap-2 py-1">
+        <span class="min-w-0 truncate">${p.description} · <b>${formatMoney(p.amount)}</b>/mese</span>
+        <button onclick='window.registerDetectedSubscription(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="text-[11px] font-bold text-emerald-400 underline shrink-0">registra</button>
+      </div>`).join('');
     alertsBox.innerHTML += `
       <div class="card p-4 border border-emerald-500/20 bg-emerald-950/5">
-        <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">Abbonamento trovato</h4>
-        <p class="text-xs text-slate-300">Paghi <b>${formatMoney(p.amount)}</b> per "${p.description}" ogni mese (visto ${p.occurrences} volte). Lo registro io?</p>
-        <button onclick='window.registerDetectedSubscription(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="text-[11px] font-bold text-emerald-400 underline mt-1.5">Sì, registralo</button>
+        <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">${proposals.length === 1 ? 'Abbonamento trovato' : `${proposals.length} abbonamenti trovati`}</h4>
+        <div class="text-xs text-slate-300 divide-y divide-emerald-500/10">${rows}</div>
       </div>
     `;
   }
