@@ -19,7 +19,8 @@
     "bench:public": "node bench/public-bench.mjs",
     "train:eval": "node bench/train-eval.mjs",
     "train:logreg": "node bench/train-logreg.mjs",
-    "train:gate": "node bench/model-regression.mjs"
+    "train:gate": "node bench/model-regression.mjs",
+    "train:income": "node bench/train-income.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",

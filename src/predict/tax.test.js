@@ -145,3 +145,17 @@ test('taxSetAsideForPeriod: usa la memoria appresa per classificare', () => {
   assert.equal(r.count, 1);
   assert.ok(r.daAccantonare > 0);
 });
+
+test('classifyIncome: usa il modello addestrato come segnale di generalizzazione', () => {
+  const fakeModel = { predict: (t) => /studio|cliente|consul/i.test(t) ? { category: 'invoice', confidence: 0.9 } : { category: 'personal', confidence: 0.5 } };
+  // descrizione SENZA parole-chiave forti ma che il modello riconosce
+  const r = classifyIncome({ description: 'Studio Verdi 2026' }, null, fakeModel);
+  assert.equal(r.kind, 'invoice');
+  assert.ok(/modello fiscale/.test(r.reason));
+});
+
+test('classifyIncome: modello a bassa confidenza NON forza un\'etichetta', () => {
+  const fakeModel = { predict: () => ({ category: 'invoice', confidence: 0.4 }) };
+  const r = classifyIncome({ description: 'accredito xyz' }, null, fakeModel);
+  assert.equal(r.kind, 'uncertain');
+});

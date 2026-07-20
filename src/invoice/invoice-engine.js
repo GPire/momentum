@@ -29,7 +29,11 @@ const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 //  - cassaPct: rivalsa cassa/INPS gestione separata (default 4% ordinario, su
 //    cui si applica anche l'IVA; 0 forfettario)
 //  - bollo: applica marca da bollo 2€ se dovuta (default true)
-export function computeInvoice({ imponibile, regime = 'forfettario', ivaPct, ritenutaPct, cassaPct, bollo = true } = {}) {
+//  - bollo: applica la marca da bollo 2€ se dovuta (default true)
+//  - bolloACliente: se true (default) il bollo è ADDEBITATO al cliente (entra
+//    nel totale); se false lo paga l'emittente (resta un costo suo, non nel
+//    totale fattura) — non sempre si fa pagare il bollo al cliente.
+export function computeInvoice({ imponibile, regime = 'forfettario', ivaPct, ritenutaPct, cassaPct, bollo = true, bolloACliente = true } = {}) {
   const base = Math.max(0, +imponibile || 0);
   const isForfettario = regime === 'forfettario';
   const iva = isForfettario ? 0 : (ivaPct != null ? ivaPct : 0.22);
@@ -43,15 +47,18 @@ export function computeInvoice({ imponibile, regime = 'forfettario', ivaPct, rit
   // Marca da bollo: dovuta sulle fatture senza IVA oltre soglia (tipico forfettario)
   const bolloDovuto = bollo && iva === 0 && base > BOLLO_SOGLIA;
   const bolloImporto = bolloDovuto ? BOLLO_IMPORTO : 0;
+  // Il bollo entra nel totale (addebito al cliente) solo se bolloACliente.
+  const bolloInTotale = bolloDovuto && bolloACliente ? bolloImporto : 0;
 
-  const totaleFattura = round2(base + cassaImporto + ivaImporto + bolloImporto);
+  const totaleFattura = round2(base + cassaImporto + ivaImporto + bolloInTotale);
   const nettoARicevere = round2(totaleFattura - ritenutaImporto);
 
   const righe = [
     { voce: 'Compenso (imponibile)', importo: round2(base) },
     ...(cassaImporto > 0 ? [{ voce: `Cassa previdenziale (${(cassa * 100).toFixed(0)}%)`, importo: cassaImporto }] : []),
     ...(ivaImporto > 0 ? [{ voce: `IVA (${(iva * 100).toFixed(0)}%)`, importo: ivaImporto }] : []),
-    ...(bolloImporto > 0 ? [{ voce: 'Marca da bollo', importo: bolloImporto }] : []),
+    ...(bolloInTotale > 0 ? [{ voce: 'Marca da bollo', importo: bolloInTotale }] : []),
+    ...(bolloDovuto && !bolloACliente ? [{ voce: 'Marca da bollo (a carico dell\'emittente, non addebitata)', importo: 0 }] : []),
     ...(ritenutaImporto > 0 ? [{ voce: `Ritenuta d'acconto (${(ritenuta * 100).toFixed(0)}%)`, importo: -ritenutaImporto }] : []),
   ];
   const note = isForfettario

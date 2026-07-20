@@ -95,7 +95,13 @@ const PERSONAL_KW = /(rimborso|refund|regalo|gift|restituzione|giroconto|storno|
 function incomeKey(description = '') {
   return String(description).toLowerCase().replace(/[0-9]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 }
-export function classifyIncome(tx = {}, learned = null) {
+// `model` (opzionale) = classificatore fiscale ADDESTRATO (HashedLogReg,
+// public/momentum_income_model.json) con .predict(text) → {category,
+// confidence}. È un MODELLO NUOVO, stessa architettura del LogReg esperto,
+// specializzato su fattura/stipendio/personale. Nell'ensemble entra DOPO le
+// regole a parole-chiave (alta precisione, interpretabili) come segnale di
+// GENERALIZZAZIONE (n-grammi di caratteri) sui casi che le regole non colgono.
+export function classifyIncome(tx = {}, learned = null, model = null) {
   if (tx.taxable === true) return { kind: 'invoice', reason: 'marcata come fattura dall\'utente' };
   if (tx.taxable === false) return { kind: 'personal', reason: 'marcata come non imponibile dall\'utente' };
   const desc = String(tx.description || '').toLowerCase();
@@ -106,6 +112,16 @@ export function classifyIncome(tx = {}, learned = null) {
   if (INVOICE_KW.test(desc)) return { kind: 'invoice', reason: 'sembra una fattura/compenso P.IVA' };
   if (PERSONAL_KW.test(desc)) return { kind: 'personal', reason: 'sembra un rimborso/regalo/interessi/giroconto (non imponibile)' };
   if (SALARY_KW.test(desc)) return { kind: 'salary', reason: 'sembra uno stipendio (già tassato alla fonte)' };
+  // Modello addestrato: usa la predizione solo se abbastanza sicuro (≥0.7),
+  // altrimenti resta 'uncertain' (mai un'etichetta forzata a bassa confidenza).
+  if (model && typeof model.predict === 'function' && desc) {
+    try {
+      const p = model.predict(desc);
+      if (p && p.confidence >= 0.7 && ['invoice', 'salary', 'personal'].includes(p.category)) {
+        return { kind: p.category, reason: `modello fiscale addestrato (${Math.round(p.confidence * 100)}%)` };
+      }
+    } catch (_) { /* modello assente/rotto: si continua col fallback onesto */ }
+  }
   return { kind: 'uncertain', reason: 'origine non chiara: confermala tu (è una fattura?)' };
 }
 
@@ -135,13 +151,14 @@ export function suggestRegime(annualInvoiced = 0) {
 export function projectAnnualTax(transactions = [], opts = {}) {
   const ref = opts.referenceDate || new Date();
   const learned = opts.learned || null;
+  const model = opts.model || null;
   const year = ref.getFullYear();
   let invoicedYTD = 0;
   for (const t of transactions) {
     if (t.type !== 'entrata') continue;
     const d = new Date(t.date);
     if (d.getFullYear() !== year) continue;
-    if (classifyIncome(t, learned).kind === 'invoice') invoicedYTD += t.amount;
+    if (classifyIncome(t, learned, model).kind === 'invoice') invoicedYTD += t.amount;
   }
   const monthsElapsed = ref.getMonth() + 1 + (ref.getDate() / 30); // frazione del mese corrente
   const annualized = monthsElapsed > 0 ? invoicedYTD * (12 / monthsElapsed) : 0;
@@ -171,12 +188,13 @@ export function projectAnnualTax(transactions = [], opts = {}) {
 export function taxSetAsideForPeriod(transactions, opts = {}) {
   const taxUncertain = opts.taxUncertain === true;
   const learned = opts.learned || null;
+  const model = opts.model || null;
   const entrate = (transactions || []).filter(t => t.type === 'entrata');
   let taxableGross = 0, totalSet = 0, excludedGross = 0, uncertainGross = 0;
   let taxableCount = 0, excludedCount = 0, uncertainCount = 0;
   const uncertain = [];
   for (const t of entrate) {
-    const { kind } = classifyIncome(t, learned);
+    const { kind } = classifyIncome(t, learned, model);
     const isTaxable = kind === 'invoice' || (kind === 'uncertain' && taxUncertain);
     if (kind === 'uncertain') { uncertainGross += t.amount; uncertainCount++; uncertain.push(t); }
     if (isTaxable) {

@@ -1290,7 +1290,8 @@ function renderTax(monthK) {
   const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
   // Il modulo P.IVA ha senso solo per chi FATTURA. Se non c'è regime E non
   // c'è mai stata una fattura, resta nascosto (niente modulo per chi non serve).
-  const everInvoice = allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned).kind === 'invoice');
+  const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
+  const everInvoice = allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned, incomeModel).kind === 'invoice');
   if (!regime && !everInvoice) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
 
@@ -1307,7 +1308,7 @@ function renderTax(monthK) {
     return;
   }
 
-  const r = taxSetAsideForPeriod(monthTxs, { regime: regime || 'forfettario', learned });
+  const r = taxSetAsideForPeriod(monthTxs, { regime: regime || 'forfettario', learned, model: incomeModel });
   if (r.count > 0) {
     setEl.textContent = formatMoney(r.daAccantonare);
     noteEl.textContent = r.note;
@@ -1322,7 +1323,7 @@ function renderTax(monthK) {
     let html = '';
     // ── PROIEZIONE ANNUALE PREDITTIVA + avviso tetto forfettario ──
     if (regime && everInvoice) {
-      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned });
+      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model: incomeModel });
       if (proj.invoicedYTD > 0) {
         const ceil = proj.regimeSuggestion;
         html += `<div class="text-[11px] text-slate-300 border-t border-[var(--glass-border)] pt-2">📅 ${proj.note}</div>`;
@@ -2694,6 +2695,12 @@ function initMomentumRealAI() {
       // LogReg (src/ai/hashed-logreg.js): 3° esperto STATICO riaddestrato in
       // locale in JS. In ensemble con Meso porta la generalizzazione ML da 75%
       // a ~85% (misurato, held-out). Caricato come il Meso.
+      // Modello fiscale entrate (public/momentum_income_model.json, v10): NUOVO
+      // classificatore addestrato fattura/stipendio/personale, stessa architettura
+      // del LogReg. Caricato async e usato da renderTax via window.__incomeModel.
+      HashedLogReg.load('/momentum_income_model.json')
+        .then(m => { window.__incomeModel = m; console.log('Modello fiscale entrate caricato (fattura/stipendio/personale).'); })
+        .catch(() => {});
       HashedLogReg.load('/momentum_logreg_model.json')
         .then(logreg => {
           momentumOrchestrator.setLogReg(logreg);

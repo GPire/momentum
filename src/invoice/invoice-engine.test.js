@@ -79,3 +79,10 @@ test('renderInvoiceHTML: documento valido, importi e note presenti, input escapa
   assert.ok(/forfettario/i.test(html));             // nota regime
   assert.ok(/fattura elettronica SdI/.test(html));  // disclaimer onesto presente
 });
+
+test('bollo a carico dell\'emittente: non entra nel totale addebitato al cliente', () => {
+  const cliente = computeInvoice({ imponibile: 1000, regime: 'forfettario', bolloACliente: true });
+  const emittente = computeInvoice({ imponibile: 1000, regime: 'forfettario', bolloACliente: false });
+  assert.equal(cliente.totaleFattura, 1002);   // bollo addebitato
+  assert.equal(emittente.totaleFattura, 1000);  // bollo NON addebitato (lo paga l'emittente)
+});
