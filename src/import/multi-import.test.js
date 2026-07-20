@@ -39,3 +39,15 @@ test('reconcileModelsWithHistory: al cambio firma modelli, ri-addestra dai dati 
   const r2 = reconcileModelsWithHistory('nuova-v2');   // stessa firma → non ripete
   assert.equal(r2.reconciled, false);
 });
+
+// D2 (W9): il CSV di PORTAFOGLIO (posizioni) si distingue dal CSV di movimenti
+// dall'header — falsificato con header reali (Revolut, banca IT, storico trade).
+test('isPortfolioCsv: riconosce le posizioni, NON i movimenti', async () => {
+  const { isPortfolioCsv } = await import('./multi-import.js');
+  assert.equal(isPortfolioCsv('Ticker;Classe;Quantità;PrezzoMedio'), true);
+  assert.equal(isPortfolioCsv('symbol,asset,quantity,avgprice'), true);
+  // movimenti: hanno descrizione/importo → NON portafoglio
+  assert.equal(isPortfolioCsv('Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance'), false);
+  assert.equal(isPortfolioCsv('Data;Descrizione;Uscite;Entrate;Saldo'), false);
+  assert.equal(isPortfolioCsv('Date,Ticker,Type,Quantity,Price per share,Total Amount'), false); // storico trade
+});

@@ -12,6 +12,7 @@ import { subscriptionSummary } from './predict/subscriptions.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
+import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -1178,6 +1179,7 @@ const renderAnalysis = (opts = {}) => {
   // il forecast worker la ri-renderizza con il livello Holt-Winters vero.
   renderRadarAlerts(k, budgetLimit, window.__hwDailyLevel ?? null);
   renderInvestments();
+  renderNetWorth();
   renderTax(k);
 };
 
@@ -1221,6 +1223,45 @@ function renderInvestments() {
   surplusEl.textContent = r.investable > 0 ? formatMoney(r.investable) : (r.toEmergencyFund ? formatMoney(r.toEmergencyFund) : '0€');
   noteEl.textContent = r.note;
   regimeEl.textContent = '';
+}
+
+// Patrimonio netto unificato (src/alpha/net-worth.js): UN numero dominante =
+// contante (dai movimenti) + posizioni (VaultDAO.state.positions, additive) −
+// debiti. Sotto: proiezione Monte Carlo a 10 anni per strategia con ipotesi
+// DICHIARATE — semplice come un salvadanaio: "quanto ho" e "dove può arrivare".
+function renderNetWorth() {
+  const totalEl = $('#net-worth-total'), breakEl = $('#net-worth-breakdown'), projEl = $('#net-worth-projection');
+  if (!totalEl) return;
+  const positions = VaultDAO.state.positions || [];
+  const n = computeNetWorth({
+    transactions: VaultDAO.state.transactions || {},
+    positions,
+    currentPriceByTicker: window.__livePrices || {},
+    manualAssets: VaultDAO.state.manualAssets || [],
+    liabilities: VaultDAO.state.liabilities || 0,
+  });
+  totalEl.textContent = formatMoney(n.total);
+  const parts = [`contante ${formatMoney(n.cash)}`];
+  if (n.invested > 0) parts.push(`investito ${formatMoney(n.invested)}${n.stale ? ' (a costo: prezzo live assente, stimato)' : ''}`);
+  if (n.liabilities > 0) parts.push(`debiti −${formatMoney(n.liabilities)}`);
+  breakEl.textContent = parts.join(' · ');
+  // Proiezione per strategia: parte dal patrimonio investibile attuale, con il
+  // risparmio medio mensile come contributo. Tabella minima p5/p50/p95.
+  if (projEl) {
+    const start = Math.max(0, n.total);
+    const monthsN = Object.keys(VaultDAO.state.transactions || {}).length || 1;
+    let inc = 0, out = 0;
+    for (const t of Object.values(VaultDAO.state.transactions || {}).flat()) {
+      if (t.type === 'entrata') inc += t.amount; else if (t.type === 'uscita') out += t.amount;
+    }
+    const monthlySave = Math.max(0, (inc - out) / monthsN);
+    if (start > 0 || monthlySave > 0) {
+      const proj = projectNetWorthByStrategy({ start, monthlyContribution: monthlySave, years: 10, paths: 1000, seed: 12345 });
+      projEl.innerHTML = `<table class="w-full text-[10px] font-mono"><thead><tr class="text-[var(--on-surface-secondary)]"><th class="text-left font-normal">Strategia (10 anni)</th><th class="text-right font-normal">se va male</th><th class="text-right font-normal">tipico</th><th class="text-right font-normal">se va bene</th></tr></thead><tbody>${
+        proj.rows.map(r => `<tr><td class="text-left text-slate-300 py-0.5">${r.label}</td><td class="text-right text-rose-300">${formatMoney(r.p5)}</td><td class="text-right text-[var(--gold)]">${formatMoney(r.p50)}</td><td class="text-right text-emerald-300">${formatMoney(r.p95)}</td></tr>`).join('')
+      }</tbody></table>`;
+    } else projEl.innerHTML = '';
+  }
 }
 
 // Ghost Charge Radar VISIBILE: mostra gli abbonamenti ricorrenti scovati dal
@@ -2334,6 +2375,59 @@ function initMomentumRealAI() {
     };
     momentumOrchestrator.mesh = momentumMeshNode;
     window.momentumMeshNode = momentumMeshNode;
+
+    // ── Prezzi P2P (W8/C3): un dispositivo online condivide i prezzi recenti
+    // agli altri della mesh. In ricezione: merge SOLO se più recente e
+    // plausibile (mergePeerPrices: date monotone, salto <50% — anti-veleno),
+    // etichettato "peer:<id>" — mai spacciato per fetch locale.
+    momentumMeshNode.onPricesReceived = async (peerId, prices) => {
+      try {
+        const { mergePeerPrices } = await import('./alpha/market-data.js');
+        let mergedAny = false;
+        for (const [sym, payload] of Object.entries(prices || {})) {
+          const key = `mkt:${payload.kind || 'crypto'}:${sym}`;
+          const local = await DurableStore.get('state', key).catch(() => null);
+          const winner = mergePeerPrices(local, { ...payload, prices: payload.series }, peerId);
+          if (winner) {
+            await DurableStore.put('state', winner, key).catch(() => {});
+            const last = winner.prices[winner.prices.length - 1];
+            if (last) (window.__livePrices = window.__livePrices || {})[sym] = last.close;
+            mergedAny = true;
+          }
+        }
+        if (mergedAny) { renderNetWorth(); showToast('Prezzi aggiornati da un tuo dispositivo.', 'success'); }
+      } catch (_) {}
+    };
+
+    // ── W17 auto-apprendimento su fonti CERTE (src/alpha/sources.js): durante
+    // l'idle, per i ticker delle posizioni, prova le fonti whitelisted con
+    // VERIFICA INCROCIATA; solo i dati confermati/plausibili aggiornano prezzi
+    // e (trainingEligible) possono alimentare l'apprendimento. Se la rete non
+    // c'è: cache → peer → stima etichettata — mai un numero inventato.
+    const idleFetchPrices = () => {
+      const positions = VaultDAO.state.positions || [];
+      if (!positions.length || !navigator.onLine) return;
+      const cacheAdapter = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
+      import('./alpha/sources.js').then(async ({ fetchVerified, trainingEligible }) => {
+        const shared = {};
+        for (const p of positions.slice(0, 6)) {           // budget rete per sessione
+          const kind = p.assetClass === 'crypto' ? 'crypto' : 'stock';
+          try {
+            const r = await fetchVerified({ symbol: p.ticker.toLowerCase(), kind, fetchImpl: fetch.bind(window), cache: cacheAdapter });
+            const last = r.prices && r.prices[r.prices.length - 1];
+            if (last && trainingEligible(r)) {
+              (window.__livePrices = window.__livePrices || {})[p.ticker] = last.close;
+              shared[p.ticker] = { kind, asOf: r.asOf, source: r.source, series: r.prices.slice(-30) };
+            }
+          } catch (_) {}
+        }
+        if (Object.keys(shared).length) {
+          renderNetWorth();
+          momentumMeshNode?.sharePrices?.(shared);         // il device online aiuta gli altri
+        }
+      }).catch(() => {});
+    };
+    (window.requestIdleCallback || ((fn) => setTimeout(fn, 4000)))(idleFetchPrices);
 
     // Meso (src/ai/trained-meso.js): più accurato del Nano su testo rumoroso
     // (89.7% vs 80.0%, misurato) ma più pesante da caricare (~400KB, feature

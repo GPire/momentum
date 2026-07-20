@@ -169,6 +169,7 @@ class MeshNode {
     this.knownPeerIds = new Set([this.nodeId]);
     this.onPeerConnected = null;    // callback opzionale (nodeId) => {}
     this.onGradientReceived = null; // callback opzionale (nodeId, stats) => {}
+    this.onPricesReceived = null;   // callback opzionale (nodeId, pricesBySymbol) => {}
   }
 
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
@@ -205,6 +206,11 @@ class MeshNode {
         // Ricevo le tx mancanti → merge deterministico nel vault.
         const added = this.onSyncReceived ? this.onSyncReceived(msg.txs) : 0;
         if (added > 0) console.log(`Sync: ${added} transazioni ricevute e unite da un device fidato.`);
+      } else if (msg.type === 'price_share') {
+        // Un peer condivide i suoi ultimi prezzi di mercato. La validazione
+        // (newest-wins + anti-poison) è del ricevente: mergePeerPrices in
+        // market-data.js decide, qui si consegna soltanto.
+        this.onPricesReceived?.(peerId, msg.prices);
       }
     };
     channel.onclose = () => this.peers.delete(peerId);
@@ -289,6 +295,18 @@ class MeshNode {
   // a tutta la mesh connessa (gossip broadcast reale).
   broadcastLearning() {
     for (const peerId of this.peers.keys()) this._shareWeights(peerId);
+  }
+
+  // Condivide con tutta la mesh gli ultimi prezzi di mercato noti (stesso
+  // gossip dei pesi). Payload per simbolo:
+  //   { SYM: { kind, asOf, source, series:[{date,close},…] } }
+  // Ogni ricevente decide da sé se accettare (mergePeerPrices, newest-wins
+  // + anti-poison) — qui si trasmette e basta, mai si impone.
+  sharePrices(pricesBySymbol) {
+    const msg = JSON.stringify({ type: 'price_share', prices: pricesBySymbol });
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') entry.channel.send(msg);
+    }
   }
 
   getMeshStats() {

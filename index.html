@@ -605,6 +605,18 @@
                     <p class="text-[9px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Non è consulenza finanziaria: sono proprietà calcolate sui tuoi dati e su statistiche storiche/simulate.</p>
                  </div>
 
+                 <!-- Patrimonio netto unificato (src/alpha/net-worth.js): UN numero
+                      = contante + investimenti − debiti. Sotto: proiezione Monte Carlo
+                      per strategia (ipotesi dichiarate, mai promesse). -->
+                 <div class="card p-6" id="net-worth-card">
+                    <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--gold)] mb-1">Patrimonio Netto</h3>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)] mb-3">Tutto quello che hai, in un numero: contante + investimenti</p>
+                    <p id="net-worth-total" class="text-3xl font-black font-mono text-[var(--gold)] mb-1">—</p>
+                    <p id="net-worth-breakdown" class="text-[11px] text-slate-300 mb-3"></p>
+                    <div id="net-worth-projection" class="overflow-x-auto"></div>
+                    <p class="text-[9px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Proiezione probabilistica su ipotesi storiche dichiarate, non garantite. Non è consulenza finanziaria né promessa di rendimento.</p>
+                 </div>
+
                  <!-- Heatmap grid -->
                  <div class="card p-6">
                     <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--primary)] mb-1">Mappa Giornaliera Spese</h3>

@@ -13,6 +13,7 @@ import { detectLanguage, isSupported } from '../i18n/detect.js';
 import { getDailySafeToSpend, getMonthEndProjection } from '../predict/advisor.js';
 import { taxSetAsideForPeriod } from '../predict/tax.js';
 import { investableSurplus } from '../alpha/bridge.js';
+import { ground } from '../graph/semantic.js';
 import { monthKey } from '../core/constants.js';
 
 // Pattern d'intento per lingua (parole-chiave, non frasi fisse → robusto al
@@ -34,9 +35,9 @@ const INTENTS = {
     es: /(cuánto (he )?ahorrado|ahorro|apartado)/,
   },
   invest: {
-    it: /(quanto posso investire|posso investire)/,
-    en: /(how much can i invest|can i invest)/,
-    es: /(cuánto puedo invertir|puedo invertir)/,
+    it: /(quanto posso investire|posso investire|conviene investire)/,
+    en: /(how much can i invest|can i invest|should i invest)/,
+    es: /(cuánto puedo invertir|puedo invertir|conviene invertir)/,
   },
   tax: {
     it: /(quanto metto da parte per le tasse|tasse|partita iva|accantonare)/,
@@ -54,13 +55,13 @@ INTENTS.safeToSpend.fr = /(combien puis-je dépenser|budget d.?aujourd|combien m
 INTENTS.safeToSpend.de = /(wie viel kann ich .{0,15}ausgeben|budget für heute|wie viel bleibt)/;
 INTENTS.savings.fr = /(combien j.?ai économisé|épargne|mis de côté)/;
 INTENTS.savings.de = /(wie viel habe ich gespart|ersparnis|zurückgelegt)/;
-INTENTS.invest.fr = /(combien puis-je investir|puis-je investir)/;
-INTENTS.invest.de = /(wie viel kann ich investieren|kann ich investieren)/;
+INTENTS.invest.fr = /(combien puis-je investir|puis-je investir|devrais-je investir)/;
+INTENTS.invest.de = /(wie viel kann ich investieren|kann ich investieren|soll ich investieren)/;
 // PT/Brasile (6ª lingua)
 INTENTS.spent.pt = /(quanto (eu )?gastei|quanto (eu )?gasto|meus gastos)/;
 INTENTS.safeToSpend.pt = /(quanto posso gastar|orçamento de hoje|quanto (me )?resta hoje)/;
 INTENTS.savings.pt = /(quanto (eu )?poupei|poupança|guardei)/;
-INTENTS.invest.pt = /(quanto posso investir|posso investir)/;
+INTENTS.invest.pt = /(quanto posso investir|posso investir|vale a pena investir)/;
 INTENTS.tax.pt = /(quanto para impostos|separar para impostos|impostos|autônomo|mei)/;
 
 // Frasi di risposta localizzate (template; i numeri arrivano dal motore).
@@ -150,12 +151,21 @@ const TAX = {
 
 const fmt = n => `${(+n).toFixed(2).replace('.', ',')}€`;
 
+// Ritorna { intent, lang }: prima si provano i pattern della lingua rilevata;
+// se nessuno scatta, recupero cross-lingua deterministico — il rilevatore a
+// stopword può sbagliare su frasi brevi (es. "investir" è sia FR che PT), il
+// primo pattern di un'altra lingua che scatta decide intento E lingua.
 function matchIntent(q, lang) {
   for (const [intent, pats] of Object.entries(INTENTS)) {
     const pat = pats[lang] || pats.en;
-    if (pat.test(q)) return intent;
+    if (pat.test(q)) return { intent, lang };
   }
-  return 'unknown';
+  for (const [intent, pats] of Object.entries(INTENTS)) {
+    for (const [l, pat] of Object.entries(pats)) {
+      if (l !== lang && pat.test(q)) return { intent, lang: l };
+    }
+  }
+  return { intent: 'unknown', lang };
 }
 
 function monthlyFinance(allTx, ref) {
@@ -177,13 +187,17 @@ function monthlyFinance(allTx, ref) {
 // referenceDate, taxRegime?, emergencyFund?, forceLang? }.
 export function chat(message, ctx = {}) {
   const det = detectLanguage(message);
-  const lang = ctx.forceLang || (isSupported(det.lang) ? det.lang : 'en'); // FR/DE → EN finché non completi
-  const t = L[lang];
   const q = String(message || '').toLowerCase().trim();
+  const detLang = ctx.forceLang || (isSupported(det.lang) ? det.lang : 'en');
+  // matchIntent ritorna { intent, lang }: il recupero cross-lingua può correggere
+  // la lingua (es. "quanto gastei" rilevato it/es → pt dal pattern che scatta).
+  const m = matchIntent(q, detLang);
+  const intent = m.intent;
+  const lang = ctx.forceLang || m.lang;
+  const t = L[lang] || L.en;
   const ref = ctx.referenceDate || new Date();
   const allTx = ctx.allTx || {};
   const monthTxs = allTx[monthKey(ref)] || [];
-  const intent = matchIntent(q, lang);
 
   let answer;
   switch (intent) {

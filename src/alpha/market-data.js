@@ -80,8 +80,11 @@ export const SOURCES = {
 };
 
 // ── Orchestratore resiliente. Ritorna sempre qualcosa di usabile:
-//   { prices, source, asOf, stale, note }
-// stale=true → dati dalla cache (offline / tutte le fonti fallite). ──
+//   { prices, source, asOf, stale, note, priceSource }
+// stale=true → dati dalla cache (offline / tutte le fonti fallite).
+// priceSource = provenienza ESPLICITA del dato (regola #1, mai ambigua):
+//   id fonte live ('coingecko'/'stooq') | 'holt-estimate' (cache + stima)
+//   | 'cache' (cache pura) | null (nessun dato). ──
 export async function fetchPrices({ symbol, kind = 'crypto', days = 180, fetchImpl, cache }) {
   const sources = SOURCES[kind] || [];
   const errors = [];
@@ -93,7 +96,7 @@ export async function fetchPrices({ symbol, kind = 'crypto', days = 180, fetchIm
       const raw = src.type === 'json' ? await res.json() : await res.text();
       const prices = src.parse(raw);
       if (prices.length) {
-        const payload = { prices, source: src.id, asOf: new Date().toISOString(), stale: false };
+        const payload = { prices, source: src.id, asOf: new Date().toISOString(), stale: false, priceSource: src.id };
         if (cache) await cache.put(`mkt:${kind}:${symbol}`, payload);
         return payload;
       }
@@ -111,11 +114,12 @@ export async function fetchPrices({ symbol, kind = 'crypto', days = 180, fetchIm
     const cached = await cache.get(`mkt:${kind}:${symbol}`);
     if (cached && cached.prices?.length) {
       const est = estimateCurrentPrice(cached.prices, { asOfDate: cached.asOf });
-      return { ...cached, stale: true, estimatedNow: est, note: `Dati aggiornati al ${cached.asOf?.slice(0, 10)}${est && est.daysAhead > 0 ? ` · stima oggi ~${est.estimate} (Holt, ${est.daysAhead}g)` : ''} (offline o fonte non raggiungibile). ${errors.join('; ')}` };
+      // priceSource: 'holt-estimate' solo se la stima c'è davvero, altrimenti 'cache' pura
+      return { ...cached, stale: true, estimatedNow: est, priceSource: est ? 'holt-estimate' : 'cache', note: `Dati aggiornati al ${cached.asOf?.slice(0, 10)}${est && est.daysAhead > 0 ? ` · stima oggi ~${est.estimate} (Holt, ${est.daysAhead}g)` : ''} (offline o fonte non raggiungibile). ${errors.join('; ')}` };
     }
   }
   // Nessuna copia: si dichiara, si offre l'import CSV manuale. Mai inventare.
-  return { prices: [], source: null, asOf: null, stale: true, note: `Prezzi non disponibili (${errors.join('; ')}). Puoi importare un CSV di prezzi dal tuo broker.` };
+  return { prices: [], source: null, asOf: null, stale: true, priceSource: null, note: `Prezzi non disponibili (${errors.join('; ')}). Puoi importare un CSV di prezzi dal tuo broker.` };
 }
 
 // Stima del prezzo CORRENTE quando i dati sono vecchi/offline: estrapola con
@@ -136,6 +140,44 @@ export function estimateCurrentPrice(prices, { asOfDate, now = new Date(), alpha
   const daysAhead = Math.max(0, Math.round((new Date(now) - lastDate) / 86_400_000));
   const estimate = +(level + daysAhead * trend).toFixed(4);
   return { estimate, method: 'holt', daysAhead, lastClose: last.close, lastDate: last.date };
+}
+
+// ── Merge dei prezzi ricevuti dalla mesh (messaggio price_share). PURO e
+// paranoico, stessa filosofia anti-poison di update-ledger: mai fidarsi
+// ciecamente di un peer. `peerPayload` è la voce per singolo simbolo
+// { kind, asOf, source, series:[{date,close},…] }; `localCached` è la copia
+// locale in forma-cache (o null/undefined se non esiste).
+// Accetta SOLO se:
+//   (a) l'asOf del peer è STRETTAMENTE più recente del locale (newest-wins);
+//   (b) la serie è plausibile: date monotone non decrescenti, close > 0, e
+//       — se esiste un dato locale — il salto tra ultimo close locale e
+//       ultimo close del peer è sotto il 50% (anti-avvelenamento).
+// Ritorna l'oggetto vincente in forma-cache con priceSource 'peer:<id>':
+// dato REALE (fetchato da un altro nodo, non stimato) → stale:false, ma con
+// provenienza esplicita e l'asOf del peer — mai spacciato per fetch locale.
+// Rifiuto → null (il chiamante tiene la propria copia).
+export function mergePeerPrices(localCached, peerPayload, peerId) {
+  const series = peerPayload?.series;
+  if (!Array.isArray(series) || !series.length || !peerPayload.asOf) return null;
+
+  // (a) newest-wins: se ho già un dato locale, il peer deve batterlo sull'asOf
+  if (localCached?.asOf && !(String(peerPayload.asOf) > String(localCached.asOf))) return null;
+
+  // (b) plausibilità della serie: date monotone non decrescenti, close positivi
+  for (let i = 0; i < series.length; i++) {
+    const p = series[i];
+    if (!p || !Number.isFinite(p.close) || p.close <= 0) return null;
+    if (i > 0 && String(p.date) < String(series[i - 1].date)) return null;
+  }
+
+  // (b) anti-poison: salto ultimo-close-locale → ultimo-close-peer sotto il 50%
+  const localLast = localCached?.prices?.length ? localCached.prices[localCached.prices.length - 1].close : null;
+  if (Number.isFinite(localLast) && localLast > 0) {
+    const peerLast = series[series.length - 1].close;
+    if (Math.abs(peerLast - localLast) / localLast >= 0.5) return null;
+  }
+
+  return { prices: series, source: peerPayload.source ?? null, asOf: peerPayload.asOf, stale: false, priceSource: 'peer:' + peerId };
 }
 
 // Rendimenti giornalieri da una serie di prezzi (per i moduli alpha).

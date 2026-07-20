@@ -79,9 +79,38 @@ export function learnInBackground(pairs, chunk = 40) {
   idle(step);
 }
 
+// CSV di PORTAFOGLIO (posizioni: ticker+quantità) vs CSV di MOVIMENTI: si
+// riconosce dall'header, così l'utente seleziona qualsiasi file e ogni cosa
+// finisce nel posto giusto da sola (zero attrito). Le posizioni NON sono
+// transazioni: vanno in VaultDAO.state.positions (merge per ticker) e
+// alimentano Patrimonio Netto + analisi portafoglio.
+export function isPortfolioCsv(firstLine) {
+  const h = String(firstLine || '').toLowerCase();
+  const hasTicker = /(ticker|simbolo|symbol)/.test(h);
+  const hasQty = /(quant|quantity|shares|azioni)/.test(h);
+  const hasTxSignals = /(descri|importo|amount|debit|credit|uscit|entrat)/.test(h);
+  return hasTicker && hasQty && !hasTxSignals;
+}
+
+function mergePositions(parsed) {
+  if (!parsed.length) return 0;
+  const positions = VaultDAO.state.positions = VaultDAO.state.positions || [];
+  let merged = 0;
+  for (const p of parsed) {
+    const i = positions.findIndex(x => x.ticker === p.ticker);
+    if (i >= 0) positions[i] = p; else positions.push(p);
+    merged++;
+  }
+  return merged;
+}
+
 async function parseCsvFile(file) {
   const text = await file.text();
   const first = text.split(/\r?\n/)[0] || '';
+  if (isPortfolioCsv(first)) {
+    const { parsePortfolioCsv } = await import('../alpha/portfolio-import.js');
+    return { positions: parsePortfolioCsv(text) };
+  }
   return isRevolutExport(first) ? parseRevolutExport(text) : parseGenericCsv(text);
 }
 
@@ -130,6 +159,13 @@ export async function importFiles(fileList, { onProgress } = {}) {
     if (kind === 'unknown') { result.errors.push(`${f.name}: formato non supportato`); continue; }
     try {
       const txs = kind === 'csv' ? await parseCsvFile(f) : kind === 'pdf' ? await parsePdfFile(f) : await parseImageFile(f);
+      // CSV di portafoglio: posizioni, non transazioni → merge dedicato.
+      if (txs && txs.positions) {
+        const merged = mergePositions(txs.positions);
+        result.byType[kind] += 1;
+        result.perFile.push({ name: f.name, kind: 'portfolio', parsed: txs.positions.length, added: merged });
+        continue;
+      }
       const added = addParsed(txs, seenIds, learned);
       result.added += added;
       result.byType[kind] += 1;
