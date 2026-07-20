@@ -37,6 +37,40 @@ test('reason: catena causale integrata quando richiesta', () => {
   assert.ok(r.causal && /Trasporti/.test(r.causal.text));
 });
 
+// ---- Wave 12 (NeuroSym v2, Financial Reasoning Layer): fusione cross-dominio ----
+
+const allTxReal = {
+  '2026-04': [{ date: '2026-04-05', amount: 300, type: 'uscita', category: 'ristorazione' }],
+  '2026-05': [{ date: '2026-05-05', amount: 320, type: 'uscita', category: 'ristorazione' }],
+  '2026-06': [{ date: '2026-06-05', amount: 310, type: 'uscita', category: 'ristorazione' }],
+};
+
+test('reason: crossDomain combina cashflow (what-if) e patrimonio (Twin) quando c\'è storico reale', () => {
+  const r = Omega.reason('e se taglio i ristoranti?', {
+    wantsToInvest: false, allTx: allTxReal, referenceDate: new Date(2026, 6, 15),
+    causalQuery: { category: 'ristorazione', deltaPct: -20 },
+  });
+  assert.ok(r.crossDomain, 'crossDomain deve essere popolato');
+  assert.ok(r.crossDomain.whatIf.totalMonthly > 0, 'tagliare libera cashflow positivo');
+  assert.ok(r.crossDomain.twin, 'il twin patrimoniale deve calcolarsi con un impatto reale');
+  assert.ok(r.chainOfThought.some(s => /Impatto cashflow/.test(s)));
+  assert.ok(r.chainOfThought.some(s => /Patrimonio Twin/.test(s)));
+});
+
+test('reason: senza causalQuery crossDomain resta null (nessun requisito nuovo per i chiamanti esistenti)', () => {
+  const r = Omega.reason('posso investire?', { wantsToInvest: true, emergencyMonths: 6 });
+  assert.equal(r.crossDomain, null);
+});
+
+test('reason: crossDomain degrada senza rompere il resto quando manca storico per la categoria', () => {
+  const r = Omega.reason('e se taglio X?', {
+    wantsToInvest: false, allTx: {}, causalQuery: { category: 'mai-vista', deltaPct: -20 },
+  });
+  assert.equal(r.crossDomain.whatIf, null);
+  assert.equal(r.crossDomain.twin, null);
+  assert.ok(r.advice !== undefined); // il resto del ragionamento non si rompe
+});
+
 test('explain: mappa a 5 strati onesta', () => {
   const e = Omega.explain();
   assert.equal(e.architecture.length, 5);

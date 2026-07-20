@@ -15,6 +15,7 @@ import { NeuroSym } from './neurosym.js';
 import { applicableRules, ground, recall } from '../graph/semantic.js';
 import { buildCausalGraph, explainChain } from '../predict/causal-graph.js';
 import { calibratedEnsemble, expectedCalibrationError } from './calibration.js';
+import { crossDomainWhatIf } from './reasoning-fusion.js';
 
 // Self-check: verifica che un numero dichiarato coincida col ricalcolo diretto,
 // entro tolleranza. Il ragionatore "capisce a priori quando rischia di
@@ -68,6 +69,31 @@ export const Omega = {
       if (causal.steps.length) chain.push(`Catena causale: ${causal.text}`);
     }
 
+    // STRATO 3c (Wave 12 v10, src/ai/reasoning-fusion.js): stessa domanda
+    // "se muovo X", ma tradotta in cashflow € (what-if) E traiettoria
+    // patrimoniale (net-worth Twin, Monte Carlo) nella STESSA risposta —
+    // nessun tracker di portafoglio del settore vede insieme spese e
+    // patrimonio. Additivo: solo se causalQuery è presente, mai un requisito
+    // nuovo per i chiamanti esistenti.
+    let crossDomain = null;
+    if (ctx.causalQuery && ctx.allTx) {
+      crossDomain = crossDomainWhatIf({
+        allTx: ctx.allTx,
+        category: ctx.causalQuery.category,
+        deltaPct: ctx.causalQuery.deltaPct ?? 20,
+        referenceDate: ctx.referenceDate || new Date(),
+        netWorthStart: ctx.netWorthStart ?? 0,
+        years: ctx.netWorthYears ?? 1,
+      });
+      if (crossDomain.whatIf) {
+        const sign = crossDomain.whatIf.totalMonthly >= 0 ? 'libera' : 'costa';
+        chain.push(`Impatto cashflow: ${sign} ~${Math.abs(crossDomain.whatIf.totalMonthly)}€/mese (diretto + catena causale).`);
+      }
+      if (crossDomain.twin) {
+        chain.push(`Patrimonio Twin a ${ctx.netWorthYears ?? 1} anno/i: ${crossDomain.twin.deltaP50 >= 0 ? '+' : ''}${crossDomain.twin.deltaP50}€ rispetto a non cambiare nulla (strategia prudente, ipotesi dichiarate).`);
+      }
+    }
+
     // STRATO 4: Decisione + auto-verifica
     const decision = ground(ctx); // la regola più fondante applicabile, con fonte
     let selfCheck = { ok: true, checks: [] };
@@ -85,6 +111,7 @@ export const Omega = {
       chainOfThought: chain,
       citations: cites,
       causal,
+      crossDomain,
       selfCheck,
       abstain: !decision && !topical.length,
       disclaimer,
@@ -100,7 +127,7 @@ export const Omega = {
       architecture: [
         { layer: 1, name: 'Percezione', real: ['transazioni', 'market-data', 'voice', 'pdf-parser'] },
         { layer: 2, name: 'Memoria', real: ['DCGN episodica (online, decade)', 'semantica (regole con fonte)'] },
-        { layer: 3, name: 'Ragionamento', real: ['Nano/Meso/ensemble calibrato', 'causale a lag variabile', 'alpha/8 strategie', 'rischio VaR/Sharpe'] },
+        { layer: 3, name: 'Ragionamento', real: ['Nano/Meso/ensemble calibrato', 'causale a lag variabile', 'alpha/8 strategie', 'rischio VaR/Sharpe', 'fusione cross-dominio cashflow+patrimonio (Wave 12)'] },
         { layer: 4, name: 'Decisione', real: ['advisor', 'chain-of-thought con fonte', 'self-check aritmetico', 'astensione su bassa confidenza'] },
         { layer: 5, name: 'Apprendimento', real: ['DCGN Hebbian online', 'federated reputation-weighted', 'self-tuning hardware'] },
       ],
