@@ -170,6 +170,7 @@ class MeshNode {
     this.onPeerConnected = null;    // callback opzionale (nodeId) => {}
     this.onGradientReceived = null; // callback opzionale (nodeId, stats) => {}
     this.onPricesReceived = null;   // callback opzionale (nodeId, pricesBySymbol) => {}
+    this.onReliabilityReceived = null; // callback opzionale (nodeId, digest) => {} (Wave 15 v10)
   }
 
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
@@ -211,6 +212,12 @@ class MeshNode {
         // (newest-wins + anti-poison) è del ricevente: mergePeerPrices in
         // market-data.js decide, qui si consegna soltanto.
         this.onPricesReceived?.(peerId, msg.prices);
+      } else if (msg.type === 'reliability_share') {
+        // Wave 15 v10 (meta-federation.js): un peer condivide SOLO le medie a
+        // posteriori "quale esperto è affidabile per quale contesto" — mai
+        // dati grezzi. Il merge (pesato per reputazione, anti-poisoning) è
+        // del ricevente: qui si consegna soltanto, come per price_share.
+        this.onReliabilityReceived?.(peerId, msg.digest);
       }
     };
     channel.onclose = () => this.peers.delete(peerId);
@@ -304,6 +311,16 @@ class MeshNode {
   // + anti-poison) — qui si trasmette e basta, mai si impone.
   sharePrices(pricesBySymbol) {
     const msg = JSON.stringify({ type: 'price_share', prices: pricesBySymbol });
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') entry.channel.send(msg);
+    }
+  }
+
+  // Condivide con la mesh il digest di affidabilità (Wave 15 v10,
+  // exportReliabilityDigest): SOLO medie a posteriori arrotondate, mai a/b
+  // grezzi. Stesso pattern gossip di sharePrices/pesi.
+  shareReliability(digest) {
+    const msg = JSON.stringify({ type: 'reliability_share', digest });
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') entry.channel.send(msg);
     }

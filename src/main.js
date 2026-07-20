@@ -2432,6 +2432,21 @@ function initMomentumRealAI() {
       } catch (_) {}
     };
 
+    // ── Meta-federazione (Wave 15 v10, src/mesh/meta-federation.js): un peer
+    // condivide SOLO le medie a posteriori "quale esperto è affidabile per
+    // quale contesto" (mai dati grezzi/transazioni/pesi completi). Merge
+    // pesato per reputazione (stesso updateLedger anti-poisoning già in uso
+    // sopra) sul bandit degli esperti (Wave 13, mlData.expertBandit).
+    momentumMeshNode.onReliabilityReceived = async (peerId, digest) => {
+      try {
+        const { mergeReliabilityDigest } = await import('./mesh/meta-federation.js');
+        VaultDAO.state.mlData.expertBandit = mergeReliabilityDigest(
+          VaultDAO.state.mlData.expertBandit, [{ peerId, digest }], VaultDAO.state.updateLedger || []
+        );
+        VaultDAO.save();
+      } catch (_) {}
+    };
+
     // ── W17 auto-apprendimento su fonti CERTE (src/alpha/sources.js): durante
     // l'idle, per i ticker delle posizioni, prova le fonti whitelisted con
     // VERIFICA INCROCIATA; solo i dati confermati/plausibili aggiornano prezzi
@@ -2457,6 +2472,14 @@ function initMomentumRealAI() {
         if (Object.keys(shared).length) {
           renderNetWorth();
           momentumMeshNode?.sharePrices?.(shared);         // il device online aiuta gli altri
+        }
+        // Meta-federazione: condividi anche il digest di affidabilità corrente
+        // (solo medie, mai conteggi) — stesso ciclo idle dei prezzi.
+        if (momentumMeshNode?.shareReliability && VaultDAO.state.mlData.expertBandit) {
+          import('./mesh/meta-federation.js').then(({ exportReliabilityDigest }) => {
+            const { digest } = exportReliabilityDigest(VaultDAO.state.mlData.expertBandit);
+            if (Object.keys(digest).length) momentumMeshNode.shareReliability(digest);
+          }).catch(() => {});
         }
       }).catch(() => {});
     };

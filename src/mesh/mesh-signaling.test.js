@@ -98,3 +98,56 @@ test('due nodi: newest-wins end-to-end — il ricevente accetta solo dati più f
   assert.equal(decisions[2].accepted, false);
   assert.equal(localStore.BTC.asOf, '2026-07-14T10:00:00Z'); // la copia buona resta
 });
+
+// ---- reliability_share (Wave 15 v10, meta-federation.js) ----
+
+test('shareReliability: il digest arriva intatto al peer via reliability_share', () => {
+  const { nodeA, nodeB } = twoNodes();
+  let got = null;
+  nodeB.onReliabilityReceived = (peerId, digest) => { got = { peerId, digest }; };
+
+  const digest = { 'spesa|mid|medio|nano': 0.87 };
+  nodeA.shareReliability(digest);
+
+  assert.ok(got, 'il messaggio reliability_share deve essere consegnato');
+  assert.equal(got.peerId, 'A');
+  assert.deepEqual(got.digest, digest); // round-trip JSON senza perdite
+});
+
+test('shareReliability: non invia su canali non aperti e non crasha', () => {
+  const { nodeA, nodeB, chA } = twoNodes();
+  let got = null;
+  nodeB.onReliabilityReceived = (peerId, digest) => { got = { peerId, digest }; };
+  chA.readyState = 'closed';
+  nodeA.shareReliability({ 'x|y|z|nano': 0.5 });
+  assert.equal(got, null);
+});
+
+test('reliability_share senza handler registrato: nessun crash', () => {
+  const { nodeA, chB } = twoNodes();
+  nodeA.onReliabilityReceived = null;
+  chB.send(JSON.stringify({ type: 'reliability_share', digest: { 'x|y|z|nano': 0.5 } }));
+});
+
+test('due nodi: reliability_share end-to-end con mergeReliabilityDigest (pesato per reputazione)', async () => {
+  const { exportReliabilityDigest, mergeReliabilityDigest } = await import('../mesh/meta-federation.js');
+  const { appendUpdate } = await import('../mesh/update-ledger.js');
+  const { initBandit, banditObserve, armMean } = await import('../predict/advisor-bandit.js');
+
+  const { nodeA, nodeB } = twoNodes();
+  // A ha imparato che 'nano' è affidabile in questo contesto
+  let stateA = initBandit();
+  for (let i = 0; i < 20; i++) stateA = banditObserve(stateA, { context: 'spesa|mid|medio', kind: 'nano', reward: 1 });
+
+  let stateB = initBandit();
+  let ledgerB = [];
+  for (let i = 0; i < 5; i++) ledgerB = appendUpdate(ledgerB, { peerId: 'A', accepted: true, examplesBefore: 0, examplesAfter: 1 });
+  nodeB.onReliabilityReceived = (peerId, digest) => {
+    stateB = mergeReliabilityDigest(stateB, [{ peerId, digest }], ledgerB);
+  };
+
+  nodeA.shareReliability(exportReliabilityDigest(stateA).digest);
+
+  const meanB = armMean(stateB, { context: 'spesa|mid|medio', kind: 'nano' });
+  assert.ok(meanB > 0.5, `B deve aver assorbito l'affidabilità appresa da A, avuto ${meanB}`);
+});
