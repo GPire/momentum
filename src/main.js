@@ -610,7 +610,22 @@ const renderDashboard = () => {
   const k = monthKey(VaultDAO.state.currentDate);
   const display = $('#current-month-display');
   if (display) {
-    display.textContent = VaultDAO.state.currentDate.toLocaleDateString('it-IT', {month:'long', year:'numeric'});
+    const label = VaultDAO.state.currentDate.toLocaleDateString('it-IT', {month:'long', year:'numeric'});
+    // Micro-interazione intelligente: fuori dal mese corrente il titolo diventa
+    // un tap-target per tornare a oggi (affordance visibile solo quando serve:
+    // pallino pulsante + cursore). Nel mese corrente è testo normale, zero rumore.
+    if (isCurrentMonth) {
+      display.textContent = label;
+      display.removeAttribute('data-action');
+      display.style.cursor = '';
+      display.title = '';
+    } else {
+      const dir = VaultDAO.state.currentDate < realNow ? 'passato' : 'futuro';
+      display.innerHTML = `${label} <span class="inline-block w-1.5 h-1.5 rounded-full bg-[var(--gold)] align-middle ml-1 animate-pulse"></span>`;
+      display.dataset.action = 'jump-today';
+      display.style.cursor = 'pointer';
+      display.title = `Stai guardando un mese ${dir} — tocca per tornare a oggi`;
+    }
   }
   const txs = VaultDAO.state.transactions[k] || [];
 
@@ -2364,6 +2379,19 @@ document.addEventListener('click', e => {
       else d.setMonth(d.getMonth() - 1);
       VaultDAO.state.currentDate = d;
       renderDashboard();
+    } else if (a === 'jump-today') {
+      // Micro-interazione: un tap sul titolo del mese riporta a OGGI quando si
+      // stanno guardando mesi passati/futuri. Feedback immediato (haptic +
+      // suono) — l'affordance appare solo quando serve (vedi updateDashboard).
+      const now = new Date();
+      const already = VaultDAO.state.currentDate.getFullYear() === now.getFullYear() && VaultDAO.state.currentDate.getMonth() === now.getMonth();
+      if (!already) {
+        VaultDAO.state.currentDate = now;
+        haptic('medium');
+        try { AudioSynth.play('success'); } catch (_) {}
+        renderDashboard();
+        showToast('Tornato a oggi.', 'success');
+      }
     } else if (a === 'toggle-theme') {
       VaultDAO.state.themeDark = !VaultDAO.state.themeDark;
       document.documentElement.classList.toggle('dark', VaultDAO.state.themeDark);
