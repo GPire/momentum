@@ -116,6 +116,7 @@ const VaultDAO = {
     // dallo spread di init() senza migrazione. Se in futuro uno di questi
     // cambia STRUTTURA (non solo si aggiunge), serve una entry in MIGRATIONS.
     engagement: { lastActiveDay: null, streak: 0, bestStreak: 0 },
+    achievements: {}, // { id: isoDate } — traguardi sbloccati (Wave 3 v10, additivo)
     savingsGoals: [],
     // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
     // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,

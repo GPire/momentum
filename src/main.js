@@ -17,6 +17,7 @@ import { taxSetAsideForPeriod } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
+import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
@@ -529,6 +530,7 @@ const attachFormListeners = (container) => {
     }
     showToast("Transazione salvata nel Ledger.", "success");
     updateStreak();
+    evaluateAndCelebrateAchievements();
     closeModal();
     renderDashboard();
     renderAnalysis({ skipHeavyForecast: route === 'fast' });
@@ -584,6 +586,23 @@ function updateStreak() {
     const { changed, ...engagement } = next;
     VaultDAO.state.engagement = engagement;
     VaultDAO.save();
+  }
+}
+
+// Traguardi (src/predict/achievements.js): riconoscimento onesto dei fatti
+// misurati. Celebra i NUOVI sblocchi (toast + haptic + suono), idempotente:
+// mai due volte lo stesso. Chiamato dopo ogni transazione/import.
+function evaluateAndCelebrateAchievements() {
+  const stats = computeStats(VaultDAO.state, new Date());
+  const { unlocked, newly } = evaluateAchievements(VaultDAO.state.achievements || {}, stats);
+  if (newly.length) {
+    VaultDAO.state.achievements = unlocked;
+    VaultDAO.save();
+    for (const id of newly) {
+      const a = ACHIEVEMENTS.find(x => x.id === id);
+      if (a) showToast(`${a.icon} Traguardo sbloccato: ${a.name}!`, 'success');
+    }
+    try { haptic('heavy'); AudioSynth.play('success'); } catch (_) {}
   }
 }
 
@@ -1443,6 +1462,23 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     `;
   }
 
+  // "Prossimo traguardo" (src/predict/achievements.js): dopamina anticipatoria
+  // alla Streaks — mostra QUANTO manca al prossimo traguardo misurabile, con
+  // barra. Appare solo se c'è un progressivo in corso e già avviato (>15%).
+  const stats = computeStats(VaultDAO.state, realNow);
+  const nm = nextMilestone(VaultDAO.state.achievements || {}, stats);
+  const unlockedCount = Object.keys(VaultDAO.state.achievements || {}).length;
+  if (nm && nm.pct >= 0.15) {
+    const pct = Math.round(nm.pct * 100);
+    alertsBox.innerHTML += `
+      <div class="card p-4 border border-amber-500/20 bg-amber-950/5">
+        <h4 class="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">Prossimo traguardo</h4>
+        <div class="text-xs text-slate-300">${nm.icon} <b>${nm.name}</b> — sei a ${nm.current}/${nm.target}${unlockedCount ? ` · ${unlockedCount} traguardi sbloccati` : ''}.</div>
+        <div class="mt-2 h-1.5 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full bg-[var(--gold)]" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }
+
   // Proposta zero-input: abbonamenti rilevati nei dati ma non registrati.
   // Un tap li registra — e da lì migliorano anche il forecast (oracle.js
   // usa state.subscriptions in gatherSeries), non è cosmetica.
@@ -2264,6 +2300,7 @@ const initApp = () => {
     if (elFile) elFile.textContent = `${res.files} file · CSV ${bt.csv} · PDF ${bt.pdf} · foto ${bt.image}${res.errors.length ? ` · ${res.errors.length} saltati` : ''}`;
     if (elCount) elCount.textContent = res.learned?.length ? `L'AI sta imparando da ${res.learned.length} operazioni…` : '';
     elClose?.classList.remove('hidden');
+    if (res.added > 0) evaluateAndCelebrateAchievements(); // traguardi 50/500 tx scattano qui
     if (res.errors.length) console.warn('Import — file con problemi:', res.errors);
   };
   const multiIn = $('#multi-upload'); if (multiIn) multiIn.addEventListener('change', e => runMulti(e.target.files, multiIn));
@@ -2332,6 +2369,14 @@ const initApp = () => {
     $('#app-core').classList.remove('hidden');
     $('#app-core').style.opacity = '1';
     updateStreak(); // prima di bootUI, così il badge nasce già aggiornato
+    // Riconoscimento silenzioso al boot dei traguardi già GUADAGNATI da un
+    // utente esistente (niente pioggia di toast per lo storico): la
+    // celebrazione col toast resta solo per i NUOVI sblocchi da qui in poi.
+    {
+      const bootStats = computeStats(VaultDAO.state, new Date());
+      const { unlocked, newly } = evaluateAchievements(VaultDAO.state.achievements || {}, bootStats);
+      if (newly.length) { VaultDAO.state.achievements = unlocked; VaultDAO.save(); }
+    }
     bootUI();
     consumeSharedImage(); // screenshot condiviso via share target (Android)
   } else {
