@@ -29,7 +29,7 @@ motori CORE esistenti (NeuroSym/Momentum Core/DCGN/mesh), poi le feature perifer
 **Ogni wave verificata end-to-end in Chrome con dati reali**, non solo unit test — i bug
 veri emergono solo lì (2 bug reali trovati e corretti così questa sessione).
 
-Ordine eseguito: Wave 0 → 1 → 13 → 12 → 14 (+Granger) → 15. Da 468 a 521 test, 8 commit puliti.
+Ordine eseguito: Wave 0 → 1 → 13 → 12 → 14 (+Granger) → 15 → 6. Da 468 a 530 test, 10 commit puliti.
 
 - **Wave 0**: chiuso il batch appeso di sessione precedente (Net Worth+Monte Carlo,
   sources.js W17, mesh prezzi P2P, modulo bandit). **Bug reale corretto**: chat.js
@@ -72,12 +72,34 @@ digest di affidabilità invece di blockchain PoA). Dettagli in MANIFESTO_v10.md.
 Ricerca reale su Google Finance (uscito da beta 25/6/2026): risposta nel manifesto,
 Deep Search esplicitamente [Rifiutato] (richiederebbe LLM cloud).
 
-**RESTA nel piano** (16 wave totali, task tracciate solo per le prime 6 core): Wave 2
-(NLU quick-add testuale), 3 (achievements/badge onesti), 4 (onboarding valore-immediato
-+ FAQ), 5 (simulatore utenti sintetici per validare retention), 6 (training gate
-regressioni), 8 (splitting P2P alla Splitwise), 9 (envelopes/round-up/PAC/runway 90gg),
-10 (strategy scorecard investitori), 11 (bench vs-LLM aggiornato), 7 (sync bulletproof
-E2E cifrato, rischio alto — richiede 2 device fisici, per ultima).
+**Wave 6 chiusa** (dopo la 15, "occupatene tu" del proprietario su training più
+avanzato): `src/ai/train/model-gate.js` (evalReport+compareModels, blocca un
+retrain che migliora la media ma fa crollare una categoria) + `bench/model-
+regression.mjs` ("npm run train:gate"). Verificato con DUE run reali: training
+legittimo → pass bit-identico (pesi invariati, solo metadati); modello
+sabotato (1 epoca) → 99.26%→14.81%, gate BLOCCA correttamente. 530 test verdi.
+
+Verificati altri 2 blueprint esterni incollati dall'utente nella stessa sessione:
+1° con claim FALSI sullo stato attuale (Consacra/Voice/Chatbot "non funzionanti",
+"342 test", import "1 valore su 2000") — tutti contraddetti da grep+git log+
+osservazione live (Consacra ha un fix dedicato commentato, Voice ha un bottone
+reale cablato, Chatbot ha una card reale, import verificato E2E 1777/1846 righe
+nel commit 74d521b). 2° con tech nuove (CSHT/Kimi K3/Jalapeño/Bonsai 27B) tutte
+reali (WebSearch) — CSHT confermato essere letteralmente basato su Granger
+causality (stessa tecnica già shippata in Wave 14: la scelta era quella giusta).
+Bonsai 27B come "motore di ragionamento" esplicitamente [Rifiutato]: non solo
+scala, è DIPENDENZA da pesi di terzi (PrismML/Alibaba) al centro del "cervello"
+— contraddice la tesi stessa del progetto (costellazione piccola e proprietaria).
+"Sharpe 1.8+/rendimento 18%+ annuo" come benchmark target: fermato esplicitamente
+— è una promessa di rendimento, non un problema di scala tecnologica.
+
+**RESTA nel piano** (16 wave totali): Wave 2 (NLU quick-add testuale), 3
+(achievements/badge onesti), 4 (onboarding valore-immediato + FAQ), 5 (simulatore
+utenti sintetici per validare retention), 8 (splitting P2P alla Splitwise), 9
+(envelopes/round-up/PAC/runway 90gg), 10 (strategy scorecard investitori — 7-8
+investitori già referenziati ma da approfondire con quality/carry/concentration/
+mean-reversion + motivazione testuale), 11 (bench vs-LLM aggiornato), 7 (sync
+bulletproof E2E cifrato, rischio alto — richiede 2 device fisici, per ultima).
 
 ---
 
