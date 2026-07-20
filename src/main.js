@@ -1424,7 +1424,7 @@ function getInvoiceFormHTML() {
     <div id="inv-preview" class="card p-3 text-xs text-slate-300 hidden"></div>
     <div class="flex gap-2 mt-1">
       <button id="inv-generate" class="btn-action flex-1 py-3 font-bold rounded-xl">Genera e stampa</button>
-      <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">✉️ Email al cliente</button>
+      <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">✉️ Invia con allegato</button>
     </div>
     <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Documento generato on-device. Non è fattura elettronica SdI: per l'invio ufficiale usa il tuo gestionale/commercialista.</p>
   </div>`;
@@ -1479,9 +1479,19 @@ window.openCreateInvoice = (prefillClient) => {
   // Crea+salva la fattura (riusata da "Genera e stampa" e "Email al cliente").
   // Ritorna { inv, meta, clientEmail } o null se dati mancanti.
   const buildAndSave = () => {
+    // CONTROLLI DI COMPLETEZZA (feedback utente): una fattura senza questi dati
+    // non è valida. Messaggi chiari, focus sul campo mancante, sezione dati
+    // aperta se serve — comprensibile a tutti.
     const client = clientEl.value.trim();
     const imp = parseFloat(String(amountEl.value).replace(',', '.'));
-    if (!client || !(imp > 0)) { showToast('Inserisci cliente e importo.', 'error'); return null; }
+    const emitter = ($('#inv-emitter').value || '').trim();
+    if (!emitter) {
+      const det = document.querySelector('#modal-body details'); if (det) det.open = true;
+      $('#inv-emitter').focus();
+      showToast('Aggiungi il tuo nome / P.IVA (serve per una fattura valida).', 'error'); return null;
+    }
+    if (!client) { clientEl.focus(); showToast('Inserisci il nome del cliente.', 'error'); return null; }
+    if (!(imp > 0)) { amountEl.focus(); showToast('Inserisci un importo valido.', 'error'); return null; }
     VaultDAO.state.invoiceProfile = {
       emitter: ($('#inv-emitter').value || '').trim(),
       emitterInfo: ($('#inv-emitterinfo').value || '').trim(),
@@ -1512,16 +1522,31 @@ window.openCreateInvoice = (prefillClient) => {
     renderAnalysis();
   });
 
-  // ✉️ Email al cliente: apre il client email GIÀ COMPILATO (destinatario,
-  // oggetto, corpo predittivo con gli importi reali). L'allegato PDF si aggiunge
-  // a mano (mailto non supporta allegati) — lo diciamo con onestà.
-  $('#inv-email-send').addEventListener('click', () => {
+  // ✉️ Invia al cliente CON LA FATTURA ALLEGATA: usa la Web Share API
+  // (navigator.share con file) → il foglio di condivisione (email/WhatsApp...)
+  // allega davvero il documento. Dove non supportata (molti desktop), fallback
+  // a mailto (email già scritta) + apertura del documento per salvare il PDF.
+  $('#inv-email-send').addEventListener('click', async () => {
     const res = buildAndSave();
     if (!res) return;
     const email = buildInvoiceEmail({ inv: res.inv, meta: res.meta, clientEmail: res.clientEmail });
+    const html = renderInvoiceHTML(res.inv, res.meta);
+    const file = new File([html], `Fattura_${res.number}_${res.year}.html`, { type: 'text/html' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: email.subject, text: email.body });
+        closeModal(); showToast('Condivisione aperta con la fattura allegata.', 'success'); renderAnalysis(); return;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return; /* utente ha annullato */ }
+    // Fallback universale (desktop senza Web Share): SCARICO il file fattura
+    // (così è già pronto da allegare, semplice per tutti) e apro l'email già
+    // scritta. Zero passaggi oscuri.
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
     window.location.href = email.mailto;
     closeModal();
-    showToast('Email aperta e già scritta: allega il PDF e invia.', 'success');
+    showToast('Fattura scaricata: allegala all\'email che si è aperta.', 'success');
     renderAnalysis();
   });
 
