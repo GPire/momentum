@@ -16,6 +16,7 @@ import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js
 import { taxSetAsideForPeriod } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
+import { inferLifestyle } from './predict/lifestyle.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
@@ -1407,6 +1408,22 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
           ${recap.topCategory ? `<div>Quasi tutto in <b>${getCatById(recap.topCategory.id).name}</b> (${formatMoney(recap.topCategory.amount)}).</div>` : ''}
           ${savedTxt}
         </div>
+      </div>
+    `;
+  }
+
+  // "La tua vita questo mese" (src/predict/lifestyle.js): legge il COMPORTAMENTO
+  // dietro le spese confrontandolo con la norma personale — cosa che nessuna
+  // app di budgeting fa. Solo pattern misurati con evidenza, mai un giudizio;
+  // appare solo con abbastanza storia (baseline ≥1 mese) e pattern robusti.
+  const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
+  if (life.patterns.length) {
+    const items = life.patterns.slice(0, 3).map(p =>
+      `<div><b class="text-fuchsia-300">${p.label}.</b> ${p.evidence}</div>`).join('');
+    alertsBox.innerHTML += `
+      <div class="card p-4 border border-fuchsia-500/20 bg-fuchsia-950/5">
+        <h4 class="text-[10px] font-bold text-fuchsia-400 uppercase tracking-widest mb-2">La tua vita questo mese</h4>
+        <div class="text-xs text-slate-300 space-y-1">${items}</div>
       </div>
     `;
   }
