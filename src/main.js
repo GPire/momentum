@@ -1351,6 +1351,16 @@ function renderTax(monthK) {
         </div>`).join('');
       html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} entrat${r.uncertainCount > 1 ? 'e' : 'a'} da confermare</div><div class="text-xs text-slate-300">${rows}</div></div>`;
     }
+    // ── PROMEMORIA PROATTIVO: fatture ricorrenti (mensili) di questo mese non
+    // ancora emesse. Predittivo + automatico, MAI auto-invia: un tap apre il
+    // form già compilato per quel cliente. ──
+    const dovute = detectRecurringClients(VaultDAO.state.invoices || [], new Date()).filter(c => c.dueThisMonth).slice(0, 3);
+    for (const c of dovute) {
+      html += `<div class="flex items-center justify-between gap-2 mt-2 text-xs text-amber-200 bg-amber-950/10 border border-amber-500/20 rounded-xl px-3 py-2">
+        <span class="min-w-0">🔁 Fattura ${c.cadence || ''} per <b>${c.client}</b>${c.typicalAmount ? ` (~${Math.round(c.typicalAmount)}€)` : ''}: non ancora fatta questo mese.</span>
+        <button onclick='window.openCreateInvoice(${JSON.stringify(c.client)})' class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Crea</button>
+      </div>`;
+    }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
     html += `<button onclick="window.openCreateInvoice()" class="btn-action w-full py-2.5 font-bold rounded-xl mt-3 text-sm">＋ Crea fattura</button>`;
     extraEl.innerHTML = html;
@@ -1416,7 +1426,7 @@ function getInvoiceFormHTML() {
   </div>`;
 }
 
-window.openCreateInvoice = () => {
+window.openCreateInvoice = (prefillClient) => {
   openModal(getInvoiceFormHTML());
   const clientEl = $('#inv-client'), amountEl = $('#inv-amount'), descEl = $('#inv-desc'), regimeEl = $('#inv-regime'), prevEl = $('#inv-preview');
   const eur = (n) => `${(+n).toFixed(2).replace('.', ',')} €`;
@@ -1507,6 +1517,20 @@ window.openCreateInvoice = () => {
     showToast('Email aperta e già scritta: allega il PDF e invia.', 'success');
     renderAnalysis();
   });
+
+  // Pre-selezione da promemoria proattivo: apre il form già compilato per il
+  // cliente ricorrente della fattura mensile da fare (un tap dall'avviso).
+  if (prefillClient) {
+    const c = recurring.find(x => x.client === prefillClient) || suggestFromHistory(VaultDAO.state.invoices || [], prefillClient);
+    if (c) {
+      clientEl.value = c.client;
+      if (c.typicalAmount || c.suggestedImponibile) amountEl.value = c.typicalAmount || c.suggestedImponibile;
+      if (c.lastDescription) descEl.value = c.lastDescription;
+      if (c.lastEmail) emailEl.value = c.lastEmail;
+      if (c.lastRegime && regimeEl.querySelector(`option[value="${c.lastRegime}"]`)) regimeEl.value = c.lastRegime;
+      refresh();
+    }
+  }
 };
 // Auto-apprendimento fiscale: la conferma dell'utente insegna a Momentum come
 // classificare quel mittente d'ora in poi (integrato nel loop di apprendimento).
