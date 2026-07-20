@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { rulesForYear, TAX_RULES, TAX_RULES_VERSION } = await import('./tax-rules.js');
+const { rulesForYear, validateRulesPayload, fetchRulesUpdate, TAX_RULES, TAX_RULES_VERSION } = await import('./tax-rules.js');
 const { taxAdvice } = await import('./tax.js');
 
 test('rulesForYear: applica il tetto forfettario dell\'anno giusto', () => {
@@ -65,4 +65,54 @@ test('taxAdvice: consigli ordinati per priorità (high prima)', () => {
     const rank = { high: 0, medium: 1, info: 2 };
     assert.ok(rank[advice[i - 1].priority] <= rank[advice[i].priority]);
   }
+});
+
+// ---- Auto-aggiornamento dati (senza aggiornare l'app) ----
+
+test('validateRulesPayload: accetta un payload valido e plausibile', () => {
+  const ok = validateRulesPayload({ version: '2027-01', rules: { 2027: { forfettarioCeiling: 90000, impostaStd: 0.15, impostaStartup: 0.05, startupAnni: 5, inpsGestioneSeparata: 0.2607 } } });
+  assert.equal(ok.ok, true);
+});
+
+test('validateRulesPayload: RIFIUTA valori implausibili (anti-veleno)', () => {
+  assert.equal(validateRulesPayload({ version: '2027-01', rules: { 2027: { forfettarioCeiling: 5000000, impostaStd: 0.15, impostaStartup: 0.05, inpsGestioneSeparata: 0.26 } } }).ok, false);
+  assert.equal(validateRulesPayload({ version: '2027-01', rules: { 2027: { forfettarioCeiling: 85000, impostaStd: 0.9, impostaStartup: 0.05, inpsGestioneSeparata: 0.26 } } }).ok, false);
+  assert.equal(validateRulesPayload({ version: 'x', rules: {} }).ok, false);
+  assert.equal(validateRulesPayload(null).ok, false);
+});
+
+test('fetchRulesUpdate: senza fonte configurata → nessun aggiornamento, fallback sicuro', async () => {
+  const r = await fetchRulesUpdate({});
+  assert.equal(r.updated, false);
+  assert.ok(/regole incluse/.test(r.reason));
+});
+
+test('fetchRulesUpdate: adotta SOLO se più recente e valido', async () => {
+  const payload = { version: '2027-01', rules: { 2027: { forfettarioCeiling: 90000, impostaStd: 0.15, impostaStartup: 0.05, startupAnni: 5, inpsGestioneSeparata: 0.2607 } } };
+  const fetchImpl = async () => ({ ok: true, json: async () => payload });
+  const r = await fetchRulesUpdate({ url: 'https://fonte.fidata/tax.json', fetchImpl, currentVersion: '2026-07' });
+  assert.equal(r.updated, true);
+  assert.equal(r.version, '2027-01');
+  // e le nuove regole si applicano davvero
+  assert.equal(rulesForYear(2027, r).forfettarioCeiling, 90000);
+});
+
+test('fetchRulesUpdate: versione NON più recente → non aggiorna', async () => {
+  const payload = { version: '2025-01', rules: { 2025: { forfettarioCeiling: 85000, impostaStd: 0.15, impostaStartup: 0.05, inpsGestioneSeparata: 0.26 } } };
+  const r = await fetchRulesUpdate({ url: 'x', fetchImpl: async () => ({ ok: true, json: async () => payload }), currentVersion: '2026-07' });
+  assert.equal(r.updated, false);
+  assert.ok(/già aggiornate/.test(r.reason));
+});
+
+test('fetchRulesUpdate: payload avvelenato → RIFIUTATO, non rompe i calcoli', async () => {
+  const payload = { version: '2099-01', rules: { 2099: { forfettarioCeiling: -1, impostaStd: 2, impostaStartup: 5, inpsGestioneSeparata: 99 } } };
+  const r = await fetchRulesUpdate({ url: 'x', fetchImpl: async () => ({ ok: true, json: async () => payload }), currentVersion: '2026-07' });
+  assert.equal(r.updated, false);
+  assert.ok(/anti-veleno/.test(r.reason));
+});
+
+test('fetchRulesUpdate: rete che fallisce → fallback sicuro sulle regole incluse', async () => {
+  const r = await fetchRulesUpdate({ url: 'x', fetchImpl: async () => { throw new Error('offline'); }, currentVersion: '2026-07' });
+  assert.equal(r.updated, false);
+  assert.ok(/resto sulle regole incluse/.test(r.reason));
 });
