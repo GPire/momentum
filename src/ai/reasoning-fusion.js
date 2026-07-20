@@ -17,6 +17,7 @@
 'use strict';
 
 import { simulateCategoryChange } from '../predict/what-if.js';
+import { buildCausalGraph, pruneNonCausal } from '../predict/causal-graph.js';
 import { projectNetWorthByStrategy } from '../alpha/net-worth.js';
 
 // Combina la confidenza di più layer ETEROGENEI (analisi INDIPENDENTI che si
@@ -53,7 +54,12 @@ export function crossDomainWhatIf({ allTx, category, deltaPct, referenceDate = n
   const layers = [];
   let whatIf = null;
   try {
-    whatIf = simulateCategoryChange({ allTx, catId: category, deltaPct, referenceDate });
+    // Wave 14 (src/predict/causal-graph.js): il grafo passa dall'euristica di
+    // precedenza (pruneNonCausal) prima di propagare l'impatto — quando A→B e
+    // B→A (stesso lag) risultano entrambi sopra soglia, si tiene solo la
+    // direzione più forte invece di trattarle come due fatti indipendenti.
+    const links = pruneNonCausal(buildCausalGraph(allTx, referenceDate));
+    whatIf = simulateCategoryChange({ allTx, catId: category, deltaPct, referenceDate, links });
   } catch (_) { whatIf = null; }
   // confidence del layer causale: 0 se nessuno storico, altrimenti proporzionale
   // al numero di effetti a catena robusti trovati (più segnali = più fiducia),

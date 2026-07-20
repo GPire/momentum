@@ -133,6 +133,30 @@ Risposta COSTRUIBILE (non insegue Deep Search, la respinge esplicitamente come
   potente per Momentum resta Lab 8 (sources.js, fonti strutturate whitelist FRED/ECB con
   cross-check) — dati certi, non sintesi di news, mai spacciata per "ricerca AI".
 
+## Verifica di un blueprint esterno (2026-07-20): tecnologie reali, scala sbagliata
+
+Un documento incollato dall'utente citava TCGformer/FinSecure-FL/NanoQuant/UltraSketchLLM/
+PrismML come "conferma della direzione". Verificato via WebSearch (regola n.1: mai un
+claim tecnico non controllato): sono TUTTE reali (paper ICML/arXiv 2026, notizia Apple-
+PrismML luglio 2026 confermata da piu' fonti) — a differenza dei blueprint "SLLMv2" del
+passato, qui la ricerca era vera. Il problema non e' la fabbricazione, e' la SCALA:
+- NanoQuant/UltraSketchLLM: comprimono LLM da 70B parametri (54GB->4GB) via ADMM su GPU
+  H100. I modelli di Momentum sono gia' minuscoli (KB). Importare quella macchina per
+  comprimere un MLP che pesa gia' pochi KB sarebbe facciata pura. [Rifiutato come
+  trapianto 1:1] — resta il roadmap INT4/INT8 gia' dichiarato (V9.3), chiamato col suo nome.
+- TCGformer: Transformer gerarchico + GNN addestrato su dataset istituzionali, richiede
+  training pesante — non gira on-device. MA il suo primo stadio (Variable-lag Granger
+  Causality) e' statistica leggera, buildable in JS senza GPU. [Costruibile ora, scalato]:
+  upgrade di src/predict/causal-graph.js da correlazione di Pearson ritardata a un vero
+  test di Granger (regressione VAR + F-test) — naturale prosieguo di Wave 14/pruneNonCausal.
+- FinSecure-FL: blockchain Proof-of-Authority multi-istituzionale, conformita' MiFID
+  II/SEC per BANCHE. Momentum non ha bisogno di conformita' regolatoria bancaria — la
+  mesh e' P2P tra i device di UN utente o pochi peer opt-in. La parte utile (DP-noise sui
+  delta, ledger tamper-evident, aggregazione pesata per reputazione) esiste gia' in forma
+  scalata correttamente in src/mesh/update-ledger.js + Lab 1/Wave 15 del piano.
+- Proiezioni di business (2 mld/anno 4, "perche' Apple/Tesla/OpenAI ci vorranno"):
+  [Rifiutato] come sempre, mai dichiarate come fatto.
+
 ## Verita' di mercato: la retention e' il vero campo di battaglia (analisi 30 free + 34 paid)
 
 Le app di budgeting hanno retention disastroso: la maggioranza abbandonata in 3-4

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain } = await import('./causal-graph.js');
+const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain, pruneNonCausal } = await import('./causal-graph.js');
 
 const REF = new Date(2026, 6, 6); // lunedì 6 luglio 2026
 
@@ -110,4 +110,58 @@ test('explainChain: narrazione "se A allora B, e forse C" col caveat', () => {
   assert.ok(steps.length >= 1);
   assert.ok(/correlazione/i.test(text)); // caveat presente
   assert.ok(/Se A sale/i.test(text));
+});
+
+// ---- pruneNonCausal (Wave 14 v10): euristica di precedenza ----
+
+test('pruneNonCausal: archi simmetrici (lagWeeks=0) passano invariati', () => {
+  const links = [{ from: 'A', to: 'B', lagWeeks: 0, r: 0.8, samples: 20, direction: 'insieme' }];
+  const out = pruneNonCausal(links);
+  assert.deepEqual(out, links);
+});
+
+test('pruneNonCausal: quando entrambe le direzioni (stesso lag) superano la soglia, tiene solo la più forte', () => {
+  const links = [
+    { from: 'A', to: 'B', lagWeeks: 1, r: 0.55, samples: 20, direction: 'settimana dopo' },
+    { from: 'B', to: 'A', lagWeeks: 1, r: 0.82, samples: 20, direction: 'settimana dopo' },
+  ];
+  const out = pruneNonCausal(links);
+  assert.equal(out.length, 1, 'una sola direzione deve sopravvivere');
+  assert.equal(out[0].from, 'B');
+  assert.equal(out[0].to, 'A');
+});
+
+test('pruneNonCausal: una sola direzione osservata resta intatta (nessuna ambiguità da risolvere)', () => {
+  const links = [{ from: 'A', to: 'B', lagWeeks: 1, r: 0.6, samples: 20, direction: 'settimana dopo' }];
+  const out = pruneNonCausal(links);
+  assert.deepEqual(out, links);
+});
+
+test('pruneNonCausal: coppie/lag diversi restano indipendenti (nessuna contaminazione tra lag)', () => {
+  const links = [
+    { from: 'A', to: 'B', lagWeeks: 1, r: 0.6, samples: 20, direction: 'settimana dopo' },
+    { from: 'B', to: 'A', lagWeeks: 2, r: 0.7, samples: 18, direction: 'dopo 2 settimane' },
+  ];
+  const out = pruneNonCausal(links);
+  assert.equal(out.length, 2, 'lag diversi non sono la stessa ambiguità, entrambi restano');
+});
+
+test('pruneNonCausal: input vuoto non esplode', () => {
+  assert.deepEqual(pruneNonCausal([]), []);
+  assert.deepEqual(pruneNonCausal(undefined), []);
+});
+
+test('pruneNonCausal: propagateImpact su un grafo pulito non produce piu\' rumore del grafo grezzo', () => {
+  const raw = [
+    { from: 'Ristorante', to: 'Trasporti', lagWeeks: 1, r: 0.55, samples: 20, direction: 'settimana dopo' },
+    { from: 'Trasporti', to: 'Ristorante', lagWeeks: 1, r: 0.85, samples: 20, direction: 'settimana dopo' },
+  ];
+  const cleaned = pruneNonCausal(raw);
+  const rawEffects = propagateImpact(raw, 'Trasporti', 20);
+  const cleanEffects = propagateImpact(cleaned, 'Trasporti', 20);
+  // sul grafo grezzo il link debole Ristorante→Trasporti non tocca 'Trasporti' come from,
+  // quindi qui la differenza pratica si vede quando si parte da 'Ristorante':
+  const rawFromRist = propagateImpact(raw, 'Ristorante', 20);
+  const cleanFromRist = propagateImpact(cleaned, 'Ristorante', 20);
+  assert.ok(cleanFromRist.length <= rawFromRist.length, 'il grafo pulito non deve produrre più effetti del grezzo');
 });

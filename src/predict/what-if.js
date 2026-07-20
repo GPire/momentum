@@ -23,7 +23,10 @@ function monthlyAvgByCategory(allTx, referenceDate, months = 3) {
   return avg;
 }
 
-export function simulateCategoryChange({ allTx, catId, deltaPct, referenceDate = new Date() }) {
+// `links` opzionale: se il chiamante ha già un grafo (es. depurato dalla
+// precedenza causale via pruneNonCausal, Wave 14) lo riusa invece di
+// ricalcolare quello grezzo — retrocompatibile, default invariato.
+export function simulateCategoryChange({ allTx, catId, deltaPct, referenceDate = new Date(), links: linksOverride } = {}) {
   const avg = monthlyAvgByCategory(allTx, referenceDate);
   const catAvg = avg[catId] || 0;
   if (catAvg === 0) return null; // nessuna storia recente: simulare sarebbe inventare
@@ -32,7 +35,7 @@ export function simulateCategoryChange({ allTx, catId, deltaPct, referenceDate =
   // (deltaPct negativo = taglio = risparmio positivo)
   const directMonthly = +(-(catAvg * deltaPct / 100)).toFixed(2);
 
-  const links = buildCausalGraph(allTx, referenceDate);
+  const links = linksOverride || buildCausalGraph(allTx, referenceDate);
   const chainEffects = propagateImpact(links, catId, deltaPct)
     .filter(e => avg[e.category] > 0)
     .map(e => ({

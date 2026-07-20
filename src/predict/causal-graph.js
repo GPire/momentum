@@ -112,6 +112,34 @@ export function buildCausalGraph(allTx, referenceDate = new Date(), opts = {}) {
   return links.sort((x, y) => Math.abs(y.r) - Math.abs(x.r));
 }
 
+// ── Precedenza causale (Wave 14 v10): euristica di direzionalità, NON un
+// causal-discovery formale (PC-algorithm/NOTEARS sarebbero instabili e
+// costosi per client-side — dichiarato onestamente, è la differenza tra
+// Momentum onesto e la facciata "SLLMv2" già rifiutata in passato).
+//
+// buildCausalGraph scansiona OGNI coppia ordinata: per un dato lag L≥1 può
+// capitare che SIA A→B (A precede B di L settimane) SIA B→A (stesso lag,
+// direzione opposta) superino la soglia minR, ed entrano nel grafo come due
+// archi indipendenti. Quando succede è più probabile una causa comune terza
+// (es. entrambe salgono a dicembre) che una vera precedenza: propagateImpact
+// rischia di seguire la direzione più debole come se fosse altrettanto
+// fondata. Questa funzione tiene, per ogni coppia+lag, SOLO la direzione più
+// forte (|r| maggiore) — la più debole si scarta, non si tengono entrambe
+// come fatti indipendenti. Gli archi simmetrici (lagWeeks=0, "insieme") non
+// hanno ambiguità di direzione e passano invariati.
+export function pruneNonCausal(links = []) {
+  const byPairLag = new Map();
+  const symmetric = [];
+  for (const l of links) {
+    if (l.lagWeeks === 0) { symmetric.push(l); continue; }
+    const [x, y] = l.from < l.to ? [l.from, l.to] : [l.to, l.from];
+    const key = `${x}|${y}|${l.lagWeeks}`;
+    const existing = byPairLag.get(key);
+    if (!existing || Math.abs(l.r) > Math.abs(existing.r)) byPairLag.set(key, l);
+  }
+  return [...symmetric, ...byPairLag.values()].sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+}
+
 // Propagazione a catena ("tocco A → si muovono anche i vicini di A"):
 // attivazione che si diffonde nel grafo con smorzamento moltiplicativo
 // (effetto del secondo ordine = r1 × r2 × delta), profondità massima 2,
