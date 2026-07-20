@@ -13,7 +13,7 @@ import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
-import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, REGIMI } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1321,14 +1321,21 @@ function renderTax(monthK) {
 
   if (extraEl) {
     let html = '';
-    // ── PROIEZIONE ANNUALE PREDITTIVA + avviso tetto forfettario ──
+    // ── PROIEZIONE ANNUALE + CONSIGLI (come un commercialista, onesto) ──
     if (regime && everInvoice) {
       const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model: incomeModel });
       if (proj.invoicedYTD > 0) {
-        const ceil = proj.regimeSuggestion;
         html += `<div class="text-[11px] text-slate-300 border-t border-[var(--glass-border)] pt-2">📅 ${proj.note}</div>`;
-        if (ceil.overCeiling) html += `<div class="text-[11px] text-orange-300 mt-1">⚠️ ${ceil.reason}</div>`;
-        else if (ceil.pctOfCeiling >= 80) html += `<div class="text-[11px] text-orange-300 mt-1">⚠️ Sei al ${ceil.pctOfCeiling}% del tetto forfettario: occhio a non superarlo.</div>`;
+        // Consigli prioritizzati con neurocolori: high=ambra (attenzione),
+        // info positivo=verde (rinforzo). Regole dell'anno pertinente.
+        const { advice } = taxAdvice({
+          regime, annualizedRevenue: proj.annualizedRevenue, invoicedYTD: proj.invoicedYTD,
+          estimatedAnnualTax: proj.estimatedAnnualTax, year: new Date().getFullYear(),
+        });
+        for (const a of advice) {
+          const col = a.priority === 'high' ? 'text-orange-300' : a.priority === 'medium' ? 'text-amber-300' : 'text-emerald-300';
+          html += `<div class="text-[11px] ${col} mt-1">${a.icon} ${a.text}</div>`;
+        }
       }
     }
     // ── CONFERMA APPRESA: le entrate incerte diventano un tap "è una fattura?" ──

@@ -38,6 +38,44 @@ export const ATECO_COEFFICIENTI = {
 // e utile, non una previsione inventata.
 export const FORFETTARIO_CEILING = 85000;
 
+import { rulesForYear } from './tax-rules.js';
+
+// ── CONSIGLI FISCALI (come un commercialista, ma onesto) ──
+// Genera consigli PRIORITIZZATI dalla situazione REALE dell'utente, con le
+// regole dell'anno pertinente (tax-rules.js). Onestà (regola #1): suggerimenti
+// su regole pubbliche, MAI consulenza personalizzata — il disclaimer "verifica
+// col commercialista" resta sempre. input: { annualizedRevenue, invoicedYTD,
+// currentSetAside, estimatedAnnualTax, regime, startupYearsLeft, year }
+export function taxAdvice(input = {}) {
+  const year = input.year || new Date().getFullYear();
+  const rules = rulesForYear(year);
+  const advice = [];
+  const eur = (n) => `${Math.round(n).toLocaleString('it-IT')}€`;
+
+  if (input.regime && input.regime.startsWith('forfettario') && input.annualizedRevenue > 0) {
+    const pct = input.annualizedRevenue / rules.forfettarioCeiling;
+    if (pct > 1) advice.push({ priority: 'high', icon: '⚠️', text: `A questo ritmo superi il tetto forfettario (${eur(rules.forfettarioCeiling)}): preparati al passaggio all'ordinario, dove cambiano IVA e aliquote.` });
+    else if (pct >= 0.8) advice.push({ priority: 'medium', icon: '📊', text: `Sei al ${Math.round(pct * 100)}% del tetto forfettario (${eur(rules.forfettarioCeiling)}): tieni d'occhio il fatturato per non superarlo senza accorgertene.` });
+  }
+
+  if (input.estimatedAnnualTax > 0 && input.currentSetAside != null && input.annualizedRevenue > 0) {
+    const dovutoOra = input.estimatedAnnualTax * Math.min(1, (input.invoicedYTD || 0) / input.annualizedRevenue);
+    if (input.currentSetAside < dovutoOra * 0.9) {
+      advice.push({ priority: 'high', icon: '🏦', text: `Per le tasse dovresti aver messo da parte ~${eur(dovutoOra)}: ne hai ${eur(input.currentSetAside)}. Accantona la differenza ora per non trovarti scoperto a fine anno.` });
+    } else if (input.currentSetAside >= dovutoOra) {
+      advice.push({ priority: 'info', icon: '✅', text: `Sei in pari con l'accantonamento tasse (~${eur(input.currentSetAside)}): ottimo, continua così.` });
+    }
+  }
+
+  if (input.regime === 'forfettario_startup' && input.startupYearsLeft > 0) {
+    advice.push({ priority: 'info', icon: '🚀', text: `Sei sull'aliquota startup al ${(rules.impostaStartup * 100).toFixed(0)}% (ti restano ~${input.startupYearsLeft} anni): dal termine sale al ${(rules.impostaStd * 100).toFixed(0)}%, mettine un po' di più da parte in vista di quel salto.` });
+  }
+
+  const rank = { high: 0, medium: 1, info: 2 };
+  advice.sort((a, b) => rank[a.priority] - rank[b.priority]);
+  return { advice, rulesYear: rules.year };
+}
+
 // Quanto accantonare da UN incasso lordo. Ritorna la scomposizione completa
 // e tracciabile (mai un numero orfano).
 // `amount` = importo incassato (imponibile per forfettario; per ordinario si
