@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 const {
   initBandit, banditContext, banditObserve, armMean,
   makeRng, thompsonScore, rankNudges,
+  phaseOfMonth, dailySeed, makeImpressions, settleImpressions, mergePendingSameDay,
 } = await import('./advisor-bandit.js');
 
 const CTX = banditContext({ overBudget: false, phase: 'mid' });
@@ -83,4 +84,71 @@ test('Thompson e\' equo senza dati: nessun braccio domina (esplorazione uniforme
   }
   const frac = aWins / N;
   assert.ok(frac > 0.4 && frac < 0.6, `atteso ~0.5, avuto ${frac}`);
+});
+
+test('phaseOfMonth: confini early/mid/late', () => {
+  assert.equal(phaseOfMonth(new Date(2026, 6, 1)), 'early');
+  assert.equal(phaseOfMonth(new Date(2026, 6, 10)), 'early');
+  assert.equal(phaseOfMonth(new Date(2026, 6, 11)), 'mid');
+  assert.equal(phaseOfMonth(new Date(2026, 6, 20)), 'mid');
+  assert.equal(phaseOfMonth(new Date(2026, 6, 21)), 'late');
+  assert.equal(phaseOfMonth(new Date(2026, 6, 31)), 'late');
+});
+
+test('dailySeed: stabile nello stesso giorno, diverso tra giorni', () => {
+  const a = dailySeed(new Date(2026, 6, 20, 9, 0));
+  const b = dailySeed(new Date(2026, 6, 20, 23, 59));
+  const c = dailySeed(new Date(2026, 6, 21, 0, 0));
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+});
+
+test('settleImpressions: flush a reward 0 dei non-agiti al cambio giorno', () => {
+  let s = initBandit();
+  const pending = makeImpressions({ dayKey: '2026-07-19', context: CTX, kinds: ['sweep', 'month-end'] });
+  pending.acted.push('sweep'); // sweep e' stato toccato ieri, month-end no
+  const r = settleImpressions(s, pending, '2026-07-20');
+  assert.equal(r.pending, null);
+  assert.equal(armMean(r.state, { context: CTX, kind: 'sweep' }), 0.5); // agito: reward gia' dato al tap (altrove), settle non lo tocca -> resta al prior in questo test isolato
+  assert.ok(armMean(r.state, { context: CTX, kind: 'month-end' }) < 0.5); // ignorato tutto il giorno -> reward 0
+});
+
+test('settleImpressions: no-op nello stesso giorno', () => {
+  const s = initBandit();
+  const pending = makeImpressions({ dayKey: '2026-07-20', context: CTX, kinds: ['sweep'] });
+  const r = settleImpressions(s, pending, '2026-07-20');
+  assert.equal(r.pending, pending);
+  assert.equal(r.state, s);
+});
+
+test('settleImpressions: idempotente su pending null', () => {
+  const s = initBandit();
+  const r = settleImpressions(s, null, '2026-07-20');
+  assert.equal(r.pending, null);
+  assert.equal(r.state, s);
+});
+
+// Bug reale trovato verificando in browser: renderAnalysis() gira più volte
+// nello stesso giorno (init, forecast worker, sync). mergePendingSameDay deve
+// PRESERVARE i tap già registrati tra un render e l'altro, non ripartire da acted:[].
+test('mergePendingSameDay: nessun pending -> ne crea uno nuovo', () => {
+  const p = mergePendingSameDay(null, '2026-07-20', CTX, ['sweep', 'month-end']);
+  assert.deepEqual(p, { dayKey: '2026-07-20', context: CTX, kinds: ['sweep', 'month-end'], acted: [] });
+});
+
+test('mergePendingSameDay: pending di ieri -> ricreato da zero (non unito)', () => {
+  const yesterday = makeImpressions({ dayKey: '2026-07-19', context: CTX, kinds: ['sweep'] });
+  const p = mergePendingSameDay(yesterday, '2026-07-20', CTX, ['month-end']);
+  assert.equal(p.dayKey, '2026-07-20');
+  assert.deepEqual(p.kinds, ['month-end']);
+  assert.deepEqual(p.acted, []);
+});
+
+test('mergePendingSameDay: stesso giorno -> preserva acted e unisce i kind (fix del bug reale)', () => {
+  const today = makeImpressions({ dayKey: '2026-07-20', context: CTX, kinds: ['sweep', 'month-end'] });
+  today.acted.push('sweep'); // l'utente ha toccato "sweep" tra un render e l'altro
+  // un secondo renderAnalysis() nello stesso giorno propone kind leggermente diversi
+  const p = mergePendingSameDay(today, '2026-07-20', CTX, ['month-end', 'price-hike']);
+  assert.deepEqual(p.acted, ['sweep']); // NON perso
+  assert.deepEqual([...p.kinds].sort(), ['month-end', 'price-hike', 'sweep']); // unione, no duplicati
 });

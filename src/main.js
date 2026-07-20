@@ -15,6 +15,7 @@ import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod } from './predict/tax.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
+import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
@@ -1339,7 +1340,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   // filtrato: ha già la sua card grande in dashboard, ripeterlo è rumore.
   const realNow = new Date();
   const staleness = budgetLimit > 0 ? isBudgetStale(budgetLimit, VaultDAO.state.transactions) : { stale: false };
-  const insights = getAdvisorInsights({
+  const rawInsights = getAdvisorInsights({
     allTx: VaultDAO.state.transactions,
     monthTxs: VaultDAO.state.transactions[monthKey(realNow)] || [],
     monthlyBudget: VaultDAO.state.monthlyBudget,
@@ -1350,13 +1351,31 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     lastSweepWeek: VaultDAO.state.lastSweepWeek || null,
   }).filter(i => i.kind !== 'safe-to-spend');
 
+  // ── Advisor bandit (Wave 1 v10, src/predict/advisor-bandit.js): impara
+  // per-contesto quale nudge fa AGIRE l'utente e lo mostra prima. Onesto e
+  // additivo: senza dati (bandit vuoto) l'ordine resta quello dell'advisor
+  // (rank per severity), zero effetto sul comportamento pre-esistente.
+  const todayKey = realNow.toISOString().slice(0, 10);
+  const settled = settleImpressions(VaultDAO.state.advisorBandit, VaultDAO.state.banditPending, todayKey);
+  VaultDAO.state.advisorBandit = settled.state;
+  VaultDAO.state.banditPending = settled.pending;
+  const banditCtx = banditContext({ overBudget: rawInsights.some(i => i.severity === 'danger'), phase: phaseOfMonth(realNow) });
+  const insights = rankNudges(rawInsights, VaultDAO.state.advisorBandit, { context: banditCtx, explore: true, rng: makeRng(dailySeed(realNow)) });
+  if (insights.length) {
+    // mergePendingSameDay (non makeImpressions diretto): renderAnalysis() viene
+    // chiamato più volte nello stesso giorno (forecast worker, sync, cambio
+    // vista) — sovrascrivere pending da zero perderebbe i tap già registrati.
+    VaultDAO.state.banditPending = mergePendingSameDay(VaultDAO.state.banditPending, todayKey, banditCtx, insights.map(i => i.kind));
+  }
+  VaultDAO.save();
+
   for (const ins of insights) {
     const style = SEVERITY_STYLE[ins.severity] || SEVERITY_STYLE.info;
     const itemsHtml = ins.items
       ? `<div class="space-y-1.5 text-xs text-slate-300 mt-1.5">${ins.items.map(h => `<div>${h.description}: ${formatMoney(h.previousAmount)} → <b>${formatMoney(h.newAmount)}</b> (+${h.increasePct}%)</div>`).join('')}</div>`
       : '';
     const actionHtml = ins.action
-      ? `<button onclick='window.${ins.action.handler || 'applyBudgetSuggestion'}(${JSON.stringify(ins.action.payload).replace(/'/g, "&#39;")})' class="text-[11px] font-bold ${style.text} underline mt-1.5">${ins.action.label}</button>`
+      ? `<button onclick='window.nudgeActed(${JSON.stringify(ins.kind)}, ${JSON.stringify(ins.action.handler || 'applyBudgetSuggestion')}, ${JSON.stringify(ins.action.payload).replace(/'/g, "&#39;")})' class="text-[11px] font-bold ${style.text} underline mt-1.5">${ins.action.label}</button>`
       : '';
     alertsBox.innerHTML += `
       <div class="card p-4 border ${style.border}">
@@ -1458,6 +1477,20 @@ window.exportTrainingData = () => {
   a.click();
   URL.revokeObjectURL(a.href);
   showToast(`${examples.length} esempi esportati per il riaddestramento.`, 'success');
+};
+
+// Punto d'ingresso UNICO dei tap sui nudge dell'advisor (Wave 1 v10): premia
+// il bandit (reward=1, il segnale onesto "l'utente ha agito") PRIMA di
+// eseguire l'azione reale, poi delega all'handler esistente invariato.
+window.nudgeActed = (kind, handlerName, payload) => {
+  const pending = VaultDAO.state.banditPending;
+  if (pending && pending.kinds.includes(kind) && !pending.acted.includes(kind)) {
+    VaultDAO.state.advisorBandit = banditObserve(VaultDAO.state.advisorBandit, { context: pending.context, kind, reward: 1 });
+    pending.acted.push(kind);
+    VaultDAO.save();
+  }
+  const handler = window[handlerName];
+  if (typeof handler === 'function') handler(payload);
 };
 
 // Sweep dell'avanzo settimanale: registra il trasferimento come investimento

@@ -90,6 +90,49 @@ piu' intelligenti collettivamente senza tradire la privacy.
 Tre pilastri (Lab 4 Twin, Lab 8 sources, Lab 9 mesh) sono gia' scritti e appesi nel batch
 non committato: renderli reali e' a un commit di distanza.
 
+## Risposta a Google Finance (uscito da beta il 25 giugno 2026 — fatti verificati via ricerca)
+
+Google Finance ha lanciato: portfolio tracking multi-fonte (screenshot/CSV/PDF/testo
+libero -> AI struttura), AI briefings programmabili in linguaggio naturale (consegnati
+come notifiche), un tool Research che interroga il portafoglio (allocazione settoriale,
+esposizione), Deep Search (Gemini, ricerche multiple simultanee con citazioni), nuova
+app Android, espansione a 100+ paesi. Fonti: blog.google (google-finance-updates-june-2026,
+new-google-finance-ai-deep-search), ppc.land, pymnts.com (luglio 2026).
+
+Analisi onesta (non hype): e' un tracker di PORTAFOGLIO potenziato da un LLM cloud
+(Gemini), non un motore di finanza personale. Tre limiti strutturali che Momentum sfrutta:
+1. CLOUD: il portafoglio caricato vive sui server Google; Deep Search e i briefing girano
+   su Gemini — nessun modo di offrirlo on-device (richiede web live + LLM enorme).
+2. SOLO INVESTIMENTI: non tocca mai le transazioni bancarie reali, nessuna vista
+   cashflow+investimenti unificata — esattamente il vuoto che il Net Worth Twin (Lab 4,
+   gia' in produzione) e NeuroSym.reason() (Wave 12) riempiono.
+3. Reattivo su richiesta: i "key moments" spiegano UN prezzo con news generiche, non
+   l'impatto sulla TUA situazione (fondo emergenza, budget, tasse) — cosa che nessun
+   tracker di portafoglio puo' fare senza vedere le tue spese.
+
+Lente di design per Wave 12: educazione finanziaria predittiva. Il vero gap del
+settore (nessuna app insegna mentre consiglia) diventa parte della RISPOSTA, non una
+feature separata: NeuroSym.reason() deve sempre citare IL PRINCIPIO insieme al numero
+("fondo d'emergenza prima: regola di Dalio sulla diversificazione dei rischi" non solo
+"puoi investire 200€"). Crescita personale e finanziaria come conseguenza naturale
+dell'usare l'app, non un modulo "corsi" a parte — coerente con Lab 10 (strategy
+scorecard, motivazione testuale citabile) gia' pianificato.
+
+Risposta COSTRUIBILE (non insegue Deep Search, la respinge esplicitamente come
+[Rifiutato]: richiederebbe LLM cloud + ricerca web, contro la regola on-device):
+- Wave 12 (NeuroSym.reason) diventa la risposta diretta ai "key moments": non "il prezzo
+  X e' sceso per la notizia Y" (news generiche) ma "il tuo ETF e' sceso del 3%: sul TUO
+  portafoglio significa Z€, il tuo fondo emergenza resta coperto, nessuna azione
+  necessaria" — personalizzato su dati che Google Finance non vede.
+- L'import portafoglio multi-fonte di Google (screenshot/CSV/PDF/testo) e' un pattern
+  BUONO da assorbire: Momentum lo fa gia' per le TRANSAZIONI (multi-import.js, OCR
+  screenshot) ma non ancora per l'IMPORT DI POSIZIONI portafoglio dedicato — gap onesto
+  da chiudere in una wave futura leggera (riuso di pdf-parser.js/OCR esistenti, stesso
+  pattern, on-device).
+- Deep Search/AI briefings su news generiche: [Rifiutato] esplicito. La versione reale e
+  potente per Momentum resta Lab 8 (sources.js, fonti strutturate whitelist FRED/ECB con
+  cross-check) — dati certi, non sintesi di news, mai spacciata per "ricerca AI".
+
 ## Verita' di mercato: la retention e' il vero campo di battaglia (analisi 30 free + 34 paid)
 
 Le app di budgeting hanno retention disastroso: la maggioranza abbandonata in 3-4

@@ -106,3 +106,54 @@ export function rankNudges(insights = [], state, { context = banditContext(), ex
   scored.sort((x, y) => (y.score - x.score) || (x.i - y.i));
   return scored.map(s => s.ins);
 }
+
+// ── Fase del mese: lo stesso nudge può valere diversamente a inizio/fine mese
+// (es. "safe-to-spend" e' piu' rilevante a meta' mese che il giorno 1).
+export function phaseOfMonth(date = new Date()) {
+  const d = date.getDate();
+  return d <= 10 ? 'early' : d <= 20 ? 'mid' : 'late';
+}
+
+// Seed deterministico per giorno (YYYYMMDD): il Thompson sampling esplora, ma
+// DENTRO la stessa giornata l'ordine resta stabile — niente nudge che
+// "saltellano" a ogni render (frustrante, l'opposto di un'app per un bambino
+// di 8 anni). Cambia automaticamente al giorno successivo.
+export function dailySeed(date = new Date()) {
+  return date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+}
+
+// Registra quali nudge sono stati MOSTRATI oggi (per poi valutare, a fine
+// giornata, quelli mai toccati come reward 0 — "mostrato e ignorato tutto il
+// giorno" e' il segnale onesto di "non funziona qui").
+export function makeImpressions({ dayKey, context, kinds = [] } = {}) {
+  return { dayKey, context, kinds: [...kinds], acted: [] };
+}
+
+// renderAnalysis() viene chiamato PIÙ VOLTE nello stesso giorno (init, forecast
+// worker, sync mesh, cambio vista...). Ricreare pending da zero ad ogni
+// chiamata perderebbe i tap già registrati (pending.acted) tra un render e
+// l'altro — bug reale trovato verificando in browser (renderAnalysis chiamato
+// 2+ volte al caricamento). Se il pending esistente è di OGGI: si preserva
+// acted e si fa l'unione dei kind mostrati; solo se manca o è di un altro
+// giorno si crea da zero.
+export function mergePendingSameDay(existing, todayKey, context, kinds = []) {
+  if (existing && existing.dayKey === todayKey) {
+    const merged = Array.from(new Set([...existing.kinds, ...kinds]));
+    return { ...existing, kinds: merged };
+  }
+  return makeImpressions({ dayKey: todayKey, context, kinds });
+}
+
+// Se pending si riferisce a un giorno PASSATO (todayKey diverso): applica
+// reward 0 a ogni kind mostrato e mai agito, poi azzera pending. Nello stesso
+// giorno è un no-op. Idempotente: pending=null non fa nulla.
+export function settleImpressions(state, pending, todayKey) {
+  if (!pending || pending.dayKey === todayKey) return { state, pending };
+  let s = state && state.arms ? state : initBandit();
+  for (const kind of pending.kinds) {
+    if (!pending.acted.includes(kind)) {
+      s = banditObserve(s, { context: pending.context, kind, reward: 0 });
+    }
+  }
+  return { state: s, pending: null };
+}

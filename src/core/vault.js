@@ -114,7 +114,12 @@ const VaultDAO = {
     // dallo spread di init() senza migrazione. Se in futuro uno di questi
     // cambia STRUTTURA (non solo si aggiunge), serve una entry in MIGRATIONS.
     engagement: { lastActiveDay: null, streak: 0, bestStreak: 0 },
-    savingsGoals: []
+    savingsGoals: [],
+    // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
+    // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,
+    // additivo, mai retroattivo su tx esistenti.
+    advisorBandit: { version: 1, arms: {} },
+    banditPending: null
   },
   init() {
     let main = localStorage.getItem('omega_core_db');
