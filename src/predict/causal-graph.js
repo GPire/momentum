@@ -207,3 +207,94 @@ export function explainChain(links, catId, deltaPct, opts = {}) {
   text += '. Nota: è co-variazione osservata nei tuoi dati (correlazione), non una causalità certa.';
   return { text, steps };
 }
+
+// ============================================================
+// GRANGER CAUSALITY (Wave 14+ v10): precedenza statistica reale
+// ============================================================
+// "Conoscere il passato di A migliora la previsione di B, oltre al solo
+// passato di B?" — è il PRIMO stadio del TCGformer (Variable-lag Granger
+// Causality), la parte che è statistica leggera e non un Transformer: gira
+// on-device in JS senza GPU, senza training pesante, senza dataset
+// istituzionali. Confronta due regressioni ai minimi quadrati: B previsto
+// dal solo suo passato (AR) vs B previsto dal suo passato PIÙ quello di A.
+//
+// ONESTÀ DICHIARATA: questo NON calcola un p-value formale (servirebbe la
+// funzione beta incompleta inversa per la F-distribution — precisione
+// ingannevole su campioni di poche decine di settimane). Restituisce la
+// RIDUZIONE PERCENTUALE della devianza residua (RSS) nel prevedere B
+// aggiungendo il passato di A: una soglia DICHIARATA (come minR altrove),
+// non un test statistico spacciato per più rigoroso di quanto sia.
+function ols1(xs, ys) {
+  const n = xs.length;
+  const mx = xs.reduce((s, v) => s + v, 0) / n, my = ys.reduce((s, v) => s + v, 0) / n;
+  let sxy = 0, sxx = 0;
+  for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; }
+  const b = sxx === 0 ? 0 : sxy / sxx;
+  const a = my - b * mx;
+  let rss = 0;
+  for (let i = 0; i < n; i++) rss += (ys[i] - (a + b * xs[i])) ** 2;
+  return { a, b, rss };
+}
+
+function solve3x3(A, B) {
+  const det = m => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const d = det(A);
+  if (Math.abs(d) < 1e-9) return null; // sistema singolare: variabili troppo collineari
+  const withCol = (m, col, vec) => m.map((row, i) => row.map((v, j) => j === col ? vec[i] : v));
+  return [0, 1, 2].map(col => det(withCol(A, col, B)) / d);
+}
+
+function ols2(x1s, x2s, ys) {
+  const n = x1s.length;
+  let s1 = 0, s2 = 0, sy = 0, s11 = 0, s22 = 0, s12 = 0, s1y = 0, s2y = 0;
+  for (let i = 0; i < n; i++) {
+    s1 += x1s[i]; s2 += x2s[i]; sy += ys[i];
+    s11 += x1s[i] * x1s[i]; s22 += x2s[i] * x2s[i]; s12 += x1s[i] * x2s[i];
+    s1y += x1s[i] * ys[i]; s2y += x2s[i] * ys[i];
+  }
+  const sol = solve3x3([[n, s1, s2], [s1, s11, s12], [s2, s12, s22]], [sy, s1y, s2y]);
+  if (!sol) return null;
+  const [a, b, c] = sol;
+  let rss = 0;
+  for (let i = 0; i < n; i++) rss += (ys[i] - (a + b * x1s[i] + c * x2s[i])) ** 2;
+  return { a, b, c, rss };
+}
+
+// cause/effect: serie DIFFERENZIATE allineate (stessa stazionarietà usata nel
+// resto del modulo). Ritorna null se il campione è troppo piccolo o le serie
+// sono degeneri — mai un numero inventato su dati insufficienti.
+export function grangerScore(cause, effect, opts = {}) {
+  const minSamples = opts.minSamples ?? 8;
+  const n = Math.min(cause.length, effect.length);
+  if (n - 1 < minSamples) return null;
+  const yLag = effect.slice(0, -1), xLag = cause.slice(0, -1), y = effect.slice(1);
+  const restricted = ols1(yLag, y);
+  const unrestricted = ols2(yLag, xLag, y);
+  if (!unrestricted || restricted.rss === 0) return null;
+  const reduction = (restricted.rss - unrestricted.rss) / restricted.rss;
+  return { reduction: +Math.max(0, Math.min(1, reduction)).toFixed(3), samples: n - 1 };
+}
+
+// "A precede causalmente B" (euristica): aggiungere il passato di A riduce
+// la devianza residua nel prevedere B di almeno la soglia dichiarata (15%
+// default — scelta prudente, non calibrata su un ground-truth, come minR).
+export function grangerLikely(cause, effect, opts = {}) {
+  const score = grangerScore(cause, effect, opts);
+  return !!score && score.reduction >= (opts.minReduction ?? 0.15);
+}
+
+// Arricchisce i link già trovati (buildCausalGraph + pruneNonCausal) con la
+// conferma Granger: NON ridecide la direzione (quella resta dell'euristica
+// |r| già testata e in produzione), aggiunge un'etichetta di confidenza in
+// più. `series` = output di buildCategorySeries sullo stesso allTx/orizzonte
+// usato per costruire i link. Archi simmetrici (lagWeeks=0) o categorie
+// senza serie sufficiente → grangerConfirmed: null (mai un'invenzione).
+export function annotateGrangerConfidence(links = [], series = {}) {
+  return links.map(l => {
+    if (l.lagWeeks === 0 || !series[l.from] || !series[l.to]) {
+      return { ...l, grangerConfirmed: null, grangerReduction: null };
+    }
+    const g = grangerScore(diff(series[l.from]), diff(series[l.to]), { minSamples: 6 });
+    return { ...l, grangerConfirmed: g ? g.reduction >= 0.15 : null, grangerReduction: g ? g.reduction : null };
+  });
+}

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain, pruneNonCausal } = await import('./causal-graph.js');
+const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain, pruneNonCausal, grangerScore, grangerLikely, annotateGrangerConfidence } = await import('./causal-graph.js');
 
 const REF = new Date(2026, 6, 6); // lunedì 6 luglio 2026
 
@@ -164,4 +164,63 @@ test('pruneNonCausal: propagateImpact su un grafo pulito non produce piu\' rumor
   const rawFromRist = propagateImpact(raw, 'Ristorante', 20);
   const cleanFromRist = propagateImpact(cleaned, 'Ristorante', 20);
   assert.ok(cleanFromRist.length <= rawFromRist.length, 'il grafo pulito non deve produrre più effetti del grezzo');
+});
+
+// ---- Granger causality (Wave 14+ v10): precedenza statistica reale ----
+
+// Costruzione deterministica: effect[i+1] = 2 * cause[i] ESATTAMENTE (nessun
+// rumore) — il passato di cause deve spiegare quasi tutta la devianza di
+// effect che il solo passato di effect non spiega.
+const CAUSE = [1, -2, 3, 0, 4, -1, 2, -3, 5, 1, -2, 4, 0, 3, -1, 2];
+const EFFECT_DRIVEN = [0, 2, -4, 6, 0, 8, -2, 4, -6, 10, 2, -4, 8, 0, 6, -2];
+// nessuna relazione con CAUSE: quasi alternante (l'AR(1) da solo la spiega
+// già bene) con due piccole deviazioni per evitare un RSS ristretto ESATTO
+// a zero (caso degenere gestito a parte sotto).
+const EFFECT_UNRELATED = [1, -1, 1, -1, 2, -1, 1, -1, 1, -2, 1, -1, 1, -1, 1, -1];
+
+test('grangerScore: relazione forte e deterministica -> riduzione RSS alta', () => {
+  const g = grangerScore(CAUSE, EFFECT_DRIVEN);
+  assert.ok(g, 'deve calcolarsi con campione sufficiente');
+  assert.ok(g.reduction > 0.9, `atteso >0.9, avuto ${g.reduction}`);
+  assert.equal(g.samples, CAUSE.length - 1);
+});
+
+test('grangerScore: nessuna relazione -> riduzione bassa (il passato di effect già basta)', () => {
+  const g = grangerScore(CAUSE, EFFECT_UNRELATED);
+  assert.ok(g);
+  assert.ok(g.reduction < 0.15, `atteso <0.15, avuto ${g.reduction}`);
+});
+
+test('grangerScore: campione troppo piccolo -> null, mai un numero inventato', () => {
+  assert.equal(grangerScore([1, 2, 3], [1, 2, 3]), null);
+});
+
+test('grangerScore: RSS ristretto esattamente zero (AR perfetto) -> null, mai una divisione per zero', () => {
+  const perfectAR = [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1]; // y[t] = -y[t-1] esatto
+  assert.equal(grangerScore(CAUSE, perfectAR), null);
+});
+
+test('grangerLikely: soglia dichiarata applicata correttamente', () => {
+  assert.equal(grangerLikely(CAUSE, EFFECT_DRIVEN), true);
+  assert.equal(grangerLikely(CAUSE, EFFECT_UNRELATED), false);
+});
+
+test('annotateGrangerConfidence: arricchisce i link senza cambiarne la direzione già decisa', () => {
+  const links = [{ from: 'A', to: 'B', lagWeeks: 1, r: 0.6, samples: 15, direction: 'settimana dopo' }];
+  const series = { A: CAUSE, B: EFFECT_DRIVEN };
+  const out = annotateGrangerConfidence(links, series);
+  assert.equal(out[0].from, 'A');
+  assert.equal(out[0].to, 'B'); // direzione invariata
+  assert.equal(out[0].grangerConfirmed, true);
+  assert.ok(out[0].grangerReduction > 0.9);
+});
+
+test('annotateGrangerConfidence: archi simmetrici (lagWeeks=0) o serie mancanti -> grangerConfirmed null', () => {
+  const links = [
+    { from: 'A', to: 'B', lagWeeks: 0, r: 0.7, samples: 15, direction: 'insieme' },
+    { from: 'X', to: 'Y', lagWeeks: 1, r: 0.6, samples: 15, direction: 'settimana dopo' },
+  ];
+  const out = annotateGrangerConfidence(links, { A: CAUSE, B: EFFECT_DRIVEN }); // X,Y assenti da series
+  assert.equal(out[0].grangerConfirmed, null);
+  assert.equal(out[1].grangerConfirmed, null);
 });
