@@ -197,7 +197,7 @@ export function renderInvoiceHTML(inv = {}, meta = {}) {
 <style>
 :root{--accent:${accent}}
 *{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;max-width:760px;margin:0 auto;color:#0f172a;padding:48px 32px;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,'Times New Roman',serif;max-width:760px;margin:0 auto;color:#1a1a1a;padding:48px 40px;background:#fbfaf7;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;border-bottom:3px solid var(--accent);padding-bottom:20px}
 .brand{display:flex;align-items:center;gap:14px}
 .brand img{max-height:56px;max-width:180px;object-fit:contain}
@@ -233,6 +233,6 @@ ${meta.description ? `<div class="desc">${esc(meta.description)}</div>` : ''}
   <div class="row net"><span>Netto a ricevere</span><span>${eur(inv.nettoARicevere)}</span></div>
 </div>
 ${inv.note ? `<div class="note">${esc(inv.note)}</div>` : ''}
-<div class="note">Documento generato on-device da Momentum. Non è fattura elettronica SdI: per la trasmissione ufficiale usa il tuo gestionale/commercialista.</div>
+<div class="note"><b>Copia di cortesia</b> — i calcoli sono corretti. Questa NON è la fattura elettronica ufficiale: in Italia la fattura va emessa in formato elettronico via SdI (col tuo gestionale/commercialista). Questo documento non la sostituisce, ma puoi usarlo per condividere/rivedere l'importo col cliente.</div>
 </body></html>`;
 }

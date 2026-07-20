@@ -15,6 +15,7 @@ import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail } from './invoice/invoice-engine.js';
+import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1363,7 +1364,7 @@ function renderTax(monthK) {
       </div>`;
     }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
-    html += `<button onclick="window.openCreateInvoice()" class="btn-action w-full py-2.5 font-bold rounded-xl mt-3 text-sm">＋ Crea fattura</button>`;
+    html += `<button onclick="window.openCreateInvoice()" class="btn-action w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>`;
     extraEl.innerHTML = html;
   }
 }
@@ -1435,8 +1436,8 @@ function getInvoiceFormHTML() {
     </div>
     <div id="inv-preview" class="card p-3 text-xs text-slate-300 hidden"></div>
     <div class="flex gap-2 mt-1">
-      <button id="inv-generate" class="btn-action flex-1 py-3 font-bold rounded-xl">Genera e stampa</button>
-      <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">✉️ Invia con allegato</button>
+      <button id="inv-generate" class="btn-action flex-1 py-3 font-bold rounded-xl">Scarica PDF</button>
+      <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
     </div>
     <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Documento generato on-device. Non è fattura elettronica SdI: per l'invio ufficiale usa il tuo gestionale/commercialista.</p>
   </div>`;
@@ -1524,13 +1525,17 @@ window.openCreateInvoice = (prefillClient) => {
     return { inv, meta, clientEmail, number, year };
   };
 
+  // "Scarica PDF": genera e SCARICA il PDF vero (nome file intelligente). Il
+  // logo (se caricato) resta nella stampa HTML → per questo offro anche "Stampa".
   $('#inv-generate').addEventListener('click', () => {
     const res = buildAndSave();
     if (!res) return;
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(renderInvoiceHTML(res.inv, res.meta)); w.document.close(); setTimeout(() => { try { w.print(); } catch (_) {} }, 300); }
+    const fname = invoiceFilename({ number: res.number, year: res.year, client: res.meta.client, isoDate: new Date().toISOString().slice(0, 10) });
+    const url = URL.createObjectURL(invoicePdfBlob(res.inv, res.meta));
+    const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
     closeModal();
-    showToast(`Fattura n.${res.number}/${res.year} creata.`, 'success');
+    showToast(`PDF fattura n.${res.number}/${res.year} scaricato.`, 'success');
     renderAnalysis();
   });
 
@@ -1542,8 +1547,10 @@ window.openCreateInvoice = (prefillClient) => {
     const res = buildAndSave();
     if (!res) return;
     const email = buildInvoiceEmail({ inv: res.inv, meta: res.meta, clientEmail: res.clientEmail });
-    const html = renderInvoiceHTML(res.inv, res.meta);
-    const file = new File([html], `Fattura_${res.number}_${res.year}.html`, { type: 'text/html' });
+    // PDF VERO (invoice-pdf.js, on-device, nessuna dipendenza) — nome file
+    // intelligente (numero + cliente + data).
+    const fname = invoiceFilename({ number: res.number, year: res.year, client: res.meta.client, isoDate: new Date().toISOString().slice(0, 10) });
+    const file = new File([invoicePdfBlob(res.inv, res.meta)], fname, { type: 'application/pdf' });
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: email.subject, text: email.body });

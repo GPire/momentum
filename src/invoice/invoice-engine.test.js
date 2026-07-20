@@ -77,7 +77,7 @@ test('renderInvoiceHTML: documento valido, importi e note presenti, input escapa
   assert.ok(/1002,00/.test(html));                 // totale col bollo
   assert.ok(/Acme &lt;SRL&gt;/.test(html));         // input escapato (no XSS)
   assert.ok(/forfettario/i.test(html));             // nota regime
-  assert.ok(/fattura elettronica SdI/.test(html));  // disclaimer onesto presente
+  assert.ok(/SdI/.test(html) && /cortesia/i.test(html)); // disclaimer chiaro presente
 });
 
 test('bollo a carico dell\'emittente: non entra nel totale addebitato al cliente', () => {
