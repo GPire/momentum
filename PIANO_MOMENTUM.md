@@ -21,6 +21,66 @@ Progetto: `~/Downloads/momentum_app/` (Vite vanilla JS, PWA offline-first). Copi
 
 ---
 
+## 🚀 Sessione 2026-07-20: MOMENTUM CONSTELLATION v10 — 6 wave core spedite, 521 test verdi
+
+Piano completo in `~/.claude/plans/okay-adesso-prendi-ogni-mellow-liskov.md` (16 wave) +
+strategia offensiva in `MANIFESTO_v10.md` (repo root). Priorità: prima approfondire i
+motori CORE esistenti (NeuroSym/Momentum Core/DCGN/mesh), poi le feature periferiche.
+**Ogni wave verificata end-to-end in Chrome con dati reali**, non solo unit test — i bug
+veri emergono solo lì (2 bug reali trovati e corretti così questa sessione).
+
+Ordine eseguito: Wave 0 → 1 → 13 → 12 → 14 (+Granger) → 15. Da 468 a 521 test, 8 commit puliti.
+
+- **Wave 0**: chiuso il batch appeso di sessione precedente (Net Worth+Monte Carlo,
+  sources.js W17, mesh prezzi P2P, modulo bandit). **Bug reale corretto**: chat.js
+  multilingua rotto (matchIntent→{intent,lang} non aggiornato nel call-site).
+- **Wave 1**: bandit cablato nell'advisor reale (`src/predict/advisor-bandit.js`:
+  phaseOfMonth/dailySeed/mergePendingSameDay/window.nudgeActed). **2° bug reale
+  corretto**: renderAnalysis() gira più volte/giorno, perdeva i tap registrati →
+  mergePendingSameDay. Nota tecnica: vault.js ha un anti-tampering (omega_shadow_vault
+  base64) che scarta edit localStorage grezzi non passati da save() — utile per testare.
+- **Wave 13 "Meta-Bandit Ensemble"**: `src/ai/expert-bandit.js` — il bandit (Wave 1)
+  applicato alla SELEZIONE ESPERTI dell'orchestrator (contesto categoria×lunghezza-
+  descrizione×tier). Deliberatamente NO Thompson sampling (solo armMean deterministico:
+  classify() deve restare deterministico). A freddo = v3 bit-identico.
+- **Wave 12 "NeuroSym v2 Financial Reasoning Layer"**: scoperto che `Omega.reason()`
+  (src/ai/omega.js) esisteva già come ragionatore a 5 strati — esteso, non duplicato.
+  Nuovo `src/ai/reasoning-fusion.js` (combineConfidence + crossDomainWhatIf: combina
+  what-if.js cashflow€ con net-worth.js Twin Monte Carlo). Verificato live: "taglia
+  ristoranti 20%" → causale → 62,06€/mese liberati → Twin 1 anno +751,01€ p50.
+- **Wave 14 "causale v2" + Granger causality reale**: `pruneNonCausal` (euristica di
+  precedenza quando A→B e B→A stesso lag superano soglia, tiene solo la direzione più
+  forte) + **vero test di Granger causality** (OLS 1/2 variabili scritto da zero,
+  regola di Cramer per il sistema 3x3) — la parte REALE e costruibile di TCGformer
+  (verificato via ricerca: paper reale, non allucinato — ma il Transformer richiede
+  training pesante su GPU, non gira on-device; Granger sì). Verificato live sui dati
+  reali: "spesa→ristoranti" aveva r=0.592 ma Granger lo boccia (riduzione 0.001,
+  correlazione spuria); "trasporti→shopping" confermato (riduzione 0.402).
+- **Wave 15 "Mesh v2 federazione metadati"**: `src/mesh/meta-federation.js` — condivide
+  via mesh SOLO le medie a posteriori "quale esperto fidarsi per quale contesto" (mai
+  dati grezzi/conteggi), pesato per reputazione (update-ledger.js, stesso anti-poisoning
+  già validato). Un livello sopra il FedAvg classico. Cablato in mesh-signaling.js
+  (reliability_share) + main.js (ciclo idle). Verificato live end-to-end.
+
+**Verifica di due blueprint esterni incollati dall'utente durante la sessione**:
+1° blueprint (commit + tech "TCGformer/FinSecure-FL/NanoQuant/PrismML"): commit VERI
+(verificato via git log), tecnologie VERE (verificato via WebSearch — a differenza dei
+blueprint "SLLMv2" passati) ma SCALA sbagliata (LLM 70B su GPU cluster / blockchain
+multi-istituzionale bancaria vs modelli KB on-device / mesh P2P consumer). Risposta:
+costruita la versione onesta e scalata correttamente (Granger invece di TCGformer intero,
+digest di affidabilità invece di blockchain PoA). Dettagli in MANIFESTO_v10.md.
+Ricerca reale su Google Finance (uscito da beta 25/6/2026): risposta nel manifesto,
+Deep Search esplicitamente [Rifiutato] (richiederebbe LLM cloud).
+
+**RESTA nel piano** (16 wave totali, task tracciate solo per le prime 6 core): Wave 2
+(NLU quick-add testuale), 3 (achievements/badge onesti), 4 (onboarding valore-immediato
++ FAQ), 5 (simulatore utenti sintetici per validare retention), 6 (training gate
+regressioni), 8 (splitting P2P alla Splitwise), 9 (envelopes/round-up/PAC/runway 90gg),
+10 (strategy scorecard investitori), 11 (bench vs-LLM aggiornato), 7 (sync bulletproof
+E2E cifrato, rischio alto — richiede 2 device fisici, per ultima).
+
+---
+
 # PARTE 1 — STATO SVILUPPO (aggiornato 2026-07-06, 161/161 test verdi, build pulita)
 
 ## ✅ Fatto in questa sessione (codice + test; verifica browser in coda)
