@@ -51,6 +51,20 @@ cicli di mercato → lifestyle inference → tap-to-today. Da 468 a **557 test, 
 - **`src/predict/achievements.js`** + UI (Wave 3): 11 traguardi misurati (mai regalati) + dopamina
   anticipatoria (nextMilestone "sei a 5/7"). Toast sui nuovi sblocchi, riconoscimento silenzioso
   al boot dei già-guadagnati. Verificato live: 6 traguardi sui dati reali (1820 tx).
+- **UX PASS (feedback utente "tutto sepolto in Analisi Tensor")**: insight umani (vita/traguardi)
+  portati sulla Dashboard come UNA riga-insight con neurocolori adattivi (verde=sano, ambra=momento
+  consapevole, oro=traguardo); Analisi da 10 a 4 card; 3 "Abbonamento trovato" → 1. Responsive
+  verificato 0px overflow a 430px. Neurodesign a favore dell'utente (inverso del supermercato).
+- **TASSE P.IVA rese INTELLIGENTI** (`classifyIncome` in tax.js): erano "messe a caso" (tassavano
+  ogni entrata). Ora inferiscono fattura/stipendio/personale/incerto dalla descrizione (IT+EN),
+  tassano solo le fatture chiare, card nascosta per chi non fattura. Verificato: sui dati reali
+  (0 fatture) prima inventava tasse su 1700€, ora 0€ corretto.
+- **Ledger fix responsive+neuro**: il bottone "ELIMINA" era hover-only (impossibile cancellare da
+  mobile) e un muro di 38 bottoni rossi → icona cestino discreta sempre accessibile.
+- **NOTA**: l'utente ha elencato ~14 funzioni che "sembrano finte" (Ghost Radar, Neuro Friction
+  Engine, FIRE, what-if, command center predittivo con auto-apprendimento su giorni/fasce orarie,
+  ecc.) — da rendere davvero intelligenti UNA alla volta (come le tasse), mai tutte superficialmente.
+  Vedi memoria feedback_momentum_design_ux.
 
 - **Wave 0**: chiuso il batch appeso di sessione precedente (Net Worth+Monte Carlo,
   sources.js W17, mesh prezzi P2P, modulo bandit). **Bug reale corretto**: chat.js
