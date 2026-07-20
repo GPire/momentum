@@ -1356,8 +1356,9 @@ function renderTax(monthK) {
     // form già compilato per quel cliente. ──
     const dovute = detectRecurringClients(VaultDAO.state.invoices || [], new Date()).filter(c => c.dueThisMonth).slice(0, 3);
     for (const c of dovute) {
-      html += `<div class="flex items-center justify-between gap-2 mt-2 text-xs text-amber-200 bg-amber-950/10 border border-amber-500/20 rounded-xl px-3 py-2">
-        <span class="min-w-0">🔁 Fattura ${c.cadence || ''} per <b>${c.client}</b>${c.typicalAmount ? ` (~${Math.round(c.typicalAmount)}€)` : ''}: non ancora fatta questo mese.</span>
+      html += `<div class="flex items-center gap-2 mt-2 text-xs text-amber-200 bg-amber-950/10 border border-amber-500/20 rounded-xl px-3 py-2">
+        <span class="text-[var(--gold)]">${REPEAT_ICON}</span>
+        <span class="min-w-0 flex-1">Fattura ${c.cadence || ''} per <b>${c.client}</b>${c.typicalAmount ? ` (~${Math.round(c.typicalAmount)}€)` : ''}: non ancora fatta questo mese.</span>
         <button onclick='window.openCreateInvoice(${JSON.stringify(c.client)})' class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Crea</button>
       </div>`;
     }
@@ -1372,6 +1373,10 @@ window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.
 // con gli stili dell'app. 3 campi (cliente, quanto, per cosa), regime pre-scelto,
 // anteprima LIVE del netto a ricevere, un bottone che genera e stampa (→PDF
 // on-device). Numero e data automatici. Impara i clienti dallo storico.
+// Icona di ricorrenza riusabile (frecce circolari) — sostituisce l'emoji 🔁
+// per coerenza col linguaggio visivo dell'app (SVG a tratto, come le altre).
+const REPEAT_ICON = `<svg class="recur-ico w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+
 function getInvoiceFormHTML() {
   const regime = VaultDAO.state.taxRegime || 'forfettario';
   const year = new Date().getFullYear();
@@ -1399,21 +1404,28 @@ function getInvoiceFormHTML() {
       </div>
     </details>
     ${(() => {
-      // Chip clienti RICORRENTI: un tap ricompila tutto. Priorità a quelli con
-      // fattura del mese ancora da fare (dueThisMonth) — pallino oro pulsante.
+      // Chip clienti RICORRENTI: un tap ricompila tutto. Icona ricorrenza (oro)
+      // sui ricorrenti; quelli con la fattura del mese da fare in evidenza oro.
       const rec = detectRecurringClients(VaultDAO.state.invoices || [], new Date()).slice(0, 5);
       if (!rec.length) return '';
+      const miniRepeat = `<svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
       return `<div class="flex gap-2 overflow-x-auto pb-1">${rec.map((c, i) =>
-        `<button type="button" data-recidx="${i}" class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${c.dueThisMonth ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${c.dueThisMonth ? '● ' : ''}${c.client}${c.typicalAmount ? ` · ${Math.round(c.typicalAmount)}€` : ''}${c.cadence ? `/${c.cadence.slice(0, 4)}` : ''}</button>`).join('')}</div>`;
+        `<button type="button" data-recidx="${i}" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border ${c.dueThisMonth ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${c.monthly ? miniRepeat : ''}<span>${c.client}${c.typicalAmount ? ` · ${Math.round(c.typicalAmount)}€` : ''}</span></button>`).join('')}</div>`;
     })()}
     <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
     <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
     <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
     <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
     <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
-    <label class="flex items-center gap-2 text-[12px] text-slate-300 cursor-pointer select-none px-1">
-      <input id="inv-recurring" type="checkbox" class="w-4 h-4 accent-[var(--gold)]" />
-      🔁 Cliente ricorrente ogni mese (te lo ricordo io)
+    <label class="block cursor-pointer select-none">
+      <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" />
+      <span class="recur-row">
+        <span class="flex items-center gap-2 text-[12px] text-slate-300 min-w-0">
+          ${REPEAT_ICON}
+          <span class="min-w-0"><b>Ricorrente ogni mese</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— te lo ricordo io</span></span>
+        </span>
+        <span class="recur-switch"></span>
+      </span>
     </label>
     <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
       <span>Regime:</span>
