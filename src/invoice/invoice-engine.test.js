@@ -1,6 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, BOLLO_IMPORTO } = await import('./invoice-engine.js');
+const { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, BOLLO_IMPORTO } = await import('./invoice-engine.js');
+
+test('pendingSdiTransmission: elenca le e-fatture create ma non ancora trasmesse', () => {
+  const invoices = [
+    { number: 1, year: 2026, client: 'A', imponibile: 1000, country: 'IT', isElectronic: true, sdiTransmitted: false },
+    { number: 2, year: 2026, client: 'B', imponibile: 500, country: 'IT', isElectronic: true, sdiTransmitted: true }, // gia' trasmessa
+    { number: 3, year: 2026, client: 'C', imponibile: 300, country: 'IT', isElectronic: false }, // solo PDF cortesia
+    { number: 4, year: 2026, client: 'D', imponibile: 800, country: 'DEFAULT', isElectronic: true }, // estero, no SdI
+  ];
+  const r = pendingSdiTransmission(invoices);
+  assert.equal(r.count, 1);
+  assert.equal(r.totaleImponibile, 1000);
+  assert.equal(r.invoices[0].client, 'A');
+});
+
+test('pendingSdiTransmission: nessuna e-fattura pendente → count 0', () => {
+  assert.equal(pendingSdiTransmission([]).count, 0);
+  assert.equal(pendingSdiTransmission([{ number: 1, year: 2026, isElectronic: false }]).count, 0);
+});
 
 test('forfettario 1000€: no IVA, no ritenuta, bollo 2€ sopra soglia', () => {
   const r = computeInvoice({ imponibile: 1000, regime: 'forfettario' });

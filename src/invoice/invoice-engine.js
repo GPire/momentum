@@ -186,6 +186,22 @@ export function buildInvoiceEmail({ inv = {}, meta = {}, clientEmail = '' } = {}
   return { to, subject, body, mailto };
 }
 
+// CHIUSURA DEL CICLO SdI: rileva le fatture elettroniche CREATE ma non ancora
+// segnate come TRASMESSE allo SdI. È il promemoria onesto che manca a chi crea
+// la fattura ma dimentica di caricarla sul portale. Solo per l'Italia (country
+// 'IT'), solo quelle marcate come e-fattura (isElectronic) e non trasmesse.
+// Onestà: NON deduce la trasmissione (non può saperlo); si basa sul flag che
+// l'utente mette dopo aver caricato. Funzione pura.
+export function pendingSdiTransmission(invoices = []) {
+  const pending = invoices.filter(i => i && (i.country || 'IT') === 'IT' && i.isElectronic && !i.sdiTransmitted);
+  const totale = pending.reduce((s, i) => s + (+i.imponibile || 0), 0);
+  return {
+    count: pending.length,
+    totaleImponibile: +totale.toFixed(2),
+    invoices: pending.map(i => ({ number: i.number, year: i.year, client: i.client, imponibile: i.imponibile, date: i.date })),
+  };
+}
+
 // Genera il DOCUMENTO fattura come HTML stampabile/esportabile (il browser lo
 // converte in PDF con "Stampa → Salva come PDF", 100% on-device, nessun server).
 // Onesto: è il documento di cortesia/pro-forma; la fattura elettronica ufficiale

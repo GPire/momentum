@@ -21,6 +21,7 @@
 'use strict';
 
 import { formatForDate } from './fatturapa-format.js';
+import { checkFiscalId } from './it-fiscal-id.js';
 
 // Costanti BUNDLED (default correnti). La verità operativa vive nella specifica
 // versionata (fatturapa-format.js): il generatore le legge da lì, così un nuovo
@@ -167,6 +168,13 @@ export function validateFatturaPa(data = {}) {
     warn('00401', 'client.partitaIva', 'La Partita IVA del cliente non sembra valida (servono 11 cifre).');
   if (client.codiceFiscale && !cf16(client.codiceFiscale))
     warn('00402', 'client.codiceFiscale', 'Il Codice Fiscale del cliente non sembra valido (16 caratteri).');
+  // CIFRA DI CONTROLLO (checksum ufficiale): intercetta i typo prima dello scarto.
+  const ckEmit = checkFiscalId(emitter.partitaIva);
+  if (!ckEmit.ok) warn('00306', 'emitter.partitaIva', `La tua ${ckEmit.reason}.`);
+  const ckCliP = checkFiscalId(client.partitaIva);
+  if (!ckCliP.ok) warn('00306', 'client.partitaIva', `Quella del cliente: ${ckCliP.reason}.`);
+  const ckCliF = checkFiscalId(client.codiceFiscale);
+  if (!ckCliF.ok) warn('00307', 'client.codiceFiscale', `Quello del cliente: ${ckCliF.reason}.`);
 
   // Recapito: CodiceDestinatario 7 char OPPURE PEC. '0000000' è ammesso (privati).
   const cod = String(client.codiceDestinatario || '').trim();

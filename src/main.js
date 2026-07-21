@@ -14,7 +14,7 @@ import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpco
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
-import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail } from './invoice/invoice-engine.js';
+import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
@@ -1365,12 +1365,37 @@ function renderTax(monthK) {
         <button onclick='window.openCreateInvoice(${JSON.stringify(c.client)})' class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Crea</button>
       </div>`;
     }
+    // ── CICLO SdI: e-fatture create ma NON ancora trasmesse. Promemoria onesto
+    // (l'app non può trasmettere), col link al portale e "segna trasmessa". ──
+    const pend = pendingSdiTransmission(VaultDAO.state.invoices || []);
+    if (pend.count > 0) {
+      const rows = pend.invoices.slice(0, 4).map(i =>
+        `<div class="flex items-center justify-between gap-2 py-1">
+          <span class="min-w-0 truncate">n.${i.number}/${i.year} · ${i.client || 'cliente'} · <b>${formatMoney(i.imponibile)}</b></span>
+          <button onclick='window.markTransmitted(${i.number}, ${i.year})' class="shrink-0 text-[11px] font-bold text-emerald-400 underline">segna trasmessa</button>
+        </div>`).join('');
+      html += `<div class="mt-3 border border-[var(--gold)]/25 bg-[var(--gold)]/5 rounded-xl px-3 py-2.5">
+        <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wider">${pend.count} fattur${pend.count > 1 ? 'e' : 'a'} da caricare sullo SdI</span></div>
+        <div class="text-xs text-slate-300">${rows}</div>
+        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[var(--gold)]/15 border border-[var(--gold)]/30 text-[var(--gold)]">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>`;
+    }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
     html += `<button onclick="window.openCreateInvoice()" class="btn-action w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>`;
     extraEl.innerHTML = html;
   }
 }
 window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); renderAnalysis(); };
+// Segna una e-fattura come TRASMESSA allo SdI (dopo che l'utente l'ha caricata
+// sul portale). Chiude il ciclo: sparisce dal promemoria. Onesto: è l'utente a
+// confermarlo, l'app non può saperlo da sola.
+window.markTransmitted = (number, year) => {
+  VaultDAO.state.invoices = (VaultDAO.state.invoices || []).map(i =>
+    (i.number === number && i.year === year && i.isElectronic) ? { ...i, sdiTransmitted: true } : i);
+  VaultDAO.save();
+  showToast(`Fattura n.${number}/${year} segnata come trasmessa. ✓`, 'success');
+  renderAnalysis();
+};
 
 // ── CREA FATTURA (v10): semplice come un tap, nativa per ogni schermo, coerente
 // con gli stili dell'app. 3 campi (cliente, quanto, per cosa), regime pre-scelto,
@@ -1622,7 +1647,7 @@ window.openCreateInvoice = (prefillClient) => {
   });
   // Crea+salva la fattura (riusata da "Genera e stampa" e "Email al cliente").
   // Ritorna { inv, meta, clientEmail } o null se dati mancanti.
-  const buildAndSave = () => {
+  const buildAndSave = (opts = {}) => {
     // CONTROLLI DI COMPLETEZZA (feedback utente): una fattura senza questi dati
     // non è valida. Messaggi chiari, focus sul campo mancante, sezione dati
     // aperta se serve — comprensibile a tutti.
@@ -1661,7 +1686,7 @@ window.openCreateInvoice = (prefillClient) => {
     // fiscali del cliente per il riuso + flag ricorrente per il promemoria)
     const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
     const hasCliFiscal = cliFis.partitaIva || cliFis.codiceFiscale || cliFis.indirizzo;
-    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail, ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}) }];
+    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail, country: prof.country, ...(opts.electronic ? { isElectronic: true, sdiTransmitted: false } : {}), ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}) }];
     VaultDAO.save();
     // dati strutturati per la fattura elettronica (usati dall'handler XML)
     const emitterFiscal = { ...fis, denominazione: prof.emitter, regime: regimeEl.value, nazione: 'IT' };
@@ -1752,7 +1777,7 @@ window.openCreateInvoice = (prefillClient) => {
       return;
     }
     // Tutto in regola coi controlli offline → salva e scarica l'XML.
-    const res = buildAndSave();
+    const res = buildAndSave({ electronic: true }); // marca come e-fattura da trasmettere
     if (!res) return;
     const out = buildFatturaPaXML({ emitter: res.emitterFiscal, client: res.clientFiscal, invoice: res.inv, meta: { number: res.number, year: res.year, date: new Date().toISOString().slice(0, 10), regime: regimeEl.value, description: res.meta.description } });
     const warns = out.controls.filter(c => c.level === 'warn');
