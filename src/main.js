@@ -718,6 +718,14 @@ const renderDashboard = () => {
       amber:  { bd: 'border-orange-500/25', bg: 'bg-orange-950/10', tx: 'text-orange-200' },
       calm:   { bd: 'border-[var(--glass-border)]', bg: 'bg-[var(--surface-elevated)]/40', tx: 'text-slate-300' },
     };
+    // Icone SVG coerenti (stesso tratto del resto dell'app), MAI emoji a caso.
+    const S = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0">${p}</svg>`;
+    const ICON = {
+      goal: S('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6"/>'),      // traguardo (bersaglio)
+      green: S('<path d="M11 20A7 7 0 0 1 4 13c0-4 3-6 3-6s2 1 3 3c1-4 4-6 4-6s3 4 3 9a7 7 0 0 1-6 7z"/>'),               // comportamento sano (foglia)
+      amber: S('<circle cx="12" cy="12" r="9"/><polygon points="15.5 8.5 10.5 10.5 8.5 15.5 13.5 13.5"/>'),               // momento consapevole (bussola)
+      calm: S('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.3 1 2.5h6c0-1.2.4-1.9 1-2.5A6 6 0 0 0 12 3z"/>'),   // spunto (lampadina)
+    };
     const POSITIVE = new Set(['investor-habit', 'home-cooking', 'social-quiet']);
     const CAUTION = new Set(['shopping-surge', 'social-active', 'on-the-move']);
     let line = null;
@@ -726,25 +734,26 @@ const renderDashboard = () => {
       const nm = nextMilestone(VaultDAO.state.achievements || {}, aStats);
       if (nm && nm.pct >= 0.6) {
         const manca = nm.target - nm.current;
-        line = { emoji: nm.icon, tone: 'gold', text: `Ti manca ${manca} al traguardo <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
+        // Auto-esplicativo (include COSA è il traguardo via nm.desc) + neuro-copy:
+        // anticipazione ("ci sei quasi"), specificità, agency, zero vergogna.
+        line = { icon: ICON.goal, tone: 'gold', text: `Ci sei quasi: ancora ${manca} e sblocchi <b>${nm.name}</b> — ${nm.desc} <span class="opacity-60">(${nm.current}/${nm.target})</span>` };
       } else {
         const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
         if (life.patterns.length) {
           const p = life.patterns[0];
           const tone = POSITIVE.has(p.id) ? 'green' : CAUTION.has(p.id) ? 'amber' : 'calm';
-          // ambra = momento consapevole: aggiungo un invito gentile a fermarsi,
-          // mai un giudizio ("va bene, è la tua scelta — solo per consapevolezza").
+          // ambra = momento consapevole: invito gentile a fermarsi, mai un giudizio.
           const tail = tone === 'amber' ? ' <span class="opacity-70">— solo per consapevolezza, la scelta è tua.</span>' : '';
-          line = { emoji: tone === 'green' ? '🌱' : tone === 'amber' ? '🧭' : '💡', tone, text: `<b>${p.label}.</b> ${p.evidence}${tail}` };
+          line = { icon: ICON[tone] || ICON.calm, tone, text: `<b>${p.label}.</b> ${p.evidence}${tail}` };
         } else if (nm && nm.pct >= 0.3) {
-          line = { emoji: nm.icon, tone: 'gold', text: `Prossimo traguardo: <b>${nm.name}</b> (${nm.current}/${nm.target}).` };
+          line = { icon: ICON.goal, tone: 'gold', text: `Prossimo traguardo: <b>${nm.name}</b> — ${nm.desc} <span class="opacity-60">(${nm.current}/${nm.target})</span>` };
         }
       }
     }
     if (line) {
       const t = TONE[line.tone] || TONE.calm;
       insightEl.classList.remove('hidden');
-      insightEl.innerHTML = `<div class="flex items-center gap-2 px-4 py-2.5 rounded-xl ${t.bg} border ${t.bd} text-[13px] ${t.tx}"><span class="text-base shrink-0">${line.emoji}</span><span class="min-w-0">${line.text}</span></div>`;
+      insightEl.innerHTML = `<div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl ${t.bg} border ${t.bd} text-[13px] ${t.tx}">${line.icon}<span class="min-w-0">${line.text}</span></div>`;
     } else {
       insightEl.classList.add('hidden');
       insightEl.innerHTML = '';
@@ -761,7 +770,7 @@ const renderDashboard = () => {
     // un "1 giorno di fila" non motiva nessuno, meglio niente.
     const streak = VaultDAO.state.engagement?.streak || 0;
     const streakHtml = streak >= 2
-      ? `<div class="text-[11px] font-bold text-amber-400 mt-1">🔥 ${streak} giorni di fila</div>`
+      ? `<div class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400 mt-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 2 2c1.5 0 1.5-2 1.5-4 0-2-.5-4-.5-4z"/></svg>${streak} giorni di fila</div>`
       : '';
     orbText.innerHTML = `
       <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Capitale Libero</div>

@@ -84,7 +84,7 @@ export function nextMilestone(unlocked = {}, stats) {
     const { current, target } = a.progress(stats);
     if (current >= target) continue;
     const pct = target > 0 ? current / target : 0;
-    if (!best || pct > best.pct) best = { id: a.id, name: a.name, icon: a.icon, current, target, pct: +pct.toFixed(3) };
+    if (!best || pct > best.pct) best = { id: a.id, name: a.name, icon: a.icon, desc: a.desc, current, target, pct: +pct.toFixed(3) };
   }
   return best;
 }
