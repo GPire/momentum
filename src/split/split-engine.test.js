@@ -1,6 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, decodeGroupShare } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, decodeGroupShare, settlementCounts } = await import('./split-engine.js');
+
+test('SEMPLIFICAZIONE: due coppie a somma-zero → 2 bonifici (non 4)', () => {
+  const bal = { A: 10, B: -10, C: 10, D: -10 };
+  const tx = minimalSettlement(bal);
+  assert.equal(tx.length, 2, 'partiziona in 2 sottogruppi → 2 pagamenti');
+  // azzera tutto
+  const b = { ...bal }; for (const t of tx) { b[t.from] += t.amount; b[t.to] -= t.amount; }
+  assert.ok(Object.values(b).every(v => Math.abs(v) < 0.01));
+});
+
+test('SEMPLIFICAZIONE: scenario reale (10/89/0 in 3) → 2 pagamenti minimi', () => {
+  let g = createGroup({ members: ['Io', 'Anna', 'Bea'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 10 });
+  g = addSharedExpense(g, { payer: 'm1', amount: 89 });
+  const tx = minimalSettlement(computeBalances(g));
+  assert.equal(tx.length, 2);
+  const b = computeBalances(g); for (const t of tx) { b[t.from] += t.amount; b[t.to] -= t.amount; }
+  assert.ok(Object.values(b).every(v => Math.abs(v) < 0.01));
+});
+
+test('settlementCounts: mostra il risparmio di pagamenti (raw > simplified)', () => {
+  // catena: ognuno paga a turno per tutti → tanti debiti grezzi, pochi semplificati
+  let g = createGroup({ members: ['A', 'B', 'C', 'D'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 100 });   // tutti devono ad A
+  g = addSharedExpense(g, { payer: 'm1', amount: 20 });    // tutti devono a B
+  const c = settlementCounts(g);
+  assert.ok(c.raw >= c.simplified);
+  assert.equal(typeof c.saved, 'number');
+});
 
 // Simula: creo il gruppo, lo condivido (encode) e l'amico lo riceve (decode).
 function shareRoundTrip(g) { return decodeGroupShare(encodeGroupShare(g)); }

@@ -20,7 +20,7 @@ import { selectableCountries as selectableInvoiceCountries } from './invoice/cou
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts } from './split/split-engine.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1788,6 +1788,7 @@ window.openSplitGroup = (openId = null) => {
         </div>
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>Chi deve cosa a chi (meno bonifici possibili)</div>
+          ${(() => { const c = settlementCounts(g); return c.saved > 0 ? `<div class="text-[11px] text-emerald-300 mb-1.5">Semplificato: <b>${c.simplified} pagament${c.simplified === 1 ? 'o' : 'i'}</b> invece di ${c.raw} — ${c.saved} in meno.</div>` : ''; })()}
           ${settleRows}
         </div>
         <div class="flex gap-2">

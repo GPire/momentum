@@ -90,31 +90,65 @@ export function computeBalances(group) {
   return bal;
 }
 
-// Compensazione MINIMA: chi paga chi, col minor numero di bonifici, per azzerare
-// tutti i debiti. Greedy: il debitore piu' grande paga il creditore piu' grande.
-// Onesto: e' l'euristica di Settle Up (near-ottima; il minimo assoluto e' NP-hard),
-// ma per gruppi reali (pochi membri) e' quasi sempre ottima e sempre corretta
-// (azzera tutti i saldi). Ritorna [{from, to, amount}].
-export function minimalSettlement(balances) {
-  const creditors = [], debtors = [];
-  for (const [m, v] of Object.entries(balances)) {
-    const r = round2(v);
-    if (r > EPS) creditors.push({ m, v: r });
-    else if (r < -EPS) debtors.push({ m, v: -r });
-  }
-  creditors.sort((a, b) => b.v - a.v);
-  debtors.sort((a, b) => b.v - a.v);
-  const tx = [];
-  let i = 0, j = 0;
+// Greedy su una lista di saldi (debitore piu' grande → creditore piu' grande).
+// Per un insieme a somma-zero produce (|nonzero|-1) bonifici, che e' l'ottimo per
+// un singolo gruppo indivisibile. Ritorna [{from,to,amount}].
+function greedySettle(entries) {
+  const creditors = entries.filter(e => e.v > EPS).map(e => ({ m: e.m, v: e.v })).sort((a, b) => b.v - a.v);
+  const debtors = entries.filter(e => e.v < -EPS).map(e => ({ m: e.m, v: -e.v })).sort((a, b) => b.v - a.v);
+  const tx = []; let i = 0, j = 0;
   while (i < debtors.length && j < creditors.length) {
     const pay = round2(Math.min(debtors[i].v, creditors[j].v));
     if (pay > EPS) tx.push({ from: debtors[i].m, to: creditors[j].m, amount: pay });
-    debtors[i].v = round2(debtors[i].v - pay);
-    creditors[j].v = round2(creditors[j].v - pay);
-    if (debtors[i].v <= EPS) i++;
-    if (creditors[j].v <= EPS) j++;
+    debtors[i].v = round2(debtors[i].v - pay); creditors[j].v = round2(creditors[j].v - pay);
+    if (debtors[i].v <= EPS) i++; if (creditors[j].v <= EPS) j++;
   }
   return tx;
+}
+
+// Compensazione MINIMA (debt simplification): chi paga chi col MINOR numero di
+// bonifici per azzerare tutti i debiti. Semplifica le catene (A→B→C ⇒ A→C) e,
+// per gruppi realistici (≤12 con saldo non nullo), trova il minimo ASSOLUTO
+// partizionando i saldi nel MAX numero di sottogruppi a somma-zero (ogni
+// sottogruppo di k persone si chiude con k-1 bonifici → totale = n - #sottogruppi,
+// minimizzato). Oltre 12, fallback greedy (near-ottimo). Sempre corretto: azzera
+// tutti i saldi. Piu' potente del greedy di Splitwise/Settle Up.
+export function minimalSettlement(balances) {
+  const entries = Object.entries(balances).map(([m, v]) => ({ m, v: round2(v) })).filter(e => Math.abs(e.v) > EPS);
+  const n = entries.length;
+  if (n === 0) return [];
+  if (n > 12) return greedySettle(entries); // esatto troppo costoso → greedy
+
+  const full = (1 << n) - 1;
+  const sum = new Float64Array(1 << n);
+  for (let mask = 1; mask <= full; mask++) { const low = mask & -mask; const idx = 31 - Math.clz32(low); sum[mask] = round2(sum[mask ^ low] + entries[idx].v); }
+  const isZero = (mask) => Math.abs(sum[mask]) < 0.01;
+  const best = new Int32Array(1 << n).fill(-2); const choice = new Int32Array(1 << n);
+  const solve = (mask) => {
+    if (mask === 0) return 0;
+    if (best[mask] !== -2) return best[mask];
+    const low = mask & -mask; let bestVal = -1, bestS = 0;
+    for (let s = mask; s > 0; s = (s - 1) & mask) {
+      if (!(s & low) || !isZero(s)) continue;
+      const sub = solve(mask ^ s);
+      if (sub >= 0 && 1 + sub > bestVal) { bestVal = 1 + sub; bestS = s; }
+    }
+    best[mask] = bestVal; choice[mask] = bestS; return bestVal;
+  };
+  solve(full);
+  const tx = []; let mask = full;
+  while (mask) { const s = choice[mask]; const sub = []; for (let i = 0; i < n; i++) if (s & (1 << i)) sub.push({ ...entries[i] }); tx.push(...greedySettle(sub)); mask ^= s; }
+  return tx;
+}
+
+// Statistica per la UI: quanti pagamenti servirebbero SENZA semplificazione
+// (ogni partecipante rimborsa ogni pagante, per spesa) vs col settlement minimo.
+// Rende visibile e concreto il vantaggio ("da 7 a 2 pagamenti").
+export function settlementCounts(group) {
+  const pairs = new Set();
+  for (const e of group.expenses || []) for (const id of Object.keys(e.owed || {})) if (id !== e.payer) pairs.add(`${id}>${e.payer}`);
+  const simplified = minimalSettlement(computeBalances(group)).length;
+  return { raw: pairs.size, simplified, saved: Math.max(0, pairs.size - simplified) };
 }
 
 // Vista "chi deve cosa a chi" pronta per la UI, con i nomi risolti.
