@@ -119,7 +119,18 @@ const VaultDAO = {
     achievements: {}, // { id: isoDate } — traguardi sbloccati (Wave 3 v10, additivo)
     taxLearned: {},   // { tokenMittente: 'invoice'|'salary'|'personal' } — apprendimento fiscale dalle conferme utente
     invoices: [],     // fatture create on-device: { number, year, date, client, imponibile, description, regime }
-    invoiceProfile: { emitter: '', emitterInfo: '', logo: '', accent: '', country: 'IT' }, // dati emittente + logo + Paese (default Italia, pronto per ogni mercato)
+    // Dati emittente + logo + Paese (default Italia, pronto per ogni mercato).
+    // I campi `fiscale` sono ADDITIVI e servono SOLO alla FatturaPA XML ufficiale
+    // (P.IVA/CF/regime/sede): senza di essi il PDF di cortesia funziona lo stesso;
+    // con essi si genera l'XML valido per lo SdI. Tutti opzionali, nessuna invenzione.
+    invoiceProfile: {
+      emitter: '', emitterInfo: '', logo: '', accent: '', country: 'IT',
+      fiscale: {
+        partitaIva: '', codiceFiscale: '', regime: 'forfettario',
+        indirizzo: '', cap: '', comune: '', provincia: '', nazione: 'IT',
+        iban: '',
+      },
+    },
     savingsGoals: [],
     // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
     // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,

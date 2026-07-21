@@ -17,6 +17,7 @@ import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
+import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1384,20 +1385,38 @@ function getInvoiceFormHTML() {
   const year = new Date().getFullYear();
   const num = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
   const prof = VaultDAO.state.invoiceProfile || {};
+  const fis = prof.fiscale || {};
   const inputCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0';
+  const smallCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm min-w-0';
   const hasProfile = !!(prof.emitter && prof.emitter.trim());
+  const v = (s) => String(s || '').replace(/"/g, '&quot;');
+  // Sezione dati fiscali (P.IVA/indirizzo): serve alla FATTURA ELETTRONICA XML.
+  // Compilata una volta e ricordata. Per l'Italia si apre da sola (è quello che
+  // serve davvero); il PDF di cortesia funziona anche senza.
+  const emitterFiscalHTML = `
+        <div class="grid grid-cols-2 gap-2">
+          <input id="inv-piva" inputmode="numeric" class="${smallCls}" placeholder="Partita IVA (11 cifre)" value="${v(fis.partitaIva)}" />
+          <input id="inv-cf" class="${smallCls}" placeholder="Codice Fiscale (se diverso)" value="${v(fis.codiceFiscale)}" />
+          <input id="inv-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo (via e numero)" value="${v(fis.indirizzo)}" />
+          <input id="inv-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" value="${v(fis.cap)}" />
+          <input id="inv-comune" class="${smallCls}" placeholder="Comune" value="${v(fis.comune)}" />
+          <input id="inv-prov" maxlength="2" class="${smallCls}" placeholder="Prov. (es. MI)" value="${v(fis.provincia)}" />
+          <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" />
+        </div>`;
   return `
   <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
     <div class="flex items-baseline justify-between">
       <h3 class="text-base font-black">Crea fattura</h3>
       <span class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Date().toLocaleDateString('it-IT')}</span>
     </div>
-    <!-- I tuoi dati (emittente + logo): compilati UNA volta e ricordati -->
+    <!-- CONSULENTE-GUIDA: dice in parole semplici quale documento serve. Aggiornato live. -->
+    <div id="inv-guidance" class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-4 py-3 text-[12px] leading-snug"></div>
+    <!-- I tuoi dati (emittente + dati fiscali + logo): compilati UNA volta e ricordati -->
     <details ${hasProfile ? '' : 'open'} class="rounded-xl border border-[var(--glass-border)] bg-black/20">
       <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">I tuoi dati e logo ${hasProfile ? `· <span class="text-emerald-400">${(prof.emitter || '').slice(0, 24)}</span>` : '(compila una volta)'}</summary>
       <div class="flex flex-col gap-2 p-3 pt-0">
-        <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${(prof.emitter || '').replace(/"/g, '&quot;')}" />
-        <input id="inv-emitterinfo" class="${inputCls}" placeholder="P.IVA, indirizzo, IBAN..." value="${(prof.emitterInfo || '').replace(/"/g, '&quot;')}" />
+        <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${v(prof.emitter)}" />
+        ${emitterFiscalHTML}
         <div class="flex items-center gap-3">
           <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">Carica logo<input id="inv-logo" type="file" accept="image/*" class="hidden" /></label>
           <span id="inv-logo-status" class="text-[10px] text-[var(--on-surface-secondary)]">${prof.logo ? 'logo salvato ✓' : 'nessun logo'}</span>
@@ -1419,6 +1438,22 @@ function getInvoiceFormHTML() {
     })()}
     <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
     <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
+    <!-- Dati fiscali del CLIENTE: servono solo alla fattura elettronica. A scomparsa,
+         si aprono da soli quando serve. Ricordati per cliente (riuso intelligente). -->
+    <details id="inv-client-fiscal" class="rounded-xl border border-[var(--glass-border)] bg-black/20">
+      <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">Dati del cliente per la fattura elettronica <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
+      <div class="grid grid-cols-2 gap-2 p-3 pt-0">
+        <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="P.IVA cliente" />
+        <input id="inv-cli-cf" class="${smallCls}" placeholder="Codice Fiscale cliente" />
+        <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo cliente" />
+        <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" />
+        <input id="inv-cli-comune" class="${smallCls}" placeholder="Comune" />
+        <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="Prov." />
+        <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="Codice SdI (7) — se ce l'ha" />
+        <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="oppure PEC del cliente" />
+        <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">Non hai il Codice SdI né la PEC? Nessun problema: la fattura arriva nel cassetto fiscale del cliente (useremo <b>0000000</b>).</p>
+      </div>
+    </details>
     <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
     <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
     <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
@@ -1439,11 +1474,16 @@ function getInvoiceFormHTML() {
       </select>
     </div>
     <div id="inv-preview" class="card p-3 text-xs text-slate-300 hidden"></div>
-    <div class="flex gap-2 mt-1">
-      <button id="inv-generate" class="btn-action flex-1 py-3 font-bold rounded-xl">Scarica PDF</button>
+    <!-- Esito controlli fattura elettronica (predizione scarti SdI, in chiaro) -->
+    <div id="inv-xml-controls" class="hidden text-[11px] leading-snug rounded-xl border px-3 py-2.5"></div>
+    <!-- Pulsante FATTURA ELETTRONICA (XML): primario per l'Italia. Nascosto per i
+         Paesi/casi in cui non serve (allora resta solo il PDF). -->
+    <button id="inv-xml" class="btn-action w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2 hidden"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>Scarica fattura elettronica (XML)</button>
+    <div class="flex gap-2">
+      <button id="inv-generate" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">Scarica PDF</button>
       <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
     </div>
-    <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Documento generato on-device. Non è fattura elettronica SdI: per l'invio ufficiale usa il tuo gestionale/commercialista.</p>
+    <p id="inv-foot" class="text-[9px] text-[var(--on-surface-secondary)] opacity-70"></p>
   </div>`;
 }
 
@@ -1453,6 +1493,7 @@ window.openCreateInvoice = (prefillClient) => {
   const eur = (n) => `${(+n).toFixed(2).replace('.', ',')} €`;
   // Anteprima LIVE: mostra netto a ricevere e scomposizione a ogni modifica.
   const refresh = () => {
+    syncGuidance();
     const imp = parseFloat(String(amountEl.value).replace(',', '.'));
     if (!(imp > 0)) { prevEl.classList.add('hidden'); return; }
     const country = ($('#inv-country') && $('#inv-country').value) || 'IT';
@@ -1463,6 +1504,65 @@ window.openCreateInvoice = (prefillClient) => {
       <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span class="font-mono">${eur(inv.nettoARicevere)}</span></div>`;
   };
   const emailEl = $('#inv-email');
+  // Raccoglie i dati fiscali strutturati (tuoi e del cliente) dai campi del form.
+  const currentFiscal = () => ({
+    partitaIva: ($('#inv-piva')?.value || '').trim(), codiceFiscale: ($('#inv-cf')?.value || '').trim(),
+    indirizzo: ($('#inv-indirizzo')?.value || '').trim(), cap: ($('#inv-cap')?.value || '').trim(),
+    comune: ($('#inv-comune')?.value || '').trim(), provincia: ($('#inv-prov')?.value || '').trim(),
+    iban: ($('#inv-iban')?.value || '').trim(),
+  });
+  const currentClientFiscal = () => ({
+    denominazione: (clientEl.value || '').trim(),
+    partitaIva: ($('#inv-cli-piva')?.value || '').trim(), codiceFiscale: ($('#inv-cli-cf')?.value || '').trim(),
+    indirizzo: ($('#inv-cli-indirizzo')?.value || '').trim(), cap: ($('#inv-cli-cap')?.value || '').trim(),
+    comune: ($('#inv-cli-comune')?.value || '').trim(), provincia: ($('#inv-cli-prov')?.value || '').trim(),
+    codiceDestinatario: ($('#inv-cli-sdi')?.value || '').trim(), pec: ($('#inv-cli-pec')?.value || '').trim(),
+  });
+  // Compone la riga anagrafica leggibile (P.IVA · indirizzo · IBAN) per PDF/email.
+  const composeInfo = (f, withIban) => {
+    const parts = [];
+    if (f.partitaIva) parts.push('P.IVA ' + f.partitaIva);
+    else if (f.codiceFiscale) parts.push('C.F. ' + f.codiceFiscale);
+    const addr = [f.indirizzo, [f.cap, f.comune].filter(Boolean).join(' '), f.provincia ? `(${f.provincia})` : ''].filter(Boolean).join(', ');
+    if (addr) parts.push(addr);
+    if (withIban && f.iban) parts.push('IBAN ' + f.iban);
+    return parts.join(' · ');
+  };
+  // Recupera i dati fiscali del cliente dall'ultima fattura a quel cliente
+  // (riuso intelligente: chi fattura spesso non li reinserisce ogni volta).
+  const lastClientFiscal = (name) => {
+    const q = String(name || '').toLowerCase().trim(); if (!q) return null;
+    const hist = (VaultDAO.state.invoices || []).filter(i => String(i.client || '').toLowerCase() === q && i.clientFiscale)
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    return hist.length ? hist[0].clientFiscale : null;
+  };
+  const fillClientFiscal = (f) => {
+    if (!f) return;
+    if ($('#inv-cli-piva')) $('#inv-cli-piva').value = f.partitaIva || '';
+    if ($('#inv-cli-cf')) $('#inv-cli-cf').value = f.codiceFiscale || '';
+    if ($('#inv-cli-indirizzo')) $('#inv-cli-indirizzo').value = f.indirizzo || '';
+    if ($('#inv-cli-cap')) $('#inv-cli-cap').value = f.cap || '';
+    if ($('#inv-cli-comune')) $('#inv-cli-comune').value = f.comune || '';
+    if ($('#inv-cli-prov')) $('#inv-cli-prov').value = f.provincia || '';
+    if ($('#inv-cli-sdi')) $('#inv-cli-sdi').value = f.codiceDestinatario || '';
+    if ($('#inv-cli-pec')) $('#inv-cli-pec').value = f.pec || '';
+  };
+  // CONSULENTE-GUIDA live: in base al Paese dice quale documento serve (fattura
+  // elettronica XML o PDF), mostra/nasconde il pulsante XML e adatta i testi.
+  // Semplice per chi inizia, non invadente per chi fattura da anni.
+  function syncGuidance() {
+    const country = ($('#inv-country')?.value) || 'IT';
+    const isIT = country === 'IT';
+    const rec = recommendInvoiceType({ emitterCountry: isIT ? 'IT' : 'ES', emitterHasVat: true, clientCountry: isIT ? 'IT' : 'ES' });
+    const g = $('#inv-guidance');
+    if (g) g.innerHTML = `<div class="font-bold mb-0.5">${rec.title}</div><div class="text-[var(--on-surface-secondary)]">${rec.reason}</div>`;
+    $('#inv-xml')?.classList.toggle('hidden', !rec.needsFatturaPa);
+    if ($('#inv-generate')) $('#inv-generate').textContent = rec.needsFatturaPa ? 'PDF di cortesia' : 'Scarica PDF';
+    if ($('#inv-foot')) $('#inv-foot').textContent = rec.needsFatturaPa
+      ? 'La fattura elettronica (XML) è quella ufficiale: la carichi sul portale Fatture e Corrispettivi dell’Agenzia o la giri al commercialista. Il PDF è una copia leggibile di cortesia.'
+      : 'Documento generato on-device, valido dove non c’è obbligo di fattura elettronica.';
+    return rec;
+  }
   // Chip clienti ricorrenti: un tap ricompila TUTTO (riuso intelligente).
   const recurring = detectRecurringClients(VaultDAO.state.invoices || [], new Date()).slice(0, 5);
   document.querySelectorAll('[data-recidx]').forEach(btn => btn.addEventListener('click', () => {
@@ -1478,7 +1578,9 @@ window.openCreateInvoice = (prefillClient) => {
   // Autocompletamento intelligente: scelto un cliente noto, pre-compila importo/descrizione/email dallo storico.
   clientEl.addEventListener('change', () => {
     const s = suggestFromHistory(VaultDAO.state.invoices || [], clientEl.value);
-    if (s) { if (!amountEl.value && s.suggestedImponibile) amountEl.value = s.suggestedImponibile; if (!descEl.value && s.lastDescription) descEl.value = s.lastDescription; if (!emailEl.value && s.lastEmail) emailEl.value = s.lastEmail; refresh(); }
+    if (s) { if (!amountEl.value && s.suggestedImponibile) amountEl.value = s.suggestedImponibile; if (!descEl.value && s.lastDescription) descEl.value = s.lastDescription; if (!emailEl.value && s.lastEmail) emailEl.value = s.lastEmail; }
+    fillClientFiscal(lastClientFiscal(clientEl.value)); // riuso dati fiscali del cliente
+    refresh();
   });
   amountEl.addEventListener('input', refresh);
   regimeEl.addEventListener('change', refresh);
@@ -1511,25 +1613,37 @@ window.openCreateInvoice = (prefillClient) => {
     }
     if (!client) { clientEl.focus(); showToast('Inserisci il nome del cliente.', 'error'); return null; }
     if (!(imp > 0)) { amountEl.focus(); showToast('Inserisci un importo valido.', 'error'); return null; }
+    const fis = currentFiscal();
+    const cliFis = currentClientFiscal();
+    const country = ($('#inv-country') && $('#inv-country').value) || 'IT';
+    // emitterInfo/clientInfo per il PDF: composti dai dati strutturati (una sola
+    // fonte di verità → coerenti con l'XML).
+    const emitterInfo = composeInfo(fis, true);
+    const clientInfo = composeInfo(cliFis, false);
     VaultDAO.state.invoiceProfile = {
       emitter: ($('#inv-emitter').value || '').trim(),
-      emitterInfo: ($('#inv-emitterinfo').value || '').trim(),
+      emitterInfo,
       logo: logoData || '',
       accent: $('#inv-accent').value || '#0ea5e9',
-      country: ($('#inv-country') && $('#inv-country').value) || 'IT',
+      country,
+      fiscale: { ...fis, regime: regimeEl.value }, // ricordato per la prossima volta
     };
     const prof = VaultDAO.state.invoiceProfile;
     const clientEmail = (emailEl.value || '').trim();
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country: prof.country });
-    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo: prof.emitterInfo, logo: prof.logo, accent: prof.accent, country: prof.country, clientInfo: '' };
-    // salva nello storico (numerazione + apprendimento cliente/email + flag
-    // ricorrente esplicito per il promemoria proattivo mensile)
+    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo, logo: prof.logo, accent: prof.accent, country: prof.country, clientInfo, regime: regimeEl.value };
+    // salva nello storico (numerazione + apprendimento cliente/email + dati
+    // fiscali del cliente per il riuso + flag ricorrente per il promemoria)
     const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
-    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail, ...(recurring ? { recurring: true, cadence: 'mensile' } : {}) }];
+    const hasCliFiscal = cliFis.partitaIva || cliFis.codiceFiscale || cliFis.indirizzo;
+    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail, ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}) }];
     VaultDAO.save();
-    return { inv, meta, clientEmail, number, year };
+    // dati strutturati per la fattura elettronica (usati dall'handler XML)
+    const emitterFiscal = { ...fis, denominazione: prof.emitter, regime: regimeEl.value, nazione: 'IT' };
+    const clientFiscal = { ...cliFis, nazione: 'IT' };
+    return { inv, meta, clientEmail, number, year, emitterFiscal, clientFiscal };
   };
 
   // "Scarica PDF": genera e SCARICA il PDF vero (nome file intelligente). Il
@@ -1576,6 +1690,59 @@ window.openCreateInvoice = (prefillClient) => {
     renderAnalysis();
   });
 
+  // FATTURA ELETTRONICA (XML): il file ufficiale per lo SdI. Prima CONTROLLA
+  // (predizione scarti SdI, offline): se manca qualcosa lo dice in chiaro, apre
+  // le sezioni giuste e mette a fuoco il primo campo mancante — guida per chi
+  // non ha mai fatturato. Se è tutto ok, scarica l'XML e spiega come caricarlo.
+  const FOCUS_MAP = {
+    'emitter.partitaIva': '#inv-piva', 'emitter.denominazione': '#inv-emitter', 'emitter.indirizzo': '#inv-indirizzo',
+    'emitter.cap': '#inv-cap', 'emitter.comune': '#inv-comune',
+    'client.denominazione': '#inv-client', 'client.idFiscale': '#inv-cli-piva', 'client.indirizzo': '#inv-cli-indirizzo',
+    'client.cap': '#inv-cli-cap', 'client.comune': '#inv-cli-comune',
+  };
+  $('#inv-xml').addEventListener('click', () => {
+    const client = clientEl.value.trim();
+    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
+    const emitterFiscal = { ...currentFiscal(), denominazione: ($('#inv-emitter').value || '').trim(), regime: regimeEl.value, nazione: 'IT' };
+    const clientFiscal = { ...currentClientFiscal(), nazione: 'IT' };
+    const inv = (imp > 0) ? computeInvoice({ imponibile: imp, regime: regimeEl.value, country: 'IT' }) : { imponibile: 0 };
+    const year = new Date().getFullYear();
+    const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
+    const meta = { number, year, date: new Date().toISOString().slice(0, 10), regime: regimeEl.value, description: descEl.value.trim() };
+    const missing = missingForFatturaPa({ emitter: emitterFiscal, client: clientFiscal });
+    const { controls, blocking } = buildFatturaPaXML({ emitter: emitterFiscal, client: clientFiscal, invoice: inv, meta });
+    const box = $('#inv-xml-controls');
+    if (blocking || missing.length) {
+      // apri SOLO le sezioni che servono, per non disorientare
+      const detEmit = document.querySelector('#modal-body details'); if (detEmit && missing.some(m => m.field.startsWith('emitter'))) detEmit.open = true;
+      const detCli = $('#inv-client-fiscal'); if (detCli && missing.some(m => m.field.startsWith('client'))) detCli.open = true;
+      const items = [
+        ...missing.map(m => `<li><b>${m.label}</b> <span class="opacity-70">— ${m.help}</span></li>`),
+        ...controls.filter(c => c.level === 'error' && !missing.length).map(c => `<li>${c.message}</li>`),
+      ];
+      box.className = 'text-[11px] leading-snug rounded-xl border px-3 py-2.5 border-amber-500/40 bg-amber-500/10 text-amber-200';
+      box.innerHTML = `<div class="font-bold mb-1">Ci manca qualcosa per la fattura elettronica:</div><ul class="list-disc pl-4 space-y-0.5">${items.join('')}</ul>`;
+      box.classList.remove('hidden');
+      const id = missing[0] && FOCUS_MAP[missing[0].field];
+      if (id && $(id)) setTimeout(() => $(id).focus(), 60);
+      showToast('Completa i campi indicati per la fattura elettronica.', 'error');
+      return;
+    }
+    // Tutto in regola coi controlli offline → salva e scarica l'XML.
+    const res = buildAndSave();
+    if (!res) return;
+    const out = buildFatturaPaXML({ emitter: res.emitterFiscal, client: res.clientFiscal, invoice: res.inv, meta: { number: res.number, year: res.year, date: new Date().toISOString().slice(0, 10), regime: regimeEl.value, description: res.meta.description } });
+    const warns = out.controls.filter(c => c.level === 'warn');
+    const url = URL.createObjectURL(new Blob([out.xml], { type: 'application/xml' }));
+    const a = document.createElement('a'); a.href = url; a.download = out.filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    box.className = 'text-[11px] leading-snug rounded-xl border px-3 py-2.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
+    box.innerHTML = `<div class="font-bold mb-1">Fattura elettronica pronta ✓</div><div><b>${out.filename}</b> è stato scaricato. Ora caricalo sul portale <b>Fatture e Corrispettivi</b> dell’Agenzia delle Entrate (accesso SPID), oppure invialo al commercialista. Momentum non può caricarlo da solo: serve il tuo accesso ufficiale.</div>${warns.length ? `<div class="mt-1 opacity-80">Nota: ${warns.map(w => w.message).join(' ')}</div>` : ''}`;
+    box.classList.remove('hidden');
+    showToast('XML fattura elettronica scaricato.', 'success');
+    renderAnalysis();
+  });
+
   // Pre-selezione da promemoria proattivo: apre il form già compilato per il
   // cliente ricorrente della fattura mensile da fare (un tap dall'avviso).
   if (prefillClient) {
@@ -1587,9 +1754,16 @@ window.openCreateInvoice = (prefillClient) => {
       if (c.lastEmail) emailEl.value = c.lastEmail;
       if (c.lastRegime && regimeEl.querySelector(`option[value="${c.lastRegime}"]`)) regimeEl.value = c.lastRegime;
       if ($('#inv-recurring')) $('#inv-recurring').checked = !!c.monthly;
-      refresh();
+      fillClientFiscal(lastClientFiscal(c.client));
     }
   }
+  // Guida iniziale + apri i dati fiscali del cliente se serve la e-fattura e
+  // non ci sono ancora (aiuta chi inizia; chi ce li ha già li vede compilati).
+  const initRec = syncGuidance();
+  if (initRec.needsFatturaPa && $('#inv-client-fiscal') && !currentClientFiscal().partitaIva && !currentClientFiscal().codiceFiscale) {
+    // lasciata chiusa di default per non spaventare: si apre al bisogno (click XML)
+  }
+  refresh();
 };
 // Auto-apprendimento fiscale: la conferma dell'utente insegna a Momentum come
 // classificare quel mittente d'ora in poi (integrato nel loop di apprendimento).
