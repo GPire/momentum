@@ -20,7 +20,7 @@ import { selectableCountries as selectableInvoiceCountries } from './invoice/cou
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups } from './split/split-engine.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1593,8 +1593,11 @@ window.openSplitExpense = () => {
           <div class="flex items-center justify-between"><span class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Ognuno paga</span><span class="font-mono font-black text-lg text-emerald-400">${eur(qs.perPerson)}</span></div>
           ${settleHtml ? `<div class="mt-2 pt-2 border-t border-[var(--glass-border)]">${settleHtml}</div>` : ''}
         </div>` : ''}
-        <button id="sp-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Salva la divisione</button>
-        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">100% sul tuo telefono, senza account. I rimborsi li chiedi/paghi tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
+        <div class="flex gap-2">
+          <button id="sp-save" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl">Salva la divisione</button>
+          <button id="sp-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
+        </div>
+        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">100% sul tuo telefono, senza account. Condividi il gruppo con un amico (anche lontano) via codice/QR — le spese si uniscono senza server. I rimborsi li chiedi/paghi tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
       </div>`);
     // bind
     const amountEl = $('#sp-amount'), descEl = $('#sp-desc');
@@ -1615,7 +1618,7 @@ window.openSplitExpense = () => {
       const amt2 = parseFloat(String(state.amount).replace(',', '.'));
       if (!(amt2 > 0) || state.people.length < 2) { showToast('Inserisci importo e almeno due persone.', 'error'); return; }
       const g = buildGroup();
-      VaultDAO.state.splitGroups = [...(VaultDAO.state.splitGroups || []), { ...g, date: new Date().toISOString().slice(0, 10) }];
+      VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
       // INTEGRAZIONE Momentum Core: registro LA TUA PARTE come spesa reale (non
       // l'intero, che è in parte un prestito agli amici) → budget corretto E
       // l'orchestratore IMPARA da questa spesa (categoria predetta dal modello
@@ -1631,8 +1634,62 @@ window.openSplitExpense = () => {
       showToast(`Divisione salvata. La tua parte (${eur(mine)}) è nelle spese.`, 'success');
       renderDashboard(); renderAnalysis({ skipHeavyForecast: true });
     });
+    $('#sp-share')?.addEventListener('click', () => {
+      const amt2 = parseFloat(String(state.amount).replace(',', '.'));
+      if (!(amt2 > 0) || state.people.length < 2) { showToast('Inserisci importo e almeno due persone prima di condividere.', 'error'); return; }
+      const g = buildGroup();
+      VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
+      VaultDAO.save();
+      window.openShareCode({ code: encodeGroupShare(g), title: `Condividi "${g.name}"`, sub: 'Mandalo all\'amico: aprirà Momentum → Insieme → Ricevi un gruppo. Vedrete lo stesso gruppo, anche da Paesi diversi, senza server.' });
+    });
   };
   render();
+};
+
+// ── CONDIVIDI UN CODICE (gruppo spese) — a distanza, senza server: il codice
+// viaggia su WhatsApp/Email/QR e l'amico lo importa. QR solo se abbastanza corto
+// (limite fisico del QR); altrimenti WhatsApp/copia (funzionano sempre). ──
+window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '' } = {}) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let qr = '';
+  try { if (code && code.length <= 330) qr = qrSvg(code, { moduleSize: 4, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${esc(title)}</h3><p class="card-sub !mb-0">${esc(sub || 'Manda questo codice all\'amico: lo apre in Momentum e vedrete lo stesso gruppo. Funziona anche da un altro Paese, senza server.')}</p></div>
+      ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(220px,66vw)">${qr}</div><p class="text-[10px] text-center text-[var(--on-surface-secondary)]">Scansiona da vicino, oppure usa i pulsanti sotto per l'invio a distanza.</p>` : `<p class="text-[11px] text-[var(--on-surface-secondary)]">Gruppo grande: invialo con WhatsApp/Email o copia il codice.</p>`}
+      <textarea readonly class="w-full h-20 bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[11px] font-mono select-all" id="sc-code">${esc(code)}</textarea>
+      <button id="sc-copy" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Copia il codice</button>
+      <div class="grid grid-cols-3 gap-2">
+        <button id="sc-wa" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.6 4.7-1.2A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4z"/></svg>WhatsApp</button>
+        <button id="sc-email" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</button>
+        <button id="sc-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Altro…</button>
+      </div>
+    </div>`);
+  const msg = `Uniamo le spese su Momentum! Apri l'app → Insieme → Ricevi un gruppo, e incolla questo codice:\n\n${code}`;
+  $('#sc-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(code); showToast('Codice copiato.', 'success'); });
+  $('#sc-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'));
+  $('#sc-email')?.addEventListener('click', () => { window.location.href = `mailto:?subject=${encodeURIComponent('Gruppo spese Momentum')}&body=${encodeURIComponent(msg)}`; });
+  $('#sc-share')?.addEventListener('click', async () => { try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(code); showToast('Codice copiato.', 'info'); } } catch (_) { } });
+};
+
+// ── RICEVI UN GRUPPO: incolla il codice ricevuto → merge conflict-free nell'elenco
+// locale (idempotente: reincollare non duplica). ──
+window.receiveSplitGroup = () => {
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">Ricevi un gruppo</h3><p class="card-sub !mb-0">Incolla il codice che ti ha mandato un amico (WhatsApp/Email): unirai le vostre spese, senza server.</p></div>
+      <textarea id="rg-code" class="w-full h-24 bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[11px] font-mono" placeholder="Incolla qui il codice (inizia con MSPLIT1:...)"></textarea>
+      <button id="rg-merge" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Unisci il gruppo</button>
+    </div>`);
+  $('#rg-merge')?.addEventListener('click', () => {
+    const g = decodeGroupShare($('#rg-code').value);
+    if (!g) { showToast('Codice non valido: ricontrolla di averlo copiato tutto.', 'error'); return; }
+    const before = (VaultDAO.state.splitGroups || []).find(x => x.id === g.id);
+    VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], g);
+    VaultDAO.save();
+    closeModal();
+    showToast(before ? `Gruppo "${g.name}" aggiornato con le spese dell'amico.` : `Gruppo "${g.name}" ricevuto e aggiunto.`, 'success');
+  });
 };
 
 // ── CREA FATTURA (v10): semplice come un tap, nativa per ogni schermo, coerente

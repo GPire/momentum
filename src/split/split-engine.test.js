@@ -1,6 +1,54 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, decodeGroupShare } = await import('./split-engine.js');
+
+// Simula: creo il gruppo, lo condivido (encode) e l'amico lo riceve (decode).
+function shareRoundTrip(g) { return decodeGroupShare(encodeGroupShare(g)); }
+
+test('CONDIVISIONE: codice round-trip (encode→decode) preserva il gruppo', () => {
+  let g = createGroup({ name: 'Vacanza', members: ['Io', 'Anna'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 100, description: 'Hotel' });
+  const back = shareRoundTrip(g);
+  assert.equal(back.id, g.id);
+  assert.equal(back.name, 'Vacanza');
+  assert.equal(back.expenses.length, 1);
+  assert.equal(back.expenses[0].amount, 100);
+});
+
+test('CONDIVISIONE: due persone aggiungono spese indipendenti → merge = UNIONE', () => {
+  // base creata da me e condivisa all'amico
+  let base = createGroup({ name: 'Casa', members: ['Io', 'Bea'] });
+  let mine = addSharedExpense(base, { payer: 'm0', amount: 60, description: 'Spesa' });      // io aggiungo
+  let theirs = addSharedExpense(shareRoundTrip(base), { payer: 'm1', amount: 40, description: 'Bollette' }); // l'amico parte dalla base e aggiunge
+  const merged = mergeGroups(mine, theirs);
+  assert.equal(merged.expenses.length, 2, 'le due spese indipendenti si uniscono');
+  const bal = computeBalances(merged);
+  assert.equal(Math.round(Object.values(bal).reduce((a, b) => a + b, 0)), 0);
+});
+
+test('CONDIVISIONE: merge COMMUTATIVO e IDEMPOTENTE (converge sempre)', () => {
+  let base = createGroup({ name: 'G', members: ['A', 'B'] });
+  const a = addSharedExpense(base, { payer: 'm0', amount: 30 });
+  const b = addSharedExpense(shareRoundTrip(base), { payer: 'm1', amount: 50 });
+  const ab = mergeGroups(a, b), ba = mergeGroups(b, a);
+  assert.equal(ab.expenses.length, ba.expenses.length);                 // commutativo
+  assert.equal(mergeGroups(ab, b).expenses.length, ab.expenses.length); // idempotente (re-merge = no-op)
+  assert.equal(mergeGroups(ab, ab).expenses.length, ab.expenses.length);
+});
+
+test('CONDIVISIONE: gruppi con id DIVERSI non si fondono (restano distinti)', () => {
+  const g1 = createGroup({ name: 'X', members: ['A'] });
+  const g2 = createGroup({ name: 'Y', members: ['B'] });
+  assert.equal(mergeGroups(g1, g2).id, g1.id); // nessuna fusione tra gruppi diversi
+  assert.equal(mergeIntoGroups([g1], g2).length, 2);
+  assert.equal(mergeIntoGroups([g1], shareRoundTrip(g1)).length, 1); // stesso id → resta 1
+});
+
+test('CONDIVISIONE: codice non valido → null (mai crash)', () => {
+  assert.equal(decodeGroupShare('spazzatura'), null);
+  assert.equal(decodeGroupShare(''), null);
+  assert.equal(decodeGroupShare('MSPLIT1:@@@'), null);
+});
 
 test('quickSplit: divisione istantanea al centesimo esatto (30 in 4 → 7,50)', () => {
   const r = quickSplit({ amount: 30, people: 4 });

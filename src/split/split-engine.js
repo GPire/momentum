@@ -17,10 +17,17 @@
 const round2 = (n) => Math.round((+n + Number.EPSILON) * 100) / 100;
 const EPS = 0.005;
 
+// Id univoco globale (device-agnostic): tempo + casuale. Serve a rendere le
+// spese di persone diverse NON collidenti → merge conflict-free tra dispositivi
+// lontani senza server.
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
 // Crea un gruppo. members = [{id, name}] o [nomi]. Normalizza a {id, name}.
-export function createGroup({ name = 'Gruppo', members = [] } = {}) {
+// `id` di gruppo univoco: due copie dello STESSO gruppo (una creata, una ricevuta)
+// condividono l'id e si fondono; gruppi diversi restano distinti.
+export function createGroup({ name = 'Gruppo', members = [], id } = {}) {
   const norm = members.map((m, i) => typeof m === 'string' ? { id: `m${i}`, name: m } : { id: m.id || `m${i}`, name: m.name || `Membro ${i + 1}` });
-  return { name, members: norm, expenses: [] };
+  return { id: id || genId(), name, members: norm, expenses: [] };
 }
 
 // Aggiunge una spesa condivisa. `shares` opzionale:
@@ -54,7 +61,9 @@ export function addSharedExpense(group, { payer, amount, description = '', date,
   }
   // arrotonda le quote e aggiusta l'ultimo centesimo sul pagante (somma esatta)
   owed = balanceRounding(owed, amt);
-  const expense = { id: `e${group.expenses.length}`, payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed };
+  // id GLOBALMENTE univoco (non l'indice): cosi' le spese aggiunte da persone
+  // diverse non collidono e il merge tra dispositivi e' conflict-free.
+  const expense = { id: genId(), payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed };
   return { ...group, expenses: [...group.expenses, expense] };
 }
 
@@ -156,6 +165,80 @@ export function suggestSettleTiming({ amountDue, currentAvailable = null, nextIn
   if (amountDue <= currentAvailable) return { when: 'ora', reason: 'hai il disponibile per saldarlo senza scoperti' };
   if (nextIncome && nextIncome.date) return { when: 'dopo il prossimo accredito', reason: `il debito supera il tuo disponibile ora; dopo il ${nextIncome.date} avrai margine` };
   return { when: 'a rate o appena hai margine', reason: 'il debito supera il tuo disponibile attuale' };
+}
+
+// ============================================================
+// CONDIVISIONE GRUPPO A DISTANZA, SENZA SERVER (conflict-free)
+// ============================================================
+// Il gap coi competitor: sincronizzare il gruppo tra persone LONTANE. Qui NON
+// serve un server ne' dispositivi vicini: si condivide un CODICE (via WhatsApp/
+// email/QR — i canali che le persone gia' usano) e chi lo riceve lo FONDE. Il
+// merge e' CONFLICT-FREE (union per id univoco), COMMUTATIVO e IDEMPOTENTE: non
+// importa chi condivide per primo, ne' quante volte — il risultato converge.
+// E' l'equivalente proprietario del cloud di Splitwise, ma "il cloud sei tu".
+
+// Unione di liste per `id` (mantiene la prima occorrenza; le spese sono immutabili).
+function unionById(a = [], b = []) {
+  const seen = new Map();
+  for (const x of a) seen.set(x.id, x);
+  for (const x of b) if (!seen.has(x.id)) seen.set(x.id, x);
+  return [...seen.values()];
+}
+
+// Fonde due copie di gruppo. Stesso id → union di membri e spese (conflict-free).
+// Id diversi → sono gruppi distinti: ritorna `a` invariato (nessuna fusione).
+export function mergeGroups(a, b) {
+  if (!a) return b; if (!b) return a;
+  if (a.id !== b.id) return a;
+  return {
+    id: a.id,
+    name: a.name || b.name,
+    members: unionById(a.members, b.members),
+    expenses: unionById(a.expenses, b.expenses),
+  };
+}
+
+// Fonde un gruppo in arrivo dentro l'elenco locale: se esiste gia' (stesso id) lo
+// aggiorna col merge, altrimenti lo aggiunge. Ritorna il nuovo elenco.
+export function mergeIntoGroups(groups = [], incoming) {
+  if (!incoming || !incoming.id) return groups;
+  const i = groups.findIndex(g => g.id === incoming.id);
+  if (i === -1) return [...groups, incoming];
+  const out = groups.slice(); out[i] = mergeGroups(groups[i], incoming);
+  return out;
+}
+
+// base64 UTF-8 sicuro sia su Node sia su browser.
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str); let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return (typeof btoa !== 'undefined') ? btoa(bin) : Buffer.from(bin, 'binary').toString('base64');
+}
+function b64decode(b64) {
+  const bin = (typeof atob !== 'undefined') ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+export const SPLIT_SHARE_PREFIX = 'MSPLIT1:';
+
+// Codice condivisione del gruppo (compatto): lo mandi via WhatsApp/email o lo
+// mostri come QR. Contiene solo il gruppo (nomi/spese), niente dati personali.
+export function encodeGroupShare(group) {
+  const slim = { id: group.id, name: group.name, members: group.members, expenses: group.expenses };
+  return SPLIT_SHARE_PREFIX + b64encode(JSON.stringify(slim));
+}
+
+// Decodifica un codice ricevuto → gruppo, o null se non valido (mai crash).
+export function decodeGroupShare(code) {
+  try {
+    const s = String(code || '').trim();
+    const body = s.startsWith(SPLIT_SHARE_PREFIX) ? s.slice(SPLIT_SHARE_PREFIX.length) : s;
+    const g = JSON.parse(b64decode(body));
+    if (!g || !g.id || !Array.isArray(g.members) || !Array.isArray(g.expenses)) return null;
+    return g;
+  } catch (_) { return null; }
 }
 
 // PONTE COL BONIFICO SEPA on-device: da una riga di settlement + gli IBAN noti dei
