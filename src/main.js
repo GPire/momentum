@@ -1501,19 +1501,28 @@ window.openSepaTransfer = (d = {}) => {
       ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(240px,72vw)">${qr}</div>
               <p class="text-[10px] text-center text-[var(--on-surface-secondary)]">QR standard SEPA (EPC). Se la tua app non lo legge, usa i dati qui sotto — funzionano con ogni banca.</p>` : ''}
       <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[12px] font-mono whitespace-pre-line select-all">${esc(fallback)}</div>
-      <div class="flex gap-2">
-        <button id="sepa-copy" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl">Copia i dati</button>
-        <button id="sepa-copy-iban" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">Copia IBAN</button>
-        <button id="sepa-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
+      <button id="sepa-copy" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Copia i dati del bonifico</button>
+      <div class="grid grid-cols-4 gap-2">
+        <button id="sepa-wa" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.6 4.7-1.2A10 10 0 1 0 12 2zm0 2a8 8 0 0 1 0 16 8 8 0 0 1-4.1-1.1l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4zm-2.6 3.4c-.2 0-.5 0-.7.4-.2.4-.9.9-.9 2.1s.9 2.5 1 2.6c.1.2 1.7 2.8 4.3 3.8 2.1.8 2.6.7 3 .6.5-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1 0-.1-.3-.2-.6-.4-.3-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1-.2.3-.6.8-.7.9-.1.2-.3.2-.5.1-.3-.1-1-.4-2-1.2-.7-.7-1.2-1.5-1.4-1.7-.1-.3 0-.4.1-.5l.4-.5c.1-.1.2-.3.2-.4.1-.2 0-.3 0-.4 0-.1-.5-1.3-.7-1.7-.2-.4-.4-.4-.5-.4z"/></svg>WhatsApp</button>
+        <button id="sepa-email" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</button>
+        <button id="sepa-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Altro…</button>
+        <button id="sepa-copy-iban" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>IBAN</button>
       </div>
-      <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Momentum non invia bonifici né accede al conto: prepara i dati, il movimento lo fai tu nella tua banca (con la tua autenticazione).</p>
+      <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Momentum non invia bonifici né accede al conto: prepara il messaggio e i dati, l'invio e il movimento li fai tu (con la tua autenticazione).</p>
     </div>`);
+  // Messaggio pronto (per richiesta pagamento: intro gentile + dati; per bonifico proprio: i dati)
+  const message = isRequest
+    ? `Ciao, ecco i dati per il pagamento${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\nGrazie!`
+    : fallback;
+  const subject = isRequest ? `Pagamento${remittance ? ` — ${remittance}` : ''}` : 'Dati bonifico';
   $('#sepa-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(fallback); showToast('Dati del bonifico copiati.', 'success'); });
   $('#sepa-copy-iban')?.addEventListener('click', () => { navigator.clipboard?.writeText(iban); showToast('IBAN copiato.', 'success'); });
+  $('#sepa-wa')?.addEventListener('click', () => { window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener'); });
+  $('#sepa-email')?.addEventListener('click', () => { window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`; });
   $('#sepa-share')?.addEventListener('click', async () => {
     try {
-      if (navigator.share) await navigator.share({ title, text: fallback });
-      else { navigator.clipboard?.writeText(fallback); showToast('Dati copiati (condivisione non disponibile qui).', 'info'); }
+      if (navigator.share) await navigator.share({ title, text: message });
+      else { navigator.clipboard?.writeText(message); showToast('Messaggio copiato (condivisione non disponibile qui).', 'info'); }
     } catch (e) { /* utente ha annullato */ }
   });
 };
@@ -1652,6 +1661,7 @@ function getInvoiceFormHTML() {
       <button id="inv-generate" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">Scarica PDF</button>
       <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
     </div>
+    <button id="inv-request-pay" class="w-full py-3 font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>Chiedi il pagamento (QR · WhatsApp · Email)</button>
     <p id="inv-foot" class="text-[9px] text-[var(--on-surface-secondary)] opacity-70"></p>
   </div>`;
 }
@@ -1857,6 +1867,29 @@ window.openCreateInvoice = (prefillClient) => {
     closeModal();
     showToast('Fattura scaricata: allegala all\'email che si è aperta.', 'success');
     renderAnalysis();
+  });
+
+  // "Chiedi il pagamento": genera il bonifico SEPA (QR + WhatsApp/Email/copia)
+  // che il CLIENTE usa per pagarti in una scansione. Beneficiario = tu, importo =
+  // totale della fattura. Serve il TUO IBAN (dai dati fiscali).
+  $('#inv-request-pay')?.addEventListener('click', () => {
+    const emitter = ($('#inv-emitter').value || '').trim();
+    const fis = currentFiscal();
+    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
+    if (!fis.iban) {
+      const det = document.querySelector('#modal-body details'); if (det) det.open = true;
+      $('#inv-iban')?.focus();
+      showToast('Aggiungi il tuo IBAN nei dati fiscali per farti pagare.', 'error'); return;
+    }
+    if (!(imp > 0)) { amountEl.focus(); showToast('Inserisci l\'importo della fattura.', 'error'); return; }
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country: ($('#inv-country') && $('#inv-country').value) || 'IT' });
+    const year = new Date().getFullYear();
+    const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
+    window.openSepaTransfer({
+      mode: 'request', name: emitter, iban: fis.iban, amount: inv.totaleFattura,
+      remittance: `Fattura ${number}/${year}${clientEl.value ? ' - ' + clientEl.value : ''}`.slice(0, 140),
+      title: 'Chiedi il pagamento al cliente',
+    });
   });
 
   // FATTURA ELETTRONICA (XML): il file ufficiale per lo SdI. Prima CONTROLLA
