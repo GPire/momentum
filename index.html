@@ -743,36 +743,37 @@
 
               <!-- Options Column -->
               <div class="flex flex-col gap-5 sm:gap-6 xl:col-span-2">
-                  <div class="card p-6 border border-[var(--primary)]/30">
-                    <h3 class="text-xs font-bold uppercase tracking-wider mb-3">Neuro-Friction Engine</h3>
+                  <div class="card p-6">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h7M4 18h13"/><circle cx="18" cy="6" r="2"/><circle cx="15" cy="12" r="2"/></svg>Quanto l'app ti frena sulle spese</h3>
+                    <p class="card-sub">Da un tocco leggero a un promemoria più deciso quando stai per spendere troppo.</p>
                     <div class="segmented-control">
-                       <div class="segment-btn" data-ai-mode="zen" onclick="window.setAIAggression('zen')">Zen</div>
-                       <div class="segment-btn" data-ai-mode="advisor" onclick="window.setAIAggression('advisor')">Advisor</div>
-                       <div class="segment-btn" data-ai-mode="predator" onclick="window.setAIAggression('predator')">Apex Predator</div>
+                       <div class="segment-btn" data-ai-mode="zen" onclick="window.setAIAggression('zen')">Delicato</div>
+                       <div class="segment-btn" data-ai-mode="advisor" onclick="window.setAIAggression('advisor')">Consigliere</div>
+                       <div class="segment-btn" data-ai-mode="predator" onclick="window.setAIAggression('predator')">Deciso</div>
                     </div>
                   </div>
 
-                  <div class="card p-6 border border-[var(--outline)]">
+                  <div class="card p-6">
                     <div class="flex items-center justify-between">
-                      <h3 class="text-xs font-bold uppercase tracking-wider">Ghost Charge Radar</h3>
+                      <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Trova abbonamenti dimenticati</h3>
                       <input type="checkbox" id="settings-ghost-radar" onchange="toggleGhostRadar()" class="w-4 h-4" />
                     </div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Scansione passiva per identificare abbonamenti dimenticati.</p>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Controlla in background le spese che si ripetono ogni mese.</p>
                   </div>
 
-                  <div class="card p-6 border border-[var(--outline)]">
+                  <div class="card p-6">
                     <div class="flex items-center justify-between">
-                      <h3 class="text-xs font-bold uppercase tracking-wider">Feedback Sonoro</h3>
+                      <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>Suoni</h3>
                       <input type="checkbox" id="settings-sound" onchange="toggleSound()" class="w-4 h-4" checked />
                     </div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Effetti sonori cyberpunk al salvataggio o ai blocchi di frizione attiva.</p>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Un piccolo suono quando salvi un movimento o superi un limite.</p>
                   </div>
 
-                  <div class="card p-6 border border-[var(--primary)]/30 flex flex-col">
+                  <div class="card p-6 flex flex-col">
                     <div class="flex items-center justify-between mb-4">
                       <div>
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-[var(--primary)]">Temporal Nexus Calendar</h3>
-                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">Scadenze future integrate e sincronizzate multipiattaforma.</p>
+                        <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Scadenze e promemoria</h3>
+                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">Le tue scadenze future, esportabili nel calendario del telefono.</p>
                       </div>
                       <button onclick="exportEventsToICS()" class="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 rounded-lg text-[10px] font-bold transition-all">Sincronizza (.ics)</button>
                     </div>
@@ -798,7 +799,7 @@
                        <p class="text-xs font-mono font-bold text-[var(--on-surface-secondary)] mb-1" id="version-display">Core: V50.Momentum.Vault</p>
                        <p class="text-[10px] font-mono font-bold text-[var(--primary)]" id="ml-status">Synapse Nodes: 0</p>
                      </div>
-                     <button onclick="nukeVault()" class="px-4 py-3 bg-[#be123c] text-white font-bold rounded-xl text-xs transition-transform active:scale-95 shadow-md">Purge Quantistico</button>
+                     <button onclick="nukeVault()" class="px-4 py-3 bg-[#be123c] text-white font-bold rounded-xl text-xs transition-transform active:scale-95 shadow-md">Cancella tutti i dati</button>
                   </div>
               </div>
             </div>

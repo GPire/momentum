@@ -218,10 +218,10 @@ const getTxFormHTML = () => `
     
     <!-- NLP Prediction preview & AntiFOMO warnings -->
     <div id="ai-insight-panel" class="ai-insight-panel">
-       <div class="ai-insight-header"><span>🧠 Synapse SLM</span><span id="ai-cat-badge" class="truncate max-w-[120px]">Cat</span></div>
-       <div class="text-[9px] font-mono text-[var(--on-surface-secondary)] mb-1">Confidence: <span class="ml-confidence" id="ml-confidence-score">0%</span></div>
-       <div class="ai-insight-body" id="ai-insight-text">Analisi dei dati...</div>
-       <div class="ai-insight-action" id="ai-insight-btn">Applica Synapsi</div>
+       <div class="ai-insight-header"><span class="inline-flex items-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg>Categoria suggerita</span><span id="ai-cat-badge" class="truncate max-w-[120px]">Cat</span></div>
+       <div class="text-[9px] font-mono text-[var(--on-surface-secondary)] mb-1">Sicurezza: <span class="ml-confidence" id="ml-confidence-score">0%</span></div>
+       <div class="ai-insight-body" id="ai-insight-text">Sto guardando cosa hai scritto...</div>
+       <div class="ai-insight-action" id="ai-insight-btn">Usa questo suggerimento</div>
     </div>
 
     <div class="type-toggle-track mb-3 shrink-0">
@@ -251,7 +251,7 @@ const getTxFormHTML = () => `
     
     <div class="smart-toggles-row mb-3 shrink-0">
        <div class="neuro-pill-btn" id="date-pill-btn">
-          <span>📅</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
           <span id="date-pill-text" class="truncate">Oggi</span>
           <input type="date" id="tx-date-input" class="native-date-input" max="${new Date().toISOString().split('T')[0]}">
        </div>
@@ -350,8 +350,8 @@ const attachFormListeners = (container) => {
         // l'utente a confermare — meglio di una categoria forzata sbagliata.
         aiCatBadge.textContent = pred.abstain ? `${pCat.name}?` : pCat.name;
         aiText.textContent = pred.abstain
-          ? `🤔 ${pred.advice}`
-          : `${pred.advice} (Confidence: ${pred.confidence}%)`;
+          ? pred.advice
+          : `${pred.advice} (sicurezza ${pred.confidence}%)`;
         aiPanel.classList.add('active');
         aiPanel.classList.remove('anomalous');
         aiBtn.style.display = 'block';
@@ -510,7 +510,7 @@ const attachFormListeners = (container) => {
     if (friction.level === 'block') {
       AudioSynth.play('friction');
       haptic('heavy');
-      showToast("Azione abortita: blocco di frizione attiva (Apex Predator).", "error");
+      showToast("Ho messo un piccolo freno: sei in modalità Deciso. Tocca di nuovo se vuoi procedere.", "error");
       return;
     }
 
@@ -2491,11 +2491,11 @@ const endGenesis = () => {
     if (ota) ota.classList.add('active');
     
     const logs = [
-      "Inizializzazione Momentum Vault...",
-      "Allineamento Synapse SLM...",
-      "Calcolo regressioni QuantumRL...",
-      "Attivazione barriere AntiFOMO...",
-      "Database Pronto. Accesso Autorizzato."
+      "Apertura di Momentum...",
+      "Preparo i tuoi dati (restano solo sul tuo dispositivo)...",
+      "Analizzo le tue abitudini di spesa...",
+      "Attivo i freni gentili alle spese...",
+      "Tutto pronto."
     ];
     let idx = 0;
     const interval = setInterval(() => {
