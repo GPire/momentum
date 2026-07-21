@@ -1,6 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { compareVersions, canonicalMessage, makeEcdsaVerifier, resolveUpdate, pickBestManifest, deriveCandidateLocations, currentEpoch, resilientCandidates, extractCtDomains, discoverViaCertTransparency } = await import('./update-locator.js');
+const { compareVersions, canonicalMessage, makeEcdsaVerifier, resolveUpdate, pickBestManifest, deriveCandidateLocations, currentEpoch, resilientCandidates, extractCtDomains, discoverViaCertTransparency, checkForLatest } = await import('./update-locator.js');
+
+test('checkForLatest: a ogni apertura mette insieme TUTTE le fonti (ancora+algoritmo+CT) e trova l\'ultima firmata', async () => {
+  const subtle = globalThis.crypto.subtle;
+  const kp = await subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const verify = makeEcdsaVerifier(await subtle.exportKey('jwk', kp.publicKey));
+  const b64 = (u8) => Buffer.from(u8).toString('base64');
+  const sign = async (mf) => { const s = await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, new TextEncoder().encode(canonicalMessage(mf))); return { ...mf, sig: b64(new Uint8Array(s)) }; };
+  const mf = await sign({ version: '70.0.0', url: 'https://nuovo/app.js', sha256: 'h' });
+  // il manifest e' pubblicato SOLO su un dominio scoperto via CT; ancore e algoritmo morti
+  const fetchImpl = async (url) => {
+    if (url.includes('crt')) return { ok: true, json: async () => [{ name_value: 'momentum-xyz.com' }] };
+    if (url === 'https://momentum-xyz.com/m.json') return { ok: true, json: async () => mf };
+    throw new Error('morto');
+  };
+  const config = { prefix: 'momentum', ctEndpoints: ['https://crt/{prefix}'], seed: 'seme', templates: ['https://{t}.dead/m.json'], anchors: ['https://ancora-morta/m.json'], manifestPath: '/m.json' };
+  const r = await checkForLatest({ config, fetchImpl, verifyImpl: verify, currentVersion: '69.0.0', memory: null });
+  assert.equal(r.found, true);
+  assert.equal(r.manifest.version, '70.0.0'); // trovata via CT anche se ancora/algoritmo morti
+});
 
 test('CT: estrae i domini col prefisso (gestisce newline e wildcard *.)', () => {
   const ctJson = [

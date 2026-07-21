@@ -16,6 +16,8 @@
 // Funzioni pure/asincrone, nessun DOM. La firma reale usa WebCrypto (Node/browser).
 'use strict';
 
+import { rankSources, recordDiscovery } from './discovery-memory.js';
+
 // Confronto versioni semver-lite: "50.2.0" > "50.1.9". Ritorna >0,0,<0.
 export function compareVersions(a, b) {
   const pa = String(a || '').split('.').map(n => parseInt(n, 10) || 0);
@@ -176,17 +178,48 @@ export async function discoverViaCertTransparency({ prefix, ctEndpoints = [], fe
 // Se tutti i fari sono morti ma un peer conosce il nuovo indirizzo, funziona
 // lo stesso. Se non c'e' NIENTE di raggiungibile, ritorna { found:false } (onesto:
 // nessuna magia, ma nessun single point of failure e nessun update non firmato).
-export async function resolveUpdate({ beacons = [], fetchImpl, verifyImpl, currentVersion, peerManifests = [] } = {}) {
+// `memory` (opzionale, DiscoveryMemory): rende la scoperta PREDITTIVA — le fonti
+// che hanno funzionato in passato (e l'ultimo indirizzo buono) vengono provate
+// PER PRIME, e ogni esito le allena. Retro-compatibile: senza memory, ordine dato.
+export async function resolveUpdate({ beacons = [], fetchImpl, verifyImpl, currentVersion, peerManifests = [], memory = null } = {}) {
   const candidates = Array.isArray(peerManifests) ? peerManifests.slice() : [];
-  for (const url of beacons) {
+  const ordered = memory ? rankSources(beacons, memory) : beacons;
+  const failed = [];
+  for (const url of ordered) {
     if (typeof fetchImpl !== 'function') break;
     try {
       const res = await fetchImpl(url);
-      if (res && res.ok) { const mf = await res.json(); if (mf) candidates.push({ ...mf, _via: url }); }
-    } catch (_) { /* faro morto → prova il prossimo */ }
+      if (res && res.ok) { const mf = await res.json(); if (mf) { candidates.push({ ...mf, _via: url }); continue; } }
+      failed.push(url);
+    } catch (_) { failed.push(url); } // faro morto → prova il prossimo (e lo impara)
   }
   const best = await pickBestManifest(candidates, { currentVersion, verifyImpl });
+  if (memory) {
+    // APPRENDIMENTO: successo sulla fonte che ha dato l'update valido; fallimento
+    // sui fari non raggiungibili → la prossima volta l'ordine e' piu' intelligente.
+    for (const url of failed) recordDiscovery(memory, url, false);
+    if (best && best._via) recordDiscovery(memory, best._via, true);
+  }
   return best
     ? { found: true, manifest: best, via: best._via || 'peer' }
     : { found: false, reason: 'nessun aggiornamento firmato piu\' recente trovato (fari/peer non raggiungibili o firme non valide)' };
+}
+
+// ============================================================
+// ORCHESTRATORE UNICO — "a ogni apertura, prendi l'ultima versione"
+// ============================================================
+// UN solo punto d'ingresso che l'app chiama a OGNI avvio (PWA installata O sito
+// aperto dal browser dello stesso dispositivo): mette insieme TUTTE le fonti di
+// scoperta — indirizzi algoritmici (seme, epoch corrente+precedente), domini
+// scoperti via Certificate Transparency (prefisso), ancore fisse, e i manifest
+// che i peer passano sulla mesh — le ordina con la memoria che apprende, e
+// ritorna la versione firmata piu' recente. Cosi', comunque l'utente arrivi, se
+// c'e' una versione nuova se la prende. Onesto: serve una fonte viva; qui ce ne
+// sono tante indipendenti + la firma che blinda tutto.
+export async function checkForLatest({ config = {}, memory = null, fetchImpl, verifyImpl, currentVersion, peerManifests = [], now = Date.now() } = {}) {
+  const { prefix, ctEndpoints = [], seed, templates = [], anchors = [], manifestPath = '/momentum-update.json', candidateCount = 4, windowMs } = config;
+  const candidates = new Set(anchors);
+  if (seed && templates.length) { for (const u of await resilientCandidates({ seed, templates, count: candidateCount, now, windowMs })) candidates.add(u); }
+  if (prefix && ctEndpoints.length && typeof fetchImpl === 'function') { for (const u of await discoverViaCertTransparency({ prefix, ctEndpoints, fetchImpl, manifestPath })) candidates.add(u); }
+  return resolveUpdate({ beacons: [...candidates], fetchImpl, verifyImpl, currentVersion, peerManifests, memory });
 }
