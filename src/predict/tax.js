@@ -133,6 +133,50 @@ const PERSONAL_KW = /(rimborso|refund|regalo|gift|restituzione|giroconto|storno|
 function incomeKey(description = '') {
   return String(description).toLowerCase().replace(/[0-9]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 }
+// Token per l'apprendimento GENERALIZZANTE: parole "mittente" (studio, verdi,
+// acme...) togliendo connettori, mesi e verbi bancari generici (che non
+// identificano un mittente). Così una conferma su "Studio Verdi marzo" insegna
+// i token studio/verdi e riconosce anche "Studio Verdi aprile" — cosa che la
+// sola chiave esatta non fa. È un mini Naive-Bayes appreso online dalle conferme.
+const INCOME_STOP = new Set([
+  'bonifico', 'pagamento', 'pagam', 'accredito', 'ricevuto', 'ricevut', 'saldo', 'acconto', 'importo',
+  'del', 'della', 'dei', 'delle', 'dal', 'dalla', 'per', 'con', 'una', 'uno', 'gli', 'lei', 'the', 'for',
+  'from', 'payment', 'transfer', 'srl', 'spa', 'snc', 'sas', 'ditta',
+  'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
+  'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
+  'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec',
+]);
+function tokenizeIncome(description = '') {
+  return String(description).toLowerCase()
+    .replace(/[^a-zàèéìòùç]+/gi, ' ').split(/\s+/)
+    .filter(t => t.length >= 3 && !INCOME_STOP.has(t));
+}
+// Normalizza la memoria fiscale in { k:{chiaveEsatta:kind}, t:{token:{invoice,
+// salary,personal}} }, MIGRANDO le vecchie mappe piatte { chiave:kind } già
+// salvate nei vault degli utenti (retro-compatibilità totale).
+const INCOME_KINDS = ['invoice', 'salary', 'personal'];
+function normalizeLearned(learned) {
+  if (!learned || typeof learned !== 'object') return { k: {}, t: {} };
+  if (learned.k && typeof learned.k === 'object' && learned.t && typeof learned.t === 'object') return learned; // già nuovo formato
+  const k = {}; // vecchia mappa piatta { chiave: kind } → migra in .k
+  for (const [key, kind] of Object.entries(learned)) if (typeof kind === 'string' && INCOME_KINDS.includes(kind)) k[key] = kind;
+  return { k, t: {} };
+}
+// Voto dei token appresi sulla descrizione: somma i conteggi per classe dei
+// token riconosciuti; classifica solo con supporto e maggioranza netti (mai a
+// bassa evidenza). Ritorna { kind, share, support } o null.
+function tokenVote(t, description) {
+  const agg = { invoice: 0, salary: 0, personal: 0 };
+  let support = 0;
+  for (const tok of new Set(tokenizeIncome(description))) {
+    const c = t[tok]; if (!c) continue;
+    for (const k of INCOME_KINDS) { const n = +c[k] || 0; agg[k] += n; support += n; }
+  }
+  if (support < 2) return null;
+  const winner = INCOME_KINDS.reduce((a, b) => agg[a] >= agg[b] ? a : b);
+  const share = agg[winner] / support;
+  return share >= 0.8 ? { kind: winner, share, support } : null;
+}
 // `model` (opzionale) = classificatore fiscale ADDESTRATO (HashedLogReg,
 // public/momentum_income_model.json) con .predict(text) → {category,
 // confidence}. È un MODELLO NUOVO, stessa architettura del LogReg esperto,
@@ -144,8 +188,15 @@ export function classifyIncome(tx = {}, learned = null, model = null) {
   if (tx.taxable === false) return { kind: 'personal', reason: 'marcata come non imponibile dall\'utente' };
   const desc = String(tx.description || '').toLowerCase();
   if (learned) {
+    const L = normalizeLearned(learned);
     const key = incomeKey(desc);
-    if (key && learned[key]) return { kind: learned[key], reason: 'appreso da una tua conferma precedente' };
+    // (a) corrispondenza ESATTA su una tua conferma → priorità massima.
+    if (key && L.k[key]) return { kind: L.k[key], reason: 'appreso da una tua conferma precedente' };
+    // (b) GENERALIZZAZIONE: i token appresi dai tuoi mittenti riconoscono anche
+    // descrizioni nuove/simili (es. stesso cliente, mese diverso). Solo con
+    // evidenza netta (supporto ≥2, maggioranza ≥80%): mai forzare.
+    const v = tokenVote(L.t, desc);
+    if (v) return { kind: v.kind, reason: 'appreso dai tuoi mittenti simili' };
   }
   if (INVOICE_KW.test(desc)) return { kind: 'invoice', reason: 'sembra una fattura/compenso P.IVA' };
   if (PERSONAL_KW.test(desc)) return { kind: 'personal', reason: 'sembra un rimborso/regalo/interessi/giroconto (non imponibile)' };
@@ -168,8 +219,16 @@ export function classifyIncome(tx = {}, learned = null, model = null) {
 // sole. Integra le tasse nel loop di apprendimento di Momentum.
 export function learnIncomeType(learned = {}, description, kind) {
   const key = incomeKey(description);
-  if (!key || !['invoice', 'salary', 'personal'].includes(kind)) return learned;
-  return { ...learned, [key]: kind };
+  if (!key || !INCOME_KINDS.includes(kind)) return learned; // no-op: forma invariata (retro-compat test)
+  const L = normalizeLearned(learned);
+  const k = { ...L.k, [key]: kind };                 // chiave esatta (come prima)
+  const t = { ...L.t };                              // + token per la generalizzazione
+  for (const tok of new Set(tokenizeIncome(description))) {
+    const c = { ...(t[tok] || { invoice: 0, salary: 0, personal: 0 }) };
+    c[kind] = (+c[kind] || 0) + 1;
+    t[tok] = c;
+  }
+  return { k, t };
 }
 
 // Suggerisce il regime in base al fatturato ANNUO imponibile: sopra il tetto

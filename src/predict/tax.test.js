@@ -100,6 +100,40 @@ test('learnIncomeType + classifyIncome: impara dalla correzione dell\'utente', (
   assert.equal(classifyIncome({ description: 'Bonifico Studio Rossi 47' }, learned).reason, 'appreso da una tua conferma precedente');
 });
 
+test('classifyIncome: GENERALIZZA ai mittenti simili (stesso cliente, mese diverso)', () => {
+  // Una sola conferma su "Studio Verdi marzo" deve far riconoscere anche
+  // "Studio Verdi aprile" (mese diverso, descrizione mai vista): la vecchia
+  // chiave esatta NON ci riusciva, i token appresi sì.
+  const learned = learnIncomeType({}, 'Compenso Studio Verdi marzo', 'invoice');
+  const r = classifyIncome({ description: 'Studio Verdi aprile' }, learned);
+  assert.equal(r.kind, 'invoice');
+  assert.equal(r.reason, 'appreso dai tuoi mittenti simili');
+});
+
+test('classifyIncome: il voto token richiede evidenza netta (un token generico non basta)', () => {
+  // Confermo un mittente "personale"; una descrizione che condivide solo un mese
+  // (stopword) NON deve ereditare la classe.
+  const learned = learnIncomeType({}, 'Regalo Nonna dicembre', 'personal');
+  const r = classifyIncome({ description: 'Fattura dicembre cliente' }, learned);
+  assert.equal(r.kind, 'invoice'); // vince la keyword fattura, non il token "dicembre" (è stopword)
+});
+
+test('classifyIncome: retro-compatibile con la vecchia mappa piatta salvata nei vault', () => {
+  // Vault storici hanno taxLearned come { chiave: kind }: deve funzionare ancora.
+  const legacy = { 'compenso studio bianchi': 'invoice' };
+  const r = classifyIncome({ description: 'Compenso Studio Bianchi 88' }, legacy);
+  assert.equal(r.kind, 'invoice');
+  assert.equal(r.reason, 'appreso da una tua conferma precedente');
+});
+
+test('learnIncomeType: accumula i conteggi dei token nel nuovo formato', () => {
+  let l = learnIncomeType({}, 'Acme Consulting gennaio', 'invoice');
+  l = learnIncomeType(l, 'Acme Consulting febbraio', 'invoice');
+  assert.equal(l.t.acme.invoice, 2);       // token accumulato su due conferme
+  assert.equal(l.t.consulting.invoice, 2);
+  assert.ok(l.k['acme consulting gennaio']); // chiavi esatte conservate
+});
+
 test('learnIncomeType: ignora kind non validi e descrizioni vuote', () => {
   assert.deepEqual(learnIncomeType({}, '', 'invoice'), {});
   assert.deepEqual(learnIncomeType({}, 'x', 'boh'), {});
