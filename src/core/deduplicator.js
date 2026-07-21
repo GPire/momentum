@@ -71,6 +71,15 @@ export function findDuplicate(newTx, existingTxs, opts = {}) {
 
     if (newTx.type && tx.type && newTx.type !== tx.type) continue;
 
+    // MOVIMENTO AUTO-AVVIATO (bonifico SEPA/sweep registrato da Momentum): quando
+    // poi arriva il rigo della banca (CSV) con una descrizione MOLTO diversa, la
+    // similarità testo fallirebbe. Ma sai di averlo fatto tu: stesso importo,
+    // stesso tipo, stessa finestra su una tx flaggata selfTransfer non ancora
+    // riconciliata = è lo stesso movimento. Match forte a prescindere dal testo.
+    if (tx.selfTransfer && !tx.reconciledBank) {
+      return tx; // riconciliazione certa, nessun rischio di doppio conteggio
+    }
+
     const score = descriptionSimilarity(tx.description, newTx.description);
     if (score >= descriptionThreshold && score > bestScore) {
       best = tx;

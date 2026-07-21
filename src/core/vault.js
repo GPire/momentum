@@ -4,6 +4,17 @@ import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
 import { mergeTransactions, reconcileHead } from '../mesh/sync.js';
 
+// Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
+// Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
+function adjacentMonthKeys(month) {
+  const [y, m] = String(month).split('-').map(Number);
+  if (!y || !m) return [month];
+  const k = (yy, mm) => `${yy}-${String(mm).padStart(2, '0')}`;
+  const prev = m === 1 ? k(y - 1, 12) : k(y, m - 1);
+  const next = m === 12 ? k(y + 1, 1) : k(y, m + 1);
+  return [prev, month, next];
+}
+
 // ==========================================
 // MIGRAZIONI DI SCHEMA — sicurezza dati tra versioni dell'app
 // ==========================================
@@ -195,19 +206,34 @@ const VaultDAO = {
     if (!this.state.transactions[month]) this.state.transactions[month] = [];
     const existingList = this.state.transactions[month];
 
-    // opts.noDedup: la sorgente ha già un ID univoco (es. transaction_id
-    // Revolut, dedotto a monte) → si SALTA la dedup fuzzy, che altrimenti
-    // fonderebbe transazioni DISTINTE di pari importo/giorno (es. due acquisti
-    // ricorrenti dello stesso titolo). La dedup fuzzy resta per screenshot/manuale.
-    const match = opts.noDedup ? null : findDuplicate(tx, existingList);
+    // ANTI-DUPLICAZIONE cross-canale (manuale/CSV/PDF/screenshot/SEPA): il dedup
+    // deve guardare anche i mesi ADIACENTI, perché una stessa operazione a
+    // cavallo di due mesi (31/1 23:00 vs 1/2 00:30, entro la finestra 48h) finirebbe
+    // in bucket diversi e sfuggirebbe. Candidati = mese corrente + precedente + successivo.
+    // opts.noDedup: la sorgente ha già un ID univoco (es. transaction_id Revolut)
+    // → si SALTA la dedup fuzzy (che fonderebbe due acquisti DISTINTI di pari
+    // importo/giorno). La dedup fuzzy resta per screenshot/manuale.
+    const candMonths = adjacentMonthKeys(month);
+    const candidates = [];
+    for (const mk of candMonths) { const b = this.state.transactions[mk]; if (b) for (const t of b) candidates.push(t); }
+    const match = opts.noDedup ? null : findDuplicate(tx, candidates);
     if (match) {
       const merged = mergeTransaction(match, tx);
       merged.amount = match.amount;
       merged.category = match.category;
       merged.hash = match.hash;
       merged.prevHash = match.prevHash;
-      const idx = existingList.findIndex(t => t.id === match.id);
-      existingList[idx] = merged;
+      // riconciliazione di un bonifico auto-avviato col rigo banca: marcalo così
+      // un eventuale terzo movimento simile NON si fonde per errore (idempotenza).
+      if (match.selfTransfer) merged.reconciledBank = true;
+      // il match può stare in un mese adiacente: aggiorna il bucket giusto.
+      let home = month;
+      if (!existingList.some(t => t.id === match.id)) {
+        home = candMonths.find(mk => (this.state.transactions[mk] || []).some(t => t.id === match.id)) || month;
+      }
+      const bucket = this.state.transactions[home];
+      const idx = bucket.findIndex(t => t.id === match.id);
+      bucket[idx] = merged;
       if (!opts.bulk) this.save();
       return { duplicate: true, mergedInto: match.id };
     }
