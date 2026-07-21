@@ -711,7 +711,7 @@ const renderDashboard = () => {
         `;
       } else {
         const chargeNote = sts.reservedForCharges > 0
-          ? ` · ${formatMoney(sts.reservedForCharges)} già da parte per gli abbonamenti in arrivo`
+          ? ` · esclusi ${formatMoney(sts.reservedForCharges)} che serviranno per gli abbonamenti in arrivo`
           : '';
         stsCard.style.borderTop = '3px solid var(--green)';
         stsCard.innerHTML = `
