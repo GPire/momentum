@@ -73,6 +73,29 @@ test('CONDIVISIONE: gruppi con id DIVERSI non si fondono (restano distinti)', ()
   assert.equal(mergeIntoGroups([g1], shareRoundTrip(g1)).length, 1); // stesso id → resta 1
 });
 
+test('CONDIVISIONE: N dispositivi (10/20/30) convergono — ordine-indipendente e idempotente', () => {
+  for (const N of [10, 20, 30]) {
+    const members = Array.from({ length: N }, (_, i) => 'P' + i);
+    const base = createGroup({ name: 'G' + N, members });
+    const baseCode = encodeGroupShare(base);
+    // ogni dispositivo parte dalla base e aggiunge la sua spesa
+    const codes = [];
+    for (let d = 0; d < N; d++) {
+      let g = decodeGroupShare(baseCode);
+      g = addSharedExpense(g, { payer: 'm' + d, amount: (d + 1) * 10, description: 'sp' + d });
+      codes.push(encodeGroupShare(g));
+    }
+    // merge in due ordini diversi → stesso risultato (commutativo); poi re-merge (idempotente)
+    let a = decodeGroupShare(baseCode); for (const c of codes) a = mergeGroups(a, decodeGroupShare(c));
+    let b = decodeGroupShare(baseCode); for (const c of codes.slice().reverse()) b = mergeGroups(b, decodeGroupShare(c));
+    for (const c of codes) a = mergeGroups(a, decodeGroupShare(c));
+    assert.equal(a.expenses.length, N, `N=${N}: tutte le ${N} spese unite`);
+    assert.equal(a.expenses.length, b.expenses.length, `N=${N}: convergenza ordine-indipendente`);
+    const bal = computeBalances(a);
+    assert.ok(Math.abs(Object.values(bal).reduce((x, y) => x + y, 0)) < 0.02, `N=${N}: saldi a somma zero`);
+  }
+});
+
 test('CONDIVISIONE: codice non valido → null (mai crash)', () => {
   assert.equal(decodeGroupShare('spazzatura'), null);
   assert.equal(decodeGroupShare(''), null);

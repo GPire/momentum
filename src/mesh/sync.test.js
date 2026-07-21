@@ -69,3 +69,17 @@ test('VaultDAO.applySyncMerge: unisce e riallinea la testa senza toccare le esis
   assert.equal(VaultDAO.state.transactions['2026-07'].find(t => t.id === 1).amount, 10); // intatta
   assert.equal(VaultDAO.state.lastHash, 'H2'); // testa riallineata alla più recente
 });
+
+test('SYNC mesh: N dispositivi (10/20/30) convergono — commutativo, idempotente, senza duplicati', () => {
+  const dev = (d, k) => { const bm = {}; for (let i = 0; i < k; i++) { const mo = `2026-0${1 + (i % 6)}`; (bm[mo] = bm[mo] || []).push(tx(`d${d}_${i}`, `${mo}-1${i % 9}`, (i + 1) * 3)); } return bm; };
+  for (const N of [10, 20, 30]) {
+    const devices = Array.from({ length: N }, (_, d) => dev(d, 4)); // N*4 tx totali
+    let a = {}; for (const x of devices) a = mergeTransactions(a, x).merged;
+    let b = {}; for (const x of devices.slice().reverse()) b = mergeTransactions(b, x).merged;
+    for (const x of devices) a = mergeTransactions(a, x).merged; // re-merge → idempotente
+    const flatA = Object.values(a).flat(), flatB = Object.values(b).flat();
+    assert.equal(flatA.length, N * 4, `N=${N}: tutte le tx unite`);
+    assert.equal(flatA.length, flatB.length, `N=${N}: convergenza ordine-indipendente`);
+    assert.equal(new Set(flatA.map(t => t.id)).size, flatA.length, `N=${N}: nessun duplicato`);
+  }
+});
