@@ -26,7 +26,7 @@ import { answerQuestion } from './ai/qa-engine.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
-import { rankSuggestionsByContext } from './predict/context-predictor.js';
+import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
@@ -482,6 +482,30 @@ const attachFormListeners = (container) => {
       });
     }
   }
+
+  // ── PREDIZIONE CONTESTUALE DI CATEGORIA (context-predictor): riconosce la
+  // fascia oraria/giorno in cui SOLITAMENTE spendi e in COSA, ed evidenzia la
+  // chip giusta (direzione dell'occhio) + pre-compila l'importo tipico al tocco
+  // se il campo è vuoto → inserisci una spesa abituale in un tocco. Onesto: solo
+  // con un pattern temporale netto (altrimenti tace, niente forzature). ──
+  try {
+    const ctx = predictCategoriesNow(VaultDAO.state.transactions, new Date());
+    if (ctx.topPick && type === 'uscita') {
+      const chip = container.querySelector(`[data-cat-id="${ctx.topPick.category}"]`);
+      if (chip) {
+        chip.classList.add('context-now');
+        chip.setAttribute('title', `Di solito ${ctx.topPick.reason}${ctx.topPick.typicalAmount ? ` · ~${formatMoney(ctx.topPick.typicalAmount)}` : ''}`);
+        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        // al tocco: se non hai ancora scritto un importo, pre-compilo quello tipico
+        chip.addEventListener('click', () => {
+          if ((!rawVal || rawVal === '0') && ctx.topPick.typicalAmount) {
+            rawVal = String(ctx.topPick.typicalAmount);
+            updateAmount();
+          }
+        });
+      }
+    }
+  } catch (_) { /* predizione assente: il form funziona identico */ }
 
   // Numpad key triggers
   container.querySelectorAll('.numpad-key').forEach(btn => {

@@ -4,7 +4,34 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { slotOf, getTemporalAffinity, rankSuggestionsByContext } = await import('./context-predictor.js');
+const { slotOf, getTemporalAffinity, rankSuggestionsByContext, predictCategoriesNow } = await import('./context-predictor.js');
+
+// Helper: costruisce N transazioni di una categoria in un dato slot orario.
+function txAt(category, amount, dates) { return dates.map((d, i) => ({ id: i, type: 'uscita', category, amount, date: d.toISOString() })); }
+
+test('predictCategoriesNow: pochi dati → nessun suggerimento forzato', () => {
+  const tx = { '2026-07': txAt('caffe', 2, [new Date(2026, 6, 1, 8)]) };
+  assert.equal(predictCategoriesNow(tx, new Date(2026, 6, 20, 8)).topPick, null);
+});
+
+test('predictCategoriesNow: pattern mattutino netto → topPick con importo tipico', () => {
+  // 12 caffè sempre la mattina (~2€) + rumore pomeridiano di altre categorie
+  const mornings = Array.from({ length: 12 }, (_, i) => new Date(2026, 5, 1 + i, 8, 15));
+  const afternoons = Array.from({ length: 12 }, (_, i) => new Date(2026, 5, 1 + i, 16));
+  const tx = { '2026-06': [...txAt('caffe', 2, mornings), ...txAt('spesa', 40, afternoons)] };
+  const r = predictCategoriesNow(tx, new Date(2026, 6, 20, 8, 0)); // un mattino
+  assert.equal(r.topPick.category, 'caffe');
+  assert.ok(/mattina/.test(r.topPick.reason));
+  assert.equal(r.topPick.typicalAmount, 2);
+  assert.ok(r.ranked.length >= 2);
+});
+
+test('predictCategoriesNow: nessun pattern temporale (uniforme) → tace', () => {
+  // spese sparse su tutte le fasce e giorni, nessun "adesso" informativo
+  const dates = Array.from({ length: 30 }, (_, i) => new Date(2026, 5, 1 + (i % 28), (i * 5) % 24));
+  const tx = { '2026-06': txAt('varie', 10, dates) };
+  assert.equal(predictCategoriesNow(tx, new Date(2026, 6, 20, 9)).topPick, null);
+});
 
 // Storia: caffè ogni mattina feriale alle 8; spesa grossa ogni sabato alle 11.
 function history() {

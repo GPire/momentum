@@ -60,6 +60,39 @@ export function getTemporalAffinity(dates, referenceDate) {
 // Riordina i quick-add (da getQuickAddSuggestions) per punteggio contestuale:
 // occorrenze × lift temporale. Ogni suggerimento esce arricchito con
 // { contextScore, reason } — la UI può spiegare il primo posto.
+// Predice le CATEGORIE più probabili per il momento presente (ora × giorno):
+// frequenza × affinità temporale. Ritorna { ranked, topPick, reason }. Il
+// topPick (categoria da evidenziare nel Command Center) esce SOLO se il pattern
+// temporale è netto (lift alto) e con supporto sufficiente — altrimenti null:
+// "adesso" non è informativo e non forziamo nulla (onestà, mai un suggerimento
+// inventato). Serve a inserire una spesa in un tocco (anti-attrito). Pura.
+export function predictCategoriesNow(allTx = {}, referenceDate = new Date(), opts = {}) {
+  const minTx = opts.minTx ?? 20;          // troppo pochi dati → nessun pattern affidabile
+  const minSupport = opts.minSupport ?? 4; // occorrenze minime della categoria top
+  const minLift = opts.minLift ?? 1.5;     // il momento deve DAVVERO favorirla
+  const all = Object.values(allTx || {}).flat().filter(t => t && t.type === 'uscita' && t.category);
+  if (all.length < minTx) return { ranked: [], topPick: null, reason: null };
+  const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : +((s[m - 1] + s[m]) / 2).toFixed(2); };
+  const refSlot = slotOf(referenceDate);
+  const byCat = {};
+  for (const t of all) (byCat[t.category] = byCat[t.category] || []).push({ date: new Date(t.date), amount: +t.amount || 0 });
+  const ranked = Object.entries(byCat).map(([category, rows]) => {
+    const dates = rows.map(r => r.date);
+    const aff = getTemporalAffinity(dates, referenceDate);
+    // Importo tipico PER QUESTO MOMENTO: mediana degli importi nella stessa fascia
+    // oraria se ce ne sono abbastanza, altrimenti mediana generale della categoria.
+    const slotAmts = rows.filter(r => slotOf(r.date) === refSlot).map(r => r.amount);
+    const allAmts = rows.map(r => r.amount);
+    const typicalAmount = median(slotAmts.length >= 3 ? slotAmts : allAmts);
+    return { category, count: rows.length, lift: aff.lift, typicalAmount, score: +(rows.length * aff.lift).toFixed(3), reason: aff.reason };
+  }).sort((a, b) => b.score - a.score);
+  const top = ranked[0];
+  const topPick = (top && top.count >= minSupport && top.lift >= minLift && top.reason)
+    ? { category: top.category, reason: top.reason, lift: top.lift, typicalAmount: top.typicalAmount }
+    : null;
+  return { ranked, topPick, reason: topPick ? topPick.reason : null };
+}
+
 export function rankSuggestionsByContext(suggestions, allTx, referenceDate = new Date(), opts = {}) {
   const threshold = opts.similarityThreshold ?? 0.72;
   const all = Object.values(allTx || {}).flat().filter(t => t.type === 'uscita');
