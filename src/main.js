@@ -829,8 +829,14 @@ const renderDashboard = () => {
     reserveText.className = `text-2xl sm:text-3xl font-mono font-black ${cumulativeReserve >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]'} tracking-tighter truncate`;
   }
 
+  // Impegni ricorrenti in arrivo (affitto/mutuo/abbonamenti): calcolati una volta,
+  // riusati sia dall'avanzo-da-risparmiare sia dalla fascia "soldi impegnati".
+  const com = getMonthlyCommitments(VaultDAO.state.transactions, realNow);
   const sweepEstText = $('#sweeper-estimate-val');
-  const sweepEst = Math.max(0, liquidity - inv);
+  // INTELLIGENTE + ONESTO: l'avanzo da mettere via NON include i soldi che
+  // serviranno per gli impegni in arrivo → non ti suggerisce mai di risparmiare
+  // ciò che ti serve per l'affitto/mutuo. (liquidità − investito − impegni)
+  const sweepEst = Math.max(0, +(liquidity - inv - com.reserved).toFixed(2));
   if (sweepEstText) {
     sweepEstText.textContent = formatMoney(sweepEst);
   }
@@ -861,7 +867,6 @@ const renderDashboard = () => {
   // Onesto: solo ricorrenti realmente rilevati; se 0, la fascia resta nascosta. ──
   const commitEl = $('#committed-reserve');
   if (commitEl) {
-    const com = getMonthlyCommitments(VaultDAO.state.transactions, realNow);
     if (com.reserved > 0 && liquidity > 0) {
       const free = Math.max(0, +(liquidity - com.reserved).toFixed(2));
       const pctCommitted = Math.min(100, Math.round(com.reserved / liquidity * 100));
@@ -879,6 +884,7 @@ const renderDashboard = () => {
             <span class="font-mono font-bold text-sm text-emerald-400">${formatMoney(free)}</span>
           </div>
           ${chips ? `<div class="flex flex-wrap gap-1.5 mt-2">${chips}</div>` : ''}
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 opacity-80">Lascia questi soldi sul conto: serviranno per gli impegni in arrivo. Momentum non li sposta — te lo ricorda soltanto.</p>
         </div>`;
     } else {
       commitEl.classList.add('hidden');
@@ -2222,12 +2228,12 @@ window.applySweep = (sweep) => {
     amount: sweep.amount,
     type: 'invest',
     category: 'risparmio',
-    description: sweep.goalName ? `Messo da parte per ${sweep.goalName}` : 'Messo da parte (avanzo settimana)',
+    description: sweep.goalName ? `Risparmio per ${sweep.goalName} (da spostare tu)` : 'Risparmio avanzo (da spostare tu)',
     date: now.toISOString(),
   });
   VaultDAO.state.lastSweepWeek = sweep.weekKey; // campo additivo
   VaultDAO.save();
-  showToast(`${formatMoney(sweep.amount)} messi da parte. Bravo.`, 'success');
+  showToast(`Segnato. Ora sposta davvero ${formatMoney(sweep.amount)} sul tuo conto risparmio — Momentum non tocca la banca.`, 'success');
   renderDashboard();
   renderAnalysis({ skipHeavyForecast: true });
 };
