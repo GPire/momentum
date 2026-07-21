@@ -266,7 +266,7 @@ const getTxFormHTML = () => `
       <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL">DEL</button>
     </div>
 
-    <button type="button" class="save-btn mt-3 shrink-0" id="save-tx-btn" disabled>Conferma Ledger</button>
+    <button type="button" class="save-btn mt-3 shrink-0" id="save-tx-btn" disabled>Conferma</button>
   </div>
 `;
 
@@ -302,7 +302,7 @@ const attachFormListeners = (container) => {
       saveBtn.textContent = "ATTENZIONE: Spesa Bloccata";
     } else {
       saveBtn.classList.remove('danger-friction');
-      saveBtn.textContent = "Conferma Ledger";
+      saveBtn.textContent = "Conferma";
     }
 
     updateSaveBtn();
@@ -445,7 +445,7 @@ const attachFormListeners = (container) => {
   attachCatClick();
 
   // Tasti rapidi: un tocco compila tipo+categoria+descrizione+importo,
-  // il secondo tocco su "Conferma Ledger" registra. Appaiono solo se nei
+  // il secondo tocco su "Conferma" registra. Appaiono solo se nei
   // dati esistono acquisti abituali con cifra stabile.
   const quickRow = container.querySelector('#quick-add-row');
   if (quickRow) {
@@ -532,7 +532,7 @@ const attachFormListeners = (container) => {
     } else {
       NeuralNexus.train(desc?.value || getCatById(catId).name, catId, amt, selectedDate);
     }
-    showToast("Transazione salvata nel Ledger.", "success");
+    showToast("Movimento salvato.", "success");
     updateStreak();
     evaluateAndCelebrateAchievements();
     closeModal();
@@ -834,7 +834,7 @@ const renderDashboard = () => {
   const list = $('#transaction-list-container');
   list.innerHTML = '';
   if (txs.length === 0) {
-    list.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">Nessuna operazione registrata nel Ledger.</p>`;
+    list.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">Nessun movimento ancora registrato.</p>`;
     return;
   }
 
@@ -876,7 +876,7 @@ const renderDashboard = () => {
 };
 
 window.deleteTx = (k, id) => {
-  if (confirm("Rimuovere questa transazione dal Ledger?")) {
+  if (confirm("Rimuovere questo movimento?")) {
     VaultDAO.deleteTransaction(k, id);
     renderDashboard();
     renderAnalysis();
@@ -933,7 +933,7 @@ window.deleteCalendarEvent = (id) => {
       VaultDAO.save();
       window.renderCalendarEvents();
       AudioSynth.play('success');
-      showToast("Scadenza rimossa dal Ledger.", "info");
+      showToast("Scadenza rimossa.", "info");
     }
   } catch(err) { console.error(err); }
 };
