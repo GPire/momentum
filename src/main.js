@@ -460,7 +460,7 @@ const attachFormListeners = (container) => {
       quickRow.classList.remove('hidden');
       quickRow.innerHTML = suggestions.map((s, i) => `
         <button type="button" class="neuro-pill-btn shrink-0" data-quick-idx="${i}">
-          <span>⚡</span><span class="truncate max-w-[110px]">${s.description}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M13 2L4.5 13.5H12l-1 8.5 8.5-11.5H12z"/></svg><span class="truncate max-w-[110px]">${s.description}</span>
           <span class="font-mono font-bold">${formatMoney(s.amount)}</span>
           ${i === 0 && s.reason ? `<span class="text-[9px] opacity-60">${s.reason}</span>` : ''}
         </button>
@@ -557,7 +557,7 @@ function renderMeshStatus() {
   }
   const merges = ledger.filter(e => e.accepted).length;
   const rejected = ledger.length - merges;
-  el.innerHTML = `🟢 ${peers} dispositivo/i fidato/i collegato/i · modello su <b>${examples}</b> esempi · ${merges} fusioni accettate${rejected > 0 ? `, ${rejected} rifiutate (anti-manomissione)` : ''}.`;
+  el.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 align-middle"></span>${peers} dispositivo/i fidato/i collegato/i · modello su <b>${examples}</b> esempi · ${merges} fusioni accettate${rejected > 0 ? `, ${rejected} rifiutate (anti-manomissione)` : ''}.`;
 }
 
 // Web Share Target (Android): il SW ha parcheggiato lo screenshot condiviso
@@ -604,7 +604,7 @@ function evaluateAndCelebrateAchievements() {
     VaultDAO.save();
     for (const id of newly) {
       const a = ACHIEVEMENTS.find(x => x.id === id);
-      if (a) showToast(`${a.icon} Traguardo sbloccato: ${a.name}!`, 'success');
+      if (a) showToast(`Traguardo raggiunto: ${a.name}!`, 'success');
     }
     try { haptic('heavy'); AudioSynth.play('success'); } catch (_) {}
   }
@@ -955,7 +955,7 @@ window.renderCalendarEvents = () => {
     // Empty state INTELLIGENTE (non "dead"): spiega cosa comparirà qui e come,
     // così l'app è utile e chiara già dal primo avvio, anche senza dati.
     list.innerHTML = `<div class="text-center py-4 px-2">
-      <p class="text-2xl mb-1">🔮</p>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 mx-auto mb-2 text-[var(--on-surface-secondary)]"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/><path d="M12 13v3M10.5 14.5h3"/></svg>
       <p class="text-xs font-bold text-white">Qui prevedo cosa ti aspetta</p>
       <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Appena aggiungi o importi qualche spesa, scovo da solo gli abbonamenti e le bollette ricorrenti e ti dico <b>quando</b> arriva il prossimo addebito — senza che tu inserisca nulla.</p>
     </div>`;
@@ -968,7 +968,7 @@ window.renderCalendarEvents = () => {
     const dt = new Date(ev.date);
     const ItalianDate = dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const border = ev.predicted ? 'border-amber-500/20 bg-amber-950/5' : 'border-[var(--outline)] bg-[var(--surface-solid)]';
-    const icon = ev.predicted ? '💳 ' : '';
+    const icon = ev.predicted ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>' : '';
     return `
       <div class="flex items-center justify-between p-2.5 rounded-lg border ${border} hover:border-[var(--primary)]/30 transition-colors">
         <div class="min-w-0 pr-2">
@@ -1341,7 +1341,7 @@ function renderTax(monthK) {
     if (regime && everInvoice) {
       const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model: incomeModel });
       if (proj.invoicedYTD > 0) {
-        html += `<div class="text-[11px] text-slate-300 border-t border-[var(--glass-border)] pt-2">📅 ${proj.note}</div>`;
+        html += `<div class="flex items-start gap-1.5 text-[11px] text-slate-300 border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg><span>${proj.note}</span></div>`;
         // Consigli prioritizzati con neurocolori: high=ambra (attenzione),
         // info positivo=verde (rinforzo). Regole dell'anno pertinente.
         const { advice } = taxAdvice({
@@ -1967,7 +1967,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
                    <button onclick="window.confirmAnomalyMine('${a.tx.id}')" class="text-[10px] font-bold text-emerald-400 underline">È mia</button>
                    <button onclick="window.flagAnomalySuspect('${a.tx.id}')" class="text-[10px] font-bold text-rose-400 underline">Non la riconosco</button>
                  </div>`
-              : suspect ? `<div class="text-[10px] text-rose-400 font-bold mt-0.5">⚠️ segnata come sospetta</div>` : '';
+              : suspect ? `<div class="inline-flex items-center gap-1 text-[10px] text-rose-400 font-bold mt-0.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>segnata come sospetta</div>` : '';
             return `<div>${a.tx.description} (+${a.zScore.toFixed(1)}σ) → <b>${formatMoney(a.tx.amount)}</b>${feedback}</div>`;
           }).join('')}
         </div>
@@ -2649,7 +2649,7 @@ function meshAdoptChannel(pc, channel) {
 window.openMeshPairing = () => {
   openModal(`
     <div class="p-4 space-y-4">
-      <h3 class="text-lg font-bold">🧠 Collega un dispositivo</h3>
+      <h3 class="text-lg font-bold inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg>Collega un dispositivo</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">Le due AI impareranno l'una dall'altra. I tuoi dati NON si spostano: viaggiano solo i "pesi" imparati, protetti dal controllo anti-manomissione.</p>
       <div class="flex gap-2">
         <button onclick="window.meshCreateInvite()" class="btn-action flex-1 text-xs">1a. Crea invito (questo dispositivo)</button>
@@ -2802,7 +2802,7 @@ const initApp = () => {
           if (!nw) return;
           nw.addEventListener('statechange', () => {
             if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              try { showToast('🔄 Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info'); } catch (_) {}
+              try { showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info'); } catch (_) {}
             }
           });
         });
@@ -2868,8 +2868,7 @@ const initApp = () => {
     if (ov) { ov.classList.add('active'); elClose?.classList.add('hidden'); elSpin && (elSpin.style.display = ''); }
     if (elTitle) elTitle.textContent = `Sto leggendo ${list.length} file…`;
     const res = await importFiles(list, { onProgress: ({ i, n, name, kind }) => {
-      const icon = kind === 'pdf' ? '📄' : kind === 'image' ? '🖼️' : '📑';
-      if (elFile) elFile.textContent = `${icon} ${name}`;
+      if (elFile) elFile.textContent = name;
       if (elBar) elBar.style.width = `${Math.round((i - 1) / n * 100)}%`;
       if (elCount) elCount.textContent = `${i} / ${n} file`;
       try { logETL(`(${i}/${n}) ${name}`); } catch (_) {}
@@ -2878,7 +2877,7 @@ const initApp = () => {
     const bt = res.byType;
     if (elBar) elBar.style.width = '100%';
     if (elSpin) elSpin.style.display = 'none';
-    if (elTitle) elTitle.textContent = res.added > 0 ? `✅ Fatto! ${res.added} movimenti aggiunti` : '✅ Tutto già presente';
+    if (elTitle) elTitle.textContent = res.added > 0 ? `Fatto! ${res.added} movimenti aggiunti` : 'Tutto già presente';
     if (elFile) elFile.textContent = `${res.files} file · CSV ${bt.csv} · PDF ${bt.pdf} · foto ${bt.image}${res.errors.length ? ` · ${res.errors.length} saltati` : ''}`;
     if (elCount) elCount.textContent = res.learned?.length ? `L'AI sta imparando da ${res.learned.length} operazioni…` : '';
     elClose?.classList.remove('hidden');
