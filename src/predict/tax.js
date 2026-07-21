@@ -177,6 +177,30 @@ function tokenVote(t, description) {
   const share = agg[winner] / support;
   return share >= 0.8 ? { kind: winner, share, support } : null;
 }
+// Segnale SOFT dei token (per la FUSIONE d'ensemble): come tokenVote ma con
+// soglie più basse (supporto ≥1), usato solo per RAFFORZARE una predizione
+// concorde del modello, mai per decidere da solo. strength ∈ [0,1] cresce con la
+// nettezza (share) e il supporto (satura a 3 conferme). Onesto: evidenza debole
+// resta debole.
+function tokenLean(t, description) {
+  const agg = { invoice: 0, salary: 0, personal: 0 };
+  let support = 0;
+  for (const tok of new Set(tokenizeIncome(description))) {
+    const c = t[tok]; if (!c) continue;
+    for (const k of INCOME_KINDS) { const n = +c[k] || 0; agg[k] += n; support += n; }
+  }
+  if (support < 1) return null;
+  const winner = INCOME_KINDS.reduce((a, b) => agg[a] >= agg[b] ? a : b);
+  const share = agg[winner] / support;
+  if (share < 0.6) return null;                     // ambiguo → nessuna spinta
+  const strength = share * Math.min(1, support / 3);
+  return { kind: winner, strength };
+}
+// Fusione probabilistica onesta di due evidenze concordi (noisy-OR): due segnali
+// deboli ma d'accordo diventano una convinzione più forte; se discordano, non si
+// fondono (l'ensemble si astiene, non inventa). Riusa il pattern già in uso
+// nell'orchestratore per combinare esperti.
+function fuseConfidence(a, b) { return 1 - (1 - a) * (1 - b); }
 // `model` (opzionale) = classificatore fiscale ADDESTRATO (HashedLogReg,
 // public/momentum_income_model.json) con .predict(text) → {category,
 // confidence}. È un MODELLO NUOVO, stessa architettura del LogReg esperto,
@@ -206,8 +230,21 @@ export function classifyIncome(tx = {}, learned = null, model = null) {
   if (model && typeof model.predict === 'function' && desc) {
     try {
       const p = model.predict(desc);
-      if (p && p.confidence >= 0.7 && ['invoice', 'salary', 'personal'].includes(p.category)) {
-        return { kind: p.category, reason: `modello fiscale addestrato (${Math.round(p.confidence * 100)}%)` };
+      if (p && INCOME_KINDS.includes(p.category)) {
+        // ENSEMBLE: fonde la confidenza del modello con il lean SOFT dei tuoi
+        // token appresi, ma SOLO se concordi (stessa classe). Così un modello a
+        // 0.6 + una tua conferma coerente supera la soglia (decisione fondata),
+        // mentre evidenze discordi restano 'uncertain' (mai forzare). Il modello
+        // da solo mantiene il comportamento (e la reason) di prima.
+        let conf = p.confidence;
+        const lean = learned ? tokenLean(normalizeLearned(learned).t, desc) : null;
+        const concorde = lean && lean.kind === p.category;
+        if (concorde) conf = fuseConfidence(p.confidence, lean.strength);
+        if (conf >= 0.7) {
+          return concorde
+            ? { kind: p.category, reason: `modello e tue conferme concordi (${Math.round(conf * 100)}%)` }
+            : { kind: p.category, reason: `modello fiscale addestrato (${Math.round(p.confidence * 100)}%)` };
+        }
       }
     } catch (_) { /* modello assente/rotto: si continua col fallback onesto */ }
   }

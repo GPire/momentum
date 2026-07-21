@@ -85,6 +85,28 @@ test('validateFatturaPa: dati completi e coerenti → nessun errore bloccante', 
   assert.equal(c.filter(x => x.level === 'error').length, 0);
 });
 
+test('validateFatturaPa: emittente e cliente stessa P.IVA → errore 00471 (no autofattura TD01)', () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'ordinario', country: 'IT' });
+  const c = validateFatturaPa({ emitter: { ...EMITTER, regime: 'ordinario' }, client: { ...CLIENT, partitaIva: EMITTER.partitaIva }, invoice: inv, meta: { number: 1, year: 2026, date: '2026-07-21', regime: 'ordinario' } });
+  assert.ok(c.some(x => x.code === '00471' && x.level === 'error'));
+});
+
+test('validateFatturaPa: Codice Destinatario con caratteri non validi → errore 00305', () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'forfettario', country: 'IT' });
+  const c = validateFatturaPa({ emitter: EMITTER, client: { ...CLIENT, codiceDestinatario: 'ABC-123' }, invoice: inv, meta: { number: 1, year: 2026, date: '2026-07-21', regime: 'forfettario' } });
+  // 'ABC-123' ha 7 char ma con trattino → 00305 (non 00415)
+  assert.ok(c.some(x => x.code === '00305' && x.level === 'error'));
+});
+
+test('validateFatturaPa: CAP/Provincia/PEC malformati → warn (non bloccano)', () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'forfettario', country: 'IT' });
+  const c = validateFatturaPa({ emitter: { ...EMITTER, cap: '9100', provincia: 'CAG' }, client: { ...CLIENT, codiceDestinatario: '', pec: 'non-una-pec' }, invoice: inv, meta: { number: 1, year: 2026, date: '2026-07-21', regime: 'forfettario' } });
+  assert.ok(c.some(x => x.code === '00404' && x.field === 'emitter.cap' && x.level === 'warn'));
+  assert.ok(c.some(x => x.code === '00404' && x.field === 'emitter.provincia' && x.level === 'warn'));
+  assert.ok(c.some(x => x.code === '00426' && x.level === 'warn'));
+  assert.equal(c.filter(x => x.level === 'error').length, 0); // nessuno di questi blocca
+});
+
 test('validateFatturaPa: importo zero → errore 00423', () => {
   const inv = computeInvoice({ imponibile: 0, regime: 'forfettario', country: 'IT' });
   const c = validateFatturaPa({ emitter: EMITTER, client: CLIENT, invoice: inv, meta: { number: 1, year: 2026, date: '2026-07-21', regime: 'forfettario' } });

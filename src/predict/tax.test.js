@@ -193,3 +193,24 @@ test('classifyIncome: modello a bassa confidenza NON forza un\'etichetta', () =>
   const r = classifyIncome({ description: 'accredito xyz' }, null, fakeModel);
   assert.equal(r.kind, 'uncertain');
 });
+
+test('ENSEMBLE: modello sotto-soglia + tua conferma CONCORDE supera la soglia', () => {
+  // Modello prevede invoice a 0.62: da solo NON basta (soglia 0.7) → uncertain.
+  const fakeModel = { predict: () => ({ category: 'invoice', confidence: 0.62 }) };
+  assert.equal(classifyIncome({ description: 'Gamma report' }, null, fakeModel).kind, 'uncertain');
+  // UNA conferma su "Gamma widget" (nessuna keyword) → lean soft concorde: la
+  // fusione noisy-OR porta 0.62 sopra 0.7 e decide, spiegandolo.
+  const learned = learnIncomeType({}, 'Gamma widget', 'invoice');
+  const r = classifyIncome({ description: 'Gamma report' }, learned, fakeModel);
+  assert.equal(r.kind, 'invoice');
+  assert.ok(/concordi/.test(r.reason));
+});
+
+test('ENSEMBLE: modello e conferme DISCORDI → resta uncertain (mai forzare)', () => {
+  const fakeModel = { predict: () => ({ category: 'invoice', confidence: 0.62 }) };
+  // Token "kappa" appreso come PERSONAL, modello dice invoice → discordi:
+  // nessuna fusione, resta uncertain (l'ensemble si astiene, non inventa).
+  const learned = learnIncomeType({}, 'Kappa donazione', 'personal');
+  const r = classifyIncome({ description: 'Kappa report' }, learned, fakeModel);
+  assert.equal(r.kind, 'uncertain');
+});

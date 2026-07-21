@@ -172,8 +172,30 @@ export function validateFatturaPa(data = {}) {
   const cod = String(client.codiceDestinatario || '').trim();
   if (cod && cod.length !== 7)
     err('00415', 'client.codiceDestinatario', 'Il Codice Destinatario deve avere esattamente 7 caratteri.');
+  else if (cod && !/^[A-Za-z0-9]{7}$/.test(cod))
+    err('00305', 'client.codiceDestinatario', 'Il Codice Destinatario contiene caratteri non ammessi (solo lettere e numeri).');
   if (!cod && !client.pec)
     warn('00427', 'client.recapito', 'Senza Codice Destinatario né PEC useremo "0000000": la fattura arriva nel cassetto fiscale del cliente. Se il cliente ti ha dato un codice o una PEC, inseriscilo.');
+  // PEC malformata (se fornita in alternativa al codice)
+  if (client.pec && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(client.pec).trim()))
+    warn('00426', 'client.pec', 'La PEC del cliente non sembra un indirizzo valido.');
+
+  // Emittente e cliente COINCIDONO (stessa P.IVA) con fattura ordinaria TD01: lo
+  // SdI la scarta (l'autofattura usa altri TipoDocumento). Errore reale e comune.
+  if (emitter.partitaIva && client.partitaIva && it11(emitter.partitaIva) &&
+      String(emitter.partitaIva).trim() === String(client.partitaIva).trim())
+    err('00471', 'client.partitaIva', 'Emittente e cliente hanno la stessa Partita IVA: una fattura normale non può essere emessa a sé stessi.');
+
+  // Sede: CAP 5 cifre e Provincia 2 lettere (dove presenti) — coerenza anagrafica.
+  const cap5 = (v) => /^\d{5}$/.test(String(v || '').trim());
+  const prov2 = (v) => /^[A-Za-z]{2}$/.test(String(v || '').trim());
+  if (emitter.cap && !cap5(emitter.cap)) warn('00404', 'emitter.cap', 'Il tuo CAP deve avere 5 cifre.');
+  if (client.cap && !cap5(client.cap)) warn('00404', 'client.cap', 'Il CAP del cliente deve avere 5 cifre.');
+  if (emitter.provincia && !prov2(emitter.provincia)) warn('00404', 'emitter.provincia', 'La tua Provincia va indicata con 2 lettere (es. MI).');
+  if (client.provincia && !prov2(client.provincia)) warn('00404', 'client.provincia', 'La Provincia del cliente va indicata con 2 lettere (es. MI).');
+  // IBAN (se fornito per il pagamento): formato di base IT + controllo lunghezza.
+  if (emitter.iban && !/^[A-Za-z]{2}\d{2}[A-Za-z0-9]{11,30}$/.test(String(emitter.iban).replace(/\s/g, '')))
+    warn('00404', 'emitter.iban', 'L\'IBAN non sembra valido: ricontrollalo.');
 
   // Coerenza IVA / Natura sul riepilogo
   const isForf = (meta.regime || invoice.regime) === 'forfettario';

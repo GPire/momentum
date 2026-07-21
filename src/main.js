@@ -1380,6 +1380,29 @@ window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.
 // per coerenza col linguaggio visivo dell'app (SVG a tratto, come le altre).
 const REPEAT_ICON = `<svg class="recur-ico w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
 
+// Portale ufficiale dell'Agenzia delle Entrate per caricare/trasmettere la
+// fattura elettronica (l'utente accede col SUO SPID: Momentum non trasmette).
+const SDI_PORTAL_URL = 'https://ivaservizi.agenziaentrate.gov.it/portale/';
+// Guida al caricamento passo-passo. Onesta: i nomi esatti delle voci di menu del
+// portale possono cambiare nel tempo → passi descrittivi, non un percorso rigido.
+function showUploadHelp(filename) {
+  const steps = [
+    'Accedi al portale <b>Fatture e Corrispettivi</b> con SPID, CIE o credenziali Entratel/Fisconline.',
+    'Apri la sezione <b>Fatturazione elettronica</b> e scegli <b>trasmetti / importa un file</b>.',
+    `Carica il file <b>${(filename || 'XML')}</b> che hai appena scaricato da Momentum.`,
+    'Controlla l’anteprima e premi <b>Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto).',
+  ];
+  const box = $('#inv-xml-controls'); if (!box) return;
+  if (!$('#inv-upload-steps')) {
+    const div = document.createElement('div');
+    div.id = 'inv-upload-steps';
+    div.className = 'mt-2 pt-2 border-t border-emerald-400/20';
+    div.innerHTML = `<div class="font-bold mb-1">Come caricarla (una volta sola, poi è routine):</div><ol class="list-decimal pl-4 space-y-0.5">${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="mt-1 opacity-70">I nomi esatti delle voci possono variare: cerca “Fatturazione elettronica”.</div>`;
+    box.appendChild(div);
+  }
+  showToast('Guida al caricamento mostrata sotto.', 'success');
+}
+
 function getInvoiceFormHTML() {
   const regime = VaultDAO.state.taxRegime || 'forfettario';
   const year = new Date().getFullYear();
@@ -1737,8 +1760,15 @@ window.openCreateInvoice = (prefillClient) => {
     const a = document.createElement('a'); a.href = url; a.download = out.filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     box.className = 'text-[11px] leading-snug rounded-xl border px-3 py-2.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
-    box.innerHTML = `<div class="font-bold mb-1">Fattura elettronica pronta ✓</div><div><b>${out.filename}</b> è stato scaricato. Ora caricalo sul portale <b>Fatture e Corrispettivi</b> dell’Agenzia delle Entrate (accesso SPID), oppure invialo al commercialista. Momentum non può caricarlo da solo: serve il tuo accesso ufficiale.</div>${warns.length ? `<div class="mt-1 opacity-80">Nota: ${warns.map(w => w.message).join(' ')}</div>` : ''}`;
+    box.innerHTML = `<div class="font-bold mb-1">Fattura elettronica pronta ✓</div>
+      <div><b>${out.filename}</b> è stato scaricato. Caricalo sul portale <b>Fatture e Corrispettivi</b> dell’Agenzia delle Entrate (accesso SPID), oppure invialo al commercialista. Momentum non può caricarlo da solo: serve il tuo accesso ufficiale.</div>
+      <div class="flex flex-wrap gap-2 mt-2">
+        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-100">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        <button type="button" id="inv-how-upload" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-emerald-400/30 text-emerald-100/90">Come si carica?</button>
+      </div>
+      ${warns.length ? `<div class="mt-2 opacity-80">Nota: ${warns.map(w => w.message).join(' ')}</div>` : ''}`;
     box.classList.remove('hidden');
+    $('#inv-how-upload')?.addEventListener('click', () => showUploadHelp(out.filename));
     showToast('XML fattura elettronica scaricato.', 'success');
     renderAnalysis();
   });
