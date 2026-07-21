@@ -81,3 +81,40 @@ test('subscriptionSummary: trova abbonamenti, stima il prossimo addebito e il to
   const netflix = s.subscriptions.find(x => /netflix/i.test(x.name));
   assert.ok(netflix && netflix.nextDate.startsWith('2026-07')); // prossimo ~5 luglio
 });
+
+// --- anticipatePriceHikes: creep silenzioso + previsione anticipata ---
+import { anticipatePriceHikes, subscriptionSummary } from "./subscriptions.js";
+
+test("anticipatePriceHikes: creep silenzioso (piccoli aumenti sotto-soglia) → segnalato con impatto annuale", () => {
+  // 9.99→10.49→10.99→11.49: ogni passo ~5% (<10%, detectPriceHikes lo perde),
+  // ma +15% cumulato → creep. Ultimo addebito lontano nel tempo (no upcoming).
+  const tx = { all: monthlySeries("Streaming", "abbonamenti", [9.99, 10.49, 10.99, 11.49], "2026-01-10") };
+  // detectPriceHikes NON lo becca (latest vs media precedenti < 10%)
+  assert.equal(detectPriceHikes(tx).length, 0);
+  const ref = new Date("2026-05-01"); // lontano dal prossimo addebito
+  const al = anticipatePriceHikes(tx, ref);
+  const creep = al.find(a => a.type === "creep");
+  assert.ok(creep, "il creep silenzioso deve essere segnalato");
+  assert.equal(creep.baseline, 9.99);
+  assert.ok(creep.totalPct >= 12);
+  assert.ok(creep.annualImpact > 0);           // impatto annuale concreto
+  assert.ok(creep.predictedNext > creep.current); // prevede il prossimo più alto
+});
+
+test("anticipatePriceHikes: prezzo piatto → nessun allarme (niente invenzioni)", () => {
+  const tx = { all: monthlySeries("Palestra", "sport", [30, 30, 30, 30]) };
+  assert.equal(anticipatePriceHikes(tx, new Date("2026-08-01")).length, 0);
+});
+
+test("anticipatePriceHikes: salto singolo grosso resta a detectPriceHikes (no doppioni creep)", () => {
+  const tx = { all: monthlySeries("Cloud", "software", [5, 5, 5, 12]) };
+  const al = anticipatePriceHikes(tx, new Date("2026-08-01"));
+  assert.equal(al.filter(a => a.type === "creep").length, 0); // il salto grosso non è "creep"
+  assert.ok(detectPriceHikes(tx).length >= 1);                 // lo prende il reattivo
+});
+
+test("subscriptionSummary espone anticipated", () => {
+  const tx = { all: monthlySeries("Streaming", "abbonamenti", [9.99, 10.49, 10.99, 11.49], "2026-01-10") };
+  const s = subscriptionSummary(tx, new Date("2026-05-01"));
+  assert.ok(Array.isArray(s.anticipated));
+});

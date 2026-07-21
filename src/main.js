@@ -1946,7 +1946,18 @@ const renderSubscriptions = () => {
   }
   const hikeMap = new Map(s.hikes.map(h => [h.description, h]));
   const fmtDay = d => new Date(d).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-  list.innerHTML = s.subscriptions.slice(0, 12).map(sub => {
+  // AVVISI ANTICIPATORI (anticipatePriceHikes): creep silenzioso + rincaro
+  // previsto PRIMA dell'addebito, con impatto annuale (rende concreto il "poco"
+  // mensile). Ambra = attenzione consapevole, mai giudizio. In cima, è il valore.
+  const anticipated = (s.anticipated || []).slice(0, 3);
+  const warnIco = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>`;
+  const anticipatedHtml = anticipated.map(a => {
+    const body = a.type === 'upcoming-rise'
+      ? `<b>${a.name}</b> tra ${a.daysToNext} giorn${a.daysToNext === 1 ? 'o' : 'i'} potrebbe passare da ${formatMoney(a.current)} a ~${formatMoney(a.predictedNext)} (stima dal trend). Sono <b>+${formatMoney(a.annualImpact)}/anno</b>.`
+      : `<b>${a.name}</b> è salito da ${formatMoney(a.baseline)} a ${formatMoney(a.current)} (+${a.totalPct}%) un po' alla volta: <b>+${formatMoney(a.annualImpact)}/anno</b> senza che si notasse.`;
+    return `<div class="flex items-start gap-2 p-2.5 rounded-xl border border-amber-500/25 bg-amber-950/10 text-amber-200 text-[11px] leading-snug">${warnIco}<span>${body}</span></div>`;
+  }).join('');
+  list.innerHTML = (anticipatedHtml ? `<div class="flex flex-col gap-2 mb-2">${anticipatedHtml}</div>` : '') + s.subscriptions.slice(0, 12).map(sub => {
     const hike = hikeMap.get(sub.name);
     return `<div class="flex items-center justify-between gap-3 p-2 rounded-xl" style="background:rgba(255,255,255,0.03)">
       <div class="min-w-0">
