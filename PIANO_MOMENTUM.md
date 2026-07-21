@@ -21,6 +21,50 @@ Progetto: `~/Downloads/momentum_app/` (Vite vanilla JS, PWA offline-first). Copi
 
 ---
 
+## 🚀 Sessione 2026-07-21: entrate P.IVA, pagamenti, split P2P, auto-update — 768 test verdi
+
+57 commit sopra `0e9b0ed` (+6174 righe, 48 file). La sessione si è chiusa per blocco del
+computer **dopo l'ultimo commit ma prima del push**: nessun lavoro perso, working tree
+pulito. Push recuperato nella sessione successiva (`0f61ee6..cff53be`).
+
+Suite: **768/768 verdi**, build pulita. Aree costruite (tutte con test, moduli reali):
+
+- **Fatturazione elettronica** (`src/invoice/`): motore fatture on-device, XML FatturaPA
+  ufficiale + ciclo di trasmissione SdI simulato, validatore checksum P.IVA/CF reali,
+  PDF vero generato on-device, architettura **country-aware** (Italia completa, altri
+  mercati predisposti) con disclaimer a doppia verità. Clienti ricorrenti rilevati per
+  cadenza + promemoria proattivo (mai invio automatico).
+- **Modello fiscale entrate** (v10): classificatore addestrato fattura/stipendio/personale,
+  `taxLearned v2` che generalizza ai mittenti simili, regole fiscali per-anno versionate
+  e aggiornabili senza aggiornare l'app, layer consigli in stile commercialista.
+- **Pagamenti**: bonifico SEPA on-device con IBAN mod-97 + **garanzia anti-duplicazione
+  cross-canale**, QR encoder verificato, foglio "Fai il bonifico / Chiedi il pagamento"
+  (QR SEPA + WhatsApp + Email + copia) generato dalla fattura.
+- **Divisione spese P2P** (`src/split/`): motore senza server, gruppi persistenti con N
+  persone, pagatori/importi diversi, semplificazione dei conteggi **oltre il greedy di
+  Splitwise** ("da N a M pagamenti"), condivisione a distanza conflict-free. La tua parte
+  diventa spesa reale e **allena Momentum Core**. Convergenza N-dispositivi verificata a
+  10/20/30 senza limite.
+- **Auto-aggiornamento resiliente** (`src/core/update-locator.js`, `discovery-memory.js`):
+  aggiornamento firmato che sopravvive al cambio di server/dominio/nome — rendezvous
+  ALGORITMICO (l'app calcola i nuovi indirizzi), scoperta via Certificate Transparency,
+  ancore stabili, mesh. `discovery-memory` applica la stessa filosofia dei bandit del
+  Core: reputazione Beta-Bernoulli per fonte/host + recency, così alla 2ª ricerca prova
+  subito la fonte giusta. `checkForLatest` = un entry point a ogni apertura.
+- **UX/neurodesign**: insight umani portati sulla Dashboard, Analisi sfoltita e riordinata
+  per priorità d'attenzione, gergo sci-fi tradotto in linguaggio comprensibile a chiunque
+  ("Ledger" → "movimento"), emoji decorative → icone SVG coerenti, colore che dirige
+  l'azione primaria, achievements (Wave 3), fix responsive critico su tablet 768-1024px.
+- **Onestà (regola n.1) applicata al copy**: safe-to-spend non implica più un
+  accantonamento reale; su risparmio/sweep è esplicito che **il movimento lo fai TU**.
+- **Anti-sorpresa**: disponibile vero = saldo − impegni ricorrenti; avviso anticipatorio
+  sugli abbonamenti con creep silenzioso e impatto annuale.
+
+⬜ RESTA dal piano v10: wave periferiche 2/4/5/7/8/9/10 (NLU quick-add, onboarding+FAQ,
+sim utenti sintetici, sync E2E cifrato, envelopes/PAC/runway, strategy scorecard).
+
+---
+
 ## 🚀 Sessione 2026-07-20: MOMENTUM CONSTELLATION v10 — 6 wave core spedite, 521 test verdi
 
 Piano completo in `~/.claude/plans/okay-adesso-prendi-ogni-mellow-liskov.md` (16 wave) +
