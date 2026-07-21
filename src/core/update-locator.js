@@ -74,6 +74,57 @@ export async function pickBestManifest(candidates, { currentVersion, verifyImpl 
   return best;
 }
 
+// ============================================================
+// GENERAZIONE DETERMINISTICA DEGLI INDIRIZZI (rendezvous algoritmico)
+// ============================================================
+// L'idea proprietaria: NON serve elencare i nuovi indirizzi. Publisher e app,
+// dallo STESSO seme condiviso, derivano gli STESSI indirizzi-candidato per il
+// "periodo" corrente (epoch). Il publisher puo' cambiare host/dominio/nome ogni
+// volta: basta che pubblichi su UNO degli indirizzi che l'algoritmo genera per
+// quell'epoch, e l'app lo ritrova da sola. La "traccia" e' l'algoritmo + il seme
+// incorporato nell'app, non un server fisso. Rotante nel tempo (imprevedibile a
+// chi non ha il seme) e combinato con la FIRMA → resiliente e sicuro.
+// Ispirato ai domain-generation algorithm, ma per un uso benigno e firmato.
+
+// Epoch corrente: finestra temporale (default settimanale). Publisher e app
+// devono usare la stessa finestra per calcolare gli stessi candidati.
+export function currentEpoch(now = Date.now(), windowMs = 7 * 24 * 3600 * 1000) {
+  return Math.floor(now / windowMs);
+}
+
+async function hmacHex(seed, msg) {
+  const subtle = globalThis.crypto && globalThis.crypto.subtle;
+  if (!subtle) throw new Error('WebCrypto non disponibile');
+  const enc = (s) => new TextEncoder().encode(s);
+  const key = await subtle.importKey('raw', enc(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await subtle.sign('HMAC', key, enc(String(msg)));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Deriva gli indirizzi-candidato per un epoch: per ogni i in [0,count), un token
+// deterministico HMAC(seed, "epoch:i") riempie i template URL (host multipli e
+// indipendenti → piu' resilienza). Stesso seme+epoch ⇒ STESSO elenco ovunque.
+// `templates` usa i segnaposto {t} (token), {i}, {epoch}.
+export async function deriveCandidateLocations({ seed, templates = [], epoch, count = 4, tokenLen = 16 } = {}) {
+  if (!seed || !templates.length) return [];
+  const ep = (epoch == null) ? currentEpoch() : epoch;
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const token = (await hmacHex(seed, `${ep}:${i}`)).slice(0, tokenLen);
+    for (const t of templates) out.push(String(t).split('{t}').join(token).split('{i}').join(String(i)).split('{epoch}').join(String(ep)));
+  }
+  return out;
+}
+
+// Comodo: candidati per l'epoch corrente E per il precedente (tolleranza ai
+// confini di finestra e ai ritardi di pubblicazione). Ordine: epoch corrente prima.
+export async function resilientCandidates({ seed, templates, count = 4, now = Date.now(), windowMs } = {}) {
+  const ep = currentEpoch(now, windowMs);
+  const cur = await deriveCandidateLocations({ seed, templates, epoch: ep, count });
+  const prev = await deriveCandidateLocations({ seed, templates, epoch: ep - 1, count });
+  return [...cur, ...prev];
+}
+
 // SCOPERTA: prova i fari (beacon URL) in sequenza, unisce i puntatori ricevuti
 // dai PEER (mesh gossip), verifica le firme e ritorna il piu' recente valido.
 // Se tutti i fari sono morti ma un peer conosce il nuovo indirizzo, funziona

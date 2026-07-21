@@ -1,6 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { compareVersions, canonicalMessage, makeEcdsaVerifier, resolveUpdate, pickBestManifest } = await import('./update-locator.js');
+const { compareVersions, canonicalMessage, makeEcdsaVerifier, resolveUpdate, pickBestManifest, deriveCandidateLocations, currentEpoch, resilientCandidates } = await import('./update-locator.js');
+
+const TEMPLATES = ['https://{t}.pages.dev/m.json', 'https://cdn.x/{t}/m.json', 'https://ipfs.io/ipns/{t}'];
+
+test('indirizzi derivati: DETERMINISTICI (stesso seme+epoch → stesso elenco, publisher e app concordano)', async () => {
+  const app = await deriveCandidateLocations({ seed: 'seme-momentum', templates: TEMPLATES, epoch: 2900, count: 4 });
+  const publisher = await deriveCandidateLocations({ seed: 'seme-momentum', templates: TEMPLATES, epoch: 2900, count: 4 });
+  assert.deepEqual(app, publisher);            // le due parti calcolano lo STESSO set
+  assert.equal(app.length, 4 * TEMPLATES.length);
+});
+
+test('indirizzi derivati: ROTANO nel tempo (epoch diverso → indirizzi diversi)', async () => {
+  const a = await deriveCandidateLocations({ seed: 's', templates: ['https://{t}.x/m'], epoch: 100, count: 3 });
+  const b = await deriveCandidateLocations({ seed: 's', templates: ['https://{t}.x/m'], epoch: 101, count: 3 });
+  assert.notDeepEqual(a, b);
+});
+
+test('indirizzi derivati: seme diverso → indirizzi diversi (imprevedibili senza il seme)', async () => {
+  const a = await deriveCandidateLocations({ seed: 'A', templates: ['https://{t}.x/m'], epoch: 1, count: 2 });
+  const b = await deriveCandidateLocations({ seed: 'B', templates: ['https://{t}.x/m'], epoch: 1, count: 2 });
+  assert.notDeepEqual(a, b);
+});
+
+test('GIRO COMPLETO: cambio host ogni volta → l\'app calcola gli indirizzi, ne trova UNO vivo e verifica la firma', async () => {
+  const subtle = globalThis.crypto.subtle;
+  const kp = await subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const verify = makeEcdsaVerifier(await subtle.exportKey('jwk', kp.publicKey));
+  const bytesToB64 = (u8) => Buffer.from(u8).toString('base64');
+  const sign = async (mf) => { const sig = await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, new TextEncoder().encode(canonicalMessage(mf))); return { ...mf, sig: bytesToB64(new Uint8Array(sig)) }; };
+
+  // app e publisher condividono seme+algoritmo → stessi candidati per l'epoch
+  const seed = 'momentum-update-seed', epoch = currentEpoch();
+  const candidates = await deriveCandidateLocations({ seed, templates: TEMPLATES, epoch, count: 4 });
+  // il publisher ha pubblicato SU UN SOLO indirizzo (nuovo host, cambiato oggi):
+  const liveUrl = candidates[5]; // uno qualsiasi dei derivati
+  const manifest = await sign({ version: '51.0.0', url: 'https://qualunque-host-nuovo/app.js', sha256: 'h' });
+  const fetchImpl = async (url) => (url === liveUrl) ? { ok: true, json: async () => manifest } : (() => { throw new Error('host cambiato/morto'); })();
+
+  const r = await resolveUpdate({ beacons: candidates, fetchImpl, verifyImpl: verify, currentVersion: '50.0.0' });
+  assert.equal(r.found, true, 'trova la versione anche se ho cambiato host: la calcola dall\'algoritmo');
+  assert.equal(r.manifest.version, '51.0.0');
+});
+
+test('resilientCandidates: include epoch corrente E precedente (tolleranza ai confini)', async () => {
+  const c = await resilientCandidates({ seed: 's', templates: ['https://{t}.x/m'], count: 2, now: Date.now() });
+  assert.equal(c.length, 4); // 2 (curr) + 2 (prev)
+});
 
 const subtle = globalThis.crypto.subtle;
 const bytesToB64 = (u8) => Buffer.from(u8).toString('base64');
