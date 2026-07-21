@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { getUpcomingCharges, getDailySafeToSpend, getMonthEndProjection, getAdvisorInsights } = await import('./advisor.js');
+const { getUpcomingCharges, getDailySafeToSpend, getMonthEndProjection, getAdvisorInsights, getMonthlyCommitments } = await import('./advisor.js');
 
 // Date fisse, mai new Date() nei test.
 // Mercoledì 15 luglio 2026: metà mese, metà settimana (lun 13 - dom 19).
@@ -24,6 +24,25 @@ function netflixHistory() {
     '2026-06': [tx('2026-06-17', 12.99, 'NETFLIX.COM')],
   };
 }
+
+test('getMonthlyCommitments: riserva impegni ricorrenti fino a fine mese (incl. uscite grandi)', () => {
+  // Affitto grande + Netflix piccolo, entrambi mensili, prossimi entro fine mese.
+  const allTx = {
+    '2026-04': [tx('2026-04-05', 800, 'AFFITTO', 'uscita', 'Casa'), tx('2026-04-17', 12.99, 'NETFLIX.COM')],
+    '2026-05': [tx('2026-05-05', 800, 'AFFITTO', 'uscita', 'Casa'), tx('2026-05-17', 12.99, 'NETFLIX.COM')],
+    '2026-06': [tx('2026-06-05', 800, 'AFFITTO', 'uscita', 'Casa'), tx('2026-06-17', 12.99, 'NETFLIX.COM')],
+  };
+  const c = getMonthlyCommitments(allTx, new Date(2026, 6, 1)); // 1 luglio → affitto ~5, netflix ~17 in arrivo
+  assert.ok(c.reserved >= 812, `riserva attesa ~812,99, avuto ${c.reserved}`);
+  assert.ok(c.count >= 2);
+  assert.equal(c.top[0].name, 'AFFITTO'); // l'impegno più grande in cima (per la UI)
+});
+
+test('getMonthlyCommitments: nessuna storia ricorrente → riserva 0 (niente invenzioni)', () => {
+  const c = getMonthlyCommitments({ '2026-07': [tx('2026-07-03', 20, 'Spesa una tantum', 'uscita', 'Cibo')] }, new Date(2026, 6, 5));
+  assert.equal(c.reserved, 0);
+  assert.equal(c.count, 0);
+});
 
 test('getUpcomingCharges: abbonamento mensile atteso entro la finestra', () => {
   const charges = getUpcomingCharges(netflixHistory(), REF, 7);

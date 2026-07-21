@@ -507,7 +507,11 @@
             </div>
 
             <div class="flex-grow flex flex-col min-h-[300px]">
-              <h2 class="text-xl sm:text-2xl font-extrabold mb-4 tracking-tight shrink-0">Ledger Operazioni</h2>
+              <h2 class="text-xl sm:text-2xl font-extrabold mb-4 tracking-tight shrink-0">I tuoi movimenti</h2>
+              <!-- Soldi GIA' IMPEGNATI (getMonthlyCommitments): la quota del saldo
+                   gia' promessa agli impegni ricorrenti in arrivo (affitto, mutuo,
+                   abbonamenti) — cosi' non spendi soldi che sono gia' spoken-for. -->
+              <div id="committed-reserve" class="hidden shrink-0 mb-3"></div>
               <div id="transaction-list-container" class="flex-grow"></div>
             </div>
           </div>

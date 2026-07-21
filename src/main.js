@@ -10,7 +10,7 @@ import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
 import { subscriptionSummary } from './predict/subscriptions.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
-import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges } from './predict/advisor.js';
+import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
@@ -852,6 +852,38 @@ const renderDashboard = () => {
   const waveBar = $('#quantum-reserve-wave');
   if (waveBar) {
     waveBar.style.height = `${Math.max(10, Math.min(safetyScore, 100))}%`;
+  }
+
+  // ── SOLDI GIÀ IMPEGNATI (getMonthlyCommitments): la quota del saldo già
+  // promessa agli impegni ricorrenti in arrivo entro fine mese (affitto, mutuo,
+  // abbonamenti). Mostra il "disponibile VERO" = liquidità − riserva, con barra
+  // impegnato/libero e i 3 impegni maggiori. Anti-sorpresa = fiducia = retention.
+  // Onesto: solo ricorrenti realmente rilevati; se 0, la fascia resta nascosta. ──
+  const commitEl = $('#committed-reserve');
+  if (commitEl) {
+    const com = getMonthlyCommitments(VaultDAO.state.transactions, realNow);
+    if (com.reserved > 0 && liquidity > 0) {
+      const free = Math.max(0, +(liquidity - com.reserved).toFixed(2));
+      const pctCommitted = Math.min(100, Math.round(com.reserved / liquidity * 100));
+      const chips = com.top.map(t => `<span class="text-[10px] px-2 py-0.5 rounded-full bg-black/25 border border-[var(--glass-border)] whitespace-nowrap">${t.name.length > 16 ? t.name.slice(0, 15) + '…' : t.name} · ${formatMoney(t.amount)}</span>`).join('');
+      commitEl.classList.remove('hidden');
+      commitEl.innerHTML = `
+        <div class="rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 p-3.5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Già impegnati entro fine mese</span>
+            <span class="font-mono font-black text-sm text-amber-300">${formatMoney(com.reserved)}</span>
+          </div>
+          <div class="h-2 rounded-full bg-emerald-500/25 overflow-hidden"><div class="h-full bg-amber-400/70" style="width:${pctCommitted}%"></div></div>
+          <div class="flex items-center justify-between mt-2">
+            <span class="text-[10px] text-[var(--on-surface-secondary)]">Disponibile vero (già tolti gli impegni)</span>
+            <span class="font-mono font-bold text-sm text-emerald-400">${formatMoney(free)}</span>
+          </div>
+          ${chips ? `<div class="flex flex-wrap gap-1.5 mt-2">${chips}</div>` : ''}
+        </div>`;
+    } else {
+      commitEl.classList.add('hidden');
+      commitEl.innerHTML = '';
+    }
   }
 
   // Ledger list

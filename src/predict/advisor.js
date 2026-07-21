@@ -55,6 +55,31 @@ export function getUpcomingCharges(allTx, referenceDate = new Date(), horizonDay
   return charges.sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
+// SOLDI GIÀ IMPEGNATI ("committed reserve"): quanto del tuo saldo è già
+// promesso agli impegni ricorrenti in arrivo da qui a fine mese — abbonamenti
+// MA anche le uscite fisse grandi (affitto, mutuo, rata prestito), che
+// detectRecurring coglie perché sono mensili e stabili a prescindere dall'importo.
+// È la base del "disponibile VERO": appena entra un incasso, questa quota è già
+// spoken-for e NON va spesa. Onestà: solo ricorrenti realmente rilevati dai dati,
+// mai stime inventate; se non c'è storia, reserved = 0. Funzione pura.
+export function getMonthlyCommitments(allTx, referenceDate = new Date(), opts = {}) {
+  const ref = startOfDay(referenceDate);
+  const endOfMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+  const daysToEom = Math.max(0, Math.round((endOfMonth - ref) / DAY_MS));
+  const items = getUpcomingCharges(allTx, ref, daysToEom, opts);
+  const reserved = +items.reduce((s, c) => s + (c.amount || 0), 0).toFixed(2);
+  // separa gli impegni "grandi" (fissi tipo affitto/mutuo) dai piccoli, utile
+  // alla UI per spiegare da cosa è composta la riserva senza elencare tutto.
+  const sorted = [...items].sort((a, b) => b.amount - a.amount);
+  return {
+    reserved,
+    count: items.length,
+    items: sorted,
+    top: sorted.slice(0, 3).map(c => ({ name: c.description, amount: c.amount, daysUntil: c.daysUntil })),
+    daysToEndOfMonth: daysToEom,
+  };
+}
+
 // "Oggi puoi spendere X": (rimanente della settimana − ricorrenti attesi
 // entro fine settimana) / giorni rimasti (oggi incluso).
 // Ritorna null se non c'è un budget mensile impostato (senza budget il
