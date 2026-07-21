@@ -20,7 +20,7 @@ import { selectableCountries as selectableInvoiceCountries } from './invoice/cou
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances } from './split/split-engine.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1689,7 +1689,146 @@ window.receiveSplitGroup = () => {
     VaultDAO.save();
     closeModal();
     showToast(before ? `Gruppo "${g.name}" aggiornato con le spese dell'amico.` : `Gruppo "${g.name}" ricevuto e aggiunto.`, 'success');
+    if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
   });
+};
+
+// ── GRUPPO SPESE PERSISTENTE (il vero Splitwise on-device): N persone SENZA
+// limite, PIU' spese con pagatori e importi DIVERSI (uno paga 10, un altro 89,
+// un altro niente), storico, controlli (aggiungi/elimina spesa e persone),
+// settlement minimo live ("chi deve cosa a chi"), condivisione a distanza. ──
+window.openSplitGroup = (openId = null) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
+  const groups = () => VaultDAO.state.splitGroups || [];
+  const persist = (g) => { VaultDAO.state.splitGroups = mergeIntoGroups(groups(), g); VaultDAO.save(); };
+  const nameById = (g) => Object.fromEntries(g.members.map(m => [m.id, m.name]));
+  let currentId = openId;
+  const form = { payer: null, amount: '', desc: '', involved: null }; // involved=null → tutti
+
+  const render = () => {
+    const g = currentId ? groups().find(x => x.id === currentId) : null;
+    g ? renderDetail(g) : renderList();
+  };
+
+  const renderList = () => {
+    const gs = groups();
+    const rows = gs.map(g => {
+      const total = (g.expenses || []).reduce((s, e) => s + e.amount, 0);
+      return `<button data-open="${g.id}" class="w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--glass-border)] bg-black/20 text-left">
+        <span class="min-w-0"><span class="font-bold text-sm block truncate">${esc(g.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${g.members.length} persone · ${(g.expenses || []).length} spese</span></span>
+        <span class="font-mono font-black text-sm shrink-0">${eur(total)}</span></button>`;
+    }).join('');
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div><h3 class="text-base font-black">Insieme — i tuoi gruppi</h3><p class="card-sub !mb-0">Cena, vacanza, casa: crea un gruppo, aggiungi le spese di tutti e vedi chi deve cosa a chi. Senza account, senza limiti di persone.</p></div>
+        ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun gruppo ancora. Creane uno qui sotto.</p>'}
+        <button id="sg-new" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuovo gruppo</button>
+        <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-[12px] text-slate-300">Ricevi un gruppo da un amico</button>
+      </div>`);
+    document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { currentId = b.dataset.open; render(); }));
+    $('#sg-new')?.addEventListener('click', () => {
+      let g = createGroup({ name: 'Nuovo gruppo', members: ['Io'] });
+      persist(g); currentId = g.id; render();
+    });
+    $('#sg-receive')?.addEventListener('click', () => window.receiveSplitGroup());
+  };
+
+  const renderDetail = (g) => {
+    const names = nameById(g);
+    const members = g.members;
+    const bal = computeBalances(g);
+    const { transfers } = settlementView(g);
+    if (!form.payer || !members.some(m => m.id === form.payer)) form.payer = members[0]?.id;
+    const involved = form.involved || members.map(m => m.id);
+
+    const expRows = (g.expenses || []).map(e => `
+      <div class="flex items-center justify-between gap-2 py-1.5 border-b border-[var(--glass-border)] last:border-0">
+        <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}</span>
+        <button data-delexp="${e.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
+      </div>`).join('');
+
+    const settleRows = transfers.map(t => {
+      const line = t.toName === 'Io' ? `<b>${esc(t.fromName)}</b> deve darti <b>${eur(t.amount)}</b>`
+        : t.fromName === 'Io' ? `Devi <b>${eur(t.amount)}</b> a <b>${esc(t.toName)}</b>`
+          : `<b>${esc(t.fromName)}</b> → <b>${esc(t.toName)}</b>: ${eur(t.amount)}`;
+      const act = t.toName === 'Io' ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
+        : t.fromName === 'Io' ? `<button data-tell="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
+      return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px]">${line}${act}</div>`;
+    }).join('') || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Tutto in pari 🎉</p>';
+
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div class="flex items-center gap-2">
+          <button id="sg-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--glass-border)] bg-black/20 inline-flex items-center justify-center">‹</button>
+          <input id="sg-name" value="${esc(g.name)}" class="flex-1 bg-transparent text-base font-black min-w-0 outline-none" />
+        </div>
+        <div>
+          <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Persone (${members.length}) · saldo</div>
+          <div class="flex flex-col gap-1">
+            ${members.map(m => `<div class="flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-black/20 border border-[var(--glass-border)]"><span class="font-bold">${esc(m.name)}</span><span class="font-mono ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
+          </div>
+          <div class="flex flex-wrap gap-2 mt-2">
+            ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--glass-border)] text-slate-300">+ ${esc(f.name)}</button>`).join('')}
+            <input id="sg-newmember" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi persona" />
+          </div>
+        </div>
+        ${(g.expenses || []).length ? `<div class="card p-3"><div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Spese (${g.expenses.length})</div>${expRows}</div>` : ''}
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi una spesa</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${esc(m.name)} paga</button>`).join('')}</div>
+          <div class="flex gap-2">
+            <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto €" />
+            <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="Per cosa" />
+          </div>
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">Chi partecipa a questa spesa (tocca per escludere):</div>
+          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--glass-border)] text-slate-500 line-through'}">${esc(m.name)}</button>`).join('')}</div>
+          <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">Aggiungi la spesa</button>
+        </div>
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>Chi deve cosa a chi (meno bonifici possibili)</div>
+          ${settleRows}
+        </div>
+        <div class="flex gap-2">
+          <button id="sg-share" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
+          <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[var(--red)]/30 text-[var(--red)] text-sm">Elimina</button>
+        </div>
+        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
+      </div>`);
+
+    // bind
+    $('#sg-back')?.addEventListener('click', () => { currentId = null; render(); });
+    $('#sg-name')?.addEventListener('change', (e) => { persist({ ...g, name: e.target.value.trim() || g.name }); });
+    $('#sg-newmember')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { const ng = { ...g, members: [...g.members, { id: `m${g.members.length}_${Math.random().toString(36).slice(2, 6)}`, name: e.target.value.trim() }] }; persist(ng); render(); } });
+    document.querySelectorAll('[data-addmember]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, members: [...g.members, { id: `m${g.members.length}_${Math.random().toString(36).slice(2, 6)}`, name: b.dataset.addmember }] }; persist(ng); render(); }));
+    document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { form.payer = b.dataset.payer; render(); }));
+    document.querySelectorAll('[data-involve]').forEach(b => b.addEventListener('click', () => {
+      const set = new Set(form.involved || members.map(m => m.id));
+      set.has(b.dataset.involve) ? set.delete(b.dataset.involve) : set.add(b.dataset.involve);
+      form.involved = members.map(m => m.id).filter(id => set.has(id));
+      if (!form.involved.length) form.involved = members.map(m => m.id);
+      render();
+    }));
+    $('#sg-amt')?.addEventListener('input', (e) => { form.amount = e.target.value; });
+    $('#sg-desc')?.addEventListener('input', (e) => { form.desc = e.target.value; });
+    $('#sg-addexp')?.addEventListener('click', () => {
+      const amt = parseFloat(String(form.amount).replace(',', '.'));
+      if (!(amt > 0)) { $('#sg-amt')?.focus(); showToast('Inserisci quanto è stato speso.', 'error'); return; }
+      const inv = form.involved || members.map(m => m.id);
+      try {
+        const ng = addSharedExpense(g, { payer: form.payer, amount: amt, description: form.desc, shares: inv.length < members.length ? { equalAmong: inv } : undefined });
+        persist(ng); form.amount = ''; form.desc = ''; form.involved = null; render();
+      } catch (e) { showToast('Non ho potuto aggiungere la spesa: ' + e.message, 'error'); }
+    });
+    document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
+    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => window.openSepaTransfer({ mode: 'request', name: 'Io', iban: myIban, amount: +b.dataset.ask, remittance: `Rimborso ${g.name}`.slice(0, 140), title: `Chiedi ${eur(+b.dataset.ask)} a ${b.dataset.who}` })));
+    document.querySelectorAll('[data-tell]').forEach(b => b.addEventListener('click', async () => { const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tell)} per ${g.name}. Mandami l'IBAN così ti giro il bonifico!`; try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { } }));
+    $('#sg-share')?.addEventListener('click', () => window.openShareCode({ code: encodeGroupShare(g), title: `Condividi "${g.name}"`, sub: 'L\'amico lo apre in Momentum → Insieme → Ricevi. Le spese si uniscono, anche da un altro Paese, senza server.' }));
+    $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
+  };
+
+  render();
 };
 
 // ── CREA FATTURA (v10): semplice come un tap, nativa per ogni schermo, coerente
