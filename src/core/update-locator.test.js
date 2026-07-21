@@ -43,6 +43,28 @@ test('GIRO COMPLETO: cambio host ogni volta → l\'app calcola gli indirizzi, ne
   assert.equal(r.manifest.version, '51.0.0');
 });
 
+test('SCENARIO UTENTE: pippo.com cade → sposto su nello.it (nome ARBITRARIO): l\'ancora stabile ri-punta, l\'app segue', async () => {
+  const subtle = globalThis.crypto.subtle;
+  const kp = await subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const verify = makeEcdsaVerifier(await subtle.exportKey('jwk', kp.publicKey));
+  const bytesToB64 = (u8) => Buffer.from(u8).toString('base64');
+  const sign = async (mf) => { const sig = await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, new TextEncoder().encode(canonicalMessage(mf))); return { ...mf, sig: bytesToB64(new Uint8Array(sig)) }; };
+
+  // Oggi l'app era su pippo.com; lo faccio cadere e pubblico su nello.it (nome
+  // arbitrario, non prevedibile). Tengo UN'ancora stabile che ri-punta al nuovo host.
+  const anchor = 'https://ancora-stabile.example/pointer.json'; // l'unica cosa che non cambia mai
+  const nuovoManifest = await sign({ version: '52.0.0', url: 'https://nello.it/app.js', sha256: 'h' });
+  const fetchImpl = async (url) => {
+    if (url === 'https://pippo.com/m.json') throw new Error('dominio caduto');   // vecchio host morto
+    if (url === anchor) return { ok: true, json: async () => nuovoManifest };    // l'ancora conosce il nuovo indirizzo
+    throw new Error('altro host non raggiungibile');
+  };
+  const r = await resolveUpdate({ beacons: ['https://pippo.com/m.json', anchor], fetchImpl, verifyImpl: verify, currentVersion: '51.0.0' });
+  assert.equal(r.found, true, 'l\'app segue l\'ancora e trova il nuovo host arbitrario');
+  assert.equal(r.manifest.url, 'https://nello.it/app.js');
+  assert.equal(r.manifest.version, '52.0.0');
+});
+
 test('resilientCandidates: include epoch corrente E precedente (tolleranza ai confini)', async () => {
   const c = await resilientCandidates({ seed: 's', templates: ['https://{t}.x/m'], count: 2, now: Date.now() });
   assert.equal(c.length, 4); // 2 (curr) + 2 (prev)
