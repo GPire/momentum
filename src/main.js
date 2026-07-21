@@ -18,6 +18,8 @@ import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringC
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
+import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
+import { qrSvg } from './pay/qr-encode.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1469,6 +1471,51 @@ window.markTransmitted = (number, year) => {
   VaultDAO.save();
   showToast(`Fattura n.${number}/${year} segnata come trasmessa. ✓`, 'success');
   renderAnalysis();
+};
+
+// ── BONIFICO SEPA on-device: Momentum NON tocca la banca. Prepara il bonifico
+// (QR standard EPC + dati copiabili + condivisione) che ESEGUI TU nella tua app
+// bancaria, o che invii al cliente perché paghi la fattura in una scansione.
+// Universale: dove il QR non è supportato, i dati copiabili funzionano con
+// qualsiasi banca. Coerente col design dell'app. ──
+window.openSepaTransfer = (d = {}) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const name = String(d.name || '').trim();
+  const iban = normalizeIBAN(d.iban);
+  const amount = +d.amount || 0;
+  const remittance = String(d.remittance || '').trim();
+  const validIban = isValidIBAN(iban);
+  const epc = buildEpcPayload({ name, iban, amount, remittance });
+  const fallback = sepaFallbackText({ name, iban, amount, remittance });
+  const isRequest = d.mode === 'request';
+  const title = d.title || (isRequest ? 'Chiedi il pagamento' : 'Fai il bonifico');
+  const sub = isRequest
+    ? 'Mostralo o invialo al cliente: paga in una scansione con la sua app bancaria.'
+    : 'Apri la tua app della banca e scansiona (o incolla i dati): il bonifico si apre già compilato. Momentum non tocca la banca — confermi tu.';
+  let qr = '';
+  try { if (validIban && epc.ok) qr = qrSvg(epc.payload, { moduleSize: 5, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${esc(title)}</h3><p class="card-sub !mb-0">${esc(sub)}</p></div>
+      ${!validIban ? `<div class="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 text-[12px] px-3 py-2.5">Manca un IBAN valido: aggiungilo nei tuoi dati fiscali per generare il bonifico.</div>` : ''}
+      ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(240px,72vw)">${qr}</div>
+              <p class="text-[10px] text-center text-[var(--on-surface-secondary)]">QR standard SEPA (EPC). Se la tua app non lo legge, usa i dati qui sotto — funzionano con ogni banca.</p>` : ''}
+      <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[12px] font-mono whitespace-pre-line select-all">${esc(fallback)}</div>
+      <div class="flex gap-2">
+        <button id="sepa-copy" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl">Copia i dati</button>
+        <button id="sepa-copy-iban" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">Copia IBAN</button>
+        <button id="sepa-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
+      </div>
+      <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Momentum non invia bonifici né accede al conto: prepara i dati, il movimento lo fai tu nella tua banca (con la tua autenticazione).</p>
+    </div>`);
+  $('#sepa-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(fallback); showToast('Dati del bonifico copiati.', 'success'); });
+  $('#sepa-copy-iban')?.addEventListener('click', () => { navigator.clipboard?.writeText(iban); showToast('IBAN copiato.', 'success'); });
+  $('#sepa-share')?.addEventListener('click', async () => {
+    try {
+      if (navigator.share) await navigator.share({ title, text: fallback });
+      else { navigator.clipboard?.writeText(fallback); showToast('Dati copiati (condivisione non disponibile qui).', 'info'); }
+    } catch (e) { /* utente ha annullato */ }
+  });
 };
 
 // ── CREA FATTURA (v10): semplice come un tap, nativa per ogni schermo, coerente
