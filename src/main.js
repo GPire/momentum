@@ -1191,14 +1191,14 @@ const renderAnalysis = (opts = {}) => {
 
   // Predictions & Jar Fill
   const proj = PredictiveOracle.calculateProjections();
-  $('#forecast-cagr').textContent = `CAGR stimato: ${(proj.dynCagr * 100).toFixed(1)}%`;
+  $('#forecast-cagr').textContent = `Crescita media stimata: ${(proj.dynCagr * 100).toFixed(1)}%`;
   $('#forecast-1y').textContent = formatMoney(proj.proj1y);
   $('#forecast-5y').textContent = formatMoney(proj.proj5y);
   const bandDisplay = document.getElementById('forecast-band-display');
   if (bandDisplay && proj.sim5y) {
-    bandDisplay.textContent = `Banda Monte Carlo (5% - 95%): ${formatMoney(proj.sim5y.p5)} - ${formatMoney(proj.sim5y.p95)}`;
+    bandDisplay.textContent = `Scenari possibili tra 5 anni (dal 5% al 95%): ${formatMoney(proj.sim5y.p5)} - ${formatMoney(proj.sim5y.p95)}`;
   }
-  $('#discipline-score').textContent = `Discipline: ${proj.discipline}/100`;
+  $('#discipline-score').textContent = `Costanza: ${proj.discipline}/100`;
   $('#forecast-jar-fill').style.height = `${proj.discipline}%`;
 
   // Aggiornamento progressivo: il worker ricalcola con l'ensemble
@@ -1211,14 +1211,14 @@ const renderAnalysis = (opts = {}) => {
       $('#forecast-5y').textContent = formatMoney(r.sims.y5.p50);
       const band = document.getElementById('forecast-band-display');
       if (band) {
-        let txt = `Banda Monte Carlo GARCH (5% - 95%): ${formatMoney(r.sims.y5.p5)} - ${formatMoney(r.sims.y5.p95)}`;
-        if (r.mcExpenses) txt += ` · Spese prossimo mese p50 ${formatMoney(r.mcExpenses.p50)}, VaR95 ${formatMoney(r.mcExpenses.var95)}`;
+        let txt = `Scenari possibili tra 5 anni (dal 5% al 95%): ${formatMoney(r.sims.y5.p5)} - ${formatMoney(r.sims.y5.p95)}`;
+        if (r.mcExpenses) txt += ` · Spese del prossimo mese: di solito ${formatMoney(r.mcExpenses.p50)}, al massimo ${formatMoney(r.mcExpenses.var95)}`;
         band.textContent = txt;
       }
       const cagrEl = $('#forecast-cagr');
       if (cagrEl && r.ensemble?.weights) {
         const w = r.ensemble.weights;
-        cagrEl.textContent = `CAGR stimato: ${(proj.dynCagr * 100).toFixed(1)}% · Ensemble ${w.ar2 !== undefined ? `AR(2) ${(w.ar2*100).toFixed(0)}% / LinReg ${(w.linreg*100).toFixed(0)}%` : 'storico'} · vol GARCH ×${r.garchVolRatio}`;
+        cagrEl.textContent = `Crescita media stimata: ${(proj.dynCagr * 100).toFixed(1)}%`;
       }
       // Il livello Holt-Winters (spesa giornaliera destagionalizzata) rende
       // la proiezione di fine mese dell'advisor un vero forecast invece del
