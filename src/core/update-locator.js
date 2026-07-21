@@ -125,6 +125,52 @@ export async function resilientCandidates({ seed, templates, count = 4, now = Da
   return [...cur, ...prev];
 }
 
+// ============================================================
+// SCOPERTA via CERTIFICATE TRANSPARENCY (prefisso noto, suffisso arbitrario)
+// ============================================================
+// Caso: il dominio inizia sempre con un PREFISSO noto ("momentum-...") ma il
+// resto cambia (momentum-lala.com, momentum-gpwpwp.pages.dev...). Non si possono
+// indovinare i suffissi, MA ogni certificato HTTPS emesso finisce nei log
+// pubblici di Certificate Transparency (CT), gestiti da molte organizzazioni
+// indipendenti e immutabili. Registri un dominio col prefisso e ci metti HTTPS?
+// Compare nei log CT. L'app interroga i log per "prefisso%", SCOPRE tutti i domini
+// che iniziano cosi', li sonda e adotta quello col manifest FIRMATO. La traccia e'
+// il log CT (difficilissimo da abbattere), la fiducia e' la firma.
+// Onesta': (1) il log CT si interroga via un'API (una fonte, ma pubblica e
+// ridondante: crt.sh, Google, Cloudflare...); (2) i sotto-domini sotto un
+// certificato WILDCARD di piattaforma (*.netlify.app) NON compaiono singolarmente
+// → per quelli usa la generazione algoritmica o l'ancora. Insieme coprono tutto.
+
+// Estrae i domini che iniziano col prefisso da una risposta CT (formato crt.sh:
+// array di { name_value } con nomi separati da newline, eventuali wildcard '*.').
+export function extractCtDomains(ctJson, prefix) {
+  const pfx = String(prefix || '').toLowerCase();
+  const set = new Set();
+  for (const row of Array.isArray(ctJson) ? ctJson : []) {
+    const nv = String((row && row.name_value) || '');
+    for (let name of nv.split(/\s+/)) {
+      name = name.trim().toLowerCase().replace(/^\*\./, '');
+      if (name && name.startsWith(pfx) && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(name)) set.add(name);
+    }
+  }
+  return [...set];
+}
+
+// Interroga i log CT (endpoint che accettano il prefisso e rendono JSON stile
+// crt.sh) e ritorna gli URL-candidato del manifest sui domini scoperti.
+// `ctEndpoints` usa {prefix} come segnaposto (es. 'https://crt.sh/?q={prefix}%25&output=json').
+export async function discoverViaCertTransparency({ prefix, ctEndpoints = [], fetchImpl, manifestPath = '/momentum-update.json' } = {}) {
+  if (!prefix || typeof fetchImpl !== 'function') return [];
+  const domains = new Set();
+  for (const tpl of ctEndpoints) {
+    try {
+      const res = await fetchImpl(tpl.split('{prefix}').join(encodeURIComponent(prefix)));
+      if (res && res.ok) { const json = await res.json(); for (const d of extractCtDomains(json, prefix)) domains.add(d); }
+    } catch (_) { /* un log CT non risponde → prova il prossimo */ }
+  }
+  return [...domains].map(d => `https://${d}${manifestPath}`);
+}
+
 // SCOPERTA: prova i fari (beacon URL) in sequenza, unisce i puntatori ricevuti
 // dai PEER (mesh gossip), verifica le firme e ritorna il piu' recente valido.
 // Se tutti i fari sono morti ma un peer conosce il nuovo indirizzo, funziona

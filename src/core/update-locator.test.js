@@ -1,6 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { compareVersions, canonicalMessage, makeEcdsaVerifier, resolveUpdate, pickBestManifest, deriveCandidateLocations, currentEpoch, resilientCandidates } = await import('./update-locator.js');
+const { compareVersions, canonicalMessage, makeEcdsaVerifier, resolveUpdate, pickBestManifest, deriveCandidateLocations, currentEpoch, resilientCandidates, extractCtDomains, discoverViaCertTransparency } = await import('./update-locator.js');
+
+test('CT: estrae i domini col prefisso (gestisce newline e wildcard *.)', () => {
+  const ctJson = [
+    { name_value: 'momentum-lala.com\nwww.momentum-lala.com' },
+    { name_value: '*.momentum-gpwpwp.com' },
+    { name_value: 'altro-sito.com' },              // non col prefisso → ignorato
+    { name_value: 'momentum-evil.com' },
+  ];
+  const d = extractCtDomains(ctJson, 'momentum-');
+  assert.ok(d.includes('momentum-lala.com'));
+  assert.ok(d.includes('momentum-gpwpwp.com'));    // wildcard normalizzato
+  assert.ok(d.includes('momentum-evil.com'));
+  assert.ok(!d.includes('altro-sito.com'));
+  assert.ok(!d.includes('www.momentum-lala.com')); // il www non inizia col prefisso
+});
+
+test('CT: scopre gli URL-candidato dai log di Certificate Transparency', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => [{ name_value: 'momentum-lala.com' }, { name_value: 'momentum-gpwpwp.com' }] });
+  const urls = await discoverViaCertTransparency({ prefix: 'momentum-', ctEndpoints: ['https://crt.sh/?q={prefix}%25&output=json'], fetchImpl, manifestPath: '/u.json' });
+  assert.ok(urls.includes('https://momentum-lala.com/u.json'));
+  assert.ok(urls.includes('https://momentum-gpwpwp.com/u.json'));
+});
+
+test('SCENARIO: dominio nuovo momentum-lala.com scoperto via CT → trovato e verificato; impostore momentum-evil.com scartato', async () => {
+  const subtle = globalThis.crypto.subtle;
+  const kp = await subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const verify = makeEcdsaVerifier(await subtle.exportKey('jwk', kp.publicKey));
+  const bytesToB64 = (u8) => Buffer.from(u8).toString('base64');
+  const sign = async (mf) => { const sig = await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, new TextEncoder().encode(canonicalMessage(mf))); return { ...mf, sig: bytesToB64(new Uint8Array(sig)) }; };
+
+  const real = await sign({ version: '53.0.0', url: 'https://momentum-lala.com/app.js', sha256: 'h' });
+  const fake = { version: '99.0.0', url: 'https://momentum-evil.com/app.js', sha256: 'h', sig: 'ZmFrZQ==' }; // impostore, firma non valida
+
+  const ctFetch = async () => ({ ok: true, json: async () => [{ name_value: 'momentum-lala.com' }, { name_value: 'momentum-evil.com' }] });
+  const candidates = await discoverViaCertTransparency({ prefix: 'momentum-', ctEndpoints: ['https://ct/{prefix}'], fetchImpl: ctFetch, manifestPath: '/u.json' });
+
+  const fetchImpl = async (url) => {
+    if (url === 'https://momentum-lala.com/u.json') return { ok: true, json: async () => real };
+    if (url === 'https://momentum-evil.com/u.json') return { ok: true, json: async () => fake };
+    throw new Error('non raggiungibile');
+  };
+  const r = await resolveUpdate({ beacons: candidates, fetchImpl, verifyImpl: verify, currentVersion: '52.0.0' });
+  assert.equal(r.found, true);
+  assert.equal(r.manifest.url, 'https://momentum-lala.com/app.js'); // il vero, firmato
+  assert.equal(r.manifest.version, '53.0.0');                        // NON il 99 dell'impostore
+});
 
 const TEMPLATES = ['https://{t}.pages.dev/m.json', 'https://cdn.x/{t}/m.json', 'https://ipfs.io/ipns/{t}'];
 
