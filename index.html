@@ -90,6 +90,10 @@
 
     .btn-action { background: var(--surface-elevated); border: 1px solid var(--outline); padding: 1rem 1.2rem; border-radius: 1.2rem; font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); cursor: pointer; color: var(--on-surface); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); text-align: center; }
     .btn-action:active { transform: scale(0.96); background: var(--outline); }
+    /* Azione PRIMARIA vivida: UNA per schermata, tira lo sguardo (direzione
+       psicologica + anti-attrito). Il resto resta calmo così questa spicca. */
+    .btn-primary { background: var(--apex-gradient); border: none; color: #fff; box-shadow: var(--glow-primary); }
+    .btn-primary:active { transform: scale(0.96); }
 
     /* === NEURO TOGGLES === */
     .type-toggle-track { display: flex; gap: 0.25rem; padding: 0.35rem; background: var(--surface-elevated); border: 1px solid var(--outline); border-radius: 1.5rem; position: relative; }
