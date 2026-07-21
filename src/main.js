@@ -1616,9 +1616,20 @@ window.openSplitExpense = () => {
       if (!(amt2 > 0) || state.people.length < 2) { showToast('Inserisci importo e almeno due persone.', 'error'); return; }
       const g = buildGroup();
       VaultDAO.state.splitGroups = [...(VaultDAO.state.splitGroups || []), { ...g, date: new Date().toISOString().slice(0, 10) }];
+      // INTEGRAZIONE Momentum Core: registro LA TUA PARTE come spesa reale (non
+      // l'intero, che è in parte un prestito agli amici) → budget corretto E
+      // l'orchestratore IMPARA da questa spesa (categoria predetta dal modello
+      // addestrato). Deduplicata come ogni transazione. Onesto: solo la tua quota.
+      const mine = +(amt2 / state.people.length).toFixed(2);
+      let category = 'altro';
+      try { const p = window.momentumOrchestrator?.classify(state.description || '', mine, new Date()); if (p && p.category) category = p.category; } catch (_) { }
+      const desc = state.description ? `${state.description} (la mia parte)` : 'Spesa condivisa (la mia parte)';
+      const res = VaultDAO.addTransaction(monthKey(new Date()), { id: Date.now(), amount: mine, type: 'uscita', category, description: desc, date: new Date().toISOString() });
+      try { if (!res.duplicate && window.momentumOrchestrator) window.momentumOrchestrator.learn(desc, category, mine, new Date()); } catch (_) { }
       VaultDAO.save();
       closeModal();
-      showToast('Divisione salvata.', 'success');
+      showToast(`Divisione salvata. La tua parte (${eur(mine)}) è nelle spese.`, 'success');
+      renderDashboard(); renderAnalysis({ skipHeavyForecast: true });
     });
   };
   render();
