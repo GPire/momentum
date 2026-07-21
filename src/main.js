@@ -20,6 +20,7 @@ import { selectableCountries as selectableInvoiceCountries } from './invoice/cou
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming } from './split/split-engine.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1525,6 +1526,102 @@ window.openSepaTransfer = (d = {}) => {
       else { navigator.clipboard?.writeText(message); showToast('Messaggio copiato (condivisione non disponibile qui).', 'info'); }
     } catch (e) { /* utente ha annullato */ }
   });
+};
+
+// ── DIVIDI UNA SPESA (Splitwise/Settle Up on-device): una videata, semplice per
+// chiunque. Quanto, con chi (ricorda le persone di sempre), chi ha pagato → "ognuno
+// paga X" + "chi deve cosa a chi" (settlement minimo) + saldo reale via QR/WhatsApp.
+// Coerente col design, responsive. 100% on-device, nessun account, nessun paywall. ──
+window.openSplitExpense = () => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
+  const past = VaultDAO.state.splitGroups || [];
+  const state = { amount: '', description: '', people: ['Io'], payer: 'Io' };
+  const inputCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0';
+
+  const buildGroup = () => {
+    let g = createGroup({ name: state.description || 'Spesa', members: state.people });
+    const amt = parseFloat(String(state.amount).replace(',', '.'));
+    if (amt > 0) {
+      const payerId = g.members[state.people.indexOf(state.payer)]?.id || g.members[0].id;
+      g = addSharedExpense(g, { payer: payerId, amount: amt, description: state.description });
+    }
+    return g;
+  };
+
+  const render = () => {
+    const amt = parseFloat(String(state.amount).replace(',', '.'));
+    const freq = frequentCoSplitters(past).filter(f => !state.people.includes(f.name)).slice(0, 4);
+    const qs = amt > 0 ? quickSplit({ amount: amt, people: state.people.length }) : null;
+    let settleHtml = '';
+    if (amt > 0 && state.people.length > 1) {
+      const g = buildGroup();
+      const { transfers } = settlementView(g);
+      settleHtml = transfers.map(t => {
+        const line = t.toName === 'Io'
+          ? `<b>${esc(t.fromName)}</b> ti deve <b>${eur(t.amount)}</b>`
+          : t.fromName === 'Io'
+            ? `Devi <b>${eur(t.amount)}</b> a <b>${esc(t.toName)}</b>`
+            : `<b>${esc(t.fromName)}</b> deve ${eur(t.amount)} a <b>${esc(t.toName)}</b>`;
+        // azione: se altri devono A TE → chiedi (hai il tuo IBAN); se TU devi → condividi "ti devo"
+        const act = t.toName === 'Io'
+          ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
+          : t.fromName === 'Io'
+            ? `<button data-tellamt="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>`
+            : '';
+        return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] text-slate-200">${line}${act}</div>`;
+      }).join('');
+    }
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div><h3 class="text-base font-black">Dividi una spesa</h3><p class="card-sub !mb-0">Quanto, con chi, chi ha pagato — ci penso io a dire chi deve cosa a chi.</p></div>
+        <input id="sp-amount" type="number" inputmode="decimal" value="${esc(state.amount)}" class="${inputCls} font-mono text-lg" placeholder="Quanto in totale (€)" />
+        <input id="sp-desc" value="${esc(state.description)}" class="${inputCls}" placeholder="Per cosa (es. Cena, Casa al mare)" />
+        <div>
+          <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Con chi dividi</div>
+          <div class="flex flex-wrap gap-2">
+            ${state.people.map((p, i) => `<span class="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full border ${p === state.payer ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-200'} bg-black/20"><button data-payer="${esc(p)}" title="Ha pagato ${esc(p)}">${esc(p)}</button>${p !== 'Io' ? `<button data-rm="${i}" class="opacity-60 hover:opacity-100">✕</button>` : ''}</span>`).join('')}
+          </div>
+          <div class="flex flex-wrap gap-2 mt-2">
+            ${freq.map(f => `<button data-add="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--glass-border)] text-slate-300">+ ${esc(f.name)}</button>`).join('')}
+            <input id="sp-newname" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi nome" />
+          </div>
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Tocca un nome per dire <b>chi ha pagato</b> (in oro). Ora siete in ${state.people.length}.</div>
+        </div>
+        ${qs ? `<div class="card p-3">
+          <div class="flex items-center justify-between"><span class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Ognuno paga</span><span class="font-mono font-black text-lg text-emerald-400">${eur(qs.perPerson)}</span></div>
+          ${settleHtml ? `<div class="mt-2 pt-2 border-t border-[var(--glass-border)]">${settleHtml}</div>` : ''}
+        </div>` : ''}
+        <button id="sp-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Salva la divisione</button>
+        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">100% sul tuo telefono, senza account. I rimborsi li chiedi/paghi tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
+      </div>`);
+    // bind
+    const amountEl = $('#sp-amount'), descEl = $('#sp-desc');
+    amountEl.addEventListener('input', () => { state.amount = amountEl.value; render(); });
+    descEl.addEventListener('input', () => { state.description = descEl.value; });
+    $('#sp-newname')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { state.people.push(e.target.value.trim()); render(); } });
+    document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { state.people.push(b.dataset.add); render(); }));
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; if (state.payer === state.people[i]) state.payer = 'Io'; state.people.splice(i, 1); render(); }));
+    document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { state.payer = b.dataset.payer; render(); }));
+    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => {
+      window.openSepaTransfer({ mode: 'request', name: 'Io', iban: myIban, amount: +b.dataset.ask, remittance: `${state.description || 'Spesa condivisa'}`.slice(0, 140), title: `Chiedi ${eur(+b.dataset.ask)} a ${b.dataset.who}` });
+    }));
+    document.querySelectorAll('[data-tellamt]').forEach(b => b.addEventListener('click', async () => {
+      const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tellamt)} per ${state.description || 'la spesa'}. Mandami l'IBAN così ti giro il bonifico!`;
+      try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { }
+    }));
+    $('#sp-save')?.addEventListener('click', () => {
+      const amt2 = parseFloat(String(state.amount).replace(',', '.'));
+      if (!(amt2 > 0) || state.people.length < 2) { showToast('Inserisci importo e almeno due persone.', 'error'); return; }
+      const g = buildGroup();
+      VaultDAO.state.splitGroups = [...(VaultDAO.state.splitGroups || []), { ...g, date: new Date().toISOString().slice(0, 10) }];
+      VaultDAO.save();
+      closeModal();
+      showToast('Divisione salvata.', 'success');
+    });
+  };
+  render();
 };
 
 // ── CREA FATTURA (v10): semplice come un tap, nativa per ogni schermo, coerente

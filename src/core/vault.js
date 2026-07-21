@@ -143,6 +143,7 @@ const VaultDAO = {
       },
     },
     savingsGoals: [],
+    splitGroups: [], // divisione spese P2P (src/split/split-engine.js): gruppi/spese condivise, additivo
     // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
     // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,
     // additivo, mai retroattivo su tx esistenti.

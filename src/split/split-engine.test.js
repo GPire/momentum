@@ -1,6 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters } = await import('./split-engine.js');
+
+test('quickSplit: divisione istantanea al centesimo esatto (30 in 4 → 7,50)', () => {
+  const r = quickSplit({ amount: 30, people: 4 });
+  assert.equal(r.perPerson, 7.5);
+  assert.equal(r.shares.reduce((a, b) => a + b, 0), 30); // somma esatta
+});
+
+test('quickSplit: resto distribuito senza centesimi persi (10 in 3)', () => {
+  const r = quickSplit({ amount: 10, people: 3 });
+  assert.equal(Math.round(r.shares.reduce((a, b) => a + b, 0) * 100) / 100, 10);
+  assert.deepEqual(r.shares.map(x => Math.round(x * 100) / 100), [3.34, 3.33, 3.33]);
+});
+
+test('quickSplit: tip round-up all\'euro per comodità', () => {
+  const r = quickSplit({ amount: 29, people: 4, tipRoundUp: true });
+  // 29/4 = 7,25 → arrotonda a 8 a testa → totale 32
+  assert.equal(r.perPerson, 8);
+  assert.equal(r.roundedTotal, 32);
+});
+
+test('frequentCoSplitters: ricorda chi divide più spesso, esclude "io"', () => {
+  const past = [
+    { members: [{ name: 'io' }, { name: 'Anna' }, { name: 'Bea' }] },
+    { members: [{ name: 'io' }, { name: 'Anna' }] },
+  ];
+  const f = frequentCoSplitters(past);
+  assert.equal(f[0].name, 'Anna');
+  assert.equal(f[0].count, 2);
+  assert.ok(!f.some(x => x.name === 'io'));
+});
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const sum = (o) => round2(Object.values(o).reduce((a, b) => a + b, 0));

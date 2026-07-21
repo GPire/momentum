@@ -116,6 +116,37 @@ export function settlementView(group) {
   return { balances, transfers, total: round2(group.expenses.reduce((s, e) => s + e.amount, 0)) };
 }
 
+// DIVISIONE ISTANTANEA (semplice per chiunque): "quanto in totale, in quante
+// persone" → quanto paga ognuno, al centesimo ESATTO (il resto va su una quota,
+// mai centesimi persi). Opzione tip: arrotonda per eccesso all'euro (mancia/
+// comodità). Ritorna { perPerson, shares, total, n, roundedTotal }.
+export function quickSplit({ amount, people, tipRoundUp = false } = {}) {
+  const n = Math.max(1, Math.floor(+people || 1));
+  let total = round2(amount);
+  if (!(total > 0)) return { perPerson: 0, shares: new Array(n).fill(0), total: 0, n, roundedTotal: 0 };
+  let roundedTotal = total;
+  if (tipRoundUp) { const per = Math.ceil((total / n)); roundedTotal = round2(per * n); }
+  const base = Math.floor((roundedTotal / n) * 100) / 100;
+  const shares = new Array(n).fill(base);
+  let dist = round2(roundedTotal - base * n); // resto in centesimi
+  let i = 0;
+  while (dist >= 0.01 && i < n) { shares[i] = round2(shares[i] + 0.01); dist = round2(dist - 0.01); i++; }
+  return { perPerson: round2(roundedTotal / n), shares, total, n, roundedTotal };
+}
+
+// PREDITTIVO: le persone con cui dividi PIÙ spesso (dai gruppi passati), per
+// pre-compilare il gruppo con un tocco invece di riscrivere i nomi ogni volta.
+// Esclude un eventuale "me"/"io". Ritorna [{name, count}] ordinato per frequenza.
+export function frequentCoSplitters(pastGroups = [], { topN = 6, meNames = ['io', 'me'] } = {}) {
+  const freq = new Map();
+  for (const g of pastGroups) for (const m of (g.members || [])) {
+    const name = String(m.name || m).trim(); if (!name) continue;
+    if (meNames.includes(name.toLowerCase())) continue;
+    freq.set(name, (freq.get(name) || 0) + 1);
+  }
+  return [...freq.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, topN);
+}
+
 // PREDITTIVO: quando conviene a un debitore saldare. Se sono note le entrate
 // ricorrenti in arrivo (es. dallo storico), suggerisce di aspettare il prossimo
 // accredito se il debito supera il disponibile attuale. Onesto: senza dati sulle
