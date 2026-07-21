@@ -21,6 +21,51 @@ Progetto: `~/Downloads/momentum_app/` (Vite vanilla JS, PWA offline-first). Copi
 
 ---
 
+## 🧬 Sessione 2026-07-21 (sera): POOLING GERARCHICO ADATTIVO — 800 test verdi
+
+Un solo primitivo proprietario, `src/ai/hierarchical-bandit.js`, applicato a due
+domini distanti. È questo che lo rende **tecnologia del progetto** e non una feature.
+
+**Il meccanismo.** Dirichlet-multinomiale con shrinkage verso il genitore lungo un
+percorso: `p_nodo(l) = (conteggi(l) + k · p_genitore(l)) / (n + k)`. Con poco dato il
+nodo eredita, con molto dato domina. La parte non banale è **k adattivo**: ogni nodo
+misura quanto i suoi figli concordano (variazione totale pesata) e decide *da solo*
+quanto è lecito generalizzare su quel ramo. Figli omogenei → eredità forte; figli in
+disaccordo → il sistema smette di generalizzare invece di inventare. Il tempo toglie
+**confidenza**, non ribalta le proporzioni (il vecchio non diventa falso).
+
+**Dominio 1 — sotto-domini DNS** (`src/core/discovery-memory.js` v11). Prima
+l'apprendimento era piatto per host esatto: un sotto-dominio mai visto ripartiva da
+0.5 neutro. Ma il caso reale è proprio quello — se cambio server, il nuovo indirizzo
+è un sotto-dominio *nuovo* di un dominio *noto*. Ora la reputazione scende lungo
+l'albero e il primo tentativo è quello giusto. Secondo asse fattoriale sul TIPO di
+fonte (ct/algoritmo/ancora/mesh). Vault v10 migrati a caldo senza perdere l'appreso.
+
+**Dominio 2 — esercenti** (`src/ai/merchant-hierarchy.js`). Attacca il limite n.1
+MISURATO del progetto (copertura vocabolario, VERSIONI.md): un punto vendita mai
+visto eredita dalla catena già categorizzata dall'utente. Se il primo token è
+spazzatura, i rami risultano eterogenei e il pooling si abbassa da solo — si
+auto-corregge invece di pretendere una lista di prefissi perfetta.
+⬜ **NON ancora cablato nell'orchestratore**: il modulo è costruito e testato ma non
+vota ancora nell'ensemble, e il guadagno non è ancora MISURATO su un bench. Finché
+non c'è il numero stampato, non esiste (regola n.1). Prossimo passo obbligato.
+
+**Surface bridge** (`src/core/surface-bridge.js`): PWA installata e browser sono la
+stessa app. Verificato cosa permette la piattaforma — Android/desktop condividono
+già l'origine; **iOS tiene la PWA in un contenitore separato da Safari** (cookie/Web
+Storage/IndexedDB isolati, nessuna API li unisce) ma la **Cache Storage è condivisa**,
+unico canale che attraversa il confine. Usato come meccanismo unico ovunque: nessun
+ramo per SO. Porta riconoscimento, aggiornamento condiviso, handoff dati cifrato e —
+il punto — la **crescita del Core attraverso le superfici**: su iOS un utente che
+alterna PWA e browser faceva imparare al Core due metà separate e nessuna diventava
+brava. Fiducia distinta: peer mesh = sconosciuto (tetto stretto), altra superficie =
+stesso utente (tetto alto).
+⚠️ **NON ancora verificato su iPhone reale** (come il fix "Consacra" della v9.0).
+Bug evitato: `sw.js` cancella le cache `momentum-vault-*` → il ponte sta fuori da quel
+prefisso, con test di regressione a presidio.
+
+---
+
 ## 🚀 Sessione 2026-07-21: entrate P.IVA, pagamenti, split P2P, auto-update — 768 test verdi
 
 57 commit sopra `0e9b0ed` (+6174 righe, 48 file). La sessione si è chiusa per blocco del
