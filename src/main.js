@@ -734,9 +734,11 @@ const renderDashboard = () => {
       const nm = nextMilestone(VaultDAO.state.achievements || {}, aStats);
       if (nm && nm.pct >= 0.6) {
         const manca = nm.target - nm.current;
-        // Auto-esplicativo (include COSA è il traguardo via nm.desc) + neuro-copy:
-        // anticipazione ("ci sei quasi"), specificità, agency, zero vergogna.
-        line = { icon: ICON.goal, tone: 'gold', text: `Ci sei quasi: ancora ${manca} e sblocchi <b>${nm.name}</b> — ${nm.desc} <span class="opacity-60">(${nm.current}/${nm.target})</span>` };
+        // Descrive il COMPORTAMENTO in parole di tutti (niente nomi-badge né
+        // "sblocchi"): cosa fare + a che punto sei. Neuro-copy: anticipazione,
+        // agency, zero vergogna.
+        const goal = String(nm.desc || '').replace(/\.$/, '');
+        line = { icon: ICON.goal, tone: 'gold', text: `Ci sei quasi: ${goal}. Sei a <b>${nm.current} di ${nm.target}</b>${manca === 1 ? ', ne manca 1!' : `, ne mancano ${manca}.`}` };
       } else {
         const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
         if (life.patterns.length) {
@@ -746,7 +748,8 @@ const renderDashboard = () => {
           const tail = tone === 'amber' ? ' <span class="opacity-70">— solo per consapevolezza, la scelta è tua.</span>' : '';
           line = { icon: ICON[tone] || ICON.calm, tone, text: `<b>${p.label}.</b> ${p.evidence}${tail}` };
         } else if (nm && nm.pct >= 0.3) {
-          line = { icon: ICON.goal, tone: 'gold', text: `Prossimo traguardo: <b>${nm.name}</b> — ${nm.desc} <span class="opacity-60">(${nm.current}/${nm.target})</span>` };
+          const goal = String(nm.desc || '').replace(/\.$/, '');
+          line = { icon: ICON.goal, tone: 'gold', text: `Prossimo obiettivo: ${goal}. Sei a <b>${nm.current} di ${nm.target}</b>.` };
         }
       }
     }
