@@ -66,7 +66,7 @@ export function observeMerchant(model, description, category, now = Date.now(), 
 export function predictMerchant(model, description, now = Date.now(), opts = {}) {
   const path = merchantPath(description);
   if (!path.length) return null;
-  const r = predictHierarchical(model, path, now);
+  const r = predictHierarchical(model, path, now, opts);
   if (!r.label || r.support < (opts.minSupport ?? 2)) return null;
   // ⚠️ CONTRATTO DI ASTENSIONE (difetto trovato dal bench, non a tavolino):
   // senza questo, un esercente TOTALMENTE sconosciuto ripiegava sul nodo

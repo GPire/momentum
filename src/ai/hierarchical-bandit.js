@@ -140,9 +140,20 @@ export function scoreHierarchical(model, path = [], now = Date.now(), opts = {})
     const { c, n } = decayed(node, model, now);
     if (n <= 0) break;
     const parentKey = i > 0 ? keyOf(path.slice(0, i - 1)) : null;
-    const k = parentKey === null ? K_UNKNOWN : poolingStrength(model, parentKey, now);
+    // `fixedK` (additivo, default undefined) forza un pooling costante: serve SOLO
+    // all'ablation-bench per isolare il contributo del k adattivo. In produzione
+    // resta undefined → il k lo decide `poolingStrength` dall'eterogeneita' del ramo.
+    const k = opts.fixedK != null
+      ? opts.fixedK
+      : (parentKey === null ? K_UNKNOWN : poolingStrength(model, parentKey, now));
+    // `kCapFactor` (additivo, default undefined): tetto al peso del prior
+    // proporzionale all'evidenza del nodo. Empirical-Bayes onesto: quando il nodo
+    // ha dati propri informativi, il prero del genitore/radice NON deve dominarli.
+    // Difetto trovato dall'ablation: K_MAX=24 >> evidenza per-catena (~6), quindi
+    // la radice (che mescola tutte le catene) sovrastava la maggioranza pulita.
+    const kEff = opts.kCapFactor != null ? Math.min(k, opts.kCapFactor * n) : k;
     const next = {};
-    for (const l of universe) next[l] = ((c[l] || 0) + k * dist[l]) / (n + k);
+    for (const l of universe) next[l] = ((c[l] || 0) + kEff * dist[l]) / (n + kEff);
     dist = normalize(next);
     // L'evidenza che sostiene la stima e' TUTTA quella incontrata scendendo,
     // non solo quella della foglia: gli antenati entrano nel prior. Prendere
@@ -231,4 +242,79 @@ export function pruneHierarchical(model, { maxNodes = 4000, minSupport = 0.2, no
     if (node) for (const kk in node.kids) if (!keep.has(kk)) delete node.kids[kk];
   }
   return model;
+}
+
+// ============================================================
+// PRIMITIVO PROPRIETARIO v2 — confidence-gating + ibrido evidence-aware.
+// Scoperto e VALIDATO con ablation (bench/research-gating.mjs, bench/*-ablation):
+// nel regime a BASSA evidenza (l'inizio-vita reale dell'app, pochi dati per
+// ramo) il pooling shrinkage PERDE ~2 punti perche' mescola sempre un po' di
+// genitore, anche quando il genitore e' fuorviante (ramo eterogeneo ~50/50).
+// Il GATING invece SCEGLIE il livello piu' CONFIDENTE e ignora del tutto quello
+// ambiguo: +1,8 punti (t appaiato=4,01) su seed disgiunti, replicato. Nel regime
+// ad ALTA evidenza pooling e gating pareggiano (tutto satura). L'IBRIDO prende il
+// meglio dei due ed e' STRETTAMENTE DOMINANTE: +1,8 sparso, +0,0 abbondante.
+// Additivo: non tocca scoreHierarchical/predictHierarchical (default invariato).
+// ============================================================
+
+// Evidenza del NODO PIU' PROFONDO esistente lungo il cammino (il ramo piu'
+// specifico che conosco), NON il massimo — che sarebbe dominato dalla radice.
+export function deepestEvidence(model, path = [], now = Date.now()) {
+  let deepest = 0;
+  for (let i = 1; i <= path.length; i++) {
+    const node = model.nodes[keyOf(path.slice(0, i))];
+    if (node && node.n > 0) deepest = decayed(node, model, now).n;
+  }
+  return deepest;
+}
+
+// Confidence-gating: ogni livello lungo il cammino e' un ESPERTO; la sua
+// confidenza e' la massa predittiva posteriore (Laplace) sull'argmax — che
+// incorpora gia' l'evidenza (n piccolo → contratta verso 1/L → confidenza bassa).
+// Si SELEZIONA l'esperto piu' confidente (a pari, il piu' profondo). Astensione
+// se nessun livello batte il caso.
+export function scoreGated(model, path = [], now = Date.now(), opts = {}) {
+  const universe = Object.keys(model.labels);
+  const L = universe.length || 1;
+  const alpha = opts.alpha ?? 1;
+  let best = null;
+  for (let i = 0; i <= path.length; i++) {
+    const node = model.nodes[keyOf(path.slice(0, i))];
+    if (!node || node.n <= 0) continue;
+    const { c, n } = decayed(node, model, now);
+    if (n <= 0) continue;
+    const denom = n + alpha * L;
+    const dist = {};
+    let top = null, tp = -1;
+    for (const l of universe) {
+      const v = ((c[l] || 0) + alpha) / denom;
+      dist[l] = v;
+      if (v > tp) { tp = v; top = l; }
+    }
+    if (!best || tp > best.conf + 1e-12 || (Math.abs(tp - best.conf) <= 1e-12 && i > best.depth)) {
+      best = { label: top, conf: tp, depth: i, support: n, dist };
+    }
+  }
+  if (!best || best.conf <= 1 / L + 1e-12) {
+    return { dist: {}, label: null, p: 0, margin: 0, depth: best ? best.depth : -1, support: best ? best.support : 0 };
+  }
+  const entries = Object.entries(best.dist).sort((a, b) => b[1] - a[1]);
+  const margin = entries[0][1] - (entries[1]?.[1] ?? 0);
+  return { dist: best.dist, label: best.label, p: best.conf, margin, depth: best.depth, support: best.support };
+}
+
+export function predictGated(model, path = [], now = Date.now(), opts = {}) {
+  return scoreGated(model, path, now, opts);
+}
+
+// IBRIDO: gating dove so poco del ramo (evidenza < soglia), pooling dove so molto.
+// e' la forma provata come strettamente dominante. `gateBelow` default 6.
+export function predictHybrid(model, path = [], now = Date.now(), opts = {}) {
+  const thresh = opts.gateBelow ?? 6;
+  const ev = deepestEvidence(model, path, now);
+  if (ev > 0 && ev < thresh) {
+    const g = predictGated(model, path, now, opts);
+    if (g.label) return g;
+  }
+  return predictHierarchical(model, path, now, opts);
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   initHierarchical, observeHierarchical, scoreHierarchical, predictHierarchical,
   explainHierarchical, poolingStrength, mergeHierarchical, pruneHierarchical,
+  scoreGated, predictGated, predictHybrid, deepestEvidence,
 } from './hierarchical-bandit.js';
 
 const T0 = Date.parse('2026-07-21T10:00:00Z');
@@ -119,4 +120,38 @@ test('potatura: tiene i rami forti, scarta i deboli', () => {
   pruneHierarchical(m, { minSupport: 0.2, now: T0 });
   assert.ok(m.nodes[['it', 'forte.it'].join('')]);
   assert.ok(!m.nodes[['it', 'debole.it'].join('')]);
+});
+
+// ── Primitivo v2: confidence-gating + ibrido (validato da bench/research-gating.mjs)
+test('gating: sceglie il ramo confidente e IGNORA il genitore fuorviante', () => {
+  const m = initHierarchical();
+  // dominio eterogeneo: ramo cdn tutto OK, ramo api tutto KO → genitore ~50/50 inutile
+  for (let i = 0; i < 4; i++) observeHierarchical(m, ['com', 'd.com', 'cdn.d.com', `n${i}.cdn.d.com`], 'ok', T0);
+  for (let i = 0; i < 4; i++) observeHierarchical(m, ['com', 'd.com', 'api.d.com', `n${i}.api.d.com`], 'ko', T0);
+  // sotto-dominio MAI VISTO del ramo cdn: il gating deve dire OK (non il 50/50 del dominio)
+  const g = predictGated(m, ['com', 'd.com', 'cdn.d.com', 'nuovo.cdn.d.com'], T0);
+  assert.equal(g.label, 'ok');
+  const g2 = predictGated(m, ['com', 'd.com', 'api.d.com', 'nuovo.api.d.com'], T0);
+  assert.equal(g2.label, 'ko');
+});
+
+test('gating: astensione su modello vuoto e su segnale al livello del caso', () => {
+  const m = initHierarchical();
+  assert.equal(scoreGated(m, ['com', 'd.com'], T0).label, null);
+});
+
+test('deepestEvidence: e\' l\'evidenza del ramo piu\' profondo, non della radice', () => {
+  const m = initHierarchical();
+  for (let i = 0; i < 10; i++) observeHierarchical(m, ['com', 'd.com', 'cdn.d.com', `n${i}.cdn.d.com`], 'ok', T0);
+  // ramo noto con 10 osservazioni
+  assert.ok(deepestEvidence(m, ['com', 'd.com', 'cdn.d.com', 'mai.cdn.d.com'], T0) >= 10);
+});
+
+test('ibrido: additivo — su evidenza abbondante coincide col pooling', () => {
+  const m = initHierarchical();
+  for (let i = 0; i < 20; i++) observeHierarchical(m, ['com', 'd.com', 'cdn.d.com', `n${i}.cdn.d.com`], 'ok', T0);
+  const path = ['com', 'd.com', 'cdn.d.com', 'mai.cdn.d.com'];
+  const hy = predictHybrid(m, path, T0, { gateBelow: 6 });
+  const pool = predictHierarchical(m, path, T0);
+  assert.equal(hy.label, pool.label); // evidenza 20 >= 6 → usa pooling, stesso esito
 });
