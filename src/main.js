@@ -30,7 +30,7 @@ import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
-import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus } from './predict/command-center.js';
+import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './predict/command-center.js';
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
@@ -263,6 +263,15 @@ const getTxFormHTML = () => `
           <span id="date-pill-text" class="truncate">Oggi</span>
           <input type="date" id="tx-date-input" class="native-date-input" max="${new Date().toISOString().split('T')[0]}">
        </div>
+       <!-- "È da dividere?" (src/predict/command-center.js → splitCandidate): sempre
+            disponibile per le uscite — segnalato dall'utente che mancava. Onesto: il
+            nome del gruppo compare SOLO con un match testuale reale a una spesa già
+            divisa in passato; senza prova resta generico, mai inventato. Un tocco apre
+            la divisione (già pronta con importo/descrizione) invece di doverci pensare dopo. -->
+       <button type="button" id="split-pill-btn" class="neuro-pill-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span id="split-pill-text" class="truncate">Dividi</span>
+       </button>
     </div>
 
     <div class="numpad-grid mt-auto flex-1 min-h-[220px]" tabindex="0" aria-label="Tastierino importo — puoi anche digitare da tastiera fisica">
@@ -380,11 +389,41 @@ const attachFormListeners = (container, prefill = null) => {
     el.style.opacity = '1';
   };
 
+  // ── "È da dividere?" (src/predict/command-center.js → splitCandidate):
+  // shortcut sempre disponibile per le uscite (segnalato mancante dall'utente).
+  // Il NOME del gruppo compare solo con un match testuale reale a una spesa già
+  // divisa — mai inventato. Ricalcolato a ogni digitazione della descrizione. ──
+  const renderSplitPill = () => {
+    const btn = container.querySelector('#split-pill-btn');
+    if (!btn) return;
+    if (type !== 'uscita') { btn.classList.add('hidden'); return; }
+    btn.classList.remove('hidden');
+    let sc;
+    try {
+      sc = splitCandidate({ type, description: desc?.value || '', groups: VaultDAO.state.splitGroups || [] });
+    } catch (_) { sc = { show: true, confident: false, groupName: null }; }
+    const txt = btn.querySelector('#split-pill-text');
+    if (txt) txt.textContent = sc.confident && sc.groupName ? `Dividi con ${sc.groupName}` : 'Dividi';
+  };
+
   // Voice Activation
   const voiceBtn = container.querySelector('#voice-rec-btn');
   if (voiceBtn) {
     VoiceCore.init(container);
     voiceBtn.onclick = () => VoiceCore.toggle();
+  }
+
+  // "Dividi" si aggiorna a ogni carattere digitato (può nominare il gruppo
+  // giusto man mano che la descrizione somiglia a una spesa già divisa).
+  if (desc) desc.addEventListener('input', renderSplitPill);
+  const splitPillBtn = container.querySelector('#split-pill-btn');
+  if (splitPillBtn) {
+    splitPillBtn.addEventListener('click', () => {
+      haptic('light');
+      const amt = parseFloat(rawVal) || 0;
+      const description = desc?.value || (catId ? getCatById(catId).name : '');
+      window.openSplitExpense({ amount: amt, description });
+    });
   }
 
   // Input prediction and anti-FOMO check
@@ -473,7 +512,8 @@ const attachFormListeners = (container, prefill = null) => {
         scroll.innerHTML = buildCatChipsHTML(type);
         attachCatClick();
       }
-      
+      renderSplitPill(); // "Dividi" ha senso solo per le uscite
+
       // Stipendio Auto-1step flow
       if (type === 'entrata') {
         catId = 'stipendio';
@@ -732,6 +772,7 @@ const attachFormListeners = (container, prefill = null) => {
     if (prefill.description && desc) desc.value = prefill.description;
     updateAmount();
   }
+  renderSplitPill(); // stato iniziale (con o senza prefill)
 
   // Nel MODALE (mobile/tablet/desktop-shortcut) porto il focus sul tastierino:
   // così la tastiera fisica scrive l'importo da subito e appare l'anello di
@@ -1824,12 +1865,20 @@ window.openSepaTransfer = (d = {}) => {
 // chiunque. Quanto, con chi (ricorda le persone di sempre), chi ha pagato → "ognuno
 // paga X" + "chi deve cosa a chi" (settlement minimo) + saldo reale via QR/WhatsApp.
 // Coerente col design, responsive. 100% on-device, nessun account, nessun paywall. ──
-window.openSplitExpense = () => {
+// prefill (additivo, default vuoto): { amount, description } — dallo shortcut
+// "Dividi" nel form di aggiunta spesa, così chi ha già digitato importo e nota
+// non li ridigita qui (anti-attrito, stesso principio di openPrefilledAdd).
+window.openSplitExpense = (prefill = {}) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
   const past = VaultDAO.state.splitGroups || [];
-  const state = { amount: '', description: '', people: ['Io'], payer: 'Io' };
+  const state = {
+    amount: prefill.amount > 0 ? String(prefill.amount) : '',
+    description: prefill.description || '',
+    people: ['Io'],
+    payer: 'Io',
+  };
   const inputCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0';
 
   const buildGroup = () => {

@@ -8,6 +8,7 @@
 // nessun DOM — la UI (main.js) si limita a disegnare ciò che questo decide.
 import { predictCategoriesNow, slotOf } from './context-predictor.js';
 import { settlementView } from '../split/split-engine.js';
+import { descriptionSimilarity } from '../core/deduplicator.js';
 
 // Ritorna il nudge "prossima spesa probabile" per il momento presente, oppure
 // { show:false } quando non c'è nulla di abbastanza solido da proporre.
@@ -153,4 +154,33 @@ export function monthTrajectoryFocus({ projection = null, monthlyBudget = 0, ref
     confident: method === 'holt-winters',
     method,
   };
+}
+
+// ── "È DA DIVIDERE?" — scorciatoia sempre disponibile per le uscite ──
+// Segnalato dall'utente: mentre si registra una spesa non c'è modo di dire
+// "questa è da dividere con un gruppo" — bisogna ricordarsene DOPO e andare in
+// "Insieme". Qui la scorciatoia esiste sempre (per le uscite: dividere un'entrata
+// non ha senso), ma il NOME del gruppo proposto è intelligente solo con prova
+// vera: cerca tra le spese GIÀ divise in passato (split-engine non conosce le
+// categorie di Momentum, quindi il confronto è testuale, come il deduplicatore
+// usa altrove) una descrizione simile a questa. Onesto: senza un match reale
+// resta un'azione generica "dividi con un gruppo" — MAI un nome inventato.
+export function splitCandidate({ type = 'uscita', description = '', groups = [], threshold = 0.55 } = {}) {
+  if (type !== 'uscita') return { show: false };
+  const d = (description || '').trim();
+  let best = null, bestSim = 0;
+  if (d) {
+    for (const g of groups || []) {
+      for (const e of (g.expenses || [])) {
+        const sim = descriptionSimilarity(e.description || '', d);
+        if (sim > bestSim) { bestSim = sim; best = g; }
+      }
+    }
+  }
+  if (best && bestSim >= threshold) {
+    return { show: true, groupId: best.id, groupName: best.name, confident: true };
+  }
+  // Nessun match testuale: la scorciatoia resta comunque disponibile (utile
+  // anche per il PRIMO gruppo mai creato), ma generica — nessun nome inventato.
+  return { show: true, groupId: null, groupName: null, confident: false };
 }

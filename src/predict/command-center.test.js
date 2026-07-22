@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus } from './command-center.js';
+import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './command-center.js';
 import { createGroup, addSharedExpense } from '../split/split-engine.js';
 
 // Helper: costruisce N transazioni di una categoria in una data/ora fissa.
@@ -198,4 +198,32 @@ test('monthTrajectoryFocus: sotto controllo → ok, e dichiara il metodo', () =>
 test('monthTrajectoryFocus: nulla speso ancora → show:false', () => {
   const r = monthTrajectoryFocus({ projection: proj({ spentSoFar: 0, projectedDelta: 500 }), monthlyBudget: 1300, referenceDate: new Date('2026-07-15T12:00:00') });
   assert.equal(r.show, false);
+});
+
+// ── splitCandidate ──
+test('splitCandidate: mai per le entrate', () => {
+  assert.equal(splitCandidate({ type: 'entrata', description: 'Cena', groups: [] }).show, false);
+});
+
+test('splitCandidate: nessun gruppo passato → generica, mai un nome inventato', () => {
+  const r = splitCandidate({ type: 'uscita', description: 'Cena da Mario', groups: [] });
+  assert.equal(r.show, true);
+  assert.equal(r.confident, false);
+  assert.equal(r.groupName, null);
+});
+
+test('splitCandidate: descrizione simile a una spesa già divisa → nomina il gruppo', () => {
+  let g = createGroup({ name: 'Gita al mare', members: ['Io', 'Luca'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 60, description: 'Cena da Mario' });
+  const r = splitCandidate({ type: 'uscita', description: 'Cena da Mario', groups: [g] });
+  assert.equal(r.show, true);
+  assert.equal(r.confident, true);
+  assert.equal(r.groupName, 'Gita al mare');
+});
+
+test('splitCandidate: descrizione non correlata → resta generica', () => {
+  let g = createGroup({ name: 'Gita al mare', members: ['Io', 'Luca'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 60, description: 'Benzina traghetto' });
+  const r = splitCandidate({ type: 'uscita', description: 'Farmacia', groups: [g] });
+  assert.equal(r.confident, false);
 });
