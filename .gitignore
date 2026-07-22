@@ -4,3 +4,6 @@ dist-singlefile/
 .DS_Store
 public/_test/
 bench/data/
+
+# worktree isolati dei subagenti (non vanno versionati)
+.claude/worktrees/
