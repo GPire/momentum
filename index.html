@@ -301,6 +301,70 @@
       }
     }
 
+    /* ============================================================
+       RESPONSIVE NATIVO PER FASCIA DI DISPOSITIVO + MODALITÀ D'INPUT
+       Studio esplicito (non "un layout che si stringe"): ogni fascia ha la sua
+       misura ottimale, e l'input si adatta a touch vs puntatore/tastiera fisici.
+       Fasce: ≤359 (iPhone 1ª gen 320w) · 360–767 telefoni · 768–1023 tablet ·
+              1024–1439 desktop · 1440–1919 desktop grande · ≥1920 TV/schermi enormi.
+       Più le ALTEZZE corte (il tastierino deve stare intero su schermi ~480px). ==== */
+
+    /* — AMOUNT ENTRY: numero e tastierino si adattano a larghezza E altezza — */
+    .amount-display { font-size: clamp(2.4rem, 13vw, 5rem); }
+    .numpad-key { min-height: clamp(2.5rem, 8.5vh, 3.75rem); font-size: clamp(1.05rem, 4.6vw, 1.5rem); }
+
+    /* iPhone di 1ª gen / mini (≤359px): tutto compatto, niente sfora mai. */
+    @media (max-width: 359px) {
+      .cat-chip { min-width: 60px; padding: 0.55rem 0.4rem 0.5rem; }
+      .cat-chip-icon { width: 34px; height: 34px; }
+      .type-toggle-pill { font-size: 0.68rem; padding: 0.6rem 0.15rem; }
+      .save-btn { font-size: 0.92rem; min-height: 3rem; }
+      .hero-num { font-size: clamp(2rem, 11vw, 2.6rem); }
+    }
+
+    /* Schermi BASSI (iPhone 1ª gen 480px, o landscape): il tastierino si comprime
+       così l'intero form d'inserimento sta senza scroll — resta a colpo d'occhio. */
+    @media (max-height: 720px) {
+      .amount-display { font-size: clamp(2rem, 9vh, 3.2rem); }
+      .numpad-grid { gap: 0.3rem; padding: 0.35rem 0.9rem; }
+      .numpad-key { min-height: clamp(2.2rem, 7vh, 3rem); }
+      .amount-stage { padding: 0.6rem 0.5rem 0.35rem; }
+    }
+    @media (max-height: 520px) {
+      .amount-display { font-size: clamp(1.7rem, 8vh, 2.4rem); }
+      .numpad-grid { min-height: 0 !important; }
+      .numpad-key { min-height: 2rem; font-size: 1rem; }
+    }
+
+    /* — TABLET (768–1023): il form respira, chip e tasti un filo più grandi. — */
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .cat-chip { min-width: 76px; }
+      .numpad-key { min-height: clamp(3rem, 6.5vh, 3.9rem); }
+    }
+
+    /* — DESKTOP GRANDE / TV: contenuti più ariosi, card più morbide, eyebrow
+         leggibile da lontano. La larghezza utile resta limitata (max-w-7xl) per
+         non stirare le righe: leggibilità, non gigantismo. — */
+    @media (min-width: 1440px) { .card { border-radius: 2rem; } }
+    @media (min-width: 1920px) { .eyebrow { font-size: 0.78rem; } }
+
+    /* — MODALITÀ D'INPUT: TOUCH vs PUNTATORE/TASTIERA FISICI — */
+    /* Touch (dito): target sempre ≥44px (Apple HIG / WCAG 2.5.5), chip più larghe. */
+    @media (pointer: coarse) {
+      .numpad-key { min-height: max(44px, clamp(2.5rem, 8.5vh, 3.75rem)); }
+      .cat-chip { min-width: 72px; }
+      .btn-action, .neuro-pill-btn { min-height: 44px; }
+    }
+    /* Puntatore fine + hover reale = desktop/laptop con tastiera fisica: mostra il
+       suggerimento "digita da tastiera", hover raffinati sui tasti, focus visibile
+       sul tastierino navigabile da Tab. Su touch tutto questo resta spento. */
+    .form-kbd-hint { display: none; }
+    @media (hover: hover) and (pointer: fine) {
+      .form-kbd-hint { display: flex; }
+      .numpad-key:hover { border-color: var(--primary); background: var(--surface); }
+      .numpad-grid:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 1rem; }
+    }
+
     /* Rispetta chi ha ridotto le animazioni (vestibolare / accessibilità). */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }

@@ -265,14 +265,21 @@ const getTxFormHTML = () => `
        </div>
     </div>
 
-    <div class="numpad-grid mt-auto flex-1 min-h-[220px]">
+    <div class="numpad-grid mt-auto flex-1 min-h-[220px]" tabindex="0" aria-label="Tastierino importo — puoi anche digitare da tastiera fisica">
       ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
-       <button type="button" class="numpad-key text-[var(--red)] font-bold h-full min-h-0 flex items-center justify-center" id="voice-rec-btn">
+       <button type="button" class="numpad-key text-[var(--red)] font-bold h-full min-h-0 flex items-center justify-center" id="voice-rec-btn" aria-label="Detta l'importo a voce">
          <svg class="w-6 h-6 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
        </button>
       <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
-      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL">DEL</button>
+      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="Cancella ultima cifra">DEL</button>
     </div>
+
+    <!-- Suggerimento visibile SOLO con puntatore/tastiera fisici (desktop/laptop):
+         su touch resta nascosto perché lì il tastierino è la via naturale. -->
+    <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
+      Puoi digitare da tastiera: cifre, virgola, ⌫ e Invio per confermare
+    </p>
 
     <button type="button" class="save-btn mt-3 shrink-0" id="save-tx-btn" disabled>Conferma</button>
   </div>
@@ -583,6 +590,53 @@ const attachFormListeners = (container, prefill = null) => {
       updateAmount();
     });
   });
+
+  // ── TASTIERA FISICA (desktop/laptop, o tablet con tastiera): l'inserimento
+  // NON è più solo touch. Chi ha una tastiera digita l'importo direttamente —
+  // cifre, virgola/punto per i centesimi (che il tastierino touch non ha),
+  // Backspace per cancellare, Invio per confermare. Adattamento reale alla
+  // modalità d'input, non un numpad finto da cliccare col mouse.
+  // Il gestore è a livello document ma si AUTO-RIMUOVE quando il suo form non è
+  // più nel DOM (modale riaperto) → niente listener fantasma né doppi eventi.
+  const onPhysicalKey = (e) => {
+    if (!container.isConnected) { document.removeEventListener('keydown', onPhysicalKey); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Attivo solo quando QUESTO form è realmente in uso.
+    const modalContainer = document.getElementById('modal-container');
+    const modalOpen = modalContainer && !modalContainer.classList.contains('hidden');
+    const inModal = !!container.closest('#modal-container');
+    const active = inModal ? modalOpen : (!modalOpen && container.contains(document.activeElement));
+    if (!active) return;
+    // Se sto scrivendo nella nota descrittiva o in un altro campo, non dirottare.
+    const ae = document.activeElement;
+    if (ae && ae !== container && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT') && ae.id !== 'tx-desc') {
+      // consenti i campi non-testuali? per sicurezza: dirotta solo se il focus
+      // non è su un input di testo. (tx-desc gestito sotto per non rubare cifre)
+    }
+    const typingText = ae && ae.id === 'tx-desc';
+    const key = e.key;
+    if (key >= '0' && key <= '9') {
+      if (typingText) return; // nella nota, le cifre restano testo
+      if (rawVal === '0') rawVal = key; else rawVal += key;
+      e.preventDefault(); haptic('light'); updateAmount();
+    } else if (key === ',' || key === '.') {
+      if (typingText) return;
+      if (!rawVal.includes('.')) { rawVal = (rawVal || '0') + '.'; e.preventDefault(); updateAmount(); }
+    } else if (key === 'Backspace') {
+      if (typingText) return; // lascia cancellare il testo della nota
+      rawVal = rawVal.slice(0, -1); e.preventDefault(); updateAmount();
+    } else if (key === 'Enter') {
+      const btn = container.querySelector('#save-tx-btn');
+      if (btn && !btn.disabled) { e.preventDefault(); btn.click(); }
+    }
+  };
+  // Il contenitore del modale (#modal-body) è PERSISTENTE: attachFormListeners
+  // viene richiamato a ogni apertura sullo stesso elemento. Senza rimuovere il
+  // gestore precedente si accumulerebbero listener duplicati (ogni cifra
+  // aggiunta N volte). Deduplico per-contenitore: un solo gestore attivo. */
+  if (container._mmKeyHandler) document.removeEventListener('keydown', container._mmKeyHandler);
+  container._mmKeyHandler = onPhysicalKey;
+  document.addEventListener('keydown', onPhysicalKey);
 
   // Confirm Ledger Save
   container.querySelector('#save-tx-btn').onclick = () => {
