@@ -638,6 +638,33 @@ const attachFormListeners = (container, prefill = null) => {
   container._mmKeyHandler = onPhysicalKey;
   document.addEventListener('keydown', onPhysicalKey);
 
+  // ── DATA della transazione (fix bug pre-esistente): il selettore nativo
+  // #tx-date-input non aveva alcun listener → scegliere una data non aveva
+  // effetto e la spesa si salvava sempre con OGGI, silenziosamente (contro la
+  // regola n.1: il form non deve ignorare la scelta dell'utente). Ora aggiorna
+  // selectedDate + l'etichetta della pill, e ricalcola l'impatto (che vale solo
+  // per oggi → backdatando sparisce, corretto).
+  const dateInput = container.querySelector('#tx-date-input');
+  const datePillText = container.querySelector('#date-pill-text');
+  if (dateInput) {
+    dateInput.onchange = () => {
+      if (!dateInput.value) return;
+      const [yy, mm, dd] = dateInput.value.split('-').map(Number);
+      if (!yy || !mm || !dd) return;
+      selectedDate = new Date(yy, mm - 1, dd);
+      if (datePillText) {
+        const now = new Date();
+        const isToday = selectedDate.getFullYear() === now.getFullYear()
+          && selectedDate.getMonth() === now.getMonth()
+          && selectedDate.getDate() === now.getDate();
+        datePillText.textContent = isToday
+          ? 'Oggi'
+          : selectedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+      }
+      updateAmount();
+    };
+  }
+
   // Confirm Ledger Save
   container.querySelector('#save-tx-btn').onclick = () => {
     const amt = parseFloat(rawVal);
