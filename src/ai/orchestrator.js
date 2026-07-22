@@ -10,6 +10,7 @@ import { fuseSignals } from './signal-fusion.js';
 import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay } from '../graph/dcgn.js';
 import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
 import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
+import { initMerchantHierarchy, observeMerchant, predictMerchant } from './merchant-hierarchy.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -117,6 +118,15 @@ class MomentumOrchestrator {
       }
       this._lastVote = null;
     }
+
+    // ── Gerarchia esercenti (src/ai/merchant-hierarchy.js): ogni conferma o
+    // correzione dell'utente alimenta l'albero dei token. È l'unico esperto
+    // che generalizza a un punto vendita MAI VISTO della stessa catena.
+    // Campo additivo nel vault (regola n.3), creato alla prima osservazione.
+    this.vault.state.mlData.merchantHierarchy =
+      this.vault.state.mlData.merchantHierarchy || initMerchantHierarchy();
+    observeMerchant(this.vault.state.mlData.merchantHierarchy, description, catId,
+      date ? new Date(date).getTime() : Date.now());
 
     const tokens = this.nexus.tokenize(description);
     const isHoldout = (this.vault.state.mlData.totalWords || 0) % 10 === 9;
@@ -230,6 +240,25 @@ class MomentumOrchestrator {
       const p = dcgnClassify(this.graph, description, maxTokens ? { maxTokens } : {});
       if (p.category) {
         candidates.push({ source: 'dcgn', category: p.category, confidence: (p.confidence || 0) / 100, weight: 0.3 });
+      }
+    }
+
+    // ── Gerarchia esercenti: l'esperto che risponde dove gli altri tirano a
+    // indovinare — un punto vendita MAI VISTO di una catena che l'utente ha
+    // già categorizzato ("ESSELUNGA VIA RIZZOLI" da "ESSELUNGA"). Nano/Meso/
+    // LogReg lì sono fuori vocabolario, che è il limite n.1 misurato del
+    // progetto. Tace (null) senza evidenza sufficiente: a freddo l'ensemble
+    // si comporta ESATTAMENTE come prima. Il peso cresce con l'evidenza reale.
+    const mh = this.vault.state.mlData.merchantHierarchy;
+    if (mh) {
+      const p = predictMerchant(mh, description);
+      if (p) {
+        candidates.push({
+          source: 'hierarchy',
+          category: p.category,
+          confidence: p.confidence,
+          weight: 0.2 + 0.3 * Math.min(1, p.support / 10),
+        });
       }
     }
 

@@ -68,6 +68,13 @@ export function predictMerchant(model, description, now = Date.now(), opts = {})
   if (!path.length) return null;
   const r = predictHierarchical(model, path, now);
   if (!r.label || r.support < (opts.minSupport ?? 2)) return null;
+  // ⚠️ CONTRATTO DI ASTENSIONE (difetto trovato dal bench, non a tavolino):
+  // senza questo, un esercente TOTALMENTE sconosciuto ripiegava sul nodo
+  // radice — che accumula ogni osservazione, quindi ha evidenza enorme — e il
+  // sistema rispondeva con la categoria globalmente piu' frequente. Parlava nel
+  // 100% dei casi in cui non sapeva nulla: sbagliare con sicurezza, il peggior
+  // esito possibile qui. Serve almeno UN token dell'esercente riconosciuto.
+  if (r.depth < 1) return null;
   return {
     category: r.label,
     confidence: r.p,

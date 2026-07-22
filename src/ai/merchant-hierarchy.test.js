@@ -68,3 +68,17 @@ test('soglia di supporto: una sola osservazione non basta', () => {
   observeMerchant(m, 'NEGOZIO STRANO', 'spesa', T0, 1);
   assert.equal(predictMerchant(m, 'NEGOZIO ALTRO', T0, { minSupport: 2 }), null);
 });
+
+test('REGRESSIONE: su un esercente TOTALMENTE ignoto deve TACERE', () => {
+  const m = initMerchantHierarchy();
+  // storia ricca: la radice accumula tanta evidenza, quasi tutta "spesa"
+  for (let i = 0; i < 30; i++) observeMerchant(m, `ESSELUNGA VIA ${i}`, 'spesa', T0, 3);
+  for (let i = 0; i < 5; i++) observeMerchant(m, `Q8 STATALE ${i}`, 'trasporti', T0, 3);
+  // esercente che non condivide NESSUN token con lo storico
+  for (const ignoto of ['PANIFICIO ROSSI', 'STUDIO DENTISTICO ALBA', 'OFFICINA SUD']) {
+    assert.equal(predictMerchant(m, ignoto, T0), null,
+      `"${ignoto}" e' sconosciuto: rispondere con la categoria piu' frequente = sbagliare con sicurezza`);
+  }
+  // ma su un token noto continua a rispondere
+  assert.equal(predictMerchant(m, 'ESSELUNGA PIAZZA NUOVA', T0).category, 'spesa');
+});

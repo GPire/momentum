@@ -21,7 +21,8 @@
     "train:logreg": "node bench/train-logreg.mjs",
     "train:gate": "node bench/model-regression.mjs",
     "train:income": "node bench/train-income.mjs",
-    "bench:income": "node bench/income-bench.mjs"
+    "bench:income": "node bench/income-bench.mjs",
+    "bench:hierarchy": "node bench/hierarchy-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",

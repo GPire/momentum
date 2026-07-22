@@ -21,6 +21,46 @@ Progetto: `~/Downloads/momentum_app/` (Vite vanilla JS, PWA offline-first). Copi
 
 ---
 
+## 📊 Sessione 2026-07-22: gerarchia esercenti CABLATA + BENCH (801 test verdi)
+
+Chiuso il `⬜ RESTA` della sessione precedente: la `merchant-hierarchy.js` era
+costruita e testata ma **non ancora nell'orchestratore**, e senza un numero
+misurato non esisteva (regola n.3). Ora entrambe le cose sono fatte e verificate.
+
+**Cablaggio** (`src/ai/orchestrator.js`, additivo — a freddo l'ensemble è identico
+a prima). In `learn()`: ogni conferma/correzione dell'utente alimenta l'albero dei
+token esercente (campo `mlData.merchantHierarchy`, creato alla prima osservazione,
+regola n.3). In `classify()`: la gerarchia vota come esperto `hierarchy` solo quando
+ha evidenza, con peso `0.2 + 0.3·min(1, support/10)` che cresce con l'evidenza reale.
+È l'unico esperto che risponde su un punto vendita **mai visto** di una catena già
+categorizzata — dove Nano/Meso/LogReg sono fuori vocabolario (il limite n.1 misurato).
+
+**Due bug reali trovati DAL BENCH, non a tavolino** (conferma della regola: i difetti
+emergono solo eseguendo):
+1. `predictMerchant` ripiegava sul nodo RADICE quando l'esercente era del tutto ignoto
+   — la radice accumula ogni osservazione, quindi rispondeva sempre con la categoria
+   globalmente più frequente: **parlava nel 100% dei casi in cui non sapeva nulla**.
+   Fix: contratto di astensione `if (r.depth < 1) return null` (serve almeno un token
+   dell'esercente riconosciuto) + test di regressione dedicato.
+2. `scoreHierarchical` prendeva il `support` solo dell'ultimo livello, facendo tacere
+   il sistema proprio quando il match era più specifico e sicuro. Fix:
+   `support = Math.max(support, n)` — l'evidenza è tutta quella incontrata scendendo.
+
+**Il numero, misurato** (`bench/hierarchy-bench.mjs`, `npm run bench:hierarchy`, seed
+20260721, held-out vero: si addestra su 4 varianti/catena, si testa su 6 varianti MAI
+viste, baseline = chiave piatta a parità di dati):
+- Nuovi punti vendita di catene note: **baseline 34,2% → gerarchia 100% = +65,8 punti**.
+- Catene MISTE (30% tx in altra categoria): **71,7%** (tetto teorico ~70% — onesto,
+  non finge il 100% dove la catena non determina la categoria).
+- Catene MAI viste: **0% ha parlato** (astensione corretta — non sbagliare con sicurezza).
+- Ramo ambiguo (stesso primo token, categorie diverse): **0% predizioni confidenti**.
+
+**Stato: 801/801 test verdi** (800 + il test di regressione), build pulita.
+`⬜ RESTA` per iPhone reale: verifica del `surface-bridge.js` su dispositivo fisico
+(non falsificabile su questo Mac — invariato dalla sessione precedente).
+
+---
+
 ## 🧬 Sessione 2026-07-21 (sera): POOLING GERARCHICO ADATTIVO — 800 test verdi
 
 Un solo primitivo proprietario, `src/ai/hierarchical-bandit.js`, applicato a due

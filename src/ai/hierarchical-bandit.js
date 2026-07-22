@@ -144,7 +144,11 @@ export function scoreHierarchical(model, path = [], now = Date.now(), opts = {})
     const next = {};
     for (const l of universe) next[l] = ((c[l] || 0) + k * dist[l]) / (n + k);
     dist = normalize(next);
-    support = n; depth = i; lastK = k;
+    // L'evidenza che sostiene la stima e' TUTTA quella incontrata scendendo,
+    // non solo quella della foglia: gli antenati entrano nel prior. Prendere
+    // solo l'ultimo livello faceva tacere il sistema proprio quando il match
+    // era piu' specifico e piu' sicuro (trovato dal bench, non a tavolino).
+    support = Math.max(support, n); depth = i; lastK = k;
     if (i > 0) matched.push(path[i - 1]);
   }
 
