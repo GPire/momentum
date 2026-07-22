@@ -211,6 +211,101 @@
     .btn-action { min-height: 40px; font-size: clamp(11px, 2.6vw, 15px); padding: 0.5rem 0.75rem; white-space: nowrap; }
     @media (min-width: 1280px) { .btn-action { min-height: 44px; } }
 
+    /* === RESPONSIVE NATIVO A CASCATA (mobile → tablet → desktop → TV) ===
+       Il NUMERO-EROE del giorno ("Oggi puoi spendere") scala in CONTINUO con la
+       larghezza, senza salti di breakpoint: leggibile e dominante su iPhone
+       piccolo come su una TV. clamp(min, preferito, max) = un solo focus, sempre
+       proporzionato. Su schermi molto grandi alza il tetto (occhio più distante). */
+    .hero-num { font-size: clamp(2.25rem, 8vw, 3.75rem); line-height: 1; letter-spacing: -0.03em; }
+    @media (min-width: 1920px) { .hero-num { font-size: clamp(3.75rem, 4.2vw, 5.5rem); } }
+
+    /* Container query: la Dashboard adatta i suoi elementi alla larghezza del
+       PROPRIO contenitore (non solo del viewport) — così la stessa sezione è
+       corretta sia a tutta pagina sia accanto al Command Center desktop. */
+    #dashboard-view { container-type: inline-size; container-name: dash; }
+    @container dash (min-width: 900px) {
+      /* Su pannelli larghi il numero-eroe respira di più senza diventare enorme. */
+      #safe-to-spend-card .hero-num { font-size: clamp(3rem, 6cqi, 4.5rem); }
+    }
+
+    /* Focus visibile e coerente (WCAG 2.4.7) su TUTTI gli elementi resi
+       azionabili nella Dashboard: tastiera e switch-control vedono dove sono. */
+    [data-action]:focus-visible, .cat-chip:focus-visible, .neuro-pill-btn:focus-visible,
+    #next-expense-nudge button:focus-visible, .save-btn:focus-visible {
+      outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 1rem;
+    }
+    /* === MICRO-ANIMAZIONI DI DESIGN (studiate, non decorative) ===
+       Principio: il movimento ha un COMPITO — guidare l'occhio all'azione giusta
+       al momento giusto, dare feedback fisico al tocco, confermare che il numero
+       è "vivo e vero". Durate brevi, curve morbide (nessun rimbalzo gratuito),
+       una sola cosa in movimento per volta → calma + direzione, mai circo. */
+
+    /* Il numero-eroe del giorno "si posa" quando compare: micro-conferma che è
+       un dato reale appena calcolato (non un placeholder). ~380ms, poi fermo. */
+    @keyframes heroSettle { 0% { opacity: 0; transform: translateY(6px) scale(0.985); } 100% { opacity: 1; transform: none; } }
+    #safe-to-spend-card .hero-num { animation: heroSettle 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    /* Feedback fisico al tocco della card-azione "Oggi puoi spendere". */
+    #safe-to-spend-card[role="button"] { transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), box-shadow var(--transition-core); }
+    #safe-to-spend-card[role="button"]:active { transform: scale(0.99); }
+
+    /* Nudge predittivo "prossima spesa probabile": entra dal basso con un lieve
+       rialzo (gerarchia: è appena apparso, guardami) — una volta sola. */
+    @keyframes nudgeEnter { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: none; } }
+    #next-expense-nudge > button { animation: nudgeEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    /* Il "+" del nudge respira piano: invito discreto all'azione (neuromarketing
+       a favore dell'utente — attira senza urlare), fermo appena lo tocchi. */
+    @keyframes plusBreath { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 currentColor; } 50% { transform: scale(1.08); box-shadow: 0 0 0 5px rgba(0,0,0,0); } }
+    #next-expense-nudge > button:not(:active) > span:last-child { animation: plusBreath 2.8s ease-in-out infinite; }
+    #next-expense-nudge > button:active { filter: brightness(1.05); }
+
+    /* La riga-insight umana appare con una dissolvenza morbida (nessun salto). */
+    @keyframes insightFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    #dashboard-insight > div { animation: insightFade 0.45s ease both; }
+
+    /* ENTRATA COREOGRAFATA del blocco-decisione: prima il numero-eroe, poi il
+       nudge predittivo, poi il promemoria split — micro-ritardi crescenti =
+       gerarchia TEMPORALE, l'occhio scende in ordine invece di essere colpito da
+       tutto insieme (carico cognitivo minore, "un focus per volta" anche nel tempo). */
+    #safe-to-spend-card .hero-num { animation-delay: 0.02s; }
+    #next-expense-nudge > button { animation-delay: 0.09s; }
+    #split-reminder > button { animation: nudgeEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.16s; }
+
+    /* Significato reso DAL MOVIMENTO: la freccia del promemoria oscilla piano nel
+       verso del denaro — su se ti devono (entra a te), giù se devi (esce). Micro
+       ampiezza (2px): percepibile, mai fastidiosa. */
+    @keyframes floatUp   { 0%, 100% { transform: translateY(0); }   50% { transform: translateY(-2px); } }
+    @keyframes floatDown { 0%, 100% { transform: translateY(0); }   50% { transform: translateY(2px); } }
+    #split-reminder .split-arrow-owed { animation: floatUp 2.6s ease-in-out infinite; }
+    #split-reminder .split-arrow-owe  { animation: floatDown 2.6s ease-in-out infinite; }
+
+    /* Un accento di luce percorre UNA volta il bordo-superiore semantico della
+       card "Oggi puoi spendere" quando compare: la conferma visiva che il numero
+       è appena stato calcolato (vivo), senza loop che distraggano. */
+    #safe-to-spend-card { position: relative; overflow: hidden; }
+    #safe-to-spend-card::before {
+      content: ''; position: absolute; top: 0; left: -30%; width: 30%; height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent);
+      animation: accentSweep 0.9s ease-out 0.25s 1 both; pointer-events: none;
+    }
+    @keyframes accentSweep { from { left: -30%; } to { left: 130%; } }
+
+    /* STATI HOVER DI DESIGN (solo puntatore reale = desktop/laptop, mai su touch
+       dove l'hover "si incolla"): le scorciatoie del command center si sollevano
+       di 2px con ombra morbida — affordance premium, invito al click. */
+    @media (hover: hover) and (pointer: fine) {
+      #next-expense-nudge > button, #split-reminder > button, #safe-to-spend-card[role="button"] {
+        transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
+      }
+      #next-expense-nudge > button:hover, #split-reminder > button:hover, #safe-to-spend-card[role="button"]:hover {
+        transform: translateY(-2px); box-shadow: 0 12px 30px -14px rgba(0,0,0,0.65);
+      }
+    }
+
+    /* Rispetta chi ha ridotto le animazioni (vestibolare / accessibilità). */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    }
+
     /* === IMPORT PROGRESS (multi-file): feedback chiaro parte/avanzamento/fine === */
     #import-progress { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(20px); z-index: 260; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
     #import-progress.active { display: flex; }
@@ -420,10 +515,22 @@
                  Nascosta se manca il budget o se si guarda un mese diverso da oggi. -->
             <div id="safe-to-spend-card" class="card p-5 sm:p-6 shrink-0 hidden"></div>
 
+            <!-- Prossima spesa probabile (src/predict/command-center.js): in base
+                 a ORA e GIORNO, la spesa abituale che stai per fare — un tocco la
+                 registra (pre-compilata) e la conferma addestra il Core. Nascosta
+                 se non c'è un pattern netto (mai un suggerimento inventato). -->
+            <div id="next-expense-nudge" class="shrink-0 hidden"></div>
+
             <!-- Riga-insight umana (Dashboard): UNA cosa che Momentum ha notato,
                  in parole semplici. Non un muro di card — l'headline; il dettaglio
                  vive in Analisi. Nascosta se non c'è niente di rilevante. -->
             <div id="dashboard-insight" class="shrink-0 hidden"></div>
+
+            <!-- Promemoria divisione spese (src/predict/command-center.js →
+                 split-engine): appare SOLO se hai soldi in sospeso in un gruppo
+                 (ti devono / devi). Un tocco apre il gruppo per saldare. Nascosto
+                 quando non c'è nulla di aperto — nessun rumore. -->
+            <div id="split-reminder" class="shrink-0 hidden"></div>
 
             <!-- Chiedi a Momentum (src/ai/qa-engine.js): risposte calcolate
                  sui dati veri dell'utente, on-device, anche offline -->

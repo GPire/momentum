@@ -30,6 +30,7 @@ import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
+import { nextExpenseNudge, splitReminder } from './predict/command-center.js';
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
@@ -273,7 +274,7 @@ const getTxFormHTML = () => `
   </div>
 `;
 
-const attachFormListeners = (container) => {
+const attachFormListeners = (container, prefill = null) => {
   let type = 'uscita';
   let rawVal = '';
   let catId = null;
@@ -566,6 +567,28 @@ const attachFormListeners = (container) => {
     renderDashboard();
     renderAnalysis({ skipHeavyForecast: route === 'fast' });
   };
+
+  // ── PRE-COMPILAZIONE da Dashboard (safe-to-spend tappabile / nudge "prossima
+  // spesa probabile"): apre il form già impostato su tipo+categoria+importo così
+  // l'utente conferma in UN tocco. NON registra da solo (onestà: nessun numero
+  // finto entra nel vault senza conferma). Alla conferma il salvataggio normale
+  // chiama comunque orchestrator.learn → ogni scorciatoia addestra il Core. ──
+  if (prefill) {
+    if (prefill.type && prefill.type !== type) {
+      const typeBtn = container.querySelector(`[data-type="${prefill.type}"]`);
+      if (typeBtn) typeBtn.click(); // rigenera le chip del tipo giusto
+    }
+    if (prefill.category) {
+      catId = prefill.category;
+      container.querySelectorAll('.cat-chip').forEach(el =>
+        el.classList.toggle('selected', el.dataset.catId === prefill.category));
+      const chip = container.querySelector(`[data-cat-id="${prefill.category}"]`);
+      if (chip) chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+    if (prefill.amount > 0) rawVal = String(prefill.amount);
+    if (prefill.description && desc) desc.value = prefill.description;
+    updateAmount();
+  }
 };
 
 // Stato del "modello globale emergente" (src/mesh/update-ledger.js): rende
@@ -642,6 +665,15 @@ const openTransactionModal = () => {
   attachFormListeners($('#modal-body'));
 };
 
+// Apre il form di aggiunta GIÀ pre-compilato (da una scorciatoia della
+// Dashboard). Funziona identico su mobile, tablet e desktop (stesso modale,
+// stesso flusso di conferma → stesso apprendimento del Core).
+window.openPrefilledAdd = (prefill = {}) => {
+  haptic('light');
+  openModal(getTxFormHTML());
+  attachFormListeners($('#modal-body'), prefill);
+};
+
 // ==========================================
 // RENDERS
 // ==========================================
@@ -701,6 +733,12 @@ const renderDashboard = () => {
     const sts = isCurrentMonth
       ? getDailySafeToSpend({ monthTxs: txs, allTx: VaultDAO.state.transactions, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow })
       : null;
+    // reset stato interattivo (la card viene riusata tra i render)
+    stsCard.removeAttribute('data-action');
+    stsCard.removeAttribute('role');
+    stsCard.removeAttribute('tabindex');
+    stsCard.removeAttribute('aria-label');
+    stsCard.style.cursor = '';
     if (!sts) {
       stsCard.classList.add('hidden');
     } else {
@@ -709,7 +747,7 @@ const renderDashboard = () => {
         stsCard.style.borderTop = '3px solid var(--red)';
         stsCard.innerHTML = `
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-rose-400 mb-1">Oggi meglio non spendere</p>
-          <p class="text-3xl sm:text-4xl font-black font-mono text-rose-400 tracking-tighter">0€</p>
+          <p class="hero-num font-black font-mono text-rose-400 tracking-tighter">0€</p>
           <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Questa settimana sei oltre di ${formatMoney(Math.abs(sts.weekRemaining))}. Ogni giorno senza spese ti rimette in pari.</p>
         `;
       } else {
@@ -717,12 +755,54 @@ const renderDashboard = () => {
           ? ` · esclusi ${formatMoney(sts.reservedForCharges)} che serviranno per gli abbonamenti in arrivo`
           : '';
         stsCard.style.borderTop = '3px solid var(--green)';
+        // Il numero-eroe del giorno diventa l'AZIONE primaria a un tocco: chi sa
+        // "oggi posso spendere X" spesso vuole subito segnare una spesa. Tap →
+        // form uscita pronto (poi conferma → orchestrator.learn addestra il Core).
+        stsCard.dataset.action = 'quick-add-expense';
+        stsCard.setAttribute('role', 'button');
+        stsCard.setAttribute('tabindex', '0');
+        stsCard.setAttribute('aria-label', `Oggi puoi spendere ${formatMoney(sts.safeToday)}. Tocca per segnare una spesa.`);
+        stsCard.style.cursor = 'pointer';
         stsCard.innerHTML = `
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">Oggi puoi spendere</p>
-          <p class="text-3xl sm:text-4xl font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>
+          <p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>
           <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${formatMoney(sts.weekRemaining)} rimasti per questa settimana (${sts.daysLeftInWeek} giorni)${chargeNote}</p>
+          <p class="text-[10px] font-bold text-emerald-400/80 mt-2 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>Tocca per segnare una spesa</p>
         `;
       }
+    }
+  }
+
+  // ── PROSSIMA SPESA PROBABILE (src/predict/command-center.js): scorciatoia
+  // predittiva a UN tocco. In base a ora×giorno mostra l'abitudine che stai per
+  // fare (es. "di solito la mattina · Bar ~€1,50") con importo tipico già pronto.
+  // Tap → form uscita pre-compilato; la conferma passa dal salvataggio normale →
+  // orchestrator.learn addestra il Core. Solo a mese corrente e con pattern netto
+  // (altrimenti tace): predittivo ma mai inventato. ──
+  const nudgeEl = $('#next-expense-nudge');
+  if (nudgeEl) {
+    const nudge = isCurrentMonth ? nextExpenseNudge(VaultDAO.state.transactions, realNow) : { show: false };
+    if (nudge.show) {
+      const c = getCatById(nudge.category);
+      const amtLabel = formatMoney(nudge.typicalAmount);
+      nudgeEl.classList.remove('hidden');
+      // Neurocolore: usa il colore della categoria (riconoscimento immediato,
+      // "è la TUA abitudine"), non un neon generico. Tocco ≥44px, aria-label chiaro.
+      nudgeEl.innerHTML = `
+        <button type="button" data-action="quick-add-predicted" data-cat="${nudge.category}" data-amt="${nudge.typicalAmount}"
+          aria-label="Aggiungi ${c.name} da ${amtLabel}, ${nudge.reason || 'spesa abituale'}"
+          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border bg-[var(--surface-elevated)]/50 active:scale-[0.98] transition-transform text-left"
+          style="border-color:${c.color}55">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0" style="background:${c.color}">${c.icon}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-[13px] font-bold text-[var(--on-surface)] truncate">${c.name} <span class="font-mono">${amtLabel}</span></span>
+            <span class="block text-[11px] text-[var(--on-surface-secondary)] truncate">${nudge.reason ? nudge.reason.charAt(0).toUpperCase() + nudge.reason.slice(1) : 'La tua spesa abituale'} · tocca per aggiungere</span>
+          </span>
+          <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white" style="background:${c.color}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg></span>
+        </button>`;
+    } else {
+      nudgeEl.classList.add('hidden');
+      nudgeEl.innerHTML = '';
     }
   }
 
@@ -787,6 +867,37 @@ const renderDashboard = () => {
     } else {
       insightEl.classList.add('hidden');
       insightEl.innerHTML = '';
+    }
+  }
+
+  // ── PROMEMORIA DIVISIONE SPESE (integrazione intelligente, non invasiva):
+  // mostrato SOLO se c'è un saldo aperto in un gruppo. Verde = ti devono (bello,
+  // soldi in arrivo); ambra = devi tu (promemoria gentile, mai rosso/vergogna).
+  // Un tocco apre "I miei gruppi" per saldare. Nascosto quando non c'è nulla. ──
+  const splitEl = $('#split-reminder');
+  if (splitEl) {
+    const sr = splitReminder(VaultDAO.state.splitGroups || []);
+    if (sr.show) {
+      const owed = sr.direction === 'owed';
+      const tone = owed
+        ? { bd: 'border-emerald-500/30', bg: 'bg-emerald-950/10', tx: 'text-emerald-200', ic: 'text-emerald-400' }
+        : { bd: 'border-amber-500/30', bg: 'bg-amber-950/10', tx: 'text-amber-200', ic: 'text-amber-400' };
+      const verb = owed ? 'Ti devono' : 'Devi';
+      const extra = sr.groups > 1 ? ` <span class="opacity-60">· e altri ${sr.groups - 1} gruppi</span>` : '';
+      const ico = owed
+        ? '<path d="M12 19V5M5 12l7-7 7 7"/>'        // freccia su = entra a te
+        : '<path d="M12 5v14M5 12l7 7 7-7"/>';       // freccia giù = esce da te
+      splitEl.classList.remove('hidden');
+      splitEl.innerHTML = `
+        <button type="button" data-action="open-split" aria-label="${verb} ${formatMoney(sr.amount)} nel gruppo ${sr.groupName}. Tocca per saldare."
+          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${tone.bd} ${tone.bg} ${tone.tx} active:scale-[0.98] transition-transform text-left">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 ${tone.ic}">${ico}</svg>
+          <span class="min-w-0 flex-1 text-[13px]"><b>${verb} ${formatMoney(sr.amount)}</b> in <b>${sr.groupName}</b>${extra}</span>
+          <span class="shrink-0 text-[11px] font-bold ${tone.ic}">Salda →</span>
+        </button>`;
+    } else {
+      splitEl.classList.add('hidden');
+      splitEl.innerHTML = '';
     }
   }
 
@@ -3481,8 +3592,36 @@ document.addEventListener('click', e => {
       document.documentElement.classList.toggle('dark', VaultDAO.state.themeDark);
       VaultDAO.save();
       showToast("Tema aggiornato.", "success");
+    } else if (a === 'quick-add-expense') {
+      // Numero-eroe "Oggi puoi spendere" tappato → form uscita pronto (un tocco
+      // per aprire, un tocco per confermare). La conferma addestra il Core.
+      window.openPrefilledAdd({ type: 'uscita' });
+    } else if (a === 'quick-add-predicted') {
+      // Nudge "prossima spesa probabile" tappato → form pre-compilato con
+      // categoria + importo tipico. La conferma (salvataggio normale) chiama
+      // orchestrator.learn: ogni scorciatoia predittiva addestra i modelli.
+      window.openPrefilledAdd({
+        type: 'uscita',
+        category: t.dataset.cat,
+        amount: parseFloat(t.dataset.amt) || 0,
+      });
+    } else if (a === 'open-split') {
+      // Promemoria "ti devono / devi" tappato → apre i gruppi per saldare.
+      if (typeof window.openSplitGroup === 'function') window.openSplitGroup();
     }
   } catch(err) { console.error(err); }
+});
+
+// Accessibilità (WCAG): gli elementi resi azionabili con role="button" +
+// tabindex (es. la card "Oggi puoi spendere") devono attivarsi da tastiera con
+// Invio/Spazio, non solo col tocco/click.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const t = e.target;
+  if (t && t.getAttribute && t.getAttribute('role') === 'button' && t.hasAttribute('data-action')) {
+    e.preventDefault();
+    t.click();
+  }
 });
 
 
