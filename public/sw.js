@@ -6,7 +6,7 @@
 // senza questa cache l'app "offline-first" perdeva stile, grafici e OCR
 // appena mancava la rete. La cache vendor NON viene spazzata dai bump
 // dell'app: contiene anche i ~15MB di wasm/traineddata di Tesseract.
-const APP_CACHE = 'momentum-vault-v52';
+const APP_CACHE = 'momentum-vault-v53';
 const VENDOR_CACHE = 'momentum-vendor-v1';
 
 const CDN_HOSTS = [
@@ -52,7 +52,12 @@ async function precacheVendor() {
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(Promise.all([
-    caches.open(APP_CACHE).then(cache => cache.addAll(['./', './index.html', './manifest.json'])),
+    caches.open(APP_CACHE).then(cache => cache.addAll([
+      './', './index.html', './manifest.json',
+      './icons/icon-192.png', './icons/icon-512.png',
+      './icons/icon-maskable-192.png', './icons/icon-maskable-512.png',
+      './icons/apple-touch-icon.png', './icons/favicon-32.png', './icons/favicon-16.png',
+    ])),
     precacheVendor()
   ]));
 });

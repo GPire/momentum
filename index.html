@@ -9,7 +9,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Momentum">
   <link rel="manifest" href="./manifest.json">
-  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='140' fill='%23090d16'/><circle cx='256' cy='256' r='180' fill='none' stroke='url(%23g)' stroke-width='24' stroke-dasharray='10 5'/><path d='M200 340V172h48l48 80 48-80h48v168h-40V232l-56 92h-16l-56-92v108z' fill='%2306b6d4'/><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%236366f1'/><stop offset='100%25' stop-color='%2306b6d4'/></linearGradient></defs></svg>">
+  <!-- Logo omega_sap: spirale navy→verde smeraldo, stesso codice colore "sicuro/positivo"
+       gia' usato in tutta la UI (safe-to-spend, milestone) — coerenza semantica, non decorazione.
+       Scelto su logo_omega (oro+vetro+piedistallo) perche' quest'ultimo comunica lusso/esclusivita',
+       in contraddizione con il posizionamento accessibile e anti-FOMO del progetto, ed e' anche
+       tecnicamente asimmetrico (41%x58%) quindi si taglia storto in ogni maschera OS. -->
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
   <title>Momentum | Apex V50.0 Core</title>
   
   <!-- Fonts -->
@@ -558,7 +565,11 @@
     <!-- DESKTOP SIDEBAR -->
     <aside class="hidden md:flex flex-col w-64 lg:w-80 border-r border-[var(--glass-border)] fixed h-full p-4 lg:p-6 bg-[var(--glass-bg)] backdrop-blur-[40px] z-[60]">
       <div class="flex items-center gap-4 mb-10 px-2 mt-4 shrink-0">
-        <div class="w-14 h-14 rounded-[1.2rem] bg-[var(--apex-gradient)] flex items-center justify-center text-white font-black text-3xl shadow-xl shadow-indigo-500/30 shrink-0">M</div>
+        <!-- Logo omega_sap: stesso file dell'icona PWA — un solo brand mark
+             coerente tra header in-app e home screen, non due segni diversi. -->
+        <div class="w-14 h-14 rounded-[1.2rem] bg-black/20 border border-[var(--glass-border)] flex items-center justify-center shadow-xl shadow-black/40 shrink-0 p-1.5">
+          <img src="./icons/icon-192.png" alt="Momentum" width="56" height="56" class="w-full h-full object-contain" loading="eager">
+        </div>
         <div class="min-w-0">
           <span class="font-extrabold text-3xl tracking-tight block leading-none truncate">Momentum</span>
           <span class="text-[10px] font-bold text-[var(--primary)] uppercase tracking-widest flex items-center gap-1 mt-1 truncate">
