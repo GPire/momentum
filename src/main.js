@@ -30,7 +30,7 @@ import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
-import { nextExpenseNudge, splitReminder } from './predict/command-center.js';
+import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical } from './predict/command-center.js';
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
@@ -243,6 +243,10 @@ const getTxFormHTML = () => `
         <span class="text-2xl font-mono text-[var(--on-surface-secondary)] mr-1">€</span>
         <div class="amount-display amount-negative" id="tx-amount-display">0</div>
       </div>
+      <!-- Tastierino VIVO (src/predict/command-center.js): mentre digiti, la
+           conseguenza reale sul tuo "Oggi puoi spendere" + "più del solito?".
+           Calcolato sui tuoi dati, non decorativo. Nascosto senza budget/importo. -->
+      <div id="amount-impact" class="mt-2 min-h-[1.25rem] text-[12px] font-bold flex items-center justify-center gap-1.5 opacity-0 transition-opacity duration-200" aria-live="polite"></div>
     </div>
 
     <div class="cat-scroll-wrapper shrink-0">
@@ -310,11 +314,63 @@ const attachFormListeners = (container, prefill = null) => {
     }
 
     updateSaveBtn();
+    renderAmountImpact();
   };
 
   const updateSaveBtn = () => {
     const btn = container.querySelector('#save-tx-btn');
     if (btn) btn.disabled = !(parseFloat(rawVal) > 0 && catId);
+  };
+
+  // ── TASTIERINO VIVO E PREDITTIVO ──
+  // A ogni cifra digitata mostra la CONSEGUENZA reale: quanto ti resta del tuo
+  // "Oggi puoi spendere" (verde/ambra/rosso) e se è "più del solito" per la
+  // categoria (dai tuoi dati). Calcolato FRESCO ad ogni tocco (mai stale, anche
+  // sul form desktop persistente). Solo uscite di OGGI e con budget: altrimenti
+  // tace (onestà: niente numeri fuori contesto). Non addestra da solo — è la
+  // conferma a farlo — ma rende l'inserimento una decisione informata.
+  const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const renderAmountImpact = () => {
+    const el = container.querySelector('#amount-impact');
+    if (!el) return;
+    const amt = parseFloat(rawVal) || 0;
+    const hide = () => { el.style.opacity = '0'; el.innerHTML = ''; };
+    if (type !== 'uscita' || amt <= 0) return hide();
+    const parts = [];
+    const now = new Date();
+    if (sameDay(selectedDate, now)) {
+      let sts = null;
+      try {
+        sts = getDailySafeToSpend({
+          monthTxs: VaultDAO.state.transactions[monthKey(now)] || [],
+          allTx: VaultDAO.state.transactions,
+          monthlyBudget: VaultDAO.state.monthlyBudget,
+          referenceDate: now,
+        });
+      } catch (_) { sts = null; }
+      if (sts) {
+        const imp = amountEntryImpact({ safeToday: sts.safeToday, isOverBudget: sts.isOverBudget, pendingAmount: amt });
+        if (imp.show) {
+          const COL = { ok: 'text-emerald-400', warn: 'text-amber-400', over: 'text-rose-400' };
+          const msg = imp.level === 'over'
+            ? `Sfori di ${formatMoney(imp.overBy)} il margine di oggi`
+            : `Dopo questa ti restano ${formatMoney(imp.remaining)} oggi`;
+          parts.push(`<span class="${COL[imp.level]}">${msg}</span>`);
+        }
+      }
+    }
+    if (catId) {
+      try {
+        const hint = predictAmount(catId, desc?.value || '', VaultDAO.state.transactions);
+        if (hint && hint.amount) {
+          const vt = amountVsTypical({ typicalAmount: hint.amount, pendingAmount: amt });
+          if (vt.show) parts.push(`<span class="text-amber-300">più del solito (~${formatMoney(vt.typicalAmount)})</span>`);
+        }
+      } catch (_) { /* nessun tipico: nessun accenno */ }
+    }
+    if (!parts.length) return hide();
+    el.innerHTML = parts.join('<span class="opacity-40 mx-0.5">·</span>');
+    el.style.opacity = '1';
   };
 
   // Voice Activation

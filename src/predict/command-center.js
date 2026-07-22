@@ -94,3 +94,33 @@ export function splitReminder(groups = [], opts = {}) {
     totalOwe: +totalOwe.toFixed(2),
   };
 }
+
+// ── TASTIERINO VIVO E PREDITTIVO: la conseguenza REALE di ciò che digiti ──
+// Mentre inserisci l'importo di un'uscita, mostra cosa resta del tuo "Oggi puoi
+// spendere". Non è un numero decorativo: è safeToday − importo, con soglie
+// semantiche (verde = ok, ambra = stai per esaurire, rosso = sfori). Onesto:
+// senza budget (safeToday null) o importo 0 → non mostra nulla. Pura, testabile.
+export function amountEntryImpact({ safeToday = null, isOverBudget = false, pendingAmount = 0 } = {}) {
+  if (safeToday == null || !(pendingAmount > 0)) return { show: false };
+  if (isOverBudget) {
+    // Già oltre il budget della settimana: qualunque spesa aumenta lo sforamento.
+    return { show: true, level: 'over', remaining: 0, overBy: +pendingAmount.toFixed(2) };
+  }
+  const remaining = +(safeToday - pendingAmount).toFixed(2);
+  if (remaining < 0) return { show: true, level: 'over', remaining: 0, overBy: +Math.abs(remaining).toFixed(2) };
+  // "Attenzione" quando dopo questa spesa resta ≤20% del margine di oggi.
+  const level = remaining <= safeToday * 0.2 ? 'warn' : 'ok';
+  return { show: true, level, remaining, overBy: 0 };
+}
+
+// "È più del tuo solito?": confronta l'importo digitato con quello TIPICO della
+// categoria (da amount-memory, sui dati reali dell'utente). Segnala solo scarti
+// netti verso l'alto (≥ factor×tipico) — aiuta a non sbagliare uno zero o a
+// fermarsi un attimo su una spesa fuori-norma. Mai un giudizio: consapevolezza.
+// Onesto: senza un tipico affidabile → { show:false }. Pura.
+export function amountVsTypical({ typicalAmount = null, pendingAmount = 0, factor = 1.8 } = {}) {
+  if (!(typicalAmount > 0) || !(pendingAmount > 0)) return { show: false, ratio: null, typicalAmount: null };
+  const ratio = +(pendingAmount / typicalAmount).toFixed(2);
+  if (ratio >= factor) return { show: true, level: 'high', ratio, typicalAmount: +typicalAmount.toFixed(2) };
+  return { show: false, ratio, typicalAmount: +typicalAmount.toFixed(2) };
+}

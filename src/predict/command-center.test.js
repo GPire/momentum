@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextExpenseNudge, splitReminder } from './command-center.js';
+import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical } from './command-center.js';
 import { createGroup, addSharedExpense } from '../split/split-engine.js';
 
 // Helper: costruisce N transazioni di una categoria in una data/ora fissa.
@@ -111,4 +111,56 @@ test('splitReminder: sceglie il gruppo con importo più rilevante', () => {
   assert.equal(r.groupName, 'Affitto');
   assert.equal(r.amount, 400);
   assert.equal(r.groups, 2);
+});
+
+// ── amountEntryImpact (tastierino vivo) ──
+test('amountEntryImpact: senza budget (safeToday null) → show:false', () => {
+  assert.equal(amountEntryImpact({ safeToday: null, pendingAmount: 10 }).show, false);
+});
+
+test('amountEntryImpact: importo 0 → show:false', () => {
+  assert.equal(amountEntryImpact({ safeToday: 50, pendingAmount: 0 }).show, false);
+});
+
+test('amountEntryImpact: spesa dentro il margine → ok con resto corretto', () => {
+  const r = amountEntryImpact({ safeToday: 50, pendingAmount: 20 });
+  assert.equal(r.show, true);
+  assert.equal(r.level, 'ok');
+  assert.equal(r.remaining, 30);
+});
+
+test('amountEntryImpact: quasi esaurito → warn (≤20% del margine)', () => {
+  const r = amountEntryImpact({ safeToday: 50, pendingAmount: 45 }); // resta 5 = 10%
+  assert.equal(r.level, 'warn');
+  assert.equal(r.remaining, 5);
+});
+
+test('amountEntryImpact: sfora → over con overBy', () => {
+  const r = amountEntryImpact({ safeToday: 50, pendingAmount: 70 });
+  assert.equal(r.level, 'over');
+  assert.equal(r.remaining, 0);
+  assert.equal(r.overBy, 20);
+});
+
+test('amountEntryImpact: già oltre budget → qualunque spesa è over', () => {
+  const r = amountEntryImpact({ safeToday: 0, isOverBudget: true, pendingAmount: 15 });
+  assert.equal(r.level, 'over');
+  assert.equal(r.overBy, 15);
+});
+
+// ── amountVsTypical (predittivo: più del solito?) ──
+test('amountVsTypical: senza tipico affidabile → show:false', () => {
+  assert.equal(amountVsTypical({ typicalAmount: null, pendingAmount: 40 }).show, false);
+});
+
+test('amountVsTypical: nella norma → non segnala', () => {
+  assert.equal(amountVsTypical({ typicalAmount: 12, pendingAmount: 14 }).show, false);
+});
+
+test('amountVsTypical: molto sopra il solito → segnala high con ratio', () => {
+  const r = amountVsTypical({ typicalAmount: 12, pendingAmount: 45 });
+  assert.equal(r.show, true);
+  assert.equal(r.level, 'high');
+  assert.ok(r.ratio >= 1.8);
+  assert.equal(r.typicalAmount, 12);
 });
