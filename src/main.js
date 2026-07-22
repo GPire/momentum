@@ -518,11 +518,16 @@ const attachFormListeners = (container, prefill = null) => {
   if (quickRow) {
     // Ordinati per probabilità ADESSO (context-predictor.js): il caffè in
     // cima alle 8, la spesa in cima il sabato — il primo posto è spiegato.
+    // Il pool eleggibile (getQuickAddSuggestions) e' piu' ampio delle chip
+    // mostrate: il ranking per contesto sceglie le 4 migliori PER ADESSO da un
+    // ventaglio più largo, non solo le 4 più frequenti in assoluto (bug fix:
+    // prima il pool era già tagliato a 4 per frequenza PRIMA del ranking, così
+    // un'abitudine perfetta per questo momento ma meno frequente non entrava mai).
     const suggestions = rankSuggestionsByContext(
       getQuickAddSuggestions(VaultDAO.state.transactions),
       VaultDAO.state.transactions,
       new Date()
-    );
+    ).slice(0, 4);
     if (suggestions.length > 0) {
       quickRow.classList.remove('hidden');
       quickRow.innerHTML = suggestions.map((s, i) => `

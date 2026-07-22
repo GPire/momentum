@@ -67,6 +67,32 @@ test('getQuickAddSuggestions: spese vecchie oltre la finestra escluse', () => {
   assert.equal(getQuickAddSuggestions(old, REF).length, 0);
 });
 
+test('getQuickAddSuggestions: BUG FIX — importo che oscilla un po\' (media confidenza) entra nel pool', () => {
+  // Il caffè varia un po': 2 volte 1.20€ e 2 volte 1.30€ su 4 → modal.share =
+  // 0.5 (sotto la vecchia soglia 'alta' 0.6, dentro la nuova 'media' 0.5). Il
+  // vecchio filtro (solo 'alta') lo escludeva SEMPRE — un'abitudine reale ma
+  // con importo non perfettamente fisso non entrava mai nel pool.
+  const variabile = { '2026-06': [
+    tx('2026-06-01', 1.20, 'Bar Espresso', 'Svago'),
+    tx('2026-06-08', 1.20, 'Bar Espresso', 'Svago'),
+    tx('2026-06-15', 1.30, 'Bar Espresso', 'Svago'),
+    tx('2026-06-22', 1.30, 'Bar Espresso', 'Svago'),
+  ]};
+  const s = getQuickAddSuggestions(variabile, REF);
+  assert.equal(s.length, 1, 'con share 50% (media confidenza) deve comparire, non piu\' escluso');
+  assert.equal(s[0].description, 'Bar Espresso');
+});
+
+test('getQuickAddSuggestions: pool piu\' ampio (limit=8 default) non frequenza-4-e-basta', () => {
+  const molte = { '2026-06': [] };
+  const names = ['Caffè', 'Sigarette', 'Bar', 'Pane', 'Giornale', 'Parcheggio'];
+  for (const n of names) {
+    for (let i = 0; i < 3; i++) molte['2026-06'].push(tx(`2026-06-0${i + 1}`, 2.5, n, 'Svago'));
+  }
+  const s = getQuickAddSuggestions(molte, REF);
+  assert.equal(s.length, 6, 'con 6 abituali qualificati il pool eleggibile li contiene tutti (non tagliato a 4)');
+});
+
 test('getQuickAddSuggestions: ordina per frequenza', () => {
   const mixed = { '2026-06': [
     tx('2026-06-01', 1.20, 'Caffè'), tx('2026-06-02', 1.20, 'Caffè'), tx('2026-06-03', 1.20, 'Caffè'),

@@ -78,7 +78,7 @@ export function matchSolito(phrase, allTx, referenceDate = new Date()) {
 // Tasti rapidi: gruppi di spese con descrizione simile, frequenti negli
 // ultimi `windowDays` giorni e con importo stabile (quota modale ≥60%).
 // Ordinati per frequenza: il caffè quotidiano prima dell'acquisto mensile.
-export function getQuickAddSuggestions(allTx, referenceDate = new Date(), limit = 4, windowDays = 90) {
+export function getQuickAddSuggestions(allTx, referenceDate = new Date(), limit = 8, windowDays = 90) {
   const cutoff = new Date(referenceDate.getTime() - windowDays * DAY_MS);
   const recent = flatten(allTx).filter(t => t.type === 'uscita' && new Date(t.date) >= cutoff && (t.description || '').trim());
 
@@ -89,13 +89,25 @@ export function getQuickAddSuggestions(allTx, referenceDate = new Date(), limit 
     g.items.push(t);
   }
 
+  // Due livelli di confidenza — STESSA soglia di predictAmount qui sopra (DRY,
+  // già collaudata): 'alta' (≥3 occ, ≥60% stesso importo) o 'media' (≥2 occ,
+  // ≥50%). BUG TROVATO (segnalato dall'utente: "il quick-add propone sempre lo
+  // stesso"): prima si guardava SOLO la soglia 'alta' — un'abitudine reale ma
+  // con importo che oscilla un po' (il caffè a 1,20€ o 1,50€) non entrava MAI
+  // nel pool. Con pochi acquisti a importo perfettamente fisso, il pool si
+  // riduceva a UN solo candidato → sempre lui, a ogni ora (il ranking per
+  // contesto non ha nulla su cui scegliere). `limit` qui e' la dimensione del
+  // POOL eleggibile (aumentato 4→8): quali mostrare ADESSO lo decide il
+  // ranking per contesto a valle (context-predictor), non la sola frequenza.
   return groups
-    .filter(g => g.items.length >= 3)
+    .filter(g => g.items.length >= 2)
     .map(g => {
       const modal = modalAmount(g.items);
-      return modal && modal.share >= 0.6
-        ? { description: g.representative, category: g.category, amount: modal.amount, type: 'uscita', occurrences: g.items.length }
-        : null;
+      if (!modal) return null;
+      const alta = modal.occurrences >= 3 && modal.share >= 0.6;
+      const media = modal.occurrences >= 2 && modal.share >= 0.5;
+      if (!alta && !media) return null;
+      return { description: g.representative, category: g.category, amount: modal.amount, type: 'uscita', occurrences: g.items.length };
     })
     .filter(Boolean)
     .sort((a, b) => b.occurrences - a.occurrences)
