@@ -365,6 +365,36 @@
       .numpad-grid:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 1rem; }
     }
 
+    /* ============================================================
+       APP INSTALLATA (PWA) + SAFE-AREA: niente contenuti/notifiche tagliati
+       Su iPhone (notch/Dynamic Island) e su app installata (Mac/desktop) le
+       notifiche e le barre devono stare DENTRO l'area sicura. Uso env(safe-area)
+       con fallback, così su ogni contenitore d'app nulla finisce sotto il bordo. ==== */
+    #toast-container { top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+    /* App in modalità installata: un filo di aria in più in alto, e la barra di
+       navigazione mobile sempre sopra la home-indicator. */
+    @media (display-mode: standalone), (display-mode: window-controls-overlay) {
+      .mobile-nav { padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)); }
+      #import-progress, #pdf-progress-overlay, #ota-overlay { padding-top: env(safe-area-inset-top, 0px); }
+    }
+    /* I modali salgono dal basso: rispettano la home-indicator (già via
+       --safe-bottom) e non superano mai l'altezza visibile reale (dvh). */
+    #modal-content { max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
+
+    /* — TITOLI DI SEZIONE FLUIDI (Dashboard / Analisi / Impostazioni): scalano su
+         iPhone piccolo come su schermi enormi, senza troncarsi né debordare. — */
+    #analysis-view > h2:first-of-type, #settings-view > h2:first-of-type {
+      font-size: clamp(1.55rem, 5.5vw, 2.4rem); line-height: 1.05;
+    }
+    /* — Target tattili minimi nelle sezioni dense (Analisi/Impostazioni) su touch:
+         i pulsanti piccoli restano comodi da premere col dito senza stravolgere il
+         layout desktop (solo pointer coarse). — */
+    @media (pointer: coarse) {
+      #settings-view button, #analysis-view button,
+      .segment-btn, .cat-chip { min-height: 40px; }
+      input[type="checkbox"] { width: 20px; height: 20px; }
+    }
+
     /* Rispetta chi ha ridotto le animazioni (vestibolare / accessibilità). */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical } from './command-center.js';
+import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus } from './command-center.js';
 import { createGroup, addSharedExpense } from '../split/split-engine.js';
 
 // Helper: costruisce N transazioni di una categoria in una data/ora fissa.
@@ -163,4 +163,39 @@ test('amountVsTypical: molto sopra il solito → segnala high con ratio', () => 
   assert.equal(r.level, 'high');
   assert.ok(r.ratio >= 1.8);
   assert.equal(r.typicalAmount, 12);
+});
+
+// ── monthTrajectoryFocus (traiettoria del mese) ──
+const proj = (o) => ({ spentSoFar: 400, projectedTotal: 1200, projectedDelta: null, method: 'run-rate', daysRemaining: 15, ...o });
+
+test('monthTrajectoryFocus: senza budget → show:false', () => {
+  assert.equal(monthTrajectoryFocus({ projection: proj({ projectedDelta: 100 }), monthlyBudget: 0 }).show, false);
+});
+
+test('monthTrajectoryFocus: inizio mese (giorno < min) → show:false (niente rumore)', () => {
+  const r = monthTrajectoryFocus({ projection: proj({ projectedDelta: 100 }), monthlyBudget: 1300, referenceDate: new Date('2026-07-02T12:00:00') });
+  assert.equal(r.show, false);
+});
+
+test('monthTrajectoryFocus: rotta oltre budget → level over', () => {
+  const r = monthTrajectoryFocus({ projection: proj({ projectedTotal: 1500, projectedDelta: -200 }), monthlyBudget: 1300, referenceDate: new Date('2026-07-15T12:00:00') });
+  assert.equal(r.show, true);
+  assert.equal(r.level, 'over');
+  assert.equal(r.delta, -200);
+});
+
+test('monthTrajectoryFocus: margine risicato (≤10%) → tight', () => {
+  const r = monthTrajectoryFocus({ projection: proj({ projectedTotal: 1250, projectedDelta: 50 }), monthlyBudget: 1300, referenceDate: new Date('2026-07-15T12:00:00') });
+  assert.equal(r.level, 'tight');
+});
+
+test('monthTrajectoryFocus: sotto controllo → ok, e dichiara il metodo', () => {
+  const r = monthTrajectoryFocus({ projection: proj({ projectedTotal: 900, projectedDelta: 400, method: 'holt-winters' }), monthlyBudget: 1300, referenceDate: new Date('2026-07-15T12:00:00') });
+  assert.equal(r.level, 'ok');
+  assert.equal(r.confident, true);
+});
+
+test('monthTrajectoryFocus: nulla speso ancora → show:false', () => {
+  const r = monthTrajectoryFocus({ projection: proj({ spentSoFar: 0, projectedDelta: 500 }), monthlyBudget: 1300, referenceDate: new Date('2026-07-15T12:00:00') });
+  assert.equal(r.show, false);
 });

@@ -30,7 +30,7 @@ import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
-import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical } from './predict/command-center.js';
+import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus } from './predict/command-center.js';
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
@@ -601,19 +601,20 @@ const attachFormListeners = (container, prefill = null) => {
   const onPhysicalKey = (e) => {
     if (!container.isConnected) { document.removeEventListener('keydown', onPhysicalKey); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    // Attivo solo quando QUESTO form è realmente in uso.
     const modalContainer = document.getElementById('modal-container');
     const modalOpen = modalContainer && !modalContainer.classList.contains('hidden');
     const inModal = !!container.closest('#modal-container');
-    const active = inModal ? modalOpen : (!modalOpen && container.contains(document.activeElement));
-    if (!active) return;
-    // Se sto scrivendo nella nota descrittiva o in un altro campo, non dirottare.
     const ae = document.activeElement;
-    if (ae && ae !== container && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT') && ae.id !== 'tx-desc') {
-      // consenti i campi non-testuali? per sicurezza: dirotta solo se il focus
-      // non è su un input di testo. (tx-desc gestito sotto per non rubare cifre)
-    }
     const typingText = ae && ae.id === 'tx-desc';
+    // Un ALTRO campo (fuori da questo form) ha il focus — es. "Chiedi a Momentum",
+    // campi in Impostazioni: lì le cifre devono restare testo, non dirottarle.
+    const otherField = ae && ae !== container && !container.contains(ae) &&
+      (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
+    // Modale aperto → il suo form è attivo. Form desktop persistente → attivo
+    // quando NON c'è un modale e non stai scrivendo altrove: così su Mac/desktop
+    // basta iniziare a digitare, senza dover prima cliccare il tastierino.
+    const active = inModal ? modalOpen : (!modalOpen && !otherField);
+    if (!active) return;
     const key = e.key;
     if (key >= '0' && key <= '9') {
       if (typingText) return; // nella nota, le cifre restano testo
@@ -725,6 +726,13 @@ const attachFormListeners = (container, prefill = null) => {
     if (prefill.amount > 0) rawVal = String(prefill.amount);
     if (prefill.description && desc) desc.value = prefill.description;
     updateAmount();
+  }
+
+  // Nel MODALE (mobile/tablet/desktop-shortcut) porto il focus sul tastierino:
+  // così la tastiera fisica scrive l'importo da subito e appare l'anello di
+  // focus (a11y). Nel form desktop persistente NON rubo il focus all'avvio.
+  if (container.closest('#modal-container')) {
+    setTimeout(() => { try { container.querySelector('.numpad-grid')?.focus({ preventScroll: true }); } catch (_) {} }, 60);
   }
 };
 
@@ -880,12 +888,42 @@ const renderDashboard = () => {
       stsCard.classList.add('hidden');
     } else {
       stsCard.classList.remove('hidden');
+      // ── TRAIETTORIA DEL MESE (forward-looking, proprietaria): "Oggi puoi
+      // spendere" guarda a OGGI; questa riga guarda al MESE — di questo passo,
+      // come chiudi? Proiezione Holt-Winters (o run-rate), banda semantica,
+      // metodo dichiarato in parole semplici. Due orizzonti, una sola card. ──
+      let trajHtml = '';
+      try {
+        const projection = getMonthEndProjection({ monthTxs: txs, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow, hwDailyLevel: window.__hwDailyLevel ?? null });
+        const tf = monthTrajectoryFocus({ projection, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow });
+        if (tf.show) {
+          const MAP = {
+            over:  { col: 'text-rose-400',    bar: 'bg-rose-400/80',    txt: `chiudi oltre il budget di ${formatMoney(Math.abs(tf.delta))}` },
+            tight: { col: 'text-amber-400',   bar: 'bg-amber-400/80',   txt: `resti dentro per un soffio (+${formatMoney(tf.delta)})` },
+            ok:    { col: 'text-emerald-400', bar: 'bg-emerald-400/80', txt: `resti dentro, +${formatMoney(tf.delta)} di margine` },
+          };
+          const m = MAP[tf.level] || MAP.ok;
+          const pct = Math.max(4, Math.min(100, Math.round(tf.projectedTotal / VaultDAO.state.monthlyBudget * 100)));
+          const methodNote = tf.confident ? 'Stima sui tuoi ultimi giorni' : 'Stima sul ritmo di questo mese';
+          trajHtml = `
+          <div class="mt-3 pt-3 border-t border-[var(--glass-border)]">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-[var(--on-surface-secondary)]">Di questo passo, a fine mese</span>
+              <span class="font-mono font-black text-[13px] ${m.col} shrink-0">${formatMoney(tf.projectedTotal)}</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-[var(--outline)] overflow-hidden mt-1.5"><div class="h-full ${m.bar}" style="width:${pct}%"></div></div>
+            <p class="text-[10px] ${m.col} mt-1 font-semibold">${m.txt}</p>
+            <p class="text-[9px] text-[var(--on-surface-secondary)] mt-0.5 opacity-70">${methodNote}</p>
+          </div>`;
+        }
+      } catch (_) { /* proiezione assente: la card resta il solo "oggi" */ }
       if (sts.isOverBudget) {
         stsCard.style.borderTop = '3px solid var(--red)';
         stsCard.innerHTML = `
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-rose-400 mb-1">Oggi meglio non spendere</p>
           <p class="hero-num font-black font-mono text-rose-400 tracking-tighter">0€</p>
           <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Questa settimana sei oltre di ${formatMoney(Math.abs(sts.weekRemaining))}. Ogni giorno senza spese ti rimette in pari.</p>
+          ${trajHtml}
         `;
       } else {
         const chargeNote = sts.reservedForCharges > 0
@@ -905,6 +943,7 @@ const renderDashboard = () => {
           <p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>
           <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${formatMoney(sts.weekRemaining)} rimasti per questa settimana (${sts.daysLeftInWeek} giorni)${chargeNote}</p>
           <p class="text-[10px] font-bold text-emerald-400/80 mt-2 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>Tocca per segnare una spesa</p>
+          ${trajHtml}
         `;
       }
     }

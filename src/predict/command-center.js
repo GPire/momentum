@@ -124,3 +124,33 @@ export function amountVsTypical({ typicalAmount = null, pendingAmount = 0, facto
   if (ratio >= factor) return { show: true, level: 'high', ratio, typicalAmount: +typicalAmount.toFixed(2) };
   return { show: false, ratio, typicalAmount: +typicalAmount.toFixed(2) };
 }
+
+// ── TRAIETTORIA DEL MESE (forward-looking, proprietaria) ──
+// "Di questo passo, come chiudi il mese?" Sintetizza la proiezione a fine mese
+// (Holt-Winters destagionalizzato se disponibile, altrimenti run-rate) in UN
+// segnale onesto e semanticamente colorato, complementare a "Oggi puoi spendere"
+// (che guarda a OGGI): qui è l'orizzonte MESE. Onesto: tace a inizio mese (troppo
+// pochi giorni per una stima sensata) o senza budget; dichiara sempre se la stima
+// è "forte" (holt-winters) o solo "sul ritmo del mese" (run-rate). Pura, testabile.
+//   projection = output di getMonthEndProjection({...})
+export function monthTrajectoryFocus({ projection = null, monthlyBudget = 0, referenceDate = new Date(), minDayOfMonth = 4 } = {}) {
+  if (!projection || !(monthlyBudget > 0)) return { show: false };
+  const { projectedTotal, projectedDelta, spentSoFar, method } = projection;
+  const ref = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+  const dayOfMonth = ref.getDate();
+  // Serve un minimo di mese trascorso E qualcosa di speso: altrimenti la
+  // proiezione amplificherebbe rumore (onestà > completezza).
+  if (dayOfMonth < minDayOfMonth || !(spentSoFar > 0) || projectedDelta == null) return { show: false };
+  let level;
+  if (projectedDelta < 0) level = 'over';                       // chiudi OLTRE il budget
+  else if (projectedDelta <= monthlyBudget * 0.1) level = 'tight'; // margine risicato (≤10%)
+  else level = 'ok';                                            // sotto controllo
+  return {
+    show: true,
+    projectedTotal: +projectedTotal.toFixed(2),
+    delta: +projectedDelta.toFixed(2),
+    level,
+    confident: method === 'holt-winters',
+    method,
+  };
+}
