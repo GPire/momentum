@@ -645,6 +645,12 @@ const attachFormListeners = (container, prefill = null) => {
   // più nel DOM (modale riaperto) → niente listener fantasma né doppi eventi.
   const onPhysicalKey = (e) => {
     if (!container.isConnected) { document.removeEventListener('keydown', onPhysicalKey); return; }
+    // #modal-body è persistente: quando un ALTRO modale (dividi spese, gruppi,
+    // fattura...) sostituisce l'innerHTML, questo form non c'è più anche se il
+    // container resta "connected" — bug reale segnalato dall'utente (le cifre
+    // sparivano/venivano bloccate in "Dividi spese"). Senza il proprio form
+    // (marker #tx-amount-display) il gestore deve tacere del tutto.
+    if (!container.querySelector('#tx-amount-display')) { document.removeEventListener('keydown', onPhysicalKey); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const modalContainer = document.getElementById('modal-container');
     const modalOpen = modalContainer && !modalContainer.classList.contains('hidden');
@@ -1942,7 +1948,19 @@ window.openSplitExpense = (prefill = {}) => {
       </div>`);
     // bind
     const amountEl = $('#sp-amount'), descEl = $('#sp-desc');
-    amountEl.addEventListener('input', () => { state.amount = amountEl.value; render(); });
+    // render() ricostruisce tutto l'innerHTML del modale (serve per ricalcolare
+    // l'anteprima "Ognuno paga"/i saldi a ogni cifra) — questo però distrugge e
+    // ricrea #sp-amount, perdendo focus e cursore: bug reale segnalato
+    // dall'utente ("non riesco a scrivere l'importo"), sembrava che la tastiera
+    // non rispondesse perché ogni carattere richiedeva un nuovo click sul campo.
+    // Si riporta subito focus+cursore sul campo appena ricreato.
+    amountEl.addEventListener('input', () => {
+      state.amount = amountEl.value;
+      const caret = amountEl.selectionStart;
+      render();
+      const fresh = $('#sp-amount');
+      if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
+    });
     descEl.addEventListener('input', () => { state.description = descEl.value; });
     $('#sp-newname')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { state.people.push(e.target.value.trim()); render(); } });
     document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { state.people.push(b.dataset.add); render(); }));
@@ -3203,7 +3221,15 @@ const initGenesisHold = () => {
   }
 
   // Handle Enter / Space key press on document
+  // Bug reale segnalato dall'utente: window.genesisStep non torna mai indietro
+  // dopo la consacrazione (resta 3 per SEMPRE), quindi senza il controllo su
+  // endGenesis._done questo gestore restava attaccato a `document` a vita —
+  // la prima Barra Spaziatrice digitata ovunque nell'app (es. descrizione di
+  // "Dividi spese") veniva rubata e bloccata (preventDefault) invece di finire
+  // nel campo di testo. Si rimuove esplicitamente appena la consacrazione è
+  // fatta, così il listener non sopravvive oltre l'onboarding.
   const keyHandler = (e) => {
+    if (endGenesis._done) { document.removeEventListener('keydown', keyHandler); return; }
     if (window.genesisStep === 3 && (e.key === 'Enter' || e.key === ' ')) {
       try { e.preventDefault(); } catch(err) {}
       document.removeEventListener('keydown', keyHandler);
@@ -3221,6 +3247,7 @@ const initGenesisHold = () => {
     }
   };
   document.addEventListener('keydown', keyHandler);
+  endGenesis._keyHandler = keyHandler;
 
   // TAP UNIVERSALE A PROVA DI DEVICE: il `click` è l'evento più affidabile su
   // ogni browser/OS (desktop, iOS, Android). Se il percorso pointer/hold non
@@ -3243,6 +3270,7 @@ const endGenesis = () => {
   // conflitti tra pointer e click.
   if (endGenesis._done) return;
   endGenesis._done = true;
+  if (endGenesis._keyHandler) { document.removeEventListener('keydown', endGenesis._keyHandler); endGenesis._keyHandler = null; }
   try {
     haptic('heavy');
     VaultDAO.state.isFirstLaunch = false;
