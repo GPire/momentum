@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPayoutLink, buildPayoutRequest, resolvePayout, PAYOUT_METHODS } from './payout.js';
+import { buildPayoutLink, buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_BRAND_SIGNATURE } from './payout.js';
 
 test('buildPayoutLink: PayPal.me con importo, da username/@handle/URL', () => {
   assert.equal(buildPayoutLink('paypal', 'giorgio', 12.5), 'https://paypal.me/giorgio/12.50EUR');
@@ -31,6 +31,17 @@ test('buildPayoutRequest: PayPal → messaggio con LINK toccabile', () => {
   const r = buildPayoutRequest({ method: 'paypal', value: 'giorgio', amount: 20, fromName: 'Anna' });
   assert.match(r.message, /paypal\.me\/giorgio\/20\.00EUR/);
   assert.equal(r.link, 'https://paypal.me/giorgio/20.00EUR');
+});
+
+test('buildPayoutRequest: firma Momentum sobria in coda, ma un solo URL (il pay-link)', () => {
+  const r = buildPayoutRequest({ method: 'paypal', value: 'giorgio', amount: 20, fromName: 'Anna' });
+  assert.ok(r.message.trimEnd().endsWith(PAYOUT_BRAND_SIGNATURE));
+  // il solo URL nel messaggio resta quello per pagare (nessun secondo link che confonde)
+  const urls = r.message.match(/https?:\/\/\S+/g) || [];
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /paypal\.me/);
+  // brand:false la toglie (controllabile)
+  assert.ok(!buildPayoutRequest({ method: 'paypal', value: 'giorgio', amount: 20, brand: false }).message.includes('Momentum'));
 });
 
 test('buildPayoutRequest: senza valore non promette nulla (chiede come pagare)', () => {

@@ -1894,8 +1894,10 @@ window.openSepaTransfer = (d = {}) => {
       <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Momentum non invia bonifici né accede al conto: prepara il messaggio e i dati, l'invio e il movimento li fai tu (con la tua autenticazione).</p>
     </div>`);
   // Messaggio pronto (per richiesta pagamento: intro gentile + dati; per bonifico proprio: i dati)
+  // Firma sobria Momentum solo per la richiesta TRA AMICI (d.brand), non per le
+  // fatture/bonifici professionali (contesto diverso, resta neutro).
   const message = isRequest
-    ? `Ciao, ecco i dati per il pagamento${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\nGrazie!`
+    ? `Ciao, ecco i dati per il pagamento${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\nGrazie!${d.brand ? '\n\n— conto diviso con Momentum, giusto per tutti' : ''}`
     : fallback;
   const subject = isRequest ? `Pagamento${remittance ? ` — ${remittance}` : ''}` : 'Dati bonifico';
   $('#sepa-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(fallback); showToast('Dati del bonifico copiati.', 'success'); });
@@ -2272,7 +2274,7 @@ window.openRequestPayment = ({ amount = 0, fromName = '', note = '' } = {}) => {
   const payout = resolvePayout(VaultDAO.state);
   if (!payout) { window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note })); return; }
   if (payout.method === 'iban') {
-    window.openSepaTransfer({ mode: 'request', name: payout.holder || 'Io', iban: payout.value, amount, remittance: note.slice(0, 140), title: `Chiedi ${(+amount).toFixed(2).replace('.', ',')} € a ${fromName || ''}`.trim() });
+    window.openSepaTransfer({ mode: 'request', brand: true, name: payout.holder || 'Io', iban: payout.value, amount, remittance: note.slice(0, 140), title: `Chiedi ${(+amount).toFixed(2).replace('.', ',')} € a ${fromName || ''}`.trim() });
     return;
   }
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
