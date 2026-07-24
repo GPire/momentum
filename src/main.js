@@ -2400,8 +2400,86 @@ window.openJoinConfirm = (g) => {
     closeModal();
     showToast(already ? `Spese di «${g.name}» unite.` : `Sei nel gruppo «${g.name}».`, 'success');
     if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
-    setTimeout(() => window.openSplitGroup(g.id), 350);
+    // Chi è appena arrivato dal link (attivazione lampo) e non ha ancora
+    // personalizzato: dopo aver visto la divisione, il Reveal gli mostra cosa
+    // fa il resto di Momentum e offre l'attivazione. Altrimenti apre il gruppo.
+    if (VaultDAO.state.activatedLite && !VaultDAO.state.revealSeen) {
+      setTimeout(() => window.openMomentumReveal(g), 450);
+    } else {
+      setTimeout(() => window.openSplitGroup(g.id), 350);
+    }
   });
+};
+
+// ── MOMENTUM REVEAL — il momento anti-abbandono per chi arriva dal link ──────
+// Chi entra da un link ha fatto la divisione (zero attrito) e ora NON ha motivo
+// di esplorare. Qui trasformiamo quel momento in scoperta: usando la divisione
+// appena fatta come gancio reale, mostriamo — con neurocolori e neuro-copy — le
+// altre forze di Momentum, e offriamo di attivarle con 2 domande. Onesto (regola
+// #1): sono PREVIEW di cosa farò, non numeri finti. Neurocolori: verde=sereno/
+// sicuro (quanto puoi spendere), indaco=intuizione (predizioni), ciano=fiducia
+// (privacy). Frizione psicologica calibrata: attivare è un tocco, saltare pure.
+window.openMomentumReveal = (g = null) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  VaultDAO.state.revealSeen = true; VaultDAO.save();
+  // Gancio predittivo REALE dalla divisione: con chi ridividere di solito.
+  let hookName = '';
+  try { const cs = predictCoSplitters(VaultDAO.state.splitGroups || [], { description: (g && g.name) || '' }); if (cs && cs[0]) hookName = cs[0].name; } catch (_) {}
+  const cards = [
+    { c: 'emerald', t: 'Quanto puoi spendere oggi', d: 'Un numero solo, ogni giorno, senza restare a secco a fine mese.', i: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' },
+    { c: 'indigo', t: 'Prevedo le tue spese', d: hookName ? `Ho già iniziato: la prossima volta per «${esc((g && g.name) || 'una spesa')}» ti suggerisco ${esc(hookName)}.` : 'Imparo le tue abitudini e ti anticipo, prima che l\'addebito arrivi.', i: '<path d="M3 12h4l3 8 4-16 3 8h4"/>' },
+    { c: 'cyan', t: 'Resta tutto tuo', d: 'Nessun account, nessun server. I tuoi soldi non escono dal telefono.', i: '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>' },
+  ];
+  const tone = { emerald: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5', indigo: 'text-[var(--primary)] border-[var(--primary)]/40 bg-[var(--primary)]/5', cyan: 'text-cyan-400 border-cyan-400/40 bg-cyan-400/5' };
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 join-pop">
+      <div class="text-center">
+        <p class="eyebrow !mb-0 text-[var(--primary)]">Momentum</p>
+        <h3 class="text-lg font-black leading-tight">Hai diviso in un lampo.<br>Ora lascia che faccia il resto.</h3>
+        <p class="card-sub !mb-0">Sei già dentro. Ecco cosa posso fare per te — quando vuoi.</p>
+      </div>
+      <div class="flex flex-col gap-2">
+        ${cards.map(card => `<div class="flex items-center gap-3 rounded-2xl border p-3 ${tone[card.c]}">
+          <div class="w-9 h-9 rounded-xl grid place-items-center border ${tone[card.c]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${card.i}</svg></div>
+          <div class="min-w-0"><div class="text-[13px] font-black text-[var(--on-surface)]">${esc(card.t)}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${card.d}</div></div>
+        </div>`).join('')}
+      </div>
+      <button id="rev-activate" class="btn-action btn-primary w-full py-3.5 font-black rounded-xl active:scale-[0.98] transition-transform">Attiva tutto · 2 domande, 20 secondi</button>
+      <button id="rev-later" class="text-[12px] text-[var(--on-surface-secondary)] underline">Esplora prima, lo attivo dopo</button>
+    </div>`);
+  $('#rev-activate')?.addEventListener('click', () => window.openActivationQuestions(() => { showToast('Momentum è tuo. Su misura.', 'success'); if (g) setTimeout(() => window.openSplitGroup(g.id), 300); }));
+  $('#rev-later')?.addEventListener('click', () => { closeModal(); haptic('light'); if (g) setTimeout(() => window.openSplitGroup(g.id), 250); });
+};
+
+// Le 2 domande iniziali in versione compatta (modale), per personalizzare dopo
+// l'attivazione lampo. Stesse scelte dell'onboarding, ma un tocco a domanda.
+window.openActivationQuestions = (onDone = null) => {
+  const state = { step: 1, risk: null, hz: null };
+  const draw = () => {
+    const q1 = `<div><p class="eyebrow !mb-0 text-[var(--primary)]">1 / 2</p><h3 class="text-base font-black mb-1">Mercato in crollo (−20%). Tu:</h3>
+      <div class="flex flex-col gap-2 mt-2">
+        <button data-r="aggressivo" class="g-option !max-w-none">Compro ancora (è in saldo)</button>
+        <button data-r="bilanciato" class="g-option !max-w-none">Attendo e osservo</button>
+        <button data-r="conservativo" class="g-option !max-w-none">Vendo, non voglio rischiare</button>
+      </div></div>`;
+    const q2 = `<div><p class="eyebrow !mb-0 text-[var(--primary)]">2 / 2</p><h3 class="text-base font-black mb-1">Quando ti servirà il capitale?</h3>
+      <div class="flex flex-col gap-2 mt-2">
+        <button data-h="lungo" class="g-option !max-w-none">Tra molti anni</button>
+        <button data-h="medio" class="g-option !max-w-none">Tra 3–5 anni</button>
+        <button data-h="breve" class="g-option !max-w-none">Tra pochi mesi</button>
+      </div></div>`;
+    openModal(`<div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 join-pop">${state.step === 1 ? q1 : q2}</div>`);
+    document.querySelectorAll('#modal-body [data-r]').forEach(b => b.addEventListener('click', () => { state.risk = b.dataset.r; state.step = 2; draw(); }));
+    document.querySelectorAll('#modal-body [data-h]').forEach(b => b.addEventListener('click', () => {
+      state.hz = b.dataset.h;
+      seedProfileState(state.risk || 'bilanciato', state.hz);
+      delete VaultDAO.state.activatedLite; VaultDAO.save(); haptic('heavy');
+      closeModal();
+      renderDashboard(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
+      if (onDone) onDone();
+    }));
+  };
+  draw();
 };
 
 // ── GRUPPO SPESE PERSISTENTE (il vero Splitwise on-device): N persone SENZA
@@ -3616,6 +3694,32 @@ const initGenesisHold = () => {
   });
 };
 
+// Semina lo stato del profilo (budget + preferenze investimento + prior del
+// modello) da rischio+orizzonte. Unica fonte di verità: la usano sia
+// l'onboarding completo (endGenesis) sia l'attivazione "lampo" (activateLite) e
+// il potenziamento dal Reveal — così le tre strade non divergono mai.
+function seedProfileState(risk = 'bilanciato', hz = 'medio') {
+  VaultDAO.state.isFirstLaunch = false;
+  VaultDAO.state.onboardingProfile = { riskProfile: risk, horizon: hz };
+  VaultDAO.state.monthlyBudget = risk === 'conservativo' ? 1000 : risk === 'aggressivo' ? 2200 : 1500;
+  const investFraction = risk === 'aggressivo' ? 0.85 : risk === 'conservativo' ? 0.4 : 0.65;
+  const emergencyMonths = risk === 'conservativo' ? 9 : risk === 'aggressivo' ? 4 : 6;
+  const riskFloor = risk === 'conservativo' ? 0.35 : risk === 'aggressivo' ? 0.15 : 0.25;
+  VaultDAO.state.investmentPrefs = { investFraction, emergencyMonths, riskFloor, horizon: hz };
+  try { NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile); } catch (_) {}
+}
+
+// ATTIVAZIONE LAMPO (anti-attrito): chi arriva da un link di divisione NON deve
+// fare l'onboarding completo prima di usare l'app. Attiva Momentum con default
+// sensati (bilanciato/medio) e marca `activatedLite` → più tardi il Reveal
+// propone di personalizzare con 2 domande. isFirstLaunch=false + save marca
+// "onboarded" (omega_core_db), così ai riavvii successivi entra diretto.
+function activateLite() {
+  seedProfileState('bilanciato', 'medio');
+  VaultDAO.state.activatedLite = true;
+  VaultDAO.save();
+}
+
 const endGenesis = () => {
   // Idempotente: qualunque percorso (hold, tap, click, tastiera) può chiamarla,
   // ma la consacrazione avviene UNA sola volta — niente doppia esecuzione né
@@ -3625,38 +3729,12 @@ const endGenesis = () => {
   if (endGenesis._keyHandler) { document.removeEventListener('keydown', endGenesis._keyHandler); endGenesis._keyHandler = null; }
   try {
     haptic('heavy');
-    VaultDAO.state.isFirstLaunch = false;
-    
-    // Capture MASE profile
-    VaultDAO.state.onboardingProfile = {
-      riskProfile: window.userRiskProfile || 'bilanciato',
-      horizon: window.userTimeHorizon || 'medio'
-    };
-    
-    // Pre-seed budget based on profile
-    if (VaultDAO.state.onboardingProfile.riskProfile === 'conservativo') {
-      VaultDAO.state.monthlyBudget = 1000;
-    } else if (VaultDAO.state.onboardingProfile.riskProfile === 'aggressivo') {
-      VaultDAO.state.monthlyBudget = 2200;
-    } else {
-      VaultDAO.state.monthlyBudget = 1500;
-    }
-
-    // Le domande iniziali ora SERVONO davvero: il profilo rischio+orizzonte
-    // parametrizza il motore investimenti (bridge/arbiter). Un profilo
-    // aggressivo/lungo → più quota investibile, fondo emergenza più snello,
-    // riskFloor più basso; conservativo/breve → cuscinetto più grande, quota
-    // bassa. Campo additivo, usato da renderInvestments() e dai consigli.
-    const risk = VaultDAO.state.onboardingProfile.riskProfile;
-    const hz = VaultDAO.state.onboardingProfile.horizon;
-    const investFraction = risk === 'aggressivo' ? 0.85 : risk === 'conservativo' ? 0.4 : 0.65;
-    const emergencyMonths = risk === 'conservativo' ? 9 : risk === 'aggressivo' ? 4 : 6;
-    const riskFloor = risk === 'conservativo' ? 0.35 : risk === 'aggressivo' ? 0.15 : 0.25;
-    VaultDAO.state.investmentPrefs = { investFraction, emergencyMonths, riskFloor, horizon: hz };
-
-    // Train HBNSN with initial profile weights (MASE prior seeding)
-    NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile);
-    
+    // Il profilo rischio+orizzonte parametrizza budget e motore investimenti.
+    // Logica condivisa con l'attivazione "lampo" (seedProfileState) per non
+    // divergere mai. Il campo `activatedLite` viene tolto: qui il profilo è
+    // scelto davvero dall'utente (onboarding completo).
+    seedProfileState(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio');
+    delete VaultDAO.state.activatedLite;
     VaultDAO.save();
     const overlay = $('#genesis-container');
     if (overlay) {
@@ -4125,12 +4203,14 @@ const initApp = () => {
     });
   }
 
-  // Impara l'origine da cui gira ORA l'app: più è stabile il dominio abituale,
-  // più i link condivisi ci puntano (resolveShareBase) → il link resta valido
-  // anche se un domani l'app è servita anche da un altro host/dominio.
+  // Impara l'origine da cui gira ORA l'app (più è stabile il dominio abituale,
+  // più i link condivisi ci puntano). NON salviamo qui: un save() scriverebbe
+  // omega_core_db e falserebbe il rilevamento primo-avvio più sotto. Muta solo
+  // lo stato in memoria — persiste al primo salvataggio naturale (onboarding,
+  // attivazione, o qualsiasi azione utente).
   try {
     const next = recordOrigin(VaultDAO.state.shareOrigins, location.origin);
-    if (next !== VaultDAO.state.shareOrigins) { VaultDAO.state.shareOrigins = next; VaultDAO.save(); }
+    if (next !== VaultDAO.state.shareOrigins) VaultDAO.state.shareOrigins = next;
   } catch (_) { /* niente storage: i link usano comunque l'origine corrente */ }
 
   // Check onboarding state
@@ -4152,6 +4232,29 @@ const initApp = () => {
     bootUI();
     consumeSharedImage(); // screenshot condiviso via share target (Android)
     consumeJoinLink();    // deep-link "unisciti a un gruppo" (?join=...)
+  } else if (extractSharePayload(location.href)) {
+    // ANTI-ATTRITO: primo avvio ma si arriva da un LINK di divisione. Non
+    // imponiamo l'onboarding completo (domande di mercato) prima di poter usare
+    // l'app: attiviamo Momentum con default sensati, saltiamo il genesis, e
+    // portiamo dritti alla divisione. Il Reveal (dopo il join) proporrà di
+    // personalizzare. Se qualcosa va storto, fallback al genesis classico.
+    try {
+      const g = decodeGroupShare(extractSharePayload(location.href));
+      history.replaceState(null, '', location.pathname);
+      if (!g) throw new Error('payload non valido');
+      activateLite();
+      const gen = $('#genesis-container'); if (gen) gen.remove();
+      $('#app-core').classList.remove('hidden');
+      $('#app-core').style.opacity = '1';
+      updateStreak();
+      bootUI();
+      setTimeout(() => window.openJoinConfirm(g), 500);
+    } catch (e) {
+      console.warn('Percorso lampo fallito, uso onboarding classico:', e);
+      window._pendingJoin = window._pendingJoin || null;
+      const canvas = document.getElementById('genesis-canvas');
+      if (canvas) { try { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } catch (_) {} }
+    }
   } else {
     // Draw particle points on Genesis canvas
     const canvas = document.getElementById('genesis-canvas');
