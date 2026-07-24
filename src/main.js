@@ -22,6 +22,7 @@ import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from '.
 import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload } from './split/split-engine.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
+import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1998,6 +1999,15 @@ window.openSplitExpense = (prefill = {}) => {
       // rimborsi PICCOLI con chi rivedi spesso, consiglio di NON inseguirli:
       // si compensano alla prossima divisione. Nessun concorrente lo fa.
       const intel = settlementIntelligence(past, { date: new Date() });
+      // Per ciò che DEVO io: uso il modello entrate (stipendio rilevato/impostato)
+      // + il disponibile del mese → dico se posso saldare ORA senza restare a
+      // secco, o se conviene dopo il prossimo accredito. Solo Momentum lo sa.
+      const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
+      const monthTxsNow = VaultDAO.state.transactions[monthKey(new Date())] || [];
+      const spentThisMonth = monthTxsNow.filter(x => x.type === 'uscita').reduce((s, x) => s + (+x.amount || 0), 0);
+      const available = VaultDAO.state.monthlyBudget > 0 ? Math.round((VaultDAO.state.monthlyBudget - spentThisMonth) * 100) / 100 : null;
+      const payDays = salary ? daysToNextPayday(salary, new Date()) : null;
+      const payLabel = salary ? nextPayday(salary, new Date()).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' }) : null;
       settleHtml = transfers.map(tr => {
         const line = tr.toName === 'Io' ? `<b>${esc(tr.fromName)}</b> ti deve <b>${eur(tr.amount)}</b>`
           : tr.fromName === 'Io' ? `Devi <b>${eur(tr.amount)}</b> a <b>${esc(tr.toName)}</b>`
@@ -2005,11 +2015,22 @@ window.openSplitExpense = (prefill = {}) => {
         // Consiglio solo per i rimborsi che coinvolgono ME (la mia prospettiva).
         const counter = tr.toName === 'Io' ? tr.fromName : tr.fromName === 'Io' ? tr.toName : null;
         const adv = counter ? settleAdvice(intel, counter, tr.amount) : { tone: 'now' };
+        const iOwe = tr.fromName === 'Io';
+        // Timing sul MIO debito quando non è il caso "aspetta si compensa".
+        let timing = null;
+        if (iOwe && adv.tone !== 'wait' && available != null) {
+          const st = suggestSettleTiming({ amountDue: tr.amount, currentAvailable: available, nextIncome: (payLabel && salary) ? { date: payLabel } : null });
+          if (st.when === 'ora') timing = { txt: 'Puoi saldarlo ora senza restare a secco', tone: 'ok' };
+          else if (payLabel) timing = { txt: `Meglio dal ${payLabel}${payDays != null ? ` (tra ${payDays}g, l'accredito)` : ''}`, tone: 'wait' };
+          else timing = { txt: 'Meglio quando hai margine', tone: 'wait' };
+        }
         const act = adv.tone === 'wait'
           ? `<span class="shrink-0 text-[11px] font-bold text-[var(--primary)]">✨ aspetta</span>`
           : tr.toName === 'Io' ? `<button data-ask="${tr.amount}" data-who="${esc(tr.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
             : tr.fromName === 'Io' ? `<button data-tellamt="${tr.amount}" data-tellwho="${esc(tr.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
-        const hint = adv.tone === 'wait' ? `<div class="text-[10px] text-[var(--primary)] -mt-0.5 mb-1">${esc(adv.label)}</div>` : '';
+        let hint = '';
+        if (adv.tone === 'wait') hint = `<div class="text-[10px] text-[var(--primary)] -mt-0.5 mb-1">${esc(adv.label)}</div>`;
+        else if (timing) hint = `<div class="text-[10px] -mt-0.5 mb-1 ${timing.tone === 'ok' ? 'text-emerald-400' : 'text-amber-400'}">${esc(timing.txt)}${salary ? ` · <button data-editsalary class="underline">${salary.source === 'manual' ? 'stipendio' : 'è giusto?'}</button>` : ''}</div>`;
         return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] text-slate-200">${line}${act}</div>${hint}`;
       }).join('');
       if (counts.saved > 0) settleHtml = `<div class="text-[11px] font-bold text-emerald-300 mb-1">Semplificato: ${counts.simplified} pagament${counts.simplified === 1 ? 'o' : 'i'} invece di ${counts.raw} (${counts.saved} in meno).</div>` + settleHtml;
@@ -2125,6 +2146,8 @@ window.openSplitExpense = (prefill = {}) => {
       const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tellamt)} per ${state.description || 'la spesa'}. Mandami l'IBAN così ti giro il bonifico!`;
       try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { }
     }));
+    // Correggi/imposta lo stipendio usato per il timing (sempre modificabile).
+    $('#modal-body [data-editsalary]')?.addEventListener('click', () => window.openSalaryEditor(() => render()));
     $('#sp-save')?.addEventListener('click', () => {
       if (total() <= 0 || state.people.length < 2) { showToast('Metti almeno un importo e due persone.', 'error'); return; }
       if (!splitValid()) { showToast('Le quote di consumo non tornano al totale.', 'error'); return; }
@@ -2151,6 +2174,56 @@ window.openSplitExpense = (prefill = {}) => {
     });
   };
   render();
+};
+
+// ── STIPENDIO: mostra quello capito dai movimenti e lascia correggerlo ───────
+// "Momentum capisce da solo quando e quanto prendi" — ma resta tuo: qui vedi il
+// giorno e l'importo rilevati (o li imposti se non ci sono abbastanza dati) e
+// puoi correggerli. L'override vince sul rilevato (resolveSalary). onDone()
+// ridisegna la schermata chiamante così il nuovo stipendio si applica subito.
+window.openSalaryEditor = (onDone = null) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const detected = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
+  const isAuto = detected && detected.source === 'auto';
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div>
+        <p class="eyebrow !mb-0 text-[var(--primary)]">Il tuo accredito</p>
+        <h3 class="text-base font-black">Quando e quanto prendi</h3>
+        <p class="card-sub !mb-0">${detected ? (isAuto ? `L'ho capito dai tuoi movimenti. Se non è giusto, correggilo.` : `Lo hai impostato tu. Puoi cambiarlo quando vuoi.`) : `Non ho ancora abbastanza accrediti per capirlo da solo. Impostalo tu (bastano pochi mesi importati e lo riconosco).`}</p>
+      </div>
+      ${detected && isAuto ? `<div class="card p-3 flex items-center justify-between">
+        <div><div class="text-[13px] font-bold">${esc(detected.label || 'Stipendio')}</div><div class="text-[11px] text-[var(--on-surface-secondary)]">Rilevato · fiducia ${Math.round((detected.confidence || 0) * 100)}%</div></div>
+        <div class="text-right"><div class="font-mono font-black text-emerald-400">${eur(detected.amount)}</div><div class="text-[11px] text-[var(--on-surface-secondary)]">il giorno ${detected.dayOfMonth}</div></div>
+      </div>` : ''}
+      <div class="flex gap-2">
+        <label class="flex-1 text-[11px] font-bold text-[var(--on-surface-secondary)]">Giorno del mese
+          <input id="sal-day" type="text" inputmode="numeric" value="${detected ? detected.dayOfMonth : ''}" placeholder="es. 27" class="w-full mt-1 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+        </label>
+        <label class="flex-1 text-[11px] font-bold text-[var(--on-surface-secondary)]">Importo netto
+          <input id="sal-amt" type="text" inputmode="decimal" value="${detected ? detected.amount : ''}" placeholder="es. 1500" class="w-full mt-1 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+        </label>
+      </div>
+      <button id="sal-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva</button>
+      ${VaultDAO.state.salaryProfile ? `<button id="sal-reset" class="text-[11px] text-[var(--on-surface-secondary)] underline">Torna a farlo capire da Momentum</button>` : ''}
+      <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Resta sul tuo dispositivo. Serve solo a dirti quando puoi saldare senza restare a secco.</p>
+    </div>`);
+  $('#sal-save')?.addEventListener('click', () => {
+    const day = parseInt(String($('#sal-day').value).replace(/\D/g, ''), 10);
+    const amt = parseFloat(String($('#sal-amt').value).replace(',', '.'));
+    if (!(day >= 1 && day <= 31) || !(amt > 0)) { showToast('Metti un giorno (1–31) e un importo validi.', 'error'); return; }
+    VaultDAO.state.salaryProfile = { dayOfMonth: day, amount: Math.round(amt * 100) / 100, label: (detected && detected.label) || 'Stipendio' };
+    VaultDAO.save(); haptic('medium');
+    closeModal();
+    showToast(`Accredito impostato: ${eur(amt)} il giorno ${day}.`, 'success');
+    if (onDone) onDone();
+  });
+  $('#sal-reset')?.addEventListener('click', () => {
+    delete VaultDAO.state.salaryProfile; VaultDAO.save();
+    closeModal(); showToast('Ora lo capisco di nuovo dai tuoi movimenti.', 'info');
+    if (onDone) onDone();
+  });
 };
 
 // ── CONDIVIDI UN CODICE (gruppo spese) — a distanza, senza server: il codice
