@@ -933,6 +933,21 @@
                  </div>
               </div>
 
+              <!-- Accredito (stipendio) + come farti pagare — centrale, riusato ovunque -->
+              <div class="card p-6 flex flex-col">
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+                  <div>
+                    <h3 class="font-bold text-base">Il tuo accredito e i pagamenti</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Quando ti arriva lo stipendio (lo capisco dai movimenti) e come vuoi essere pagato.</p>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-auto">
+                  <button onclick="window.openSalaryEditor()" class="btn-action justify-between"><span>Il mio accredito</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+                  <button onclick="window.openPayoutSetup()" class="btn-action justify-between"><span>Come farmi pagare</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+                </div>
+              </div>
+
               <!-- P2P Sincronizzazione Serverless -->
               <div class="card p-6 border border-[var(--primary)]/30 flex flex-col justify-between">
                 <div>

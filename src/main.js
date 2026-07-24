@@ -23,6 +23,7 @@ import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload } from './split/split-engine.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
+import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -2140,7 +2141,7 @@ window.openSplitExpense = (prefill = {}) => {
     document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { if (!state.people.includes(b.dataset.add)) state.people.push(b.dataset.add); render(); }));
     document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; const removed = state.people[i]; delete state.paid[removed]; delete state.owed[removed]; state.people.splice(i, 1); render(); }));
     document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => {
-      window.openSepaTransfer({ mode: 'request', name: 'Io', iban: myIban, amount: +b.dataset.ask, remittance: `${state.description || 'Spesa condivisa'}`.slice(0, 140), title: `Chiedi ${eur(+b.dataset.ask)} a ${b.dataset.who}` });
+      window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: state.description || 'la spesa divisa' });
     }));
     document.querySelectorAll('[data-tellamt]').forEach(b => b.addEventListener('click', async () => {
       const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tellamt)} per ${state.description || 'la spesa'}. Mandami l'IBAN così ti giro il bonifico!`;
@@ -2224,6 +2225,76 @@ window.openSalaryEditor = (onDone = null) => {
     closeModal(); showToast('Ora lo capisco di nuovo dai tuoi movimenti.', 'info');
     if (onDone) onDone();
   });
+};
+
+// ── COME FARMI PAGARE: impostato una volta, riusato ovunque ─────────────────
+// Fix del vicolo cieco "IBAN vuoto": qui scegli come vuoi essere pagato (IBAN,
+// PayPal, Revolut, Satispay, o un link tuo), Momentum lo ricorda e prepara la
+// richiesta giusta. onDone() prosegue l'azione che l'aveva richiesto.
+window.openPayoutSetup = (onDone = null) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const cur = VaultDAO.state.payoutProfile || (resolvePayout(VaultDAO.state) || {});
+  let method = cur.method || 'paypal';
+  const placeholders = { iban: 'IT60 X054 2811 1010 0000 0123 456', paypal: 'il tuo nome PayPal (o link paypal.me/...)', revolut: 'il tuo @ Revolut (o link revolut.me/...)', satispay: 'il tuo numero/nome Satispay', other: 'un link o un recapito per pagarti' };
+  const draw = () => {
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div>
+          <p class="eyebrow !mb-0 text-[var(--primary)]">Come farti pagare</p>
+          <h3 class="text-base font-black">Scegli una volta, lo ricordo io</h3>
+          <p class="card-sub !mb-0">Quando chiedi un rimborso, preparo il messaggio giusto — con un link toccabile dove si può. Niente conti, niente movimenti: paghi e ricevi tu.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${PAYOUT_METHODS.map(m => `<button data-pm="${m}" class="text-[12px] font-bold px-3 py-2 rounded-full border active:scale-95 transition-transform ${m === method ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary)]/10' : 'border-[var(--glass-border)] text-slate-300'}">${esc(PAYOUT_LABELS[m])}</button>`).join('')}
+        </div>
+        <input id="po-value" value="${esc(cur.value || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="${esc(placeholders[method])}" />
+        ${method === 'iban' ? `<input id="po-holder" value="${esc(cur.holder || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="Intestatario (facoltativo)" />` : ''}
+        <button id="po-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva</button>
+        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Resta sul tuo dispositivo. Puoi cambiarlo quando vuoi.</p>
+      </div>`);
+    document.querySelectorAll('[data-pm]').forEach(b => b.addEventListener('click', () => { cur.value = $('#po-value')?.value || cur.value; method = b.dataset.pm; draw(); }));
+    $('#po-save')?.addEventListener('click', () => {
+      const value = String($('#po-value').value || '').trim();
+      if (!value) { showToast('Scrivi come vuoi essere pagato.', 'error'); return; }
+      VaultDAO.state.payoutProfile = { method, value, holder: method === 'iban' ? (String($('#po-holder')?.value || '').trim()) : '' };
+      VaultDAO.save(); haptic('medium'); closeModal();
+      showToast('Metodo di pagamento salvato.', 'success');
+      if (onDone) onDone();
+    });
+  };
+  draw();
+};
+
+// ── CHIEDI UN RIMBORSO (intelligente): usa il metodo salvato, o lo imposta una
+// volta. IBAN → QR SEPA (ricco); PayPal/Revolut/altro → messaggio con LINK
+// toccabile. Fine del vicolo cieco "IBAN vuoto". ──
+window.openRequestPayment = ({ amount = 0, fromName = '', note = '' } = {}) => {
+  const payout = resolvePayout(VaultDAO.state);
+  if (!payout) { window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note })); return; }
+  if (payout.method === 'iban') {
+    window.openSepaTransfer({ mode: 'request', name: payout.holder || 'Io', iban: payout.value, amount, remittance: note.slice(0, 140), title: `Chiedi ${(+amount).toFixed(2).replace('.', ',')} € a ${fromName || ''}`.trim() });
+    return;
+  }
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const { message, link } = buildPayoutRequest({ ...payout, amount, note, fromName });
+  let qr = '';
+  try { if (link && link.length <= 300) qr = qrSvg(link, { moduleSize: 4, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">Chiedi ${esc((+amount).toFixed(2).replace('.', ','))} €${fromName ? ` a ${esc(fromName)}` : ''}</h3><p class="card-sub !mb-0">Via ${esc(PAYOUT_LABELS[payout.method])}. Mando io il messaggio pronto — l'amico ${link ? 'tocca il link e paga' : 'paga come gli dici'}.</p></div>
+      ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(200px,60vw)">${qr}</div><p class="text-[10px] text-center text-[var(--on-surface-secondary)]">Inquadra per pagare, o manda il messaggio sotto.</p>` : ''}
+      <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[12px] whitespace-pre-line select-all">${esc(message)}</div>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="rp-wa" class="btn-action btn-primary py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">WhatsApp</button>
+        <button id="rp-copy" class="py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm active:scale-[0.98] transition-transform">Copia</button>
+      </div>
+      ${link ? `<button id="rp-open" class="text-[11px] text-[var(--primary)] underline">Apri ${esc(PAYOUT_LABELS[payout.method])}</button>` : ''}
+      <button id="rp-change" class="text-[11px] text-[var(--on-surface-secondary)] underline">Cambia come farti pagare</button>
+    </div>`);
+  $('#rp-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener'));
+  $('#rp-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(message); showToast('Messaggio copiato.', 'success'); });
+  $('#rp-open')?.addEventListener('click', () => window.open(link, '_blank', 'noopener'));
+  $('#rp-change')?.addEventListener('click', () => window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note })));
 };
 
 // ── CONDIVIDI UN CODICE (gruppo spese) — a distanza, senza server: il codice
@@ -2451,7 +2522,7 @@ window.openSplitGroup = (openId = null) => {
       } catch (e) { showToast('Non ho potuto aggiungere la spesa: ' + e.message, 'error'); }
     });
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
-    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => window.openSepaTransfer({ mode: 'request', name: 'Io', iban: myIban, amount: +b.dataset.ask, remittance: `Rimborso ${g.name}`.slice(0, 140), title: `Chiedi ${eur(+b.dataset.ask)} a ${b.dataset.who}` })));
+    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: g.name })));
     document.querySelectorAll('[data-tell]').forEach(b => b.addEventListener('click', async () => { const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tell)} per ${g.name}. Mandami l'IBAN così ti giro il bonifico!`; try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { } }));
     $('#sg-share')?.addEventListener('click', () => window.openShareCode({ code: encodeGroupShare(g), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le spese si uniscono, anche da un altro Paese, senza server.' }));
     $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
