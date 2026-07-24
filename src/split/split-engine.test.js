@@ -102,6 +102,18 @@ test('CONDIVISIONE: codice non valido → null (mai crash)', () => {
   assert.equal(decodeGroupShare('MSPLIT1:@@@'), null);
 });
 
+test('CONDIVISIONE cross-dominio: riconosce il gruppo da un LINK completo incollato', () => {
+  const g = addSharedExpense(createGroup({ name: 'Viaggio', members: ['Io', 'Sara'] }), { payer: createGroup({ name: 'Viaggio', members: ['Io', 'Sara'] }).members[0].id, amount: 50 });
+  const code = encodeGroupShare(g);
+  // Link generato su un dominio A, incollato su un'app servita da un dominio B:
+  const linkA = `https://vecchio-dominio.example/?join=${encodeURIComponent(code)}`;
+  const linkB = `https://nuovo-server.io/app/#join=${encodeURIComponent(code)}`;
+  assert.equal(decodeGroupShare(linkA)?.name, 'Viaggio');
+  assert.equal(decodeGroupShare(linkB)?.name, 'Viaggio');
+  // Anche testo di WhatsApp con il link in mezzo a una frase:
+  assert.equal(decodeGroupShare(`Ehi unisciti qui https://x.y/?join=${encodeURIComponent(code)} a dopo!`)?.name, 'Viaggio');
+});
+
 test('quickSplit: divisione istantanea al centesimo esatto (30 in 4 → 7,50)', () => {
   const r = quickSplit({ amount: 30, people: 4 });
   assert.equal(r.perPerson, 7.5);
