@@ -21,7 +21,7 @@ import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload } from './split/split-engine.js';
-import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit } from './split/split-predictor.js';
+import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -1994,13 +1994,23 @@ window.openSplitExpense = (prefill = {}) => {
       const g = buildGroup();
       const counts = settlementCounts(g);
       const { transfers } = settlementView(g);
+      // PREDITTIVO (proprietario): con che cadenza dividi con ciascuno → per i
+      // rimborsi PICCOLI con chi rivedi spesso, consiglio di NON inseguirli:
+      // si compensano alla prossima divisione. Nessun concorrente lo fa.
+      const intel = settlementIntelligence(past, { date: new Date() });
       settleHtml = transfers.map(tr => {
         const line = tr.toName === 'Io' ? `<b>${esc(tr.fromName)}</b> ti deve <b>${eur(tr.amount)}</b>`
           : tr.fromName === 'Io' ? `Devi <b>${eur(tr.amount)}</b> a <b>${esc(tr.toName)}</b>`
             : `<b>${esc(tr.fromName)}</b> deve ${eur(tr.amount)} a <b>${esc(tr.toName)}</b>`;
-        const act = tr.toName === 'Io' ? `<button data-ask="${tr.amount}" data-who="${esc(tr.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
-          : tr.fromName === 'Io' ? `<button data-tellamt="${tr.amount}" data-tellwho="${esc(tr.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
-        return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] text-slate-200">${line}${act}</div>`;
+        // Consiglio solo per i rimborsi che coinvolgono ME (la mia prospettiva).
+        const counter = tr.toName === 'Io' ? tr.fromName : tr.fromName === 'Io' ? tr.toName : null;
+        const adv = counter ? settleAdvice(intel, counter, tr.amount) : { tone: 'now' };
+        const act = adv.tone === 'wait'
+          ? `<span class="shrink-0 text-[11px] font-bold text-[var(--primary)]">✨ aspetta</span>`
+          : tr.toName === 'Io' ? `<button data-ask="${tr.amount}" data-who="${esc(tr.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
+            : tr.fromName === 'Io' ? `<button data-tellamt="${tr.amount}" data-tellwho="${esc(tr.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
+        const hint = adv.tone === 'wait' ? `<div class="text-[10px] text-[var(--primary)] -mt-0.5 mb-1">${esc(adv.label)}</div>` : '';
+        return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] text-slate-200">${line}${act}</div>${hint}`;
       }).join('');
       if (counts.saved > 0) settleHtml = `<div class="text-[11px] font-bold text-emerald-300 mb-1">Semplificato: ${counts.simplified} pagament${counts.simplified === 1 ? 'o' : 'i'} invece di ${counts.raw} (${counts.saved} in meno).</div>` + settleHtml;
     }

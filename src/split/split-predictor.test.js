@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   keyTokens, predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit,
+  settlementIntelligence, settleAdvice,
 } from './split-predictor.js';
 import { createGroup, addSharedExpense, simplifyAcrossGroups } from './split-engine.js';
 
@@ -129,4 +130,41 @@ test('simplifyAcrossGroups: meno pagamenti reali che saldando gruppo per gruppo'
 
 test('simplifyAcrossGroups è vuoto senza gruppi (onesto)', () => {
   assert.deepEqual(simplifyAcrossGroups([]), { transfers: [], perGroup: 0, saved: 0 });
+});
+
+test('settlementIntelligence misura la cadenza (ogni ~7 giorni con Marco)', () => {
+  const past = [
+    { ...grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-01' }) },
+    { ...grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-08' }) },
+    { ...grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-15' }) },
+  ];
+  const intel = settlementIntelligence(past, { date: new Date('2026-07-16') });
+  const info = intel.get('Marco');
+  assert.equal(info.cadence, 7);
+  assert.equal(info.count, 3);
+});
+
+test('settleAdvice: debito piccolo + dividete spesso → aspetta (si compensa)', () => {
+  const past = [
+    grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-01' }),
+    grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-08' }),
+  ];
+  const intel = settlementIntelligence(past, { date: new Date('2026-07-09') });
+  const adv = settleAdvice(intel, 'Marco', 3);
+  assert.equal(adv.tone, 'wait');
+  assert.match(adv.label, /si compenserà/);
+});
+
+test('settleAdvice: debito grande → salda adesso anche se dividete spesso', () => {
+  const past = [
+    grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-01' }),
+    grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-08' }),
+  ];
+  const intel = settlementIntelligence(past, { date: new Date('2026-07-09') });
+  assert.equal(settleAdvice(intel, 'Marco', 85).tone, 'now');
+});
+
+test('settleAdvice è neutro (now) senza storico di cadenza', () => {
+  const intel = settlementIntelligence([], {});
+  assert.equal(settleAdvice(intel, 'Sconosciuto', 3).tone, 'now');
 });

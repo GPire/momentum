@@ -200,6 +200,59 @@ export function netAcrossGroups(pastGroups = [], { meNames = ['io', 'me'] } = {}
   return out.sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
 }
 
+// ── 5. INTELLIGENZA SUL SETTLEMENT: quando conviene DAVVERO saldare ──────────
+// Il "chi dà quanto a chi" di Splitwise è muto: ti dice l'importo minimo e stop.
+// Qui è PREDITTIVO e proprietario: misura con che CADENZA dividi con ciascuno
+// (dai gruppi passati) e usa la frequenza per prevedere il netting futuro.
+// Insight che nessun concorrente dà: se il debito è piccolo E dividete spesso,
+// NON vale la pena chiedere 3€ a chi rivedi fra 5 giorni — si compenserà da solo
+// alla prossima divisione. Riduce l'attrito sociale ("non essere l'amico che
+// insegue 3€"). Tutto misurato (mediana degli intervalli); tace senza storico.
+// Ritorna una mappa nome→{cadence(giorni), recencyDays, count}.
+export function settlementIntelligence(pastGroups = [], { meNames = ['io', 'me'], date = new Date() } = {}) {
+  const me = new Set(meNames.map(lower));
+  const ref = date instanceof Date ? date : new Date(date);
+  const byPerson = new Map();
+  for (const g of (pastGroups || [])) {
+    const names = (g.members || []).map(m => norm(m.name || m));
+    if (!names.some(n => me.has(lower(n)))) continue;
+    const gdate = g.expenses && g.expenses[0] && g.expenses[0].date;
+    for (const nm of names) {
+      if (me.has(lower(nm))) continue;
+      const rec = byPerson.get(nm) || { dates: [] };
+      if (gdate) rec.dates.push(new Date(gdate));
+      byPerson.set(nm, rec);
+    }
+  }
+  const out = new Map();
+  for (const [name, rec] of byPerson) {
+    const ds = rec.dates.filter(d => d && !isNaN(+d)).sort((a, b) => a - b);
+    let cadence = null, recencyDays = null;
+    if (ds.length >= 2) {
+      const gaps = [];
+      for (let i = 1; i < ds.length; i++) gaps.push((ds[i] - ds[i - 1]) / 86400000);
+      gaps.sort((a, b) => a - b);
+      cadence = Math.max(1, Math.round(gaps[Math.floor(gaps.length / 2)]));
+      recencyDays = Math.round((ref - ds[ds.length - 1]) / 86400000);
+    }
+    out.set(name, { cadence, recencyDays, count: ds.length });
+  }
+  return out;
+}
+
+// Consiglio per un singolo rimborso, dalla mappa di settlementIntelligence.
+// tone 'wait' = piccolo e dividete spesso → si compensa da solo (con "ogni Ng");
+// tone 'now' = conviene saldare adesso (grande, o rara frequenza). Onesto: senza
+// dati sulla cadenza non promette nulla → 'now' neutro.
+export function settleAdvice(intel, counterparty, amount, { smallAbs = 10 } = {}) {
+  const info = intel && intel.get ? intel.get(counterparty) : null;
+  const small = amount <= smallAbs;
+  if (info && info.cadence != null && info.cadence <= 30 && small) {
+    return { tone: 'wait', cadence: info.cadence, label: `Piccola: si compenserà alla prossima (dividete ~ogni ${info.cadence}g)` };
+  }
+  return { tone: 'now', cadence: info ? info.cadence : null, label: null };
+}
+
 // ── 4. UNA RIGA SOLA (NL): "60 cena io marco luca" → diviso ──────────────────
 // La semplicità estrema richiesta: chi non ha mai usato un'app di divisione
 // scrive una frase e basta. Estrae importo, descrizione e persone da testo
