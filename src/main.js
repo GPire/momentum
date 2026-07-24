@@ -1884,15 +1884,34 @@ window.openSplitExpense = (prefill = {}) => {
     description: prefill.description || '',
     people: ['Io'],
     payer: 'Io',
+    // Splitwise/Settle Up dividono solo equamente o a quote fisse decise a priori.
+    // 'itemized' = ognuno mette quanto ha REALMENTE speso/consumato (es. al
+    // ristorante uno ha preso l'antipasto, un altro no) — la funzionalità che
+    // l'utente ha chiesto esplicitamente: non solo "quanto ho speso io" ma
+    // "quanto ha speso ciascuno". L'engine (addSharedExpense shares.byId) lo
+    // supportava già; mancava solo qui in UI.
+    mode: 'equal',
+    customShares: {},
   };
   const inputCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0';
+
+  // Somma correntemente digitata nelle quote personalizzate (per validare che
+  // torni esattamente all'importo totale prima di poter salvare).
+  const itemizedSum = () => state.people.reduce((s, p) => s + (parseFloat(String(state.customShares[p] || '0').replace(',', '.')) || 0), 0);
+  const itemizedValid = (amt) => state.mode !== 'itemized' || (amt > 0 && Math.abs(Math.round((itemizedSum() - amt) * 100) / 100) < 0.01);
 
   const buildGroup = () => {
     let g = createGroup({ name: state.description || 'Spesa', members: state.people });
     const amt = parseFloat(String(state.amount).replace(',', '.'));
-    if (amt > 0) {
+    if (amt > 0 && itemizedValid(amt)) {
       const payerId = g.members[state.people.indexOf(state.payer)]?.id || g.members[0].id;
-      g = addSharedExpense(g, { payer: payerId, amount: amt, description: state.description });
+      let shares;
+      if (state.mode === 'itemized') {
+        const byId = {};
+        state.people.forEach((p, i) => { byId[g.members[i].id] = Math.round((parseFloat(String(state.customShares[p] || '0').replace(',', '.')) || 0) * 100) / 100; });
+        shares = { byId };
+      }
+      g = addSharedExpense(g, { payer: payerId, amount: amt, description: state.description, shares });
     }
     return g;
   };
@@ -1901,9 +1920,11 @@ window.openSplitExpense = (prefill = {}) => {
     const amt = parseFloat(String(state.amount).replace(',', '.'));
     const freq = frequentCoSplitters(past).filter(f => !state.people.includes(f.name)).slice(0, 4);
     const qs = amt > 0 ? quickSplit({ amount: amt, people: state.people.length }) : null;
+    const canPreview = amt > 0 && itemizedValid(amt);
     let settleHtml = '';
-    if (amt > 0 && state.people.length > 1) {
+    if (canPreview && state.people.length > 1) {
       const g = buildGroup();
+      const counts = settlementCounts(g);
       const { transfers } = settlementView(g);
       settleHtml = transfers.map(t => {
         const line = t.toName === 'Io'
@@ -1919,11 +1940,18 @@ window.openSplitExpense = (prefill = {}) => {
             : '';
         return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] text-slate-200">${line}${act}</div>`;
       }).join('');
+      // Il differenziatore reale vs Splitwise/Settle Up: la compensazione minima
+      // (bitmask esatta in split-engine.js) spesso chiude il gruppo con MENO
+      // bonifici del greedy della concorrenza — lo si rende visibile, non solo
+      // promesso ("da 5 a 2 pagamenti"), così il vantaggio si vede subito.
+      if (counts.saved > 0) settleHtml = `<div class="text-[11px] font-bold text-emerald-300 mb-1">Semplificato: ${counts.simplified} pagament${counts.simplified === 1 ? 'o' : 'i'} invece di ${counts.raw} (${counts.saved} in meno).</div>` + settleHtml;
     }
+    const sum = itemizedSum();
+    const remaining = Math.round((amt - sum) * 100) / 100;
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div><h3 class="text-base font-black">Dividi una spesa</h3><p class="card-sub !mb-0">Quanto, con chi, chi ha pagato — ci penso io a dire chi deve cosa a chi.</p></div>
-        <input id="sp-amount" type="number" inputmode="decimal" value="${esc(state.amount)}" class="${inputCls} font-mono text-lg" placeholder="Quanto in totale (€)" />
+        <input id="sp-amount" type="text" inputmode="decimal" value="${esc(state.amount)}" class="${inputCls} font-mono text-lg" placeholder="Quanto in totale (€)" />
         <input id="sp-desc" value="${esc(state.description)}" class="${inputCls}" placeholder="Per cosa (es. Cena, Casa al mare)" />
         <div>
           <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Con chi dividi</div>
@@ -1936,10 +1964,20 @@ window.openSplitExpense = (prefill = {}) => {
           </div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Tocca un nome per dire <b>chi ha pagato</b> (in oro). Ora siete in ${state.people.length}.</div>
         </div>
-        ${qs ? `<div class="card p-3">
+        <div class="flex gap-2">
+          <button type="button" data-mode="equal" class="segment-btn ${state.mode === 'equal' ? 'active' : ''}" style="flex:1">Dividi equamente</button>
+          <button type="button" data-mode="itemized" class="segment-btn ${state.mode === 'itemized' ? 'active' : ''}" style="flex:1">Importi diversi a testa</button>
+        </div>
+        ${state.mode === 'itemized' ? `<div class="card p-3 flex flex-col gap-2">
+          <div class="text-[11px] font-bold text-[var(--on-surface-secondary)]">Quanto ha speso ciascuno (non necessariamente uguale)</div>
+          ${state.people.map(p => `<div class="flex items-center gap-2"><span class="text-[13px] flex-1 truncate">${esc(p)}</span><input data-share="${esc(p)}" type="text" inputmode="decimal" value="${esc(state.customShares[p] ?? '')}" placeholder="0,00" class="w-24 bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-sm font-mono text-right" /></div>`).join('')}
+          ${amt > 0 ? `<div class="text-[11px] font-bold ${Math.abs(remaining) < 0.01 ? 'text-emerald-400' : 'text-amber-400'} text-right">${Math.abs(remaining) < 0.01 ? 'Torna esatto ✓' : remaining > 0 ? `Mancano ${eur(remaining)}` : `${eur(-remaining)} di troppo`}</div>` : ''}
+        </div>` : ''}
+        ${qs && state.mode === 'equal' ? `<div class="card p-3">
           <div class="flex items-center justify-between"><span class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Ognuno paga</span><span class="font-mono font-black text-lg text-emerald-400">${eur(qs.perPerson)}</span></div>
           ${settleHtml ? `<div class="mt-2 pt-2 border-t border-[var(--glass-border)]">${settleHtml}</div>` : ''}
         </div>` : ''}
+        ${state.mode === 'itemized' && canPreview && settleHtml ? `<div class="card p-3">${settleHtml}</div>` : ''}
         <div class="flex gap-2">
           <button id="sp-save" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl">Salva la divisione</button>
           <button id="sp-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
@@ -1963,6 +2001,14 @@ window.openSplitExpense = (prefill = {}) => {
     });
     descEl.addEventListener('input', () => { state.description = descEl.value; });
     $('#sp-newname')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { state.people.push(e.target.value.trim()); render(); } });
+    document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; render(); }));
+    document.querySelectorAll('[data-share]').forEach(inp => inp.addEventListener('input', () => {
+      state.customShares[inp.dataset.share] = inp.value;
+      const caret = inp.selectionStart;
+      render();
+      const fresh = document.querySelector(`[data-share="${CSS.escape(inp.dataset.share)}"]`);
+      if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
+    }));
     document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { state.people.push(b.dataset.add); render(); }));
     document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; if (state.payer === state.people[i]) state.payer = 'Io'; state.people.splice(i, 1); render(); }));
     document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { state.payer = b.dataset.payer; render(); }));
@@ -1976,13 +2022,21 @@ window.openSplitExpense = (prefill = {}) => {
     $('#sp-save')?.addEventListener('click', () => {
       const amt2 = parseFloat(String(state.amount).replace(',', '.'));
       if (!(amt2 > 0) || state.people.length < 2) { showToast('Inserisci importo e almeno due persone.', 'error'); return; }
+      if (!itemizedValid(amt2)) { showToast('Gli importi a testa non tornano al totale.', 'error'); return; }
       const g = buildGroup();
       VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
       // INTEGRAZIONE Momentum Core: registro LA TUA PARTE come spesa reale (non
       // l'intero, che è in parte un prestito agli amici) → budget corretto E
       // l'orchestratore IMPARA da questa spesa (categoria predetta dal modello
       // addestrato). Deduplicata come ogni transazione. Onesto: solo la tua quota.
-      const mine = +(amt2 / state.people.length).toFixed(2);
+      // La quota va letta dal gruppo appena costruito (g.expenses[0].owed), non
+      // ricalcolata a mano: in modalità "importi diversi a testa" dividere per
+      // il numero di persone darebbe la cifra sbagliata (bug che si sarebbe
+      // introdotto insieme alla nuova funzionalità, evitato leggendo la fonte
+      // di verità unica — lo stesso motore che disegna l'anteprima).
+      const myId = g.members[state.people.indexOf('Io')]?.id;
+      const mineRaw = g.expenses[0]?.owed?.[myId] ?? (amt2 / state.people.length);
+      const mine = Math.round(mineRaw * 100) / 100;
       let category = 'altro';
       try { const p = window.momentumOrchestrator?.classify(state.description || '', mine, new Date()); if (p && p.category) category = p.category; } catch (_) { }
       const desc = state.description ? `${state.description} (la mia parte)` : 'Spesa condivisa (la mia parte)';
