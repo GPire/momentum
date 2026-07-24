@@ -1920,193 +1920,194 @@ window.openSplitExpense = (prefill = {}) => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
   const past = VaultDAO.state.splitGroups || [];
+  // MODELLO INTUITIVO (feedback utente): due domande separate e chiare, non una
+  // sola "chi ha pagato" confusa. (1) CHI HA MESSO QUANTO — per ogni persona un
+  // campo €, vuoto = non ha anticipato niente (gestisce più pagatori con importi
+  // diversi, non solo un pagante unico). (2) COME SI DIVIDE il conto — equo o a
+  // quote diverse (chi ha consumato di più). Il totale è la somma dei versamenti.
   const state = {
-    amount: prefill.amount > 0 ? String(prefill.amount) : '',
     description: prefill.description || '',
     people: ['Io'],
-    payer: 'Io',
-    // Splitwise/Settle Up dividono solo equamente o a quote fisse decise a priori.
-    // 'itemized' = ognuno mette quanto ha REALMENTE speso/consumato (es. al
-    // ristorante uno ha preso l'antipasto, un altro no) — la funzionalità che
-    // l'utente ha chiesto esplicitamente: non solo "quanto ho speso io" ma
-    // "quanto ha speso ciascuno". L'engine (addSharedExpense shares.byId) lo
-    // supportava già; mancava solo qui in UI.
-    mode: 'equal',
-    customShares: {},
+    paid: prefill.amount > 0 ? { Io: String(prefill.amount) } : {}, // quanto ha messo ciascuno
+    splitMode: 'equal',  // 'equal' | 'custom' — come si divide il COSTO
+    owed: {},            // per split custom: quanto DEVE (ha consumato) ciascuno
   };
   const inputCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0';
-
-  // Somma correntemente digitata nelle quote personalizzate (per validare che
-  // torni esattamente all'importo totale prima di poter salvare).
-  const itemizedSum = () => state.people.reduce((s, p) => s + (parseFloat(String(state.customShares[p] || '0').replace(',', '.')) || 0), 0);
-  const itemizedValid = (amt) => state.mode !== 'itemized' || (amt > 0 && Math.abs(Math.round((itemizedSum() - amt) * 100) / 100) < 0.01);
+  const num = (v) => parseFloat(String(v ?? '').replace(',', '.')) || 0;
+  const paidOf = (p) => num(state.paid[p]);
+  const total = () => state.people.reduce((s, p) => s + paidOf(p), 0);
+  const owedSum = () => state.people.reduce((s, p) => s + num(state.owed[p]), 0);
+  // Il conto è valido se qualcuno ha messo qualcosa e (per split a quote) le
+  // quote di consumo tornano al totale.
+  const splitValid = () => {
+    const t = total(); if (!(t > 0)) return false;
+    if (state.splitMode === 'custom') return Math.abs(Math.round((owedSum() - t) * 100) / 100) < 0.01;
+    return true;
+  };
 
   const buildGroup = () => {
     let g = createGroup({ name: state.description || 'Spesa', members: state.people });
-    const amt = parseFloat(String(state.amount).replace(',', '.'));
-    if (amt > 0 && itemizedValid(amt)) {
-      const payerId = g.members[state.people.indexOf(state.payer)]?.id || g.members[0].id;
-      let shares;
-      if (state.mode === 'itemized') {
-        const byId = {};
-        state.people.forEach((p, i) => { byId[g.members[i].id] = Math.round((parseFloat(String(state.customShares[p] || '0').replace(',', '.')) || 0) * 100) / 100; });
-        shares = { byId };
-      }
-      g = addSharedExpense(g, { payer: payerId, amount: amt, description: state.description, shares });
-    }
+    const t = total();
+    if (!(t > 0) || !splitValid()) return g;
+    const idOf = (p) => g.members[state.people.indexOf(p)].id;
+    // Frazione di COSTO dovuta da ciascuno (somma 1): equa o dai consumi.
+    const owedFrac = {};
+    if (state.splitMode === 'custom') state.people.forEach(p => owedFrac[p] = num(state.owed[p]) / t);
+    else state.people.forEach(p => owedFrac[p] = 1 / state.people.length);
+    // Una spesa per OGNI persona che ha messo qualcosa, ripartita per owedFrac.
+    // Sommando tutte: saldo = messo − dovuto (chi ha anticipato di più recupera).
+    state.people.forEach(p => {
+      const a = Math.round(paidOf(p) * 100) / 100;
+      if (a <= 0) return;
+      const byId = {}; let acc = 0;
+      state.people.forEach(q => { const s = Math.round(a * owedFrac[q] * 100) / 100; byId[idOf(q)] = s; acc += s; });
+      // Aggiusta il residuo di arrotondamento sull'ultima persona (somma esatta = a).
+      const diff = Math.round((a - acc) * 100) / 100;
+      if (Math.abs(diff) >= 0.01) { const last = idOf(state.people[state.people.length - 1]); byId[last] = Math.round((byId[last] + diff) * 100) / 100; }
+      g = addSharedExpense(g, { payer: idOf(p), amount: a, description: state.description, shares: { byId } });
+    });
     return g;
   };
 
+  // La MIA parte reale (quanto ho consumato) = la somma di quanto devo in tutte
+  // le sotto-spese del gruppo costruito. È questa che finisce nelle mie spese.
+  const myShareFrom = (g) => {
+    const myId = g.members[state.people.indexOf('Io')]?.id;
+    return g.expenses.reduce((s, e) => s + (e.owed?.[myId] || 0), 0);
+  };
+
   const render = () => {
-    const amt = parseFloat(String(state.amount).replace(',', '.'));
+    const t = total();
     // PREDITTIVO (proprietario): chi dividi di solito per QUESTO tipo di spesa,
-    // in questo giorno — non la sola frequenza. Fallback a frequenza pura se non
-    // c'è ancora un contesto (descrizione vuota). Onesto: se non c'è storico, [].
-    const ctx = predictCoSplitters(past, { description: state.description, date: new Date() })
-      .filter(f => !state.people.includes(f.name));
-    const freq = (ctx.length ? ctx : frequentCoSplitters(past).filter(f => !state.people.includes(f.name)))
-      .slice(0, 4);
-    // Posizione netta cross-gruppo con le persone già nel gruppo (il gap di
-    // Splitwise): "con Marco, in tutto, ti deve X". Solo per chi è nel gruppo.
+    // in questo giorno — non la sola frequenza. Fallback a frequenza pura.
+    const ctx = predictCoSplitters(past, { description: state.description, date: new Date() }).filter(f => !state.people.includes(f.name));
+    const freq = (ctx.length ? ctx : frequentCoSplitters(past).filter(f => !state.people.includes(f.name))).slice(0, 4);
+    // Posizione netta cross-gruppo con le persone già nel gruppo (il gap di Splitwise).
     const nets = netAcrossGroups(past).filter(n => state.people.includes(n.name));
-    // PREDITTIVO: se con QUESTE persone dividi di solito in modo NON equo (es.
-    // affitto 25/75), lo propongo (un tocco pre-compila le quote). Tace se equa.
+    // Se con QUESTE persone dividi di solito NON equo (affitto 25/75), lo propongo.
     const sharePred = state.people.length > 1 ? predictShares(past, state.people) : null;
-    const qs = amt > 0 ? quickSplit({ amount: amt, people: state.people.length }) : null;
-    const canPreview = amt > 0 && itemizedValid(amt);
+    const canPreview = state.people.length > 1 && splitValid();
+    const owedRemaining = Math.round((t - owedSum()) * 100) / 100;
+    const perHead = state.people.length ? Math.round((t / state.people.length) * 100) / 100 : 0;
     let settleHtml = '';
-    if (canPreview && state.people.length > 1) {
+    if (canPreview) {
       const g = buildGroup();
       const counts = settlementCounts(g);
       const { transfers } = settlementView(g);
-      settleHtml = transfers.map(t => {
-        const line = t.toName === 'Io'
-          ? `<b>${esc(t.fromName)}</b> ti deve <b>${eur(t.amount)}</b>`
-          : t.fromName === 'Io'
-            ? `Devi <b>${eur(t.amount)}</b> a <b>${esc(t.toName)}</b>`
-            : `<b>${esc(t.fromName)}</b> deve ${eur(t.amount)} a <b>${esc(t.toName)}</b>`;
-        // azione: se altri devono A TE → chiedi (hai il tuo IBAN); se TU devi → condividi "ti devo"
-        const act = t.toName === 'Io'
-          ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
-          : t.fromName === 'Io'
-            ? `<button data-tellamt="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>`
-            : '';
+      settleHtml = transfers.map(tr => {
+        const line = tr.toName === 'Io' ? `<b>${esc(tr.fromName)}</b> ti deve <b>${eur(tr.amount)}</b>`
+          : tr.fromName === 'Io' ? `Devi <b>${eur(tr.amount)}</b> a <b>${esc(tr.toName)}</b>`
+            : `<b>${esc(tr.fromName)}</b> deve ${eur(tr.amount)} a <b>${esc(tr.toName)}</b>`;
+        const act = tr.toName === 'Io' ? `<button data-ask="${tr.amount}" data-who="${esc(tr.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
+          : tr.fromName === 'Io' ? `<button data-tellamt="${tr.amount}" data-tellwho="${esc(tr.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
         return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] text-slate-200">${line}${act}</div>`;
       }).join('');
-      // Il differenziatore reale vs Splitwise/Settle Up: la compensazione minima
-      // (bitmask esatta in split-engine.js) spesso chiude il gruppo con MENO
-      // bonifici del greedy della concorrenza — lo si rende visibile, non solo
-      // promesso ("da 5 a 2 pagamenti"), così il vantaggio si vede subito.
       if (counts.saved > 0) settleHtml = `<div class="text-[11px] font-bold text-emerald-300 mb-1">Semplificato: ${counts.simplified} pagament${counts.simplified === 1 ? 'o' : 'i'} invece di ${counts.raw} (${counts.saved} in meno).</div>` + settleHtml;
     }
-    const sum = itemizedSum();
-    const remaining = Math.round((amt - sum) * 100) / 100;
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-        <div><h3 class="text-base font-black">Dividi una spesa</h3><p class="card-sub !mb-0">Scrivi una riga, o compila sotto — ci penso io a dire chi deve cosa a chi.</p></div>
+        <div><h3 class="text-base font-black">Dividi una spesa</h3><p class="card-sub !mb-0">Scrivi una riga, o compila sotto — ti dico io chi deve dare quanto a chi.</p></div>
         <div>
           <input id="sp-oneline" class="${inputCls}" placeholder="Prova: 60 cena io Marco Luca" autocomplete="off" />
-          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Scrivi importo, per cosa e con chi in una frase. Premo io il resto.</div>
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Importo, per cosa e con chi in una frase. Al resto penso io.</div>
         </div>
-        <div class="flex items-center gap-2 text-[10px] text-[var(--on-surface-secondary)]"><span class="flex-1 h-px bg-[var(--glass-border)]"></span>oppure a mano<span class="flex-1 h-px bg-[var(--glass-border)]"></span></div>
-        <input id="sp-amount" type="text" inputmode="decimal" value="${esc(state.amount)}" class="${inputCls} font-mono text-lg" placeholder="Quanto in totale (€)" />
-        <input id="sp-desc" value="${esc(state.description)}" class="${inputCls}" placeholder="Per cosa (es. Cena, Casa al mare)" />
+        <div class="flex items-center gap-2 text-[10px] text-[var(--on-surface-secondary)]"><span class="flex-1 h-px bg-[var(--glass-border)]"></span>oppure passo per passo<span class="flex-1 h-px bg-[var(--glass-border)]"></span></div>
+        <input id="sp-desc" value="${esc(state.description)}" class="${inputCls}" placeholder="Per cosa? (es. Cena, Casa al mare)" />
         ${nets.length ? `<div class="card p-2.5 flex flex-col gap-1">
           <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">In totale, con questi amici</div>
           ${nets.map(n => `<div class="flex items-center justify-between text-[12px]"><span>${esc(n.name)}${n.groups > 1 ? ` <span class="opacity-50">(${n.groups} gruppi)</span>` : ''}</span><span class="font-bold ${n.net > 0 ? 'text-emerald-400' : 'text-amber-400'}">${n.net > 0 ? `ti deve ${eur(n.net)}` : `gli devi ${eur(-n.net)}`}</span></div>`).join('')}
         </div>` : ''}
-        <div>
-          <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Con chi dividi</div>
-          <div class="flex flex-wrap gap-2">
-            ${state.people.map((p, i) => `<span class="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full border ${p === state.payer ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-200'} bg-black/20"><button data-payer="${esc(p)}" title="Ha pagato ${esc(p)}">${esc(p)}</button>${p !== 'Io' ? `<button data-rm="${i}" class="opacity-60 hover:opacity-100">✕</button>` : ''}</span>`).join('')}
+
+        <!-- 1) CHI HA MESSO QUANTO: un campo € per persona, vuoto = non ha anticipato -->
+        <div class="card p-3 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-[var(--on-surface-secondary)]">Chi ha messo quanto</span>
+            <span class="text-[11px] font-bold">Totale <span class="font-mono text-emerald-400">${eur(t)}</span></span>
           </div>
-          <div class="flex flex-wrap gap-2 mt-2 items-center">
-            ${freq.map(f => `<button data-add="${esc(f.name)}" title="${f.reason ? esc(f.reason) : 'Aggiungi'}" class="text-[11px] px-2.5 py-1 rounded-full border ${f.reason ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary)]/5' : 'border-dashed border-[var(--glass-border)] text-slate-300'}">+ ${esc(f.name)}${f.reason ? ' ✨' : ''}</button>`).join('')}
-            <input id="sp-newname" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi nome" />
+          ${state.people.map((p, i) => `<div class="flex items-center gap-2">
+            <span class="text-[13px] flex-1 truncate ${p === 'Io' ? 'font-bold' : ''}">${esc(p)}</span>
+            <div class="flex items-center gap-1 bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 focus-within:border-[var(--primary)]">
+              <input data-paid="${esc(p)}" type="text" inputmode="decimal" value="${esc(state.paid[p] ?? '')}" placeholder="0" class="w-16 bg-transparent py-1.5 text-sm font-mono text-right outline-none" />
+              <span class="text-[11px] text-[var(--on-surface-secondary)]">€</span>
+            </div>
+            ${p !== 'Io' ? `<button data-rm="${i}" class="text-[var(--on-surface-secondary)] opacity-60 hover:opacity-100 w-6 text-center" title="Togli ${esc(p)}">✕</button>` : '<span class="w-6"></span>'}
+          </div>`).join('')}
+          <div class="flex flex-wrap gap-2 mt-1 items-center">
+            ${freq.map(f => `<button data-add="${esc(f.name)}" title="${f.reason ? esc(f.reason) : 'Aggiungi'}" class="text-[11px] px-2.5 py-1 rounded-full border active:scale-95 transition-transform ${f.reason ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary)]/5' : 'border-dashed border-[var(--glass-border)] text-slate-300'}">+ ${esc(f.name)}${f.reason ? ' ✨' : ''}</button>`).join('')}
+            <input id="sp-newname" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-28 min-w-0" placeholder="+ altra persona" />
           </div>
-          ${freq.some(f => f.reason) ? `<div class="text-[10px] text-[var(--primary)] mt-1">✨ = te lo suggerisco dal contesto (${esc(freq.find(f => f.reason).reason)})</div>` : ''}
-          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Tocca un nome per dire <b>chi ha pagato</b> (in oro). Ora siete in ${state.people.length}.</div>
+          ${freq.some(f => f.reason) ? `<div class="text-[10px] text-[var(--primary)]">✨ = suggerito dal contesto (${esc(freq.find(f => f.reason).reason)})</div>` : ''}
+          <div class="text-[10px] text-[var(--on-surface-secondary)]">Chi non ha anticipato niente? Lascia il suo campo a 0.</div>
         </div>
+
+        <!-- 2) COME SI DIVIDE IL CONTO -->
+        <div class="flex flex-col gap-2">
+          <span class="text-[11px] font-bold text-[var(--on-surface-secondary)]">Come si divide il conto</span>
+          <div class="flex gap-2">
+            <button type="button" data-splitmode="equal" class="segment-btn ${state.splitMode === 'equal' ? 'active' : ''}" style="flex:1">In parti uguali</button>
+            <button type="button" data-splitmode="custom" class="segment-btn ${state.splitMode === 'custom' ? 'active' : ''}" style="flex:1">Chi ha consumato di più</button>
+          </div>
+          ${state.splitMode === 'equal' ? `<div class="card p-3 flex items-center justify-between">
+            <span class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Ognuno deve</span>
+            <span class="font-mono font-black text-lg text-emerald-400">${eur(perHead)}</span>
+          </div>` : `<div class="card p-3 flex flex-col gap-2">
+            <div class="text-[11px] text-[var(--on-surface-secondary)]">Quanto ha consumato ciascuno (deve tornare al totale ${eur(t)})</div>
+            ${sharePred ? `<button id="sp-usepred" class="text-[11px] font-bold text-[var(--primary)] text-left active:scale-95 transition-transform">✨ Usa le quote di sempre (${state.people.map(p => `${esc(p)} ${Math.round((sharePred.shares[p] || 0) * 100)}%`).join(' · ')})</button>` : ''}
+            ${state.people.map(p => `<div class="flex items-center gap-2"><span class="text-[13px] flex-1 truncate">${esc(p)}</span><div class="flex items-center gap-1 bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 focus-within:border-[var(--primary)]"><input data-owed="${esc(p)}" type="text" inputmode="decimal" value="${esc(state.owed[p] ?? '')}" placeholder="0" class="w-16 bg-transparent py-1.5 text-sm font-mono text-right outline-none" /><span class="text-[11px] text-[var(--on-surface-secondary)]">€</span></div></div>`).join('')}
+            ${t > 0 ? `<div class="text-[11px] font-bold text-right ${Math.abs(owedRemaining) < 0.01 ? 'text-emerald-400' : 'text-amber-400'}">${Math.abs(owedRemaining) < 0.01 ? 'Torna esatto ✓' : owedRemaining > 0 ? `Mancano ${eur(owedRemaining)}` : `${eur(-owedRemaining)} di troppo`}</div>` : ''}
+          </div>`}
+        </div>
+
+        ${canPreview && settleHtml ? `<div class="card p-3"><div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">Chi dà quanto a chi</div>${settleHtml}</div>` : ''}
+
         <div class="flex gap-2">
-          <button type="button" data-mode="equal" class="segment-btn ${state.mode === 'equal' ? 'active' : ''}" style="flex:1">Dividi equamente</button>
-          <button type="button" data-mode="itemized" class="segment-btn ${state.mode === 'itemized' ? 'active' : ''}" style="flex:1">Importi diversi a testa</button>
+          <button id="sp-save" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva la divisione</button>
+          <button id="sp-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Invita</button>
         </div>
-        ${state.mode === 'itemized' ? `<div class="card p-3 flex flex-col gap-2">
-          <div class="text-[11px] font-bold text-[var(--on-surface-secondary)]">Quanto ha speso ciascuno (non necessariamente uguale)</div>
-          ${sharePred && amt > 0 ? `<button id="sp-usepred" class="text-[11px] font-bold text-[var(--primary)] text-left">✨ Usa le quote di sempre (${state.people.map(p => `${esc(p)} ${Math.round((sharePred.shares[p] || 0) * 100)}%`).join(' · ')})</button>` : ''}
-          ${state.people.map(p => `<div class="flex items-center gap-2"><span class="text-[13px] flex-1 truncate">${esc(p)}</span><input data-share="${esc(p)}" type="text" inputmode="decimal" value="${esc(state.customShares[p] ?? '')}" placeholder="0,00" class="w-24 bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-sm font-mono text-right" /></div>`).join('')}
-          ${amt > 0 ? `<div class="text-[11px] font-bold ${Math.abs(remaining) < 0.01 ? 'text-emerald-400' : 'text-amber-400'} text-right">${Math.abs(remaining) < 0.01 ? 'Torna esatto ✓' : remaining > 0 ? `Mancano ${eur(remaining)}` : `${eur(-remaining)} di troppo`}</div>` : ''}
-        </div>` : ''}
-        ${qs && state.mode === 'equal' ? `<div class="card p-3">
-          <div class="flex items-center justify-between"><span class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Ognuno paga</span><span class="font-mono font-black text-lg text-emerald-400">${eur(qs.perPerson)}</span></div>
-          ${settleHtml ? `<div class="mt-2 pt-2 border-t border-[var(--glass-border)]">${settleHtml}</div>` : ''}
-        </div>` : ''}
-        ${state.mode === 'itemized' && canPreview && settleHtml ? `<div class="card p-3">${settleHtml}</div>` : ''}
-        <div class="flex gap-2">
-          <button id="sp-save" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl">Salva la divisione</button>
-          <button id="sp-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
-        </div>
-        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">100% sul tuo telefono, senza account. Condividi il gruppo con un amico (anche lontano) via codice/QR — le spese si uniscono senza server. I rimborsi li chiedi/paghi tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
+        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">100% sul tuo telefono, senza account. Invita un amico (anche lontano) con un link: le spese si uniscono senza server. I rimborsi li fai tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
       </div>`);
-    // bind
-    const amountEl = $('#sp-amount'), descEl = $('#sp-desc');
-    // render() ricostruisce tutto l'innerHTML del modale (serve per ricalcolare
-    // l'anteprima "Ognuno paga"/i saldi a ogni cifra) — questo però distrugge e
-    // ricrea #sp-amount, perdendo focus e cursore: bug reale segnalato
-    // dall'utente ("non riesco a scrivere l'importo"), sembrava che la tastiera
-    // non rispondesse perché ogni carattere richiedeva un nuovo click sul campo.
-    // Si riporta subito focus+cursore sul campo appena ricreato.
-    amountEl.addEventListener('input', () => {
-      state.amount = amountEl.value;
-      const caret = amountEl.selectionStart;
-      render();
-      const fresh = $('#sp-amount');
-      if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
-    });
-    // La descrizione cambia i suggerimenti contestuali (chi dividi per QUESTO
-    // tipo): re-render con ripristino del cursore, come per l'importo.
-    descEl.addEventListener('input', () => {
+
+    // ── bind: ogni input a testo (type=text) così il ripristino del cursore
+    // funziona su Chrome (i number non supportano selectionStart). ──
+    const descEl = $('#sp-desc');
+    descEl?.addEventListener('input', () => {
       state.description = descEl.value;
-      const caret = descEl.selectionStart;
-      render();
-      const fresh = $('#sp-desc');
-      if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
+      const caret = descEl.selectionStart; render();
+      const fresh = $('#sp-desc'); if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
     });
-    // UNA RIGA SOLA (semplicità estrema): "60 cena io Marco Luca" → compila tutto.
     const oneLine = $('#sp-oneline');
-    if (oneLine) {
-      const applyLine = () => {
-        const parsed = parseSplitLine(oneLine.value);
-        if (!parsed) { showToast('Scrivi almeno un importo, es. "60 cena io Marco".', 'error'); return; }
-        state.amount = String(parsed.amount);
-        if (parsed.description) state.description = parsed.description;
-        // Unisci le persone riconosciute (senza duplicati, "Io" resta primo).
-        for (const p of parsed.people) if (!state.people.includes(p)) state.people.push(p);
-        render();
-      };
-      oneLine.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyLine(); } });
-    }
-    $('#sp-newname')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { state.people.push(e.target.value.trim()); render(); } });
-    document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; render(); }));
-    document.querySelectorAll('[data-share]').forEach(inp => inp.addEventListener('input', () => {
-      state.customShares[inp.dataset.share] = inp.value;
-      const caret = inp.selectionStart;
+    oneLine?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return; e.preventDefault();
+      const parsed = parseSplitLine(oneLine.value);
+      if (!parsed) { showToast('Scrivi almeno un importo, es. "60 cena io Marco".', 'error'); return; }
+      if (parsed.description) state.description = parsed.description;
+      for (const p of parsed.people) if (!state.people.includes(p)) state.people.push(p);
+      // Chi scrive di solito è chi ha anticipato: metto il totale su "Io".
+      if (parsed.amount > 0) state.paid['Io'] = String(parsed.amount);
       render();
-      const fresh = document.querySelector(`[data-share="${CSS.escape(inp.dataset.share)}"]`);
+    });
+    $('#sp-newname')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { const n = e.target.value.trim(); if (!state.people.includes(n)) state.people.push(n); render(); } });
+    // Campi "ha messo €" — re-render live (aggiorna totale/anteprima) con cursore.
+    document.querySelectorAll('[data-paid]').forEach(inp => inp.addEventListener('input', () => {
+      state.paid[inp.dataset.paid] = inp.value;
+      const caret = inp.selectionStart; render();
+      const fresh = document.querySelector(`[data-paid="${CSS.escape(inp.dataset.paid)}"]`);
       if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
     }));
-    // "Usa le quote di sempre": applica la ripartizione ricorrente predetta
-    // all'importo corrente (es. affitto 25/75) — un tocco invece di ricalcolare.
+    // Campi "ha consumato €" (split custom).
+    document.querySelectorAll('[data-owed]').forEach(inp => inp.addEventListener('input', () => {
+      state.owed[inp.dataset.owed] = inp.value;
+      const caret = inp.selectionStart; render();
+      const fresh = document.querySelector(`[data-owed="${CSS.escape(inp.dataset.owed)}"]`);
+      if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
+    }));
     $('#sp-usepred')?.addEventListener('click', () => {
-      const amt2 = parseFloat(String(state.amount).replace(',', '.'));
-      if (sharePred && amt2 > 0) {
-        state.people.forEach(p => { state.customShares[p] = (Math.round((sharePred.shares[p] || 0) * amt2 * 100) / 100).toFixed(2); });
-        render();
-      }
+      const t2 = total();
+      if (sharePred && t2 > 0) { state.people.forEach(p => { state.owed[p] = (Math.round((sharePred.shares[p] || 0) * t2 * 100) / 100).toFixed(2); }); render(); }
     });
-    document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { state.people.push(b.dataset.add); render(); }));
-    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; if (state.payer === state.people[i]) state.payer = 'Io'; state.people.splice(i, 1); render(); }));
-    document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { state.payer = b.dataset.payer; render(); }));
+    document.querySelectorAll('[data-splitmode]').forEach(b => b.addEventListener('click', () => { state.splitMode = b.dataset.splitmode; render(); }));
+    document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { if (!state.people.includes(b.dataset.add)) state.people.push(b.dataset.add); render(); }));
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; const removed = state.people[i]; delete state.paid[removed]; delete state.owed[removed]; state.people.splice(i, 1); render(); }));
     document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => {
       window.openSepaTransfer({ mode: 'request', name: 'Io', iban: myIban, amount: +b.dataset.ask, remittance: `${state.description || 'Spesa condivisa'}`.slice(0, 140), title: `Chiedi ${eur(+b.dataset.ask)} a ${b.dataset.who}` });
     }));
@@ -2115,25 +2116,13 @@ window.openSplitExpense = (prefill = {}) => {
       try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { }
     }));
     $('#sp-save')?.addEventListener('click', () => {
-      const amt2 = parseFloat(String(state.amount).replace(',', '.'));
-      if (!(amt2 > 0) || state.people.length < 2) { showToast('Inserisci importo e almeno due persone.', 'error'); return; }
-      if (!itemizedValid(amt2)) { showToast('Gli importi a testa non tornano al totale.', 'error'); return; }
+      if (total() <= 0 || state.people.length < 2) { showToast('Metti almeno un importo e due persone.', 'error'); return; }
+      if (!splitValid()) { showToast('Le quote di consumo non tornano al totale.', 'error'); return; }
       const g = buildGroup();
       VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
-      // INTEGRAZIONE Momentum Core: registro LA TUA PARTE come spesa reale (non
-      // l'intero, che è in parte un prestito agli amici) → budget corretto E
-      // l'orchestratore IMPARA da questa spesa (categoria predetta dal modello
-      // addestrato). Deduplicata come ogni transazione. Onesto: solo la tua quota.
-      // La quota va letta dal gruppo appena costruito (g.expenses[0].owed), non
-      // ricalcolata a mano: in modalità "importi diversi a testa" dividere per
-      // il numero di persone darebbe la cifra sbagliata (bug che si sarebbe
-      // introdotto insieme alla nuova funzionalità, evitato leggendo la fonte
-      // di verità unica — lo stesso motore che disegna l'anteprima).
-      const myId = g.members[state.people.indexOf('Io')]?.id;
-      const mineRaw = g.expenses[0]?.owed?.[myId] ?? (amt2 / state.people.length);
-      // learnFromSplit categorizza la mia quota E addestra il Core (categoria):
-      // la logica di apprendimento sta nel modulo split, testata in isolamento.
-      const { category, mine } = learnFromSplit(window.momentumOrchestrator, { description: state.description, myShare: mineRaw, date: new Date() });
+      // La MIA parte reale (quanto ho consumato) come spesa personale + addestra
+      // il Core (categoria). learnFromSplit vive nel modulo split, testato.
+      const { category, mine } = learnFromSplit(window.momentumOrchestrator, { description: state.description, myShare: myShareFrom(g), date: new Date() });
       const desc = state.description ? `${state.description} (la mia parte)` : 'Spesa condivisa (la mia parte)';
       const res = VaultDAO.addTransaction(monthKey(new Date()), { id: Date.now(), amount: mine, type: 'uscita', category, description: desc, date: new Date().toISOString() });
       try { if (!res.duplicate && window.momentumOrchestrator) window.momentumOrchestrator.learn(desc, category, mine, new Date()); } catch (_) { }
@@ -2143,8 +2132,8 @@ window.openSplitExpense = (prefill = {}) => {
       renderDashboard(); renderAnalysis({ skipHeavyForecast: true });
     });
     $('#sp-share')?.addEventListener('click', () => {
-      const amt2 = parseFloat(String(state.amount).replace(',', '.'));
-      if (!(amt2 > 0) || state.people.length < 2) { showToast('Inserisci importo e almeno due persone prima di condividere.', 'error'); return; }
+      if (total() <= 0 || state.people.length < 2) { showToast('Metti almeno un importo e due persone prima di invitare.', 'error'); return; }
+      if (!splitValid()) { showToast('Le quote di consumo non tornano al totale.', 'error'); return; }
       const g = buildGroup();
       VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
       VaultDAO.save();
