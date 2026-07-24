@@ -24,6 +24,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
+import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
@@ -2311,9 +2312,12 @@ window.openRequestPayment = ({ amount = 0, fromName = '', note = '', momentumLin
 // Costruisce il LINK Momentum brandizzato che apre l'app già sul gruppo. Usa
 // l'origine corrente (stessa app), così a PWA installata o su web funziona
 // uguale. Il codice viaggia nel parametro ?join= (URL-encoded).
+// La base del link è RISOLTA in modo intelligente (share-base.js): base canonica
+// stabile se conosciuta, altrimenti l'origine imparata più stabile, altrimenti
+// quella corrente → il link è preso in automatico e resta valido anche se cambia
+// host/server/dominio. Il riconoscimento in ricezione è comunque per contenuto.
 function buildJoinLink(code) {
-  const base = `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
-  return `${base}?join=${encodeURIComponent(code)}`;
+  return buildShareUrl(VaultDAO.state, location.origin, code, location.pathname);
 }
 
 window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupName = 'la spesa' } = {}) => {
@@ -4120,6 +4124,14 @@ const initApp = () => {
       } catch(err) { console.error(err); }
     });
   }
+
+  // Impara l'origine da cui gira ORA l'app: più è stabile il dominio abituale,
+  // più i link condivisi ci puntano (resolveShareBase) → il link resta valido
+  // anche se un domani l'app è servita anche da un altro host/dominio.
+  try {
+    const next = recordOrigin(VaultDAO.state.shareOrigins, location.origin);
+    if (next !== VaultDAO.state.shareOrigins) { VaultDAO.state.shareOrigins = next; VaultDAO.save(); }
+  } catch (_) { /* niente storage: i link usano comunque l'origine corrente */ }
 
   // Check onboarding state
   const hasOnboarded = localStorage.getItem('omega_core_db');
