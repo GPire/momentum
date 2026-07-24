@@ -33,15 +33,24 @@ test('buildPayoutRequest: PayPal → messaggio con LINK toccabile', () => {
   assert.equal(r.link, 'https://paypal.me/giorgio/20.00EUR');
 });
 
-test('buildPayoutRequest: firma Momentum sobria in coda, ma un solo URL (il pay-link)', () => {
+test('buildPayoutRequest: senza momentumLink → firma testuale, un solo URL (il pay-link)', () => {
   const r = buildPayoutRequest({ method: 'paypal', value: 'giorgio', amount: 20, fromName: 'Anna' });
-  assert.ok(r.message.trimEnd().endsWith(PAYOUT_BRAND_SIGNATURE));
-  // il solo URL nel messaggio resta quello per pagare (nessun secondo link che confonde)
+  assert.match(r.message, new RegExp(PAYOUT_BRAND_SIGNATURE.slice(2, 20)));
   const urls = r.message.match(/https?:\/\/\S+/g) || [];
   assert.equal(urls.length, 1);
   assert.match(urls[0], /paypal\.me/);
-  // brand:false la toglie (controllabile)
   assert.ok(!buildPayoutRequest({ method: 'paypal', value: 'giorgio', amount: 20, brand: false }).message.includes('Momentum'));
+});
+
+test('buildPayoutRequest: con momentumLink → 2 link ETICHETTATI e distinti (paga qui vs vedi su Momentum)', () => {
+  const r = buildPayoutRequest({ method: 'paypal', value: 'giorgio', amount: 20, fromName: 'Anna', momentumLink: 'https://x.y/?join=MSPLIT1:abc' });
+  // pay-link sotto "Puoi pagarmi qui:"
+  assert.match(r.message, /Puoi pagarmi qui:\nhttps:\/\/paypal\.me\/giorgio\/20\.00EUR/);
+  // link Momentum etichettato e separato
+  assert.match(r.message, /Vedi la tua parte 👉 https:\/\/x\.y\/\?join=/);
+  const urls = r.message.match(/https?:\/\/\S+/g) || [];
+  assert.equal(urls.length, 2);
+  assert.equal(r.momentumLink, 'https://x.y/?join=MSPLIT1:abc');
 });
 
 test('buildPayoutRequest: senza valore non promette nulla (chiede come pagare)', () => {

@@ -1896,8 +1896,11 @@ window.openSepaTransfer = (d = {}) => {
   // Messaggio pronto (per richiesta pagamento: intro gentile + dati; per bonifico proprio: i dati)
   // Firma sobria Momentum solo per la richiesta TRA AMICI (d.brand), non per le
   // fatture/bonifici professionali (contesto diverso, resta neutro).
+  const brandLine = d.brand
+    ? `\n\n— conto diviso con Momentum, giusto per tutti${d.momentumLink ? `\nVedi la tua parte 👉 ${d.momentumLink}` : ''}`
+    : '';
   const message = isRequest
-    ? `Ciao, ecco i dati per il pagamento${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\nGrazie!${d.brand ? '\n\n— conto diviso con Momentum, giusto per tutti' : ''}`
+    ? `Ciao, ecco i dati per il pagamento${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\nGrazie!${brandLine}`
     : fallback;
   const subject = isRequest ? `Pagamento${remittance ? ` — ${remittance}` : ''}` : 'Dati bonifico';
   $('#sepa-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(fallback); showToast('Dati del bonifico copiati.', 'success'); });
@@ -2143,7 +2146,10 @@ window.openSplitExpense = (prefill = {}) => {
     document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { if (!state.people.includes(b.dataset.add)) state.people.push(b.dataset.add); render(); }));
     document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; const removed = state.people[i]; delete state.paid[removed]; delete state.owed[removed]; state.people.splice(i, 1); render(); }));
     document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => {
-      window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: state.description || 'la spesa divisa' });
+      // Link alla divisione reale (brandizzato Momentum): l'amico apre e vede la
+      // sua parte. Generato dal gruppo corrente, distinto dal link "paga qui".
+      let mLink = ''; try { mLink = buildJoinLink(encodeGroupShare(buildGroup())); } catch (_) {}
+      window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: state.description || 'la spesa divisa', momentumLink: mLink });
     }));
     document.querySelectorAll('[data-tellamt]').forEach(b => b.addEventListener('click', async () => {
       const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tellamt)} per ${state.description || 'la spesa'}. Mandami l'IBAN così ti giro il bonifico!`;
@@ -2270,15 +2276,15 @@ window.openPayoutSetup = (onDone = null) => {
 // ── CHIEDI UN RIMBORSO (intelligente): usa il metodo salvato, o lo imposta una
 // volta. IBAN → QR SEPA (ricco); PayPal/Revolut/altro → messaggio con LINK
 // toccabile. Fine del vicolo cieco "IBAN vuoto". ──
-window.openRequestPayment = ({ amount = 0, fromName = '', note = '' } = {}) => {
+window.openRequestPayment = ({ amount = 0, fromName = '', note = '', momentumLink = '' } = {}) => {
   const payout = resolvePayout(VaultDAO.state);
-  if (!payout) { window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note })); return; }
+  if (!payout) { window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note, momentumLink })); return; }
   if (payout.method === 'iban') {
-    window.openSepaTransfer({ mode: 'request', brand: true, name: payout.holder || 'Io', iban: payout.value, amount, remittance: note.slice(0, 140), title: `Chiedi ${(+amount).toFixed(2).replace('.', ',')} € a ${fromName || ''}`.trim() });
+    window.openSepaTransfer({ mode: 'request', brand: true, momentumLink, name: payout.holder || 'Io', iban: payout.value, amount, remittance: note.slice(0, 140), title: `Chiedi ${(+amount).toFixed(2).replace('.', ',')} € a ${fromName || ''}`.trim() });
     return;
   }
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const { message, link } = buildPayoutRequest({ ...payout, amount, note, fromName });
+  const { message, link } = buildPayoutRequest({ ...payout, amount, note, fromName, momentumLink });
   let qr = '';
   try { if (link && link.length <= 300) qr = qrSvg(link, { moduleSize: 4, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
   openModal(`
@@ -2296,7 +2302,7 @@ window.openRequestPayment = ({ amount = 0, fromName = '', note = '' } = {}) => {
   $('#rp-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener'));
   $('#rp-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(message); showToast('Messaggio copiato.', 'success'); });
   $('#rp-open')?.addEventListener('click', () => window.open(link, '_blank', 'noopener'));
-  $('#rp-change')?.addEventListener('click', () => window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note })));
+  $('#rp-change')?.addEventListener('click', () => window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note, momentumLink })));
 };
 
 // ── CONDIVIDI UN CODICE (gruppo spese) — a distanza, senza server: il codice
@@ -2524,7 +2530,7 @@ window.openSplitGroup = (openId = null) => {
       } catch (e) { showToast('Non ho potuto aggiungere la spesa: ' + e.message, 'error'); }
     });
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
-    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: g.name })));
+    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => { let mLink = ''; try { mLink = buildJoinLink(encodeGroupShare(g)); } catch (_) {} window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: g.name, momentumLink: mLink }); }));
     document.querySelectorAll('[data-tell]').forEach(b => b.addEventListener('click', async () => { const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tell)} per ${g.name}. Mandami l'IBAN così ti giro il bonifico!`; try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { } }));
     $('#sg-share')?.addEventListener('click', () => window.openShareCode({ code: encodeGroupShare(g), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le spese si uniscono, anche da un altro Paese, senza server.' }));
     $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });

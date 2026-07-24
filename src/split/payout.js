@@ -36,27 +36,31 @@ export function buildPayoutLink(method, value, amount) {
 
 // Firma di brand SOBRIA per il messaggio di richiesta. Scelta neuro-copy: chiedere
 // soldi a un amico è un momento sociale delicato → niente brand gridato (sembra
-// spam, aggiunge frizione). Una riga sola, in coda, che fa DOPPIO lavoro: marca
-// Momentum e incornicia l'equità ("l'ha diviso l'app, non sono io a essere tirchio")
-// → riduce la frizione psicologica invece di aumentarla. Nessun secondo URL: il
-// solo link cliccabile resta quello per pagare (mai confondere dove si paga).
+// spam, aggiunge frizione). Una riga in coda che fa DOPPIO lavoro: marca Momentum
+// e incornicia l'equità ("l'ha diviso l'app, non sono io a essere tirchio") →
+// riduce la frizione psicologica. Se c'è il link alla divisione (momentumLink),
+// una seconda riga ETICHETTATA e separata invita a vederla su Momentum (loop di
+// scoperta/crescita) — mai in competizione col link "paga qui" (etichette chiare).
 export const PAYOUT_BRAND_SIGNATURE = '— conto diviso con Momentum, giusto per tutti';
 
 // Messaggio di richiesta pronto (WhatsApp/copia), gentile e chiaro, con l'importo
-// e IL MODO per pagare (link se c'è). `brand` (default true) aggiunge la firma
-// sobria. Ritorna { message, link, amount }.
-export function buildPayoutRequest({ method = 'iban', value = '', holder = '', amount = 0, note = '', fromName = '', brand = true } = {}) {
+// e IL MODO per pagare (payLink) e, opzionale, il link alla divisione su Momentum
+// (momentumLink) per l'amico. `brand` (default true) aggiunge la firma sobria.
+// Ritorna { message, link (=payLink), momentumLink, amount }.
+export function buildPayoutRequest({ method = 'iban', value = '', holder = '', amount = 0, note = '', fromName = '', brand = true, momentumLink = '' } = {}) {
   const eur = `${(Math.round((+amount || 0) * 100) / 100).toFixed(2).replace('.', ',')} €`;
-  const link = buildPayoutLink(method, value, amount);
+  const payLink = buildPayoutLink(method, value, amount);
   const hi = fromName ? `Ciao ${fromName}, ` : 'Ciao, ';
   const forWhat = note ? ` per ${note}` : '';
   let how;
-  if (method === 'iban') how = value ? `Puoi farmi un bonifico:\nIBAN ${value}${holder ? `\nIntestato a ${holder}` : ''}` : 'Mandami tu come preferisci pagare.';
-  else if (link) how = `Puoi pagarmi qui:\n${link}`;
+  if (method === 'iban') how = value ? `Puoi pagarmi con un bonifico:\nIBAN ${value}${holder ? `\nIntestato a ${holder}` : ''}` : 'Mandami tu come preferisci pagare.';
+  else if (payLink) how = `Puoi pagarmi qui:\n${payLink}`;
   else if (method === 'satispay') how = `Puoi pagarmi su Satispay${value ? ` (${value})` : ''}.`;
   else how = value ? `Puoi pagarmi qui: ${value}` : 'Dimmi tu come preferisci pagare.';
-  const message = `${hi}mi devi ${eur}${forWhat}. ${how}\nGrazie!${brand ? `\n\n${PAYOUT_BRAND_SIGNATURE}` : ''}`;
-  return { message, link, amount: Math.round((+amount || 0) * 100) / 100 };
+  const mLine = (brand && momentumLink) ? `\n\n${PAYOUT_BRAND_SIGNATURE}\nVedi la tua parte 👉 ${momentumLink}`
+    : brand ? `\n\n${PAYOUT_BRAND_SIGNATURE}` : '';
+  const message = `${hi}mi devi ${eur}${forWhat}. ${how}\nGrazie!${mLine}`;
+  return { message, link: payLink, momentumLink: momentumLink || null, amount: Math.round((+amount || 0) * 100) / 100 };
 }
 
 // Risolve il metodo di pagamento configurato: il profilo esplicito payout se
