@@ -1911,11 +1911,35 @@ function renderTaxSettings() {
 
   if (regime) {
     const label = (REGIMI[regime] && REGIMI[regime].label.split('(')[0].trim()) || regime;
+    // PREDITTIVO E GLANCEABLE (comprensibile a colpo d'occhio, anche da un
+    // bambino): a questo ritmo quanto fatturi quest'anno e quanto mettere da
+    // parte. Solo se ci sono già fatture; onesto: è una proiezione sul ritmo.
+    let predLine = '';
+    try {
+      const learned = VaultDAO.state.taxLearned || {};
+      const model = (typeof window !== 'undefined' && window.__incomeModel) || null;
+      const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
+      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model });
+      if (proj && proj.invoicedYTD > 0) {
+        const eur = (n) => `${Math.round(n).toLocaleString('it-IT')}€`;
+        predLine = `<div class="grid grid-cols-2 gap-2 mb-3">
+          <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2">
+            <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">A questo ritmo, quest'anno</p>
+            <p class="text-base font-black font-mono text-white">~${eur(proj.annualizedRevenue)}</p>
+          </div>
+          <div class="rounded-xl border border-[var(--red)]/25 bg-[var(--red)]/5 px-3 py-2">
+            <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">Da mettere da parte</p>
+            <p class="text-base font-black font-mono text-[var(--red)]">~${eur(proj.estimatedAnnualTax)}</p>
+          </div>
+        </div>`;
+      }
+    } catch (_) { /* niente proiezione: si mostra comunque il resto */ }
     body.innerHTML = `
       <div class="flex items-center gap-2 text-xs text-emerald-300 mb-3">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
-        <span>Regime attivo: <b>${label}</b>. Calcolo l'accantonamento nella scheda Analisi.</span>
+        <span>Regime attivo: <b>${label}</b>. Il dettaglio mese per mese è nella scheda Analisi.</span>
       </div>
+      ${predLine}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         <button onclick="window.openCreateInvoice()" class="btn-action btn-primary justify-center font-bold"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>
         <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between"><span>Cambia regime fiscale</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
