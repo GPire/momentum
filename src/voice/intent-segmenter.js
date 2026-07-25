@@ -91,7 +91,11 @@ function startsNewAction(tokens, i, cur) {
   //    dall'ausiliare o da "i" inglese (già coperti dalle due righe sopra).
   if (HO_AUX.test(w) && SPEND_VERB.test(next)) return true;
   if (w === 'i' && SPEND_VERB.test(next)) return true;
-  if (SPEND_VERB.test(w) && !HO_AUX.test(prev) && prev !== 'i') return true;
+  // Verbo nudo ("pagato 30 …" senza "ho"): apre un'azione SOLO se non preceduto
+  // dall'ausiliare/"i" E non da articolo/preposizione — altrimenti è un
+  // SOSTANTIVO omografo ("di spesa" = la spesa, non spendere; "la presa").
+  if (SPEND_VERB.test(w) && !HO_AUX.test(prev) && prev !== 'i' &&
+      !/^(di|del|della|dello|dei|degli|delle|a|per|il|lo|la|un|uno|una|le|gli|i)$/i.test(prev)) return true;
 
   // 2) Sostantivo di appuntamento / verbo di promemoria / divisione.
   //    Ma NON se è preceduto da articolo/preposizione ("una riunione", "di

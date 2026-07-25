@@ -5,6 +5,7 @@ import { VaultDAO } from '../core/vault.js';
 import { showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
 import { segmentIntents, FUZZY_AMOUNTS } from './intent-segmenter.js';
+import { predictAmount } from '../predict/amount-memory.js';
 
 // ==========================================
 // VOICECORE™ v2 (🎙️)
@@ -110,8 +111,25 @@ const VoiceCore = {
           renderCalendarEvents();
         }
 
+        // STIMA PREDITTIVA degli importi mancanti: una spesa detta senza cifra
+        // ("ho preso il caffè") prende l'importo TIPICO dalla tua storia (memoria
+        // importi) — mai un numero inventato: se non c'è uno storico affidabile,
+        // predictAmount ritorna null e la voce resta "senza importo" (segnalata,
+        // non registrata a caso). Onestà + anti-attrito.
+        const stimati = [];
+        const senzaImporto = [];
+        results.forEach(r => {
+          if (r.intent === 'transaction' && r.amountMissing) {
+            const pred = predictAmount(r.category, r.description, VaultDAO.state.transactions);
+            if (pred && pred.amount > 0) { r.amount = pred.amount; r.amountEstimated = true; delete r.amountMissing; stimati.push(r); }
+            else senzaImporto.push(r);
+          }
+        });
+
         const splits = results.filter(r => r.intent === 'split');
-        const txs = results.filter(r => r.intent === 'transaction');
+        // Solo le transazioni con un importo (stimato o detto) si registrano;
+        // quelle senza importo stimabile si SEGNALANO, non si inventano.
+        const txs = results.filter(r => r.intent === 'transaction' && !r.amountMissing);
 
         if (splits.length) {
           // Una DIVISIONE apre il suo modulo (importi/persone si aggiustano lì e
@@ -141,12 +159,22 @@ const VoiceCore = {
           }
         }
 
-        const summary = results.map(r =>
-          r.intent === 'transaction' ? `${r.type} ${r.amount}€`
+        // Riepilogo semplice e leggibile (feedback chiaro, comprensibile da
+        // chiunque): cosa ho capito, cosa ho stimato, cosa mi manca.
+        const usable = results.filter(r => !(r.intent === 'transaction' && r.amountMissing));
+        const summary = usable.map(r =>
+          r.intent === 'transaction' ? `${r.description} ${r.amount}€${r.amountEstimated ? ' (stima)' : ''}`
           : r.intent === 'split' ? `dividi ${r.amount ? r.amount + '€ ' : ''}con ${r.people.filter(p => p !== 'Io').join(', ') || '…'}`
-          : `${r.intent === 'appointment' ? 'appuntamento' : 'promemoria'}: ${r.description}`).join(' + ');
+          : `${r.intent === 'appointment' ? 'appuntamento' : 'promemoria'}: ${r.description}`).join(' · ');
         AudioSynth.play('success');
-        showToast(`Riconosciuto: ${summary}`, 'success');
+        showToast(`Fatto: ${summary}`, 'success');
+        // Avvisi ONESTI e distinti, così l'utente sa cosa controllare.
+        if (stimati.length) {
+          showToast(`${stimati.length === 1 ? 'Un importo stimato' : stimati.length + ' importi stimati'} dalla tua storia: controlla che siano giusti.`, 'info');
+        }
+        if (senzaImporto.length) {
+          showToast(`Non ho l'importo di: ${senzaImporto.map(r => r.description).join(', ')}. Dimmelo e le registro.`, 'info');
+        }
       } else {
         AudioSynth.play('friction');
         showToast("Non ho capito l'importo o la descrizione.", "error");
@@ -284,7 +312,15 @@ const VoiceParser = {
     }
 
     let amount = this.extractAmount(lowerNoTime);
-    if (!amount) return null;
+    // ANTI-ATTRITO PREDITTIVO: una voce con un VERBO di spesa/entrata ma senza
+    // cifra ("ho preso il caffè") prima veniva persa in silenzio. Ora la teniamo
+    // marcata `amountMissing`: il chiamante prova a STIMARE l'importo dalla tua
+    // storia (memoria importi) e te lo mostra come stima da confermare — mai un
+    // numero inventato. Senza né importo né verbo è rumore → si scarta.
+    const TX_VERB = /\b(comprat[oa]|pagat[oa]|spes[oa]|pres[oa]|acquistat[oa]|investit[oa]|ricevut[oa]|guadagnat[oa]|mess[oa]|incassat[oa]|accantonat[oa]|risparmiat[oa]|spent|paid|bought|got|received|invested)\b/i;
+    const amountMissing = !amount;
+    if (!amount && !TX_VERB.test(lower)) return null;
+    amount = amount || 0;
 
     let type = 'uscita';
     if (['stipendio', 'entrata', 'guadagnato', 'salary', 'earned', 'income', 'received', 'got paid', 'paid me', 'payment received', 'i earned', 'accredito', 'accreditati'].some(w => lower.includes(w))) type = 'entrata';
@@ -360,6 +396,7 @@ const VoiceParser = {
       type,
       category: catId,
       description: descIsMeaningful ? desc : (type === 'entrata' ? "Entrata Vocale" : type === 'invest' ? "Investimento Vocale" : "Spesa Vocale"),
+      ...(amountMissing ? { amountMissing: true } : {}),
     };
   },
 

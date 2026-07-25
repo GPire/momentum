@@ -153,3 +153,28 @@ test('descrizione dello split pulita dai connettivi: "dividi 30 di pizza con Ann
   assert.equal(r[0].description.toLowerCase(), 'pizza');
   assert.deepEqual(r[0].people, ['Io', 'Anna']);
 });
+
+// ── RECUPERO PREDITTIVO DELL'IMPORTO — anti-attrito onesto ──
+// Una spesa con un VERBO ma senza cifra prima veniva persa in silenzio. Ora è
+// marcata amountMissing (il chiamante la stima dalla storia o la segnala).
+test('spesa con verbo ma SENZA importo → non persa, marcata amountMissing', () => {
+  const r = VoiceParser.parse('ho preso il caffè');
+  assert.ok(r && r.length === 1);
+  assert.equal(r[0].intent, 'transaction');
+  assert.equal(r[0].amount, 0);
+  assert.equal(r[0].amountMissing, true);
+});
+
+test('mix: una voce con importo + una senza → entrambe presenti (una amountMissing)', () => {
+  const r = VoiceParser.parse('ho comprato il pane e ho speso 20 euro di benzina');
+  const tx = r.filter(x => x.intent === 'transaction');
+  assert.equal(tx.length, 2);
+  assert.equal(tx.filter(t => t.amountMissing).length, 1);
+  assert.equal(tx.filter(t => t.amount === 20).length, 1);
+});
+
+test('rumore senza verbo né importo → nessuna transazione inventata', () => {
+  const r = VoiceParser.parse('ciao come stai oggi');
+  const tx = (r || []).filter(x => x.intent === 'transaction');
+  assert.equal(tx.length, 0);
+});
