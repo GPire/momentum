@@ -508,3 +508,9 @@ Registrati su richiesta esplicita dell'utente ("salva ognuno nel piano e valuta 
 2. Micro-animazioni curate ovunque (anti-attrito) — pass di design elemento-per-elemento, reduced-motion.
 3. Sync live mesh P2P WebRTC — canale vivo sopra il merge CRDT già fatto; networking profondo, non verificabile su questo Mac.
 4. Potenziare Momentum AI/NeuroSym/Core con benchmark reali — leva concreta da scopare punto per punto (es. cablare predictHybrid in produzione).
+
+### Angolo PROPRIETARIO/ARCHITETTURALE di ogni blocco (per essere la risposta del mercato, onesto e costruibile)
+1. **Primo avvio auto-addestrante** — ogni risposta = SEGNALE che semina i PRIORI di più modelli insieme (non solo NeuralNexus.initPriorWeights già presente: estendere a safe-to-spend, advisor-bandit, categorizzatore). Il motore parte GIÀ caldo e personalizzato dal primo tocco — i concorrenti partono freddi. Progressivo: se l'utente abbandona a metà, il parziale è già utile (anti-abbandono strutturale). Micro-animazioni con reward dopaminico calibrato (neurodesign).
+2. **Micro-animazioni** — NON sparse: design-token di motion centralizzato (durate/curve/neurocolori) mappato agli INTENTI (conferma/feedback/progresso), reduced-motion nativo, budget 60fps senza layout-thrash. Coerenza = percezione di qualità = ritenzione.
+3. **Sync live mesh P2P** — sopra il CRDT appena costruito: WebRTC data-channel serverless, signaling minimo via link/QR, anti-entropy gossip (digest→solo delta), reputazione anti-poisoning (già nel mesh). La promessa che Splitwise (cloud) NON può fare on-device: "le spese si uniscono da sole, senza server, senza account".
+4. **Core/NeuroSym** — leva reale = più EVIDENZA non più matematica (lezione 2026-07-22): cablare in produzione predictHybrid (gating+pooling, validato +1.8pt a bassa evidenza), federazione metadati affidabilità via mesh, benchmark riproducibile SEMPRE (mai etichette). Surface-bridge/federazione = l'architettura che fornisce l'evidenza.
