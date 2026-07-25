@@ -473,6 +473,26 @@
       .g-progress span { transition: none; }
     }
 
+    /* — STARFIELD in CSS PURO (niente canvas/JS: indistruttibile, gira anche su
+         un iPhone di prima generazione, composito su GPU). 3 livelli di
+         profondità con twinkle e deriva lenta; ::after duplica il livello a
+         +1600px per una deriva senza cuciture. Responsive (copre schermi grandi).
+         reduced-motion → tutto fermo. — */
+    .starfield { position: absolute; inset: 0; overflow: hidden; }
+    .star-layer { position: absolute; top: 0; left: 0; border-radius: 50%; background: transparent; will-change: transform, opacity; }
+    .star-layer::after { content: ""; position: absolute; top: 1600px; left: 0; width: inherit; height: inherit; border-radius: 50%; box-shadow: inherit; }
+    .sl-small { width: 1px; height: 1px; animation: sf-drift 110s linear infinite, sf-tw-a 4.5s ease-in-out infinite;
+      box-shadow: 2543px 893px #fff, 829px 946px #fff, 817px 3px #fff, 2096px 194px #fff, 201px 752px #fff, 1793px 237px #fff, 1667px 1512px #fff, 291px 1489px #fff, 166px 1355px #fff, 936px 39px #fff, 205px 836px #fff, 384px 561px #fff, 1194px 3px #fff, 1059px 741px #fff, 1756px 1023px #fff, 393px 658px #fff, 2155px 114px #fff, 2380px 536px #fff, 376px 1257px #fff, 1779px 125px #fff, 14px 1498px #fff, 837px 786px #fff, 423px 538px #fff, 598px 1379px #fff, 1365px 1055px #fff, 1372px 861px #fff, 294px 173px #fff, 1372px 289px #fff, 1122px 1341px #fff, 1133px 473px #fff, 2268px 454px #fff, 465px 1115px #fff, 1430px 1334px #fff, 1835px 355px #fff, 1330px 1478px #fff, 1541px 443px #fff, 449px 1099px #fff, 2222px 1011px #fff, 1699px 149px #fff, 1183px 890px #fff, 180px 365px #fff, 1363px 359px #fff, 496px 410px #fff, 30px 535px #fff, 2519px 244px #fff, 975px 616px #fff, 2136px 1465px #fff, 1502px 474px #fff, 563px 328px #fff, 735px 1449px #fff, 27px 1463px #fff, 810px 1434px #fff, 1638px 671px #fff, 1354px 1424px #fff, 1222px 972px #fff, 2045px 737px #fff, 2206px 116px #fff, 1154px 1454px #fff, 1931px 1296px #fff, 2074px 597px #fff, 2405px 1188px #fff, 979px 12px #fff, 1539px 23px #fff, 1590px 665px #fff, 823px 342px #fff, 487px 863px #fff, 352px 1229px #fff, 293px 1232px #fff, 538px 1483px #fff, 760px 1412px #fff, 942px 237px #fff, 3px 270px #fff, 2454px 1512px #fff, 1567px 1336px #fff, 914px 300px #fff, 178px 435px #fff, 98px 1231px #fff, 1164px 982px #fff, 205px 255px #fff, 424px 793px #fff, 1836px 78px #fff, 2275px 1388px #fff, 912px 833px #fff, 174px 877px #fff, 943px 1092px #fff, 1011px 722px #fff, 285px 31px #fff, 719px 279px #fff, 2528px 404px #fff, 593px 1401px #fff, 2288px 810px #fff, 572px 161px #fff, 1578px 1194px #fff, 1114px 1140px #fff, 242px 1409px #fff, 1315px 370px #fff, 1350px 147px #fff, 220px 1405px #fff, 1569px 1589px #fff, 2431px 1177px #fff, 1550px 629px #fff, 1392px 1067px #fff, 2154px 723px #fff, 1659px 1301px #fff, 2084px 518px #fff, 173px 1019px #fff, 1723px 1445px #fff, 1221px 58px #fff, 330px 949px #fff, 450px 49px #fff, 212px 131px #fff, 1623px 635px #fff, 1386px 134px #fff, 1558px 1117px #fff, 1727px 103px #fff, 2073px 794px #fff, 298px 1340px #fff, 1497px 1446px #fff, 1063px 775px #fff, 1246px 807px #fff, 785px 856px #fff, 1484px 1005px #fff, 926px 594px #fff, 2093px 1406px #fff, 2296px 861px #fff, 856px 637px #fff, 727px 1260px #fff, 1218px 724px #fff, 1766px 232px #fff, 1910px 371px #fff, 1872px 1101px #fff, 936px 1034px #fff, 1246px 1107px #fff, 910px 152px #fff, 2231px 317px #fff, 2485px 971px #fff, 182px 459px #fff, 2311px 745px #fff, 508px 1061px #fff, 2053px 361px #fff; }
+    .sl-mid { width: 1.6px; height: 1.6px; animation: sf-drift 170s linear infinite, sf-tw-b 6.5s ease-in-out infinite;
+      box-shadow: 2443px 289px #eef, 1740px 1155px #eef, 2047px 1462px #eef, 714px 1209px #eef, 514px 1146px #eef, 1873px 1440px #eef, 2109px 1443px #eef, 338px 620px #eef, 1959px 828px #eef, 406px 1153px #eef, 1605px 1171px #eef, 2227px 350px #eef, 402px 8px #eef, 1251px 1327px #eef, 1835px 173px #eef, 1323px 1458px #eef, 1823px 996px #eef, 220px 987px #eef, 209px 596px #eef, 743px 79px #eef, 655px 834px #eef, 1945px 1108px #eef, 1316px 1503px #eef, 2405px 251px #eef, 1248px 747px #eef, 794px 1235px #eef, 387px 950px #eef, 1259px 1586px #eef, 2344px 1124px #eef, 1619px 12px #eef, 1292px 139px #eef, 2180px 51px #eef, 2507px 31px #eef, 1550px 314px #eef, 634px 812px #eef, 1600px 1596px #eef, 1239px 632px #eef, 36px 1268px #eef, 768px 1430px #eef, 670px 529px #eef, 1309px 1185px #eef, 45px 1527px #eef, 1476px 42px #eef, 181px 330px #eef, 2525px 600px #eef, 219px 303px #eef, 482px 1144px #eef, 369px 449px #eef, 1738px 1322px #eef, 957px 505px #eef, 1133px 1577px #eef, 1265px 1226px #eef, 1485px 927px #eef, 9px 560px #eef, 1223px 1182px #eef, 632px 1004px #eef, 690px 1292px #eef, 1150px 169px #eef, 1124px 270px #eef, 2050px 782px #eef; }
+    .sl-big { width: 2px; height: 2px; animation: sf-drift 240s linear infinite, sf-tw-c 5.5s ease-in-out infinite;
+      box-shadow: 376px 1108px #c7d2fe, 384px 838px #fff, 429px 212px #a5f3fc, 2514px 403px #fff, 1652px 714px #c7d2fe, 1063px 154px #fff, 1116px 415px #a5f3fc, 876px 679px #fff, 1148px 454px #c7d2fe, 1310px 690px #fff, 232px 1354px #a5f3fc, 909px 777px #fff, 1998px 736px #c7d2fe, 1016px 1428px #fff, 2439px 1223px #a5f3fc, 1203px 1353px #fff, 1263px 1431px #c7d2fe, 422px 1160px #fff, 517px 1543px #a5f3fc, 57px 254px #fff, 1244px 1524px #c7d2fe, 189px 1553px #fff; }
+    @keyframes sf-drift { from { transform: translateY(0); } to { transform: translateY(-1600px); } }
+    @keyframes sf-tw-a { 0%,100% { opacity: .55; } 50% { opacity: .25; } }
+    @keyframes sf-tw-b { 0%,100% { opacity: .75; } 50% { opacity: .4; } }
+    @keyframes sf-tw-c { 0%,100% { opacity: .95; } 50% { opacity: .55; } }
+    @media (prefers-reduced-motion: reduce) { .star-layer { animation: none !important; opacity: .6 !important; } }
+
     /* Interactive Jar Liquid widget */
     .jar-container { position: relative; width: 70px; height: 100px; border: 3px solid var(--on-surface-secondary); border-radius: 0.75rem 0.75rem 2rem 2rem; overflow: hidden; background: rgba(255,255,255,0.02); }
     .jar-liquid { position: absolute; bottom: 0; left: 0; right: 0; background: var(--liquid-gradient); transition: height 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -510,7 +530,8 @@
        <div class="absolute inset-0" style="background:
             radial-gradient(60% 55% at 27% 30%, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0) 60%),
             radial-gradient(55% 50% at 76% 72%, rgba(34,211,238,0.12) 0%, rgba(34,211,238,0) 60%);"></div>
-       <canvas id="genesis-canvas" class="absolute inset-0 w-full h-full"></canvas>
+       <!-- Stelle in CSS puro (3 livelli): nessun canvas/JS, indistruttibile. -->
+       <div class="starfield"><div class="star-layer sl-small"></div><div class="star-layer sl-mid"></div><div class="star-layer sl-big"></div></div>
     </div>
     <!-- Scrim scuro radiale DIETRO il contenuto: garantisce che la scritta
          "Momentum" e i pulsanti restino sempre leggibili sopra le stelle, e
