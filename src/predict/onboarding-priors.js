@@ -24,9 +24,17 @@ export function derivePriors(risk = 'bilanciato', horizon = 'medio') {
   const baseEmergency = r === 'conservativo' ? 9 : r === 'aggressivo' ? 4 : 6;
   const emergencyMonths = hz === 'breve' ? baseEmergency + 2 : hz === 'lungo' ? Math.max(3, baseEmergency - 1) : baseEmergency;
   const riskFloor = r === 'conservativo' ? 0.35 : r === 'aggressivo' ? 0.15 : 0.25;
-  // Tono dei nudge di spesa (aiAggression): un profilo prudente vuole essere
-  // avvisato di più (advisor), uno aggressivo vuole meno interruzioni (zen).
-  const aiAggression = r === 'conservativo' ? 'advisor' : r === 'aggressivo' ? 'zen' : 'advisor';
+  // QUANTO L'APP TI FRENA SULLE SPESE (aiAggression) — derivato in modo
+  // PREDITTIVO da ENTRAMBE le dimensioni, non dal solo rischio:
+  //  · 'predator' (freno forte) se ti servono presto (orizzonte breve) o sei
+  //    prudente → guardrail che proteggono il bisogno a breve;
+  //  · 'zen' (poche interruzioni) se sei aggressivo E costruisci a lungo →
+  //    massima libertà, l'app non ti sta addosso;
+  //  · 'advisor' (equilibrato) in tutti gli altri casi.
+  // Onesto: è un punto di PARTENZA su misura, sempre modificabile in Impostazioni.
+  let aiAggression = 'advisor';
+  if (hz === 'breve' || r === 'conservativo') aiAggression = 'predator';
+  else if (r === 'aggressivo' && hz === 'lungo') aiAggression = 'zen';
   return { risk: r, horizon: hz, monthlyBudget, investFraction, emergencyMonths, riskFloor, aiAggression };
 }
 

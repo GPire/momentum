@@ -4249,10 +4249,21 @@ const initApp = () => {
   // deploy nuovo non li tocca (vedi runSchemaMigrations in vault.js per la
   // sicurezza sui cambi di STRUTTURA dei dati tra versioni).
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
+    // updateViaCache:'none' → il browser NON usa la sua cache HTTP per sw.js:
+    // controlla SEMPRE se c'è un service worker nuovo (fix del problema ricorrente
+    // "vedo ancora la versione vecchia"). Combinato con skipWaiting/clients.claim
+    // in sw.js e il reload su controllerchange, un deploy nuovo arriva da solo.
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
       .then(reg => {
         console.log('ServiceWorker registered:', reg);
-        setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+        // Controlla aggiornamenti SUBITO e a ogni RIAPERTURA/ritorno all'app
+        // (focus / tab di nuovo visibile), non solo ogni ora: appena riapri
+        // Momentum prende il codice nuovo, senza aspettare né azioni manuali.
+        const checkUpdate = () => reg.update().catch(() => {});
+        checkUpdate();
+        setInterval(checkUpdate, 30 * 60 * 1000);
+        window.addEventListener('focus', checkUpdate);
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
         // FEEDBACK aggiornamento: quando è pronta una NUOVA versione (non il
         // primo install), lo diciamo all'utente e rassicuriamo sui dati. Il
         // riallineamento dei modelli avviene da solo dopo il reload

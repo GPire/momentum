@@ -8,7 +8,16 @@ test('derivePriors: profili diversi → config diverse e sensate', () => {
   assert.ok(cons.investFraction < aggr.investFraction, 'prudente investe meno');
   assert.ok(cons.emergencyMonths > aggr.emergencyMonths, 'prudente più cuscinetto');
   assert.ok(cons.riskFloor > aggr.riskFloor);
-  assert.equal(aggr.aiAggression, 'zen', 'aggressivo = meno interruzioni');
+});
+
+test('freno spese (aiAggression) predittivo da rischio E orizzonte', () => {
+  // orizzonte breve → freno forte a prescindere dal rischio (protegge il breve)
+  assert.equal(derivePriors('aggressivo', 'breve').aiAggression, 'predator');
+  assert.equal(derivePriors('conservativo', 'lungo').aiAggression, 'predator', 'prudente = guardrail');
+  // aggressivo + lungo → poche interruzioni (costruisci libero)
+  assert.equal(derivePriors('aggressivo', 'lungo').aiAggression, 'zen');
+  // caso equilibrato
+  assert.equal(derivePriors('bilanciato', 'medio').aiAggression, 'advisor');
 });
 
 test('derivePriors: orizzonte breve alza i mesi di emergenza', () => {
