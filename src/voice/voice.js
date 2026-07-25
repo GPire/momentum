@@ -4,6 +4,7 @@ import { AudioSynth } from '../core/audio.js';
 import { VaultDAO } from '../core/vault.js';
 import { showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
+import { segmentIntents, FUZZY_AMOUNTS } from './intent-segmenter.js';
 
 // ==========================================
 // VOICECORE™ v2 (🎙️)
@@ -162,15 +163,6 @@ const VoiceCore = {
   }
 };
 
-const FUZZY_AMOUNTS = {
-  'uno': 1, 'due': 2, 'tre': 3, 'quattro': 4, 'cinque': 5, 'sei': 6, 'sette': 7, 'otto': 8, 'nove': 9, 'dieci': 10,
-  'venti': 20, 'trenta': 30, 'quaranta': 40, 'cinquanta': 50, 'sessanta': 60, 'settanta': 70, 'ottanta': 80, 'novanta': 90,
-  'cento': 100, 'duecento': 200, 'trecento': 300, 'quattrocento': 400, 'cinquecento': 500, 'seicento': 600, 'settecento': 700, 'ottocento': 800, 'novecento': 900,
-  'mille': 1000, 'mila': 1000, 'duemila': 2000, 'tremila': 3000, 'cinquemila': 5000, 'diecimila': 10000,
-  'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-  'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90, 'hundred': 100, 'thousand': 1000
-};
-
 const VoiceParser = {
   // Punto d'ingresso: gestisce frasi composte ("ho speso 20 euro dal
   // panettiere e ricordami di pagare l'affitto domani") scomponendole
@@ -178,7 +170,10 @@ const VoiceParser = {
   // Ritorna un array di risultati (anche con un solo elemento per le
   // frasi semplici) — il chiamante deve iterare, non assumere un solo esito.
   parse(text) {
-    const clauses = this._splitClauses(text);
+    // Segmentazione AD ANCORAGGIO (src/voice/intent-segmenter.js): un passaggio
+    // unico che non frammenta le descrizioni e riconosce ogni azione dalla sua
+    // ancora — regge decine di azioni miste (spese + appuntamenti) in una frase.
+    const clauses = segmentIntents(text);
     let results = clauses.map(c => this._parseClause(c)).filter(Boolean);
     results = this._resolveSplitAnaphora(results);
     return results.length ? results : null;
@@ -210,47 +205,6 @@ const VoiceParser = {
       out.push(r);
     }
     return out;
-  },
-
-  // Divide su connettivi " e " / " and " SOLO quando sembrano separare due
-  // azioni distinte (euristica reale: la seconda metà contiene un verbo
-  // di azione o un numero/importo proprio, altrimenti non spezza — evita
-  // di rompere frasi tipo "pane e latte" che sono un'unica spesa).
-  _splitClauses(text) {
-    const actionWords = /(ricordami|ricorda|promemoria|sveglia|remind|i spent|i paid|i got|i received|i invested|appuntamento|appointment|meeting|fissa|dentista|visita|dividi(?:amo|la|lo|le|li)?|dividere|spartisci|spartire|split|ho\s+(comprato|pagato|speso|preso|acquistato|investito|ricevuto|guadagnato|messo))/i;
-    // 1) Protegge i decimali detti a voce: "12 e 50" / "3 e 90" → 12.50 / 3.90
-    //    (numero 1-4 cifre + "e" + esattamente 2 cifre) PRIMA di splittare su
-    //    "e", altrimenti "50" verrebbe letto come un secondo importo separato.
-    let t = text.replace(/\b(\d{1,4})\s+e\s+(\d{2})\b(?!\s*\d)/gi, '$1.$2');
-    // 1b) "mille e duecento", "cento e cinquanta": due numeri-parola uniti da
-    //     "e" sono UN solo importo → tolgo la "e" così restano nella stessa
-    //     clausola (il word-sum li somma: 1000+200=1200) e non vengono spezzati.
-    const NUM = Object.keys(FUZZY_AMOUNTS).join('|');
-    t = t.replace(new RegExp('\\b(' + NUM + ')\\s+e\\s+(?=(?:' + NUM + ')\\b)', 'gi'), '$1 ');
-    // 2) Inserisce un confine esplicito quando due azioni sono concatenate SENZA
-    //    connettivo ("ho pagato 30 di benzina ho comprato 15 di libri").
-    t = t.replace(/\s+(?=(?:ho|hai|abbiamo)\s+(?:comprato|pagato|speso|preso|acquistato|investito|ricevuto|guadagnato|messo)\b)/gi, ' ||| ');
-    // 3) Separatori naturali: e / ed / and / poi / then / inoltre / virgola / ;
-    const parts = t.split(/\s*\|\|\|\s*|\s*[,;]\s*|\s+(?:ed?|and|poi|then|inoltre|e\s+poi)\s+/i).filter(p => p && p.trim());
-    if (parts.length <= 1) return [t];
-
-    const hasOwnAmount = (s) => /\d/.test(s) || Object.keys(FUZZY_AMOUNTS).some(w => new RegExp('\\b' + w + '\\b', 'i').test(s));
-    const clauses = [];
-    let current = parts[0];
-    for (let i = 1; i < parts.length; i++) {
-      const p = parts[i];
-      // Nuova clausola se: (a) contiene una parola d'azione esplicita, oppure
-      // (b) porta un PROPRIO importo E la clausola corrente ne ha già uno
-      // (così non spezzo "pane e latte 5€", un solo importo per due voci).
-      if (actionWords.test(p) || (hasOwnAmount(p) && hasOwnAmount(current))) {
-        clauses.push(current);
-        current = p;
-      } else {
-        current += ' e ' + p; // stessa azione, resta unita
-      }
-    }
-    clauses.push(current);
-    return clauses;
   },
 
   // Estrae un orario esplicito ("alle 15", "alle 7", "at 3pm") PRIMA di

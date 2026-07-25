@@ -28,6 +28,7 @@ import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
+import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { chat as chatMultilingual } from './ai/chat.js';
@@ -1342,35 +1343,43 @@ window.toggleSound = () => {
 window.addCalendarEvent = () => {
   try {
     const title = $('#ev-title').value.trim();
-    const amount = parseFloat($('#ev-amount').value);
+    const note = ($('#ev-note')?.value || '').trim();
+    const amountRaw = parseFloat($('#ev-amount').value);
+    const amount = (!isNaN(amountRaw) && amountRaw > 0) ? amountRaw : 0; // importo FACOLTATIVO
     const dateStr = $('#ev-date').value;
-    
-    if (!title || isNaN(amount) || amount <= 0 || !dateStr) {
-      showToast("Dati scadenza non validi.", "error");
+
+    // Serve almeno un cosa + una data. L'importo NON è obbligatorio: un
+    // appuntamento (dentista, riunione) è valido senza cifra.
+    if (!title || !dateStr) {
+      showToast("Scrivi cosa e quando (l'importo è facoltativo).", "error");
       AudioSynth.play('friction');
       return;
     }
-    
+
     const ev = {
       id: Date.now() + Math.random(),
       title,
+      note,
       amount,
       date: dateStr,
       completed: false,
+      // Senza importo è un appuntamento/promemoria; con importo una scadenza.
+      intent: amount > 0 ? 'deadline' : 'appointment',
       category: 'scadenza'
     };
-    
+
     if (!VaultDAO.state.events) VaultDAO.state.events = [];
     VaultDAO.state.events.push(ev);
     VaultDAO.save();
-    
+
     $('#ev-title').value = '';
+    if ($('#ev-note')) $('#ev-note').value = '';
     $('#ev-amount').value = '';
     $('#ev-date').value = '';
-    
+
     window.renderCalendarEvents();
     AudioSynth.play('success');
-    showToast("Promemoria pianificato.", "success");
+    showToast(amount > 0 ? "Scadenza pianificata." : "Appuntamento aggiunto.", "success");
   } catch(err) { console.error(err); }
 };
 
@@ -1410,22 +1419,50 @@ window.renderCalendarEvents = () => {
     return;
   }
 
-  all.sort((a,b) => new Date(a.date) - new Date(b.date));
+  // Righe normalizzate dal modulo puro (src/predict/calendar-format.js):
+  // etichetta corretta anche per gli eventi da VOCE (che hanno description, non
+  // title), appuntamenti NON finanziari (niente "−0,00 €"), nota estesa, ordine
+  // per data con i completati in fondo. Il DOM resta qui, la logica è testata.
+  const rows = buildCalendarRows(events, upcoming, new Date());
+  const sum = calendarSummary(rows);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // Icona per tipo (neurodesign: un colpo d'occhio distingue appuntamento da
+  // scadenza da promemoria da previsione, senza leggere).
+  const kindIcon = {
+    appointment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>',
+    reminder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+    deadline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    predicted: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+  };
 
-  list.innerHTML = all.map(ev => {
+  // Intestazione di gestione: con MOLTI eventi conta a colpo d'occhio (oltre i 5
+  // non serve più contarli a mano) e dà l'export .ics di tutti in un tocco.
+  const header = `<div class="flex items-center justify-between mb-2 px-0.5">
+    <span class="text-[10px] font-bold uppercase tracking-wider text-[var(--on-surface-secondary)]">${sum.active + sum.predicted} in programma${sum.done ? ` · ${sum.done} fatt${sum.done > 1 ? 'i' : 'o'}` : ''}</span>
+    ${sum.active ? `<button onclick="window.exportEventsToICS()" class="text-[10px] font-bold text-[var(--primary)] hover:underline">Esporta nel calendario</button>` : ''}
+  </div>`;
+
+  list.innerHTML = header + rows.map(ev => {
     const dt = new Date(ev.date);
-    const ItalianDate = dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const border = ev.predicted ? 'border-amber-500/20 bg-amber-950/5' : 'border-[var(--outline)] bg-[var(--surface-solid)]';
-    const icon = ev.predicted ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>' : '';
+    const validDate = !isNaN(dt.getTime());
+    const ItalianDate = validDate ? dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+    const timeStr = (ev.hasTime && validDate) ? ' · ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+    const border = ev.predicted ? 'border-amber-500/20 bg-amber-950/5' : (ev.completed ? 'border-[var(--outline)]/50 bg-[var(--surface-solid)]/40' : 'border-[var(--outline)] bg-[var(--surface-solid)]');
+    const meta = ev.predicted ? ' · stima dai tuoi abbonamenti' : (ev.kind === 'appointment' ? ' · appuntamento' : '');
+    // Importo mostrato SOLO se davvero finanziario: un appuntamento non mostra €.
+    const money = ev.isFinancial
+      ? `<span class="font-mono font-bold text-xs ${ev.predicted ? 'text-amber-400' : 'text-[var(--red)]'}">${ev.predicted ? '~' : '−'}${formatMoney(ev.amount)}</span>`
+      : '';
     return `
-      <div class="flex items-center justify-between p-2.5 rounded-lg border ${border} hover:border-[var(--primary)]/30 transition-colors">
+      <div class="flex items-center justify-between p-2.5 rounded-lg border ${border} hover:border-[var(--primary)]/30 transition-colors ${ev.completed ? 'opacity-60' : ''}">
         <div class="min-w-0 pr-2">
-          <p class="font-bold text-xs text-white truncate">${icon}${ev.title}</p>
-          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${ItalianDate}${ev.predicted ? ' · stima dai tuoi abbonamenti' : ''}</p>
+          <p class="font-bold text-xs text-white truncate ${ev.completed ? 'line-through' : ''}">${kindIcon[ev.kind] || ''}${esc(ev.label)}</p>
+          ${ev.note ? `<p class="text-[10px] text-slate-300 mt-0.5 truncate">${esc(ev.note)}</p>` : ''}
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${ItalianDate}${timeStr}${meta}</p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
-          <span class="font-mono font-bold text-xs ${ev.predicted ? 'text-amber-400' : 'text-[var(--red)]'}">${ev.predicted ? '~' : '−'}${formatMoney(ev.amount)}</span>
-          ${ev.predicted ? '' : `<button onclick="window.deleteCalendarEvent(${ev.id})" class="text-[10px] font-bold text-[var(--red)] hover:underline p-1">✕</button>`}
+          ${money}
+          ${ev.predicted ? '' : `<button onclick="window.deleteCalendarEvent(${ev.id})" class="text-[10px] font-bold text-[var(--red)] hover:underline p-1" aria-label="Rimuovi">✕</button>`}
         </div>
       </div>
     `;
@@ -1461,7 +1498,8 @@ function buildVEventBlock(ev) {
     block += `DTEND;VALUE=DATE:${dateStr}\r\n`;
   }
   block += `SUMMARY:${isFinancial ? `Momentum: ${label} (${formatMoney(ev.amount)})` : label}\r\n`;
-  block += `DESCRIPTION:${ev.intent === 'appointment' ? 'Appuntamento' : 'Promemoria'} Momentum Vault.${isFinancial ? ` Importo: ${formatMoney(ev.amount)}.` : ''}\r\n`;
+  const noteStr = (ev.note || '').trim();
+  block += `DESCRIPTION:${ev.intent === 'appointment' ? 'Appuntamento' : 'Promemoria'} Momentum Vault.${isFinancial ? ` Importo: ${formatMoney(ev.amount)}.` : ''}${noteStr ? ` ${noteStr.replace(/[\r\n]+/g, ' ')}` : ''}\r\n`;
   block += "STATUS:CONFIRMED\r\n";
   block += "END:VEVENT\r\n";
   return block;
