@@ -971,6 +971,15 @@ const renderDashboard = () => {
   $('#total-expense').textContent = formatMoney(exp);
   $('#total-liquidity').textContent = formatMoney(liquidity);
   $('#total-invest').textContent = formatMoney(inv);
+  // Pop-in scaglionato: i numeri VERI arrivano con vita, non un "€0" statico che
+  // scatta senza preavviso. Ri-attiva l'animazione anche sui re-render (cambio
+  // mese) togliendo/rimettendo la classe con un reflow in mezzo.
+  ['#total-income', '#total-expense', '#total-liquidity', '#total-invest'].forEach((sel, i) => {
+    const el = $(sel); if (!el) return;
+    el.classList.remove('stat-pop'); void el.offsetWidth;
+    el.style.animationDelay = `${i * 0.06}s`;
+    el.classList.add('stat-pop');
+  });
 
   // "Oggi puoi spendere": sempre riferito a OGGI reale — guardando un mese
   // diverso la card sparisce invece di mostrare un numero fuori contesto.

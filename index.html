@@ -626,9 +626,21 @@
       .g-option:hover { transform: none; }
     }
 
-    /* Interactive Jar Liquid widget */
+    /* Interactive Jar Liquid widget — il "Salvadanaio Quantistico" ora ha VITA:
+       la superficie del liquido ondeggia piano (respiro), e un bagliore sottile
+       segue il livello (percezione di crescita reale, non una barra statica). */
     .jar-container { position: relative; width: 70px; height: 100px; border: 3px solid var(--on-surface-secondary); border-radius: 0.75rem 0.75rem 2rem 2rem; overflow: hidden; background: rgba(255,255,255,0.02); }
     .jar-liquid { position: absolute; bottom: 0; left: 0; right: 0; background: var(--liquid-gradient); transition: height 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+    .jar-liquid::before { content: ''; position: absolute; top: -3px; left: -20%; right: -20%; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.35); animation: jarWobble 3.2s ease-in-out infinite; }
+    @keyframes jarWobble { 0%,100% { transform: translateY(0) scaleX(1); } 50% { transform: translateY(1.5px) scaleX(1.04); } }
+    @media (prefers-reduced-motion: reduce) { .jar-liquid::before { animation: none; } }
+
+    /* Stat card (Entrate/Uscite/Capitale/Investimenti): pop-in scaglionato quando
+       i numeri VERI arrivano (non un placeholder statico "€0" che poi scatta) —
+       percezione di dato vivo, coerente col resto del sistema di motion. */
+    @keyframes statPop { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .stat-pop { animation: statPop .45s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .stat-pop { animation: none; } }
 
     /* Heatmap Grid */
     .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.3rem; }
