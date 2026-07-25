@@ -131,6 +131,21 @@ const VoiceCore = {
         // quelle senza importo stimabile si SEGNALANO, non si inventano.
         const txs = results.filter(r => r.intent === 'transaction' && !r.amountMissing);
 
+        // CATEGORIZZAZIONE COL MOMENTUM CORE: la categoria delle uscite passa per
+        // l'ensemble APPRESO (orchestrator.classify), non solo per la rete di
+        // base — così la voce usa lo STESSO cervello che impara da tutto il resto,
+        // e ogni voce registrata lo addestra ancora (recordTransaction→learn).
+        if (window.momentumOrchestrator) {
+          txs.forEach(t => {
+            if (t.type === 'uscita') {
+              try {
+                const c = window.momentumOrchestrator.classify(t.description, t.amount, new Date());
+                if (c && c.cat) t.category = c.cat;
+              } catch (_) { /* fallback: resta la categoria della rete di base */ }
+            }
+          });
+        }
+
         if (splits.length) {
           // Una DIVISIONE apre il suo modulo (importi/persone si aggiustano lì e
           // vanno confermati). Non si possono impilare due form: si apre il primo
