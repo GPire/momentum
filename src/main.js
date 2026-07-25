@@ -29,6 +29,7 @@ import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscripti
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
+import { derivePriors, seedBanditState } from './predict/onboarding-priors.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { chat as chatMultilingual } from './ai/chat.js';
@@ -3715,7 +3716,20 @@ window.genesisNext = (step, value = '') => {
     haptic('light');
     if (step === 2) window.userRiskProfile = value;
     if (step === 3) window.userTimeHorizon = value;
-    
+
+    // PRIMING PROGRESSIVO (anti-abbandono): a ogni risposta seminiamo i priori in
+    // memoria (SENZA salvare: il save avviene solo alla conferma finale, per non
+    // marcare "onboarded" a metà). Se l'utente completa, il motore è già caldo;
+    // se torna indietro, l'ultima risposta ridefinisce i priori senza residui.
+    if (value && (step === 2 || step === 3)) {
+      try {
+        const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio');
+        VaultDAO.state.aiAggression = p.aiAggression;
+        VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon };
+        VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk);
+      } catch (_) { /* priming best-effort: non blocca mai l'onboarding */ }
+    }
+
     const cur = $(`#g-step-${window.genesisStep}`);
     const next = $(`#g-step-${step}`);
     if (cur) {
@@ -3875,13 +3889,21 @@ const initGenesisHold = () => {
 // l'onboarding completo (endGenesis) sia l'attivazione "lampo" (activateLite) e
 // il potenziamento dal Reveal — così le tre strade non divergono mai.
 function seedProfileState(risk = 'bilanciato', hz = 'medio') {
+  // LE 2 DOMANDE ADDESTRANO IL CORE (src/predict/onboarding-priors.js): dai due
+  // profili deriviamo priori per PIÙ modelli, così Momentum parte già
+  // personalizzato e predittivo dal primo tocco (nessun concorrente lo fa).
+  const p = derivePriors(risk, hz);
   VaultDAO.state.isFirstLaunch = false;
-  VaultDAO.state.onboardingProfile = { riskProfile: risk, horizon: hz };
-  VaultDAO.state.monthlyBudget = risk === 'conservativo' ? 1000 : risk === 'aggressivo' ? 2200 : 1500;
-  const investFraction = risk === 'aggressivo' ? 0.85 : risk === 'conservativo' ? 0.4 : 0.65;
-  const emergencyMonths = risk === 'conservativo' ? 9 : risk === 'aggressivo' ? 4 : 6;
-  const riskFloor = risk === 'conservativo' ? 0.35 : risk === 'aggressivo' ? 0.15 : 0.25;
-  VaultDAO.state.investmentPrefs = { investFraction, emergencyMonths, riskFloor, horizon: hz };
+  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon };
+  VaultDAO.state.monthlyBudget = p.monthlyBudget;
+  VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon };
+  // Tono dei nudge di spesa personalizzato subito.
+  VaultDAO.state.aiAggression = p.aiAggression;
+  // Priori DEBOLI per il contextual bandit dell'advisor: il primo consiglio è
+  // già orientato al profilo (prudente→risparmio, aggressivo→ottimizzazione),
+  // ma i dati reali li superano in fretta. Non tocca i bracci già appresi.
+  try { VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk); } catch (_) {}
+  // Priori della rete neurale on-device.
   try { NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile); } catch (_) {}
 }
 
