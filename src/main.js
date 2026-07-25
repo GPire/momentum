@@ -4057,6 +4057,10 @@ const navigate = (view) => {
   });
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') { renderTaxSettings(); renderBrakeDesc(); }
+  // Ingresso SCAGLIONATO del contenuto della sezione (ri-attiva l'animazione ad
+  // ogni cambio vista togliendo/rimettendo la classe: reflow forzato in mezzo).
+  const shown = $(`#${view}-view`);
+  if (shown) { shown.classList.remove('view-in'); void shown.offsetWidth; shown.classList.add('view-in'); }
 };
 
 window.openModal = (html) => {

@@ -184,6 +184,24 @@
     @media (prefers-reduced-motion: reduce) {
       .cat-chip:hover, .cat-chip:hover .cat-chip-icon, .nav-btn:hover, .save-btn:hover { transform: none; }
     }
+
+    /* ── ANIMAZIONE D'INGRESSO DELLE SEZIONI ── il contenuto entra scaglionato
+         quando apri Dashboard / Analisi Tensor / Momentum Vault / Impostazioni.
+         Si ri-attiva a ogni cambio vista (classe .view-in aggiunta da navigate). */
+    @keyframes sectionRise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .view-in > * { animation: sectionRise .52s cubic-bezier(.22,1,.36,1) both; }
+    .view-in > *:nth-child(1) { animation-delay: .03s; }
+    .view-in > *:nth-child(2) { animation-delay: .09s; }
+    .view-in > *:nth-child(3) { animation-delay: .15s; }
+    .view-in > *:nth-child(4) { animation-delay: .21s; }
+    .view-in > *:nth-child(5) { animation-delay: .27s; }
+    .view-in > *:nth-child(6) { animation-delay: .33s; }
+    .view-in > *:nth-child(n+7) { animation-delay: .38s; }
+    /* le chip del Command Center entrano a cascata la prima volta */
+    .cat-chip.chip-in { animation: sectionRise .4s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) {
+      .view-in > *, .cat-chip.chip-in { animation: none; }
+    }
     
     .save-btn { margin: 0.5rem 1rem; width: calc(100% - 2rem); min-height: 3.5rem; border-radius: 1.2rem; background: var(--apex-gradient); color: white; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); box-shadow: var(--glow-primary); flex-shrink: 0; padding: 0.5rem;}
     .save-btn:active { transform: scale(0.96); box-shadow: none; }
@@ -602,7 +620,18 @@
       0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244,63,94,0.4); }
       50% { transform: scale(1.08); box-shadow: 0 0 15px 4px rgba(244,63,94,0.7); }
     }
-    .mic-listening { animation: mic-glow 1.2s infinite ease-in-out; background: var(--red) !important; color: white !important; }
+    .mic-listening { position: relative; animation: mic-glow 1.2s infinite ease-in-out; background: var(--red) !important; color: white !important; }
+    /* Anelli che si propagano: indicatore inequivocabile "sto ascoltando". */
+    .mic-listening::before, .mic-listening::after {
+      content: ''; position: absolute; inset: 0; border-radius: inherit; border: 2px solid rgba(244,63,94,.55);
+      pointer-events: none; animation: mic-ripple 1.6s cubic-bezier(.2,.6,.3,1) infinite;
+    }
+    .mic-listening::after { animation-delay: .8s; }
+    @keyframes mic-ripple { 0% { transform: scale(1); opacity: .75; } 100% { transform: scale(2); opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .mic-listening { animation: none; }
+      .mic-listening::before, .mic-listening::after { animation: none; border-color: rgba(244,63,94,.8); }
+    }
     
     .segmented-control { display: flex; background: var(--surface-solid); border: 1px solid var(--outline); border-radius: 1rem; padding: 0.25rem; }
     .segment-btn { flex: 1; text-align: center; padding: 0.6rem; font-size: 0.75rem; font-weight: 800; border-radius: 0.75rem; color: var(--on-surface-secondary); cursor: pointer; transition: all 0.2s;}
