@@ -3,7 +3,7 @@ import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO } from './core/vault.js';
 import { showSignatureAlert, showToast } from './ui/feedback.js';
-import { NeuralNexus, AntiFOMO, QuantumRL } from './ai/neural-nexus.js';
+import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
@@ -30,6 +30,7 @@ import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendi
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
 import { derivePriors, seedBanditState } from './predict/onboarding-priors.js';
+import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { chat as chatMultilingual } from './ai/chat.js';
@@ -325,16 +326,10 @@ const attachFormListeners = (container, prefill = null) => {
     const amt = parseFloat(rawVal) || 0;
     const saveBtn = container.querySelector('#save-tx-btn');
     
-    // QuantumRL friction trigger
-    const friction = QuantumRL.getFriction(amt, catId);
-    if (friction.level === 'block') {
-      saveBtn.classList.add('danger-friction');
-      saveBtn.textContent = "ATTENZIONE: Spesa Bloccata";
-    } else {
-      saveBtn.classList.remove('danger-friction');
-      saveBtn.textContent = "Conferma";
-    }
-
+    // Il freno spese ora vive nell'indicatore onesto sotto (renderAmountImpact):
+    // niente "Spesa Bloccata" finto — l'app non blocca i tuoi soldi, ti dà un
+    // fatto utile e decidi tu. Il bottone resta neutro.
+    saveBtn.classList.remove('danger-friction');
     updateSaveBtn();
     renderAmountImpact();
   };
@@ -360,35 +355,29 @@ const attachFormListeners = (container, prefill = null) => {
     if (type !== 'uscita' || amt <= 0) return hide();
     const parts = [];
     const now = new Date();
+    // FRENO SPESE integrato (src/predict/spending-brake.js): un solo messaggio
+    // motivazionale governato dal tuo "quanto l'app ti frena" (aiAggression) e
+    // dai segnali REALI del Core — safe-to-spend di oggi, PROIEZIONE di fine mese,
+    // importo tipico per categoria. Cambiare modalità cambia DAVVERO cosa vedi.
+    const mode = VaultDAO.state.aiAggression || 'advisor';
+    const budget = VaultDAO.state.monthlyBudget;
+    let safeToday = null, monthEndDelta = null, typical = null;
     if (sameDay(selectedDate, now)) {
-      let sts = null;
       try {
-        sts = getDailySafeToSpend({
-          monthTxs: VaultDAO.state.transactions[monthKey(now)] || [],
-          allTx: VaultDAO.state.transactions,
-          monthlyBudget: VaultDAO.state.monthlyBudget,
-          referenceDate: now,
-        });
-      } catch (_) { sts = null; }
-      if (sts) {
-        const imp = amountEntryImpact({ safeToday: sts.safeToday, isOverBudget: sts.isOverBudget, pendingAmount: amt });
-        if (imp.show) {
-          const COL = { ok: 'text-emerald-400', warn: 'text-amber-400', over: 'text-rose-400' };
-          const msg = imp.level === 'over'
-            ? `Sfori di ${formatMoney(imp.overBy)} il margine di oggi`
-            : `Dopo questa ti restano ${formatMoney(imp.remaining)} oggi`;
-          parts.push(`<span class="${COL[imp.level]}">${msg}</span>`);
-        }
-      }
+        const monthTxs = VaultDAO.state.transactions[monthKey(now)] || [];
+        const sts = getDailySafeToSpend({ monthTxs, allTx: VaultDAO.state.transactions, monthlyBudget: budget, referenceDate: now });
+        if (sts) safeToday = sts.safeToday;
+        const proj = getMonthEndProjection({ monthTxs, monthlyBudget: budget, referenceDate: now });
+        if (proj && typeof proj.projectedDelta === 'number') monthEndDelta = proj.projectedDelta;
+      } catch (_) { /* nessun segnale giornaliero */ }
     }
     if (catId) {
-      try {
-        const hint = predictAmount(catId, desc?.value || '', VaultDAO.state.transactions);
-        if (hint && hint.amount) {
-          const vt = amountVsTypical({ typicalAmount: hint.amount, pendingAmount: amt });
-          if (vt.show) parts.push(`<span class="text-amber-300">più del solito (~${formatMoney(vt.typicalAmount)})</span>`);
-        }
-      } catch (_) { /* nessun tipico: nessun accenno */ }
+      try { const hint = predictAmount(catId, desc?.value || '', VaultDAO.state.transactions); if (hint && hint.amount) typical = hint.amount; } catch (_) {}
+    }
+    const brake = evaluateBrake(mode, { amount: amt, safeToday, monthEndDelta, typical, budget });
+    if (brake.level !== 'ok' && brake.message) {
+      const COL = brake.level === 'warn' ? 'text-rose-400' : 'text-amber-400';
+      parts.push(`<span class="${COL}">${brake.message}</span>`);
     }
     if (!parts.length) return hide();
     el.innerHTML = parts.join('<span class="opacity-40 mx-0.5">·</span>');
@@ -728,14 +717,30 @@ const attachFormListeners = (container, prefill = null) => {
     const amt = parseFloat(rawVal);
     if (!amt || !catId) return;
     
-    // Active friction block check on click
-    const friction = QuantumRL.getFriction(amt, catId);
-    if (friction.level === 'block') {
-      AudioSynth.play('friction');
-      haptic('heavy');
-      showToast("Ho messo un piccolo freno: sei in modalità Deciso. Tocca di nuovo se vuoi procedere.", "error");
-      return;
+    // FRENO al salvataggio, integrato e onesto: solo in modalità "Deciso"
+    // (predator) e solo quando il freno è FORTE (warn: la spesa fa chiudere il
+    // mese in rosso o è ben oltre il margine di oggi) chiediamo un secondo tocco
+    // di conferma — mai un blocco, decidi tu. Le altre modalità non frenano qui.
+    if ((VaultDAO.state.aiAggression || 'advisor') === 'predator' && !window.__brakeConfirmed) {
+      let sTd = null, mDelta = null, typ = null;
+      try {
+        const mTx = VaultDAO.state.transactions[monthKey(selectedDate)] || [];
+        const s = getDailySafeToSpend({ monthTxs: mTx, allTx: VaultDAO.state.transactions, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: new Date() });
+        if (s) sTd = s.safeToday;
+        const p = getMonthEndProjection({ monthTxs: mTx, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: new Date() });
+        if (p && typeof p.projectedDelta === 'number') mDelta = p.projectedDelta;
+        const h = predictAmount(catId, desc?.value || '', VaultDAO.state.transactions); if (h && h.amount) typ = h.amount;
+      } catch (_) {}
+      const b = evaluateBrake('predator', { amount: amt, safeToday: sTd, monthEndDelta: mDelta, typical: typ, budget: VaultDAO.state.monthlyBudget });
+      if (b.level === 'warn') {
+        window.__brakeConfirmed = true;
+        setTimeout(() => { window.__brakeConfirmed = false; }, 4000); // il consenso vale pochi secondi
+        AudioSynth.play('friction'); haptic('heavy');
+        showToast(`${b.message} Tocca di nuovo per confermare.`, 'error');
+        return;
+      }
     }
+    window.__brakeConfirmed = false;
 
     haptic('heavy');
     AudioSynth.play('success');
