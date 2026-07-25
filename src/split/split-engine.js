@@ -63,7 +63,7 @@ export function addSharedExpense(group, { payer, amount, description = '', date,
   owed = balanceRounding(owed, amt);
   // id GLOBALMENTE univoco (non l'indice): cosi' le spese aggiunte da persone
   // diverse non collidono e il merge tra dispositivi e' conflict-free.
-  const expense = { id: genId(), payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed };
+  const expense = { id: genId(), payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed, updatedAt: Date.now() };
   return { ...group, expenses: [...group.expenses, expense] };
 }
 
@@ -269,17 +269,72 @@ function unionById(a = [], b = []) {
   return [...seen.values()];
 }
 
+// Unione CRDT con LAST-WRITER-WINS per stesso id: le AGGIUNTE si uniscono, le
+// MODIFICHE (stesso id, es. importo cambiato su un dispositivo) vincono se più
+// recenti (updatedAt). Prima unionById teneva sempre il primo → un importo
+// aggiornato su un telefono non arrivava mai agli altri. Ora converge in
+// entrambe le direzioni (A∪B = B∪A) e propaga davvero gli aggiornamenti.
+function unionByIdLWW(a = [], b = []) {
+  const seen = new Map();
+  const put = (x) => {
+    const prev = seen.get(x.id);
+    if (!prev) { seen.set(x.id, x); return; }
+    const pAt = +prev.updatedAt || 0, xAt = +x.updatedAt || 0;
+    if (xAt > pAt) seen.set(x.id, x); // il più recente vince; a parità resta il primo
+  };
+  for (const x of a) put(x);
+  for (const x of b) put(x);
+  return [...seen.values()];
+}
+
 // Fonde due copie di gruppo. Stesso id → union di membri e spese (conflict-free).
 // Id diversi → sono gruppi distinti: ritorna `a` invariato (nessuna fusione).
+// Rinomina un gruppo marcando QUANDO (last-writer-wins): senza timestamp il
+// merge non sapeva quale nome è più recente e teneva sempre il primo → rinominare
+// non aveva effetto (bug reale) e i nomi non si propagavano tra dispositivi.
+export function renameGroup(group, name) {
+  return { ...group, name: String(name ?? '').trim() || group.name, nameAt: Date.now() };
+}
+
 export function mergeGroups(a, b) {
   if (!a) return b; if (!b) return a;
   if (a.id !== b.id) return a;
+  // Nome: vince chi l'ha aggiornato più di recente (nameAt). Senza timestamp su
+  // nessuno dei due si ripiega sul primo non vuoto (comportamento storico).
+  const aAt = +a.nameAt || 0, bAt = +b.nameAt || 0;
+  let name, nameAt;
+  if (aAt || bAt) { const bWins = bAt > aAt; name = (bWins ? b.name : a.name) || a.name || b.name; nameAt = Math.max(aAt, bAt); }
+  else { name = a.name || b.name; }
   return {
     id: a.id,
-    name: a.name || b.name,
+    name,
+    ...(nameAt ? { nameAt } : {}),
     members: unionById(a.members, b.members),
-    expenses: unionById(a.expenses, b.expenses),
+    expenses: unionByIdLWW(a.expenses, b.expenses),
   };
+}
+
+// Modifica l'importo/descrizione di una spesa esistente marcando updatedAt: così
+// la modifica VINCE nel merge e si propaga agli altri dispositivi. Ritorna il
+// nuovo gruppo (immutabile). Ricalcola le quote eque se l'importo cambia e le
+// quote erano eque; se erano custom (byId) le mantiene proporzionate.
+export function editExpense(group, expenseId, { amount, description } = {}) {
+  const idx = (group.expenses || []).findIndex(e => e.id === expenseId);
+  if (idx === -1) return group;
+  const old = group.expenses[idx];
+  const amt = amount != null ? round2(amount) : old.amount;
+  if (!(amt > 0)) throw new Error('importo non valido');
+  let owed = old.owed;
+  if (amount != null && amt !== old.amount) {
+    // riscala le quote in proporzione (mantiene la ripartizione, aggiorna i totali)
+    const oldTot = Object.values(old.owed).reduce((s, v) => s + (+v || 0), 0) || 1;
+    const scaled = {};
+    for (const [id, v] of Object.entries(old.owed)) scaled[id] = (+v || 0) * amt / oldTot;
+    owed = balanceRounding(scaled, amt);
+  }
+  const updated = { ...old, amount: amt, description: description != null ? description : old.description, owed, updatedAt: Date.now() };
+  const expenses = group.expenses.slice(); expenses[idx] = updated;
+  return { ...group, expenses };
 }
 
 // Fonde un gruppo in arrivo dentro l'elenco locale: se esiste gia' (stesso id) lo

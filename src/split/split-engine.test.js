@@ -233,3 +233,77 @@ test('settlementToSepa: ponte col bonifico on-device se conosco l\'IBAN', () => 
   // senza IBAN → null (resta la richiesta a voce)
   assert.equal(settlementToSepa(transfers[0], g, {}), null);
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// SYNC LIVE CRDT — ogni scenario, anche COMBINATO, deve convergere (A∪B = B∪A).
+// Bug reali segnalati: nomi/importi aggiornati su un dispositivo non arrivavano
+// agli altri; persone/spese aggiunte dopo non comparivano.
+// ══════════════════════════════════════════════════════════════════════════
+const { renameGroup, editExpense } = await import('./split-engine.js');
+
+test('RENAME propaga: il nome più recente (nameAt) vince nel merge', () => {
+  let g = createGroup({ name: 'cena', members: ['Io', 'Marco'] });
+  const vecchio = { ...g };
+  const rinominato = renameGroup(g, 'Cena di Marco');
+  // persist locale = mergeGroups(vecchio, rinominato): il nuovo deve vincere.
+  assert.equal(mergeGroups(vecchio, rinominato).name, 'Cena di Marco');
+  // e converge in entrambe le direzioni
+  assert.equal(mergeGroups(rinominato, vecchio).name, 'Cena di Marco');
+});
+
+test('IMPORTO aggiornato su un dispositivo si propaga (LWW per updatedAt)', async () => {
+  let g = createGroup({ name: 'casa', members: ['Io', 'Anna'] });
+  g = addSharedExpense(g, { payer: g.members[0].id, amount: 30, description: 'spesa' });
+  const expId = g.expenses[0].id;
+  await new Promise(r => setTimeout(r, 5)); // garantisce updatedAt maggiore
+  const gEdit = editExpense(g, expId, { amount: 50 });
+  // Il dispositivo B ha ancora la versione a 30; merge → deve vincere 50.
+  const merged = mergeGroups(g, gEdit);
+  assert.equal(merged.expenses.length, 1, 'stessa spesa, non duplicata');
+  assert.equal(merged.expenses[0].amount, 50, 'importo aggiornato propagato');
+  assert.equal(mergeGroups(gEdit, g).expenses[0].amount, 50, 'converge anche invertito');
+});
+
+test('PERSONE aggiunte dopo compaiono nel merge (unione membri)', () => {
+  let a = createGroup({ name: 'viaggio', members: ['Io', 'Marco'] });
+  // dispositivo B aggiunge Luca
+  let b = { ...a, members: [...a.members, { id: 'mX', name: 'Luca' }] };
+  const merged = mergeGroups(a, b);
+  assert.deepEqual(merged.members.map(m => m.name).sort(), ['Io', 'Luca', 'Marco']);
+});
+
+test('SCENARIO COMBINATO: rename + nuova spesa + importo modificato + nuova persona, due dispositivi', async () => {
+  // Stato condiviso iniziale
+  let base = createGroup({ id: 'G1', name: 'cena', members: ['Io', 'Marco'] });
+  base = addSharedExpense(base, { payer: base.members[0].id, amount: 40, description: 'ristorante' });
+  const eId = base.expenses[0].id;
+
+  // Dispositivo A: rinomina + modifica l'importo della spesa
+  await new Promise(r => setTimeout(r, 5));
+  let A = renameGroup(base, 'Cena di venerdì');
+  A = editExpense(A, eId, { amount: 60 });
+
+  // Dispositivo B: aggiunge una persona + una nuova spesa
+  let B = { ...base, members: [...base.members, { id: 'mL', name: 'Luca' }] };
+  B = addSharedExpense(B, { payer: 'mL', amount: 20, description: 'bar' });
+
+  // Merge nei due ordini → stesso risultato (convergenza)
+  const AB = mergeGroups(A, B);
+  const BA = mergeGroups(B, A);
+  const normalize = (g) => ({ name: g.name, members: g.members.map(m => m.name).sort(), amounts: g.expenses.map(e => e.amount).sort((x, y) => x - y), n: g.expenses.length });
+  assert.deepEqual(normalize(AB), normalize(BA), 'convergenza A∪B = B∪A');
+  // e contiene TUTTO: nome nuovo, 3 persone, 2 spese, importo modificato a 60
+  assert.equal(AB.name, 'Cena di venerdì');
+  assert.deepEqual(AB.members.map(m => m.name).sort(), ['Io', 'Luca', 'Marco']);
+  assert.equal(AB.expenses.length, 2);
+  assert.deepEqual(AB.expenses.map(e => e.amount).sort((x, y) => x - y), [20, 60]);
+});
+
+test('IDEMPOTENZA: ri-mergiare lo stesso stato non cambia nulla', async () => {
+  let g = createGroup({ id: 'G2', name: 'test', members: ['Io', 'Marco'] });
+  g = addSharedExpense(g, { payer: g.members[0].id, amount: 10, description: 'x' });
+  const once = mergeGroups(g, g);
+  assert.equal(once.expenses.length, 1);
+  assert.equal(mergeGroups(once, g).expenses.length, 1);
+  assert.equal(mergeGroups(once, once).name, g.name);
+});

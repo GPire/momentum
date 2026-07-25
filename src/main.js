@@ -20,7 +20,7 @@ import { selectableCountries as selectableInvoiceCountries } from './invoice/cou
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup } from './split/split-engine.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
@@ -2730,7 +2730,7 @@ window.openSplitGroup = (openId = null) => {
 
     // bind
     $('#sg-back')?.addEventListener('click', () => { currentId = null; render(); });
-    $('#sg-name')?.addEventListener('change', (e) => { persist({ ...g, name: e.target.value.trim() || g.name }); });
+    $('#sg-name')?.addEventListener('change', (e) => { persist(renameGroup(g, e.target.value)); render(); });
     $('#sg-newmember')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { const ng = { ...g, members: [...g.members, { id: `m${g.members.length}_${Math.random().toString(36).slice(2, 6)}`, name: e.target.value.trim() }] }; persist(ng); render(); } });
     document.querySelectorAll('[data-addmember]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, members: [...g.members, { id: `m${g.members.length}_${Math.random().toString(36).slice(2, 6)}`, name: b.dataset.addmember }] }; persist(ng); render(); }));
     document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { form.payer = b.dataset.payer; render(); }));
