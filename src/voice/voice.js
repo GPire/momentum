@@ -85,49 +85,65 @@ const VoiceCore = {
       // con più azioni distinte, es. "ho speso 20 euro e ricordami di...").
       const results = VoiceParser.parse(text);
       if (results && results.length) {
-        let firstTransaction = null;
-        results.forEach(parsed => {
-          if (parsed.intent === 'reminder' || parsed.intent === 'appointment') {
-            CalendarBridge.createEvent(parsed);
-            // Esporta subito il singolo evento in .ics: è il modo reale (unico
-            // possibile da una webapp) per farlo arrivare nel Calendario di
-            // sistema — l'utente tocca il file per confermare l'aggiunta,
-            // nessuna scrittura silenziosa è permessa dal sistema operativo.
-            const lastEvent = (VaultDAO.state.events || []).slice(-1)[0];
-            if (lastEvent) window.exportSingleEventToICS(lastEvent);
-          } else if (!firstTransaction) {
-            firstTransaction = parsed; // solo la prima transazione va nel form; le altre si registrano direttamente
-          } else {
-            momentumOrchestrator?.recordTransaction({
-              description: parsed.description, catId: parsed.category,
-              amount: parsed.amount, date: new Date(), type: parsed.type,
-            }) || VaultDAO.addTransaction(monthKey(new Date()), {
-              id: Date.now() + Math.random(), amount: parsed.amount, type: parsed.type,
-              category: parsed.category, description: parsed.description, date: new Date().toISOString(),
-            });
-          }
-        });
+        const recordDirect = (parsed) => {
+          momentumOrchestrator?.recordTransaction({
+            description: parsed.description, catId: parsed.category,
+            amount: parsed.amount, date: new Date(), type: parsed.type,
+          }) || VaultDAO.addTransaction(monthKey(new Date()), {
+            id: Date.now() + Math.random(), amount: parsed.amount, type: parsed.type,
+            category: parsed.category, description: parsed.description, date: new Date().toISOString(),
+          });
+        };
 
+        // Eventi calendario (promemoria/appuntamenti) sempre esportati in .ics.
+        results.filter(r => r.intent === 'reminder' || r.intent === 'appointment').forEach(parsed => {
+          CalendarBridge.createEvent(parsed);
+          // Esporta subito il singolo evento in .ics: è il modo reale (unico
+          // possibile da una webapp) per farlo arrivare nel Calendario di
+          // sistema — l'utente tocca il file per confermare l'aggiunta,
+          // nessuna scrittura silenziosa è permessa dal sistema operativo.
+          const lastEvent = (VaultDAO.state.events || []).slice(-1)[0];
+          if (lastEvent) window.exportSingleEventToICS(lastEvent);
+        });
         if (results.some(r => r.intent === 'reminder' || r.intent === 'appointment')) {
           renderCalendarEvents();
         }
 
-        if (firstTransaction) {
-          const descInput = container.querySelector('#tx-desc');
-          if (descInput) descInput.value = firstTransaction.description;
+        const splits = results.filter(r => r.intent === 'split');
+        const txs = results.filter(r => r.intent === 'transaction');
 
-          const typeBtn = container.querySelector(`[data-type="${firstTransaction.type}"]`);
-          if (typeBtn) typeBtn.click();
-
-          window.updateRawVal(firstTransaction.amount.toString());
-
-          setTimeout(() => {
-            const chip = container.querySelector(`[data-cat-id="${firstTransaction.category}"]`);
-            if (chip) chip.click();
-          }, 100);
+        if (splits.length) {
+          // Una DIVISIONE apre il suo modulo (importi/persone si aggiustano lì e
+          // vanno confermati). Non si possono impilare due form: si apre il primo
+          // split pre-compilato; le eventuali spese semplici concomitanti si
+          // registrano direttamente (nessuna spesa in sospeso in un form nascosto).
+          txs.forEach(recordDirect);
+          const s = splits[0];
+          if (typeof window.openSplitExpense === 'function') {
+            window.openSplitExpense({ amount: s.amount, description: s.description, people: s.people });
+          }
+        } else {
+          // Nessuno split: comportamento storico — la prima transazione va nel
+          // form (per rifinire categoria), le altre si registrano direttamente.
+          const firstTransaction = txs[0] || null;
+          txs.slice(1).forEach(recordDirect);
+          if (firstTransaction) {
+            const descInput = container.querySelector('#tx-desc');
+            if (descInput) descInput.value = firstTransaction.description;
+            const typeBtn = container.querySelector(`[data-type="${firstTransaction.type}"]`);
+            if (typeBtn) typeBtn.click();
+            window.updateRawVal(firstTransaction.amount.toString());
+            setTimeout(() => {
+              const chip = container.querySelector(`[data-cat-id="${firstTransaction.category}"]`);
+              if (chip) chip.click();
+            }, 100);
+          }
         }
 
-        const summary = results.map(r => r.intent === 'transaction' ? `${r.type} ${r.amount}€` : `${r.intent === 'appointment' ? 'appuntamento' : 'promemoria'}: ${r.description}`).join(' + ');
+        const summary = results.map(r =>
+          r.intent === 'transaction' ? `${r.type} ${r.amount}€`
+          : r.intent === 'split' ? `dividi ${r.amount ? r.amount + '€ ' : ''}con ${r.people.filter(p => p !== 'Io').join(', ') || '…'}`
+          : `${r.intent === 'appointment' ? 'appuntamento' : 'promemoria'}: ${r.description}`).join(' + ');
         AudioSynth.play('success');
         showToast(`Riconosciuto: ${summary}`, 'success');
       } else {
@@ -163,8 +179,37 @@ const VoiceParser = {
   // frasi semplici) — il chiamante deve iterare, non assumere un solo esito.
   parse(text) {
     const clauses = this._splitClauses(text);
-    const results = clauses.map(c => this._parseClause(c)).filter(Boolean);
+    let results = clauses.map(c => this._parseClause(c)).filter(Boolean);
+    results = this._resolveSplitAnaphora(results);
     return results.length ? results : null;
+  },
+
+  // Anafora dello split: "ho speso 40 di cena E DIVIDILA con Marco" — la clausola
+  // di divisione non porta un importo proprio, si riferisce alla spesa appena
+  // detta. La divisione EREDITA importo+descrizione dalla spesa precedente e la
+  // CONSUMA (la spesa non va anche registrata a parte: sarebbe doppio conteggio,
+  // perché la conferma dello split registra già la mia quota come spesa reale).
+  // Uno split con importo PROPRIO ("dividi 40 di cena con Marco") resta autonomo.
+  _resolveSplitAnaphora(results) {
+    const out = [];
+    for (const r of results) {
+      if (r.intent === 'split' && !(r.amount > 0)) {
+        let consumed = false;
+        for (let i = out.length - 1; i >= 0; i--) {
+          if (out[i].intent === 'transaction' && out[i].type === 'uscita') {
+            r.amount = out[i].amount;
+            if (!r.description) r.description = out[i].description;
+            out.splice(i, 1); // la spesa piatta è assorbita dalla divisione
+            consumed = true;
+            break;
+          }
+        }
+        // se non c'è spesa da cui ereditare, lo split resta con importo 0:
+        // apre comunque il modulo di divisione con le persone già inserite.
+      }
+      out.push(r);
+    }
+    return out;
   },
 
   // Divide su connettivi " e " / " and " SOLO quando sembrano separare due
@@ -172,7 +217,7 @@ const VoiceParser = {
   // di azione o un numero/importo proprio, altrimenti non spezza — evita
   // di rompere frasi tipo "pane e latte" che sono un'unica spesa).
   _splitClauses(text) {
-    const actionWords = /(ricordami|ricorda|promemoria|sveglia|remind|i spent|i paid|i got|i received|i invested|appuntamento|appointment|meeting|fissa|dentista|visita|ho\s+(comprato|pagato|speso|preso|acquistato|investito|ricevuto|guadagnato|messo))/i;
+    const actionWords = /(ricordami|ricorda|promemoria|sveglia|remind|i spent|i paid|i got|i received|i invested|appuntamento|appointment|meeting|fissa|dentista|visita|dividi(?:amo|la|lo|le|li)?|dividere|spartisci|spartire|split|ho\s+(comprato|pagato|speso|preso|acquistato|investito|ricevuto|guadagnato|messo))/i;
     // 1) Protegge i decimali detti a voce: "12 e 50" / "3 e 90" → 12.50 / 3.90
     //    (numero 1-4 cifre + "e" + esattamente 2 cifre) PRIMA di splittare su
     //    "e", altrimenti "50" verrebbe letto come un secondo importo separato.
@@ -263,6 +308,27 @@ const VoiceParser = {
       };
     }
 
+    // ── INTENTO DIVISIONE (split) ── "dividi[la] [40] [di cena] con Marco e Luca".
+    // Va DOPO reminder (così "ricordami di dividere con Marco" resta un promemoria)
+    // e PRIMA del path transazione (che pretende un importo: una divisione può
+    // NON averlo — "dividila con Marco" eredita dalla spesa precedente).
+    const SPLIT_RE = /\b(dividi(?:amo|la|lo|le|li)?|dividere|spartisci|spartire|split)\b/i;
+    if (SPLIT_RE.test(lower)) {
+      const amt = this.extractAmount(lowerNoTime) || 0;
+      const people = this._extractPeople(textNoTime);
+      // Descrizione = ciò che sta tra il verbo e i nomi, senza importo/connettivi.
+      let d = textNoTime
+        .replace(SPLIT_RE, ' ')
+        .replace(/\bcon\b.*$/i, ' ')      // taglia da "con <nomi>" in poi
+        .replace(/\bwith\b.*$/i, ' ')
+        .replace(/\b\d+([.,]\d{1,2})?\s*(euro|eur|€|dollari|usd)?\b/gi, ' ')
+        .replace(/\b(di|del|della|dello|dei|degli|delle|la|lo|il|per|a|da)\b/gi, ' ')
+        .replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '')
+        .replace(/\s+/g, ' ').trim();
+      if (d.length > 0) d = d.charAt(0).toUpperCase() + d.slice(1);
+      return { intent: 'split', amount: amt, description: d, people };
+    }
+
     let amount = this.extractAmount(lowerNoTime);
     if (!amount) return null;
 
@@ -341,6 +407,27 @@ const VoiceParser = {
       category: catId,
       description: descIsMeaningful ? desc : (type === 'entrata' ? "Entrata Vocale" : type === 'invest' ? "Investimento Vocale" : "Spesa Vocale"),
     };
+  },
+
+  // Nomi delle persone di una divisione: quelli dopo "con"/"with". "e"/"and" e
+  // le preposizioni non sono nomi; "Io" c'è sempre (tu sei nel gruppo). Ogni
+  // nome è capitalizzato per la UI. Robusto a "con Marco e Luca" / "with Marco".
+  _extractPeople(text) {
+    const people = ['Io'];
+    const m = text.match(/\b(?:con|with)\s+(.+)$/i);
+    if (m) {
+      const stop = new Set(['e', 'ed', 'and', 'di', 'del', 'della', 'per', 'a', 'da', 'il', 'lo', 'la', 'euro', 'eur']);
+      m[1].split(/[\s,]+/).forEach(tok => {
+        const t = tok.replace(/[^a-zA-Zàèéìòùé]/g, '');
+        if (!t) return;
+        const tl = t.toLowerCase();
+        if (stop.has(tl) || tl === 'io' || tl === 'me') return;
+        if (/\d/.test(tok)) return;
+        const cap = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+        if (!people.includes(cap)) people.push(cap);
+      });
+    }
+    return people;
   },
 
   _extractWeekday(lower) {

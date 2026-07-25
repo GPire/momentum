@@ -111,3 +111,45 @@ test('due importi propri splittano, un solo importo condiviso NO', () => {
   assert.equal(VoiceParser.parse('coffee 3 euros and lunch 12 euros').filter(x=>x.intent==='transaction').length, 2);
   assert.equal(VoiceParser.parse('pane e latte 5 euro').filter(x=>x.intent==='transaction').length, 1);
 });
+
+// ── INTENTO DIVISIONE (split) via voce — feature multi-intento proprietaria ──
+// Prima la clausola "dividi con Marco" (senza importo) veniva scartata da
+// _parseClause (path transazione: niente importo → null): l'azione di divisione
+// spariva in silenzio. Ora è un intento a sé, con anafora sull'importo.
+test('split autonomo con importo proprio: "dividi 40 di cena con Marco e Luca"', () => {
+  const r = VoiceParser.parse('dividi 40 di cena con Marco e Luca');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].intent, 'split');
+  assert.equal(r[0].amount, 40);
+  assert.deepEqual(r[0].people, ['Io', 'Marco', 'Luca']);
+});
+
+test('anafora: "ho speso 40 di cena e dividila con Marco" → 1 solo split (no doppio conteggio)', () => {
+  const r = VoiceParser.parse('ho speso 40 di cena e dividila con Marco');
+  assert.equal(r.length, 1, 'la spesa piatta deve essere assorbita dalla divisione');
+  assert.equal(r[0].intent, 'split');
+  assert.equal(r[0].amount, 40);
+  assert.ok(r[0].people.includes('Marco'));
+  assert.equal(r.filter(x => x.intent === 'transaction').length, 0);
+});
+
+test('spesa indipendente + split indipendente restano due azioni distinte', () => {
+  const r = VoiceParser.parse('ho speso 20 al bar e dividi 40 di cena con Marco');
+  assert.equal(r.filter(x => x.intent === 'transaction').length, 1);
+  const split = r.find(x => x.intent === 'split');
+  assert.ok(split);
+  assert.equal(split.amount, 40);
+});
+
+test('un promemoria "su" una divisione resta promemoria, non attiva lo split', () => {
+  const r = VoiceParser.parse('ricordami di dividere le spese con Marco domani');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].intent, 'reminder');
+});
+
+test('descrizione dello split pulita dai connettivi: "dividi 30 di pizza con Anna"', () => {
+  const r = VoiceParser.parse('dividi 30 di pizza con Anna');
+  assert.equal(r[0].intent, 'split');
+  assert.equal(r[0].description.toLowerCase(), 'pizza');
+  assert.deepEqual(r[0].people, ['Io', 'Anna']);
+});

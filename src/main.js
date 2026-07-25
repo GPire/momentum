@@ -2008,9 +2008,13 @@ window.openSplitExpense = (prefill = {}) => {
   // campo €, vuoto = non ha anticipato niente (gestisce più pagatori con importi
   // diversi, non solo un pagante unico). (2) COME SI DIVIDE il conto — equo o a
   // quote diverse (chi ha consumato di più). Il totale è la somma dei versamenti.
+  // Persone pre-compilate (es. da un comando vocale "dividi con Marco e Luca"):
+  // "Io" c'è sempre e resta in testa; i nomi dettati arrivano già capitalizzati.
+  const prePeople = Array.isArray(prefill.people) && prefill.people.length
+    ? Array.from(new Set(['Io', ...prefill.people])) : ['Io'];
   const state = {
     description: prefill.description || '',
-    people: ['Io'],
+    people: prePeople,
     paid: prefill.amount > 0 ? { Io: String(prefill.amount) } : {}, // quanto ha messo ciascuno
     splitMode: 'equal',  // 'equal' | 'custom' — come si divide il COSTO
     owed: {},            // per split custom: quanto DEVE (ha consumato) ciascuno
