@@ -1693,8 +1693,16 @@ const renderAnalysis = (opts = {}) => {
       try {
         window.catChart = new Chart(ctx, {
           type: 'doughnut',
-          data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-          options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
+          data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: '75%',
+            plugins: { legend: { display: false } },
+            // Ogni cambio mese ricrea il chart (destroy+new) → senza questo
+            // l'animazione d'entrata sparisce dal secondo render in poi e i
+            // segmenti "scattano". Curva morbida esplicita, sempre viva.
+            animation: { duration: 650, easing: 'easeOutQuart' },
+            transitions: { active: { animation: { duration: 200 } } },
+          }
         });
       } catch(e) { console.warn("Chart error:", e); }
     } else {
