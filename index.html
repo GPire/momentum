@@ -170,7 +170,20 @@
     
     .numpad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; padding: 0.5rem 1rem; }
     .numpad-key { min-height: 3.5rem; border-radius: 1rem; border: 1px solid var(--outline); background: var(--surface-elevated); font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 500; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 1px rgba(255,255,255,0.05); transition: all 0.1s; user-select: none; color: var(--on-surface); }
-    .numpad-key:active { transform: scale(0.92); background: var(--outline); }
+    .numpad-key:active { transform: scale(0.92); background: var(--outline); box-shadow: inset 0 0 0 1px rgba(129,140,248,.5), 0 0 14px -2px rgba(99,102,241,.45); }
+    /* ── MICRO-ANIMAZIONI raffinate Command Center / navigazione (premium, GPU) ── */
+    @media (hover: hover) {
+      .cat-chip:hover { transform: translateY(-2px); }
+      .cat-chip:hover .cat-chip-icon { transform: scale(1.06) rotate(-2deg); }
+      .numpad-key:hover { border-color: var(--primary); background: var(--surface-solid); }
+      .nav-btn:hover { transform: translateX(3px); }
+      .save-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(129,140,248,.5), 0 14px 32px -8px rgba(99,102,241,.6); }
+    }
+    .nav-btn { transition: transform .18s cubic-bezier(.22,1,.36,1), background .2s, color .2s; }
+    .cat-chip-icon { transition: transform .25s cubic-bezier(.34,1.56,.64,1); } /* molla morbida sull'icona */
+    @media (prefers-reduced-motion: reduce) {
+      .cat-chip:hover, .cat-chip:hover .cat-chip-icon, .nav-btn:hover, .save-btn:hover { transform: none; }
+    }
     
     .save-btn { margin: 0.5rem 1rem; width: calc(100% - 2rem); min-height: 3.5rem; border-radius: 1.2rem; background: var(--apex-gradient); color: white; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); box-shadow: var(--glow-primary); flex-shrink: 0; padding: 0.5rem;}
     .save-btn:active { transform: scale(0.96); box-shadow: none; }
