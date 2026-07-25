@@ -487,36 +487,47 @@
       box-shadow: 97px 9px #eef, 9px 322px #eef, 99px 554px #eef, 105px 894px #eef, 1px 1128px #eef, 203px 1207px #eef, 43px 1409px #eef, 342px 69px #eef, 288px 390px #eef, 436px 520px #eef, 496px 748px #eef, 269px 980px #eef, 468px 1350px #eef, 494px 1449px #eef, 772px 14px #eef, 594px 274px #eef, 778px 552px #eef, 605px 717px #eef, 685px 1132px #eef, 682px 1148px #eef, 748px 1578px #eef, 854px 131px #eef, 1004px 352px #eef, 822px 510px #eef, 1066px 845px #eef, 814px 1019px #eef, 810px 1311px #eef, 897px 1434px #eef, 1306px 84px #eef, 1236px 403px #eef, 1152px 653px #eef, 1173px 858px #eef, 1263px 1020px #eef, 1237px 1242px #eef, 1142px 1396px #eef, 1426px 221px #eef, 1566px 339px #eef, 1545px 479px #eef, 1475px 776px #eef, 1440px 1117px #eef, 1414px 1364px #eef, 1566px 1548px #eef, 1670px 159px #eef, 1749px 443px #eef, 1615px 586px #eef, 1657px 834px #eef, 1822px 998px #eef, 1638px 1336px #eef, 1785px 1471px #eef, 1891px 154px #eef, 2084px 281px #eef, 1905px 608px #eef, 1995px 723px #eef, 2091px 1129px #eef, 2114px 1235px #eef, 2036px 1535px #eef, 2188px 171px #eef, 2221px 388px #eef, 2145px 638px #eef, 2338px 773px #eef, 2249px 1058px #eef, 2274px 1350px #eef, 2223px 1492px #eef, 2500px 10px #eef, 2663px 231px #eef, 2440px 542px #eef, 2519px 699px #eef, 2619px 991px #eef, 2406px 1281px #eef, 2443px 1518px #eef, 2728px 149px #eef, 2882px 345px #eef, 2886px 491px #eef, 2684px 895px #eef, 2759px 1077px #eef, 2854px 1181px #eef, 2909px 1533px #eef, 3086px 124px #eef, 3094px 429px #eef, 3153px 481px #eef, 3104px 705px #eef, 3132px 1055px #eef, 3154px 1301px #eef, 3114px 1386px #eef; }
     .sl-big { width: 2px; height: 2px; animation: sf-drift 240s linear infinite, sf-tw-c 5.5s ease-in-out infinite;
       box-shadow: 170px 18px #c7d2fe, 320px 428px #fff, 407px 1065px #a5f3fc, 355px 1435px #c7d2fe, 708px 219px #fff, 752px 737px #a5f3fc, 499px 1107px #c7d2fe, 568px 1463px #fff, 1015px 106px #a5f3fc, 1059px 445px #c7d2fe, 1274px 1146px #fff, 1145px 1467px #a5f3fc, 1668px 190px #c7d2fe, 1791px 754px #fff, 1481px 1097px #a5f3fc, 1395px 1353px #c7d2fe, 2007px 148px #fff, 2237px 755px #a5f3fc, 2211px 847px #c7d2fe, 2169px 1233px #fff, 2509px 245px #a5f3fc, 2485px 629px #c7d2fe, 2489px 960px #fff, 2439px 1525px #a5f3fc, 2767px 227px #c7d2fe, 3188px 452px #fff, 2770px 800px #a5f3fc, 3177px 1502px #c7d2fe; }
+    /* Livello GLOW: poche stelle grandi che brillano davvero (bagliore via
+       drop-shadow sul livello) → profondità e punti focali, senza costo per
+       stella. Twinkle più lento e ampio. */
+    .sl-glow { width: 2.4px; height: 2.4px; filter: drop-shadow(0 0 4px rgba(199,210,254,.8)); animation: sf-drift 300s linear infinite, sf-tw-glow 7s ease-in-out infinite;
+      box-shadow: 279px 60px #c7d2fe, 32px 593px #fff, 610px 1454px #a5f3fc, 1278px 439px #fff, 812px 762px #a5f3fc, 877px 1240px #c7d2fe, 1573px 334px #a5f3fc, 1781px 677px #c7d2fe, 1850px 1221px #fff, 2475px 388px #c7d2fe, 2432px 951px #fff, 2529px 1229px #a5f3fc, 2707px 233px #fff, 3015px 837px #a5f3fc, 2940px 1490px #c7d2fe; }
+    @keyframes sf-tw-glow { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
     @keyframes sf-drift { from { transform: translateY(0); } to { transform: translateY(-1600px); } }
     @keyframes sf-tw-a { 0%,100% { opacity: .55; } 50% { opacity: .25; } }
     @keyframes sf-tw-b { 0%,100% { opacity: .75; } 50% { opacity: .4; } }
     @keyframes sf-tw-c { 0%,100% { opacity: .95; } 50% { opacity: .55; } }
     @media (prefers-reduced-motion: reduce) { .star-layer { animation: none !important; opacity: .6 !important; } }
-    /* Stella cadente in CSS puro (delight on-brand, VISIBILE): scia lunga con una
-       TESTA luminosa che attraversa il cielo. Più frequenti e più lente di prima
-       (si vedono davvero). Due, sfalsate. reduced-motion → nascoste. */
-    .shooting-star { position: absolute; width: 180px; height: 2.5px; border-radius: 3px; opacity: 0;
-      background: linear-gradient(90deg, rgba(199,210,254,0) 0%, rgba(199,210,254,.35) 60%, rgba(255,255,255,.98) 100%);
-      pointer-events: none; will-change: transform, opacity; }
-    /* la testa: un punto luminoso col bagliore all'estremità di guida */
-    .shooting-star::after { content: ""; position: absolute; right: -1px; top: 50%; width: 4px; height: 4px; margin-top: -2px;
-      border-radius: 50%; background: #fff; box-shadow: 0 0 8px 2px rgba(199,210,254,.9); }
-    .shooting-star.s1 { top: 12%; left: -15%; animation: sf-shoot 7s cubic-bezier(.4,0,.9,.6) infinite; animation-delay: 1.5s; }
-    .shooting-star.s2 { top: 6%; right: -15%; transform: scaleX(-1); animation: sf-shoot-b 9s cubic-bezier(.4,0,.9,.6) infinite; animation-delay: 5s; }
-    @keyframes sf-shoot {
-      0% { transform: translate(0,0) rotate(18deg); opacity: 0; }
-      6% { opacity: 1; }
-      26% { opacity: 1; }
-      34% { transform: translate(75vw, 40vh) rotate(18deg); opacity: 0; }
-      100% { transform: translate(75vw, 40vh) rotate(18deg); opacity: 0; }
-    }
-    @keyframes sf-shoot-b {
-      0% { transform: translate(0,0) rotate(-16deg) scaleX(-1); opacity: 0; }
-      6% { opacity: 1; }
-      24% { opacity: 1; }
-      32% { transform: translate(-60vw, 34vh) rotate(-16deg) scaleX(-1); opacity: 0; }
-      100% { transform: translate(-60vw, 34vh) rotate(-16deg) scaleX(-1); opacity: 0; }
-    }
+    /* Stelle cadenti in CSS puro, CURATE: scia lunga con bagliore morbido + testa
+       alonata. Tre, con LUMINOSITÀ / INTENSITÀ / PROFONDITÀ diverse (una vicina e
+       brillante, una media, una lontana e tenue → senso di spazio). Tempi e
+       traiettorie sfalsati. reduced-motion → nascoste (accessibilità). */
+    .shooting-star { position: absolute; height: 2px; border-radius: 3px; opacity: 0; pointer-events: none;
+      will-change: transform, opacity; transform-origin: right center; }
+    /* la scia: gradiente che sfuma, con testa (::after) luminosa e alonata */
+    .shooting-star::after { content: ""; position: absolute; right: -2px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px;
+      border-radius: 50%; background: #fff; }
+    /* vicina: grande, brillante, veloce */
+    .shooting-star.s1 { top: 14%; left: -18%; width: 210px; height: 2.4px;
+      background: linear-gradient(90deg, rgba(224,231,255,0) 0%, rgba(199,210,254,.5) 55%, #fff 100%);
+      filter: drop-shadow(0 0 5px rgba(199,210,254,.75));
+      animation: sf-shoot 8s cubic-bezier(.35,0,.85,.5) infinite; animation-delay: 1.5s; }
+    .shooting-star.s1::after { box-shadow: 0 0 10px 3px rgba(199,210,254,.95), 0 0 4px 1px #fff; }
+    /* media: bianco-ciano, intensità intermedia */
+    .shooting-star.s2 { top: 7%; right: -18%; width: 170px; height: 2px; transform: scaleX(-1);
+      background: linear-gradient(90deg, rgba(165,243,252,0) 0%, rgba(165,243,252,.4) 55%, rgba(240,253,255,.95) 100%);
+      filter: drop-shadow(0 0 4px rgba(165,243,252,.6));
+      animation: sf-shoot-b 11s cubic-bezier(.35,0,.85,.5) infinite; animation-delay: 5.5s; }
+    .shooting-star.s2::after { box-shadow: 0 0 8px 2px rgba(165,243,252,.85); background: #eafeff; }
+    /* lontana: piccola, tenue, lenta (profondità) */
+    .shooting-star.s3 { top: 26%; left: -12%; width: 120px; height: 1.4px;
+      background: linear-gradient(90deg, rgba(199,210,254,0) 0%, rgba(199,210,254,.28) 60%, rgba(226,232,255,.7) 100%);
+      filter: drop-shadow(0 0 3px rgba(199,210,254,.4));
+      animation: sf-shoot-c 14s cubic-bezier(.4,0,.9,.55) infinite; animation-delay: 9s; }
+    .shooting-star.s3::after { width: 3px; height: 3px; margin-top: -1.5px; box-shadow: 0 0 6px 1px rgba(199,210,254,.6); }
+    @keyframes sf-shoot { 0% { transform: translate(0,0) rotate(19deg); opacity: 0; } 5% { opacity: 1; } 24% { opacity: 1; } 33% { transform: translate(80vw, 46vh) rotate(19deg); opacity: 0; } 100% { transform: translate(80vw, 46vh) rotate(19deg); opacity: 0; } }
+    @keyframes sf-shoot-b { 0% { transform: translate(0,0) rotate(-15deg) scaleX(-1); opacity: 0; } 6% { opacity: 1; } 22% { opacity: 1; } 30% { transform: translate(-64vw, 36vh) rotate(-15deg) scaleX(-1); opacity: 0; } 100% { transform: translate(-64vw, 36vh) rotate(-15deg) scaleX(-1); opacity: 0; } }
+    @keyframes sf-shoot-c { 0% { transform: translate(0,0) rotate(22deg); opacity: 0; } 7% { opacity: .8; } 26% { opacity: .8; } 35% { transform: translate(66vw, 52vh) rotate(22deg); opacity: 0; } 100% { transform: translate(66vw, 52vh) rotate(22deg); opacity: 0; } }
     @media (prefers-reduced-motion: reduce) { .shooting-star { display: none; } }
 
     /* Interactive Jar Liquid widget */
@@ -557,7 +568,7 @@
             radial-gradient(60% 55% at 27% 30%, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0) 60%),
             radial-gradient(55% 50% at 76% 72%, rgba(34,211,238,0.12) 0%, rgba(34,211,238,0) 60%);"></div>
        <!-- Stelle in CSS puro (3 livelli): nessun canvas/JS, indistruttibile. -->
-       <div class="starfield"><div class="star-layer sl-small"></div><div class="star-layer sl-mid"></div><div class="star-layer sl-big"></div><div class="shooting-star s1"></div><div class="shooting-star s2"></div></div>
+       <div class="starfield"><div class="star-layer sl-small"></div><div class="star-layer sl-mid"></div><div class="star-layer sl-big"></div><div class="star-layer sl-glow"></div><div class="shooting-star s1"></div><div class="shooting-star s2"></div><div class="shooting-star s3"></div></div>
     </div>
     <!-- Scrim scuro radiale DIETRO il contenuto: garantisce che la scritta
          "Momentum" e i pulsanti restino sempre leggibili sopra le stelle, e
