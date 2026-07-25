@@ -507,6 +507,10 @@
        <canvas id="genesis-canvas" class="absolute inset-0 w-full h-full"></canvas>
        <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/5 blur-3xl opacity-50"></div>
     </div>
+    <!-- Scrim scuro radiale DIETRO il contenuto: garantisce che la scritta
+         "Momentum" e i pulsanti restino sempre leggibili sopra le stelle, e
+         lega lo starfield al look scuro/vetro del resto dell'app (coerenza). -->
+    <div class="absolute inset-0 z-[5] pointer-events-none" style="background: radial-gradient(ellipse 60% 45% at 50% 48%, rgba(5,7,15,0.82) 0%, rgba(5,7,15,0.55) 45%, rgba(5,7,15,0) 78%);"></div>
     <div id="genesis-ui" class="relative z-10 w-full max-w-md px-6 h-96">
       <!-- Step 0 — hero caldo e umano (prima era "Protocollo O.M.E.G.A.", freddo).
            Una promessa semplice, comprensibile da chiunque, in 10 secondi. -->

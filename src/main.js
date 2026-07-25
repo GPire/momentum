@@ -4454,11 +4454,20 @@ const initApp = () => {
       if (canvas) { try { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } catch (_) {} }
     }
   } else {
-    // Primo avvio: cielo stellato curato sul canvas del genesis (design, non un
-    // fondo nero spoglio). Stelle a più profondità con twinkle + bagliore, deriva
-    // lenta, stelle cadenti occasionali, su una nebulosa indaco/ciano che respira
-    // (neurocolori del brand). Responsive (si ridimensiona) e reduced-motion.
-    drawGenesisStarfield(document.getElementById('genesis-canvas'));
+    // Primo avvio: cielo stellato curato sul canvas del genesis. Deferito a un
+    // frame così il canvas ha già il layout (evita dimensioni 0/default), e
+    // ritenta se non è ancora pronto. Stelle a più profondità con twinkle +
+    // bagliore, deriva lenta, stelle cadenti, nebulosa indaco/ciano che respira
+    // (neurocolori del brand). Responsive e reduced-motion. Uno scrim scuro (in
+    // index.html, z-5) tiene il testo sempre leggibile sopra.
+    let sfTries = 0;
+    const startStarfield = () => {
+      const c = document.getElementById('genesis-canvas');
+      if (!c) return; // genesis non più in pagina: nulla da disegnare
+      if (window.innerWidth < 1 && sfTries++ < 5) { requestAnimationFrame(startStarfield); return; }
+      drawGenesisStarfield(c);
+    };
+    requestAnimationFrame(startStarfield);
   }
 };
 
