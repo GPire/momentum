@@ -456,6 +456,23 @@
     /* il testo dentro il pulsante non deve mai essere selezionabile (fix long-press iOS) */
     .haptic-core * { pointer-events: none; user-select: none; -webkit-user-select: none; }
 
+    /* — PRIMO AVVIO: micro-animazioni curate (semplice, guida l'occhio di
+         chiunque, anche di un bambino). Le opzioni entrano SCAGLIONATE una dopo
+         l'altra; il titolo con un lieve salire. Tutto disattivato con
+         prefers-reduced-motion (accessibilità: mai movimento imposto). — */
+    @keyframes gRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    .genesis-step.active h1, .genesis-step.active h2, .genesis-step.active > p { animation: gRise 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+    .genesis-step.active .g-option { animation: gRise 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay: calc(0.12s + var(--i, 0) * 0.09s); }
+    /* progresso "1 di 2": pallini semplici, il corrente più grande e colorato */
+    .g-progress { display: flex; gap: 8px; justify-content: center; margin-bottom: 1.25rem; }
+    .g-progress span { width: 8px; height: 8px; border-radius: 999px; background: var(--outline); transition: all 0.35s cubic-bezier(0.22,1,0.36,1); }
+    .g-progress span.on { background: var(--primary); width: 22px; }
+    .g-progress span.done { background: var(--primary); opacity: 0.5; }
+    @media (prefers-reduced-motion: reduce) {
+      .genesis-step.active h1, .genesis-step.active h2, .genesis-step.active > p, .genesis-step.active .g-option { animation: none; }
+      .g-progress span { transition: none; }
+    }
+
     /* Interactive Jar Liquid widget */
     .jar-container { position: relative; width: 70px; height: 100px; border: 3px solid var(--on-surface-secondary); border-radius: 0.75rem 0.75rem 2rem 2rem; overflow: hidden; background: rgba(255,255,255,0.02); }
     .jar-liquid { position: absolute; bottom: 0; left: 0; right: 0; background: var(--liquid-gradient); transition: height 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -501,19 +518,23 @@
       </div>
       <!-- Step 1 — stessa domanda-profilo (valori invariati) ma in parole umane. -->
       <div class="genesis-step" id="g-step-1">
+        <div class="g-progress" aria-hidden="true"><span class="on"></span><span></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 1 di 2</p>
         <h2 class="text-2xl font-black mb-1">I tuoi risparmi perdono un po' di valore.</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Tu cosa fai di solito?</p>
-        <button class="g-option" onclick="genesisNext(2, 'aggressivo')">È il momento di approfittarne 💪</button>
-        <button class="g-option" onclick="genesisNext(2, 'bilanciato')">Aspetto con calma 🌊</button>
-        <button class="g-option" onclick="genesisNext(2, 'conservativo')">Preferisco stare al sicuro 🛡️</button>
+        <button class="g-option" style="--i:1" onclick="genesisNext(2, 'aggressivo')">È il momento di approfittarne 💪</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(2, 'bilanciato')">Aspetto con calma 🌊</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(2, 'conservativo')">Preferisco stare al sicuro 🛡️</button>
       </div>
       <!-- Step 2 -->
       <div class="genesis-step" id="g-step-2">
+        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="on"></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 2 di 2 — ultima!</p>
         <h2 class="text-2xl font-black mb-1">Tra quanto ti servono questi soldi?</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Così ti do consigli giusti per te.</p>
-        <button class="g-option" onclick="genesisNext(3, 'lungo')">Tra molti anni — sto costruendo 🌱</button>
-        <button class="g-option" onclick="genesisNext(3, 'medio')">Tra qualche anno — un progetto 🎯</button>
-        <button class="g-option" onclick="genesisNext(3, 'breve')">Presto — mi servono a breve ⏳</button>
+        <button class="g-option" style="--i:1" onclick="genesisNext(3, 'lungo')">Tra molti anni — sto costruendo 🌱</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(3, 'medio')">Tra qualche anno — un progetto 🎯</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(3, 'breve')">Presto — mi servono a breve ⏳</button>
       </div>
       <!-- Step 3 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
       <div class="genesis-step" id="g-step-3">
