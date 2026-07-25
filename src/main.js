@@ -3688,15 +3688,29 @@ window.exportOmegaDNA = () => {
   showToast("DNA Esportato con successo.", "success");
 };
 
+// Spiegazione concreta di ogni livello del freno spese (cambia col tocco → si
+// capisce la differenza, e mostra che è integrato coi segnali reali del Core).
+const BRAKE_DESC = {
+  zen: 'Ti lascio libero: ti avviso solo per spese davvero fuori scala. Nessuna interruzione.',
+  advisor: 'Equilibrato: quando una spesa intacca troppo il tuo margine di oggi o la proiezione di fine mese, te lo dico con calma.',
+  predator: 'Protettivo: ti avviso presto e, sulle spese che ti farebbero chiudere il mese in rosso, ti chiedo un secondo tocco di conferma. Mai un blocco — decidi tu.',
+};
+function renderBrakeDesc() {
+  const el = $('#ai-mode-desc'); if (!el) return;
+  const mode = VaultDAO.state.aiAggression || 'advisor';
+  el.textContent = BRAKE_DESC[mode] || BRAKE_DESC.advisor;
+  $$('.segment-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.aiMode === mode);
+    btn.classList.toggle('predator', mode === 'predator' && btn.dataset.aiMode === 'predator');
+  });
+}
 window.setAIAggression = (mode) => {
   haptic('light');
   VaultDAO.state.aiAggression = mode;
   VaultDAO.save();
-  $$('.segment-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.aiMode === mode);
-    if (mode === 'predator' && btn.dataset.aiMode === 'predator') btn.classList.add('predator');
-  });
-  showToast("Aggressività AI aggiornata.", "success");
+  renderBrakeDesc();
+  const label = mode === 'zen' ? 'Delicato' : mode === 'predator' ? 'Deciso' : 'Consigliere';
+  showToast(`Freno spese: ${label}.`, 'success');
 };
 
 window.toggleGhostRadar = () => {
@@ -4042,7 +4056,7 @@ const navigate = (view) => {
     btn.classList.toggle('text-[var(--on-surface-secondary)]', btn.dataset.view !== view);
   });
   if (view === 'analysis') renderAnalysis();
-  if (view === 'settings') renderTaxSettings();
+  if (view === 'settings') { renderTaxSettings(); renderBrakeDesc(); }
 };
 
 window.openModal = (html) => {
