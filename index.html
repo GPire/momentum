@@ -521,34 +521,34 @@
            Una promessa semplice, comprensibile da chiunque, in 10 secondi. -->
       <div class="genesis-step active" id="g-step-0">
         <h1 class="text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500 mb-2">Momentum</h1>
-        <p class="text-[var(--primary)] font-bold text-sm mb-2">I tuoi soldi, chiari. Tutto sul tuo telefono.</p>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-8">Due domande veloci e Momentum è già tuo, su misura. Niente account, niente server.</p>
-        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext(1)">Inizia — è tutto qui, per te</button>
+        <p class="text-[var(--primary)] font-bold text-sm mb-2">I tuoi soldi, finalmente chiari.</p>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-8">Due domande e sei dentro. Resta tutto sul tuo telefono: niente account, niente server, solo tuo.</p>
+        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext(1)">Inizia — bastano 20 secondi</button>
       </div>
       <!-- Step 1 — stessa domanda-profilo (valori invariati) ma in parole umane. -->
       <div class="genesis-step" id="g-step-1">
         <div class="g-progress" aria-hidden="true"><span class="on"></span><span></span></div>
         <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 1 di 2</p>
-        <h2 class="text-2xl font-black mb-1">I tuoi risparmi perdono un po' di valore.</h2>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Tu cosa fai di solito?</p>
-        <button class="g-option" style="--i:1" onclick="genesisNext(2, 'aggressivo')">È il momento di approfittarne</button>
+        <h2 class="text-2xl font-black mb-1">I tuoi risparmi calano un po'.</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Di solito, tu cosa fai?</p>
+        <button class="g-option" style="--i:1" onclick="genesisNext(2, 'aggressivo')">Ne approfitto</button>
         <button class="g-option" style="--i:2" onclick="genesisNext(2, 'bilanciato')">Aspetto con calma</button>
-        <button class="g-option" style="--i:3" onclick="genesisNext(2, 'conservativo')">Preferisco stare al sicuro</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(2, 'conservativo')">Preferisco andare sul sicuro</button>
       </div>
       <!-- Step 2 -->
       <div class="genesis-step" id="g-step-2">
         <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="on"></span></div>
-        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 2 di 2 — ultima!</p>
-        <h2 class="text-2xl font-black mb-1">Tra quanto ti servono questi soldi?</h2>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Così ti do consigli giusti per te.</p>
-        <button class="g-option" style="--i:1" onclick="genesisNext(3, 'lungo')">Tra molti anni — sto costruendo</button>
-        <button class="g-option" style="--i:2" onclick="genesisNext(3, 'medio')">Tra qualche anno — un progetto</button>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 2 di 2 — l'ultima</p>
+        <h2 class="text-2xl font-black mb-1">Fra quanto ti servono?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Così i consigli sono cuciti su di te.</p>
+        <button class="g-option" style="--i:1" onclick="genesisNext(3, 'lungo')">Fra molti anni — sto costruendo</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(3, 'medio')">Fra qualche anno — un progetto</button>
         <button class="g-option" style="--i:3" onclick="genesisNext(3, 'breve')">Presto — mi servono a breve</button>
       </div>
       <!-- Step 3 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
       <div class="genesis-step" id="g-step-3">
         <h2 class="text-2xl font-black mb-2 text-center">Tutto pronto.</h2>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-6 text-center">Momentum è configurato su misura per te.</p>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6 text-center">Da ora Momentum ragiona come te.</p>
         <div class="relative w-[148px] h-[148px] mx-auto flex items-center justify-center">
           <svg class="haptic-ring-svg" viewBox="0 0 148 148">
             <circle cx="74" cy="74" r="65" fill="none" stroke="var(--outline)" stroke-width="4"/>
