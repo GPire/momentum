@@ -13,7 +13,7 @@ import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
-import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine } from './predict/tax.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
@@ -2825,6 +2825,13 @@ function getInvoiceFormHTML() {
       return `<div class="flex gap-2 overflow-x-auto pb-1">${rec.map((c, i) =>
         `<button type="button" data-recidx="${i}" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border ${c.dueThisMonth ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${c.monthly ? miniRepeat : ''}<span>${c.client}${c.typicalAmount ? ` · ${Math.round(c.typicalAmount)}€` : ''}</span></button>`).join('')}</div>`;
     })()}
+    <!-- RIGA UNICA (NL): scrivi la fattura come la diresti — anti-attrito, stessa
+         filosofia della voce. "fattura a Rossi Srl 500 per consulenza" compila
+         cliente, importo e causale con un tocco. -->
+    <div class="flex gap-2">
+      <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" />
+      <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[var(--primary)]/40 text-[var(--primary)] text-xs font-bold">Compila</button>
+    </div>
     <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
     <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
     <!-- Dati fiscali del CLIENTE: servono solo alla fattura elettronica. A scomparsa,
@@ -2975,6 +2982,19 @@ window.openCreateInvoice = (prefillClient) => {
   amountEl.addEventListener('input', refresh);
   regimeEl.addEventListener('change', refresh);
   $('#inv-country')?.addEventListener('change', refresh);
+  // RIGA UNICA (NL) → compila cliente/importo/causale con un tocco (o Invio).
+  const fillFromOneLine = () => {
+    const parsed = parseInvoiceLine($('#inv-oneline')?.value || '');
+    if (!parsed) { showToast('Scrivi almeno l\'importo, es. "a Rossi 500 per consulenza".', 'error'); return; }
+    if (parsed.client) clientEl.value = parsed.client;
+    amountEl.value = String(parsed.amount);
+    if (parsed.description) descEl.value = parsed.description;
+    clientEl.dispatchEvent(new Event('change'));
+    refresh();
+    showToast('Compilato. Controlla e genera.', 'success');
+  };
+  $('#inv-oneline-fill')?.addEventListener('click', fillFromOneLine);
+  $('#inv-oneline')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fillFromOneLine(); } });
   // Logo → data URI on-device (nessun upload esterno), tenuto in una var locale
   // e salvato nel profilo alla generazione. Limite dimensione per non gonfiare
   // il vault: se troppo grande, avvisa.
@@ -3029,6 +3049,21 @@ window.openCreateInvoice = (prefillClient) => {
     const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
     const hasCliFiscal = cliFis.partitaIva || cliFis.codiceFiscale || cliFis.indirizzo;
     VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail, country: prof.country, ...(opts.electronic ? { isElectronic: true, sdiTransmitted: false } : {}), ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}) }];
+    // AUTO-ADDESTRAMENTO (chiude il loop, come richiesto): creare una fattura per
+    // un cliente INSEGNA al sistema che i futuri accrediti da quel cliente sono
+    // reddito da fattura — su due livelli:
+    //  · classificatore entrate fiscale (taxLearned): l'accantonamento tasse
+    //    scatta da solo per quel mittente, senza richiedere conferma;
+    //  · Momentum Core (orchestrator): categorizza le entrate di quel cliente,
+    //    così tutta l'app impara dallo stesso gesto. Onesto: impara dal nome
+    //    reale che l'utente ha scritto, non da un'assunzione.
+    if (client) {
+      try {
+        VaultDAO.state.taxLearned = learnIncomeType(VaultDAO.state.taxLearned || {}, client, 'invoice');
+        VaultDAO.state.taxLearned = learnIncomeType(VaultDAO.state.taxLearned, `fattura ${client} ${descEl.value.trim()}`, 'invoice');
+        window.momentumOrchestrator?.learn(client, 'stipendio', imp, new Date());
+      } catch (_) { /* apprendimento best-effort: non blocca il salvataggio */ }
+    }
     VaultDAO.save();
     // dati strutturati per la fattura elettronica (usati dall'handler XML)
     const emitterFiscal = { ...fis, denominazione: prof.emitter, regime: regimeEl.value, nazione: 'IT' };

@@ -214,3 +214,40 @@ test('ENSEMBLE: modello e conferme DISCORDI → resta uncertain (mai forzare)', 
   const r = classifyIncome({ description: 'Kappa report' }, learned, fakeModel);
   assert.equal(r.kind, 'uncertain');
 });
+
+// ── FATTURA da UNA RIGA (NL) ──────────────────────────────────────────────
+const { parseInvoiceLine } = await import('./tax.js');
+
+test('NL fattura: "fattura a Rossi Srl 500 per consulenza"', () => {
+  const r = parseInvoiceLine('fattura a Rossi Srl 500 per consulenza');
+  assert.equal(r.amount, 500);
+  assert.equal(r.client, 'Rossi Srl');
+  assert.equal(r.description.toLowerCase(), 'consulenza');
+});
+
+test('NL fattura: "500 a Mario Rossi per sito web"', () => {
+  const r = parseInvoiceLine('500 a Mario Rossi per sito web');
+  assert.equal(r.amount, 500);
+  assert.equal(r.client, 'Mario Rossi');
+  assert.equal(r.description.toLowerCase(), 'sito web');
+});
+
+test('NL fattura: importo decimale con virgola', () => {
+  const r = parseInvoiceLine('emetti 1200,50 a Studio Bianchi per progetto');
+  assert.equal(r.amount, 1200.5);
+  assert.equal(r.client, 'Studio Bianchi');
+});
+
+test('NL fattura: senza importo → null (una fattura senza importo non esiste)', () => {
+  assert.equal(parseInvoiceLine('fattura a Rossi per consulenza'), null);
+  assert.equal(parseInvoiceLine(''), null);
+});
+
+// ── AUTO-ADDESTRAMENTO: creare una fattura insegna il cliente ──────────────
+test('un cliente fatturato viene riconosciuto come reddito da fattura in futuro', () => {
+  // Simula: creo una fattura per "Studio Bianchi" → apprendo il mittente.
+  let learned = learnIncomeType({}, 'Studio Bianchi', 'invoice');
+  // Un accredito futuro con quel nome ora si classifica da solo come fattura.
+  const c = classifyIncome({ description: 'Bonifico da Studio Bianchi' }, learned);
+  assert.equal(c.kind, 'invoice');
+});

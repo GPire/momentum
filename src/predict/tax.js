@@ -356,3 +356,40 @@ export function taxSetAsideForPeriod(transactions, opts = {}) {
       : (excludedCount || uncertainCount ? `Nessuna fattura imponibile qui${excludedTxt}.${uncertainTxt}` : 'Nessun incasso registrato in questo periodo.'),
   };
 }
+
+// ==========================================
+// FATTURA da UNA RIGA (NL) — stessa filosofia anti-attrito della voce
+// ==========================================
+// "fattura a Rossi Srl 500 per consulenza" · "500 a Mario Rossi per sito web" ·
+// "emetti 1200 a Studio Bianchi per progetto". Estrae cliente, importo e causale
+// da testo libero. ONESTO: senza un importo ritorna null (una fattura senza
+// importo non esiste); il cliente può mancare (lo chiede la UI) ma se c'è lo
+// riconosce. Pura e testabile — il DOM sta in main.js.
+export function parseInvoiceLine(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return null;
+  const amtMatch = raw.replace(/€/g, ' ').match(/(\d+(?:[.,]\d{1,2})?)/);
+  if (!amtMatch) return null;
+  const amount = Math.round(parseFloat(amtMatch[1].replace(',', '.')) * 100) / 100;
+  if (!(amount > 0)) return null;
+
+  let rest = raw.replace(amtMatch[0], ' ');
+  // Causale: tutto ciò che segue "per".
+  let description = '';
+  const per = rest.match(/\bper\s+(.+)$/i);
+  if (per) { description = per[1].trim(); rest = rest.slice(0, per.index); }
+
+  // Cliente: dopo "a/al/alla/all'/cliente/ditta/fattura a", togliendo i verbi di
+  // comando iniziali. Ciò che resta, ripulito, è il nome (anche multi-parola,
+  // "Rossi Srl", "Mario Rossi"). Le preposizioni/connettivi di servizio via.
+  let client = rest
+    .replace(/\b(fattura|fatturare|emetti|emettere|crea|creare|nuova|una)\b/gi, ' ')
+    .replace(/\b(a|al|allo|alla|all'|ai|agli|alle|il|lo|la|di|del|della|cliente|ditta|per)\b/gi, ' ')
+    .replace(/[^\wàèéìòùÀÈÉÌÒÙ&.\s'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Capitalizza ogni parola del nome (Srl/SpA restano leggibili comunque).
+  client = client.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+  return { client, amount, description };
+}
