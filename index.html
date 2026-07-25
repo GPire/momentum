@@ -530,6 +530,37 @@
     @keyframes sf-shoot-c { 0% { transform: translate(0,0) rotate(22deg); opacity: 0; } 7% { opacity: .8; } 26% { opacity: .8; } 35% { transform: translate(66vw, 52vh) rotate(22deg); opacity: 0; } 100% { transform: translate(66vw, 52vh) rotate(22deg); opacity: 0; } }
     @media (prefers-reduced-motion: reduce) { .shooting-star { display: none; } }
 
+    /* ── MICRO-ANIMAZIONI AVANZATE (primo avvio) — premium, GPU, reduced-motion aware ── */
+    /* 1) Titolo hero "Momentum": riflesso di luce che scorre lentamente (shimmer
+          fintech premium), sopra il gradiente bianco→grigio. */
+    #g-step-0 h1 {
+      background-image: linear-gradient(100deg, #cbd0d8 0%, #ffffff 42%, #ffffff 50%, #cbd0d8 62%, #8b93a3 100%);
+      background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: hero-shine 6.5s ease-in-out infinite;
+    }
+    @keyframes hero-shine { 0% { background-position: 120% 0; } 55%, 100% { background-position: -20% 0; } }
+    /* 2) CTA primaria: alone che "respira" + micro-lift all'hover, molla al tap. */
+    #g-step-0 .g-option { position: relative; overflow: hidden; animation: cta-breathe 3.4s ease-in-out infinite; }
+    @keyframes cta-breathe { 0%,100% { box-shadow: 0 8px 24px -6px rgba(99,102,241,.45); } 50% { box-shadow: 0 10px 34px -4px rgba(99,102,241,.75); } }
+    /* 3) Shine diagonale che attraversa i pulsanti primari (glossy premium). */
+    #g-step-0 .g-option::before, .btn-primary::before {
+      content: ""; position: absolute; top: 0; left: -120%; width: 60%; height: 100%; pointer-events: none;
+      background: linear-gradient(100deg, transparent, rgba(255,255,255,.28), transparent); transform: skewX(-18deg);
+      animation: btn-sheen 5.5s ease-in-out infinite; animation-delay: 1s;
+    }
+    .btn-primary { position: relative; overflow: hidden; }
+    @keyframes btn-sheen { 0% { left: -120%; } 22%, 100% { left: 140%; } }
+    /* 4) Opzioni onboarding: hover-lift e bordo che si accende, tap con molla. */
+    .g-option { transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .2s, background .2s, box-shadow .2s; }
+    @media (hover: hover) { .g-option:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: 0 6px 20px -8px rgba(99,102,241,.5); } }
+    .g-option:active { transform: scale(.96); }
+    @media (prefers-reduced-motion: reduce) {
+      #g-step-0 h1 { animation: none; background-position: 42% 0; }
+      #g-step-0 .g-option { animation: none; }
+      #g-step-0 .g-option::before, .btn-primary::before { display: none; }
+      .g-option:hover { transform: none; }
+    }
+
     /* Interactive Jar Liquid widget */
     .jar-container { position: relative; width: 70px; height: 100px; border: 3px solid var(--on-surface-secondary); border-radius: 0.75rem 0.75rem 2rem 2rem; overflow: hidden; background: rgba(255,255,255,0.02); }
     .jar-liquid { position: absolute; bottom: 0; left: 0; right: 0; background: var(--liquid-gradient); transition: height 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
