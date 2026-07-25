@@ -263,7 +263,9 @@
     @media (min-width: 1600px) { .analysis-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } .analysis-grid > * { width: auto; } }
     /* Button leggibili e toccabili su OGNI schermo: area minima comoda anche su
        iPhone piccolo, senza diventare enormi su desktop. */
-    .btn-action { min-height: 40px; font-size: clamp(11px, 2.6vw, 15px); padding: 0.5rem 0.6rem; white-space: normal; line-height: 1.2; overflow-wrap: break-word; word-break: normal; hyphens: none; text-align: center; min-width: 0; }
+    /* Target tattile minimo 44px (linea guida Apple/Google): un dito deve poter
+       toccare con affidabilità, non solo leggere. Sotto era 40px — troppo piccolo. */
+    .btn-action { min-height: 44px; font-size: clamp(11px, 2.6vw, 15px); padding: 0.6rem 0.6rem; white-space: normal; line-height: 1.25; overflow-wrap: break-word; word-break: normal; hyphens: none; text-align: center; min-width: 0; }
     @media (min-width: 1280px) { .btn-action { min-height: 44px; } }
 
     /* === RESPONSIVE NATIVO A CASCATA (mobile → tablet → desktop → TV) ===
@@ -446,8 +448,8 @@
          layout desktop (solo pointer coarse). — */
     @media (pointer: coarse) {
       #settings-view button, #analysis-view button,
-      .segment-btn, .cat-chip { min-height: 40px; }
-      input[type="checkbox"] { width: 20px; height: 20px; }
+      .segment-btn, .cat-chip { min-height: 44px; }
+      input[type="checkbox"] { width: 22px; height: 22px; }
     }
 
     /* === "UNISCITI AL GRUPPO": ingresso morbido + badge che pulsa una volta,
