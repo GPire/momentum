@@ -550,6 +550,22 @@
     }
     .btn-primary { position: relative; overflow: hidden; }
     @keyframes btn-sheen { 0% { left: -120%; } 22%, 100% { left: 140%; } }
+
+    /* ── MICRO-ANIMAZIONI APP-WIDE (premium, coerenti, GPU, reduced-motion aware) ── */
+    /* card: micro-lift al passaggio del mouse (percezione di qualità e reattività) */
+    @media (hover: hover) {
+      .card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -18px rgba(0,0,0,.55); }
+      .btn-action:hover { transform: translateY(-1px); border-color: var(--primary); }
+      .btn-primary:hover { box-shadow: 0 0 0 1px rgba(129,140,248,.5), 0 12px 30px -8px rgba(99,102,241,.6); }
+    }
+    /* feedback a MOLLA al tocco su tutti i controlli principali (tattile, premium) */
+    .btn-action:active, .btn-primary:active, .segment-btn:active { transform: scale(.965); }
+    .btn-action, .btn-primary { transition: transform .16s cubic-bezier(.22,1,.36,1), box-shadow .2s, border-color .2s, background .2s; }
+    /* entrata morbida delle voci di lista (scaglionata dove il markup lo consente) */
+    @keyframes item-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .card:hover, .btn-action:hover, .btn-action:active, .btn-primary:active, .segment-btn:active, .btn-primary:hover { transform: none; }
+    }
     /* 4) Opzioni onboarding: hover-lift e bordo che si accende, tap con molla. */
     .g-option { transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .2s, background .2s, box-shadow .2s; }
     @media (hover: hover) { .g-option:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: 0 6px 20px -8px rgba(99,102,241,.5); } }
