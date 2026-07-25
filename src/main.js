@@ -4051,9 +4051,19 @@ const navigate = (view) => {
     const el = $(`#${v}-view`);
     if (el) el.classList.toggle('hidden', v !== view);
   });
+  // Evidenzia il tab ATTIVO su ENTRAMBE le nav (desktop sidebar + mobile): prima
+  // solo la mobile veniva aggiornata → su desktop il tab corrente non si
+  // illuminava (restava acceso "Dashboard"). Stesso neurocolore attivo ovunque
+  // (indaco = "sei qui"), per coerenza e per ridurre l'attrito di orientamento.
   $$('.mobile-nav .nav-btn').forEach(btn => {
     btn.classList.toggle('text-[var(--primary)]', btn.dataset.view === view);
     btn.classList.toggle('text-[var(--on-surface-secondary)]', btn.dataset.view !== view);
+  });
+  $$('aside .nav-btn[data-view]').forEach(btn => {
+    const active = btn.dataset.view === view;
+    btn.classList.toggle('text-[var(--primary)]', active);
+    btn.classList.toggle('bg-[var(--primary)]/10', active);
+    btn.classList.toggle('text-[var(--on-surface-secondary)]', !active);
   });
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') { renderTaxSettings(); renderBrakeDesc(); }
