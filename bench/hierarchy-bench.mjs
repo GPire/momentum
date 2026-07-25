@@ -85,14 +85,19 @@ for (const [chain, cat] of CHAINS) {
   }
 }
 
-let hOk = 0, fOk = 0, n = 0, hAbstain = 0, fMiss = 0;
+let hOk = 0, fOk = 0, n = 0, hAbstain = 0, fMiss = 0, hybOk = 0, hybAbstain = 0;
 for (const [chain, cat] of CHAINS) {
   for (let i = 0; i < TEST_PER_CHAIN; i++) {
     let d; do { d = variant(chain); } while (seen.has(d));
     seen.add(d); // MAI vista in addestramento
     n++;
-    const p = predictMerchant(hier, d);
+    const p = predictMerchant(hier, d, Date.now(), { algo: 'hierarchical' });
     if (!p) hAbstain++; else if (p.category === cat) hOk++;
+    // STESSO modello, STESSI casi di test: unica variabile è l'algoritmo.
+    // Decide onestamente se predictHybrid (validato in ricerca 2026-07-22 su k
+    // adattivo/gating) merita di diventare il default di produzione qui.
+    const hb = predictMerchant(hier, d, Date.now(), { algo: 'hybrid' });
+    if (!hb) hybAbstain++; else if (hb.category === cat) hybOk++;
     const f = flatPredict(flat, d);
     if (f === null) fMiss++; else if (f === cat) fOk++;
   }
@@ -117,21 +122,28 @@ for (const [chain, main, alt] of MIXED) {
     mixedTruth.push([variant(chain), cat, main]);
   }
 }
-let mixOk = 0, mixMajority = 0;
+let mixOk = 0, mixMajority = 0, mixOkHyb = 0, mixMajorityHyb = 0;
 for (const [d, truth, main] of mixedTruth) {
-  const p = predictMerchant(mixed, d);
+  const p = predictMerchant(mixed, d, Date.now(), { algo: 'hierarchical' });
   if (p && p.category === truth) mixOk++;
   if (p && p.category === main) mixMajority++;
+  const hb = predictMerchant(mixed, d, Date.now(), { algo: 'hybrid' });
+  if (hb && hb.category === truth) mixOkHyb++;
+  if (hb && hb.category === main) mixMajorityHyb++;
 }
 
 // ── CONDIZIONE 3: catene MAI VISTE → deve TACERE ────────────────────────────
 // Il rischio peggiore non e' sbagliare, e' sbagliare con sicurezza su un
 // esercente di cui non sa nulla.
-let ghostSpoke = 0;
+let ghostSpoke = 0, ghostSpokeHyb = 0;
 const GHOSTS = ['NEGOZIO BIANCHI', 'BOTTEGA VERDE SRL', 'PANIFICIO ROSSI',
   'OFFICINA MECCANICA SUD', 'STUDIO DENTISTICO ALBA'];
 for (const g of GHOSTS) {
-  for (let i = 0; i < 8; i++) if (predictMerchant(hier, variant(g))) ghostSpoke++;
+  for (let i = 0; i < 8; i++) {
+    const d = variant(g);
+    if (predictMerchant(hier, d, Date.now(), { algo: 'hierarchical' })) ghostSpoke++;
+    if (predictMerchant(hier, d, Date.now(), { algo: 'hybrid' })) ghostSpokeHyb++;
+  }
 }
 
 // ── Caso avverso: catena il cui nome NON determina la categoria ─────────────
@@ -142,10 +154,13 @@ for (const [c, cat] of [['ALFA NORD', 'casa'], ['ALFA SUD', 'svago'],
                         ['ALFA EST', 'trasporti'], ['ALFA OVEST', 'spesa']]) {
   for (let i = 0; i < 4; i++) observeMerchant(amb, `${c} ${pick(STREETS)}`, cat, Date.now());
 }
-let ambConfident = 0;
+let ambConfident = 0, ambConfidentHyb = 0;
 for (let i = 0; i < 40; i++) {
-  const p = predictMerchant(amb, `ALFA ${pick(['CENTRO', 'NUOVO', 'PORTA'])} ${pick(STREETS)}`);
+  const d = `ALFA ${pick(['CENTRO', 'NUOVO', 'PORTA'])} ${pick(STREETS)}`;
+  const p = predictMerchant(amb, d, Date.now(), { algo: 'hierarchical' });
   if (p && p.margin > 0.5) ambConfident++;
+  const hb = predictMerchant(amb, d, Date.now(), { algo: 'hybrid' });
+  if (hb && hb.margin > 0.5) ambConfidentHyb++;
 }
 
 const pct = (x, tot) => ((100 * x) / tot).toFixed(1);
@@ -153,14 +168,17 @@ console.log('\n=== BENCH GERARCHIA ESERCENTI (seed 20260721) ===');
 console.log(`Catene: ${CHAINS.length} · addestramento ${TRAIN_PER_CHAIN}/catena · test ${TEST_PER_CHAIN}/catena`);
 console.log(`Casi di test (varianti MAI viste): ${n}\n`);
 console.log(`  Baseline chiave piatta : ${pct(fOk, n)}%  (non riconosce nulla: ${pct(fMiss, n)}% di buchi)`);
-console.log(`  Gerarchia adattiva     : ${pct(hOk, n)}%  (astensioni: ${pct(hAbstain, n)}%)`);
-console.log(`  Guadagno assoluto      : +${(100 * (hOk - fOk) / n).toFixed(1)} punti\n`);
+console.log(`  Gerarchia (hierarchical): ${pct(hOk, n)}%  (astensioni: ${pct(hAbstain, n)}%)`);
+console.log(`  Gerarchia (hybrid, PROD): ${pct(hybOk, n)}%  (astensioni: ${pct(hybAbstain, n)}%)`);
+console.log(`  Guadagno vs baseline (hybrid): +${(100 * (hybOk - fOk) / n).toFixed(1)} punti`);
+console.log(`  Delta hybrid vs hierarchical : ${(100 * (hybOk - hOk) / n) >= 0 ? '+' : ''}${(100 * (hybOk - hOk) / n).toFixed(1)} punti\n`);
 console.log('CONDIZIONE 2 — catene MISTE (30% delle tx in un\'altra categoria):');
-console.log(`  accuratezza reale      : ${pct(mixOk, mixedTruth.length)}%  (tetto teorico ~70%: la catena non determina la categoria)`);
-console.log(`  quota data alla maggioranza: ${pct(mixMajority, mixedTruth.length)}%\n`);
+console.log(`  accuratezza reale (hierarchical): ${pct(mixOk, mixedTruth.length)}%  (tetto teorico ~70%)`);
+console.log(`  accuratezza reale (hybrid)      : ${pct(mixOkHyb, mixedTruth.length)}%`);
+console.log(`  quota maggioranza (hierarchical): ${pct(mixMajority, mixedTruth.length)}%  · (hybrid): ${pct(mixMajorityHyb, mixedTruth.length)}%\n`);
 console.log('CONDIZIONE 3 — catene MAI VISTE (deve tacere):');
-console.log(`  ha parlato quando non sapeva: ${pct(ghostSpoke, GHOSTS.length * 8)}%  (0% = corretto)\n`);
+console.log(`  ha parlato (hierarchical): ${pct(ghostSpoke, GHOSTS.length * 8)}%  · (hybrid): ${pct(ghostSpokeHyb, GHOSTS.length * 8)}%  (0% = corretto)\n`);
 console.log('Caso avverso (stesso primo token, categorie diverse):');
-console.log(`  predizioni CONFIDENTI su ramo ambiguo: ${pct(ambConfident, 40)}%  (piu' basso = meglio)`);
+console.log(`  predizioni CONFIDENTI (hierarchical): ${pct(ambConfident, 40)}%  · (hybrid): ${pct(ambConfidentHyb, 40)}%  (piu' basso = meglio)`);
 console.log('\nOnesta\': misura la generalizzazione a punti vendita nuovi di catene NOTE.');
 console.log('NON dice nulla su esercenti di catene mai incontrate: li la gerarchia tace.\n');

@@ -32,7 +32,7 @@
 
 import { normalizeMerchant } from './merchant-dictionary.js';
 import {
-  initHierarchical, observeHierarchical, predictHierarchical,
+  initHierarchical, observeHierarchical, predictHierarchical, predictHybrid,
   explainHierarchical, pruneHierarchical, mergeHierarchical,
 } from './hierarchical-bandit.js';
 
@@ -63,10 +63,16 @@ export function observeMerchant(model, description, category, now = Date.now(), 
 
 // Predizione. Ritorna null quando non ha nulla di sensato da dire: l'astensione
 // e' parte del contratto (regola del progetto: meglio tacere che inventare).
+// `opts.algo`: 'hierarchical' (pooling puro, storico) | 'hybrid' (gating sotto
+// soglia evidenza + pooling sopra — dominante misurato nel consiglio di ricerca
+// 2026-07-22: +1.8pt a bassa evidenza, invariato ad alta evidenza). Default
+// 'hybrid': la ricerca l'ha già validata su seed disgiunti, qui la si porta in
+// produzione mantenendo il vecchio algoritmo disponibile per confronto/rollback.
 export function predictMerchant(model, description, now = Date.now(), opts = {}) {
   const path = merchantPath(description);
   if (!path.length) return null;
-  const r = predictHierarchical(model, path, now, opts);
+  const algo = opts.algo === 'hierarchical' ? predictHierarchical : predictHybrid;
+  const r = algo(model, path, now, opts);
   if (!r.label || r.support < (opts.minSupport ?? 2)) return null;
   // ⚠️ CONTRATTO DI ASTENSIONE (difetto trovato dal bench, non a tavolino):
   // senza questo, un esercente TOTALMENTE sconosciuto ripiegava sul nodo

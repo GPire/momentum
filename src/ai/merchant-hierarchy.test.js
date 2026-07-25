@@ -82,3 +82,20 @@ test('REGRESSIONE: su un esercente TOTALMENTE ignoto deve TACERE', () => {
   // ma su un token noto continua a rispondere
   assert.equal(predictMerchant(m, 'ESSELUNGA PIAZZA NUOVA', T0).category, 'spesa');
 });
+
+// ── predictHybrid in PRODUZIONE (default) ────────────────────────────────
+// Cablato dopo il consiglio di ricerca 2026-07-22 (validato: +1.8pt su seed
+// disgiunti, regime sparso, t=4.01) e ri-confermato con bench/hierarchy-bench.mjs
+// e bench/research-gating.mjs il 2026-07-25. `opts.algo:'hierarchical'` resta
+// disponibile per confronto/rollback (mai un cambio muto, sempre reversibile).
+test('predictMerchant usa hybrid di default; hierarchical resta selezionabile', () => {
+  let m = initMerchantHierarchy();
+  const T0 = Date.now();
+  for (let i = 0; i < 3; i++) m = observeMerchant(m, `ESSELUNGA VIA ${i}`, 'spesa', T0);
+  const byDefault = predictMerchant(m, 'ESSELUNGA VIA NUOVA 9', T0);
+  const explicit = predictMerchant(m, 'ESSELUNGA VIA NUOVA 9', T0, { algo: 'hybrid' });
+  const legacy = predictMerchant(m, 'ESSELUNGA VIA NUOVA 9', T0, { algo: 'hierarchical' });
+  assert.equal(byDefault.category, 'spesa');
+  assert.deepEqual(byDefault, explicit, 'il default deve coincidere con algo:hybrid esplicito');
+  assert.equal(legacy.category, 'spesa', 'il vecchio algoritmo resta disponibile e funzionante');
+});
