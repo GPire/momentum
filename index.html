@@ -503,8 +503,7 @@
        brillante, una media, una lontana e tenue → senso di spazio). Tempi e
        traiettorie sfalsati. reduced-motion → nascoste (accessibilità). */
     .shooting-star { position: absolute; opacity: 0; pointer-events: none; will-change: transform, opacity; transform-origin: right center;
-      /* la scia si assottiglia a PUNTA verso la coda (sinistra): meteora vera */
-      clip-path: polygon(100% 0%, 100% 100%, 0% 50%); }
+      border-radius: 999px; }
     /* la TESTA: coma luminosa (bagliore radiale morbido) all'estremità di guida */
     .shooting-star::after { content: ""; position: absolute; right: -3px; top: 50%; border-radius: 50%; filter: blur(.2px); }
     /* vicina: grande, brillante, veloce */
