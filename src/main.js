@@ -4390,6 +4390,19 @@ const initApp = () => {
     if (next !== VaultDAO.state.shareOrigins) VaultDAO.state.shareOrigins = next;
   } catch (_) { /* niente storage: i link usano comunque l'origine corrente */ }
 
+  // JOIN DEEP-LINK IMMUNE AI RELOAD. Bug reale trovato dal vivo: al primo avvio
+  // il service worker (skipWaiting/clients.claim) prende il controllo e la pagina
+  // si RICARICA una volta; se il payload di divisione vivesse solo nell'URL, quel
+  // reload lo perderebbe e l'utente finirebbe sull'onboarding invece che sulla
+  // divisione (l'anti-abbandono saltava). Lo parcheggiamo in sessionStorage così
+  // sopravvive a qualunque reload, e lo consumiamo UNA sola volta (clearJoin).
+  const urlJoin = extractSharePayload(location.href);
+  if (urlJoin) { try { sessionStorage.setItem('__mJoin', urlJoin); } catch (_) {} }
+  let joinPayload = urlJoin;
+  if (!joinPayload) { try { joinPayload = sessionStorage.getItem('__mJoin'); } catch (_) {} }
+  const clearJoin = () => { try { sessionStorage.removeItem('__mJoin'); } catch (_) {} };
+  const decodedJoin = () => { try { return joinPayload ? decodeGroupShare(joinPayload) : null; } catch (_) { return null; } };
+
   // Check onboarding state
   const hasOnboarded = localStorage.getItem('omega_core_db');
   if (hasOnboarded) {
@@ -4408,15 +4421,20 @@ const initApp = () => {
     }
     bootUI();
     consumeSharedImage(); // screenshot condiviso via share target (Android)
-    consumeJoinLink();    // deep-link "unisciti a un gruppo" (?join=...)
-  } else if (extractSharePayload(location.href)) {
+    // Utente già attivo che arriva (o torna dopo un reload SW) da un link di
+    // divisione: apri direttamente la conferma d'ingresso, dal payload
+    // sopravvissuto in sessionStorage se l'URL è già stato ripulito.
+    const gExisting = decodedJoin();
+    if (gExisting) { history.replaceState(null, '', location.pathname); setTimeout(() => { window.openJoinConfirm(gExisting); clearJoin(); }, 400); }
+    else { clearJoin(); consumeJoinLink(); }
+  } else if (joinPayload) {
     // ANTI-ATTRITO: primo avvio ma si arriva da un LINK di divisione. Non
     // imponiamo l'onboarding completo (domande di mercato) prima di poter usare
     // l'app: attiviamo Momentum con default sensati, saltiamo il genesis, e
     // portiamo dritti alla divisione. Il Reveal (dopo il join) proporrà di
     // personalizzare. Se qualcosa va storto, fallback al genesis classico.
     try {
-      const g = decodeGroupShare(extractSharePayload(location.href));
+      const g = decodedJoin();
       history.replaceState(null, '', location.pathname);
       if (!g) throw new Error('payload non valido');
       activateLite();
@@ -4425,9 +4443,12 @@ const initApp = () => {
       $('#app-core').style.opacity = '1';
       updateStreak();
       bootUI();
-      setTimeout(() => window.openJoinConfirm(g), 500);
+      // clearJoin DOPO aver mostrato il modale: se un reload SW cade nei 500ms,
+      // il payload è ancora in sessionStorage e il ramo hasOnboarded lo riprende.
+      setTimeout(() => { window.openJoinConfirm(g); clearJoin(); }, 500);
     } catch (e) {
       console.warn('Percorso lampo fallito, uso onboarding classico:', e);
+      clearJoin();
       window._pendingJoin = window._pendingJoin || null;
       const canvas = document.getElementById('genesis-canvas');
       if (canvas) { try { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } catch (_) {} }
