@@ -322,7 +322,9 @@ const attachFormListeners = (container, prefill = null) => {
     const d = container.querySelector('#tx-amount-display');
     if (d) d.textContent = rawVal || '0';
     d.className = `amount-display ${type==='entrata'?'amount-positive':type==='invest'?'amount-invest':'amount-negative'} truncate px-2`;
-    
+    // Micro-pop sul numero a ogni cifra digitata: feedback tattile immediato.
+    d.classList.remove('amount-pop'); void d.offsetWidth; d.classList.add('amount-pop');
+
     const amt = parseFloat(rawVal) || 0;
     const saveBtn = container.querySelector('#save-tx-btn');
     
@@ -1337,14 +1339,27 @@ const renderDashboard = () => {
       </div>
     `;
   });
+  // Ingresso scaglionato (stesso principio di .view-in): reflow forzato per
+  // ri-attivare l'animazione a ogni render (nuovo mese, nuova tx, eliminazione).
+  list.classList.remove('tx-in'); void list.offsetWidth; list.classList.add('tx-in');
 };
 
 window.deleteTx = (k, id) => {
   if (confirm("Rimuovere questo movimento?")) {
-    VaultDAO.deleteTransaction(k, id);
-    renderDashboard();
-    renderAnalysis();
-    showToast("Transazione rimossa.", "info");
+    const finish = () => {
+      VaultDAO.deleteTransaction(k, id);
+      renderDashboard();
+      renderAnalysis();
+      showToast("Transazione rimossa.", "info");
+    };
+    const card = document.querySelector(`.tx-card[data-id="${id}"]`);
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (card && !reduced) {
+      card.classList.add('tx-leaving');
+      setTimeout(finish, 220);
+    } else {
+      finish();
+    }
   }
 };
 
@@ -4091,7 +4106,12 @@ const navigate = (view) => {
 };
 
 window.openModal = (html) => {
-  $('#modal-body').innerHTML = html;
+  const body = $('#modal-body');
+  body.innerHTML = html;
+  // Dissolvenza/rise leggera del contenuto (apertura o cambio step di un
+  // flusso multi-step): reflow forzato per ri-attivare l'animazione ogni volta.
+  body.classList.remove('modal-body-in'); void body.offsetWidth; body.classList.add('modal-body-in');
+  $('#modal-content').classList.remove('modal-closing');
   $('#modal-container').classList.remove('hidden');
   setTimeout(() => {
     $('#modal-backdrop').style.opacity = '1';
@@ -4100,6 +4120,8 @@ window.openModal = (html) => {
 };
 
 window.closeModal = () => {
+  // In chiusura niente overshoot: curva più rapida e lineare (.modal-closing).
+  $('#modal-content').classList.add('modal-closing');
   $('#modal-content').classList.add('translate-y-full', 'lg:scale-95', 'opacity-0');
   $('#modal-backdrop').style.opacity = '0';
   setTimeout(() => $('#modal-container').classList.add('hidden'), 300);

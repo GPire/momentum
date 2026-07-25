@@ -159,6 +159,11 @@
     @media (min-width: 400px) { .amount-display { font-size: 4.5rem; } }
     @media (min-width: 640px) { .amount-display { font-size: 5.5rem; } }
     .amount-display.amount-positive { color: var(--green); } .amount-display.amount-negative { color: var(--red); } .amount-display.amount-invest { color: var(--gold); }
+    /* Micro-pop sul NUMERO stesso a ogni cifra digitata (non solo sul tasto):
+       feedback tattile immediato che il valore è cambiato davvero. */
+    @keyframes amountPop { 0% { transform: scale(1); } 45% { transform: scale(1.03); } 100% { transform: scale(1); } }
+    .amount-display.amount-pop { animation: amountPop .15s ease-out; }
+    @media (prefers-reduced-motion: reduce) { .amount-display.amount-pop { animation: none; } }
     
     .cat-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent); padding: 0.5rem 0; width: 100%;}
     .cat-scroll-wrapper::-webkit-scrollbar { display: none; }
@@ -215,7 +220,29 @@
 
     /* === TX CARD === */
     .tx-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 1.2rem; padding: 0.8rem; display: flex; align-items: center; justify-content: space-between; transition: transform 0.3s, opacity 0.3s; position: relative; overflow: hidden; margin-bottom: 0.5rem;}
-    
+    /* Ingresso SCAGLIONATO della lista movimenti (stesso principio di .view-in):
+       si ri-attiva a ogni renderDashboard (nuovo mese, nuova transazione, ecc.)
+       togliendo/rimettendo .tx-in su #transaction-list-container. Cap a 8 ritardi
+       distinti: oltre le prime card l'attesa non deve crescere (liste lunghe). */
+    @keyframes txRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .tx-in > .tx-card { animation: txRise .42s cubic-bezier(.22,1,.36,1) both; }
+    .tx-in > .tx-card:nth-child(1) { animation-delay: .02s; }
+    .tx-in > .tx-card:nth-child(2) { animation-delay: .05s; }
+    .tx-in > .tx-card:nth-child(3) { animation-delay: .08s; }
+    .tx-in > .tx-card:nth-child(4) { animation-delay: .11s; }
+    .tx-in > .tx-card:nth-child(5) { animation-delay: .14s; }
+    .tx-in > .tx-card:nth-child(6) { animation-delay: .17s; }
+    .tx-in > .tx-card:nth-child(7) { animation-delay: .2s; }
+    .tx-in > .tx-card:nth-child(n+8) { animation-delay: .22s; }
+    /* Eliminazione: dissolvenza + rimpicciolimento (mai un salto a scatto) prima
+       che il DOM venga sostituito dal re-render. Solo transform/opacity. */
+    @keyframes txLeave { to { opacity: 0; transform: translateY(-6px) scale(0.95); } }
+    .tx-card.tx-leaving { animation: txLeave .22s cubic-bezier(.4,0,1,1) both; pointer-events: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .tx-in > .tx-card { animation: none; }
+      .tx-card.tx-leaving { animation: none; opacity: 0; }
+    }
+
     /* === FORECASTING & GRIDS === */
     .budget-track { width: 100%; height: 10px; background: var(--outline); border-radius: 5px; overflow: hidden; margin-top: 0.5rem; }
     .budget-fill { height: 100%; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1), background 0.5s ease; border-radius: 6px; }
@@ -437,6 +464,20 @@
     /* I modali salgono dal basso: rispettano la home-indicator (già via
        --safe-bottom) e non superano mai l'altezza visibile reale (dvh). */
     #modal-content { max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
+    /* Apertura: leggero "pop" morbido con overshoot (coerente col resto del
+       sistema di motion). Chiusura: mai overshoot, curva più rapida e lineare —
+       la classe .modal-closing (aggiunta da closeModal) sostituisce la curva. */
+    #modal-content { transition: transform 0.4s cubic-bezier(.34,1.56,.64,1), opacity 0.3s ease-out; }
+    #modal-content.modal-closing { transition: transform 0.22s cubic-bezier(.4,0,1,1), opacity 0.18s ease-in; }
+    @media (prefers-reduced-motion: reduce) {
+      #modal-content, #modal-content.modal-closing { transition: opacity 0.15s linear; }
+    }
+    /* Contenuto del modale (#modal-body): ogni volta che openModal() lo ri-popola
+       (apertura o cambio step di un flusso multi-step) una lieve dissolvenza+
+       salita coerente con sectionRise/joinPop — mai uno scatto secco. */
+    @keyframes modalBodyRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .modal-body-in { animation: modalBodyRise .38s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .modal-body-in { animation: none; } }
 
     /* — TITOLI DI SEZIONE FLUIDI (Dashboard / Analisi / Impostazioni): scalano su
          iPhone piccolo come su schermi enormi, senza troncarsi né debordare. — */
