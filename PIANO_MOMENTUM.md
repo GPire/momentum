@@ -501,3 +501,10 @@ Scaffold: `npm i -D @capacitor/cli @capacitor/core @capacitor/android && npx cap
 - Date a 1 cifra in stringhe ISO fatte a mano nei test ("T8:00") = Invalid Date silenzioso: sempre padStart.
 - I test con date: MAI `new Date()` senza argomenti dentro le aspettative.
 - L'ambiente browser di test resta bloccato a ~586px di larghezza: il responsive sotto quella soglia non è verificabile da qui.
+
+## Backlog "innovare di più" (2026-07-25) — 4 blocchi grandi da fare a fuoco
+Registrati su richiesta esplicita dell'utente ("salva ognuno nel piano e valuta tu da dove iniziare in base agli scopi"). Ordine deciso in base allo SCOPO n.1 del progetto (retention / anti-abbandono / attrito — il killer misurato del settore):
+1. **[SCELTO PER PRIMO] Redesign primo avvio auto-addestrante** — il momento di massimo abbandono (3-4 settimane, onboarding = killer documentato). Hero + micro-animazioni + ogni domanda dell'onboarding collegata a NeuroSym/Momentum Core così il motore parte GIÀ addestrato dal primo tocco (proprietario). Verificabile dal vivo. Le micro-animazioni del blocco 2 si applicano qui per prime.
+2. Micro-animazioni curate ovunque (anti-attrito) — pass di design elemento-per-elemento, reduced-motion.
+3. Sync live mesh P2P WebRTC — canale vivo sopra il merge CRDT già fatto; networking profondo, non verificabile su questo Mac.
+4. Potenziare Momentum AI/NeuroSym/Core con benchmark reali — leva concreta da scopare punto per punto (es. cablare predictHybrid in produzione).

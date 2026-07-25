@@ -491,39 +491,42 @@
        <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/5 blur-3xl opacity-50"></div>
     </div>
     <div id="genesis-ui" class="relative z-10 w-full max-w-md px-6 h-96">
-      <!-- Step 0 -->
+      <!-- Step 0 — hero caldo e umano (prima era "Protocollo O.M.E.G.A.", freddo).
+           Una promessa semplice, comprensibile da chiunque, in 10 secondi. -->
       <div class="genesis-step active" id="g-step-0">
         <h1 class="text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500 mb-2">Momentum</h1>
-        <p class="text-[var(--primary)] font-mono text-xs tracking-widest uppercase mb-8">Protocollo O.M.E.G.A.</p>
-        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext(1)">Inizializza Vault</button>
+        <p class="text-[var(--primary)] font-bold text-sm mb-2">I tuoi soldi, chiari. Tutto sul tuo telefono.</p>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-8">Due domande veloci e Momentum è già tuo, su misura. Niente account, niente server.</p>
+        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext(1)">Inizia — è tutto qui, per te</button>
       </div>
-      <!-- Step 1 -->
+      <!-- Step 1 — stessa domanda-profilo (valori invariati) ma in parole umane. -->
       <div class="genesis-step" id="g-step-1">
-        <h2 class="text-2xl font-black mb-1">Mercato in crollo (-20%).</h2>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">La tua reazione psicologica:</p>
-        <button class="g-option" onclick="genesisNext(2, 'aggressivo')">Compro ancora (Sconto)</button>
-        <button class="g-option" onclick="genesisNext(2, 'bilanciato')">Attendo e osservo</button>
-        <button class="g-option" onclick="genesisNext(2, 'conservativo')">Vendo tutto (Panico)</button>
+        <h2 class="text-2xl font-black mb-1">I tuoi risparmi perdono un po' di valore.</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Tu cosa fai di solito?</p>
+        <button class="g-option" onclick="genesisNext(2, 'aggressivo')">È il momento di approfittarne 💪</button>
+        <button class="g-option" onclick="genesisNext(2, 'bilanciato')">Aspetto con calma 🌊</button>
+        <button class="g-option" onclick="genesisNext(2, 'conservativo')">Preferisco stare al sicuro 🛡️</button>
       </div>
       <!-- Step 2 -->
       <div class="genesis-step" id="g-step-2">
-        <h2 class="text-2xl font-black mb-1">Orizzonte Temporale.</h2>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Quando ti servirà il capitale?</p>
-        <button class="g-option" onclick="genesisNext(3, 'lungo')">Tra decenni (Costruzione)</button>
-        <button class="g-option" onclick="genesisNext(3, 'medio')">Tra 3-5 anni (Progetto)</button>
-        <button class="g-option" onclick="genesisNext(3, 'breve')">Tra pochi mesi (Emergenza)</button>
+        <h2 class="text-2xl font-black mb-1">Tra quanto ti servono questi soldi?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Così ti do consigli giusti per te.</p>
+        <button class="g-option" onclick="genesisNext(3, 'lungo')">Tra molti anni — sto costruendo 🌱</button>
+        <button class="g-option" onclick="genesisNext(3, 'medio')">Tra qualche anno — un progetto 🎯</button>
+        <button class="g-option" onclick="genesisNext(3, 'breve')">Presto — mi servono a breve ⏳</button>
       </div>
-      <!-- Step 3 (Interactive Hold button) -->
+      <!-- Step 3 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
       <div class="genesis-step" id="g-step-3">
-        <h2 class="text-2xl font-black mb-8 text-center">Profilo Generato.</h2>
+        <h2 class="text-2xl font-black mb-2 text-center">Tutto pronto. 🎉</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6 text-center">Momentum è configurato su misura per te.</p>
         <div class="relative w-[148px] h-[148px] mx-auto flex items-center justify-center">
           <svg class="haptic-ring-svg" viewBox="0 0 148 148">
             <circle cx="74" cy="74" r="65" fill="none" stroke="var(--outline)" stroke-width="4"/>
             <circle class="haptic-ring-fill" id="genesis-ring-fill" cx="74" cy="74" r="65"/>
           </svg>
-          <button class="haptic-core" id="genesis-btn">Consacra</button>
+          <button class="haptic-core" id="genesis-btn">Entra</button>
         </div>
-        <p class="text-xs text-[var(--on-surface-secondary)] font-bold tracking-[0.2em] uppercase mt-6 text-center">Tieni Premuto (1.5s)</p>
+        <p class="text-xs text-[var(--on-surface-secondary)] font-bold tracking-[0.15em] uppercase mt-6 text-center">Tieni premuto un secondo</p>
       </div>
     </div>
   </div>
