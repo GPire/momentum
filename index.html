@@ -80,7 +80,10 @@
 
     *, *::before, *::after { box-sizing: border-box; }
     html, body { background: var(--bg); color: var(--on-surface); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; transition: background-color 0.5s ease, color 0.5s ease; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; letter-spacing: -0.015em; }
-    body { min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
+    body { min-height: 100vh; min-height: 100dvh; overflow-x: hidden; touch-action: manipulation; }
+    /* touch-action: manipulation → niente doppio-tap-zoom (iOS ignora
+       user-scalable=no) e niente ritardo di 300ms, MA resta lo scroll e il
+       pinch-zoom volontario. Rovina meno l'uso da app/PWA. */
     body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 60vh; background: radial-gradient(circle at 50% -10%, var(--aurora-color) 0%, transparent 70%); z-index: 0; pointer-events: none; transition: background 1.5s ease; }
 
     /* === UI COMPONENTS === */
@@ -245,9 +248,13 @@
     .flex > *, .grid > * { min-width: 0; }       /* fix chiave: evita overflow da contenuto largo */
     img, canvas, svg, video { max-width: 100%; height: auto; }
     .heatmap-grid, .overflow-scroll-x, table { max-width: 100%; overflow-x: auto; }
+    /* Griglia Momentum Vault: 1 colonna (card larghe che respirano), 2 solo su
+       schermi molto ampi dove c'è spazio VERO anche con la sidebar destra. */
+    .vault-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 1700px) { .vault-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
     /* Button leggibili e toccabili su OGNI schermo: area minima comoda anche su
        iPhone piccolo, senza diventare enormi su desktop. */
-    .btn-action { min-height: 40px; font-size: clamp(11px, 2.6vw, 15px); padding: 0.5rem 0.75rem; white-space: nowrap; }
+    .btn-action { min-height: 40px; font-size: clamp(11px, 2.6vw, 15px); padding: 0.5rem 0.6rem; white-space: normal; line-height: 1.2; overflow-wrap: break-word; word-break: normal; hyphens: none; text-align: center; min-width: 0; }
     @media (min-width: 1280px) { .btn-action { min-height: 44px; } }
 
     /* === RESPONSIVE NATIVO A CASCATA (mobile → tablet → desktop → TV) ===
@@ -1085,8 +1092,11 @@
           <!-- MOMENTUM VAULT (SETTINGS) VIEW -->
           <div id="settings-view" class="hidden space-y-6 sm:space-y-8 animate-slideUpFade">
             <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Momentum Vault</h2>
-            
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+
+            <!-- Responsive con CSS ESPLICITO (vault-grid): 1 colonna su desktop
+                 normale (la sidebar destra mangia larghezza → card che respirano,
+                 niente testi cramped/tagliati), 2 colonne solo oltre i 1700px. -->
+            <div class="vault-grid gap-5 sm:gap-6">
               <!-- ETL terminal -->
               <div class="card p-6 flex flex-col">
                  <div class="flex items-center gap-4 mb-4">

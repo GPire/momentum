@@ -4271,7 +4271,19 @@ const initApp = () => {
   // IndexedDB/localStorage, indipendenti dal bundle JS in esecuzione — un
   // deploy nuovo non li tocca (vedi runSchemaMigrations in vault.js per la
   // sicurezza sui cambi di STRUTTURA dei dati tra versioni).
-  if ('serviceWorker' in navigator) {
+  // In DEV (localhost) NON registrare il service worker: in sviluppo il SW
+  // serviva HTML/CSS/JS STANTIO (bug ricorrente in tutto il progetto — "vedo la
+  // versione vecchia"), rendendo impossibile vedere i cambiamenti. Su localhost
+  // il dev server (vite) è già sempre fresco. In produzione il SW resta (offline
+  // + PWA). Se un SW era già registrato in dev, lo si rimuove.
+  const isLocalDev = ['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname);
+  if ('serviceWorker' in navigator && isLocalDev) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    if (navigator.serviceWorker.controller) {
+      // una vecchia istanza SW controlla ancora la pagina: pulizia + reload unico
+      caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).catch(() => {});
+    }
+  } else if ('serviceWorker' in navigator) {
     // updateViaCache:'none' → il browser NON usa la sua cache HTTP per sw.js:
     // controlla SEMPRE se c'è un service worker nuovo (fix del problema ricorrente
     // "vedo ancora la versione vecchia"). Combinato con skipWaiting/clients.claim
