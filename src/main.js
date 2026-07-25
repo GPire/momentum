@@ -1754,8 +1754,8 @@ function renderTax(monthK) {
   const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
   // Il modulo P.IVA ha senso solo per chi FATTURA. Se non c'è regime E non
   // c'è mai stata una fattura, resta nascosto (niente modulo per chi non serve).
+  const everInvoice = hasInvoiceIncome();
   const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
-  const everInvoice = allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned, incomeModel).kind === 'invoice');
   if (!regime && !everInvoice) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
 
@@ -1845,7 +1845,82 @@ function renderTax(monthK) {
     extraEl.innerHTML = html;
   }
 }
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); renderAnalysis(); };
+// Rilevamento condiviso "questo utente fattura?" — riusato dalla card Analisi e
+// dalla card Impostazioni (una sola definizione = un solo comportamento).
+function hasInvoiceIncome() {
+  const learned = VaultDAO.state.taxLearned || {};
+  const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
+  const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
+  return allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned, incomeModel).kind === 'invoice');
+}
+
+// CASA PERMANENTE della Partita IVA in Impostazioni. Prima l'unico accesso a
+// "crea fattura"/regime viveva dentro la card Analisi, nascosta finché non c'era
+// già una fattura o un regime → per un freelance nuovo la sezione "spariva"
+// (vicolo cieco uovo-e-gallina). Qui c'è sempre, e il contenuto è PREDITTIVO:
+//  · regime attivo   → mostra il regime + azioni (crea fattura / cambia).
+//  · fatture viste ma nessun regime → nudge onesto: "vedo fatture, dimmi il
+//    regime e calcolo tasse+contributi giusti" (mai un numero inventato).
+//  · niente di tutto ciò → invito discreto per chi HA la Partita IVA ad
+//    attivarla, senza imporla a chi non fattura.
+function renderTaxSettings() {
+  const body = $('#tax-settings-body');
+  if (!body) return;
+  const regime = VaultDAO.state.taxRegime;
+  const everInvoice = hasInvoiceIncome();
+  const regimeButtons = (accent) => `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
+    `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 hover:border-[${accent}]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
+
+  if (regime) {
+    const label = (REGIMI[regime] && REGIMI[regime].label.split('(')[0].trim()) || regime;
+    body.innerHTML = `
+      <div class="flex items-center gap-2 text-xs text-emerald-300 mb-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+        <span>Regime attivo: <b>${label}</b>. Calcolo l'accantonamento nella scheda Analisi.</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+        <button onclick="window.openCreateInvoice()" class="btn-action btn-primary justify-center font-bold"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>
+        <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between"><span>Cambia regime fiscale</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+      </div>`;
+    return;
+  }
+
+  if (everInvoice) {
+    // PREDITTIVO: il modello entrate ha già visto entrate che sembrano fatture.
+    body.innerHTML = `
+      <div class="flex items-start gap-2 text-xs text-amber-200 bg-amber-950/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mb-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <span>Ho visto entrate che sembrano <b>fatture</b>, ma non conosco il tuo regime: senza, il calcolo delle tasse sarebbe a caso. Dimmelo e lo calcolo giusto.</span>
+      </div>
+      ${regimeButtons('var(--amber)')}`;
+    return;
+  }
+
+  // Nessun regime, nessuna fattura: invito discreto (non imporre a chi non fattura).
+  body.innerHTML = `
+    <p class="text-xs text-[var(--on-surface-secondary)] mb-3">Hai la Partita IVA o sei un libero professionista? Attivala e Momentum ti calcola tasse + contributi da mettere da parte, e ti crea le fatture — tutto sul dispositivo.</p>
+    <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between w-full"><span>Attiva la Partita IVA</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>`;
+}
+
+// Selettore di regime a bassa frizione (un tocco), riusato da "attiva" e "cambia".
+window.openTaxRegimePicker = () => {
+  const cur = VaultDAO.state.taxRegime;
+  window.openModal(`
+    <div class="p-1">
+      <h3 class="text-lg font-black mb-1">Regime fiscale</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)] mb-4">Scegli il tuo: cambia come calcolo imposta e contributi. Puoi modificarlo quando vuoi.</p>
+      <div class="space-y-2">
+        ${Object.entries(REGIMI).map(([k, v]) => `
+          <button onclick="window.setTaxRegime('${k}'); window.closeModal();" class="btn-action w-full justify-between ${k === cur ? 'border-[var(--primary)]' : ''}">
+            <span class="text-left">${v.label}${k === cur ? ' · attivo' : ''}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+          </button>`).join('')}
+      </div>
+      <button onclick="window.closeModal()" class="btn-action w-full justify-center mt-4 text-[var(--on-surface-secondary)]">Chiudi</button>
+    </div>`);
+};
+
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); renderTaxSettings(); renderAnalysis(); };
 // Segna una e-fattura come TRASMESSA allo SdI (dopo che l'utente l'ha caricata
 // sul portale). Chiude il ciclo: sparisce dal promemoria. Onesto: è l'utente a
 // confermarlo, l'app non può saperlo da sola.
@@ -3839,6 +3914,7 @@ const navigate = (view) => {
     btn.classList.toggle('text-[var(--on-surface-secondary)]', btn.dataset.view !== view);
   });
   if (view === 'analysis') renderAnalysis();
+  if (view === 'settings') renderTaxSettings();
 };
 
 window.openModal = (html) => {

@@ -948,6 +948,22 @@
                 </div>
               </div>
 
+              <!-- Partita IVA e fatture — CASA PERMANENTE (prima l'accesso viveva solo
+                   dentro la card Analisi, nascosta finché non c'era già una fattura:
+                   per un freelance nuovo la Partita IVA "spariva". Qui non sparisce mai,
+                   e il body è predittivo: se il modello entrate vede fatture ma manca il
+                   regime, lo dice e propone di attivarlo. -->
+              <div class="card p-6 flex flex-col" id="tax-settings-card">
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
+                  <div>
+                    <h3 class="font-bold text-base">Partita IVA e fatture</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Se fatturi, calcolo io quanto mettere da parte per il fisco e ti creo la fattura.</p>
+                  </div>
+                </div>
+                <div id="tax-settings-body" class="mt-auto"></div>
+              </div>
+
               <!-- P2P Sincronizzazione Serverless -->
               <div class="card p-6 border border-[var(--primary)]/30 flex flex-col justify-between">
                 <div>
