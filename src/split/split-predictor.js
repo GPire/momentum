@@ -274,7 +274,14 @@ export function parseSplitLine(text, { meLabel = 'Io' } = {}) {
   const tokens = rest.split(/\s+/).map(t => t.replace(/[.,;]+$/, '')).filter(Boolean);
   const people = [];
   const descParts = [];
-  const conn = new Set(['con', 'e', 'per', 'di', 'da', 'a', 'il', 'la', 'lo', '€', 'euro', 'eur']);
+  // Parole di SERVIZIO da non scambiare per nomi: connettivi, articoli,
+  // preposizioni e possessivi ("mia sorella" → Sorella; "i ragazzi" → Ragazzi).
+  const conn = new Set([
+    'con', 'e', 'ed', 'per', 'di', 'da', 'a', 'ad', 'in', 'su', 'tra', 'fra',
+    'il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'uno', 'una', "l'", 'del', 'dei',
+    'mia', 'mio', 'miei', 'mie', 'tua', 'tuo', 'tuoi', 'tue', 'sua', 'suo', 'suoi', 'sue',
+    'nostra', 'nostro', 'nostri', 'nostre', '€', 'euro', 'eur',
+  ]);
   // Formato atteso (documentato per l'utente): "importo tipo-spesa persone",
   // es. "60 cena io marco luca" o "cena con Marco e Anna 45". I nomi si
   // riconoscono da un pivot: dopo "con" o dopo "io"/"me" i token sono persone.

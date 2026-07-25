@@ -168,3 +168,20 @@ test('settleAdvice è neutro (now) senza storico di cadenza', () => {
   const intel = settlementIntelligence([], {});
   assert.equal(settleAdvice(intel, 'Sconosciuto', 3).tone, 'now');
 });
+
+// ── parseSplitLine robustezza: articoli/possessivi NON sono nomi ──
+test('parseSplitLine: "spesa 25 con mia sorella" → Sorella (non "Mia")', () => {
+  const r = parseSplitLine('spesa 25 con mia sorella');
+  assert.deepEqual(r.people, ['Io', 'Sorella']);
+  assert.equal(r.amount, 25);
+});
+test('parseSplitLine: "birra 15 io e i ragazzi" → Ragazzi (non "I")', () => {
+  const r = parseSplitLine('birra 15 io e i ragazzi');
+  assert.deepEqual(r.people, ['Io', 'Ragazzi']);
+});
+test('parseSplitLine: formati misti danno lo stesso gruppo', () => {
+  const a = parseSplitLine('60 cena io Marco Luca');
+  const b = parseSplitLine('cena 60 con Marco e Luca');
+  assert.deepEqual(a.people, b.people);
+  assert.equal(a.amount, b.amount);
+});
