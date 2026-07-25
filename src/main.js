@@ -1651,9 +1651,9 @@ const renderAnalysis = (opts = {}) => {
       const overBudget = currentWeek.remaining < 0;
       weeklyBox.innerHTML = `
         <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">Questa settimana (${fmtDay(currentWeek.start)} - ${fmtDay(currentWeek.end)})</h4>
-        <div class="flex justify-between items-end">
-          <p class="text-xl font-black font-mono ${overBudget ? 'text-rose-400' : 'text-emerald-400'}">${formatMoney(Math.abs(currentWeek.remaining))}</p>
-          <p class="text-[11px] text-[var(--on-surface-secondary)]">${overBudget ? 'oltre budget' : 'rimanenti'} su ${formatMoney(currentWeek.budget)}</p>
+        <div class="flex flex-wrap justify-between items-end gap-x-2">
+          <p class="text-xl font-black font-mono min-w-0 truncate ${overBudget ? 'text-rose-400' : 'text-emerald-400'}">${formatMoney(Math.abs(currentWeek.remaining))}</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] shrink-0">${overBudget ? 'oltre budget' : 'rimanenti'} su ${formatMoney(currentWeek.budget)}</p>
         </div>
         ${currentWeek.rolloverIn ? `<p class="text-[10px] mt-1 ${currentWeek.rolloverIn > 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}">${currentWeek.rolloverIn > 0 ? '+' : ''}${formatMoney(currentWeek.rolloverIn)} riportato dalla settimana scorsa</p>` : ''}
       `;

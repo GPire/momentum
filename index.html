@@ -90,7 +90,8 @@
        coerente in tutta Analisi Tensor. Il colore semantico (oro=ricchezza,
        verde=sano, ambra/rosso=attenzione) vive nel NUMERO, non nel titolo →
        coerenza "old money", niente arcobaleno di neon. */
-    .eyebrow { display: flex; align-items: center; gap: 0.5rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--on-surface-secondary); margin-bottom: 0.35rem; }
+    .eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--on-surface-secondary); margin-bottom: 0.35rem; min-width: 0; }
+    .eyebrow > * { min-width: 0; }
     .eyebrow svg { width: 0.95rem; height: 0.95rem; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: 0.8; flex-shrink: 0; }
     .eyebrow .eyebrow-extra { margin-left: auto; text-transform: none; letter-spacing: normal; font-weight: 600; opacity: 0.6; }
     .card-sub { font-size: 0.66rem; color: var(--on-surface-secondary); opacity: 0.9; margin-bottom: 0.85rem; line-height: 1.4; }
@@ -924,9 +925,9 @@
                  <!-- Budget card -->
                  <div class="card p-6 border border-[var(--primary)]/30 relative overflow-hidden cursor-pointer" onclick="window.openBudgetEditor()">
                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg>Budget del mese<span class="eyebrow-extra">tocca per modificare</span></h3>
-                   <div class="flex justify-between items-end mb-2">
-                     <p class="text-3xl font-black font-mono tracking-tighter" id="budget-spent">€0</p>
-                     <p class="text-xs font-bold text-[var(--on-surface-secondary)]" id="budget-limit">su €0</p>
+                   <div class="flex flex-wrap justify-between items-end gap-x-2 gap-y-0 mb-2">
+                     <p class="text-3xl font-black font-mono tracking-tighter min-w-0 truncate" id="budget-spent">€0</p>
+                     <p class="text-xs font-bold text-[var(--on-surface-secondary)] shrink-0" id="budget-limit">su €0</p>
                    </div>
                    <div class="budget-track">
                      <div id="budget-progress" class="budget-fill" style="width: 0%; background: var(--green);"></div>
