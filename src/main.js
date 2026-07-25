@@ -4471,59 +4471,60 @@ const initApp = () => {
   }
 };
 
-// Cielo stellato del primo avvio. Puro effetto visivo (nessun dato), performante
-// (numero stelle scalato all'area, dpr limitato), accessibile (reduced-motion →
-// un solo disegno statico). Bello ma sobrio: la stella è il codice colore del
-// brand, evoca "costruzione/movimento" senza rumore.
+// Cielo stellato del primo avvio, ADATTIVO ALLA POTENZA del dispositivo (stesso
+// DNA del compute-planner del progetto): deve essere elegante su un device forte
+// e restare fluido su un iPhone di PRIMA generazione. Perciò:
+//  · la nebulosa è in CSS (index.html) → composita su GPU, costo ~zero ovunque;
+//  · su device deboli: meno stelle, NIENTE bagliore (shadowBlur è il killer di
+//    performance), niente stelle cadenti, e frame limitati (~30fps);
+//  · su device forti: stelle con bagliore + stelle cadenti occasionali;
+//  · reduced-motion o device molto deboli: un solo disegno statico, zero loop.
+// Responsive: dimensioni e numero stelle scalano allo schermo; dpr limitato.
 function drawGenesisStarfield(canvas) {
   if (!canvas) return;
   try {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Tier hardware: pochi core / poca RAM / schermo molto piccolo = debole.
+    const cores = navigator.hardwareConcurrency || 4;
+    const mem = navigator.deviceMemory || 4;
+    const smallScreen = Math.min(window.innerWidth, window.innerHeight) < 380;
+    const weak = cores <= 2 || mem <= 2 || smallScreen;
+    const reduce = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || cores <= 1 || mem <= 1;
+    // dpr più basso sui deboli (meno pixel da riempire = più fluido).
+    const dpr = Math.min(window.devicePixelRatio || 1, weak ? 1 : 1.5);
     const resize = () => {
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
+      canvas.width = Math.max(1, Math.round(window.innerWidth * dpr));
+      canvas.height = Math.max(1, Math.round(window.innerHeight * dpr));
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
     };
     resize();
     const W = () => canvas.width, H = () => canvas.height;
-    // Nebulosa: due aloni radiali molto tenui (indaco + ciano), disegnati una
-    // volta e non ridipinti ogni frame (costano e non si muovono).
-    const drawNebula = () => {
-      const g1 = ctx.createRadialGradient(W() * 0.28, H() * 0.32, 0, W() * 0.28, H() * 0.32, Math.max(W(), H()) * 0.55);
-      g1.addColorStop(0, 'rgba(99,102,241,0.16)'); g1.addColorStop(1, 'rgba(99,102,241,0)');
-      const g2 = ctx.createRadialGradient(W() * 0.74, H() * 0.7, 0, W() * 0.74, H() * 0.7, Math.max(W(), H()) * 0.5);
-      g2.addColorStop(0, 'rgba(34,211,238,0.10)'); g2.addColorStop(1, 'rgba(34,211,238,0)');
-      ctx.fillStyle = g1; ctx.fillRect(0, 0, W(), H());
-      ctx.fillStyle = g2; ctx.fillRect(0, 0, W(), H());
-    };
-    // Stelle su 3 livelli di profondità (le vicine più grandi/luminose/lente a
-    // brillare, le lontane fitte e fioche → senso di spazio).
-    const count = Math.min(260, Math.round((window.innerWidth * window.innerHeight) / 7000));
+    // Numero stelle scalato all'area E al tier (denominatore più alto = meno fitte).
+    const area = window.innerWidth * window.innerHeight;
+    const count = Math.min(weak ? 70 : 220, Math.round(area / (weak ? 20000 : 8000)));
+    const tint = ['255,255,255', '255,255,255', '199,210,254', '165,243,252'];
     const stars = [];
     for (let i = 0; i < count; i++) {
       const depth = Math.random();
       stars.push({
         x: Math.random() * W(), y: Math.random() * H(),
-        r: (0.5 + depth * 1.6) * dpr,
+        r: (0.5 + depth * 1.5) * dpr,
         base: 0.25 + depth * 0.5,
-        amp: 0.15 + Math.random() * 0.35,
+        amp: 0.15 + Math.random() * 0.32,
         phase: Math.random() * Math.PI * 2,
-        tw: 0.6 + Math.random() * 1.4,           // velocità twinkle
-        drift: (0.05 + depth * 0.22) * dpr,      // deriva verso l'alto
+        tw: 0.6 + Math.random() * 1.3,
+        drift: (0.04 + depth * 0.18) * dpr,
+        glow: !weak && depth > 0.72,               // bagliore solo su device forti
+        tint: tint[(Math.random() * tint.length) | 0],
       });
     }
-    // Qualche stella "brilla" col bagliore (le più grandi): profondità e scintillio.
-    const tint = ['255,255,255', '255,255,255', '199,210,254', '165,243,252']; // bianco, bianco, indaco chiaro, ciano
-    stars.forEach(s => { s.glow = s.r > 1.6 * dpr; s.tint = tint[(Math.random() * tint.length) | 0]; });
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const paintStars = (t) => {
       for (const s of stars) {
         const a = reduce ? s.base : Math.max(0, Math.min(1, s.base + s.amp * Math.sin(t * 0.001 * s.tw + s.phase)));
         ctx.beginPath();
-        if (s.glow) { ctx.shadowBlur = 8 * dpr; ctx.shadowColor = `rgba(${s.tint},${a * 0.9})`; } else { ctx.shadowBlur = 0; }
+        if (s.glow) { ctx.shadowBlur = 7 * dpr; ctx.shadowColor = `rgba(${s.tint},${a * 0.85})`; } else if (ctx.shadowBlur) { ctx.shadowBlur = 0; }
         ctx.fillStyle = `rgba(${s.tint},${a})`;
         ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
         ctx.fill();
@@ -4531,59 +4532,55 @@ function drawGenesisStarfield(canvas) {
       ctx.shadowBlur = 0;
     };
 
-    // STELLE CADENTI: micro-animazione che sorprende (rara, mai invadente). Una
-    // scia con gradiente che sfuma; ne parte una ogni tanto in diagonale.
+    // Disegno STATICO se reduced-motion o device molto debole: elegante, 0 loop.
+    if (reduce) { ctx.clearRect(0, 0, W(), H()); paintStars(0); return; }
+
+    // Stelle cadenti SOLO su device forti (una micro-animazione che sorprende).
     const shooting = [];
     const spawnShooting = () => {
       const fromLeft = Math.random() < 0.5;
       shooting.push({
         x: fromLeft ? Math.random() * W() * 0.4 : W() * (0.6 + Math.random() * 0.4),
-        y: Math.random() * H() * 0.4,
+        y: Math.random() * H() * 0.35,
         vx: (fromLeft ? 1 : -1) * (5 + Math.random() * 4) * dpr,
         vy: (2.4 + Math.random() * 2) * dpr,
-        life: 0, max: 42 + Math.random() * 22, len: (120 + Math.random() * 90) * dpr,
+        life: 0, max: 42 + Math.random() * 22, len: (120 + Math.random() * 80) * dpr,
       });
     };
     const paintShooting = () => {
       for (let i = shooting.length - 1; i >= 0; i--) {
-        const m = shooting[i]; m.life++;
-        m.x += m.vx; m.y += m.vy;
-        const k = 1 - m.life / m.max;             // dissolvenza
-        const tx = m.x - m.vx / Math.hypot(m.vx, m.vy) * m.len;
-        const ty = m.y - m.vy / Math.hypot(m.vx, m.vy) * m.len;
+        const m = shooting[i]; m.life++; m.x += m.vx; m.y += m.vy;
+        const k = 1 - m.life / m.max, h = Math.hypot(m.vx, m.vy);
+        const tx = m.x - m.vx / h * m.len, ty = m.y - m.vy / h * m.len;
         const grad = ctx.createLinearGradient(m.x, m.y, tx, ty);
-        grad.addColorStop(0, `rgba(199,210,254,${0.9 * k})`);
-        grad.addColorStop(1, 'rgba(199,210,254,0)');
-        ctx.strokeStyle = grad; ctx.lineWidth = 1.6 * dpr; ctx.lineCap = 'round';
+        grad.addColorStop(0, `rgba(199,210,254,${0.85 * k})`); grad.addColorStop(1, 'rgba(199,210,254,0)');
+        ctx.strokeStyle = grad; ctx.lineWidth = 1.5 * dpr; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(tx, ty); ctx.stroke();
         if (m.life >= m.max || m.x < -50 || m.x > W() + 50 || m.y > H() + 50) shooting.splice(i, 1);
       }
     };
 
-    if (reduce) {
-      // Un solo fotogramma statico, elegante e a costo zero (nessuna animazione).
-      ctx.clearRect(0, 0, W(), H()); drawNebula(); paintStars(0);
-      return;
-    }
-    let raf, last = 0;
+    // Frame limitato sui device deboli (~30fps) per non scaldare/rallentare;
+    // fluido (rAF pieno) sui forti.
+    const minDt = weak ? 33 : 0;
+    let raf, lastFrame = 0, lastShoot = 0;
     const loop = (t) => {
+      raf = requestAnimationFrame(loop);
+      if (t - lastFrame < minDt) return;
+      lastFrame = t;
       ctx.clearRect(0, 0, W(), H());
-      // La nebulosa "respira" pianissimo (scala d'alfa impercettibile ma viva).
-      ctx.globalAlpha = 0.85 + 0.15 * Math.sin(t * 0.0004);
-      drawNebula();
-      ctx.globalAlpha = 1;
       for (const s of stars) { s.y -= s.drift; if (s.y < 0) { s.y = H(); s.x = Math.random() * W(); } }
       paintStars(t);
-      paintShooting();
-      // ~una stella cadente ogni 3-6s (probabilistico, mai due addosso).
-      if (t - last > 3000 && Math.random() < 0.012 && shooting.length < 2) { spawnShooting(); last = t; }
-      raf = requestAnimationFrame(loop);
+      if (!weak) {
+        paintShooting();
+        if (t - lastShoot > 3500 && Math.random() < 0.012 && shooting.length < 2) { spawnShooting(); lastShoot = t; }
+      }
     };
     raf = requestAnimationFrame(loop);
-    // Se l'onboarding finisce (genesis rimosso), fermiamo il loop per non sprecare.
+    // Ferma il loop quando l'onboarding finisce (genesis rimosso): niente sprechi.
     const stopIfGone = () => { if (!document.getElementById('genesis-canvas')) { cancelAnimationFrame(raf); return; } setTimeout(stopIfGone, 2000); };
     setTimeout(stopIfGone, 2000);
-    window.addEventListener('resize', () => { resize(); }, { passive: true });
+    let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 150); }, { passive: true });
   } catch (err) { console.error('starfield:', err); }
 }
 

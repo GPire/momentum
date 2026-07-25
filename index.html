@@ -504,8 +504,13 @@
   <!-- ===================== GENESIS ONBOARDING ===================== -->
   <div id="genesis-container" class="fixed inset-0 z-[9999] bg-[#000] flex items-center justify-center overflow-hidden">
     <div class="absolute inset-0 z-0 pointer-events-none">
+       <!-- NEBULOSA come aurora CSS (composita su GPU, costo ~zero → gira anche su
+            un iPhone di prima generazione). I neurocolori del brand: indaco a
+            sinistra, ciano a destra. Statica, non pesa sul canvas. -->
+       <div class="absolute inset-0" style="background:
+            radial-gradient(60% 55% at 27% 30%, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0) 60%),
+            radial-gradient(55% 50% at 76% 72%, rgba(34,211,238,0.12) 0%, rgba(34,211,238,0) 60%);"></div>
        <canvas id="genesis-canvas" class="absolute inset-0 w-full h-full"></canvas>
-       <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/5 blur-3xl opacity-50"></div>
     </div>
     <!-- Scrim scuro radiale DIETRO il contenuto: garantisce che la scritta
          "Momentum" e i pulsanti restino sempre leggibili sopra le stelle, e
