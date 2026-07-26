@@ -172,6 +172,7 @@ class MeshNode {
     this.onPricesReceived = null;   // callback opzionale (nodeId, pricesBySymbol) => {}
     this.onReliabilityReceived = null; // callback opzionale (nodeId, digest) => {} (Wave 15 v10)
     this.onSplitGroupsReceived = null; // callback opzionale (nodeId, groups) => {} — sync LIVE gruppi divisione
+    this.onMorphologyReceived = null;  // callback opzionale (nodeId, model) => {} — federazione tipi esercente
   }
 
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
@@ -225,6 +226,12 @@ class MeshNode {
         // wins per campo, unione per aggiunte) è del ricevente — qui si
         // consegna soltanto, stesso pattern di price_share/reliability_share.
         this.onSplitGroupsReceived?.(peerId, msg.groups);
+      } else if (msg.type === 'morphology_share') {
+        // Federazione dei "tipi di esercente" (merchant-morphology.js): il peer
+        // condivide il suo modello morfologico (SOLO parole-tipo + categorie, mai
+        // dati grezzi). Il merge anti-poisoning (mergeMorphology, cap per token)
+        // è del ricevente: qui si consegna soltanto, come per reliability_share.
+        this.onMorphologyReceived?.(peerId, msg.model);
       }
     };
     channel.onclose = () => this.peers.delete(peerId);
@@ -341,6 +348,16 @@ class MeshNode {
   // qui si trasmette e basta, stesso pattern di sharePrices/shareReliability.
   shareSplitGroups(groups) {
     const msg = JSON.stringify({ type: 'split_share', groups });
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') entry.channel.send(msg);
+    }
+  }
+
+  // Condivide con la mesh il modello morfologico (tipi di esercente appresi).
+  // Zero dati grezzi: viaggiano solo le parole-tipo e le loro categorie. Ogni
+  // ricevente fonde con anti-poisoning (mergeMorphology). Stesso gossip dei pesi.
+  shareMorphology(model) {
+    const msg = JSON.stringify({ type: 'morphology_share', model });
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') entry.channel.send(msg);
     }

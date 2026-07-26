@@ -182,6 +182,36 @@ export function explainMorphology(model, description, now = Date.now(), opts = {
   };
 }
 
+// ── FEDERAZIONE (mesh, zero-server): fonde i "tipi di esercente" appresi da un
+// altro dispositivo dell'utente. Un telefono NUOVO eredita così i tipi già
+// imparati e categorizza subito i negozi locali che non ha mai visto — senza
+// che nessun dato grezzo (importi, date, transazioni) lasci mai il dispositivo:
+// viaggiano SOLO le parole-tipo e le loro categorie.
+//
+// ANTI-AVVELENAMENTO (stesso principio di mergeHierarchical): il contributo di
+// ogni token remoto è LIMITATO a maxPeerWeight, così un peer che ha osservato
+// una cosa mille volte non può sopraffare il tuo modello — pesa al più come
+// poche osservazioni tue. L'accordo-tra-insegne resta intatto perché fondiamo
+// le distribuzioni per singola insegna, non un totale piatto.
+export function mergeMorphology(local, remote, { maxPeerWeight = 5 } = {}) {
+  if (!remote || !remote.tokens) return local;
+  for (const [t, rnode] of Object.entries(remote.tokens)) {
+    if (!rnode || rnode.n <= 0) continue;
+    const f = Math.min(maxPeerWeight, rnode.n) / rnode.n; // cap del contributo
+    let node = local.tokens[t];
+    if (!node) { node = { c: {}, n: 0, last: 0, anchors: {} }; local.tokens[t] = node; }
+    for (const [cat, v] of Object.entries(rnode.c)) node.c[cat] = (node.c[cat] || 0) + v * f;
+    node.n += rnode.n * f;
+    node.last = Math.max(node.last || 0, rnode.last || 0);
+    // insegne: unione, sommando le distribuzioni per-insegna (scalate dal cap).
+    for (const [anchor, catCounts] of Object.entries(rnode.anchors || {})) {
+      const a = node.anchors[anchor] || (node.anchors[anchor] = {});
+      for (const [cat, v] of Object.entries(catCounts)) a[cat] = (a[cat] || 0) + v * f;
+    }
+  }
+  return local;
+}
+
 // Potatura: elimina i token diventati poco informativi (evidenza decaduta o
 // mai diventati generici) per tenere il modello leggero nel vault.
 export function pruneMorphology(model, opts = {}) {

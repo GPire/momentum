@@ -192,3 +192,21 @@ test('shareSplitGroups: il ricevente può fondere col CRDT (mergeIntoGroups) sen
   assert.equal(localGroups.length, 1);
   assert.equal(localGroups[0].expenses.length, 1, 'la spesa condivisa da A si unisce al gruppo locale');
 });
+
+// ── shareMorphology: federazione dei tipi esercente ─────────────────────────
+test('shareMorphology: il modello arriva intatto al peer via morphology_share', () => {
+  const { nodeA, nodeB } = twoNodes();
+  let got = null;
+  nodeB.onMorphologyReceived = (peerId, model) => { got = { peerId, model }; };
+  const model = { tokens: { pizzeria: { c: { svago: 3 }, n: 3, last: 0, anchors: { da: { svago: 1 }, x: { svago: 1 }, y: { svago: 1 } } } }, version: 2 };
+  nodeA.shareMorphology(model);
+  assert.ok(got, 'morphology_share deve essere consegnato');
+  assert.equal(got.peerId, 'A');
+  assert.deepEqual(got.model, model);
+});
+
+test('morphology_share senza handler registrato: nessun crash', () => {
+  const { nodeA, chB } = twoNodes();
+  nodeA.onMorphologyReceived = null;
+  assert.doesNotThrow(() => chB.send(JSON.stringify({ type: 'morphology_share', model: { tokens: {} } })));
+});

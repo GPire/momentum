@@ -34,6 +34,7 @@ import { derivePriors, seedBanditState } from './predict/onboarding-priors.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
+import { mergeMorphology, initMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { detectLanguage } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
@@ -4715,6 +4716,21 @@ function initMomentumRealAI() {
       for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.requestSync(pid);
       // e i gruppi di divisione già esistenti, per allinearli subito.
       if ((VaultDAO.state.splitGroups || []).length) momentumMeshNode.shareSplitGroups(VaultDAO.state.splitGroups);
+      // FEDERAZIONE tipi esercente: condivido il modello morfologico appreso, così
+      // un dispositivo nuovo eredita subito la categorizzazione dei negozi locali.
+      const mm = VaultDAO.state.mlData?.merchantMorphology;
+      if (mm && Object.keys(mm.tokens || {}).length) momentumMeshNode.shareMorphology(mm);
+    };
+    // Ricezione federata dei tipi esercente: merge anti-poisoning (cap per token)
+    // sul modello locale. Zero dati grezzi ricevuti — solo parole-tipo+categorie.
+    momentumMeshNode.onMorphologyReceived = (peerId, model) => {
+      try {
+        if (!model || !model.tokens) return;
+        VaultDAO.state.mlData = VaultDAO.state.mlData || {};
+        VaultDAO.state.mlData.merchantMorphology =
+          mergeMorphology(VaultDAO.state.mlData.merchantMorphology || initMorphology(), model);
+        VaultDAO.save();
+      } catch (_) {}
     };
     // SYNC LIVE gruppi divisione (task "sync live post-condivisione"): un
     // rename/nuova-spesa/nuova-persona fatto sull'altro dispositivo arriva QUI

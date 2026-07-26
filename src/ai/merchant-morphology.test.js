@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { initMorphology, observeMorphology, predictMorphology, explainMorphology, typeTokens, pruneMorphology } =
+const { initMorphology, observeMorphology, predictMorphology, explainMorphology, typeTokens, pruneMorphology, mergeMorphology } =
   await import('./merchant-morphology.js');
 
 const DAY = 86_400_000;
@@ -136,4 +136,55 @@ test('serializzabile: JSON round-trip preserva il modello', () => {
   const round = JSON.parse(JSON.stringify(m));
   const p = predictMorphology(round, 'TRATTORIA PIZZERIA DEL CORSO', T0);
   assert.ok(p && p.category === 'svago');
+});
+
+// ── FEDERAZIONE mesh: un device fresco eredita i tipi da un peer ────────────
+test('mergeMorphology: un device NUOVO eredita un tipo appreso e lo sa applicare', () => {
+  // device A ha imparato "officina" su 3 insegne (trasporti)
+  let a = initMorphology();
+  a = observeMorphology(a, 'DA GINO OFFICINA', 'trasporti', T0);
+  a = observeMorphology(a, 'OFFICINA ROSSI SUD', 'trasporti', T0);
+  a = observeMorphology(a, 'MECCANICA BIANCHI OFFICINA', 'trasporti', T0);
+  // device B è vergine: da solo tace
+  let b = initMorphology();
+  assert.equal(predictMorphology(b, 'AUTORIPARAZIONI VERDI OFFICINA', T0), null);
+  // dopo la federazione dal peer A, B categorizza il locale mai visto
+  b = mergeMorphology(b, a);
+  const p = predictMorphology(b, 'AUTORIPARAZIONI VERDI OFFICINA', T0);
+  assert.ok(p, 'B ha ereditato il tipo "officina" dal peer');
+  assert.equal(p.category, 'trasporti');
+  assert.equal(p.anchors, 3, 'le 3 insegne del peer sono arrivate: l\'accordo si conserva');
+});
+
+test('mergeMorphology anti-poisoning: il cap impedisce a un peer malevolo di ribaltare la categoria', () => {
+  // B crede: "farmacia" = salute (10 osservazioni su 10 insegne concordi).
+  const buildB = () => {
+    let m = initMorphology();
+    for (let i = 0; i < 10; i++) m = observeMorphology(m, `INS${i} FARMACIA`, 'salute', T0);
+    return m;
+  };
+  // peer MALEVOLO: fabbrica MOLTE insegne (30) e MOLTE osservazioni per farmacia
+  // = svago — abbastanza da vincere sia il conteggio sia l'accordo-tra-insegne.
+  let evil = initMorphology();
+  for (let a = 0; a < 30; a++) for (let i = 0; i < 50; i++) evil = observeMorphology(evil, `EVIL${a} FARMACIA`, 'svago', T0);
+
+  // CON cap: il contributo del peer è limitato → non ribalta a svago.
+  const capped = mergeMorphology(buildB(), evil, { maxPeerWeight: 5 });
+  assert.notEqual(predictMorphology(capped, 'NUOVA FARMACIA QUI', T0)?.category, 'svago',
+    'il peer malevolo non deve MAI imporre la sua categoria');
+
+  // SENZA cap: 1500 voti + 30 insegne ribaltano tutto → svago. È proprio ciò che
+  // il cap impedisce (controprova che il test morde davvero).
+  const uncapped = mergeMorphology(buildB(), evil, { maxPeerWeight: Infinity });
+  assert.equal(predictMorphology(uncapped, 'NUOVA FARMACIA QUI', T0)?.category, 'svago',
+    'senza cap il peer con evidenza enorme ribalta');
+});
+
+test('mergeMorphology: modello remoto vuoto o assente è no-op sicuro', () => {
+  let b = initMorphology();
+  b = observeMorphology(b, 'DA GINO OFFICINA', 'trasporti', T0);
+  const before = JSON.stringify(b);
+  b = mergeMorphology(b, null);
+  b = mergeMorphology(b, initMorphology());
+  assert.equal(JSON.stringify(b), before);
 });
