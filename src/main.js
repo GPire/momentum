@@ -24,7 +24,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
-import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning } from './predict/fixed-commitments.js';
+import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance } from './predict/fixed-commitments.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -2437,19 +2437,28 @@ function renderGhostForecast() {
       ` : `
         <div class="text-[12px]">Impegni fissi al mese: <b class="font-mono text-amber-300">${eur(ghosts)}</b>. <span class="text-[var(--on-surface-secondary)]">Dimmi quando arriva lo stipendio e ti dico quanto ti resta davvero.</span></div>
       `}
-      ${f.allowance ? `
+      ${(() => {
+        // Disponibilità ADATTIVA (auto-correttiva): tiene conto di quanto hai
+        // GIÀ speso nel ciclo. Se manca (niente storico), usa la stima uniforme.
+        const adaptive = cycleAllowance(commitments, salary, { now: Date.now(), allTx: VaultDAO.state.transactions });
+        const a = adaptive || f.allowance;
+        if (!a) return '';
+        const days = a.daysLeft ?? a.daysToNext;
+        const paceColor = adaptive ? (adaptive.onTrack ? 'text-emerald-400' : adaptive.pace === 'oltre il ritmo' ? 'text-[var(--red)]' : 'text-amber-300') : '';
+        return `
         <div class="grid grid-cols-2 gap-2 mt-2.5">
           <div class="rounded-xl bg-black/25 border border-[var(--glass-border)] p-2 text-center">
             <div class="text-[9.5px] text-[var(--on-surface-secondary)] uppercase tracking-wide">al giorno</div>
-            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(f.allowance.perDay)}</div>
+            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(a.perDay)}</div>
           </div>
           <div class="rounded-xl bg-black/25 border border-[var(--glass-border)] p-2 text-center">
             <div class="text-[9.5px] text-[var(--on-surface-secondary)] uppercase tracking-wide">a settimana</div>
-            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(f.allowance.perWeek)}</div>
+            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(a.perWeek)}</div>
           </div>
         </div>
-        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Puoi gestire così tanto fino al prossimo stipendio (${f.allowance.daysToNext === 1 ? 'domani' : `tra ${f.allowance.daysToNext} giorni`}), impegni già tolti.</p>
-      ` : ''}
+        ${adaptive ? `<p class="text-[10px] mt-1.5"><span class="${paceColor} font-bold">${adaptive.pace === 'in linea' ? '✓ Sei in linea' : adaptive.pace === 'oltre il ritmo' ? '⚠ Sei oltre il ritmo' : "Sei un po' sopra il ritmo"}</span> <span class="text-[var(--on-surface-secondary)]">· hai speso ${eur(adaptive.spent)} di ${eur(adaptive.budget)} liberi (${days === 1 ? 'stipendio domani' : `${days} giorni al prossimo stipendio`}).</span></p>`
+        : `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Puoi gestire così tanto fino al prossimo stipendio (${days === 1 ? 'domani' : `tra ${days} giorni`}), impegni già tolti.</p>`}`;
+      })()}
       ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Da qui allo stipendio (${f.payday.date}) devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
       ${ghostChips ? `<div class="flex flex-wrap gap-1.5 mt-2">${ghostChips}</div>` : ''}
       ${paidNote}

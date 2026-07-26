@@ -122,6 +122,78 @@ function nextPaydayDate(dayOfMonth, from) {
   return new Date(Date.UTC(y, m, day));
 }
 
+// Ultimo giorno di stipendio già passato (inizio del ciclo corrente).
+function prevPaydayDate(dayOfMonth, from) {
+  const fromD = new Date(from);
+  let y = fromD.getUTCFullYear(), m = fromD.getUTCMonth();
+  const dayThis = clampDay(dayOfMonth, y, m);
+  if (dayThis > fromD.getUTCDate()) m -= 1;
+  const day = clampDay(dayOfMonth, y, m);
+  return new Date(Date.UTC(y, m, day));
+}
+
+// Una transazione È il pagamento di un impegno? (per NON contarla come spesa
+// discrezionale). Stessa logica di tolleranza tipo-aware del matching.
+function txMatchesAnyCommitment(t, commitments) {
+  const amt = Math.abs(+t.amount || 0);
+  const d = parseISO(t.date) || new Date(t.date);
+  if (Number.isNaN(d.getTime())) return false;
+  for (const c of commitments) {
+    const target = +c.amount || 0;
+    if (target > 0 && Math.abs(amt - target) / target > toleranceFor(c, null)) continue;
+    if (Math.abs(d.getUTCDate() - c.dayOfMonth) > 6) continue;
+    return true;
+  }
+  return false;
+}
+
+// ── DISPONIBILITÀ ADATTIVA (burn-rate auto-correttivo) ──────────────────────
+// Più intelligente della semplice divisione pool/giorni: legge quanto hai GIÀ
+// speso (in modo discrezionale, escludendo le rate degli impegni) da inizio
+// ciclo, e ricalcola quanto ti resta DAVVERO al giorno. Se hai speso troppo, il
+// giornaliero scende da solo — si auto-corregge ogni giorno. Dice anche se sei
+// 'in linea' o 'oltre' il ritmo che ti porterebbe a fine mese senza restare a
+// secco. Deterministico dai tuoi dati reali: nessuna invenzione.
+export function cycleAllowance(commitments = [], salary = null, { now = Date.now(), allTx = {} } = {}) {
+  if (!salary || !(salary.amount > 0) || !(salary.dayOfMonth >= 1)) return null;
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const next = nextPaydayDate(salary.dayOfMonth, now);
+  const prev = prevPaydayDate(salary.dayOfMonth, now);
+  const cycleLen = Math.max(1, Math.round((next.getTime() - prev.getTime()) / 86_400_000));
+  const daysElapsed = Math.max(0, Math.round((now - prev.getTime()) / 86_400_000));
+  const daysLeft = Math.max(1, Math.round((next.getTime() - now) / 86_400_000));
+  const active = commitments.filter(c => +c.amount > 0 && c.dayOfMonth >= 1 && isActive(c, now));
+  const fixedTotal = active.reduce((s, c) => s + (+c.amount || 0), 0);
+  const budget = Math.max(0, r2(salary.amount - fixedTotal)); // per le spese libere del ciclo
+
+  // spesa discrezionale reale da inizio ciclo (esclude le rate degli impegni).
+  let spent = 0;
+  for (const txs of Object.values(allTx)) {
+    for (const t of (txs || [])) {
+      if (t.type && t.type !== 'uscita') continue;
+      const d = parseISO(t.date) || new Date(t.date);
+      const ms = d.getTime();
+      if (Number.isNaN(ms) || ms < prev.getTime() || ms > now) continue;
+      if (txMatchesAnyCommitment(t, active)) continue;
+      spent += Math.abs(+t.amount || 0);
+    }
+  }
+  spent = r2(spent);
+  const remaining = Math.max(0, r2(budget - spent));
+  const perDay = r2(remaining / daysLeft);
+  const perWeek = r2(Math.min(remaining, perDay * 7));
+  // ritmo: quanto AVRESTI dovuto aver speso a oggi con un passo uniforme.
+  const idealByNow = budget * (daysElapsed / cycleLen);
+  const pace = spent <= idealByNow * 1.03 ? 'in linea'
+    : spent <= idealByNow * 1.2 ? 'un po\' sopra' : 'oltre il ritmo';
+  return {
+    budget, spent, remaining, perDay, perWeek,
+    daysLeft, daysElapsed, cycleLen,
+    pace, onTrack: spent <= idealByNow * 1.03,
+    overBy: spent > idealByNow ? r2(spent - idealByNow) : 0,
+  };
+}
+
 // ── RICONCILIAZIONE (anti doppio-conteggio) ─────────────────────────────────
 // Il fantasma è una STIMA finché la transazione vera non arriva (import CSV/
 // estratto/screenshot). Quando una spesa reale del mese COMBACIA con un impegno

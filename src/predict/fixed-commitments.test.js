@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 const { remainingInstallments, payoffDate, isActive, residualApprox, nextOccurrence,
   commitmentsDueBetween, commitmentForecast, matchCommitmentInMonth, reconcileCommitments,
-  learnCommitmentAmount, enrichCommitmentsWithLearning } = await import('./fixed-commitments.js');
+  learnCommitmentAmount, enrichCommitmentsWithLearning, cycleAllowance } = await import('./fixed-commitments.js');
 
 const mutuo = { id: 'm1', name: 'Mutuo casa', amount: 650, dayOfMonth: 5, kind: 'mutuo', startDate: '2024-01-05', termMonths: 240 };
 const prestito = { id: 'p1', name: 'Prestito auto', amount: 210, dayOfMonth: 10, kind: 'prestito', startDate: '2025-06-10', termMonths: 24 };
@@ -243,4 +243,45 @@ test('commitmentForecast: se gli impegni superano lo stipendio, pool = 0 (mai ne
   const f = commitmentForecast([heavy], { dayOfMonth: 27, amount: 1500 }, { now: Date.parse('2026-07-10') });
   assert.equal(f.allowance.pool, 0, 'non mostra un disponibile negativo');
   assert.equal(f.allowance.perDay, 0);
+});
+
+// ── DISPONIBILITÀ ADATTIVA (burn-rate auto-correttivo) ──────────────────────
+test('cycleAllowance: il giornaliero scende se hai già speso molto nel ciclo', () => {
+  const salary = { dayOfMonth: 1, amount: 1500 };
+  // ciclo 1→31 luglio; oggi 11 (10 giorni passati, 20 rimasti). Budget = 1500−500 = 1000.
+  const now = Date.parse('2026-07-11');
+  const allTx = { '2026-07': [
+    { amount: 500, type: 'uscita', description: 'ADDEBITO AFFITTO', date: '2026-07-01' }, // rata: esclusa
+    { amount: 400, type: 'uscita', description: 'spese varie', date: '2026-07-05' },       // discrezionale
+    { amount: 100, type: 'entrata', date: '2026-07-06' },                                  // entrata: ignorata
+  ] };
+  const a = cycleAllowance([affitto], salary, { now, allTx });
+  assert.equal(a.budget, 1000);
+  assert.equal(a.spent, 400, 'solo la spesa discrezionale, non la rata affitto');
+  assert.equal(a.remaining, 600);
+  assert.equal(a.daysLeft, 21); // da 11 lug a 1 ago (luglio ha 31 giorni)
+  assert.equal(a.perDay, Math.round((600 / 21) * 100) / 100); // sceso perché hai già speso 400
+});
+
+test('cycleAllowance: segnala quando sei OLTRE il ritmo', () => {
+  const salary = { dayOfMonth: 1, amount: 1000 };
+  const now = Date.parse('2026-07-06'); // 5 giorni su 30 → ideale ~166, budget 1000
+  const allTx = { '2026-07': [{ amount: 600, type: 'uscita', description: 'shopping', date: '2026-07-03' }] };
+  const a = cycleAllowance([], salary, { now, allTx });
+  assert.equal(a.pace, 'oltre il ritmo');
+  assert.ok(a.overBy > 0);
+  assert.equal(a.onTrack, false);
+});
+
+test('cycleAllowance: in linea quando la spesa segue il passo', () => {
+  const salary = { dayOfMonth: 1, amount: 3000 };
+  const now = Date.parse('2026-07-11'); // 10/30 giorni → ideale 1000
+  const allTx = { '2026-07': [{ amount: 900, type: 'uscita', description: 'varie', date: '2026-07-05' }] };
+  const a = cycleAllowance([], salary, { now, allTx });
+  assert.equal(a.pace, 'in linea');
+  assert.equal(a.onTrack, true);
+});
+
+test('cycleAllowance: null senza stipendio (non inventa)', () => {
+  assert.equal(cycleAllowance([affitto], null, { now: Date.now() }), null);
 });
