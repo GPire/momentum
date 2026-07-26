@@ -301,12 +301,22 @@ test('matchCommitmentInMonth: il nome NON basta se il giorno è lontano', () => 
   assert.equal(matchCommitmentInMonth(b, tx), null);
 });
 
-test('matchCommitmentInMonth: a parità, un match d\'IMPORTO batte un match di solo nome', () => {
-  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };
+test('matchCommitmentInMonth: il NOME batte una coincidenza d\'importo', () => {
+  // Verificato dal vivo: con una bolletta variabile la banda d'importo è
+  // larghissima e agganciava la prima spesa qualunque vicina al giorno (imparava
+  // 12€ invece di ~90€). Una descrizione che coincide identifica; un importo in
+  // banda larga no.
+  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta', variable: true };
   const tx = [
-    { type: 'uscita', amount: 180, date: '2026-07-11', description: 'Enel Energia' }, // solo nome
-    { type: 'uscita', amount: 52, date: '2026-07-13', description: 'addebito utenza' }, // importo in banda
+    { type: 'uscita', amount: 180, date: '2026-07-11', description: 'Enel Energia' }, // il vero addebito
+    { type: 'uscita', amount: 52, date: '2026-07-13', description: 'Supermercato' },  // coincidenza
   ];
+  assert.equal(matchCommitmentInMonth(b, tx).amount, 180);
+});
+
+test('matchCommitmentInMonth: senza alcun nome riconosciuto ripiega sulla banda d\'importo', () => {
+  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };
+  const tx = [{ type: 'uscita', amount: 52, date: '2026-07-13', description: 'addebito utenza' }];
   assert.equal(matchCommitmentInMonth(b, tx).amount, 52);
 });
 

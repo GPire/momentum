@@ -32,6 +32,7 @@ import { reconcileCommitments, enrichCommitmentsWithLearning, isActive, matchCom
 const DAY_MS = 86_400_000;
 const r2 = (n) => Math.round(n * 100) / 100;
 const iso = (ms) => new Date(ms).toISOString().slice(0, 10);
+const eur = (n) => `${(Math.round((+n || 0) * 100) / 100).toFixed(2).replace('.', ',')} €`;
 const dayStart = (ms) => { const d = new Date(ms); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); };
 
 // z per i quantili della banda: 10% e 90% di una normale standard.
@@ -373,7 +374,7 @@ export function bestLevers(base, { profile = null, ledger = [], startBalance = 0
     const alt = sim({ profile: { ...profile, dailyMean: profile.dailyMean * (1 - cut) } });
     candidates.push({
       id: `cut-${cut * 100}`,
-      label: `Spendi il ${cut * 100}% in meno al giorno (${r2(profile.dailyMean * cut)}€)`,
+      label: `Spendi il ${cut * 100}% in meno al giorno (${eur(profile.dailyMean * cut)})`,
       daysGained: daysGained(alt), endDelta: r2(alt.end.p50 - base.end.p50), kind: 'ritmo',
     });
   }
@@ -385,7 +386,7 @@ export function bestLevers(base, { profile = null, ledger = [], startBalance = 0
     const alt = sim({ ledger: ledger.filter(e => e !== worst) });
     candidates.push({
       id: `drop-sub`,
-      label: `Sospendi «${worst.label}» (${r2(-worst.amount)}€)`,
+      label: `Sospendi «${worst.label}» (${eur(-worst.amount)})`,
       daysGained: daysGained(alt), endDelta: r2(alt.end.p50 - base.end.p50), kind: 'abbonamento',
     });
   }
@@ -396,7 +397,7 @@ export function bestLevers(base, { profile = null, ledger = [], startBalance = 0
     if (payday) {
       candidates.push({
         id: 'split-after-payday',
-        label: `Salda i ${r2(splitOwed)}€ della divisione dopo il ${payday.date}`,
+        label: `Salda i ${eur(splitOwed)} della divisione dopo il ${payday.date}`,
         daysGained: 0, endDelta: 0, kind: 'divisione',
         note: 'lo stipendio copre il rimborso senza toccare il mese in corso',
       });

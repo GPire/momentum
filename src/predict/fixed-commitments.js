@@ -233,26 +233,33 @@ function nameMatches(c, t, threshold = 0.72) {
   return false;
 }
 
+// IL NOME VIENE PRIMA DELL'IMPORTO. Verificato dal vivo su dati realistici: una
+// bolletta "variabile" ha una banda d'importo larghissima (per forza: varia), e
+// con la sola banda agganciava la prima spesa qualunque capitata vicino al suo
+// giorno — imparando 12€ al posto di ~90€. Una descrizione che coincide
+// ("Enel Energia" per l'impegno Enel) identifica; un importo dentro una banda
+// larga è una coincidenza numerica. Quindi: prima si cerca per nome, e solo se
+// nessun movimento porta quel nome si ripiega sulla banda d'importo.
 export function matchCommitmentInMonth(c, monthTx = [], { amountTol = null, dayTol = 6, nameDayTol = 12 } = {}) {
   const target = +c.amount || 0;
   const tol = toleranceFor(c, amountTol);
-  let best = null, bestDelta = Infinity, bestByName = false;
+  let byName = null, byNameDelta = Infinity;
+  let byAmount = null, byAmountDelta = Infinity;
   for (const t of monthTx) {
     if (t.type && t.type !== 'uscita') continue;
     const amt = Math.abs(+t.amount || 0);
+    if (!(amt > 0)) continue;
     const d = parseISO(t.date) || new Date(t.date);
     if (Number.isNaN(d.getTime())) continue;
     const dayDelta = Math.abs(d.getUTCDate() - c.dayOfMonth);
-    const byAmount = !(target > 0 && Math.abs(amt - target) / target > tol) && dayDelta <= dayTol;
-    const byName = !byAmount && amt > 0 && dayDelta <= nameDayTol && nameMatches(c, t);
-    if (!byAmount && !byName) continue;
-    // preferenza: un match d'importo batte sempre un match di solo nome; a
-    // parità, vince il più vicino al giorno atteso (il match più solido).
-    if (best && bestByName && byAmount) { best = t; bestDelta = dayDelta; bestByName = false; continue; }
-    if (best && !bestByName && byName) continue;
-    if (dayDelta < bestDelta) { best = t; bestDelta = dayDelta; bestByName = byName; }
+    if (dayDelta <= nameDayTol && nameMatches(c, t) && dayDelta < byNameDelta) {
+      byName = t; byNameDelta = dayDelta;
+    }
+    if (dayDelta <= dayTol && !(target > 0 && Math.abs(amt - target) / target > tol) && dayDelta < byAmountDelta) {
+      byAmount = t; byAmountDelta = dayDelta;
+    }
   }
-  return best;
+  return byName || byAmount;
 }
 
 // Divide gli impegni ATTIVI del mese in "già pagati" (materializzati in una

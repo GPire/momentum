@@ -25,6 +25,7 @@ import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalance
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance } from './predict/fixed-commitments.js';
+import { cashForecast } from './predict/cash-forecast.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -2380,6 +2381,79 @@ window.openSplitExpense = (prefill = {}) => {
 // come spese "fantasma" — già tolte dallo stipendio anche se non ancora pagate.
 // Semplice da capire per chiunque: un numero grande verde = quello che è
 // davvero tuo. Onesto: usa i dati che inserisci, e lo dichiara.
+// ── LA CURVA DEL MESE (Cassa Unica) ─────────────────────────────────────────
+// Una riga sola per l'occhio: dove va il tuo denaro da qui a fine ciclo, con la
+// banda prudente/fortunato, il giorno critico se c'è, e UNA leva misurata (non
+// un consiglio generico: è ri-simulata, e dice quanti giorni fa guadagnare).
+// Tace se il motore non ha abbastanza dati — nessuna curva inventata.
+function cashCurveHtml(commitments, salary) {
+  let f;
+  try {
+    const subs = subscriptionSummary(VaultDAO.state.transactions, new Date());
+    // Ciò che devo agli amici: scenario a parte (la data la decide l'utente).
+    const net = netAcrossGroups(VaultDAO.state.splitGroups || []);
+    const owed = Math.abs(Math.min(0, net.reduce((s, p) => s + Math.min(0, p.net), 0)));
+    f = cashForecast({
+      allTx: VaultDAO.state.transactions,
+      commitments,
+      salary,
+      subscriptions: (subs.subscriptions || []).map(s => ({ name: s.name, amount: s.amount, nextDate: s.nextDate })),
+      splitOwed: owed,
+      monthTx: VaultDAO.state.transactions[monthKey(new Date())] || [],
+      now: Date.now(),
+      horizonDays: 30,
+    });
+  } catch (_) { return ''; }
+  if (!f || !f.known || !f.path?.length) return '';
+
+  // sparkline della mediana + banda: SVG puro, nessuna libreria, nessun canvas.
+  const pts = f.path;
+  const ys = pts.flatMap(p => [p.p10, p.p90]).concat([0]);
+  const min = Math.min(...ys), max = Math.max(...ys);
+  const span = (max - min) || 1;
+  const W = 100, H = 30;
+  const x = (i) => (i / (pts.length - 1)) * W;
+  const y = (v) => H - ((v - min) / span) * H;
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.p50).toFixed(1)}`).join('');
+  const band = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.p90).toFixed(1)}`).join('')
+    + pts.slice().reverse().map((p, i) => `L${x(pts.length - 1 - i).toFixed(1)},${y(p.p10).toFixed(1)}`).join('') + 'Z';
+  const zeroY = y(0).toFixed(1);
+  // La leva si mostra solo se serve DAVVERO: quando c'è un giorno critico da
+  // spostare (e lo sposta), o quando è un'indicazione di tempistica. Senza
+  // rischio in vista, un "spendi il 20% in meno" è rumore — un focus per volta.
+  const lever = f.levers.find(l => (f.riskDay && l.daysGained > 0) || l.note);
+  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const eur = (n) => formatMoney(n);
+
+  // ONESTÀ: senza sapere quanto hai in banca, "scendi sotto zero" non è dicibile
+  // — la previsione è RELATIVA a oggi. Allora si dice ciò che è vero comunque:
+  // dove sarai a fine finestra, e QUANDO passi dal punto più basso (la valle,
+  // quasi sempre il giorno prima dell'accredito) — è quello il momento stretto.
+  const valle = f.lowest && f.lowest.value < Math.min(0, f.end.p50) - 20 ? f.lowest : null;
+  const testa = !f.relative && f.riskDay
+    ? `<span class="text-amber-300 font-bold">Attenzione al ${dayName(f.riskDay.date)}</span> <span class="text-[var(--on-surface-secondary)]">· nello scenario prudente lì tocchi il fondo</span>`
+    : f.relative
+      ? `<span class="${f.end.p50 >= 0 ? 'text-emerald-400' : 'text-amber-300'} font-bold">${f.end.p50 >= 0 ? '+' : ''}${eur(f.end.p50)}</span> <span class="text-[var(--on-surface-secondary)]">rispetto a oggi entro il ${dayName(f.end.date)}${valle ? ` · il momento più stretto è il ${dayName(valle.date)}` : ''}</span>`
+      : `<span class="text-emerald-400 font-bold">Nessun giorno critico</span> <span class="text-[var(--on-surface-secondary)]">fino al ${dayName(f.end.date)}</span>`;
+
+  return `
+    <div class="mt-3 pt-3 border-t border-[var(--glass-border)]">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">I prossimi ${f.horizonDays} giorni</span>
+        <span class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80">fiducia ${Math.round((f.confidence || 0) * 100)}%</span>
+      </div>
+      <p class="text-[11.5px] leading-snug mb-1.5">${testa}</p>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-14" aria-hidden="true">
+        <path d="${band}" fill="var(--primary)" opacity="0.25"/>
+        <line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="currentColor" stroke-width="0.3" opacity="0.35" stroke-dasharray="2 2"/>
+        <path d="${line}" fill="none" stroke="var(--primary)" stroke-width="1.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      </svg>
+      <p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">Linea = scenario probabile · ombra = da prudente <b>${eur(f.end.p10)}</b> a fortunato <b>${eur(f.end.p90)}</b> al ${dayName(f.end.date)}.</p>
+      ${lever ? `<p class="text-[10.5px] mt-1.5 text-[var(--primary)]">✨ ${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
+      ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se saldi subito i ${eur(f.withSplit.owed)} delle divisioni, chiudi a ${eur(f.withSplit.endP50)}.</p>` : ''}
+    </div>`;
+}
+
 function renderGhostForecast() {
   const el = document.getElementById('ghost-forecast');
   if (!el) return;
@@ -2459,6 +2533,7 @@ function renderGhostForecast() {
         ${adaptive ? `<p class="text-[10px] mt-1.5"><span class="${paceColor} font-bold">${adaptive.pace === 'in linea' ? '✓ Sei in linea' : adaptive.pace === 'oltre il ritmo' ? '⚠ Sei oltre il ritmo' : "Sei un po' sopra il ritmo"}</span> <span class="text-[var(--on-surface-secondary)]">· hai speso ${eur(adaptive.spent)} di ${eur(adaptive.budget)} liberi (${days === 1 ? 'stipendio domani' : `${days} giorni al prossimo stipendio`}).</span></p>`
         : `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Puoi gestire così tanto fino al prossimo stipendio (${days === 1 ? 'domani' : `tra ${days} giorni`}), impegni già tolti.</p>`}`;
       })()}
+      ${cashCurveHtml(commitments, salary)}
       ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Da qui allo stipendio (${f.payday.date}) devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
       ${ghostChips ? `<div class="flex flex-wrap gap-1.5 mt-2">${ghostChips}</div>` : ''}
       ${paidNote}
