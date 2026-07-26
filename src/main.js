@@ -21,6 +21,7 @@ import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges } from './split/split-engine.js';
+import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
@@ -2665,6 +2666,30 @@ window.openActivationQuestions = (onDone = null) => {
 // limite, PIU' spese con pagatori e importi DIVERSI (uno paga 10, un altro 89,
 // un altro niente), storico, controlli (aggiungi/elimina spesa e persone),
 // settlement minimo live ("chi deve cosa a chi"), condivisione a distanza. ──
+// Pannello "Momentum prevede" (split-intelligence.js): spese ricorrenti in
+// arrivo + proiezione saldo a fine mese. On-device, dai soli dati del gruppo.
+// Compare SOLO se c'è davvero qualcosa da prevedere (mai un box vuoto/inventato).
+function renderSplitForesight(g, names) {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const rec = detectRecurring(g).filter(r => r.daysUntilNext >= -3 && r.daysUntilNext <= 45);
+  if (!rec.length) return '';
+  const rows = rec.slice(0, 3).map(r => {
+    const when = r.daysUntilNext <= 0 ? 'attesa ora' : `tra ~${r.daysUntilNext} giorni`;
+    const payer = predictExpenseShape(g, r.description);
+    const who = payer?.payer ? ` · di solito paga <b>${esc(names[payer.payer] || '?')}</b>` : '';
+    return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] border-b border-[var(--glass-border)] last:border-0">
+      <span class="min-w-0"><b>${esc(r.description)}</b> · <span class="text-[var(--on-surface-secondary)]">${eur(r.typicalAmount)} ${when}${who}</span></span>
+      <span class="shrink-0 text-[11px] text-[var(--on-surface-secondary)]">${Math.round(r.confidence * 100)}%</span>
+    </div>`;
+  }).join('');
+  return `<div class="card p-3">
+    <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Momentum prevede</div>
+    ${rows}
+    <p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">Stime dai tuoi dati del gruppo, non certezze. La percentuale è quanto è regolare la spesa.</p>
+  </div>`;
+}
+
 window.openSplitGroup = (openId = null) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
@@ -2755,6 +2780,7 @@ window.openSplitGroup = (openId = null) => {
           </div>
         </div>
         ${(g.expenses || []).length ? `<div class="card p-3"><div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Spese (${g.expenses.length})</div>${expRows}</div>` : ''}
+        ${renderSplitForesight(g, names)}
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi una spesa</div>
           <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${esc(m.name)} paga</button>`).join('')}</div>
