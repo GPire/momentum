@@ -285,3 +285,44 @@ test('cycleAllowance: in linea quando la spesa segue il passo', () => {
 test('cycleAllowance: null senza stipendio (non inventa)', () => {
   assert.equal(cycleAllowance([affitto], null, { now: Date.now() }), null);
 });
+
+// ── riconoscimento per NOME (bolletta sottostimata) ──────────────────────────
+test('matchCommitmentInMonth: riconosce dal NOME una bolletta molto fuori banda', () => {
+  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };
+  const tx = [{ type: 'uscita', amount: 180, date: '2026-07-14', description: 'Enel Energia' }];
+  const m = matchCommitmentInMonth(b, tx);
+  assert.ok(m, 'atteso match per nome: 180€ non entra nella banda di 50€');
+  assert.equal(m.amount, 180);
+});
+
+test('matchCommitmentInMonth: il nome NON basta se il giorno è lontano', () => {
+  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };
+  const tx = [{ type: 'uscita', amount: 180, date: '2026-07-28', description: 'Enel Energia' }];
+  assert.equal(matchCommitmentInMonth(b, tx), null);
+});
+
+test('matchCommitmentInMonth: a parità, un match d\'IMPORTO batte un match di solo nome', () => {
+  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };
+  const tx = [
+    { type: 'uscita', amount: 180, date: '2026-07-11', description: 'Enel Energia' }, // solo nome
+    { type: 'uscita', amount: 52, date: '2026-07-13', description: 'addebito utenza' }, // importo in banda
+  ];
+  assert.equal(matchCommitmentInMonth(b, tx).amount, 52);
+});
+
+test('matchCommitmentInMonth: un movimento senza relazione non viene mai agganciato', () => {
+  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };
+  const tx = [{ type: 'uscita', amount: 180, date: '2026-07-12', description: 'Volo Ryanair' }];
+  assert.equal(matchCommitmentInMonth(b, tx), null);
+});
+
+test('learnCommitmentAmount: impara la cifra vera di una bolletta sottostimata (via nome)', () => {
+  const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };
+  const allTx = {
+    '2026-05': [{ type: 'uscita', amount: 170, date: '2026-05-12', description: 'Enel' }],
+    '2026-06': [{ type: 'uscita', amount: 190, date: '2026-06-13', description: 'Enel' }],
+  };
+  const l = learnCommitmentAmount(b, allTx);
+  assert.equal(l.samples, 2);
+  assert.equal(l.learnedAmount, 180);
+});

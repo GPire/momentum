@@ -20,6 +20,8 @@
 // Funzioni pure, nessun DOM, nessuna rete, serializzabile nel vault.
 'use strict';
 
+import { descriptionSimilarity } from '../core/deduplicator.js';
+
 // Tutta la matematica delle date è in UTC per coerenza: parse ISO ('YYYY-MM-DD')
 // è UTC-midnight e la formattazione (toISOString) è UTC → nessuno sfasamento di
 // giorno dovuto al fuso orario locale del dispositivo.
@@ -140,9 +142,12 @@ function txMatchesAnyCommitment(t, commitments) {
   if (Number.isNaN(d.getTime())) return false;
   for (const c of commitments) {
     const target = +c.amount || 0;
-    if (target > 0 && Math.abs(amt - target) / target > toleranceFor(c, null)) continue;
-    if (Math.abs(d.getUTCDate() - c.dayOfMonth) > 6) continue;
-    return true;
+    const dayDelta = Math.abs(d.getUTCDate() - c.dayOfMonth);
+    // stessa doppia via del matching: importo in banda, oppure nome riconosciuto
+    // in una finestra più larga (una bolletta fuori banda resta una bolletta, non
+    // una spesa libera — altrimenti il "quanto puoi spendere" crollerebbe a caso).
+    if (target > 0 && Math.abs(amt - target) / target <= toleranceFor(c, null) && dayDelta <= 6) return true;
+    if (dayDelta <= 12 && nameMatches(c, t)) return true;
   }
   return false;
 }
@@ -212,20 +217,40 @@ function toleranceFor(c, optTol) {
   return TOL_BY_KIND[c.kind] ?? 0.2;
 }
 
-export function matchCommitmentInMonth(c, monthTx = [], { amountTol = null, dayTol = 6 } = {}) {
+// Seconda via di riconoscimento: il NOME. Se la descrizione del movimento
+// somiglia al nome dell'impegno (o all'esercente dichiarato in `merchant`), è
+// quello stesso impegno anche se l'importo è fuori banda — è il caso reale di
+// una bolletta digitata a 50€ e arrivata a 120€: sull'importo non combacerebbe
+// mai, quindi non imparerebbe MAI la cifra vera. Il giorno resta un vincolo
+// (una banda più larga, perché le bollette slittano): nome + finestra temporale
+// insieme sono un'identificazione solida, il nome da solo no.
+function nameMatches(c, t, threshold = 0.72) {
+  const desc = t.description || t.merchant || '';
+  if (!desc) return false;
+  for (const label of [c.merchant, c.name]) {
+    if (label && descriptionSimilarity(label, desc) >= threshold) return true;
+  }
+  return false;
+}
+
+export function matchCommitmentInMonth(c, monthTx = [], { amountTol = null, dayTol = 6, nameDayTol = 12 } = {}) {
   const target = +c.amount || 0;
   const tol = toleranceFor(c, amountTol);
-  let best = null, bestDelta = Infinity;
+  let best = null, bestDelta = Infinity, bestByName = false;
   for (const t of monthTx) {
     if (t.type && t.type !== 'uscita') continue;
     const amt = Math.abs(+t.amount || 0);
-    if (target > 0 && Math.abs(amt - target) / target > tol) continue;
     const d = parseISO(t.date) || new Date(t.date);
     if (Number.isNaN(d.getTime())) continue;
     const dayDelta = Math.abs(d.getUTCDate() - c.dayOfMonth);
-    if (dayDelta > dayTol) continue;
-    // tra i candidati validi scegli il più vicino nel giorno (il match più solido).
-    if (dayDelta < bestDelta) { best = t; bestDelta = dayDelta; }
+    const byAmount = !(target > 0 && Math.abs(amt - target) / target > tol) && dayDelta <= dayTol;
+    const byName = !byAmount && amt > 0 && dayDelta <= nameDayTol && nameMatches(c, t);
+    if (!byAmount && !byName) continue;
+    // preferenza: un match d'importo batte sempre un match di solo nome; a
+    // parità, vince il più vicino al giorno atteso (il match più solido).
+    if (best && bestByName && byAmount) { best = t; bestDelta = dayDelta; bestByName = false; continue; }
+    if (best && !bestByName && byName) continue;
+    if (dayDelta < bestDelta) { best = t; bestDelta = dayDelta; bestByName = byName; }
   }
   return best;
 }
