@@ -11,6 +11,7 @@ import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as
 import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
 import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
 import { initMerchantHierarchy, observeMerchant, predictMerchant } from './merchant-hierarchy.js';
+import { initMorphology, observeMorphology, predictMorphology } from './merchant-morphology.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -126,6 +127,17 @@ class MomentumOrchestrator {
     this.vault.state.mlData.merchantHierarchy =
       this.vault.state.mlData.merchantHierarchy || initMerchantHierarchy();
     observeMerchant(this.vault.state.mlData.merchantHierarchy, description, catId,
+      date ? new Date(date).getTime() : Date.now());
+
+    // ── Morfologia esercenti (src/ai/merchant-morphology.js): il secondo strato
+    // che generalizza per TIPO di attività (pizzeria, farmacia, officina...)
+    // indipendentemente dalla posizione del token — copre i piccoli esercenti
+    // LOCALI mai visti dove la gerarchia posizionale tace (bench: +76pt di
+    // copertura corretta su quel caso). Campo additivo, stessa fonte di verità.
+    this.vault.state.mlData.merchantMorphology =
+      this.vault.state.mlData.merchantMorphology || initMorphology();
+    this.vault.state.mlData.merchantMorphology = observeMorphology(
+      this.vault.state.mlData.merchantMorphology, description, catId,
       date ? new Date(date).getTime() : Date.now());
 
     const tokens = this.nexus.tokenize(description);
@@ -250,14 +262,35 @@ class MomentumOrchestrator {
     // progetto. Tace (null) senza evidenza sufficiente: a freddo l'ensemble
     // si comporta ESATTAMENTE come prima. Il peso cresce con l'evidenza reale.
     const mh = this.vault.state.mlData.merchantHierarchy;
+    let hierarchySpoke = false;
     if (mh) {
       const p = predictMerchant(mh, description);
       if (p) {
+        hierarchySpoke = true;
         candidates.push({
           source: 'hierarchy',
           category: p.category,
           confidence: p.confidence,
           weight: 0.2 + 0.3 * Math.min(1, p.support / 10),
+        });
+      }
+    }
+
+    // ── Morfologia esercenti: vota SOLO quando la gerarchia tace (è il suo
+    // dominio: l'esercente locale mai visto, riconosciuto per TIPO). Così non
+    // duplica il voto della gerarchia quando lei sa già rispondere, e resta un
+    // recupero mirato sul cold-start. A freddo tace: nessun tipo ancora appreso.
+    const mm = this.vault.state.mlData.merchantMorphology;
+    if (mm && !hierarchySpoke) {
+      const p = predictMorphology(mm, description);
+      if (p) {
+        candidates.push({
+          source: 'morphology',
+          category: p.category,
+          confidence: p.confidence,
+          // peso base modulato da concentrazione (margine) e supporto reale:
+          // un tipo netto e molto visto pesa quanto un voto di gerarchia medio.
+          weight: 0.15 + 0.3 * p.margin * Math.min(1, p.support / 6),
         });
       }
     }

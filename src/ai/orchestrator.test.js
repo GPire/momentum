@@ -261,3 +261,30 @@ test("sparse-MoE: su tier massimo Meso è attivabile", () => {
   assert.ok((r.sources || []).includes('meso'), 'Meso deve votare su tier massimo');
   globalThis.window.momentumDeviceProfile = prevProfile;
 });
+
+// ── INTEGRAZIONE: la morfologia recupera l'esercente LOCALE mai visto dove la
+// gerarchia posizionale tace (cablaggio reale in learn()+classify()). ────────
+test("morfologia in produzione: un tipo-LACUNA (ignoto al dizionario) categorizza un locale MAI visto", () => {
+  const nexus = { predict: () => ({ cat: null, confidence: 0 }), tokenize: t => t.split(' '), train: () => {} };
+  // un modello addestrato (che qui tace) serve solo ad attivare il percorso
+  // ensemble; senza, l'orchestratore restituirebbe la sola predizione grezza.
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: null, confidence: 0 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus, trainedCategorizer: trained });
+  // "officina" NON è nel dizionario statico: l'utente conferma 3 officine diverse
+  // (insegne/primo-token diversi) come 'trasporti'. Il tipo si impara da solo.
+  orch.learn("DA GINO OFFICINA", "trasporti", 120, new Date());
+  orch.learn("OFFICINA ROSSI SUD", "trasporti", 90, new Date());
+  orch.learn("MECCANICA BIANCHI OFFICINA", "trasporti", 150, new Date());
+  // una QUARTA officina mai vista, primo token ancora diverso: dizionario muto,
+  // gerarchia senza genitore utile → la morfologia è l'unico segnale corretto.
+  const r = orch.classify("AUTORIPARAZIONI VERDI OFFICINA CENTRO", 110, new Date());
+  assert.equal(r.cat, "trasporti", "il tipo 'officina' trasferisce la categoria all'esercente locale nuovo");
+  assert.ok((r.sources || []).includes("morphology"), "il voto deve arrivare dallo strato morfologico");
+});
+
+test("morfologia a freddo: nessun tipo appreso → non vota (nessuna invenzione)", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 55 }), tokenize: t => t.split(' '), train: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVaultV3(), neuralNexus: nexus });
+  const r = orch.classify("OFFICINA QUALUNQUE", 10, new Date());
+  assert.ok(!(r.sources || []).includes("morphology"), "a freddo lo strato morfologico tace");
+});
