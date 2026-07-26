@@ -26,7 +26,8 @@
     "bench:ablation": "node bench/ablation-bench.mjs",
     "bench:dns-ablation": "node bench/dns-ablation-bench.mjs",
     "bench:sparse-ablation": "node bench/sparse-ablation-bench.mjs",
-    "bench:cash": "node bench/cash-forecast-bench.mjs"
+    "bench:cash": "node bench/cash-forecast-bench.mjs",
+    "bench:commitments": "node bench/commitment-training-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",

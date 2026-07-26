@@ -26,6 +26,7 @@ import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, lea
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
+import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -2463,7 +2464,21 @@ function renderGhostForecast() {
   if (!salary && !rawCommitments.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   // AUTO-ADDESTRAMENTO: ogni impegno impara la media dei suoi pagamenti reali
   // passati (es. bolletta variabile) e la usa al posto del numero digitato.
-  const commitments = enrichCommitmentsWithLearning(rawCommitments, VaultDAO.state.transactions);
+  // AUTO-ADDESTRAMENTO TRASVERSALE: gli impegni dichiarati sono il segnale più
+  // pulito che l'utente possa dare (quella riga si ripeterà, con quel nome). Se i
+  // suoi pagamenti passati sono archiviati in una categoria coerente, quella
+  // coppia esercente→categoria diventa un'etichetta ad alta confidenza per il
+  // Core: il prossimo import con la stessa insegna si categorizza da solo.
+  // Ogni etichetta si insegna UNA volta (impronta nel vault, campo additivo).
+  try {
+    const ml = VaultDAO.state.mlData;
+    const r = trainCommitments(window.momentumOrchestrator, rawCommitments,
+      VaultDAO.state.transactions, { seen: ml.commitmentLabels || [] });
+    if (r.taught.length) { ml.commitmentLabels = r.seen; VaultDAO.save(); }
+  } catch (_) {}
+  // Gli impegni portano con sé la loro banda di normalità MISURATA: il forecast
+  // allarga la banda dove l'importo è davvero incerto (bolletta), non dove è fisso.
+  const commitments = enrichWithNormality(rawCommitments, VaultDAO.state.transactions);
   // Transazioni del mese corrente → riconciliazione: ciò che è GIÀ stato pagato
   // (import CSV/estratto) non è più un fantasma, così non lo contiamo due volte.
   const monthTx = VaultDAO.state.transactions[monthKey(new Date())] || [];

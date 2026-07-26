@@ -99,8 +99,22 @@ export const labelFingerprint = (l) => `${l.id}|${l.description}|${l.category}|$
 
 // Applica le etichette all'orchestratore. Ritorna cosa ha insegnato davvero.
 // `seen` = insieme delle impronte già insegnate (dal vault, campo additivo).
+// QUANTA EVIDENZA PORTA UN'ETICHETTA. Un'osservazione sola non basta e non deve
+// bastare: la gerarchia esercenti si astiene sotto 2 osservazioni (guardrail
+// misurato dai suoi bench — parlare con un solo dato è "sbagliare con
+// sicurezza"). Ma un impegno con 5 pagamenti archiviati sempre nella stessa
+// categoria HA quell'evidenza: sono 5 fatti reali, non una ripetizione
+// artificiale. Quindi l'alias viene osservato una volta per occorrenza
+// concorde — CON UN TETTO, perché un mutuo di 20 anni non deve schiacciare
+// tutto il resto dell'albero (stessa filosofia del cap anti-avvelenamento
+// usato nella federazione mesh).
+// Nota di onestà: si insegna sul NOME CANONICO dell'impegno ("Enel"), che è un
+// alias dichiarato dall'utente e non la stringa grezza del movimento — quindi
+// non si ri-conta un'osservazione che l'import aveva già fatto.
+export const EVIDENCE_CAP = 5;
+
 export function trainCommitments(orchestrator, commitments = [], allTx = {}, {
-  seen = [], minConfidence = 0.6, now = Date.now(),
+  seen = [], minConfidence = 0.6, now = Date.now(), evidenceCap = EVIDENCE_CAP,
 } = {}) {
   const labels = deriveCommitmentLabels(commitments, allTx);
   const known = new Set(seen);
@@ -110,11 +124,16 @@ export function trainCommitments(orchestrator, commitments = [], allTx = {}, {
     const fp = labelFingerprint(l);
     if (known.has(fp)) continue;
     const c = commitments.find(x => x.id === l.id);
+    // una categoria DICHIARATA a mano vale come due osservazioni: è esplicita,
+    // ma non ha ancora prove sui movimenti.
+    const reps = Math.max(2, Math.min(evidenceCap, l.source === 'dichiarata' ? 2 : l.samples));
     try {
-      orchestrator.learn(l.description, l.category, +c?.amount || 0, new Date(now));
+      for (let i = 0; i < reps; i++) {
+        orchestrator.learn(l.description, l.category, +c?.amount || 0, new Date(now));
+      }
     } catch (_) { continue; }   // l'apprendimento non deve mai rompere la UI
     known.add(fp);
-    taught.push({ ...l, fingerprint: fp });
+    taught.push({ ...l, fingerprint: fp, evidence: reps });
   }
   return { taught, seen: [...known] };
 }
