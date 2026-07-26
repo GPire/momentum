@@ -344,18 +344,22 @@
 
     /* La riga-insight umana appare con una dissolvenza morbida (nessun salto). */
     /* ── CARD "IL TUO MESE" ── un solo fuoco: il numero entra per ultimo e si
-         posa, la barra del ritmo si riempie da sinistra. Nessun movimento
-         gratuito: servono a far leggere PRIMA il numero e POI il contesto. */
+         posa, l'anello di ritmo si riempie, la curva si disegna. Nessun
+         movimento gratuito: servono a far leggere PRIMA il numero e POI il
+         contesto — coerente con l'anti-attrito voluto per questa sezione. */
     @keyframes ghostHero { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
-    @keyframes ghostBar  { from { width: 0; } }
     .ghost-hero { animation: ghostHero .5s cubic-bezier(.16,1,.3,1) both; animation-delay: .08s; }
-    @keyframes ghostFace { 0% { opacity: 0; transform: scale(0.6) rotate(-8deg); } 60% { transform: scale(1.15) rotate(4deg); } 100% { opacity: 1; transform: none; } }
-    .ghost-face { animation: ghostFace .5s cubic-bezier(.34,1.56,.64,1) both; }
-    .ghost-bar  { animation: ghostBar .7s cubic-bezier(.22,1,.36,1) both; animation-delay: .18s; }
+    @keyframes ghostRingIn { from { opacity: 0; transform: scale(0.7) rotate(-25deg); } to { opacity: 1; transform: none; } }
+    .ghost-ring { animation: ghostRingIn .55s cubic-bezier(.34,1.56,.64,1) both; }
+    @keyframes ghostCurveIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    .ghost-curve-svg { animation: ghostCurveIn .5s ease both; animation-delay: .15s; }
+    .ghost-curve-line { filter: drop-shadow(0 0 2.5px rgba(255,255,255,0.3)); }
+    @keyframes ghostDotPop { 0% { opacity: 0; transform: scale(0); } 70% { transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
+    .ghost-curve-dot { animation: ghostDotPop .4s cubic-bezier(.34,1.56,.64,1) both; animation-delay: .5s; transform-origin: center; transform-box: fill-box; }
     .ghost-details summary::-webkit-details-marker { display: none; }
     .ghost-details[open] > div { animation: insightFade .35s ease both; }
     @media (prefers-reduced-motion: reduce) {
-      .ghost-hero, .ghost-bar, .ghost-face, .ghost-details[open] > div { animation: none; }
+      .ghost-hero, .ghost-ring, .ghost-curve-svg, .ghost-curve-dot, .ghost-details[open] > div { animation: none; }
     }
     @keyframes insightFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     #dashboard-insight > div { animation: insightFade 0.45s ease both; }

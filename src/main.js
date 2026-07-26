@@ -2392,8 +2392,52 @@ window.openSplitExpense = (prefill = {}) => {
 // non legge) — la curva continua semplicemente il racconto del numero grande.
 // La fiducia si dice solo quando è BASSA (poche settimane di dati): quando è
 // alta, ripeterla è rumore; quando è bassa, è l'unica cosa onesta da dire.
-function cashCurveHtml(commitments, salary, { standalone = true } = {}) {
+// Curva morbida (Catmull-Rom → Bézier) invece di segmenti spezzati: la stessa
+// serie di punti, ma disegnata come la leggerebbe un'app finanziaria vera —
+// continua, senza spigoli che suggeriscano una precisione che i dati non hanno.
+function catmullRomPath(points) {
+  if (points.length < 2) return `M${points[0]?.x ?? 0},${points[0]?.y ?? 0}`;
+  let d = `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i], p1 = points[i], p2 = points[i + 1], p3 = points[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6, cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6, cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+  }
+  return d;
+}
+
+// ── ANELLO DI RITMO — sostituisce il volto con un'icona di design coerente ──
+// Due corone concentriche, stesso linguaggio degli anelli-obiettivo già usati
+// altrove nell'app: la esterna è QUANTO TEMPO del ciclo è passato, l'interna è
+// QUANTO hai speso. Se l'interna "supera" l'esterna a colpo d'occhio, stai
+// correndo — nessuna parola necessaria, leggibile anche da un bambino.
+// Nessun'invenzione: senza `adaptive` (dati insufficienti) non si disegna nulla.
+function paceRingHtml(pctSpent, pctTime, [c1, c2]) {
+  const size = 64, stroke = 6.5, rOuter = 27, rInner = 18.5;
+  const cOuter = 2 * Math.PI * rOuter, cInner = 2 * Math.PI * rInner;
+  const offOuter = cOuter * (1 - Math.min(100, pctTime) / 100);
+  const offInner = cInner * (1 - Math.min(100, pctSpent) / 100);
+  return `
+    <svg viewBox="0 0 ${size} ${size}" class="ghost-ring w-14 h-14 shrink-0" aria-hidden="true">
+      <defs><linearGradient id="ghostRingGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/>
+      </linearGradient></defs>
+      <circle cx="${size / 2}" cy="${size / 2}" r="${rOuter}" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="${stroke}"/>
+      <circle cx="${size / 2}" cy="${size / 2}" r="${rInner}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="${stroke}"/>
+      <circle cx="${size / 2}" cy="${size / 2}" r="${rOuter}" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${cOuter.toFixed(1)}" stroke-dashoffset="${offOuter.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>
+      <circle cx="${size / 2}" cy="${size / 2}" r="${rInner}" fill="none" stroke="url(#ghostRingGrad)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${cInner.toFixed(1)}" stroke-dashoffset="${offInner.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>
+    </svg>`;
+}
+
+// Icone di design coerenti con lo stile stroke dell'app (nessuna emoji).
+const ICON_IDEA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3 inline-block align-[-1px] mr-1"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2.3h6c0-1.1.4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg>`;
+const ICON_CHECK_SM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" class="w-2.5 h-2.5 inline-block align-[-1px]"><path d="M20 6L9 17l-5-5"/></svg>`;
+const ICON_FLAG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3 inline-block align-[-1px] mr-1"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>`;
+
+function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf8', '#22d3ee'] } = {}) {
   let f;
+  const nowMs = Date.now();
   try {
     const subs = subscriptionSummary(VaultDAO.state.transactions, new Date());
     // Ciò che devo agli amici: scenario a parte (la data la decide l'utente).
@@ -2406,36 +2450,71 @@ function cashCurveHtml(commitments, salary, { standalone = true } = {}) {
       subscriptions: (subs.subscriptions || []).map(s => ({ name: s.name, amount: s.amount, nextDate: s.nextDate })),
       splitOwed: owed,
       monthTx: VaultDAO.state.transactions[monthKey(new Date())] || [],
-      now: Date.now(),
+      now: nowMs,
       horizonDays: 30,
     });
   } catch (_) { return ''; }
   if (!f || !f.known || !f.path?.length) return '';
 
-  // sparkline della mediana + banda: SVG puro, nessuna libreria, nessun canvas.
-  const pts = f.path;
-  const ys = pts.flatMap(p => [p.p10, p.p90]).concat([0]);
+  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const eur = (n) => formatMoney(n);
+  const [t1, t2] = tone;
+
+  // "Oggi" è CERTO (nessuna banda): lo aggiungiamo come primo punto vero della
+  // curva invece di farla iniziare a mezz'aria — la curva è quindi un racconto
+  // completo (da dove sei, a dove puoi arrivare), non un frammento fluttuante.
+  const anchor = { date: new Date(nowMs).toISOString().slice(0, 10), p50: f.startBalance, p10: f.startBalance, p90: f.startBalance };
+  const pts = [anchor, ...f.path];
+
+  const ys = pts.flatMap(p => [p.p10, p.p90]);
   const min = Math.min(...ys), max = Math.max(...ys);
   const span = (max - min) || 1;
-  const W = 100, H = 30;
+  // Chart PIÙ GRANDE e area piena (non un nastro sottile): l'AREA sotto la
+  // linea è il linguaggio che qualunque app di soldi usa (Apple/Revolut) — più
+  // pieno = più tranquillo, si legge senza numeri. La banda prudente/fortunato
+  // resta ma come guida sottile tratteggiata SOPRA, non come forma a sé che
+  // competeva visivamente con l'area piena.
+  const W = 100, H = 52, PAD = 4;
   const x = (i) => (i / (pts.length - 1)) * W;
-  const y = (v) => H - ((v - min) / span) * H;
-  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.p50).toFixed(1)}`).join('');
-  const band = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.p90).toFixed(1)}`).join('')
-    + pts.slice().reverse().map((p, i) => `L${x(pts.length - 1 - i).toFixed(1)},${y(p.p10).toFixed(1)}`).join('') + 'Z';
-  const zeroY = y(0).toFixed(1);
+  const y = (v) => PAD + (H - PAD * 2) - ((v - min) / span) * (H - PAD * 2);
+
+  // curve MORBIDE (Catmull-Rom): continue come un'app finanziaria vera, non un
+  // elettrocardiogramma di segmenti dritti.
+  const medPts = pts.map((p, i) => ({ x: x(i), y: y(p.p50) }));
+  const lineD = catmullRomPath(medPts);
+  const topGuideD = catmullRomPath(pts.map((p, i) => ({ x: x(i), y: y(p.p90) })));
+  const botGuideD = catmullRomPath(pts.map((p, i) => ({ x: x(i), y: y(p.p10) })));
+  // area piena: dalla linea mediana fino al fondo del grafico.
+  const areaD = `${lineD} L${x(pts.length - 1).toFixed(2)},${(H - PAD).toFixed(2)} L${x(0).toFixed(2)},${(H - PAD).toFixed(2)} Z`;
+
+  // MARCATORI reali sulla curva invece di doverli leggere in una frase: dove
+  // sei OGGI, dove la curva GIRA (arriva lo stipendio), e il punto più STRETTO.
+  const valle = f.lowest && f.lowest.value < Math.min(0, f.end.p50) - 20 ? f.lowest : null;
+  // il prossimo stipendio è un evento nel ledger (cashForecast non espone un
+  // campo `payday` proprio — quello vive nell'altro forecast, commitmentForecast).
+  const payday = f.ledger.find(e => e.kind === 'stipendio');
+  const paydayIdx = payday ? pts.findIndex(p => p.date === payday.date) : -1;
+  let valleIdx = valle ? pts.findIndex(p => p.date === valle.date) : -1;
+  // Niente pillole a scontrarsi: se la valle è troppo vicina a "oggi" (poco
+  // spazio per l'etichetta) o coincide col giorno stipendio (il punto di svolta
+  // È già segnato da quel marcatore), non si duplica — l'informazione resta
+  // comunque nella frase sopra il grafico.
+  if (valleIdx >= 0 && (valleIdx <= 1 || Math.abs(valleIdx - paydayIdx) <= 1)) valleIdx = -1;
+  // posizioni in PERCENTUALE (W=100 e H coincidono con lo spazio del
+  // contenitore grazie a preserveAspectRatio="none"): le etichette-pillola
+  // fuori dall'SVG si posizionano con le STESSE coordinate, senza conversioni.
+  const xPct = (i) => x(i);
+  const yPct = (i) => (y(pts[i].p50) / H) * 100;
+
   // La leva si mostra solo se serve DAVVERO: quando c'è un giorno critico da
   // spostare (e lo sposta), o quando è un'indicazione di tempistica. Senza
   // rischio in vista, un "spendi il 20% in meno" è rumore — un focus per volta.
   const lever = f.levers.find(l => (f.riskDay && l.daysGained > 0) || l.note);
-  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-  const eur = (n) => formatMoney(n);
 
   // ONESTÀ: senza sapere quanto hai in banca, "scendi sotto zero" non è dicibile
   // — la previsione è RELATIVA a oggi. Allora si dice ciò che è vero comunque:
   // dove sarai a fine finestra, e QUANDO passi dal punto più basso (la valle,
   // quasi sempre il giorno prima dell'accredito) — è quello il momento stretto.
-  const valle = f.lowest && f.lowest.value < Math.min(0, f.end.p50) - 20 ? f.lowest : null;
   const testa = !f.relative && f.riskDay
     ? `<span class="text-amber-300 font-bold">Attenzione al ${dayName(f.riskDay.date)}</span> <span class="text-[var(--on-surface-secondary)]">· nello scenario prudente lì tocchi il fondo</span>`
     : f.relative
@@ -2450,18 +2529,46 @@ function cashCurveHtml(commitments, salary, { standalone = true } = {}) {
   const wrapOpen = standalone ? `<div class="mt-3 pt-3 border-t border-[var(--glass-border)]">` : `<div class="mt-2.5">`;
   return `
     ${wrapOpen}
-      <p class="text-[11.5px] leading-snug mb-1.5">${testa}</p>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-14" aria-hidden="true">
-        <path d="${band}" fill="var(--primary)" opacity="0.25"/>
-        <line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="currentColor" stroke-width="0.3" opacity="0.35" stroke-dasharray="2 2"/>
-        <path d="${line}" fill="none" stroke="var(--primary)" stroke-width="1.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-      </svg>
-      ${lever ? `<p class="text-[10.5px] mt-1 text-[var(--primary)]">✨ ${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
+      <p class="text-[11.5px] leading-snug mb-2">${testa}</p>
+      <!-- due livelli: l'ESTERNO dà sfondo e respiro alle pillole che sporgono
+           sopra/sotto la curva; l'INTERNO è stretto sull'SVG, così le
+           percentuali di posizione delle pillole (calcolate su W/H dell'SVG)
+           corrispondono esattamente ai suoi pixel, senza sfasamenti col padding. -->
+      <div class="ghost-curve-wrap rounded-xl bg-black/15 pt-7 pb-5 px-0.5">
+        <div class="relative">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-24 ghost-curve-svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="ghostAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${t1}" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="${t1}" stop-opacity="0.02"/>
+            </linearGradient>
+            <linearGradient id="ghostLineGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="${t1}"/><stop offset="100%" stop-color="${t2}"/>
+            </linearGradient>
+          </defs>
+          <path d="${topGuideD}" fill="none" stroke="currentColor" stroke-width="0.3" opacity="0.22" stroke-dasharray="1.4 1.8" vector-effect="non-scaling-stroke"/>
+          <path d="${botGuideD}" fill="none" stroke="currentColor" stroke-width="0.3" opacity="0.22" stroke-dasharray="1.4 1.8" vector-effect="non-scaling-stroke"/>
+          ${paydayIdx > 0 ? `<line x1="${x(paydayIdx).toFixed(1)}" y1="${PAD}" x2="${x(paydayIdx).toFixed(1)}" y2="${(H - PAD).toFixed(1)}" stroke="#34d399" stroke-width="0.35" opacity="0.4" stroke-dasharray="1 1.6"/>` : ''}
+          <path d="${areaD}" fill="url(#ghostAreaGrad)"/>
+          <path d="${lineD}" fill="none" stroke="url(#ghostLineGrad)" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" class="ghost-curve-line"/>
+          <circle cx="${x(0).toFixed(1)}" cy="${y(pts[0].p50).toFixed(1)}" r="1.6" fill="var(--on-surface)"/>
+          ${valleIdx > 0 ? `<circle cx="${x(valleIdx).toFixed(1)}" cy="${y(pts[valleIdx].p50).toFixed(1)}" r="1.8" fill="#fbbf24" class="ghost-curve-dot"/>` : ''}
+          ${paydayIdx > 0 ? `<circle cx="${x(paydayIdx).toFixed(1)}" cy="${y(pts[paydayIdx].p50).toFixed(1)}" r="1.8" fill="#34d399" class="ghost-curve-dot"/>` : ''}
+        </svg>
+        <!-- etichette-pillola posizionate SULLA curva, non in una riga a parte:
+             si legge dove succede la cosa, non un legenda da decifrare. -->
+        <span class="absolute -bottom-1 text-[8.5px] font-bold text-[var(--on-surface-secondary)] opacity-70" style="left:${xPct(0)}%">oggi</span>
+        <span class="absolute -bottom-1 -translate-x-full text-[8.5px] font-bold text-[var(--on-surface-secondary)] opacity-70" style="left:${xPct(pts.length - 1)}%">${dayName(f.end.date)}</span>
+        ${paydayIdx > 0 ? `<span class="absolute -translate-x-1/2 text-[8.5px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-full whitespace-nowrap" style="left:${xPct(paydayIdx)}%; top:${Math.max(0, yPct(paydayIdx) - 22)}%">stipendio</span>` : ''}
+        ${valleIdx > 0 ? `<span class="absolute -translate-x-1/2 text-[8.5px] font-bold text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded-full whitespace-nowrap" style="left:${xPct(valleIdx)}%; top:${Math.min(78, yPct(valleIdx) + 8)}%">più stretto</span>` : ''}
+        </div>
+      </div>
+      ${lever ? `<p class="text-[10.5px] mt-2 text-[var(--primary)]">${ICON_IDEA}${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
       ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se saldi subito i ${eur(f.withSplit.owed)} delle divisioni, chiudi a ${eur(f.withSplit.endP50)}.</p>` : ''}
       ${lowConfidence}
       <details class="ghost-details mt-1">
-        <summary class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">Cosa vuol dire l'ombra?</summary>
-        <p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 mt-1">La linea è lo scenario più probabile. L'ombra intorno va da prudente (<b>${eur(f.end.p10)}</b>) a fortunato (<b>${eur(f.end.p90)}</b>) al ${dayName(f.end.date)}: sono i due estremi ragionevoli, non un errore.</p>
+        <summary class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">Cosa vuol dire il tratteggio?</summary>
+        <p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 mt-1">La linea piena è lo scenario più probabile. Le due guide tratteggiate sopra e sotto vanno da prudente (<b>${eur(f.end.p10)}</b>) a fortunato (<b>${eur(f.end.p90)}</b>) al ${dayName(f.end.date)}: sono i due estremi ragionevoli, non un errore.</p>
       </details>
     </div>`;
 }
@@ -2512,13 +2619,13 @@ function renderGhostForecast() {
     // "~" davanti a un importo appreso dalla media reale (es. bolletta variabile).
     const amt = `${c.learned ? '~' : ''}${eur(c.amount)}`;
     // un impegno già materializzato nel mese si mostra spuntato (già contato per davvero).
-    return `<span class="text-[10px] px-2 py-0.5 rounded-full ${done ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-black/25 border-[var(--glass-border)]'} border whitespace-nowrap">${done ? '✓ ' : ''}${esc(c.name.length > 16 ? c.name.slice(0, 15) + '…' : c.name)} · ${amt}${done ? '' : tail}</span>`;
+    return `<span class="text-[10px] px-2 py-0.5 rounded-full ${done ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-black/25 border-[var(--glass-border)]'} border whitespace-nowrap">${done ? ICON_CHECK_SM + ' ' : ''}${esc(c.name.length > 16 ? c.name.slice(0, 15) + '…' : c.name)} · ${amt}${done ? '' : tail}</span>`;
   }).join('');
-  const paidNote = f.paidTotal > 0 ? `<p class="text-[10.5px] text-emerald-400/90 mt-1.5">✓ Già pagati questo mese: ${eur(f.paidTotal)} (non più contati come fantasmi).</p>` : '';
+  const paidNote = f.paidTotal > 0 ? `<p class="text-[10.5px] text-emerald-400/90 mt-1.5">${ICON_CHECK_SM} Già pagati questo mese: ${eur(f.paidTotal)} (non più contati come fantasmi).</p>` : '';
   const learnNote = anyLearned ? `<p class="text-[10px] text-[var(--primary)]/80 mt-1.5">Gli importi con “~” sono la media dei tuoi pagamenti reali passati: più mesi importi, più diventano precisi.</p>` : '';
 
   const endingMsg = f.endingSoon.length
-    ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">🎉 Quasi finito: ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} (${e.remaining} rate, chiude ${e.payoff})`).join(' · ')}</p>` : '';
+    ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">${ICON_FLAG}Quasi finito: ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} (${e.remaining} rate, chiude ${e.payoff})`).join(' · ')}</p>` : '';
 
   // ── UN SOLO FUOCO: "quanto posso spendere oggi senza rovinare il mese?" ────
   // Tutto il resto (impegni, totali, spiegazioni) sta sotto, a scomparsa. La
@@ -2533,16 +2640,16 @@ function renderGhostForecast() {
   const pace = adaptive ? adaptive.pace : null;
   const paceTone = !adaptive ? 'calm' : adaptive.onTrack ? 'calm' : pace === 'oltre il ritmo' ? 'warn' : 'soft';
   const toneColor = { calm: 'text-emerald-400', soft: 'text-amber-300', warn: 'text-amber-400' }[paceTone];
-  const toneRing = { calm: 'from-emerald-400/80 to-teal-300/60', soft: 'from-amber-300/80 to-orange-300/60', warn: 'from-amber-400/90 to-rose-400/60' }[paceTone];
-  // Un volto prima ancora delle parole: un bambino legge un'emoji più veloce di
-  // una frase. Mai un volto triste/in colpa — solo tranquillo → attento, mai un
-  // giudizio (coerente con la regola del progetto: niente allarmismo punitivo).
-  const toneFace = { calm: '🙂', soft: '🤔', warn: '⚡' }[paceTone];
+  const toneHex = { calm: ['#34d399', '#5eead4'], soft: ['#fcd34d', '#fdba74'], warn: ['#fbbf24', '#fb7185'] }[paceTone];
   const toneBorder = { calm: 'border-emerald-500/25', soft: 'border-amber-500/25', warn: 'border-amber-500/35' }[paceTone];
-  // quanto del ciclo è già passato / già speso: due archi sulla stessa barra,
-  // così si vede a colpo d'occhio se si corre più veloce del tempo.
+  // quanto del ciclo è già passato / già speso: due corone concentriche invece
+  // di una barra + tacca — lo stesso dato, ma come ICONA DI DESIGN (l'anello
+  // esterno = tempo passato, l'interno = quanto speso) invece di un'emoji o
+  // di testo da leggere. Nessuna invenzione: senza `adaptive` l'anello non si
+  // disegna (mostreremmo un dato non misurato).
   const pctSpent = adaptive && adaptive.budget > 0 ? Math.min(100, Math.round((adaptive.spent / adaptive.budget) * 100)) : 0;
   const pctTime = adaptive && adaptive.cycleLen > 0 ? Math.min(100, Math.round((adaptive.daysElapsed / adaptive.cycleLen) * 100)) : 0;
+  const ringHtml = adaptive ? paceRingHtml(pctSpent, pctTime, toneHex) : '';
 
   const paceLine = adaptive
     ? (adaptive.onTrack
@@ -2559,28 +2666,22 @@ function renderGhostForecast() {
       </div>
 
       ${oggi !== null ? `
-        <!-- IL NUMERO: uno solo, grande, con la frase che lo spiega da sola. Il
-             volto si legge prima ancora del numero: un bambino guarda l'emoji. -->
-        <div class="text-center">
-          <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Oggi puoi spendere</div>
-          <div class="flex items-center justify-center gap-2">
-            <span class="ghost-face text-3xl leading-none" aria-hidden="true">${toneFace}</span>
-            <div class="ghost-hero font-mono font-black text-[2.6rem] leading-none ${toneColor}">${eur(oggi)}</div>
+        <!-- IL NUMERO: uno solo, grande, accanto all'anello di ritmo. Il colore
+             e il riempimento delle corone si leggono prima ancora del numero. -->
+        <div class="flex items-center justify-center gap-3">
+          ${ringHtml}
+          <div class="text-left">
+            <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Oggi puoi spendere</div>
+            <div class="ghost-hero font-mono font-black text-[2.4rem] leading-none ${toneColor}">${eur(oggi)}</div>
           </div>
-          <div class="text-[11.5px] text-[var(--on-surface-secondary)] mt-1.5">${days === 1 ? 'Domani ti pagano.' : `Poi ti pagano fra <b class="text-[var(--on-surface)]">${days} giorni</b>.`}</div>
         </div>
-
-        <!-- LA BARRA: quanto hai speso (pieno) contro quanto tempo è passato (tacca) -->
-        <div class="relative h-2.5 rounded-full bg-black/30 overflow-hidden mt-3">
-          <div class="ghost-bar h-full rounded-full bg-gradient-to-r ${toneRing}" style="width:${pctSpent}%"></div>
-          ${adaptive ? `<div class="absolute -top-0.5 -bottom-0.5 w-[3px] rounded-full bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.5)]" style="left:calc(${pctTime}% - 1px)"></div>` : ''}
-        </div>
-        ${adaptive ? `<div class="flex items-center gap-1.5 mt-1 text-[9.5px] text-[var(--on-surface-secondary)]">
-          <span class="inline-block w-2 h-2 rounded-full bg-gradient-to-r ${toneRing}"></span>quanto hai speso
-          <span class="inline-block w-[3px] h-2.5 rounded-full bg-white/80 ml-1.5"></span>a che punto è il mese
+        <div class="text-[11.5px] text-[var(--on-surface-secondary)] text-center mt-1.5">${days === 1 ? 'Domani ti pagano.' : `Poi ti pagano fra <b class="text-[var(--on-surface)]">${days} giorni</b>.`}</div>
+        ${adaptive ? `<div class="flex items-center justify-center gap-3 mt-1.5 text-[9.5px] text-[var(--on-surface-secondary)]">
+          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full" style="background:linear-gradient(135deg,${toneHex[0]},${toneHex[1]})"></span>quanto hai speso</span>
+          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-white/60"></span>a che punto è il mese</span>
         </div>` : ''}
-        <p class="text-[10.5px] mt-1.5 leading-snug">${paceLine}</p>
-        ${a.perWeek ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se preferisci ragionare a settimane: <b class="text-[var(--on-surface)]">${eur(a.perWeek)}</b>.</p>` : ''}
+        <p class="text-[10.5px] mt-2 leading-snug text-center">${paceLine}</p>
+        ${a.perWeek ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1 text-center">Se preferisci ragionare a settimane: <b class="text-[var(--on-surface)]">${eur(a.perWeek)}</b>.</p>` : ''}
       ` : stip !== null ? `
         <div class="text-center">
           <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Ti resta davvero questo mese</div>
@@ -2597,7 +2698,7 @@ function renderGhostForecast() {
         </div>
       `}
 
-      ${cashCurveHtml(commitments, salary, { standalone: false })}
+      ${cashCurveHtml(commitments, salary, { standalone: false, tone: oggi !== null ? toneHex : undefined })}
 
       <!-- TUTTO IL RESTO A SCOMPARSA: c'è, ma non pesa sull'occhio -->
       <details class="ghost-details mt-3 group">
