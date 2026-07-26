@@ -1,0 +1,165 @@
+// ============================================================
+// IMPEGNI FISSI — mutuo, prestiti, rate CON scadenza (v1)
+// ============================================================
+// Il problema di mercato: le app trattano tutto come "abbonamento aperto". Ma un
+// MUTUO o un PRESTITO non è un abbonamento: ha una rata fissa, un giorno del
+// mese, e soprattutto UNA FINE (numero di rate residue, data di estinzione). E
+// nessuna app incrocia gli impegni col GIORNO ESATTO dello stipendio per dirti
+// "prima dell'accredito del 27 devi ancora coprire mutuo + prestito = 860€".
+//
+// Questo modulo modella impegni con termine e produce un forecast PRECISO AL
+// GIORNO. Onesto: usa i dati che l'utente inserisce (nessuna invenzione), tace
+// dove mancano, e dichiara sempre "stime, non certezze".
+//
+// Un impegno:
+//   { id, name, amount>0, dayOfMonth 1..31, kind:'mutuo'|'prestito'|'affitto'|
+//     'abbonamento', startDate?'YYYY-MM-DD', termMonths?>0 }
+// Con startDate + termMonths → impegno FINITO (rate residue, data di estinzione).
+// Senza termMonths → impegno APERTO (affitto/abbonamento): non finisce da solo.
+//
+// Funzioni pure, nessun DOM, nessuna rete, serializzabile nel vault.
+'use strict';
+
+// Tutta la matematica delle date è in UTC per coerenza: parse ISO ('YYYY-MM-DD')
+// è UTC-midnight e la formattazione (toISOString) è UTC → nessuno sfasamento di
+// giorno dovuto al fuso orario locale del dispositivo.
+const clampDay = (day, year, month) => {
+  const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate(); // ultimo giorno del mese
+  return Math.min(Math.max(1, day | 0), last);                     // 31 in febbraio → 28/29
+};
+
+const isoOf = (year, month, day) => new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+
+const parseISO = (s) => {
+  if (!s) return null;
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? new Date(t) : null;
+};
+
+// Mesi interi trascorsi tra due date (per contare le rate già pagate).
+function monthsElapsed(from, to) {
+  if (!from || !to) return 0;
+  let m = (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth());
+  if (to.getUTCDate() < from.getUTCDate()) m -= 1; // il mese in corso non è ancora "compiuto"
+  return Math.max(0, m);
+}
+
+// Rate residue di un impegno finito. null se aperto (nessun termine).
+export function remainingInstallments(c, now = Date.now()) {
+  if (!c || !(c.termMonths > 0) || !c.startDate) return null;
+  const start = parseISO(c.startDate);
+  if (!start) return null;
+  const elapsed = monthsElapsed(start, new Date(now));
+  return Math.max(0, c.termMonths - elapsed);
+}
+
+// Data di estinzione (ultima rata) di un impegno finito. null se aperto.
+export function payoffDate(c) {
+  if (!c || !(c.termMonths > 0) || !c.startDate) return null;
+  const start = parseISO(c.startDate);
+  if (!start) return null;
+  const y = start.getUTCFullYear();
+  const m = start.getUTCMonth() + (c.termMonths - 1); // rata 1 = mese di partenza
+  const day = clampDay(c.dayOfMonth || start.getUTCDate(), y, m);
+  return isoOf(y, m, day);
+}
+
+// Un impegno è ATTIVO a una certa data se non è ancora estinto.
+export function isActive(c, now = Date.now()) {
+  const rem = remainingInstallments(c, now);
+  return rem === null ? true : rem > 0;
+}
+
+// Capitale residuo APPROSSIMATO (rate residue × importo). Onesto: è una stima
+// lineare, NON tiene conto degli interessi nella quota — dichiarato tale.
+export function residualApprox(c, now = Date.now()) {
+  const rem = remainingInstallments(c, now);
+  if (rem === null) return null;
+  return Math.round(rem * (+c.amount || 0) * 100) / 100;
+}
+
+// Prossima occorrenza (data e importo) di un impegno a partire da `from`.
+// null se l'impegno è già estinto entro quella finestra.
+export function nextOccurrence(c, from = Date.now()) {
+  const fromD = new Date(from);
+  let y = fromD.getUTCFullYear(), m = fromD.getUTCMonth();
+  const dayThis = clampDay(c.dayOfMonth, y, m);
+  // se il giorno di questo mese è già passato, vai al mese successivo
+  if (dayThis < fromD.getUTCDate()) { m += 1; }
+  const day = clampDay(c.dayOfMonth, y, m);
+  const d = new Date(Date.UTC(y, m, day));
+  if (!isActive(c, d.getTime())) return null;
+  return { date: d.toISOString().slice(0, 10), amount: +c.amount || 0, name: c.name };
+}
+
+// Occorrenze di TUTTI gli impegni nella finestra [fromMs, toMs] inclusa.
+export function commitmentsDueBetween(commitments = [], fromMs, toMs) {
+  const out = [];
+  for (const c of commitments) {
+    if (!(+c.amount > 0) || !(c.dayOfMonth >= 1)) continue;
+    let cursor = fromMs;
+    // avanza mese per mese finché resta nella finestra
+    for (let guard = 0; guard < 400; guard++) {
+      const occ = nextOccurrence(c, cursor);
+      if (!occ) break;
+      const t = Date.parse(occ.date);
+      if (t > toMs) break;
+      if (t >= fromMs) out.push({ ...occ, kind: c.kind || 'impegno', id: c.id });
+      // salta al giorno dopo questa occorrenza per trovare la successiva
+      cursor = t + 86_400_000;
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Prossimo giorno di stipendio a partire da una data, dato dayOfMonth.
+function nextPaydayDate(dayOfMonth, from) {
+  const fromD = new Date(from);
+  let y = fromD.getUTCFullYear(), m = fromD.getUTCMonth();
+  const dayThis = clampDay(dayOfMonth, y, m);
+  if (dayThis < fromD.getUTCDate()) m += 1;
+  const day = clampDay(dayOfMonth, y, m);
+  return new Date(Date.UTC(y, m, day));
+}
+
+// ── IL FORECAST PRECISO AL GIORNO ───────────────────────────────────────────
+// Incrocia stipendio (giorno+importo) e impegni fissi per rispondere alle
+// domande che nessuna app risponde con precisione:
+//  - quanto ti serve DA QUI al prossimo stipendio per coprire gli impegni;
+//  - quali impegni restano questo mese, e quanto pesano;
+//  - quali stanno per ESTINGUERSI (mutuo/prestito quasi finiti).
+// `salary` = { dayOfMonth, amount } (da income-model.resolveSalary) o null.
+export function commitmentForecast(commitments = [], salary = null, { now = Date.now() } = {}) {
+  const active = commitments.filter(c => +c.amount > 0 && c.dayOfMonth >= 1 && isActive(c, now));
+  const payday = salary && salary.dayOfMonth >= 1
+    ? nextPaydayDate(salary.dayOfMonth, now) : null;
+
+  // impegni da qui al prossimo stipendio: quanto devi tenere da parte SUBITO.
+  const dueBeforePayday = payday
+    ? commitmentsDueBetween(active, now, payday.getTime())
+    : [];
+  const dueBeforePaydayTotal = Math.round(dueBeforePayday.reduce((s, o) => s + o.amount, 0) * 100) / 100;
+
+  // impegni residui nel mese solare corrente.
+  const endOfMonth = (() => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59); })();
+  const dueThisMonth = commitmentsDueBetween(active, now, endOfMonth);
+  const dueThisMonthTotal = Math.round(dueThisMonth.reduce((s, o) => s + o.amount, 0) * 100) / 100;
+
+  // impegni in via di estinzione (≤3 rate residue): buona notizia da mostrare.
+  const endingSoon = active
+    .map(c => ({ name: c.name, kind: c.kind, remaining: remainingInstallments(c, now), payoff: payoffDate(c) }))
+    .filter(x => x.remaining !== null && x.remaining <= 3)
+    .sort((a, b) => a.remaining - b.remaining);
+
+  const monthlyFixedTotal = Math.round(active.reduce((s, c) => s + (+c.amount || 0), 0) * 100) / 100;
+
+  return {
+    payday: payday ? { date: payday.toISOString().slice(0, 10), amount: salary.amount || null,
+      daysToNext: Math.max(0, Math.round((payday.getTime() - now) / 86_400_000)) } : null,
+    dueBeforePayday, dueBeforePaydayTotal,
+    dueThisMonth, dueThisMonthTotal,
+    endingSoon,
+    monthlyFixedTotal,
+    activeCount: active.length,
+  };
+}
