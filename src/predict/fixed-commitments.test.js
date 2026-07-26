@@ -212,3 +212,35 @@ test('enrichCommitmentsWithLearning + forecast: i fantasmi usano la media reale'
   const f = commitmentForecast(enriched, { dayOfMonth: 27, amount: 1500 }, { now: Date.parse('2026-07-01') });
   assert.equal(f.monthlyFixedTotal, 90, 'il fantasma bolletta pesa la media reale 90, non i 70 digitati');
 });
+
+// ── DISPONIBILE AL GIORNO / A SETTIMANA ─────────────────────────────────────
+test('commitmentForecast: quanto puoi gestire al giorno e a settimana', () => {
+  // stipendio 1500 il 27; impegni fissi 500 (affitto); now = 27 giorni prima? 
+  const now = Date.parse('2026-07-07'); // prossimo stipendio 27 lug → 20 giorni
+  const f = commitmentForecast([affitto], { dayOfMonth: 27, amount: 1500 }, { now });
+  assert.ok(f.allowance, 'con stipendio noto calcola la disponibilità');
+  assert.equal(f.allowance.daysToNext, 20);
+  assert.equal(f.allowance.pool, 1000); // 1500 − 500 fantasmi
+  assert.equal(f.allowance.perDay, 50);  // 1000 / 20
+  assert.equal(f.allowance.perWeek, 350); // 50 × 7 (20 giorni ≥ 7 → nessun cap)
+});
+
+test('commitmentForecast: il settimanale è capato al pool se lo stipendio è imminente', () => {
+  const now = Date.parse('2026-07-24'); // stipendio il 27 → 3 giorni
+  const f = commitmentForecast([affitto], { dayOfMonth: 27, amount: 1500 }, { now });
+  assert.equal(f.allowance.daysToNext, 3);
+  assert.equal(f.allowance.perDay, Math.round((1000 / 3) * 100) / 100);
+  assert.equal(f.allowance.perWeek, 1000, 'con 3 giorni al pagamento il settimanale non supera il pool');
+});
+
+test('commitmentForecast: nessuna disponibilità senza stipendio (non inventa)', () => {
+  const f = commitmentForecast([affitto], null, { now: Date.parse('2026-07-07') });
+  assert.equal(f.allowance, null);
+});
+
+test('commitmentForecast: se gli impegni superano lo stipendio, pool = 0 (mai negativo)', () => {
+  const heavy = { id: 'h', name: 'Mutuo pesante', amount: 2000, dayOfMonth: 5, kind: 'mutuo' };
+  const f = commitmentForecast([heavy], { dayOfMonth: 27, amount: 1500 }, { now: Date.parse('2026-07-10') });
+  assert.equal(f.allowance.pool, 0, 'non mostra un disponibile negativo');
+  assert.equal(f.allowance.perDay, 0);
+});

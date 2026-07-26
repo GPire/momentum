@@ -2437,6 +2437,19 @@ function renderGhostForecast() {
       ` : `
         <div class="text-[12px]">Impegni fissi al mese: <b class="font-mono text-amber-300">${eur(ghosts)}</b>. <span class="text-[var(--on-surface-secondary)]">Dimmi quando arriva lo stipendio e ti dico quanto ti resta davvero.</span></div>
       `}
+      ${f.allowance ? `
+        <div class="grid grid-cols-2 gap-2 mt-2.5">
+          <div class="rounded-xl bg-black/25 border border-[var(--glass-border)] p-2 text-center">
+            <div class="text-[9.5px] text-[var(--on-surface-secondary)] uppercase tracking-wide">al giorno</div>
+            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(f.allowance.perDay)}</div>
+          </div>
+          <div class="rounded-xl bg-black/25 border border-[var(--glass-border)] p-2 text-center">
+            <div class="text-[9.5px] text-[var(--on-surface-secondary)] uppercase tracking-wide">a settimana</div>
+            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(f.allowance.perWeek)}</div>
+          </div>
+        </div>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Puoi gestire così tanto fino al prossimo stipendio (${f.allowance.daysToNext === 1 ? 'domani' : `tra ${f.allowance.daysToNext} giorni`}), impegni già tolti.</p>
+      ` : ''}
       ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Da qui allo stipendio (${f.payday.date}) devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
       ${ghostChips ? `<div class="flex flex-wrap gap-1.5 mt-2">${ghostChips}</div>` : ''}
       ${paidNote}

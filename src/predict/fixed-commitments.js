@@ -261,8 +261,32 @@ export function commitmentForecast(commitments = [], salary = null, { now = Date
     .sort((a, b) => a.remaining - b.remaining);
 
   const monthlyFixedTotal = Math.round(active.reduce((s, c) => s + (+c.amount || 0), 0) * 100) / 100;
+  const pendingGhostTotal = recon ? recon.pendingTotal : monthlyFixedTotal;
+
+  // ── QUANTO PUOI GESTIRE AL GIORNO / A SETTIMANA ─────────────────────────────
+  // La domanda che un bambino capisce: "tolto tutto, quanto posso spendere ogni
+  // giorno finché non mi ripagano?". Disponibile = stipendio − fantasmi ancora
+  // da pagare; diviso i giorni fino al prossimo accredito → al giorno; ×7 → a
+  // settimana. Onesto: è una ripartizione uniforme, una GUIDA non una certezza.
+  // Migliora da sé perché usa gli importi APPRESI (media reale) degli impegni.
+  const daysToNext = payday ? Math.max(1, Math.round((payday.getTime() - now) / 86_400_000)) : null;
+  let allowance = null;
+  if (salary && salary.amount > 0 && daysToNext) {
+    const pool = Math.max(0, Math.round((salary.amount - pendingGhostTotal) * 100) / 100);
+    const perDay = pool / daysToNext;
+    // il settimanale non può superare il POOL: se lo stipendio arriva tra meno
+    // di 7 giorni, verrai ripagato prima — mostrare perDay×7 sarebbe una bugia.
+    const perWeek = Math.min(pool, perDay * 7);
+    allowance = {
+      pool,
+      perDay: Math.round(perDay * 100) / 100,
+      perWeek: Math.round(perWeek * 100) / 100,
+      daysToNext,
+    };
+  }
 
   return {
+    allowance,
     payday: payday ? { date: payday.toISOString().slice(0, 10), amount: salary.amount || null,
       daysToNext: Math.max(0, Math.round((payday.getTime() - now) / 86_400_000)) } : null,
     dueBeforePayday, dueBeforePaydayTotal,
@@ -272,7 +296,7 @@ export function commitmentForecast(commitments = [], salary = null, { now = Date
     activeCount: active.length,
     // Con le transazioni del mese: quanto è ancora da tenere da parte (fantasmi
     // in sospeso) vs quanto è già stato pagato per davvero (materializzato).
-    pendingGhostTotal: recon ? recon.pendingTotal : monthlyFixedTotal,
+    pendingGhostTotal,
     paidTotal: recon ? recon.paidTotal : 0,
     paid: recon ? recon.paid : [],
     pending: recon ? recon.pending : active,
