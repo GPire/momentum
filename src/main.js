@@ -2670,7 +2670,15 @@ window.openSplitGroup = (openId = null) => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
   const groups = () => VaultDAO.state.splitGroups || [];
-  const persist = (g) => { VaultDAO.state.splitGroups = mergeIntoGroups(groups(), g); VaultDAO.save(); };
+  // Ogni modifica locale (rename, nuova spesa, nuova persona) si propaga SUBITO
+  // ai dispositivi già collegati sul canale mesh (sync LIVE, sopra il CRDT):
+  // se il canale non è aperto o nessuno è connesso, è un no-op silenzioso —
+  // il link statico resta comunque il modo per il PRIMO aggancio.
+  const persist = (g) => {
+    VaultDAO.state.splitGroups = mergeIntoGroups(groups(), g);
+    VaultDAO.save();
+    try { window.momentumMeshNode?.shareSplitGroups([g]); } catch (_) {}
+  };
   const nameById = (g) => Object.fromEntries(g.members.map(m => [m.id, m.name]));
   let currentId = openId;
   const form = { payer: null, amount: '', desc: '', involved: null }; // involved=null → tutti
@@ -2679,6 +2687,10 @@ window.openSplitGroup = (openId = null) => {
     const g = currentId ? groups().find(x => x.id === currentId) : null;
     g ? renderDetail(g) : renderList();
   };
+  // Hook per il sync LIVE mesh: se questo pannello è aperto quando arriva un
+  // aggiornamento da un altro dispositivo, si ridisegna SUBITO (non solo un
+  // toast). Un solo pannello alla volta è aperto per costruzione dell'app.
+  window.__splitLiveRefresh = render;
 
   const renderList = () => {
     const gs = groups();
@@ -4675,6 +4687,31 @@ function initMomentumRealAI() {
       showToast('Dispositivo collegato: dati e AI ora si sincronizzano.', 'success');
       // sync automatico al pairing: scambio simmetrico dei soli delta
       for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.requestSync(pid);
+      // e i gruppi di divisione già esistenti, per allinearli subito.
+      if ((VaultDAO.state.splitGroups || []).length) momentumMeshNode.shareSplitGroups(VaultDAO.state.splitGroups);
+    };
+    // SYNC LIVE gruppi divisione (task "sync live post-condivisione"): un
+    // rename/nuova-spesa/nuova-persona fatto sull'altro dispositivo arriva QUI
+    // sul canale già aperto (non serve ri-condividere un link). Merge CRDT
+    // (mergeIntoGroups, last-writer-wins per campo — già usato dal box
+    // "Ricevi"): non perde mai dati locali, converge nei due sensi.
+    momentumMeshNode.onSplitGroupsReceived = (peerId, incoming) => {
+      let changed = false;
+      for (const g of (incoming || [])) {
+        const before = VaultDAO.state.splitGroups || [];
+        const after = mergeIntoGroups(before, g);
+        if (after !== before) { VaultDAO.state.splitGroups = after; changed = true; }
+      }
+      if (changed) {
+        VaultDAO.save();
+        showToast('Un gruppo condiviso è stato aggiornato da un tuo dispositivo.', 'success');
+        // Se il pannello di divisione è aperto ORA (marcatori stabili di
+        // renderList/renderDetail nel modale), si ridisegna subito: è questo
+        // che rende il sync "live" — MAI se è aperto un modale diverso
+        // (sovrascriverebbe il suo contenuto).
+        const modalShowsSplit = !!(document.getElementById('sg-new') || document.getElementById('sg-name'));
+        if (modalShowsSplit) { try { window.__splitLiveRefresh?.(); } catch (_) {} }
+      }
     };
     momentumMeshNode.onGradientReceived = (peerId, stats) => {
       // Registro di integrità (src/mesh/update-ledger.js): ogni merge, accettato

@@ -171,6 +171,7 @@ class MeshNode {
     this.onGradientReceived = null; // callback opzionale (nodeId, stats) => {}
     this.onPricesReceived = null;   // callback opzionale (nodeId, pricesBySymbol) => {}
     this.onReliabilityReceived = null; // callback opzionale (nodeId, digest) => {} (Wave 15 v10)
+    this.onSplitGroupsReceived = null; // callback opzionale (nodeId, groups) => {} — sync LIVE gruppi divisione
   }
 
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
@@ -218,6 +219,12 @@ class MeshNode {
         // dati grezzi. Il merge (pesato per reputazione, anti-poisoning) è
         // del ricevente: qui si consegna soltanto, come per price_share.
         this.onReliabilityReceived?.(peerId, msg.digest);
+      } else if (msg.type === 'split_share') {
+        // Sync LIVE dei gruppi di divisione spese (sopra il canale mesh già
+        // aperto, nessun link da ri-condividere): il merge CRDT (last-writer-
+        // wins per campo, unione per aggiunte) è del ricevente — qui si
+        // consegna soltanto, stesso pattern di price_share/reliability_share.
+        this.onSplitGroupsReceived?.(peerId, msg.groups);
       }
     };
     channel.onclose = () => this.peers.delete(peerId);
@@ -321,6 +328,19 @@ class MeshNode {
   // grezzi. Stesso pattern gossip di sharePrices/pesi.
   shareReliability(digest) {
     const msg = JSON.stringify({ type: 'reliability_share', digest });
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') entry.channel.send(msg);
+    }
+  }
+
+  // Condivide con tutta la mesh i gruppi di divisione spese (sync LIVE, task
+  // "sync live post-condivisione"): quando entrambi i dispositivi sono online
+  // sullo stesso canale mesh già aperto, un rename/nuova-spesa/nuova-persona
+  // si propaga SUBITO, senza dover ri-condividere un link statico. Ogni
+  // ricevente decide da sé il merge (mergeIntoGroups, CRDT last-writer-wins);
+  // qui si trasmette e basta, stesso pattern di sharePrices/shareReliability.
+  shareSplitGroups(groups) {
+    const msg = JSON.stringify({ type: 'split_share', groups });
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') entry.channel.send(msg);
     }

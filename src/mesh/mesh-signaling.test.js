@@ -151,3 +151,44 @@ test('due nodi: reliability_share end-to-end con mergeReliabilityDigest (pesato 
   const meanB = armMean(stateB, { context: 'spesa|mid|medio', kind: 'nano' });
   assert.ok(meanB > 0.5, `B deve aver assorbito l'affidabilità appresa da A, avuto ${meanB}`);
 });
+
+// ── shareSplitGroups: sync LIVE dei gruppi di divisione spese ──────────────
+test('shareSplitGroups: il payload arriva intatto al peer via split_share', () => {
+  const { nodeA, nodeB } = twoNodes();
+  let got = null;
+  nodeB.onSplitGroupsReceived = (peerId, groups) => { got = { peerId, groups }; };
+  const groups = [{ id: 'g1', name: 'cena', members: [{ id: 'm0', name: 'Io' }], expenses: [] }];
+  nodeA.shareSplitGroups(groups);
+  assert.ok(got, 'il messaggio split_share deve essere consegnato');
+  assert.equal(got.peerId, 'A');
+  assert.deepEqual(got.groups, groups);
+});
+
+test('shareSplitGroups: non invia su canali non aperti e non crasha', () => {
+  const { nodeA, nodeB, chA } = twoNodes();
+  chA.readyState = 'closed';
+  let got = null;
+  nodeB.onSplitGroupsReceived = (peerId, groups) => { got = { peerId, groups }; };
+  assert.doesNotThrow(() => nodeA.shareSplitGroups([{ id: 'g1', name: 'x', members: [], expenses: [] }]));
+  assert.equal(got, null);
+});
+
+test('split_share senza handler registrato: nessun crash', () => {
+  const { nodeA, chB } = twoNodes();
+  nodeA.onSplitGroupsReceived = null;
+  assert.doesNotThrow(() => chB.send(JSON.stringify({ type: 'split_share', groups: [] })));
+});
+
+test('shareSplitGroups: il ricevente può fondere col CRDT (mergeIntoGroups) senza perdere dati locali', async () => {
+  const { mergeIntoGroups } = await import('../split/split-engine.js');
+  const { nodeA, nodeB } = twoNodes();
+  let localGroups = [{ id: 'g1', name: 'cena', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }], expenses: [] }];
+  nodeB.onSplitGroupsReceived = (peerId, groups) => {
+    for (const g of groups) localGroups = mergeIntoGroups(localGroups, g);
+  };
+  // A condivide lo STESSO gruppo con una spesa in più (aggiunta dal suo lato)
+  const fromA = [{ id: 'g1', name: 'cena', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }], expenses: [{ id: 'e1', payer: 'm0', amount: 40, description: 'pizza', date: '2026-07-26', owed: { m0: 20, m1: 20 }, updatedAt: Date.now() }] }];
+  nodeA.shareSplitGroups(fromA);
+  assert.equal(localGroups.length, 1);
+  assert.equal(localGroups[0].expenses.length, 1, 'la spesa condivisa da A si unisce al gruppo locale');
+});
