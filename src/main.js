@@ -2387,7 +2387,12 @@ window.openSplitExpense = (prefill = {}) => {
 // banda prudente/fortunato, il giorno critico se c'è, e UNA leva misurata (non
 // un consiglio generico: è ri-simulata, e dice quanti giorni fa guadagnare).
 // Tace se il motore non ha abbastanza dati — nessuna curva inventata.
-function cashCurveHtml(commitments, salary) {
+// Sottotitolo integrato: niente più "card dentro la card". `standalone=false`
+// toglie intestazione/bordo/percentuale-fiducia (rumore tecnico che un bambino
+// non legge) — la curva continua semplicemente il racconto del numero grande.
+// La fiducia si dice solo quando è BASSA (poche settimane di dati): quando è
+// alta, ripeterla è rumore; quando è bassa, è l'unica cosa onesta da dire.
+function cashCurveHtml(commitments, salary, { standalone = true } = {}) {
   let f;
   try {
     const subs = subscriptionSummary(VaultDAO.state.transactions, new Date());
@@ -2437,21 +2442,27 @@ function cashCurveHtml(commitments, salary) {
       ? `<span class="${f.end.p50 >= 0 ? 'text-emerald-400' : 'text-amber-300'} font-bold">${f.end.p50 >= 0 ? '+' : ''}${eur(f.end.p50)}</span> <span class="text-[var(--on-surface-secondary)]">rispetto a oggi entro il ${dayName(f.end.date)}${valle ? ` · il momento più stretto è il ${dayName(valle.date)}` : ''}</span>`
       : `<span class="text-emerald-400 font-bold">Nessun giorno critico</span> <span class="text-[var(--on-surface-secondary)]">fino al ${dayName(f.end.date)}</span>`;
 
+  // La fiducia si dice solo se bassa: sopra il 70% è rumore, sotto è l'unica
+  // cosa onesta da dire ("sto ancora imparando le tue abitudini").
+  const lowConfidence = (f.confidence || 0) < 0.7
+    ? `<p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 mt-1">Sto ancora imparando le tue abitudini: più giorni importi, più questa stima diventa precisa.</p>` : '';
+
+  const wrapOpen = standalone ? `<div class="mt-3 pt-3 border-t border-[var(--glass-border)]">` : `<div class="mt-2.5">`;
   return `
-    <div class="mt-3 pt-3 border-t border-[var(--glass-border)]">
-      <div class="flex items-center justify-between gap-2 mb-1">
-        <span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">I prossimi ${f.horizonDays} giorni</span>
-        <span class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80">fiducia ${Math.round((f.confidence || 0) * 100)}%</span>
-      </div>
+    ${wrapOpen}
       <p class="text-[11.5px] leading-snug mb-1.5">${testa}</p>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-14" aria-hidden="true">
         <path d="${band}" fill="var(--primary)" opacity="0.25"/>
         <line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="currentColor" stroke-width="0.3" opacity="0.35" stroke-dasharray="2 2"/>
         <path d="${line}" fill="none" stroke="var(--primary)" stroke-width="1.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
       </svg>
-      <p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">Linea = scenario probabile · ombra = da prudente <b>${eur(f.end.p10)}</b> a fortunato <b>${eur(f.end.p90)}</b> al ${dayName(f.end.date)}.</p>
-      ${lever ? `<p class="text-[10.5px] mt-1.5 text-[var(--primary)]">✨ ${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
+      ${lever ? `<p class="text-[10.5px] mt-1 text-[var(--primary)]">✨ ${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
       ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se saldi subito i ${eur(f.withSplit.owed)} delle divisioni, chiudi a ${eur(f.withSplit.endP50)}.</p>` : ''}
+      ${lowConfidence}
+      <details class="ghost-details mt-1">
+        <summary class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">Cosa vuol dire l'ombra?</summary>
+        <p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 mt-1">La linea è lo scenario più probabile. L'ombra intorno va da prudente (<b>${eur(f.end.p10)}</b>) a fortunato (<b>${eur(f.end.p90)}</b>) al ${dayName(f.end.date)}: sono i due estremi ragionevoli, non un errore.</p>
+      </details>
     </div>`;
 }
 
@@ -2523,6 +2534,11 @@ function renderGhostForecast() {
   const paceTone = !adaptive ? 'calm' : adaptive.onTrack ? 'calm' : pace === 'oltre il ritmo' ? 'warn' : 'soft';
   const toneColor = { calm: 'text-emerald-400', soft: 'text-amber-300', warn: 'text-amber-400' }[paceTone];
   const toneRing = { calm: 'from-emerald-400/80 to-teal-300/60', soft: 'from-amber-300/80 to-orange-300/60', warn: 'from-amber-400/90 to-rose-400/60' }[paceTone];
+  // Un volto prima ancora delle parole: un bambino legge un'emoji più veloce di
+  // una frase. Mai un volto triste/in colpa — solo tranquillo → attento, mai un
+  // giudizio (coerente con la regola del progetto: niente allarmismo punitivo).
+  const toneFace = { calm: '🙂', soft: '🤔', warn: '⚡' }[paceTone];
+  const toneBorder = { calm: 'border-emerald-500/25', soft: 'border-amber-500/25', warn: 'border-amber-500/35' }[paceTone];
   // quanto del ciclo è già passato / già speso: due archi sulla stessa barra,
   // così si vede a colpo d'occhio se si corre più veloce del tempo.
   const pctSpent = adaptive && adaptive.budget > 0 ? Math.min(100, Math.round((adaptive.spent / adaptive.budget) * 100)) : 0;
@@ -2536,17 +2552,21 @@ function renderGhostForecast() {
 
   el.classList.remove('hidden');
   el.innerHTML = `
-    <div class="ghost-card rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 p-4">
+    <div class="ghost-card rounded-2xl border ${oggi !== null ? toneBorder : 'border-[var(--glass-border)]'} bg-[var(--surface-elevated)]/40 p-4">
       <div class="flex items-center justify-between gap-2 mb-3">
         <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9 21V9a3 3 0 0 1 6 0v12l-2-1.5L11 21l-2-1.5z"/></svg>Il tuo mese, senza sorprese</span>
         <button id="ghost-manage" class="text-[11px] font-bold text-[var(--primary)] px-2 py-1 -mr-1 rounded-lg min-h-[32px]">Gestisci</button>
       </div>
 
       ${oggi !== null ? `
-        <!-- IL NUMERO: uno solo, grande, con la frase che lo spiega da sola -->
+        <!-- IL NUMERO: uno solo, grande, con la frase che lo spiega da sola. Il
+             volto si legge prima ancora del numero: un bambino guarda l'emoji. -->
         <div class="text-center">
           <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Oggi puoi spendere</div>
-          <div class="ghost-hero font-mono font-black text-[2.6rem] leading-none ${toneColor}">${eur(oggi)}</div>
+          <div class="flex items-center justify-center gap-2">
+            <span class="ghost-face text-3xl leading-none" aria-hidden="true">${toneFace}</span>
+            <div class="ghost-hero font-mono font-black text-[2.6rem] leading-none ${toneColor}">${eur(oggi)}</div>
+          </div>
           <div class="text-[11.5px] text-[var(--on-surface-secondary)] mt-1.5">${days === 1 ? 'Domani ti pagano.' : `Poi ti pagano fra <b class="text-[var(--on-surface)]">${days} giorni</b>.`}</div>
         </div>
 
@@ -2577,7 +2597,7 @@ function renderGhostForecast() {
         </div>
       `}
 
-      ${cashCurveHtml(commitments, salary)}
+      ${cashCurveHtml(commitments, salary, { standalone: false })}
 
       <!-- TUTTO IL RESTO A SCOMPARSA: c'è, ma non pesa sull'occhio -->
       <details class="ghost-details mt-3 group">

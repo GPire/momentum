@@ -349,11 +349,13 @@
     @keyframes ghostHero { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
     @keyframes ghostBar  { from { width: 0; } }
     .ghost-hero { animation: ghostHero .5s cubic-bezier(.16,1,.3,1) both; animation-delay: .08s; }
+    @keyframes ghostFace { 0% { opacity: 0; transform: scale(0.6) rotate(-8deg); } 60% { transform: scale(1.15) rotate(4deg); } 100% { opacity: 1; transform: none; } }
+    .ghost-face { animation: ghostFace .5s cubic-bezier(.34,1.56,.64,1) both; }
     .ghost-bar  { animation: ghostBar .7s cubic-bezier(.22,1,.36,1) both; animation-delay: .18s; }
     .ghost-details summary::-webkit-details-marker { display: none; }
     .ghost-details[open] > div { animation: insightFade .35s ease both; }
     @media (prefers-reduced-motion: reduce) {
-      .ghost-hero, .ghost-bar, .ghost-details[open] > div { animation: none; }
+      .ghost-hero, .ghost-bar, .ghost-face, .ghost-details[open] > div { animation: none; }
     }
     @keyframes insightFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     #dashboard-insight > div { animation: insightFade 0.45s ease both; }
