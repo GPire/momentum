@@ -27,6 +27,7 @@ import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-mo
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
+import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -1195,10 +1196,11 @@ const renderDashboard = () => {
   // riusati sia dall'avanzo-da-risparmiare sia dalla fascia "soldi impegnati".
   const com = getMonthlyCommitments(VaultDAO.state.transactions, realNow);
   const sweepEstText = $('#sweeper-estimate-val');
-  // INTELLIGENTE + ONESTO: l'avanzo da mettere via NON include i soldi che
-  // serviranno per gli impegni in arrivo → non ti suggerisce mai di risparmiare
-  // ciò che ti serve per l'affitto/mutuo. (liquidità − investito − impegni)
-  const sweepEst = Math.max(0, +(liquidity - inv - com.reserved).toFixed(2));
+  // PREDITTIVO (computeSafeSweepEstimate, condivisa col click "SEGNA"): non
+  // solo gli impegni già noti, ma il punto più basso della Cassa Unica in
+  // scenario prudente fino al prossimo stipendio — non suggerisce mai di
+  // mettere via soldi che il tuo stesso ritmo di spesa userà prima di allora.
+  const sweepEst = computeSafeSweepEstimate(liquidity, inv, realNow);
   if (sweepEstText) {
     sweepEstText.textContent = formatMoney(sweepEst);
   }
@@ -1552,13 +1554,50 @@ window.exportEventsToICS = () => {
   }
 };
 
-// Segna l'avanzo del mese come "risparmio da spostare": l'importo è LO STESSO
-// mostrato nella card (liquidità − investito − impegni in arrivo), mai un
-// altro calcolo dietro le quinte. Onesto come applySweep: nessun ETF, nessuna
-// banca toccata — solo un'annotazione, il trasferimento reale lo fa l'utente.
-// BUG CORRETTO (trovato rileggendo il codice): prima calcolava liquidità×80%
-// (numero arbitrario, MAI quello mostrato all'utente) e lo registrava come
-// "ETF" — un investimento che non esiste, Momentum non ha una banca collegata.
+// ── QUANTO È DAVVERO SICURO METTERE VIA ─────────────────────────────────────
+// Unica fonte di verità per l'avanzo sweepabile: usata sia dal render (numero
+// mostrato) sia dal click "SEGNA" (numero registrato) — MAI due calcoli
+// diversi (era il bug corretto: prima il pulsante ricalcolava a modo suo).
+// PREDITTIVO: non basta sottrarre gli impegni GIÀ noti da qui a fine mese
+// (calcolo statico) — si simula la Cassa Unica fino al prossimo stipendio e si
+// prende il punto PIÙ BASSO dello scenario prudente lungo tutto il percorso,
+// non solo il saldo finale. Se un giorno intermedio (es. il weekend prima
+// dello stipendio) scende sotto quello odierno, è QUELLO il vincolo reale —
+// mai suggerire di mettere via soldi che il tuo stesso ritmo di spesa userà
+// prima che ti paghino. Onesto: senza Cassa Unica disponibile (dati insufficienti)
+// degrada al calcolo statico precedente, mai un crash o un'invenzione.
+function computeSafeSweepEstimate(liquidity, inv, referenceDate = new Date()) {
+  const com = getMonthlyCommitments(VaultDAO.state.transactions, referenceDate);
+  const naive = Math.max(0, +(liquidity - inv - com.reserved).toFixed(2));
+  try {
+    const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
+    const daysAhead = salary ? Math.max(7, Math.min(30, daysToNextPayday(salary, referenceDate) || 21)) : 14;
+    // Le rate BNPL in arrivo (Klarna/PayPal/Scalapay...) sono soldi già
+    // promessi quanto un impegno: entrano nella stessa simulazione, così il
+    // minimo prudente le tiene conto SENZA una sottrazione separata da
+    // mantenere in sincrono — un piano attivo abbassa da solo l'avanzo sicuro.
+    const bnplEvents = bnplToLedgerEvents(VaultDAO.state.transactions,
+      { now: referenceDate.getTime(), horizonDays: daysAhead, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true });
+    const fc = cashForecast({
+      allTx: VaultDAO.state.transactions,
+      commitments: VaultDAO.state.fixedCommitments || [],
+      salary,
+      startBalance: liquidity,
+      now: referenceDate.getTime(),
+      horizonDays: daysAhead,
+      extraLedgerEvents: bnplEvents,
+    });
+    if (!fc.known) return naive;
+    // il minimo prudente lungo TUTTO il percorso, non solo il finale.
+    const prudentMin = Math.min(fc.end.p10, ...fc.path.map(p => p.p10));
+    return Math.max(0, Math.min(naive, +prudentMin.toFixed(2)));
+  } catch (_) { return naive; }
+}
+
+// Segna l'avanzo come "risparmio da spostare": l'importo è LO STESSO mostrato
+// nella card (computeSafeSweepEstimate, condivisa col render), mai un altro
+// calcolo dietro le quinte. Onesto come applySweep: nessun ETF, nessuna banca
+// toccata — solo un'annotazione, il trasferimento reale lo fa l'utente.
 window.runAIOverflowSweep = () => {
   try {
     const k = monthKey(VaultDAO.state.currentDate);
@@ -1570,8 +1609,7 @@ window.runAIOverflowSweep = () => {
       else if (t.type === 'invest') inv += t.amount;
     });
     const liquidity = inc - exp - inv;
-    const com = getMonthlyCommitments(VaultDAO.state.transactions, VaultDAO.state.currentDate);
-    const sweepAmt = Math.max(0, Math.round((liquidity - com.reserved) * 100) / 100);
+    const sweepAmt = computeSafeSweepEstimate(liquidity, inv, VaultDAO.state.currentDate);
 
     if (sweepAmt <= 0) {
       showToast("Nessun avanzo disponibile da mettere al sicuro (tolti gli impegni in arrivo).", "info");
@@ -2411,6 +2449,12 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
     // Ciò che devo agli amici: scenario a parte (la data la decide l'utente).
     const net = netAcrossGroups(VaultDAO.state.splitGroups || []);
     const owed = Math.abs(Math.min(0, net.reduce((s, p) => s + Math.min(0, p.net), 0)));
+    // Le rate BNPL (Klarna/PayPal/Scalapay...) sono eventi certi quanto un
+    // impegno dichiarato: entrano nella STESSA riga temporale via il ponte
+    // generico extraLedgerEvents, con la lunghezza-piano già appresa da questo
+    // utente (mlData.bnplLearned) se disponibile.
+    const bnplEvents = bnplToLedgerEvents(VaultDAO.state.transactions,
+      { now: nowMs, horizonDays: 30, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true });
     f = cashForecast({
       allTx: VaultDAO.state.transactions,
       commitments,
@@ -2420,6 +2464,7 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
       monthTx: VaultDAO.state.transactions[monthKey(new Date())] || [],
       now: nowMs,
       horizonDays: 30,
+      extraLedgerEvents: bnplEvents,
     });
   } catch (_) { return ''; }
   if (!f || !f.known || !f.path?.length) return '';
@@ -2562,6 +2607,17 @@ function renderGhostForecast() {
       VaultDAO.state.transactions, { seen: ml.commitmentLabels || [] });
     if (r.taught.length) { ml.commitmentLabels = r.seen; VaultDAO.save(); }
   } catch (_) {}
+  // AUTO-ADDESTRAMENTO BNPL: ogni piano Klarna/PayPal/Scalapay CHIUSO insegna
+  // la sua vera lunghezza per quel provider (src/predict/bnpl.js) — il prossimo
+  // piano dello stesso provider proietta le rate residue sull'appreso invece
+  // che sullo standard di settore. Serve un 2° piano chiuso prima di fidarsi
+  // (un solo campione potrebbe essere un caso anomalo).
+  try {
+    const ml = VaultDAO.state.mlData;
+    const bnplSeries = detectBnplSeries(VaultDAO.state.transactions, { now: Date.now() });
+    const r = learnPlanLengths(bnplSeries, ml.bnplLearned || {}, { now: Date.now(), seen: ml.bnplLearnedSeen || [] });
+    if (r.taught.length) { ml.bnplLearned = r.learned; ml.bnplLearnedSeen = r.seen; VaultDAO.save(); }
+  } catch (_) {}
   // Gli impegni portano con sé la loro banda di normalità MISURATA: il forecast
   // allarga la banda dove l'importo è davvero incerto (bolletta), non dove è fisso.
   const commitments = enrichWithNormality(rawCommitments, VaultDAO.state.transactions);
@@ -2629,7 +2685,7 @@ function renderGhostForecast() {
   el.innerHTML = `
     <div class="ghost-card rounded-2xl border ${oggi !== null ? toneBorder : 'border-[var(--glass-border)]'} bg-[var(--surface-elevated)]/40 p-4">
       <div class="flex items-center justify-between gap-2 mb-3">
-        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9 21V9a3 3 0 0 1 6 0v12l-2-1.5L11 21l-2-1.5z"/></svg>Il tuo mese, senza sorprese</span>
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M9 14l2 2 4-4"/></svg>Il tuo mese, senza sorprese</span>
         <button id="ghost-manage" class="text-[11px] font-bold text-[var(--primary)] px-2 py-1 -mr-1 rounded-lg min-h-[32px]">Gestisci</button>
       </div>
 
@@ -3915,6 +3971,25 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     savingsGoals: VaultDAO.state.savingsGoals || [],
     lastSweepWeek: VaultDAO.state.lastSweepWeek || null,
   }).filter(i => i.kind !== 'safe-to-spend');
+
+  // ── BNPL stacking (src/predict/bnpl.js): il numero che nessun Klarna/PayPal
+  // vede da solo, perché ognuno vede solo i propri piani. Entra nello STESSO
+  // feed unificato e nello STESSO bandit di ranking degli altri insight —
+  // niente riquadro a parte, coerente col resto (non appesantisce la card).
+  try {
+    const bnpl = bnplExposure(VaultDAO.state.transactions,
+      { now: realNow.getTime(), learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true });
+    if (bnpl.count > 0) {
+      const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      const providers = bnpl.byProvider.map(p => p.providerLabel).join(', ');
+      rawInsights.push({
+        kind: 'bnpl-exposure',
+        severity: bnpl.count >= 2 ? 'warn' : 'info',
+        title: bnpl.count === 1 ? `Hai un piano a rate aperto: ${providers}` : `Hai ${bnpl.count} piani a rate aperti: ${providers}`,
+        body: `Ti restano ${formatMoney(bnpl.totalRemaining)} da pagare in tutto${bnpl.nextDue ? `, prossima rata il ${dayName(bnpl.nextDue.date)} (${bnpl.nextDue.providerLabel}).` : '.'}`,
+      });
+    }
+  } catch (_) {}
 
   // ── Advisor bandit (Wave 1 v10, src/predict/advisor-bandit.js): impara
   // per-contesto quale nudge fa AGIRE l'utente e lo mostra prima. Onesto e

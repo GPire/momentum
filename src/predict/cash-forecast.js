@@ -379,7 +379,25 @@ export function bestLevers(base, { profile = null, ledger = [], startBalance = 0
     });
   }
 
-  // (b) rimandare l'abbonamento più caro oltre l'orizzonte (disdirlo/spostarlo)
+  // (b) il giorno della settimana più pesante: dowFactor è già MISURATO (non
+  // un'ipotesi) — se un giorno pesa notevolmente più della media, dimezzarlo
+  // e ri-simulare dice ESATTAMENTE quanto vale tenerlo leggero. Più mirata di
+  // "taglia il 10/20%": individua IL giorno che conta, non tutta la settimana.
+  if (profile && profile.dowFactor && profile.dailyMean > 0) {
+    let heavyDay = 0;
+    for (let d = 1; d < 7; d++) if (profile.dowFactor[d] > profile.dowFactor[heavyDay]) heavyDay = d;
+    if (profile.dowFactor[heavyDay] > 1.4) {
+      const alt = sim({ profile: { ...profile, dowFactor: profile.dowFactor.map((f, d) => d === heavyDay ? f * 0.5 : f) } });
+      const DOW_NAMES = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+      candidates.push({
+        id: `dow-${heavyDay}`,
+        label: `Il ${DOW_NAMES[heavyDay]} spendi ${(Math.round(profile.dowFactor[heavyDay] * 10) / 10).toFixed(1)}× la tua media: tienilo leggero`,
+        daysGained: daysGained(alt), endDelta: r2(alt.end.p50 - base.end.p50), kind: 'ritmo-settimanale',
+      });
+    }
+  }
+
+  // (c) rimandare l'abbonamento più caro oltre l'orizzonte (disdirlo/spostarlo)
   const subs = ledger.filter(e => e.source === 'subscription').sort((a, b) => a.amount - b.amount);
   if (subs.length) {
     const worst = subs[0];
@@ -391,7 +409,7 @@ export function bestLevers(base, { profile = null, ledger = [], startBalance = 0
     });
   }
 
-  // (c) saldare i debiti di divisione DOPO lo stipendio invece che subito
+  // (d) saldare i debiti di divisione DOPO lo stipendio invece che subito
   if (splitOwed > 0) {
     const payday = ledger.find(e => e.kind === 'stipendio');
     if (payday) {
@@ -423,13 +441,21 @@ export function cashForecast({
   // patrimoniale a un anno muove anche la cassa dei prossimi 30 giorni.
   // Additivo, default 0 = comportamento invariato.
   extraDailyCut = 0,
+  // Ponte GENERICO per eventi certi calcolati altrove (oggi: le rate BNPL di
+  // src/predict/bnpl.js via bnplToLedgerEvents — Klarna/PayPal/Scalapay...).
+  // cash-forecast.js resta indipendente (non importa bnpl.js): il chiamante
+  // passa già gli eventi nello stesso formato del ledger. Additivo, default
+  // vuoto = comportamento invariato; qualunque fonte futura può usare lo
+  // stesso ponte senza toccare questo motore.
+  extraLedgerEvents = [],
 } = {}) {
   const enriched = enrichCommitmentsWithLearning(commitments, allTx);
   const rawProfile = discretionaryProfile(allTx, { now, commitments: enriched, excludeSeries: subscriptions });
   const profile = rawProfile && extraDailyCut
     ? { ...rawProfile, dailyMean: Math.max(0, rawProfile.dailyMean - extraDailyCut) }
     : rawProfile;
-  const ledger = buildLedger({ commitments: enriched, salary, subscriptions, now, horizonDays, monthTx });
+  const ledger = [...buildLedger({ commitments: enriched, salary, subscriptions, now, horizonDays, monthTx }), ...extraLedgerEvents]
+    .sort((a, b) => a.ms - b.ms);
 
   // Senza saldo dichiarato NON si inventa un punto di partenza: si simula il
   // DELTA da oggi (parte da 0) e lo si dichiara. Un saldo finto sarebbe il

@@ -361,3 +361,55 @@ test('cashForecast: extraDailyCut=0 (default) non cambia nulla', () => {
   const b = cashForecast({ allTx, commitments: [], salary: null, startBalance: 0, now: NOW, horizonDays: 15, extraDailyCut: 0 });
   assert.deepEqual(a.end, b.end);
 });
+
+// ── leva "giorno pesante della settimana" ────────────────────────────────────
+test('bestLevers: propone di alleggerire il giorno della settimana più pesante, misurando l\'effetto', () => {
+  // sabato pesa 3× la media: profilo costruito a mano (dowFactor già misurato).
+  const profile = {
+    dailyMean: 30, dailyMedian: 25, sigma: 8, observedDays: 90, coverage: 1,
+    dowFactor: [1, 0.7, 0.7, 0.8, 0.9, 1.0, 3.0],
+  };
+  const base = simulateCash({ startBalance: 500, profile, ledger: [], now: NOW, horizonDays: 30 });
+  const levers = bestLevers(base, { profile, ledger: [], startBalance: 500, now: NOW, horizonDays: 30 });
+  const dow = levers.find(l => l.kind === 'ritmo-settimanale');
+  assert.ok(dow, 'attesa la leva sul giorno pesante');
+  assert.ok(dow.label.includes('sabato'));
+  assert.ok(dow.endDelta > 0, 'dimezzare il sabato deve misurabilmente migliorare il finale');
+});
+
+test('bestLevers: NON propone la leva del giorno pesante se nessun giorno è davvero fuori scala', () => {
+  const profile = {
+    dailyMean: 20, dailyMedian: 20, sigma: 4, observedDays: 90, coverage: 1,
+    dowFactor: [1, 0.95, 1, 1.05, 1, 1, 1], // nessun giorno sopra 1.4×
+  };
+  const base = simulateCash({ startBalance: 1000, profile, ledger: [], now: NOW, horizonDays: 30 });
+  const levers = bestLevers(base, { profile, ledger: [], startBalance: 1000, now: NOW, horizonDays: 30 });
+  assert.ok(!levers.some(l => l.kind === 'ritmo-settimanale'));
+});
+
+test('bestLevers: la leva del giorno pesante rispetta il nome corretto del giorno (indice getUTCDay)', () => {
+  const profile = {
+    dailyMean: 25, dailyMedian: 25, sigma: 6, observedDays: 90, coverage: 1,
+    dowFactor: [1, 1, 2.5, 1, 1, 1, 1], // martedì (indice 2) pesante
+  };
+  const base = simulateCash({ startBalance: 400, profile, ledger: [], now: NOW, horizonDays: 30 });
+  const levers = bestLevers(base, { profile, ledger: [], startBalance: 400, now: NOW, horizonDays: 30 });
+  const dow = levers.find(l => l.kind === 'ritmo-settimanale');
+  assert.ok(dow.label.includes('martedì'));
+});
+
+// ── ponte generico per eventi esterni (oggi: BNPL da src/predict/bnpl.js) ───
+test('cashForecast: extraLedgerEvents entra nel ledger e nella simulazione', () => {
+  const bnplEvent = { date: '2026-07-25', ms: Date.parse('2026-07-25'), amount: -45, kind: 'bnpl', label: 'Klarna (rata)', source: 'bnpl', certain: true };
+  const f = cashForecast({ allTx: historyOf(60, () => 10), commitments: [], salary: null, startBalance: 500, now: NOW, horizonDays: 20, extraLedgerEvents: [bnplEvent] });
+  assert.ok(f.ledger.some(e => e.source === 'bnpl'));
+  const giorno = f.path.find(p => p.date === '2026-07-25');
+  assert.ok(giorno.events.some(e => e.kind === 'bnpl'));
+});
+
+test('cashForecast: senza extraLedgerEvents (default) il comportamento è invariato', () => {
+  const allTx = historyOf(60, () => 10);
+  const a = cashForecast({ allTx, commitments: [], salary: null, startBalance: 500, now: NOW, horizonDays: 20 });
+  const b = cashForecast({ allTx, commitments: [], salary: null, startBalance: 500, now: NOW, horizonDays: 20, extraLedgerEvents: [] });
+  assert.deepEqual(a.end, b.end);
+});
