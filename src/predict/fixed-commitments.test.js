@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const { remainingInstallments, payoffDate, isActive, residualApprox, nextOccurrence,
-  commitmentsDueBetween, commitmentForecast, matchCommitmentInMonth, reconcileCommitments } = await import('./fixed-commitments.js');
+  commitmentsDueBetween, commitmentForecast, matchCommitmentInMonth, reconcileCommitments,
+  learnCommitmentAmount, enrichCommitmentsWithLearning } = await import('./fixed-commitments.js');
 
 const mutuo = { id: 'm1', name: 'Mutuo casa', amount: 650, dayOfMonth: 5, kind: 'mutuo', startDate: '2024-01-05', termMonths: 240 };
 const prestito = { id: 'p1', name: 'Prestito auto', amount: 210, dayOfMonth: 10, kind: 'prestito', startDate: '2025-06-10', termMonths: 24 };
@@ -166,4 +167,48 @@ test('matchCommitmentInMonth: sceglie il candidato più vicino al giorno atteso'
     { amount: 650, type: 'uscita', date: '2026-07-05' }, // esatto
   ];
   assert.equal(matchCommitmentInMonth(m, tx).date, '2026-07-05');
+});
+
+// ── AUTO-ADDESTRAMENTO IMPORTI: media dei pagamenti reali passati ────────────
+const bollettaHist = {
+  '2026-01': [{ amount: 120, type: 'uscita', date: '2026-01-15' }],
+  '2026-02': [{ amount: 90, type: 'uscita', date: '2026-02-15' }],
+  '2026-03': [{ amount: 60, type: 'uscita', date: '2026-03-14' }],
+};
+test('learnCommitmentAmount: media (mediana) dei pagamenti reali passati', () => {
+  const bolletta = { id: 'b', name: 'Bolletta', amount: 70, dayOfMonth: 15, kind: 'bolletta' };
+  const l = learnCommitmentAmount(bolletta, bollettaHist);
+  assert.equal(l.samples, 3);
+  assert.equal(l.learnedAmount, 90); // mediana di 120,90,60
+  assert.equal(l.min, 60);
+  assert.equal(l.max, 120);
+});
+
+test('learnCommitmentAmount: null se non trova pagamenti passati', () => {
+  const c = { id: 'x', name: 'X', amount: 50, dayOfMonth: 3, kind: 'abbonamento' };
+  assert.equal(learnCommitmentAmount(c, bollettaHist), null);
+});
+
+test('enrichCommitmentsWithLearning: sostituisce l\'importo digitato con la media appresa', () => {
+  const bolletta = { id: 'b', name: 'Bolletta', amount: 70, dayOfMonth: 15, kind: 'bolletta' };
+  const [e] = enrichCommitmentsWithLearning([bolletta], bollettaHist);
+  assert.equal(e.learned, true);
+  assert.equal(e.amount, 90, 'usa la media reale');
+  assert.equal(e.typedAmount, 70, 'conserva ciò che avevi scritto');
+  assert.equal(e.learnedSamples, 3);
+});
+
+test('enrichCommitmentsWithLearning: sotto minSamples resta il valore digitato (niente media inventata)', () => {
+  const bolletta = { id: 'b', name: 'Bolletta', amount: 70, dayOfMonth: 15, kind: 'bolletta' };
+  const oneMonth = { '2026-01': [{ amount: 120, type: 'uscita', date: '2026-01-15' }] };
+  const [e] = enrichCommitmentsWithLearning([bolletta], oneMonth, { minSamples: 2 });
+  assert.equal(e.learned, false);
+  assert.equal(e.amount, 70, 'un solo pagamento non basta: resta il valore inserito');
+});
+
+test('enrichCommitmentsWithLearning + forecast: i fantasmi usano la media reale', () => {
+  const bolletta = { id: 'b', name: 'Bolletta', amount: 70, dayOfMonth: 15, kind: 'bolletta' };
+  const enriched = enrichCommitmentsWithLearning([bolletta], bollettaHist);
+  const f = commitmentForecast(enriched, { dayOfMonth: 27, amount: 1500 }, { now: Date.parse('2026-07-01') });
+  assert.equal(f.monthlyFixedTotal, 90, 'il fantasma bolletta pesa la media reale 90, non i 70 digitati');
 });

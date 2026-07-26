@@ -176,6 +176,58 @@ export function reconcileCommitments(commitments = [], monthTx = [], { now = Dat
   };
 }
 
+// ── AUTO-ADDESTRAMENTO DEGLI IMPORTI ────────────────────────────────────────
+// La stima migliora da sola: invece del numero fisso digitato, l'impegno impara
+// la MEDIA dei suoi pagamenti reali passati (mediana robusta agli straordinari).
+// Vitale per le bollette (variabili): dopo qualche mese la card mostra l'importo
+// vero medio, non un'ipotesi. È il segnale che alimenta anche gli altri modelli
+// (media/varianza per impegno = feature per forecast di cassa e anomalie).
+function medianOf(nums) {
+  if (!nums.length) return null;
+  const s = [...nums].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+export function learnCommitmentAmount(c, allTx = {}, opts = {}) {
+  const matches = [];
+  // una occorrenza reale per mese (la più vicina al giorno atteso), su tutto lo storico.
+  for (const txs of Object.values(allTx)) {
+    const m = matchCommitmentInMonth(c, txs || [], opts);
+    if (m) matches.push(Math.abs(+m.amount || 0));
+  }
+  if (!matches.length) return null;
+  const med = medianOf(matches);
+  const mean = matches.reduce((s, v) => s + v, 0) / matches.length;
+  return {
+    learnedAmount: Math.round(med * 100) / 100,
+    samples: matches.length,
+    min: Math.round(Math.min(...matches) * 100) / 100,
+    max: Math.round(Math.max(...matches) * 100) / 100,
+    variability: mean ? Math.round((Math.max(...matches) - Math.min(...matches)) / mean * 100) / 100 : 0,
+  };
+}
+
+// Arricchisce gli impegni con l'importo APPRESO (quando c'è abbastanza storico):
+// il forecast userà la media reale al posto del numero digitato, in modo
+// trasparente (typedAmount conservato, learned:true). Sotto minSamples resta il
+// valore inserito dall'utente — mai una media inventata su un solo dato.
+export function enrichCommitmentsWithLearning(commitments = [], allTx = {}, { minSamples = 2, ...opts } = {}) {
+  return commitments.map(c => {
+    const learned = learnCommitmentAmount(c, allTx, opts);
+    if (!learned || learned.samples < minSamples) return { ...c, learned: false };
+    return {
+      ...c,
+      amount: learned.learnedAmount,      // il forecast usa la media reale
+      typedAmount: c.amount,              // resta consultabile ciò che avevi scritto
+      learned: true,
+      learnedSamples: learned.samples,
+      learnedMin: learned.min,
+      learnedMax: learned.max,
+    };
+  });
+}
+
 // ── IL FORECAST PRECISO AL GIORNO ───────────────────────────────────────────
 // Incrocia stipendio (giorno+importo) e impegni fissi per rispondere alle
 // domande che nessuna app risponde con precisione:

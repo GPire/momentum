@@ -24,7 +24,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
-import { commitmentForecast, remainingInstallments, payoffDate } from './predict/fixed-commitments.js';
+import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning } from './predict/fixed-commitments.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -2383,10 +2383,13 @@ window.openSplitExpense = (prefill = {}) => {
 function renderGhostForecast() {
   const el = document.getElementById('ghost-forecast');
   if (!el) return;
-  const commitments = VaultDAO.state.fixedCommitments || [];
+  const rawCommitments = VaultDAO.state.fixedCommitments || [];
   const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
   // Mostra la card solo se c'è qualcosa da dire (stipendio noto o impegni definiti).
-  if (!salary && !commitments.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  if (!salary && !rawCommitments.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  // AUTO-ADDESTRAMENTO: ogni impegno impara la media dei suoi pagamenti reali
+  // passati (es. bolletta variabile) e la usa al posto del numero digitato.
+  const commitments = enrichCommitmentsWithLearning(rawCommitments, VaultDAO.state.transactions);
   // Transazioni del mese corrente → riconciliazione: ciò che è GIÀ stato pagato
   // (import CSV/estratto) non è più un fantasma, così non lo contiamo due volte.
   const monthTx = VaultDAO.state.transactions[monthKey(new Date())] || [];
@@ -2400,14 +2403,19 @@ function renderGhostForecast() {
   const pctGhost = stip ? Math.min(100, Math.round((ghosts / stip) * 100)) : 0;
   const paidIds = new Set(f.paid.map(c => c.id));
 
+  let anyLearned = false;
   const ghostChips = commitments.filter(c => +c.amount > 0).slice(0, 6).map(c => {
     const rem = remainingInstallments(c, Date.now());
     const tail = rem !== null ? ` · ${rem} rate` : '';
     const done = paidIds.has(c.id);
+    if (c.learned) anyLearned = true;
+    // "~" davanti a un importo appreso dalla media reale (es. bolletta variabile).
+    const amt = `${c.learned ? '~' : ''}${eur(c.amount)}`;
     // un impegno già materializzato nel mese si mostra spuntato (già contato per davvero).
-    return `<span class="text-[10px] px-2 py-0.5 rounded-full ${done ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-black/25 border-[var(--glass-border)]'} border whitespace-nowrap">${done ? '✓ ' : ''}${esc(c.name.length > 16 ? c.name.slice(0, 15) + '…' : c.name)} · ${eur(c.amount)}${done ? '' : tail}</span>`;
+    return `<span class="text-[10px] px-2 py-0.5 rounded-full ${done ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-black/25 border-[var(--glass-border)]'} border whitespace-nowrap">${done ? '✓ ' : ''}${esc(c.name.length > 16 ? c.name.slice(0, 15) + '…' : c.name)} · ${amt}${done ? '' : tail}</span>`;
   }).join('');
   const paidNote = f.paidTotal > 0 ? `<p class="text-[10.5px] text-emerald-400/90 mt-1.5">✓ Già pagati questo mese: ${eur(f.paidTotal)} (non più contati come fantasmi).</p>` : '';
+  const learnNote = anyLearned ? `<p class="text-[10px] text-[var(--primary)]/80 mt-1.5">Gli importi con “~” sono la media dei tuoi pagamenti reali passati: più mesi importi, più diventano precisi.</p>` : '';
 
   const endingMsg = f.endingSoon.length
     ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">🎉 Quasi finito: ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} (${e.remaining} rate, chiude ${e.payoff})`).join(' · ')}</p>` : '';
@@ -2432,6 +2440,7 @@ function renderGhostForecast() {
       ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Da qui allo stipendio (${f.payday.date}) devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
       ${ghostChips ? `<div class="flex flex-wrap gap-1.5 mt-2">${ghostChips}</div>` : ''}
       ${paidNote}
+      ${learnNote}
       ${endingMsg}
       <p class="text-[9.5px] text-[var(--on-surface-secondary)] mt-2 opacity-75">Stime dai tuoi impegni, non certezze. I fantasmi sono soldi già promessi: tienili da parte.</p>
     </div>`;
