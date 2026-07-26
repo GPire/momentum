@@ -2494,54 +2494,97 @@ function renderGhostForecast() {
   const endingMsg = f.endingSoon.length
     ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">🎉 Quasi finito: ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} (${e.remaining} rate, chiude ${e.payoff})`).join(' · ')}</p>` : '';
 
+  // ── UN SOLO FUOCO: "quanto posso spendere oggi senza rovinare il mese?" ────
+  // Tutto il resto (impegni, totali, spiegazioni) sta sotto, a scomparsa. La
+  // card risponde a una domanda sola, con una frase che capirebbe un bambino:
+  // «Oggi puoi spendere 49 €. Poi ti pagano fra 17 giorni.»
+  const adaptive = cycleAllowance(commitments, salary, { now: Date.now(), allTx: VaultDAO.state.transactions });
+  const a = adaptive || f.allowance;
+  const days = a ? (a.daysLeft ?? a.daysToNext) : null;
+  const oggi = a ? a.perDay : null;
+  // Ritmo: mai un rimprovero. Verde = tranquillo, ambra = attenzione, e sempre
+  // una via d'uscita ("puoi rimetterti in pari così") — anti-abbandono.
+  const pace = adaptive ? adaptive.pace : null;
+  const paceTone = !adaptive ? 'calm' : adaptive.onTrack ? 'calm' : pace === 'oltre il ritmo' ? 'warn' : 'soft';
+  const toneColor = { calm: 'text-emerald-400', soft: 'text-amber-300', warn: 'text-amber-400' }[paceTone];
+  const toneRing = { calm: 'from-emerald-400/80 to-teal-300/60', soft: 'from-amber-300/80 to-orange-300/60', warn: 'from-amber-400/90 to-rose-400/60' }[paceTone];
+  // quanto del ciclo è già passato / già speso: due archi sulla stessa barra,
+  // così si vede a colpo d'occhio se si corre più veloce del tempo.
+  const pctSpent = adaptive && adaptive.budget > 0 ? Math.min(100, Math.round((adaptive.spent / adaptive.budget) * 100)) : 0;
+  const pctTime = adaptive && adaptive.cycleLen > 0 ? Math.min(100, Math.round((adaptive.daysElapsed / adaptive.cycleLen) * 100)) : 0;
+
+  const paceLine = adaptive
+    ? (adaptive.onTrack
+      ? `<b class="${toneColor}">Stai andando bene.</b> <span class="text-[var(--on-surface-secondary)]">Hai speso ${eur(adaptive.spent)} dei ${eur(adaptive.budget)} liberi.</span>`
+      : `<b class="${toneColor}">Stai correndo un po'.</b> <span class="text-[var(--on-surface-secondary)]">Hai speso ${eur(adaptive.spent)} dei ${eur(adaptive.budget)} liberi: con ${eur(oggi)} al giorno arrivi comunque in fondo.</span>`)
+    : `<span class="text-[var(--on-surface-secondary)]">Tolti gli impegni fissi, questo è ciò che resta da qui allo stipendio.</span>`;
+
   el.classList.remove('hidden');
   el.innerHTML = `
-    <div class="rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 p-3.5">
-      <div class="flex items-center justify-between gap-2 mb-2">
+    <div class="ghost-card rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 p-4">
+      <div class="flex items-center justify-between gap-2 mb-3">
         <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9 21V9a3 3 0 0 1 6 0v12l-2-1.5L11 21l-2-1.5z"/></svg>Il tuo mese, senza sorprese</span>
-        <button id="ghost-manage" class="text-[10px] font-bold text-[var(--primary)] underline">Gestisci</button>
+        <button id="ghost-manage" class="text-[11px] font-bold text-[var(--primary)] px-2 py-1 -mr-1 rounded-lg min-h-[32px]">Gestisci</button>
       </div>
-      ${stip !== null ? `
-        <div class="flex items-end justify-between gap-2">
-          <div><div class="text-[10px] text-[var(--on-surface-secondary)]">Ti resta davvero questo mese</div>
-            <div class="font-mono font-black text-2xl text-emerald-400 leading-tight">${eur(real)}</div></div>
-          <div class="text-right text-[10px] text-[var(--on-surface-secondary)]">stipendio ${eur(stip)}<br>− fantasmi ${eur(ghosts)}</div>
+
+      ${oggi !== null ? `
+        <!-- IL NUMERO: uno solo, grande, con la frase che lo spiega da sola -->
+        <div class="text-center">
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Oggi puoi spendere</div>
+          <div class="ghost-hero font-mono font-black text-[2.6rem] leading-none ${toneColor}">${eur(oggi)}</div>
+          <div class="text-[11.5px] text-[var(--on-surface-secondary)] mt-1.5">${days === 1 ? 'Domani ti pagano.' : `Poi ti pagano fra <b class="text-[var(--on-surface)]">${days} giorni</b>.`}</div>
         </div>
-        <div class="h-2 rounded-full bg-emerald-500/25 overflow-hidden mt-2"><div class="h-full bg-amber-400/70" style="width:${pctGhost}%"></div></div>
+
+        <!-- LA BARRA: quanto hai speso (pieno) contro quanto tempo è passato (tacca) -->
+        <div class="relative h-2.5 rounded-full bg-black/30 overflow-hidden mt-3">
+          <div class="ghost-bar h-full rounded-full bg-gradient-to-r ${toneRing}" style="width:${pctSpent}%"></div>
+          ${adaptive ? `<div class="absolute -top-0.5 -bottom-0.5 w-[3px] rounded-full bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.5)]" style="left:calc(${pctTime}% - 1px)"></div>` : ''}
+        </div>
+        ${adaptive ? `<div class="flex items-center gap-1.5 mt-1 text-[9.5px] text-[var(--on-surface-secondary)]">
+          <span class="inline-block w-2 h-2 rounded-full bg-gradient-to-r ${toneRing}"></span>quanto hai speso
+          <span class="inline-block w-[3px] h-2.5 rounded-full bg-white/80 ml-1.5"></span>a che punto è il mese
+        </div>` : ''}
+        <p class="text-[10.5px] mt-1.5 leading-snug">${paceLine}</p>
+        ${a.perWeek ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se preferisci ragionare a settimane: <b class="text-[var(--on-surface)]">${eur(a.perWeek)}</b>.</p>` : ''}
+      ` : stip !== null ? `
+        <div class="text-center">
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Ti resta davvero questo mese</div>
+          <div class="ghost-hero font-mono font-black text-[2.4rem] leading-none text-emerald-400">${eur(real)}</div>
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">stipendio ${eur(stip)} − impegni ${eur(ghosts)}</div>
+        </div>
+        <div class="h-2.5 rounded-full bg-emerald-500/25 overflow-hidden mt-3"><div class="ghost-bar h-full bg-amber-400/70" style="width:${pctGhost}%"></div></div>
       ` : `
-        <div class="text-[12px]">Impegni fissi al mese: <b class="font-mono text-amber-300">${eur(ghosts)}</b>. <span class="text-[var(--on-surface-secondary)]">Dimmi quando arriva lo stipendio e ti dico quanto ti resta davvero.</span></div>
-      `}
-      ${(() => {
-        // Disponibilità ADATTIVA (auto-correttiva): tiene conto di quanto hai
-        // GIÀ speso nel ciclo. Se manca (niente storico), usa la stima uniforme.
-        const adaptive = cycleAllowance(commitments, salary, { now: Date.now(), allTx: VaultDAO.state.transactions });
-        const a = adaptive || f.allowance;
-        if (!a) return '';
-        const days = a.daysLeft ?? a.daysToNext;
-        const paceColor = adaptive ? (adaptive.onTrack ? 'text-emerald-400' : adaptive.pace === 'oltre il ritmo' ? 'text-[var(--red)]' : 'text-amber-300') : '';
-        return `
-        <div class="grid grid-cols-2 gap-2 mt-2.5">
-          <div class="rounded-xl bg-black/25 border border-[var(--glass-border)] p-2 text-center">
-            <div class="text-[9.5px] text-[var(--on-surface-secondary)] uppercase tracking-wide">al giorno</div>
-            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(a.perDay)}</div>
-          </div>
-          <div class="rounded-xl bg-black/25 border border-[var(--glass-border)] p-2 text-center">
-            <div class="text-[9.5px] text-[var(--on-surface-secondary)] uppercase tracking-wide">a settimana</div>
-            <div class="font-mono font-black text-lg text-[var(--primary)] leading-tight">${eur(a.perWeek)}</div>
-          </div>
+        <!-- COLD START: niente stipendio noto. Una domanda sola, un tocco. -->
+        <div class="text-center py-1">
+          <div class="text-[13px] font-bold mb-1">Ogni mese se ne vanno ${eur(ghosts)} da soli.</div>
+          <p class="text-[11.5px] text-[var(--on-surface-secondary)] mb-2.5">Dimmi quando ti pagano e ti dico quanto puoi spendere ogni giorno, senza pensarci.</p>
+          <button id="ghost-setup-salary" class="w-full min-h-[44px] rounded-xl font-bold text-[13px] text-white" style="background:var(--apex-gradient)">Quando ti pagano?</button>
         </div>
-        ${adaptive ? `<p class="text-[10px] mt-1.5"><span class="${paceColor} font-bold">${adaptive.pace === 'in linea' ? '✓ Sei in linea' : adaptive.pace === 'oltre il ritmo' ? '⚠ Sei oltre il ritmo' : "Sei un po' sopra il ritmo"}</span> <span class="text-[var(--on-surface-secondary)]">· hai speso ${eur(adaptive.spent)} di ${eur(adaptive.budget)} liberi (${days === 1 ? 'stipendio domani' : `${days} giorni al prossimo stipendio`}).</span></p>`
-        : `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Puoi gestire così tanto fino al prossimo stipendio (${days === 1 ? 'domani' : `tra ${days} giorni`}), impegni già tolti.</p>`}`;
-      })()}
+      `}
+
       ${cashCurveHtml(commitments, salary)}
-      ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Da qui allo stipendio (${f.payday.date}) devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
-      ${ghostChips ? `<div class="flex flex-wrap gap-1.5 mt-2">${ghostChips}</div>` : ''}
-      ${paidNote}
-      ${learnNote}
-      ${endingMsg}
-      <p class="text-[9.5px] text-[var(--on-surface-secondary)] mt-2 opacity-75">Stime dai tuoi impegni, non certezze. I fantasmi sono soldi già promessi: tienili da parte.</p>
+
+      <!-- TUTTO IL RESTO A SCOMPARSA: c'è, ma non pesa sull'occhio -->
+      <details class="ghost-details mt-3 group">
+        <summary class="flex items-center justify-between gap-2 cursor-pointer list-none min-h-[36px] text-[11.5px] font-bold text-[var(--on-surface-secondary)]">
+          <span class="inline-flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="w-3.5 h-3.5 transition-transform group-open:rotate-90"><path d="M9 6l6 6-6 6"/></svg>
+            Cosa se ne va da solo
+          </span>
+          <span class="font-mono text-amber-300">${eur(f.monthlyFixedTotal)}/mese</span>
+        </summary>
+        <div class="pt-2">
+          ${ghostChips ? `<div class="flex flex-wrap gap-1.5">${ghostChips}</div>` : `<p class="text-[11px] text-[var(--on-surface-secondary)]">Non hai ancora scritto cosa paghi ogni mese.</p>`}
+          ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Prima dello stipendio devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
+          ${paidNote}
+          ${learnNote}
+          ${endingMsg}
+          <p class="text-[9.5px] text-[var(--on-surface-secondary)] mt-2 opacity-75">Sono stime dai tuoi impegni, non certezze. Gli impegni sono soldi già promessi: tienili da parte.</p>
+        </div>
+      </details>
     </div>`;
   document.getElementById('ghost-manage')?.addEventListener('click', () => openCommitmentsManager(renderDashboard));
+  document.getElementById('ghost-setup-salary')?.addEventListener('click', () => window.openSalaryEditor?.(renderDashboard));
 }
 
 // Gestore impegni fissi (mutuo, prestiti, affitto, bollette): CRUD semplice su
