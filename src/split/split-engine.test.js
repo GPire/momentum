@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, decodeGroupShare, settlementCounts } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, decodeGroupShare, settlementCounts, describeGroupChanges } = await import('./split-engine.js');
 
 test('SEMPLIFICAZIONE: due coppie a somma-zero → 2 bonifici (non 4)', () => {
   const bal = { A: 10, B: -10, C: 10, D: -10 };
@@ -306,4 +306,63 @@ test('IDEMPOTENZA: ri-mergiare lo stesso stato non cambia nulla', async () => {
   assert.equal(once.expenses.length, 1);
   assert.equal(mergeGroups(once, g).expenses.length, 1);
   assert.equal(mergeGroups(once, once).name, g.name);
+});
+
+// ── describeGroupChanges: notifiche PRECISE cross-device (non generiche) ────
+test('describeGroupChanges: nuova persona entrata', () => {
+  const before = createGroup({ id: 'g1', name: 'cena', members: ['Io'] });
+  const after = { ...before, members: [...before.members, { id: 'mX', name: 'Marco' }] };
+  const { changes } = describeGroupChanges(before, after);
+  assert.equal(changes.length, 1);
+  assert.match(changes[0], /Marco è entrato/);
+});
+
+test('describeGroupChanges: nuova spesa con importo e descrizione', () => {
+  let g = createGroup({ id: 'g1', name: 'cena', members: ['Io', 'Marco'] });
+  const before = g;
+  g = addSharedExpense(g, { payer: g.members[0].id, amount: 40, description: 'pizza' });
+  const { changes } = describeGroupChanges(before, g);
+  assert.equal(changes.length, 1);
+  assert.match(changes[0], /Io ha aggiunto una spesa di 40\.00€ \(pizza\)/);
+});
+
+test('describeGroupChanges: importo di una spesa esistente cambiato', () => {
+  let g = createGroup({ id: 'g1', name: 'cena', members: ['Io'] });
+  g = addSharedExpense(g, { payer: g.members[0].id, amount: 40, description: 'pizza' });
+  const before = g;
+  const after = editExpense(g, g.expenses[0].id, { amount: 55 });
+  const { changes } = describeGroupChanges(before, after);
+  assert.equal(changes.length, 1);
+  assert.match(changes[0], /da 40\.00€ a 55\.00€/);
+});
+
+test('describeGroupChanges: rename', () => {
+  const before = createGroup({ id: 'g1', name: 'cena', members: ['Io'] });
+  const after = renameGroup(before, 'Cena di venerdì');
+  const { changes } = describeGroupChanges(before, after);
+  assert.equal(changes.length, 1);
+  assert.match(changes[0], /rinominato in "Cena di venerdì"/);
+});
+
+test('describeGroupChanges: nessun cambiamento reale → array vuoto', () => {
+  const g = createGroup({ id: 'g1', name: 'cena', members: ['Io'] });
+  const { changes } = describeGroupChanges(g, g);
+  assert.equal(changes.length, 0);
+});
+
+test('describeGroupChanges: gruppo nuovo (before assente)', () => {
+  const g = createGroup({ id: 'g1', name: 'weekend', members: ['Io'] });
+  const { changes } = describeGroupChanges(null, g);
+  assert.equal(changes.length, 1);
+  assert.match(changes[0], /Nuovo gruppo "weekend" ricevuto/);
+});
+
+test('describeGroupChanges: combinato (persona + spesa insieme, come nel sync mesh reale)', () => {
+  let before = createGroup({ id: 'g1', name: 'weekend', members: ['Io'] });
+  let after = { ...before, members: [...before.members, { id: 'mA', name: 'Anna' }] };
+  after = addSharedExpense(after, { payer: 'mA', amount: 60, description: 'hotel' });
+  const { changes } = describeGroupChanges(before, after);
+  assert.equal(changes.length, 2);
+  assert.ok(changes.some(c => /Anna è entrato/.test(c)));
+  assert.ok(changes.some(c => /Anna ha aggiunto una spesa di 60\.00€ \(hotel\)/.test(c)));
 });

@@ -20,7 +20,7 @@ import { selectableCountries as selectableInvoiceCountries } from './invoice/cou
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges } from './split/split-engine.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
@@ -4697,14 +4697,22 @@ function initMomentumRealAI() {
     // "Ricevi"): non perde mai dati locali, converge nei due sensi.
     momentumMeshNode.onSplitGroupsReceived = (peerId, incoming) => {
       let changed = false;
+      const allChanges = [];
       for (const g of (incoming || [])) {
-        const before = VaultDAO.state.splitGroups || [];
-        const after = mergeIntoGroups(before, g);
-        if (after !== before) { VaultDAO.state.splitGroups = after; changed = true; }
+        const before = (VaultDAO.state.splitGroups || []).find(x => x.id === g.id) || null;
+        const merged = mergeIntoGroups(VaultDAO.state.splitGroups || [], g).find(x => x.id === g.id);
+        // Notifica PRECISA (non "aggiornato"): cosa è arrivato per davvero —
+        // persona entrata, spesa aggiunta con importo, rename. Un concorrente
+        // cloud (Splitwise/Settle Up) non ti dice mai QUESTO livello di
+        // dettaglio su un update da un altro dispositivo.
+        if (merged) allChanges.push(...describeGroupChanges(before, merged).changes);
+        const list = mergeIntoGroups(VaultDAO.state.splitGroups || [], g);
+        if (list !== VaultDAO.state.splitGroups) { VaultDAO.state.splitGroups = list; changed = true; }
       }
       if (changed) {
         VaultDAO.save();
-        showToast('Un gruppo condiviso è stato aggiornato da un tuo dispositivo.', 'success');
+        if (allChanges.length) allChanges.slice(0, 3).forEach(msg => showToast(msg, 'success'));
+        else showToast('Un gruppo condiviso è stato aggiornato da un tuo dispositivo.', 'success');
         // Se il pannello di divisione è aperto ORA (marcatori stabili di
         // renderList/renderDetail nel modale), si ridisegna subito: è questo
         // che rende il sync "live" — MAI se è aperto un modale diverso
@@ -4738,7 +4746,7 @@ function initMomentumRealAI() {
     momentumMeshNode.onPricesReceived = async (peerId, prices) => {
       try {
         const { mergePeerPrices } = await import('./alpha/market-data.js');
-        let mergedAny = false;
+        const updatedSymbols = [];
         for (const [sym, payload] of Object.entries(prices || {})) {
           const key = `mkt:${payload.kind || 'crypto'}:${sym}`;
           const local = await DurableStore.get('state', key).catch(() => null);
@@ -4747,10 +4755,15 @@ function initMomentumRealAI() {
             await DurableStore.put('state', winner, key).catch(() => {});
             const last = winner.prices[winner.prices.length - 1];
             if (last) (window.__livePrices = window.__livePrices || {})[sym] = last.close;
-            mergedAny = true;
+            updatedSymbols.push(sym);
           }
         }
-        if (mergedAny) { renderNetWorth(); showToast('Prezzi aggiornati da un tuo dispositivo.', 'success'); }
+        if (updatedSymbols.length) {
+          renderNetWorth();
+          // Notifica PRECISA: quali simboli, non un "prezzi aggiornati" generico.
+          const list = updatedSymbols.slice(0, 4).join(', ') + (updatedSymbols.length > 4 ? ` +${updatedSymbols.length - 4}` : '');
+          showToast(`Prezzi aggiornati da un tuo dispositivo: ${list}.`, 'success');
+        }
       } catch (_) {}
     };
 

@@ -417,3 +417,37 @@ export function settlementToSepa(transfer, group, ibansById = {}) {
     title: `Rimborsa ${byId[transfer.to] || ''}`.trim(),
   };
 }
+
+// ── DESCRIVE COSA È ARRIVATO da un merge (sync live / mesh) ─────────────────
+// Confronta un gruppo PRIMA e DOPO il merge e produce frasi umane precise
+// ("Marco è entrato nel gruppo", "Anna ha aggiunto 40€ di cena"), non un
+// generico "aggiornato". Principio anti-attrito: specifico > vago, riduce
+// l'ansia "cosa è successo mentre ero via" e rende visibile il valore reale
+// del P2P (un concorrente cloud non te lo dice mai così). Pura, nessun DOM.
+export function describeGroupChanges(before, after) {
+  if (!before) return { changes: [`Nuovo gruppo "${after.name}" ricevuto`], groupName: after.name };
+  const changes = [];
+  if (before.name !== after.name) changes.push(`Il gruppo è stato rinominato in "${after.name}"`);
+
+  const beforeMemberIds = new Set(before.members.map(m => m.id));
+  for (const m of after.members) {
+    if (!beforeMemberIds.has(m.id)) changes.push(`${m.name} è entrato/a nel gruppo`);
+  }
+
+  const beforeExpenseIds = new Set(before.expenses.map(e => e.id));
+  const nameById = Object.fromEntries(after.members.map(m => [m.id, m.name]));
+  for (const e of after.expenses) {
+    if (!beforeExpenseIds.has(e.id)) {
+      const who = nameById[e.payer] || 'qualcuno';
+      const desc = e.description ? ` (${e.description})` : '';
+      changes.push(`${who} ha aggiunto una spesa di ${e.amount.toFixed(2)}€${desc}`);
+    } else {
+      // stessa spesa, importo cambiato (LWW ha aggiornato updatedAt)
+      const old = before.expenses.find(x => x.id === e.id);
+      if (old && old.amount !== e.amount) {
+        changes.push(`L'importo${e.description ? ` di "${e.description}"` : ''} è cambiato da ${old.amount.toFixed(2)}€ a ${e.amount.toFixed(2)}€`);
+      }
+    }
+  }
+  return { changes, groupName: after.name };
+}
