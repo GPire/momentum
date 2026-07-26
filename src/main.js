@@ -24,6 +24,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
+import { commitmentForecast, remainingInstallments, payoffDate } from './predict/fixed-commitments.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -1298,6 +1299,9 @@ const renderDashboard = () => {
     }
   }
 
+  // Fantasmi: stipendio − impegni fissi (mutuo/prestiti/affitto/bollette).
+  try { renderGhostForecast(); } catch (_) {}
+
   // Ledger list
   const list = $('#transaction-list-container');
   list.innerHTML = '';
@@ -2370,6 +2374,173 @@ window.openSplitExpense = (prefill = {}) => {
 // ── STIPENDIO: mostra quello capito dai movimenti e lascia correggerlo ───────
 // "Momentum capisce da solo quando e quanto prendi" — ma resta tuo: qui vedi il
 // giorno e l'importo rilevati (o li imposti se non ci sono abbastanza dati) e
+// ── FANTASMI: impegni fissi sottratti dallo stipendio PRIMA della transazione ─
+// La domanda che disegna l'ansia di fine mese: "quanto mi resta DAVVERO, tolto
+// tutto ciò che è già promesso?". Mutuo, prestiti, affitto, bollette entrano
+// come spese "fantasma" — già tolte dallo stipendio anche se non ancora pagate.
+// Semplice da capire per chiunque: un numero grande verde = quello che è
+// davvero tuo. Onesto: usa i dati che inserisci, e lo dichiara.
+function renderGhostForecast() {
+  const el = document.getElementById('ghost-forecast');
+  if (!el) return;
+  const commitments = VaultDAO.state.fixedCommitments || [];
+  const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
+  // Mostra la card solo se c'è qualcosa da dire (stipendio noto o impegni definiti).
+  if (!salary && !commitments.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  // Transazioni del mese corrente → riconciliazione: ciò che è GIÀ stato pagato
+  // (import CSV/estratto) non è più un fantasma, così non lo contiamo due volte.
+  const monthTx = VaultDAO.state.transactions[monthKey(new Date())] || [];
+  const f = commitmentForecast(commitments, salary, { now: Date.now(), monthTx });
+  const eur = (n) => formatMoney(n);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const stip = salary && salary.amount ? salary.amount : null;
+  const ghosts = f.pendingGhostTotal;            // solo i fantasmi ANCORA da pagare
+  const real = stip !== null ? Math.max(0, Math.round((stip - ghosts) * 100) / 100) : null;
+  const pctGhost = stip ? Math.min(100, Math.round((ghosts / stip) * 100)) : 0;
+  const paidIds = new Set(f.paid.map(c => c.id));
+
+  const ghostChips = commitments.filter(c => +c.amount > 0).slice(0, 6).map(c => {
+    const rem = remainingInstallments(c, Date.now());
+    const tail = rem !== null ? ` · ${rem} rate` : '';
+    const done = paidIds.has(c.id);
+    // un impegno già materializzato nel mese si mostra spuntato (già contato per davvero).
+    return `<span class="text-[10px] px-2 py-0.5 rounded-full ${done ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-black/25 border-[var(--glass-border)]'} border whitespace-nowrap">${done ? '✓ ' : ''}${esc(c.name.length > 16 ? c.name.slice(0, 15) + '…' : c.name)} · ${eur(c.amount)}${done ? '' : tail}</span>`;
+  }).join('');
+  const paidNote = f.paidTotal > 0 ? `<p class="text-[10.5px] text-emerald-400/90 mt-1.5">✓ Già pagati questo mese: ${eur(f.paidTotal)} (non più contati come fantasmi).</p>` : '';
+
+  const endingMsg = f.endingSoon.length
+    ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">🎉 Quasi finito: ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} (${e.remaining} rate, chiude ${e.payoff})`).join(' · ')}</p>` : '';
+
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 p-3.5">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9 21V9a3 3 0 0 1 6 0v12l-2-1.5L11 21l-2-1.5z"/></svg>Il tuo mese, senza sorprese</span>
+        <button id="ghost-manage" class="text-[10px] font-bold text-[var(--primary)] underline">Gestisci</button>
+      </div>
+      ${stip !== null ? `
+        <div class="flex items-end justify-between gap-2">
+          <div><div class="text-[10px] text-[var(--on-surface-secondary)]">Ti resta davvero questo mese</div>
+            <div class="font-mono font-black text-2xl text-emerald-400 leading-tight">${eur(real)}</div></div>
+          <div class="text-right text-[10px] text-[var(--on-surface-secondary)]">stipendio ${eur(stip)}<br>− fantasmi ${eur(ghosts)}</div>
+        </div>
+        <div class="h-2 rounded-full bg-emerald-500/25 overflow-hidden mt-2"><div class="h-full bg-amber-400/70" style="width:${pctGhost}%"></div></div>
+      ` : `
+        <div class="text-[12px]">Impegni fissi al mese: <b class="font-mono text-amber-300">${eur(ghosts)}</b>. <span class="text-[var(--on-surface-secondary)]">Dimmi quando arriva lo stipendio e ti dico quanto ti resta davvero.</span></div>
+      `}
+      ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Da qui allo stipendio (${f.payday.date}) devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
+      ${ghostChips ? `<div class="flex flex-wrap gap-1.5 mt-2">${ghostChips}</div>` : ''}
+      ${paidNote}
+      ${endingMsg}
+      <p class="text-[9.5px] text-[var(--on-surface-secondary)] mt-2 opacity-75">Stime dai tuoi impegni, non certezze. I fantasmi sono soldi già promessi: tienili da parte.</p>
+    </div>`;
+  document.getElementById('ghost-manage')?.addEventListener('click', () => openCommitmentsManager(renderDashboard));
+}
+
+// Gestore impegni fissi (mutuo, prestiti, affitto, bollette): CRUD semplice su
+// VaultDAO.state.fixedCommitments (campo additivo). Un mutuo/prestito può avere
+// una durata (rate) → l'app sa quando finisce. Collega anche l'editor stipendio.
+window.openCommitmentsManager = (onDone = null) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const list = () => VaultDAO.state.fixedCommitments || [];
+  const KINDS = [['affitto', 'Affitto'], ['mutuo', 'Mutuo'], ['prestito', 'Prestito'], ['bolletta', 'Bolletta'], ['abbonamento', 'Abbonamento']];
+  const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
+
+  const render = () => {
+    const rows = list().map(c => {
+      const rem = remainingInstallments(c, Date.now());
+      const sub = rem !== null ? `giorno ${c.dayOfMonth} · ${rem} rate rimaste · chiude ${payoffDate(c)}` : `giorno ${c.dayOfMonth} · ricorrente`;
+      return `<div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20">
+        <button data-edit="${c.id}" class="min-w-0 text-left flex-1"><span class="font-bold text-[13px] block truncate">${esc(c.name)} <span class="text-[10px] text-[var(--primary)] opacity-80">modifica</span></span><span class="text-[10.5px] text-[var(--on-surface-secondary)]">${sub}</span></button>
+        <span class="flex items-center gap-2 shrink-0"><span class="font-mono font-black text-[13px] text-amber-300">${eur(c.amount)}</span><button data-del="${c.id}" class="text-[11px] text-[var(--red)] opacity-70">✕</button></span>
+      </div>`;
+    }).join('');
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div>
+          <p class="eyebrow !mb-0 text-[var(--primary)]">Impegni fissi</p>
+          <h3 class="text-base font-black">Mutuo, prestiti, affitto, bollette</h3>
+          <p class="card-sub !mb-0">Li tolgo dallo stipendio come "fantasmi": vedi subito quanto ti resta davvero. Per mutuo e prestiti dimmi le rate e so anche quando finiscono.</p>
+        </div>
+        <button id="fc-salary" class="card p-3 text-left flex items-center justify-between">
+          <span class="text-[13px] font-bold">Il tuo stipendio</span>
+          <span class="text-[12px] text-${salary ? 'emerald-400' : 'amber-300'} font-mono">${salary ? `${eur(salary.amount)} il ${salary.dayOfMonth}` : 'da impostare ›'}</span>
+        </button>
+        ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun impegno ancora. Aggiungine uno qui sotto.</p>'}
+        <div class="card p-3 flex flex-col gap-2">
+          <div class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi un impegno</div>
+          <div class="flex flex-wrap gap-1.5" id="fc-kinds">${KINDS.map((k, i) => `<button data-kind="${k[0]}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${i === 0 ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${k[1]}</button>`).join('')}</div>
+          <input id="fc-name" placeholder="Nome (es. Mutuo casa)" class="bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm" />
+          <div class="flex gap-2">
+            <input id="fc-amt" inputmode="decimal" placeholder="Importo €" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+            <input id="fc-day" inputmode="numeric" placeholder="Giorno" class="w-24 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+          </div>
+          <div id="fc-term-wrap" class="hidden flex gap-2">
+            <input id="fc-start" type="date" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-[13px] font-mono" />
+            <input id="fc-months" inputmode="numeric" placeholder="Rate totali" class="w-28 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+          </div>
+          <button id="fc-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl">Aggiungi</button>
+        </div>
+      </div>`);
+
+    let kind = 'affitto';
+    let editingId = null;
+    const syncTerm = () => document.getElementById('fc-term-wrap').classList.toggle('hidden', !(kind === 'mutuo' || kind === 'prestito'));
+    const selectKind = (k) => {
+      kind = k;
+      document.querySelectorAll('#fc-kinds [data-kind]').forEach(x => { x.className = x.className.replace(/border-\[var\(--gold\)\] text-\[var\(--gold\)\]/, 'border-[var(--glass-border)] text-slate-300'); if (x.dataset.kind === k) x.className = x.className.replace('border-[var(--glass-border)] text-slate-300', 'border-[var(--gold)] text-[var(--gold)]'); });
+      syncTerm();
+    };
+    // Modifica: precarica i valori dell'impegno nel form (importi cambiati,
+    // giorno diverso, ecc.) e trasforma "Aggiungi" in salvataggio della modifica.
+    document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+      const c = list().find(x => x.id === b.dataset.edit);
+      if (!c) return;
+      editingId = c.id;
+      document.getElementById('fc-name').value = c.name;
+      document.getElementById('fc-amt').value = c.amount;
+      document.getElementById('fc-day').value = c.dayOfMonth;
+      selectKind(c.kind || 'affitto');
+      if (c.startDate) document.getElementById('fc-start').value = c.startDate;
+      if (c.termMonths) document.getElementById('fc-months').value = c.termMonths;
+      const addBtn = document.getElementById('fc-add'); if (addBtn) addBtn.textContent = 'Salva modifiche';
+      document.getElementById('fc-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }));
+    document.querySelectorAll('#fc-kinds [data-kind]').forEach(b => b.addEventListener('click', () => selectKind(b.dataset.kind)));
+    document.getElementById('fc-salary')?.addEventListener('click', () => openSalaryEditor(() => openCommitmentsManager(onDone)));
+    document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+      VaultDAO.state.fixedCommitments = list().filter(c => c.id !== b.dataset.del);
+      VaultDAO.save(); render();
+    }));
+    document.getElementById('fc-add')?.addEventListener('click', () => {
+      const name = String(document.getElementById('fc-name').value).trim();
+      const amt = parseFloat(String(document.getElementById('fc-amt').value).replace(',', '.'));
+      const day = parseInt(String(document.getElementById('fc-day').value).replace(/\D/g, ''), 10);
+      if (!name || !(amt > 0) || !(day >= 1 && day <= 31)) { showToast('Metti nome, importo e giorno (1–31).', 'error'); return; }
+      const c = { id: editingId || ('fc_' + Date.now().toString(36)), name, amount: Math.round(amt * 100) / 100, dayOfMonth: day, kind };
+      if (kind === 'mutuo' || kind === 'prestito') {
+        const start = document.getElementById('fc-start').value;
+        const months = parseInt(String(document.getElementById('fc-months').value).replace(/\D/g, ''), 10);
+        if (start && months > 0) { c.startDate = start; c.termMonths = months; }
+      }
+      // modifica in-place (stesso id) o aggiunta; l'edit preserva la posizione.
+      VaultDAO.state.fixedCommitments = editingId
+        ? list().map(x => x.id === editingId ? c : x)
+        : [...list(), c];
+      VaultDAO.save(); haptic('medium');
+      showToast(editingId ? `"${name}" aggiornato.` : `"${name}" aggiunto: ${eur(amt)} il giorno ${day}.`, 'success');
+      editingId = null;
+      render();
+    });
+  };
+  render();
+  const origClose = window.closeModal;
+  // quando l'utente chiude il gestore, ridisegna la dashboard (fantasmi aggiornati)
+  window.closeModal = function () { origClose(); if (onDone) onDone(); window.closeModal = origClose; };
+};
+
 // puoi correggerli. L'override vince sul rilevato (resolveSalary). onDone()
 // ridisegna la schermata chiamante così il nuovo stipendio si applica subito.
 window.openSalaryEditor = (onDone = null) => {

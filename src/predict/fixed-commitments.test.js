@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const { remainingInstallments, payoffDate, isActive, residualApprox, nextOccurrence,
-  commitmentsDueBetween, commitmentForecast } = await import('./fixed-commitments.js');
+  commitmentsDueBetween, commitmentForecast, matchCommitmentInMonth, reconcileCommitments } = await import('./fixed-commitments.js');
 
 const mutuo = { id: 'm1', name: 'Mutuo casa', amount: 650, dayOfMonth: 5, kind: 'mutuo', startDate: '2024-01-05', termMonths: 240 };
 const prestito = { id: 'p1', name: 'Prestito auto', amount: 210, dayOfMonth: 10, kind: 'prestito', startDate: '2025-06-10', termMonths: 24 };
@@ -91,4 +91,79 @@ test('commitmentForecast: un impegno estinto non entra nei conti', () => {
   const f = commitmentForecast([finito, affitto], null, { now: Date.parse('2026-07-01') });
   assert.equal(f.activeCount, 1, 'solo l\'affitto è attivo');
   assert.equal(f.monthlyFixedTotal, 500);
+});
+
+// ── RICONCILIAZIONE anti doppio-conteggio ───────────────────────────────────
+const monthTxPaidMutuo = [
+  { amount: 648, type: 'uscita', description: 'ADDEBITO RATA MUTUO', date: '2026-07-05' },
+];
+test('matchCommitmentInMonth: una spesa reale vicina per importo e giorno combacia', () => {
+  const t = matchCommitmentInMonth(mutuo, monthTxPaidMutuo);
+  assert.ok(t, 'il mutuo pagato il 5 per ~650 combacia con la rata reale di 648');
+});
+
+test('matchCommitmentInMonth: importo troppo diverso NON combacia', () => {
+  const tx = [{ amount: 200, type: 'uscita', date: '2026-07-05' }];
+  assert.equal(matchCommitmentInMonth(mutuo, tx), null);
+});
+
+test('matchCommitmentInMonth: giorno troppo lontano NON combacia', () => {
+  const tx = [{ amount: 650, type: 'uscita', date: '2026-07-25' }]; // il mutuo è il 5
+  assert.equal(matchCommitmentInMonth(mutuo, tx), null);
+});
+
+test('reconcileCommitments: separa pagati e in sospeso', () => {
+  const now = Date.parse('2026-07-20');
+  const r = reconcileCommitments([mutuo, prestito, affitto], monthTxPaidMutuo, { now });
+  assert.equal(r.paid.length, 1);
+  assert.equal(r.paid[0].name, 'Mutuo casa');
+  assert.equal(r.paidTotal, 648);
+  assert.equal(r.pending.length, 2, 'prestito e affitto ancora da pagare');
+  assert.equal(r.pendingTotal, 210 + 500);
+});
+
+test('commitmentForecast con monthTx: i fantasmi in sospeso escludono ciò che è già pagato', () => {
+  const now = Date.parse('2026-07-20');
+  const f = commitmentForecast([mutuo, prestito, affitto], { dayOfMonth: 27, amount: 1800 }, { now, monthTx: monthTxPaidMutuo });
+  // mutuo già pagato → non è più un fantasma da accantonare
+  assert.equal(f.paidTotal, 648);
+  assert.equal(f.pendingGhostTotal, 210 + 500, 'solo prestito+affitto restano fantasmi');
+  assert.ok(f.paid.some(c => c.name === 'Mutuo casa'));
+});
+
+test('commitmentForecast senza monthTx: retrocompatibile (tutto in sospeso)', () => {
+  const f = commitmentForecast([mutuo, prestito, affitto], null, { now: Date.parse('2026-07-01') });
+  assert.equal(f.pendingGhostTotal, f.monthlyFixedTotal);
+  assert.equal(f.paidTotal, 0);
+});
+
+// ── IMPORTI VARIABILI: la bolletta cambia ogni mese, deve comunque combaciare ─
+test('matchCommitmentInMonth: una BOLLETTA variabile combacia anche con importo diverso', () => {
+  const bolletta = { id: 'b1', name: 'Bolletta luce', amount: 70, dayOfMonth: 15, kind: 'bolletta' };
+  const inverno = [{ amount: 120, type: 'uscita', description: 'ENEL ENERGIA', date: '2026-01-15' }];
+  const t = matchCommitmentInMonth(bolletta, inverno);
+  assert.ok(t, 'bolletta stimata 70 combacia con la reale 120 (banda larga per i variabili)');
+});
+
+test('matchCommitmentInMonth: un MUTUO fisso NON accetta un importo lontano (banda stretta)', () => {
+  const m = { id: 'm', name: 'Mutuo', amount: 650, dayOfMonth: 5, kind: 'mutuo' };
+  const tx = [{ amount: 850, type: 'uscita', date: '2026-07-05' }]; // +30%: non è la rata
+  assert.equal(matchCommitmentInMonth(m, tx), null, 'il mutuo è fisso: 850 non è la rata da 650');
+});
+
+test('reconcileCommitments: la bolletta pagata usa l\'importo REALE, non la stima', () => {
+  const bolletta = { id: 'b1', name: 'Bolletta luce', amount: 70, dayOfMonth: 15, kind: 'bolletta' };
+  const inverno = [{ amount: 120, type: 'uscita', date: '2026-01-15' }];
+  const r = reconcileCommitments([bolletta], inverno, { now: Date.parse('2026-01-20') });
+  assert.equal(r.paid.length, 1);
+  assert.equal(r.paid[0].matchedAmount, 120, 'conta i 120€ realmente spesi, non i 70 stimati');
+});
+
+test('matchCommitmentInMonth: sceglie il candidato più vicino al giorno atteso', () => {
+  const m = { id: 'm', name: 'Mutuo', amount: 650, dayOfMonth: 5, kind: 'mutuo' };
+  const tx = [
+    { amount: 650, type: 'uscita', date: '2026-07-08' }, // +3 giorni
+    { amount: 650, type: 'uscita', date: '2026-07-05' }, // esatto
+  ];
+  assert.equal(matchCommitmentInMonth(m, tx).date, '2026-07-05');
 });

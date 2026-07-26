@@ -122,6 +122,60 @@ function nextPaydayDate(dayOfMonth, from) {
   return new Date(Date.UTC(y, m, day));
 }
 
+// ── RICONCILIAZIONE (anti doppio-conteggio) ─────────────────────────────────
+// Il fantasma è una STIMA finché la transazione vera non arriva (import CSV/
+// estratto/screenshot). Quando una spesa reale del mese COMBACIA con un impegno
+// (importo simile, intorno al suo giorno), quel fantasma è "materializzato": va
+// tolto dai fantasmi da accantonare, così NON lo si conta due volte. Onesto: la
+// tolleranza è dichiarata; una bolletta variabile combacia entro una banda.
+// Tolleranza d'importo CONSAPEVOLE DEL TIPO: un mutuo/affitto è fisso (banda
+// stretta), una bolletta varia molto mese su mese (banda larga), un abbonamento
+// sta nel mezzo. Così una bolletta da 120€ combacia con la stima di 70€ (è la
+// stessa bolletta, importo diverso) senza che il mutuo accetti un importo sbagliato.
+// Override esplicito: c.variable=true → banda molto larga; opts.amountTol vince su tutto.
+const TOL_BY_KIND = { mutuo: 0.12, prestito: 0.12, affitto: 0.15, abbonamento: 0.25, bolletta: 0.75 };
+function toleranceFor(c, optTol) {
+  if (optTol != null) return optTol;
+  if (c.variable) return 0.9;
+  return TOL_BY_KIND[c.kind] ?? 0.2;
+}
+
+export function matchCommitmentInMonth(c, monthTx = [], { amountTol = null, dayTol = 6 } = {}) {
+  const target = +c.amount || 0;
+  const tol = toleranceFor(c, amountTol);
+  let best = null, bestDelta = Infinity;
+  for (const t of monthTx) {
+    if (t.type && t.type !== 'uscita') continue;
+    const amt = Math.abs(+t.amount || 0);
+    if (target > 0 && Math.abs(amt - target) / target > tol) continue;
+    const d = parseISO(t.date) || new Date(t.date);
+    if (Number.isNaN(d.getTime())) continue;
+    const dayDelta = Math.abs(d.getUTCDate() - c.dayOfMonth);
+    if (dayDelta > dayTol) continue;
+    // tra i candidati validi scegli il più vicino nel giorno (il match più solido).
+    if (dayDelta < bestDelta) { best = t; bestDelta = dayDelta; }
+  }
+  return best;
+}
+
+// Divide gli impegni ATTIVI del mese in "già pagati" (materializzati in una
+// transazione reale) e "in sospeso" (ancora fantasmi da tenere da parte).
+export function reconcileCommitments(commitments = [], monthTx = [], { now = Date.now(), ...opts } = {}) {
+  const paid = [], pending = [];
+  for (const c of commitments) {
+    if (!(+c.amount > 0) || !(c.dayOfMonth >= 1) || !isActive(c, now)) continue;
+    const m = matchCommitmentInMonth(c, monthTx, opts);
+    if (m) paid.push({ ...c, matchedAmount: Math.abs(+m.amount || 0) });
+    else pending.push(c);
+  }
+  const round = (n) => Math.round(n * 100) / 100;
+  return {
+    paid, pending,
+    pendingTotal: round(pending.reduce((s, c) => s + (+c.amount || 0), 0)),
+    paidTotal: round(paid.reduce((s, c) => s + c.matchedAmount, 0)),
+  };
+}
+
 // ── IL FORECAST PRECISO AL GIORNO ───────────────────────────────────────────
 // Incrocia stipendio (giorno+importo) e impegni fissi per rispondere alle
 // domande che nessuna app risponde con precisione:
@@ -129,8 +183,11 @@ function nextPaydayDate(dayOfMonth, from) {
 //  - quali impegni restano questo mese, e quanto pesano;
 //  - quali stanno per ESTINGUERSI (mutuo/prestito quasi finiti).
 // `salary` = { dayOfMonth, amount } (da income-model.resolveSalary) o null.
-export function commitmentForecast(commitments = [], salary = null, { now = Date.now() } = {}) {
+export function commitmentForecast(commitments = [], salary = null, { now = Date.now(), monthTx = null } = {}) {
   const active = commitments.filter(c => +c.amount > 0 && c.dayOfMonth >= 1 && isActive(c, now));
+  // Riconciliazione: se abbiamo le transazioni del mese, distingui i fantasmi
+  // già materializzati (pagati) da quelli ancora in sospeso — anti doppio-conteggio.
+  const recon = monthTx ? reconcileCommitments(commitments, monthTx, { now }) : null;
   const payday = salary && salary.dayOfMonth >= 1
     ? nextPaydayDate(salary.dayOfMonth, now) : null;
 
@@ -161,5 +218,11 @@ export function commitmentForecast(commitments = [], salary = null, { now = Date
     endingSoon,
     monthlyFixedTotal,
     activeCount: active.length,
+    // Con le transazioni del mese: quanto è ancora da tenere da parte (fantasmi
+    // in sospeso) vs quanto è già stato pagato per davvero (materializzato).
+    pendingGhostTotal: recon ? recon.pendingTotal : monthlyFixedTotal,
+    paidTotal: recon ? recon.paidTotal : 0,
+    paid: recon ? recon.paid : [],
+    pending: recon ? recon.pending : active,
   };
 }
