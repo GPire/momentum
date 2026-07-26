@@ -48,7 +48,7 @@ test('crossDomainWhatIf: nessuno storico per la categoria -> whatIf nullo, degra
   assert.equal(r.whatIf, null);
   assert.equal(r.twin, null);
   assert.equal(r.combined.confidence, 0);
-  assert.deepEqual(r.combined.missing, ['causal-whatif', 'net-worth-twin']);
+  assert.deepEqual(r.combined.missing, ['causal-whatif', 'net-worth-twin', 'short-term-cash']);
 });
 
 test('crossDomainWhatIf: deltaPct che non cambia nulla (es. 0%) non calcola un twin inventato', () => {
@@ -60,4 +60,53 @@ test('crossDomainWhatIf: deltaPct che non cambia nulla (es. 0%) non calcola un t
 test('crossDomainWhatIf: mai un layer mancante rompe gli altri (degradazione graceful)', () => {
   // categoria valida ma allTx malformato in modo che what-if possa fallire internamente
   assert.doesNotThrow(() => crossDomainWhatIf({ allTx: null, category: 'ristorazione', deltaPct: -20 }));
+});
+
+// ── STRATO BREVE TERMINE: ponte con la Cassa Unica (src/predict/cash-forecast.js) ──
+const salaryFixture = { dayOfMonth: 27, amount: 1800 };
+const rentFixture = [{ id: 'a1', name: 'Affitto', amount: 700, dayOfMonth: 1, kind: 'affitto' }];
+
+// storico più ricco: 90 giorni di spesa libera reale + la categoria da tagliare,
+// necessario perché sia il causal-whatif SIA il profilo di spesa libera parlino.
+function richHistory(refDate) {
+  const tx = {};
+  for (let i = 1; i <= 90; i++) {
+    const d = new Date(refDate); d.setDate(d.getDate() - i);
+    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    (tx[mk] ||= []).push({ date: d.toISOString().slice(0, 10), amount: 15, type: 'uscita', category: 'varie' });
+  }
+  for (const mk of ['2026-04', '2026-05', '2026-06']) {
+    (tx[mk] ||= []).push({ date: `${mk}-05`, amount: 300, type: 'uscita', category: 'ristorazione' });
+  }
+  return tx;
+}
+
+test('crossDomainWhatIf: senza impegni/stipendio il layer breve-termine resta non disponibile (nessuna invenzione)', () => {
+  const r = crossDomainWhatIf({ allTx, category: 'ristorazione', deltaPct: -20, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.shortTerm, null);
+  assert.deepEqual(r.layers.find(l => l.name === 'short-term-cash'), { name: 'short-term-cash', ok: false, confidence: 0 });
+});
+
+test('crossDomainWhatIf: CON impegni/stipendio il taglio causale sposta anche la cassa a 30 giorni', () => {
+  const ref = new Date(2026, 6, 15);
+  const tx = richHistory(ref);
+  const r = crossDomainWhatIf({
+    allTx: tx, category: 'ristorazione', deltaPct: -20, referenceDate: ref,
+    commitments: rentFixture, salary: salaryFixture,
+  });
+  assert.ok(r.whatIf.totalMonthly > 0, 'precondizione: il taglio libera cashflow');
+  assert.ok(r.shortTerm, 'il layer breve termine deve calcolarsi con impegni+stipendio noti');
+  assert.ok(r.shortTerm.dailyCut > 0);
+  assert.ok(r.shortTerm.endDelta > 0, 'tagliare libera soldi ANCHE nei prossimi 30 giorni');
+  assert.ok(r.shortTerm.dataConfidence > 0);
+  assert.ok(r.combined.confidence > 0);
+});
+
+test('crossDomainWhatIf: il layer breve-termine non esplode se cashForecast fallisce', () => {
+  const r = crossDomainWhatIf({
+    allTx, category: 'ristorazione', deltaPct: -20, referenceDate: new Date(2026, 6, 15),
+    commitments: [{ id: 'x' }], // impegno malformato: niente amount/dayOfMonth
+  });
+  // può risultare null o calcolato, ma MAI un crash — il test stesso è l'asserzione.
+  assert.ok(r.combined);
 });

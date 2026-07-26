@@ -24,7 +24,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
-import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance } from './predict/fixed-commitments.js';
+import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
@@ -68,53 +68,6 @@ const CalendarBridge = {
     if (!VaultDAO.state.events) VaultDAO.state.events = [];
     VaultDAO.state.events.push({ id: Date.now() + Math.random(), ...ev, completed: false, category: 'scadenza' });
     VaultDAO.save();
-  }
-};
-
-// ==========================================
-// DEACTIVATED CHATBOT REASONING ENGINE
-// ==========================================
-window.QuantumReasoningEngine = {
-  active: false, // Deactivated on interface
-  query(question) {
-    const lower = question.toLowerCase();
-    // Layer 1: context ingestion
-    let thoughtProcess = "[Thought Layer 1] Ingesting financial request...\n";
-    
-    // Layer 2: analysis
-    thoughtProcess += "[Thought Layer 2] Reading ledger nodes and predicting cash flows...\n";
-    let totalWealth = 0;
-    let inc = 0, exp = 0;
-    Object.keys(VaultDAO.state.transactions).forEach(m => {
-      VaultDAO.state.transactions[m].forEach(t => {
-        if (t.type === 'entrata') inc += t.amount;
-        else if (t.type === 'uscita') exp += t.amount;
-      });
-    });
-    totalWealth = inc - exp;
-
-    // Layer 3: proiezione misurata (src/predict/advisor.js) al posto delle
-    // vecchie frasi fisse "Buffett/Munger-style" — numeri calcolati sui dati
-    // veri dell'utente, mai massime decorative.
-    thoughtProcess += "[Thought Layer 3] Projecting month-end from real data...\n";
-    const now = new Date();
-    const proj = getMonthEndProjection({
-      monthTxs: VaultDAO.state.transactions[monthKey(now)] || [],
-      monthlyBudget: VaultDAO.state.monthlyBudget,
-      referenceDate: now,
-      hwDailyLevel: window.__hwDailyLevel ?? null,
-    });
-    let advice = `Hai speso ${formatMoney(proj.spentSoFar)} questo mese.`;
-    if (proj.projectedDelta !== null && proj.daysRemaining > 0) {
-      advice += proj.willOverspend
-        ? ` Di questo passo lo chiudi a ${formatMoney(proj.projectedDelta)} rispetto al budget (stima ${proj.method === 'holt-winters' ? 'sul tuo andamento reale' : 'sul ritmo di questo mese'}).`
-        : ` Di questo passo ti avanzano ${formatMoney(proj.projectedDelta)} a fine mese.`;
-    }
-
-    return {
-      thoughts: thoughtProcess,
-      answer: `[Momentum Core] Capital: ${formatMoney(totalWealth)}. ${advice}`
-    };
   }
 };
 
@@ -1254,17 +1207,26 @@ const renderDashboard = () => {
     sweepBtn.disabled = (sweepEst <= 0);
   }
 
+  // La "sicurezza" dovrebbe coprire il BISOGNO ESSENZIALE (affitto, mutuo,
+  // bollette) non l'intero stile di vita — la spesa discrezionale la puoi
+  // tagliare in un'emergenza, l'affitto no. Se l'utente ha dichiarato i suoi
+  // impegni fissi (Cassa Unica / "Il tuo mese, senza sorprese"), il traguardo
+  // usa QUELLI (più corretto e personale); altrimenti degrado onesto sulla
+  // media di spesa totale, come prima — mai un dato mancante che rompe il calcolo.
+  const activeCommitments = (VaultDAO.state.fixedCommitments || []).filter(c => +c.amount > 0 && isActive(c, Date.now()));
+  const essentialMonthly = activeCommitments.reduce((s, c) => s + (+c.amount || 0), 0);
   const avgExpenses = monthCountAllTime > 0 ? (totalExpAllTime / monthCountAllTime) : 500;
-  const safetyGoal = avgExpenses * 6;
+  const safetyBasis = essentialMonthly > 0 ? essentialMonthly : avgExpenses;
+  const safetyGoal = safetyBasis * 6;
   const safetyScore = safetyGoal > 0 ? Math.min(Math.round((cumulativeReserve / safetyGoal) * 100), 100) : 0;
-  
-  const safetyStatusText = $('#quantum-safety-status');
+
+  const safetyStatusText = $('#safety-status');
   if (safetyStatusText) {
     safetyStatusText.textContent = `Sicurezza: ${safetyScore}%`;
     safetyStatusText.style.color = safetyScore >= 100 ? 'var(--green)' : (safetyScore > 50 ? 'var(--yellow)' : 'var(--red)');
   }
 
-  const waveBar = $('#quantum-reserve-wave');
+  const waveBar = $('#reserve-wave');
   if (waveBar) {
     waveBar.style.height = `${Math.max(10, Math.min(safetyScore, 100))}%`;
   }
@@ -1590,6 +1552,13 @@ window.exportEventsToICS = () => {
   }
 };
 
+// Segna l'avanzo del mese come "risparmio da spostare": l'importo è LO STESSO
+// mostrato nella card (liquidità − investito − impegni in arrivo), mai un
+// altro calcolo dietro le quinte. Onesto come applySweep: nessun ETF, nessuna
+// banca toccata — solo un'annotazione, il trasferimento reale lo fa l'utente.
+// BUG CORRETTO (trovato rileggendo il codice): prima calcolava liquidità×80%
+// (numero arbitrario, MAI quello mostrato all'utente) e lo registrava come
+// "ETF" — un investimento che non esiste, Momentum non ha una banca collegata.
 window.runAIOverflowSweep = () => {
   try {
     const k = monthKey(VaultDAO.state.currentDate);
@@ -1601,38 +1570,37 @@ window.runAIOverflowSweep = () => {
       else if (t.type === 'invest') inv += t.amount;
     });
     const liquidity = inc - exp - inv;
-    
-    if (liquidity <= 0) {
-      showToast("Nessun surplus disponibile per lo Sweep.", "info");
+    const com = getMonthlyCommitments(VaultDAO.state.transactions, VaultDAO.state.currentDate);
+    const sweepAmt = Math.max(0, Math.round((liquidity - com.reserved) * 100) / 100);
+
+    if (sweepAmt <= 0) {
+      showToast("Nessun avanzo disponibile da mettere al sicuro (tolti gli impegni in arrivo).", "info");
       AudioSynth.play('friction');
       return;
     }
-    
-    const investAmt = Math.round(liquidity * 0.8 * 100) / 100;
-    if (investAmt > 0) {
-      const newTx = {
-        id: Date.now() + Math.random(),
-        amount: investAmt,
-        type: 'invest',
-        category: 'etf',
-        description: 'AI Sweep Overflow',
-        color: getCatById('etf').color,
-        date: new Date().toISOString()
-      };
-      VaultDAO.addTransaction(k, newTx);
-      if (window.momentumOrchestrator) {
-        window.momentumOrchestrator.learn('AI Sweep Overflow', 'etf', investAmt, new Date());
-      } else {
-        NeuralNexus.train('AI Sweep Overflow', 'etf', investAmt, new Date());
-      }
+
+    const newTx = {
+      id: Date.now() + Math.random(),
+      amount: sweepAmt,
+      type: 'invest',
+      category: 'risparmio',
+      description: 'Risparmio avanzo (da spostare tu)',
+      color: getCatById('risparmio').color,
+      date: new Date().toISOString(),
+    };
+    VaultDAO.addTransaction(k, newTx);
+    if (window.momentumOrchestrator) {
+      window.momentumOrchestrator.learn(newTx.description, 'risparmio', sweepAmt, new Date());
+    } else {
+      NeuralNexus.train(newTx.description, 'risparmio', sweepAmt, new Date());
     }
-    
+
     AudioSynth.play('sweep');
     haptic('heavy');
     renderDashboard();
     renderAnalysis();
-    showToast(`AI Sweep completato! Spostati ${formatMoney(investAmt)} su ETF.`, "success");
-  } catch(err) { console.error(err); }
+    showToast(`Segnato. Ora sposta davvero ${formatMoney(sweepAmt)} sul tuo conto risparmio — Momentum non tocca la banca.`, "success");
+  } catch (err) { console.error(err); }
 };
 
 // `skipHeavyForecast`: quando il dispatcher (src/predict/dispatcher.js) ha

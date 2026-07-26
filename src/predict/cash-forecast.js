@@ -417,9 +417,18 @@ export function bestLevers(base, { profile = null, ledger = [], startBalance = 0
 export function cashForecast({
   allTx = {}, commitments = [], salary = null, subscriptions = [], splitOwed = 0,
   startBalance = null, monthTx = null, now = Date.now(), horizonDays = 45, cushion = 0,
+  // Ponte verso NeuroSym (reasoning-fusion.js): un taglio/aumento di spesa
+  // causale già misurato altrove (what-if.js) si traduce in €/giorno e sposta
+  // QUESTO stesso ritmo — la stessa cifra che alimenta la traiettoria
+  // patrimoniale a un anno muove anche la cassa dei prossimi 30 giorni.
+  // Additivo, default 0 = comportamento invariato.
+  extraDailyCut = 0,
 } = {}) {
   const enriched = enrichCommitmentsWithLearning(commitments, allTx);
-  const profile = discretionaryProfile(allTx, { now, commitments: enriched, excludeSeries: subscriptions });
+  const rawProfile = discretionaryProfile(allTx, { now, commitments: enriched, excludeSeries: subscriptions });
+  const profile = rawProfile && extraDailyCut
+    ? { ...rawProfile, dailyMean: Math.max(0, rawProfile.dailyMean - extraDailyCut) }
+    : rawProfile;
   const ledger = buildLedger({ commitments: enriched, salary, subscriptions, now, horizonDays, monthTx });
 
   // Senza saldo dichiarato NON si inventa un punto di partenza: si simula il

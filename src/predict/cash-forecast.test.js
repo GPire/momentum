@@ -339,3 +339,25 @@ test('discretionaryProfile: misura la dispersione anche a 7 e 30 giorni quando l
   assert.ok(p.blockSigma[7] > 0 && p.blockSigma[14] > 0 && p.blockSigma[30] > 0);
   assert.ok(p.blockSigma[30] > p.blockSigma[7], 'con spesa irregolare le finestre lunghe disperdono di più');
 });
+
+// ── ponte verso NeuroSym: extraDailyCut ──────────────────────────────────────
+test('cashForecast: extraDailyCut riduce il ritmo di spesa e sposta il finale in meglio', () => {
+  const allTx = historyOf(60, () => 30);
+  const base = cashForecast({ allTx, commitments: [], salary: null, startBalance: 0, now: NOW, horizonDays: 20 });
+  const cut = cashForecast({ allTx, commitments: [], salary: null, startBalance: 0, now: NOW, horizonDays: 20, extraDailyCut: 10 });
+  assert.ok(cut.end.p50 > base.end.p50, 'tagliare 10€/giorno lascia più soldi a fine finestra');
+  assert.ok(Math.abs((cut.end.p50 - base.end.p50) - 200) < 5, 'circa 10€ × 20 giorni in più');
+});
+
+test('cashForecast: extraDailyCut non manda mai il ritmo sotto zero', () => {
+  const allTx = historyOf(60, () => 5);
+  const cut = cashForecast({ allTx, commitments: [], salary: null, startBalance: 0, now: NOW, horizonDays: 10, extraDailyCut: 999 });
+  assert.equal(cut.profile.dailyMean, 0);
+});
+
+test('cashForecast: extraDailyCut=0 (default) non cambia nulla', () => {
+  const allTx = historyOf(60, () => 20);
+  const a = cashForecast({ allTx, commitments: [], salary: null, startBalance: 0, now: NOW, horizonDays: 15 });
+  const b = cashForecast({ allTx, commitments: [], salary: null, startBalance: 0, now: NOW, horizonDays: 15, extraDailyCut: 0 });
+  assert.deepEqual(a.end, b.end);
+});

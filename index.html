@@ -943,11 +943,13 @@
               </div>
             </div>
 
-            <!-- QUANTUM OVERFLOW BUFFER (Salvadanaio Quantistico) -->
+            <!-- SALVADANAIO: riserva cumulata + stato sicurezza + segna-avanzo.
+                 Onesto: nessun trasferimento reale, Momentum non tocca la banca —
+                 solo un'annotazione che l'utente conferma con un tocco. -->
             <div class="card p-6 border border-[var(--cyan)]/20 relative overflow-hidden flex flex-col sm:flex-row justify-between items-stretch gap-6 shrink-0">
-              <!-- Animated Liquid SVG Wave Visualizer in background/left -->
+              <!-- Onda di riempimento: sale con lo stato di sicurezza (0-100%). -->
               <div class="absolute left-0 top-0 bottom-0 w-32 bg-[var(--cyan)]/5 pointer-events-none overflow-hidden rounded-l-[1.25rem]">
-                <div id="quantum-reserve-wave" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--cyan)]/30 to-[var(--cyan)]/10 transition-all duration-700 ease-out" style="height: 30%;">
+                <div id="reserve-wave" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--cyan)]/30 to-[var(--cyan)]/10 transition-all duration-700 ease-out" style="height: 30%;">
                   <svg class="absolute top-0 left-0 w-full h-8 text-[var(--cyan)]/20 fill-current" viewBox="0 0 100 20" preserveAspectRatio="none">
                     <path d="M0,10 C30,20 70,0 100,10 L100,20 L0,20 Z"></path>
                   </svg>
@@ -958,11 +960,10 @@
               <div class="z-10 flex flex-col justify-between pl-4 flex-1 min-w-0">
                 <div>
                   <div class="flex items-center gap-2">
-                    <span class="text-lg">🏺</span>
-                    <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--cyan)]">Salvadanaio Quantistico</h3>
-                    <p class="text-[10px] text-[var(--on-surface-secondary)]">I soldi che avanzano finiscono qui da soli, pronti da investire</p>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--cyan)] shrink-0"><path d="M19 5c-1.5-1.5-3.5-2-6-2-4 0-8 2.5-8 7 0 1.8.7 3 1.5 4L5 17l1.5-.5c1 .8 2.5 1.5 4.5 1.5v3h4v-3c2-.3 3.5-1.2 4-2.5h1.5a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1H19V5z"/><circle cx="15" cy="9" r="0.6" fill="currentColor" stroke="none"/></svg>
+                    <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--cyan)]">Salvadanaio</h3>
                   </div>
-                  <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1 max-w-md">Accumulo residuo mese dopo mese, protetto dagli sprechi (Quantum Overflow Buffer).</p>
+                  <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1 max-w-md">Quanto hai messo via finora, un mese dopo l'altro — senza toccare mai la banca da solo.</p>
                 </div>
 
                 <div class="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-4 sm:items-center">
@@ -972,7 +973,7 @@
                   </div>
                   <div class="sm:border-l sm:border-[var(--outline)] sm:pl-4">
                     <p class="text-[9px] font-bold text-slate-400 uppercase">Stato Sicurezza (6 Mesi)</p>
-                    <p id="quantum-safety-status" class="text-xs font-bold text-[var(--yellow)] mt-1">Sicurezza: 0%</p>
+                    <p id="safety-status" class="text-xs font-bold text-[var(--yellow)] mt-1">Sicurezza: 0%</p>
                   </div>
                 </div>
               </div>

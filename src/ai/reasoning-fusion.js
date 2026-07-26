@@ -19,6 +19,7 @@
 import { simulateCategoryChange } from '../predict/what-if.js';
 import { buildCausalGraph, pruneNonCausal } from '../predict/causal-graph.js';
 import { projectNetWorthByStrategy } from '../alpha/net-worth.js';
+import { cashForecast } from '../predict/cash-forecast.js';
 
 // Combina la confidenza di più layer ETEROGENEI (analisi INDIPENDENTI che si
 // completano a vicenda, non voti sulla stessa variabile). Ogni layer:
@@ -44,13 +45,45 @@ export function combineConfidence(layers = []) {
   };
 }
 
+// STRATO BREVE TERMINE (ponte con la Cassa Unica, src/predict/cash-forecast.js):
+// la STESSA cifra causale che alimenta la traiettoria a un anno (whatIf.totalMonthly)
+// muove anche la simulazione dei prossimi 30 giorni — non due numeri scollegati,
+// una domanda sola su due orizzonti. Onesto: senza impegni o stipendio noti il
+// breve termine non è calcolabile (servono per il registro eventi) → il layer
+// resta 'non disponibile', non si inventa nulla. Confidenza = la copertura di
+// storico MISURATA dal profilo di spesa libera (non una stima a occhio).
+function shortTermCashImpact({ allTx, monthlyEur, commitments, salary, now, horizonDays = 30 }) {
+  if (!commitments?.length && !salary) return null;
+  try {
+    const dailyCut = monthlyEur / 30;
+    const base = cashForecast({ allTx, commitments: commitments || [], salary: salary || null, now, horizonDays });
+    if (!base.known) return null;
+    const withCut = cashForecast({ allTx, commitments: commitments || [], salary: salary || null, now, horizonDays, extraDailyCut: dailyCut });
+    if (!withCut.known) return null;
+    const daysGained = !base.riskDay ? 0
+      : !withCut.riskDay ? horizonDays - base.riskDay.inDays
+        : withCut.riskDay.inDays - base.riskDay.inDays;
+    return {
+      dailyCut: +dailyCut.toFixed(2),
+      baseEnd: base.end.p50,
+      withCutEnd: withCut.end.p50,
+      endDelta: +(withCut.end.p50 - base.end.p50).toFixed(2),
+      daysGained,
+      horizonDays,
+      dataConfidence: base.confidence || 0,
+    };
+  } catch (_) { return null; }
+}
+
 // "Se taglio/aumento la categoria X del N%": combina l'impatto € diretto+a
 // catena (what-if.js, riusa il causale già misurato) con la traiettoria
-// patrimoniale Monte Carlo A PARITÀ delle altre condizioni, con e senza il
-// contributo liberato — sulla strategia più prudente (risparmio/liquidità:
-// onesto per un orizzonte breve, non si spinge a inventare un profilo di
-// rischio che l'utente non ha scelto). Mai un layer mancante rompe gli altri.
-export function crossDomainWhatIf({ allTx, category, deltaPct, referenceDate = new Date(), netWorthStart = 0, years = 1 } = {}) {
+// patrimoniale Monte Carlo A PARITÀ delle altre condizioni (con e senza il
+// contributo liberato) E con la Cassa Unica sui prossimi 30 giorni — la stessa
+// causa vista su TRE orizzonti (breve/annuale) nella STESSA risposta, cosa che
+// nessun tracker del settore fa perché nessuno vede insieme spese, impegni e
+// patrimonio. Mai un layer mancante rompe gli altri.
+export function crossDomainWhatIf({ allTx, category, deltaPct, referenceDate = new Date(), netWorthStart = 0, years = 1,
+  commitments = [], salary = null } = {}) {
   const layers = [];
   let whatIf = null;
   try {
@@ -83,5 +116,14 @@ export function crossDomainWhatIf({ allTx, category, deltaPct, referenceDate = n
   }
   layers.push({ name: 'net-worth-twin', ok: !!twin, confidence: twin ? 0.6 : 0 });
 
-  return { whatIf, twin, layers, combined: combineConfidence(layers) };
+  let shortTerm = null;
+  if (whatIf && whatIf.totalMonthly !== 0) {
+    shortTerm = shortTermCashImpact({
+      allTx, monthlyEur: whatIf.totalMonthly, commitments, salary,
+      now: referenceDate instanceof Date ? referenceDate.getTime() : Date.now(),
+    });
+  }
+  layers.push({ name: 'short-term-cash', ok: !!shortTerm, confidence: shortTerm ? shortTerm.dataConfidence : 0 });
+
+  return { whatIf, twin, shortTerm, layers, combined: combineConfidence(layers) };
 }
