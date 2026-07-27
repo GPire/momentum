@@ -4526,7 +4526,7 @@ window.learnIncome = (description, kind) => {
 // Layer investimenti (src/alpha/): quanto investire (bridge, fondo emergenza
 // prima) + regime di mercato se l'utente ha fornito una serie prezzi.
 function renderInvestments() {
-  const surplusEl = $('#invest-surplus'), noteEl = $('#invest-note'), regimeEl = $('#invest-regime');
+  const surplusEl = $('#invest-surplus'), noteEl = $('#invest-note'), regimeEl = $('#invest-regime'), fundBarEl = $('#invest-fund-bar');
   if (!surplusEl) return;
   // media uscite/entrate e fondo (investimenti accumulati) dallo storico
   const months = {}; let invested = 0;
@@ -4547,6 +4547,20 @@ function renderInvestments() {
   surplusEl.textContent = r.investable > 0 ? formatMoney(r.investable) : (r.toEmergencyFund ? formatMoney(r.toEmergencyFund) : '0€');
   noteEl.textContent = r.note;
   regimeEl.textContent = '';
+  // Fondo d'emergenza: barra (non un secondo numero da leggere) — il vero
+  // "perché" dietro il testo, pieno = puoi investire, altrimenti quanto manca.
+  if (fundBarEl) {
+    const target = Math.max(1, r.targetEmergency || 0);
+    const pct = Math.min(100, Math.round((invested / target) * 100));
+    const full = invested >= target;
+    const barColor = full ? 'bg-emerald-400/80' : 'bg-[var(--gold)]/80';
+    fundBarEl.innerHTML = `
+      <div class="flex items-center justify-between text-[9px] text-slate-500 mb-1">
+        <span>Fondo d'emergenza</span>
+        <span>${formatMoney(invested)} / ${formatMoney(target)}</span>
+      </div>
+      <div class="h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full ${barColor}" style="width:${pct}%"></div></div>`;
+  }
 }
 
 // Patrimonio netto unificato (src/alpha/net-worth.js): UN numero dominante =
@@ -6909,12 +6923,16 @@ const initApp = () => {
           if (val > 0) {
             const cmp = projectNetWorthByStrategy({ start: 0, monthlyContribution: val, years: 5, paths: 400 });
             const top = cmp.rows.slice(0, 4);
+            const maxP50 = Math.max(1, ...top.map(row => row.p50));
             compareEl.classList.remove('hidden');
             compareEl.innerHTML = `<p class="text-[9px] text-slate-500 mb-1">Con questo risparmio, le strategie migliori a 5 anni (tipico):</p>
-              <div class="space-y-1">${top.map((row, i) => `
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-slate-300 truncate">${i + 1}. ${row.label}</span>
-                  <span class="font-mono font-bold text-[var(--gold)] shrink-0 ml-2">${formatMoney(row.p50)}</span>
+              <div class="space-y-1.5">${top.map((row, i) => `
+                <div class="text-[10px]">
+                  <div class="flex items-center justify-between mb-0.5">
+                    <span class="text-slate-300 truncate">${i + 1}. ${row.label}</span>
+                    <span class="font-mono font-bold text-[var(--gold)] shrink-0 ml-2">${formatMoney(row.p50)}</span>
+                  </div>
+                  <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[var(--gold)]/70" style="width:${Math.max(4, Math.round((row.p50 / maxP50) * 100))}%"></div></div>
                 </div>`).join('')}</div>`;
           } else {
             compareEl.classList.add('hidden');
