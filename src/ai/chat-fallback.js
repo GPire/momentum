@@ -136,9 +136,10 @@ const askMistral = makeOpenAiCompatible('https://api.mistral.ai/v1/chat/completi
 // dal proprio account senza cambiare provider in Momentum.
 const askOpenRouter = makeOpenAiCompatible('https://openrouter.ai/api/v1/chat/completions', 'meta-llama/llama-3.3-70b-instruct:free', 'OpenRouter');
 // Cerebras: CORS verificato dal vivo (2026-07-27). Inferenza molto veloce
-// (hardware dedicato, non GPU condivise), piano gratuito dichiarato generoso
-// per chi ha solo bisogno di risposte testuali occasionali — non verificato
-// end-to-end con una chiave reale stasera.
+// (hardware dedicato, non GPU condivise). CORRETTO dopo verifica sulla
+// documentazione ufficiale: NON è un piano gratuito senza carta — serve
+// una carta di pagamento verificata per ricevere $5 di credito di prova
+// (scade dopo 30 giorni; limiti reali 5 RPM / 30K TPM / 1M TPD).
 const askCerebras = makeOpenAiCompatible('https://api.cerebras.ai/v1/chat/completions', 'llama3.1-8b', 'Cerebras');
 // Qwen (Alibaba DashScope, endpoint internazionale): CORS verificato dal
 // vivo (2026-07-27, l'header rispecchia l'origine con credenziali — valido
@@ -226,15 +227,22 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 // che nasconde cosa è successo davvero). `order` di default: prima i
 // GRATUITI confermati (Gemini, Groq), poi quello da verificare (DeepSeek),
 // infine i due A PAGAMENTO (OpenAI, Anthropic) — solo per chi li ha già.
-// Ordine di default per generosità REALE del piano gratuito (dalla
-// documentazione ufficiale di ciascun provider, 2026-07-27 — non un numero
-// esatto verificato dal vivo per ognuno stasera, i limiti cambiano nel
-// tempo): Groq e Gemini restano i più generosi e veloci; Cerebras ha un
-// piano gratuito ampio ma più giovane; Mistral è più limitato (pochi
-// token/minuto); OpenRouter dipende dal modello ":free" scelto (limiti
-// spesso più stretti, variabili per modello); DeepSeek è a consumo senza
-// livello gratuito confermato; xAI/OpenAI/Anthropic sono sempre a pagamento.
-export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'qwen', 'moonshot', 'glm', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
+// Ordine di default per generosità REALE del piano gratuito, corretto
+// dopo verifica sulla documentazione ufficiale (2026-07-27):
+// - Groq: 30 RPM / 1.000 RPD / 12.000 TPM confermati, NESSUNA carta.
+// - Gemini: limiti non pubblicati fissi (dipendono dall'account, visibili
+//   solo su aistudio.google.com/rate-limit), ma nessuna carta richiesta.
+// - OpenRouter (":free"): 20 RPM / 50 RPD senza storico di spesa, sale a
+//   1.000 RPD se hai già speso $10+ in passato — nessuna carta per i 50/gg.
+// - Mistral/Qwen/Moonshot/GLM: crediti di prova all'iscrizione, cifra e
+//   scadenza non verificate a fondo (pagine ufficiali in parte non in
+//   italiano/inglese chiaro) — dichiarato, non un numero certo.
+// - Cerebras: CORRETTO dopo verifica — richiede una CARTA DI PAGAMENTO
+//   verificata per $5 di credito che scade in 30 giorni (5 RPM reali):
+//   spostato vicino ai servizi a pagamento, non è più "gratis senza carta".
+// - DeepSeek: a consumo, nessun livello gratuito confermato.
+// - xAI/OpenAI/Anthropic: sempre a pagamento.
+export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['groq', 'gemini', 'openrouter', 'mistral', 'qwen', 'moonshot', 'glm', 'cerebras', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
   const attempts = order.filter((p) => keys[p]);
   if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;

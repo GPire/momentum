@@ -3027,12 +3027,16 @@ const API_KEY_GUIDES = {
     freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Premi "Create Key"', 'Copia il codice e torna qui. Una chiave dà accesso a molti modelli, inclusi quelli gratuiti (marcati ":free")'],
   },
+  // Corretto (verificato dal vivo sulla documentazione ufficiale,
+  // 2026-07-27): NON è gratis senza carta come indicato inizialmente —
+  // serve una carta di pagamento verificata per ricevere $5 di credito
+  // di prova, che scadono dopo 30 giorni. freeNoCard: false onesto.
   cerebras: {
-    title: 'Chat generica — Cerebras (molto veloce, piano gratuito)',
+    title: 'Chat generica — Cerebras (molto veloce, richiede carta per il credito di prova)',
     url: 'https://cloud.cerebras.ai/platform/keys',
     usageUrl: 'https://cloud.cerebras.ai/platform/usage',
-    freeNoCard: true,
-    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Vai su "API Keys" e crea una nuova chiave', 'Copia il codice e torna qui — verifica tu i limiti sul tuo account'],
+    freeNoCard: false,
+    steps: ['ATTENZIONE: serve una carta di pagamento verificata per ricevere $5 di credito di prova (scade dopo 30 giorni) — non è gratis senza carta', 'Apri il sito (si apre in una scheda nuova)', 'Crea un account e verifica un metodo di pagamento', 'Vai su "API Keys" e crea una nuova chiave', 'Copia il codice e torna qui'],
   },
   qwen: {
     title: 'Chat generica — Qwen (Alibaba)',

@@ -72,18 +72,19 @@ test('askCloudFallbackChain: nessuna chiave configurata -> errore onesto', async
 });
 
 test('askCloudFallbackChain: prova nell\'ordine, si ferma al primo che risponde', async () => {
+  // Ordine di default: Groq PRIMA di Gemini (limiti reali confermati più
+  // generosi, nessuna carta) — qui simula Groq giù, ripiega su Gemini.
   const calls = [];
   const fetchImpl = async (url) => {
     calls.push(url);
-    if (url.includes('generativelanguage')) throw new TypeError('Failed to fetch'); // gemini giù
-    return { ok: true, json: async () => ({ choices: [{ message: { content: 'risposta da groq' } }] }) };
+    if (url.includes('groq')) throw new TypeError('Failed to fetch'); // groq giù
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'risposta da gemini' }] } }] }) };
   };
   const r = await askCloudFallbackChain('ciao', { keys: { gemini: 'g', groq: 'q' }, fetchImpl });
-  assert.equal(r.provider, 'groq');
-  assert.equal(r.answer, 'risposta da groq');
-  // Gemini viene provato due volte a cascata (con grounding, poi senza)
-  // prima di passare a Groq: 3 chiamate in tutto, non 2.
-  assert.equal(calls.length, 3);
+  assert.equal(r.provider, 'gemini');
+  assert.equal(r.answer, 'risposta da gemini');
+  assert.ok(calls.some(u => u.includes('groq'))); // ha provato Groq prima
+  assert.ok(calls.some(u => u.includes('generativelanguage'))); // poi Gemini
 });
 
 test('askCloudFallbackChain: Gemini con grounding fallisce (es. modello senza supporto tool) -> ripiega su Gemini senza grounding, stesso provider', async () => {
