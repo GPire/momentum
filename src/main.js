@@ -5450,7 +5450,7 @@ const initApp = () => {
   }
   function showQaThinking(localAnswer) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-200';
-    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p class="flex items-center">${ICON_QA_THINK} <span class="ml-1">Chiedo a una chat generica</span><span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>`;
+    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p class="flex items-center gap-2"><span class="qa-mini-orb"></span><span>Chiedo a una chat generica</span><span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>`;
     replayQaAnimation();
   }
   // Le chat generiche (Gemini ecc.) rispondono in Markdown leggero

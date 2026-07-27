@@ -376,6 +376,13 @@
     .qa-thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
     .qa-thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
     @media (prefers-reduced-motion: reduce) { .qa-thinking-dots span { animation: none; } }
+    /* Mini-orb dell'attesa QA: stessa identità visiva del grande orb 3D del
+       Dashboard (--apex-gradient, --glow-primary), in versione CSS leggera —
+       nessun secondo contesto WebGL per un'icona di attesa, sarebbe uno
+       spreco. "Respira" (scala+opacità), non un semplice giro di rotellina. */
+    .qa-mini-orb { display:inline-block; width:12px; height:12px; border-radius:50%; background: var(--apex-gradient); box-shadow: var(--glow-primary); animation: qaOrbBreath 1.4s ease-in-out infinite; vertical-align: middle; }
+    @keyframes qaOrbBreath { 0%, 100% { transform: scale(0.8); opacity: 0.75; } 50% { transform: scale(1.15); opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .qa-mini-orb { animation: none; } }
     /* Ogni blocco della risposta cloud entra in sequenza, non tutto insieme —
        un blob che appare in un colpo solo si sente statico anche se il testo
        è già spezzato in idee brevi. Stessa insightFade, solo scaglionata. */
