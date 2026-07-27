@@ -973,7 +973,7 @@
         </div>
       </div>
       <nav class="space-y-3 flex-1 overflow-y-auto">
-        <button data-view="dashboard" data-action="switch-view" class="nav-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-extrabold text-[var(--primary)] bg-[var(--primary)]/10 text-[0.95rem] transition-all">
+        <button data-view="dashboard" data-action="switch-view" class="nav-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-extrabold text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[0.95rem] transition-all">
           <svg class="w-6 h-6 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/></svg>
           <span class="truncate">Dashboard</span>
         </button>
@@ -1096,11 +1096,11 @@
             <!-- SALVADANAIO: riserva cumulata + stato sicurezza + segna-avanzo.
                  Onesto: nessun trasferimento reale, Momentum non tocca la banca —
                  solo un'annotazione che l'utente conferma con un tocco. -->
-            <div class="card p-6 border border-[var(--cyan)]/20 relative overflow-hidden flex flex-col sm:flex-row justify-between items-stretch gap-6 shrink-0">
+            <div class="card p-6 border border-[color-mix(in_srgb,var(--cyan)_20%,transparent)] relative overflow-hidden flex flex-col sm:flex-row justify-between items-stretch gap-6 shrink-0">
               <!-- Onda di riempimento: sale con lo stato di sicurezza (0-100%). -->
-              <div class="absolute left-0 top-0 bottom-0 w-32 bg-[var(--cyan)]/5 pointer-events-none overflow-hidden rounded-l-[1.25rem]">
-                <div id="reserve-wave" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--cyan)]/30 to-[var(--cyan)]/10 transition-all duration-700 ease-out" style="height: 30%;">
-                  <svg class="absolute top-0 left-0 w-full h-8 text-[var(--cyan)]/20 fill-current" viewBox="0 0 100 20" preserveAspectRatio="none">
+              <div class="absolute left-0 top-0 bottom-0 w-32 bg-[color-mix(in_srgb,var(--cyan)_5%,transparent)] pointer-events-none overflow-hidden rounded-l-[1.25rem]">
+                <div id="reserve-wave" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-cyan-400/30 to-cyan-400/10 transition-all duration-700 ease-out" style="height: 30%;">
+                  <svg class="absolute top-0 left-0 w-full h-8 text-cyan-400/20 fill-current" viewBox="0 0 100 20" preserveAspectRatio="none">
                     <path d="M0,10 C30,20 70,0 100,10 L100,20 L0,20 Z"></path>
                   </svg>
                 </div>
@@ -1163,7 +1163,7 @@
             <div class="analysis-grid gap-6 sm:gap-8">
                <div class="xl:col-span-1 space-y-6 sm:space-y-8">
                  <!-- Budget card -->
-                 <div class="card p-6 border border-[var(--primary)]/30 relative overflow-hidden cursor-pointer" onclick="window.openBudgetEditor()">
+                 <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] relative overflow-hidden cursor-pointer" onclick="window.openBudgetEditor()">
                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg>Budget del mese<span class="eyebrow-extra">tocca per modificare</span></h3>
                    <div class="flex flex-wrap justify-between items-end gap-x-2 gap-y-0 mb-2">
                      <p class="text-3xl font-black font-mono tracking-tighter min-w-0 truncate" id="budget-spent">€0</p>
@@ -1470,7 +1470,7 @@
               </div>
 
               <!-- P2P Sincronizzazione Serverless -->
-              <div class="card p-6 border border-[var(--primary)]/30 flex flex-col justify-between">
+              <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] flex flex-col justify-between">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 6H15M6 8.5v7M8 18h7.5"/></svg>Sincronizza tra i tuoi dispositivi</h3>
                   <p class="card-sub">I tuoi dati passano da un tuo dispositivo all'altro direttamente, senza server: restano solo tuoi.</p>

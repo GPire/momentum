@@ -1119,7 +1119,7 @@ const renderDashboard = () => {
       nudgeEl.innerHTML = `
         <button type="button" data-action="quick-add-predicted" data-cat="${nudge.category}" data-amt="${nudge.typicalAmount}"
           aria-label="Aggiungi ${c.name} da ${amtLabel}, ${nudge.reason || 'spesa abituale'}"
-          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border bg-[var(--surface-elevated)]/50 active:scale-[0.98] transition-transform text-left"
+          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border bg-[color-mix(in_srgb,var(--surface-elevated)_50%,transparent)] active:scale-[0.98] transition-transform text-left"
           style="border-color:${c.color}55">
           <span class="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0" style="background:${c.color}">${c.icon}</span>
           <span class="min-w-0 flex-1">
@@ -1151,7 +1151,7 @@ const renderDashboard = () => {
       gold:   { bd: 'border-amber-500/25', bg: 'bg-amber-950/10', tx: 'text-amber-200' },
       green:  { bd: 'border-emerald-500/25', bg: 'bg-emerald-950/10', tx: 'text-emerald-200' },
       amber:  { bd: 'border-orange-500/25', bg: 'bg-orange-950/10', tx: 'text-orange-200' },
-      calm:   { bd: 'border-[var(--glass-border)]', bg: 'bg-[var(--surface-elevated)]/40', tx: 'text-slate-300' },
+      calm:   { bd: 'border-[var(--glass-border)]', bg: 'bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)]', tx: 'text-slate-300' },
     };
     // Icone SVG coerenti (stesso tratto del resto dell'app), MAI emoji a caso.
     const S = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0">${p}</svg>`;
@@ -1325,7 +1325,7 @@ const renderDashboard = () => {
       const chips = com.top.map(t => `<span class="text-[10px] px-2 py-0.5 rounded-full bg-black/25 border border-[var(--glass-border)] whitespace-nowrap">${t.name.length > 16 ? t.name.slice(0, 15) + '…' : t.name} · ${formatMoney(t.amount)}</span>`).join('');
       commitEl.classList.remove('hidden');
       commitEl.innerHTML = `
-        <div class="rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 p-3.5">
+        <div class="rounded-2xl border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] p-3.5">
           <div class="flex items-center justify-between gap-2 mb-2">
             <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Già impegnati entro fine mese</span>
             <span class="font-mono font-black text-sm text-amber-300">${formatMoney(com.reserved)}</span>
@@ -1536,14 +1536,14 @@ window.renderCalendarEvents = () => {
     const validDate = !isNaN(dt.getTime());
     const ItalianDate = validDate ? dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
     const timeStr = (ev.hasTime && validDate) ? ' · ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
-    const border = ev.predicted ? 'border-amber-500/20 bg-amber-950/5' : (ev.completed ? 'border-[var(--outline)]/50 bg-[var(--surface-solid)]/40' : 'border-[var(--outline)] bg-[var(--surface-solid)]');
+    const border = ev.predicted ? 'border-amber-500/20 bg-amber-950/5' : (ev.completed ? 'border-[color-mix(in_srgb,var(--outline)_50%,transparent)] bg-[color-mix(in_srgb,var(--surface-solid)_40%,transparent)]' : 'border-[var(--outline)] bg-[var(--surface-solid)]');
     const meta = ev.predicted ? ' · stima dai tuoi abbonamenti' : (ev.kind === 'appointment' ? ' · appuntamento' : '');
     // Importo mostrato SOLO se davvero finanziario: un appuntamento non mostra €.
     const money = ev.isFinancial
       ? `<span class="font-mono font-bold text-xs ${ev.predicted ? 'text-amber-400' : 'text-[var(--red)]'}">${ev.predicted ? '~' : '−'}${formatMoney(ev.amount)}</span>`
       : '';
     return `
-      <div class="flex items-center justify-between p-2.5 rounded-lg border ${border} hover:border-[var(--primary)]/30 transition-colors ${ev.completed ? 'opacity-60' : ''}">
+      <div class="flex items-center justify-between p-2.5 rounded-lg border ${border} hover:border-[color-mix(in_srgb,var(--primary)_30%,transparent)] transition-colors ${ev.completed ? 'opacity-60' : ''}">
         <div class="min-w-0 pr-2">
           <p class="font-bold text-xs text-white truncate ${ev.completed ? 'line-through' : ''}">${kindIcon[ev.kind] || ''}${esc(ev.label)}</p>
           ${ev.note ? `<p class="text-[10px] text-slate-300 mt-0.5 truncate">${esc(ev.note)}</p>` : ''}
@@ -1993,7 +1993,7 @@ function renderTax(monthK) {
     noteEl.textContent = 'Vedo delle fatture ma non so il tuo regime fiscale: senza, il calcolo sarebbe a caso. Dimmelo con un tocco e calcolo tasse + contributi giusti.';
     if (extraEl) {
       extraEl.innerHTML = `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
-        `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 hover:border-[var(--red)]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
+        `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] hover:border-[var(--red)]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
     }
     return;
   }
@@ -2060,10 +2060,10 @@ function renderTax(monthK) {
           <span class="min-w-0 truncate">n.${i.number}/${i.year} · ${i.client || 'cliente'} · <b>${formatMoney(i.imponibile)}</b></span>
           <button onclick='window.markTransmitted(${i.number}, ${i.year})' class="shrink-0 text-[11px] font-bold text-emerald-400 underline">segna trasmessa</button>
         </div>`).join('');
-      html += `<div class="mt-3 border border-[var(--gold)]/25 bg-[var(--gold)]/5 rounded-xl px-3 py-2.5">
+      html += `<div class="mt-3 border border-[color-mix(in_srgb,var(--gold)_25%,transparent)] bg-[color-mix(in_srgb,var(--gold)_5%,transparent)] rounded-xl px-3 py-2.5">
         <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wider">${pend.count} fattur${pend.count > 1 ? 'e' : 'a'} da caricare sullo SdI</span></div>
         <div class="text-xs text-slate-300">${rows}</div>
-        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[var(--gold)]/15 border border-[var(--gold)]/30 text-[var(--gold)]">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
       </div>`;
     }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
@@ -2095,7 +2095,7 @@ function renderTaxSettings() {
   const regime = VaultDAO.state.taxRegime;
   const everInvoice = hasInvoiceIncome();
   const regimeButtons = (accent) => `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
-    `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[var(--surface-elevated)]/40 hover:border-[${accent}]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
+    `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] hover:border-[${accent}]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
 
   if (regime) {
     const label = (REGIMI[regime] && REGIMI[regime].label.split('(')[0].trim()) || regime;
@@ -2115,7 +2115,7 @@ function renderTaxSettings() {
             <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">A questo ritmo, quest'anno</p>
             <p class="text-base font-black font-mono text-white">~${eur(proj.annualizedRevenue)}</p>
           </div>
-          <div class="rounded-xl border border-[var(--red)]/25 bg-[var(--red)]/5 px-3 py-2">
+          <div class="rounded-xl border border-[color-mix(in_srgb,var(--red)_25%,transparent)] bg-[color-mix(in_srgb,var(--red)_5%,transparent)] px-3 py-2">
             <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">Da mettere da parte</p>
             <p class="text-base font-black font-mono text-[var(--red)]">~${eur(proj.estimatedAnnualTax)}</p>
           </div>
@@ -2400,7 +2400,7 @@ window.openSplitExpense = (prefill = {}) => {
             ${p !== 'Io' ? `<button data-rm="${i}" class="text-[var(--on-surface-secondary)] opacity-60 hover:opacity-100 w-6 text-center" title="Togli ${esc(p)}">✕</button>` : '<span class="w-6"></span>'}
           </div>`).join('')}
           <div class="flex flex-wrap gap-2 mt-1 items-center">
-            ${freq.map(f => `<button data-add="${esc(f.name)}" title="${f.reason ? esc(f.reason) : 'Aggiungi'}" class="text-[11px] px-2.5 py-1 rounded-full border active:scale-95 transition-transform ${f.reason ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary)]/5' : 'border-dashed border-[var(--glass-border)] text-slate-300'}">+ ${esc(f.name)}${f.reason ? ' ✨' : ''}</button>`).join('')}
+            ${freq.map(f => `<button data-add="${esc(f.name)}" title="${f.reason ? esc(f.reason) : 'Aggiungi'}" class="text-[11px] px-2.5 py-1 rounded-full border active:scale-95 transition-transform ${f.reason ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]' : 'border-dashed border-[var(--glass-border)] text-slate-300'}">+ ${esc(f.name)}${f.reason ? ' ✨' : ''}</button>`).join('')}
             <input id="sp-newname" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-28 min-w-0" placeholder="+ altra persona" />
           </div>
           ${freq.some(f => f.reason) ? `<div class="text-[10px] text-[var(--primary)]">✨ = suggerito dal contesto (${esc(freq.find(f => f.reason).reason)})</div>` : ''}
@@ -2782,7 +2782,7 @@ function renderGhostForecast() {
     return `<span class="text-[10px] px-2 py-0.5 rounded-full ${done ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-black/25 border-[var(--glass-border)]'} border whitespace-nowrap">${done ? ICON_CHECK_SM + ' ' : ''}${esc(c.name.length > 16 ? c.name.slice(0, 15) + '…' : c.name)} · ${amt}${done ? '' : tail}</span>`;
   }).join('');
   const paidNote = f.paidTotal > 0 ? `<p class="text-[10.5px] text-emerald-400/90 mt-1.5">${ICON_CHECK_SM} Già pagati questo mese: ${eur(f.paidTotal)} (non più contati come fantasmi).</p>` : '';
-  const learnNote = anyLearned ? `<p class="text-[10px] text-[var(--primary)]/80 mt-1.5">Gli importi con “~” sono la media dei tuoi pagamenti reali passati: più mesi importi, più diventano precisi.</p>` : '';
+  const learnNote = anyLearned ? `<p class="text-[10px] text-[color-mix(in_srgb,var(--primary)_80%,transparent)] mt-1.5">Gli importi con “~” sono la media dei tuoi pagamenti reali passati: più mesi importi, più diventano precisi.</p>` : '';
 
   const endingMsg = f.endingSoon.length
     ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">${ICON_FLAG}Quasi finito: ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} (${e.remaining} rate, chiude ${e.payoff})`).join(' · ')}</p>` : '';
@@ -2819,7 +2819,7 @@ function renderGhostForecast() {
 
   el.classList.remove('hidden');
   el.innerHTML = `
-    <div class="ghost-card rounded-2xl border ${oggi !== null ? toneBorder : 'border-[var(--glass-border)]'} bg-[var(--surface-elevated)]/40 p-4">
+    <div class="ghost-card rounded-2xl border ${oggi !== null ? toneBorder : 'border-[var(--glass-border)]'} bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] p-4">
       <div class="flex items-center justify-between gap-2 mb-3">
         <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M9 14l2 2 4-4"/></svg>Il tuo mese, senza sorprese</span>
         <button id="ghost-manage" class="text-[11px] font-bold text-[var(--primary)] px-2 py-1 -mr-1 rounded-lg min-h-[32px]">Gestisci</button>
@@ -3654,7 +3654,7 @@ window.openPayoutSetup = (onDone = null) => {
           <p class="card-sub !mb-0">Quando chiedi un rimborso, preparo il messaggio giusto — con un link toccabile dove si può. Niente conti, niente movimenti: paghi e ricevi tu.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          ${PAYOUT_METHODS.map(m => `<button data-pm="${m}" class="text-[12px] font-bold px-3 py-2 rounded-full border active:scale-95 transition-transform ${m === method ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary)]/10' : 'border-[var(--glass-border)] text-slate-300'}">${esc(PAYOUT_LABELS[m])}</button>`).join('')}
+          ${PAYOUT_METHODS.map(m => `<button data-pm="${m}" class="text-[12px] font-bold px-3 py-2 rounded-full border active:scale-95 transition-transform ${m === method ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]' : 'border-[var(--glass-border)] text-slate-300'}">${esc(PAYOUT_LABELS[m])}</button>`).join('')}
         </div>
         <input id="po-value" value="${esc(cur.value || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="${esc(placeholders[method])}" />
         ${method === 'iban' ? `<input id="po-holder" value="${esc(cur.holder || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="Intestatario (facoltativo)" />` : ''}
@@ -3783,7 +3783,7 @@ window.openJoinConfirm = (g) => {
   openModal(`
     <div class="flex flex-col gap-4 p-3 sm:p-5 lg:p-0 join-pop">
       <div class="flex flex-col items-center text-center gap-1.5">
-        <div class="w-14 h-14 rounded-2xl grid place-items-center bg-[var(--primary)]/15 border border-[var(--primary)]/40 join-badge">
+        <div class="w-14 h-14 rounded-2xl grid place-items-center bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] join-badge">
           <svg class="w-7 h-7 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>
         </div>
         <p class="eyebrow !mb-0 text-[var(--primary)]">Momentum · Insieme</p>
@@ -3830,7 +3830,7 @@ window.openMomentumReveal = (g = null) => {
     { c: 'indigo', t: 'Prevedo le tue spese', d: hookName ? `Ho già iniziato: la prossima volta per «${esc((g && g.name) || 'una spesa')}» ti suggerisco ${esc(hookName)}.` : 'Imparo le tue abitudini e ti anticipo, prima che l\'addebito arrivi.', i: '<path d="M3 12h4l3 8 4-16 3 8h4"/>' },
     { c: 'cyan', t: 'Resta tutto tuo', d: 'Nessun account, nessun server. I tuoi soldi non escono dal telefono.', i: '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>' },
   ];
-  const tone = { emerald: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5', indigo: 'text-[var(--primary)] border-[var(--primary)]/40 bg-[var(--primary)]/5', cyan: 'text-cyan-400 border-cyan-400/40 bg-cyan-400/5' };
+  const tone = { emerald: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5', indigo: 'text-[var(--primary)] border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]', cyan: 'text-cyan-400 border-cyan-400/40 bg-cyan-400/5' };
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 join-pop">
       <div class="text-center">
@@ -4019,7 +4019,7 @@ window.openSplitGroup = (openId = null) => {
         </div>
         <div class="flex gap-2">
           <button id="sg-share" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
-          <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[var(--red)]/30 text-[var(--red)] text-sm">Elimina</button>
+          <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[color-mix(in_srgb,var(--red)_30%,transparent)] text-[var(--red)] text-sm">Elimina</button>
         </div>
         <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
       </div>`);
@@ -4150,7 +4150,7 @@ function getInvoiceFormHTML() {
          cliente, importo e causale con un tocco. -->
     <div class="flex gap-2">
       <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" />
-      <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[var(--primary)]/40 text-[var(--primary)] text-xs font-bold">Compila</button>
+      <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">Compila</button>
     </div>
     <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
     <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
@@ -4579,7 +4579,7 @@ function renderInvestments() {
     const target = Math.max(1, r.targetEmergency || 0);
     const pct = Math.min(100, Math.round((invested / target) * 100));
     const full = invested >= target;
-    const barColor = full ? 'bg-emerald-400/80' : 'bg-[var(--gold)]/80';
+    const barColor = full ? 'bg-emerald-400/80' : 'bg-[color-mix(in_srgb,var(--gold)_80%,transparent)]';
     fundBarEl.innerHTML = `
       <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
         <span>Fondo d'emergenza</span>
@@ -4642,7 +4642,7 @@ function renderNetWorth() {
               <span class="font-mono text-[var(--gold)]">${formatMoney(r.p50)}</span>
             </div>
             <div class="relative h-2 rounded-full bg-white/5 overflow-hidden" title="se va male ${formatMoney(r.p5)} · tipico ${formatMoney(r.p50)} · se va bene ${formatMoney(r.p95)}">
-              <div class="absolute inset-y-0 left-0 rounded-full bg-[var(--gold)]/25" style="width:${p95Pct}%"></div>
+              <div class="absolute inset-y-0 left-0 rounded-full bg-[color-mix(in_srgb,var(--gold)_25%,transparent)]" style="width:${p95Pct}%"></div>
               <div class="absolute inset-y-0 left-0 rounded-full bg-[var(--gold)]" style="width:${p50Pct}%"></div>
               <div class="absolute inset-y-0 w-0.5 bg-rose-300/80" style="left:${p5Pct}%"></div>
             </div>
@@ -4670,7 +4670,7 @@ function renderNetWorth() {
               <span class="flex items-center gap-1.5 text-slate-300"><span class="inline-block w-1.5 h-1.5 rounded-full ${regimeColor(r.regime)}" title="Regime ora: ${r.regime || '—'}"></span>${r.label}</span>
               <span class="font-mono text-[var(--gold)]">${r.sharpe.toFixed(2)}</span>
             </div>
-            <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[var(--gold)]/70" style="width:${pct}%"></div></div>
+            <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[color-mix(in_srgb,var(--gold)_70%,transparent)]" style="width:${pct}%"></div></div>
           </div>`;
         }).join('')}</div>`;
     } else sectorEl.innerHTML = '';
@@ -5654,7 +5654,7 @@ function renderInstallGuide() {
   doneEl?.classList.add('hidden');
   stepsEl.innerHTML = steps.map((s, i) => `
     <div class="flex items-start gap-3 install-step-in">
-      <div class="w-7 h-7 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-xs">${i + 1}</div>
+      <div class="w-7 h-7 rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-xs">${i + 1}</div>
       <div class="flex items-center gap-2 flex-1 min-w-0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)] shrink-0">${INSTALL_ICON_SVG[s.icon] || INSTALL_ICON_SVG.info}</svg>
         <p class="text-xs text-slate-300 leading-snug">${s.text}</p>
@@ -5705,7 +5705,7 @@ const navigate = (view) => {
   $$('aside .nav-btn[data-view]').forEach(btn => {
     const active = btn.dataset.view === view;
     btn.classList.toggle('text-[var(--primary)]', active);
-    btn.classList.toggle('bg-[var(--primary)]/10', active);
+    btn.classList.toggle('bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]', active);
     btn.classList.toggle('text-[var(--on-surface-secondary)]', !active);
   });
   // Ricalcolo ad ogni apertura della Dashboard (richiesto esplicitamente:
@@ -5788,7 +5788,7 @@ function renderSavingsGoals() {
     // mostra COSA diventerà questa sezione appena c'è un obiettivo — lo stesso
     // linguaggio visivo delle barre reali sotto, non un'assenza silenziosa.
     box.innerHTML = `
-      <button onclick="window.openGoalEditor()" class="w-full text-left p-3 rounded-xl border border-dashed border-[var(--glass-border)] hover:border-[var(--primary)]/50 transition-colors">
+      <button onclick="window.openGoalEditor()" class="w-full text-left p-3 rounded-xl border border-dashed border-[var(--glass-border)] hover:border-[color-mix(in_srgb,var(--primary)_50%,transparent)] transition-colors">
         <div class="flex items-center gap-2 mb-2 text-[var(--on-surface-secondary)]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>
           <span class="text-xs font-bold">Crea il tuo primo obiettivo</span>
@@ -6968,7 +6968,7 @@ const initApp = () => {
                     <span class="text-slate-300 truncate">${i + 1}. ${row.label}</span>
                     <span class="font-mono font-bold text-[var(--gold)] shrink-0 ml-2">${formatMoney(row.p50)}</span>
                   </div>
-                  <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[var(--gold)]/70" style="width:${Math.max(4, Math.round((row.p50 / maxP50) * 100))}%"></div></div>
+                  <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[color-mix(in_srgb,var(--gold)_70%,transparent)]" style="width:${Math.max(4, Math.round((row.p50 / maxP50) * 100))}%"></div></div>
                 </div>`).join('')}</div>`;
           } else {
             compareEl.classList.add('hidden');
