@@ -893,8 +893,17 @@
 
             <!-- "Oggi puoi spendere": il numero unico del giorno (src/predict/advisor.js).
                  Derivato dal budget settimanale meno gli abbonamenti in arrivo.
-                 Nascosta se manca il budget o se si guarda un mese diverso da oggi. -->
+                 Nascosta se manca il budget o se si guarda un mese diverso da oggi.
+                 Quando la Cassa Unica sotto è attiva (stipendio/impegni noti), QUESTA
+                 tace: due risposte diverse alla stessa domanda sulla stessa schermata
+                 erodevano la fiducia più di quanto la card in sé aggiungesse valore. -->
             <div id="safe-to-spend-card" class="card p-5 sm:p-6 shrink-0 hidden"></div>
+
+            <!-- "Il tuo mese, senza sorprese" (Cassa Unica): quando disponibile è LA
+                 risposta a "quanto posso spendere" — spostata qui, subito dopo l'orb,
+                 perché ora è il numero più importante della dashboard (non più sepolta
+                 sotto le tessere statistiche e il Salvadanaio). Un fuoco alla volta. -->
+            <div id="ghost-forecast" class="hidden shrink-0 mb-3"></div>
 
             <!-- Prossima spesa probabile (src/predict/command-center.js): in base
                  a ORA e GIORNO, la spesa abituale che stai per fare — un tocco la
@@ -1001,9 +1010,6 @@
                    gia' promessa agli impegni ricorrenti in arrivo (affitto, mutuo,
                    abbonamenti) — cosi' non spendi soldi che sono gia' spoken-for. -->
               <div id="committed-reserve" class="hidden shrink-0 mb-3"></div>
-              <!-- Fantasmi: stipendio − impegni fissi (mutuo/prestiti/affitto/
-                   bollette) sottratti PRIMA che la transazione avvenga. -->
-              <div id="ghost-forecast" class="hidden shrink-0 mb-3"></div>
               <div id="transaction-list-container" class="flex-grow"></div>
             </div>
           </div>

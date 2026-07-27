@@ -947,9 +947,19 @@ const renderDashboard = () => {
   // diverso la card sparisce invece di mostrare un numero fuori contesto.
   // Linguaggio e colori semantici volutamente elementari (verde = puoi,
   // rosso = fermati): è il numero che deve capire chiunque al primo sguardo.
+  // ── UNA SOLA RISPOSTA a "quanto posso spendere oggi" ────────────────────────
+  // BUG DI DESIGN TROVATO (segnalato dall'utente: la dashboard si complica):
+  // questa card (budget settimanale fisso, advisor.js) e "Il tuo mese, senza
+  // sorprese" (Cassa Unica: ritmo reale + impegni + stipendio + BNPL) rispondono
+  // alla STESSA domanda con DUE numeri DIVERSI, visibili sulla stessa schermata
+  // (verificato dal vivo: 0€ vs 1137€ nello stesso istante) — non complessità
+  // visiva soltanto, un conflitto che erode la fiducia. La Cassa Unica ha input
+  // migliori (dati reali, non un tetto impostato a mano): quando è disponibile
+  // (stipendio o impegni noti) diventa l'UNICA fonte, questa card si tace.
+  const cassaUnicaAttiva = !!(resolveSalary(VaultDAO.state, VaultDAO.state.transactions) || (VaultDAO.state.fixedCommitments || []).length);
   const stsCard = $('#safe-to-spend-card');
   if (stsCard) {
-    const sts = isCurrentMonth
+    const sts = (isCurrentMonth && !cassaUnicaAttiva)
       ? getDailySafeToSpend({ monthTxs: txs, allTx: VaultDAO.state.transactions, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow })
       : null;
     // reset stato interattivo (la card viene riusata tra i render)
