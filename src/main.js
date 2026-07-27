@@ -2964,6 +2964,16 @@ const API_KEY_GUIDES = {
     freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Scegli il piano "Basic" (gratuito) e crea un account', 'Vai su "API Keys" nel tuo pannello e copia la chiave generata', 'Torna qui e incollala'],
   },
+  // Terzo piano B (richiesto esplicitamente: "mai dipendere da un solo
+  // provider"). Quota gratuita 250 richieste/giorno, storico USA reale
+  // fino al 1985 — solo azioni USA sul piano gratuito, dichiarato.
+  fmp: {
+    title: 'Prezzi/storico azioni USA — Financial Modeling Prep (piano B)',
+    url: 'https://site.financialmodelingprep.com/register',
+    usageUrl: 'https://site.financialmodelingprep.com/developer/docs/pricing',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Vai nella tua Dashboard e copia la chiave API mostrata', 'Torna qui e incollala. Solo azioni USA sul piano gratuito.'],
+  },
   gemini: {
     title: 'Chat generica — Gemini (consigliata)',
     url: 'https://aistudio.google.com/app/apikey',
@@ -3078,6 +3088,10 @@ function initTelemetryToggle() {
   const tdStatus = document.getElementById('twelvedata-status');
   if (tdStatus && VaultDAO.state.liveDataKeys?.twelvedata) {
     tdStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.twelvedata)}). Tocca "Guida" per cambiarla.`;
+  }
+  const fmpStatus = document.getElementById('fmp-status');
+  if (fmpStatus && VaultDAO.state.liveDataKeys?.fmp) {
+    fmpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.fmp)}). Tocca "Guida" per cambiarla.`;
   }
 }
 
@@ -5247,6 +5261,10 @@ const navigate = (view) => {
     if (tdStatus && VaultDAO.state.liveDataKeys?.twelvedata) {
       tdStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.twelvedata)}). Tocca "Guida" per cambiarla.`;
     }
+    const fmpStatus = document.getElementById('fmp-status');
+    if (fmpStatus && VaultDAO.state.liveDataKeys?.fmp) {
+      fmpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.fmp)}). Tocca "Guida" per cambiarla.`;
+    }
     renderCloudFallbackLogPanel();
   }
   function renderCloudFallbackLogPanel() {
@@ -5802,7 +5820,7 @@ const initApp = () => {
             }).join(' · ');
           }
         } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
-      } else if (asset.kind === 'stock' && (apiKey || VaultDAO.state.liveDataKeys?.twelvedata)) {
+      } else if (asset.kind === 'stock' && (apiKey || VaultDAO.state.liveDataKeys?.twelvedata || VaultDAO.state.liveDataKeys?.fmp)) {
         // Azioni/ETF: Alpha Vantage TIME_SERIES_MONTHLY o Twelve Data
         // /time_series danno storico reale spesso 20+ anni anche gratis (a
         // differenza del limite di 365gg di CoinGecko per le cripto) — qui
