@@ -5463,7 +5463,7 @@ const initApp = () => {
   // sistemare la chiave invece di un messaggio d'errore grezzo).
   const ICON_QA_THINK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-3.5 h-3.5 inline-block animate-pulse"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
   const ICON_QA_CLOUD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block"><path d="M17.5 19a4.5 4.5 0 000-9 6 6 0 00-11.6 1.7A4 4 0 006 19h11.5z"/></svg>`;
-  const ICON_QA_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block qa-arrive-icon"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>`;
+  const ICON_QA_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block qa-arrive-icon qa-icon-danger"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>`;
   // Stessa icona-fumetto del titolo "Chiedi a Momentum" (index.html) — quando
   // risponde Momentum stesso, l'eyebrow lo dice subito, stessa grammatica
   // visiva della risposta cloud (etichetta in testa, mai un blob di testo nudo).
@@ -5485,7 +5485,7 @@ const initApp = () => {
         : { cls: 'bg-sky-950/15 border border-sky-500/20 text-sky-100', label: 'text-sky-400', strong: 'text-sky-300' };
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + tone.cls;
     qaAnswer.innerHTML = `
-      <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon">${ICON_QA_MOMENTUM}</span> Momentum</h4>
+      <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum</h4>
       <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>`;
     replayQaAnimation();
   }
@@ -5542,7 +5542,7 @@ const initApp = () => {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-100';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
-        <h4 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon">${ICON_QA_CLOUD}</span> ${label}</h4>
+        <h4 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_CLOUD}</span> ${label}</h4>
         <span class="text-[9px] text-violet-400/70">non è Momentum</span>
       </div>
       <div class="space-y-1.5">${formatCloudAnswer(answer)}</div>`;

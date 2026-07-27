@@ -216,8 +216,16 @@
        arriva DOPO l'attesa, una volta sola, mai un'interruzione durante) —
        riusa ghostDotPop già esistente invece di un keyframe nuovo. */
     .qa-arrive-icon { display: inline-flex; animation: ghostDotPop .4s cubic-bezier(.34,1.56,.64,1) both; }
+    /* Alone colorato una tantum sull'icona di stato — usa currentColor,
+       così si adatta da solo al colore del blocco (ambra/smeraldo/cielo per
+       Momentum, rosso per l'errore) senza bisogno di una regola per tono. */
+    @keyframes qaIconGlow { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+    .qa-icon-glow { border-radius: 50%; animation: qaIconGlow .9s ease-out 1; }
+    /* pulseDanger (già usato altrove) sull'icona di errore: un richiamo
+       breve, mai un lampeggio continuo che stancherebbe l'occhio. */
+    .qa-icon-danger { border-radius: 50%; animation: pulseDanger 1.1s ease-out 1; }
     @media (prefers-reduced-motion: reduce) {
-      .view-in > *, .cat-chip.chip-in, details[open] > div, .qa-arrive-icon { animation: none; }
+      .view-in > *, .cat-chip.chip-in, details[open] > div, .qa-arrive-icon, .qa-icon-glow, .qa-icon-danger { animation: none; }
     }
     
     .save-btn { margin: 0.5rem 1rem; width: calc(100% - 2rem); min-height: 3.5rem; border-radius: 1.2rem; background: var(--apex-gradient); color: white; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); box-shadow: var(--glow-primary); flex-shrink: 0; padding: 0.5rem;}
