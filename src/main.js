@@ -3354,7 +3354,7 @@ function setThemeToggleIcon(btn, dark) {
   if (svg) svg.innerHTML = dark ? THEME_MOON_PATH : THEME_SUN_PATH;
 }
 
-window.togglePrivacyMode = () => {
+window.togglePrivacyMode = (e) => {
   const active = document.body.classList.toggle('privacy-mode');
   [$('#privacy-toggle-mobile'), $('#privacy-toggle-desktop')].forEach(btn => {
     if (!btn) return;
@@ -3370,6 +3370,24 @@ window.togglePrivacyMode = () => {
   // direzioni — un gesto percepibile invece di un blur che sale/scende piano.
   document.body.classList.add('privacy-flash');
   setTimeout(() => document.body.classList.remove('privacy-flash'), 350);
+  // Onda che nasce dal punto esatto del tocco (coordinate reali dell'evento,
+  // non un centro fisso) ed espande abbastanza da coprire l'angolo più
+  // lontano dello schermo — collega visivamente il gesto al suo effetto.
+  const ripple = $('#privacy-ripple');
+  if (ripple && e && Number.isFinite(e.clientX)) {
+    const x = e.clientX, y = e.clientY;
+    const maxDist = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const size = maxDist * 2.3;
+    ripple.style.left = `${x}px`;
+    ripple.style.top = `${y}px`;
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+    ripple.style.background = `radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, transparent) 0%, transparent 70%)`;
+    ripple.style.display = 'block';
+    ripple.classList.remove('active');
+    void ripple.offsetWidth;
+    ripple.classList.add('active');
+  }
   VaultDAO.state.privacyMode = active;
   VaultDAO.save();
 };
