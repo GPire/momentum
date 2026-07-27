@@ -3034,7 +3034,19 @@ function initTelemetryToggle() {
   }
   const ctxCb = document.getElementById('chat-context-optin');
   if (ctxCb) ctxCb.checked = !!VaultDAO.state.chatContextOptIn;
+  const animCb = document.getElementById('force-anim-optin');
+  if (animCb) animCb.checked = !!VaultDAO.state.forceAnimations;
+  document.documentElement.classList.toggle('force-anim', !!VaultDAO.state.forceAnimations);
 }
+
+// "Riduci movimento" di sistema è rispettato di default in TUTTA l'app —
+// questo toggle è l'unica eccezione, esplicita e scelta dall'utente stesso
+// (mai imposta), solo per le micro-animazioni di attesa della chat generica.
+window.setForceAnimations = (checked) => {
+  VaultDAO.state.forceAnimations = checked;
+  document.documentElement.classList.toggle('force-anim', checked);
+  VaultDAO.save();
+};
 
 // ── CONTESTO FINANZIARIO PER LA CHAT GENERICA (opt-in SEPARATO, disattivato
 // di default): solo se attivo, un riassunto AGGREGATO e anonimo (mai
