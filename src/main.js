@@ -2995,6 +2995,16 @@ const API_KEY_GUIDES = {
     freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Copia la chiave API mostrata nella tua Dashboard', 'Torna qui e incollala. 60 richieste al minuto, molto più del piano gratuito Alpha Vantage.'],
   },
+  // Terzo piano B per le notizie, generaliste (non solo finanziarie) —
+  // utile per aziende meno coperte dagli analisti finanziari. Hacker News
+  // non serve chiave (funziona già senza configurare nulla).
+  newsapi: {
+    title: 'Notizie generaliste — NewsAPI.org (piano B, non solo finanza)',
+    url: 'https://newsapi.org/register',
+    usageUrl: 'https://newsapi.org/account',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Copia la chiave API mostrata', 'Torna qui e incollala. Piano gratuito per uso non commerciale.'],
+  },
   gemini: {
     title: 'Chat generica — Gemini (consigliata)',
     url: 'https://aistudio.google.com/app/apikey',
@@ -3178,6 +3188,10 @@ function initTelemetryToggle() {
   const finnhubStatus = document.getElementById('finnhub-status');
   if (finnhubStatus && VaultDAO.state.liveDataKeys?.finnhub) {
     finnhubStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.finnhub)}). Tocca "Guida" per cambiarla.`;
+  }
+  const newsapiStatus = document.getElementById('newsapi-status');
+  if (newsapiStatus && VaultDAO.state.liveDataKeys?.newsapi) {
+    newsapiStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.newsapi)}). Tocca "Guida" per cambiarla.`;
   }
 }
 
@@ -5362,6 +5376,10 @@ const navigate = (view) => {
     if (finnhubStatus && VaultDAO.state.liveDataKeys?.finnhub) {
       finnhubStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.finnhub)}). Tocca "Guida" per cambiarla.`;
     }
+    const newsapiStatus = document.getElementById('newsapi-status');
+    if (newsapiStatus && VaultDAO.state.liveDataKeys?.newsapi) {
+      newsapiStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.newsapi)}). Tocca "Guida" per cambiarla.`;
+    }
     renderCloudFallbackLogPanel();
   }
   function renderCloudFallbackLogPanel() {
@@ -6121,6 +6139,26 @@ const initApp = () => {
         try {
           const { fetchFinnhubNews } = await import('./alpha/news.js');
           const r = await fetchFinnhubNews(asset.symbol, { apiKey: finnhubKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+          items = r.items || []; stale = r.stale;
+        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+      }
+      // Piano B a chiave (NewsAPI.org, generalista — utile quando le fonti
+      // finanziarie non hanno nulla su un'azienda meno coperta).
+      const newsApiKey = VaultDAO.state.liveDataKeys?.newsapi;
+      if (!items.length && newsApiKey) {
+        try {
+          const { fetchNewsApiOrg } = await import('./alpha/news.js');
+          const r = await fetchNewsApiOrg(asset.name || asset.symbol, { apiKey: newsApiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+          items = r.items || []; stale = r.stale;
+        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+      }
+      // Piano B SENZA ALCUNA CHIAVE (Hacker News) — funziona sempre, anche
+      // per chi non ha configurato nulla. Discussioni tech reali, non un
+      // sentiment (dichiarato onestamente "sconosciuto").
+      if (!items.length) {
+        try {
+          const { fetchHackerNewsMentions } = await import('./alpha/news.js');
+          const r = await fetchHackerNewsMentions(asset.name || asset.symbol, { cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
           items = r.items || []; stale = r.stale;
         } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
       }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchNewsSentiment, fetchFinnhubNews } from './news.js';
+import { fetchNewsSentiment, fetchFinnhubNews, fetchHackerNewsMentions, fetchNewsApiOrg } from './news.js';
 
 const realShape = () => ({
   ok: true,
@@ -97,4 +97,55 @@ test('fetchFinnhubNews: offline/rete giù CON cache → ripiega sulla cache, dic
   const r = await fetchFinnhubNews('AAPL', { apiKey: 'k', fetchImpl, cache });
   assert.equal(r.stale, true);
   assert.equal(r.items[0].title, 'vecchia notizia');
+});
+
+// Piano B SENZA chiave, verificato dal vivo (2026-07-27): Hacker News
+// Algolia funziona subito, senza configurare nulla.
+test('fetchHackerNewsMentions: senza query → errore onesto', async () => {
+  await assert.rejects(() => fetchHackerNewsMentions(null, {}), /nome o simbolo/i);
+});
+
+test('fetchHackerNewsMentions: forma reale → titoli reali, punti/commenti come segnale, mai un sentiment inventato', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      hits: [
+        { title: 'Apple Vision Pro: prime impressioni', url: 'https://x.test/1', points: 320, num_comments: 145, created_at: '2026-07-20T10:00:00Z' },
+        { title: 'Senza URL, va escluso', points: 5, num_comments: 1 },
+      ],
+    }),
+  });
+  const r = await fetchHackerNewsMentions('Apple', { fetchImpl });
+  assert.equal(r.items.length, 1);
+  assert.equal(r.items[0].title, 'Apple Vision Pro: prime impressioni');
+  assert.match(r.items[0].source, /320 punti/);
+  assert.equal(r.items[0].sentimentLabel, 'sconosciuto');
+});
+
+test('fetchHackerNewsMentions: offline CON cache → ripiega sulla cache, dichiarata stale', async () => {
+  const cached = { symbol: 'Apple', asOf: '2026-07-01T00:00:00Z', items: [{ title: 'vecchia discussione' }] };
+  const cache = { get: async () => cached, put: async () => {} };
+  const fetchImpl = async () => { throw new TypeError('Failed to fetch'); };
+  const r = await fetchHackerNewsMentions('Apple', { fetchImpl, cache });
+  assert.equal(r.stale, true);
+});
+
+// Piano B a chiave, verificato dal vivo (CORS confermato).
+test('fetchNewsApiOrg: senza chiave → errore onesto', async () => {
+  await assert.rejects(() => fetchNewsApiOrg('Apple', {}), /chiave/i);
+});
+
+test('fetchNewsApiOrg: forma reale → titoli reali', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({ status: 'ok', articles: [{ title: 'Apple lancia una novità', url: 'https://x.test/1', source: { name: 'Reuters' }, publishedAt: '2026-07-20T10:00:00Z' }] }),
+  });
+  const r = await fetchNewsApiOrg('Apple', { apiKey: 'k', fetchImpl });
+  assert.equal(r.items.length, 1);
+  assert.equal(r.items[0].source, 'Reuters');
+});
+
+test('fetchNewsApiOrg: chiave non valida → errore col messaggio reale, mai dati finti', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ status: 'error', code: 'apiKeyInvalid', message: 'Your API key is invalid or incorrect.' }) });
+  await assert.rejects(() => fetchNewsApiOrg('Apple', { apiKey: 'sbagliata', fetchImpl }), /API key is invalid/);
 });

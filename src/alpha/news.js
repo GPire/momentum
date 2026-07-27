@@ -105,3 +105,78 @@ export async function fetchFinnhubNews(symbol, { apiKey, fetchImpl = fetch, limi
   if (cache) await cache.put(cacheKey, result).catch(() => {});
   return result;
 }
+
+// Piano B senza chiave alcuna (richiesto esplicitamente: "trova altri
+// RSS e metodi innovativi"): Hacker News (Algolia search API), CORS
+// verificato dal vivo (2026-07-27), funziona SUBITO senza configurare
+// nulla. Discussioni reali della comunità tech — utile soprattutto per
+// aziende tech/cripto, meno per settori non tech, ma sempre dati veri
+// (mai un sentiment inventato: qui non esiste un punteggio, solo i
+// punti/commenti reali come segnale di interesse, dichiarati come tali,
+// non come "sentiment").
+export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit = 5, cache = null } = {}) {
+  if (!query) throw new Error('Serve un nome o simbolo da cercare.');
+  const cacheKey = `hn-news:${query.toLowerCase()}`;
+  const url = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(query)}&tags=story&hitsPerPage=${limit}`;
+  let json;
+  try {
+    const res = await fetchImpl(url);
+    if (!res.ok) throw new Error(`Hacker News: HTTP ${res.status}`);
+    json = await res.json();
+  } catch (err) {
+    if (cache) {
+      const cached = await cache.get(cacheKey).catch(() => null);
+      if (cached) return { ...cached, stale: true };
+    }
+    throw err;
+  }
+  const hits = Array.isArray(json?.hits) ? json.hits : [];
+  const items = hits.filter(h => h.url).map((h) => ({
+    title: h.title,
+    url: h.url,
+    source: `Hacker News (${h.points ?? 0} punti, ${h.num_comments ?? 0} commenti)`,
+    publishedAt: h.created_at || null,
+    sentimentScore: null,
+    sentimentLabel: 'sconosciuto',
+    relevance: null,
+  }));
+  const result = { symbol: query, asOf: new Date().toISOString(), items, stale: false };
+  if (cache) await cache.put(cacheKey, result).catch(() => {});
+  return result;
+}
+
+// Piano B a chiave, ulteriore diversificazione (CORS verificato dal vivo,
+// access-control-allow-origin: *). Aggregatore di notizie generaliste
+// (non solo finanziarie) — utile quando le fonti finanziarie non hanno
+// nulla su un'azienda meno coperta dagli analisti.
+export async function fetchNewsApiOrg(query, { apiKey, fetchImpl = fetch, limit = 5, cache = null } = {}) {
+  if (!query) throw new Error('Serve un nome o simbolo da cercare.');
+  if (!apiKey) throw new Error('Serve la tua chiave NewsAPI.org personale (Momentum Vault → Prezzi live).');
+  const cacheKey = `newsapi:${query.toLowerCase()}`;
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&pageSize=${limit}&apiKey=${encodeURIComponent(apiKey)}`;
+  let json;
+  try {
+    const res = await fetchImpl(url);
+    json = await res.json().catch(() => null);
+    if (!res.ok || json?.status === 'error') throw new Error(json?.message || `NewsAPI.org: HTTP ${res.status}`);
+  } catch (err) {
+    if (cache) {
+      const cached = await cache.get(cacheKey).catch(() => null);
+      if (cached) return { ...cached, stale: true };
+    }
+    throw err;
+  }
+  const articles = Array.isArray(json?.articles) ? json.articles : [];
+  const items = articles.map((a) => ({
+    title: a.title,
+    url: a.url,
+    source: a.source?.name || 'NewsAPI.org',
+    publishedAt: a.publishedAt || null,
+    sentimentScore: null,
+    sentimentLabel: 'sconosciuto',
+    relevance: null,
+  }));
+  const result = { symbol: query, asOf: new Date().toISOString(), items, stale: false };
+  if (cache) await cache.put(cacheKey, result).catch(() => {});
+  return result;
+}
