@@ -1456,7 +1456,15 @@
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Chat generica (opzionale)</h3>
                   <p class="card-sub">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Di base riceve SOLO il testo che scrivi.</p>
                   <p class="text-[9px] text-slate-500 mt-2"><b>Gemini</b>: la scelta migliore per la maggior parte — ragionamento generale forte, capisce domande lunghe/articolate, quota gratuita generosa (verificato).</p>
-                  <button onclick="window.openApiKeyGuide('gemini')" class="btn-action w-full justify-center mt-2">Attiva con Gemini (consigliata) →</button>
+                  <!-- Prima non si capiva se una chiave era già salvata o no
+                       (l'utente l'ha segnalato: "sembra sempre che debba
+                       essere messa anche quando c'è già") — questa lista
+                       mostra lo stato REALE di ognuno dei 5 provider e
+                       permette di cambiare la chiave in qualsiasi momento,
+                       non solo la prima volta. Se ne configuri più di uno,
+                       Momentum li prova in ordine (Gemini→Groq→DeepSeek→
+                       OpenAI→Anthropic) finché uno risponde. -->
+                  <div id="chat-provider-status" class="mt-2 space-y-1.5"></div>
                   <label class="flex items-start gap-2 mt-3 text-xs cursor-pointer select-none">
                     <input type="checkbox" id="chat-context-optin" onchange="window.setChatContextOptIn(this.checked)" class="w-4 h-4 mt-0.5" />
                     <span>Includi anche un riassunto ANONIMO e aggregato della mia situazione (es. "oggi puoi spendere 50€", mai transazioni, esercenti o conti) — risposte più pertinenti</span>

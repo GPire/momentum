@@ -3014,6 +3014,7 @@ window.saveGuideKey = (provider) => {
   VaultDAO.save();
   showToast('Chiave salvata. Fatto!', 'success');
   try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
+  try { window.renderChatProviderStatus && window.renderChatProviderStatus(); } catch (_) {}
   window.closeModal();
 };
 
@@ -3043,7 +3044,45 @@ function initTelemetryToggle() {
   document.documentElement.classList.toggle('force-anim', !!VaultDAO.state.forceAnimations);
   const langSel = document.getElementById('qa-language-select');
   if (langSel) langSel.value = VaultDAO.state.qaLanguageOverride && QA_SUPPORTED_LANGS.includes(VaultDAO.state.qaLanguageOverride) ? VaultDAO.state.qaLanguageOverride : '';
+  renderChatProviderStatus();
+  const lpStatus = document.getElementById('live-price-status');
+  if (lpStatus && VaultDAO.state.liveDataKeys?.alphavantage) {
+    lpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.alphavantage)}). Tocca "Guida" per cambiarla.`;
+  }
 }
+
+// Prima non si capiva se una chiave era già salvata (segnalato dall'utente:
+// "sembra sempre che debba essere messa anche quando c'è già") — mostra lo
+// stato REALE di ognuno dei 5 provider e permette di cambiarla in qualsiasi
+// momento (stesso openApiKeyGuide, che già sovrascrive senza problemi).
+function maskKey(key) {
+  const k = String(key || '');
+  return k.length > 8 ? `${k.slice(0, 4)}…${k.slice(-4)}` : '••••';
+}
+function renderChatProviderStatus() {
+  const box = document.getElementById('chat-provider-status');
+  if (!box) return;
+  const PROVIDERS = [
+    { id: 'gemini', label: 'Gemini' },
+    { id: 'groq', label: 'Groq' },
+    { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'openai', label: 'OpenAI' },
+    { id: 'anthropic', label: 'Anthropic' },
+  ];
+  const keys = VaultDAO.state.liveDataKeys || {};
+  box.innerHTML = PROVIDERS.map(p => {
+    const active = !!keys[p.id];
+    return `
+      <div class="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
+          ${p.label}${active ? ` <span class="text-slate-500 font-mono">${maskKey(keys[p.id])}</span>` : ''}
+        </span>
+        <button onclick="window.openApiKeyGuide('${p.id}')" class="text-[10px] underline ${active ? 'text-slate-400' : 'text-[var(--primary)]'}">${active ? 'Cambia' : 'Attiva'} →</button>
+      </div>`;
+  }).join('');
+}
+window.renderChatProviderStatus = renderChatProviderStatus;
 
 // Scelta manuale della lingua di "Chiedi a Momentum" — vuoto = automatica
 // (segue il testo della domanda, poi il dispositivo, mai più solo l'italiano
@@ -5161,7 +5200,20 @@ const navigate = (view) => {
     btn.classList.toggle('text-[var(--on-surface-secondary)]', !active);
   });
   if (view === 'analysis') renderAnalysis();
-  if (view === 'settings') { renderTaxSettings(); renderBrakeDesc(); }
+  if (view === 'settings') {
+    renderTaxSettings(); renderBrakeDesc();
+    // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
+    // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
+    // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
+    // provider mostrava sempre "non attivo" anche a chiave già salvata
+    // (esattamente il bug segnalato dall'utente). Ri-renderizzare ad ogni
+    // apertura della vista Impostazioni lo tiene sempre corretto.
+    renderChatProviderStatus();
+    const lpStatus = document.getElementById('live-price-status');
+    if (lpStatus && VaultDAO.state.liveDataKeys?.alphavantage) {
+      lpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.alphavantage)}). Tocca "Guida" per cambiarla.`;
+    }
+  }
   // Ingresso SCAGLIONATO del contenuto della sezione (ri-attiva l'animazione ad
   // ogni cambio vista togliendo/rimettendo la classe: reflow forzato in mezzo).
   const shown = $(`#${view}-view`);
