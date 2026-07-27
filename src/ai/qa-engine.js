@@ -22,6 +22,24 @@ import { buildCausalGraph, propagateImpact } from '../predict/causal-graph.js';
 import { investableSurplus } from '../alpha/bridge.js';
 import { monthKey } from '../core/constants.js';
 import { detectLanguage } from '../i18n/detect.js';
+import MEASURED from '../alpha/measured-assumptions.js';
+
+// Arricchimento onesto per "dove posso investire" (segnalato dall'utente:
+// senza questo la domanda cadeva sulla chat generica, che con nessun dato
+// reale rispondeva solo con frasi educative generiche). MAI un consiglio
+// d'acquisto specifico — solo le STESSE categorie e Sharpe ratio MISURATI
+// (walk-forward, mai un numero inventato) già mostrati nella tabella
+// "Strategia (10 anni)" di Analisi Tensor, qui riassunti in una frase.
+function topMeasuredStrategiesNote() {
+  const rows = [
+    { label: MEASURED.spy?.label, sharpe: MEASURED.spy?.momentumTiming?.sharpe },
+    { label: `${MEASURED.spy?.label} (buy&hold)`, sharpe: MEASURED.spy?.buyHold?.sharpe },
+    { label: MEASURED.btc?.label, sharpe: MEASURED.btc?.buyHold?.sharpe },
+  ].filter(r => r.label && Number.isFinite(r.sharpe)).sort((a, b) => b.sharpe - a.sharpe);
+  if (!rows.length) return '';
+  const top = rows.slice(0, 2).map(r => `${r.label} (Sharpe ${r.sharpe.toFixed(2)}, misurato)`).join(' e ');
+  return ` Dato storico (non una previsione, non un consiglio d'acquisto): negli ultimi anni ${top} hanno avuto il miglior rapporto rischio/rendimento — vedi la tabella completa in Analisi Tensor.`;
+}
 
 const LANGS = ['it', 'en', 'es', 'fr', 'de'];
 // Fallback onesto: una lingua rilevata ma non tradotta qui (es. 'pt') usa
@@ -115,7 +133,7 @@ function extractAmount(q) {
 // misto) trova riscontro.
 const PATTERNS = {
   invest: {
-    it: /(quanto posso investire|posso investire|quanto investire|investire questo mese)/,
+    it: /(quanto posso investire|posso investire|quanto investire|investire questo mese|dove (posso )?investire|in cosa investire|dove mettere i (miei )?soldi)/,
     en: /(how much can i invest|can i invest|invest this month)/,
     es: /(cuánto puedo invertir|puedo invertir|invertir este mes)/,
     fr: /(combien puis-je investir|puis-je investir|investir ce mois)/,
@@ -230,7 +248,8 @@ export function answerQuestion(question, ctx) {
       currentEmergencyFund: ctx.emergencyFund ?? f.invested,
       emergencyMonths: ctx.emergencyMonths ?? 6,
     });
-    return { intent: 'invest', data: r, answer: r.note };
+    const enrich = r.reason === 'ok' ? topMeasuredStrategiesNote() : '';
+    return { intent: 'invest', data: r, answer: r.note + enrich };
   }
 
   // — "posso permettermi X?" (prima di safe-to-spend: contiene un importo)

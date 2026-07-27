@@ -84,6 +84,7 @@ import { answerQuestion } from './ai/qa-engine.js';
 import { mergeMorphology, initMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANGS } from './i18n/detect.js';
+import { detectNewsIntent } from './predict/news-intent.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
 import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './predict/command-center.js';
@@ -5551,6 +5552,45 @@ const initApp = () => {
   // Messaggio semplice, mai il testo tecnico grezzo dell'errore (l'utente
   // ha segnalato: "API key not valid" non lo capisce chi non sa cosa sia
   // una chiave — dettaglio tecnico spostato SOLO nel title, a chi lo cerca).
+  // BUG REALE segnalato dall'utente: "dammi le notizie di Nvidia" cadeva
+  // sulla chat generica, che senza dati veri risponde con frasi educative
+  // generiche ("Nvidia continua a essere al centro dell'attenzione...") —
+  // inutile per chi vuole informarsi davvero, costringendo a uscire
+  // dall'app. Ora usa la pipeline REALE già costruita per "Cerca un asset"
+  // (CoinGecko/Alpha Vantage NEWS_SENTIMENT) invece della chat generica.
+  function showQaNewsAnswer(asset, items, stale) {
+    const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
+    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
+    const itemsHtml = items.slice(0, 4).map(n =>
+      `<a href="${n.url}" target="_blank" rel="noopener" class="qa-cloud-block block leading-snug hover:underline"><span class="${labelColor[n.sentimentLabel] || 'text-slate-400'}">●</span> ${n.title} <span class="text-slate-500">— ${n.source || ''}</span></a>`
+    ).join('');
+    qaAnswer.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · notizie reali</h4>
+        <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'Alpha Vantage'}</span>
+      </div>
+      <div class="space-y-1.5">${itemsHtml}</div>`;
+    replayQaAnimation();
+  }
+  // Ritorna true se ha risposto con notizie reali (fine flusso), false se
+  // deve proseguire col percorso normale (Momentum locale → chat generica).
+  // Mai un dato inventato: se manca la chiave, l'asset non si trova, o la
+  // fonte non risponde, si ripiega onestamente sul flusso esistente.
+  async function tryAnswerWithRealNews(assetQuery) {
+    const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
+    if (!apiKey) return false;
+    try {
+      const { searchAsset } = await import('./alpha/asset-search.js');
+      const { results } = await searchAsset(assetQuery, { apiKey, fetchImpl: fetch.bind(window), cache: assetSearchCache });
+      const asset = results?.[0];
+      if (!asset) return false;
+      const { fetchNewsSentiment } = await import('./alpha/news.js');
+      const { items, stale } = await fetchNewsSentiment(asset.symbol, { apiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+      if (!items?.length) return false;
+      showQaNewsAnswer(asset, items, stale);
+      return true;
+    } catch (_) { return false; }
+  }
   function showQaCloudError(localAnswer, message) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-rose-950/20 border border-rose-500/25 text-rose-200';
     qaAnswer.innerHTML = `
@@ -5594,6 +5634,14 @@ const initApp = () => {
     const ask = async () => {
       const question = qaInput.value.trim();
       if (!question) return;
+      const newsIntent = detectNewsIntent(question);
+      if (newsIntent) {
+        qaAnswer.classList.remove('hidden');
+        showQaThinking(`Cerco notizie reali su "${newsIntent.asset}"...`);
+        haptic('light');
+        const handled = await tryAnswerWithRealNews(newsIntent.asset);
+        if (handled) return;
+      }
       const res = askMomentum(question);
       styleQaAnswer(res);
       qaAnswer.classList.remove('hidden');

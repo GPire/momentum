@@ -242,3 +242,31 @@ test('intent investimento: "quanto posso investire" usa il motore alpha/bridge',
   assert.ok(typeof r.answer === 'string' && r.answer.length > 0);
   assert.ok('investable' in r.data);
 });
+
+test('intent investimento: "dove posso investire oggi?" matcha lo stesso motore (segnalato dall\'utente, prima cadeva sulla chat generica)', () => {
+  const allTx = {
+    '2026-05': [{ date: '2026-05-05', amount: 5000, type: 'invest', category: 'etf', description: 'pac' }],
+    '2026-07': [
+      { date: '2026-07-05', amount: 2000, type: 'entrata', category: 'stipendio', description: 'stipendio' },
+      { date: '2026-07-10', amount: 800, type: 'uscita', category: 'spesa', description: 'spesa' },
+    ],
+  };
+  const r = answerQuestion('dove posso investire oggi?', { allTx, referenceDate: new Date(2026, 6, 15), emergencyFund: 10000 });
+  assert.equal(r.intent, 'invest');
+  // Con l'avanzo disponibile, la risposta cita categorie con Sharpe misurato
+  // (mai un consiglio d'acquisto specifico) invece di restare generica.
+  assert.ok(/Sharpe.*misurato/.test(r.answer));
+  assert.ok(/consiglio d'acquisto/.test(r.answer)); // la dicitura onesta resta presente
+});
+
+test('intent investimento: senza avanzo disponibile, nessun arricchimento aggiunto (resta solo il motivo)', () => {
+  const allTx = {
+    '2026-07': [
+      { date: '2026-07-05', amount: 500, type: 'entrata', category: 'stipendio', description: 'stipendio' },
+      { date: '2026-07-10', amount: 800, type: 'uscita', category: 'spesa', description: 'spesa' },
+    ],
+  };
+  const r = answerQuestion('dove posso investire?', { allTx, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.intent, 'invest');
+  assert.ok(!/Sharpe/.test(r.answer));
+});
