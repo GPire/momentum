@@ -9,7 +9,10 @@ const imp = (rel) => import(pathToFileURL(join(root, rel)).href);
 const { trainHashedLogReg } = await imp('src/ai/hashed-logreg.js');
 const { generateDataset } = await imp('src/ai/train/data-gen.mjs');
 
-const CONFIG = { perCat: 800, epochs: 40, dim: 16384, lr: 0.5, l2: 1e-6, seed: 1, dataSeed: 777 };
+// useIdf: TF-IDF sugli n-grammi hashati, misurato +1,2pt reali sul benchmark
+// held-out (89,6%→90,8%, 2026-07-27) — prima implementato in hashed-logreg.js
+// ma mai attivato in nessuno script di training.
+const CONFIG = { perCat: 800, epochs: 40, dim: 16384, lr: 0.5, l2: 1e-6, seed: 1, dataSeed: 777, useIdf: true };
 console.log('Addestro HashedLogReg (locale, JS):', JSON.stringify(CONFIG));
 const train = generateDataset({ perCat: CONFIG.perCat, seed: CONFIG.dataSeed });
 const t0 = Date.now();

@@ -45,7 +45,11 @@ const dim = Number(process.env.DIM || 16384);
 const train = generateDataset({ perCat, seed: 777 });
 console.log(`  ${train.length} esempi (${perCat}/categoria), dim=${dim}, epochs=${epochs}`);
 const t0 = Date.now();
-const model = trainHashedLogReg(train, { dim, epochs, lr: 0.5, l2: 1e-6, seed: 1 });
+// useIdf: TF-IDF pesa gli n-grammi hashati per rarità — misurato +1,2pt reali
+// su questo stesso benchmark (89,6%→90,8%, 2026-07-27, script scartabile in
+// scratchpad), prima non era mai attivato in nessuno script di training pur
+// essendo implementato in hashed-logreg.js.
+const model = trainHashedLogReg(train, { dim, epochs, lr: 0.5, l2: 1e-6, seed: 1, useIdf: true });
 console.log(`  addestrato in ${((Date.now()-t0)/1000).toFixed(1)}s`);
 const logreg = new HashedLogReg(model);
 
