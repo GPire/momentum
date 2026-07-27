@@ -6018,14 +6018,26 @@ const initApp = () => {
     const yearNote = (best && worst && best.year !== worst.year)
       ? `<p class="text-[9px] text-slate-500 mt-1.5">Miglior anno: ${best.year} (${best.changePct >= 0 ? '+' : ''}${best.changePct.toFixed(0)}%) · Peggior anno: ${worst.year} (${worst.changePct >= 0 ? '+' : ''}${worst.changePct.toFixed(0)}%)</p>`
       : '';
+    // Hover/tocca il grafico per capire un punto esatto (richiesto
+    // esplicitamente: "deve essere possibile navigarci sopra per capire e
+    // confrontare periodi") — serie compatta incorporata nell'attributo
+    // data-series (date+price VERI, mai un valore interpolato o inventato),
+    // letta dal listener delegato in initApp per mostrare data/prezzo esatti
+    // sotto il grafico e spostare un punto+linea guida sull'SVG.
+    const seriesData = encodeURIComponent(JSON.stringify(series.map(p => [p.date, Math.round(p.price * 100) / 100])));
     return `
       <div class="qa-cloud-block mt-1.5">
-        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-24" aria-hidden="true">
-          <path d="${path} L${x(series.length - 1).toFixed(1)},${H} L${x(0).toFixed(1)},${H} Z" fill="url(#qaHistGrad)" opacity="0.25"/>
-          <path d="${path}" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
-          ${markersHtml}
-          <defs><linearGradient id="qaHistGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
-        </svg>
+        <div class="qa-hist-wrap" style="position:relative">
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="qa-hist-svg w-full h-24" style="touch-action:none;cursor:crosshair" data-series="${seriesData}" data-w="${W}" data-h="${H}" data-pad="${PAD}">
+            <path d="${path} L${x(series.length - 1).toFixed(1)},${H} L${x(0).toFixed(1)},${H} Z" fill="url(#qaHistGrad)" opacity="0.25"/>
+            <path d="${path}" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+            ${markersHtml}
+            <line class="qa-hist-guide" x1="0" y1="0" x2="0" y2="${H}" stroke="#94a3b8" stroke-width="1" opacity="0"/>
+            <circle class="qa-hist-dot" r="3.5" fill="#fbbf24" stroke="#0b0f1a" stroke-width="1" opacity="0"/>
+            <defs><linearGradient id="qaHistGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
+          </svg>
+          <p class="qa-hist-hover-label text-[10px] text-slate-300 text-center mt-0.5 font-mono">${last.date} · ${last.price.toFixed(2)} — tocca il grafico per esplorare</p>
+        </div>
         ${stats}
         ${yearNote}
         <p class="text-[9px] text-slate-500 mt-1.5">Verde/rosso = massimo/minimo storico reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette. Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
@@ -6066,6 +6078,46 @@ const initApp = () => {
     group.querySelectorAll('.qa-period-btn').forEach(b => b.classList.toggle('qa-period-active', b === btn));
     group.querySelectorAll('.qa-period-panel').forEach(p => { p.style.display = p.dataset.key === key ? '' : 'none'; });
   });
+  // Navigazione sul grafico storico (richiesto esplicitamente: "deve essere
+  // possibile navigarci sopra per capire") — pointermove copre sia mouse che
+  // touch con un solo listener delegato, mai un secondo gestore separato per
+  // il tocco su mobile. Trova il punto REALE più vicino al dito/cursore
+  // (mai un valore interpolato) e lo mostra come testo + pallino + linea
+  // guida sull'SVG.
+  function updateHistHover(svg, clientX) {
+    const series = svg.__qaSeries || (svg.__qaSeries = JSON.parse(decodeURIComponent(svg.dataset.series)));
+    if (!series.length) return;
+    const W = Number(svg.dataset.w), H = Number(svg.dataset.h), PAD = Number(svg.dataset.pad);
+    const rect = svg.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const localX = (clientX - rect.left) * scaleX;
+    const t = Math.max(0, Math.min(1, (localX - PAD) / (W - PAD * 2)));
+    const idx = Math.round(t * (series.length - 1));
+    const [date, price] = series[idx];
+    const prices = series.map(p => p[1]);
+    const minP = Math.min(...prices), maxP = Math.max(...prices);
+    const span = maxP - minP || 1;
+    const px = PAD + (idx / (series.length - 1)) * (W - PAD * 2);
+    const py = H - PAD - ((price - minP) / span) * (H - PAD * 2);
+    const guide = svg.querySelector('.qa-hist-guide');
+    const dot = svg.querySelector('.qa-hist-dot');
+    guide.setAttribute('x1', px.toFixed(1)); guide.setAttribute('x2', px.toFixed(1)); guide.setAttribute('opacity', '0.5');
+    dot.setAttribute('cx', px.toFixed(1)); dot.setAttribute('cy', py.toFixed(1)); dot.setAttribute('opacity', '1');
+    const label = svg.closest('.qa-hist-wrap')?.querySelector('.qa-hist-hover-label');
+    if (label) label.textContent = `${date} · ${price.toFixed(2)}`;
+  }
+  document.addEventListener('pointermove', (e) => {
+    const svg = e.target.closest('.qa-hist-svg');
+    if (!svg) return;
+    if (e.pointerType === 'touch') e.preventDefault();
+    updateHistHover(svg, e.clientX);
+  }, { passive: false });
+  document.addEventListener('pointerleave', (e) => {
+    const svg = e.target.closest?.('.qa-hist-svg');
+    if (!svg) return;
+    svg.querySelector('.qa-hist-guide')?.setAttribute('opacity', '0');
+    svg.querySelector('.qa-hist-dot')?.setAttribute('opacity', '0');
+  }, true);
   // Card notizie CONDIVISA (richiesto esplicitamente: unificare invece di
   // duplicare) — usata sia da "Chiedi a Momentum" sia da "Cerca un asset"
   // (Analisi Tensor), stessa identità visiva ovunque. Riassunto reale (mai
