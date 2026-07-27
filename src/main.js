@@ -2944,28 +2944,32 @@ const API_KEY_GUIDES = {
     title: 'Prezzi live per azioni/ETF',
     url: 'https://www.alphavantage.co/support/#api-key',
     freeNoCard: true,
-    steps: ['Apri il sito (si apre in una scheda nuova)', 'Scrivi la tua email e premi il pulsante per ottenere la chiave', 'Copia il codice che appare sullo schermo', 'Torna qui e incollalo sotto'],
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Lascia pure il menu com\'è, scrivi la tua email nel campo "Email"', 'Premi il pulsante verde "GET FREE API KEY"', 'Copia il codice che appare e torna qui'],
   },
   gemini: {
     title: 'Chat generica — Gemini (consigliata)',
     url: 'https://aistudio.google.com/app/apikey',
     usageUrl: 'https://aistudio.google.com/app/apikey',
     freeNoCard: true,
-    steps: ['Apri il sito (si apre in una scheda nuova)', 'Accedi con un account Google, quello che usi già', 'Premi "Create API key"', 'Copia il codice e torna qui'],
+    // Testi verificati dal vivo (2026-07-27): il sito si traduce da solo
+    // nella lingua del browser — "Create API key" può apparire come "Crea
+    // chiave API" per chi ha Google in italiano. Non dare per scontato un
+    // solo testo fisso in inglese: era un errore reale, corretto qui.
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Accedi con un account Google, quello che usi già', 'Cerca il pulsante per creare una chiave — può dire "Create API key" o, se il sito è in italiano, "Crea chiave API"', 'Copia il codice (inizia con "AIza...") e torna qui'],
   },
   groq: {
     title: 'Chat generica — Groq (alternativa)',
     url: 'https://console.groq.com/keys',
     usageUrl: 'https://console.groq.com/settings/limits',
     freeNoCard: true,
-    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito (email o Google)', 'Premi "Create API Key"', 'Copia il codice e torna qui'],
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito — puoi scegliere Google, GitHub o la tua email', 'Premi "Create API Key"', 'Copia il codice (inizia con "gsk_...") e torna qui'],
   },
   deepseek: {
     title: 'Chat generica — DeepSeek',
     url: 'https://platform.deepseek.com/api_keys',
     usageUrl: 'https://platform.deepseek.com/usage',
     freeNoCard: false,
-    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account', 'Vai su "API keys" e creane una', 'Copia il codice e torna qui — verifica tu i costi sul tuo account'],
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Premi "Sign up" per creare un account (o "Log in with Google" se ne hai già uno)', 'Vai su "API keys" nel menu e premi "Create new API key"', 'Copia il codice e torna qui — verifica tu i costi sul tuo account'],
   },
   openai: {
     title: 'Chat generica — OpenAI (a pagamento)',
