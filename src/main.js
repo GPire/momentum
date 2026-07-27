@@ -5610,36 +5610,58 @@ const initApp = () => {
   // inutile per chi vuole informarsi davvero, costringendo a uscire
   // dall'app. Ora usa la pipeline REALE già costruita per "Cerca un asset"
   // (CoinGecko/Alpha Vantage NEWS_SENTIMENT) invece della chat generica.
-  function showQaNewsAnswer(asset, items, stale) {
+  function showQaNewsAnswer(asset, items, stale, yoyNote) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
-    const itemsHtml = items.slice(0, 4).map(n =>
+    const itemsHtml = items.map(n =>
       `<a href="${n.url}" target="_blank" rel="noopener" class="qa-cloud-block block leading-snug hover:underline"><span class="${labelColor[n.sentimentLabel] || 'text-slate-400'}">●</span> ${n.title} <span class="text-slate-500">— ${n.source || ''}</span></a>`
     ).join('');
+    // Dato storico REALE (CoinGecko, mai una previsione) — risponde a
+    // "cosa è successo nello stesso periodo l'anno scorso" per le cripto.
+    const yoyHtml = yoyNote ? `<p class="qa-cloud-block text-sky-200/90">${yoyNote}</p>` : '';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
-        <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · notizie reali</h4>
-        <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'Alpha Vantage'}</span>
+        <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
+        <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${itemsHtml}</div>`;
+      <div class="space-y-1.5">${yoyHtml}${itemsHtml}</div>`;
     replayQaAnimation();
   }
-  // Ritorna true se ha risposto con notizie reali (fine flusso), false se
-  // deve proseguire col percorso normale (Momentum locale → chat generica).
-  // Mai un dato inventato: se manca la chiave, l'asset non si trova, o la
-  // fonte non risponde, si ripiega onestamente sul flusso esistente.
+  // Ritorna true se ha risposto con dati reali (fine flusso), false se deve
+  // proseguire col percorso normale (Momentum locale → chat generica). Mai
+  // un dato inventato: se la ricerca/le fonti non rispondono, ripiega
+  // onestamente sul flusso esistente. Le notizie (Alpha Vantage) richiedono
+  // una chiave personale; il confronto storico cripto (CoinGecko) no —
+  // funziona anche senza alcuna chiave configurata.
   async function tryAnswerWithRealNews(assetQuery) {
-    const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
-    if (!apiKey) return false;
     try {
       const { searchAsset } = await import('./alpha/asset-search.js');
+      const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
       const { results } = await searchAsset(assetQuery, { apiKey, fetchImpl: fetch.bind(window), cache: assetSearchCache });
       const asset = results?.[0];
       if (!asset) return false;
-      const { fetchNewsSentiment } = await import('./alpha/news.js');
-      const { items, stale } = await fetchNewsSentiment(asset.symbol, { apiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
-      if (!items?.length) return false;
-      showQaNewsAnswer(asset, items, stale);
+      let items = [], stale = false;
+      if (apiKey) {
+        try {
+          const { fetchNewsSentiment } = await import('./alpha/news.js');
+          const r = await fetchNewsSentiment(asset.symbol, { apiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+          items = r.items || []; stale = r.stale;
+        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+      }
+      let yoyNote = null;
+      if (asset.kind === 'crypto') {
+        try {
+          const { fetchLiveCryptoPrice } = await import('./alpha/live-price.js');
+          const { fetchCryptoPriceYearsAgo, describeYoyChange } = await import('./alpha/year-over-year.js');
+          const [live, past] = await Promise.all([
+            fetchLiveCryptoPrice(asset.id, { fetchImpl: fetch.bind(window) }),
+            fetchCryptoPriceYearsAgo(asset.id, { yearsAgo: 1, fetchImpl: fetch.bind(window) }),
+          ]);
+          yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
+        } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
+      }
+      if (!items.length && !yoyNote) return false;
+      showQaNewsAnswer(asset, items, stale, yoyNote);
       return true;
     } catch (_) { return false; }
   }
