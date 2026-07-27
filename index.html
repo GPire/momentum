@@ -1426,6 +1426,18 @@
                     <button onclick="window.openApiKeyGuide('alphavantage')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
                     <p id="live-price-status" class="text-[10px] text-slate-400"></p>
                   </div>
+                  <!-- Piano B a cascata (richiesto esplicitamente: "mai
+                       dipendere da un solo provider") — se Alpha Vantage
+                       manca o non risponde, Momentum prova Twelve Data. -->
+                  <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
+                    <p class="text-[10px] text-slate-400">Piano B per azioni/ETF (quota più generosa, se Alpha Vantage non basta):</p>
+                    <div class="flex gap-2">
+                      <input type="password" id="twelvedata-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Twelve Data..." />
+                      <button onclick="window.saveLiveDataKey('twelvedata')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+                    </div>
+                    <button onclick="window.openApiKeyGuide('twelvedata')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
+                    <p id="twelvedata-status" class="text-[10px] text-slate-400"></p>
+                  </div>
                 </div>
               </div>
 

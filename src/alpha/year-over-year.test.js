@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchCryptoPriceYearsAgo, describeYoyChange, fetchCryptoPriceSeries, yearlyExtremes, fetchCryptoMultiYearComparison } from './year-over-year.js';
+import { fetchCryptoPriceYearsAgo, describeYoyChange, fetchCryptoPriceSeries, yearlyExtremes, fetchCryptoMultiYearComparison, fetchCryptoKlinesSeries, fetchCryptoHistoryCascade } from './year-over-year.js';
 
 test('fetchCryptoPriceYearsAgo: costruisce la data corretta (1 anno fa) e chiama l\'URL giusto', async () => {
   let calledUrl = null;
@@ -99,4 +99,52 @@ test('fetchCryptoMultiYearComparison: chiama più punti reali (1,2,3,5 anni) e s
   const r = await fetchCryptoMultiYearComparison('bitcoin', { yearsList: [1, 2, 3], fetchImpl, referenceDate: new Date('2026-07-27') });
   assert.equal(r.length, 2); // 3 anni fa scartato, mai un dato inventato al suo posto
   assert.deepEqual(r.map(x => x.yearsAgo), [1, 2]);
+});
+
+test('fetchCryptoKlinesSeries: chiama Binance senza chiave e mappa il close (indice 4)', async () => {
+  let calledUrl = null;
+  const fetchImpl = async (url) => {
+    calledUrl = url;
+    return { ok: true, json: async () => ([[1700000000000, '100', '110', '90', '105', '1000']]) };
+  };
+  const r = await fetchCryptoKlinesSeries('BTC', { fetchImpl });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].price, 105);
+  assert.ok(calledUrl.includes('BTCEUR'));
+  assert.ok(!calledUrl.includes('apikey') && !calledUrl.includes('api_key')); // nessuna chiave richiesta
+});
+
+test('fetchCryptoKlinesSeries: simbolo non quotato su Binance -> array vuoto', async () => {
+  const r = await fetchCryptoKlinesSeries('XYZ', { fetchImpl: async () => ({ ok: false }) });
+  assert.deepEqual(r, []);
+});
+
+test('fetchCryptoKlinesSeries: nessun simbolo -> array vuoto', async () => {
+  assert.deepEqual(await fetchCryptoKlinesSeries(null, { fetchImpl: async () => ({}) }), []);
+});
+
+test('fetchCryptoHistoryCascade: usa Binance se disponibile (fonte primaria, senza chiave)', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ([[1700000000000, '1', '1', '1', '100', '1'], [1702678400000, '1', '1', '1', '105', '1']]) });
+  const r = await fetchCryptoHistoryCascade('bitcoin', 'BTC', { fetchImpl });
+  assert.equal(r.source, 'binance');
+  assert.equal(r.series.length, 2);
+});
+
+test('fetchCryptoHistoryCascade: ripiega su CoinGecko se il simbolo non è su Binance', async () => {
+  let call = 0;
+  const fetchImpl = async () => {
+    call++;
+    if (call === 1) return { ok: false }; // Binance: simbolo assente
+    return { ok: true, json: async () => ({ prices: [[1700000000000, 50]] }) }; // CoinGecko: reale
+  };
+  const r = await fetchCryptoHistoryCascade('somecoin', 'XYZ', { fetchImpl });
+  assert.equal(r.source, 'coingecko');
+  assert.equal(r.series.length, 1);
+});
+
+test('fetchCryptoHistoryCascade: entrambe le fonti falliscono -> source null, mai un dato inventato', async () => {
+  const fetchImpl = async () => ({ ok: false });
+  const r = await fetchCryptoHistoryCascade('somecoin', 'XYZ', { fetchImpl });
+  assert.equal(r.source, null);
+  assert.deepEqual(r.series, []);
 });

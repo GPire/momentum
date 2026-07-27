@@ -2922,7 +2922,11 @@ window.openCommitmentsManager = (onDone = null) => {
 // Yahoo/Stooq bloccano le chiamate dirette dal browser (verificato CORS).
 window.saveLiveDataKey = (provider) => {
   const input = document.getElementById(`${provider}-key-input`);
-  const status = document.getElementById('live-price-status');
+  // Ogni provider ha il proprio elemento di stato (alphavantage usa
+  // #live-price-status per compatibilità con testi/markup esistenti,
+  // gli altri usano #{provider}-status) — bug potenziale evitato: prima
+  // avrebbe sempre scritto sullo stato di Alpha Vantage a prescindere.
+  const status = document.getElementById(provider === 'alphavantage' ? 'live-price-status' : `${provider}-status`);
   const value = (input?.value || '').trim();
   if (!value) { showToast('Incolla prima la tua chiave.', 'error'); return; }
   VaultDAO.state.liveDataKeys = { ...(VaultDAO.state.liveDataKeys || {}), [provider]: value };
@@ -2949,6 +2953,16 @@ const API_KEY_GUIDES = {
     url: 'https://www.alphavantage.co/support/#api-key',
     freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Lascia pure il menu com\'è, scrivi la tua email nel campo "Email"', 'Premi il pulsante verde "GET FREE API KEY"', 'Copia il codice che appare e torna qui'],
+  },
+  // Piano B per azioni/ETF (a cascata con Alpha Vantage, richiesto
+  // esplicitamente: "mai dipendere da un solo provider"). Quota gratuita
+  // molto più generosa (~800 richieste/giorno vs 25 di Alpha Vantage).
+  twelvedata: {
+    title: 'Prezzi/storico azioni-ETF — Twelve Data (piano B)',
+    url: 'https://twelvedata.com/pricing',
+    usageUrl: 'https://twelvedata.com/account/usage',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Scegli il piano "Basic" (gratuito) e crea un account', 'Vai su "API Keys" nel tuo pannello e copia la chiave generata', 'Torna qui e incollala'],
   },
   gemini: {
     title: 'Chat generica — Gemini (consigliata)',
@@ -3060,6 +3074,10 @@ function initTelemetryToggle() {
   const lpStatus = document.getElementById('live-price-status');
   if (lpStatus && VaultDAO.state.liveDataKeys?.alphavantage) {
     lpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.alphavantage)}). Tocca "Guida" per cambiarla.`;
+  }
+  const tdStatus = document.getElementById('twelvedata-status');
+  if (tdStatus && VaultDAO.state.liveDataKeys?.twelvedata) {
+    tdStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.twelvedata)}). Tocca "Guida" per cambiarla.`;
   }
 }
 
@@ -5225,6 +5243,10 @@ const navigate = (view) => {
     if (lpStatus && VaultDAO.state.liveDataKeys?.alphavantage) {
       lpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.alphavantage)}). Tocca "Guida" per cambiarla.`;
     }
+    const tdStatus = document.getElementById('twelvedata-status');
+    if (tdStatus && VaultDAO.state.liveDataKeys?.twelvedata) {
+      tdStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.twelvedata)}). Tocca "Guida" per cambiarla.`;
+    }
     renderCloudFallbackLogPanel();
   }
   function renderCloudFallbackLogPanel() {
@@ -5757,11 +5779,15 @@ const initApp = () => {
       if (asset.kind === 'crypto') {
         try {
           const { fetchLiveCryptoPrice } = await import('./alpha/live-price.js');
-          const { fetchCryptoPriceYearsAgo, describeYoyChange, fetchCryptoPriceSeries, yearlyExtremes, fetchCryptoMultiYearComparison } = await import('./alpha/year-over-year.js');
-          const [live, past, series, multiYear] = await Promise.all([
+          const { fetchCryptoPriceYearsAgo, describeYoyChange, yearlyExtremes, fetchCryptoMultiYearComparison, fetchCryptoHistoryCascade } = await import('./alpha/year-over-year.js');
+          // A CASCATA e SENZA CHIAVE (richiesto esplicitamente): Binance
+          // (nessuna registrazione, storico reale di anni) prima, CoinGecko
+          // (limitato a 365gg sul piano gratuito) come piano B se il
+          // simbolo non è quotato su Binance.
+          const [live, past, { series }, multiYear] = await Promise.all([
             fetchLiveCryptoPrice(asset.id, { fetchImpl: fetch.bind(window) }),
             fetchCryptoPriceYearsAgo(asset.id, { yearsAgo: 1, fetchImpl: fetch.bind(window) }),
-            fetchCryptoPriceSeries(asset.id, { yearsBack: 1, fetchImpl: fetch.bind(window) }),
+            fetchCryptoHistoryCascade(asset.id, asset.symbol, { fetchImpl: fetch.bind(window) }),
             fetchCryptoMultiYearComparison(asset.id, { yearsList: [2, 3, 5], fetchImpl: fetch.bind(window) }),
           ]);
           yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
@@ -5776,15 +5802,17 @@ const initApp = () => {
             }).join(' · ');
           }
         } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
-      } else if (asset.kind === 'stock' && apiKey) {
-        // Azioni/ETF: Alpha Vantage TIME_SERIES_MONTHLY dà storico reale
-        // spesso 20+ anni anche gratis (a differenza del limite di 365gg di
-        // CoinGecko per le cripto) — qui la linea continua multi-anno è
-        // possibile davvero, non solo punti singoli. Segnalato dall'utente:
-        // "non accade solo con Nvidia" — vale per ogni azione/ETF.
+      } else if (asset.kind === 'stock' && (apiKey || VaultDAO.state.liveDataKeys?.twelvedata)) {
+        // Azioni/ETF: Alpha Vantage TIME_SERIES_MONTHLY o Twelve Data
+        // /time_series danno storico reale spesso 20+ anni anche gratis (a
+        // differenza del limite di 365gg di CoinGecko per le cripto) — qui
+        // la linea continua multi-anno è possibile davvero, non solo punti
+        // singoli. Segnalato dall'utente: "non accade solo con Nvidia" —
+        // vale per ogni azione/ETF. A CASCATA (richiesta esplicita): mai
+        // dipendere da un solo provider, l'utente porta le proprie chiavi.
         try {
-          const { fetchStockMonthlySeries, describeStockYearsAgo } = await import('./alpha/stock-history.js');
-          const series = await fetchStockMonthlySeries(asset.symbol, { apiKey, fetchImpl: fetch.bind(window) });
+          const { fetchStockMonthlySeriesCascade, describeStockYearsAgo } = await import('./alpha/stock-history.js');
+          const { series } = await fetchStockMonthlySeriesCascade(asset.symbol, { keys: VaultDAO.state.liveDataKeys || {}, fetchImpl: fetch.bind(window) });
           if (series.length > 1) {
             const { yearlyExtremes } = await import('./alpha/year-over-year.js');
             const current = series[series.length - 1].price;

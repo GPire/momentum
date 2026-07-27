@@ -67,6 +67,35 @@ export async function fetchCryptoMultiYearComparison(coinId, { yearsList = [1, 2
   return results.filter(r => r.point);
 }
 
+// Storico multi-anno REALE e SENZA CHIAVE — Binance /api/v3/klines
+// (endpoint pubblico di mercato, CORS aperto, verificato dal vivo
+// 2026-07-27: nessuna autenticazione richiesta). A differenza di CoinGecko
+// gratuito (limite di 365gg sulla serie continua), Binance dà candele
+// mensili reali per anni (BTCEUR verificato dal vivo: dati dal 2020) senza
+// che l'utente debba registrare nulla — la fonte "senza alcuna chiave"
+// richiesta esplicitamente. Copre solo le coppie quotate su Binance: se il
+// simbolo non esiste lì, ritorna array vuoto (mai un dato stimato).
+export async function fetchCryptoKlinesSeries(symbol, { vsCurrency = 'EUR', fetchImpl = fetch, limit = 60 } = {}) {
+  if (!symbol) return [];
+  const pair = `${symbol.toUpperCase()}${vsCurrency.toUpperCase()}`;
+  const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=1M&limit=${limit}`;
+  const res = await fetchImpl(url);
+  if (!res.ok) return [];
+  const rows = await res.json().catch(() => null);
+  if (!Array.isArray(rows)) return [];
+  return rows.map(r => ({ date: new Date(r[0]).toISOString().slice(0, 10), price: parseFloat(r[4]) })).filter(p => Number.isFinite(p.price));
+}
+
+// A CASCATA: Binance (senza chiave) prima, CoinGecko (senza chiave, ma
+// limitato a 365gg) come piano B se il simbolo non è su Binance — mai
+// dipendere da una fonte sola, richiesto esplicitamente dall'utente.
+export async function fetchCryptoHistoryCascade(coinId, symbol, { fetchImpl = fetch, yearsBack = 1 } = {}) {
+  const klines = await fetchCryptoKlinesSeries(symbol, { fetchImpl });
+  if (klines.length > 1) return { series: klines, source: 'binance' };
+  const series = await fetchCryptoPriceSeries(coinId, { yearsBack, fetchImpl });
+  return { series, source: series.length ? 'coingecko' : null };
+}
+
 // Massimo/minimo REALE per anno solare nella serie — i "momenti salienti"
 // richiesti dall'utente, SOLO dati misurati (data + prezzo veri), MAI un
 // motivo narrativo inventato: il progetto non ha un archivio di notizie
