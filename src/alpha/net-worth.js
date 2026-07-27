@@ -16,21 +16,43 @@
 //    (come portfolio-import.js / market-data.js), così è testabile e onesto.
 'use strict';
 
+// Scatto STATICO (nessuna rete a runtime: l'app resta 100% on-device) dei
+// risultati del backtest walk-forward REALE (src/alpha/historical-backtest.js
+// su prezzi veri Yahoo Finance, bench/generate-measured-assumptions.mjs).
+// File .js generato con `export default {...}` (non .json): import nativo sia
+// per Vite sia per il test runner Node, nessuna import-assertion necessaria.
+import measured from './measured-assumptions.js';
+
 // Ipotesi di rendimento/volatilità annua per strategia (nominali, EUR, lungo
-// periodo). DICHIARATE come assunzioni ragionevoli da letteratura sui fattori
-// (Fama-French, factor investing) — NON garanzie. L'utente può sovrascriverle.
+// periodo). Per 'indice' e 'momentum' NON sono più solo letteratura: quando
+// `measured` è disponibile (scatto reale SPY), sostituiscono l'ipotesi con la
+// MISURA — mai una promessa, ma un fatto storico invece di un numero da
+// manuale, dove un backtest vero esiste. Le altre righe (value/growth/risk/
+// reflexivity) restano dichiarate da letteratura: non abbiamo un backtest
+// reale per quei fattori — onesto ammetterlo invece di fingerne uno.
 export const STRATEGY_ASSUMPTIONS = {
   risparmio:   { mu: 0.015, sigma: 0.01, label: 'Liquidità / conto deposito' },
-  indice:      { mu: 0.07,  sigma: 0.15, label: 'Indice ampio (mercato)' },
+  indice:      measured?.spy
+    ? { mu: measured.spy.buyHold.mu, sigma: measured.spy.buyHold.sigma, label: 'Indice ampio (S&P 500, misurato)', measured: true }
+    : { mu: 0.07, sigma: 0.15, label: 'Indice ampio (mercato)' },
   value:       { mu: 0.08,  sigma: 0.16, label: 'Value (Buffett/Graham)' },
   growth:      { mu: 0.09,  sigma: 0.20, label: 'Growth (Lynch)' },
-  momentum:    { mu: 0.09,  sigma: 0.18, label: 'Momentum (Simons/trend)' },
+  momentum:    measured?.spy
+    ? { mu: measured.spy.momentumTiming.mu, sigma: measured.spy.momentumTiming.sigma, label: 'Momentum-timing (misurato su SPY reale)', measured: true }
+    : { mu: 0.09, sigma: 0.18, label: 'Momentum (Simons/trend)' },
   risk:        { mu: 0.07,  sigma: 0.12, label: 'Low-volatility / quality (Dalio)' },
   reflexivity: { mu: 0.08,  sigma: 0.22, label: 'Riflessività/tattica (Soros)' },
+  // NUOVA riga cripto: onestamente il BUY&HOLD misurato (il backtest reale
+  // mostra il momentum-timing PEGGIORE su Bitcoin — più drawdown, meno
+  // rendimento — quindi non lo presentiamo come l'opzione "smart": qui il
+  // dato onesto è che stare semplicemente dentro ha battuto il market-timing).
+  ...(measured?.btc ? {
+    cripto: { mu: measured.btc.buyHold.mu, sigma: measured.btc.buyHold.sigma, label: 'Bitcoin (buy&hold, misurato — il timing storicamente ha fatto peggio)', measured: true },
+  } : {}),
 };
 
 export const NET_WORTH_DISCLAIMER =
-  'Proiezione probabilistica su ipotesi dichiarate (rendimento/volatilità storici tipici, non garantiti). ' +
+  'Proiezione probabilistica: le righe "misurato" vengono da un backtest walk-forward reale su prezzi storici veri (non garanzia di replica futura); le altre sono ipotesi dichiarate da letteratura sui fattori. ' +
   'Non è consulenza finanziaria né promessa di rendimento.';
 
 // Liquidità cumulata da TUTTI i movimenti del vault. `transactions` è la mappa

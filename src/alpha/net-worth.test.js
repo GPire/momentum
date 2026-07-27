@@ -57,9 +57,10 @@ test('projectStrategy: percentili ordinati p5<p50<p95 e traiettoria annuale pres
   assert.ok(c.medianTrajectory.every((y, i) => y.year === i + 1 && y.p50 > 0));
 });
 
-test('projectNetWorthByStrategy: 7 strategie (onestà: 5 fattori reali + liquidità + indice, NON "8 strategie"), ordinate per mediana, con disclaimer', () => {
+test('projectNetWorthByStrategy: 7 strategie dichiarate + (se disponibile) 1 riga cripto MISURATA su Bitcoin reale — mai una riga in più senza un backtest vero dietro', () => {
   const s = nw.projectNetWorthByStrategy({ start: 5000, monthlyContribution: 100, years: 10, paths: 500, seed: 7 });
-  assert.equal(s.rows.length, 7);
+  const expected = nw.STRATEGY_ASSUMPTIONS.cripto ? 8 : 7;
+  assert.equal(s.rows.length, expected);
   assert.ok(s.rows.every((r, i, arr) => i === 0 || arr[i - 1].p50 >= r.p50));
   assert.ok(/non è consulenza/i.test(s.disclaimer));
   assert.ok(s.rows.every(r => typeof r.mu === 'number' && typeof r.sigma === 'number')); // ipotesi dichiarate
@@ -70,4 +71,32 @@ test('ipotesi dichiarate: la liquidità ha p50 più basso delle strategie aziona
   const cashRow = s.rows.find(r => r.strategy === 'risparmio');
   const equityRow = s.rows.find(r => r.strategy === 'indice');
   assert.ok(cashRow.p50 < equityRow.p50);
+});
+
+// ── Ponte con il backtest reale (bench/generate-measured-assumptions.mjs) ──
+test('STRATEGY_ASSUMPTIONS: indice e momentum usano i numeri MISURATI dal backtest reale quando lo scatto è disponibile', async () => {
+  const measured = (await import('./measured-assumptions.js')).default;
+  if (!measured.spy) return; // niente cache locale in questo ambiente: nulla da verificare
+  assert.equal(nw.STRATEGY_ASSUMPTIONS.indice.mu, measured.spy.buyHold.mu);
+  assert.equal(nw.STRATEGY_ASSUMPTIONS.indice.sigma, measured.spy.buyHold.sigma);
+  assert.equal(nw.STRATEGY_ASSUMPTIONS.indice.measured, true);
+  assert.equal(nw.STRATEGY_ASSUMPTIONS.momentum.mu, measured.spy.momentumTiming.mu);
+  assert.equal(nw.STRATEGY_ASSUMPTIONS.momentum.measured, true);
+});
+
+test('STRATEGY_ASSUMPTIONS: le altre 4 righe (value/growth/risk/reflexivity) restano dichiarate da letteratura, mai "measured" senza un backtest vero dietro', () => {
+  for (const k of ['value', 'growth', 'risk', 'reflexivity']) {
+    assert.equal(nw.STRATEGY_ASSUMPTIONS[k].measured, undefined, `${k} non ha un backtest reale: non deve dichiararsi misurato`);
+  }
+});
+
+test('STRATEGY_ASSUMPTIONS: la riga cripto (quando presente) riflette onestamente il BUY&HOLD, non il timing (il backtest reale mostra il timing peggiore su Bitcoin)', async () => {
+  if (!nw.STRATEGY_ASSUMPTIONS.cripto) return;
+  const measured = (await import('./measured-assumptions.js')).default;
+  assert.equal(nw.STRATEGY_ASSUMPTIONS.cripto.mu, measured.btc.buyHold.mu);
+  assert.ok(measured.btc.buyHold.mu > measured.btc.momentumTiming.mu, 'precondizione: il buy&hold ha davvero battuto il timing su Bitcoin');
+});
+
+test('NET_WORTH_DISCLAIMER dichiara la differenza tra righe misurate e ipotesi da letteratura', () => {
+  assert.ok(/backtest|misurat/i.test(nw.NET_WORTH_DISCLAIMER));
 });
