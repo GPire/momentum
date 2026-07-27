@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { combineConfidence, crossDomainWhatIf } = await import('./reasoning-fusion.js');
+const { combineConfidence, crossDomainWhatIf, investmentReadiness } = await import('./reasoning-fusion.js');
 
 test('combineConfidence: nessun layer -> confidenza 0, nessuna invenzione', () => {
   const r = combineConfidence([]);
@@ -109,4 +109,62 @@ test('crossDomainWhatIf: il layer breve-termine non esplode se cashForecast fall
   });
   // può risultare null o calcolato, ma MAI un crash — il test stesso è l'asserzione.
   assert.ok(r.combined);
+});
+
+// ── "posso permettermi di investire ora?" — regime + cassa personale ───────
+test('investmentReadiness: senza dati di cassa (allTx vuoto, nessun impegno/stipendio) il layer personale resta non disponibile', () => {
+  const r = investmentReadiness({ allTx: {}, commitments: [], salary: null, now: Date.parse('2026-07-26') });
+  assert.equal(r.cash, null);
+  assert.equal(r.verdict, null, 'senza un layer, nessun verdetto inventato');
+});
+
+test('investmentReadiness: con storico di spesa reale e stipendio noto calcola un avanzo sicuro e un verdetto', () => {
+  const allTx = {};
+  for (let i = 1; i <= 60; i++) {
+    const d = new Date(2026, 6, 26 - i);
+    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    (allTx[mk] ||= []).push({ type: 'uscita', amount: 10, date: d.toISOString().slice(0, 10), category: 'varie' });
+  }
+  const salary = { dayOfMonth: 27, amount: 1800 };
+  const r = investmentReadiness({ allTx, commitments: [], salary, now: Date.parse('2026-07-26T12:00:00Z') });
+  assert.ok(r.cash, 'la cassa deve calcolarsi con storico sufficiente');
+  assert.ok(r.verdict, 'atteso un verdetto con entrambi i layer disponibili');
+  assert.equal(r.verdict.marketRegime, 'risk-on');
+  assert.equal(r.verdict.canConsider, true);
+  assert.ok(r.verdict.message.includes('€'));
+  assert.ok(typeof r.verdict.marketStaleDays === 'number' && r.verdict.marketStaleDays >= 0, 'dichiara sempre quanto è vecchio il dato di mercato');
+});
+
+test('investmentReadiness: MAI un consiglio di compra/vendi — solo il quadro, mai un imperativo', () => {
+  const allTx = {};
+  for (let i = 1; i <= 60; i++) {
+    const d = new Date(2026, 6, 26 - i);
+    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    (allTx[mk] ||= []).push({ type: 'uscita', amount: 10, date: d.toISOString().slice(0, 10), category: 'varie' });
+  }
+  const r = investmentReadiness({ allTx, now: Date.parse('2026-07-26T12:00:00Z') });
+  assert.ok(!/\bcompra\b|\bvendi\b|\bacquista subito\b/i.test(r.verdict.message));
+});
+
+test('investmentReadiness: assetKey "cripto" usa il regime/misura di Bitcoin, non SPY', () => {
+  const allTx = {};
+  for (let i = 1; i <= 60; i++) {
+    const d = new Date(2026, 6, 26 - i);
+    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    (allTx[mk] ||= []).push({ type: 'uscita', amount: 10, date: d.toISOString().slice(0, 10), category: 'varie' });
+  }
+  const r = investmentReadiness({ allTx, now: Date.parse('2026-07-26T12:00:00Z'), assetKey: 'cripto' });
+  assert.equal(r.regime.regime, 'risk-off'); // misurato su Bitcoin, diverso da SPY
+});
+
+test('investmentReadiness: senza avanzo sicuro (spesa altissima) dice onestamente di aspettare, mai un incoraggiamento a investire', () => {
+  const allTx = {};
+  for (let i = 1; i <= 60; i++) {
+    const d = new Date(2026, 6, 26 - i);
+    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    (allTx[mk] ||= []).push({ type: 'uscita', amount: 500, date: d.toISOString().slice(0, 10), category: 'varie' });
+  }
+  const r = investmentReadiness({ allTx, now: Date.parse('2026-07-26T12:00:00Z') });
+  assert.equal(r.verdict.canConsider, false);
+  assert.ok(r.verdict.message.includes('prima la tua liquidità'));
 });

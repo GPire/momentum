@@ -127,3 +127,71 @@ export function crossDomainWhatIf({ allTx, category, deltaPct, referenceDate = n
 
   return { whatIf, twin, shortTerm, layers, combined: combineConfidence(layers) };
 }
+
+// ============================================================
+// "POSSO PERMETTERMI DI INVESTIRE ORA?" — il ponte che nessun broker/terminal
+// può fare (non vedono la cassa personale) e nessuna app di budget fa (non ha
+// un segnale di mercato): combina DUE fatti reali e indipendenti.
+// ============================================================
+// Onestà tecnica ASSOLUTA (regola #1 del progetto): Momentum è on-device,
+// senza rete a runtime — NON compete con Bloomberg Terminal/Revolut/Trade
+// Republic su dati di mercato in tempo reale, notizie o sentiment: quelli
+// hanno feed live, questo modulo usa uno SCATTO STATICO datato (measured-
+// assumptions.js, rigenerato periodicamente da bench/generate-measured-
+// assumptions.mjs su prezzi storici veri). Ogni risposta dichiara la data
+// dello scatto. Mai un consiglio "compra/vendi": la decisione è dell'utente,
+// qui c'è solo il quadro — regime macro + disponibilità di cassa reale —
+// che nessun altro strumento del settore mette insieme nella stessa risposta.
+import measuredAssumptions from '../alpha/measured-assumptions.js';
+import { cashFromTransactions } from '../alpha/net-worth.js';
+
+export function investmentReadiness({
+  allTx = {}, commitments = [], salary = null, now = Date.now(), assetKey = 'indice',
+} = {}) {
+  const asset = assetKey === 'cripto' ? measuredAssumptions?.btc : measuredAssumptions?.spy;
+  const regimeInfo = asset?.regime || null;
+  const layers = [{ name: 'market-regime', ok: !!regimeInfo, confidence: regimeInfo ? 0.5 : 0 }];
+
+  // Il minimo PRUDENTE (Cassa Unica) fino al prossimo stipendio: quanto puoi
+  // mettere via SENZA rischiare di restare a corto se spendi come al solito.
+  // Non "quanto hai adesso" (un numero che ignora impegni e ritmo) — quello
+  // che questo strumento sa fare e nessun broker può sapere.
+  let cash = null;
+  try {
+    // saldo REALE (non relativo): stesso calcolo onesto già usato dal
+    // Salvadanaio (entrate−uscite−investito cumulate da tutti i movimenti) —
+    // senza, "il minimo prudente da qui a 21 giorni" parte da zero e cade
+    // quasi sempre a zero per chiunque spenda, rendendo il segnale inutile.
+    const { cash: liquidity } = cashFromTransactions(allTx);
+    const fc = cashForecast({ allTx, commitments, salary, startBalance: liquidity, now, horizonDays: 21 });
+    if (fc.known) {
+      const prudentMin = Math.min(fc.end.p10, ...fc.path.map(p => p.p10));
+      cash = { safeSurplus: Math.max(0, +prudentMin.toFixed(2)), relative: fc.relative, confidence: fc.confidence || 0 };
+    }
+  } catch (_) { cash = null; }
+  layers.push({ name: 'personal-cash-safety', ok: !!cash, confidence: cash ? Math.max(0.4, cash.confidence) : 0 });
+
+  const money = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const dateOf = (iso) => new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  let verdict = null;
+  if (regimeInfo && cash) {
+    const staleDays = Math.round((now - new Date(asset.fetchedAt).getTime()) / 86_400_000);
+    verdict = {
+      marketRegime: regimeInfo.regime,
+      marketAsOf: asset.fetchedAt,
+      marketStaleDays: staleDays,
+      personalSafeSurplus: cash.safeSurplus,
+      canConsider: cash.safeSurplus > 0,
+      message: cash.safeSurplus <= 0
+        ? `Non hai un avanzo sicuro in questo momento (tolto ciò che il tuo ritmo di spesa userà nei prossimi 21 giorni): prima la tua liquidità, un eventuale investimento può aspettare.`
+        : regimeInfo.regime === 'risk-on'
+          ? `Hai ${money(cash.safeSurplus)} che non ti serviranno nei prossimi 21 giorni, e il mercato (dato al ${dateOf(asset.fetchedAt)}, ${staleDays} giorni fa — verifica un dato più recente) era in fase favorevole. Nessuna garanzia, nessun consiglio d'acquisto: solo il quadro.`
+          : regimeInfo.regime === 'risk-off'
+            ? `Hai ${money(cash.safeSurplus)} di avanzo sicuro, ma il mercato (dato al ${dateOf(asset.fetchedAt)}, ${staleDays} giorni fa) era in fase debole/volatile: molti preferiscono aspettare stabilità, ma resta una scelta personale.`
+            : `Hai ${money(cash.safeSurplus)} di avanzo sicuro; il mercato (dato al ${dateOf(asset.fetchedAt)}) non mostrava una direzione chiara (né forte né debole).`,
+    };
+  }
+
+  return { regime: regimeInfo, cash, verdict, layers, combined: combineConfidence(layers) };
+}

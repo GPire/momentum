@@ -28,6 +28,7 @@ import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitment
 import { cashForecast } from './predict/cash-forecast.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
+import { investmentReadiness } from './ai/reasoning-fusion.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -3987,6 +3988,31 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
         severity: bnpl.count >= 2 ? 'warn' : 'info',
         title: bnpl.count === 1 ? `Hai un piano a rate aperto: ${providers}` : `Hai ${bnpl.count} piani a rate aperti: ${providers}`,
         body: `Ti restano ${formatMoney(bnpl.totalRemaining)} da pagare in tutto${bnpl.nextDue ? `, prossima rata il ${dayName(bnpl.nextDue.date)} (${bnpl.nextDue.providerLabel}).` : '.'}`,
+      });
+    }
+  } catch (_) {}
+
+  // ── "Posso permettermi di investire?" (src/ai/reasoning-fusion.js): il
+  // ponte che né Bloomberg/Revolut/Trade Republic (non vedono la tua cassa)
+  // né un'app di budget qualunque (non ha un segnale di mercato) possono
+  // dare. ONESTÀ: dato di mercato STATICO e datato (l'app non ha rete a
+  // runtime) — si tace se lo scatto è troppo vecchio (>60gg, sarebbe
+  // fuorviante) o se non c'è un avanzo sicuro degno di nota (<50€, rumore).
+  // Mai un consiglio d'acquisto: solo il quadro. Un insight in più nello
+  // STESSO feed unificato, nessuna superficie nuova.
+  try {
+    const ir = investmentReadiness({
+      allTx: VaultDAO.state.transactions,
+      commitments: VaultDAO.state.fixedCommitments || [],
+      salary: resolveSalary(VaultDAO.state, VaultDAO.state.transactions),
+      now: realNow.getTime(),
+    });
+    if (ir.verdict && ir.verdict.canConsider && ir.verdict.personalSafeSurplus >= 50 && ir.verdict.marketStaleDays <= 60) {
+      rawInsights.push({
+        kind: 'investment-readiness',
+        severity: 'info',
+        title: `Avanzo sicuro: ${formatMoney(ir.verdict.personalSafeSurplus)}`,
+        body: ir.verdict.message,
       });
     }
   } catch (_) {}

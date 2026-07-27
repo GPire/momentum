@@ -23,6 +23,7 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const imp = (rel) => import(pathToFileURL(join(root, rel)).href);
 const { walkForwardMomentumBacktest } = await imp('src/alpha/historical-backtest.js');
+const { detectRegime } = await imp('src/alpha/regime.js');
 
 function loadSeries(file) {
   const raw = JSON.parse(readFileSync(join(root, 'bench/data', file), 'utf8'));
@@ -33,6 +34,10 @@ function summarize(file, label) {
   const raw = loadSeries(file);
   const bt = walkForwardMomentumBacktest(raw.closes);
   if (!bt) return null;
+  // Regime macro (risk-on/risk-off/neutral) misurato sull'ULTIMO tratto della
+  // serie cache: è un DATO, non un flusso — dichiarato con la data del fetch,
+  // mai spacciato per una lettura in tempo reale (l'app non ha rete a runtime).
+  const regime = detectRegime(raw.closes);
   return {
     label,
     source: raw.source,
@@ -41,6 +46,7 @@ function summarize(file, label) {
     monthsInMarketPct: bt.monthsInMarketPct,
     buyHold: { mu: bt.buyHold.annReturn, sigma: bt.buyHold.vol, sharpe: bt.buyHold.sharpe, maxDrawdown: bt.buyHold.maxDrawdown },
     momentumTiming: { mu: bt.momentumTiming.annReturn, sigma: bt.momentumTiming.vol, sharpe: bt.momentumTiming.sharpe, maxDrawdown: bt.momentumTiming.maxDrawdown },
+    regime,
   };
 }
 

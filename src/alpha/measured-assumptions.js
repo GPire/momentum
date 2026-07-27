@@ -3,7 +3,7 @@
 'use strict';
 
 export default {
-  "generatedAt": "2026-07-27T00:02:58.579Z",
+  "generatedAt": "2026-07-27T00:06:55.530Z",
   "method": "walkForwardMomentumBacktest (src/alpha/historical-backtest.js) su prezzi mensili reali, mai look-ahead",
   "disclaimer": "Misura storica walk-forward, non una promessa di rendimento futuro. Ricalcolare periodicamente rilanciando bench/generate-measured-assumptions.mjs.",
   "spy": {
@@ -23,6 +23,13 @@ export default {
       "sigma": 0.1192,
       "sharpe": 0.779,
       "maxDrawdown": 0.2381
+    },
+    "regime": {
+      "regime": "risk-on",
+      "trend": 0.01275,
+      "vol": 0.03675,
+      "volRatio": 0.86,
+      "explanation": "Trend 1.27%/periodo, volatilità 0.86× la norma → risk-on."
     }
   },
   "btc": {
@@ -42,6 +49,13 @@ export default {
       "sigma": 0.6707,
       "sharpe": 0.868,
       "maxDrawdown": 0.7955
+    },
+    "regime": {
+      "regime": "risk-off",
+      "trend": -0.01208,
+      "vol": 0.10445,
+      "volRatio": 0.509,
+      "explanation": "Trend -1.21%/periodo, volatilità 0.51× la norma → risk-off."
     }
   }
 };
