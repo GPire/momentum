@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { parseStooqCsv, parseCoinGeckoJson, parseGenericCsv, fetchPrices, toReturns, mergePeerPrices } = await import('./market-data.js');
+const { parseStooqCsv, parseCoinGeckoJson, parseAlphaVantageDailyJson, parseGenericCsv, fetchPrices, toReturns, mergePeerPrices } = await import('./market-data.js');
 
 test('parseStooqCsv: estrae date e close', () => {
   const csv = 'Date,Open,High,Low,Close,Volume\n2026-07-01,10,11,9,10.5,1000\n2026-07-02,10.5,12,10,11.2,900';
@@ -156,4 +156,27 @@ test('estimateCurrentPrice: estrapola col trend (Holt), etichettata coi giorni',
 test('estimateCurrentPrice: null se troppo pochi dati', async () => {
   const { estimateCurrentPrice } = await import('./market-data.js');
   assert.equal(estimateCurrentPrice([{ date: '2026-06-01', close: 100 }]), null);
+});
+
+test('parseAlphaVantageDailyJson: estrae date e close dal formato reale documentato', () => {
+  const j = {
+    'Meta Data': { '2. Symbol': 'IBM' },
+    'Time Series (Daily)': {
+      '2026-07-20': { '1. open': '208.0', '4. close': '209.28' },
+      '2026-07-17': { '1. open': '205.0', '4. close': '206.80' },
+    },
+  };
+  const p = parseAlphaVantageDailyJson(j);
+  assert.equal(p.length, 2);
+  assert.deepEqual(p, [{ date: '2026-07-17', close: 206.80 }, { date: '2026-07-20', close: 209.28 }]);
+});
+
+test('parseAlphaVantageDailyJson: limite richieste raggiunto ("Note"/"Information" invece della serie) → vuoto, mai inventato', () => {
+  assert.deepEqual(parseAlphaVantageDailyJson({ Note: 'limite raggiunto' }), []);
+  assert.deepEqual(parseAlphaVantageDailyJson({ Information: 'chiave demo' }), []);
+});
+
+test('parseAlphaVantageDailyJson: input malformato non va in crash', () => {
+  assert.deepEqual(parseAlphaVantageDailyJson(null), []);
+  assert.deepEqual(parseAlphaVantageDailyJson({}), []);
 });

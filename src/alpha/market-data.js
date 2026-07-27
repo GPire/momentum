@@ -40,6 +40,22 @@ export function parseCoinGeckoJson(json) {
     .filter(p => Number.isFinite(p.close));
 }
 
+// ── Parser Alpha Vantage (JSON azioni/indici/ETF: TIME_SERIES_DAILY) ──
+// { "Time Series (Daily)": { "YYYY-MM-DD": { "4. close": "150.00", ... }, ... } }
+// Formato pubblico e documentato (alphavantage.co/documentation). 'Note' o
+// 'Information' al posto della serie = limite di richieste raggiunto: si
+// ritorna vuoto, MAI un punto inventato per riempire il buco.
+export function parseAlphaVantageDailyJson(json) {
+  const series = json && json['Time Series (Daily)'];
+  if (!series || typeof series !== 'object') return [];
+  const out = [];
+  for (const [date, row] of Object.entries(series)) {
+    const close = parseFloat(row && row['4. close']);
+    if (Number.isFinite(close) && /^\d{4}-\d{2}-\d{2}$/.test(date)) out.push({ date, close });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ── Parser CSV generico (per l'import manuale quando CORS blocca tutto) ──
 // Rileva la colonna data e la colonna prezzo (close/price/adj close/last).
 export function parseGenericCsv(text) {

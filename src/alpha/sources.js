@@ -16,7 +16,7 @@
 // market-data.js, di cui riusiamo i parser già collaudati.
 'use strict';
 
-import { parseStooqCsv, parseCoinGeckoJson } from './market-data.js';
+import { parseStooqCsv, parseCoinGeckoJson, parseAlphaVantageDailyJson } from './market-data.js';
 
 // ── Parser FRED (JSON: /fred/series/observations?…&file_type=json) ──
 // { observations: [{ date:'YYYY-MM-DD', value:'123.4' }, …] }
@@ -65,10 +65,23 @@ export const SOURCE_REGISTRY = [
     note: 'Crypto. Già usata da market-data.js; CORS aperto, rate-limit ~10-30 req/min senza chiave.',
   },
   {
+    // BUG REALE TROVATO (2026-07-27): questa voce dichiarava 'cors: yes' MAI
+    // verificato a runtime — testato ora con una chiamata reale dal browser
+    // (fetch('https://stooq.com/q/d/l/?s=aapl.us&i=d')) → bloccato, nessun
+    // header CORS. Questo significava che idleFetchPrices falliva in
+    // silenzio su OGNI posizione azionaria/indice da chissà quando (solo le
+    // cripto via CoinGecko funzionavano). Corretto: esclusa, sostituita da
+    // Alpha Vantage (sotto), verificata funzionante con una chiamata reale.
     id: 'stooq', kind: 'prices', name: 'Stooq', trust: 'primary',
-    cors: 'yes', type: 'text', parse: parseStooqCsv,
+    cors: 'no', excluded: true, type: 'text', parse: parseStooqCsv,
     urlFor: (s) => `https://stooq.com/q/d/l/?s=${encodeURIComponent(s)}&i=d`,
-    note: 'Azioni/indici/valute in CSV. Già usata da market-data.js; CORS aperto. Simboli in formato Stooq (es. aapl.us).',
+    note: 'VERIFICATO BLOCCATO (nessun header CORS) — esclusa, si usa la fallback chain. Parser tenuto per un eventuale import CSV manuale.',
+  },
+  {
+    id: 'alphavantage', kind: 'prices', name: 'Alpha Vantage', trust: 'primary',
+    cors: 'key', type: 'json', parse: parseAlphaVantageDailyJson,
+    urlFor: (s, { apiKey } = {}) => `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(s)}&apikey=${encodeURIComponent(apiKey)}&outputsize=compact`,
+    note: 'Azioni/indici/ETF. VERIFICATO chiamabile direttamente dal browser (CORS aperto) con una chiave gratuita ottenuta dall\'utente stesso (mai una chiave condivisa Momentum). Senza chiave: saltata, dichiarato. Limite gratuito: 25 richieste/giorno.',
   },
   {
     id: 'fred', kind: 'macro', name: 'FRED (Federal Reserve)', trust: 'primary',

@@ -8,22 +8,24 @@ const { SOURCE_REGISTRY, crossCheck, plausibility, fetchVerified, trainingEligib
 const msUTC = d => Date.parse(`${d}T00:00:00Z`);
 const geckoRes = pairs => ({ ok: true, status: 200, json: async () => ({ prices: pairs.map(([d, c]) => [msUTC(d), c]) }) });
 const stooqRes = rows => ({ ok: true, status: 200, text: async () => 'Date,Open,High,Low,Close,Volume\n' + rows.map(([d, c]) => `${d},0,0,0,${c},0`).join('\n') });
+const alphaVantageRes = rows => ({ ok: true, status: 200, json: async () => ({ 'Time Series (Daily)': Object.fromEntries(rows.map(([d, c]) => [d, { '4. close': String(c) }])) }) });
 const mkCache = (store = {}) => ({ store, async get(k) { return this.store[k]; }, async put(k, v) { this.store[k] = v; } });
 
 // ============ SOURCE_REGISTRY: whitelist onesta ============
 
-test('SOURCE_REGISTRY: bloomberg e yahoo esclusi con motivazione onesta, fred richiede chiave', () => {
+test('SOURCE_REGISTRY: bloomberg, yahoo E stooq esclusi con motivazione onesta (stooq: bug reale trovato, CORS bloccato verificato dal vivo), fred/alphavantage richiedono chiave', () => {
   const byId = Object.fromEntries(SOURCE_REGISTRY.map(s => [s.id, s]));
-  for (const id of ['bloomberg', 'yahoo-finance']) {
+  for (const id of ['bloomberg', 'yahoo-finance', 'stooq']) {
     assert.equal(byId[id].cors, 'no');
     assert.equal(byId[id].excluded, true);
     assert.ok(/esclusa/i.test(byId[id].note));
   }
   assert.equal(byId.fred.cors, 'key');
+  assert.equal(byId.alphavantage.cors, 'key');
   assert.equal(byId.ecb.cors, 'yes');
-  // fonti prezzi effettivamente utilizzabili: coingecko + stooq
+  // fonti prezzi effettivamente utilizzabili: coingecko (sempre) + alphavantage (con chiave utente)
   const usable = SOURCE_REGISTRY.filter(s => s.kind === 'prices' && !s.excluded && s.cors !== 'no');
-  assert.deepEqual(usable.map(s => s.id).sort(), ['coingecko', 'stooq']);
+  assert.deepEqual(usable.map(s => s.id).sort(), ['alphavantage', 'coingecko']);
 });
 
 // ============ crossCheck ============
@@ -117,21 +119,28 @@ test('fetchVerified: due fonti concordi → confirmed, addestrabile, cache aggio
   const cache = mkCache();
   const fetchImpl = async url => url.includes('coingecko')
     ? geckoRes([['2026-07-01', 100], ['2026-07-02', 102]])
-    : stooqRes([['2026-07-01', 100.4], ['2026-07-02', 102.5]]);
-  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache });
+    : alphaVantageRes([['2026-07-01', 100.4], ['2026-07-02', 102.5]]);
+  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache, params: { apiKey: 'test-key' } });
   assert.equal(r.verified, 'confirmed');
-  assert.equal(r.source, 'coingecko+stooq');
+  assert.equal(r.source, 'coingecko+alphavantage');
   assert.equal(r.priceSource, 'coingecko');
   assert.equal(r.prices.length, 2);
   assert.equal(trainingEligible(r), true);
   assert.ok(cache.store['vrf:prices:bitcoin']);
 });
 
+test('fetchVerified: senza chiave API, la fonte a chiave viene SALTATA e dichiarata (mai un tentativo alla cieca)', async () => {
+  const fetchImpl = async url => url.includes('coingecko') ? geckoRes([['2026-07-01', 100]]) : alphaVantageRes([['2026-07-01', 100]]);
+  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache: mkCache() }); // niente params.apiKey
+  assert.equal(r.verified, 'single-source');
+  assert.equal(r.priceSource, 'coingecko');
+});
+
 test('fetchVerified: fonti divergenti (>2%) → unconfirmed, mostrato ma MAI addestrabile', async () => {
   const fetchImpl = async url => url.includes('coingecko')
     ? geckoRes([['2026-07-02', 102]])
-    : stooqRes([['2026-07-02', 130]]); // ~24% di divergenza
-  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache: mkCache() });
+    : alphaVantageRes([['2026-07-02', 130]]); // ~24% di divergenza
+  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache: mkCache(), params: { apiKey: 'test-key' } });
   assert.equal(r.verified, 'unconfirmed');
   assert.ok(r.prices.length > 0);               // display sì…
   assert.ok(/NON confermato/i.test(r.note));    // …ma etichettato
@@ -141,9 +150,9 @@ test('fetchVerified: fonti divergenti (>2%) → unconfirmed, mostrato ma MAI add
 test('fetchVerified: una sola fonte raggiungibile e plausibile → single-source, addestrabile', async () => {
   const fetchImpl = async url => {
     if (url.includes('coingecko')) return geckoRes([['2026-07-01', 100], ['2026-07-02', 103]]);
-    throw new TypeError('Failed to fetch'); // stooq bloccata da CORS
+    throw new TypeError('Failed to fetch'); // alphavantage giù/rete assente
   };
-  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache: mkCache() });
+  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache: mkCache(), params: { apiKey: 'test-key' } });
   assert.equal(r.verified, 'single-source');
   assert.equal(r.priceSource, 'coingecko');
   assert.equal(trainingEligible(r), true);
@@ -164,14 +173,14 @@ test('fetchVerified: due fonti concordi ma serie implausibile → comunque uncon
   // entrambe riportano lo stesso salto assurdo: concordi, ma niente training
   const fetchImpl = async url => url.includes('coingecko')
     ? geckoRes([['2026-07-01', 100], ['2026-07-02', 300]])
-    : stooqRes([['2026-07-01', 100], ['2026-07-02', 301]]);
-  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache: mkCache() });
+    : alphaVantageRes([['2026-07-01', 100], ['2026-07-02', 301]]);
+  const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache: mkCache(), params: { apiKey: 'test-key' } });
   assert.equal(r.verified, 'unconfirmed');
   assert.equal(trainingEligible(r), false);
 });
 
 test('fetchVerified: tutte le fonti giù + cache presente → fallback etichettato, NON addestrabile', async () => {
-  const cache = mkCache({ 'vrf:prices:bitcoin': { prices: [{ date: '2026-07-01', close: 99 }], source: 'coingecko+stooq', priceSource: 'coingecko', asOf: '2026-07-01T00:00:00Z', verified: 'confirmed' } });
+  const cache = mkCache({ 'vrf:prices:bitcoin': { prices: [{ date: '2026-07-01', close: 99 }], source: 'coingecko+alphavantage', priceSource: 'coingecko', asOf: '2026-07-01T00:00:00Z', verified: 'confirmed' } });
   const fetchImpl = async () => { throw new TypeError('Failed to fetch'); };
   const r = await fetchVerified({ symbol: 'bitcoin', fetchImpl, cache });
   assert.equal(r.verified, 'fallback');            // la vecchia etichetta 'confirmed' NON sopravvive

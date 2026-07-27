@@ -1295,6 +1295,27 @@
                 </div>
               </div>
 
+              <!-- Prezzi live (opzionale) — CoinGecko per le cripto funziona SEMPRE
+                   senza chiave (verificato CORS-aperto); per azioni/indici serve una
+                   chiave PERSONALE gratuita (Alpha Vantage) perché Yahoo/Stooq
+                   bloccano le chiamate dirette dal browser (verificato). La chiave
+                   vive SOLO in questo dispositivo: nessun server Momentum esiste a
+                   cui inviarla. -->
+              <div class="card p-6 flex flex-col justify-between">
+                <div>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg>Prezzi live (opzionale)</h3>
+                  <p class="card-sub">Le cripto funzionano già, senza fare nulla. Per azioni/indici serve una chiave gratuita tua (mai un account Momentum): 20 secondi su Alpha Vantage, poi incollala qui sotto.</p>
+                  <div class="space-y-2 mt-3">
+                    <div class="flex gap-2">
+                      <input type="password" id="alphavantage-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Alpha Vantage..." />
+                      <button onclick="window.saveLiveDataKey('alphavantage')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+                    </div>
+                    <a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noopener" class="text-[10px] text-[var(--primary)] underline">Ottieni una chiave gratuita (nessuna carta, ~20 secondi) →</a>
+                    <p id="live-price-status" class="text-[10px] text-slate-400"></p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Options Column -->
               <div class="flex flex-col gap-5 sm:gap-6 xl:col-span-2">
                   <div class="card p-6">

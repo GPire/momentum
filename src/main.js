@@ -29,6 +29,7 @@ import { cashForecast } from './predict/cash-forecast.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { investmentReadiness } from './ai/reasoning-fusion.js';
+import { fetchLiveCryptoPrice, fetchLiveStockPrice, STOCK_PROVIDER_IDS } from './alpha/live-price.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
@@ -2869,6 +2870,24 @@ window.openCommitmentsManager = (onDone = null) => {
   window.closeModal = function () { origClose(); if (onDone) onDone(); window.closeModal = origClose; };
 };
 
+// ── CHIAVE PERSONALE PER PREZZI LIVE (Alpha Vantage, opzionale) ─────────────
+// Vive solo in VaultDAO.state.liveDataKeys (locale, cifrato come tutto il
+// resto del vault): nessun server Momentum esiste a cui inviarla. Le cripto
+// non ne hanno bisogno (CoinGecko è aperto); azioni/indici sì, perché
+// Yahoo/Stooq bloccano le chiamate dirette dal browser (verificato CORS).
+window.saveLiveDataKey = (provider) => {
+  const input = document.getElementById(`${provider}-key-input`);
+  const status = document.getElementById('live-price-status');
+  const value = (input?.value || '').trim();
+  if (!value) { showToast('Incolla prima la tua chiave.', 'error'); return; }
+  VaultDAO.state.liveDataKeys = { ...(VaultDAO.state.liveDataKeys || {}), [provider]: value };
+  VaultDAO.save();
+  if (input) input.value = '';
+  if (status) status.textContent = 'Chiave salvata su questo dispositivo. I prezzi si aggiorneranno in background.';
+  showToast('Chiave salvata.', 'success');
+  try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
+};
+
 // ── GESTORE PIANI A RATE (BNPL, src/predict/bnpl.js) ────────────────────────
 // Il CONTROLLO che mancava: prima il motore parlava solo con una riga nel feed
 // insight, senza modo per l'utente di vedere i piani rilevati o correggere un
@@ -5456,14 +5475,27 @@ function initMomentumRealAI() {
       const cacheAdapter = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
       import('./alpha/sources.js').then(async ({ fetchVerified, trainingEligible }) => {
         const shared = {};
+        // BUG REALE TROVATO (2026-07-27): qui si passava kind:'crypto'/'stock',
+        // ma SOURCE_REGISTRY etichetta le fonti prezzo con kind:'prices' (vedi
+        // sources.js) — il filtro non ha MAI trovato una fonte utilizzabile,
+        // per NESSUNA posizione, da quando questo codice esiste. L'intero
+        // sistema di prezzi verificati (cross-check, cache, mesh-sharing)
+        // restituiva sempre "nessuna fonte" in silenzio. Corretto insieme al
+        // bug di Stooq (CORS bloccato) qui accanto.
         for (const p of positions.slice(0, 6)) {           // budget rete per sessione
-          const kind = p.assetClass === 'crypto' ? 'crypto' : 'stock';
+          const kind = 'prices';
+          const assetKind = p.assetClass === 'crypto' ? 'crypto' : 'stock';
           try {
-            const r = await fetchVerified({ symbol: p.ticker.toLowerCase(), kind, fetchImpl: fetch.bind(window), cache: cacheAdapter });
+            // Alpha Vantage (azioni/indici) richiede la chiave PERSONALE
+            // dell'utente (VaultDAO.state.liveDataKeys, mai una chiave
+            // condivisa Momentum) — senza chiave la fonte si salta da sola
+            // (fetchVerified lo dichiara), niente crash, niente invenzione.
+            const params = assetKind === 'stock' ? { apiKey: VaultDAO.state.liveDataKeys?.alphavantage } : {};
+            const r = await fetchVerified({ symbol: p.ticker.toLowerCase(), kind, fetchImpl: fetch.bind(window), cache: cacheAdapter, params });
             const last = r.prices && r.prices[r.prices.length - 1];
             if (last && trainingEligible(r)) {
               (window.__livePrices = window.__livePrices || {})[p.ticker] = last.close;
-              shared[p.ticker] = { kind, asOf: r.asOf, source: r.source, series: r.prices.slice(-30) };
+              shared[p.ticker] = { kind: assetKind, asOf: r.asOf, source: r.source, series: r.prices.slice(-30) };
             }
           } catch (_) {}
         }
@@ -5481,6 +5513,7 @@ function initMomentumRealAI() {
         }
       }).catch(() => {});
     };
+    window.idleFetchPrices = idleFetchPrices; // richiamabile subito dopo il salvataggio di una chiave (vedi saveLiveDataKey)
     (window.requestIdleCallback || ((fn) => setTimeout(fn, 4000)))(idleFetchPrices);
 
     // Meso (src/ai/trained-meso.js): più accurato del Nano su testo rumoroso
