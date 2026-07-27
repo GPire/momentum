@@ -198,3 +198,30 @@ test('extractAssetName: risposta troppo lunga (probabile spiegazione, non un nom
   const name = await extractAssetName('come va Bitcoin', { apiKey: 'k', fetchImpl });
   assert.equal(name, null);
 });
+
+// BUG REALE segnalato dall'utente: una chiave "xai-..." salvata nel campo
+// "Groq" per l'omonimia dei nomi falliva sempre (Groq e xAI sono servizi
+// diversi). Verifica che xAI ora sia un provider vero, con estrazione
+// dell'errore anche quando `error` è una stringa diretta (formato reale
+// osservato dal vivo su un account xAI senza crediti).
+test('askCloudFallback: xAI -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta da Grok' } }] }) });
+  const r = await askCloudFallback('ciao', { apiKey: 'xai-k', provider: 'xai', fetchImpl });
+  assert.equal(r.answer, 'Risposta da Grok');
+  assert.equal(r.provider, 'xai');
+});
+
+test('askCloudFallback: xAI con errore come stringa diretta (non {message}) -> messaggio reale, mai un HTTP generico', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 403, json: async () => ({ code: 'permission-denied', error: 'Your newly created team doesn\'t have any credits or licenses yet.' }) });
+  await assert.rejects(() => askCloudFallback('ciao', { apiKey: 'xai-k', provider: 'xai', fetchImpl }), /doesn't have any credits/);
+});
+
+test('askCloudFallbackChain: include xAI nell\'ordine di default, dopo DeepSeek', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('x.ai')) return { ok: true, json: async () => ({ choices: [{ message: { content: 'grok risponde' } }] }) };
+    throw new TypeError('Failed to fetch');
+  };
+  const r = await askCloudFallbackChain('ciao', { keys: { xai: 'xai-k' }, fetchImpl });
+  assert.equal(r.provider, 'xai');
+  assert.equal(r.answer, 'grok risponde');
+});

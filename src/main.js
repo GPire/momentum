@@ -3024,6 +3024,18 @@ const API_KEY_GUIDES = {
     freeNoCard: false,
     steps: ['A PAGAMENTO A CONSUMO: l\'abbonamento Claude Pro non include questo, è fatturato separatamente', 'Apri il sito (si apre in una scheda nuova)', 'Crea una chiave API e imposta un metodo di pagamento', 'Copia il codice e torna qui'],
   },
+  // BUG REALE segnalato dall'utente: una chiave che inizia con "xai-" era
+  // stata salvata nel campo "Groq" per l'omonimia dei nomi (Groq e xAI/Grok
+  // sono due servizi completamente diversi, account e fatturazione separati)
+  // — le richieste fallivano sempre in silenzio. Campo dedicato per evitare
+  // la stessa confusione ad altri utenti.
+  xai: {
+    title: 'Chat generica — xAI/Grok (a pagamento, diverso da Groq)',
+    url: 'https://console.x.ai',
+    usageUrl: 'https://console.x.ai/team',
+    freeNoCard: false,
+    steps: ['ATTENZIONE: xAI/Grok è un servizio DIVERSO da Groq, nonostante il nome simile — chiavi non intercambiabili', 'A PAGAMENTO A CONSUMO: serve credito attivo sul team console.x.ai', 'Apri il sito (si apre in una scheda nuova) e crea/accedi al tuo team', 'Vai su "API Keys", crea una chiave (inizia con "xai-...") e torna qui'],
+  },
 };
 window.openApiKeyGuide = (provider) => {
   const g = API_KEY_GUIDES[provider];
@@ -3121,6 +3133,7 @@ function renderChatProviderStatus() {
     { id: 'gemini', label: 'Gemini' },
     { id: 'groq', label: 'Groq' },
     { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'xai', label: 'xAI/Grok' },
     { id: 'openai', label: 'OpenAI' },
     { id: 'anthropic', label: 'Anthropic' },
   ];

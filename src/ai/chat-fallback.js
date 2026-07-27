@@ -96,7 +96,12 @@ function makeOpenAiCompatible(baseUrl, defaultModel, label) {
       }),
     });
     const json = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(json?.error?.message || `${label}: HTTP ${res.status}`);
+    // Alcuni provider "OpenAI-compatibili" non lo sono fino in fondo:
+    // xAI, per esempio, a volte restituisce `error` come STRINGA diretta
+    // (es. "team senza crediti"), non `{ message }` come OpenAI/Groq —
+    // verificato dal vivo. Entrambe le forme vanno lette, mai un generico
+    // "HTTP 403" che nasconde il motivo reale.
+    if (!res.ok) throw new Error(json?.error?.message || (typeof json?.error === 'string' ? json.error : null) || `${label}: HTTP ${res.status}`);
     const text = json?.choices?.[0]?.message?.content;
     if (!text) throw new Error(`Risposta vuota da ${label}.`);
     return text.trim();
@@ -104,6 +109,15 @@ function makeOpenAiCompatible(baseUrl, defaultModel, label) {
 }
 
 const askGroq = makeOpenAiCompatible('https://api.groq.com/openai/v1/chat/completions', 'llama-3.3-70b-versatile', 'Groq');
+// xAI (Grok): CORS verificato dal vivo (2026-07-27, access-control-allow-
+// origin: *), formato OpenAI-compatibile confermato. A PAGAMENTO A CONSUMO,
+// nessun livello gratuito (verificato: un account nuovo senza crediti dà
+// "permission-denied", non un errore di formato) — solo per chi ha già
+// credito attivo su console.x.ai. BUG REALE trovato dall'utente: una chiave
+// che inizia con "xai-" (xAI) era stata salvata nel campo "Groq" per
+// l'omonimia dei nomi — le due API sono completamente diverse (endpoint,
+// account, fatturazione), da qui le richieste sempre fallite in silenzio.
+const askXai = makeOpenAiCompatible('https://api.x.ai/v1/chat/completions', 'grok-4-fast', 'xAI');
 // DeepSeek: CORS verificato (2026-07-27), MA a differenza di Gemini/Groq non
 // ho conferma che il livello gratuito sia sempre disponibile — dichiarato,
 // l'utente verifica i costi sul proprio account prima di usarlo con continuità.
@@ -130,8 +144,8 @@ async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-h
   return text.trim();
 }
 
-export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, openai: askOpenAI, anthropic: askAnthropic };
-const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' };
+export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, openai: askOpenAI, anthropic: askAnthropic, xai: askXai };
+const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic', xai: 'xAI' };
 
 // Riconoscimento DINAMICO dell'asset (richiesta esplicita dell'utente: un
 // elenco fisso di frasi/regex è troppo rigido — "grafico di Bitcoin",
@@ -172,7 +186,7 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 // che nasconde cosa è successo davvero). `order` di default: prima i
 // GRATUITI confermati (Gemini, Groq), poi quello da verificare (DeepSeek),
 // infine i due A PAGAMENTO (OpenAI, Anthropic) — solo per chi li ha già.
-export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic'], contextSummary = null } = {}) {
+export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
   const attempts = order.filter((p) => keys[p]);
   if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;
