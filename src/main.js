@@ -5776,6 +5776,24 @@ const initApp = () => {
             }).join(' · ');
           }
         } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
+      } else if (asset.kind === 'stock' && apiKey) {
+        // Azioni/ETF: Alpha Vantage TIME_SERIES_MONTHLY dà storico reale
+        // spesso 20+ anni anche gratis (a differenza del limite di 365gg di
+        // CoinGecko per le cripto) — qui la linea continua multi-anno è
+        // possibile davvero, non solo punti singoli. Segnalato dall'utente:
+        // "non accade solo con Nvidia" — vale per ogni azione/ETF.
+        try {
+          const { fetchStockMonthlySeries, describeStockYearsAgo } = await import('./alpha/stock-history.js');
+          const series = await fetchStockMonthlySeries(asset.symbol, { apiKey, fetchImpl: fetch.bind(window) });
+          if (series.length > 1) {
+            const { yearlyExtremes } = await import('./alpha/year-over-year.js');
+            const current = series[series.length - 1].price;
+            yoyNote = describeStockYearsAgo(series, 1, current);
+            historyChart = buildAssetHistoryChart(series, yearlyExtremes(series));
+            const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
+            if (points.length) multiYearNote = points.map(p => p.note).join(' ');
+          }
+        } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
       }
       if (!items.length && !yoyNote && !historyChart) return false;
       showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote);
