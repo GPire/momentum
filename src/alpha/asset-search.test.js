@@ -59,3 +59,32 @@ test('searchAsset: tutte le fonti giù SENZA cache → lista vuota, mai inventat
   const r = await searchAsset('bitcoin', { fetchImpl });
   assert.deepEqual(r, { results: [], stale: false });
 });
+
+// BUG REALE riprodotto con la query "tesla" (2026-07-27, dati reali da
+// CoinGecko): 8 token cripto derivati chiamati "Tesla" (rank centinaia/
+// migliaia) seppellivano il vero titolo azionario TSLA. Verifica che ora
+// il titolo azionario esca PRIMA di quei token.
+test('searchCrypto: token cripto oscuri ordinati per notorietà reale (market_cap_rank), non per ordine grezzo dell\'API', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ coins: [
+    { id: 'tesla-ondo', symbol: 'TSLAON', name: 'Tesla (Ondo Tokenized Stock)', market_cap_rank: 944 },
+    { id: 'backed-tesla', symbol: 'BTSLA', name: 'Backed Tesla', market_cap_rank: null },
+    { id: 'tesla-xstock', symbol: 'TSLAX', name: 'Tesla xStock', market_cap_rank: 403 },
+  ] }) });
+  const r = await searchCrypto('tesla', { fetchImpl });
+  assert.deepEqual(r.map(c => c.symbol), ['TSLAX', 'TSLAON', 'BTSLA']); // 403 < 944 < null(Infinity)
+});
+
+test('searchAsset: query "tesla" → il titolo azionario reale precede i token cripto oscuri', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) {
+      return { ok: true, json: async () => ({ coins: [
+        { id: 'tesla-ondo', symbol: 'TSLAON', name: 'Tesla (Ondo Tokenized Stock)', market_cap_rank: 944 },
+        { id: 'backed-tesla', symbol: 'BTSLA', name: 'Backed Tesla', market_cap_rank: null },
+      ] }) };
+    }
+    return { ok: true, json: async () => ({ bestMatches: [{ '1. symbol': 'TSLA', '2. name': 'Tesla Inc', '4. region': 'United States', '9. matchScore': '1.0000' }] }) };
+  };
+  const r = await searchAsset('tesla', { apiKey: 'k', fetchImpl });
+  assert.equal(r.results[0].symbol, 'TSLA');
+  assert.equal(r.results[0].kind, 'stock');
+});

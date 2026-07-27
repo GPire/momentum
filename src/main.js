@@ -2961,13 +2961,31 @@ window.selectAsset = async (idx) => {
   </div>`;
 };
 
-window.addPriceAlert = (symbol, kind) => {
+// Notifica di SISTEMA reale (Web Notification API): un toast si vede solo
+// se l'app è aperta in quel momento — un avviso di prezzo deve arrivare
+// anche se Momentum è in background o chiuso. Passa dal Service Worker
+// quando disponibile (più affidabile in PWA), altrimenti Notification
+// diretta. Silenziosa se il permesso non c'è: mai bloccante, mai invadente
+// (il permesso si chiede solo quando l'utente crea il primo avviso).
+async function notifyUser(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg?.showNotification) reg.showNotification(title, { body, icon: '/icons/icon-192.png' });
+    else new Notification(title, { body });
+  } catch (_) {}
+}
+
+window.addPriceAlert = async (symbol, kind) => {
   const direction = document.getElementById('alert-direction')?.value;
   const threshold = parseFloat(document.getElementById('alert-threshold')?.value);
   try {
     const alert = { ...createPriceAlert({ symbol, direction, threshold }), kind };
     VaultDAO.state.priceAlerts = [...(VaultDAO.state.priceAlerts || []), alert];
     VaultDAO.save();
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { await Notification.requestPermission(); } catch (_) {}
+    }
     showToast(`Ti avviserò quando ${symbol} ${direction === 'above' ? 'supera' : 'scende sotto'} ${formatMoney(threshold)}.`, 'success');
     renderPriceAlerts();
   } catch (e) {
@@ -2975,14 +2993,18 @@ window.addPriceAlert = (symbol, kind) => {
   }
 };
 
+const ICON_ALERT_ACTIVE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block shrink-0 text-[var(--gold)]"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>`;
+const ICON_ALERT_PENDING = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block shrink-0 text-slate-400"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
+const ICON_REMOVE_SM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+
 function renderPriceAlerts() {
   const el = document.getElementById('price-alerts-list');
   if (!el) return;
   const alerts = VaultDAO.state.priceAlerts || [];
   if (!alerts.length) { el.innerHTML = ''; return; }
   el.innerHTML = alerts.map(a => `<div class="flex items-center justify-between gap-2 text-[10px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
-    <span>${a.triggeredAt ? '🔔' : '⏳'} <b>${a.symbol}</b> ${a.direction === 'above' ? '>' : '<'} ${formatMoney(a.threshold)}${a.triggeredAt ? ` — scattato a ${formatMoney(a.triggeredPrice)}` : ''}</span>
-    <button onclick="window.removePriceAlertUI('${a.id}')" class="text-rose-300">✕</button>
+    <span class="flex items-center gap-1.5">${a.triggeredAt ? ICON_ALERT_ACTIVE : ICON_ALERT_PENDING} <b>${a.symbol}</b> ${a.direction === 'above' ? '>' : '<'} ${formatMoney(a.threshold)}${a.triggeredAt ? ` — scattato a ${formatMoney(a.triggeredPrice)}` : ''}</span>
+    <button onclick="window.removePriceAlertUI('${a.id}')" class="text-rose-300">${ICON_REMOVE_SM}</button>
   </div>`).join('');
 }
 window.removePriceAlertUI = (id) => {
@@ -5618,7 +5640,11 @@ function initMomentumRealAI() {
       if (fired.length) {
         VaultDAO.state.priceAlerts = updated;
         VaultDAO.save();
-        fired.forEach(a => showToast(`${a.symbol} ha ${a.direction === 'above' ? 'superato' : 'toccato sotto'} ${formatMoney(a.threshold)} (ora ${formatMoney(a.triggeredPrice)}).`, 'info'));
+        fired.forEach(a => {
+          const msg = `${a.symbol} ha ${a.direction === 'above' ? 'superato' : 'toccato sotto'} ${formatMoney(a.threshold)} (ora ${formatMoney(a.triggeredPrice)}).`;
+          showToast(msg, 'info');
+          notifyUser('Momentum · avviso di prezzo', msg);
+        });
         renderPriceAlerts();
       }
     };
