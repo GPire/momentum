@@ -1151,7 +1151,7 @@ const renderDashboard = () => {
       gold:   { bd: 'border-amber-500/25', bg: 'bg-amber-950/10', tx: 'text-amber-200' },
       green:  { bd: 'border-emerald-500/25', bg: 'bg-emerald-950/10', tx: 'text-emerald-200' },
       amber:  { bd: 'border-orange-500/25', bg: 'bg-orange-950/10', tx: 'text-orange-200' },
-      calm:   { bd: 'border-[var(--glass-border)]', bg: 'bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)]', tx: 'text-slate-300' },
+      calm:   { bd: 'border-[var(--glass-border)]', bg: 'bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)]', tx: 'text-[var(--on-surface-secondary)]' },
     };
     // Icone SVG coerenti (stesso tratto del resto dell'app), MAI emoji a caso.
     const S = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0">${p}</svg>`;
@@ -1242,7 +1242,7 @@ const renderDashboard = () => {
       ? `<div class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400 mt-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 2 2c1.5 0 1.5-2 1.5-4 0-2-.5-4-.5-4z"/></svg>${streak} giorni di fila</div>`
       : '';
     orbText.innerHTML = `
-      <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Capitale Libero</div>
+      <div class="text-[10px] text-[var(--on-surface-secondary)] font-bold uppercase tracking-wider mb-1">Capitale Libero</div>
       <div class="text-3xl sm:text-4xl font-mono font-black ${liquidity >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]'}">${formatMoney(liquidity)}</div>${streakHtml}
     `;
   }
@@ -1351,7 +1351,7 @@ const renderDashboard = () => {
   const list = $('#transaction-list-container');
   list.innerHTML = '';
   if (txs.length === 0) {
-    list.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">Nessun movimento ancora registrato.</p>`;
+    list.innerHTML = `<p class="text-center text-xs text-[var(--on-surface-secondary)] py-6">Nessun movimento ancora registrato.</p>`;
     return;
   }
 
@@ -1546,7 +1546,7 @@ window.renderCalendarEvents = () => {
       <div class="flex items-center justify-between p-2.5 rounded-lg border ${border} hover:border-[color-mix(in_srgb,var(--primary)_30%,transparent)] transition-colors ${ev.completed ? 'opacity-60' : ''}">
         <div class="min-w-0 pr-2">
           <p class="font-bold text-xs text-white truncate ${ev.completed ? 'line-through' : ''}">${kindIcon[ev.kind] || ''}${esc(ev.label)}</p>
-          ${ev.note ? `<p class="text-[10px] text-slate-300 mt-0.5 truncate">${esc(ev.note)}</p>` : ''}
+          ${ev.note ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5 truncate">${esc(ev.note)}</p>` : ''}
           <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${ItalianDate}${timeStr}${meta}</p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
@@ -1787,7 +1787,7 @@ const renderAnalysis = (opts = {}) => {
       weeklyBox.innerHTML = `
         <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-2">Budget per settimana</h4>
         <div class="space-y-1 text-[11px]">
-          ${weeks.map(w => `<div class="flex justify-between"><span class="text-[var(--on-surface-secondary)]">${fmtDay(w.start)}-${fmtDay(w.end)}</span><span class="${w.remaining < 0 ? 'text-rose-400' : 'text-slate-300'}">${formatMoney(w.remaining)}</span></div>`).join('')}
+          ${weeks.map(w => `<div class="flex justify-between"><span class="text-[var(--on-surface-secondary)]">${fmtDay(w.start)}-${fmtDay(w.end)}</span><span class="${w.remaining < 0 ? 'text-rose-400' : 'text-[var(--on-surface-secondary)]'}">${formatMoney(w.remaining)}</span></div>`).join('')}
         </div>
       `;
     }
@@ -1837,7 +1837,7 @@ const renderAnalysis = (opts = {}) => {
     legendEl.innerHTML = rows.map(r => `
       <div class="flex items-center gap-2 text-[11px]">
         <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${r.color}"></span>
-        <span class="text-slate-300 truncate flex-grow">${r.name}</span>
+        <span class="text-[var(--on-surface-secondary)] truncate flex-grow">${r.name}</span>
         <span class="text-slate-500 shrink-0">${total > 0 ? Math.round((r.amount / total) * 100) : 0}%</span>
         <span class="font-mono font-bold shrink-0 w-16 text-right">${formatMoney(r.amount)}</span>
       </div>`).join('');
@@ -1953,7 +1953,7 @@ const renderAnalysis = (opts = {}) => {
 
       // title = tooltip per mouse; il click (sotto) è il vero drill-down,
       // necessario perché su touch il title non appare mai al tocco.
-      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[11px] font-mono text-slate-300 cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : 'nessuna spesa'}">${i}</div>`;
+      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[11px] font-mono text-[var(--on-surface-secondary)] cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : 'nessuna spesa'}">${i}</div>`;
     }
     $('#heatmap-day-detail').innerHTML = '';
   }
@@ -2015,7 +2015,7 @@ function renderTax(monthK) {
     if (regime && everInvoice) {
       const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model: incomeModel });
       if (proj.invoicedYTD > 0) {
-        html += `<div class="flex items-start gap-1.5 text-[11px] text-slate-300 border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg><span>${proj.note}</span></div>`;
+        html += `<div class="flex items-start gap-1.5 text-[11px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg><span>${proj.note}</span></div>`;
         // Consigli prioritizzati con neurocolori: high=ambra (attenzione),
         // info positivo=verde (rinforzo). Regole dell'anno pertinente.
         const { advice } = taxAdvice({
@@ -2035,10 +2035,10 @@ function renderTax(monthK) {
           <span class="min-w-0 truncate">${t.description || 'entrata'} · <b>${formatMoney(t.amount)}</b></span>
           <span class="shrink-0 flex gap-2">
             <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "invoice")' class="text-[11px] font-bold text-emerald-400 underline">è fattura</button>
-            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "personal")' class="text-[11px] font-bold text-slate-400 underline">no</button>
+            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "personal")' class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">no</button>
           </span>
         </div>`).join('');
-      html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} entrat${r.uncertainCount > 1 ? 'e' : 'a'} da confermare</div><div class="text-xs text-slate-300">${rows}</div></div>`;
+      html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} entrat${r.uncertainCount > 1 ? 'e' : 'a'} da confermare</div><div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div></div>`;
     }
     // ── PROMEMORIA PROATTIVO: fatture ricorrenti (mensili) di questo mese non
     // ancora emesse. Predittivo + automatico, MAI auto-invia: un tap apre il
@@ -2062,7 +2062,7 @@ function renderTax(monthK) {
         </div>`).join('');
       html += `<div class="mt-3 border border-[color-mix(in_srgb,var(--gold)_25%,transparent)] bg-[color-mix(in_srgb,var(--gold)_5%,transparent)] rounded-xl px-3 py-2.5">
         <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wider">${pend.count} fattur${pend.count > 1 ? 'e' : 'a'} da caricare sullo SdI</span></div>
-        <div class="text-xs text-slate-300">${rows}</div>
+        <div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div>
         <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
       </div>`;
     }
@@ -2400,7 +2400,7 @@ window.openSplitExpense = (prefill = {}) => {
             ${p !== 'Io' ? `<button data-rm="${i}" class="text-[var(--on-surface-secondary)] opacity-60 hover:opacity-100 w-6 text-center" title="Togli ${esc(p)}">✕</button>` : '<span class="w-6"></span>'}
           </div>`).join('')}
           <div class="flex flex-wrap gap-2 mt-1 items-center">
-            ${freq.map(f => `<button data-add="${esc(f.name)}" title="${f.reason ? esc(f.reason) : 'Aggiungi'}" class="text-[11px] px-2.5 py-1 rounded-full border active:scale-95 transition-transform ${f.reason ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]' : 'border-dashed border-[var(--glass-border)] text-slate-300'}">+ ${esc(f.name)}${f.reason ? ' ✨' : ''}</button>`).join('')}
+            ${freq.map(f => `<button data-add="${esc(f.name)}" title="${f.reason ? esc(f.reason) : 'Aggiungi'}" class="text-[11px] px-2.5 py-1 rounded-full border active:scale-95 transition-transform ${f.reason ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]' : 'border-dashed border-[var(--glass-border)] text-[var(--on-surface-secondary)]'}">+ ${esc(f.name)}${f.reason ? ' ✨' : ''}</button>`).join('')}
             <input id="sp-newname" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-28 min-w-0" placeholder="+ altra persona" />
           </div>
           ${freq.some(f => f.reason) ? `<div class="text-[10px] text-[var(--primary)]">✨ = suggerito dal contesto (${esc(freq.find(f => f.reason).reason)})</div>` : ''}
@@ -2916,7 +2916,7 @@ window.openCommitmentsManager = (onDone = null) => {
         ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun impegno ancora. Aggiungine uno qui sotto.</p>'}
         <div class="card p-3 flex flex-col gap-2">
           <div class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi un impegno</div>
-          <div class="flex flex-wrap gap-1.5" id="fc-kinds">${KINDS.map((k, i) => `<button data-kind="${k[0]}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${i === 0 ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${k[1]}</button>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5" id="fc-kinds">${KINDS.map((k, i) => `<button data-kind="${k[0]}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${i === 0 ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${k[1]}</button>`).join('')}</div>
           <input id="fc-name" placeholder="Nome (es. Mutuo casa)" class="bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm" />
           <div class="flex gap-2">
             <input id="fc-amt" inputmode="decimal" placeholder="Importo €" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
@@ -2935,7 +2935,7 @@ window.openCommitmentsManager = (onDone = null) => {
     const syncTerm = () => document.getElementById('fc-term-wrap').classList.toggle('hidden', !(kind === 'mutuo' || kind === 'prestito'));
     const selectKind = (k) => {
       kind = k;
-      document.querySelectorAll('#fc-kinds [data-kind]').forEach(x => { x.className = x.className.replace(/border-\[var\(--gold\)\] text-\[var\(--gold\)\]/, 'border-[var(--glass-border)] text-slate-300'); if (x.dataset.kind === k) x.className = x.className.replace('border-[var(--glass-border)] text-slate-300', 'border-[var(--gold)] text-[var(--gold)]'); });
+      document.querySelectorAll('#fc-kinds [data-kind]').forEach(x => { x.className = x.className.replace(/border-\[var\(--gold\)\] text-\[var\(--gold\)\]/, 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'); if (x.dataset.kind === k) x.className = x.className.replace('border-[var(--glass-border)] text-[var(--on-surface-secondary)]', 'border-[var(--gold)] text-[var(--gold)]'); });
       syncTerm();
     };
     // Modifica: precarica i valori dell'impegno nel form (importi cambiati,
@@ -3285,7 +3285,7 @@ function renderChatProviderStatus() {
           <span class="w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
           ${p.label}${active ? ` <span class="text-slate-500 font-mono">${maskKey(keys[p.id])}</span>` : ''}
         </span>
-        <button onclick="window.openApiKeyGuide('${p.id}')" class="text-[10px] underline ${active ? 'text-slate-400' : 'text-[var(--primary)]'}">${active ? 'Cambia' : 'Attiva'} →</button>
+        <button onclick="window.openApiKeyGuide('${p.id}')" class="text-[10px] underline ${active ? 'text-[var(--on-surface-secondary)]' : 'text-[var(--primary)]'}">${active ? 'Cambia' : 'Attiva'} →</button>
       </div>`;
   }).join('');
 }
@@ -3373,12 +3373,12 @@ window.runAssetSearch = async () => {
   const resultsEl = document.getElementById('asset-search-results');
   const query = (input?.value || '').trim();
   if (!query) return;
-  resultsEl.innerHTML = `<p class="text-[10px] text-slate-400">Cerco...</p>`;
+  resultsEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Cerco...</p>`;
   try {
     const { searchAsset } = await import('./alpha/asset-search.js');
     const { results, stale } = await searchAsset(query, { apiKey: VaultDAO.state.liveDataKeys?.alphavantage, fetchImpl: fetch.bind(window), cache: assetSearchCache });
     lastSearchResults = results;
-    if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-slate-400">Nessun risultato${stale ? ' (offline: nemmeno in cache)' : ''}.</p>`; return; }
+    if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Nessun risultato${stale ? ' (offline: nemmeno in cache)' : ''}.</p>`; return; }
     resultsEl.innerHTML = (stale ? `<p class="text-[11px] text-amber-300 mb-1">Offline: risultati dall'ultima ricerca.</p>` : '') + results.map((r, i) =>
       `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${r.symbol}</b> · ${r.name}${r.kind === 'stock' ? ` (${translateRegionLabel(r.region) || 'azione/ETF'})` : ' (cripto)'}</button>`
     ).join('');
@@ -3391,20 +3391,20 @@ window.selectAsset = async (idx) => {
   const asset = lastSearchResults[idx];
   const detailEl = document.getElementById('asset-detail');
   if (!asset || !detailEl) return;
-  detailEl.innerHTML = `<p class="text-[10px] text-slate-400">Carico prezzo e notizie...</p>`;
+  detailEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Carico prezzo e notizie...</p>`;
   let priceHtml = '';
   try {
     const { fetchLiveCryptoPrice, fetchLiveStockPrice } = await import('./alpha/live-price.js');
     if (asset.kind === 'crypto') {
       const { price, asOf } = await fetchLiveCryptoPrice(asset.id);
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
-      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-slate-400">Live · CoinGecko · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">Live · CoinGecko · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
     } else if (VaultDAO.state.liveDataKeys?.alphavantage) {
       const { price, asOf } = await fetchLiveStockPrice(asset.symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage });
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
-      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-slate-400">Live · Alpha Vantage · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">Live · Alpha Vantage · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
     } else {
-      priceHtml = `<p class="text-[10px] text-slate-400">Aggiungi la tua chiave Alpha Vantage qui sopra per vedere il prezzo live.</p>`;
+      priceHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Aggiungi la tua chiave Alpha Vantage qui sopra per vedere il prezzo live.</p>`;
     }
   } catch (e) {
     priceHtml = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
@@ -3428,7 +3428,7 @@ window.selectAsset = async (idx) => {
       if (isItalianDevice()) {
         try { summary = await translateText(ov.summary, { fetchImpl: fetch.bind(window) }); translatedTag = ' <span class="text-slate-600">(traduzione automatica)</span>'; } catch (_) { /* fallback: resta in inglese, mai bloccante */ }
       }
-      overviewHtml = `<p class="text-[10px] text-slate-300 mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[11px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
+      overviewHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[11px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
     } catch (_) { /* riassunto opzionale: nessun errore bloccante se manca */ }
   }
   // ARCHITETTURA UNIFICATA (richiesto esplicitamente: prima questa vista
@@ -3446,7 +3446,7 @@ window.selectAsset = async (idx) => {
     const { historyChart: chart } = await window.fetchAssetHistoryData(asset);
     historyChart = chart || '';
   } catch (_) { /* grafico opzionale: nessun errore bloccante se manca */ }
-  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-slate-300 mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}
+  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}
     <div class="flex gap-1.5 mt-2">
       <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
       <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" />
@@ -3527,7 +3527,7 @@ window.addPriceAlert = async (symbol, kind) => {
 };
 
 const ICON_ALERT_ACTIVE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block shrink-0 text-[var(--gold)]"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>`;
-const ICON_ALERT_PENDING = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block shrink-0 text-slate-400"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
+const ICON_ALERT_PENDING = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block shrink-0 text-[var(--on-surface-secondary)]"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
 const ICON_REMOVE_SM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
 
 function renderPriceAlerts() {
@@ -3688,7 +3688,7 @@ window.openPayoutSetup = (onDone = null) => {
           <p class="card-sub !mb-0">Quando chiedi un rimborso, preparo il messaggio giusto — con un link toccabile dove si può. Niente conti, niente movimenti: paghi e ricevi tu.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          ${PAYOUT_METHODS.map(m => `<button data-pm="${m}" class="text-[12px] font-bold px-3 py-2 rounded-full border active:scale-95 transition-transform ${m === method ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]' : 'border-[var(--glass-border)] text-slate-300'}">${esc(PAYOUT_LABELS[m])}</button>`).join('')}
+          ${PAYOUT_METHODS.map(m => `<button data-pm="${m}" class="text-[12px] font-bold px-3 py-2 rounded-full border active:scale-95 transition-transform ${m === method ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'}">${esc(PAYOUT_LABELS[m])}</button>`).join('')}
         </div>
         <input id="po-value" value="${esc(cur.value || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="${esc(placeholders[method])}" />
         ${method === 'iban' ? `<input id="po-holder" value="${esc(cur.holder || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="Intestatario (facoltativo)" />` : ''}
@@ -3984,7 +3984,7 @@ window.openSplitGroup = (openId = null) => {
         <div><h3 class="text-base font-black">Insieme — i tuoi gruppi</h3><p class="card-sub !mb-0">Cena, vacanza, casa: crea un gruppo, aggiungi le spese di tutti e vedi chi deve cosa a chi. Senza account, senza limiti di persone.</p></div>
         ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun gruppo ancora. Creane uno qui sotto.</p>'}
         <button id="sg-new" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuovo gruppo</button>
-        <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-[12px] text-slate-300">Ricevi un gruppo da un amico</button>
+        <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-[12px] text-[var(--on-surface-secondary)]">Ricevi un gruppo da un amico</button>
       </div>`);
     document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { currentId = b.dataset.open; render(); }));
     $('#sg-new')?.addEventListener('click', () => {
@@ -4029,7 +4029,7 @@ window.openSplitGroup = (openId = null) => {
             ${members.map(m => `<div class="flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-black/20 border border-[var(--glass-border)]"><span class="font-bold">${esc(m.name)}</span><span class="font-mono ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
           </div>
           <div class="flex flex-wrap gap-2 mt-2">
-            ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--glass-border)] text-slate-300">+ ${esc(f.name)}</button>`).join('')}
+            ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--glass-border)] text-[var(--on-surface-secondary)]">+ ${esc(f.name)}</button>`).join('')}
             <input id="sg-newmember" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi persona" />
           </div>
         </div>
@@ -4037,7 +4037,7 @@ window.openSplitGroup = (openId = null) => {
         ${renderSplitForesight(g, names)}
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi una spesa</div>
-          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${esc(m.name)} paga</button>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${esc(m.name)} paga</button>`).join('')}</div>
           <div class="flex gap-2">
             <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto €" />
             <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="Per cosa" />
@@ -4177,7 +4177,7 @@ function getInvoiceFormHTML() {
       if (!rec.length) return '';
       const miniRepeat = `<svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
       return `<div class="flex gap-2 overflow-x-auto pb-1">${rec.map((c, i) =>
-        `<button type="button" data-recidx="${i}" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border ${c.dueThisMonth ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-slate-300'} bg-black/20">${c.monthly ? miniRepeat : ''}<span>${c.client}${c.typicalAmount ? ` · ${Math.round(c.typicalAmount)}€` : ''}</span></button>`).join('')}</div>`;
+        `<button type="button" data-recidx="${i}" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border ${c.dueThisMonth ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${c.monthly ? miniRepeat : ''}<span>${c.client}${c.typicalAmount ? ` · ${Math.round(c.typicalAmount)}€` : ''}</span></button>`).join('')}</div>`;
     })()}
     <!-- RIGA UNICA (NL): scrivi la fattura come la diresti — anti-attrito, stessa
          filosofia della voce. "fattura a Rossi Srl 500 per consulenza" compila
@@ -4210,7 +4210,7 @@ function getInvoiceFormHTML() {
     <label class="block cursor-pointer select-none">
       <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" />
       <span class="recur-row">
-        <span class="flex items-center gap-2 text-[12px] text-slate-300 min-w-0">
+        <span class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] min-w-0">
           ${REPEAT_ICON}
           <span class="min-w-0"><b>Ricorrente ogni mese</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— te lo ricordo io</span></span>
         </span>
@@ -4223,7 +4223,7 @@ function getInvoiceFormHTML() {
         ${Object.entries(REGIMI).map(([k, v]) => `<option value="${k}" ${k === regime ? 'selected' : ''}>${v.label.split('(')[0].trim()}</option>`).join('')}
       </select>
     </div>
-    <div id="inv-preview" class="card p-3 text-xs text-slate-300 hidden"></div>
+    <div id="inv-preview" class="card p-3 text-xs text-[var(--on-surface-secondary)] hidden"></div>
     <!-- Esito controlli fattura elettronica (predizione scarti SdI, in chiaro) -->
     <div id="inv-xml-controls" class="hidden text-[11px] leading-snug rounded-xl border px-3 py-2.5"></div>
     <!-- Pulsante FATTURA ELETTRONICA (XML): primario per l'Italia. Nascosto per i
@@ -4672,7 +4672,7 @@ function renderNetWorth() {
           const p5Pct = Math.min(100, (r.p5 / rowMax) * 100);
           return `<div class="text-[10px]">
             <div class="flex items-center justify-between mb-1">
-              <span class="text-slate-300">${r.label}</span>
+              <span class="text-[var(--on-surface-secondary)]">${r.label}</span>
               <span class="font-mono text-[var(--gold)]">${formatMoney(r.p50)}</span>
             </div>
             <div class="relative h-2 rounded-full bg-white/5 overflow-hidden" title="se va male ${formatMoney(r.p5)} · tipico ${formatMoney(r.p50)} · se va bene ${formatMoney(r.p95)}">
@@ -4701,7 +4701,7 @@ function renderNetWorth() {
           const pct = Math.max(4, Math.round((r.sharpe / maxSharpe) * 100));
           return `<div class="text-[10px]">
             <div class="flex items-center justify-between mb-0.5">
-              <span class="flex items-center gap-1.5 text-slate-300"><span class="inline-block w-1.5 h-1.5 rounded-full ${regimeColor(r.regime)}" title="Regime ora: ${r.regime || '—'}"></span>${r.label}</span>
+              <span class="flex items-center gap-1.5 text-[var(--on-surface-secondary)]"><span class="inline-block w-1.5 h-1.5 rounded-full ${regimeColor(r.regime)}" title="Regime ora: ${r.regime || '—'}"></span>${r.label}</span>
               <span class="font-mono text-[var(--gold)]">${r.sharpe.toFixed(2)}</span>
             </div>
             <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[color-mix(in_srgb,var(--gold)_70%,transparent)]" style="width:${pct}%"></div></div>
@@ -4726,14 +4726,14 @@ document.addEventListener('click', (e) => {
   cell.classList.add('ring-2', 'ring-[var(--gold)]');
   const dayTxs = __heatmapDayTx[day] || [];
   if (!dayTxs.length) {
-    detailEl.innerHTML = `<p class="text-[10px] text-slate-400 p-2">${day} ${__heatmapMonthLabel}: nessuna spesa registrata.</p>`;
+    detailEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)] p-2">${day} ${__heatmapMonthLabel}: nessuna spesa registrata.</p>`;
     return;
   }
   const total = dayTxs.reduce((s, t) => s + t.amount, 0);
   const rows = [...dayTxs].sort((a, b) => b.amount - a.amount).map(t => {
     const cat = getCatById(t.category);
     return `<div class="flex items-center justify-between text-[10px] py-1 border-b border-white/5 last:border-0">
-      <span class="text-slate-300">${cat?.name || t.category}${t.note ? ` · ${t.note}` : ''}</span>
+      <span class="text-[var(--on-surface-secondary)]">${cat?.name || t.category}${t.note ? ` · ${t.note}` : ''}</span>
       <span class="font-mono text-slate-200">${formatMoney(t.amount)}</span>
     </div>`;
   }).join('');
@@ -4767,7 +4767,7 @@ function renderPeriodCompare(mode = __periodCompareMode) {
   const prevKeys = isYear ? lastNMonthKeys(ref, 12, 13) : lastNMonthKeys(ref, 1, 2);
   const r = comparePeriods(allTx, curKeys, prevKeys);
   if (r.current === 0 && r.previous === 0) {
-    bodyEl.innerHTML = `<p class="text-[11px] text-slate-400">Non ho ancora ${isYear ? 'due anni' : 'due mesi'} completi di storia da confrontare.</p>`;
+    bodyEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Non ho ancora ${isYear ? 'due anni' : 'due mesi'} completi di storia da confrontare.</p>`;
     return;
   }
   const periodLabel = isYear ? 'quest\'anno (12 mesi) vs anno scorso' : 'mese scorso vs il precedente';
@@ -4788,14 +4788,14 @@ function renderPeriodCompare(mode = __periodCompareMode) {
     <div class="space-y-2">${rows.map(row => {
       const cat = getCatById(row.category);
       const rowUp = row.deltaPct > 0;
-      const color = rowUp ? 'text-rose-300' : row.deltaPct < 0 ? 'text-emerald-300' : 'text-slate-400';
+      const color = rowUp ? 'text-rose-300' : row.deltaPct < 0 ? 'text-emerald-300' : 'text-[var(--on-surface-secondary)]';
       const barColor = rowUp ? 'bg-rose-400/70' : 'bg-emerald-400/70';
       const prevPct = Math.round((row.previous / maxVal) * 100);
       const curPct = Math.round((row.current / maxVal) * 100);
       const arrow = rowUp ? '↑' : (row.deltaPct < 0 ? '↓' : '→');
       return `<div class="text-[10px]">
         <div class="flex items-center justify-between mb-0.5">
-          <span class="text-slate-300 truncate">${cat?.name || row.category}</span>
+          <span class="text-[var(--on-surface-secondary)] truncate">${cat?.name || row.category}</span>
           <span class="font-mono shrink-0 ml-2 ${color}">${arrow} ${row.deltaPct > 0 ? '+' : ''}${row.deltaPct}%</span>
         </div>
         <div class="flex items-center gap-1.5">
@@ -4822,7 +4822,7 @@ function renderCausalGraphViz() {
   if (!el) return;
   const links = pruneNonCausal(buildCausalGraph(VaultDAO.state.transactions || {}, new Date(), { maxLag: 3 }));
   if (!links.length) {
-    el.innerHTML = `<p class="text-[11px] text-slate-400">Non emergono ancora legami affidabili tra categorie nei tuoi dati (serve più storia).</p>`;
+    el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Non emergono ancora legami affidabili tra categorie nei tuoi dati (serve più storia).</p>`;
     return;
   }
   const top = links.slice(0, 10);
@@ -4952,7 +4952,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     alertsBox.innerHTML += `
       <div class="card p-4 border border-rose-500/20 bg-rose-950/5">
         ${insightCardHeader(SEVERITY_STYLE.danger, 'Spese insolite: le riconosci?')}
-        <div class="space-y-2 text-xs text-slate-300">
+        <div class="space-y-2 text-xs text-[var(--on-surface-secondary)]">
           ${anomalies.map(a => {
             const suspect = a.tx.suspect;
             const feedback = unknownIds.has(a.tx.id) && !suspect
@@ -5052,7 +5052,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   for (const ins of insights) {
     const style = SEVERITY_STYLE[ins.severity] || SEVERITY_STYLE.info;
     const itemsHtml = ins.items
-      ? `<div class="space-y-1.5 text-xs text-slate-300 mt-1.5">${ins.items.map(h => `<div>${h.description}: ${formatMoney(h.previousAmount)} → <b>${formatMoney(h.newAmount)}</b> (+${h.increasePct}%)</div>`).join('')}</div>`
+      ? `<div class="space-y-1.5 text-xs text-[var(--on-surface-secondary)] mt-1.5">${ins.items.map(h => `<div>${h.description}: ${formatMoney(h.previousAmount)} → <b>${formatMoney(h.newAmount)}</b> (+${h.increasePct}%)</div>`).join('')}</div>`
       : '';
     const actionHtml = ins.action
       ? `<button onclick='window.nudgeActed(${JSON.stringify(ins.kind)}, ${JSON.stringify(ins.action.handler || 'applyBudgetSuggestion')}, ${JSON.stringify(ins.action.payload).replace(/'/g, "&#39;")})' class="text-[11px] font-bold ${style.text} underline mt-1.5">${ins.action.label}</button>`
@@ -5060,7 +5060,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     alertsBox.innerHTML += `
       <div class="card p-4 border ${style.border}">
         ${insightCardHeader(style, ins.title)}
-        <p class="text-xs text-slate-300">${ins.body}</p>
+        <p class="text-xs text-[var(--on-surface-secondary)]">${ins.body}</p>
         ${itemsHtml}${actionHtml}
       </div>
     `;
@@ -5082,7 +5082,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     alertsBox.innerHTML += `
       <div class="card p-4 border border-indigo-500/20 bg-indigo-950/5">
         ${insightCardHeader(SEVERITY_STYLE.recap, 'La tua settimana scorsa')}
-        <div class="text-xs text-slate-300 space-y-0.5">
+        <div class="text-xs text-[var(--on-surface-secondary)] space-y-0.5">
           <div>Hai speso <b>${formatMoney(recap.totalSpent)}</b>${deltaTxt ? `, ${deltaTxt}` : ''}.</div>
           ${recap.topCategory ? `<div>Quasi tutto in <b>${getCatById(recap.topCategory.id).name}</b> (${formatMoney(recap.topCategory.amount)}).</div>` : ''}
           ${savedTxt}
@@ -5109,7 +5109,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     alertsBox.innerHTML += `
       <div class="card p-4 border border-emerald-500/20 bg-emerald-950/5">
         <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">${proposals.length === 1 ? 'Abbonamento trovato' : `${proposals.length} abbonamenti trovati`}</h4>
-        <div class="text-xs text-slate-300 divide-y divide-emerald-500/10">${rows}</div>
+        <div class="text-xs text-[var(--on-surface-secondary)] divide-y divide-emerald-500/10">${rows}</div>
       </div>
     `;
   }
@@ -5257,7 +5257,7 @@ window.generateSyncQR = () => {
   openModal(`
     <div class="p-4 space-y-4">
       <h3 class="text-lg font-bold">Node Sync Token</h3>
-      <p class="text-xs text-slate-400">Copia questo token e incollalo sulla scheda dell'altro dispositivo per sincronizzare:</p>
+      <p class="text-xs text-[var(--on-surface-secondary)]">Copia questo token e incollalo sulla scheda dell'altro dispositivo per sincronizzare:</p>
       <textarea class="w-full h-32 p-2 bg-black border border-[var(--outline)] text-xs font-mono rounded-lg" readonly>${compressed}</textarea>
       <button onclick="navigator.clipboard.writeText('${compressed}'); showToast('Token copiato!', 'success');" class="save-btn w-full !m-0">Copia Token</button>
     </div>
@@ -5691,7 +5691,7 @@ function renderInstallGuide() {
       <div class="w-7 h-7 rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-xs">${i + 1}</div>
       <div class="flex items-center gap-2 flex-1 min-w-0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)] shrink-0">${INSTALL_ICON_SVG[s.icon] || INSTALL_ICON_SVG.info}</svg>
-        <p class="text-xs text-slate-300 leading-snug">${s.text}</p>
+        <p class="text-xs text-[var(--on-surface-secondary)] leading-snug">${s.text}</p>
       </div>
     </div>`).join('');
   // Il pulsante nativo appare SOLO se il browser ha davvero offerto
@@ -5875,7 +5875,7 @@ window.openMeshPairing = () => {
       </div>
       <textarea id="mesh-code-out" readonly placeholder="Il codice da copiare sull'altro dispositivo apparirà qui..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20"></textarea>
       <div class="border-t border-[var(--outline)] pt-3">
-        <p class="text-[10px] text-slate-400 mb-2">Incolla qui il codice ricevuto dall'altro dispositivo:</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2">Incolla qui il codice ricevuto dall'altro dispositivo:</p>
         <textarea id="mesh-code-in" placeholder="Codice dall'altro dispositivo..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20"></textarea>
         <div class="flex gap-2 mt-2">
           <button onclick="window.meshJoin()" class="btn-action flex-1 text-xs">1b. Ho ricevuto un INVITO</button>
@@ -6114,7 +6114,7 @@ const initApp = () => {
       const cat = getCatById(id);
       const pct = Math.max(6, Math.round((v / max) * 100));
       return `<div class="flex items-center gap-2">
-        <span class="w-16 truncate text-slate-400">${cat.name}</span>
+        <span class="w-16 truncate text-[var(--on-surface-secondary)]">${cat.name}</span>
         <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full qa-cloud-block" style="width:${pct}%;background:${cat.color}"></div></div>
         <span class="w-16 text-right font-mono" style="color:${cat.color}">${formatMoney(v)}</span>
       </div>`;
@@ -6153,7 +6153,7 @@ const initApp = () => {
   function buildSavingsChart(d) {
     const max = Math.max(d.inc, d.out, 1);
     const bar = (label, v, color) => `<div class="flex items-center gap-2">
-      <span class="w-14 text-slate-400">${label}</span>
+      <span class="w-14 text-[var(--on-surface-secondary)]">${label}</span>
       <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full" style="width:${Math.max(4, (v / max) * 100)}%;background:${color}"></div></div>
       <span class="w-16 text-right font-mono" style="color:${color}">${formatMoney(v)}</span>
     </div>`;
@@ -6218,7 +6218,7 @@ const initApp = () => {
       const pct = Math.max(6, Math.round((Math.abs(e.expectedPct) / maxAbs) * 100));
       const color = up ? '#fb7185' : '#34d399';
       return `<div class="flex items-center gap-2">
-        <span class="w-16 truncate text-slate-400">${cat.name}</span>
+        <span class="w-16 truncate text-[var(--on-surface-secondary)]">${cat.name}</span>
         <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div></div>
         <span class="w-14 text-right font-mono" style="color:${color}">${up ? '+' : ''}${e.expectedPct}%</span>
       </div>`;
@@ -6266,7 +6266,7 @@ const initApp = () => {
   function showQaThinking(localAnswer) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-200';
     qaAnswer.innerHTML = `
-      <p class="text-slate-400 mb-2.5">${localAnswer}</p>
+      <p class="text-[var(--on-surface-secondary)] mb-2.5">${localAnswer}</p>
       <div class="flex items-center gap-3">
         <span class="qa-wait-orb"><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-pulse"></span><span class="qa-pulse"></span><span class="qa-pulse"></span></span>
         <div>
@@ -6512,17 +6512,17 @@ const initApp = () => {
   // generato da Momentum), escape prima di tutto: il testo arriva da fonti
   // esterne, mai fidarsi ciecamente in innerHTML.
   function buildNewsItemsHtml(items) {
-    const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
+    const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-[var(--on-surface-secondary)]', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     const escNews = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>` : '';
     const itemsHtml = items.map(n => `
       <a href="${n.url}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="flex items-start gap-1.5">
-          <span class="${labelColor[n.sentimentLabel] || 'text-slate-400'} mt-0.5 shrink-0">●</span>
+          <span class="${labelColor[n.sentimentLabel] || 'text-[var(--on-surface-secondary)]'} mt-0.5 shrink-0">●</span>
           <div class="min-w-0">
             <div class="font-semibold leading-snug">${escNews(n.title)}</div>
             <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}</div>
-            ${n.summary ? `<div class="text-slate-400 text-[10px] mt-1 leading-snug">${escNews(n.summary)}</div>` : ''}
+            ${n.summary ? `<div class="text-[var(--on-surface-secondary)] text-[10px] mt-1 leading-snug">${escNews(n.summary)}</div>` : ''}
           </div>
         </div>
       </a>`
@@ -6734,7 +6734,7 @@ const initApp = () => {
   function showQaCloudError(localAnswer, message) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-rose-950/20 border border-rose-500/25 text-rose-200';
     qaAnswer.innerHTML = `
-      <p class="text-slate-400 mb-2.5">${localAnswer}</p>
+      <p class="text-[var(--on-surface-secondary)] mb-2.5">${localAnswer}</p>
       <div class="flex items-center gap-1 mb-1" title="${String(message).replace(/"/g, '&quot;')}">
         <h4 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_WARN} Aiuto esterno</h4>
       </div>
@@ -6999,7 +6999,7 @@ const initApp = () => {
               <div class="space-y-1.5">${top.map((row, i) => `
                 <div class="text-[10px]">
                   <div class="flex items-center justify-between mb-0.5">
-                    <span class="text-slate-300 truncate">${i + 1}. ${row.label}</span>
+                    <span class="text-[var(--on-surface-secondary)] truncate">${i + 1}. ${row.label}</span>
                     <span class="font-mono font-bold text-[var(--gold)] shrink-0 ml-2">${formatMoney(row.p50)}</span>
                   </div>
                   <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[color-mix(in_srgb,var(--gold)_70%,transparent)]" style="width:${Math.max(4, Math.round((row.p50 / maxP50) * 100))}%"></div></div>
