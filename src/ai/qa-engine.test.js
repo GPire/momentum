@@ -89,6 +89,42 @@ test('Italiano resta italiano: nessuna regressione dal rilevamento lingua', () =
   assert.ok(/la voce più pesante/i.test(r.answer));
 });
 
+// ── Spagnolo, francese, tedesco: stessi intent, stesso motore, risposta nella lingua rilevata ──
+test('Español: "¿cuánto he gastado este mes?" → intent spent, risposta in spagnolo', () => {
+  const r = answerQuestion('¿Cuánto he gastado este mes?', CTX);
+  assert.equal(r.intent, 'spent');
+  assert.ok(/has gastado/i.test(r.answer));
+});
+
+test('Español: "¿cuánto puedo gastar hoy?" → safe-to-spend in spagnolo', () => {
+  const r = answerQuestion('¿Cuánto puedo gastar hoy?', CTX);
+  assert.equal(r.intent, 'safe-to-spend');
+  assert.ok(/puedes gastar/i.test(r.answer));
+});
+
+test('Français: "combien j\'ai dépensé ce mois-ci ?" → intent spent, risposta in francese', () => {
+  const r = answerQuestion('Combien j\'ai dépensé ce mois-ci ?', CTX);
+  assert.equal(r.intent, 'spent');
+  assert.ok(/tu as dépensé/i.test(r.answer));
+});
+
+test('Deutsch: "wie viel habe ich diesen monat ausgegeben?" → intent spent, risposta in tedesco', () => {
+  const r = answerQuestion('Wie viel habe ich diesen Monat ausgegeben?', CTX);
+  assert.equal(r.intent, 'spent');
+  assert.ok(/hast du.*ausgegeben/i.test(r.answer));
+});
+
+test('Español: domanda fuori dominio (ma con marcatori linguistici spagnoli) → messaggio "unknown" in spagnolo', () => {
+  // il rilevatore condiviso (src/i18n/detect.js) riconosce la lingua da
+  // parole-chiave del dominio finanziario, non è un rilevatore linguistico
+  // generico — dichiarato onestamente nei suoi stessi commenti. Una frase
+  // fuori dominio SENZA nessun marcatore ricade sull'italiano di default
+  // (comportamento del rilevatore condiviso, non un bug introdotto qui).
+  const r = answerQuestion('¿Cuánto tarda en llegar el tren?', CTX);
+  assert.equal(r.intent, 'unknown');
+  assert.ok(/todavía no lo sé/i.test(r.answer));
+});
+
 test('quanto ho speso a giugno (mese nominato)', () => {
   const r = answerQuestion('quanto ho speso a giugno?', CTX);
   assert.equal(r.intent, 'spent');
