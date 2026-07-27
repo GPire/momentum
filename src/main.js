@@ -17,6 +17,13 @@ import { sectorRanking } from './alpha/sector-rotation.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
+import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed } from './core/telemetry.js';
+
+// Endpoint del contatore anonimo (server/telemetry-worker.js): vuoto finché
+// non viene distribuito — con endpoint vuoto sendTelemetryPings è un no-op
+// silenzioso, così il repo resta clonabile/utilizzabile da chiunque senza
+// dover configurare nulla. Da valorizzare con l'URL reale dopo il deploy.
+const TELEMETRY_ENDPOINT = '';
 
 // Etichette statiche (non dati) tradotte in italiano quando il dispositivo è
 // italiano — Alpha Vantage restituisce region/exchange sempre in inglese.
@@ -2906,6 +2913,27 @@ window.saveLiveDataKey = (provider) => {
   try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
 };
 
+// ── CONTEGGIO ANONIMO (opt-in, disattivato di default) ──────────────────────
+window.setTelemetryOptIn = (checked) => {
+  setTelemetryEnabled(checked);
+  showToast(checked ? 'Grazie: un numero anonimo aiuterà a far crescere Momentum.' : 'Conteggio disattivato.', 'success');
+  if (checked) sendTelemetryPings(TELEMETRY_ENDPOINT).catch(() => {});
+};
+function initTelemetryToggle() {
+  const cb = document.getElementById('telemetry-opt-in');
+  if (cb) cb.checked = isTelemetryEnabled();
+  if (isTelemetryEnabled()) sendTelemetryPings(TELEMETRY_ENDPOINT).catch(() => {});
+  // Avviso ESPLICITO al primissimo avvio (mai silenzioso): attivo di
+  // default, ma l'utente lo scopre subito con un modo immediato per
+  // disattivarlo, non solo sepolto in Impostazioni.
+  if (needsTelemetryDisclosure()) {
+    markTelemetryDisclosed();
+    setTimeout(() => {
+      showToast('Un numero anonimo (mai i tuoi dati) aiuta Momentum a crescere. Disattivabile in Momentum Vault.', 'info');
+    }, 2500);
+  }
+}
+
 // ── CERCA UN ASSET: prezzo live + notizie/sentiment reali + avvisi ─────────
 // (src/alpha/asset-search.js, src/alpha/news.js, src/predict/price-alerts.js)
 // Cripto: nessuna chiave (CoinGecko). Azioni/ETF: chiave personale Alpha
@@ -5207,6 +5235,7 @@ window.applyBudgetSuggestion = (value) => {
 // INITIALIZATION AND LISTENERS
 // ==========================================
 const initApp = () => {
+  try { initTelemetryToggle(); } catch (e) { console.error('initTelemetryToggle:', e); }
   // Register Service Worker for PWA — aggiornamento automatico: quando il
   // nuovo service worker (già installato in background da skipWaiting/
   // clients.claim in sw.js) prende davvero il controllo della pagina, si

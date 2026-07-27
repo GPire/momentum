@@ -1335,6 +1335,24 @@
                 </div>
               </div>
 
+              <!-- Conteggio anonimo (ATTIVO di default, opt-OUT dichiarato):
+                   l'UNICO punto dell'app che invia qualcosa fuori dal
+                   dispositivo che non è un dato pubblico di mercato — un id
+                   casuale, mai collegato a spese/saldi/identità. Serve a chi
+                   sviluppa Momentum per sapere quante persone lo usano
+                   davvero. Onestà: dichiarato qui in chiaro, spegnibile a un
+                   tocco, mai nascosto in un sottomenu. -->
+              <div class="card p-6 flex flex-col justify-between">
+                <div>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Aiuta a far crescere Momentum</h3>
+                  <p class="card-sub">Attivo di default: un numero anonimo (mai collegato ai tuoi dati — nessuna spesa, saldo o identità) dice a chi sviluppa Momentum quante persone lo usano. Spegnilo qui quando vuoi, un tocco.</p>
+                  <label class="flex items-center gap-2 mt-3 text-xs cursor-pointer select-none">
+                    <input type="checkbox" id="telemetry-opt-in" checked onchange="window.setTelemetryOptIn(this.checked)" class="w-4 h-4" />
+                    <span>Conta anche il mio utilizzo (anonimo)</span>
+                  </label>
+                </div>
+              </div>
+
               <!-- Options Column -->
               <div class="flex flex-col gap-5 sm:gap-6 xl:col-span-2">
                   <div class="card p-6">

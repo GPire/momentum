@@ -1,0 +1,10 @@
+name = "momentum-telemetry"
+main = "telemetry-worker.js"
+compatibility_date = "2026-07-27"
+
+# Dopo "wrangler kv namespace create MOMENTUM_TELEMETRY", incolla qui l'id
+# restituito. STATS_TOKEN si imposta con "wrangler secret put STATS_TOKEN"
+# (non va scritto qui, resta segreto).
+[[kv_namespaces]]
+binding = "MOMENTUM_TELEMETRY"
+id = "INCOLLA_QUI_L_ID_DEL_NAMESPACE"
