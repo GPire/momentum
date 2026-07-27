@@ -5478,6 +5478,12 @@ const initApp = () => {
   // chiesto esplicitamente "dimensioni completamente diverse" dal primo
   // tentativo (18px, inline) — l'orb ora è il centro visivo dell'attesa,
   // stessa identità del grande orb 3D del Dashboard.
+  // "Momo" — nome dato all'orb su richiesta esplicita: un'identità coerente
+  // e riconoscibile aiuta la memorabilità (stessa ragione per cui Duo di
+  // Duolingo funziona) MOLTO più di altra animazione. Momo è solo il
+  // personaggio che accompagna l'attesa: non cambia né sostituisce la
+  // dicitura onesta "non è Momentum" quando la risposta arriva da un
+  // provider esterno — sono due cose distinte (chi accompagna vs chi risponde).
   function showQaThinking(localAnswer) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-200';
     qaAnswer.innerHTML = `
@@ -5485,8 +5491,8 @@ const initApp = () => {
       <div class="flex items-center gap-3">
         <span class="qa-wait-orb"></span>
         <div>
-          <p class="text-violet-100 font-bold text-[13px]">Chiedo a una chat generica</p>
-          <p class="text-violet-400 text-[10px] mt-0.5">Cerco la risposta migliore per te<span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>
+          <p class="text-violet-100 font-bold text-[13px]">Momo sta cercando la risposta</p>
+          <p class="text-violet-400 text-[10px] mt-0.5">Fuori da Momentum, per te<span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>
         </div>
       </div>`;
     replayQaAnimation();
