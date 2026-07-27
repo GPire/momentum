@@ -6060,10 +6060,23 @@ const initApp = () => {
     // "anche dei piccoli riassunti delle notizie". Escape prima di tutto:
     // il testo arriva da fonti esterne, mai fidarsi ciecamente in innerHTML.
     const escNews = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    const itemsHtml = items.map(n =>
-      `<a href="${n.url}" target="_blank" rel="noopener" class="qa-cloud-block block leading-snug hover:underline">
-        <span class="${labelColor[n.sentimentLabel] || 'text-slate-400'}">●</span> ${escNews(n.title)} <span class="text-slate-500">— ${escNews(n.source || '')}</span>
-        ${n.summary ? `<div class="text-slate-500 text-[10px] mt-0.5 font-normal">${escNews(n.summary)}</div>` : ''}
+    // Design rivisto (feedback esplicito: "l'intestazione e la
+    // formattazione dei riassunti non sono abbastanza") — card distinte per
+    // ogni notizia (non più righe che si confondono col resto), titolo in
+    // rilievo, fonte come riga di metadato separata, riassunto in un tono
+    // più tenue sotto. Un'unica etichetta "NOTIZIE" in testa quando ce n'è
+    // più di una, per separarle visivamente dal confronto storico sopra.
+    const newsHeader = items.length ? `<h5 class="text-[9px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>` : '';
+    const itemsHtml = items.map(n => `
+      <a href="${n.url}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
+        <div class="flex items-start gap-1.5">
+          <span class="${labelColor[n.sentimentLabel] || 'text-slate-400'} mt-0.5 shrink-0">●</span>
+          <div class="min-w-0">
+            <div class="font-semibold leading-snug">${escNews(n.title)}</div>
+            <div class="text-slate-500 text-[9px] mt-0.5">${escNews(n.source || '')}</div>
+            ${n.summary ? `<div class="text-slate-400 text-[10px] mt-1 leading-snug">${escNews(n.summary)}</div>` : ''}
+          </div>
+        </div>
       </a>`
     ).join('');
     // Dato storico REALE (CoinGecko, mai una previsione) — risponde a
@@ -6091,7 +6104,7 @@ const initApp = () => {
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
         <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}${itemsHtml}</div>${historyChart || ''}${groundedHtml}`;
+      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsHeader}${itemsHtml}${historyChart || ''}${groundedHtml}`;
     replayQaAnimation();
   }
   // Ritorna true se ha risposto con dati reali (fine flusso), false se deve
