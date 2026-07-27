@@ -2142,7 +2142,7 @@ window.openSepaTransfer = (d = {}) => {
         <button id="sepa-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Altro…</button>
         <button id="sepa-copy-iban" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>IBAN</button>
       </div>
-      <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Momentum non invia bonifici né accede al conto: prepara il messaggio e i dati, l'invio e il movimento li fai tu (con la tua autenticazione).</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">Momentum non invia bonifici né accede al conto: prepara il messaggio e i dati, l'invio e il movimento li fai tu (con la tua autenticazione).</p>
     </div>`);
   // Messaggio pronto (per richiesta pagamento: intro gentile + dati; per bonifico proprio: i dati)
   // Firma sobria Momentum solo per la richiesta TRA AMICI (d.brand), non per le
@@ -2356,7 +2356,7 @@ window.openSplitExpense = (prefill = {}) => {
           <button id="sp-save" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva la divisione</button>
           <button id="sp-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Invita</button>
         </div>
-        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">100% sul tuo telefono, senza account. Invita un amico (anche lontano) con un link: le spese si uniscono senza server. I rimborsi li fai tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">100% sul tuo telefono, senza account. Invita un amico (anche lontano) con un link: le spese si uniscono senza server. I rimborsi li fai tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
       </div>`);
 
     // ── bind: ogni input a testo (type=text) così il ripristino del cursore
@@ -3346,7 +3346,7 @@ window.openSalaryEditor = (onDone = null) => {
       </div>
       <button id="sal-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva</button>
       ${VaultDAO.state.salaryProfile ? `<button id="sal-reset" class="text-[11px] text-[var(--on-surface-secondary)] underline">Torna a farlo capire da Momentum</button>` : ''}
-      <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Resta sul tuo dispositivo. Serve solo a dirti quando puoi saldare senza restare a secco.</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">Resta sul tuo dispositivo. Serve solo a dirti quando puoi saldare senza restare a secco.</p>
     </div>`);
   $('#sal-save')?.addEventListener('click', () => {
     const day = parseInt(String($('#sal-day').value).replace(/\D/g, ''), 10);
@@ -3388,7 +3388,7 @@ window.openPayoutSetup = (onDone = null) => {
         <input id="po-value" value="${esc(cur.value || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="${esc(placeholders[method])}" />
         ${method === 'iban' ? `<input id="po-holder" value="${esc(cur.holder || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="Intestatario (facoltativo)" />` : ''}
         <button id="po-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva</button>
-        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">Resta sul tuo dispositivo. Puoi cambiarlo quando vuoi.</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">Resta sul tuo dispositivo. Puoi cambiarlo quando vuoi.</p>
       </div>`);
     document.querySelectorAll('[data-pm]').forEach(b => b.addEventListener('click', () => { cur.value = $('#po-value')?.value || cur.value; method = b.dataset.pm; draw(); }));
     $('#po-save')?.addEventListener('click', () => {
@@ -3750,7 +3750,7 @@ window.openSplitGroup = (openId = null) => {
           <button id="sg-share" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
           <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[var(--red)]/30 text-[var(--red)] text-sm">Elimina</button>
         </div>
-        <p class="text-[9px] text-[var(--on-surface-secondary)] opacity-70">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
       </div>`);
 
     // bind
