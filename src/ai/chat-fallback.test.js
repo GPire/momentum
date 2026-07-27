@@ -33,6 +33,35 @@ test('askCloudFallback: chiave non valida -> errore col messaggio reale dell\'AP
   await assert.rejects(() => askCloudFallback('ciao', { apiKey: 'sbagliata', fetchImpl }), /API key not valid/);
 });
 
+test('askCloudFallback: Gemini con grounding -> aggiunge le fonti reali in coda al testo', async () => {
+  const fetchImpl = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    assert.deepEqual(body.tools, [{ google_search: {} }]);
+    return {
+      ok: true,
+      json: async () => ({
+        candidates: [{
+          content: { parts: [{ text: 'Apple ha annunciato nuovi prodotti oggi.' }] },
+          groundingMetadata: { groundingChunks: [{ web: { uri: 'https://reuters.com/apple', title: 'Reuters' } }] },
+        }],
+      }),
+    };
+  };
+  const r = await askCloudFallback('notizie di oggi su apple', { apiKey: 'k', fetchImpl, grounding: true });
+  assert.match(r.answer, /Apple ha annunciato/);
+  assert.match(r.answer, /Fonti: Reuters \(https:\/\/reuters\.com\/apple\)/);
+});
+
+test('askCloudFallback: Gemini SENZA grounding -> nessuna fonte aggiunta anche se presente nella risposta', async () => {
+  const fetchImpl = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    assert.equal(body.tools, undefined);
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'Ciao!' }] } }] }) };
+  };
+  const r = await askCloudFallback('ciao', { apiKey: 'k', fetchImpl });
+  assert.equal(r.answer, 'Ciao!');
+});
+
 test('askCloudFallback: risposta senza testo -> errore, mai un vuoto camuffato', async () => {
   const fetchImpl = async () => ({ ok: true, json: async () => ({ candidates: [] }) });
   await assert.rejects(() => askCloudFallback('ciao', { apiKey: 'k', fetchImpl }));
@@ -52,7 +81,23 @@ test('askCloudFallbackChain: prova nell\'ordine, si ferma al primo che risponde'
   const r = await askCloudFallbackChain('ciao', { keys: { gemini: 'g', groq: 'q' }, fetchImpl });
   assert.equal(r.provider, 'groq');
   assert.equal(r.answer, 'risposta da groq');
-  assert.equal(calls.length, 2); // ha provato gemini, poi groq
+  // Gemini viene provato due volte a cascata (con grounding, poi senza)
+  // prima di passare a Groq: 3 chiamate in tutto, non 2.
+  assert.equal(calls.length, 3);
+});
+
+test('askCloudFallbackChain: Gemini con grounding fallisce (es. modello senza supporto tool) -> ripiega su Gemini senza grounding, stesso provider', async () => {
+  let call = 0;
+  const fetchImpl = async (url, opts) => {
+    call++;
+    const body = JSON.parse(opts.body);
+    if (body.tools) throw new TypeError('Failed to fetch'); // grounding non supportato in questo scenario
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'risposta senza grounding' } ] } }] }) };
+  };
+  const r = await askCloudFallbackChain('notizie di oggi', { keys: { gemini: 'g' }, fetchImpl });
+  assert.equal(r.provider, 'gemini');
+  assert.equal(r.answer, 'risposta senza grounding');
+  assert.equal(call, 2);
 });
 
 test('askCloudFallbackChain: tutti i provider falliscono -> rilancia l\'ULTIMO errore reale', async () => {

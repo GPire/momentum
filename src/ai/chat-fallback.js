@@ -53,21 +53,33 @@ export function buildFinancialContextSummary({ safeToday = null, monthRemaining 
 // Google, verificato dal vivo 2026-07-27): 'gemini-2.0-flash' fisso è stato
 // dismesso per le chiavi nuove (quota gratuita a 0, 429 sempre) — un nome di
 // modello fisso marcisce quando il provider cambia generazione, l'alias no.
-async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-flash-latest', systemPrompt = SYSTEM_PROMPT }) {
+// Grounding con Google Search (verificato dal vivo 2026-07-27, richiesta
+// esplicita: "anche se non è su Alpha Vantage o simili, può usare AI
+// generica e fare lo stesso" — per le NOTIZIE, non per i dati numerici):
+// con `grounding: true`, Gemini cerca sul web reale invece di rispondere
+// solo dalla sua conoscenza generica, e cita le fonti trovate. Non
+// sostituisce mai i grafici/serie storiche (quelli restano da Alpha
+// Vantage/Twelve Data/FMP, mai testo generico spacciato per un numero
+// reale) — solo testo con fonti, appeso in coda alla risposta.
+async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-flash-latest', systemPrompt = SYSTEM_PROMPT, grounding = false }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ parts: [{ text: question }] }],
+  };
+  if (grounding) body.tools = [{ google_search: {} }];
   const res = await fetchImpl(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ parts: [{ text: question }] }],
-    }),
+    body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error?.message || `Gemini: HTTP ${res.status}`);
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Risposta vuota da Gemini.');
-  return text.trim();
+  const chunks = json?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = chunks.map(c => c.web?.uri ? `${c.web.title || c.web.uri} (${c.web.uri})` : null).filter(Boolean);
+  return sources.length ? `${text.trim()}\n\nFonti: ${sources.join(', ')}` : text.trim();
 }
 
 // Formato OpenAI-compatibile (chat/completions): condiviso da Groq e
@@ -143,13 +155,13 @@ export async function extractAssetName(question, { apiKey, fetchImpl = fetch, pr
   } catch (_) { return null; }
 }
 
-export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, provider = 'gemini', model, contextSummary = null } = {}) {
+export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, provider = 'gemini', model, contextSummary = null, grounding = false } = {}) {
   if (!question || !question.trim()) throw new Error('Serve una domanda.');
   if (!apiKey) throw new Error(`Serve la tua chiave ${PROVIDER_LABELS[provider] || provider} personale (Momentum Vault → Chat generica).`);
   const fn = CLOUD_CHAT_PROVIDERS[provider];
   if (!fn) throw new Error(`Provider sconosciuto: ${provider}.`);
   const systemPrompt = contextSummary ? `${SYSTEM_PROMPT}\n\n${contextSummary}` : SYSTEM_PROMPT;
-  const answer = await fn(question, { apiKey, fetchImpl, systemPrompt, ...(model ? { model } : {}) });
+  const answer = await fn(question, { apiKey, fetchImpl, systemPrompt, ...(model ? { model } : {}), ...(provider === 'gemini' ? { grounding } : {}) });
   return { answer, provider, source: provider };
 }
 
@@ -165,6 +177,16 @@ export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = f
   if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;
   for (const provider of attempts) {
+    // Gemini: prova PRIMA con grounding (ricerca web reale, notizie vere con
+    // fonti citate) — a CASCATA, come ogni altra fonte dati di questa
+    // sessione: se fallisce (es. errore momentaneo, modello che non supporta
+    // i tool), ripiega sulla stessa chiamata SENZA grounding prima di passare
+    // al provider successivo. Mai un secondo motore isolato.
+    if (provider === 'gemini') {
+      try {
+        return await askCloudFallback(question, { apiKey: keys.gemini, provider, fetchImpl, contextSummary, grounding: true });
+      } catch (e) { lastError = e; }
+    }
     try {
       return await askCloudFallback(question, { apiKey: keys[provider], provider, fetchImpl, contextSummary });
     } catch (e) { lastError = e; }
