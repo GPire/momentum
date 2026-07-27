@@ -126,3 +126,86 @@ self.addEventListener('fetch', e => {
     }).catch(() => caches.match(e.request)) // offline: si usa l'ultima copia buona
   );
 });
+
+// ── AVVISI DI PREZZO AD APP CHIUSA (Periodic Background Sync) ───────────────
+// LIMITE ONESTO, dichiarato e non nascosto: senza un server che spinga un
+// messaggio (Web Push), NESSUNA app può notificare mentre il browser è
+// completamente chiuso — nemmeno questa. Periodic Background Sync fa
+// controllare i prezzi al sistema operativo anche ad app chiusa, ma:
+// (1) solo su PWA installata, solo Chrome/Edge (no Safari/Firefox);
+// (2) l'intervallo minimo lo decide il browser in base all'uso reale
+//     dell'app (euristica "site engagement"), MAI garantito, spesso ore;
+// (3) NON è "tempo reale" — è il meglio possibile senza un server, che
+//     questo progetto rifiuta di introdurre per restare 100% on-device.
+// Duplica qui (invece di importare) la logica minima di controllo soglia:
+// un service worker classico (non-module, per compatibilità) non può
+// importare l'albero di moduli ES di main.js senza un bundle dedicato.
+async function readVaultState() {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('momentum_vault', 1);
+    req.onerror = () => resolve(null);
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const tx = db.transaction('state', 'readonly').objectStore('state').get('main');
+        tx.onsuccess = () => resolve(tx.result || null);
+        tx.onerror = () => resolve(null);
+      } catch (_) { resolve(null); }
+    };
+  });
+}
+
+async function writeVaultState(state) {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('momentum_vault', 1);
+    req.onerror = () => resolve();
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const tx = db.transaction('state', 'readwrite').objectStore('state').put(state, 'main');
+        tx.onsuccess = () => resolve();
+        tx.onerror = () => resolve();
+      } catch (_) { resolve(); }
+    };
+  });
+}
+
+async function fetchPriceForAlert(a, apiKey) {
+  try {
+    if (a.kind === 'crypto') {
+      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(a.symbol.toLowerCase())}&vs_currencies=eur`);
+      const j = await r.json();
+      return j?.[a.symbol.toLowerCase()]?.eur ?? null;
+    }
+    if (!apiKey) return null;
+    const r = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(a.symbol)}&apikey=${encodeURIComponent(apiKey)}`);
+    const j = await r.json();
+    const price = parseFloat(j?.['Global Quote']?.['05. price']);
+    return Number.isFinite(price) ? price : null;
+  } catch (_) { return null; }
+}
+
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag !== 'momentum-price-watch') return;
+  event.waitUntil((async () => {
+    const state = await readVaultState();
+    const alerts = state?.priceAlerts || [];
+    const pending = alerts.filter(a => !a.triggeredAt);
+    if (!pending.length) return;
+    let changed = false;
+    for (const a of pending.slice(0, 5)) {
+      const price = await fetchPriceForAlert(a, state?.liveDataKeys?.alphavantage);
+      if (!Number.isFinite(price)) continue;
+      const hit = a.direction === 'above' ? price >= a.threshold : price <= a.threshold;
+      if (!hit) continue;
+      a.triggeredAt = Date.now();
+      a.triggeredPrice = price;
+      changed = true;
+      await self.registration.showNotification('Momentum · avviso di prezzo', {
+        body: `${a.symbol} ha ${a.direction === 'above' ? 'superato' : 'toccato sotto'} ${a.threshold} (ora ${price}).`,
+        icon: '/icons/icon-192.png',
+      });
+    }
+    if (changed) await writeVaultState(state);
+  })());
+});
