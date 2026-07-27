@@ -5423,15 +5423,49 @@ const initApp = () => {
   const qaInput = $('#qa-input');
   const qaSend = $('#qa-send');
   const qaAnswer = $('#qa-answer');
-  // Colora la risposta secondo il TIPO di risultato (mai un paragrafo
-  // anonimo): ambra = attenzione (oltre budget/indietro sull'obiettivo/
-  // sforamento previsto), verde = buona notizia (in linea/risparmio
-  // positivo), blu = informativo neutro. Stesso linguaggio cromatico già
-  // usato nel resto dell'app (radar/insight), non un'invenzione isolata.
+  // Ogni STATO della risposta ha un colore/icona propri, mai un paragrafo
+  // anonimo: locale (ambra=attenzione, verde=buona notizia, blu=info,
+  // stesso linguaggio cromatico del resto dell'app), "sto pensando"
+  // (violetto, pulsazione — chiarisce che sta uscendo dal dispositivo),
+  // risposta esterna riuscita (violetto, etichetta col nome del provider —
+  // trasparenza: l'utente deve SEMPRE sapere quando risponde un'AI esterna
+  // e non Momentum), errore esterno (rosso, con un modo diretto per
+  // sistemare la chiave invece di un messaggio d'errore grezzo).
+  const ICON_QA_THINK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-3.5 h-3.5 inline-block animate-pulse"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
+  const ICON_QA_CLOUD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block"><path d="M17.5 19a4.5 4.5 0 000-9 6 6 0 00-11.6 1.7A4 4 0 006 19h11.5z"/></svg>`;
+  const ICON_QA_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>`;
+  function replayQaAnimation() {
+    qaAnswer.classList.remove('qa-answer-in'); void qaAnswer.offsetWidth; qaAnswer.classList.add('qa-answer-in');
+  }
   function styleQaAnswer(res) {
     const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
     const good = res?.data?.onTrack === true || (typeof res?.data?.net === 'number' && res.data.net >= 0);
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + (warn ? 'bg-amber-950/20 border border-amber-500/25 text-amber-200' : good ? 'bg-emerald-950/20 border border-emerald-500/20 text-emerald-200' : 'bg-sky-950/15 border border-sky-500/20 text-sky-100');
+    qaAnswer.textContent = res.answer;
+    replayQaAnimation();
+  }
+  function showQaThinking(localAnswer) {
+    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-200';
+    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p>${ICON_QA_THINK} Chiedo a una chat generica...</p>`;
+    replayQaAnimation();
+  }
+  function showQaCloudAnswer(answer, provider) {
+    const label = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' }[provider] || provider;
+    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-100';
+    qaAnswer.innerHTML = `<p>${answer}</p><p class="text-[9px] text-violet-400 mt-1.5">${ICON_QA_CLOUD} Risposta di ${label}, non di Momentum — verifica prima di fidarti ciecamente.</p>`;
+    replayQaAnimation();
+  }
+  // Messaggio semplice, mai il testo tecnico grezzo dell'errore (l'utente
+  // ha segnalato: "API key not valid" non lo capisce chi non sa cosa sia
+  // una chiave — dettaglio tecnico spostato SOLO nel title, a chi lo cerca).
+  function showQaCloudError(localAnswer, message) {
+    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-rose-950/20 border border-rose-500/25 text-rose-200';
+    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p title="${String(message).replace(/"/g, '&quot;')}">${ICON_QA_WARN} L'aiuto extra non risponde in questo momento.</p><button id="qa-fix-key" class="mt-2 text-[10px] underline text-rose-300">Controlla il collegamento →</button>`;
+    document.getElementById('qa-fix-key')?.addEventListener('click', () => {
+      document.querySelector('[data-view="settings"]')?.click(); // Momentum Vault
+      setTimeout(() => window.openApiKeyGuide?.('gemini'), 250);
+    });
+    replayQaAnimation();
   }
   // Chip di suggerimento DINAMICI: scelti in base a cosa esiste DAVVERO nei
   // dati dell'utente (mai una lista identica per tutti) — chi non sa cosa
@@ -5462,14 +5496,13 @@ const initApp = () => {
       const question = qaInput.value.trim();
       if (!question) return;
       const res = askMomentum(question);
-      qaAnswer.textContent = res.answer;
       styleQaAnswer(res);
       qaAnswer.classList.remove('hidden');
       haptic('light');
       const keys = VaultDAO.state.liveDataKeys || {};
       const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;
       if (res.intent === 'unknown' && hasCloudKey) {
-        qaAnswer.textContent = res.answer + ' — Chiedo a una chat generica...';
+        showQaThinking(res.answer);
         try {
           const { askCloudFallbackChain, buildFinancialContextSummary } = await import('./ai/chat-fallback.js');
           // Contesto SOLO se l'utente ha attivato ANCHE questo (opt-in
@@ -5493,10 +5526,10 @@ const initApp = () => {
               });
             } catch (_) { contextSummary = null; }
           }
-          const { answer } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window), contextSummary });
-          qaAnswer.textContent = answer;
+          const { answer, provider } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window), contextSummary });
+          showQaCloudAnswer(answer, provider);
         } catch (e) {
-          qaAnswer.textContent = `${res.answer} (chat generica non disponibile: ${e.message})`;
+          showQaCloudError(res.answer, e.message);
         }
       }
     };

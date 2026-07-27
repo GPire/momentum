@@ -363,6 +363,11 @@
     }
     @keyframes insightFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     #dashboard-insight > div { animation: insightFade 0.45s ease both; }
+    /* Micro-animazione d'ingresso per ogni risposta di "Chiedi a Momentum"
+       (locale, "sto pensando", esterna, errore) — stessa insightFade già
+       usata altrove, non un'animazione isolata inventata apposta. */
+    #qa-answer.qa-answer-in { animation: insightFade 0.35s ease both; }
+    @media (prefers-reduced-motion: reduce) { #qa-answer.qa-answer-in { animation: none; } }
 
     /* ENTRATA COREOGRAFATA del blocco-decisione: prima il numero-eroe, poi il
        nudge predittivo, poi il promemoria split — micro-ritardi crescenti =
