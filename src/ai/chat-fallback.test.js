@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { askCloudFallback, askCloudFallbackChain, buildFinancialContextSummary } from './chat-fallback.js';
+import { askCloudFallback, askCloudFallbackChain, buildFinancialContextSummary, extractAssetName } from './chat-fallback.js';
 
 test('askCloudFallback: senza domanda -> errore onesto', async () => {
   await assert.rejects(() => askCloudFallback('', { apiKey: 'k' }), /domanda/i);
@@ -123,4 +123,33 @@ test('askCloudFallbackChain: usa SOLO i provider per cui esiste una chiave', asy
   const r = await askCloudFallbackChain('ciao', { keys: { deepseek: 'd' }, fetchImpl });
   assert.equal(r.provider, 'deepseek');
   assert.equal(calls.length, 1);
+});
+
+test('extractAssetName: riconosce l\'asset qualunque sia la formulazione (dinamico, non regex fisso)', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'Bitcoin' }] } }] }) });
+  const name = await extractAssetName('fammi vedere come sta andando quella cripto famosa di cui parlano tutti', { apiKey: 'k', fetchImpl });
+  assert.equal(name, 'Bitcoin');
+});
+
+test('extractAssetName: domanda senza asset -> null (mai un asset a caso)', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'NESSUNO' }] } }] }) });
+  const name = await extractAssetName('spiegami cos\'è un mutuo', { apiKey: 'k', fetchImpl });
+  assert.equal(name, null);
+});
+
+test('extractAssetName: senza chiave -> null, mai un fetch a vuoto', async () => {
+  const name = await extractAssetName('come va Bitcoin', { apiKey: null, fetchImpl: async () => ({}) });
+  assert.equal(name, null);
+});
+
+test('extractAssetName: la fonte fallisce -> null, mai un errore che rompe il flusso', async () => {
+  const fetchImpl = async () => { throw new Error('rete assente'); };
+  const name = await extractAssetName('come va Bitcoin', { apiKey: 'k', fetchImpl });
+  assert.equal(name, null);
+});
+
+test('extractAssetName: risposta troppo lunga (probabile spiegazione, non un nome) -> null', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'Questo è un testo molto lungo che non è affatto il nome di un asset ma una spiegazione articolata' }] } }] }) });
+  const name = await extractAssetName('come va Bitcoin', { apiKey: 'k', fetchImpl });
+  assert.equal(name, null);
 });

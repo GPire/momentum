@@ -5674,7 +5674,45 @@ const initApp = () => {
     VaultDAO.save();
   }
   window.getCloudFallbackLog = () => VaultDAO.state.mlData.cloudFallbackLog || [];
-  function showQaNewsAnswer(asset, items, stale, yoyNote) {
+  // Grafico storico multi-anno VERO (richiesta esplicita: "il grafico deve
+  // esserci sempre", non solo il numero a parole). Riusa catmullRomPath
+  // (curva morbida) già esistente in main.js, stessa identità visiva della
+  // Cassa Unica — non un grafico isolato con uno stile a parte. I marcatori
+  // sono il massimo/minimo REALI per anno solare (yearlyExtremes) — MAI un
+  // "motivo" narrativo: non abbiamo un archivio di notizie storiche, quindi
+  // non fingiamo di sapere perché un picco di anni fa sia avvenuto.
+  function buildAssetHistoryChart(series, extremes) {
+    if (!series.length) return '';
+    const W = 300, H = 90, PAD = 4;
+    const prices = series.map(p => p.price);
+    const minP = Math.min(...prices), maxP = Math.max(...prices);
+    const span = maxP - minP || 1;
+    const x = (i) => PAD + (i / (series.length - 1)) * (W - PAD * 2);
+    const y = (p) => H - PAD - ((p - minP) / span) * (H - PAD * 2);
+    const points = series.map((p, i) => ({ x: x(i), y: y(p.price) }));
+    const path = catmullRomPath(points);
+    const idxByDate = new Map(series.map((p, i) => [p.date, i]));
+    const markers = extremes.flatMap(e => {
+      const out = [];
+      if (idxByDate.has(e.max.date)) out.push({ ...e.max, i: idxByDate.get(e.max.date), kind: 'max' });
+      if (idxByDate.has(e.min.date)) out.push({ ...e.min, i: idxByDate.get(e.min.date), kind: 'min' });
+      return out;
+    });
+    const markersHtml = markers.map(m => `<circle cx="${x(m.i).toFixed(1)}" cy="${y(m.price).toFixed(1)}" r="2.2" fill="${m.kind === 'max' ? '#34d399' : '#fb7185'}"/>`).join('');
+    const legend = extremes.map(e => `<div>${e.year}: picco ${e.max.price.toFixed(0)} (${e.max.date}) · minimo ${e.min.price.toFixed(0)} (${e.min.date})${Number.isFinite(e.changePct) ? ` · ${e.changePct >= 0 ? '+' : ''}${e.changePct.toFixed(0)}%` : ''}</div>`).join('');
+    return `
+      <div class="qa-cloud-block mt-1.5">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-16" aria-hidden="true">
+          <path d="${path} L${x(series.length - 1).toFixed(1)},${H} L${x(0).toFixed(1)},${H} Z" fill="url(#qaHistGrad)" opacity="0.25"/>
+          <path d="${path}" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round"/>
+          ${markersHtml}
+          <defs><linearGradient id="qaHistGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
+        </svg>
+        <div class="text-[9px] text-slate-500 mt-1 space-y-0.5">${legend}</div>
+        <p class="text-[9px] text-slate-500 mt-1">Verde/rosso = picco/minimo reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette (uno storico più lungo servirebbe un piano a pagamento). Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
+      </div>`;
+  }
+  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
     const itemsHtml = items.map(n =>
@@ -5683,12 +5721,15 @@ const initApp = () => {
     // Dato storico REALE (CoinGecko, mai una previsione) — risponde a
     // "cosa è successo nello stesso periodo l'anno scorso" per le cripto.
     const yoyHtml = yoyNote ? `<p class="qa-cloud-block text-sky-200/90">${yoyNote}</p>` : '';
+    // Punti reali a 2/3/5 anni — non una linea continua (l'API gratuita non
+    // lo permette oltre 365gg), ma prezzi veri in quelle date esatte.
+    const multiYearHtml = multiYearNote ? `<p class="qa-cloud-block text-sky-200/70 text-[10px]">${multiYearNote}</p>` : '';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
         <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${yoyHtml}${itemsHtml}</div>`;
+      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}${itemsHtml}</div>${historyChart || ''}`;
     replayQaAnimation();
   }
   // Ritorna true se ha risposto con dati reali (fine flusso), false se deve
@@ -5712,20 +5753,32 @@ const initApp = () => {
           items = r.items || []; stale = r.stale;
         } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
       }
-      let yoyNote = null;
+      let yoyNote = null, historyChart = '', multiYearNote = null;
       if (asset.kind === 'crypto') {
         try {
           const { fetchLiveCryptoPrice } = await import('./alpha/live-price.js');
-          const { fetchCryptoPriceYearsAgo, describeYoyChange } = await import('./alpha/year-over-year.js');
-          const [live, past] = await Promise.all([
+          const { fetchCryptoPriceYearsAgo, describeYoyChange, fetchCryptoPriceSeries, yearlyExtremes, fetchCryptoMultiYearComparison } = await import('./alpha/year-over-year.js');
+          const [live, past, series, multiYear] = await Promise.all([
             fetchLiveCryptoPrice(asset.id, { fetchImpl: fetch.bind(window) }),
             fetchCryptoPriceYearsAgo(asset.id, { yearsAgo: 1, fetchImpl: fetch.bind(window) }),
+            fetchCryptoPriceSeries(asset.id, { yearsBack: 1, fetchImpl: fetch.bind(window) }),
+            fetchCryptoMultiYearComparison(asset.id, { yearsList: [2, 3, 5], fetchImpl: fetch.bind(window) }),
           ]);
           yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
+          if (series.length > 1) historyChart = buildAssetHistoryChart(series, yearlyExtremes(series));
+          // Punti reali a 2/3/5 anni (mai una linea continua fabbricata:
+          // CoinGecko gratuito limita la serie a 365gg, ma il singolo punto
+          // storico non ha questo limite — dati veri, non un grafico finto).
+          if (Number.isFinite(live?.price) && multiYear.length) {
+            multiYearNote = multiYear.map(({ yearsAgo, point }) => {
+              const pct = ((live.price - point.price) / point.price) * 100;
+              return `${yearsAgo} anni fa (${point.date}): ${point.price.toFixed(0)} → oggi ${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
+            }).join(' · ');
+          }
         } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
       }
-      if (!items.length && !yoyNote) return false;
-      showQaNewsAnswer(asset, items, stale, yoyNote);
+      if (!items.length && !yoyNote && !historyChart) return false;
+      showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote);
       return true;
     } catch (_) { return false; }
   }
@@ -5788,6 +5841,22 @@ const initApp = () => {
       const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;
       if (res.intent === 'unknown' && hasCloudKey) {
         showQaThinking(res.answer);
+        // Riconoscimento DINAMICO dell'asset (richiesta esplicita: il regex
+        // sopra è statico, qualunque altra formulazione — "come sta andando
+        // quella cripto famosa" — deve funzionare comunque). Usa la STESSA
+        // AI esterna già configurata solo per capire DI COSA parla la
+        // domanda; il grafico/prezzo restano sempre dati reali presi dopo,
+        // mai inventati da questa chiamata. Se non trova un asset, prosegue
+        // normalmente sulla chat generica.
+        try {
+          const { extractAssetName } = await import('./ai/chat-fallback.js');
+          const firstProvider = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic'].find(p => keys[p]);
+          const dynamicAsset = await extractAssetName(question, { apiKey: keys[firstProvider], provider: firstProvider });
+          if (dynamicAsset) {
+            const handled = await tryAnswerWithRealNews(dynamicAsset);
+            if (handled) return;
+          }
+        } catch (_) { /* onesto: se l'estrazione fallisce, prosegue sulla chat generica */ }
         try {
           const { askCloudFallbackChain, buildFinancialContextSummary } = await import('./ai/chat-fallback.js');
           // Attivo di DEFAULT (opt-out, richiesta esplicita dell'utente

@@ -121,6 +121,28 @@ async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-h
 export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, openai: askOpenAI, anthropic: askAnthropic };
 const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' };
 
+// Riconoscimento DINAMICO dell'asset (richiesta esplicita dell'utente: un
+// elenco fisso di frasi/regex è troppo rigido — "grafico di Bitcoin",
+// "come va Tesla", "che mi dici su Apple" sono tutte formulazioni diverse
+// della stessa cosa). Qui l'AI esterna già configurata capisce la frase
+// QUALUNQUE sia la formulazione — ma resta SOLO un estrattore di nome: il
+// prezzo/grafico/notizie restano sempre dati reali presi dopo da CoinGecko/
+// Alpha Vantage, mai inventati da questa chiamata. Se non è una domanda su
+// un asset, o l'AI non è sicura, ritorna null — mai un asset a caso.
+const ASSET_EXTRACTION_PROMPT = 'Rispondi SOLO con il nome dell\'azienda/criptovaluta/ETF di cui parla la domanda (es. "Nvidia", "Bitcoin", "Tesla") — una sola parola o nome proprio, niente altro testo, nessuna spiegazione. Se la domanda NON riguarda un asset finanziario specifico, rispondi esattamente con la parola NESSUNO.';
+
+export async function extractAssetName(question, { apiKey, fetchImpl = fetch, provider = 'gemini' } = {}) {
+  if (!question || !apiKey) return null;
+  const fn = CLOUD_CHAT_PROVIDERS[provider];
+  if (!fn) return null;
+  try {
+    const raw = await fn(question, { apiKey, fetchImpl, systemPrompt: ASSET_EXTRACTION_PROMPT });
+    const name = raw.trim().replace(/^["'.]+|["'.]+$/g, '');
+    if (!name || /^nessuno$/i.test(name) || name.length > 40) return null;
+    return name;
+  } catch (_) { return null; }
+}
+
 export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, provider = 'gemini', model, contextSummary = null } = {}) {
   if (!question || !question.trim()) throw new Error('Serve una domanda.');
   if (!apiKey) throw new Error(`Serve la tua chiave ${PROVIDER_LABELS[provider] || provider} personale (Momentum Vault → Chat generica).`);

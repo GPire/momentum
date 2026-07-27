@@ -35,3 +35,23 @@ test('detectNewsIntent: "cosa sta succedendo con Amazon" -> Amazon', () => {
   const r = detectNewsIntent('cosa sta succedendo con Amazon');
   assert.equal(r?.asset, 'Amazon');
 });
+
+test('detectNewsIntent: "grafico di Bitcoin" -> Bitcoin (richiesta esplicita di grafico)', () => {
+  const r = detectNewsIntent('fammi vedere il grafico di Bitcoin');
+  assert.equal(r?.asset, 'Bitcoin');
+});
+
+test('detectNewsIntent: "andamento di Tesla" -> Tesla', () => {
+  const r = detectNewsIntent('qual è l\'andamento di Tesla');
+  assert.equal(r?.asset, 'Tesla');
+});
+
+test('detectNewsIntent: "come è andato Bitcoin" -> Bitcoin', () => {
+  const r = detectNewsIntent('come è andato con Bitcoin quest\'anno');
+  assert.equal(r?.asset, 'Bitcoin quest\'anno');
+});
+
+test('detectNewsIntent: "storico di Ethereum" -> Ethereum', () => {
+  const r = detectNewsIntent('mostrami lo storico di Ethereum');
+  assert.equal(r?.asset, 'Ethereum');
+});

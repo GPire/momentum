@@ -1,14 +1,19 @@
-// Rilevatore per "dammi le notizie di X" / "news about X" — BUG REALE
-// trovato dall'utente: senza questo, "Chiedi a Momentum" girava la domanda
-// alla chat generica (Gemini), che non ha accesso a notizie vere e
-// rispondeva con frasi educative generiche invece di notizie reali,
-// costringendo l'utente a uscire dall'app per informarsi davvero.
+// Rilevatore per "dammi le notizie di X" / "grafico/andamento di X" / "news
+// about X" — BUG REALE trovato dall'utente: senza questo, "Chiedi a
+// Momentum" girava la domanda alla chat generica (Gemini), che non ha
+// accesso a notizie/prezzi veri e rispondeva con frasi educative generiche
+// invece di dati reali, costringendo l'utente a uscire dall'app per
+// informarsi davvero. Copre anche richieste di grafico esplicite, perché
+// un grafico va disegnato SEMPRE che l'asset abbia un prezzo reale
+// misurabile — mai un grafico finto per domande senza dati veri dietro.
 // Funzione pura: solo estrae l'asset dal testo, non fa fetch.
 'use strict';
 
 const PATTERNS = [
   /\b(notizie|news)\b.*?\b(?:di|su|riguardo a?|about|on)\b\s+(.+)/i,
   /\b(?:cosa\s+dice|cosa\s+sta\s+succedendo)\b.*?\b(?:di|su|con)\b\s+(.+)/i,
+  /\b(?:grafico|andamento|storico|prezzo|quotazione|chart|price)\b.*?\b(?:di|su|about|of)\b\s+(.+)/i,
+  /\b(?:come\s+(?:è|sta|è\s+andat[ao]|va))\b.*?\b(?:di|su|con)\b\s+(.+)/i,
 ];
 
 // Rumore comune da ripulire dalla coda estratta ("...di oggi", "?", ecc.) —
