@@ -1329,7 +1329,7 @@
                       <input type="password" id="alphavantage-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Alpha Vantage..." />
                       <button onclick="window.saveLiveDataKey('alphavantage')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
                     </div>
-                    <a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noopener" class="text-[10px] text-[var(--primary)] underline">Ottieni una chiave gratuita (nessuna carta, ~20 secondi) →</a>
+                    <button onclick="window.openApiKeyGuide('alphavantage')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
                     <p id="live-price-status" class="text-[10px] text-slate-400"></p>
                   </div>
                 </div>
@@ -1360,23 +1360,16 @@
               <div class="card p-6 flex flex-col justify-between">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Chat generica (opzionale)</h3>
-                  <p class="card-sub">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") vengono inviate a Gemini o Groq (chiave tua, gratuita) invece di restare senza risposta. Mai i tuoi dati finanziari — solo il testo che scrivi.</p>
-                  <div class="flex gap-2 mt-2">
-                    <input type="password" id="gemini-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Gemini (consigliata)..." />
-                    <button onclick="window.saveLiveDataKey('gemini')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
-                  </div>
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="text-[10px] text-[var(--primary)] underline">Ottieni una chiave Gemini gratuita →</a>
-                  <div class="flex gap-2 mt-2">
-                    <input type="password" id="groq-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Oppure la tua chiave Groq..." />
-                    <button onclick="window.saveLiveDataKey('groq')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
-                  </div>
-                  <a href="https://console.groq.com/keys" target="_blank" rel="noopener" class="text-[10px] text-[var(--primary)] underline">Ottieni una chiave Groq gratuita →</a>
-                  <div class="flex gap-2 mt-2">
-                    <input type="password" id="deepseek-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Oppure la tua chiave DeepSeek..." />
-                    <button onclick="window.saveLiveDataKey('deepseek')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
-                  </div>
-                  <p class="text-[9px] text-slate-500 mt-0.5">DeepSeek: verifica tu i costi sul tuo account, a differenza di Gemini/Groq non ho conferma che resti sempre gratuito.</p>
-                  <p class="text-[9px] text-slate-500 mt-2">Se configuri più chiavi, Momentum le prova in ordine (Gemini→Groq→DeepSeek) e usa la prima che risponde.</p>
+                  <p class="card-sub">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Mai i tuoi dati finanziari — solo il testo che scrivi.</p>
+                  <button onclick="window.openApiKeyGuide('gemini')" class="btn-action w-full justify-center mt-2">Attiva la chat generica →</button>
+                  <details class="mt-2">
+                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Altre opzioni (Groq, DeepSeek)</summary>
+                    <div class="flex flex-col gap-2 mt-2">
+                      <button onclick="window.openApiKeyGuide('groq')" class="text-[10px] text-[var(--primary)] underline text-left">Usa Groq invece →</button>
+                      <button onclick="window.openApiKeyGuide('deepseek')" class="text-[10px] text-[var(--primary)] underline text-left">Usa DeepSeek invece (verifica i costi) →</button>
+                      <p class="text-[9px] text-slate-500">Se configuri più chiavi, Momentum le prova in ordine (Gemini→Groq→DeepSeek) e usa la prima che risponde.</p>
+                    </div>
+                  </details>
                 </div>
               </div>
 

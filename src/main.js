@@ -2929,6 +2929,60 @@ window.saveLiveDataKey = (provider) => {
   try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
 };
 
+// ── GUIDA PASSO-PASSO PER LE CHIAVI GRATUITE (abbattere l'attrito) ──────────
+// Chi non sa cosa sia una "chiave API" si perde tra un link esterno e il
+// tornare indietro a incollarla. Questa guida tiene "vai a prenderla" e
+// "incollala qui" nello STESSO posto, con istruzioni numerate in linguaggio
+// semplice — mai gergo tecnico, un passo alla volta.
+const API_KEY_GUIDES = {
+  alphavantage: {
+    title: 'Prezzi live per azioni/ETF',
+    url: 'https://www.alphavantage.co/support/#api-key',
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Scrivi la tua email e premi il pulsante per ottenere la chiave', 'Copia il codice che appare sullo schermo', 'Torna qui e incollalo sotto'],
+  },
+  gemini: {
+    title: 'Chat generica — Gemini (consigliata)',
+    url: 'https://aistudio.google.com/app/apikey',
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Accedi con un account Google, quello che usi già', 'Premi "Create API key"', 'Copia il codice e torna qui'],
+  },
+  groq: {
+    title: 'Chat generica — Groq (alternativa)',
+    url: 'https://console.groq.com/keys',
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito (email o Google)', 'Premi "Create API Key"', 'Copia il codice e torna qui'],
+  },
+  deepseek: {
+    title: 'Chat generica — DeepSeek',
+    url: 'https://platform.deepseek.com/api_keys',
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account', 'Vai su "API keys" e creane una', 'Copia il codice e torna qui — verifica tu i costi sul tuo account'],
+  },
+};
+window.openApiKeyGuide = (provider) => {
+  const g = API_KEY_GUIDES[provider];
+  if (!g) return;
+  window.openModal(`
+    <h3 class="text-lg font-bold mb-1">${g.title}</h3>
+    <p class="text-xs text-[var(--on-surface-secondary)] mb-4">Nessuna carta di credito. Circa un minuto.</p>
+    <ol class="flex flex-col gap-2.5 mb-4">
+      ${g.steps.map((s, i) => `<li class="flex items-start gap-2.5 text-sm"><span class="shrink-0 w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-300 text-[11px] font-bold flex items-center justify-center mt-0.5">${i + 1}</span><span>${s}</span></li>`).join('')}
+    </ol>
+    <a href="${g.url}" target="_blank" rel="noopener" class="btn-action w-full justify-center mb-3">Apri il sito →</a>
+    <div class="flex gap-2">
+      <input type="password" id="guide-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Incolla qui la chiave copiata..." />
+      <button onclick="window.saveGuideKey('${provider}')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+    </div>
+  `);
+};
+window.saveGuideKey = (provider) => {
+  const input = document.getElementById('guide-key-input');
+  const value = (input?.value || '').trim();
+  if (!value) { showToast('Incolla prima la chiave copiata dal sito.', 'error'); return; }
+  VaultDAO.state.liveDataKeys = { ...(VaultDAO.state.liveDataKeys || {}), [provider]: value };
+  VaultDAO.save();
+  showToast('Chiave salvata. Fatto!', 'success');
+  try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
+  window.closeModal();
+};
+
 // ── CONTEGGIO ANONIMO (opt-in, disattivato di default) ──────────────────────
 window.setTelemetryOptIn = (checked) => {
   setTelemetryEnabled(checked);
