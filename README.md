@@ -10,7 +10,7 @@
 
 La maggior parte delle app di finanza personale viene abbandonata per due motivi: **frizione** (inserire ogni spesa a mano) e **assenza di motivazione** (numeri senza significato). Momentum attacca entrambi con AI reale on-device, e risponde alla domanda che l'utente si fa davvero ogni giorno: **"quanto posso spendere oggi?"**
 
-## Cosa fa (tutto verificato da 167 test automatici)
+## Cosa fa (tutto verificato da 1363 test automatici)
 
 ### 🎯 Il numero del giorno
 - **Safe-to-spend**: "Oggi puoi spendere X€" — budget settimanale (derivato dal mensile, proporzionale ai giorni reali, con riporto envelope) meno gli abbonamenti in arrivo, diviso per i giorni rimasti.
@@ -26,7 +26,7 @@ La maggior parte delle app di finanza personale viene abbandonata per due motivi
 Co-variazione misurata tra categorie sulle **differenze** settimanali (il trend comune non crea legami finti), lag 0 e lag 1: "quando sale Ristorante, di solito sale anche Trasporti — e Farmacia la settimana dopo". Propagazione con smorzamento e percorso esplicativo. Onestà nel testo: *"non è una legge, è quello che è successo nei tuoi dati"*.
 
 ### 💬 Q&A on-device (testo e voce, anche offline)
-12 intent deterministici calcolati sui dati veri: "quanto ho speso a giugno?", "posso permettermi 50€?", "come chiudo il mese?", "quando pago Netflix?", "cosa succede se spendo di più in ristorante?". Risposta vocale via speechSynthesis. Quando non sa, lo dice.
+15 intent deterministici calcolati sui dati veri: "quanto ho speso a giugno?", "posso permettermi 50€?", "come chiudo il mese?", "quando pago Netflix?", "cosa succede se spendo di più in ristorante?", "quanto vale il mio patrimonio?", "quando mi pagano?", "quanto devo ancora a rate?". Tolleranza ai refusi (correzione Levenshtein sul riconoscimento, mai sui dati estratti). Risposta vocale via speechSynthesis. Quando non sa, lo dice.
 
 ### ⚡ Frizione zero
 - **Tasti rapidi contestuali**: gli acquisti abituali con cifra stabile diventano bottoni one-tap, **ordinati per probabilità adesso** (istogrammi ora-del-giorno e giorno-settimana misurati: il caffè in cima alle 8, la spesa il sabato) con il perché spiegato.
@@ -48,6 +48,12 @@ Micro-benchmark reale al boot (κ) + rilevamento WebGPU/WebNN/WASM-SIMD → prof
 
 ### 📈 Motore predittivo
 Holt-Winters, GARCH(1,1) con forecast multi-step corretto, AR(2) via Yule-Walker, ensemble pesato per backtest walk-forward, Monte Carlo Cornish-Fisher — in Web Worker, con aggiornamento progressivo della UI.
+
+### 🌍 Dati di mercato reali e chat generica (chiavi personali dell'utente, mai condivise)
+- **Prezzi/storico cripto**: Binance (keyless, priorità) → CoinGecko (keyless, fallback, storico limitato a 365gg sul piano gratuito).
+- **Prezzi/storico azioni-ETF**: Alpha Vantage → Twelve Data → Financial Modeling Prep, tutti a cascata con la chiave personale dell'utente (nessuna chiave condivisa Momentum, mai auto-generata).
+- **Notizie e domande fuori dal perimetro locale**: quando "Chiedi a Momentum" non riconosce l'intento, prova prima a trovare un asset reale (pattern o AI-assistita) e mostrare dati/grafico veri; solo se non trova nulla di reale ripiega su una chat generica **a cascata su 12 provider** (Groq, Gemini — con grounding Google Search per notizie con fonti —, OpenRouter, Mistral, Qwen, Moonshot AI, GLM, Cerebras, DeepSeek, xAI, OpenAI, Anthropic), ognuno con la chiave personale dell'utente. Log locale (mai il contenuto) di quali domande escono dal riconoscimento locale, come segnale onesto per ampliare i pattern nel tempo.
+- **Alias di settore** (es. "mercato immobiliare" → ETF XLRE) dichiarati esplicitamente come proxy, mai il valore di un bene specifico dell'utente.
 
 ---
 
