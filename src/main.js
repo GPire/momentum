@@ -1907,14 +1907,17 @@ const renderAnalysis = (opts = {}) => {
     grid.innerHTML = '';
     const today = new Date();
     const days = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    
+
     const spends = {};
+    __heatmapDayTx = {};
     txs.forEach(t => {
       if (t.type === 'uscita') {
         const d = new Date(t.date).getDate();
         spends[d] = (spends[d] || 0) + t.amount;
+        (__heatmapDayTx[d] = __heatmapDayTx[d] || []).push(t);
       }
     });
+    __heatmapMonthLabel = VaultDAO.state.currentDate.toLocaleDateString('it-IT', { month: 'long' });
 
     for (let i = 1; i <= days; i++) {
       const amt = spends[i] || 0;
@@ -1924,9 +1927,11 @@ const renderAnalysis = (opts = {}) => {
       else if (amt > 80 && amt <= 200) bg = 'bg-indigo-500/70';
       else if (amt > 200) bg = 'bg-indigo-400';
 
-      // title = tooltip nativo: tocco/hover sul giorno → quanto hai speso
-      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[9px] font-mono text-slate-300" title="${i} ${VaultDAO.state.currentDate.toLocaleDateString('it-IT', { month: 'long' })}: ${amt > 0 ? formatMoney(amt) : 'nessuna spesa'}">${i}</div>`;
+      // title = tooltip per mouse; il click (sotto) è il vero drill-down,
+      // necessario perché su touch il title non appare mai al tocco.
+      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[9px] font-mono text-slate-300 cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : 'nessuna spesa'}">${i}</div>`;
     }
+    $('#heatmap-day-detail').innerHTML = '';
   }
 
   // Alerts & Anomalie: prima chiamata sincrona (proiezione run-rate), poi
@@ -4576,9 +4581,33 @@ function renderNetWorth() {
     const monthlySave = Math.max(0, (inc - out) / monthsN);
     if (start > 0 || monthlySave > 0) {
       const proj = projectNetWorthByStrategy({ start, monthlyContribution: monthlySave, years: 10, paths: 1000, seed: 12345 });
-      projEl.innerHTML = `<table class="w-full text-[10px] font-mono"><thead><tr class="text-[var(--on-surface-secondary)]"><th class="text-left font-normal">Strategia (10 anni)</th><th class="text-right font-normal">se va male</th><th class="text-right font-normal">tipico</th><th class="text-right font-normal">se va bene</th></tr></thead><tbody>${
-        proj.rows.map(r => `<tr><td class="text-left text-slate-300 py-0.5">${r.label}</td><td class="text-right text-rose-300">${formatMoney(r.p5)}</td><td class="text-right text-[var(--gold)]">${formatMoney(r.p50)}</td><td class="text-right text-emerald-300">${formatMoney(r.p95)}</td></tr>`).join('')
-      }</tbody></table>`;
+      // Barra invece di tabella di numeri: la barra chiara arriva fino al
+      // "se va bene" (p95), quella piena color oro fino al "tipico" (p50), il
+      // trattino verticale segna il "se va male" (p5) — leggibile a colpo
+      // d'occhio, senza dover leggere le cifre riga per riga. Scala PER RIGA
+      // (non su un massimo condiviso): la coda di Bitcoin è un ordine di
+      // grandezza sopra le altre strategie, e su una scala condivisa
+      // schiaccerebbe ogni altra barra a una linea invisibile — il numero
+      // stampato a destra resta il modo per confrontare i valori assoluti.
+      projEl.innerHTML = `
+        <p class="text-[9px] text-[var(--on-surface-secondary)] mb-2">Strategia (10 anni) · chiaro = se va bene, pieno = tipico, trattino = se va male</p>
+        <div class="space-y-2.5">${proj.rows.map(r => {
+          const rowMax = Math.max(1, r.p95);
+          const p95Pct = 100;
+          const p50Pct = Math.min(100, (r.p50 / rowMax) * 100);
+          const p5Pct = Math.min(100, (r.p5 / rowMax) * 100);
+          return `<div class="text-[10px]">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-slate-300">${r.label}</span>
+              <span class="font-mono text-[var(--gold)]">${formatMoney(r.p50)}</span>
+            </div>
+            <div class="relative h-2 rounded-full bg-white/5 overflow-hidden" title="se va male ${formatMoney(r.p5)} · tipico ${formatMoney(r.p50)} · se va bene ${formatMoney(r.p95)}">
+              <div class="absolute inset-y-0 left-0 rounded-full bg-[var(--gold)]/25" style="width:${p95Pct}%"></div>
+              <div class="absolute inset-y-0 left-0 rounded-full bg-[var(--gold)]" style="width:${p50Pct}%"></div>
+              <div class="absolute inset-y-0 w-0.5 bg-rose-300/80" style="left:${p5Pct}%"></div>
+            </div>
+          </div>`;
+        }).join('')}</div>`;
     } else projEl.innerHTML = '';
   }
   // Classifica settori S&P 500 (src/alpha/sector-rotation.js): Sharpe reale
@@ -4588,13 +4617,60 @@ function renderNetWorth() {
   if (sectorEl) {
     const { rows, yearsCovered } = sectorRanking(measuredAssumptions);
     if (rows.length) {
-      sectorEl.innerHTML = `<p class="text-[9px] text-[var(--on-surface-secondary)] mb-1.5">Settori S&P 500 per rendimento/rischio storico (~${yearsCovered} anni misurati, mai una previsione)</p>
-        <table class="w-full text-[10px] font-mono"><thead><tr class="text-[var(--on-surface-secondary)]"><th class="text-left font-normal">Settore</th><th class="text-right font-normal">Sharpe</th><th class="text-right font-normal">Regime ora</th></tr></thead><tbody>${
-          rows.map(r => `<tr><td class="text-left text-slate-300 py-0.5">${r.label}</td><td class="text-right text-[var(--gold)]">${r.sharpe.toFixed(2)}</td><td class="text-right text-slate-400">${r.regime || '—'}</td></tr>`).join('')
-        }</tbody></table>`;
+      // Barra per Sharpe (leggibilità a colpo d'occhio) + pallino colorato per
+      // il regime attuale (verde = risk-on, ambra = neutral, rosso = risk-off)
+      // invece di una colonna testuale da leggere riga per riga.
+      const maxSharpe = Math.max(0.01, ...rows.map(r => r.sharpe));
+      const regimeColor = (r) => r === 'risk-on' ? 'bg-emerald-400' : r === 'risk-off' ? 'bg-rose-400' : 'bg-amber-300';
+      sectorEl.innerHTML = `<p class="text-[9px] text-[var(--on-surface-secondary)] mb-2">Settori S&P 500 per rendimento/rischio storico (~${yearsCovered} anni misurati, mai una previsione)</p>
+        <div class="space-y-2">${rows.map(r => {
+          const pct = Math.max(4, Math.round((r.sharpe / maxSharpe) * 100));
+          return `<div class="text-[10px]">
+            <div class="flex items-center justify-between mb-0.5">
+              <span class="flex items-center gap-1.5 text-slate-300"><span class="inline-block w-1.5 h-1.5 rounded-full ${regimeColor(r.regime)}" title="Regime ora: ${r.regime || '—'}"></span>${r.label}</span>
+              <span class="font-mono text-[var(--gold)]">${r.sharpe.toFixed(2)}</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[var(--gold)]/70" style="width:${pct}%"></div></div>
+          </div>`;
+        }).join('')}</div>`;
     } else sectorEl.innerHTML = '';
   }
 }
+
+// Drill-down giorno-per-giorno sulla heatmap "Le tue spese giorno per giorno":
+// il title nativo non appare mai su tocco (touch), quindi il tap deve aprire
+// un pannello visibile con le voci reali di quel giorno — mai solo la cifra.
+let __heatmapDayTx = {};
+let __heatmapMonthLabel = '';
+document.addEventListener('click', (e) => {
+  const cell = e.target.closest('.heatmap-day');
+  if (!cell) return;
+  const day = cell.dataset.heatmapDay;
+  const detailEl = $('#heatmap-day-detail');
+  if (!detailEl) return;
+  document.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('ring-2', 'ring-[var(--gold)]'));
+  cell.classList.add('ring-2', 'ring-[var(--gold)]');
+  const dayTxs = __heatmapDayTx[day] || [];
+  if (!dayTxs.length) {
+    detailEl.innerHTML = `<p class="text-[10px] text-slate-400 p-2">${day} ${__heatmapMonthLabel}: nessuna spesa registrata.</p>`;
+    return;
+  }
+  const total = dayTxs.reduce((s, t) => s + t.amount, 0);
+  const rows = [...dayTxs].sort((a, b) => b.amount - a.amount).map(t => {
+    const cat = getCatById(t.category);
+    return `<div class="flex items-center justify-between text-[10px] py-1 border-b border-white/5 last:border-0">
+      <span class="text-slate-300">${cat?.name || t.category}${t.note ? ` · ${t.note}` : ''}</span>
+      <span class="font-mono text-slate-200">${formatMoney(t.amount)}</span>
+    </div>`;
+  }).join('');
+  detailEl.innerHTML = `<div class="p-2.5 rounded-lg bg-black/20">
+    <div class="flex items-baseline justify-between mb-1.5">
+      <span class="text-[11px] font-bold text-slate-200">${day} ${__heatmapMonthLabel}</span>
+      <span class="font-mono text-[13px] font-bold text-[var(--gold)]">${formatMoney(total)}</span>
+    </div>
+    ${rows}
+  </div>`;
+});
 
 // Confronto periodi (src/predict/period-compare.js): richiesto esplicitamente
 // "confrontare periodi come mesi di quest'anno e passati". Il mese/anno IN
@@ -4621,19 +4697,44 @@ function renderPeriodCompare(mode = __periodCompareMode) {
     return;
   }
   const periodLabel = isYear ? 'quest\'anno (12 mesi) vs anno scorso' : 'mese scorso vs il precedente';
-  const totalColor = r.totalDeltaPct > 0 ? 'text-rose-300' : 'text-emerald-300';
   const rows = r.rows.filter(row => row.current > 0 || row.previous > 0).slice(0, 6);
   const labelCap = periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1);
+  const up = r.totalDeltaPct > 0;
+  const totalColor = up ? 'text-rose-300' : 'text-emerald-300';
+  const totalArrow = up ? '↑' : (r.totalDeltaPct < 0 ? '↓' : '→');
+  // Barra affiancata (mai solo numeri): il rettangolo pieno mostra a colpo
+  // d'occhio il rapporto tra i due periodi, comprensibile anche senza
+  // leggere le cifre — "esperto e bambino" con lo stesso sguardo.
+  const maxVal = Math.max(1, ...rows.flatMap(row => [row.current, row.previous]));
   bodyEl.innerHTML = `
-    <p class="text-[10px] text-slate-500 mb-2">${labelCap}: <span class="font-mono font-bold ${totalColor}">${r.totalDeltaPct > 0 ? '+' : ''}${r.totalDeltaPct}%</span> (${formatMoney(r.previous)} → ${formatMoney(r.current)})</p>
-    <div class="space-y-1.5">${rows.map(row => {
+    <div class="flex items-baseline gap-2 mb-3 p-2 rounded-lg bg-black/20">
+      <span class="text-xl font-black font-mono ${totalColor}">${totalArrow} ${up ? '+' : ''}${r.totalDeltaPct}%</span>
+      <span class="text-[9px] text-slate-500">${labelCap} · ${formatMoney(r.previous)} → ${formatMoney(r.current)}</span>
+    </div>
+    <div class="space-y-2">${rows.map(row => {
       const cat = getCatById(row.category);
-      const color = row.deltaPct > 0 ? 'text-rose-300' : row.deltaPct < 0 ? 'text-emerald-300' : 'text-slate-400';
-      return `<div class="flex items-center justify-between text-[10px]">
-        <span class="text-slate-300 truncate">${cat?.name || row.category}</span>
-        <span class="font-mono shrink-0 ml-2">${formatMoney(row.previous)} → ${formatMoney(row.current)} <b class="${color}">(${row.deltaPct > 0 ? '+' : ''}${row.deltaPct}%)</b></span>
+      const rowUp = row.deltaPct > 0;
+      const color = rowUp ? 'text-rose-300' : row.deltaPct < 0 ? 'text-emerald-300' : 'text-slate-400';
+      const barColor = rowUp ? 'bg-rose-400/70' : 'bg-emerald-400/70';
+      const prevPct = Math.round((row.previous / maxVal) * 100);
+      const curPct = Math.round((row.current / maxVal) * 100);
+      const arrow = rowUp ? '↑' : (row.deltaPct < 0 ? '↓' : '→');
+      return `<div class="text-[10px]">
+        <div class="flex items-center justify-between mb-0.5">
+          <span class="text-slate-300 truncate">${cat?.name || row.category}</span>
+          <span class="font-mono shrink-0 ml-2 ${color}">${arrow} ${row.deltaPct > 0 ? '+' : ''}${row.deltaPct}%</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden relative" title="Prima: ${formatMoney(row.previous)}">
+            <div class="h-full bg-slate-500/50 rounded-full" style="width:${prevPct}%"></div>
+          </div>
+          <div class="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden relative" title="Ora: ${formatMoney(row.current)}">
+            <div class="h-full ${barColor} rounded-full" style="width:${curPct}%"></div>
+          </div>
+        </div>
       </div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>
+    <p class="text-[8px] text-slate-600 mt-2">Barra grigia = prima, colorata = ora — stessa scala per categoria</p>`;
 }
 
 // Grafo causale visivo (src/predict/causal-graph.js, già esistente e testato
@@ -4653,31 +4754,48 @@ function renderCausalGraphViz() {
   const top = links.slice(0, 10);
   const cats = [...new Set(top.flatMap(l => [l.from, l.to]))];
   const n = cats.length;
-  const R = 90, CX = 110, CY = 110;
+  const R = 92, CX = 120, CY = 120;
   const pos = {};
-  cats.forEach((c, i) => { const a = (i / n) * Math.PI * 2 - Math.PI / 2; pos[c] = { x: CX + R * Math.cos(a), y: CY + R * Math.sin(a) }; });
+  // Se ci sono solo 2 categorie il cerchio degenera in una linea verticale
+  // (0° e 180°) — poco leggibile come "grafo". Le distribuiamo invece su un
+  // asse orizzontale in quel caso, resta comunque un cerchio pieno da 3 in su.
+  cats.forEach((c, i) => {
+    const a = n === 2 ? (i === 0 ? Math.PI : 0) : (i / n) * Math.PI * 2 - Math.PI / 2;
+    pos[c] = { x: CX + R * Math.cos(a), y: CY + R * Math.sin(a) };
+  });
   const arcs = top.map(l => {
     const p1 = pos[l.from], p2 = pos[l.to];
     const strength = Math.min(1, Math.abs(l.r));
     const color = l.r >= 0 ? '#34d399' : '#fb7185';
-    return `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${color}" stroke-width="${(1 + strength * 3).toFixed(1)}" opacity="${(0.35 + strength * 0.5).toFixed(2)}" stroke-linecap="round"/>`;
+    const catA = getCatById(l.from)?.name || l.from, catB = getCatById(l.to)?.name || l.to;
+    const dirTxt = l.lagWeeks === 0 ? 'nella stessa settimana' : `con ${l.lagWeeks} settiman${l.lagWeeks === 1 ? 'a' : 'e'} di ritardo`;
+    return `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${color}" stroke-width="${(1.5 + strength * 4).toFixed(1)}" opacity="${(0.4 + strength * 0.5).toFixed(2)}" stroke-linecap="round"><title>${catA} ↔ ${catB}: correlazione ${l.r.toFixed(2)} ${dirTxt}, ${l.samples} settimane osservate</title></line>`;
   }).join('');
   const nodes = cats.map(c => {
     const cat = getCatById(c);
     const p = pos[c];
-    return `<g><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${cat?.color || '#94a3b8'}" stroke="#0b0f1a" stroke-width="1.5"/></g>`;
+    const fill = cat?.color || '#94a3b8';
+    return `<g class="causal-node" style="cursor:pointer">
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="10" fill="${fill}" opacity="0.18"/>
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="${fill}" stroke="#0b0f1a" stroke-width="1.5"/>
+      <title>${cat?.name || c}</title>
+    </g>`;
   }).join('');
   const labels = cats.map(c => {
     const cat = getCatById(c);
     const p = pos[c];
-    const dx = p.x > CX ? 8 : (p.x < CX ? -8 : 0);
+    const dx = p.x > CX ? 12 : (p.x < CX ? -12 : 0);
+    const dy = p.y > CY ? 14 : (p.y < CY ? -14 : 0);
     const anchor = p.x > CX + 5 ? 'start' : (p.x < CX - 5 ? 'end' : 'middle');
     const label = String(cat?.name || c).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    return `<text x="${(p.x + dx).toFixed(1)}" y="${p.y.toFixed(1)}" font-size="8" fill="#cbd5e1" text-anchor="${anchor}" dominant-baseline="middle">${label}</text>`;
+    return `<text x="${(p.x + dx).toFixed(1)}" y="${(p.y + dy).toFixed(1)}" font-size="9" font-weight="600" fill="#e2e8f0" text-anchor="${anchor}" dominant-baseline="middle">${label}</text>`;
   }).join('');
   el.innerHTML = `
-    <svg viewBox="0 0 220 220" class="w-full" style="max-height:220px">${arcs}${nodes}${labels}</svg>
-    <p class="text-[9px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame misurato nei tuoi dati (mai causalità certa).</p>`;
+    <svg viewBox="0 0 240 240" class="w-full" style="max-height:260px">
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2 4"/>
+      ${arcs}${nodes}${labels}
+    </svg>
+    <p class="text-[9px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame misurato nei tuoi dati (mai causalità certa). Tocca un punto o una linea per i dettagli.</p>`;
 }
 
 // Ghost Charge Radar VISIBILE: mostra gli abbonamenti ricorrenti scovati dal
