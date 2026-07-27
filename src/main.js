@@ -5460,9 +5460,21 @@ const initApp = () => {
     qaAnswer.textContent = res.answer;
     replayQaAnimation();
   }
+  // Momento focale vero, non un'iconcina persa nel testo: l'utente ha
+  // chiesto esplicitamente "dimensioni completamente diverse" dal primo
+  // tentativo (18px, inline) — l'orb ora è il centro visivo dell'attesa,
+  // stessa identità del grande orb 3D del Dashboard.
   function showQaThinking(localAnswer) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-200';
-    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p class="flex items-center gap-2"><span class="qa-mini-orb"></span><span>Chiedo a una chat generica</span><span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>`;
+    qaAnswer.innerHTML = `
+      <p class="text-slate-400 mb-2.5">${localAnswer}</p>
+      <div class="flex items-center gap-3">
+        <span class="qa-wait-orb"></span>
+        <div>
+          <p class="text-violet-100 font-bold text-[13px]">Chiedo a una chat generica</p>
+          <p class="text-violet-400 text-[10px] mt-0.5">Cerco la risposta migliore per te<span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>
+        </div>
+      </div>`;
     replayQaAnimation();
   }
   // Le chat generiche (Gemini ecc.) rispondono in Markdown leggero
