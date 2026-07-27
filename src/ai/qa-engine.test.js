@@ -270,3 +270,38 @@ test('intent investimento: senza avanzo disponibile, nessun arricchimento aggiun
   assert.equal(r.intent, 'invest');
   assert.ok(!/Sharpe/.test(r.answer));
 });
+
+test('intent netWorth: "quanto vale il mio patrimonio?" usa computeNetWorth', () => {
+  const allTx = {
+    '2026-07': [
+      { date: '2026-07-05', amount: 2000, type: 'entrata', category: 'stipendio', description: 'stipendio' },
+      { date: '2026-07-10', amount: 500, type: 'uscita', category: 'spesa', description: 'spesa' },
+    ],
+  };
+  const r = answerQuestion('quanto vale il mio patrimonio?', { allTx, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.intent, 'net-worth');
+  assert.ok(/patrimonio totale/.test(r.answer));
+  assert.ok('total' in r.data);
+});
+
+test('intent payday: "quando mi pagano?" con stipendio noto calcola i giorni', () => {
+  const r = answerQuestion('quando mi pagano?', {
+    allTx: {}, referenceDate: new Date(2026, 6, 15),
+    salary: { dayOfMonth: 27, amount: 2000, label: 'Stipendio' },
+    fixedCommitments: [],
+  });
+  assert.equal(r.intent, 'payday');
+  assert.ok(/Ti pagano/.test(r.answer));
+});
+
+test('intent payday: senza stipendio noto, risposta onesta invece di un errore', () => {
+  const r = answerQuestion('quando mi pagano?', { allTx: {}, referenceDate: new Date(2026, 6, 15), salary: null });
+  assert.equal(r.intent, 'payday');
+  assert.ok(/Non so ancora/.test(r.answer));
+});
+
+test('intent bnplOwed: "quanto devo ancora a rate?" senza piani aperti', () => {
+  const r = answerQuestion('quanto devo ancora a rate?', { allTx: {}, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.intent, 'bnpl-owed');
+  assert.ok(/nessuno piani a rate aperti|non vedo piani/i.test(r.answer));
+});

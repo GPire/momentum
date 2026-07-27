@@ -20,6 +20,9 @@ import { detectRecurring } from '../predict/subscriptions.js';
 import { computeGoalProgress } from '../predict/engagement.js';
 import { buildCausalGraph, propagateImpact } from '../predict/causal-graph.js';
 import { investableSurplus } from '../alpha/bridge.js';
+import { commitmentForecast } from '../predict/fixed-commitments.js';
+import { bnplExposure } from '../predict/bnpl.js';
+import { computeNetWorth } from '../alpha/net-worth.js';
 import { monthKey } from '../core/constants.js';
 import { detectLanguage } from '../i18n/detect.js';
 import MEASURED from '../alpha/measured-assumptions.js';
@@ -217,6 +220,30 @@ const PATTERNS = {
     de: /(ziel)/,
   },
   when: { it: /quando/, en: /when/, es: /cuándo/, fr: /quand/, de: /wann/ },
+  // 3 nuovi intent, richiesti esplicitamente ("altre feature di Chiedi a
+  // Momentum") — riusano motori GIÀ esistenti e verificati (fixed-commitments,
+  // bnpl, net-worth), mai nuovi calcoli inventati per l'occasione.
+  netWorth: {
+    it: /(patrimonio|quanto ho in totale|quanto vale tutto|quanto possiedo)/,
+    en: /(net worth|how much (do i have|am i worth) in total)/,
+    es: /(patrimonio neto|cuánto tengo en total)/,
+    fr: /(patrimoine|combien j.?ai au total)/,
+    de: /(vermögen|wie viel habe ich insgesamt)/,
+  },
+  payday: {
+    it: /(quando mi pagano|quanto manca (allo |al )?stipendio|prima dello stipendio|quando arriva lo stipendio)/,
+    en: /(when do i get paid|until (my )?(pay ?day|salary)|before (my )?(pay ?day|salary))/,
+    es: /(cuándo me pagan|falta para (el )?sueldo)/,
+    fr: /(quand suis-je payé|avant le salaire)/,
+    de: /(wann werde ich bezahlt|bis zum gehalt)/,
+  },
+  bnplOwed: {
+    it: /(quanto devo (ancora )?a rate|rate aperte|piani a rate|klarna|scalapay|paypal.{0,10}rate)/,
+    en: /(how much do i (still )?owe .{0,15}installments|open installment plans|buy now pay later)/,
+    es: /(cuánto debo .{0,15}cuotas|planes de cuotas)/,
+    fr: /(combien dois-je .{0,15}mensualités|plans de paiement)/,
+    de: /(wie viel schulde ich .{0,15}raten|ratenpläne)/,
+  },
 };
 function matches(intent, q) {
   const p = PATTERNS[intent];
@@ -250,6 +277,45 @@ export function answerQuestion(question, ctx) {
     });
     const enrich = r.reason === 'ok' ? topMeasuredStrategiesNote() : '';
     return { intent: 'invest', data: r, answer: r.note + enrich };
+  }
+
+  // — "quanto vale il mio patrimonio?" (riusa computeNetWorth, stessa
+  // funzione già usata in Analisi Tensor — mai un calcolo isolato).
+  if (matches('netWorth', q)) {
+    const n = computeNetWorth({
+      transactions: allTx,
+      positions: ctx.positions || [],
+      currentPriceByTicker: ctx.currentPriceByTicker || {},
+      manualAssets: ctx.manualAssets || [],
+      liabilities: ctx.liabilities || 0,
+      asOf: ref,
+    });
+    const parts = [`contante ${fmt(n.cash)}`];
+    if (n.invested > 0) parts.push(`investito ${fmt(n.invested)}`);
+    if (n.liabilities > 0) parts.push(`debiti −${fmt(n.liabilities)}`);
+    return { intent: 'net-worth', data: n, answer: `Il tuo patrimonio totale è ${fmt(n.total)} (${parts.join(', ')}).` };
+  }
+
+  // — "quando mi pagano?" / "quanto manca prima dello stipendio?" (riusa
+  // commitmentForecast, lo stesso motore della card "Il tuo mese senza
+  // sorprese" — mai un secondo calcolo isolato per il QA).
+  if (matches('payday', q)) {
+    if (!ctx.salary) return { intent: 'payday', answer: 'Non so ancora quando ti pagano: dimmelo in Momentum Vault → Stipendio, o registra qualche entrata e lo capirò da solo.' };
+    const f = commitmentForecast(ctx.fixedCommitments || [], ctx.salary, { now: ref.getTime(), monthTx: monthTxs });
+    if (!f.payday) return { intent: 'payday', answer: 'Non riesco a calcolare la prossima data di stipendio con i dati che ho.' };
+    const days = f.payday.daysToNext;
+    const dayLabel = days === 0 ? 'oggi' : days === 1 ? 'domani' : `tra ${days} giorni`;
+    const dueTxt = f.dueBeforePaydayTotal > 0 ? ` Prima di allora devi ancora coprire ${fmt(f.dueBeforePaydayTotal)} di impegni fissi.` : ' Nessun impegno fisso da coprire prima di allora.';
+    return { intent: 'payday', data: f, answer: `Ti pagano ${dayLabel} (${f.payday.date}).${dueTxt}` };
+  }
+
+  // — "quanto devo ancora a rate?" (riusa bnplExposure, lo stesso motore
+  // del radar BNPL — mai un secondo rilevatore isolato per il QA).
+  if (matches('bnplOwed', q)) {
+    const exp = bnplExposure(allTx, { now: ref.getTime(), learned: ctx.bnplLearned || {}, anticipate: true, dismissed: ctx.bnplDismissed || [] });
+    if (exp.count === 0) return { intent: 'bnpl-owed', data: exp, answer: 'Non vedo piani a rate aperti al momento.' };
+    const byProv = exp.byProvider.map(p => `${p.providerLabel} ${fmt(p.remainingTotal)}`).join(', ');
+    return { intent: 'bnpl-owed', data: exp, answer: `Hai ${exp.count} piano${exp.count > 1 ? 'i' : ''} a rate aperto${exp.count > 1 ? 'i' : ''}: ${byProv}. Totale residuo ${fmt(exp.totalRemaining)}.` };
   }
 
   // — "posso permettermi X?" (prima di safe-to-spend: contiene un importo)

@@ -126,6 +126,17 @@ function askMomentum(text) {
     referenceDate: new Date(),
     hwDailyLevel: window.__hwDailyLevel ?? null,
     taxRegime: VaultDAO.state.taxRegime,
+    // Nuovi intent (patrimonio/stipendio/rate) — riusano gli stessi motori
+    // già usati altrove nell'app (net-worth.js, fixed-commitments.js,
+    // bnpl.js), mai un secondo calcolo isolato per il QA.
+    positions: VaultDAO.state.positions || [],
+    currentPriceByTicker: window.__livePrices || {},
+    manualAssets: VaultDAO.state.manualAssets || [],
+    liabilities: VaultDAO.state.liabilities || 0,
+    salary: resolveSalary(VaultDAO.state, VaultDAO.state.transactions),
+    fixedCommitments: VaultDAO.state.fixedCommitments || [],
+    bnplLearned: VaultDAO.state.mlData?.bnplLearned || {},
+    bnplDismissed: VaultDAO.state.mlData?.bnplDismissed || [],
   };
   // Chatbot multilingua (src/ai/chat.js): se rileva EN/ES risponde in quella
   // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
