@@ -1818,6 +1818,23 @@ const renderAnalysis = (opts = {}) => {
       ctx.clearRect(0, 0, chartEl.width, chartEl.height);
     }
   }
+  // Legenda: la ciambella da sola richiede hover/tocco per sapere COSA sono
+  // le fette (il tooltip nativo di Chart.js non è leggibile a colpo d'occhio,
+  // specialmente da bambino) — riusa gli stessi labels/data/colors, mai un
+  // secondo calcolo. Ordinata dalla fetta più grande alla più piccola.
+  const legendEl = $('#category-chart-legend');
+  if (legendEl) {
+    const total = Object.values(catTotals).reduce((s, v) => s + v, 0);
+    const rows = Object.keys(catTotals).map(id => ({ id, name: getCatById(id).name, color: getCatById(id).color, amount: catTotals[id] }))
+      .sort((a, b) => b.amount - a.amount);
+    legendEl.innerHTML = rows.map(r => `
+      <div class="flex items-center gap-2 text-[11px]">
+        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${r.color}"></span>
+        <span class="text-slate-300 truncate flex-grow">${r.name}</span>
+        <span class="text-slate-500 shrink-0">${total > 0 ? Math.round((r.amount / total) * 100) : 0}%</span>
+        <span class="font-mono font-bold shrink-0 w-16 text-right">${formatMoney(r.amount)}</span>
+      </div>`).join('');
+  }
 
   // Predictions & Jar Fill
   const proj = PredictiveOracle.calculateProjections();
