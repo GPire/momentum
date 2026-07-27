@@ -3037,8 +3037,20 @@ function initTelemetryToggle() {
       showToast('Un numero anonimo (mai i tuoi dati) aiuta Momentum a crescere. Disattivabile in Momentum Vault.', 'info');
     }, 2500);
   }
+  // Attivo di DEFAULT (opt-out, richiesta esplicita dell'utente 2026-07-27):
+  // `!== false` invece di `!!` così chi non l'ha mai toccato lo trova acceso,
+  // ma chi l'ha disattivato esplicitamente resta rispettato per sempre.
   const ctxCb = document.getElementById('chat-context-optin');
-  if (ctxCb) ctxCb.checked = !!VaultDAO.state.chatContextOptIn;
+  if (ctxCb) ctxCb.checked = VaultDAO.state.chatContextOptIn !== false;
+  // Avviso ESPLICITO una tantum del nuovo default (stesso principio del
+  // conteggio anonimo: mai un cambio silenzioso) — mostrato una volta sola,
+  // a prescindere da cosa l'utente sceglierà dopo.
+  if (!localStorage.getItem('momentum_chatctx_disclosed')) {
+    localStorage.setItem('momentum_chatctx_disclosed', '1');
+    setTimeout(() => {
+      showToast('La chat generica ora include di default un riassunto anonimo della tua situazione (mai transazioni). Disattivabile in Momentum Vault.', 'info');
+    }, 4500);
+  }
   const animCb = document.getElementById('force-anim-optin');
   if (animCb) animCb.checked = !!VaultDAO.state.forceAnimations;
   document.documentElement.classList.toggle('force-anim', !!VaultDAO.state.forceAnimations);
@@ -5726,11 +5738,12 @@ const initApp = () => {
         showQaThinking(res.answer);
         try {
           const { askCloudFallbackChain, buildFinancialContextSummary } = await import('./ai/chat-fallback.js');
-          // Contesto SOLO se l'utente ha attivato ANCHE questo (opt-in
-          // separato dalla chat generica stessa): riassunto aggregato e
-          // anonimo, mai transazioni/esercenti — vedi buildFinancialContextSummary.
+          // Attivo di DEFAULT (opt-out, richiesta esplicita dell'utente
+          // 2026-07-27 — prima era opt-in): riassunto aggregato e anonimo,
+          // mai transazioni/esercenti — vedi buildFinancialContextSummary.
+          // `!== false` così solo la disattivazione ESPLICITA lo spegne.
           let contextSummary = null;
-          if (VaultDAO.state.chatContextOptIn) {
+          if (VaultDAO.state.chatContextOptIn !== false) {
             try {
               const now = new Date();
               const monthTxs = VaultDAO.state.transactions[monthKey(now)] || [];

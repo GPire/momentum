@@ -1465,9 +1465,13 @@
                        Momentum li prova in ordine (Gemini→Groq→DeepSeek→
                        OpenAI→Anthropic) finché uno risponde. -->
                   <div id="chat-provider-status" class="mt-2 space-y-1.5"></div>
+                  <!-- Attivo di DEFAULT su richiesta esplicita dell'utente (2026-07-27,
+                       stesso schema del conteggio anonimo: opt-out dichiarato, mai
+                       nascosto) — prima era opt-in. Resta SOLO aggregato/anonimo,
+                       mai transazioni/esercenti/conti; disattivabile con un tocco. -->
                   <label class="flex items-start gap-2 mt-3 text-xs cursor-pointer select-none">
-                    <input type="checkbox" id="chat-context-optin" onchange="window.setChatContextOptIn(this.checked)" class="w-4 h-4 mt-0.5" />
-                    <span>Includi anche un riassunto ANONIMO e aggregato della mia situazione (es. "oggi puoi spendere 50€", mai transazioni, esercenti o conti) — risposte più pertinenti</span>
+                    <input type="checkbox" id="chat-context-optin" checked onchange="window.setChatContextOptIn(this.checked)" class="w-4 h-4 mt-0.5" />
+                    <span>Includi anche un riassunto ANONIMO e aggregato della mia situazione (es. "oggi puoi spendere 50€", mai transazioni, esercenti o conti) — risposte più pertinenti. Attivo di default, disattivabile qui.</span>
                   </label>
                   <!-- Il sistema/browser di alcuni utenti ha "Riduci movimento"
                        attivo (accessibilità) — Momentum lo rispetta OVUNQUE
