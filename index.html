@@ -269,6 +269,19 @@
     /* Stack di alert/insight in Analisi (Spese insolite, Budget da aggiornare,
        Avanzo sicuro, ecc.): stessa disciplina a scaglione di .tx-in, così le
        card entrano in sequenza invece di comparire tutte insieme in blocco. */
+    /* Modalità privacy: sfoca TUTTO il contenuto principale (dati + Command
+       Center) con un tocco, per quando qualcuno guarda lo schermo — resta
+       cliccabile solo la barra laterale/superiore col pulsante per rivedere.
+       Nessun dato lascia il dispositivo: è solo un filtro CSS locale. */
+    /* Sfoca SOLO i numeri (tutti gli importi in app usano già .font-mono,
+       convenzione esistente in tutto il codice — mai testo/etichette/icone):
+       il resto resta visibile e usabile, per poter mostrare "guarda come uso
+       Momentum" a qualcuno senza rivelare le cifre reali. */
+    body.privacy-mode .font-mono { filter: blur(7px); user-select: none; transition: filter .2s ease; }
+    body.privacy-mode #privacy-reveal-banner { display: flex; }
+    #privacy-toggle-mobile.active svg, #privacy-toggle-desktop.active svg { color: var(--primary); }
+    #privacy-toggle-mobile.active, #privacy-toggle-desktop.active { border-color: var(--primary); }
+    @media (prefers-reduced-motion: reduce) { body.privacy-mode .font-mono { transition: none; } }
     /* Chip suggerimento asset: stesso ingresso a scaglione, per invitare il
        tocco su una casella di ricerca altrimenti vuota. */
     .asset-chip-in { animation: txRise .32s cubic-bezier(.22,1,.36,1) both; }
@@ -954,7 +967,23 @@
     <div class="pointer-events-auto flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--outline)] shadow-lg px-3 py-1.5 rounded-full shrink-0">
        <div class="data-integrity-dot"></div><span class="text-[11px] sm:text-[10px] font-mono font-bold tracking-widest text-[var(--on-surface-secondary)]">MOMENTUM VAULT</span>
     </div>
+    <!-- Privacy: sfoca tutti i numeri con un tocco, per quando qualcuno ti
+         guarda lo schermo — nessun dato lascia il dispositivo, è solo un
+         filtro visivo locale. Stato ricordato tra le sessioni. -->
+    <button id="privacy-toggle-mobile" onclick="window.togglePrivacyMode()" aria-label="Nascondi i numeri sullo schermo" title="Nascondi i numeri sullo schermo"
+      class="pointer-events-auto w-9 h-9 flex items-center justify-center bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--outline)] shadow-lg rounded-full shrink-0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)]"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
   </div>
+
+  <!-- Pill "rivela": fuori da <main>, quindi mai sfocata — piccola e in un
+       angolo, non blocca la schermata: puoi comunque mostrare a qualcuno
+       come usi l'app, solo le cifre restano sfocate finché non tocchi qui. -->
+  <button id="privacy-reveal-banner" onclick="window.togglePrivacyMode()"
+    class="hidden fixed bottom-4 inset-x-0 z-[70] mx-auto w-fit items-center gap-2 px-4 py-2 rounded-full bg-black/80 backdrop-blur-md border border-white/10 shadow-xl">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white shrink-0"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.8 21.8 0 015.06-6.06M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a21.75 21.75 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+    <span class="text-[12px] font-bold text-white">Numeri nascosti — tocca per rivederli</span>
+  </button>
 
   <div id="app-core" class="hidden opacity-0 flex flex-col md:flex-row min-h-screen w-full relative">
     <!-- DESKTOP SIDEBAR -->
@@ -971,6 +1000,10 @@
             <div class="data-integrity-dot w-1.5 h-1.5 shrink-0"></div> V25 Synapse
           </span>
         </div>
+        <button id="privacy-toggle-desktop" onclick="window.togglePrivacyMode()" aria-label="Nascondi i numeri sullo schermo" title="Nascondi i numeri sullo schermo"
+          class="ml-auto w-9 h-9 flex items-center justify-center rounded-full border border-[var(--outline)] hover:border-[var(--primary)]/50 shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)]"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
       </div>
       <nav class="space-y-3 flex-1 overflow-y-auto">
         <button data-view="dashboard" data-action="switch-view" class="nav-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-extrabold text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[0.95rem] transition-all">

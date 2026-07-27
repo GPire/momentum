@@ -3328,6 +3328,17 @@ window.setChatContextOptIn = (checked) => {
 const assetSearchCache = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
 let lastSearchResults = [];
 
+// Modalità privacy (richiesta esplicita utente: "non mostrare i dati
+// sensibili ad altre persone"): sfoca l'intero <main> con un tocco — nessun
+// dato lascia il dispositivo, è un filtro CSS locale. Stato ricordato tra
+// le sessioni (additivo su VaultDAO.state, mai tocca dati finanziari).
+window.togglePrivacyMode = () => {
+  const active = document.body.classList.toggle('privacy-mode');
+  document.getElementById('privacy-toggle-mobile')?.classList.toggle('active', active);
+  document.getElementById('privacy-toggle-desktop')?.classList.toggle('active', active);
+  VaultDAO.state.privacyMode = active;
+  VaultDAO.save();
+};
 window.quickAssetSearch = (label) => {
   const input = document.getElementById('asset-search-input');
   if (!input) return;
@@ -7009,6 +7020,13 @@ const initApp = () => {
     if (gen) gen.remove();
     $('#app-core').classList.remove('hidden');
     $('#app-core').style.opacity = '1';
+    // Modalità privacy ricordata tra le sessioni: se l'utente l'aveva
+    // attivata, i numeri restano sfocati anche subito dopo il reload.
+    if (VaultDAO.state.privacyMode) {
+      document.body.classList.add('privacy-mode');
+      document.getElementById('privacy-toggle-mobile')?.classList.add('active');
+      document.getElementById('privacy-toggle-desktop')?.classList.add('active');
+    }
     updateStreak(); // prima di bootUI, così il badge nasce già aggiornato
     // Riconoscimento silenzioso al boot dei traguardi già GUADAGNATI da un
     // utente esistente (niente pioggia di toast per lo storico): la
