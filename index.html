@@ -278,10 +278,28 @@
        il resto resta visibile e usabile, per poter mostrare "guarda come uso
        Momentum" a qualcuno senza rivelare le cifre reali. */
     body.privacy-mode .font-mono { filter: blur(7px); user-select: none; transition: filter .2s ease; }
-    body.privacy-mode #privacy-reveal-banner { display: flex; }
+    /* .font-mono qui è solo scelta tipografica (badge/versione/contatori),
+       non un dato sensibile — non deve sfocarsi con gli importi. */
+    body.privacy-mode .font-mono.no-privacy-blur { filter: none; user-select: auto; }
+    body.privacy-mode #privacy-reveal-banner { display: flex; animation: txRise .38s cubic-bezier(.22,1,.36,1) both; }
+    /* Su mobile la bottom-nav occupa 85px + safe-area: la pill deve stare
+       SOPRA di essa, mai sovrapposta (altrimenti blocca i tap sui suoi
+       pulsanti). Su desktop/tablet non c'è bottom-nav, resta in basso. */
+    #privacy-reveal-banner { bottom: calc(85px + var(--safe-bottom) + 0.75rem); }
+    @media (min-width: 768px) { #privacy-reveal-banner { bottom: 1rem; } }
+    #privacy-toggle-mobile, #privacy-toggle-desktop { transition: border-color .25s ease, background-color .25s ease, transform .15s ease; }
+    #privacy-toggle-mobile:active, #privacy-toggle-desktop:active { transform: scale(0.88); }
+    #privacy-toggle-mobile.active, #privacy-toggle-desktop.active { border-color: var(--primary); background: color-mix(in_srgb, var(--primary) 14%, transparent); }
     #privacy-toggle-mobile.active svg, #privacy-toggle-desktop.active svg { color: var(--primary); }
-    #privacy-toggle-mobile.active, #privacy-toggle-desktop.active { border-color: var(--primary); }
-    @media (prefers-reduced-motion: reduce) { body.privacy-mode .font-mono { transition: none; } }
+    /* Un lampo dell'anello al momento esatto del tocco: conferma l'azione
+       invece di lasciare che l'utente scopra il cambio solo dal colore. */
+    @keyframes privacyToggleRing { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); } 100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent); } }
+    #privacy-toggle-mobile.just-toggled, #privacy-toggle-desktop.just-toggled { animation: privacyToggleRing .5s ease-out; }
+    @media (prefers-reduced-motion: reduce) {
+      body.privacy-mode .font-mono { transition: none; }
+      #privacy-toggle-mobile, #privacy-toggle-desktop { transition: none; }
+      #privacy-toggle-mobile.just-toggled, #privacy-toggle-desktop.just-toggled { animation: none; }
+    }
     /* Chip suggerimento asset: stesso ingresso a scaglione, per invitare il
        tocco su una casella di ricerca altrimenti vuota. */
     .asset-chip-in { animation: txRise .32s cubic-bezier(.22,1,.36,1) both; }
@@ -946,7 +964,7 @@
   <div id="pdf-progress-overlay">
     <div class="pdf-progress-ring"></div>
     <p class="text-white font-bold text-sm mb-1" id="pdf-progress-text">Decodifica in corso...</p>
-    <p class="text-[var(--on-surface-secondary)] text-xs font-mono" id="pdf-progress-page">Pagina 0/0</p>
+    <p class="text-[var(--on-surface-secondary)] text-xs font-mono no-privacy-blur" id="pdf-progress-page">Pagina 0/0</p>
   </div>
 
   <!-- Progresso import multi-file: dice se parte, a che punto è, e quando finisce -->
@@ -965,7 +983,7 @@
   <!-- MOBILE TOP BAR -->
   <div class="md:hidden fixed top-0 inset-x-0 z-[60] flex justify-between p-3 sm:p-4 pointer-events-none" style="padding-top:calc(var(--safe-top) + 0.5rem)">
     <div class="pointer-events-auto flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--outline)] shadow-lg px-3 py-1.5 rounded-full shrink-0">
-       <div class="data-integrity-dot"></div><span class="text-[11px] sm:text-[10px] font-mono font-bold tracking-widest text-[var(--on-surface-secondary)]">MOMENTUM VAULT</span>
+       <div class="data-integrity-dot"></div><span class="text-[11px] sm:text-[10px] font-mono no-privacy-blur font-bold tracking-widest text-[var(--on-surface-secondary)]">MOMENTUM VAULT</span>
     </div>
     <!-- Privacy: sfoca tutti i numeri con un tocco, per quando qualcuno ti
          guarda lo schermo — nessun dato lascia il dispositivo, è solo un
@@ -980,7 +998,7 @@
        angolo, non blocca la schermata: puoi comunque mostrare a qualcuno
        come usi l'app, solo le cifre restano sfocate finché non tocchi qui. -->
   <button id="privacy-reveal-banner" onclick="window.togglePrivacyMode()"
-    class="hidden fixed bottom-4 inset-x-0 z-[70] mx-auto w-fit items-center gap-2 px-4 py-2 rounded-full bg-black/80 backdrop-blur-md border border-white/10 shadow-xl">
+    class="hidden fixed inset-x-0 z-[70] mx-auto w-fit items-center gap-2 px-4 py-2 rounded-full bg-black/80 backdrop-blur-md border border-white/10 shadow-xl">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white shrink-0"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.8 21.8 0 015.06-6.06M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a21.75 21.75 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg>
     <span class="text-[12px] font-bold text-white">Numeri nascosti — tocca per rivederli</span>
   </button>
@@ -1001,7 +1019,7 @@
           </span>
         </div>
         <button id="privacy-toggle-desktop" onclick="window.togglePrivacyMode()" aria-label="Nascondi i numeri sullo schermo" title="Nascondi i numeri sullo schermo"
-          class="ml-auto w-9 h-9 flex items-center justify-center rounded-full border border-[var(--outline)] hover:border-[var(--primary)]/50 shrink-0">
+          class="w-9 h-9 flex items-center justify-center bg-[var(--glass-bg)] backdrop-blur-xl rounded-full border border-[var(--outline)] hover:border-[var(--primary)]/50 shadow-lg shrink-0">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)]"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
@@ -1771,8 +1789,8 @@
 
                   <div class="card p-6 border border-[var(--outline)] flex flex-col sm:flex-row justify-between items-center gap-4">
                      <div>
-                       <p class="text-xs font-mono font-bold text-[var(--on-surface-secondary)] mb-1" id="version-display">Core: V50.Momentum.Vault</p>
-                       <p class="text-[10px] font-mono font-bold text-[var(--primary)]" id="ml-status">Synapse Nodes: 0</p>
+                       <p class="text-xs font-mono no-privacy-blur font-bold text-[var(--on-surface-secondary)] mb-1" id="version-display">Core: V50.Momentum.Vault</p>
+                       <p class="text-[10px] font-mono no-privacy-blur font-bold text-[var(--primary)]" id="ml-status">Synapse Nodes: 0</p>
                      </div>
                      <button onclick="nukeVault()" class="px-4 py-3 bg-[#be123c] text-white font-bold rounded-xl text-xs transition-transform active:scale-95 shadow-md">Cancella tutti i dati</button>
                   </div>

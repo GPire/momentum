@@ -3332,10 +3332,29 @@ let lastSearchResults = [];
 // sensibili ad altre persone"): sfoca l'intero <main> con un tocco — nessun
 // dato lascia il dispositivo, è un filtro CSS locale. Stato ricordato tra
 // le sessioni (additivo su VaultDAO.state, mai tocca dati finanziari).
+// L'icona deve cambiare FORMA (occhio aperto ↔ occhio barrato), non solo
+// colore — un utente che tocca "nascondi" deve vedere subito che l'app ha
+// capito, non dedurlo dal solo bordo colorato.
+const EYE_OPEN_PATH = '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>';
+const EYE_CLOSED_PATH = '<path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.8 21.8 0 015.06-6.06M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a21.75 21.75 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/>';
+
+function setPrivacyToggleIcon(btn, active) {
+  const svg = btn?.querySelector('svg');
+  if (svg) svg.innerHTML = active ? EYE_CLOSED_PATH : EYE_OPEN_PATH;
+}
+
 window.togglePrivacyMode = () => {
   const active = document.body.classList.toggle('privacy-mode');
-  document.getElementById('privacy-toggle-mobile')?.classList.toggle('active', active);
-  document.getElementById('privacy-toggle-desktop')?.classList.toggle('active', active);
+  [$('#privacy-toggle-mobile'), $('#privacy-toggle-desktop')].forEach(btn => {
+    if (!btn) return;
+    btn.classList.toggle('active', active);
+    setPrivacyToggleIcon(btn, active);
+    // Lampo dell'anello: conferma visiva immediata del tocco, non solo un
+    // cambio di stato silenzioso.
+    btn.classList.remove('just-toggled');
+    void btn.offsetWidth;
+    btn.classList.add('just-toggled');
+  });
   VaultDAO.state.privacyMode = active;
   VaultDAO.save();
 };
@@ -7024,8 +7043,10 @@ const initApp = () => {
     // attivata, i numeri restano sfocati anche subito dopo il reload.
     if (VaultDAO.state.privacyMode) {
       document.body.classList.add('privacy-mode');
-      document.getElementById('privacy-toggle-mobile')?.classList.add('active');
-      document.getElementById('privacy-toggle-desktop')?.classList.add('active');
+      [$('#privacy-toggle-mobile'), $('#privacy-toggle-desktop')].forEach(btn => {
+        btn?.classList.add('active');
+        setPrivacyToggleIcon(btn, true);
+      });
     }
     updateStreak(); // prima di bootUI, così il badge nasce già aggiornato
     // Riconoscimento silenzioso al boot dei traguardi già GUADAGNATI da un
