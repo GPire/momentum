@@ -16,6 +16,21 @@ import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js
 import { sectorRanking } from './alpha/sector-rotation.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
+import { isItalianDevice } from './alpha/translate.js';
+
+// Etichette statiche (non dati) tradotte in italiano quando il dispositivo è
+// italiano — Alpha Vantage restituisce region/exchange sempre in inglese.
+const REGION_LABELS_IT = {
+  'United States': 'Stati Uniti', 'United Kingdom': 'Regno Unito', Canada: 'Canada', 'Frankfurt': 'Francoforte',
+  Toronto: 'Toronto', China: 'Cina', India: 'India', 'India/Bombay': 'India (Bombay)', 'Brazil/Sao Paolo': 'Brasile (San Paolo)',
+  Amsterdam: 'Amsterdam', Paris: 'Parigi', Milan: 'Milano', Madrid: 'Madrid', Brussels: 'Bruxelles', Lisbon: 'Lisbona',
+  Vienna: 'Vienna', Ireland: 'Irlanda', 'Hong Kong': 'Hong Kong', Shenzhen: 'Shenzhen', Shanghai: 'Shanghai',
+  Copenhagen: 'Copenaghen', Helsinki: 'Helsinki', Stockholm: 'Stoccolma', Zurich: 'Zurigo', Estonia: 'Estonia',
+};
+function translateRegionLabel(region) {
+  if (!region) return region;
+  return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
+}
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine } from './predict/tax.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
@@ -2912,7 +2927,7 @@ window.runAssetSearch = async () => {
     lastSearchResults = results;
     if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-slate-400">Nessun risultato${stale ? ' (offline: nemmeno in cache)' : ''}.</p>`; return; }
     resultsEl.innerHTML = (stale ? `<p class="text-[9px] text-amber-300 mb-1">Offline: risultati dall'ultima ricerca.</p>` : '') + results.map((r, i) =>
-      `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${r.symbol}</b> · ${r.name}${r.kind === 'stock' ? ` (${r.region || 'azione/ETF'})` : ' (cripto)'}</button>`
+      `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${r.symbol}</b> · ${r.name}${r.kind === 'stock' ? ` (${translateRegionLabel(r.region) || 'azione/ETF'})` : ' (cripto)'}</button>`
     ).join('');
   } catch (e) {
     resultsEl.innerHTML = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
@@ -2950,7 +2965,17 @@ window.selectAsset = async (idx) => {
       const { fetchAssetOverview } = await import('./alpha/asset-overview.js');
       const ov = await fetchAssetOverview(asset, { apiKey: VaultDAO.state.liveDataKeys?.alphavantage, fetchImpl: fetch.bind(window) });
       const meta = ov.kind === 'stock' ? [ov.sector, ov.industry].filter(Boolean).join(' · ') : ov.category;
-      overviewHtml = `<p class="text-[10px] text-slate-300 mt-1.5 leading-snug">${ov.summary}</p>${meta ? `<p class="text-[9px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
+      let summary = ov.summary;
+      let translatedTag = '';
+      // Dispositivo italiano: le fonti (Alpha Vantage/CoinGecko) non hanno
+      // contenuti reali in italiano (verificato: description.it di CoinGecko
+      // esiste nello schema ma è vuoto) — si traduce il testo VERO con un
+      // servizio reale (MyMemory), mai testo inventato, sempre etichettato.
+      const { translateText } = await import('./alpha/translate.js');
+      if (isItalianDevice()) {
+        try { summary = await translateText(ov.summary, { fetchImpl: fetch.bind(window) }); translatedTag = ' <span class="text-slate-600">(traduzione automatica)</span>'; } catch (_) { /* fallback: resta in inglese, mai bloccante */ }
+      }
+      overviewHtml = `<p class="text-[10px] text-slate-300 mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[9px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
     } catch (_) { /* riassunto opzionale: nessun errore bloccante se manca */ }
   }
   let newsHtml = '';
