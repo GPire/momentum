@@ -18,7 +18,7 @@
 import { getDailySafeToSpend, getMonthEndProjection, getUpcomingCharges } from '../predict/advisor.js';
 import { detectRecurring } from '../predict/subscriptions.js';
 import { computeGoalProgress } from '../predict/engagement.js';
-import { buildCausalGraph, propagateImpact } from '../predict/causal-graph.js';
+import { buildCausalGraph, propagateImpact, pruneNonCausal } from '../predict/causal-graph.js';
 import { investableSurplus } from '../alpha/bridge.js';
 import { commitmentForecast } from '../predict/fixed-commitments.js';
 import { bnplExposure } from '../predict/bnpl.js';
@@ -467,7 +467,13 @@ export function answerQuestion(question, ctx) {
     const namedCat = cats.find(c => c && q.includes(String(c).toLowerCase()));
     const ASK_CAT = { it: 'Dimmi la categoria: ad esempio "cosa succede se spendo di più in Ristorante?"', en: 'Tell me the category: e.g. "what happens if I spend more on dining?"', es: 'Dime la categoría: por ejemplo "¿qué pasa si gasto más en Restaurante?"', fr: 'Dis-moi la catégorie : par exemple "que se passe-t-il si je dépense plus en Restaurant ?"', de: 'Nenn mir die Kategorie: z.B. "was passiert wenn ich mehr für Restaurant ausgebe?"' }[lang];
     if (!namedCat) return { intent: 'causal', answer: ASK_CAT };
-    const links = buildCausalGraph(allTx, ref);
+    // Lag variabile (fino a 3 settimane, non solo 0/1) + potatura della
+    // direzione più debole per coppia — entrambe le funzioni esistevano già,
+    // testate e usate altrove (src/ai/reasoning-fusion.js), ma il QA
+    // "causale" usava ancora solo la versione base a lag fisso: catturava
+    // effetti immediati/a 1 settimana, non quelli differiti di 2-3 settimane
+    // ("una spesa oggi si riflette sul risparmio fra qualche settimana").
+    const links = pruneNonCausal(buildCausalGraph(allTx, ref, { maxLag: 3 }));
     const effects = propagateImpact(links, namedCat, 30); // scenario: +30%
     const NONE = { it: `Nei tuoi dati non vedo altre spese che si muovono insieme a ${namedCat}: aumentarla non dovrebbe trascinare altro.`, en: `In your data, I don't see other expenses moving together with ${namedCat}: increasing it shouldn't drag anything else along.`, es: `En tus datos no veo otros gastos que se muevan junto a ${namedCat}: aumentarlo no debería arrastrar nada más.`, fr: `Dans tes données je ne vois pas d'autres dépenses bouger avec ${namedCat} : l'augmenter ne devrait rien entraîner d'autre.`, de: `In deinen Daten sehe ich keine anderen Ausgaben, die sich mit ${namedCat} mitbewegen: eine Erhöhung sollte nichts anderes nach sich ziehen.` }[lang];
     if (effects.length === 0) return { intent: 'causal', answer: NONE };

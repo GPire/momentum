@@ -12,7 +12,7 @@ import { subscriptionSummary } from './predict/subscriptions.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
-import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
+import { computeNetWorth, projectNetWorthByStrategy, projectStrategy } from './alpha/net-worth.js';
 import { sectorRanking } from './alpha/sector-rotation.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
@@ -55,6 +55,7 @@ import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from '.
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { investmentReadiness } from './ai/reasoning-fusion.js';
 import { detectRegime } from './alpha/regime.js';
+import { fireTargetCapital, yearsToFire, coastFireCheck } from './predict/fire.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
 // datato) quando l'utente ha già in portafoglio una posizione che traccia
@@ -1856,7 +1857,15 @@ const renderAnalysis = (opts = {}) => {
     });
   }
 
-  // FIRE calculator target
+  // FIRE calculator (src/predict/fire.js): PRIMA qui c'era una divisione
+  // lineare (target / risparmio-mensile×12) che ignorava del tutto la
+  // crescita composta del capitale GIÀ investito — per chi ha un
+  // portafoglio, sovrastimava di molto gli anni mancanti. Ora simula la
+  // crescita composta mese su mese con un rendimento REALE MISURATO
+  // (measured-assumptions.js, walk-forward su prezzi SPY reali — mai un
+  // tasso inventato), e mostra anche il Coast FIRE (il capitale già
+  // investito, lasciato crescere da solo, basta a raggiungere il
+  // traguardo entro un'età di pensionamento di riferimento?).
   let totalExp = 0;
   Object.keys(VaultDAO.state.transactions).forEach(m => {
     VaultDAO.state.transactions[m].forEach(t => {
@@ -1865,12 +1874,29 @@ const renderAnalysis = (opts = {}) => {
   });
   const activeMonths = Object.keys(VaultDAO.state.transactions).length || 1;
   const fireExpenses = (totalExp / activeMonths) * 12;
-  const fireTargetVal = fireExpenses * 25;
-  
+  const fireTargetVal = fireTargetCapital(fireExpenses);
+  const fireExpectedReturn = measuredAssumptions.spy?.buyHold?.mu ?? 0.09;
+  const fireInvested = computeNetWorth({
+    transactions: VaultDAO.state.transactions || {},
+    positions: VaultDAO.state.positions || [],
+    currentPriceByTicker: window.__livePrices || {},
+    manualAssets: VaultDAO.state.manualAssets || [],
+    liabilities: 0,
+  }).invested;
+
   $('#fire-target-val').textContent = formatMoney(fireTargetVal);
-  const rate = proj.projectedMonthlyFlow || 1;
-  const yearsNeeded = rate > 0 ? (fireTargetVal / (rate * 12)) : 99;
-  $('#fire-years').textContent = yearsNeeded < 90 ? `${yearsNeeded.toFixed(1)} anni` : "Nessun risparmio.";
+  const fireResult = yearsToFire({
+    currentInvested: fireInvested,
+    monthlyContribution: Math.max(0, proj.projectedMonthlyFlow || 0),
+    targetCapital: fireTargetVal,
+    expectedAnnualReturn: fireExpectedReturn,
+  });
+  $('#fire-years').textContent = fireResult.reachable ? `${fireResult.years.toFixed(1)} anni` : "Nessun risparmio.";
+  const coastNoteEl = $('#fire-coast-note');
+  if (coastNoteEl) {
+    const coast = coastFireCheck({ currentAge: 35, retirementAge: 65, currentInvested: fireInvested, targetCapital: fireTargetVal, expectedAnnualReturn: fireExpectedReturn });
+    coastNoteEl.textContent = `Rendimento ipotizzato ${(fireExpectedReturn * 100).toFixed(1)}%/anno (misurato su SPY, non promesso).${fireInvested > 0 && coast.isCoastFire ? ' Il capitale già investito, da solo, potrebbe già bastare entro i 65 anni (Coast FIRE).' : ''}`;
+  }
 
   // Heatmap Grid
   const grid = $('#heatmap-grid');
@@ -6579,21 +6605,26 @@ const initApp = () => {
     if (usedCats.length > 0) runWhatIf();
   }
 
-  // What-if simulator live updates
+  // What-if simulator live updates. PRIMA: una formula di interesse composto
+  // deterministica (un solo numero, nessuna incertezza mostrata). Ora riusa
+  // il Motore Monte Carlo GIÀ esistente (src/alpha/net-worth.js,
+  // projectStrategy — 500 percorsi, rendimenti misurati su SPY reale) e
+  // mostra un intervallo onesto (se va male/tipico/se va bene) invece di
+  // un unico valore che finge certezza — stessa disciplina già applicata
+  // alla tabella "Strategia (10 anni)" più sopra in questa vista.
   const slider = document.getElementById('scenario-slider');
   if (slider) {
     slider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value) || 0;
       $('#scenario-extra-val').textContent = `+€${val}/m`;
-      
       try {
-        const proj = PredictiveOracle.calculateProjections();
-        const r = proj.dynCagr;
-        const years = 5;
-        const c_n = 12;
-        const compounded = val * ((Math.pow(1 + r/c_n, c_n*years) - 1) / (r/c_n));
-        $('#scenario-future-impact').textContent = `5 Anni: +${formatMoney(compounded)}`;
-      } catch(err) { console.error(err); }
+        const a = measuredAssumptions.spy?.buyHold;
+        const mu = a?.mu ?? 0.09, sigma = a?.sigma ?? 0.15;
+        const r = projectStrategy({ start: 0, monthlyContribution: val, years: 5, mu, sigma, paths: 500 });
+        $('#scenario-future-impact').textContent = val > 0
+          ? `5 anni: ${formatMoney(r.p5)} – ${formatMoney(r.p50)} – ${formatMoney(r.p95)}`
+          : '5 Anni: +€0';
+      } catch (err) { console.error(err); }
     });
   }
 
