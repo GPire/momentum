@@ -6681,6 +6681,7 @@ const initApp = () => {
   // un unico valore che finge certezza — stessa disciplina già applicata
   // alla tabella "Strategia (10 anni)" più sopra in questa vista.
   const slider = document.getElementById('scenario-slider');
+  const compareEl = document.getElementById('scenario-strategy-compare');
   if (slider) {
     slider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value) || 0;
@@ -6692,6 +6693,28 @@ const initApp = () => {
         $('#scenario-future-impact').textContent = val > 0
           ? `5 anni: ${formatMoney(r.p5)} – ${formatMoney(r.p50)} – ${formatMoney(r.p95)}`
           : '5 Anni: +€0';
+        // Confronto tra le 8 strategie per QUESTO risparmio extra (richiesto
+        // esplicitamente: "e con questo risparmio, quale strategia conviene
+        // di più?") — stesso motore già usato per la tabella "Strategia (10
+        // anni)" più sopra, mai un secondo calcolo isolato. Risposta
+        // dinamica: cambia strategia migliore a seconda di quanto risparmi,
+        // non un ranking statico.
+        if (compareEl) {
+          if (val > 0) {
+            const cmp = projectNetWorthByStrategy({ start: 0, monthlyContribution: val, years: 5, paths: 400 });
+            const top = cmp.rows.slice(0, 4);
+            compareEl.classList.remove('hidden');
+            compareEl.innerHTML = `<p class="text-[9px] text-slate-500 mb-1">Con questo risparmio, le strategie migliori a 5 anni (tipico):</p>
+              <div class="space-y-1">${top.map((row, i) => `
+                <div class="flex items-center justify-between text-[10px]">
+                  <span class="text-slate-300 truncate">${i + 1}. ${row.label}</span>
+                  <span class="font-mono font-bold text-[var(--gold)] shrink-0 ml-2">${formatMoney(row.p50)}</span>
+                </div>`).join('')}</div>`;
+          } else {
+            compareEl.classList.add('hidden');
+            compareEl.innerHTML = '';
+          }
+        }
       } catch (err) { console.error(err); }
     });
   }
