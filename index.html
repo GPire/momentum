@@ -1361,15 +1361,16 @@
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Chat generica (opzionale)</h3>
                   <p class="card-sub">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Mai i tuoi dati finanziari — solo il testo che scrivi.</p>
-                  <button onclick="window.openApiKeyGuide('gemini')" class="btn-action w-full justify-center mt-2">Attiva la chat generica →</button>
+                  <p class="text-[9px] text-slate-500 mt-2"><b>Gemini</b>: la scelta migliore per la maggior parte — ragionamento generale forte, capisce domande lunghe/articolate, quota gratuita generosa (verificato).</p>
+                  <button onclick="window.openApiKeyGuide('gemini')" class="btn-action w-full justify-center mt-2">Attiva con Gemini (consigliata) →</button>
                   <details class="mt-2">
-                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Altre opzioni, in ordine (gratuite prima, a pagamento dopo)</summary>
+                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Altre opzioni, con quando conviene ognuna</summary>
                     <div class="flex flex-col gap-2 mt-2">
-                      <button onclick="window.openApiKeyGuide('groq')" class="text-[10px] text-[var(--primary)] underline text-left">2. Groq — gratis, velocissima →</button>
-                      <button onclick="window.openApiKeyGuide('deepseek')" class="text-[10px] text-[var(--primary)] underline text-left">3. DeepSeek — verifica tu i costi →</button>
-                      <button onclick="window.openApiKeyGuide('openai')" class="text-[10px] text-amber-300 underline text-left">4. OpenAI (ChatGPT) — a pagamento, se hai già la fatturazione API →</button>
-                      <button onclick="window.openApiKeyGuide('anthropic')" class="text-[10px] text-amber-300 underline text-left">5. Anthropic (Claude) — a pagamento, se hai già la fatturazione API →</button>
-                      <p class="text-[9px] text-slate-500">Se configuri più chiavi, Momentum le prova in quest'ordine e usa la prima che risponde. L'abbonamento ChatGPT Plus/Claude Pro NON dà accesso qui: l'API si paga separatamente.</p>
+                      <button onclick="window.openApiKeyGuide('groq')" class="text-[10px] text-[var(--primary)] underline text-left">Groq — gratis, la più VELOCE (risposte quasi istantanee), buona per domande semplici e rapide →</button>
+                      <button onclick="window.openApiKeyGuide('deepseek')" class="text-[10px] text-[var(--primary)] underline text-left">DeepSeek — molto forte sul ragionamento passo-passo (matematica/logica), verifica tu i costi →</button>
+                      <button onclick="window.openApiKeyGuide('openai')" class="text-[10px] text-amber-300 underline text-left">OpenAI (ChatGPT) — a pagamento, se hai già la fatturazione API →</button>
+                      <button onclick="window.openApiKeyGuide('anthropic')" class="text-[10px] text-amber-300 underline text-left">Anthropic (Claude) — a pagamento, il più accurato su testi lunghi, se hai già la fatturazione API →</button>
+                      <p class="text-[9px] text-slate-500">Tutti ricevono SOLO la domanda che scrivi (mai le tue spese/saldi). Se configuri più chiavi, Momentum le prova in quest'ordine e usa la prima che risponde. L'abbonamento ChatGPT Plus/Claude Pro NON dà accesso qui: l'API si paga separatamente.</p>
                     </div>
                   </details>
                 </div>
