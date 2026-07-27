@@ -1283,6 +1283,30 @@
                     <div id="sector-ranking" class="overflow-x-auto mt-4"></div>
                  </div>
 
+                 <!-- Confronto periodi (src/predict/period-compare.js): "quanto ho
+                      speso questo mese rispetto al mese scorso, per categoria" —
+                      dati reali già indicizzati per mese, nessun nuovo motore. -->
+                 <div class="card p-6 order-1" id="period-compare-card">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-6 3 3 5-8"/></svg>Confronto periodi</h3>
+                    <p class="card-sub">Come cambia la spesa per categoria rispetto al periodo prima</p>
+                    <div class="flex gap-1.5 mb-3">
+                      <button type="button" class="qa-period-btn period-cmp-btn text-[9px] px-2 py-0.5 rounded-full qa-period-active" data-period-compare="month">Mese vs mese scorso</button>
+                      <button type="button" class="qa-period-btn period-cmp-btn text-[9px] px-2 py-0.5 rounded-full" data-period-compare="year">Anno vs anno scorso</button>
+                    </div>
+                    <div id="period-compare-body"></div>
+                 </div>
+
+                 <!-- Grafo causale (src/predict/causal-graph.js, già esistente e
+                      usato nel QA): PRIMA veniva usato solo per rispondere a "cosa
+                      succede se spendo di più in X", mai mostrato visivamente.
+                      Ora un layout a cerchio con archi reali (spessore = forza
+                      della co-variazione misurata, colore = direzione). -->
+                 <div class="card p-6 order-1" id="causal-graph-card">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M10.5 7l-4 9.5M13.5 7l4 9.5"/></svg>Categorie collegate</h3>
+                    <p class="card-sub">Quali spese si muovono insieme nei tuoi dati (correlazione misurata, non causalità certa)</p>
+                    <div id="causal-graph-viz"></div>
+                 </div>
+
                  <!-- Cerca un asset: prezzo live + notizie/sentiment reali (Alpha
                       Vantage/CoinGecko) + avvisi di prezzo. Tutto on-device, mai
                       un consiglio di acquisto — solo dati e la possibilità di

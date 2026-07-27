@@ -57,6 +57,8 @@ import { investmentReadiness } from './ai/reasoning-fusion.js';
 import { detectRegime } from './alpha/regime.js';
 import { fireTargetCapital, yearsToFire, coastFireCheck } from './predict/fire.js';
 import { detectPlatform, installSteps } from './pwa/install-guide.js';
+import { comparePeriods, lastNMonthKeys } from './predict/period-compare.js';
+import { buildCausalGraph, pruneNonCausal } from './predict/causal-graph.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
 // datato) quando l'utente ha già in portafoglio una posizione che traccia
@@ -1932,6 +1934,8 @@ const renderAnalysis = (opts = {}) => {
   renderRadarAlerts(k, budgetLimit, window.__hwDailyLevel ?? null);
   renderInvestments();
   renderNetWorth();
+  renderPeriodCompare();
+  renderCausalGraphViz();
   renderTax(k);
 };
 
@@ -4590,6 +4594,90 @@ function renderNetWorth() {
         }</tbody></table>`;
     } else sectorEl.innerHTML = '';
   }
+}
+
+// Confronto periodi (src/predict/period-compare.js): richiesto esplicitamente
+// "confrontare periodi come mesi di quest'anno e passati". Il mese/anno IN
+// CORSO è sempre escluso dal calcolo (parziale, falserebbe il confronto con
+// uno completo) — si confronta l'ultimo periodo COMPLETO col precedente.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.period-cmp-btn');
+  if (!btn) return;
+  renderPeriodCompare(btn.dataset.periodCompare);
+});
+let __periodCompareMode = 'month';
+function renderPeriodCompare(mode = __periodCompareMode) {
+  __periodCompareMode = mode;
+  const bodyEl = $('#period-compare-body');
+  if (!bodyEl) return;
+  const allTx = VaultDAO.state.transactions || {};
+  const ref = new Date();
+  const isYear = mode === 'year';
+  const curKeys = isYear ? lastNMonthKeys(ref, 12, 1) : lastNMonthKeys(ref, 1, 1);
+  const prevKeys = isYear ? lastNMonthKeys(ref, 12, 13) : lastNMonthKeys(ref, 1, 2);
+  const r = comparePeriods(allTx, curKeys, prevKeys);
+  if (r.current === 0 && r.previous === 0) {
+    bodyEl.innerHTML = `<p class="text-[11px] text-slate-400">Non ho ancora ${isYear ? 'due anni' : 'due mesi'} completi di storia da confrontare.</p>`;
+    return;
+  }
+  const periodLabel = isYear ? 'quest\'anno (12 mesi) vs anno scorso' : 'mese scorso vs il precedente';
+  const totalColor = r.totalDeltaPct > 0 ? 'text-rose-300' : 'text-emerald-300';
+  const rows = r.rows.filter(row => row.current > 0 || row.previous > 0).slice(0, 6);
+  const labelCap = periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1);
+  bodyEl.innerHTML = `
+    <p class="text-[10px] text-slate-500 mb-2">${labelCap}: <span class="font-mono font-bold ${totalColor}">${r.totalDeltaPct > 0 ? '+' : ''}${r.totalDeltaPct}%</span> (${formatMoney(r.previous)} → ${formatMoney(r.current)})</p>
+    <div class="space-y-1.5">${rows.map(row => {
+      const cat = getCatById(row.category);
+      const color = row.deltaPct > 0 ? 'text-rose-300' : row.deltaPct < 0 ? 'text-emerald-300' : 'text-slate-400';
+      return `<div class="flex items-center justify-between text-[10px]">
+        <span class="text-slate-300 truncate">${cat?.name || row.category}</span>
+        <span class="font-mono shrink-0 ml-2">${formatMoney(row.previous)} → ${formatMoney(row.current)} <b class="${color}">(${row.deltaPct > 0 ? '+' : ''}${row.deltaPct}%)</b></span>
+      </div>`;
+    }).join('')}</div>`;
+}
+
+// Grafo causale visivo (src/predict/causal-graph.js, già esistente e testato
+// — prima usato SOLO per rispondere a una domanda del QA, mai mostrato).
+// Layout a cerchio: le categorie con un legame reale sono nodi disposti in
+// cerchio, un arco le collega con spessore = |r| misurato, colore = verso
+// (verde/rosso = si muovono insieme/all'opposto). Mai una libreria di grafi
+// pesante: geometria semplice, poche decine di nodi al massimo.
+function renderCausalGraphViz() {
+  const el = $('#causal-graph-viz');
+  if (!el) return;
+  const links = pruneNonCausal(buildCausalGraph(VaultDAO.state.transactions || {}, new Date(), { maxLag: 3 }));
+  if (!links.length) {
+    el.innerHTML = `<p class="text-[11px] text-slate-400">Non emergono ancora legami affidabili tra categorie nei tuoi dati (serve più storia).</p>`;
+    return;
+  }
+  const top = links.slice(0, 10);
+  const cats = [...new Set(top.flatMap(l => [l.from, l.to]))];
+  const n = cats.length;
+  const R = 90, CX = 110, CY = 110;
+  const pos = {};
+  cats.forEach((c, i) => { const a = (i / n) * Math.PI * 2 - Math.PI / 2; pos[c] = { x: CX + R * Math.cos(a), y: CY + R * Math.sin(a) }; });
+  const arcs = top.map(l => {
+    const p1 = pos[l.from], p2 = pos[l.to];
+    const strength = Math.min(1, Math.abs(l.r));
+    const color = l.r >= 0 ? '#34d399' : '#fb7185';
+    return `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${color}" stroke-width="${(1 + strength * 3).toFixed(1)}" opacity="${(0.35 + strength * 0.5).toFixed(2)}" stroke-linecap="round"/>`;
+  }).join('');
+  const nodes = cats.map(c => {
+    const cat = getCatById(c);
+    const p = pos[c];
+    return `<g><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${cat?.color || '#94a3b8'}" stroke="#0b0f1a" stroke-width="1.5"/></g>`;
+  }).join('');
+  const labels = cats.map(c => {
+    const cat = getCatById(c);
+    const p = pos[c];
+    const dx = p.x > CX ? 8 : (p.x < CX ? -8 : 0);
+    const anchor = p.x > CX + 5 ? 'start' : (p.x < CX - 5 ? 'end' : 'middle');
+    const label = String(cat?.name || c).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    return `<text x="${(p.x + dx).toFixed(1)}" y="${p.y.toFixed(1)}" font-size="8" fill="#cbd5e1" text-anchor="${anchor}" dominant-baseline="middle">${label}</text>`;
+  }).join('');
+  el.innerHTML = `
+    <svg viewBox="0 0 220 220" class="w-full" style="max-height:220px">${arcs}${nodes}${labels}</svg>
+    <p class="text-[9px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame misurato nei tuoi dati (mai causalità certa).</p>`;
 }
 
 // Ghost Charge Radar VISIBILE: mostra gli abbonamenti ricorrenti scovati dal
