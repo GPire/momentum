@@ -1,0 +1,64 @@
+// Notizie finanziarie REALI + sentiment, per ticker (Alpha Vantage
+// NEWS_SENTIMENT — stesso host di TIME_SERIES_DAILY, CORS verificato dal
+// browser il 2026-07-27 con fetch() diretto, nessun proxy). Richiede la
+// chiave PERSONALE dell'utente (mai una chiave condivisa Momentum, vedi
+// src/alpha/live-price.js). Mai un sentiment inventato: se la fonte non
+// risponde o la chiave manca, si dichiara e basta.
+'use strict';
+
+const SENTIMENT_LABELS = [
+  [-Infinity, -0.35, 'bearish'],
+  [-0.35, -0.15, 'somewhat-bearish'],
+  [-0.15, 0.15, 'neutral'],
+  [0.15, 0.35, 'somewhat-bullish'],
+  [0.35, Infinity, 'bullish'],
+];
+
+function labelFor(score) {
+  const hit = SENTIMENT_LABELS.find(([lo, hi]) => score >= lo && score < hi);
+  return hit ? hit[2] : 'neutral';
+}
+
+// `cache` (opzionale, { get(key), put(key,val) } come in market-data.js):
+// se la rete è assente o la fonte fallisce, si ripiega sull'ultimo risultato
+// salvato per quel simbolo, dichiarato `stale:true` — mai un crash, mai un
+// sentiment inventato al posto della cache mancante (in quel caso rilancia
+// l'errore, onesto fino in fondo).
+export async function fetchNewsSentiment(symbol, { apiKey, fetchImpl = fetch, limit = 10, cache = null } = {}) {
+  if (!symbol) throw new Error('Serve un ticker.');
+  if (!apiKey) throw new Error('Serve la tua chiave Alpha Vantage personale (Momentum Vault → Prezzi live).');
+  const cacheKey = `news:${symbol.toUpperCase()}`;
+  const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey)}`;
+  let json;
+  try {
+    const res = await fetchImpl(url);
+    if (!res.ok) throw new Error(`Alpha Vantage news: HTTP ${res.status}`);
+    json = await res.json();
+    if (json?.Note || json?.Information) {
+      throw new Error('Limite richieste Alpha Vantage raggiunto o chiave non valida — riprova tra un minuto.');
+    }
+  } catch (err) {
+    if (cache) {
+      const cached = await cache.get(cacheKey).catch(() => null);
+      if (cached) return { ...cached, stale: true };
+    }
+    throw err;
+  }
+  const feed = Array.isArray(json?.feed) ? json.feed : [];
+  const items = feed.slice(0, limit).map((a) => {
+    const tickerScore = (a.ticker_sentiment || []).find((t) => t.ticker === symbol.toUpperCase());
+    const score = tickerScore ? parseFloat(tickerScore.ticker_sentiment_score) : parseFloat(a.overall_sentiment_score);
+    return {
+      title: a.title,
+      url: a.url,
+      source: a.source,
+      publishedAt: a.time_published,
+      sentimentScore: Number.isFinite(score) ? score : null,
+      sentimentLabel: Number.isFinite(score) ? labelFor(score) : 'sconosciuto',
+      relevance: tickerScore ? parseFloat(tickerScore.relevance_score) : null,
+    };
+  });
+  const result = { symbol: symbol.toUpperCase(), asOf: new Date().toISOString(), items, stale: false };
+  if (cache) await cache.put(cacheKey, result).catch(() => {});
+  return result;
+}

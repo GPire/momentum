@@ -1,7 +1,7 @@
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
-import { getCatById, getCatsByType, VaultDAO } from './core/vault.js';
+import { getCatById, getCatsByType, VaultDAO, DurableStore } from './core/vault.js';
 import { showSignatureAlert, showToast } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore } from './voice/voice.js';
@@ -15,6 +15,7 @@ import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
 import { sectorRanking } from './alpha/sector-rotation.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
+import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine } from './predict/tax.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
@@ -2890,6 +2891,106 @@ window.saveLiveDataKey = (provider) => {
   try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
 };
 
+// ── CERCA UN ASSET: prezzo live + notizie/sentiment reali + avvisi ─────────
+// (src/alpha/asset-search.js, src/alpha/news.js, src/predict/price-alerts.js)
+// Cripto: nessuna chiave (CoinGecko). Azioni/ETF: chiave personale Alpha
+// Vantage già raccolta sopra. Mai un consiglio di acquisto: solo prezzo,
+// notizie reali con sentiment dichiarato, e la possibilità di essere
+// avvisati quando un prezzo tocca una soglia scelta dall'utente.
+const assetSearchCache = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
+let lastSearchResults = [];
+
+window.runAssetSearch = async () => {
+  const input = document.getElementById('asset-search-input');
+  const resultsEl = document.getElementById('asset-search-results');
+  const query = (input?.value || '').trim();
+  if (!query) return;
+  resultsEl.innerHTML = `<p class="text-[10px] text-slate-400">Cerco...</p>`;
+  try {
+    const { searchAsset } = await import('./alpha/asset-search.js');
+    const { results, stale } = await searchAsset(query, { apiKey: VaultDAO.state.liveDataKeys?.alphavantage, fetchImpl: fetch.bind(window), cache: assetSearchCache });
+    lastSearchResults = results;
+    if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-slate-400">Nessun risultato${stale ? ' (offline: nemmeno in cache)' : ''}.</p>`; return; }
+    resultsEl.innerHTML = (stale ? `<p class="text-[9px] text-amber-300 mb-1">Offline: risultati dall'ultima ricerca.</p>` : '') + results.map((r, i) =>
+      `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${r.symbol}</b> · ${r.name}${r.kind === 'stock' ? ` (${r.region || 'azione/ETF'})` : ' (cripto)'}</button>`
+    ).join('');
+  } catch (e) {
+    resultsEl.innerHTML = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
+  }
+};
+
+window.selectAsset = async (idx) => {
+  const asset = lastSearchResults[idx];
+  const detailEl = document.getElementById('asset-detail');
+  if (!asset || !detailEl) return;
+  detailEl.innerHTML = `<p class="text-[10px] text-slate-400">Carico prezzo e notizie...</p>`;
+  let priceHtml = '';
+  try {
+    const { fetchLiveCryptoPrice, fetchLiveStockPrice } = await import('./alpha/live-price.js');
+    if (asset.kind === 'crypto') {
+      const { price, asOf } = await fetchLiveCryptoPrice(asset.id);
+      (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[9px] text-slate-400">Live · CoinGecko · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
+    } else if (VaultDAO.state.liveDataKeys?.alphavantage) {
+      const { price, asOf } = await fetchLiveStockPrice(asset.symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage });
+      (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[9px] text-slate-400">Live · Alpha Vantage · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
+    } else {
+      priceHtml = `<p class="text-[10px] text-slate-400">Aggiungi la tua chiave Alpha Vantage qui sopra per vedere il prezzo live.</p>`;
+    }
+  } catch (e) {
+    priceHtml = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
+  }
+  let newsHtml = '';
+  if (VaultDAO.state.liveDataKeys?.alphavantage) {
+    try {
+      const { fetchNewsSentiment } = await import('./alpha/news.js');
+      const news = await fetchNewsSentiment(asset.symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage, cache: assetSearchCache, limit: 5 });
+      const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
+      newsHtml = `<div class="mt-2 flex flex-col gap-1.5">${news.stale ? '<p class="text-[9px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${news.items.map(n =>
+        `<a href="${n.url}" target="_blank" rel="noopener" class="block text-[10px] leading-snug px-2 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)"><span class="${labelColor[n.sentimentLabel] || 'text-slate-400'}">●</span> ${n.title} <span class="text-slate-500">— ${n.source || ''}</span></a>`
+      ).join('')}</div>`;
+    } catch (_) { /* notizie opzionali: nessun errore bloccante se mancano */ }
+  }
+  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-slate-300 mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${newsHtml}
+    <div class="flex gap-1.5 mt-2">
+      <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
+      <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" />
+      <button onclick="window.addPriceAlert('${asset.symbol}','${asset.kind}')" class="px-2.5 bg-indigo-600 rounded-lg text-[10px] font-bold whitespace-nowrap">Avvisami</button>
+    </div>
+  </div>`;
+};
+
+window.addPriceAlert = (symbol, kind) => {
+  const direction = document.getElementById('alert-direction')?.value;
+  const threshold = parseFloat(document.getElementById('alert-threshold')?.value);
+  try {
+    const alert = { ...createPriceAlert({ symbol, direction, threshold }), kind };
+    VaultDAO.state.priceAlerts = [...(VaultDAO.state.priceAlerts || []), alert];
+    VaultDAO.save();
+    showToast(`Ti avviserò quando ${symbol} ${direction === 'above' ? 'supera' : 'scende sotto'} ${formatMoney(threshold)}.`, 'success');
+    renderPriceAlerts();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+};
+
+function renderPriceAlerts() {
+  const el = document.getElementById('price-alerts-list');
+  if (!el) return;
+  const alerts = VaultDAO.state.priceAlerts || [];
+  if (!alerts.length) { el.innerHTML = ''; return; }
+  el.innerHTML = alerts.map(a => `<div class="flex items-center justify-between gap-2 text-[10px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
+    <span>${a.triggeredAt ? '🔔' : '⏳'} <b>${a.symbol}</b> ${a.direction === 'above' ? '>' : '<'} ${formatMoney(a.threshold)}${a.triggeredAt ? ` — scattato a ${formatMoney(a.triggeredPrice)}` : ''}</span>
+    <button onclick="window.removePriceAlertUI('${a.id}')" class="text-rose-300">✕</button>
+  </div>`).join('');
+}
+window.removePriceAlertUI = (id) => {
+  VaultDAO.state.priceAlerts = removePriceAlert(VaultDAO.state.priceAlerts || [], id);
+  VaultDAO.save();
+  renderPriceAlerts();
+};
+
 // ── GESTORE PIANI A RATE (BNPL, src/predict/bnpl.js) ────────────────────────
 // Il CONTROLLO che mancava: prima il motore parlava solo con una riga nel feed
 // insight, senza modo per l'utente di vedere i piani rilevati o correggere un
@@ -4056,6 +4157,7 @@ const SEVERITY_STYLE = {
 
 function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   try { renderSubscriptions(); } catch (e) { console.error('renderSubscriptions:', e); } // abbonamenti trovati (Ghost Charge Radar)
+  try { renderPriceAlerts(); } catch (e) { console.error('renderPriceAlerts:', e); } // avvisi di prezzo attivi (Cerca un asset)
   const alertsBox = $('#radar-alerts-container');
   if (!alertsBox) return;
   alertsBox.innerHTML = '';
@@ -5484,10 +5586,47 @@ function initMomentumRealAI() {
     // VERIFICA INCROCIATA; solo i dati confermati/plausibili aggiornano prezzi
     // e (trainingEligible) possono alimentare l'apprendimento. Se la rete non
     // c'è: cache → peer → stima etichettata — mai un numero inventato.
+    const cacheAdapter = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
+
+    // ── Avvisi di prezzo (src/predict/price-alerts.js): logica pura, qui solo
+    // il "collegamento a rete" — prendere l'ultimo prezzo noto (dal ciclo
+    // sopra o da una chiamata dedicata per i simboli inseriti via ricerca,
+    // non necessariamente in portafoglio) e dichiarare gli avvisi scattati.
+    const idleCheckAlerts = async () => {
+      const alerts = VaultDAO.state.priceAlerts || [];
+      const pending = alerts.filter(a => !a.triggeredAt);
+      if (!pending.length || !navigator.onLine) return;
+      const live = window.__livePrices || {};
+      const missing = [...new Set(pending.map(a => a.symbol))].filter(s => !Number.isFinite(live[s]));
+      if (missing.length) {
+        const { fetchLiveCryptoPrice, fetchLiveStockPrice } = await import('./alpha/live-price.js');
+        for (const symbol of missing.slice(0, 5)) {
+          const alert = pending.find(a => a.symbol === symbol);
+          try {
+            if (alert.kind === 'crypto') {
+              const { price } = await fetchLiveCryptoPrice(symbol.toLowerCase());
+              live[symbol] = price;
+            } else if (VaultDAO.state.liveDataKeys?.alphavantage) {
+              const { price } = await fetchLiveStockPrice(symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage });
+              live[symbol] = price;
+            }
+          } catch (_) {}
+        }
+        window.__livePrices = live;
+      }
+      const { alerts: updated, fired } = checkPriceAlerts(alerts, live);
+      if (fired.length) {
+        VaultDAO.state.priceAlerts = updated;
+        VaultDAO.save();
+        fired.forEach(a => showToast(`${a.symbol} ha ${a.direction === 'above' ? 'superato' : 'toccato sotto'} ${formatMoney(a.threshold)} (ora ${formatMoney(a.triggeredPrice)}).`, 'info'));
+        renderPriceAlerts();
+      }
+    };
+
     const idleFetchPrices = () => {
       const positions = VaultDAO.state.positions || [];
+      idleCheckAlerts();
       if (!positions.length || !navigator.onLine) return;
-      const cacheAdapter = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
       import('./alpha/sources.js').then(async ({ fetchVerified, trainingEligible }) => {
         const shared = {};
         // BUG REALE TROVATO (2026-07-27): qui si passava kind:'crypto'/'stock',
