@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { combineConfidence, crossDomainWhatIf, investmentReadiness } = await import('./reasoning-fusion.js');
+const { combineConfidence, crossDomainWhatIf, investmentReadiness, aggregateNewsSentiment } = await import('./reasoning-fusion.js');
 
 test('combineConfidence: nessun layer -> confidenza 0, nessuna invenzione', () => {
   const r = combineConfidence([]);
@@ -167,4 +167,64 @@ test('investmentReadiness: senza avanzo sicuro (spesa altissima) dice onestament
   const r = investmentReadiness({ allTx, now: Date.parse('2026-07-26T12:00:00Z') });
   assert.equal(r.verdict.canConsider, false);
   assert.ok(r.verdict.message.includes('prima la tua liquidità'));
+});
+
+test('aggregateNewsSentiment: nessuna notizia con punteggio → null, mai un sentiment inventato', () => {
+  assert.equal(aggregateNewsSentiment([]), null);
+  assert.equal(aggregateNewsSentiment([{ title: 'x' }]), null); // niente sentimentScore
+});
+
+test('aggregateNewsSentiment: media reale, etichetta e confidenza proporzionale al numero di fonti', () => {
+  const r = aggregateNewsSentiment([{ sentimentScore: 0.4 }, { sentimentScore: 0.3 }, { sentimentScore: 0.5 }]);
+  assert.equal(r.n, 3);
+  assert.equal(r.label, 'bullish');
+  assert.ok(r.confidence > 0.2 && r.confidence <= 0.7);
+});
+
+test('aggregateNewsSentiment: notizie miste negative → etichetta bearish/somewhat-bearish coerente', () => {
+  const r = aggregateNewsSentiment([{ sentimentScore: -0.4 }, { sentimentScore: -0.3 }]);
+  assert.equal(r.label, 'bearish');
+});
+
+function richHistoryAllTx() {
+  const allTx = {};
+  for (let i = 1; i <= 60; i++) {
+    const d = new Date(2026, 6, 26 - i);
+    const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    (allTx[mk] ||= []).push({ type: 'uscita', amount: 10, date: d.toISOString().slice(0, 10), category: 'varie' });
+  }
+  return allTx;
+}
+
+test('investmentReadiness: con liveRegime, prevale sullo scatto statico e marketStaleDays è 0 (dato fresco)', () => {
+  const salary = { dayOfMonth: 27, amount: 1800 };
+  const liveRegime = { regime: 'risk-off', trend: -0.02, vol: 0.05, explanation: 'test live' };
+  const r = investmentReadiness({ allTx: richHistoryAllTx(), salary, now: Date.parse('2026-07-26T12:00:00Z'), liveRegime });
+  assert.equal(r.verdict.regimeSource, 'live');
+  assert.equal(r.verdict.marketRegime, 'risk-off'); // il live vince sullo statico (che sul fixture era risk-on)
+  assert.equal(r.verdict.marketStaleDays, 0);
+  assert.ok(!r.verdict.message.includes('verifica un dato più recente')); // dato già fresco
+});
+
+test('investmentReadiness: senza liveRegime usa lo scatto statico come prima (nessuna regressione)', () => {
+  const salary = { dayOfMonth: 27, amount: 1800 };
+  const r = investmentReadiness({ allTx: richHistoryAllTx(), salary, now: Date.parse('2026-07-26T12:00:00Z') });
+  assert.equal(r.verdict.regimeSource, 'static');
+  assert.ok(r.verdict.marketStaleDays >= 0);
+});
+
+test('investmentReadiness: con newsItems reali aggiunge il layer sentiment e lo cita nel messaggio', () => {
+  const salary = { dayOfMonth: 27, amount: 1800 };
+  const newsItems = [{ sentimentScore: 0.4 }, { sentimentScore: 0.45 }, { sentimentScore: 0.5 }];
+  const r = investmentReadiness({ allTx: richHistoryAllTx(), salary, now: Date.parse('2026-07-26T12:00:00Z'), newsItems });
+  assert.equal(r.verdict.newsSentiment.label, 'bullish');
+  assert.ok(r.verdict.message.includes('notizie recenti'));
+  assert.ok(r.layers.some(l => l.name === 'news-sentiment' && l.ok));
+});
+
+test('investmentReadiness: senza newsItems il layer sentiment resta non disponibile, mai bloccante', () => {
+  const salary = { dayOfMonth: 27, amount: 1800 };
+  const r = investmentReadiness({ allTx: richHistoryAllTx(), salary, now: Date.parse('2026-07-26T12:00:00Z') });
+  assert.equal(r.verdict.newsSentiment, null);
+  assert.ok(r.layers.some(l => l.name === 'news-sentiment' && !l.ok));
 });

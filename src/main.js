@@ -54,6 +54,22 @@ import { cashForecast } from './predict/cash-forecast.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { investmentReadiness } from './ai/reasoning-fusion.js';
+import { detectRegime } from './alpha/regime.js';
+
+// Proxy noti per rilevare un regime LIVE (invece dello scatto statico
+// datato) quando l'utente ha già in portafoglio una posizione che traccia
+// indice/cripto — riusa la serie già scaricata da idleFetchPrices
+// (window.__liveSeries), nessuna chiamata di rete aggiuntiva qui.
+const LIVE_REGIME_PROXIES = { indice: ['SPY', 'VOO', 'IVV'], cripto: ['BTC', 'XBT'] };
+function detectLiveRegimeFor(assetKey) {
+  try {
+    const tickers = LIVE_REGIME_PROXIES[assetKey] || [];
+    const match = (VaultDAO.state.positions || []).find(p => tickers.includes((p.ticker || '').toUpperCase()));
+    const series = match && window.__liveSeries?.[match.ticker];
+    if (!series || series.length < 25) return null;
+    return detectRegime(series.map(pt => pt.close));
+  } catch (_) { return null; }
+}
 import { fetchLiveCryptoPrice, fetchLiveStockPrice, STOCK_PROVIDER_IDS } from './alpha/live-price.js';
 import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
@@ -4365,6 +4381,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
       commitments: VaultDAO.state.fixedCommitments || [],
       salary: resolveSalary(VaultDAO.state, VaultDAO.state.transactions),
       now: realNow.getTime(),
+      liveRegime: detectLiveRegimeFor('indice'),
     });
     if (ir.verdict && ir.verdict.canConsider && ir.verdict.personalSafeSurplus >= 50 && ir.verdict.marketStaleDays <= 60) {
       rawInsights.push({
@@ -5681,7 +5698,10 @@ function initMomentumRealAI() {
           if (winner) {
             await DurableStore.put('state', winner, key).catch(() => {});
             const last = winner.prices[winner.prices.length - 1];
-            if (last) (window.__livePrices = window.__livePrices || {})[sym] = last.close;
+            if (last) {
+              (window.__livePrices = window.__livePrices || {})[sym] = last.close;
+              (window.__liveSeries = window.__liveSeries || {})[sym] = winner.prices.slice(-30);
+            }
             updatedSymbols.push(sym);
           }
         }
@@ -5788,6 +5808,7 @@ function initMomentumRealAI() {
             const last = r.prices && r.prices[r.prices.length - 1];
             if (last && trainingEligible(r)) {
               (window.__livePrices = window.__livePrices || {})[p.ticker] = last.close;
+              (window.__liveSeries = window.__liveSeries || {})[p.ticker] = r.prices.slice(-30);
               shared[p.ticker] = { kind: assetKind, asOf: r.asOf, source: r.source, series: r.prices.slice(-30) };
             }
           } catch (_) {}

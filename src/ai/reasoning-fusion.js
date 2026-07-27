@@ -145,12 +145,37 @@ export function crossDomainWhatIf({ allTx, category, deltaPct, referenceDate = n
 import measuredAssumptions from '../alpha/measured-assumptions.js';
 import { cashFromTransactions } from '../alpha/net-worth.js';
 
+// Sentiment reale aggregato (src/alpha/news.js: ticker_sentiment_score per
+// articolo, -1..1). Layer INDIPENDENTE dal regime tecnico: due fatti diversi
+// (prezzo/volatilità vs cosa dicono le notizie) che possono anche non
+// concordare — combineConfidence li tratta come fonti separate, mai fuse a
+// forza in un unico numero. Onestà: sotto 3 articoli con punteggio reale la
+// confidenza resta bassa (troppo poco per un'aggregazione affidabile), mai
+// finta certezza da 1-2 titoli.
+export function aggregateNewsSentiment(items = []) {
+  const scored = items.filter((n) => Number.isFinite(n?.sentimentScore));
+  if (!scored.length) return null;
+  const avg = scored.reduce((s, n) => s + n.sentimentScore, 0) / scored.length;
+  const label = avg >= 0.35 ? 'bullish' : avg >= 0.15 ? 'somewhat-bullish' : avg <= -0.35 ? 'bearish' : avg <= -0.15 ? 'somewhat-bearish' : 'neutral';
+  return { score: +avg.toFixed(3), label, n: scored.length, confidence: Math.min(0.7, 0.2 + 0.1 * scored.length) };
+}
+
 export function investmentReadiness({
   allTx = {}, commitments = [], salary = null, now = Date.now(), assetKey = 'indice',
+  liveRegime = null, newsItems = null,
 } = {}) {
   const asset = assetKey === 'cripto' ? measuredAssumptions?.btc : measuredAssumptions?.spy;
-  const regimeInfo = asset?.regime || null;
-  const layers = [{ name: 'market-regime', ok: !!regimeInfo, confidence: regimeInfo ? 0.5 : 0 }];
+  // Regime LIVE (rilevato da src/alpha/regime.js sulla serie prezzi appena
+  // scaricata, vedi idleFetchPrices in main.js) prevale sullo scatto statico
+  // quando disponibile: più fresco, stessa fonte di verità (detectRegime),
+  // nessuna architettura parallela. `regimeSource` dichiara sempre quale dei
+  // due sta rispondendo — mai presentato come "live" se non lo è davvero.
+  const regimeInfo = liveRegime || asset?.regime || null;
+  const regimeSource = liveRegime ? 'live' : (asset?.regime ? 'static' : null);
+  const layers = [{ name: 'market-regime', ok: !!regimeInfo, confidence: regimeInfo ? (liveRegime ? 0.65 : 0.5) : 0 }];
+
+  const sentiment = aggregateNewsSentiment(newsItems || []);
+  layers.push({ name: 'news-sentiment', ok: !!sentiment, confidence: sentiment ? sentiment.confidence : 0 });
 
   // Il minimo PRUDENTE (Cassa Unica) fino al prossimo stipendio: quanto puoi
   // mettere via SENZA rischiare di restare a corto se spendi come al solito.
@@ -176,20 +201,25 @@ export function investmentReadiness({
 
   let verdict = null;
   if (regimeInfo && cash) {
-    const staleDays = Math.round((now - new Date(asset.fetchedAt).getTime()) / 86_400_000);
+    const marketAsOf = regimeSource === 'live' ? new Date(now).toISOString() : asset.fetchedAt;
+    const staleDays = regimeSource === 'live' ? 0 : Math.round((now - new Date(asset.fetchedAt).getTime()) / 86_400_000);
+    const freshnessNote = regimeSource === 'live' ? '' : `, ${staleDays} giorni fa — verifica un dato più recente`;
+    const sentimentNote = sentiment ? ` Le notizie recenti (${sentiment.n} fonti reali) sono ${sentiment.label === 'bullish' ? 'nettamente positive' : sentiment.label === 'somewhat-bullish' ? 'leggermente positive' : sentiment.label === 'bearish' ? 'nettamente negative' : sentiment.label === 'somewhat-bearish' ? 'leggermente negative' : 'neutre'}.` : '';
     verdict = {
       marketRegime: regimeInfo.regime,
-      marketAsOf: asset.fetchedAt,
+      marketAsOf,
       marketStaleDays: staleDays,
+      regimeSource,
+      newsSentiment: sentiment,
       personalSafeSurplus: cash.safeSurplus,
       canConsider: cash.safeSurplus > 0,
       message: cash.safeSurplus <= 0
         ? `Non hai un avanzo sicuro in questo momento (tolto ciò che il tuo ritmo di spesa userà nei prossimi 21 giorni): prima la tua liquidità, un eventuale investimento può aspettare.`
         : regimeInfo.regime === 'risk-on'
-          ? `Hai ${money(cash.safeSurplus)} che non ti serviranno nei prossimi 21 giorni, e il mercato (dato al ${dateOf(asset.fetchedAt)}, ${staleDays} giorni fa — verifica un dato più recente) era in fase favorevole. Nessuna garanzia, nessun consiglio d'acquisto: solo il quadro.`
+          ? `Hai ${money(cash.safeSurplus)} che non ti serviranno nei prossimi 21 giorni, e il mercato (dato al ${dateOf(marketAsOf)}${freshnessNote}) era in fase favorevole.${sentimentNote} Nessuna garanzia, nessun consiglio d'acquisto: solo il quadro.`
           : regimeInfo.regime === 'risk-off'
-            ? `Hai ${money(cash.safeSurplus)} di avanzo sicuro, ma il mercato (dato al ${dateOf(asset.fetchedAt)}, ${staleDays} giorni fa) era in fase debole/volatile: molti preferiscono aspettare stabilità, ma resta una scelta personale.`
-            : `Hai ${money(cash.safeSurplus)} di avanzo sicuro; il mercato (dato al ${dateOf(asset.fetchedAt)}) non mostrava una direzione chiara (né forte né debole).`,
+            ? `Hai ${money(cash.safeSurplus)} di avanzo sicuro, ma il mercato (dato al ${dateOf(marketAsOf)}${freshnessNote}) era in fase debole/volatile: molti preferiscono aspettare stabilità, ma resta una scelta personale.${sentimentNote}`
+            : `Hai ${money(cash.safeSurplus)} di avanzo sicuro; il mercato (dato al ${dateOf(marketAsOf)}${freshnessNote}) non mostrava una direzione chiara (né forte né debole).${sentimentNote}`,
     };
   }
 
