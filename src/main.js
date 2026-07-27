@@ -5489,7 +5489,7 @@ const initApp = () => {
     qaAnswer.innerHTML = `
       <p class="text-slate-400 mb-2.5">${localAnswer}</p>
       <div class="flex items-center gap-3">
-        <span class="qa-wait-orb"></span>
+        <span class="qa-wait-orb"><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-spark"></span></span>
         <div>
           <p class="text-violet-100 font-bold text-[13px]">Momo sta cercando la risposta</p>
           <p class="text-violet-400 text-[10px] mt-0.5">Fuori da Momentum, per te<span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>
