@@ -60,9 +60,30 @@ const askGroq = makeOpenAiCompatible('https://api.groq.com/openai/v1/chat/comple
 // ho conferma che il livello gratuito sia sempre disponibile — dichiarato,
 // l'utente verifica i costi sul proprio account prima di usarlo con continuità.
 const askDeepseek = makeOpenAiCompatible('https://api.deepseek.com/chat/completions', 'deepseek-chat', 'DeepSeek');
+// OpenAI: CORS verificato (2026-07-27). A PAGAMENTO A CONSUMO, nessun livello
+// gratuito — l'abbonamento ChatGPT Plus NON dà accesso API, sono fatturati
+// separatamente. Solo per chi ha già la fatturazione API attiva.
+const askOpenAI = makeOpenAiCompatible('https://api.openai.com/v1/chat/completions', 'gpt-4o-mini', 'OpenAI');
 
-export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek };
-const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek' };
+// Anthropic: CORS verificato (2026-07-27) MA richiede l'header esplicito
+// 'anthropic-dangerous-direct-browser-access' per accettare chiamate dirette
+// dal browser (altrimenti blocca per sicurezza — comportamento suo, non un
+// bug qui). A PAGAMENTO A CONSUMO come OpenAI: Claude Pro non include l'API.
+async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-haiku-20241022' }) {
+  const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model, max_tokens: 400, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: question }] }),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error?.message || `Anthropic: HTTP ${res.status}`);
+  const text = json?.content?.[0]?.text;
+  if (!text) throw new Error('Risposta vuota da Anthropic.');
+  return text.trim();
+}
+
+export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, openai: askOpenAI, anthropic: askAnthropic };
+const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' };
 
 export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, provider = 'gemini', model } = {}) {
   if (!question || !question.trim()) throw new Error('Serve una domanda.');
@@ -75,13 +96,14 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 
 // Fallback A CATENA (richiesto esplicitamente): prova ogni provider per cui
 // l'utente ha configurato una chiave, IN ORDINE, e si ferma al primo che
-// risponde. `keys` = { gemini?, groq?, deepseek? }. Se tutti falliscono,
-// rilancia l'ULTIMO errore reale (mai un errore generico che nasconde cosa
-// è successo davvero). `order` di default privilegia i provider con
-// livello gratuito CONFERMATO (Gemini, Groq) su quello da verificare (DeepSeek).
-export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'deepseek'] } = {}) {
+// risponde. `keys` = { gemini?, groq?, deepseek?, openai?, anthropic? }. Se
+// tutti falliscono, rilancia l'ULTIMO errore reale (mai un errore generico
+// che nasconde cosa è successo davvero). `order` di default: prima i
+// GRATUITI confermati (Gemini, Groq), poi quello da verificare (DeepSeek),
+// infine i due A PAGAMENTO (OpenAI, Anthropic) — solo per chi li ha già.
+export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic'] } = {}) {
   const attempts = order.filter((p) => keys[p]);
-  if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata (Gemini/Groq/DeepSeek).');
+  if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;
   for (const provider of attempts) {
     try {

@@ -2955,6 +2955,16 @@ const API_KEY_GUIDES = {
     url: 'https://platform.deepseek.com/api_keys',
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account', 'Vai su "API keys" e creane una', 'Copia il codice e torna qui — verifica tu i costi sul tuo account'],
   },
+  openai: {
+    title: 'Chat generica — OpenAI (a pagamento)',
+    url: 'https://platform.openai.com/api-keys',
+    steps: ['A PAGAMENTO A CONSUMO: l\'abbonamento ChatGPT Plus non include questo, è fatturato separatamente', 'Apri il sito (si apre in una scheda nuova)', 'Crea una chiave API e imposta un metodo di pagamento', 'Copia il codice e torna qui'],
+  },
+  anthropic: {
+    title: 'Chat generica — Anthropic/Claude (a pagamento)',
+    url: 'https://console.anthropic.com/settings/keys',
+    steps: ['A PAGAMENTO A CONSUMO: l\'abbonamento Claude Pro non include questo, è fatturato separatamente', 'Apri il sito (si apre in una scheda nuova)', 'Crea una chiave API e imposta un metodo di pagamento', 'Copia il codice e torna qui'],
+  },
 };
 window.openApiKeyGuide = (provider) => {
   const g = API_KEY_GUIDES[provider];

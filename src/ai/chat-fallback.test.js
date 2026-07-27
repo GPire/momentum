@@ -60,6 +60,18 @@ test('askCloudFallbackChain: tutti i provider falliscono -> rilancia l\'ULTIMO e
   await assert.rejects(() => askCloudFallbackChain('ciao', { keys: { gemini: 'g' }, fetchImpl }), /server error/);
 });
 
+test('askCloudFallback: OpenAI -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Hi from GPT' } }] }) });
+  const r = await askCloudFallback('hi', { apiKey: 'k', provider: 'openai', fetchImpl });
+  assert.equal(r.answer, 'Hi from GPT');
+});
+
+test('askCloudFallback: Anthropic -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ content: [{ text: 'Hi from Claude' }] }) });
+  const r = await askCloudFallback('hi', { apiKey: 'k', provider: 'anthropic', fetchImpl });
+  assert.equal(r.answer, 'Hi from Claude');
+});
+
 test('askCloudFallbackChain: usa SOLO i provider per cui esiste una chiave', async () => {
   const calls = [];
   const fetchImpl = async (url) => { calls.push(url); return { ok: true, json: async () => ({ choices: [{ message: { content: 'ok' } }] }) }; };
