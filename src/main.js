@@ -5393,7 +5393,7 @@ function renderInstallGuide() {
   }
   doneEl?.classList.add('hidden');
   stepsEl.innerHTML = steps.map((s, i) => `
-    <div class="flex items-start gap-3">
+    <div class="flex items-start gap-3 install-step-in">
       <div class="w-7 h-7 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-xs">${i + 1}</div>
       <div class="flex items-center gap-2 flex-1 min-w-0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)] shrink-0">${INSTALL_ICON_SVG[s.icon] || INSTALL_ICON_SVG.info}</svg>

@@ -13,6 +13,23 @@ function detectOS(ua) {
   return 'altro';
 }
 
+// Browser "in-app" (WebView di un'altra app: Instagram/Facebook/TikTok/
+// WhatsApp/LinkedIn) — motivo REALE e frequente per cui "non riesco a
+// installarla" da un link condiviso: quella finestra non è un vero
+// Safari/Chrome, è una vista integrata SENZA la funzione di installazione,
+// qualunque sia il sistema operativo sotto. Va detto subito e chiaramente,
+// mai lasciato scoprire dopo passi che non funzionano.
+function detectInAppBrowser(ua) {
+  if (/Instagram/.test(ua)) return 'Instagram';
+  if (/FBAN|FBAV|FB_IAB/.test(ua)) return 'Facebook';
+  if (/BytedanceWebview|musical_ly|TikTok/.test(ua)) return 'TikTok';
+  if (/\bLine\//.test(ua)) return 'LINE';
+  if (/LinkedInApp/.test(ua)) return 'LinkedIn';
+  if (/Twitter/.test(ua)) return 'X/Twitter';
+  if (/WhatsApp/.test(ua)) return 'WhatsApp';
+  return null;
+}
+
 function detectBrowser(ua) {
   if (/EdgiOS|EdgA|Edg\//.test(ua)) return 'edge';
   if (/CriOS|Chrome\//.test(ua) && !/Edg|OPR|SamsungBrowser/.test(ua)) return 'chrome';
@@ -27,21 +44,39 @@ function detectBrowser(ua) {
 export function detectPlatform(userAgent = '', { standalone = false } = {}) {
   const os = detectOS(userAgent);
   const browser = detectBrowser(userAgent);
+  const inAppBrowser = detectInAppBrowser(userAgent);
   // beforeinstallprompt (installazione con un tap) esiste SOLO su Chrome/
   // Edge/Samsung Internet su Android e desktop — mai su iOS/Safari (Apple
   // non lo supporta, richiede sempre i passi manuali) — dichiarato onestamente,
-  // mai un pulsante "Installa" che poi non fa nulla su iOS.
-  const supportsNativePrompt = (os === 'android' || os === 'windows' || os === 'mac')
+  // mai un pulsante "Installa" che poi non fa nulla su iOS. Un browser
+  // in-app non lo supporta MAI, qualunque sia l'OS sotto.
+  const supportsNativePrompt = !inAppBrowser && (os === 'android' || os === 'windows' || os === 'mac')
     && ['chrome', 'edge', 'samsung'].includes(browser);
-  return { os, browser, standalone, supportsNativePrompt };
+  return { os, browser, inAppBrowser, standalone, supportsNativePrompt };
 }
 
 // Passi in linguaggio semplice, un'azione per riga. `icon` è una chiave
 // testuale (share/menu/plus/home) che la UI traduce in un'icona reale — mai
 // testo tecnico ("tocca l'ellissi"), sempre concreto ("tocca i tre puntini").
 export function installSteps(platform) {
-  const { os, browser, standalone } = platform;
+  const { os, browser, standalone, inAppBrowser } = platform;
   if (standalone) return { title: 'App già installata', steps: [] };
+
+  // PRIORITÀ ASSOLUTA: un browser in-app (aperto da un link dentro
+  // Instagram/Facebook/TikTok/WhatsApp/LinkedIn/X) non può installare NULLA,
+  // su nessun sistema operativo — è la causa REALE più comune di "non ci
+  // riesco" segnalata dagli utenti. Va detto PRIMA di qualunque altro passo,
+  // mai lasciato scoprire dopo passi che falliscono silenziosamente.
+  if (inAppBrowser) {
+    return {
+      title: `Sei dentro ${inAppBrowser}, non in un browser vero`,
+      steps: [
+        { icon: 'info', text: `${inAppBrowser} apre i link in una finestra sua, senza la funzione "Installa": è la causa più comune di "non ci riesco"` },
+        { icon: 'menu', text: os === 'ios' ? 'Tocca i tre puntini (o Condividi) in alto e scegli "Apri in Safari"' : 'Tocca i tre puntini in alto e scegli "Apri nel browser" (Chrome)' },
+        { icon: 'home', text: 'Da lì la guida qui sotto funzionerà davvero' },
+      ],
+    };
+  }
 
   if (os === 'ios') {
     if (browser === 'safari') {
@@ -49,7 +84,7 @@ export function installSteps(platform) {
         title: 'Installa su iPhone/iPad (Safari)',
         steps: [
           { icon: 'share', text: 'Tocca l\'icona Condividi (il quadrato con la freccia verso l\'alto), in basso al centro' },
-          { icon: 'plus', text: 'Scorri e tocca "Aggiungi a Home"' },
+          { icon: 'plus', text: 'Scorri l\'elenco (a volte serve scorrere parecchio) e tocca "Aggiungi a Home"' },
           { icon: 'home', text: 'Tocca "Aggiungi": l\'icona di Momentum apparirà sulla schermata Home' },
         ],
       };

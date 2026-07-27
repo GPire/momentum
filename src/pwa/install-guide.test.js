@@ -11,6 +11,8 @@ const UA = {
   macSafari: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
   windowsEdge: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36 Edg/128.0',
   macFirefox: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0',
+  iosInstagram: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 300.0.0.0.0',
+  androidFacebook: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/450.0.0.0]',
 };
 
 test('detectPlatform: iPhone Safari → ios/safari, nessun prompt nativo (Apple non lo supporta)', () => {
@@ -41,6 +43,25 @@ test('detectPlatform: Android Firefox → nessun prompt nativo (solo Chromium lo
 test('detectPlatform: già installata (standalone) → dichiarato, mai riproposto', () => {
   const p = detectPlatform(UA.androidChrome, { standalone: true });
   assert.equal(p.standalone, true);
+});
+
+test('detectPlatform: browser in-app (Instagram) → rilevato, mai un prompt nativo finto', () => {
+  const p = detectPlatform(UA.iosInstagram);
+  assert.equal(p.inAppBrowser, 'Instagram');
+  assert.equal(p.supportsNativePrompt, false);
+});
+
+test('detectPlatform: browser in-app (Facebook su Android) → rilevato anche se Chrome sotto', () => {
+  const p = detectPlatform(UA.androidFacebook);
+  assert.equal(p.inAppBrowser, 'Facebook');
+  assert.equal(p.supportsNativePrompt, false); // mai un pulsante Installa che qui non funzionerebbe
+});
+
+test('installSteps: browser in-app → dice PRIMA di tutto di aprire in un browser vero, causa reale più comune di "non ci riesco"', () => {
+  const p = detectPlatform(UA.iosInstagram);
+  const r = installSteps(p);
+  assert.ok(/Instagram/.test(r.title));
+  assert.ok(r.steps.some(s => /Safari/.test(s.text)));
 });
 
 test('installSteps: già installata → nessun passo, mai una guida inutile', () => {
