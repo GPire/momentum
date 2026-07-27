@@ -5870,8 +5870,20 @@ const initApp = () => {
   // reale del cloud — principio Duo: la celebrazione arriva a fine compito,
   // mai a interrompere. Le risposte locali (styleQaAnswer) sono istantanee,
   // senza attesa vera: niente pop lì, sarebbe fronzolo senza motivo (Clippy).
+  // BUG REALE segnalato dall'utente: la risposta cloud mostrava sempre
+  // "Gemini" a prescindere dal provider che aveva davvero risposto — questa
+  // mappa non era mai stata aggiornata con i 7 provider aggiunti stasera
+  // (xai/mistral/openrouter/cerebras/qwen/moonshot/glm), quindi per quelli
+  // sarebbe comunque comparso l'id grezzo, non "Gemini" — la causa reale di
+  // "sempre Gemini" è quasi certamente la cache del service worker (vedi
+  // sw.js) che serviva ancora il bundle precedente ai fix di stasera.
   function showQaCloudAnswer(answer, provider) {
-    const label = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' }[provider] || provider;
+    const label = {
+      gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', mistral: 'Mistral',
+      openrouter: 'OpenRouter', cerebras: 'Cerebras', qwen: 'Qwen',
+      moonshot: 'Moonshot AI', glm: 'GLM (Zhipu)', xai: 'xAI',
+      openai: 'OpenAI', anthropic: 'Anthropic',
+    }[provider] || provider;
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-100';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
