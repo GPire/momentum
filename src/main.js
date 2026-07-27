@@ -5423,12 +5423,47 @@ const initApp = () => {
   const qaInput = $('#qa-input');
   const qaSend = $('#qa-send');
   const qaAnswer = $('#qa-answer');
+  // Colora la risposta secondo il TIPO di risultato (mai un paragrafo
+  // anonimo): ambra = attenzione (oltre budget/indietro sull'obiettivo/
+  // sforamento previsto), verde = buona notizia (in linea/risparmio
+  // positivo), blu = informativo neutro. Stesso linguaggio cromatico già
+  // usato nel resto dell'app (radar/insight), non un'invenzione isolata.
+  function styleQaAnswer(res) {
+    const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
+    const good = res?.data?.onTrack === true || (typeof res?.data?.net === 'number' && res.data.net >= 0);
+    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + (warn ? 'bg-amber-950/20 border border-amber-500/25 text-amber-200' : good ? 'bg-emerald-950/20 border border-emerald-500/20 text-emerald-200' : 'bg-sky-950/15 border border-sky-500/20 text-sky-100');
+  }
+  // Chip di suggerimento DINAMICI: scelti in base a cosa esiste DAVVERO nei
+  // dati dell'utente (mai una lista identica per tutti) — chi non sa cosa
+  // chiedere tocca invece di scrivere. Multilingua: seguono la lingua del
+  // dispositivo (isItalianDevice già usato altrove in main.js).
+  function renderQaSuggestions() {
+    const box = $('#qa-suggestions');
+    if (!box) return;
+    const chips = [];
+    const goals = VaultDAO.state.savingsGoals || [];
+    if (goals[0]) chips.push(`${isItalianDevice() ? 'come va il mio obiettivo' : "how's my goal"} ${goals[0].name}?`);
+    chips.push(isItalianDevice() ? 'quanto posso spendere oggi?' : 'how much can I spend today?');
+    chips.push(isItalianDevice() ? 'dove spendo di più?' : 'where do I spend the most?');
+    chips.push(isItalianDevice() ? 'quali abbonamenti pago?' : 'what subscriptions do I pay?');
+    const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    box.innerHTML = chips.map(c => `<button class="qa-chip text-[10px] px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,0.05)" data-question="${esc(c)}">${esc(c)}</button>`).join('');
+    // Delegato, mai onclick inline: un nome di obiettivo con un apostrofo
+    // (es. "L'auto nuova") romperebbe un onclick="..." costruito a mano —
+    // bug reale trovato verificando dal vivo (SyntaxError in console).
+    box.querySelectorAll('.qa-chip').forEach(btn => btn.addEventListener('click', () => {
+      qaInput.value = btn.dataset.question;
+      qaSend.click();
+    }));
+  }
+  renderQaSuggestions();
   if (qaInput && qaSend && qaAnswer) {
     const ask = async () => {
       const question = qaInput.value.trim();
       if (!question) return;
       const res = askMomentum(question);
       qaAnswer.textContent = res.answer;
+      styleQaAnswer(res);
       qaAnswer.classList.remove('hidden');
       haptic('light');
       const keys = VaultDAO.state.liveDataKeys || {};

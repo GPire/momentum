@@ -923,14 +923,22 @@
             <div id="split-reminder" class="shrink-0 hidden"></div>
 
             <!-- Chiedi a Momentum (src/ai/qa-engine.js): risposte calcolate
-                 sui dati veri dell'utente, on-device, anche offline -->
+                 sui dati veri dell'utente, on-device, anche offline, in 5
+                 lingue. Chip di suggerimento DINAMICI (main.js li sceglie in
+                 base a cosa esiste davvero nei dati — mai una lista fissa
+                 uguale per tutti) per chi non sa cosa chiedere: tocco,
+                 zero digitazione. Risposta colorata secondo il tipo di
+                 risultato (verde=buona notizia, ambra=attenzione, blu=info)
+                 invece di un paragrafo anonimo. -->
             <div class="card p-4 sm:p-5 shrink-0">
+              <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg>Chiedi a Momentum</h3>
               <div class="flex gap-2">
                 <input id="qa-input" type="text" enterkeyhint="send" placeholder='Chiedi: "quanto posso spendere oggi?"'
                        class="flex-grow bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0" />
                 <button id="qa-send" class="btn-action px-4 shrink-0" aria-label="Chiedi">→</button>
               </div>
-              <p id="qa-answer" class="text-xs text-slate-300 mt-3 hidden"></p>
+              <div id="qa-suggestions" class="flex flex-wrap gap-1.5 mt-2.5"></div>
+              <div id="qa-answer" class="text-xs mt-3 hidden p-3 rounded-xl"></div>
             </div>
 
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 shrink-0">
