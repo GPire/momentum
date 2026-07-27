@@ -2984,6 +2984,17 @@ window.openCommitmentsManager = (onDone = null) => {
 // resto del vault): nessun server Momentum esiste a cui inviarla. Le cripto
 // non ne hanno bisogno (CoinGecko è aperto); azioni/indici sì, perché
 // Yahoo/Stooq bloccano le chiamate dirette dal browser (verificato CORS).
+// Un pallino verde/grigio invece di un paragrafo che appariva SOLO a chiave
+// già salvata (altrimenti restava vuoto — nessun modo di capire a colpo
+// d'occhio quali dei 5 provider mancano ancora di essere configurati).
+function renderKeyStatusDot(elId, provider) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const key = VaultDAO.state.liveDataKeys?.[provider];
+  el.innerHTML = key
+    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>Chiave salvata (${maskKey(key)}). Tocca "Guida" per cambiarla.`
+    : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-600 mr-1"></span>Non ancora configurata.`;
+}
 window.saveLiveDataKey = (provider) => {
   const input = document.getElementById(`${provider}-key-input`);
   // Ogni provider ha il proprio elemento di stato (alphavantage usa
@@ -2996,7 +3007,7 @@ window.saveLiveDataKey = (provider) => {
   VaultDAO.state.liveDataKeys = { ...(VaultDAO.state.liveDataKeys || {}), [provider]: value };
   VaultDAO.save();
   if (input) input.value = '';
-  if (status) status.textContent = 'Chiave salvata su questo dispositivo. I prezzi si aggiorneranno in background.';
+  if (status) status.innerHTML = '<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>Chiave salvata su questo dispositivo. I prezzi si aggiorneranno in background.';
   showToast('Chiave salvata.', 'success');
   try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
 };
@@ -3226,26 +3237,11 @@ function initTelemetryToggle() {
   const langSel = document.getElementById('qa-language-select');
   if (langSel) langSel.value = VaultDAO.state.qaLanguageOverride && QA_SUPPORTED_LANGS.includes(VaultDAO.state.qaLanguageOverride) ? VaultDAO.state.qaLanguageOverride : '';
   renderChatProviderStatus();
-  const lpStatus = document.getElementById('live-price-status');
-  if (lpStatus && VaultDAO.state.liveDataKeys?.alphavantage) {
-    lpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.alphavantage)}). Tocca "Guida" per cambiarla.`;
-  }
-  const tdStatus = document.getElementById('twelvedata-status');
-  if (tdStatus && VaultDAO.state.liveDataKeys?.twelvedata) {
-    tdStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.twelvedata)}). Tocca "Guida" per cambiarla.`;
-  }
-  const fmpStatus = document.getElementById('fmp-status');
-  if (fmpStatus && VaultDAO.state.liveDataKeys?.fmp) {
-    fmpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.fmp)}). Tocca "Guida" per cambiarla.`;
-  }
-  const finnhubStatus = document.getElementById('finnhub-status');
-  if (finnhubStatus && VaultDAO.state.liveDataKeys?.finnhub) {
-    finnhubStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.finnhub)}). Tocca "Guida" per cambiarla.`;
-  }
-  const newsapiStatus = document.getElementById('newsapi-status');
-  if (newsapiStatus && VaultDAO.state.liveDataKeys?.newsapi) {
-    newsapiStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.newsapi)}). Tocca "Guida" per cambiarla.`;
-  }
+  renderKeyStatusDot('live-price-status', 'alphavantage');
+  renderKeyStatusDot('twelvedata-status', 'twelvedata');
+  renderKeyStatusDot('fmp-status', 'fmp');
+  renderKeyStatusDot('finnhub-status', 'finnhub');
+  renderKeyStatusDot('newsapi-status', 'newsapi');
 }
 
 // Prima non si capiva se una chiave era già salvata (segnalato dall'utente:
@@ -5722,26 +5718,11 @@ const navigate = (view) => {
     // (esattamente il bug segnalato dall'utente). Ri-renderizzare ad ogni
     // apertura della vista Impostazioni lo tiene sempre corretto.
     renderChatProviderStatus();
-    const lpStatus = document.getElementById('live-price-status');
-    if (lpStatus && VaultDAO.state.liveDataKeys?.alphavantage) {
-      lpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.alphavantage)}). Tocca "Guida" per cambiarla.`;
-    }
-    const tdStatus = document.getElementById('twelvedata-status');
-    if (tdStatus && VaultDAO.state.liveDataKeys?.twelvedata) {
-      tdStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.twelvedata)}). Tocca "Guida" per cambiarla.`;
-    }
-    const fmpStatus = document.getElementById('fmp-status');
-    if (fmpStatus && VaultDAO.state.liveDataKeys?.fmp) {
-      fmpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.fmp)}). Tocca "Guida" per cambiarla.`;
-    }
-    const finnhubStatus = document.getElementById('finnhub-status');
-    if (finnhubStatus && VaultDAO.state.liveDataKeys?.finnhub) {
-      finnhubStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.finnhub)}). Tocca "Guida" per cambiarla.`;
-    }
-    const newsapiStatus = document.getElementById('newsapi-status');
-    if (newsapiStatus && VaultDAO.state.liveDataKeys?.newsapi) {
-      newsapiStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.newsapi)}). Tocca "Guida" per cambiarla.`;
-    }
+    renderKeyStatusDot('live-price-status', 'alphavantage');
+    renderKeyStatusDot('twelvedata-status', 'twelvedata');
+    renderKeyStatusDot('fmp-status', 'fmp');
+    renderKeyStatusDot('finnhub-status', 'finnhub');
+    renderKeyStatusDot('newsapi-status', 'newsapi');
     renderCloudFallbackLogPanel();
   }
   function renderCloudFallbackLogPanel() {
