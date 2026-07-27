@@ -5929,9 +5929,17 @@ const initApp = () => {
   // sono il massimo/minimo REALI per anno solare (yearlyExtremes) — MAI un
   // "motivo" narrativo: non abbiamo un archivio di notizie storiche, quindi
   // non fingiamo di sapere perché un picco di anni fa sia avvenuto.
+  // RIDISEGNATO (feedback esplicito dell'utente: "il grafico è troppo
+  // difficile da comprendere in quel modo" — la vecchia versione elencava
+  // OGNI anno in testo, es. 46 righe per Apple dal 1980: illeggibile,
+  // contro il principio "comprensibile a un bambino di 8 anni"). Ora: solo
+  // 2 marcatori sul grafico (massimo/minimo storico ASSOLUTI, non uno per
+  // anno), grafico più grande, e un riepilogo "a colpo d'occhio" con 3
+  // numeri chiave invece di una lista — miglior/peggior anno restano MA
+  // come UNA riga sola, non 46.
   function buildAssetHistoryChart(series, extremes) {
     if (!series.length) return '';
-    const W = 300, H = 90, PAD = 4;
+    const W = 320, H = 130, PAD = 6;
     const prices = series.map(p => p.price);
     const minP = Math.min(...prices), maxP = Math.max(...prices);
     const span = maxP - minP || 1;
@@ -5939,25 +5947,41 @@ const initApp = () => {
     const y = (p) => H - PAD - ((p - minP) / span) * (H - PAD * 2);
     const points = series.map((p, i) => ({ x: x(i), y: y(p.price) }));
     const path = catmullRomPath(points);
-    const idxByDate = new Map(series.map((p, i) => [p.date, i]));
-    const markers = extremes.flatMap(e => {
-      const out = [];
-      if (idxByDate.has(e.max.date)) out.push({ ...e.max, i: idxByDate.get(e.max.date), kind: 'max' });
-      if (idxByDate.has(e.min.date)) out.push({ ...e.min, i: idxByDate.get(e.min.date), kind: 'min' });
-      return out;
-    });
-    const markersHtml = markers.map(m => `<circle cx="${x(m.i).toFixed(1)}" cy="${y(m.price).toFixed(1)}" r="2.2" fill="${m.kind === 'max' ? '#34d399' : '#fb7185'}"/>`).join('');
-    const legend = extremes.map(e => `<div>${e.year}: picco ${e.max.price.toFixed(0)} (${e.max.date}) · minimo ${e.min.price.toFixed(0)} (${e.min.date})${Number.isFinite(e.changePct) ? ` · ${e.changePct >= 0 ? '+' : ''}${e.changePct.toFixed(0)}%` : ''}</div>`).join('');
+    // Solo i due estremi ASSOLUTI di tutta la serie (mai uno per anno): un
+    // grafico con 46 pallini è rumore, non informazione.
+    let hiIdx = 0, loIdx = 0;
+    series.forEach((p, i) => { if (p.price > series[hiIdx].price) hiIdx = i; if (p.price < series[loIdx].price) loIdx = i; });
+    const hi = series[hiIdx], lo = series[loIdx];
+    const markersHtml = `
+      <circle cx="${x(hiIdx).toFixed(1)}" cy="${y(hi.price).toFixed(1)}" r="3" fill="#34d399"/>
+      <circle cx="${x(loIdx).toFixed(1)}" cy="${y(lo.price).toFixed(1)}" r="3" fill="#fb7185"/>`;
+    const last = series[series.length - 1];
+    const fromPeakPct = hi.price > 0 ? ((last.price - hi.price) / hi.price) * 100 : null;
+    // Miglior/peggior anno: UNA riga sola (non una per anno) — sceglie i
+    // due estremi reali già calcolati da yearlyExtremes, mai un'invenzione.
+    const withPct = extremes.filter(e => Number.isFinite(e.changePct));
+    const best = withPct.length ? withPct.reduce((a, b) => b.changePct > a.changePct ? b : a) : null;
+    const worst = withPct.length ? withPct.reduce((a, b) => b.changePct < a.changePct ? b : a) : null;
+    const stat = (label, value, color) => `<div class="flex-1 min-w-0"><div class="text-[8px] text-slate-500 uppercase tracking-wide truncate">${label}</div><div class="text-[11px] font-bold truncate" style="color:${color}">${value}</div></div>`;
+    const stats = `<div class="flex gap-3 mt-2">
+      ${stat('Massimo storico', `${hi.price.toFixed(0)} (${hi.date.slice(0, 4)})`, '#34d399')}
+      ${stat('Minimo storico', `${lo.price.toFixed(0)} (${lo.date.slice(0, 4)})`, '#fb7185')}
+      ${fromPeakPct !== null ? stat('Oggi vs massimo', `${fromPeakPct >= 0 ? '+' : ''}${fromPeakPct.toFixed(0)}%`, fromPeakPct >= 0 ? '#34d399' : '#fbbf24') : ''}
+    </div>`;
+    const yearNote = (best && worst && best.year !== worst.year)
+      ? `<p class="text-[9px] text-slate-500 mt-1.5">Miglior anno: ${best.year} (${best.changePct >= 0 ? '+' : ''}${best.changePct.toFixed(0)}%) · Peggior anno: ${worst.year} (${worst.changePct >= 0 ? '+' : ''}${worst.changePct.toFixed(0)}%)</p>`
+      : '';
     return `
       <div class="qa-cloud-block mt-1.5">
-        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-16" aria-hidden="true">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-24" aria-hidden="true">
           <path d="${path} L${x(series.length - 1).toFixed(1)},${H} L${x(0).toFixed(1)},${H} Z" fill="url(#qaHistGrad)" opacity="0.25"/>
-          <path d="${path}" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="${path}" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
           ${markersHtml}
           <defs><linearGradient id="qaHistGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
         </svg>
-        <div class="text-[9px] text-slate-500 mt-1 space-y-0.5">${legend}</div>
-        <p class="text-[9px] text-slate-500 mt-1">Verde/rosso = picco/minimo reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette (uno storico più lungo servirebbe un piano a pagamento). Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
+        ${stats}
+        ${yearNote}
+        <p class="text-[9px] text-slate-500 mt-1.5">Verde/rosso = massimo/minimo storico reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette. Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
       </div>`;
   }
   function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote) {
