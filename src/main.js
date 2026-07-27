@@ -5354,6 +5354,13 @@ const navigate = (view) => {
     btn.classList.toggle('bg-[var(--primary)]/10', active);
     btn.classList.toggle('text-[var(--on-surface-secondary)]', !active);
   });
+  // Ricalcolo ad ogni apertura della Dashboard (richiesto esplicitamente:
+  // "non essere sempre le stesse") — non solo all'avvio dell'app.
+  // window.renderQaSuggestions (non la funzione diretta): navigate() vive
+  // fuori dalla closure di initApp, dove la funzione è definita — stesso
+  // bug di scope già trovato e corretto per fetchAssetNewsCascade più
+  // sotto in questo file; qui esposta su window per lo stesso motivo.
+  if (view === 'dashboard') window.renderQaSuggestions?.();
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
     renderTaxSettings(); renderBrakeDesc();
@@ -6299,19 +6306,50 @@ const initApp = () => {
     });
     replayQaAnimation();
   }
-  // Chip di suggerimento DINAMICI: scelti in base a cosa esiste DAVVERO nei
-  // dati dell'utente (mai una lista identica per tutti) — chi non sa cosa
-  // chiedere tocca invece di scrivere. Multilingua: seguono la lingua del
-  // dispositivo (isItalianDevice già usato altrove in main.js).
+  // Chip di suggerimento DINAMICI E ROTANTI (richiesto esplicitamente: "non
+  // essere sempre le stesse così l'utente può capire cosa chiedere e fare"):
+  // un pool ampio di domande REALI (ogni intent qui elencato esiste davvero
+  // in qa-engine.js — mai una domanda-esca che poi cade su "non lo so
+  // ancora"), filtrato da cosa esiste nei dati dell'utente, poi mescolato e
+  // troncato a un numero fisso — così ad ogni apertura della Dashboard
+  // l'utente scopre capacità diverse invece di vedere sempre le stesse 4
+  // domande. Multilingua: seguono la lingua del dispositivo.
+  function shuffledSample(arr, n) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, n);
+  }
   function renderQaSuggestions() {
     const box = $('#qa-suggestions');
     if (!box) return;
-    const chips = [];
+    const it = isItalianDevice();
+    const always = [];
     const goals = VaultDAO.state.savingsGoals || [];
-    if (goals[0]) chips.push(`${isItalianDevice() ? 'come va il mio obiettivo' : "how's my goal"} ${goals[0].name}?`);
-    chips.push(isItalianDevice() ? 'quanto posso spendere oggi?' : 'how much can I spend today?');
-    chips.push(isItalianDevice() ? 'dove spendo di più?' : 'where do I spend the most?');
-    chips.push(isItalianDevice() ? 'quali abbonamenti pago?' : 'what subscriptions do I pay?');
+    if (goals[0]) always.push(`${it ? 'come va il mio obiettivo' : "how's my goal"} ${goals[0].name}?`);
+    const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
+    if (salary) always.push(it ? 'quando mi pagano?' : 'when do I get paid?');
+    const hasInvestments = (VaultDAO.state.positions || []).length > 0 || (VaultDAO.state.manualAssets || []).length > 0;
+    // Pool ampio: ogni voce corrisponde a un intent reale in qa-engine.js —
+    // se non risponde con dati veri risponde onestamente "non lo so ancora",
+    // ma non è mai una frase decorativa senza motore dietro.
+    const pool = [
+      it ? 'quanto posso spendere oggi?' : 'how much can I spend today?',
+      it ? 'dove spendo di più?' : 'where do I spend the most?',
+      it ? 'quali abbonamenti pago?' : 'what subscriptions do I pay?',
+      it ? 'come chiudo il mese?' : 'how will I end the month?',
+      it ? 'quanto ho risparmiato?' : 'how much have I saved?',
+      it ? 'quanto vale il mio patrimonio?' : "what's my net worth?",
+      it ? 'quanto posso investire?' : 'how much can I invest?',
+      it ? 'quanto devo ancora a rate?' : 'how much do I still owe in installments?',
+      it ? 'perché ho speso di più questo mese?' : 'why did I spend more this month?',
+      it ? 'quanto vale bitcoin?' : "what's bitcoin worth?",
+      it ? 'notizie su Apple' : 'news on Apple',
+      it ? 'posso permettermi 50€?' : 'can I afford 50€?',
+    ].filter(c => hasInvestments || !/patrimonio|net worth/.test(c));
+    const chips = [...always, ...shuffledSample(pool, 5 - always.length)];
     const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     box.innerHTML = chips.map(c => `<button class="qa-chip text-[10px] px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,0.05)" data-question="${esc(c)}">${esc(c)}</button>`).join('');
     // Delegato, mai onclick inline: un nome di obiettivo con un apostrofo
@@ -6322,6 +6360,7 @@ const initApp = () => {
       qaSend.click();
     }));
   }
+  window.renderQaSuggestions = renderQaSuggestions;
   renderQaSuggestions();
   if (qaInput && qaSend && qaAnswer) {
     const ask = async () => {
