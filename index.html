@@ -290,7 +290,10 @@
        solito ingresso lineare usato ovunque — deve leggersi come un
        elemento di stato temporaneo, non come una card qualunque. */
     @keyframes privacyPillIn { 0% { opacity: 0; transform: translateY(14px) scale(.88); } 65% { opacity: 1; transform: translateY(-3px) scale(1.04); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-    body.privacy-mode #privacy-reveal-banner { display: flex; animation: privacyPillIn .46s cubic-bezier(.34,1.56,.64,1) both; }
+    body.privacy-mode #privacy-reveal-banner { display: flex; animation: privacyPillIn .46s cubic-bezier(.34,1.56,.64,1) both, privacyPillBreathe 3s ease-in-out .5s infinite; }
+    /* Stesso respiro morbido già usato per il bottone "Installa ora" —
+       segnala "c'è qualcosa da fare qui" senza essere invadente. */
+    @keyframes privacyPillBreathe { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 22%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 0%, transparent); } }
     /* Su mobile la bottom-nav (85px) + il pulsante "+" flottante (che sporge
        1.75rem sopra la nav, -top-7 su #mobile-add-btn) occupano insieme
        fino a 113px dal fondo dello schermo — verificato dal vivo misurando
@@ -1015,10 +1018,16 @@
   <!-- Pill "rivela": fuori da <main>, quindi mai sfocata — piccola e in un
        angolo, non blocca la schermata: puoi comunque mostrare a qualcuno
        come usi l'app, solo le cifre restano sfocate finché non tocchi qui. -->
+  <!-- Stesso linguaggio visivo dei badge icona colorati usati per gli alert
+       (insightCardHeader) e dei colori/superfici del tema — prima era un
+       bg-black/80 fisso: in tema chiaro spiccava come un blob nero scuro
+       identico in entrambi i temi, per niente integrato col resto dell'app. -->
   <button id="privacy-reveal-banner" onclick="window.togglePrivacyMode()"
-    class="hidden fixed inset-x-0 z-[70] mx-auto w-fit items-center gap-2 px-4 py-2 rounded-full bg-black/80 backdrop-blur-md border border-white/10 shadow-xl">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white shrink-0"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.8 21.8 0 015.06-6.06M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a21.75 21.75 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg>
-    <span class="text-[12px] font-bold text-white">Numeri nascosti — tocca per rivederli</span>
+    class="hidden fixed inset-x-0 z-[70] mx-auto w-fit items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-[var(--surface-elevated)] backdrop-blur-xl border border-[var(--glass-border)] shadow-xl">
+    <span class="w-6 h-6 rounded-full bg-[color-mix(in_srgb,var(--primary)_16%,transparent)] flex items-center justify-center shrink-0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[var(--primary)]"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.8 21.8 0 015.06-6.06M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a21.75 21.75 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+    </span>
+    <span class="text-[12px] font-bold text-[var(--on-surface)]">Numeri nascosti — tocca per rivederli</span>
   </button>
 
   <div id="app-core" class="hidden opacity-0 flex flex-col md:flex-row min-h-screen w-full relative">
