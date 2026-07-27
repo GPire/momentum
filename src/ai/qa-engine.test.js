@@ -38,6 +38,57 @@ test('quanto ho speso questo mese', () => {
   assert.ok(r.answer.includes('180,00€'));
 });
 
+// ── Bilingue: le stesse domande in inglese, stessi intent, risposta in inglese ──
+test('English: "how much have I spent this month?" → stesso intent, risposta in inglese', () => {
+  const r = answerQuestion('How much have I spent this month?', CTX);
+  assert.equal(r.intent, 'spent');
+  assert.equal(r.data.tot, 180);
+  assert.ok(/you spent/i.test(r.answer));
+  assert.ok(!/hai speso/i.test(r.answer));
+});
+
+test('English: "how much can I spend today?" → safe-to-spend in inglese', () => {
+  const r = answerQuestion('How much can I spend today?', CTX);
+  assert.equal(r.intent, 'safe-to-spend');
+  assert.ok(/you can spend/i.test(r.answer));
+});
+
+test('English: "can I afford 50€?" → affordability in inglese', () => {
+  const r = answerQuestion('Can I afford 50€ today?', CTX);
+  assert.equal(r.intent, 'affordability');
+  assert.ok(/yes|risky|better not/i.test(r.answer));
+});
+
+test('English: "what subscriptions do I pay?" → elenco in inglese', () => {
+  const r = answerQuestion('What subscriptions do I pay?', CTX);
+  assert.equal(r.intent, 'subscriptions');
+  assert.ok(/you pay/i.test(r.answer));
+});
+
+test('English: "where do I spend the most?" → top categoria in inglese', () => {
+  const r = answerQuestion('Where do I spend the most this month?', CTX);
+  assert.equal(r.intent, 'top-category');
+  assert.ok(/biggest expense/i.test(r.answer));
+});
+
+test('English: "how much have I saved?" → savings in inglese', () => {
+  const r = answerQuestion('How much have I saved this month?', CTX);
+  assert.equal(r.intent, 'savings');
+  assert.ok(/you saved|you spent/i.test(r.answer));
+});
+
+test('English: domanda fuori dominio → messaggio "unknown" in inglese, mai in italiano', () => {
+  const r = answerQuestion('What is the weather tomorrow?', CTX);
+  assert.equal(r.intent, 'unknown');
+  assert.ok(/don't know this one yet/i.test(r.answer));
+});
+
+test('Italiano resta italiano: nessuna regressione dal rilevamento lingua', () => {
+  const r = answerQuestion('Dove spendo di più questo mese?', CTX);
+  assert.equal(r.intent, 'top-category');
+  assert.ok(/la voce più pesante/i.test(r.answer));
+});
+
 test('quanto ho speso a giugno (mese nominato)', () => {
   const r = answerQuestion('quanto ho speso a giugno?', CTX);
   assert.equal(r.intent, 'spent');
