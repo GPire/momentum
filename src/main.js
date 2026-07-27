@@ -5225,7 +5225,17 @@ const navigate = (view) => {
     if (lpStatus && VaultDAO.state.liveDataKeys?.alphavantage) {
       lpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.alphavantage)}). Tocca "Guida" per cambiarla.`;
     }
+    renderCloudFallbackLogPanel();
   }
+  function renderCloudFallbackLogPanel() {
+    const box = document.getElementById('cloud-fallback-log');
+    if (!box) return;
+    const log = (VaultDAO.state.mlData.cloudFallbackLog || []).slice().reverse();
+    box.innerHTML = log.length
+      ? log.map(e => `<div>"${String(e.q).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]))}"</div>`).join('')
+      : '<div class="text-slate-500">Ancora nessuna — appariranno qui man mano che fai domande fuori dai tuoi soldi.</div>';
+  }
+  window.renderCloudFallbackLogPanel = renderCloudFallbackLogPanel;
   // Ingresso SCAGLIONATO del contenuto della sezione (ri-attiva l'animazione ad
   // ogni cambio vista togliendo/rimettendo la classe: reflow forzato in mezzo).
   const shown = $(`#${view}-view`);
@@ -5644,6 +5654,26 @@ const initApp = () => {
   // inutile per chi vuole informarsi davvero, costringendo a uscire
   // dall'app. Ora usa la pipeline REALE già costruita per "Cerca un asset"
   // (CoinGecko/Alpha Vantage NEWS_SENTIMENT) invece della chat generica.
+  // ── APPRENDIMENTO ONESTO DALLE DOMANDE (richiesta esplicita dell'utente:
+  // ogni domanda/risposta anche via AI esterna deve servire a rendere
+  // Momentum più intelligente) ─────────────────────────────────────────────
+  // Cosa NON fa, con onestà: le risposte generiche di Gemini/Groq su ETF,
+  // notizie ecc. non hanno NESSUN segnale utile per la rete neurale
+  // finanziaria (predice categorie/comportamento dalle TUE transazioni, un
+  // testo educativo esterno non c'entra) — inserirle lì sarebbe decorativo,
+  // lo stesso errore che il progetto ha già rifiutato una volta (SLLMv2).
+  // Cosa fa DAVVERO, onestamente: registra QUALI domande sono uscite dal
+  // riconoscimento locale (qa-engine.js) verso l'esterno — è il segnale
+  // reale per capire dove ampliare i pattern locali nel tempo (mai il
+  // contenuto della risposta, mai dati finanziari, solo la domanda scritta
+  // dall'utente, che è già uscita una volta verso il provider scelto).
+  function logCloudFallbackQuestion(question) {
+    const log = VaultDAO.state.mlData.cloudFallbackLog || [];
+    log.push({ q: String(question).slice(0, 200), ts: Date.now() });
+    VaultDAO.state.mlData.cloudFallbackLog = log.slice(-50);
+    VaultDAO.save();
+  }
+  window.getCloudFallbackLog = () => VaultDAO.state.mlData.cloudFallbackLog || [];
   function showQaNewsAnswer(asset, items, stale, yoyNote) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
@@ -5794,6 +5824,7 @@ const initApp = () => {
           }
           const { answer, provider } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window), contextSummary });
           showQaCloudAnswer(answer, provider);
+          logCloudFallbackQuestion(question);
         } catch (e) {
           showQaCloudError(res.answer, e.message);
         }

@@ -1509,6 +1509,15 @@
                       <p class="text-[9px] text-slate-500">Senza il riassunto attivato: SOLO la domanda che scrivi (mai spese/saldi). Se configuri più chiavi, Momentum le prova in quest'ordine e usa la prima che risponde. L'abbonamento ChatGPT Plus/Claude Pro NON dà accesso qui: l'API si paga separatamente.</p>
                     </div>
                   </details>
+                  <!-- Onestà su "impara dalle domande": qui NON si finge che le
+                       risposte generiche addestrino la rete neurale finanziaria
+                       (non avrebbero segnale) — si mostra invece cosa è VERO:
+                       quali domande sono uscite dal riconoscimento locale, la
+                       base reale per ampliarlo nel tempo. -->
+                  <details class="mt-2">
+                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Domande che Momentum non riconosce ancora da solo</summary>
+                    <div id="cloud-fallback-log" class="flex flex-col gap-1 mt-2 text-[10px] text-slate-400"></div>
+                  </details>
                 </div>
               </div>
 
