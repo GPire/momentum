@@ -5622,6 +5622,102 @@ const initApp = () => {
     }).join('');
     return `<div class="space-y-1.5 mt-2">${rows}</div>`;
   }
+  // Barra impilata generica (contante/investito/debiti, libero/impegni,
+  // disponibile/da accantonare...) — STESSA grammatica visiva di
+  // buildTopCategoryChart (barre colorate + legenda), mai un secondo stile
+  // isolato per ogni nuovo intento. Segmenti a valore 0 o negativo non
+  // vengono disegnati (mai una barra vuota che sembra un bug).
+  function buildStackedBar(segments) {
+    const real = segments.filter(s => s.value > 0);
+    if (!real.length) return '';
+    const max = Math.max(1, real.reduce((s, x) => s + x.value, 0));
+    const bars = real.map(s => `<div class="h-full" style="width:${Math.max(2, (s.value / max) * 100)}%;background:${s.color}" title="${s.label} ${formatMoney(s.value)}"></div>`).join('');
+    const legend = real.map(s => `<span><span class="inline-block w-1.5 h-1.5 rounded-full mr-1" style="background:${s.color}"></span>${s.label} ${formatMoney(s.value)}</span>`).join('');
+    return `<div class="mt-2">
+      <div class="flex h-2.5 rounded-full overflow-hidden bg-white/5">${bars}</div>
+      <div class="flex flex-wrap gap-3 mt-1.5 text-[9px] text-slate-500">${legend}</div>
+    </div>`;
+  }
+  // "quanto vale il mio patrimonio?" — contante/investito/debiti in proporzione
+  // al patrimonio LORDO (mai al netto: un debito alto sballerebbe le
+  // proporzioni verso lo zero, rendendo il grafico inutile o fuorviante).
+  function buildNetWorthChart(n) {
+    return buildStackedBar([
+      { label: 'Contante', value: n.cash, color: '#38bdf8' },
+      { label: 'Investito', value: n.invested, color: '#a78bfa' },
+      { label: 'Debiti', value: n.liabilities, color: '#fb7185' },
+    ]);
+  }
+  // "quanto ho risparmiato?" — entrate vs uscite affiancate, stesso stile a
+  // barre orizzontali di buildTopCategoryChart (riuso diretto, non un grafico
+  // isolato).
+  function buildSavingsChart(d) {
+    const max = Math.max(d.inc, d.out, 1);
+    const bar = (label, v, color) => `<div class="flex items-center gap-2">
+      <span class="w-14 text-slate-400">${label}</span>
+      <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full" style="width:${Math.max(4, (v / max) * 100)}%;background:${color}"></div></div>
+      <span class="w-16 text-right font-mono" style="color:${color}">${formatMoney(v)}</span>
+    </div>`;
+    return `<div class="space-y-1.5 mt-2">${bar('Entrate', d.inc, '#34d399')}${bar('Uscite', d.out, '#fb7185')}</div>`;
+  }
+  // "quanto posso spendere oggi?" / "quanto mi resta?" — stesso motore dati
+  // (getDailySafeToSpend) per ENTRAMBI gli intenti: libero da spendere questa
+  // settimana vs già riservato per impegni in arrivo (mai un secondo calcolo
+  // isolato: i numeri devono combaciare sempre con la risposta a parole).
+  function buildSafeToSpendChart(sts) {
+    if (!sts) return '';
+    return buildStackedBar([
+      { label: 'Libero questa settimana', value: +(sts.safeToday * sts.daysLeftInWeek).toFixed(2), color: '#34d399' },
+      { label: 'Impegni in arrivo', value: sts.reservedForCharges, color: '#fbbf24' },
+    ]);
+  }
+  // "come chiudo il mese?" — barra di progresso con marcatore del budget:
+  // speso finora (colore pieno) dentro la proiezione di fine mese (colore
+  // tenue), col budget come riga verticale se impostato. Onesto: se non c'è
+  // budget, il marcatore semplicemente non compare (mai un valore inventato).
+  function buildMonthEndChart(proj, monthlyBudget) {
+    const budget = monthlyBudget || 0;
+    const max = Math.max(proj.projectedTotal, budget, proj.spentSoFar, 1);
+    const pctSpent = Math.min(100, (proj.spentSoFar / max) * 100);
+    const pctProj = Math.min(100, (proj.projectedTotal / max) * 100);
+    const spentColor = proj.willOverspend ? '#fb7185' : '#34d399';
+    const projColor = proj.willOverspend ? 'rgba(251,113,133,0.3)' : 'rgba(52,211,153,0.3)';
+    const marker = budget > 0 ? `<div class="absolute top-0 bottom-0 w-px bg-white/50" style="left:${Math.min(100, (budget / max) * 100)}%"></div>` : '';
+    return `<div class="mt-2">
+      <div class="relative h-2.5 rounded-full bg-white/5 overflow-hidden">
+        <div class="absolute inset-y-0 left-0 rounded-full" style="width:${pctProj}%;background:${projColor}"></div>
+        <div class="absolute inset-y-0 left-0 rounded-full" style="width:${pctSpent}%;background:${spentColor}"></div>
+        ${marker}
+      </div>
+      <div class="flex justify-between mt-1 text-[9px] text-slate-500">
+        <span>Speso ${formatMoney(proj.spentSoFar)}</span>
+        ${budget > 0 ? `<span>Budget ${formatMoney(budget)}</span>` : ''}
+        <span>Proiezione ${formatMoney(proj.projectedTotal)}</span>
+      </div>
+    </div>`;
+  }
+  // "quando mi pagano?" — stesso stile a barra impilata: quanto resta
+  // disponibile dello stipendio (allowance.pool, già al netto dei fantasmi)
+  // vs quanto è ancora da accantonare prima dell'accredito.
+  function buildPaydayChart(f) {
+    if (!f.allowance) return '';
+    return buildStackedBar([
+      { label: 'Disponibile', value: f.allowance.pool, color: '#34d399' },
+      { label: 'Da accantonare prima dello stipendio', value: f.dueBeforePaydayTotal, color: '#fbbf24' },
+    ]);
+  }
+  function buildQaChart(res, ctx) {
+    switch (res.intent) {
+      case 'top-category': return buildTopCategoryChart(res.data);
+      case 'net-worth': return buildNetWorthChart(res.data);
+      case 'savings': return buildSavingsChart(res.data);
+      case 'safe-to-spend':
+      case 'budget-left': return buildSafeToSpendChart(res.data);
+      case 'month-end': return buildMonthEndChart(res.data, ctx?.monthlyBudget);
+      case 'payday': return buildPaydayChart(res.data);
+      default: return '';
+    }
+  }
   function styleQaAnswer(res) {
     const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
     const good = res?.data?.onTrack === true || (typeof res?.data?.net === 'number' && res.data.net >= 0);
@@ -5630,7 +5726,7 @@ const initApp = () => {
       : good
         ? { cls: 'bg-emerald-950/20 border border-emerald-500/20 text-emerald-200', label: 'text-emerald-400', strong: 'text-emerald-300' }
         : { cls: 'bg-sky-950/15 border border-sky-500/20 text-sky-100', label: 'text-sky-400', strong: 'text-sky-300' };
-    const chart = res.intent === 'top-category' ? buildTopCategoryChart(res.data) : '';
+    const chart = buildQaChart(res, { monthlyBudget: VaultDAO.state.monthlyBudget });
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + tone.cls;
     qaAnswer.innerHTML = `
       <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum</h4>
