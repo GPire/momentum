@@ -3349,12 +3349,16 @@ window.togglePrivacyMode = () => {
     if (!btn) return;
     btn.classList.toggle('active', active);
     setPrivacyToggleIcon(btn, active);
-    // Lampo dell'anello: conferma visiva immediata del tocco, non solo un
-    // cambio di stato silenzioso.
+    // Lampo dell'anello + scatto dell'icona: conferma visiva immediata del
+    // tocco, non solo un cambio di stato silenzioso.
     btn.classList.remove('just-toggled');
     void btn.offsetWidth;
     btn.classList.add('just-toggled');
   });
+  // "Poof" sui numeri nel momento esatto del cambio, in entrambe le
+  // direzioni — un gesto percepibile invece di un blur che sale/scende piano.
+  document.body.classList.add('privacy-flash');
+  setTimeout(() => document.body.classList.remove('privacy-flash'), 350);
   VaultDAO.state.privacyMode = active;
   VaultDAO.save();
 };

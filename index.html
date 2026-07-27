@@ -281,24 +281,42 @@
     /* .font-mono qui è solo scelta tipografica (badge/versione/contatori),
        non un dato sensibile — non deve sfocarsi con gli importi. */
     body.privacy-mode .font-mono.no-privacy-blur { filter: none; user-select: auto; }
-    body.privacy-mode #privacy-reveal-banner { display: flex; animation: txRise .38s cubic-bezier(.22,1,.36,1) both; }
-    /* Su mobile la bottom-nav occupa 85px + safe-area: la pill deve stare
-       SOPRA di essa, mai sovrapposta (altrimenti blocca i tap sui suoi
-       pulsanti). Su desktop/tablet non c'è bottom-nav, resta in basso. */
-    #privacy-reveal-banner { bottom: calc(85px + var(--safe-bottom) + 0.75rem); }
+    /* Al momento esatto del tocco, un piccolo "poof" (scala giù e su) sui
+       numeri stessi — non solo un blur che sale piano, ma un gesto preciso
+       che si sente intenzionale, sincronizzato col lampo sull'icona. */
+    @keyframes privacyNumberPoof { 0% { transform: scale(1); } 45% { transform: scale(0.94); } 100% { transform: scale(1); } }
+    .privacy-flash .font-mono:not(.no-privacy-blur) { animation: privacyNumberPoof .32s cubic-bezier(.34,1.56,.64,1); }
+    /* Pill "rivela": entrata con un piccolo rimbalzo (overshoot), non il
+       solito ingresso lineare usato ovunque — deve leggersi come un
+       elemento di stato temporaneo, non come una card qualunque. */
+    @keyframes privacyPillIn { 0% { opacity: 0; transform: translateY(14px) scale(.88); } 65% { opacity: 1; transform: translateY(-3px) scale(1.04); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+    body.privacy-mode #privacy-reveal-banner { display: flex; animation: privacyPillIn .46s cubic-bezier(.34,1.56,.64,1) both; }
+    /* Su mobile la bottom-nav (85px) + il pulsante "+" flottante (che sporge
+       1.75rem sopra la nav, -top-7 su #mobile-add-btn) occupano insieme
+       fino a 113px dal fondo dello schermo — verificato dal vivo misurando
+       i due elementi (si sovrapponevano prima di questo fix). La pill deve
+       stare SOPRA entrambi, mai sovrapposta. Su desktop/tablet non c'è
+       bottom-nav né questo FAB centrale, resta in basso. */
+    #privacy-reveal-banner { bottom: calc(85px + 1.75rem + var(--safe-bottom) + 0.75rem); }
     @media (min-width: 768px) { #privacy-reveal-banner { bottom: 1rem; } }
     #privacy-toggle-mobile, #privacy-toggle-desktop { transition: border-color .25s ease, background-color .25s ease, transform .15s ease; }
     #privacy-toggle-mobile:active, #privacy-toggle-desktop:active { transform: scale(0.88); }
     #privacy-toggle-mobile.active, #privacy-toggle-desktop.active { border-color: var(--primary); background: color-mix(in_srgb, var(--primary) 14%, transparent); }
     #privacy-toggle-mobile.active svg, #privacy-toggle-desktop.active svg { color: var(--primary); }
-    /* Un lampo dell'anello al momento esatto del tocco: conferma l'azione
-       invece di lasciare che l'utente scopra il cambio solo dal colore. */
+    /* Un lampo dell'anello + un piccolo scatto dell'icona al momento esatto
+       del tocco: conferma l'azione invece di lasciare che l'utente scopra
+       il cambio solo dal colore del bordo. */
     @keyframes privacyToggleRing { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); } 100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent); } }
+    @keyframes privacyIconPop { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
     #privacy-toggle-mobile.just-toggled, #privacy-toggle-desktop.just-toggled { animation: privacyToggleRing .5s ease-out; }
+    #privacy-toggle-mobile.just-toggled svg, #privacy-toggle-desktop.just-toggled svg { animation: privacyIconPop .4s cubic-bezier(.34,1.56,.64,1); }
     @media (prefers-reduced-motion: reduce) {
       body.privacy-mode .font-mono { transition: none; }
+      .privacy-flash .font-mono:not(.no-privacy-blur) { animation: none; }
+      body.privacy-mode #privacy-reveal-banner { animation: none; }
       #privacy-toggle-mobile, #privacy-toggle-desktop { transition: none; }
       #privacy-toggle-mobile.just-toggled, #privacy-toggle-desktop.just-toggled { animation: none; }
+      #privacy-toggle-mobile.just-toggled svg, #privacy-toggle-desktop.just-toggled svg { animation: none; }
     }
     /* Chip suggerimento asset: stesso ingresso a scaglione, per invitare il
        tocco su una casella di ricerca altrimenti vuota. */
