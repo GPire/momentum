@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { askCloudFallback, askCloudFallbackChain } from './chat-fallback.js';
+import { askCloudFallback, askCloudFallbackChain, buildFinancialContextSummary } from './chat-fallback.js';
 
 test('askCloudFallback: senza domanda -> errore onesto', async () => {
   await assert.rejects(() => askCloudFallback('', { apiKey: 'k' }), /domanda/i);
@@ -70,6 +70,39 @@ test('askCloudFallback: Anthropic -> forma reale, estrae il testo', async () => 
   const fetchImpl = async () => ({ ok: true, json: async () => ({ content: [{ text: 'Hi from Claude' }] }) });
   const r = await askCloudFallback('hi', { apiKey: 'k', provider: 'anthropic', fetchImpl });
   assert.equal(r.answer, 'Hi from Claude');
+});
+
+test('buildFinancialContextSummary: nessun dato -> null, mai un riassunto vuoto inviato', () => {
+  assert.equal(buildFinancialContextSummary({}), null);
+  assert.equal(buildFinancialContextSummary(), null);
+});
+
+test('buildFinancialContextSummary: solo numeri aggregati, mai transazioni/esercenti/conti', () => {
+  const s = buildFinancialContextSummary({ safeToday: 56.789, monthRemaining: 281.2, topCategory: 'Ristorante', marketRegime: 'risk-on' });
+  assert.ok(s.includes('57€') || s.includes('56€')); // arrotondato
+  assert.ok(s.includes('281€'));
+  assert.ok(s.includes('Ristorante'));
+  assert.ok(s.includes('risk-on'));
+  assert.ok(/nessuna transazione/i.test(s));
+});
+
+test('buildFinancialContextSummary: parziale -> include solo i campi presenti', () => {
+  const s = buildFinancialContextSummary({ safeToday: 50 });
+  assert.ok(s.includes('50€'));
+  assert.ok(!s.includes('categoria'));
+});
+
+test('askCloudFallback: con contextSummary lo antepone al prompt di sistema (mai al posto della domanda)', async () => {
+  let sentSystem = null, sentQuestion = null;
+  const fetchImpl = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    sentSystem = body.systemInstruction.parts[0].text;
+    sentQuestion = body.contents[0].parts[0].text;
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) };
+  };
+  await askCloudFallback('quanto costa un biglietto aereo?', { apiKey: 'k', fetchImpl, contextSummary: 'Contesto aggregato: oggi può spendere 50€.' });
+  assert.ok(sentSystem.includes('Contesto aggregato'));
+  assert.equal(sentQuestion, 'quanto costa un biglietto aereo?'); // la domanda resta pulita, il contesto va nel system prompt
 });
 
 test('askCloudFallbackChain: usa SOLO i provider per cui esiste una chiave', async () => {

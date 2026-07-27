@@ -17,13 +17,31 @@
 
 const SYSTEM_PROMPT = 'Rispondi SEMPRE nella stessa lingua in cui è scritta la domanda dell\'utente (italiano, inglese, o qualunque altra lingua) — mai tradurre in italiano di default. Breve e chiaro. Non sei un consulente finanziario: per domande sui soldi dell\'utente, suggerisci di chiedere a Momentum con parole semplici tipo "quanto posso spendere oggi".';
 
-async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-2.0-flash' }) {
+// ── CONTESTO FINANZIARIO SICURO (opt-in separato, additivo) ────────────────
+// Riassunto SOLO AGGREGATO da mandare al modello esterno insieme alla
+// domanda, per risposte più pertinenti — MAI transazioni singole, nomi di
+// esercenti, conti o importi esatti di ogni movimento. Stesso principio
+// dell'unica altra eccezione dichiarata a "zero dati escono" (il conteggio
+// anonimo): solo numeri già aggregati da motori esistenti (Cassa Unica,
+// investmentReadiness), mai il dato grezzo. Funzione pura: chi chiama
+// passa i risultati già calcolati, non i dati grezzi.
+export function buildFinancialContextSummary({ safeToday = null, monthRemaining = null, topCategory = null, marketRegime = null } = {}) {
+  const parts = [];
+  if (Number.isFinite(safeToday)) parts.push(`oggi può spendere circa ${Math.round(safeToday)}€ in sicurezza`);
+  if (Number.isFinite(monthRemaining)) parts.push(`gli restano circa ${Math.round(monthRemaining)}€ per il resto del mese`);
+  if (topCategory) parts.push(`la categoria di spesa principale è "${topCategory}"`);
+  if (marketRegime) parts.push(`il mercato è attualmente in fase "${marketRegime}"`);
+  if (!parts.length) return null;
+  return `Contesto aggregato e anonimo sull'utente (nessuna transazione, nessun esercente, nessun conto): ${parts.join('; ')}. Usalo solo se pertinente alla domanda, non ripeterlo se non richiesto.`;
+}
+
+async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-2.0-flash', systemPrompt = SYSTEM_PROMPT }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await fetchImpl(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ parts: [{ text: question }] }],
     }),
   });
@@ -37,13 +55,13 @@ async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-2.0-flas
 // Formato OpenAI-compatibile (chat/completions): condiviso da Groq e
 // DeepSeek, solo host/modello cambiano.
 function makeOpenAiCompatible(baseUrl, defaultModel, label) {
-  return async (question, { apiKey, fetchImpl, model = defaultModel }) => {
+  return async (question, { apiKey, fetchImpl, model = defaultModel, systemPrompt = SYSTEM_PROMPT }) => {
     const res = await fetchImpl(baseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model,
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: question }],
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: question }],
         max_tokens: 400,
       }),
     });
@@ -69,11 +87,11 @@ const askOpenAI = makeOpenAiCompatible('https://api.openai.com/v1/chat/completio
 // 'anthropic-dangerous-direct-browser-access' per accettare chiamate dirette
 // dal browser (altrimenti blocca per sicurezza — comportamento suo, non un
 // bug qui). A PAGAMENTO A CONSUMO come OpenAI: Claude Pro non include l'API.
-async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-haiku-20241022' }) {
+async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-haiku-20241022', systemPrompt = SYSTEM_PROMPT }) {
   const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model, max_tokens: 400, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: question }] }),
+    body: JSON.stringify({ model, max_tokens: 400, system: systemPrompt, messages: [{ role: 'user', content: question }] }),
   });
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error?.message || `Anthropic: HTTP ${res.status}`);
@@ -85,12 +103,13 @@ async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-h
 export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, openai: askOpenAI, anthropic: askAnthropic };
 const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' };
 
-export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, provider = 'gemini', model } = {}) {
+export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, provider = 'gemini', model, contextSummary = null } = {}) {
   if (!question || !question.trim()) throw new Error('Serve una domanda.');
   if (!apiKey) throw new Error(`Serve la tua chiave ${PROVIDER_LABELS[provider] || provider} personale (Momentum Vault → Chat generica).`);
   const fn = CLOUD_CHAT_PROVIDERS[provider];
   if (!fn) throw new Error(`Provider sconosciuto: ${provider}.`);
-  const answer = await fn(question, { apiKey, fetchImpl, ...(model ? { model } : {}) });
+  const systemPrompt = contextSummary ? `${SYSTEM_PROMPT}\n\n${contextSummary}` : SYSTEM_PROMPT;
+  const answer = await fn(question, { apiKey, fetchImpl, systemPrompt, ...(model ? { model } : {}) });
   return { answer, provider, source: provider };
 }
 
@@ -101,13 +120,13 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 // che nasconde cosa è successo davvero). `order` di default: prima i
 // GRATUITI confermati (Gemini, Groq), poi quello da verificare (DeepSeek),
 // infine i due A PAGAMENTO (OpenAI, Anthropic) — solo per chi li ha già.
-export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic'] } = {}) {
+export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic'], contextSummary = null } = {}) {
   const attempts = order.filter((p) => keys[p]);
   if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;
   for (const provider of attempts) {
     try {
-      return await askCloudFallback(question, { apiKey: keys[provider], provider, fetchImpl });
+      return await askCloudFallback(question, { apiKey: keys[provider], provider, fetchImpl, contextSummary });
     } catch (e) { lastError = e; }
   }
   throw lastError;

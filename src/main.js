@@ -2934,35 +2934,51 @@ window.saveLiveDataKey = (provider) => {
 // tornare indietro a incollarla. Questa guida tiene "vai a prenderla" e
 // "incollala qui" nello STESSO posto, con istruzioni numerate in linguaggio
 // semplice — mai gergo tecnico, un passo alla volta.
+// `usageUrl`: la pagina REALE del provider dove vedere quota/utilizzo/limiti
+// aggiornati al momento — mai un numero copiato qui dentro, perché i
+// provider li cambiano quando vogliono senza preavviso; un numero fisso
+// scritto oggi sarebbe falso tra qualche mese. `freeNoCard`: dichiara se
+// serve davvero una carta, mai la stessa frase per tutti a prescindere.
 const API_KEY_GUIDES = {
   alphavantage: {
     title: 'Prezzi live per azioni/ETF',
     url: 'https://www.alphavantage.co/support/#api-key',
+    freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Scrivi la tua email e premi il pulsante per ottenere la chiave', 'Copia il codice che appare sullo schermo', 'Torna qui e incollalo sotto'],
   },
   gemini: {
     title: 'Chat generica — Gemini (consigliata)',
     url: 'https://aistudio.google.com/app/apikey',
+    usageUrl: 'https://aistudio.google.com/app/apikey',
+    freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Accedi con un account Google, quello che usi già', 'Premi "Create API key"', 'Copia il codice e torna qui'],
   },
   groq: {
     title: 'Chat generica — Groq (alternativa)',
     url: 'https://console.groq.com/keys',
+    usageUrl: 'https://console.groq.com/settings/limits',
+    freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito (email o Google)', 'Premi "Create API Key"', 'Copia il codice e torna qui'],
   },
   deepseek: {
     title: 'Chat generica — DeepSeek',
     url: 'https://platform.deepseek.com/api_keys',
+    usageUrl: 'https://platform.deepseek.com/usage',
+    freeNoCard: false,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account', 'Vai su "API keys" e creane una', 'Copia il codice e torna qui — verifica tu i costi sul tuo account'],
   },
   openai: {
     title: 'Chat generica — OpenAI (a pagamento)',
     url: 'https://platform.openai.com/api-keys',
+    usageUrl: 'https://platform.openai.com/usage',
+    freeNoCard: false,
     steps: ['A PAGAMENTO A CONSUMO: l\'abbonamento ChatGPT Plus non include questo, è fatturato separatamente', 'Apri il sito (si apre in una scheda nuova)', 'Crea una chiave API e imposta un metodo di pagamento', 'Copia il codice e torna qui'],
   },
   anthropic: {
     title: 'Chat generica — Anthropic/Claude (a pagamento)',
     url: 'https://console.anthropic.com/settings/keys',
+    usageUrl: 'https://console.anthropic.com/settings/usage',
+    freeNoCard: false,
     steps: ['A PAGAMENTO A CONSUMO: l\'abbonamento Claude Pro non include questo, è fatturato separatamente', 'Apri il sito (si apre in una scheda nuova)', 'Crea una chiave API e imposta un metodo di pagamento', 'Copia il codice e torna qui'],
   },
 };
@@ -3012,7 +3028,19 @@ function initTelemetryToggle() {
       showToast('Un numero anonimo (mai i tuoi dati) aiuta Momentum a crescere. Disattivabile in Momentum Vault.', 'info');
     }, 2500);
   }
+  const ctxCb = document.getElementById('chat-context-optin');
+  if (ctxCb) ctxCb.checked = !!VaultDAO.state.chatContextOptIn;
 }
+
+// ── CONTESTO FINANZIARIO PER LA CHAT GENERICA (opt-in SEPARATO, disattivato
+// di default): solo se attivo, un riassunto AGGREGATO e anonimo (mai
+// transazioni/esercenti/conti — vedi buildFinancialContextSummary) viene
+// aggiunto alla domanda inviata al provider scelto dall'utente.
+window.setChatContextOptIn = (checked) => {
+  VaultDAO.state.chatContextOptIn = checked;
+  VaultDAO.save();
+  showToast(checked ? 'Le domande alla chat generica includeranno un riassunto anonimo (mai transazioni).' : 'Riassunto disattivato: solo il testo che scrivi.', 'success');
+};
 
 // ── CERCA UN ASSET: prezzo live + notizie/sentiment reali + avvisi ─────────
 // (src/alpha/asset-search.js, src/alpha/news.js, src/predict/price-alerts.js)
@@ -5404,11 +5432,33 @@ const initApp = () => {
       qaAnswer.classList.remove('hidden');
       haptic('light');
       const keys = VaultDAO.state.liveDataKeys || {};
-      if (res.intent === 'unknown' && (keys.gemini || keys.groq || keys.deepseek)) {
+      const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;
+      if (res.intent === 'unknown' && hasCloudKey) {
         qaAnswer.textContent = res.answer + ' — Chiedo a una chat generica...';
         try {
-          const { askCloudFallbackChain } = await import('./ai/chat-fallback.js');
-          const { answer } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window) });
+          const { askCloudFallbackChain, buildFinancialContextSummary } = await import('./ai/chat-fallback.js');
+          // Contesto SOLO se l'utente ha attivato ANCHE questo (opt-in
+          // separato dalla chat generica stessa): riassunto aggregato e
+          // anonimo, mai transazioni/esercenti — vedi buildFinancialContextSummary.
+          let contextSummary = null;
+          if (VaultDAO.state.chatContextOptIn) {
+            try {
+              const now = new Date();
+              const monthTxs = VaultDAO.state.transactions[monthKey(now)] || [];
+              const sts = getDailySafeToSpend({ monthTxs, allTx: VaultDAO.state.transactions, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: now });
+              const byCat = {};
+              for (const t of monthTxs) if (t.type === 'uscita') byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+              const topCat = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+              const liveRegime = detectLiveRegimeFor('indice');
+              contextSummary = buildFinancialContextSummary({
+                safeToday: sts?.safeToday ?? null,
+                monthRemaining: sts?.weekRemaining ?? null,
+                topCategory: topCat ? getCatById(topCat[0]).name : null,
+                marketRegime: liveRegime?.regime ?? null,
+              });
+            } catch (_) { contextSummary = null; }
+          }
+          const { answer } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window), contextSummary });
           qaAnswer.textContent = answer;
         } catch (e) {
           qaAnswer.textContent = `${res.answer} (chat generica non disponibile: ${e.message})`;

@@ -1360,9 +1360,13 @@
               <div class="card p-6 flex flex-col justify-between">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Chat generica (opzionale)</h3>
-                  <p class="card-sub">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Mai i tuoi dati finanziari — solo il testo che scrivi.</p>
+                  <p class="card-sub">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Di base riceve SOLO il testo che scrivi.</p>
                   <p class="text-[9px] text-slate-500 mt-2"><b>Gemini</b>: la scelta migliore per la maggior parte — ragionamento generale forte, capisce domande lunghe/articolate, quota gratuita generosa (verificato).</p>
                   <button onclick="window.openApiKeyGuide('gemini')" class="btn-action w-full justify-center mt-2">Attiva con Gemini (consigliata) →</button>
+                  <label class="flex items-start gap-2 mt-3 text-xs cursor-pointer select-none">
+                    <input type="checkbox" id="chat-context-optin" onchange="window.setChatContextOptIn(this.checked)" class="w-4 h-4 mt-0.5" />
+                    <span>Includi anche un riassunto ANONIMO e aggregato della mia situazione (es. "oggi puoi spendere 50€", mai transazioni, esercenti o conti) — risposte più pertinenti</span>
+                  </label>
                   <details class="mt-2">
                     <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Altre opzioni, con quando conviene ognuna</summary>
                     <div class="flex flex-col gap-2 mt-2">
@@ -1370,7 +1374,7 @@
                       <button onclick="window.openApiKeyGuide('deepseek')" class="text-[10px] text-[var(--primary)] underline text-left">DeepSeek — molto forte sul ragionamento passo-passo (matematica/logica), verifica tu i costi →</button>
                       <button onclick="window.openApiKeyGuide('openai')" class="text-[10px] text-amber-300 underline text-left">OpenAI (ChatGPT) — a pagamento, se hai già la fatturazione API →</button>
                       <button onclick="window.openApiKeyGuide('anthropic')" class="text-[10px] text-amber-300 underline text-left">Anthropic (Claude) — a pagamento, il più accurato su testi lunghi, se hai già la fatturazione API →</button>
-                      <p class="text-[9px] text-slate-500">Tutti ricevono SOLO la domanda che scrivi (mai le tue spese/saldi). Se configuri più chiavi, Momentum le prova in quest'ordine e usa la prima che risponde. L'abbonamento ChatGPT Plus/Claude Pro NON dà accesso qui: l'API si paga separatamente.</p>
+                      <p class="text-[9px] text-slate-500">Senza il riassunto attivato: SOLO la domanda che scrivi (mai spese/saldi). Se configuri più chiavi, Momentum le prova in quest'ordine e usa la prima che risponde. L'abbonamento ChatGPT Plus/Claude Pro NON dà accesso qui: l'API si paga separatamente.</p>
                     </div>
                   </details>
                 </div>
