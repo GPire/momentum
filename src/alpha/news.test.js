@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchNewsSentiment } from './news.js';
+import { fetchNewsSentiment, fetchFinnhubNews } from './news.js';
 
 const realShape = () => ({
   ok: true,
@@ -56,4 +56,45 @@ test('fetchNewsSentiment: rete giù SENZA cache → rilancia l\'errore, mai un r
   const cache = { get: async () => null, put: async () => {} };
   const fetchImpl = async () => { throw new TypeError('Failed to fetch'); };
   await assert.rejects(() => fetchNewsSentiment('AAPL', { apiKey: 'k', fetchImpl, cache }));
+});
+
+// Piano B verificato dal vivo (2026-07-27): Finnhub ha CORS aperto e un
+// piano gratuito molto più generoso (60/min vs 25/giorno di Alpha
+// Vantage) — dedicato esattamente al bisogno segnalato dall'utente
+// ("la parte delle notizie non dice niente").
+test('fetchFinnhubNews: senza ticker → errore onesto', async () => {
+  await assert.rejects(() => fetchFinnhubNews(null, { apiKey: 'k' }), /ticker/i);
+});
+
+test('fetchFinnhubNews: senza chiave → errore onesto, mai un fetch a vuoto', async () => {
+  await assert.rejects(() => fetchFinnhubNews('AAPL', {}), /chiave/i);
+});
+
+test('fetchFinnhubNews: forma reale → titoli reali, sentiment onestamente "sconosciuto" (non disponibile su questo endpoint)', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ([
+      { headline: 'Apple presenta il nuovo prodotto', url: 'https://x.test/1', source: 'Reuters', datetime: 1785000000 },
+      { headline: 'Rumor su un nuovo servizio Apple', url: 'https://x.test/2', source: 'Bloomberg', datetime: 1784900000 },
+    ]),
+  });
+  const r = await fetchFinnhubNews('AAPL', { apiKey: 'k', fetchImpl });
+  assert.equal(r.symbol, 'AAPL');
+  assert.equal(r.items.length, 2);
+  assert.equal(r.items[0].title, 'Apple presenta il nuovo prodotto');
+  assert.equal(r.items[0].sentimentLabel, 'sconosciuto');
+});
+
+test('fetchFinnhubNews: chiave non valida → errore col messaggio reale, mai dati finti', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 401, json: async () => ({ error: 'Invalid API key.' }) });
+  await assert.rejects(() => fetchFinnhubNews('AAPL', { apiKey: 'sbagliata', fetchImpl }), /Invalid API key/);
+});
+
+test('fetchFinnhubNews: offline/rete giù CON cache → ripiega sulla cache, dichiarata stale', async () => {
+  const cached = { symbol: 'AAPL', asOf: '2026-07-01T00:00:00Z', items: [{ title: 'vecchia notizia' }] };
+  const cache = { get: async () => cached, put: async () => {} };
+  const fetchImpl = async () => { throw new TypeError('Failed to fetch'); };
+  const r = await fetchFinnhubNews('AAPL', { apiKey: 'k', fetchImpl, cache });
+  assert.equal(r.stale, true);
+  assert.equal(r.items[0].title, 'vecchia notizia');
 });

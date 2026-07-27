@@ -2985,6 +2985,16 @@ const API_KEY_GUIDES = {
     freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Vai nella tua Dashboard e copia la chiave API mostrata', 'Torna qui e incollala. Solo azioni USA sul piano gratuito.'],
   },
+  // Piano B per le notizie (richiesto esplicitamente: Alpha Vantage News
+  // condivide lo stesso limite di 25 richieste/giorno della ricerca).
+  // Piano gratuito molto più generoso (60/minuto), CORS verificato dal vivo.
+  finnhub: {
+    title: 'Notizie aziendali reali — Finnhub (piano B, molto più generoso)',
+    url: 'https://finnhub.io/register',
+    usageUrl: 'https://finnhub.io/dashboard',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Copia la chiave API mostrata nella tua Dashboard', 'Torna qui e incollala. 60 richieste al minuto, molto più del piano gratuito Alpha Vantage.'],
+  },
   gemini: {
     title: 'Chat generica — Gemini (consigliata)',
     url: 'https://aistudio.google.com/app/apikey',
@@ -3164,6 +3174,10 @@ function initTelemetryToggle() {
   const fmpStatus = document.getElementById('fmp-status');
   if (fmpStatus && VaultDAO.state.liveDataKeys?.fmp) {
     fmpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.fmp)}). Tocca "Guida" per cambiarla.`;
+  }
+  const finnhubStatus = document.getElementById('finnhub-status');
+  if (finnhubStatus && VaultDAO.state.liveDataKeys?.finnhub) {
+    finnhubStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.finnhub)}). Tocca "Guida" per cambiarla.`;
   }
 }
 
@@ -5344,6 +5358,10 @@ const navigate = (view) => {
     if (fmpStatus && VaultDAO.state.liveDataKeys?.fmp) {
       fmpStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.fmp)}). Tocca "Guida" per cambiarla.`;
     }
+    const finnhubStatus = document.getElementById('finnhub-status');
+    if (finnhubStatus && VaultDAO.state.liveDataKeys?.finnhub) {
+      finnhubStatus.textContent = `Chiave salvata (${maskKey(VaultDAO.state.liveDataKeys.finnhub)}). Tocca "Guida" per cambiarla.`;
+    }
     renderCloudFallbackLogPanel();
   }
   function renderCloudFallbackLogPanel() {
@@ -6093,10 +6111,20 @@ const initApp = () => {
           items = r.items || []; stale = r.stale;
         } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
       }
-      // Fallback (feedback esplicito: "la parte delle notizie non dice
-      // niente" — capita spesso perché Alpha Vantage News richiede la
-      // stessa chiave della ricerca, con lo stesso limite di 25/giorno
-      // facile da esaurire). Se non ci sono notizie reali E l'utente ha
+      // Piano B (feedback esplicito: "la parte delle notizie non dice
+      // niente" — Alpha Vantage News condivide lo stesso limite di 25
+      // richieste/giorno della ricerca, facile da esaurire). Finnhub:
+      // CORS verificato dal vivo, endpoint dedicato alle notizie
+      // aziendali, piano gratuito molto più generoso (60/minuto).
+      const finnhubKey = VaultDAO.state.liveDataKeys?.finnhub;
+      if (!items.length && finnhubKey) {
+        try {
+          const { fetchFinnhubNews } = await import('./alpha/news.js');
+          const r = await fetchFinnhubNews(asset.symbol, { apiKey: finnhubKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+          items = r.items || []; stale = r.stale;
+        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+      }
+      // Ultimo fallback (grounding Gemini): se non ci sono notizie reali E l'utente ha
       // configurato Gemini, usa il grounding Google Search (costruito
       // stasera) per cercare davvero cosa sta facendo l'azienda — mai al
       // posto dei dati numerici, solo per il testo, ed etichettato come

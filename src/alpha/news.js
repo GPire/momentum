@@ -62,3 +62,46 @@ export async function fetchNewsSentiment(symbol, { apiKey, fetchImpl = fetch, li
   if (cache) await cache.put(cacheKey, result).catch(() => {});
   return result;
 }
+
+// Piano B per le notizie (feedback esplicito: "la parte delle notizie
+// non dice niente" — Alpha Vantage News condivide lo stesso limite di 25
+// richieste/giorno della ricerca, facilissimo da esaurire). Finnhub:
+// CORS verificato dal vivo (2026-07-27, access-control-allow-origin: *),
+// endpoint dedicato alle notizie aziendali, piano gratuito molto più
+// generoso (60 richieste/minuto). Nessun punteggio di sentiment reale
+// disponibile su questo endpoint gratuito: dichiarato onestamente come
+// "sconosciuto", MAI un punteggio inventato.
+export async function fetchFinnhubNews(symbol, { apiKey, fetchImpl = fetch, limit = 10, cache = null, daysBack = 14 } = {}) {
+  if (!symbol) throw new Error('Serve un ticker.');
+  if (!apiKey) throw new Error('Serve la tua chiave Finnhub personale (Momentum Vault → Prezzi live).');
+  const cacheKey = `finnhub-news:${symbol.toUpperCase()}`;
+  const to = new Date();
+  const from = new Date(to.getTime() - daysBack * 86_400_000);
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  const url = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${fmt(from)}&to=${fmt(to)}&token=${encodeURIComponent(apiKey)}`;
+  let json;
+  try {
+    const res = await fetchImpl(url);
+    json = await res.json().catch(() => null);
+    if (!res.ok || json?.error) throw new Error(json?.error || `Finnhub news: HTTP ${res.status}`);
+  } catch (err) {
+    if (cache) {
+      const cached = await cache.get(cacheKey).catch(() => null);
+      if (cached) return { ...cached, stale: true };
+    }
+    throw err;
+  }
+  const feed = Array.isArray(json) ? json : [];
+  const items = feed.slice(0, limit).map((a) => ({
+    title: a.headline,
+    url: a.url,
+    source: a.source,
+    publishedAt: a.datetime ? new Date(a.datetime * 1000).toISOString() : null,
+    sentimentScore: null,
+    sentimentLabel: 'sconosciuto',
+    relevance: null,
+  }));
+  const result = { symbol: symbol.toUpperCase(), asOf: new Date().toISOString(), items, stale: false };
+  if (cache) await cache.put(cacheKey, result).catch(() => {});
+  return result;
+}
