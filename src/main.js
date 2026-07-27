@@ -5450,13 +5450,39 @@ const initApp = () => {
   }
   function showQaThinking(localAnswer) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-200';
-    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p>${ICON_QA_THINK} Chiedo a una chat generica...</p>`;
+    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p class="flex items-center">${ICON_QA_THINK} <span class="ml-1">Chiedo a una chat generica</span><span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>`;
     replayQaAnimation();
   }
+  // Le chat generiche (Gemini ecc.) rispondono in Markdown leggero
+  // (**grassetto**, a capo) — verificato dal vivo: senza questo passaggio
+  // l'utente vedeva gli asterischi letterali in chat E un unico paragrafo
+  // denso, contro l'obiettivo "design pulito, un'idea per blocco,
+  // comprensibile a un bambino". SYSTEM_PROMPT chiede blocchi separati da
+  // riga vuota; se un provider non rispetta il formato, fallback: spezza da
+  // sola su frasi lunghe (nessun blocco > ~140 caratteri resta un blob unico).
+  // Escape PRIMA di tutto: il testo arriva da un provider esterno, mai
+  // fidarsi ciecamente in innerHTML.
+  function formatCloudAnswer(text) {
+    const esc = String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    let blocks = esc.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+    if (blocks.length <= 1) {
+      blocks = esc.split(/\n+/).flatMap(line => line.length > 140 ? line.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý])/) : [line]).map(s => s.trim()).filter(Boolean);
+    }
+    return blocks.map(b => `<div class="qa-cloud-block">${b.replace(/\*\*(.+?)\*\*/g, '<strong class="text-violet-300">$1</strong>')}</div>`).join('');
+  }
+  // Stessa grammatica visiva delle card insight del radar (eyebrow colorata
+  // in maiuscolo + corpo con evidenze colorate): l'etichetta "non è
+  // Momentum" va SUBITO in testa, non in coda come nota a piè di pagina —
+  // l'utente deve saperlo PRIMA di leggere, non dopo.
   function showQaCloudAnswer(answer, provider) {
     const label = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' }[provider] || provider;
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-100';
-    qaAnswer.innerHTML = `<p>${answer}</p><p class="text-[9px] text-violet-400 mt-1.5">${ICON_QA_CLOUD} Risposta di ${label}, non di Momentum — verifica prima di fidarti ciecamente.</p>`;
+    qaAnswer.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <h4 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} ${label}</h4>
+        <span class="text-[9px] text-violet-400/70">non è Momentum</span>
+      </div>
+      <div class="space-y-1.5">${formatCloudAnswer(answer)}</div>`;
     replayQaAnimation();
   }
   // Messaggio semplice, mai il testo tecnico grezzo dell'errore (l'utente

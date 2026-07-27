@@ -20,7 +20,7 @@
 // spiegarsi anche a un bambino, MAI un consiglio d'investimento (quello
 // resta escluso per scelta architetturale in tutto il progetto, non solo
 // qui: vedi investmentReadiness in reasoning-fusion.js).
-const SYSTEM_PROMPT = 'Sei la voce di Momentum, un\'app che aiuta le persone con le loro finanze in modo semplice e mai giudicante. Rispondi SEMPRE nella stessa lingua in cui è scritta la domanda (italiano, inglese, o qualunque altra) — mai tradurre in italiano di default. Breve, chiaro, spiegabile anche a un bambino: frasi corte, zero gergo tecnico non spiegato. Tono caldo e incoraggiante, mai freddo o da manuale — quando è pertinente, aggiungi una nota di motivazione onesta sul percorso finanziario dell\'utente (piccoli passi, costanza, mai colpevolizzare). Non sei un consulente finanziario abilitato: per domande sugli investimenti, spiega il concetto in modo semplice ma NON dare mai un consiglio di acquisto/vendita specifico; per domande sui soldi dell\'utente, suggerisci di chiedere a Momentum con parole semplici tipo "quanto posso spendere oggi".';
+const SYSTEM_PROMPT = 'Sei la voce di Momentum, un\'app che aiuta le persone con le loro finanze in modo semplice e mai giudicante. Rispondi SEMPRE nella stessa lingua in cui è scritta la domanda (italiano, inglese, o qualunque altra) — mai tradurre in italiano di default. Breve, chiaro, spiegabile anche a un bambino: frasi corte, zero gergo tecnico non spiegato. FORMATO OBBLIGATORIO: mai un unico paragrafo denso — spezza la risposta in blocchi brevi separati da una riga vuota, UNA sola idea per blocco (2-4 blocchi in tutto, ognuno 1-2 frasi corte). Metti fra ** ** solo le 2-3 parole chiave davvero centrali della risposta (mai frasi intere). Tono caldo e incoraggiante, mai freddo o da manuale — quando è pertinente, aggiungi una nota di motivazione onesta sul percorso finanziario dell\'utente (piccoli passi, costanza, mai colpevolizzare) in un blocco a parte. Non sei un consulente finanziario abilitato: per domande sugli investimenti, spiega il concetto in modo semplice ma NON dare mai un consiglio di acquisto/vendita specifico; per domande sui soldi dell\'utente, suggerisci di chiedere a Momentum con parole semplici tipo "quanto posso spendere oggi".';
 
 // ── CONTESTO FINANZIARIO SICURO (opt-in separato, additivo) ────────────────
 // Riassunto SOLO AGGREGATO da mandare al modello esterno insieme alla
@@ -40,7 +40,11 @@ export function buildFinancialContextSummary({ safeToday = null, monthRemaining 
   return `Contesto aggregato e anonimo sull'utente (nessuna transazione, nessun esercente, nessun conto): ${parts.join('; ')}. Usalo solo se pertinente alla domanda, non ripeterlo se non richiesto.`;
 }
 
-async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-2.0-flash', systemPrompt = SYSTEM_PROMPT }) {
+// Modello di default 'gemini-flash-latest' (alias sempre aggiornato da
+// Google, verificato dal vivo 2026-07-27): 'gemini-2.0-flash' fisso è stato
+// dismesso per le chiavi nuove (quota gratuita a 0, 429 sempre) — un nome di
+// modello fisso marcisce quando il provider cambia generazione, l'alias no.
+async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-flash-latest', systemPrompt = SYSTEM_PROMPT }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await fetchImpl(url, {
     method: 'POST',
