@@ -14,6 +14,10 @@ const PATTERNS = [
   /\b(?:cosa\s+dice|cosa\s+sta\s+succedendo)\b.*?\b(?:di|su|con)\b\s+(.+)/i,
   /\b(?:grafico|andamento|storico|prezzo|quotazione|chart|price)\b.*?\b(?:di|su|about|of)\b\s+(.+)/i,
   /\b(?:come\s+(?:è|sta|è\s+andat[ao]|va))\b.*?\b(?:di|su|con)\b\s+(.+)/i,
+  // Settori senza connettivo prima del nome ("come va il mercato
+  // immobiliare?"): niente "di/su/con" da estrarre, cattura direttamente
+  // la frase dopo il verbo.
+  /\b(?:come\s+(?:è|sta|è\s+andat[ao]|va))\b\s+(?:il\s+|lo\s+|la\s+)?(mercato\s+immobiliare|settore\s+immobiliare|immobiliare)\b/i,
 ];
 
 // Rumore comune da ripulire dalla coda estratta ("...di oggi", "?", ecc.) —

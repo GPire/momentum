@@ -55,3 +55,13 @@ test('detectNewsIntent: "storico di Ethereum" -> Ethereum', () => {
   const r = detectNewsIntent('mostrami lo storico di Ethereum');
   assert.equal(r?.asset, 'Ethereum');
 });
+
+test('detectNewsIntent: "come va il mercato immobiliare?" -> mercato immobiliare (senza connettivo)', () => {
+  const r = detectNewsIntent('come va il mercato immobiliare?');
+  assert.equal(r?.asset, 'mercato immobiliare');
+});
+
+test('detectNewsIntent: "come va il settore immobiliare" -> settore immobiliare', () => {
+  const r = detectNewsIntent('come va il settore immobiliare');
+  assert.equal(r?.asset, 'settore immobiliare');
+});

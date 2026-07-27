@@ -88,3 +88,65 @@ test('searchAsset: query "tesla" → il titolo azionario reale precede i token c
   assert.equal(r.results[0].symbol, 'TSLA');
   assert.equal(r.results[0].kind, 'stock');
 });
+
+// Immobili: nessuna API gratuita dà il prezzo di un immobile specifico —
+// alias locale verso l'ETF di settore reale (XLRE, quotato) come PROXY,
+// mai una previsione sul bene dell'utente. Verifica che l'alias risponda
+// SENZA chiamare le API live (nessun fetch effettuato).
+test('searchAsset: "mercato immobiliare" -> proxy di settore XLRE, senza chiamare le API live', async () => {
+  const fetchImpl = async () => { throw new Error('non doveva essere chiamata'); };
+  const r = await searchAsset('mercato immobiliare', { apiKey: 'k', fetchImpl });
+  assert.equal(r.results.length, 1);
+  assert.equal(r.results[0].symbol, 'XLRE');
+  assert.equal(r.results[0].kind, 'stock');
+  assert.match(r.results[0].name, /proxy di settore/i);
+  assert.equal(r.stale, false);
+});
+
+test('searchAsset: "come va il settore immobiliare" (in inglese "real estate") -> stesso alias XLRE', async () => {
+  const fetchImpl = async () => { throw new Error('non doveva essere chiamata'); };
+  const r = await searchAsset('real estate', { fetchImpl });
+  assert.equal(r.results[0].symbol, 'XLRE');
+});
+
+// BUG REALE (2026-07-27): chiave Alpha Vantage non valida/demo ("TEST_DEMO_KEY")
+// faceva fallire in silenzio la ricerca azionaria di "Apple", ripiegando su
+// un token cripto assurdo ("dog-with-apple-in-mouth") spacciato per il
+// risultato migliore. Verifica che l'errore reale venga ora conservato.
+test('searchAsset: chiave Alpha Vantage non valida + solo cripto poco pertinente -> stockWarning onesto', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) {
+      return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-apple-in-mouth', symbol: 'DOGGO', name: 'Dog with apple in mouth', market_cap_rank: 5000 }] }) };
+    }
+    return { ok: true, json: async () => ({ Information: 'We have detected your API key as TEST_DEMO_KEY...' }) };
+  };
+  const r = await searchAsset('Apple', { apiKey: 'TEST_DEMO_KEY', fetchImpl });
+  assert.ok(r.stockWarning, 'deve conservare il messaggio di errore reale');
+  assert.equal(r.results[0].symbol, 'DOGGO'); // il risultato debole resta disponibile, ma segnalato
+});
+
+// BUG REALE riprodotto dal vivo: il token "dog with apple in mouth" ha
+// SIMBOLO letterale "APPLE" (non il nome) — relevanceScore lo trattava come
+// match esatto al pari di un titolo vero. Il simbolo può essere scelto
+// liberamente da chiunque, il nome no: solo il nome conta per l'esenzione.
+test('searchAsset: simbolo cripto uguale alla query ma nome diverso -> warning comunque presente (simbolo non è garanzia)', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) {
+      return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-apple-in-mouth', symbol: 'APPLE', name: 'dog with apple in mouth', market_cap_rank: 5000 }] }) };
+    }
+    return { ok: true, json: async () => ({ Information: 'We have detected your API key as TEST_DEMO_KEY...' }) };
+  };
+  const r = await searchAsset('Apple', { apiKey: 'TEST_DEMO_KEY', fetchImpl });
+  assert.ok(r.stockWarning, 'il simbolo uguale alla query non deve bastare a sopprimere il warning');
+});
+
+test('searchAsset: match cripto ESATTO nonostante errore azionario -> nessun warning (il match è comunque pertinente)', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) {
+      return { ok: true, json: async () => ({ coins: [{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', market_cap_rank: 1 }] }) };
+    }
+    return { ok: true, json: async () => ({ Information: 'limite' }) };
+  };
+  const r = await searchAsset('bitcoin', { apiKey: 'k', fetchImpl });
+  assert.equal(r.stockWarning, null);
+});

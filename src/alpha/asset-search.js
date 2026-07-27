@@ -44,6 +44,21 @@ export async function searchStock(query, { apiKey, fetchImpl = fetch } = {}) {
     .map(({ _score, ...rest }) => rest);
 }
 
+// Alias per settori/beni senza un prezzo di mercato specifico interrogabile
+// (un immobile non ha un ticker: nessuna API gratuita dà il valore di CASA
+// TUA). Onesto: mai il valore del bene specifico dell'utente, solo un PROXY
+// di settore dichiarato come tale nel nome — l'ETF reale (XLRE, quotato,
+// stesso motore stock già verificato) mostra l'andamento generale del
+// mercato immobiliare USA, non una previsione sul singolo immobile.
+const SECTOR_PROXY_ALIASES = [
+  { match: /immobil|real estate|property market/i, kind: 'stock', id: 'XLRE', symbol: 'XLRE', name: 'Immobiliare USA (proxy di settore: XLRE, non il tuo immobile specifico)' },
+];
+
+function resolveSectorProxy(q) {
+  const found = SECTOR_PROXY_ALIASES.find(a => a.match.test(q));
+  return found ? [{ kind: found.kind, id: found.id, symbol: found.symbol, name: found.name }] : [];
+}
+
 function relevanceScore(item, q) {
   const exact = item.symbol?.toLowerCase() === q || item.name?.toLowerCase() === q;
   if (exact) return 1000;
@@ -60,15 +75,33 @@ function relevanceScore(item, q) {
 // sembrerebbe "nessun risultato" invece di "rete assente".
 export async function searchAsset(query, { apiKey, fetchImpl = fetch, cache = null } = {}) {
   const q = (query || '').trim().toLowerCase();
+  const proxy = resolveSectorProxy(q);
+  if (proxy.length) return { results: proxy, stale: false };
   const cacheKey = `assetsearch:${q}`;
+  // BUG REALE trovato dal vivo (2026-07-27): con una chiave Alpha Vantage non
+  // valida/demo (es. "TEST_DEMO_KEY"), la ricerca azionaria falliva in
+  // silenzio (.catch(() => [])) e "Apple" ripiegava sull'unico risultato
+  // rimasto: un token cripto assurdo ("dog-with-apple-in-mouth") spacciato
+  // per il risultato migliore. Ora l'errore REALE della ricerca azionaria
+  // (chiave non valida/limite raggiunto) viene conservato e restituito
+  // quando l'unico risultato rimasto è una cripto poco pertinente (mai un
+  // match esatto) — l'utente merita di sapere perché, non un dato sbagliato.
+  let stockWarning = null;
   const [crypto, stock] = await Promise.all([
     searchCrypto(query, { fetchImpl }).catch(() => []),
-    apiKey ? searchStock(query, { apiKey, fetchImpl }).catch(() => []) : Promise.resolve([]),
+    apiKey ? searchStock(query, { apiKey, fetchImpl }).catch(e => { stockWarning = e.message; return []; }) : Promise.resolve([]),
   ]);
   const results = [...crypto, ...stock].sort((a, b) => relevanceScore(b, q) - relevanceScore(a, q));
   if (results.length) {
     if (cache) await cache.put(cacheKey, results).catch(() => {});
-    return { results, stale: false };
+    // BUG REALE trovato dal vivo (2026-07-27): un token cripto spazzatura può
+    // impostare il proprio SIMBOLO a una parola comune ("APPLE") apposta per
+    // scalare in cima ai risultati — relevanceScore lo trattava come "match
+    // esatto" al pari di un titolo reale. Qui il match esatto conta solo se è
+    // sul NOME (es. "bitcoin" → nome "Bitcoin": affidabile), mai sul solo
+    // simbolo, che chiunque può scegliere liberamente.
+    const onlyWeakCrypto = stock.length === 0 && results.every(r => r.kind === 'crypto' && r.name?.toLowerCase() !== q);
+    return { results, stale: false, stockWarning: stockWarning && onlyWeakCrypto ? stockWarning : null };
   }
   if (cache) {
     const cached = await cache.get(cacheKey).catch(() => null);

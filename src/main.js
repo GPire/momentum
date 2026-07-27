@@ -5910,7 +5910,17 @@ const initApp = () => {
     try {
       const { searchAsset } = await import('./alpha/asset-search.js');
       const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
-      const { results } = await searchAsset(assetQuery, { apiKey, fetchImpl: fetch.bind(window), cache: assetSearchCache });
+      const { results, stockWarning } = await searchAsset(assetQuery, { apiKey, fetchImpl: fetch.bind(window), cache: assetSearchCache });
+      // BUG REALE trovato dal vivo: con una chiave Alpha Vantage non valida
+      // (es. "TEST_DEMO_KEY"), "Apple" ripiegava in silenzio su un token
+      // cripto assurdo ("dog-with-apple-in-mouth") spacciato per il
+      // risultato migliore. Ora, se la ricerca azionaria ha un errore REALE
+      // e l'unico risultato è una cripto poco pertinente, lo diciamo — mai
+      // un dato sbagliato spacciato per quello richiesto.
+      if (stockWarning) {
+        showQaCloudError(`Non trovo un titolo azionario reale per "${assetQuery}".`, stockWarning);
+        return true;
+      }
       const asset = results?.[0];
       if (!asset) return false;
       let items = [], stale = false;
