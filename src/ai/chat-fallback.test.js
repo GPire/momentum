@@ -275,3 +275,12 @@ test('askCloudFallback: Moonshot AI -> forma reale, estrae il testo', async () =
   const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'moonshot', fetchImpl });
   assert.equal(r.answer, 'Risposta da Kimi');
 });
+
+// GLM (Zhipu): verificato dal vivo sia CORS che la risposta REALE senza
+// chiave (formato d'errore {error:{message}} identico a OpenAI, schema
+// Authorization Bearer standard confermato).
+test('askCloudFallback: GLM -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta da GLM' } }] }) });
+  const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'glm', fetchImpl });
+  assert.equal(r.answer, 'Risposta da GLM');
+});

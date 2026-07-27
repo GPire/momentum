@@ -3048,6 +3048,13 @@ const API_KEY_GUIDES = {
     freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Vai su "API Keys" e crea una nuova chiave', 'Copia il codice e torna qui — verifica tu i limiti sul tuo account'],
   },
+  glm: {
+    title: 'Chat generica — GLM / Zhipu AI (Cina)',
+    url: 'https://open.bigmodel.cn/usercenter/apikeys',
+    usageUrl: 'https://open.bigmodel.cn/usercenter/financepage',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Vai su "API Keys" e crea una nuova chiave', 'Copia il codice e torna qui — verifica tu i limiti sul tuo account'],
+  },
   openai: {
     title: 'Chat generica — OpenAI (a pagamento)',
     url: 'https://platform.openai.com/api-keys',
@@ -3176,6 +3183,7 @@ function renderChatProviderStatus() {
     { id: 'cerebras', label: 'Cerebras' },
     { id: 'qwen', label: 'Qwen' },
     { id: 'moonshot', label: 'Moonshot AI' },
+    { id: 'glm', label: 'GLM (Zhipu)' },
     { id: 'xai', label: 'xAI/Grok' },
     { id: 'openai', label: 'OpenAI' },
     { id: 'anthropic', label: 'Anthropic' },

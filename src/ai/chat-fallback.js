@@ -152,6 +152,16 @@ const askQwen = makeOpenAiCompatible('https://dashscope-intl.aliyuncs.com/compat
 // di origine rispecchiata), formato OpenAI-compatibile per documentazione
 // ufficiale. Non verificato end-to-end con una chiave reale stasera.
 const askMoonshot = makeOpenAiCompatible('https://api.moonshot.ai/v1/chat/completions', 'kimi-k2-0711-preview', 'Moonshot AI');
+// Zhipu AI (GLM): CORS verificato dal vivo (2026-07-27), e verificata anche
+// la risposta REALE senza chiave ("Header non contiene Authorization") —
+// conferma sia lo schema di autenticazione Bearer standard sia il formato
+// d'errore {error:{message}} identico a OpenAI, quindi affidabile con lo
+// stesso helper. Non verificato con una chiave reale (nessun account).
+// Xiaomi (MiMo): NESSUN endpoint API pubblico raggiungibile trovato dal
+// vivo (connessione fallita) — i loro modelli sono open-weight su
+// Hugging Face, non un servizio ospitato proprio: non integrato, sarebbe
+// un'invenzione senza un endpoint reale da chiamare.
+const askGlm = makeOpenAiCompatible('https://open.bigmodel.cn/api/paas/v4/chat/completions', 'glm-4-flash', 'GLM (Zhipu)');
 // OpenAI: CORS verificato (2026-07-27). A PAGAMENTO A CONSUMO, nessun livello
 // gratuito — l'abbonamento ChatGPT Plus NON dà accesso API, sono fatturati
 // separatamente. Solo per chi ha già la fatturazione API attiva.
@@ -174,8 +184,8 @@ async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-h
   return text.trim();
 }
 
-export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, mistral: askMistral, openrouter: askOpenRouter, cerebras: askCerebras, qwen: askQwen, moonshot: askMoonshot, openai: askOpenAI, anthropic: askAnthropic, xai: askXai };
-const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', mistral: 'Mistral', openrouter: 'OpenRouter', cerebras: 'Cerebras', qwen: 'Qwen', moonshot: 'Moonshot AI', openai: 'OpenAI', anthropic: 'Anthropic', xai: 'xAI' };
+export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, mistral: askMistral, openrouter: askOpenRouter, cerebras: askCerebras, qwen: askQwen, moonshot: askMoonshot, glm: askGlm, openai: askOpenAI, anthropic: askAnthropic, xai: askXai };
+const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', mistral: 'Mistral', openrouter: 'OpenRouter', cerebras: 'Cerebras', qwen: 'Qwen', moonshot: 'Moonshot AI', glm: 'GLM (Zhipu)', openai: 'OpenAI', anthropic: 'Anthropic', xai: 'xAI' };
 
 // Riconoscimento DINAMICO dell'asset (richiesta esplicita dell'utente: un
 // elenco fisso di frasi/regex è troppo rigido — "grafico di Bitcoin",
@@ -224,7 +234,7 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 // token/minuto); OpenRouter dipende dal modello ":free" scelto (limiti
 // spesso più stretti, variabili per modello); DeepSeek è a consumo senza
 // livello gratuito confermato; xAI/OpenAI/Anthropic sono sempre a pagamento.
-export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'qwen', 'moonshot', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
+export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'qwen', 'moonshot', 'glm', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
   const attempts = order.filter((p) => keys[p]);
   if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;
