@@ -1078,6 +1078,20 @@
                 <p id="total-invest" class="text-xl sm:text-2xl font-black text-[var(--gold)] font-mono tracking-tighter truncate">€0</p>
               </div>
             </div>
+            <!-- Barra entrate/uscite: i 4 numeri sopra richiedono di fare la
+                 sottrazione a mente per capire il margine. Una barra a due
+                 colori (verde=entrate, rosso=uscite) sulla STESSA scala rende
+                 il rapporto visibile a colpo d'occhio, senza calcoli. -->
+            <div class="card p-3 sm:p-4 shrink-0" id="income-expense-bar-card">
+              <div class="flex items-center justify-between text-[9px] text-slate-500 mb-1.5">
+                <span>Entrate vs uscite</span>
+                <span id="income-expense-bar-note"></span>
+              </div>
+              <div class="h-2.5 rounded-full bg-white/5 overflow-hidden flex">
+                <div id="income-expense-bar-inc" class="h-full bg-emerald-400/70" style="width:50%"></div>
+                <div id="income-expense-bar-exp" class="h-full bg-rose-400/70" style="width:50%"></div>
+              </div>
+            </div>
 
             <!-- SALVADANAIO: riserva cumulata + stato sicurezza + segna-avanzo.
                  Onesto: nessun trasferimento reale, Momentum non tocca la banca —

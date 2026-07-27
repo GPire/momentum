@@ -994,6 +994,13 @@ const renderDashboard = () => {
   $('#total-expense').textContent = formatMoney(exp);
   $('#total-liquidity').textContent = formatMoney(liquidity);
   $('#total-invest').textContent = formatMoney(inv);
+  const iebInc = $('#income-expense-bar-inc'), iebExp = $('#income-expense-bar-exp'), iebNote = $('#income-expense-bar-note');
+  if (iebInc && iebExp) {
+    const total = Math.max(1, inc + exp);
+    iebInc.style.width = `${Math.round((inc / total) * 100)}%`;
+    iebExp.style.width = `${Math.round((exp / total) * 100)}%`;
+    if (iebNote) iebNote.textContent = liquidity >= 0 ? `margine +${formatMoney(liquidity)}` : `margine ${formatMoney(liquidity)}`;
+  }
   // Pop-in scaglionato: i numeri VERI arrivano con vita, non un "€0" statico che
   // scatta senza preavviso. Ri-attiva l'animazione anche sui re-render (cambio
   // mese) togliendo/rimettendo la classe con un reflow in mezzo.
