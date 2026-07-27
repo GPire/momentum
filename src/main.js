@@ -1277,10 +1277,18 @@ const renderDashboard = () => {
     return;
   }
 
+  // Difensivo: una transazione può arrivare "sottile" da una pipeline che si
+  // aspetta di arricchirla più tardi da un duplicato cross-canale
+  // (mergeTransaction in deduplicator.js riempie i campi mancanti quando lo
+  // stesso movimento arriva da un secondo canale — se quel secondo canale non
+  // arriva mai, un campo resta `undefined` per sempre). Senza questo fallback,
+  // `${t.description}` stampava alla lettera la parola "undefined" a schermo.
+  const escTx = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   txs.sort((a,b) => b.id - a.id).forEach(t => {
     const c = getCatById(t.category);
     const isInc = t.type === 'entrata';
     const isInv = t.type === 'invest';
+    const descLabel = (t.description && String(t.description).trim()) || c.name;
     let dateLabel = c.name;
     if (t.date) {
       const d = new Date(t.date);
@@ -1292,8 +1300,8 @@ const renderDashboard = () => {
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shadow-inner shrink-0" style="background:${c.color}">${c.icon}</div>
           <div class="min-w-0 pr-2 flex-1">
-             <p class="font-bold text-[0.9rem] sm:text-[0.95rem] text-[var(--on-surface)] tracking-tight truncate flex items-center"><span class="truncate">${t.description}</span></p>
-             <p class="text-[10px] sm:text-[11px] text-[var(--on-surface-secondary)] font-bold uppercase tracking-wider mt-0.5 truncate">${dateLabel}</p>
+             <p class="font-bold text-[0.9rem] sm:text-[0.95rem] text-[var(--on-surface)] tracking-tight truncate flex items-center"><span class="truncate">${escTx(descLabel)}</span></p>
+             <p class="text-[10px] sm:text-[11px] text-[var(--on-surface-secondary)] font-bold uppercase tracking-wider mt-0.5 truncate">${escTx(dateLabel)}</p>
           </div>
         </div>
         <div class="flex flex-col items-end shrink-0 pl-2">
