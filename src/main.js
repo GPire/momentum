@@ -5984,7 +5984,7 @@ const initApp = () => {
         <p class="text-[9px] text-slate-500 mt-1.5">Verde/rosso = massimo/minimo storico reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette. Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
       </div>`;
   }
-  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote) {
+  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
     const itemsHtml = items.map(n =>
@@ -5996,12 +5996,26 @@ const initApp = () => {
     // Punti reali a 2/3/5 anni — non una linea continua (l'API gratuita non
     // lo permette oltre 365gg), ma prezzi veri in quelle date esatte.
     const multiYearHtml = multiYearNote ? `<p class="qa-cloud-block text-sky-200/70 text-[10px]">${multiYearNote}</p>` : '';
+    // Fallback quando Alpha Vantage non dà notizie (chiave assente/esaurita
+    // — feedback esplicito dell'utente: "la parte delle notizie non dice
+    // niente"): Gemini con grounding Google Search cerca sul web reale cosa
+    // sta facendo l'azienda (prodotti, innovazioni, rumor) — MAI spacciato
+    // per un dato di Momentum, etichetta separata e onesta come ogni altra
+    // risposta cloud di questa sessione.
+    const groundedHtml = groundedNewsNote ? `
+      <div class="mt-2 pt-2 border-t border-sky-500/10">
+        <div class="flex items-center justify-between mb-1">
+          <h5 class="text-[9px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} Gemini · ricerca web</h5>
+          <span class="text-[9px] text-violet-400/70">non è Momentum</span>
+        </div>
+        ${formatCloudAnswer(groundedNewsNote, 'text-violet-300')}
+      </div>` : '';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
         <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}${itemsHtml}</div>${historyChart || ''}`;
+      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}${itemsHtml}</div>${historyChart || ''}${groundedHtml}`;
     replayQaAnimation();
   }
   // Ritorna true se ha risposto con dati reali (fine flusso), false se deve
@@ -6046,6 +6060,29 @@ const initApp = () => {
           const r = await fetchNewsSentiment(asset.symbol, { apiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
           items = r.items || []; stale = r.stale;
         } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+      }
+      // Fallback (feedback esplicito: "la parte delle notizie non dice
+      // niente" — capita spesso perché Alpha Vantage News richiede la
+      // stessa chiave della ricerca, con lo stesso limite di 25/giorno
+      // facile da esaurire). Se non ci sono notizie reali E l'utente ha
+      // configurato Gemini, usa il grounding Google Search (costruito
+      // stasera) per cercare davvero cosa sta facendo l'azienda — mai al
+      // posto dei dati numerici, solo per il testo, ed etichettato come
+      // "non è Momentum" come ogni altra risposta cloud.
+      let groundedNewsNote = null;
+      if (!items.length) {
+        const geminiKey = VaultDAO.state.liveDataKeys?.gemini;
+        if (geminiKey) {
+          try {
+            const { askCloudFallback } = await import('./ai/chat-fallback.js');
+            const label = asset.name || asset.symbol;
+            const { answer } = await askCloudFallback(
+              `Notizie reali e recenti su ${label} (${asset.symbol}): cosa stanno facendo ultimamente, innovazioni, prodotti o pubblicazioni recenti, eventuali rumor. Fatti concreti e attuali, non descrizioni generiche dell'azienda.`,
+              { apiKey: geminiKey, provider: 'gemini', grounding: true, fetchImpl: fetch.bind(window) }
+            );
+            groundedNewsNote = answer;
+          } catch (_) { /* onesto: niente notizie via grounding, il resto continua comunque */ }
+        }
       }
       let yoyNote = null, historyChart = '', multiYearNote = null;
       if (asset.kind === 'crypto') {
@@ -6095,8 +6132,8 @@ const initApp = () => {
           }
         } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
       }
-      if (!items.length && !yoyNote && !historyChart) return false;
-      showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote);
+      if (!items.length && !yoyNote && !historyChart && !groundedNewsNote) return false;
+      showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote);
       return true;
     } catch (_) { return false; }
   }
