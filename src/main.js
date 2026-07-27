@@ -3010,6 +3010,30 @@ const API_KEY_GUIDES = {
     freeNoCard: false,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Premi "Sign up" per creare un account (o "Log in with Google" se ne hai già uno)', 'Vai su "API keys" nel menu e premi "Create new API key"', 'Copia il codice e torna qui — verifica tu i costi sul tuo account'],
   },
+  mistral: {
+    title: 'Chat generica — Mistral (piano gratuito)',
+    url: 'https://console.mistral.ai/api-keys',
+    usageUrl: 'https://console.mistral.ai/usage',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Vai su "API Keys" e crea una nuova chiave', 'Copia il codice e torna qui — verifica tu i limiti sul tuo account'],
+  },
+  // Aggregatore: una sola chiave dà accesso a decine di modelli, incluso
+  // il modello ":free" già configurato di default — utile a chi vuole
+  // più scelta senza account separati per ogni provider.
+  openrouter: {
+    title: 'Chat generica — OpenRouter (aggregatore, modelli gratuiti)',
+    url: 'https://openrouter.ai/keys',
+    usageUrl: 'https://openrouter.ai/activity',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Premi "Create Key"', 'Copia il codice e torna qui. Una chiave dà accesso a molti modelli, inclusi quelli gratuiti (marcati ":free")'],
+  },
+  cerebras: {
+    title: 'Chat generica — Cerebras (molto veloce, piano gratuito)',
+    url: 'https://cloud.cerebras.ai/platform/keys',
+    usageUrl: 'https://cloud.cerebras.ai/platform/usage',
+    freeNoCard: true,
+    steps: ['Apri il sito (si apre in una scheda nuova)', 'Crea un account gratuito', 'Vai su "API Keys" e crea una nuova chiave', 'Copia il codice e torna qui — verifica tu i limiti sul tuo account'],
+  },
   openai: {
     title: 'Chat generica — OpenAI (a pagamento)',
     url: 'https://platform.openai.com/api-keys',
@@ -3133,6 +3157,9 @@ function renderChatProviderStatus() {
     { id: 'gemini', label: 'Gemini' },
     { id: 'groq', label: 'Groq' },
     { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'mistral', label: 'Mistral' },
+    { id: 'openrouter', label: 'OpenRouter' },
+    { id: 'cerebras', label: 'Cerebras' },
     { id: 'xai', label: 'xAI/Grok' },
     { id: 'openai', label: 'OpenAI' },
     { id: 'anthropic', label: 'Anthropic' },

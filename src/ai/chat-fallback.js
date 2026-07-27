@@ -122,6 +122,24 @@ const askXai = makeOpenAiCompatible('https://api.x.ai/v1/chat/completions', 'gro
 // ho conferma che il livello gratuito sia sempre disponibile — dichiarato,
 // l'utente verifica i costi sul proprio account prima di usarlo con continuità.
 const askDeepseek = makeOpenAiCompatible('https://api.deepseek.com/chat/completions', 'deepseek-chat', 'DeepSeek');
+// Mistral AI: CORS verificato dal vivo (2026-07-27, access-control-allow-
+// origin: *), formato OpenAI-compatibile. Ha un livello gratuito dichiarato
+// (La Plateforme, con limiti di frequenza) — come DeepSeek, non verificato
+// end-to-end con una chiave reale stasera: l'utente controlla i limiti sul
+// proprio account prima di usarlo con continuità.
+const askMistral = makeOpenAiCompatible('https://api.mistral.ai/v1/chat/completions', 'mistral-small-latest', 'Mistral');
+// OpenRouter: CORS verificato dal vivo (2026-07-27). Non è un solo modello ma
+// un AGGREGATORE: una sola chiave dà accesso a decine di modelli di provider
+// diversi, inclusi alcuni modelli marcati ":free" (gratuiti, con un limite di
+// richieste/minuto). Utile in cascata proprio perché una singola chiave copre
+// più modelli — se un modello free è sovraccarico, l'utente può cambiarlo
+// dal proprio account senza cambiare provider in Momentum.
+const askOpenRouter = makeOpenAiCompatible('https://openrouter.ai/api/v1/chat/completions', 'meta-llama/llama-3.3-70b-instruct:free', 'OpenRouter');
+// Cerebras: CORS verificato dal vivo (2026-07-27). Inferenza molto veloce
+// (hardware dedicato, non GPU condivise), piano gratuito dichiarato generoso
+// per chi ha solo bisogno di risposte testuali occasionali — non verificato
+// end-to-end con una chiave reale stasera.
+const askCerebras = makeOpenAiCompatible('https://api.cerebras.ai/v1/chat/completions', 'llama3.1-8b', 'Cerebras');
 // OpenAI: CORS verificato (2026-07-27). A PAGAMENTO A CONSUMO, nessun livello
 // gratuito — l'abbonamento ChatGPT Plus NON dà accesso API, sono fatturati
 // separatamente. Solo per chi ha già la fatturazione API attiva.
@@ -144,8 +162,8 @@ async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-h
   return text.trim();
 }
 
-export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, openai: askOpenAI, anthropic: askAnthropic, xai: askXai };
-const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic', xai: 'xAI' };
+export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, mistral: askMistral, openrouter: askOpenRouter, cerebras: askCerebras, openai: askOpenAI, anthropic: askAnthropic, xai: askXai };
+const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', mistral: 'Mistral', openrouter: 'OpenRouter', cerebras: 'Cerebras', openai: 'OpenAI', anthropic: 'Anthropic', xai: 'xAI' };
 
 // Riconoscimento DINAMICO dell'asset (richiesta esplicita dell'utente: un
 // elenco fisso di frasi/regex è troppo rigido — "grafico di Bitcoin",
@@ -186,7 +204,15 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 // che nasconde cosa è successo davvero). `order` di default: prima i
 // GRATUITI confermati (Gemini, Groq), poi quello da verificare (DeepSeek),
 // infine i due A PAGAMENTO (OpenAI, Anthropic) — solo per chi li ha già.
-export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
+// Ordine di default per generosità REALE del piano gratuito (dalla
+// documentazione ufficiale di ciascun provider, 2026-07-27 — non un numero
+// esatto verificato dal vivo per ognuno stasera, i limiti cambiano nel
+// tempo): Groq e Gemini restano i più generosi e veloci; Cerebras ha un
+// piano gratuito ampio ma più giovane; Mistral è più limitato (pochi
+// token/minuto); OpenRouter dipende dal modello ":free" scelto (limiti
+// spesso più stretti, variabili per modello); DeepSeek è a consumo senza
+// livello gratuito confermato; xAI/OpenAI/Anthropic sono sempre a pagamento.
+export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
   const attempts = order.filter((p) => keys[p]);
   if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;

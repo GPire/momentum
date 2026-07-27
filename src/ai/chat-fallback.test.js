@@ -225,3 +225,37 @@ test('askCloudFallbackChain: include xAI nell\'ordine di default, dopo DeepSeek'
   assert.equal(r.provider, 'xai');
   assert.equal(r.answer, 'grok risponde');
 });
+
+// Ricerca avanzata richiesta esplicitamente ("trova il modo innovativo"):
+// altri 3 provider verificati dal vivo (CORS confermato via OPTIONS reale,
+// 2026-07-27) aggiunti alla cascata, stesso formato OpenAI-compatibile.
+test('askCloudFallback: Mistral -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta da Mistral' } }] }) });
+  const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'mistral', fetchImpl });
+  assert.equal(r.answer, 'Risposta da Mistral');
+});
+
+test('askCloudFallback: OpenRouter -> forma reale, usa il modello ":free" di default', async () => {
+  const fetchImpl = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    assert.match(body.model, /:free$/);
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta da OpenRouter' } }] }) };
+  };
+  const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'openrouter', fetchImpl });
+  assert.equal(r.answer, 'Risposta da OpenRouter');
+});
+
+test('askCloudFallback: Cerebras -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta da Cerebras' } }] }) });
+  const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'cerebras', fetchImpl });
+  assert.equal(r.answer, 'Risposta da Cerebras');
+});
+
+test('askCloudFallbackChain: ordine di default include i nuovi provider tra Groq e DeepSeek', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('mistral')) return { ok: true, json: async () => ({ choices: [{ message: { content: 'da mistral' } }] }) };
+    throw new TypeError('Failed to fetch');
+  };
+  const r = await askCloudFallbackChain('ciao', { keys: { mistral: 'k' }, fetchImpl });
+  assert.equal(r.provider, 'mistral');
+});
