@@ -4855,11 +4855,25 @@ const renderSubscriptions = () => {
 // (AnomalyDetector, invariato) + insight consolidati dell'advisor
 // (src/predict/advisor.js — prima erano blocchi HTML inline separati per
 // budget stantio e aumenti di prezzo, con stili e logica duplicati).
+// Ogni card di alert/insight aveva SOLO un bordo colorato + titolo maiuscolo:
+// una fila di scatole identiche, indistinguibili a colpo d'occhio (segnalato
+// dall'utente: "sembrano tirate a caso"). L'icona nel badge colorato dà a
+// ognuna una forma riconoscibile prima ancora di leggere il testo.
 const SEVERITY_STYLE = {
-  danger: { border: 'border-rose-500/20 bg-rose-950/5', text: 'text-rose-400' },
-  warn:   { border: 'border-amber-500/20 bg-amber-950/5', text: 'text-amber-400' },
-  info:   { border: 'border-sky-500/20 bg-sky-950/5', text: 'text-sky-400' },
+  danger: { border: 'border-rose-500/20 bg-rose-950/5', text: 'text-rose-400', badge: 'bg-rose-500/15', icon: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>' },
+  warn:   { border: 'border-amber-500/20 bg-amber-950/5', text: 'text-amber-400', badge: 'bg-amber-500/15', icon: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>' },
+  info:   { border: 'border-sky-500/20 bg-sky-950/5', text: 'text-sky-400', badge: 'bg-sky-500/15', icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>' },
+  positive: { border: 'border-emerald-500/20 bg-emerald-950/5', text: 'text-emerald-400', badge: 'bg-emerald-500/15', icon: '<path d="M20 6L9 17l-5-5"/>' },
+  recap: { border: 'border-indigo-500/20 bg-indigo-950/5', text: 'text-indigo-400', badge: 'bg-indigo-500/15', icon: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/>' },
 };
+function insightCardHeader(style, title) {
+  return `<div class="flex items-center gap-2 mb-2">
+    <span class="shrink-0 w-6 h-6 rounded-full ${style.badge} flex items-center justify-center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 ${style.text}">${style.icon}</svg>
+    </span>
+    <h4 class="text-[10px] font-bold ${style.text} uppercase tracking-widest">${title}</h4>
+  </div>`;
+}
 
 function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   try { renderSubscriptions(); } catch (e) { console.error('renderSubscriptions:', e); } // abbonamenti trovati (Ghost Charge Radar)
@@ -4877,7 +4891,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   if (anomalies.length > 0) {
     alertsBox.innerHTML += `
       <div class="card p-4 border border-rose-500/20 bg-rose-950/5">
-        <h4 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Spese insolite: le riconosci?</h4>
+        ${insightCardHeader(SEVERITY_STYLE.danger, 'Spese insolite: le riconosci?')}
         <div class="space-y-2 text-xs text-slate-300">
           ${anomalies.map(a => {
             const suspect = a.tx.suspect;
@@ -4985,7 +4999,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
       : '';
     alertsBox.innerHTML += `
       <div class="card p-4 border ${style.border}">
-        <h4 class="text-[10px] font-bold ${style.text} uppercase tracking-widest mb-2">${ins.title}</h4>
+        ${insightCardHeader(style, ins.title)}
         <p class="text-xs text-slate-300">${ins.body}</p>
         ${itemsHtml}${actionHtml}
       </div>
@@ -5007,7 +5021,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
       : '';
     alertsBox.innerHTML += `
       <div class="card p-4 border border-indigo-500/20 bg-indigo-950/5">
-        <h4 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">La tua settimana scorsa</h4>
+        ${insightCardHeader(SEVERITY_STYLE.recap, 'La tua settimana scorsa')}
         <div class="text-xs text-slate-300 space-y-0.5">
           <div>Hai speso <b>${formatMoney(recap.totalSpent)}</b>${deltaTxt ? `, ${deltaTxt}` : ''}.</div>
           ${recap.topCategory ? `<div>Quasi tutto in <b>${getCatById(recap.topCategory.id).name}</b> (${formatMoney(recap.topCategory.amount)}).</div>` : ''}
@@ -5759,7 +5773,18 @@ function renderSavingsGoals() {
   if (!box) return;
   const goals = VaultDAO.state.savingsGoals || [];
   if (goals.length === 0) {
-    box.innerHTML = `<p class="text-xs text-[var(--on-surface-secondary)]">Nessun obiettivo ancora. Creane uno: vedere la barra riempirsi è metà della motivazione.</p>`;
+    // Prima: solo una frase. Ora una barra-fantasma (tratteggiata, vuota) che
+    // mostra COSA diventerà questa sezione appena c'è un obiettivo — lo stesso
+    // linguaggio visivo delle barre reali sotto, non un'assenza silenziosa.
+    box.innerHTML = `
+      <button onclick="window.openGoalEditor()" class="w-full text-left p-3 rounded-xl border border-dashed border-[var(--glass-border)] hover:border-[var(--primary)]/50 transition-colors">
+        <div class="flex items-center gap-2 mb-2 text-[var(--on-surface-secondary)]">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>
+          <span class="text-xs font-bold">Crea il tuo primo obiettivo</span>
+        </div>
+        <div class="budget-track opacity-40"><div class="budget-fill" style="width:0%; background:var(--cyan);"></div></div>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Vedere la barra riempirsi è metà della motivazione — tocca per iniziare.</p>
+      </button>`;
     return;
   }
   box.innerHTML = goals.map(g => {
