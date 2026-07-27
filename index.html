@@ -392,7 +392,18 @@
     /* matrixSync (hue-rotate già usato per il pallino "dati sincronizzati")
        aggiunge un lento cambio di tonalità sopra il respiro — l'utente ha
        chiesto esplicitamente un effetto "ipnotico, neuro-colore". */
-    .qa-wait-orb { position: relative; width:48px; height:48px; border-radius:50%; background: var(--apex-gradient); box-shadow: var(--glow-primary); animation: qaOrbBreath 1.3s ease-in-out infinite, matrixSync 4s ease-in-out infinite; flex-shrink: 0; }
+    /* Gradiente "liquido": più fermate colore + background-size grande,
+       la posizione scorre lentamente avanti e indietro — effetto cangiante
+       senza cambiare --apex-gradient globale (usato altrove nell'app). */
+    .qa-wait-orb { position: relative; width:48px; height:48px; border-radius:50%; background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 35%, var(--primary-focus) 70%, var(--primary) 100%); background-size: 300% 300%; box-shadow: var(--glow-primary); animation: qaOrbBreath 1.3s ease-in-out infinite, matrixSync 4s ease-in-out infinite, qaOrbFlow 5s ease-in-out infinite; flex-shrink: 0; }
+    @keyframes qaOrbFlow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    /* Onde che si propagano ("sonar") — 3 anelli scaglionati che si
+       espandono e svaniscono, come un impulso ripetuto. */
+    .qa-wait-orb .qa-pulse { position:absolute; inset:-2px; border-radius:50%; border:1.5px solid rgba(165,180,252,.55); opacity:0; animation: qaPulseWave 2.4s ease-out infinite; }
+    .qa-wait-orb .qa-pulse:nth-child(4) { animation-delay: 0s; }
+    .qa-wait-orb .qa-pulse:nth-child(5) { animation-delay: .8s; }
+    .qa-wait-orb .qa-pulse:nth-child(6) { animation-delay: 1.6s; }
+    @keyframes qaPulseWave { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(1.9); opacity: 0; } }
     .qa-wait-orb::before { content:''; position:absolute; inset:-6px; border-radius:50%; border:3px solid transparent; border-top-color: var(--primary); border-right-color: var(--primary-focus); animation: spin 1.1s linear infinite; }
     .qa-wait-orb::after { content:''; position:absolute; inset:9px; border-radius:50%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), transparent 60%); animation: qaOrbBreath 1.3s ease-in-out infinite reverse; }
     /* Particelle scintillanti in orbita — scelta dell'utente tra 3 opzioni
@@ -419,6 +430,7 @@
       html:not(.force-anim) .qa-wait-orb::before,
       html:not(.force-anim) .qa-wait-orb::after,
       html:not(.force-anim) .qa-spark,
+      html:not(.force-anim) .qa-pulse,
       html:not(.force-anim) .qa-cloud-block { animation: none; }
     }
     /* Ogni blocco della risposta cloud entra in sequenza, non tutto insieme —
