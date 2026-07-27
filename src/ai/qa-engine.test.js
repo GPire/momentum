@@ -305,3 +305,32 @@ test('intent bnplOwed: "quanto devo ancora a rate?" senza piani aperti', () => {
   assert.equal(r.intent, 'bnpl-owed');
   assert.ok(/nessuno piani a rate aperti|non vedo piani/i.test(r.answer));
 });
+
+test('correzione refusi: "quanto ho spendrere questo mese" riconosce comunque "spendere"', () => {
+  const allTx = { '2026-07': [{ date: '2026-07-05', amount: 100, type: 'uscita', category: 'spesa', description: 'spesa' }] };
+  const r = answerQuestion('quanto posso spendrere oggi?', { allTx, referenceDate: new Date(2026, 6, 15), monthlyBudget: 1000 });
+  assert.equal(r.intent, 'safe-to-spend');
+});
+
+test('correzione refusi: "investmire" riconosciuto come "investire"', () => {
+  const allTx = {
+    '2026-07': [
+      { date: '2026-07-05', amount: 2000, type: 'entrata', category: 'stipendio', description: 'stipendio' },
+      { date: '2026-07-10', amount: 500, type: 'uscita', category: 'spesa', description: 'spesa' },
+    ],
+  };
+  const r = answerQuestion('quanto posso investmire questo mese?', { allTx, referenceDate: new Date(2026, 6, 15), emergencyFund: 10000 });
+  assert.equal(r.intent, 'invest');
+});
+
+test('correzione refusi: "stipnedio" riconosciuto come "stipendio" nell\'intento payday', () => {
+  const r = answerQuestion('quando arriva lo stipnedio?', { allTx: {}, referenceDate: new Date(2026, 6, 15), salary: { dayOfMonth: 27, amount: 2000 }, fixedCommitments: [] });
+  assert.equal(r.intent, 'payday');
+});
+
+test('correzione refusi: non tocca parole già corrette o troppo diverse dal dizionario', () => {
+  // "pizza" non è nel dizionario e non somiglia a nessuna parola-chiave: non deve
+  // rompere né cambiare il riconoscimento di un intento non correlato.
+  const r = answerQuestion('quanto ho speso in pizza questo mese?', { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.intent, 'spent');
+});

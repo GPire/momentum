@@ -130,6 +130,56 @@ function extractAmount(q) {
   return parseFloat(m[1].replace(',', '.'));
 }
 
+// ── CORREZIONE REFUSI (richiesta esplicita: "se uno sbaglia a digitare non
+// funziona") ─────────────────────────────────────────────────────────────
+// Distanza di Levenshtein pura, senza librerie esterne — piccola e testabile.
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+    }
+  }
+  return d[m][n];
+}
+
+// Parole-chiave italiane più importanti dei pattern qui sotto — usate SOLO
+// per correggere refusi PRIMA del riconoscimento (mai per rispondere: gli
+// intent restano gli stessi regex di sempre, verificati). Un refuso tipico
+// ("spendrere", "investmire", "stipnedio") viene riportato alla parola
+// corretta se abbastanza vicino e senza ambiguità — non tocca parole già
+// corrette o troppo corte (rumore, non refuso).
+const TYPO_DICTIONARY_IT = [
+  'spendere', 'speso', 'spesa', 'spese', 'investire', 'investimento', 'investimenti',
+  'patrimonio', 'stipendio', 'rate', 'abbonamenti', 'obiettivo', 'permettermi',
+  'resta', 'rimane', 'budget', 'previsione', 'proiezione', 'risparmiato', 'risparmi',
+  'categoria', 'notizie', 'grafico', 'andamento', 'storico', 'oggi', 'mese', 'settimana',
+];
+function correctTypos(text) {
+  return text.split(/(\s+)/).map(tok => {
+    // Stacca punteggiatura iniziale/finale (es. "stipnedio?") per non far
+    // fallire il match solo per un "?" o "," attaccato alla parola.
+    const m = tok.match(/^([^a-zàèéìòù]*)([a-zàèéìòù]+)([^a-zàèéìòù]*)$/i);
+    if (!m) return tok;
+    const [, pre, word, post] = m;
+    if (word.length < 4) return tok;
+    if (TYPO_DICTIONARY_IT.includes(word)) return tok; // già corretta
+    const maxDist = word.length <= 6 ? 1 : 2;
+    let best = null, bestDist = Infinity, ties = 0;
+    for (const cand of TYPO_DICTIONARY_IT) {
+      const dist = levenshtein(word, cand);
+      if (dist < bestDist) { bestDist = dist; best = cand; ties = 1; }
+      else if (dist === bestDist) ties++;
+    }
+    return best && bestDist <= maxDist && bestDist > 0 && ties === 1 ? pre + best + post : tok;
+  }).join('');
+}
+
 // Pattern d'intento PER LINGUA (coerente con lo stile di src/ai/chat.js:
 // parole-chiave robuste, non frasi fisse). Un intento matcha se il pattern
 // della lingua rilevata (o di una qualsiasi, come rete di sicurezza su testo
@@ -265,9 +315,12 @@ export function answerQuestion(question, ctx) {
   const monthTxs = allTx[monthKey(ref)] || [];
   if (!q) return { intent: 'unknown', answer: UNKNOWN_MSG.it };
   const lang = L(detectLanguage(q).lang);
+  // Solo per il RICONOSCIMENTO dell'intento (matches()) — mai per estrarre
+  // importi/categorie/periodi, che restano sul testo originale `q`.
+  const qMatch = correctTypos(q);
 
   // — "quanto posso investire?"
-  if (matches('invest', q)) {
+  if (matches('invest', qMatch)) {
     const f = monthlyFinance(allTx, ref);
     const r = investableSurplus({
       netMonthlyFlow: f.netMonthlyFlow,
@@ -281,7 +334,7 @@ export function answerQuestion(question, ctx) {
 
   // — "quanto vale il mio patrimonio?" (riusa computeNetWorth, stessa
   // funzione già usata in Analisi Tensor — mai un calcolo isolato).
-  if (matches('netWorth', q)) {
+  if (matches('netWorth', qMatch)) {
     const n = computeNetWorth({
       transactions: allTx,
       positions: ctx.positions || [],
@@ -299,7 +352,7 @@ export function answerQuestion(question, ctx) {
   // — "quando mi pagano?" / "quanto manca prima dello stipendio?" (riusa
   // commitmentForecast, lo stesso motore della card "Il tuo mese senza
   // sorprese" — mai un secondo calcolo isolato per il QA).
-  if (matches('payday', q)) {
+  if (matches('payday', qMatch)) {
     if (!ctx.salary) return { intent: 'payday', answer: 'Non so ancora quando ti pagano: dimmelo in Momentum Vault → Stipendio, o registra qualche entrata e lo capirò da solo.' };
     const f = commitmentForecast(ctx.fixedCommitments || [], ctx.salary, { now: ref.getTime(), monthTx: monthTxs });
     if (!f.payday) return { intent: 'payday', answer: 'Non riesco a calcolare la prossima data di stipendio con i dati che ho.' };
@@ -311,7 +364,7 @@ export function answerQuestion(question, ctx) {
 
   // — "quanto devo ancora a rate?" (riusa bnplExposure, lo stesso motore
   // del radar BNPL — mai un secondo rilevatore isolato per il QA).
-  if (matches('bnplOwed', q)) {
+  if (matches('bnplOwed', qMatch)) {
     const exp = bnplExposure(allTx, { now: ref.getTime(), learned: ctx.bnplLearned || {}, anticipate: true, dismissed: ctx.bnplDismissed || [] });
     if (exp.count === 0) return { intent: 'bnpl-owed', data: exp, answer: 'Non vedo piani a rate aperti al momento.' };
     const byProv = exp.byProvider.map(p => `${p.providerLabel} ${fmt(p.remainingTotal)}`).join(', ');
@@ -319,7 +372,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "posso permettermi X?" (prima di safe-to-spend: contiene un importo)
-  if (matches('affordability', q) && extractAmount(q) !== null) {
+  if (matches('affordability', qMatch) && extractAmount(q) !== null) {
     const amount = extractAmount(q);
     const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: ctx.monthlyBudget, referenceDate: ref });
     const T = {
@@ -337,7 +390,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "quanto posso spendere oggi?"
-  if (matches('safeToSpend', q)) {
+  if (matches('safeToSpend', qMatch)) {
     const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: ctx.monthlyBudget, referenceDate: ref });
     const T = {
       it: { noBudget: 'Imposta prima un budget mensile (sezione Analisi): da lì calcolo quanto puoi spendere ogni giorno.', over: n => `Oggi meglio niente: questa settimana sei oltre di ${n}.`, ok: (t, w, d) => `Oggi puoi spendere ${t}. Ti restano ${w} per la settimana (${d} giorni).` },
@@ -352,7 +405,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "quanto mi resta questa settimana / del budget?"
-  if (matches('budgetLeft', q)) {
+  if (matches('budgetLeft', qMatch)) {
     const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: ctx.monthlyBudget, referenceDate: ref });
     const T = {
       it: { noBudget: 'Non hai ancora un budget impostato: senza, "quanto resta" non ha una risposta vera.', over: n => `Sei oltre di ${n} questa settimana.`, ok: (w, t, d) => `${w} per questa settimana, ${t} se li spalmi sui ${d} giorni che mancano.` },
@@ -366,7 +419,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "come finisco il mese?" — proiezione
-  if (matches('monthEnd', q)) {
+  if (matches('monthEnd', qMatch)) {
     const proj = getMonthEndProjection({ monthTxs, monthlyBudget: ctx.monthlyBudget || 0, referenceDate: ref, hwDailyLevel: ctx.hwDailyLevel ?? null });
     const T = {
       it: { noBudget: (s, t) => `Hai speso ${s} finora; di questo passo arrivi a ${t} a fine mese. Imposta un budget e ti dico anche se ci stai dentro.`, over: (s, t, d) => `Attento: hai speso ${s} e di questo passo chiudi a ${t}, cioè ${d} oltre il budget.`, ok: (s, t, d) => `Bene: hai speso ${s} e di questo passo chiudi a ${t}, con ${d} di margine.` },
@@ -382,7 +435,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — abbonamenti: "quali abbonamenti pago" / "quando pago X"
-  if (matches('subscriptions', q)) {
+  if (matches('subscriptions', qMatch)) {
     const recurring = detectRecurring(allTx);
     const NONE = { it: 'Non vedo ancora addebiti ricorrenti nei tuoi dati.', en: 'I don\'t see any recurring charges in your data yet.', es: 'Todavía no veo cargos recurrentes en tus datos.', fr: 'Je ne vois pas encore de prélèvements récurrents dans tes données.', de: 'Ich sehe noch keine wiederkehrenden Belastungen in deinen Daten.' }[lang];
     if (recurring.length === 0) return { intent: 'subscriptions', answer: NONE };
@@ -409,7 +462,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — ragionamento a catena: "cosa succede se spendo di più in X?"
-  if (matches('causal', q)) {
+  if (matches('causal', qMatch)) {
     const cats = [...new Set(Object.values(allTx).flat().map(t => t.category))];
     const namedCat = cats.find(c => c && q.includes(String(c).toLowerCase()));
     const ASK_CAT = { it: 'Dimmi la categoria: ad esempio "cosa succede se spendo di più in Ristorante?"', en: 'Tell me the category: e.g. "what happens if I spend more on dining?"', es: 'Dime la categoría: por ejemplo "¿qué pasa si gasto más en Restaurante?"', fr: 'Dis-moi la catégorie : par exemple "que se passe-t-il si je dépense plus en Restaurant ?"', de: 'Nenn mir die Kategorie: z.B. "was passiert wenn ich mehr für Restaurant ausgebe?"' }[lang];
@@ -426,7 +479,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "dove spendo di più?" (prima di "quanto ho speso": distribuzione)
-  if (matches('topCategory', q)) {
+  if (matches('topCategory', qMatch)) {
     const period = resolvePeriod(q, ref, lang);
     const spese = txInPeriod(allTx, period).filter(t => t.type === 'uscita');
     const NONE = { it: `Nessuna spesa registrata ${period.label}.`, en: `No expenses recorded ${period.label}.`, es: `Ningún gasto registrado ${period.label}.`, fr: `Aucune dépense enregistrée ${period.label}.`, de: `Keine Ausgaben erfasst ${period.label}.` }[lang];
@@ -447,7 +500,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "quanto ho risparmiato / messo da parte?"
-  if (matches('savings', q)) {
+  if (matches('savings', qMatch)) {
     const period = resolvePeriod(q, ref, lang);
     const txs = txInPeriod(allTx, period);
     const inc = txs.filter(t => t.type === 'entrata').reduce((s, t) => s + t.amount, 0);
@@ -460,7 +513,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "quanto ho guadagnato / entrate?"
-  if (matches('income', q)) {
+  if (matches('income', qMatch)) {
     const period = resolvePeriod(q, ref, lang);
     const inc = txInPeriod(allTx, period).filter(t => t.type === 'entrata').reduce((s, t) => s + t.amount, 0);
     const label = cap(period.label);
@@ -469,7 +522,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — "quanto ho speso [periodo] [in categoria]?"
-  if (matches('spent', q)) {
+  if (matches('spent', qMatch)) {
     const period = resolvePeriod(q, ref, lang);
     let spese = txInPeriod(allTx, period).filter(t => t.type === 'uscita');
     const cats = [...new Set(Object.values(allTx).flat().map(t => t.category))];
@@ -488,7 +541,7 @@ export function answerQuestion(question, ctx) {
   }
 
   // — obiettivi: "a che punto è il mio obiettivo?"
-  if (matches('goal', q)) {
+  if (matches('goal', qMatch)) {
     const goals = ctx.savingsGoals || [];
     const NONE = { it: 'Non hai ancora obiettivi di risparmio. Ne creiamo uno dalla sezione Analisi?', en: 'You don\'t have any savings goals yet. Want to create one from the Analysis section?', es: 'Todavía no tienes objetivos de ahorro. ¿Creamos uno desde la sección Análisis?', fr: 'Tu n\'as pas encore d\'objectifs d\'épargne. On en crée un depuis la section Analyse ?', de: 'Du hast noch keine Sparziele. Sollen wir eins im Bereich Analyse erstellen?' }[lang];
     if (goals.length === 0) return { intent: 'goal', answer: NONE };
