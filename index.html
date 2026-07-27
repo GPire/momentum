@@ -656,7 +656,11 @@
     /* Apertura: leggero "pop" morbido con overshoot (coerente col resto del
        sistema di motion). Chiusura: mai overshoot, curva più rapida e lineare —
        la classe .modal-closing (aggiunta da closeModal) sostituisce la curva. */
-    #modal-content { transition: transform 0.4s cubic-bezier(.34,1.56,.64,1), opacity 0.3s ease-out; }
+    /* Curva ammorbidita (era .34,1.56,.64,1 su soli 0.4s): un pannello quasi
+       a tutto schermo che scatta e rimbalza in 400ms si legge come acerbo,
+       non premium — overshoot ridotto e opacità sincronizzata con la stessa
+       durata del movimento invece di finire prima. */
+    #modal-content { transition: transform 0.5s cubic-bezier(.22,1.1,.36,1), opacity 0.4s ease-out; }
     #modal-content.modal-closing { transition: transform 0.22s cubic-bezier(.4,0,1,1), opacity 0.18s ease-in; }
     @media (prefers-reduced-motion: reduce) {
       #modal-content, #modal-content.modal-closing { transition: opacity 0.15s linear; }
