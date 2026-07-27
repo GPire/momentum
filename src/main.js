@@ -5463,15 +5463,30 @@ const initApp = () => {
   // sistemare la chiave invece di un messaggio d'errore grezzo).
   const ICON_QA_THINK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-3.5 h-3.5 inline-block animate-pulse"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
   const ICON_QA_CLOUD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block"><path d="M17.5 19a4.5 4.5 0 000-9 6 6 0 00-11.6 1.7A4 4 0 006 19h11.5z"/></svg>`;
-  const ICON_QA_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>`;
+  const ICON_QA_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block qa-arrive-icon"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>`;
+  // Stessa icona-fumetto del titolo "Chiedi a Momentum" (index.html) — quando
+  // risponde Momentum stesso, l'eyebrow lo dice subito, stessa grammatica
+  // visiva della risposta cloud (etichetta in testa, mai un blob di testo nudo).
+  const ICON_QA_MOMENTUM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
   function replayQaAnimation() {
     qaAnswer.classList.remove('qa-answer-in'); void qaAnswer.offsetWidth; qaAnswer.classList.add('qa-answer-in');
   }
+  // Stessa grammatica visiva della risposta cloud (eyebrow con icona in
+  // testa + blocchi con evidenze colorate) applicata anche alle risposte
+  // ISTANTANEE di Momentum stesso — prima era solo testo nudo (textContent),
+  // mentre l'esterno aveva già struttura: disparità richiesta di correggere.
   function styleQaAnswer(res) {
     const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
     const good = res?.data?.onTrack === true || (typeof res?.data?.net === 'number' && res.data.net >= 0);
-    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + (warn ? 'bg-amber-950/20 border border-amber-500/25 text-amber-200' : good ? 'bg-emerald-950/20 border border-emerald-500/20 text-emerald-200' : 'bg-sky-950/15 border border-sky-500/20 text-sky-100');
-    qaAnswer.textContent = res.answer;
+    const tone = warn
+      ? { cls: 'bg-amber-950/20 border border-amber-500/25 text-amber-200', label: 'text-amber-400', strong: 'text-amber-300' }
+      : good
+        ? { cls: 'bg-emerald-950/20 border border-emerald-500/20 text-emerald-200', label: 'text-emerald-400', strong: 'text-emerald-300' }
+        : { cls: 'bg-sky-950/15 border border-sky-500/20 text-sky-100', label: 'text-sky-400', strong: 'text-sky-300' };
+    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + tone.cls;
+    qaAnswer.innerHTML = `
+      <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon">${ICON_QA_MOMENTUM}</span> Momentum</h4>
+      <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>`;
     replayQaAnimation();
   }
   // Momento focale vero, non un'iconcina persa nel testo: l'utente ha
@@ -5506,13 +5521,13 @@ const initApp = () => {
   // sola su frasi lunghe (nessun blocco > ~140 caratteri resta un blob unico).
   // Escape PRIMA di tutto: il testo arriva da un provider esterno, mai
   // fidarsi ciecamente in innerHTML.
-  function formatCloudAnswer(text) {
+  function formatCloudAnswer(text, strongClass = 'text-violet-300') {
     const esc = String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     let blocks = esc.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
     if (blocks.length <= 1) {
       blocks = esc.split(/\n+/).flatMap(line => line.length > 140 ? line.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý])/) : [line]).map(s => s.trim()).filter(Boolean);
     }
-    return blocks.map(b => `<div class="qa-cloud-block">${b.replace(/\*\*(.+?)\*\*/g, '<strong class="text-violet-300">$1</strong>')}</div>`).join('');
+    return blocks.map(b => `<div class="qa-cloud-block">${b.replace(/\*\*(.+?)\*\*/g, `<strong class="${strongClass}">$1</strong>`)}</div>`).join('');
   }
   // Stessa grammatica visiva delle card insight del radar (eyebrow colorata
   // in maiuscolo + corpo con evidenze colorate): l'etichetta "non è
@@ -5538,7 +5553,13 @@ const initApp = () => {
   // una chiave — dettaglio tecnico spostato SOLO nel title, a chi lo cerca).
   function showQaCloudError(localAnswer, message) {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-rose-950/20 border border-rose-500/25 text-rose-200';
-    qaAnswer.innerHTML = `<p class="text-slate-400 mb-1.5">${localAnswer}</p><p title="${String(message).replace(/"/g, '&quot;')}">${ICON_QA_WARN} L'aiuto extra non risponde in questo momento.</p><button id="qa-fix-key" class="mt-2 text-[10px] underline text-rose-300">Controlla il collegamento →</button>`;
+    qaAnswer.innerHTML = `
+      <p class="text-slate-400 mb-2.5">${localAnswer}</p>
+      <div class="flex items-center gap-1 mb-1" title="${String(message).replace(/"/g, '&quot;')}">
+        <h4 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_WARN} Aiuto esterno</h4>
+      </div>
+      <p class="text-rose-200/90">L'aiuto extra non risponde in questo momento.</p>
+      <button id="qa-fix-key" class="mt-2 text-[10px] underline text-rose-300">Controlla il collegamento →</button>`;
     document.getElementById('qa-fix-key')?.addEventListener('click', () => {
       document.querySelector('[data-view="settings"]')?.click(); // Momentum Vault
       setTimeout(() => window.openApiKeyGuide?.('gemini'), 250);
