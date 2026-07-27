@@ -269,6 +269,9 @@
     /* Stack di alert/insight in Analisi (Spese insolite, Budget da aggiornare,
        Avanzo sicuro, ecc.): stessa disciplina a scaglione di .tx-in, così le
        card entrano in sequenza invece di comparire tutte insieme in blocco. */
+    /* Chip suggerimento asset: stesso ingresso a scaglione, per invitare il
+       tocco su una casella di ricerca altrimenti vuota. */
+    .asset-chip-in { animation: txRise .32s cubic-bezier(.22,1,.36,1) both; }
     #radar-alerts-container > .card { animation: txRise .42s cubic-bezier(.22,1,.36,1) both; }
     #radar-alerts-container > .card:nth-child(1) { animation-delay: .03s; }
     #radar-alerts-container > .card:nth-child(2) { animation-delay: .09s; }
@@ -276,7 +279,7 @@
     #radar-alerts-container > .card:nth-child(4) { animation-delay: .21s; }
     #radar-alerts-container > .card:nth-child(n+5) { animation-delay: .27s; }
     @media (prefers-reduced-motion: reduce) {
-      .install-step-in, #install-guide-btn:not(.hidden), #radar-alerts-container > .card { animation: none; }
+      .install-step-in, #install-guide-btn:not(.hidden), #radar-alerts-container > .card, .asset-chip-in { animation: none; }
     }
     @media (prefers-reduced-motion: reduce) {
       .tx-in > .tx-card { animation: none; }
@@ -1328,6 +1331,15 @@
                     <div class="flex gap-2 mt-2">
                       <input type="text" id="asset-search-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Es. bitcoin, Apple, XLK..." onkeydown="if(event.key==='Enter') window.runAssetSearch()" />
                       <button onclick="window.runAssetSearch()" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Cerca</button>
+                    </div>
+                    <!-- Suggerimenti rapidi: una casella vuota non invita a nulla —
+                         un tocco su un asset comune parte subito, utile anche solo
+                         per capire cosa si può cercare qui. -->
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                      <button type="button" onclick="window.quickAssetSearch('Bitcoin')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-black/20 text-slate-300 hover:border-indigo-400/50" style="animation-delay:.0s">Bitcoin</button>
+                      <button type="button" onclick="window.quickAssetSearch('S&amp;P 500')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-black/20 text-slate-300 hover:border-indigo-400/50" style="animation-delay:.05s">S&amp;P 500</button>
+                      <button type="button" onclick="window.quickAssetSearch('Apple')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-black/20 text-slate-300 hover:border-indigo-400/50" style="animation-delay:.1s">Apple</button>
+                      <button type="button" onclick="window.quickAssetSearch('Oro')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-black/20 text-slate-300 hover:border-indigo-400/50" style="animation-delay:.15s">Oro</button>
                     </div>
                     <div id="asset-search-results" class="mt-2 flex flex-col gap-1"></div>
                     <div id="asset-detail" class="mt-3"></div>

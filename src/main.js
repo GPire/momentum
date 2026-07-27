@@ -3325,6 +3325,12 @@ window.setChatContextOptIn = (checked) => {
 const assetSearchCache = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
 let lastSearchResults = [];
 
+window.quickAssetSearch = (label) => {
+  const input = document.getElementById('asset-search-input');
+  if (!input) return;
+  input.value = label;
+  window.runAssetSearch();
+};
 window.runAssetSearch = async () => {
   const input = document.getElementById('asset-search-input');
   const resultsEl = document.getElementById('asset-search-results');
