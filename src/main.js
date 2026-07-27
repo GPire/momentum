@@ -251,7 +251,7 @@ const getTxFormHTML = () => `
     <!-- NLP Prediction preview & AntiFOMO warnings -->
     <div id="ai-insight-panel" class="ai-insight-panel">
        <div class="ai-insight-header"><span class="inline-flex items-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg>Categoria suggerita</span><span id="ai-cat-badge" class="truncate max-w-[120px]">Cat</span></div>
-       <div class="text-[9px] font-mono text-[var(--on-surface-secondary)] mb-1">Sicurezza: <span class="ml-confidence" id="ml-confidence-score">0%</span></div>
+       <div class="text-[11px] font-mono text-[var(--on-surface-secondary)] mb-1">Sicurezza: <span class="ml-confidence" id="ml-confidence-score">0%</span></div>
        <div class="ai-insight-body" id="ai-insight-text">Sto guardando cosa hai scritto...</div>
        <div class="ai-insight-action" id="ai-insight-btn">Usa questo suggerimento</div>
     </div>
@@ -592,7 +592,7 @@ const attachFormListeners = (container, prefill = null) => {
         <button type="button" class="neuro-pill-btn shrink-0" data-quick-idx="${i}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M13 2L4.5 13.5H12l-1 8.5 8.5-11.5H12z"/></svg><span class="truncate max-w-[110px]">${s.description}</span>
           <span class="font-mono font-bold">${formatMoney(s.amount)}</span>
-          ${i === 0 && s.reason ? `<span class="text-[9px] opacity-60">${s.reason}</span>` : ''}
+          ${i === 0 && s.reason ? `<span class="text-[11px] opacity-60">${s.reason}</span>` : ''}
         </button>
       `).join('');
       quickRow.querySelectorAll('[data-quick-idx]').forEach(btn => {
@@ -1065,7 +1065,7 @@ const renderDashboard = () => {
             </div>
             <div class="h-1.5 rounded-full bg-[var(--outline)] overflow-hidden mt-1.5"><div class="h-full ${m.bar}" style="width:${pct}%"></div></div>
             <p class="text-[10px] ${m.col} mt-1 font-semibold">${m.txt}</p>
-            <p class="text-[9px] text-[var(--on-surface-secondary)] mt-0.5 opacity-70">${methodNote}</p>
+            <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5 opacity-70">${methodNote}</p>
           </div>`;
         }
       } catch (_) { /* proiezione assente: la card resta il solo "oggi" */ }
@@ -1953,7 +1953,7 @@ const renderAnalysis = (opts = {}) => {
 
       // title = tooltip per mouse; il click (sotto) è il vero drill-down,
       // necessario perché su touch il title non appare mai al tocco.
-      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[9px] font-mono text-slate-300 cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : 'nessuna spesa'}">${i}</div>`;
+      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[11px] font-mono text-slate-300 cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : 'nessuna spesa'}">${i}</div>`;
     }
     $('#heatmap-day-detail').innerHTML = '';
   }
@@ -2673,7 +2673,7 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
   // La fiducia si dice solo se bassa: sopra il 70% è rumore, sotto è l'unica
   // cosa onesta da dire ("sto ancora imparando le tue abitudini").
   const lowConfidence = (f.confidence || 0) < 0.7
-    ? `<p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 mt-1">Sto ancora imparando le tue abitudini: più giorni importi, più questa stima diventa precisa.</p>` : '';
+    ? `<p class="text-[11px] text-[var(--on-surface-secondary)] opacity-80 mt-1">Sto ancora imparando le tue abitudini: più giorni importi, più questa stima diventa precisa.</p>` : '';
 
   const wrapOpen = standalone ? `<div class="mt-3 pt-3 border-t border-[var(--glass-border)]">` : `<div class="mt-2.5">`;
   return `
@@ -2716,8 +2716,8 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
       ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se saldi subito i ${eur(f.withSplit.owed)} delle divisioni, chiudi a ${eur(f.withSplit.endP50)}.</p>` : ''}
       ${lowConfidence}
       <details class="ghost-details mt-1">
-        <summary class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">Cosa vuol dire il tratteggio?</summary>
-        <p class="text-[9.5px] text-[var(--on-surface-secondary)] opacity-80 mt-1">La linea piena è lo scenario più probabile. Le due guide tratteggiate sopra e sotto vanno da prudente (<b>${eur(f.end.p10)}</b>) a fortunato (<b>${eur(f.end.p90)}</b>) al ${dayName(f.end.date)}: sono i due estremi ragionevoli, non un errore.</p>
+        <summary class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">Cosa vuol dire il tratteggio?</summary>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-80 mt-1">La linea piena è lo scenario più probabile. Le due guide tratteggiate sopra e sotto vanno da prudente (<b>${eur(f.end.p10)}</b>) a fortunato (<b>${eur(f.end.p90)}</b>) al ${dayName(f.end.date)}: sono i due estremi ragionevoli, non un errore.</p>
       </details>
     </div>`;
 }
@@ -2836,7 +2836,7 @@ function renderGhostForecast() {
           </div>
         </div>
         <div class="text-[11.5px] text-[var(--on-surface-secondary)] text-center mt-1.5">${days === 1 ? 'Domani ti pagano.' : `Poi ti pagano fra <b class="text-[var(--on-surface)]">${days} giorni</b>.`}</div>
-        ${adaptive ? `<div class="flex items-center justify-center gap-3 mt-1.5 text-[9.5px] text-[var(--on-surface-secondary)]">
+        ${adaptive ? `<div class="flex items-center justify-center gap-3 mt-1.5 text-[11px] text-[var(--on-surface-secondary)]">
           <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full" style="background:linear-gradient(135deg,${toneHex[0]},${toneHex[1]})"></span>quanto hai speso</span>
           <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-white/60"></span>a che punto è il mese</span>
         </div>` : ''}
@@ -2875,7 +2875,7 @@ function renderGhostForecast() {
           ${paidNote}
           ${learnNote}
           ${endingMsg}
-          <p class="text-[9.5px] text-[var(--on-surface-secondary)] mt-2 opacity-75">Sono stime dai tuoi impegni, non certezze. Gli impegni sono soldi già promessi: tienili da parte.</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2 opacity-75">Sono stime dai tuoi impegni, non certezze. Gli impegni sono soldi già promessi: tienili da parte.</p>
         </div>
       </details>
     </div>`;
@@ -3345,7 +3345,7 @@ window.runAssetSearch = async () => {
     const { results, stale } = await searchAsset(query, { apiKey: VaultDAO.state.liveDataKeys?.alphavantage, fetchImpl: fetch.bind(window), cache: assetSearchCache });
     lastSearchResults = results;
     if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-slate-400">Nessun risultato${stale ? ' (offline: nemmeno in cache)' : ''}.</p>`; return; }
-    resultsEl.innerHTML = (stale ? `<p class="text-[9px] text-amber-300 mb-1">Offline: risultati dall'ultima ricerca.</p>` : '') + results.map((r, i) =>
+    resultsEl.innerHTML = (stale ? `<p class="text-[11px] text-amber-300 mb-1">Offline: risultati dall'ultima ricerca.</p>` : '') + results.map((r, i) =>
       `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${r.symbol}</b> · ${r.name}${r.kind === 'stock' ? ` (${translateRegionLabel(r.region) || 'azione/ETF'})` : ' (cripto)'}</button>`
     ).join('');
   } catch (e) {
@@ -3364,11 +3364,11 @@ window.selectAsset = async (idx) => {
     if (asset.kind === 'crypto') {
       const { price, asOf } = await fetchLiveCryptoPrice(asset.id);
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
-      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[9px] text-slate-400">Live · CoinGecko · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-slate-400">Live · CoinGecko · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
     } else if (VaultDAO.state.liveDataKeys?.alphavantage) {
       const { price, asOf } = await fetchLiveStockPrice(asset.symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage });
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
-      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[9px] text-slate-400">Live · Alpha Vantage · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-slate-400">Live · Alpha Vantage · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
     } else {
       priceHtml = `<p class="text-[10px] text-slate-400">Aggiungi la tua chiave Alpha Vantage qui sopra per vedere il prezzo live.</p>`;
     }
@@ -3394,7 +3394,7 @@ window.selectAsset = async (idx) => {
       if (isItalianDevice()) {
         try { summary = await translateText(ov.summary, { fetchImpl: fetch.bind(window) }); translatedTag = ' <span class="text-slate-600">(traduzione automatica)</span>'; } catch (_) { /* fallback: resta in inglese, mai bloccante */ }
       }
-      overviewHtml = `<p class="text-[10px] text-slate-300 mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[9px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
+      overviewHtml = `<p class="text-[10px] text-slate-300 mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[11px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
     } catch (_) { /* riassunto opzionale: nessun errore bloccante se manca */ }
   }
   // ARCHITETTURA UNIFICATA (richiesto esplicitamente: prima questa vista
@@ -3406,7 +3406,7 @@ window.selectAsset = async (idx) => {
   let newsHtml = '', historyChart = '';
   try {
     const { items, stale } = await window.fetchAssetNewsCascade(asset);
-    if (items.length) newsHtml = `<div class="mt-2">${stale ? '<p class="text-[9px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}</div>`;
+    if (items.length) newsHtml = `<div class="mt-2">${stale ? '<p class="text-[11px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}</div>`;
   } catch (_) { /* notizie opzionali: nessun errore bloccante se mancano */ }
   try {
     const { historyChart: chart } = await window.fetchAssetHistoryData(asset);
@@ -3530,9 +3530,9 @@ window.openBnplManager = (onDone = null) => {
     });
     const rows = exp.plans.map(p => {
       const badge = p.anticipated
-        ? `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">previsto</span>`
+        ? `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">previsto</span>`
         : p.confidence === 'pattern'
-          ? `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/25">non verificato</span>`
+          ? `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/25">non verificato</span>`
           : '';
       const next = p.upcoming[0];
       return `<div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20">
@@ -4200,7 +4200,7 @@ function getInvoiceFormHTML() {
       <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
     </div>
     <button id="inv-request-pay" class="w-full py-3 font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>Chiedi il pagamento (QR · WhatsApp · Email)</button>
-    <p id="inv-foot" class="text-[9px] text-[var(--on-surface-secondary)] opacity-70"></p>
+    <p id="inv-foot" class="text-[11px] text-[var(--on-surface-secondary)] opacity-70"></p>
   </div>`;
 }
 
@@ -4581,7 +4581,7 @@ function renderInvestments() {
     const full = invested >= target;
     const barColor = full ? 'bg-emerald-400/80' : 'bg-[var(--gold)]/80';
     fundBarEl.innerHTML = `
-      <div class="flex items-center justify-between text-[9px] text-slate-500 mb-1">
+      <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
         <span>Fondo d'emergenza</span>
         <span>${formatMoney(invested)} / ${formatMoney(target)}</span>
       </div>
@@ -4630,7 +4630,7 @@ function renderNetWorth() {
       // schiaccerebbe ogni altra barra a una linea invisibile — il numero
       // stampato a destra resta il modo per confrontare i valori assoluti.
       projEl.innerHTML = `
-        <p class="text-[9px] text-[var(--on-surface-secondary)] mb-2">Strategia (10 anni) · chiaro = se va bene, pieno = tipico, trattino = se va male</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Strategia (10 anni) · chiaro = se va bene, pieno = tipico, trattino = se va male</p>
         <div class="space-y-2.5">${proj.rows.map(r => {
           const rowMax = Math.max(1, r.p95);
           const p95Pct = 100;
@@ -4662,7 +4662,7 @@ function renderNetWorth() {
       // invece di una colonna testuale da leggere riga per riga.
       const maxSharpe = Math.max(0.01, ...rows.map(r => r.sharpe));
       const regimeColor = (r) => r === 'risk-on' ? 'bg-emerald-400' : r === 'risk-off' ? 'bg-rose-400' : 'bg-amber-300';
-      sectorEl.innerHTML = `<p class="text-[9px] text-[var(--on-surface-secondary)] mb-2">Settori S&P 500 per rendimento/rischio storico (~${yearsCovered} anni misurati, mai una previsione)</p>
+      sectorEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Settori S&P 500 per rendimento/rischio storico (~${yearsCovered} anni misurati, mai una previsione)</p>
         <div class="space-y-2">${rows.map(r => {
           const pct = Math.max(4, Math.round((r.sharpe / maxSharpe) * 100));
           return `<div class="text-[10px]">
@@ -4749,7 +4749,7 @@ function renderPeriodCompare(mode = __periodCompareMode) {
   bodyEl.innerHTML = `
     <div class="flex items-baseline gap-2 mb-3 p-2 rounded-lg bg-black/20">
       <span class="text-xl font-black font-mono ${totalColor}">${totalArrow} ${up ? '+' : ''}${r.totalDeltaPct}%</span>
-      <span class="text-[9px] text-slate-500">${labelCap} · ${formatMoney(r.previous)} → ${formatMoney(r.current)}</span>
+      <span class="text-[11px] text-slate-500">${labelCap} · ${formatMoney(r.previous)} → ${formatMoney(r.current)}</span>
     </div>
     <div class="space-y-2">${rows.map(row => {
       const cat = getCatById(row.category);
@@ -4774,7 +4774,7 @@ function renderPeriodCompare(mode = __periodCompareMode) {
         </div>
       </div>`;
     }).join('')}</div>
-    <p class="text-[8px] text-slate-600 mt-2">Barra grigia = prima, colorata = ora — stessa scala per categoria</p>`;
+    <p class="text-[10px] text-slate-600 mt-2">Barra grigia = prima, colorata = ora — stessa scala per categoria</p>`;
 }
 
 // Grafo causale visivo (src/predict/causal-graph.js, già esistente e testato
@@ -4835,7 +4835,7 @@ function renderCausalGraphViz() {
       <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2 4"/>
       ${arcs}${nodes}${labels}
     </svg>
-    <p class="text-[9px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame misurato nei tuoi dati (mai causalità certa). Tocca un punto o una linea per i dettagli.</p>`;
+    <p class="text-[11px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame misurato nei tuoi dati (mai causalità certa). Tocca un punto o una linea per i dettagli.</p>`;
 }
 
 // Ghost Charge Radar VISIBILE: mostra gli abbonamenti ricorrenti scovati dal
@@ -6100,7 +6100,7 @@ const initApp = () => {
     const legend = real.map(s => `<span><span class="inline-block w-1.5 h-1.5 rounded-full mr-1" style="background:${s.color}"></span>${s.label} ${formatMoney(s.value)}</span>`).join('');
     return `<div class="mt-2">
       <div class="flex h-2.5 rounded-full overflow-hidden bg-white/5">${bars}</div>
-      <div class="flex flex-wrap gap-3 mt-1.5 text-[9px] text-slate-500">${legend}</div>
+      <div class="flex flex-wrap gap-3 mt-1.5 text-[11px] text-slate-500">${legend}</div>
     </div>`;
   }
   // "quanto vale il mio patrimonio?" — contante/investito/debiti in proporzione
@@ -6154,7 +6154,7 @@ const initApp = () => {
         <div class="absolute inset-y-0 left-0 rounded-full" style="width:${pctSpent}%;background:${spentColor}"></div>
         ${marker}
       </div>
-      <div class="flex justify-between mt-1 text-[9px] text-slate-500">
+      <div class="flex justify-between mt-1 text-[11px] text-slate-500">
         <span>Speso ${formatMoney(proj.spentSoFar)}</span>
         ${budget > 0 ? `<span>Budget ${formatMoney(budget)}</span>` : ''}
         <span>Proiezione ${formatMoney(proj.projectedTotal)}</span>
@@ -6285,7 +6285,7 @@ const initApp = () => {
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_CLOUD}</span> ${label}</h4>
-        <span class="text-[9px] text-violet-400/70">non è Momentum</span>
+        <span class="text-[11px] text-violet-400/70">non è Momentum</span>
       </div>
       <div class="space-y-1.5">${formatCloudAnswer(answer)}</div>`;
     replayQaAnimation();
@@ -6359,14 +6359,14 @@ const initApp = () => {
     const withPct = extremes.filter(e => Number.isFinite(e.changePct));
     const best = withPct.length ? withPct.reduce((a, b) => b.changePct > a.changePct ? b : a) : null;
     const worst = withPct.length ? withPct.reduce((a, b) => b.changePct < a.changePct ? b : a) : null;
-    const stat = (label, value, color) => `<div class="flex-1 min-w-0"><div class="text-[8px] text-slate-500 uppercase tracking-wide truncate">${label}</div><div class="text-[11px] font-bold truncate" style="color:${color}">${value}</div></div>`;
+    const stat = (label, value, color) => `<div class="flex-1 min-w-0"><div class="text-[10px] text-slate-500 uppercase tracking-wide truncate">${label}</div><div class="text-[11px] font-bold truncate" style="color:${color}">${value}</div></div>`;
     const stats = `<div class="flex gap-3 mt-2">
       ${stat('Massimo storico', `${hi.price.toFixed(0)} (${hi.date.slice(0, 4)})`, '#34d399')}
       ${stat('Minimo storico', `${lo.price.toFixed(0)} (${lo.date.slice(0, 4)})`, '#fb7185')}
       ${fromPeakPct !== null ? stat('Oggi vs massimo', `${fromPeakPct >= 0 ? '+' : ''}${fromPeakPct.toFixed(0)}%`, fromPeakPct >= 0 ? '#34d399' : '#fbbf24') : ''}
     </div>`;
     const yearNote = (best && worst && best.year !== worst.year)
-      ? `<p class="text-[9px] text-slate-500 mt-1.5">Miglior anno: ${best.year} (${best.changePct >= 0 ? '+' : ''}${best.changePct.toFixed(0)}%) · Peggior anno: ${worst.year} (${worst.changePct >= 0 ? '+' : ''}${worst.changePct.toFixed(0)}%)</p>`
+      ? `<p class="text-[11px] text-slate-500 mt-1.5">Miglior anno: ${best.year} (${best.changePct >= 0 ? '+' : ''}${best.changePct.toFixed(0)}%) · Peggior anno: ${worst.year} (${worst.changePct >= 0 ? '+' : ''}${worst.changePct.toFixed(0)}%)</p>`
       : '';
     // Hover/tocca il grafico per capire un punto esatto (richiesto
     // esplicitamente: "deve essere possibile navigarci sopra per capire e
@@ -6386,7 +6386,7 @@ const initApp = () => {
             <circle class="qa-hist-dot" r="3.5" fill="#fbbf24" stroke="#0b0f1a" stroke-width="1" opacity="0"/>
             <defs><linearGradient id="qaHistGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
           </svg>
-          <div class="flex justify-between text-[8px] text-slate-600 font-mono uppercase tracking-wide px-0.5 mt-0.5">
+          <div class="flex justify-between text-[10px] text-slate-600 font-mono uppercase tracking-wide px-0.5 mt-0.5">
             <span>${series[0].date}</span>
             <span>${series[series.length - 1].date}</span>
           </div>
@@ -6394,7 +6394,7 @@ const initApp = () => {
         </div>
         ${stats}
         ${yearNote}
-        <p class="text-[9px] text-slate-500 mt-1.5">Verde/rosso = massimo/minimo storico reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette. Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
+        <p class="text-[11px] text-slate-500 mt-1.5">Verde/rosso = massimo/minimo storico reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette. Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
       </div>`;
   }
   // Selettore di periodo (richiesta esplicita: "possibilità di scegliere i
@@ -6410,10 +6410,10 @@ const initApp = () => {
       { key: '5y', label: '5 anni', months: 60 },
       { key: '1y', label: '1 anno', months: 12 },
     ];
-    const buttons = variants.map(v => `<button type="button" class="qa-period-btn text-[9px] px-2 py-0.5 rounded-full ${v.key === 'all' ? 'qa-period-active' : ''}" data-key="${v.key}">${v.label}</button>`).join('');
+    const buttons = variants.map(v => `<button type="button" class="qa-period-btn text-[11px] px-2 py-0.5 rounded-full ${v.key === 'all' ? 'qa-period-active' : ''}" data-key="${v.key}">${v.label}</button>`).join('');
     const panels = variants.map(v => {
       const sliced = v.months ? series.slice(-v.months) : series;
-      const chart = sliced.length > 1 ? buildAssetHistoryChart(sliced, yearlyExtremesFn(sliced)) : '<p class="text-[9px] text-slate-500 mt-1.5">Storico insufficiente per questo periodo.</p>';
+      const chart = sliced.length > 1 ? buildAssetHistoryChart(sliced, yearlyExtremesFn(sliced)) : '<p class="text-[11px] text-slate-500 mt-1.5">Storico insufficiente per questo periodo.</p>';
       return `<div class="qa-period-panel" data-key="${v.key}" ${v.key === 'all' ? '' : 'style="display:none"'}>${chart}</div>`;
     }).join('');
     return `<div class="flex gap-1.5 mt-1.5">${buttons}</div>${panels}`;
@@ -6480,14 +6480,14 @@ const initApp = () => {
   function buildNewsItemsHtml(items) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     const escNews = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    const newsHeader = items.length ? `<h5 class="text-[9px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>` : '';
+    const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>` : '';
     const itemsHtml = items.map(n => `
       <a href="${n.url}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="flex items-start gap-1.5">
           <span class="${labelColor[n.sentimentLabel] || 'text-slate-400'} mt-0.5 shrink-0">●</span>
           <div class="min-w-0">
             <div class="font-semibold leading-snug">${escNews(n.title)}</div>
-            <div class="text-slate-500 text-[9px] mt-0.5">${escNews(n.source || '')}</div>
+            <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}</div>
             ${n.summary ? `<div class="text-slate-400 text-[10px] mt-1 leading-snug">${escNews(n.summary)}</div>` : ''}
           </div>
         </div>
@@ -6513,15 +6513,15 @@ const initApp = () => {
     const groundedHtml = groundedNewsNote ? `
       <div class="mt-2 pt-2 border-t border-sky-500/10">
         <div class="flex items-center justify-between mb-1">
-          <h5 class="text-[9px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} Gemini · ricerca web</h5>
-          <span class="text-[9px] text-violet-400/70">non è Momentum</span>
+          <h5 class="text-[11px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} Gemini · ricerca web</h5>
+          <span class="text-[11px] text-violet-400/70">non è Momentum</span>
         </div>
         ${formatCloudAnswer(groundedNewsNote, 'text-violet-300')}
       </div>` : '';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
-        <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
+        <span class="text-[11px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
       <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${groundedHtml}`;
     replayQaAnimation();
@@ -6961,7 +6961,7 @@ const initApp = () => {
             const top = cmp.rows.slice(0, 4);
             const maxP50 = Math.max(1, ...top.map(row => row.p50));
             compareEl.classList.remove('hidden');
-            compareEl.innerHTML = `<p class="text-[9px] text-slate-500 mb-1">Con questo risparmio, le strategie migliori a 5 anni (tipico):</p>
+            compareEl.innerHTML = `<p class="text-[11px] text-slate-500 mb-1">Con questo risparmio, le strategie migliori a 5 anni (tipico):</p>
               <div class="space-y-1.5">${top.map((row, i) => `
                 <div class="text-[10px]">
                   <div class="flex items-center justify-between mb-0.5">
