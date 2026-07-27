@@ -50,12 +50,26 @@ function summarize(file, label) {
   };
 }
 
+// Settori S&P 500 (SPDR Select Sector ETF, bench/fetch-sector-history.mjs):
+// nati fine 1998, quindi ~27 anni di storia reale — mai i "40 anni" chiesti,
+// perché quei fondi non esistevano prima. Ogni file mancante viene saltato,
+// mai sostituito con un numero inventato.
+import { readdirSync } from 'node:fs';
+const sectorFiles = readdirSync(join(root, 'bench/data')).filter((f) => f.startsWith('sector-') && f.endsWith('-monthly.json'));
+const sectors = {};
+for (const f of sectorFiles) {
+  const raw = loadSeries(f);
+  const s = summarize(f, raw.name);
+  if (s) sectors[raw.symbol] = s;
+}
+
 const out = {
   generatedAt: new Date().toISOString(),
   method: 'walkForwardMomentumBacktest (src/alpha/historical-backtest.js) su prezzi mensili reali, mai look-ahead',
   disclaimer: 'Misura storica walk-forward, non una promessa di rendimento futuro. Ricalcolare periodicamente rilanciando bench/generate-measured-assumptions.mjs.',
   spy: summarize('spy-monthly.json', 'SPY (ETF reale, S&P 500)'),
   btc: summarize('btc-monthly.json', 'Bitcoin'),
+  sectors,
 };
 
 // File .js (non .json): un import statico `export default {...}` è nativo sia

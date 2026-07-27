@@ -13,6 +13,8 @@ import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy } from './alpha/net-worth.js';
+import { sectorRanking } from './alpha/sector-rotation.js';
+import measuredAssumptions from './alpha/measured-assumptions.js';
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine } from './predict/tax.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
@@ -3987,6 +3989,19 @@ function renderNetWorth() {
         proj.rows.map(r => `<tr><td class="text-left text-slate-300 py-0.5">${r.label}</td><td class="text-right text-rose-300">${formatMoney(r.p5)}</td><td class="text-right text-[var(--gold)]">${formatMoney(r.p50)}</td><td class="text-right text-emerald-300">${formatMoney(r.p95)}</td></tr>`).join('')
       }</tbody></table>`;
     } else projEl.innerHTML = '';
+  }
+  // Classifica settori S&P 500 (src/alpha/sector-rotation.js): Sharpe reale
+  // misurato + regime attuale, MAI un "compra questo" — solo dati storici
+  // ordinati, con la finestra reale coperta dichiarata (ETF nati fine 1998).
+  const sectorEl = $('#sector-ranking');
+  if (sectorEl) {
+    const { rows, yearsCovered } = sectorRanking(measuredAssumptions);
+    if (rows.length) {
+      sectorEl.innerHTML = `<p class="text-[9px] text-[var(--on-surface-secondary)] mb-1.5">Settori S&P 500 per rendimento/rischio storico (~${yearsCovered} anni misurati, mai una previsione)</p>
+        <table class="w-full text-[10px] font-mono"><thead><tr class="text-[var(--on-surface-secondary)]"><th class="text-left font-normal">Settore</th><th class="text-right font-normal">Sharpe</th><th class="text-right font-normal">Regime ora</th></tr></thead><tbody>${
+          rows.map(r => `<tr><td class="text-left text-slate-300 py-0.5">${r.label}</td><td class="text-right text-[var(--gold)]">${r.sharpe.toFixed(2)}</td><td class="text-right text-slate-400">${r.regime || '—'}</td></tr>`).join('')
+        }</tbody></table>`;
+    } else sectorEl.innerHTML = '';
   }
 }
 
