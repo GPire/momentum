@@ -8,7 +8,7 @@ const realShape = () => ({
   json: async () => ({
     items: '2',
     feed: [
-      { title: 'Apple rialza le stime', url: 'https://x.test/1', source: 'Reuters', time_published: '20260727T090000',
+      { title: 'Apple rialza le stime', url: 'https://x.test/1', source: 'Reuters', time_published: '20260727T090000', summary: 'Apple ha rialzato le stime di fatturato per il trimestre.',
         overall_sentiment_score: 0.4, ticker_sentiment: [{ ticker: 'AAPL', ticker_sentiment_score: '0.42', relevance_score: '0.9' }] },
       { title: 'Rischio regolatorio per il settore tech', url: 'https://x.test/2', source: 'Bloomberg', time_published: '20260726T160000',
         overall_sentiment_score: -0.2, ticker_sentiment: [{ ticker: 'AAPL', ticker_sentiment_score: '-0.18', relevance_score: '0.5' }] },
@@ -31,6 +31,24 @@ test('fetchNewsSentiment: forma reale → titoli, punteggio ticker-specifico, et
   assert.equal(r.items[0].sentimentScore, 0.42);
   assert.equal(r.items[0].sentimentLabel, 'bullish');
   assert.equal(r.items[1].sentimentLabel, 'somewhat-bearish');
+  assert.equal(r.items[0].summary, 'Apple ha rialzato le stime di fatturato per il trimestre.');
+});
+
+// Richiesta esplicita: "anche dei piccoli riassunti delle notizie" — il
+// riassunto è quello REALE già fornito dalla fonte (mai generato da
+// Momentum), tagliato per restare leggibile in una card.
+test('fetchNewsSentiment: riassunto troppo lungo → tagliato a ~160 caratteri, mai l\'intero articolo', async () => {
+  const long = 'A'.repeat(300);
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ feed: [{ title: 't', url: 'https://x.test/1', source: 's', summary: long }] }) });
+  const r = await fetchNewsSentiment('AAPL', { apiKey: 'k', fetchImpl });
+  assert.ok(r.items[0].summary.length <= 160);
+  assert.ok(r.items[0].summary.endsWith('...'));
+});
+
+test('fetchNewsSentiment: senza riassunto nella fonte → null, mai un testo inventato', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ feed: [{ title: 't', url: 'https://x.test/1', source: 's' }] }) });
+  const r = await fetchNewsSentiment('AAPL', { apiKey: 'k', fetchImpl });
+  assert.equal(r.items[0].summary, null);
 });
 
 test('fetchNewsSentiment: limite raggiunto ("Note"/"Information") → errore onesto, mai dati finti', async () => {
@@ -74,7 +92,7 @@ test('fetchFinnhubNews: forma reale → titoli reali, sentiment onestamente "sco
   const fetchImpl = async () => ({
     ok: true,
     json: async () => ([
-      { headline: 'Apple presenta il nuovo prodotto', url: 'https://x.test/1', source: 'Reuters', datetime: 1785000000 },
+      { headline: 'Apple presenta il nuovo prodotto', url: 'https://x.test/1', source: 'Reuters', datetime: 1785000000, summary: 'Apple ha presentato oggi un nuovo dispositivo.' },
       { headline: 'Rumor su un nuovo servizio Apple', url: 'https://x.test/2', source: 'Bloomberg', datetime: 1784900000 },
     ]),
   });
@@ -83,6 +101,8 @@ test('fetchFinnhubNews: forma reale → titoli reali, sentiment onestamente "sco
   assert.equal(r.items.length, 2);
   assert.equal(r.items[0].title, 'Apple presenta il nuovo prodotto');
   assert.equal(r.items[0].sentimentLabel, 'sconosciuto');
+  assert.equal(r.items[0].summary, 'Apple ha presentato oggi un nuovo dispositivo.');
+  assert.equal(r.items[1].summary, null); // senza riassunto nella fonte → null, mai inventato
 });
 
 test('fetchFinnhubNews: chiave non valida → errore col messaggio reale, mai dati finti', async () => {
@@ -120,6 +140,7 @@ test('fetchHackerNewsMentions: forma reale → titoli reali, punti/commenti come
   assert.equal(r.items[0].title, 'Apple Vision Pro: prime impressioni');
   assert.match(r.items[0].source, /320 punti/);
   assert.equal(r.items[0].sentimentLabel, 'sconosciuto');
+  assert.equal(r.items[0].summary, null); // onesto: mai un riassunto inventato per l'articolo mai letto
 });
 
 test('fetchHackerNewsMentions: offline CON cache → ripiega sulla cache, dichiarata stale', async () => {
@@ -138,11 +159,12 @@ test('fetchNewsApiOrg: senza chiave → errore onesto', async () => {
 test('fetchNewsApiOrg: forma reale → titoli reali', async () => {
   const fetchImpl = async () => ({
     ok: true,
-    json: async () => ({ status: 'ok', articles: [{ title: 'Apple lancia una novità', url: 'https://x.test/1', source: { name: 'Reuters' }, publishedAt: '2026-07-20T10:00:00Z' }] }),
+    json: async () => ({ status: 'ok', articles: [{ title: 'Apple lancia una novità', url: 'https://x.test/1', source: { name: 'Reuters' }, publishedAt: '2026-07-20T10:00:00Z', description: 'Apple ha lanciato oggi una novità.' }] }),
   });
   const r = await fetchNewsApiOrg('Apple', { apiKey: 'k', fetchImpl });
   assert.equal(r.items.length, 1);
   assert.equal(r.items[0].source, 'Reuters');
+  assert.equal(r.items[0].summary, 'Apple ha lanciato oggi una novità.');
 });
 
 test('fetchNewsApiOrg: chiave non valida → errore col messaggio reale, mai dati finti', async () => {

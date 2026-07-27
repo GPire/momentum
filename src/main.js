@@ -6055,8 +6055,16 @@ const initApp = () => {
   function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
+    // Riassunto reale (già fornito da Alpha Vantage/Finnhub/NewsAPI.org,
+    // MAI generato da Momentum) sotto il titolo — richiesto esplicitamente:
+    // "anche dei piccoli riassunti delle notizie". Escape prima di tutto:
+    // il testo arriva da fonti esterne, mai fidarsi ciecamente in innerHTML.
+    const escNews = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     const itemsHtml = items.map(n =>
-      `<a href="${n.url}" target="_blank" rel="noopener" class="qa-cloud-block block leading-snug hover:underline"><span class="${labelColor[n.sentimentLabel] || 'text-slate-400'}">●</span> ${n.title} <span class="text-slate-500">— ${n.source || ''}</span></a>`
+      `<a href="${n.url}" target="_blank" rel="noopener" class="qa-cloud-block block leading-snug hover:underline">
+        <span class="${labelColor[n.sentimentLabel] || 'text-slate-400'}">●</span> ${escNews(n.title)} <span class="text-slate-500">— ${escNews(n.source || '')}</span>
+        ${n.summary ? `<div class="text-slate-500 text-[10px] mt-0.5 font-normal">${escNews(n.summary)}</div>` : ''}
+      </a>`
     ).join('');
     // Dato storico REALE (CoinGecko, mai una previsione) — risponde a
     // "cosa è successo nello stesso periodo l'anno scorso" per le cripto.

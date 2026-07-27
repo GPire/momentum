@@ -19,6 +19,17 @@ function labelFor(score) {
   return hit ? hit[2] : 'neutral';
 }
 
+// Riassunto REALE (già fornito dalla fonte, mai generato/inventato da
+// Momentum) — tagliato per restare leggibile in una card, non un intero
+// articolo. `null` se la fonte non lo fornisce (es. Hacker News: solo il
+// titolo della discussione, l'articolo collegato non è mai stato letto).
+function shortSummary(text) {
+  if (!text || typeof text !== 'string') return null;
+  const clean = text.trim();
+  if (!clean) return null;
+  return clean.length > 160 ? `${clean.slice(0, 157)}...` : clean;
+}
+
 // `cache` (opzionale, { get(key), put(key,val) } come in market-data.js):
 // se la rete è assente o la fonte fallisce, si ripiega sull'ultimo risultato
 // salvato per quel simbolo, dichiarato `stale:true` — mai un crash, mai un
@@ -53,6 +64,7 @@ export async function fetchNewsSentiment(symbol, { apiKey, fetchImpl = fetch, li
       url: a.url,
       source: a.source,
       publishedAt: a.time_published,
+      summary: shortSummary(a.summary),
       sentimentScore: Number.isFinite(score) ? score : null,
       sentimentLabel: Number.isFinite(score) ? labelFor(score) : 'sconosciuto',
       relevance: tickerScore ? parseFloat(tickerScore.relevance_score) : null,
@@ -97,6 +109,7 @@ export async function fetchFinnhubNews(symbol, { apiKey, fetchImpl = fetch, limi
     url: a.url,
     source: a.source,
     publishedAt: a.datetime ? new Date(a.datetime * 1000).toISOString() : null,
+    summary: shortSummary(a.summary),
     sentimentScore: null,
     sentimentLabel: 'sconosciuto',
     relevance: null,
@@ -136,6 +149,7 @@ export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit 
     url: h.url,
     source: `Hacker News (${h.points ?? 0} punti, ${h.num_comments ?? 0} commenti)`,
     publishedAt: h.created_at || null,
+    summary: null, // onesto: solo il titolo della discussione, l'articolo collegato non è mai stato letto
     sentimentScore: null,
     sentimentLabel: 'sconosciuto',
     relevance: null,
@@ -172,6 +186,7 @@ export async function fetchNewsApiOrg(query, { apiKey, fetchImpl = fetch, limit 
     url: a.url,
     source: a.source?.name || 'NewsAPI.org',
     publishedAt: a.publishedAt || null,
+    summary: shortSummary(a.description),
     sentimentScore: null,
     sentimentLabel: 'sconosciuto',
     relevance: null,
