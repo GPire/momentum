@@ -1310,6 +1310,24 @@
                  normale (la sidebar destra mangia larghezza → card che respirano,
                  niente testi cramped/tagliati), 2 colonne solo oltre i 1700px. -->
             <div class="vault-grid gap-5 sm:gap-6">
+              <!-- Guida installazione PWA (richiesta esplicita: "comprensibile
+                   anche a un bambino", per qualsiasi dispositivo/browser/OS) —
+                   src/pwa/install-guide.js rileva la piattaforma REALE e mostra
+                   solo i passi che funzionano davvero su quel dispositivo, mai
+                   una guida generica uguale per tutti. -->
+              <div class="card p-6 flex flex-col" id="install-guide-card">
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
+                  <div>
+                    <h3 class="font-bold text-base" id="install-guide-title">Installa Momentum</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Come un'app vera, con la sua icona — niente browser da riaprire ogni volta</p>
+                  </div>
+                </div>
+                <div id="install-guide-steps" class="space-y-2.5"></div>
+                <button id="install-guide-btn" class="btn-action w-full mt-4 font-bold text-sm hidden">Installa ora</button>
+                <div id="install-guide-done" class="hidden text-center text-emerald-300 text-sm font-bold py-2">✓ App già installata</div>
+              </div>
+
               <!-- ETL terminal -->
               <div class="card p-6 flex flex-col">
                  <div class="flex items-center gap-4 mb-4">

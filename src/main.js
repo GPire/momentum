@@ -56,6 +56,7 @@ import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } 
 import { investmentReadiness } from './ai/reasoning-fusion.js';
 import { detectRegime } from './alpha/regime.js';
 import { fireTargetCapital, yearsToFire, coastFireCheck } from './predict/fire.js';
+import { detectPlatform, installSteps } from './pwa/install-guide.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
 // datato) quando l'utente ha già in portafoglio una posizione che traccia
@@ -5359,6 +5360,73 @@ const bootUI = () => {
   } catch(e) { console.error(e); }
 };
 
+// Guida installazione PWA (src/pwa/install-guide.js) — TOP-LEVEL, non dentro
+// initApp: deve reagire a 'beforeinstallprompt' che il browser può sparare
+// in qualsiasi momento, anche prima che initApp finisca di girare (bug di
+// scope già trovato due volte in questa stessa sessione per altre funzioni
+// dentro initApp non raggiungibili da fuori — qui evitato del tutto usando
+// solo document.getElementById diretto, mai gli helper $/$$ di initApp).
+let __installPromptEvent = null;
+const INSTALL_ICON_SVG = {
+  share: '<path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><rect x="4" y="12" width="16" height="9" rx="2"/>',
+  plus: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  install: '<path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 19h16"/>',
+};
+function renderInstallGuide() {
+  const stepsEl = document.getElementById('install-guide-steps');
+  if (!stepsEl) return;
+  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+  const platform = detectPlatform(navigator.userAgent, { standalone });
+  const { title, steps } = installSteps(platform);
+  const titleEl = document.getElementById('install-guide-title');
+  const btnEl = document.getElementById('install-guide-btn');
+  const doneEl = document.getElementById('install-guide-done');
+  if (titleEl) titleEl.textContent = title;
+  if (standalone) {
+    stepsEl.innerHTML = '';
+    btnEl?.classList.add('hidden');
+    doneEl?.classList.remove('hidden');
+    return;
+  }
+  doneEl?.classList.add('hidden');
+  stepsEl.innerHTML = steps.map((s, i) => `
+    <div class="flex items-start gap-3">
+      <div class="w-7 h-7 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-xs">${i + 1}</div>
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)] shrink-0">${INSTALL_ICON_SVG[s.icon] || INSTALL_ICON_SVG.info}</svg>
+        <p class="text-xs text-slate-300 leading-snug">${s.text}</p>
+      </div>
+    </div>`).join('');
+  // Il pulsante nativo appare SOLO se il browser ha davvero offerto
+  // l'evento beforeinstallprompt — mai un pulsante "Installa" decorativo
+  // che su iOS/Firefox non farebbe nulla (l'utente lo scoprirebbe solo
+  // toccandolo, la peggiore delle sorprese).
+  if (platform.supportsNativePrompt && __installPromptEvent) {
+    btnEl?.classList.remove('hidden');
+  } else {
+    btnEl?.classList.add('hidden');
+  }
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  __installPromptEvent = e;
+  renderInstallGuide();
+});
+window.addEventListener('appinstalled', () => {
+  __installPromptEvent = null;
+  renderInstallGuide();
+});
+document.addEventListener('click', (e) => {
+  if (e.target.closest?.('#install-guide-btn') && __installPromptEvent) {
+    __installPromptEvent.prompt();
+    __installPromptEvent.userChoice.finally(() => { __installPromptEvent = null; renderInstallGuide(); });
+  }
+});
+renderInstallGuide();
+
 const navigate = (view) => {
   haptic('light');
   VaultDAO.state.currentView = view;
@@ -5389,7 +5457,7 @@ const navigate = (view) => {
   if (view === 'dashboard') window.renderQaSuggestions?.();
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
