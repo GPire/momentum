@@ -404,6 +404,11 @@
        la posizione scorre lentamente avanti e indietro — effetto cangiante
        senza cambiare --apex-gradient globale (usato altrove nell'app). */
     .qa-wait-orb { position: relative; width:48px; height:48px; border-radius:50%; background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 35%, var(--primary-focus) 70%, var(--primary) 100%); background-size: 300% 300%; box-shadow: var(--glow-primary); animation: qaOrbBreath 1.3s ease-in-out infinite, matrixSync 4s ease-in-out infinite, qaOrbFlow 5s ease-in-out infinite; flex-shrink: 0; }
+    /* Selettore di periodo del grafico storico (1 anno/5 anni/tutto) —
+       stesso stile pillola dei chip suggerimento, solo lo stato attivo
+       cambia (colore primario pieno, non solo un bordo). */
+    .qa-period-btn { background: rgba(255,255,255,0.05); color: var(--on-surface-secondary); transition: background .15s, color .15s; }
+    .qa-period-btn.qa-period-active { background: var(--primary); color: #fff; font-weight: 700; }
     @keyframes qaOrbFlow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
     /* Onde che si propagano ("sonar") — 3 anelli scaglionati che si
        espandono e svaniscono, come un impulso ripetuto. */

@@ -5984,6 +5984,38 @@ const initApp = () => {
         <p class="text-[9px] text-slate-500 mt-1.5">Verde/rosso = massimo/minimo storico reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette. Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
       </div>`;
   }
+  // Selettore di periodo (richiesta esplicita: "possibilità di scegliere i
+  // momenti salienti" — 1 anno / 5 anni / tutto lo storico, invece di
+  // vedere sempre l'intera serie insieme). I 3 pannelli sono precalcolati
+  // qui (mai un secondo fetch al click: la serie è già scaricata) e
+  // scambiati mostra/nascondi da un listener delegato su qaAnswer, così
+  // funziona anche dopo che il contenuto viene ri-renderizzato.
+  function buildAssetHistoryChartWithPeriods(series, yearlyExtremesFn) {
+    if (!series.length) return '';
+    const variants = [
+      { key: 'all', label: 'Tutto' },
+      { key: '5y', label: '5 anni', months: 60 },
+      { key: '1y', label: '1 anno', months: 12 },
+    ];
+    const buttons = variants.map(v => `<button type="button" class="qa-period-btn text-[9px] px-2 py-0.5 rounded-full ${v.key === 'all' ? 'qa-period-active' : ''}" data-key="${v.key}">${v.label}</button>`).join('');
+    const panels = variants.map(v => {
+      const sliced = v.months ? series.slice(-v.months) : series;
+      const chart = sliced.length > 1 ? buildAssetHistoryChart(sliced, yearlyExtremesFn(sliced)) : '<p class="text-[9px] text-slate-500 mt-1.5">Storico insufficiente per questo periodo.</p>';
+      return `<div class="qa-period-panel" data-key="${v.key}" ${v.key === 'all' ? '' : 'style="display:none"'}>${chart}</div>`;
+    }).join('');
+    return `<div class="flex gap-1.5 mt-1.5">${buttons}</div>${panels}`;
+  }
+  // Listener delegato UNA SOLA VOLTA (qaAnswer resta lo stesso nodo anche
+  // quando il contenuto viene sostituito da innerHTML) — mai un secondo
+  // listener duplicato ad ogni domanda.
+  qaAnswer?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.qa-period-btn');
+    if (!btn) return;
+    const key = btn.dataset.key;
+    const group = btn.closest('div').parentElement;
+    group.querySelectorAll('.qa-period-btn').forEach(b => b.classList.toggle('qa-period-active', b === btn));
+    group.querySelectorAll('.qa-period-panel').forEach(p => { p.style.display = p.dataset.key === key ? '' : 'none'; });
+  });
   function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
@@ -6100,7 +6132,7 @@ const initApp = () => {
             fetchCryptoMultiYearComparison(asset.id, { yearsList: [2, 3, 5], fetchImpl: fetch.bind(window) }),
           ]);
           yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
-          if (series.length > 1) historyChart = buildAssetHistoryChart(series, yearlyExtremes(series));
+          if (series.length > 1) historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
           // Punti reali a 2/3/5 anni (mai una linea continua fabbricata:
           // CoinGecko gratuito limita la serie a 365gg, ma il singolo punto
           // storico non ha questo limite — dati veri, non un grafico finto).
@@ -6126,7 +6158,7 @@ const initApp = () => {
             const { yearlyExtremes } = await import('./alpha/year-over-year.js');
             const current = series[series.length - 1].price;
             yoyNote = describeStockYearsAgo(series, 1, current);
-            historyChart = buildAssetHistoryChart(series, yearlyExtremes(series));
+            historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
             const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
             if (points.length) multiYearNote = points.map(p => p.note).join(' ');
           }
