@@ -5324,18 +5324,32 @@ const initApp = () => {
     mobileAddBtn.onclick = openTransactionModal;
   }
 
-  // Card "Chiedi a Momentum" (src/ai/qa-engine.js)
+  // Card "Chiedi a Momentum" (src/ai/qa-engine.js). Fuori dal perimetro
+  // finanziario (intent 'unknown') e SOLO se l'utente ha attivato
+  // esplicitamente la chat generica (chiave Gemini/Groq propria, opt-in —
+  // src/ai/chat-fallback.js), prova il fallback cloud. Mai automatico.
   const qaInput = $('#qa-input');
   const qaSend = $('#qa-send');
   const qaAnswer = $('#qa-answer');
   if (qaInput && qaSend && qaAnswer) {
-    const ask = () => {
+    const ask = async () => {
       const question = qaInput.value.trim();
       if (!question) return;
       const res = askMomentum(question);
       qaAnswer.textContent = res.answer;
       qaAnswer.classList.remove('hidden');
       haptic('light');
+      const keys = VaultDAO.state.liveDataKeys || {};
+      if (res.intent === 'unknown' && (keys.gemini || keys.groq || keys.deepseek)) {
+        qaAnswer.textContent = res.answer + ' — Chiedo a una chat generica...';
+        try {
+          const { askCloudFallbackChain } = await import('./ai/chat-fallback.js');
+          const { answer } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window) });
+          qaAnswer.textContent = answer;
+        } catch (e) {
+          qaAnswer.textContent = `${res.answer} (chat generica non disponibile: ${e.message})`;
+        }
+      }
     };
     qaSend.onclick = ask;
     qaInput.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
