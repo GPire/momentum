@@ -259,3 +259,19 @@ test('askCloudFallbackChain: ordine di default include i nuovi provider tra Groq
   const r = await askCloudFallbackChain('ciao', { keys: { mistral: 'k' }, fetchImpl });
   assert.equal(r.provider, 'mistral');
 });
+
+// Modelli asiatici richiesti esplicitamente ("anche modelli AI asiatici e
+// orientali") — verificati dal vivo per CORS (2026-07-27, l'header
+// rispecchia l'origine con credenziali, valido per il browser quanto un
+// "*"). 01.AI e Aleph Alpha esclusi: nessun CORS confermato dal vivo.
+test('askCloudFallback: Qwen -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta da Qwen' } }] }) });
+  const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'qwen', fetchImpl });
+  assert.equal(r.answer, 'Risposta da Qwen');
+});
+
+test('askCloudFallback: Moonshot AI -> forma reale, estrae il testo', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta da Kimi' } }] }) });
+  const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'moonshot', fetchImpl });
+  assert.equal(r.answer, 'Risposta da Kimi');
+});
