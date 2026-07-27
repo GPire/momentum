@@ -212,8 +212,12 @@
        dissolvenza morbida — trovato con un conteggio reale: 4 dei 6 pannelli
        a scomparsa dell'app scattavano di colpo, senza alcuna animazione. */
     details[open] > div { animation: insightFade .35s ease both; }
+    /* Momento di "arrivo" della risposta (ispirato a Duo/Duolingo: il premio
+       arriva DOPO l'attesa, una volta sola, mai un'interruzione durante) —
+       riusa ghostDotPop già esistente invece di un keyframe nuovo. */
+    .qa-arrive-icon { display: inline-flex; animation: ghostDotPop .4s cubic-bezier(.34,1.56,.64,1) both; }
     @media (prefers-reduced-motion: reduce) {
-      .view-in > *, .cat-chip.chip-in, details[open] > div { animation: none; }
+      .view-in > *, .cat-chip.chip-in, details[open] > div, .qa-arrive-icon { animation: none; }
     }
     
     .save-btn { margin: 0.5rem 1rem; width: calc(100% - 2rem); min-height: 3.5rem; border-radius: 1.2rem; background: var(--apex-gradient); color: white; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); box-shadow: var(--glow-primary); flex-shrink: 0; padding: 0.5rem;}

@@ -5512,12 +5512,16 @@ const initApp = () => {
   // in maiuscolo + corpo con evidenze colorate): l'etichetta "non è
   // Momentum" va SUBITO in testa, non in coda come nota a piè di pagina —
   // l'utente deve saperlo PRIMA di leggere, non dopo.
+  // Il "pop" dell'icona (qa-arrive-icon) è il momento-premio DOPO l'attesa
+  // reale del cloud — principio Duo: la celebrazione arriva a fine compito,
+  // mai a interrompere. Le risposte locali (styleQaAnswer) sono istantanee,
+  // senza attesa vera: niente pop lì, sarebbe fronzolo senza motivo (Clippy).
   function showQaCloudAnswer(answer, provider) {
     const label = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', openai: 'OpenAI', anthropic: 'Anthropic' }[provider] || provider;
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/25 text-violet-100';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
-        <h4 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} ${label}</h4>
+        <h4 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon">${ICON_QA_CLOUD}</span> ${label}</h4>
         <span class="text-[9px] text-violet-400/70">non è Momentum</span>
       </div>
       <div class="space-y-1.5">${formatCloudAnswer(answer)}</div>`;
