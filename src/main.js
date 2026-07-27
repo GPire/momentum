@@ -5584,13 +5584,23 @@ const initApp = () => {
               const sts = getDailySafeToSpend({ monthTxs, allTx: VaultDAO.state.transactions, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: now });
               const byCat = {};
               for (const t of monthTxs) if (t.type === 'uscita') byCat[t.category] = (byCat[t.category] || 0) + t.amount;
-              const topCat = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+              const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+              const topCat = sorted[0];
+              const totalOut = sorted.reduce((s, [, v]) => s + v, 0);
+              // Stesse quote del grafico a torta "Dove vanno i tuoi soldi"
+              // (Analisi Tensor) — top 3, solo percentuali, mai gli importi
+              // delle singole spese: permette alla chat di "leggere" quel
+              // grafico se l'utente chiede di spiegarglielo.
+              const categoryBreakdown = totalOut > 0
+                ? sorted.slice(0, 3).map(([id, v]) => ({ name: getCatById(id).name, pct: Math.round((v / totalOut) * 100) }))
+                : null;
               const liveRegime = detectLiveRegimeFor('indice');
               contextSummary = buildFinancialContextSummary({
                 safeToday: sts?.safeToday ?? null,
                 monthRemaining: sts?.weekRemaining ?? null,
                 topCategory: topCat ? getCatById(topCat[0]).name : null,
                 marketRegime: liveRegime?.regime ?? null,
+                categoryBreakdown,
               });
             } catch (_) { contextSummary = null; }
           }

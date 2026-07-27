@@ -30,11 +30,20 @@ const SYSTEM_PROMPT = 'Sei la voce di Momentum, un\'app che aiuta le persone con
 // anonimo): solo numeri già aggregati da motori esistenti (Cassa Unica,
 // investmentReadiness), mai il dato grezzo. Funzione pura: chi chiama
 // passa i risultati già calcolati, non i dati grezzi.
-export function buildFinancialContextSummary({ safeToday = null, monthRemaining = null, topCategory = null, marketRegime = null } = {}) {
+// `categoryBreakdown`: array di { name, pct } GIÀ aggregato (le stesse quote
+// mostrate nel grafico a torta "Dove vanno i tuoi soldi") — mai gli importi
+// esatti delle singole transazioni, solo la percentuale sul totale. Permette
+// alla chat generica di "leggere" quel grafico se l'utente chiede di
+// spiegarglielo, restando nello stesso limite di privacy di questa funzione.
+export function buildFinancialContextSummary({ safeToday = null, monthRemaining = null, topCategory = null, marketRegime = null, categoryBreakdown = null } = {}) {
   const parts = [];
   if (Number.isFinite(safeToday)) parts.push(`oggi può spendere circa ${Math.round(safeToday)}€ in sicurezza`);
   if (Number.isFinite(monthRemaining)) parts.push(`gli restano circa ${Math.round(monthRemaining)}€ per il resto del mese`);
   if (topCategory) parts.push(`la categoria di spesa principale è "${topCategory}"`);
+  if (Array.isArray(categoryBreakdown) && categoryBreakdown.length) {
+    const txt = categoryBreakdown.map(c => `${c.name} ${c.pct}%`).join(', ');
+    parts.push(`il grafico "dove vanno i suoi soldi" questo mese mostra: ${txt}`);
+  }
   if (marketRegime) parts.push(`il mercato è attualmente in fase "${marketRegime}"`);
   if (!parts.length) return null;
   return `Contesto aggregato e anonimo sull'utente (nessuna transazione, nessun esercente, nessun conto): ${parts.join('; ')}. Usalo solo se pertinente alla domanda, non ripeterlo se non richiesto.`;

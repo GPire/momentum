@@ -92,6 +92,18 @@ test('buildFinancialContextSummary: parziale -> include solo i campi presenti', 
   assert.ok(!s.includes('categoria'));
 });
 
+test('buildFinancialContextSummary: categoryBreakdown -> solo percentuali, mai importi', () => {
+  const s = buildFinancialContextSummary({ categoryBreakdown: [{ name: 'Alimentari', pct: 34 }, { name: 'Trasporti', pct: 18 }] });
+  assert.ok(s.includes('Alimentari 34%'));
+  assert.ok(s.includes('Trasporti 18%'));
+  assert.ok(!/\d+[.,]\d{2}€/.test(s)); // nessun importo con centesimi, solo percentuali intere
+});
+
+test('buildFinancialContextSummary: categoryBreakdown vuoto -> non aggiunge nulla', () => {
+  const s = buildFinancialContextSummary({ safeToday: 50, categoryBreakdown: [] });
+  assert.ok(!s.includes('grafico'));
+});
+
 test('askCloudFallback: con contextSummary lo antepone al prompt di sistema (mai al posto della domanda)', async () => {
   let sentSystem = null, sentQuestion = null;
   const fetchImpl = async (url, opts) => {
