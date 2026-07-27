@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain, pruneNonCausal, grangerScore, grangerLikely, annotateGrangerConfidence } = await import('./causal-graph.js');
+const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain, pruneNonCausal, grangerScore, grangerLikely, annotateGrangerConfidence, conditionalGrangerScore, annotateConditionalGranger } = await import('./causal-graph.js');
 
 const REF = new Date(2026, 6, 6); // lunedì 6 luglio 2026
 
@@ -223,4 +223,53 @@ test('annotateGrangerConfidence: archi simmetrici (lagWeeks=0) o serie mancanti 
   const out = annotateGrangerConfidence(links, { A: CAUSE, B: EFFECT_DRIVEN }); // X,Y assenti da series
   assert.equal(out[0].grangerConfirmed, null);
   assert.equal(out[1].grangerConfirmed, null);
+});
+
+// ── GRANGER CONDIZIONALE (v3): generalizza a N regressori, controlla per
+// variabili terze — il passo oltre il bivariato semplice, sulla STESSA base
+// matematica (mai un'architettura parallela). ──
+const CONF1 = [2, -1, 3, 0, 1, -2, 4, 1, -3, 2, 0, 1, -1, 3, 0, 2];
+const CONF2 = [-1, 2, 0, 3, -2, 1, 0, -1, 2, 1, -3, 0, 2, -1, 1, 0];
+const CONF3 = [1, 0, -2, 1, 3, 0, -1, 2, 0, -2, 1, 0, 2, -1, 0, 1];
+
+test('conditionalGrangerScore: senza confondenti coincide ESATTAMENTE col test bivariato (l\'olsN a N=1 regressore generalizza ols2 senza perdere precisione)', () => {
+  const bi = grangerScore(CAUSE, EFFECT_DRIVEN);
+  const cond = conditionalGrangerScore(CAUSE, EFFECT_DRIVEN, []);
+  assert.equal(cond.reduction, bi.reduction);
+  assert.equal(cond.confoundersUsed, 0);
+});
+
+test('conditionalGrangerScore: al massimo 2 confondenti — il terzo passato viene ignorato, stesso risultato', () => {
+  const r2 = conditionalGrangerScore(CAUSE, EFFECT_DRIVEN, [CONF1, CONF2]);
+  const r3 = conditionalGrangerScore(CAUSE, EFFECT_DRIVEN, [CONF1, CONF2, CONF3]);
+  assert.equal(r3.confoundersUsed, 2);
+  assert.equal(r3.reduction, r2.reduction);
+});
+
+test('conditionalGrangerScore: campione troppo piccolo rispetto ai parametri -> null, mai un numero inaffidabile', () => {
+  assert.equal(conditionalGrangerScore([1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [[1, 2, 3, 4, 5]]), null);
+});
+
+test('conditionalGrangerScore: confondenti perfettamente collineari (sistema singolare) -> null, non un numero a caso', () => {
+  assert.equal(conditionalGrangerScore(CAUSE, EFFECT_DRIVEN, [CONF1, CONF1]), null);
+});
+
+test('annotateConditionalGranger: arricchisce senza cambiare direzione, usa le altre categorie come confondenti', () => {
+  const links = [{ from: 'A', to: 'B', lagWeeks: 1, r: 0.6, samples: 15, direction: 'settimana dopo' }];
+  const series = { A: CAUSE, B: EFFECT_DRIVEN, C: CONF1, D: CONF2 };
+  const out = annotateConditionalGranger(links, series);
+  assert.equal(out[0].from, 'A');
+  assert.equal(out[0].to, 'B');
+  assert.ok('conditionalGrangerConfirmed' in out[0]);
+  assert.ok('conditionalGrangerReduction' in out[0]);
+});
+
+test('annotateConditionalGranger: archi simmetrici o serie mancanti -> null, mai inventato', () => {
+  const links = [
+    { from: 'A', to: 'B', lagWeeks: 0, r: 0.7, samples: 15, direction: 'insieme' },
+    { from: 'X', to: 'Y', lagWeeks: 1, r: 0.6, samples: 15, direction: 'settimana dopo' },
+  ];
+  const out = annotateConditionalGranger(links, { A: CAUSE, B: EFFECT_DRIVEN });
+  assert.equal(out[0].conditionalGrangerConfirmed, null);
+  assert.equal(out[1].conditionalGrangerConfirmed, null);
 });

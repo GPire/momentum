@@ -298,3 +298,100 @@ export function annotateGrangerConfidence(links = [], series = {}) {
     return { ...l, grangerConfirmed: g ? g.reduction >= 0.15 : null, grangerReduction: g ? g.reduction : null };
   });
 }
+
+// ============================================================
+// GRANGER CAUSALITY CONDIZIONALE (v3) — generalizza ols1/ols2/solve3x3 a
+// N regressori (eliminazione gaussiana con pivot parziale) per rispondere a
+// una domanda più forte del semplice bivariato sopra: "A precede B ANCHE
+// dopo aver tolto di mezzo l'effetto di altre categorie C1,C2 che si
+// muovono insieme a entrambe?". È il problema reale del test bivariato:
+// due categorie che sembrano collegate spesso condividono solo una causa
+// terza (es. dicembre: regali E cene salgono insieme, "regali→cene" non è
+// reale) — il test condizionale la scopre e la scarta, il bivariato no.
+//
+// ONESTÀ DICHIARATA: stesso principio del resto del modulo — nessun
+// p-value formale, RIDUZIONE PERCENTUALE di RSS con soglia dichiarata.
+// Con pochi confondenti e pochi campioni (settimane personali, non anni di
+// dati istituzionali) il sistema può diventare singolare o overfittare:
+// in quel caso la funzione ritorna null invece di un numero inaffidabile —
+// mai una precisione finta su un campione troppo piccolo per sostenerla.
+function solveLinear(A, b) {
+  const n = A.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let pivot = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot = r;
+    if (Math.abs(M[pivot][col]) < 1e-9) return null; // sistema singolare: variabili troppo collineari
+    [M[col], M[pivot]] = [M[pivot], M[col]];
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = M[r][col] / M[col][col];
+      for (let c = col; c <= n; c++) M[r][c] -= factor * M[col][c];
+    }
+  }
+  return M.map((row, i) => row[n] / row[i]);
+}
+
+// regressors: array di serie (ognuna length n) — un intercetto è aggiunto
+// automaticamente. Ritorna { coeffs, rss } o null se il sistema è singolare.
+function olsN(regressors, y) {
+  const n = y.length;
+  const k = regressors.length;
+  const X = [[1, ...regressors.map(r => r[0])]];
+  for (let i = 1; i < n; i++) X.push([1, ...regressors.map(r => r[i])]);
+  const XtX = Array.from({ length: k + 1 }, (_, i) => Array.from({ length: k + 1 }, (_, j) => X.reduce((s, row) => s + row[i] * row[j], 0)));
+  const Xty = Array.from({ length: k + 1 }, (_, i) => X.reduce((s, row, t) => s + row[i] * y[t], 0));
+  const coeffs = solveLinear(XtX, Xty);
+  if (!coeffs) return null;
+  let rss = 0;
+  for (let i = 0; i < n; i++) {
+    const pred = coeffs.reduce((s, c, j) => s + c * X[i][j], 0);
+    rss += (y[i] - pred) ** 2;
+  }
+  return { coeffs, rss };
+}
+
+// cause/effect/confounders: serie DIFFERENZIATE allineate. `confounders` è
+// un array di serie candidate (di solito altre categorie) — cappato a 2:
+// oltre, con poche settimane di dati personali, il rischio di overfitting
+// supera il beneficio (dichiarato, non una scelta arbitraria nascosta).
+export function conditionalGrangerScore(cause, effect, confounders = [], opts = {}) {
+  const minSamples = opts.minSamples ?? 10;
+  const usedConfounders = confounders.slice(0, 2);
+  const n = Math.min(cause.length, effect.length, ...usedConfounders.map(c => c.length), Infinity) - 1;
+  const numParams = 2 + usedConfounders.length; // intercetto + effect_lag + confondenti (+ cause per l'unrestricted)
+  if (!Number.isFinite(n) || n < minSamples || n < 3 * (numParams + 1)) return null;
+
+  const align = (s) => s.slice(0, n); // tutte le serie tagliate alla stessa lunghezza (lag 1)
+  const yLag = align(effect.slice(0, -1)), xLag = align(cause.slice(0, -1)), y = align(effect.slice(1));
+  const confLag = usedConfounders.map(c => align(c.slice(0, -1)));
+
+  const restricted = olsN([yLag, ...confLag], y);
+  const unrestricted = olsN([yLag, xLag, ...confLag], y);
+  if (!restricted || !unrestricted || restricted.rss === 0) return null;
+  const reduction = (restricted.rss - unrestricted.rss) / restricted.rss;
+  return { reduction: +Math.max(0, Math.min(1, reduction)).toFixed(3), samples: n, confoundersUsed: usedConfounders.length };
+}
+
+// Come annotateGrangerConfidence, ma condizionando ogni arco sulle ALTRE
+// categorie del grafo che si muovono insieme al presunto effetto (i vicini
+// più forti diversi da from/to) — scarta i legami che il test bivariato
+// avrebbe confermato ma che erano solo una causa terza in comune. Non
+// sostituisce annotateGrangerConfidence (resta la versione più economica e
+// robusta su pochi dati): la aggiunge come conferma di ordine superiore
+// quando ci sono abbastanza categorie/settimane per sostenerla.
+export function annotateConditionalGranger(links = [], series = {}) {
+  const catNames = Object.keys(series);
+  return links.map((l) => {
+    if (l.lagWeeks === 0 || !series[l.from] || !series[l.to]) {
+      return { ...l, conditionalGrangerConfirmed: null, conditionalGrangerReduction: null };
+    }
+    // confondenti candidati: altre categorie diverse da from/to con serie sufficiente
+    const confounders = catNames
+      .filter((c) => c !== l.from && c !== l.to && series[c]?.length >= 8)
+      .slice(0, 2)
+      .map((c) => diff(series[c]));
+    const g = conditionalGrangerScore(diff(series[l.from]), diff(series[l.to]), confounders, { minSamples: 8 });
+    return { ...l, conditionalGrangerConfirmed: g ? g.reduction >= 0.15 : null, conditionalGrangerReduction: g ? g.reduction : null };
+  });
+}

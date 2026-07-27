@@ -62,6 +62,40 @@ test('crossDomainWhatIf: mai un layer mancante rompe gli altri (degradazione gra
   assert.doesNotThrow(() => crossDomainWhatIf({ allTx: null, category: 'ristorazione', deltaPct: -20 }));
 });
 
+// ── v3: crossDomainWhatIf filtra i link con Granger condizionale (src/predict/
+// causal-graph.js) — verifica che l'integrazione non rompa un effetto a
+// catena REALE quando i dati bastano a sostenerlo (stesso fixture usato in
+// causal-graph.test.js: Ristorante→Farmacia con un vero ritardo di settimana).
+function multiCategoryHistory(refMonday) {
+  const tx = {};
+  const add = (date, amount, category) => {
+    const mk = date.slice(0, 7);
+    (tx[mk] ||= []).push({ date, amount, category, type: 'uscita', description: category });
+  };
+  for (let w = 0; w < 25; w++) {
+    const d = new Date(refMonday.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000);
+    const iso = d.toISOString().slice(0, 10);
+    const social = w % 2 === 0;
+    add(iso, social ? 120 : 30, 'Ristorante');
+    add(iso, social ? 60 : 15, 'Trasporti');
+    add(iso, 80, 'Alimentari');
+    const prevSocial = w > 0 && (w - 1) % 2 === 0;
+    add(iso, prevSocial ? 40 : 10, 'Farmacia');
+  }
+  return tx;
+}
+
+test('crossDomainWhatIf: annota (mai cancella) gli effetti a catena con la conferma Granger condizionale', () => {
+  const monday0 = new Date(2026, 0, 5); // lunedì 5 gen 2026
+  const ref = new Date(2026, 6, 6); // lunedì 6 luglio 2026, ~26 settimane dopo (stesso fixture di causal-graph.test.js)
+  const tx = multiCategoryHistory(monday0);
+  const r = crossDomainWhatIf({ allTx: tx, category: 'Ristorante', deltaPct: -20, referenceDate: ref });
+  assert.ok(r.whatIf, 'il causale deve calcolarsi');
+  const trasporti = r.whatIf.chainEffects.find(e => e.category === 'Trasporti');
+  assert.ok(trasporti, 'l\'effetto reale Ristorante→Trasporti non deve MAI sparire: si annota, non si cancella');
+  assert.ok('conditionalGrangerConfirmed' in trasporti);
+});
+
 // ── STRATO BREVE TERMINE: ponte con la Cassa Unica (src/predict/cash-forecast.js) ──
 const salaryFixture = { dayOfMonth: 27, amount: 1800 };
 const rentFixture = [{ id: 'a1', name: 'Affitto', amount: 700, dayOfMonth: 1, kind: 'affitto' }];

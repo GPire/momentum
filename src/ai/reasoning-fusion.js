@@ -17,7 +17,7 @@
 'use strict';
 
 import { simulateCategoryChange } from '../predict/what-if.js';
-import { buildCausalGraph, pruneNonCausal } from '../predict/causal-graph.js';
+import { buildCausalGraph, pruneNonCausal, buildCategorySeries, annotateConditionalGranger } from '../predict/causal-graph.js';
 import { projectNetWorthByStrategy } from '../alpha/net-worth.js';
 import { cashForecast } from '../predict/cash-forecast.js';
 
@@ -93,6 +93,25 @@ export function crossDomainWhatIf({ allTx, category, deltaPct, referenceDate = n
     // direzione più forte invece di trattarle come due fatti indipendenti.
     const links = pruneNonCausal(buildCausalGraph(allTx, referenceDate));
     whatIf = simulateCategoryChange({ allTx, catId: category, deltaPct, referenceDate, links });
+    // v3 (Granger condizionale, src/predict/causal-graph.js): ANNOTA (non
+    // scarta) ogni effetto a catena con la conferma condizionata su un'altra
+    // categoria. PROVATO SPERIMENTALMENTE che filtrare in automatico è troppo
+    // aggressivo su pochi dati personali — un test dedicato ha mostrato che
+    // può uccidere un effetto REALE solo perché un'altra categoria condivide
+    // la stessa causa di fondo (collinearità), non perché il legame fosse
+    // falso. Onestà: meglio un caveat visibile ("potrebbe dipendere anche da
+    // Z") che cancellare un effetto vero per sembrare più rigorosi di quanto
+    // i dati permettano.
+    if (whatIf) {
+      try {
+        const series = buildCategorySeries(allTx, referenceDate);
+        const annotated = annotateConditionalGranger(links, series);
+        whatIf.chainEffects = whatIf.chainEffects.map((e) => {
+          const link = annotated.find(l => l.to === e.category && l.lagWeeks === e.lagWeeks);
+          return { ...e, conditionalGrangerConfirmed: link?.conditionalGrangerConfirmed ?? null };
+        });
+      } catch (_) { /* l'annotazione è un affinamento: se fallisce gli effetti restano invariati */ }
+    }
   } catch (_) { whatIf = null; }
   // confidence del layer causale: 0 se nessuno storico, altrimenti proporzionale
   // al numero di effetti a catena robusti trovati (più segnali = più fiducia),
