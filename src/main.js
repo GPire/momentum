@@ -3335,18 +3335,22 @@ window.selectAsset = async (idx) => {
       overviewHtml = `<p class="text-[10px] text-slate-300 mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[9px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
     } catch (_) { /* riassunto opzionale: nessun errore bloccante se manca */ }
   }
-  let newsHtml = '';
-  if (VaultDAO.state.liveDataKeys?.alphavantage) {
-    try {
-      const { fetchNewsSentiment } = await import('./alpha/news.js');
-      const news = await fetchNewsSentiment(asset.symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage, cache: assetSearchCache, limit: 5 });
-      const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
-      newsHtml = `<div class="mt-2 flex flex-col gap-1.5">${news.stale ? '<p class="text-[9px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${news.items.map(n =>
-        `<a href="${n.url}" target="_blank" rel="noopener" class="block text-[10px] leading-snug px-2 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)"><span class="${labelColor[n.sentimentLabel] || 'text-slate-400'}">●</span> ${n.title} <span class="text-slate-500">— ${n.source || ''}</span></a>`
-      ).join('')}</div>`;
-    } catch (_) { /* notizie opzionali: nessun errore bloccante se mancano */ }
-  }
-  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-slate-300 mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}
+  // ARCHITETTURA UNIFICATA (richiesto esplicitamente: prima questa vista
+  // aveva una propria cascata SEPARATA e meno capace — solo Alpha Vantage,
+  // nessun grafico storico con selettore periodo — rispetto a "Chiedi a
+  // Momentum". Stessa domanda su Apple dava risultati diversi nei due
+  // punti). Ora usa le STESSE due funzioni condivise: mai due motori
+  // isolati per la stessa cosa.
+  let newsHtml = '', historyChart = '';
+  try {
+    const { items, stale } = await window.fetchAssetNewsCascade(asset);
+    if (items.length) newsHtml = `<div class="mt-2">${stale ? '<p class="text-[9px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}</div>`;
+  } catch (_) { /* notizie opzionali: nessun errore bloccante se mancano */ }
+  try {
+    const { historyChart: chart } = await window.fetchAssetHistoryData(asset);
+    historyChart = chart || '';
+  } catch (_) { /* grafico opzionale: nessun errore bloccante se manca */ }
+  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-slate-300 mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}
     <div class="flex gap-1.5 mt-2">
       <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
       <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" />
@@ -6044,7 +6048,10 @@ const initApp = () => {
   // Listener delegato UNA SOLA VOLTA (qaAnswer resta lo stesso nodo anche
   // quando il contenuto viene sostituito da innerHTML) — mai un secondo
   // listener duplicato ad ogni domanda.
-  qaAnswer?.addEventListener('click', (e) => {
+  // Delegato su document (non solo qaAnswer): il grafico con selettore
+  // periodo ora appare anche in "Cerca un asset" (Analisi Tensor), stesso
+  // markup, un solo listener invece di uno per ogni contenitore.
+  document.addEventListener('click', (e) => {
     const btn = e.target.closest('.qa-period-btn');
     if (!btn) return;
     const key = btn.dataset.key;
@@ -6052,20 +6059,14 @@ const initApp = () => {
     group.querySelectorAll('.qa-period-btn').forEach(b => b.classList.toggle('qa-period-active', b === btn));
     group.querySelectorAll('.qa-period-panel').forEach(p => { p.style.display = p.dataset.key === key ? '' : 'none'; });
   });
-  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote) {
+  // Card notizie CONDIVISA (richiesto esplicitamente: unificare invece di
+  // duplicare) — usata sia da "Chiedi a Momentum" sia da "Cerca un asset"
+  // (Analisi Tensor), stessa identità visiva ovunque. Riassunto reale (mai
+  // generato da Momentum), escape prima di tutto: il testo arriva da fonti
+  // esterne, mai fidarsi ciecamente in innerHTML.
+  function buildNewsItemsHtml(items) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-slate-400', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
-    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
-    // Riassunto reale (già fornito da Alpha Vantage/Finnhub/NewsAPI.org,
-    // MAI generato da Momentum) sotto il titolo — richiesto esplicitamente:
-    // "anche dei piccoli riassunti delle notizie". Escape prima di tutto:
-    // il testo arriva da fonti esterne, mai fidarsi ciecamente in innerHTML.
     const escNews = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    // Design rivisto (feedback esplicito: "l'intestazione e la
-    // formattazione dei riassunti non sono abbastanza") — card distinte per
-    // ogni notizia (non più righe che si confondono col resto), titolo in
-    // rilievo, fonte come riga di metadato separata, riassunto in un tono
-    // più tenue sotto. Un'unica etichetta "NOTIZIE" in testa quando ce n'è
-    // più di una, per separarle visivamente dal confronto storico sopra.
     const newsHeader = items.length ? `<h5 class="text-[9px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>` : '';
     const itemsHtml = items.map(n => `
       <a href="${n.url}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
@@ -6079,6 +6080,11 @@ const initApp = () => {
         </div>
       </a>`
     ).join('');
+    return newsHeader + itemsHtml;
+  }
+  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote) {
+    qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
+    const newsBlockHtml = buildNewsItemsHtml(items);
     // Dato storico REALE (CoinGecko, mai una previsione) — risponde a
     // "cosa è successo nello stesso periodo l'anno scorso" per le cripto.
     const yoyHtml = yoyNote ? `<p class="qa-cloud-block text-sky-200/90">${yoyNote}</p>` : '';
@@ -6104,7 +6110,7 @@ const initApp = () => {
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
         <span class="text-[9px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsHeader}${itemsHtml}${historyChart || ''}${groundedHtml}`;
+      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${groundedHtml}`;
     replayQaAnimation();
   }
   // Ritorna true se ha risposto con dati reali (fine flusso), false se deve
@@ -6113,6 +6119,135 @@ const initApp = () => {
   // onestamente sul flusso esistente. Le notizie (Alpha Vantage) richiedono
   // una chiave personale; il confronto storico cripto (CoinGecko) no —
   // funziona anche senza alcuna chiave configurata.
+  // ── PIPELINE CONDIVISA notizie+storico asset ────────────────────────────
+  // ARCHITETTURA (richiesto esplicitamente: unificare invece di duplicare):
+  // prima "Cerca un asset" (Analisi Tensor) aveva una propria implementazione
+  // SEPARATA e meno capace (solo Alpha Vantage, nessuna cascata, nessun
+  // grafico con selettore periodo) rispetto a "Chiedi a Momentum" — stessa
+  // domanda ("dammi le notizie di Apple" vs cercare "Apple" in Analisi
+  // Tensor) dava risultati diversi. Ora UNA SOLA pipeline, usata da
+  // entrambi i punti: mai due motori isolati per la stessa cosa.
+  async function fetchAssetNewsCascade(asset) {
+    const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
+    let items = [], stale = false;
+    if (apiKey) {
+      try {
+        const { fetchNewsSentiment } = await import('./alpha/news.js');
+        const r = await fetchNewsSentiment(asset.symbol, { apiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+        items = r.items || []; stale = r.stale;
+      } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+    }
+    // Piano B: Finnhub (CORS verificato dal vivo, endpoint dedicato alle
+    // notizie aziendali, piano gratuito molto più generoso di Alpha Vantage).
+    const finnhubKey = VaultDAO.state.liveDataKeys?.finnhub;
+    if (!items.length && finnhubKey) {
+      try {
+        const { fetchFinnhubNews } = await import('./alpha/news.js');
+        const r = await fetchFinnhubNews(asset.symbol, { apiKey: finnhubKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+        items = r.items || []; stale = r.stale;
+      } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+    }
+    // Piano B a chiave (NewsAPI.org, generalista — utile quando le fonti
+    // finanziarie non hanno nulla su un'azienda meno coperta).
+    const newsApiKey = VaultDAO.state.liveDataKeys?.newsapi;
+    if (!items.length && newsApiKey) {
+      try {
+        const { fetchNewsApiOrg } = await import('./alpha/news.js');
+        const r = await fetchNewsApiOrg(asset.name || asset.symbol, { apiKey: newsApiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+        items = r.items || []; stale = r.stale;
+      } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+    }
+    // Piano B SENZA ALCUNA CHIAVE (Hacker News) — funziona sempre, anche
+    // per chi non ha configurato nulla. Discussioni tech reali, non un
+    // sentiment (dichiarato onestamente "sconosciuto").
+    if (!items.length) {
+      try {
+        const { fetchHackerNewsMentions } = await import('./alpha/news.js');
+        const r = await fetchHackerNewsMentions(asset.name || asset.symbol, { cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+        items = r.items || []; stale = r.stale;
+      } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+    }
+    // Ultimo fallback (grounding Gemini): se non ci sono notizie reali E
+    // l'utente ha configurato Gemini, usa il grounding Google Search per
+    // cercare davvero cosa sta facendo l'azienda — mai al posto dei dati
+    // numerici, solo per il testo, ed etichettato come "non è Momentum".
+    let groundedNewsNote = null;
+    if (!items.length) {
+      const geminiKey = VaultDAO.state.liveDataKeys?.gemini;
+      if (geminiKey) {
+        try {
+          const { askCloudFallback } = await import('./ai/chat-fallback.js');
+          const label = asset.name || asset.symbol;
+          const { answer } = await askCloudFallback(
+            `Notizie reali e recenti su ${label} (${asset.symbol}): cosa stanno facendo ultimamente, innovazioni, prodotti o pubblicazioni recenti, eventuali rumor. Fatti concreti e attuali, non descrizioni generiche dell'azienda.`,
+            { apiKey: geminiKey, provider: 'gemini', grounding: true, fetchImpl: fetch.bind(window) }
+          );
+          groundedNewsNote = answer;
+        } catch (_) { /* onesto: niente notizie via grounding, il resto continua comunque */ }
+      }
+    }
+    return { items, stale, groundedNewsNote };
+  }
+  // Esposte su window: window.selectAsset (Analisi Tensor → "Cerca un
+  // asset") vive fuori dalla closure di initApp e non potrebbe altrimenti
+  // vederle — bug reale trovato dal vivo (2026-07-27): la chiamata falliva
+  // in silenzio (ReferenceError catturato dal try/catch "opzionale"), zero
+  // richieste di rete, nessuna notizia/grafico mostrato.
+  window.fetchAssetNewsCascade = fetchAssetNewsCascade;
+  window.buildNewsItemsHtml = buildNewsItemsHtml;
+  async function fetchAssetHistoryData(asset) {
+    const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
+    let yoyNote = null, historyChart = '', multiYearNote = null;
+    if (asset.kind === 'crypto') {
+      try {
+        const { fetchLiveCryptoPrice } = await import('./alpha/live-price.js');
+        const { fetchCryptoPriceYearsAgo, describeYoyChange, yearlyExtremes, fetchCryptoMultiYearComparison, fetchCryptoHistoryCascade } = await import('./alpha/year-over-year.js');
+        // A CASCATA e SENZA CHIAVE (richiesto esplicitamente): Binance
+        // (nessuna registrazione, storico reale di anni) prima, CoinGecko
+        // (limitato a 365gg sul piano gratuito) come piano B se il
+        // simbolo non è quotato su Binance.
+        const [live, past, { series }, multiYear] = await Promise.all([
+          fetchLiveCryptoPrice(asset.id, { fetchImpl: fetch.bind(window) }),
+          fetchCryptoPriceYearsAgo(asset.id, { yearsAgo: 1, fetchImpl: fetch.bind(window) }),
+          fetchCryptoHistoryCascade(asset.id, asset.symbol, { fetchImpl: fetch.bind(window) }),
+          fetchCryptoMultiYearComparison(asset.id, { yearsList: [2, 3, 5], fetchImpl: fetch.bind(window) }),
+        ]);
+        yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
+        if (series.length > 1) historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
+        // Punti reali a 2/3/5 anni (mai una linea continua fabbricata:
+        // CoinGecko gratuito limita la serie a 365gg, ma il singolo punto
+        // storico non ha questo limite — dati veri, non un grafico finto).
+        if (Number.isFinite(live?.price) && multiYear.length) {
+          multiYearNote = multiYear.map(({ yearsAgo, point }) => {
+            const pct = ((live.price - point.price) / point.price) * 100;
+            return `${yearsAgo} anni fa (${point.date}): ${point.price.toFixed(0)} → oggi ${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
+          }).join(' · ');
+        }
+      } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
+    } else if (asset.kind === 'stock' && (apiKey || VaultDAO.state.liveDataKeys?.twelvedata || VaultDAO.state.liveDataKeys?.fmp)) {
+      // Azioni/ETF: Alpha Vantage TIME_SERIES_MONTHLY o Twelve Data
+      // /time_series danno storico reale spesso 20+ anni anche gratis (a
+      // differenza del limite di 365gg di CoinGecko per le cripto) — qui
+      // la linea continua multi-anno è possibile davvero, non solo punti
+      // singoli. Segnalato dall'utente: "non accade solo con Nvidia" —
+      // vale per ogni azione/ETF. A CASCATA (richiesta esplicita): mai
+      // dipendere da un solo provider, l'utente porta le proprie chiavi.
+      try {
+        const { fetchStockMonthlySeriesCascade, describeStockYearsAgo } = await import('./alpha/stock-history.js');
+        const { series } = await fetchStockMonthlySeriesCascade(asset.symbol, { keys: VaultDAO.state.liveDataKeys || {}, fetchImpl: fetch.bind(window) });
+        if (series.length > 1) {
+          const { yearlyExtremes } = await import('./alpha/year-over-year.js');
+          const current = series[series.length - 1].price;
+          yoyNote = describeStockYearsAgo(series, 1, current);
+          historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
+          const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
+          if (points.length) multiYearNote = points.map(p => p.note).join(' ');
+        }
+      } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
+    }
+    return { yoyNote, historyChart, multiYearNote };
+  }
+  window.fetchAssetHistoryData = fetchAssetHistoryData;
   async function tryAnswerWithRealNews(assetQuery) {
     try {
       const { searchAsset } = await import('./alpha/asset-search.js');
@@ -6142,115 +6277,8 @@ const initApp = () => {
       }
       const asset = results?.[0];
       if (!asset) return false;
-      let items = [], stale = false;
-      if (apiKey) {
-        try {
-          const { fetchNewsSentiment } = await import('./alpha/news.js');
-          const r = await fetchNewsSentiment(asset.symbol, { apiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
-          items = r.items || []; stale = r.stale;
-        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
-      }
-      // Piano B (feedback esplicito: "la parte delle notizie non dice
-      // niente" — Alpha Vantage News condivide lo stesso limite di 25
-      // richieste/giorno della ricerca, facile da esaurire). Finnhub:
-      // CORS verificato dal vivo, endpoint dedicato alle notizie
-      // aziendali, piano gratuito molto più generoso (60/minuto).
-      const finnhubKey = VaultDAO.state.liveDataKeys?.finnhub;
-      if (!items.length && finnhubKey) {
-        try {
-          const { fetchFinnhubNews } = await import('./alpha/news.js');
-          const r = await fetchFinnhubNews(asset.symbol, { apiKey: finnhubKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
-          items = r.items || []; stale = r.stale;
-        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
-      }
-      // Piano B a chiave (NewsAPI.org, generalista — utile quando le fonti
-      // finanziarie non hanno nulla su un'azienda meno coperta).
-      const newsApiKey = VaultDAO.state.liveDataKeys?.newsapi;
-      if (!items.length && newsApiKey) {
-        try {
-          const { fetchNewsApiOrg } = await import('./alpha/news.js');
-          const r = await fetchNewsApiOrg(asset.name || asset.symbol, { apiKey: newsApiKey, cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
-          items = r.items || []; stale = r.stale;
-        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
-      }
-      // Piano B SENZA ALCUNA CHIAVE (Hacker News) — funziona sempre, anche
-      // per chi non ha configurato nulla. Discussioni tech reali, non un
-      // sentiment (dichiarato onestamente "sconosciuto").
-      if (!items.length) {
-        try {
-          const { fetchHackerNewsMentions } = await import('./alpha/news.js');
-          const r = await fetchHackerNewsMentions(asset.name || asset.symbol, { cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
-          items = r.items || []; stale = r.stale;
-        } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
-      }
-      // Ultimo fallback (grounding Gemini): se non ci sono notizie reali E l'utente ha
-      // configurato Gemini, usa il grounding Google Search (costruito
-      // stasera) per cercare davvero cosa sta facendo l'azienda — mai al
-      // posto dei dati numerici, solo per il testo, ed etichettato come
-      // "non è Momentum" come ogni altra risposta cloud.
-      let groundedNewsNote = null;
-      if (!items.length) {
-        const geminiKey = VaultDAO.state.liveDataKeys?.gemini;
-        if (geminiKey) {
-          try {
-            const { askCloudFallback } = await import('./ai/chat-fallback.js');
-            const label = asset.name || asset.symbol;
-            const { answer } = await askCloudFallback(
-              `Notizie reali e recenti su ${label} (${asset.symbol}): cosa stanno facendo ultimamente, innovazioni, prodotti o pubblicazioni recenti, eventuali rumor. Fatti concreti e attuali, non descrizioni generiche dell'azienda.`,
-              { apiKey: geminiKey, provider: 'gemini', grounding: true, fetchImpl: fetch.bind(window) }
-            );
-            groundedNewsNote = answer;
-          } catch (_) { /* onesto: niente notizie via grounding, il resto continua comunque */ }
-        }
-      }
-      let yoyNote = null, historyChart = '', multiYearNote = null;
-      if (asset.kind === 'crypto') {
-        try {
-          const { fetchLiveCryptoPrice } = await import('./alpha/live-price.js');
-          const { fetchCryptoPriceYearsAgo, describeYoyChange, yearlyExtremes, fetchCryptoMultiYearComparison, fetchCryptoHistoryCascade } = await import('./alpha/year-over-year.js');
-          // A CASCATA e SENZA CHIAVE (richiesto esplicitamente): Binance
-          // (nessuna registrazione, storico reale di anni) prima, CoinGecko
-          // (limitato a 365gg sul piano gratuito) come piano B se il
-          // simbolo non è quotato su Binance.
-          const [live, past, { series }, multiYear] = await Promise.all([
-            fetchLiveCryptoPrice(asset.id, { fetchImpl: fetch.bind(window) }),
-            fetchCryptoPriceYearsAgo(asset.id, { yearsAgo: 1, fetchImpl: fetch.bind(window) }),
-            fetchCryptoHistoryCascade(asset.id, asset.symbol, { fetchImpl: fetch.bind(window) }),
-            fetchCryptoMultiYearComparison(asset.id, { yearsList: [2, 3, 5], fetchImpl: fetch.bind(window) }),
-          ]);
-          yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
-          if (series.length > 1) historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
-          // Punti reali a 2/3/5 anni (mai una linea continua fabbricata:
-          // CoinGecko gratuito limita la serie a 365gg, ma il singolo punto
-          // storico non ha questo limite — dati veri, non un grafico finto).
-          if (Number.isFinite(live?.price) && multiYear.length) {
-            multiYearNote = multiYear.map(({ yearsAgo, point }) => {
-              const pct = ((live.price - point.price) / point.price) * 100;
-              return `${yearsAgo} anni fa (${point.date}): ${point.price.toFixed(0)} → oggi ${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
-            }).join(' · ');
-          }
-        } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
-      } else if (asset.kind === 'stock' && (apiKey || VaultDAO.state.liveDataKeys?.twelvedata || VaultDAO.state.liveDataKeys?.fmp)) {
-        // Azioni/ETF: Alpha Vantage TIME_SERIES_MONTHLY o Twelve Data
-        // /time_series danno storico reale spesso 20+ anni anche gratis (a
-        // differenza del limite di 365gg di CoinGecko per le cripto) — qui
-        // la linea continua multi-anno è possibile davvero, non solo punti
-        // singoli. Segnalato dall'utente: "non accade solo con Nvidia" —
-        // vale per ogni azione/ETF. A CASCATA (richiesta esplicita): mai
-        // dipendere da un solo provider, l'utente porta le proprie chiavi.
-        try {
-          const { fetchStockMonthlySeriesCascade, describeStockYearsAgo } = await import('./alpha/stock-history.js');
-          const { series } = await fetchStockMonthlySeriesCascade(asset.symbol, { keys: VaultDAO.state.liveDataKeys || {}, fetchImpl: fetch.bind(window) });
-          if (series.length > 1) {
-            const { yearlyExtremes } = await import('./alpha/year-over-year.js');
-            const current = series[series.length - 1].price;
-            yoyNote = describeStockYearsAgo(series, 1, current);
-            historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
-            const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
-            if (points.length) multiYearNote = points.map(p => p.note).join(' ');
-          }
-        } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
-      }
+      const { items, stale, groundedNewsNote } = await fetchAssetNewsCascade(asset);
+      const { yoyNote, historyChart, multiYearNote } = await fetchAssetHistoryData(asset);
       if (!items.length && !yoyNote && !historyChart && !groundedNewsNote) return false;
       showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote);
       return true;
