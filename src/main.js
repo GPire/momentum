@@ -5540,6 +5540,27 @@ const initApp = () => {
   // testa + blocchi con evidenze colorate) applicata anche alle risposte
   // ISTANTANEE di Momentum stesso — prima era solo testo nudo (textContent),
   // mentre l'esterno aveva già struttura: disparità richiesta di correggere.
+  // BUG REALE segnalato dall'utente: "non mi crea grafici e statistiche
+  // come chiesto" — la risposta a "dove spendo di più?" era SOLO testo con
+  // percentuali scritte, mai un grafico vero. qa-engine.js già calcola i
+  // dati (res.data = [[categoria, importo], ...] top 3) per l'intento
+  // 'top-category': qui li disegna, non li ripete solo a parole. Barre
+  // colorate con lo STESSO colore categoria usato ovunque nell'app (mai
+  // una palette isolata).
+  function buildTopCategoryChart(data) {
+    if (!Array.isArray(data) || !data.length) return '';
+    const max = Math.max(...data.map(([, v]) => v));
+    const rows = data.map(([id, v]) => {
+      const cat = getCatById(id);
+      const pct = Math.max(6, Math.round((v / max) * 100));
+      return `<div class="flex items-center gap-2">
+        <span class="w-16 truncate text-slate-400">${cat.name}</span>
+        <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full qa-cloud-block" style="width:${pct}%;background:${cat.color}"></div></div>
+        <span class="w-16 text-right font-mono" style="color:${cat.color}">${formatMoney(v)}</span>
+      </div>`;
+    }).join('');
+    return `<div class="space-y-1.5 mt-2">${rows}</div>`;
+  }
   function styleQaAnswer(res) {
     const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
     const good = res?.data?.onTrack === true || (typeof res?.data?.net === 'number' && res.data.net >= 0);
@@ -5548,10 +5569,11 @@ const initApp = () => {
       : good
         ? { cls: 'bg-emerald-950/20 border border-emerald-500/20 text-emerald-200', label: 'text-emerald-400', strong: 'text-emerald-300' }
         : { cls: 'bg-sky-950/15 border border-sky-500/20 text-sky-100', label: 'text-sky-400', strong: 'text-sky-300' };
+    const chart = res.intent === 'top-category' ? buildTopCategoryChart(res.data) : '';
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + tone.cls;
     qaAnswer.innerHTML = `
       <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum</h4>
-      <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>`;
+      <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>${chart}`;
     replayQaAnimation();
   }
   // Momento focale vero, non un'iconcina persa nel testo: l'utente ha
