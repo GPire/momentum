@@ -5706,9 +5706,30 @@ const initApp = () => {
       { label: 'Da accantonare prima dello stipendio', value: f.dueBeforePaydayTotal, color: '#fbbf24' },
     ]);
   }
+  // "cosa succede se spendo di più in X?" — impatto misurato % su ogni
+  // categoria collegata (dati reali del grafo causale, mai un valore
+  // inventato), stesso stile a barre di buildTopCategoryChart: verde se la
+  // categoria collegata scende, rosso se sale insieme.
+  function buildCausalChart(effects) {
+    if (!Array.isArray(effects) || !effects.length) return '';
+    const maxAbs = Math.max(...effects.map(e => Math.abs(e.expectedPct)), 1);
+    const rows = effects.slice(0, 3).map(e => {
+      const cat = getCatById(e.category);
+      const up = e.expectedPct > 0;
+      const pct = Math.max(6, Math.round((Math.abs(e.expectedPct) / maxAbs) * 100));
+      const color = up ? '#fb7185' : '#34d399';
+      return `<div class="flex items-center gap-2">
+        <span class="w-16 truncate text-slate-400">${cat.name}</span>
+        <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div></div>
+        <span class="w-14 text-right font-mono" style="color:${color}">${up ? '+' : ''}${e.expectedPct}%</span>
+      </div>`;
+    }).join('');
+    return `<div class="space-y-1.5 mt-2">${rows}</div>`;
+  }
   function buildQaChart(res, ctx) {
     switch (res.intent) {
       case 'top-category': return buildTopCategoryChart(res.data);
+      case 'causal': return buildCausalChart(res.data);
       case 'net-worth': return buildNetWorthChart(res.data);
       case 'savings': return buildSavingsChart(res.data);
       case 'safe-to-spend':
