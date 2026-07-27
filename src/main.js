@@ -6036,7 +6036,11 @@ const initApp = () => {
             <circle class="qa-hist-dot" r="3.5" fill="#fbbf24" stroke="#0b0f1a" stroke-width="1" opacity="0"/>
             <defs><linearGradient id="qaHistGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
           </svg>
-          <p class="qa-hist-hover-label text-[10px] text-slate-300 text-center mt-0.5 font-mono">${last.date} · ${last.price.toFixed(2)} — tocca il grafico per esplorare</p>
+          <div class="flex justify-between text-[8px] text-slate-600 font-mono uppercase tracking-wide px-0.5 mt-0.5">
+            <span>${series[0].date}</span>
+            <span>${series[series.length - 1].date}</span>
+          </div>
+          <p class="qa-hist-hover-label text-[11px] text-sky-200 text-center mt-1 font-mono font-semibold tracking-wide">${last.date} · ${last.price.toFixed(2)} <span class="text-slate-500 font-normal">— tocca per esplorare</span></p>
         </div>
         ${stats}
         ${yearNote}

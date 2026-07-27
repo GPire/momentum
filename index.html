@@ -407,8 +407,9 @@
     /* Selettore di periodo del grafico storico (1 anno/5 anni/tutto) —
        stesso stile pillola dei chip suggerimento, solo lo stato attivo
        cambia (colore primario pieno, non solo un bordo). */
-    .qa-period-btn { background: rgba(255,255,255,0.05); color: var(--on-surface-secondary); transition: background .15s, color .15s; }
-    .qa-period-btn.qa-period-active { background: var(--primary); color: #fff; font-weight: 700; }
+    .qa-period-btn { background: rgba(255,255,255,0.05); color: var(--on-surface-secondary); border: 1px solid rgba(255,255,255,0.08); font-weight: 600; letter-spacing: .02em; transition: background .15s, color .15s, border-color .15s, box-shadow .15s; }
+    .qa-period-btn.qa-period-active { background: var(--primary); color: #fff; font-weight: 700; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); }
+    .qa-period-btn:not(.qa-period-active):hover { border-color: rgba(255,255,255,0.2); color: #fff; }
     @keyframes qaOrbFlow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
     /* Onde che si propagano ("sonar") — 3 anelli scaglionati che si
        espandono e svaniscono, come un impulso ripetuto. */
