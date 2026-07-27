@@ -46,3 +46,24 @@ export function detectLanguage(text) {
 export const SUPPORTED = ['it', 'en', 'es', 'fr', 'de', 'pt'];
 export const DETECTED = ['it', 'en', 'es', 'fr', 'de', 'pt'];
 export function isSupported(lang) { return SUPPORTED.includes(lang); }
+
+// Legge navigator.language (es. "en-US" → "en") e la riduce alla lingua
+// supportata più vicina. Pura, testabile: navigatorLike iniettabile.
+export function detectDeviceLanguage(navigatorLike = (typeof navigator !== 'undefined' ? navigator : null)) {
+  const raw = navigatorLike?.language || navigatorLike?.languages?.[0] || '';
+  const short = String(raw).slice(0, 2).toLowerCase();
+  return isSupported(short) ? short : null;
+}
+
+// Priorità richiesta esplicitamente dall'utente: 1) scelta manuale
+// nelle Impostazioni (mai ignorata), 2) segnale forte nel testo della
+// domanda (parole-chiave riconosciute), 3) lingua del dispositivo (prima
+// il testo ambiguo cadeva sempre su 'it', anche con device in inglese),
+// 4) 'it' come ultima rete (l'app nasce italiana).
+export function resolveQaLanguage(text, { deviceLang = null, override = null } = {}) {
+  if (override && isSupported(override)) return { lang: override, source: 'override' };
+  const det = detectLanguage(text);
+  if (det.confidence > 0) return { lang: det.lang, source: 'text' };
+  if (deviceLang && isSupported(deviceLang)) return { lang: deviceLang, source: 'device' };
+  return { lang: 'it', source: 'default' };
+}

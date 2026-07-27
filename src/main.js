@@ -83,7 +83,7 @@ import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from 
 import { answerQuestion } from './ai/qa-engine.js';
 import { mergeMorphology, initMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
-import { detectLanguage } from './i18n/detect.js';
+import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANGS } from './i18n/detect.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
 import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './predict/command-center.js';
@@ -129,9 +129,12 @@ function askMomentum(text) {
   // Chatbot multilingua (src/ai/chat.js): se rileva EN/ES risponde in quella
   // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
   // completo esistente. Così l'app "arriva" anche in Spagna/LatAm ed EU.
-  const det = detectLanguage(text);
-  if (det.lang !== 'it') { // EN/ES/FR/DE → chatbot multilingua; IT → Q&A completo
-    const r = chatMultilingual(text, ctx);
+  // Priorità di lingua (richiesta esplicita): scelta manuale in Impostazioni
+  // > segnale forte nel testo della domanda > lingua del dispositivo (prima
+  // un testo ambiguo cadeva sempre su 'it', anche con device in inglese).
+  const resolved = resolveQaLanguage(text, { deviceLang: detectDeviceLanguage(), override: VaultDAO.state.qaLanguageOverride || null });
+  if (resolved.lang !== 'it') { // EN/ES/FR/DE → chatbot multilingua; IT → Q&A completo
+    const r = chatMultilingual(text, { ...ctx, forceLang: resolved.lang });
     if (r.intent !== 'unknown') return { intent: r.intent, answer: r.answer, lang: r.lang };
   }
   return answerQuestion(text, ctx);
@@ -3037,7 +3040,18 @@ function initTelemetryToggle() {
   const animCb = document.getElementById('force-anim-optin');
   if (animCb) animCb.checked = !!VaultDAO.state.forceAnimations;
   document.documentElement.classList.toggle('force-anim', !!VaultDAO.state.forceAnimations);
+  const langSel = document.getElementById('qa-language-select');
+  if (langSel) langSel.value = VaultDAO.state.qaLanguageOverride && QA_SUPPORTED_LANGS.includes(VaultDAO.state.qaLanguageOverride) ? VaultDAO.state.qaLanguageOverride : '';
 }
+
+// Scelta manuale della lingua di "Chiedi a Momentum" — vuoto = automatica
+// (segue il testo della domanda, poi il dispositivo, mai più solo l'italiano
+// di default). Non tocca la lingua del resto dell'app (label statiche ecc.),
+// solo le risposte del Q&A/chat generica.
+window.setQaLanguage = (lang) => {
+  VaultDAO.state.qaLanguageOverride = lang || null;
+  VaultDAO.save();
+};
 
 // "Riduci movimento" di sistema è rispettato di default in TUTTA l'app —
 // questo toggle è l'unica eccezione, esplicita e scelta dall'utente stesso

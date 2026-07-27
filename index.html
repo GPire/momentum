@@ -1426,6 +1426,22 @@
                     <input type="checkbox" id="force-anim-optin" onchange="window.setForceAnimations(this.checked)" class="w-4 h-4 mt-0.5" />
                     <span>Mostra le micro-animazioni di attesa anche se il dispositivo ha "Riduci movimento" attivo (di base le rispettiamo, per chi le preferisce spente)</span>
                   </label>
+                  <!-- Lingua di "Chiedi a Momentum": di default segue quella
+                       del dispositivo (prima un testo ambiguo cadeva sempre
+                       sull'italiano) — qui la scelta manuale, quando serve,
+                       vince SEMPRE su tutto il resto. -->
+                  <div class="mt-3">
+                    <label class="text-[11px] text-[var(--on-surface-secondary)]">Lingua di "Chiedi a Momentum"</label>
+                    <select id="qa-language-select" onchange="window.setQaLanguage(this.value)" class="modal-input !mb-0 mt-1 text-xs py-2">
+                      <option value="">Automatica (segue il dispositivo)</option>
+                      <option value="it">Italiano</option>
+                      <option value="en">English</option>
+                      <option value="es">Español</option>
+                      <option value="fr">Français</option>
+                      <option value="de">Deutsch</option>
+                      <option value="pt">Português</option>
+                    </select>
+                  </div>
                   <details class="mt-2">
                     <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Altre opzioni, con quando conviene ognuna</summary>
                     <div class="flex flex-col gap-2 mt-2">
