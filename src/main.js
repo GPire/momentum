@@ -5990,7 +5990,19 @@ const initApp = () => {
     try {
       const { searchAsset } = await import('./alpha/asset-search.js');
       const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
-      const { results, stockWarning } = await searchAsset(assetQuery, { apiKey, fetchImpl: fetch.bind(window), cache: assetSearchCache });
+      // BUG REALE trovato dal vivo: la RICERCA usava solo Alpha Vantage anche
+      // se Twelve Data/FMP erano configurati (loro erano collegati solo allo
+      // storico prezzi) — col limite di 25 richieste/giorno di Alpha Vantage
+      // facilissimo da esaurire, la ricerca falliva sempre. Ora passa anche
+      // le altre due chiavi: searchAsset prova la stessa cascata già usata
+      // per lo storico.
+      const { results, stockWarning } = await searchAsset(assetQuery, {
+        apiKey,
+        twelvedataKey: VaultDAO.state.liveDataKeys?.twelvedata,
+        fmpKey: VaultDAO.state.liveDataKeys?.fmp,
+        fetchImpl: fetch.bind(window),
+        cache: assetSearchCache,
+      });
       // BUG REALE trovato dal vivo: con una chiave Alpha Vantage non valida
       // (es. "TEST_DEMO_KEY"), "Apple" ripiegava in silenzio su un token
       // cripto assurdo ("dog-with-apple-in-mouth") spacciato per il

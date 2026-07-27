@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { searchCrypto, searchStock, searchAsset } from './asset-search.js';
+import { searchCrypto, searchStock, searchAsset, searchStockTwelveData, searchStockFMP } from './asset-search.js';
 
 test('searchCrypto: query vuota → nessuna chiamata, lista vuota', async () => {
   assert.deepEqual(await searchCrypto(''), []);
@@ -149,4 +149,112 @@ test('searchAsset: match cripto ESATTO nonostante errore azionario -> nessun war
   };
   const r = await searchAsset('bitcoin', { apiKey: 'k', fetchImpl });
   assert.equal(r.stockWarning, null);
+});
+
+// BUG REALE trovato dal vivo (2026-07-27): Twelve Data/FMP erano collegati
+// SOLO allo storico prezzi, mai alla RICERCA — se Alpha Vantage esauriva il
+// limite di 25 richieste/giorno (facilissimo), la ricerca falliva sempre
+// anche con le altre due chiavi configurate. Simulazioni della cascata.
+test('searchStockTwelveData: forma reale, normalizza i risultati', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ data: [{ symbol: 'AAPL', instrument_name: 'Apple Inc.', country: 'United States' }] }) });
+  const r = await searchStockTwelveData('apple', { apiKey: 'k', fetchImpl });
+  assert.deepEqual(r, [{ kind: 'stock', id: 'AAPL', symbol: 'AAPL', name: 'Apple Inc.', region: 'United States' }]);
+});
+
+test('searchStockTwelveData: chiave non valida -> errore onesto, mai un risultato finto', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ status: 'error', code: 401, message: 'Invalid API key' }) });
+  await assert.rejects(() => searchStockTwelveData('apple', { apiKey: 'sbagliata', fetchImpl }), /Invalid API key/);
+});
+
+test('searchStockFMP: forma reale (endpoint stable/search-name), normalizza i risultati', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ([{ symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD', exchangeFullName: 'NASDAQ Global Select' }]) });
+  const r = await searchStockFMP('apple', { apiKey: 'k', fetchImpl });
+  assert.deepEqual(r, [{ kind: 'stock', id: 'AAPL', symbol: 'AAPL', name: 'Apple Inc.', region: 'United States' }]);
+});
+
+test('searchStockFMP: valuta non-USD -> region resta il nome della borsa (nessuna preferenza USA)', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ([{ symbol: 'AAPL.DE', name: 'Apple Inc.', currency: 'EUR', exchangeFullName: 'Deutsche Börse' }]) });
+  const r = await searchStockFMP('apple', { apiKey: 'k', fetchImpl });
+  assert.equal(r[0].region, 'Deutsche Börse');
+});
+
+test('searchStockFMP: endpoint legacy dismesso -> errore col messaggio reale, mai un risultato finto', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ 'Error Message': 'Legacy Endpoint : ...' }) });
+  await assert.rejects(() => searchStockFMP('apple', { apiKey: 'k', fetchImpl }), /Legacy Endpoint/);
+});
+
+test('searchAsset: Alpha Vantage esaurito (limite giornaliero) -> ripiega su Twelve Data, trova comunque il titolo reale', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('alphavantage')) return { ok: true, json: async () => ({ Information: 'limite di 25 richieste/giorno raggiunto' }) };
+    if (url.includes('twelvedata')) return { ok: true, json: async () => ({ data: [{ symbol: 'AAPL', instrument_name: 'Apple Inc.', country: 'United States' }] }) };
+    if (url.includes('coingecko')) return { ok: true, json: async () => ({ coins: [] }) };
+    throw new Error('non doveva essere chiamata');
+  };
+  const r = await searchAsset('Apple', { apiKey: 'esaurita', twelvedataKey: 'k', fetchImpl });
+  assert.equal(r.results[0].symbol, 'AAPL');
+  assert.equal(r.results[0].kind, 'stock');
+  assert.equal(r.stockWarning, null); // ha trovato un titolo vero, nessun avviso necessario
+});
+
+test('searchAsset: Alpha Vantage E Twelve Data falliscono -> ripiega su FMP', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('alphavantage')) return { ok: true, json: async () => ({ Information: 'limite raggiunto' }) };
+    if (url.includes('twelvedata')) return { ok: true, json: async () => ({ status: 'error', message: 'chiave non valida' }) };
+    if (url.includes('financialmodelingprep')) return { ok: true, json: async () => ([{ symbol: 'AAPL', name: 'Apple Inc.', exchangeFullName: 'NASDAQ' }]) };
+    if (url.includes('coingecko')) return { ok: true, json: async () => ({ coins: [] }) };
+    throw new Error('non doveva essere chiamata');
+  };
+  const r = await searchAsset('Apple', { apiKey: 'esaurita', twelvedataKey: 'sbagliata', fmpKey: 'k', fetchImpl });
+  assert.equal(r.results[0].symbol, 'AAPL');
+});
+
+test('searchAsset: TUTTE le fonti azionarie falliscono -> stockWarning onesto SOLO se il risultato cripto rimasto non è pertinente', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('alphavantage') || url.includes('twelvedata') || url.includes('financialmodelingprep')) {
+      throw new Error('tutte le fonti azionarie giù');
+    }
+    return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-apple-in-mouth', symbol: 'DOGGO', name: 'Dog with apple in mouth', market_cap_rank: 5000 }] }) };
+  };
+  const r = await searchAsset('Apple', { apiKey: 'k', twelvedataKey: 'k', fmpKey: 'k', fetchImpl });
+  assert.ok(r.stockWarning);
+});
+
+// BUG REALE riprodotto dal vivo con dati reali (2026-07-27): query "Apple"
+// con Twelve Data funzionante restituiva comunque il token cripto-esca
+// come risultato migliore (asset = results[0]), perché il match esatto sul
+// solo SIMBOLO lo metteva in cima alla classifica, davanti ad Apple Inc.
+// reale. Verifica che ora il titolo azionario vero vinca sempre.
+test('searchAsset: simbolo cripto uguale alla query NON deve battere un titolo azionario reale nella classifica', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) {
+      return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-apple-in-mouth', symbol: 'APPLE', name: 'dog with apple in mouth', market_cap_rank: 5000 }] }) };
+    }
+    return { ok: true, json: async () => ({ bestMatches: [{ '1. symbol': 'AAPL', '2. name': 'Apple Inc.', '4. region': 'United States', '9. matchScore': '1.0000' }] }) };
+  };
+  const r = await searchAsset('Apple', { apiKey: 'k', fetchImpl });
+  assert.equal(r.results[0].symbol, 'AAPL');
+  assert.equal(r.results[0].kind, 'stock');
+});
+
+// BUG REALE riprodotto dal vivo: tra più listini dello stesso titolo, uno
+// estero (nome per caso troncato esattamente alla query) vinceva sul
+// listino USA primario — e il listino estero spesso richiede un piano a
+// pagamento sulle stesse API gratuite (verificato: 4AAPL su Twelve Data
+// → 404 "serve un piano Pro"). Verifica che il listino USA sia preferito.
+test('searchAsset: tra più listini dello stesso titolo, il listino USA vince anche se un listino estero ha il nome esattamente troncato alla query', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) return { ok: true, json: async () => ({ coins: [] }) };
+    return {
+      ok: true,
+      json: async () => ({
+        bestMatches: [
+          { '1. symbol': '4AAPL', '2. name': 'APPLE', '4. region': 'Italy', '9. matchScore': '0.6000' },
+          { '1. symbol': 'AAPL', '2. name': 'Apple Inc.', '4. region': 'United States', '9. matchScore': '0.8000' },
+        ],
+      }),
+    };
+  };
+  const r = await searchAsset('apple', { apiKey: 'k', fetchImpl });
+  assert.equal(r.results[0].symbol, 'AAPL');
+  assert.equal(r.results[0].region, 'United States');
 });

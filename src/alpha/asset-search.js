@@ -44,6 +44,64 @@ export async function searchStock(query, { apiKey, fetchImpl = fetch } = {}) {
     .map(({ _score, ...rest }) => rest);
 }
 
+// Piano B per la RICERCA azionaria (non solo per lo storico, dove già
+// c'era): verificato dal vivo (2026-07-27) che Twelve Data ha un endpoint
+// di ricerca reale, funzionante con la chiave dell'utente. BUG REALE
+// trovato: prima solo Alpha Vantage veniva usato per la ricerca — se il
+// suo limite di 25 richieste/giorno si esauriva (facile, basta usare
+// l'app), la ricerca falliva SEMPRE anche con Twelve Data/FMP configurati,
+// perché quei due erano collegati solo allo storico prezzi, mai alla
+// ricerca iniziale.
+export async function searchStockTwelveData(query, { apiKey, fetchImpl = fetch } = {}) {
+  if (!query || !query.trim()) return [];
+  if (!apiKey) throw new Error('Serve la tua chiave Twelve Data personale (Momentum Vault → Prezzi live).');
+  const url = `https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(query.trim())}&apikey=${encodeURIComponent(apiKey)}`;
+  const res = await fetchImpl(url);
+  if (!res.ok) throw new Error(`Twelve Data search: HTTP ${res.status}`);
+  const json = await res.json();
+  if (json?.status === 'error' || json?.code) throw new Error(json?.message || 'Twelve Data: chiave non valida o limite raggiunto.');
+  const matches = Array.isArray(json?.data) ? json.data : [];
+  return matches.map((m) => ({ kind: 'stock', id: m.symbol, symbol: m.symbol, name: m.instrument_name, region: m.country }));
+}
+// Piano C: endpoint "stable/search-name" verificato dal vivo (2026-07-27,
+// funzionante con la chiave dell'utente) — l'endpoint legacy usato prima
+// (api/v3/search) è stato dismesso da FMP il 31/8/2025.
+export async function searchStockFMP(query, { apiKey, fetchImpl = fetch } = {}) {
+  if (!query || !query.trim()) return [];
+  if (!apiKey) throw new Error('Serve la tua chiave Financial Modeling Prep personale (Momentum Vault → Prezzi live).');
+  const url = `https://financialmodelingprep.com/stable/search-name?query=${encodeURIComponent(query.trim())}&apikey=${encodeURIComponent(apiKey)}`;
+  const res = await fetchImpl(url);
+  if (!res.ok) throw new Error(`FMP search: HTTP ${res.status}`);
+  const json = await res.json();
+  if (json?.['Error Message']) throw new Error(json['Error Message']);
+  const matches = Array.isArray(json) ? json : [];
+  // FMP non restituisce un campo "paese" esplicito — la valuta USD è
+  // l'indicatore più affidabile del listino USA primario (stessa
+  // convenzione "region" di Alpha Vantage/Twelve Data, usata per la
+  // preferenza in relevanceScore).
+  return matches.map((m) => ({ kind: 'stock', id: m.symbol, symbol: m.symbol, name: m.name, region: m.currency === 'USD' ? 'United States' : m.exchangeFullName }));
+}
+// Cascata: Alpha Vantage → Twelve Data → FMP, mai un secondo motore isolato
+// (stesso ordine già usato per lo storico prezzi in stock-history.js).
+// Ritorna l'ULTIMO errore reale solo se TUTTE le fonti configurate falliscono
+// — un fallimento intermedio non deve azzerare la ricerca se una fonte
+// successiva riesce.
+async function searchStockCascade(query, { apiKey, twelvedataKey, fmpKey, fetchImpl }) {
+  const attempts = [
+    apiKey && (() => searchStock(query, { apiKey, fetchImpl })),
+    twelvedataKey && (() => searchStockTwelveData(query, { apiKey: twelvedataKey, fetchImpl })),
+    fmpKey && (() => searchStockFMP(query, { apiKey: fmpKey, fetchImpl })),
+  ].filter(Boolean);
+  let lastError = null;
+  for (const attempt of attempts) {
+    try {
+      const results = await attempt();
+      if (results.length) return { results, error: null };
+    } catch (e) { lastError = e; }
+  }
+  return { results: [], error: lastError };
+}
+
 // Alias per settori/beni senza un prezzo di mercato specifico interrogabile
 // (un immobile non ha un ticker: nessuna API gratuita dà il valore di CASA
 // TUA). Onesto: mai il valore del bene specifico dell'utente, solo un PROXY
@@ -59,10 +117,32 @@ function resolveSectorProxy(q) {
   return found ? [{ kind: found.kind, id: found.id, symbol: found.symbol, name: found.name }] : [];
 }
 
+// BUG REALE trovato dal vivo (2026-07-27, query "Apple" con dati reali):
+// un token cripto ("dog with apple in mouth") ha SIMBOLO letterale "APPLE"
+// — il match esatto sul solo simbolo lo portava in cima ai risultati (1000),
+// DAVANTI ad Apple Inc. vera, perché il "match esatto" contava sia il
+// simbolo sia il nome per QUALSIASI kind. Il simbolo cripto può essere
+// scelto liberamente da chiunque (già corretto per il warning, ma non per
+// l'ORDINAMENTO): ora un match esatto sul solo simbolo di una cripto non
+// batte più un titolo azionario reale — solo il nome esatto (o un titolo
+// azionario, sempre) può farlo.
+// BUG REALE trovato dal vivo (2026-07-27): tra più listini dello stesso
+// titolo (es. Apple quotata anche a Milano/Francoforte/Messico), un
+// listino estero il cui NOME è per caso troncato esattamente alla query
+// (es. "APPLE" su una piazza estera) vinceva su quello USA primario
+// ("Apple Inc.", nome non troncato) — e il listino estero spesso richiede
+// un piano a pagamento per lo storico sulle stesse API gratuite (verificato
+// dal vivo: 4AAPL su Twelve Data → 404 "serve un piano Pro"). Ora il
+// listino USA ha una preferenza esplicita quando i punteggi sono vicini.
 function relevanceScore(item, q) {
-  const exact = item.symbol?.toLowerCase() === q || item.name?.toLowerCase() === q;
-  if (exact) return 1000;
-  return item.kind === 'stock' ? 500 : 100;
+  const exactName = item.name?.toLowerCase() === q;
+  if (item.kind === 'stock') {
+    const exactSymbol = item.symbol?.toLowerCase() === q;
+    let score = exactSymbol ? 900 : exactName ? 600 : 500;
+    if (item.region === 'United States') score += 300;
+    return score;
+  }
+  return exactName ? 1000 : 100; // cripto senza match esatto sul nome: resta sempre sotto ogni azione/ETF
 }
 
 // Combina cripto + azioni in una lista unica; ognuna fallisce in modo
@@ -73,24 +153,26 @@ function relevanceScore(item, q) {
 // (opzionale) l'ultima ricerca riuscita per la stessa query resta disponibile
 // offline (dichiarata stale), invece di restituire una lista vuota che
 // sembrerebbe "nessun risultato" invece di "rete assente".
-export async function searchAsset(query, { apiKey, fetchImpl = fetch, cache = null } = {}) {
+export async function searchAsset(query, { apiKey, twelvedataKey, fmpKey, fetchImpl = fetch, cache = null } = {}) {
   const q = (query || '').trim().toLowerCase();
   const proxy = resolveSectorProxy(q);
   if (proxy.length) return { results: proxy, stale: false };
   const cacheKey = `assetsearch:${q}`;
   // BUG REALE trovato dal vivo (2026-07-27): con una chiave Alpha Vantage non
-  // valida/demo (es. "TEST_DEMO_KEY"), la ricerca azionaria falliva in
-  // silenzio (.catch(() => [])) e "Apple" ripiegava sull'unico risultato
-  // rimasto: un token cripto assurdo ("dog-with-apple-in-mouth") spacciato
-  // per il risultato migliore. Ora l'errore REALE della ricerca azionaria
-  // (chiave non valida/limite raggiunto) viene conservato e restituito
-  // quando l'unico risultato rimasto è una cripto poco pertinente (mai un
-  // match esatto) — l'utente merita di sapere perché, non un dato sbagliato.
-  let stockWarning = null;
-  const [crypto, stock] = await Promise.all([
+  // valida/demo (es. "TEST_DEMO_KEY") o esaurita (limite di 25 richieste/
+  // giorno, facilissimo da raggiungere), la ricerca azionaria falliva del
+  // tutto — anche con Twelve Data/FMP configurati, perché prima erano
+  // collegati SOLO allo storico prezzi, mai alla ricerca. Ora la ricerca usa
+  // la STESSA cascata (Alpha Vantage → Twelve Data → FMP): un fallimento
+  // intermedio non azzera più tutto. L'errore REALE viene conservato e
+  // restituito solo se TUTTE le fonti configurate falliscono e l'unico
+  // risultato rimasto è una cripto poco pertinente (mai un match esatto).
+  const [crypto, stockRes] = await Promise.all([
     searchCrypto(query, { fetchImpl }).catch(() => []),
-    apiKey ? searchStock(query, { apiKey, fetchImpl }).catch(e => { stockWarning = e.message; return []; }) : Promise.resolve([]),
+    (apiKey || twelvedataKey || fmpKey) ? searchStockCascade(query, { apiKey, twelvedataKey, fmpKey, fetchImpl }) : Promise.resolve({ results: [], error: null }),
   ]);
+  const stock = stockRes.results;
+  let stockWarning = stockRes.error?.message || null;
   const results = [...crypto, ...stock].sort((a, b) => relevanceScore(b, q) - relevanceScore(a, q));
   if (results.length) {
     if (cache) await cache.put(cacheKey, results).catch(() => {});
