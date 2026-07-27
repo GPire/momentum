@@ -3343,6 +3343,17 @@ function setPrivacyToggleIcon(btn, active) {
   if (svg) svg.innerHTML = active ? EYE_CLOSED_PATH : EYE_OPEN_PATH;
 }
 
+// Stesso principio dell'occhio privacy: il pulsante tema mostrava SEMPRE la
+// luna, anche già in tema chiaro — un utente in tema chiaro vedeva l'icona
+// "sbagliata" per lo stato in cui si trovava già. Sole ↔ luna in base al
+// tema ATTUALE (non a quello a cui si passerà).
+const THEME_MOON_PATH = '<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>';
+const THEME_SUN_PATH = '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>';
+function setThemeToggleIcon(btn, dark) {
+  const svg = btn?.querySelector('svg');
+  if (svg) svg.innerHTML = dark ? THEME_MOON_PATH : THEME_SUN_PATH;
+}
+
 window.togglePrivacyMode = () => {
   const active = document.body.classList.toggle('privacy-mode');
   [$('#privacy-toggle-mobile'), $('#privacy-toggle-desktop')].forEach(btn => {
@@ -7043,6 +7054,14 @@ const initApp = () => {
     if (gen) gen.remove();
     $('#app-core').classList.remove('hidden');
     $('#app-core').style.opacity = '1';
+    // BUG REALE trovato analizzando il tema chiaro: <html class="dark"> è
+    // scritto fisso nell'HTML e nessun punto del boot leggeva mai
+    // VaultDAO.state.themeDark — il tema scelto veniva salvato ma MAI
+    // riapplicato al riavvio, quindi ogni reload tornava silenziosamente
+    // al tema scuro qualunque cosa l'utente avesse scelto l'ultima volta.
+    const isDark = VaultDAO.state.themeDark !== false;
+    document.documentElement.classList.toggle('dark', isDark);
+    document.querySelectorAll('[data-action="toggle-theme"]').forEach(btn => setThemeToggleIcon(btn, isDark));
     // Modalità privacy ricordata tra le sessioni: se l'utente l'aveva
     // attivata, i numeri restano sfocati anche subito dopo il reload.
     if (VaultDAO.state.privacyMode) {
@@ -7132,6 +7151,12 @@ document.addEventListener('click', e => {
     } else if (a === 'toggle-theme') {
       VaultDAO.state.themeDark = !VaultDAO.state.themeDark;
       document.documentElement.classList.toggle('dark', VaultDAO.state.themeDark);
+      setThemeToggleIcon(t, VaultDAO.state.themeDark);
+      // Stesso scatto usato per l'icona privacy: conferma il cambio invece
+      // di lasciare che l'utente lo scopra solo dal colore dello schermo.
+      t.classList.remove('just-toggled');
+      void t.offsetWidth;
+      t.classList.add('just-toggled');
       VaultDAO.save();
       showToast("Tema aggiornato.", "success");
     } else if (a === 'quick-add-expense') {

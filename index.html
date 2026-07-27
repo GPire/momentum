@@ -310,9 +310,20 @@
        del tocco: conferma l'azione invece di lasciare che l'utente scopra
        il cambio solo dal colore del bordo. */
     @keyframes privacyToggleRing { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); } 100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent); } }
-    @keyframes privacyIconPop { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    /* Non un semplice scale pop (si legge statico): rotazione + scala
+       insieme, come se l'icona "girasse" nel cambiare stato invece di
+       limitarsi a pulsare sul posto. */
+    @keyframes privacyIconPop { 0% { transform: scale(1) rotate(0deg); } 35% { transform: scale(1.35) rotate(-18deg); } 65% { transform: scale(1.15) rotate(10deg); } 100% { transform: scale(1) rotate(0deg); } }
     #privacy-toggle-mobile.just-toggled, #privacy-toggle-desktop.just-toggled { animation: privacyToggleRing .5s ease-out; }
     #privacy-toggle-mobile.just-toggled svg, #privacy-toggle-desktop.just-toggled svg { animation: privacyIconPop .4s cubic-bezier(.34,1.56,.64,1); }
+    /* Tema (sole/luna): stesso scatto sull'icona dell'occhio privacy, ma
+       SOLO sull'icona — questo pulsante è un rettangolo di navigazione, non
+       un badge circolare isolato come l'occhio, un anello box-shadow
+       intorno a tutto il pulsante avrebbe una forma sbagliata. Riservato
+       apposta ai toggle binari rari (tema/privacy): le altre 3 voci della
+       nav sono selettori di vista ad alta frequenza — la stessa animazione
+       lì diventerebbe rumore a ogni tocco invece di una conferma. */
+    [data-action="toggle-theme"].just-toggled svg { animation: privacyIconPop .4s cubic-bezier(.34,1.56,.64,1); }
     @media (prefers-reduced-motion: reduce) {
       body.privacy-mode .font-mono { transition: none; }
       .privacy-flash .font-mono:not(.no-privacy-blur) { animation: none; }
@@ -320,6 +331,7 @@
       #privacy-toggle-mobile, #privacy-toggle-desktop { transition: none; }
       #privacy-toggle-mobile.just-toggled, #privacy-toggle-desktop.just-toggled { animation: none; }
       #privacy-toggle-mobile.just-toggled svg, #privacy-toggle-desktop.just-toggled svg { animation: none; }
+      [data-action="toggle-theme"].just-toggled svg { animation: none; }
     }
     /* Chip suggerimento asset: stesso ingresso a scaglione, per invitare il
        tocco su una casella di ricerca altrimenti vuota. */
