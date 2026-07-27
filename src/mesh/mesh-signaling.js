@@ -161,13 +161,28 @@ class PairingSignaling {
 // la segnalazione per gli altri, la mesh cresce senza infrastruttura
 // esterna dopo il primo aggancio manuale.
 // ─────────────────────────────────────────────────────────────
+const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
 class MeshNode {
-  constructor(nodeId, mind) {
+  // autoDiscovery (default true): quando un peer ci segnala l'esistenza di
+  // un nodo che non conoscevamo (gossip peer_list), proviamo a stabilire una
+  // connessione DIRETTA con lui passando dal peer che ce l'ha segnalato come
+  // relay — questo era il pezzo mancante: prima la mesh SCOPRIVA altri nodi
+  // ma non si connetteva mai a loro (dichiarato nel commento originale di
+  // _handlePeerList). maxAutoPeers cappa le connessioni dirette totali: in
+  // una mesh con molti nodi, connettersi a TUTTI quelli scoperti crescerebbe
+  // O(n²) — restare relay-collegati (i messaggi comunque arrivano via gossip
+  // multi-hop) è più sostenibile di un mesh completamente magliato.
+  constructor(nodeId, mind, { autoDiscovery = true, maxAutoPeers = 6 } = {}) {
     this.nodeId = nodeId || crypto.randomUUID();
     this.mind = mind;               // MomentumMind locale da sincronizzare
     this.peers = new Map();         // nodeId -> { pc, channel, lastSeen }
     this.knownPeerIds = new Set([this.nodeId]);
+    this.autoDiscovery = autoDiscovery;
+    this.maxAutoPeers = maxAutoPeers;
+    this.pendingOutbound = new Map(); // targetId -> { pc } — offer inviato, in attesa di relay_answer
     this.onPeerConnected = null;    // callback opzionale (nodeId) => {}
+    this.onPeerDiscovered = null;   // callback opzionale (peerId, viaPeerId) => {} — scoperto ma non ancora connesso
     this.onGradientReceived = null; // callback opzionale (nodeId, stats) => {}
     this.onPricesReceived = null;   // callback opzionale (nodeId, pricesBySymbol) => {}
     this.onReliabilityReceived = null; // callback opzionale (nodeId, digest) => {} (Wave 15 v10)
@@ -182,7 +197,22 @@ class MeshNode {
     this.knownPeerIds.add(peerId);
     this.onPeerConnected?.(peerId);
     this._shareWeights(peerId);
-    this._sharePeerList(peerId);
+    // BUG REALE trovato e corretto: prima si mandava la lista peer SOLO al
+    // nodo appena aggiunto — chi era già connesso non veniva MAI informato
+    // di un nuovo arrivo, quindi l'auto-discovery non poteva mai scattare
+    // (nessuno sapeva mai di un peer scoperto DOPO la propria connessione).
+    // Il broadcast a TUTTI i peer, ad ogni nuova connessione, è quello che
+    // fa crescere la mesh via gossip anche a scale grandi (centinaia di
+    // nodi): l'informazione si propaga multi-hop senza che ogni coppia
+    // debba connettersi direttamente.
+    this._broadcastPeerList();
+  }
+
+  _broadcastPeerList() {
+    const msg = JSON.stringify({ type: 'peer_list', peerIds: Array.from(this.knownPeerIds) });
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') entry.channel.send(msg);
+    }
   }
 
   _wireChannel(peerId, channel) {
@@ -196,12 +226,17 @@ class MeshNode {
       } else if (msg.type === 'peer_list') {
         this._handlePeerList(peerId, msg.peerIds);
       } else if (msg.type === 'relay_offer') {
-        // Un nodo A chiede a noi (relay) di inoltrare il suo offer a un
-        // nuovo nodo C che vuole raggiungere — vera segnalazione mesh
-        // senza server: il relay è un nodo della rete stessa.
-        this._relayToTarget(msg.targetId, msg);
+        // Se il messaggio è per NOI, siamo la destinazione C: creiamo la
+        // connessione e rispondiamo (BUG REALE trovato qui: prima anche a
+        // destinazione si richiamava _relayToTarget, che non trovando un
+        // peer con il PROPRIO id non faceva nulla — l'offer spariva in
+        // silenzio, la mesh scopriva peer ma non si connetteva MAI). Se
+        // invece è per un altro nodo, restiamo un semplice relay (multi-hop).
+        if (msg.targetId === this.nodeId) await this._handleRelayOffer(peerId, msg);
+        else this._relayToTarget(msg.targetId, msg);
       } else if (msg.type === 'relay_answer') {
-        this._relayToTarget(msg.targetId, msg);
+        if (msg.targetId === this.nodeId) await this._handleRelayAnswer(peerId, msg);
+        else this._relayToTarget(msg.targetId, msg);
       } else if (msg.type === 'sync_digest') {
         // Il peer manda il suo digest → gli rispondo con le SOLE tx mancanti.
         this._handleSyncDigest(peerId, msg.digest);
@@ -284,13 +319,80 @@ class MeshNode {
 
   _handlePeerList(fromPeerId, peerIds) {
     for (const id of peerIds) {
+      if (id === this.nodeId) continue;
       if (!this.knownPeerIds.has(id)) {
         this.knownPeerIds.add(id);
-        // Non ci connettiamo automaticamente (richiederebbe comunque un
-        // primo aggancio a coppie) — ma la lista è disponibile per
-        // future connessioni dirette scegliendo un relay comune.
+        this.onPeerDiscovered?.(id, fromPeerId);
+        // AUTO-DISCOVERY (il pezzo prima mancante, dichiarato onestamente
+        // nel commento originale): proviamo una connessione DIRETTA con
+        // il nodo appena scoperto, passando dal peer che ce l'ha
+        // segnalato come relay. Cappato a maxAutoPeers connessioni
+        // dirette totali — oltre, restare raggiungibili via gossip
+        // multi-hop (già funzionante) è più sostenibile che magliare
+        // tutta la mesh punto-a-punto.
+        if (this.autoDiscovery && this.peers.size < this.maxAutoPeers && !this.peers.has(id) && !this.pendingOutbound.has(id)) {
+          this._initiateAutoConnect(id, fromPeerId).catch(() => { this.pendingOutbound.delete(id); });
+        }
       }
     }
+  }
+
+  // Avvia una connessione RELAYED verso `targetId`, un nodo scoperto via
+  // gossip ma mai visto direttamente — passa dal peer `viaPeerId` (già
+  // connesso a entrambi) esattamente come un aggancio manuale, ma senza
+  // scambio di QR: l'offer/answer viaggia sui canali dati già aperti della
+  // mesh invece che a voce/QR tra due persone.
+  async _initiateAutoConnect(targetId, viaPeerId) {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const channel = pc.createDataChannel('mesh');
+    this.pendingOutbound.set(targetId, { pc });
+    channel.onopen = () => {
+      this.pendingOutbound.delete(targetId);
+      this.addDirectPeer(targetId, pc, channel);
+    };
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await this._waitIce(pc);
+    this._relayToTarget(viaPeerId, { type: 'relay_offer', targetId, fromId: this.nodeId, sdp: pc.localDescription.sdp });
+  }
+
+  // Destinazione di un relay_offer: creiamo la nostra parte della
+  // connessione e rispondiamo passando dallo STESSO relay che ci ha
+  // consegnato l'offer (è per costruzione connesso anche al mittente).
+  async _handleRelayOffer(viaPeerId, msg) {
+    if (this.peers.has(msg.fromId) || this.pendingOutbound.has(msg.fromId)) return; // già connessi/in corso, non duplicare
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    pc.ondatachannel = (e) => {
+      const channel = e.channel;
+      channel.onopen = () => this.addDirectPeer(msg.fromId, pc, channel);
+    };
+    await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await this._waitIce(pc);
+    this._relayToTarget(viaPeerId, { type: 'relay_answer', targetId: msg.fromId, fromId: this.nodeId, sdp: pc.localDescription.sdp });
+  }
+
+  // Ricezione della risposta al NOSTRO offer uscente: completiamo la
+  // connessione. `addDirectPeer` scatta da channel.onopen (sopra).
+  async _handleRelayAnswer(viaPeerId, msg) {
+    const pending = this.pendingOutbound.get(msg.fromId);
+    if (!pending) return; // risposta a un tentativo che non esiste più (scaduto/duplicato)
+    await pending.pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }));
+  }
+
+  _waitIce(pc) {
+    if (pc.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      const check = () => {
+        if (pc.iceGatheringState === 'complete') {
+          pc.removeEventListener('icegatheringstatechange', check);
+          resolve();
+        }
+      };
+      pc.addEventListener('icegatheringstatechange', check);
+      setTimeout(resolve, 3000); // stesso timeout di sicurezza di PairingSignaling
+    });
   }
 
   _relayToTarget(targetId, msg) {
@@ -304,12 +406,6 @@ class MeshNode {
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel.readyState !== 'open') return;
     entry.channel.send(JSON.stringify({ type: 'weights', weights: this.mind.model.serialize() }));
-  }
-
-  _sharePeerList(peerId) {
-    const entry = this.peers.get(peerId);
-    if (!entry || entry.channel.readyState !== 'open') return;
-    entry.channel.send(JSON.stringify({ type: 'peer_list', peerIds: Array.from(this.knownPeerIds) }));
   }
 
   // Chiamare dopo ogni training locale per propagare l'apprendimento

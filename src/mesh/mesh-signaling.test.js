@@ -210,3 +210,118 @@ test('morphology_share senza handler registrato: nessun crash', () => {
   nodeA.onMorphologyReceived = null;
   assert.doesNotThrow(() => chB.send(JSON.stringify({ type: 'morphology_share', model: { tokens: {} } })));
 });
+
+// ── AUTO-DISCOVERY: la mesh scopre un nodo via gossip e si connette DA SOLA,
+// passando dal peer che l'ha segnalato come relay — mai serve un secondo
+// aggancio manuale. RTCPeerConnection non esiste in Node: simulata con un
+// mock fedele (offer/answer/datachannel), non un test debole. ──
+let pcRegistry;
+class FakeChannel {
+  constructor() { this.readyState = 'connecting'; this.onopen = null; this.onmessage = null; this._peer = null; }
+  send(data) { this._peer?.onmessage?.({ data }); }
+}
+function openChannel(ch, peer) { ch._peer = peer; ch.readyState = 'open'; ch.onopen?.(); }
+class FakeRTCPeerConnection {
+  constructor() {
+    this.id = Math.random().toString(36).slice(2);
+    pcRegistry.set(this.id, this);
+    this.iceGatheringState = 'complete'; // salta l'attesa ICE nei test
+    this._channel = null;
+    this.ondatachannel = null;
+  }
+  createDataChannel() { this._channel = new FakeChannel(); return this._channel; }
+  async createOffer() { return { type: 'offer', sdp: JSON.stringify({ pcId: this.id }) }; }
+  async createAnswer() { return { type: 'answer', sdp: JSON.stringify({ pcId: this.id }) }; }
+  async setLocalDescription(desc) { this.localDescription = desc; }
+  async setRemoteDescription(desc) {
+    this.remoteDescription = desc;
+    const { pcId } = JSON.parse(desc.sdp);
+    const remotePc = pcRegistry.get(pcId);
+    if (desc.type === 'offer') {
+      const ch = new FakeChannel();
+      this._channel = ch;
+      this.ondatachannel?.({ channel: ch }); // registra channel.onopen PRIMA di aprirlo
+      openChannel(ch, remotePc._channel);
+    } else {
+      openChannel(this._channel, remotePc._channel);
+    }
+  }
+  addEventListener() {} // mai chiamato: iceGatheringState già 'complete'
+}
+class FakeRTCSessionDescription { constructor(init) { Object.assign(this, init); } }
+
+function withFakeRTC(fn) {
+  return async () => {
+    pcRegistry = new Map();
+    globalThis.RTCPeerConnection = FakeRTCPeerConnection;
+    globalThis.RTCSessionDescription = FakeRTCSessionDescription;
+    try { await fn(); } finally { delete globalThis.RTCPeerConnection; delete globalThis.RTCSessionDescription; }
+  };
+}
+
+test('auto-discovery: A scopre C tramite B (relay) e si connette DA SOLA, senza un secondo aggancio manuale', withFakeRTC(async () => {
+  const { nodeA, nodeB } = twoNodes(); // A↔B già connessi manualmente (simula il primo aggancio QR)
+  const nodeC = new MeshNode('C', fakeMind());
+  const [chBC, chCB] = linkedChannels();
+  nodeB.addDirectPeer('C', null, chCB);
+  nodeC.addDirectPeer('B', null, chBC); // B↔C già connessi (secondo aggancio manuale, come oggi)
+
+  // A non conosce ancora C: B glielo segnala via gossip peer_list (già
+  // succede oggi ad ogni addDirectPeer). Attendiamo che il relay offer/answer
+  // (asincrono, RTCPeerConnection reale) completi il giro.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.ok(nodeA.peers.has('C'), 'A deve essersi connesso direttamente a C, scoperto solo via gossip');
+  assert.ok(nodeC.peers.has('A'), 'anche C deve vedere A come peer diretto (connessione bidirezionale reale)');
+}));
+
+test('auto-discovery: rispetta maxAutoPeers, non tenta la connessione se già al limite', withFakeRTC(async () => {
+  const nodeA = new MeshNode('A', fakeMind(), { maxAutoPeers: 0 }); // già "pieno"
+  const nodeB = new MeshNode('B', fakeMind());
+  const [chAB, chBA] = linkedChannels();
+  nodeB.addDirectPeer('A', null, chBA);
+  nodeA.addDirectPeer('B', null, chAB);
+
+  const nodeC = new MeshNode('C', fakeMind());
+  const [chBC, chCB] = linkedChannels();
+  nodeB.addDirectPeer('C', null, chCB);
+  nodeC.addDirectPeer('B', null, chBC);
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(nodeA.peers.has('C'), false, 'con maxAutoPeers=0 A non deve tentare nessuna connessione automatica');
+  assert.ok(nodeA.knownPeerIds.has('C'), 'ma la scoperta (sapere che C esiste) resta comunque valida');
+}));
+
+test('auto-discovery: disattivabile con autoDiscovery:false — scoperta sì, connessione no', withFakeRTC(async () => {
+  const nodeA = new MeshNode('A', fakeMind(), { autoDiscovery: false });
+  const nodeB = new MeshNode('B', fakeMind());
+  const [chAB, chBA] = linkedChannels();
+  nodeB.addDirectPeer('A', null, chBA);
+  nodeA.addDirectPeer('B', null, chAB);
+
+  const nodeC = new MeshNode('C', fakeMind());
+  const [chBC, chCB] = linkedChannels();
+  nodeB.addDirectPeer('C', null, chCB);
+  nodeC.addDirectPeer('B', null, chBC);
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(nodeA.peers.has('C'), false);
+  assert.ok(nodeA.knownPeerIds.has('C'));
+}));
+
+test('auto-discovery: onPeerDiscovered avvisa anche prima/senza che la connessione diretta si completi', withFakeRTC(async () => {
+  const nodeA = new MeshNode('A', fakeMind(), { autoDiscovery: false });
+  const nodeB = new MeshNode('B', fakeMind());
+  const [chAB, chBA] = linkedChannels();
+  nodeB.addDirectPeer('A', null, chBA);
+  nodeA.addDirectPeer('B', null, chAB);
+  let discovered = null;
+  nodeA.onPeerDiscovered = (id, via) => { discovered = { id, via }; };
+
+  const nodeC = new MeshNode('C', fakeMind());
+  const [chBC, chCB] = linkedChannels();
+  nodeB.addDirectPeer('C', null, chCB);
+  nodeC.addDirectPeer('B', null, chBC);
+
+  assert.deepEqual(discovered, { id: 'C', via: 'B' });
+}));
