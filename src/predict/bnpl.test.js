@@ -302,16 +302,57 @@ test('projectSeries: il tier "personale" (prior tra provider) si dichiara onesta
 });
 
 // ── AUTO-ADATTAMENTO oltre l'elenco marchi: rilevamento GENERICO ───────────
-test('detectBnplSeries: riconosce un piano a rate di un provider MAI SENTITO nominare (solo dal pattern biweekly)', () => {
+test('detectBnplSeries: riconosce un piano a rate di un provider MAI SENTITO nominare (solo dal pattern biweekly, 3 rate)', () => {
+  // BUG TROVATO verificando con spesa realistica: 2 sole coincidenze di
+  // importo+cadenza sono un indizio troppo debole senza un marchio a
+  // confermarle (una spesa abituale qualsiasi ci casca facilmente) — servono
+  // 3 allineamenti consecutivi prima di parlare.
   const allTx = bucket(
+    txAt(42, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
     txAt(28, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
     txAt(14, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
   );
-  const series = detectBnplSeries(allTx, { now: NOW });
+  const series = detectBnplSeries(allTx, { now: NOW, includeUnbranded: true });
   assert.equal(series.length, 1);
   assert.equal(series[0].confidence, 'pattern');
   assert.ok(series[0].providerId.startsWith('generic:'));
 });
+
+test('detectBnplSeries: DI DEFAULT il rilevamento generico è disattivato (troppo prono a falsi positivi, vedi sotto)', () => {
+  const allTx = bucket(
+    txAt(42, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
+    txAt(28, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
+    txAt(14, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
+  );
+  assert.deepEqual(detectBnplSeries(allTx, { now: NOW }), []);
+});
+
+test('detectBnplSeries: due sole coincidenze SENZA marchio non bastano più anche con opt-in (indizio troppo debole)', () => {
+  const allTx = bucket(
+    txAt(28, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
+    txAt(14, 55, 'PAGAMENTO ESERCENTE XYZ RATA'),
+  );
+  assert.deepEqual(detectBnplSeries(allTx, { now: NOW, includeUnbranded: true }), []);
+});
+
+test('detectBnplSeries: spesa da supermercato 2 volte a settimana, importo oscillante, NON genera piani a rate falsi (anche con opt-in)', () => {
+  // Replica il bug trovato dal vivo su una cadenza REALISTICA (2 spese/settimana,
+  // non una al giorno): i tre discriminanti (3 allineamenti, tolleranza
+  // d'importo stretta, cadenza regolare) insieme devono tenere.
+  let seed = 5; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const txs = [];
+  for (let i = 90; i >= 1; i -= (3 + Math.floor(rnd() * 3))) txs.push(txAt(i, +(16 + rnd() * 4).toFixed(2), 'Supermercato'));
+  const series = detectBnplSeries(bucket(...txs), { now: NOW, includeUnbranded: true });
+  assert.deepEqual(series.filter(s => s.providerId.startsWith('generic:')), []);
+});
+
+// NOTA ONESTA (limite noto, non nascosto): con spesa ricorrente QUOTIDIANA in
+// una fascia di prezzo molto stretta, anche i 3 discriminanti possono ancora
+// incrociarsi per puro caso (verificato: dati sintetici a cadenza giornaliera
+// fissa producono un falso positivo anche con opt-in). È il motivo per cui il
+// rilevamento generico resta OPT-IN e mai il default — il pannello di gestione
+// (window.openBnplManager) resta il controllo che chiude il cerchio quando la
+// pura euristica non basta.
 
 test('detectBnplSeries: un vero abbonamento MENSILE (Netflix-like, non biweekly) non attiva mai il generico', () => {
   const allTx = bucket(
@@ -319,23 +360,23 @@ test('detectBnplSeries: un vero abbonamento MENSILE (Netflix-like, non biweekly)
     txAt(35, 12.99, 'Servizio Streaming XYZ'),
     txAt(5, 12.99, 'Servizio Streaming XYZ'),
   );
-  assert.deepEqual(detectBnplSeries(allTx, { now: NOW }), []);
+  assert.deepEqual(detectBnplSeries(allTx, { now: NOW, includeUnbranded: true }), []);
 });
 
 test('detectBnplSeries: un importo troppo piccolo (tipo un caffè ricorrente) non attiva il generico biweekly', () => {
   const allTx = bucket(txAt(28, 4.5, 'Bar Mario ricorrente'), txAt(14, 4.5, 'Bar Mario ricorrente'));
-  assert.deepEqual(detectBnplSeries(allTx, { now: NOW }), []);
+  assert.deepEqual(detectBnplSeries(allTx, { now: NOW, includeUnbranded: true }), []);
 });
 
 test('detectBnplSeries: il generico non ruba addebiti già spiegati da un marchio noto', () => {
   const allTx = bucket(txAt(28, 45, 'KLARNA*ZARA'), txAt(14, 45, 'KLARNA*ZARA'));
-  const series = detectBnplSeries(allTx, { now: NOW });
+  const series = detectBnplSeries(allTx, { now: NOW, includeUnbranded: true });
   assert.equal(series.length, 1);
   assert.equal(series[0].confidence, 'brand');
 });
 
-test('detectBnplSeries: includeUnbranded:false disattiva il generico (opt-out esplicito)', () => {
-  const allTx = bucket(txAt(28, 55, 'PAGAMENTO ESERCENTE XYZ RATA'), txAt(14, 55, 'PAGAMENTO ESERCENTE XYZ RATA'));
+test('detectBnplSeries: includeUnbranded:false disattiva il generico (uguale al default)', () => {
+  const allTx = bucket(txAt(42, 55, 'PAGAMENTO ESERCENTE XYZ RATA'), txAt(28, 55, 'PAGAMENTO ESERCENTE XYZ RATA'), txAt(14, 55, 'PAGAMENTO ESERCENTE XYZ RATA'));
   assert.deepEqual(detectBnplSeries(allTx, { now: NOW, includeUnbranded: false }), []);
 });
 
@@ -344,4 +385,26 @@ test('detectBnplSeries: un nuovo player noto per nome (es. Sezzle/Tabby) viene r
   const series = detectBnplSeries(allTx, { now: NOW });
   assert.equal(series[0].providerId, 'sezzle');
   assert.equal(series[0].confidence, 'brand');
+});
+
+// ── CONTROLLO utente: dismissed (il rilevatore generico può sbagliare) ─────
+test('bnplExposure: dismissed esclude un piano specifico dall\'esposizione (falso positivo corretto dall\'utente)', () => {
+  const allTx = bucket(txAt(28, 45, 'KLARNA*ZARA'), txAt(14, 45, 'KLARNA*ZARA'));
+  const before = bnplExposure(allTx, { now: NOW });
+  const id = before.plans[0].id;
+  const after = bnplExposure(allTx, { now: NOW, dismissed: [id] });
+  assert.equal(before.count, 1);
+  assert.equal(after.count, 0);
+});
+
+test('bnplExposure: dismissed non tocca gli ALTRI piani (solo quello scelto)', () => {
+  const allTx = bucket(
+    txAt(28, 45, 'KLARNA*ZARA'), txAt(14, 45, 'KLARNA*ZARA'),
+    txAt(35, 120, 'PayPal Pay in 3 - Volo'), txAt(5, 120, 'PayPal Pay in 3 - Volo'),
+  );
+  const before = bnplExposure(allTx, { now: NOW });
+  const klarnaId = before.plans.find(p => p.providerId === 'klarna').id;
+  const after = bnplExposure(allTx, { now: NOW, dismissed: [klarnaId] });
+  assert.equal(after.count, 1);
+  assert.equal(after.plans[0].providerId, 'paypal-pay-later');
 });

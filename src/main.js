@@ -1596,7 +1596,7 @@ function computeSafeSweepEstimate(liquidity, inv, referenceDate = new Date()) {
     // minimo prudente le tiene conto SENZA una sottrazione separata da
     // mantenere in sincrono — un piano attivo abbassa da solo l'avanzo sicuro.
     const bnplEvents = bnplToLedgerEvents(VaultDAO.state.transactions,
-      { now: referenceDate.getTime(), horizonDays: daysAhead, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true });
+      { now: referenceDate.getTime(), horizonDays: daysAhead, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true, dismissed: VaultDAO.state.mlData?.bnplDismissed || [] });
     const fc = cashForecast({
       allTx: VaultDAO.state.transactions,
       commitments: VaultDAO.state.fixedCommitments || [],
@@ -2473,7 +2473,7 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
     // generico extraLedgerEvents, con la lunghezza-piano già appresa da questo
     // utente (mlData.bnplLearned) se disponibile.
     const bnplEvents = bnplToLedgerEvents(VaultDAO.state.transactions,
-      { now: nowMs, horizonDays: 30, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true });
+      { now: nowMs, horizonDays: 30, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true, dismissed: VaultDAO.state.mlData?.bnplDismissed || [] });
     f = cashForecast({
       allTx: VaultDAO.state.transactions,
       commitments,
@@ -2867,6 +2867,83 @@ window.openCommitmentsManager = (onDone = null) => {
   const origClose = window.closeModal;
   // quando l'utente chiude il gestore, ridisegna la dashboard (fantasmi aggiornati)
   window.closeModal = function () { origClose(); if (onDone) onDone(); window.closeModal = origClose; };
+};
+
+// ── GESTORE PIANI A RATE (BNPL, src/predict/bnpl.js) ────────────────────────
+// Il CONTROLLO che mancava: prima il motore parlava solo con una riga nel feed
+// insight, senza modo per l'utente di vedere i piani rilevati o correggere un
+// falso positivo del rilevatore generico (pattern di cadenza, senza nome di
+// marchio — può sbagliare su un caso raro). "Non è un piano a rate" persiste
+// l'id nel vault (mlData.bnplDismissed, additivo): non richiede mai di nuovo.
+window.openBnplManager = (onDone = null) => {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const dismissed = () => VaultDAO.state.mlData.bnplDismissed || [];
+
+  const render = () => {
+    const exp = bnplExposure(VaultDAO.state.transactions, {
+      now: Date.now(), learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true, dismissed: dismissed(),
+    });
+    const rows = exp.plans.map(p => {
+      const badge = p.anticipated
+        ? `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">previsto</span>`
+        : p.confidence === 'pattern'
+          ? `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/25">non verificato</span>`
+          : '';
+      const next = p.upcoming[0];
+      return `<div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20">
+        <div class="min-w-0 flex-1">
+          <span class="font-bold text-[13px] flex items-center gap-1.5 flex-wrap"><span class="truncate">${esc(p.providerLabel)}</span>${badge}</span>
+          <span class="text-[10.5px] text-[var(--on-surface-secondary)]">${p.remainingCount} rate residue${next ? ` · prossima il ${dayName(next.date)}` : ''}</span>
+        </div>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="font-mono font-black text-[13px] text-amber-300">${eur(p.remainingTotal)}</span>
+          <button data-dismiss="${p.id}" title="Non è un piano a rate" class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 underline whitespace-nowrap">non è un piano</button>
+        </span>
+      </div>`;
+    }).join('');
+
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div>
+          <p class="eyebrow !mb-0 text-[var(--primary)]">Piani a rate</p>
+          <h3 class="text-base font-black">Klarna, PayPal, Scalapay e altri</h3>
+          <p class="card-sub !mb-0">Vedo tutti i piani insieme, indipendentemente dal provider — nessuna delle loro app lo fa. Se ne riconosco uno per sbaglio, correggimi qui sotto.</p>
+        </div>
+        ${exp.count > 0 ? `<div class="card p-3 flex items-center justify-between">
+          <span class="text-[11px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Totale ancora da pagare</span>
+          <span class="font-mono font-black text-[15px] text-amber-300">${eur(exp.totalRemaining)}</span>
+        </div>` : ''}
+        ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun piano a rate rilevato per ora.</p>'}
+        ${dismissed().length ? `<button id="bnpl-restore" class="text-[10.5px] text-[var(--primary)] underline self-start">Ripristina i piani corretti (${dismissed().length})</button>` : ''}
+      </div>`);
+
+    // BUG TROVATO verificando dal vivo: il dismiss salvava correttamente nel
+    // vault, ma il feed radar SOTTOSTANTE (già disegnato prima di aprire questo
+    // pannello) non si aggiornava finché non arrivava un onDone esplicito —
+    // l'insight "hai un piano a rate" restava a schermo anche dopo la
+    // correzione. Ora ogni dismiss/ripristino aggiorna SUBITO anche il feed,
+    // non solo il modale, indipendentemente da come è stato aperto il pannello.
+    const refreshUnderlying = () => { try { renderAnalysis({ skipHeavyForecast: true }); } catch (_) {} };
+    document.querySelectorAll('[data-dismiss]').forEach(b => b.addEventListener('click', () => {
+      const ml = VaultDAO.state.mlData;
+      ml.bnplDismissed = [...dismissed(), b.dataset.dismiss];
+      VaultDAO.save();
+      showToast('Ok, non lo conto più come piano a rate.', 'info');
+      render();
+      refreshUnderlying();
+    }));
+    document.getElementById('bnpl-restore')?.addEventListener('click', () => {
+      VaultDAO.state.mlData.bnplDismissed = [];
+      VaultDAO.save();
+      render();
+      refreshUnderlying();
+    });
+  };
+  render();
+  const origClose = window.closeModal;
+  window.closeModal = function () { origClose(); if (typeof onDone === 'function') onDone(); window.closeModal = origClose; };
 };
 
 // puoi correggerli. L'override vince sul rilevato (resolveSalary). onDone()
@@ -3997,7 +4074,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   // niente riquadro a parte, coerente col resto (non appesantisce la card).
   try {
     const bnpl = bnplExposure(VaultDAO.state.transactions,
-      { now: realNow.getTime(), learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true });
+      { now: realNow.getTime(), learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true, dismissed: VaultDAO.state.mlData?.bnplDismissed || [] });
     if (bnpl.count > 0) {
       const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
       const providers = bnpl.byProvider.map(p => p.providerLabel).join(', ');
@@ -4006,6 +4083,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
         severity: bnpl.count >= 2 ? 'warn' : 'info',
         title: bnpl.count === 1 ? `Hai un piano a rate aperto: ${providers}` : `Hai ${bnpl.count} piani a rate aperti: ${providers}`,
         body: `Ti restano ${formatMoney(bnpl.totalRemaining)} da pagare in tutto${bnpl.nextDue ? `, prossima rata il ${dayName(bnpl.nextDue.date)} (${bnpl.nextDue.providerLabel}).` : '.'}`,
+        action: { label: 'Gestisci piani', handler: 'openBnplManager', payload: null },
       });
     }
   } catch (_) {}

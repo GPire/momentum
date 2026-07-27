@@ -81,7 +81,7 @@ function flattenTx(allTx) {
 // insegna) in serie di importo compatibile e cadenza da rata. Condiviso tra il
 // rilevamento per MARCHIO NOTO e quello GENERICO (vedi sotto): la logica di
 // "cos'è una serie" è unica, cambia solo COME si raggruppano le transazioni.
-function chainInstallments(list, { amountTol, cadenceMin, cadenceMax }) {
+function chainInstallments(list, { amountTol, cadenceMin, cadenceMax, minLen = 2 }) {
   const chains = [];
   const used = new Set();
   for (let i = 0; i < list.length; i++) {
@@ -100,7 +100,7 @@ function chainInstallments(list, { amountTol, cadenceMin, cadenceMax }) {
         cursor = list[j];
       }
     }
-    if (chain.length >= 2) chains.push(chain);
+    if (chain.length >= minLen) chains.push(chain);
   }
   return chains;
 }
@@ -141,8 +141,21 @@ function seriesFromChain(chain, providerId, providerLabel, confidence) {
 // `'brand'`) perché manca la conferma del nome: onesto, non nascosto.
 export function detectBnplSeries(allTx, {
   amountTol = 0.03, cadenceMin = 10, cadenceMax = 40, now = Date.now(),
-  includeUnbranded = true, unbrandedCadenceMax = 18, unbrandedMinAmount = 15,
-  unbrandedSimilarity = 0.8,
+  // ONESTÀ (bug reale trovato verificando con dati di spesa REALISTICI, non
+  // solo test scritti a mano): il rilevamento SENZA nome di marchio (solo dal
+  // pattern di cadenza) resta troppo prono a falsi positivi su spesa abituale
+  // ristretta in fascia di prezzo (stesso supermercato, importo simile) —
+  // anche dopo aver richiesto 3 allineamenti invece di 2 e stretto la
+  // tolleranza d'importo, su 90 giorni di spesa quotidiana in banda stretta
+  // il falso positivo si ripresenta (verificato dal vivo: 8 "piani" falsi su
+  // dati sintetici realistici). Finché non esiste un discriminante più solido,
+  // il rilevamento generico resta DISATTIVATO DI DEFAULT — costruito, testato,
+  // disponibile come opt-in esplicito (`includeUnbranded:true`), ma non un
+  // comportamento che può disturbare un utente normale senza che lo chieda.
+  // Il rilevamento per NOME di marchio (Klarna/PayPal/Scalapay/...) copre la
+  // stragrande maggioranza dei casi reali e resta sempre attivo.
+  includeUnbranded = false, unbrandedCadenceMax = 18, unbrandedMinAmount = 15,
+  unbrandedSimilarity = 0.85, unbrandedAmountTol = 0.015, unbrandedMinLen = 3,
 } = {}) {
   const flat = flattenTx(allTx).filter(t => +t.amount > 0);
   const withProvider = flat.map(t => ({ ...t, provider: detectProvider(t.description) }));
@@ -177,7 +190,18 @@ export function detectBnplSeries(allTx, {
       g.items.push(t);
     }
     for (const g of groups) {
-      for (const chain of chainInstallments(g.items, { amountTol, cadenceMin, cadenceMax: unbrandedCadenceMax })) {
+      for (const chain of chainInstallments(g.items, { amountTol: unbrandedAmountTol, cadenceMin, cadenceMax: unbrandedCadenceMax, minLen: unbrandedMinLen })) {
+        // ULTIMO DISCRIMINANTE (senza il quale anche 3 allineamenti stretti si
+        // ripresentano su spesa abituale in banda di prezzo stretta, verificato
+        // dal vivo): le rate BNPL sono programmate da una macchina, la cadenza
+        // tra un addebito e il successivo è QUASI IDENTICA ogni volta. Una spesa
+        // umana ripetuta (stesso supermercato) ha cadenza irregolare — un giorno
+        // ogni 9, un altro ogni 17. Scarta la serie se la cadenza NON è stretta.
+        const gaps = [];
+        for (let i = 1; i < chain.length; i++) gaps.push((new Date(chain[i].date) - new Date(chain[i - 1].date)) / DAY_MS);
+        const meanGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+        const sdGap = Math.sqrt(gaps.reduce((s, g) => s + (g - meanGap) ** 2, 0) / gaps.length);
+        if (meanGap > 0 && sdGap / meanGap > 0.12) continue;
         const label = (g.rep || 'Pagamento a rate').trim();
         series.push(seriesFromChain(chain, `generic:${label.toLowerCase()}`, `${label} (rate)`, 'pattern'));
       }
@@ -298,7 +322,7 @@ export function projectSeries(s, { now = Date.now(), learned = {} } = {}) {
 // ── 3. ESPOSIZIONE TOTALE (l'"BNPL stacking" che nessun provider vede) ──────
 // Tutti i piani ATTIVI insieme, indipendentemente dal provider: il numero che
 // nessuna app di Klarna/PayPal può dare perché ognuna vede solo se stessa.
-export function bnplExposure(allTx, { anticipate = false, ...opts } = {}) {
+export function bnplExposure(allTx, { anticipate = false, dismissed = [], ...opts } = {}) {
   const confirmed = detectBnplSeries(allTx, opts).map(s => projectSeries(s, opts)).filter(s => s.active);
   // ANTICIPAZIONE (predittivo, non solo retrospettivo): normalmente si aspetta
   // la 2ª rata prima di parlare di un piano. Ma se questo utente ha già chiuso
@@ -306,7 +330,12 @@ export function bnplExposure(allTx, { anticipate = false, ...opts } = {}) {
   // lunghezza tipiche — anticipiamo il piano dalla PRIMA rata invece di
   // aspettare la seconda. Onesto: parla solo con storia personale vera.
   const anticipated = anticipate ? anticipateFromFirstCharge(allTx, opts.learned || {}, opts) : [];
-  const series = [...confirmed, ...anticipated];
+  // CONTROLLO utente: il rilevatore generico (senza nome di marchio) può
+  // sbagliare — un vero abbonamento raro con cadenza insolita, un accredito
+  // ricorrente scambiato per una rata. `dismissed` (id di serie) è la via
+  // d'uscita esplicita: "non è un piano a rate", persistita dal chiamante.
+  const dismissedSet = new Set(dismissed);
+  const series = [...confirmed, ...anticipated].filter(s => !dismissedSet.has(s.id));
   const totalRemaining = r2(series.reduce((sum, s) => sum + s.remainingTotal, 0));
   const nextDue = series.flatMap(s => s.upcoming.map(u => ({ ...u, providerLabel: s.providerLabel, anticipated: !!s.anticipated })))
     .sort((a, b) => a.ms - b.ms)[0] || null;
