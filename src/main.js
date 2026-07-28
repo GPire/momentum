@@ -3394,11 +3394,16 @@ window.togglePrivacyMode = (e) => {
     // Prima erano due tempistiche scollegate (poof istantaneo ovunque +
     // blur ritardato) che si leggevano come due animazioni in conflitto
     // invece di un'unica onda che si allarga dal dito.
-    const speed = 2.6; // px di distanza per ms di ritardo
+    // Velocità ricalibrata: con 2.6px/ms due numeri distanti 200px sullo
+    // stesso schermo (il caso comune su mobile) differivano di appena 77ms
+    // — sotto la soglia a cui l'occhio umano distingue "in sequenza" da
+    // "insieme" (circa 100ms). Risultato: la propagazione era REALE ma
+    // impercettibile, si leggeva come un blur generico invece che un'onda.
+    const speed = 1.1; // px di distanza per ms di ritardo
     nodes.forEach(n => {
       const r = n.getBoundingClientRect();
       const d = Math.hypot((r.left + r.width / 2) - x, (r.top + r.height / 2) - y);
-      const delay = Math.min(d / speed, 260);
+      const delay = Math.min(d / speed, 420);
       n.style.transitionDelay = `${delay.toFixed(0)}ms`;
       n.style.animationDelay = `${delay.toFixed(0)}ms`;
       if (delay > maxDelayMs) maxDelayMs = delay;
