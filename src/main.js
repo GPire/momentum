@@ -3387,6 +3387,21 @@ window.togglePrivacyMode = (e) => {
     ripple.classList.remove('active');
     void ripple.offsetWidth;
     ripple.classList.add('active');
+    // Propagazione reale, non solo decorativa: ogni numero si sfoca/rivela
+    // in ritardo proporzionale alla propria distanza dal punto toccato, come
+    // un'onda che si allarga davvero da lì fino a "raggiungere" ogni cifra
+    // — non un blur che scatta ovunque nello stesso istante.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion) {
+      const nodes = document.querySelectorAll('.font-mono:not(.no-privacy-blur)');
+      const speed = 2.6; // px di distanza per ms di ritardo
+      nodes.forEach(n => {
+        const r = n.getBoundingClientRect();
+        const d = Math.hypot((r.left + r.width / 2) - x, (r.top + r.height / 2) - y);
+        n.style.transitionDelay = `${Math.min(d / speed, 260).toFixed(0)}ms`;
+      });
+      setTimeout(() => nodes.forEach(n => { n.style.transitionDelay = ''; }), 700);
+    }
   }
   VaultDAO.state.privacyMode = active;
   VaultDAO.save();
@@ -7167,16 +7182,38 @@ document.addEventListener('click', e => {
         showToast('Tornato a oggi.', 'success');
       }
     } else if (a === 'toggle-theme') {
-      VaultDAO.state.themeDark = !VaultDAO.state.themeDark;
-      document.documentElement.classList.toggle('dark', VaultDAO.state.themeDark);
-      setThemeToggleIcon(t, VaultDAO.state.themeDark);
-      // Stesso scatto usato per l'icona privacy: conferma il cambio invece
-      // di lasciare che l'utente lo scopra solo dal colore dello schermo.
-      t.classList.remove('just-toggled');
-      void t.offsetWidth;
-      t.classList.add('just-toggled');
-      VaultDAO.save();
-      showToast("Tema aggiornato.", "success");
+      const applyTheme = () => {
+        VaultDAO.state.themeDark = !VaultDAO.state.themeDark;
+        document.documentElement.classList.toggle('dark', VaultDAO.state.themeDark);
+        setThemeToggleIcon(t, VaultDAO.state.themeDark);
+        // Stesso scatto usato per l'icona privacy: conferma il cambio invece
+        // di lasciare che l'utente lo scopra solo dal colore dello schermo.
+        t.classList.remove('just-toggled');
+        void t.offsetWidth;
+        t.classList.add('just-toggled');
+        VaultDAO.save();
+        showToast("Tema aggiornato.", "success");
+      };
+      // Cerchio che si espande dal punto toccato e "rivela" il nuovo tema
+      // sotto — stesso principio della propagazione privacy, applicato qui
+      // con la View Transitions API (nativa, nessuna libreria). Dove non è
+      // supportata (Safari meno recenti) o con animazioni ridotte, il tema
+      // cambia comunque, solo senza il cerchio.
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (document.startViewTransition && !reduceMotion) {
+        const rect = t.getBoundingClientRect();
+        const x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+        const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+        const transition = document.startViewTransition(() => applyTheme());
+        transition.ready.then(() => {
+          document.documentElement.animate(
+            { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`] },
+            { duration: 550, easing: 'cubic-bezier(.22,1,.36,1)', pseudoElement: '::view-transition-new(root)' }
+          );
+        }).catch(() => {});
+      } else {
+        applyTheme();
+      }
     } else if (a === 'quick-add-expense') {
       // Numero-eroe "Oggi puoi spendere" tappato → form uscita pronto (un tocco
       // per aprire, un tocco per confermare). La conferma addestra il Core.

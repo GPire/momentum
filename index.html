@@ -677,6 +677,12 @@
        istantanee mentre il resto della pagina sfumava. */
     .theme-fade { transition: background-color .5s ease, border-color .5s ease; }
     @media (prefers-reduced-motion: reduce) { .theme-fade { transition: none; } }
+    /* Cerchio che rivela il nuovo tema dal punto toccato (View Transitions
+       API): disattiva la dissolvenza incrociata di default del browser così
+       resta visibile solo il nostro clip-path animato via JS. */
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    ::view-transition-old(root) { z-index: 1; }
+    ::view-transition-new(root) { z-index: 2; }
       #import-progress, #pdf-progress-overlay, #ota-overlay { padding-top: env(safe-area-inset-top, 0px); }
     }
     /* I modali salgono dal basso: rispettano la home-indicator (già via
