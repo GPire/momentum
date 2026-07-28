@@ -683,6 +683,9 @@
     ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
     ::view-transition-old(root) { z-index: 1; }
     ::view-transition-new(root) { z-index: 2; }
+    /* Mentre il cerchio è attivo, nessun'altra transizione di colore deve
+       muoversi in parallelo — un solo movimento, non due sovrapposti. */
+    html.vt-active, html.vt-active body, html.vt-active .card, html.vt-active .theme-fade { transition: none !important; }
       #import-progress, #pdf-progress-overlay, #ota-overlay { padding-top: env(safe-area-inset-top, 0px); }
     }
     /* I modali salgono dal basso: rispettano la home-indicator (già via

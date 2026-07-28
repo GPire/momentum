@@ -7213,6 +7213,13 @@ document.addEventListener('click', e => {
         const rect = t.getBoundingClientRect();
         const x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
         const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+        // Il cerchio (View Transition) e la dissolvenza colore di .card/
+        // .theme-fade partivano ENTRAMBI nello stesso istante e si
+        // accavallavano — due movimenti indipendenti sulla stessa superficie
+        // si leggevano a scatti invece che come un unico gesto. Disattivata
+        // la dissolvenza manuale durante il cerchio: qui la rivelazione la fa
+        // solo lui, un unico movimento fluido.
+        document.documentElement.classList.add('vt-active');
         const transition = document.startViewTransition(() => applyTheme());
         transition.ready.then(() => {
           document.documentElement.animate(
@@ -7220,6 +7227,7 @@ document.addEventListener('click', e => {
             { duration: 550, easing: 'cubic-bezier(.22,1,.36,1)', pseudoElement: '::view-transition-new(root)' }
           );
         }).catch(() => {});
+        transition.finished.finally(() => document.documentElement.classList.remove('vt-active'));
       } else {
         applyTheme();
       }
