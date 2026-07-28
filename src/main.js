@@ -3366,43 +3366,52 @@ window.togglePrivacyMode = (e) => {
     void btn.offsetWidth;
     btn.classList.add('just-toggled');
   });
-  // "Poof" sui numeri nel momento esatto del cambio, in entrambe le
-  // direzioni — un gesto percepibile invece di un blur che sale/scende piano.
-  document.body.classList.add('privacy-flash');
-  setTimeout(() => document.body.classList.remove('privacy-flash'), 350);
   // Onda che nasce dal punto esatto del tocco (coordinate reali dell'evento,
   // non un centro fisso) ed espande abbastanza da coprire l'angolo più
   // lontano dello schermo — collega visivamente il gesto al suo effetto.
   const ripple = $('#privacy-ripple');
-  if (ripple && e && Number.isFinite(e.clientX)) {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let maxDelayMs = 0;
+  const nodes = document.querySelectorAll('.font-mono:not(.no-privacy-blur)');
+  if (e && Number.isFinite(e.clientX) && !reduceMotion) {
     const x = e.clientX, y = e.clientY;
-    const maxDist = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-    const size = maxDist * 2.3;
-    ripple.style.left = `${x}px`;
-    ripple.style.top = `${y}px`;
-    ripple.style.width = `${size}px`;
-    ripple.style.height = `${size}px`;
-    ripple.style.background = `radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, transparent) 0%, transparent 70%)`;
-    ripple.style.display = 'block';
-    ripple.classList.remove('active');
-    void ripple.offsetWidth;
-    ripple.classList.add('active');
-    // Propagazione reale, non solo decorativa: ogni numero si sfoca/rivela
-    // in ritardo proporzionale alla propria distanza dal punto toccato, come
-    // un'onda che si allarga davvero da lì fino a "raggiungere" ogni cifra
-    // — non un blur che scatta ovunque nello stesso istante.
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!reduceMotion) {
-      const nodes = document.querySelectorAll('.font-mono:not(.no-privacy-blur)');
-      const speed = 2.6; // px di distanza per ms di ritardo
-      nodes.forEach(n => {
-        const r = n.getBoundingClientRect();
-        const d = Math.hypot((r.left + r.width / 2) - x, (r.top + r.height / 2) - y);
-        n.style.transitionDelay = `${Math.min(d / speed, 260).toFixed(0)}ms`;
-      });
-      setTimeout(() => nodes.forEach(n => { n.style.transitionDelay = ''; }), 700);
+    if (ripple) {
+      const maxDist = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+      const size = maxDist * 2.3;
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.background = `radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, transparent) 0%, transparent 70%)`;
+      ripple.style.display = 'block';
+      ripple.classList.remove('active');
+      void ripple.offsetWidth;
+      ripple.classList.add('active');
     }
+    // Propagazione reale e UNIFICATA: sia lo sfocamento (transition-delay)
+    // sia il "poof" di scala (animation-delay) usano lo STESSO ritardo per
+    // ogni numero, calcolato dalla sua distanza reale dal punto toccato.
+    // Prima erano due tempistiche scollegate (poof istantaneo ovunque +
+    // blur ritardato) che si leggevano come due animazioni in conflitto
+    // invece di un'unica onda che si allarga dal dito.
+    const speed = 2.6; // px di distanza per ms di ritardo
+    nodes.forEach(n => {
+      const r = n.getBoundingClientRect();
+      const d = Math.hypot((r.left + r.width / 2) - x, (r.top + r.height / 2) - y);
+      const delay = Math.min(d / speed, 260);
+      n.style.transitionDelay = `${delay.toFixed(0)}ms`;
+      n.style.animationDelay = `${delay.toFixed(0)}ms`;
+      if (delay > maxDelayMs) maxDelayMs = delay;
+    });
   }
+  // "Poof" sui numeri nel momento esatto del cambio, in entrambe le
+  // direzioni — un gesto percepibile invece di un blur che sale/scende piano.
+  document.body.classList.add('privacy-flash');
+  const cleanupMs = maxDelayMs + 420; // copre il ritardo più lungo + la durata delle animazioni
+  setTimeout(() => {
+    document.body.classList.remove('privacy-flash');
+    nodes.forEach(n => { n.style.transitionDelay = ''; n.style.animationDelay = ''; });
+  }, cleanupMs);
   VaultDAO.state.privacyMode = active;
   VaultDAO.save();
 };
