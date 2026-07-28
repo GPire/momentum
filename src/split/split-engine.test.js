@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, decodeGroupShare, settlementCounts, describeGroupChanges } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, encodeGroupInvite, decodeGroupShare, settlementCounts, describeGroupChanges, claimMember, myMemberId, unclaimedMembers } = await import('./split-engine.js');
 
 test('SEMPLIFICAZIONE: due coppie a somma-zero → 2 bonifici (non 4)', () => {
   const bal = { A: 10, B: -10, C: 10, D: -10 };
@@ -366,3 +366,355 @@ test('describeGroupChanges: combinato (persona + spesa insieme, come nel sync me
   assert.ok(changes.some(c => /Anna è entrato/.test(c)));
   assert.ok(changes.some(c => /Anna ha aggiunto una spesa di 60\.00€ \(hotel\)/.test(c)));
 });
+
+// ============================================================
+// INVITO LEGGERO (bug reale: il link/QR diventava enorme perché portava
+// TUTTA la cronologia spese) + IDENTITÀ A SLOT (bug reale: chi entrava da
+// un link poteva scegliere di "essere" chiunque, incluso il creatore).
+// ============================================================
+
+test('encodeGroupInvite: NON porta le spese, anche con cronologia lunga', () => {
+  let g = createGroup({ name: 'Casa condivisa', members: ['Io', 'Anna'] });
+  for (let i = 0; i < 50; i++) g = addSharedExpense(g, { payer: 'm0', amount: 10 + i, description: `Spesa ${i}` });
+  const invite = encodeGroupInvite(g);
+  const full = encodeGroupShare(g);
+  assert.ok(invite.length < full.length, 'il link invito deve essere più corto del link completo');
+  assert.ok(invite.length < 400, 'un invito non deve crescere con la cronologia del gruppo');
+  const decoded = decodeGroupShare(invite);
+  assert.equal(decoded.id, g.id);
+  assert.equal(decoded.members.length, 2);
+  assert.deepEqual(decoded.expenses, [], 'le spese arrivano dopo via sync, non nel link');
+});
+
+test('decodeGroupShare: tollera sia un invito leggero sia un codice completo', () => {
+  const g = createGroup({ name: 'G', members: ['A', 'B'] });
+  assert.deepEqual(decodeGroupShare(encodeGroupInvite(g)).expenses, []);
+  assert.deepEqual(decodeGroupShare(encodeGroupShare(g)).expenses, []); // gruppo appena creato, nessuna spesa
+});
+
+test('encodeGroupInvite: senza offerta P2P il campo "p2p" non compare (link più corto)', () => {
+  const g = createGroup({ name: 'G', members: ['A', 'B'] });
+  const invite = encodeGroupInvite(g);
+  assert.equal(decodeGroupShare(invite).p2p, undefined);
+});
+
+test('encodeGroupInvite: con un\'offerta P2P, viaggia nello stesso link/QR e si decodifica di nuovo', () => {
+  const g = createGroup({ name: 'G', members: ['A', 'B'] });
+  const fakeOffer = 'OFFER_CODE_DI_PROVA_ABC123';
+  const invite = encodeGroupInvite(g, fakeOffer);
+  const withoutP2p = encodeGroupInvite(g);
+  assert.ok(invite.length > withoutP2p.length, 'con l\'offerta il codice è più lungo, ma resta un unico link/QR');
+  const decoded = decodeGroupShare(invite);
+  assert.equal(decoded.p2p, fakeOffer, 'l\'offerta P2P arriva intatta a chi riceve il link');
+  assert.equal(decoded.id, g.id);
+});
+
+test('IDENTITÀ: il creatore rivendica il proprio slot alla creazione', () => {
+  let g = createGroup({ name: 'Weekend', members: ['Io', 'Mattia'] });
+  g = claimMember(g, 'm0', 'device-A');
+  assert.equal(myMemberId(g, 'device-A'), 'm0');
+  assert.deepEqual(unclaimedMembers(g).map(m => m.id), ['m1']);
+});
+
+test('IDENTITÀ: chi entra da un link vede SOLO gli slot liberi (mai quello del creatore)', () => {
+  let g = createGroup({ name: 'Weekend', members: ['Io', 'Mattia', 'Francesca'] });
+  g = claimMember(g, 'm0', 'device-A'); // il creatore è "Io"
+  const invite = decodeGroupShare(encodeGroupInvite(g));
+  assert.deepEqual(unclaimedMembers(invite).map(m => m.id), ['m1', 'm2'], 'Mattia e Francesca sono liberi, "Io" no');
+});
+
+test('IDENTITÀ: un secondo dispositivo NON può rubare uno slot già rivendicato', () => {
+  let g = createGroup({ name: 'Weekend', members: ['Io', 'Mattia'] });
+  g = claimMember(g, 'm0', 'device-A'); // device A è già "Io"
+  const tentativo = claimMember(g, 'm0', 'device-B'); // B prova a diventare "Io" anche lui
+  assert.equal(myMemberId(tentativo, 'device-B'), null, 'B non è diventato "Io"');
+  assert.equal(myMemberId(tentativo, 'device-A'), 'm0', 'A resta "Io"');
+});
+
+test('IDENTITÀ: claimare il proprio slot due volte è no-op (idempotente)', () => {
+  let g = createGroup({ name: 'G', members: ['Io'] });
+  g = claimMember(g, 'm0', 'device-A');
+  const again = claimMember(g, 'm0', 'device-A');
+  assert.equal(myMemberId(again, 'device-A'), 'm0');
+});
+
+test('IDENTITÀ: claimare uno slot inesistente non cambia nulla (mai un crash)', () => {
+  let g = createGroup({ name: 'G', members: ['Io'] });
+  const same = claimMember(g, 'inesistente', 'device-A');
+  assert.deepEqual(same, g);
+});
+
+test('IDENTITÀ: il merge NON perde un claim fatto dopo la condivisione iniziale', () => {
+  // Scenario reale: A crea il gruppo e lo condivide PRIMA di claimare "Io".
+  let base = createGroup({ name: 'Weekend', members: ['Io', 'Mattia'] });
+  const inviteCode = encodeGroupInvite(base);
+  // A claima il proprio slot LOCALMENTE dopo aver condiviso.
+  const aAfterClaim = claimMember(base, 'm0', 'device-A');
+  // B riceve l'invito (senza il claim di A, perché era in transito) e claima "Mattia".
+  const bGroup = claimMember(decodeGroupShare(inviteCode), 'm1', 'device-B');
+  // Il sync li fonde in entrambe le direzioni.
+  const mergedAB = mergeGroups(aAfterClaim, bGroup);
+  const mergedBA = mergeGroups(bGroup, aAfterClaim);
+  for (const merged of [mergedAB, mergedBA]) {
+    assert.equal(myMemberId(merged, 'device-A'), 'm0', 'il claim di A non si perde nel merge');
+    assert.equal(myMemberId(merged, 'device-B'), 'm1', 'il claim di B non si perde nel merge');
+  }
+});
+
+test('IDENTITÀ: due dispositivi che claimano lo STESSO slot in contemporanea → vince il primo nel tempo', () => {
+  let base = createGroup({ name: 'G', members: ['Ospite'] });
+  const aClaim = claimMember(base, 'm0', 'device-A'); // A claima per primo
+  // B, non sapendo che A l'ha già fatto, prova a claimare lo stesso slot un attimo dopo
+  const bClaimGroup = { ...base, members: base.members.map(m => m.id === 'm0' ? { ...m, claimedBy: 'device-B', claimedAt: (aClaim.members[0].claimedAt || 0) + 50 } : m) };
+  const merged = mergeGroups(aClaim, bClaimGroup);
+  assert.equal(myMemberId(merged, 'device-A'), 'm0', 'A ha claimato per primo, resta lui');
+  assert.equal(myMemberId(merged, 'device-B'), null, 'B ha perso la corsa allo stesso slot');
+});
+
+test('IDENTITÀ: aggiungere un nuovo membro (non tra quelli previsti) e claimarlo subito', () => {
+  let g = createGroup({ name: 'Weekend', members: ['Io'] });
+  const newMember = { id: 'm_new', name: 'Bea' };
+  g = { ...g, members: [...g.members, newMember] };
+  g = claimMember(g, 'm_new', 'device-B');
+  assert.equal(myMemberId(g, 'device-B'), 'm_new');
+  assert.deepEqual(unclaimedMembers(g).map(m => m.id), ['m0'], '"Io" resta libero, solo Bea è stata claimata');
+});
+
+// ============================================================
+// SIMULAZIONE END-TO-END: invito + ingresso + sync live per 10 PERSONE.
+// Non è un giocattolo a 2 dispositivi: qui si simula un gruppo intero
+// (10 telefoni distinti, ognuno col proprio deviceId) che entra dal
+// link, aggiunge/modifica spese e rinomina il gruppo MENTRE è scollegato
+// dagli altri, poi tutti sincronizzano in un ordine CASUALE e diverso per
+// ognuno (un vero mesh gossip non ha un "ordine giusto" di arrivo). La
+// proprietà da dimostrare è quella di un CRDT: mergeGroups è commutativo,
+// associativo e idempotente, quindi il risultato finale deve essere
+// IDENTICO per tutti e 10, indipendentemente da chi ha sincronizzato con
+// chi per primo. Nessun numero fittizio: sono le stesse funzioni che gira
+// l'app in produzione, solo orchestrate qui invece che da WebRTC.
+// ============================================================
+
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Confronto "a prescindere dall'ordine": l'ordine di members/expenses dopo
+// un merge dipende da CHI ha sincronizzato con chi, ma il CONTENUTO deve
+// essere lo stesso → si ordina per id prima di confrontare.
+function normalizeGroup(g) {
+  return {
+    id: g.id,
+    name: g.name,
+    members: [...g.members].sort((a, b) => a.id.localeCompare(b.id))
+      .map(m => ({ id: m.id, name: m.name, claimedBy: m.claimedBy || null })),
+    expenses: [...g.expenses].sort((a, b) => a.id.localeCompare(b.id))
+      .map(e => ({ id: e.id, payer: e.payer, amount: e.amount, description: e.description, owed: e.owed })),
+  };
+}
+
+// Ogni dispositivo sincronizza con gli altri 9 in un ordine casuale e
+// diverso: se converge sempre allo stesso risultato, il sync "funziona
+// comunque arrivino i messaggi", non solo nel caso favorevole.
+function fullMeshConverge(states) {
+  return states.map((_, i) => shuffled(states).reduce((acc, s) => mergeGroups(acc, s), states[i]));
+}
+function assertAllConverge(states, msg) {
+  const normalized = fullMeshConverge(states).map(normalizeGroup);
+  for (let i = 1; i < normalized.length; i++) {
+    assert.deepEqual(normalized[i], normalized[0], `${msg} — dispositivo ${i} diverge dal dispositivo 0`);
+  }
+  return normalized[0];
+}
+
+test('SIMULAZIONE LIVE (10 persone): invito leggero + ingresso concorrente → tutti convergono, nessuno può rubare "Io"', () => {
+  let seed = createGroup({ name: 'Viaggio a 10', members: ['Io', 'Mattia', 'Francesca'] });
+  seed = claimMember(seed, 'm0', 'device-0'); // il creatore claima "Io" PRIMA di condividere
+  const invite = encodeGroupInvite(seed);
+  assert.ok(invite.length < 400, 'l\'invito resta leggero anche pensato per 10 persone');
+
+  const states = [seed];
+  states.push(claimMember(decodeGroupShare(invite), 'm1', 'device-1')); // claima "Mattia"
+  states.push(claimMember(decodeGroupShare(invite), 'm2', 'device-2')); // claima "Francesca"
+  // 7 persone in più, mai previste nel gruppo iniziale, entrano come membri nuovi
+  // (stessa identica logica del bottone "Entra nel gruppo" in main.js)
+  ['Anna', 'Bea', 'Carlo', 'Dario', 'Elisa', 'Fabio', 'Giulia'].forEach((name, k) => {
+    const deviceId = `device-${k + 3}`;
+    let g = decodeGroupShare(invite);
+    const newId = `m_${deviceId}_${k}`;
+    g = { ...g, members: [...g.members, { id: newId, name }] };
+    g = claimMember(g, newId, deviceId);
+    states.push(g);
+  });
+  assert.equal(states.length, 10);
+
+  // qualcuno prova comunque a rubare lo slot del creatore: non deve mai riuscirci
+  const tentativoFurto = claimMember(decodeGroupShare(invite), 'm0', 'device-9-cattivo');
+  assert.equal(myMemberId(tentativoFurto, 'device-9-cattivo'), null, 'nessuno può diventare "Io" da un link');
+
+  const final = assertAllConverge(states, 'ingresso di 10 persone');
+  assert.equal(final.members.length, 10, 'tutti e 10 nel gruppo, nessuno perso');
+  assert.equal(new Set(final.members.map(m => m.id)).size, 10, 'nessuna collisione di id tra dispositivi diversi');
+  for (let i = 0; i < 10; i++) {
+    assert.ok(final.members.some(m => m.claimedBy === `device-${i}`), `il dispositivo ${i} resta riconoscibile nel gruppo finale`);
+  }
+});
+
+test('SIMULAZIONE LIVE (10 persone): spese aggiunte e importi modificati offline in parallelo → convergenza e saldo a somma zero', () => {
+  const names = ['Io', 'Mattia', 'Francesca', 'Anna', 'Bea', 'Carlo', 'Dario', 'Elisa', 'Fabio', 'Giulia'];
+  const base = createGroup({ name: 'Casa a 10', members: names });
+  const ids = base.members.map(m => m.id);
+
+  // ognuno, dal proprio dispositivo scollegato dagli altri, aggiunge una spesa pagata da sé
+  let states = ids.map((id, k) => addSharedExpense(base, { payer: id, amount: 10 + k, description: `Spesa di ${names[k]}` }));
+
+  // due dispositivi modificano LO STESSO importo (quello di "Io") in momenti diversi:
+  // deve vincere sempre l'ultimo, ovunque il messaggio arrivi. Device 5 deve prima
+  // AVERE ricevuto quella spesa via sync (come nella realtà: non puoi modificare una
+  // spesa che non ti è ancora arrivata), poi la modifica con la VERA editExpense (che
+  // ricalcola le quote — sovrascrivere solo "amount" a mano romperebbe l'invariante
+  // saldo-zero senza che sia colpa del motore, solo della simulazione).
+  const originalExpense = states[0].expenses[0];
+  const expenseId = originalExpense.id;
+  const d0 = editExpense(states[0], expenseId, { amount: 99 });
+  const laterEdit = d0.expenses.find(e => e.id === expenseId).updatedAt + 1000;
+  states[0] = d0;
+  let d5 = editExpense({ ...states[5], expenses: [...states[5].expenses, originalExpense] }, expenseId, { amount: 50 });
+  states[5] = { ...d5, expenses: d5.expenses.map(e => e.id === expenseId ? { ...e, updatedAt: laterEdit } : e) };
+
+  const final = assertAllConverge(states, 'spese e modifiche di importo di 10 persone');
+  assert.equal(final.expenses.length, 10, 'una spesa a testa, nessuna persa né duplicata dal sync');
+  assert.equal(final.expenses.find(e => e.id === expenseId).amount, 50, 'vince la modifica più recente, indipendentemente da chi la riceve per primo');
+  const bal = computeBalances(final);
+  const sum = round2sum(bal);
+  assert.ok(Math.abs(sum) < 0.01, `il saldo di 10 persone resta a somma zero anche con modifiche concorrenti (somma=${sum})`);
+});
+
+function round2sum(bal) { return Object.values(bal).reduce((s, v) => s + v, 0); }
+
+test('SIMULAZIONE LIVE: due dispositivi rinominano il gruppo in contemporanea → vince il più recente ovunque converga', () => {
+  const base = createGroup({ name: 'Gruppo senza nome', members: ['Io', 'Mattia'] });
+  const a = renameGroup(base, 'Weekend a Roma');
+  const b = { ...base, name: 'Weekend al mare', nameAt: (a.nameAt || 0) + 1000 };
+  const final = assertAllConverge([a, b], 'rename concorrente');
+  assert.equal(final.name, 'Weekend al mare', 'vince il rename più recente, indipendentemente da chi lo riceve prima');
+});
+
+test('SIMULAZIONE LIVE COMPLETA (10 persone): ingresso + spese + modifiche + rename, tutti insieme, gossip casuale → un solo risultato finale per tutti', () => {
+  // Parte 1: 10 persone entrano nello stesso gruppo dal link, come nel primo test.
+  let seed = createGroup({ name: 'Vacanza', members: ['Io', 'Mattia', 'Francesca'] });
+  seed = claimMember(seed, 'm0', 'device-0');
+  const invite = encodeGroupInvite(seed);
+  const states = [seed];
+  states.push(claimMember(decodeGroupShare(invite), 'm1', 'device-1'));
+  states.push(claimMember(decodeGroupShare(invite), 'm2', 'device-2'));
+  const extra = ['Anna', 'Bea', 'Carlo', 'Dario', 'Elisa', 'Fabio', 'Giulia'];
+  extra.forEach((name, k) => {
+    const deviceId = `device-${k + 3}`;
+    let g = decodeGroupShare(invite);
+    const newId = `m_${deviceId}_${k}`;
+    g = { ...g, members: [...g.members, { id: newId, name }] };
+    g = claimMember(g, newId, deviceId);
+    states.push(g);
+  });
+
+  // Parte 2: ogni dispositivo, DOPO essere entrato ma PRIMA di sincronizzare con
+  // gli altri, aggiunge una propria spesa (come farebbe davvero appena entra).
+  states.forEach((g, i) => {
+    const myId = myMemberId(g, `device-${i}`);
+    states[i] = addSharedExpense(g, { payer: myId, amount: 5 * (i + 1), description: `Spesa ${i}` });
+  });
+
+  // Parte 3: due dispositivi diversi modificano la STESSA spesa (quella di device-0)
+  // in momenti diversi, e un terzo dispositivo rinomina il gruppo. Device 7 deve
+  // prima avere una copia sincronizzata della spesa di device-0 prima di poterla
+  // modificare lui stesso (come nella realtà: non modifichi ciò che non hai ancora),
+  // e la modifica passa dalla VERA editExpense (ricalcola le quote, non solo "amount").
+  const targetExpense = states[0].expenses[0];
+  const targetExpenseId = targetExpense.id;
+  states[0] = editExpense(states[0], targetExpenseId, { amount: 12 });
+  const t1 = states[0].expenses.find(e => e.id === targetExpenseId).updatedAt + 500;
+  let d7 = editExpense({ ...states[7], expenses: [...states[7].expenses, targetExpense] }, targetExpenseId, { amount: 40 });
+  states[7] = { ...d7, expenses: d7.expenses.map(e => e.id === targetExpenseId ? { ...e, updatedAt: t1 } : e) };
+  states[3] = renameGroup(states[3], 'Vacanza a Napoli');
+
+  // Parte 4: gossip completo in ordine casuale e diverso per ognuno dei 10.
+  const final = assertAllConverge(states, 'scenario combinato a 10 persone (ingresso + spese + modifiche + rename)');
+
+  assert.equal(final.members.length, 10, 'tutti e 10 presenti');
+  assert.equal(new Set(final.members.map(m => m.id)).size, 10, 'nessuna collisione');
+  assert.equal(final.expenses.length, 10, 'una spesa a testa, nessuna persa nel gossip a 10');
+  assert.equal(final.expenses.find(e => e.id === targetExpenseId).amount, 40, 'vince la modifica più recente su un dispositivo qualsiasi');
+  assert.equal(final.name, 'Vacanza a Napoli', 'il rename si propaga a tutti e 10');
+  const sum = round2sum(computeBalances(final));
+  assert.ok(Math.abs(sum) < 0.01, `saldo a somma zero anche nello scenario combinato (somma=${sum})`);
+});
+
+// ── Stesso scenario combinato, ma GENERICO su N persone: non basta che funzioni
+// a quota 10, deve reggere a qualunque dimensione di gruppo (coppia, gruppetto,
+// gita numerosa) — nessun numero magico nel motore che dipenda da N=10. ────────
+function simulateGroupOfN(n) {
+  // slot iniziali previsti nell'invito: "Io" + metà con nome già noto (in stile
+  // "Mattia"/"Francesca" del bug reale), l'altra metà entra come membro nuovo.
+  const knownSlots = Math.max(0, Math.floor((n - 1) / 2));
+  const initialNames = ['Io', ...Array.from({ length: knownSlots }, (_, i) => `Noto${i}`)];
+  let seed = createGroup({ name: `Gruppo da ${n}`, members: initialNames });
+  seed = claimMember(seed, 'm0', 'device-0');
+  const invite = encodeGroupInvite(seed);
+  // l'invito cresce (giustamente) coi NOMI dei membri, ma MAI con la cronologia
+  // spese: qui si verifica solo che resti proporzionato a N, non che sforni un
+  // numero fisso indipendente dalla dimensione del gruppo.
+  assert.ok(invite.length < 40 * n + 150, `l'invito resta proporzionato a N=${n} (${invite.length} caratteri), non esplode`);
+
+  const states = [seed];
+  for (let i = 1; i <= knownSlots; i++) {
+    states.push(claimMember(decodeGroupShare(invite), `m${i}`, `device-${i}`));
+  }
+  for (let i = knownSlots + 1; i < n; i++) {
+    const deviceId = `device-${i}`;
+    let g = decodeGroupShare(invite);
+    const newId = `m_${deviceId}`;
+    g = claimMember({ ...g, members: [...g.members, { id: newId, name: `Nuovo${i}` }] }, newId, deviceId);
+    states.push(g);
+  }
+  assert.equal(states.length, n, `N=${n}: tutti entrati`);
+
+  // ognuno aggiunge una propria spesa prima di sincronizzare con gli altri
+  states.forEach((g, i) => {
+    const myId = myMemberId(g, `device-${i}`);
+    states[i] = addSharedExpense(g, { payer: myId, amount: 3 + i, description: `Spesa ${i}` });
+  });
+
+  // due dispositivi (0 e l'ultimo) modificano la stessa spesa di device-0 in momenti
+  // diversi; se n===1 non c'è nessun "ultimo" diverso da 0, quindi si salta il conflitto
+  let targetExpenseId = null;
+  if (n > 1) {
+    const targetExpense = states[0].expenses[0];
+    targetExpenseId = targetExpense.id;
+    states[0] = editExpense(states[0], targetExpenseId, { amount: 77 });
+    const later = states[0].expenses.find(e => e.id === targetExpenseId).updatedAt + 750;
+    const last = n - 1;
+    const dLast = editExpense({ ...states[last], expenses: [...states[last].expenses, targetExpense] }, targetExpenseId, { amount: 33 });
+    states[last] = { ...dLast, expenses: dLast.expenses.map(e => e.id === targetExpenseId ? { ...e, updatedAt: later } : e) };
+  }
+
+  const final = assertAllConverge(states, `scenario combinato a N=${n} persone`);
+  assert.equal(final.members.length, n, `N=${n}: nessuno perso nel sync`);
+  assert.equal(new Set(final.members.map(m => m.id)).size, n, `N=${n}: nessuna collisione di id`);
+  assert.equal(final.expenses.length, n, `N=${n}: una spesa a testa, nessuna persa/duplicata`);
+  if (targetExpenseId) {
+    assert.equal(final.expenses.find(e => e.id === targetExpenseId).amount, 33, `N=${n}: vince la modifica più recente`);
+  }
+  const sum = round2sum(computeBalances(final));
+  assert.ok(Math.abs(sum) < 0.01, `N=${n}: saldo a somma zero (somma=${sum})`);
+}
+
+for (const n of [2, 3, 5, 8, 12, 15, 20]) {
+  test(`SIMULAZIONE LIVE generica: gruppo da ${n} persone, ingresso + spese + modifica concorrente + gossip casuale converge sempre`, () => {
+    simulateGroupOfN(n);
+  });
+}

@@ -236,6 +236,7 @@
     .save-btn { margin: 0.5rem 1rem; width: calc(100% - 2rem); min-height: 3.5rem; border-radius: 1.2rem; background: var(--apex-gradient); color: white; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); box-shadow: var(--glow-primary); flex-shrink: 0; padding: 0.5rem;}
     .save-btn:active { transform: scale(0.96); box-shadow: none; }
     .save-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; filter: grayscale(1); }
+    #join-go:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; filter: grayscale(1); pointer-events: none; }
     .save-btn.danger-friction { background: var(--danger-gradient); box-shadow: var(--glow-danger); animation: pulseDanger 1.2s infinite; }
     @keyframes pulseDanger { 0% { box-shadow: 0 0 0 0 rgba(225,29,72,0.5); } 70% { box-shadow: 0 0 0 20px rgba(225,29,72,0); } 100% { box-shadow: 0 0 0 0 rgba(225,29,72,0); } }
 
@@ -686,6 +687,11 @@
     /* Mentre il cerchio è attivo, nessun'altra transizione di colore deve
        muoversi in parallelo — un solo movimento, non due sovrapposti. */
     html.vt-active, html.vt-active body, html.vt-active .card, html.vt-active .theme-fade { transition: none !important; }
+    /* Scelta "chi sei" all'ingresso in un gruppo condiviso: feedback chiaro
+       su quale slot è stato scelto, stesso linguaggio dei chip periodo/tipo
+       già usati altrove nell'app. */
+    .join-who-chip { transition: all var(--spring-fast, .2s ease); }
+    .join-who-chip.active { border-color: var(--primary) !important; background: color-mix(in srgb, var(--primary) 16%, transparent) !important; color: var(--primary) !important; }
       #import-progress, #pdf-progress-overlay, #ota-overlay { padding-top: env(safe-area-inset-top, 0px); }
     }
     /* I modali salgono dal basso: rispettano la home-indicator (già via
@@ -730,6 +736,32 @@
     @keyframes joinPop { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
     .join-badge { animation: joinBadge 0.7s ease-out 0.15s both; }
     @keyframes joinBadge { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+
+    /* Chip "chi sei tu" nell'ingresso al gruppo: check-icona che compare invece
+       del solo cambio colore del bordo — lo stesso principio di feedback
+       immediato del resto dell'app (icona che cambia forma, non solo tinta). */
+    .join-who-chip .join-who-check { display: inline-block; width: 0; height: 0.85em; vertical-align: -0.1em; opacity: 0; transform: scale(0.4); transition: width .2s ease, opacity .2s ease, transform .2s cubic-bezier(.34,1.56,.64,1); overflow: hidden; }
+    .join-who-chip.active .join-who-check { width: 0.85em; opacity: 1; transform: scale(1); margin-right: .3em; }
+
+    /* "Insieme" (divisione spese): persone/spese entrano a scaglione come le
+       transazioni (.tx-in), stessa disciplina — non una novità isolata. */
+    @keyframes splitRowIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .split-rows-in > .split-row { animation: splitRowIn .38s cubic-bezier(.22,1,.36,1) both; }
+    .split-rows-in > .split-row:nth-child(1) { animation-delay: .02s; }
+    .split-rows-in > .split-row:nth-child(2) { animation-delay: .05s; }
+    .split-rows-in > .split-row:nth-child(3) { animation-delay: .08s; }
+    .split-rows-in > .split-row:nth-child(4) { animation-delay: .11s; }
+    .split-rows-in > .split-row:nth-child(5) { animation-delay: .14s; }
+    .split-rows-in > .split-row:nth-child(6) { animation-delay: .17s; }
+    .split-rows-in > .split-row:nth-child(n+7) { animation-delay: .2s; }
+
+    /* Sync LIVE del gruppo: quando arriva un aggiornamento REALE da un altro
+       dispositivo mentre il pannello è già aperto, il blocco cambiato si
+       illumina un istante — il toast da solo non "si sente" mentre si guarda
+       lo schermo. Un solo passaggio poi torna trasparente: un segnale, non un
+       bordo permanente che distrae dal contenuto. */
+    @keyframes splitSyncGlow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); } 35% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 16%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    .split-sync-pulse { animation: splitSyncGlow 1.3s cubic-bezier(.22,1,.36,1) both; border-radius: 1rem; }
 
     /* Rispetta chi ha ridotto le animazioni (vestibolare / accessibilità). */
     @media (prefers-reduced-motion: reduce) {

@@ -149,6 +149,13 @@ const VaultDAO = {
     },
     savingsGoals: [],
     splitGroups: [], // divisione spese P2P (src/split/split-engine.js): gruppi/spese condivise, additivo
+    // Identità persistente di QUESTO dispositivo (mai il nome di una persona,
+    // solo un id tecnico): serve a claimMember/myMemberId in split-engine.js
+    // per sapere quale membro di un gruppo condiviso è "questo telefono",
+    // così un dispositivo non può mai scegliere di "essere" un altro membro
+    // già rivendicato (es. il creatore del gruppo). Generato una sola volta:
+    // dopo il primo save() il valore persistito vince sempre su questo default.
+    deviceId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `device-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
     // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,
     // additivo, mai retroattivo su tx esistenti.

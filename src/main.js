@@ -45,7 +45,7 @@ import { selectableCountries as selectableInvoiceCountries } from './invoice/cou
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers } from './split/split-engine.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
@@ -839,6 +839,22 @@ function renderMeshStatus() {
   const merges = ledger.filter(e => e.accepted).length;
   const rejected = ledger.length - merges;
   el.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 align-middle"></span>${peers} dispositivo/i fidato/i collegato/i · modello su <b>${examples}</b> esempi · ${merges} fusioni accettate${rejected > 0 ? `, ${rejected} rifiutate (anti-manomissione)` : ''}.`;
+  updateSplitMeshDot();
+}
+
+// Stesso pallino di stato, ma dentro "Insieme": prima si vedeva SOLO nelle
+// impostazioni del Vault — chi stava dividendo le spese non aveva modo di
+// sapere se il sync live fosse davvero attivo finché non arrivava un toast.
+// Bug reale di intuitività, non solo estetico: "sembra che non stia
+// succedendo niente" era la lamentela, e in parte aveva ragione — lo stato
+// c'era ma era invisibile da qui.
+function updateSplitMeshDot() {
+  const el = document.getElementById('split-mesh-status');
+  if (!el) return;
+  const peers = window.momentumMeshNode?.peers?.size || 0;
+  el.innerHTML = peers > 0
+    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${peers} dispositivo${peers === 1 ? '' : 'i'} collegat${peers === 1 ? 'o' : 'i'} in diretta`
+    : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-[var(--on-surface-secondary)] opacity-50"></span>Nessun collegamento diretto — il link basta comunque`;
 }
 
 // Web Share Target (Android): il SW ha parcheggiato lo screenshot condiviso
@@ -2503,13 +2519,15 @@ window.openSplitExpense = (prefill = {}) => {
       showToast(`Divisione salvata. La tua parte (${eur(mine)}) è nelle spese.`, 'success');
       renderDashboard(); renderAnalysis({ skipHeavyForecast: true });
     });
-    $('#sp-share')?.addEventListener('click', () => {
+    $('#sp-share')?.addEventListener('click', async () => {
       if (total() <= 0 || state.people.length < 2) { showToast('Metti almeno un importo e due persone prima di invitare.', 'error'); return; }
       if (!splitValid()) { showToast('Le quote di consumo non tornano al totale.', 'error'); return; }
       const g = buildGroup();
       VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
       VaultDAO.save();
-      window.openShareCode({ code: encodeGroupShare(g), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le vostre spese si uniscono, anche da Paesi diversi, senza server.' });
+      const p2p = await tryCreateP2POffer();
+      _groupInvitePairing = p2p?.pairing || null;
+      window.openShareCode({ code: encodeGroupInvite(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le vostre spese si uniscono, anche da Paesi diversi, senza server.', pairing: _groupInvitePairing });
     });
   };
   render();
@@ -3784,10 +3802,10 @@ window.openRequestPayment = ({ amount = 0, fromName = '', note = '', momentumLin
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">Chiedi ${esc((+amount).toFixed(2).replace('.', ','))} €${fromName ? ` a ${esc(fromName)}` : ''}</h3><p class="card-sub !mb-0">Via ${esc(PAYOUT_LABELS[payout.method])}. Mando io il messaggio pronto — l'amico ${link ? 'tocca il link e paga' : 'paga come gli dici'}.</p></div>
       ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(200px,60vw)">${qr}</div><p class="text-[10px] text-center text-[var(--on-surface-secondary)]">Inquadra per pagare, o manda il messaggio sotto.</p>` : ''}
-      <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[12px] whitespace-pre-line select-all">${esc(message)}</div>
+      <div class="rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-[12px] whitespace-pre-line select-all">${esc(message)}</div>
       <div class="grid grid-cols-2 gap-2">
         <button id="rp-wa" class="btn-action btn-primary py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">WhatsApp</button>
-        <button id="rp-copy" class="py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm active:scale-[0.98] transition-transform">Copia</button>
+        <button id="rp-copy" class="py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-sm active:scale-[0.98] transition-transform">Copia</button>
       </div>
       ${link ? `<button id="rp-open" class="text-[11px] text-[var(--primary)] underline">Apri ${esc(PAYOUT_LABELS[payout.method])}</button>` : ''}
       <button id="rp-change" class="text-[11px] text-[var(--on-surface-secondary)] underline">Cambia come farti pagare</button>
@@ -3812,7 +3830,7 @@ function buildJoinLink(code) {
   return buildShareUrl(VaultDAO.state, location.origin, code, location.pathname);
 }
 
-window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupName = 'la spesa' } = {}) => {
+window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupName = 'la spesa', pairing = null } = {}) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const link = buildJoinLink(code);
   // Il QR ora punta al LINK, non al blob: scansionandolo l'app si apre già sul
@@ -3824,17 +3842,18 @@ window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupNa
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">${esc(title)}</h3><p class="card-sub !mb-0">${esc(sub || 'Manda il link all\'amico: lo tocca e Momentum si apre già sul gruppo. Niente da copiare, niente account, niente server.')}</p></div>
       ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(200px,60vw)">${qr}</div><p class="text-[10px] text-center text-[var(--on-surface-secondary)]">Inquadra il QR per unirti, oppure manda il link qui sotto.</p>` : ''}
-      <div class="flex items-center gap-2 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5">
+      <div class="flex items-center gap-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5">
         <svg class="w-4 h-4 shrink-0 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
         <span class="text-[11px] font-mono truncate flex-1" id="sc-linktext">${esc(link)}</span>
       </div>
       <button id="sc-copy" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Copia il link</button>
       <div class="grid grid-cols-3 gap-2">
-        <button id="sc-wa" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.6 4.7-1.2A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4z"/></svg>WhatsApp</button>
-        <button id="sc-email" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</button>
-        <button id="sc-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Altro…</button>
+        <button id="sc-wa" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.6 4.7-1.2A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4z"/></svg>WhatsApp</button>
+        <button id="sc-email" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</button>
+        <button id="sc-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Altro…</button>
       </div>
-      <details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">Il link non si apre? Usa il codice</summary><textarea readonly class="w-full h-16 mt-2 bg-black/30 border border-[var(--glass-border)] rounded-xl p-2 text-[10px] font-mono select-all" id="sc-code">${esc(code)}</textarea></details>
+      <details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">Il link non si apre? Usa il codice</summary><textarea readonly class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono select-all" id="sc-code">${esc(code)}</textarea></details>
+      ${pairing ? `<details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">Ha risposto? Completa il collegamento diretto (facoltativo)</summary><p class="mt-2 opacity-80">Se ti manda indietro una risposta, incollala qui: le spese si sincronizzeranno da sole quando siete online insieme, senza ri-condividere niente.</p><textarea id="sc-p2p-in" placeholder="Incolla qui la risposta ricevuta…" class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono"></textarea><button id="sc-p2p-go" class="btn-action w-full py-2 mt-2 text-[11px] font-bold rounded-xl">Connetti</button></details>` : ''}
     </div>`);
   // Messaggio BRANDATO Momentum: l'amico capisce cos'è e da chi arriva, e tocca
   // un link (non incolla un blob). Riconoscibile = ci distingue dai concorrenti.
@@ -3843,6 +3862,25 @@ window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupNa
   $('#sc-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'));
   $('#sc-email')?.addEventListener('click', () => { window.location.href = `mailto:?subject=${encodeURIComponent(`Unisciti a «${groupName}» su Momentum`)}&body=${encodeURIComponent(msg)}`; });
   $('#sc-share')?.addEventListener('click', async () => { try { if (navigator.share) await navigator.share({ title: 'Momentum', text: msg }); else { navigator.clipboard?.writeText(link); showToast('Link copiato.', 'info'); } } catch (_) { } });
+  $('#sc-p2p-go')?.addEventListener('click', async (e) => {
+    const answerCode = $('#sc-p2p-in')?.value?.trim();
+    if (!answerCode || !pairing) { showToast('Incolla prima la risposta ricevuta.', 'error'); return; }
+    const btn = e.currentTarget;
+    try {
+      const channel = await pairing.acceptAnswer(answerCode);
+      meshAdoptChannel(pairing.pc, channel);
+      showToast('Collegamento diretto attivo: le spese si sincronizzeranno da sole quando siete online insieme.', 'success');
+      haptic('heavy');
+      // stessa disciplina "un solo battito, poi torna normale" di .join-badge:
+      // il bottone conferma con un'icona coerente col resto dell'app (SVG a
+      // tratto, mai emoji) invece di sparire e basta nel testo del toast.
+      if (btn) {
+        btn.innerHTML = '<svg class="w-4 h-4 inline-block align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Connesso';
+        btn.classList.add('join-badge');
+        btn.disabled = true;
+      }
+    } catch (_) { showToast('Risposta non valida o scaduta.', 'error'); }
+  });
 };
 
 // ── RICEVI UN GRUPPO: incolla il codice ricevuto → merge conflict-free nell'elenco
@@ -3851,7 +3889,7 @@ window.receiveSplitGroup = () => {
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">Ricevi un gruppo</h3><p class="card-sub !mb-0">Incolla il codice che ti ha mandato un amico (WhatsApp/Email): unirai le vostre spese, senza server.</p></div>
-      <textarea id="rg-code" class="w-full h-24 bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[11px] font-mono" placeholder="Incolla qui il codice (inizia con MSPLIT1:...)"></textarea>
+      <textarea id="rg-code" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-[11px] font-mono" placeholder="Incolla qui il codice (inizia con MSPLIT1:...)"></textarea>
       <button id="rg-merge" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Unisci il gruppo</button>
     </div>`);
   $('#rg-merge')?.addEventListener('click', () => {
@@ -3872,6 +3910,13 @@ window.openJoinConfirm = (g) => {
   const already = (VaultDAO.state.splitGroups || []).find(x => x.id === g.id);
   const total = (g.expenses || []).reduce((s, e) => s + (+e.amount || 0), 0);
   const names = (g.members || []).map(m => m.name).filter(Boolean);
+  // Chi sono io in questo gruppo? Se questo dispositivo ha già uno slot (qui
+  // o nella copia locale già salvata) non richiediamolo di nuovo — solo la
+  // PRIMA volta si sceglie, mai un attrito ripetuto ad ogni sync successivo.
+  const deviceId = VaultDAO.state.deviceId;
+  const iAmAlready = myMemberId(g, deviceId) || (already && myMemberId(already, deviceId));
+  const freeSlots = unclaimedMembers(g);
+  const needsIdentity = !iAmAlready;
   openModal(`
     <div class="flex flex-col gap-4 p-3 sm:p-5 lg:p-0 join-pop">
       <div class="flex flex-col items-center text-center gap-1.5">
@@ -3882,16 +3927,73 @@ window.openJoinConfirm = (g) => {
         <h3 class="text-lg font-black leading-tight">${already ? 'Aggiorna' : 'Unisciti a'} «${esc(g.name)}»</h3>
         <p class="card-sub !mb-0">${names.length ? `Con ${names.slice(0, 4).map(esc).join(', ')}${names.length > 4 ? ` e altri ${names.length - 4}` : ''}.` : ''} ${(g.expenses || []).length ? `${(g.expenses || []).length} spes${(g.expenses || []).length === 1 ? 'a' : 'e'} · ${eur(total)} in tutto.` : 'Ancora nessuna spesa.'}</p>
       </div>
-      <button id="join-go" class="btn-action btn-primary w-full py-3.5 font-black rounded-xl">${already ? 'Unisci le spese' : 'Entra nel gruppo'}</button>
-      <p class="text-[10px] text-center text-[var(--on-surface-secondary)] opacity-70">Resta tutto sul tuo telefono. Nessun account, nessun server — le vostre spese si uniscono da sole.</p>
+      ${needsIdentity ? `
+      <div>
+        <p class="text-[11px] font-bold text-center mb-2">Chi sei tu, tra queste persone?</p>
+        <div id="join-who-chips" class="flex flex-wrap justify-center gap-2">
+          ${freeSlots.map(m => `<button type="button" data-who="${esc(m.id)}" class="join-who-chip px-4 py-2 rounded-full border border-[var(--outline)] bg-[var(--surface-elevated)] text-[13px] font-bold"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${esc(m.name)}</button>`).join('')}
+          <button type="button" id="join-who-new" class="join-who-chip px-4 py-2 rounded-full border border-dashed border-[var(--outline)] text-[13px] font-bold text-[var(--on-surface-secondary)]"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Non ci sono, aggiungimi</button>
+        </div>
+        <input id="join-who-name" type="text" placeholder="Il tuo nome…" class="hidden modal-input mt-2 w-full" maxlength="30" />
+      </div>` : ''}
+      <button id="join-go" class="btn-action btn-primary w-full py-3.5 font-black rounded-xl" ${needsIdentity ? 'disabled' : ''}>${already ? 'Unisci le spese' : 'Entra nel gruppo'}</button>
+      <p class="text-[10px] text-center text-[var(--on-surface-secondary)] opacity-70">Resta tutto sul tuo telefono. Nessun account, nessun server — le vostre spese si uniscono da sole.${needsIdentity ? ' Il tuo slot resta solo tuo: nessun altro dispositivo potrà mai scegliere di essere te.' : ''}</p>
     </div>`);
+
+  let pickedMemberId = null; // slot esistente scelto (null = "aggiungi il mio nome")
+  const joinBtn = $('#join-go');
+  const enableJoin = () => { if (joinBtn) joinBtn.disabled = false; };
+  const disableJoin = () => { if (joinBtn) joinBtn.disabled = true; };
+
+  document.querySelectorAll('.join-who-chip[data-who]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      pickedMemberId = chip.dataset.who;
+      $('#join-who-name')?.classList.add('hidden');
+      document.querySelectorAll('.join-who-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      enableJoin();
+    });
+  });
+  $('#join-who-new')?.addEventListener('click', () => {
+    pickedMemberId = null;
+    document.querySelectorAll('.join-who-chip').forEach(c => c.classList.remove('active'));
+    $('#join-who-new')?.classList.add('active');
+    const nameInput = $('#join-who-name');
+    nameInput?.classList.remove('hidden');
+    nameInput?.focus();
+    disableJoin();
+  });
+  $('#join-who-name')?.addEventListener('input', (e) => {
+    if (e.target.value.trim()) enableJoin();
+    else disableJoin();
+  });
+
   $('#join-go')?.addEventListener('click', () => {
-    VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], g);
+    let incoming = g;
+    if (needsIdentity) {
+      if (pickedMemberId) {
+        incoming = claimMember(incoming, pickedMemberId, deviceId);
+      } else {
+        const myName = $('#join-who-name')?.value?.trim();
+        if (!myName) { showToast('Scegli chi sei prima di entrare.', 'error'); return; }
+        const newId = `m_${deviceId.slice(0, 6)}_${Date.now().toString(36)}`;
+        incoming = { ...incoming, members: [...incoming.members, { id: newId, name: myName }] };
+        incoming = claimMember(incoming, newId, deviceId);
+      }
+    }
+    VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], incoming);
     VaultDAO.save();
     haptic('heavy');
     closeModal();
     showToast(already ? `Spese di «${g.name}» unite.` : `Sei nel gruppo «${g.name}».`, 'success');
     if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
+    // Se l'invito portava anche un'offerta P2P (vedi encodeGroupInvite), proviamo
+    // ad aprire il canale diretto in background: non blocca l'ingresso (richiede
+    // qualche secondo per l'ICE gathering), e se non va a buon fine il gruppo
+    // resta comunque unito — è solo un'accelerazione facoltativa del sync live.
+    if (g.p2p) {
+      tryAutoAcceptP2P(g.p2p).then(answer => { if (answer) offerToSendP2PAnswer(answer, g.name); });
+    }
     // Chi è appena arrivato dal link (attivazione lampo) e non ha ancora
     // personalizzato: dopo aver visto la divisione, il Reveal gli mostra cosa
     // fa il resto di Momentum e offre l'attivazione. Altrimenti apre il gruppo.
@@ -3990,7 +4092,7 @@ function renderSplitForesight(g, names) {
     const when = r.daysUntilNext <= 0 ? 'attesa ora' : `tra ~${r.daysUntilNext} giorni`;
     const payer = predictExpenseShape(g, r.description);
     const who = payer?.payer ? ` · di solito paga <b>${esc(names[payer.payer] || '?')}</b>` : '';
-    return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] border-b border-[var(--glass-border)] last:border-0">
+    return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] border-b border-[var(--outline)] last:border-0">
       <span class="min-w-0"><b>${esc(r.description)}</b> · <span class="text-[var(--on-surface-secondary)]">${eur(r.typicalAmount)} ${when}${who}</span></span>
       <span class="shrink-0 text-[11px] text-[var(--on-surface-secondary)]">${Math.round(r.confidence * 100)}%</span>
     </div>`;
@@ -4020,48 +4122,61 @@ window.openSplitGroup = (openId = null) => {
   let currentId = openId;
   const form = { payer: null, amount: '', desc: '', involved: null }; // involved=null → tutti
 
-  const render = () => {
+  const render = (liveSync = false) => {
     const g = currentId ? groups().find(x => x.id === currentId) : null;
-    g ? renderDetail(g) : renderList();
+    g ? renderDetail(g, liveSync) : renderList(liveSync);
+    updateSplitMeshDot();
   };
   // Hook per il sync LIVE mesh: se questo pannello è aperto quando arriva un
   // aggiornamento da un altro dispositivo, si ridisegna SUBITO (non solo un
   // toast). Un solo pannello alla volta è aperto per costruzione dell'app.
-  window.__splitLiveRefresh = render;
+  window.__splitLiveRefresh = () => render(true);
 
-  const renderList = () => {
+  const renderList = (liveSync = false) => {
     const gs = groups();
     const rows = gs.map(g => {
       const total = (g.expenses || []).reduce((s, e) => s + e.amount, 0);
-      return `<button data-open="${g.id}" class="w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--glass-border)] bg-black/20 text-left">
+      return `<button data-open="${g.id}" class="split-row w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-left">
         <span class="min-w-0"><span class="font-bold text-sm block truncate">${esc(g.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${g.members.length} persone · ${(g.expenses || []).length} spese</span></span>
         <span class="font-mono font-black text-sm shrink-0">${eur(total)}</span></button>`;
     }).join('');
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-        <div><h3 class="text-base font-black">Insieme — i tuoi gruppi</h3><p class="card-sub !mb-0">Cena, vacanza, casa: crea un gruppo, aggiungi le spese di tutti e vedi chi deve cosa a chi. Senza account, senza limiti di persone.</p></div>
-        ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun gruppo ancora. Creane uno qui sotto.</p>'}
+        <div><h3 class="text-base font-black">Insieme — i tuoi gruppi</h3><p class="card-sub !mb-0">Cena, vacanza, casa: crea un gruppo, aggiungi le spese di tutti e vedi chi deve cosa a chi. Senza account, senza limiti di persone.</p><p id="split-mesh-status" class="text-[10px] text-[var(--on-surface-secondary)] mt-1 inline-flex items-center gap-1.5"></p></div>
+        <div class="flex flex-col gap-2 split-rows-in${liveSync ? ' split-sync-pulse' : ''}">${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun gruppo ancora. Creane uno qui sotto.</p>'}</div>
         <button id="sg-new" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuovo gruppo</button>
-        <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-[12px] text-[var(--on-surface-secondary)]">Ricevi un gruppo da un amico</button>
+        <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[12px] text-[var(--on-surface-secondary)]">Ricevi un gruppo da un amico</button>
       </div>`);
     document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { currentId = b.dataset.open; render(); }));
     $('#sg-new')?.addEventListener('click', () => {
       let g = createGroup({ name: 'Nuovo gruppo', members: ['Io'] });
+      // Il creatore rivendica SUBITO il proprio slot ("Io") con l'id di questo
+      // dispositivo: da qui in poi nessun altro dispositivo che entra dal
+      // link potrà mai scegliere di essere "Io" — vedi claimMember.
+      g = claimMember(g, g.members[0].id, VaultDAO.state.deviceId);
       persist(g); currentId = g.id; render();
     });
     $('#sg-receive')?.addEventListener('click', () => window.receiveSplitGroup());
   };
 
-  const renderDetail = (g) => {
+  const renderDetail = (g, liveSync = false) => {
     const names = nameById(g);
     const members = g.members;
     const bal = computeBalances(g);
     const { transfers } = settlementView(g);
-    if (!form.payer || !members.some(m => m.id === form.payer)) form.payer = members[0]?.id;
+    // Il default di "chi paga" era SEMPRE il primo membro dell'array — per chi
+    // entra in un gruppo dopo la creazione (mai in posizione 0), il form si
+    // apriva con il CREATORE preselezionato come pagante invece che se stesso.
+    // Ora parte dal proprio slot rivendicato (myMemberId), quando esiste; resta
+    // comunque liberamente modificabile: registrare che ha pagato qualcun
+    // altro è un caso reale e legittimo, qui si tocca solo il default.
+    if (!form.payer || !members.some(m => m.id === form.payer)) {
+      form.payer = myMemberId(g, VaultDAO.state.deviceId) || members[0]?.id;
+    }
     const involved = form.involved || members.map(m => m.id);
 
     const expRows = (g.expenses || []).map(e => `
-      <div class="flex items-center justify-between gap-2 py-1.5 border-b border-[var(--glass-border)] last:border-0">
+      <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0">
         <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}</span>
         <button data-delexp="${e.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
       </div>`).join('');
@@ -4073,35 +4188,39 @@ window.openSplitGroup = (openId = null) => {
       const act = t.toName === 'Io' ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
         : t.fromName === 'Io' ? `<button data-tell="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
       return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px]">${line}${act}</div>`;
-    }).join('') || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Tutto in pari 🎉</p>';
+    }).join('') || `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+      <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      <span class="text-[12px] font-bold text-emerald-400">Tutto in pari — nessuno deve niente a nessuno</span>
+    </div>`;
 
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div class="flex items-center gap-2">
-          <button id="sg-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--glass-border)] bg-black/20 inline-flex items-center justify-center">‹</button>
+          <button id="sg-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
           <input id="sg-name" value="${esc(g.name)}" class="flex-1 bg-transparent text-base font-black min-w-0 outline-none" />
         </div>
-        <div>
+        <p id="split-mesh-status" class="text-[10px] text-[var(--on-surface-secondary)] -mt-1.5 inline-flex items-center gap-1.5"></p>
+        <div class="${liveSync ? 'split-sync-pulse' : ''}">
           <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Persone (${members.length}) · saldo</div>
-          <div class="flex flex-col gap-1">
-            ${members.map(m => `<div class="flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-black/20 border border-[var(--glass-border)]"><span class="font-bold">${esc(m.name)}</span><span class="font-mono ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
+          <div class="flex flex-col gap-1 split-rows-in">
+            ${members.map(m => `<div class="split-row flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--outline)]"><span class="font-bold">${esc(m.name)}</span><span class="font-mono ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
           </div>
           <div class="flex flex-wrap gap-2 mt-2">
-            ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--glass-border)] text-[var(--on-surface-secondary)]">+ ${esc(f.name)}</button>`).join('')}
-            <input id="sg-newmember" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi persona" />
+            ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--outline)] text-[var(--on-surface-secondary)]">+ ${esc(f.name)}</button>`).join('')}
+            <input id="sg-newmember" class="text-[12px] bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi persona" />
           </div>
         </div>
-        ${(g.expenses || []).length ? `<div class="card p-3"><div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Spese (${g.expenses.length})</div>${expRows}</div>` : ''}
+        ${(g.expenses || []).length ? `<div class="card p-3${liveSync ? ' split-sync-pulse' : ''}"><div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Spese (${g.expenses.length})</div><div class="split-rows-in">${expRows}</div></div>` : ''}
         ${renderSplitForesight(g, names)}
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi una spesa</div>
-          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${esc(m.name)} paga</button>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(m.name)} paga</button>`).join('')}</div>
           <div class="flex gap-2">
-            <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto €" />
-            <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="Per cosa" />
+            <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto €" />
+            <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="Per cosa" />
           </div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">Chi partecipa a questa spesa (tocca per escludere):</div>
-          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--glass-border)] text-slate-500 line-through'}">${esc(m.name)}</button>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(m.name)}</button>`).join('')}</div>
           <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">Aggiungi la spesa</button>
         </div>
         <div class="card p-3">
@@ -4143,7 +4262,11 @@ window.openSplitGroup = (openId = null) => {
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
     document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => { let mLink = ''; try { mLink = buildJoinLink(encodeGroupShare(g)); } catch (_) {} window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: g.name, momentumLink: mLink }); }));
     document.querySelectorAll('[data-tell]').forEach(b => b.addEventListener('click', async () => { const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tell)} per ${g.name}. Mandami l'IBAN così ti giro il bonifico!`; try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { } }));
-    $('#sg-share')?.addEventListener('click', () => window.openShareCode({ code: encodeGroupShare(g), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le spese si uniscono, anche da un altro Paese, senza server.' }));
+    $('#sg-share')?.addEventListener('click', async () => {
+      const p2p = await tryCreateP2POffer();
+      _groupInvitePairing = p2p?.pairing || null;
+      window.openShareCode({ code: encodeGroupInvite(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le spese si uniscono, anche da un altro Paese, senza server.', pairing: _groupInvitePairing });
+    });
     $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
   };
 
@@ -5921,6 +6044,64 @@ function meshAdoptChannel(pc, channel) {
   const attach = () => momentumMeshNode.addDirectPeer('peer-' + Date.now(), pc, channel);
   if (channel.readyState === 'open') attach();
   else channel.onopen = attach;
+}
+
+// ==========================================
+// PAIRING P2P INTEGRATO NELL'INVITO DI GRUPPO
+// Prima il collegamento diretto viveva SOLO nella schermata separata
+// "Sincronizza dispositivi": bisognava condividere il link del gruppo E POI,
+// a parte, scambiarsi altri due codici a mano. Qui l'offerta WebRTC viaggia
+// nello STESSO link/QR dell'invito (encodeGroupInvite con p2pOffer) e la
+// risposta si incolla dentro la stessa schermata "Invita" — un solo flusso.
+// Onestà: resta un tentativo BEST-EFFORT. Se chi entra apre il link quando
+// il creatore ha già chiuso la scheda (l'RTCPeerConnection in memoria non
+// sopravvive a un reload), l'offerta è semplicemente scaduta: il gruppo
+// entra comunque via link, e la sincronizzazione resta quella già
+// funzionante (merge CRDT al prossimo scambio di codice/QR, o mesh se poi
+// entrambi si collegano da vivi). Nessuna funzionalità dipende da questo.
+// ==========================================
+let _groupInvitePairing = null;
+
+async function tryCreateP2POffer() {
+  try {
+    if (typeof RTCPeerConnection === 'undefined') return null;
+    const pairing = new PairingSignaling();
+    const offer = await pairing.createInvite();
+    return { pairing, offer };
+  } catch (_) { return null; }
+}
+
+async function tryAutoAcceptP2P(offerCode) {
+  try {
+    if (typeof RTCPeerConnection === 'undefined' || !offerCode) return null;
+    const pairing = new PairingSignaling();
+    const answer = await pairing.acceptInvite(offerCode, channel => meshAdoptChannel(pairing.pc, channel));
+    return answer;
+  } catch (_) { return null; }
+}
+
+// Chi è appena entrato mostra questa risposta da rimandare a chi l'ha invitato
+// (stesso schema copia/WhatsApp di openShareCode, ma per il codice di risposta):
+// quando l'altro la incolla nella sua schermata "Invita", il canale si apre.
+function offerToSendP2PAnswer(answerCode, groupName) {
+  openModal(`
+    <div class="p-4 space-y-3 text-center join-pop">
+      <div class="w-12 h-12 mx-auto rounded-2xl grid place-items-center bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] join-badge">
+        <svg class="w-6 h-6 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+      </div>
+      <h3 class="text-base font-black">Collegamento diretto pronto</h3>
+      <p class="text-[12px] text-[var(--on-surface-secondary)]">Manda questa risposta a chi ti ha invitato: da quando la incolla, le vostre spese si sincronizzano da sole quando siete online insieme, senza ri-condividere il link.</p>
+      <textarea readonly class="w-full h-16 bg-black/30 border border-[var(--glass-border)] rounded-xl p-2 text-[10px] font-mono select-all">${answerCode}</textarea>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="p2p-copy" class="btn-action py-2.5 text-[12px] font-bold rounded-xl">Copia</button>
+        <button id="p2p-wa" class="btn-action py-2.5 text-[12px] font-bold rounded-xl">WhatsApp</button>
+      </div>
+      <button id="p2p-skip" class="w-full py-2 text-[11px] text-[var(--on-surface-secondary)]">Salta, va bene anche senza</button>
+    </div>`);
+  const msg = `Risposta per collegare Momentum su «${groupName}»:\n${answerCode}`;
+  $('#p2p-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(answerCode); showToast('Risposta copiata.', 'success'); haptic('light'); closeModal(); });
+  $('#p2p-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'));
+  $('#p2p-skip')?.addEventListener('click', () => closeModal());
 }
 
 window.openMeshPairing = () => {

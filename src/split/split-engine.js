@@ -261,12 +261,59 @@ export function suggestSettleTiming({ amountDue, currentAvailable = null, nextIn
 // importa chi condivide per primo, ne' quante volte — il risultato converge.
 // E' l'equivalente proprietario del cloud di Splitwise, ma "il cloud sei tu".
 
-// Unione di liste per `id` (mantiene la prima occorrenza; le spese sono immutabili).
-function unionById(a = [], b = []) {
-  const seen = new Map();
-  for (const x of a) seen.set(x.id, x);
-  for (const x of b) if (!seen.has(x.id)) seen.set(x.id, x);
-  return [...seen.values()];
+// Unione membri con RICONCILIAZIONE del "claim" (quale dispositivo è quel
+// membro — vedi claimMember più sotto): una union semplice terrebbe sempre
+// la prima copia vista di un id, quindi un claim fatto DOPO che il gruppo
+// era già stato condiviso sparirebbe al primo merge. Regola: un membro
+// CLAIMATO batte uno non claimato;
+// tra due claim diversi sullo stesso id (due dispositivi hanno provato a
+// diventare la stessa persona) vince il PRIMO nel tempo (claimedAt) — mai
+// un secondo dispositivo può "rubare" uno slot già preso.
+function mergeMembers(a = [], b = []) {
+  const byId = new Map();
+  const put = (m) => {
+    const prev = byId.get(m.id);
+    if (!prev) { byId.set(m.id, m); return; }
+    if (prev.claimedBy && m.claimedBy) {
+      // entrambi claimati: vince chi ha claimato per primo
+      byId.set(m.id, (+m.claimedAt || 0) < (+prev.claimedAt || 0) ? m : prev);
+    } else if (m.claimedBy && !prev.claimedBy) {
+      byId.set(m.id, m);
+    } // altrimenti prev resta (già claimato, o nessuno dei due lo è)
+  };
+  for (const x of a) put(x);
+  for (const x of b) put(x);
+  return [...byId.values()];
+}
+
+// Rivendica uno slot-membro per QUESTO dispositivo (deviceId persistente,
+// generato una volta e salvato — vedi VaultDAO.state.deviceId). Impedisce
+// che chi entra da un link possa scegliere lo slot "Io" del creatore o
+// quello di un'altra persona già collegata: uno slot già claimato da un
+// ALTRO device non può essere sovrascritto. Ritorna il gruppo invariato se
+// il membro non esiste o è già di un altro dispositivo.
+export function claimMember(group, memberId, deviceId) {
+  const idx = group.members.findIndex(m => m.id === memberId);
+  if (idx === -1) return group;
+  const m = group.members[idx];
+  if (m.claimedBy && m.claimedBy !== deviceId) return group; // già di un altro device
+  if (m.claimedBy === deviceId) return group; // già mio, nessun cambiamento
+  const members = group.members.slice();
+  members[idx] = { ...m, claimedBy: deviceId, claimedAt: Date.now() };
+  return { ...group, members };
+}
+
+// Quale membro (se esiste) QUESTO dispositivo rappresenta in questo gruppo —
+// serve per bloccare "chi paga" al proprio slot invece di un menu libero
+// dove chiunque potrebbe scegliere di essere chiunque altro.
+export function myMemberId(group, deviceId) {
+  return group.members.find(m => m.claimedBy === deviceId)?.id || null;
+}
+
+// Slot ancora liberi (nessun dispositivo li ha rivendicati) — la UI di
+// ingresso mostra SOLO questi come scelta, oltre a "aggiungi il mio nome".
+export function unclaimedMembers(group) {
+  return group.members.filter(m => !m.claimedBy);
 }
 
 // Unione CRDT con LAST-WRITER-WINS per stesso id: le AGGIUNTE si uniscono, le
@@ -309,7 +356,7 @@ export function mergeGroups(a, b) {
     id: a.id,
     name,
     ...(nameAt ? { nameAt } : {}),
-    members: unionById(a.members, b.members),
+    members: mergeMembers(a.members, b.members),
     expenses: unionByIdLWW(a.expenses, b.expenses),
   };
 }
@@ -364,8 +411,29 @@ export const SPLIT_SHARE_PREFIX = 'MSPLIT1:';
 
 // Codice condivisione del gruppo (compatto): lo mandi via WhatsApp/email o lo
 // mostri come QR. Contiene solo il gruppo (nomi/spese), niente dati personali.
+// Usato per "chiedi un pagamento" (un link self-contained, spesso senza
+// rapporto continuativo col destinatario — vuole funzionare da solo anche
+// senza sync P2P successivo).
 export function encodeGroupShare(group) {
   const slim = { id: group.id, name: group.name, members: group.members, expenses: group.expenses };
+  return SPLIT_SHARE_PREFIX + b64encode(JSON.stringify(slim));
+}
+
+// BUG REALE (segnalato dall'utente): invitare qualcuno in un gruppo VISSUTO
+// (decine di spese) generava un link/QR enorme — encodeGroupShare porta
+// l'INTERA cronologia. Un link d'invito serve solo a far entrare la persona
+// nel gruppo (id/nome/membri): le spese arrivano DOPO, via sync P2P live
+// (mesh già esistente, shareSplitGroups/onSplitGroupsReceived), non devono
+// stare nel link. Link sempre corto, sempre un vero link cliccabile e un
+// QR leggibile qualunque sia la storia del gruppo.
+// `p2pOffer` (opzionale): un'offerta WebRTC già pronta (vedi mesh-signaling.js),
+// per aprire un canale diretto tra i due telefoni FIN DALL'ingresso nel gruppo,
+// invece che tramite la schermata separata "Sincronizza dispositivi". Onestà:
+// se chi entra non apre l'app entro la finestra dell'handshake, l'offerta
+// scade — non è un problema, il gruppo entra comunque (il link/QR da solo
+// basta) e la sincronizzazione resta quella già funzionante via merge.
+export function encodeGroupInvite(group, p2pOffer) {
+  const slim = { id: group.id, name: group.name, members: group.members, ...(p2pOffer ? { p2p: p2pOffer } : {}) };
   return SPLIT_SHARE_PREFIX + b64encode(JSON.stringify(slim));
 }
 
@@ -395,7 +463,10 @@ export function decodeGroupShare(code) {
     const s = String(payload ?? code ?? '').trim();
     const body = s.startsWith(SPLIT_SHARE_PREFIX) ? s.slice(SPLIT_SHARE_PREFIX.length) : s;
     const g = JSON.parse(b64decode(body));
-    if (!g || !g.id || !Array.isArray(g.members) || !Array.isArray(g.expenses)) return null;
+    if (!g || !g.id || !Array.isArray(g.members)) return null;
+    // Tollera anche un invito LEGGERO (encodeGroupInvite, senza expenses):
+    // le spese arriveranno via sync P2P dopo l'ingresso, non nel link stesso.
+    if (!Array.isArray(g.expenses)) g.expenses = [];
     return g;
   } catch (_) { return null; }
 }
