@@ -167,7 +167,12 @@ const PredictiveOracle = {
     const dailyExpenses = new Array(60).fill(0);
     const now = Date.now();
     const relevantMonths = [];
-    { const cursor = new Date(); for (let i = 0; i < 3; i++) { relevantMonths.push(monthKey(cursor)); cursor.setMonth(cursor.getMonth() - 1); } }
+    // cursor.setDate(1) PRIMA di scorrere i mesi: senza, negli ultimi giorni del
+    // mese setMonth(-1) traboccava sul mese corrente (il 31 luglio meno un mese
+    // non è il 31 giugno, che non esiste — JS lo normalizza al 1 luglio), quindi
+    // il mese corrente finiva DUE VOLTE nella lista e le sue spese venivano
+    // contate doppie.
+    { const cursor = new Date(); cursor.setDate(1); for (let i = 0; i < 3; i++) { relevantMonths.push(monthKey(cursor)); cursor.setMonth(cursor.getMonth() - 1); } }
     relevantMonths.forEach(mk => {
       (VaultDAO.state.transactions[mk] || []).forEach(t => {
         if (t.type !== 'uscita') return;
