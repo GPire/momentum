@@ -763,6 +763,19 @@
     @keyframes splitSyncGlow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); } 35% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 16%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
     .split-sync-pulse { animation: splitSyncGlow 1.3s cubic-bezier(.22,1,.36,1) both; border-radius: 1rem; }
 
+    /* Stelle del feedback: un tocco netto, non solo il colore che cambia —
+       stessa disciplina "un balzo, poi si ferma" già usata per l'icona
+       privacy/check-icona chip identità. */
+    .fb-star { color: var(--on-surface-secondary); opacity: .55; transition: color .15s, opacity .15s, transform .15s cubic-bezier(.34,1.56,.64,1); }
+    .fb-star.fb-star-active { color: var(--gold); opacity: 1; animation: fbStarPop .35s cubic-bezier(.34,1.56,.64,1); }
+    @keyframes fbStarPop { 0% { transform: scale(0.7); } 55% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+    /* "Cerca aggiornamenti ora" (Vault): l'icona ruota mentre il service worker
+       controlla davvero il server — un solo giro continuo finché dura la
+       richiesta reale, non un timer finto. */
+    @keyframes checkUpdateSpin { to { transform: rotate(360deg); } }
+    #check-update-btn.checking-update svg { animation: checkUpdateSpin 0.8s linear infinite; }
+
     /* Rispetta chi ha ridotto le animazioni (vestibolare / accessibilità). */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
@@ -1765,6 +1778,17 @@
                 </div>
               </div>
 
+              <!-- Feedback: nessun form nascosto in un sottomenu di terzo
+                   livello, un tocco dal Vault. Il testo esce SOLO se l'utente
+                   tocca "Invia" (mai automatico, mai dati finanziari). -->
+              <div class="card p-6 flex flex-col justify-between">
+                <div>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Il tuo feedback</h3>
+                  <p class="card-sub">Cosa funziona, cosa no, cosa vorresti diverso: due righe bastano. Nessun account, nessuna spesa o saldo lascia mai questo telefono.</p>
+                  <button onclick="window.openFeedbackModal()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm">Scrivi un feedback</button>
+                </div>
+              </div>
+
               <!-- Chat generica (DISATTIVATA di default, opt-in): a differenza
                    di tutto il resto dell'app, qui esce il TESTO SCRITTO
                    dall'utente (non i dati finanziari, mai allegati in
@@ -1904,6 +1928,9 @@
                      <div>
                        <p class="text-xs font-mono no-privacy-blur font-bold text-[var(--on-surface-secondary)] mb-1" id="version-display">Core: V50.Momentum.Vault</p>
                        <p class="text-[10px] font-mono no-privacy-blur font-bold text-[var(--primary)]" id="ml-status">Synapse Nodes: 0</p>
+                       <button onclick="window.checkForAppUpdate?.(event)" id="check-update-btn" class="mt-1.5 text-[10px] font-bold text-[var(--on-surface-secondary)] underline underline-offset-2 inline-flex items-center gap-1">
+                         <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg>Cerca aggiornamenti ora
+                       </button>
                      </div>
                      <button onclick="nukeVault()" class="px-4 py-3 bg-[#be123c] text-white font-bold rounded-xl text-xs transition-transform active:scale-95 shadow-md">Cancella tutti i dati</button>
                   </div>

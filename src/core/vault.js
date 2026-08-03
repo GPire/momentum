@@ -156,6 +156,11 @@ const VaultDAO = {
     // già rivendicato (es. il creatore del gruppo). Generato una sola volta:
     // dopo il primo save() il valore persistito vince sempre su questo default.
     deviceId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `device-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    // Quando questo dispositivo ha iniziato a usare Momentum (mai sovrascritto
+    // dopo il primo save): serve solo a proporre UNA volta il feedback dopo un
+    // po' di giorni di uso reale, non appena installata — mai al primo avvio.
+    firstUsedAt: Date.now(),
+    feedbackPromptShown: false,
     // Bandit dell'advisor (src/predict/advisor-bandit.js, Wave 1 v10): impara
     // per-contesto quale nudge fa agire l'utente. arms cresce solo con l'uso,
     // additivo, mai retroattivo su tx esistenti.

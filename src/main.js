@@ -6267,6 +6267,7 @@ const initApp = () => {
     navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
       .then(reg => {
         console.log('ServiceWorker registered:', reg);
+        window.momentumSWReg = reg; // per il bottone manuale "Cerca aggiornamenti ora" nel Vault
         // Controlla aggiornamenti SUBITO e a ogni RIAPERTURA/ritorno all'app
         // (focus / tab di nuovo visibile), non solo ogni ora: appena riapri
         // Momentum prende il codice nuovo, senza aspettare né azioni manuali.
@@ -6297,7 +6298,111 @@ const initApp = () => {
       reloadedForUpdate = true;
       window.location.reload();
     });
+
+    // Controllo MANUALE ("Cerca aggiornamenti ora" nel Vault): oltre ai controlli
+    // automatici (apertura/focus/ritorno visibile/ogni 30 min), chi vuole la
+    // certezza subito può chiederlo a tocco. Se c'è una versione nuova, lo stesso
+    // flusso automatico sopra (updatefound → toast → controllerchange → reload)
+    // scatta da solo; se non c'è, lo diciamo onestamente invece di far finta.
+    window.checkForAppUpdate = async (e) => {
+      const btn = e?.currentTarget || document.getElementById('check-update-btn');
+      if (!window.momentumSWReg) { showToast('Il controllo automatico è già attivo su questo dispositivo.', 'info'); return; }
+      btn?.classList.add('checking-update');
+      haptic('light');
+      try {
+        const before = window.momentumSWReg.installing || window.momentumSWReg.waiting;
+        await window.momentumSWReg.update();
+        await new Promise(r => setTimeout(r, 800)); // tempo reale perché il browser scarichi e valuti sw.js
+        const after = window.momentumSWReg.installing || window.momentumSWReg.waiting;
+        if (after && after !== before) {
+          showToast('Trovata una versione nuova — si installa da sola tra un attimo.', 'success');
+        } else {
+          showToast('Hai già l\'ultima versione di Momentum.', 'success');
+        }
+      } catch (_) {
+        showToast('Non sono riuscito a controllare ora: ci riprovo automaticamente più tardi.', 'error');
+      } finally {
+        btn?.classList.remove('checking-update');
+      }
+    };
   }
+
+  // ── FEEDBACK ─────────────────────────────────────────────────────────────
+  // Zero-server per i DATI finanziari (regola non negoziabile del progetto);
+  // il feedback testuale è l'UNICA eccezione dichiarata, ed è per questo un
+  // modulo separato (Formspree, gratuito, nessun account per l'utente) — mai
+  // un dato di spesa/saldo/identità nel corpo, solo il testo scritto qui.
+  // Endpoint reale del progetto (form Formspree dell'autore). Se un giorno
+  // smettesse di rispondere, l'invio fallisce onestamente con un errore e il
+  // pulsante torna attivo: mai un finto "grazie" su una richiesta non riuscita.
+  const FEEDBACK_ENDPOINT = 'https://formspree.io/f/mrenjlnj';
+
+  window.openFeedbackModal = () => {
+    haptic('light');
+    let rating = 0;
+    openModal(`
+      <div class="p-4 sm:p-5 lg:p-0 flex flex-col items-center text-center gap-3 join-pop">
+        <span class="qa-wait-orb" style="width:64px;height:64px;"><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-pulse"></span><span class="qa-pulse"></span><span class="qa-pulse"></span></span>
+        <div>
+          <h3 class="text-lg font-black leading-tight">Cosa ne pensi di Momentum?</h3>
+          <p class="card-sub !mb-0">Due righe bastano. Nessuna spesa, saldo o dato personale lascia mai questo telefono — solo quello che scrivi qui sotto.</p>
+        </div>
+        <div id="fb-stars" class="flex gap-1.5 my-1">
+          ${[1, 2, 3, 4, 5].map(n => `<button type="button" data-star="${n}" class="fb-star p-1" aria-label="${n} stelle"><svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l2.7 5.9 6.3.6-4.8 4.3 1.4 6.2-5.6-3.3-5.6 3.3 1.4-6.2-4.8-4.3 6.3-.6z"/></svg></button>`).join('')}
+        </div>
+        <textarea id="fb-text" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-sm" placeholder="Cosa funziona, cosa no, cosa vorresti diverso… (facoltativo)"></textarea>
+        <button id="fb-send" class="btn-action btn-primary w-full py-3 font-bold rounded-xl" disabled>Invia</button>
+        <button id="fb-skip" class="text-[11px] text-[var(--on-surface-secondary)]">Non ora</button>
+      </div>`);
+    const sendBtn = $('#fb-send');
+    document.querySelectorAll('.fb-star').forEach(star => {
+      star.addEventListener('click', () => {
+        rating = +star.dataset.star;
+        document.querySelectorAll('.fb-star').forEach(s => {
+          const active = +s.dataset.star <= rating;
+          s.classList.toggle('fb-star-active', active);
+          s.querySelector('svg').setAttribute('fill', active ? 'currentColor' : 'none');
+        });
+        sendBtn.disabled = false;
+        haptic('light');
+      });
+    });
+    $('#fb-skip')?.addEventListener('click', () => closeModal());
+    sendBtn?.addEventListener('click', async () => {
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Invio…';
+      const message = $('#fb-text')?.value?.trim() || '';
+      try {
+        const res = await fetch(FEEDBACK_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ rating, message, app: 'Momentum', version: $('#version-display')?.textContent || '' }),
+        });
+        if (!res.ok) throw new Error('risposta non ok');
+        haptic('heavy');
+        // Ringraziamento: stessa disciplina "un battito, poi torna calmo" già
+        // usata per il collegamento P2P riuscito — icona coerente, non un'altra
+        // emoji, e chiusura da sola dopo un momento invece di lasciare l'utente
+        // a chiedersi se è davvero partito.
+        const modalBody = sendBtn.closest('.join-pop') || sendBtn.parentElement;
+        if (modalBody) {
+          modalBody.innerHTML = `
+            <div class="flex flex-col items-center text-center gap-2 py-4">
+              <div class="w-14 h-14 rounded-2xl grid place-items-center bg-emerald-500/15 border border-emerald-500/30 join-badge">
+                <svg class="w-7 h-7 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <h3 class="text-base font-black">Grazie!</h3>
+              <p class="card-sub !mb-0">Ogni feedback aiuta davvero a migliorare Momentum.</p>
+            </div>`;
+        }
+        setTimeout(() => closeModal(), 1600);
+      } catch (_) {
+        showToast('Non sono riuscito a inviarlo ora. Riprova tra poco.', 'error');
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Invia';
+      }
+    });
+  };
 
   try {
     VaultDAO.init();
@@ -7315,7 +7420,20 @@ const initApp = () => {
     // sopravvissuto in sessionStorage se l'URL è già stato ripulito.
     const gExisting = decodedJoin();
     if (gExisting) { history.replaceState(null, '', location.pathname); setTimeout(() => { window.openJoinConfirm(gExisting); clearJoin(); }, 400); }
-    else { clearJoin(); consumeJoinLink(); }
+    else {
+      clearJoin(); consumeJoinLink();
+      // Feedback proposto UNA sola volta, dopo un uso reale (non al primo
+      // avvio, mai un popup che torna): 10 giorni da quando questo
+      // dispositivo ha iniziato a usare Momentum. Mai più dopo la prima
+      // volta, risposto o "Non ora" che sia — l'attrito peggiore non è
+      // chiederlo una volta, è chiederlo più di una.
+      const daysUsed = (Date.now() - (VaultDAO.state.firstUsedAt || Date.now())) / 86400000;
+      if (daysUsed >= 10 && !VaultDAO.state.feedbackPromptShown) {
+        VaultDAO.state.feedbackPromptShown = true;
+        VaultDAO.save();
+        setTimeout(() => { try { window.openFeedbackModal(); } catch (_) {} }, 2500);
+      }
+    }
   } else if (joinPayload) {
     // ANTI-ATTRITO: primo avvio ma si arriva da un LINK di divisione. Non
     // imponiamo l'onboarding completo (domande di mercato) prima di poter usare
