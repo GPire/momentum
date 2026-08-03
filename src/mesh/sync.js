@@ -18,51 +18,126 @@
 // Funzioni PURE (nessun DOM/IndexedDB): testabili, riusabili nel worker.
 'use strict';
 
+// ── CANCELLAZIONI (lapidi) ───────────────────────────────────────────────────
+// BUG REALE, dimostrato prima di essere corretto: cancellare una spesa sul
+// telefono NON bastava. Il tablet ce l'aveva ancora, al sync successivo la
+// vedeva "mancante" al telefono e gliela rimandava: la spesa cancellata
+// TORNAVA DA SOLA. E' il difetto classico di un'unione per id senza memoria
+// delle cancellazioni, e su un'app di soldi e' grave: l'utente cancella un
+// doppione, lo ritrova il giorno dopo, e non capisce piu' i suoi conti.
+//
+// Si risolve ricordando le cancellazioni, non solo eseguendole: ogni id
+// cancellato lascia una LAPIDE (id → quando). Le lapidi viaggiano nel sync
+// come i dati, quindi la cancellazione fatta su un dispositivo arriva a tutti
+// gli altri, in qualunque ordine si sincronizzino.
+//
+// Stanno in un elenco SEPARATO, non dentro le transazioni: cosi' nessuna delle
+// letture esistenti cambia comportamento (l'elenco delle spese resta com'era)
+// e non c'e' il rischio di mostrare per sbaglio una spesa cancellata.
+//
+// LIMITE DICHIARATO: le lapidi si possono potare dopo molto tempo
+// (pruneTombstones) per non farle crescere all'infinito. Un dispositivo rimasto
+// spento OLTRE quel periodo, e che ha ancora la spesa viva, potrebbe
+// reintrodurla al primo sync. Per questo il periodo di default e' lungo (un
+// anno): oltre, e' piu' onesto un ripristino da backup che un sync.
+const TOMBSTONE_KEY = '__deleted'; // nel digest: non e' un mese, non collide mai
+
+export function markDeleted(tombstones = {}, id, now = Date.now()) {
+  return { ...tombstones, [String(id)]: now };
+}
+
+// Toglie le lapidi piu' vecchie di `maxAgeDays`. Ritorna un nuovo oggetto.
+export function pruneTombstones(tombstones = {}, maxAgeDays = 365, now = Date.now()) {
+  const limite = now - maxAgeDays * 86400000;
+  const out = {};
+  for (const [id, ts] of Object.entries(tombstones)) if (+ts >= limite) out[id] = +ts;
+  return out;
+}
+
 // Digest compatto: per ogni mese, la lista di { id, hash }. Piccolo da
 // scambiare (niente importi/descrizioni), sufficiente a capire cosa manca.
-export function computeSyncDigest(transactions) {
+// Include anche le lapidi, altrimenti il peer non puo' sapere che una spesa
+// e' stata cancellata e continuerebbe a rimandarcela.
+export function computeSyncDigest(transactions, tombstones = {}) {
   const digest = {};
   for (const [month, list] of Object.entries(transactions || {})) {
     digest[month] = (list || []).map(t => ({ id: t.id, hash: t.hash }));
   }
+  if (tombstones && Object.keys(tombstones).length) digest[TOMBSTONE_KEY] = { ...tombstones };
   return digest;
 }
 
-// Dato il MIO insieme di transazioni e il DIGEST del peer, quali transazioni
-// il peer NON ha (da inviargli). Confronto per id.
-export function transactionsMissingFromPeer(myTransactions, peerDigest) {
+// Le lapidi conosciute dal peer, leggendo il suo digest. Tollera i digest dei
+// dispositivi con una versione precedente (che non le hanno affatto).
+export function tombstonesFromDigest(peerDigest) {
+  const t = peerDigest && peerDigest[TOMBSTONE_KEY];
+  return (t && typeof t === 'object' && !Array.isArray(t)) ? t : {};
+}
+
+// Dato il MIO insieme di transazioni e il DIGEST del peer, cosa mandargli:
+// le transazioni che non ha, e le lapidi che non conosce. Non gli si mandano
+// MAI transazioni che lui ha gia' cancellato: sarebbe farle risorgere da capo.
+export function transactionsMissingFromPeer(myTransactions, peerDigest, myTombstones = {}) {
   const peerIds = new Set();
-  for (const list of Object.values(peerDigest || {})) for (const e of list) peerIds.add(String(e.id));
+  for (const [k, list] of Object.entries(peerDigest || {})) {
+    if (k === TOMBSTONE_KEY) continue;
+    for (const e of (list || [])) peerIds.add(String(e.id));
+  }
+  const peerTomb = tombstonesFromDigest(peerDigest);
   const toSend = {};
   for (const [month, list] of Object.entries(myTransactions || {})) {
-    const missing = (list || []).filter(t => !peerIds.has(String(t.id)));
+    const missing = (list || []).filter(t => !peerIds.has(String(t.id)) && !(String(t.id) in peerTomb));
     if (missing.length) toSend[month] = missing;
   }
+  // Lapidi che il peer non ha ancora (comprese quelle su spese che lui ha
+  // ancora vive: sono proprio quelle che devono raggiungerlo).
+  const nuove = {};
+  for (const [id, ts] of Object.entries(myTombstones || {})) if (!(id in peerTomb)) nuove[id] = +ts;
+  if (Object.keys(nuove).length) toSend[TOMBSTONE_KEY] = nuove;
   return toSend;
 }
 
 // Merge deterministico: aggiunge le transazioni in arrivo che non sono già
-// presenti (per id); NON tocca quelle esistenti (hash chain intatta). Ritorna
-// { merged, added, skipped }. Order-independent: A.merge(B) e B.merge(A)
-// convergono allo stesso set.
-export function mergeTransactions(localTransactions, incomingByMonth) {
+// presenti (per id); NON tocca quelle esistenti (hash chain intatta) e non
+// resuscita quelle cancellate. Applica anche le lapidi ricevute, togliendo le
+// spese corrispondenti. Ritorna { merged, added, skipped, tombstones, removed }.
+// Order-independent: A.merge(B) e B.merge(A) convergono allo stesso stato.
+export function mergeTransactions(localTransactions, incomingByMonth, localTombstones = {}) {
   const merged = {};
   for (const [m, list] of Object.entries(localTransactions || {})) merged[m] = [...list];
-  let added = 0, skipped = 0;
+  let added = 0, skipped = 0, removed = 0;
+
+  // Le lapidi (mie + ricevute) si applicano PRIMA di aggiungere: una spesa
+  // cancellata non deve rientrare nemmeno per un istante.
+  const tombstones = { ...(localTombstones || {}) };
+  for (const [id, ts] of Object.entries(tombstonesFromDigest(incomingByMonth))) {
+    if (!(id in tombstones) || +ts < tombstones[id]) tombstones[id] = +ts;
+  }
 
   for (const [month, incoming] of Object.entries(incomingByMonth || {})) {
+    if (month === TOMBSTONE_KEY) continue;
     if (!merged[month]) merged[month] = [];
     const known = new Set(merged[month].map(t => String(t.id)));
     for (const tx of incoming) {
-      if (known.has(String(tx.id))) { skipped++; continue; }
+      const id = String(tx.id);
+      if (id in tombstones) { skipped++; continue; } // cancellata: non risorge
+      if (known.has(id)) { skipped++; continue; }
       merged[month].push(tx);        // arriva col SUO hash/prevHash — non ricalcolato
-      known.add(String(tx.id));
+      known.add(id);
       added++;
     }
     // ordine stabile per data → viste identiche su ogni device
     merged[month].sort((a, b) => new Date(a.date) - new Date(b.date) || String(a.id).localeCompare(String(b.id)));
   }
-  return { merged, added, skipped };
+
+  // Applica le lapidi anche a cio' che era gia' qui: e' cosi' che una
+  // cancellazione fatta sull'altro dispositivo arriva davvero fin qui.
+  for (const month of Object.keys(merged)) {
+    const prima = merged[month].length;
+    merged[month] = merged[month].filter(t => !(String(t.id) in tombstones));
+    removed += prima - merged[month].length;
+  }
+  return { merged, added, skipped, tombstones, removed };
 }
 
 // Riconcilia i lastHash: dopo un merge, lastHash è quello della tx più recente
@@ -78,8 +153,15 @@ export function reconcileHead(mergedTransactions) {
 
 // Piano di sync completo tra due device (per la UI/mesh): cosa inviare e una
 // stima del "costo" (quante tx viaggiano) — così si vede che è un DELTA.
-export function planSync(myTransactions, peerDigest) {
-  const toSend = transactionsMissingFromPeer(myTransactions, peerDigest);
-  const count = Object.values(toSend).reduce((s, l) => s + l.length, 0);
-  return { toSend, count, note: count === 0 ? 'Già sincronizzati.' : `Da inviare: ${count} transazioni (solo le mancanti).` };
+export function planSync(myTransactions, peerDigest, myTombstones = {}) {
+  const toSend = transactionsMissingFromPeer(myTransactions, peerDigest, myTombstones);
+  const count = Object.entries(toSend).reduce((s, [k, l]) => s + (k === TOMBSTONE_KEY ? 0 : l.length), 0);
+  const cancellazioni = Object.keys(toSend[TOMBSTONE_KEY] || {}).length;
+  const parti = [];
+  if (count) parti.push(`${count} transazioni`);
+  if (cancellazioni) parti.push(`${cancellazioni} cancellazioni`);
+  return {
+    toSend, count, deletions: cancellazioni,
+    note: parti.length ? `Da inviare: ${parti.join(' e ')} (solo le differenze).` : 'Già sincronizzati.',
+  };
 }

@@ -2,7 +2,7 @@ import { SCHEMA_VERSION, DEFAULT_CATEGORIES, ALL_CATS } from './constants.js';
 import { simpleHash } from './utils.js';
 import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
-import { mergeTransactions, reconcileHead } from '../mesh/sync.js';
+import { mergeTransactions, reconcileHead, markDeleted, pruneTombstones } from '../mesh/sync.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -156,6 +156,10 @@ const VaultDAO = {
     // già rivendicato (es. il creatore del gruppo). Generato una sola volta:
     // dopo il primo save() il valore persistito vince sempre su questo default.
     deviceId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `device-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    // Spese cancellate (id → quando): servono a far arrivare la cancellazione
+    // anche agli ALTRI tuoi dispositivi. Senza, la spesa cancellata sul telefono
+    // tornava indietro dal tablet al primo sync. Vedi mesh/sync.js.
+    deletedTx: {},
     // Quando questo dispositivo ha iniziato a usare Momentum (mai sovrascritto
     // dopo il primo save): serve solo a proporre UNA volta il feedback dopo un
     // po' di giorni di uso reale, non appena installata — mai al primo avvio.
@@ -278,9 +282,14 @@ const VaultDAO = {
     }
     return { duplicate: false, route };
   },
+  // Cancellare una spesa lascia una LAPIDE (id → quando). Senza, il sync con un
+  // altro tuo dispositivo la faceva TORNARE: lui ce l'aveva ancora, la vedeva
+  // mancante qui e ce la rimandava. Bug reale, dimostrato e corretto in
+  // mesh/sync.js. Le lapidi si potano dopo un anno per non crescere all'infinito.
   deleteTransaction(month, id) {
     if (this.state.transactions[month]) {
       this.state.transactions[month] = this.state.transactions[month].filter(t => t.id !== id);
+      this.state.deletedTx = pruneTombstones(markDeleted(this.state.deletedTx || {}, id));
       this.save();
     }
   },
@@ -290,10 +299,14 @@ const VaultDAO = {
   // (hash chain intatta) e riallinea la testa della catena. Ritorna quante
   // ne sono state aggiunte. Usato dalla mesh al pairing e per il recupero.
   applySyncMerge(incomingByMonth) {
-    const { merged, added } = mergeTransactions(this.state.transactions, incomingByMonth);
+    const { merged, added, tombstones, removed } = mergeTransactions(this.state.transactions, incomingByMonth, this.state.deletedTx || {});
     this.state.transactions = merged;
+    this.state.deletedTx = tombstones;
     this.state.lastHash = reconcileHead(merged);
-    if (added > 0) this.save();
+    // Si salva anche quando arrivano solo CANCELLAZIONI (removed > 0): prima il
+    // salvataggio dipendeva dalle sole aggiunte, quindi una cancellazione
+    // ricevuta dall'altro dispositivo si perdeva al riavvio.
+    if (added > 0 || removed > 0) this.save();
     return added;
   }
 };

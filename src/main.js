@@ -7641,8 +7641,10 @@ function initMomentumRealAI() {
     momentumMeshNode = new MeshNode(undefined, createNexusMeshMind(momentumOrchestrator, VaultDAO));
     // Sync differenziale dei DATI tra device fidati (src/mesh/sync.js):
     // callback che la mesh usa per scambiare digest→delta e per il merge.
-    momentumMeshNode.getSyncDigest = () => computeSyncDigest(VaultDAO.state.transactions);
-    momentumMeshNode.getMissingForPeer = (peerDigest) => transactionsMissingFromPeer(VaultDAO.state.transactions, peerDigest);
+    // Il digest porta anche le CANCELLAZIONI, altrimenti l'altro dispositivo
+    // non puo' sapere che una spesa e' stata cancellata e continua a rimandarla.
+    momentumMeshNode.getSyncDigest = () => computeSyncDigest(VaultDAO.state.transactions, VaultDAO.state.deletedTx || {});
+    momentumMeshNode.getMissingForPeer = (peerDigest) => transactionsMissingFromPeer(VaultDAO.state.transactions, peerDigest, VaultDAO.state.deletedTx || {});
     momentumMeshNode.onSyncReceived = (txs) => {
       const added = VaultDAO.applySyncMerge(txs);
       if (added > 0) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); showToast(`${added} transazioni sincronizzate da un tuo dispositivo.`, 'success'); }
