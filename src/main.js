@@ -46,6 +46,11 @@ import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers } from './split/split-engine.js';
+// Codice d'invito corto e leggibile (src/split/invite-codec.js): il link che
+// finisce su WhatsApp era lungo 1.759 caratteri e faceva paura a chi lo
+// riceveva. Qui si comprime, il contenuto va nel fragment (mai al server) e la
+// parte visibile dice di che gruppo si tratta.
+import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './split/invite-codec.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
@@ -898,8 +903,22 @@ async function consumeSharedImage() {
 function extractJoinPayload() {
   // Riusa il riconoscimento per-contenuto del motore (stessa logica testata):
   // funziona con ?join=, #join=, o il marcatore ovunque nell'URL, su qualsiasi
-  // dominio. Passa l'intero URL: extractSharePayload trova il payload dentro.
-  return extractSharePayload(location.href);
+  // dominio. Passa l'intero URL: extractShareCode trova il payload dentro,
+  // sia nel nuovo formato compresso sia in quello storico gia' in circolazione.
+  return extractShareCode(location.href) || extractSharePayload(location.href);
+}
+
+// Legge un codice di gruppo di QUALSIASI formato: quello nuovo (compresso) e
+// quello storico. Un link mandato mesi fa deve continuare ad aprirsi.
+async function readGroupCode(raw) {
+  try {
+    const g = await unpackShare(raw);
+    if (g && g.id && Array.isArray(g.members)) {
+      if (!Array.isArray(g.expenses)) g.expenses = [];
+      return g;
+    }
+  } catch (_) { /* prova il formato storico qui sotto */ }
+  try { return decodeGroupShare(raw); } catch (_) { return null; }
 }
 
 async function consumeJoinLink() {
@@ -908,7 +927,7 @@ async function consumeJoinLink() {
     if (!raw) return;
     // Pulisci subito l'URL (query E hash): mai ri-consumare al reload (idempotenza).
     history.replaceState(null, '', location.pathname);
-    const g = decodeGroupShare(raw);
+    const g = await readGroupCode(raw);
     if (!g) { showToast('Il link del gruppo non è valido o è incompleto.', 'error'); return; }
     // Se siamo ancora nell'onboarding, aspetta che l'app sia pronta (l'utente
     // deve prima entrare) — riprova a breve senza perdere l'invito.
@@ -2527,7 +2546,7 @@ window.openSplitExpense = (prefill = {}) => {
       VaultDAO.save();
       const p2p = await tryCreateP2POffer();
       _groupInvitePairing = p2p?.pairing || null;
-      window.openShareCode({ code: encodeGroupInvite(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le vostre spese si uniscono, anche da Paesi diversi, senza server.', pairing: _groupInvitePairing });
+      window.openShareCode({ code: await buildInviteCode(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le vostre spese si uniscono, anche da Paesi diversi, senza server.', pairing: _groupInvitePairing });
     });
   };
   render();
@@ -3826,13 +3845,30 @@ window.openRequestPayment = ({ amount = 0, fromName = '', note = '', momentumLin
 // stabile se conosciuta, altrimenti l'origine imparata più stabile, altrimenti
 // quella corrente → il link è preso in automatico e resta valido anche se cambia
 // host/server/dominio. Il riconoscimento in ricezione è comunque per contenuto.
-function buildJoinLink(code) {
-  return buildShareUrl(VaultDAO.state, location.origin, code, location.pathname);
+// Il codice d'invito, nel formato corto. Stesso contenuto di sempre (id, nome,
+// membri e — se c'e' — l'offerta di collegamento diretto): mai le spese, che
+// arrivano dopo con la sincronizzazione.
+async function buildInviteCode(group, p2pOffer) {
+  const slim = { id: group.id, name: group.name, members: group.members, ...(p2pOffer ? { p2p: p2pOffer } : {}) };
+  try { return await packShare(slim); } catch (_) { return encodeGroupInvite(group, p2pOffer); }
+}
+
+function buildJoinLink(code, groupName = '') {
+  // Formato nuovo: il contenuto sta DOPO il cancelletto (non raggiunge mai un
+  // server, nemmeno nei log) e prima del cancelletto si legge il nome del
+  // gruppo. Chi riceve il link capisce cos'e' prima di toccarlo — era il
+  // motivo principale per cui gli inviti non venivano aperti.
+  const base = buildShareUrl(VaultDAO.state, location.origin, '', location.pathname).replace(/\?join=$/, '');
+  try {
+    return buildInviteUrl({ base: new URL(base).origin, path: new URL(base).pathname, code, groupName });
+  } catch (_) {
+    return buildShareUrl(VaultDAO.state, location.origin, code, location.pathname);
+  }
 }
 
 window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupName = 'la spesa', pairing = null } = {}) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const link = buildJoinLink(code);
+  const link = buildJoinLink(code, groupName);
   // Il QR ora punta al LINK, non al blob: scansionandolo l'app si apre già sul
   // gruppo (prima apriva nulla, era solo testo da incollare). Il link è più
   // corto del blob → il QR è più leggibile.
@@ -3855,9 +3891,22 @@ window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupNa
       <details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">Il link non si apre? Usa il codice</summary><textarea readonly class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono select-all" id="sc-code">${esc(code)}</textarea></details>
       ${pairing ? `<details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">Ha risposto? Completa il collegamento diretto (facoltativo)</summary><p class="mt-2 opacity-80">Se ti manda indietro una risposta, incollala qui: le spese si sincronizzeranno da sole quando siete online insieme, senza ri-condividere niente.</p><textarea id="sc-p2p-in" placeholder="Incolla qui la risposta ricevuta…" class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono"></textarea><button id="sc-p2p-go" class="btn-action w-full py-2 mt-2 text-[11px] font-bold rounded-xl">Connetti</button></details>` : ''}
     </div>`);
-  // Messaggio BRANDATO Momentum: l'amico capisce cos'è e da chi arriva, e tocca
-  // un link (non incolla un blob). Riconoscibile = ci distingue dai concorrenti.
-  const msg = `Ti ho aggiunto a «${groupName}» su Momentum 💸\nTocca il link: le nostre spese si uniscono da sole, senza app da configurare né account.\n${link}`;
+  // Il messaggio che arriva su WhatsApp. Riscritto perché il precedente
+  // metteva il link in mezzo al testo e usava parole da app ("si uniscono",
+  // "senza server"): chi lo riceve non ha mai sentito parlare di Momentum e
+  // deve capire in due secondi tre cose — chi lo invita, a cosa, e che non
+  // deve fare nulla di complicato. Regole applicate:
+  //  · una frase per riga, nessun periodo lungo;
+  //  · il link SEMPRE da solo sull'ultima riga (le chat lo rendono cliccabile
+  //    e mostrano l'anteprima solo così; in mezzo al testo spesso si spezza);
+  //  · niente parole tecniche, niente "codice" — era la parola che faceva
+  //    scattare la diffidenza;
+  //  · si dice subito che è gratis e senza registrazione, che è la prima
+  //    domanda di chiunque riceva un link del genere.
+  const msg = `Ti ho aggiunto a «${groupName}» per dividere le spese 💸\n`
+    + `Tocca il link e ci sei: vedi subito chi ha pagato cosa e quanto devi.\n`
+    + `Non serve registrarsi, è gratis e i conti restano sul tuo telefono.\n`
+    + `${link}`;
   $('#sc-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(link); showToast('Link copiato.', 'success'); haptic('light'); });
   $('#sc-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'));
   $('#sc-email')?.addEventListener('click', () => { window.location.href = `mailto:?subject=${encodeURIComponent(`Unisciti a «${groupName}» su Momentum`)}&body=${encodeURIComponent(msg)}`; });
@@ -3889,11 +3938,11 @@ window.receiveSplitGroup = () => {
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">Ricevi un gruppo</h3><p class="card-sub !mb-0">Incolla il codice che ti ha mandato un amico (WhatsApp/Email): unirai le vostre spese, senza server.</p></div>
-      <textarea id="rg-code" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-[11px] font-mono" placeholder="Incolla qui il codice (inizia con MSPLIT1:...)"></textarea>
+      <textarea id="rg-code" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-[11px] font-mono" placeholder="Incolla qui il codice che ti hanno mandato"></textarea>
       <button id="rg-merge" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Unisci il gruppo</button>
     </div>`);
-  $('#rg-merge')?.addEventListener('click', () => {
-    const g = decodeGroupShare($('#rg-code').value);
+  $('#rg-merge')?.addEventListener('click', async () => {
+    const g = await readGroupCode($('#rg-code').value);
     if (!g) { showToast('Codice non valido: ricontrolla di averlo copiato tutto.', 'error'); return; }
     window.openJoinConfirm(g);
   });
@@ -4265,7 +4314,7 @@ window.openSplitGroup = (openId = null) => {
     $('#sg-share')?.addEventListener('click', async () => {
       const p2p = await tryCreateP2POffer();
       _groupInvitePairing = p2p?.pairing || null;
-      window.openShareCode({ code: encodeGroupInvite(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le spese si uniscono, anche da un altro Paese, senza server.', pairing: _groupInvitePairing });
+      window.openShareCode({ code: await buildInviteCode(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le spese si uniscono, anche da un altro Paese, senza server.', pairing: _groupInvitePairing });
     });
     $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
   };
@@ -7378,7 +7427,10 @@ const initApp = () => {
   let joinPayload = urlJoin;
   if (!joinPayload) { try { joinPayload = sessionStorage.getItem('__mJoin'); } catch (_) {} }
   const clearJoin = () => { try { sessionStorage.removeItem('__mJoin'); } catch (_) {} };
-  const decodedJoin = () => { try { return joinPayload ? decodeGroupShare(joinPayload) : null; } catch (_) { return null; } };
+  // Il codice puo' essere nel formato nuovo (compresso, va decompresso in modo
+  // asincrono) o in quello storico: readGroupCode li legge entrambi. Restituisce
+  // sempre una promise, cosi' il boot resta identico per tutti e due i formati.
+  const decodedJoin = () => joinPayload ? readGroupCode(joinPayload) : Promise.resolve(null);
 
   // Check onboarding state
   const hasOnboarded = localStorage.getItem('omega_core_db');
@@ -7418,7 +7470,7 @@ const initApp = () => {
     // Utente già attivo che arriva (o torna dopo un reload SW) da un link di
     // divisione: apri direttamente la conferma d'ingresso, dal payload
     // sopravvissuto in sessionStorage se l'URL è già stato ripulito.
-    const gExisting = decodedJoin();
+    decodedJoin().then(gExisting => {
     if (gExisting) { history.replaceState(null, '', location.pathname); setTimeout(() => { window.openJoinConfirm(gExisting); clearJoin(); }, 400); }
     else {
       clearJoin(); consumeJoinLink();
@@ -7434,14 +7486,14 @@ const initApp = () => {
         setTimeout(() => { try { window.openFeedbackModal(); } catch (_) {} }, 2500);
       }
     }
+    });
   } else if (joinPayload) {
     // ANTI-ATTRITO: primo avvio ma si arriva da un LINK di divisione. Non
     // imponiamo l'onboarding completo (domande di mercato) prima di poter usare
     // l'app: attiviamo Momentum con default sensati, saltiamo il genesis, e
     // portiamo dritti alla divisione. Il Reveal (dopo il join) proporrà di
     // personalizzare. Se qualcosa va storto, fallback al genesis classico.
-    try {
-      const g = decodedJoin();
+    decodedJoin().then(g => {
       history.replaceState(null, '', location.pathname);
       if (!g) throw new Error('payload non valido');
       activateLite();
@@ -7453,13 +7505,13 @@ const initApp = () => {
       // clearJoin DOPO aver mostrato il modale: se un reload SW cade nei 500ms,
       // il payload è ancora in sessionStorage e il ramo hasOnboarded lo riprende.
       setTimeout(() => { window.openJoinConfirm(g); clearJoin(); }, 500);
-    } catch (e) {
+    }).catch(e => {
       console.warn('Percorso lampo fallito, uso onboarding classico:', e);
       clearJoin();
       window._pendingJoin = window._pendingJoin || null;
       const canvas = document.getElementById('genesis-canvas');
       if (canvas) { try { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } catch (_) {} }
-    }
+    });
   }
   // Il cielo stellato del primo avvio è ora in CSS PURO (index.html: .starfield),
   // quindi non serve disegnarlo da JS: è sempre presente, gira su qualsiasi
