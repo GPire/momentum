@@ -118,8 +118,12 @@ const ROSTER = [
   // ── OPEN-WEIGHT: eseguibili SENZA chiave, in LOCALE via Ollama (nessuna API,
   // 100% offline). Su CPU del Dell girano solo i modelli piccoli e lentamente;
   // i tag vanno scaricati prima (`ollama pull ...`) e adattati alle versioni reali.
-  { name: 'Gemma (locale)', provider: 'local', baseURL: 'http://localhost:11434/v1', model: process.env.OLLAMA_GEMMA || 'gemma3' },
-  { name: 'Qwen (locale)', provider: 'local', baseURL: 'http://localhost:11434/v1', model: process.env.OLLAMA_QWEN || 'qwen3' },
+  // Tag VERIFICATI contro registry.ollama.ai il 2026-07-31 (non a memoria):
+  // gemma4 ✅ / gemma5 ✗ · qwen3.5 ✅ / qwen4 ✗ · deepseek-r1 ✅ / r2 ✗ / v4 ✗.
+  // I default erano rimasti a gemma3 e qwen3, superati. Sovrascrivibili con
+  // OLLAMA_GEMMA / OLLAMA_QWEN / OLLAMA_DEEPSEEK senza toccare il codice.
+  { name: 'Gemma (locale)', provider: 'local', baseURL: 'http://localhost:11434/v1', model: process.env.OLLAMA_GEMMA || 'gemma4' },
+  { name: 'Qwen (locale)', provider: 'local', baseURL: 'http://localhost:11434/v1', model: process.env.OLLAMA_QWEN || 'qwen3.5' },
   { name: 'DeepSeek (locale)', provider: 'local', baseURL: 'http://localhost:11434/v1', model: process.env.OLLAMA_DEEPSEEK || 'deepseek-r1' },
 ];
 
@@ -210,17 +214,29 @@ for (const entry of ROSTER) {
 }
 
 console.log('\n=== BLOCCO 2: categorizzazione (accuratezza reale SOLO con --live) ===');
-console.log(pad('Modello', 24) + 'Accuratezza');
-console.log('-'.repeat(40));
-console.log(pad('★ Momentum (on-device)', 24) + `${(momAcc * 100).toFixed(1)}%`);
-const llmSet = dataset.slice(0, LLM_N);
+console.log(pad('Modello', 28) + 'Accuratezza');
+console.log('-'.repeat(44));
+// Sottoinsieme dato agli LLM: STRATIFICATO per categoria, non i primi N.
+// Bug corretto: `dataset.slice(0, LLM_N)` prendeva solo esempi di 'abbonamenti'
+// — il dataset è costruito 60 esempi consecutivi per categoria, quindi i primi
+// 40 cadono tutti nella prima. Gli LLM venivano misurati su UNA categoria
+// (netflix/spotify: banale) e Momentum su tutte e 8: il confronto non voleva
+// dire niente, in entrambe le direzioni.
+const perCat = Math.max(1, Math.floor(LLM_N / CATS.length));
+const llmSet = CATS.flatMap(cat => dataset.filter(d => d.cat === cat).slice(0, perCat));
+// Confronto ALLA PARI: Momentum sullo stesso identico sottoinsieme degli LLM.
+// `momAcc` (tutto il dataset) resta la misura più robusta e viene stampata
+// accanto, ma non è confrontabile riga-per-riga con le righe LLM.
+const momAccLlmSet = accuracyOf(momentumPredict, llmSet);
+console.log(pad('★ Momentum (stesso set LLM)', 28) + `${(momAccLlmSet * 100).toFixed(1)}%   ← confronto alla pari (${llmSet.length} esempi, ${CATS.length} categorie)`);
+console.log(pad('★ Momentum (set completo)', 28) + `${(momAcc * 100).toFixed(1)}%   (${dataset.length} esempi — misura più robusta, non confrontabile riga-per-riga)`);
 const llmResults = [];
 for (const entry of ROSTER) {
   const r = await evalLLM(entry, llmSet);
   llmResults.push({ entry, r });
   const acc = r.acc == null ? '—' : `${(r.acc * 100).toFixed(1)}%`;
   const note = r.status === 'ok' ? '' : `  (${r.status})`;
-  console.log(pad(entry.name, 24) + acc + note);
+  console.log(pad(entry.name, 28) + acc + note);
 }
 
 console.log('\n=== BLOCCO 3: ragionamento aritmetico verificabile (SOLO con --live) ===');
