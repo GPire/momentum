@@ -874,3 +874,101 @@ test('SETTLEMENT: importi in centesimi esatti, nessun blocco perso per arrotonda
   assertSettles(bal, tx);
   assert.equal(tx.length, 3, 'coppia da 1 centesimo separata dal terzetto → 1 + 2 bonifici');
 });
+
+// ── CORRETTEZZA DEI CENTESIMI ────────────────────────────────────────────────
+// Due bug veri sono stati trovati simulando OGNI importo invece di provarne
+// qualcuno: le quote che differivano di piu' di un centesimo (una perfino
+// negativa) e la correzione dell'importo che amplificava l'arrotondamento.
+// Questi test rifanno quella simulazione a ogni esecuzione, in forma ridotta
+// ma con gli stessi controlli: se un giorno il calcolo torna storto, si rompe
+// qui e non nelle mani di chi divide una cena.
+const cent = (x) => Math.round(x * 100);
+
+test('CENTESIMI: ogni importo da 0,01 a 60,00 diviso tra 2-8 persone torna esatto ed equo', () => {
+  for (let c = 1; c <= 6000; c++) {
+    const amount = c / 100;
+    for (let n = 2; n <= 8; n++) {
+      let g = createGroup({ members: Array.from({ length: n }, (_, i) => `P${i}`) });
+      g = addSharedExpense(g, { payer: 'm0', amount });
+      const quote = Object.values(g.expenses[0].owed).map(cent);
+      assert.equal(quote.reduce((s, v) => s + v, 0), c, `${amount} € in ${n}: le quote non sommano all'importo`);
+      assert.ok(Math.max(...quote) - Math.min(...quote) <= 1, `${amount} € in ${n}: quote troppo diverse (${quote.join('/')})`);
+      assert.ok(Math.min(...quote) >= 0, `${amount} € in ${n}: quota negativa (${quote.join('/')})`);
+    }
+  }
+});
+
+test('CENTESIMI: 100 € tra 7 dava 14,26 a uno e 14,29 agli altri', () => {
+  let g = createGroup({ members: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 100 });
+  const quote = Object.values(g.expenses[0].owed).map(cent).sort((a, b) => a - b);
+  // 10000 / 7 = 1428 centesimi a testa, ne avanzano 4 → quattro persone da 14,29.
+  assert.deepEqual(quote, [1428, 1428, 1428, 1429, 1429, 1429, 1429], 'tre da 14,28 e quattro da 14,29');
+  assert.equal(quote.reduce((s, v) => s + v, 0), 10000);
+});
+
+test('CENTESIMI: il centesimo in piu\' non tocca sempre alla stessa persona', () => {
+  // Prima toccava sempre al primo membro: su cento spese diventano euro veri.
+  const conta = new Array(5).fill(0);
+  for (let c = 1; c <= 600; c++) {
+    let g = createGroup({ members: ['A', 'B', 'C', 'D', 'E'] });
+    g = addSharedExpense(g, { payer: 'm0', amount: c / 100 });
+    const q = Object.entries(g.expenses[0].owed).map(([id, v]) => ({ id, v: cent(v) }));
+    const max = Math.max(...q.map(x => x.v)), min = Math.min(...q.map(x => x.v));
+    if (max > min) q.forEach((x, i) => { if (x.v === max) conta[i]++; });
+  }
+  assert.ok(Math.min(...conta) > 0, `qualcuno non paga mai il centesimo in piu': ${conta.join('/')}`);
+  assert.ok(Math.max(...conta) / Math.max(1, Math.min(...conta)) < 2, `distribuzione troppo sbilanciata: ${conta.join('/')}`);
+});
+
+test('CENTESIMI: correggere l\'importo non rompe l\'equita\' (1,33 € → 183,87 € in 2)', () => {
+  // Il caso reale: 0,67/0,66 riscalati in proporzione davano 92,63 e 91,24.
+  let g = createGroup({ members: ['A', 'B'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 1.33 });
+  g = editExpense(g, g.expenses[0].id, { amount: 183.87 });
+  const quote = Object.values(g.expenses[0].owed).map(cent).sort((a, b) => a - b);
+  assert.deepEqual(quote, [9193, 9194], 'devono restare a un centesimo di distanza');
+  assert.equal(quote.reduce((s, v) => s + v, 0), 18387);
+});
+
+test('CENTESIMI: la correzione dell\'importo resta equa su 2000 combinazioni', () => {
+  const rnd = mulberry32(99);
+  for (let i = 0; i < 2000; i++) {
+    const n = 2 + Math.floor(rnd() * 6);
+    const a1 = Math.round(rnd() * 20000) / 100 + 0.01, a2 = Math.round(rnd() * 20000) / 100 + 0.01;
+    let g = createGroup({ members: Array.from({ length: n }, (_, j) => `P${j}`) });
+    g = addSharedExpense(g, { payer: 'm0', amount: a1 });
+    g = editExpense(g, g.expenses[0].id, { amount: a2 });
+    const quote = Object.values(g.expenses[0].owed).map(cent);
+    assert.equal(quote.reduce((s, v) => s + v, 0), cent(a2), `${a1} → ${a2} in ${n}: somma sbagliata`);
+    assert.ok(Math.max(...quote) - Math.min(...quote) <= 1, `${a1} → ${a2} in ${n}: quote troppo diverse`);
+  }
+});
+
+test('CENTESIMI: quote a peso restano proporzionali e sommano all\'importo', () => {
+  const rnd = mulberry32(555);
+  for (let i = 0; i < 2000; i++) {
+    const n = 2 + Math.floor(rnd() * 6);
+    const amount = Math.round(rnd() * 30000) / 100 + 0.01;
+    const ids = Array.from({ length: n }, (_, j) => `m${j}`);
+    const weights = {}; ids.forEach(id => { weights[id] = 1 + Math.floor(rnd() * 5); });
+    let g = createGroup({ members: ids.map((id, j) => ({ id, name: `P${j}` })) });
+    g = addSharedExpense(g, { payer: 'm0', amount, shares: { weights } });
+    const owed = g.expenses[0].owed;
+    assert.equal(Object.values(owed).map(cent).reduce((s, v) => s + v, 0), cent(amount));
+    const tot = Object.values(weights).reduce((a, b) => a + b, 0);
+    for (const id of ids) assert.ok(Math.abs(cent(owed[id]) - cent(amount) * weights[id] / tot) <= 1.0001, 'quota lontana dalla proporzione voluta');
+  }
+});
+
+test('CENTESIMI: spese vecchie senza regola salvata restano corrette se corrette', () => {
+  // Retrocompatibilita': una spesa gia' sul telefono non ha il campo `split`.
+  let g = createGroup({ members: ['A', 'B', 'C'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 10 });
+  const senzaRegola = { ...g.expenses[0] }; delete senzaRegola.split;
+  g = { ...g, expenses: [senzaRegola] };
+  g = editExpense(g, senzaRegola.id, { amount: 1000 });
+  const quote = Object.values(g.expenses[0].owed).map(cent);
+  assert.equal(quote.reduce((s, v) => s + v, 0), 100000);
+  assert.ok(Math.max(...quote) - Math.min(...quote) <= 1, `dedotta male la regola: ${quote.join('/')}`);
+});

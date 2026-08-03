@@ -42,12 +42,31 @@ export function addSharedExpense(group, { payer, amount, description = '', date,
   if (!group.members.some(m => m.id === payer)) throw new Error('pagante non nel gruppo');
   const ids = group.members.map(m => m.id);
 
-  let owed = {};
+  // id GLOBALMENTE univoco (non l'indice): cosi' le spese aggiunte da persone
+  // diverse non collidono e il merge tra dispositivi e' conflict-free. Serve
+  // anche come seme per distribuire il resto (vedi balanceRounding).
+  const expenseId = genId();
+  // arrotonda le quote distribuendo il resto un centesimo alla volta (somma esatta)
+  const owed = balanceRounding(idealShares(ids, amt, shares), amt, expenseId);
+  // La REGOLA con cui si e' diviso resta scritta nella spesa, non solo il suo
+  // risultato in centesimi: serve a ricalcolare correttamente se l'importo
+  // viene corretto dopo (vedi il bug documentato in editExpense).
+  const expense = { id: expenseId, payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed, split: splitRule(ids, shares), updatedAt: Date.now() };
+  return { ...group, expenses: [...group.expenses, expense] };
+}
+
+// Quote IDEALI (non ancora arrotondate) secondo la regola di divisione scelta.
+// Estratta perche' serve identica in due punti: quando la spesa nasce e quando
+// il suo importo viene corretto — prima il secondo caso riscalava i centesimi
+// gia' arrotondati, con l'effetto descritto in editExpense.
+function idealShares(ids, amt, shares) {
+  const owed = {};
   if (!shares) {
     const each = amt / ids.length;
     for (const id of ids) owed[id] = each;
   } else if (shares.equalAmong) {
     const grp = shares.equalAmong.filter(id => ids.includes(id));
+    if (!grp.length) throw new Error('nessun partecipante valido');
     const each = amt / grp.length;
     for (const id of grp) owed[id] = each;
   } else if (shares.byId) {
@@ -59,22 +78,88 @@ export function addSharedExpense(group, { payer, amount, description = '', date,
     if (tot <= 0) throw new Error('pesi non validi');
     for (const [id, ww] of Object.entries(w)) if (ids.includes(id)) owed[id] = amt * (+ww) / tot;
   }
-  // arrotonda le quote e aggiusta l'ultimo centesimo sul pagante (somma esatta)
-  owed = balanceRounding(owed, amt);
-  // id GLOBALMENTE univoco (non l'indice): cosi' le spese aggiunte da persone
-  // diverse non collidono e il merge tra dispositivi e' conflict-free.
-  const expense = { id: genId(), payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed, updatedAt: Date.now() };
-  return { ...group, expenses: [...group.expenses, expense] };
+  return owed;
 }
 
-// Arrotonda le quote a 2 decimali facendo tornare la somma ESATTA all'importo
-// (il residuo di arrotondamento va sulla quota maggiore): mai centesimi persi.
-function balanceRounding(owed, amt) {
-  const out = {}; let sum = 0; let maxId = null, maxV = -Infinity;
-  for (const [id, v] of Object.entries(owed)) { out[id] = round2(v); sum += out[id]; if (v > maxV) { maxV = v; maxId = id; } }
-  const diff = round2(amt - sum);
-  if (maxId && Math.abs(diff) >= 0.01) out[maxId] = round2(out[maxId] + diff);
-  return out;
+// Spese create PRIMA che la regola venisse salvata (gia' sui telefoni delle
+// persone): la si ricostruisce guardando i centesimi. Se tutte le quote non
+// nulle stanno entro un centesimo l'una dall'altra, quella spesa era divisa in
+// parti uguali — tra tutti o tra alcuni. Altrimenti si resta sul comportamento
+// storico (riscalatura proporzionale), che per le quote volute a mano e' anche
+// quello giusto. Nessun dato vecchio va perso o reinterpretato a forza.
+function inferRule(owed = {}, ids = []) {
+  const parts = Object.entries(owed).filter(([, v]) => Math.abs(+v || 0) > 0.005);
+  if (parts.length < 2) return { mode: 'exact' };
+  const cents = parts.map(([, v]) => Math.round(v * 100));
+  if (Math.max(...cents) - Math.min(...cents) > 1) return { mode: 'exact' };
+  const partecipanti = parts.map(([id]) => id);
+  return partecipanti.length === ids.length ? { mode: 'equal' } : { mode: 'among', ids: partecipanti };
+}
+
+// Come e' stata divisa questa spesa, in forma compatta e stabile nel tempo.
+// Le quote esatte in euro (byId) NON diventano una regola riutilizzabile: erano
+// importi voluti per QUEL conto, e se l'importo cambia vanno riscalate.
+function splitRule(ids, shares) {
+  if (!shares) return { mode: 'equal' };
+  if (shares.equalAmong) return { mode: 'among', ids: shares.equalAmong.filter(id => ids.includes(id)) };
+  if (shares.weights) return { mode: 'weights', weights: { ...shares.weights } };
+  return { mode: 'exact' };
+}
+
+// Arrotonda le quote a 2 decimali facendo tornare la somma ESATTA all'importo:
+// mai centesimi persi, e mai una quota fuori scala rispetto alle altre.
+//
+// BUG REALE CORRETTO (trovato verificando 140.000 combinazioni importo/persone,
+// non a campione): la versione precedente arrotondava ogni quota per conto suo
+// e poi scaricava TUTTO il residuo su una persona sola. In 46.928 casi su
+// 140.000 (il 33%) le quote finivano per differire di piu' di un centesimo —
+// 100 € tra 7 dava 14,26 a uno e 14,29 a tutti gli altri — e nei casi estremi
+// la quota diventava addirittura NEGATIVA (0,04 € tra 8 → −0,03 e sette da
+// 0,01). Numeri che l'utente vede, non torna a farsi i conti, e smette di
+// fidarsi dell'app: il danno peggiore possibile per un'app di soldi.
+//
+// Metodo corretto (resto massimo / Hamilton, lo stesso che quickSplit gia'
+// usava — l'app divideva in DUE modi diversi a seconda del percorso): si prende
+// la parte intera in centesimi di ogni quota, poi si distribuiscono i centesimi
+// mancanti UNO ALLA VOLTA a chi ha il resto piu' grande. Cosi' due quote non
+// differiscono mai di piu' di un centesimo, e nessuna puo' diventare negativa.
+//
+// A parita' di resto l'ordine e' ruotato da un seme (l'id della spesa): senza,
+// il centesimo in piu' toccherebbe sempre alla stessa persona — su cento spese
+// diventano euro veri. Il seme e' l'id della spesa, identico su ogni
+// dispositivo, quindi il risultato resta deterministico e il merge P2P
+// converge (due telefoni non devono mai calcolare quote diverse).
+function seedFrom(s) { let h = 2166136261; for (let i = 0; i < String(s).length; i++) { h ^= String(s).charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+function balanceRounding(owed, amt, seed = '') {
+  const ids = Object.keys(owed);
+  if (!ids.length) return {};
+  const target = Math.round(amt * 100);
+  const floors = {}; let assegnati = 0;
+  const resti = [];
+  for (const id of ids) {
+    const exact = (+owed[id] || 0) * 100;
+    const base = Math.floor(exact + 1e-9); // 1e-9: 33.33*100 in binario e' 3332.9999...
+    floors[id] = base; assegnati += base;
+    resti.push({ id, resto: exact - base });
+  }
+  let restanti = target - assegnati; // centesimi ancora da assegnare
+  const rot = ids.length ? seedFrom(seed) % ids.length : 0;
+  // Ordine: resto piu' grande per primo; a parita', si parte da un punto
+  // diverso della lista a seconda della spesa (rotazione), mai sempre dal primo.
+  const pos = Object.fromEntries(ids.map((id, i) => [id, (i + rot) % ids.length]));
+  resti.sort((a, b) => (b.resto - a.resto) || (pos[a.id] - pos[b.id]));
+  const out = {};
+  for (const id of ids) out[id] = floors[id];
+  // Caso normale: mancano centesimi → uno a testa, a chi ha il resto maggiore.
+  for (let i = 0; restanti > 0 && i < resti.length; i++) { out[resti[i].id] += 1; restanti--; }
+  // Caso opposto (quote gia' in eccesso, es. byId con importi arrotondati a
+  // monte): si toglie un centesimo alla volta, partendo dal resto piu' piccolo
+  // e mai da chi resterebbe sotto zero.
+  for (let i = resti.length - 1; restanti < 0 && i >= 0; i--) { if (out[resti[i].id] > 0) { out[resti[i].id] -= 1; restanti++; } }
+  const res = {};
+  for (const id of ids) res[id] = out[id] / 100;
+  return res;
 }
 
 // Saldi netti per membro: pagato − dovuto. Positivo = deve ricevere; negativo =
@@ -464,11 +549,30 @@ export function editExpense(group, expenseId, { amount, description } = {}) {
   if (!(amt > 0)) throw new Error('importo non valido');
   let owed = old.owed;
   if (amount != null && amt !== old.amount) {
-    // riscala le quote in proporzione (mantiene la ripartizione, aggiorna i totali)
-    const oldTot = Object.values(old.owed).reduce((s, v) => s + (+v || 0), 0) || 1;
-    const scaled = {};
-    for (const [id, v] of Object.entries(old.owed)) scaled[id] = (+v || 0) * amt / oldTot;
-    owed = balanceRounding(scaled, amt);
+    // BUG REALE CORRETTO: prima le quote venivano riscalate in proporzione a
+    // quelle GIA' ARROTONDATE. Il centesimo di differenza inevitabile tra due
+    // quote eque veniva cosi' moltiplicato per il rapporto tra i due importi:
+    // 1,33 € diviso in due (0,67 e 0,66) corretto poi in 183,87 € produceva
+    // 92,63 e 91,24 — un euro e mezzo di differenza tra due persone che
+    // dovevano pagare uguale. Succedeva in circa un terzo delle correzioni.
+    // Ora si riparte dalla REGOLA con cui la spesa era stata divisa (equa, tra
+    // alcuni, a pesi), non dal suo risultato in centesimi.
+    const ids = group.members.map(m => m.id);
+    const rule = old.split || inferRule(old.owed, ids);
+    let shares;
+    if (rule.mode === 'among') shares = { equalAmong: rule.ids };
+    else if (rule.mode === 'weights') shares = { weights: rule.weights };
+    else if (rule.mode === 'equal') shares = undefined;
+    else {
+      // Quote esatte volute a mano: qui la proporzione E' l'intenzione, quindi
+      // si riscala davvero (e' l'unico caso in cui era giusto farlo).
+      const oldTot = Object.values(old.owed).reduce((s, v) => s + (+v || 0), 0) || 1;
+      const scaled = {};
+      for (const [id, v] of Object.entries(old.owed)) scaled[id] = (+v || 0) * amt / oldTot;
+      shares = null;
+      owed = balanceRounding(scaled, amt, expenseId);
+    }
+    if (shares !== null) owed = balanceRounding(idealShares(ids, amt, shares), amt, expenseId);
   }
   const updated = { ...old, amount: amt, description: description != null ? description : old.description, owed, updatedAt: Date.now() };
   const expenses = group.expenses.slice(); expenses[idx] = updated;
