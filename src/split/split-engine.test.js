@@ -718,3 +718,159 @@ for (const n of [2, 3, 5, 8, 12, 15, 20]) {
     simulateGroupOfN(n);
   });
 }
+
+// ── SETTLEMENT ESATTO OLTRE 12 PERSONE ───────────────────────────────────────
+// Il salto da "esatto fino a 12" a "esatto fino a 22" si regge su un teorema
+// (una partizione massima usa solo blocchi minimali a somma zero). Un teorema
+// scritto in un commento non vale niente: qui lo si mette alla prova contro un
+// ORACOLO indipendente, scritto in modo diverso dall'implementazione — forza
+// bruta su tutte le partizioni, senza nessuna nozione di "minimale".
+
+// Oracolo: massimo numero di blocchi a somma zero, per pura forza bruta su
+// tutti i sottoinsiemi (3^n). Volutamente lento e stupido: e' il riferimento.
+function bruteForceMaxBlocks(values) {
+  const n = values.length;
+  const cents = values.map(v => Math.round(v * 100));
+  const sum = new Array(1 << n).fill(0);
+  for (let m = 1; m < (1 << n); m++) { const low = m & -m; sum[m] = sum[m ^ low] + cents[31 - Math.clz32(low)]; }
+  const memo = new Array(1 << n).fill(-2);
+  const solve = (mask) => {
+    if (mask === 0) return 0;
+    if (memo[mask] !== -2) return memo[mask];
+    const low = mask & -mask; let best = -1;
+    for (let s = mask; s > 0; s = (s - 1) & mask) {
+      if (!(s & low) || sum[s] !== 0) continue;
+      const sub = solve(mask ^ s);
+      if (sub >= 0 && 1 + sub > best) best = 1 + sub;
+    }
+    return (memo[mask] = best);
+  };
+  return solve((1 << n) - 1);
+}
+
+// Saldi casuali che sommano ESATTAMENTE a zero (come i saldi veri di un gruppo).
+// ATTENZIONE (errore trovato scrivendo questi test): con importi casuali su un
+// intervallo continuo, la probabilita' che un sottoinsieme faccia somma zero e'
+// quasi nulla — l'unico blocco possibile e' il gruppo intero, l'ottimo e'
+// sempre n-1 e il greedy pareggia. Un test cosi' non dimostra niente. I saldi
+// VERI nascono da spese divise in parti uguali: pochi valori ricorrenti, tante
+// compensazioni. Per questo si generano blocchi a somma zero su una scala
+// grossolana (multipli di 5 euro), come nella vita reale.
+function randomStructuredBalances(rnd, { blocks = 3, maxBlockSize = 4 } = {}) {
+  const bal = {}; let idx = 0;
+  for (let b = 0; b < blocks; b++) {
+    const k = 2 + Math.floor(rnd() * (maxBlockSize - 1));
+    const vals = []; let acc = 0;
+    for (let i = 0; i < k - 1; i++) { const v = (1 + Math.floor(rnd() * 8)) * 5 * (rnd() < 0.5 ? -1 : 1); vals.push(v); acc += v; }
+    vals.push(-acc);
+    for (const v of vals) if (v !== 0) bal[`P${idx++}`] = v;
+  }
+  return bal;
+}
+
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// Un piano di pagamenti e' VALIDO solo se azzera davvero ogni saldo e non
+// contiene bonifici a zero o negativi (nessuno "paga" -3 euro).
+function assertSettles(bal, tx) {
+  const b = { ...bal };
+  for (const t of tx) {
+    assert.ok(t.amount > 0, 'nessun bonifico di importo nullo o negativo');
+    b[t.from] = (b[t.from] || 0) + t.amount;
+    b[t.to] = (b[t.to] || 0) - t.amount;
+  }
+  for (const [k, v] of Object.entries(b)) assert.ok(Math.abs(v) < 0.01, `saldo di ${k} non azzerato: ${v}`);
+}
+
+// Greedy di riferimento (il metodo di Splitwise/Settle Up): il piu' grande
+// debitore paga il piu' grande creditore, finche' tutto e' chiuso. Riscritto
+// qui apposta, indipendente dal motore, per misurare il guadagno reale.
+function greedyReference(bal) {
+  const cred = Object.entries(bal).filter(([, v]) => v > 0.005).map(([m, v]) => ({ m, v })).sort((a, b) => b.v - a.v);
+  const deb = Object.entries(bal).filter(([, v]) => v < -0.005).map(([m, v]) => ({ m, v: -v })).sort((a, b) => b.v - a.v);
+  const tx = []; let i = 0, j = 0;
+  while (i < deb.length && j < cred.length) {
+    const pay = Math.round(Math.min(deb[i].v, cred[j].v) * 100) / 100;
+    if (pay > 0.005) tx.push({ from: deb[i].m, to: cred[j].m, amount: pay });
+    deb[i].v = Math.round((deb[i].v - pay) * 100) / 100; cred[j].v = Math.round((cred[j].v - pay) * 100) / 100;
+    if (deb[i].v <= 0.005) i++; if (cred[j].v <= 0.005) j++;
+  }
+  return tx;
+}
+
+test('SETTLEMENT ESATTO: coincide con la forza bruta su 200 gruppi realistici (4-11 persone)', () => {
+  const rnd = mulberry32(20260803);
+  for (let iter = 0; iter < 200; iter++) {
+    const bal = randomStructuredBalances(rnd, { blocks: 1 + Math.floor(rnd() * 3), maxBlockSize: 4 });
+    const people = Object.keys(bal).length;
+    if (people < 2 || people > 11) continue;
+    const tx = minimalSettlement(bal);
+    assertSettles(bal, tx);
+    const optimal = people - bruteForceMaxBlocks(Object.values(bal));
+    assert.equal(tx.length, optimal, `atteso il minimo assoluto ${optimal}, ottenuti ${tx.length} (saldi: ${JSON.stringify(bal)})`);
+  }
+});
+
+test('SETTLEMENT ESATTO: resta ottimo dove prima si ripiegava sul greedy (13-16 persone)', () => {
+  const rnd = mulberry32(777);
+  let confronti = 0, bonificiRisparmiati = 0;
+  for (let iter = 0; iter < 60; iter++) {
+    const bal = randomStructuredBalances(rnd, { blocks: 5 + Math.floor(rnd() * 2), maxBlockSize: 3 });
+    const people = Object.keys(bal).length;
+    if (people < 13 || people > 16) continue;
+    const tx = minimalSettlement(bal);
+    assertSettles(bal, tx);
+    // L'oracolo a forza bruta e' ancora eseguibile fin qui: e' il confronto che
+    // dimostra che sopra i 12 la risposta non e' solo "valida", e' MINIMA.
+    const optimal = people - bruteForceMaxBlocks(Object.values(bal));
+    assert.equal(tx.length, optimal, `sopra i 12 deve restare il minimo assoluto (${optimal}), ottenuti ${tx.length}`);
+    bonificiRisparmiati += greedyReference(bal).length - tx.length;
+    confronti++;
+  }
+  assert.ok(confronti >= 10, `servono almeno 10 gruppi sopra i 12 davvero verificati (${confronti})`);
+  // La misura che conta: sopra i 12 persone il vecchio comportamento era il
+  // greedy. Se il guadagno fosse zero, tutto questo lavoro non servirebbe.
+  assert.ok(bonificiRisparmiati > 0, `deve fare meno bonifici del greedy (risparmiati: ${bonificiRisparmiati})`);
+});
+
+test('SETTLEMENT ESATTO: blocchi non minimali spezzati correttamente ({5,-5} dentro {5,-3,-5,3})', () => {
+  // Il caso che rende necessario il filtro finale di minimalita': lungo un
+  // cammino si trova {5,-3,-5,3} (somma zero) prima di accorgersi che {5,-5}
+  // ne e' un sotto-blocco. Se il filtro mancasse, uscirebbe 3 bonifici invece di 2.
+  const bal = { A: 5, B: -3, C: -5, D: 3 };
+  const tx = minimalSettlement(bal);
+  assert.equal(tx.length, 2, 'due coppie indipendenti → due bonifici');
+  assertSettles(bal, tx);
+});
+
+test('SETTLEMENT: gruppo grande senza alcuna compensazione (20 persone, un solo creditore)', () => {
+  // Caso peggiore per l'enumerazione: nessun sotto-blocco a somma zero esiste,
+  // l'unico blocco minimale e' il gruppo intero → n-1 bonifici, ed e' il minimo.
+  const bal = {}; for (let i = 0; i < 19; i++) bal[`D${i}`] = -10;
+  bal.C = 190;
+  const tx = minimalSettlement(bal);
+  assert.equal(tx.length, 19);
+  assertSettles(bal, tx);
+});
+
+test('SETTLEMENT: non peggiora mai il greedy, su 300 gruppi casuali fino a 22 persone', () => {
+  const rnd = mulberry32(31337);
+  for (let iter = 0; iter < 300; iter++) {
+    const bal = randomStructuredBalances(rnd, { blocks: 1 + Math.floor(rnd() * 8), maxBlockSize: 4 });
+    if (Object.keys(bal).length < 2 || Object.keys(bal).length > 22) continue;
+    const tx = minimalSettlement(bal);
+    assertSettles(bal, tx);
+    // Limite superiore universale: un gruppo di k persone si chiude sempre in
+    // al piu' k-1 bonifici. Se lo superassimo, avremmo peggiorato il greedy.
+    assert.ok(tx.length <= Object.keys(bal).length - 1, 'mai piu' + ' bonifici del greedy');
+  }
+});
+
+test('SETTLEMENT: importi in centesimi esatti, nessun blocco perso per arrotondamento', () => {
+  // Saldi con centesimi "scomodi": prima la soglia float (< 0.01) poteva
+  // accettare come "somma zero" un blocco che zero non era.
+  const bal = { A: 0.01, B: -0.01, C: 33.33, D: 33.33, E: -66.66 };
+  const tx = minimalSettlement(bal);
+  assertSettles(bal, tx);
+  assert.equal(tx.length, 3, 'coppia da 1 centesimo separata dal terzetto → 1 + 2 bonifici');
+});

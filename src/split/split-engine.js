@@ -106,38 +106,129 @@ function greedySettle(entries) {
   return tx;
 }
 
+// ── SETTLEMENT MINIMO ESATTO ─────────────────────────────────────────────────
+// Il problema (debt simplification) e' NP-hard: minimizzare i bonifici equivale
+// a MASSIMIZZARE il numero di sottogruppi a somma zero in cui si partiziona il
+// gruppo — k persone che si compensano fra loro si chiudono con k-1 bonifici,
+// quindi n persone in p sottogruppi si chiudono con n-p pagamenti.
+//
+// La versione precedente era esatta solo fino a 12 persone, perche' il DP
+// provava TUTTI i 3^n abbinamenti mask/sottomask (a 13 persone gia' 1,6
+// milioni di stati, e la memoria cresce come 2^n). Sopra i 12 si ripiegava sul
+// greedy, che su gruppi grandi fa davvero bonifici in piu' del necessario.
+//
+// MIGLIORAMENTO — dimostrato, non euristico. Una partizione con il MASSIMO
+// numero di blocchi usa solo blocchi MINIMALI (blocchi a somma zero che non
+// ne contengono al loro interno uno piu' piccolo, sempre a somma zero): se un
+// blocco della partizione non fosse minimale, conterrebbe un sotto-blocco a
+// somma zero; spezzandolo si otterrebbero DUE blocchi al posto di uno, cioe'
+// una partizione strettamente migliore — assurdo, perche' quella di partenza
+// era massima. Enumerare i soli blocchi minimali quindi non perde mai
+// l'ottimo, ed e' un insieme enormemente piu' piccolo di tutti i sottoinsiemi.
+// Risultato: la stessa garanzia di ottimalita', ma su gruppi molto piu' grandi
+// (viaggi, feste, coinquilini: 15-22 persone sono normali). Oltre il budget di
+// esplorazione si ripiega ancora sul greedy — e lo si dichiara, invece di far
+// finta che sia comunque il minimo.
+//
+// L'aritmetica e' in CENTESIMI INTERI: "somma zero" diventa un confronto esatto
+// invece di una tolleranza float scelta a mano (prima `< 0.01`), quindi nessun
+// blocco viene accettato o scartato per un errore di arrotondamento.
+const EXACT_MAX_N = 22;            // oltre: nemmeno l'enumerazione dei minimali vale l'attesa
+const BLOCK_NODE_BUDGET = 400000;  // nodi DFS massimi (protegge il telefono piu' lento)
+const DP_STATE_BUDGET = 200000;    // stati di partizionamento massimi
+
+// Blocchi MINIMALI a somma zero, come bitmask. Ritorna null se l'esplorazione
+// supera il budget (il chiamante ripiega sul greedy invece di bloccare la UI).
+function zeroSumMinimalBlocks(cents) {
+  const n = cents.length;
+  // Quanto si puo' ancora aggiungere, in positivo e in negativo, da i in poi:
+  // se nemmeno prendendo tutto il resto si puo' tornare a zero, il ramo e' morto.
+  const sufPos = new Array(n + 1).fill(0), sufNeg = new Array(n + 1).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    sufPos[i] = sufPos[i + 1] + (cents[i] > 0 ? cents[i] : 0);
+    sufNeg[i] = sufNeg[i + 1] + (cents[i] < 0 ? cents[i] : 0);
+  }
+  const found = [];
+  let nodes = 0, overflow = false;
+  const dfs = (i, mask, sum) => {
+    if (overflow) return;
+    if (++nodes > BLOCK_NODE_BUDGET) { overflow = true; return; }
+    // Somma zero raggiunta: si registra e NON si espande oltre — ogni superset
+    // conterrebbe questo blocco, quindi non sarebbe minimale per definizione.
+    if (mask !== 0 && sum === 0) { found.push(mask); return; }
+    if (i >= n) return;
+    if (sum + sufPos[i] < 0 || sum + sufNeg[i] > 0) return; // zero irraggiungibile
+    dfs(i + 1, mask | (1 << i), sum + cents[i]);
+    dfs(i + 1, mask, sum);
+  };
+  dfs(0, 0, 0);
+  if (overflow) return null;
+
+  // Il troncamento sopra elimina i superset lungo lo STESSO cammino, ma un
+  // blocco puo' contenerne uno piu' piccolo trovato per un'altra strada
+  // (es. {5,-3,-5,3} contiene {5,-5}): filtro finale, dal piu' piccolo.
+  found.sort((a, b) => popcount(a) - popcount(b));
+  const minimal = [];
+  for (const m of found) if (!minimal.some(x => (x & m) === x)) minimal.push(m);
+  return minimal;
+}
+
+function popcount(x) { let c = 0; while (x) { x &= x - 1; c++; } return c; }
+
 // Compensazione MINIMA (debt simplification): chi paga chi col MINOR numero di
-// bonifici per azzerare tutti i debiti. Semplifica le catene (A→B→C ⇒ A→C) e,
-// per gruppi realistici (≤12 con saldo non nullo), trova il minimo ASSOLUTO
-// partizionando i saldi nel MAX numero di sottogruppi a somma-zero (ogni
-// sottogruppo di k persone si chiude con k-1 bonifici → totale = n - #sottogruppi,
-// minimizzato). Oltre 12, fallback greedy (near-ottimo). Sempre corretto: azzera
-// tutti i saldi. Piu' potente del greedy di Splitwise/Settle Up.
+// bonifici per azzerare tutti i debiti. Semplifica le catene (A→B→C ⇒ A→C).
+// Esatto (minimo ASSOLUTO dimostrato) fino a EXACT_MAX_N persone con saldo non
+// nullo; oltre, o se l'esplorazione sfora il budget, greedy near-ottimo.
+// Sempre corretto: azzera tutti i saldi. Piu' potente di Splitwise/Settle Up,
+// che semplificano con euristiche di tipo greedy.
 export function minimalSettlement(balances) {
   const entries = Object.entries(balances).map(([m, v]) => ({ m, v: round2(v) })).filter(e => Math.abs(e.v) > EPS);
   const n = entries.length;
   if (n === 0) return [];
-  if (n > 12) return greedySettle(entries); // esatto troppo costoso → greedy
+  if (n > EXACT_MAX_N) return greedySettle(entries);
 
-  const full = (1 << n) - 1;
-  const sum = new Float64Array(1 << n);
-  for (let mask = 1; mask <= full; mask++) { const low = mask & -mask; const idx = 31 - Math.clz32(low); sum[mask] = round2(sum[mask ^ low] + entries[idx].v); }
-  const isZero = (mask) => Math.abs(sum[mask]) < 0.01;
-  const best = new Int32Array(1 << n).fill(-2); const choice = new Int32Array(1 << n);
+  const cents = entries.map(e => Math.round(e.v * 100));
+  // Se i saldi non sommano esattamente a zero (arrotondamenti a monte), nessuna
+  // partizione esiste: il greedy resta comunque corretto e chiude tutto.
+  if (cents.reduce((s, c) => s + c, 0) !== 0) return greedySettle(entries);
+
+  const blocks = zeroSumMinimalBlocks(cents);
+  if (!blocks) return greedySettle(entries); // budget sforato → onestamente greedy
+
+  // Ogni blocco viene provato solo dal mask che ha il suo bit piu' basso come
+  // primo bit libero: cosi' ogni partizione e' generata una volta sola.
+  const byLowest = new Map();
+  for (const b of blocks) {
+    const idx = 31 - Math.clz32(b & -b);
+    if (!byLowest.has(idx)) byLowest.set(idx, []);
+    byLowest.get(idx).push(b);
+  }
+
+  const memo = new Map(), choice = new Map();
+  let dpOverflow = false;
   const solve = (mask) => {
     if (mask === 0) return 0;
-    if (best[mask] !== -2) return best[mask];
-    const low = mask & -mask; let bestVal = -1, bestS = 0;
-    for (let s = mask; s > 0; s = (s - 1) & mask) {
-      if (!(s & low) || !isZero(s)) continue;
-      const sub = solve(mask ^ s);
-      if (sub >= 0 && 1 + sub > bestVal) { bestVal = 1 + sub; bestS = s; }
+    if (memo.has(mask)) return memo.get(mask);
+    if (memo.size > DP_STATE_BUDGET) { dpOverflow = true; return -1; }
+    const idx = 31 - Math.clz32(mask & -mask);
+    let bestVal = -1, bestB = 0;
+    for (const b of (byLowest.get(idx) || [])) {
+      if ((b & mask) !== b) continue;
+      const sub = solve(mask ^ b);
+      if (sub >= 0 && 1 + sub > bestVal) { bestVal = 1 + sub; bestB = b; }
     }
-    best[mask] = bestVal; choice[mask] = bestS; return bestVal;
+    memo.set(mask, bestVal); choice.set(mask, bestB);
+    return bestVal;
   };
-  solve(full);
+  const full = n === 32 ? -1 : (1 << n) - 1;
+  if (solve(full) < 0 || dpOverflow) return greedySettle(entries);
+
   const tx = []; let mask = full;
-  while (mask) { const s = choice[mask]; const sub = []; for (let i = 0; i < n; i++) if (s & (1 << i)) sub.push({ ...entries[i] }); tx.push(...greedySettle(sub)); mask ^= s; }
+  while (mask) {
+    const s = choice.get(mask); if (!s) break;
+    const sub = []; for (let i = 0; i < n; i++) if (s & (1 << i)) sub.push({ ...entries[i] });
+    tx.push(...greedySettle(sub)); mask ^= s;
+  }
   return tx;
 }
 
