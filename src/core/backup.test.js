@@ -52,3 +52,55 @@ test('due backup della stessa cosa hanno salt/iv diversi (non deterministici)', 
   assert.notEqual(a.iv, b.iv);
   assert.notEqual(a.data, b.data);
 });
+
+// ---- Recupero a pezzi (kit senza passphrase) ----
+
+test('kit di recupero: 2 pezzi su 3 riaprono il backup identico', async () => {
+  const { createRecoveryKit, restoreFromShares } = await import('./backup.js');
+  const state = { tx: [{ id: 'a', amount: 12.34, desc: 'Caffè' }], goals: { fondo: 500 } };
+  const kit = await createRecoveryKit(state, { threshold: 2, total: 3 });
+  assert.equal(kit.shares.length, 3);
+  assert.equal(kit.verified, true);
+  assert.equal(kit.envelope.format, 'momentum-backup-v2');
+  const restored = await restoreFromShares(kit.envelope, [kit.shares[2].text, kit.shares[0].text]);
+  assert.deepEqual(restored, state);
+});
+
+test('kit di recupero: con un solo pezzo non si apre, e lo dice chiaramente', async () => {
+  const { createRecoveryKit, restoreFromShares } = await import('./backup.js');
+  const kit = await createRecoveryKit({ tx: [] }, { threshold: 2, total: 3 });
+  await assert.rejects(
+    () => restoreFromShares(kit.envelope, [kit.shares[0].text]),
+    /Servono 2 pezzi/
+  );
+});
+
+test('kit di recupero: i pezzi di un altro kit non aprono questo backup', async () => {
+  const { createRecoveryKit, restoreFromShares } = await import('./backup.js');
+  const kitA = await createRecoveryKit({ tx: [{ id: 'a' }] }, { threshold: 2, total: 3 });
+  const kitB = await createRecoveryKit({ tx: [{ id: 'b' }] }, { threshold: 2, total: 3 });
+  await assert.rejects(
+    () => restoreFromShares(kitA.envelope, [kitB.shares[0].text, kitB.shares[1].text]),
+    /non aprono questo backup/
+  );
+});
+
+test('kit di recupero: una busta manomessa viene rifiutata, mai importata a meta', async () => {
+  const { createRecoveryKit, restoreFromShares } = await import('./backup.js');
+  const kit = await createRecoveryKit({ tx: [{ id: 'a', amount: 10 }] }, { threshold: 2, total: 3 });
+  const manomessa = { ...kit.envelope, data: kit.envelope.data.slice(0, -6) + 'AAAAAA' };
+  await assert.rejects(
+    () => restoreFromShares(manomessa, [kit.shares[0].text, kit.shares[1].text]),
+    /non aprono questo backup/
+  );
+});
+
+test('kit di recupero: ogni pezzo si spiega da solo, senza gergo', async () => {
+  const { createRecoveryKit } = await import('./backup.js');
+  const kit = await createRecoveryKit({ tx: [] }, { threshold: 2, total: 3 });
+  for (const s of kit.shares) {
+    assert.match(s.label, /Ne servono 2 diversi/);
+    assert.match(s.label, /non apre niente e non rivela niente/);
+    assert.ok(!/AES|GCM|Shamir|GF\(256\)|entropia/i.test(s.label), `gergo nel foglio: ${s.label}`);
+  }
+});
