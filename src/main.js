@@ -14,6 +14,7 @@ import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpco
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy, projectStrategy } from './alpha/net-worth.js';
 import { validateStrategySet } from './alpha/strategy-validation.js';
+import { stalenessNote } from './core/data-freshness.js';
 
 // Rendimenti annuali ricostruiti dai parametri di una strategia, per poterla
 // passare al vaglio statistico. Modello LOG-NORMALE, lo stesso di
@@ -85,6 +86,7 @@ import { detectPlatform, installSteps } from './pwa/install-guide.js';
 import { comparePeriods, lastNMonthKeys } from './predict/period-compare.js';
 import { buildCausalGraph, pruneNonCausal, buildCategorySeries } from './predict/causal-graph.js';
 import { analyzeCausalStructure } from './predict/causal-orchestrator.js';
+import { startCategoryExperiment, stopCategoryExperiment, experimentStatus } from './predict/experiment-tracker.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
 // datato) quando l'utente ha già in portafoglio una posizione che traccia
@@ -3554,16 +3556,17 @@ window.selectAsset = async (idx) => {
   // Momentum". Stessa domanda su Apple dava risultati diversi nei due
   // punti). Ora usa le STESSE due funzioni condivise: mai due motori
   // isolati per la stessa cosa.
-  let newsHtml = '', historyChart = '';
+  let newsHtml = '', historyChart = '', trackRecordHtml = '';
   try {
     const { items, stale } = await window.fetchAssetNewsCascade(asset);
     if (items.length) newsHtml = `<div class="mt-2">${stale ? '<p class="text-[11px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}</div>`;
   } catch (_) { /* notizie opzionali: nessun errore bloccante se mancano */ }
   try {
-    const { historyChart: chart } = await window.fetchAssetHistoryData(asset);
+    const { historyChart: chart, trackRecordHtml: tr } = await window.fetchAssetHistoryData(asset);
     historyChart = chart || '';
+    trackRecordHtml = tr || '';
   } catch (_) { /* grafico opzionale: nessun errore bloccante se manca */ }
-  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}
+  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}
     <div class="flex gap-1.5 mt-2">
       <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
       <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" />
@@ -4958,7 +4961,14 @@ function renderNetWorth() {
             </div>
           </div>`;
         }).join('')}</div>
-        ${vaglio ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-2.5 leading-relaxed">${escapeHtml(vaglio.riassunto)} Stai confrontando ${vaglio.trials} strategie: più ne guardi insieme, più è facile che la migliore lo sia per caso.</p>` : ''}`;
+        ${vaglio ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-2.5 leading-relaxed">${escapeHtml(vaglio.riassunto)} Stai confrontando ${vaglio.trials} strategie: più ne guardi insieme, più è facile che la migliore lo sia per caso.</p>` : ''}
+        ${(() => {
+          // src/core/data-freshness.js: i parametri storici (measured-assumptions.js)
+          // sono generati una volta e poi restano fermi finché non si rilancia lo
+          // script — l'app deve saperlo e dirlo, non mostrarli come sempre freschi.
+          const nota = measuredAssumptions?.generatedAt ? stalenessNote(measuredAssumptions.generatedAt, { now: Date.now(), maxAgeDays: 90, label: 'I parametri storici misurati' }) : null;
+          return nota ? `<p class="text-[10px] text-amber-300/80 mt-1">⏱ ${escapeHtml(nota)}</p>` : '';
+        })()}`;
     } else projEl.innerHTML = '';
   }
   // Classifica settori S&P 500 (src/alpha/sector-rotation.js): Sharpe reale
@@ -5177,6 +5187,22 @@ function renderCausalGraphViz() {
     ? `<p class="text-[10px] text-[var(--primary)]/90 mt-1">+ ${analisi.nonLineari.length} legame${analisi.nonLineari.length === 1 ? '' : 'i'} nascost${analisi.nonLineari.length === 1 ? 'o' : 'i'}: c'è una relazione ma non è una linea retta (spesso una soglia).</p>`
     : '';
 
+  // Chiude il cerchio tra "trovato un legame" e "verificalo davvero"
+  // (src/predict/experiment-tracker.js + anytime-experiment.js): per ogni
+  // categoria coinvolta, un chip che apre l'esperimento — mostra lo stato se
+  // già in corso, propone di avviarlo se no. Nessun'altra app di questo
+  // settore chiude questo cerchio.
+  const espChips = cats.map((c) => {
+    const cat = getCatById(c);
+    const nome = cat?.name || c;
+    const stato = experimentStatus(VaultDAO.state.experiments, c, allTx, { now: new Date() });
+    if (!stato) {
+      return `<button class="rk-place text-[9px] px-2 py-1 rounded-lg border border-[var(--outline)]" data-exp-start="${escapeHtml(c)}">▶ Prova a cambiare ${escapeHtml(nome)}</button>`;
+    }
+    const colore = stato.conclusione === 'cambiato' ? 'text-emerald-400 border-emerald-500/30' : stato.conclusione === 'nessun-cambiamento' ? 'text-[var(--on-surface-secondary)] border-[var(--outline)]' : 'text-amber-300 border-amber-500/30';
+    return `<button class="text-[9px] px-2 py-1 rounded-lg border ${colore}" data-exp-open="${escapeHtml(c)}">◉ ${escapeHtml(nome)}: ${stato.conclusione ? (stato.conclusione === 'cambiato' ? 'confermato' : stato.conclusione === 'nessun-cambiamento' ? 'nessun effetto' : '') : 'in corso'}</button>`;
+  }).join('');
+
   el.innerHTML = `
     <svg viewBox="0 0 240 240" class="w-full" style="max-height:260px">
       <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2 4"/>
@@ -5184,8 +5210,64 @@ function renderCausalGraphViz() {
     </svg>
     <p class="text-[11px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame. Tocca un punto o una linea per i dettagli.</p>
     <p class="text-[10px] text-slate-600 mt-1">${escapeHtml(motoreTxt)}</p>
-    ${avvisiHtml}${nonLinHtml}`;
+    ${avvisiHtml}${nonLinHtml}
+    <div class="flex flex-wrap gap-1.5 mt-2">${espChips}</div>`;
+
+  el.querySelectorAll('[data-exp-start]').forEach((btn) => {
+    btn.addEventListener('click', () => window.openExperimentPanel(btn.dataset.expStart));
+  });
+  el.querySelectorAll('[data-exp-open]').forEach((btn) => {
+    btn.addEventListener('click', () => window.openExperimentPanel(btn.dataset.expOpen));
+  });
 }
+
+// Pannello dell'esperimento: propone di avviarlo (se non in corso) o mostra
+// lo stato valido-in-ogni-istante (src/predict/anytime-experiment.js) —
+// guardabile ogni giorno senza intaccare la garanzia statistica, ed è
+// esattamente il punto: nessuna app di finanza personale verifica mai se il
+// suo consiglio ha funzionato davvero.
+window.openExperimentPanel = (category) => {
+  const cat = getCatById(category);
+  const nome = cat?.name || category;
+  const allTx = VaultDAO.state.transactions || {};
+  const stato = experimentStatus(VaultDAO.state.experiments, category, allTx, { now: new Date() });
+
+  if (!stato) {
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 text-center items-center">
+        <h3 class="text-base font-black">Prova a cambiare ${escapeHtml(nome)}</h3>
+        <p class="card-sub !mb-0">Fotografiamo le ultime settimane come riferimento. Poi, quando vuoi — anche ogni giorno — ti dico se è cambiato davvero, non solo se sembra.</p>
+        <button id="exp-start-go" class="btn-action btn-primary w-full py-3 font-bold rounded-2xl">Comincia adesso</button>
+      </div>`);
+    document.getElementById('exp-start-go').addEventListener('click', () => {
+      VaultDAO.state.experiments = startCategoryExperiment(VaultDAO.state.experiments, category, allTx, { now: new Date() });
+      VaultDAO.save();
+      showToast('Esperimento avviato. Torna quando vuoi.', 'success');
+      closeModal();
+      renderCausalGraphViz();
+    });
+    return;
+  }
+
+  const dots = stato.puoiFermarti === false
+    ? `<p class="text-[11px] text-[var(--on-surface-secondary)]">Settimana ${stato.settimanePassate} di almeno ${stato.periodiMinimi || 4}.</p>`
+    : '';
+  const verdettoColore = stato.conclusione === 'cambiato' ? 'text-emerald-300' : stato.conclusione === 'nessun-cambiamento' ? 'text-[var(--on-surface-secondary)]' : 'text-amber-300';
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 text-center items-center">
+      <h3 class="text-base font-black">${escapeHtml(nome)}</h3>
+      <p class="text-[11px] text-[var(--on-surface-secondary)]">Prima: ${formatMoney(stato.mediaBaseline)}/settimana in media.</p>
+      <p class="text-[13px] font-bold ${verdettoColore}">${escapeHtml(stato.messaggio)}</p>
+      ${dots}
+      <button id="exp-stop-go" class="text-[11px] text-[var(--on-surface-secondary)] underline">Ferma questo esperimento</button>
+    </div>`);
+  document.getElementById('exp-stop-go').addEventListener('click', () => {
+    VaultDAO.state.experiments = stopCategoryExperiment(VaultDAO.state.experiments, category);
+    VaultDAO.save();
+    closeModal();
+    renderCausalGraphViz();
+  });
+};
 
 // Ghost Charge Radar VISIBILE: mostra gli abbonamenti ricorrenti scovati dal
 // motore (src/predict/subscriptions.js) — prima esisteva ma non era in UI.
@@ -7398,7 +7480,7 @@ const initApp = () => {
     ).join('');
     return newsHeader + itemsHtml;
   }
-  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote) {
+  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml = '') {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
     const newsBlockHtml = buildNewsItemsHtml(items);
     // Dato storico REALE (CoinGecko, mai una previsione) — risponde a
@@ -7426,7 +7508,7 @@ const initApp = () => {
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
         <span class="text-[11px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${groundedHtml}`;
+      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${trackRecordHtml || ''}${groundedHtml}`;
     replayQaAnimation();
   }
   // Ritorna true se ha risposto con dati reali (fine flusso), false se deve
@@ -7513,7 +7595,24 @@ const initApp = () => {
   window.buildNewsItemsHtml = buildNewsItemsHtml;
   async function fetchAssetHistoryData(asset) {
     const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
-    let yoyNote = null, historyChart = '', multiYearNote = null;
+    let yoyNote = null, historyChart = '', multiYearNote = null, trackRecordHtml = '';
+    // Sullo STESSO storico reale già scaricato (mai una serie a parte),
+    // src/alpha/asset-track-record.js applica il vaglio scientifico
+    // (Sharpe deflazionato + Munger): risponde a "questo rendimento è
+    // bravura o fortuna?", cosa che nessun grafico da solo dice.
+    const buildTrackRecord = async (series) => {
+      try {
+        if (!series || series.length < 9) return '';
+        const { assessTrackRecord } = await import('./alpha/asset-track-record.js');
+        const r = assessTrackRecord(series, { label: asset.name || asset.symbol });
+        if (!r.disponibile) return '';
+        const tono = r.verdetto === 'solido' ? 'text-emerald-300' : r.verdetto === 'probabile-fortuna' ? 'text-amber-300' : 'text-[var(--on-surface-secondary)]';
+        const conc = r.concentrazione ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${escapeHtml(r.concentrazione.messaggio)}</p>` : '';
+        return `<div class="mt-1.5 p-2 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)]">
+          <p class="text-[10px] font-bold ${tono}">${escapeHtml(r.messaggio)}</p>${conc}
+        </div>`;
+      } catch (_) { return ''; }
+    };
     if (asset.kind === 'crypto') {
       try {
         const { fetchLiveCryptoPrice } = await import('./alpha/live-price.js');
@@ -7530,6 +7629,7 @@ const initApp = () => {
         ]);
         yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
         if (series.length > 1) historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
+        trackRecordHtml = await buildTrackRecord(series);
         // Punti reali a 2/3/5 anni (mai una linea continua fabbricata:
         // CoinGecko gratuito limita la serie a 365gg, ma il singolo punto
         // storico non ha questo limite — dati veri, non un grafico finto).
@@ -7556,12 +7656,13 @@ const initApp = () => {
           const current = series[series.length - 1].price;
           yoyNote = describeStockYearsAgo(series, 1, current);
           historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
+          trackRecordHtml = await buildTrackRecord(series);
           const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
           if (points.length) multiYearNote = points.map(p => p.note).join(' ');
         }
       } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
     }
-    return { yoyNote, historyChart, multiYearNote };
+    return { yoyNote, historyChart, multiYearNote, trackRecordHtml };
   }
   window.fetchAssetHistoryData = fetchAssetHistoryData;
   async function tryAnswerWithRealNews(assetQuery) {
@@ -7594,9 +7695,9 @@ const initApp = () => {
       const asset = results?.[0];
       if (!asset) return false;
       const { items, stale, groundedNewsNote } = await fetchAssetNewsCascade(asset);
-      const { yoyNote, historyChart, multiYearNote } = await fetchAssetHistoryData(asset);
+      const { yoyNote, historyChart, multiYearNote, trackRecordHtml } = await fetchAssetHistoryData(asset);
       if (!items.length && !yoyNote && !historyChart && !groundedNewsNote) return false;
-      showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote);
+      showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml);
       return true;
     } catch (_) { return false; }
   }
