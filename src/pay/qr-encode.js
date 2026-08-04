@@ -11,14 +11,9 @@
 'use strict';
 
 // ---- GF(256) per Reed-Solomon (polinomio 0x11D, standard QR) ----
-const EXP = new Uint8Array(512);
-const LOG = new Uint8Array(256);
-(() => {
-  let x = 1;
-  for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11D; }
-  for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
-})();
-const gfMul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+// L'aritmetica del campo vive ora in ../core/gf256.js: stesse tabelle, stesso
+// polinomio, un solo posto da verificare (la usa anche il recupero del backup).
+import { gfMul, gfExp } from '../core/gf256.js';
 
 // Polinomio generatore per `degree` codeword di correzione, con il coefficiente
 // di TESTA in posizione 0 (gen[0]=1), come richiede la divisione in rsEncode.
@@ -28,7 +23,7 @@ function rsGenerator(degree) {
     const next = new Array(poly.length + 1).fill(0);
     for (let j = 0; j < poly.length; j++) {
       next[j] ^= poly[j];                       // x * poly
-      next[j + 1] ^= gfMul(poly[j], EXP[i]);    // α^i * poly
+      next[j + 1] ^= gfMul(poly[j], gfExp(i));  // α^i * poly
     }
     poly = next;
   }
