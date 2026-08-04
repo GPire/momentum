@@ -270,6 +270,63 @@
     .install-step-in:nth-child(2) { animation-delay: .12s; }
     .install-step-in:nth-child(3) { animation-delay: .2s; }
     .install-step-in:nth-child(n+4) { animation-delay: .28s; }
+    /* Copia di sicurezza a pezzi: i tre fogli entrano in sequenza 1→2→3, come
+       i passi della guida di installazione — l'occhio capisce che sono TRE
+       cose separate da mettere in TRE posti, che è tutto il concetto. Il
+       pezzo appena messo via fa un lampo verde breve (conferma fisica del
+       gesto, mai un pop-up che interrompe) e il verdetto in fondo pulsa una
+       volta sola quando la protezione diventa reale: il momento va sentito,
+       non letto e basta. */
+    /* Ogni schermata del flusso entra da destra come una pagina che gira: dice
+       "stai andando avanti", non "è cambiato qualcosa a caso". Gli elementi
+       dentro salgono a scaglione così l'occhio legge nell'ordine giusto —
+       icona, frase, bottone — invece di essere colpito da tutto insieme. */
+    @keyframes rkScreenIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+    .rk-screen { animation: rkScreenIn .34s cubic-bezier(.22,1,.36,1) both; }
+    /* Lo scorrimento del modale è verticale: l'animazione che entra da destra
+       non deve poter creare una barra orizzontale né tagliare il contenuto. */
+    #modal-body { overflow-x: hidden; }
+    /* Il bottone principale resta SEMPRE raggiungibile, anche su schermi bassi
+       (telefoni piccoli in orizzontale, finestre desktop ridotte): sta appeso
+       in fondo con una sfumatura sotto, invece di finire fuori dal modale —
+       era il caso in cui la schermata sembrava "tagliata" e non si capiva
+       cosa fare. */
+    .rk-cta { position: sticky; bottom: -0.25rem; z-index: 2; }
+    .rk-cta::before { content: ''; position: absolute; left: -1rem; right: -1rem; bottom: -1rem; top: -1.25rem; background: linear-gradient(to bottom, transparent, var(--surface-solid) 55%); z-index: -1; pointer-events: none; }
+    /* Sotto una certa altezza la schermata si compatta da sola invece di
+       affidarsi allo scorrimento: meno spazi, icona più piccola, titolo più
+       corto in altezza. Il contenuto resta lo stesso, cambia solo il respiro. */
+    @media (max-height: 720px) {
+      .rk-screen { gap: 0.7rem !important; padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+      .rk-shield, .rk-done { width: 3rem !important; height: 3rem !important; }
+      .rk-step-icon { width: 2.75rem !important; height: 2.75rem !important; }
+      .rk-shield svg, .rk-done svg, .rk-step-icon svg { width: 1.5rem !important; height: 1.5rem !important; }
+      .rk-cta { padding-top: 0.65rem !important; padding-bottom: 0.65rem !important; }
+    }
+    .rk-screen > * { animation: txRise .38s cubic-bezier(.22,1,.36,1) both; }
+    .rk-screen > *:nth-child(1) { animation-delay: .04s; }
+    .rk-screen > *:nth-child(2) { animation-delay: .10s; }
+    .rk-screen > *:nth-child(3) { animation-delay: .16s; }
+    .rk-screen > *:nth-child(n+4) { animation-delay: .22s; }
+    /* Lo scudo respira piano: presenza rassicurante, mai un lampeggio d'allarme
+       (l'ansia su una schermata di sicurezza fa chiudere, non agire). */
+    @keyframes rkShieldBreath { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 30%, transparent); } 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent); } }
+    .rk-shield { animation: rkShieldBreath 3.2s ease-in-out infinite; }
+    @keyframes rkDonePop { 0% { transform: scale(.7); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+    .rk-done { animation: rkDonePop .5s cubic-bezier(.22,1,.36,1) both; }
+    .rk-card-in { animation: txRise .4s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes rkPlaced { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.5); } 100% { box-shadow: 0 0 0 12px rgba(16,185,129,0); } }
+    .rk-placed { animation: rkPlaced .7s ease-out 1; border-color: rgba(16,185,129,.45) !important; }
+    @keyframes rkSafe { 0% { transform: scale(1); } 40% { transform: scale(1.025); } 100% { transform: scale(1); } }
+    .rk-safe { animation: rkSafe .55s cubic-bezier(.22,1,.36,1) 1; }
+    /* Touch: bersagli più grandi e nessun effetto hover che resta "appiccicato"
+       dopo il tocco. Tastiera/mouse: anello di fuoco ben visibile, perché chi
+       naviga con Tab deve sapere sempre dove si trova. */
+    @media (hover: none) and (pointer: coarse) { .rk-place { min-height: 60px; } }
+    .rk-place:focus-visible, .rk-copy:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      .rk-card-in, .rk-placed, .rk-safe, .rk-screen, .rk-screen > *, .rk-shield, .rk-done { animation: none !important; }
+    }
     @keyframes installBtnBreath { 0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.35); } 50% { box-shadow: 0 0 0 6px rgba(99,102,241,0); } }
     #install-guide-btn:not(.hidden) { animation: installBtnBreath 2.6s ease-in-out infinite; }
     /* Stack di alert/insight in Analisi (Spese insolite, Budget da aggiornare,
@@ -1669,7 +1726,18 @@
                          tutti i dati protetti da passphrase — risposta alla perdita
                          del dispositivo, senza mai mettere i dati su un server -->
                     <div class="border-t border-[var(--outline)] pt-3 mt-3 space-y-2">
-                      <p class="text-[10px] text-[var(--on-surface-secondary)]">Backup cifrato del tuo DNA finanziario (per non perdere i dati se cambi telefono):</p>
+                      <!-- Copia di sicurezza a pezzi (src/core/recovery-shares.js):
+                           niente password da ricordare, tre fogli in posti diversi.
+                           Il pannello qui sotto dice quanto lavoro esiste in un solo
+                           posto al mondo, con il numero vero (src/core/backup-health.js). -->
+                      <div id="backup-health-card"></div>
+                      <div class="flex gap-2">
+                        <button onclick="window.openRecoveryKit()" class="btn-action btn-primary flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Metti al sicuro</button>
+                        <button onclick="window.openRecoveryRestore()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Torna dentro</button>
+                      </div>
+                      <details class="mt-1">
+                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Preferisco una password mia</summary>
+                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2">Funziona lo stesso, ma se la dimentichi i dati non tornano più: è la ragione per cui non è più il modo consigliato.</p>
                       <div class="flex gap-2">
                         <button onclick="window.exportEncryptedBackup()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Esporta (cifrato)</button>
                         <label class="btn-action flex-1 text-xs justify-center cursor-pointer text-center gap-1.5">
@@ -1677,6 +1745,7 @@
                           <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" />
                         </label>
                       </div>
+                      </details>
                       <button onclick="window.exportTrainingData()" class="text-[10px] text-[var(--on-surface-secondary)] underline">Esporta dati per riaddestrare il modello (per gli sviluppatori)</button>
                     </div>
 

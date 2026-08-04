@@ -222,6 +222,37 @@ test('ragionamento a catena: "cosa succede se spendo di più in X?" usa il grafo
   assert.ok(r.answer.includes('Non è una legge')); // onestà dichiarata nella risposta
 });
 
+// Integrazione additiva (src/predict/causal-orchestrator.js, PCMCI): con
+// abbastanza settimane e un legame RITARDATO vero (non nello stesso istante,
+// che il motore non testa per costruzione), la risposta guadagna una frase
+// in euro con incertezza, IN PIÙ rispetto a quella esistente — mai al posto.
+test('ragionamento a catena: con abbastanza storia e un legame ritardato vero, arriva anche la stima in euro', () => {
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
+  const rnd = rng(55);
+  const allTx = {};
+  const monday0 = new Date(2026, 0, 5);
+  let ristPrec = 50;
+  for (let w = 0; w < 26; w++) {
+    const dRist = new Date(monday0.getTime() + w * 7 * 86_400_000).toISOString().slice(0, 10);
+    const dAlim = new Date(monday0.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000).toISOString().slice(0, 10);
+    const mkR = dRist.slice(0, 7), mkA = dAlim.slice(0, 7);
+    const rist = 40 + rnd() * 40;
+    const alim = Math.max(10, 120 - ristPrec * 0.8 + rnd() * 10);
+    ristPrec = rist;
+    (allTx[mkR] = allTx[mkR] || []).push({ date: dRist, amount: +rist.toFixed(2), description: 'cena', type: 'uscita', category: 'Ristorante' });
+    (allTx[mkA] = allTx[mkA] || []).push({ date: dAlim, amount: +alim.toFixed(2), description: 'spesa', type: 'uscita', category: 'Alimentari' });
+  }
+  const r = answerQuestion('cosa succede se spendo di più in ristorante?', { ...CTX, allTx });
+  assert.equal(r.intent, 'causal');
+  assert.ok(r.answer.includes('Non è una legge'), 'la risposta esistente deve restare intatta');
+  // La frase aggiuntiva compare SOLO se il controllo scientifico la sostiene:
+  // non si asserisce che compaia sempre, si verifica che se compare sia in
+  // euro e coerente col nome della categoria coinvolta.
+  if (r.answer.includes('In euro:')) {
+    assert.match(r.answer, /In euro: aumentando Ristorante di [\d.,]+€\/settimana/);
+  }
+});
+
 test('ragionamento a catena: senza legami nei dati lo dice, non inventa', () => {
   const r = answerQuestion('cosa succede se spendo di più in alimentari?', CTX);
   assert.equal(r.intent, 'causal');

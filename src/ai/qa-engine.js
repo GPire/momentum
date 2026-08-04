@@ -18,7 +18,9 @@
 import { getDailySafeToSpend, getMonthEndProjection, getUpcomingCharges } from '../predict/advisor.js';
 import { detectRecurring } from '../predict/subscriptions.js';
 import { computeGoalProgress } from '../predict/engagement.js';
-import { buildCausalGraph, propagateImpact, pruneNonCausal } from '../predict/causal-graph.js';
+import { buildCausalGraph, propagateImpact, pruneNonCausal, buildCategorySeries } from '../predict/causal-graph.js';
+import { analyzeCausalStructure } from '../predict/causal-orchestrator.js';
+import { simulateScenario } from '../predict/causal-effects.js';
 import { investableSurplus } from '../alpha/bridge.js';
 import { commitmentForecast } from '../predict/fixed-commitments.js';
 import { bnplExposure } from '../predict/bnpl.js';
@@ -480,7 +482,44 @@ export function answerQuestion(question, ctx) {
     const dir = (up) => ({ it: up ? 'sale' : 'scende', en: up ? 'rises' : 'falls', es: up ? 'sube' : 'baja', fr: up ? 'monte' : 'baisse', de: up ? 'steigt' : 'sinkt' }[lang]);
     const after = { it: ' la settimana dopo', en: ' the week after', es: ' la semana siguiente', fr: ' la semaine suivante', de: ' die Woche danach' }[lang];
     const parts = effects.slice(0, 3).map(e => `${e.category} ${dir(e.expectedPct > 0)} ${Math.abs(e.expectedPct)}%${e.lagWeeks > 0 ? after : ''}`);
-    const RESULT = { it: `Nei tuoi dati, quando sale ${namedCat} (+30%): ${parts.join('; ')}. Non è una legge, è quello che è successo finora nelle tue settimane.`, en: `In your data, when ${namedCat} rises (+30%): ${parts.join('; ')}. This isn't a law, it's what's happened so far in your weeks.`, es: `En tus datos, cuando sube ${namedCat} (+30%): ${parts.join('; ')}. No es una ley, es lo que ha pasado hasta ahora en tus semanas.`, fr: `Dans tes données, quand ${namedCat} augmente (+30%) : ${parts.join('; ')}. Ce n'est pas une loi, c'est ce qui s'est passé jusqu'ici dans tes semaines.`, de: `In deinen Daten, wenn ${namedCat} steigt (+30%): ${parts.join('; ')}. Das ist kein Gesetz, sondern was bisher in deinen Wochen passiert ist.` }[lang];
+    let RESULT = { it: `Nei tuoi dati, quando sale ${namedCat} (+30%): ${parts.join('; ')}. Non è una legge, è quello che è successo finora nelle tue settimane.`, en: `In your data, when ${namedCat} rises (+30%): ${parts.join('; ')}. This isn't a law, it's what's happened so far in your weeks.`, es: `En tus datos, cuando sube ${namedCat} (+30%): ${parts.join('; ')}. No es una ley, es lo que ha pasado hasta ahora en tus semanas.`, fr: `Dans tes données, quand ${namedCat} augmente (+30%) : ${parts.join('; ')}. Ce n'est pas une loi, c'est ce qui s'est passé jusqu'ici dans tes semaines.`, de: `In deinen Daten, wenn ${namedCat} steigt (+30%): ${parts.join('; ')}. Das ist kein Gesetz, sondern was bisher in deinen Wochen passiert ist.` }[lang];
+
+    // ADDITIVO (mai al posto della risposta esistente): con abbastanza
+    // settimane di storia (src/predict/causal-orchestrator.js sceglie da solo
+    // se il controllo avanzato PCMCI può girare), si aggiunge una stima in
+    // EURO con incertezza — la differenza tra "si muovono insieme" e "se lo
+    // fai, questo è quanto cambia, tra tot e tot". Se i dati non bastano o la
+    // diagnosi trova un problema strutturale (es. una causa comune nascosta,
+    // tipo lo stipendio che guida entrambe), la frase in più semplicemente
+    // non compare: mai un numero quantificato che il controllo scientifico
+    // non sostiene.
+    try {
+      const series = buildCategorySeries(allTx, ref, 26);
+      const analisi = analyzeCausalStructure(series, { allTx, maxLag: 3 });
+      if (analisi.motore === 'pcmci' && analisi.diagnosi?.perDecidere) {
+        const settimanaleMedio = (series[namedCat] || []).reduce((s, v) => s + v, 0) / Math.max(1, (series[namedCat] || []).length);
+        const delta = settimanaleMedio * 0.3;
+        if (delta > 0) {
+          const scenari = simulateScenario(analisi.edges, { [namedCat]: delta }, { targets: null });
+          const certi = scenari.filter((s) => s.target !== namedCat && s.certo);
+          if (certi.length) {
+            const riga = certi.slice(0, 2).map((s) => {
+              const segno = s.effetto >= 0 ? '+' : '';
+              return `${s.target} ${segno}${fmt(s.effetto)}`;
+            }).join(', ');
+            const EXTRA = {
+              it: ` In euro: aumentando ${namedCat} di ${fmt(delta)}/settimana, ci si aspetta ${riga}.`,
+              en: ` In money: raising ${namedCat} by ${fmt(delta)}/week, expect ${riga}.`,
+              es: ` En euros: subiendo ${namedCat} en ${fmt(delta)}/semana, se espera ${riga}.`,
+              fr: ` En euros : en augmentant ${namedCat} de ${fmt(delta)}/semaine, on peut attendre ${riga}.`,
+              de: ` In Euro: bei einer Erhöhung von ${namedCat} um ${fmt(delta)}/Woche, erwarte ${riga}.`,
+            }[lang];
+            RESULT += EXTRA;
+          }
+        }
+      }
+    } catch (_) { /* la risposta esistente resta valida anche se il controllo avanzato non gira */ }
+
     return { intent: 'causal', data: effects, answer: RESULT };
   }
 

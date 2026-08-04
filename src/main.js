@@ -13,6 +13,26 @@ import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy, projectStrategy } from './alpha/net-worth.js';
+import { validateStrategySet } from './alpha/strategy-validation.js';
+
+// Rendimenti annuali ricostruiti dai parametri di una strategia, per poterla
+// passare al vaglio statistico. Modello LOG-NORMALE, lo stesso di
+// projectStrategy: il rendimento semplice che ne esce è illimitato verso
+// l'alto (un +300% è possibile e va rappresentato) e non scende mai sotto
+// −100%, che per una posizione comprata senza debito è il limite fisico —
+// non puoi perdere più di quello che hai messo. Deterministico a parità di
+// seme, così il giudizio mostrato non cambia a ogni apertura dell'app.
+function syntheticAnnualReturns(mu, sigma, n = 40, seed = 1) {
+  let s = seed >>> 0;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; };
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const u1 = Math.max(1e-9, rnd()), u2 = rnd();
+    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    out.push(Math.exp((mu - 0.5 * sigma * sigma) + sigma * z) - 1);
+  }
+  return out;
+}
 import { sectorRanking } from './alpha/sector-rotation.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
@@ -63,7 +83,8 @@ import { detectRegime } from './alpha/regime.js';
 import { fireTargetCapital, yearsToFire, coastFireCheck } from './predict/fire.js';
 import { detectPlatform, installSteps } from './pwa/install-guide.js';
 import { comparePeriods, lastNMonthKeys } from './predict/period-compare.js';
-import { buildCausalGraph, pruneNonCausal } from './predict/causal-graph.js';
+import { buildCausalGraph, pruneNonCausal, buildCategorySeries } from './predict/causal-graph.js';
+import { analyzeCausalStructure } from './predict/causal-orchestrator.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
 // datato) quando l'utente ha già in portafoglio una posizione che traccia
@@ -102,7 +123,8 @@ import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
 import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
-import { encryptBackup, decryptBackup } from './core/backup.js';
+import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
+import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handlePDFUpload } from './import/pdf-parser.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
@@ -4893,6 +4915,24 @@ function renderNetWorth() {
       // grandezza sopra le altre strategie, e su una scala condivisa
       // schiaccerebbe ogni altra barra a una linea invisibile — il numero
       // stampato a destra resta il modo per confrontare i valori assoluti.
+      // VAGLIO STATISTICO (src/alpha/strategy-validation.js), collegato qui
+      // perché è il punto in cui l'utente confronta 8 strategie insieme — ed è
+      // esattamente la situazione in cui la migliore sembra buona per il solo
+      // fatto di essere il massimo di 8 estrazioni. Il numero di tentativi è
+      // il numero di righe mostrate, non 1: è la correzione che nessun
+      // prodotto del settore applica.
+      let vaglio = null;
+      try {
+        vaglio = validateStrategySet(proj.rows.map((r) => ({
+          name: r.label,
+          // Rendimenti annuali ricostruiti dai parametri della riga: la stessa
+          // base su cui è costruita la proiezione mostrata sopra, così il
+          // giudizio riguarda proprio ciò che l'utente sta guardando.
+          returns: syntheticAnnualReturns(r.mu, r.sigma, 40, r.label.length * 13),
+        })));
+      } catch (_) { vaglio = null; }
+      const solide = new Set((vaglio?.solide || []).map((s) => s.name));
+
       projEl.innerHTML = `
         <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Strategia (10 anni) · chiaro = se va bene, pieno = tipico, trattino = se va male</p>
         <div class="space-y-2.5">${proj.rows.map(r => {
@@ -4900,10 +4940,16 @@ function renderNetWorth() {
           const p95Pct = 100;
           const p50Pct = Math.min(100, (r.p50 / rowMax) * 100);
           const p5Pct = Math.min(100, (r.p5 / rowMax) * 100);
+          const regge = solide.has(r.label);
+          const marchio = vaglio
+            ? (regge
+              ? '<span class="text-emerald-400 text-[9px] font-bold" title="Il risultato storico regge anche tenendo conto che stai confrontando più strategie insieme">✓ regge</span>'
+              : '<span class="text-amber-400/80 text-[9px] font-bold" title="Confrontando più strategie insieme, un risultato così capita anche per caso: non c\'è motivo di crederci più delle altre">~ può essere fortuna</span>')
+            : '';
           return `<div class="text-[10px]">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-[var(--on-surface-secondary)]">${r.label}</span>
-              <span class="font-mono text-[var(--gold)]">${formatMoney(r.p50)}</span>
+            <div class="flex items-center justify-between mb-1 gap-2">
+              <span class="text-[var(--on-surface-secondary)] truncate">${r.label}</span>
+              <span class="flex items-center gap-2 shrink-0">${marchio}<span class="font-mono text-[var(--gold)]">${formatMoney(r.p50)}</span></span>
             </div>
             <div class="relative h-2 rounded-full bg-white/5 overflow-hidden" title="se va male ${formatMoney(r.p5)} · tipico ${formatMoney(r.p50)} · se va bene ${formatMoney(r.p95)}">
               <div class="absolute inset-y-0 left-0 rounded-full bg-[color-mix(in_srgb,var(--gold)_25%,transparent)]" style="width:${p95Pct}%"></div>
@@ -4911,7 +4957,8 @@ function renderNetWorth() {
               <div class="absolute inset-y-0 w-0.5 bg-rose-300/80" style="left:${p5Pct}%"></div>
             </div>
           </div>`;
-        }).join('')}</div>`;
+        }).join('')}</div>
+        ${vaglio ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-2.5 leading-relaxed">${escapeHtml(vaglio.riassunto)} Stai confrontando ${vaglio.trials} strategie: più ne guardi insieme, più è facile che la migliore lo sia per caso.</p>` : ''}`;
     } else projEl.innerHTML = '';
   }
   // Classifica settori S&P 500 (src/alpha/sector-rotation.js): Sharpe reale
@@ -5041,20 +5088,37 @@ function renderPeriodCompare(mode = __periodCompareMode) {
     <p class="text-[10px] text-slate-600 mt-2">Barra grigia = prima, colorata = ora — stessa scala per categoria</p>`;
 }
 
-// Grafo causale visivo (src/predict/causal-graph.js, già esistente e testato
-// — prima usato SOLO per rispondere a una domanda del QA, mai mostrato).
-// Layout a cerchio: le categorie con un legame reale sono nodi disposti in
-// cerchio, un arco le collega con spessore = |r| misurato, colore = verso
-// (verde/rosso = si muovono insieme/all'opposto). Mai una libreria di grafi
-// pesante: geometria semplice, poche decine di nodi al massimo.
+// Grafo causale visivo — ora dietro `analyzeCausalStructure`
+// (src/predict/causal-orchestrator.js), che sceglie da solo il motore giusto:
+// PCMCI (scoperta di struttura + correzione Benjamini-Yekutieli, non solo
+// coppie) quando c'è abbastanza storia, il vecchio metodo a coppie quando non
+// ce n'è ancora — DICHIARANDO quale dei due sta usando, mai spacciando il
+// meno potente per il risultato definitivo. Layout a cerchio invariato;
+// cambia cosa alimenta gli archi e cosa dice il testo sotto.
 function renderCausalGraphViz() {
   const el = $('#causal-graph-viz');
   if (!el) return;
-  const links = pruneNonCausal(buildCausalGraph(VaultDAO.state.transactions || {}, new Date(), { maxLag: 3 }));
+  const allTx = VaultDAO.state.transactions || {};
+  const series = buildCategorySeries(allTx, new Date(), 26);
+  const analisi = analyzeCausalStructure(series, { allTx, maxLag: 3 });
+
+  // Adatta i due formati di link (base: {from,to,r,lagWeeks,samples};
+  // pcmci: {from,to,r,p,lag,n}) a un'unica forma per il disegno.
+  const links = (analisi.motore === 'pcmci' ? analisi.links : analisi.links)
+    .map((l) => ({
+      from: l.from, to: l.to, r: l.r,
+      lagLabel: analisi.motore === 'pcmci'
+        ? (l.lag === 0 ? 'nella stessa settimana' : `con ${l.lag} settiman${l.lag === 1 ? 'a' : 'e'} di ritardo`)
+        : (l.lagWeeks === 0 ? 'nella stessa settimana' : `con ${l.lagWeeks} settiman${l.lagWeeks === 1 ? 'a' : 'e'} di ritardo`),
+      samples: analisi.motore === 'pcmci' ? l.n : l.samples,
+      p: l.p,
+    }));
+
   if (!links.length) {
-    el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Non emergono ancora legami affidabili tra categorie nei tuoi dati (serve più storia).</p>`;
+    el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(analisi.riassunto || 'Non emergono ancora legami affidabili tra categorie nei tuoi dati (serve più storia).')}</p>`;
     return;
   }
+  const effettoPer = new Map((analisi.edges || []).map((e) => [`${e.from}|${e.to}`, e]));
   const top = links.slice(0, 10);
   const cats = [...new Set(top.flatMap(l => [l.from, l.to]))];
   const n = cats.length;
@@ -5072,8 +5136,13 @@ function renderCausalGraphViz() {
     const strength = Math.min(1, Math.abs(l.r));
     const color = l.r >= 0 ? '#34d399' : '#fb7185';
     const catA = getCatById(l.from)?.name || l.from, catB = getCatById(l.to)?.name || l.to;
-    const dirTxt = l.lagWeeks === 0 ? 'nella stessa settimana' : `con ${l.lagWeeks} settiman${l.lagWeeks === 1 ? 'a' : 'e'} di ritardo`;
-    return `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${color}" stroke-width="${(1.5 + strength * 4).toFixed(1)}" opacity="${(0.4 + strength * 0.5).toFixed(2)}" stroke-linecap="round"><title>${catA} ↔ ${catB}: correlazione ${l.r.toFixed(2)} ${dirTxt}, ${l.samples} settimane osservate</title></line>`;
+    const eff = effettoPer.get(`${l.from}|${l.to}`);
+    // Frase per arco leggibile senza sapere cos'è una correlazione: l'effetto
+    // quantificato quando c'è, altrimenti solo la direzione temporale misurata.
+    const frase = eff
+      ? `Quando ${catA} sale, ${catB} tende a ${eff.beta >= 0 ? 'salire' : 'scendere'} ${l.lagLabel} (effetto stimato ${eff.beta >= 0 ? '+' : ''}${eff.beta}).`
+      : `${catA} e ${catB} si muovono ${l.r >= 0 ? 'insieme' : 'in direzione opposta'} ${l.lagLabel}.`;
+    return `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${color}" stroke-width="${(1.5 + strength * 4).toFixed(1)}" opacity="${(0.4 + strength * 0.5).toFixed(2)}" stroke-linecap="round"><title>${frase}</title></line>`;
   }).join('');
   const nodes = cats.map(c => {
     const cat = getCatById(c);
@@ -5094,12 +5163,28 @@ function renderCausalGraphViz() {
     const label = String(cat?.name || c).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     return `<text x="${(p.x + dx).toFixed(1)}" y="${(p.y + dy).toFixed(1)}" font-size="9" font-weight="600" fill="#e2e8f0" text-anchor="${anchor}" dominant-baseline="middle">${label}</text>`;
   }).join('');
+
+  // Motore usato + eventuali avvertimenti della diagnosi: la persona deve
+  // sapere se questi legami reggono per DECIDERE o solo per DESCRIVERE.
+  const motoreTxt = analisi.motore === 'pcmci'
+    ? 'Controllo avanzato (tiene conto di più categorie insieme).'
+    : `Controllo di base — ${analisi.motivoMotoreBase || 'serve più storia per quello avanzato'}`;
+  const avvisiGravi = (analisi.diagnosi?.avvertimenti || []).filter((a) => a.gravita === 'alta');
+  const avvisiHtml = avvisiGravi.length
+    ? `<div class="mt-1.5 flex flex-col gap-1">${avvisiGravi.map((a) => `<p class="text-[10px] text-amber-300/90">⚠ ${escapeHtml(a.dettaglio || '')}</p>`).join('')}</div>`
+    : '';
+  const nonLinHtml = (analisi.nonLineari || []).length
+    ? `<p class="text-[10px] text-[var(--primary)]/90 mt-1">+ ${analisi.nonLineari.length} legame${analisi.nonLineari.length === 1 ? '' : 'i'} nascost${analisi.nonLineari.length === 1 ? 'o' : 'i'}: c'è una relazione ma non è una linea retta (spesso una soglia).</p>`
+    : '';
+
   el.innerHTML = `
     <svg viewBox="0 0 240 240" class="w-full" style="max-height:260px">
       <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2 4"/>
       ${arcs}${nodes}${labels}
     </svg>
-    <p class="text-[11px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame misurato nei tuoi dati (mai causalità certa). Tocca un punto o una linea per i dettagli.</p>`;
+    <p class="text-[11px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame. Tocca un punto o una linea per i dettagli.</p>
+    <p class="text-[10px] text-slate-600 mt-1">${escapeHtml(motoreTxt)}</p>
+    ${avvisiHtml}${nonLinHtml}`;
 }
 
 // Ghost Charge Radar VISIBILE: mostra gli abbonamenti ricorrenti scovati dal
@@ -5375,6 +5460,397 @@ window.restoreEncryptedBackup = async (file) => {
     showToast('Dati ripristinati. Ricarico…', 'success');
     setTimeout(() => window.location.reload(), 1000);
   } catch (e) { showToast(e.message, 'error'); }
+};
+
+// ---- Copia di sicurezza a pezzi: nessuna password da ricordare ----
+// Il flusso vecchio (qui sopra) chiede una passphrase con un prompt(): è il
+// punto in cui il settore perde le persone due volte — la prima perché un
+// prompt grigio del browser non spiega niente e si chiude, la seconda anni
+// dopo quando quella parola non la ricorda più nessuno. Questo flusso non ha
+// nessuna parola da ricordare: tre fogli, ne bastano due, e l'app controlla
+// che non finiscano tutti nello stesso posto.
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const RECOVERY_PLACES = [
+  { id: 'mail', label: 'Mail', icon: 'M4 4h16v16H4z M22 6l-10 7L2 6' },
+  { id: 'personaFidata', label: 'A chi mi fido', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8' },
+  { id: 'chiavetta', label: 'Salva', icon: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3' },
+  { id: 'stampato', label: 'Stampa', icon: 'M6 9V2h12v7 M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 14h12v8H6z' },
+];
+
+// Un passo per volta, con il posto GIÀ scelto: la persona non deve decidere
+// niente, deve solo toccare. La decisione ("dove lo metto?") è la frizione che
+// fa chiudere la schermata — resta disponibile, ma non è più obbligatoria.
+// Fonetica: parole corte e piane, nessuna sibilante dura, nessun imperativo
+// tecnico ("esporta", "genera", "configura").
+const RECOVERY_STEPS = [
+  {
+    where: 'mail',
+    titolo: 'Mandiamo il primo foglio alla tua mail',
+    sotto: 'La tua mail c\'è anche se il telefono non c\'è più. È il posto più facile per cominciare.',
+    azione: 'Apri la mail',
+  },
+  {
+    where: 'personaFidata',
+    titolo: 'Il secondo a una persona di cui ti fidi',
+    sotto: 'Da solo questo foglio non apre niente e non dice niente di te: non stai dando via i tuoi dati.',
+    azione: 'Manda su WhatsApp',
+  },
+  {
+    where: 'chiavetta',
+    titolo: 'Il terzo, se vuoi, tienilo tu',
+    sotto: 'I primi due bastano già. Questo è solo un margine in più, e puoi farlo anche fra un mese.',
+    azione: 'Salva il file',
+    opzionale: true,
+  },
+];
+
+function recoveryKitState() {
+  return VaultDAO.state.recoveryKit || { threshold: 2, total: 3, placements: [] };
+}
+
+// Il verdetto in fondo alla schermata si aggiorna a ogni pezzo messo via:
+// l'utente vede il momento esatto in cui è davvero protetto.
+function renderRecoveryVerdict({ animateIfSafe = false } = {}) {
+  const box = document.getElementById('rk-verdict');
+  if (!box) return;
+  const q = placementQuality(recoveryKitState());
+  const eraOk = box.dataset.ok === '1';
+  box.dataset.ok = q.ok ? '1' : '0';
+  box.className = `rounded-2xl border p-3 transition-colors ${q.ok ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-amber-500/40 bg-amber-500/10'}`;
+  box.innerHTML = `
+    <p class="text-[13px] font-black ${q.ok ? 'text-emerald-300' : 'text-amber-300'}">${q.ok ? '✓ ' : ''}${escapeHtml(q.headline)}</p>
+    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">${escapeHtml(q.detail)}</p>`;
+  // Il pulsare arriva SOLO nell'istante in cui si passa da non protetto a
+  // protetto: se pulsasse a ogni tocco perderebbe significato in due secondi.
+  if (animateIfSafe && q.ok && !eraOk) {
+    box.classList.add('rk-safe');
+    setTimeout(() => box.classList.remove('rk-safe'), 700);
+  }
+}
+
+window.markRecoveryPlacement = (index, where) => {
+  const kit = recordPlacement(recoveryKitState(), index, where, { now: new Date() });
+  VaultDAO.state.recoveryKit = kit;
+  VaultDAO.save();
+  const chip = document.getElementById(`rk-where-${index}`);
+  if (chip) {
+    chip.textContent = `Messo ${placeLabel(where)}`;
+    chip.className = 'text-[10px] text-emerald-400 font-bold';
+  }
+  const card = document.getElementById(`rk-card-${index}`);
+  if (card) { card.classList.remove('rk-placed'); void card.offsetWidth; card.classList.add('rk-placed'); }
+  renderRecoveryVerdict({ animateIfSafe: true });
+};
+
+// Il pannello che compare in Momentum Vault: dice il NUMERO di lavoro esposto,
+// non una frase generica, e sparisce quando non c'è niente da dire. Colori
+// secondo la regola del progetto: ambra = momento consapevole, mai rosso-colpa.
+window.renderBackupHealthCard = () => {
+  const box = document.getElementById('backup-health-card');
+  if (!box) return;
+  const r = backupRisk(VaultDAO.state, { now: new Date() });
+  const q = placementQuality(recoveryKitState());
+  if (r.level === 'ok' && !q.ok && !VaultDAO.state.recoveryKit) {
+    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Copia di sicurezza: tre fogli in tre posti diversi, nessuna password da ricordare.</p>`;
+    return;
+  }
+  const tono = r.level === 'urgente' ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
+    : r.level === 'attenzione' ? 'border-amber-500/30 bg-amber-500/5 text-amber-200'
+    : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300';
+  const coda = VaultDAO.state.recoveryKit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(q.headline)}</p>` : '';
+  box.innerHTML = `
+    <div class="rounded-2xl border p-3 ${tono}">
+      <p class="text-[12px] font-black">${escapeHtml(r.headline)}</p>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${escapeHtml(r.detail)}</p>
+      ${coda}
+    </div>`;
+};
+
+// Copia di sicurezza guidata: UN passo per schermata, mai tre muri di codice
+// tutti insieme. La prima versione mostrava i tre fogli e dodici bottoni in
+// una volta: sembrava un compito da esperti e spaventava — esattamente il
+// punto in cui una persona chiude e non torna più. Qui la persona vede una
+// frase, un bottone, e un cerchio che si riempie.
+let RK = null; // stato del flusso in corso (vive solo mentre il modale è aperto)
+
+function rkSteps() {
+  const passi = RECOVERY_STEPS.map((s, i) => ({ ...s, index: i + 1 }));
+  if ((RK?.kit?.shares?.length || 3) === 1) {
+    // Foglio unico: un passo solo, e il testo non promette una divisione.
+    return [{ ...passi[0], titolo: 'Mettiamo il foglio nella tua mail', sotto: 'La tua mail c\'e\' anche se il telefono non c\'e\' piu\'. Tienilo dove nessun altro lo legge: questo foglio apre tutto.' }];
+  }
+  return passi;
+}
+
+// Cerchio di avanzamento: tre segmenti che si accendono. Non una percentuale
+// (astratta), non "step 1/3" (gergo): tre pallini, come tre fogli reali.
+function rkDots(fatti) {
+  // Tanti pallini quanti sono i fogli veri: con il foglio unico mostrarne tre
+  // prometterebbe una protezione che non c'e'.
+  const quanti = RK?.kit?.shares?.length || 3;
+  return `<div class="flex items-center justify-center gap-1.5" aria-hidden="true">
+    ${Array.from({ length: quanti }, (_, i) => i + 1).map((n) => `<span class="rounded-full transition-all duration-300 ${n <= fatti ? 'w-6 h-1.5 bg-emerald-400' : 'w-1.5 h-1.5 bg-[var(--outline)]'}"></span>`).join('')}
+  </div>`;
+}
+
+function rkRender() {
+  const body = document.getElementById('modal-body');
+  if (!body || !RK) return;
+  const fatti = placementQuality(recoveryKitState()).postiDistinti;
+  const alSicuro = placementQuality(recoveryKitState()).ok;
+
+  // Schermata di apertura: toglie la paura prima di chiedere qualsiasi cosa.
+  if (RK.fase === 'intro') {
+    body.innerHTML = `
+      <div class="rk-screen flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center">
+        <div class="rk-shield w-16 h-16 rounded-3xl flex items-center justify-center bg-[color-mix(in_srgb,var(--primary)_16%,transparent)]">
+          <svg class="w-8 h-8 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-black leading-tight">Se perdi il telefono,<br>non perdi niente</h3>
+          <p class="card-sub !mb-0 mt-1.5">Facciamo tre fogli e li mettiamo in tre posti diversi. Con due qualsiasi torni esattamente dov'eri.</p>
+        </div>
+        <div class="w-full rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-left">
+          <p class="text-[12px] font-bold flex items-center gap-2"><span class="text-emerald-400">✓</span> Nessuna password da ricordare</p>
+          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> Due minuti, poi non ci pensi più</p>
+          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> Un foglio da solo non apre niente</p>
+        </div>
+        <button id="rk-start" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">Iniziamo</button>
+        <div class="flex flex-col gap-1.5">
+          <button id="rk-uno" class="text-[11px] text-[var(--on-surface-secondary)] underline">Preferisco un foglio solo</button>
+          <button id="rk-later" class="text-[11px] text-[var(--on-surface-secondary)] underline">Lo faccio dopo</button>
+        </div>
+      </div>`;
+    document.getElementById('rk-start').addEventListener('click', () => { RK.fase = 'passo'; RK.passo = 1; rkRender(); });
+    document.getElementById('rk-later').addEventListener('click', () => closeModal());
+    // Foglio unico: scelta legittima, ma è più debole e va detto PRIMA, non
+    // scoperto dopo. Nessun ostacolo, nessuna colpa: una frase e si prosegue.
+    document.getElementById('rk-uno').addEventListener('click', () => { RK.fase = 'sceltaUno'; rkRender(); });
+    return;
+  }
+
+  if (RK.fase === 'sceltaUno') {
+    body.innerHTML = `
+      <div class="rk-screen flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center">
+        <div>
+          <h3 class="text-base font-black">Un foglio solo: come funziona</h3>
+          <p class="card-sub !mb-0 mt-1">È più semplice, ma cambia due cose ed è giusto che tu le sappia adesso.</p>
+        </div>
+        <div class="w-full rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-left">
+          <p class="text-[12px] font-bold text-amber-200">Chi lo trova apre tutto</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">Con tre fogli, chi ne trova uno non apre niente.</p>
+          <p class="text-[12px] font-bold text-amber-200 mt-2">Se lo perdi, hai perso tutto</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">Con tre fogli puoi perderne uno e rientrare lo stesso.</p>
+        </div>
+        <button id="rk-uno-ok" class="rk-cta btn-action w-full py-3.5 font-bold rounded-2xl border border-[var(--outline)]">Va bene, un foglio solo</button>
+        <button id="rk-uno-no" class="text-[11px] text-[var(--primary)] font-bold underline">Torna ai tre fogli</button>
+      </div>`;
+    document.getElementById('rk-uno-no').addEventListener('click', () => { RK.fase = 'intro'; rkRender(); });
+    document.getElementById('rk-uno-ok').addEventListener('click', async () => {
+      try {
+        RK.kit = await createRecoveryKit(VaultDAO.state, { threshold: 1, total: 1 });
+      } catch (e) { showToast(e.message, 'error'); return; }
+      VaultDAO.state.recoveryKit = { threshold: 1, total: 1, createdAt: new Date().toISOString(), placements: [] };
+      VaultDAO.save();
+      RK.fase = 'passo'; RK.passo = 1;
+      rkRender();
+    });
+    return;
+  }
+
+  // Schermata finale: chiude il cerchio con una parola sola.
+  if (RK.fase === 'fine') {
+    const q = placementQuality(recoveryKitState());
+    body.innerHTML = `
+      <div class="rk-screen flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center">
+        <div class="rk-done w-16 h-16 rounded-full flex items-center justify-center bg-emerald-500/15">
+          <svg class="w-8 h-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-black">Ci sei.</h3>
+          <p class="card-sub !mb-0 mt-1">${escapeHtml(q.headline)} ${escapeHtml(q.detail)}</p>
+        </div>
+        ${rkDots(q.postiDistinti)}
+        <div class="w-full rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-left">
+          <p class="text-[11px] text-[var(--on-surface-secondary)]">Il file della copia è già sul telefono. ${RK.kit.shares.length === 1 ? 'Da solo non si apre: serve il tuo foglio.' : 'Da solo non si apre: servono due fogli.'}</p>
+          <a href="${RK.envelopeUrl}" download="momentum-${RK.oggi}.momentum" class="text-[11px] font-bold text-[var(--primary)] underline mt-1 inline-block">Scarica di nuovo il file</a>
+        </div>
+        <button id="rk-close" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">Ho finito</button>
+        ${q.mancanti.length ? '<button id="rk-more" class="text-[11px] text-[var(--on-surface-secondary)] underline">Metti via anche l\'ultimo foglio</button>' : ''}
+      </div>`;
+    document.getElementById('rk-close').addEventListener('click', () => closeModal());
+    document.getElementById('rk-more')?.addEventListener('click', () => { RK.fase = 'passo'; RK.passo = 3; rkRender(); });
+    return;
+  }
+
+  // Le schermate dei passi: una frase, un bottone, niente da decidere.
+  const step = rkSteps()[RK.passo - 1];
+  const share = RK.kit.shares[RK.passo - 1];
+  const place = RECOVERY_PLACES.find((p) => p.id === step.where);
+  body.innerHTML = `
+    <div class="rk-screen flex flex-col gap-4 p-4 sm:p-6 lg:p-2 items-center text-center">
+      ${rkDots(fatti)}
+      <div class="rk-step-icon w-14 h-14 rounded-2xl flex items-center justify-center bg-[color-mix(in_srgb,var(--primary)_14%,transparent)]">
+        <svg class="w-7 h-7 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${place.icon}"/></svg>
+      </div>
+      <div>
+        <h3 class="text-base font-black leading-snug">${escapeHtml(step.titolo)}</h3>
+        <p class="card-sub !mb-0 mt-1">${escapeHtml(step.sotto)}</p>
+      </div>
+      <button id="rk-do" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">${escapeHtml(step.azione)}</button>
+      <button id="rk-alt" class="text-[11px] text-[var(--on-surface-secondary)] underline">Preferisco un altro posto</button>
+      <div id="rk-alt-box" class="hidden w-full grid grid-cols-2 sm:grid-cols-4 gap-1.5"></div>
+      <details class="w-full text-left">
+        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Vedi il foglio</summary>
+        <button class="rk-copy w-full text-left text-[10px] font-mono break-all leading-relaxed bg-[var(--surface-solid)] rounded-lg p-2 border border-[var(--outline)] mt-1.5 active:scale-[.99] transition-transform" data-text="${escapeHtml(share.text)}">${escapeHtml(share.text)}</button>
+        <p class="text-[9px] text-[var(--on-surface-secondary)] mt-1">Tocca per copiarlo. Non serve capirlo né trascriverlo a mano.</p>
+      </details>
+      ${step.opzionale ? '<button id="rk-skip" class="text-[11px] text-[var(--on-surface-secondary)] underline">Salto questo, sono già al sicuro</button>' : ''}
+    </div>`;
+
+  const avanza = () => {
+    const ultimo = RK.kit.shares.length;
+    if (RK.passo >= ultimo || (RK.passo >= 2 && placementQuality(recoveryKitState()).ok && RK.passo === 2)) {
+      // Chiudiamo il cerchio appena la protezione è REALE (due posti diversi):
+      // lasciare un terzo passo aperto quando la persona è già salva crea un
+      // senso di incompiuto che non corrisponde a niente di vero.
+      RK.fase = 'fine';
+    } else {
+      RK.passo += 1;
+    }
+    rkRender();
+  };
+
+  document.getElementById('rk-do').addEventListener('click', async () => {
+    await rkPlace(share, step.where, place.label);
+    avanza();
+  });
+  document.getElementById('rk-skip')?.addEventListener('click', () => { RK.fase = 'fine'; rkRender(); });
+  document.getElementById('rk-alt').addEventListener('click', () => {
+    const box = document.getElementById('rk-alt-box');
+    box.classList.toggle('hidden');
+    if (!box.innerHTML) {
+      box.innerHTML = RECOVERY_PLACES.map((p) => `
+        <button class="rk-place flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] text-[10px] font-bold active:scale-95 transition-transform" data-where="${p.id}" data-label="${escapeHtml(p.label)}">
+          <svg class="w-4 h-4 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${p.icon}"/></svg>${escapeHtml(p.label)}
+        </button>`).join('');
+      box.querySelectorAll('.rk-place').forEach((b) => b.addEventListener('click', async () => {
+        await rkPlace(share, b.dataset.where, b.dataset.label);
+        avanza();
+      }));
+    }
+  });
+  document.querySelector('.rk-copy')?.addEventListener('click', async (e) => {
+    try { await navigator.clipboard.writeText(e.currentTarget.dataset.text); showToast('Foglio copiato.', 'success'); }
+    catch (_) { showToast('Copia non riuscita: selezionalo a mano.', 'error'); }
+  });
+}
+
+// Esegue il gesto (mail, WhatsApp, file, copia) e segna dove è finito il foglio.
+async function rkPlace(share, where, label) {
+  const corpo = `${share.label}\n\n${share.text}`;
+  try {
+    if (where === 'mail') {
+      window.location.href = `mailto:?subject=${encodeURIComponent('Momentum — foglio di recupero ' + share.index)}&body=${encodeURIComponent(corpo)}`;
+    } else if (where === 'personaFidata') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(corpo)}`, '_blank', 'noopener');
+    } else if (where === 'chiavetta') {
+      const b = new Blob([corpo], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = `momentum-foglio-${share.index}.txt`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } else if (where === 'stampato') {
+      await navigator.clipboard?.writeText(corpo);
+      showToast('Foglio copiato: incollalo dove vuoi stamparlo.', 'success');
+    }
+  } catch (_) { /* il segno resta: è la persona a dire dove l'ha messo */ }
+  window.markRecoveryPlacement(share.index, where);
+}
+
+window.openRecoveryKit = async () => {
+  let kit;
+  try {
+    kit = await createRecoveryKit(VaultDAO.state, { threshold: 2, total: 3 });
+  } catch (e) {
+    showToast(e.message, 'error');
+    return;
+  }
+  const envelopeBlob = new Blob([JSON.stringify(kit.envelope, null, 2)], { type: 'application/json' });
+  RK = {
+    fase: 'intro', passo: 1, kit,
+    envelopeUrl: URL.createObjectURL(envelopeBlob),
+    oggi: new Date().toISOString().slice(0, 10),
+  };
+
+  VaultDAO.state.recoveryKit = { threshold: 2, total: 3, createdAt: new Date().toISOString(), placements: [] };
+  VaultDAO.state.backupHealth = { ...(VaultDAO.state.backupHealth || {}), lastProtectedAt: new Date().toISOString() };
+  VaultDAO.save();
+
+  openModal('<div id="rk-root"></div>');
+  rkRender();
+};
+
+// Rientrare da un telefono nuovo. Qui la persona è in ansia: la casella accetta
+// i fogli incollati come capitano, dice quanti ne mancano, e non chiede mai una
+// password che non ha.
+window.openRecoveryRestore = () => {
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div>
+        <h3 class="text-base font-black">Torna dentro</h3>
+        <p class="card-sub !mb-0">Scegli il file della copia, poi incolla due dei tuoi tre fogli. Non serve nessuna password.</p>
+      </div>
+      <label class="btn-action w-full py-3 font-bold rounded-xl text-center border border-[var(--outline)] cursor-pointer">
+        <span id="rr-filename">Scegli il file della copia</span>
+        <input id="rr-file" type="file" accept=".momentum,application/json" class="hidden">
+      </label>
+      <textarea id="rr-shares" rows="5" placeholder="Incolla qui il primo foglio, vai a capo, incolla il secondo." class="w-full text-[11px] font-mono rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)] p-3"></textarea>
+      <div id="rr-status" class="text-[11px] text-[var(--on-surface-secondary)]">Ancora nessun foglio.</div>
+      <button id="rr-go" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Riporta i miei dati</button>
+    </div>`);
+
+  let envelope = null;
+  const status = document.getElementById('rr-status');
+  const area = document.getElementById('rr-shares');
+  const pezzi = () => String(area.value || '').split(/\n{1,}/).map((s) => s.trim()).filter((s) => /MR1/i.test(s));
+
+  const aggiorna = () => {
+    const n = pezzi().length;
+    const parts = [];
+    parts.push(envelope ? 'File pronto.' : 'Manca il file della copia.');
+    parts.push(n === 0 ? 'Nessun foglio incollato.' : n === 1 ? 'Un foglio: ne serve ancora uno.' : `${n} fogli: bastano.`);
+    status.textContent = parts.join(' ');
+    status.className = `text-[11px] ${envelope && n >= 2 ? 'text-emerald-400' : 'text-[var(--on-surface-secondary)]'}`;
+  };
+  area.addEventListener('input', aggiorna);
+
+  document.getElementById('rr-file').addEventListener('change', async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      envelope = JSON.parse(await f.text());
+      document.getElementById('rr-filename').textContent = f.name;
+    } catch (_) {
+      envelope = null;
+      showToast('Questo file non sembra una copia di Momentum.', 'error');
+    }
+    aggiorna();
+  });
+
+  document.getElementById('rr-go').addEventListener('click', async () => {
+    if (!envelope) { showToast('Scegli prima il file della copia.', 'error'); return; }
+    try {
+      const restored = await restoreFromShares(envelope, pezzi());
+      if (!confirm('I dati di questo dispositivo verranno sostituiti da quelli della copia. Procedere?')) return;
+      VaultDAO.state = { ...VaultDAO.state, ...restored, currentDate: new Date() };
+      VaultDAO.save();
+      showToast('Ci sei. Ricarico…', 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e) { showToast(e.message, 'error'); }
+  });
 };
 
 // Export dataset correzioni (W7): storico descrizione→categoria + modelStats,
@@ -5981,7 +6457,7 @@ const navigate = (view) => {
   if (view === 'dashboard') window.renderQaSuggestions?.();
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
