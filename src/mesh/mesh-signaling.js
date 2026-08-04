@@ -38,6 +38,8 @@
 // ============================================================
 'use strict';
 
+import { STUN_POOL } from './nat-probe.js';
+
 // ─────────────────────────────────────────────────────────────
 // § 1. COMPACT CODEC — comprime l'SDP (verboso) in un codice corto
 // condivisibile a voce, per QR, o via qualunque canale (AirDrop,
@@ -91,7 +93,7 @@ class PairingSignaling {
 
   // Dispositivo A: genera il codice di invito da mostrare/condividere
   async createInvite() {
-    this.pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.channel = this.pc.createDataChannel('mesh');
 
     const offer = await this.pc.createOffer();
@@ -117,7 +119,7 @@ class PairingSignaling {
 
   // Dispositivo B: riceve l'invito, genera la risposta da rimandare ad A
   async acceptInvite(inviteCode, onDataChannel) {
-    this.pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.pc.ondatachannel = (e) => {
       this.channel = e.channel;
       onDataChannel(e.channel);
@@ -161,7 +163,10 @@ class PairingSignaling {
 // la segnalazione per gli altri, la mesh cresce senza infrastruttura
 // esterna dopo il primo aggancio manuale.
 // ─────────────────────────────────────────────────────────────
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+// Pool completo invece di un solo server: se quell'unico e' bloccato (rete
+// aziendale, disservizio) il collegamento falliva senza che nessuno capisse
+// perche'. I tre server sono verificati dal vivo — vedi nat-probe.js.
+const ICE_SERVERS = STUN_POOL.map((urls) => ({ urls }));
 
 class MeshNode {
   // autoDiscovery (default true): quando un peer ci segnala l'esistenza di
@@ -173,13 +178,33 @@ class MeshNode {
   // una mesh con molti nodi, connettersi a TUTTI quelli scoperti crescerebbe
   // O(n²) — restare relay-collegati (i messaggi comunque arrivano via gossip
   // multi-hop) è più sostenibile di un mesh completamente magliato.
-  constructor(nodeId, mind, { autoDiscovery = true, maxAutoPeers = 6 } = {}) {
+  // Riconnessione (nuovo): prima, se un canale cadeva (blip di rete, non una
+  // disconnessione voluta), il peer veniva semplicemente dimenticato — solo
+  // il gossip successivo poteva farlo ritrovare, senza fretta. Ora si riprova
+  // da soli con backoff esponenziale (+ jitter, per non far ripartire tutti i
+  // dispositivi nello stesso istante) passando da un QUALSIASI relay ancora
+  // connesso — esattamente lo stesso meccanismo di `_initiateAutoConnect` già
+  // usato per l'auto-discovery, qui solo richiamato in automatico. `scheduleFn`
+  // e `randomFn` sono iniettabili: nei test si passano finti e deterministici,
+  // così i tempi di attesa non dipendono da timer veri.
+  constructor(nodeId, mind, {
+    autoDiscovery = true, maxAutoPeers = 6,
+    reconnect = true, reconnectBaseMs = 1000, reconnectMaxMs = 30000, maxReconnectAttempts = 6,
+    scheduleFn = (fn, ms) => setTimeout(fn, ms), randomFn = Math.random,
+  } = {}) {
     this.nodeId = nodeId || crypto.randomUUID();
     this.mind = mind;               // MomentumMind locale da sincronizzare
     this.peers = new Map();         // nodeId -> { pc, channel, lastSeen }
     this.knownPeerIds = new Set([this.nodeId]);
     this.autoDiscovery = autoDiscovery;
     this.maxAutoPeers = maxAutoPeers;
+    this.reconnect = reconnect;
+    this.reconnectBaseMs = reconnectBaseMs;
+    this.reconnectMaxMs = reconnectMaxMs;
+    this.maxReconnectAttempts = maxReconnectAttempts;
+    this._scheduleFn = scheduleFn;
+    this._randomFn = randomFn;
+    this._reconnectAttempts = new Map(); // peerId -> tentativi finora
     this.pendingOutbound = new Map(); // targetId -> { pc } — offer inviato, in attesa di relay_answer
     this.onPeerConnected = null;    // callback opzionale (nodeId) => {}
     this.onPeerDiscovered = null;   // callback opzionale (peerId, viaPeerId) => {} — scoperto ma non ancora connesso
@@ -192,6 +217,7 @@ class MeshNode {
 
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
   addDirectPeer(peerId, pc, channel) {
+    this._reconnectAttempts.delete(peerId); // tornati connessi: il contatore di tentativi riparte da zero
     this.peers.set(peerId, { pc, channel, lastSeen: Date.now() });
     this._wireChannel(peerId, channel);
     this.knownPeerIds.add(peerId);
@@ -269,7 +295,37 @@ class MeshNode {
         this.onMorphologyReceived?.(peerId, msg.model);
       }
     };
-    channel.onclose = () => this.peers.delete(peerId);
+    channel.onclose = () => {
+      this.peers.delete(peerId);
+      this._scheduleReconnect(peerId);
+    };
+  }
+
+  // Programma un tentativo di riconnessione con backoff esponenziale.
+  // Il numero di tentativi è LIMITATO apposta: oltre `maxReconnectAttempts`
+  // si smette di insistere e si lascia che sia il gossip (peer_list) a far
+  // ritrovare il peer quando torna raggiungibile — insistere all'infinito
+  // sprecherebbe batteria per un dispositivo magari spento per ore.
+  _scheduleReconnect(peerId) {
+    if (!this.reconnect) return;
+    const tentativi = (this._reconnectAttempts.get(peerId) || 0) + 1;
+    if (tentativi > this.maxReconnectAttempts) { this._reconnectAttempts.delete(peerId); return; }
+    this._reconnectAttempts.set(peerId, tentativi);
+    const attesaBase = Math.min(this.reconnectMaxMs, this.reconnectBaseMs * 2 ** (tentativi - 1));
+    const jitter = 0.75 + this._randomFn() * 0.5; // ±25%: evita che dispositivi caduti insieme riprovino insieme
+    this._scheduleFn(() => this._tryReconnect(peerId), Math.round(attesaBase * jitter));
+  }
+
+  _tryReconnect(peerId) {
+    if (this.peers.has(peerId) || this.pendingOutbound.has(peerId)) {
+      this._reconnectAttempts.delete(peerId); // già tornato connesso nel frattempo (es. via gossip)
+      return;
+    }
+    // Un relay QUALSIASI tra quelli ancora connessi: la mesh non ha bisogno
+    // che sia lo stesso di prima, basta un percorso verso il peer perduto.
+    const via = [...this.peers.keys()][0];
+    if (!via) { this._scheduleReconnect(peerId); return; } // nessun relay ora disponibile: si riprova più avanti
+    this._initiateAutoConnect(peerId, via).catch(() => this._scheduleReconnect(peerId));
   }
 
   // Avvia il sync differenziale verso un peer: gli mando il MIO digest, lui
