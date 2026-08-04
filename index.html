@@ -1749,6 +1749,11 @@
                       <button onclick="window.exportTrainingData()" class="text-[10px] text-[var(--on-surface-secondary)] underline">Esporta dati per riaddestrare il modello (per gli sviluppatori)</button>
                     </div>
 
+                    <!-- Aggiornamento autonomo (src/core/auto-update.js + data-freshness.js):
+                         l'app sa quanto sono vecchi i propri dati e, se configurata,
+                         va a controllarli da sola — anche senza una nuova versione. -->
+                    <div id="data-freshness-card"></div>
+
                     <div class="border-t border-[var(--outline)] pt-3 mt-3">
                       <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2">Inserisci codice WebRTC Peer-Id per sincronizzare in tempo reale:</p>
                       <div class="flex gap-2">

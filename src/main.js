@@ -15,6 +15,7 @@ import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy, projectStrategy } from './alpha/net-worth.js';
 import { validateStrategySet } from './alpha/strategy-validation.js';
 import { stalenessNote } from './core/data-freshness.js';
+import { runUpdateCycle, cycleSummary, taxRulesSource, fatturaPaFormatSource } from './core/auto-update.js';
 
 // Rendimenti annuali ricostruiti dai parametri di una strategia, per poterla
 // passare al vaglio statistico. Modello LOG-NORMALE, lo stesso di
@@ -5544,6 +5545,111 @@ window.restoreEncryptedBackup = async (file) => {
   } catch (e) { showToast(e.message, 'error'); }
 };
 
+// ---- Aggiornamento autonomo dei dati, anche senza una nuova versione ----
+// src/core/auto-update.js sa GIÀ eseguire il controllo vero (rete +
+// validazione anti-veleno). Qui si collega alle uniche due fonti reali che
+// il progetto ha già pronte (regole fiscali, tracciato fattura elettronica),
+// SOLO se l'utente ha configurato una URL fidata: senza, resta innocuo, come
+// fetchRulesUpdate già garantisce da solo. Nessuna URL è inclusa di default
+// — inventarne una sarebbe esattamente il tipo di dato non verificato che
+// questo progetto vieta: va decisa e aggiunta consapevolmente.
+async function runAutoUpdateCycle({ manuale = false } = {}) {
+  const urls = VaultDAO.state.dataSourceUrls || {};
+  if (!urls.taxRules && !urls.fatturaPaFormat) {
+    if (manuale) showToast('Nessuna fonte dati configurata: aggiungine una nelle impostazioni avanzate.', 'error');
+    return null;
+  }
+  const overrides = VaultDAO.state.dataOverrides || {};
+  const sources = [];
+  if (urls.taxRules) {
+    sources.push(taxRulesSource({
+      url: urls.taxRules, fetchImpl: fetch.bind(window),
+      currentVersion: overrides.taxRules?.version, generatedAt: overrides.taxRules?.fetchedAt,
+    }));
+  }
+  if (urls.fatturaPaFormat) {
+    sources.push(fatturaPaFormatSource({
+      url: urls.fatturaPaFormat, fetchImpl: fetch.bind(window),
+      currentVersion: overrides.fatturaPaFormat?.version, generatedAt: overrides.fatturaPaFormat?.fetchedAt,
+    }));
+  }
+  const result = await runUpdateCycle(sources, {
+    now: Date.now(),
+    backoffState: VaultDAO.state.autoUpdateBackoff || {},
+    onUpdated: async (id, esito) => {
+      // Adottato SOLO qui, dopo che runUpdateCycle ha già ricevuto un
+      // updated:true da fetchRulesUpdate/fetchFormatUpdate — cioè dopo che
+      // il payload ha già passato validateRulesPayload/validateFormatPayload
+      // (guardrail anti-veleno: struttura + valori plausibili) E si è
+      // dimostrato più recente della versione corrente. Qui non si ri-valida
+      // nulla: si registra solo COSA è stato adottato e QUANDO.
+      const key = id === 'tax-rules' ? 'taxRules' : 'fatturaPaFormat';
+      VaultDAO.state.dataOverrides = {
+        ...(VaultDAO.state.dataOverrides || {}),
+        [key]: { version: esito.version, rules: esito.rules, specs: esito.specs, fetchedAt: new Date().toISOString() },
+      };
+    },
+  });
+  VaultDAO.state.autoUpdateBackoff = result.backoffState;
+  VaultDAO.save();
+  const riassunto = cycleSummary(result);
+  if (manuale) showToast(riassunto, 'success');
+  return { ...result, riassunto };
+}
+window.runAutoUpdateCycle = runAutoUpdateCycle;
+
+// Pannello impostazioni: quanto sono vecchie le fonti configurate + dove
+// aggiungerne una. Senza nessuna URL configurata dice onestamente perché il
+// controllo automatico è fermo, invece di far finta che i dati si aggiornino
+// da soli quando in realtà non hanno nessuna fonte a cui rivolgersi.
+window.renderDataFreshnessCard = () => {
+  const el = document.getElementById('data-freshness-card');
+  if (!el) return;
+  const urls = VaultDAO.state.dataSourceUrls || {};
+  const overrides = VaultDAO.state.dataOverrides || {};
+  const configurate = Object.entries(urls).filter(([, v]) => v);
+
+  const fontiHtml = configurate.length
+    ? configurate.map(([k]) => {
+        const label = k === 'taxRules' ? 'Regole fiscali' : 'Tracciato fattura elettronica';
+        const ov = overrides[k];
+        const nota = ov?.fetchedAt ? escapeHtml(stalenessNote(ov.fetchedAt, { now: Date.now(), maxAgeDays: k === 'taxRules' ? 180 : 365, label }) || `${label}: aggiornata l'ultima volta il ${new Date(ov.fetchedAt).toLocaleDateString('it-IT')}.`) : `${label}: non ancora controllata.`;
+        return `<p class="text-[10px] text-[var(--on-surface-secondary)]">${nota}</p>`;
+      }).join('')
+    : `<p class="text-[10px] text-[var(--on-surface-secondary)]">Nessuna fonte configurata: i dati inclusi nell'app restano quelli con cui è stata installata. Aggiungi una fonte fidata qui sotto per farli aggiornare da soli, anche senza una nuova versione di Momentum.</p>`;
+
+  el.innerHTML = `
+    <div class="border-t border-[var(--outline)] pt-3 mt-3">
+      <p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">Dati che si aggiornano da soli:</p>
+      ${fontiHtml}
+      <details class="mt-2">
+        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Configura una fonte (avanzato)</summary>
+        <div class="mt-2 space-y-1.5">
+          <input id="dsu-tax" type="url" placeholder="URL regole fiscali (opzionale)" value="${escapeHtml(urls.taxRules || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]">
+          <input id="dsu-format" type="url" placeholder="URL tracciato fattura (opzionale)" value="${escapeHtml(urls.fatturaPaFormat || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]">
+          <p class="text-[9px] text-[var(--on-surface-secondary)]">Il payload viene comunque verificato (struttura + valori plausibili) prima di essere usato: una fonte configurata male o malevola viene scartata, mai adottata.</p>
+          <div class="flex gap-1.5">
+            <button id="dsu-save" class="btn-action flex-1 text-[10px] py-1.5">Salva</button>
+            <button id="dsu-check" class="btn-action flex-1 text-[10px] py-1.5">Controlla ora</button>
+          </div>
+        </div>
+      </details>
+    </div>`;
+
+  document.getElementById('dsu-save')?.addEventListener('click', () => {
+    const taxRules = document.getElementById('dsu-tax').value.trim();
+    const fatturaPaFormat = document.getElementById('dsu-format').value.trim();
+    VaultDAO.state.dataSourceUrls = { taxRules: taxRules || null, fatturaPaFormat: fatturaPaFormat || null };
+    VaultDAO.save();
+    showToast('Fonti salvate.', 'success');
+    window.renderDataFreshnessCard();
+  });
+  document.getElementById('dsu-check')?.addEventListener('click', async () => {
+    await runAutoUpdateCycle({ manuale: true });
+    window.renderDataFreshnessCard();
+  });
+};
+
 // ---- Copia di sicurezza a pezzi: nessuna password da ricordare ----
 // Il flusso vecchio (qui sopra) chiede una passphrase con un prompt(): è il
 // punto in cui il settore perde le persone due volte — la prima perché un
@@ -6539,7 +6645,7 @@ const navigate = (view) => {
   if (view === 'dashboard') window.renderQaSuggestions?.();
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
