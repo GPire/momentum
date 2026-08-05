@@ -478,6 +478,43 @@ test('simulateNewPartitaIva: fatturato oltre il tetto → ordinario, coerente co
   assert.equal(s.suggestion.overCeiling, true);
 });
 
+test('simulateNewPartitaIva: strategie legittime — aliquota startup posta come domanda, mai come fatto certo', () => {
+  const s = simulateNewPartitaIva(30000);
+  const startupTip = s.strategie.find(t => t.icon === 'startup');
+  assert.ok(startupTip, 'deve suggerire di verificare l\'aliquota startup');
+  assert.match(startupTip.testo, /Chiedilo al commercialista/);
+  assert.match(startupTip.testo, /prima attività/i);
+});
+
+test('simulateNewPartitaIva: strategia sul tempismo incassi solo quando vicini al tetto, mai a fatturati bassi', () => {
+  const basso = simulateNewPartitaIva(15000); // 17% del tetto
+  assert.equal(basso.strategie.find(t => t.icon === 'timing'), undefined);
+  const vicino = simulateNewPartitaIva(65000); // 76% del tetto
+  const timingTip = vicino.strategie.find(t => t.icon === 'timing');
+  assert.ok(timingTip);
+  assert.match(timingTip.testo, /incassi/);
+});
+
+test('simulateNewPartitaIva: oltre il tetto (regime ordinario) → nessuna strategia forfettario-specifica', () => {
+  const s = simulateNewPartitaIva(120000);
+  assert.equal(s.strategie.length, 0);
+});
+
+test('simulateNewPartitaIva: settore ATECO cambia il coefficiente e quindi il netto (commercio vs professionisti)', () => {
+  const professionista = simulateNewPartitaIva(30000, { ateco: 'professionisti' });
+  const commerciante = simulateNewPartitaIva(30000, { ateco: 'commercio' });
+  // Stesso fatturato, coefficiente più basso per il commercio (40% vs 78%)
+  // → base imponibile più bassa → meno tasse → più netto in tasca.
+  assert.ok(commerciante.netAnnuo > professionista.netAnnuo);
+  assert.equal(commerciante.atecoLabel, ATECO_COEFFICIENTI.commercio.label);
+});
+
+test('simulateNewPartitaIva: senza settore indicato, ripiega sul coefficiente di default (nessun crash)', () => {
+  const s = simulateNewPartitaIva(30000);
+  assert.equal(s.atecoLabel, null);
+  assert.ok(s.netAnnuo > 0);
+});
+
 test('simulateNewPartitaIva: stessa aritmetica di taxSetAside, nessuna formula duplicata', () => {
   const s = simulateNewPartitaIva(40000);
   const atteso = taxSetAside(40000, { regime: 'forfettario' });

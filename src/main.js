@@ -60,7 +60,7 @@ function translateRegionLabel(region) {
   if (!region) return region;
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
-import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI } from './predict/tax.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
 import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
 import { taxReserveStatus } from './predict/tax-payments.js';
@@ -2310,20 +2310,39 @@ function renderTaxSettings() {
 // regime esistente, zero duplicazione) e chi la sta ancora valutando (→ il
 // simulatore, il buco di mercato che nessun portale copre). Mai un modulo
 // unico con dieci campi: un passo, una domanda, un bottone grande.
+// Cerchio-icona in testa a ogni passo (stesso linguaggio dello scudo del
+// flusso di backup: un'immagine rassicurante prima di qualunque domanda,
+// mai un modulo che parte a freddo con un campo vuoto).
+function tl1Icon(pathD, colorVar = '--primary') {
+  return `<div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto bg-[color-mix(in_srgb,var(${colorVar})_16%,transparent)]">
+    <svg class="w-7 h-7 text-[var(${colorVar})]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${pathD}</svg>
+  </div>`;
+}
+// Pallini di avanzamento (stesso pattern di rkDots): il secondo si accende
+// solo quando si arriva al risultato, mai una percentuale astratta.
+function tl1Dots(fatti, tot = 2) {
+  return `<div class="flex items-center justify-center gap-1.5" aria-hidden="true">${Array.from({ length: tot }, (_, i) => i + 1)
+    .map((n) => `<span class="rounded-full transition-all duration-300 ${n <= fatti ? 'w-6 h-1.5 bg-[var(--gold)]' : 'w-1.5 h-1.5 bg-[var(--outline)]'}"></span>`).join('')}</div>`;
+}
+
 window.openTaxLevel1 = () => {
   window.openModal(`
-    <div class="p-1 flex flex-col gap-3">
-      <h3 class="text-lg font-black">Partita IVA</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">Una domanda per volta — dimmi solo questo, il resto lo capisco io.</p>
-      <p class="text-sm font-bold mt-2">Hai già la Partita IVA?</p>
-      <button onclick="window.closeModal(); window.openTaxRegimePicker();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl justify-between">
-        <span>Sì, ce l'ho già</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg>
-      </button>
-      <button onclick="window.openTaxLevel1Simulate()" class="btn-action w-full py-3 font-bold rounded-xl justify-between">
-        <span>Non ancora, la sto valutando</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg>
-      </button>
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1z"/><path d="M9 7V5h6v2"/>')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Partita IVA</h3>
+        <p class="card-sub !mb-0 mt-1.5">Una domanda per volta — dimmi solo questo, il resto lo capisco io.</p>
+      </div>
+      <div class="w-full flex flex-col gap-2.5">
+        <button onclick="window.closeModal(); window.openTaxRegimePicker();" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl justify-between">
+          <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Sì, ce l'ho già</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <button onclick="window.openTaxLevel1Simulate()" class="btn-action w-full py-3.5 font-bold rounded-xl justify-between">
+          <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Non ancora, la sto valutando</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
     </div>`);
 };
 
@@ -2331,39 +2350,83 @@ window.openTaxLevel1 = () => {
 // cassa) chiesta qui — sarebbe gergo proprio a chi ancora non sa cosa sia.
 window.openTaxLevel1Simulate = () => {
   window.openModal(`
-    <div class="p-1 flex flex-col gap-3">
-      <h3 class="text-lg font-black">Se aprissi la Partita IVA…</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">Quanto pensi di fatturare in un anno? Anche una stima approssimativa va bene.</p>
-      <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-lg font-bold text-center" />
-      <button id="tl1-go" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', '--gold')}
+      ${tl1Dots(1)}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Se aprissi la Partita IVA…</h3>
+        <p class="card-sub !mb-0 mt-1.5">Quanto pensi di fatturare in un anno? Anche una stima approssimativa va bene.</p>
+      </div>
+      <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+      <!-- Facoltativo: il coefficiente cambia molto il risultato per chi fa
+           commercio invece di consulenza, ma chiederlo come domanda obbligata
+           sarebbe gergo per chi sta ancora decidendo — resta un dettaglio
+           apribile, mai un campo che blocca il passo successivo. -->
+      <details class="w-full text-left">
+        <summary class="cursor-pointer text-[11px] text-[var(--on-surface-secondary)] underline">Cosa farai, di preciso? (facoltativo, cambia la stima)</summary>
+        <select id="tl1-ateco" class="w-full mt-2 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm">
+          ${Object.entries(ATECO_COEFFICIENTI).map(([k, v]) => `<option value="${k}" ${k === 'professionisti' ? 'selected' : ''}>${v.label}</option>`).join('')}
+        </select>
+      </details>
+      <button id="tl1-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
       <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Torna indietro</button>
     </div>`);
   const input = document.getElementById('tl1-amount');
   input?.focus();
-  const go = () => window.openTaxLevel1Result(parseFloat(String(input.value).replace(',', '.')) || 0);
+  const go = () => window.openTaxLevel1Result(parseFloat(String(input.value).replace(',', '.')) || 0, document.getElementById('tl1-ateco')?.value);
   document.getElementById('tl1-go')?.addEventListener('click', go);
   input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
 };
 
 // Passo 3: il risultato, in parole — mai un numero orfano senza spiegazione,
 // e mai senza l'avviso sul secondo anno (la sorpresa di cassa più comune).
-window.openTaxLevel1Result = (fatturato) => {
+// Il numero "arriva" con un pop invece di apparire di scatto: lo stesso
+// micro-ritmo già usato per la conferma di scelta sui temi fattura.
+window.openTaxLevel1Result = (fatturato, ateco) => {
   if (!(fatturato > 0)) { showToast('Inserisci una stima di fatturato per continuare.', 'error'); return; }
-  const s = simulateNewPartitaIva(fatturato);
+  const s = simulateNewPartitaIva(fatturato, { ateco });
+  // Strategie legittime (mai trucchi inventati): ogni voce è verificata su
+  // fonte ufficiale e posta come domanda da fare al commercialista, non come
+  // fatto certo — l'eleggibilità reale dipende dalla storia dell'utente, che
+  // Momentum non conosce.
+  const strategieHTML = s.strategie.length ? `
+    <div class="w-full text-left">
+      <div class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wide mb-1.5">Strategie da valutare</div>
+      <div class="flex flex-col gap-2">
+        ${s.strategie.map(t => `<div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[11px] text-[var(--on-surface-secondary)] flex items-start gap-2">
+          <svg class="w-4 h-4 shrink-0 mt-0.5 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.icon === 'startup' ? '<path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>' : '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'}</svg>
+          <span>${t.testo}</span>
+        </div>`).join('')}
+      </div>
+    </div>` : '';
   window.openModal(`
-    <div class="p-1 flex flex-col gap-3">
-      <h3 class="text-lg font-black">Con ~${Math.round(fatturato).toLocaleString('it-IT')}€/anno</h3>
-      <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-4 text-center">
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', '--gold')}
+      ${tl1Dots(2)}
+      <h3 class="text-base font-black leading-tight">Con ~${Math.round(fatturato).toLocaleString('it-IT')}€/anno${s.atecoLabel ? ` <span class="font-normal text-[var(--on-surface-secondary)] text-xs">(${s.atecoLabel.split('(')[0].trim()})</span>` : ''}</h3>
+      <div class="w-full rounded-2xl border border-[var(--glass-border)] bg-[color-mix(in_srgb,#10b981_8%,var(--surface-elevated))] p-4">
         <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Ti resterebbero circa</div>
-        <div class="text-3xl font-black text-emerald-400 my-1">${Math.round(s.netMensile).toLocaleString('it-IT')}€<span class="text-sm font-bold text-[var(--on-surface-secondary)]">/mese</span></div>
+        <div id="tl1-result-number" class="text-4xl font-black text-emerald-400 my-1">${Math.round(s.netMensile).toLocaleString('it-IT')}€<span class="text-sm font-bold text-[var(--on-surface-secondary)]">/mese</span></div>
         <div class="text-[11px] text-[var(--on-surface-secondary)]">${Math.round(s.netAnnuo).toLocaleString('it-IT')}€/anno, dopo tasse e contributi</div>
       </div>
-      <div class="text-xs text-[var(--on-surface-secondary)]">Regime consigliato: <b class="text-[var(--on-surface)]">${s.regimeLabel}</b>. ${s.suggestion.reason}</div>
-      <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-200">⚠️ ${s.primoAnnoNote}</div>
+      <div class="text-xs text-[var(--on-surface-secondary)] text-left w-full">Regime consigliato: <b class="text-[var(--on-surface)]">${s.regimeLabel}</b>. ${s.suggestion.reason}</div>
+      <div class="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-200 text-left flex items-start gap-2">
+        <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <span>${s.primoAnnoNote}</span>
+      </div>
+      ${strategieHTML}
       <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Stima, non consulenza fiscale: verifica sempre col commercialista prima di aprire la Partita IVA.</div>
       <button onclick="window.openTaxLevel1Simulate()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Rifai con un altro importo</button>
-      <button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl">Ho capito</button>
+      <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Ho capito</button>
     </div>`);
+  // Micro-animazione: il numero arriva con un pop invece di comparire di
+  // scatto, coerente col resto dell'app. Rispetta prefers-reduced-motion.
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.getElementById('tl1-result-number')?.animate(
+      [{ transform: 'scale(.85)', opacity: 0 }, { transform: 'scale(1.04)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)' }],
+      { duration: 420, easing: 'cubic-bezier(.22,1.4,.36,1)' },
+    );
+  }
 };
 
 // Selettore di regime a bassa frizione (un tocco), riusato da "attiva" e "cambia".

@@ -438,13 +438,43 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   }
   const suggestion = suggestRegime(fatturato);
   const regimeKey = suggestion.overCeiling ? 'ordinario' : (opts.startup ? 'forfettario_startup' : 'forfettario');
-  const { setAside, net } = taxSetAside(fatturato, { regime: regimeKey, overrides: opts.overrides });
+  // Il coefficiente di redditività dipende dal settore ATECO (tabella già
+  // verificata in ATECO_COEFFICIENTI): un commerciante paga su una base
+  // imponibile molto più bassa (40%) di un professionista (78%) — ignorarlo
+  // renderebbe la stima sbagliata proprio per chi fa commercio.
+  const atecoCoeff = regimeKey.startsWith('forfettario') && ATECO_COEFFICIENTI[opts.ateco]
+    ? { coeffRedditivita: ATECO_COEFFICIENTI[opts.ateco].coeff } : null;
+  const { setAside, net } = taxSetAside(fatturato, { regime: regimeKey, overrides: { ...atecoCoeff, ...opts.overrides } });
   const netMensile = net / 12;
+  // Strategie legittime, non trucchi: entrambe verificate su fonte ufficiale
+  // (Agenzia delle Entrate), mai un'ottimizzazione inventata. L'eleggibilità
+  // reale (storia lavorativa dell'utente) non è verificabile da qui — per
+  // questo sono poste come DOMANDE da fare al commercialista, non come fatti.
+  const strategie = [];
+  if (!suggestion.overCeiling && regimeKey === 'forfettario') {
+    // Non un avviso generico: il NUMERO vero della differenza, calcolato con
+    // la stessa aritmetica (taxSetAside), non un fattore "circa la metà"
+    // buttato lì. Così si vede subito perché vale la pena chiederlo.
+    const startupCalc = taxSetAside(fatturato, { regime: 'forfettario_startup', overrides: { ...atecoCoeff, ...opts.overrides } });
+    const nettoStartupMensile = startupCalc.net / 12;
+    strategie.push({
+      icon: 'startup',
+      testo: `Se è la tua PRIMA attività (nessuna attività analoga negli ultimi 3 anni, e non la semplice prosecuzione di un lavoro dipendente) potresti avere diritto all'aliquota startup al 5% invece del 15% per i primi 5 anni: ti resterebbero ~${Math.round(nettoStartupMensile).toLocaleString('it-IT')}€/mese invece di ~${Math.round(netMensile).toLocaleString('it-IT')}€/mese. Chiedilo al commercialista prima di aprire la Partita IVA.`,
+    });
+  }
+  if (!suggestion.overCeiling && suggestion.pctOfCeiling >= 70) {
+    strategie.push({
+      icon: 'timing',
+      testo: `Sei già al ${suggestion.pctOfCeiling}% del tetto forfettario da fermo: se ti avvicini ulteriormente, valuta con chi ti paga di spostare gli incassi di fine anno a gennaio — nel forfettario conta quando INCASSI, non quando fatturi.`,
+    });
+  }
   return {
     fatturato,
     regime: regimeKey,
     regimeLabel: REGIMI[regimeKey].label,
+    atecoLabel: atecoCoeff ? ATECO_COEFFICIENTI[opts.ateco].label : null,
     suggestion,
+    strategie,
     setAside: +setAside.toFixed(2),
     netAnnuo: +net.toFixed(2),
     netMensile: +netMensile.toFixed(2),
