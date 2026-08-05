@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, BOLLO_IMPORTO } = await import('./invoice-engine.js');
+const { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, BOLLO_IMPORTO, suggestInvoiceTheme } = await import('./invoice-engine.js');
 
 test('pendingSdiTransmission: elenca le e-fatture create ma non ancora trasmesse', () => {
   const invoices = [
@@ -96,6 +96,62 @@ test('renderInvoiceHTML: documento valido, importi e note presenti, input escapa
   assert.ok(/Acme &lt;SRL&gt;/.test(html));         // input escapato (no XSS)
   assert.ok(/forfettario/i.test(html));             // nota regime
   assert.ok(/SdI/.test(html) && /cortesia/i.test(html)); // disclaimer IT chiaro
+});
+
+test('renderInvoiceHTML: tema non valido o assente → ripiega su "minimale", mai un documento rotto', () => {
+  const inv = computeInvoice({ imponibile: 500, regime: 'forfettario' });
+  const senzaTema = renderInvoiceHTML(inv, { number: 1, year: 2026, client: 'X' });
+  const temaInventato = renderInvoiceHTML(inv, { number: 1, year: 2026, client: 'X', theme: 'sgargiante-a-caso' });
+  assert.match(senzaTema, /data-invoice-theme="minimale"/);
+  assert.match(temaInventato, /data-invoice-theme="minimale"/);
+});
+
+test('renderInvoiceHTML: ognuno dei tre temi produce un documento valido con gli stessi dati e lo stesso disclaimer legale', () => {
+  const inv = computeInvoice({ imponibile: 2500, regime: 'ordinario' });
+  const meta = { number: 7, year: 2026, client: 'Beta <Srl>', description: 'Sviluppo software', country: 'IT', accent: '#e11d48' };
+  for (const theme of ['minimale', 'tecnico', 'vivace']) {
+    const html = renderInvoiceHTML(inv, { ...meta, theme });
+    assert.match(html, new RegExp(`data-invoice-theme="${theme}"`), `${theme}: marca il tema nel documento`);
+    assert.match(html, /Fattura n\. 7\/2026/, `${theme}: numero fattura presente`);
+    assert.match(html, /Beta &lt;Srl&gt;/, `${theme}: input escapato anche nel tema ${theme}`);
+    assert.match(html, /Netto a ricevere/, `${theme}: totale presente`);
+    assert.match(html, /SdI/, `${theme}: disclaimer legale invariato dal tema`);
+    assert.match(html, /--accent:#e11d48/, `${theme}: colore d'accento scelto dall'utente applicato`);
+  }
+});
+
+test('renderInvoiceHTML: nota "Creato con Momentum" facoltativa — assente di default, presente solo se richiesta', () => {
+  const inv = computeInvoice({ imponibile: 500, regime: 'forfettario' });
+  const senza = renderInvoiceHTML(inv, { number: 1, year: 2026, client: 'X', theme: 'minimale' });
+  const con = renderInvoiceHTML(inv, { number: 1, year: 2026, client: 'X', theme: 'minimale', brandCredit: true });
+  assert.doesNotMatch(senza, /<div class="momentum-mark"/); // solo la REGOLA css c'è sempre, il div no
+  assert.match(con, /<div class="momentum-mark"/);
+  assert.match(con, /Momentum/);
+});
+
+test('renderInvoiceHTML: il colore d\'accento non valido non passa in NESSUN tema (mai CSS/HTML iniettato)', () => {
+  const inv = computeInvoice({ imponibile: 100, regime: 'forfettario' });
+  for (const theme of ['minimale', 'tecnico', 'vivace']) {
+    const html = renderInvoiceHTML(inv, { number: 1, year: 2026, client: 'X', theme, accent: 'red;}body{display:none' });
+    assert.doesNotMatch(html, /display:none/, `${theme}: un accent malformato non deve poter iniettare CSS`);
+    assert.match(html, /--accent:#0ea5e9/, `${theme}: ripiega sul colore di default`);
+  }
+});
+
+test('suggestInvoiceTheme: cliente con forma societaria → minimale (registro enterprise)', () => {
+  assert.equal(suggestInvoiceTheme('Acme Srl', 'consulenza'), 'minimale');
+  assert.equal(suggestInvoiceTheme('Beta S.p.A.', ''), 'minimale');
+  assert.equal(suggestInvoiceTheme('Persona Qualsiasi', 'consulenza', 15000), 'minimale');
+});
+
+test('suggestInvoiceTheme: descrizione di sviluppo/IT verso un privato → tecnico', () => {
+  assert.equal(suggestInvoiceTheme('Mario Rossi', 'Sviluppo sito web'), 'tecnico');
+  assert.equal(suggestInvoiceTheme('Mario Rossi', 'Consulenza API cloud'), 'tecnico');
+});
+
+test('suggestInvoiceTheme: privato, importo piccolo, nessun segnale tecnico → vivace', () => {
+  assert.equal(suggestInvoiceTheme('Giulia Bianchi', 'Ritratto su commissione', 200), 'vivace');
+  assert.equal(suggestInvoiceTheme('', '', 0), 'vivace');
 });
 
 test('bollo a carico dell\'emittente: non entra nel totale addebitato al cliente', () => {

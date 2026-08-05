@@ -26,13 +26,16 @@ export const COUNTRIES = {
   },
   // Profilo INTERNAZIONALE di default (Paesi non ancora mappati): il PDF è una
   // fattura-documento valida dove non c'è obbligo di e-fattura; IVA configurabile.
+  // BUG REALE corretto: locale='en' ma il testo era in italiano — un cliente
+  // fuori Italia riceveva un disclaimer che non poteva leggere. Ora il testo
+  // segue davvero la lingua dichiarata.
   DEFAULT: {
-    name: 'Internazionale', currency: 'EUR', locale: 'en', invoiceWord: 'Fattura / Invoice',
+    name: 'Internazionale', currency: 'EUR', locale: 'en', invoiceWord: 'Invoice',
     vatDefault: 0.0, defaultRitenuta: 0.0, defaultCassa: 0.0, bollo: false,
     eInvoiceMandatory: false,
     disclaimerLines: [
-      'Documento fattura con calcoli corretti, valido come fattura dove non e\' obbligatoria la fattura elettronica.',
-      'Verifica gli obblighi fiscali del tuo Paese col commercialista.',
+      'Invoice document with correct calculations, valid as an invoice where electronic invoicing is not mandatory.',
+      'Check your country\'s tax obligations with your accountant.',
     ],
   },
 };

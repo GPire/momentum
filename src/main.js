@@ -65,7 +65,7 @@ import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusBy
 import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
 import { taxReserveStatus } from './predict/tax-payments.js';
 import { rulesForYear } from './predict/tax-rules.js';
-import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission } from './invoice/invoice-engine.js';
+import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
@@ -4504,6 +4504,46 @@ function getInvoiceFormHTML() {
           </select>
           <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="Colore accento" />
         </div>
+        ${(() => {
+          // Tre stili, tre pubblici diversi (non decorazione a caso): "minimale"
+          // è il registro delle grandi aziende e dei commercialisti (sobrio =
+          // credibile, un cliente enterprise legge il colore forte come
+          // inesperienza); "tecnico" per chi fattura consulenza IT/dev a
+          // un'altra azienda; "vivace" per chi fattura al pubblico/creator,
+          // dove farsi riconoscere vale più della formalità.
+          const THEMES = [
+            { id: 'minimale', label: 'Minimale', hint: 'Aziende grandi, commercialisti — la sobrietà è credibilità', grad: 'linear-gradient(135deg,#fbfaf7,#e7e2d8)' },
+            { id: 'tecnico', label: 'Tecnico', hint: 'Consulenza IT/dev verso altre aziende', grad: 'linear-gradient(135deg,#0f172a,#1e293b)' },
+            { id: 'vivace', label: 'Vivace', hint: 'Clienti privati, creator, freelance — si fa ricordare', grad: 'linear-gradient(135deg,#e11d48,#7c3aed)' },
+          ];
+          // Predittivo: se l'utente non ha MAI scelto un tema (nessun profilo
+          // salvato) si parte già dal suggerimento più sensato invece che da
+          // un default fisso — mai deciso al posto suo dopo la prima scelta.
+          const cur = INVOICE_THEMES.includes(prof.theme) ? prof.theme : suggestInvoiceTheme('', '', 0);
+          return `<div class="pt-1">
+            <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">Stile del documento</div>
+            <div id="inv-theme-picker" class="grid grid-cols-3 gap-2">
+              ${THEMES.map(t => `
+                <button type="button" data-theme="${t.id}" title="${t.hint}"
+                  class="inv-theme-swatch flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${cur === t.id ? 'border-[var(--primary)]' : 'border-transparent'}">
+                  <span class="w-full h-8 rounded-lg block" style="background:${t.grad}"></span>
+                  <span class="text-[10px] font-bold">${t.label}</span>
+                </button>`).join('')}
+            </div>
+            <div id="inv-theme-hint" class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${THEMES.find(t => t.id === cur).hint}</div>
+            <input type="hidden" id="inv-theme" value="${cur}" />
+            <!-- Facoltativa, sempre spegnibile, e MAI sull'XML ufficiale (solo
+                 sul PDF di cortesia). Acceso di default per "tecnico"/"vivace"
+                 (pratica comune anche nei portali dei commercialisti, aiuta la
+                 diffusione) ma NON per "minimale": quel tema esiste apposta
+                 per la sobrietà istituzionale, un marchio in fondo
+                 contraddirebbe la sua stessa promessa a un cliente enterprise. -->
+            <label class="flex items-center gap-2 mt-2.5 text-[10px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
+              <input type="checkbox" id="inv-brand-credit" ${(prof.brandCredit !== undefined ? prof.brandCredit : cur !== 'minimale') ? 'checked' : ''} class="w-3.5 h-3.5 rounded accent-[var(--primary)]" />
+              Aggiungi una piccola nota "Creato con Momentum" in fondo (facoltativo, mai sull'XML ufficiale)
+            </label>
+          </div>`;
+        })()}
       </div>
     </details>
     ${(() => {
@@ -4717,6 +4757,46 @@ window.openCreateInvoice = (prefillClient) => {
   // Logo → data URI on-device (nessun upload esterno), tenuto in una var locale
   // e salvato nel profilo alla generazione. Limite dimensione per non gonfiare
   // il vault: se troppo grande, avvisa.
+  // Selettore di stile: tre pubblici diversi, non tre colori a caso (spiegato
+  // nella card sopra). Un tap sceglie, l'anteprima testuale sotto conferma la
+  // scelta in parole — mai lasciare l'utente a indovinare cosa cambia.
+  const THEME_HINTS = { minimale: 'Aziende grandi, commercialisti — la sobrietà è credibilità', tecnico: 'Consulenza IT/dev verso altre aziende', vivace: 'Clienti privati, creator, freelance — si fa ricordare' };
+  let themeChosenByUser = INVOICE_THEMES.includes((VaultDAO.state.invoiceProfile || {}).theme);
+  let brandCreditChosenByUser = (VaultDAO.state.invoiceProfile || {}).brandCredit !== undefined;
+  const applyTheme = (id, { fromClick = false } = {}) => {
+    const btn = document.querySelector(`.inv-theme-swatch[data-theme="${id}"]`);
+    if (!btn) return;
+    document.querySelectorAll('.inv-theme-swatch').forEach(b => b.classList.remove('border-[var(--primary)]'));
+    btn.classList.add('border-[var(--primary)]');
+    if ($('#inv-theme')) $('#inv-theme').value = id;
+    if ($('#inv-theme-hint')) $('#inv-theme-hint').textContent = (fromClick ? '' : '✨ Suggerito — ') + (THEME_HINTS[id] || '');
+    // La nota "Creato con Momentum" segue il tema finché l'utente non ha mai
+    // toccato la casella di persona: acceso ovunque tranne "minimale" (vedi
+    // commento sopra il checkbox).
+    if (!brandCreditChosenByUser && $('#inv-brand-credit')) $('#inv-brand-credit').checked = id !== 'minimale';
+    // Micro-animazione di conferma scelta (stesso ritmo di sectionRise, mai
+    // un'animazione nuova inventata), rispetta prefers-reduced-motion.
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      btn.animate([{ transform: 'scale(.94)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'cubic-bezier(.22,1.4,.36,1)' });
+    }
+  };
+  document.querySelectorAll('.inv-theme-swatch').forEach(btn => btn.addEventListener('click', () => {
+    themeChosenByUser = true; // da qui in poi il suggerimento live non lo tocca più
+    applyTheme(btn.dataset.theme, { fromClick: true });
+  }));
+  $('#inv-brand-credit')?.addEventListener('change', () => { brandCreditChosenByUser = true; });
+  // PREDITTIVO: finché l'utente non ha mai scelto un tema di persona, il
+  // suggerimento segue in tempo reale cosa sta scrivendo (cliente/importo/
+  // descrizione) — non un default statico, ma una lettura di CHI sta
+  // fatturando. Si spegne per sempre al primo tap manuale sui tre stili.
+  const liveThemeSuggest = () => {
+    if (themeChosenByUser) return;
+    const sugg = suggestInvoiceTheme(clientEl.value, descEl.value, parseFloat(String(amountEl.value).replace(',', '.')) || 0);
+    applyTheme(sugg);
+  };
+  clientEl.addEventListener('input', liveThemeSuggest);
+  descEl.addEventListener('input', liveThemeSuggest);
+  amountEl.addEventListener('input', liveThemeSuggest);
   let logoData = (VaultDAO.state.invoiceProfile || {}).logo || '';
   $('#inv-logo').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];
@@ -4754,6 +4834,8 @@ window.openCreateInvoice = (prefillClient) => {
       emitterInfo,
       logo: logoData || '',
       accent: $('#inv-accent').value || '#0ea5e9',
+      theme: INVOICE_THEMES.includes($('#inv-theme')?.value) ? $('#inv-theme').value : 'minimale',
+      brandCredit: !!$('#inv-brand-credit')?.checked,
       country,
       fiscale: { ...fis, regime: regimeEl.value }, // ricordato per la prossima volta
     };
@@ -4762,7 +4844,7 @@ window.openCreateInvoice = (prefillClient) => {
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country: prof.country });
-    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo, logo: prof.logo, accent: prof.accent, country: prof.country, clientInfo, regime: regimeEl.value };
+    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo, logo: prof.logo, accent: prof.accent, theme: prof.theme, country: prof.country, clientInfo, regime: regimeEl.value };
     // salva nello storico (numerazione + apprendimento cliente/email + dati
     // fiscali del cliente per il riuso + flag ricorrente per il promemoria)
     const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
@@ -4790,17 +4872,33 @@ window.openCreateInvoice = (prefillClient) => {
     return { inv, meta, clientEmail, number, year, emitterFiscal, clientFiscal };
   };
 
-  // "Scarica PDF": genera e SCARICA il PDF vero (nome file intelligente). Il
-  // logo (se caricato) resta nella stampa HTML → per questo offro anche "Stampa".
+  // "PDF di cortesia": apre il VERO documento disegnato (logo + colore +
+  // stile scelto) in una scheda pronta per "Stampa → Salva come PDF" — non
+  // il PDF minimale in bianco e nero generato byte a byte (quello resta solo
+  // come riserva se il browser blocca la finestra). renderInvoiceHTML esiste
+  // da tempo in invoice-engine.js ma non era mai stata collegata a un
+  // bottone: qui il documento di cortesia diventa davvero un documento di
+  // design, non un file di solo testo.
   $('#inv-generate').addEventListener('click', () => {
     const res = buildAndSave();
     if (!res) return;
-    const fname = invoiceFilename({ number: res.number, year: res.year, client: res.meta.client, isoDate: new Date().toISOString().slice(0, 10) });
-    const url = URL.createObjectURL(invoicePdfBlob(res.inv, res.meta));
-    const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    closeModal();
-    showToast(`PDF fattura n.${res.number}/${res.year} scaricato.`, 'success');
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(renderInvoiceHTML(res.inv, res.meta));
+      win.document.close();
+      win.addEventListener('load', () => setTimeout(() => win.print(), 250));
+      closeModal();
+      showToast(`Fattura n.${res.number}/${res.year} pronta — scegli "Salva come PDF" nella finestra di stampa.`, 'success');
+    } else {
+      // Riserva onesta: se il browser blocca i popup, il documento di solo
+      // testo resta comunque scaricabile, invece di lasciare l'utente senza nulla.
+      const fname = invoiceFilename({ number: res.number, year: res.year, client: res.meta.client, isoDate: new Date().toISOString().slice(0, 10) });
+      const url = URL.createObjectURL(invoicePdfBlob(res.inv, res.meta));
+      const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      closeModal();
+      showToast('Popup bloccati dal browser: scaricata la versione semplice in PDF. Consenti i popup per la versione disegnata.', 'error');
+    }
     renderAnalysis();
   });
 
@@ -6873,6 +6971,22 @@ window.openModal = (html, footerHtml = '') => {
   body.classList.remove('modal-body-in'); void body.offsetWidth; body.classList.add('modal-body-in');
   $('#modal-content').classList.remove('modal-closing');
   $('#modal-container').classList.remove('hidden');
+  // BUG REALE segnalato dal vivo: con un modale aperto, scorrere sul suo
+  // contenuto scorreva ANCHE la pagina sotto (Dashboard/Analisi dietro il
+  // buio) — su mobile il gesto capita facilmente sul bordo del modale e
+  // finisce sulla pagina invece che dentro #modal-body, rendendo il campo
+  // in fondo (es. l'email cliente in "Crea fattura") impossibile da
+  // raggiungere. `overflow:hidden` da solo non basta su iOS Safari (il rimbalzo
+  // elastico scorre comunque lo sfondo): si blocca il body in `position:fixed`
+  // nel punto esatto in cui si trovava, e lo si rimette esattamente lì alla
+  // chiusura — l'utente non deve accorgersi che è successo qualcosa.
+  if (!document.body.dataset.scrollLockY) {
+    document.body.dataset.scrollLockY = String(window.scrollY || window.pageYOffset || 0);
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${document.body.dataset.scrollLockY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+  }
   setTimeout(() => {
     $('#modal-backdrop').style.opacity = '1';
     $('#modal-content').classList.remove('translate-y-full', 'lg:scale-95', 'opacity-0');
@@ -6892,6 +7006,17 @@ window.closeModal = () => {
     // modale chiusa, per ogni modulo che lo usa (es. "Crea fattura").
     $('#modal-footer').classList.add('hidden');
     $('#modal-body').style.paddingBottom = '';
+    // Sblocco dello scroll di sfondo e ripristino ESATTO della posizione da
+    // cui l'utente era partito (vedi commento in openModal).
+    if (document.body.dataset.scrollLockY !== undefined) {
+      const y = +document.body.dataset.scrollLockY || 0;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      delete document.body.dataset.scrollLockY;
+      window.scrollTo(0, y);
+    }
   }, 300);
 };
 

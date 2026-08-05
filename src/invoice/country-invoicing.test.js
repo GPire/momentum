@@ -39,7 +39,27 @@ test('disclaimer HTML per-Paese: IT parla di SdI, internazionale no', () => {
   const intlHtml = renderInvoiceHTML(inv, { number: 1, year: 2026, client: 'A', country: 'DEFAULT' });
   assert.ok(/SdI/.test(itHtml));
   assert.ok(!/SdI/.test(intlHtml));
-  assert.ok(/obblighi fiscali del tuo Paese/i.test(intlHtml));
+  assert.ok(/tax obligations/i.test(intlHtml));
+});
+
+// BUG REALE trovato e corretto: il profilo internazionale dichiara
+// locale:'en' ma testo ed etichette del documento erano SEMPRE in italiano —
+// un cliente fuori Italia riceveva un documento che non poteva leggere.
+test('documento internazionale (locale "en"): etichette e disclaimer in inglese, IT resta in italiano', () => {
+  const inv = computeInvoice({ imponibile: 500, regime: 'forfettario', country: 'DEFAULT' });
+  const intlHtml = renderInvoiceHTML(inv, { number: 2, year: 2026, client: 'Global Client Inc', country: 'DEFAULT' });
+  assert.match(intlHtml, /<html lang="en"/);
+  assert.match(intlHtml, /Invoice no\. 2\/2026/);
+  assert.match(intlHtml, />From</);
+  assert.match(intlHtml, />To</);
+  assert.match(intlHtml, /Invoice total/);
+  assert.match(intlHtml, /Net amount due/);
+  assert.doesNotMatch(intlHtml, /Netto a ricevere|Fattura n\./);
+
+  const itHtml = renderInvoiceHTML(inv, { number: 2, year: 2026, client: 'Cliente Italiano', country: 'IT' });
+  assert.match(itHtml, /<html lang="it"/);
+  assert.match(itHtml, /Fattura n\. 2\/2026/);
+  assert.match(itHtml, /Netto a ricevere/);
 });
 
 test('selectableCountries: Italia mappata, altri come profilo internazionale', () => {
