@@ -2355,7 +2355,16 @@ window.openTaxLevel1Simulate = () => {
       ${tl1Dots(1)}
       <div>
         <h3 class="text-lg font-black leading-tight">Se aprissi la Partita IVA…</h3>
-        <p class="card-sub !mb-0 mt-1.5">Quanto pensi di fatturare in un anno? Anche una stima approssimativa va bene.</p>
+        <p class="card-sub !mb-0 mt-1.5">Quanto pensi di fatturare? Anche una stima approssimativa va bene.</p>
+      </div>
+      <!-- Problema reale: molte persone pensano in termini MENSILI ("mi
+           pagano 2000 al mese"), non annuali — costringerle a fare la
+           moltiplicazione a mente è attrito puro. Il numero sotto resta
+           sempre annuale per il calcolo, il testo del bottone dice cosa sta
+           per convertire, mai un cambio silenzioso. -->
+      <div class="flex gap-1.5 p-1 rounded-full bg-black/30 border border-[var(--glass-border)]">
+        <button type="button" id="tl1-periodo-anno" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all bg-[var(--primary)] text-white">All'anno</button>
+        <button type="button" id="tl1-periodo-mese" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all text-[var(--on-surface-secondary)]">Al mese</button>
       </div>
       <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
       <!-- Facoltativo: il coefficiente cambia molto il risultato per chi fa
@@ -2373,7 +2382,26 @@ window.openTaxLevel1Simulate = () => {
     </div>`);
   const input = document.getElementById('tl1-amount');
   input?.focus();
-  const go = () => window.openTaxLevel1Result(parseFloat(String(input.value).replace(',', '.')) || 0, document.getElementById('tl1-ateco')?.value);
+  let periodo = 'anno';
+  const btnAnno = document.getElementById('tl1-periodo-anno'), btnMese = document.getElementById('tl1-periodo-mese');
+  const setPeriodo = (p) => {
+    // Riconverte il NUMERO nell'input (non solo l'etichetta): passare da
+    // "annuale" a "mensile" senza aggiornare la cifra mostrerebbe un valore
+    // che non corrisponde più a cosa dice il bottone — la fonte #1 di
+    // confusione in qualunque form con un'unità che cambia.
+    const val = parseFloat(String(input.value).replace(',', '.'));
+    if (val > 0) input.value = periodo === 'anno' && p === 'mese' ? +(val / 12).toFixed(0) : periodo === 'mese' && p === 'anno' ? +(val * 12).toFixed(0) : val;
+    periodo = p;
+    btnAnno.className = `flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all ${p === 'anno' ? 'bg-[var(--primary)] text-white' : 'text-[var(--on-surface-secondary)]'}`;
+    btnMese.className = `flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all ${p === 'mese' ? 'bg-[var(--primary)] text-white' : 'text-[var(--on-surface-secondary)]'}`;
+    input.placeholder = p === 'anno' ? 'Es. 30000' : 'Es. 2500';
+  };
+  btnAnno?.addEventListener('click', () => setPeriodo('anno'));
+  btnMese?.addEventListener('click', () => setPeriodo('mese'));
+  const go = () => {
+    const val = parseFloat(String(input.value).replace(',', '.')) || 0;
+    window.openTaxLevel1Result(periodo === 'mese' ? val * 12 : val, document.getElementById('tl1-ateco')?.value);
+  };
   document.getElementById('tl1-go')?.addEventListener('click', go);
   input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
 };
