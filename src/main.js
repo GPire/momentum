@@ -4766,8 +4766,16 @@ window.openCreateInvoice = (prefillClient) => {
   const applyTheme = (id, { fromClick = false } = {}) => {
     const btn = document.querySelector(`.inv-theme-swatch[data-theme="${id}"]`);
     if (!btn) return;
-    document.querySelectorAll('.inv-theme-swatch').forEach(b => b.classList.remove('border-[var(--primary)]'));
-    btn.classList.add('border-[var(--primary)]');
+    // Bug reale trovato dal vivo (stesso schema del conflitto sui modali):
+    // "border-transparent" veniva assegnato al render iniziale e MAI rimosso
+    // da questo handler — restava in conflitto con "border-[var(--primary)]"
+    // aggiunta qui, e a seconda dell'ordine nel foglio CSS generato la
+    // selezione visiva poteva restare sempre sullo stesso tema. Il toggle
+    // ora è simmetrico: un solo colore di bordo alla volta, su ogni bottone.
+    document.querySelectorAll('.inv-theme-swatch').forEach(b => {
+      b.classList.remove('border-[var(--primary)]', 'border-transparent');
+      b.classList.add(b === btn ? 'border-[var(--primary)]' : 'border-transparent');
+    });
     if ($('#inv-theme')) $('#inv-theme').value = id;
     if ($('#inv-theme-hint')) $('#inv-theme-hint').textContent = (fromClick ? '' : '✨ Suggerito — ') + (THEME_HINTS[id] || '');
     // La nota "Creato con Momentum" segue il tema finché l'utente non ha mai
