@@ -226,6 +226,12 @@
        Momentum, rosso per l'errore) senza bisogno di una regola per tono. */
     @keyframes qaIconGlow { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
     .qa-icon-glow { border-radius: 50%; animation: qaIconGlow .9s ease-out 1; }
+    /* L'icona che arriva "respira" due volte con lo STESSO respiro dell'orb
+       di Momo (qaOrbBreath, sopra) prima di assestarsi — l'energia sembra
+       arrivare da lì, non un'icona isolata con un'animazione a sé. Finita
+       (2 cicli), mai un loop infinito che distrarrebbe: il "premio" arriva
+       e si posa, non lampeggia per sempre. */
+    .qa-icon-glow > svg { animation: qaOrbBreath 1.1s ease-in-out 2; transform-origin: center; }
     /* pulseDanger (già usato altrove) sull'icona di errore: un richiamo
        breve, mai un lampeggio continuo che stancherebbe l'occhio. */
     .qa-icon-danger { border-radius: 50%; animation: pulseDanger 1.1s ease-out 1; }
@@ -250,7 +256,7 @@
        reinventato — qui la stessa scintilla che nomina l'apprendimento. */
     .qa-learned-badge { animation: sectionRise .3s cubic-bezier(.22,1,.36,1) .05s both; }
     @media (prefers-reduced-motion: reduce) {
-      .view-in > *, .cat-chip.chip-in, details[open] > div, .qa-arrive-icon, .qa-icon-glow, .qa-icon-danger, .qa-learn-chip, .qa-learned-badge { animation: none; }
+      .view-in > *, .cat-chip.chip-in, details[open] > div, .qa-arrive-icon, .qa-icon-glow, .qa-icon-glow > svg, .qa-icon-danger, .qa-learn-chip, .qa-learned-badge { animation: none; }
       .qa-learn-chip:hover { transform: none; }
     }
     
