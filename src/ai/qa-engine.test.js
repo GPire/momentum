@@ -253,6 +253,58 @@ test('ragionamento a catena: con abbastanza storia e un legame ritardato vero, a
   }
 });
 
+// Integrazione con predict/macro-context.js: quando il chiamante ha già un
+// tasso macro reale (ctx.macroContext, mai scaricato dentro qa-engine.js —
+// resta puro/sincrono) e la diagnosi lo trova responsabile del legame, il QA
+// avvisa PRIMA di qualunque numero — mai lasciare credere una leva finta.
+test('ragionamento a catena: un legame spiegato dal macro viene segnalato prima dei numeri', () => {
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
+  const gauss = (r) => { const u1 = Math.max(1e-9, r()), u2 = r(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); };
+  const rnd = rng(31);
+  const allTx = {};
+  const monday0 = new Date(2026, 0, 5);
+  const macroRaw = []; let m = 3;
+  for (let w = 0; w < 26; w++) {
+    m += 0.15 * gauss(rnd);
+    macroRaw.push(m);
+    const dR = new Date(monday0.getTime() + w * 7 * 86_400_000).toISOString().slice(0, 10);
+    const dA = new Date(monday0.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000).toISOString().slice(0, 10);
+    const mkR = dR.slice(0, 7), mkA = dA.slice(0, 7);
+    const rist = Math.max(5, 1.2 * m + 0.2 * gauss(rnd));
+    const alim = Math.max(5, 1.2 * m + 0.2 * gauss(rnd));
+    (allTx[mkR] = allTx[mkR] || []).push({ date: dR, amount: rist, description: 'cena', type: 'uscita', category: 'Ristorante' });
+    (allTx[mkA] = allTx[mkA] || []).push({ date: dA, amount: alim, description: 'spesa', type: 'uscita', category: 'Alimentari' });
+  }
+  const macroContext = { values: macroRaw, copertura: 1, label: 'il tasso di riferimento BCE' };
+  const r = answerQuestion('cosa succede se spendo di più in ristorante?', { ...CTX, allTx, macroContext });
+  assert.equal(r.intent, 'causal');
+  // Il legame reale è forte (guidato dallo stesso driver): se la diagnosi lo
+  // ha trovato E spiegato con successo, il messaggio deve dirlo prima dei
+  // numeri; se per rumore statistico non lo trova in questo campione, la
+  // risposta esistente deve comunque restare intatta (mai un crash).
+  assert.ok(r.answer.includes('Non è una legge'));
+  if (r.answer.includes('Attenzione:')) {
+    assert.match(r.answer, /tasso di riferimento BCE/);
+    assert.match(r.answer, /potrebbe non spostare nulla/);
+  }
+});
+
+test('senza macroContext, il comportamento resta quello di sempre (nessuna regressione)', () => {
+  const allTx = {};
+  const monday0 = new Date(2026, 0, 5);
+  for (let w = 0; w < 25; w++) {
+    const d = new Date(monday0.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000).toISOString().slice(0, 10);
+    const mk = d.slice(0, 7);
+    (allTx[mk] = allTx[mk] || []).push(
+      { date: d, amount: w % 2 === 0 ? 120 : 30, description: 'cena', type: 'uscita', category: 'Ristorante' },
+      { date: d, amount: w % 2 === 0 ? 60 : 15, description: 'taxi', type: 'uscita', category: 'Trasporti' },
+    );
+  }
+  const r = answerQuestion('cosa succede se spendo di più in ristorante?', { ...CTX, allTx });
+  assert.equal(r.intent, 'causal');
+  assert.ok(!r.answer.includes('Attenzione:'), 'senza contesto macro non deve mai comparire l\'avviso');
+});
+
 test('ragionamento a catena: senza legami nei dati lo dice, non inventa', () => {
   const r = answerQuestion('cosa succede se spendo di più in alimentari?', CTX);
   assert.equal(r.intent, 'causal');

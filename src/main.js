@@ -172,6 +172,12 @@ function askMomentum(text) {
     fixedCommitments: VaultDAO.state.fixedCommitments || [],
     bnplLearned: VaultDAO.state.mlData?.bnplLearned || {},
     bnplDismissed: VaultDAO.state.mlData?.bnplDismissed || [],
+    // predict/macro-context.js: se il tasso BCE è già stato scaricato (Dashboard
+    // → renderCausalGraphViz lo mette in cache la prima volta), il QA lo
+    // riusa senza rifare la richiesta. Se non c'è ancora (utente che chiede
+    // subito, prima di aver mai aperto il grafo), resta null e il QA
+    // funziona comunque com'è sempre stato — additivo, mai bloccante.
+    macroContext: __macroContextCache,
   };
   // Chatbot multilingua (src/ai/chat.js): se rileva EN/ES risponde in quella
   // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
@@ -5226,9 +5232,25 @@ async function renderCausalGraphViz() {
   // categoria coinvolta, un chip che apre l'esperimento — mostra lo stato se
   // già in corso, propone di avviarlo se no. Nessun'altra app di questo
   // settore chiude questo cerchio.
+  // AUTO-APPRENDIMENTO (la diagnosi corregge la proposta, non solo la
+  // descrive): categorie il cui legame è già spiegato da un fattore macro
+  // reale (predict/macro-context.js) — proporre "prova a cambiare X" qui
+  // sarebbe una leva finta, perché il legame non dipende dalla categoria
+  // stessa ma da un tasso che si muove per conto suo. Si mostra il motivo
+  // invece del bottone, così il sistema non fa mai perdere tempo dietro un
+  // esperimento che non può funzionare per costruzione.
+  const confondentiMacro = new Map();
+  for (const c of (analisi.diagnosi?.avvertimenti || []).find((a) => a.tipo === 'causa-comune-non-vista')?.casi || []) {
+    if (!c.spiegatoDaMacro) continue;
+    for (const cat of c.tra) confondentiMacro.set(cat, c.spiegatoDaMacro);
+  }
+
   const espChips = cats.map((c) => {
     const cat = getCatById(c);
     const nome = cat?.name || c;
+    if (confondentiMacro.has(c)) {
+      return `<span class="text-[9px] px-2 py-1 rounded-lg border border-dashed border-[var(--outline)] text-[var(--on-surface-secondary)]" title="Il legame di questa categoria sembra spiegato da ${escapeHtml(confondentiMacro.get(c))}, non da una relazione diretta: un esperimento qui non avrebbe senso.">~ ${escapeHtml(nome)}: spiegato dal contesto</span>`;
+    }
     const stato = experimentStatus(VaultDAO.state.experiments, c, allTx, { now: new Date() });
     if (!stato) {
       return `<button class="rk-place text-[9px] px-2 py-1 rounded-lg border border-[var(--outline)]" data-exp-start="${escapeHtml(c)}">▶ Prova a cambiare ${escapeHtml(nome)}</button>`;
