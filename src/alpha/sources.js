@@ -54,6 +54,27 @@ export function parseEcbCsv(text) {
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// ── Parser DefiLlama (JSON: /v2/historicalChainTvl/{chain} o /protocol/{p}) ──
+// [{ date: <secondi unix>, tvl: 123.4 }, …] — a differenza di FRED/ECB la
+// data è un timestamp numerico, non una stringa: si converte in ISO prima di
+// entrare nel formato comune {date, close} usato da crossCheck/plausibility.
+export function parseDefiLlamaTvlJson(json) {
+  const arr = Array.isArray(json) ? json : (json?.tvl || []);
+  const out = [];
+  for (const p of arr) {
+    // BUG REALE trovato dal test: `Number(null)` vale 0 (non NaN), quindi un
+    // punto con data nulla passava il controllo `isFinite` travestito da
+    // 1/1/1970. Si esclude esplicitamente prima della conversione, invece di
+    // fidarsi della coercizione automatica di Number().
+    if (p?.date === null || p?.date === undefined) continue;
+    const ts = Number(p.date);
+    const v = Number(p?.tvl);
+    if (!Number.isFinite(ts) || !Number.isFinite(v)) continue;
+    out.push({ date: new Date(ts * 1000).toISOString().slice(0, 10), close: v });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ── Whitelist onesta delle fonti. Ogni voce dichiara COSA offre, COME la
 // raggiungiamo e PERCHÉ (o perché no). Le esclusioni documentate fanno parte
 // del deliverable: dire chiaramente cosa NON possiamo usare è metà dell'onestà. ──
@@ -104,6 +125,68 @@ export const SOURCE_REGISTRY = [
     id: 'yahoo-finance', kind: 'prices', name: 'Yahoo Finance', trust: 'secondary',
     cors: 'no', excluded: true,
     note: 'nessuna API CORS pubblica — esclusa, si usa la fallback chain',
+  },
+  {
+    // VERIFICATO dal vivo (2026-08-05): richiesta reale dal browser a
+    // stats.bis.org/api/v2/... → 200, CSV vero con tassi ufficiali delle
+    // banche centrali (colonne TIME_PERIOD/OBS_VALUE, stesso formato ECB).
+    id: 'bis', kind: 'macro', name: 'BIS (Bank for International Settlements)', trust: 'primary',
+    cors: 'yes', type: 'text', parse: parseEcbCsv,
+    urlFor: (dataflow, { key = 'M.IT' } = {}) => `https://stats.bis.org/api/v2/data/dataflow/BIS/${dataflow}/1.0/${key}?format=csv`,
+    note: 'VERIFICATO dal vivo: tassi ufficiali e statistiche del sistema finanziario globale. CORS aperto confermato con richiesta reale (dataflow WS_CBPOL, tassi di policy).',
+  },
+  {
+    // VERIFICATO dal vivo (2026-08-05): api.llama.fi/v2/historicalChainTvl/…
+    // → 200, JSON reale [{date,tvl}] con storico completo dal 2017.
+    id: 'defillama', kind: 'defi', name: 'DefiLlama', trust: 'primary',
+    cors: 'yes', type: 'json', parse: parseDefiLlamaTvlJson,
+    urlFor: (chainOrProtocol, { protocol = false } = {}) => protocol
+      ? `https://api.llama.fi/protocol/${chainOrProtocol}`
+      : `https://api.llama.fi/v2/historicalChainTvl/${chainOrProtocol}`,
+    note: 'VERIFICATO dal vivo: valore totale bloccato (TVL) in DeFi, per chain o per singolo protocollo. Nessuna chiave richiesta, CORS aperto confermato con richiesta reale.',
+  },
+  // ── Verificate dal vivo (2026-08-05) e SCARTATE, con il motivo esatto ──
+  // Onestà: elencare cosa NON funziona è parte del deliverable tanto quanto
+  // ciò che funziona, altrimenti la stessa domanda tornerebbe a ogni sessione.
+  {
+    id: 'sec-edgar', kind: 'filings', name: 'SEC EDGAR', trust: 'primary',
+    cors: 'no', excluded: true,
+    note: 'VERIFICATO BLOCCATO dal browser (Failed to fetch, sia su data.sec.gov che su www.sec.gov) — la SEC richiede un User-Agent identificativo che un fetch da pagina web non può impostare in modo affidabile. Serve un canale server-side, che qui non esiste per scelta architetturale.',
+  },
+  {
+    id: 'bancaditalia', kind: 'macro', name: 'Banca d\'Italia (statistiche)', trust: 'primary',
+    cors: 'no', excluded: true,
+    note: 'VERIFICATO BLOCCATO dal browser su due endpoint SDMX diversi (Failed to fetch) — nessuna API CORS pubblica raggiungibile da pagina web.',
+  },
+  {
+    id: 'istat', kind: 'macro', name: 'ISTAT', trust: 'primary',
+    cors: 'unknown', excluded: true,
+    note: 'NON VERIFICABILE nel tempo a disposizione: il servizio SDMX (due endpoint diversi provati) non ha risposto entro un tempo ragionevole — non è uno "Failed to fetch" netto come Banca d\'Italia, quindi non si dichiara "bloccato" con certezza, solo non ancora utilizzabile. Da riprovare in una sessione dedicata.',
+  },
+  {
+    id: 'agenzia-entrate', kind: 'fiscal', name: 'Agenzia delle Entrate', trust: 'primary',
+    cors: 'no', excluded: true,
+    note: 'VERIFICATO BLOCCATO dal browser. In ogni caso è un portale HTML per persone, non un\'API dati strutturati: anche se raggiungibile, non darebbe un payload utilizzabile dal validatore anti-veleno di tax-rules.js. Le regole fiscali restano curate a mano nel codice, con auto-aggiornamento firmato (core/auto-update.js) da una fonte che l\'app deve ospitare essa stessa.',
+  },
+  {
+    id: 'inps', kind: 'fiscal', name: 'INPS', trust: 'primary',
+    cors: 'no', excluded: true,
+    note: 'VERIFICATO BLOCCATO dal browser (portale HTML, non un\'API dati) — stesso limite di Agenzia delle Entrate.',
+  },
+  {
+    id: 'coinmarketcap', kind: 'prices', name: 'CoinMarketCap', trust: 'secondary',
+    cors: 'no', excluded: true,
+    note: 'VERIFICATO BLOCCATO dal browser — la loro API richiede la chiave in un header e per policy è pensata per uso server-side, non per chiamate dirette dal browser di un utente.',
+  },
+  {
+    id: 'messari', kind: 'prices', name: 'Messari', trust: 'secondary',
+    cors: 'no', excluded: true,
+    note: 'VERIFICATO BLOCCATO dal browser (Failed to fetch) sul livello gratuito.',
+  },
+  {
+    id: 'ishares', kind: 'prices', name: 'iShares (holdings ETF)', trust: 'primary',
+    cors: 'no', excluded: true,
+    note: 'VERIFICATO BLOCCATO dal browser sul download CSV delle holdings — nessuna API CORS pubblica.',
   },
 ];
 
