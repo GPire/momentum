@@ -61,6 +61,7 @@ function translateRegionLabel(region) {
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI } from './predict/tax.js';
+import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
 import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
 import { taxReserveStatus } from './predict/tax-payments.js';
@@ -2104,8 +2105,37 @@ function renderTaxCashBlocks(proj, regime) {
     // valido — mai far cadere tutta la schermata per un blocco in più.
     console.warn('Blocchi fiscali avanzati non disponibili:', e);
   }
+  // LIVELLO 2 — Ponte commercialista: un pacchetto che il professionista apre
+  // senza account, con fatture/incassi/scadenze già pronti (T11, il pezzo che
+  // trasforma il commercialista da ostacolo a canale di distribuzione).
+  if ((VaultDAO.state.invoices || []).length) {
+    html += `<button onclick="window.exportAccountantReport()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Esporta riepilogo per il commercialista</button>`;
+  }
   return html;
 }
+
+// Genera il riepilogo per il commercialista (Livello 2, T11): apre in una
+// scheda pronta per "Stampa → Salva come PDF", stesso schema già verificato
+// per la fattura di cortesia. Nessun account, nessun login — un file che si
+// apre e basta.
+window.exportAccountantReport = () => {
+  const anno = new Date().getFullYear();
+  const regime = VaultDAO.state.taxRegime || 'forfettario';
+  const report = buildAccountantReport(
+    VaultDAO.state.invoices || [], VaultDAO.state.transactions || {}, anno, regime,
+    { taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel },
+  );
+  const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(renderAccountantReportHTML(report, { emitter }));
+    win.document.close();
+    win.addEventListener('load', () => setTimeout(() => win.print(), 250));
+    showToast('Riepilogo pronto — scegli "Salva come PDF" nella finestra di stampa, o giralo così com\'è al commercialista.', 'success');
+  } else {
+    showToast('Popup bloccati dal browser: consenti i popup per generare il riepilogo.', 'error');
+  }
+};
 
 // Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
 // abilitato il regime P.IVA (VaultDAO.state.taxRegime) o ha entrate rilevanti.
