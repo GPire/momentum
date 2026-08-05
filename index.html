@@ -799,6 +799,25 @@
     @keyframes modalBodyRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     .modal-body-in { animation: modalBodyRise .38s cubic-bezier(.22,1,.36,1) both; }
     @media (prefers-reduced-motion: reduce) { .modal-body-in { animation: none; } }
+    /* Modulo NATIVO per schermo grande, non la stessa card da telefono
+       stiracchiata: solo i moduli che lo chiedono esplicitamente (oggi
+       "Crea fattura", ricco di campi) diventano più larghi da tablet in su,
+       lasciando spazio a un vero layout a due colonne invece di un'unica
+       colonna lunghissima. Tutti gli altri modali restano invariati. */
+    @media (min-width: 1024px) {
+      #modal-content.modal-wide, #modal-footer.modal-wide { width: 720px !important; }
+    }
+    /* Ingresso a scaglione dei blocchi del modulo (stesso schema di
+       .view-in già usato per le sezioni dell'app): ogni gruppo di campi
+       entra in sequenza invece di comparire tutto insieme in blocco. */
+    .modal-section-in > * { animation: sectionRise .42s cubic-bezier(.22,1,.36,1) both; }
+    .modal-section-in > *:nth-child(1) { animation-delay: .02s; }
+    .modal-section-in > *:nth-child(2) { animation-delay: .06s; }
+    .modal-section-in > *:nth-child(3) { animation-delay: .10s; }
+    .modal-section-in > *:nth-child(4) { animation-delay: .14s; }
+    .modal-section-in > *:nth-child(5) { animation-delay: .18s; }
+    .modal-section-in > *:nth-child(n+6) { animation-delay: .22s; }
+    @media (prefers-reduced-motion: reduce) { .modal-section-in > * { animation: none; } }
 
     /* — TITOLI DI SEZIONE FLUIDI (Dashboard / Analisi / Impostazioni): scalano su
          iPhone piccolo come su schermi enormi, senza troncarsi né debordare. — */

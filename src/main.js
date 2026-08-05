@@ -4416,7 +4416,7 @@ function getInvoiceFormHTML() {
           <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" />
         </div>`;
   return `
-  <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+  <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
     <div class="flex items-baseline justify-between">
       <h3 class="text-base font-black">Crea fattura</h3>
       <span class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Date().toLocaleDateString('it-IT')}</span>
@@ -4448,49 +4448,60 @@ function getInvoiceFormHTML() {
       return `<div class="flex gap-2 overflow-x-auto pb-1">${rec.map((c, i) =>
         `<button type="button" data-recidx="${i}" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border ${c.dueThisMonth ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${c.monthly ? miniRepeat : ''}<span>${c.client}${c.typicalAmount ? ` · ${Math.round(c.typicalAmount)}€` : ''}</span></button>`).join('')}</div>`;
     })()}
-    <!-- RIGA UNICA (NL): scrivi la fattura come la diresti — anti-attrito, stessa
-         filosofia della voce. "fattura a Rossi Srl 500 per consulenza" compila
-         cliente, importo e causale con un tocco. -->
-    <div class="flex gap-2">
-      <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" />
-      <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">Compila</button>
-    </div>
-    <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
-    <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
-    <!-- Dati fiscali del CLIENTE: servono solo alla fattura elettronica. A scomparsa,
-         si aprono da soli quando serve. Ricordati per cliente (riuso intelligente). -->
-    <details id="inv-client-fiscal" class="rounded-xl border border-[var(--glass-border)] bg-black/20">
-      <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">Dati del cliente per la fattura elettronica <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
-      <div class="grid grid-cols-2 gap-2 p-3 pt-0">
-        <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="P.IVA cliente" />
-        <input id="inv-cli-cf" class="${smallCls}" placeholder="Codice Fiscale cliente" />
-        <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo cliente" />
-        <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" />
-        <input id="inv-cli-comune" class="${smallCls}" placeholder="Comune" />
-        <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="Prov." />
-        <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="Codice SdI (7) — se ce l'ha" />
-        <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="oppure PEC del cliente" />
-        <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">Non hai il Codice SdI né la PEC? Nessun problema: la fattura arriva nel cassetto fiscale del cliente (useremo <b>0000000</b>).</p>
+    <!-- Layout NATIVO per schermo grande (richiesto esplicitamente): da
+         tablet in su i campi principali si dispongono su due colonne
+         (cliente a sinistra, importo/invio a destra) invece di restare
+         un'unica colonna lunghissima identica a quella del telefono. Su
+         mobile resta una singola colonna, invariato. -->
+    <div class="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-3 lg:items-start">
+      <div class="flex flex-col gap-3">
+        <!-- RIGA UNICA (NL): scrivi la fattura come la diresti — anti-attrito,
+             stessa filosofia della voce. "fattura a Rossi Srl 500 per
+             consulenza" compila cliente, importo e causale con un tocco. -->
+        <div class="flex gap-2">
+          <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" />
+          <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">Compila</button>
+        </div>
+        <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
+        <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
+        <!-- Dati fiscali del CLIENTE: servono solo alla fattura elettronica. A scomparsa,
+             si aprono da soli quando serve. Ricordati per cliente (riuso intelligente). -->
+        <details id="inv-client-fiscal" class="rounded-xl border border-[var(--glass-border)] bg-black/20">
+          <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">Dati del cliente per la fattura elettronica <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
+          <div class="grid grid-cols-2 gap-2 p-3 pt-0">
+            <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="P.IVA cliente" />
+            <input id="inv-cli-cf" class="${smallCls}" placeholder="Codice Fiscale cliente" />
+            <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo cliente" />
+            <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" />
+            <input id="inv-cli-comune" class="${smallCls}" placeholder="Comune" />
+            <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="Prov." />
+            <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="Codice SdI (7) — se ce l'ha" />
+            <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="oppure PEC del cliente" />
+            <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">Non hai il Codice SdI né la PEC? Nessun problema: la fattura arriva nel cassetto fiscale del cliente (useremo <b>0000000</b>).</p>
+          </div>
+        </details>
       </div>
-    </details>
-    <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
-    <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
-    <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
-    <label class="block cursor-pointer select-none">
-      <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" />
-      <span class="recur-row">
-        <span class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] min-w-0">
-          ${REPEAT_ICON}
-          <span class="min-w-0"><b>Ricorrente ogni mese</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— te lo ricordo io</span></span>
-        </span>
-        <span class="recur-switch"></span>
-      </span>
-    </label>
-    <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
-      <span>Regime:</span>
-      <select id="inv-regime" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1">
-        ${Object.entries(REGIMI).map(([k, v]) => `<option value="${k}" ${k === regime ? 'selected' : ''}>${v.label.split('(')[0].trim()}</option>`).join('')}
-      </select>
+      <div class="flex flex-col gap-3">
+        <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
+        <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
+        <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
+        <label class="block cursor-pointer select-none">
+          <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" />
+          <span class="recur-row">
+            <span class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] min-w-0">
+              ${REPEAT_ICON}
+              <span class="min-w-0"><b>Ricorrente ogni mese</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— te lo ricordo io</span></span>
+            </span>
+            <span class="recur-switch"></span>
+          </span>
+        </label>
+        <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
+          <span>Regime:</span>
+          <select id="inv-regime" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1">
+            ${Object.entries(REGIMI).map(([k, v]) => `<option value="${k}" ${k === regime ? 'selected' : ''}>${v.label.split('(')[0].trim()}</option>`).join('')}
+          </select>
+        </div>
+      </div>
     </div>
     <div id="inv-preview" class="card p-3 text-xs text-[var(--on-surface-secondary)] hidden"></div>
     <!-- Esito controlli fattura elettronica (predizione scarti SdI, in chiaro) -->
@@ -4520,6 +4531,13 @@ function getInvoiceFooterHTML() {
 
 window.openCreateInvoice = (prefillClient) => {
   openModal(getInvoiceFormHTML(), getInvoiceFooterHTML());
+  // Modulo ricco di campi: da tablet in su usa una card più larga con
+  // layout a due colonne (vedi CSS .modal-wide, index.html) invece della
+  // stessa card stretta da telefono stiracchiata — nativo per lo schermo,
+  // non un'unica taglia per tutti. Tolta alla chiusura così ogni altro
+  // modale dell'app resta invariato.
+  $('#modal-content').classList.add('modal-wide');
+  $('#modal-footer').classList.add('modal-wide');
   const clientEl = $('#inv-client'), amountEl = $('#inv-amount'), descEl = $('#inv-desc'), regimeEl = $('#inv-regime'), prevEl = $('#inv-preview');
   const eur = (n) => `${(+n).toFixed(2).replace('.', ',')} €`;
   // Anteprima LIVE: mostra netto a ricevere e scomposizione a ogni modifica.
@@ -6765,7 +6783,11 @@ const navigate = (view) => {
 window.openModal = (html, footerHtml = '') => {
   const body = $('#modal-body');
   body.innerHTML = html;
+  // Reset di default: solo chi la chiede esplicitamente (openCreateInvoice)
+  // riattiva la card larga subito dopo — mai un residuo dal modale precedente.
+  $('#modal-content').classList.remove('modal-wide');
   const footer = $('#modal-footer');
+  footer.classList.remove('modal-wide');
   footer.innerHTML = footerHtml;
   // Il piè di pagina è `position:fixed` (ancorato alla finestra vera, non al
   // modale) — senza riservare lo spazio equivalente nel corpo scorrevole,
