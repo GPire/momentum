@@ -28,6 +28,41 @@ export async function searchCrypto(query, { fetchImpl = fetch } = {}) {
     .map(({ _rank, ...rest }) => rest);
 }
 
+// TABELLA STATICA DEI TITOLI PIÙ NOTI — zero rete, zero chiave. Non è una
+// ricerca live (dichiarato onestamente: se un'azienda non è qui, serve
+// comunque una chiave gratuita per trovarla), ma risolve subito i ~50 nomi
+// che un utente reale chiede più spesso, GIÀ SENZA ALCUNA configurazione.
+// BUG REALE che risolve alla radice: senza chiave Alpha Vantage/Twelve
+// Data/FMP, la ricerca azionaria non partiva nemmeno (searchStockCascade
+// veniva saltata del tutto) — "quanto vale apple?" restava affidato solo a
+// CoinGecko, che può restituire un token cripto spazzatura chiamato/simbolo
+// "APPLE" spacciato per il titolo vero. Stesso principio già usato altrove
+// nel progetto per dati che non cambiano abbastanza spesso da giustificare
+// una chiamata di rete (es. coefficienti ATECO): tabella statica, dichiarata
+// tale, aggiornata con l'app — non finta "in tempo reale".
+const US = 'United States';
+const NOTI_TICKER = [
+  ['apple', 'AAPL', US], ['microsoft', 'MSFT', US], ['google', 'GOOGL', US], ['alphabet', 'GOOGL', US],
+  ['amazon', 'AMZN', US], ['tesla', 'TSLA', US], ['nvidia', 'NVDA', US], ['meta', 'META', US], ['facebook', 'META', US],
+  ['netflix', 'NFLX', US], ['intel', 'INTC', US], ['amd', 'AMD', US], ['oracle', 'ORCL', US], ['salesforce', 'CRM', US],
+  ['adobe', 'ADBE', US], ['paypal', 'PYPL', US], ['uber', 'UBER', US], ['airbnb', 'ABNB', US], ['coca cola', 'KO', US],
+  ['coca-cola', 'KO', US], ['pepsi', 'PEP', US], ['disney', 'DIS', US], ['walmart', 'WMT', US], ['nike', 'NKE', US],
+  ['mcdonald', 'MCD', US], ["mcdonald's", 'MCD', US], ['starbucks', 'SBUX', US], ['visa', 'V', US], ['mastercard', 'MA', US],
+  ['jpmorgan', 'JPM', US], ['jp morgan', 'JPM', US], ['goldman sachs', 'GS', US], ['berkshire hathaway', 'BRK.B', US],
+  ['johnson & johnson', 'JNJ', US], ['pfizer', 'PFE', US], ['boeing', 'BA', US], ['ford', 'F', US], ['exxon', 'XOM', US],
+  ['spotify', 'SPOT', US], ['ferrari', 'RACE', US],
+  ['eni', 'E', US], ['enel', 'ENEL.MI', 'Italy'], ['intesa sanpaolo', 'ISP.MI', 'Italy'],
+  ['unicredit', 'UCG.MI', 'Italy'], ['stellantis', 'STLA', US],
+  ['nestle', 'NESN.SW', 'Switzerland'], ["nestlé", 'NESN.SW', 'Switzerland'],
+  ['lvmh', 'MC.PA', 'France'], ['asml', 'ASML', US], ['sap', 'SAP', US],
+  ['samsung', '005930.KS', 'South Korea'], ['toyota', '7203.T', 'Japan'],
+].map(([nome, symbol, region]) => ({ kind: 'stock', id: symbol, symbol, name: nome.replace(/\b\w/g, (c) => c.toUpperCase()), region, _staticMatch: true }));
+
+function resolveStaticTicker(q) {
+  const hit = NOTI_TICKER.find((t) => t.name.toLowerCase() === q || t.symbol.toLowerCase() === q);
+  return hit ? [hit] : [];
+}
+
 export async function searchStock(query, { apiKey, fetchImpl = fetch } = {}) {
   if (!query || !query.trim()) return [];
   if (!apiKey) throw new Error('Serve la tua chiave Alpha Vantage personale (Momentum Vault → Prezzi live).');
@@ -135,6 +170,12 @@ function resolveSectorProxy(q) {
 // dal vivo: 4AAPL su Twelve Data → 404 "serve un piano Pro"). Ora il
 // listino USA ha una preferenza esplicita quando i punteggi sono vicini.
 function relevanceScore(item, q) {
+  // Un match dalla tabella statica dei titoli noti (nessuna rete, nessuna
+  // chiave) vince SEMPRE su una cripto con lo stesso nome esatto — altrimenti
+  // un token spazzatura chiamato letteralmente "Apple" (score 1000, sotto)
+  // tornerebbe a battere il titolo azionario vero, lo stesso bug che questa
+  // tabella dovrebbe risolvere alla radice.
+  if (item._staticMatch) return 1500;
   const exactName = item.name?.toLowerCase() === q;
   if (item.kind === 'stock') {
     const exactSymbol = item.symbol?.toLowerCase() === q;
@@ -167,13 +208,28 @@ export async function searchAsset(query, { apiKey, twelvedataKey, fmpKey, fetchI
   // intermedio non azzera più tutto. L'errore REALE viene conservato e
   // restituito solo se TUTTE le fonti configurate falliscono e l'unico
   // risultato rimasto è una cripto poco pertinente (mai un match esatto).
+  const staticTicker = resolveStaticTicker(q);
   const [crypto, stockRes] = await Promise.all([
     searchCrypto(query, { fetchImpl }).catch(() => []),
     (apiKey || twelvedataKey || fmpKey) ? searchStockCascade(query, { apiKey, twelvedataKey, fmpKey, fetchImpl }) : Promise.resolve({ results: [], error: null }),
   ]);
   const stock = stockRes.results;
   let stockWarning = stockRes.error?.message || null;
-  const results = [...crypto, ...stock].sort((a, b) => relevanceScore(b, q) - relevanceScore(a, q));
+  // Deduplica per simbolo: un segnaposto statico può essere sostituito SOLO
+  // da un risultato realmente AZIONARIO (Alpha Vantage/Twelve Data/FMP),
+  // mai da una cripto — anche se ne condivide il simbolo esatto. BUG REALE
+  // trovato dal vivo: esiste un token cripto reale con simbolo letterale
+  // "AAPL" ("Apple • Robinhood Token"); un primo tentativo di deduplica
+  // basato solo su "non è un segnaposto statico" lo lasciava vincere e
+  // cancellava il match statico corretto, riproducendo esattamente il bug
+  // che questa tabella doveva risolvere.
+  const perSimbolo = new Map();
+  for (const item of [...staticTicker, ...crypto, ...stock]) {
+    const key = item.symbol?.toLowerCase();
+    const esistente = perSimbolo.get(key);
+    if (!esistente || (esistente._staticMatch && item.kind === 'stock')) perSimbolo.set(key, item);
+  }
+  const results = [...perSimbolo.values()].sort((a, b) => relevanceScore(b, q) - relevanceScore(a, q));
   if (results.length) {
     if (cache) await cache.put(cacheKey, results).catch(() => {});
     // BUG REALE trovato dal vivo (2026-07-27): un token cripto spazzatura può

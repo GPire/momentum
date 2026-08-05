@@ -113,14 +113,20 @@ test('searchAsset: "come va il settore immobiliare" (in inglese "real estate") -
 // faceva fallire in silenzio la ricerca azionaria di "Apple", ripiegando su
 // un token cripto assurdo ("dog-with-apple-in-mouth") spacciato per il
 // risultato migliore. Verifica che l'errore reale venga ora conservato.
+// NOTA: query cambiata da "Apple" a "Widgetco" (2026-08-05) — "apple" è ora
+// nella tabella statica dei titoli noti (asset-search.js, NOTI_TICKER,
+// nessuna chiave richiesta) e risolve correttamente da sola, rendendo
+// obsoleta la premessa di questo test ("nessun match azionario pertinente
+// per Apple"). "Widgetco" resta un nome fittizio fuori da quella tabella,
+// preservando lo scenario originale: nessuna fonte azionaria disponibile.
 test('searchAsset: chiave Alpha Vantage non valida + solo cripto poco pertinente -> stockWarning onesto', async () => {
   const fetchImpl = async (url) => {
     if (url.includes('coingecko')) {
-      return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-apple-in-mouth', symbol: 'DOGGO', name: 'Dog with apple in mouth', market_cap_rank: 5000 }] }) };
+      return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-widgetco-in-mouth', symbol: 'DOGGO', name: 'Dog with widgetco in mouth', market_cap_rank: 5000 }] }) };
     }
     return { ok: true, json: async () => ({ Information: 'We have detected your API key as TEST_DEMO_KEY...' }) };
   };
-  const r = await searchAsset('Apple', { apiKey: 'TEST_DEMO_KEY', fetchImpl });
+  const r = await searchAsset('Widgetco', { apiKey: 'TEST_DEMO_KEY', fetchImpl });
   assert.ok(r.stockWarning, 'deve conservare il messaggio di errore reale');
   assert.equal(r.results[0].symbol, 'DOGGO'); // il risultato debole resta disponibile, ma segnalato
 });
@@ -129,14 +135,15 @@ test('searchAsset: chiave Alpha Vantage non valida + solo cripto poco pertinente
 // SIMBOLO letterale "APPLE" (non il nome) — relevanceScore lo trattava come
 // match esatto al pari di un titolo vero. Il simbolo può essere scelto
 // liberamente da chiunque, il nome no: solo il nome conta per l'esenzione.
+// Query "Widgetco" per lo stesso motivo del test precedente.
 test('searchAsset: simbolo cripto uguale alla query ma nome diverso -> warning comunque presente (simbolo non è garanzia)', async () => {
   const fetchImpl = async (url) => {
     if (url.includes('coingecko')) {
-      return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-apple-in-mouth', symbol: 'APPLE', name: 'dog with apple in mouth', market_cap_rank: 5000 }] }) };
+      return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-widgetco-in-mouth', symbol: 'WIDGETCO', name: 'dog with widgetco in mouth', market_cap_rank: 5000 }] }) };
     }
     return { ok: true, json: async () => ({ Information: 'We have detected your API key as TEST_DEMO_KEY...' }) };
   };
-  const r = await searchAsset('Apple', { apiKey: 'TEST_DEMO_KEY', fetchImpl });
+  const r = await searchAsset('Widgetco', { apiKey: 'TEST_DEMO_KEY', fetchImpl });
   assert.ok(r.stockWarning, 'il simbolo uguale alla query non deve bastare a sopprimere il warning');
 });
 
@@ -213,9 +220,9 @@ test('searchAsset: TUTTE le fonti azionarie falliscono -> stockWarning onesto SO
     if (url.includes('alphavantage') || url.includes('twelvedata') || url.includes('financialmodelingprep')) {
       throw new Error('tutte le fonti azionarie giù');
     }
-    return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-apple-in-mouth', symbol: 'DOGGO', name: 'Dog with apple in mouth', market_cap_rank: 5000 }] }) };
+    return { ok: true, json: async () => ({ coins: [{ id: 'dog-with-widgetco-in-mouth', symbol: 'DOGGO', name: 'Dog with widgetco in mouth', market_cap_rank: 5000 }] }) };
   };
-  const r = await searchAsset('Apple', { apiKey: 'k', twelvedataKey: 'k', fmpKey: 'k', fetchImpl });
+  const r = await searchAsset('Widgetco', { apiKey: 'k', twelvedataKey: 'k', fmpKey: 'k', fetchImpl });
   assert.ok(r.stockWarning);
 });
 
@@ -257,4 +264,71 @@ test('searchAsset: tra più listini dello stesso titolo, il listino USA vince an
   const r = await searchAsset('apple', { apiKey: 'k', fetchImpl });
   assert.equal(r.results[0].symbol, 'AAPL');
   assert.equal(r.results[0].region, 'United States');
+});
+
+// ============================================================
+// TABELLA STATICA DEI TITOLI NOTI (2026-08-05) — BUG REALE segnalato dal
+// vivo dall'utente: "quanto vale apple?" SENZA nessuna chiave configurata
+// restituiva un token cripto marginale ("AAPLX") spacciato per il titolo
+// vero, perché senza chiave la ricerca azionaria non partiva nemmeno.
+// ============================================================
+
+test('BUG REALE: "apple" SENZA alcuna chiave configurata -> risolve comunque al titolo vero (tabella statica)', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) {
+      // Riproduce esattamente lo scenario dal vivo: una cripto marginale
+      // con nome esatto "Apple" che altrimenti vincerebbe la classifica.
+      return { ok: true, json: async () => ({ coins: [{ id: 'aaplx-token', symbol: 'AAPLX', name: 'Apple', market_cap_rank: 8000 }] }) };
+    }
+    throw new Error('non deve essere chiamata: nessuna chiave configurata');
+  };
+  const r = await searchAsset('apple', { fetchImpl }); // nessuna apiKey/twelvedataKey/fmpKey
+  assert.equal(r.results[0].kind, 'stock');
+  assert.equal(r.results[0].symbol, 'AAPL');
+  assert.equal(r.stockWarning, null); // match statico pertinente: nessun avviso necessario
+});
+
+test('tabella statica: nomi comuni (microsoft/tesla/nvidia) risolvono senza alcuna chiave', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ coins: [] }) });
+  for (const [query, symbol] of [['microsoft', 'MSFT'], ['tesla', 'TSLA'], ['nvidia', 'NVDA']]) {
+    const r = await searchAsset(query, { fetchImpl });
+    assert.equal(r.results[0]?.symbol, symbol, query);
+  }
+});
+
+test('tabella statica: con una chiave che trova davvero il titolo, il risultato reale sostituisce il segnaposto statico (nessun doppione)', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) return { ok: true, json: async () => ({ coins: [] }) };
+    return { ok: true, json: async () => ({ bestMatches: [{ '1. symbol': 'AAPL', '2. name': 'Apple Inc.', '4. region': 'United States', '9. matchScore': '1.0000' }] }) };
+  };
+  const r = await searchAsset('apple', { apiKey: 'k', fetchImpl });
+  assert.equal(r.results.filter((x) => x.symbol === 'AAPL').length, 1, 'mai due volte lo stesso titolo');
+  assert.equal(r.results[0].name, 'Apple Inc.'); // il dato REALE (nome completo), non il segnaposto statico
+});
+
+// BUG REALE trovato dal vivo (2026-08-05, dati reali CoinGecko): esiste un
+// token cripto reale con SIMBOLO letterale "AAPL" ("Apple • Robinhood
+// Token"). Il primo tentativo di deduplica ("sostituisci il segnaposto
+// statico con qualunque risultato non-statico") lasciava questa cripto
+// vincere e cancellava il match statico corretto — riproducendo esattamente
+// il bug che la tabella doveva risolvere. Solo un risultato REALMENTE
+// azionario può sostituire il segnaposto.
+test('BUG REALE: una cripto con lo STESSO simbolo del segnaposto statico non lo sostituisce mai', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('coingecko')) {
+      return { ok: true, json: async () => ({ coins: [{ id: 'apple-robinhood-tokenized-stock', symbol: 'AAPL', name: 'Apple • Robinhood Token', market_cap_rank: 3000 }] }) };
+    }
+    throw new Error('non deve essere chiamata: nessuna chiave configurata');
+  };
+  const r = await searchAsset('apple', { fetchImpl });
+  assert.equal(r.results[0].kind, 'stock', 'la cripto con simbolo AAPL non deve mai sostituire il titolo vero');
+  assert.equal(r.results[0].name, 'Apple');
+  assert.equal(r.results.filter((x) => x.symbol === 'AAPL').length, 1, 'la cripto duplicata sullo stesso simbolo va scartata, non aggiunta a parte');
+});
+
+test('tabella statica: query senza corrispondenza -> nessun match statico, comportamento invariato', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ coins: [{ id: 'ethereum', symbol: 'eth', name: 'Ethereum' }] }) });
+  const r = await searchAsset('un\'azienda a caso mai sentita', { fetchImpl });
+  assert.equal(r.results.length, 1);
+  assert.equal(r.results[0].kind, 'crypto');
 });

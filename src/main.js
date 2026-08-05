@@ -7714,6 +7714,19 @@ const initApp = () => {
     ).join('');
     return newsHeader + itemsHtml;
   }
+  // BUG DI CHIAREZZA segnalato dal vivo dall'utente: per un'azione senza
+  // nessuna chiave prezzi configurata, la card mostrava SOLO le notizie —
+  // niente prezzo, niente grafico, in silenzio. Un utente (esperto o alle
+  // prime armi) non può distinguere "non esiste un prezzo live gratuito per
+  // le azioni" (vero, verificato — a differenza delle cripto via CoinGecko,
+  // nessuna fonte azionaria è keyless) da "l'app non funziona". Qui si dice
+  // il motivo vero e si apre la strada più corta per risolverlo.
+  function buildStockKeyCta(asset) {
+    return `<div class="mt-2 pt-2 border-t border-sky-500/10 flex items-center justify-between gap-2">
+      <p class="text-[10px] text-sky-200/70">Il prezzo e lo storico di ${escapeHtml(asset.name || asset.symbol)} servono una chiave gratuita (le notizie qui sopra invece non ne hanno bisogno).</p>
+      <button id="qa-add-stock-key" class="text-[10px] font-bold text-sky-300 underline shrink-0">Aggiungila →</button>
+    </div>`;
+  }
   function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml = '') {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
     const newsBlockHtml = buildNewsItemsHtml(items);
@@ -7737,12 +7750,18 @@ const initApp = () => {
         </div>
         ${formatCloudAnswer(groundedNewsNote, 'text-violet-300')}
       </div>` : '';
+    const nessunaChiavePrezzi = !(VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata || VaultDAO.state.liveDataKeys?.fmp);
+    const stockKeyCta = asset.kind === 'stock' && nessunaChiavePrezzi && !historyChart ? buildStockKeyCta(asset) : '';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
         <span class="text-[11px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${trackRecordHtml || ''}${groundedHtml}`;
+      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${trackRecordHtml || ''}${groundedHtml}${stockKeyCta}`;
+    document.getElementById('qa-add-stock-key')?.addEventListener('click', () => {
+      document.querySelector('[data-view="settings"]')?.click(); // Momentum Vault
+      setTimeout(() => window.openApiKeyGuide?.('alphavantage'), 250);
+    });
     replayQaAnimation();
   }
   // Ritorna true se ha risposto con dati reali (fine flusso), false se deve
