@@ -7449,7 +7449,7 @@ const initApp = () => {
     ).join('');
     const box = document.createElement('div');
     box.className = 'mt-2 pt-2 border-t border-white/5';
-    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">Aiutami a capire — intendevi una di queste?</p><div class="flex flex-wrap gap-1.5">${chips}</div>`;
+    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5 flex items-center gap-1"><span style="color:var(--primary)">${ICON_QA_TEACH}</span> Aiutami a capire — intendevi una di queste?</p><div class="flex flex-wrap gap-1.5">${chips}</div>`;
     qaAnswer.appendChild(box);
     box.querySelectorAll('[data-learn-intent]').forEach((btn) => btn.addEventListener('click', () => {
       const q = btn.dataset.learnQuestion, intent = btn.dataset.learnIntent;
@@ -7721,10 +7721,17 @@ const initApp = () => {
   // le azioni" (vero, verificato — a differenza delle cripto via CoinGecko,
   // nessuna fonte azionaria è keyless) da "l'app non funziona". Qui si dice
   // il motivo vero e si apre la strada più corta per risolverlo.
+  // Icona-chiave (line-art, stessa famiglia stroke-2 delle altre icone QA):
+  // rassicurante, mai un'icona di lucchetto/blocco che suonerebbe come un
+  // divieto — qui è un invito, non una restrizione.
+  const ICON_QA_KEY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block"><circle cx="8" cy="15" r="4"/><path d="M10.5 12.5 19 4M15 8l2 2M18 5l2 2"/></svg>`;
   function buildStockKeyCta(asset) {
-    return `<div class="mt-2 pt-2 border-t border-sky-500/10 flex items-center justify-between gap-2">
-      <p class="text-[10px] text-sky-200/70">Il prezzo e lo storico di ${escapeHtml(asset.name || asset.symbol)} servono una chiave gratuita (le notizie qui sopra invece non ne hanno bisogno).</p>
-      <button id="qa-add-stock-key" class="text-[10px] font-bold text-sky-300 underline shrink-0">Aggiungila →</button>
+    return `<div class="qa-learned-badge mt-2.5 p-2.5 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] flex items-center gap-2.5">
+      <span class="shrink-0 w-7 h-7 rounded-full bg-sky-500/10 text-sky-300 flex items-center justify-center">${ICON_QA_KEY}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-[10px] text-sky-200/80 leading-snug">Il prezzo di ${escapeHtml(asset.name || asset.symbol)} serve una chiave gratuita — nessuna carta, circa un minuto.</p>
+      </div>
+      <button id="qa-add-stock-key" class="shrink-0 text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors">Aggiungila →</button>
     </div>`;
   }
   function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml = '') {
