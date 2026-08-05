@@ -84,6 +84,36 @@ export function rulesForYear(year = new Date().getFullYear(), override = null) {
   return { year: applicabile, requestedYear: year, ...source[applicabile] };
 }
 
+// ── SAPERE DI NON SAPERE: le regole in uso sono dell'anno giusto? ──
+// `rulesForYear` ripiega sempre sull'ultimo anno noto (comportamento
+// prudente e giusto), ma finora lo faceva in SILENZIO: un utente nel 2029
+// vedeva numeri calcolati con le regole del 2026 senza alcun indizio.
+// Questa funzione rende quel salto VISIBILE e quantificato — è la
+// differenza tra un'app che invecchia e una che sa di invecchiare.
+// Onesto sui gradi: le regole fiscali spesso NON cambiano di anno in anno,
+// quindi un anno di scarto è "probabilmente ancora valido", non un allarme;
+// due o più anni sono un avviso vero.
+export function taxRulesFreshness(year = new Date().getFullYear(), override = null) {
+  const r = rulesForYear(year, override);
+  const anniIndietro = Math.max(0, year - r.year);
+  if (anniIndietro === 0) {
+    return {
+      aggiornate: true, anniIndietro: 0, annoRegole: r.year, annoRichiesto: year, livello: 'ok',
+      messaggio: `Regole fiscali del ${r.year}: aggiornate.`,
+    };
+  }
+  if (anniIndietro === 1) {
+    return {
+      aggiornate: false, anniIndietro, annoRegole: r.year, annoRichiesto: year, livello: 'probabile',
+      messaggio: `Sto usando le regole del ${r.year} per un calcolo del ${year}. Spesso non cambiano di anno in anno, ma controlla col commercialista prima di versare.`,
+    };
+  }
+  return {
+    aggiornate: false, anniIndietro, annoRegole: r.year, annoRichiesto: year, livello: 'vecchie',
+    messaggio: `Attenzione: sto usando le regole fiscali del ${r.year} per un calcolo del ${year} (${anniIndietro} anni di scarto). Questi numeri vanno verificati col commercialista.`,
+  };
+}
+
 // Confronto versioni 'YYYY-MM' (o 'YYYY-MM-DD'): lessicografico è corretto.
 function isNewer(v, current) { return typeof v === 'string' && v > String(current || ''); }
 

@@ -18,7 +18,7 @@
 // come tali, e il commercialista resta sempre l'ultima parola.
 'use strict';
 
-import { rulesForYear } from './tax-rules.js';
+import { rulesForYear, taxRulesFreshness } from './tax-rules.js';
 
 const DAY_MS = 86_400_000;
 
@@ -80,6 +80,10 @@ export function upcomingTaxDeadlines(totaleAnnuoStimato, {
     for (const s of scadenzeForYear(anno, rulesOverride)) {
       const data = slittaSeFestivo(new Date(Date.UTC(anno, s.mese - 1, s.giorno)));
       if (data <= oggi || data > limite) continue;
+      // Ogni scadenza porta con sé lo stato delle regole da cui nasce: se
+      // derivano da un anno precedente, l'utente deve poterlo sapere
+      // guardando la scadenza stessa, non cercandolo altrove.
+      const freschezza = taxRulesFreshness(anno, rulesOverride);
       out.push({
         id: `${s.id}-${anno}`,
         label: s.label,
@@ -88,6 +92,9 @@ export function upcomingTaxDeadlines(totaleAnnuoStimato, {
         importo: +(daCoprire * s.quota).toFixed(2),
         giorniMancanti: Math.round((data - oggi) / DAY_MS),
         stimato: true, // MAI spacciato per un importo certo
+        regoleAggiornate: freschezza.aggiornate,
+        annoRegole: freschezza.annoRegole,
+        avvisoRegole: freschezza.aggiornate ? null : freschezza.messaggio,
       });
     }
   }

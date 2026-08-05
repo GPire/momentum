@@ -6,7 +6,7 @@ import {
   scadenzeForYear, SCADENZE_ANNUALI,
 } from './tax-deadlines.js';
 import { cashForecast } from './cash-forecast.js';
-import { validateRulesPayload } from './tax-rules.js';
+import { validateRulesPayload, taxRulesFreshness } from './tax-rules.js';
 
 const MARZO = new Date(Date.UTC(2026, 2, 15)); // 15 marzo 2026
 
@@ -249,6 +249,91 @@ test('ANTI-VELENO: scadenze valide vengono accettate (il guardrail non blocca gl
     } },
   };
   assert.equal(validateRulesPayload(payload).ok, true);
+});
+
+// ============================================================
+// FALLBACK ONESTO: se le regole non sono aggiornate, l'utente lo deve
+// SAPERE. Prima `rulesForYear` ripiegava sull'ultimo anno noto in silenzio:
+// un utente nel 2029 vedeva numeri calcolati col 2026 senza alcun indizio.
+// Simulazioni su anni passati, presente e futuri.
+// ============================================================
+
+test('FRESCHEZZA — anno corrente con regole note: dichiarate aggiornate', () => {
+  const f = taxRulesFreshness(2026);
+  assert.equal(f.aggiornate, true);
+  assert.equal(f.livello, 'ok');
+  assert.equal(f.anniIndietro, 0);
+});
+
+test('FRESCHEZZA — anni PASSATI con regole proprie: aggiornate (si applicano le regole di quell\'anno)', () => {
+  for (const anno of [2019, 2023, 2026]) {
+    const f = taxRulesFreshness(anno);
+    assert.equal(f.aggiornate, true, `${anno} ha regole proprie, deve risultare aggiornato`);
+  }
+});
+
+test('FRESCHEZZA — anno passato SENZA entry propria eredita quella precedente e lo dichiara', () => {
+  // 2024 non ha una entry propria: eredita il 2023. Un anno di scarto.
+  const f = taxRulesFreshness(2024);
+  assert.equal(f.annoRegole, 2023);
+  assert.equal(f.anniIndietro, 1);
+  assert.equal(f.livello, 'probabile');
+});
+
+test('FRESCHEZZA — un anno avanti (2027): avviso morbido, non allarme (le regole spesso non cambiano)', () => {
+  const f = taxRulesFreshness(2027);
+  assert.equal(f.aggiornate, false);
+  assert.equal(f.anniIndietro, 1);
+  assert.equal(f.livello, 'probabile');
+  assert.match(f.messaggio, /commercialista/);
+});
+
+test('FRESCHEZZA — anni FUTURI lontani (2030, 2035): avviso esplicito con lo scarto quantificato', () => {
+  for (const [anno, scarto] of [[2030, 4], [2035, 9]]) {
+    const f = taxRulesFreshness(anno);
+    assert.equal(f.livello, 'vecchie', `${anno} deve dare un avviso forte`);
+    assert.equal(f.anniIndietro, scarto);
+    assert.match(f.messaggio, new RegExp(`${scarto} anni`), 'lo scarto va detto in chiaro, non genericamente');
+  }
+});
+
+test('FRESCHEZZA — un aggiornamento remoto risolve l\'avviso senza toccare l\'app', () => {
+  const senzaOverride = taxRulesFreshness(2031);
+  assert.equal(senzaOverride.aggiornate, false, 'senza aggiornamento, l\'app sa di essere indietro');
+
+  const override = { rules: { 2031: {
+    forfettarioCeiling: 90000, impostaStd: 0.15, impostaStartup: 0.05, inpsGestioneSeparata: 0.27,
+  } } };
+  const conOverride = taxRulesFreshness(2031, override);
+  assert.equal(conOverride.aggiornate, true, 'ricevute le regole del 2031, l\'avviso sparisce da solo');
+  assert.equal(conOverride.annoRegole, 2031);
+});
+
+test('LE SCADENZE PORTANO L\'AVVISO CON SÉ: nel futuro lontano ogni scadenza dichiara che le regole sono vecchie', () => {
+  const nel2032 = new Date(Date.UTC(2032, 2, 15));
+  const d = upcomingTaxDeadlines(4000, { now: nel2032 });
+  assert.ok(d.length > 0);
+  assert.ok(d.every((x) => x.regoleAggiornate === false), 'ogni scadenza deve dichiarare lo stato delle sue regole');
+  assert.ok(d.every((x) => typeof x.avvisoRegole === 'string' && x.avvisoRegole.length > 0));
+  assert.ok(d.every((x) => x.annoRegole === 2026));
+});
+
+test('LE SCADENZE NON allarmano quando le regole sono giuste (nessun avviso inutile)', () => {
+  const d = upcomingTaxDeadlines(4000, { now: MARZO });
+  assert.ok(d.every((x) => x.regoleAggiornate === true));
+  assert.ok(d.every((x) => x.avvisoRegole === null), 'mai un avviso quando non serve: logorerebbe la fiducia');
+});
+
+test('SCENARIO COMPLETO: utente che non aggiorna Momentum per 5 anni — calcoli comunque disponibili, ma dichiarati', () => {
+  const nel2031 = new Date(Date.UTC(2031, 4, 10));
+  const d = upcomingTaxDeadlines(6000, { now: nel2031 });
+  // Il fallback FUNZIONA: le scadenze ci sono comunque, l'app non si blocca.
+  assert.ok(d.length >= 1, 'mai lasciare l\'utente senza previsione: il fallback deve funzionare');
+  const w = taxCashWarning(d, null);
+  assert.ok(w && w.perSettimana > 0, 'il piano di accantonamento resta utilizzabile');
+  // ...ma è dichiarato che le regole sono vecchie.
+  assert.equal(d[0].regoleAggiornate, false);
+  assert.match(d[0].avvisoRegole, /verificati col commercialista/);
 });
 
 test('RETE DI SICUREZZA: un anno senza scadenze nelle regole ripiega sul default, mai un calendario vuoto', () => {
