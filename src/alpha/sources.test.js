@@ -160,9 +160,36 @@ test('plausibility: un solo punto positivo → plausibile (niente salti da contr
   assert.equal(plausibility([{ date: '2026-07-01', close: 42 }]).plausible, true);
 });
 
-test('plausibility: close negativo o zero → non plausibile', () => {
+test('plausibility: close negativo o zero → non plausibile PER I PREZZI (default)', () => {
   assert.equal(plausibility([{ date: '2026-07-01', close: -5 }]).plausible, false);
   assert.equal(plausibility([{ date: '2026-07-01', close: 0 }]).plausible, false);
+});
+
+// BUG REALE trovato integrando le serie macro (2026-08-05): un tasso di
+// riferimento può restare a 0% per anni (BCE 2016-2022) o essere negativo
+// (tasso sui depositi BCE, stesso periodo) — non è un dato rotto, è la
+// realtà macroeconomica. La vecchia versione scartava ogni singolo giorno
+// a tasso zero come "close non positivo".
+test('plausibility: con richiedePositivo:false, un tasso a zero o negativo è plausibile', () => {
+  const zero = plausibility([{ date: '2020-01-01', close: 0 }, { date: '2020-01-02', close: 0 }], { richiedePositivo: false });
+  assert.equal(zero.plausible, true, JSON.stringify(zero));
+  const negativo = plausibility([{ date: '2020-01-01', close: -0.4 }, { date: '2020-01-02', close: -0.5 }], { richiedePositivo: false });
+  assert.equal(negativo.plausible, true, JSON.stringify(negativo));
+});
+
+test('plausibility: con richiedePositivo:false, un valore non numerico resta comunque rifiutato', () => {
+  const r = plausibility([{ date: '2020-01-01', close: NaN }], { richiedePositivo: false });
+  assert.equal(r.plausible, false);
+  assert.match(r.reasons[0], /non numerico/);
+});
+
+test('fetchVerified: kind macro con un tasso a zero non viene scartato dalla plausibilità', async () => {
+  const fetchImpl = async () => ({
+    ok: true, status: 200,
+    text: async () => 'KEY,TIME_PERIOD,OBS_VALUE\nM.U2,2020-01,0\nM.U2,2020-02,0\nM.U2,2020-03,0',
+  });
+  const r = await fetchVerified({ symbol: 'FM.M.U2.EUR.4F.KR.MRR_FR.LEV', kind: 'macro', fetchImpl, cache: mkCache() });
+  assert.equal(trainingEligible(r), true, JSON.stringify(r));
 });
 
 test('plausibility: date non monotone → non plausibile', () => {

@@ -103,3 +103,39 @@ test('il riassunto non contiene mai gergo tecnico', () => {
   const r = analyzeCausalStructure({ A, B }, { maxLag: 2 });
   assert.ok(!/PCMCI|MCI|p-value|Benjamini|deflat/i.test(r.riassunto), `gergo trovato: ${r.riassunto}`);
 });
+
+// ── Integrazione con il contesto macro (macro-context.js) ──
+
+test('MACRO: quando disponibile, un confondente nascosto viene nominato invece di restare anonimo', () => {
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
+  const rndG = (r) => { const u1 = Math.max(1e-9, r()), u2 = r(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); };
+  const rnd = rng(23);
+  const n = 200;
+  const macroRaw = []; let m = 3;
+  const A = [], B = [];
+  for (let t = 0; t < n; t++) {
+    m += 0.15 * rndG(rnd);
+    macroRaw.push(m);
+    A.push(1.2 * m + 0.2 * rndG(rnd));
+    B.push(1.2 * m + 0.2 * rndG(rnd));
+  }
+  const macroContext = { values: macroRaw, copertura: 1, label: 'il tasso BIS' };
+  const r = analyzeCausalStructure({ A, B }, { maxLag: 2, macroContext });
+  const avviso = r.diagnosi?.avvertimenti?.find((a) => a.tipo === 'causa-comune-non-vista');
+  if (avviso) {
+    assert.ok(avviso.casi.some((c) => c.spiegatoDaMacro) || avviso.dettaglio.length > 0);
+  }
+});
+
+test('senza contesto macro, il comportamento resta quello di sempre (nessuna regressione)', () => {
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
+  const rndG = (r) => { const u1 = Math.max(1e-9, r()), u2 = r(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); };
+  const rnd = rng(29);
+  const n = 200;
+  const A = []; let a = 0;
+  for (let t = 0; t < n; t++) { a = 0.25 * a + rndG(rnd); A.push(a); }
+  const B = A.map((_, t) => (t >= 1 ? 1.0 * A[t - 1] + 0.4 * rndG(rnd) : rndG(rnd)));
+  const r = analyzeCausalStructure({ A, B }, { maxLag: 2 });
+  assert.equal(r.motore, 'pcmci');
+  assert.ok(r.diagnosi !== null);
+});

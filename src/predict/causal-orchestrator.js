@@ -23,10 +23,11 @@
 
 import { discoverCausalGraph } from './causal-discovery.js';
 import { analyzeCausalScenario } from './causal-effects.js';
-import { diagnoseCausalGraph } from './causal-diagnostics.js';
+import { diagnoseCausalGraph, detectLatentConfounders } from './causal-diagnostics.js';
 import { compareLinearVsNonlinear } from './nonlinear-dependence.js';
 import { partialCorrelationTest } from './causal-discovery.js';
 import { buildCausalGraph as legacyBuildGraph, pruneNonCausal as legacyPrune } from './causal-graph.js';
+import { explainConfoundersWithMacro } from './macro-context.js';
 
 // Sotto questa soglia PCMCI non ha statisticamente senso provarlo (troppo
 // pochi gradi di libertà per selezionare genitori E testare MCI): si passa
@@ -35,6 +36,11 @@ const SOGLIA_PCMCI = 16;
 
 export function analyzeCausalStructure(series, {
   maxLag = 3, alpha = 0.05, allTx = null, referenceDate = new Date(), interventi = {},
+  // Serie macro GIÀ allineata (macro-context.js: alignMacroToWeeks) e la sua
+  // etichetta leggibile — mai una chiamata di rete da qui: questo modulo
+  // resta puro, la rete la fa solo chi orchestrara la UI (main.js), con le
+  // uniche fonti senza chiave (BCE, BIS) verificate CORS-aperte dal vivo.
+  macroContext = null,
 } = {}) {
   const settimane = Math.min(...Object.values(series || {}).map((s) => s?.length || 0).filter((n) => n > 0));
 
@@ -61,7 +67,21 @@ export function analyzeCausalStructure(series, {
   }
 
   const effetti = analyzeCausalScenario(series, discovered, { interventi, maxLag });
-  const diagnosi = diagnoseCausalGraph(discovered, { alpha: 0.01 });
+  let diagnosi = diagnoseCausalGraph(discovered, { alpha: 0.01 });
+
+  // Se è disponibile una serie macro reale (BCE/BIS, senza chiave), si
+  // rifà il rilevamento del confondente nascosto e si prova a NOMINARLO:
+  // da "qualcosa che non misuriamo" a "probabilmente il tasso di
+  // riferimento". Solo se il macro spiega davvero (mai un'attribuzione a
+  // metà) — altrimenti l'avvertimento resta quello anonimo di prima.
+  if (macroContext?.values?.length && diagnosi.utilizzabile) {
+    const latentGrezzo = detectLatentConfounders(discovered.frame, discovered.parentsByTarget);
+    const arricchito = explainConfoundersWithMacro(latentGrezzo, macroContext, { label: macroContext.label || 'un fattore macroeconomico' });
+    const avvertimenti = diagnosi.avvertimenti.map((a) => a.tipo === 'causa-comune-non-vista'
+      ? { ...a, casi: arricchito.sospetti, dettaglio: arricchito.sospetti.some((s) => s.spiegatoDaMacro) ? 'Uno o più legami sono probabilmente spiegati da un fattore macroeconomico reale, non da un legame diretto tra le tue categorie.' : a.dettaglio }
+      : a);
+    diagnosi = { ...diagnosi, avvertimenti };
+  }
 
   // Legami non lineari: si cercano SOLO tra le coppie che PCMCI ha scartato
   // (altrimenti si ritesterebbe tutto due volte). È qui che emergono le

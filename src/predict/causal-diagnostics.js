@@ -77,6 +77,10 @@ export function detectLatentConfounders(frame, parentsByTarget, { alpha = 0.01 }
   return {
     sospetti: sospetti.sort((a, b) => Math.abs(b.r) - Math.abs(a.r)),
     pulito: sospetti.length === 0,
+    // Additivo: i residui si espongono così un chiamante (macro-context.js)
+    // può testarli contro una serie macro reale SENZA doverli ricalcolare —
+    // stessa disciplina "non duplicare" di tutto il resto del progetto.
+    residui,
     avvertimento: sospetti.length
       ? 'Alcuni legami potrebbero avere una causa in comune che l\'app non vede (umore, stagione, un cambiamento nella tua vita). I numeri restano validi come descrizione, non come garanzia che intervenire funzioni.'
       : null,

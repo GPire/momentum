@@ -31,21 +31,42 @@ export function parseFredJson(json) {
   return out;
 }
 
+// ── Riga CSV conforme a RFC4180: rispetta i campi tra virgolette (che
+// possono contenere virgole, newline e virgolette raddoppiate "").
+// BUG REALE trovato integrando BIS (2026-08-05): la loro serie sui tassi ha
+// una colonna di descrizione libera con virgole non quotate in modo
+// affidabile da uno split(',') ingenuo — ogni riga usciva disallineata e
+// veniva scartata per intero (0 punti su 650 righe reali). Split ingenuo
+// sostituito ovunque in questo file con questo parser vero.
+function splitCsvLine(line) {
+  const out = [];
+  let cur = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false;
+      } else cur += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
 // ── Parser ECB Data Portal (CSV: ?format=csvdata, colonne TIME_PERIOD/OBS_VALUE) ──
-// Le serie mensili usano 'YYYY-MM' → normalizzate a 'YYYY-MM-01'. Limite noto
-// e dichiarato: split su ',' semplice — se una serie avesse campi testuali con
-// virgole tra virgolette, le colonne slitterebbero e la riga verrebbe scartata
-// (mai un numero sbagliato: al peggio, un punto in meno).
+// Le serie mensili usano 'YYYY-MM' → normalizzate a 'YYYY-MM-01'.
 export function parseEcbCsv(text) {
   const lines = String(text || '').trim().split(/\r?\n/);
   if (lines.length < 2) return [];
-  const header = lines[0].split(',').map(s => s.trim().toUpperCase());
+  const header = splitCsvLine(lines[0]).map(s => s.trim().toUpperCase());
   const di = header.indexOf('TIME_PERIOD');
   const vi = header.indexOf('OBS_VALUE');
   if (di < 0 || vi < 0) return [];
   const out = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
+    const cols = splitCsvLine(lines[i]);
     const raw = (cols[di] || '').trim();
     const date = /^\d{4}-\d{2}$/.test(raw) ? `${raw}-01` : raw.slice(0, 10);
     const close = parseFloat(cols[vi]);
@@ -219,7 +240,23 @@ export function crossCheck(seriesA, seriesB, { maxDivergencePct = 2 } = {}) {
 // quello serve il cross-check), ma scarta i casi palesemente rotti o
 // manipolati: date che tornano indietro, prezzi ≤ 0, salti giornalieri
 // assurdi, stesso timestamp con valori diversi. ──
-export function plausibility(series, { maxDailyJumpPct = 50 } = {}) {
+// `richiedePositivo` di default true (comportamento originale, corretto per
+// PREZZI di mercato: un'azione o una cripto a zero o sotto zero è sempre un
+// dato rotto). BUG REALE trovato integrando le serie macro (2026-08-05): un
+// TASSO di riferimento può restare esattamente a 0% per anni (la BCE lo ha
+// tenuto lì dal 2016 al 2022) o persino sotto zero (il tasso sui depositi
+// BCE è stato negativo nello stesso periodo) — questo NON è un dato rotto,
+// è la realtà macroeconomica. La funzione trattava ogni giorno a tasso zero
+// come "close non positivo", scartando anni di dati reali e corretti. Chi
+// chiama per una serie macro/tasso deve passare `richiedePositivo: false`.
+// `maxDailyJumpAbs`: usato SOLO quando richiedePositivo=false (serie che
+// possono attraversare lo zero, come un tasso). BUG REALE trovato subito
+// dopo aver corretto quello dello zero (2026-08-05): il controllo
+// percentuale RELATIVO esplode vicino allo zero — un tasso che passa da
+// 0,05% a 0,10% è "un salto del 100%" per la formula, ma nella realtà è un
+// movimento di 0,05 punti, ininfluente. Per i prezzi (sempre ben lontani da
+// zero) la percentuale relativa resta corretta e resta il default.
+export function plausibility(series, { maxDailyJumpPct = 50, maxDailyJumpAbs = 5, richiedePositivo = true } = {}) {
   const s = Array.isArray(series) ? series : [];
   if (!s.length) return { plausible: false, reasons: ['serie vuota'] };
   const reasons = [];
@@ -227,13 +264,18 @@ export function plausibility(series, { maxDailyJumpPct = 50 } = {}) {
   for (let i = 0; i < s.length; i++) {
     const p = s[i] || {};
     const prev = i > 0 ? (s[i - 1] || {}) : null;
-    if (!Number.isFinite(p.close) || p.close <= 0) { reasons.push(`close non positivo (${p.close}) al ${p.date}`); continue; }
+    if (!Number.isFinite(p.close) || (richiedePositivo && p.close <= 0)) { reasons.push(`close ${richiedePositivo ? 'non positivo' : 'non numerico'} (${p.close}) al ${p.date}`); continue; }
     if (prev && typeof prev.date === 'string' && p.date < prev.date) reasons.push(`date non monotone: ${prev.date} → ${p.date}`);
     if (seen.has(p.date) && seen.get(p.date) !== p.close) reasons.push(`timestamp duplicato ${p.date} con valori diversi`);
     seen.set(p.date, p.close);
-    if (prev && Number.isFinite(prev.close) && prev.close > 0) {
-      const jump = (Math.abs(p.close - prev.close) / prev.close) * 100;
-      if (jump > maxDailyJumpPct) reasons.push(`salto ${jump.toFixed(1)}% > ${maxDailyJumpPct}% tra ${prev.date} e ${p.date}`);
+    if (prev && Number.isFinite(prev.close)) {
+      if (!richiedePositivo) {
+        const saltoAssoluto = Math.abs(p.close - prev.close);
+        if (saltoAssoluto > maxDailyJumpAbs) reasons.push(`salto di ${saltoAssoluto.toFixed(2)} punti > ${maxDailyJumpAbs} tra ${prev.date} e ${p.date}`);
+      } else if (prev.close > 0) {
+        const jump = (Math.abs(p.close - prev.close) / prev.close) * 100;
+        if (jump > maxDailyJumpPct) reasons.push(`salto ${jump.toFixed(1)}% > ${maxDailyJumpPct}% tra ${prev.date} e ${p.date}`);
+      }
     }
   }
   return { plausible: reasons.length === 0, reasons };
@@ -280,7 +322,7 @@ export async function fetchVerified({ symbol, kind = 'prices', fetchImpl, cache,
   if (successes.length >= 2) {
     const [a, b] = successes;
     const chk = crossCheck(a.prices, b.prices);
-    const pl = plausibility(a.prices); // due fonti concordi ma serie rotta → comunque niente training
+    const pl = plausibility(a.prices, { richiedePositivo: kind !== 'macro' }); // un tasso può essere zero o negativo; un prezzo di mercato no
     if (chk.confirmed && pl.plausible) {
       const out = { prices: a.prices, source: `${a.src.id}+${b.src.id}`, asOf, verified: 'confirmed', priceSource: a.src.id, note: `Confermato da due fonti indipendenti (${chk.reason}).` };
       if (cache) await cache.put(cacheKey, out);
@@ -291,7 +333,7 @@ export async function fetchVerified({ symbol, kind = 'prices', fetchImpl, cache,
 
   if (successes.length === 1) {
     const { src, prices } = successes[0];
-    const pl = plausibility(prices);
+    const pl = plausibility(prices, { richiedePositivo: kind !== 'macro' });
     if (pl.plausible) {
       const out = { prices, source: src.id, asOf, verified: 'single-source', priceSource: src.id, note: `Fonte singola (${src.name}) plausibile; cross-check non possibile (${errors.join('; ') || 'nessun’altra fonte per questo simbolo'}).` };
       if (cache) await cache.put(cacheKey, out);

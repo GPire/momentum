@@ -88,6 +88,7 @@ import { comparePeriods, lastNMonthKeys } from './predict/period-compare.js';
 import { buildCausalGraph, pruneNonCausal, buildCategorySeries } from './predict/causal-graph.js';
 import { analyzeCausalStructure } from './predict/causal-orchestrator.js';
 import { startCategoryExperiment, stopCategoryExperiment, experimentStatus } from './predict/experiment-tracker.js';
+import { fetchMacroSeries, alignMacroToWeeks } from './predict/macro-context.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
 // datato) quando l'utente ha già in portafoglio una posizione che traccia
@@ -5106,12 +5107,44 @@ function renderPeriodCompare(mode = __periodCompareMode) {
 // ce n'è ancora — DICHIARANDO quale dei due sta usando, mai spacciando il
 // meno potente per il risultato definitivo. Layout a cerchio invariato;
 // cambia cosa alimenta gli archi e cosa dice il testo sotto.
-function renderCausalGraphViz() {
+// Contesto macro (predict/macro-context.js) tenuto in cache di sessione: un
+// tasso di riferimento non cambia più volte al giorno, e ricaricarlo a ogni
+// apertura della Dashboard sarebbe solo traffico sprecato. Fonte SENZA
+// CHIAVE (BIS, verificata CORS-aperta dal vivo): funziona per ogni utente
+// dal primo avvio, zero attrito — risponde diretto a "i dati non sono
+// integrati e servono una chiave che pochi hanno": qui non ne serve nessuna.
+let __macroContextCache = null;
+let __macroContextFetchInCorso = false;
+async function ensureMacroContext(weeks) {
+  if (__macroContextCache || __macroContextFetchInCorso) return __macroContextCache;
+  __macroContextFetchInCorso = true;
+  try {
+    const { series, affidabile } = await fetchMacroSeries({ fetchImpl: fetch.bind(window) }); // default: BCE, verificato dal vivo
+    if (!affidabile || !series.length) return null;
+    const allineato = alignMacroToWeeks(series, { weeks, referenceDate: new Date() });
+    if (allineato.copertura < 0.3) return null; // troppo pochi punti reali: meglio niente che un contesto inaffidabile
+    __macroContextCache = { ...allineato, label: 'il tasso di riferimento BCE/BIS' };
+    return __macroContextCache;
+  } catch (_) {
+    return null; // onesto: senza rete, l'app continua con la diagnosi anonima di sempre
+  } finally {
+    __macroContextFetchInCorso = false;
+  }
+}
+
+async function renderCausalGraphViz() {
   const el = $('#causal-graph-viz');
   if (!el) return;
   const allTx = VaultDAO.state.transactions || {};
-  const series = buildCategorySeries(allTx, new Date(), 26);
-  const analisi = analyzeCausalStructure(series, { allTx, maxLag: 3 });
+  const WEEKS = 26;
+  const series = buildCategorySeries(allTx, new Date(), WEEKS);
+  const macroContext = __macroContextCache; // usa la cache se già pronta, mai blocca il primo render
+  const analisi = analyzeCausalStructure(series, { allTx, maxLag: 3, macroContext });
+  if (!macroContext) {
+    // Primo giro senza contesto macro: lo si recupera in background e, se
+    // arriva, si ridisegna UNA volta sola — mai un'attesa percepibile.
+    ensureMacroContext(WEEKS).then((ctx) => { if (ctx) renderCausalGraphViz(); });
+  }
 
   // Adatta i due formati di link (base: {from,to,r,lagWeeks,samples};
   // pcmci: {from,to,r,p,lag,n}) a un'unica forma per il disegno.
