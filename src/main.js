@@ -1397,24 +1397,45 @@ const renderDashboard = () => {
   // Onesto: solo ricorrenti realmente rilevati; se 0, la fascia resta nascosta. ──
   const commitEl = $('#committed-reserve');
   if (commitEl) {
-    if (com.reserved > 0 && liquidity > 0) {
-      const free = Math.max(0, +(liquidity - com.reserved).toFixed(2));
-      const pctCommitted = Math.min(100, Math.round(com.reserved / liquidity * 100));
+    // BUG REALE trovato dal vivo: il "disponibile vero" toglieva gli impegni
+    // ricorrenti ma NON l'accantonamento fiscale — un utente con P.IVA vedeva
+    // come "suoi" esattamente i soldi che il salvadanaio virtuale (tax.js)
+    // gli dice di non toccare. Stessa aritmetica del resto del modulo fiscale
+    // (taxSetAsideForPeriod + taxReserveStatus), mai una seconda formula:
+    // qui si USA il risultato, non lo si ricalcola in modo diverso.
+    let taxReserved = 0;
+    try {
+      if (hasInvoiceIncome()) {
+        const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
+        const learned = VaultDAO.state.taxLearned || {};
+        const model = (typeof window !== 'undefined' && window.__incomeModel) || null;
+        const dovutoTotale = taxSetAsideForPeriod(allFlat, { regime: VaultDAO.state.taxRegime || 'forfettario', learned, model }).daAccantonare;
+        taxReserved = taxReserveStatus(dovutoTotale, VaultDAO.state.taxPayments || []).daAccantonare;
+      }
+    } catch (_) { /* onesto: se il calcolo fiscale non è disponibile, il resto della card resta valido */ }
+    const totalReserved = +(com.reserved + taxReserved).toFixed(2);
+    if (totalReserved > 0 && liquidity > 0) {
+      const free = Math.max(0, +(liquidity - totalReserved).toFixed(2));
+      const pctCommitted = Math.min(100, Math.round(totalReserved / liquidity * 100));
       const chips = com.top.map(t => `<span class="text-[10px] px-2 py-0.5 rounded-full bg-black/25 border border-[var(--glass-border)] whitespace-nowrap">${t.name.length > 16 ? t.name.slice(0, 15) + '…' : t.name} · ${formatMoney(t.amount)}</span>`).join('');
       commitEl.classList.remove('hidden');
       commitEl.innerHTML = `
         <div class="rounded-2xl border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] p-3.5">
-          <div class="flex items-center justify-between gap-2 mb-2">
+          ${com.reserved > 0 ? `<div class="flex items-center justify-between gap-2 mb-1.5">
             <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Già impegnati entro fine mese</span>
             <span class="font-mono font-black text-sm text-amber-300">${formatMoney(com.reserved)}</span>
-          </div>
+          </div>` : ''}
+          ${taxReserved > 0 ? `<div class="flex items-center justify-between gap-2 mb-2">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Da mettere via per il fisco</span>
+            <span class="font-mono font-black text-sm text-orange-300">${formatMoney(taxReserved)}</span>
+          </div>` : ''}
           <div class="h-2 rounded-full bg-emerald-500/25 overflow-hidden"><div class="h-full bg-amber-400/70" style="width:${pctCommitted}%"></div></div>
           <div class="flex items-center justify-between mt-2">
-            <span class="text-[10px] text-[var(--on-surface-secondary)]">Disponibile vero (già tolti gli impegni)</span>
+            <span class="text-[10px] text-[var(--on-surface-secondary)]">Disponibile vero (già tolti impegni e fisco)</span>
             <span class="font-mono font-bold text-sm text-emerald-400">${formatMoney(free)}</span>
           </div>
           ${chips ? `<div class="flex flex-wrap gap-1.5 mt-2">${chips}</div>` : ''}
-          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 opacity-80">Lascia questi soldi sul conto: serviranno per gli impegni in arrivo. Momentum non li sposta — te lo ricorda soltanto.</p>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 opacity-80">Lascia questi soldi sul conto: serviranno per gli impegni in arrivo${taxReserved > 0 ? ' e per le tasse' : ''}. Momentum non li sposta — te lo ricorda soltanto.</p>
         </div>`;
     } else {
       commitEl.classList.add('hidden');
