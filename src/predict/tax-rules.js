@@ -19,7 +19,47 @@ export const TAX_RULES_VERSION = '2026-07';
 export const TAX_RULES = {
   2019: { forfettarioCeiling: 65000, impostaStd: 0.15, impostaStartup: 0.05, startupAnni: 5, inpsGestioneSeparata: 0.2607 },
   2023: { forfettarioCeiling: 85000, impostaStd: 0.15, impostaStartup: 0.05, startupAnni: 5, inpsGestioneSeparata: 0.2607 },
+  // Scaglioni IRPEF REALI (Legge di Bilancio 2026, L. 199/2025) — verificati
+  // dal vivo il 2026-08-05, non a memoria. Sostituiscono la stima piatta del
+  // 27% usata finora per il regime ordinario: a fatturati grandi la
+  // differenza tra "stima piatta" e "scaglioni veri" è enorme (il secondo
+  // scaglione è sceso al 33%, il terzo resta al 43% oltre 50.000€). Anni
+  // precedenti NON hanno scaglioni verificati qui: taxSetAside ripiega
+  // onestamente sulla stima piatta finché non vengono aggiunti con la
+  // stessa disciplina di verifica.
+  2026: {
+    forfettarioCeiling: 85000, impostaStd: 0.15, impostaStartup: 0.05, startupAnni: 5, inpsGestioneSeparata: 0.2607,
+    // `fino: null` = scaglione aperto verso l'alto ("e oltre"). MAI
+    // `Infinity`: i dati remoti arrivano via JSON (fetchRulesUpdate), che
+    // non può rappresentare Infinity — sarebbe diventato `null` comunque
+    // dopo un giro di rete, silenziosamente. `null` è la forma vera fin
+    // dall'inizio, identica in locale e da remoto.
+    irpefScaglioni: [
+      { fino: 28000, aliquota: 0.23 },
+      { fino: 50000, aliquota: 0.33 },
+      { fino: null, aliquota: 0.43 },
+    ],
+  },
 };
+
+// Calcolo IRPEF PROGRESSIVO reale (a scaglioni), non un'aliquota media
+// applicata su tutto il reddito — ogni fascia paga solo la propria
+// aliquota, non l'intero imponibile alla fascia più alta raggiunta. Questo
+// è l'errore più comune e più grave nei calcolatori fiscali "veloci": senza
+// questo calcolo, un fatturato di 200.000€ risulterebbe tassato come se
+// OGNI euro fosse al 43%, quando in realtà solo la quota sopra 50.000€ lo è.
+export function computeIrpef(imponibile, scaglioni) {
+  if (!Array.isArray(scaglioni) || !scaglioni.length || !(imponibile > 0)) return 0;
+  let imposta = 0, sogliaPrec = 0;
+  for (const { fino, aliquota } of scaglioni) {
+    const soglia = fino == null ? Infinity : fino;
+    if (imponibile <= sogliaPrec) break;
+    const quota = Math.min(imponibile, soglia) - sogliaPrec;
+    imposta += quota * aliquota;
+    sogliaPrec = soglia;
+  }
+  return imposta;
+}
 
 // `override` opzionale = regole ricevute via aggiornamento dati (fetchRulesUpdate),
 // applicate SOLO se già validate. Precedenza all'override quando presente.
@@ -48,6 +88,21 @@ export function validateRulesPayload(payload) {
     if (!(r.impostaStd > 0 && r.impostaStd < 0.6)) return { ok: false, reason: `imposta standard implausibile per ${y}` };
     if (!(r.impostaStartup >= 0 && r.impostaStartup < r.impostaStd)) return { ok: false, reason: `imposta startup implausibile per ${y}` };
     if (!(r.inpsGestioneSeparata > 0 && r.inpsGestioneSeparata < 0.5)) return { ok: false, reason: `aliquota INPS implausibile per ${y}` };
+    // irpefScaglioni è OPZIONALE (anni senza scaglioni verificati ripiegano
+    // sulla stima piatta), ma se presente deve avere una forma plausibile:
+    // soglie crescenti, aliquote in un range reale, ultima soglia infinita
+    // (l'ultimo scaglione copre sempre "in su", mai un buco scoperto).
+    if (r.irpefScaglioni !== undefined) {
+      if (!Array.isArray(r.irpefScaglioni) || !r.irpefScaglioni.length) return { ok: false, reason: `scaglioni IRPEF implausibili per ${y}` };
+      let sogliaPrec = -1;
+      for (let i = 0; i < r.irpefScaglioni.length; i++) {
+        const s = r.irpefScaglioni[i];
+        const ultimo = i === r.irpefScaglioni.length - 1;
+        const sogliaOk = ultimo ? s.fino === null : (typeof s.fino === 'number' && s.fino > sogliaPrec);
+        if (!sogliaOk || !(s.aliquota > 0 && s.aliquota < 0.6)) return { ok: false, reason: `scaglione IRPEF implausibile per ${y}` };
+        sogliaPrec = s.fino;
+      }
+    }
   }
   return { ok: true };
 }

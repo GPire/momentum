@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { rulesForYear, validateRulesPayload, fetchRulesUpdate, TAX_RULES, TAX_RULES_VERSION } = await import('./tax-rules.js');
+const { rulesForYear, validateRulesPayload, fetchRulesUpdate, computeIrpef, TAX_RULES, TAX_RULES_VERSION } = await import('./tax-rules.js');
 const { taxAdvice } = await import('./tax.js');
 
 test('rulesForYear: applica il tetto forfettario dell\'anno giusto', () => {
@@ -115,4 +115,93 @@ test('fetchRulesUpdate: rete che fallisce → fallback sicuro sulle regole inclu
   const r = await fetchRulesUpdate({ url: 'x', fetchImpl: async () => { throw new Error('offline'); }, currentVersion: '2026-07' });
   assert.equal(r.updated, false);
   assert.ok(/resto sulle regole incluse/.test(r.reason));
+});
+
+// ============================================================
+// computeIrpef — scaglioni IRPEF REALI (Legge di Bilancio 2026), verificati
+// dal vivo il 2026-08-05: 23% fino a 28.000€, 33% da 28.001 a 50.000€,
+// 43% oltre. Il test decisivo: solo la QUOTA in ogni fascia paga la sua
+// aliquota, mai l'intero imponibile alla fascia più alta raggiunta.
+// ============================================================
+
+test('computeIrpef: reddito tutto nel primo scaglione → aliquota unica', () => {
+  const s = rulesForYear(2026).irpefScaglioni;
+  assert.equal(computeIrpef(20000, s), 20000 * 0.23);
+});
+
+test('computeIrpef: reddito a cavallo di due scaglioni → SOLO la quota eccedente paga l\'aliquota superiore', () => {
+  const s = rulesForYear(2026).irpefScaglioni;
+  // 30.000€: 28.000 al 23% + 2.000 al 33%, MAI 30.000 tutti al 33%.
+  const atteso = 28000 * 0.23 + 2000 * 0.33;
+  assert.equal(+computeIrpef(30000, s).toFixed(2), +atteso.toFixed(2));
+});
+
+test('computeIrpef: fatturato grande attraversa tutti e 3 gli scaglioni', () => {
+  const s = rulesForYear(2026).irpefScaglioni;
+  // 200.000€: 28.000@23% + 22.000@33% + 150.000@43%
+  const atteso = 28000 * 0.23 + 22000 * 0.33 + 150000 * 0.43;
+  assert.equal(+computeIrpef(200000, s).toFixed(2), +atteso.toFixed(2));
+  // Prova indipendente che NON sia "tutto alla fascia più alta" (l'errore
+  // più comune): quel calcolo sbagliato darebbe 200000*0.43 = 86000, molto
+  // più alto del vero risultato progressivo.
+  assert.ok(computeIrpef(200000, s) < 200000 * 0.43);
+});
+
+test('computeIrpef: reddito zero o negativo → zero, mai un numero negativo o inventato', () => {
+  assert.equal(computeIrpef(0, [{ fino: null, aliquota: 0.23 }]), 0);
+  assert.equal(computeIrpef(-500, [{ fino: null, aliquota: 0.23 }]), 0);
+});
+
+test('computeIrpef: senza scaglioni (anno non ancora verificato) → 0, mai un crash', () => {
+  assert.equal(computeIrpef(50000, undefined), 0);
+  assert.equal(computeIrpef(50000, []), 0);
+});
+
+test('rulesForYear(2026) espone gli scaglioni reali verificati', () => {
+  const s = rulesForYear(2026).irpefScaglioni;
+  assert.equal(s.length, 3);
+  assert.equal(s[0].aliquota, 0.23);
+  assert.equal(s[1].aliquota, 0.33);
+  assert.equal(s[2].aliquota, 0.43);
+  assert.equal(s[2].fino, null); // ultima fascia aperta, mai Infinity (non serializzabile in JSON)
+});
+
+test('rulesForYear(2021) — anno senza scaglioni verificati → nessun campo irpefScaglioni (onesto, mai inventato)', () => {
+  assert.equal(rulesForYear(2021).irpefScaglioni, undefined);
+});
+
+// ── validateRulesPayload con irpefScaglioni ──
+
+function payloadValido(scaglioni) {
+  return { version: '2099-01', rules: { 2099: { forfettarioCeiling: 85000, impostaStd: 0.15, impostaStartup: 0.05, inpsGestioneSeparata: 0.26, irpefScaglioni: scaglioni } } };
+}
+
+test('validateRulesPayload: accetta scaglioni IRPEF plausibili con fino:null in coda', () => {
+  const v = validateRulesPayload(payloadValido([{ fino: 28000, aliquota: 0.23 }, { fino: null, aliquota: 0.43 }]));
+  assert.equal(v.ok, true);
+});
+
+test('validateRulesPayload: RIFIUTA scaglioni con Infinity (mai valido da JSON)', () => {
+  const v = validateRulesPayload(payloadValido([{ fino: Infinity, aliquota: 0.23 }]));
+  assert.equal(v.ok, false);
+});
+
+test('validateRulesPayload: RIFIUTA scaglioni senza fascia finale aperta', () => {
+  const v = validateRulesPayload(payloadValido([{ fino: 28000, aliquota: 0.23 }, { fino: 50000, aliquota: 0.43 }]));
+  assert.equal(v.ok, false);
+});
+
+test('validateRulesPayload: RIFIUTA soglie non crescenti', () => {
+  const v = validateRulesPayload(payloadValido([{ fino: 50000, aliquota: 0.23 }, { fino: 28000, aliquota: 0.43 }, { fino: null, aliquota: 0.5 }]));
+  assert.equal(v.ok, false);
+});
+
+test('validateRulesPayload: RIFIUTA un\'aliquota implausibile (es. 90%)', () => {
+  const v = validateRulesPayload(payloadValido([{ fino: null, aliquota: 0.9 }]));
+  assert.equal(v.ok, false);
+});
+
+test('validateRulesPayload: irpefScaglioni resta OPZIONALE — un payload senza non viene rifiutato', () => {
+  const payload = { version: '2099-01', rules: { 2099: { forfettarioCeiling: 85000, impostaStd: 0.15, impostaStartup: 0.05, inpsGestioneSeparata: 0.26 } } };
+  assert.equal(validateRulesPayload(payload).ok, true);
 });

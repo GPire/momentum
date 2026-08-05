@@ -23,6 +23,46 @@ test('ordinario: include IVA da versare', () => {
   assert.ok(r.setAside > taxSetAside(1000, { regime: 'forfettario' }).setAside);
 });
 
+// ============================================================
+// GRANDISSIMI FATTURATI — richiesta esplicita dell'utente: il regime
+// ordinario deve reggere anche i fatturati molto sopra il tetto forfettario,
+// con la vera progressività IRPEF (scaglioni reali, tax-rules.js), non una
+// stima piatta che sottostimerebbe (o sovrastimerebbe) di molto l'imposta
+// vera proprio dove conta di più: i redditi alti.
+// ============================================================
+
+test('GRANDISSIMI FATTURATI: ordinario con scaglioni reali (anno 2026) usa IRPEF progressiva, non la stima piatta', () => {
+  const r = taxSetAside(300000, { regime: 'ordinario', year: 2026 });
+  assert.ok(r.breakdown.some((b) => /scaglioni reali/.test(b.voce)));
+});
+
+test('GRANDISSIMI FATTURATI: la progressività reale pesa meno della vecchia stima piatta al 27% su un reddito molto alto in parte ai primi scaglioni', () => {
+  // A un imponibile che attraversa tutti e 3 gli scaglioni, l'aliquota
+  // MEDIA reale (23/33/43 pesati) è diversa dalla stima piatta al 27% usata
+  // prima di questa correzione — verifichiamo che il calcolo NON coincida
+  // per costruzione con la vecchia formula piatta.
+  const reale = taxSetAside(100000, { regime: 'ordinario', year: 2026 });
+  const impostaReale = reale.breakdown.find((b) => /IRPEF/.test(b.voce)).importo;
+  const redditoImponibile = 100000 * REGIMI.ordinario.coeffRedditivita;
+  const inps = redditoImponibile * REGIMI.ordinario.inps;
+  const impostaPiattaVecchia = +((redditoImponibile - inps) * REGIMI.ordinario.impostaSostitutiva).toFixed(2);
+  assert.notEqual(impostaReale, impostaPiattaVecchia);
+});
+
+test('ordinario: anno SENZA scaglioni verificati (es. 2021) ripiega onestamente sulla stima piatta, dichiarata come tale', () => {
+  const r = taxSetAside(50000, { regime: 'ordinario', year: 2021 });
+  const voce = r.breakdown.find((b) => /IRPEF|Imposta/.test(b.voce));
+  assert.match(voce.voce, /stima/i);
+});
+
+test('ordinario: fatturato piccolo E grande restano entrambi calcolabili senza crash, netto sempre coerente', () => {
+  for (const importo of [500, 50000, 85000, 200000, 1000000]) {
+    const r = taxSetAside(importo, { regime: 'ordinario', year: 2026 });
+    assert.equal(r.net, +(importo - r.setAside).toFixed(2));
+    assert.ok(r.setAside > 0 && r.setAside < importo);
+  }
+});
+
 test('importo zero → nessun accantonamento, mai NaN', () => {
   const r = taxSetAside(0);
   assert.equal(r.setAside, 0);

@@ -38,7 +38,7 @@ export const ATECO_COEFFICIENTI = {
 // e utile, non una previsione inventata.
 export const FORFETTARIO_CEILING = 85000;
 
-import { rulesForYear } from './tax-rules.js';
+import { rulesForYear, computeIrpef } from './tax-rules.js';
 
 // ── CONSIGLI FISCALI (come un commercialista, ma onesto) ──
 // Genera consigli PRIORITIZZATI dalla situazione REALE dell'utente, con le
@@ -96,14 +96,37 @@ export function taxSetAside(amount, opts = {}) {
   // Reddito imponibile su cui calcolare imposta + contributi
   const redditoImponibile = imponibile * r.coeffRedditivita;
   const inps = redditoImponibile * r.inps;
-  const imposta = (redditoImponibile - inps) * r.impostaSostitutiva; // INPS deducibile
+  const baseImposta = redditoImponibile - inps; // INPS deducibile
+
+  // Regime ordinario: usa gli scaglioni IRPEF REALI dell'anno se sono stati
+  // verificati (tax-rules.js, computeIrpef — ogni fascia paga solo la sua
+  // aliquota, mai l'intero imponibile alla fascia più alta), altrimenti
+  // ripiega sulla stima piatta dichiarata come tale — MAI in silenzio: la
+  // voce nello scomposizione dice sempre quale dei due calcoli è stato usato.
+  // Anno/override: stesso meccanismo di rulesForYear (opts.year, opts.rulesOverride
+  // per un aggiornamento già scaricato e verificato via fetchRulesUpdate).
+  let imposta, impostaLabel;
+  if (regimeKey === 'ordinario') {
+    const year = opts.year || new Date().getFullYear();
+    const scaglioni = rulesForYear(year, opts.rulesOverride).irpefScaglioni;
+    if (scaglioni) {
+      imposta = computeIrpef(baseImposta, scaglioni);
+      impostaLabel = 'IRPEF (scaglioni reali)';
+    } else {
+      imposta = baseImposta * r.impostaSostitutiva;
+      impostaLabel = 'IRPEF (stima piatta — scaglioni non ancora verificati per quest\'anno)';
+    }
+  } else {
+    imposta = baseImposta * r.impostaSostitutiva;
+    impostaLabel = r.impostaSostitutiva <= 0.15 ? 'Imposta sostitutiva' : 'Imposta (stima)';
+  }
 
   const setAside = +(iva + inps + imposta).toFixed(2);
   const net = +(gross - setAside).toFixed(2);
   const breakdown = [
     ...(iva > 0 ? [{ voce: 'IVA da versare', importo: +iva.toFixed(2) }] : []),
     { voce: 'Contributi INPS', importo: +inps.toFixed(2) },
-    { voce: r.impostaSostitutiva <= 0.15 ? 'Imposta sostitutiva' : 'Imposta (stima)', importo: +imposta.toFixed(2) },
+    { voce: impostaLabel, importo: +imposta.toFixed(2) },
   ];
   return { setAside, net, breakdown, regime: r.label, effectiveRate: +((setAside / gross) * 100).toFixed(1) };
 }
