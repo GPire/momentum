@@ -60,7 +60,7 @@ function translateRegionLabel(region) {
   if (!region) return region;
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
-import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva } from './predict/tax.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
 import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
 import { taxReserveStatus } from './predict/tax-payments.js';
@@ -2121,7 +2121,17 @@ function renderTax(monthK) {
   // c'è mai stata una fattura, resta nascosto (niente modulo per chi non serve).
   const everInvoice = hasInvoiceIncome();
   const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
-  if (!regime && !everInvoice) { card.classList.add('hidden'); return; }
+  // LIVELLO 0 — "non ho ancora la Partita IVA": prima la card spariva del
+  // tutto, lasciando fuori esattamente chi sta VALUTANDO se aprirla (nessun
+  // portale copre questo momento). Ora mostra un invito leggero alla
+  // simulazione invece di sparire nel nulla.
+  if (!regime && !everInvoice) {
+    card.classList.remove('hidden');
+    setEl.textContent = '';
+    noteEl.textContent = 'Stai valutando se aprire la Partita IVA? Scopri in un attimo cosa ti resterebbe davvero in tasca.';
+    if (extraEl) extraEl.innerHTML = `<button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Simula la tua Partita IVA</button>`;
+    return;
+  }
   card.classList.remove('hidden');
 
   // ── INTELLIGENZA REGIME: senza regime NON si inventa un numero (IRPEF/INPS/
@@ -2291,6 +2301,70 @@ function renderTaxSettings() {
     <p class="text-xs text-[var(--on-surface-secondary)] mb-3">Hai la Partita IVA o sei un libero professionista? Attivala e Momentum ti calcola tasse + contributi da mettere da parte, e ti crea le fatture — tutto sul dispositivo.</p>
     <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between w-full"><span>Attiva la Partita IVA</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>`;
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// LIVELLO 0/1 P.IVA — UNA DOMANDA ALLA VOLTA, linguaggio semplice
+// ══════════════════════════════════════════════════════════════════════════
+// Punto d'ingresso unico per due pubblici diversi, distinti dalla PRIMA
+// domanda invece che indovinati: chi la P.IVA ce l'ha già (→ il selettore
+// regime esistente, zero duplicazione) e chi la sta ancora valutando (→ il
+// simulatore, il buco di mercato che nessun portale copre). Mai un modulo
+// unico con dieci campi: un passo, una domanda, un bottone grande.
+window.openTaxLevel1 = () => {
+  window.openModal(`
+    <div class="p-1 flex flex-col gap-3">
+      <h3 class="text-lg font-black">Partita IVA</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">Una domanda per volta — dimmi solo questo, il resto lo capisco io.</p>
+      <p class="text-sm font-bold mt-2">Hai già la Partita IVA?</p>
+      <button onclick="window.closeModal(); window.openTaxRegimePicker();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl justify-between">
+        <span>Sì, ce l'ho già</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button onclick="window.openTaxLevel1Simulate()" class="btn-action w-full py-3 font-bold rounded-xl justify-between">
+        <span>Non ancora, la sto valutando</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>`);
+};
+
+// Passo 2: una sola domanda numerica. Nessuna configurazione (regime, ATECO,
+// cassa) chiesta qui — sarebbe gergo proprio a chi ancora non sa cosa sia.
+window.openTaxLevel1Simulate = () => {
+  window.openModal(`
+    <div class="p-1 flex flex-col gap-3">
+      <h3 class="text-lg font-black">Se aprissi la Partita IVA…</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">Quanto pensi di fatturare in un anno? Anche una stima approssimativa va bene.</p>
+      <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-lg font-bold text-center" />
+      <button id="tl1-go" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
+      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Torna indietro</button>
+    </div>`);
+  const input = document.getElementById('tl1-amount');
+  input?.focus();
+  const go = () => window.openTaxLevel1Result(parseFloat(String(input.value).replace(',', '.')) || 0);
+  document.getElementById('tl1-go')?.addEventListener('click', go);
+  input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+};
+
+// Passo 3: il risultato, in parole — mai un numero orfano senza spiegazione,
+// e mai senza l'avviso sul secondo anno (la sorpresa di cassa più comune).
+window.openTaxLevel1Result = (fatturato) => {
+  if (!(fatturato > 0)) { showToast('Inserisci una stima di fatturato per continuare.', 'error'); return; }
+  const s = simulateNewPartitaIva(fatturato);
+  window.openModal(`
+    <div class="p-1 flex flex-col gap-3">
+      <h3 class="text-lg font-black">Con ~${Math.round(fatturato).toLocaleString('it-IT')}€/anno</h3>
+      <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-4 text-center">
+        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Ti resterebbero circa</div>
+        <div class="text-3xl font-black text-emerald-400 my-1">${Math.round(s.netMensile).toLocaleString('it-IT')}€<span class="text-sm font-bold text-[var(--on-surface-secondary)]">/mese</span></div>
+        <div class="text-[11px] text-[var(--on-surface-secondary)]">${Math.round(s.netAnnuo).toLocaleString('it-IT')}€/anno, dopo tasse e contributi</div>
+      </div>
+      <div class="text-xs text-[var(--on-surface-secondary)]">Regime consigliato: <b class="text-[var(--on-surface)]">${s.regimeLabel}</b>. ${s.suggestion.reason}</div>
+      <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-200">⚠️ ${s.primoAnnoNote}</div>
+      <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Stima, non consulenza fiscale: verifica sempre col commercialista prima di aprire la Partita IVA.</div>
+      <button onclick="window.openTaxLevel1Simulate()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Rifai con un altro importo</button>
+      <button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl">Ho capito</button>
+    </div>`);
+};
 
 // Selettore di regime a bassa frizione (un tocco), riusato da "attiva" e "cambia".
 window.openTaxRegimePicker = () => {

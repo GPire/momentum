@@ -424,6 +424,39 @@ export function taxSetAsideForPeriod(transactions, opts = {}) {
   };
 }
 
+// ── LIVELLO 0/1 — SIMULATORE PER CHI NON HA ANCORA LA PARTITA IVA ──
+// Il buco di mercato che nessun portale copre: chi sta VALUTANDO se aprirla
+// non trova mai "se fatturi X, ti resta Y" prima di decidere. Riusa
+// suggestRegime + taxSetAside (stessa aritmetica di chi la P.IVA ce l'ha già,
+// mai una seconda formula inventata). L'avviso sul PRIMO ANNO è il punto che
+// affonda più nuove partite IVA (verificato: gli acconti fanno pagare il
+// secondo anno quasi il doppio) — dichiarato qui, non nascosto.
+export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
+  const fatturato = Math.max(0, +annualInvoiced || 0);
+  if (fatturato <= 0) {
+    return { fatturato: 0, regime: null, setAside: 0, netAnnuo: 0, netMensile: 0, primoAnnoNote: null, note: 'Inserisci quanto pensi di fatturare in un anno per vedere una stima.' };
+  }
+  const suggestion = suggestRegime(fatturato);
+  const regimeKey = suggestion.overCeiling ? 'ordinario' : (opts.startup ? 'forfettario_startup' : 'forfettario');
+  const { setAside, net } = taxSetAside(fatturato, { regime: regimeKey, overrides: opts.overrides });
+  const netMensile = net / 12;
+  return {
+    fatturato,
+    regime: regimeKey,
+    regimeLabel: REGIMI[regimeKey].label,
+    suggestion,
+    setAside: +setAside.toFixed(2),
+    netAnnuo: +net.toFixed(2),
+    netMensile: +netMensile.toFixed(2),
+    // Il primo anno di attività si versa MENO (nessun acconto sull'anno
+    // precedente, che non esiste ancora): dal secondo anno si aggiunge il
+    // saldo dell'anno appena chiuso + l'acconto sul nuovo, quindi si paga
+    // quasi il doppio. È la sorpresa di cassa che affonda più aperture nuove.
+    primoAnnoNote: `Il primo anno verserai solo il dovuto sul primo anno (~${Math.round(setAside).toLocaleString('it-IT')}€). Dal SECONDO anno si aggiunge anche l'acconto sull'anno nuovo: ti aspetta un versamento quasi doppio — mettilo in conto da subito, non a sorpresa.`,
+    note: `Fatturando ~${Math.round(fatturato).toLocaleString('it-IT')}€/anno, con ${REGIMI[regimeKey].label.toLowerCase()} ti resterebbero in tasca circa ${Math.round(net).toLocaleString('it-IT')}€/anno (~${Math.round(netMensile).toLocaleString('it-IT')}€/mese) dopo tasse e contributi.`,
+  };
+}
+
 // ==========================================
 // FATTURA da UNA RIGA (NL) — stessa filosofia anti-attrito della voce
 // ==========================================

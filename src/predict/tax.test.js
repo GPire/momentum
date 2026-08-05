@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI } = await import('./tax.js');
+const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI, simulateNewPartitaIva } = await import('./tax.js');
 
 function fattura(desc, amount = 1000, date = '2026-03-10') {
   return { type: 'entrata', description: desc, amount, date };
@@ -452,6 +452,37 @@ test('NL fattura: importo decimale con virgola', () => {
 test('NL fattura: senza importo → null (una fattura senza importo non esiste)', () => {
   assert.equal(parseInvoiceLine('fattura a Rossi per consulenza'), null);
   assert.equal(parseInvoiceLine(''), null);
+});
+
+// ── LIVELLO 0/1: simulatore per chi non ha ancora la P.IVA ─────────────────
+test('simulateNewPartitaIva: fatturato zero → nessuna stima inventata', () => {
+  const s = simulateNewPartitaIva(0);
+  assert.equal(s.regime, null);
+  assert.equal(s.setAside, 0);
+  assert.match(s.note, /Inserisci/);
+});
+
+test('simulateNewPartitaIva: fatturato sotto il tetto → forfettario, con la nota sul primo anno', () => {
+  const s = simulateNewPartitaIva(30000);
+  assert.equal(s.regime, 'forfettario');
+  assert.ok(s.setAside > 0);
+  assert.ok(s.netAnnuo > 0 && s.netAnnuo < 30000);
+  assert.equal(+(s.netMensile * 12).toFixed(2), s.netAnnuo);
+  assert.match(s.primoAnnoNote, /SECONDO anno/);
+  assert.match(s.primoAnnoNote, /quasi doppio/);
+});
+
+test('simulateNewPartitaIva: fatturato oltre il tetto → ordinario, coerente con suggestRegime', () => {
+  const s = simulateNewPartitaIva(120000);
+  assert.equal(s.regime, 'ordinario');
+  assert.equal(s.suggestion.overCeiling, true);
+});
+
+test('simulateNewPartitaIva: stessa aritmetica di taxSetAside, nessuna formula duplicata', () => {
+  const s = simulateNewPartitaIva(40000);
+  const atteso = taxSetAside(40000, { regime: 'forfettario' });
+  assert.equal(s.setAside, +atteso.setAside.toFixed(2));
+  assert.equal(s.netAnnuo, +atteso.net.toFixed(2));
 });
 
 // ── AUTO-ADDESTRAMENTO: creare una fattura insegna il cliente ──────────────
