@@ -28,6 +28,7 @@ import { computeNetWorth } from '../alpha/net-worth.js';
 import { monthKey } from '../core/constants.js';
 import { detectLanguage } from '../i18n/detect.js';
 import MEASURED from '../alpha/measured-assumptions.js';
+import { findMacroConfounderWarning, macroConfounderNote } from './causal-macro-note.js';
 
 // Arricchimento onesto per "dove posso investire" (segnalato dall'utente:
 // senza questo la domanda cadeva sulla chat generica, che con nessun dato
@@ -505,19 +506,8 @@ export function answerQuestion(question, ctx) {
       // macro (non un vero effetto tra le TUE categorie), lo si dice PRIMA di
       // qualunque numero — mai lasciare che l'utente creda di avere una leva
       // che in realtà è solo un tasso che si muove per conto suo.
-      const avvisoMacro = analisi.diagnosi?.avvertimenti?.find((a) => a.tipo === 'causa-comune-non-vista')
-        ?.casi?.find((c) => c.tra?.includes(namedCat) && c.spiegatoDaMacro);
-      if (avvisoMacro) {
-        const ALTRA = avvisoMacro.tra.find((c) => c !== namedCat);
-        const MACRO_NOTE = {
-          it: ` Attenzione: ${namedCat} e ${ALTRA} si muovono insieme probabilmente per ${avvisoMacro.spiegatoDaMacro}, non perché una causa l'altra — aumentare ${namedCat} da sola potrebbe non spostare nulla.`,
-          en: ` Note: ${namedCat} and ${ALTRA} move together probably because of ${avvisoMacro.spiegatoDaMacro}, not because one causes the other — raising ${namedCat} alone might not move anything.`,
-          es: ` Atención: ${namedCat} y ${ALTRA} se mueven juntos probablemente por ${avvisoMacro.spiegatoDaMacro}, no porque uno cause el otro.`,
-          fr: ` Attention : ${namedCat} et ${ALTRA} bougent ensemble probablement à cause de ${avvisoMacro.spiegatoDaMacro}, pas parce que l'un cause l'autre.`,
-          de: ` Achtung: ${namedCat} und ${ALTRA} bewegen sich wahrscheinlich wegen ${avvisoMacro.spiegatoDaMacro} gemeinsam, nicht weil eins das andere verursacht.`,
-        }[lang];
-        RESULT += MACRO_NOTE;
-      }
+      const avvisoMacro = findMacroConfounderWarning(analisi.diagnosi?.avvertimenti, namedCat);
+      if (avvisoMacro) RESULT += macroConfounderNote(avvisoMacro, namedCat, lang);
       if (analisi.motore === 'pcmci' && analisi.diagnosi?.perDecidere) {
         const settimanaleMedio = (series[namedCat] || []).reduce((s, v) => s + v, 0) / Math.max(1, (series[namedCat] || []).length);
         const delta = settimanaleMedio * 0.3;

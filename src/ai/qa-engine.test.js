@@ -289,6 +289,33 @@ test('ragionamento a catena: un legame spiegato dal macro viene segnalato prima 
   }
 });
 
+test('FALLBACK: macroContext malformato (rete assente/dati corrotti) → risposta base resta valida, nessun crash', () => {
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
+  const rnd = rng(55);
+  const allTx = {};
+  const monday0 = new Date(2026, 0, 5);
+  let ristPrec = 50;
+  for (let w = 0; w < 26; w++) {
+    const dRist = new Date(monday0.getTime() + w * 7 * 86_400_000).toISOString().slice(0, 10);
+    const dAlim = new Date(monday0.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000).toISOString().slice(0, 10);
+    const mkR = dRist.slice(0, 7), mkA = dAlim.slice(0, 7);
+    const rist = 40 + rnd() * 40;
+    const alim = Math.max(10, 120 - ristPrec * 0.8 + rnd() * 10);
+    ristPrec = rist;
+    (allTx[mkR] = allTx[mkR] || []).push({ date: dRist, amount: +rist.toFixed(2), description: 'cena', type: 'uscita', category: 'Ristorante' });
+    (allTx[mkA] = allTx[mkA] || []).push({ date: dAlim, amount: +alim.toFixed(2), description: 'spesa', type: 'uscita', category: 'Alimentari' });
+  }
+  const refFallback = new Date(monday0.getTime() + 26 * 7 * 86_400_000 + 3 * 86_400_000);
+  // Tre forme di "macro rotto" plausibili: fetch fallito (null, già coperto
+  // sopra), risposta a metà (senza `values`), e un valore del tutto assurdo
+  // (stringa al posto dell'array) — nessuna deve mai far cadere il QA.
+  for (const macroContext of [{}, { values: undefined, copertura: 1 }, { values: 'non-un-array', copertura: 1 }]) {
+    const r = answerQuestion('cosa succede se spendo di più in ristorante?', { referenceDate: refFallback, allTx, macroContext });
+    assert.equal(r.intent, 'causal');
+    assert.ok(r.answer.includes('Non è una legge'), 'la risposta base deve restare intatta anche con un macroContext rotto');
+  }
+});
+
 test('senza macroContext, il comportamento resta quello di sempre (nessuna regressione)', () => {
   const allTx = {};
   const monday0 = new Date(2026, 0, 5);

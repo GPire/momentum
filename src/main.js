@@ -89,6 +89,7 @@ import { buildCausalGraph, pruneNonCausal, buildCategorySeries } from './predict
 import { analyzeCausalStructure } from './predict/causal-orchestrator.js';
 import { startCategoryExperiment, stopCategoryExperiment, experimentStatus } from './predict/experiment-tracker.js';
 import { fetchMacroSeries, alignMacroToWeeks } from './predict/macro-context.js';
+import { classifyCategoryChips } from './predict/experiment-chip.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
 // datato) quando l'utente ha già in portafoglio una posizione che traccia
@@ -5237,26 +5238,28 @@ async function renderCausalGraphViz() {
   // reale (predict/macro-context.js) — proporre "prova a cambiare X" qui
   // sarebbe una leva finta, perché il legame non dipende dalla categoria
   // stessa ma da un tasso che si muove per conto suo. Si mostra il motivo
-  // invece del bottone, così il sistema non fa mai perdere tempo dietro un
-  // esperimento che non può funzionare per costruzione.
-  const confondentiMacro = new Map();
-  for (const c of (analisi.diagnosi?.avvertimenti || []).find((a) => a.tipo === 'causa-comune-non-vista')?.casi || []) {
-    if (!c.spiegatoDaMacro) continue;
-    for (const cat of c.tra) confondentiMacro.set(cat, c.spiegatoDaMacro);
-  }
-
-  const espChips = cats.map((c) => {
+  // invece del bottone. Ma un esperimento GIÀ avviato o concluso non sparisce
+  // mai dietro una scoperta arrivata dopo (classifyCategoryChips.js, testato
+  // a parte): la spiegazione macro diventa solo una nota nel tooltip.
+  const chipData = classifyCategoryChips(cats, {
+    avvertimenti: analisi.diagnosi?.avvertimenti || [],
+    experiments: VaultDAO.state.experiments,
+    allTx,
+    now: new Date(),
+    experimentStatusFn: experimentStatus,
+  });
+  const espChips = chipData.map(({ categoria: c, tipo, stato, spiegazioneMacro }) => {
     const cat = getCatById(c);
     const nome = cat?.name || c;
-    if (confondentiMacro.has(c)) {
-      return `<span class="text-[9px] px-2 py-1 rounded-lg border border-dashed border-[var(--outline)] text-[var(--on-surface-secondary)]" title="Il legame di questa categoria sembra spiegato da ${escapeHtml(confondentiMacro.get(c))}, non da una relazione diretta: un esperimento qui non avrebbe senso.">~ ${escapeHtml(nome)}: spiegato dal contesto</span>`;
+    if (tipo === 'macro-spiegato') {
+      return `<span class="text-[9px] px-2 py-1 rounded-lg border border-dashed border-[var(--outline)] text-[var(--on-surface-secondary)]" title="Il legame di questa categoria sembra spiegato da ${escapeHtml(spiegazioneMacro)}, non da una relazione diretta: un esperimento qui non avrebbe senso.">~ ${escapeHtml(nome)}: spiegato dal contesto</span>`;
     }
-    const stato = experimentStatus(VaultDAO.state.experiments, c, allTx, { now: new Date() });
-    if (!stato) {
+    if (tipo === 'proponi') {
       return `<button class="rk-place text-[9px] px-2 py-1 rounded-lg border border-[var(--outline)]" data-exp-start="${escapeHtml(c)}">▶ Prova a cambiare ${escapeHtml(nome)}</button>`;
     }
     const colore = stato.conclusione === 'cambiato' ? 'text-emerald-400 border-emerald-500/30' : stato.conclusione === 'nessun-cambiamento' ? 'text-[var(--on-surface-secondary)] border-[var(--outline)]' : 'text-amber-300 border-amber-500/30';
-    return `<button class="text-[9px] px-2 py-1 rounded-lg border ${colore}" data-exp-open="${escapeHtml(c)}">◉ ${escapeHtml(nome)}: ${stato.conclusione ? (stato.conclusione === 'cambiato' ? 'confermato' : stato.conclusione === 'nessun-cambiamento' ? 'nessun effetto' : '') : 'in corso'}</button>`;
+    const nota = spiegazioneMacro ? ` — nota: il legame sembra spiegato da ${escapeHtml(spiegazioneMacro)}` : '';
+    return `<button class="text-[9px] px-2 py-1 rounded-lg border ${colore}" data-exp-open="${escapeHtml(c)}" title="${escapeHtml(nome)}${nota}">◉ ${escapeHtml(nome)}: ${stato.conclusione ? (stato.conclusione === 'cambiato' ? 'confermato' : stato.conclusione === 'nessun-cambiamento' ? 'nessun effetto' : '') : 'in corso'}</button>`;
   }).join('');
 
   el.innerHTML = `
