@@ -4441,19 +4441,43 @@ const REPEAT_ICON = `<svg class="recur-ico w-4 h-4 shrink-0" viewBox="0 0 24 24"
 const SDI_PORTAL_URL = 'https://ivaservizi.agenziaentrate.gov.it/portale/';
 // Guida al caricamento passo-passo. Onesta: i nomi esatti delle voci di menu del
 // portale possono cambiare nel tempo → passi descrittivi, non un percorso rigido.
+// Fonti verificate dal vivo sul sito ufficiale dell'Agenzia delle Entrate
+// (agosto 2026) — mai un link o un indirizzo inventato:
+//  - portale "Fatture e Corrispettivi": ivaservizi.agenziaentrate.gov.it
+//  - indirizzo PEC di PRIMO invio allo SdI: sdi01@pec.fatturapa.it (dopo il
+//    primo invio lo SdI comunica un indirizzo PEC-SdI dedicato per i successivi)
+// Perché Momentum non può fare il passo finale da solo: trasmettere allo SdI
+// per conto di qualcun altro richiede l'accreditamento come intermediario
+// presso l'Agenzia delle Entrate — un rapporto istituzionale con requisiti
+// societari, non una funzione di codice. Quello che Momentum PUÒ fare (ed è
+// già tutto qui) è preparare il file giusto e indicare la strada esatta.
 function showUploadHelp(filename) {
   const steps = [
-    'Accedi al portale <b>Fatture e Corrispettivi</b> con SPID, CIE o credenziali Entratel/Fisconline.',
-    'Apri la sezione <b>Fatturazione elettronica</b> e scegli <b>trasmetti / importa un file</b>.',
+    'Accedi al portale <b>Fatture e Corrispettivi</b> con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline.',
+    'Alla prima schermata scegli il profilo <b>"Me stesso"</b> (sei tu che fatturi, non un\'altra persona/azienda).',
+    'Apri la sezione <b>Fatturazione elettronica</b> e cerca <b>"trasmetti" / "importa un file"</b>.',
     `Carica il file <b>${(filename || 'XML')}</b> che hai appena scaricato da Momentum.`,
-    'Controlla l’anteprima e premi <b>Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto).',
+    'Controlla l’anteprima e premi <b>Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto, spiegata in chiaro qui sopra prima ancora di inviarla).',
   ];
   const box = $('#inv-xml-controls'); if (!box) return;
   if (!$('#inv-upload-steps')) {
     const div = document.createElement('div');
     div.id = 'inv-upload-steps';
     div.className = 'mt-2 pt-2 border-t border-emerald-400/20';
-    div.innerHTML = `<div class="font-bold mb-1">Come caricarla (una volta sola, poi è routine):</div><ol class="list-decimal pl-4 space-y-0.5">${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="mt-1 opacity-70">I nomi esatti delle voci possono variare: cerca “Fatturazione elettronica”.</div>`;
+    div.innerHTML = `<div class="font-bold mb-1">Come caricarla (una volta sola, poi è routine):</div><ol class="list-decimal pl-4 space-y-0.5">${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="mt-1 opacity-70">I nomi esatti delle voci possono variare nel tempo: cerca “Fatturazione elettronica” nel menu.</div>
+    <details class="mt-2 pt-2 border-t border-emerald-400/20">
+      <summary class="cursor-pointer font-bold">Non hai SPID o non riesci ad accedere? C'è una seconda strada: la PEC</summary>
+      <div class="mt-1 space-y-1">
+        <div>Se hai una casella di <b>PEC (Posta Elettronica Certificata)</b>, puoi mandare il file XML come allegato direttamente al Sistema di Interscambio, senza passare dal portale:</div>
+        <ol class="list-decimal pl-4 space-y-0.5">
+          <li>La <b>prima volta</b> invia una email dalla tua PEC, con il file XML allegato, a <b>sdi01@pec.fatturapa.it</b>.</li>
+          <li>Lo SdI ti risponderà comunicandoti un <b>indirizzo PEC-SdI dedicato</b> tutto tuo: userai quello per <b>tutti gli invii successivi</b> (non più il primo indirizzo).</li>
+          <li>Tieni le ricevute che arrivano: dicono se la fattura è stata consegnata o scartata.</li>
+        </ol>
+        <div class="opacity-70">Attenzione: mandare il file direttamente alla PEC del cliente, senza passare per lo SdI, NON vale come fattura elettronica — va sempre allo SdI prima.</div>
+      </div>
+    </details>
+    <div class="mt-2 opacity-70">Momentum prepara il file e ti indica la strada esatta, ma non può cliccare "Trasmetti" al posto tuo: serve il tuo accesso ufficiale, che noi non vediamo mai.</div>`;
     box.appendChild(div);
   }
   showToast('Guida al caricamento mostrata sotto.', 'success');
