@@ -62,6 +62,7 @@ function translateRegionLabel(region) {
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI } from './predict/tax.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
+import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
 import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
 import { taxReserveStatus } from './predict/tax-payments.js';
@@ -2095,6 +2096,22 @@ function renderTaxCashBlocks(proj, regime) {
         if (stato && stato.livello !== 'ok') {
           const col = stato.livello === 'superato' ? 'text-orange-300' : 'text-amber-300';
           html += `<div class="text-[11px] ${col} mt-1.5 leading-snug">${escapeHtml(stato.messaggio)}</div>`;
+        }
+      } else if (regime === 'ordinario') {
+        // LACUNA COLMATA: prima il regime ordinario (per chi fattura grandi
+        // numeri) aveva solo l'IVA nella singola fattura, mai la liquidazione
+        // periodica reale che deve versare. Regole verificate su fonte
+        // ufficiale (iva-liquidazione.js), stessa disciplina del forfettario.
+        const volumeAnnoPrec = accrualRevenue(invoices, anno - 1);
+        const { periodicita } = determinaPeriodicitaIva(volumeAnnoPrec);
+        const prossime = upcomingIvaLiquidazioni(invoices, anno, periodicita, { now: new Date() });
+        if (prossime[0]) {
+          const p = prossime[0];
+          html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">Prossima liquidazione IVA (${periodicita}) il ${escapeHtml(p.scadenza)}: ${escapeHtml(formatMoney(p.totaleDaVersare))} — metti via ~${escapeHtml(formatMoney(p.daMettereViaASettimana))} a settimana. ${escapeHtml(p.ivaCreditoNota)}</div>`;
+        }
+        const previsione = previsioneSuperamentoSogliaTrimestrale(invoices, anno, { now: new Date() });
+        if (previsione.messaggio) {
+          html += `<div class="text-[11px] text-amber-300 mt-1.5 leading-snug">${escapeHtml(previsione.messaggio)}</div>`;
         }
       }
       const esp = unpaidExposure(matched, { now: Date.now() });
