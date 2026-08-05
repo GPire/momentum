@@ -444,3 +444,54 @@ test('correzione refusi: non tocca parole già corrette o troppo diverse dal diz
   const r = answerQuestion('quanto ho speso in pizza questo mese?', { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15) });
   assert.equal(r.intent, 'spent');
 });
+
+// ============================================================
+// AUTO-APPRENDIMENTO (ai/qa-learning.js): una formulazione fuori dai
+// pattern fissi, confermata due volte dall'utente come "intendevo X",
+// viene riconosciuta da sola la volta successiva — collegamento reale
+// tramite ctx.qaLearning, non solo il modulo isolato.
+// ============================================================
+
+test('SCENARIO: domanda MAI riconosciuta prima della 2a conferma', () => {
+  const r = answerQuestion('quanto ho messo via questo mese', { allTx: {}, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.intent, 'unknown');
+});
+
+test('SCENARIO: con 2 conferme già date su formulazioni simili, la stessa famiglia di domanda viene riconosciuta da sola e marcata `learned:true`', () => {
+  const qaLearning = {
+    unknownLog: [],
+    learned: [{ question: 'quanto ho messo via questo mese', tokens: ['messo', 'via', 'questo', 'mese'], intent: 'savings', conferme: 2, ts: Date.now() }],
+  };
+  const r = answerQuestion('quanto ho messo via il mese', { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15), qaLearning });
+  assert.equal(r.intent, 'savings');
+  assert.equal(r.learned, true);
+});
+
+test('SCENARIO: con UNA sola conferma, la domanda resta "unknown" — mai un\'azione automatica da n=1', () => {
+  const qaLearning = {
+    unknownLog: [],
+    learned: [{ question: 'quanto ho messo via questo mese', tokens: ['messo', 'via', 'questo', 'mese'], intent: 'savings', conferme: 1, ts: Date.now() }],
+  };
+  const r = answerQuestion('quanto ho messo via il mese', { allTx: {}, referenceDate: new Date(2026, 6, 15), qaLearning });
+  assert.equal(r.intent, 'unknown');
+  assert.ok(!r.learned);
+});
+
+test('SCENARIO: una domanda già riconosciuta normalmente NON porta il badge `learned` (mai una sovra-dichiarazione)', () => {
+  const r = answerQuestion('quanto ho speso questo mese?', { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.intent, 'spent');
+  assert.ok(!r.learned);
+});
+
+test('FALLBACK: ctx.qaLearning malformato (learned non è un array, voci senza tokens) → risposta normale, nessun crash', () => {
+  for (const qaLearning of [{ learned: 'non-un-array' }, { learned: [{ intent: 'savings' }] }, {}]) {
+    const r = answerQuestion('quanto ho speso questo mese?', { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15), qaLearning });
+    assert.equal(r.intent, 'spent');
+  }
+});
+
+test('FALLBACK: senza ctx.qaLearning il comportamento resta quello di sempre (nessuna regressione)', () => {
+  const r = answerQuestion('quanto ho speso questo mese?', { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(r.intent, 'spent');
+  assert.ok(!('learned' in r) || !r.learned);
+});

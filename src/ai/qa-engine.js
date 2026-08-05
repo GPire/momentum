@@ -29,6 +29,31 @@ import { monthKey } from '../core/constants.js';
 import { detectLanguage } from '../i18n/detect.js';
 import MEASURED from '../alpha/measured-assumptions.js';
 import { findMacroConfounderWarning, macroConfounderNote } from './causal-macro-note.js';
+import { suggestLearnedIntent } from './qa-learning.js';
+
+// Una frase-innesco letterale per intento, garantita dal test dedicato a
+// combaciare col pattern italiano corrispondente in PATTERNS più sotto.
+// Usata SOLO per l'apprendimento (vedi qa-learning.js): quando l'utente ha
+// già confermato due volte che una sua formulazione significa "X", la si
+// aiuta a essere riconosciuta aggiungendo questa frase a `qMatch` — mai al
+// testo `q` che alimenta importi/categorie/periodi.
+const CANONICAL_TRIGGER = {
+  invest: 'quanto posso investire',
+  affordability: 'posso permettermi',
+  safeToSpend: 'quanto posso spendere oggi',
+  budgetLeft: 'quanto mi resta',
+  monthEnd: 'fine mese',
+  subscriptions: 'abbonamenti',
+  causal: 'cosa succede se spendo di più in',
+  topCategory: 'dove spendo',
+  savings: 'risparmiato',
+  income: 'guadagnato',
+  spent: 'quanto ho speso',
+  goal: 'obiettivo',
+  netWorth: 'patrimonio',
+  payday: 'quando mi pagano',
+  bnplOwed: 'quanto devo a rate',
+};
 
 // Arricchimento onesto per "dove posso investire" (segnalato dall'utente:
 // senza questo la domanda cadeva sulla chat generica, che con nessun dato
@@ -311,7 +336,25 @@ const UNKNOWN_MSG = {
   de: 'Das weiß ich noch nicht. Versuch es mit: "Wie viel habe ich diesen Monat ausgegeben?", "Wie viel kann ich heute ausgeben?", "Kann ich mir 50€ leisten?", "Wie werde ich den Monat beenden?", "Welche Abos zahle ich?", "Wo gebe ich am meisten aus?", "Wie viel habe ich gespart?".',
 };
 
+// Involucro sottile: calcola di nuovo (è pura ed economica) se la domanda
+// combacia con qualcosa che l'utente ha già insegnato, e se l'intento
+// davvero prodotto coincide con quello atteso lo dichiara con `learned:true`
+// — mai una risposta imparata che sembra indistinguibile da una normale.
+// Nota onesta: può marcare `learned:true` anche quando la frase-innesco non
+// era strettamente necessaria (l'intento sarebbe scattato comunque) — è
+// comunque corretto dire "questo è rinforzato da ciò che mi hai insegnato".
 export function answerQuestion(question, ctx) {
+  const risultato = answerQuestionCore(question, ctx);
+  if (ctx?.qaLearning && risultato && risultato.intent !== 'unknown') {
+    const suggerito = suggestLearnedIntent(ctx.qaLearning, question);
+    if (suggerito?.autoApplicabile && suggerito.intent === risultato.intent) {
+      risultato.learned = true;
+    }
+  }
+  return risultato;
+}
+
+function answerQuestionCore(question, ctx) {
   const q = (question || '').toLowerCase().trim();
   const ref = ctx.referenceDate || new Date();
   const allTx = ctx.allTx || {};
@@ -320,7 +363,22 @@ export function answerQuestion(question, ctx) {
   const lang = L(detectLanguage(q).lang);
   // Solo per il RICONOSCIMENTO dell'intento (matches()) — mai per estrarre
   // importi/categorie/periodi, che restano sul testo originale `q`.
-  const qMatch = correctTypos(q);
+  let qMatch = correctTypos(q);
+
+  // AUTO-APPRENDIMENTO (ctx.qaLearning, opzionale — mai una chiamata di
+  // rete qui, resta puro/sincrono): se questa formulazione (o una molto
+  // simile) è già stata confermata dall'utente almeno 2 volte come
+  // "intendevo X" (qa-learning.js, mai da un'unica conferma), si aiuta il
+  // riconoscimento ad attivarsi. Il risultato porta sempre `learned:true` —
+  // mai una risposta che sembra magica senza dire che è stata imparata.
+  let appresoIntent = null;
+  if (ctx.qaLearning) {
+    const suggerito = suggestLearnedIntent(ctx.qaLearning, question);
+    if (suggerito?.autoApplicabile && CANONICAL_TRIGGER[suggerito.intent]) {
+      appresoIntent = suggerito.intent;
+      qMatch = `${qMatch} ${CANONICAL_TRIGGER[suggerito.intent]}`;
+    }
+  }
 
   // — "quanto posso investire?"
   if (matches('invest', qMatch)) {

@@ -116,6 +116,7 @@ import { derivePriors, seedBanditState } from './predict/onboarding-priors.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
+import { recordUnknownQuestion, learnCorrection, qaLearningCoverage } from './ai/qa-learning.js';
 import { mergeMorphology, initMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANGS } from './i18n/detect.js';
@@ -179,6 +180,10 @@ function askMomentum(text) {
     // subito, prima di aver mai aperto il grafo), resta null e il QA
     // funziona comunque com'è sempre stato — additivo, mai bloccante.
     macroContext: __macroContextCache,
+    // src/ai/qa-learning.js: apprendimento locale, per-utente, delle
+    // formulazioni che i pattern fissi non riconoscono — vedi askMomentum
+    // più sotto per dove si registra/insegna.
+    qaLearning: VaultDAO.state.qaLearning,
   };
   // Chatbot multilingua (src/ai/chat.js): se rileva EN/ES risponde in quella
   // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
@@ -6721,10 +6726,18 @@ const navigate = (view) => {
   function renderCloudFallbackLogPanel() {
     const box = document.getElementById('cloud-fallback-log');
     if (!box) return;
+    // Numero VERO, non un'etichetta: quante famiglie di domande il QA ha
+    // imparato a riconoscere da solo (qa-learning.js) — cresce più in fretta
+    // delle correzioni fatte a mano perché ognuna copre tutte le
+    // formulazioni simili future, non solo quella esatta insegnata.
+    const cop = qaLearningCoverage(VaultDAO.state.qaLearning);
+    const coverageLine = cop.famiglieRiconosciute > 0
+      ? `<div class="mb-2 text-[var(--primary)]">Il QA riconosce ormai ${cop.famiglieRiconosciute} modo${cop.famiglieRiconosciute === 1 ? '' : 'i'} diverso${cop.famiglieRiconosciute === 1 ? '' : 'i'} in cui fai le domande${cop.famiglieInAttesaDiConferma ? ` (+${cop.famiglieInAttesaDiConferma} in attesa di una seconda conferma)` : ''}.</div>`
+      : '';
     const log = (VaultDAO.state.mlData.cloudFallbackLog || []).slice().reverse();
-    box.innerHTML = log.length
+    box.innerHTML = coverageLine + (log.length
       ? log.map(e => `<div>"${String(e.q).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]))}"</div>`).join('')
-      : '<div class="text-slate-500">Ancora nessuna — appariranno qui man mano che fai domande fuori dai tuoi soldi.</div>';
+      : '<div class="text-slate-500">Ancora nessuna — appariranno qui man mano che fai domande fuori dai tuoi soldi.</div>');
   }
   window.renderCloudFallbackLogPanel = renderCloudFallbackLogPanel;
   // Ingresso SCAGLIONATO del contenuto della sezione (ri-attiva l'animazione ad
@@ -7208,6 +7221,11 @@ const initApp = () => {
   // risponde Momentum stesso, l'eyebrow lo dice subito, stessa grammatica
   // visiva della risposta cloud (etichetta in testa, mai un blob di testo nudo).
   const ICON_QA_MOMENTUM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 inline-block"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
+  // Scintilla a 4 punte (stessa famiglia visiva delle altre icone QA: line-art,
+  // stroke-width 2) — segna una risposta guidata da ciò che l'utente ha
+  // insegnato al QA (qa-learning.js), mai un'emoji fuori registro col resto
+  // dell'interfaccia.
+  const ICON_QA_LEARNED = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3 inline-block"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6.5 6.5l1.8 1.8M15.7 15.7l1.8 1.8M6.5 17.5l1.8-1.8M15.7 8.3l1.8-1.8"/></svg>`;
   function replayQaAnimation() {
     qaAnswer.classList.remove('qa-answer-in'); void qaAnswer.offsetWidth; qaAnswer.classList.add('qa-answer-in');
   }
@@ -7362,9 +7380,17 @@ const initApp = () => {
         ? { cls: 'bg-emerald-950/20 border border-emerald-500/20 text-emerald-200', label: 'text-emerald-400', strong: 'text-emerald-300' }
         : { cls: 'bg-sky-950/15 border border-sky-500/20 text-sky-100', label: 'text-sky-400', strong: 'text-sky-300' };
     const chart = buildQaChart(res, { monthlyBudget: VaultDAO.state.monthlyBudget });
+    // Trasparenza (stessa regola già applicata alla risposta cloud, mai una
+    // risposta che sembra "magica"): quando l'intento è scattato grazie a
+    // ciò che l'utente stesso ha insegnato (qa-engine.js, `learned:true`),
+    // lo si dichiara in chiaro invece di nasconderlo dentro una risposta
+    // indistinguibile da una normale.
+    const learnedBadge = res.learned
+      ? ` <span class="qa-learned-badge text-[9px] font-normal normal-case tracking-normal inline-flex items-center gap-0.5" style="color:var(--primary)"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_LEARNED}</span> imparato da te</span>`
+      : '';
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + tone.cls;
     qaAnswer.innerHTML = `
-      <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum</h4>
+      <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum${learnedBadge}</h4>
       <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>${chart}`;
     replayQaAnimation();
   }
@@ -7390,6 +7416,50 @@ const initApp = () => {
         </div>
       </div>`;
     replayQaAnimation();
+  }
+  // AUTO-APPRENDIMENTO DEL QA (src/ai/qa-learning.js) — quando una domanda
+  // non viene riconosciuta (motore locale O provider esterno, "anche quando
+  // le risposte sono delegate a terzi": vale su ENTRAMBI i percorsi), si
+  // registra la formulazione (mai il contenuto della risposta, stesso
+  // perimetro già stabilito per cloudFallbackLog) e si propongono i temi più
+  // comuni: se l'utente ne tocca uno, quella è una CONFERMA ESPLICITA — mai
+  // un'inferenza silenziosa — che rinforza l'apprendimento. Solo alla
+  // seconda conferma su formulazioni simili il QA la riconosce da solo la
+  // volta successiva (qa-learning.js, CONFERME_PER_AUTOAPPLICARE=2): mai
+  // un'azione automatica da un caso isolato.
+  const QA_LEARN_TOPICS = [
+    { intent: 'spent', label: 'Quanto ho speso' },
+    { intent: 'savings', label: 'Quanto ho risparmiato' },
+    { intent: 'subscriptions', label: 'I miei abbonamenti' },
+    { intent: 'budgetLeft', label: 'Quanto mi resta' },
+    { intent: 'netWorth', label: 'Il mio patrimonio' },
+    { intent: 'bnplOwed', label: 'Le mie rate' },
+  ];
+  function recordQaUnknown(question) {
+    VaultDAO.state.qaLearning = recordUnknownQuestion(VaultDAO.state.qaLearning, question);
+    VaultDAO.save();
+  }
+  // Icona-bersaglio (stessa famiglia line-art, 2px stroke): "questo era ciò
+  // che intendevo" — un cerchio con centro, non un punto interrogativo (che
+  // suonerebbe come un altro "non lo so", il contrario del messaggio).
+  const ICON_QA_TEACH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-2.5 h-2.5 inline-block"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>`;
+  function renderQaLearnPrompt(question) {
+    const chips = QA_LEARN_TOPICS.map(({ intent, label }) =>
+      `<button class="qa-learn-chip text-[9px] px-2 py-1 rounded-lg border inline-flex items-center gap-1 text-[var(--on-surface-secondary)]" data-learn-intent="${intent}" data-learn-question="${escapeHtml(question)}"><span style="color:var(--primary)">${ICON_QA_TEACH}</span>${escapeHtml(label)}</button>`,
+    ).join('');
+    const box = document.createElement('div');
+    box.className = 'mt-2 pt-2 border-t border-white/5';
+    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">Aiutami a capire — intendevi una di queste?</p><div class="flex flex-wrap gap-1.5">${chips}</div>`;
+    qaAnswer.appendChild(box);
+    box.querySelectorAll('[data-learn-intent]').forEach((btn) => btn.addEventListener('click', () => {
+      const q = btn.dataset.learnQuestion, intent = btn.dataset.learnIntent;
+      VaultDAO.state.qaLearning = learnCorrection(VaultDAO.state.qaLearning, q, intent);
+      VaultDAO.save();
+      haptic('light');
+      const res = askMomentum(q);
+      styleQaAnswer(res);
+      if (res.intent === 'unknown') { recordQaUnknown(q); renderQaLearnPrompt(q); }
+    }));
   }
   // Le chat generiche (Gemini ecc.) rispondono in Markdown leggero
   // (**grassetto**, a capo) — verificato dal vivo: senza questo passaggio
@@ -7954,6 +8024,12 @@ const initApp = () => {
       haptic('light');
       const keys = VaultDAO.state.liveDataKeys || {};
       const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;
+      if (res.intent === 'unknown' && !hasCloudKey) {
+        // Nessuna chiave cloud configurata: la domanda resta comunque un
+        // segnale di apprendimento locale, sempre disponibile.
+        recordQaUnknown(question);
+        renderQaLearnPrompt(question);
+      }
       if (res.intent === 'unknown' && hasCloudKey) {
         showQaThinking(res.answer);
         // Riconoscimento DINAMICO dell'asset (richiesta esplicita: il regex
@@ -8012,6 +8088,13 @@ const initApp = () => {
         } catch (e) {
           showQaCloudError(res.answer, e.message);
         }
+        // Apprendimento locale ANCHE quando la risposta è stata delegata a
+        // un provider esterno: la domanda restava fuori dal riconoscimento
+        // di Momentum comunque, e insegnargli il tema serve a farla
+        // riconoscere in locale la prossima volta, senza dover uscire di
+        // nuovo verso terzi.
+        recordQaUnknown(question);
+        renderQaLearnPrompt(question);
       }
     };
     qaSend.onclick = ask;
