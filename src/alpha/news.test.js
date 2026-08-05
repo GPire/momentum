@@ -143,6 +143,32 @@ test('fetchHackerNewsMentions: forma reale → titoli reali, punti/commenti come
   assert.equal(r.items[0].summary, null); // onesto: mai un riassunto inventato per l'articolo mai letto
 });
 
+test('fetchHackerNewsMentions: usa l\'endpoint cronologico (search_by_date), non quello per rilevanza — BUG REALE segnalato dal vivo: la rilevanza faceva risalire post virali vecchissimi al posto di notizie attuali', async () => {
+  let urlUsata = null;
+  const fetchImpl = async (url) => { urlUsata = url; return { ok: true, json: async () => ({ hits: [] }) }; };
+  await fetchHackerNewsMentions('Apple', { fetchImpl });
+  assert.match(urlUsata, /\/search_by_date\?/);
+  assert.doesNotMatch(urlUsata, /\/search\?/); // mai l'endpoint per rilevanza
+});
+
+test('fetchHackerNewsMentions: uno scarto oltre ~400 giorni viene escluso, mai spacciato per notizia attuale', async () => {
+  const oggi = new Date();
+  const recente = new Date(oggi.getTime() - 10 * 86_400_000).toISOString();
+  const vecchissima = new Date(oggi.getTime() - 800 * 86_400_000).toISOString();
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      hits: [
+        { title: 'Discussione recente su Apple', url: 'https://x.test/1', points: 50, num_comments: 5, created_at: recente },
+        { title: 'Apple stock under Jobs: from $10 to $400', url: 'https://x.test/2', points: 900, num_comments: 300, created_at: vecchissima },
+      ],
+    }),
+  });
+  const r = await fetchHackerNewsMentions('Apple', { fetchImpl });
+  assert.equal(r.items.length, 1);
+  assert.equal(r.items[0].title, 'Discussione recente su Apple');
+});
+
 test('fetchHackerNewsMentions: offline CON cache → ripiega sulla cache, dichiarata stale', async () => {
   const cached = { symbol: 'Apple', asOf: '2026-07-01T00:00:00Z', items: [{ title: 'vecchia discussione' }] };
   const cache = { get: async () => cached, put: async () => {} };

@@ -127,10 +127,21 @@ export async function fetchFinnhubNews(symbol, { apiKey, fetchImpl = fetch, limi
 // (mai un sentiment inventato: qui non esiste un punteggio, solo i
 // punti/commenti reali come segnale di interesse, dichiarati come tali,
 // non come "sentiment").
+// BUG REALE segnalato dal vivo dall'utente ("notizie che non esistono più
+// oppure vecchissime"): l'endpoint di default di Algolia (`/search`)
+// ordina per RILEVANZA/punti, non per data — un post virale di anni fa su
+// un'azienda nota (es. "Apple's stock under Jobs: from $10 to $400")
+// batteva sempre qualunque discussione realmente recente. `/search_by_date`
+// ordina cronologicamente; `restrictSearchableAttributes=title` tiene la
+// ricerca sul titolo (altrimenti il match su testo/commenti fa risalire
+// storie non pertinenti). Filtro di sicurezza aggiuntivo: uno scarto oltre
+// MAX_ETA_GIORNI non viene mai mostrato spacciato per "notizia attuale",
+// anche se fosse l'unico risultato — mai stale silenzioso.
+const MAX_ETA_GIORNI_HN = 400;
 export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit = 5, cache = null } = {}) {
   if (!query) throw new Error('Serve un nome o simbolo da cercare.');
   const cacheKey = `hn-news:${query.toLowerCase()}`;
-  const url = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(query)}&tags=story&hitsPerPage=${limit}`;
+  const url = `https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(query)}&tags=story&hitsPerPage=${limit}&restrictSearchableAttributes=title`;
   let json;
   try {
     const res = await fetchImpl(url);
@@ -143,7 +154,9 @@ export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit 
     }
     throw err;
   }
-  const hits = Array.isArray(json?.hits) ? json.hits : [];
+  const sogliaEta = Date.now() - MAX_ETA_GIORNI_HN * 86_400_000;
+  const hits = (Array.isArray(json?.hits) ? json.hits : [])
+    .filter((h) => !h.created_at || new Date(h.created_at).getTime() >= sogliaEta);
   const items = hits.filter(h => h.url).map((h) => ({
     title: h.title,
     url: h.url,
