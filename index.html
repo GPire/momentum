@@ -789,6 +789,20 @@
     @media (min-width: 1024px) {
       #modal-content { max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
     }
+    /* BUG REALE trovato dal vivo (segnalato dall'utente come "tutto offuscato
+       al primo avvio, si sblocca solo toccando lo schermo"): #modal-container
+       porta insieme "hidden" (display:none) e "lg:flex" (per centrare il
+       modale da desktop, fix della parte 26 di questa sessione) — stessa
+       specificità di selettore, e a ≥1024px "lg:flex" viene generato DOPO
+       "hidden" nel foglio Tailwind, quindi vince SEMPRE: il contenitore
+       restava a display:flex anche a modale chiuso, e con lui il suo
+       #modal-backdrop (nero all'80%, fixed inset-0) — uno strato scuro
+       permanente su TUTTA l'app da desktop in su, finché un tap non faceva
+       partire closeModal() e ne azzerava l'opacità via JS (il "si sblocca").
+       Fix alla radice: una regola più specifica (id.classe) forza SEMPRE
+       display:none quando "hidden" è presente, qualunque sia l'ordine con
+       cui Tailwind genera le utility responsive. */
+    #modal-container.hidden { display: none !important; }
     /* Apertura: leggero "pop" morbido con overshoot (coerente col resto del
        sistema di motion). Chiusura: mai overshoot, curva più rapida e lineare —
        la classe .modal-closing (aggiunta da closeModal) sostituisce la curva. */
