@@ -18,7 +18,24 @@ const PATTERNS = [
   // immobiliare?"): niente "di/su/con" da estrarre, cattura direttamente
   // la frase dopo il verbo.
   /\b(?:come\s+(?:è|sta|è\s+andat[ao]|va))\b\s+(?:il\s+|lo\s+|la\s+)?(mercato\s+immobiliare|settore\s+immobiliare|immobiliare)\b/i,
+  // BUG REALE segnalato dal vivo dall'utente: "quanto vale bitcoin?" e
+  // "prezzo bitcoin" (senza "di") non trovavano NESSUN pattern e finivano
+  // silenziosamente nella risposta generica "questa non la so ancora" del
+  // QA, anche se il prezzo era disponibile — proprio le due formulazioni
+  // più naturali per chiedere una quotazione. La guardia POSSESSIVO_ASSET
+  // più sotto impedisce che "quanto vale il MIO patrimonio" (intento di
+  // finanza personale, già gestito da qa-engine.js) venga rubato da qui.
+  // Niente \b dopo "è": non essendo un carattere di parola per il motore
+  // regex, \b accanto a una vocale accentata non trova mai un confine (bug
+  // reale trovato dal test — "a quanto è tesla?" non veniva riconosciuto).
+  /(?:\bquanto\s+(?:vale|costa|è)|\ba\s+quanto\s+è)\s+(?:un['’]?|una|il|la|lo)?\s*(.+)/i,
+  /\b(?:prezzo|quotazione|price)\b\s+(?:di\s+|of\s+|del\s+|della\s+)?(.+)/i,
 ];
+
+// "quanto vale IL MIO patrimonio/conto/risparmi..." è finanza personale
+// (qa-engine.js), mai una richiesta di prezzo di mercato — un vero utente
+// non chiede mai il prezzo di un asset con un possessivo davanti.
+const POSSESSIVO_ASSET = /\bmi[oae]i?\b/i;
 
 // Rumore comune da ripulire dalla coda estratta ("...di oggi", "?", ecc.) —
 // consuma anche la preposizione che precede la parola temporale ("di oggi",
@@ -33,7 +50,7 @@ export function detectNewsIntent(question) {
     if (m) {
       let asset = (m[2] || m[1] || '').trim();
       asset = asset.replace(TRAILING_NOISE, '').replace(/[?!.]+$/, '').trim();
-      if (asset.length >= 2) return { asset };
+      if (asset.length >= 2 && !POSSESSIVO_ASSET.test(asset)) return { asset };
     }
   }
   return null;
