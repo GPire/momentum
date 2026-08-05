@@ -3593,25 +3593,33 @@ function initTelemetryToggle() {
   // Avviso ESPLICITO al primissimo avvio (mai silenzioso): attivo di
   // default, ma l'utente lo scopre subito con un modo immediato per
   // disattivarlo, non solo sepolto in Impostazioni.
-  if (needsTelemetryDisclosure()) {
-    markTelemetryDisclosed();
+  // BUG REALE segnalato dal vivo ("escono molti messaggi del Momentum
+  // Vault al primo avvio"): questa e la disclosure della chat generica
+  // qui sotto partivano come DUE toast separati (a 2,5s e 4,5s) proprio nei
+  // primi istanti in cui un utente nuovo guarda l'app per la prima volta —
+  // il momento in cui è già più sensibile a "sembra complicato". Entrambe
+  // riguardano la stessa cosa (privacy/opt-out) e vanno quasi sempre
+  // insieme al primo avvio: ora si combinano in UN solo messaggio quando
+  // servono entrambe, e restano singole solo per chi ne ha già vista una
+  // (es. utente esistente che aggiorna l'app).
+  const ctxCb = document.getElementById('chat-context-optin');
+  if (ctxCb) ctxCb.checked = VaultDAO.state.chatContextOptIn !== false;
+  const needsTelemetry = needsTelemetryDisclosure();
+  const needsChatCtx = !localStorage.getItem('momentum_chatctx_disclosed');
+  if (needsTelemetry) markTelemetryDisclosed();
+  if (needsChatCtx) localStorage.setItem('momentum_chatctx_disclosed', '1');
+  if (needsTelemetry && needsChatCtx) {
+    setTimeout(() => {
+      showToast('Un numero anonimo (mai i tuoi dati) aiuta Momentum a crescere, e la chat generica include un riassunto anonimo della tua situazione (mai le transazioni). Entrambi disattivabili in Momentum Vault.', 'info');
+    }, 2500);
+  } else if (needsTelemetry) {
     setTimeout(() => {
       showToast('Un numero anonimo (mai i tuoi dati) aiuta Momentum a crescere. Disattivabile in Momentum Vault.', 'info');
     }, 2500);
-  }
-  // Attivo di DEFAULT (opt-out, richiesta esplicita dell'utente 2026-07-27):
-  // `!== false` invece di `!!` così chi non l'ha mai toccato lo trova acceso,
-  // ma chi l'ha disattivato esplicitamente resta rispettato per sempre.
-  const ctxCb = document.getElementById('chat-context-optin');
-  if (ctxCb) ctxCb.checked = VaultDAO.state.chatContextOptIn !== false;
-  // Avviso ESPLICITO una tantum del nuovo default (stesso principio del
-  // conteggio anonimo: mai un cambio silenzioso) — mostrato una volta sola,
-  // a prescindere da cosa l'utente sceglierà dopo.
-  if (!localStorage.getItem('momentum_chatctx_disclosed')) {
-    localStorage.setItem('momentum_chatctx_disclosed', '1');
+  } else if (needsChatCtx) {
     setTimeout(() => {
       showToast('La chat generica ora include di default un riassunto anonimo della tua situazione (mai transazioni). Disattivabile in Momentum Vault.', 'info');
-    }, 4500);
+    }, 2500);
   }
   const animCb = document.getElementById('force-anim-optin');
   if (animCb) animCb.checked = !!VaultDAO.state.forceAnimations;
