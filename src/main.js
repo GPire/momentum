@@ -61,6 +61,10 @@ function translateRegionLabel(region) {
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine } from './predict/tax.js';
+import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
+import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
+import { taxReserveStatus } from './predict/tax-payments.js';
+import { rulesForYear } from './predict/tax-rules.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
@@ -2041,6 +2045,68 @@ const renderAnalysis = (opts = {}) => {
   renderTax(k);
 };
 
+// ── I TRE BLOCCHI CHE NESSUN PORTALE PUÒ MOSTRARE ──────────────────────────
+// Portano a schermo i motori costruiti a parte e finora invisibili:
+//  1. il tetto forfettario misurato sugli INCASSI (tax-cash-basis.js) — il
+//     numero giusto, non il fatturato che tutti guardano per sbaglio;
+//  2. chi non ti paga e da quanto — visibile perché Momentum vede sia le
+//     fatture emesse sia i soldi entrati, cosa che un portale non può fare;
+//  3. la prossima scadenza con un PIANO settimanale concreto
+//     (tax-deadlines.js), mai un allarme senza soluzione.
+// Ogni blocco compare SOLO quando ha qualcosa di vero da dire: una card che
+// parla sempre smette di essere letta.
+function renderTaxCashBlocks(proj, regime) {
+  let html = '';
+  try {
+    const invoices = VaultDAO.state.invoices || [];
+    const anno = new Date().getFullYear();
+
+    // 1 + 2: servono le fatture emesse. Senza, questi blocchi non hanno
+    // materia — e non si inventa nulla.
+    if (invoices.length) {
+      const matched = matchInvoicePayments(invoices, VaultDAO.state.transactions || {});
+      if (regime && String(regime).startsWith('forfettario')) {
+        const tetto = rulesForYear(anno).forfettarioCeiling;
+        const stato = ceilingStatusByCash(cashBasisRevenue(matched, anno), accrualRevenue(invoices, anno), tetto);
+        // Il livello 'ok' non si mostra: sarebbe rumore. Si parla solo
+        // quando c'è davvero qualcosa da sapere.
+        if (stato && stato.livello !== 'ok') {
+          const col = stato.livello === 'superato' ? 'text-orange-300' : 'text-amber-300';
+          html += `<div class="text-[11px] ${col} mt-1.5 leading-snug">${escapeHtml(stato.messaggio)}</div>`;
+        }
+      }
+      const esp = unpaidExposure(matched, { now: Date.now() });
+      if (esp.numero > 0) {
+        const col = esp.inRitardo > 0 ? 'text-amber-300' : 'text-[var(--on-surface-secondary)]';
+        html += `<div class="text-[11px] ${col} mt-1.5 leading-snug">${escapeHtml(esp.messaggio)}</div>`;
+      }
+    }
+
+    // 3: la prossima scadenza + quanto mettere via a settimana. Il "già
+    // versato" viene dai versamenti che l'utente ha dichiarato
+    // (tax-payments.js): mai dare per scontato che non abbia pagato nulla.
+    const versamenti = VaultDAO.state.taxPayments || [];
+    const riserva = taxReserveStatus(proj.estimatedAnnualTax, versamenti);
+    const deadlines = upcomingTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
+    const avviso = taxCashWarning(deadlines, null);
+    if (avviso) {
+      const col = avviso.urgenza === 'alta' ? 'text-orange-300' : avviso.urgenza === 'ok' ? 'text-emerald-300' : 'text-[var(--on-surface-secondary)]';
+      html += `<div class="text-[11px] ${col} mt-1.5 leading-snug">${escapeHtml(avviso.messaggio)}</div>`;
+      // Regole vecchie (utente che non aggiorna da anni): lo dice qui, dove
+      // sta guardando i soldi, invece di nasconderlo in un pannello tecnico.
+      const scad = deadlines[0];
+      if (scad && scad.regoleAggiornate === false) {
+        html += `<div class="text-[10px] text-amber-300/80 mt-1 leading-snug">${escapeHtml(scad.avvisoRegole)}</div>`;
+      }
+    }
+  } catch (e) {
+    // Onesto: se un blocco non si può calcolare, il resto della card resta
+    // valido — mai far cadere tutta la schermata per un blocco in più.
+    console.warn('Blocchi fiscali avanzati non disponibili:', e);
+  }
+  return html;
+}
+
 // Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
 // abilitato il regime P.IVA (VaultDAO.state.taxRegime) o ha entrate rilevanti.
 function renderTax(monthK) {
@@ -2099,6 +2165,7 @@ function renderTax(monthK) {
           const col = a.priority === 'high' ? 'text-orange-300' : a.priority === 'medium' ? 'text-amber-300' : 'text-emerald-300';
           html += `<div class="text-[11px] ${col} mt-1">${a.icon} ${a.text}</div>`;
         }
+        html += renderTaxCashBlocks(proj, regime);
       }
     }
     // ── CONFERMA APPRESA: le entrate incerte diventano un tap "è una fattura?" ──
