@@ -779,8 +779,16 @@
       #import-progress, #pdf-progress-overlay, #ota-overlay { padding-top: env(safe-area-inset-top, 0px); }
     }
     /* I modali salgono dal basso: rispettano la home-indicator (già via
-       --safe-bottom) e non superano mai l'altezza visibile reale (dvh). */
+       --safe-bottom) e non superano mai l'altezza visibile reale (dvh).
+       Bug reale trovato dal vivo: questa regola con selettore #id ha
+       specificità più alta della classe Tailwind "lg:max-h-[85dvh]", quindi
+       vinceva SEMPRE anche da desktop — il modale restava alto il 92% anche
+       dove il markup chiedeva l'85%, spingendo il contenuto sotto il bordo
+       reale della finestra e facendolo sparire dietro il footer fisso. */
     #modal-content { max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
+    @media (min-width: 1024px) {
+      #modal-content { max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
+    }
     /* Apertura: leggero "pop" morbido con overshoot (coerente col resto del
        sistema di motion). Chiusura: mai overshoot, curva più rapida e lineare —
        la classe .modal-closing (aggiunta da closeModal) sostituisce la curva. */
@@ -2105,9 +2113,19 @@
   </button>
 
   <!-- ===================== MODALS ===================== -->
-  <div id="modal-container" class="fixed inset-0 z-[200] hidden">
+  <div id="modal-container" class="fixed inset-0 z-[200] hidden lg:flex lg:items-center lg:justify-center">
     <div id="modal-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md" onclick="closeModal()"></div>
-    <div id="modal-content" class="absolute bottom-0 w-full lg:w-[460px] lg:left-1/2 lg:-translate-x-1/2 lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 bg-[var(--surface-solid)] border border-[var(--glass-border)] rounded-t-[2.5rem] lg:rounded-[2rem] shadow-2xl transition-transform duration-300 transform translate-y-full lg:translate-y-0 lg:scale-95 opacity-0 flex flex-col max-h-[92dvh] lg:max-h-[85dvh]" style="padding-bottom: var(--safe-bottom)">
+    <!-- Bug reale trovato dal vivo: "lg:-translate-y-1/2" (centratura verticale
+         desktop) e "lg:translate-y-0" (annulla lo scorrimento da mobile) sono
+         due utility Tailwind che scrivono la STESSA variabile di trasformazione
+         — non possono convivere sullo stesso elemento, e vinceva sempre
+         translate-y-0: da desktop il modale non era mai centrato, restava
+         ancorato in alto e sporgeva sotto il bordo reale della finestra.
+         Fix alla radice: la centratura desktop passa al genitore flex
+         (lg:flex lg:items-center lg:justify-center qui sopra), qui basta
+         uscire dal posizionamento assoluto con lg:relative — zero transform
+         in conflitto. -->
+    <div id="modal-content" class="absolute bottom-0 w-full lg:static lg:w-[460px] bg-[var(--surface-solid)] border border-[var(--glass-border)] rounded-t-[2.5rem] lg:rounded-[2rem] shadow-2xl transition-transform duration-300 transform translate-y-full lg:translate-y-0 lg:scale-95 opacity-0 flex flex-col max-h-[92dvh] lg:max-h-[85dvh]" style="padding-bottom: var(--safe-bottom)">
       <div class="w-12 h-1.5 bg-[var(--outline)] rounded-full mx-auto mt-3 mb-2 md:hidden shrink-0"></div>
       <button onclick="closeModal()" class="absolute top-3 right-3 w-10 h-10 flex items-center justify-center rounded-full bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface)] shadow-lg z-10 lg:top-4 lg:right-4">✕</button>
       <div id="modal-body" class="p-3 overflow-y-auto flex-1 min-h-0"></div>

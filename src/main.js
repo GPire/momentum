@@ -6884,7 +6884,15 @@ window.closeModal = () => {
   $('#modal-content').classList.add('modal-closing');
   $('#modal-content').classList.add('translate-y-full', 'lg:scale-95', 'opacity-0');
   $('#modal-backdrop').style.opacity = '0';
-  setTimeout(() => $('#modal-container').classList.add('hidden'), 300);
+  setTimeout(() => {
+    $('#modal-container').classList.add('hidden');
+    // Bug reale trovato dal vivo: il piè di pagina è `position:fixed`, quindi
+    // sta FUORI da #modal-container — nasconderlo qui e non solo il
+    // contenitore lo lasciava visibile e cliccabile sopra la pagina anche a
+    // modale chiusa, per ogni modulo che lo usa (es. "Crea fattura").
+    $('#modal-footer').classList.add('hidden');
+    $('#modal-body').style.paddingBottom = '';
+  }, 300);
 };
 
 // Editor budget mensile a bassa frizione (src/predict/budget-advisor.js):
