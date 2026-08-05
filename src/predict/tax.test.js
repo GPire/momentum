@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, FORFETTARIO_CEILING, REGIMI } = await import('./tax.js');
+const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI } = await import('./tax.js');
+
+function fattura(desc, amount = 1000, date = '2026-03-10') {
+  return { type: 'entrata', description: desc, amount, date };
+}
 
 test('forfettario: scomposizione INPS + imposta, netto coerente', () => {
   const r = taxSetAside(1000, { regime: 'forfettario' });
@@ -61,6 +65,173 @@ test('ordinario: fatturato piccolo E grande restano entrambi calcolabili senza c
     assert.equal(r.net, +(importo - r.setAside).toFixed(2));
     assert.ok(r.setAside > 0 && r.setAside < importo);
   }
+});
+
+// ============================================================
+// FORFETTARIO — ogni scenario, non solo il caso professionisti di default.
+// BUG REALE trovato testando: ATECO_COEFFICIENTI (commercio 40%, costruzioni
+// 86%, intermediari 62%, altre 67%) esiste ma non è collegato da NESSUNA
+// parte del codice — taxSetAside usa sempre il coefficiente "professionisti"
+// (78%) di REGIMI.forfettario, a prescindere dal settore reale dichiarato.
+// Per un commerciante questo SOVRASTIMA pesantemente l'accantonamento
+// (tassa il 78% del fatturato come reddito invece del 40% reale). Il
+// meccanismo di override ESISTE già (opts.overrides) — qui si dimostra che
+// funziona correttamente quando usato; il collegamento automatico (dedurre
+// l'ATECO e passarlo da soli) è il prossimo passo, non ancora fatto.
+// ============================================================
+
+test('FORFETTARIO ogni ATECO: coefficienti diversi producono accantonamenti materialmente diversi (via overrides)', () => {
+  const risultati = {};
+  for (const [settore, { coeff }] of Object.entries(ATECO_COEFFICIENTI)) {
+    risultati[settore] = taxSetAside(10000, { regime: 'forfettario', overrides: { coeffRedditivita: coeff } }).setAside;
+  }
+  // Costruzioni (86%) deve accantonare più di commercio (40%) sullo stesso
+  // fatturato: sono settori con margini presunti molto diversi.
+  assert.ok(risultati.costruzioni > risultati.commercio, `costruzioni ${risultati.costruzioni} vs commercio ${risultati.commercio}`);
+  assert.ok(risultati.professionisti > risultati.commercio);
+});
+
+test('FORFETTARIO: SENZA override esplicito, usa sempre "professionisti" (78%) — dichiara il gap, non lo nasconde', () => {
+  // Documenta lo stato attuale: un forfettario "commercio" che non passa
+  // l'override viene comunque calcolato come se fosse un professionista.
+  // Questo test fallirà (correttamente) il giorno in cui l'inferenza
+  // automatica dell'ATECO verrà collegata — è il segnale che serve.
+  const default_ = taxSetAside(10000, { regime: 'forfettario' });
+  const commercioEsplicito = taxSetAside(10000, { regime: 'forfettario', overrides: { coeffRedditivita: ATECO_COEFFICIENTI.commercio.coeff } });
+  assert.notEqual(default_.setAside, commercioEsplicito.setAside);
+});
+
+test('FORFETTARIO: coefficiente commercio (40%) accantona meno di metà rispetto a professionisti (78%) sullo stesso fatturato', () => {
+  const professionisti = taxSetAside(20000, { regime: 'forfettario', overrides: { coeffRedditivita: ATECO_COEFFICIENTI.professionisti.coeff } });
+  const commercio = taxSetAside(20000, { regime: 'forfettario', overrides: { coeffRedditivita: ATECO_COEFFICIENTI.commercio.coeff } });
+  assert.ok(commercio.setAside < professionisti.setAside * 0.6);
+});
+
+test('FORFETTARIO: fatturato esattamente al tetto (85.000€) → ancora forfettario, non ancora oltre', () => {
+  const s = suggestRegime(FORFETTARIO_CEILING);
+  assert.equal(s.suggested, 'forfettario');
+  assert.equal(s.overCeiling, false);
+});
+
+test('FORFETTARIO: un euro sopra il tetto → passa a ordinario', () => {
+  const s = suggestRegime(FORFETTARIO_CEILING + 1);
+  assert.equal(s.suggested, 'ordinario');
+  assert.equal(s.overCeiling, true);
+});
+
+test('FORFETTARIO: fatturato zero → suggerisce forfettario (0% del tetto), nessun crash', () => {
+  const s = suggestRegime(0);
+  assert.equal(s.suggested, 'forfettario');
+  assert.equal(s.pctOfCeiling, 0);
+});
+
+test('FORFETTARIO STARTUP: stesso coefficiente di redditività del forfettario normale, cambia solo l\'imposta', () => {
+  assert.equal(REGIMI.forfettario_startup.coeffRedditivita, REGIMI.forfettario.coeffRedditivita);
+  assert.equal(REGIMI.forfettario_startup.inps, REGIMI.forfettario.inps);
+});
+
+test('FORFETTARIO: fatturato molto piccolo (es. 50€, un primo cliente) → accantonamento coerente, mai zero per arrotondamento', () => {
+  const r = taxSetAside(50, { regime: 'forfettario' });
+  assert.ok(r.setAside > 0 && r.setAside < 50);
+});
+
+test('FORFETTARIO: overrides personalizzati NON intaccano il regime ordinario nella stessa sessione (nessuna mutazione condivisa)', () => {
+  taxSetAside(10000, { regime: 'forfettario', overrides: { coeffRedditivita: 0.4 } });
+  const dopo = taxSetAside(1000, { regime: 'forfettario' });
+  // Deve tornare al default 78%, non restare "sporcato" dall'override precedente.
+  const atteso = taxSetAside(1000, { regime: 'forfettario', overrides: { coeffRedditivita: REGIMI.forfettario.coeffRedditivita } });
+  assert.equal(dopo.setAside, atteso.setAside);
+});
+
+// ============================================================
+// inferAtecoSettore — SIMULAZIONI DI SCENARIO, ogni settore ATECO, ogni
+// caso limite: nessuna fattura, segnale unico (troppo debole), segnale
+// netto, settori misti/discordi, e l'effetto finale su taxSetAside.
+// ============================================================
+
+test('SCENARIO: nessuna transazione → nessuna inferenza, motivo onesto', () => {
+  const r = inferAtecoSettore([]);
+  assert.equal(r.inferred, false);
+  assert.equal(r.settore, 'professionisti');
+  assert.match(r.reason, /nessuna fattura/);
+});
+
+test('SCENARIO: solo entrate NON-fattura (stipendio/personale) → nessun segnale, default invariato', () => {
+  const r = inferAtecoSettore([
+    { type: 'entrata', description: 'stipendio mensile', amount: 2000, date: '2026-03-01' },
+    { type: 'entrata', description: 'rimborso spese viaggio', amount: 50, date: '2026-03-05' },
+  ]);
+  assert.equal(r.inferred, false);
+});
+
+test('SCENARIO: UNA sola fattura con parola di settore → segnale troppo debole, resta professionisti', () => {
+  const r = inferAtecoSettore([fattura('vendita prodotti al cliente')]);
+  assert.equal(r.inferred, false, 'una sola fattura non deve bastare a cambiare il default');
+});
+
+test('SCENARIO: due o più fatture concordi su "commercio" → inferenza corretta', () => {
+  const r = inferAtecoSettore([
+    fattura('vendita prodotti online cliente A'),
+    fattura('vendita merce cliente B'),
+    fattura('fattura vendita articoli cliente C'),
+  ]);
+  assert.equal(r.inferred, true);
+  assert.equal(r.settore, 'commercio');
+  assert.equal(r.coeff, ATECO_COEFFICIENTI.commercio.coeff);
+});
+
+test('SCENARIO: due fatture concordi su "costruzioni" (edile/cantiere) → inferenza corretta', () => {
+  const r = inferAtecoSettore([
+    fattura('fattura cliente per lavori edili ristrutturazione appartamento'),
+    fattura('fattura cantiere idraulico'),
+  ]);
+  assert.equal(r.settore, 'costruzioni');
+  assert.equal(r.coeff, ATECO_COEFFICIENTI.costruzioni.coeff);
+});
+
+test('SCENARIO: due fatture concordi su "intermediari" (agenzia/provvigione) → inferenza corretta', () => {
+  const r = inferAtecoSettore([
+    fattura('fattura cliente provvigione agenzia immobiliare'),
+    fattura('fattura commissione intermediazione vendita'),
+  ]);
+  assert.equal(r.settore, 'intermediari');
+});
+
+test('SCENARIO: fatture di consulenza/sviluppo (nessuna parola di settore specifico) → resta professionisti, non un\'inferenza sbagliata', () => {
+  const r = inferAtecoSettore([
+    fattura('consulenza sviluppo software cliente A'),
+    fattura('consulenza design UX cliente B'),
+    fattura('formazione onboarding cliente C'),
+  ]);
+  assert.equal(r.inferred, false);
+  assert.equal(r.settore, 'professionisti');
+});
+
+test('SCENARIO: segnali MISTI tra due settori diversi → vince quello con più fatture concordi', () => {
+  const r = inferAtecoSettore([
+    fattura('vendita prodotti cliente A'),
+    fattura('vendita merce cliente B'),
+    fattura('vendita articoli cliente C'),
+    fattura('lavori edili cantiere'), // un solo segnale costruzioni, minoritario
+  ]);
+  assert.equal(r.settore, 'commercio');
+});
+
+test('SCENARIO: fatture non imponibili (personal/salary) tra le fatture vere NON contano nel conteggio', () => {
+  const r = inferAtecoSettore([
+    fattura('vendita prodotti cliente A'),
+    fattura('vendita merce cliente B'),
+    { type: 'entrata', description: 'rimborso spese vendita auto personale', amount: 200, date: '2026-03-01' }, // personal, contiene "vendita" ma non è fattura
+  ]);
+  assert.equal(r.settore, 'commercio'); // le 2 fatture vere bastano comunque
+});
+
+test('SCENARIO END-TO-END: l\'inferenza collegata a taxSetAside cambia davvero l\'accantonamento di un commerciante', () => {
+  const txs = [fattura('vendita prodotti cliente A'), fattura('vendita merce cliente B')];
+  const inferenza = inferAtecoSettore(txs);
+  const r = taxSetAside(10000, { regime: 'forfettario', overrides: { coeffRedditivita: inferenza.coeff } });
+  const rDefault = taxSetAside(10000, { regime: 'forfettario' });
+  assert.ok(r.setAside < rDefault.setAside, 'un commerciante deve accantonare meno del default professionisti sullo stesso fatturato');
 });
 
 test('importo zero → nessun accantonamento, mai NaN', () => {

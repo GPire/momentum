@@ -291,6 +291,50 @@ export function learnIncomeType(learned = {}, description, kind) {
   return { k, t };
 }
 
+// ── ZERO CONFIGURAZIONE: dedurre il SETTORE ATECO dalle fatture, non chiederlo ──
+// BUG REALE trovato testando (2026-08-05): ATECO_COEFFICIENTI esiste da
+// sempre ma non era mai stato collegato — ogni forfettario veniva calcolato
+// col coefficiente "professionisti" (78%) a prescindere dal settore reale,
+// sovrastimando pesantemente l'accantonamento di chi fa commercio (40%) o
+// altri settori. Qui si chiude il collegamento: si guardano le DESCRIZIONI
+// delle fatture già presenti (stessa fonte di classifyIncome, mai un nuovo
+// dato chiesto all'utente) e si cerca un segnale di settore. Onesto: senza
+// un segnale netto (almeno 2 fatture concordi) resta 'professionisti' — lo
+// stesso comportamento di sempre, mai un'inferenza forzata da un indizio solo.
+const SETTORE_KW = {
+  commercio: /(vendita|negozio|e-?commerce|\bshop\b|prodott|merce|articol)/i,
+  costruzioni: /(edile|costruzion|ristrutturazion|muratore|cantiere|idraulic|elettricist|impiant)/i,
+  intermediari: /(agenzia|intermediazion|commission|provvigion|rappresentant)/i,
+  ambulante_alimentari: /(ambulante|banco\s?mercato|alimentari)/i,
+};
+
+export function inferAtecoSettore(transactions = [], opts = {}) {
+  const { learned = null, model = null } = opts;
+  const votes = {};
+  let totalInvoices = 0;
+  for (const t of transactions || []) {
+    if (t.type !== 'entrata') continue;
+    if (classifyIncome(t, learned, model).kind !== 'invoice') continue;
+    totalInvoices++;
+    const desc = String(t.description || '');
+    for (const [settore, re] of Object.entries(SETTORE_KW)) {
+      if (re.test(desc)) votes[settore] = (votes[settore] || 0) + 1;
+    }
+  }
+  const fallback = { settore: 'professionisti', coeff: ATECO_COEFFICIENTI.professionisti.coeff, inferred: false };
+  if (!totalInvoices) return { ...fallback, reason: 'nessuna fattura ancora: non c\'è abbastanza per dedurre il settore' };
+  const entries = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) return { ...fallback, reason: 'nessuna parola tipica di un settore diverso: uso il default più comune (professionisti/servizi)' };
+  const [settore, count] = entries[0];
+  // Richiede un segnale netto — mai un'inferenza forzata da un indizio solo,
+  // stessa disciplina "n piccoli non bastano" usata ovunque nel progetto.
+  if (count < 2) return { ...fallback, reason: 'segnale troppo debole per dedurre un settore diverso dal default' };
+  return {
+    settore, coeff: ATECO_COEFFICIENTI[settore].coeff, inferred: true,
+    reason: `dedotto da ${count} fatture con parole tipiche di ${ATECO_COEFFICIENTI[settore].label.toLowerCase()}`,
+  };
+}
+
 // Suggerisce il regime in base al fatturato ANNUO imponibile: sopra il tetto
 // forfettario (85.000€) non si può stare nel forfettario → ordinario. Sotto,
 // il forfettario è tipicamente più conveniente. Informazione reale, con caveat.
