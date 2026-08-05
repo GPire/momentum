@@ -39,6 +39,19 @@ export const TAX_RULES = {
       { fino: 50000, aliquota: 0.33 },
       { fino: null, aliquota: 0.43 },
     ],
+    // Scadenze di versamento, verificate su fonti fiscali correnti
+    // (2026-08-05): 30 giugno saldo + primo acconto, 30 novembre secondo
+    // acconto, ripartizione 50%+50% (regola vigente dal 2024).
+    // Stanno QUI, e non come costante nel codice, per un motivo preciso
+    // (richiesta esplicita dell'utente): se le date cambiano e l'utente non
+    // aggiorna l'app, il meccanismo di auto-aggiornamento già esistente
+    // (fetchRulesUpdate, sotto) può portargliele comunque — validate dal
+    // guardrail anti-veleno prima di essere adottate. Una costante nel
+    // codice sarebbe invece congelata fino al prossimo rilascio.
+    scadenze: [
+      { id: 'saldo-primo-acconto', mese: 6, giorno: 30, quota: 0.5, label: 'Saldo + primo acconto' },
+      { id: 'secondo-acconto', mese: 11, giorno: 30, quota: 0.5, label: 'Secondo acconto' },
+    ],
   },
 };
 
@@ -102,6 +115,24 @@ export function validateRulesPayload(payload) {
         if (!sogliaOk || !(s.aliquota > 0 && s.aliquota < 0.6)) return { ok: false, reason: `scaglione IRPEF implausibile per ${y}` };
         sogliaPrec = s.fino;
       }
+    }
+    // `scadenze` è OPZIONALE (un anno senza scadenze verificate ripiega sul
+    // default incluso nell'app), ma se arriva da una fonte esterna deve
+    // essere plausibile: date reali, quote che sommano a 1. Una scadenza
+    // avvelenata (es. "31 febbraio", o quote che sommano a 3) manderebbe
+    // fuori strada la previsione di cassa di un utente vero.
+    if (r.scadenze !== undefined) {
+      if (!Array.isArray(r.scadenze) || !r.scadenze.length) return { ok: false, reason: `scadenze implausibili per ${y}` };
+      let sommaQuote = 0;
+      for (const s of r.scadenze) {
+        if (!(s.mese >= 1 && s.mese <= 12)) return { ok: false, reason: `mese di scadenza non valido per ${y}` };
+        if (!(s.giorno >= 1 && s.giorno <= 31)) return { ok: false, reason: `giorno di scadenza non valido per ${y}` };
+        if (!(s.quota > 0 && s.quota <= 1)) return { ok: false, reason: `quota di scadenza implausibile per ${y}` };
+        if (typeof s.id !== 'string' || !s.id) return { ok: false, reason: `scadenza senza identificativo per ${y}` };
+        sommaQuote += s.quota;
+      }
+      // Tolleranza per l'aritmetica in virgola mobile (0.5+0.5, 0.4+0.6...).
+      if (Math.abs(sommaQuote - 1) > 0.01) return { ok: false, reason: `le quote delle scadenze non coprono il 100% per ${y} (somma ${sommaQuote})` };
     }
   }
   return { ok: true };
