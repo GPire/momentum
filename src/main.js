@@ -4495,20 +4495,31 @@ function getInvoiceFormHTML() {
     <div id="inv-preview" class="card p-3 text-xs text-[var(--on-surface-secondary)] hidden"></div>
     <!-- Esito controlli fattura elettronica (predizione scarti SdI, in chiaro) -->
     <div id="inv-xml-controls" class="hidden text-[11px] leading-snug rounded-xl border px-3 py-2.5"></div>
-    <!-- Pulsante FATTURA ELETTRONICA (XML): primario per l'Italia. Nascosto per i
-         Paesi/casi in cui non serve (allora resta solo il PDF). -->
-    <button id="inv-xml" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2 hidden"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>Scarica fattura elettronica (XML)</button>
-    <div class="flex gap-2">
+  </div>`;
+}
+
+// BUG REALE segnalato dal vivo, e la prima correzione (sticky dentro il
+// corpo che scorre) era ANCORA SBAGLIATA: uno sticky resta comunque sotto
+// tutti gli 11 campi finché non ci si arriva scorrendo — l'attrito reale
+// (dover scorrere l'intero modulo prima di vedere un bottone) restava
+// identico. Il bottone deve stare FUORI dall'area che scorre fin
+// dall'inizio: qui va nel piè di pagina fisso di openModal (index.html
+// #modal-footer), mai dentro #modal-body.
+function getInvoiceFooterHTML() {
+  return `
+    <!-- Pulsante FATTURA ELETTRONICA (XML): primario per l'Italia. Nascosto
+         per i Paesi/casi in cui non serve (allora resta solo il PDF). -->
+    <button id="inv-xml" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2 hidden mb-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>Scarica fattura elettronica (XML)</button>
+    <div class="flex gap-2 mb-2">
       <button id="inv-generate" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">Scarica PDF</button>
       <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
     </div>
     <button id="inv-request-pay" class="w-full py-3 font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>Chiedi il pagamento (QR · WhatsApp · Email)</button>
-    <p id="inv-foot" class="text-[11px] text-[var(--on-surface-secondary)] opacity-70"></p>
-  </div>`;
+    <p id="inv-foot" class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 mt-2"></p>`;
 }
 
 window.openCreateInvoice = (prefillClient) => {
-  openModal(getInvoiceFormHTML());
+  openModal(getInvoiceFormHTML(), getInvoiceFooterHTML());
   const clientEl = $('#inv-client'), amountEl = $('#inv-amount'), descEl = $('#inv-desc'), regimeEl = $('#inv-regime'), prevEl = $('#inv-preview');
   const eur = (n) => `${(+n).toFixed(2).replace('.', ',')} €`;
   // Anteprima LIVE: mostra netto a ricevere e scomposizione a ogni modifica.
@@ -6746,9 +6757,28 @@ const navigate = (view) => {
   if (shown) { shown.classList.remove('view-in'); void shown.offsetWidth; shown.classList.add('view-in'); }
 };
 
-window.openModal = (html) => {
+// `footerHtml` (opzionale): contenuto SEMPRE VISIBILE, fuori dall'area che
+// scorre — per i moduli lunghi (es. Crea fattura) il bottone d'azione
+// principale deve essere raggiungibile senza dover prima scorrere tutto il
+// modulo. Senza footerHtml il piè di pagina resta vuoto e nascosto: ogni
+// altro modale dell'app è invariato.
+window.openModal = (html, footerHtml = '') => {
   const body = $('#modal-body');
   body.innerHTML = html;
+  const footer = $('#modal-footer');
+  footer.innerHTML = footerHtml;
+  // Il piè di pagina è `position:fixed` (ancorato alla finestra vera, non al
+  // modale) — senza riservare lo spazio equivalente nel corpo scorrevole,
+  // l'ultimo campo del modulo finirebbe NASCOSTO dietro i bottoni invece che
+  // semplicemente sopra di essi. Si toglie prima `hidden` per poter
+  // misurare l'altezza vera renderizzata (a display:none sarebbe sempre 0).
+  if (footerHtml) {
+    footer.classList.remove('hidden');
+    body.style.paddingBottom = `${footer.offsetHeight + 16}px`;
+  } else {
+    footer.classList.add('hidden');
+    body.style.paddingBottom = '';
+  }
   // Dissolvenza/rise leggera del contenuto (apertura o cambio step di un
   // flusso multi-step): reflow forzato per ri-attivare l'animazione ogni volta.
   body.classList.remove('modal-body-in'); void body.offsetWidth; body.classList.add('modal-body-in');

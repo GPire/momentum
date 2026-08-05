@@ -2093,6 +2093,18 @@
       <button onclick="closeModal()" class="absolute top-3 right-3 w-10 h-10 flex items-center justify-center rounded-full bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface)] shadow-lg z-10 lg:top-4 lg:right-4">✕</button>
       <div id="modal-body" class="p-3 overflow-y-auto flex-1 min-h-0"></div>
     </div>
+    <!-- Piè di pagina ANCORATO ALLA FINESTRA VERA (position:fixed, stesso
+         schema già usato e verificato per .mobile-nav), non dentro il
+         calcolo di altezza del modale — per i moduli lunghi (es. Crea
+         fattura) il bottone d'azione principale deve essere raggiungibile
+         SENZA scorrere, e questo deve valere IN OGNI CASO, non dipendere da
+         come il browser risolve dvh/vh su un dispositivo specifico. Uno
+         sticky/flex dentro il modale non basta: resta comunque legato
+         all'altezza calcolata del contenitore, che può sbagliare. Vuoto e
+         nascosto di default: solo i flussi che lo popolano
+         (openModal(html, footerHtml)) lo mostrano, tutti gli altri modali
+         restano invariati. Larghezza allineata al modale su ogni schermo. -->
+    <div id="modal-footer" class="fixed inset-x-0 bottom-0 lg:left-1/2 lg:-translate-x-1/2 lg:w-[460px] lg:bottom-8 lg:rounded-b-[2rem] z-[201] px-4 pt-3 border-t border-[var(--glass-border)] bg-[var(--surface-solid)] shadow-2xl hidden" style="padding-bottom:max(0.9rem,calc(var(--safe-bottom) + 0.6rem))"></div>
   </div>
 
   <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 w-full max-w-[90%] sm:max-w-md pointer-events-none"></div>
