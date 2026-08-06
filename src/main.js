@@ -2434,7 +2434,13 @@ window.openTaxLevel1Simulate = () => {
         <button type="button" id="tl1-periodo-anno" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all bg-[var(--primary)] text-white">All'anno</button>
         <button type="button" id="tl1-periodo-mese" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all text-[var(--on-surface-secondary)]">Al mese</button>
       </div>
-      <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+      <!-- Stepper +/- disegnato apposta invece delle frecce native del
+           browser (grigie, cambiano forma per OS, mai in stile con l'app). -->
+      <div class="w-full flex items-center gap-2">
+        <button type="button" id="tl1-step-down" aria-label="Diminuisci" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
+        <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+        <button type="button" id="tl1-step-up" aria-label="Aumenta" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
+      </div>
       <!-- Facoltativo: il coefficiente cambia molto il risultato per chi fa
            commercio invece di consulenza, ma chiederlo come domanda obbligata
            sarebbe gergo per chi sta ancora decidendo — resta un dettaglio
@@ -2478,6 +2484,23 @@ window.openTaxLevel1Simulate = () => {
   };
   btnAnno?.addEventListener('click', () => setPeriodo('anno'));
   btnMese?.addEventListener('click', () => setPeriodo('mese'));
+  // Stepper +/- con passo sensato per periodo (500€ all'anno, 50€ al mese —
+  // scatti piccoli sarebbero inutili su cifre a 5 zeri, grandi sarebbero
+  // rozzi al mese) e un piccolo salto verticale nella direzione del segno,
+  // così il numero si "sente" muoversi invece di cambiare di scatto.
+  const bump = (dir) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    input.style.setProperty('--bump-y', dir > 0 ? '-3px' : '3px');
+    input.classList.remove('tl1-bump'); void input.offsetWidth; input.classList.add('tl1-bump');
+  };
+  const step = (dir) => {
+    const cur = parseFloat(String(input.value).replace(',', '.')) || 0;
+    const unit = periodo === 'anno' ? 500 : 50;
+    input.value = Math.max(0, cur + dir * unit);
+    bump(dir);
+  };
+  document.getElementById('tl1-step-up')?.addEventListener('click', () => step(1));
+  document.getElementById('tl1-step-down')?.addEventListener('click', () => step(-1));
   const go = () => {
     const val = parseFloat(String(input.value).replace(',', '.')) || 0;
     window.openTaxLevel1Result(periodo === 'mese' ? val * 12 : val, document.getElementById('tl1-ateco')?.value, {

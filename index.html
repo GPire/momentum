@@ -430,6 +430,19 @@
       #privacy-toggle-mobile.just-toggled svg, #privacy-toggle-desktop.just-toggled svg { animation: none; }
       [data-action="toggle-theme"].just-toggled svg { animation: none; }
     }
+    /* Campi numerici: mai le frecce grigie native del browser (rompono ogni
+       coerenza visiva dell'app, cambiano forma per OS/browser) — sostituite
+       ovunque da controlli propri disegnati apposta, dove servono. */
+    input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+    /* Stepper +/- animato del simulatore P.IVA (Livello 1): un tocco fa
+       "respirare" il pulsante (pop) e il numero cresce/scende con un piccolo
+       salto verticale nella stessa direzione del segno, non un cambio secco. */
+    .tl1-step-btn { transition: transform .12s ease, background-color .2s ease; }
+    .tl1-step-btn:active { transform: scale(.88); }
+    @keyframes tl1AmountBump { 0% { transform: translateY(0); } 40% { transform: translateY(var(--bump-y, -3px)); } 100% { transform: translateY(0); } }
+    #tl1-amount.tl1-bump { animation: tl1AmountBump .22s cubic-bezier(.34,1.56,.64,1); }
+    @media (prefers-reduced-motion: reduce) { .tl1-step-btn, #tl1-amount.tl1-bump { transition: none; animation: none; } }
     /* Chip suggerimento asset: stesso ingresso a scaglione, per invitare il
        tocco su una casella di ricerca altrimenti vuota. */
     .asset-chip-in { animation: txRise .32s cubic-bezier(.22,1,.36,1) both; }
