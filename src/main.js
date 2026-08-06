@@ -60,7 +60,7 @@ function translateRegionLabel(region) {
   if (!region) return region;
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
-import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI } from './predict/tax.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -2444,6 +2444,18 @@ window.openTaxLevel1Simulate = () => {
         <select id="tl1-ateco" class="w-full mt-2 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm">
           ${Object.entries(ATECO_COEFFICIENTI).map(([k, v]) => `<option value="${k}" ${k === 'professionisti' ? 'selected' : ''}>${v.label}</option>`).join('')}
         </select>
+        <!-- Chi ha un albo professionale con cassa propria è ESENTE per legge
+             dall'INPS Gestione Separata (fatto verificato, non un dettaglio di
+             stile) — senza chiederlo, Momentum applicherebbe un contributo che
+             non è dovuto per un'ampia fetta del mercato P.IVA. -->
+        <select id="tl1-cassa" class="w-full mt-2 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm">
+          <option value="">Nessun albo/cassa propria (INPS Gestione Separata)</option>
+          ${Object.entries(CASSE_PROFESSIONALI).map(([k, v]) => `<option value="${k}">${k.replace(/_/g, '/')} — ${v}</option>`).join('')}
+        </select>
+        <label class="flex items-center gap-2 mt-2 text-[11px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
+          <input type="checkbox" id="tl1-dipendente" class="w-3.5 h-3.5 rounded accent-[var(--primary)]" />
+          Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria)
+        </label>
       </details>
       <button id="tl1-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
       <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Torna indietro</button>
@@ -2468,7 +2480,10 @@ window.openTaxLevel1Simulate = () => {
   btnMese?.addEventListener('click', () => setPeriodo('mese'));
   const go = () => {
     const val = parseFloat(String(input.value).replace(',', '.')) || 0;
-    window.openTaxLevel1Result(periodo === 'mese' ? val * 12 : val, document.getElementById('tl1-ateco')?.value);
+    window.openTaxLevel1Result(periodo === 'mese' ? val * 12 : val, document.getElementById('tl1-ateco')?.value, {
+      cassaPropria: document.getElementById('tl1-cassa')?.value || null,
+      altraCoperturaPrevidenziale: !!document.getElementById('tl1-dipendente')?.checked,
+    });
   };
   document.getElementById('tl1-go')?.addEventListener('click', go);
   input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
@@ -2478,9 +2493,15 @@ window.openTaxLevel1Simulate = () => {
 // e mai senza l'avviso sul secondo anno (la sorpresa di cassa più comune).
 // Il numero "arriva" con un pop invece di apparire di scatto: lo stesso
 // micro-ritmo già usato per la conferma di scelta sui temi fattura.
-window.openTaxLevel1Result = (fatturato, ateco) => {
+const TL1_STRATEGY_ICONS = {
+  startup: '<path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>', // stella (aliquota agevolata)
+  timing: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', // orologio (tempismo incassi)
+  cassa: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>', // edificio (cassa/albo professionale)
+  dipendente: '<rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>', // valigetta (doppio lavoro)
+};
+window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
   if (!(fatturato > 0)) { showToast('Inserisci una stima di fatturato per continuare.', 'error'); return; }
-  const s = simulateNewPartitaIva(fatturato, { ateco });
+  const s = simulateNewPartitaIva(fatturato, { ateco, cassaPropria: extra.cassaPropria, altraCoperturaPrevidenziale: extra.altraCoperturaPrevidenziale });
   // Strategie legittime (mai trucchi inventati): ogni voce è verificata su
   // fonte ufficiale e posta come domanda da fare al commercialista, non come
   // fatto certo — l'eleggibilità reale dipende dalla storia dell'utente, che
@@ -2490,7 +2511,7 @@ window.openTaxLevel1Result = (fatturato, ateco) => {
       <div class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wide mb-1.5">Strategie da valutare</div>
       <div class="flex flex-col gap-2">
         ${s.strategie.map(t => `<div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[11px] text-[var(--on-surface-secondary)] flex items-start gap-2">
-          <svg class="w-4 h-4 shrink-0 mt-0.5 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.icon === 'startup' ? '<path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>' : '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'}</svg>
+          <svg class="w-4 h-4 shrink-0 mt-0.5 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${TL1_STRATEGY_ICONS[t.icon] || TL1_STRATEGY_ICONS.timing}</svg>
           <span>${t.testo}</span>
         </div>`).join('')}
       </div>

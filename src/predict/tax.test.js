@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI, simulateNewPartitaIva } = await import('./tax.js');
+const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI, simulateNewPartitaIva, CASSE_PROFESSIONALI } = await import('./tax.js');
 
 function fattura(desc, amount = 1000, date = '2026-03-10') {
   return { type: 'entrata', description: desc, amount, date };
@@ -498,6 +498,58 @@ test('simulateNewPartitaIva: strategia sul tempismo incassi solo quando vicini a
 test('simulateNewPartitaIva: oltre il tetto (regime ordinario) → nessuna strategia forfettario-specifica', () => {
   const s = simulateNewPartitaIva(120000);
   assert.equal(s.strategie.length, 0);
+});
+
+test('taxSetAside: cassa previdenziale propria -> INPS azzerato, mai calcolato al posto della cassa vera', () => {
+  const senzaCassa = taxSetAside(30000, { regime: 'forfettario' });
+  const conCassa = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'avvocati' });
+  assert.ok(senzaCassa.breakdown.find(b => b.voce === 'Contributi INPS').importo > 0);
+  const rigaCassa = conCassa.breakdown.find(b => /Cassa Forense/.test(b.voce));
+  assert.ok(rigaCassa, 'la scomposizione deve nominare la cassa vera, non "INPS"');
+  assert.equal(rigaCassa.importo, 0, 'Momentum non inventa l\'aliquota della cassa altrui');
+  assert.match(rigaCassa.nota, /Cassa Forense/);
+  assert.match(rigaCassa.nota, /non all'INPS/);
+  // Col professionista in cassa propria il netto è PIÙ ALTO (niente INPS
+  // sottratto) — non un dettaglio di stile, è il punto del fix.
+  assert.ok(conCassa.net > senzaCassa.net);
+  assert.equal(conCassa.cassaNome, 'Cassa Forense');
+});
+
+test('taxSetAside: nome cassa sconosciuto -> messaggio prudente, mai un crash o un nome inventato', () => {
+  const r = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'professione_mai_sentita' });
+  assert.equal(r.cassaNome, 'la tua cassa professionale');
+});
+
+test('CASSE_PROFESSIONALI: copre le professioni ordinistiche più comuni con nomi reali verificati', () => {
+  assert.equal(CASSE_PROFESSIONALI.avvocati, 'Cassa Forense');
+  assert.equal(CASSE_PROFESSIONALI.commercialisti, 'CNPADC');
+  assert.equal(CASSE_PROFESSIONALI.ingegneri_architetti, 'INARCASSA');
+  assert.equal(CASSE_PROFESSIONALI.medici_odontoiatri, 'ENPAM');
+});
+
+test('simulateNewPartitaIva: cassa propria propagata nel simulatore, con strategia dedicata che lo spiega', () => {
+  const s = simulateNewPartitaIva(30000, { cassaPropria: 'ingegneri_architetti' });
+  assert.equal(s.cassaNome, 'INARCASSA');
+  const tip = s.strategie.find(t => t.icon === 'cassa');
+  assert.ok(tip);
+  assert.match(tip.testo, /INARCASSA/);
+  assert.match(tip.testo, /non all'INPS/);
+});
+
+test('simulateNewPartitaIva: dipendente che apre anche la P.IVA -> domanda concreta sull\'aliquota ridotta, MAI un numero inventato', () => {
+  const s = simulateNewPartitaIva(30000, { altraCoperturaPrevidenziale: true });
+  const tip = s.strategie.find(t => t.icon === 'dipendente');
+  assert.ok(tip);
+  assert.match(tip.testo, /Gestione Separata/);
+  assert.match(tip.testo, /chiedila esplicitamente al commercialista/);
+  // Il netto NON cambia: non fingiamo di conoscere l'aliquota ridotta.
+  const senza = simulateNewPartitaIva(30000);
+  assert.equal(s.netAnnuo, senza.netAnnuo);
+});
+
+test('simulateNewPartitaIva: chi ha una cassa propria non vede anche il consiglio da dipendente (si escludono a vicenda)', () => {
+  const s = simulateNewPartitaIva(30000, { cassaPropria: 'avvocati', altraCoperturaPrevidenziale: true });
+  assert.equal(s.strategie.find(t => t.icon === 'dipendente'), undefined);
 });
 
 test('simulateNewPartitaIva: settore ATECO cambia il coefficiente e quindi il netto (commercio vs professionisti)', () => {

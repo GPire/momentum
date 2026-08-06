@@ -33,6 +33,23 @@ export const ATECO_COEFFICIENTI = {
   altre: { coeff: 0.67, label: 'Altre attività (67%)' },
 };
 
+// Professioni regolamentate (albo) con CASSA PREVIDENZIALE PROPRIA, elenco
+// verificato — nomi reali, non aliquote inventate. Fatto di mercato reale e
+// significativo, ignorato finché non lo si è verificato in questa sessione:
+// chi è iscritto a una di queste casse è ESENTE dall'INPS Gestione Separata
+// (le due sono incompatibili per legge) — applicare comunque l'INPS al
+// 26,07% come faceva Momentum per TUTTI, in silenzio, era un errore reale
+// per un'ampia fetta del mercato P.IVA (avvocati, commercialisti, ingegneri,
+// architetti, medici e altre professioni ordinistiche).
+export const CASSE_PROFESSIONALI = {
+  avvocati: 'Cassa Forense', commercialisti: 'CNPADC', ragionieri: 'Cassa Ragionieri',
+  geometri: 'Cassa Geometri', ingegneri_architetti: 'INARCASSA', consulenti_lavoro: 'ENPACL',
+  medici_odontoiatri: 'ENPAM', veterinari: 'ENPAV', giornalisti: 'INPGI',
+  periti_industriali: 'EPPI', psicologi: 'ENPAP', infermieri: 'ENPAPI', farmacisti: 'ENPAF',
+  attuari_chimici_geologi: 'EPAP', biologi: 'ENPAB', agenti_rappresentanti: 'Enasarco',
+  notai: 'Cassa Nazionale del Notariato',
+};
+
 // Tetto di ricavi per restare nel regime forfettario (Italia, 85.000€/anno).
 // Superarlo obbliga al regime ordinario: è un'informazione predittiva reale
 // e utile, non una previsione inventata.
@@ -86,6 +103,14 @@ export function taxSetAside(amount, opts = {}) {
   const gross = Math.max(0, amount || 0);
   if (gross === 0) return { setAside: 0, net: 0, breakdown: [], regime: r.label };
 
+  // Chi ha una CASSA PREVIDENZIALE PROPRIA (albo professionale) è esente per
+  // legge dall'INPS Gestione Separata: applicarlo comunque sarebbe un errore
+  // reale, non solo una semplificazione. Non conosciamo l'aliquota della sua
+  // cassa (varia per ente, spesso con un minimo fisso indipendente dal
+  // reddito) — quindi NON la inventiamo: l'INPS si azzera qui, e lo si dice
+  // sempre in chiaro nella scomposizione, mai in silenzio.
+  const cassaNome = opts.cassaPropria ? (CASSE_PROFESSIONALI[opts.cassaPropria] || 'la tua cassa professionale') : null;
+
   // IVA (solo ordinario): quota da versare, separata dal reddito
   let iva = 0, imponibile = gross;
   if (r.iva > 0) {
@@ -95,8 +120,8 @@ export function taxSetAside(amount, opts = {}) {
 
   // Reddito imponibile su cui calcolare imposta + contributi
   const redditoImponibile = imponibile * r.coeffRedditivita;
-  const inps = redditoImponibile * r.inps;
-  const baseImposta = redditoImponibile - inps; // INPS deducibile
+  const inps = cassaNome ? 0 : redditoImponibile * r.inps;
+  const baseImposta = redditoImponibile - inps; // INPS deducibile (0 se cassa propria: l'imposta si calcola comunque sul reddito lordo di contributi in quel caso — dettaglio da verificare con la propria cassa)
 
   // Regime ordinario: usa gli scaglioni IRPEF REALI dell'anno se sono stati
   // verificati (tax-rules.js, computeIrpef — ogni fascia paga solo la sua
@@ -125,10 +150,12 @@ export function taxSetAside(amount, opts = {}) {
   const net = +(gross - setAside).toFixed(2);
   const breakdown = [
     ...(iva > 0 ? [{ voce: 'IVA da versare', importo: +iva.toFixed(2) }] : []),
-    { voce: 'Contributi INPS', importo: +inps.toFixed(2) },
+    ...(cassaNome
+      ? [{ voce: `Contributi (${cassaNome}, non INPS)`, importo: 0, nota: `Sei iscritto a ${cassaNome}: i contributi vanno lì, non all'INPS Gestione Separata (le due sono incompatibili per legge). Momentum non conosce l'aliquota della tua cassa — spesso ha un minimo fisso indipendente dal reddito — quindi qui non la calcola: aggiungila tu o chiedi al commercialista.` }]
+      : [{ voce: 'Contributi INPS', importo: +inps.toFixed(2) }]),
     { voce: impostaLabel, importo: +imposta.toFixed(2) },
   ];
-  return { setAside, net, breakdown, regime: r.label, effectiveRate: +((setAside / gross) * 100).toFixed(1) };
+  return { setAside, net, breakdown, regime: r.label, effectiveRate: +((setAside / gross) * 100).toFixed(1), cassaNome };
 }
 
 // ── Classificazione INTELLIGENTE dell'entrata (fix "tasse messe a caso") ──
@@ -444,7 +471,7 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   // renderebbe la stima sbagliata proprio per chi fa commercio.
   const atecoCoeff = regimeKey.startsWith('forfettario') && ATECO_COEFFICIENTI[opts.ateco]
     ? { coeffRedditivita: ATECO_COEFFICIENTI[opts.ateco].coeff } : null;
-  const { setAside, net } = taxSetAside(fatturato, { regime: regimeKey, overrides: { ...atecoCoeff, ...opts.overrides } });
+  const { setAside, net, cassaNome } = taxSetAside(fatturato, { regime: regimeKey, cassaPropria: opts.cassaPropria, overrides: { ...atecoCoeff, ...opts.overrides } });
   const netMensile = net / 12;
   // Strategie legittime, non trucchi: entrambe verificate su fonte ufficiale
   // (Agenzia delle Entrate), mai un'ottimizzazione inventata. L'eleggibilità
@@ -468,11 +495,34 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
       testo: `Sei già al ${suggestion.pctOfCeiling}% del tetto forfettario da fermo: se ti avvicini ulteriormente, valuta con chi ti paga di spostare gli incassi di fine anno a gennaio — nel forfettario conta quando INCASSI, non quando fatturi.`,
     });
   }
+  // Cassa previdenziale propria (albo professionale): l'INPS non c'entra,
+  // e il numero mostrato sopra NON include i contributi — vanno detti qui,
+  // non lasciati intuire da un totale più basso del previsto.
+  if (cassaNome) {
+    strategie.push({
+      icon: 'cassa',
+      testo: `Sei iscritto a ${cassaNome}: i contributi previdenziali vanno lì, non all'INPS — per questo il numero sopra NON li include. Aggiungi tu l'importo della tua cassa (spesso ha un minimo fisso, indipendente dal reddito) per avere la cifra vera.`,
+    });
+  }
+  // Dipendente che apre ANCHE la Partita IVA (nessuna cassa propria, quindi
+  // rientra comunque nella Gestione Separata): esiste un'aliquota INPS più
+  // bassa per chi è GIÀ coperto da un'altra forma previdenziale obbligatoria
+  // (fatto verificato: le aliquote 2026 della Gestione Separata sono diverse
+  // per chi ha/non ha altra copertura). Non conosciamo la percentuale esatta
+  // per l'anno in corso — non la stimiamo, la poniamo come domanda concreta,
+  // stessa disciplina della cassa propria e dell'aliquota startup.
+  if (!cassaNome && opts.altraCoperturaPrevidenziale && regimeKey.startsWith('forfettario')) {
+    strategie.push({
+      icon: 'dipendente',
+      testo: 'Lavori già come dipendente (o hai un\'altra copertura previdenziale obbligatoria) mentre apri la Partita IVA? Per chi è già coperto altrove l\'INPS Gestione Separata applica un\'aliquota più bassa di quella "piena" che stiamo usando qui sopra: chiedila esplicitamente al commercialista prima di preventivare quanto ti resta, la differenza non è trascurabile.',
+    });
+  }
   return {
     fatturato,
     regime: regimeKey,
     regimeLabel: REGIMI[regimeKey].label,
     atecoLabel: atecoCoeff ? ATECO_COEFFICIENTI[opts.ateco].label : null,
+    cassaNome,
     suggestion,
     strategie,
     setAside: +setAside.toFixed(2),
