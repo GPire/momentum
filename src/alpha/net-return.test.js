@@ -174,3 +174,36 @@ test('computeNetReturn: un profilesOverride valido cambia davvero il calcolo, se
   const r = computeNetReturn([{ ticker: 'X', assetClass: 'stock', pl: 1000, cost: 5000 }], 1000, 'IT', override);
   assert.equal(r.totaleImpostaCapitalGain, 300); // 1000 * 0.30, non 0.26
 });
+
+// ── Svizzera: il caso più semplice e più forte del registro ──
+test('COUNTRY_TAX_PROFILES: Svizzera esente al 0%, federale e cantonale, per investitori privati', () => {
+  assert.equal(COUNTRY_TAX_PROFILES.CH.aliquotaStandard, 0);
+  assert.equal(COUNTRY_TAX_PROFILES.CH.bollo, null);
+  assert.match(COUNTRY_TAX_PROFILES.CH.noteRischio, /KS 36/);
+});
+
+test('computeNetReturn: Svizzera -> netto identico al lordo, zero imposta su qualunque plusvalenza', () => {
+  const rows = [{ ticker: 'NESN', assetClass: 'stock', pl: 5000, cost: 20000 }];
+  const r = computeNetReturn(rows, 25000, 'CH');
+  assert.equal(r.totaleImpostaCapitalGain, 0);
+  assert.equal(r.netTotalPl, r.totalPlLordo);
+  assert.equal(r.bolloTitoli, 0);
+});
+
+test('computeNetReturn: Svizzera espone la noteRischio (trader professionale / imposta patrimoniale) — mai una promessa assoluta', () => {
+  const r = computeNetReturn([{ ticker: 'X', assetClass: 'stock', pl: 100, cost: 1000 }], 1000, 'CH');
+  assert.match(r.noteRischio, /trader professionale/);
+  assert.match(r.noteRischio, /patrimoniale cantonale/);
+});
+
+test('computeNetReturn: un Paese senza noteRischio (es. Italia) espone null, mai un campo vuoto ambiguo', () => {
+  const r = computeNetReturn([{ ticker: 'X', assetClass: 'stock', pl: 100, cost: 1000 }], 1000, 'IT');
+  assert.equal(r.noteRischio, null);
+});
+
+test('validateNetReturnPayload: un\'aliquota 0 verificata (es. esenzione reale) è valida, non respinta come dato mancante', () => {
+  const v = validateNetReturnPayload({
+    version: '2026-09', profiles: { CH: { name: 'Svizzera', aliquotaStandard: 0, allowanceAnnuo: 0, verificatoIl: '2026-09-01', periodoRevisioneGiorni: 1460 } },
+  });
+  assert.equal(v.ok, true);
+});

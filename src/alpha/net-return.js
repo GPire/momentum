@@ -48,13 +48,10 @@
 // IT/DE/FR sopra): criteri di scelta = aliquota abbastanza semplice da
 // modellare onestamente in un numero solo (o pochi), popolazione di
 // investitori retail rilevante, fonte pubblica verificabile.
-//  - Svizzera (CH): 0% di imposta FEDERALE sulle plusvalenze mobiliari per
-//    investitori privati (non professionali) — probabilmente il numero più
-//    semplice e più forte da mostrare di tutti ("il tuo netto è uguale al
-//    lordo"). Attenzione dichiarata: le imposte cantonali sul patrimonio
-//    (non sul capital gain) variano per cantone e NON sono equivalenti;
-//    un trader riqualificato "professionale" perde l'esenzione — entrambi
-//    i limiti vanno verificati e dichiarati prima di aggiungere il profilo.
+//  - Svizzera (CH): IMPLEMENTATA (vedi COUNTRY_TAX_PROFILES.CH sotto) — 0%
+//    di imposta sulle plusvalenze mobiliari per investitori privati, sia
+//    federale che cantonale. Il numero più semplice e più forte del
+//    registro: "il tuo netto è uguale al lordo".
 //  - Regno Unito (UK): CGT 20% sulla maggior parte dei guadagni mobiliari
 //    (18% sull'immobiliare, non pertinente qui), con un annual exempt
 //    amount (franchigia annua, valore da riverificare al momento
@@ -112,6 +109,35 @@ export const COUNTRY_TAX_PROFILES = {
     allowanceAnnuo: 0,
     bollo: null,
     verificatoIl: '2026-08-06', periodoRevisioneGiorni: 365, // loi de financement annuale (appena salita nel 2026)
+  },
+  // SVIZZERA — verificata incrociando taxolution.ch, budgethub.ch,
+  // mustachianpost.com, charlenecong.com (capital gains tax Switzerland
+  // 2026): 0% di imposta sulle plusvalenze mobiliari per investitori
+  // PRIVATI, sia a livello federale CHE cantonale — il numero più semplice
+  // di tutto il registro. Due limiti reali e dichiarati, mai nascosti:
+  //  1. Rischio di riqualificazione a "trader professionale" (Circolare
+  //     KS 36 dell'Amministrazione federale delle contribuzioni, 5 criteri
+  //     "porto sicuro" — i più pesanti: possesso minimo 6 mesi per
+  //     posizione, volume di negoziazione annuo sotto 5x il valore del
+  //     portafoglio). Se riqualificato, le plusvalenze diventano reddito
+  //     da lavoro autonomo tassato progressivamente (22-45% combinato) +
+  //     contributi AVS ~10%. Momentum non ha qui i dati (durata di
+  //     possesso per posizione, storico delle transazioni) per verificare
+  //     automaticamente questi criteri: lo dichiara sempre come avviso,
+  //     mai una promessa di esenzione garantita.
+  //  2. Imposta PATRIMONIALE cantonale annua (non sul capital gain: su
+  //     tutto il patrimonio, ogni anno, indipendentemente da guadagni o
+  //     perdite) — varia per Cantone e Comune, nessun numero unico
+  //     verificabile a livello nazionale: NON modellata qui, dichiarata
+  //     esplicitamente come costo reale e separato.
+  CH: {
+    name: 'Svizzera', currency: 'CHF',
+    aliquotaStandard: 0, // esente per investitori privati, federale E cantonale
+    aliquotaAgevolata: null,
+    allowanceAnnuo: 0,
+    bollo: null,
+    noteRischio: 'Esente da capital gain se sei un investitore PRIVATO (criteri KS 36: possesso ≥6 mesi per posizione, volume di negoziazione annuo sotto 5 volte il portafoglio, tra gli altri) — se riqualificato "trader professionale" le plusvalenze diventano reddito tassato progressivamente più contributi AVS. Non include l\'imposta patrimoniale cantonale annua (su tutto il patrimonio, non sul guadagno): varia per Cantone, verifica la tua aliquota locale.',
+    verificatoIl: '2026-08-06', periodoRevisioneGiorni: 1460, // esenzione strutturale, stabile da decenni
   },
 };
 
@@ -186,6 +212,7 @@ export function computeNetReturn(rows = [], totalValue = 0, country = 'IT', prof
     netTotalPl,
     netTotalPlPct,
     freschezza: netReturnFreshness(country, { profilesOverride }),
+    noteRischio: profile.noteRischio || null,
     disclaimer: `Aliquote pubbliche ${profile.name} applicate ai dati che hai inserito — non è consulenza fiscale. Le minusvalenze non generano qui un credito d'imposta per gli anni futuri: verifica col tuo consulente se hai posizioni chiuse in perdita.`,
   };
 }
@@ -223,7 +250,9 @@ export function validateNetReturnPayload(payload) {
   for (const [code, p] of Object.entries(payload.profiles)) {
     if (!/^[A-Z]{2}$/.test(code)) return { ok: false, reason: `codice Paese non valido: ${code}` };
     if (typeof p.name !== 'string' || !p.name) return { ok: false, reason: `nome mancante per ${code}` };
-    if (!(p.aliquotaStandard > 0 && p.aliquotaStandard < 0.6)) return { ok: false, reason: `aliquota standard implausibile per ${code}` };
+    // >= 0, non > 0: un'aliquota 0 è un dato reale e verificato (es.
+    // Svizzera, esente per investitori privati), non un campo mancante.
+    if (!(p.aliquotaStandard >= 0 && p.aliquotaStandard < 0.6)) return { ok: false, reason: `aliquota standard implausibile per ${code}` };
     if (p.aliquotaAgevolata != null) {
       if (typeof p.aliquotaAgevolata.assetClass !== 'string') return { ok: false, reason: `aliquota agevolata malformata per ${code}` };
       if (!(p.aliquotaAgevolata.aliquota > 0 && p.aliquotaAgevolata.aliquota < p.aliquotaStandard)) return { ok: false, reason: `aliquota agevolata implausibile per ${code}` };

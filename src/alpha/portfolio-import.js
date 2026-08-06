@@ -53,7 +53,7 @@ export function parsePortfolioCsv(text) {
 // ── Analisi completa. `positions` = da parsePortfolioCsv/manuale;
 // `pricesByTicker` = { TICKER: [{date,close}…] } da market-data.js (opz.);
 // `currentPriceByTicker` opzionale se non c'è la serie completa.
-export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceByTicker = {}, referenceDate = new Date() } = {}) {
+export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceByTicker = {}, referenceDate = new Date(), country = 'IT', netReturnProfilesOverride = null } = {}) {
   const rows = positions.map(p => {
     const series = pricesByTicker[p.ticker];
     const price = p.currentPrice ?? currentPriceByTicker[p.ticker] ?? (series?.length ? series[series.length - 1].close : p.avgPrice);
@@ -114,7 +114,7 @@ export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceB
   // IL NETTO VERO (net-return.js): nessun simulatore mostra il rendimento
   // già al netto di imposta sulle plusvalenze e bollo titoli — qui sì,
   // riusando le stesse righe già calcolate sopra, mai un secondo motore.
-  const netReturn = computeNetReturn(rows, totalValue);
+  const netReturn = computeNetReturn(rows, totalValue, country, netReturnProfilesOverride);
 
   return {
     rows, totalValue, totalCost, totalPl,

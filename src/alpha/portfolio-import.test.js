@@ -84,3 +84,11 @@ test('analyzePortfolio: il prezzo per-posizione dal CSV ha priorità sulla mappa
   const a = analyzePortfolio(positions, { currentPriceByTicker: { AAPL: 999 } });
   assert.equal(a.rows[0].price, 130);
 });
+
+test('analyzePortfolio: country="CH" propaga davvero all\'analisi netta, zero imposta sulle plusvalenze', () => {
+  const positions = [{ ticker: 'NESN', assetClass: 'stock', quantity: 10, avgPrice: 100 }];
+  const a = analyzePortfolio(positions, { currentPriceByTicker: { NESN: 150 }, country: 'CH' });
+  assert.equal(a.netReturn.country, 'CH');
+  assert.equal(a.netReturn.totaleImpostaCapitalGain, 0);
+  assert.equal(a.netReturn.netTotalPl, a.totalPl);
+});
