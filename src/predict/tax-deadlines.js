@@ -101,6 +101,40 @@ export function upcomingTaxDeadlines(totaleAnnuoStimato, {
   return out.sort((a, b) => a.ms - b.ms);
 }
 
+// SCADENZE SALTATE (colma un vuoto reale): upcomingTaxDeadlines scarta ogni
+// scadenza con `data <= oggi` — corretto per non allarmare su una scadenza
+// già versata, ma se non era stata versata la scadenza SPARIVA dalla UI
+// senza che nessuno lo dicesse. Stessa logica di daCoprire (residuo dopo i
+// versamenti dichiarati), ma guardando ALL'INDIETRO invece che in avanti.
+export function overdueTaxDeadlines(totaleAnnuoStimato, {
+  now = new Date(), orizzonteGiorniPassati = 400, giaVersato = 0, rulesOverride = null,
+} = {}) {
+  const totale = Number.isFinite(+totaleAnnuoStimato) ? Math.max(0, +totaleAnnuoStimato) : 0;
+  if (totale === 0) return [];
+  const daCoprire = Math.max(0, totale - (Number.isFinite(+giaVersato) ? +giaVersato : 0));
+  if (daCoprire === 0) return []; // già coperto: nessuna scadenza saltata da segnalare
+
+  const oggi = new Date(now);
+  const soglia = new Date(oggi.getTime() - orizzonteGiorniPassati * DAY_MS);
+  const out = [];
+  for (const anno of [oggi.getUTCFullYear() - 1, oggi.getUTCFullYear()]) {
+    for (const s of scadenzeForYear(anno, rulesOverride)) {
+      const data = slittaSeFestivo(new Date(Date.UTC(anno, s.mese - 1, s.giorno)));
+      if (data > oggi || data < soglia) continue; // solo scadenze passate, non troppo vecchie
+      out.push({
+        id: `${s.id}-${anno}`,
+        label: s.label,
+        date: data.toISOString().slice(0, 10),
+        ms: data.getTime(),
+        importo: +(daCoprire * s.quota).toFixed(2),
+        giorniDiRitardo: Math.round((oggi - data) / DAY_MS),
+        stimato: true,
+      });
+    }
+  }
+  return out.sort((a, b) => a.ms - b.ms);
+}
+
 // Converte le scadenze in eventi per cash-forecast.js — usa il ponte
 // `extraLedgerEvents` già esistente, così il motore di cassa NON deve
 // conoscere il fisco (resta indipendente, come già fa con le rate BNPL).

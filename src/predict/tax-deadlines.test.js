@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   upcomingTaxDeadlines, taxDeadlinesToLedgerEvents, taxCashWarning, slittaSeFestivo,
-  scadenzeForYear, SCADENZE_ANNUALI,
+  scadenzeForYear, SCADENZE_ANNUALI, overdueTaxDeadlines,
 } from './tax-deadlines.js';
 import { cashForecast } from './cash-forecast.js';
 import { validateRulesPayload, taxRulesFreshness } from './tax-rules.js';
@@ -341,4 +341,30 @@ test('RETE DI SICUREZZA: un anno senza scadenze nelle regole ripiega sul default
   // devono sparire in silenzio, sarebbe il peggior fallimento possibile.
   const s = scadenzeForYear(2019);
   assert.ok(s.length >= 2, 'senza scadenze note si usa comunque il default incluso');
+});
+
+// ── SCADENZE SALTATE: la lacuna colmata (2026-08-06) — prima sparivano ──
+test('overdueTaxDeadlines: totale zero o già coperto -> nessuna scadenza saltata da segnalare', () => {
+  assert.deepEqual(overdueTaxDeadlines(0, { now: new Date('2026-07-15') }), []);
+  assert.deepEqual(overdueTaxDeadlines(4000, { now: new Date('2026-07-15'), giaVersato: 4000 }), []);
+});
+
+test('overdueTaxDeadlines: scadenza di giugno non versata, oggi 15 luglio -> appare con i giorni di ritardo corretti', () => {
+  const overdue = overdueTaxDeadlines(4000, { now: new Date('2026-07-15') });
+  assert.ok(overdue.length >= 1);
+  const giugno = overdue.find((d) => d.date === '2026-06-30');
+  assert.ok(giugno);
+  assert.equal(giugno.giorniDiRitardo, 15);
+  assert.equal(giugno.importo, 2000); // 50% del totale, come upcomingTaxDeadlines
+});
+
+test('overdueTaxDeadlines: una scadenza futura non compare mai tra quelle saltate', () => {
+  const overdue = overdueTaxDeadlines(4000, { now: new Date('2026-03-01') });
+  assert.ok(overdue.every((d) => new Date(d.date) <= new Date('2026-03-01')));
+});
+
+test('overdueTaxDeadlines: versamento parziale -> l\'importo residuo si applica anche alle scadenze saltate', () => {
+  const overdue = overdueTaxDeadlines(4000, { now: new Date('2026-07-15'), giaVersato: 3000 });
+  const giugno = overdue.find((d) => d.date === '2026-06-30');
+  assert.equal(giugno.importo, 500); // 50% di (4000-3000)
 });

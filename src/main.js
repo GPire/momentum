@@ -64,8 +64,9 @@ import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
-import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
+import { upcomingTaxDeadlines, taxCashWarning, overdueTaxDeadlines } from './predict/tax-deadlines.js';
 import { righeF24Iva, righeF24Imposte, f24Riepilogo } from './predict/f24.js';
+import { calcolaRavvedimento } from './predict/ravvedimento.js';
 import { taxReserveStatus } from './predict/tax-payments.js';
 import { rulesForYear } from './predict/tax-rules.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
@@ -2141,6 +2142,22 @@ function renderTaxCashBlocks(proj, regime) {
     const versamenti = VaultDAO.state.taxPayments || [];
     const riserva = taxReserveStatus(proj.estimatedAnnualTax, versamenti);
     const deadlines = upcomingTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
+
+    // SCADENZE SALTATE (colma un vuoto reale): prima una scadenza non
+    // versata spariva semplicemente dalla lista al giorno dopo, come se non
+    // fosse mai esistita. Ora si vede, col ravvedimento operoso già calcolato
+    // — il momento più delicato per chi non ha un commercialista.
+    const overdue = overdueTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
+    if (overdue.length) {
+      const o = overdue[0];
+      const rav = calcolaRavvedimento(o.importo, o.giorniDiRitardo);
+      html += `<div class="rounded-xl border border-orange-400/40 bg-orange-500/10 px-3 py-2.5 mt-1.5">
+        <div class="text-[11px] font-bold text-orange-300 leading-snug">Scadenza del ${escapeHtml(o.date)} non ancora versata (${o.giorniDiRitardo} giorni di ritardo).</div>
+        <div class="text-[11px] text-orange-200/90 mt-1 leading-snug">Con il ravvedimento operoso oggi pagheresti ${escapeHtml(formatMoney(rav.totale))}: ${escapeHtml(formatMoney(o.importo))} dovuto + ${escapeHtml(formatMoney(rav.sanzioneRidotta))} di sanzione ridotta (${escapeHtml(rav.fascia)}) + ${escapeHtml(formatMoney(rav.interessi))} di interessi. Più aspetti, più sale.</div>
+        <div class="text-[10px] text-orange-200/70 mt-1.5 leading-snug">${escapeHtml(rav.nota)}</div>
+      </div>`;
+    }
+
     const avviso = taxCashWarning(deadlines, null);
     if (avviso) {
       const col = avviso.urgenza === 'alta' ? 'text-orange-300' : avviso.urgenza === 'ok' ? 'text-emerald-300' : 'text-[var(--on-surface-secondary)]';
