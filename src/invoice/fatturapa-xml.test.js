@@ -215,6 +215,20 @@ test('buildFatturaPaXML: dati incompleti → blocking true, ma XML comunque prod
   assert.ok(r.controls.some(c => c.level === 'error'));
 });
 
+test('buildFatturaPaXML: invoice senza cassa/ritenuta/bollo espliciti (non da computeInvoice) → mai NaN nell\'XML', () => {
+  // BUG REALE trovato scrivendo il parser fatture passive: un chiamante che
+  // costruisce l'oggetto invoice a mano (senza passare da computeInvoice, che
+  // difaults sempre i tre campi) otteneva NaN propagato silenziosamente in
+  // tutto l'XML — un file che sembra valido e non lo è.
+  const { xml } = buildFatturaPaXML({
+    emitter: EMITTER, client: CLIENT,
+    invoice: { imponibile: 500, ivaImporto: 110, regime: 'ordinario' },
+    meta: { number: 7, year: 2026, date: '2026-07-21', regime: 'ordinario', description: 'Materiale' },
+  });
+  assert.ok(!xml.includes('NaN'), 'l\'XML non deve mai contenere NaN');
+  assert.match(xml, /<ImponibileImporto>500\.00<\/ImponibileImporto>/);
+});
+
 test('buildFatturaPaXML: escape XML dei caratteri speciali (no rottura/injection)', () => {
   const inv = computeInvoice({ imponibile: 1000, regime: 'forfettario', country: 'IT' });
   const { xml } = buildFatturaPaXML({

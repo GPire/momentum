@@ -282,11 +282,15 @@ export function buildFatturaPaXML(data = {}) {
   const spec = formatForDate(isoDate(meta.date) || new Date(), meta.formatOverride || null);
   const isForf = (meta.regime || invoice.regime) === 'forfettario';
   const regimeCode = spec.regimeCodes[isForf ? 'forfettario' : 'ordinario'] || 'RF01';
-  const base = round2(invoice.imponibile);
-  const cassa = round2(invoice.cassaImporto);
-  const ivaImporto = round2(invoice.ivaImporto);
-  const ritenuta = round2(invoice.ritenutaImporto);
-  const bollo = round2(invoice.bolloImporto);
+  // Default 0 per i campi opzionali: senza, un chiamante che omette
+  // cassa/ritenuta/bollo (comune quando non si passa da computeInvoice)
+  // otterrebbe NaN propagato silenziosamente in tutto l'XML — un file che
+  // sembra valido e non lo è, il tipo di bug più pericoloso da lasciare.
+  const base = round2(invoice.imponibile || 0);
+  const cassa = round2(invoice.cassaImporto || 0);
+  const ivaImporto = round2(invoice.ivaImporto || 0);
+  const ritenuta = round2(invoice.ritenutaImporto || 0);
+  const bollo = round2(invoice.bolloImporto || 0);
   const imponibileRiep = round2(base + cassa);
   const aliquota = isForf ? 0 : (imponibileRiep > 0 ? ivaImporto / imponibileRiep : 0);
   const cassaAl = base > 0 ? cassa / base : 0;

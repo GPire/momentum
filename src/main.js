@@ -72,6 +72,7 @@ import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringC
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
+import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa-import.js';
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
@@ -2226,6 +2227,12 @@ window.openRegistraAcquistoIva = () => {
         </div>
       </div>
       <button id="acq-save" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Registra acquisto</button>
+      <div class="w-full flex items-center gap-2 text-[10px] text-[var(--on-surface-secondary)] uppercase tracking-wide">
+        <div class="flex-1 h-px bg-[var(--glass-border)]"></div>oppure<div class="flex-1 h-px bg-[var(--glass-border)]"></div>
+      </div>
+      <input id="acq-xml-input" type="file" accept=".xml" class="hidden" />
+      <button id="acq-xml-btn" type="button" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] text-sm">Importa fattura ricevuta (XML)</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug -mt-1">Il file che scarichi dal cassetto fiscale o ricevi dal fornitore: Momentum legge fornitore, data, imponibile e aliquota, e li registra da solo — resta sul tuo dispositivo, nessun upload.</p>
       ${(VaultDAO.state.acquistiIva || []).length ? `
       <div class="w-full text-left mt-1">
         <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">Già registrati</div>
@@ -2252,6 +2259,28 @@ window.openRegistraAcquistoIva = () => {
     showToast('Acquisto registrato — l\'IVA detraibile è già nel calcolo del periodo.', 'success');
     window.openRegistraAcquistoIva();
     renderAnalysis();
+  });
+  document.getElementById('acq-xml-btn')?.addEventListener('click', () => {
+    document.getElementById('acq-xml-input')?.click();
+  });
+  document.getElementById('acq-xml-input')?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const testo = await file.text();
+      const parsed = parseFatturaPaXML(testo);
+      if (parsed.errore) { showToast(parsed.errore, 'error'); return; }
+      const nuove = fatturaPassivaToAcquisti(parsed);
+      if (!nuove.length) { showToast('Nessuna riga con IVA trovata in questa fattura.', 'error'); return; }
+      VaultDAO.state.acquistiIva = [...(VaultDAO.state.acquistiIva || []), ...nuove];
+      VaultDAO.save();
+      showToast(`${nuove.length > 1 ? `${nuove.length} righe importate` : 'Fattura importata'} da ${parsed.fornitore} — registro acquisti aggiornato.`, 'success');
+      window.openRegistraAcquistoIva();
+      renderAnalysis();
+    } catch (err) {
+      console.warn('Import fattura passiva fallito:', err);
+      showToast('Non sono riuscito a leggere questo file: controlla che sia l\'XML della fattura, non un altro formato.', 'error');
+    }
   });
 };
 // F24 PRECOMPILATO — mai trasmesso da Momentum (nessun accesso bancario:
