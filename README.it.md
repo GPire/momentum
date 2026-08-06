@@ -1,0 +1,188 @@
+<div align="center">
+
+# Momentum
+
+### L'intelligenza finanziaria che vive dentro il tuo dispositivo.
+
+**Nessun server. Nessun abbonamento. Niente esce dal tuo telefono.**
+
+[![test](https://img.shields.io/badge/test-2173%20verdi-brightgreen)](#verificalo-tu-30-secondi)
+[![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
+[![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
+[![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
+[![zero dipendenze](https://img.shields.io/badge/dipendenze%20runtime-0-blue)](#avvio-rapido)
+
+[English](README.md) · **Italiano**
+
+</div>
+
+---
+
+## In 10 secondi
+
+Le app di finanza personale si abbandonano per due motivi: **scrivere ogni spesa a mano** e **numeri che non dicono niente**.
+
+Momentum risponde alla domanda che ti fai davvero — **"quanto posso spendere oggi?"** — e fa i conti dove i tuoi dati già stanno: sul tuo dispositivo.
+
+**È per te se:**
+- vuoi sapere quanto puoi spendere **oggi**, non un grafico del mese scorso
+- hai la **Partita IVA** e le scadenze fiscali ti mettono ansia (Italia 🇮🇹 e Svizzera 🇨🇭)
+- **investi** e vuoi il rendimento *dopo le tasse*, non quello della brochure
+- non vuoi la tua vita bancaria sul server di qualcun altro
+
+## L'unica cosa che la rende diversa
+
+Ogni altra app di finanza ha un server. Quel server **è** il prodotto: tiene i dati, e i dati sono il modello di business.
+
+Momentum ribalta tutto. **Il valore nasce dal non ricevere mai i tuoi dati.**
+
+Non è una promessa di privacy attaccata sopra: è l'architettura. I dispositivi si sincronizzano direttamente tra loro (WebRTC, peer-to-peer, senza server di segnalazione). L'AI si addestra in locale. Non c'è un account da creare, perché non c'è niente su cui crearlo.
+
+> Un concorrente che monetizza i dati o il cloud non può copiarla. Dovrebbe prima cancellare il proprio modello di business.
+
+---
+
+## Cosa fa
+
+### 💶 Il numero di oggi
+**"Oggi puoi spendere X€."** Budget settimanale derivato dal mensile, proporzionale ai giorni veri, con riporto envelope, meno gli abbonamenti in arrivo — diviso per i giorni che restano.
+
+La proiezione di fine mese usa Holt-Winters sul tuo andamento reale (ripiega sul run-rate, e ti dice sempre quale metodo ha usato).
+
+### 🧾 Partita IVA, fisco e fatturazione — Italia e Svizzera
+La parte che trasforma un'app di budget in infrastruttura.
+
+**🇮🇹 Italia**
+- **Salvadanaio fiscale** — a ogni incasso sai cosa è tuo e cosa è del fisco. Regime forfettario e ordinario, coefficienti ATECO reali, INPS, casse professionali, aliquota ridotta al 24% per chi è già dipendente.
+- **Fatture elettroniche vere** — XML FatturaPA v1.2.2 generato sul dispositivo. In più un **predittore offline dei codici di scarto SdI** (00400/00415/00417/00422/00423/00427…): l'errore lo vedi *prima* di inviare, non dopo.
+- **Fatture a più voci**, righe percentuali (sconto/maggiorazione), PDF di cortesia, controllo reale delle cifre di controllo di Partita IVA e Codice Fiscale.
+- **Liquidazione IVA periodica**, registro acquisti (IVA detraibile), **importazione fatture passive** (carichi l'XML ricevuto e si registra da solo).
+- **F24 precompilato** con codici tributo verificati (1790/1791/1792, 4033/4034/4001, 6001-6012, 6031-6034, P10), pronti da copiare in home banking.
+- **Hai saltato una scadenza?** **Ravvedimento operoso** calcolato da solo: sanzione ridotta per fascia di ritardo più interessi legali. Altrove la scadenza sparisce e basta.
+
+**🇨🇭 Svizzera**
+- **AVS/AI/APG** per indipendenti, **soglia IVA** (CHF 100'000 — molti piccoli indipendenti non devono nemmeno registrarsi, e Momentum lo dice).
+- **QR-bill** — il codice QR di pagamento obbligatorio su ogni fattura svizzera dal 2022. Payload verificato **riga per riga contro tre esempi ufficiali di SIX Group**; la cifra di controllo del riferimento QRR verificata contro il riferimento pubblicato da SIX stessa.
+- Interfaccia in **tedesco, francese, italiano e inglese**, riconosciuta in automatico.
+
+### 📈 Investimenti — il netto **vero**
+Ogni simulatore mostra il lordo. Un ETF al 7% non è un ETF al 7%.
+
+Momentum mostra il rendimento **dopo imposta sulle plusvalenze e bollo titoli**, con aliquote verificate per Paese — 🇮🇹 Italia (26% / 12,5% titoli di Stato / 0,2% bollo), 🇩🇪 Germania (26,375% + franchigia 1.000€), 🇫🇷 Francia (31,4% PFU 2026), 🇨🇭 Svizzera (0% per investitori privati — con i limiti su trader professionale e imposta patrimoniale cantonale dichiarati, mai nascosti).
+
+E poi: patrimonio netto, proiezioni Monte Carlo con ipotesi dichiarate, regime di mercato misurato, base-rate su 40 anni di drawdown, importazione portafoglio e ribilanciamento risk-parity.
+
+**Mai un consiglio compra/vendi.** Il quadro, mai l'ordine — è una linea normativa, ed è anche ciò che rende Momentum integrabile invece che bloccabile.
+
+### 🧠 Un'AI che impara davvero da te
+Un ensemble che vota, più un arbitro che impara **quale dei suoi stessi modelli ascoltare, categoria per categoria**, dalle tue correzioni vere.
+
+<details>
+<summary>Dettaglio tecnico</summary>
+
+- **NeuralNexus** — Naive Bayes + rete neurale (backprop reale, L2, gradient clipping), apprende dall'uso.
+- **Nano** (sempre attivo) — MLP addestrato in Python/scikit-learn, portato in JS con parità numerica verificata.
+- **Meso** (tier medio/alto) — TF-IDF ibrido parole + n-grammi di caratteri, 2 strati nascosti, pensato per il *testo bancario sporco*.
+- **Orchestrator** — voto pesato a N vie, pesi modulati dalla precisione per-categoria misurata sulle tue correzioni (matrice incrementale, lisciatura di Laplace, neutro quando non ha dati).
+- **Tier hardware** — un micro-benchmark reale al boot sceglie la profondità Monte Carlo (500–10.000) e quali motori svegliare. Le transazioni di routine non svegliano mai quelli pesanti.
+
+Per rigenerare i numeri: `npm run bench`, `npm run bench:vs-llm`, `npm run bench:cash`
+</details>
+
+### 🕸️ Causa ed effetto, onestamente
+Co-variazione misurata tra categorie sulle **differenze** settimanali (così un trend comune non inventa legami finti), lag 0 e lag 1, con propagazione smorzata e percorso spiegabile.
+
+Scritto chiaro anche nell'app: *"non è una legge, è quello che è successo nei tuoi dati."*
+
+### 💬 Chiedi quello che vuoi, anche offline
+Intent deterministici calcolati sui dati veri — *"quanto ho speso a giugno?"*, *"posso permettermi 50€?"*, *"quando pago Netflix?"*, *"cosa succede se spendo di più al ristorante?"* Tollera i refusi. Risponde a voce. **Quando non sa, lo dice.**
+
+### ⚡ Frizione zero
+Tasti one-tap per gli acquisti abituali, **ordinati per quello che è probabile adesso** (istogrammi misurati di ora e giorno: il caffè in cima alle 8, la spesa il sabato), con il perché spiegato. Memoria degli importi. Import da PDF bancari (Intesa, UniCredit, N26, Revolut), CSV, OCR degli scontrini, voce con frasi multi-azione.
+
+### 🌐 Sincronizzazione senza server
+Collegamento esplicito tra dispositivi fidati via WebRTC. FedAvg pesato, **anti-poisoning validato su un set locale**, e un dispositivo nuovo **eredita** la rete addestrata al primo collegamento.
+
+### 📴 Funziona senza campo
+Service worker a doppia cache, IndexedDB + localStorage, migrazioni di schema, e una **hash chain sulle transazioni che non si riscrive mai**.
+
+---
+
+## Verificalo tu (30 secondi)
+
+Non fidarti delle affermazioni. Eseguile.
+
+```bash
+npm install
+npm test      # 2173 test, node --test src/
+```
+
+Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizzera è confrontata con gli esempi ufficiali SIX; le aliquote portano la data in cui sono state verificate e la fonte; i numeri dell'AI si rigenerano con `npm run bench:*`.
+
+## Avvio rapido
+
+```bash
+npm install
+npm run dev               # localhost:5173
+npm test                  # 2173 test
+npm run build             # PWA multi-file in dist/
+npm run build:singlefile  # singolo file HTML ~575KB
+```
+
+**Zero dipendenze a runtime.** Vite è l'unica dipendenza di sviluppo.
+
+## Struttura
+
+```
+src/
+  ai/        NeuralNexus, Nano, Meso, Orchestrator, motore Q&A, calibrazione
+  predict/   previsione di cassa, motore fiscale (IT + CH), liquidazione IVA,
+             F24, ravvedimento, scadenze, scoperta causale, abbonamenti, BNPL
+  invoice/   XML FatturaPA + predittore scarti SdI, import fatture passive,
+             QR-bill svizzera, checksum fiscali, registro per Paese
+  alpha/     netto dopo le tasse, patrimonio, portafoglio, regime di mercato,
+             fattori, base-rate sui drawdown, fonti dati verificate
+  mesh/      segnalazione WebRTC (senza server), peer federato, sync CRDT
+  core/      vault (IndexedDB + hash chain + migrazioni), auto-aggiornamento
+  split/     spese condivise, settlement ottimo, crittografia degli inviti
+  i18n/      rilevamento lingua + stringhe interfaccia
+  import/    PDF bancari, CSV, OCR scontrini, parser notifiche
+  voice/     parser vocale multi-azione
+```
+
+170 moduli sorgente. 16 domini.
+
+## Limiti dichiarati
+
+La fiducia si costruisce con quello che un progetto ammette, non con quello che promette.
+
+- Una PWA **non può** leggere le notifiche di altre app (iOS o Android). La lettura diretta richiede un guscio nativo Android (`NotificationListenerService`). Su iOS non può nessuno: lì la strada è l'Open Banking.
+- iOS non supporta Web Share Target per le PWA.
+- Il grafo causale misura **co-variazione, non causalità** — ed è scritto anche nell'interfaccia.
+- Momentum **non può trasmettere** una fattura allo SdI al posto tuo: serve l'accreditamento come intermediario, che è una pratica societaria, non codice. Prepara il file giusto e ti guida passo passo sul portale vero.
+- La QR-bill svizzera produce un **codice corretto e scansionabile**, non ancora il layout stampabile del bollettino a norma.
+- Sotto CHF 60'500 l'AVS usa una scala degressiva che non è una formula pubblica semplice: Momentum mostra il minimo verificato e rimanda al calcolatore ufficiale, invece di inventare un numero.
+- **Non è consulenza fiscale.** Sono stime su aliquote pubbliche, ognuna con la sua data di verifica.
+
+## Principi non negoziabili
+
+1. I dati dell'utente non lasciano mai il dispositivo.
+2. Mai moduli decorativi: ogni claim è misurato e testato (`npm test`).
+3. Funzioni pure separate dal DOM; ogni modulo nuovo nasce coi suoi test.
+4. La hash chain delle transazioni non si riscrive.
+5. Ogni testo dell'interfaccia deve essere comprensibile da un bambino di 8 anni.
+6. **Se il numero non è stampato, non esiste.** Nessuna cifra non verificata entra in un documento, in un commit o nell'interfaccia.
+
+## Documentazione
+
+- **[VERSIONI.md](VERSIONI.md)** — manifesto delle versioni per componente: le versioni si guadagnano con salti reali misurati, mai con le etichette.
+- **[PIANO_MOMENTUM.md](PIANO_MOMENTUM.md)** — piano di sviluppo, stato delle fasi, gap list.
+- **[NEUROSYM.md](NEUROSYM.md)** — l'architettura di ragionamento, compreso ciò che dichiaratamente *non* è.
+
+---
+
+<div align="center">
+
+**I tuoi soldi. Il tuo dispositivo. Niente esce.**
+
+</div>

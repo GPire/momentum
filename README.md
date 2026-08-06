@@ -1,105 +1,188 @@
-# Momentum — l'AI finanziaria che vive nel tuo dispositivo
+<div align="center">
 
-**Personal finance intelligence, 100% on-device.** Nessun server, nessun abbonamento, nessun dato che lascia il telefono — e un'intelligenza che migliora con l'uso reale e attraverso i tuoi dispositivi collegati.
+# Momentum
 
-> Il vantaggio non è "più grande dei competitor": è **strutturalmente diverso**. Chi monetizza i dati o il cloud non può copiare un'architettura il cui valore è non ricevere mai i dati.
+### Personal finance AI that runs entirely on your device.
 
----
+**No server. No subscription. Nothing leaves your phone.**
 
-## Perché esiste
+[![tests](https://img.shields.io/badge/tests-2173%20passing-brightgreen)](#verify-it-yourself-30-seconds)
+[![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#the-one-thing-that-makes-it-different)
+[![no cloud](https://img.shields.io/badge/cloud-none-blue)](#the-one-thing-that-makes-it-different)
+[![PWA](https://img.shields.io/badge/PWA-offline%20first-blue)](#works-with-no-signal)
+[![zero deps](https://img.shields.io/badge/runtime%20deps-0-blue)](#quick-start)
 
-La maggior parte delle app di finanza personale viene abbandonata per due motivi: **frizione** (inserire ogni spesa a mano) e **assenza di motivazione** (numeri senza significato). Momentum attacca entrambi con AI reale on-device, e risponde alla domanda che l'utente si fa davvero ogni giorno: **"quanto posso spendere oggi?"**
+**English** · [Italiano](README.it.md)
 
-## Cosa fa (tutto verificato da 1363 test automatici)
-
-### 🎯 Il numero del giorno
-- **Safe-to-spend**: "Oggi puoi spendere X€" — budget settimanale (derivato dal mensile, proporzionale ai giorni reali, con riporto envelope) meno gli abbonamenti in arrivo, diviso per i giorni rimasti.
-- **Proiezione fine mese**: Holt-Winters sul tuo andamento reale (fallback run-rate, metodo sempre dichiarato).
-
-### 🧠 AI di categorizzazione: ensemble a 3 modelli + arbitro che impara
-- **NeuralNexus**: Naive Bayes + rete neurale (backprop reale, L2, gradient clipping) che apprende dall'uso.
-- **Nano** (sempre attivo): MLP addestrato in Python/scikit-learn, 99% train / 94.7% CV, portato in JS con parità numerica verificata (diff max 2.2e-16 su cross-check Python↔JS).
-- **Meso** (tier medio/alto): TF-IDF ibrido parole+n-grammi di caratteri, 2 strati nascosti — **89.7% su testo bancario sporco** (vs 80.0% del Nano, stesso test set, misurato non dichiarato).
-- **Orchestrator v3**: voto pesato a N vie; i pesi sono modulati dalla **precisione per-categoria misurata sulle correzioni reali dell'utente** (matrice incrementale, lisciatura di Laplace, neutro senza dati). Il sistema impara *quale dei suoi modelli ascoltare*, categoria per categoria.
-
-### 🕸️ Ragionamento a catena (grafo causale personale)
-Co-variazione misurata tra categorie sulle **differenze** settimanali (il trend comune non crea legami finti), lag 0 e lag 1: "quando sale Ristorante, di solito sale anche Trasporti — e Farmacia la settimana dopo". Propagazione con smorzamento e percorso esplicativo. Onestà nel testo: *"non è una legge, è quello che è successo nei tuoi dati"*.
-
-### 💬 Q&A on-device (testo e voce, anche offline)
-15 intent deterministici calcolati sui dati veri: "quanto ho speso a giugno?", "posso permettermi 50€?", "come chiudo il mese?", "quando pago Netflix?", "cosa succede se spendo di più in ristorante?", "quanto vale il mio patrimonio?", "quando mi pagano?", "quanto devo ancora a rate?". Tolleranza ai refusi (correzione Levenshtein sul riconoscimento, mai sui dati estratti). Risposta vocale via speechSynthesis. Quando non sa, lo dice.
-
-### ⚡ Frizione zero
-- **Tasti rapidi contestuali**: gli acquisti abituali con cifra stabile diventano bottoni one-tap, **ordinati per probabilità adesso** (istogrammi ora-del-giorno e giorno-settimana misurati: il caffè in cima alle 8, la spesa il sabato) con il perché spiegato.
-- **Memoria importi**: selezioni la categoria → se la cifra è sempre la stessa (es. sigarette 5,40€) si precompila da sola.
-- **Import**: PDF bancari multi-formato (Intesa, UniCredit, N26, Revolut — colonna Saldo ignorata, righe multi-linea, date ISO/testuali), CSV, screenshot/scontrini via OCR (esercente estratto filtrando P.IVA/indirizzi), Web Share Target Android, parser notifiche wallet (Google Wallet, Satispay, SMS bancari, Revolut, PayPal) pronto per il guscio nativo.
-- **Voce**: transazioni, appuntamenti (.ics) e domande in linguaggio naturale, frasi composte multi-azione.
-
-### 🔥 Retention layer
-Streak, recap settimanale misurato, obiettivi di risparmio con progresso reale e ritmo vs deadline, rilevamento abbonamenti + aumenti di prezzo silenziosi (>10%) + registrazione one-tap.
-
-### 🌐 Mente condivisa (federated learning P2P, zero server)
-Pairing esplicito tra dispositivi fidati via codici WebRTC (nessun server di segnalazione); FedAvg pesato sul conteggio esempi; **anti-poisoning** su validation set locale; un dispositivo nuovo **eredita** la rete addestrata al primo collegamento. Verificato live su 2 nodi: fusione 9+9=18 esempi esatta, pesi malformati rifiutati.
-
-### 📴 Offline totale
-Service worker a doppia cache: app network-first, librerie CDN cache-first (inclusi wasm e traineddata OCR). Warm-up OCR in idle. Dati in IndexedDB + localStorage con migrazioni di schema e hash chain sulle transazioni (mai riscritte).
-
-### 🖥️ Architettura a tier hardware
-Micro-benchmark reale al boot (κ) + rilevamento WebGPU/WebNN/WASM-SIMD → profondità Monte Carlo 500-10.000, 3D on/off, Meso on/off. Dispatcher a novelty: le transazioni di routine non svegliano i motori pesanti.
-
-### 📈 Motore predittivo
-Holt-Winters, GARCH(1,1) con forecast multi-step corretto, AR(2) via Yule-Walker, ensemble pesato per backtest walk-forward, Monte Carlo Cornish-Fisher — in Web Worker, con aggiornamento progressivo della UI.
-
-### 🌍 Dati di mercato reali e chat generica (chiavi personali dell'utente, mai condivise)
-- **Prezzi/storico cripto**: Binance (keyless, priorità) → CoinGecko (keyless, fallback, storico limitato a 365gg sul piano gratuito).
-- **Prezzi/storico azioni-ETF**: Alpha Vantage → Twelve Data → Financial Modeling Prep, tutti a cascata con la chiave personale dell'utente (nessuna chiave condivisa Momentum, mai auto-generata).
-- **Notizie e domande fuori dal perimetro locale**: quando "Chiedi a Momentum" non riconosce l'intento, prova prima a trovare un asset reale (pattern o AI-assistita) e mostrare dati/grafico veri; solo se non trova nulla di reale ripiega su una chat generica **a cascata su 12 provider** (Groq, Gemini — con grounding Google Search per notizie con fonti —, OpenRouter, Mistral, Qwen, Moonshot AI, GLM, Cerebras, DeepSeek, xAI, OpenAI, Anthropic), ognuno con la chiave personale dell'utente. Log locale (mai il contenuto) di quali domande escono dal riconoscimento locale, come segnale onesto per ampliare i pattern nel tempo.
-- **Alias di settore** (es. "mercato immobiliare" → ETF XLRE) dichiarati esplicitamente come proxy, mai il valore di un bene specifico dell'utente.
+</div>
 
 ---
 
-## Avvio rapido
+## In 10 seconds
+
+Most money apps die for two reasons: **typing every expense** and **numbers that mean nothing**.
+
+Momentum answers the one question you actually ask — **"how much can I spend today?"** — and it does the maths where your data already lives: on your device.
+
+**It's for you if you:**
+- want to know what you can spend **today**, not a chart of last month
+- are a **freelancer** who dreads tax deadlines (Italy 🇮🇹 and Switzerland 🇨🇭 supported)
+- **invest** and want the return *after* tax, not the brochure number
+- don't want your bank life sitting on someone else's server
+
+## The one thing that makes it different
+
+Every other finance app has a server. That server is the product: it holds the data, and the data is the business model.
+
+Momentum inverts it. **The value comes from never receiving your data.**
+
+That isn't a privacy promise bolted on top — it's the architecture. Devices sync directly with each other (WebRTC, peer-to-peer, no signalling server). The AI trains locally. There is no account to create, because there's nothing to create it on.
+
+> A competitor who monetises data or cloud cannot copy this. They'd have to delete their own business model first.
+
+---
+
+## What it does
+
+### 💶 Today's number
+**"You can spend X today."** Weekly budget derived from your monthly one, proportional to real days, envelope carry-over, minus subscriptions about to hit — divided by days left.
+
+Month-end projection uses Holt-Winters on your actual trend (falls back to run-rate, and always tells you which method it used).
+
+### 🧾 Freelancers, VAT & invoicing — Italy and Switzerland
+The part that turns a budgeting app into infrastructure.
+
+**🇮🇹 Italy**
+- **Set-aside engine** — every payment received tells you what's yours and what's the taxman's. Flat-rate (*forfettario*) and standard regimes, real ATECO coefficients, INPS, professional funds (*casse*), reduced 24% rate for employed-plus-freelance.
+- **Real e-invoices** — FatturaPA v1.2.2 XML, generated on-device. Plus an **offline predictor of SdI rejection codes** (00400/00415/00417/00422/00423/00427…) so you find the error *before* sending, not after.
+- **Multi-line invoices**, percentage lines (discount/surcharge), courtesy PDF, real checksum validation of VAT numbers and *codice fiscale*.
+- **Periodic VAT settlement**, purchase register (deductible VAT), **passive invoice import** (drop in the XML you received, it books itself).
+- **Pre-filled F24** with verified tax codes (1790/1791/1792, 4033/4034/4001, 6001-6012, 6031-6034, P10) ready to copy into your bank.
+- **Missed a deadline?** *Ravvedimento operoso* calculated automatically — reduced penalty by lateness band plus legal interest. Most tools just let the deadline vanish.
+
+**🇨🇭 Switzerland**
+- **AHV/IV/EO** contributions for the self-employed, **VAT threshold** (CHF 100,000 — many freelancers don't need to register at all, and Momentum says so).
+- **QR-bill** — the payment QR code mandatory on every Swiss invoice since 2022. Payload verified **byte-for-byte against three official SIX Group examples**; the QRR reference check digit verified against SIX's own published reference.
+- Interface in **German, French, Italian and English**, auto-detected.
+
+### 📈 Investments — the *real* net
+Every simulator shows you gross. A 7% ETF is not a 7% ETF.
+
+Momentum shows the return **after capital gains tax and stamp duty**, with rates verified per country — 🇮🇹 Italy (26% / 12.5% govt bonds / 0.2% stamp duty), 🇩🇪 Germany (26.375% flat + €1,000 *Sparerpauschbetrag*), 🇫🇷 France (31.4% PFU, 2026), 🇨🇭 Switzerland (0% for private investors — with the professional-trader and cantonal wealth tax caveats stated, never hidden).
+
+Plus: net worth, Monte Carlo projections with declared assumptions, market regime detection, 40 years of drawdown base rates, portfolio import and risk-parity rebalancing.
+
+**Never a buy/sell recommendation.** The picture, never the order — that's a regulatory line, and it's also what makes it integrable rather than blockable.
+
+### 🧠 AI that actually learns from you
+An ensemble that votes, plus an arbiter that learns **which of its own models to trust, category by category**, from your real corrections.
+
+<details>
+<summary>Technical detail</summary>
+
+- **NeuralNexus** — Naive Bayes + neural net (real backprop, L2, gradient clipping), learns from use.
+- **Nano** (always on) — MLP trained in Python/scikit-learn, ported to JS with verified numerical parity.
+- **Meso** (mid/high tier) — hybrid TF-IDF words + character n-grams, 2 hidden layers, built for *dirty bank text*.
+- **Orchestrator** — N-way weighted vote, weights modulated by per-category precision measured on your corrections (incremental matrix, Laplace smoothing, neutral when it has no data).
+- **Hardware tiering** — a real micro-benchmark at boot picks Monte Carlo depth (500–10,000) and which engines to wake. Routine transactions never wake the heavy ones.
+
+Reproduce the numbers: `npm run bench`, `npm run bench:vs-llm`, `npm run bench:cash`
+</details>
+
+### 🕸️ Cause and effect, honestly
+Measured co-variation between categories on weekly **differences** (so a shared trend doesn't invent a link), lag 0 and lag 1, with damped propagation and an explainable path.
+
+Stated plainly in the UI: *"this isn't a law, it's what happened in your data."*
+
+### 💬 Ask it anything, offline
+Deterministic intents computed on your real data — *"how much did I spend in June?"*, *"can I afford €50?"*, *"when do I pay Netflix?"*, *"what if I spend more on restaurants?"* Typo-tolerant. Speaks answers aloud. **When it doesn't know, it says so.**
+
+### ⚡ Zero friction input
+One-tap buttons for habitual purchases, **ordered by what's likely right now** (measured hour-of-day and day-of-week histograms — coffee at 8am, groceries on Saturday), with the reason shown. Amount memory. Bank PDF import (Intesa, UniCredit, N26, Revolut), CSV, receipt OCR, voice with multi-action sentences.
+
+### 🌐 Sync without a server
+Explicit pairing between trusted devices over WebRTC. Weighted FedAvg, **anti-poisoning validated on a local set**, and a new device *inherits* the trained network on first link.
+
+### 📴 Works with no signal
+Dual-cache service worker, IndexedDB + localStorage, schema migrations, and a **hash chain on transactions that is never rewritten**.
+
+---
+
+## Verify it yourself (30 seconds)
+
+Don't take the claims. Run them.
 
 ```bash
 npm install
-npm run dev          # localhost:5173
-npm test             # 167 test (node --test src/)
-npm run build        # PWA multi-file in dist/
-npm run build:singlefile  # single-file ~220KB
+npm test      # 2173 tests, node --test src/
 ```
 
-## Struttura
+Every capability above has tests next to the code. The Swiss QR-bill is checked against the official SIX examples; the tax rates carry the date they were verified and the source; the AI numbers regenerate with `npm run bench:*`.
+
+## Quick start
+
+```bash
+npm install
+npm run dev               # localhost:5173
+npm test                  # 2173 tests
+npm run build             # multi-file PWA in dist/
+npm run build:singlefile  # single ~575KB HTML file
+```
+
+**Zero runtime dependencies.** Vite is the only dev dependency.
+
+## Architecture
 
 ```
 src/
-  ai/        NeuralNexus, Nano, Meso, Orchestrator v3, Q&A engine
-  predict/   advisor, engines (HW/GARCH/AR2/MC), causal-graph, engagement,
-             amount-memory, context-predictor, subscriptions, weekly-budget,
-             dispatcher, anomaly, oracle + forecast worker
-  import/    pdf-parser (Column Resonance), csv, screenshot OCR,
-             notification-parser (+ fixtures multi-banca)
-  mesh/      mesh-signaling (WebRTC zero-server), nexus-adapter,
-             federated peer, peer-registry (PeerJS trusted reconnect)
-  core/      vault (IndexedDB + hash chain + migrazioni), deduplicator fuzzy
-  device/    profiler hardware (κ, tier)
-  voice/     parser vocale IT/EN multi-azione
+  ai/        NeuralNexus, Nano, Meso, Orchestrator, Q&A engine, calibration
+  predict/   cash forecast, tax engine (IT + CH), VAT settlement, F24,
+             ravvedimento, deadlines, causal discovery, subscriptions, BNPL
+  invoice/   FatturaPA XML + SdI rejection predictor, passive import,
+             Swiss QR-bill, fiscal-ID checksums, per-country registry
+  alpha/     net return after tax, net worth, portfolio, market regime,
+             factors, drawdown base rates, verified data sources
+  mesh/      WebRTC signalling (no server), federated peer, sync CRDT
+  core/      vault (IndexedDB + hash chain + migrations), auto-update
+  split/     shared expenses, optimal settlement, invite crypto
+  i18n/      language detection + UI strings
+  import/    bank PDF, CSV, receipt OCR, notification parser
+  voice/     multi-action voice parser
 ```
 
-## Limiti dichiarati (onestà tecnica)
+170 source modules. 16 domains.
 
-- Una PWA **non può** leggere le notifiche di altre app (iOS e Android): la lettura diretta richiede l'app nativa Android (`NotificationListenerService`, roadmap Capacitor). Su iOS non è possibile per nessuno; lì la via è l'Open Banking.
-- iOS non supporta Web Share Target per PWA.
-- Le transazioni Apple Pay arrivano solo via conto bancario (Open Banking/PSD2, roadmap).
-- Il grafo causale misura co-variazione, non causalità in senso stretto — ed è scritto anche nella UI.
+## Declared limits
 
-## Documentazione
+Trust is built by what a project admits, not by what it claims.
 
-- **[VERSIONI.md](VERSIONI.md)** — manifesto versioni per componente e benchmark-target verso la v5 (le versioni si guadagnano con salti reali misurati, mai con le etichette).
-- **[PIANO_MOMENTUM.md](PIANO_MOMENTUM.md)** — piano di sviluppo completo, stato fasi, dossier valore/investitori e gap list.
+- A PWA **cannot** read other apps' notifications (iOS or Android). Direct reading needs a native Android shell (`NotificationListenerService`). On iOS nobody can — there, the route is Open Banking.
+- iOS doesn't support Web Share Target for PWAs.
+- The causal graph measures **co-variation, not causality** — and says so in the UI too.
+- Momentum **cannot transmit** an invoice to the Italian SdI for you: that needs accreditation as an intermediary, which is a corporate process, not code. It prepares the correct file and walks you through the real portal.
+- The Swiss QR-bill produces a **correct, scannable code**, not yet the fully compliant printable payment slip layout.
+- Below CHF 60,500 the Swiss AHV uses a sliding scale that isn't a simple public formula — Momentum shows the verified minimum and links the official calculator instead of inventing a number.
+- **Not tax advice.** Estimates on public rates, each carrying its verification date.
 
-## Principi non negoziabili
+## Non-negotiable principles
 
-1. I dati dell'utente non lasciano mai il dispositivo.
-2. Mai moduli decorativi: ogni claim è misurato e testato (`node --test src/`).
-3. Funzioni pure separate dal DOM; ogni modulo nuovo nasce coi suoi test.
-4. La hash chain delle transazioni non si riscrive.
-5. Ogni testo UI deve essere comprensibile a un bambino di 8 anni.
+1. User data never leaves the device.
+2. No decorative modules — every claim is measured and tested (`npm test`).
+3. Pure functions separated from the DOM; every new module ships with its tests.
+4. The transaction hash chain is never rewritten.
+5. Every line of UI text must be understandable by an 8-year-old.
+6. **If the number isn't printed, it doesn't exist.** No unverified figure enters a document, a commit, or the UI.
+
+## Documentation
+
+- **[VERSIONI.md](VERSIONI.md)** — per-component version manifest; versions are earned with measured leaps, never with labels.
+- **[PIANO_MOMENTUM.md](PIANO_MOMENTUM.md)** — development plan, phase status, gap list.
+- **[NEUROSYM.md](NEUROSYM.md)** — the reasoning architecture, including what it explicitly is *not*.
+
+---
+
+<div align="center">
+
+**Your money. Your device. Nothing leaves.**
+
+</div>
