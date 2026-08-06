@@ -106,3 +106,16 @@ export function fatturaPaFormatSource({ url, fetchImpl, currentVersion, label = 
     },
   };
 }
+
+// Aliquote di capital gain/bollo per Paese (net-return.js — "il netto vero"
+// per gli investimenti): stessa disciplina anti-veleno, priorità più bassa
+// (cambiano tipicamente una volta l'anno, non serve controllarle spesso).
+export function netReturnRatesSource({ url, fetchImpl, currentVersion, label = 'Aliquote investimenti (netto vero)', priority = 0.4, generatedAt = null, maxAgeDays = 365 } = {}) {
+  return {
+    id: 'net-return-rates', label, priority, generatedAt, maxAgeDays,
+    checkFn: async () => {
+      const { fetchNetReturnRatesUpdate } = await import('../alpha/net-return.js');
+      return fetchNetReturnRatesUpdate({ url, fetchImpl, currentVersion });
+    },
+  };
+}

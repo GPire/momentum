@@ -17,7 +17,10 @@ import { arbitrate } from './arbiter.js';
 import { computeNetReturn } from './net-return.js';
 
 // ── Import posizioni da CSV. Colonne riconosciute (IT/EN, ordine libero):
-// ticker/simbolo, classe/asset/tipo, quantità/quantity, prezzomedio/avgprice/pmc.
+// ticker/simbolo, classe/asset/tipo, quantità/quantity, prezzomedio/avgprice/pmc,
+// e un'opzionale prezzoattuale/currentprice/prezzoora — senza, niente prezzo
+// live inventato: chi non fornisce API key (fetchLiveStockPrice le richiede)
+// può incollare il prezzo che vede sul proprio broker, zero dipendenze esterne.
 export function parsePortfolioCsv(text) {
   const lines = String(text || '').trim().split(/\r?\n/);
   if (lines.length < 2) return [];
@@ -28,6 +31,7 @@ export function parsePortfolioCsv(text) {
   const ci = col('class', 'classe', 'asset', 'tipo', 'kind');
   const qi = col('quant', 'quantity', 'shares', 'azioni', 'numero');
   const pi = col('prezzomedio', 'avgprice', 'avg', 'pmc', 'carico', 'costo');
+  const cpi = col('prezzoattuale', 'currentprice', 'prezzoora', 'prezzoattual', 'current');
   if (ti < 0 || qi < 0) return [];
   const num = s => parseFloat(String(s || '').replace(/[^\d.,-]/g, '').replace(',', '.'));
   const out = [];
@@ -37,7 +41,11 @@ export function parsePortfolioCsv(text) {
     if (!ticker) continue;
     const rawClass = ci >= 0 ? (c[ci] || '').trim().toLowerCase() : '';
     const assetClass = /crypto|btc|eth/.test(rawClass) ? 'crypto' : /etf|fund|fondo/.test(rawClass) ? 'etf' : /bond|obblig/.test(rawClass) ? 'bond' : 'stock';
-    out.push({ ticker, assetClass, quantity: num(c[qi]) || 0, avgPrice: pi >= 0 ? (num(c[pi]) || 0) : 0 });
+    const currentPrice = cpi >= 0 ? num(c[cpi]) : NaN;
+    out.push({
+      ticker, assetClass, quantity: num(c[qi]) || 0, avgPrice: pi >= 0 ? (num(c[pi]) || 0) : 0,
+      ...(Number.isFinite(currentPrice) && currentPrice > 0 ? { currentPrice } : {}),
+    });
   }
   return out;
 }
@@ -48,7 +56,7 @@ export function parsePortfolioCsv(text) {
 export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceByTicker = {}, referenceDate = new Date() } = {}) {
   const rows = positions.map(p => {
     const series = pricesByTicker[p.ticker];
-    const price = currentPriceByTicker[p.ticker] ?? (series?.length ? series[series.length - 1].close : p.avgPrice);
+    const price = p.currentPrice ?? currentPriceByTicker[p.ticker] ?? (series?.length ? series[series.length - 1].close : p.avgPrice);
     const value = +(price * p.quantity).toFixed(2);
     const cost = +(p.avgPrice * p.quantity).toFixed(2);
     const pl = +(value - cost).toFixed(2);

@@ -1,7 +1,10 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeNetReturn, ALIQUOTA_CAPITAL_GAIN, ALIQUOTA_CAPITAL_GAIN_TITOLI_STATO, BOLLO_TITOLI_ALIQUOTA_ANNUA, BOLLO_TITOLI_SOGLIA_ESENZIONE } from './net-return.js';
+import {
+  computeNetReturn, ALIQUOTA_CAPITAL_GAIN, ALIQUOTA_CAPITAL_GAIN_TITOLI_STATO, BOLLO_TITOLI_ALIQUOTA_ANNUA, BOLLO_TITOLI_SOGLIA_ESENZIONE,
+  COUNTRY_TAX_PROFILES, netReturnFreshness, validateNetReturnPayload, fetchNetReturnRatesUpdate, NET_RETURN_RATES_VERSION,
+} from './net-return.js';
 
 test('aliquote verificate: 26% azioni/ETF/crypto, 12,5% titoli di Stato, bollo 0,2%, soglia 5000€', () => {
   assert.equal(ALIQUOTA_CAPITAL_GAIN, 0.26);
@@ -64,5 +67,110 @@ test('computeNetReturn: portafoglio vuoto -> tutto a zero, nessun crash', () => 
 
 test('computeNetReturn: dichiara sempre il limite sulle minusvalenze non compensate (onestà)', () => {
   const r = computeNetReturn([{ ticker: 'X', assetClass: 'stock', pl: 100, cost: 1000 }], 1000);
-  assert.match(r.disclaimer, /zainetto fiscale/);
+  assert.match(r.disclaimer, /credito d'imposta per gli anni futuri/);
+});
+
+// ── Espansione multi-Paese (stesso schema di country-invoicing.js) ──
+test('COUNTRY_TAX_PROFILES: Germania 26,375% flat (Abgeltungssteuer + Soli), Francia 31,4% (PFU 2026)', () => {
+  assert.equal(COUNTRY_TAX_PROFILES.DE.aliquotaStandard, 0.26375);
+  assert.equal(COUNTRY_TAX_PROFILES.FR.aliquotaStandard, 0.314);
+  assert.equal(COUNTRY_TAX_PROFILES.DE.bollo, null, 'la Germania non ha un bollo titoli come l\'Italia');
+});
+
+test('computeNetReturn: Germania applica la franchigia Sparerpauschbetrag (1.000€) prima di tassare', () => {
+  const rows = [{ ticker: 'ETF', assetClass: 'stock', pl: 2000, cost: 10000 }];
+  const r = computeNetReturn(rows, 12000, 'DE');
+  // taxableGains = 2000 - 1000 = 1000; imposta = 1000 * 0.26375 = 263.75
+  assert.equal(r.allowanceApplicata, 1000);
+  assert.equal(r.totaleImpostaCapitalGain, 263.75);
+  assert.equal(r.bolloTitoli, 0, 'nessun bollo in Germania');
+});
+
+test('computeNetReturn: Francia tassa tutto al 31,4% flat, nessuna franchigia nel regime PFU', () => {
+  const rows = [{ ticker: 'CAC', assetClass: 'stock', pl: 1000, cost: 5000 }];
+  const r = computeNetReturn(rows, 6000, 'FR');
+  assert.equal(r.totaleImpostaCapitalGain, 314); // 1000 * 0.314
+  assert.equal(r.allowanceApplicata, 0);
+});
+
+test('computeNetReturn: Paese sconosciuto -> ripiega sull\'Italia, mai un crash o un\'aliquota inventata', () => {
+  const r = computeNetReturn([{ ticker: 'X', assetClass: 'stock', pl: 100, cost: 1000 }], 1000, 'ZZ');
+  assert.equal(r.country, 'ZZ');
+  assert.equal(r.countryName, 'Italia'); // fallback dichiarato, non un errore silenzioso
+});
+
+// ── Freschezza dichiarata ──
+test('netReturnFreshness: verificato di recente -> livello ok', () => {
+  const f = netReturnFreshness('IT', { now: new Date('2026-08-10') });
+  assert.equal(f.livello, 'ok');
+  assert.equal(f.aggiornato, true);
+});
+
+test('netReturnFreshness: oltre il periodo di revisione -> livello verifica, onestamente dichiarato scaduto', () => {
+  const f = netReturnFreshness('IT', { now: new Date('2028-01-01') }); // oltre 365 giorni per l'Italia
+  assert.equal(f.livello, 'verifica');
+  assert.equal(f.aggiornato, false);
+  assert.match(f.messaggio, /potrebbero essere cambiate/);
+});
+
+test('netReturnFreshness: Germania ha un periodo di revisione più lungo (stabile dal 2009)', () => {
+  const dueAnniDopo = netReturnFreshness('DE', { now: new Date('2028-08-06') }); // 2 anni dopo
+  assert.equal(dueAnniDopo.livello, 'probabile', 'per la Germania 2 anni sono ancora nel periodo tipico');
+});
+
+// ── Auto-aggiornamento (stesso schema verificato di fetchRulesUpdate) ──
+test('validateNetReturnPayload: payload valido passa', () => {
+  const v = validateNetReturnPayload({
+    version: '2026-09', profiles: { IT: { name: 'Italia', aliquotaStandard: 0.26, allowanceAnnuo: 0, verificatoIl: '2026-09-01', periodoRevisioneGiorni: 365 } },
+  });
+  assert.equal(v.ok, true);
+});
+
+test('validateNetReturnPayload: aliquota implausibile (es. 90%) viene respinta — anti-veleno', () => {
+  const v = validateNetReturnPayload({
+    version: '2026-09', profiles: { IT: { name: 'Italia', aliquotaStandard: 0.9, allowanceAnnuo: 0, verificatoIl: '2026-09-01', periodoRevisioneGiorni: 365 } },
+  });
+  assert.equal(v.ok, false);
+  assert.match(v.reason, /implausibile/);
+});
+
+test('validateNetReturnPayload: payload malformato o vuoto -> respinto, mai un crash', () => {
+  assert.equal(validateNetReturnPayload(null).ok, false);
+  assert.equal(validateNetReturnPayload({}).ok, false);
+  assert.equal(validateNetReturnPayload({ version: '2026-09', profiles: {} }).ok, false);
+});
+
+test('fetchNetReturnRatesUpdate: senza url configurata -> resta sui dati inclusi, nessuna chiamata', async () => {
+  const r = await fetchNetReturnRatesUpdate({});
+  assert.equal(r.updated, false);
+  assert.match(r.reason, /nessuna fonte/);
+});
+
+test('fetchNetReturnRatesUpdate: payload valido e più recente -> adottato', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      version: '2099-01',
+      profiles: { IT: { name: 'Italia', aliquotaStandard: 0.27, allowanceAnnuo: 0, verificatoIl: '2099-01-01', periodoRevisioneGiorni: 365 } },
+    }),
+  });
+  const r = await fetchNetReturnRatesUpdate({ url: 'https://example.test/rates.json', fetchImpl, currentVersion: NET_RETURN_RATES_VERSION });
+  assert.equal(r.updated, true);
+  assert.equal(r.profiles.IT.aliquotaStandard, 0.27);
+});
+
+test('fetchNetReturnRatesUpdate: payload avvelenato (aliquota fuori scala) -> MAI adottato', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({ version: '2099-01', profiles: { IT: { name: 'Italia', aliquotaStandard: 5, allowanceAnnuo: 0, verificatoIl: '2099-01-01', periodoRevisioneGiorni: 365 } } }),
+  });
+  const r = await fetchNetReturnRatesUpdate({ url: 'https://example.test/rates.json', fetchImpl });
+  assert.equal(r.updated, false);
+  assert.match(r.reason, /anti-veleno/);
+});
+
+test('computeNetReturn: un profilesOverride valido cambia davvero il calcolo, senza aggiornare l\'app', () => {
+  const override = { IT: { ...COUNTRY_TAX_PROFILES.IT, aliquotaStandard: 0.30 } };
+  const r = computeNetReturn([{ ticker: 'X', assetClass: 'stock', pl: 1000, cost: 5000 }], 1000, 'IT', override);
+  assert.equal(r.totaleImpostaCapitalGain, 300); // 1000 * 0.30, non 0.26
 });

@@ -66,3 +66,21 @@ test('analyzePortfolio: espone il netto vero (netReturn) calcolato sulle stesse 
   assert.equal(a.netReturn.totalPlLordo, a.totalPl); // stesso numero, non ricalcolato altrove
   assert.ok(a.netReturn.netTotalPl < a.totalPl, 'il netto deve essere più basso del lordo quando c\'è una plusvalenza');
 });
+
+test('parsePortfolioCsv: colonna prezzoattuale opzionale -> usata direttamente, zero dipendenza da API esterne', () => {
+  const csv = 'Ticker;Classe;Quantità;PrezzoMedio;PrezzoAttuale\nAAPL;stock;10;100;120';
+  const p = parsePortfolioCsv(csv);
+  assert.equal(p[0].currentPrice, 120);
+});
+
+test('parsePortfolioCsv: senza prezzoattuale -> nessun campo inventato', () => {
+  const csv = 'Ticker;Classe;Quantità;PrezzoMedio\nAAPL;stock;10;100';
+  const p = parsePortfolioCsv(csv);
+  assert.equal('currentPrice' in p[0], false);
+});
+
+test('analyzePortfolio: il prezzo per-posizione dal CSV ha priorità sulla mappa esterna', () => {
+  const positions = parsePortfolioCsv('Ticker;Classe;Quantità;PrezzoMedio;PrezzoAttuale\nAAPL;stock;10;100;130');
+  const a = analyzePortfolio(positions, { currentPriceByTicker: { AAPL: 999 } });
+  assert.equal(a.rows[0].price, 130);
+});

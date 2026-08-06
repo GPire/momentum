@@ -15,7 +15,7 @@ import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy, projectStrategy } from './alpha/net-worth.js';
 import { validateStrategySet } from './alpha/strategy-validation.js';
 import { stalenessNote } from './core/data-freshness.js';
-import { runUpdateCycle, cycleSummary, taxRulesSource, fatturaPaFormatSource } from './core/auto-update.js';
+import { runUpdateCycle, cycleSummary, taxRulesSource, fatturaPaFormatSource, netReturnRatesSource } from './core/auto-update.js';
 
 // Rendimenti annuali ricostruiti dai parametri di una strategia, per poterla
 // passare al vaglio statistico. Modello LOG-NORMALE, lo stesso di
@@ -7120,7 +7120,7 @@ window.restoreEncryptedBackup = async (file) => {
 // questo progetto vieta: va decisa e aggiunta consapevolmente.
 async function runAutoUpdateCycle({ manuale = false } = {}) {
   const urls = VaultDAO.state.dataSourceUrls || {};
-  if (!urls.taxRules && !urls.fatturaPaFormat) {
+  if (!urls.taxRules && !urls.fatturaPaFormat && !urls.netReturnRates) {
     if (manuale) showToast('Nessuna fonte dati configurata: aggiungine una nelle impostazioni avanzate.', 'error');
     return null;
   }
@@ -7138,20 +7138,26 @@ async function runAutoUpdateCycle({ manuale = false } = {}) {
       currentVersion: overrides.fatturaPaFormat?.version, generatedAt: overrides.fatturaPaFormat?.fetchedAt,
     }));
   }
+  if (urls.netReturnRates) {
+    sources.push(netReturnRatesSource({
+      url: urls.netReturnRates, fetchImpl: fetch.bind(window),
+      currentVersion: overrides.netReturnRates?.version, generatedAt: overrides.netReturnRates?.fetchedAt,
+    }));
+  }
   const result = await runUpdateCycle(sources, {
     now: Date.now(),
     backoffState: VaultDAO.state.autoUpdateBackoff || {},
     onUpdated: async (id, esito) => {
       // Adottato SOLO qui, dopo che runUpdateCycle ha già ricevuto un
-      // updated:true da fetchRulesUpdate/fetchFormatUpdate — cioè dopo che
-      // il payload ha già passato validateRulesPayload/validateFormatPayload
-      // (guardrail anti-veleno: struttura + valori plausibili) E si è
-      // dimostrato più recente della versione corrente. Qui non si ri-valida
-      // nulla: si registra solo COSA è stato adottato e QUANDO.
-      const key = id === 'tax-rules' ? 'taxRules' : 'fatturaPaFormat';
+      // updated:true da fetchRulesUpdate/fetchFormatUpdate/fetchNetReturnRatesUpdate
+      // — cioè dopo che il payload ha già passato la validazione anti-veleno
+      // specifica (struttura + valori plausibili) E si è dimostrato più
+      // recente della versione corrente. Qui non si ri-valida nulla: si
+      // registra solo COSA è stato adottato e QUANDO.
+      const key = id === 'tax-rules' ? 'taxRules' : id === 'fatturapa-format' ? 'fatturaPaFormat' : 'netReturnRates';
       VaultDAO.state.dataOverrides = {
         ...(VaultDAO.state.dataOverrides || {}),
-        [key]: { version: esito.version, rules: esito.rules, specs: esito.specs, fetchedAt: new Date().toISOString() },
+        [key]: { version: esito.version, rules: esito.rules, specs: esito.specs, profiles: esito.profiles, fetchedAt: new Date().toISOString() },
       };
     },
   });
