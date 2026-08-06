@@ -2168,6 +2168,11 @@ function renderTaxCashBlocks(proj, regime) {
         <div class="text-[10px] text-orange-200/70 mt-1.5 leading-snug">${escapeHtml(rav.nota)}</div>
       </div>`;
       urgent = true;
+      maybeNotifyTaxUrgency(
+        `overdue:${o.id}`,
+        'Una scadenza fiscale ti aspetta',
+        `Il ${o.date} non risulta versato. Con il ravvedimento oggi costerebbe ${formatMoney(rav.totale)} — ho già fatto i conti, dai un'occhiata quando puoi.`,
+      );
     }
 
     // BUG REALE TROVATO (2026-08-06): taxCashWarning veniva chiamata con
@@ -2213,7 +2218,14 @@ function renderTaxCashBlocks(proj, regime) {
       if (scad && scad.regoleAggiornate === false) {
         html += `<div class="text-[10px] text-amber-300/80 mt-1 leading-snug">${escapeHtml(scad.avvisoRegole)}</div>`;
       }
-      if (avviso.urgenza === 'alta') urgent = true;
+      if (avviso.urgenza === 'alta') {
+        urgent = true;
+        maybeNotifyTaxUrgency(
+          `cashrisk:${scad.id}`,
+          'Un attimo — la cassa ti serve',
+          `Nei prossimi giorni potresti restare senza prima del ${scad.date}, quando servono ${formatMoney(scad.importo)}. Ho già calcolato quanto mettere via a settimana per arrivarci sereno.`,
+        );
+      }
     }
     // F24 PRECOMPILATO (T11 — colma la lacuna registro acquisti/INPS/F24):
     // le stesse scadenze già mostrate qui, scomposte nelle righe pronte da
@@ -2222,6 +2234,14 @@ function renderTaxCashBlocks(proj, regime) {
     if (deadlines.length) {
       __f24State = { deadlines, regime: regime || 'forfettario', annualizedRevenue: proj.annualizedRevenue, invoices, anno };
       html += `<button onclick="window.openF24Precompilato()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Prepara l'F24</button>`;
+    }
+    // Opt-in alle notifiche: MAI attivo di default (il permesso del browser
+    // va comunque chiesto un tocco alla volta) — un pulsante discreto, non
+    // un banner che occupa spazio ad ogni apertura una volta accettato.
+    if (deadlines.length) {
+      html += VaultDAO.state.taxNotifyOptIn
+        ? `<div class="flex items-center justify-between gap-2 mt-1.5"><span class="text-[10px] text-emerald-300/90">Ti avviso solo se c'è un motivo vero — anche ad app chiusa di recente.</span><button onclick="window.disableTaxNotifications()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">disattiva</button></div>`
+        : `<button onclick="window.enableTaxNotifications()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Avvisami se rischio di restare scoperto</button>`;
     }
   } catch (e) {
     // Onesto: se un blocco non si può calcolare, il resto della card resta
@@ -4637,6 +4657,43 @@ async function notifyUser(title, body) {
     else new Notification(title, { body });
   } catch (_) {}
 }
+
+// Notifica fiscale opt-in (mai attiva di default: il permesso del browser va
+// comunque chiesto un tocco alla volta, stesso schema di addPriceAlert).
+// De-dup per `key` + giorno: una scadenza saltata o una cassa a rischio non
+// devono generare una notifica ad ogni ri-render della Dashboard — solo
+// quando il motivo è NUOVO o è passato un giorno da quando l'hai già visto.
+function maybeNotifyTaxUrgency(key, title, body) {
+  if (!VaultDAO.state.taxNotifyOptIn) return;
+  const oggi = new Date().toISOString().slice(0, 10);
+  const last = VaultDAO.state.taxLastNotified;
+  if (last && last.key === key && last.date === oggi) return;
+  VaultDAO.state.taxLastNotified = { key, date: oggi };
+  VaultDAO.save();
+  notifyUser(title, body);
+}
+
+// Attiva l'opt-in (chiede il permesso al tocco, mai in automatico) e
+// ridisegna subito la card così il pulsante sparisce e appare la conferma.
+window.enableTaxNotifications = async () => {
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch (_) {}
+  }
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    showToast('Permesso non concesso: puoi attivarlo dalle impostazioni del browser quando vuoi.', 'info');
+    return;
+  }
+  VaultDAO.state.taxNotifyOptIn = true;
+  VaultDAO.save();
+  showToast('Avvisi attivi: ti scrivo solo se c\'è davvero un motivo, mai per abitudine.', 'success');
+  renderAnalysis();
+};
+window.disableTaxNotifications = () => {
+  VaultDAO.state.taxNotifyOptIn = false;
+  VaultDAO.save();
+  showToast('Avvisi disattivati.', 'info');
+  renderAnalysis();
+};
 
 window.addPriceAlert = async (symbol, kind) => {
   const direction = document.getElementById('alert-direction')?.value;
