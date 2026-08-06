@@ -57,3 +57,12 @@ test('analyzePortfolio: disclaimer sempre presente (mai consulenza)', () => {
   const a = analyzePortfolio([{ ticker: 'X', assetClass: 'stock', quantity: 1, avgPrice: 10 }], { currentPriceByTicker: { X: 10 } });
   assert.ok(/[Nn]on è consulenza/.test(a.disclaimer));
 });
+
+test('analyzePortfolio: espone il netto vero (netReturn) calcolato sulle stesse righe, mai un secondo motore', () => {
+  const positions = [{ ticker: 'AAPL', assetClass: 'stock', quantity: 10, avgPrice: 100 }];
+  const a = analyzePortfolio(positions, { currentPriceByTicker: { AAPL: 120 } });
+  assert.ok(a.netReturn);
+  assert.equal(a.netReturn.rows[0].ticker, 'AAPL');
+  assert.equal(a.netReturn.totalPlLordo, a.totalPl); // stesso numero, non ricalcolato altrove
+  assert.ok(a.netReturn.netTotalPl < a.totalPl, 'il netto deve essere più basso del lordo quando c\'è una plusvalenza');
+});

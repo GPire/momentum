@@ -14,6 +14,7 @@ import { riskParityWeights, portfolioReturns, portfolioStats, covarianceMatrix }
 import { riskScore, momentumScore, reflexivityScore } from './factors.js';
 import { detectRegime } from './regime.js';
 import { arbitrate } from './arbiter.js';
+import { computeNetReturn } from './net-return.js';
 
 // ── Import posizioni da CSV. Colonne riconosciute (IT/EN, ordine libero):
 // ticker/simbolo, classe/asset/tipo, quantità/quantity, prezzomedio/avgprice/pmc.
@@ -102,12 +103,17 @@ export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceB
   if (reflexive && reflexive.score > 0.66) advice.push({ rule: 'Soros — riflessività', text: `${reflexive.ticker} mostra un trend che si auto-alimenta (score ${reflexive.score}): opportunità di momentum ma rischio di inversione — cavalca il loop, non innamorartene.` });
   if (!advice.length) advice.push({ rule: 'ok', text: 'Allocazione ragionevole sui dati disponibili. Continua a monitorare diversificazione e rischio.' });
 
+  // IL NETTO VERO (net-return.js): nessun simulatore mostra il rendimento
+  // già al netto di imposta sulle plusvalenze e bollo titoli — qui sì,
+  // riusando le stesse righe già calcolate sopra, mai un secondo motore.
+  const netReturn = computeNetReturn(rows, totalValue);
+
   return {
     rows, totalValue, totalCost, totalPl,
     plPct: totalCost > 0 ? +((totalPl / totalCost) * 100).toFixed(1) : 0,
     allocation, topWeight: +topWeight.toFixed(3),
     stats, rebalance, regime: regime.regime, regimeNote: regime.explanation, reflexive,
-    advice,
+    advice, netReturn,
     disclaimer: 'Non è consulenza finanziaria: sono proprietà calcolate sui dati forniti e strategie pubbliche. Le performance passate non garantiscono quelle future.',
   };
 }
