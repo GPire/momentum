@@ -514,6 +514,23 @@
     @keyframes tl1IconBreathe { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tl1-icon-color, var(--primary)) 22%, transparent); } 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--tl1-icon-color, var(--primary)) 0%, transparent); } }
     .tl1-icon-pulse { animation: tl1IconBreathe 2.6s ease-in-out infinite; }
     @media (prefers-reduced-motion: reduce) { .tl1-icon-pulse { animation: none; } }
+    /* Segnale discreto sulla card fiscale (mai un popup): compare SOLO
+       quando c'è un motivo vero (scadenza saltata o cassa a rischio) — una
+       stellina che respira accanto all'icona esistente, non un badge nuovo
+       che aggiunge una schermata o un'interruzione. */
+    .tax-alert .eyebrow { position: relative; }
+    .tax-alert .eyebrow svg:first-child { color: var(--gold); opacity: 1; }
+    .tax-alert .eyebrow::after {
+      content: ''; position: absolute; top: -0.15rem; left: 0.65rem; width: 0.4rem; height: 0.4rem;
+      background: var(--gold); border-radius: 50%;
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 55%, transparent);
+      animation: tl1TaxAlertPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes tl1TaxAlertPulse {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 45%, transparent); transform: scale(1); }
+      50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold) 0%, transparent); transform: scale(1.25); }
+    }
+    @media (prefers-reduced-motion: reduce) { .tax-alert .eyebrow::after { animation: none; } }
     /* Ricerca ATECO libera ("descrivi cosa farai"): suggerimenti che
        rientrano a scaglione, come le opzioni del menu a tendina. */
     .tl1-ateco-hit { animation: txRise .3s cubic-bezier(.22,1,.36,1) both; }

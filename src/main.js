@@ -2086,9 +2086,20 @@ const renderAnalysis = (opts = {}) => {
 // renderTaxCashBlocks ogni volta che la card fiscale si ridisegna, così il
 // bottone inline non deve serializzare oggetti complessi in un onclick.
 let __f24State = null;
+// true quando la card fiscale ha un motivo REALE di attenzione (scadenza
+// saltata o cassa a rischio prima di una scadenza) — legge renderTax per
+// accendere un piccolo segnale discreto sull'icona della card esistente,
+// mai un popup o una schermata in più.
+let __taxCardUrgent = false;
 
+// `urgent`: true solo quando c'è un motivo REALE di attenzione (scadenza
+// saltata, o la cassa prevista scende sotto zero prima di una scadenza) —
+// usato dal chiamante per un piccolo segnale visivo discreto sulla card
+// esistente, mai un popup o una nuova schermata. Niente allarme per il solo
+// fatto di avere una scadenza futura tranquilla: sarebbe rumore, non un segnale.
 function renderTaxCashBlocks(proj, regime) {
   let html = '';
+  let urgent = false;
   try {
     const invoices = VaultDAO.state.invoices || [];
     const anno = new Date().getFullYear();
@@ -2156,6 +2167,7 @@ function renderTaxCashBlocks(proj, regime) {
         <div class="text-[11px] text-orange-200/90 mt-1 leading-snug">Con il ravvedimento operoso oggi pagheresti ${escapeHtml(formatMoney(rav.totale))}: ${escapeHtml(formatMoney(o.importo))} dovuto + ${escapeHtml(formatMoney(rav.sanzioneRidotta))} di sanzione ridotta (${escapeHtml(rav.fascia)}) + ${escapeHtml(formatMoney(rav.interessi))} di interessi. Più aspetti, più sale.</div>
         <div class="text-[10px] text-orange-200/70 mt-1.5 leading-snug">${escapeHtml(rav.nota)}</div>
       </div>`;
+      urgent = true;
     }
 
     // BUG REALE TROVATO (2026-08-06): taxCashWarning veniva chiamata con
@@ -2201,6 +2213,7 @@ function renderTaxCashBlocks(proj, regime) {
       if (scad && scad.regoleAggiornate === false) {
         html += `<div class="text-[10px] text-amber-300/80 mt-1 leading-snug">${escapeHtml(scad.avvisoRegole)}</div>`;
       }
+      if (avviso.urgenza === 'alta') urgent = true;
     }
     // F24 PRECOMPILATO (T11 — colma la lacuna registro acquisti/INPS/F24):
     // le stesse scadenze già mostrate qui, scomposte nelle righe pronte da
@@ -2215,6 +2228,7 @@ function renderTaxCashBlocks(proj, regime) {
     // valido — mai far cadere tutta la schermata per un blocco in più.
     console.warn('Blocchi fiscali avanzati non disponibili:', e);
   }
+  __taxCardUrgent = urgent;
   // LIVELLO 2 — Ponte commercialista: un pacchetto che il professionista apre
   // senza account, con fatture/incassi/scadenze già pronti (T11, il pezzo che
   // trasforma il commercialista da ostacolo a canale di distribuzione).
@@ -2412,6 +2426,9 @@ function renderTax(monthK) {
   const card = $('#tax-card'), setEl = $('#tax-setaside'), noteEl = $('#tax-note'), extraEl = $('#tax-extra');
   if (!card) return;
   if (extraEl) extraEl.innerHTML = '';
+  // Reset ad ogni render: il segnale di attenzione si riaccende SOLO se
+  // renderTaxCashBlocks trova di nuovo un motivo vero — mai uno stantio.
+  card.classList.remove('tax-alert');
   const regime = VaultDAO.state.taxRegime;
   const learned = VaultDAO.state.taxLearned || {};
   const monthTxs = VaultDAO.state.transactions[monthK] || [];
@@ -2523,6 +2540,10 @@ function renderTax(monthK) {
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
     html += `<button onclick="window.openCreateInvoice()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>`;
     extraEl.innerHTML = html;
+    // Segnale discreto SOLO se c'è un motivo vero (scadenza saltata o cassa a
+    // rischio) — niente popup, niente nuova schermata: un piccolo bagliore
+    // sull'icona della card che già esiste, coerente col resto della UI.
+    card.classList.toggle('tax-alert', !!__taxCardUrgent);
   }
 }
 // Rilevamento condiviso "questo utente fattura?" — riusato dalla card Analisi e
