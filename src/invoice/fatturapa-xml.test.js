@@ -170,6 +170,43 @@ test('buildFatturaPaXML: senza codice destinatario → 0000000, con PEC la inclu
   assert.ok(/<PECDestinatario>acme@pec.it<\/PECDestinatario>/.test(xml));
 });
 
+// --- VOCI MULTIPLE (righe scomposte) ---------------------------------------
+// Un utente che scrive "4000 di sviluppo, 399 di hosting" invece di un unico
+// importo indistinto: ogni voce diventa una riga XML vera (NumeroLinea
+// progressivo), non solo un dettaglio nel PDF. La somma delle voci deve
+// combaciare con l'imponibile totale — qui verificato esplicitamente.
+test('buildFatturaPaXML: più voci → una <DettaglioLinee> per voce, numerate in ordine', () => {
+  const inv = computeInvoice({ imponibile: 4399, regime: 'forfettario', country: 'IT' });
+  const { xml } = buildFatturaPaXML({
+    emitter: EMITTER, client: CLIENT, invoice: inv,
+    meta: {
+      number: 5, year: 2026, date: '2026-07-21', regime: 'forfettario',
+      voci: [{ descrizione: 'Sviluppo sito', importo: 4000 }, { descrizione: 'Hosting annuale', importo: 399 }],
+    },
+  });
+  const linee = xml.match(/<DettaglioLinee>.*?<\/DettaglioLinee>/gs);
+  assert.equal(linee.length, 2);
+  assert.ok(/<NumeroLinea>1<\/NumeroLinea>/.test(linee[0]));
+  assert.ok(/<Descrizione>Sviluppo sito<\/Descrizione>/.test(linee[0]));
+  assert.ok(/<PrezzoTotale>4000.00<\/PrezzoTotale>/.test(linee[0]));
+  assert.ok(/<NumeroLinea>2<\/NumeroLinea>/.test(linee[1]));
+  assert.ok(/<Descrizione>Hosting annuale<\/Descrizione>/.test(linee[1]));
+  assert.ok(/<PrezzoTotale>399.00<\/PrezzoTotale>/.test(linee[1]));
+  // il totale documento resta quello calcolato sull'imponibile SOMMATO (4399 + bollo)
+  assert.ok(/<ImportoTotaleDocumento>4401.00<\/ImportoTotaleDocumento>/.test(xml));
+});
+
+test('buildFatturaPaXML: senza voci → resta la riga unica di sempre (retrocompatibilità)', () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'forfettario', country: 'IT' });
+  const { xml } = buildFatturaPaXML({
+    emitter: EMITTER, client: CLIENT, invoice: inv,
+    meta: { number: 6, year: 2026, date: '2026-07-21', regime: 'forfettario', description: 'Consulenza' },
+  });
+  const linee = xml.match(/<DettaglioLinee>.*?<\/DettaglioLinee>/gs);
+  assert.equal(linee.length, 1);
+  assert.ok(/<Descrizione>Consulenza<\/Descrizione>/.test(linee[0]));
+});
+
 test('buildFatturaPaXML: dati incompleti → blocking true, ma XML comunque prodotto (onestà)', () => {
   const inv = computeInvoice({ imponibile: 1000, regime: 'forfettario', country: 'IT' });
   const r = buildFatturaPaXML({ emitter: {}, client: {}, invoice: inv, meta: { number: 1, year: 2026, date: '2026-07-21', regime: 'forfettario' } });

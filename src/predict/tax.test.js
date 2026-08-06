@@ -515,6 +515,27 @@ test('taxSetAside: cassa previdenziale propria -> INPS azzerato, mai calcolato a
   assert.equal(conCassa.cassaNome, 'Cassa Forense');
 });
 
+test('taxSetAside: aliquota INPS ridotta al 24% per chi ha già un\'altra copertura previdenziale (LACUNA COLMATA)', () => {
+  const piena = taxSetAside(30000, { regime: 'forfettario' });
+  const ridotta = taxSetAside(30000, { regime: 'forfettario', altraCoperturaPrevidenziale: true });
+  const rigaPiena = piena.breakdown.find(b => b.voce === 'Contributi INPS');
+  const rigaRidotta = ridotta.breakdown.find(b => /aliquota ridotta 24%/.test(b.voce));
+  assert.ok(rigaPiena);
+  assert.ok(rigaRidotta, 'la scomposizione deve dichiarare esplicitamente l\'aliquota ridotta');
+  assert.match(rigaRidotta.nota, /circolare INPS n\. 8/);
+  // redditoImponibile = 30000*0.78=23400; INPS pieno 23400*0.2607=6100.38;
+  // INPS ridotto 23400*0.24=5616 — meno, quindi più netto in tasca.
+  assert.ok(rigaRidotta.importo < rigaPiena.importo);
+  assert.equal(rigaRidotta.importo, +(23400 * 0.24).toFixed(2));
+  assert.ok(ridotta.net > piena.net);
+});
+test('taxSetAside: cassa propria e altra copertura insieme -> vince la cassa propria (esenzione totale, non 24%)', () => {
+  const r = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'avvocati', altraCoperturaPrevidenziale: true });
+  const riga = r.breakdown.find(b => /Cassa Forense/.test(b.voce));
+  assert.ok(riga);
+  assert.equal(riga.importo, 0); // esenzione totale, non la ridotta al 24%
+});
+
 test('taxSetAside: nome cassa sconosciuto -> messaggio prudente, mai un crash o un nome inventato', () => {
   const r = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'professione_mai_sentita' });
   assert.equal(r.cassaNome, 'la tua cassa professionale');
@@ -536,15 +557,17 @@ test('simulateNewPartitaIva: cassa propria propagata nel simulatore, con strateg
   assert.match(tip.testo, /non all'INPS/);
 });
 
-test('simulateNewPartitaIva: dipendente che apre anche la P.IVA -> domanda concreta sull\'aliquota ridotta, MAI un numero inventato', () => {
+test('simulateNewPartitaIva: dipendente che apre anche la P.IVA -> aliquota INPS ridotta al 24%, verificata e applicata davvero', () => {
   const s = simulateNewPartitaIva(30000, { altraCoperturaPrevidenziale: true });
   const tip = s.strategie.find(t => t.icon === 'dipendente');
   assert.ok(tip);
-  assert.match(tip.testo, /Gestione Separata/);
-  assert.match(tip.testo, /chiedila esplicitamente al commercialista/);
-  // Il netto NON cambia: non fingiamo di conoscere l'aliquota ridotta.
+  assert.match(tip.testo, /24%/);
+  assert.match(tip.testo, /circolare INPS/);
+  // LACUNA COLMATA (2026-08-06): il netto ORA cambia davvero — l'aliquota
+  // ridotta (24% invece di 26,07%) è verificata su fonte ufficiale e
+  // applicata, non più solo una domanda da fare al commercialista.
   const senza = simulateNewPartitaIva(30000);
-  assert.equal(s.netAnnuo, senza.netAnnuo);
+  assert.ok(s.netAnnuo > senza.netAnnuo, 'con aliquota ridotta il netto deve essere più alto');
 });
 
 test('simulateNewPartitaIva: chi ha una cassa propria non vede anche il consiglio da dipendente (si escludono a vicenda)', () => {

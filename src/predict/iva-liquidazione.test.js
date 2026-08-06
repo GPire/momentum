@@ -48,9 +48,9 @@ test('computeIvaLiquidazione trimestrale: 4 periodi, maggiorazione 1% sui primi 
   assert.equal(t4.scadenza, '2027-03-16');
 });
 
-test('computeIvaLiquidazione: dichiara sempre onestamente che l\'IVA sugli acquisti non è tracciata', () => {
+test('computeIvaLiquidazione: senza acquisti dichiarati, dice onestamente che il dovuto reale potrebbe essere più basso', () => {
   const periodi = computeIvaLiquidazione([fattura(1, 1000, '2026-01-01')], 2026, 'mensile');
-  assert.ok(periodi.every(p => /non tracciata/.test(p.ivaCreditoNota)));
+  assert.ok(periodi.every(p => /[Nn]essun acquisto/.test(p.ivaCreditoNota)));
 });
 
 test('computeIvaLiquidazione: nessuna fattura -> tutti i periodi a zero, mai un crash', () => {
@@ -91,4 +91,50 @@ test('previsioneSuperamentoSogliaTrimestrale: ritmo che sfonda la soglia -> avvi
   const p = previsioneSuperamentoSogliaTrimestrale(invoices, 2026, { now });
   assert.equal(p.supera, true);
   assert.match(p.messaggio, /mensile invece che trimestrale/);
+});
+
+// ── REGISTRO ACQUISTI: la lacuna dichiarata (IVA a credito) ora colmabile ──
+test('computeIvaLiquidazione: senza acquisti dichiarati, nota onesta invariata', () => {
+  const periodi = computeIvaLiquidazione([fattura(1, 1000, '2026-01-10')], 2026, 'mensile');
+  const gennaio = periodi.find(p => p.mese === 1);
+  assert.equal(gennaio.ivaCredito, 0);
+  assert.match(gennaio.ivaCreditoNota, /[Nn]essun acquisto/);
+  assert.equal(gennaio.ivaDebito, 220); // invariato, nessun credito da sottrarre
+});
+
+test('computeIvaLiquidazione: un acquisto con IVA detraibile riduce il dovuto dello stesso periodo', () => {
+  const invoices = [fattura(1, 1000, '2026-03-10')]; // IVA debito 220
+  const acquisti = [{ data: '2026-03-05', imponibile: 500, aliquotaIva: 0.22, descrizione: 'Materiale' }]; // IVA credito 110
+  const periodi = computeIvaLiquidazione(invoices, 2026, 'mensile', acquisti);
+  const marzo = periodi.find(p => p.mese === 3);
+  assert.equal(marzo.ivaDebitoLordo, 220);
+  assert.equal(marzo.ivaCredito, 110);
+  assert.equal(marzo.ivaDebito, 110); // netto = debito - credito
+  assert.match(marzo.ivaCreditoNota, /1 acquisto dichiarato/);
+});
+
+test('computeIvaLiquidazione: acquisti fuori periodo non influenzano il mese sbagliato', () => {
+  const invoices = [fattura(1, 1000, '2026-03-10')];
+  const acquisti = [{ data: '2026-04-01', imponibile: 500, aliquotaIva: 0.22 }]; // aprile, non marzo
+  const periodi = computeIvaLiquidazione(invoices, 2026, 'mensile', acquisti);
+  const marzo = periodi.find(p => p.mese === 3);
+  assert.equal(marzo.ivaCredito, 0);
+  assert.equal(marzo.ivaDebito, 220);
+});
+
+test('computeIvaLiquidazione: credito maggiore del debito -> netto MAI negativo (credito riportabile onesto)', () => {
+  const invoices = [fattura(1, 100, '2026-05-10')]; // IVA debito 22
+  const acquisti = [{ data: '2026-05-02', imponibile: 1000, aliquotaIva: 0.22 }]; // IVA credito 220, ben oltre il debito
+  const periodi = computeIvaLiquidazione(invoices, 2026, 'mensile', acquisti);
+  const maggio = periodi.find(p => p.mese === 5);
+  assert.equal(maggio.ivaDebito, 0); // mai un dovuto negativo
+  assert.equal(maggio.totaleDaVersare, 0);
+});
+
+test('computeIvaLiquidazione: aliquota diversa dal 22% sull\'acquisto viene rispettata, non forzata', () => {
+  const invoices = [fattura(1, 1000, '2026-06-10')];
+  const acquisti = [{ data: '2026-06-01', imponibile: 100, aliquotaIva: 0.04 }]; // aliquota 4%, non 22%
+  const periodi = computeIvaLiquidazione(invoices, 2026, 'mensile', acquisti);
+  const giugno = periodi.find(p => p.mese === 6);
+  assert.equal(giugno.ivaCredito, 4); // 100 * 4%, non 100 * 22%
 });

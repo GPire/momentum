@@ -41,13 +41,35 @@ function ivaDiFattura(imponibile) {
   return +(Math.max(0, +imponibile || 0) * IVA_ORDINARIO).toFixed(2);
 }
 
+// REGISTRO ACQUISTI (colma la lacuna dichiarata sopra): un acquisto è
+// { data:'YYYY-MM-DD', imponibile, aliquotaIva } — l'aliquota è quella
+// dell'acquisto stesso (può essere diversa da quella di vendita, es. 4%/10%
+// su alcuni beni), MAI assunta uguale a IVA_ORDINARIO. Nessuna detrazione
+// automatica: l'utente dichiara l'acquisto, Momentum somma soltanto.
+function ivaDiAcquisto(a) {
+  const aliquota = a.aliquotaIva != null ? +a.aliquotaIva : IVA_ORDINARIO;
+  return +(Math.max(0, +a.imponibile || 0) * aliquota).toFixed(2);
+}
+function acquistiNelPeriodo(acquisti, anno, mesi) {
+  return (acquisti || []).filter((a) => {
+    const d = new Date(a.data);
+    return d.getFullYear() === anno && mesi.includes(d.getMonth() + 1);
+  });
+}
+
 // Calcola l'IVA a debito per ogni periodo (mese o trimestre) dell'anno dalle
 // fatture EMESSE (competenza — l'IVA è esigibile all'emissione, non
 // all'incasso: diverso dal principio di cassa del forfettario, e va detto).
 // Ritorna un periodo per volta, con la scadenza vera e la maggiorazione 1%
 // se trimestrale (verificata su fonte ufficiale).
-export function computeIvaLiquidazione(invoices = [], anno, periodicita = 'mensile') {
+export function computeIvaLiquidazione(invoices = [], anno, periodicita = 'mensile', acquisti = []) {
   const fattureAnno = (invoices || []).filter(f => f.year === anno && +f.imponibile > 0);
+  // Nota sul credito: onesta in entrambi i casi — se non ci sono acquisti
+  // dichiarati lo dice esplicitamente (non "zero acquisti", che sembrerebbe
+  // un fatto accertato); se ci sono, dichiara che il dovuto è già al netto.
+  const notaCredito = (ivaCredito) => acquisti.length
+    ? `Include ${acquisti.length} acquist${acquisti.length > 1 ? 'i' : 'o'} dichiarat${acquisti.length > 1 ? 'i' : 'o'} (IVA a credito: ${ivaCredito.toFixed(2)}€). Se ne mancano altri, il dovuto reale sarà più basso.`
+    : 'Nessun acquisto con IVA detraibile dichiarato: il dovuto reale potrebbe essere più basso se ne hai.';
   if (periodicita === 'trimestrale') {
     const trimestri = [
       { n: 1, mesi: [1, 2, 3], scadenza: `${anno}-05-16` },
@@ -57,13 +79,16 @@ export function computeIvaLiquidazione(invoices = [], anno, periodicita = 'mensi
     ];
     return trimestri.map(t => {
       const fatture = fattureAnno.filter(f => t.mesi.includes(new Date(f.date).getMonth() + 1));
-      const ivaDebito = +fatture.reduce((s, f) => s + ivaDiFattura(f.imponibile), 0).toFixed(2);
+      const ivaDebitoLordo = +fatture.reduce((s, f) => s + ivaDiFattura(f.imponibile), 0).toFixed(2);
+      const acquistiPeriodo = acquistiNelPeriodo(acquisti, anno, t.mesi);
+      const ivaCredito = +acquistiPeriodo.reduce((s, a) => s + ivaDiAcquisto(a), 0).toFixed(2);
+      const ivaDebito = Math.max(0, +(ivaDebitoLordo - ivaCredito).toFixed(2));
       // Maggiorazione 1% sul debito trimestrale (non sul conguaglio finale,
       // che è già annuale) — regola verificata, non un arrotondamento a caso.
       const maggiorazione = t.conguaglio ? 0 : +(ivaDebito * 0.01).toFixed(2);
       return {
         periodo: `T${t.n} ${anno}`, trimestre: t.n, scadenza: t.scadenza,
-        ivaDebito, ivaCreditoNota: 'IVA su acquisti non tracciata: il dovuto reale potrebbe essere più basso.',
+        ivaDebito, ivaDebitoLordo, ivaCredito, ivaCreditoNota: notaCredito(ivaCredito),
         maggiorazione, totaleDaVersare: +(ivaDebito + maggiorazione).toFixed(2),
         numeroFatture: fatture.length,
       };
@@ -72,12 +97,15 @@ export function computeIvaLiquidazione(invoices = [], anno, periodicita = 'mensi
   // Mensile: 12 periodi, scadenza il 16 del mese successivo.
   return Array.from({ length: 12 }, (_, i) => i + 1).map(mese => {
     const fatture = fattureAnno.filter(f => new Date(f.date).getMonth() + 1 === mese);
-    const ivaDebito = +fatture.reduce((s, f) => s + ivaDiFattura(f.imponibile), 0).toFixed(2);
+    const ivaDebitoLordo = +fatture.reduce((s, f) => s + ivaDiFattura(f.imponibile), 0).toFixed(2);
+    const acquistiPeriodo = acquistiNelPeriodo(acquisti, anno, [mese]);
+    const ivaCredito = +acquistiPeriodo.reduce((s, a) => s + ivaDiAcquisto(a), 0).toFixed(2);
+    const ivaDebito = Math.max(0, +(ivaDebitoLordo - ivaCredito).toFixed(2));
     const meseScadenza = mese === 12 ? 1 : mese + 1;
     const annoScadenza = mese === 12 ? anno + 1 : anno;
     return {
       periodo: `${String(mese).padStart(2, '0')}/${anno}`, mese, scadenza: `${annoScadenza}-${String(meseScadenza).padStart(2, '0')}-16`,
-      ivaDebito, ivaCreditoNota: 'IVA su acquisti non tracciata: il dovuto reale potrebbe essere più basso.',
+      ivaDebito, ivaDebitoLordo, ivaCredito, ivaCreditoNota: notaCredito(ivaCredito),
       maggiorazione: 0, totaleDaVersare: ivaDebito,
       numeroFatture: fatture.length,
     };
@@ -90,9 +118,9 @@ export function computeIvaLiquidazione(invoices = [], anno, periodicita = 'mensi
 // descrittivo — stesso principio già usato per le scadenze fiscali generali
 // (tax-deadlines.js): non solo "quanto devi", ma "quanto metterne via ogni
 // settimana per arrivarci senza sorprese".
-export function upcomingIvaLiquidazioni(invoices = [], anno, periodicita, { now = new Date() } = {}) {
+export function upcomingIvaLiquidazioni(invoices = [], anno, periodicita, { now = new Date(), acquisti = [] } = {}) {
   const oggi = new Date(now);
-  return computeIvaLiquidazione(invoices, anno, periodicita)
+  return computeIvaLiquidazione(invoices, anno, periodicita, acquisti)
     .filter(p => p.totaleDaVersare > 0 && new Date(p.scadenza) >= oggi)
     .sort((a, b) => new Date(a.scadenza) - new Date(b.scadenza))
     .map(p => {

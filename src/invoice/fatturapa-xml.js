@@ -363,17 +363,35 @@ export function buildFatturaPaXML(data = {}) {
       `</DatiGeneraliDocumento>` +
     `</DatiGenerali>`;
 
-  // Linea unica = compenso. Il forfettario ha Natura N2.2; l'ordinario l'aliquota.
+  // Linea unica = compenso, come sempre — SALVO quando l'utente ha scomposto
+  // l'importo in più voci (es. "4000 di sviluppo, 399 di hosting"): allora
+  // ogni voce diventa una riga XML vera (NumeroLinea progressivo), con lo
+  // stesso trattamento IVA/Natura per tutte (unico regime per fattura). La
+  // somma delle voci coincide sempre con l'imponibile totale per costruzione
+  // (chi chiama questa funzione somma le voci PRIMA di calcolare la fattura),
+  // quindi ImportoTotaleDocumento resta corretto in entrambi i casi.
   const naturaLinea = isForf ? `<Natura>${spec.naturaForfettario}</Natura>` : '';
-  const dettaglioLinee =
-    `<DettaglioLinee>` +
-      `<NumeroLinea>1</NumeroLinea>` +
-      `<Descrizione>${escXml(String(meta.description || 'Prestazione professionale').slice(0, 1000))}</Descrizione>` +
-      `<PrezzoUnitario>${eur(base)}</PrezzoUnitario>` +
-      `<PrezzoTotale>${eur(base)}</PrezzoTotale>` +
-      `<AliquotaIVA>${pct2(aliquota)}</AliquotaIVA>` +
-      naturaLinea +
-    `</DettaglioLinee>`;
+  const voci = Array.isArray(meta.voci) && meta.voci.length > 0 ? meta.voci : null;
+  const dettaglioLinee = voci
+    ? voci.map((v, i) => {
+        const importoVoce = round2(+v.importo || 0);
+        return `<DettaglioLinee>` +
+          `<NumeroLinea>${i + 1}</NumeroLinea>` +
+          `<Descrizione>${escXml(String(v.descrizione || 'Prestazione professionale').slice(0, 1000))}</Descrizione>` +
+          `<PrezzoUnitario>${eur(importoVoce)}</PrezzoUnitario>` +
+          `<PrezzoTotale>${eur(importoVoce)}</PrezzoTotale>` +
+          `<AliquotaIVA>${pct2(aliquota)}</AliquotaIVA>` +
+          naturaLinea +
+        `</DettaglioLinee>`;
+      }).join('')
+    : `<DettaglioLinee>` +
+        `<NumeroLinea>1</NumeroLinea>` +
+        `<Descrizione>${escXml(String(meta.description || 'Prestazione professionale').slice(0, 1000))}</Descrizione>` +
+        `<PrezzoUnitario>${eur(base)}</PrezzoUnitario>` +
+        `<PrezzoTotale>${eur(base)}</PrezzoTotale>` +
+        `<AliquotaIVA>${pct2(aliquota)}</AliquotaIVA>` +
+        naturaLinea +
+      `</DettaglioLinee>`;
 
   const naturaRiep = isForf ? `<Natura>${spec.naturaForfettario}</Natura>` : '';
   const rifNorm = isForf ? `<RiferimentoNormativo>${escXml(spec.rifNormativoForfettario)}</RiferimentoNormativo>` : '';

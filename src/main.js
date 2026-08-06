@@ -71,6 +71,7 @@ import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringC
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
+import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers } from './split/split-engine.js';
@@ -2104,11 +2105,17 @@ function renderTaxCashBlocks(proj, regime) {
         // ufficiale (iva-liquidazione.js), stessa disciplina del forfettario.
         const volumeAnnoPrec = accrualRevenue(invoices, anno - 1);
         const { periodicita } = determinaPeriodicitaIva(volumeAnnoPrec);
-        const prossime = upcomingIvaLiquidazioni(invoices, anno, periodicita, { now: new Date() });
+        // LACUNA COLMATA (2026-08-06): prima si dichiarava onestamente "IVA
+        // sugli acquisti non tracciata" senza dare modo di tracciarla — ora
+        // un acquisto dichiarato (registro-acquisti-iva.js pattern, stesso
+        // schema di taxPayments) riduce davvero il dovuto, periodo per periodo.
+        const acquistiIva = VaultDAO.state.acquistiIva || [];
+        const prossime = upcomingIvaLiquidazioni(invoices, anno, periodicita, { now: new Date(), acquisti: acquistiIva });
         if (prossime[0]) {
           const p = prossime[0];
           html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">Prossima liquidazione IVA (${periodicita}) il ${escapeHtml(p.scadenza)}: ${escapeHtml(formatMoney(p.totaleDaVersare))} — metti via ~${escapeHtml(formatMoney(p.daMettereViaASettimana))} a settimana. ${escapeHtml(p.ivaCreditoNota)}</div>`;
         }
+        html += `<button onclick="window.openRegistraAcquistoIva()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Registra un acquisto (IVA detraibile)${acquistiIva.filter(a => new Date(a.data).getFullYear() === anno).length ? ` · ${acquistiIva.filter(a => new Date(a.data).getFullYear() === anno).length} quest'anno` : ''}</button>`;
         const previsione = previsioneSuperamentoSogliaTrimestrale(invoices, anno, { now: new Date() });
         if (previsione.messaggio) {
           html += `<div class="text-[11px] text-amber-300 mt-1.5 leading-snug">${escapeHtml(previsione.messaggio)}</div>`;
@@ -2173,6 +2180,72 @@ window.exportAccountantReport = () => {
   } else {
     showToast('Popup bloccati dal browser: consenti i popup per generare il riepilogo.', 'error');
   }
+};
+
+// Registro acquisti IVA (colma la lacuna dichiarata in iva-liquidazione.js):
+// un acquisto dichiarato riduce davvero il dovuto del periodo in cui cade,
+// mai un'automazione — è l'utente a dire "questo l'ho comprato con IVA
+// detraibile", Momentum si limita a sommare e sottrarre col segno giusto.
+window.openRegistraAcquistoIva = () => {
+  const oggi = new Date().toISOString().slice(0, 10);
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/><path d="M9 9h1M14 9h1M9 13h1M14 13h1"/>', '--primary')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Registra un acquisto</h3>
+        <p class="card-sub !mb-0 mt-1.5">Una spesa con fattura e IVA detraibile (materiali, strumenti, servizi) riduce davvero l'IVA da versare — non solo un promemoria.</p>
+      </div>
+      <div class="w-full flex flex-col gap-2.5 text-left">
+        <input id="acq-desc" type="text" placeholder="Cosa hai comprato (es. Laptop, hosting)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <div class="grid grid-cols-2 gap-2.5">
+          <input id="acq-imponibile" type="number" inputmode="decimal" placeholder="Imponibile €" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
+          <input id="acq-data" type="date" value="${oggi}" max="${oggi}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        </div>
+        <div>
+          <span class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Aliquota IVA sull'acquisto</span>
+          <div class="mt-1.5">${tl1Select('acq-aliquota', [
+            { value: '0.22', label: '22% (ordinaria)' },
+            { value: '0.10', label: '10% (ridotta)' },
+            { value: '0.04', label: '4% (super-ridotta)' },
+            { value: '0', label: '0% (esente/fuori campo)' },
+          ], '0.22')}</div>
+        </div>
+      </div>
+      <button id="acq-save" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Registra acquisto</button>
+      ${(VaultDAO.state.acquistiIva || []).length ? `
+      <div class="w-full text-left mt-1">
+        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">Già registrati</div>
+        <div class="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+          ${(VaultDAO.state.acquistiIva || []).slice().reverse().map((a) => {
+            const idxReale = (VaultDAO.state.acquistiIva || []).indexOf(a);
+            return `<div class="flex items-center justify-between gap-2 text-[11px] text-[var(--on-surface-secondary)] border-b border-[var(--glass-border)] pb-1.5">
+              <span class="truncate">${escapeHtml(a.descrizione || 'Acquisto')} · ${escapeHtml(a.data)}</span>
+              <span class="shrink-0 flex items-center gap-2"><span class="font-mono">${formatMoney(a.imponibile)}</span>
+              <button type="button" onclick="window.removeAcquistoIva(${idxReale})" class="text-[var(--on-surface-secondary)] hover:text-[var(--red)]" aria-label="Rimuovi">✕</button></span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+    </div>`);
+  document.getElementById('acq-save')?.addEventListener('click', () => {
+    const descrizione = (document.getElementById('acq-desc').value || '').trim();
+    const imponibile = parseFloat(String(document.getElementById('acq-imponibile').value).replace(',', '.'));
+    const data = document.getElementById('acq-data').value || oggi;
+    const aliquotaIva = parseFloat(document.getElementById('acq-aliquota').dataset.value || '0.22');
+    if (!(imponibile > 0)) { showToast('Inserisci l\'imponibile dell\'acquisto.', 'error'); return; }
+    VaultDAO.state.acquistiIva = [...(VaultDAO.state.acquistiIva || []), { descrizione, imponibile, data, aliquotaIva }];
+    VaultDAO.save();
+    showToast('Acquisto registrato — l\'IVA detraibile è già nel calcolo del periodo.', 'success');
+    window.openRegistraAcquistoIva();
+    renderAnalysis();
+  });
+};
+window.removeAcquistoIva = (idx) => {
+  VaultDAO.state.acquistiIva = (VaultDAO.state.acquistiIva || []).filter((_, i) => i !== idx);
+  VaultDAO.save();
+  showToast('Acquisto rimosso.', 'info');
+  window.openRegistraAcquistoIva();
+  renderAnalysis();
 };
 
 // Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
@@ -2475,12 +2548,25 @@ function ensureTl1SelectDelegation() {
         if (!isSel && existingCheck) existingCheck.remove();
       });
       closeAll();
+      // Un <select> nativo emette 'change' quando l'opzione cambia — questo
+      // non è nativo, quindi lo dichiariamo a mano: qualunque codice che già
+      // ascolta 'change' su questo elemento (scritto per il vecchio <select>)
+      // continua a funzionare identico, zero riscrittura altrove.
+      root.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
     closeAll();
   });
 }
 ensureTl1SelectDelegation();
+// Imposta il valore da codice (es. autocompilazione cliente ricorrente) —
+// riusa lo stesso percorso del click reale sull'opzione, così label,
+// checkmark ed evento 'change' restano coerenti in un solo posto.
+function tl1SelectSetValue(id, value) {
+  const root = document.getElementById(id);
+  const opt = root?.querySelector(`.tl1-select-opt[data-value="${value}"]`);
+  opt?.click();
+}
 
 // Passo numerato per le guide "come si fa davvero" (apertura P.IVA, SdI):
 // un cerchietto col numero invece di un elenco puntato piatto, coerente col
@@ -2525,6 +2611,30 @@ function tl1Checklist(id, items) {
       </label>`).join('')}
     </div>
   </div>`;
+}
+// Validazione LIVE dei campi fiscali della fattura: la card "Crea fattura"
+// non aveva ALCUN controllo specifico su P.IVA/Codice Fiscale/CAP/Provincia
+// — un errore di battitura si scopriva solo dopo, allo scarto SdI. Qui si
+// usano gli stessi validatori con cifra di controllo REALE già presenti in
+// it-fiscal-id.js (mai usati finora nel form) per dare un segnale immediato,
+// a colpo d'occhio: bordo verde = coerente, ambra = da controllare (mai
+// rosso-colpa, è un dato tecnico non un errore morale). Anello di conferma
+// verde quando il campo torna valido, coerente col resto dell'app.
+function tl1LiveValidate(id, validator) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const check = () => {
+    const val = el.value.trim();
+    el.classList.remove('tl1-field-ok', 'tl1-field-warn', 'tl1-field-pop');
+    if (!val) return; // campo vuoto: nessun giudizio, potrebbe essere solo non ancora compilato
+    const ok = validator(val);
+    el.classList.add(ok ? 'tl1-field-ok' : 'tl1-field-warn');
+    if (ok && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.classList.remove('tl1-field-pop'); void el.offsetWidth; el.classList.add('tl1-field-pop');
+    }
+  };
+  el.addEventListener('input', check);
+  check();
 }
 function tl1InitChecklist(id) {
   const boxes = document.querySelectorAll(`[data-tl1-checklist="${id}"] input`);
@@ -2620,7 +2730,7 @@ window.openTaxLevel1Simulate = () => {
           '')}</div>
         <label class="flex items-center gap-2 mt-2 text-[11px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
           <input type="checkbox" id="tl1-dipendente" class="w-3.5 h-3.5 rounded accent-[var(--primary)]" />
-          Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria)
+          Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria) — INPS al 24% invece di 26,07%
         </label>
       </details>
       <button id="tl1-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
@@ -5103,7 +5213,7 @@ const SDI_PORTAL_URL = 'https://ivaservizi.agenziaentrate.gov.it/portale/';
 // presso l'Agenzia delle Entrate — un rapporto istituzionale con requisiti
 // societari, non una funzione di codice. Quello che Momentum PUÒ fare (ed è
 // già tutto qui) è preparare il file giusto e indicare la strada esatta.
-function showUploadHelp(filename) {
+function showUploadHelp(filename, number, year) {
   const box = $('#inv-xml-controls'); if (!box) return;
   if (!$('#inv-upload-steps')) {
     const div = document.createElement('div');
@@ -5121,6 +5231,10 @@ function showUploadHelp(filename) {
         ${tl1Step(5, 'Controlla l\'anteprima e premi <b class="text-[var(--on-surface)]">Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto, spiegata in chiaro qui sopra prima ancora di inviarla).')}
       </div>
       <div class="mt-2 opacity-70 text-[10px]">I nomi esatti delle voci possono variare nel tempo: cerca "Fatturazione elettronica" nel menu.</div>
+      <button type="button" id="inv-sdi-walkthrough-btn" class="mt-2.5 w-full btn-action btn-primary justify-center text-[12px] font-bold py-2.5">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+        Guidami passo dopo passo, uno schermo alla volta
+      </button>
       <details class="mt-2.5 pt-2.5 border-t border-emerald-400/20">
         <summary class="cursor-pointer font-bold text-[11px]">Non hai SPID o non riesci ad accedere? C'è una seconda strada: la PEC</summary>
         <div class="mt-2 flex flex-col gap-2">
@@ -5142,9 +5256,80 @@ function showUploadHelp(filename) {
       el.classList.toggle('tl1-expert-open', on);
       e.target.textContent = on ? 'Nascondi i riferimenti normativi' : 'Sei del mestiere? Mostra i riferimenti normativi';
     });
+    document.getElementById('inv-sdi-walkthrough-btn')?.addEventListener('click', () => window.openSdiWalkthrough(filename, number, year));
   }
   showToast('Guida al caricamento mostrata sotto.', 'success');
 }
+
+// Percorso guidato uno-schermo-alla-volta dentro il portale reale, invece di
+// un elenco da leggere tutto insieme: lo stesso passo si legge meglio quando
+// è l'UNICA cosa sullo schermo, con un'icona che lo rende riconoscibile a
+// colpo d'occhio anche a chi non ha mai visto un portale della P.A. Onestà
+// non negoziabile: NON sono screenshot veri del portale (cambiano nel tempo
+// e Momentum non può vederli in anticipo) — sono passi ricreati nella
+// sequenza ufficiale, dichiarati come tali fin dal primo schermo.
+const SDI_WALKTHROUGH_STEPS = [
+  { icon: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', title: 'Accedi', text: 'Apri il portale Fatture e Corrispettivi ed entra con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline — le stesse che usi per la dichiarazione dei redditi.', link: true },
+  { icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', title: '"Me stesso"', text: 'Alla prima schermata scegli il profilo "Me stesso": sei tu che fatturi, non un\'altra persona o azienda. È sempre la prima opzione in alto, anche se vedi un elenco di deleghe.' },
+  { icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', title: 'Fatturazione elettronica', text: 'Nel menu principale cerca la voce "Fatturazione elettronica", poi "Trasmetti" o "Importa un file".', link: true },
+  { icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>', title: 'Carica il file', text: null },
+  { icon: '<path d="M20 6 9 17l-5-5"/>', title: 'Trasmetti', text: 'Controlla l\'anteprima che ti mostra il portale e premi "Trasmetti". Arriverà una ricevuta di consegna (o di scarto — te l\'ho già spiegata sopra prima ancora che tu la riceva).' },
+];
+window.openSdiWalkthrough = (filename, number, year) => {
+  let step = 0;
+  const render = (dir = 'forward') => {
+    const s = SDI_WALKTHROUGH_STEPS[step];
+    const text = s.text || `Seleziona il file <b class="text-[var(--on-surface)]">${(filename || 'XML').replace(/</g, '')}</b> che hai già scaricato da Momentum, e caricalo dove il portale chiede "importa" o "trasmetti file".`;
+    const isLast = step === SDI_WALKTHROUGH_STEPS.length - 1;
+    const dirClass = dir === 'back' ? 'sdi-wt-back' : 'sdi-wt-forward';
+    window.openModal(`
+      <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center ${dirClass}">
+        ${tl1Icon(`<path d="M5 3l14 9-14 9V3z"/>`, '--primary')}
+        ${tl1Dots(step + 1, SDI_WALKTHROUGH_STEPS.length)}
+        <div class="tl1-icon-pulse w-16 h-16 rounded-2xl flex items-center justify-center mx-auto bg-[color-mix(in_srgb,var(--gold)_16%,transparent)]" style="--tl1-icon-color:var(--gold)">
+          <svg class="w-8 h-8 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${s.icon}</svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-black leading-tight">${s.title}</h3>
+          <p class="card-sub !mb-0 mt-1.5">${text}</p>
+        </div>
+        ${s.link ? `<a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-bold px-3 py-2.5 rounded-xl bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">
+          Apri il portale Fatture e Corrispettivi, vero
+          <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
+        </a>` : ''}
+        <div class="w-full flex gap-2">
+          ${step > 0 ? `<button id="sdi-wt-back" class="btn-action flex-1 py-3 font-bold rounded-xl">← Indietro</button>` : ''}
+          <button id="sdi-wt-next" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl">${isLast ? 'Fatto ✓' : 'Fatto, avanti →'}</button>
+        </div>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Passo ricreato nella sequenza ufficiale, non uno screenshot del portale — i nomi esatti delle voci possono cambiare nel tempo.</p>
+      </div>`);
+    document.getElementById('sdi-wt-back')?.addEventListener('click', () => { step--; render('back'); });
+    document.getElementById('sdi-wt-next')?.addEventListener('click', () => {
+      if (isLast) { window.openSdiWalkthroughDone(number, year); return; }
+      step++; render('forward');
+    });
+  };
+  render();
+};
+window.openSdiWalkthroughDone = (number, year) => {
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M20 6L9 17l-5-5"/>', '--green')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">L'hai trasmessa?</h3>
+        <p class="card-sub !mb-0 mt-1.5">Se hai premuto "Trasmetti" sul portale, segnala qui: sparisce dal promemoria e Momentum sa che è a posto.</p>
+      </div>
+      <div class="w-full flex flex-col gap-2">
+        ${number != null ? `<button id="sdi-wt-mark" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Sì, l'ho trasmessa — segna fatto</button>` : ''}
+        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="btn-action w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5">Non ancora, apri il portale<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        <button onclick="window.closeModal()" class="text-[11px] text-[var(--on-surface-secondary)] underline">Ci penso dopo</button>
+      </div>
+    </div>`);
+  document.getElementById('sdi-wt-mark')?.addEventListener('click', () => {
+    window.markTransmitted(number, year);
+    window.closeModal();
+  });
+};
 
 function getInvoiceFormHTML() {
   const regime = VaultDAO.state.taxRegime || 'forfettario';
@@ -5171,9 +5356,12 @@ function getInvoiceFormHTML() {
         </div>`;
   return `
   <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
-    <div class="flex items-baseline justify-between">
-      <h3 class="text-base font-black">Crea fattura</h3>
-      <span class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Date().toLocaleDateString('it-IT')}</span>
+    <div class="flex items-center gap-3">
+      ${tl1Icon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/>', '--primary')}
+      <div class="flex-1 min-w-0">
+        <h3 class="text-lg font-black leading-tight">Crea fattura</h3>
+        <p class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Date().toLocaleDateString('it-IT')}</p>
+      </div>
     </div>
     <!-- CONSULENTE-GUIDA: dice in parole semplici quale documento serve. Aggiornato live. -->
     <div id="inv-guidance" class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-4 py-3 text-[12px] leading-snug"></div>
@@ -5278,6 +5466,15 @@ function getInvoiceFormHTML() {
       <div class="flex flex-col gap-3">
         <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
         <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
+        <!-- Voci multiple: una fattura spesso NON è un solo importo indistinto
+             ("4000 di sviluppo, 399 di hosting") — qui si scompone senza
+             obbligare nessuno, resta un dettaglio apribile come gli altri.
+             Ogni voce diventa una riga vera nell'XML, non solo un'annotazione. -->
+        <div id="inv-extra-voci" class="flex flex-col gap-2"></div>
+        <button type="button" id="inv-add-voce" class="self-start text-[11px] font-bold text-[var(--primary)] underline">+ Scomponi in più voci</button>
+        <div id="inv-voci-total" class="hidden flex items-center justify-between text-[11px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2">
+          <span>Totale imponibile</span><span id="inv-voci-total-val" class="font-mono font-bold text-[var(--on-surface)]"></span>
+        </div>
         <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
         <label class="block cursor-pointer select-none">
           <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" />
@@ -5290,10 +5487,8 @@ function getInvoiceFormHTML() {
           </span>
         </label>
         <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
-          <span>Regime:</span>
-          <select id="inv-regime" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1">
-            ${Object.entries(REGIMI).map(([k, v]) => `<option value="${k}" ${k === regime ? 'selected' : ''}>${v.label.split('(')[0].trim()}</option>`).join('')}
-          </select>
+          <span class="shrink-0">Regime:</span>
+          <div class="flex-1 min-w-0">${tl1Select('inv-regime', Object.entries(REGIMI).map(([k, v]) => ({ value: k, label: v.label.split('(')[0].trim() })), regime)}</div>
         </div>
       </div>
     </div>
@@ -5334,6 +5529,101 @@ window.openCreateInvoice = (prefillClient) => {
   $('#modal-footer').classList.add('modal-wide');
   const clientEl = $('#inv-client'), amountEl = $('#inv-amount'), descEl = $('#inv-desc'), regimeEl = $('#inv-regime'), prevEl = $('#inv-preview');
   const eur = (n) => `${(+n).toFixed(2).replace('.', ',')} €`;
+  // Voci multiple: "4000 di sviluppo, 399 di hosting" invece di un unico
+  // importo indistinto. La riga principale (descEl/amountEl) resta sempre
+  // la prima voce — zero cambiamento per chi non apre mai questa sezione,
+  // stessi campi di sempre. Le righe aggiunte sono puramente additive.
+  const extraVociEl = $('#inv-extra-voci'), vociTotalEl = $('#inv-voci-total'), vociTotalValEl = $('#inv-voci-total-val');
+  const voceInputCls = 'bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm min-w-0';
+  // Voci in percentuale (sconto/acconto/maggiorazione): "un 5% associato a un
+  // costo" — non solo importi fissi. La percentuale si calcola SEMPRE sulla
+  // base fissa in euro (voce principale + righe €), mai su altre percentuali:
+  // due sconti del 10% non diventano un 20% composto né un 19% a cascata,
+  // restano entrambi il 10% dello stesso importo di partenza — l'unico modo
+  // di restare prevedibile quando le righe si possono riordinare o cancellare.
+  const principaleImporto = () => parseFloat(String(amountEl.value).replace(',', '.')) || 0;
+  const collectVoci = () => {
+    const extraRows = [...(extraVociEl?.querySelectorAll('.inv-voce-row') || [])];
+    const baseFissa = principaleImporto() + extraRows
+      .filter((row) => (row.dataset.voceType || 'eur') === 'eur')
+      .reduce((s, row) => s + (parseFloat(String(row.querySelector('.inv-voce-amount').value).replace(',', '.')) || 0), 0);
+    const rows = [{ descrizione: (descEl.value || '').trim() || 'Prestazione professionale', importo: principaleImporto() }];
+    extraRows.forEach((row) => {
+      const d = (row.querySelector('.inv-voce-desc').value || '').trim();
+      const raw = parseFloat(String(row.querySelector('.inv-voce-amount').value).replace(',', '.')) || 0;
+      const type = row.dataset.voceType || 'eur';
+      if (!raw) return;
+      if (type === 'eur') { rows.push({ descrizione: d || 'Voce', importo: raw }); return; }
+      const segno = type === 'pct-sconto' ? -1 : 1;
+      const importoCalcolato = +((baseFissa * raw / 100) * segno).toFixed(2);
+      const etichetta = type === 'pct-sconto' ? 'Sconto' : 'Maggiorazione';
+      rows.push({ descrizione: d ? `${d} (${etichetta.toLowerCase()} ${raw}%)` : `${etichetta} ${raw}%`, importo: importoCalcolato });
+    });
+    return rows;
+  };
+  const totalImponibile = () => collectVoci().reduce((s, v) => s + v.importo, 0);
+  const updateVociTotal = () => {
+    const hasExtra = (extraVociEl?.querySelectorAll('.inv-voce-row').length || 0) > 0;
+    vociTotalEl?.classList.toggle('hidden', !hasExtra);
+    if (hasExtra && vociTotalValEl) vociTotalValEl.textContent = eur(totalImponibile());
+  };
+  // Ciclo di tre stati per il tipo di voce — un solo pulsante invece di un
+  // altro menu a tendina, il tocco più veloce per un caso che capita spesso
+  // ma non deve intimidire chi vuole solo un importo fisso (stato di default).
+  const VOCE_TYPES = [
+    { type: 'eur', label: '€', title: 'Importo fisso in euro' },
+    { type: 'pct-sconto', label: '%−', title: 'Sconto: percentuale del totale, in negativo' },
+    { type: 'pct-piu', label: '%+', title: 'Maggiorazione/acconto: percentuale del totale, in positivo' },
+  ];
+  const addVoceRow = () => {
+    const row = document.createElement('div');
+    row.className = 'flex flex-col gap-1 inv-voce-row tl1-step-in';
+    row.dataset.voceType = 'eur';
+    row.innerHTML = `
+      <div class="flex gap-2 items-center">
+        <input type="text" class="${voceInputCls} inv-voce-desc flex-1" placeholder="Descrizione voce" />
+        <input type="number" inputmode="decimal" class="${voceInputCls} font-mono inv-voce-amount w-20 shrink-0" placeholder="€" />
+        <button type="button" class="inv-voce-type shrink-0 w-11 h-9 rounded-xl border border-[var(--glass-border)] text-[11px] font-bold text-[var(--on-surface-secondary)]" title="${VOCE_TYPES[0].title}">${VOCE_TYPES[0].label}</button>
+        <button type="button" class="inv-voce-remove shrink-0 w-9 h-9 rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)]" aria-label="Rimuovi voce">✕</button>
+      </div>
+      <div class="inv-voce-computed hidden text-[10px] text-[var(--on-surface-secondary)] pl-1"></div>`;
+    extraVociEl.appendChild(row);
+    const amountInput = row.querySelector('.inv-voce-amount');
+    const computedEl = row.querySelector('.inv-voce-computed');
+    const typeBtn = row.querySelector('.inv-voce-type');
+    const updateComputedHint = () => {
+      const type = row.dataset.voceType;
+      const raw = parseFloat(String(amountInput.value).replace(',', '.')) || 0;
+      if (type === 'eur' || !raw) { computedEl.classList.add('hidden'); return; }
+      const extraRows = [...extraVociEl.querySelectorAll('.inv-voce-row')];
+      const baseFissa = principaleImporto() + extraRows
+        .filter((r) => (r.dataset.voceType || 'eur') === 'eur')
+        .reduce((s, r) => s + (parseFloat(String(r.querySelector('.inv-voce-amount').value).replace(',', '.')) || 0), 0);
+      const segno = type === 'pct-sconto' ? -1 : 1;
+      const val = +((baseFissa * raw / 100) * segno).toFixed(2);
+      computedEl.classList.remove('hidden');
+      computedEl.textContent = `= ${eur(val)} sul totale`;
+    };
+    const onChange = () => { refresh(); updateVociTotal(); updateComputedHint(); };
+    typeBtn.addEventListener('click', () => {
+      const idx = VOCE_TYPES.findIndex((t) => t.type === row.dataset.voceType);
+      const next = VOCE_TYPES[(idx + 1) % VOCE_TYPES.length];
+      row.dataset.voceType = next.type;
+      typeBtn.textContent = next.label;
+      typeBtn.title = next.title;
+      amountInput.placeholder = next.type === 'eur' ? '€' : '%';
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        typeBtn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.15)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+      }
+      onChange();
+    });
+    row.querySelector('.inv-voce-desc').addEventListener('input', onChange);
+    amountInput.addEventListener('input', onChange);
+    row.querySelector('.inv-voce-remove').addEventListener('click', () => { row.remove(); refresh(); updateVociTotal(); });
+    row.querySelector('.inv-voce-desc')?.focus();
+    updateVociTotal();
+  };
+  $('#inv-add-voce')?.addEventListener('click', addVoceRow);
   // Anteprima LIVE: mostra netto a ricevere e scomposizione a ogni modifica.
   // BUG REALE trovato rianalizzando il modulo (2026-08-06): computeInvoice
   // calcola già una `note` con la spiegazione legale (perché niente IVA/
@@ -5344,13 +5634,17 @@ window.openCreateInvoice = (prefillClient) => {
   let prevTotale = null;
   const refresh = () => {
     syncGuidance();
-    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
+    const imp = totalImponibile();
     if (!(imp > 0)) { prevEl.classList.add('hidden'); prevTotale = null; return; }
     const country = ($('#inv-country') && $('#inv-country').value) || 'IT';
-    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country });
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.dataset.value, country });
     prevEl.classList.remove('hidden');
     const bolloRiga = inv.righe.find((r) => r.voce === 'Marca da bollo');
-    prevEl.innerHTML = `${inv.righe.map((r) => `<div class="flex justify-between items-center"><span>${r.voce}${r === bolloRiga ? ` <button type="button" id="inv-bollo-why" class="text-[var(--gold)] underline font-bold">perché?</button>` : ''}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
+    const voci = collectVoci();
+    const vociBreakdown = voci.length > 1
+      ? `<div class="mb-1.5 pb-1.5 border-b border-[var(--glass-border)]">${voci.map((v) => `<div class="flex justify-between items-center text-[var(--on-surface-secondary)]"><span class="truncate">${v.descrizione}</span><span class="font-mono shrink-0 ml-2">${eur(v.importo)}</span></div>`).join('')}</div>`
+      : '';
+    prevEl.innerHTML = `${vociBreakdown}${inv.righe.map((r) => `<div class="flex justify-between items-center"><span>${r.voce}${r === bolloRiga ? ` <button type="button" id="inv-bollo-why" class="text-[var(--gold)] underline font-bold">perché?</button>` : ''}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
       ${bolloRiga ? `<div id="inv-bollo-explain" class="hidden mt-1 mb-1 text-[10px] text-[var(--on-surface-secondary)] leading-relaxed border-l-2 border-[var(--gold)]/40 pl-2">Le fatture senza IVA sopra 77,47€ richiedono per legge una marca da bollo da 2€ (DPR 642/1972, art. 13 n.1-bis) — Momentum la aggiunge da sola, non serve comprarla a parte.</div>` : ''}
       <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">Totale fattura</span><span id="inv-prev-totale" class="font-mono">${eur(inv.totaleFattura)}</span></div>
       <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span id="inv-prev-netto" class="font-mono">${eur(inv.nettoARicevere)}</span></div>
@@ -5447,7 +5741,7 @@ window.openCreateInvoice = (prefillClient) => {
     if (c.typicalAmount) amountEl.value = c.typicalAmount;
     if (c.lastDescription) descEl.value = c.lastDescription;
     if (c.lastEmail) emailEl.value = c.lastEmail;
-    if (c.lastRegime && regimeEl.querySelector(`option[value="${c.lastRegime}"]`)) regimeEl.value = c.lastRegime;
+    if (c.lastRegime && REGIMI[c.lastRegime]) tl1SelectSetValue("inv-regime", c.lastRegime);
     if ($('#inv-recurring')) $('#inv-recurring').checked = !!c.monthly; // coerenza: resta ricorrente
     refresh();
   }));
@@ -5461,6 +5755,20 @@ window.openCreateInvoice = (prefillClient) => {
   amountEl.addEventListener('input', refresh);
   regimeEl.addEventListener('change', refresh);
   $('#inv-country')?.addEventListener('change', refresh);
+  // Controlli specifici, live: cifra di controllo reale su P.IVA/Codice
+  // Fiscale (tua e del cliente), formato su CAP (5 cifre) e Provincia (2
+  // lettere) — prima non esisteva alcun feedback finché non arrivava lo
+  // scarto SdI. Il Codice Fiscale del cliente è opzionale rispetto alla
+  // P.IVA (basta uno dei due, verificato dove serve davvero): qui i due
+  // campi restano indipendenti, ciascuno giudicato solo se compilato.
+  tl1LiveValidate('inv-piva', isValidPartitaIva);
+  tl1LiveValidate('inv-cf', isValidCodiceFiscale);
+  tl1LiveValidate('inv-cap', (v) => /^\d{5}$/.test(v));
+  tl1LiveValidate('inv-prov', (v) => /^[A-Za-z]{2}$/.test(v));
+  tl1LiveValidate('inv-cli-piva', isValidPartitaIva);
+  tl1LiveValidate('inv-cli-cf', isValidCodiceFiscale);
+  tl1LiveValidate('inv-cli-cap', (v) => /^\d{5}$/.test(v));
+  tl1LiveValidate('inv-cli-prov', (v) => /^[A-Za-z]{2}$/.test(v));
   // RIGA UNICA (NL) → compila cliente/importo/causale con un tocco (o Invio).
   const fillFromOneLine = () => {
     const parsed = parseInvoiceLine($('#inv-oneline')?.value || '');
@@ -5519,7 +5827,7 @@ window.openCreateInvoice = (prefillClient) => {
   // fatturando. Si spegne per sempre al primo tap manuale sui tre stili.
   const liveThemeSuggest = () => {
     if (themeChosenByUser) return;
-    const sugg = suggestInvoiceTheme(clientEl.value, descEl.value, parseFloat(String(amountEl.value).replace(',', '.')) || 0);
+    const sugg = suggestInvoiceTheme(clientEl.value, descEl.value, totalImponibile());
     applyTheme(sugg);
   };
   clientEl.addEventListener('input', liveThemeSuggest);
@@ -5541,7 +5849,8 @@ window.openCreateInvoice = (prefillClient) => {
     // non è valida. Messaggi chiari, focus sul campo mancante, sezione dati
     // aperta se serve — comprensibile a tutti.
     const client = clientEl.value.trim();
-    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
+    const imp = totalImponibile();
+    const voci = collectVoci();
     const emitter = ($('#inv-emitter').value || '').trim();
     if (!emitter) {
       const det = document.querySelector('#modal-body details'); if (det) det.open = true;
@@ -5565,19 +5874,19 @@ window.openCreateInvoice = (prefillClient) => {
       theme: INVOICE_THEMES.includes($('#inv-theme')?.value) ? $('#inv-theme').value : 'minimale',
       brandCredit: !!$('#inv-brand-credit')?.checked,
       country,
-      fiscale: { ...fis, regime: regimeEl.value }, // ricordato per la prossima volta
+      fiscale: { ...fis, regime: regimeEl.dataset.value }, // ricordato per la prossima volta
     };
     const prof = VaultDAO.state.invoiceProfile;
     const clientEmail = (emailEl.value || '').trim();
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
-    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country: prof.country });
-    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo, logo: prof.logo, accent: prof.accent, theme: prof.theme, country: prof.country, clientInfo, regime: regimeEl.value };
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.dataset.value, country: prof.country });
+    const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo, logo: prof.logo, accent: prof.accent, theme: prof.theme, country: prof.country, clientInfo, regime: regimeEl.dataset.value, ...(voci.length > 1 ? { voci } : {}) };
     // salva nello storico (numerazione + apprendimento cliente/email + dati
     // fiscali del cliente per il riuso + flag ricorrente per il promemoria)
     const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
     const hasCliFiscal = cliFis.partitaIva || cliFis.codiceFiscale || cliFis.indirizzo;
-    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.value, clientEmail, country: prof.country, ...(opts.electronic ? { isElectronic: true, sdiTransmitted: false } : {}), ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}) }];
+    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.dataset.value, clientEmail, country: prof.country, ...(opts.electronic ? { isElectronic: true, sdiTransmitted: false } : {}), ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}), ...(voci.length > 1 ? { voci } : {}) }];
     // AUTO-ADDESTRAMENTO (chiude il loop, come richiesto): creare una fattura per
     // un cliente INSEGNA al sistema che i futuri accrediti da quel cliente sono
     // reddito da fattura — su due livelli:
@@ -5595,7 +5904,7 @@ window.openCreateInvoice = (prefillClient) => {
     }
     VaultDAO.save();
     // dati strutturati per la fattura elettronica (usati dall'handler XML)
-    const emitterFiscal = { ...fis, denominazione: prof.emitter, regime: regimeEl.value, nazione: 'IT' };
+    const emitterFiscal = { ...fis, denominazione: prof.emitter, regime: regimeEl.dataset.value, nazione: 'IT' };
     const clientFiscal = { ...cliFis, nazione: 'IT' };
     return { inv, meta, clientEmail, number, year, emitterFiscal, clientFiscal };
   };
@@ -5666,14 +5975,14 @@ window.openCreateInvoice = (prefillClient) => {
   $('#inv-request-pay')?.addEventListener('click', () => {
     const emitter = ($('#inv-emitter').value || '').trim();
     const fis = currentFiscal();
-    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
+    const imp = totalImponibile();
     if (!fis.iban) {
       const det = document.querySelector('#modal-body details'); if (det) det.open = true;
       $('#inv-iban')?.focus();
       showToast('Aggiungi il tuo IBAN nei dati fiscali per farti pagare.', 'error'); return;
     }
     if (!(imp > 0)) { amountEl.focus(); showToast('Inserisci l\'importo della fattura.', 'error'); return; }
-    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country: ($('#inv-country') && $('#inv-country').value) || 'IT' });
+    const inv = computeInvoice({ imponibile: imp, regime: regimeEl.dataset.value, country: ($('#inv-country') && $('#inv-country').value) || 'IT' });
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
     window.openSepaTransfer({
@@ -5695,13 +6004,14 @@ window.openCreateInvoice = (prefillClient) => {
   };
   $('#inv-xml').addEventListener('click', () => {
     const client = clientEl.value.trim();
-    const imp = parseFloat(String(amountEl.value).replace(',', '.'));
-    const emitterFiscal = { ...currentFiscal(), denominazione: ($('#inv-emitter').value || '').trim(), regime: regimeEl.value, nazione: 'IT' };
+    const imp = totalImponibile();
+    const voci = collectVoci();
+    const emitterFiscal = { ...currentFiscal(), denominazione: ($('#inv-emitter').value || '').trim(), regime: regimeEl.dataset.value, nazione: 'IT' };
     const clientFiscal = { ...currentClientFiscal(), nazione: 'IT' };
-    const inv = (imp > 0) ? computeInvoice({ imponibile: imp, regime: regimeEl.value, country: 'IT' }) : { imponibile: 0 };
+    const inv = (imp > 0) ? computeInvoice({ imponibile: imp, regime: regimeEl.dataset.value, country: 'IT' }) : { imponibile: 0 };
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
-    const meta = { number, year, date: new Date().toISOString().slice(0, 10), regime: regimeEl.value, description: descEl.value.trim() };
+    const meta = { number, year, date: new Date().toISOString().slice(0, 10), regime: regimeEl.dataset.value, description: descEl.value.trim(), ...(voci.length > 1 ? { voci } : {}) };
     const missing = missingForFatturaPa({ emitter: emitterFiscal, client: clientFiscal });
     const { controls, blocking } = buildFatturaPaXML({ emitter: emitterFiscal, client: clientFiscal, invoice: inv, meta });
     const box = $('#inv-xml-controls');
@@ -5724,21 +6034,37 @@ window.openCreateInvoice = (prefillClient) => {
     // Tutto in regola coi controlli offline → salva e scarica l'XML.
     const res = buildAndSave({ electronic: true }); // marca come e-fattura da trasmettere
     if (!res) return;
-    const out = buildFatturaPaXML({ emitter: res.emitterFiscal, client: res.clientFiscal, invoice: res.inv, meta: { number: res.number, year: res.year, date: new Date().toISOString().slice(0, 10), regime: regimeEl.value, description: res.meta.description } });
+    const out = buildFatturaPaXML({ emitter: res.emitterFiscal, client: res.clientFiscal, invoice: res.inv, meta: { number: res.number, year: res.year, date: new Date().toISOString().slice(0, 10), regime: regimeEl.dataset.value, description: res.meta.description, ...(res.meta.voci ? { voci: res.meta.voci } : {}) } });
     const warns = out.controls.filter(c => c.level === 'warn');
     const url = URL.createObjectURL(new Blob([out.xml], { type: 'application/xml' }));
     const a = document.createElement('a'); a.href = url; a.download = out.filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
-    box.className = 'text-[11px] leading-snug rounded-xl border px-3 py-2.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
-    box.innerHTML = `<div class="font-bold mb-1">Fattura elettronica pronta ✓</div>
-      <div><b>${out.filename}</b> è stato scaricato. Caricalo sul portale <b>Fatture e Corrispettivi</b> dell’Agenzia delle Entrate (accesso SPID), oppure invialo al commercialista. Momentum non può caricarlo da solo: serve il tuo accesso ufficiale.</div>
+    box.className = 'text-[11px] leading-snug rounded-xl border px-3 py-2.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-200 modal-section-in';
+    // BUG REALE segnalato dal vivo (2026-08-06): scaricare l'XML non guidava
+    // nessuno a trasmetterlo — la guida esisteva ma serviva un secondo tap
+    // su "Come si carica?" per vederla, e nessuna azione qui chiudeva il
+    // ciclo. Ora la guida appare SUBITO (zero tap in più) e c'è un pulsante
+    // che segna la fattura trasmessa nello stesso posto in cui l'hai appena
+    // creata, invece di doverlo ricordare più tardi dal promemoria in Analisi.
+    box.innerHTML = `<div class="flex items-center gap-2 font-bold mb-1"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fattura elettronica pronta — ora trasmettila</div>
+      <div><b>${out.filename}</b> è stato scaricato. Due minuti e hai finito: caricalo sul portale <b>Fatture e Corrispettivi</b> dell'Agenzia delle Entrate, oppure invialo al commercialista. Momentum non può caricarlo da solo: serve il tuo accesso ufficiale.</div>
       <div class="flex flex-wrap gap-2 mt-2">
         <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-100">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-        <button type="button" id="inv-how-upload" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-emerald-400/30 text-emerald-100/90">Come si carica?</button>
+        <button type="button" id="inv-mark-transmitted" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-emerald-400/30 text-emerald-100/90">L'ho già caricata — segna trasmessa</button>
       </div>
       ${warns.length ? `<div class="mt-2 opacity-80">Nota: ${warns.map(w => w.message).join(' ')}</div>` : ''}`;
     box.classList.remove('hidden');
-    $('#inv-how-upload')?.addEventListener('click', () => showUploadHelp(out.filename));
+    showUploadHelp(out.filename, res.number, res.year);
+    $('#inv-mark-transmitted')?.addEventListener('click', (e) => {
+      window.markTransmitted(res.number, res.year);
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 text-emerald-100';
+      btn.innerHTML = '<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Trasmessa';
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+      }
+    });
     showToast('XML fattura elettronica scaricato.', 'success');
     renderAnalysis();
   });
@@ -5752,7 +6078,7 @@ window.openCreateInvoice = (prefillClient) => {
       if (c.typicalAmount || c.suggestedImponibile) amountEl.value = c.typicalAmount || c.suggestedImponibile;
       if (c.lastDescription) descEl.value = c.lastDescription;
       if (c.lastEmail) emailEl.value = c.lastEmail;
-      if (c.lastRegime && regimeEl.querySelector(`option[value="${c.lastRegime}"]`)) regimeEl.value = c.lastRegime;
+      if (c.lastRegime && REGIMI[c.lastRegime]) tl1SelectSetValue("inv-regime", c.lastRegime);
       if ($('#inv-recurring')) $('#inv-recurring').checked = !!c.monthly;
       fillClientFiscal(lastClientFiscal(c.client));
     }

@@ -524,6 +524,27 @@
     @keyframes tl1KitCopied { 0% { border-color: var(--glass-border); } 30% { border-color: var(--green); box-shadow: 0 0 0 4px rgba(16,185,129,.18); } 100% { border-color: var(--glass-border); box-shadow: none; } }
     .tl1-kit-copied { animation: tl1KitCopied 1.1s ease; }
     @media (prefers-reduced-motion: reduce) { .tl1-kit-copied { animation: none; } }
+    /* Percorso guidato SdI: ogni schermo entra scivolando dalla direzione in
+       cui ci si sta muovendo (avanti = da destra, indietro = da sinistra),
+       come le schermate di un vero tour guidato invece di un fade generico —
+       il senso di "avanzamento fisico" è ciò che rende un percorso a passi
+       diverso da un semplice elenco che si aggiorna. */
+    @keyframes sdiWtForward { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes sdiWtBack { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
+    .sdi-wt-forward { animation: sdiWtForward .38s cubic-bezier(.22,1,.36,1) both; }
+    .sdi-wt-back { animation: sdiWtBack .38s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .sdi-wt-forward, .sdi-wt-back { animation: none; } }
+    /* Validazione live dei campi fiscali (P.IVA, Codice Fiscale, CAP,
+       Provincia): il bordo cambia colore a ogni tocco invece di scoprire
+       l'errore solo dopo, allo scarto SdI. Verde = cifra di controllo
+       coerente; ambra = da ricontrollare — mai rosso, non è una colpa, è un
+       dato tecnico. Un piccolo anello di conferma quando il campo torna
+       valido, per farlo "sentire" invece di limitarsi a cambiare colore. */
+    input.tl1-field-ok { border-color: var(--green) !important; box-shadow: 0 0 0 3px rgba(16,185,129,.14); }
+    input.tl1-field-warn { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(234,179,8,.14); }
+    @keyframes tl1FieldPop { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.4); } 100% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } }
+    input.tl1-field-pop { animation: tl1FieldPop .5s ease-out; }
+    @media (prefers-reduced-motion: reduce) { input.tl1-field-pop { animation: none; } }
     /* Checklist "cosa ti serve" nella guida "come si apre davvero": ogni
        spunta è un piccolo traguardo — pop tattile sulla casella, barra di
        avanzamento che cresce, mai un elenco statico che si limita a

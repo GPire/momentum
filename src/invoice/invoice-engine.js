@@ -336,8 +336,17 @@ export function renderInvoiceHTML(inv = {}, meta = {}) {
   const htmlLang = country.locale === 'it-IT' ? 'it' : 'en';
   // Logo: SOLO data:image (on-device, niente richieste esterne) → sicurezza.
   const logo = /^data:image\//.test(meta.logo || '') ? meta.logo : null;
-  const righe = (inv.righe || []).map(r =>
-    `<tr><td>${esc(r.voce)}</td><td class="r">${r.importo < 0 ? '−' : ''}${eur(Math.abs(r.importo))}</td></tr>`).join('');
+  // Voci multiple ("4000 di sviluppo, 399 di hosting"): quando presenti,
+  // sostituiscono la riga generica "Compenso (imponibile)" con l'elenco
+  // vero — Cassa/IVA/Bollo/Ritenuta restano righe a parte, non fanno parte
+  // della scomposizione del compenso.
+  const hasVoci = Array.isArray(meta.voci) && meta.voci.length > 1;
+  const vociTable = hasVoci
+    ? `<table><tbody>${meta.voci.map((v) => `<tr><td>${esc(v.descrizione)}</td><td class="r">${eur(v.importo)}</td></tr>`).join('')}</tbody></table>`
+    : '';
+  const righe = (inv.righe || [])
+    .filter((r) => !hasVoci || r.voce !== 'Compenso (imponibile)')
+    .map(r => `<tr><td>${esc(r.voce)}</td><td class="r">${r.importo < 0 ? '−' : ''}${eur(Math.abs(r.importo))}</td></tr>`).join('');
   return `<!doctype html><html lang="${htmlLang}" data-invoice-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${L.invoiceNo} ${esc(meta.number || '')}/${esc(meta.year || '')}</title>
 <style>
 :root{--accent:${accent}}
@@ -354,6 +363,7 @@ ${invoiceThemeCss(theme)}
   <div style="text-align:right"><div class="lbl">${L.to}</div><b>${esc(meta.client || '')}</b><br><span class="muted">${esc(meta.clientInfo || '')}</span></div>
 </div>
 ${meta.description ? `<div class="desc">${esc(meta.description)}</div>` : ''}
+${vociTable}
 <table><tbody>${righe}</tbody></table>
 <div class="totbox">
   <div class="row"><span class="muted">${L.total}</span><b>${eur(inv.totaleFattura)}</b></div>
