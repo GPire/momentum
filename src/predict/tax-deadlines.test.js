@@ -368,3 +368,12 @@ test('overdueTaxDeadlines: versamento parziale -> l\'importo residuo si applica 
   const giugno = overdue.find((d) => d.date === '2026-06-30');
   assert.equal(giugno.importo, 500); // 50% di (4000-3000)
 });
+
+// ── BUG REALE: riskDay vero non ha .ms (solo i fixture di test lo avevano) ──
+test('taxCashWarning: riskDay REALISTICO (solo date/inDays/level, come lo produce davvero cashForecast) attiva comunque l\'urgenza alta', () => {
+  const d = upcomingTaxDeadlines(4000, { now: MARZO });
+  const riskDayReale = { date: '2026-05-12', inDays: 58, level: 'prudente' }; // NESSUN campo .ms, come il vero simulateCash
+  const w = taxCashWarning(d, { riskDay: riskDayReale });
+  assert.equal(w.urgenza, 'alta', 'un riskDay senza .ms deve comunque essere riconosciuto come rischio prima della scadenza');
+  assert.equal(w.giornoCritico, '2026-05-12');
+});

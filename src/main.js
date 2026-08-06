@@ -2158,7 +2158,40 @@ function renderTaxCashBlocks(proj, regime) {
       </div>`;
     }
 
-    const avviso = taxCashWarning(deadlines, null);
+    // BUG REALE TROVATO (2026-08-06): taxCashWarning veniva chiamata con
+    // `forecast: null` — l'UNICA funzione di questa card pensata apposta per
+    // dire "la cassa scende sotto zero PRIMA della scadenza fiscale" (il
+    // pezzo che nessun portale di fatturazione può fare, perché loro non
+    // vedono il conto) non veniva MAI collegata alla previsione di cassa
+    // vera: quel ramo era codice morto in produzione. Qui si costruisce lo
+    // stesso forecast probabilistico (p10/p50/p90) già usato dalla
+    // Dashboard, con orizzonte esteso fino alla scadenza stessa.
+    let forecastPerAvviso = null;
+    if (deadlines[0]) {
+      try {
+        let cumulativeReserve = 0;
+        Object.values(VaultDAO.state.transactions || {}).forEach((txs) => {
+          (txs || []).forEach((t) => {
+            if (t.type === 'entrata') cumulativeReserve += t.amount;
+            else if (t.type === 'uscita') cumulativeReserve -= t.amount;
+            else cumulativeReserve -= t.amount; // invest: esce dal liquido disponibile
+          });
+        });
+        const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
+        const orizzonte = Math.min(400, Math.max(14, deadlines[0].giorniMancanti + 5));
+        forecastPerAvviso = cashForecast({
+          allTx: VaultDAO.state.transactions,
+          commitments: VaultDAO.state.fixedCommitments || [],
+          salary,
+          startBalance: cumulativeReserve,
+          now: Date.now(),
+          horizonDays: orizzonte,
+        });
+      } catch (e) {
+        console.warn('Previsione di cassa per l\'avviso fiscale non disponibile:', e);
+      }
+    }
+    const avviso = taxCashWarning(deadlines, forecastPerAvviso);
     if (avviso) {
       const col = avviso.urgenza === 'alta' ? 'text-orange-300' : avviso.urgenza === 'ok' ? 'text-emerald-300' : 'text-[var(--on-surface-secondary)]';
       html += `<div class="text-[11px] ${col} mt-1.5 leading-snug">${escapeHtml(avviso.messaggio)}</div>`;

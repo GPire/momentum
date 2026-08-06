@@ -162,7 +162,14 @@ export function taxCashWarning(deadlines, forecast, { riservaGiaAccantonata = 0 
   const prossima = (deadlines || [])[0];
   if (!prossima) return null;
 
-  const scoperto = forecast?.riskDay || null;
+  // BUG REALE: il riskDay che esce davvero da cashForecast/simulateCash porta
+  // solo { date, inDays, level }, MAI un campo `.ms` — solo i fixture di test
+  // scritti a mano lo avevano. Con la sola condizione `scoperto.ms <=
+  // prossima.ms` di prima, `undefined <= numero` è sempre falso: l'avviso ad
+  // urgenza alta non poteva MAI scattare con un forecast vero, nemmeno una
+  // volta collegato. Qui si deriva `.ms` dalla data quando manca.
+  const scopertoRaw = forecast?.riskDay || null;
+  const scoperto = scopertoRaw ? { ...scopertoRaw, ms: scopertoRaw.ms ?? new Date(scopertoRaw.date).getTime() } : null;
   const settimane = Math.max(1, Math.ceil(prossima.giorniMancanti / 7));
   const daMettereVia = Math.max(0, prossima.importo - (Number.isFinite(+riservaGiaAccantonata) ? +riservaGiaAccantonata : 0));
   const perSettimana = +(daMettereVia / settimane).toFixed(2);
