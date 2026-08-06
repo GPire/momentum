@@ -65,6 +65,7 @@ import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, I
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
+import { generateDemoTransactions, fadeDemo, demoStatus, DEMO_FADE_AT } from './ui/demo-dataset.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -1035,6 +1036,74 @@ window.openPrefilledAdd = (prefill = {}) => {
 // ==========================================
 // RENDERS
 // ==========================================
+// ── DATASET DIMOSTRATIVO (src/ui/demo-dataset.js) ──
+// Il primo schermo vuoto è il punto di abbandono più alto: si apre l'app,
+// non c'è niente, e sembra un lavoro da fare invece di uno strumento che
+// aiuta. Qui l'utente VEDE subito com'è Momentum pieno, e l'esempio si
+// dissolve da solo man mano che entrano i suoi dati veri.
+// SICUREZZA: le voci finte vivono SOLO in state.demoTransactions e si
+// uniscono soltanto qui, al momento di disegnare. Il motore fiscale,
+// l'AI e la previsione di cassa leggono state.transactions e non possono
+// vederle nemmeno per errore — è impossibile per costruzione.
+function realTxCount() {
+  return Object.values(VaultDAO.state.transactions || {}).reduce((n, arr) => n + (arr?.length || 0), 0);
+}
+function ensureDemoSeeded() {
+  if (VaultDAO.state.demoDismissed) return;
+  if (Array.isArray(VaultDAO.state.demoTransactions)) return;
+  // Si semina UNA volta sola, e solo se l'utente non ha ancora dati suoi:
+  // chi arriva con un backup ripristinato non deve vedere spese finte.
+  if (realTxCount() > 0) return;
+  VaultDAO.state.demoTransactions = generateDemoTransactions({ now: new Date() });
+}
+function liveDemoTx() {
+  if (VaultDAO.state.demoDismissed) return [];
+  return fadeDemo(VaultDAO.state.demoTransactions || [], realTxCount());
+}
+// Transazioni di un mese PER DISEGNARE: le vere più le finte superstiti.
+function displayTxForMonth(k) {
+  const reali = VaultDAO.state.transactions[k] || [];
+  const finte = liveDemoTx().filter((t) => String(t.date).slice(0, 7) === k);
+  if (!finte.length) return reali;
+  return [...reali, ...finte].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+// L'avviso è SEMPRE visibile finché l'esempio è attivo: mostrare soldi
+// finti senza dirlo sarebbe la bugia peggiore possibile in un'app di
+// finanza. Ambra (momento consapevole), mai rosso-colpa. La barra mostra
+// quanto manca alla sparizione: rende visibile il progresso invece di
+// chiedere un atto di fede.
+function renderDemoBanner() {
+  const el = document.getElementById('demo-banner');
+  if (!el) return;
+  const s = demoStatus(VaultDAO.state.demoTransactions || [], realTxCount());
+  if (!s.attivo || VaultDAO.state.demoDismissed) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  const fatte = Math.max(0, DEMO_FADE_AT - s.realiMancanti);
+  const pct = Math.round((fatte / DEMO_FADE_AT) * 100);
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0">
+          <p class="text-[12px] font-black text-amber-300 leading-tight">Questo è un esempio, non i tuoi soldi</p>
+          <p class="text-[11px] text-amber-200/90 mt-1 leading-snug">Così vedi subito com'è Momentum pieno. Sparisce da solo mentre aggiungi le tue spese: ne mancano <b>${s.realiMancanti}</b>.</p>
+        </div>
+        <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-amber-400/40 text-amber-200 hover:bg-amber-400/10">Parti dai miei dati</button>
+      </div>
+      <div class="h-1.5 rounded-full bg-black/30 overflow-hidden mt-2.5">
+        <div class="h-full rounded-full bg-amber-400/80 transition-all duration-500" style="width:${pct}%"></div>
+      </div>
+    </div>`;
+}
+
+// "Parti dai miei dati": il demo sparisce subito e non torna più.
+window.dismissDemo = () => {
+  VaultDAO.state.demoDismissed = true;
+  VaultDAO.state.demoTransactions = [];
+  VaultDAO.save();
+  showToast('Fatto — ora vedi solo i tuoi dati.', 'success');
+  renderDashboard();
+};
+
 const renderDashboard = () => {
   let score = 400;
   try { score = PredictiveOracle.calculateMomentumScore(); } catch(e) {}
@@ -1067,7 +1136,9 @@ const renderDashboard = () => {
       display.title = `Stai guardando un mese ${dir} — tocca per tornare a oggi`;
     }
   }
-  const txs = VaultDAO.state.transactions[k] || [];
+  ensureDemoSeeded();
+  const txs = displayTxForMonth(k);
+  renderDemoBanner();
 
   let inc = 0, exp = 0, inv = 0;
   txs.forEach(t => {
