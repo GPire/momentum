@@ -64,6 +64,7 @@ import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax
 import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL } from './predict/tax-ch.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
+import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -2867,21 +2868,29 @@ function tl1InitChecklist(id) {
 // zero gergo: stesso principio "semplice anche per un bambino" già usato per
 // la Partita IVA italiana, applicato a un sistema fiscale strutturalmente
 // diverso (niente regime forfettario/ordinario, niente SdI — src/predict/tax-ch.js).
+// LOCALIZZAZIONE (i18n/ui-strings.js): rilevata una volta per sessione dal
+// dispositivo (le 3 lingue nazionali svizzere coperte + inglese di
+// sicurezza per chi non rientra in nessuna) — mai l'italiano imposto a chi
+// non l'ha scelto e il cui dispositivo non lo suggerisce. Primo modulo
+// riusabile: stesso pattern da estendere schermata per schermata quando si
+// aggiunge il prossimo mercato, non riscritto da capo ogni volta.
+const __chLang = resolveUiLanguage();
+
 window.openSwissSimulator = () => {
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
-        <h3 class="text-lg font-black leading-tight">Lavori in Svizzera?</h3>
-        <p class="card-sub !mb-0 mt-1.5">Niente Partita IVA qui: AVS e IVA funzionano diversamente. Dimmi solo quanto pensi di fatturare in un anno (CHF) e calcolo io il resto.</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('chSimTitle', __chLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('chSimSubtitle', __chLang)}</p>
       </div>
       <div class="w-full flex items-center gap-2">
-        <button type="button" id="ch-step-down" aria-label="Diminuisci" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
-        <input id="ch-amount" type="number" inputmode="decimal" placeholder="Es. 80000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
-        <button type="button" id="ch-step-up" aria-label="Aumenta" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
+        <button type="button" id="ch-step-down" aria-label="-" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
+        <input id="ch-amount" type="number" inputmode="decimal" placeholder="${tCh('chSimPlaceholder', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+        <button type="button" id="ch-step-up" aria-label="+" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
-      <button id="ch-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
-      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Torna indietro</button>
+      <button id="ch-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('chSimCta', __chLang)}</button>
+      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chSimBack', __chLang)}</button>
     </div>`);
   const input = document.getElementById('ch-amount');
   input?.focus();
@@ -2889,7 +2898,7 @@ window.openSwissSimulator = () => {
   document.getElementById('ch-step-up')?.addEventListener('click', () => { input.value = (+input.value || 0) + 1000; });
   document.getElementById('ch-go')?.addEventListener('click', () => {
     const reddito = parseFloat(String(input.value).replace(',', '.'));
-    if (!(reddito > 0)) { showToast('Inserisci un fatturato annuo stimato.', 'error'); return; }
+    if (!(reddito > 0)) { showToast(tCh('chInvErrAmount', __chLang), 'error'); return; }
     window.openSwissSimulatorResult(reddito);
   });
 };
@@ -2899,28 +2908,28 @@ window.openSwissSimulatorResult = (reddito) => {
   const iva = ivaObbligatoriaCh(reddito);
   const avsRigo = avs.fasciaPiena
     ? `<div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-3 text-left">
-        <div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">AVS/AI/APG (10%)</span><span class="font-mono font-bold text-sm">CHF ${Math.round(avs.contributo).toLocaleString('it-CH')}</span></div>
+        <div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${tCh('chAvsLabel', __chLang)}</span><span class="font-mono font-bold text-sm">CHF ${Math.round(avs.contributo).toLocaleString('it-CH')}</span></div>
       </div>`
     : `<div class="rounded-xl border border-amber-400/40 bg-amber-500/10 px-3.5 py-3 text-left">
-        <div class="text-[11px] font-bold text-amber-300">AVS/AI/APG: scala degressiva</div>
-        <div class="text-[11px] text-amber-200/90 mt-1 leading-snug">Sotto CHF ${AVS_SOGLIA_ALIQUOTA_PIENA.toLocaleString('it-CH')}/anno l'aliquota è ridotta ma calcolata dal tuo ufficio di compensazione — il minimo verificato è CHF ${avs.contributoMinimoAnnuo}/anno. <a href="${AVS_CALCOLATORE_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline">Calcola l'esatto qui</a>.</div>
+        <div class="text-[11px] font-bold text-amber-300">${tCh('chAvsDegressiveTitle', __chLang)}</div>
+        <div class="text-[11px] text-amber-200/90 mt-1 leading-snug">${tCh('chAvsDegressiveText', __chLang, AVS_SOGLIA_ALIQUOTA_PIENA.toLocaleString('it-CH'), avs.contributoMinimoAnnuo)} <a href="${AVS_CALCOLATORE_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline">${tCh('chAvsDegressiveLink', __chLang)}</a>.</div>
       </div>`;
   const ivaColor = iva.obbligatoria ? 'orange-300' : 'emerald-300';
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
-        <h3 class="text-lg font-black leading-tight">Con CHF ${Math.round(reddito).toLocaleString('it-CH')}/anno</h3>
-        <p class="card-sub !mb-0 mt-1.5">Ecco cosa ti riguarda davvero — niente scelta di regime, niente fattura elettronica obbligatoria come in Italia.</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('chResultTitle', __chLang, Math.round(reddito).toLocaleString('it-CH'))}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('chResultSubtitle', __chLang)}</p>
       </div>
       <div class="w-full flex flex-col gap-2.5">
         ${avsRigo}
         <div class="text-[11px] text-${ivaColor} leading-snug text-left px-1">${escapeHtml(iva.messaggio)}</div>
-        <div class="text-[11px] text-emerald-300/90 leading-snug text-left px-1">Se investi in borsa: in Svizzera le plusvalenze sono esenti da imposta per investitori privati (0%, verificato) — <button type="button" onclick="window.closeModal()" class="underline">vedi anche "Il netto vero" negli Investimenti</button>.</div>
+        <div class="text-[11px] text-emerald-300/90 leading-snug text-left px-1">${tCh('chInvestText', __chLang)}</div>
       </div>
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Stime su aliquote federali pubbliche — l'imposta sul reddito varia molto per Cantone e non è calcolabile con un numero unico: verificala con la tua amministrazione cantonale.</p>
-      <button onclick="window.closeModal(); window.openCreateInvoiceCH();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">Crea una fattura con QR-bill</button>
-      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Rifai il calcolo</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chCantonNote', __chLang)}</p>
+      <button onclick="window.closeModal(); window.openCreateInvoiceCH();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">${tCh('chCreateInvoice', __chLang)}</button>
+      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chRecalculate', __chLang)}</button>
     </div>`);
 };
 
@@ -2939,30 +2948,30 @@ window.openCreateInvoiceCH = () => {
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
-        <h3 class="text-lg font-black leading-tight">Fattura con QR-bill</h3>
-        <p class="card-sub !mb-0 mt-1.5">In Svizzera ogni fattura porta un codice QR di pagamento — lo genero io, tu compili solo i dati.</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('chInvTitle', __chLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('chInvSubtitle', __chLang)}</p>
       </div>
       <div class="w-full flex flex-col gap-2.5 text-left">
-        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">I tuoi dati (una volta sola)</div>
-        <input id="ch-inv-iban" type="text" placeholder="Il tuo IBAN o QR-IBAN (CH...)" value="${escapeHtml(prof.iban || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
-        <input id="ch-inv-name" type="text" placeholder="Il tuo nome o ragione sociale" value="${escapeHtml(prof.name || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">${tCh('chInvYourData', __chLang)}</div>
+        <input id="ch-inv-iban" type="text" placeholder="${tCh('chInvIban', __chLang)}" value="${escapeHtml(prof.iban || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
+        <input id="ch-inv-name" type="text" placeholder="${tCh('chInvName', __chLang)}" value="${escapeHtml(prof.name || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="ch-inv-street" type="text" placeholder="Via" value="${escapeHtml(prof.street || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
-          <input id="ch-inv-bld" type="text" placeholder="N. civico" value="${escapeHtml(prof.buildingNo || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-street" type="text" placeholder="${tCh('chInvStreet', __chLang)}" value="${escapeHtml(prof.street || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-bld" type="text" placeholder="${tCh('chInvBuilding', __chLang)}" value="${escapeHtml(prof.buildingNo || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
         </div>
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="ch-inv-cap" type="text" placeholder="CAP" value="${escapeHtml(prof.postalCode || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
-          <input id="ch-inv-city" type="text" placeholder="Città" value="${escapeHtml(prof.town || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-cap" type="text" placeholder="${tCh('chInvCap', __chLang)}" value="${escapeHtml(prof.postalCode || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-city" type="text" placeholder="${tCh('chInvCity', __chLang)}" value="${escapeHtml(prof.town || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
         </div>
-        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mt-1">Il cliente e l'importo</div>
-        <input id="ch-inv-client" type="text" placeholder="Nome del cliente" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mt-1">${tCh('chInvClientSection', __chLang)}</div>
+        <input id="ch-inv-client" type="text" placeholder="${tCh('chInvClientName', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="ch-inv-amount" type="number" inputmode="decimal" placeholder="Importo CHF" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
-          <input id="ch-inv-desc" type="text" placeholder="Causale" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-amount" type="number" inputmode="decimal" placeholder="${tCh('chInvAmount', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
+          <input id="ch-inv-desc" type="text" placeholder="${tCh('chInvDesc', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
         </div>
       </div>
-      <button id="ch-inv-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Genera QR-bill</button>
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Il codice QR è verificato contro 3 esempi ufficiali SIX Group — funziona con qualunque app bancaria svizzera. Il layout di stampa a norma (misure esatte del bollettino) non è ancora replicato: oggi ottieni il codice corretto da allegare o mostrare, non ancora il modulo stampabile completo.</p>
+      <button id="ch-inv-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('chInvGenerate', __chLang)}</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chInvDisclaimer', __chLang)}</p>
     </div>`);
   document.getElementById('ch-inv-go')?.addEventListener('click', () => {
     const iban = document.getElementById('ch-inv-iban').value.trim();
@@ -2974,8 +2983,8 @@ window.openCreateInvoiceCH = () => {
     const client = document.getElementById('ch-inv-client').value.trim();
     const amount = parseFloat(String(document.getElementById('ch-inv-amount').value).replace(',', '.'));
     const desc = document.getElementById('ch-inv-desc').value.trim();
-    if (!iban || !name || !postalCode || !town) { showToast('Compila almeno IBAN, nome, CAP e città.', 'error'); return; }
-    if (!(amount > 0)) { showToast('Inserisci un importo valido.', 'error'); return; }
+    if (!iban || !name || !postalCode || !town) { showToast(tCh('chInvErrMissing', __chLang), 'error'); return; }
+    if (!(amount > 0)) { showToast(tCh('chInvErrAmount', __chLang), 'error'); return; }
     VaultDAO.state.chInvoiceProfile = { iban, name, street, buildingNo, postalCode, town, country: 'CH' };
     VaultDAO.save();
     const ibanNorm = iban.replace(/\s/g, '').toUpperCase();
@@ -2994,7 +3003,7 @@ window.openCreateInvoiceCH = () => {
       referenceType, reference,
       unstructuredMessage: desc,
     });
-    if (!r.ok) { showToast(r.errori[0] || 'Dati non validi per il QR-bill.', 'error'); return; }
+    if (!r.ok) { showToast(r.errori[0] || tCh('chInvErrMissing', __chLang), 'error'); return; }
     window.openCreateInvoiceCHResult(r, { name, client, amount, desc, reference, referenceType });
   });
 };
@@ -3005,13 +3014,13 @@ window.openCreateInvoiceCHResult = (r, meta) => {
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 6L9 17l-5-5"/>', '--green')}
       <div>
-        <h3 class="text-lg font-black leading-tight">QR-bill pronta</h3>
-        <p class="card-sub !mb-0 mt-1.5">${escapeHtml(meta.client || 'Il cliente')} · CHF ${meta.amount.toLocaleString('it-CH')}${meta.desc ? ' · ' + escapeHtml(meta.desc) : ''}</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('chResTitle', __chLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${escapeHtml(meta.client || '')} · CHF ${meta.amount.toLocaleString('it-CH')}${meta.desc ? ' · ' + escapeHtml(meta.desc) : ''}</p>
       </div>
       <div class="bg-white rounded-xl p-3 inline-block">${svg}</div>
-      ${meta.referenceType === 'QRR' ? `<div class="text-[11px] font-mono text-[var(--on-surface-secondary)]">Riferimento: ${escapeHtml(formatQrrReference(meta.reference))}</div>` : ''}
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Qualunque app bancaria svizzera legge questo codice per pagare — verificato contro il formato ufficiale SIX. Allegalo alla tua fattura o mostralo direttamente al cliente.</p>
-      <button onclick="window.openCreateInvoiceCH()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Crea un'altra fattura</button>
+      ${meta.referenceType === 'QRR' ? `<div class="text-[11px] font-mono text-[var(--on-surface-secondary)]">${tCh('chRefLabel', __chLang)}: ${escapeHtml(formatQrrReference(meta.reference))}</div>` : ''}
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chResDisclaimer', __chLang)}</p>
+      <button onclick="window.openCreateInvoiceCH()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chResNewInvoice', __chLang)}</button>
     </div>`);
 };
 
