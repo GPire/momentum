@@ -61,6 +61,7 @@ function translateRegionLabel(region) {
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL } from './predict/tax.js';
+import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL } from './predict/tax-ch.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -2481,7 +2482,8 @@ function renderTax(monthK) {
     noteEl.textContent = 'Stai valutando se aprire la Partita IVA? Scopri in un attimo cosa ti resterebbe davvero in tasca.';
     if (extraEl) extraEl.innerHTML = `
       <button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Simula la tua Partita IVA</button>
-      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">Sono dipendente, non mi serve</button>`;
+      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">Sono dipendente, non mi serve</button>
+      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">🇨🇭 Lavori in Svizzera?</button>`;
     return;
   }
   card.classList.remove('hidden');
@@ -2858,6 +2860,66 @@ function tl1InitChecklist(id) {
     if (box.checked && !reduced) { box.classList.remove('tl1-check-pop'); void box.offsetWidth; box.classList.add('tl1-check-pop'); }
   }));
 }
+
+// SVIZZERA — una sola domanda (reddito annuo stimato in CHF), numeri grandi,
+// zero gergo: stesso principio "semplice anche per un bambino" già usato per
+// la Partita IVA italiana, applicato a un sistema fiscale strutturalmente
+// diverso (niente regime forfettario/ordinario, niente SdI — src/predict/tax-ch.js).
+window.openSwissSimulator = () => {
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Lavori in Svizzera?</h3>
+        <p class="card-sub !mb-0 mt-1.5">Niente Partita IVA qui: AVS e IVA funzionano diversamente. Dimmi solo quanto pensi di fatturare in un anno (CHF) e calcolo io il resto.</p>
+      </div>
+      <div class="w-full flex items-center gap-2">
+        <button type="button" id="ch-step-down" aria-label="Diminuisci" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
+        <input id="ch-amount" type="number" inputmode="decimal" placeholder="Es. 80000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+        <button type="button" id="ch-step-up" aria-label="Aumenta" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
+      </div>
+      <button id="ch-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
+      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Torna indietro</button>
+    </div>`);
+  const input = document.getElementById('ch-amount');
+  input?.focus();
+  document.getElementById('ch-step-down')?.addEventListener('click', () => { input.value = Math.max(0, (+input.value || 0) - 1000); });
+  document.getElementById('ch-step-up')?.addEventListener('click', () => { input.value = (+input.value || 0) + 1000; });
+  document.getElementById('ch-go')?.addEventListener('click', () => {
+    const reddito = parseFloat(String(input.value).replace(',', '.'));
+    if (!(reddito > 0)) { showToast('Inserisci un fatturato annuo stimato.', 'error'); return; }
+    window.openSwissSimulatorResult(reddito);
+  });
+};
+
+window.openSwissSimulatorResult = (reddito) => {
+  const avs = computeAvsIndipendente(reddito);
+  const iva = ivaObbligatoriaCh(reddito);
+  const avsRigo = avs.fasciaPiena
+    ? `<div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-3 text-left">
+        <div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">AVS/AI/APG (10%)</span><span class="font-mono font-bold text-sm">CHF ${Math.round(avs.contributo).toLocaleString('it-CH')}</span></div>
+      </div>`
+    : `<div class="rounded-xl border border-amber-400/40 bg-amber-500/10 px-3.5 py-3 text-left">
+        <div class="text-[11px] font-bold text-amber-300">AVS/AI/APG: scala degressiva</div>
+        <div class="text-[11px] text-amber-200/90 mt-1 leading-snug">Sotto CHF ${AVS_SOGLIA_ALIQUOTA_PIENA.toLocaleString('it-CH')}/anno l'aliquota è ridotta ma calcolata dal tuo ufficio di compensazione — il minimo verificato è CHF ${avs.contributoMinimoAnnuo}/anno. <a href="${AVS_CALCOLATORE_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline">Calcola l'esatto qui</a>.</div>
+      </div>`;
+  const ivaColor = iva.obbligatoria ? 'orange-300' : 'emerald-300';
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Con CHF ${Math.round(reddito).toLocaleString('it-CH')}/anno</h3>
+        <p class="card-sub !mb-0 mt-1.5">Ecco cosa ti riguarda davvero — niente scelta di regime, niente fattura elettronica obbligatoria come in Italia.</p>
+      </div>
+      <div class="w-full flex flex-col gap-2.5">
+        ${avsRigo}
+        <div class="text-[11px] text-${ivaColor} leading-snug text-left px-1">${escapeHtml(iva.messaggio)}</div>
+        <div class="text-[11px] text-emerald-300/90 leading-snug text-left px-1">Se investi in borsa: in Svizzera le plusvalenze sono esenti da imposta per investitori privati (0%, verificato) — <button type="button" onclick="window.closeModal()" class="underline">vedi anche "Il netto vero" negli Investimenti</button>.</div>
+      </div>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Stime su aliquote federali pubbliche — l'imposta sul reddito varia molto per Cantone e non è calcolabile con un numero unico: verificala con la tua amministrazione cantonale.</p>
+      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Rifai il calcolo</button>
+    </div>`);
+};
 
 window.openTaxLevel1 = () => {
   window.openModal(`
