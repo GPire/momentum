@@ -60,7 +60,7 @@ function translateRegionLabel(region) {
   if (!region) return region;
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
-import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL } from './predict/tax.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -2194,10 +2194,15 @@ function renderTax(monthK) {
   // portale copre questo momento). Ora mostra un invito leggero alla
   // simulazione invece di sparire nel nulla.
   if (!regime && !everInvoice) {
+    // Chi ha già detto "sono dipendente, non mi serve" non deve continuare a
+    // vedere l'invito ogni mese — ricordarlo è rispetto, non insistenza.
+    if (VaultDAO.state.noPartitaIva) { card.classList.add('hidden'); return; }
     card.classList.remove('hidden');
     setEl.textContent = '';
     noteEl.textContent = 'Stai valutando se aprire la Partita IVA? Scopri in un attimo cosa ti resterebbe davvero in tasca.';
-    if (extraEl) extraEl.innerHTML = `<button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Simula la tua Partita IVA</button>`;
+    if (extraEl) extraEl.innerHTML = `
+      <button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Simula la tua Partita IVA</button>
+      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">Sono dipendente, non mi serve</button>`;
     return;
   }
   card.classList.remove('hidden');
@@ -2360,14 +2365,32 @@ function renderTaxSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
         <span>Ho visto entrate che sembrano <b>fatture</b>, ma non conosco il tuo regime: senza, il calcolo delle tasse sarebbe a caso. Dimmelo e lo calcolo giusto.</span>
       </div>
-      ${regimeButtons('var(--amber)')}`;
+      ${regimeButtons('var(--amber)')}
+      <button onclick="window.openTaxLevel1Simulate()" class="mt-3 text-[11px] text-[var(--on-surface-secondary)] underline">Non ce l'ho ancora — voglio solo sapere cosa mi resterebbe</button>`;
     return;
   }
 
-  // Nessun regime, nessuna fattura: invito discreto (non imporre a chi non fattura).
+  // Chi ha già detto "sono dipendente" vede una riga compatta e reversibile,
+  // non l'intero invito ripetuto ogni volta che apre il Vault.
+  if (VaultDAO.state.noPartitaIva) {
+    body.innerHTML = `
+      <div class="flex items-center justify-between gap-2 text-xs text-[var(--on-surface-secondary)]">
+        <span>Hai detto di essere dipendente: non ti chiedo più della Partita IVA.</span>
+        <button onclick="window.setNoPartitaIva(false)" class="text-[11px] font-bold text-[var(--primary)] underline shrink-0">Ho cambiato idea</button>
+      </div>`;
+    return;
+  }
+
+  // Nessun regime, nessuna fattura: invito discreto (non imporre a chi non
+  // fattura), ma senza dare per scontato che ce l'abbia già — porta al punto
+  // d'ingresso che chiede PRIMA "ce l'hai già o la stai valutando?" (BUG
+  // reale trovato testando: prima si saltava dritti al selettore regime,
+  // ignorando in Momentum Vault proprio lo scenario "se aprissi la P.IVA"
+  // che il simulatore Livello 1 esiste apposta per coprire).
   body.innerHTML = `
-    <p class="text-xs text-[var(--on-surface-secondary)] mb-3">Hai la Partita IVA o sei un libero professionista? Attivala e Momentum ti calcola tasse + contributi da mettere da parte, e ti crea le fatture — tutto sul dispositivo.</p>
-    <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between w-full"><span>Attiva la Partita IVA</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>`;
+    <p class="text-xs text-[var(--on-surface-secondary)] mb-3">Hai la Partita IVA, o la stai valutando? In entrambi i casi Momentum ti aiuta: calcola tasse e contributi da mettere da parte, o ti dice subito cosa ti resterebbe se la aprissi.</p>
+    <button onclick="window.openTaxLevel1()" class="btn-action btn-primary justify-between w-full"><span>Partita IVA</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button onclick="window.setNoPartitaIva(true)" class="mt-2 text-[11px] text-[var(--on-surface-secondary)] underline">Sono dipendente, non mi serve</button>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2382,7 +2405,7 @@ function renderTaxSettings() {
 // flusso di backup: un'immagine rassicurante prima di qualunque domanda,
 // mai un modulo che parte a freddo con un campo vuoto).
 function tl1Icon(pathD, colorVar = '--primary') {
-  return `<div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto bg-[color-mix(in_srgb,var(${colorVar})_16%,transparent)]">
+  return `<div class="tl1-icon-pulse w-14 h-14 rounded-2xl flex items-center justify-center mx-auto bg-[color-mix(in_srgb,var(${colorVar})_16%,transparent)]" style="--tl1-icon-color:var(${colorVar})">
     <svg class="w-7 h-7 text-[var(${colorVar})]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${pathD}</svg>
   </div>`;
 }
@@ -2391,6 +2414,129 @@ function tl1Icon(pathD, colorVar = '--primary') {
 function tl1Dots(fatti, tot = 2) {
   return `<div class="flex items-center justify-center gap-1.5" aria-hidden="true">${Array.from({ length: tot }, (_, i) => i + 1)
     .map((n) => `<span class="rounded-full transition-all duration-300 ${n <= fatti ? 'w-6 h-1.5 bg-[var(--gold)]' : 'w-1.5 h-1.5 bg-[var(--outline)]'}"></span>`).join('')}</div>`;
+}
+// Menu a tendina disegnato da noi (ATECO, cassa previdenziale nel Livello 1):
+// un <select> nativo apre il popup del sistema operativo, che nessun CSS
+// riesce a ridisegnare davvero (font, colori, animazioni: tutto deciso dal
+// browser/OS). Qui il pannello è HTML nostro, con lo stesso linguaggio
+// visivo (icon-circle, oro/viola, pop e ingresso a scaglione) del resto
+// dell'app. Un solo listener delegato su document gestisce tutte le istanze
+// contemporaneamente in vita: niente listener duplicati o persi a ogni
+// apertura di modale.
+function tl1Select(id, options, selected) {
+  const sel = options.find((o) => o.value === selected) || options[0];
+  return `<div id="${id}" class="tl1-select relative" data-value="${sel?.value ?? ''}">
+    <button type="button" class="tl1-select-trigger w-full flex items-center justify-between gap-2 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm text-left">
+      <span class="tl1-select-label truncate">${sel?.label ?? ''}</span>
+      <svg class="tl1-select-chevron w-4 h-4 shrink-0 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="tl1-select-panel rounded-xl border border-[var(--glass-border)] bg-[var(--surface-elevated)] shadow-xl">
+      ${options.map((o, i) => `<button type="button" data-value="${o.value}" class="tl1-select-opt tl1-step-in w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left text-[13px] hover:bg-[var(--primary)]/10 ${o.value === sel?.value ? 'bg-[var(--primary)]/10 text-[var(--primary)] font-bold' : 'text-[var(--on-surface)]'}" style="animation-delay:${i * 0.025}s">
+        <span class="truncate">${o.label}</span>
+        ${o.value === sel?.value ? '<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+      </button>`).join('')}
+    </div>
+  </div>`;
+}
+let __tl1SelectDelegated = false;
+function ensureTl1SelectDelegation() {
+  if (__tl1SelectDelegated) return;
+  __tl1SelectDelegated = true;
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const closeAll = (except) => {
+    document.querySelectorAll('.tl1-select.tl1-select-open').forEach((r) => { if (r !== except) r.classList.remove('tl1-select-open'); });
+  };
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('.tl1-select-trigger');
+    const opt = e.target.closest('.tl1-select-opt');
+    if (trigger) {
+      const root = trigger.closest('.tl1-select');
+      const willOpen = !root.classList.contains('tl1-select-open');
+      closeAll(willOpen ? root : null);
+      root.classList.toggle('tl1-select-open', willOpen);
+      if (willOpen && !reduced()) {
+        root.querySelectorAll('.tl1-select-opt').forEach((el) => { el.classList.remove('tl1-step-in'); void el.offsetWidth; el.classList.add('tl1-step-in'); });
+      }
+      return;
+    }
+    if (opt) {
+      const root = opt.closest('.tl1-select');
+      const label = root.querySelector('.tl1-select-label');
+      root.dataset.value = opt.dataset.value;
+      label.textContent = opt.querySelector('span').textContent;
+      root.querySelectorAll('.tl1-select-opt').forEach((o) => {
+        const isSel = o === opt;
+        o.classList.toggle('bg-[var(--primary)]/10', isSel);
+        o.classList.toggle('text-[var(--primary)]', isSel);
+        o.classList.toggle('font-bold', isSel);
+        o.classList.toggle('text-[var(--on-surface)]', !isSel);
+        const existingCheck = o.querySelector('svg');
+        if (isSel && !existingCheck) o.insertAdjacentHTML('beforeend', '<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>');
+        if (!isSel && existingCheck) existingCheck.remove();
+      });
+      closeAll();
+      return;
+    }
+    closeAll();
+  });
+}
+ensureTl1SelectDelegation();
+
+// Passo numerato per le guide "come si fa davvero" (apertura P.IVA, SdI):
+// un cerchietto col numero invece di un elenco puntato piatto, coerente col
+// resto del linguaggio visivo del Livello 1.
+function tl1Step(n, html) {
+  return `<div class="tl1-step-in flex items-start gap-2.5" style="animation-delay:${(n - 1) * 0.06}s">
+    <span class="shrink-0 w-5 h-5 rounded-full bg-[var(--gold)]/20 text-[var(--gold)] text-[10px] font-black flex items-center justify-center mt-0.5">${n}</span>
+    <span class="text-[11px] text-[var(--on-surface-secondary)] text-left leading-relaxed">${html}</span>
+  </div>`;
+}
+// Coppia costo/tempo: le due domande che chiunque si fa PRIMA di iniziare
+// ("costa? ci metto tanto?") e che nessuna guida mette in cima — qui sono
+// la prima cosa visibile dopo il titolo del percorso, non un dettaglio in
+// fondo. Verde = certo e favorevole, ambra = variabile (mai rosso: non è
+// una colpa, è un'informazione).
+function tl1CostoTempo(costo, costoTono, tempo, tempoTono) {
+  const chip = (label, value, tono) => {
+    const col = tono === 'green' ? '--green' : '--gold';
+    return `<div class="flex-1 rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2">
+      <div class="text-[9px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">${label}</div>
+      <div class="text-[13px] font-black text-[var(${col})]">${value}</div>
+    </div>`;
+  };
+  return `<div class="flex gap-2 w-full">${chip('Costo', costo, costoTono)}${chip('Tempo', tempo, tempoTono)}</div>`;
+}
+// Checklist "cosa ti serve prima di iniziare": spezzare "sembra difficile"
+// in 3-5 cose piccole e già possedute per la maggior parte delle persone
+// (codice fiscale, un indirizzo) abbassa l'ansia molto più di un paragrafo
+// rassicurante — e vederle spuntare una a una dà un senso di controllo
+// concreto (la stessa leva psicologica di una lista della spesa).
+function tl1Checklist(id, items) {
+  return `<div class="w-full text-left">
+    <div class="flex items-center justify-between mb-1.5">
+      <span class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Cosa ti serve, prima di iniziare</span>
+      <span id="${id}-count" class="text-[10px] font-bold text-[var(--gold)]">0/${items.length}</span>
+    </div>
+    <div class="tl1-checklist-progress mb-2"><div id="${id}-bar" style="width:0%"></div></div>
+    <div class="flex flex-col gap-1.5">
+      ${items.map((txt, i) => `<label class="flex items-center gap-2.5 text-[11px] text-[var(--on-surface-secondary)] cursor-pointer select-none" data-tl1-checklist="${id}">
+        <input type="checkbox" class="tl1-check w-4 h-4 rounded accent-[var(--green)] shrink-0" />
+        <span>${txt}</span>
+      </label>`).join('')}
+    </div>
+  </div>`;
+}
+function tl1InitChecklist(id) {
+  const boxes = document.querySelectorAll(`[data-tl1-checklist="${id}"] input`);
+  const count = document.getElementById(`${id}-count`);
+  const bar = document.getElementById(`${id}-bar`);
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  boxes.forEach((box) => box.addEventListener('change', () => {
+    const done = Array.from(boxes).filter((b) => b.checked).length;
+    if (count) count.textContent = `${done}/${boxes.length}`;
+    if (bar) bar.style.width = `${(done / boxes.length) * 100}%`;
+    if (box.checked && !reduced) { box.classList.remove('tl1-check-pop'); void box.offsetWidth; box.classList.add('tl1-check-pop'); }
+  }));
 }
 
 window.openTaxLevel1 = () => {
@@ -2447,17 +2593,31 @@ window.openTaxLevel1Simulate = () => {
            apribile, mai un campo che blocca il passo successivo. -->
       <details class="w-full text-left">
         <summary class="cursor-pointer text-[11px] text-[var(--on-surface-secondary)] underline">Cosa farai, di preciso? (facoltativo, cambia la stima)</summary>
-        <select id="tl1-ateco" class="w-full mt-2 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm">
-          ${Object.entries(ATECO_COEFFICIENTI).map(([k, v]) => `<option value="${k}" ${k === 'professionisti' ? 'selected' : ''}>${v.label}</option>`).join('')}
-        </select>
+        <!-- Non "cerca il tuo codice ATECO" (gergo), ma "descrivi il lavoro"
+             — la ricerca trova lei il codice, l'utente non deve saperlo a
+             memoria. Elenco parziale e onesto: link allo strumento ufficiale
+             sempre visibile, mai un'unica fonte di verità nostra. -->
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 mb-1">Descrivi in due parole cosa farai (es. "vendo online", "faccio l'elettricista") e trovo io il codice ATECO più vicino:</p>
+        <div class="relative">
+          <input id="tl1-ateco-search" type="text" placeholder="Es. faccio consulenza informatica…" autocomplete="off" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" />
+          <div id="tl1-ateco-hits" class="hidden mt-1.5 rounded-xl border border-[var(--glass-border)] bg-[var(--surface-elevated)] shadow-xl overflow-hidden max-h-56 overflow-y-auto"></div>
+        </div>
+        <div id="tl1-ateco-picked" class="hidden mt-2 rounded-xl border border-[var(--primary)] bg-[var(--primary)]/10 px-3 py-2 text-[11px] text-[var(--on-surface)] flex items-center justify-between gap-2">
+          <span id="tl1-ateco-picked-label"></span>
+          <button type="button" id="tl1-ateco-picked-clear" class="text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)]" aria-label="Rimuovi">✕</button>
+        </div>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Non lo trovi o vuoi il codice esatto? <a href="${ATECO_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline text-[var(--primary)]">Cercalo sullo strumento ufficiale gratuito</a>, o scegli solo la categoria qui sotto:</p>
+        <div class="mt-2">${tl1Select('tl1-ateco',
+          Object.entries(ATECO_COEFFICIENTI).map(([k, v]) => ({ value: k, label: v.label })),
+          'professionisti')}</div>
         <!-- Chi ha un albo professionale con cassa propria è ESENTE per legge
              dall'INPS Gestione Separata (fatto verificato, non un dettaglio di
              stile) — senza chiederlo, Momentum applicherebbe un contributo che
              non è dovuto per un'ampia fetta del mercato P.IVA. -->
-        <select id="tl1-cassa" class="w-full mt-2 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm">
-          <option value="">Nessun albo/cassa propria (INPS Gestione Separata)</option>
-          ${Object.entries(CASSE_PROFESSIONALI).map(([k, v]) => `<option value="${k}">${k.replace(/_/g, '/')} — ${v}</option>`).join('')}
-        </select>
+        <div class="mt-2">${tl1Select('tl1-cassa',
+          [{ value: '', label: 'Nessun albo/cassa propria (INPS Gestione Separata)' },
+           ...Object.entries(CASSE_PROFESSIONALI).map(([k, v]) => ({ value: k, label: `${k.replace(/_/g, '/')} — ${v}` }))],
+          '')}</div>
         <label class="flex items-center gap-2 mt-2 text-[11px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
           <input type="checkbox" id="tl1-dipendente" class="w-3.5 h-3.5 rounded accent-[var(--primary)]" />
           Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria)
@@ -2468,6 +2628,40 @@ window.openTaxLevel1Simulate = () => {
     </div>`);
   const input = document.getElementById('tl1-amount');
   input?.focus();
+  // Ricerca ATECO in linguaggio comune: filtra a ogni tocco, mostra fino a 6
+  // suggerimenti con codice reale + categoria, e sceglierne uno aggiorna sia
+  // il menu a tendina (così il coefficiente applicato resta quello giusto)
+  // sia un'etichetta "scelta" con il codice specifico mostrato per intero —
+  // utile più avanti nel kit di riepilogo della guida "come si apre davvero".
+  const atecoSearch = document.getElementById('tl1-ateco-search');
+  const atecoHits = document.getElementById('tl1-ateco-hits');
+  const atecoPicked = document.getElementById('tl1-ateco-picked');
+  const atecoPickedLabel = document.getElementById('tl1-ateco-picked-label');
+  const atecoRoot = document.getElementById('tl1-ateco');
+  atecoSearch?.addEventListener('input', () => {
+    const hits = searchAtecoComuni(atecoSearch.value);
+    if (!hits.length) { atecoHits.classList.add('hidden'); atecoHits.innerHTML = ''; return; }
+    atecoHits.innerHTML = hits.map((h, i) => `<button type="button" data-code="${h.code}" data-categoria="${h.categoria}" data-label="${h.label}" class="tl1-ateco-hit w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left text-[13px] hover:bg-[var(--primary)]/10 text-[var(--on-surface)]" style="animation-delay:${i * 0.03}s">
+      <span class="truncate">${h.label}</span>
+      <span class="shrink-0 text-[10px] font-mono text-[var(--on-surface-secondary)]">${h.code}</span>
+    </button>`).join('');
+    atecoHits.classList.remove('hidden');
+  });
+  atecoHits?.addEventListener('click', (e) => {
+    const hit = e.target.closest('.tl1-ateco-hit');
+    if (!hit) return;
+    const opt = atecoRoot?.querySelector(`.tl1-select-opt[data-value="${hit.dataset.categoria}"]`);
+    opt?.click();
+    atecoRoot.dataset.atecoCode = hit.dataset.code;
+    atecoPickedLabel.textContent = `${hit.dataset.label} — ATECO ${hit.dataset.code}`;
+    atecoPicked.classList.remove('hidden');
+    atecoHits.classList.add('hidden');
+    atecoSearch.value = '';
+  });
+  document.getElementById('tl1-ateco-picked-clear')?.addEventListener('click', () => {
+    if (atecoRoot) delete atecoRoot.dataset.atecoCode;
+    atecoPicked.classList.add('hidden');
+  });
   let periodo = 'anno';
   const btnAnno = document.getElementById('tl1-periodo-anno'), btnMese = document.getElementById('tl1-periodo-mese');
   const setPeriodo = (p) => {
@@ -2488,24 +2682,27 @@ window.openTaxLevel1Simulate = () => {
   // scatti piccoli sarebbero inutili su cifre a 5 zeri, grandi sarebbero
   // rozzi al mese) e un piccolo salto verticale nella direzione del segno,
   // così il numero si "sente" muoversi invece di cambiare di scatto.
-  const bump = (dir) => {
+  const bump = (dir, btn) => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    input.style.setProperty('--bump-y', dir > 0 ? '-3px' : '3px');
+    input.style.setProperty('--bump-y', dir > 0 ? '-9px' : '9px');
     input.classList.remove('tl1-bump'); void input.offsetWidth; input.classList.add('tl1-bump');
+    if (btn) { btn.classList.remove('tl1-ring'); void btn.offsetWidth; btn.classList.add('tl1-ring'); }
   };
-  const step = (dir) => {
+  const step = (dir, btn) => {
     const cur = parseFloat(String(input.value).replace(',', '.')) || 0;
     const unit = periodo === 'anno' ? 500 : 50;
     input.value = Math.max(0, cur + dir * unit);
-    bump(dir);
+    bump(dir, btn);
   };
-  document.getElementById('tl1-step-up')?.addEventListener('click', () => step(1));
-  document.getElementById('tl1-step-down')?.addEventListener('click', () => step(-1));
+  const stepUpBtn = document.getElementById('tl1-step-up'), stepDownBtn = document.getElementById('tl1-step-down');
+  stepUpBtn?.addEventListener('click', () => step(1, stepUpBtn));
+  stepDownBtn?.addEventListener('click', () => step(-1, stepDownBtn));
   const go = () => {
     const val = parseFloat(String(input.value).replace(',', '.')) || 0;
-    window.openTaxLevel1Result(periodo === 'mese' ? val * 12 : val, document.getElementById('tl1-ateco')?.value, {
-      cassaPropria: document.getElementById('tl1-cassa')?.value || null,
+    window.openTaxLevel1Result(periodo === 'mese' ? val * 12 : val, document.getElementById('tl1-ateco')?.dataset.value, {
+      cassaPropria: document.getElementById('tl1-cassa')?.dataset.value || null,
       altraCoperturaPrevidenziale: !!document.getElementById('tl1-dipendente')?.checked,
+      atecoCode: document.getElementById('tl1-ateco')?.dataset.atecoCode || null,
     });
   };
   document.getElementById('tl1-go')?.addEventListener('click', go);
@@ -2556,6 +2753,10 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
       </div>
       ${strategieHTML}
       <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Stima, non consulenza fiscale: verifica sempre col commercialista prima di aprire la Partita IVA.</div>
+      <button onclick="window.openTaxLevel1HowToOpen()" class="btn-action w-full py-3.5 font-bold rounded-xl justify-between">
+        <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>Ok, come si apre davvero?</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
       <button onclick="window.openTaxLevel1Simulate()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Rifai con un altro importo</button>
       <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Ho capito</button>
     </div>`);
@@ -2567,6 +2768,162 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
       { duration: 420, easing: 'cubic-bezier(.22,1.4,.36,1)' },
     );
   }
+  // Stato ponte verso "come si apre davvero": una variabile globale invece
+  // di incastrare un oggetto intero in un attributo onclick (fragile con
+  // virgolette/apostrofi nei testi). Il kit di riepilogo della guida lo
+  // legge da qui — MAI dati personali identificabili, solo la stima.
+  window.__tl1LastResult = { fatturato, ateco: ateco || 'professionisti', atecoCode: extra.atecoCode || null, s };
+};
+
+// Guida onesta a "come si apre DAVVERO" — passo dopo passo, con il link
+// ufficiale vero, non un elenco generico. Due strade reali e diverse per
+// procedura: libero professionista (niente Registro Imprese, Modello AA9/12
+// via PEC) e attività d'impresa/artigianale (Comunicazione Unica via il
+// Registro Imprese, che apre in un colpo solo P.IVA + INPS + INAIL).
+// L'ATECO scelto nel simulatore NON è una mappa 1:1 col tipo di procedura
+// (es. "altre" è ambiguo) — quindi qui si SUGGERISCE la strada più probabile
+// con un badge, ma si mostrano SEMPRE entrambe, aperte e scelte dall'utente:
+// mai un'inferenza forzata su qualcosa che cambia la pratica da presentare.
+// Testo pronto da incollare nel Modello AA9/12, nella ComUnica o in un
+// messaggio al commercialista: la vera frizione di aprire una P.IVA non è
+// solo "dove clicco", è arrivare al modulo SENZA sapere cosa scrivere nei
+// campi. Solo la stima già calcolata, mai dati anagrafici che Momentum non
+// conosce (nome, indirizzo, codice fiscale restano da compilare a mano).
+function tl1KitText(last) {
+  const { fatturato, atecoCode, s } = last;
+  const righe = [
+    `Fatturato annuo stimato: ~${Math.round(fatturato).toLocaleString('it-IT')}€`,
+    `Codice ATECO: ${atecoCode ? atecoCode : `da confermare su ${ATECO_UFFICIALE_URL} (categoria: ${s.atecoLabel || '—'})`}`,
+    `Regime fiscale consigliato: ${s.regimeLabel}`,
+  ];
+  if (s.cassaNome) righe.push(`Cassa previdenziale: ${s.cassaNome} (esente INPS Gestione Separata)`);
+  return righe.join('\n');
+}
+const TL1_IMPRESA_ATECO = new Set(['commercio', 'ambulante_alimentari', 'intermediari', 'costruzioni']);
+window.openTaxLevel1HowToOpen = (atecoArg) => {
+  // Se richiamata dal bottone del risultato, legge lo stato ponte
+  // (window.__tl1LastResult) per costruire il kit di riepilogo; se chiamata
+  // a sé stante con un ateco esplicito, funziona comunque senza kit.
+  const last = atecoArg ? null : window.__tl1LastResult;
+  const ateco = atecoArg || last?.ateco || 'professionisti';
+  const consigliaImpresa = TL1_IMPRESA_ATECO.has(ateco);
+  const kitHTML = last ? `
+      <div id="tl1-kit" class="w-full text-left rounded-2xl border border-[var(--glass-border)] bg-black/20 p-3.5">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wide">Il tuo riepilogo, pronto da incollare</div>
+        </div>
+        <div id="tl1-kit-text" class="text-[11px] text-[var(--on-surface-secondary)] leading-relaxed whitespace-pre-line select-all">${tl1KitText(last)}</div>
+        <button type="button" id="tl1-kit-copy" class="mt-2.5 w-full btn-action justify-center text-[11px] font-bold py-2">
+          <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copia — incollalo nel modulo o mandalo al commercialista
+        </button>
+      </div>` : '';
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M9 12l2 2 4-4M7.8 3.6a9 9 0 1 1-4.2 4.2"/>', '--primary')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Come si apre, davvero</h3>
+        <p class="card-sub !mb-0 mt-1.5">Due strade diverse, in base a cosa farai. Scegli la tua — Momentum ti indica quella esatta, tu premi invio dalla tua PEC o firma digitale.</p>
+      </div>
+      <!-- "Modalità esperta": chi legge questa guida può essere un
+           commercialista o chi apre la prima P.IVA della sua vita — stesso
+           contenuto per entrambi, ma i riferimenti normativi restano un
+           dettaglio apribile, mai il default che intimidisce chi non è del
+           mestiere. -->
+      <button type="button" id="tl1-expert-toggle" class="text-[10px] font-bold text-[var(--on-surface-secondary)] underline self-end -mt-2">Sei del mestiere? Mostra i riferimenti normativi</button>
+      <div class="w-full flex flex-col gap-2.5">
+        <details class="w-full text-left rounded-2xl border ${!consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${!consigliaImpresa ? 'open' : ''}>
+          <summary class="cursor-pointer list-none p-3.5 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[color-mix(in_srgb,var(--primary)_16%,transparent)]">
+              <svg class="w-4.5 h-4.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1z"/><path d="M9 7V5h6v2"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-black flex items-center gap-1.5">Libero professionista${!consigliaImpresa ? ` <span class="text-[9px] font-bold text-[var(--primary)] bg-[var(--primary)]/15 rounded-full px-1.5 py-0.5">il tuo caso</span>` : ''}</div>
+              <div class="text-[10px] text-[var(--on-surface-secondary)]">Niente Registro Imprese — Modello AA9/12</div>
+            </div>
+            <svg class="tl1-guide-chevron w-4 h-4 shrink-0 text-[var(--on-surface-secondary)] transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="px-3.5 pb-3.5 flex flex-col gap-2.5 border-t border-[var(--glass-border)] pt-3">
+            ${tl1CostoTempo('Gratis', 'green', '24–48 ore', 'green')}
+            ${tl1Checklist('tl1-check-libero', ['Codice fiscale', 'Il tuo codice ATECO (già trovato sopra, se l\'hai cercato)', 'Un indirizzo per l\'attività (va bene anche la tua residenza)', 'PEC attiva (se non ce l\'hai, un provider costa in media ~35€/anno)'])}
+            ${tl1Step(1, 'Tieni pronti codice fiscale, il tuo codice ATECO e l\'indirizzo dell\'attività.')}
+            ${tl1Step(2, 'Compila il <b class="text-[var(--on-surface)]">Modello AA9/12</b> (apertura P.IVA persona fisica), scaricabile dal sito dell\'Agenzia delle Entrate.')}
+            ${tl1Step(3, 'Invialo via <b class="text-[var(--on-surface)]">PEC</b> alla Direzione Provinciale competente, oggetto "Dichiarazione di inizio attività", <b class="text-[var(--on-surface)]">entro 30 giorni</b> dall\'inizio dell\'attività — con firma digitale, oppure firma autografa + copia di un documento d\'identità allegata.')}
+            ${tl1Step(4, 'Ricevi il numero di Partita IVA in risposta: da lì puoi già fatturare.')}
+            <a href="https://www.agenziaentrate.gov.it/portale/schede/istanze/aa9_11-apertura-variazione-chiusura-pf/modello-e-istr-pi-pf" target="_blank" rel="noopener" class="mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--primary)] underline">
+              Modello AA9/12 su agenziaentrate.gov.it
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+            </a>
+            <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: obbligo di dichiarazione di inizio attività IVA — art. 35, DPR 633/1972.</div>
+          </div>
+        </details>
+        <details class="w-full text-left rounded-2xl border ${consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${consigliaImpresa ? 'open' : ''}>
+          <summary class="cursor-pointer list-none p-3.5 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[color-mix(in_srgb,var(--primary)_16%,transparent)]">
+              <svg class="w-4.5 h-4.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-black flex items-center gap-1.5">Impresa / artigianato${consigliaImpresa ? ` <span class="text-[9px] font-bold text-[var(--primary)] bg-[var(--primary)]/15 rounded-full px-1.5 py-0.5">il tuo caso</span>` : ''}</div>
+              <div class="text-[10px] text-[var(--on-surface-secondary)]">Serve il Registro Imprese — Comunicazione Unica</div>
+            </div>
+            <svg class="tl1-guide-chevron w-4 h-4 shrink-0 text-[var(--on-surface-secondary)] transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="px-3.5 pb-3.5 flex flex-col gap-2.5 border-t border-[var(--glass-border)] pt-3">
+            ${tl1CostoTempo('Diritti CCIAA + PEC (~35€/anno se non li hai)', 'amber', 'Alcuni giorni lavorativi', 'amber')}
+            ${tl1Checklist('tl1-check-impresa', ['Codice fiscale e dati anagrafici', 'Il tuo codice ATECO', 'Sede dell\'attività', 'Firma digitale', 'PEC attiva'])}
+            ${tl1Step(1, 'Tieni pronti i dati dell\'attività: sede, codice ATECO, eventuali requisiti per attività artigianali.')}
+            ${tl1Step(2, 'Presenta la <b class="text-[var(--on-surface)]">Comunicazione Unica d\'Impresa (ComUnica)</b> sul portale del Registro delle Imprese: un\'unica pratica apre insieme Partita IVA, iscrizione al Registro Imprese, posizione INPS e INAIL.')}
+            ${tl1Step(3, 'Serve una <b class="text-[var(--on-surface)]">firma digitale</b> — o un intermediario abilitato (es. commercialista) che la presenti per te.')}
+            ${tl1Step(4, 'La Camera di Commercio smista tutto agli altri enti automaticamente: ricevi conferma e numero di Partita IVA.')}
+            <a href="https://registroimprese.infocamere.it" target="_blank" rel="noopener" class="mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--primary)] underline">
+              Comunicazione Unica su registroimprese.infocamere.it
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+            </a>
+            <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: Comunicazione Unica obbligatoria dal 2010 — art. 9, L. 40/2007 (conversione D.L. 7/2007).</div>
+          </div>
+        </details>
+      </div>
+      ${kitHTML}
+      <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Momentum ti indica la strada esatta ma non può presentare la pratica al posto tuo: firma digitale e PEC restano sempre tue, non passano mai dai nostri server.</div>
+      <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Ho capito</button>
+    </div>`);
+  document.getElementById('tl1-kit-copy')?.addEventListener('click', async () => {
+    const text = document.getElementById('tl1-kit-text')?.textContent || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Riepilogo copiato — incollalo dove ti serve.', 'success');
+      const kit = document.getElementById('tl1-kit');
+      if (kit && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        kit.classList.remove('tl1-kit-copied'); void kit.offsetWidth; kit.classList.add('tl1-kit-copied');
+      }
+    } catch (_) {
+      showToast('Non riesco a copiare automaticamente: selezionalo e copialo a mano.', 'error');
+    }
+  });
+  tl1InitChecklist('tl1-check-libero');
+  tl1InitChecklist('tl1-check-impresa');
+  document.getElementById('tl1-expert-toggle')?.addEventListener('click', (e) => {
+    const on = document.querySelectorAll('#modal-content .tl1-expert.tl1-expert-open').length === 0;
+    document.querySelectorAll('#modal-content .tl1-expert').forEach((el) => el.classList.toggle('tl1-expert-open', on));
+    e.target.textContent = on ? 'Nascondi i riferimenti normativi' : 'Sei del mestiere? Mostra i riferimenti normativi';
+  });
+  // Freccia che ruota quando la scheda si apre, e i passi numerati che
+  // rientrano a scaglione ogni volta che una scheda passa da chiusa ad
+  // aperta — un <details> nasconde il contenuto con display:none, quindi
+  // l'animazione d'ingresso non riparte da sola: la si rilancia a mano.
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('#modal-content details').forEach((det) => {
+    const chevron = det.querySelector('.tl1-guide-chevron');
+    det.addEventListener('toggle', () => {
+      if (chevron) chevron.style.transform = det.open ? 'rotate(180deg)' : 'rotate(0deg)';
+      if (det.open && !reduced) {
+        det.querySelectorAll('.tl1-step-in').forEach((el) => {
+          el.classList.remove('tl1-step-in'); void el.offsetWidth; el.classList.add('tl1-step-in');
+        });
+      }
+    });
+    if (chevron && det.open) chevron.style.transform = 'rotate(180deg)';
+  });
 };
 
 // Selettore di regime a bassa frizione (un tocco), riusato da "attiva" e "cambia".
@@ -2588,6 +2945,16 @@ window.openTaxRegimePicker = () => {
 };
 
 window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); renderTaxSettings(); renderAnalysis(); };
+// "Sono dipendente, non mi serve": rispetta la scelta e smette di chiedere,
+// ma resta reversibile con un tocco (cambiare lavoro è normale, non un caso
+// limite da nascondere per sempre dietro un flag irreversibile).
+window.setNoPartitaIva = (val) => {
+  VaultDAO.state.noPartitaIva = val;
+  VaultDAO.save();
+  showToast(val ? 'Va bene — non te lo chiederò più. Puoi sempre riattivarlo da Momentum Vault.' : 'Fatto, te lo mostro di nuovo.', 'info');
+  renderTaxSettings();
+  renderTax(monthKey(new Date()));
+};
 // Segna una e-fattura come TRASMESSA allo SdI (dopo che l'utente l'ha caricata
 // sul portale). Chiude il ciclo: sparisce dal promemoria. Onesto: è l'utente a
 // confermarlo, l'app non può saperlo da sola.
@@ -4737,33 +5104,44 @@ const SDI_PORTAL_URL = 'https://ivaservizi.agenziaentrate.gov.it/portale/';
 // societari, non una funzione di codice. Quello che Momentum PUÒ fare (ed è
 // già tutto qui) è preparare il file giusto e indicare la strada esatta.
 function showUploadHelp(filename) {
-  const steps = [
-    'Accedi al portale <b>Fatture e Corrispettivi</b> con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline.',
-    'Alla prima schermata scegli il profilo <b>"Me stesso"</b> (sei tu che fatturi, non un\'altra persona/azienda).',
-    'Apri la sezione <b>Fatturazione elettronica</b> e cerca <b>"trasmetti" / "importa un file"</b>.',
-    `Carica il file <b>${(filename || 'XML')}</b> che hai appena scaricato da Momentum.`,
-    'Controlla l’anteprima e premi <b>Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto, spiegata in chiaro qui sopra prima ancora di inviarla).',
-  ];
   const box = $('#inv-xml-controls'); if (!box) return;
   if (!$('#inv-upload-steps')) {
     const div = document.createElement('div');
     div.id = 'inv-upload-steps';
-    div.className = 'mt-2 pt-2 border-t border-emerald-400/20';
-    div.innerHTML = `<div class="font-bold mb-1">Come caricarla (una volta sola, poi è routine):</div><ol class="list-decimal pl-4 space-y-0.5">${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="mt-1 opacity-70">I nomi esatti delle voci possono variare nel tempo: cerca “Fatturazione elettronica” nel menu.</div>
-    <details class="mt-2 pt-2 border-t border-emerald-400/20">
-      <summary class="cursor-pointer font-bold">Non hai SPID o non riesci ad accedere? C'è una seconda strada: la PEC</summary>
-      <div class="mt-1 space-y-1">
-        <div>Se hai una casella di <b>PEC (Posta Elettronica Certificata)</b>, puoi mandare il file XML come allegato direttamente al Sistema di Interscambio, senza passare dal portale:</div>
-        <ol class="list-decimal pl-4 space-y-0.5">
-          <li>La <b>prima volta</b> invia una email dalla tua PEC, con il file XML allegato, a <b>sdi01@pec.fatturapa.it</b>.</li>
-          <li>Lo SdI ti risponderà comunicandoti un <b>indirizzo PEC-SdI dedicato</b> tutto tuo: userai quello per <b>tutti gli invii successivi</b> (non più il primo indirizzo).</li>
-          <li>Tieni le ricevute che arrivano: dicono se la fattura è stata consegnata o scartata.</li>
-        </ol>
-        <div class="opacity-70">Attenzione: mandare il file direttamente alla PEC del cliente, senza passare per lo SdI, NON vale come fattura elettronica — va sempre allo SdI prima.</div>
+    div.className = 'mt-2 pt-3 border-t border-emerald-400/20 modal-section-in';
+    div.innerHTML = `
+      ${tl1CostoTempo('Gratis', 'green', 'Pochi minuti', 'green')}
+      <div class="mt-2">${tl1Checklist('tl1-check-sdi', ['SPID, CIE, CNS oppure credenziali Entratel/Fisconline', `Il file ${(filename || 'XML').replace(/</g, '')} già scaricato da Momentum (fatto)`])}</div>
+      <div class="font-bold mt-3 mb-1.5 text-[10px] uppercase tracking-wide text-[var(--on-surface-secondary)]">Come caricarla (una volta sola, poi è routine)</div>
+      <div class="flex flex-col gap-2">
+        ${tl1Step(1, 'Accedi al portale <b class="text-[var(--on-surface)]">Fatture e Corrispettivi</b> con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline.')}
+        ${tl1Step(2, 'Alla prima schermata scegli il profilo <b class="text-[var(--on-surface)]">"Me stesso"</b> (sei tu che fatturi, non un\'altra persona/azienda) — è il punto dove più persone si bloccano: se vedi un elenco di aziende/deleghe, "Me stesso" è comunque sempre la prima opzione in alto.')}
+        ${tl1Step(3, 'Apri la sezione <b class="text-[var(--on-surface)]">Fatturazione elettronica</b> e cerca <b class="text-[var(--on-surface)]">"trasmetti" / "importa un file"</b>.')}
+        ${tl1Step(4, `Carica il file <b class="text-[var(--on-surface)]">${(filename || 'XML').replace(/</g, '')}</b> che hai appena scaricato da Momentum.`)}
+        ${tl1Step(5, 'Controlla l\'anteprima e premi <b class="text-[var(--on-surface)]">Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto, spiegata in chiaro qui sopra prima ancora di inviarla).')}
       </div>
-    </details>
-    <div class="mt-2 opacity-70">Momentum prepara il file e ti indica la strada esatta, ma non può cliccare "Trasmetti" al posto tuo: serve il tuo accesso ufficiale, che noi non vediamo mai.</div>`;
+      <div class="mt-2 opacity-70 text-[10px]">I nomi esatti delle voci possono variare nel tempo: cerca "Fatturazione elettronica" nel menu.</div>
+      <details class="mt-2.5 pt-2.5 border-t border-emerald-400/20">
+        <summary class="cursor-pointer font-bold text-[11px]">Non hai SPID o non riesci ad accedere? C'è una seconda strada: la PEC</summary>
+        <div class="mt-2 flex flex-col gap-2">
+          <div class="text-[11px] text-[var(--on-surface-secondary)]">Se hai una casella di <b class="text-[var(--on-surface)]">PEC (Posta Elettronica Certificata)</b>, puoi mandare il file XML come allegato direttamente al Sistema di Interscambio, senza passare dal portale:</div>
+          ${tl1Step(1, 'La <b class="text-[var(--on-surface)]">prima volta</b> invia una email dalla tua PEC, con il file XML allegato, a <b class="text-[var(--on-surface)]">sdi01@pec.fatturapa.it</b>.')}
+          ${tl1Step(2, 'Lo SdI ti risponderà comunicandoti un <b class="text-[var(--on-surface)]">indirizzo PEC-SdI dedicato</b> tutto tuo: userai quello per <b class="text-[var(--on-surface)]">tutti gli invii successivi</b> (non più il primo indirizzo).')}
+          ${tl1Step(3, 'Tieni le ricevute che arrivano: dicono se la fattura è stata consegnata o scartata.')}
+          <div class="text-[10px] text-amber-300 opacity-90">Attenzione: mandare il file direttamente alla PEC del cliente, senza passare per lo SdI, NON vale come fattura elettronica — va sempre allo SdI prima.</div>
+        </div>
+      </details>
+      <button type="button" id="tl1-sdi-expert-toggle" class="mt-2 text-[10px] font-bold text-[var(--on-surface-secondary)] underline">Sei del mestiere? Mostra i riferimenti normativi</button>
+      <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: obbligo generalizzato di fatturazione elettronica tra privati dal 1° gennaio 2019 — L. 205/2017 (Legge di Bilancio 2018), art. 1 commi 909–928. Regole tecniche del Sistema di Interscambio: DM 55/2013.</div>
+      <div class="mt-2 opacity-70 text-[10px]">Momentum prepara il file e ti indica la strada esatta, ma non può cliccare "Trasmetti" al posto tuo: serve il tuo accesso ufficiale, che noi non vediamo mai.</div>`;
     box.appendChild(div);
+    tl1InitChecklist('tl1-check-sdi');
+    document.getElementById('tl1-sdi-expert-toggle')?.addEventListener('click', (e) => {
+      const el = div.querySelector('.tl1-expert');
+      const on = !el.classList.contains('tl1-expert-open');
+      el.classList.toggle('tl1-expert-open', on);
+      e.target.textContent = on ? 'Nascondi i riferimenti normativi' : 'Sei del mestiere? Mostra i riferimenti normativi';
+    });
   }
   showToast('Guida al caricamento mostrata sotto.', 'success');
 }
@@ -4957,16 +5335,42 @@ window.openCreateInvoice = (prefillClient) => {
   const clientEl = $('#inv-client'), amountEl = $('#inv-amount'), descEl = $('#inv-desc'), regimeEl = $('#inv-regime'), prevEl = $('#inv-preview');
   const eur = (n) => `${(+n).toFixed(2).replace('.', ',')} €`;
   // Anteprima LIVE: mostra netto a ricevere e scomposizione a ogni modifica.
+  // BUG REALE trovato rianalizzando il modulo (2026-08-06): computeInvoice
+  // calcola già una `note` con la spiegazione legale (perché niente IVA/
+  // ritenuta nel forfettario, art. 1 commi 54-89 L. 190/2014) ma la preview
+  // la scartava — l'utente vedeva il numero giusto senza mai sapere perché.
+  // Stessa cosa per il bollo: compare in elenco ma senza spiegare cos'è, il
+  // punto #1 di confusione reale ("perché la fattura costa 2€ in più?").
+  let prevTotale = null;
   const refresh = () => {
     syncGuidance();
     const imp = parseFloat(String(amountEl.value).replace(',', '.'));
-    if (!(imp > 0)) { prevEl.classList.add('hidden'); return; }
+    if (!(imp > 0)) { prevEl.classList.add('hidden'); prevTotale = null; return; }
     const country = ($('#inv-country') && $('#inv-country').value) || 'IT';
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.value, country });
     prevEl.classList.remove('hidden');
-    prevEl.innerHTML = `${inv.righe.map(r => `<div class="flex justify-between"><span>${r.voce}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
-      <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">Totale fattura</span><span class="font-mono">${eur(inv.totaleFattura)}</span></div>
-      <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span class="font-mono">${eur(inv.nettoARicevere)}</span></div>`;
+    const bolloRiga = inv.righe.find((r) => r.voce === 'Marca da bollo');
+    prevEl.innerHTML = `${inv.righe.map((r) => `<div class="flex justify-between items-center"><span>${r.voce}${r === bolloRiga ? ` <button type="button" id="inv-bollo-why" class="text-[var(--gold)] underline font-bold">perché?</button>` : ''}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
+      ${bolloRiga ? `<div id="inv-bollo-explain" class="hidden mt-1 mb-1 text-[10px] text-[var(--on-surface-secondary)] leading-relaxed border-l-2 border-[var(--gold)]/40 pl-2">Le fatture senza IVA sopra 77,47€ richiedono per legge una marca da bollo da 2€ (DPR 642/1972, art. 13 n.1-bis) — Momentum la aggiunge da sola, non serve comprarla a parte.</div>` : ''}
+      <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">Totale fattura</span><span id="inv-prev-totale" class="font-mono">${eur(inv.totaleFattura)}</span></div>
+      <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span id="inv-prev-netto" class="font-mono">${eur(inv.nettoARicevere)}</span></div>
+      ${inv.note ? `<div class="mt-1.5 pt-1.5 border-t border-[var(--glass-border)] text-[10px] text-[var(--on-surface-secondary)] leading-relaxed">${inv.note}</div>` : ''}`;
+    document.getElementById('inv-bollo-why')?.addEventListener('click', (e) => {
+      document.getElementById('inv-bollo-explain')?.classList.toggle('hidden');
+      e.stopPropagation();
+    });
+    // Micro-animazione: il netto "risponde" a ogni cifra digitata invece di
+    // cambiare di scatto — lo stesso linguaggio del resto dell'app, qui
+    // applicato al numero più guardato del modulo.
+    if (prevTotale !== null && prevTotale !== inv.totaleFattura && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      ['inv-prev-totale', 'inv-prev-netto'].forEach((id) => {
+        document.getElementById(id)?.animate(
+          [{ transform: 'scale(1.12)', color: 'var(--gold)' }, { transform: 'scale(1)' }],
+          { duration: 260, easing: 'cubic-bezier(.34,1.56,.64,1)' },
+        );
+      });
+    }
+    prevTotale = inv.totaleFattura;
   };
   const emailEl = $('#inv-email');
   // Raccoglie i dati fiscali strutturati (tuoi e del cliente) dai campi del form.
@@ -5026,6 +5430,13 @@ window.openCreateInvoice = (prefillClient) => {
     if ($('#inv-foot')) $('#inv-foot').textContent = rec.needsFatturaPa
       ? 'La fattura elettronica (XML) è quella ufficiale: la carichi sul portale Fatture e Corrispettivi dell’Agenzia o la giri al commercialista. Il PDF è una copia leggibile di cortesia.'
       : 'Documento generato on-device, valido dove non c’è obbligo di fattura elettronica.';
+    // BUG REALE trovato testando (2026-08-06): il pulsante XML sopra compare
+    // solo qui, DOPO l'apertura del modale — cambia l'altezza del piè di
+    // pagina fisso, ma lo spazio riservato sotto era stato calcolato una
+    // sola volta all'apertura. Senza ricalcolarlo qui, l'anteprima e il
+    // selettore regime restano nascosti dietro il footer cresciuto.
+    const footer = $('#modal-footer'), body = $('#modal-body');
+    if (footer && body && !footer.classList.contains('hidden')) body.style.paddingBottom = `${footer.offsetHeight + 16}px`;
     return rec;
   }
   // Chip clienti ricorrenti: un tap ricompila TUTTO (riuso intelligente).
@@ -7262,6 +7673,15 @@ const navigate = (view) => {
 // principale deve essere raggiungibile senza dover prima scorrere tutto il
 // modulo. Senza footerHtml il piè di pagina resta vuoto e nascosto: ogni
 // altro modale dell'app è invariato.
+let __modalFooterObserver = null;
+function ensureModalFooterResizeSync() {
+  if (__modalFooterObserver || typeof ResizeObserver === 'undefined') return;
+  const footer = $('#modal-footer'), body = $('#modal-body');
+  __modalFooterObserver = new ResizeObserver(() => {
+    if (!footer.classList.contains('hidden')) body.style.paddingBottom = `${footer.offsetHeight + 16}px`;
+  });
+  __modalFooterObserver.observe(footer);
+}
 window.openModal = (html, footerHtml = '') => {
   const body = $('#modal-body');
   body.innerHTML = html;
@@ -7283,6 +7703,15 @@ window.openModal = (html, footerHtml = '') => {
     footer.classList.add('hidden');
     body.style.paddingBottom = '';
   }
+  // BUG REALE trovato testando "Crea fattura" (2026-08-06): il pié di pagina
+  // può CAMBIARE altezza DOPO l'apertura — es. il pulsante "Scarica fattura
+  // elettronica (XML)" compare solo quando il form diventa valido — ma il
+  // padding sopra era calcolato una volta sola all'apertura. Risultato:
+  // l'anteprima e il selettore regime finivano nascosti dietro un footer
+  // cresciuto, senza alcun modo di scorrere fino a vederli. Un
+  // ResizeObserver tiene il padding sincronizzato per tutta la vita della
+  // modale, non solo al primo render.
+  ensureModalFooterResizeSync();
   // Dissolvenza/rise leggera del contenuto (apertura o cambio step di un
   // flusso multi-step): reflow forzato per ri-attivare l'animazione ogni volta.
   body.classList.remove('modal-body-in'); void body.offsetWidth; body.classList.add('modal-body-in');

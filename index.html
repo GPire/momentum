@@ -435,14 +435,113 @@
        ovunque da controlli propri disegnati apposta, dove servono. */
     input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"] { -moz-appearance: textfield; }
+    /* Stessa regola vale per i menu a tendina: mai la freccia grigia nativa
+       del browser (cambia forma per OS/browser, rompe la coerenza visiva) —
+       freccia disegnata nostra, colore coerente col tema, con un anello di
+       fuoco leggero al focus e un piccolo "pop" tattile al tocco. */
+    select {
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      /* Freccia disegnata in puro CSS (due triangoli a sfumatura) invece di
+         un'immagine: niente url() dentro il foglio di stile globale, niente
+         richiesta di rete, colore sempre coerente col tema. Al focus la
+         freccia "si gira" verso l'alto (le stesse due sfumature, ribaltate
+         di posizione) — nessuna vera rotazione possibile su un elemento
+         nativo, ma l'occhio la legge come tale. */
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--primary) 50%),
+        linear-gradient(135deg, var(--primary) 50%, transparent 50%);
+      background-position: right 1.05rem center, right 0.75rem center;
+      background-size: 0.32rem 0.32rem, 0.32rem 0.32rem;
+      background-repeat: no-repeat;
+      padding-right: 2.1rem;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,.25);
+      transition: border-color .2s ease, box-shadow .25s cubic-bezier(.34,1.56,.64,1), transform .18s cubic-bezier(.34,1.56,.64,1), background-position .22s ease;
+    }
+    select:hover {
+      border-color: color-mix(in srgb, var(--primary) 55%, var(--glass-border));
+      box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--primary) 45%, transparent);
+      transform: translateY(-1px);
+    }
+    select:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(99,102,241,0.18), 0 8px 20px -6px rgba(99,102,241,.45);
+      transform: translateY(-1px);
+      background-position: right 0.75rem center, right 1.05rem center;
+    }
+    select:active { transform: scale(.97) translateY(0); }
+    @media (prefers-reduced-motion: reduce) { select { transition: none; } select:hover, select:focus, select:active { transform: none; } }
     /* Stepper +/- animato del simulatore P.IVA (Livello 1): un tocco fa
-       "respirare" il pulsante (pop) e il numero cresce/scende con un piccolo
-       salto verticale nella stessa direzione del segno, non un cambio secco. */
-    .tl1-step-btn { transition: transform .12s ease, background-color .2s ease; }
-    .tl1-step-btn:active { transform: scale(.88); }
-    @keyframes tl1AmountBump { 0% { transform: translateY(0); } 40% { transform: translateY(var(--bump-y, -3px)); } 100% { transform: translateY(0); } }
-    #tl1-amount.tl1-bump { animation: tl1AmountBump .22s cubic-bezier(.34,1.56,.64,1); }
-    @media (prefers-reduced-motion: reduce) { .tl1-step-btn, #tl1-amount.tl1-bump { transition: none; animation: none; } }
+       "respirare" il pulsante (pop, con un anello di luce che si espande) e
+       il numero cresce/scende con un salto vistoso, un piccolo ingrandimento
+       e un lampo di colore verso l'oro — così il cambio si "sente" davvero,
+       non un cambio secco né un tremolio impercettibile. */
+    .tl1-step-btn { transition: transform .12s ease, background-color .2s ease, box-shadow .2s ease; }
+    .tl1-step-btn:active { transform: scale(.85); }
+    @keyframes tl1StepRing { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+    .tl1-step-btn.tl1-ring { animation: tl1StepRing .55s ease-out; }
+    @keyframes tl1AmountBump {
+      0% { transform: translateY(0) scale(1); }
+      35% { transform: translateY(var(--bump-y, -9px)) scale(1.08); color: var(--gold); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    #tl1-amount.tl1-bump { animation: tl1AmountBump .38s cubic-bezier(.34,1.56,.64,1); }
+    @media (prefers-reduced-motion: reduce) { .tl1-step-btn, .tl1-step-btn.tl1-ring, #tl1-amount.tl1-bump { transition: none; animation: none; } }
+    /* Ingresso a scaglione dei passi numerati nelle guide "come si fa
+       davvero" (apertura P.IVA, SdI): riusa la stessa curva di txRise. */
+    .tl1-step-in { animation: txRise .36s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .tl1-step-in { animation: none; } }
+    /* Menu a tendina disegnato interamente da noi (ATECO, cassa previdenziale
+       nel Livello 1): niente <select> nativo — un pannello che cresce in
+       altezza con le opzioni che rientrano a scaglione, coerente con tutto
+       il resto del linguaggio visivo dell'app invece del popup del sistema
+       operativo, che nessun CSS può davvero ridisegnare. */
+    .tl1-select-trigger { transition: border-color .2s ease, box-shadow .25s cubic-bezier(.34,1.56,.64,1), transform .15s ease; }
+    .tl1-select-trigger:hover { border-color: color-mix(in srgb, var(--primary) 55%, var(--glass-border)); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--primary) 45%, transparent); }
+    .tl1-select.tl1-select-open .tl1-select-trigger { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(99,102,241,.18), 0 8px 20px -6px rgba(99,102,241,.45); }
+    .tl1-select-chevron { transition: transform .3s cubic-bezier(.34,1.56,.64,1); }
+    .tl1-select.tl1-select-open .tl1-select-chevron { transform: rotate(180deg); }
+    .tl1-select-panel { max-height: 0; opacity: 0; margin-top: 0; overflow: hidden; transition: max-height .3s cubic-bezier(.22,1,.36,1), opacity .22s ease, margin-top .3s ease; }
+    .tl1-select.tl1-select-open .tl1-select-panel { max-height: 15rem; opacity: 1; margin-top: 0.4rem; overflow-y: auto; }
+    .tl1-select-opt { transition: background-color .15s ease; }
+    @media (prefers-reduced-motion: reduce) {
+      .tl1-select-trigger, .tl1-select-chevron, .tl1-select-panel { transition: none; }
+      .tl1-select.tl1-select-open .tl1-select-panel { max-height: 15rem; }
+    }
+    /* Icona-cerchio in cima alle schermate Livello 1/guide: un respiro di
+       luce lento e continuo (mai frenetico) — l'occhio la nota come "viva"
+       senza distrarre da testo o numeri. */
+    @keyframes tl1IconBreathe { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tl1-icon-color, var(--primary)) 22%, transparent); } 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--tl1-icon-color, var(--primary)) 0%, transparent); } }
+    .tl1-icon-pulse { animation: tl1IconBreathe 2.6s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .tl1-icon-pulse { animation: none; } }
+    /* Ricerca ATECO libera ("descrivi cosa farai"): suggerimenti che
+       rientrano a scaglione, come le opzioni del menu a tendina. */
+    .tl1-ateco-hit { animation: txRise .3s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .tl1-ateco-hit { animation: none; } }
+    /* Kit riepilogo pronto (guida "come si apre davvero"): il bordo si
+       accende un istante quando il testo viene copiato, conferma visiva
+       senza bisogno di leggere un messaggio. */
+    @keyframes tl1KitCopied { 0% { border-color: var(--glass-border); } 30% { border-color: var(--green); box-shadow: 0 0 0 4px rgba(16,185,129,.18); } 100% { border-color: var(--glass-border); box-shadow: none; } }
+    .tl1-kit-copied { animation: tl1KitCopied 1.1s ease; }
+    @media (prefers-reduced-motion: reduce) { .tl1-kit-copied { animation: none; } }
+    /* Checklist "cosa ti serve" nella guida "come si apre davvero": ogni
+       spunta è un piccolo traguardo — pop tattile sulla casella, barra di
+       avanzamento che cresce, mai un elenco statico che si limita a
+       elencare. Tecnica anti-abbandono: rendere visibile il progresso
+       spezza "sembra difficile" in passi piccoli e già mezzi fatti. */
+    .tl1-check { transition: transform .15s ease; cursor: pointer; }
+    .tl1-check:active { transform: scale(.9); }
+    @keyframes tl1CheckPop { 0% { transform: scale(1); } 45% { transform: scale(1.25); } 100% { transform: scale(1); } }
+    .tl1-check.tl1-check-pop { animation: tl1CheckPop .34s cubic-bezier(.34,1.56,.64,1); }
+    .tl1-checklist-progress { height: 4px; border-radius: 999px; background: var(--outline); overflow: hidden; }
+    .tl1-checklist-progress > div { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold), var(--green)); transition: width .45s cubic-bezier(.22,1,.36,1); }
+    @media (prefers-reduced-motion: reduce) { .tl1-check, .tl1-check.tl1-check-pop, .tl1-checklist-progress > div { transition: none; animation: none; } }
+    /* Modalità esperta (riferimenti normativi per commercialisti): nascosta
+       di default per restare semplice a colpo d'occhio, si apre con la
+       stessa curva elastica del resto — mai un salto secco. */
+    .tl1-expert { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .32s cubic-bezier(.22,1,.36,1), opacity .25s ease, margin-top .32s ease; margin-top: 0; }
+    .tl1-expert.tl1-expert-open { max-height: 12rem; opacity: 1; margin-top: .6rem; }
+    @media (prefers-reduced-motion: reduce) { .tl1-expert { transition: none; } .tl1-expert.tl1-expert-open { max-height: 12rem; } }
     /* Chip suggerimento asset: stesso ingresso a scaglione, per invitare il
        tocco su una casella di ricerca altrimenti vuota. */
     .asset-chip-in { animation: txRise .32s cubic-bezier(.22,1,.36,1) both; }

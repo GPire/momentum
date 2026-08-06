@@ -33,6 +33,67 @@ export const ATECO_COEFFICIENTI = {
   altre: { coeff: 0.67, label: 'Altre attività (67%)' },
 };
 
+// Codici ATECO reali più comuni per chi apre una Partita IVA, ciascuno
+// collegato a UNA delle categorie di ATECO_COEFFICIENTI già verificate sopra
+// (mai un coefficiente nuovo non testato). Elenco parziale e illustrativo,
+// non l'anagrafica ufficiale ISTAT: aiuta a orientarsi e a parlare la lingua
+// giusta col commercialista, ma il codice esatto va sempre confermato sullo
+// strumento ufficiale gratuito ateco.infocamere.it prima di aprire la P.IVA
+// — link e avviso onesto ripetuti ovunque questo elenco viene mostrato.
+// Ogni voce ha `kw`: sinonimi/parole reali che una persona userebbe per
+// descrivere il proprio lavoro (mai gergo ATECO), per la ricerca libera.
+export const ATECO_COMUNI = [
+  { code: '62.01.00', label: 'Sviluppo software', categoria: 'altre', kw: 'programmatore sviluppatore app sito web coding developer' },
+  { code: '62.02.00', label: 'Consulenza informatica', categoria: 'altre', kw: 'consulente it informatico sistemista' },
+  { code: '62.09.00', label: 'Altri servizi informatici', categoria: 'altre', kw: 'assistenza computer riparazione pc informatica' },
+  { code: '63.11.00', label: 'Gestione siti web e hosting', categoria: 'altre', kw: 'hosting server siti internet webmaster' },
+  { code: '63.99.00', label: 'Informazione online e blog', categoria: 'altre', kw: 'blogger content creator influencer social media' },
+  { code: '96.02.00', label: 'Parrucchiere / estetista', categoria: 'altre', kw: 'parrucchiera estetica bellezza acconciature trucco' },
+  { code: '93.13.00', label: 'Personal trainer e istruttori', categoria: 'altre', kw: 'palestra fitness allenatore sport yoga pilates' },
+  { code: '90.03.00', label: 'Creazioni artistiche', categoria: 'altre', kw: 'artista pittore scultore illustratore artigianato artistico' },
+  { code: '69.10.00', label: 'Avvocato', categoria: 'professionisti', kw: 'avvocatessa legale studio legale' },
+  { code: '70.22.00', label: 'Consulenza aziendale e coaching', categoria: 'professionisti', kw: 'business coach consulente manageriale formatore aziendale' },
+  { code: '71.11.00', label: 'Architetto', categoria: 'professionisti', kw: 'architettura progettazione edifici interior design' },
+  { code: '73.11.00', label: 'Agenzia pubblicitaria / marketing', categoria: 'professionisti', kw: 'pubblicità marketing comunicazione social media manager' },
+  { code: '74.10.00', label: 'Graphic e web design', categoria: 'professionisti', kw: 'grafico designer logo brand ux ui webdesign' },
+  { code: '74.20.00', label: 'Fotografo professionista', categoria: 'professionisti', kw: 'fotografia matrimoni servizi fotografici video' },
+  { code: '74.30.00', label: 'Traduttore / interprete', categoria: 'professionisti', kw: 'traduzioni lingue interpretariato' },
+  { code: '85.59.00', label: 'Formazione privata / ripetizioni', categoria: 'professionisti', kw: 'insegnante lezioni private tutor corsi formatore' },
+  { code: '86.90.00', label: 'Medico, psicologo, fisioterapista', categoria: 'professionisti', kw: 'sanitario terapista dentista nutrizionista' },
+  { code: '41.10.00', label: 'Impresa edile', categoria: 'costruzioni', kw: 'muratore edilizia costruzioni cantiere' },
+  { code: '43.21.00', label: 'Impianti elettrici', categoria: 'costruzioni', kw: 'elettricista impianti elettrico' },
+  { code: '43.22.00', label: 'Idraulica e termoidraulica', categoria: 'costruzioni', kw: 'idraulico caldaie riscaldamento tubature' },
+  { code: '43.30.00', label: 'Piastrellista / imbianchino', categoria: 'costruzioni', kw: 'ristrutturazioni pittura pavimenti imbiancatura' },
+  { code: '68.31.00', label: 'Agente immobiliare', categoria: 'costruzioni', kw: 'immobiliare case affitti vendite' },
+  { code: '46.11.00', label: 'Agente di commercio', categoria: 'intermediari', kw: 'rappresentante agente vendita provvigioni' },
+  { code: '46.19.00', label: 'Mediatore commerciale', categoria: 'intermediari', kw: 'intermediazione commissioni mediazione' },
+  { code: '45.20.00', label: 'Officina e riparazione veicoli', categoria: 'commercio', kw: 'meccanico autofficina riparazioni auto moto' },
+  { code: '47.11.00', label: 'Negozio al dettaglio', categoria: 'commercio', kw: 'negozio vendita prodotti bottega commerciante' },
+  { code: '47.91.00', label: 'E-commerce / vendita online', categoria: 'commercio', kw: 'vendo online shop negozio internet dropshipping etsy' },
+  { code: '56.10.00', label: 'Ristorante / pizzeria', categoria: 'commercio', kw: 'ristorazione cucina pizza cuoco chef' },
+  { code: '56.30.00', label: 'Bar / caffetteria', categoria: 'commercio', kw: 'bar caffè caffetteria' },
+  { code: '55.20.00', label: 'B&B / affittacamere', categoria: 'commercio', kw: 'bed and breakfast affitti brevi turistici casa vacanze' },
+];
+export const ATECO_UFFICIALE_URL = 'https://ateco.infocamere.it';
+// Ricerca libera in italiano: normalizza (minuscolo, accenti via, spazi) e
+// cerca nel codice/etichetta/parole chiave. Nessuna corrispondenza esatta
+// richiesta — "vendo vestiti" trova "e-commerce" tramite "vendo online".
+function tl1Normalize(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+export function searchAtecoComuni(query, limit = 6) {
+  const q = tl1Normalize(query);
+  if (q.length < 2) return [];
+  const terms = q.split(/\s+/).filter(Boolean);
+  const scored = ATECO_COMUNI.map((entry) => {
+    const hay = tl1Normalize(`${entry.label} ${entry.kw} ${entry.code}`);
+    const hits = terms.filter((t) => hay.includes(t)).length;
+    return { entry, hits };
+  }).filter((s) => s.hits > 0);
+  scored.sort((a, b) => b.hits - a.hits);
+  return scored.slice(0, limit).map((s) => s.entry);
+}
+
 // Professioni regolamentate (albo) con CASSA PREVIDENZIALE PROPRIA, elenco
 // verificato — nomi reali, non aliquote inventate. Fatto di mercato reale e
 // significativo, ignorato finché non lo si è verificato in questa sessione:

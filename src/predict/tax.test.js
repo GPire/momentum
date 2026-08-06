@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI, simulateNewPartitaIva, CASSE_PROFESSIONALI } = await import('./tax.js');
+const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI, simulateNewPartitaIva, CASSE_PROFESSIONALI, ATECO_COMUNI, searchAtecoComuni } = await import('./tax.js');
 
 function fattura(desc, amount = 1000, date = '2026-03-10') {
   return { type: 'entrata', description: desc, amount, date };
@@ -581,4 +581,36 @@ test('un cliente fatturato viene riconosciuto come reddito da fattura in futuro'
   // Un accredito futuro con quel nome ora si classifica da solo come fattura.
   const c = classifyIncome({ description: 'Bonifico da Studio Bianchi' }, learned);
   assert.equal(c.kind, 'invoice');
+});
+
+// ── RICERCA ATECO LIBERA: guard di coerenza + comportamento della ricerca ──
+test('ATECO_COMUNI: ogni voce punta a una categoria di coefficiente esistente e verificata', () => {
+  // Guard di regressione: se in futuro si aggiunge una voce con una categoria
+  // sbagliata o inventata, il coefficiente applicato sarebbe silenziosamente
+  // falso — meglio un test rosso che una tassa calcolata male.
+  for (const entry of ATECO_COMUNI) {
+    assert.ok(ATECO_COEFFICIENTI[entry.categoria], `categoria sconosciuta: ${entry.categoria} (${entry.code})`);
+    assert.match(entry.code, /^\d{2}\.\d{2}\.\d{2}$/, `codice ATECO mal formato: ${entry.code}`);
+  }
+});
+
+test('searchAtecoComuni: query vuota o troppo corta non restituisce risultati a caso', () => {
+  assert.deepEqual(searchAtecoComuni(''), []);
+  assert.deepEqual(searchAtecoComuni('a'), []);
+});
+
+test('searchAtecoComuni: descrizione in linguaggio comune trova il codice giusto', () => {
+  const hits = searchAtecoComuni('vendo vestiti online sul mio shop');
+  assert.ok(hits.some((h) => h.code === '47.91.00'), 'deve trovare e-commerce');
+});
+
+test('searchAtecoComuni: mestieri diversi non si confondono fra loro', () => {
+  const idraulico = searchAtecoComuni('sono un idraulico faccio caldaie');
+  assert.equal(idraulico[0].code, '43.22.00');
+  const avvocato = searchAtecoComuni('sono un avvocato ho uno studio legale');
+  assert.equal(avvocato[0].code, '69.10.00');
+});
+
+test('searchAtecoComuni: nessuna corrispondenza restituisce lista vuota, mai un risultato a caso', () => {
+  assert.deepEqual(searchAtecoComuni('xyzxyzxyz qwqwqw'), []);
 });
