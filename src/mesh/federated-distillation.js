@@ -233,7 +233,7 @@ export function observeLexicon(pool, { token, category, deviceId }, now = Date.n
   const c = String(category || '').trim();
   if (!t || !c) return pool;
   const base = pool?.entries ? pool : initLexiconPool();
-  const key = `${t} ${c}`;
+  const key = `${t}\u0000${c}`;
   const prev = base.entries[key] || { token: t, category: c, origins: [], lastSeen: 0 };
   const tag = originTag(deviceId, t);
   const origins = prev.origins.includes(tag) ? prev.origins : [...prev.origins, tag];
