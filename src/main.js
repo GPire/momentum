@@ -65,7 +65,7 @@ import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, I
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
-import { generateDemoTransactions, fadeDemo, demoStatus, DEMO_FADE_AT } from './ui/demo-dataset.js';
+import { generateDemoTransactions, fadeDemo, demoStatus, mergeDemoForDisplay, DEMO_FADE_AT } from './ui/demo-dataset.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -1067,6 +1067,17 @@ function displayTxForMonth(k) {
   if (!finte.length) return reali;
   return [...reali, ...finte].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
+// Storico COMPLETO per disegnare. Serve ai numeri derivati ("Oggi puoi
+// spendere") che guardano oltre il mese corrente: senza, un utente nuovo
+// vedrebbe le card piene di esempio e il numero principale a zero — una
+// incoerenza che erode la fiducia proprio nel primo momento.
+// mergeDemoForDisplay è testata per NON mutare la mappa reale: l'originale
+// resta intatto e non può finire salvato nel vault.
+function displayAllTx() {
+  const finte = liveDemoTx();
+  if (!finte.length) return VaultDAO.state.transactions;
+  return mergeDemoForDisplay(VaultDAO.state.transactions || {}, finte, realTxCount());
+}
 // L'avviso è SEMPRE visibile finché l'esempio è attivo: mostrare soldi
 // finti senza dirlo sarebbe la bugia peggiore possibile in un'app di
 // finanza. Ambra (momento consapevole), mai rosso-colpa. La barra mostra
@@ -1186,7 +1197,7 @@ const renderDashboard = () => {
   const stsCard = $('#safe-to-spend-card');
   if (stsCard) {
     const sts = (isCurrentMonth && !cassaUnicaAttiva)
-      ? getDailySafeToSpend({ monthTxs: txs, allTx: VaultDAO.state.transactions, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow })
+      ? getDailySafeToSpend({ monthTxs: txs, allTx: displayAllTx(), monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow })
       : null;
     // reset stato interattivo (la card viene riusata tra i render)
     stsCard.removeAttribute('data-action');
@@ -8713,6 +8724,17 @@ window.openMeshPairing = () => {
     <div class="p-4 space-y-4">
       <h3 class="text-lg font-bold inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg>Collega un dispositivo</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">Le due AI impareranno l'una dall'altra. I tuoi dati NON si spostano: viaggiano solo i "pesi" imparati, protetti dal controllo anti-manomissione.</p>
+      <!-- DIAGNOSI DI RETE PREDITTIVA (src/mesh/nat-probe.js): il punto di
+           abbandono numero uno della sincronizzazione è la rotella che gira
+           e poi fallisce, su reti (telefono, aziendali) dove il collegamento
+           diretto non poteva partire in partenza. Qui si misura PRIMA e si
+           dice cosa aspettarsi, in una frase umana — mai una percentuale. -->
+      <div id="mesh-net-diag" class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2.5">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-[var(--on-surface-secondary)] animate-pulse"></span>
+          <span class="text-[11px] text-[var(--on-surface-secondary)]">Sto guardando che rete hai…</span>
+        </div>
+      </div>
       <div class="flex gap-2">
         <button onclick="window.meshCreateInvite()" class="btn-action flex-1 text-xs">1a. Crea invito (questo dispositivo)</button>
       </div>
@@ -8727,7 +8749,48 @@ window.openMeshPairing = () => {
       </div>
     </div>
   `);
+  runMeshNetDiagnosis();
 };
+
+// Misura la rete e lo dice PRIMA che l'utente aspetti. Il piano lo chiama
+// il punto di abbandono numero uno: su rete mobile con NAT simmetrico o
+// CGNAT il collegamento diretto non si stabilisce, l'utente vede una
+// rotella e conclude che l'app è rotta. Qui la sonda gira in background e
+// la card diventa una frase onesta: cosa succederà e cosa faremo invece.
+// Best-effort: se la sonda non può girare (WebRTC assente, permessi), la
+// card sparisce e i pulsanti restano — mai un blocco per una diagnosi.
+async function runMeshNetDiagnosis() {
+  const box = document.getElementById('mesh-net-diag');
+  if (!box) return;
+  try {
+    const { probeNetwork } = await import('./mesh/nat-probe.js');
+    const { nat, advice, timeoutMs } = await probeNetwork({ channels: { link: true, paste: true } });
+    const diretto = advice.prefer === 'direct';
+    // Neurocolori coerenti col resto dell'app: verde = via libera,
+    // ambra = momento consapevole (c'è un piano B pronto). Mai rosso: la
+    // rete dell'utente non è una sua colpa. Classi LETTERALI, non costruite
+    // a stringa: sopravvivono a qualunque compilazione futura di Tailwind.
+    const S = diretto
+      ? { box: 'rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-2.5', icon: 'text-emerald-300', title: 'text-emerald-300', body: 'text-emerald-200/90' }
+      : { box: 'rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2.5', icon: 'text-amber-300', title: 'text-amber-300', body: 'text-amber-200/90' };
+    box.className = S.box;
+    box.innerHTML = `
+      <div class="flex items-start gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5 ${S.icon}">
+          ${diretto ? '<path d="M5 12.5 10 17l9-10"/>' : '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>'}
+        </svg>
+        <div class="min-w-0">
+          <p class="text-[11px] font-bold ${S.title} leading-snug">${escapeHtml(advice.headline)}</p>
+          ${advice.detail ? `<p class="text-[11px] ${S.body} mt-1 leading-snug">${escapeHtml(advice.detail)}</p>` : ''}
+          <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-[10px] text-[var(--on-surface-secondary)] underline mt-1.5">Perché?</button>
+          <p class="hidden text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-snug">${escapeHtml(nat.reason)}${timeoutMs ? ` Se non parte entro ${Math.round(timeoutMs / 1000)} secondi passiamo al link, senza farti aspettare oltre.` : ''}</p>
+        </div>
+      </div>`;
+  } catch (e) {
+    console.warn('Diagnosi di rete non disponibile:', e);
+    box.remove(); // meglio niente che una diagnosi finta
+  }
+}
 
 // Dispositivo A, passo 1: genera l'invito
 window.meshCreateInvite = async () => {

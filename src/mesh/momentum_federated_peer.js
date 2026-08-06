@@ -38,6 +38,8 @@
 // ============================================================
 'use strict';
 
+import { STUN_POOL } from './nat-probe.js';
+
 // ── Federated Averaging reale: media pesata dei pesi tra due modelli ──
 function federatedAverage(localWeights, remoteWeights, localExamples, remoteExamples) {
   const totalExamples = localExamples + remoteExamples;
@@ -96,7 +98,11 @@ class FederatedPeer {
     this._emitStatus('connecting');
 
     this.pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      // Pool di STUN, non uno solo: se l'unico server e' irraggiungibile
+      // (rete aziendale che lo blocca, disservizio) il collegamento fallisce
+      // senza che nessuno capisca perche'. I tre sono verificati dal vivo —
+      // stessa lista di mesh-signaling.js, una sola fonte di verita'.
+      iceServers: [{ urls: STUN_POOL }],
     });
     this.channel = this.pc.createDataChannel('gradients');
     this._setupChannel();
@@ -136,7 +142,11 @@ class FederatedPeer {
     this._emitStatus('connecting');
 
     this.pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      // Pool di STUN, non uno solo: se l'unico server e' irraggiungibile
+      // (rete aziendale che lo blocca, disservizio) il collegamento fallisce
+      // senza che nessuno capisca perche'. I tre sono verificati dal vivo —
+      // stessa lista di mesh-signaling.js, una sola fonte di verita'.
+      iceServers: [{ urls: STUN_POOL }],
     });
     this.pc.ondatachannel = (e) => {
       this.channel = e.channel;
