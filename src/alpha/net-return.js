@@ -42,6 +42,40 @@
 // fondi azionari (~30% di esenzione) NON è applicato: servirebbe
 // classificare ogni fondo per tipo, dato che qui non abbiamo — verificare
 // col proprio consulente se si tratta di un fondo azionario tedesco.
+//
+// PROSSIMI MERCATI (ricerca 2026-08-06, NON ANCORA implementati — nessun
+// profilo aggiunto finché non è verificato con la stessa disciplina di
+// IT/DE/FR sopra): criteri di scelta = aliquota abbastanza semplice da
+// modellare onestamente in un numero solo (o pochi), popolazione di
+// investitori retail rilevante, fonte pubblica verificabile.
+//  - Svizzera (CH): 0% di imposta FEDERALE sulle plusvalenze mobiliari per
+//    investitori privati (non professionali) — probabilmente il numero più
+//    semplice e più forte da mostrare di tutti ("il tuo netto è uguale al
+//    lordo"). Attenzione dichiarata: le imposte cantonali sul patrimonio
+//    (non sul capital gain) variano per cantone e NON sono equivalenti;
+//    un trader riqualificato "professionale" perde l'esenzione — entrambi
+//    i limiti vanno verificati e dichiarati prima di aggiungere il profilo.
+//  - Regno Unito (UK): CGT 20% sulla maggior parte dei guadagni mobiliari
+//    (18% sull'immobiliare, non pertinente qui), con un annual exempt
+//    amount (franchigia annua, valore da riverificare al momento
+//    dell'implementazione: è cambiato più volte negli ultimi anni) —
+//    aliquota semplice, stesso schema della franchigia tedesca.
+//  - USA: scartato per ora, non per dimensione del mercato (il più grande
+//    al mondo) ma per onestà: long-term capital gain a scaglioni 0/15/20%
+//    + Net Investment Income Tax 3,8% per redditi alti + imposta statale
+//    variabile (0% in alcuni Stati, oltre 13% in California) + il breve
+//    termine tassato come reddito ordinario progressivo. Un singolo numero
+//    "netto USA" sarebbe strutturalmente impreciso per la maggioranza degli
+//    utenti — servirebbe uno stato di residenza dichiarato E la
+//    distinzione breve/lungo termine prima di poter dare un numero onesto,
+//    non un'aliquota unica come le altre.
+//  - India, Brasile e altri mercati ad alta crescita retail/cripto: NON
+//    ancora verificati su fonte primaria — citati esplicitamente come "da
+//    fare", mai un'aliquota indovinata nel frattempo.
+// Pacchetto lingua/localizzazione (IT/EN/DE/FR + auto-rilevamento Paese
+// dell'utente): stesso lavoro già fatto per country-invoicing.js
+// (locale/valuta/parole per Paese) — da estendere qui quando si aggiunge un
+// nuovo profilo, non un progetto separato.
 'use strict';
 
 // `verificatoIl` + `periodoRevisione`: OGNI Paese dichiara QUANDO l'aliquota
