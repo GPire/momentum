@@ -65,6 +65,7 @@ import { buildAccountantReport, renderAccountantReportHTML } from './predict/acc
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
 import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
+import { righeF24Iva, righeF24Imposte, f24Riepilogo } from './predict/f24.js';
 import { taxReserveStatus } from './predict/tax-payments.js';
 import { rulesForYear } from './predict/tax-rules.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
@@ -2079,6 +2080,11 @@ const renderAnalysis = (opts = {}) => {
 //     (tax-deadlines.js), mai un allarme senza soluzione.
 // Ogni blocco compare SOLO quando ha qualcosa di vero da dire: una card che
 // parla sempre smette di essere letta.
+// Stato per il modale F24 (window.openF24Precompilato): popolato da
+// renderTaxCashBlocks ogni volta che la card fiscale si ridisegna, così il
+// bottone inline non deve serializzare oggetti complessi in un onclick.
+let __f24State = null;
+
 function renderTaxCashBlocks(proj, regime) {
   let html = '';
   try {
@@ -2144,6 +2150,14 @@ function renderTaxCashBlocks(proj, regime) {
       if (scad && scad.regoleAggiornate === false) {
         html += `<div class="text-[10px] text-amber-300/80 mt-1 leading-snug">${escapeHtml(scad.avvisoRegole)}</div>`;
       }
+    }
+    // F24 PRECOMPILATO (T11 — colma la lacuna registro acquisti/INPS/F24):
+    // le stesse scadenze già mostrate qui, scomposte nelle righe pronte da
+    // copiare nell'home banking — mai un secondo calcolo, solo i codici
+    // tributo veri applicati ai numeri già mostrati sopra.
+    if (deadlines.length) {
+      __f24State = { deadlines, regime: regime || 'forfettario', annualizedRevenue: proj.annualizedRevenue, invoices, anno };
+      html += `<button onclick="window.openF24Precompilato()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Prepara l'F24</button>`;
     }
   } catch (e) {
     // Onesto: se un blocco non si può calcolare, il resto della card resta
@@ -2240,6 +2254,71 @@ window.openRegistraAcquistoIva = () => {
     renderAnalysis();
   });
 };
+// F24 PRECOMPILATO — mai trasmesso da Momentum (nessun accesso bancario:
+// stessa regola di tax-payments.js), ma pronto da copiare riga per riga
+// nell'home banking o nel modello F24 web dell'Agenzia. Codici tributo veri
+// (f24.js), applicati alle scadenze e alla liquidazione IVA già mostrate
+// nella card — mai un numero nuovo, solo il codice giusto attaccato a un
+// numero che l'utente ha già visto.
+window.openF24Precompilato = () => {
+  const s = __f24State;
+  if (!s) { showToast('Nessuna scadenza fiscale da preparare al momento.', 'info'); return; }
+  const rigImposte = righeF24Imposte(s.deadlines, { regime: s.regime, annualizedRevenue: s.annualizedRevenue, opts: {
+    cassaPropria: VaultDAO.state.taxCassaPropria || null,
+    altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
+  } });
+  let rigIva = [];
+  if (s.regime === 'ordinario') {
+    const volumeAnnoPrec = accrualRevenue(s.invoices, s.anno - 1);
+    const { periodicita } = determinaPeriodicitaIva(volumeAnnoPrec);
+    const acquistiIva = VaultDAO.state.acquistiIva || [];
+    const periodiIva = upcomingIvaLiquidazioni(s.invoices, s.anno, periodicita, { now: new Date(), acquisti: acquistiIva });
+    rigIva = righeF24Iva(periodiIva, { anno: s.anno, periodicita });
+  }
+  const righe = [...rigImposte, ...rigIva].sort((a, b) => new Date(a.scadenza) - new Date(b.scadenza));
+  const { totale, pronto } = f24Riepilogo(righe);
+
+  const testoCopiabile = righe.map((r) =>
+    `${r.sezione} · codice ${r.codiceTributo} · anno ${r.annoRiferimento} · ${formatMoney(r.importo)} · scadenza ${r.scadenza} — ${r.etichetta}`
+  ).join('\n');
+
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M9 12h6M9 16h6M9 8h1M13 8h3M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>', '--primary')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">F24 pronto da copiare</h3>
+        <p class="card-sub !mb-0 mt-1.5">Codici tributo veri, righe pronte per l'home banking o il modello F24 web dell'Agenzia. Momentum non trasmette nulla: lo versi tu, in un attimo invece di doverlo capire da zero.</p>
+      </div>
+      ${!pronto ? `<div class="text-[12px] text-[var(--on-surface-secondary)]">Niente da preparare al momento: nessuna scadenza con un importo da versare.</div>` : `
+      <div class="w-full flex flex-col gap-2 text-left">
+        ${righe.map((r) => `
+        <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${escapeHtml(r.sezione)} · codice <span class="text-[var(--gold)]">${escapeHtml(r.codiceTributo)}</span></span>
+            <span class="font-mono font-bold text-sm">${formatMoney(r.importo)}</span>
+          </div>
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(r.etichetta)} · anno ${escapeHtml(r.annoRiferimento)} · scadenza ${escapeHtml(r.scadenza)}</div>
+          ${r.nota ? `<div class="text-[10px] text-amber-300/80 mt-1.5 leading-snug">${escapeHtml(r.nota)}</div>` : ''}
+        </div>`).join('')}
+        <div class="flex items-center justify-between px-1 pt-1">
+          <span class="text-[11px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">Totale</span>
+          <span class="font-mono font-black">${formatMoney(totale)}</span>
+        </div>
+      </div>
+      <button id="f24-copy" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Copia tutte le righe</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Sono STIME sui dati che hai in Momentum, non una dichiarazione: verificale col commercialista prima di versare, soprattutto se hai anche altre entrate o crediti d'imposta fuori dall'app.</p>
+      `}
+    </div>`);
+  document.getElementById('f24-copy')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(testoCopiabile);
+      showToast('Righe F24 copiate — incollale dove preferisci per tenerle a portata di mano.', 'success');
+    } catch {
+      showToast('Copia non riuscita: seleziona il testo manualmente.', 'error');
+    }
+  });
+};
+
 window.removeAcquistoIva = (idx) => {
   VaultDAO.state.acquistiIva = (VaultDAO.state.acquistiIva || []).filter((_, i) => i !== idx);
   VaultDAO.save();
