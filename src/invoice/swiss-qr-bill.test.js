@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSwissQrPayload, validateSwissQrData } from './swiss-qr-bill.js';
+import { buildSwissQrPayload, validateSwissQrData, QR_BYTE_CAPACITY_LEVEL_M } from './swiss-qr-bill.js';
 
 // ESEMPIO UFFICIALE 1 — estratto letteralmente dalla Tabella 17 delle
 // "Swiss Implementation Guidelines for the QR-bill", SIX Group,
@@ -139,9 +139,8 @@ const ESEMPIO_2 = {
   alternativeProcedures: ['eBill/B/simon.muster@example.com'],
 };
 
-test('buildSwissQrPayload: ESEMPIO UFFICIALE 2 — con billing info e procedura alternativa, identico al documento SIX', () => {
+test('buildSwissQrPayload: ESEMPIO UFFICIALE 2 — testo del payload identico al documento SIX riga per riga', () => {
   const r = buildSwissQrPayload(ESEMPIO_2);
-  assert.equal(r.ok, true, JSON.stringify(r.errori));
   const righe = r.payload.split('\r\n');
   assert.equal(righe.length, 33); // 31 + billing info + 1 procedura alternativa
   assert.equal(righe[18], '1949.75');
@@ -149,6 +148,24 @@ test('buildSwissQrPayload: ESEMPIO UFFICIALE 2 — con billing info e procedura 
   assert.equal(righe[29], 'Order from 15.10.2020');
   assert.equal(righe[31], '//S1/10/1234/11/201021/30/102673386/32/7.7/40/0:30');
   assert.equal(righe[32], 'eBill/B/simon.muster@example.com');
+});
+
+test('buildSwissQrPayload: LIMITE REALE — con billing info + procedura alternativa il payload supera la capacità del nostro generatore QR (331 byte)', () => {
+  // Trovato testando con dati veri, non nella specifica SIX: il nostro
+  // generatore QR (src/pay/qr-encode.js) arriva solo a 331 byte (versione
+  // 13, livello M). L'esempio ufficiale 2 arriva a 347 byte — il payload è
+  // corretto (verificato sopra), ma qui deve essere segnalato PRIMA di
+  // tentare di generare un codice che il nostro encoder non può produrre.
+  const r = buildSwissQrPayload(ESEMPIO_2);
+  assert.equal(r.ok, false);
+  assert.ok(r.byteLength > QR_BYTE_CAPACITY_LEVEL_M);
+  assert.ok(r.errori.some((e) => /capacità del generatore QR/.test(e)));
+});
+
+test('buildSwissQrPayload: il caso comune (senza billing info/procedure) resta ampiamente entro la capacità', () => {
+  const r = buildSwissQrPayload(ESEMPIO_1);
+  assert.ok(r.byteLength < QR_BYTE_CAPACITY_LEVEL_M);
+  assert.equal(r.ok, true);
 });
 
 // ESEMPIO UFFICIALE 3 — donazione: nessun importo, nessun debitore, nessun

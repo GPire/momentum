@@ -27,6 +27,16 @@
 
 const CRLF = '\r\n';
 
+// LIMITE REALE TROVATO TESTANDO CON DATI VERI (non nella spec, nel nostro
+// stesso generatore QR): src/pay/qr-encode.js supporta fino alla versione
+// 13 a livello di correzione M — 331 byte di capacità dati. Un payload
+// QR-bill "base" (senza billing info/procedure alternative) sta comodo
+// (~250 byte); CON billing info + procedura alternativa può superarla
+// (verificato: l'esempio ufficiale SIX 2 arriva a 347 byte). Qui si
+// controlla PRIMA di generare, mai un QR troncato o un errore oscuro
+// lanciato dentro il generatore.
+export const QR_BYTE_CAPACITY_LEVEL_M = 331;
+
 // Ordine ESATTO dei 32 campi verificato dalla tabella 8 del documento
 // ufficiale (Header → CdtrInf → UltmtCdtr [7 righe SEMPRE vuote, mai
 // compilate] → CcyAmt → UltmtDbtr → RmtInf → [StrdBkgInf/AltPmtInf solo se usati]).
@@ -121,5 +131,12 @@ export function buildSwissQrPayload(data = {}) {
     for (const p of data.alternativeProcedures.slice(0, 2)) righe.push(n(p).slice(0, 100));
   }
 
-  return { ok: v.ok, errori: v.errori, payload: righe.join(CRLF) };
+  const payload = righe.join(CRLF);
+  const byteLen = new TextEncoder().encode(payload).length;
+  const troppoLungo = byteLen > QR_BYTE_CAPACITY_LEVEL_M;
+  const erroriFinali = troppoLungo
+    ? [...v.errori, `Il payload (${byteLen} byte) supera la capacità del generatore QR (${QR_BYTE_CAPACITY_LEVEL_M} byte a livello M): accorcia billing info, messaggio o nome/indirizzi prima di generare il codice.`]
+    : v.errori;
+
+  return { ok: v.ok && !troppoLungo, errori: erroriFinali, payload, byteLength: byteLen };
 }

@@ -62,6 +62,8 @@ function translateRegionLabel(region) {
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL } from './predict/tax.js';
 import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL } from './predict/tax-ch.js';
+import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
+import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -2917,7 +2919,99 @@ window.openSwissSimulatorResult = (reddito) => {
         <div class="text-[11px] text-emerald-300/90 leading-snug text-left px-1">Se investi in borsa: in Svizzera le plusvalenze sono esenti da imposta per investitori privati (0%, verificato) — <button type="button" onclick="window.closeModal()" class="underline">vedi anche "Il netto vero" negli Investimenti</button>.</div>
       </div>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Stime su aliquote federali pubbliche — l'imposta sul reddito varia molto per Cantone e non è calcolabile con un numero unico: verificala con la tua amministrazione cantonale.</p>
+      <button onclick="window.closeModal(); window.openCreateInvoiceCH();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">Crea una fattura con QR-bill</button>
       <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Rifai il calcolo</button>
+    </div>`);
+};
+
+// FATTURA SVIZZERA CON QR-BILL — colma la lacuna dichiarata: prima "Crea
+// fattura" esisteva solo per la Partita IVA italiana (FatturaPA/SdI, che in
+// Svizzera non esiste). Riusa lo stesso encoder QR già in produzione per i
+// bonifici SEPA (src/pay/qr-encode.js, livello di correzione M — lo stesso
+// richiesto dalla specifica QR-bill) e il payload verificato byte-per-byte
+// contro 3 esempi ufficiali SIX (swiss-qr-bill.js). Il profilo del
+// creditore (i TUOI dati) si chiede una volta sola e si ricorda, stesso
+// schema di VaultDAO.state.invoiceProfile per l'Italia — ma un oggetto
+// separato: i campi non corrispondono (IBAN/QR-IBAN invece di Partita IVA).
+window.openCreateInvoiceCH = () => {
+  const prof = VaultDAO.state.chInvoiceProfile || {};
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Fattura con QR-bill</h3>
+        <p class="card-sub !mb-0 mt-1.5">In Svizzera ogni fattura porta un codice QR di pagamento — lo genero io, tu compili solo i dati.</p>
+      </div>
+      <div class="w-full flex flex-col gap-2.5 text-left">
+        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">I tuoi dati (una volta sola)</div>
+        <input id="ch-inv-iban" type="text" placeholder="Il tuo IBAN o QR-IBAN (CH...)" value="${escapeHtml(prof.iban || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
+        <input id="ch-inv-name" type="text" placeholder="Il tuo nome o ragione sociale" value="${escapeHtml(prof.name || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <div class="grid grid-cols-2 gap-2.5">
+          <input id="ch-inv-street" type="text" placeholder="Via" value="${escapeHtml(prof.street || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-bld" type="text" placeholder="N. civico" value="${escapeHtml(prof.buildingNo || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <input id="ch-inv-cap" type="text" placeholder="CAP" value="${escapeHtml(prof.postalCode || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-city" type="text" placeholder="Città" value="${escapeHtml(prof.town || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        </div>
+        <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mt-1">Il cliente e l'importo</div>
+        <input id="ch-inv-client" type="text" placeholder="Nome del cliente" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <div class="grid grid-cols-2 gap-2.5">
+          <input id="ch-inv-amount" type="number" inputmode="decimal" placeholder="Importo CHF" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
+          <input id="ch-inv-desc" type="text" placeholder="Causale" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        </div>
+      </div>
+      <button id="ch-inv-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Genera QR-bill</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Il codice QR è verificato contro 3 esempi ufficiali SIX Group — funziona con qualunque app bancaria svizzera. Il layout di stampa a norma (misure esatte del bollettino) non è ancora replicato: oggi ottieni il codice corretto da allegare o mostrare, non ancora il modulo stampabile completo.</p>
+    </div>`);
+  document.getElementById('ch-inv-go')?.addEventListener('click', () => {
+    const iban = document.getElementById('ch-inv-iban').value.trim();
+    const name = document.getElementById('ch-inv-name').value.trim();
+    const street = document.getElementById('ch-inv-street').value.trim();
+    const buildingNo = document.getElementById('ch-inv-bld').value.trim();
+    const postalCode = document.getElementById('ch-inv-cap').value.trim();
+    const town = document.getElementById('ch-inv-city').value.trim();
+    const client = document.getElementById('ch-inv-client').value.trim();
+    const amount = parseFloat(String(document.getElementById('ch-inv-amount').value).replace(',', '.'));
+    const desc = document.getElementById('ch-inv-desc').value.trim();
+    if (!iban || !name || !postalCode || !town) { showToast('Compila almeno IBAN, nome, CAP e città.', 'error'); return; }
+    if (!(amount > 0)) { showToast('Inserisci un importo valido.', 'error'); return; }
+    VaultDAO.state.chInvoiceProfile = { iban, name, street, buildingNo, postalCode, town, country: 'CH' };
+    VaultDAO.save();
+    const ibanNorm = iban.replace(/\s/g, '').toUpperCase();
+    const iid = +ibanNorm.slice(4, 9);
+    const isQrIban = Number.isFinite(iid) && iid >= 30000 && iid <= 31999;
+    let referenceType = 'NON', reference = '';
+    if (isQrIban) {
+      const base = String(Date.now()).slice(-10);
+      const gen = generateQrrReference(base);
+      referenceType = 'QRR'; reference = gen.reference;
+    }
+    const r = buildSwissQrPayload({
+      creditor: { iban: ibanNorm, name, street, buildingNo, postalCode, town, country: 'CH' },
+      amount, currency: 'CHF',
+      debtor: client ? { name: client, country: 'CH' } : null,
+      referenceType, reference,
+      unstructuredMessage: desc,
+    });
+    if (!r.ok) { showToast(r.errori[0] || 'Dati non validi per il QR-bill.', 'error'); return; }
+    window.openCreateInvoiceCHResult(r, { name, client, amount, desc, reference, referenceType });
+  });
+};
+
+window.openCreateInvoiceCHResult = (r, meta) => {
+  const svg = qrSvg(r.payload, { moduleSize: 5, quiet: 3 });
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M20 6L9 17l-5-5"/>', '--green')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">QR-bill pronta</h3>
+        <p class="card-sub !mb-0 mt-1.5">${escapeHtml(meta.client || 'Il cliente')} · CHF ${meta.amount.toLocaleString('it-CH')}${meta.desc ? ' · ' + escapeHtml(meta.desc) : ''}</p>
+      </div>
+      <div class="bg-white rounded-xl p-3 inline-block">${svg}</div>
+      ${meta.referenceType === 'QRR' ? `<div class="text-[11px] font-mono text-[var(--on-surface-secondary)]">Riferimento: ${escapeHtml(formatQrrReference(meta.reference))}</div>` : ''}
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Qualunque app bancaria svizzera legge questo codice per pagare — verificato contro il formato ufficiale SIX. Allegalo alla tua fattura o mostralo direttamente al cliente.</p>
+      <button onclick="window.openCreateInvoiceCH()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Crea un'altra fattura</button>
     </div>`);
 };
 
