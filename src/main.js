@@ -2235,13 +2235,24 @@ function renderTaxCashBlocks(proj, regime) {
       __f24State = { deadlines, regime: regime || 'forfettario', annualizedRevenue: proj.annualizedRevenue, invoices, anno };
       html += `<button onclick="window.openF24Precompilato()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Prepara l'F24</button>`;
     }
-    // Opt-in alle notifiche: MAI attivo di default (il permesso del browser
-    // va comunque chiesto un tocco alla volta) — un pulsante discreto, non
-    // un banner che occupa spazio ad ogni apertura una volta accettato.
-    if (deadlines.length) {
-      html += VaultDAO.state.taxNotifyOptIn
-        ? `<div class="flex items-center justify-between gap-2 mt-1.5"><span class="text-[10px] text-emerald-300/90">Ti avviso solo se c'è un motivo vero — anche ad app chiusa di recente.</span><button onclick="window.disableTaxNotifications()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">disattiva</button></div>`
-        : `<button onclick="window.enableTaxNotifications()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Avvisami se rischio di restare scoperto</button>`;
+    // Opt-in alle notifiche: MAI un banner persistente. Comparire ad ogni
+    // apertura anche senza un motivo vero è esattamente il pattern che
+    // genera assuefazione al banner e abbandono — l'errore trovato e
+    // corretto qui. Ora l'invito appare SOLO quando `urgent` è vero (c'è
+    // già un motivo reale sotto gli occhi) e mai più di una volta ogni 14
+    // giorni se l'utente lo ignora, invece di ripetersi ad ogni render.
+    if (VaultDAO.state.taxNotifyOptIn) {
+      html += `<div class="flex items-center justify-between gap-2 mt-1.5"><span class="text-[10px] text-emerald-300/90">Ti avviso solo se c'è un motivo vero — anche ad app chiusa di recente.</span><button onclick="window.disableTaxNotifications()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">disattiva</button></div>`;
+    } else if (urgent) {
+      const oggi = new Date().toISOString().slice(0, 10);
+      const ultimoRifiuto = VaultDAO.state.taxNotifyDismissedAt;
+      const giorniDaRifiuto = ultimoRifiuto ? Math.round((new Date(oggi) - new Date(ultimoRifiuto)) / 86400000) : Infinity;
+      if (giorniDaRifiuto >= 14) {
+        html += `<div class="flex items-center gap-2 mt-1.5">
+          <button onclick="window.enableTaxNotifications()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Avvisami anche se chiudo l'app</button>
+          <button onclick="window.dismissTaxNotifyPrompt()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">non ora</button>
+        </div>`;
+      }
     }
   } catch (e) {
     // Onesto: se un blocco non si può calcolare, il resto della card resta
@@ -4692,6 +4703,13 @@ window.disableTaxNotifications = () => {
   VaultDAO.state.taxNotifyOptIn = false;
   VaultDAO.save();
   showToast('Avvisi disattivati.', 'info');
+  renderAnalysis();
+};
+// "Non ora": rimanda l'invito di 14 giorni invece di ripeterlo ad ogni
+// apertura — l'antidoto esplicito al banner persistente che genera abbandono.
+window.dismissTaxNotifyPrompt = () => {
+  VaultDAO.state.taxNotifyDismissedAt = new Date().toISOString().slice(0, 10);
+  VaultDAO.save();
   renderAnalysis();
 };
 
