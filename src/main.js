@@ -144,6 +144,7 @@ import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
 import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
+import { rankMissingByMonth } from './mesh/sync-priority.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
@@ -10377,7 +10378,18 @@ function initMomentumRealAI() {
     // Il digest porta anche le CANCELLAZIONI, altrimenti l'altro dispositivo
     // non puo' sapere che una spesa e' stata cancellata e continua a rimandarla.
     momentumMeshNode.getSyncDigest = () => computeSyncDigest(VaultDAO.state.transactions, VaultDAO.state.deletedTx || {});
-    momentumMeshNode.getMissingForPeer = (peerDigest) => transactionsMissingFromPeer(VaultDAO.state.transactions, peerDigest, VaultDAO.state.deletedTx || {});
+    // SINCRONIZZAZIONE A PRIORITÀ SEMANTICA (src/mesh/sync-priority.js):
+    // non ordine cronologico, ma PRIMA CIÒ CHE CAMBIA UNA DECISIONE. Le
+    // cancellazioni per prime (costano un id e impediscono di mostrare un
+    // dato già falso), poi i movimenti vicini a oggi, poi gli importi
+    // grandi. Su una connessione instabile due secondi producono comunque
+    // valore invece di niente: se cade a metà, quello che è arrivato è
+    // quello che serviva. La struttura per mese resta identica — nessun
+    // cambio di protocollo, solo un ordine più intelligente dentro.
+    momentumMeshNode.getMissingForPeer = (peerDigest) => rankMissingByMonth(
+      transactionsMissingFromPeer(VaultDAO.state.transactions, peerDigest, VaultDAO.state.deletedTx || {}),
+      { now: Date.now() },
+    );
     momentumMeshNode.onSyncReceived = (txs) => {
       const added = VaultDAO.applySyncMerge(txs);
       if (added > 0) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); showToast(`${added} transazioni sincronizzate da un tuo dispositivo.`, 'success'); }

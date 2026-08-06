@@ -30,7 +30,8 @@
     "bench:cash": "node bench/cash-forecast-bench.mjs",
     "bench:commitments": "node bench/commitment-training-bench.mjs",
     "bench:sectors": "node bench/fetch-sector-history.mjs",
-    "bench:measured": "node bench/generate-measured-assumptions.mjs"
+    "bench:measured": "node bench/generate-measured-assumptions.mjs",
+    "bench:mesh": "node bench/mesh-sync-bench.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",
