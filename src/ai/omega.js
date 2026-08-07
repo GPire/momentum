@@ -16,17 +16,16 @@ import { applicableRules, ground, recall } from '../graph/semantic.js';
 import { buildCausalGraph, explainChain } from '../predict/causal-graph.js';
 import { calibratedEnsemble, expectedCalibrationError } from './calibration.js';
 import { crossDomainWhatIf } from './reasoning-fusion.js';
+import { verifyArithmetic } from '../core/verify-arithmetic.js';
 
 // Self-check: verifica che un numero dichiarato coincida col ricalcolo diretto,
 // entro tolleranza. Il ragionatore "capisce a priori quando rischia di
 // sbagliare": se il conto non torna, la risposta è marcata non affidabile.
-export function verifyArithmetic(claimed, recomputed, tol = 0.01) {
-  if (claimed == null || recomputed == null) return { ok: false, reason: 'valore mancante' };
-  const diff = Math.abs(claimed - recomputed);
-  const scale = Math.max(1, Math.abs(recomputed));
-  const ok = diff / scale <= tol;
-  return { ok, claimed, recomputed, diff: +diff.toFixed(4), reason: ok ? 'coerente' : 'incoerenza aritmetica' };
-}
+// Spostata in core/verify-arithmetic.js: e' pura e senza dipendenze, mentre
+// questo file tira dentro l'intera pila di ragionamento. Importata E
+// ri-esportata: serve qui dentro (perceiveAndClassify la usa) e non deve
+// rompersi per chi la importa gia' da omega.
+export { verifyArithmetic };
 
 export const Omega = {
   // Categorizzazione con auto-verifica dell'astensione: combina gli esperti in

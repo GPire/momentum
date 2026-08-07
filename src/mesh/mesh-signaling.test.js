@@ -325,3 +325,139 @@ test('auto-discovery: onPeerDiscovered avvisa anche prima/senza che la connessio
 
   assert.deepEqual(discovered, { id: 'C', via: 'B' });
 }));
+
+// ── RICONCILIAZIONE IBLT NEL PROTOCOLLO ──
+// Il metodo classico manda l'elenco di TUTTI gli id posseduti; lo sketch ha
+// dimensione fissa. Qui si verifica che il protocollo lo usi davvero, che
+// consegni le transazioni giuste, e — soprattutto — che degradi al digest
+// invece di rompersi quando la riconciliazione non riesce.
+
+function nodiConSketch({ idsA, idsB, reconcileOk = true }) {
+  const { nodeA, nodeB } = twoNodes();
+  const sketchDi = (ids) => ({ cells: `cells:${ids.join(',')}`, m: 12, k: 4 });
+  for (const [nodo, ids] of [[nodeA, idsA], [nodeB, idsB]]) {
+    nodo.getSyncSketch = () => sketchDi(ids);
+    nodo.getSyncDigest = () => ({ ids });
+    nodo.reconcileSketch = (msg) => {
+      if (!reconcileOk) return { success: false };
+      const suoi = String(msg.cells).replace('cells:', '').split(',').filter(Boolean);
+      const mancanti = ids.filter((x) => !suoi.includes(x));
+      const txs = mancanti.length ? { '2026-08': mancanti.map((id) => ({ id })) } : {};
+      return { success: true, txs };
+    };
+    nodo.getMissingForPeer = () => ({ '2026-08': [{ id: 'da-digest' }] });
+  }
+  return { nodeA, nodeB };
+}
+
+test('sync via sketch: il peer riceve ESATTAMENTE le transazioni che gli mancano', () => {
+  const { nodeA, nodeB } = nodiConSketch({ idsA: ['t1', 't2'], idsB: ['t1', 't2', 't3', 't4'] });
+  const ricevuteDaA = [];
+  nodeA.onSyncReceived = (txs) => { ricevuteDaA.push(...(txs['2026-08'] || [])); return txs['2026-08'].length; };
+  nodeA.requestSync('B');
+  assert.deepEqual(ricevuteDaA.map((t) => t.id).sort(), ['t3', 't4'], 'devono arrivare solo le due mancanti');
+});
+
+test('sync via sketch: scambio SIMMETRICO — anche chi ha risposto riceve ciò che gli manca', () => {
+  const { nodeA, nodeB } = nodiConSketch({ idsA: ['t1', 't9'], idsB: ['t1', 't3'] });
+  const aB = [];
+  nodeB.onSyncReceived = (txs) => { aB.push(...(txs['2026-08'] || [])); return 1; };
+  nodeA.requestSync('B');
+  assert.deepEqual(aB.map((t) => t.id), ['t9'], 'B deve ricevere a sua volta, senza una seconda richiesta');
+});
+
+test('sync via sketch: nessun ping-pong infinito (il secondo giro non ne genera un terzo)', () => {
+  const { nodeA, nodeB } = nodiConSketch({ idsA: ['t1'], idsB: ['t2'] });
+  let sketchScambiati = 0;
+  for (const n of [nodeA, nodeB]) {
+    const orig = n.peers.get(n === nodeA ? 'B' : 'A').channel.send;
+    n.peers.get(n === nodeA ? 'B' : 'A').channel.send = (d) => {
+      if (String(d).includes('sync_sketch')) sketchScambiati++;
+      return orig(d);
+    };
+  }
+  nodeA.requestSync('B');
+  assert.ok(sketchScambiati <= 2, `attesi al massimo 2 sketch (andata+risposta), inviati ${sketchScambiati}`);
+});
+
+test('sync via sketch: se la riconciliazione FALLISCE si torna al digest, mai un fallimento silenzioso', () => {
+  const { nodeA, nodeB } = nodiConSketch({ idsA: ['t1'], idsB: ['t2'], reconcileOk: false });
+  const ricevute = [];
+  nodeA.onSyncReceived = (txs) => { ricevute.push(...(txs['2026-08'] || [])); return 1; };
+  nodeA.requestSync('B');
+  assert.deepEqual(ricevute.map((t) => t.id), ['da-digest'], 'deve arrivare comunque il delta, per la via classica');
+});
+
+test('sync: senza getSyncSketch si usa direttamente il digest (retrocompatibile)', () => {
+  const { nodeA, nodeB } = twoNodes();
+  nodeA.getSyncDigest = () => ({ ids: ['x'] });
+  nodeB.getMissingForPeer = () => ({ '2026-08': [{ id: 'classico' }] });
+  const ricevute = [];
+  nodeA.onSyncReceived = (txs) => { ricevute.push(...(txs['2026-08'] || [])); return 1; };
+  nodeA.requestSync('B'); // getSyncSketch è null: percorso classico
+  assert.deepEqual(ricevute.map((t) => t.id), ['classico']);
+});
+
+// ── RICONNESSIONE CON BACKOFF (era implementata ma senza un solo test) ──
+test('riconnessione: alla caduta del canale parte un tentativo programmato', () => {
+  const attese = [];
+  const nodo = new MeshNode('A', fakeMind(), {
+    scheduleFn: (fn, ms) => { attese.push(ms); },
+    randomFn: () => 0.5, // niente jitter casuale nei test
+  });
+  const ch = { readyState: 'open', send() {} };
+  nodo.addDirectPeer('B', null, ch);
+  ch.onclose?.();
+  assert.equal(attese.length, 1, 'una caduta deve programmare esattamente un tentativo');
+  assert.ok(attese[0] > 0);
+});
+
+test('riconnessione: il backoff CRESCE ad ogni tentativo fallito', () => {
+  const attese = [];
+  const nodo = new MeshNode('A', fakeMind(), {
+    scheduleFn: (fn, ms) => { attese.push(ms); },
+    randomFn: () => 0.5,
+    reconnectBaseMs: 100, reconnectMaxMs: 100000, maxReconnectAttempts: 5,
+  });
+  for (let i = 0; i < 4; i++) nodo._scheduleReconnect('B');
+  for (let i = 1; i < attese.length; i++) {
+    assert.ok(attese[i] > attese[i - 1], `il tentativo ${i + 1} deve attendere più del precedente`);
+  }
+});
+
+test('riconnessione: una singola caduta smette di insistere dopo il limite (niente batteria sprecata)', () => {
+  // Si simula la catena VERA: ogni tentativo programmato viene eseguito, e
+  // se non trova un relay ne programma un altro. Deve fermarsi da sola.
+  const nodo = new MeshNode('A', fakeMind(), {
+    scheduleFn: (fn) => { code.push(fn); },
+    randomFn: () => 0.5,
+    maxReconnectAttempts: 3,
+  });
+  const code = [];
+  nodo._scheduleReconnect('B');
+  let eseguiti = 0;
+  while (code.length && eseguiti < 50) { code.shift()(); eseguiti++; } // niente relay: si ri-programma
+  assert.equal(eseguiti, 3, `la catena deve fermarsi a 3 tentativi, ne ha fatti ${eseguiti}`);
+});
+
+test('riconnessione: una NUOVA caduta riparte con tentativi freschi (il limite è per episodio)', () => {
+  const attese = [];
+  const nodo = new MeshNode('A', fakeMind(), {
+    scheduleFn: (fn, ms) => { attese.push(ms); }, randomFn: () => 0.5, maxReconnectAttempts: 2,
+  });
+  nodo._scheduleReconnect('B'); nodo._scheduleReconnect('B'); // episodio 1: 2 tentativi
+  nodo._scheduleReconnect('B'); // supera il limite: azzera, non programma
+  const dopoPrimoEpisodio = attese.length;
+  nodo._scheduleReconnect('B'); // episodio 2: deve ripartire
+  assert.equal(dopoPrimoEpisodio, 2);
+  assert.equal(attese.length, 3, 'un peer che torna e ricade merita nuovi tentativi');
+});
+
+test('riconnessione: disattivabile (reconnect:false) — nessun tentativo automatico', () => {
+  const attese = [];
+  const nodo = new MeshNode('A', fakeMind(), {
+    scheduleFn: (fn, ms) => { attese.push(ms); }, reconnect: false,
+  });
+  nodo._scheduleReconnect('B');
+  assert.equal(attese.length, 0);
+});

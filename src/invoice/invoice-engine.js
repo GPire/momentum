@@ -12,6 +12,8 @@
 // Funzioni pure, nessun DOM, nessuna rete.
 'use strict';
 
+import { verifyMoney, verifySum } from '../core/verify-arithmetic.js';
+
 import { invoiceCountry } from './country-invoicing.js';
 
 // Marca da bollo 2€ obbligatoria sulle fatture SENZA IVA (es. forfettario)
@@ -70,9 +72,21 @@ export function computeInvoice({ imponibile, regime = 'forfettario', ivaPct, rit
   const note = isForfettario
     ? 'Operazione in regime forfettario (art. 1, commi 54-89, L. 190/2014): non soggetta a IVA né a ritenuta d\'acconto.'
     : null;
+  // VERIFICA ARITMETICA INDIPENDENTE (core/verify-arithmetic.js): il totale
+  // mostrato deve coincidere con la somma delle RIGHE che l'utente vede. Non
+  // è la formula che controlla sé stessa — è il numero grande confrontato con
+  // la scomposizione stampata sotto. Se divergono, chi guarda sta leggendo un
+  // totale che non corrisponde al dettaglio, ed è il tipo di errore che
+  // finisce su una fattura vera mandata a un cliente vero.
+  const verifica = {
+    totale: verifySum(totaleFattura, righe.filter((r) => r.importo > 0).map((r) => r.importo)),
+    netto: verifyMoney(nettoARicevere, round2(totaleFattura - ritenutaImporto)),
+  };
+  verifica.ok = verifica.totale.ok && verifica.netto.ok;
+
   return {
     imponibile: round2(base), cassaImporto, ivaImporto, ritenutaImporto, bolloImporto,
-    totaleFattura, nettoARicevere, righe, regime, note,
+    totaleFattura, nettoARicevere, righe, regime, note, verifica,
   };
 }
 

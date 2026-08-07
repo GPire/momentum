@@ -247,3 +247,34 @@ test('detectRecurringClients: flag ESPLICITO recurring vale già dalla PRIMA fat
   assert.equal(c.dueThisMonth, true);
   assert.equal(c.typicalAmount, 800);
 });
+
+// ── VERIFICA ARITMETICA SUL TOTALE MOSTRATO ──
+test('computeInvoice: il totale coincide sempre con la somma delle righe mostrate', () => {
+  for (const caso of [
+    { imponibile: 1000, regime: 'forfettario', country: 'IT' },
+    { imponibile: 1000, regime: 'ordinario', country: 'IT' },
+    { imponibile: 5000, regime: 'ordinario', ritenutaPct: 0.20, cassaPct: 0.04, country: 'IT' },
+    { imponibile: 50, regime: 'forfettario', country: 'IT' },
+    { imponibile: 99999.99, regime: 'ordinario', country: 'IT' },
+  ]) {
+    const inv = computeInvoice(caso);
+    assert.equal(inv.verifica.ok, true,
+      `totale non verificato per ${JSON.stringify(caso)}: ${JSON.stringify(inv.verifica)}`);
+  }
+});
+
+test('computeInvoice: la verifica SI ACCORGE se il totale non tornasse (controllo del controllo)', async () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'ordinario', country: 'IT' });
+  // Si sporca il totale come farebbe un errore reale, e si ri-verifica con
+  // la stessa funzione usata in produzione: se non se ne accorgesse, il
+  // controllo sarebbe decorativo.
+  const { verifySum } = await import('../core/verify-arithmetic.js');
+  const sporcato = verifySum(inv.totaleFattura + 7, inv.righe.filter(r => r.importo > 0).map(r => r.importo));
+  assert.equal(sporcato.ok, false, 'un totale sbagliato di 7 euro DEVE essere intercettato');
+});
+
+test('computeInvoice: netto a ricevere = totale meno ritenuta, verificato', () => {
+  const inv = computeInvoice({ imponibile: 2000, regime: 'ordinario', ritenutaPct: 0.20, country: 'IT' });
+  assert.equal(inv.verifica.netto.ok, true);
+  assert.equal(inv.nettoARicevere, +(inv.totaleFattura - inv.ritenutaImporto).toFixed(2));
+});

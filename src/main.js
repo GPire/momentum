@@ -145,6 +145,7 @@ import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
 import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
 import { rankMissingByMonth } from './mesh/sync-priority.js';
+import { buildSketch, serializeCells, recommendedSize, reconcile } from './mesh/iblt.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
@@ -10466,6 +10467,41 @@ function initMomentumRealAI() {
     // valore invece di niente: se cade a metà, quello che è arrivato è
     // quello che serviva. La struttura per mese resta identica — nessun
     // cambio di protocollo, solo un ordine più intelligente dentro.
+    // RICONCILIAZIONE IBLT: si manda uno sketch di dimensione fissa invece
+    // dell'elenco di tutti gli id. Misurato (npm run bench:mesh): con 10.000
+    // transazioni e 3 differenze si passa da 169.299 a 477 byte. Il digest
+    // cresce con lo storico, lo sketch no — è la differenza tra una
+    // sincronizzazione che peggiora invecchiando e una che non lo fa.
+    const idsLocali = () => Object.values(VaultDAO.state.transactions || {})
+      .flat().map((t) => String(t.id)).filter(Boolean);
+    momentumMeshNode.getSyncSketch = () => {
+      try {
+        const ids = idsLocali();
+        if (!ids.length) return null;
+        // Dimensionato sulle differenze ATTESE tra due dispositivi dello
+        // stesso utente (poche): se sono molte la riconciliazione fallisce e
+        // il protocollo torna da solo al digest classico.
+        const s = buildSketch(ids, { m: recommendedSize(12) });
+        return { cells: serializeCells(s), m: s.m, k: s.k };
+      } catch (e) { console.warn('Sketch non costruito:', e); return null; }
+    };
+    momentumMeshNode.reconcileSketch = (msg) => {
+      try {
+        const ids = idsLocali();
+        const mio = buildSketch(ids, { m: msg.m, k: msg.k });
+        const r = reconcile(mio, msg.cells);
+        if (!r.success) return { success: false };
+        // `peerIsMissing` sono id MIEI che l'altro non ha: posso nominarli.
+        const mancanti = new Set(r.peerIsMissing.map(String));
+        const perMese = {};
+        for (const [mese, lista] of Object.entries(VaultDAO.state.transactions || {})) {
+          const sel = (lista || []).filter((t) => mancanti.has(String(t.id)));
+          if (sel.length) perMese[mese] = sel;
+        }
+        // Anche qui l'ordine è per impatto sulla decisione, non cronologico.
+        return { success: true, txs: rankMissingByMonth(perMese, { now: Date.now() }) };
+      } catch (e) { console.warn('Riconciliazione fallita, si usa il digest:', e); return { success: false }; }
+    };
     momentumMeshNode.getMissingForPeer = (peerDigest) => rankMissingByMonth(
       transactionsMissingFromPeer(VaultDAO.state.transactions, peerDigest, VaultDAO.state.deletedTx || {}),
       { now: Date.now() },
