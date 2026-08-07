@@ -248,6 +248,7 @@ class MeshNode {
     this.onMorphologyReceived = null;  // callback opzionale (nodeId, model) => {} — federazione tipi esercente
     this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
     this.onKnowledgeReceived = null;   // callback opzionale (nodeId, payload) => {} — staffetta dati pubblici verificati
+    this.onDeviceHello = null;         // callback opzionale (nodeId, publicKey) => {} — device-trust.js
     this.runComputeUnits = null;       // (workloadId, units) => results — esegue lavoro PER un peer
     this.onBundlesReceived = null;     // (peerId, bundles) => {} — pacchetti cifrati a staffetta
     this.onComputeResult = null;       // (peerId, workloadId, results) => {} — risultati di ritorno
@@ -396,6 +397,14 @@ class MeshNode {
         // mai fidarsi dell'etichetta del mittente) e' del ricevente: qui si
         // consegna soltanto, esattamente come per il lessico.
         this.onKnowledgeReceived?.(peerId, msg.payload);
+      } else if (msg.type === 'device_hello') {
+        // FIDUCIA (device-trust.js): la scoperta di rete non prova CHI SEI.
+        // Qui arriva solo una chiave pubblica dichiarata — la prova vera (le
+        // tre parole, calcolate in locale da entrambe le chiavi) è del
+        // ricevente, non di questo trasporto. Un canale gia' aperto non è
+        // di per sé una prova d'identità: chiunque condivida la stessa rete
+        // avrebbe potuto arrivare fin qui.
+        this.onDeviceHello?.(peerId, msg.publicKey);
       }
     };
     channel.onclose = () => {
@@ -771,6 +780,17 @@ class MeshNode {
       if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
     }
     return inviati;
+  }
+
+  // Manda la propria chiave pubblica di firma a UN peer specifico (mai in
+  // broadcast: la fiducia è per coppia di dispositivi, non per la mesh
+  // intera). Chi riceve NON deve fidarsene da sola — è solo il primo passo
+  // di un aggancio che l'utente conferma guardando le tre parole.
+  sendDeviceHello(peerId, publicKey) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel?.readyState !== 'open' || !publicKey) return false;
+    entry.channel.send(JSON.stringify({ type: 'device_hello', publicKey }));
+    return true;
   }
 
   getMeshStats() {

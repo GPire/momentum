@@ -149,6 +149,8 @@ import { buildSketch, serializeCells, recommendedSize, reconcile } from './mesh/
 import { assertShareable } from './mesh/compute-market.js';
 import { acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.js';
 import { loadOrCreateExchangeIdentity, openSealedAny, statoIdentita } from './mesh/exchange-identity.js';
+import { loadOrCreateDeviceIdentity } from './mesh/device-signing-identity.js';
+import { verificationWords, addTrustedDevice, isTrustedKey } from './mesh/device-trust.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
@@ -8777,10 +8779,17 @@ function offerToSendP2PAnswer(answerCode, groupName) {
 // portatore non puo' leggere. È così che un dato arriva a chi in questo
 // momento non è online, senza che esista da nessuna parte un server che lo
 // conserva — e quindi senza che esista qualcosa da leggere o sequestrare.
-let __scambioIdentita = null;
+// BUG PREESISTENTE trovato per analogia mentre si correggeva la stessa
+// forma su identitaFirma() (vedi sotto per la scoperta dal vivo): con più
+// peer connessi quasi insieme, `for (const pid of ...) scambiaStaffetta(pid)`
+// chiama questa funzione più volte senza aspettare la precedente — cacheare
+// il RISULTATO invece della PROMISE lascia una finestra in cui due chiamate
+// concorrenti generano due identità di scambio diverse sullo stesso
+// dispositivo. Stesso rimedio: si cachea la promise.
+let __scambioIdentitaPromise = null;
 
-async function identitaScambio() {
-  if (__scambioIdentita) return __scambioIdentita;
+function identitaScambio() {
+  if (__scambioIdentitaPromise) return __scambioIdentitaPromise;
   // La chiave PRIVATA resta non esportabile — i suoi byte non sono leggibili
   // da nessun codice, nemmeno il nostro — ma ora SOPRAVVIVE alla chiusura
   // dell'app, conservata come oggetto CryptoKey in IndexedDB. Prima si
@@ -8789,10 +8798,76 @@ async function identitaScambio() {
   // quella chiave muore il pacchetto resta sigillato per sempre. Con tre
   // aperture al giorno la probabilita' di consegna era ~5%.
   // Vedi exchange-identity.js per la misura completa e il ripiego dichiarato.
-  __scambioIdentita = await loadOrCreateExchangeIdentity();
-  VaultDAO.state.exchangePublicKey = __scambioIdentita.publicKey;
-  VaultDAO.state.exchangeKeyPersistente = __scambioIdentita.persistente;
-  return __scambioIdentita;
+  __scambioIdentitaPromise = loadOrCreateExchangeIdentity().then((id) => {
+    VaultDAO.state.exchangePublicKey = id.publicKey;
+    VaultDAO.state.exchangeKeyPersistente = id.persistente;
+    return id;
+  });
+  return __scambioIdentitaPromise;
+}
+
+// Identità di FIRMA (device-trust.js), separata da quella di scambio: serve
+// a dimostrare "sono lo stesso dispositivo di prima", non a mettersi
+// d'accordo su un segreto. Stesso motivo di persistenza già spiegato sopra:
+// senza sopravvivere al riavvio, nessun dispositivo fidato resterebbe tale.
+// BUG REALE trovato dal vivo (due schede, tre parole diverse su ciascun
+// lato — nessun attaccante, solo una corsa nel proprio codice): questa
+// funzione veniva chiamata due volte quasi in contemporanea — una da
+// onPeerConnected per MANDARE la chiave, una da gestisciDeviceHello per
+// CALCOLARE le parole appena arriva quella del peer. Cacheare il
+// RISULTATO non basta: finché la prima await non è tornata, la cache è
+// ancora vuota, quindi la seconda chiamata genera una SECONDA identità in
+// parallelo. Ogni chiamata ritorna la PROPRIA coppia di chiavi appena
+// generata: quella che perde la corsa di scrittura sul deposito è comunque
+// già stata restituita e usata da un pezzo di codice diverso da quella che
+// vince — due chiavi diverse sullo stesso dispositivo, nello stesso istante.
+// Si cachea la PROMISE, non il valore: chiamate concorrenti condividono la
+// stessa attesa invece di avviarne una a testa.
+let __firmaIdentitaPromise = null;
+function identitaFirma() {
+  if (!__firmaIdentitaPromise) __firmaIdentitaPromise = loadOrCreateDeviceIdentity();
+  return __firmaIdentitaPromise;
+}
+
+// Un aggancio già confermato con le tre parole non deve richiederle di
+// nuovo ad ogni riconnessione nella stessa sessione — solo la PRIMA volta
+// che si vede quella chiave pubblica in questa finestra dell'app.
+const __proposteFiduciaMostrate = new Set();
+
+// Quando un peer manda la sua chiave (device_hello): se è già fidato non si
+// disturba l'utente con niente; altrimenti si calcolano le tre parole e si
+// chiede UNA conferma umana — l'unico gesto che distingue "il mio secondo
+// telefono" da "il telefono di uno sconosciuto sulla stessa rete".
+async function gestisciDeviceHello(peerId, publicKeyAltrui) {
+  if (!publicKeyAltrui) return;
+  const fidati = VaultDAO.state.trustedDevices || [];
+  if (isTrustedKey(fidati, publicKeyAltrui)) return; // già confermato in passato, nulla da chiedere
+  if (__proposteFiduciaMostrate.has(publicKeyAltrui)) return; // già proposto in questa sessione
+  __proposteFiduciaMostrate.add(publicKeyAltrui);
+  const mia = await identitaFirma();
+  const parole = await verificationWords(mia.publicKey, publicKeyAltrui);
+  window.confermaFiduciaDispositivo = (conferma) => {
+    if (conferma) {
+      VaultDAO.state.trustedDevices = addTrustedDevice(VaultDAO.state.trustedDevices || [], { publicKey: publicKeyAltrui, label: 'Dispositivo collegato', now: Date.now() });
+      VaultDAO.save();
+      showToast('Dispositivo riconosciuto: non ti verrà più chiesto.', 'success');
+    }
+    closeModal();
+    delete window.confermaFiduciaDispositivo;
+  };
+  openModal(`
+    <div class="p-5 space-y-4 text-center">
+      <h3 class="text-lg font-bold">Sono le stesse tre parole sull'altro schermo?</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">Guardale anche sull'altro dispositivo: se coincidono, il collegamento è sicuro. Se sono diverse, qualcun altro potrebbe essersi messo in mezzo — non confermare.</p>
+      <div class="flex justify-center gap-3 py-2">
+        ${parole.map((p) => `<span class="px-3 py-2 rounded-xl bg-black/30 border border-[var(--glass-border)] font-mono text-base font-bold">${escapeHtml(p)}</span>`).join('')}
+      </div>
+      <div class="flex gap-2">
+        <button onclick="window.confermaFiduciaDispositivo(false)" class="btn-action flex-1 text-xs opacity-70">Sono diverse</button>
+        <button onclick="window.confermaFiduciaDispositivo(true)" class="btn-action flex-1 text-xs">Sì, sono uguali</button>
+      </div>
+    </div>
+  `);
 }
 
 function saccoStaffetta() {
@@ -10790,6 +10865,12 @@ function initMomentumRealAI() {
       if (VaultDAO.state.sharedLearningOptIn) shareLexiconIfAllowed();
       // Staffetta: a ogni incontro si scambiano i pacchetti in transito.
       for (const pid of momentumMeshNode.peers.keys()) scambiaStaffetta(pid);
+      // FIDUCIA (device-trust.js): la propria chiave di firma viaggia ad
+      // ogni nuovo collegamento diretto — mai una prova da sola, solo il
+      // materiale con cui l'altro lato potrà calcolare le tre parole.
+      identitaFirma().then((mia) => {
+        for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.sendDeviceHello(pid, mia.publicKey);
+      });
       // Se questo dispositivo ha già raggiunto una fonte macro, la passa
       // subito al nuovo arrivato — non deve aspettare il prossimo suo fetch.
       if (__macroContextCache) {
@@ -10823,6 +10904,9 @@ function initMomentumRealAI() {
           }
         }
       } catch (e) { console.warn('Staffetta della conoscenza non elaborata:', e); }
+    };
+    momentumMeshNode.onDeviceHello = (peerId, publicKey) => {
+      gestisciDeviceHello(peerId, publicKey).catch((e) => console.warn('Verifica dispositivo non riuscita:', e));
     };
     // Ricezione dei pacchetti a staffetta: si apre cio' che è per noi, si
     // porta avanti il resto — senza poterlo leggere, e entro i limiti che
