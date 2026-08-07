@@ -45,8 +45,22 @@ import { STUN_POOL } from './nat-probe.js';
 // condivisibile a voce, per QR, o via qualunque canale (AirDrop,
 // messaggio, ecc.) — mai attraverso un server.
 // ─────────────────────────────────────────────────────────────
+// Prefisso del formato COMPATTO (sdp-codec.js): non si comprime l'SDP, si
+// manda solo cio' che varia e si ricostruisce il resto da un modello.
+// Misurato su un SDP vero di Chrome: 720 caratteri -> 95. La differenza tra
+// un codice che si incolla in una chat e uno che fa esitare.
+const COMPACT_PREFIX = 'S1.';
+
 const PairingCodec = {
   async encode(sdpObject) {
+    // Prima si tenta il formato compatto. Se per qualche motivo l'SDP non e'
+    // riducibile (campi mancanti, forma inattesa), si ripiega su quello
+    // storico invece di fallire: un invito lungo funziona, un invito assente no.
+    try {
+      const { packSdp } = await import('./sdp-codec.js');
+      return COMPACT_PREFIX + packSdp(sdpObject.sdp);
+    } catch (_) { /* si continua col formato storico */ }
+
     const json = JSON.stringify(sdpObject);
     if (typeof CompressionStream !== 'undefined') {
       const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
@@ -57,8 +71,19 @@ const PairingCodec = {
     return this._toBase64Url(new TextEncoder().encode(json));
   },
 
-  async decode(code) {
-    const bytes = this._fromBase64Url(code);
+  // `tipo` serve solo al formato compatto, che non porta con se' l'etichetta
+  // offer/answer: la conosce gia' chi sta decodificando, dal punto del flusso
+  // in cui si trova. Un byte risparmiato su un codice cosi' corto conta.
+  async decode(code, tipo = 'offer') {
+    const testo = String(code || '').trim();
+    if (testo.startsWith(COMPACT_PREFIX)) {
+      const { unpackSdp } = await import('./sdp-codec.js');
+      return { type: tipo, sdp: unpackSdp(testo.slice(COMPACT_PREFIX.length), tipo) };
+    }
+    // RETROCOMPATIBILITA': i codici generati prima devono continuare a
+    // funzionare. Un utente che ha salvato un invito in una chat non deve
+    // scoprire che non vale piu' perche' abbiamo cambiato formato.
+    const bytes = this._fromBase64Url(testo);
     if (typeof DecompressionStream !== 'undefined') {
       try {
         const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
@@ -112,7 +137,7 @@ class PairingSignaling {
 
   // Dispositivo A: dopo che B ha condiviso la sua risposta, la applica
   async acceptAnswer(answerCode) {
-    const data = await PairingCodec.decode(answerCode);
+    const data = await PairingCodec.decode(answerCode, 'answer');
     await this.pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
     return this._waitChannelOpen();
   }
@@ -125,7 +150,7 @@ class PairingSignaling {
       onDataChannel(e.channel);
     };
 
-    const data = await PairingCodec.decode(inviteCode);
+    const data = await PairingCodec.decode(inviteCode, 'offer');
     await this.pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
 
     const answer = await this.pc.createAnswer();
