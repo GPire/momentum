@@ -461,3 +461,86 @@ test('riconnessione: disattivabile (reconnect:false) — nessun tentativo automa
   nodo._scheduleReconnect('B');
   assert.equal(attese.length, 0);
 });
+
+// ── CRESCITA A N DISPOSITIVI: il gossip trova i nuovi da solo ──
+// La domanda vera non è "due dispositivi si collegano?", ma "il terzo, il
+// quarto, il decimo arrivano senza che l'utente rifaccia il QR ogni volta?".
+// Qui si verifica proprio quello, con i canali finti già usati sopra.
+
+test('gossip: chi si collega a UNO viene annunciato a TUTTI gli altri', () => {
+  const { nodeA, nodeB } = twoNodes();               // A ↔ B
+  const [chB2, chC] = linkedChannels();
+  const nodeC = new MeshNode('C', fakeMind(), { autoDiscovery: false });
+  const scoperti = [];
+  nodeA.onPeerDiscovered = (id) => scoperti.push(id);
+  nodeC.addDirectPeer('B', null, chC);
+  nodeB.addDirectPeer('C', null, chB2);              // C entra passando da B
+  assert.ok(nodeA.knownPeerIds.has('C'), 'A deve venire a sapere di C senza averlo mai incontrato');
+  assert.deepEqual(scoperti, ['C']);
+});
+
+test('gossip: la conoscenza si propaga a CATENA (A non è mai stato vicino a D)', () => {
+  const { nodeA, nodeB } = twoNodes();
+  const [chB2, chC] = linkedChannels();
+  const nodeC = new MeshNode('C', fakeMind(), { autoDiscovery: false });
+  nodeC.addDirectPeer('B', null, chC);
+  nodeB.addDirectPeer('C', null, chB2);
+  const [chC2, chD] = linkedChannels();
+  const nodeD = new MeshNode('D', fakeMind(), { autoDiscovery: false });
+  nodeD.addDirectPeer('C', null, chD);
+  nodeC.addDirectPeer('D', null, chC2);              // D entra passando da C
+  assert.ok(nodeA.knownPeerIds.has('D'), 'A deve conoscere D pur essendo a due salti di distanza');
+});
+
+test('gossip: il tetto alle connessioni dirette protegge i dispositivi deboli', () => {
+  // Oltre maxAutoPeers non si aprono altre connessioni punto-a-punto: si
+  // resta raggiungibili via relay. Magliare tutto sarebbe insostenibile per
+  // un telefono con dieci dispositivi in rete.
+  const nodo = new MeshNode('A', fakeMind(), { maxAutoPeers: 2 });
+  assert.equal(nodo.maxAutoPeers, 2);
+  const [ch1] = linkedChannels(); const [ch2] = linkedChannels(); const [ch3] = linkedChannels();
+  nodo.addDirectPeer('B', null, ch1);
+  nodo.addDirectPeer('C', null, ch2);
+  nodo._handlePeerList('B', ['Z']);                  // scoperto con il tetto già raggiunto
+  assert.ok(nodo.knownPeerIds.has('Z'), 'lo si conosce comunque (raggiungibile via relay)');
+  assert.ok(!nodo.pendingOutbound.has('Z'), 'ma non si apre una terza connessione diretta');
+});
+
+test('gossip: un nodo non tenta MAI di collegarsi a sé stesso', () => {
+  // Il proprio id STA in knownPeerIds di proposito (serve a non ri-scoprirsi):
+  // la garanzia che conta è che non parta un tentativo di connessione verso
+  // sé stessi, che sarebbe un cortocircuito.
+  const nodo = new MeshNode('A', fakeMind());
+  nodo._handlePeerList('B', ['A', 'B']);
+  assert.ok(!nodo.pendingOutbound.has('A'), 'un auto-collegamento sarebbe un cortocircuito');
+});
+
+// ── CALCOLO CONDIVISO: il cancello su cosa si può distribuire ──
+test('calcolo condiviso: chi ESEGUE rifiuta i carichi non distribuibili, non si fida di chi chiede', async () => {
+  const { nodeA, nodeB } = twoNodes();
+  const eseguiti = [];
+  nodeB.runComputeUnits = (workloadId, units) => {
+    // stessa logica del cancello lato esecutore
+    if (workloadId === 'previsione-cassa') return null; // input = movimenti dell'utente
+    eseguiti.push(workloadId);
+    return { 0: 42 };
+  };
+  const ricevuti = [];
+  nodeA.onComputeResult = (peerId, workloadId, results) => ricevuti.push({ workloadId, results });
+  nodeA.sendComputeUnits('B', 'previsione-cassa', [{ index: 0, seed: 1 }]);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(eseguiti, [], 'un carico sui dati personali non deve essere eseguito nemmeno se richiesto');
+  assert.deepEqual(ricevuti, [], 'e non deve tornare alcun risultato');
+});
+
+test('calcolo condiviso: un carico a input pubblico viene eseguito e i risultati tornano', async () => {
+  const { nodeA, nodeB } = twoNodes();
+  nodeB.runComputeUnits = (workloadId, units) => Object.fromEntries(units.map((u) => [u.index, u.seed * 2]));
+  const ricevuti = [];
+  nodeA.onComputeResult = (peerId, workloadId, results) => ricevuti.push({ peerId, workloadId, results });
+  nodeA.sendComputeUnits('B', 'montecarlo-strategie', [{ index: 0, seed: 21 }, { index: 1, seed: 50 }]);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(ricevuti.length, 1);
+  assert.equal(ricevuti[0].workloadId, 'montecarlo-strategie');
+  assert.deepEqual(ricevuti[0].results, { 0: 42, 1: 100 });
+});

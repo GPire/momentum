@@ -218,6 +218,8 @@ class MeshNode {
     this.onSplitGroupsReceived = null; // callback opzionale (nodeId, groups) => {} — sync LIVE gruppi divisione
     this.onMorphologyReceived = null;  // callback opzionale (nodeId, model) => {} — federazione tipi esercente
     this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
+    this.runComputeUnits = null;       // (workloadId, units) => results — esegue lavoro PER un peer
+    this.onComputeResult = null;       // (peerId, workloadId, results) => {} — risultati di ritorno
   }
 
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
@@ -310,6 +312,18 @@ class MeshNode {
         // dati grezzi). Il merge anti-poisoning (mergeMorphology, cap per token)
         // è del ricevente: qui si consegna soltanto, come per reliability_share.
         this.onMorphologyReceived?.(peerId, msg.model);
+      } else if (msg.type === 'compute_request') {
+        // CALCOLO CONDIVISO (compute-market.js): un peer chiede di eseguire
+        // alcune unità di lavoro. Il cancello su COSA è distribuibile sta dal
+        // lato di chi chiede (assertShareable), ma chi esegue non si fida:
+        // ricontrolla che il carico sia tra quelli ammessi prima di muovere
+        // un dito. Un peer compromesso non deve poter far calcolare al mio
+        // dispositivo qualcosa che tocchi dati altrui.
+        this._handleComputeRequest(peerId, msg);
+      } else if (msg.type === 'compute_result') {
+        // Risultati di ritorno: la verifica (unità calcolate in doppio,
+        // confronto per hash) è di chi ha chiesto — qui si consegna soltanto.
+        this.onComputeResult?.(peerId, msg.workloadId, msg.results);
       } else if (msg.type === 'lexicon_share') {
         // APPRENDIMENTO CONDIVISO SENZA CONDIVIDERE DATI
         // (src/mesh/federated-distillation.js). Qui NON passano né pesi né
@@ -452,11 +466,20 @@ class MeshNode {
     this.onGradientReceived?.(peerId, { accepted: true, trainedExamples: merged.trainedExamples });
   }
 
+  // DIFFUSIONE EPIDEMICA: chi impara qualcosa di NUOVO lo ridice ai propri
+  // vicini. Senza questo la conoscenza si fermava a un salto — in una catena
+  // A—B—C—D il nodo A non veniva mai a sapere di D, e la mesh restava una
+  // somma di isolotti invece di una rete. Termina da sola: un nodo ri-annuncia
+  // solo quando il proprio insieme di conosciuti CRESCE, e quell'insieme è
+  // monotono e limitato dal numero di dispositivi. Niente tempeste di
+  // messaggi, nessun contatore da mantenere.
   _handlePeerList(fromPeerId, peerIds) {
+    let imparatoQualcosa = false;
     for (const id of peerIds) {
       if (id === this.nodeId) continue;
       if (!this.knownPeerIds.has(id)) {
         this.knownPeerIds.add(id);
+        imparatoQualcosa = true;
         this.onPeerDiscovered?.(id, fromPeerId);
         // AUTO-DISCOVERY (il pezzo prima mancante, dichiarato onestamente
         // nel commento originale): proviamo una connessione DIRETTA con
@@ -470,6 +493,9 @@ class MeshNode {
         }
       }
     }
+    // Ho imparato nomi nuovi: li passo ai miei vicini, cosi' la conoscenza
+    // attraversa la catena invece di fermarsi qui.
+    if (imparatoQualcosa) this._broadcastPeerList();
   }
 
   // Avvia una connessione RELAYED verso `targetId`, un nodo scoperto via
@@ -598,6 +624,30 @@ class MeshNode {
   // (federated-distillation.js: buildLexiconDigest). Il chiamante decide SE
   // chiamarla — e' opt-in esplicito, mai automatica: qui la mesh non ha
   // opinioni sul consenso, si limita a trasportare cio' che le viene dato.
+  // Manda a UN peer le unità che gli sono state assegnate. Non si trasmette
+  // mai un "carico" generico: solo un id di workload noto e dei semi
+  // numerici, da cui il ricevente ricostruisce il lavoro in modo
+  // deterministico. Nessun dato dell'utente viaggia, per costruzione.
+  sendComputeUnits(peerId, workloadId, units) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel?.readyState !== 'open') return false;
+    entry.channel.send(JSON.stringify({ type: 'compute_request', workloadId, units }));
+    return true;
+  }
+
+  _handleComputeRequest(peerId, msg) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel?.readyState !== 'open') return;
+    if (!this.runComputeUnits) return; // questo dispositivo non offre calcolo
+    Promise.resolve()
+      .then(() => this.runComputeUnits(msg.workloadId, msg.units || []))
+      .then((results) => {
+        if (!results) return;
+        entry.channel.send(JSON.stringify({ type: 'compute_result', workloadId: msg.workloadId, results }));
+      })
+      .catch((e) => console.warn('Calcolo per un peer non riuscito:', e));
+  }
+
   shareLexicon(digest) {
     if (!digest || !Array.isArray(digest.entries) || !digest.entries.length) return 0;
     const msg = JSON.stringify({ type: 'lexicon_share', digest });

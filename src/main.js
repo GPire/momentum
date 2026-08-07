@@ -146,6 +146,7 @@ import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
 import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
 import { rankMissingByMonth } from './mesh/sync-priority.js';
 import { buildSketch, serializeCells, recommendedSize, reconcile } from './mesh/iblt.js';
+import { assertShareable } from './mesh/compute-market.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
@@ -8722,6 +8723,51 @@ function offerToSendP2PAnswer(answerCode, groupName) {
   $('#p2p-skip')?.addEventListener('click', () => closeModal());
 }
 
+// ── CALCOLO CONDIVISO TRA DISPOSITIVI (src/mesh/compute-market.js) ──
+// Un telefono in carica, un tablet sul tavolo e il portatile di un amico
+// sono insieme molta più potenza di quella che ha in mano l'utente. Qui la
+// si usa per i calcoli pesanti — ma solo per i carichi il cui input è
+// PUBBLICO (rendimenti di mercato, serie storiche): mai sui dati personali,
+// e il cancello (assertShareable) viene prima di tutto il resto.
+//
+// I carichi sono DETERMINISTICI: dallo stesso seme esce lo stesso numero,
+// bit per bit. È questo che rende possibile verificare chi calcola per te,
+// invece di doverti fidare.
+const COMPUTE_WORKLOADS = {
+  // Un cammino Monte Carlo su rendimenti di mercato: input pubblico, output
+  // un singolo numero. Generatore congruenziale seminato dall'unità: due
+  // dispositivi che ricevono lo stesso seme DEVONO produrre lo stesso valore,
+  // ed è esattamente ciò che il controllo incrociato verifica.
+  'montecarlo-strategie': ({ seed }, { mu = 0.05, sigma = 0.15, anni = 10 } = {}) => {
+    let s = seed >>> 0;
+    const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
+    let valore = 1;
+    for (let a = 0; a < anni; a++) {
+      // Box-Muller: da uniforme a normale, deterministico dato il seme
+      const u1 = Math.max(1e-12, rnd()), u2 = rnd();
+      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      valore *= 1 + mu + sigma * z;
+    }
+    return +valore.toFixed(6);
+  },
+};
+
+// Esegue le unità che un peer ci ha assegnato. Ricontrolla il cancello: chi
+// esegue non si fida di chi chiede.
+function runComputeUnitsLocally(workloadId, units) {
+  try {
+    assertShareable(workloadId); // lancia se non distribuibile: si rifiuta e basta
+  } catch (e) {
+    console.warn('Richiesta di calcolo rifiutata:', e.message);
+    return null;
+  }
+  const fn = COMPUTE_WORKLOADS[workloadId];
+  if (!fn) return null;
+  const out = {};
+  for (const u of units || []) out[u.index] = fn(u);
+  return out;
+}
+
 // ── APPRENDIMENTO CONDIVISO (src/mesh/federated-distillation.js) ──
 // Il problema del settore: quasi tutti dicono "condividiamo i pesi del
 // modello, non i dati". NON è privacy: dai gradienti si possono
@@ -10474,6 +10520,9 @@ function initMomentumRealAI() {
     // sincronizzazione che peggiora invecchiando e una che non lo fa.
     const idsLocali = () => Object.values(VaultDAO.state.transactions || {})
       .flat().map((t) => String(t.id)).filter(Boolean);
+    // Calcolo condiviso: questo dispositivo accetta di lavorare per i peer
+    // (solo carichi a input pubblico — il cancello è dentro la funzione).
+    momentumMeshNode.runComputeUnits = runComputeUnitsLocally;
     momentumMeshNode.getSyncSketch = () => {
       try {
         const ids = idsLocali();
