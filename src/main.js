@@ -147,6 +147,7 @@ import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
 import { rankMissingByMonth, scoreForSync } from './mesh/sync-priority.js';
 import { buildSketch, serializeCells, recommendedSize, reconcile } from './mesh/iblt.js';
 import { assertShareable } from './mesh/compute-market.js';
+import { generateExchangeIdentity, openSealed, acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
@@ -8723,6 +8724,44 @@ function offerToSendP2PAnswer(answerCode, groupName) {
   $('#p2p-skip')?.addEventListener('click', () => closeModal());
 }
 
+// ── TRASPORTO A STAFFETTA (src/mesh/store-forward.js) ──
+// Rende reale il pezzo che prima esisteva solo nei test: i dispositivi si
+// passano davvero pacchetti cifrati destinati a QUALCUN ALTRO, che il
+// portatore non puo' leggere. È così che un dato arriva a chi in questo
+// momento non è online, senza che esista da nessuna parte un server che lo
+// conserva — e quindi senza che esista qualcosa da leggere o sequestrare.
+let __scambioIdentita = null;
+
+async function identitaScambio() {
+  if (__scambioIdentita) return __scambioIdentita;
+  // La chiave PRIVATA non è esportabile e vive solo in memoria: si rigenera
+  // ad ogni avvio, mentre la PUBBLICA viene ricordata per essere
+  // riconoscibile. Onestà: questo significa che i pacchetti indirizzati a
+  // una chiave vecchia non si aprono più dopo un riavvio — è il prezzo di
+  // non salvare mai una chiave privata su disco, e va detto.
+  __scambioIdentita = await generateExchangeIdentity();
+  VaultDAO.state.exchangePublicKey = __scambioIdentita.publicKey;
+  return __scambioIdentita;
+}
+
+function saccoStaffetta() {
+  return pruneExpired(VaultDAO.state.carryBag || []);
+}
+
+// A ogni incontro: consegno cio' che è per lui, e accetto cio' che porta.
+async function scambiaStaffetta(peerId) {
+  try {
+    if (!momentumMeshNode) return;
+    const sacco = saccoStaffetta();
+    if (!sacco.length) return;
+    // Non so quale sia la chiave del peer finché non me la dice: gli passo
+    // tutto cio' che ha ancora vita davanti, e sarà lui a tenere solo cio'
+    // che riguarda lui o che accetta di portare avanti. Non è uno spreco:
+    // sono pacchetti che nessuno dei due puo' leggere.
+    momentumMeshNode.sendBundles(peerId, sacco.slice(0, MAX_CARRIED));
+  } catch (e) { console.warn('Scambio a staffetta non riuscito:', e); }
+}
+
 // ── SYNC LIVE: la spesa appena inserita arriva SUBITO sull'altro schermo ──
 // Difetto trovato: requestSync veniva chiamato SOLO alla connessione. Una
 // spesa aggiunta mentre i due dispositivi erano già collegati non partiva:
@@ -10649,6 +10688,27 @@ function initMomentumRealAI() {
       // k-anonima (un negozio visto da un solo dispositivo non esce MAI):
       // vedi window.openSharedLearning per il consenso e l'anteprima.
       if (VaultDAO.state.sharedLearningOptIn) shareLexiconIfAllowed();
+      // Staffetta: a ogni incontro si scambiano i pacchetti in transito.
+      for (const pid of momentumMeshNode.peers.keys()) scambiaStaffetta(pid);
+    };
+    // Ricezione dei pacchetti a staffetta: si apre cio' che è per noi, si
+    // porta avanti il resto — senza poterlo leggere, e entro i limiti che
+    // decidiamo noi (capienza e scadenza), così un peer non puo' usarci come
+    // deposito infinito.
+    momentumMeshNode.onBundlesReceived = async (peerId, bundles) => {
+      try {
+        const mio = await identitaScambio();
+        let sacco = saccoStaffetta();
+        let aperti = 0;
+        for (const b of bundles || []) {
+          const contenuto = await openSealed(mio, b);
+          if (contenuto) { aperti++; continue; }        // era per me: consumato
+          sacco = acceptForCarry(sacco, b);              // non per me: lo porto avanti
+        }
+        VaultDAO.state.carryBag = sacco;
+        VaultDAO.save();
+        if (aperti > 0) showToast(`${aperti} aggiornament${aperti > 1 ? 'i' : 'o'} arrivat${aperti > 1 ? 'i' : 'o'} da un altro dispositivo.`, 'success');
+      } catch (e) { console.warn('Pacchetti a staffetta non elaborati:', e); }
     };
     // Ricezione del lessico condiviso: si accetta solo cio' che almeno DUE
     // dispositivi indipendenti hanno visto uguale (voto di maggioranza in

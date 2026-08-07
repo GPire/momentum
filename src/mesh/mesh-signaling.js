@@ -244,6 +244,7 @@ class MeshNode {
     this.onMorphologyReceived = null;  // callback opzionale (nodeId, model) => {} — federazione tipi esercente
     this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
     this.runComputeUnits = null;       // (workloadId, units) => results — esegue lavoro PER un peer
+    this.onBundlesReceived = null;     // (peerId, bundles) => {} — pacchetti cifrati a staffetta
     this.onComputeResult = null;       // (peerId, workloadId, results) => {} — risultati di ritorno
   }
 
@@ -337,6 +338,13 @@ class MeshNode {
         // dati grezzi). Il merge anti-poisoning (mergeMorphology, cap per token)
         // è del ricevente: qui si consegna soltanto, come per reliability_share.
         this.onMorphologyReceived?.(peerId, msg.model);
+      } else if (msg.type === 'bundle_carry') {
+        // TRASPORTO A STAFFETTA (store-forward.js): il peer ci passa dei
+        // pacchetti cifrati. Alcuni possono essere PER NOI (li apriremo),
+        // altri no — e quelli li porteremo avanti senza poterli leggere.
+        // La decisione su cosa accettare e quanto e' del ricevente: qui si
+        // consegna soltanto, come per ogni altro messaggio di questa mesh.
+        this.onBundlesReceived?.(peerId, msg.bundles || []);
       } else if (msg.type === 'compute_request') {
         // CALCOLO CONDIVISO (compute-market.js): un peer chiede di eseguire
         // alcune unità di lavoro. Il cancello su COSA è distribuibile sta dal
@@ -662,6 +670,17 @@ class MeshNode {
       if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
     }
     return inviati;
+  }
+
+  // Consegna a un peer i pacchetti cifrati che lo riguardano o che puo'
+  // portare avanti. Chi manda non sa cosa contengono piu' di chi riceve: sono
+  // cifrati per il loro destinatario finale, e basta.
+  sendBundles(peerId, bundles) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel?.readyState !== 'open') return 0;
+    if (!Array.isArray(bundles) || !bundles.length) return 0;
+    entry.channel.send(JSON.stringify({ type: 'bundle_carry', bundles }));
+    return bundles.length;
   }
 
   // Manda a UN peer le unità che gli sono state assegnate. Non si trasmette
