@@ -163,6 +163,8 @@ Trust is built by what a project admits, not by what it claims.
 - The Swiss QR-bill produces a **correct, scannable code**, not yet the fully compliant printable payment slip layout.
 - Below CHF 60,500 the Swiss AHV uses a sliding scale that isn't a simple public formula — Momentum shows the verified minimum and links the official calculator instead of inventing a number.
 - **Not tax advice.** Estimates on public rates, each carrying its verification date.
+- **Some AI modules are research, not production.** `src/ai/omega.js`, `neurosym.js`, `expert-adapter.js`, `executive.js` and `nb-categorizer.js` are written and tested but **no production code path executes them** — the live classification path is `orchestrator.js` + `expert-bandit.js` + `trained-categorizer` + `hashed-logreg`. We say this here rather than let the file count imply otherwise: a tested module nobody runs is not a feature.
+- **Automatic tax-rule updates need a reachable source.** Verified live: the Agenzia delle Entrate and Normattiva block cross-origin requests, so a browser cannot read them, and turning legal text into rates automatically would be exactly the kind of invented number this project forbids. Rules are verified by hand and published as a signed-validated JSON file the app fetches on its own.
 
 ## Non-negotiable principles
 

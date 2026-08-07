@@ -11,6 +11,7 @@ import { fuseSignals } from './signal-fusion.js';
 import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay } from '../graph/dcgn.js';
 import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
 import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
+import { initCalibrationState, recordExpertOutcome, calibrationGate, recordAbstention } from './calibration-gate.js';
 import { initMerchantHierarchy, observeMerchant, predictMerchant } from './merchant-hierarchy.js';
 import { initMorphology, observeMorphology, predictMorphology } from './merchant-morphology.js';
 
@@ -117,6 +118,29 @@ class MomentumOrchestrator {
             this.vault.state.mlData.expertBandit, { context: ctx, source: model, correct }
           );
         }
+        // CALIBRAZIONE (src/ai/calibration-gate.js): stesso segnale, domanda
+        // diversa. Il bandit sopra impara QUANTE VOLTE questo esperto
+        // indovina; qui si impara se la SICUREZZA che dichiarava valeva
+        // qualcosa. Un esperto accurato ma spavaldo e' piu' pericoloso di uno
+        // meno accurato che sa di non sapere, perche' la sua sicurezza viene
+        // creduta — e qui si parla di soldi.
+        const confDichiarata = this._lastVote.byConfidence?.[model];
+        if (Number.isFinite(confDichiarata)) {
+          this.vault.state.mlData.calibrazione = recordExpertOutcome(
+            this.vault.state.mlData.calibrazione || initCalibrationState(), model, confDichiarata, correct
+          );
+        }
+      }
+      // L'ASTENSIONE, misurata invece che dichiarata: quando ha taciuto,
+      // aveva ragione a tacere? Cioe' la risposta che avrebbe dato era
+      // davvero sbagliata? Senza questa seconda misura non c'e' modo di
+      // sapere se la soglia di astensione e' giusta, alta o bassa — e
+      // l'astensione resta pigrizia travestita da prudenza.
+      if (this._lastVote.abstained) {
+        this.vault.state.mlData.calibrazione = recordAbstention(
+          this.vault.state.mlData.calibrazione || initCalibrationState(),
+          { astenuto: true, ipotesiMigliore: this._lastVote.ipotesiMigliore, categoriaVera: catId }
+        );
       }
       this._lastVote = null;
     }
@@ -309,15 +333,26 @@ class MomentumOrchestrator {
     // IDENTICO alla v3 finché non ci sono osservazioni in quel contesto.
     const _tier = (typeof window !== 'undefined' && window.momentumDeviceProfile?.tier) || 'medio';
     const expertContexts = {};
+    const calState = this.vault.state.mlData.calibrazione;
     for (const c of candidates) {
       c.weight *= 0.5 + this._measuredReliability(c.source, c.category);
       const ctx = expertContext(c.category, description, _tier);
       expertContexts[c.source] = ctx;
       c.weight *= expertWeightFactor(this.vault.state.mlData.expertBandit, ctx, c.source);
+      // IL CANCELLO DI CALIBRAZIONE. `expectedCalibrationError` esisteva da
+      // tempo in calibration.js e non aveva mai filtrato NESSUNA previsione:
+      // era importata solo da moduli orfani. Qui diventa quello che doveva
+      // essere — un cancello, non una metrica da test.
+      // A freddo il fattore e' 1 (neutro): comportamento identico a prima
+      // finche' non ci sono abbastanza esiti per giudicare.
+      c.weight *= calibrationGate(calState, c.source).fattore;
     }
     this._lastVote = {
       description,
       byModel: Object.fromEntries(candidates.map(c => [c.source, c.category])),
+      // La sicurezza DICHIARATA da ciascuno, che e' quella su cui si misura
+      // la calibrazione quando arrivera' la conferma dell'utente.
+      byConfidence: Object.fromEntries(candidates.map(c => [c.source, c.confidence])),
       expertContexts,
     };
 
@@ -357,6 +392,11 @@ class MomentumOrchestrator {
     // Soglie dichiarate; nessuna astensione se i modelli concordano.
     const ABSTAIN_CONFIDENCE = 55; // sotto → non abbastanza sicuri
     const abstain = !agree && confidence < ABSTAIN_CONFIDENCE;
+    // Si annota QUI l'astensione e l'ipotesi che si sarebbe data, perché è
+    // l'unico momento in cui si conoscono entrambe. Alla conferma dell'utente
+    // si potrà finalmente rispondere alla domanda che nessuno si faceva:
+    // "aveva ragione a tacere?".
+    if (this._lastVote) { this._lastVote.abstained = abstain; this._lastVote.ipotesiMigliore = bestCategory; }
 
     return {
       cat: bestCategory,
