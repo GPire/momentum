@@ -145,6 +145,7 @@ import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
 import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
 import { rankMissingByMonth } from './mesh/sync-priority.js';
+import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
@@ -8720,6 +8721,64 @@ function offerToSendP2PAnswer(answerCode, groupName) {
   $('#p2p-skip')?.addEventListener('click', () => closeModal());
 }
 
+// ── APPRENDIMENTO CONDIVISO (src/mesh/federated-distillation.js) ──
+// Il problema del settore: quasi tutti dicono "condividiamo i pesi del
+// modello, non i dati". NON è privacy: dai gradienti si possono
+// ricostruire gli esempi di addestramento. Qui non escono né pesi né
+// gradienti — esce solo un LESSICO (parola → categoria) già filtrato con
+// soglia k-anonima, dove un nome visto da un solo dispositivo non esce mai.
+// Opt-in esplicito, spento di default, e prima di accendere si mostrano LE
+// RIGHE VERE che uscirebbero: una descrizione rassicurante non basta.
+function lexiconPool() {
+  return VaultDAO.state.mlData?.lexiconPool || initLexiconPool();
+}
+function shareLexiconIfAllowed() {
+  try {
+    if (!VaultDAO.state.sharedLearningOptIn || !momentumMeshNode) return 0;
+    const digest = buildLexiconDigest(lexiconPool(), { k: DEFAULT_K_ANONYMITY });
+    return momentumMeshNode.shareLexicon(digest);
+  } catch (e) { console.warn('Condivisione lessico non riuscita:', e); return 0; }
+}
+window.openSharedLearning = () => {
+  const pool = lexiconPool();
+  const uscirebbero = eligibleLexicon(pool, { k: DEFAULT_K_ANONYMITY });
+  const trattenuti = heldBackLexicon(pool, { k: DEFAULT_K_ANONYMITY });
+  const attivo = !!VaultDAO.state.sharedLearningOptIn;
+  const righe = uscirebbero.slice(0, 10)
+    .map((e) => `<div class="flex items-center justify-between gap-2 text-[11px] py-1 border-b border-[var(--glass-border)]"><span class="font-mono truncate">${escapeHtml(e.token)}</span><span class="text-[var(--on-surface-secondary)] shrink-0">${escapeHtml(e.category)}</span></div>`)
+    .join('');
+  openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/>', '--primary')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Far crescere l'intelligenza insieme</h3>
+        <p class="card-sub !mb-0 mt-1.5">I tuoi dispositivi possono insegnarsi a vicenda a riconoscere i negozi. Non escono spese, importi né date: solo "questa parola è di questa categoria".</p>
+      </div>
+      <div class="w-full text-left">
+        <div class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)] mb-1.5">Esattamente questo uscirebbe (${uscirebbero.length} voci)</div>
+        <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2 max-h-44 overflow-y-auto">
+          ${righe || '<p class="text-[11px] text-[var(--on-surface-secondary)] py-2">Ancora niente: servono più dispositivi che vedano lo stesso negozio prima che una voce diventi condivisibile.</p>'}
+        </div>
+        ${trattenuti.length ? `<p class="text-[10px] text-emerald-300/90 mt-2 leading-snug">${trattenuti.length} voci restano ferme qui: le ha viste un solo dispositivo, e da sole potrebbero identificarti. Non escono mai.</p>` : ''}
+      </div>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Nessun peso e nessun gradiente lascia il dispositivo — da quelli si potrebbero ricostruire i tuoi dati, ed è il motivo per cui non li usiamo. Quello che ricevi viene accettato solo se almeno due dispositivi indipendenti concordano, e non sovrascrive mai una tua correzione.</p>
+      ${attivo
+        ? `<button onclick="window.setSharedLearning(false)" class="btn-action w-full py-3 font-bold rounded-xl">Disattiva</button>`
+        : `<button onclick="window.setSharedLearning(true)" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Attiva l'apprendimento condiviso</button>`}
+    </div>`);
+};
+window.setSharedLearning = (on) => {
+  VaultDAO.state.sharedLearningOptIn = !!on;
+  VaultDAO.save();
+  if (on) {
+    const n = shareLexiconIfAllowed();
+    showToast(n > 0 ? `Attivo — condiviso con ${n} dispositivo${n > 1 ? 'i' : ''}.` : 'Attivo: condividerò al prossimo collegamento.', 'success');
+  } else {
+    showToast('Disattivato: da adesso non esce più nulla.', 'info');
+  }
+  window.openSharedLearning();
+};
+
 window.openMeshPairing = () => {
   openModal(`
     <div class="p-4 space-y-4">
@@ -10368,6 +10427,27 @@ function initMomentumRealAI() {
     window.momentumOrchestrator = momentumOrchestrator;
     console.log('Momentum Real AI orchestrator pronto (NeuralNexus + Nano in ensemble).');
 
+    // Il lessico condivisibile si alimenta da OGNI categorizzazione, ovunque
+    // avvenga: intercettando learn() una volta sola invece di toccare i sei
+    // punti che la chiamano — così non se ne dimentica uno domani.
+    // Attenzione: qui si registra SEMPRE nel serbatoio locale (serve a far
+    // maturare la soglia k-anonima), ma NIENTE esce finché l'utente non
+    // accende l'apprendimento condiviso. Registrare non è condividere.
+    const learnOriginale = momentumOrchestrator.learn.bind(momentumOrchestrator);
+    momentumOrchestrator.learn = (description, category, amount, date) => {
+      try {
+        const token = String(description || '').trim().toLowerCase().split(/\s+/)[0];
+        if (token && category) {
+          VaultDAO.state.mlData = VaultDAO.state.mlData || {};
+          VaultDAO.state.mlData.lexiconPool = observeLexicon(
+            VaultDAO.state.mlData.lexiconPool || initLexiconPool(),
+            { token, category, deviceId: VaultDAO.state.deviceId || 'local' },
+          );
+        }
+      } catch (_) { /* mai bloccare l'apprendimento vero per il lessico */ }
+      return learnOriginale(description, category, amount, date);
+    };
+
     // Mente condivisa: MeshNode collegato al VERO stato NeuralNexus tramite
     // l'adapter (prima sincronizzava il motore standalone, una copia morta).
     // learn() dell'orchestratore chiama già mesh.broadcastLearning() — quindi
@@ -10406,6 +10486,32 @@ function initMomentumRealAI() {
       // un dispositivo nuovo eredita subito la categorizzazione dei negozi locali.
       const mm = VaultDAO.state.mlData?.merchantMorphology;
       if (mm && Object.keys(mm.tokens || {}).length) momentumMeshNode.shareMorphology(mm);
+      // APPRENDIMENTO CONDIVISO — solo se l'utente lo ha acceso, mai per
+      // impostazione predefinita. Esce un lessico gia' filtrato con soglia
+      // k-anonima (un negozio visto da un solo dispositivo non esce MAI):
+      // vedi window.openSharedLearning per il consenso e l'anteprima.
+      if (VaultDAO.state.sharedLearningOptIn) shareLexiconIfAllowed();
+    };
+    // Ricezione del lessico condiviso: si accetta solo cio' che almeno DUE
+    // dispositivi indipendenti hanno visto uguale (voto di maggioranza in
+    // mergeLexiconDigests). Un peer solo, anche malevolo, non sposta nulla.
+    momentumMeshNode.onLexiconReceived = (peerId, digest) => {
+      try {
+        if (!VaultDAO.state.sharedLearningOptIn) return; // chi non partecipa non riceve
+        const pending = (VaultDAO.state.mlData?.lexiconInbox || []).filter((x) => x.peerId !== peerId);
+        pending.push({ peerId, digest });
+        VaultDAO.state.mlData = VaultDAO.state.mlData || {};
+        VaultDAO.state.mlData.lexiconInbox = pending.slice(-8); // finestra breve
+        const { accettati } = mergeLexiconDigests(pending, { minVoti: 2 });
+        if (accettati.length) {
+          const learned = VaultDAO.state.mlData.learnedCategories || {};
+          for (const { token, category } of accettati) {
+            if (!learned[token]) learned[token] = category; // mai sovrascrivere una TUA correzione
+          }
+          VaultDAO.state.mlData.learnedCategories = learned;
+        }
+        VaultDAO.save();
+      } catch (e) { console.warn('Lessico condiviso non applicato:', e); }
     };
     // Ricezione federata dei tipi esercente: merge anti-poisoning (cap per token)
     // sul modello locale. Zero dati grezzi ricevuti — solo parole-tipo+categorie.

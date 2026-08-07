@@ -213,6 +213,7 @@ class MeshNode {
     this.onReliabilityReceived = null; // callback opzionale (nodeId, digest) => {} (Wave 15 v10)
     this.onSplitGroupsReceived = null; // callback opzionale (nodeId, groups) => {} — sync LIVE gruppi divisione
     this.onMorphologyReceived = null;  // callback opzionale (nodeId, model) => {} — federazione tipi esercente
+    this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
   }
 
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
@@ -293,6 +294,17 @@ class MeshNode {
         // dati grezzi). Il merge anti-poisoning (mergeMorphology, cap per token)
         // è del ricevente: qui si consegna soltanto, come per reliability_share.
         this.onMorphologyReceived?.(peerId, msg.model);
+      } else if (msg.type === 'lexicon_share') {
+        // APPRENDIMENTO CONDIVISO SENZA CONDIVIDERE DATI
+        // (src/mesh/federated-distillation.js). Qui NON passano né pesi né
+        // gradienti — da quelli si possono ricostruire gli esempi di
+        // addestramento, ed è il punto in cui quasi tutto il settore bara.
+        // Passa solo un lessico gia' filtrato dal mittente con soglia
+        // k-anonima: un esercente visto da un solo dispositivo — che
+        // identificherebbe una persona — non esce mai, per costruzione.
+        // Il merge (voto di maggioranza tra peer indipendenti) e' del
+        // ricevente: qui si consegna soltanto.
+        this.onLexiconReceived?.(peerId, msg.digest);
       }
     };
     channel.onclose = () => {
@@ -513,6 +525,20 @@ class MeshNode {
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') entry.channel.send(msg);
     }
+  }
+
+  // Condivide il LESSICO gia' filtrato con soglia k-anonima
+  // (federated-distillation.js: buildLexiconDigest). Il chiamante decide SE
+  // chiamarla — e' opt-in esplicito, mai automatica: qui la mesh non ha
+  // opinioni sul consenso, si limita a trasportare cio' che le viene dato.
+  shareLexicon(digest) {
+    if (!digest || !Array.isArray(digest.entries) || !digest.entries.length) return 0;
+    const msg = JSON.stringify({ type: 'lexicon_share', digest });
+    let inviati = 0;
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
+    }
+    return inviati;
   }
 
   getMeshStats() {
