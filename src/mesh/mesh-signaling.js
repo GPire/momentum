@@ -247,6 +247,7 @@ class MeshNode {
     this.onSplitGroupsReceived = null; // callback opzionale (nodeId, groups) => {} — sync LIVE gruppi divisione
     this.onMorphologyReceived = null;  // callback opzionale (nodeId, model) => {} — federazione tipi esercente
     this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
+    this.onKnowledgeReceived = null;   // callback opzionale (nodeId, payload) => {} — staffetta dati pubblici verificati
     this.runComputeUnits = null;       // (workloadId, units) => results — esegue lavoro PER un peer
     this.onBundlesReceived = null;     // (peerId, bundles) => {} — pacchetti cifrati a staffetta
     this.onComputeResult = null;       // (peerId, workloadId, results) => {} — risultati di ritorno
@@ -387,6 +388,14 @@ class MeshNode {
         // Il merge (voto di maggioranza tra peer indipendenti) e' del
         // ricevente: qui si consegna soltanto.
         this.onLexiconReceived?.(peerId, msg.digest);
+      } else if (msg.type === 'knowledge_share') {
+        // STAFFETTA DELLA CONOSCENZA (src/mesh/knowledge-relay.js). Qui passano
+        // SOLO dati pubblici già verificati da chi li manda (serie di mercato,
+        // tassi macro) — mai un dato legato a una transazione o a una persona.
+        // Il cancello anti-avvelenamento (plausibilità ricontrollata in locale,
+        // mai fidarsi dell'etichetta del mittente) e' del ricevente: qui si
+        // consegna soltanto, esattamente come per il lessico.
+        this.onKnowledgeReceived?.(peerId, msg.payload);
       }
     };
     channel.onclose = () => {
@@ -743,6 +752,20 @@ class MeshNode {
   shareLexicon(digest) {
     if (!digest || !Array.isArray(digest.entries) || !digest.entries.length) return 0;
     const msg = JSON.stringify({ type: 'lexicon_share', digest });
+    let inviati = 0;
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
+    }
+    return inviati;
+  }
+
+  // Manda un pacchetto già impacchettato da `packForRelay` (knowledge-relay.js)
+  // a tutti i peer diretti. Broadcast semplice, come shareLexicon: il costo
+  // per la privacy è già stato deciso a monte (solo dati eleggibili
+  // all'addestramento, mai dati personali) — qui non c'è altro da decidere.
+  shareKnowledge(payload) {
+    if (!payload || payload.v !== 1) return 0;
+    const msg = JSON.stringify({ type: 'knowledge_share', payload });
     let inviati = 0;
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }

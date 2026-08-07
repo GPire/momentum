@@ -6886,17 +6886,56 @@ async function ensureMacroContext(weeks) {
   if (__macroContextCache || __macroContextFetchInCorso) return __macroContextCache;
   __macroContextFetchInCorso = true;
   try {
-    const { series, affidabile } = await fetchMacroSeries({ fetchImpl: fetch.bind(window) }); // default: BCE, verificato dal vivo
-    if (!affidabile || !series.length) return null;
-    const allineato = alignMacroToWeeks(series, { weeks, referenceDate: new Date() });
-    if (allineato.copertura < 0.3) return null; // troppo pochi punti reali: meglio niente che un contesto inaffidabile
-    __macroContextCache = { ...allineato, label: 'il tasso di riferimento BCE/BIS' };
-    return __macroContextCache;
+    const r = await fetchMacroSeries({ fetchImpl: fetch.bind(window) }); // default: BCE, verificato dal vivo
+    if (r.affidabile && r.series.length) {
+      const allineato = alignMacroToWeeks(r.series, { weeks, referenceDate: new Date() });
+      if (allineato.copertura >= 0.3) {
+        __macroContextCache = { ...allineato, label: 'il tasso di riferimento BCE/BIS' };
+        // Raggiunta la fonte davvero: lo si mette a disposizione della mesh
+        // per chi non ci riesce (firewall, rete mobile che blocca l'API, in
+        // quel momento la fonte è in rate-limit). Riusa knowledge-relay.js,
+        // che ricontrolla la plausibilità in locale invece di fidarsi
+        // dell'etichetta — chi riceve non deve fidarsi di noi sulla parola.
+        shareMacroKnowledge(r);
+        return __macroContextCache;
+      }
+    }
   } catch (_) {
-    return null; // onesto: senza rete, l'app continua con la diagnosi anonima di sempre
+    // onesto: senza rete si prova comunque con quanto la mesh ha già portato
   } finally {
     __macroContextFetchInCorso = false;
   }
+  // Non siamo riusciti a raggiungere la fonte da soli: proviamo con quanto
+  // un altro dispositivo della mesh ha già raccolto e verificato. È il
+  // punto vero di questa funzionalità — non risparmiare un fetch, ma
+  // funzionare per chi altrimenti resterebbe senza contesto macro del
+  // tutto (rete che blocca le API di FRED/BCE ma non la mesh P2P stessa).
+  const dallaMesh = await macroKnowledgeFromMesh(weeks);
+  if (dallaMesh) __macroContextCache = dallaMesh;
+  return __macroContextCache;
+}
+
+// ── Staffetta della conoscenza macro (knowledge-relay.js) ──
+// VaultDAO.state.knowledgeRelay: store additivo, mai personale — solo serie
+// pubbliche già verificate. Vedi knowledge-relay.js per il perché di ogni
+// scelta di fiducia; qui c'è solo il collegamento ai punti reali dell'app.
+function shareMacroKnowledge(rawFetchResult) {
+  if (!momentumMeshNode?.shareKnowledge) return;
+  import('./mesh/knowledge-relay.js').then(({ packForRelay }) => {
+    const pkg = packForRelay(rawFetchResult, { symbol: rawFetchResult.symbol, kind: rawFetchResult.kind });
+    if (pkg) momentumMeshNode.shareKnowledge(pkg);
+  }).catch(() => {});
+}
+
+async function macroKnowledgeFromMesh(weeks) {
+  const store = VaultDAO.state.knowledgeRelay;
+  if (!store) return null;
+  const { bestKnown } = await import('./mesh/knowledge-relay.js');
+  const best = bestKnown(store, 'FM/D.U2.EUR.4F.KR.MRR_FR.LEV', 'macro') || bestKnown(store, 'WS_CBPOL', 'macro');
+  if (!best || !best.trainingEligible || !best.prices?.length) return null;
+  const allineato = alignMacroToWeeks(best.prices, { weeks, referenceDate: new Date() });
+  if (allineato.copertura < 0.3) return null;
+  return { ...allineato, label: 'il tasso di riferimento BCE/BIS (da un altro tuo dispositivo)' };
 }
 
 async function renderCausalGraphViz() {
@@ -8660,6 +8699,13 @@ function renderSavingsGoals() {
 // Da lì il canale è diretto e cifrato, e i pesi neurali viaggiano da soli.
 // ==========================================
 let _meshPairing = null;
+// Ultima classificazione NAT nota (da runMeshNetDiagnosis), tenuta qui per
+// poterla usare quando un canale diretto si apre davvero (onPeerConnected):
+// senza questo, l'esito reale non avrebbe alcun contesto con cui imparare.
+// Puo' essere vecchia di qualche minuto se l'utente ha aspettato prima di
+// collegarsi: non e' un problema, la rete cambia raramente in quella scala
+// di tempo, ed e' comunque piu' informativo di nessun contesto.
+let __ultimaNatDiagnosi = null;
 
 function meshAdoptChannel(pc, channel) {
   const attach = () => momentumMeshNode.addDirectPeer('peer-' + Date.now(), pc, channel);
@@ -8988,6 +9034,7 @@ async function runMeshNetDiagnosis() {
       learningModel: VaultDAO.state.channelLearning,
       reteTipo: tipoRete(),
     });
+    __ultimaNatDiagnosi = { nat, reteTipo: tipoRete() };
     const diretto = advice.prefer === 'direct';
     // Neurocolori coerenti col resto dell'app: verde = via libera,
     // ambra = momento consapevole (c'è un piano B pronto). Mai rosso: la
@@ -10707,6 +10754,27 @@ function initMomentumRealAI() {
     momentumMeshNode.onPeerConnected = () => {
       renderMeshStatus();
       showToast('Dispositivo collegato: dati e AI ora si sincronizzano.', 'success');
+      // IL PASSO CHE MANCAVA (channel-learning.js): fino ad oggi il sistema
+      // leggeva un prior corretto ma nessun punto del codice registrava un
+      // esito VERO. Questo e' l'unico punto che tutti e tre i modi di aprire
+      // un canale diretto attraversano — invito manuale, auto-discovery via
+      // gossip, riconnessione — perche' tutti finiscono in addDirectPeer,
+      // che chiama onPeerConnected. Un solo hook, tre percorsi coperti.
+      // Si registra solo il SUCCESSO (mai un fallimento come evento negativo:
+      // e' la scelta di disegno gia' dichiarata in channel-learning.js — un
+      // contesto dove 'diretto' non compare mai resta basso per costruzione,
+      // senza bisogno di eventi negativi che nessuno saprebbe attribuire con
+      // certezza a "la rete non va" invece che "l'utente ha cambiato idea").
+      if (VaultDAO.state.channelLearning && __ultimaNatDiagnosi) {
+        import('./mesh/channel-learning.js').then(({ recordOutcome }) => {
+          recordOutcome(VaultDAO.state.channelLearning, {
+            reteTipo: __ultimaNatDiagnosi.reteTipo,
+            miaNat: __ultimaNatDiagnosi.nat,
+            canale: 'diretto',
+          });
+          VaultDAO.save();
+        }).catch(() => {}); // l'apprendimento e' un miglioramento, mai un blocco alla connessione
+      }
       // sync automatico al pairing: scambio simmetrico dei soli delta
       for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.requestSync(pid);
       // e i gruppi di divisione già esistenti, per allinearli subito.
@@ -10722,6 +10790,39 @@ function initMomentumRealAI() {
       if (VaultDAO.state.sharedLearningOptIn) shareLexiconIfAllowed();
       // Staffetta: a ogni incontro si scambiano i pacchetti in transito.
       for (const pid of momentumMeshNode.peers.keys()) scambiaStaffetta(pid);
+      // Se questo dispositivo ha già raggiunto una fonte macro, la passa
+      // subito al nuovo arrivato — non deve aspettare il prossimo suo fetch.
+      if (__macroContextCache) {
+        import('./mesh/knowledge-relay.js').then(({ packForRelay }) => {
+          const store = VaultDAO.state.knowledgeRelay;
+          const raw = store && (store['macro:FM/D.U2.EUR.4F.KR.MRR_FR.LEV'] || store['macro:WS_CBPOL']);
+          if (raw) momentumMeshNode.shareKnowledge(packForRelay({ ...raw, verified: raw.trainingEligible ? 'confirmed' : 'single-source' }, { symbol: raw.symbol, kind: raw.kind }));
+        }).catch(() => {});
+      }
+    };
+    // Ricezione della staffetta della conoscenza: SOLO dati pubblici, MAI
+    // legati a una transazione o a una persona (vedi knowledge-relay.js per
+    // il perché). Il cancello anti-avvelenamento è tutto lì — qui si
+    // consegna il pacchetto e si salva il verdetto, nient'altro.
+    momentumMeshNode.onKnowledgeReceived = async (peerId, payload) => {
+      try {
+        const { receiveRelayed } = await import('./mesh/knowledge-relay.js');
+        const store = VaultDAO.state.knowledgeRelay || {};
+        const r = receiveRelayed(store, payload, peerId, { now: Date.now(), ledger: VaultDAO.state.updateLedger || [] });
+        if (r.accepted) {
+          VaultDAO.state.knowledgeRelay = store;
+          if (r.ledger) VaultDAO.state.updateLedger = r.ledger;
+          VaultDAO.save();
+          if (r.affidabile && payload.kind === 'macro' && !__macroContextCache) {
+            // Un contesto macro affidabile è appena arrivato e non ne
+            // avevamo uno nostro: si aggiorna la card che lo usa, non solo
+            // lo stato — altrimenti l'utente lo vedrebbe solo al prossimo
+            // riavvio.
+            const ctx = await macroKnowledgeFromMesh(26);
+            if (ctx) { __macroContextCache = ctx; renderCausalGraphViz(); }
+          }
+        }
+      } catch (e) { console.warn('Staffetta della conoscenza non elaborata:', e); }
     };
     // Ricezione dei pacchetti a staffetta: si apre cio' che è per noi, si
     // porta avanti il resto — senza poterlo leggere, e entro i limiti che

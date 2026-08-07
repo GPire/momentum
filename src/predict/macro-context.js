@@ -141,5 +141,12 @@ export async function fetchMacroSeries({ sourceId = 'ecb', symbol = 'FM/D.U2.EUR
   const sources = SOURCE_REGISTRY.filter((s) => s.id === sourceId);
   if (!sources.length) return { series: [], verified: 'fonte-sconosciuta' };
   const r = await fetchVerified({ symbol, kind: sources[0].kind, fetchImpl, cache, sources });
-  return { series: r.prices || [], verified: r.verified, note: r.note, affidabile: trainingEligible(r) };
+  // asOf/source/kind aggiunti (additivo, non tocca i campi esistenti): senza
+  // questi il risultato non può viaggiare sulla mesh via knowledge-relay.js,
+  // che ne ha bisogno per decidere provenienza e freschezza — prima si
+  // fermavano qui e la staffetta dei dati macro non poteva esistere.
+  return {
+    series: r.prices || [], verified: r.verified, note: r.note, affidabile: trainingEligible(r),
+    asOf: r.asOf, source: r.source, symbol, kind: sources[0].kind,
+  };
 }
