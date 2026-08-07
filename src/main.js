@@ -73,7 +73,7 @@ import { upcomingTaxDeadlines, taxCashWarning, overdueTaxDeadlines } from './pre
 import { righeF24Iva, righeF24Imposte, f24Riepilogo } from './predict/f24.js';
 import { calcolaRavvedimento } from './predict/ravvedimento.js';
 import { taxReserveStatus, recordTaxPayment, removeTaxPayment } from './predict/tax-payments.js';
-import { rulesForYear } from './predict/tax-rules.js';
+import { rulesForYear, setActiveTaxRules } from './predict/tax-rules.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
@@ -7500,6 +7500,16 @@ window.restoreEncryptedBackup = async (file) => {
 // fetchRulesUpdate già garantisce da solo. Nessuna URL è inclusa di default
 // — inventarne una sarebbe esattamente il tipo di dato non verificato che
 // questo progetto vieta: va decisa e aggiunta consapevolmente.
+// IL PUNTO UNICO in cui le regole scaricate entrano nei calcoli
+// (src/predict/tax-rules.js: setActiveTaxRules). Va chiamata al boot — perché
+// un override adottato la sessione scorsa deve valere subito, non al prossimo
+// aggiornamento — e dopo ogni adozione riuscita.
+function applicaRegoleFiscaliAttive() {
+  const ov = VaultDAO.state.dataOverrides?.taxRules;
+  setActiveTaxRules(ov && ov.rules ? ov : null);
+  return !!(ov && ov.rules);
+}
+
 async function runAutoUpdateCycle({ manuale = false } = {}) {
   const urls = VaultDAO.state.dataSourceUrls || {};
   if (!urls.taxRules && !urls.fatturaPaFormat && !urls.netReturnRates) {
@@ -7541,6 +7551,10 @@ async function runAutoUpdateCycle({ manuale = false } = {}) {
         ...(VaultDAO.state.dataOverrides || {}),
         [key]: { version: esito.version, rules: esito.rules, specs: esito.specs, profiles: esito.profiles, fetchedAt: new Date().toISOString() },
       };
+      // E qui le regole entrano DAVVERO nei calcoli. Senza questa riga
+      // l'aggiornamento restava cosmetico: scaricato, validato, salvato,
+      // mostrato nel pannello — e mai usato da nessun numero.
+      if (key === 'taxRules') applicaRegoleFiscaliAttive();
     },
   });
   VaultDAO.state.autoUpdateBackoff = result.backoffState;
@@ -9351,6 +9365,22 @@ window.applyBudgetSuggestion = (value) => {
 // ==========================================
 const initApp = () => {
   try { initTelemetryToggle(); } catch (e) { console.error('initTelemetryToggle:', e); }
+  // Le regole fiscali adottate in una sessione precedente devono valere SUBITO,
+  // dal primo numero mostrato — non dal prossimo aggiornamento riuscito.
+  try { applicaRegoleFiscaliAttive(); } catch (e) { console.warn('Regole fiscali attive non applicate:', e); }
+  // SCHEDULER (mancava del tutto): finora `runAutoUpdateCycle` partiva SOLO da
+  // un tocco nelle impostazioni. Un'app che "non invecchia" ma si aggiorna solo
+  // se qualcuno preme un bottone non si aggiorna: chi non apre quel pannello —
+  // cioè quasi tutti — resta indietro per sempre.
+  // Al ritorno sull'app, non a intervallo fisso: un timer che scatta mentre la
+  // scheda è in secondo piano consuma rete e batteria per un dato che nessuno
+  // sta guardando. `runUpdateCycle` ha già il suo backoff e il suo budget di
+  // richieste, quindi tornare spesso non moltiplica le chiamate.
+  try {
+    const forse = () => { runAutoUpdateCycle().catch(() => {}); };
+    setTimeout(forse, 8000); // non al primo istante: prima l'app deve essere usabile
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) forse(); });
+  } catch (e) { console.warn('Scheduler aggiornamenti non avviato:', e); }
   // Register Service Worker for PWA — aggiornamento automatico: quando il
   // nuovo service worker (già installato in background da skipWaiting/
   // clients.claim in sw.js) prende davvero il controllo della pagina, si

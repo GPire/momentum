@@ -74,10 +74,43 @@ export function computeIrpef(imponibile, scaglioni) {
   return imposta;
 }
 
+// ── REGOLE ATTIVE: il punto UNICO in cui entra un aggiornamento ──
+// BUG REALE, e il difetto più grave di tutto T13: `rulesForYear` accettava un
+// `override` fin dall'inizio, ma NESSUN chiamante di produzione lo passava
+// (verificato con grep: main.js:2206, tax.js:140, tax-deadlines.js:37 lo
+// omettono tutti). Le regole scaricate finivano in `dataOverrides`, venivano
+// mostrate nel pannello, e non entravano in nessun calcolo. Quindi anche
+// quando l'aggiornamento riusciva, i numeri mostrati restavano quelli vecchi:
+// il claim "l'app che non invecchia, si aggiorna da fonti primarie firmate"
+// era scritto nei commit ed era FALSO nei fatti.
+//
+// La correzione NON è passare l'override a mano nei sei punti: si
+// ri-romperebbe al primo chiamante nuovo, ed è esattamente così che il difetto
+// è nato. Qui c'è UN solo punto di composizione — l'override si inietta una
+// volta (al boot e dopo ogni aggiornamento riuscito) e vale ovunque.
+//
+// L'argomento esplicito ha SEMPRE la precedenza: i test restano deterministici
+// e un chiamante che vuole regole precise non se le vede cambiare sotto.
+let _regoleAttive = null;
+
+export function setActiveTaxRules(override) {
+  _regoleAttive = (override && override.rules) ? override : null;
+  return _regoleAttive;
+}
+
+export function getActiveTaxRules() { return _regoleAttive; }
+
+// Da chiamare nei test dopo aver iniettato un override, altrimenti lo stato
+// resta sporco per i test successivi — è l'unico costo di questo disegno, ed
+// è preferibile al difetto che sostituisce.
+export function resetActiveTaxRules() { _regoleAttive = null; }
+
 // `override` opzionale = regole ricevute via aggiornamento dati (fetchRulesUpdate),
-// applicate SOLO se già validate. Precedenza all'override quando presente.
+// applicate SOLO se già validate. Precedenza all'override quando presente,
+// poi alle regole attive iniettate, poi ai valori di questo file.
 export function rulesForYear(year = new Date().getFullYear(), override = null) {
-  const source = (override && override.rules) ? { ...TAX_RULES, ...override.rules } : TAX_RULES;
+  const eff = override || _regoleAttive;
+  const source = (eff && eff.rules) ? { ...TAX_RULES, ...eff.rules } : TAX_RULES;
   const anni = Object.keys(source).map(Number).sort((a, b) => a - b);
   let applicabile = anni[0];
   for (const y of anni) if (y <= year) applicabile = y;
@@ -94,7 +127,7 @@ export function rulesForYear(year = new Date().getFullYear(), override = null) {
 // quindi un anno di scarto è "probabilmente ancora valido", non un allarme;
 // due o più anni sono un avviso vero.
 export function taxRulesFreshness(year = new Date().getFullYear(), override = null) {
-  const r = rulesForYear(year, override);
+  const r = rulesForYear(year, override); // rulesForYear consulta già le regole attive
   const anniIndietro = Math.max(0, year - r.year);
   if (anniIndietro === 0) {
     return {

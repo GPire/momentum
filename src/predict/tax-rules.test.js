@@ -205,3 +205,113 @@ test('validateRulesPayload: irpefScaglioni resta OPZIONALE — un payload senza 
   const payload = { version: '2099-01', rules: { 2099: { forfettarioCeiling: 85000, impostaStd: 0.15, impostaStartup: 0.05, inpsGestioneSeparata: 0.26 } } };
   assert.equal(validateRulesPayload(payload).ok, true);
 });
+
+// ============================================================
+// IL TEST CHE PROTEGGE IL CLAIM "l'app che non invecchia"
+// ============================================================
+// Difetto reale trovato il 2026-08-07: `rulesForYear` accettava un `override`
+// fin dall'inizio, ma NESSUN chiamante di produzione lo passava. Le regole
+// scaricate finivano in `dataOverrides`, venivano mostrate nel pannello, e non
+// entravano in nessun calcolo. L'aggiornamento era cosmetico e il claim era
+// falso — e nessun test lo vedeva, perche' ogni test passava l'override a mano
+// proprio dove la produzione non lo faceva.
+// Questi test verificano il percorso REALE: iniettare le regole una volta deve
+// cambiare i numeri che l'utente vede, senza che nessun chiamante sappia nulla.
+import { setActiveTaxRules, resetActiveTaxRules, getActiveTaxRules } from './tax-rules.js';
+import { taxSetAside } from './tax.js';
+import { upcomingTaxDeadlines } from './tax-deadlines.js';
+
+test('REGOLE ATTIVE: iniettate una volta, cambiano un numero senza toccare i chiamanti', () => {
+  resetActiveTaxRules();
+  const prima = rulesForYear(2026).impostaStd;
+  assert.equal(prima, 0.15, 'premessa: aliquota forfettaria standard di partenza');
+
+  // Arriva un aggiornamento (gia' validato) che porta l'aliquota al 12%.
+  setActiveTaxRules({ version: '2027-01', rules: { 2027: { ...rulesForYear(2026), impostaStd: 0.12 } } });
+  try {
+    assert.equal(rulesForYear(2027).impostaStd, 0.12,
+      'se questo fallisce, l\'aggiornamento e\' tornato cosmetico: scaricato, salvato, e mai usato');
+  } finally { resetActiveTaxRules(); }
+});
+
+test('IL CLAIM VERIFICATO SUL NUMERO VERO: un\'aliquota nuova cambia quanto mettere da parte', () => {
+  resetActiveTaxRules();
+  const opts = { regime: 'forfettario', year: 2027 };
+  const base = taxSetAside(10000, opts).setAside;
+
+  setActiveTaxRules({ version: '2027-01', rules: { 2027: { ...rulesForYear(2026), impostaStd: 0.05 } } });
+  try {
+    const dopo = taxSetAside(10000, opts).setAside;
+    assert.ok(dopo < base,
+      `un'aliquota piu' bassa deve ridurre l'accantonamento mostrato: ${base} -> ${dopo}`);
+  } finally { resetActiveTaxRules(); }
+});
+
+// SECONDO STRATO dello stesso difetto: l'aliquota forfettaria viveva sia in
+// REGIMI (tax.js) sia in TAX_RULES (tax-rules.js), con lo stesso valore, e il
+// calcolo usava la prima. Un aggiornamento firmato di `impostaStd` non toccava
+// il regime forfettario — la maggioranza degli utenti.
+test('FONTE UNICA: il forfettario legge l\'aliquota dalle REGOLE, non da una copia locale', () => {
+  resetActiveTaxRules();
+  const base = taxSetAside(10000, { regime: 'forfettario', year: 2027 }).setAside;
+  setActiveTaxRules({ version: '2027-01', rules: { 2027: { ...rulesForYear(2026), impostaStd: 0.30 } } });
+  try {
+    const alzata = taxSetAside(10000, { regime: 'forfettario', year: 2027 }).setAside;
+    assert.ok(alzata > base,
+      'se questo fallisce, il forfettario sta ancora leggendo una copia locale e l\'aggiornamento non lo raggiunge');
+  } finally { resetActiveTaxRules(); }
+});
+
+test('FONTE UNICA: vale anche per il forfettario startup', () => {
+  resetActiveTaxRules();
+  const base = taxSetAside(10000, { regime: 'forfettario_startup', year: 2027 }).setAside;
+  setActiveTaxRules({ version: '2027-01', rules: { 2027: { ...rulesForYear(2026), impostaStartup: 0.20 } } });
+  try {
+    assert.ok(taxSetAside(10000, { regime: 'forfettario_startup', year: 2027 }).setAside > base);
+  } finally { resetActiveTaxRules(); }
+});
+
+test('anche le SCADENZE seguono le regole aggiornate, senza che tax-deadlines sappia nulla', () => {
+  resetActiveTaxRules();
+  const now = new Date('2027-01-15T12:00:00Z');
+  const base = upcomingTaxDeadlines(4000, { now });
+  assert.ok(base.length > 0, 'premessa: esistono scadenze');
+
+  // Un aggiornamento che sposta le quote (es. acconto unico invece di 50/50).
+  const r = rulesForYear(2026);
+  setActiveTaxRules({ version: '2027-01', rules: { 2027: { ...r, scadenze: [
+    { id: 'saldo', label: 'Saldo unico', mese: 6, giorno: 30, quota: 1 },
+  ] } } });
+  try {
+    const dopo = upcomingTaxDeadlines(4000, { now });
+    assert.equal(dopo.length, 1, 'le scadenze devono seguire le regole nuove');
+    assert.equal(dopo[0].importo, 4000, 'quota unica al 100%');
+  } finally { resetActiveTaxRules(); }
+});
+
+test('l\'argomento esplicito VINCE sempre sulle regole attive (test deterministici)', () => {
+  resetActiveTaxRules();
+  setActiveTaxRules({ version: 'x', rules: { 2027: { ...rulesForYear(2026), impostaStd: 0.99 } } });
+  try {
+    const esplicito = rulesForYear(2027, { rules: { 2027: { ...rulesForYear(2026), impostaStd: 0.01 } } });
+    assert.equal(esplicito.impostaStd, 0.01, 'chi passa un override deve ottenere il suo, non quello globale');
+  } finally { resetActiveTaxRules(); }
+});
+
+test('resetActiveTaxRules riporta ai valori di questo file (nessuno stato sporco fra test)', () => {
+  setActiveTaxRules({ version: 'x', rules: { 2026: { ...rulesForYear(2026), impostaStd: 0.99 } } });
+  assert.equal(getActiveTaxRules() !== null, true);
+  resetActiveTaxRules();
+  assert.equal(getActiveTaxRules(), null);
+  assert.equal(rulesForYear(2026).impostaStd, 0.15);
+});
+
+test('un override malformato non sostituisce niente in silenzio', () => {
+  resetActiveTaxRules();
+  for (const bad of [null, undefined, {}, { version: 'x' }, { rules: null }]) {
+    setActiveTaxRules(bad);
+    assert.equal(getActiveTaxRules(), null, `rifiutato: ${JSON.stringify(bad)}`);
+    assert.equal(rulesForYear(2026).impostaStd, 0.15);
+  }
+  resetActiveTaxRules();
+});

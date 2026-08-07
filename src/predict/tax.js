@@ -219,8 +219,26 @@ export function taxSetAside(amount, opts = {}) {
       impostaLabel = 'IRPEF (stima piatta — scaglioni non ancora verificati per quest\'anno)';
     }
   } else {
-    imposta = baseImposta * r.impostaSostitutiva;
-    impostaLabel = r.impostaSostitutiva <= 0.15 ? 'Imposta sostitutiva' : 'Imposta (stima)';
+    // FONTE UNICA per l'aliquota forfettaria. Difetto trovato il 2026-08-07:
+    // la stessa aliquota viveva in DUE posti con lo stesso valore — `REGIMI`
+    // qui (impostaSostitutiva: 0.15) e `TAX_RULES` in tax-rules.js
+    // (impostaStd: 0.15) — e il calcolo usava REGIMI. Conseguenza: un
+    // aggiornamento firmato che cambiava `impostaStd` non toccava il regime
+    // forfettario, cioè la MAGGIORANZA degli utenti. Due fonti di verità per
+    // lo stesso numero non restano d'accordo: restano d'accordo finché
+    // nessuno le aggiorna, che è il momento in cui servirebbero.
+    // Ora l'aliquota arriva dalle regole dell'anno; REGIMI resta il ripiego
+    // per un anno che non ne dichiara una, e un override esplicito del
+    // chiamante vince comunque su tutto.
+    const year = opts.year || new Date().getFullYear();
+    const daRegole = regimeKey === 'forfettario_startup'
+      ? rulesForYear(year, opts.rulesOverride).impostaStartup
+      : rulesForYear(year, opts.rulesOverride).impostaStd;
+    const aliquota = (opts.overrides && opts.overrides.impostaSostitutiva != null)
+      ? r.impostaSostitutiva
+      : (Number.isFinite(daRegole) ? daRegole : r.impostaSostitutiva);
+    imposta = baseImposta * aliquota;
+    impostaLabel = aliquota <= 0.15 ? 'Imposta sostitutiva' : 'Imposta (stima)';
   }
 
   const setAside = +(iva + inps + imposta).toFixed(2);
