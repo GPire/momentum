@@ -147,7 +147,8 @@ import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
 import { rankMissingByMonth, scoreForSync } from './mesh/sync-priority.js';
 import { buildSketch, serializeCells, recommendedSize, reconcile } from './mesh/iblt.js';
 import { assertShareable } from './mesh/compute-market.js';
-import { generateExchangeIdentity, openSealed, acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.js';
+import { acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.js';
+import { loadOrCreateExchangeIdentity, openSealedAny, statoIdentita } from './mesh/exchange-identity.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
@@ -8734,13 +8735,17 @@ let __scambioIdentita = null;
 
 async function identitaScambio() {
   if (__scambioIdentita) return __scambioIdentita;
-  // La chiave PRIVATA non è esportabile e vive solo in memoria: si rigenera
-  // ad ogni avvio, mentre la PUBBLICA viene ricordata per essere
-  // riconoscibile. Onestà: questo significa che i pacchetti indirizzati a
-  // una chiave vecchia non si aprono più dopo un riavvio — è il prezzo di
-  // non salvare mai una chiave privata su disco, e va detto.
-  __scambioIdentita = await generateExchangeIdentity();
+  // La chiave PRIVATA resta non esportabile — i suoi byte non sono leggibili
+  // da nessun codice, nemmeno il nostro — ma ora SOPRAVVIVE alla chiusura
+  // dell'app, conservata come oggetto CryptoKey in IndexedDB. Prima si
+  // rigenerava ad ogni avvio, e quel commento chiamava "prezzo da pagare" una
+  // perdita secca: un pacchetto e' indirizzato a una chiave pubblica, e se
+  // quella chiave muore il pacchetto resta sigillato per sempre. Con tre
+  // aperture al giorno la probabilita' di consegna era ~5%.
+  // Vedi exchange-identity.js per la misura completa e il ripiego dichiarato.
+  __scambioIdentita = await loadOrCreateExchangeIdentity();
   VaultDAO.state.exchangePublicKey = __scambioIdentita.publicKey;
+  VaultDAO.state.exchangeKeyPersistente = __scambioIdentita.persistente;
   return __scambioIdentita;
 }
 
@@ -8989,6 +8994,18 @@ async function runMeshNetDiagnosis() {
           <p class="hidden text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-snug">${escapeHtml(nat.reason)}${timeoutMs ? ` Se non parte entro ${Math.round(timeoutMs / 1000)} secondi passiamo al link, senza farti aspettare oltre.` : ''}</p>
         </div>
       </div>`;
+    // Consegna differita: si dice qualcosa SOLO se non funziona. Nel caso
+    // buono il silenzio è la scelta giusta — un avviso che conferma il
+    // normale è rumore, e il rumore è il primo passo verso l'abbandono.
+    try {
+      const stato = statoIdentita(await identitaScambio());
+      if (!stato.ok) {
+        const nota = document.createElement('p');
+        nota.className = 'text-[11px] text-amber-200/90 mt-2 leading-snug';
+        nota.textContent = stato.testo;
+        box.appendChild(nota);
+      }
+    } catch { /* la diagnosi di rete resta valida anche senza questa nota */ }
   } catch (e) {
     console.warn('Diagnosi di rete non disponibile:', e);
     box.remove(); // meglio niente che una diagnosi finta
@@ -10701,7 +10718,9 @@ function initMomentumRealAI() {
         let sacco = saccoStaffetta();
         let aperti = 0;
         for (const b of bundles || []) {
-          const contenuto = await openSealed(mio, b);
+          // openSealedAny e non openSealed: prova anche le chiavi ritirate di
+          // recente, così una rotazione non butta via la posta gia' in viaggio.
+          const contenuto = await openSealedAny(mio, b);
           if (contenuto) { aperti++; continue; }        // era per me: consumato
           sacco = acceptForCarry(sacco, b);              // non per me: lo porto avanti
         }
