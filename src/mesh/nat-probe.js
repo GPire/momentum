@@ -26,6 +26,7 @@
 'use strict';
 
 import { probabilitaDiretta, puoBucare } from './nat-matrix.js';
+import { probabilitaAppresa } from './channel-learning.js';
 
 // Pool di server STUN pubblici. Averne uno solo — com'era finora in
 // mesh-signaling.js — è un punto di rottura singolo: se quel server è
@@ -128,8 +129,20 @@ export function classifyNat(observations = [], { serversQueried = 0 } = {}) {
 // contro uno normale RIESCE (il lato non ristretto impara la mappatura dal
 // primo pacchetto), ma il prodotto dava ~15% e portava a rinunciare senza
 // nemmeno provare. Erano circa un quarto di tutte le coppie.
-export function predictDirect(myNat, peerNat = null) {
-  return clamp01(probabilitaDiretta(myNat, peerNat));
+//
+// `opts.learningModel` (additivo, default assente → comportamento identico a
+// prima) permette di CORREGGERE questa stima generale con quello che questo
+// dispositivo — e la sua mesh, dopo la federazione — ha osservato davvero
+// (channel-learning.js). La fisica resta il punto di partenza sempre: con
+// poca evidenza reale non si sposta quasi nulla, con molta prevale il dato
+// osservato. Non può mai rendere possibile un collegamento fisicamente
+// impossibile (due NAT simmetrici restano tali): corregge la CONFIDENZA
+// entro ciò che la fisica già ammette, non la possibilità stessa.
+export function predictDirect(myNat, peerNat = null, opts = {}) {
+  const base = clamp01(probabilitaDiretta(myNat, peerNat));
+  if (!opts.learningModel) return base;
+  const r = probabilitaAppresa(opts.learningModel, { reteTipo: opts.reteTipo, miaNat: myNat, altruiNat: peerNat });
+  return clamp01(r.p);
 }
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -137,8 +150,8 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 // Il consiglio, in parole che non spaventano e non promettono.
 // `channels` dichiara cosa è realmente disponibile adesso, così la frase non
 // suggerisce mai una strada che non c'è.
-export function adviseChannel(myNat, peerNat = null, channels = {}) {
-  const p = predictDirect(myNat, peerNat);
+export function adviseChannel(myNat, peerNat = null, channels = {}, opts = {}) {
+  const p = predictDirect(myNat, peerNat, opts);
   const haveLink = channels.link !== false;      // il link/QR c'è sempre
   const havePaste = channels.paste !== false;    // il codice da incollare
 
@@ -191,8 +204,8 @@ export function adviseChannel(myNat, peerNat = null, channels = {}) {
 // Quanto ha senso aspettare prima di passare al piano B. Su una rete che la
 // sonda dà per persa non si aspetta trenta secondi: si cambia subito strada.
 // È la differenza tra un'app che sembra rotta e una che sembra sveglia.
-export function directTimeoutMs(myNat, peerNat = null) {
-  const p = predictDirect(myNat, peerNat);
+export function directTimeoutMs(myNat, peerNat = null, opts = {}) {
+  const p = predictDirect(myNat, peerNat, opts);
   if (p >= 0.85) return 12_000;
   if (p >= 0.5) return 7_000;
   if (p >= 0.1) return 3_000;
@@ -261,5 +274,11 @@ export async function probeNetwork(opts = {}) {
   const servers = opts.servers || STUN_POOL;
   const observations = await gatherObservations({ ...opts, servers });
   const nat = classifyNat(observations, { serversQueried: servers.length });
-  return { nat, advice: adviseChannel(nat, null, opts.channels), timeoutMs: directTimeoutMs(nat), observations };
+  const learn = { learningModel: opts.learningModel, reteTipo: opts.reteTipo };
+  return {
+    nat,
+    advice: adviseChannel(nat, null, opts.channels, learn),
+    timeoutMs: directTimeoutMs(nat, null, learn),
+    observations,
+  };
 }

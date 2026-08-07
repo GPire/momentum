@@ -4,6 +4,7 @@ import {
   classifyNat, predictDirect, adviseChannel, directTimeoutMs,
   parseCandidate, gatherObservations, probeNetwork, STUN_POOL,
 } from './nat-probe.js';
+import { initChannelLearning, recordOutcome } from './channel-learning.js';
 
 const srflx = (server, ip, port) => ({ server, ip, port, type: 'srflx', protocol: 'udp' });
 const host = (server, ip, port) => ({ server, ip, port, type: 'host', protocol: 'udp' });
@@ -273,6 +274,38 @@ test('il giro completo restituisce diagnosi, consiglio e attesa coerenti', async
   // simmetrica. Il ripiego si decide quando si conosce anche l'altro lato.
   assert.equal(r.advice.prefer, 'direct');
   assert.ok(r.timeoutMs > 3000 && r.timeoutMs < 12000);
+});
+
+// ── La rete che impara (channel-learning.js), collegata qui in LETTURA ──
+
+test('SENZA modello di apprendimento il comportamento è IDENTICO a prima (retrocompatibilità)', () => {
+  const senza = predictDirect({ kind: 'prevedibile' }, { kind: 'aperto' });
+  const conOptsVuote = predictDirect({ kind: 'prevedibile' }, { kind: 'aperto' }, {});
+  assert.equal(senza, conOptsVuote);
+  assert.equal(adviseChannel({ kind: 'variabile' }, { kind: 'variabile' }).prefer, 'paste');
+});
+
+test('con un modello che ha osservato molti fallimenti reali, la confidenza scende', () => {
+  const m = initChannelLearning();
+  const ctx = { reteTipo: '4g', miaNat: { kind: 'prevedibile' }, altruiNat: { kind: 'aperto' } };
+  for (let i = 0; i < 30; i++) recordOutcome(m, { ...ctx, canale: 'ponte' });
+  const senzaModello = predictDirect(ctx.miaNat, ctx.altruiNat);
+  const conModello = predictDirect(ctx.miaNat, ctx.altruiNat, { learningModel: m, reteTipo: '4g' });
+  assert.ok(conModello < senzaModello - 0.3,
+    `l'evidenza osservata deve correggere la fisica: ${senzaModello} -> ${conModello}`);
+});
+
+test('la fisica resta il tetto: la learning non rende "diretto" un caso davvero impossibile', () => {
+  const m = initChannelLearning();
+  // Anche se (erroneamente, o per rumore) si osservassero successi diretti
+  // etichettati su un contesto simmetrico-simmetrico, adviseChannel non deve
+  // MAI proporre 'direct' li': la fisica di puoBucare governa il ramo,
+  // la learning corregge solo la confidenza dentro ciò che è già possibile.
+  for (let i = 0; i < 30; i++) {
+    recordOutcome(m, { reteTipo: '4g', miaNat: { kind: 'variabile' }, altruiNat: { kind: 'variabile' }, canale: 'diretto' });
+  }
+  const a = adviseChannel({ kind: 'variabile' }, { kind: 'variabile' }, {}, { learningModel: m, reteTipo: '4g' });
+  assert.equal(a.prefer, 'paste');
 });
 
 test('il pool ha almeno due server distinti: con uno solo la diagnosi sarebbe impossibile', () => {

@@ -8972,7 +8972,22 @@ async function runMeshNetDiagnosis() {
   if (!box) return;
   try {
     const { probeNetwork } = await import('./mesh/nat-probe.js');
-    const { nat, advice, timeoutMs } = await probeNetwork({ channels: { link: true, paste: true } });
+    const { initChannelLearning, tipoRete } = await import('./mesh/channel-learning.js');
+    // Il modello vive nel vault, additivo: un dispositivo nuovo parte dalla
+    // sola fisica (nat-matrix.js) e comincia a correggerla appena si
+    // registrano esiti reali. Oggi nessun punto del codice registra ancora
+    // un esito — la lettura è collegata, la scrittura resta il passo
+    // successivo dichiarato, non va lasciato ambiguo.
+    // Salvato SUBITO, non al prossimo save() casuale di qualcos'altro: senza
+    // questo, aprendo l'app solo per collegare due dispositivi (mai una
+    // transazione nel mezzo) il modello sparirebbe alla chiusura — proprio
+    // la sessione in cui servirebbe di più cominciare a imparare.
+    if (!VaultDAO.state.channelLearning) { VaultDAO.state.channelLearning = initChannelLearning(); VaultDAO.save(); }
+    const { nat, advice, timeoutMs } = await probeNetwork({
+      channels: { link: true, paste: true },
+      learningModel: VaultDAO.state.channelLearning,
+      reteTipo: tipoRete(),
+    });
     const diretto = advice.prefer === 'direct';
     // Neurocolori coerenti col resto dell'app: verde = via libera,
     // ambra = momento consapevole (c'è un piano B pronto). Mai rosso: la
