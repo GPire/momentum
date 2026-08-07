@@ -164,6 +164,26 @@ export function validateRulesPayload(payload) {
     if (!(r.impostaStd > 0 && r.impostaStd < 0.6)) return { ok: false, reason: `imposta standard implausibile per ${y}` };
     if (!(r.impostaStartup >= 0 && r.impostaStartup < r.impostaStd)) return { ok: false, reason: `imposta startup implausibile per ${y}` };
     if (!(r.inpsGestioneSeparata > 0 && r.inpsGestioneSeparata < 0.5)) return { ok: false, reason: `aliquota INPS implausibile per ${y}` };
+    // Aliquota RIDOTTA (chi è già coperto da altra previdenza obbligatoria):
+    // opzionale, ma se arriva deve essere plausibile E non superiore alla
+    // piena — una "riduzione" più alta della tariffa piena è un dato rotto,
+    // non una legge nuova, e passerebbe qualunque controllo di solo range.
+    if (r.inpsGestioneSeparataRidotta !== undefined) {
+      if (!(r.inpsGestioneSeparataRidotta > 0 && r.inpsGestioneSeparataRidotta <= r.inpsGestioneSeparata)) {
+        return { ok: false, reason: `aliquota INPS ridotta implausibile per ${y}` };
+      }
+    }
+    // Coefficienti ATECO: opzionali, ma un coefficiente fuori da [0,1] non è
+    // una tabella nuova, è un dato rotto — e sposterebbe la base imponibile
+    // di decine di punti senza che nessuno se ne accorga.
+    if (r.atecoCoefficienti !== undefined) {
+      if (!r.atecoCoefficienti || typeof r.atecoCoefficienti !== 'object' || !Object.keys(r.atecoCoefficienti).length) {
+        return { ok: false, reason: `coefficienti ATECO malformati per ${y}` };
+      }
+      for (const [settore, v] of Object.entries(r.atecoCoefficienti)) {
+        if (!v || !(v.coeff > 0 && v.coeff <= 1)) return { ok: false, reason: `coefficiente ATECO implausibile (${settore}) per ${y}` };
+      }
+    }
     // irpefScaglioni è OPZIONALE (anni senza scaglioni verificati ripiegano
     // sulla stima piatta), ma se presente deve avere una forma plausibile:
     // soglie crescenti, aliquote in un range reale, ultima soglia infinita

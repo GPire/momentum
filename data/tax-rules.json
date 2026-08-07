@@ -1,0 +1,58 @@
+{
+  "version": "2026-07",
+  "generatedAt": "2026-08-07",
+  "fonte": "Regole incluse in Momentum, verificate su fonte ufficiale al momento della pubblicazione. Vedi src/predict/tax-rules.js per la provenienza di ogni valore.",
+  "rules": {
+    "2019": {
+      "forfettarioCeiling": 65000,
+      "impostaStd": 0.15,
+      "impostaStartup": 0.05,
+      "startupAnni": 5,
+      "inpsGestioneSeparata": 0.2607
+    },
+    "2023": {
+      "forfettarioCeiling": 85000,
+      "impostaStd": 0.15,
+      "impostaStartup": 0.05,
+      "startupAnni": 5,
+      "inpsGestioneSeparata": 0.2607
+    },
+    "2026": {
+      "forfettarioCeiling": 85000,
+      "impostaStd": 0.15,
+      "impostaStartup": 0.05,
+      "startupAnni": 5,
+      "inpsGestioneSeparata": 0.2607,
+      "irpefScaglioni": [
+        {
+          "fino": 28000,
+          "aliquota": 0.23
+        },
+        {
+          "fino": 50000,
+          "aliquota": 0.33
+        },
+        {
+          "fino": null,
+          "aliquota": 0.43
+        }
+      ],
+      "scadenze": [
+        {
+          "id": "saldo-primo-acconto",
+          "mese": 6,
+          "giorno": 30,
+          "quota": 0.5,
+          "label": "Saldo + primo acconto"
+        },
+        {
+          "id": "secondo-acconto",
+          "mese": 11,
+          "giorno": 30,
+          "quota": 0.5,
+          "label": "Secondo acconto"
+        }
+      ]
+    }
+  }
+}

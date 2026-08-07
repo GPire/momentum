@@ -35,6 +35,20 @@ export const INPS_GESTIONE_SEPARATA_RIDOTTA = 0.24;
 // l'imposta forfettaria si calcola sul fatturato × questo coefficiente. Senza
 // conoscerlo, il calcolo è arbitrario — per questo va CHIESTO/appreso, non
 // assunto. Default 78% (servizi/professionisti), il più comune.
+// Coefficienti ATECO: anche questi devono poter arrivare aggiornati. Sono la
+// cosa che cambia più spesso dopo le aliquote (la tabella ATECO è stata
+// riclassificata di recente), e sbagliarli sposta la base imponibile del
+// 38% fra un professionista e un commerciante — l'errore più grosso possibile
+// in questo modulo. `coefficienteAteco()` è il punto unico di lettura: la
+// tabella qui sotto è il ripiego, le regole dell'anno hanno la precedenza.
+export function coefficienteAteco(settore, { year = new Date().getFullYear(), rulesOverride = null } = {}) {
+  const daRegole = rulesForYear(year, rulesOverride).atecoCoefficienti;
+  const v = daRegole && daRegole[settore];
+  if (v && Number.isFinite(v.coeff)) return { coeff: v.coeff, label: v.label || ATECO_COEFFICIENTI[settore]?.label || settore, fonte: 'aggiornata' };
+  const loc = ATECO_COEFFICIENTI[settore];
+  return loc ? { ...loc, fonte: 'inclusa nell\'app' } : null;
+}
+
 export const ATECO_COEFFICIENTI = {
   professionisti: { coeff: 0.78, label: 'Professionisti / servizi (78%)' },
   commercio: { coeff: 0.40, label: 'Commercio ingrosso/dettaglio (40%)' },
@@ -196,7 +210,19 @@ export function taxSetAside(amount, opts = {}) {
   // un'altra forma previdenziale obbligatoria — mai insieme a una cassa
   // propria (le due riduzioni sono alternative, non cumulabili: chi ha una
   // cassa propria non versa affatto alla Gestione Separata).
-  const aliquotaInps = opts.altraCoperturaPrevidenziale ? INPS_GESTIONE_SEPARATA_RIDOTTA : r.inps;
+  // TERZO STRATO dello stesso difetto (trovato il 2026-08-07 verificando che
+  // l'aggiornamento raggiungesse TUTTI i regimi, non solo il forfettario):
+  // `inpsGestioneSeparata` esisteva fra le regole aggiornabili e NON entrava
+  // in nessun calcolo — l'aliquota veniva sempre da REGIMI/costante locale.
+  // Un aggiornamento dell'INPS non avrebbe cambiato un centesimo per nessuno.
+  // Le regole hanno la precedenza; le costanti locali restano il ripiego per
+  // un anno che non le dichiara.
+  const rInps = rulesForYear(opts.year || new Date().getFullYear(), opts.rulesOverride);
+  const inpsPiena = Number.isFinite(rInps.inpsGestioneSeparata) && regimeKey !== 'ordinario'
+    ? rInps.inpsGestioneSeparata : r.inps;
+  const inpsRidotta = Number.isFinite(rInps.inpsGestioneSeparataRidotta)
+    ? rInps.inpsGestioneSeparataRidotta : INPS_GESTIONE_SEPARATA_RIDOTTA;
+  const aliquotaInps = opts.altraCoperturaPrevidenziale ? inpsRidotta : inpsPiena;
   const inps = cassaNome ? 0 : redditoImponibile * aliquotaInps;
   const baseImposta = redditoImponibile - inps; // INPS deducibile (0 se cassa propria: l'imposta si calcola comunque sul reddito lordo di contributi in quel caso — dettaglio da verificare con la propria cassa)
 
@@ -566,8 +592,9 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   // verificata in ATECO_COEFFICIENTI): un commerciante paga su una base
   // imponibile molto più bassa (40%) di un professionista (78%) — ignorarlo
   // renderebbe la stima sbagliata proprio per chi fa commercio.
-  const atecoCoeff = regimeKey.startsWith('forfettario') && ATECO_COEFFICIENTI[opts.ateco]
-    ? { coeffRedditivita: ATECO_COEFFICIENTI[opts.ateco].coeff } : null;
+  const atecoInfo = regimeKey.startsWith('forfettario') && opts.ateco
+    ? coefficienteAteco(opts.ateco, { year: opts.year, rulesOverride: opts.rulesOverride }) : null;
+  const atecoCoeff = atecoInfo ? { coeffRedditivita: atecoInfo.coeff } : null;
   const { setAside, net, cassaNome } = taxSetAside(fatturato, { regime: regimeKey, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, overrides: { ...atecoCoeff, ...opts.overrides } });
   const netMensile = net / 12;
   // Strategie legittime, non trucchi: entrambe verificate su fonte ufficiale

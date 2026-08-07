@@ -2322,6 +2322,59 @@ function renderTaxCashBlocks(proj, regime) {
         );
       }
     }
+    // ── LE ALIQUOTE SONO CAMBIATE: dirlo, e dire COSA ──
+    // Un numero che cambia da solo senza spiegazione è peggio di un numero
+    // vecchio: la persona ha visto "metti da parte 4.320 €" a giugno, legge
+    // 3.900 € a settembre, e l'unica conclusione ragionevole è che l'app
+    // sbagli. Da lì in poi non si fida più di nessun numero.
+    const cambioRegole = VaultDAO.state.ultimoCambioRegole;
+    if (cambioRegole && !cambioRegole.visto) {
+      // Classi LETTERALI, mai costruite a stringa — stessa regola già
+      // applicata in runMeshNetDiagnosis, e qui l'avevo violata: con una
+      // compilazione statica di Tailwind `border-${x}-400/40` non esisterebbe
+      // nel CSS e il riquadro uscirebbe senza stile. Oggi il CDN JIT le
+      // genererebbe comunque, ma la scelta non deve dipendere da come il CSS
+      // è caricato oggi.
+      // Neurocolori: verde solo se il cambiamento ti è FAVOREVOLE, ambra se ti
+      // costa, blu se è misto. Mai rosso: una legge che cambia non è una tua
+      // colpa e non è un'emergenza.
+      // L'icona dice il tono PRIMA che si legga una parola — è la lettura più
+      // veloce possibile, e per chi apre l'app di corsa è spesso l'unica.
+      // Freccia giù = ti costa meno, freccia su = ti costa di più,
+      // calendario = riguarda il futuro, non i tuoi numeri di adesso.
+      const S = cambioRegole.tono === 'favorevole'
+        ? { box: 'border-emerald-400/40 bg-emerald-500/10 border-l-emerald-400', t: 'text-emerald-300', b: 'text-emerald-200/90', n: 'text-emerald-200/70', a: 'text-emerald-100 bg-emerald-400/15 hover:bg-emerald-400/25', ic: 'text-emerald-300', col: 'var(--green, #10b981)',
+            path: cambioRegole.soloFuturo ? '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>' : '<path d="M12 5v14M19 12l-7 7-7-7"/>' }
+        : cambioRegole.tono === 'sfavorevole'
+        ? { box: 'border-amber-400/40 bg-amber-500/10 border-l-amber-400', t: 'text-amber-300', b: 'text-amber-200/90', n: 'text-amber-200/70', a: 'text-amber-100 bg-amber-400/15 hover:bg-amber-400/25', ic: 'text-amber-300', col: 'var(--gold, #f59e0b)',
+            path: cambioRegole.soloFuturo ? '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>' : '<path d="M12 19V5M5 12l7-7 7 7"/>' }
+        : { box: 'border-sky-400/40 bg-sky-500/10 border-l-sky-400', t: 'text-sky-300', b: 'text-sky-200/90', n: 'text-sky-200/70', a: 'text-sky-100 bg-sky-400/15 hover:bg-sky-400/25', ic: 'text-sky-300', col: '#38bdf8',
+            path: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>' };
+      html += `<div class="rules-alert rounded-xl border ${S.box} px-3.5 py-3 mt-1.5" style="--tl1-icon-color:${S.col}">
+        <div class="flex items-start gap-2.5">
+          <span class="ra-icon shrink-0 mt-0.5 ${S.ic}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">${S.path}</svg>
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="text-[13px] font-black ${S.t} leading-snug tracking-tight">${escapeHtml(cambioRegole.titolo)}</div>
+            <ul class="text-[12px] ${S.b} mt-2 leading-relaxed space-y-1.5">
+              ${(cambioRegole.cambi || []).map((c) => `<li class="flex gap-2"><span class="shrink-0"></span><span>${escapeHtml(c.testo)}</span></li>`).join('')}
+            </ul>
+            <div class="ra-note text-[10px] ${S.n} mt-2 leading-snug">${escapeHtml(cambioRegole.nota)}</div>
+            <button onclick="window.confermaCambioRegoleVisto()" class="ra-cta text-[11px] font-bold ${S.a} rounded-lg px-3 py-1.5 mt-2.5">Ho capito</button>
+          </div>
+        </div>
+      </div>`;
+    }
+    // AVVISO REGOLE VECCHIE — reso INDIPENDENTE (difetto corretto il
+    // 2026-08-07): stava dentro `if (avviso)`, quindi se `taxCashWarning` non
+    // produceva un messaggio l'avviso "sto usando le aliquote del 2026 per un
+    // calcolo del 2029" non compariva MAI. Proprio il caso in cui serve di
+    // più: nessun problema di cassa, e numeri silenziosamente vecchi.
+    const scadPerFreschezza = deadlines[0];
+    if (scadPerFreschezza && scadPerFreschezza.regoleAggiornate === false && !(avviso && avviso.scadenza)) {
+      html += `<div class="text-[10px] text-amber-300/80 mt-1.5 leading-snug">${escapeHtml(scadPerFreschezza.avvisoRegole)}</div>`;
+    }
     // F24 PRECOMPILATO (T11 — colma la lacuna registro acquisti/INPS/F24):
     // le stesse scadenze già mostrate qui, scomposte nelle righe pronte da
     // copiare nell'home banking — mai un secondo calcolo, solo i codici
@@ -2500,6 +2553,14 @@ window.openRegistraAcquistoIva = () => {
 // allo Stato, mostrato con la stessa autorevolezza di uno giusto.
 // Un versamento è l'unica cosa che Momentum non può dedurre da sé: succede
 // fuori dall'app, in home banking. Quindi va CHIESTO, non indovinato.
+window.confermaCambioRegoleVisto = () => {
+  if (VaultDAO.state.ultimoCambioRegole) {
+    VaultDAO.state.ultimoCambioRegole = { ...VaultDAO.state.ultimoCambioRegole, visto: true };
+    VaultDAO.save();
+  }
+  renderAnalysis({ skipHeavyForecast: true });
+};
+
 window.registraVersamentoFiscale = (importo, nota = '') => {
   const n = +importo;
   if (!Number.isFinite(n) || n <= 0) { showToast('Inserisci un importo valido.', 'error'); return false; }
@@ -7510,8 +7571,39 @@ function applicaRegoleFiscaliAttive() {
   return !!(ov && ov.rules);
 }
 
+// ── LA FONTE PREDEFINITA: perché questa e non l'Agenzia delle Entrate ──
+// "Momentum deve prendersi le aliquote da sola quando cambiano." La domanda
+// vera è DA DOVE, e la risposta è stata verificata dal vivo dal browser il
+// 2026-08-07, non assunta:
+//   agenziaentrate.gov.it  -> BLOCCATA da CORS (TypeError: Failed to fetch)
+//   normattiva.it          -> BLOCCATA da CORS
+//   raw.githubusercontent  -> HTTP 200, leggibile
+// Quindi leggere direttamente la fonte ufficiale dal browser è impossibile —
+// e anche potendo, estrarre un'aliquota da un testo di legge sarebbe
+// esattamente l'invenzione di numeri che questo progetto vieta: una norma non
+// si "parsa", si legge e si verifica a mano.
+// La via reale: le regole verificate a mano vivono in `data/tax-rules.json`
+// nel repo pubblico, e ogni dispositivo se le prende da solo. Non è "un nostro
+// server": è un file statico in un repo che esiste già, e non ci passa NESSUN
+// dato dell'utente — la richiesta è un GET anonimo di un file uguale per tutti.
+// Difesa: `validateRulesPayload` (anti-veleno su struttura e valori
+// implausibili) gira comunque, e un payload che non la passa non viene
+// adottato, qualunque sia la sua provenienza.
+// Limite dichiarato: chi controlla il repo controlla questo file. La firma
+// ECDSA (core/update-locator.js) è la difesa contro quel caso e resta da
+// collegare — finché non lo è, questa fonte è autenticata dal TLS e validata
+// nel contenuto, non firmata. Detto qui perché è la differenza fra le due.
+const FONTE_REGOLE_FISCALI_DEFAULT = 'https://raw.githubusercontent.com/GPire/momentum/main/data/tax-rules.json';
+
+function fontiDatiEffettive() {
+  const urls = { ...(VaultDAO.state.dataSourceUrls || {}) };
+  // L'utente può sostituirla o disattivarla (stringa vuota), mai subirla.
+  if (urls.taxRules === undefined) urls.taxRules = FONTE_REGOLE_FISCALI_DEFAULT;
+  return urls;
+}
+
 async function runAutoUpdateCycle({ manuale = false } = {}) {
-  const urls = VaultDAO.state.dataSourceUrls || {};
+  const urls = fontiDatiEffettive();
   if (!urls.taxRules && !urls.fatturaPaFormat && !urls.netReturnRates) {
     if (manuale) showToast('Nessuna fonte dati configurata: aggiungine una nelle impostazioni avanzate.', 'error');
     return null;
@@ -7547,6 +7639,19 @@ async function runAutoUpdateCycle({ manuale = false } = {}) {
       // recente della versione corrente. Qui non si ri-valida nulla: si
       // registra solo COSA è stato adottato e QUANDO.
       const key = id === 'tax-rules' ? 'taxRules' : id === 'fatturapa-format' ? 'fatturaPaFormat' : 'netReturnRates';
+      // COSA cambia, non solo CHE è cambiato: si cattura la regola in uso
+      // PRIMA di sostituirla, altrimenti il confronto non è più possibile e
+      // resta solo un "aggiornato" che non spiega niente.
+      const annoOggi = new Date().getFullYear();
+      // Si fotografano anche gli anni FUTURI, non solo quello corrente: la
+      // legge di bilancio si pubblica a dicembre per l'anno dopo, e guardando
+      // solo l'anno in corso quel cambiamento sarebbe invisibile fino a
+      // gennaio — cioè fino a quando non serve più a decidere niente.
+      // (Difetto trovato dal vivo: l'aggiornamento veniva adottato e non
+      // compariva nessun avviso, proprio in questo scenario.)
+      const anniDaGuardare = [annoOggi, annoOggi + 1, annoOggi + 2];
+      const snapPrima = key === 'taxRules'
+        ? Object.fromEntries(anniDaGuardare.map((a) => [a, rulesForYear(a)])) : null;
       VaultDAO.state.dataOverrides = {
         ...(VaultDAO.state.dataOverrides || {}),
         [key]: { version: esito.version, rules: esito.rules, specs: esito.specs, profiles: esito.profiles, fetchedAt: new Date().toISOString() },
@@ -7554,7 +7659,23 @@ async function runAutoUpdateCycle({ manuale = false } = {}) {
       // E qui le regole entrano DAVVERO nei calcoli. Senza questa riga
       // l'aggiornamento restava cosmetico: scaricato, validato, salvato,
       // mostrato nel pannello — e mai usato da nessun numero.
-      if (key === 'taxRules') applicaRegoleFiscaliAttive();
+      if (key === 'taxRules') {
+        applicaRegoleFiscaliAttive();
+        try {
+          const { describeRulesChangeMultiAnno } = await import('./predict/tax-rules-diff.js');
+          const snapDopo = Object.fromEntries(anniDaGuardare.map((a) => [a, rulesForYear(a)]));
+          const cambio = describeRulesChangeMultiAnno(snapPrima, snapDopo, { annoCorrente: annoOggi });
+          // Se non è cambiato niente di rilevante NON si dice niente: un
+          // avviso che conferma il normale è il modo più veloce per far
+          // ignorare anche quelli che contano.
+          if (cambio) {
+            VaultDAO.state.ultimoCambioRegole = { ...cambio, visto: false, quando: new Date().toISOString() };
+            notifyUser(cambio.titolo, cambio.sintesi);
+            showToast(cambio.sintesi, 'info');
+            renderAnalysis({ skipHeavyForecast: true });
+          }
+        } catch (e) { console.warn('Confronto regole non riuscito:', e); }
+      }
     },
   });
   VaultDAO.state.autoUpdateBackoff = result.backoffState;

@@ -315,3 +315,70 @@ test('un override malformato non sostituisce niente in silenzio', () => {
   }
   resetActiveTaxRules();
 });
+
+// ── TUTTI I PARAMETRI DELLA TASSAZIONE, non solo l'aliquota forfettaria ──
+// Cercando il primo strato del difetto ne sono emersi altri due, identici:
+// un valore esisteva fra le regole aggiornabili e il calcolo leggeva una
+// copia locale. Questi test coprono ogni parametro che muove un euro, cosi'
+// un parametro nuovo aggiunto in futuro senza collegarlo si vede subito.
+import { INPS_GESTIONE_SEPARATA_RIDOTTA, coefficienteAteco } from './tax.js';
+
+test('INPS: un\'aliquota contributiva aggiornata cambia l\'accantonamento', () => {
+  resetActiveTaxRules();
+  const base = taxSetAside(30000, { regime: 'forfettario', year: 2027 }).setAside;
+  setActiveTaxRules({ version: '2027-01', rules: { 2027: { ...rulesForYear(2026), inpsGestioneSeparata: 0.35 } } });
+  try {
+    assert.ok(taxSetAside(30000, { regime: 'forfettario', year: 2027 }).setAside > base,
+      'se questo fallisce, l\'INPS legge ancora una costante locale');
+  } finally { resetActiveTaxRules(); }
+});
+
+test('INPS RIDOTTA: aggiornabile, e non puo\' essere piu\' alta della piena', () => {
+  resetActiveTaxRules();
+  const r = rulesForYear(2026);
+  // Plausibile: viene adottata.
+  const okPayload = { version: '2027-01', rules: { 2027: { ...r, inpsGestioneSeparataRidotta: 0.20 } } };
+  assert.equal(validateRulesPayload(okPayload).ok, true);
+  setActiveTaxRules(okPayload);
+  try {
+    const conRidotta = taxSetAside(30000, { regime: 'forfettario', year: 2027, altraCoperturaPrevidenziale: true }).setAside;
+    const conDefault = (() => { resetActiveTaxRules(); return taxSetAside(30000, { regime: 'forfettario', year: 2027, altraCoperturaPrevidenziale: true }).setAside; })();
+    assert.ok(conRidotta < conDefault, `0.20 deve costare meno di ${INPS_GESTIONE_SEPARATA_RIDOTTA}`);
+  } finally { resetActiveTaxRules(); }
+
+  // Una "riduzione" PIU' ALTA della piena e' un dato rotto, non una legge nuova.
+  const rotto = { version: '2027-02', rules: { 2027: { ...r, inpsGestioneSeparata: 0.26, inpsGestioneSeparataRidotta: 0.40 } } };
+  assert.equal(validateRulesPayload(rotto).ok, false);
+  assert.match(validateRulesPayload(rotto).reason, /ridotta implausibile/);
+});
+
+test('ATECO: i coefficienti arrivano dalle regole, con la tabella locale come ripiego', () => {
+  resetActiveTaxRules();
+  const locale = coefficienteAteco('commercio', { year: 2027 });
+  assert.equal(locale.coeff, 0.40);
+  assert.equal(locale.fonte, 'inclusa nell\'app');
+
+  setActiveTaxRules({ version: '2027-01', rules: { 2027: { ...rulesForYear(2026),
+    atecoCoefficienti: { commercio: { coeff: 0.55, label: 'Commercio (55%)' } } } } });
+  try {
+    const agg = coefficienteAteco('commercio', { year: 2027 });
+    assert.equal(agg.coeff, 0.55);
+    assert.equal(agg.fonte, 'aggiornata');
+    // Un settore NON incluso nell'aggiornamento continua a usare il locale:
+    // un aggiornamento parziale non deve cancellare quello che gia' si sa.
+    assert.equal(coefficienteAteco('professionisti', { year: 2027 }).coeff, 0.78);
+  } finally { resetActiveTaxRules(); }
+});
+
+test('ATECO: un coefficiente fuori da [0,1] viene RIFIUTATO (sposterebbe la base imponibile)', () => {
+  const r = rulesForYear(2026);
+  for (const bad of [0, -0.1, 1.5, 'alto', null]) {
+    const p = { version: '2027-x', rules: { 2027: { ...r, atecoCoefficienti: { commercio: { coeff: bad } } } } };
+    assert.equal(validateRulesPayload(p).ok, false, `accettato un coefficiente ${bad}`);
+  }
+});
+
+test('un settore ATECO sconosciuto non inventa un coefficiente', () => {
+  resetActiveTaxRules();
+  assert.equal(coefficienteAteco('non-esiste', { year: 2027 }), null);
+});

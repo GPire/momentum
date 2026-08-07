@@ -535,6 +535,97 @@
        rientrano a scaglione, come le opzioni del menu a tendina. */
     .tl1-ateco-hit { animation: txRise .3s cubic-bezier(.22,1,.36,1) both; }
     @media (prefers-reduced-motion: reduce) { .tl1-ateco-hit { animation: none; } }
+
+    /* ══ AVVISO "LE REGOLE FISCALI SONO CAMBIATE" ══
+       Una legge che cambia non è un'emergenza e non è colpa di nessuno: qui
+       niente rosso, niente lampeggio. L'avviso ENTRA con calma (la card sale,
+       poi le righe una per volta), respira una volta sola per farsi notare, e
+       poi sta fermo. Un elemento che pulsa all'infinito diventa invisibile in
+       tre secondi ed è il modo più veloce per insegnare a ignorare gli avvisi.
+       Le animazioni sono quelle che l'app già usa (sectionRise, txRise,
+       tl1IconBreathe): un vocabolario visivo solo, non uno nuovo per ogni
+       riquadro — è quello che fa sembrare un'app disegnata invece che assemblata. */
+    .rules-alert {
+      animation: sectionRise .5s cubic-bezier(.22,1,.36,1) both;
+      position: relative; overflow: hidden;
+      /* Il bordo sinistro dice il tono prima ancora che si legga il testo:
+         verde = ti conviene, ambra = ti costa, blu = è solo da sapere. */
+      border-left-width: 3px;
+      /* Profondità: la card si stacca dal fondo invece di essere un rettangolo
+         colorato appoggiato sopra. Ombra bassa e diffusa + un velo di luce
+         dall'alto — lo stesso linguaggio delle altre superfici dell'app. */
+      box-shadow: 0 10px 30px -12px rgba(0,0,0,.55), inset 0 1px 0 0 rgba(255,255,255,.06);
+      background-image: linear-gradient(180deg, rgba(255,255,255,.045), transparent 62%);
+    }
+    /* Il bordo colorato non è piatto: sfuma verso il basso, così la card
+       sembra illuminata da sopra invece che bordata con un pennarello. */
+    .rules-alert::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: linear-gradient(180deg, currentColor, transparent 92%);
+      opacity: .85; pointer-events: none;
+    }
+    /* Un velo di luce attraversa la card UNA volta all'arrivo: dice "questo è
+       nuovo" senza un badge che poi resta lì per sempre a fare rumore. */
+    .rules-alert::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.10) 48%, transparent 62%);
+      transform: translateX(-120%);
+      animation: rulesSheen 1.15s cubic-bezier(.22,1,.36,1) .22s 1 both;
+    }
+    @keyframes rulesSheen { to { transform: translateX(120%); } }
+    /* Le righe entrano a scaglione: si leggono nell'ordine in cui contano,
+       invece di apparire tutte insieme come un muro di testo. */
+    .rules-alert li { animation: txRise .38s cubic-bezier(.22,1,.36,1) both; }
+    .rules-alert li:nth-child(1) { animation-delay: .16s; }
+    .rules-alert li:nth-child(2) { animation-delay: .24s; }
+    .rules-alert li:nth-child(3) { animation-delay: .32s; }
+    .rules-alert li:nth-child(n+4) { animation-delay: .38s; }
+    /* L'icona sta in un disco, non nuda accanto al testo: le dà un peso
+       visivo pari a quello del titolo e crea l'ancora da cui l'occhio parte. */
+    .rules-alert .ra-icon {
+      animation: tl1IconBreathe 2.6s ease-in-out 2;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: color-mix(in srgb, currentColor 14%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+    }
+    /* Il pallino della lista è un trattino sottile, non un bullet tondo: pesa
+       meno del testo e non compete con la freccia dell'icona. */
+    .rules-alert li > span:first-child {
+      width: 10px; height: 1px; margin-top: .62em; border-radius: 1px;
+      background: currentColor; opacity: .45;
+    }
+    /* La nota finale è separata da una linea appena percettibile: divide i
+       fatti (cosa è cambiato) dalla conseguenza (cosa vuol dire per te). */
+    .rules-alert .ra-note {
+      border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+      padding-top: 8px;
+    }
+    .rules-alert .ra-note, .rules-alert .ra-cta { animation: txRise .4s cubic-bezier(.22,1,.36,1) .44s both; }
+    /* Tocco: il pulsante affonda appena — la conferma fisica che su touch
+       sostituisce l'hover, che su un dito non esiste. */
+    .rules-alert .ra-cta { transition: transform .14s cubic-bezier(.34,1.56,.64,1), opacity .14s; }
+    .rules-alert .ra-cta:active { transform: scale(.96); }
+    @media (hover: none) and (pointer: coarse) {
+      /* Bersaglio comodo da premere col pollice, senza ingrandire il testo. */
+      .rules-alert .ra-cta { min-height: 44px; padding-inline: 14px; }
+    }
+    /* ERRORE MIO, visto solo guardando lo schermo: qui c'era una media query
+       `min-width: 1024px` che mandava la lista su due colonne. Ma la media
+       query misura la FINESTRA, non la card — e questa card vive dentro una
+       colonna da ~420px anche su un monitor da 1440. Risultato: due colonne da
+       190px, testo spezzato ogni tre parole, illeggibile proprio sullo schermo
+       grande dove c'era più spazio di tutti.
+       Le colonne qui non servono: la lista è di 2-4 righe. Una riga per
+       cambiamento, piena larghezza, si legge in un colpo d'occhio.
+       (Se un giorno servisse davvero, la misura giusta è `@container`, non il
+       viewport: è la larghezza del contenitore che decide.) */
+    .rules-alert ul { max-width: 62ch; }
+    @media (prefers-reduced-motion: reduce) {
+      .rules-alert, .rules-alert li, .rules-alert .ra-icon,
+      .rules-alert .ra-note, .rules-alert .ra-cta { animation: none; }
+      .rules-alert::after { display: none; }
+    }
     /* Kit riepilogo pronto (guida "come si apre davvero"): il bordo si
        accende un istante quando il testo viene copiato, conferma visiva
        senza bisogno di leggere un messaggio. */
