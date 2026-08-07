@@ -579,3 +579,14 @@ test('sync live: la stessa transazione ricevuta due volte non si duplica (merge 
   assert.equal(in1.added, 0, 'ritrasmettere deve essere sicuro: e\' cio\' che rende il live sync senza rischi');
   assert.equal(in1.merged['2026-08'].length, 1);
 });
+
+test('sync live: e\' un\'ACCELERAZIONE, non un sostituto — cio\' che non parte live arriva alla connessione', async () => {
+  const { computeSyncDigest, transactionsMissingFromPeer } = await import('./sync.js');
+  // Scenario: A inserisce una spesa mentre B è scollegato. Il sync live non
+  // ha nessuno a cui mandarla. Alla riconnessione DEVE arrivare comunque.
+  const A = { '2026-08': [{ id: 'persa-live', amount: 30, date: '2026-08-06' }] };
+  const B = {};
+  const mancanti = transactionsMissingFromPeer(A, computeSyncDigest(B));
+  assert.equal(mancanti['2026-08']?.[0]?.id, 'persa-live',
+    'nessun dato puo\' sparire perche\' era poco urgente: la sincronizzazione alla connessione e\' la garanzia');
+});

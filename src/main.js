@@ -8754,6 +8754,23 @@ function flushLiveSync() {
   } catch (e) { console.warn('Sync live non riuscito (i dati partiranno alla prossima connessione):', e); }
 }
 
+// LA GARANZIA, scritta perché non resti un'assunzione: la finestra di
+// accorpamento RAGGRUPPA, non filtra — tutto ciò che entra in coda viene
+// spedito, o subito o entro 1,5 secondi. E se anche non partisse (app chiusa
+// nell'istante sbagliato, nessun peer collegato in quel momento), alla
+// prossima connessione parte comunque la sincronizzazione differenziale
+// completa: il sync live è un'ACCELERAZIONE sopra quella garanzia, mai un
+// suo sostituto. Nessun dato può sparire perché era "poco urgente".
+//
+// Resta un caso stretto e reale: l'app che viene chiusa o messa in secondo
+// piano DENTRO la finestra. Qui si svuota la coda prima che accada, così
+// anche quell'ultimo inserimento parte subito invece di aspettare la
+// riconnessione.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushLiveSync(); });
+  window.addEventListener('pagehide', () => flushLiveSync());
+}
+
 function queueLiveSync(mese, tx) {
   if (!momentumMeshNode || !tx) return;
   __liveSyncCoda.push({ mese, tx });
