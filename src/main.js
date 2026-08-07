@@ -144,7 +144,7 @@ import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
 import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
 import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
-import { rankMissingByMonth } from './mesh/sync-priority.js';
+import { rankMissingByMonth, scoreForSync } from './mesh/sync-priority.js';
 import { buildSketch, serializeCells, recommendedSize, reconcile } from './mesh/iblt.js';
 import { assertShareable } from './mesh/compute-market.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
@@ -8723,6 +8723,46 @@ function offerToSendP2PAnswer(answerCode, groupName) {
   $('#p2p-skip')?.addEventListener('click', () => closeModal());
 }
 
+// ── SYNC LIVE: la spesa appena inserita arriva SUBITO sull'altro schermo ──
+// Difetto trovato: requestSync veniva chiamato SOLO alla connessione. Una
+// spesa aggiunta mentre i due dispositivi erano già collegati non partiva:
+// l'altro la vedeva alla riconnessione successiva. I gruppi di divisione si
+// propagavano al volo, le transazioni no.
+//
+// La parte intelligente non è "mandare tutto subito" — sarebbe chiacchiericcio
+// e batteria sprecata sul telefono di chi riceve. È decidere QUANDO, con lo
+// stesso punteggio semantico già usato per l'ordine (sync-priority.js):
+//   - ciò che cambia una decisione ADESSO (spesa di oggi, importo grosso)
+//     parte immediatamente;
+//   - il resto viene accorpato in una finestra breve, così tre inserimenti di
+//     fila diventano un messaggio solo invece di tre.
+const LIVE_SYNC_SOGLIA_URGENZA = 1.5; // sopra: parte subito
+const LIVE_SYNC_ATTESA_MS = 1500;     // sotto: si accorpa
+let __liveSyncCoda = [];
+let __liveSyncTimer = null;
+
+function flushLiveSync() {
+  clearTimeout(__liveSyncTimer);
+  __liveSyncTimer = null;
+  const coda = __liveSyncCoda;
+  __liveSyncCoda = [];
+  if (!coda.length || !momentumMeshNode) return;
+  try {
+    const perMese = {};
+    for (const { mese, tx } of coda) (perMese[mese] = perMese[mese] || []).push(tx);
+    momentumMeshNode.broadcastTransactions(rankMissingByMonth(perMese, { now: Date.now() }));
+  } catch (e) { console.warn('Sync live non riuscito (i dati partiranno alla prossima connessione):', e); }
+}
+
+function queueLiveSync(mese, tx) {
+  if (!momentumMeshNode || !tx) return;
+  __liveSyncCoda.push({ mese, tx });
+  // Urgenza dal punteggio già testato: vicinanza a oggi + importo.
+  const urgente = scoreForSync(tx, { now: Date.now() }) >= LIVE_SYNC_SOGLIA_URGENZA;
+  if (urgente) { flushLiveSync(); return; }
+  if (!__liveSyncTimer) __liveSyncTimer = setTimeout(flushLiveSync, LIVE_SYNC_ATTESA_MS);
+}
+
 // ── CALCOLO CONDIVISO TRA DISPOSITIVI (src/mesh/compute-market.js) ──
 // Un telefono in carica, un tablet sul tavolo e il portatile di un amico
 // sono insieme molta più potenza di quella che ha in mano l'utente. Qui la
@@ -10523,6 +10563,22 @@ function initMomentumRealAI() {
     // Calcolo condiviso: questo dispositivo accetta di lavorare per i peer
     // (solo carichi a input pubblico — il cancello è dentro la funzione).
     momentumMeshNode.runComputeUnits = runComputeUnitsLocally;
+
+    // SYNC LIVE: si intercetta addTransaction UNA volta sola invece di
+    // toccare i cinque punti che la chiamano — così non se ne dimentica uno
+    // domani, che è esattamente come nascono i dati che non si sincronizzano.
+    // Si propaga solo ciò che è stato davvero scritto (route conferma che non
+    // era un duplicato): ritrasmettere un doppione sarebbe innocuo per il
+    // merge CRDT, ma inutile da mandare.
+    if (!VaultDAO.__liveSyncWrapped) {
+      const addOriginale = VaultDAO.addTransaction.bind(VaultDAO);
+      VaultDAO.addTransaction = (mese, tx, opts = {}) => {
+        const esito = addOriginale(mese, tx, opts);
+        try { if (esito && esito.route !== 'duplicate') queueLiveSync(mese, tx); } catch (_) {}
+        return esito;
+      };
+      VaultDAO.__liveSyncWrapped = true;
+    }
     momentumMeshNode.getSyncSketch = () => {
       try {
         const ids = idsLocali();

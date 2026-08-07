@@ -544,3 +544,38 @@ test('calcolo condiviso: un carico a input pubblico viene eseguito e i risultati
   assert.equal(ricevuti[0].workloadId, 'montecarlo-strategie');
   assert.deepEqual(ricevuti[0].results, { 0: 42, 1: 100 });
 });
+
+// ── SYNC LIVE: la spesa appena inserita arriva SUBITO, senza riconnettersi ──
+test('sync live: broadcastTransactions consegna a tutti i peer collegati', () => {
+  const { nodeA, nodeB } = twoNodes();
+  const ricevute = [];
+  nodeB.onSyncReceived = (txs) => { ricevute.push(txs); return 1; };
+  const inviati = nodeA.broadcastTransactions({ '2026-08': [{ id: 't1', amount: 12 }] });
+  assert.equal(inviati, 1);
+  assert.equal(ricevute.length, 1);
+  assert.equal(ricevute[0]['2026-08'][0].id, 't1');
+});
+
+test('sync live: niente da mandare -> nessun messaggio (niente chiacchiericcio)', () => {
+  const { nodeA, nodeB } = twoNodes();
+  let messaggi = 0;
+  nodeB.onSyncReceived = () => { messaggi++; return 0; };
+  assert.equal(nodeA.broadcastTransactions({}), 0);
+  assert.equal(nodeA.broadcastTransactions(null), 0);
+  assert.equal(messaggi, 0);
+});
+
+test('sync live: su canale chiuso non invia e non crasha', () => {
+  const { nodeA, chA } = twoNodes();
+  chA.readyState = 'closed';
+  assert.doesNotThrow(() => nodeA.broadcastTransactions({ '2026-08': [{ id: 'x' }] }));
+  assert.equal(nodeA.broadcastTransactions({ '2026-08': [{ id: 'x' }] }), 0);
+});
+
+test('sync live: la stessa transazione ricevuta due volte non si duplica (merge idempotente)', async () => {
+  const { mergeTransactions } = await import('./sync.js');
+  const locale = { '2026-08': [{ id: 't1', amount: 10, date: '2026-08-01' }] };
+  const in1 = mergeTransactions(locale, { '2026-08': [{ id: 't1', amount: 10, date: '2026-08-01' }] });
+  assert.equal(in1.added, 0, 'ritrasmettere deve essere sicuro: e\' cio\' che rende il live sync senza rischi');
+  assert.equal(in1.merged['2026-08'].length, 1);
+});

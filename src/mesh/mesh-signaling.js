@@ -649,6 +649,21 @@ class MeshNode {
   // (federated-distillation.js: buildLexiconDigest). Il chiamante decide SE
   // chiamarla — e' opt-in esplicito, mai automatica: qui la mesh non ha
   // opinioni sul consenso, si limita a trasportare cio' che le viene dato.
+  // SYNC LIVE: manda SUBITO a tutti i peer le transazioni appena create,
+  // senza aspettare la prossima riconnessione. Riusa il messaggio `sync_txs`
+  // che il ricevente sa già fondere (merge CRDT idempotente): una
+  // transazione che arriva due volte non si duplica, quindi ritrasmettere è
+  // sicuro e non serve un protocollo nuovo per una cosa che c'è già.
+  broadcastTransactions(txsByMonth) {
+    if (!txsByMonth || !Object.keys(txsByMonth).length) return 0;
+    const msg = JSON.stringify({ type: 'sync_txs', txs: txsByMonth });
+    let inviati = 0;
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
+    }
+    return inviati;
+  }
+
   // Manda a UN peer le unità che gli sono state assegnate. Non si trasmette
   // mai un "carico" generico: solo un id di workload noto e dei semi
   // numerici, da cui il ricevente ricostruisce il lavoro in modo
