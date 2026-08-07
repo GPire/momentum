@@ -1,3 +1,4 @@
+import { evaluateMerge } from './merge-gate.js';
 import { monthKey } from '../core/constants.js';
 import { VaultDAO } from '../core/vault.js';
 import { NeuralNexus } from './neural-nexus.js';
@@ -412,13 +413,25 @@ class MomentumOrchestrator {
       b2: mergeVector(localNet.b2, remoteNet.b2),
     };
 
-    // Controllo anti-avvelenamento: rifiuta se peggiora la loss di validazione
-    if (this._validationSet.length >= 5) {
-      const lossBefore = this.nexus.validate(this._validationSet, localNet);
-      const lossAfter = this.nexus.validate(this._validationSet, mergedNet);
-      if (lossAfter > lossBefore * 1.1) {
-        return { accepted: false, lossBefore, lossAfter };
-      }
+    // CANCELLO DI MERGE (src/ai/merge-gate.js). Il controllo precedente
+    // rifiutava solo oltre +10% sulla singola fusione, e sotto 5 esempi di
+    // verifica accettava ALLA CIECA. Due falle misurate: venti merge appena
+    // sotto soglia portavano il modello al 561% peggio, e un dispositivo
+    // appena installato accettava qualunque cosa — la finestra esatta in cui
+    // un attaccante colpirebbe. Ora si giudica rispetto al MIGLIOR modello
+    // mai raggiunto, e senza esempi non si accetta.
+    const lossBefore = this.nexus.validate(this._validationSet, localNet);
+    const lossAfter = this.nexus.validate(this._validationSet, mergedNet);
+    const verdetto = evaluateMerge({
+      lossBefore, lossAfter,
+      bestLoss: this.vault.state.mlData?.bestValidationLoss ?? null,
+      validationSize: this._validationSet.length,
+    });
+    if (!verdetto.accept) {
+      return { accepted: false, lossBefore, lossAfter, reason: verdetto.reason };
+    }
+    if (Number.isFinite(verdetto.nuovoBest)) {
+      this.vault.state.mlData.bestValidationLoss = verdetto.nuovoBest;
     }
 
     this.vault.state.mlData.neuralNet = mergedNet;
