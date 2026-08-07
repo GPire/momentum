@@ -72,7 +72,7 @@ import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusBy
 import { upcomingTaxDeadlines, taxCashWarning, overdueTaxDeadlines } from './predict/tax-deadlines.js';
 import { righeF24Iva, righeF24Imposte, f24Riepilogo } from './predict/f24.js';
 import { calcolaRavvedimento } from './predict/ravvedimento.js';
-import { taxReserveStatus } from './predict/tax-payments.js';
+import { taxReserveStatus, recordTaxPayment, removeTaxPayment } from './predict/tax-payments.js';
 import { rulesForYear } from './predict/tax-rules.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
@@ -2260,6 +2260,7 @@ function renderTaxCashBlocks(proj, regime) {
         <div class="text-[11px] font-bold text-orange-300 leading-snug">Scadenza del ${escapeHtml(o.date)} non ancora versata (${o.giorniDiRitardo} giorni di ritardo).</div>
         <div class="text-[11px] text-orange-200/90 mt-1 leading-snug">Con il ravvedimento operoso oggi pagheresti ${escapeHtml(formatMoney(rav.totale))}: ${escapeHtml(formatMoney(o.importo))} dovuto + ${escapeHtml(formatMoney(rav.sanzioneRidotta))} di sanzione ridotta (${escapeHtml(rav.fascia)}) + ${escapeHtml(formatMoney(rav.interessi))} di interessi. Più aspetti, più sale.</div>
         <div class="text-[10px] text-orange-200/70 mt-1.5 leading-snug">${escapeHtml(rav.nota)}</div>
+        <button onclick="window.openRegistraVersamento(${o.importo}, 'Scadenza del ${escapeHtml(o.date)}')" class="text-[11px] font-bold text-orange-200 underline mt-2">L'ho già versata</button>
       </div>`;
       urgent = true;
       maybeNotifyTaxUrgency(
@@ -2328,6 +2329,14 @@ function renderTaxCashBlocks(proj, regime) {
     if (deadlines.length) {
       __f24State = { deadlines, regime: regime || 'forfettario', annualizedRevenue: proj.annualizedRevenue, invoices, anno };
       html += `<button onclick="window.openF24Precompilato()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Prepara l'F24</button>`;
+    }
+    // Quello che hai già versato, sempre correggibile. Compare solo quando c'è
+    // qualcosa da dire: se non hai mai dichiarato un versamento e non c'è
+    // niente in scadenza, questa riga sarebbe solo rumore.
+    if (riserva.versato > 0) {
+      html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">Di questi, <span class="font-mono font-bold text-[var(--positive)]">${formatMoney(riserva.versato)}</span> risultano già versati da te. <button onclick="window.openVersamentiFiscali()" class="underline">Correggi</button></div>`;
+    } else if (deadlines.length || overdue.length) {
+      html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug"><button onclick="window.openVersamentiFiscali()" class="underline">Ne hai già versata una?</button> Dimmelo e smetto di contarla.</div>`;
     }
     // Opt-in alle notifiche: MAI un banner persistente. Comparire ad ogni
     // apertura anche senza un motivo vero è esattamente il pattern che
@@ -2478,6 +2487,84 @@ window.openRegistraAcquistoIva = () => {
 // (f24.js), applicati alle scadenze e alla liquidazione IVA già mostrate
 // nella card — mai un numero nuovo, solo il codice giusto attaccato a un
 // numero che l'utente ha già visto.
+// ==========================================
+// VERSAMENTI FISCALI DICHIARATI (tax-payments.js)
+// ==========================================
+// BUG REALE, il più grave del modulo fiscale: `recordTaxPayment` e
+// `removeTaxPayment` esistevano, erano testate, e NON le chiamava nessuno.
+// `VaultDAO.state.taxPayments` era letto in tre punti e mai scritto, quindi
+// `riserva.versato` restava 0 per sempre: ogni scadenza già pagata continuava
+// a comparire fra le "non versate", e il box del ravvedimento operoso
+// calcolava sanzioni e interessi su soldi che la persona aveva già dato allo
+// Stato. Non è una funzione mancante — è un NUMERO SBAGLIATO su soldi dovuti
+// allo Stato, mostrato con la stessa autorevolezza di uno giusto.
+// Un versamento è l'unica cosa che Momentum non può dedurre da sé: succede
+// fuori dall'app, in home banking. Quindi va CHIESTO, non indovinato.
+window.registraVersamentoFiscale = (importo, nota = '') => {
+  const n = +importo;
+  if (!Number.isFinite(n) || n <= 0) { showToast('Inserisci un importo valido.', 'error'); return false; }
+  VaultDAO.state.taxPayments = recordTaxPayment(VaultDAO.state.taxPayments || [], n, { note: nota });
+  VaultDAO.save();
+  showToast(`Versamento di ${formatMoney(n)} registrato: non te lo chiederò più.`, 'success');
+  closeModal();
+  renderAnalysis({ skipHeavyForecast: true });
+  renderDashboard();
+  return true;
+};
+
+window.rimuoviVersamentoFiscale = (id) => {
+  VaultDAO.state.taxPayments = removeTaxPayment(VaultDAO.state.taxPayments || [], id);
+  VaultDAO.save();
+  showToast('Versamento rimosso.', 'info');
+  renderAnalysis({ skipHeavyForecast: true });
+  renderDashboard();
+  window.openVersamentiFiscali();
+};
+
+// Chiede l'importo con un valore già proposto (quello della scadenza o del
+// totale F24): la persona conferma invece di digitare, ma può correggere —
+// un versamento parziale è normale e non va reso impossibile.
+window.openRegistraVersamento = (importoProposto = 0, etichetta = '') => {
+  const val = Number.isFinite(+importoProposto) && +importoProposto > 0 ? (+importoProposto).toFixed(2) : '';
+  openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M20 6 9 17l-5-5"/>', '--positive')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">L'hai versato?</h3>
+        <p class="card-sub !mb-0 mt-1.5">${etichetta ? escapeHtml(etichetta) + '. ' : ''}Segnandolo qui smetto di contarlo fra quelli da mettere da parte, e sparisce dagli avvisi di ritardo.</p>
+      </div>
+      <input id="vers-importo" type="number" inputmode="decimal" step="0.01" value="${escapeHtml(val)}" placeholder="Quanto hai versato (€)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
+      <input id="vers-nota" type="text" maxlength="60" placeholder="Nota (facoltativa): es. F24 giugno" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
+      <button onclick="window.registraVersamentoFiscale(document.getElementById('vers-importo').value, document.getElementById('vers-nota').value)" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Sì, l'ho versato</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Se hai versato solo una parte, scrivi quella: il resto continuo a tenerlo da conto.</p>
+    </div>`);
+  setTimeout(() => document.getElementById('vers-importo')?.focus(), 60);
+};
+
+window.openVersamentiFiscali = () => {
+  const versamenti = VaultDAO.state.taxPayments || [];
+  openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M3 6h18M3 12h18M3 18h12"/>', '--primary')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">Versamenti che hai dichiarato</h3>
+        <p class="card-sub !mb-0 mt-1.5">Solo quelli che mi hai detto tu: Momentum non vede il tuo conto e non può saperlo da solo.</p>
+      </div>
+      ${!versamenti.length ? `<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessuno, per ora.</p>` : `
+      <div class="w-full flex flex-col gap-2 text-left">
+        ${versamenti.slice().reverse().map((p) => `
+        <div class="flex items-center justify-between gap-2 rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-2.5">
+          <div class="min-w-0">
+            <div class="font-mono font-bold text-sm">${formatMoney(p.amount)}</div>
+            <div class="text-[10px] text-[var(--on-surface-secondary)] truncate">${escapeHtml(String(p.date).slice(0, 10))}${p.note ? ' · ' + escapeHtml(p.note) : ''}</div>
+          </div>
+          <button onclick="window.rimuoviVersamentoFiscale('${escapeHtml(p.id)}')" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">Rimuovi</button>
+        </div>`).join('')}
+      </div>`}
+      <button onclick="window.openRegistraVersamento(0)" class="btn-action w-full py-3 text-xs rounded-xl">Aggiungi un versamento</button>
+    </div>`);
+};
+
 window.openF24Precompilato = () => {
   const s = __f24State;
   if (!s) { showToast('Nessuna scadenza fiscale da preparare al momento.', 'info'); return; }
@@ -2524,6 +2611,7 @@ window.openF24Precompilato = () => {
         </div>
       </div>
       <button id="f24-copy" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Copia tutte le righe</button>
+      <button onclick="window.openRegistraVersamento(${totale}, 'F24 da ${formatMoney(totale)}')" class="btn-action w-full py-3 text-xs rounded-xl">L'ho versato</button>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Sono STIME sui dati che hai in Momentum, non una dichiarazione: verificale col commercialista prima di versare, soprattutto se hai anche altre entrate o crediti d'imposta fuori dall'app.</p>
       `}
     </div>`);

@@ -122,3 +122,61 @@ test('SCENARIO: una fattura cancellata riduce il dovuto — il salvadanaio resta
   const stato = taxReserveStatus(dovutoDopo, versamenti);
   assert.equal(stato.totaleDovuto, +dovutoDopo.toFixed(2));
 });
+
+// ── Il ciclo COMPLETO: dichiarare un versamento deve cambiare quello che si vede ──
+// Questi test esistono perché `recordTaxPayment`/`removeTaxPayment` sono state
+// scritte e testate una sessione, e collegate a NESSUNA interfaccia: per mesi
+// `taxPayments` è stato letto e mai scritto, quindi `versato` era sempre 0 e il
+// ravvedimento calcolava sanzioni su soldi già dati allo Stato. Testare la
+// funzione da sola non bastava: serviva testare che l'effetto ARRIVI dove
+// l'utente guarda.
+import { upcomingTaxDeadlines, overdueTaxDeadlines } from './tax-deadlines.js';
+
+test('CICLO COMPLETO: registrare un versamento riduce quanto resta da mettere via', () => {
+  let pagamenti = [];
+  const dovuto = 4000;
+  assert.equal(taxReserveStatus(dovuto, pagamenti).daAccantonare, 4000);
+  pagamenti = recordTaxPayment(pagamenti, 1500, { note: 'F24 giugno' });
+  const dopo = taxReserveStatus(dovuto, pagamenti);
+  assert.equal(dopo.versato, 1500);
+  assert.equal(dopo.daAccantonare, 2500);
+});
+
+test('CICLO COMPLETO: una scadenza SCADUTA sparisce dopo averla dichiarata versata', () => {
+  const dovuto = 4000;
+  const now = new Date('2026-08-07T12:00:00Z');
+  const primaScadute = overdueTaxDeadlines(dovuto, { now, giaVersato: 0 });
+  assert.ok(primaScadute.length > 0, 'premessa: esiste almeno una scadenza passata non versata');
+
+  // L'utente dichiara di aver versato tutto.
+  const pagamenti = recordTaxPayment([], dovuto, { note: 'saldo' });
+  const versato = taxReserveStatus(dovuto, pagamenti).versato;
+  const dopoScadute = overdueTaxDeadlines(dovuto, { now, giaVersato: versato });
+  assert.equal(dopoScadute.length, 0,
+    'una scadenza dichiarata versata NON deve continuare a comparire fra le scadute: e\' il bug che faceva calcolare il ravvedimento su soldi gia\' pagati');
+});
+
+test('VERSAMENTO PARZIALE: gli importi calano, ma la scadenza resta visibile', () => {
+  const dovuto = 4000;
+  const now = new Date('2026-08-07T12:00:00Z');
+  const pieno = upcomingTaxDeadlines(dovuto, { now, giaVersato: 0 });
+  const pagamenti = recordTaxPayment([], 1000);
+  const parziale = upcomingTaxDeadlines(dovuto, { now, giaVersato: taxReserveStatus(dovuto, pagamenti).versato });
+  assert.ok(parziale.length > 0, 'un versamento parziale non azzera l\'obbligo');
+  assert.ok(parziale[0].importo < pieno[0].importo, 'ma l\'importo residuo deve calare');
+});
+
+test('RIMOZIONE: annullare un versamento riporta indietro quello che si vede', () => {
+  const dovuto = 4000;
+  let pagamenti = recordTaxPayment([], 1500);
+  const id = pagamenti[0].id;
+  pagamenti = removeTaxPayment(pagamenti, id);
+  assert.equal(taxReserveStatus(dovuto, pagamenti).daAccantonare, 4000,
+    'un versamento inserito per errore deve poter essere annullato');
+});
+
+test('un importo non valido non sporca lo stato', () => {
+  for (const bad of [0, -100, NaN, undefined, null, 'ciao']) {
+    assert.deepEqual(recordTaxPayment([], bad), [], `rifiutato: ${bad}`);
+  }
+});
