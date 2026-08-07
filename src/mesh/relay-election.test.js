@@ -239,3 +239,99 @@ test('non si finge un invio riuscito quando il canale non c\'e\'', () => {
   assert.equal(A.sendViaBridge('inesistente', 'C', { v: 1 }), false);
   assert.equal(A.sendViaBridge('B', 'A', { v: 1 }), false, 'ne\' un ponte verso se stessi');
 });
+
+// ══ IL ROUTING COLLEGATO PER DAVVERO ══
+// relay-election.js era ORFANO: mesh-signaling.js e channel-learning.js lo
+// citavano solo nei commenti, `sendViaBridge` esisteva e nessuno eleggeva un
+// ponte. Il 2% di coppie senza strada — la ragione per cui il modulo esiste —
+// restava senza strada. Questi test passano da `routeToPeer`, cioe' dalla
+// decisione VERA, non da una chiamata a sendViaBridge cablata nel test.
+
+test('ROUTING: con un peer collegato direttamente non si scomoda nessun ponte', () => {
+  const A = new MeshNode('A', null), B = new MeshNode('B', null);
+  collega(A, B);
+  const r = A.routeToPeer('B', { v: 1, to: 'x', from: 'y', iv: 'a', ct: 'b', exp: Date.now() + 1000 });
+  assert.equal(r.tipo, 'diretto');
+});
+
+test('ROUTING: due reti che non si parlano -> il ponte viene ELETTO e usato', async () => {
+  const A = new MeshNode('A', null), B = new MeshNode('B', null), C = new MeshNode('C', null);
+  collega(A, B); collega(B, C);            // A e C non si vedono
+  // Le classi di rete: A e C simmetrici (non possono bucare fra loro), B normale.
+  A.setLocalNat('variabile');
+  A.peerNat.set('B', 'prevedibile');
+  A.peerNat.set('C', 'variabile');
+  let arrivato = null;
+  C.onBundlesReceived = async (_da, b) => { arrivato = b[0]; };
+
+  const r = A.routeToPeer('C', { v: 1, to: 'C', from: 'A', iv: 'a', ct: 'b', exp: Date.now() + 60000 });
+  assert.equal(r.tipo, 'ponte', 'senza elezione questo resta "differito" e il pacchetto non parte mai');
+  assert.equal(r.via, 'B');
+  await attendi();
+  assert.ok(arrivato, 'e il pacchetto deve ARRIVARE, non solo essere instradato');
+});
+
+test('ROUTING: la capienza del ponte si CONSUMA (non e\' un ponte infinito)', () => {
+  const A = new MeshNode('A', null), B = new MeshNode('B', null);
+  collega(A, B);
+  A.setLocalNat('variabile');
+  A.peerNat.set('B', 'aperto');
+  for (const t of ['C', 'D', 'E']) A.peerNat.set(t, 'variabile');
+  const pacco = { v: 1, to: 'x', from: 'A', iv: 'a', ct: 'b', exp: Date.now() + 60000 };
+  A.routeToPeer('C', pacco); A.routeToPeer('D', pacco);
+  assert.ok(A.peers.get('B').sessioniPonte >= 2, 'un telefono che fa da ponte non ha capienza infinita');
+});
+
+test('ROUTING: senza nessun ponte possibile si dichiara "differito", non si finge un invio', () => {
+  const A = new MeshNode('A', null), B = new MeshNode('B', null);
+  collega(A, B);
+  A.setLocalNat('variabile');
+  A.peerNat.set('B', 'variabile'); // anche l'unico vicino e' simmetrico: non puo' fare da ponte
+  A.peerNat.set('Z', 'variabile');
+  const r = A.routeToPeer('Z', { v: 1, to: 'Z', from: 'A', iv: 'a', ct: 'b', exp: Date.now() + 60000 });
+  assert.equal(r.tipo, 'differito');
+  assert.match(r.testo, /parte da solo appena/);
+});
+
+test('LA CLASSE DI RETE VIAGGIA: device_hello la porta, ed e\' cio\' che rende calcolabile l\'elezione', async () => {
+  const A = new MeshNode('A', null), B = new MeshNode('B', null);
+  collega(A, B);
+  B.setLocalNat('prevedibile');
+  B.sendDeviceHello('A', 'chiave-pubblica-finta');
+  await attendi();
+  assert.equal(A.peerNat.get('B'), 'prevedibile',
+    'senza questo, scegliStrada non sa com\'e\' la rete dell\'altro e il ponte non e\' eleggibile');
+});
+
+test('GOSSIP: le classi di rete si propagano ai nodi mai visti di persona', async () => {
+  const A = new MeshNode('A', null), B = new MeshNode('B', null);
+  collega(A, B);
+  B.peerNat.set('C', 'aperto');   // B conosce C
+  B._broadcastPeerList();
+  await attendi();
+  assert.equal(A.peerNat.get('C'), 'aperto', 'A impara di C senza averlo mai visto');
+});
+
+test('GOSSIP anti-abuso: un terzo non puo\' RISCRIVERE la classe che sappiamo di prima mano', async () => {
+  const A = new MeshNode('A', null), B = new MeshNode('B', null);
+  collega(A, B);
+  A.peerNat.set('C', 'variabile');           // A lo sa direttamente da C
+  B.peerNat.set('C', 'aperto');              // B racconta il contrario
+  B._broadcastPeerList();
+  await attendi();
+  assert.equal(A.peerNat.get('C'), 'variabile',
+    'un peer non deve poter dichiarare un altro "ottimo ponte" per dirottarci su di se\'');
+});
+
+test('la classe di rete che viaggia e\' una PAROLA, mai un indirizzo', () => {
+  const A = new MeshNode('A', null);
+  A.setLocalNat('variabile');
+  const inviati = [];
+  A.peers.set('B', { channel: { readyState: 'open', send: (m) => inviati.push(m) } });
+  A.sendDeviceHello('B', 'k');
+  A._broadcastPeerList();
+  const tutto = inviati.join(' ');
+  assert.ok(!/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(tutto), 'nessun IP');
+  assert.ok(!/"port"|:\d{4,5}[,}]/.test(tutto), 'nessuna porta');
+  assert.match(tutto, /variabile/);
+});

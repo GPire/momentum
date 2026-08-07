@@ -9098,6 +9098,20 @@ function saccoStaffetta() {
 }
 
 // A ogni incontro: consegno cio' che è per lui, e accetto cio' che porta.
+// Prova a far arrivare UN pacchetto a un dispositivo che non è collegato
+// direttamente: diretto -> ponte -> consegna differita, in quest'ordine.
+// È il punto in cui relay-election.js passa da motore testato a strada vera.
+window.inviaAlDispositivo = (targetId, bundle) => {
+  if (!momentumMeshNode?.routeToPeer) return { tipo: 'nessuno' };
+  const r = momentumMeshNode.routeToPeer(targetId, bundle);
+  if (r.tipo === 'differito') {
+    // Non si perde: entra nel sacco e parte al primo incontro utile.
+    VaultDAO.state.carryBag = acceptForCarry(saccoStaffetta(), bundle);
+    VaultDAO.save();
+  }
+  return r;
+};
+
 async function scambiaStaffetta(peerId) {
   try {
     if (!momentumMeshNode) return;
@@ -9333,6 +9347,11 @@ async function runMeshNetDiagnosis() {
       reteTipo: tipoRete(),
     });
     __ultimaNatDiagnosi = { nat, reteTipo: tipoRete() };
+    // La propria classe di rete va data al nodo mesh: da qui in poi viaggia
+    // in ogni device_hello e nel gossip, ed è ciò che rende CALCOLABILE
+    // l'elezione di un ponte per chi non ci arriva in diretta. Senza,
+    // relay-election resta un motore che non può decidere niente.
+    try { momentumMeshNode?.setLocalNat?.(nat.kind); } catch (_) {}
     const diretto = advice.prefer === 'direct';
     // Neurocolori coerenti col resto dell'app: verde = via libera,
     // ambra = momento consapevole (c'è un piano B pronto). Mai rosso: la
@@ -11130,7 +11149,13 @@ function initMomentumRealAI() {
         const store = VaultDAO.state.knowledgeRelay || {};
         const r = receiveRelayed(store, payload, peerId, { now: Date.now(), ledger: VaultDAO.state.updateLedger || [] });
         if (r.accepted) {
-          VaultDAO.state.knowledgeRelay = store;
+          // POTATURA (difetto: `pruneKnowledge` esisteva e non la chiamava
+          // nessuno, quindi lo store cresceva senza fine e la scadenza
+          // dichiarata in knowledge-relay.js non era applicata da nessuna
+          // parte). Una serie di tre mesi fa non aiuta più nessuno e occupa
+          // spazio nel vault di tutti.
+          const { pruneKnowledge } = await import('./mesh/knowledge-relay.js');
+          VaultDAO.state.knowledgeRelay = pruneKnowledge(store);
           if (r.ledger) VaultDAO.state.updateLedger = r.ledger;
           VaultDAO.save();
           if (r.affidabile && payload.kind === 'macro' && !__macroContextCache) {

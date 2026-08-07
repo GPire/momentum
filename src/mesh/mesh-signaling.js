@@ -39,6 +39,7 @@
 'use strict';
 
 import { STUN_POOL } from './nat-probe.js';
+import { scegliStrada } from './relay-election.js';
 
 // ─────────────────────────────────────────────────────────────
 // § 1. COMPACT CODEC — comprime l'SDP (verboso) in un codice corto
@@ -249,6 +250,16 @@ class MeshNode {
     this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
     this.onKnowledgeReceived = null;   // callback opzionale (nodeId, payload) => {} — staffetta dati pubblici verificati
     this.onDeviceHello = null;         // callback opzionale (nodeId, publicKey) => {} — device-trust.js
+    // CLASSE DI RETE dei peer (nat-matrix.js): 'aperto' | 'prevedibile' |
+    // 'variabile' | 'bloccato' | 'incerto'. Senza questa informazione
+    // l'elezione del ponte NON è calcolabile — `scegliStrada` ha bisogno di
+    // sapere com'è la rete DELL'ALTRO, non solo la propria. Era il pezzo
+    // davvero mancante: relay-election.js esisteva ed era orfano perché non
+    // aveva su cosa decidere.
+    // Viaggia solo la CLASSE, una parola: mai un indirizzo, mai una porta.
+    // Sapere "questa rete cambia porta" non dice dove sia nessuno.
+    this.peerNat = new Map();
+    this.localNat = null;
     this.runComputeUnits = null;       // (workloadId, units) => results — esegue lavoro PER un peer
     this.onBundlesReceived = null;     // (peerId, bundles) => {} — pacchetti cifrati a staffetta
     this.onComputeResult = null;       // (peerId, workloadId, results) => {} — risultati di ritorno
@@ -257,7 +268,7 @@ class MeshNode {
   // Aggiunge un canale dati già aperto (da PairingSignaling) come primo peer
   addDirectPeer(peerId, pc, channel) {
     this._reconnectAttempts.delete(peerId); // tornati connessi: il contatore di tentativi riparte da zero
-    this.peers.set(peerId, { pc, channel, lastSeen: Date.now() });
+    this.peers.set(peerId, { pc, channel, lastSeen: Date.now(), connessoDa: Date.now(), sessioniPonte: 0 });
     this._wireChannel(peerId, channel);
     this.knownPeerIds.add(peerId);
     this.onPeerConnected?.(peerId);
@@ -274,7 +285,15 @@ class MeshNode {
   }
 
   _broadcastPeerList() {
-    const msg = JSON.stringify({ type: 'peer_list', peerIds: Array.from(this.knownPeerIds) });
+    // `peerNats` è ADDITIVO: i nodi con la versione precedente ignorano il
+    // campo e continuano a funzionare esattamente come prima. Senza questo,
+    // la classe di rete di un peer scoperto via gossip ma mai visto di
+    // persona resterebbe ignota — e senza quella l'elezione del ponte non è
+    // calcolabile proprio per i peer che ne hanno più bisogno.
+    const nats = {};
+    if (this.localNat) nats[this.nodeId] = this.localNat;
+    for (const [id, k] of this.peerNat) if (k) nats[id] = k;
+    const msg = JSON.stringify({ type: 'peer_list', peerIds: Array.from(this.knownPeerIds), peerNats: nats });
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') entry.channel.send(msg);
     }
@@ -289,6 +308,14 @@ class MeshNode {
       if (msg.type === 'weights') {
         await this._handleRemoteWeights(peerId, msg.weights);
       } else if (msg.type === 'peer_list') {
+        // Le classi di rete si imparano SOLO se non le sappiamo già di prima
+        // mano: quello che ci ha detto il diretto interessato (device_hello)
+        // vale più di quello che ci racconta un terzo. Un peer malevolo non
+        // deve poter sovrascrivere la classe di un altro per farsi eleggere
+        // ponte al suo posto.
+        for (const [id, k] of Object.entries(msg.peerNats || {})) {
+          if (id !== this.nodeId && !this.peerNat.has(id)) this.peerNat.set(id, k);
+        }
         this._handlePeerList(peerId, msg.peerIds);
       } else if (msg.type === 'relay_offer') {
         // Se il messaggio è per NOI, siamo la destinazione C: creiamo la
@@ -404,6 +431,7 @@ class MeshNode {
         // ricevente, non di questo trasporto. Un canale gia' aperto non è
         // di per sé una prova d'identità: chiunque condivida la stessa rete
         // avrebbe potuto arrivare fin qui.
+        if (msg.nat) this.peerNat.set(peerId, msg.nat);
         this.onDeviceHello?.(peerId, msg.publicKey);
       }
     };
@@ -789,8 +817,53 @@ class MeshNode {
   sendDeviceHello(peerId, publicKey) {
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel?.readyState !== 'open' || !publicKey) return false;
-    entry.channel.send(JSON.stringify({ type: 'device_hello', publicKey }));
+    entry.channel.send(JSON.stringify({ type: 'device_hello', publicKey, nat: this.localNat }));
     return true;
+  }
+
+  // La propria classe di rete, misurata da nat-probe.js. Va impostata appena
+  // la sonda ha risposto: da quel momento viaggia in ogni device_hello e nel
+  // gossip, ed è quello che rende calcolabile l'elezione di un ponte.
+  setLocalNat(kind) { this.localNat = kind || null; return this.localNat; }
+
+  // ── IL ROUTING VERO (relay-election.js finalmente collegato) ──
+  // Prima esisteva `sendViaBridge` ma nessuno eleggeva un ponte: il modulo
+  // era citato solo nei commenti. Qui la decisione viene presa davvero.
+  //  1. se siamo collegati direttamente, si manda e basta
+  //  2. altrimenti si sceglie la strada (nat-matrix + relay-election): se
+  //     esiste un ponte che vede entrambi, si passa da lì
+  //  3. se nessuna strada è aperta ora, lo dice — il chiamante mette il
+  //     pacchetto nella staffetta a consegna differita invece di perderlo
+  // Ritorna sempre l'esito, mai un silenzio: un "inviato" che non è successo
+  // è peggio di un errore.
+  routeToPeer(targetId, bundle, opts = {}) {
+    if (!targetId || targetId === this.nodeId) return { tipo: 'nessuno', motivo: 'destinatario non valido' };
+    const diretto = this.peers.get(targetId);
+    if (diretto?.channel?.readyState === 'open') {
+      diretto.channel.send(JSON.stringify({ type: 'bundle_carry', bundles: [bundle] }));
+      return { tipo: 'diretto' };
+    }
+    // I candidati ponte sono i peer con cui SIAMO già collegati: un ponte che
+    // non possiamo raggiungere non è un ponte.
+    const candidati = [...this.peers.entries()]
+      .filter(([, e]) => e.channel?.readyState === 'open')
+      .map(([id, e]) => ({
+        id,
+        nat: { kind: this.peerNat.get(id) || 'incerto' },
+        sessioniAttive: e.sessioniPonte || 0,
+        minutiOnline: Math.round((Date.now() - (e.connessoDa || Date.now())) / 60000),
+        disponibile: true,
+        mio: !!e.mio, stessoGruppo: !!e.stessoGruppo,
+      }));
+    const io = { id: this.nodeId, nat: { kind: this.localNat || 'incerto' } };
+    const lui = { id: targetId, nat: { kind: this.peerNat.get(targetId) || 'incerto' } };
+    const strada = scegliStrada(io, lui, candidati, opts);
+    if (strada.tipo === 'ponte' && this.sendViaBridge(strada.via.id, targetId, bundle)) {
+      const e = this.peers.get(strada.via.id);
+      if (e) e.sessioniPonte = (e.sessioniPonte || 0) + 1; // la capienza si consuma davvero
+      return { tipo: 'ponte', via: strada.via.id, costoPrivacy: strada.costoPrivacy, testo: strada.testo };
+    }
+    return { tipo: 'differito', motivo: strada.motivo, testo: strada.testo };
   }
 
   getMeshStats() {
