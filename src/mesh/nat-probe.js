@@ -25,6 +25,8 @@
 // come parametro → sostituibile nei test.
 'use strict';
 
+import { probabilitaDiretta, puoBucare } from './nat-matrix.js';
+
 // Pool di server STUN pubblici. Averne uno solo — com'era finora in
 // mesh-signaling.js — è un punto di rottura singolo: se quel server è
 // irraggiungibile (rete aziendale che lo blocca, disservizio), il
@@ -120,16 +122,14 @@ export function classifyNat(observations = [], { serversQueried = 0 } = {}) {
 // l'ordine di grandezza noto del comportamento dei NAT, e servono a decidere
 // COSA PROPORRE, non a essere mostrati come una statistica. Per questo la UI
 // riceve una frase, non una percentuale.
-const BASE = { aperto: 0.98, prevedibile: 0.9, incerto: 0.6, variabile: 0.15, bloccato: 0.02 };
-
+// La stima vive ora in nat-matrix.js, come DATO verificabile separato dalla
+// misura. Motivo: qui il calcolo era il prodotto di due punteggi indipendenti,
+// e questo e' sbagliato in un caso che conta moltissimo — un NAT simmetrico
+// contro uno normale RIESCE (il lato non ristretto impara la mappatura dal
+// primo pacchetto), ma il prodotto dava ~15% e portava a rinunciare senza
+// nemmeno provare. Erano circa un quarto di tutte le coppie.
 export function predictDirect(myNat, peerNat = null) {
-  const mine = BASE[myNat?.kind] ?? 0.5;
-  if (!peerNat) return clamp01(mine);
-  const theirs = BASE[peerNat?.kind] ?? 0.5;
-  // Due reti "variabili" insieme sono il caso peggiore: la porta cambia da
-  // entrambi i lati e non c'è niente da indovinare.
-  if (myNat?.kind === 'variabile' && peerNat?.kind === 'variabile') return 0.02;
-  return clamp01(mine * theirs);
+  return clamp01(probabilitaDiretta(myNat, peerNat));
 }
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -150,12 +150,26 @@ export function adviseChannel(myNat, peerNat = null, channels = {}) {
       detail: 'Non è un problema tuo né dell\'app: succede sulle reti di aziende, scuole e alcuni hotel. Usiamo il link, funziona lo stesso.',
     };
   }
-  if (myNat?.kind === 'variabile' || (peerNat && peerNat.kind === 'variabile')) {
+  // Si rinuncia SOLO quando entrambi i lati sono "variabili": e' l'unico caso
+  // in cui nessuno dei due puo' prevedere la porta dell'altro. Prima bastava
+  // che lo fosse UNO dei due, e cosi' venivano dirottate sul ripiego anche
+  // tutte le coppie che avrebbero funzionato.
+  if (peerNat && !puoBucare(myNat, peerNat).ok) {
     return {
       prefer: havePaste ? 'paste' : 'link',
       confidence: p,
-      headline: 'Su questa rete il collegamento diretto quasi sicuramente non parte.',
-      detail: 'Capita spesso con la rete del telefono. Andiamo direttamente col link: ci mette lo stesso tempo ed è altrettanto sicuro.',
+      headline: 'Queste due reti non riescono a parlarsi direttamente.',
+      detail: 'Capita quando siete tutti e due sulla rete del telefono. Andiamo col link: ci mette lo stesso tempo ed è altrettanto sicuro.',
+    };
+  }
+  // Il proprio NAT variabile, da solo, NON è più un motivo per rinunciare:
+  // dipende da chi c'è dall'altra parte, e finché non lo sappiamo si prova.
+  if (myNat?.kind === 'variabile' && !peerNat) {
+    return {
+      prefer: 'direct',
+      confidence: p,
+      headline: 'Proviamo il collegamento diretto.',
+      detail: haveLink ? 'Questa rete è di quelle capricciose: se non parte in pochi secondi passiamo al link.' : '',
     };
   }
   if (myNat?.kind === 'incerto') {

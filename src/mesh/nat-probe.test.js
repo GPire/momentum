@@ -128,11 +128,29 @@ test('la previsione resta sempre tra 0 e 1, anche con input strani', () => {
   }
 });
 
-test('rete variabile: consiglia il piano B e spiega che non è colpa di nessuno', () => {
+// CORRETTO IL 2026-08-07. Questo test pretendeva il ripiego appena la PROPRIA
+// rete era "variabile", e codificava un errore di fatto: un NAT simmetrico si
+// collega benissimo a uno normale, perché il lato non ristretto impara la
+// mappatura dal primo pacchetto. Fallisce solo simmetrico CONTRO simmetrico.
+// Rinunciare da soli significava dirottare sul ripiego anche circa un quarto
+// delle coppie, che avrebbero funzionato.
+test('rete variabile DA SOLA: si prova comunque, dipende da chi c\'è dall\'altra parte', () => {
   const a = adviseChannel({ kind: 'variabile' });
+  assert.equal(a.prefer, 'direct');
+  assert.match(a.detail, /capricciose/);
+});
+
+test('rete variabile CONTRO un\'altra variabile: qui sì, si passa al piano B', () => {
+  const a = adviseChannel({ kind: 'variabile' }, { kind: 'variabile' });
   assert.equal(a.prefer, 'paste');
-  assert.match(a.headline, /non parte/);
+  assert.match(a.headline, /non riescono a parlarsi/);
   assert.match(a.detail, /rete del telefono/);
+});
+
+test('rete variabile contro una normale: collegamento diretto, non ripiego', () => {
+  for (const altro of ['aperto', 'prevedibile']) {
+    assert.equal(adviseChannel({ kind: 'variabile' }, { kind: altro }).prefer, 'direct', altro);
+  }
 });
 
 test('rete bloccata: dice dove succede, senza far sentire l utente in difetto', () => {
@@ -147,7 +165,8 @@ test('rete buona: si prova il diretto', () => {
 });
 
 test('se il piano B non è disponibile non viene proposto', () => {
-  const a = adviseChannel({ kind: 'variabile' }, null, { paste: false });
+  // Serve un caso in cui si ripiega davvero: due reti variabili.
+  const a = adviseChannel({ kind: 'variabile' }, { kind: 'variabile' }, { paste: false });
   assert.equal(a.prefer, 'link');
 });
 
@@ -163,9 +182,13 @@ test('nessun testo contiene gergo tecnico', () => {
 // un'app che sembra rotta e una che cambia strada da sola.
 test('su una rete persa non si aspetta: si cambia subito canale', () => {
   assert.equal(directTimeoutMs({ kind: 'bloccato' }), 0);
-  assert.ok(directTimeoutMs({ kind: 'variabile' }) <= 3000);
+  // Due variabili insieme: è l'unico caso senza speranza in diretta.
+  assert.ok(directTimeoutMs({ kind: 'variabile' }, { kind: 'variabile' }) <= 3000);
   assert.ok(directTimeoutMs({ kind: 'prevedibile' }) >= 12000);
-  assert.ok(directTimeoutMs({ kind: 'incerto' }) > directTimeoutMs({ kind: 'variabile' }));
+  // Una variabile da sola merita un'attesa media: vale la pena provare, ma
+  // senza far aspettare come su una rete buona.
+  const solo = directTimeoutMs({ kind: 'variabile' });
+  assert.ok(solo > 3000 && solo < 12000, `attesa ${solo}ms`);
 });
 
 // ── Raccolta: nessuna rete vera nei test ──
@@ -245,8 +268,11 @@ test('il giro completo restituisce diagnosi, consiglio e attesa coerenti', async
   ]);
   const r = await probeNetwork({ servers: ['stun:a', 'stun:b'], PeerConnection: PC });
   assert.equal(r.nat.kind, 'variabile');
-  assert.equal(r.advice.prefer, 'paste');
-  assert.ok(r.timeoutMs <= 3000);
+  // La sonda misura solo la PROPRIA rete: senza sapere chi c'è dall'altra
+  // parte il diretto va tentato, perché la maggioranza dei dispositivi non è
+  // simmetrica. Il ripiego si decide quando si conosce anche l'altro lato.
+  assert.equal(r.advice.prefer, 'direct');
+  assert.ok(r.timeoutMs > 3000 && r.timeoutMs < 12000);
 });
 
 test('il pool ha almeno due server distinti: con uno solo la diagnosi sarebbe impossibile', () => {

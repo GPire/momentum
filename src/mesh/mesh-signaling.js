@@ -50,6 +50,10 @@ import { STUN_POOL } from './nat-probe.js';
 // Misurato su un SDP vero di Chrome: 720 caratteri -> 95. La differenza tra
 // un codice che si incolla in una chat e uno che fa esitare.
 const COMPACT_PREFIX = 'S1.';
+// Quanti dispositivi al massimo può attraversare un pacchetto prima di essere
+// lasciato cadere. Senza questo limite un anello nella mesh lo farebbe
+// rimbalzare per sempre. Tre bastano: oltre, conviene la consegna differita.
+const BRIDGE_MAX_HOPS = 3;
 
 const PairingCodec = {
   async encode(sdpObject) {
@@ -296,6 +300,21 @@ class MeshNode {
       } else if (msg.type === 'relay_answer') {
         if (msg.targetId === this.nodeId) await this._handleRelayAnswer(peerId, msg);
         else this._relayToTarget(msg.targetId, msg);
+      } else if (msg.type === 'bridge_data') {
+        // PONTE FRA PARI. Quando due dispositivi non riescono a parlarsi in
+        // diretta (entrambi dietro una rete che cambia porta — l'unico caso
+        // senza uscita, vedi nat-matrix.js), un terzo che li vede entrambi
+        // porta avanti il pacchetto. Il contenuto è già sigillato da un capo
+        // all'altro: chi fa da ponte NON può leggerlo, esattamente come nel
+        // trasporto a staffetta. È il posto del server TURN, occupato da un
+        // dispositivo qualunque invece che da un'infrastruttura.
+        if (msg.targetId === this.nodeId) {
+          if (this.onBundlesReceived) await this.onBundlesReceived(msg.fromId, [msg.bundle]);
+        } else if ((msg.hops || 0) < BRIDGE_MAX_HOPS) {
+          // Il contatore di salti non è prudenza generica: senza, un ciclo
+          // nella mesh farebbe rimbalzare lo stesso pacchetto all'infinito.
+          this._relayToTarget(msg.targetId, { ...msg, hops: (msg.hops || 0) + 1 });
+        }
       } else if (msg.type === 'sync_digest') {
         // Il peer manda il suo digest → gli rispondo con le SOLE tx mancanti.
         this._handleSyncDigest(peerId, msg.digest);
@@ -681,6 +700,20 @@ class MeshNode {
     if (!Array.isArray(bundles) || !bundles.length) return 0;
     entry.channel.send(JSON.stringify({ type: 'bundle_carry', bundles }));
     return bundles.length;
+  }
+
+  // Manda un pacchetto sigillato a un dispositivo che NON riusciamo a
+  // raggiungere in diretta, passando da uno che vede entrambi. Il ponte va
+  // scelto con `eleggiPonte` (relay-election.js), che mette davanti a tutto il
+  // costo per la privacy: un tuo secondo dispositivo prima di uno sconosciuto.
+  // Ritorna true solo se il primo salto è partito davvero — mai un "inviato"
+  // che non è successo.
+  sendViaBridge(viaPeerId, targetId, bundle) {
+    const entry = this.peers.get(viaPeerId);
+    if (!entry || entry.channel?.readyState !== 'open') return false;
+    if (!targetId || !bundle || targetId === this.nodeId) return false;
+    entry.channel.send(JSON.stringify({ type: 'bridge_data', targetId, fromId: this.nodeId, bundle, hops: 0 }));
+    return true;
   }
 
   // Manda a UN peer le unità che gli sono state assegnate. Non si trasmette
