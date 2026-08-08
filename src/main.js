@@ -5691,7 +5691,7 @@ window.openSplitGroup = (openId = null) => {
   const persist = (g) => {
     VaultDAO.state.splitGroups = mergeIntoGroups(groups(), g);
     VaultDAO.save();
-    try { window.momentumMeshNode?.shareSplitGroups([g]); } catch (_) {}
+    try { window.momentumMeshNode?.shareSplitGroups([g], peerAppartieneAlGruppo); } catch (_) {}
   };
   const nameById = (g) => Object.fromEntries(g.members.map(m => [m.id, m.name]));
   let currentId = openId;
@@ -9009,6 +9009,18 @@ function offerToSendP2PAnswer(answerCode, groupName) {
 // il RISULTATO invece della PROMISE lascia una finestra in cui due chiamate
 // concorrenti generano due identità di scambio diverse sullo stesso
 // dispositivo. Stesso rimedio: si cachea la promise.
+// Chi ha titolo a ricevere un gruppo: solo un dispositivo che HA RIVENDICATO
+// uno slot in quel gruppo (`claimedBy`, split-engine.js:471). Non basta essere
+// collegati alla mesh — collegarsi a qualcuno per dividere una cena non deve
+// dare accesso a tutti gli altri gruppi di quella persona.
+// Prudente per costruzione: se non riconosco il dispositivo, NON mando. Il
+// costo di un mancato invio è un sync in ritardo; il costo dell'errore
+// opposto è mandare nomi e importi a chi non c'entra.
+function peerAppartieneAlGruppo(peerId, gruppo) {
+  if (!gruppo || !Array.isArray(gruppo.members)) return false;
+  return gruppo.members.some((m) => m.claimedBy && m.claimedBy === peerId);
+}
+
 let __scambioIdentitaPromise = null;
 
 function identitaScambio() {
@@ -11111,7 +11123,7 @@ function initMomentumRealAI() {
       // sync automatico al pairing: scambio simmetrico dei soli delta
       for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.requestSync(pid);
       // e i gruppi di divisione già esistenti, per allinearli subito.
-      if ((VaultDAO.state.splitGroups || []).length) momentumMeshNode.shareSplitGroups(VaultDAO.state.splitGroups);
+      if ((VaultDAO.state.splitGroups || []).length) momentumMeshNode.shareSplitGroups(VaultDAO.state.splitGroups, peerAppartieneAlGruppo);
       // FEDERAZIONE tipi esercente: condivido il modello morfologico appreso, così
       // un dispositivo nuovo eredita subito la categorizzazione dei negozi locali.
       const mm = VaultDAO.state.mlData?.merchantMorphology;
@@ -11235,6 +11247,18 @@ function initMomentumRealAI() {
       const allChanges = [];
       for (const g of (incoming || [])) {
         const before = (VaultDAO.state.splitGroups || []).find(x => x.id === g.id) || null;
+        // LA DIFESA CHE NON DIPENDE DALLA BUONA FEDE DEL MITTENTE.
+        // Filtrare in invio (shareSplitGroups) impedisce a NOI di mandare
+        // gruppi a chi non c'entra. Ma non ci protegge da un mittente che
+        // manda comunque: un dispositivo con una versione vecchia, o uno che
+        // lo fa apposta. Un gruppo mai visto che arriva via sync non viene
+        // accettato — a un gruppo ci si unisce con un INVITO, mai perché
+        // qualcuno te lo spinge addosso. È anche la difesa contro il
+        // riempimento del vault con gruppi inventati.
+        if (!before) {
+          console.warn('Gruppo non richiesto ignorato: a un gruppo ci si unisce con un invito.');
+          continue;
+        }
         const merged = mergeIntoGroups(VaultDAO.state.splitGroups || [], g).find(x => x.id === g.id);
         // Notifica PRECISA (non "aggiornato"): cosa è arrivato per davvero —
         // persona entrata, spesa aggiunta con importo, rename. Un concorrente

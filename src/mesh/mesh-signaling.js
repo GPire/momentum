@@ -701,11 +701,29 @@ class MeshNode {
   // si propaga SUBITO, senza dover ri-condividere un link statico. Ogni
   // ricevente decide da sé il merge (mergeIntoGroups, CRDT last-writer-wins);
   // qui si trasmette e basta, stesso pattern di sharePrices/shareReliability.
-  shareSplitGroups(groups) {
-    const msg = JSON.stringify({ type: 'split_share', groups });
-    for (const entry of this.peers.values()) {
-      if (entry.channel?.readyState === 'open') entry.channel.send(msg);
+  // BUCO DI PRIVACY REALE, trovato il 2026-08-08 perché l'utente ha contestato
+  // (giustamente) una protezione che non proteggeva. Prima questa funzione
+  // mandava OGNI gruppo a OGNI peer collegato, senza guardare chi ne fa parte.
+  // Conseguenza concreta: colleghi il telefono a quello di un amico per
+  // dividere una cena, e quel dispositivo riceve TUTTI i tuoi gruppi — nomi
+  // delle persone, spese, importi — inclusi quelli con cui non c'entra nulla.
+  // Non era un rischio teorico su un link intercettato: era un invio, a ogni
+  // sincronizzazione, verso dispositivi che non avevano titolo per riceverlo.
+  //
+  // `appartiene(peerId, gruppo)` decide chi ha titolo. Se non viene passata,
+  // il comportamento resta quello di prima — di proposito: cambiare in
+  // silenzio la semantica di un metodo pubblico romperebbe i chiamanti che
+  // non sanno di doverla passare. Il chiamante vero (main.js) la passa.
+  shareSplitGroups(groups, appartiene = null) {
+    let inviati = 0;
+    for (const [peerId, entry] of this.peers.entries()) {
+      if (entry.channel?.readyState !== 'open') continue;
+      const suoi = appartiene ? (groups || []).filter((g) => appartiene(peerId, g)) : groups;
+      if (!suoi || !suoi.length) continue;
+      entry.channel.send(JSON.stringify({ type: 'split_share', groups: suoi }));
+      inviati++;
     }
+    return inviati;
   }
 
   // Condivide con la mesh il modello morfologico (tipi di esercente appresi).

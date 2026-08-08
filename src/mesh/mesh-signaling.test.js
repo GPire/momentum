@@ -590,3 +590,66 @@ test('sync live: e\' un\'ACCELERAZIONE, non un sostituto — cio\' che non parte
   assert.equal(mancanti['2026-08']?.[0]?.id, 'persa-live',
     'nessun dato puo\' sparire perche\' era poco urgente: la sincronizzazione alla connessione e\' la garanzia');
 });
+
+// ══ IL BUCO DI PRIVACY VERO (2026-08-08) ══
+// Trovato perche' l'utente ha contestato, giustamente, una protezione che non
+// proteggeva: cifrare l'invito con una chiave che viaggia NELLO STESSO link
+// non nasconde niente a chi il link ce l'ha. Cercando cosa proteggesse
+// davvero e' emerso il problema reale, che non era li': `shareSplitGroups`
+// mandava OGNI gruppo a OGNI peer collegato, senza guardare chi ne fa parte.
+test('PRIVACY: un gruppo va SOLO ai dispositivi che ne fanno parte', () => {
+  const N = new MeshNode('io', null);
+  const ricevuto = {};
+  for (const id of ['amico', 'estraneo']) {
+    ricevuto[id] = [];
+    N.peers.set(id, { channel: { readyState: 'open', send: (m) => ricevuto[id].push(JSON.parse(m)) } });
+  }
+  const gruppo = { id: 'g1', name: 'Cena', members: [
+    { id: 'm1', name: 'Io', claimedBy: 'io' },
+    { id: 'm2', name: 'Amico', claimedBy: 'amico' },
+  ] };
+  const appartiene = (peerId, g) => g.members.some((m) => m.claimedBy === peerId);
+
+  N.shareSplitGroups([gruppo], appartiene);
+  assert.equal(ricevuto.amico.length, 1, 'chi e\' nel gruppo lo riceve');
+  assert.equal(ricevuto.estraneo.length, 0,
+    'collegarsi per dividere una cena non deve dare accesso agli altri gruppi di quella persona');
+});
+
+test('PRIVACY: nomi e importi non raggiungono chi non ha titolo', () => {
+  const N = new MeshNode('io', null);
+  let visto = '';
+  N.peers.set('estraneo', { channel: { readyState: 'open', send: (m) => { visto += m; } } });
+  const gruppo = { id: 'g1', name: 'Vacanza', members: [{ id: 'm1', name: 'Sara', claimedBy: 'io' }], expenses: [{ amount: 480, label: 'Hotel' }] };
+  N.shareSplitGroups([gruppo], (p, g) => g.members.some((m) => m.claimedBy === p));
+  assert.equal(visto, '');
+  for (const s of ['Sara', 'Vacanza', '480', 'Hotel']) assert.ok(!visto.includes(s));
+});
+
+test('con piu\' gruppi, ognuno va solo ai suoi', () => {
+  const N = new MeshNode('io', null);
+  const r = { a: [], b: [] };
+  N.peers.set('a', { channel: { readyState: 'open', send: (m) => r.a.push(JSON.parse(m)) } });
+  N.peers.set('b', { channel: { readyState: 'open', send: (m) => r.b.push(JSON.parse(m)) } });
+  const g1 = { id: 'g1', members: [{ id: 'x', claimedBy: 'a' }] };
+  const g2 = { id: 'g2', members: [{ id: 'y', claimedBy: 'b' }] };
+  N.shareSplitGroups([g1, g2], (p, g) => g.members.some((m) => m.claimedBy === p));
+  assert.deepEqual(r.a[0].groups.map((g) => g.id), ['g1']);
+  assert.deepEqual(r.b[0].groups.map((g) => g.id), ['g2']);
+});
+
+test('un dispositivo che non ha rivendicato nessuno slot non riceve niente', () => {
+  const N = new MeshNode('io', null);
+  let n = 0;
+  N.peers.set('anonimo', { channel: { readyState: 'open', send: () => n++ } });
+  N.shareSplitGroups([{ id: 'g', members: [{ id: 'm', name: 'Tizio' }] }], (p, g) => g.members.some((m) => m.claimedBy === p));
+  assert.equal(n, 0, 'uno slot non rivendicato non identifica nessun dispositivo');
+});
+
+test('RETROCOMPATIBILITA\': senza il filtro il comportamento resta quello di prima', () => {
+  const N = new MeshNode('io', null);
+  let n = 0;
+  N.peers.set('x', { channel: { readyState: 'open', send: () => n++ } });
+  N.shareSplitGroups([{ id: 'g', members: [] }]);
+  assert.equal(n, 1, 'cambiare in silenzio la semantica romperebbe i chiamanti che non sanno di dover passare il filtro');
+});
