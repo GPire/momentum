@@ -16,6 +16,7 @@
 
 import { mergeMemberPair, mergeClosure } from './group-membership.js';
 import { mergeChat } from './group-chat.js';
+import { mergePromises } from './payment-promise.js';
 
 const round2 = (n) => Math.round((+n + Number.EPSILON) * 100) / 100;
 const EPS = 0.005;
@@ -541,6 +542,9 @@ export function mergeGroups(a, b) {
     // La conversazione viaggia nello STESSO merge delle spese: e' cio' che la
     // fa arrivare ovunque arrivi la spesa di cui parla, offline e senza server.
     ...((a.chat?.length || b.chat?.length) ? { chat: mergeChat(a.chat, b.chat) } : {}),
+    // Le promesse di pagamento (payment-promise.js) viaggiano come tutto il
+    // resto. Cio' che si sincronizza e' UNA DATA per persona, mai un saldo.
+    ...((a.promises?.length || b.promises?.length) ? { promises: mergePromises(a.promises, b.promises) } : {}),
   };
 }
 
