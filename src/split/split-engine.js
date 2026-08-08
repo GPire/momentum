@@ -14,6 +14,9 @@
 // NP-hard) e lo dichiariamo. Funzioni pure, nessun DOM, nessuna rete.
 'use strict';
 
+import { mergeMemberPair, mergeClosure } from './group-membership.js';
+import { mergeChat } from './group-chat.js';
+
 const round2 = (n) => Math.round((+n + Number.EPSILON) * 100) / 100;
 const EPS = 0.005;
 
@@ -445,18 +448,14 @@ export function suggestSettleTiming({ amountDue, currentAvailable = null, nextIn
 // tra due claim diversi sullo stesso id (due dispositivi hanno provato a
 // diventare la stessa persona) vince il PRIMO nel tempo (claimedAt) — mai
 // un secondo dispositivo può "rubare" uno slot già preso.
+// LAPIDI (group-membership.js): prima questa fusione era SOLO-AGGIUNTA, quindi
+// un membro rimosso tornava al primo sync con un dispositivo che aveva ancora
+// la lista vecchia — un'assenza perde sempre contro una presenza. Ora l'uscita
+// è un FATTO con un istante, e vince: è ciò che rende reale "esci dal gruppo"
+// invece di farlo sembrare fatto finché non ti sincronizzi.
 function mergeMembers(a = [], b = []) {
   const byId = new Map();
-  const put = (m) => {
-    const prev = byId.get(m.id);
-    if (!prev) { byId.set(m.id, m); return; }
-    if (prev.claimedBy && m.claimedBy) {
-      // entrambi claimati: vince chi ha claimato per primo
-      byId.set(m.id, (+m.claimedAt || 0) < (+prev.claimedAt || 0) ? m : prev);
-    } else if (m.claimedBy && !prev.claimedBy) {
-      byId.set(m.id, m);
-    } // altrimenti prev resta (già claimato, o nessuno dei due lo è)
-  };
+  const put = (m) => byId.set(m.id, mergeMemberPair(byId.get(m.id), m));
   for (const x of a) put(x);
   for (const x of b) put(x);
   return [...byId.values()];
@@ -532,8 +531,16 @@ export function mergeGroups(a, b) {
     id: a.id,
     name,
     ...(nameAt ? { nameAt } : {}),
+    // Il creatore non cambia mai: e' chi ha fatto nascere il gruppo, e chi
+    // arriva dopo non puo' rivendicarlo sovrascrivendolo nel merge.
+    ...(a.createdBy || b.createdBy ? { createdBy: a.createdBy || b.createdBy } : {}),
+    // La chiusura e' una lapide come l'uscita: vince sulla presenza.
+    ...mergeClosure(a, b),
     members: mergeMembers(a.members, b.members),
     expenses: unionByIdLWW(a.expenses, b.expenses),
+    // La conversazione viaggia nello STESSO merge delle spese: e' cio' che la
+    // fa arrivare ovunque arrivi la spesa di cui parla, offline e senza server.
+    ...((a.chat?.length || b.chat?.length) ? { chat: mergeChat(a.chat, b.chat) } : {}),
   };
 }
 
