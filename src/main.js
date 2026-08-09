@@ -8509,13 +8509,17 @@ const initGenesisHold = () => {
 // Il raggio si legge dal DOM, non da una costante: la scena ha tre scale
 // responsive (0.72 / 1 / 1.12) e un muro che non coincide col muro disegnato
 // sarebbe peggio di nessun muro.
-const initPrivacyProof = () => {
-  const scene = document.querySelector('#g-step-0 .privacy-scene');
-  const pull = document.getElementById('ps-pull');
-  const leash = document.getElementById('ps-leash');
+// Una sola funzione per DUE scene: la hero (muta, chi tocca scopre) e la
+// schermata di apertura sopra l'orb (dove l'invito è scritto). Le misure non
+// sono cablate da nessuna parte — si leggono dal DOM — quindi la stessa
+// funzione regge scale diverse senza saperlo.
+const initPrivacyProof = (scene, hint = null, autoInvito = true) => {
+  const pull = scene?.querySelector('.ps-pull');
+  const leash = scene?.querySelector('.ps-leash');
   const dome = scene?.querySelector('.ps-dome');
-  const hint = document.getElementById('privacy-proof-hint');
   if (!scene || !pull || !leash || !dome || !window.PointerEvent) return;
+  if (scene.dataset.proofArmed === '1') return; // mai due volte sullo stesso nodo
+  scene.dataset.proofArmed = '1';
 
   // La scala si fissa all'inizio di ogni trascinamento e non si rimisura in
   // corsa: la cupola RESPIRA (domePulse, ±2%), e ricalcolarla a ogni movimento
@@ -8568,6 +8572,10 @@ const initPrivacyProof = () => {
 
   scene.addEventListener('pointerdown', (e) => {
     attivo = true;
+    // Dichiarato sul nodo: la schermata di apertura non deve sparire MENTRE
+    // il dito sta ancora tirando. Portare via lo schermo a metà di un gesto è
+    // il modo più rapido di far sembrare finto tutto quello che ha appena visto.
+    scene.dataset.dragging = '1';
     kDrag = scala();
     pull.classList.remove('springing');
     scene.classList.add('dragging');
@@ -8596,6 +8604,7 @@ const initPrivacyProof = () => {
   const rilascia = () => {
     if (!attivo) return;
     attivo = false;
+    scene.dataset.dragging = '0';
     scene.classList.remove('dragging');
     // Il rientro è una MOLLA (CSS), non una linea retta: lineare sembrerebbe
     // "l'app me l'ha annullato", la molla sembra respinto.
@@ -8615,7 +8624,10 @@ const initPrivacyProof = () => {
   // capito è andato avanti, chi è ancora lì viene invitato a verificare.
   // Non compare se nel frattempo ha già trascinato: dire "provaci" a chi ha
   // appena provato è la definizione di interfaccia che non guarda.
-  setTimeout(() => { if (hint && !respinto) hint.classList.remove('hidden-hint'); }, 3600);
+  // Nella hero l'invito non esiste; sopra l'orb lo scopre chi chiama, al
+  // momento della riga di caricamento che parla di privacy — non a un tempo
+  // scelto a caso che potrebbe cadere dopo che la schermata è già sparita.
+  if (hint && autoInvito) setTimeout(() => { if (!respinto) hint.classList.remove('hidden-hint'); }, 3600);
 };
 
 // Semina lo stato del profilo (budget + preferenze investimento + prior del
@@ -8679,21 +8691,52 @@ const endGenesis = () => {
     const logBox = $('#ota-log-container');
     if (ota) ota.classList.add('active');
     
+    // La promessa di privacy vive QUI, non nella hero: al primo avvio la hero
+    // ha già tre cose da dire in dieci secondi, mentre questa schermata ha un
+    // orb al centro, silenzio intorno, e un'attesa che l'utente ha già
+    // accettato di darci. È il momento giusto per invitarlo a smentirci.
+    const otaScene = $('#ota-privacy-scene');
+    const otaHint = $('#ota-privacy-hint');
+    try { initPrivacyProof(otaScene, otaHint, false); }
+    catch (e) { console.warn('privacy proof (apertura) non armato:', e); }
+
+    // Copy rifatto. "Analizzo le tue abitudini di spesa" al PRIMO avvio è
+    // falso: di abitudini non ce n'è ancora nessuna, e aprire un rapporto con
+    // una frase non vera è il modo peggiore di aprirlo — soprattutto in una
+    // schermata che sta chiedendo di essere creduta sulla privacy.
+    // Ogni riga dice una cosa che sta davvero succedendo.
     const logs = [
-      "Apertura di Momentum...",
-      "Preparo i tuoi dati (restano solo sul tuo dispositivo)...",
-      "Analizzo le tue abitudini di spesa...",
-      "Attivo i freni gentili alle spese...",
-      "Tutto pronto."
+      "Apro Momentum",
+      "Preparo il tuo spazio",
+      "Accendo il motore che imparerà da te",
+      "Nessun account, nessuna password",
+      "Pronto."
     ];
     let idx = 0;
+    // 640ms invece di 450: con cinque righe la schermata durava 3,1 secondi in
+    // tutto — meno del tempo di accorgersi che la cupola si può toccare. Non è
+    // attesa aggiunta per far sembrare l'app impegnata: è il tempo minimo
+    // perché la promessa più importante del prodotto possa essere MESSA ALLA
+    // PROVA invece che solo letta di sfuggita.
     const interval = setInterval(() => {
       if (idx < logs.length) {
-        if (logBox) logBox.innerHTML += `<p>> ${logs[idx]}</p>`;
+        // Sostituisce, non accumula: la riga precedente ha già fatto il suo
+        // lavoro, e una lista che cresce ruba lo sguardo alla cupola.
+        if (logBox) logBox.innerHTML = `<p>${logs[idx]}</p>`;
+        // L'invito compare esattamente sulla riga che parla dei dati: la frase
+        // e il gesto che la dimostra arrivano nello stesso istante.
+        if (idx === 1 && otaHint) otaHint.classList.remove('hidden-hint');
         idx++;
       } else {
         clearInterval(interval);
-        setTimeout(() => {
+        // Non si porta via lo schermo mentre il dito sta ancora tirando.
+        // Il tetto d'attesa esiste perché un dito appoggiato e dimenticato non
+        // deve poter bloccare l'ingresso nell'app per sempre.
+        const attesaIniziata = Date.now();
+        const chiudi = () => {
+          if (otaScene?.dataset.dragging === '1' && Date.now() - attesaIniziata < 8000) {
+            setTimeout(chiudi, 220); return;
+          }
           if (ota) ota.classList.remove('active');
           const app = $('#app-core');
           if (app) {
@@ -8705,9 +8748,10 @@ const endGenesis = () => {
           // l'app è pronta processa l'invito rimasto in sospeso.
           consumeJoinLink();
           if (window._pendingJoin) { const g = window._pendingJoin; window._pendingJoin = null; setTimeout(() => window.openJoinConfirm(g), 400); }
-        }, 800);
+        };
+        setTimeout(chiudi, 1100);
       }
-    }, 450);
+    }, 640);
   } catch (err) {
     console.error("endGenesis error:", err);
     // Fallback safety trigger
@@ -11003,8 +11047,10 @@ const initApp = () => {
   // "Provaci tu": si arma solo se il primo avvio è davvero a schermo. Nei rami
   // sopra il genesis viene rimosso dal DOM, e armare listener su una scena che
   // non esiste è il modo classico di lasciarne uno appeso.
-  if (document.querySelector('#genesis-container #g-step-0 .privacy-scene')) {
-    try { initPrivacyProof(); } catch (e) { console.warn('privacy proof non armato:', e); }
+  const heroScene = document.querySelector('#genesis-container #g-step-0 .privacy-scene');
+  if (heroScene) {
+    // Hero: nessun invito scritto (secondo argomento assente) — resta ipnotica.
+    try { initPrivacyProof(heroScene); } catch (e) { console.warn('privacy proof non armato:', e); }
   }
 };
 

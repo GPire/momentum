@@ -1158,12 +1158,43 @@
     #ota-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); backdrop-filter: blur(40px); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1); padding: 1rem; text-align: center;}
     #ota-overlay.active { opacity: 1; pointer-events: auto; }
     .ota-core-ring { width: 140px; height: 140px; border: 3px solid rgba(255,255,255,0.05); border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem;}
+    /* — LA CUPOLA INTORNO ALL'ORB (schermata di apertura) —
+       Si RIUSA la scena della hero senza duplicarne una riga: cambia solo la
+       scala dello stage, così cupola, anello e corsa dei punti restano legati
+       fra loro. Scalare è l'unico modo di ingrandire senza scollegare il
+       rimbalzo dal muro (rifare le misure a mano le avrebbe scollegate).
+       Il codice del trascinamento legge la scala dal DOM, quindi funziona qui
+       identico alla hero senza saperne niente.
+       Selettori legati a #ota-overlay NON per abitudine: la scena della hero
+       ha le sue regole responsive (`@media (max-height: 660px)` più in basso
+       nel file) che, a parità di specificità, vincevano per posizione e
+       schiacciavano ANCHE questa a 108px — misurato a schermo, cupola da 166px
+       che sbordava sopra la scena. L'id lega ogni misura alla sua schermata. */
+    #ota-overlay .ota-scene { height: 300px; margin: 0 0 0.5rem; flex: 0 0 auto; }
+    #ota-overlay .ota-scene .ps-stage { transform: scale(1.62); }
+    /* L'orb NON è dentro lo stage: se lo fosse, la scala lo gonfierebbe fino a
+       riempire la cupola. Sta al centro della scena, alla sua misura vera. */
+    #ota-overlay .ota-scene .ota-core-ring { position: absolute; left: 50%; top: 50%; margin: -70px 0 0 -70px; }
+    @media (max-height: 760px) {
+      #ota-overlay .ota-scene { height: 232px; }
+      #ota-overlay .ota-scene .ps-stage { transform: scale(1.22); }
+      #ota-overlay .ota-scene .ota-core-ring { width: 96px; height: 96px; margin: -48px 0 0 -48px; }
+      #ota-overlay .ota-scene .ota-spin-3 { inset: 18px; }
+    }
     .ota-spin-1 { position: absolute; inset: -4px; border: 4px solid transparent; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
     .ota-spin-2 { position: absolute; inset: 12px; border: 4px solid transparent; border-right-color: var(--gold); border-radius: 50%; animation: spin 1.5s linear infinite reverse; }
     .ota-spin-3 { position: absolute; inset: 24px; border: 4px solid transparent; border-bottom-color: var(--cyan); border-radius: 50%; animation: spin 0.8s ease infinite; }
     .ota-core-dot { width: 16px; height: 16px; background: var(--on-surface); border-radius: 50%; box-shadow: 0 0 30px var(--on-surface); }
-    .ota-log { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--green); text-align: left; max-width: 320px; width: 100%; height: 100px; overflow: hidden; margin-top: 2rem;}
-    .ota-log p { margin: 0; line-height: 1.5; animation: slideUpLog 0.3s forwards; }
+    /* Il log era verde, monospace, allineato a sinistra e prefissato da ">":
+       una console da hacker sotto la frase più delicata del prodotto. Diceva
+       anche una seconda volta, in caratteri da terminale, la promessa che il
+       titolo sopra fa in grande — e una promessa ripetuta in piccolo somiglia
+       a una postilla. Ora è UNA riga alla volta, centrata, che si sostituisce:
+       un solo fuoco per schermata, come nel resto dell'app. */
+    .ota-log { font-size: 0.9rem; color: var(--on-surface-secondary); text-align: center; max-width: 340px; width: 100%; height: 28px; overflow: hidden; margin-top: 1.25rem; }
+    .ota-log p { margin: 0; line-height: 1.6; animation: otaLineIn 0.55s cubic-bezier(0.22,1,0.36,1) both; }
+    @keyframes otaLineIn { from { opacity: 0; transform: translateY(7px); filter: blur(3px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+    @media (prefers-reduced-motion: reduce) { .ota-log p { animation: none; } }
 
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     @keyframes slideUpLog { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -1240,7 +1271,15 @@
        a 210px dentro un contenitore da 132px, la scena sbordava sopra e sotto e
        si sovrapponeva al titolo. Il layout non protestava: gli assoluti non
        spingono niente, escono e basta. */
-    .privacy-scene { position: relative; width: 100%; height: 150px; perspective: 720px; margin: 0.15rem 0 0.7rem; pointer-events: none; }
+    /* `flex: 0 0 auto` NON è cosmesi. La scena è figlia di un flex column
+       (.genesis-step) dentro un contenitore ad altezza FISSA: appena il testo
+       cresce, il flex sceglie di schiacciare proprio lei. Misurato a schermo:
+       altezza dichiarata 108px, altezza reale 45px — mentre la cupola, che è
+       posizionata in assoluto, restava di 101px e sbordava sopra il titolo e
+       sotto sull'invito, esattamente la collisione già vista ieri.
+       È la stessa lezione, dall'altro lato: gli assoluti non si accorgono di
+       niente, e un contenitore che può cedere prima o poi cede. */
+    .privacy-scene { position: relative; width: 100%; height: 150px; flex: 0 0 auto; perspective: 720px; margin: 0.15rem 0 0.7rem; pointer-events: none; }
     .ps-stage { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
 
     /* La cupola. Normalmente quasi invisibile: si vede solo quando un dato la
@@ -1566,15 +1605,16 @@
             <span class="ps-bit" style="--a:288deg; --d:1.76s; --bit:#22d3ee"><i></i></span>
             <span class="ps-bit" style="--a:324deg; --d:1.98s; --bit:var(--primary)"><i></i></span>
             <div class="ps-dome"></div>
-            <!-- Il dato che prendi TU, e il guinzaglio che lo tiene al telefono. -->
-            <div class="ps-leash" id="ps-leash"></div>
-            <span class="ps-pull" id="ps-pull"><i></i></span>
+            <!-- Il dato che prendi TU, e il guinzaglio che lo tiene al telefono.
+                 QUI non c'è nessun invito scritto: la hero deve restare
+                 ipnotica, e una riga di istruzioni in mezzo alla scena la
+                 spegne. Chi tocca lo scopre; chi non tocca guarda una scena
+                 pulita. L'invito esplicito è nella schermata dopo, dove c'è
+                 silenzio e spazio (#ota-overlay). -->
+            <div class="ps-leash"></div>
+            <span class="ps-pull"><i></i></span>
           </div>
         </div>
-        <!-- L'invito a contraddirci. `aria-hidden`: è un affordance visivo, e
-             per chi non vede la scena il fatto è già detto dal testo sotto,
-             che è testo vero. -->
-        <p id="privacy-proof-hint" class="hidden-hint text-[11px] font-bold tracking-wide uppercase text-[var(--on-surface-secondary)] text-center -mt-2 mb-2" aria-hidden="true">Non ci credi? Trascina un dato fuori</p>
         <!-- Il testo arriva DOPO il primo rimbalzo: prima si vede il fatto,
              poi lo si legge. "Niente esce da qui" è una frase che un bambino
              capisce, e dice esattamente quello che la scena ha appena fatto. -->
@@ -1622,15 +1662,40 @@
 
 
   <!-- ===================== OTA UPDATE SPLASH ===================== -->
+  <!-- Questa è la schermata in cui la promessa di privacy va DETTA FORTE.
+       Nella hero sarebbe stata la terza cosa a schermo in dieci secondi; qui
+       c'è un orb al centro, silenzio intorno, e l'attesa del caricamento è
+       tempo che l'utente ha già accettato di darci. L'orb non viene sostituito:
+       diventa il DISPOSITIVO, e la cupola gli si chiude intorno. -->
   <div id="ota-overlay">
-     <div class="ota-core-ring">
-        <div class="ota-spin-1"></div>
-        <div class="ota-spin-2"></div>
-        <div class="ota-spin-3"></div>
-        <div class="ota-core-dot"></div>
+     <div class="privacy-scene ota-scene" id="ota-privacy-scene" aria-hidden="true">
+       <div class="ps-stage">
+         <div class="ps-orbit"></div>
+         <span class="ps-bit" style="--a:0deg;   --d:0s;    --bit:#22d3ee"><i></i></span>
+         <span class="ps-bit" style="--a:36deg;  --d:0.22s; --bit:var(--primary)"><i></i></span>
+         <span class="ps-bit" style="--a:72deg;  --d:0.44s; --bit:#22d3ee"><i></i></span>
+         <span class="ps-bit" style="--a:108deg; --d:0.66s; --bit:var(--primary)"><i></i></span>
+         <span class="ps-bit" style="--a:144deg; --d:0.88s; --bit:#22d3ee"><i></i></span>
+         <span class="ps-bit" style="--a:180deg; --d:1.1s;  --bit:var(--primary)"><i></i></span>
+         <span class="ps-bit" style="--a:216deg; --d:1.32s; --bit:#22d3ee"><i></i></span>
+         <span class="ps-bit" style="--a:252deg; --d:1.54s; --bit:var(--primary)"><i></i></span>
+         <span class="ps-bit" style="--a:288deg; --d:1.76s; --bit:#22d3ee"><i></i></span>
+         <span class="ps-bit" style="--a:324deg; --d:1.98s; --bit:var(--primary)"><i></i></span>
+         <div class="ps-dome"></div>
+         <div class="ps-leash"></div>
+         <span class="ps-pull"><i></i></span>
+       </div>
+       <!-- L'orb resta l'orb: stessa animazione di sempre, solo spostato al
+            centro della cupola. È il "qui" di "niente esce da qui". -->
+       <div class="ota-core-ring">
+          <div class="ota-spin-1"></div>
+          <div class="ota-spin-2"></div>
+          <div class="ota-spin-3"></div>
+          <div class="ota-core-dot"></div>
+       </div>
      </div>
-     <h1 class="text-3xl font-black text-white tracking-tighter mb-2">SYNAPSE CORE V50.0</h1>
-     <p class="text-[var(--primary)] font-mono text-xs tracking-widest uppercase mb-4">Alignment in progress</p>
+     <h1 class="text-3xl font-black text-white tracking-tighter mb-2">I tuoi dati restano qui.</h1>
+     <p id="ota-privacy-hint" class="hidden-hint text-[var(--primary)] font-bold text-xs tracking-widest uppercase mb-4">Non ci credi? Trascina un dato fuori</p>
      <div class="ota-log" id="ota-log-container"></div>
   </div>
 
