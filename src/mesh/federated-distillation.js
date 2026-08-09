@@ -228,16 +228,23 @@ export function initLexiconPool() { return { version: 1, entries: {} }; }
 
 // Registra un'osservazione "questo token appartiene a questa categoria",
 // venuta da un dispositivo. Non esce ancora nulla: entra solo nel conteggio.
-export function observeLexicon(pool, { token, category, deviceId }, now = Date.now()) {
+// `fidato` (opzionale) e' la risposta di `sybil-resistance.js` alla domanda
+// "dietro questo dispositivo c'e' una persona con cui ho una storia vera?".
+// Arriva come booleano gia' calcolato dal chiamante, non come identita': il
+// tag di origine resta offuscato com'era, e qui entra solo un si'/no. Senza
+// questo campo il comportamento e' identico a prima.
+export function observeLexicon(pool, { token, category, deviceId, fidato = null }, now = Date.now()) {
   const t = String(token || '').trim().toLowerCase();
   const c = String(category || '').trim();
   if (!t || !c) return pool;
   const base = pool?.entries ? pool : initLexiconPool();
   const key = `${t}\u0000${c}`;
-  const prev = base.entries[key] || { token: t, category: c, origins: [], lastSeen: 0 };
+  const prev = base.entries[key] || { token: t, category: c, origins: [], originsFidate: [], lastSeen: 0 };
   const tag = originTag(deviceId, t);
   const origins = prev.origins.includes(tag) ? prev.origins : [...prev.origins, tag];
-  return { ...base, entries: { ...base.entries, [key]: { ...prev, origins, lastSeen: now } } };
+  const giaFidate = prev.originsFidate || [];
+  const originsFidate = fidato === true && !giaFidate.includes(tag) ? [...giaFidate, tag] : giaFidate;
+  return { ...base, entries: { ...base.entries, [key]: { ...prev, origins, originsFidate, lastSeen: now } } };
 }
 
 // LA REGOLA CHE PROTEGGE: esce solo ciò che almeno `k` dispositivi
@@ -245,20 +252,27 @@ export function observeLexicon(pool, { token, category, deviceId }, now = Date.n
 // sempre, se necessario. Un negozio unico al mondo non esce MAI.
 export const DEFAULT_K_ANONYMITY = 3;
 
-export function eligibleLexicon(pool, { k = DEFAULT_K_ANONYMITY } = {}) {
+// `soloFidati`: si contano le origini dietro cui c'e' una persona con una
+// storia condivisa vera, invece degli identificatori. E' una riga di
+// differenza e cambia la garanzia da "tre id diversi" a "tre persone diverse"
+// — senza, tre identita' fabbricate in un minuto bastavano a far uscire un
+// token (vedi sybil-resistance.js). Spento per default: acceso dal chiamante
+// quando ha un grafo di fiducia da cui giudicare.
+export function eligibleLexicon(pool, { k = DEFAULT_K_ANONYMITY, soloFidati = false } = {}) {
   const out = [];
   for (const e of Object.values(pool?.entries || {})) {
-    if ((e.origins?.length || 0) >= k) out.push({ token: e.token, category: e.category, fonti: e.origins.length });
+    const fonti = (soloFidati ? e.originsFidate?.length : e.origins?.length) || 0;
+    if (fonti >= k) out.push({ token: e.token, category: e.category, fonti });
   }
   return out.sort((a, b) => b.fonti - a.fonti || a.token.localeCompare(b.token));
 }
 
 // Cosa NON è ancora uscibile e perché — serve alla UI per essere onesta:
 // "abbiamo 41 nomi che restano solo qui perché nessun altro li ha visti".
-export function heldBackLexicon(pool, { k = DEFAULT_K_ANONYMITY } = {}) {
+export function heldBackLexicon(pool, { k = DEFAULT_K_ANONYMITY, soloFidati = false } = {}) {
   const out = [];
   for (const e of Object.values(pool?.entries || {})) {
-    const n = e.origins?.length || 0;
+    const n = (soloFidati ? e.originsFidate?.length : e.origins?.length) || 0;
     if (n < k) out.push({ token: e.token, category: e.category, fonti: n, mancano: k - n });
   }
   return out;
@@ -266,11 +280,11 @@ export function heldBackLexicon(pool, { k = DEFAULT_K_ANONYMITY } = {}) {
 
 // Costruisce il pacchetto lessicale da inviare: SOLO le voci sopra soglia, e
 // senza i tag di origine (che non devono viaggiare: servivano solo a contare).
-export function buildLexiconDigest(pool, { k = DEFAULT_K_ANONYMITY } = {}) {
+export function buildLexiconDigest(pool, { k = DEFAULT_K_ANONYMITY, soloFidati = false } = {}) {
   return {
     kind: 'lexicon',
     version: 1,
-    entries: eligibleLexicon(pool, { k }).map(({ token, category }) => ({ token, category })),
+    entries: eligibleLexicon(pool, { k, soloFidati }).map(({ token, category }) => ({ token, category })),
   };
 }
 
