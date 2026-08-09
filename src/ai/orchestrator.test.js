@@ -288,3 +288,115 @@ test("morfologia a freddo: nessun tipo appreso → non vota (nessuna invenzione)
   const r = orch.classify("OFFICINA QUALUNQUE", 10, new Date());
   assert.ok(!(r.sources || []).includes("morphology"), "a freddo lo strato morfologico tace");
 });
+
+// ── Predizione conforme: da una soglia scelta a mano a una garanzia ──
+
+// Un vault con calibrazione: gli score sono 1 - p(vera) sulle correzioni
+// dell'utente. Tutti bassi = il modello e' stato quasi sempre a suo agio.
+function vaultConCalibrazione(scores, totalWords = 0) {
+  return { state: { mlData: { totalWords, conformalScores: scores } } };
+}
+
+test("CONFORME: senza abbastanza conferme dell'utente si usa la soglia storica, e lo dichiara", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 40 }) };
+  const trained = { metrics: { test_accuracy: 0.6 }, predict: () => ({ category: "svago", confidence: 0.42 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: vaultConCalibrazione([0.2, 0.3]), neuralNexus: nexus, trainedCategorizer: trained });
+  const r = orch.classify("qualcosa di ambiguo", 30, new Date());
+  assert.equal(r.garanzia, null, "nessuna garanzia con due sole conferme");
+  assert.match(r.motivoAstensione || "", /servono 9 tue conferme/);
+});
+
+test("CONFORME: con abbastanza conferme la garanzia esiste ed e' dichiarata", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 95 }) };
+  const trained = { metrics: { test_accuracy: 0.95 }, predict: () => ({ category: "spesa", confidence: 0.97 }) };
+  // Descrizione senza senso apposta: un colpo nel dizionario esercenti
+  // uscirebbe prima, ad alta confidenza, senza passare dalla conforme.
+  // 30 conferme in cui il modello era quasi sempre a suo agio.
+  const scores = Array.from({ length: 30 }, (_, i) => 0.02 + (i % 5) * 0.01);
+  const orch = new MomentumOrchestrator({ vaultDAO: vaultConCalibrazione(scores), neuralNexus: nexus, trainedCategorizer: trained });
+  const r = orch.classify("zzqx wvtr 4471", 30, new Date());
+  assert.equal(r.garanzia, 0.9);
+  assert.ok(Array.isArray(r.insieme), "la UI deve ricevere l'insieme, non solo una categoria");
+});
+
+test("CONFORME: quando restano due categorie plausibili la domanda e' RISTRETTA, non generica", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 50 }) };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: "svago", confidence: 0.5 }) };
+  // Calibrazione larga: il modello e' stato spesso scomodo, quindi la soglia
+  // conforme e' alta e piu' categorie restano plausibili.
+  const scores = Array.from({ length: 40 }, () => 0.62);
+  const orch = new MomentumOrchestrator({ vaultDAO: vaultConCalibrazione(scores), neuralNexus: nexus, trainedCategorizer: trained });
+  const r = orch.classify("posto ambiguo", 30, new Date());
+  if (r.insieme && r.insieme.length > 1) {
+    assert.equal(r.abstain, true);
+    assert.match(r.advice, /quale delle due/);
+    assert.match(r.motivoAstensione, /categorie ancora plausibili/);
+  } else {
+    assert.equal(r.abstain, false, "con una sola categoria plausibile non si disturba nessuno");
+  }
+});
+
+// learn() addestra anche il NeuralNexus: il finto deve esporne l'API minima.
+// Con il solo NeuralNexus classify() esce prima dell'ensemble: per esercitare
+// il percorso conforme serve almeno un secondo esperto che voti.
+const secondoEsperto = (cat = "spesa", conf = 0.7) => ({
+  metrics: { test_accuracy: 0.85 },
+  predict: () => ({ category: cat, confidence: conf }),
+});
+const nexusAddestrabile = () => ({
+  predict: () => ({ cat: "spesa", confidence: 80 }),
+  tokenize: (s) => String(s).toLowerCase().split(/\s+/).filter(Boolean),
+  train: () => {},
+  validate: () => 0,
+});
+
+test("CONFORME: la conferma dell'utente alimenta la calibrazione, e la finestra non cresce all'infinito", () => {
+  const nexus = nexusAddestrabile();
+  const vault = { state: { mlData: { totalWords: 0, conformalScores: [] }, transactions: {} }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: secondoEsperto() });
+  orch.classify("zzqx wvtr 4471", 5, new Date());
+  orch.learn("zzqx wvtr 4471", "spesa", 5, new Date());
+  const dopo = vault.state.mlData.conformalScores;
+  assert.equal(dopo.length, 1, "una conferma = un punto di calibrazione");
+  assert.ok(dopo[0] >= 0 && dopo[0] <= 1, `punteggio fuori scala: ${dopo[0]}`);
+
+  vault.state.mlData.conformalScores = Array.from({ length: 300 }, () => 0.1);
+  orch.classify("zzqx wvtr 4471", 5, new Date());
+  orch.learn("zzqx wvtr 4471", "spesa", 5, new Date());
+  assert.equal(vault.state.mlData.conformalScores.length, 300, "finestra limitata: conta come si comporta adesso");
+});
+
+test("CONFORME: una correzione dell'utente pesa piu' di una conferma, senza codice apposta", () => {
+  // Il punteggio e' 1 - p(vera): se l'utente CORREGGE, p(vera) era bassa e il
+  // punteggio esce alto. La calibrazione impara dagli errori da sola.
+  const nexus = nexusAddestrabile();
+  const vault = { state: { mlData: { totalWords: 0, conformalScores: [] }, transactions: {} }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: secondoEsperto() });
+  orch.classify("kkvw plth 9902", 12, new Date());
+  orch.learn("kkvw plth 9902", "svago", 12, new Date()); // l'utente CORREGGE
+  const scoreCorrezione = vault.state.mlData.conformalScores[0];
+
+  vault.state.mlData.conformalScores = [];
+  orch.classify("kkvw plth 9902", 12, new Date());
+  orch.learn("kkvw plth 9902", "spesa", 12, new Date()); // l'utente CONFERMA
+  const scoreConferma = vault.state.mlData.conformalScores[0];
+
+  assert.ok(scoreCorrezione > scoreConferma,
+    `una correzione deve produrre uno scarto maggiore: ${scoreCorrezione} vs ${scoreConferma}`);
+});
+
+test("CONFORME: un colpo del dizionario NON entra nella calibrazione, ed e' corretto cosi'", () => {
+  // La garanzia conforme si applica solo al percorso dell'ensemble: i colpi
+  // del dizionario escono prima, ad alta confidenza, senza passare di li'.
+  // Calibrare anche su quelli riempirebbe l'insieme di casi facili e renderebbe
+  // la soglia troppo stretta proprio dove serve larga — la scambiabilita' fra
+  // calibrazione e casi d'uso e' l'ipotesi su cui poggia tutta la garanzia.
+  const nexus = nexusAddestrabile();
+  const vault = { state: { mlData: { totalWords: 0, conformalScores: [] }, transactions: {} }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: secondoEsperto() });
+  const r = orch.classify("esselunga", 30, new Date());
+  if (r.sources && r.sources.includes("dictionary")) {
+    orch.learn("esselunga", r.cat, 30, new Date());
+    assert.equal(vault.state.mlData.conformalScores.length, 0);
+  }
+});

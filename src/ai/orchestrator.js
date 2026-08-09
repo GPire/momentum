@@ -8,6 +8,7 @@ import { TrainedCategorizer } from './trained-categorizer.js';
 import { MeshNode } from '../mesh/mesh-signaling.js';
 import { lookupMerchant } from './merchant-dictionary.js';
 import { fuseSignals } from './signal-fusion.js';
+import { calibrateClassifier, predictSet, conformalQuantile, minCalibrationFor } from './conformal.js';
 import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay } from '../graph/dcgn.js';
 import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
 import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
@@ -141,6 +142,18 @@ class MomentumOrchestrator {
           this.vault.state.mlData.calibrazione || initCalibrationState(),
           { astenuto: true, ipotesiMigliore: this._lastVote.ipotesiMigliore, categoriaVera: catId }
         );
+      }
+      // ── L'INSIEME DI CALIBRAZIONE si costruisce QUI, e da nessun'altra
+      // parte: la categoria che l'utente conferma o corregge e' l'unica
+      // verita' di riferimento che esista. Il punteggio e' 1 - p(vera), cioe'
+      // quanto il modello e' stato "scomodo" su un caso di cui ora sappiamo la
+      // risposta. Finestra limitata: la garanzia deve valere su come il
+      // modello si comporta ADESSO, non su com'era un anno fa.
+      const pVera = this._lastVote.distribuzione?.[catId];
+      if (this._lastVote.distribuzione) {
+        const prec = this.vault.state.mlData.conformalScores || [];
+        this.vault.state.mlData.conformalScores =
+          [...prec, Number.isFinite(pVera) ? 1 - pVera : 1].slice(-300);
       }
       this._lastVote = null;
     }
@@ -370,10 +383,16 @@ class MomentumOrchestrator {
     let bestCategory, confidence;
     const normalized = {};
     for (const cat of Object.keys(scoreByCategory)) normalized[cat] = scoreByCategory[cat] / totalWeight;
+    // La distribuzione EFFETTIVAMENTE usata per decidere. Va tenuta fuori dal
+    // blocco: e' quella su cui si calibra la garanzia conforme, e calibrare su
+    // una distribuzione diversa da quella che ha deciso renderebbe la garanzia
+    // priva di significato.
+    let probsFinali = normalized;
     if (date && (this.vault.state.mlData?.totalWords || 0) >= 0) {
       const fused = fuseSignals(normalized, { amount, date, allTx: this.vault.state.transactions || {} });
       bestCategory = fused.category;
       confidence = Math.round((fused.allProbs[bestCategory] || normalized[bestCategory]) * 100);
+      if (fused.allProbs) probsFinali = fused.allProbs;
     } else {
       bestCategory = Object.keys(scoreByCategory).reduce((a, b) => scoreByCategory[a] >= scoreByCategory[b] ? a : b);
       confidence = Math.round(normalized[bestCategory] * 100);
@@ -389,22 +408,76 @@ class MomentumOrchestrator {
     // `abstain: true`. La UI chiede conferma all'utente e quella risposta
     // diventa training (active learning, via modelStats). Un dizionario-hit
     // non arriva mai qui (ha già restituito ad alta confidenza sopra).
-    // Soglie dichiarate; nessuna astensione se i modelli concordano.
-    const ABSTAIN_CONFIDENCE = 55; // sotto → non abbastanza sicuri
-    const abstain = !agree && confidence < ABSTAIN_CONFIDENCE;
+    // ── DA UNA SOGLIA SCELTA A MANO A UNA GARANZIA DIMOSTRATA ──
+    // `ABSTAIN_CONFIDENCE = 55` era un numero deciso da noi: non prometteva
+    // niente a nessuno. Con quella soglia non si puo' rispondere alla domanda
+    // che conta davvero — "su cento volte in cui non chiedo, quante ne
+    // sbaglio?" — perche' la confidenza di un modello e' un'opinione del
+    // modello su se' stesso, e i modelli piccoli sono troppo sicuri di se'.
+    //
+    // La predizione conforme (src/ai/conformal.js) usa le CORREZIONI VERE
+    // dell'utente come insieme di calibrazione e produce una soglia con una
+    // garanzia di copertura dimostrata: al 90%, nel 90% dei casi la categoria
+    // giusta e' fra quelle proposte. Cambia anche cosa si chiede: non piu'
+    // "confermi tu?" su tutto, ma "e' Bar oppure Ristorante?" — una domanda
+    // sola e gia' ristretta, solo dove l'incertezza e' reale.
+    //
+    // Finche' le correzioni sono troppo poche la garanzia NON e' ottenibile
+    // (per il 90% ne servono almeno 9) e si torna alla soglia storica, che
+    // resta il comportamento di sempre. Dichiarato in `motivoAstensione`,
+    // non nascosto.
+    const ABSTAIN_CONFIDENCE = 55; // ripiego finche' non c'e' calibrazione
+    const ALPHA_CONFORME = 0.1;
+    const distribuzione = probsFinali;
+    const cal = { tipo: 'classificazione', scores: this.vault.state.mlData?.conformalScores || [] };
+    const qc = conformalQuantile(cal.scores, ALPHA_CONFORME);
+    let abstain, insiemeConforme = null, motivoAstensione;
+    if (qc.garantito) {
+      const set = predictSet(distribuzione, cal, { alpha: ALPHA_CONFORME });
+      insiemeConforme = set;
+      // Si chiede se le risposte plausibili non sono esattamente una. Zero
+      // significa "niente di plausibile": e' il caso piu' importante da non
+      // silenziare, perche' e' quasi sempre una categoria nuova.
+      abstain = !set.certo;
+      motivoAstensione = set.certo ? null
+        : set.ampiezza === 0
+          ? 'non somiglia a niente di gia' + String.fromCharCode(39) + ' visto'
+          : `${set.ampiezza} categorie ancora plausibili`;
+    } else {
+      abstain = !agree && confidence < ABSTAIN_CONFIDENCE;
+      motivoAstensione = abstain
+        ? `soglia storica: servono ${minCalibrationFor(ALPHA_CONFORME)} tue conferme per una garanzia vera (ne ho ${qc.n})`
+        : null;
+    }
     // Si annota QUI l'astensione e l'ipotesi che si sarebbe data, perché è
     // l'unico momento in cui si conoscono entrambe. Alla conferma dell'utente
     // si potrà finalmente rispondere alla domanda che nessuno si faceva:
     // "aveva ragione a tacere?".
-    if (this._lastVote) { this._lastVote.abstained = abstain; this._lastVote.ipotesiMigliore = bestCategory; }
+    if (this._lastVote) {
+      this._lastVote.abstained = abstain;
+      this._lastVote.ipotesiMigliore = bestCategory;
+      // Serve alla calibrazione conforme: senza la distribuzione di ADESSO,
+      // alla conferma dell'utente non si potrebbe piu' sapere quanto il
+      // modello era scomodo su quel caso.
+      this._lastVote.distribuzione = distribuzione;
+    }
 
     return {
       cat: bestCategory,
       confidence,
       abstain,
+      // L'insieme delle risposte ancora plausibili: e' cio' che permette alla
+      // UI di chiedere "e' Bar oppure Ristorante?" invece di "confermi tu?".
+      insieme: insiemeConforme?.insieme || null,
+      garanzia: insiemeConforme ? insiemeConforme.copertura : null,
+      motivoAstensione,
       sources: candidates.map(c => c.source),
       advice: abstain
-        ? `Non sono sicuro (${confidence}%): ${detail}. Confermi tu la categoria?`
+        ? (insiemeConforme?.ampiezza > 1
+            ? `Non riesco a decidere fra ${insiemeConforme.insieme.length} categorie: quale delle due e' giusta?`
+            : insiemeConforme?.ampiezza === 0
+              ? 'Questa non somiglia a niente che abbia gia' + String.fromCharCode(39) + ' visto: dimmi tu cos' + String.fromCharCode(39) + 'e' + String.fromCharCode(39) + '.'
+              : `Non sono sicuro (${confidence}%): ${detail}. Confermi tu la categoria?`)
         : agree ? `Ensemble concorde (${detail}).` : `Ensemble in disaccordo, vince ${bestCategory} per punteggio pesato (${detail}).`,
     };
   }
