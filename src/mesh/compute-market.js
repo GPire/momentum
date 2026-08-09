@@ -38,6 +38,7 @@
 'use strict';
 
 import { expectedValue, stragglerDeadline, SOGLIA_CONSEGNA } from './compute-reliability.js';
+import { shouldStop, estimateText, savingsText } from './progressive-estimate.js';
 
 // ── Cancello: cosa si può distribuire, e cosa no ──
 // Elenco chiuso e motivato. Aggiungere una voce qui è una decisione di
@@ -265,7 +266,7 @@ export function collectResults(units, risultatiPerPeer) {
 // Restituisce cosa succederà e perché, in parole che si possono anche
 // mostrare all'utente: un calcolo distribuito che non si può spiegare non
 // andrebbe fatto.
-export function planComputation({ kind, totalUnits, peers, self, verifyRatio = 0.2, randomFn = Math.random, reliability = null, now = Date.now() }) {
+export function planComputation({ kind, totalUnits, peers, self, verifyRatio = 0.2, randomFn = Math.random, reliability = null, now = Date.now(), precisione = null }) {
   const spec = assertShareable(kind); // lancia se non è distribuibile: il cancello viene PRIMA di tutto
   const units = makeWorkUnits(kind, totalUnits);
   const candidati = (peers || []).map((p) => ({ ...p, capability: p.capability || deviceCapability(p.signals) }));
@@ -284,8 +285,44 @@ export function planComputation({ kind, totalUnits, peers, self, verifyRatio = 0
     distribuito: partecipanti.length > 0,
     partecipanti,
     capacitaSelf,
+    // La precisione VOLUTA, non il numero di unità: `totalUnits` diventa un
+    // tetto, non un obbligo. Con una precisione dichiarata il calcolo può
+    // chiudersi appena la risposta è decisa (vedi evaluateProgress).
+    precisione,
     spiegazione: partecipanti.length
       ? `Il calcolo viene diviso tra ${partecipanti.length} dispositivi. ${verifiche.length} parti sono calcolate due volte da dispositivi diversi per controllare che tornino uguali. ${spec.perche}`
       : `Calcolo fatto qui: ${motivo || 'nessun altro dispositivo disponibile'}.`,
+  };
+}
+
+// ── Quando il calcolo può CHIUDERSI ──
+// Il collegamento fra il mercato del calcolo e la stima progressiva
+// (progressive-estimate.js). Finché il risultato era tutto-o-niente, l'unica
+// domanda possibile era "sono tornate tutte le unità?". Con una stima che
+// esiste dal primo campione la domanda diventa **"la risposta è già decisa?"**,
+// e quasi sempre lo è molto prima della fine: continuare vorrebbe dire
+// consumare la batteria di chi ci ha prestato il telefono per aggiungere cifre
+// decimali a un verdetto già preso.
+// Restituisce anche cosa dire alla persona, perché un calcolo che si ferma da
+// solo senza spiegare perché sembra un calcolo fallito.
+export function evaluateProgress(plan, stimaState, { unitaConsegnate = 0, unita = '€' } = {}) {
+  const totali = plan?.units?.length || 0;
+  const r = shouldStop(stimaState, {
+    semiAmpiezzaVoluta: plan?.precisione?.semiAmpiezzaVoluta ?? null,
+    precisioneRelativaVoluta: plan?.precisione?.precisioneRelativaVoluta ?? null,
+    unitaConsegnate, unitaTotali: totali,
+  });
+  return {
+    ...r,
+    testo: estimateText(stimaState, { unita }),
+    risparmio: r.basta && r.perche === 'precisione raggiunta'
+      ? savingsText({ risparmiate: r.risparmiate, unitaTotali: totali })
+      : null,
+    // Le unità che si possono ANNULLARE: non sono lavoro perso, è lavoro che
+    // non serve più a nessuno. Dirlo esplicitamente evita che restino in volo
+    // con una scadenza che scatterà nel vuoto.
+    daAnnullare: r.basta && r.perche === 'precisione raggiunta'
+      ? plan.inFlight.filter((u) => !stimaState.unita.includes(u.unit.index)).map((u) => u.unit.index)
+      : [],
   };
 }
