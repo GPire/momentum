@@ -37,6 +37,8 @@
 // Funzioni PURE (nessun DOM, nessuna rete, tempo e casualità iniettabili).
 'use strict';
 
+import { expectedValue, stragglerDeadline, SOGLIA_CONSEGNA } from './compute-reliability.js';
+
 // ── Cancello: cosa si può distribuire, e cosa no ──
 // Elenco chiuso e motivato. Aggiungere una voce qui è una decisione di
 // privacy, non un dettaglio tecnico — per questo ognuna porta il perché.
@@ -120,25 +122,52 @@ export function makeWorkUnits(workloadId, totalUnits, { seedBase = 1 } = {}) {
 // DUE dispositivi diversi: più è alta, più costa e più è difficile mentire.
 // Con un solo dispositivo disponibile non c'è nulla da verificare (e nulla da
 // distribuire): si torna al calcolo locale, dichiarandolo.
-export function assignWork(units, peers, { verifyRatio = 0.2, randomFn = Math.random } = {}) {
-  const disponibili = (peers || []).filter((p) => p.capability?.disponibile && p.capability.score > 0);
+// `reliability` (stato di compute-reliability.js) è OPZIONALE: senza, il peso
+// resta la potenza grezza — è il comportamento storico e va lasciato intatto
+// per chi non tiene lo storico. Con lo stato, il peso diventa **potenza ×
+// probabilità che il risultato torni indietro**, che è la domanda vera: un
+// portatile modesto attaccato alla corrente vale più di un telefono veloce al
+// 12%, e a peso-potenza vinceva il telefono.
+export function assignWork(units, peers, { verifyRatio = 0.2, randomFn = Math.random, reliability = null, now = Date.now() } = {}) {
+  const utilizzabili = (peers || []).filter((p) => p.capability?.disponibile && p.capability.score > 0);
+
+  // Il peso di ciascun dispositivo, e il perché — serve anche a spiegarlo.
+  const pesi = new Map();
+  const previsioni = [];
+  for (const p of utilizzabili) {
+    if (!reliability) { pesi.set(p.peerId, p.capability.score); continue; }
+    const ev = expectedValue(reliability, p, { now });
+    pesi.set(p.peerId, ev.odds.p >= SOGLIA_CONSEGNA ? ev.valore : 0);
+    previsioni.push({ peerId: p.peerId, potenza: ev.score, valore: ev.valore, probabilita: ev.odds.p, motivo: ev.odds.motivo });
+  }
+  // Chi ha valore atteso nullo non è "lento": è uno che con ogni probabilità
+  // non consegnerà. Dargli unità significa aspettarlo per niente.
+  const disponibili = utilizzabili.filter((p) => pesi.get(p.peerId) > 0);
+  const esclusi = utilizzabili.filter((p) => !(pesi.get(p.peerId) > 0)).map((p) => p.peerId);
+
   if (disponibili.length < 2) {
-    return { assegnazioni: new Map(), locali: [...units], verifiche: [], motivo: 'meno di due dispositivi utilizzabili: calcolo locale' };
+    return {
+      assegnazioni: new Map(), locali: [...units], verifiche: [], scadenze: new Map(), previsioni, esclusi,
+      motivo: reliability && utilizzabili.length >= 2
+        ? 'meno di due dispositivi da cui aspettarsi davvero un risultato: calcolo locale'
+        : 'meno di due dispositivi utilizzabili: calcolo locale',
+    };
   }
 
-  const totaleScore = disponibili.reduce((s, p) => s + p.capability.score, 0);
+  const totalePeso = disponibili.reduce((s, p) => s + pesi.get(p.peerId), 0);
   const assegnazioni = new Map(disponibili.map((p) => [p.peerId, []]));
 
-  // Distribuzione proporzionale, deterministica nell'ordine (i dispositivi
-  // più capaci ricevono per primi, così un eventuale straggler pesa meno).
-  const ordinati = [...disponibili].sort((a, b) => b.capability.score - a.capability.score);
+  // Distribuzione proporzionale, deterministica nell'ordine (i dispositivi da
+  // cui ci si aspetta di più ricevono per primi, così un eventuale straggler
+  // pesa meno).
+  const ordinati = [...disponibili].sort((a, b) => pesi.get(b.peerId) - pesi.get(a.peerId));
   let i = 0;
   for (const unit of units) {
     // Selezione proporzionale: si avanza lungo la lista in base al peso.
     let scelto = ordinati[i % ordinati.length];
     let acc = 0;
-    const target = ((i + 0.5) / units.length) * totaleScore;
-    for (const p of ordinati) { acc += p.capability.score; if (acc >= target) { scelto = p; break; } }
+    const target = ((i + 0.5) / units.length) * totalePeso;
+    for (const p of ordinati) { acc += pesi.get(p.peerId); if (acc >= target) { scelto = p; break; } }
     assegnazioni.get(scelto.peerId).push(unit);
     i++;
   }
@@ -162,7 +191,19 @@ export function assignWork(units, peers, { verifyRatio = 0.2, randomFn = Math.ra
     verifiche.push({ unit, peerA: primo, peerB: secondo.peerId });
   }
 
-  return { assegnazioni, locali: [], verifiche, motivo: null };
+  // QUANDO SMETTERE DI ASPETTARE, per ciascun dispositivo e in base a quanto
+  // gli abbiamo dato. Senza una scadenza, un dispositivo che sparisce non fa
+  // fallire il calcolo: lo fa restare a metà per sempre, che è peggio perché
+  // non lo si può nemmeno dire all'utente.
+  const scadenze = new Map();
+  if (reliability) {
+    for (const [peerId, list] of assegnazioni) {
+      if (!list.length) continue;
+      scadenze.set(peerId, stragglerDeadline(reliability, peerId, { unita: list.length, now }));
+    }
+  }
+
+  return { assegnazioni, locali: [], verifiche, scadenze, previsioni, esclusi, motivo: null };
 }
 
 // ── Verifica dei risultati ──
@@ -224,17 +265,21 @@ export function collectResults(units, risultatiPerPeer) {
 // Restituisce cosa succederà e perché, in parole che si possono anche
 // mostrare all'utente: un calcolo distribuito che non si può spiegare non
 // andrebbe fatto.
-export function planComputation({ kind, totalUnits, peers, self, verifyRatio = 0.2, randomFn = Math.random }) {
+export function planComputation({ kind, totalUnits, peers, self, verifyRatio = 0.2, randomFn = Math.random, reliability = null, now = Date.now() }) {
   const spec = assertShareable(kind); // lancia se non è distribuibile: il cancello viene PRIMA di tutto
   const units = makeWorkUnits(kind, totalUnits);
   const candidati = (peers || []).map((p) => ({ ...p, capability: p.capability || deviceCapability(p.signals) }));
-  const { assegnazioni, locali, verifiche, motivo } = assignWork(units, candidati, { verifyRatio, randomFn });
+  const { assegnazioni, locali, verifiche, scadenze, previsioni, esclusi, motivo } = assignWork(units, candidati, { verifyRatio, randomFn, reliability, now });
 
   const partecipanti = [...assegnazioni.entries()].map(([peerId, list]) => ({ peerId, unita: list.length }));
   const capacitaSelf = self ? deviceCapability(self) : null;
 
   return {
-    kind, spec, units, assegnazioni, verifiche,
+    kind, spec, units, assegnazioni, verifiche, scadenze, previsioni, esclusi,
+    // Le unità in volo con la loro scadenza: è la lista che `unitsToReassign`
+    // legge per capire cosa riassegnare senza aspettare all'infinito.
+    inFlight: [...assegnazioni.entries()].flatMap(([peerId, list]) =>
+      list.map((unit) => ({ unit, peerId, scadeA: scadenze.get(peerId)?.scadeA || null }))),
     localiDaCalcolare: locali,
     distribuito: partecipanti.length > 0,
     partecipanti,

@@ -1298,6 +1298,51 @@
       100% { transform: translateY(-4px) scale(0.3); opacity: 0; }
     }
 
+    /* — PROVACI TU —
+       La scena mostra che i dati non escono. Ma "mostrato" è pur sempre
+       qualcosa che decidiamo noi: la persona guarda una nostra animazione e
+       deve crederci lo stesso. L'unico gradino sopra la dimostrazione è
+       lasciargliela CONTRADDIRE: qui il dito prende un dato e prova a
+       portarlo fuori. Il muro lo tiene. Non è più una promessa vista, è una
+       promessa che hai provato a rompere — ed è l'unica forma di fiducia che
+       non chiede di fidarsi.
+       Il punto trascinato è clampato al raggio REALE della cupola letto dal
+       DOM (non a una costante): così regge le tre scale responsive senza che
+       il muro si scolli dal disegno del muro. */
+    .privacy-scene { pointer-events: auto; touch-action: none; cursor: grab; }
+    .privacy-scene.dragging { cursor: grabbing; }
+    .ps-pull { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 3;
+      transform: translate3d(var(--px, 0px), var(--py, 0px), 40px); opacity: 0; }
+    /* Il ritorno al centro è una molla, non una linea retta: un rientro lineare
+       sembra "annullato dall'app", la molla sembra RESPINTO. */
+    .ps-pull.springing { transition: transform .62s cubic-bezier(.22,1.5,.4,1); }
+    .privacy-scene.dragging .ps-pull, .ps-pull.springing { opacity: 1; }
+    .ps-pull i { display: block; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff, #22d3ee 60%, #0891b2);
+      box-shadow: 0 0 16px #22d3ee, 0 0 4px #fff; }
+    /* Il guinzaglio: la linea fra il centro e il dito. Rende visibile che il
+       dato è ANCORATO al dispositivo, non semplicemente lento. */
+    .ps-leash { position: absolute; left: 50%; top: 50%; height: 1.5px; width: var(--len, 0px); z-index: 2;
+      transform-origin: 0 50%; transform: rotate(var(--ang, 0deg)); opacity: 0;
+      background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 5%, transparent), color-mix(in srgb, #22d3ee 65%, transparent)); }
+    .privacy-scene.dragging .ps-leash { opacity: 1; }
+    /* Il muro reagisce solo quando lo tocchi davvero: se lampeggiasse anche
+       mentre trascini a vuoto, il lampo non significherebbe più niente. */
+    .privacy-scene.blocked .ps-dome { animation: domeHit .42s cubic-bezier(.22,1,.36,1); }
+    @keyframes domeHit {
+      0% { opacity: 1; transform: scale(1.03); box-shadow: 0 0 46px color-mix(in srgb, #22d3ee 55%, transparent), inset 0 0 34px color-mix(in srgb, var(--primary) 26%, transparent); }
+      100% { opacity: .5; transform: scale(1); }
+    }
+    /* L'invito compare da solo dopo il secondo rimbalzo: chi ha già capito è
+       andato avanti, chi è ancora lì viene invitato a verificare. */
+    #privacy-proof-hint { transition: opacity .45s ease, transform .45s cubic-bezier(.22,1,.36,1); }
+    #privacy-proof-hint.hidden-hint { opacity: 0; transform: translateY(4px); }
+    @media (prefers-reduced-motion: reduce) {
+      .ps-pull.springing { transition: none; }
+      .privacy-scene.blocked .ps-dome { animation: none; }
+      #privacy-proof-hint { transition: none; }
+    }
+
     /* Il titolo della promessa entra DOPO la prima andata e ritorno (1.15s):
        si vede il fatto, poi lo si legge. Al contrario non funziona — chi ha
        già letto la frase non guarda più la scena. */
@@ -1521,8 +1566,15 @@
             <span class="ps-bit" style="--a:288deg; --d:1.76s; --bit:#22d3ee"><i></i></span>
             <span class="ps-bit" style="--a:324deg; --d:1.98s; --bit:var(--primary)"><i></i></span>
             <div class="ps-dome"></div>
+            <!-- Il dato che prendi TU, e il guinzaglio che lo tiene al telefono. -->
+            <div class="ps-leash" id="ps-leash"></div>
+            <span class="ps-pull" id="ps-pull"><i></i></span>
           </div>
         </div>
+        <!-- L'invito a contraddirci. `aria-hidden`: è un affordance visivo, e
+             per chi non vede la scena il fatto è già detto dal testo sotto,
+             che è testo vero. -->
+        <p id="privacy-proof-hint" class="hidden-hint text-[11px] font-bold tracking-wide uppercase text-[var(--on-surface-secondary)] text-center -mt-2 mb-2" aria-hidden="true">Non ci credi? Trascina un dato fuori</p>
         <!-- Il testo arriva DOPO il primo rimbalzo: prima si vede il fatto,
              poi lo si legge. "Niente esce da qui" è una frase che un bambino
              capisce, e dice esattamente quello che la scena ha appena fatto. -->

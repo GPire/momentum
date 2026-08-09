@@ -40,6 +40,11 @@ export const PRIOR_TOTALI = 2;
 // più, perché blocca tutto senza produrre niente.
 export const FATTORE_SCADENZA = 3;
 export const FINESTRA = 50;
+// Sotto questa probabilità di ricevere il risultato, un dispositivo non prende
+// lavoro. Non è severità: dare un'unità a chi consegna meno di una volta su
+// sei non fa perdere quell'unità, fa aspettare TUTTI fino alla scadenza per
+// riassegnarla. Una quota piccola non è un rischio piccolo.
+export const SOGLIA_CONSEGNA = 0.15;
 
 export function initReliabilityState() { return { peer: {} }; }
 

@@ -8495,6 +8495,129 @@ const initGenesisHold = () => {
   });
 };
 
+// ==========================================
+// PROVACI TU — la promessa di privacy che l'utente può tentare di rompere
+// ==========================================
+// La scena della cupola (index.html) MOSTRA che i dati non escono. Ma resta
+// una cosa che decidiamo noi: è la nostra animazione, e chi guarda deve
+// crederci lo stesso. L'unico gradino sopra il "mostrare" è lasciare che
+// provino a CONTRADDIRCI: qui il dito afferra un dato e prova a portarlo
+// fuori dal dispositivo. Il muro lo tiene, e lo tiene ogni volta.
+// Questo è anche il primo momento in cui Momentum risponde al tocco: la
+// promessa più importante del prodotto diventa la prima interazione.
+//
+// Il raggio si legge dal DOM, non da una costante: la scena ha tre scale
+// responsive (0.72 / 1 / 1.12) e un muro che non coincide col muro disegnato
+// sarebbe peggio di nessun muro.
+const initPrivacyProof = () => {
+  const scene = document.querySelector('#g-step-0 .privacy-scene');
+  const pull = document.getElementById('ps-pull');
+  const leash = document.getElementById('ps-leash');
+  const dome = scene?.querySelector('.ps-dome');
+  const hint = document.getElementById('privacy-proof-hint');
+  if (!scene || !pull || !leash || !dome || !window.PointerEvent) return;
+
+  // La scala si fissa all'inizio di ogni trascinamento e non si rimisura in
+  // corsa: la cupola RESPIRA (domePulse, ±2%), e ricalcolarla a ogni movimento
+  // farebbe tremare il punto sotto il dito di quel 2%.
+  let attivo = false, respinto = false, ultimoHaptic = 0, kDrag = 1;
+
+  // Lo stage è SCALATO (0.72 sui telefoni bassi, 1.12 sugli schermi alti), il
+  // dito no: senza dividere per la scala, il punto si sposterebbe più (o meno)
+  // del dito e la presa sembrerebbe scivolosa. La scala si misura confrontando
+  // la cupola disegnata con la cupola a schermo — così resta vera anche se un
+  // domani le misure cambiano.
+  const scala = () => {
+    const s = dome.getBoundingClientRect().width / (dome.offsetWidth || 140);
+    return s > 0.1 ? s : 1;
+  };
+  const raggio = () => {
+    const r = dome.getBoundingClientRect().width / 2;
+    // 7px (a schermo) dentro il bordo: il punto ha un suo diametro, e deve
+    // fermarsi CONTRO il muro, non a cavallo del muro.
+    return Math.max(24, r - 7 * kDrag);
+  };
+  const centro = () => {
+    const b = scene.getBoundingClientRect();
+    return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  };
+  // dx/dy arrivano in pixel DI SCHERMO; dentro lo stage vanno in pixel locali.
+  const poni = (dx, dy) => {
+    const lx = dx / kDrag, ly = dy / kDrag;
+    pull.style.setProperty('--px', `${lx}px`);
+    pull.style.setProperty('--py', `${ly}px`);
+    leash.style.setProperty('--len', `${Math.hypot(lx, ly)}px`);
+    leash.style.setProperty('--ang', `${(Math.atan2(ly, lx) * 180) / Math.PI}deg`);
+  };
+
+  const muroColpito = () => {
+    // Il lampo si ri-arma togliendo e rimettendo la classe: senza il reflow in
+    // mezzo, il browser non riavvia l'animazione e dal secondo tentativo in
+    // poi il muro non reagirebbe più — che è esattamente il contrario del
+    // messaggio ("ogni volta, non solo la prima").
+    scene.classList.remove('blocked');
+    void scene.offsetWidth;
+    scene.classList.add('blocked');
+    const ora = Date.now();
+    if (ora - ultimoHaptic > 260) { ultimoHaptic = ora; try { haptic('light'); } catch (_) {} }
+    if (!respinto) {
+      respinto = true;
+      if (hint) hint.textContent = 'Ci hai provato. Non escono.';
+    }
+  };
+
+  scene.addEventListener('pointerdown', (e) => {
+    attivo = true;
+    kDrag = scala();
+    pull.classList.remove('springing');
+    scene.classList.add('dragging');
+    try { scene.setPointerCapture(e.pointerId); } catch (_) {}
+    const c = centro();
+    poni(e.clientX - c.x, e.clientY - c.y);
+    if (hint) hint.classList.remove('hidden-hint');
+  });
+
+  scene.addEventListener('pointermove', (e) => {
+    if (!attivo) return;
+    try { e.preventDefault(); } catch (_) {}
+    const c = centro();
+    let dx = e.clientX - c.x, dy = e.clientY - c.y;
+    const dist = Math.hypot(dx, dy), R = raggio();
+    if (dist > R) {
+      // Clamp sul cerchio: il dito continua, il dato no. È qui che la
+      // promessa smette di essere una frase.
+      const k = R / dist;
+      dx *= k; dy *= k;
+      muroColpito();
+    }
+    poni(dx, dy);
+  });
+
+  const rilascia = () => {
+    if (!attivo) return;
+    attivo = false;
+    scene.classList.remove('dragging');
+    // Il rientro è una MOLLA (CSS), non una linea retta: lineare sembrerebbe
+    // "l'app me l'ha annullato", la molla sembra respinto.
+    pull.classList.add('springing');
+    poni(0, 0);
+    setTimeout(() => pull.classList.remove('springing'), 640);
+  };
+  scene.addEventListener('pointerup', rilascia);
+  scene.addEventListener('pointercancel', rilascia);
+  // NIENTE `pointerleave`: qui si trascina APPOSTA fuori dai bordi della scena,
+  // e su alcuni browser quell'evento chiuderebbe il gesto proprio nel momento
+  // in cui il muro deve farsi sentire. Il fallback è a livello di finestra, per
+  // il caso in cui il dito venga alzato fuori dalla pagina.
+  window.addEventListener('pointerup', rilascia);
+
+  // L'invito arriva dopo il secondo rimbalzo della scena (~3.6s): chi ha già
+  // capito è andato avanti, chi è ancora lì viene invitato a verificare.
+  // Non compare se nel frattempo ha già trascinato: dire "provaci" a chi ha
+  // appena provato è la definizione di interfaccia che non guarda.
+  setTimeout(() => { if (hint && !respinto) hint.classList.remove('hidden-hint'); }, 3600);
+};
+
 // Semina lo stato del profilo (budget + preferenze investimento + prior del
 // modello) da rischio+orizzonte. Unica fonte di verità: la usano sia
 // l'onboarding completo (endGenesis) sia l'attivazione "lampo" (activateLite) e
@@ -10876,6 +10999,13 @@ const initApp = () => {
   // Il cielo stellato del primo avvio è ora in CSS PURO (index.html: .starfield),
   // quindi non serve disegnarlo da JS: è sempre presente, gira su qualsiasi
   // dispositivo e non dipende dal timing del boot (fix del canvas che non partiva).
+
+  // "Provaci tu": si arma solo se il primo avvio è davvero a schermo. Nei rami
+  // sopra il genesis viene rimosso dal DOM, e armare listener su una scena che
+  // non esiste è il modo classico di lasciarne uno appeso.
+  if (document.querySelector('#genesis-container #g-step-0 .privacy-scene')) {
+    try { initPrivacyProof(); } catch (e) { console.warn('privacy proof non armato:', e); }
+  }
 };
 
 // Global click actions
