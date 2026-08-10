@@ -50,7 +50,7 @@
 'use strict';
 
 import { initEstimate, addUnit, estimate } from '../mesh/progressive-estimate.js';
-import { bootstrapSequence, statisticheSerie } from './historical-sequences.js';
+import { bootstrapSequence, bootstrapCondizionato, statisticheSerie } from './historical-sequences.js';
 
 // Generatore deterministico (mulberry32): i risultati devono essere
 // riproducibili, altrimenti due schermate della stessa cosa danno due numeri.
@@ -104,7 +104,14 @@ export function simulateOnePath({
   // Con la storia vera i rendimenti dei `mesi` si estraggono tutti in una
   // volta: e' il blocco contiguo a portare l'informazione, quindi va costruito
   // prima e poi percorso, non estratto mese per mese.
-  const serieRend = generatore === 'storico' ? bootstrapSequence(mesi, r, { serie: serieStorica }) : null;
+  // 'storico-condizionato' pesca preferendo i mesi che assomigliavano a OGGI:
+  // e' cio' che fa entrare lo stato del mercato DENTRO il numero invece di
+  // lasciarlo accanto come commento.
+  const serieRend = generatore === 'storico'
+    ? bootstrapSequence(mesi, r, { serie: serieStorica })
+    : generatore === 'storico-condizionato'
+      ? bootstrapCondizionato(mesi, r, { serie: serieStorica })
+      : null;
   let cassa = liquidita, valore = portafoglio, picco = portafoglio;
   let vendite = 0, venditaTotale = 0, perditaRealizzata = 0, primoMese = null;
 

@@ -311,3 +311,85 @@ export function episodioText(e) {
     : 'non è ancora tornato al punto di partenza';
   return `${chi}da ${e.picco} a ${e.fondo} il mercato ha perso il ${Math.round(e.caloPct)}% in ${e.mesiDiDiscesa} mesi, poi ${rec}.`;
 }
+
+// ── BOOTSTRAP CONDIZIONATO AL REGIME DI OGGI ──
+// Il bootstrap normale pesca spezzoni da tutta la storia con uguale
+// probabilità. È corretto per la domanda "quanto sono esposto in generale", ed
+// è SBAGLIATO per la domanda "quanto sono esposto adesso": se oggi il mercato è
+// già agitato, pescare anche dai lunghi tratti di calma degli anni Novanta
+// diluisce il rischio dei prossimi mesi.
+//
+// Qui i blocchi partono preferibilmente da mesi che ASSOMIGLIAVANO A OGGI —
+// misurati sulla volatilità dei dodici mesi precedenti, cioè la stessa cosa che
+// si può osservare oggi senza sapere il futuro. È una previsione condizionata,
+// non una previsione: non dice cosa succederà, dice cosa è successo le altre
+// volte che siamo partiti da qui.
+//
+// LA CAUTELA CHE SERVE: condizionare restringe il campione, e un campione
+// stretto è un campione fragile. Il peso non azzera mai i mesi diversi — li
+// rende solo meno probabili — così anche un regime raro conserva abbastanza
+// storia da cui pescare. `concentrazione` regola quanto si stringe.
+export function bootstrapCondizionato(mesi, rng, {
+  serie = SERIE_PREDEFINITA, bloccoMedio = BLOCCO_MEDIO_MESI,
+  finestra = 12, concentrazione = 3,
+} = {}) {
+  const s = SERIE_STORICHE[serie];
+  if (!s) throw new Error(`serie storica sconosciuta: "${serie}"`);
+  const r = s.rendimenti, n = r.length;
+
+  // Volatilità dei 12 mesi precedenti, per ogni possibile punto di partenza.
+  const sd = (a) => {
+    const m = a.reduce((x, y) => x + y, 0) / a.length;
+    return Math.sqrt(a.reduce((acc, x) => acc + (x - m) ** 2, 0) / Math.max(1, a.length - 1));
+  };
+  const vol = new Array(n).fill(null);
+  for (let i = finestra; i < n; i++) vol[i] = sd(r.slice(i - finestra, i));
+  const volOggi = vol[n - 1];
+
+  // Peso: massimo per i mesi con volatilità simile a oggi, decrescente con la
+  // distanza. Mai zero.
+  const scala = sd(vol.filter((x) => x !== null)) || 1e-6;
+  const pesi = vol.map((v) => (v === null ? 0.05 : 0.05 + Math.exp(-concentrazione * Math.abs(v - volOggi) / scala)));
+  const cum = [];
+  let tot = 0;
+  for (const p of pesi) { tot += p; cum.push(tot); }
+  const pesca = () => {
+    const x = rng() * tot;
+    let lo = 0, hi = cum.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < x) lo = mid + 1; else hi = mid; }
+    return lo;
+  };
+
+  const p = 1 / Math.max(1, bloccoMedio);
+  const out = new Array(mesi);
+  let i = pesca();
+  for (let t = 0; t < mesi; t++) {
+    out[t] = r[i];
+    i = rng() < p ? pesca() : (i + 1) % n;
+  }
+  return out;
+}
+
+// Quanto il condizionamento sta effettivamente stringendo il campione: se
+// diventa troppo stretto, la stima poggia su pochi episodi e va detto.
+export function ampiezzaCondizionamento({ serie = SERIE_PREDEFINITA, finestra = 12, concentrazione = 3 } = {}) {
+  const r = SERIE_STORICHE[serie].rendimenti, n = r.length;
+  const sd = (a) => { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((acc, x) => acc + (x - m) ** 2, 0) / Math.max(1, a.length - 1)); };
+  const vol = new Array(n).fill(null);
+  for (let i = finestra; i < n; i++) vol[i] = sd(r.slice(i - finestra, i));
+  const volOggi = vol[n - 1];
+  const scala = sd(vol.filter((x) => x !== null)) || 1e-6;
+  const pesi = vol.map((v) => (v === null ? 0.05 : 0.05 + Math.exp(-concentrazione * Math.abs(v - volOggi) / scala)));
+  const tot = pesi.reduce((a, b) => a + b, 0);
+  // Numero efficace di punti di partenza (Kish): dice quanti mesi stanno
+  // davvero contribuendo, invece di quanti ce ne sono.
+  const efficaci = (tot * tot) / pesi.reduce((a, b) => a + b * b, 0);
+  return {
+    mesiTotali: n,
+    mesiEfficaci: Math.round(efficaci),
+    quota: +(efficaci / n).toFixed(3),
+    volatilitaOggi: +volOggi.toFixed(4),
+    abbastanza: efficaci >= 60,
+    motivo: efficaci >= 60 ? null : 'il regime di oggi somiglia a pochi mesi della storia: la stima condizionata poggia su poche esperienze e va letta come indicativa',
+  };
+}
