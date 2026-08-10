@@ -12,17 +12,18 @@
 // segnale letto all'orizzonte sbagliato non è inutile: è dannoso, perché è
 // spesso girato al contrario. Misurato qui, walk-forward, sugli stessi dati:
 //
-//                    adesso   3 mesi   6 mesi   18 mesi
-//   spread credito    0,970    0,808    0,619     0,303
-//   curva rendimenti  0,727    0,293    0,365     0,822
+//                    adesso   3 mesi   6 mesi   12 mesi  18 mesi
+//   NFCI (Fed Chicago) 0,998    0,900    0,881     0,337    0,112
+//   spread credito     0,970    0,808    0,619     0,136    0,303
+//   curva rendimenti   0,727    0,293    0,365     0,600    0,822
 //
 // I due segnali più citati della macroeconomia sono **complementari nel
 // tempo**: il credito sa quasi tutto di adesso e niente del futuro; la curva
-// non sa niente di adesso e parecchio di fra un anno e mezzo. E a **6 e 12
-// mesi non funziona nessuno dei due** (0,619 e 0,136 il credito; 0,365 e 0,600
-// la curva) — c'è una finestra cieca proprio nell'orizzonte su cui la maggior
-// parte delle decisioni viene presa, e dichiararla vale più che riempirla con
-// un numero inventato.
+// non sa niente di adesso e parecchio di fra un anno e mezzo. Il NFCI della Fed
+// di Chicago — aggiunto dopo — copre il tratto intermedio e **chiude la
+// finestra cieca a sei mesi** (0,881 dove gli altri due erano a 0,62 e 0,37).
+// Resta cieco il dodicesimo mese, e va dichiarato invece di riempirlo con un
+// numero inventato.
 //
 // COSA SI FA CON QUESTO. La decisione non è mai "compra" o "vendi": non lo
 // sappiamo, nessuno lo sa, e dirlo sarebbe l'unica cosa davvero irresponsabile
@@ -67,7 +68,7 @@ function logistica1(x, y) {
 }
 
 // A che distanza ciascun segnale funziona, misurato walk-forward.
-export function orizzonteDiCiascunSegnale({ segnali = ['credito', 'curva'], orizzonti = ORIZZONTI_PROVATI, minStoria = 240 } = {}) {
+export function orizzonteDiCiascunSegnale({ segnali = ['nfci', 'credito', 'curva'], orizzonti = ORIZZONTI_PROVATI, minStoria = 240 } = {}) {
   const risultati = {};
   for (const v of segnali) {
     risultati[v] = orizzonti.map((h) => {

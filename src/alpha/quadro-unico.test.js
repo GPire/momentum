@@ -47,11 +47,25 @@ test('SONO COMPLEMENTARI: dove uno è affidabile, l\'altro no', () => {
   assert.equal(q[18], true);
 });
 
-test('LA FINESTRA CIECA esiste e viene dichiarata invece che riempita', () => {
+test('LA FINESTRA CIECA si è ristretta a dodici mesi, e viene dichiarata', () => {
+  // Questo test prima pretendeva cecità anche a SEI mesi, ed era giusto finché
+  // i segnali erano due. Aggiungendo il NFCI della Fed di Chicago quel buco si
+  // è chiuso (0,881 dove credito e curva erano a 0,62 e 0,37): il test è stato
+  // aggiornato perché il modulo è migliorato, non perché faceva comodo.
   const o = oriz();
-  assert.ok(o.finestraCieca.length > 0, 'deve esserci almeno un orizzonte senza segnali affidabili');
-  assert.ok(o.finestraCieca.includes(6), `attesa cecità a sei mesi: ${JSON.stringify(o.finestraCieca)}`);
+  assert.ok(o.finestraCieca.length > 0, 'deve restare dichiarato dove nessun segnale è affidabile');
+  assert.ok(!o.finestraCieca.includes(6), `sei mesi non è più cieco: ${JSON.stringify(o.finestraCieca)}`);
+  assert.ok(o.finestraCieca.includes(12), `dodici mesi resta cieco: ${JSON.stringify(o.finestraCieca)}`);
   assert.match(refertoTecnico().lezione, /finestra cieca/);
+});
+
+test('i tre segnali insieme coprono tutto tranne il dodicesimo mese', () => {
+  const o = oriz();
+  assert.deepEqual(Object.keys(o.perSegnale).sort(), ['credito', 'curva', 'nfci']);
+  for (const h of [0, 3, 6, 18]) {
+    const qualcuno = Object.values(o.perSegnale).some((v) => v.find((r) => r.orizzonte === h)?.affidabile);
+    assert.ok(qualcuno, `a ${h} mesi nessun segnale è affidabile, e non dovrebbe essere così`);
+  }
 });
 
 // ── Lo stato di adesso: tre voci, e il caso in cui non concordano ──
