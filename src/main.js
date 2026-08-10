@@ -1176,6 +1176,27 @@ const renderDashboard = () => {
   });
   const liquidity = inc - exp;
 
+  // ── LO STIPENDIO CHE NON E' ANCORA ARRIVATO ──
+  // `liquidity` e' entrate meno uscite DEL MESE IN CORSO. Per chi prende uno
+  // stipendio il 27, dal giorno 1 al 26 quel numero e' negativo per
+  // costruzione: l'affitto e' gia' uscito e lo stipendio deve ancora entrare.
+  // Mostrarlo grande e in rosso per ventisei giorni su trenta non e' informare,
+  // e' fabbricare allarme ogni mese. E' esattamente cio' che faceva spaventare
+  // chi apriva l'app per la prima volta.
+  //
+  // Il numero resta quello vero — non si addolcisce un dato. Cambia come lo si
+  // presenta: se in questo mese non e' ancora arrivata un'entrata ma nei mesi
+  // scorsi arrivava, non e' un buco, e' un mese a meta'. Si dice quello.
+  // La fonte deve essere la STESSA che disegna, non `state.transactions`: le
+  // transazioni di esempio vivono apposta fuori dal vault (demo-dataset.js), e
+  // guardando li' la condizione non scattava mai per un utente nuovo — cioe'
+  // proprio per chi il numero rosso lo vede per primo.
+  const tuttoPerDisegnare = displayAllTx();
+  const mesiPrecedentiConEntrate = Object.keys(tuttoPerDisegnare || {})
+    .filter((mk) => mk < k)
+    .some((mk) => (tuttoPerDisegnare[mk] || []).some((t) => t.type === 'entrata'));
+  const entrataAncoraDaVenire = inc === 0 && exp > 0 && mesiPrecedentiConEntrate;
+
   $('#total-income').textContent = formatMoney(inc);
   $('#total-expense').textContent = formatMoney(exp);
   $('#total-liquidity').textContent = formatMoney(liquidity);
@@ -1212,10 +1233,21 @@ const renderDashboard = () => {
   // (stipendio o impegni noti) diventa l'UNICA fonte, questa card si tace.
   const cassaUnicaAttiva = !!(resolveSalary(VaultDAO.state, VaultDAO.state.transactions) || (VaultDAO.state.fixedCommitments || []).length);
   const stsCard = $('#safe-to-spend-card');
+  // Calcolato qui e riusato dall'orb piu' sotto: e' lo stesso numero, e deve
+  // essere LO STESSO CALCOLO. Ricalcolarlo in due punti e' il modo classico
+  // per ritrovarsi due cifre diverse per la stessa domanda.
+  const stsPerOrb = (isCurrentMonth && !cassaUnicaAttiva)
+    ? getDailySafeToSpend({ monthTxs: txs, allTx: displayAllTx(), monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow })
+    : null;
+  // L'orb piu' sopra mostra "oggi puoi spendere" quando il numero c'e'. In quel
+  // caso QUESTA card non lo ripete grande: resta il dettaglio (quanto rimane
+  // nella settimana, cosa e' gia' impegnato, la traiettoria del mese). E' la
+  // stessa regola gia' scritta per la Cassa Unica — due risposte alla stessa
+  // domanda sulla stessa schermata erodono la fiducia piu' di quanto la
+  // ripetizione aggiunga.
+  const orbHaIlNumero = !!(stsPerOrb && Number.isFinite(stsPerOrb.safeToday));
   if (stsCard) {
-    const sts = (isCurrentMonth && !cassaUnicaAttiva)
-      ? getDailySafeToSpend({ monthTxs: txs, allTx: displayAllTx(), monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow })
-      : null;
+    const sts = stsPerOrb;
     // reset stato interattivo (la card viene riusata tra i render)
     stsCard.removeAttribute('data-action');
     stsCard.removeAttribute('role');
@@ -1277,9 +1309,9 @@ const renderDashboard = () => {
         stsCard.setAttribute('aria-label', `Oggi puoi spendere ${formatMoney(sts.safeToday)}. Tocca per segnare una spesa.`);
         stsCard.style.cursor = 'pointer';
         stsCard.innerHTML = `
-          <p class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">Oggi puoi spendere</p>
-          <p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>
-          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${formatMoney(sts.weekRemaining)} rimasti per questa settimana (${sts.daysLeftInWeek} giorni)${chargeNote}</p>
+          <p class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">${orbHaIlNumero ? 'Come stai messo questa settimana' : 'Oggi puoi spendere'}</p>
+          ${orbHaIlNumero ? '' : `<p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>`}
+          <p class="text-[11px] text-[var(--on-surface-secondary)] ${orbHaIlNumero ? '' : 'mt-1'}">${formatMoney(sts.weekRemaining)} rimasti per questa settimana (${sts.daysLeftInWeek} giorni)${chargeNote}</p>
           <p class="text-[10px] font-bold text-emerald-400/80 mt-2 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>Tocca per segnare una spesa</p>
           ${trajHtml}
         `;
@@ -1427,9 +1459,48 @@ const renderDashboard = () => {
     const streakHtml = streak >= 2
       ? `<div class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400 mt-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 2 2c1.5 0 1.5-2 1.5-4 0-2-.5-4-.5-4z"/></svg>${streak} giorni di fila</div>`
       : '';
+    // "Capitale Libero" e' gergo: nessuno dice cosi' parlando dei propri soldi.
+    // La riga sopra il numero dice in italiano che numero e', e cambia con la
+    // situazione invece di essere sempre la stessa etichetta.
+    // ── CHE NUMERO METTERE NEL CERCHIO ──
+    // L'orb occupa il quaranta per cento della prima schermata: e' la cosa che
+    // decide se una persona capisce l'app in tre secondi o la chiude. Fino a
+    // qui mostrava entrate-meno-uscite del mese, che e' un numero su cui NON
+    // si puo' fare niente — e "oggi puoi spendere", l'unico su cui si agisce,
+    // finiva sotto la piega su un telefono corto.
+    // Adesso il cerchio mostra il numero AZIONABILE quando esiste, e il resto
+    // scende a riga di contesto. Non e' un'aggiunta: e' uno scambio di posto,
+    // e la card qui sotto tace per non dare due volte la stessa risposta —
+    // la stessa regola gia' scritta per la Cassa Unica.
+    const azionabile = stsPerOrb && Number.isFinite(stsPerOrb.safeToday) ? stsPerOrb.safeToday : null;
+    const etichetta = azionabile !== null ? 'Oggi puoi spendere'
+      : entrataAncoraDaVenire ? 'Speso finora questo mese' : 'Entrate meno uscite, questo mese';
+    // Il ROSSO si usa quando c'e' davvero una brutta notizia. Un mese a meta'
+    // senza stipendio non lo e': li' il numero resta neutro, e sotto c'e' una
+    // riga che spiega perche'. Il colore e' un'informazione, non una decorazione:
+    // se allarma quando non c'e' nulla di cui allarmarsi, smette di funzionare
+    // quando serve davvero.
+    const colore = azionabile !== null ? (azionabile >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]')
+      : entrataAncoraDaVenire ? 'text-[var(--on-surface)]'
+        : liquidity >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]';
+    const valore = azionabile !== null ? formatMoney(azionabile)
+      : entrataAncoraDaVenire ? formatMoney(exp) : formatMoney(liquidity);
+    // La riga sotto compare solo quando toglie una paura o aggiunge il contesto
+    // che manca. Mai come commento perenne: una spiegazione sempre presente
+    // diventa arredamento e smette di essere letta.
+    // La riga di contesto va FUORI dal cerchio: dentro appesantiva e sbordava.
+    const contesto = $('#orb-contesto');
+    if (contesto) {
+      const frase = azionabile !== null
+        ? `Questo mese hai speso ${formatMoney(exp)}${entrataAncoraDaVenire ? ', e lo stipendio deve ancora arrivare' : ''}.`
+        : entrataAncoraDaVenire ? 'Lo stipendio deve ancora arrivare: è normale.' : '';
+      contesto.textContent = frase;
+      contesto.classList.toggle('hidden', !frase);
+    }
+    const spiega = '';
     orbText.innerHTML = `
-      <div class="text-[10px] text-[var(--on-surface-secondary)] font-bold uppercase tracking-wider mb-1">Capitale Libero</div>
-      <div class="text-3xl sm:text-4xl font-mono font-black ${liquidity >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]'}">${formatMoney(liquidity)}</div>${streakHtml}
+      <div class="orb-etichetta">${etichetta}</div>
+      <div class="orb-numero font-mono font-black ${colore}">${valore}</div>${spiega}${streakHtml}
     `;
   }
 

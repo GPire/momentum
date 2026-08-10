@@ -1582,6 +1582,100 @@
     .nav-btn svg { transition: transform 0.3s; }
     .nav-btn:hover svg { transform: translateY(-2px); }
   
+    /* ── IL NUMERO DENTRO L'ORB ──
+       E' la prima cosa che si vede aprendo l'app, quindi e' la cosa che decide
+       se uno resta o chiude. Tre scelte, tutte per lo stesso scopo:
+
+       1. La RIGA SOPRA dice in italiano che numero e', e cambia con la
+          situazione. "Capitale Libero" era gergo: nessuno parla cosi' dei
+          propri soldi, e chi non lo capisce non chiede — chiude.
+       2. Il NUMERO scala con lo schermo con `clamp`, non con tre classi a
+          soglie fisse. Su un telefono stretto un numero a sette cifre andava
+          a capo dentro un cerchio; qui rimpicciolisce da solo quanto serve.
+       3. La RIGA SOTTO compare solo quando serve a togliere una paura, mai
+          come commento perenne. Una spiegazione sempre presente diventa
+          arredamento e smette di essere letta. */
+    .orb-etichetta {
+      font-size: clamp(9px, 2.4vw, 11px); font-weight: 800; letter-spacing: .08em;
+      text-transform: uppercase; margin-bottom: .15rem; line-height: 1.2;
+      color: var(--on-surface-secondary);
+    }
+    .orb-numero {
+      font-size: clamp(1.5rem, 7.5vw, 2.5rem); line-height: 1.05;
+      /* Le cifre non devono ballare mentre il numero si aggiorna: senza
+         questo, ogni cambio di importo fa saltare la larghezza del testo. */
+      font-variant-numeric: tabular-nums;
+    }
+    /* ── IL NUMERO CHE SI COMPONE, non che appare ──
+       Un importo che compare gia' fatto e' un verdetto; uno che si compone in
+       mezzo secondo e' un calcolo che finisce davanti a te, e la differenza
+       emotiva su un numero di soldi e' grande. Non e' un contatore che scorre
+       (quello e' un vezzo da cruscotto e rallenta la lettura): e' una salita
+       breve, con un filo di scala, che porta l'occhio al centro del cerchio
+       senza farlo aspettare. */
+    @keyframes orb-num-in {
+      from { opacity: 0; transform: translateY(6px) scale(.94); filter: blur(3px); }
+      to   { opacity: 1; transform: none; filter: none; }
+    }
+    @keyframes orb-et-in { from { opacity: 0; transform: translateY(4px); } to { opacity: .95; transform: none; } }
+    .orb-etichetta { animation: orb-et-in .35s ease-out both; }
+    .orb-numero { animation: orb-num-in .5s cubic-bezier(.22,1,.36,1) .08s both; }
+    /* La riga di contesto arriva DOPO il numero: prima la risposta, poi la
+       spiegazione. Invertire l'ordine fa leggere la nota a chi non ha ancora
+       capito la domanda. */
+    .orb-contesto { animation: orb-et-in .4s ease-out .35s both; }
+    @media (prefers-reduced-motion: reduce) {
+      .orb-etichetta, .orb-numero, .orb-contesto { animation: none; }
+    }
+
+    /* ── DISPOSITIVI DIVERSI, NON SOLO LARGHEZZE DIVERSE ──
+       Un tablet non e' un telefono grande e un desktop non e' un tablet grande.
+       Le tre differenze che contano davvero qui: */
+
+    /* 1. TOUCH contro PUNTATORE. Con il dito i bersagli devono essere piu'
+          grandi e distanziati; con il mouse si puo' stringere e si guadagna
+          densita' — piu' informazione senza scorrere. La query giusta e'
+          `pointer`, non la larghezza: un portatile con schermo touch da 13"
+          e' largo ma si usa col dito. */
+    @media (pointer: coarse) {
+      .g-option, [data-action] { touch-action: manipulation; }
+      .qa-grafico .g-dice { font-size: 12px; }
+    }
+    @media (pointer: fine) {
+      /* Col mouse si puo' vedere il dettaglio al passaggio invece di doverlo
+         mostrare sempre: e' informazione che non costa spazio. */
+      .qa-grafico .g-barra { transition: opacity .15s; }
+      .qa-grafico:hover .g-barra { opacity: .95; }
+    }
+
+    /* 2. SCHERMI BASSI. Il vincolo vero su un telefono non e' la larghezza, e'
+          l'ALTEZZA: su un 667px il cerchio mangiava meta' schermo e la card
+          utile finiva sotto la piega. Sotto i 700px di altezza l'orb si
+          restringe e i margini si comprimono, cosi' la prima cosa azionabile
+          resta visibile senza scorrere. */
+    @media (max-height: 700px) {
+      #financial-orb-text { margin-top: 1rem; }
+      .orb-numero { font-size: clamp(1.35rem, 6.5vw, 2rem); }
+      .orb-contesto { margin-top: .35rem; font-size: 11px; }
+    }
+
+    /* 3. SCHERMI GRANDI. Oltre i 1280px il problema si rovescia: il contenuto
+          si perde in mezzo al vuoto e l'occhio non sa dove posarsi. Il numero
+          non cresce all'infinito — oltre una certa dimensione un importo non e'
+          piu' leggibile, e' solo grosso. */
+    @media (min-width: 1280px) {
+      .orb-numero { font-size: 2.75rem; }
+      .orb-contesto { max-width: 42ch; font-size: 13px; }
+    }
+
+    /* Fuori dal cerchio, non dentro: c'e' spazio in larghezza e non si
+       sovrappone al bordo scuro dell'orb. */
+    .orb-contesto {
+      text-align: center; margin: .5rem auto 0; max-width: 30ch;
+      font-size: clamp(11px, 3vw, 12.5px); line-height: 1.4;
+      color: color-mix(in srgb, var(--on-surface-secondary) 92%, transparent);
+    }
+
     /* ── I GRAFICI DELLE RISPOSTE DI MERCATO ──
        Ereditano il colore del testo (currentColor) invece di imporne uno:
        cosi' funzionano identici sul tema chiaro e su quello scuro senza una
@@ -1873,6 +1967,13 @@
               <canvas id="financial-orb-canvas" class="absolute inset-0 w-full h-full z-0"></canvas>
               <div id="financial-orb-text" class="z-10 text-center pointer-events-none drop-shadow-2xl px-4 relative mt-8"></div>
             </div>
+            <!-- La riga di contesto sta FUORI dal cerchio. Dentro l'avevo messa
+                 in un primo tentativo e l'utente ha avuto ragione a bocciarla:
+                 tre righe di testo dentro un orb lo appesantiscono e il testo
+                 sbordava sul bordo scuro, dove non si legge. Qui sotto c'e'
+                 spazio, si legge, e il cerchio resta pulito: etichetta e
+                 numero, niente altro. -->
+            <p id="orb-contesto" class="orb-contesto hidden"></p>
 
             <div class="flex items-center justify-between bg-[var(--surface-elevated)] p-1.5 rounded-[1.2rem] sm:rounded-[1.5rem] border border-[var(--outline)] w-max mx-auto shadow-sm shrink-0 max-w-full">
               <button data-action="prev-month" class="p-2 sm:p-3.5 rounded-xl sm:rounded-2xl hover:bg-[var(--outline)] active:scale-90 transition-transform shrink-0">
