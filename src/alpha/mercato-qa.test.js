@@ -198,3 +198,65 @@ test('I LIMITI sono la risposta più importante: elenca cosa NON sa, con i numer
   assert.match(r.answer, /mesi di distanza nessuno dei segnali/);
   assert.ok(r.data.finestraCieca.length > 0, 'la finestra cieca deve venire da una misura, non da una frase');
 });
+
+// ── L'ALTRA METÀ: chi non sa ancora niente ──
+
+test('EDUCAZIONE: le definizioni sono semplici e portano un numero MISURATO', async () => {
+  await precarica();
+  const attesi = {
+    "cos'è la volatilità?": /balla/,
+    'cosa vuol dire diversificare?': /non si muovono insieme/i,
+    "cos'è un ETF?": /pacchetto/,
+    "cos'è un mercato orso?": /stagione/,
+    'cosa sono le obbligazioni?': /prestito/,
+    'spiegami la curva dei rendimenti': /si "inverte"/,
+    "cos'è un bene rifugio?": /quando tutto il resto scende/,
+    "cos'è il rischio?": /vendere in un brutto momento/,
+  };
+  for (const [d, atteso] of Object.entries(attesi)) {
+    const r = await chiediAlMercato(d);
+    assert.ok(r, `nessuna risposta per "${d}"`);
+    assert.equal(r.intent, 'mercato-spiegazione', `"${d}" -> ${r.intent}`);
+    assert.match(r.answer, atteso);
+  }
+});
+
+test('UNA DEFINIZIONE CHE PORTA UN FATTO si ricorda, una astratta no', async () => {
+  await precarica();
+  // Non è un glossario: ogni voce che PUÒ avere un numero deve averlo.
+  const conNumero = {
+    "cos'è la volatilità?": /mese peggiore ha fatto/,
+    'cosa vuol dire diversificare?': /Esempio misurato/,
+    "cos'è un mercato orso?": /mesi — ma il piu/,
+    "cos'è un bene rifugio?": /L'oro, che tutti chiamano/,
+  };
+  for (const [d, atteso] of Object.entries(conNumero)) {
+    const r = await chiediAlMercato(d);
+    assert.match(r.answer, atteso, `"${d}" ha perso il numero misurato`);
+  }
+});
+
+test('BUG DI SOTTOSTRINGA: "obbligazioni" contiene "azioni"', async () => {
+  await precarica();
+  const obb = await chiediAlMercato('cosa sono le obbligazioni?');
+  assert.match(obb.answer, /prestito/, 'deve rispondere sulle obbligazioni, non sulle azioni');
+  const az = await chiediAlMercato("cos'è un'azione?");
+  assert.match(az.answer, /pezzetto di un/, 'e le azioni devono restare le azioni');
+});
+
+test('chi chiede COS\'È non riceve un numero al posto di una spiegazione', async () => {
+  await precarica();
+  // "cos'è la volatilità" non è "quanto è volatile adesso": rispondere con un
+  // indice sarebbe il modo più veloce di perdere una persona che sta imparando.
+  const r = await chiediAlMercato("cos'è la volatilità?");
+  assert.equal(r.intent, 'mercato-spiegazione');
+  assert.ok(!/indice|percentile|deviazione standard|sigma/i.test(r.answer), `gergo: ${r.answer}`);
+});
+
+test('le spiegazioni non suggeriscono comunque mai cosa fare', async () => {
+  await precarica();
+  for (const d of ["cos'è un ETF?", 'cosa sono le obbligazioni?', "cos'è un bene rifugio?"]) {
+    const r = await chiediAlMercato(d);
+    assert.ok(!/dovresti|conviene|ti consiglio|meglio comprare/i.test(r.answer), `consiglio in "${d}": ${r.answer}`);
+  }
+});

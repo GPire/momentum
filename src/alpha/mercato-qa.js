@@ -28,6 +28,91 @@
 
 const NOMI_STATI_QA = ['condizioni distese', 'condizioni normali', 'condizioni tese'];
 
+// ── IL GLOSSARIO CHE PORTA UN NUMERO ──
+// Un glossario che spiega "la volatilita' e' la variabilita' dei rendimenti" non
+// serve a nessuno: e' la stessa frase del libro che la persona non ha capito.
+// Qui ogni definizione e' scritta come si spiegherebbe a un bambino di otto
+// anni E porta con se' un numero MISURATO dai dati dell'app, perche' un
+// concetto attaccato a un fatto si ricorda e uno astratto no.
+// `numero` riceve i moduli e restituisce la frase con la misura, oppure null se
+// quel dato non c'e': in quel caso resta la spiegazione, mai un numero finto.
+const GLOSSARIO = {
+  volatilita: {
+    parole: ['volatilita', 'volatile'],
+    spiega: 'Quanto un investimento balla. Due cose possono rendere uguale, ma una arriva dritta e l\'altra a zig-zag: la seconda e\' piu\' volatile. Non e\' un difetto in se\' — diventa un problema solo se sei costretto a vendere mentre e\' in basso.',
+    numero: (M) => {
+      const st = M.storiche?.statisticheSerie?.('spy');
+      return st ? `Per le azioni americane, negli ultimi trent'anni, il mese peggiore ha fatto ${Math.round(st.peggiorMese * 100)}% e il migliore +${Math.round(st.miglioreMese * 100)}%.` : null;
+    },
+  },
+  diversificare: {
+    parole: ['diversific'],
+    spiega: 'Non mettere tutto nella stessa cosa, cosi\' se una va male le altre reggono. Funziona pero\' solo se le cose scelte NON si muovono insieme — ed e\' li\' che quasi tutti sbagliano.',
+    numero: (M) => {
+      const d = M.globale?.diversificazioneGeografica?.();
+      return d ? `Esempio misurato: le borse di tutto il mondo si muovono gia' insieme al ${Math.round(d.correlazioneMediaNormale * 100)}% nei mesi normali. Comprare azioni di paesi diversi diversifica molto meno di quanto sembri.` : null;
+    },
+  },
+  etf: {
+    parole: ['etf', 'fondo indicizzato'],
+    spiega: 'Un pacchetto che contiene tante aziende insieme: comprandone uno solo ne compri un pezzetto di tutte. Serve a non dover indovinare quale singola azienda andra\' bene.',
+    numero: () => 'Quasi tutti i numeri che ti do vengono da uno di questi pacchetti sull\'indice americano: e\' il modo standard di misurare come e\' andata la borsa.',
+  },
+  inflazione: {
+    parole: ['inflazione'],
+    spiega: 'Quando con gli stessi soldi compri meno cose di prima. I soldi fermi non perdono numeri sul conto, perdono potere: e\' una perdita che non si vede nell\'estratto conto.',
+    numero: null,
+  },
+  curva: {
+    parole: ['curva dei rendimenti', 'curva dei tassi', 'curva invertita', 'inversione della curva'],
+    spiega: 'Di solito prestare soldi per dieci anni rende piu\' che prestarli per tre mesi, perche\' aspetti di piu\'. Quando succede il contrario — la curva si "inverte" — vuol dire che il mercato si aspetta che i tassi dovranno scendere, cioe\' che l\'economia rallentera\'.',
+    numero: (M) => {
+      const o = M.quadro?.orizzonteDiCiascunSegnale?.();
+      const a18 = o?.perSegnale?.curva?.find((r) => r.orizzonte === 18)?.auc;
+      return a18 ? `Misurato sui dati dal 1982: come segnale funziona a diciotto mesi di distanza, non prima. A tre e sei mesi e' addirittura girato al contrario.` : null;
+    },
+  },
+  orso: {
+    parole: ['mercato orso', 'bear market', 'orso'],
+    spiega: 'Un periodo in cui la borsa scende parecchio e ci resta per mesi. Non e\' un giorno storto: e\' una stagione.',
+    numero: (M, C) => C ? `Nei sei grandi cali degli ultimi trent'anni, il ritorno al punto di partenza e' arrivato in mediana dopo ${C.recuperoMediano} mesi — ma il piu' lungo ne ha richiesti ${C.recuperoPeggiore}.` : null,
+  },
+  interesse: {
+    parole: ['interesse composto', 'capitalizzazione composta'],
+    spiega: 'Gli interessi che a loro volta producono interessi. All\'inizio sembra niente, poi accelera — ed e\' il motivo per cui il tempo conta piu\' della bravura.',
+    numero: null,
+  },
+  rifugio: {
+    parole: ['bene rifugio', 'safe haven'],
+    spiega: 'Una cosa che dovrebbe salire, o almeno tenere, proprio quando tutto il resto scende.',
+    numero: (M) => {
+      const r = M.rifugi?.rifugiNeiCrolli?.();
+      if (!r?.classifica?.length) return null;
+      const primo = r.classifica[0];
+      return `Misurato: nei mesi peggiori per le azioni ha tenuto soprattutto ${primo.nome.toLowerCase()}. L'oro, che tutti chiamano cosi', e' finito quasi in pari.`;
+    },
+  },
+  azioni: {
+    parole: ['azione', 'azioni', 'cosa sono le azioni'],
+    spiega: 'Un pezzetto di un\'azienda. Se all\'azienda va bene vale di piu\', se va male vale di meno, e nessuno ti garantisce niente.',
+    numero: null,
+  },
+  obbligazioni: {
+    parole: ['obbligazion', 'titoli di stato', 'bond'],
+    spiega: 'Un prestito che fai a uno Stato o a un\'azienda: ti restituiscono i soldi con degli interessi. Piu\' e\' sicuro chi li riceve, meno ti pagano.',
+    numero: (M) => {
+      const r = M.rifugi?.rifugiNeiCrolli?.();
+      const b = r?.classifica?.find((x) => x.attivo === 'titoliStato10a');
+      return b ? `Sono la cosa che storicamente ha protetto meglio quando le azioni crollavano: +${(b.rendimentoMedio * 100).toFixed(1).replace('.', ',')}% in media nei mesi peggiori.` : null;
+    },
+  },
+  rischio: {
+    parole: ['cos e il rischio', 'che cos e il rischio', 'rischio finanziario'],
+    spiega: 'Non "quanto puoi perdere sulla carta", ma quanto e\' probabile che tu debba vendere in un brutto momento. Un calo che puoi aspettare non ti costa niente; lo stesso calo, se ti servono i soldi, diventa una perdita vera.',
+    numero: null,
+  },
+};
+
 const MESI = {
   gennaio: 1, febbraio: 2, marzo: 3, aprile: 4, maggio: 5, giugno: 6,
   luglio: 7, agosto: 8, settembre: 9, ottobre: 10, novembre: 11, dicembre: 12,
@@ -68,6 +153,20 @@ const ha = (q, ...parole) => parole.some((p) => q.includes(p));
 export function intentoMercato(domanda) {
   const q = normalizza(domanda);
   if (!q) return null;
+
+  // Le domande "cos'e'" vengono PRIMA di tutto: chi chiede cos'e' la
+  // volatilita' non sta chiedendo quanto sia alta adesso, e rispondergli con un
+  // numero e' il modo piu' veloce di perderlo.
+  if (/^(cosa|che cosa|cos)\s?(e|sono|vuol dire|significa)\b/.test(q) || ha(q, 'spiegami', 'mi spieghi', 'che significa', 'che vuol dire', 'non ho capito cosa')) {
+    for (const [chiave, voce] of Object.entries(GLOSSARIO)) {
+      // Confine di PAROLA, non semplice sottostringa. BUG trovato subito:
+      // "obbligazioni" contiene "azioni", quindi "cosa sono le obbligazioni?"
+      // riceveva la definizione delle azioni. Con `\b` davanti il problema
+      // sparisce, perche' dentro "obbligazioni" la 'a' non e' preceduta da un
+      // confine di parola.
+      if (voce.parole.some((w) => new RegExp(`\\b${w}`).test(q))) return `spiega:${chiave}`;
+    }
+  }
 
   // L'ordine conta: le domande più specifiche prima.
   if (ha(q, 'cript', 'bitcoin', 'ethereum', 'btc')) {
@@ -215,6 +314,14 @@ export function rispostaSincrona(domanda) {
         : ' I segnali che guardo non concordano fra loro: qualcosa è teso, qualcos\'altro no.';
       return { intent: 'mercato-regime', data: s, answer: (testo || '') + extra };
     }
+    if (intento.startsWith('spiega:')) {
+      const voce = GLOSSARIO[intento.slice(7)];
+      if (!voce) return null;
+      let n = null;
+      try { n = voce.numero ? voce.numero(MODULI, CONTESTO_CACHE) : null; } catch (_) { n = null; }
+      return { intent: 'mercato-spiegazione', data: { concetto: intento.slice(7) }, answer: n ? `${voce.spiega} ${n}` : voce.spiega };
+    }
+
     if (intento === 'perdita-massima') {
       const { expectedShortfall, rendimentoMercato } = stress;
       const es = expectedShortfall(rendimentoMercato());
