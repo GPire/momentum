@@ -125,3 +125,76 @@ test('a febbraio le settimane sono quattro, non cinque', () => {
   const stelle = [...h.matchAll(/class="ms-sett/g)].length;
   assert.equal(stelle, 3, '28 giorni: 7, 14, 21 — il 28 è l\'ultimo giorno, non un traguardo intermedio');
 });
+
+// ── CHI NON HA UNO STIPENDIO: la partita IVA ──
+
+test('una P.IVA non ha un giorno fisso: si guarda OGNI QUANTO incassa', async () => {
+  const { ritmoDegliIncassi, quandoEntranoISoldi } = await import('./mese-strip.js');
+  const tx = {
+    '2026-04': [entrata('2026-04-05')], '2026-05': [entrata('2026-05-12')],
+    '2026-06': [entrata('2026-06-08')], '2026-07': [entrata('2026-07-11')],
+    '2026-08': [entrata('2026-08-01')],
+  };
+  const r = ritmoDegliIncassi(tx, { oggi: new Date(2026, 7, 10) });
+  assert.equal(r.tipo, 'ritmo');
+  assert.ok(r.ogniGiorni >= 27 && r.ogniGiorni <= 38, `ogni ${r.ogniGiorni} giorni`);
+  assert.equal(r.ultimoIncasso, '2026-08-01');
+  // Il giorno fisso vince quando c'è: è più preciso e più facile da capire.
+  const dip = { '2026-05': [entrata('2026-05-27')], '2026-06': [entrata('2026-06-27')], '2026-07': [entrata('2026-07-27')] };
+  assert.equal(quandoEntranoISoldi(dip, { meseCorrente: '2026-08' }).tipo, 'giorno-fisso');
+});
+
+test('un ritmo CAOTICO non è un ritmo: 5, 57 e 90 giorni non si mediano', async () => {
+  const { ritmoDegliIncassi } = await import('./mese-strip.js');
+  // Con la soglia larga del primo tentativo questo passava, e l'app avrebbe
+  // promesso un incasso "fra 48 giorni" a chi non ha nessuna regolarità.
+  const caotico = {
+    '2026-03': [entrata('2026-03-02')], '2026-04': [entrata('2026-04-28')],
+    '2026-05': [entrata('2026-05-03')], '2026-08': [entrata('2026-08-01')],
+  };
+  assert.equal(ritmoDegliIncassi(caotico, { oggi: new Date(2026, 7, 10) }), null);
+  assert.equal(ritmoDegliIncassi({ '2026-07': [entrata('2026-07-01'), entrata('2026-07-15')] }), null);
+});
+
+test('le PAROLE cambiano con quanto si sa: una data si promette, una stima no', () => {
+  const free = {
+    '2026-04': [entrata('2026-04-05')], '2026-05': [entrata('2026-05-12')],
+    '2026-06': [entrata('2026-06-08')], '2026-07': [entrata('2026-07-11')],
+    '2026-08': [entrata('2026-08-01')],
+  };
+  const sFree = statoDelMese(free, { oggi: new Date(2026, 7, 10), speso: 900 });
+  assert.equal(sFree.certezza, 'stima');
+  const hFree = stripHtml(sFree);
+  assert.match(hFree, /di solito incassi/, 'a una P.IVA non si promette una data');
+  assert.ok(!/stipendio fra/.test(hFree));
+
+  const dip = { '2026-05': [entrata('2026-05-27')], '2026-06': [entrata('2026-06-27')], '2026-07': [entrata('2026-07-27')] };
+  const sDip = statoDelMese(dip, { oggi: new Date(2026, 7, 10), speso: 900 });
+  assert.equal(sDip.certezza, 'data');
+  assert.match(stripHtml(sDip), /stipendio fra 17 giorni/);
+});
+
+test('se è in RITARDO sul proprio ritmo, glielo si dice', () => {
+  const free = {
+    '2026-03': [entrata('2026-03-02')], '2026-04': [entrata('2026-04-01')],
+    '2026-05': [entrata('2026-05-03')], '2026-06': [entrata('2026-06-02')],
+  };
+  const s = statoDelMese(free, { oggi: new Date(2026, 7, 10), speso: 900 });
+  assert.equal(s.certezza, 'stima');
+  assert.ok(s.giorniAllaPaga < 0, 'ultimo incasso il 2 giugno, siamo al 10 agosto');
+  assert.equal(s.inRitardo, true);
+  assert.match(stripHtml(s), /giorni/, 'tacere un ritardo è la cosa meno utile che si possa fare');
+  assert.ok(!/fra ~?\d+ giorni/.test(stripHtml(s)), 'non deve puntare al prossimo come se andasse tutto bene');
+});
+
+test('la zona STIMATA si disegna diversa dal giorno certo', () => {
+  const dip = { '2026-05': [entrata('2026-05-27')], '2026-06': [entrata('2026-06-27')], '2026-07': [entrata('2026-07-27')] };
+  assert.match(stripHtml(statoDelMese(dip, { oggi: new Date(2026, 7, 10) })), /class="ms-paga"/,
+    'il giorno certo non porta la classe della stima');
+  const free = {
+    '2026-05': [entrata('2026-05-01')], '2026-06': [entrata('2026-06-02')],
+    '2026-07': [entrata('2026-07-04')], '2026-08': [entrata('2026-08-03')],
+  };
+  const s = statoDelMese(free, { oggi: new Date(2026, 7, 20), speso: 900 });
+  if (s.giornoPaga !== null) assert.match(stripHtml(s), /ms-paga stimata/);
+});

@@ -49,7 +49,81 @@ export function giornoDelloStipendio(txPerMese, { meseCorrente = null } = {}) {
   const [giorno, quante] = Object.entries(conteggio).sort((a, b) => b[1] - a[1])[0];
   // Deve essere uno schema, non il caso: almeno metà delle entrate lo stesso giorno.
   if (quante / giorni.length < 0.5) return null;
-  return { giorno: +giorno, osservazioni: quante, su: giorni.length };
+  return { giorno: +giorno, osservazioni: quante, su: giorni.length, tipo: 'giorno-fisso' };
+}
+
+// ── E CHI NON HA UN GIORNO FISSO? ──
+// Una partita IVA non prende lo stipendio il 27: emette fatture quando finisce
+// un lavoro, e incassa quando il cliente paga — che è un'altra data ancora.
+// Cercare "il giorno del mese" lì non trova niente, e la striscia resterebbe
+// muta proprio per il tipo di utente che ha più bisogno di sapere quando
+// rientrano i soldi.
+//
+// Per loro la domanda giusta non è QUALE GIORNO ma OGNI QUANTO. Si guarda la
+// distanza tipica fra un incasso e il successivo, e si conta da quello vero
+// più recente. È meno preciso di un giorno fisso, e infatti viene dichiarato
+// come "di solito ogni tot" invece che come una data: la differenza fra sapere
+// e stimare deve restare visibile anche nell'interfaccia.
+export const MINIMI_INCASSI_PER_IL_RITMO = 4;
+
+export function ritmoDegliIncassi(txPerMese, { oggi = new Date() } = {}) {
+  const date = [];
+  for (const mk of Object.keys(txPerMese || {})) {
+    for (const t of txPerMese[mk] || []) {
+      if (t?.type === 'entrata' && t.date) date.push(String(t.date).slice(0, 10));
+    }
+  }
+  if (date.length < MINIMI_INCASSI_PER_IL_RITMO) return null;
+  date.sort();
+  const distanze = [];
+  for (let i = 1; i < date.length; i++) {
+    const g = Math.round((new Date(date[i]) - new Date(date[i - 1])) / 86400000);
+    // Due incassi lo stesso giorno o a un giorno di distanza sono lo stesso
+    // evento spezzato in due fatture: non sono un ritmo.
+    if (g >= 2 && g <= 120) distanze.push(g);
+  }
+  if (distanze.length < MINIMI_INCASSI_PER_IL_RITMO - 1) return null;
+  distanze.sort((a, b) => a - b);
+  // La MEDIANA, non la media: un cliente che ha pagato dopo quattro mesi non
+  // deve spostare la stima per tutti gli altri.
+  const tipica = distanze[Math.floor(distanze.length / 2)];
+  // Quanto è regolare davvero: se le distanze ballano da 5 a 90 giorni, dire
+  // "di solito ogni 30" è una bugia travestita da statistica.
+  const scarti = distanze.map((d) => Math.abs(d - tipica)).sort((a, b) => a - b);
+  const dispersione = scarti[Math.floor(scarti.length / 2)];
+  // Soglia stretta, e verificata su casi veri: con 0,6 passava una serie con
+  // intervalli di 5, 57 e 90 giorni — che non e' un ritmo, e' il caso. Se lo
+  // scarto tipico supera un terzo dell'intervallo tipico, non si promette
+  // niente. E la coda conta quanto il centro: un solo intervallo lontanissimo
+  // dagli altri basta a togliere ogni valore alla previsione.
+  if (dispersione > tipica * 0.35) return null;
+  if (distanze[distanze.length - 1] > tipica * 2.2) return null;
+  const ultimo = date[date.length - 1];
+  const giorniDaUltimo = Math.round((oggi - new Date(ultimo)) / 86400000);
+  return {
+    tipo: 'ritmo', ogniGiorni: tipica, dispersione,
+    ultimoIncasso: ultimo, giorniDaUltimo,
+    // Può essere negativo: vuol dire che è già in ritardo rispetto al solito,
+    // ed è un'informazione utile, non un errore da nascondere.
+    giorniAlProssimo: tipica - giorniDaUltimo,
+    osservazioni: distanze.length + 1,
+  };
+}
+
+// Quale dei due modi descrive questa persona. Il giorno fisso vince quando
+// c'è: è più preciso e più facile da capire.
+export function quandoEntranoISoldi(txPerMese, { oggi = new Date(), meseCorrente = null } = {}) {
+  const fisso = giornoDelloStipendio(txPerMese, { meseCorrente });
+  const ritmo = ritmoDegliIncassi(txPerMese, { oggi });
+  // IL GIORNO FISSO NON REGGE SE NON INCASSA DA UN PEZZO. Una partita IVA che
+  // fattura a inizio mese somiglia a uno stipendio al giorno 2, e finche' i
+  // soldi arrivano la differenza non conta. Ma se l'ultimo incasso e' di due
+  // mesi fa, raccontarlo come "di solito arrivavano il 2, sono 8 giorni"
+  // nasconde il fatto vero: sono sessantanove giorni che non entra niente.
+  // Quando la storia del giorno fisso e' smentita dai fatti, vince il ritmo —
+  // che quel ritardo lo misura per intero.
+  if (fisso && ritmo && ritmo.giorniDaUltimo > Math.max(45, ritmo.ogniGiorni * 1.4)) return ritmo;
+  return fisso || ritmo;
 }
 
 const giorniNelMese = (anno, mese) => new Date(anno, mese, 0).getDate();
@@ -60,21 +134,44 @@ export function statoDelMese(txPerMese, { oggi = new Date(), speso = 0 } = {}) {
   const mk = `${anno}-${String(mese).padStart(2, '0')}`;
   const totale = giorniNelMese(anno, mese);
   const giornoOggi = oggi.getDate();
-  const paga = giornoDelloStipendio(txPerMese, { meseCorrente: mk });
+  const schema = quandoEntranoISoldi(txPerMese, { oggi, meseCorrente: mk });
   const entrataArrivata = (txPerMese?.[mk] || []).some((t) => t?.type === 'entrata');
+
+  // Due modi di sapere quando entrano i soldi, e due gradi di certezza
+  // diversi. Il giorno fisso è una data; il ritmo è una stima, e resta
+  // dichiarata come tale fino all'etichetta che l'utente legge.
+  let giornoPaga = null, giorniAllaPaga = null, certezza = null, inRitardo = false;
+  if (schema?.tipo === 'giorno-fisso') {
+    giornoPaga = schema.giorno;
+    // IL RITARDO CHE SPARIVA. Se il giorno solito e' gia' passato e non e'
+    // arrivato niente, puntare al mese prossimo e dire "fra 23 giorni" nasconde
+    // l'unica cosa che conta davvero: che questo mese i soldi non ci sono.
+    // Trovato provando una partita IVA che fattura a inizio mese — sembrava uno
+    // stipendio fisso al giorno 2, e un ritardo di trentanove giorni non
+    // compariva da nessuna parte. Vale identico per un dipendente: uno
+    // stipendio che non arriva il giorno solito e' una notizia.
+    inRitardo = schema.giorno < giornoOggi && !entrataArrivata;
+    giorniAllaPaga = (schema.giorno >= giornoOggi && !entrataArrivata)
+      ? schema.giorno - giornoOggi
+      : inRitardo ? -(giornoOggi - schema.giorno)
+        : totale - giornoOggi + schema.giorno;
+    certezza = 'data';
+  } else if (schema?.tipo === 'ritmo') {
+    giorniAllaPaga = schema.giorniAlProssimo;
+    // Il giorno stimato può cadere nel mese dopo: in quel caso non c'è un
+    // punto da mettere sulla striscia di QUESTO mese, e il segno non si mette.
+    const g = giornoOggi + giorniAllaPaga;
+    giornoPaga = g >= 1 && g <= totale ? g : null;
+    certezza = 'stima';
+    inRitardo = giorniAllaPaga < 0;
+  }
+
   return {
     mese: mk, giorniTotali: totale, giornoOggi,
     quotaPassata: +(giornoOggi / totale).toFixed(3),
-    giornoPaga: paga?.giorno ?? null,
-    pagaAffidabile: !!paga,
-    entrataArrivata,
-    // Quanti giorni mancano allo stipendio. Se è già passato, il prossimo è il
-    // mese dopo, e allora la distanza va contata oltre la fine del mese.
-    giorniAllaPaga: paga
-      ? (paga.giorno >= giornoOggi && !entrataArrivata
-        ? paga.giorno - giornoOggi
-        : totale - giornoOggi + paga.giorno)
-      : null,
+    giornoPaga, pagaAffidabile: !!schema, certezza, inRitardo,
+    ogniGiorni: schema?.tipo === 'ritmo' ? schema.ogniGiorni : null,
+    entrataArrivata, giorniAllaPaga,
     speso: +(+speso).toFixed(2),
   };
 }
@@ -91,14 +188,31 @@ export function stripHtml(stato, { formatMoney = (v) => `${v}` } = {}) {
 
   // Il segno dello stipendio si mostra SOLO se lo schema è affidabile e la paga
   // non è ancora arrivata: dopo, indicare un giorno passato è rumore.
-  const mostraPaga = stato.pagaAffidabile && !stato.entrataArrivata && stato.giornoPaga >= stato.giornoOggi;
+  const mostraPaga = stato.pagaAffidabile && stato.giornoPaga !== null
+    && (stato.inRitardo || (stato.giornoPaga >= stato.giornoOggi
+      && (stato.certezza === 'stima' || !stato.entrataArrivata)));
   const pagaX = mostraPaga ? x(stato.giornoPaga) : null;
 
-  const etichettaPaga = mostraPaga
-    ? (stato.giorniAllaPaga === 0 ? 'stipendio oggi'
+  // Le parole cambiano con quanto si sa davvero. "Stipendio fra 17 giorni" è
+  // una promessa: si può dire solo quando il giorno è fisso. Per chi fattura
+  // si dice "di solito incassi ogni 33 giorni", che è quello che i dati
+  // sostengono — e se è già in ritardo rispetto al proprio ritmo, lo si dice
+  // invece di far finta che tutto proceda.
+  let etichettaPaga = null;
+  if (stato.inRitardo) {
+    const g = Math.abs(stato.giorniAllaPaga);
+    etichettaPaga = stato.certezza === 'data'
+      ? `di solito arrivavano il ${stato.giornoPaga}: sono ${g} giorni`
+      : `di solito incassi ogni ${stato.ogniGiorni} giorni: sei a ${stato.ogniGiorni + g}`;
+  } else if (mostraPaga && stato.certezza === 'data') {
+    etichettaPaga = stato.giorniAllaPaga === 0 ? 'stipendio oggi'
       : stato.giorniAllaPaga === 1 ? 'stipendio domani'
-        : `stipendio fra ${stato.giorniAllaPaga} giorni`)
-    : null;
+        : `stipendio fra ${stato.giorniAllaPaga} giorni`;
+  } else if (stato.certezza === 'stima') {
+    etichettaPaga = stato.giorniAllaPaga === 0
+      ? `di solito incassi ogni ${stato.ogniGiorni} giorni: ci siamo`
+      : `di solito incassi fra ~${stato.giorniAllaPaga} giorni`;
+  }
 
   // La descrizione per chi non vede la striscia si compone dai pezzi che ci
   // sono davvero: concatenare a vuoto produceva "Giorno 10 di 31. . Speso...",
@@ -115,14 +229,17 @@ export function stripHtml(stato, { formatMoney = (v) => `${v}` } = {}) {
   // piu' in la'". Quelle gia' passate si spengono, come tappe superate.
   const settimane = [];
   for (let g = 7; g < stato.giorniTotali; g += 7) {
-    settimane.push(`<i class="ms-sett${g <= stato.giornoOggi ? ' passata' : ''}" style="left:${x(g).toFixed(1)}%"></i>`);
+    // L'indice serve al CSS per sfalsare lo scintillio: stelle che brillano
+    // tutte insieme sembrano una luce di allarme, sfalsate sembrano un cielo.
+    const n = settimane.length;
+    settimane.push(`<i class="ms-sett${g <= stato.giornoOggi ? ' passata' : ''}" style="left:${x(g).toFixed(1)}%;--n:${n}"></i>`);
   }
 
   return `<div class="mese-strip" role="img" aria-label="${esc(`${pezzi.join('. ')}.`)}">
     <div class="ms-barra">
       <div class="ms-passato" style="--q:${oggiX.toFixed(1)}%"></div>
       ${settimane.join('')}
-      ${pagaX !== null ? `<div class="ms-paga" style="left:${pagaX.toFixed(1)}%"></div>` : ''}
+      ${pagaX !== null ? `<div class="ms-paga${stato.certezza === 'stima' ? ' stimata' : ''}" style="left:${pagaX.toFixed(1)}%"></div>` : ''}
       <div class="ms-oggi" style="left:${oggiX.toFixed(1)}%"><span class="ms-scia"></span></div>
     </div>
     <div class="ms-righe">

@@ -1677,131 +1677,150 @@
     }
 
     /* ── LA STRISCIA DEL MESE ──
-       Il mese da sinistra a destra. Il pieno e' il tempo gia' passato, il
-       pallino e' oggi, il segno chiaro e' il giorno in cui arriva lo stipendio.
-       Nessuna delle tre cose ha bisogno di essere letta: si vedono.
+       Il mese come FILAMENTO DI LUCE. Non una barra con dentro delle icone.
 
-       PERCHE' HA QUESTO ASPETTO E NON UN ALTRO. Momentum e' fatto di spazio,
-       stelle e un orb che galleggia: una barra di avanzamento da installatore
-       di software, li' sotto, sarebbe stata un corpo estraneo. Quindi la
-       striscia usa lo stesso vocabolario visivo — il mese e' una TRAIETTORIA,
-       oggi e' un punto luminoso in viaggio con la sua scia, lo stipendio e'
-       la prossima stella verso cui si sta andando.
-       Non e' una metafora messa li' per fare scena: e' letteralmente cosa fa
-       un mese, e usare lo stesso linguaggio dell'orb significa che chi ha
-       capito l'orb ha gia' capito anche questo, senza imparare niente di
-       nuovo. La coerenza visiva non e' estetica, e' risparmio di fatica. */
+       PRIMO TENTATIVO SBAGLIATO, e vale la pena tenerne memoria: avevo messo
+       una freccia azzurra per oggi, dei brillantini grigi per le settimane e
+       una stella dorata per lo stipendio. Ognuna difendibile da sola, tutte
+       insieme quattro linguaggi visivi diversi su tre millimetri di altezza.
+       L'utente l'ha bocciata: "non sono ipnotiche come l'orb". Aveva ragione,
+       e la diagnosi e' precisa — l'orb ipnotizza perche' e' UNA COSA SOLA,
+       morbida, continua, senza spigoli. Quattro forme diverse sono il
+       contrario di quello.
+
+       Quindi qui non c'e' nessuna forma. C'e' un filamento che si accende dove
+       il tempo e' passato e sfuma dove deve ancora venire; il punto piu'
+       luminoso e' oggi, ed e' luminoso perche' li' finisce la luce, non perche'
+       ci sia messo sopra un oggetto. Lo stipendio e' un ALONE CALDO nel
+       filamento, non una stella appiccicata: un posto dove la luce cambia
+       temperatura. Le settimane sono sparite — erano rumore che rubava
+       attenzione senza dire niente che il filamento non dicesse gia'.
+
+       Stessa materia dell'orb: gradiente morbido, bagliore, respiro lento. */
     .mese-strip { display: block; }
     .ms-barra {
-      position: relative; height: 3px; border-radius: 999px;
-      /* Il tratto ancora da percorrere e' quasi invisibile, come un'orbita
-         disegnata leggera: c'e' ma non compete con il punto luminoso. */
-      background: color-mix(in srgb, currentColor 11%, transparent);
+      position: relative; height: 2px; border-radius: 999px;
+      /* La rotta ancora da fare: quasi invisibile, come un'orbita disegnata
+         leggera. Non deve competere con la luce. */
+      background: linear-gradient(90deg,
+        color-mix(in srgb, currentColor 9%, transparent),
+        color-mix(in srgb, currentColor 4%, transparent));
       overflow: visible;
     }
-    /* Il riempimento cresce da sinistra: e' il tempo che scorre, e la direzione
-       lo dice da sola. La larghezza arriva da --q, animata all'ingresso. */
+
+    /* IL FILAMENTO. Trasparente all'inizio del mese, pieno verso oggi: la luce
+       stessa racconta il tempo passato, senza bisogno di un bordo che dica
+       dove finisce. */
     .ms-passato {
-      position: absolute; inset: 0 auto 0 0; width: var(--q, 0%);
+      position: absolute; inset: -1px auto -1px 0; width: var(--q, 0%);
       border-radius: 999px;
-      /* La SCIA: trasparente all'inizio del mese e piena verso oggi, come la
-         coda di qualcosa che si muove. Un riempimento uniforme avrebbe detto
-         "barra"; questo dice "sta andando". */
       background: linear-gradient(90deg,
-        color-mix(in srgb, var(--primary) 8%, transparent) 0%,
-        color-mix(in srgb, var(--primary) 45%, transparent) 55%,
-        color-mix(in srgb, var(--cyan, var(--primary)) 85%, transparent) 100%);
-      box-shadow: 0 0 8px -1px color-mix(in srgb, var(--cyan, var(--primary)) 40%, transparent);
-      animation: ms-cresci .9s cubic-bezier(.22,1,.36,1) both;
+        color-mix(in srgb, var(--primary) 0%, transparent) 0%,
+        color-mix(in srgb, var(--primary) 30%, transparent) 45%,
+        color-mix(in srgb, var(--cyan, var(--primary)) 75%, transparent) 88%,
+        color-mix(in srgb, var(--cyan, var(--primary)) 100%, transparent) 100%);
+      box-shadow:
+        0 0 6px color-mix(in srgb, var(--cyan, var(--primary)) 45%, transparent),
+        0 0 16px color-mix(in srgb, var(--cyan, var(--primary)) 20%, transparent);
+      animation:
+        ms-cresci 1.1s cubic-bezier(.22,1,.36,1) both,
+        ms-respiro 5.5s ease-in-out 1.2s infinite;
     }
     @keyframes ms-cresci { from { width: 0; } to { width: var(--q, 0%); } }
-    /* Oggi: un pallino pieno, con un alone che pulsa piano. E' l'unico
-       elemento animato in continuo di tutta la striscia, perche' e' l'unico
-       che significa "adesso". */
-    /* OGGI: un punto di luce, non un pallino di plastica. L'alone esterno e la
-       luce diffusa sono gli stessi due strati con cui e' fatto l'orb — stesso
-       materiale, scala diversa. */
+
+    /* IL FLUSSO. Quello che rende l'orb ipnotico non e' la forma, e' che si
+       muove sempre, piano, senza mai arrivare da nessuna parte: l'occhio lo
+       segue e non trova un punto in cui fermarsi. Qui la stessa cosa — una
+       luce piu' chiara che scorre dentro il filamento verso oggi, lentamente,
+       all'infinito. Non e' un caricamento: non ha inizio ne' fine, e non
+       comunica attesa. E' energia che scorre lungo una rotta.
+       Dieci secondi per un giro: sotto i sei diventa un'animazione che chiede
+       attenzione, sopra i quindici sembra fermo. */
+    .ms-passato::before {
+      content: ''; position: absolute; inset: 0; border-radius: inherit;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        color-mix(in srgb, #fff 55%, transparent) 45%,
+        color-mix(in srgb, #fff 70%, transparent) 50%,
+        color-mix(in srgb, #fff 55%, transparent) 55%,
+        transparent 100%);
+      background-size: 45% 100%; background-repeat: no-repeat;
+      mix-blend-mode: screen; opacity: .5;
+      animation: ms-flusso 10s cubic-bezier(.5,0,.5,1) 1.4s infinite;
+    }
+    @keyframes ms-flusso {
+      0%   { background-position: -60% 0; opacity: 0; }
+      15%  { opacity: .5; }
+      85%  { opacity: .5; }
+      100% { background-position: 160% 0; opacity: 0; }
+    }
+    /* Il respiro dell'orb, alla stessa lentezza: due elementi che pulsano allo
+       stesso ritmo si leggono come lo stesso organismo. */
+    @keyframes ms-respiro {
+      0%, 100% { box-shadow: 0 0 6px color-mix(in srgb, var(--cyan, var(--primary)) 45%, transparent), 0 0 16px color-mix(in srgb, var(--cyan, var(--primary)) 20%, transparent); }
+      50%      { box-shadow: 0 0 9px color-mix(in srgb, var(--cyan, var(--primary)) 65%, transparent), 0 0 26px color-mix(in srgb, var(--cyan, var(--primary)) 32%, transparent); }
+    }
+
+    /* OGGI: non un oggetto, un BAGLIORE. E' il punto in cui la luce finisce, e
+       intorno si diffonde come farebbe una luce vera dietro un vetro. Niente
+       contorni: un bordo netto e' esattamente cio' che rompe l'incanto. */
     .ms-oggi {
-      position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #fff 0%, var(--cyan, var(--primary)) 60%, color-mix(in srgb, var(--cyan, var(--primary)) 70%, #000) 100%);
-      box-shadow:
-        0 0 0 2.5px var(--surface, #000),
-        0 0 10px 1px color-mix(in srgb, var(--cyan, var(--primary)) 75%, transparent),
-        0 0 22px 3px color-mix(in srgb, var(--cyan, var(--primary)) 30%, transparent);
-      animation: ms-oggi-in .5s cubic-bezier(.34,1.56,.64,1) .5s both;
+      position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+      border-radius: 50%; pointer-events: none;
+      background: radial-gradient(circle,
+        color-mix(in srgb, #fff 85%, var(--cyan, var(--primary))) 0%,
+        color-mix(in srgb, var(--cyan, var(--primary)) 80%, transparent) 22%,
+        color-mix(in srgb, var(--cyan, var(--primary)) 22%, transparent) 48%,
+        transparent 72%);
+      animation:
+        ms-oggi-in .9s cubic-bezier(.22,1,.36,1) .45s both,
+        ms-oggi-respiro 5.5s ease-in-out 1.2s infinite;
     }
-    /* L'onda che si allarga e svanisce: il respiro del punto. E' l'unica cosa
-       animata in continuo di tutta la striscia, perche' e' l'unica che
-       significa "adesso" — e una schermata con due cose che pulsano non ha
-       piu' un centro. */
-    .ms-oggi::after {
-      content: ''; position: absolute; inset: -3px; border-radius: 50%;
-      border: 1px solid color-mix(in srgb, var(--cyan, var(--primary)) 55%, transparent);
-      animation: ms-pulsa 3s cubic-bezier(.25,.6,.35,1) infinite;
-    }
-    @keyframes ms-oggi-in { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
-    @keyframes ms-pulsa { 0% { opacity: .5; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(2.6); } }
-    /* Lo stipendio: un trattino verticale, non un pallino — cosi' non si
-       confonde con "oggi" nemmeno da lontano. La forma distingue, non solo il
-       colore: chi non separa bene le tinte legge comunque due cose diverse. */
-    /* LO STIPENDIO: la prossima stella. Un rombo e non un cerchio, cosi' la
-       FORMA la distingue da "oggi" anche per chi non separa bene le tinte —
-       il colore da solo non deve mai essere l'unica differenza. */
+    @keyframes ms-oggi-in { from { opacity: 0; transform: scale(.3); } }
+    @keyframes ms-oggi-respiro { 0%, 100% { opacity: .92; transform: scale(1); } 50% { opacity: 1; transform: scale(1.12); } }
+    /* La scia non serve piu': il gradiente del filamento la fa gia'. Resta la
+       classe perche' il markup la produce, ma non disegna niente — meno
+       elementi visibili, non piu'. */
+    .ms-scia { display: none; }
+    /* Le settimane erano brillantini che rubavano attenzione senza aggiungere
+       niente: spente. Il markup resta per non riscrivere il modulo, il disegno
+       no. Togliere e' stata la correzione, non aggiungere. */
+    .ms-sett { display: none; }
+
+    /* LO STIPENDIO: un alone caldo dentro il filamento, non una stella sopra.
+       La luce cambia temperatura dove arrivano i soldi — si vede col
+       peripherale, senza spostare lo sguardo, e non spezza la continuita'. */
     .ms-paga {
-      position: absolute; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px;
-      background: var(--gold, #eab308); transform: rotate(45deg);
-      box-shadow:
-        0 0 0 2px var(--surface, #000),
-        0 0 9px 1px color-mix(in srgb, var(--gold, #eab308) 55%, transparent);
-      animation: ms-paga-in .5s cubic-bezier(.34,1.56,.64,1) .85s both;
+      position: absolute; top: 50%; width: 30px; height: 16px; margin: -8px 0 0 -15px;
+      border-radius: 50%; pointer-events: none;
+      background: radial-gradient(ellipse,
+        color-mix(in srgb, var(--gold, #eab308) 55%, transparent) 0%,
+        color-mix(in srgb, var(--gold, #eab308) 16%, transparent) 45%,
+        transparent 70%);
+      animation:
+        ms-paga-in 1s ease-out .9s both,
+        ms-paga-respiro 5.5s ease-in-out 1.2s infinite;
     }
-    @keyframes ms-paga-in {
-      from { opacity: 0; transform: rotate(45deg) scale(0); }
-      to   { opacity: 1; transform: rotate(45deg) scale(1); }
-    }
+    /* Quando il giorno e' STIMATO l'alone e' piu' largo e piu' debole: una
+       previsione e' una zona, non un punto, e la sfocatura lo dice senza
+       bisogno di scriverlo. */
+    .ms-paga.stimata { width: 52px; margin-left: -26px; opacity: .55; }
+    @keyframes ms-paga-in { from { opacity: 0; } }
+    @keyframes ms-paga-respiro { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+
     .ms-righe {
       display: flex; justify-content: space-between; gap: .75rem;
-      margin-top: .5rem; line-height: 1.3;
-      animation: orb-et-in .4s ease-out .6s both;
+      margin-top: .55rem; line-height: 1.3;
+      animation: orb-et-in .5s ease-out .8s both;
     }
-    /* LE SETTIMANE: puntini fiochi lungo la rotta, come stelle lontane. Danno
-       la SCALA — senza, il tratto che manca puo' essere cinque giorni o venti
-       e non si distingue. Quelle superate si spengono quasi del tutto: sono
-       tappe fatte, non devono piu' chiedere attenzione. */
-    .ms-sett {
-      position: absolute; top: 50%; width: 2.5px; height: 2.5px; margin: -1.25px 0 0 -1.25px;
-      border-radius: 50%; background: currentColor; opacity: .3;
-      animation: ms-stella-in .5s ease-out both;
-      animation-delay: calc(.55s + var(--n, 0) * .05s);
-    }
-    .ms-sett.passata { opacity: .1; }
-    @keyframes ms-stella-in { from { opacity: 0; transform: scale(0); } }
-
-    /* LA SCIA del punto di oggi: una coda che si assottiglia all'indietro,
-       come qualcosa che si sta muovendo e non come una barra che si riempie.
-       E' la differenza fra "il mese e' al 32%" e "sei arrivato fin qui". */
-    .ms-scia {
-      position: absolute; right: 3px; top: 50%; width: 34px; height: 3px; margin-top: -1.5px;
-      border-radius: 999px; pointer-events: none;
-      background: linear-gradient(270deg,
-        color-mix(in srgb, var(--cyan, var(--primary)) 70%, transparent),
-        transparent 100%);
-      filter: blur(1.5px);
-      animation: ms-scia-in .7s ease-out .55s both;
-    }
-    @keyframes ms-scia-in { from { opacity: 0; width: 0; } to { opacity: .9; width: 34px; } }
-
-    /* L'etichetta prende il colore del segno a cui si riferisce: si capisce
-       che parlano della stessa cosa senza doverlo scrivere. */
-    .ms-attesa { color: color-mix(in srgb, var(--gold, #eab308) 88%, transparent); font-weight: 600; }
-    .ms-speso { color: color-mix(in srgb, var(--on-surface-secondary) 88%, transparent); }
-    /* Se c'e' una riga sola, che stia al centro invece che spiaccicata a sinistra. */
+    .ms-attesa { color: color-mix(in srgb, var(--gold, #eab308) 78%, transparent); font-weight: 600; }
+    .ms-speso { color: color-mix(in srgb, var(--on-surface-secondary) 85%, transparent); }
     .ms-righe:has(> :only-child) { justify-content: center; }
 
     @media (prefers-reduced-motion: reduce) {
-      .ms-passato, .ms-oggi, .ms-paga, .ms-righe, .ms-sett, .ms-scia { animation: none; }
-      .ms-oggi::after { animation: none; opacity: .3; }
+      .ms-passato, .ms-passato::before, .ms-oggi, .ms-paga, .ms-righe { animation: none; }
+      .ms-passato::before { display: none; }
+    }
     }
 
     /* ── I GRAFICI DELLE RISPOSTE DI MERCATO ──
