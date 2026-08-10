@@ -334,3 +334,22 @@ export function immobiliareText(c) {
     : ` Oggi i prezzi sono sui massimi o vicini.`;
   return base + calo + oggi;
 }
+
+// ── Il ponte verso le terre rare ──
+// Il modulo delle terre rare ha il valore VERO del metallo (annuale, dallo
+// Stato americano) ma non ha il fondo azionario; qui c'e' il fondo ma non il
+// metallo. Ognuno tiene i propri dati e si passano il minimo indispensabile:
+// e' il motivo per cui `etfSegueIlMetallo` chiede i valori invece di importarli.
+export function etfTerreRarePerAnno() {
+  const v = PREZZI_MP.terreRare;
+  const per = {};
+  for (let i = 0; i < v.length; i++) {
+    if (v[i] === null) continue;
+    const a = +MP_MESE[i].slice(0, 4);
+    (per[a] ??= []).push(v[i]);
+  }
+  // Media dell'anno, non chiusura di dicembre: il valore unitario USGS e' una
+  // media dell'anno, e confrontare una media con una chiusura introdurrebbe uno
+  // sfasamento sistematico.
+  return Object.fromEntries(Object.entries(per).map(([a, xs]) => [a, xs.reduce((x, y) => x + y, 0) / xs.length]));
+}

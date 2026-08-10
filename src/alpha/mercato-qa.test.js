@@ -304,13 +304,22 @@ test('"quanto è salito l\'oro" riceve il numero REALE, non quello che si legge 
   assert.ok(!/dovresti|conviene/i.test(r.answer));
 });
 
-test('sulle TERRE RARE la risposta onesta è che il dato non esiste', async () => {
+test('sulle TERRE RARE la risposta è cambiata perché la mia affermazione era sbagliata', async () => {
   await precarica();
+  // Questo test prima verificava che la risposta dicesse "il dato non esiste".
+  // Era la mia affermazione, non un fatto: cercando meglio sono saltati fuori
+  // 121 anni di statistiche pubbliche dello USGS. Il test è stato riscritto
+  // perché controllava che ripetessi un errore.
   for (const d of ['cosa sono le terre rare come investimento?', 'conviene investire in terre rare?']) {
     const r = rispostaSincrona(d);
     assert.ok(r, `nessuna risposta a: ${d}`);
-    assert.match(r.answer, /non esiste/);
-    assert.match(r.answer, /azionario|societa/);
+    assert.match(r.answer, /121 anni/);
+    assert.match(r.answer, /non sono rare/i, 'il fatto controintuitivo è il cuore della risposta');
+    assert.match(r.answer, /dipendenza/, 'concentrazione, non scarsità');
+    // Quello che resta vero della vecchia risposta: non c'è una quotazione, e
+    // quello che si compra è azionario.
+    assert.match(r.answer, /quotazione di borsa/);
+    assert.match(r.answer, /minerarie/);
   }
 });
 

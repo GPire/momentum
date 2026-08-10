@@ -186,6 +186,19 @@ export function intentoMercato(domanda) {
   if (ha(q, 'quanto e salito', 'quanto e cresciut', 'quanto valeva', 'dal 1980', 'dal 1970', 'dal 1960', 'negli ultimi 40 anni', 'in 50 anni', 'rendimento storico', 'quanto rendeva')) return 'quanto-e-salito';
   if (ha(q, 'materie prime', 'commodit', 'metalli', 'petrolio', 'greggio', 'argento', 'platino', 'rame', 'gas natural')) return 'materie-prime';
 
+  // CICLI, HYPE, DIREZIONE. La domanda "sta per scendere?" e' la piu' comune
+  // di tutte e la piu' facile da rovinare: la risposta onesta non e' un si' o
+  // un no, e' quante volte e' andata in un modo o nell'altro.
+  if (ha(q, 'e salito troppo', 'troppo caro', 'bolla', 'hype', 'euforia', 'sta per scendere', 'sta per crollare', 'e il momento di')) return 'hype';
+  if (ha(q, 'dove siamo nel ciclo', 'a che punto', 'in che fase', 'dove siamo')) return 'dove-siamo';
+  // ATTENZIONE all'ordine e alla forma: "si ripetesse il 2008" contiene
+  // "si ripete" ed e' uno SCENARIO STORICO, non una domanda sui cicli. La
+  // regressione e' stata scoperta dai test gia' esistenti, che e' esattamente
+  // il loro mestiere.
+  if (!ha(q, 'se si ripetesse', 'se tornasse', 'ripetesse il')
+    && ha(q, 'cicli', 'ciclo di mercato', 'si ripetono', 'schemi ricorrenti', 'quanto durano le bolle')) return 'cicli';
+  if (ha(q, 'anticipa', 'quale mercato prevede', 'segnale anticipat', 'cosa viene prima')) return 'anticipi';
+
   // Le domande di SEGUITO ("e nel resto del mondo?", "e in Asia?") non hanno
   // parole proprie: prendono senso dalla domanda precedente. Senza questo, la
   // conversazione si interrompe proprio dove diventava interessante.
@@ -246,8 +259,8 @@ export function precarica() {
     import('./eventi.js'), import('./rifugi.js'), import('./global-stress.js'),
     import('./macro-regime.js'), import('./quadro-unico.js'), import('./market-stress.js'),
     import('./historical-sequences.js'), import('./freschezza.js'),
-    import('./posizionamento.js'), import('./materie-prime.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp]) => {
+    import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -259,7 +272,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -267,11 +280,19 @@ export function precarica() {
 
 export function pronto() { return MODULI !== null; }
 
-// Le terre rare meritano una risposta a parte, perche' la risposta onesta e'
-// "quello che chiami terre rare non esiste come prezzo pubblico".
-const TERRE_RARE_RISPOSTA = (mp) => {
+// LE TERRE RARE. Questa risposta prima diceva che il dato pubblico non
+// esisteva. Era sbagliato, e la correzione vale la pena raccontarla: non
+// esiste una QUOTAZIONE di borsa, perche' il mercato e' fatto di contratti
+// diretti — ma lo Stato americano censisce produzione, consumo e valore
+// unitario dal 1900, in dominio pubblico. Centoventun anni, non zero.
+const TERRE_RARE_RISPOSTA = (mp, tr) => {
+  const base = tr.terreRareText();
+  const etf = tr.etfSegueIlMetallo(mp.etfTerreRarePerAnno());
   const r = mp.terreRareSonoAzioni();
-  return `Sulle terre rare devo essere chiaro su una cosa prima di darti qualsiasi numero: un prezzo pubblico delle terre rare non esiste. Si scambiano per contratti diretti fra chi le estrae e chi le usa, soprattutto in Cina, e i listini seri sono a pagamento. L'unica cosa libera che posso guardare e' un fondo che compra azioni di societa' minerarie del settore, e ho ${r.mesiDisponibili} mesi dal ${String(r.da).slice(0, 4)}. Ma quello e' azionario: dentro c'e' il rischio che quelle aziende siano gestite male, e c'e' l'andamento della borsa in generale. Non e' il metallo. Se qualcuno ti vende "esposizione alle terre rare", quasi sicuramente ti sta vendendo questo.`;
+  const coda = etf.valido
+    ? ` Un'ultima cosa pratica: le terre rare non sono acquistabili direttamente: quello che esiste sul mercato e' un fondo di societa' minerarie del settore (ho ${r.mesiDisponibili} mesi dal ${String(r.da).slice(0, 4)}). Ho controllato se quel fondo si muove come il valore vero del metallo: ${etf.azzeccaIlVerso ? `va nella stessa direzione ${etf.anniInCuiVannoNellaStessaDirezione} anni su ${etf.anniInComune}, ma di quanto si muova non lo dice.` : 'non lo segue in modo affidabile.'} Sono ${etf.anniInComune} anni: pochi per fidarsi, abbastanza per non dire che sono la stessa cosa.`
+    : '';
+  return base + coda;
 };
 
 // ── Le risposte ──
@@ -289,12 +310,12 @@ export function rispostaSincrona(domanda) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
   // successe nel 2008".
-  const SUL_PRESENTE = new Set(['regime', 'recessione', 'scenario-storico', 'sentiment']);
+  const SUL_PRESENTE = new Set(['regime', 'recessione', 'scenario-storico', 'sentiment', 'hype', 'dove-siamo']);
   const conAvviso = (r) => (r && AVVISO_FRESCHEZZA && SUL_PRESENTE.has(intento)
     ? { ...r, answer: `${r.answer} ${AVVISO_FRESCHEZZA}`, datiNonFreschi: true }
     : r);
@@ -313,25 +334,37 @@ export function rispostaSincrona(domanda) {
       return null;
     };
 
+    if (intento === 'hype') return conAvviso({ intent: 'mercato-hype', data: ci.cosaSuccedeDopo(), answer: ci.hypeText() });
+    if (intento === 'cicli') return { intent: 'mercato-cicli', data: ci.episodi(), answer: ci.cicliText() };
+    if (intento === 'anticipi') return { intent: 'mercato-anticipi', data: ci.chiAnticipaChi(), answer: ci.anticipiText() };
+    if (intento === 'dove-siamo') {
+      const n = normalizza(domanda);
+      const m = Object.keys(ci.NOMI).find((k) => n.includes(normalizza(ci.NOMI[k])))
+        || (ha(n, 'oro') ? 'oro' : ha(n, 'petrolio') ? 'petrolio' : ha(n, 'rame') ? 'rame'
+          : ha(n, 'casa', 'case', 'immobil') ? 'caseItalia' : 'azioni');
+      const d = ci.doveSiamo(m);
+      return conAvviso({ intent: 'mercato-ciclo-posizione', data: d, answer: ci.doveSiamoText(d) || `Su ${m} non ho abbastanza storia per dire a che punto siamo.` });
+    }
+
     if (intento === 'quanto-e-salito' || intento === 'materie-prime') {
       const k = qualeMateria(domanda);
       if (!k) {
         const q = mp.quanteScommesseDavvero();
         return { intent: 'mercato-materie', data: q, answer: `Ho i prezzi di ${mp.MATERIE.length} materie prime dal 1960: metalli preziosi, metalli industriali ed energia. Una cosa che si vede subito guardandole insieme: dentro la stessa famiglia si muovono quasi all'unisono (l'oro e l'argento vanno insieme ${Math.round(q.piuLegate[0].r * 100)} volte su cento), quindi comprarne tre della stessa famiglia non e' diversificare, e' fare la stessa scommessa tre volte. L'unica davvero scollegata dal resto e' il gas naturale, perche' e' un mercato locale: non si carica su una nave come il petrolio. Dimmi quale ti interessa e ti dico com'e' andata davvero, tolta l'inflazione.` };
       }
-      if (k === 'terreRare') return { intent: 'mercato-terre-rare', data: mp.terreRareSonoAzioni(), answer: TERRE_RARE_RISPOSTA(mp) };
+      if (k === 'terreRare') return { intent: 'mercato-terre-rare', data: { etf: mp.terreRareSonoAzioni(), storia: tr.scarsitaOSconcentrazione(), panico: tr.panicoDel2010() }, answer: TERRE_RARE_RISPOSTA(mp, tr) };
       const g = mp.ingannoNominale(k);
       const t = mp.tempoPerTornareInPari(k);
       return { intent: 'mercato-materie', data: { inganno: g, attesa: t }, answer: `${mp.ingannoText(g)} ${mp.attesaText(t)}` };
     }
 
     if (intento === 'terre-rare') {
-      return { intent: 'mercato-terre-rare', data: mp.terreRareSonoAzioni(), answer: TERRE_RARE_RISPOSTA(mp) };
+      return { intent: 'mercato-terre-rare', data: { etf: mp.terreRareSonoAzioni(), storia: tr.scarsitaOSconcentrazione(), panico: tr.panicoDel2010() }, answer: TERRE_RARE_RISPOSTA(mp, tr) };
     }
 
     if (intento === 'inflazione-protezione') {
       const k = qualeMateria(domanda) || 'oro';
-      if (k === 'terreRare') return { intent: 'mercato-terre-rare', data: mp.terreRareSonoAzioni(), answer: TERRE_RARE_RISPOSTA(mp) };
+      if (k === 'terreRare') return { intent: 'mercato-terre-rare', data: { etf: mp.terreRareSonoAzioni(), storia: tr.scarsitaOSconcentrazione(), panico: tr.panicoDel2010() }, answer: TERRE_RARE_RISPOSTA(mp, tr) };
       const p = mp.protezioneDallInflazione(k);
       if (!p.valido) return { intent: 'mercato-inflazione', answer: `Su ${k} non ho abbastanza storia per rispondere sull'inflazione senza tirare a indovinare.` };
       const verdetto = p.proteggeDavvero
