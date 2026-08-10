@@ -169,3 +169,28 @@ test('l\'avviso distingue sempre passato e presente, mai un allarme generico', (
   assert.ok(!/inaffidabil|non fidarti|errato/i.test(vecchio.avviso),
     'un dato vecchio non e\' un dato sbagliato, e dirlo cosi\' sarebbe falso');
 });
+
+test('L\'AGGIORNAMENTO USA LA CATENA: se la prima fonte cade, prova la seconda', async () => {
+  const { aggiornaConRicaduta } = await import('./freschezza.js');
+  let n = 0;
+  const finto = async () => {
+    n++;
+    // La prima chiamata (BCE) fallisce, la seconda (FRED) risponde.
+    if (n === 1) return { ok: false, status: 500, text: async () => '' };
+    return { ok: true, text: async () => 'a,b\n2026-08-01,3.1\n2026-08-02,3.2\n' };
+  };
+  const r = await aggiornaConRicaduta(['tassoEuro'], { fetchImpl: finto });
+  assert.equal(r.riuscito, true);
+  assert.deepEqual(r.conRicaduta, ['tassoEuro']);
+  assert.equal(r.code[0].punti.length, 2);
+  assert.ok(r.code[0].fonte, 'la coda deve conservare da dove viene il dato');
+  assert.ok(r.code[0].licenza, 'e con quale licenza');
+});
+
+test('senza rete l\'aggiornamento con ricaduta fallisce in modo pulito', async () => {
+  const { aggiornaConRicaduta } = await import('./freschezza.js');
+  const r = await aggiornaConRicaduta(['nfci'], { fetchImpl: async () => { throw new Error('offline'); } });
+  assert.equal(r.riuscito, false);
+  assert.equal(r.code.length, 0);
+  assert.ok(r.falliti[0].tentativi.length >= 1, 'deve registrare cosa ha provato');
+});

@@ -11016,14 +11016,15 @@ const initApp = () => {
         // l'app continua con i dati che ha, dichiarandone l'eta'.
         if (navigator.onLine === false) return;
         try {
-          const { aggiorna } = await import('./alpha/freschezza.js');
+          const { aggiornaConRicaduta } = await import('./alpha/freschezza.js');
           const prec = VaultDAO.state.mercatoCoda || null;
           // Non si riscarica piu' di una volta al giorno: le fonti pubblicano
           // settimanalmente o mensilmente, e martellarle non aggiunge niente.
           if (prec?.aggiornatoIl && Date.now() - prec.aggiornatoIl < 86400000) return;
           const daDate = {};
           for (const c of prec?.code || []) daDate[c.chiave] = c.ultimo?.data;
-          const coda = await aggiorna(undefined, { daDate });
+          // Con ricaduta: se una fonte non risponde si prova la successiva.
+          const coda = await aggiornaConRicaduta(undefined, { daDate });
           if (coda.riuscito) { VaultDAO.state.mercatoCoda = coda; VaultDAO.save(); }
         } catch (_) { /* mai bloccante */ }
       }).catch(() => {});

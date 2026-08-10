@@ -141,6 +141,39 @@ export function leggiCsvFred(testo) {
   return out;
 }
 
+// L'aggiornamento passa ora dal REGISTRO MULTI-FONTE (fonti.js) quando la
+// grandezza chiesta e' fra quelle registrate: cosi' se una fonte non risponde
+// si prova la successiva, invece di rinunciare. Le voci storiche di
+// FONTI_AGGIORNABILI restano come ripiego per cio' che il registro non copre.
+export const CORRISPONDENZE_REGISTRO = {
+  nfci: 'condizioniFinanziarie',
+  curva: 'tassoDecennaleUsa',
+  cambio: 'cambioEuroDollaro',
+  tassoEuro: 'tassoDecennaleAreaEuro',
+};
+
+export async function aggiornaConRicaduta(quali = Object.keys(CORRISPONDENZE_REGISTRO), { daDate = {}, fetchImpl, adesso = Date.now() } = {}) {
+  const { prendi } = await import('./fonti.js');
+  const code = [], falliti = [];
+  for (const chiave of quali) {
+    const grandezza = CORRISPONDENZE_REGISTRO[chiave];
+    if (!grandezza) { falliti.push({ chiave, motivo: 'non nel registro multi-fonte' }); continue; }
+    const e = await prendi(grandezza, { fetchImpl, da: daDate[chiave] });
+    if (!e.riuscito) { falliti.push({ chiave, motivo: e.motivo, tentativi: e.tentativi }); continue; }
+    code.push({
+      chiave, etichetta: e.etichetta, punti: e.punti, ultimo: e.ultimo,
+      // La provenienza si conserva NELLA coda: fra sei mesi si deve poter
+      // sapere da dove veniva ogni pezzo di dato, anche quello aggiunto.
+      fonte: e.fonte, licenza: e.licenza?.nome || null, ricaduta: !!e.ricaduta,
+    });
+  }
+  return {
+    riuscito: code.length > 0, aggiornatoIl: adesso, code, falliti,
+    conRicaduta: code.filter((c) => c.ricaduta).map((c) => c.chiave),
+    motivo: code.length ? null : 'nessuna fonte raggiungibile: resto sui dati che ho gia\'',
+  };
+}
+
 export async function aggiorna(quali = Object.keys(FONTI_AGGIORNABILI), {
   daDate = {}, fetchImpl, adesso = Date.now(), timeoutMs = 8000,
 } = {}) {
