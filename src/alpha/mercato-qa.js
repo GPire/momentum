@@ -26,6 +26,8 @@
 // complicata, ed è verificabile riga per riga.
 'use strict';
 
+const NOMI_STATI_QA = ['condizioni distese', 'condizioni normali', 'condizioni tese'];
+
 const MESI = {
   gennaio: 1, febbraio: 2, marzo: 3, aprile: 4, maggio: 5, giugno: 6,
   luglio: 7, agosto: 8, settembre: 9, ottobre: 10, novembre: 11, dicembre: 12,
@@ -77,6 +79,11 @@ export function intentoMercato(domanda) {
   if (ha(q, 'diversific') && ha(q, 'mondo', 'geografic', 'paesi', 'estero', 'global')) return 'diversificazione';
   if (ha(q, 'recession', 'crisi in arrivo', 'curva dei tassi', 'curva dei rendimenti', 'curva invertita')) return 'recessione';
   if (ha(q, 'come sta il mercato', 'come va il mercato', 'situazione dei mercati', 'clima di mercato', 'quanto e teso', 'stress')) return 'regime';
+  if (ha(q, 'quanto posso perdere', 'perdita massima', 'caso peggiore', 'quanto rischio di perdere', 'scenario peggiore')) return 'perdita-massima';
+  if (ha(q, 'se tornasse', 'se si ripetesse', 'e se succedesse di nuovo', 'come nel 2008', 'un altro 2008', 'ripetesse il')) return 'scenario-storico';
+  if (ha(q, 'quanto dura', 'quanto durano', 'quanto tempo per recuperare', 'quando recupera', 'tempi di recupero', 'mercato orso')) return 'durata-orso';
+  if (ha(q, 'cosa non sai', 'cosa non puoi', 'quali sono i tuoi limiti', 'di cosa non sei sicuro', 'dove sbagli', 'cosa ti manca')) return 'limiti';
+  if (ha(q, 'quanto e affidabile', 'quanto ti posso credere', 'quanto sono affidabili', 'che affidabilita')) return 'limiti';
   if (ha(q, 'cosa e successo', 'cos e successo', 'che e successo', 'cosa succes', 'com e andata', 'perche e crollat', 'crollo di', 'cosa ando storto')) return 'evento';
   // Una data da sola, in una domanda, quasi sempre chiede un evento.
   if (estraiPeriodo(q) && ha(q, '?', 'spieg', 'raccont', 'dimm')) return 'evento';
@@ -96,6 +103,7 @@ let inCorso = null;
 // I settori arrivano da una funzione asincrona (import dinamico interno):
 // si calcolano una volta e si tengono.
 let SETTORI_CACHE = null;
+let CONTESTO_CACHE = null;
 
 export function precarica() {
   if (MODULI) return Promise.resolve(MODULI);
@@ -103,8 +111,19 @@ export function precarica() {
   inCorso = Promise.all([
     import('./eventi.js'), import('./rifugi.js'), import('./global-stress.js'),
     import('./macro-regime.js'), import('./quadro-unico.js'), import('./market-stress.js'),
-  ]).then(([eventi, rifugi, globale, macro, quadro, stress]) => {
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress };
+    import('./historical-sequences.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche]) => {
+    // I settori si calcolano con una funzione ASINCRONA (che a sua volta
+    // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
+    // domanda sui settori riceve "non lo so" e solo la seconda funziona.
+    // BUG VISTO SOLO PROVANDO NEL BROWSER: nei test non emergeva perche' le
+    // chiamate precedenti avevano gia' riempito la cache. Una prova dal vivo
+    // vale quindici test che si aiutano a vicenda.
+    // Stessa ragione anche per il contesto storico dei cali: funzione
+    // asincrona, si scalda qui una volta per tutte.
+    try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
+    try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -124,7 +143,7 @@ export function rispostaSincrona(domanda) {
   const intento = intentoMercato(domanda);
   if (!intento) return null;
   if (!MODULI) { precarica(); return null; }
-  const { eventi, rifugi, globale, macro, quadro, stress } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche } = MODULI;
 
   try {
     if (intento === 'evento') {
@@ -196,6 +215,50 @@ export function rispostaSincrona(domanda) {
         : ' I segnali che guardo non concordano fra loro: qualcosa è teso, qualcos\'altro no.';
       return { intent: 'mercato-regime', data: s, answer: (testo || '') + extra };
     }
+    if (intento === 'perdita-massima') {
+      const { expectedShortfall, rendimentoMercato } = stress;
+      const es = expectedShortfall(rendimentoMercato());
+      const pct = (x) => (Math.abs(x) * 100).toFixed(1).replace('.', ',');
+      return {
+        intent: 'mercato-perdita', data: es,
+        answer: `Nel 2,5% dei mesi peggiori della storia recente si e' perso in media il ${pct(es.es)}% in un mese solo, e il mese peggiore di tutti ha fatto ${pct(es.peggiore)}%. Attenzione a una cosa: la soglia oltre la quale si entra in quel 2,5% e' il ${pct(es.var)}%, quindi guardare solo la soglia fa sottostimare la perdita di ${pct(es.quantoIlVarNonVede)} punti. E' l'errore che ha reso famoso il VaR.`,
+      };
+    }
+
+    if (intento === 'scenario-storico') {
+      const { statiStorici, matriceTransizione } = rifugi;
+      const st = statiStorici(), tr = matriceTransizione();
+      const oggi = st.oggi;
+      const versoTeso = tr.probabilita[oggi][2];
+      const pct = (x) => Math.round(x * 100);
+      return {
+        intent: 'mercato-scenario', data: { st, tr },
+        answer: `Posso simularlo, ma non prevederlo. Oggi siamo in ${NOMI_STATI_QA[oggi]}, e dalla storia degli ultimi trent'anni la probabilita' di trovarsi in condizioni tese il mese prossimo e' del ${pct(versoTeso)}%. Una cosa la storia la dice con chiarezza: i regimi non saltano. Dalle condizioni distese a quelle tese in un mese e' successo lo ${pct(tr.probabilita[0][2])}% delle volte — ci si passa sempre per il mezzo, e questo da' tempo per accorgersene.`,
+      };
+    }
+
+    if (intento === 'durata-orso') {
+      const { contestoText } = storiche;
+      const c = CONTESTO_CACHE;
+      if (!c) return null;
+      const perFascia = c.perFascia.filter((r) => r.medianRecoveryMonths !== null)
+        .map((r) => `${r.band}: ${r.medianRecoveryMonths} mesi`).join(', ');
+      return {
+        intent: 'mercato-durata', data: c,
+        answer: `${contestoText(c)} E dipende molto da quanto e' profondo il calo — ${perFascia}. E' il numero che serve per sapere se puoi permetterti di aspettare.`,
+      };
+    }
+
+    if (intento === 'limiti') {
+      const { orizzonteDiCiascunSegnale } = quadro;
+      const o = orizzonteDiCiascunSegnale();
+      const cieca = o.finestraCieca.filter((h) => h > 0);
+      return {
+        intent: 'mercato-limiti', data: o,
+        answer: `Parecchie cose, e preferisco dirle. Non so dove andra' il mercato e nessuno lo sa. Non posso dirti cosa succederebbe se la banca centrale muovesse i tassi, perche' nei dati la banca centrale si muove proprio quando l'economia peggiora e le due cose sono inseparabili. E c'e' un buco preciso: a ${cieca.join(' e ')} mesi di distanza nessuno dei segnali che uso e' affidabile — misurato, non stimato. Quello che so fare e' dirti cos'e' successo, cosa ha funzionato in passato e quanto sei esposto tu.`,
+      };
+    }
+
   } catch (e) {
     return { intent: 'mercato-errore', answer: 'Ho i dati ma non riesco a leggerli in questo momento.', errore: String(e?.message || e) };
   }

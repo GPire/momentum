@@ -495,3 +495,24 @@ test('FALLBACK: senza ctx.qaLearning il comportamento resta quello di sempre (ne
   assert.equal(r.intent, 'spent');
   assert.ok(!('learned' in r) || !r.learned);
 });
+
+// ── Il correttore di refusi non deve riscrivere parole vere ──
+
+test('BUG REALE: "perdere" e "vendere" non sono refusi di "spendere"', () => {
+  // Trovato provando l'app nel browser con dati veri: "quanto posso PERDERE
+  // nel caso peggiore?" veniva corretto in "quanto posso SPENDERE" (distanza
+  // di Levenshtein 2) e rispondeva col budget giornaliero. Stessa cosa per
+  // "vendere". In un'app di soldi confondere perdere/vendere con spendere non
+  // e' un dettaglio: sono significati opposti.
+  const ctx = { allTx: {}, referenceDate: new Date(), monthlyBudget: 1000 };
+  assert.notEqual(answerQuestion('quanto posso perdere nel caso peggiore?', ctx).intent, 'safe-to-spend');
+  assert.notEqual(answerQuestion('posso vendere adesso?', ctx).intent, 'safe-to-spend');
+  assert.notEqual(answerQuestion('quanto ho perso quest\'anno?', ctx).intent, 'safe-to-spend');
+});
+
+test('...ma i refusi VERI continuano a essere corretti', () => {
+  const ctx = { allTx: {}, referenceDate: new Date(), monthlyBudget: 1000 };
+  // "spendrere" non e' una parola italiana: quello si', va corretto.
+  assert.equal(answerQuestion('quanto posso spendrere oggi?', ctx).intent, 'safe-to-spend');
+  assert.equal(answerQuestion('quanto posso spendere oggi?', ctx).intent, 'safe-to-spend');
+});

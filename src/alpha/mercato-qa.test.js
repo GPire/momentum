@@ -149,3 +149,52 @@ test('INNESTO: il QA delle finanze personali consulta i mercati solo alla fine',
   const senza = answerQuestion('cosa protegge quando crolla il mercato?', { allTx: {}, referenceDate: new Date() });
   assert.equal(senza.intent, 'unknown');
 });
+
+test('IL PRECARICAMENTO SCALDA ANCHE I SETTORI: la prima domanda non riceve "non lo so"', async () => {
+  // Questo test nasce da un bug visto solo nel browser: la risposta sui
+  // settori si calcola in modo asincrono, e alla PRIMA domanda tornava null.
+  // Nei test non si vedeva perche' le chiamate precedenti avevano gia' riempito
+  // la cache — il classico difetto che i test si nascondono a vicenda.
+  // Si forza un modulo pulito per riprodurre davvero il primo avvio.
+  const fresco = await import(`./mercato-qa.js?prima=${Date.now()}`);
+  await fresco.precarica();
+  const r = fresco.chiediAlMercatoSync('quali settori tengono nei crolli?');
+  assert.ok(r, 'la PRIMA domanda sui settori deve gia\' avere una risposta');
+  assert.equal(r.intent, 'mercato-settori');
+});
+
+test('LE DOMANDE DA OPERATORE: perdita massima, scenario, durata, limiti', async () => {
+  const attesi = {
+    'quanto posso perdere nel caso peggiore?': 'mercato-perdita',
+    'e se si ripetesse il 2008?': 'mercato-scenario',
+    'quanto dura un mercato orso?': 'mercato-durata',
+    'cosa non sai?': 'mercato-limiti',
+    'quanto sono affidabili le tue previsioni?': 'mercato-limiti',
+  };
+  for (const [d, intent] of Object.entries(attesi)) {
+    const r = await chiediAlMercato(d);
+    assert.ok(r, `nessuna risposta per "${d}"`);
+    assert.equal(r.intent, intent, `"${d}" -> ${r.intent}`);
+    assert.ok(r.answer.length > 80);
+  }
+});
+
+test('LA PERDITA MASSIMA spiega perché la soglia da sola inganna', async () => {
+  const r = await chiediAlMercato('quanto posso perdere nel caso peggiore?');
+  assert.match(r.answer, /sottostimare la perdita/);
+  assert.ok(r.data.es < r.data.var, 'la perdita media nella coda deve essere peggiore della soglia');
+});
+
+test('LO SCENARIO dice "simulare" e non "prevedere"', async () => {
+  const r = await chiediAlMercato('e se si ripetesse il 2008?');
+  assert.match(r.answer, /simularlo, ma non prevederlo/);
+  assert.match(r.answer, /i regimi non saltano/);
+});
+
+test('I LIMITI sono la risposta più importante: elenca cosa NON sa, con i numeri', async () => {
+  const r = await chiediAlMercato('cosa non sai?');
+  assert.match(r.answer, /non so dove andra/i);
+  assert.match(r.answer, /banca centrale/);
+  assert.match(r.answer, /mesi di distanza nessuno dei segnali/);
+  assert.ok(r.data.finestraCieca.length > 0, 'la finestra cieca deve venire da una misura, non da una frase');
+});

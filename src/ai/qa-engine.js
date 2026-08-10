@@ -188,6 +188,25 @@ const TYPO_DICTIONARY_IT = [
   'resta', 'rimane', 'budget', 'previsione', 'proiezione', 'risparmiato', 'risparmi',
   'categoria', 'notizie', 'grafico', 'andamento', 'storico', 'oggi', 'mese', 'settimana',
 ];
+// PAROLE CHE NON SONO REFUSI, e vanno protette dal correttore.
+// BUG REALE trovato provando l'app nel browser: "quanto posso PERDERE nel caso
+// peggiore?" veniva corretto in "quanto posso SPENDERE" (distanza 2) e finiva
+// nel budget giornaliero. Stessa cosa, e piu' grave, per "vendere" -> "spendere"
+// (distanza 2 anche quella). Il correttore stava riscrivendo parole italiane
+// perfettamente corrette in altre di significato OPPOSTO, e in un'app di soldi
+// confondere "perdere" con "spendere" o "vendere" con "spendere" non e' un
+// dettaglio.
+// La regola giusta non e' allargare le soglie: e' che un refuso, per
+// definizione, non e' una parola esistente. Queste sono parole esistenti e
+// vicine per pura ortografia, quindi non si toccano mai.
+const PAROLE_PROTETTE_IT = new Set([
+  'perdere', 'perdita', 'perdite', 'perso', 'persa', 'perse', 'persi',
+  'vendere', 'vendita', 'vendite', 'venduto', 'vendo',
+  'prendere', 'rendere', 'scendere', 'accendere', 'attendere', 'pretendere',
+  'rendita', 'rendite', 'rendimento', 'rendimenti',
+  'spesare', 'sospendere', 'difendere', 'dipendere',
+]);
+
 function correctTypos(text) {
   return text.split(/(\s+)/).map(tok => {
     // Stacca punteggiatura iniziale/finale (es. "stipnedio?") per non far
@@ -197,6 +216,7 @@ function correctTypos(text) {
     const [, pre, word, post] = m;
     if (word.length < 4) return tok;
     if (TYPO_DICTIONARY_IT.includes(word)) return tok; // già corretta
+    if (PAROLE_PROTETTE_IT.has(word)) return tok;      // parola vera, non un refuso
     const maxDist = word.length <= 6 ? 1 : 2;
     let best = null, bestDist = Infinity, ties = 0;
     for (const cand of TYPO_DICTIONARY_IT) {
