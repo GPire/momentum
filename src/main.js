@@ -39,6 +39,7 @@ import { sectorRanking } from './alpha/sector-rotation.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
+import { chiediAlMercatoSync, precarica as precaricaMercato } from './alpha/mercato-qa.js';
 import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed } from './core/telemetry.js';
 
 // Endpoint del contatore anonimo (server/telemetry-worker.js): vuoto finché
@@ -203,6 +204,14 @@ function askMomentum(text) {
     // subito, prima di aver mai aperto il grafo), resta null e il QA
     // funziona comunque com'è sempre stato — additivo, mai bloccante.
     macroContext: __macroContextCache,
+    // ── Domande sui MERCATI (src/alpha/mercato-qa.js) ──
+    // Il QA delle finanze personali ha la precedenza: "quanto ho speso" non
+    // deve mai finire in un'analisi di borsa. Questo si consulta solo quando
+    // nessun intento personale ha risposto. E' sincrono perche' i moduli
+    // pesanti (145 KB di serie storiche) vengono precaricati in sottofondo
+    // dopo l'avvio: chi non chiede mai di mercati non li scarica al primo
+    // colpo, e chi chiede trova tutto gia' pronto.
+    mercato: (testo) => { try { return chiediAlMercatoSync(testo); } catch (_) { return null; } },
     // src/ai/qa-learning.js: apprendimento locale, per-utente, delle
     // formulazioni che i pattern fissi non riconoscono — vedi askMomentum
     // più sotto per dove si registra/insegna.
@@ -10993,6 +11002,10 @@ const initApp = () => {
       if (newly.length) { VaultDAO.state.achievements = unlocked; VaultDAO.save(); }
     }
     bootUI();
+    // I dati di mercato si scaricano in sottofondo, senza bloccare niente: se
+    // l'utente chiedera' "cosa protegge quando crolla" li trovera' pronti, e
+    // se non lo chiedera' mai non avra' pagato nulla all'avvio.
+    setTimeout(() => { precaricaMercato().catch(() => {}); }, 3000);
     consumeSharedImage(); // screenshot condiviso via share target (Android)
     // Utente già attivo che arriva (o torna dopo un reload SW) da un link di
     // divisione: apri direttamente la conferma d'ingresso, dal payload

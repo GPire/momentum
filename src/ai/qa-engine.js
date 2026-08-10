@@ -668,5 +668,21 @@ function answerQuestionCore(question, ctx) {
   }
 
   // — onestà: nessun intent riconosciuto
+  // ── Prima di arrendersi: le domande sui MERCATI ──
+  // Il motore di analisi dei mercati (src/alpha/*) sa rispondere a una classe
+  // di domande che il QA delle finanze personali non copre: cos'e' successo in
+  // un certo periodo, cosa ha protetto nei crolli, se l'oro o le cripto
+  // proteggono davvero, come sta il mercato adesso. E sa anche RIFIUTARE, con
+  // il motivo, le domande su cosa comprare o dove andra' il mercato.
+  // Si guarda qui e non prima perche' le domande sui soldi PROPRI hanno la
+  // precedenza: "quanto ho speso" non deve mai finire in un'analisi di borsa.
+  // Il riconoscimento e' sincrono e senza rete; la risposta viene costruita in
+  // modo asincrono solo se l'intento scatta, cosi' i pannelli di dati pesanti
+  // si caricano unicamente quando servono davvero.
+  if (ctx?.mercato) {
+    const m = ctx.mercato(question);
+    if (m) return m;
+  }
+
   return { intent: 'unknown', answer: UNKNOWN_MSG[lang] };
 }
