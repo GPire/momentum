@@ -203,6 +203,10 @@ let inCorso = null;
 // si calcolano una volta e si tengono.
 let SETTORI_CACHE = null;
 let CONTESTO_CACHE = null;
+// L'avviso sulla freschezza si calcola UNA volta al precaricamento e si appende
+// alle risposte che parlano del PRESENTE. Non a quelle storiche: dire "attenzione,
+// i dati sono vecchi" a chi chiede cosa successe nel 2008 sarebbe rumore.
+let AVVISO_FRESCHEZZA = null;
 
 export function precarica() {
   if (MODULI) return Promise.resolve(MODULI);
@@ -210,8 +214,8 @@ export function precarica() {
   inCorso = Promise.all([
     import('./eventi.js'), import('./rifugi.js'), import('./global-stress.js'),
     import('./macro-regime.js'), import('./quadro-unico.js'), import('./market-stress.js'),
-    import('./historical-sequences.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche]) => {
+    import('./historical-sequences.js'), import('./freschezza.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -222,7 +226,8 @@ export function precarica() {
     // asincrona, si scalda qui una volta per tutte.
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche };
+    try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -243,6 +248,14 @@ export function rispostaSincrona(domanda) {
   if (!intento) return null;
   if (!MODULI) { precarica(); return null; }
   const { eventi, rifugi, globale, macro, quadro, stress, storiche } = MODULI;
+  // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
+  // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
+  // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
+  // successe nel 2008".
+  const SUL_PRESENTE = new Set(['regime', 'recessione', 'scenario-storico']);
+  const conAvviso = (r) => (r && AVVISO_FRESCHEZZA && SUL_PRESENTE.has(intento)
+    ? { ...r, answer: `${r.answer} ${AVVISO_FRESCHEZZA}`, datiNonFreschi: true }
+    : r);
 
   try {
     if (intento === 'evento') {
@@ -301,7 +314,7 @@ export function rispostaSincrona(domanda) {
     if (intento === 'recessione') {
       const { quadroMacro, quadroText } = macro;
       const q = quadroMacro();
-      return { intent: 'mercato-recessione', data: q, answer: quadroText(q) };
+      return conAvviso({ intent: 'mercato-recessione', data: q, answer: quadroText(q) });
     }
 
     if (intento === 'regime') {
@@ -312,7 +325,7 @@ export function rispostaSincrona(domanda) {
       const extra = s.concordi
         ? ' I tre segnali che guardo dicono la stessa cosa.'
         : ' I segnali che guardo non concordano fra loro: qualcosa è teso, qualcos\'altro no.';
-      return { intent: 'mercato-regime', data: s, answer: (testo || '') + extra };
+      return conAvviso({ intent: 'mercato-regime', data: s, answer: (testo || '') + extra });
     }
     if (intento.startsWith('spiega:')) {
       const voce = GLOSSARIO[intento.slice(7)];

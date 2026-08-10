@@ -11005,7 +11005,29 @@ const initApp = () => {
     // I dati di mercato si scaricano in sottofondo, senza bloccare niente: se
     // l'utente chiedera' "cosa protegge quando crolla" li trovera' pronti, e
     // se non lo chiedera' mai non avra' pagato nulla all'avvio.
-    setTimeout(() => { precaricaMercato().catch(() => {}); }, 3000);
+    setTimeout(() => {
+      precaricaMercato().then(async () => {
+        // AGGIORNAMENTO DEI DATI DI MERCATO quando c'e' rete. I pannelli
+        // incorporati sono istantanee: senza questo, fra tre anni l'app
+        // direbbe con la stessa sicurezza numeri fermi al 2026. Si scaricano
+        // solo le osservazioni NUOVE e si tengono in una "coda" additiva nel
+        // vault — il pannello verificato resta la base, la coda e' l'aggiunta.
+        // Silenzioso e non bloccante: se non c'e' rete non succede niente e
+        // l'app continua con i dati che ha, dichiarandone l'eta'.
+        if (navigator.onLine === false) return;
+        try {
+          const { aggiorna } = await import('./alpha/freschezza.js');
+          const prec = VaultDAO.state.mercatoCoda || null;
+          // Non si riscarica piu' di una volta al giorno: le fonti pubblicano
+          // settimanalmente o mensilmente, e martellarle non aggiunge niente.
+          if (prec?.aggiornatoIl && Date.now() - prec.aggiornatoIl < 86400000) return;
+          const daDate = {};
+          for (const c of prec?.code || []) daDate[c.chiave] = c.ultimo?.data;
+          const coda = await aggiorna(undefined, { daDate });
+          if (coda.riuscito) { VaultDAO.state.mercatoCoda = coda; VaultDAO.save(); }
+        } catch (_) { /* mai bloccante */ }
+      }).catch(() => {});
+    }, 3000);
     consumeSharedImage(); // screenshot condiviso via share target (Android)
     // Utente già attivo che arriva (o torna dopo un reload SW) da un link di
     // divisione: apri direttamente la conferma d'ingresso, dal payload
