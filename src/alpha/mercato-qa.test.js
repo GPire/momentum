@@ -4,6 +4,8 @@ import {
   normalizza, estraiPeriodo, intentoMercato, rifiutoMotivato,
   chiediAlMercato, chiediAlMercatoSync, precarica, pronto,
   DOMANDE_SENZA_RISPOSTA,
+  dimenticaContesto,
+  rispostaSincrona,
 } from './mercato-qa.js';
 
 // I moduli pesanti si caricano una volta per tutto il file.
@@ -259,4 +261,63 @@ test('le spiegazioni non suggeriscono comunque mai cosa fare', async () => {
     const r = await chiediAlMercato(d);
     assert.ok(!/dovresti|conviene|ti consiglio|meglio comprare/i.test(r.answer), `consiglio in "${d}": ${r.answer}`);
   }
+});
+
+// ── Materie prime, casa, e l'ordine delle regole ──
+
+test('L\'ORDINE DELLE REGOLE: le domande specifiche non devono cadere in quelle generiche', async () => {
+  await precarica();
+  // Ognuna di queste, prima di sistemare l'ordine, finiva nell'intento
+  // sbagliato e riceveva una risposta corretta ma a un'altra domanda.
+  assert.equal(intentoMercato('l\'oro protegge dall\'inflazione?'), 'inflazione-protezione',
+    'cadeva in "oro", che risponde sui crolli di borsa');
+  assert.equal(intentoMercato('il rame protegge dall\'inflazione?'), 'inflazione-protezione',
+    'cadeva in "rifugi"');
+  assert.equal(intentoMercato('come va il mercato immobiliare in Italia?'), 'immobiliare',
+    'cadeva in "regime", per via di "come va il mercato"');
+  // E queste NON devono essere state rubate dalle regole nuove.
+  assert.equal(intentoMercato('le criptovalute proteggono nei crolli?'), 'cripto-rifugio');
+  assert.equal(intentoMercato('come va il mercato?'), 'regime');
+  assert.equal(intentoMercato('l\'oro protegge quando la borsa crolla?'), 'oro');
+});
+
+test('le domande di SEGUITO ereditano il contesto, e solo quello', async () => {
+  await precarica();
+  dimenticaContesto();
+  // Da sola, "e in Asia?" non vuol dire niente: giusto non rispondere.
+  assert.equal(rispostaSincrona('e in Asia?'), null);
+  // Dopo una domanda sulla casa, invece, vuol dire la casa in Asia.
+  rispostaSincrona('come va il mercato immobiliare in Italia?');
+  const dopo = rispostaSincrona('e in Asia?');
+  assert.ok(dopo, 'la conversazione si interrompeva proprio dove diventava interessante');
+  assert.match(dopo.answer, /Asia/);
+  assert.match(dopo.answer, /Giappone/);
+  dimenticaContesto();
+  assert.equal(rispostaSincrona('e nel resto del mondo?'), null, 'il contesto si può azzerare');
+});
+
+test('"quanto è salito l\'oro" riceve il numero REALE, non quello che si legge sul grafico', async () => {
+  await precarica();
+  const r = rispostaSincrona('quanto è salito l\'oro dal 1980?');
+  assert.match(r.answer, /inflazione/);
+  assert.match(r.answer, /45\.1 anni|45 anni/, 'l\'attesa per tornare in pari è il fatto che conta');
+  assert.ok(!/dovresti|conviene/i.test(r.answer));
+});
+
+test('sulle TERRE RARE la risposta onesta è che il dato non esiste', async () => {
+  await precarica();
+  for (const d of ['cosa sono le terre rare come investimento?', 'conviene investire in terre rare?']) {
+    const r = rispostaSincrona(d);
+    assert.ok(r, `nessuna risposta a: ${d}`);
+    assert.match(r.answer, /non esiste/);
+    assert.match(r.answer, /azionario|societa/);
+  }
+});
+
+test('"il mattone non scende mai" riceve 28 Paesi, non un\'opinione', async () => {
+  await precarica();
+  const r = rispostaSincrona('il mattone non scende mai, vero?');
+  assert.match(r.answer, /28 Paesi/);
+  assert.match(r.answer, /Irlanda/);
+  assert.ok(!/dovresti|ti consiglio/i.test(r.answer));
 });

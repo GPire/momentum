@@ -145,6 +145,54 @@ export const REGISTRO = {
       { fonte: 'cftc', url: () => 'https://publicreporting.cftc.gov/resource/6dca-aqww.csv?$limit=500&$order=report_date_as_yyyy_mm_dd%20DESC', leggi: (t) => leggiCsvSemplice(t, { colonnaData: 2, colonnaValore: 7 }) },
     ],
   },
+  // ── Materie prime e casa ──
+  // Il pannello storico viene dal Pink Sheet della Banca Mondiale (66 anni,
+  // ma un XLSX che si scarica a mano una volta). Per l'aggiornamento serve
+  // qualcosa di leggibile a runtime, e sono le serie FMI ridistribuite da
+  // FRED: partono dal 1992 invece che dal 1960, ma arrivano piu' avanti.
+  // Storia lunga da una fonte, freschezza da un'altra: e' esattamente il
+  // motivo per cui questo registro esiste.
+  oro: {
+    etichetta: 'oro',
+    catena: [
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=IQ12260', leggi: leggiCsvSemplice, nota: 'indice del prezzo dell\'oro dal 1984' },
+      { fonte: 'worldbank', url: () => 'https://thedocs.worldbank.org/en/doc/18675f1d1639c7a34d463f59263ba0a2-0050012025/related/CMO-Historical-Data-Monthly.xlsx', leggi: () => [], nota: 'Pink Sheet: 66 anni ma in XLSX, non leggibile a runtime — e\' la fonte del pannello storico, non dell\'aggiornamento' },
+    ],
+  },
+  petrolio: {
+    etichetta: 'petrolio (Brent)',
+    catena: [
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=POILBREUSDM', leggi: leggiCsvSemplice },
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU', leggi: leggiCsvSemplice, nota: 'stessa grandezza, giornaliera' },
+    ],
+  },
+  metalliIndustriali: {
+    etichetta: 'metalli industriali',
+    catena: [
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=PCOPPUSDM', leggi: leggiCsvSemplice, nota: 'rame: il metallo che segue il ciclo economico piu\' da vicino' },
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=PIORECRUSDM', leggi: leggiCsvSemplice, nota: 'minerale di ferro' },
+    ],
+  },
+  indiceMateriePrime: {
+    etichetta: 'indice generale delle materie prime',
+    catena: [
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=PALLFNFINDEXM', leggi: leggiCsvSemplice, nota: 'indice FMI di tutte le materie prime' },
+    ],
+  },
+  immobiliareUsa: {
+    etichetta: 'prezzi delle case Stati Uniti',
+    catena: [
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=CSUSHPINSA', leggi: leggiCsvSemplice, nota: 'Case-Shiller, mensile dal 1987' },
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=QUSR628BIS', leggi: leggiCsvSemplice, nota: 'BIS, trimestrale ma gia\' al netto dell\'inflazione' },
+    ],
+  },
+  immobiliareMondo: {
+    etichetta: 'prezzi delle case nel mondo',
+    catena: [
+      { fonte: 'fred', url: (paese) => `https://fred.stlouisfed.org/graph/fredgraph.csv?id=Q${paese || 'XM'}R628BIS`, leggi: leggiCsvSemplice, nota: 'BIS: stessa forma di serie per 28 Paesi, basta cambiare il codice del Paese' },
+    ],
+  },
+
   azioniUsa: {
     etichetta: 'azioni Stati Uniti',
     catena: [

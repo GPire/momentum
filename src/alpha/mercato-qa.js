@@ -149,6 +149,12 @@ export const normalizza = (s) => (s || '').toLowerCase().trim()
 
 const ha = (q, ...parole) => parole.some((p) => q.includes(p));
 
+// L'ultimo intento riconosciuto, per capire a cosa si riferisce un "e nel
+// resto del mondo?". E' l'unica memoria di questo modulo, ed e' deliberatamente
+// minima: un intento, non la conversazione.
+let ULTIMO_INTENTO = null;
+export function dimenticaContesto() { ULTIMO_INTENTO = null; }
+
 // ── Il riconoscimento dell'intento ──
 export function intentoMercato(domanda) {
   const q = normalizza(domanda);
@@ -166,6 +172,25 @@ export function intentoMercato(domanda) {
       // confine di parola.
       if (voce.parole.some((w) => new RegExp(`\\b${w}`).test(q))) return `spiega:${chiave}`;
     }
+  }
+
+  // MATERIE PRIME E CASA, e vanno PRIMA di tutto il resto. Ci ho sbagliato
+  // l'ordine una volta e ogni domanda finiva altrove: "l'oro protegge
+  // dall'inflazione?" cadeva nella regola generica sull'oro e riceveva la
+  // risposta sui crolli di borsa, che e' una domanda diversa; "come va il
+  // mercato immobiliare" cadeva in "come va il mercato". Le regole specifiche
+  // devono venire prima di quelle generiche, sempre.
+  if (/\b(casa|case|mattone|immobil|appartament)/.test(q)) return 'immobiliare';
+  if (ha(q, 'inflazion') && ha(q, 'proteg', 'ripar', 'difend', 'batte', 'contro', 'tiene', 'regge')) return 'inflazione-protezione';
+  if (ha(q, 'terre rare', 'terr rare', 'metalli strategici')) return 'terre-rare';
+  if (ha(q, 'quanto e salito', 'quanto e cresciut', 'quanto valeva', 'dal 1980', 'dal 1970', 'dal 1960', 'negli ultimi 40 anni', 'in 50 anni', 'rendimento storico', 'quanto rendeva')) return 'quanto-e-salito';
+  if (ha(q, 'materie prime', 'commodit', 'metalli', 'petrolio', 'greggio', 'argento', 'platino', 'rame', 'gas natural')) return 'materie-prime';
+
+  // Le domande di SEGUITO ("e nel resto del mondo?", "e in Asia?") non hanno
+  // parole proprie: prendono senso dalla domanda precedente. Senza questo, la
+  // conversazione si interrompe proprio dove diventava interessante.
+  if (/^(e |ma )?(nel |in |per )?(il )?(resto del mondo|altri paesi|europa|asia|america|oceania|africa|mondo)\s*\??$/.test(q) && ULTIMO_INTENTO) {
+    return ULTIMO_INTENTO;
   }
 
   // L'ordine conta: le domande più specifiche prima.
@@ -221,8 +246,8 @@ export function precarica() {
     import('./eventi.js'), import('./rifugi.js'), import('./global-stress.js'),
     import('./macro-regime.js'), import('./quadro-unico.js'), import('./market-stress.js'),
     import('./historical-sequences.js'), import('./freschezza.js'),
-    import('./posizionamento.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz]) => {
+    import('./posizionamento.js'), import('./materie-prime.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -234,13 +259,20 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
 }
 
 export function pronto() { return MODULI !== null; }
+
+// Le terre rare meritano una risposta a parte, perche' la risposta onesta e'
+// "quello che chiami terre rare non esiste come prezzo pubblico".
+const TERRE_RARE_RISPOSTA = (mp) => {
+  const r = mp.terreRareSonoAzioni();
+  return `Sulle terre rare devo essere chiaro su una cosa prima di darti qualsiasi numero: un prezzo pubblico delle terre rare non esiste. Si scambiano per contratti diretti fra chi le estrae e chi le usa, soprattutto in Cina, e i listini seri sono a pagamento. L'unica cosa libera che posso guardare e' un fondo che compra azioni di societa' minerarie del settore, e ho ${r.mesiDisponibili} mesi dal ${String(r.da).slice(0, 4)}. Ma quello e' azionario: dentro c'e' il rischio che quelle aziende siano gestite male, e c'e' l'andamento della borsa in generale. Non e' il metallo. Se qualcuno ti vende "esposizione alle terre rare", quasi sicuramente ti sta vendendo questo.`;
+};
 
 // ── Le risposte ──
 export async function rispostaMercato(domanda) {
@@ -254,7 +286,10 @@ export function rispostaSincrona(domanda) {
   const intento = intentoMercato(domanda);
   if (!intento) return null;
   if (!MODULI) { precarica(); return null; }
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz } = MODULI;
+  // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
+  // servito non deve diventare il contesto della domanda dopo.
+  ULTIMO_INTENTO = intento;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -265,6 +300,62 @@ export function rispostaSincrona(domanda) {
     : r);
 
   try {
+    // Quale materia prima nomina la domanda. L'ordine conta: "gas naturale"
+    // prima di "gas", "minerale di ferro" prima di "ferro".
+    const QUALE = [['gasNaturale', ['gas natural', 'gas']], ['terreRare', ['terre rare', 'terr rare']],
+      ['oro', ['oro']], ['argento', ['argento']], ['platino', ['platino']], ['rame', ['rame']],
+      ['petrolio', ['petrolio', 'greggio', 'brent']], ['ferro', ['ferro', 'acciaio']],
+      ['alluminio', ['alluminio']], ['nichel', ['nichel']], ['zinco', ['zinco']],
+      ['piombo', ['piombo']], ['stagno', ['stagno']], ['carbone', ['carbone']]];
+    const qualeMateria = (d) => {
+      const n = normalizza(d);
+      for (const [k, alias] of QUALE) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) return k;
+      return null;
+    };
+
+    if (intento === 'quanto-e-salito' || intento === 'materie-prime') {
+      const k = qualeMateria(domanda);
+      if (!k) {
+        const q = mp.quanteScommesseDavvero();
+        return { intent: 'mercato-materie', data: q, answer: `Ho i prezzi di ${mp.MATERIE.length} materie prime dal 1960: metalli preziosi, metalli industriali ed energia. Una cosa che si vede subito guardandole insieme: dentro la stessa famiglia si muovono quasi all'unisono (l'oro e l'argento vanno insieme ${Math.round(q.piuLegate[0].r * 100)} volte su cento), quindi comprarne tre della stessa famiglia non e' diversificare, e' fare la stessa scommessa tre volte. L'unica davvero scollegata dal resto e' il gas naturale, perche' e' un mercato locale: non si carica su una nave come il petrolio. Dimmi quale ti interessa e ti dico com'e' andata davvero, tolta l'inflazione.` };
+      }
+      if (k === 'terreRare') return { intent: 'mercato-terre-rare', data: mp.terreRareSonoAzioni(), answer: TERRE_RARE_RISPOSTA(mp) };
+      const g = mp.ingannoNominale(k);
+      const t = mp.tempoPerTornareInPari(k);
+      return { intent: 'mercato-materie', data: { inganno: g, attesa: t }, answer: `${mp.ingannoText(g)} ${mp.attesaText(t)}` };
+    }
+
+    if (intento === 'terre-rare') {
+      return { intent: 'mercato-terre-rare', data: mp.terreRareSonoAzioni(), answer: TERRE_RARE_RISPOSTA(mp) };
+    }
+
+    if (intento === 'inflazione-protezione') {
+      const k = qualeMateria(domanda) || 'oro';
+      if (k === 'terreRare') return { intent: 'mercato-terre-rare', data: mp.terreRareSonoAzioni(), answer: TERRE_RARE_RISPOSTA(mp) };
+      const p = mp.protezioneDallInflazione(k);
+      if (!p.valido) return { intent: 'mercato-inflazione', answer: `Su ${k} non ho abbastanza storia per rispondere sull'inflazione senza tirare a indovinare.` };
+      const verdetto = p.proteggeDavvero
+        ? `Si', e non e' solo una frase fatta: nei dieci anni piu' inflazionati ha reso il ${p.conInflazioneAlta.rendimentoRealeAnnuo}% l'anno oltre l'inflazione, contro il ${p.conInflazioneBassa.rendimentoRealeAnnuo}% degli altri periodi, ed e' andata bene ${Math.round(p.conInflazioneAlta.quotaPositive * 100)} volte su cento.`
+        : p.conInflazioneAlta.rendimentoRealeAnnuo > p.conInflazioneBassa.rendimentoRealeAnnuo
+          ? `In media si', ma non abbastanza spesso da poterci contare: ha funzionato solo ${Math.round(p.conInflazioneAlta.quotaPositive * 100)} volte su cento. Una media alta trascinata da pochi casi fortunati non e' una protezione.`
+          : `No. Nei periodi di inflazione alta ha reso il ${p.conInflazioneAlta.rendimentoRealeAnnuo}% l'anno oltre l'inflazione, cioe' meno che nei periodi tranquilli. Il fatto che sia una cosa fisica non vuol dire che tenga il valore.`;
+      return conAvviso({ intent: 'mercato-inflazione', data: p, answer: `${p.nome} contro l'inflazione, misurato su ${p.finestre} finestre di dieci anni dal 1960. ${verdetto}` });
+    }
+
+    if (intento === 'immobiliare') {
+      // Se la domanda nomina un Paese, si risponde su quello; se chiede del
+      // mondo, sul mondo; altrimenti la panoramica globale.
+      const n = normalizza(domanda);
+      const paese = Object.entries(mp.NOMI_IMMOBILIARE).find(([, nome]) => n.includes(normalizza(nome)))?.[0]
+        ?? (ha(n, 'itali') ? 'italia' : null);
+      if (paese && !ha(n, 'mondo', 'altri paesi', 'resto del')) {
+        return { intent: 'mercato-immobiliare', data: mp.ciclioImmobiliari(paese), answer: mp.immobiliareText(mp.ciclioImmobiliari(paese)) };
+      }
+      const cont = ['Europa', 'Asia', 'America', 'Oceania', 'Africa'].find((c) => n.includes(normalizza(c)));
+      const c = mp.confrontoImmobiliareMondo(cont ? { continente: cont } : {});
+      return { intent: 'mercato-immobiliare', data: c, answer: mp.mondoImmobiliareText(c) };
+    }
+
     if (intento === 'sentiment') {
       // Se la domanda nomina un mercato, si risponde su quello.
       const solo = posiz.mercatoNominato(domanda);
