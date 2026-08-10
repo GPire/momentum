@@ -66,7 +66,16 @@ const mese = (d) => d.toISOString().slice(0, 7);
 
 // Genera ~6 settimane di vita finanziaria plausibile, ordinata nel tempo.
 // `now` iniettabile: i test non dipendono dall'orologio.
-export function generateDemoTransactions({ now = new Date(), weeks = 6, seed = 20260806 } = {}) {
+// QUATTORDICI settimane e non sei. Sei bastavano a far vedere "com'e' l'app
+// piena", ma contengono UNA SOLA busta paga — e con una sola non si puo'
+// dedurre nessuno schema. La striscia del mese, che mostra quando arrivano i
+// soldi, restava muta proprio per l'utente nuovo: cioe' l'unico che il demo
+// serve a convincere. Tre mesi e mezzo danno tre stipendi, che e' il minimo
+// per dire "il tuo stipendio arriva il 27" senza indovinare.
+// La scelta giusta era allungare il demo, non abbassare la soglia: la soglia
+// protegge dal vedere schemi dove non ci sono, e piegarla per far funzionare
+// una demo sarebbe stato barare con l'utente vero.
+export function generateDemoTransactions({ now = new Date(), weeks = 14, seed = 20260806 } = {}) {
   const rnd = lcg(seed);
   const pick = (min, max) => +(min + rnd() * (max - min)).toFixed(2);
   const out = [];

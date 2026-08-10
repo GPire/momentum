@@ -67,6 +67,7 @@ import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
 import { generateDemoTransactions, fadeDemo, demoStatus, mergeDemoForDisplay, DEMO_FADE_AT } from './ui/demo-dataset.js';
+import { statoDelMese, stripHtml } from './ui/mese-strip.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -1488,14 +1489,22 @@ const renderDashboard = () => {
     // La riga sotto compare solo quando toglie una paura o aggiunge il contesto
     // che manca. Mai come commento perenne: una spiegazione sempre presente
     // diventa arredamento e smette di essere letta.
-    // La riga di contesto va FUORI dal cerchio: dentro appesantiva e sbordava.
+    // ── SOTTO L'ORB: UNA STRISCIA, NON UNA FRASE ──
+    // Qui c'era "Questo mese hai speso X, e lo stipendio deve ancora
+    // arrivare." Vera e utile, ma un paragrafo di prosa in mezzo allo spazio
+    // vuoto sotto un cerchio — l'utente l'ha bocciata e aveva ragione.
+    // Quella frase diceva tre cose che sono tutte POSIZIONI NEL TEMPO: a che
+    // punto del mese sei, quanto hai speso, quando entrano i soldi. Una riga
+    // disegnata le mostra in un colpo d'occhio; una frase costringe a
+    // ricostruirle leggendo.
+    // Ed e' piu' precisa: "deve ancora arrivare" non distingue tre giorni da
+    // diciotto, che sono situazioni completamente diverse. La striscia si'.
     const contesto = $('#orb-contesto');
     if (contesto) {
-      const frase = azionabile !== null
-        ? `Questo mese hai speso ${formatMoney(exp)}${entrataAncoraDaVenire ? ', e lo stipendio deve ancora arrivare' : ''}.`
-        : entrataAncoraDaVenire ? 'Lo stipendio deve ancora arrivare: è normale.' : '';
-      contesto.textContent = frase;
-      contesto.classList.toggle('hidden', !frase);
+      const stato = statoDelMese(displayAllTx(), { oggi: realNow, speso: exp });
+      const html = isCurrentMonth ? stripHtml(stato, { formatMoney }) : '';
+      contesto.innerHTML = html;
+      contesto.classList.toggle('hidden', !html);
     }
     const spiega = '';
     orbText.innerHTML = `
