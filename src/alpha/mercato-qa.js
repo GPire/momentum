@@ -181,6 +181,12 @@ export function intentoMercato(domanda) {
   if (ha(q, 'quanto posso perdere', 'perdita massima', 'caso peggiore', 'quanto rischio di perdere', 'scenario peggiore')) return 'perdita-massima';
   if (ha(q, 'se tornasse', 'se si ripetesse', 'e se succedesse di nuovo', 'come nel 2008', 'un altro 2008', 'ripetesse il')) return 'scenario-storico';
   if (ha(q, 'quanto dura', 'quanto durano', 'quanto tempo per recuperare', 'quando recupera', 'tempi di recupero', 'mercato orso')) return 'durata-orso';
+  // Il SENTIMENT vero: dove sono schierati gli operatori con soldi veri.
+  // "Sentiment" da solo non basta come parola chiave — chi lo scrive puo'
+  // intendere l'umore generale — ma insieme a mercato/operatori/trader si'.
+  if (ha(q, 'posizionament', 'cot', 'commitments of traders', 'speculator')) return 'sentiment';
+  if (ha(q, 'sentiment', 'umore del mercato', 'come sono messi', 'da che parte stanno', 'tutti dalla stessa parte', 'euforia', 'panico')) return 'sentiment';
+
   if (ha(q, 'cosa non sai', 'cosa non puoi', 'quali sono i tuoi limiti', 'di cosa non sei sicuro', 'dove sbagli', 'cosa ti manca')) return 'limiti';
   if (ha(q, 'quanto e affidabile', 'quanto ti posso credere', 'quanto sono affidabili', 'che affidabilita')) return 'limiti';
   if (ha(q, 'cosa e successo', 'cos e successo', 'che e successo', 'cosa succes', 'com e andata', 'perche e crollat', 'crollo di', 'cosa ando storto')) return 'evento';
@@ -215,7 +221,8 @@ export function precarica() {
     import('./eventi.js'), import('./rifugi.js'), import('./global-stress.js'),
     import('./macro-regime.js'), import('./quadro-unico.js'), import('./market-stress.js'),
     import('./historical-sequences.js'), import('./freschezza.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco]) => {
+    import('./posizionamento.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -227,7 +234,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -247,17 +254,39 @@ export function rispostaSincrona(domanda) {
   const intento = intentoMercato(domanda);
   if (!intento) return null;
   if (!MODULI) { precarica(); return null; }
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
   // successe nel 2008".
-  const SUL_PRESENTE = new Set(['regime', 'recessione', 'scenario-storico']);
+  const SUL_PRESENTE = new Set(['regime', 'recessione', 'scenario-storico', 'sentiment']);
   const conAvviso = (r) => (r && AVVISO_FRESCHEZZA && SUL_PRESENTE.has(intento)
     ? { ...r, answer: `${r.answer} ${AVVISO_FRESCHEZZA}`, datiNonFreschi: true }
     : r);
 
   try {
+    if (intento === 'sentiment') {
+      // Se la domanda nomina un mercato, si risponde su quello.
+      const solo = posiz.mercatoNominato(domanda);
+      if (solo) {
+        const m = posiz.quadroMercato(solo);
+        if (m) return conAvviso({ intent: 'mercato-sentiment', data: m, answer: posiz.mercatoText(m) });
+      }
+      const q = posiz.quadroPosizionamento();
+      // Alla risposta si attacca sempre il CONTROLLO: su quali mercati il
+      // posizionamento estremo dice davvero qualcosa e su quali no. Dare il
+      // dato senza dire dove non funziona sarebbe la meta' utile e la meta'
+      // pericolosa della stessa informazione.
+      const prova = ['azioniUsa', 'oro', 'titoliStato', 'euro', 'bitcoin']
+        .map((k) => posiz.estremiSonoSpeciali(k)).filter((r) => r.valido);
+      const dove = prova.filter((r) => r.specialiDavvero).map((r) => r.nome);
+      const noDove = prova.filter((r) => !r.specialiDavvero).map((r) => r.nome);
+      let coda = '';
+      if (dove.length) coda += ` Su ${dove.join(', ')} uno schieramento estremo ha storicamente detto qualcosa in più del semplice rientro verso la media.`;
+      if (noDove.length) coda += ` Su ${noDove.join(' e ')} invece no: lì gli estremi rientrano esattamente come farebbe qualsiasi serie che oscilla, quindi non ci leggerei un segnale.`;
+      return conAvviso({ intent: 'mercato-sentiment', data: { quadro: q, controllo: prova }, answer: posiz.posizionamentoText(q) + coda });
+    }
+
     if (intento === 'evento') {
       const p = estraiPeriodo(domanda);
       if (!p) return { intent: 'mercato-evento', answer: 'Di quale periodo parli? Dimmi un mese e un anno, per esempio "aprile 2025".' };
