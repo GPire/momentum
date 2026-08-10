@@ -10054,7 +10054,15 @@ const initApp = () => {
       case 'budget-left': return buildSafeToSpendChart(res.data);
       case 'month-end': return buildMonthEndChart(res.data, ctx?.monthlyBudget);
       case 'payday': return buildPaydayChart(res.data);
-      default: return '';
+      default:
+        // I moduli di mercato (src/alpha/) producono il proprio SVG come
+        // funzione PURA, accanto ai dati che lo generano: sono testabili senza
+        // DOM, cosa che i costruttori qui sopra non sono. Invece di duplicare
+        // un secondo motore di grafici, questo ramo li fa passare. La regola:
+        // chi calcola il numero disegna anche il grafico, cosi' testo e figura
+        // non possono raccontare due cose diverse.
+        return [res.grafico, res.grafico2].filter(Boolean)
+          .map((g) => `<div class="qa-grafico mt-2.5">${g}</div>`).join('');
     }
   }
   function styleQaAnswer(res) {

@@ -1558,6 +1558,13 @@
 
     .nav-btn svg { transition: transform 0.3s; }
     .nav-btn:hover svg { transform: translateY(-2px); }
+  
+    /* I grafici delle risposte di mercato. Ereditano il colore del testo
+       (currentColor) invece di imporne uno: cosi' funzionano identici sul
+       tema chiaro e su quello scuro senza una seconda serie di regole. */
+    .qa-grafico { opacity: .92; }
+    .qa-grafico svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .qa-grafico + .qa-grafico { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
   </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row relative">

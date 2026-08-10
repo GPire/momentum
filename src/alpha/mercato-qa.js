@@ -189,7 +189,7 @@ export function intentoMercato(domanda) {
   // CICLI, HYPE, DIREZIONE. La domanda "sta per scendere?" e' la piu' comune
   // di tutte e la piu' facile da rovinare: la risposta onesta non e' un si' o
   // un no, e' quante volte e' andata in un modo o nell'altro.
-  if (ha(q, 'e salito troppo', 'troppo caro', 'bolla', 'hype', 'euforia', 'sta per scendere', 'sta per crollare', 'e il momento di')) return 'hype';
+  if (ha(q, 'e salito troppo', 'e salita troppo', 'salito troppo', 'salita troppo', 'troppo caro', 'bolla', 'hype', 'euforia', 'sta per scendere', 'sta per crollare', 'e il momento di')) return 'hype';
   if (ha(q, 'dove siamo nel ciclo', 'a che punto', 'in che fase', 'dove siamo')) return 'dove-siamo';
   // ATTENZIONE all'ordine e alla forma: "si ripetesse il 2008" contiene
   // "si ripete" ed e' uno SCENARIO STORICO, non una domanda sui cicli. La
@@ -197,6 +197,8 @@ export function intentoMercato(domanda) {
   // il loro mestiere.
   if (!ha(q, 'se si ripetesse', 'se tornasse', 'ripetesse il')
     && ha(q, 'cicli', 'ciclo di mercato', 'si ripetono', 'schemi ricorrenti', 'quanto durano le bolle')) return 'cicli';
+  if (ha(q, 'fed', 'banca centrale', 'tassi di interesse', 'alza i tassi', 'taglia i tassi', 'fomc')) return 'fed';
+  if (ha(q, 'notizie', 'novita', 'ultime news', 'cosa dicono', 'comunicati')) return 'notizie';
   if (ha(q, 'anticipa', 'quale mercato prevede', 'segnale anticipat', 'cosa viene prima')) return 'anticipi';
 
   // Le domande di SEGUITO ("e nel resto del mondo?", "e in Asia?") non hanno
@@ -260,7 +262,8 @@ export function precarica() {
     import('./macro-regime.js'), import('./quadro-unico.js'), import('./market-stress.js'),
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci]) => {
+    import('./grafici.js'), import('./notizie.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -272,7 +275,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -310,12 +313,12 @@ export function rispostaSincrona(domanda) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
   // successe nel 2008".
-  const SUL_PRESENTE = new Set(['regime', 'recessione', 'scenario-storico', 'sentiment', 'hype', 'dove-siamo']);
+  const SUL_PRESENTE = new Set(['regime', 'recessione', 'scenario-storico', 'sentiment', 'hype', 'dove-siamo', 'fed']);
   const conAvviso = (r) => (r && AVVISO_FRESCHEZZA && SUL_PRESENTE.has(intento)
     ? { ...r, answer: `${r.answer} ${AVVISO_FRESCHEZZA}`, datiNonFreschi: true }
     : r);
@@ -334,16 +337,49 @@ export function rispostaSincrona(domanda) {
       return null;
     };
 
-    if (intento === 'hype') return conAvviso({ intent: 'mercato-hype', data: ci.cosaSuccedeDopo(), answer: ci.hypeText() });
-    if (intento === 'cicli') return { intent: 'mercato-cicli', data: ci.episodi(), answer: ci.cicliText() };
+    if (intento === 'hype') {
+      const d = ci.cosaSuccedeDopo();
+      return conAvviso({
+        intent: 'mercato-hype', data: d, answer: ci.hypeText(),
+        // Il grafico non ripete la frase: mostra la cosa che la frase fa
+        // fatica a rendere, cioe' che la fascia dei risultati possibili dopo
+        // una corsa e' molto piu' larga.
+        grafico: gr.graficoPrevisione(d.perStato.corsa, 'dopo una corsa, nei tre anni successivi'),
+        grafico2: gr.graficoPrevisione(d.perStato.quiete, 'dopo un periodo tranquillo, per confronto'),
+      });
+    }
+
+    if (intento === 'fed' || intento === 'notizie') {
+      const r = nz.reazioneAllaFed('azioniUsa');
+      const conf = ['azioniUsa', 'tecnologia', 'titoliStato', 'oro'].map((m) => {
+        const x = nz.reazioneAllaFed(m);
+        return x.valido ? { nome: x.nome, valore: x.ampiezzaMediaNeiGiorniFed, colore: undefined } : null;
+      }).filter(Boolean);
+      return conAvviso({
+        intent: 'mercato-fed', data: r, answer: nz.reazioneText(r),
+        grafico: gr.graficoConfronto(conf, 'quanto si muovono nei giorni in cui la Fed muove i tassi'),
+      });
+    }
     if (intento === 'anticipi') return { intent: 'mercato-anticipi', data: ci.chiAnticipaChi(), answer: ci.anticipiText() };
+    if (intento === 'cicli') {
+      const e = ci.episodi();
+      return { intent: 'mercato-cicli', data: e, answer: ci.cicliText(),
+        grafico: gr.graficoConfronto(e.episodi.map((x) => ({ nome: `${x.nome} ${x.annoPicco}`, valore: x.caduta })), 'quanto hanno perso dal massimo') };
+    }
+
     if (intento === 'dove-siamo') {
       const n = normalizza(domanda);
       const m = Object.keys(ci.NOMI).find((k) => n.includes(normalizza(ci.NOMI[k])))
         || (ha(n, 'oro') ? 'oro' : ha(n, 'petrolio') ? 'petrolio' : ha(n, 'rame') ? 'rame'
           : ha(n, 'casa', 'case', 'immobil') ? 'caseItalia' : 'azioni');
       const d = ci.doveSiamo(m);
-      return conAvviso({ intent: 'mercato-ciclo-posizione', data: d, answer: ci.doveSiamoText(d) || `Su ${m} non ho abbastanza storia per dire a che punto siamo.` });
+      const serie = ci.griglia()[m];
+      return conAvviso({
+        intent: 'mercato-ciclo-posizione', data: d,
+        answer: ci.doveSiamoText(d) || `Su ${m} non ho abbastanza storia per dire a che punto siamo.`,
+        grafico: serie ? gr.graficoSerie(serie, ci.ANNI.map(String), `${ci.NOMI[m]}, al netto dell'inflazione`) : null,
+        grafico2: gr.graficoPrevisione(d.ederaSuccessoDopo, 'come e\' andata le altre volte da qui'),
+      });
     }
 
     if (intento === 'quanto-e-salito' || intento === 'materie-prime') {
@@ -355,7 +391,14 @@ export function rispostaSincrona(domanda) {
       if (k === 'terreRare') return { intent: 'mercato-terre-rare', data: { etf: mp.terreRareSonoAzioni(), storia: tr.scarsitaOSconcentrazione(), panico: tr.panicoDel2010() }, answer: TERRE_RARE_RISPOSTA(mp, tr) };
       const g = mp.ingannoNominale(k);
       const t = mp.tempoPerTornareInPari(k);
-      return { intent: 'mercato-materie', data: { inganno: g, attesa: t }, answer: `${mp.ingannoText(g)} ${mp.attesaText(t)}` };
+      const reale = mp.serieReale(k);
+      return {
+        intent: 'mercato-materie', data: { inganno: g, attesa: t },
+        answer: `${mp.ingannoText(g)} ${mp.attesaText(t)}`,
+        // La serie REALE, non quella nominale: il grafico deve mostrare la
+        // stessa cosa di cui parla il testo, altrimenti si contraddicono.
+        grafico: reale ? gr.graficoSerie(gr.assottiglia(reale, 180), null, `${g.nome} al netto dell'inflazione, dal ${g.da}`) : null,
+      };
     }
 
     if (intento === 'terre-rare') {
@@ -386,7 +429,13 @@ export function rispostaSincrona(domanda) {
       }
       const cont = ['Europa', 'Asia', 'America', 'Oceania', 'Africa'].find((c) => n.includes(normalizza(c)));
       const c = mp.confrontoImmobiliareMondo(cont ? { continente: cont } : {});
-      return { intent: 'mercato-immobiliare', data: c, answer: mp.mondoImmobiliareText(c) };
+      return {
+        intent: 'mercato-immobiliare', data: c, answer: mp.mondoImmobiliareText(c),
+        grafico: gr.graficoConfronto(
+          [...c.aree].sort((x, y) => x.oggiRispettoAlMassimo - y.oggiRispettoAlMassimo).slice(0, 12)
+            .map((a) => ({ nome: a.nome, valore: a.oggiRispettoAlMassimo })),
+          'quanto sono sotto il massimo storico, al netto dell\'inflazione'),
+      };
     }
 
     if (intento === 'sentiment') {
