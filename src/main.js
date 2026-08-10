@@ -10742,6 +10742,22 @@ const initApp = () => {
       styleQaAnswer(res);
       qaAnswer.classList.remove('hidden');
       haptic('light');
+      // I dati di mercato si caricano in sottofondo dopo l'avvio, e nei primi
+      // secondi non ci sono. Chi chiedeva subito "quanto e' salito l'oro"
+      // riceveva un "questa non la so ancora" — un rifiuto secco a una domanda
+      // che l'app sa benissimo. Trovato provando dal vivo, invisibile ai test
+      // perche' li' il precaricamento e' sempre gia' finito.
+      // Ora la domanda si rifa' da sola appena gli archivi sono pronti:
+      // l'utente vede il messaggio d'attesa trasformarsi nella risposta vera
+      // senza dover ridigitare niente.
+      if (res?.inCaricamento) {
+        precaricaMercato().then(() => {
+          if (qaInput.value.trim() !== question) return; // ha gia' chiesto altro
+          const secondo = askMomentum(question);
+          if (!secondo?.inCaricamento) { styleQaAnswer(secondo); haptic('light'); }
+        }).catch(() => {});
+        return;
+      }
       const keys = VaultDAO.state.liveDataKeys || {};
       const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;
       if (res.intent === 'unknown' && !hasCloudKey) {

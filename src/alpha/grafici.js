@@ -24,6 +24,25 @@
 // 5. **Si adatta al tema chiaro e scuro** usando `currentColor`, così eredita
 //    il colore del testo intorno invece di imporne uno.
 //
+// E LE REGOLE DI LETTURA, che sono la parte che decide se un grafico lo capisce
+// anche chi non ha mai visto un grafico:
+//
+// 6. **Un solo numero protagonista**, scritto grande. L'occhio cerca un punto
+//    di ancoraggio: se tutti i numeri hanno la stessa dimensione non ne trova
+//    nessuno e legge il grafico come un blocco di rumore.
+// 7. **Una riga in italiano che dice cosa si sta guardando**, sotto il
+//    disegno. Non la didascalia tecnica: la frase che direbbe una persona.
+//    È quello che rende il grafico leggibile da un bambino di otto anni, e non
+//    toglie niente a chi il grafico lo sa già leggere.
+// 8. **Il movimento porta significato o non c'è.** Le barre crescono DALLA
+//    LINEA DELLO ZERO verso fuori, così la base si sente invece di doverla
+//    cercare; la linea si disegna da sinistra a destra, che è la direzione del
+//    tempo. Nessuna animazione decorativa: ogni movimento dice una cosa.
+// 9. **Chi ha chiesto meno movimento non lo riceve.** Tutte le animazioni
+//    stanno dentro una classe CSS che `prefers-reduced-motion` spegne. Non è
+//    un dettaglio di cortesia: per una parte delle persone le animazioni
+//    causano nausea vera.
+//
 // Funzioni PURE: entra un array, esce una stringa SVG. Nessun DOM.
 'use strict';
 
@@ -43,20 +62,25 @@ const num = (x, d = 0) => (Number.isFinite(x) ? x.toFixed(d) : '0');
 // Quanti punti servono perché un grafico non sia una decorazione.
 export const POCHI_PUNTI = 8;
 
-function cornice(larghezza, altezza, titolo, corpo, nota) {
+// La spiegazione in italiano semplice viene FUORI dall'SVG, come testo vero:
+// dentro l'SVG sarebbe un'immagine per chi usa un lettore di schermo e non si
+// potrebbe selezionare né mandare a capo.
+function cornice(larghezza, altezza, titolo, corpo, nota, spiegazione) {
   const h = altezza + (nota ? 16 : 0);
-  return `<svg viewBox="0 0 ${larghezza} ${h}" width="100%" height="auto" role="img" `
+  const svg = `<svg viewBox="0 0 ${larghezza} ${h}" width="100%" height="auto" role="img" `
     + `aria-label="${esc(titolo)}" font-family="inherit" font-size="10" fill="${NEUTRO}" `
     + `preserveAspectRatio="xMidYMid meet" style="max-width:100%;overflow:visible">`
     + `<title>${esc(titolo)}</title>${corpo}`
     + (nota ? `<text x="0" y="${h - 3}" opacity="0.6" font-size="9">${esc(nota)}</text>` : '')
     + '</svg>';
+  if (!spiegazione) return svg;
+  return `<figure class="g-fig">${svg}<figcaption class="g-dice">${esc(spiegazione)}</figcaption></figure>`;
 }
 
 // ── LA LINEA: una serie nel tempo ──
 // Usata per i prezzi reali, dove il punto è la forma della curva e non il
 // livello assoluto.
-export function linea(valori, { etichette = null, titolo = 'andamento', larghezza = 320, altezza = 90, evidenzia = null, unita = '' } = {}) {
+export function linea(valori, { etichette = null, titolo = 'andamento', larghezza = 320, altezza = 90, evidenzia = null, unita = '', spiegazione = null } = {}) {
   const punti = valori.map((v, i) => ({ v, i })).filter((p) => Number.isFinite(p.v));
   if (punti.length < 2) return null;
   const vals = punti.map((p) => p.v);
@@ -69,11 +93,16 @@ export function linea(valori, { etichette = null, titolo = 'andamento', larghezz
   const ultimo = punti[punti.length - 1], primo = punti[0];
   const sale = ultimo.v >= primo.v;
 
-  let corpo = `<path d="${d}" fill="none" stroke="${sale ? POSITIVO : NEGATIVO}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // `pathLength` normalizzato a 100 permette di animare il tracciamento senza
+  // sapere quanto e' lungo davvero il percorso: la classe CSS fa il resto, e
+  // sparisce da sola con prefers-reduced-motion.
+  let corpo = `<path class="g-traccia" pathLength="100" d="${d}" fill="none" stroke="${sale ? POSITIVO : NEGATIVO}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
   // Il massimo storico marcato: è quasi sempre il punto che interessa.
   const iMax = punti.reduce((a, b) => (b.v > a.v ? b : a), punti[0]);
-  corpo += `<circle cx="${num(x(iMax.i), 1)}" cy="${num(y(iMax.v), 1)}" r="2.2" fill="${NEUTRO}" opacity="0.5"/>`;
-  corpo += `<circle cx="${num(x(ultimo.i), 1)}" cy="${num(y(ultimo.v), 1)}" r="2.6" fill="${sale ? POSITIVO : NEGATIVO}"/>`;
+  corpo += `<circle cx="${num(x(iMax.i), 1)}" cy="${num(y(iMax.v), 1)}" r="2.2" fill="${NEUTRO}" opacity="0.45"/>`;
+  // Il punto di oggi pulsa una volta sola all'arrivo: e' il posto dove
+  // l'occhio deve fermarsi, e un movimento breve ce lo porta senza gridare.
+  corpo += `<circle class="g-oggi" cx="${num(x(ultimo.i), 1)}" cy="${num(y(ultimo.v), 1)}" r="3" fill="${sale ? POSITIVO : NEGATIVO}"/>`;
   if (evidenzia && Number.isFinite(evidenzia.da) && Number.isFinite(evidenzia.a)) {
     corpo = `<rect x="${num(x(evidenzia.da), 1)}" y="${padY}" width="${num(Math.max(1, x(evidenzia.a) - x(evidenzia.da)), 1)}" height="${h}" fill="${NEUTRO}" opacity="0.08"/>` + corpo;
   }
@@ -82,9 +111,29 @@ export function linea(valori, { etichette = null, titolo = 'andamento', larghezz
     corpo += `<text x="${larghezza}" y="${altezza - 0.5}" text-anchor="end" opacity="0.6">${esc(etichette[ultimo.i])}</text>`;
   }
   // Il valore finale scritto: il grafico mostra la forma, il numero dà la scala.
-  corpo += `<text x="${larghezza}" y="10" text-anchor="end" font-weight="600">${esc(formattaValore(ultimo.v, unita))}</text>`;
+  // IL NUMERO PROTAGONISTA: uno solo, grande. Gli altri restano piccoli.
+  corpo += `<text class="g-eroe" x="${larghezza}" y="11" text-anchor="end" font-size="14" font-weight="700">${esc(formattaValore(ultimo.v, unita))}</text>`;
   const nota = punti.length < POCHI_PUNTI ? `solo ${punti.length} punti: la forma dice poco` : null;
-  return cornice(larghezza, altezza, titolo, corpo, nota);
+  // Se non gliela danno, la spiegazione se la scrive da sola guardando i dati.
+  const auto = spiegazione ?? spiegaLinea(punti, etichette, sale, iMax, ultimo);
+  return cornice(larghezza, altezza, titolo, corpo, nota, auto);
+}
+
+// La frase che direbbe una persona guardando questa linea. Non "trend
+// rialzista": "oggi vale piu' di quando parte il grafico".
+function spiegaLinea(punti, etichette, sale, iMax, ultimo) {
+  const primo = punti[0];
+  const et = (i) => (etichette && etichette[i] ? etichette[i] : null);
+  const daQuando = et(primo.i) ? ` rispetto al ${et(primo.i)}` : ' rispetto all\'inizio del grafico';
+  const volte = primo.v > 0 ? ultimo.v / primo.v : null;
+  const quanto = volte === null ? ''
+    : volte >= 1.6 ? ` (circa ${volte.toFixed(1)} volte tanto)`
+      : volte <= 0.7 ? ` (circa ${Math.round((1 - volte) * 100)}% in meno)` : '';
+  const sottoIlMassimo = iMax.v > 0 ? ultimo.v / iMax.v - 1 : 0;
+  const coda = sottoIlMassimo < -0.05 && et(iMax.i)
+    ? ` Il puntino grigio e' il massimo, toccato nel ${et(iMax.i)}: da li' siamo ancora ${Math.abs(Math.round(sottoIlMassimo * 100))}% sotto.`
+    : '';
+  return `La linea sale se il valore cresce. Oggi vale ${sale ? 'di piu\'' : 'di meno'}${daQuando}${quanto}.${coda}`;
 }
 
 function formattaValore(v, unita) {
@@ -95,17 +144,26 @@ function formattaValore(v, unita) {
 
 // ── LE BARRE: un confronto fra poche cose ──
 // La base è sempre lo zero, e i valori negativi vanno sotto la linea.
-export function barre(voci, { titolo = 'confronto', larghezza = 320, altezzaBarra = 18, percentuale = true } = {}) {
+export function barre(voci, { titolo = 'confronto', larghezza = 320, altezzaBarra = 20, percentuale = true, spiegazione = null } = {}) {
   const dati = (voci || []).filter((v) => v && Number.isFinite(v.valore));
   if (!dati.length) return null;
   const max = Math.max(...dati.map((d) => Math.abs(d.valore))) || 1;
   const etLarg = 118, gap = 4;
   const zonaBarra = larghezza - etLarg - 46;
-  const haNegativi = dati.some((d) => d.valore < 0);
-  // Con valori di segno diverso lo zero sta in mezzo; se sono tutti dello
-  // stesso segno si usa tutta la larghezza.
-  const zeroX = haNegativi ? etLarg + zonaBarra / 2 : etLarg;
-  const scala = haNegativi ? (zonaBarra / 2) / max : zonaBarra / max;
+  // ERRORE VISTO SOLO GUARDANDO IL GRAFICO VERO, non i test: il controllo era
+  // "esiste almeno un valore negativo", e con dodici Paesi tutti sotto zero
+  // finiva per dividere l'asse in due lasciando meta' figura vuota. Le
+  // differenze fra i Paesi sembravano la meta' di quanto sono, che e'
+  // esattamente il tipo di distorsione che le regole di questo file dovevano
+  // impedire. La domanda giusta non e' "c'e' un negativo" ma "ci sono
+  // ENTRAMBI i segni": solo allora lo zero deve stare in mezzo.
+  const conNegativi = dati.some((d) => d.valore < 0);
+  const conPositivi = dati.some((d) => d.valore > 0);
+  const segniMisti = conNegativi && conPositivi;
+  // Tutti negativi: lo zero va a DESTRA e le barre crescono verso sinistra,
+  // cosi' il verso continua a dire il segno e la larghezza e' tutta usata.
+  const zeroX = segniMisti ? etLarg + zonaBarra / 2 : conNegativi ? etLarg + zonaBarra : etLarg;
+  const scala = (segniMisti ? zonaBarra / 2 : zonaBarra) / max;
   const altezza = dati.length * (altezzaBarra + gap) + 4;
   let corpo = '';
   dati.forEach((d, i) => {
@@ -114,14 +172,34 @@ export function barre(voci, { titolo = 'confronto', larghezza = 320, altezzaBarr
     const x0 = d.valore < 0 ? zeroX - lung : zeroX;
     const col = d.colore || (d.valore < 0 ? NEGATIVO : POSITIVO);
     corpo += `<text x="0" y="${yy + altezzaBarra * 0.72}" opacity="0.85">${esc(d.nome)}</text>`;
-    corpo += `<rect x="${num(x0, 1)}" y="${yy}" width="${num(Math.max(1, lung), 1)}" height="${altezzaBarra}" fill="${col}" opacity="0.75" rx="2"/>`;
+    // La barra cresce DALLA LINEA DELLO ZERO: `transform-origin` sullo zero e
+    // una scala orizzontale animata. Cosi' la base non e' una convenzione da
+    // ricordare, e' un punto da cui si vede partire il movimento. Le negative
+    // partono dallo zero verso sinistra, ed e' esattamente lo stesso gesto
+    // rovesciato: il verso si capisce prima di leggere il numero.
+    corpo += `<rect class="g-barra" style="transform-origin:${num(zeroX, 1)}px ${yy + altezzaBarra / 2}px;animation-delay:${(i * 45)}ms" `
+      + `x="${num(x0, 1)}" y="${yy}" width="${num(Math.max(1, lung), 1)}" height="${altezzaBarra}" fill="${col}" opacity="0.8" rx="3"/>`;
     const testo = percentuale ? `${d.valore > 0 ? '+' : ''}${(d.valore * 100).toFixed(1)}%` : formattaValore(d.valore, d.unita || '');
     corpo += `<text x="${larghezza}" y="${yy + altezzaBarra * 0.72}" text-anchor="end" font-weight="600">${esc(testo)}</text>`;
   });
   // La linea dello zero, che è il riferimento onesto.
-  corpo += `<line x1="${num(zeroX, 1)}" y1="0" x2="${num(zeroX, 1)}" y2="${altezza}" stroke="${NEUTRO}" stroke-width="0.7" opacity="0.35"/>`;
-  const nota = dati.length < 3 ? null : null;
-  return cornice(larghezza, altezza, titolo, corpo, nota);
+  corpo += `<line x1="${num(zeroX, 1)}" y1="0" x2="${num(zeroX, 1)}" y2="${altezza}" stroke="${NEUTRO}" stroke-width="0.8" opacity="0.4"/>`;
+  const auto = spiegazione ?? spiegaBarre(dati, segniMisti, conNegativi, percentuale);
+  return cornice(larghezza, altezza, titolo, corpo, null, auto);
+}
+
+function spiegaBarre(dati, segniMisti, conNegativi, percentuale) {
+  const ord = [...dati].sort((a, b) => b.valore - a.valore);
+  const su = ord[0], giu = ord[ord.length - 1];
+  const fmt = (v) => (percentuale ? `${v > 0 ? '+' : ''}${Math.round(v * 100)}%` : formattaValore(v, ''));
+  if (segniMisti) {
+    const quanti = dati.filter((d) => d.valore < 0).length;
+    return `La riga verticale in mezzo e' lo zero: le barre verso destra sono numeri positivi, quelle verso sinistra negativi. Qui ${quanti} su ${dati.length} sono sotto zero, e la peggiore e' ${giu.nome} (${fmt(giu.valore)}).`;
+  }
+  if (conNegativi) {
+    return `Sono tutti numeri negativi, quindi lo zero e' la riga a destra e le barre crescono verso sinistra: piu' la barra e' lunga, peggio e'. La peggiore e' ${giu.nome} (${fmt(giu.valore)}), la meno peggio ${su.nome} (${fmt(su.valore)}).`;
+  }
+  return `Barre piu' lunghe vuol dire numeri piu' grandi. Il piu' alto e' ${su.nome} (${fmt(su.valore)}), il piu' basso ${giu.nome} (${fmt(giu.valore)}).`;
 }
 
 // ── LA DISTRIBUZIONE: dove cade il caso tipico e dove cadono le code ──
@@ -147,7 +225,8 @@ export function distribuzione({ mediano, andataMale, andataBene, casi = null }, 
   corpo += `<text x="${num(x(andataBene), 1)}" y="${yBar - 6}" text-anchor="end" opacity="0.75">+${(andataBene * 100).toFixed(0)}%</text>`;
   corpo += `<text x="${num(x(mediano), 1)}" y="${yBar + hBar + 14}" text-anchor="middle" font-weight="600">tipico ${mediano > 0 ? '+' : ''}${(mediano * 100).toFixed(0)}%</text>`;
   const nota = casi !== null ? `su ${casi} casi storici` : null;
-  return cornice(larghezza, altezza, titolo, corpo, nota);
+  const spieg = `Ogni volta che in passato ci si e' trovati in questa situazione, il risultato e' caduto da qualche parte dentro la fascia grigia. La riga colorata e' il caso di mezzo: meta' delle volte e' andata meglio, meta' peggio. La fascia larga vuol dire che puo' andare molto diversamente, non che andra' male.`;
+  return cornice(larghezza, altezza, titolo, corpo, nota, spieg);
 }
 
 // ── I costruttori pronti, che è dove i grafici incontrano i dati ──

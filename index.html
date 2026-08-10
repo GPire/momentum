@@ -1212,7 +1212,26 @@
     .genesis-step { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(30px); text-align: center; padding: 2rem; }
     .genesis-step.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
     .genesis-step.past { opacity: 0; transform: translateY(-30px); }
-    .g-option { width: 100%; max-width: 320px; padding: 1.2rem; margin: 0.5rem 0; border-radius: 1.2rem; border: 1px solid var(--outline); background: var(--surface-elevated); font-weight: 800; text-align: center; transition: all 0.2s; cursor: pointer; color: var(--on-surface); }
+    /* IL BOTTONE SCHIACCIATO — bug trovato dall'utente e confermato misurando
+       il DOM: su schermi bassi il contenitore flex comprimeva il bottone a
+       40px contro i 62px che gli servivano (1,2rem di padding sopra e sotto +
+       24px di riga). Con `overflow:hidden` sopra, il testo finiva schiacciato
+       in fondo e tagliato. E' lo STESSO schema del bug della scena privacy: un
+       elemento con altezza propria dentro un contenitore flex viene ridotto in
+       silenzio, perche' `flex-shrink` vale 1 di default e nessuno lo dice.
+       Tre difese invece di una, perche' la prima da sola non basta:
+       - `flex: 0 0 auto` toglie il permesso di schiacciarlo;
+       - `min-height` fissa il pavimento anche fuori da un flex;
+       - `display:flex` + centratura mette il testo in mezzo per costruzione,
+         invece di affidarlo al calcolo del padding.
+       E 48px di minimo non e' un numero scelto a occhio: e' la dimensione
+       sotto la quale un bersaglio diventa difficile da centrare col pollice. */
+    .g-option { width: 100%; max-width: 320px; padding: 1rem 1.25rem; margin: 0.5rem 0; border-radius: 1.2rem; border: 1px solid var(--outline); background: var(--surface-elevated); font-weight: 800; text-align: center; transition: all 0.2s; cursor: pointer; color: var(--on-surface);
+      display: flex; align-items: center; justify-content: center;
+      flex: 0 0 auto; min-height: 48px; line-height: 1.25;
+      /* Su schermi molto stretti il testo va a capo invece di essere tagliato:
+         due righe leggibili battono una riga mozzata. */
+      white-space: normal; text-wrap: balance; }
     .g-option:active { transform: scale(0.95); background: var(--primary); color: white; }
     .haptic-ring-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
     .haptic-ring-fill { fill: none; stroke: var(--primary); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 408.4; stroke-dashoffset: 408.4; transition: stroke-dashoffset 0.1s linear; }
@@ -1474,6 +1493,10 @@
     }
     @keyframes hero-shine { 0% { background-position: 120% 0; } 55%, 100% { background-position: -20% 0; } }
     /* 2) CTA primaria: alone che "respira" + micro-lift all'hover, molla al tap. */
+    /* `overflow:hidden` serve a contenere il riflesso che scorre, ma era anche
+       quello che TAGLIAVA il testo quando il bottone veniva compresso. Ora il
+       bottone non si comprime piu', quindi non taglia niente: resta solo per
+       il riflesso. */
     #g-step-0 .g-option { position: relative; overflow: hidden; animation: cta-breathe 3.4s ease-in-out infinite; }
     @keyframes cta-breathe { 0%,100% { box-shadow: 0 8px 24px -6px rgba(99,102,241,.45); } 50% { box-shadow: 0 10px 34px -4px rgba(99,102,241,.75); } }
     /* 3) Shine diagonale che attraversa i pulsanti primari (glossy premium). */
@@ -1559,12 +1582,53 @@
     .nav-btn svg { transition: transform 0.3s; }
     .nav-btn:hover svg { transform: translateY(-2px); }
   
-    /* I grafici delle risposte di mercato. Ereditano il colore del testo
-       (currentColor) invece di imporne uno: cosi' funzionano identici sul
-       tema chiaro e su quello scuro senza una seconda serie di regole. */
-    .qa-grafico { opacity: .92; }
+    /* ── I GRAFICI DELLE RISPOSTE DI MERCATO ──
+       Ereditano il colore del testo (currentColor) invece di imporne uno:
+       cosi' funzionano identici sul tema chiaro e su quello scuro senza una
+       seconda serie di regole.
+
+       Le animazioni stanno TUTTE qui e non dentro l'SVG. Non e' una
+       preferenza stilistica: un'animazione SMIL scritta nel disegno non si
+       puo' spegnere, e sotto c'e' una regola prefers-reduced-motion che la
+       toglie. Per una parte delle persone le animazioni causano nausea vera,
+       e "l'ho chiesto al sistema operativo" deve bastare. */
+    .qa-grafico { opacity: .95; }
     .qa-grafico svg { display: block; width: 100%; height: auto; overflow: visible; }
-    .qa-grafico + .qa-grafico { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+    .qa-grafico + .qa-grafico { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+    .qa-grafico .g-fig { margin: 0; }
+    /* La frase che spiega il grafico: piu' piccola del testo della risposta ma
+       non sbiadita al punto da sembrare una nota legale. Chi ne ha bisogno la
+       deve leggere senza sforzo. */
+    .qa-grafico .g-dice {
+      margin-top: .45rem; font-size: 11px; line-height: 1.45;
+      color: color-mix(in srgb, currentColor 72%, transparent);
+    }
+
+    /* Il tracciato si disegna da sinistra a destra: e' la direzione del tempo,
+       e vedere la linea nascere aiuta a capire che l'asse orizzontale sono gli
+       anni. `pathLength="100"` rende la lunghezza indipendente dal percorso. */
+    @keyframes g-traccia-in { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+    .qa-grafico .g-traccia {
+      stroke-dasharray: 100; stroke-dashoffset: 100;
+      animation: g-traccia-in .9s cubic-bezier(.22,.61,.36,1) forwards;
+    }
+    /* Il punto di oggi compare quando la linea lo raggiunge, non prima. */
+    @keyframes g-oggi-in { 0% { r: 0; opacity: 0; } 70% { r: 5; opacity: 1; } 100% { r: 3; opacity: 1; } }
+    .qa-grafico .g-oggi { animation: g-oggi-in .5s ease-out .75s backwards; }
+    /* Le barre crescono dalla linea dello zero verso fuori. L'origine della
+       scala e' scritta nell'SVG perche' dipende da dove cade lo zero. */
+    @keyframes g-barra-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .qa-grafico .g-barra { animation: g-barra-in .55s cubic-bezier(.22,.61,.36,1) backwards; }
+    /* Il numero protagonista arriva per ultimo: prima la forma, poi la cifra. */
+    @keyframes g-eroe-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+    .qa-grafico .g-eroe { animation: g-eroe-in .4s ease-out .55s backwards; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .qa-grafico .g-traccia { stroke-dashoffset: 0; animation: none; }
+      .qa-grafico .g-oggi,
+      .qa-grafico .g-barra,
+      .qa-grafico .g-eroe { animation: none; }
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col md:flex-row relative">

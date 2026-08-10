@@ -330,3 +330,20 @@ test('"il mattone non scende mai" riceve 28 Paesi, non un\'opinione', async () =
   assert.match(r.answer, /Irlanda/);
   assert.ok(!/dovresti|ti consiglio/i.test(r.answer));
 });
+
+test('PRIMA che gli archivi siano pronti NON si dice "non lo so": si dice di riprovare', async () => {
+  // Il bug trovato provando dal vivo: nei primi secondi dopo l'avvio i moduli
+  // di mercato non sono ancora caricati, e la risposta cadeva nel rifiuto
+  // generico del QA. Un modulo importato fresco riproduce esattamente quello
+  // stato — con la cache calda il bug è invisibile, ed è il motivo per cui
+  // nessun test lo aveva visto.
+  const fresco = await import(`./mercato-qa.js?freddo=${Date.now()}`);
+  const r = fresco.rispostaSincrona('quanto è salito l\'oro dal 1980?');
+  assert.ok(r, 'una domanda riconosciuta non deve sparire nel nulla');
+  assert.equal(r.inCaricamento, true, 'il chiamante deve poter rifare la domanda da solo');
+  assert.match(r.answer, /riprova|istante/i);
+  assert.ok(!/non la so|non lo so/i.test(r.answer), 'non è vero che non la sa: la sa e basta aspettare');
+  // E una domanda che NON riguarda i mercati continua a non ricevere risposta
+  // da qui, anche a freddo: il ponte non deve rubare le domande altrui.
+  assert.equal(fresco.rispostaSincrona('quanto ho speso questo mese?'), null);
+});

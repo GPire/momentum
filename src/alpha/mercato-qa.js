@@ -298,6 +298,21 @@ const TERRE_RARE_RISPOSTA = (mp, tr) => {
   return base + coda;
 };
 
+// Le terre rare: la storia lunga merita il grafico piu' di ogni altra, perche'
+// "il prezzo reale e' sceso mentre la produzione cresceva" e' esattamente il
+// tipo di frase che una riga che scende rende immediata.
+const graficoTerreRare = (mp, tr, gr) => {
+  const s = tr.scarsitaOSconcentrazione();
+  const p = tr.panicoDel2010();
+  return {
+    intent: 'mercato-terre-rare',
+    data: { etf: mp.terreRareSonoAzioni(), storia: s, panico: p },
+    answer: TERRE_RARE_RISPOSTA(mp, tr),
+    grafico: gr.graficoSerie(tr.prezzoRealePerGrafico(), tr.anniPerGrafico(),
+      'prezzo delle terre rare al netto dell\'inflazione'),
+  };
+};
+
 // ── Le risposte ──
 export async function rispostaMercato(domanda) {
   await precarica();
@@ -309,7 +324,22 @@ export async function rispostaMercato(domanda) {
 export function rispostaSincrona(domanda) {
   const intento = intentoMercato(domanda);
   if (!intento) return null;
-  if (!MODULI) { precarica(); return null; }
+  if (!MODULI) {
+    // BUG TROVATO SOLO PROVANDO NEL BROWSER, e invisibile a ogni test perche'
+    // nei test il precaricamento e' sempre gia' finito. Nei primi secondi dopo
+    // l'avvio i moduli di mercato non ci sono ancora, e restituire `null`
+    // faceva cadere la domanda nel "questa non la so ancora" del QA generale.
+    // L'utente riceveva un rifiuto secco a una domanda che l'app sa
+    // benissimo, e non aveva modo di capire che bastava riprovare.
+    // Ora si dichiara lo stato e si segnala al chiamante che vale la pena
+    // richiedere: `inCaricamento` e' quello che main.js usa per rifare la
+    // domanda da sola appena i dati sono pronti.
+    precarica();
+    return {
+      intent: 'mercato-in-caricamento', inCaricamento: true, domanda,
+      answer: 'Sto ancora aprendo gli archivi storici di mercato — sono decenni di dati e ci metto un istante. Riprova fra un secondo.',
+    };
+  }
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
@@ -401,9 +431,7 @@ export function rispostaSincrona(domanda) {
       };
     }
 
-    if (intento === 'terre-rare') {
-      return { intent: 'mercato-terre-rare', data: { etf: mp.terreRareSonoAzioni(), storia: tr.scarsitaOSconcentrazione(), panico: tr.panicoDel2010() }, answer: TERRE_RARE_RISPOSTA(mp, tr) };
-    }
+    if (intento === 'terre-rare') return graficoTerreRare(mp, tr, gr);
 
     if (intento === 'inflazione-protezione') {
       const k = qualeMateria(domanda) || 'oro';
@@ -457,7 +485,14 @@ export function rispostaSincrona(domanda) {
       let coda = '';
       if (dove.length) coda += ` Su ${dove.join(', ')} uno schieramento estremo ha storicamente detto qualcosa in più del semplice rientro verso la media.`;
       if (noDove.length) coda += ` Su ${noDove.join(' e ')} invece no: lì gli estremi rientrano esattamente come farebbe qualsiasi serie che oscilla, quindi non ci leggerei un segnale.`;
-      return conAvviso({ intent: 'mercato-sentiment', data: { quadro: q, controllo: prova }, answer: posiz.posizionamentoText(q) + coda });
+      return conAvviso({
+        intent: 'mercato-sentiment', data: { quadro: q, controllo: prova },
+        answer: posiz.posizionamentoText(q) + coda,
+        // Il grafico mostra dove sta OGGI ogni mercato sulla scala 0-100: e'
+        // la cosa che il testo fatica a rendere, cinque numeri in fila.
+        grafico: gr.graficoConfronto(q.mercati.map((m) => ({ nome: m.nome, valore: (m.indice - 50) / 100 })),
+          'quanto sono schierati gli operatori, mercato per mercato'),
+      });
     }
 
     if (intento === 'evento') {

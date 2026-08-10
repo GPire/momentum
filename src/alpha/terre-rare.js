@@ -185,3 +185,15 @@ export function terreRareText() {
   }
   return parti.join(' ');
 }
+
+// ── Quello che serve per disegnarle ──
+// Il pannello ha anche gli anni senza prezzo (prima del 1922): passarli al
+// grafico creerebbe un buco iniziale lungo un quinto della figura.
+export function prezzoRealePerGrafico() {
+  const primo = TR_PREZZO_REALE.findIndex((x) => x !== null);
+  return primo < 0 ? [] : TR_PREZZO_REALE.slice(primo);
+}
+export function anniPerGrafico() {
+  const primo = TR_PREZZO_REALE.findIndex((x) => x !== null);
+  return primo < 0 ? [] : TR_ANNO.slice(primo).map(String);
+}
