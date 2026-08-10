@@ -68,6 +68,7 @@ test('se lo stipendio è già arrivato, il prossimo è quello del mese dopo', ()
 test('la striscia MOSTRA quello che la frase raccontava', () => {
   const tx = { '2026-05': [entrata('2026-05-27')], '2026-06': [entrata('2026-06-27')], '2026-07': [entrata('2026-07-27')], '2026-08': [uscita('2026-08-01', 650)] };
   const h = stripHtml(statoDelMese(tx, { oggi: new Date(2026, 7, 10), speso: 922.13 }), { formatMoney: (v) => `${v.toFixed(2)} €` });
+  assert.match(h, /ms-orbita/, 'la rotta e\' un arco, non una barra dritta');
   assert.match(h, /ms-oggi/);
   assert.match(h, /ms-paga/);
   assert.match(h, /stipendio fra 17 giorni/, 'il numero di giorni è l\'informazione che la frase non dava');
@@ -103,27 +104,11 @@ test('senza dati non si disegna niente invece di disegnare una striscia vuota', 
 test('i valori percentuali restano dentro i limiti anche con date strane', () => {
   for (const g of [1, 15, 28, 31]) {
     const h = stripHtml(statoDelMese({}, { oggi: new Date(2026, 0, g), speso: 10 }));
-    const perc = [...h.matchAll(/left:([\d.]+)%/g)].map((m) => +m[1]);
-    for (const p of perc) assert.ok(p >= 0 && p <= 100, `percentuale fuori scala: ${p}`);
+    // Le coordinate devono restare dentro il riquadro dell'SVG.
+    const cx = [...h.matchAll(/cx="([\d.]+)"/g)].map((m) => +m[1]);
+    for (const v of cx) assert.ok(v >= 0 && v <= 300, `coordinata fuori dal disegno: ${v}`);
     assert.ok(!/NaN|undefined/.test(h));
   }
-});
-
-test('le settimane danno la SCALA: senza, "fra 17 giorni" resta astratto', () => {
-  const tx = { '2026-05': [entrata('2026-05-27')], '2026-06': [entrata('2026-06-27')], '2026-07': [entrata('2026-07-27')] };
-  const h = stripHtml(statoDelMese(tx, { oggi: new Date(2026, 7, 10), speso: 900 }));
-  const stelle = [...h.matchAll(/class="ms-sett/g)].length;
-  assert.equal(stelle, 4, 'agosto ha 31 giorni: settimane al 7, 14, 21, 28');
-  // Quelle già superate si spengono: sono tappe fatte.
-  assert.equal([...h.matchAll(/ms-sett passata/g)].length, 1, 'il 10 agosto ne è passata una sola');
-  // E la scia c'è solo attaccata a oggi, non sparsa in giro.
-  assert.equal([...h.matchAll(/ms-scia/g)].length, 1);
-});
-
-test('a febbraio le settimane sono quattro, non cinque', () => {
-  const h = stripHtml(statoDelMese({}, { oggi: new Date(2026, 1, 5), speso: 0 }));
-  const stelle = [...h.matchAll(/class="ms-sett/g)].length;
-  assert.equal(stelle, 3, '28 giorni: 7, 14, 21 — il 28 è l\'ultimo giorno, non un traguardo intermedio');
 });
 
 // ── CHI NON HA UNO STIPENDIO: la partita IVA ──

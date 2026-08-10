@@ -222,26 +222,56 @@ export function stripHtml(stato, { formatMoney = (v) => `${v}` } = {}) {
   else if (stato.entrataArrivata) pezzi.push('stipendio gia\' arrivato');
   pezzi.push(`speso finora ${formatMoney(stato.speso)}`);
 
-  // LE SETTIMANE COME STELLE LUNGO LA ROTTA. Non sono decorazione: senza un
-  // riferimento, una barra non dice se il tratto che manca sono cinque giorni
-  // o venti. Con i punti settimanali si CONTA a colpo d'occhio — e "fra 17
-  // giorni" smette di essere un numero astratto, diventa "due stelle e mezzo
-  // piu' in la'". Quelle gia' passate si spengono, come tappe superate.
-  const settimane = [];
-  for (let g = 7; g < stato.giorniTotali; g += 7) {
-    // L'indice serve al CSS per sfalsare lo scintillio: stelle che brillano
-    // tutte insieme sembrano una luce di allarme, sfalsate sembrano un cielo.
-    const n = settimane.length;
-    settimane.push(`<i class="ms-sett${g <= stato.giornoOggi ? ' passata' : ''}" style="left:${x(g).toFixed(1)}%;--n:${n}"></i>`);
-  }
+  // ── L'ORBITA ──
+  // La striscia era dritta e l'orb e' rotondo: due geometrie che non si
+  // parlano. Adesso il mese e' un ARCO — un pezzo di orbita attorno a
+  // qualcosa, che e' letteralmente cosa fa il tempo che gira. Curvo, non
+  // dritto, e quindi parente dell'orb invece che estraneo.
+  //
+  // SVG e non div: una curva con un punto che ci scorre sopra e un alone
+  // esattamente sul punto giusto non si fa con i rettangoli. E resta una
+  // stringa pura, senza DOM, come tutto il resto del modulo.
+  const W = 300, H = 34, R = 8;         // arco basso: si sente, non si nota
+  const y = (t) => H - 12 - Math.sin(Math.PI * t) * R;
+  const px = (t) => 6 + t * (W - 12);
+  const punto = (t) => `${px(t).toFixed(1)},${y(t).toFixed(2)}`;
+
+  // Il tracciato completo e quello gia' percorso, campionati sulla stessa
+  // curva: se usassi due formule diverse non combacerebbero mai davvero.
+  const traccia = (da, a) => {
+    const passi = Math.max(2, Math.round((a - da) * 48));
+    const p = [];
+    for (let i = 0; i <= passi; i++) p.push(punto(da + ((a - da) * i) / passi));
+    return `M${p.join(' L')}`;
+  };
+  const tOggi = Math.max(0, Math.min(1, stato.giornoOggi / stato.giorniTotali));
+  const tPaga = pagaX === null ? null : Math.max(0, Math.min(1, pagaX / 100));
 
   return `<div class="mese-strip" role="img" aria-label="${esc(`${pezzi.join('. ')}.`)}">
-    <div class="ms-barra">
-      <div class="ms-passato" style="--q:${oggiX.toFixed(1)}%"></div>
-      ${settimane.join('')}
-      ${pagaX !== null ? `<div class="ms-paga${stato.certezza === 'stima' ? ' stimata' : ''}" style="left:${pagaX.toFixed(1)}%"></div>` : ''}
-      <div class="ms-oggi" style="left:${oggiX.toFixed(1)}%"><span class="ms-scia"></span></div>
-    </div>
+    <svg class="ms-orbita" viewBox="0 0 ${W} ${H}" width="100%" height="auto" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="ms-g" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0"/>
+          <stop offset="55%" stop-color="var(--primary)" stop-opacity=".45"/>
+          <stop offset="100%" stop-color="var(--cyan, var(--primary))" stop-opacity="1"/>
+        </linearGradient>
+        <radialGradient id="ms-alone">
+          <stop offset="0%" stop-color="var(--cyan, var(--primary))" stop-opacity=".9"/>
+          <stop offset="45%" stop-color="var(--cyan, var(--primary))" stop-opacity=".22"/>
+          <stop offset="100%" stop-color="var(--cyan, var(--primary))" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="ms-oro">
+          <stop offset="0%" stop-color="var(--gold, #eab308)" stop-opacity=".55"/>
+          <stop offset="55%" stop-color="var(--gold, #eab308)" stop-opacity=".14"/>
+          <stop offset="100%" stop-color="var(--gold, #eab308)" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path class="ms-rotta" d="${traccia(0, 1)}" fill="none" stroke="currentColor" stroke-opacity=".1" stroke-width="1.2" stroke-linecap="round"/>
+      ${tPaga !== null ? `<ellipse class="ms-paga${stato.certezza === 'stima' ? ' stimata' : ''}" cx="${px(tPaga).toFixed(1)}" cy="${y(tPaga).toFixed(2)}" rx="15" ry="8" fill="url(#ms-oro)"/>` : ''}
+      <path class="ms-passato" d="${traccia(0, tOggi)}" fill="none" stroke="url(#ms-g)" stroke-width="2.2" stroke-linecap="round" pathLength="100"/>
+      <circle class="ms-alone" cx="${px(tOggi).toFixed(1)}" cy="${y(tOggi).toFixed(2)}" r="11" fill="url(#ms-alone)"/>
+      <circle class="ms-oggi" cx="${px(tOggi).toFixed(1)}" cy="${y(tOggi).toFixed(2)}" r="2.4" fill="#fff"/>
+    </svg>
     <div class="ms-righe">
       <span class="ms-speso">${esc(formatMoney(stato.speso))} spesi</span>
       ${etichettaPaga ? `<span class="ms-attesa">${esc(etichettaPaga)}</span>` : ''}

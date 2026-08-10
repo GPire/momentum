@@ -1698,128 +1698,63 @@
 
        Stessa materia dell'orb: gradiente morbido, bagliore, respiro lento. */
     .mese-strip { display: block; }
-    .ms-barra {
-      position: relative; height: 2px; border-radius: 999px;
-      /* La rotta ancora da fare: quasi invisibile, come un'orbita disegnata
-         leggera. Non deve competere con la luce. */
-      background: linear-gradient(90deg,
-        color-mix(in srgb, currentColor 9%, transparent),
-        color-mix(in srgb, currentColor 4%, transparent));
-      overflow: visible;
-    }
+    /* L'ORBITA. La striscia dritta e l'orb rotondo erano due geometrie che non
+       si parlavano; un arco appartiene alla stessa famiglia di forme. La curva
+       e' bassa apposta: si sente, non si nota. Un arco marcato sarebbe
+       diventato un grafico. */
+    .ms-orbita { display: block; width: 100%; height: auto; overflow: visible; color: currentColor; }
 
-    /* IL FILAMENTO. Trasparente all'inizio del mese, pieno verso oggi: la luce
-       stessa racconta il tempo passato, senza bisogno di un bordo che dica
-       dove finisce. */
+    /* Il tracciato gia' percorso si disegna da sinistra all'ingresso, poi
+       respira insieme all'orb: stesso ritmo lento, cosi' si leggono come lo
+       stesso organismo e non come due animazioni che vanno per conto loro. */
     .ms-passato {
-      position: absolute; inset: -1px auto -1px 0; width: var(--q, 0%);
-      border-radius: 999px;
-      background: linear-gradient(90deg,
-        color-mix(in srgb, var(--primary) 0%, transparent) 0%,
-        color-mix(in srgb, var(--primary) 30%, transparent) 45%,
-        color-mix(in srgb, var(--cyan, var(--primary)) 75%, transparent) 88%,
-        color-mix(in srgb, var(--cyan, var(--primary)) 100%, transparent) 100%);
-      box-shadow:
-        0 0 6px color-mix(in srgb, var(--cyan, var(--primary)) 45%, transparent),
-        0 0 16px color-mix(in srgb, var(--cyan, var(--primary)) 20%, transparent);
+      stroke-dasharray: 100; stroke-dashoffset: 100;
+      filter: drop-shadow(0 0 3px color-mix(in srgb, var(--cyan, var(--primary)) 60%, transparent));
       animation:
-        ms-cresci 1.1s cubic-bezier(.22,1,.36,1) both,
-        ms-respiro 5.5s ease-in-out 1.2s infinite;
+        ms-traccia 1.2s cubic-bezier(.22,1,.36,1) .25s forwards,
+        ms-respiro 5.5s ease-in-out 1.6s infinite;
     }
-    @keyframes ms-cresci { from { width: 0; } to { width: var(--q, 0%); } }
-
-    /* IL FLUSSO. Quello che rende l'orb ipnotico non e' la forma, e' che si
-       muove sempre, piano, senza mai arrivare da nessuna parte: l'occhio lo
-       segue e non trova un punto in cui fermarsi. Qui la stessa cosa — una
-       luce piu' chiara che scorre dentro il filamento verso oggi, lentamente,
-       all'infinito. Non e' un caricamento: non ha inizio ne' fine, e non
-       comunica attesa. E' energia che scorre lungo una rotta.
-       Dieci secondi per un giro: sotto i sei diventa un'animazione che chiede
-       attenzione, sopra i quindici sembra fermo. */
-    .ms-passato::before {
-      content: ''; position: absolute; inset: 0; border-radius: inherit;
-      background: linear-gradient(90deg,
-        transparent 0%,
-        color-mix(in srgb, #fff 55%, transparent) 45%,
-        color-mix(in srgb, #fff 70%, transparent) 50%,
-        color-mix(in srgb, #fff 55%, transparent) 55%,
-        transparent 100%);
-      background-size: 45% 100%; background-repeat: no-repeat;
-      mix-blend-mode: screen; opacity: .5;
-      animation: ms-flusso 10s cubic-bezier(.5,0,.5,1) 1.4s infinite;
-    }
-    @keyframes ms-flusso {
-      0%   { background-position: -60% 0; opacity: 0; }
-      15%  { opacity: .5; }
-      85%  { opacity: .5; }
-      100% { background-position: 160% 0; opacity: 0; }
-    }
-    /* Il respiro dell'orb, alla stessa lentezza: due elementi che pulsano allo
-       stesso ritmo si leggono come lo stesso organismo. */
+    @keyframes ms-traccia { to { stroke-dashoffset: 0; } }
     @keyframes ms-respiro {
-      0%, 100% { box-shadow: 0 0 6px color-mix(in srgb, var(--cyan, var(--primary)) 45%, transparent), 0 0 16px color-mix(in srgb, var(--cyan, var(--primary)) 20%, transparent); }
-      50%      { box-shadow: 0 0 9px color-mix(in srgb, var(--cyan, var(--primary)) 65%, transparent), 0 0 26px color-mix(in srgb, var(--cyan, var(--primary)) 32%, transparent); }
+      0%, 100% { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--cyan, var(--primary)) 60%, transparent)); }
+      50%      { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--cyan, var(--primary)) 85%, transparent)); }
     }
 
-    /* OGGI: non un oggetto, un BAGLIORE. E' il punto in cui la luce finisce, e
-       intorno si diffonde come farebbe una luce vera dietro un vetro. Niente
-       contorni: un bordo netto e' esattamente cio' che rompe l'incanto. */
-    .ms-oggi {
-      position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
-      border-radius: 50%; pointer-events: none;
-      background: radial-gradient(circle,
-        color-mix(in srgb, #fff 85%, var(--cyan, var(--primary))) 0%,
-        color-mix(in srgb, var(--cyan, var(--primary)) 80%, transparent) 22%,
-        color-mix(in srgb, var(--cyan, var(--primary)) 22%, transparent) 48%,
-        transparent 72%);
-      animation:
-        ms-oggi-in .9s cubic-bezier(.22,1,.36,1) .45s both,
-        ms-oggi-respiro 5.5s ease-in-out 1.2s infinite;
+    /* OGGI: un alone morbido e, dentro, un puntino bianco piccolissimo. Il
+       puntino da' la posizione esatta, l'alone da' la presenza — insieme sono
+       la stessa cosa che fa l'orb, un volume di luce con un centro. */
+    .ms-alone { animation: ms-alone-in .9s cubic-bezier(.22,1,.36,1) .8s both, ms-alone-respiro 5.5s ease-in-out 1.6s infinite; }
+    .ms-oggi { animation: ms-alone-in .6s cubic-bezier(.34,1.56,.64,1) 1s both; }
+    @keyframes ms-alone-in { from { opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(.2); } }
+    @keyframes ms-alone-respiro {
+      0%, 100% { opacity: .9; transform-box: fill-box; transform-origin: center; transform: scale(1); }
+      50%      { opacity: 1; transform-box: fill-box; transform-origin: center; transform: scale(1.15); }
     }
-    @keyframes ms-oggi-in { from { opacity: 0; transform: scale(.3); } }
-    @keyframes ms-oggi-respiro { 0%, 100% { opacity: .92; transform: scale(1); } 50% { opacity: 1; transform: scale(1.12); } }
-    /* La scia non serve piu': il gradiente del filamento la fa gia'. Resta la
-       classe perche' il markup la produce, ma non disegna niente — meno
-       elementi visibili, non piu'. */
-    .ms-scia { display: none; }
-    /* Le settimane erano brillantini che rubavano attenzione senza aggiungere
-       niente: spente. Il markup resta per non riscrivere il modulo, il disegno
-       no. Togliere e' stata la correzione, non aggiungere. */
-    .ms-sett { display: none; }
 
-    /* LO STIPENDIO: un alone caldo dentro il filamento, non una stella sopra.
-       La luce cambia temperatura dove arrivano i soldi — si vede col
-       peripherale, senza spostare lo sguardo, e non spezza la continuita'. */
-    .ms-paga {
-      position: absolute; top: 50%; width: 30px; height: 16px; margin: -8px 0 0 -15px;
-      border-radius: 50%; pointer-events: none;
-      background: radial-gradient(ellipse,
-        color-mix(in srgb, var(--gold, #eab308) 55%, transparent) 0%,
-        color-mix(in srgb, var(--gold, #eab308) 16%, transparent) 45%,
-        transparent 70%);
-      animation:
-        ms-paga-in 1s ease-out .9s both,
-        ms-paga-respiro 5.5s ease-in-out 1.2s infinite;
-    }
-    /* Quando il giorno e' STIMATO l'alone e' piu' largo e piu' debole: una
-       previsione e' una zona, non un punto, e la sfocatura lo dice senza
-       bisogno di scriverlo. */
-    .ms-paga.stimata { width: 52px; margin-left: -26px; opacity: .55; }
-    @keyframes ms-paga-in { from { opacity: 0; } }
-    @keyframes ms-paga-respiro { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+    /* LO STIPENDIO: un alone caldo SULLA rotta, non un oggetto sopra. La luce
+       cambia temperatura dove arrivano i soldi — si vede con la coda
+       dell'occhio senza spezzare la continuita' della curva. */
+    .ms-paga { animation: ms-oro-in 1.1s ease-out 1.1s both, ms-oro-respiro 5.5s ease-in-out 1.6s infinite; }
+    /* Una STIMA e' una zona, non un punto: piu' larga e piu' debole. Una
+       previsione disegnata identica a un fatto e' il modo piu' rapido di
+       perdere la fiducia di chi poi scopre la differenza. */
+    .ms-paga.stimata { rx: 34; opacity: .5; }
+    @keyframes ms-oro-in { from { opacity: 0; } }
+    @keyframes ms-oro-respiro { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
 
     .ms-righe {
       display: flex; justify-content: space-between; gap: .75rem;
-      margin-top: .55rem; line-height: 1.3;
-      animation: orb-et-in .5s ease-out .8s both;
+      margin-top: .2rem; line-height: 1.3;
+      animation: orb-et-in .5s ease-out 1.1s both;
     }
     .ms-attesa { color: color-mix(in srgb, var(--gold, #eab308) 78%, transparent); font-weight: 600; }
     .ms-speso { color: color-mix(in srgb, var(--on-surface-secondary) 85%, transparent); }
     .ms-righe:has(> :only-child) { justify-content: center; }
 
     @media (prefers-reduced-motion: reduce) {
-      .ms-passato, .ms-passato::before, .ms-oggi, .ms-paga, .ms-righe { animation: none; }
-      .ms-passato::before { display: none; }
+      .ms-passato { stroke-dashoffset: 0; animation: none; }
+      .ms-alone, .ms-oggi, .ms-paga, .ms-righe { animation: none; }
+    }
     }
     }
 
