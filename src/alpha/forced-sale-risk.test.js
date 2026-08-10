@@ -67,9 +67,20 @@ test('le scadenze fiscali sono metà del problema — toglierle cambia il quadro
 });
 
 test('una volatilità più alta aumenta il costo di essere costretti, non solo la probabilità', () => {
-  const calmo = forcedSaleRisk({ ...professionista, sigma: 0.08 }, { percorsi: 2500 });
-  const mosso = forcedSaleRisk({ ...professionista, sigma: 0.35 }, { percorsi: 2500 });
+  // Esplicitamente sul generatore a MODELLO: e' l'unico in cui `sigma` decide
+  // i rendimenti. Con la storia vera la volatilita' e' quella dell'archivio.
+  const calmo = forcedSaleRisk({ ...professionista, generatore: 'modello', sigma: 0.08 }, { percorsi: 2500 });
+  const mosso = forcedSaleRisk({ ...professionista, generatore: 'modello', sigma: 0.35 }, { percorsi: 2500 });
   assert.ok(mosso.costoMedio > calmo.costoMedio, `${mosso.costoMedio} vs ${calmo.costoMedio}`);
+});
+
+test('in modalità storica sigma NON tocca i rendimenti, ed è dichiarato', () => {
+  // Se un domani qualcuno "tarasse" sigma aspettandosi un effetto, non lo
+  // avrebbe: meglio che sia un test a dirlo, non una sorpresa in produzione.
+  const a = forcedSaleRisk({ ...professionista, generatore: 'storico', sigma: 0.05, correlazioneRedditoMercato: 0 }, { percorsi: 1500, seed: 3 });
+  const b = forcedSaleRisk({ ...professionista, generatore: 'storico', sigma: 0.40, correlazioneRedditoMercato: 0 }, { percorsi: 1500, seed: 3 });
+  assert.equal(a.probabilita, b.probabilita);
+  assert.equal(a.costoMedio, b.costoMedio);
 });
 
 // ── La correlazione che tutti ignorano ──

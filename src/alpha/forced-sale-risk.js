@@ -50,6 +50,7 @@
 'use strict';
 
 import { initEstimate, addUnit, estimate } from '../mesh/progressive-estimate.js';
+import { bootstrapSequence, statisticheSerie } from './historical-sequences.js';
 
 // Generatore deterministico (mulberry32): i risultati devono essere
 // riproducibili, altrimenti due schermate della stessa cosa danno due numeri.
@@ -86,18 +87,42 @@ export function simulateOnePath({
   // a seconda di poche centinaia di euro di cassa iniziale.
   sigmaReddito = 0,
   shockRedditoProb = 0.04, shockRedditoImporto = 0,
+  // 'storico' (predefinito) ricampiona SPEZZONI di storia vera; 'modello' usa
+  // la log-normale. Il secondo resta disponibile perche' serve a mostrare la
+  // differenza — non perche' sia una scelta altrettanto buona.
+  // ATTENZIONE, ed e' scritto qui perche' non si scopra fra sei mesi: con
+  // 'storico' i parametri `mu` e `sigma` NON vengono usati per i rendimenti —
+  // i rendimenti sono quelli veri, e la loro media e volatilita' sono quelle
+  // dell'archivio. `sigma` resta usato solo per standardizzare il legame fra
+  // mercato e reddito. Chi vuole studiare l'effetto di una volatilita' diversa
+  // deve passare 'modello'.
+  generatore = 'storico', serieStorica = 'spy',
   rng,
 }) {
   const r = rng || makeRng();
   const muM = mu / 12, sigmaM = sigma / Math.sqrt(12);
+  // Con la storia vera i rendimenti dei `mesi` si estraggono tutti in una
+  // volta: e' il blocco contiguo a portare l'informazione, quindi va costruito
+  // prima e poi percorso, non estratto mese per mese.
+  const serieRend = generatore === 'storico' ? bootstrapSequence(mesi, r, { serie: serieStorica }) : null;
   let cassa = liquidita, valore = portafoglio, picco = portafoglio;
   let vendite = 0, venditaTotale = 0, perditaRealizzata = 0, primoMese = null;
 
   for (let m = 0; m < mesi; m++) {
-    const zMercato = gauss(r);
-    // Rendimento log-normale: un rendimento non può portare il valore sotto
-    // zero, e la forma normale semplice invece lo permette.
-    const rend = Math.exp((muM - (sigmaM * sigmaM) / 2) + sigmaM * zMercato) - 1;
+    // zMercato serve comunque: e' il canale attraverso cui il reddito viene
+    // correlato al mercato. Con la storia vera si ricava DAL rendimento
+    // effettivo, standardizzandolo — cosi' la correlazione resta vera anche
+    // quando il rendimento non viene da una gaussiana.
+    let rend, zMercato;
+    if (serieRend) {
+      rend = serieRend[m];
+      zMercato = (Math.log(1 + Math.max(-0.99, rend)) - muM) / (sigmaM || 1e-9);
+    } else {
+      zMercato = gauss(r);
+      // Rendimento log-normale: un rendimento non può portare il valore sotto
+      // zero, e la forma normale semplice invece lo permette.
+      rend = Math.exp((muM - (sigmaM * sigmaM) / 2) + sigmaM * zMercato) - 1;
+    }
     valore *= (1 + rend);
     picco = Math.max(picco, valore);
 
