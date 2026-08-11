@@ -1207,7 +1207,20 @@ const renderDashboard = () => {
     const total = Math.max(1, inc + exp);
     iebInc.style.width = `${Math.round((inc / total) * 100)}%`;
     iebExp.style.width = `${Math.round((exp / total) * 100)}%`;
-    if (iebNote) iebNote.textContent = liquidity >= 0 ? `margine +${formatMoney(liquidity)}` : `margine ${formatMoney(liquidity)}`;
+    // LO STESSO ALLARME FABBRICATO GIA' TOLTO DALL'ORB, che era rimasto qui.
+    // Prima che arrivi lo stipendio le entrate del mese sono zero, quindi la
+    // barra e' rossa per tutta la sua lunghezza e la nota dice "margine
+    // -972,67 €". Tutto vero, e tutto normale il giorno 10: non e' una
+    // situazione che meriti l'elemento piu' acceso della schermata.
+    // Quando l'entrata deve ancora arrivare la barra si smorza e la nota dice
+    // cosa sta succedendo invece di quantificare un buco che si chiudera' da
+    // solo fra due settimane.
+    iebExp.style.opacity = entrataAncoraDaVenire ? '.45' : '';
+    if (iebNote) {
+      iebNote.textContent = entrataAncoraDaVenire
+        ? 'lo stipendio deve ancora arrivare'
+        : liquidity >= 0 ? `margine +${formatMoney(liquidity)}` : `margine ${formatMoney(liquidity)}`;
+    }
   }
   // Pop-in scaglionato: i numeri VERI arrivano con vita, non un "€0" statico che
   // scatta senza preavviso. Ri-attiva l'animazione anche sui re-render (cambio
@@ -1289,14 +1302,41 @@ const renderDashboard = () => {
               <span class="t-etichetta">Di questo passo, a fine mese</span>
               <span class="t-dato t-dato-m font-mono ${m.col} shrink-0">${formatMoney(tf.projectedTotal)}</span>
             </div>
-            <div class="h-[3px] rounded-full bg-[var(--outline)] overflow-hidden mt-2"><div class="h-full ${m.bar} opacity-60" style="width:${pct}%"></div></div>
+            <!-- LA BARRA CHE NON DICEVA NIENTE. Con la proiezione oltre il
+                 budget la percentuale si fermava a 100 e la barra diventava un
+                 blocco rosso pieno: l'elemento piu' rumoroso dello schermo, e
+                 per giunta muto — sforare di dieci euro o di cinquecento
+                 dava esattamente lo stesso disegno.
+                 Ora la barra e' lunga quanto la SPESA PREVISTA e dentro c'e'
+                 il segno di dov'e' il budget: si vede a colpo d'occhio quanto
+                 si sta andando oltre, che e' l'unica cosa che interessa. Il
+                 tratto entro il budget resta neutro, l'eccedenza e' colorata:
+                 il rosso segna il problema, non tutta la riga. -->
+            ${(() => {
+              const budget = VaultDAO.state.monthlyBudget || 0;
+              const oltre = budget > 0 && tf.projectedTotal > budget;
+              // Il pieno rappresenta il totale previsto; il riferimento e' il
+              // budget, che quindi cade a una frazione del pieno.
+              const quotaBudget = oltre ? Math.round((budget / tf.projectedTotal) * 100) : pct;
+              return `
+            <div class="h-[5px] rounded-full bg-[var(--outline)] overflow-hidden mt-2 relative">
+              <div class="h-full ${oltre ? 'bg-[var(--outline)]' : m.bar} opacity-70" style="width:${oltre ? 100 : pct}%"></div>
+              ${oltre ? `<div class="absolute inset-y-0 ${m.bar} opacity-80" style="left:${quotaBudget}%;right:0"></div>` : ''}
+              ${oltre ? `<div class="absolute inset-y-0 w-px bg-white/70" style="left:${quotaBudget}%"></div>` : ''}
+            </div>
+            ${oltre ? `<p class="t-nota mt-1">La riga chiara è il tuo budget: quello che sta a destra è quanto lo superi.</p>` : ''}`;
+            })()}
             <p class="text-[10.5px] ${m.col} mt-1.5 font-semibold">${m.txt}</p>
             <p class="t-nota mt-0.5">${methodNote}</p>
           </div>`;
         }
       } catch (_) { /* proiezione assente: la card resta il solo "oggi" */ }
       if (sts.isOverBudget) {
-        stsCard.style.borderTop = '3px solid var(--red)';
+        // Stessa luce delle tessere invece della striscia piena: la card
+        // vive nella stessa scena, deve essere fatta della stessa materia.
+        stsCard.style.borderTop = '';
+        stsCard.classList.add('card-accento');
+        stsCard.style.setProperty('--accento', 'var(--red)');
         stsCard.innerHTML = `
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-rose-400 mb-1">Oggi meglio non spendere</p>
           <p class="hero-num font-black font-mono text-rose-400 tracking-tighter">0€</p>
@@ -1315,7 +1355,9 @@ const renderDashboard = () => {
         const chargeNote = sts.reservedForCharges > 0
           ? `<p class="riga-nota">${evidenziaNumeri(`${formatMoney(sts.reservedForCharges)} sono già impegnati per gli abbonamenti in arrivo`)}</p>`
           : '';
-        stsCard.style.borderTop = '3px solid var(--green)';
+        stsCard.style.borderTop = '';
+        stsCard.classList.add('card-accento');
+        stsCard.style.setProperty('--accento', 'var(--green)');
         // Il numero-eroe del giorno diventa l'AZIONE primaria a un tocco: chi sa
         // "oggi posso spendere X" spesso vuole subito segnare una spesa. Tap →
         // form uscita pronto (poi conferma → orchestrator.learn addestra il Core).

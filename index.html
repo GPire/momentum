@@ -94,6 +94,69 @@
        così tutto si stabilizza insieme. */
     .card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 1.5rem; box-shadow: var(--shadow-elevation); transition: box-shadow var(--transition-core), transform var(--transition-core), background-color .5s ease, border-color .5s ease; display: flex; flex-direction: column;}
     @media (min-width: 640px) { .card { border-radius: 1.75rem; } }
+
+    /* L'onda del salvadanaio: larga quanto la card e sfumata verso destra.
+       La maschera fa il lavoro che prima faceva un bordo netto. */
+    .onda-riserva {
+      width: min(62%, 340px);
+      border-radius: inherit;
+      -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 38%, transparent 100%);
+      mask-image: linear-gradient(90deg, #000 0%, #000 38%, transparent 100%);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       L'ACCENTO DELLE CARD — luce sul bordo, non una striscia
+       ══════════════════════════════════════════════════════════
+       Le tessere avevano un bordo superiore pieno di 3px, saturo: verde,
+       rosso, ciano, oro una accanto all'altra. E' l'espediente da cruscotto
+       generico, e con quattro card affiancate diventa esattamente
+       "l'arcobaleno di neon" che il commento dell`eyebrow, qui sopra, dice di
+       voler evitare: la regola c'era e le card la contraddicevano.
+
+       E c'e' una ragione piu' profonda per toglierlo. Queste card galleggiano
+       su un cielo stellato, dietro c'e' un orb di vetro: sono pannelli
+       luminosi, non schede con l'etichetta colorata sul dorso. Un pannello di
+       vetro in una scena illuminata prende la luce sul BORDO e la lascia
+       sfumare verso il basso — non porta una fascia opaca incollata sopra.
+
+       Quindi: una linea di luce sottilissima sul bordo alto, che si spegne ai
+       lati come farebbe un riflesso vero, e un alone dello stesso colore che
+       scende dentro la card e svanisce in pochi millimetri. Il colore
+       semantico resta e si riconosce con la coda dell'occhio, ma smette di
+       urlare — e le quattro tessere tornano a sembrare la stessa famiglia di
+       oggetti invece di quattro etichette diverse. */
+    .card-accento {
+      position: relative;
+      /* Il colore lo decide chi usa la card; il modo di mostrarlo e' qui. */
+      --accento: var(--cyan, var(--primary));
+    }
+    /* L'alone che scende dall'alto: e' dentro la card, quindi non ne allarga
+       il riquadro e non sposta niente nel layout. */
+    .card-accento::before {
+      content: ''; position: absolute; inset: 0 0 auto 0; height: 64px;
+      border-radius: inherit; pointer-events: none;
+      background: linear-gradient(180deg,
+        color-mix(in srgb, var(--accento) 13%, transparent) 0%,
+        transparent 100%);
+      /* Sopra il fondo di vetro ma sotto il contenuto. */
+      z-index: 0;
+    }
+    /* Il filo di luce sul bordo: pieno al centro, spento agli angoli. Un
+       riflesso che arriva fino allo spigolo si legge come un bordo disegnato;
+       uno che sfuma si legge come luce. */
+    .card-accento::after {
+      content: ''; position: absolute; inset: 0 auto auto 0; height: 1px; width: 100%;
+      border-radius: inherit; pointer-events: none;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--accento) 65%, transparent) 22%,
+        color-mix(in srgb, var(--accento) 90%, transparent) 50%,
+        color-mix(in srgb, var(--accento) 65%, transparent) 78%,
+        transparent 100%);
+      z-index: 1;
+    }
+    /* Il contenuto sta sopra i due strati di luce. */
+    .card-accento > * { position: relative; z-index: 2; }
     /* Header di card UNIFICATO ("eyebrow"): icona sottile + etichetta muta,
        coerente in tutta Analisi Tensor. Il colore semantico (oro=ricchezza,
        verde=sano, ambra/rosso=attenzione) vive nel NUMERO, non nel titolo →
@@ -268,7 +331,41 @@
     @keyframes pulseDanger { 0% { box-shadow: 0 0 0 0 rgba(225,29,72,0.5); } 70% { box-shadow: 0 0 0 20px rgba(225,29,72,0); } 100% { box-shadow: 0 0 0 0 rgba(225,29,72,0); } }
 
     /* === TX CARD === */
-    .tx-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 1.2rem; padding: 0.8rem; display: flex; align-items: center; justify-content: space-between; transition: transform 0.3s, opacity 0.3s; position: relative; overflow: hidden; margin-bottom: 0.5rem;}
+    /* ══════════════════════════════════════════════════════════
+       LA LISTA DEI MOVIMENTI — una superficie, non trenta scatole
+       ══════════════════════════════════════════════════════════
+       Ogni riga era una card a se': fondo di vetro, bordo su tutti e quattro i
+       lati, angoli arrotondati, sfocatura, e mezzo rem di stacco dalla
+       successiva. Con trenta movimenti diventano trenta contorni chiusi uno
+       sotto l'altro, e l'occhio deve entrare e uscire da un riquadro per ogni
+       spesa: e' per questo che la lista "appesantisce" — non per i colori, per
+       il numero di bordi.
+
+       Un registro si legge come una superficie continua con delle righe
+       divisorie sottili. Cosi' l'occhio scorre verticalmente senza ostacoli, e
+       i movimenti si confrontano fra loro perche' sono allineati sullo stesso
+       piano invece che ognuno nel proprio contenitore.
+
+       Il contorno torna solo dove serve: quando ci si posa sopra o si tiene
+       premuto, cioe' quando quella riga diventa davvero un oggetto singolo su
+       cui si sta per agire. */
+    #transaction-list-container {
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-border);
+      border-radius: 1.4rem; overflow: hidden;
+    }
+    .tx-card {
+      background: transparent; border: 0; border-radius: 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 55%, transparent);
+      padding: 0.7rem 0.85rem; margin: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background-color .18s ease, transform .3s, opacity .3s;
+      position: relative; overflow: hidden;
+    }
+    .tx-card:last-child { border-bottom: 0; }
+    @media (hover: hover) { .tx-card:hover { background: color-mix(in srgb, currentColor 4%, transparent); } }
+    .tx-card:active { background: color-mix(in srgb, currentColor 7%, transparent); }
     /* Ingresso SCAGLIONATO della lista movimenti (stesso principio di .view-in):
        si ri-attiva a ogni renderDashboard (nuovo mese, nuova transazione, ecc.)
        togliendo/rimettendo .tx-in su #transaction-list-container. Cap a 8 ritardi
@@ -2260,22 +2357,22 @@
               <!-- Le quattro tessere usano la scala condivisa invece di nove
                    classi di utilita' ciascuna: cosi' cambiare la gerarchia si
                    fa in un posto solo, e non possono divergere fra loro. -->
-              <div class="card p-4 sm:p-6 border-t-[3px] border-t-[var(--green)]">
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--green)">
                 <p class="t-etichetta mb-1 truncate">Entrate</p>
                 <p id="total-income" class="t-dato t-dato-l text-[var(--green)] font-mono truncate">€0</p>
               </div>
-              <div class="card p-4 sm:p-6 border-t-[3px] border-t-[var(--red)]">
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--red)">
                 <p class="t-etichetta mb-1 truncate">Uscite</p>
                 <p id="total-expense" class="t-dato t-dato-l text-[var(--red)] font-mono truncate">€0</p>
               </div>
-              <div class="card p-4 sm:p-6 border-t-[3px] border-t-[var(--cyan)]" style="background: linear-gradient(180deg, var(--glass-bg), rgba(6,182,212,0.05));">
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--cyan)">
                 <!-- "Capitale Libero" era gergo, come nell'orb: qui la
                      differenza fra entrate e uscite del mese si chiama con le
                      parole con cui la si pensa. -->
                 <p class="t-etichetta mb-1 truncate" style="color:color-mix(in srgb, var(--cyan) 78%, transparent)">Quanto avanza</p>
                 <p id="total-liquidity" class="t-dato t-dato-l text-[var(--cyan)] font-mono truncate">€0</p>
               </div>
-              <div class="card p-4 sm:p-6 border-t-[3px] border-t-[var(--gold)]">
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--gold)">
                 <p class="t-etichetta mb-1 truncate">Investito</p>
                 <p id="total-invest" class="t-dato t-dato-l text-[var(--gold)] font-mono truncate">€0</p>
               </div>
@@ -2299,8 +2396,14 @@
                  Onesto: nessun trasferimento reale, Momentum non tocca la banca —
                  solo un'annotazione che l'utente conferma con un tocco. -->
             <div class="card p-6 border border-[color-mix(in_srgb,var(--cyan)_20%,transparent)] relative overflow-hidden flex flex-col sm:flex-row justify-between items-stretch gap-6 shrink-0">
-              <!-- Onda di riempimento: sale con lo stato di sicurezza (0-100%). -->
-              <div class="absolute left-0 top-0 bottom-0 w-32 bg-[color-mix(in_srgb,var(--cyan)_5%,transparent)] pointer-events-none overflow-hidden rounded-l-[1.25rem]">
+              <!-- Onda di riempimento: sale con lo stato di sicurezza (0-100%).
+                   L'idea e' giusta — un livello che sale si capisce senza
+                   leggere — ma stava dentro un riquadro largo 128px che si
+                   TAGLIAVA DI NETTO a meta' card: da lontano sembrava un
+                   errore di disegno, non un'onda. Adesso occupa tutta la card
+                   e si dissolve verso destra con una maschera, cosi' finisce
+                   come finisce l'acqua e non come finisce un rettangolo. -->
+              <div class="onda-riserva absolute left-0 top-0 bottom-0 pointer-events-none overflow-hidden">
                 <div id="reserve-wave" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-cyan-400/30 to-cyan-400/10 transition-all duration-700 ease-out" style="height: 30%;">
                   <svg class="absolute top-0 left-0 w-full h-8 text-cyan-400/20 fill-current" viewBox="0 0 100 20" preserveAspectRatio="none">
                     <path d="M0,10 C30,20 70,0 100,10 L100,20 L0,20 Z"></path>
