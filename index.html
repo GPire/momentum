@@ -95,6 +95,47 @@
     .card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 1.5rem; box-shadow: var(--shadow-elevation); transition: box-shadow var(--transition-core), transform var(--transition-core), background-color .5s ease, border-color .5s ease; display: flex; flex-direction: column;}
     @media (min-width: 640px) { .card { border-radius: 1.75rem; } }
 
+    /* ══════════════════════════════════════════════════════════
+       TUTTE LE CARD SONO LO STESSO MATERIALE
+       ══════════════════════════════════════════════════════════
+       Convertirle una per una lasciava un misto: alcune col riflesso nuovo,
+       altre col vecchio riquadro piatto, e la schermata continuava a sembrare
+       assemblata da pezzi diversi. La coerenza non si ottiene ritoccando ogni
+       card, si ottiene definendo di che COSA sono fatte — una volta sola, qui.
+
+       Un pannello di vetro sospeso in una scena illuminata fa due cose: prende
+       la luce sullo spigolo alto e la lascia scivolare via, e proietta un'ombra
+       morbida sotto di se'. Sono i due segni che dicono "sono un oggetto
+       davanti a te" invece di "sono un rettangolo disegnato sullo sfondo", e
+       adesso li ha ogni card senza doverlo chiedere.
+
+       Il riflesso e' bianco e quasi invisibile — 14% di bianco su un bordo di
+       un pixel. Deve essere sentito, non visto: se lo si nota, e' troppo. */
+    .card { position: relative; }
+    .card::after {
+      content: ''; position: absolute; inset: 0 0 auto 0; height: 1px;
+      pointer-events: none; border-radius: inherit;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,.14) 18%,
+        rgba(255,255,255,.2) 50%,
+        rgba(255,255,255,.14) 82%,
+        transparent 100%);
+    }
+    /* Quando una card ha un accento semantico, il riflesso prende quel colore
+       invece del bianco: e' lo stesso gesto, non un secondo linguaggio. */
+    .card-accento::after {
+      background: linear-gradient(90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--accento) 65%, transparent) 22%,
+        color-mix(in srgb, var(--accento) 90%, transparent) 50%,
+        color-mix(in srgb, var(--accento) 65%, transparent) 78%,
+        transparent 100%);
+    }
+    /* Il contenuto sta sopra il riflesso in ogni card, non solo in quelle con
+       l'accento: senza, un elemento posizionato poteva finirci sotto. */
+    .card > * { position: relative; z-index: 2; }
+
     /* L'onda del salvadanaio: larga quanto la card e sfumata verso destra.
        La maschera fa il lavoro che prima faceva un bordo netto. */
     .onda-riserva {
