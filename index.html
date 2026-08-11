@@ -136,7 +136,7 @@
        l'accento: senza, un elemento posizionato poteva finirci sotto. */
     .card > * { position: relative; z-index: 2; }
 
-    /* L'onda del salvadanaio: larga quanto la card e sfumata verso destra.
+/* L'onda del salvadanaio: larga quanto la card e sfumata verso destra.
        La maschera fa il lavoro che prima faceva un bordo netto. */
     .onda-riserva {
       width: min(62%, 340px);
@@ -220,6 +220,33 @@
     .avviso-testo { font-size: 12.5px; line-height: 1.45; color: color-mix(in srgb, var(--on-surface) 88%, transparent); }
     .avviso-titolo { font-size: 12.5px; font-weight: 700; line-height: 1.35; color: color-mix(in srgb, var(--accento) 92%, white); }
     .avviso .ms-n, .avviso b { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    /* ── IL POLSO DEL MESE ──
+       Quattro barre sottilissime, una per settimana, alte quanto la spesa. Non
+       e' un grafico: e' una texture che l'occhio legge senza fermarsi, come le
+       stelle sullo sfondo. La settimana in corso ha un punto acceso sopra —
+       lo stesso segno di "sei qui" usato altrove, cosi' che riconoscerlo non
+       richieda di imparare un simbolo nuovo. */
+    .mese-titolo-wrap { display: flex; flex-direction: column; align-items: center; gap: .3rem; }
+    .mese-polso { display: flex; align-items: flex-end; gap: 3px; height: 12px; }
+    .polso-barra {
+      width: 5px; height: var(--h, 20%); border-radius: 999px;
+      background: color-mix(in srgb, var(--on-surface-secondary) 30%, transparent);
+      position: relative;
+      animation: polso-in .45s cubic-bezier(.22,1,.36,1) both;
+      animation-delay: calc(var(--i, 0) * 60ms);
+    }
+    /* La settimana in corso si riconosce dal colore pieno, non da un segno
+       sopra: un pallino su una barra di pochi pixel si legge come una testa
+       su un corpo — "un omino", non un dato. Tolto. */
+    .polso-barra.attiva { background: var(--cyan, var(--primary)); }
+    @keyframes polso-in { from { transform: scaleY(0); opacity: 0; } }
+    .mese-polso-nota {
+      font-size: 9px; font-weight: 600; letter-spacing: .03em;
+      color: color-mix(in srgb, var(--on-surface-secondary) 42%, transparent);
+      margin-top: .1rem;
+    }
+    @media (prefers-reduced-motion: reduce) { .polso-barra { animation: none; } }
 
     /* ── LA NAVIGAZIONE FRA I MESI ──
        Niente contenitore: il mese e' un titolo, non un widget. Le frecce
@@ -528,6 +555,20 @@
       position: relative; overflow: hidden;
     }
     .tx-card:last-child { border-bottom: 0; }
+    /* L'intestazione del giorno: prima ogni riga portava la propria data
+       ripetuta, e in un giorno con quattro spese la stessa data compariva
+       quattro volte senza dire il totale — l'informazione che serve di piu' e
+       che prima bisognava sommare a mente. */
+    .tx-giorno {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: .55rem .85rem .3rem;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: color-mix(in srgb, var(--on-surface-secondary) 55%, transparent);
+    }
+    .tx-giorno:not(:first-child) { margin-top: .15rem; border-top: 1px solid color-mix(in srgb, var(--glass-border) 40%, transparent); padding-top: .7rem; }
+    .tx-giorno-tot { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -.01em; }
+    .tx-giorno-tot.neg { color: color-mix(in srgb, var(--on-surface-secondary) 70%, transparent); }
+    .tx-giorno-tot.pos { color: color-mix(in srgb, var(--green) 80%, transparent); }
     @media (hover: hover) { .tx-card:hover { background: color-mix(in srgb, currentColor 4%, transparent); } }
     .tx-card:active { background: color-mix(in srgb, currentColor 7%, transparent); }
     /* Ingresso SCAGLIONATO della lista movimenti (stesso principio di .view-in):
@@ -2465,7 +2506,15 @@
               <button data-action="prev-month" class="mese-freccia" aria-label="Mese precedente">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
               </button>
-              <h2 id="current-month-display" class="mese-nome capitalize truncate"></h2>
+              <div class="mese-titolo-wrap">
+                <h2 id="current-month-display" class="mese-nome capitalize truncate"></h2>
+                <!-- Il polso: dove si e' concentrata la spesa nel mese, una
+                     barra per settimana. La didascalia sotto e' minima ma
+                     necessaria: senza, un gruppo di barre disegnate cosi'
+                     piccole non si capisce cosa rappresenti. -->
+                <div id="mese-polso" class="mese-polso hidden"></div>
+                <p id="mese-polso-nota" class="mese-polso-nota hidden">spesa per settimana</p>
+              </div>
               <button data-action="next-month" id="next-month-btn" class="mese-freccia" aria-label="Mese successivo">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
               </button>

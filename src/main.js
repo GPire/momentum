@@ -1184,6 +1184,40 @@ const renderDashboard = () => {
   });
   const liquidity = inc - exp;
 
+  // ── IL POLSO DEL MESE ──
+  // Sotto il titolo, prima ancora di aprire la lista, si vede dove la spesa si
+  // e' concentrata: quattro barre, una per settimana, alte quanto la spesa di
+  // quella settimana. Non serve leggere niente — l'occhio nota subito se il
+  // mese e' stato regolare o se una settimana ha assorbito tutto, ed e'
+  // esattamente il tipo di domanda ("dove sono andati i soldi") che altrimenti
+  // richiede di scorrere trenta righe.
+  const polso = $('#mese-polso');
+  const polsoNota = $('#mese-polso-nota');
+  if (polso) {
+    const uscite = txs.filter((t) => t.type === 'uscita' && t.date);
+    if (uscite.length < 3) {
+      polso.classList.add('hidden'); polso.innerHTML = '';
+      polsoNota?.classList.add('hidden');
+    } else {
+      const perSettimana = [0, 0, 0, 0, 0];
+      for (const t of uscite) {
+        const giorno = new Date(t.date).getDate();
+        const w = Math.min(4, Math.floor((giorno - 1) / 7));
+        perSettimana[w] += t.amount;
+      }
+      const usate = perSettimana.filter((_, i) => i < 4 || perSettimana[4] > 0);
+      const max = Math.max(...usate, 1);
+      const oggiSettimana = isCurrentMonth ? Math.min(4, Math.floor((realNow.getDate() - 1) / 7)) : -1;
+      polso.classList.remove('hidden');
+      polsoNota?.classList.remove('hidden');
+      polso.innerHTML = usate.map((v, i) => {
+        const h = Math.max(10, Math.round((v / max) * 100));
+        const attiva = i === oggiSettimana;
+        return `<span class="polso-barra${attiva ? ' attiva' : ''}" style="--h:${h}%;--i:${i}" title="Settimana ${i + 1}: ${formatMoney(v)}"></span>`;
+      }).join('');
+    }
+  }
+
   // ── LO STIPENDIO CHE NON E' ANCORA ARRIVATO ──
   // `liquidity` e' entrate meno uscite DEL MESE IN CORSO. Per chi prende uno
   // stipendio il 27, dal giorno 1 al 26 quel numero e' negativo per
@@ -1651,6 +1685,7 @@ const renderDashboard = () => {
     waveBar.style.height = `${Math.max(10, Math.min(safetyScore, 100))}%`;
   }
 
+
   // ── SOLDI GIÀ IMPEGNATI (getMonthlyCommitments): la quota del saldo già
   // promessa agli impegni ricorrenti in arrivo entro fine mese (affitto, mutuo,
   // abbonamenti). Mostra il "disponibile VERO" = liquidità − riserva, con barra
@@ -1722,18 +1757,57 @@ const renderDashboard = () => {
   // arriva mai, un campo resta `undefined` per sempre). Senza questo fallback,
   // `${t.description}` stampava alla lettera la parola "undefined" a schermo.
   const escTx = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  txs.sort((a,b) => b.id - a.id).forEach(t => {
+  // ── RAGGRUPPATE PER GIORNO ──
+  // Prima ogni riga portava la propria data ("1 ago • Categoria"), ripetuta
+  // identica per ogni spesa dello stesso giorno: in un giorno con quattro
+  // movimenti la stessa data compariva quattro volte, e la lista non aveva
+  // nessun punto in cui l'occhio potesse orientarsi — solo righe uguali che
+  // scorrono. Un registro vero raggruppa per data e mostra il totale del
+  // giorno nell'intestazione: e' l'informazione che prima bisognava sommare a
+  // mente, ed e' anche quello che fa capire in un colpo d'occhio se un giorno
+  // e' stato pesante.
+  const perGiorno = new Map();
+  for (const t of txs) {
+    const giorno = t.date ? String(t.date).slice(0, 10) : '—';
+    if (!perGiorno.has(giorno)) perGiorno.set(giorno, []);
+    perGiorno.get(giorno).push(t);
+  }
+  const giorniOrdinati = [...perGiorno.keys()].sort((a, b) => b.localeCompare(a));
+  let corpo = '';
+  const oggiISO = realNow.toISOString().slice(0, 10);
+  const ieriISO = new Date(realNow.getTime() - 86400000).toISOString().slice(0, 10);
+  for (const giorno of giorniOrdinati) {
+    const righe = perGiorno.get(giorno).sort((a, b) => b.id - a.id);
+    const nettoGiorno = righe.reduce((s2, t) => s2 + (t.type === 'entrata' ? t.amount : t.type === 'invest' ? 0 : -t.amount), 0);
+    let etichettaGiorno;
+    if (giorno === '—') etichettaGiorno = 'Senza data';
+    else if (giorno === oggiISO) etichettaGiorno = 'Oggi';
+    else if (giorno === ieriISO) etichettaGiorno = 'Ieri';
+    else etichettaGiorno = new Date(giorno).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+    corpo += `<div class="tx-giorno">
+      <span>${escTx(etichettaGiorno)}</span>
+      <span class="tx-giorno-tot ${nettoGiorno < 0 ? 'neg' : nettoGiorno > 0 ? 'pos' : ''}">${nettoGiorno === 0 ? '' : `${nettoGiorno > 0 ? '+' : ''}${formatMoney(nettoGiorno)}`}</span>
+    </div>`;
+    for (const t of righe) corpo += rigaTx(t);
+  }
+  list.innerHTML = corpo;
+  // Ingresso scaglionato (stesso principio di .view-in): reflow forzato per
+  // ri-attivare l'animazione a ogni render (nuovo mese, nuova tx, eliminazione).
+  list.classList.remove('tx-in'); void list.offsetWidth; list.classList.add('tx-in');
+  return;
+
+  // Funzione dichiarata: l'hoisting la rende disponibile anche se e' scritta
+  // dopo il punto in cui viene chiamata nel ciclo qui sopra.
+  function rigaTx(t) {
     const c = getCatById(t.category);
     const isInc = t.type === 'entrata';
     const isInv = t.type === 'invest';
     const descLabel = (t.description && String(t.description).trim()) || c.name;
-    let dateLabel = c.name;
-    if (t.date) {
-      const d = new Date(t.date);
-      dateLabel = `${d.getDate()} ${d.toLocaleString('it-IT', {month:'short'})} • ${c.name}`;
-    }
+    // La data e' ora nell'intestazione del giorno: la riga porta solo la
+    // categoria, che e' l'informazione che cambia da riga a riga.
+    const dateLabel = c.name;
 
-    list.innerHTML += `
+    return `
       <div class="tx-card group" data-id="${t.id}">
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shadow-inner shrink-0" style="background:${c.color}">${c.icon}</div>
@@ -1762,10 +1836,7 @@ const renderDashboard = () => {
         </div>
       </div>
     `;
-  });
-  // Ingresso scaglionato (stesso principio di .view-in): reflow forzato per
-  // ri-attivare l'animazione a ogni render (nuovo mese, nuova tx, eliminazione).
-  list.classList.remove('tx-in'); void list.offsetWidth; list.classList.add('tx-in');
+  }
 };
 
 window.deleteTx = (k, id) => {
