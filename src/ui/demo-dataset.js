@@ -73,6 +73,17 @@ const PROFILO = {
 };
 
 const iso = (d) => d.toISOString().slice(0, 10);
+// Con l'ora: serve a chi legge il momento della giornata, non solo il giorno
+// (src/predict/context-predictor.js — "di solito la mattina compri X").
+// Senza un orario vero ogni transazione cadrebbe a mezzanotte UTC, la stessa
+// fascia per tutte: il motore che riconosce le abitudini per fascia oraria
+// non avrebbe MAI dati con cui lavorare, nemmeno nella demo pensata apposta
+// per mostrare l'app com'e' quando e' viva.
+const isoConOra = (d, ora, minuto = 0) => {
+  const conOra = new Date(d);
+  conOra.setHours(ora, minuto, 0, 0);
+  return conOra.toISOString();
+};
 const mese = (d) => d.toISOString().slice(0, 7);
 
 // Genera ~6 settimane di vita finanziaria plausibile, ordinata nel tempo.
@@ -94,11 +105,16 @@ export function generateDemoTransactions({ now = new Date(), weeks = 14, seed = 
   const inizio = new Date(now);
   inizio.setDate(inizio.getDate() - weeks * 7);
 
-  const add = (date, description, category, amount, type = 'uscita') => {
+  // `ora` e' un range [minimo, massimo] in ore: ogni occorrenza cade in un
+  // punto un po' diverso dentro la fascia, come nella vita vera — non sempre
+  // alle 8:00 in punto, che sarebbe un pattern troppo perfetto per essere
+  // credibile e diventerebbe un segnale piu' forte di quanto un'abitudine
+  // vera lo sia mai.
+  const add = (date, description, category, amount, type = 'uscita', ora = null) => {
     out.push({
       id: `demo-${out.length}`,
       demo: true, // riconoscibile ovunque, anche fuori da qui
-      date: iso(date),
+      date: ora ? isoConOra(date, ora[0] + rnd() * (ora[1] - ora[0]), Math.floor(rnd() * 60)) : iso(date),
       description, category,
       amount: +amount.toFixed(2),
       type,
@@ -118,22 +134,24 @@ export function generateDemoTransactions({ now = new Date(), weeks = 14, seed = 
     // Caffè: giorni feriali, quasi sempre ma non sempre (la vita vera ha buchi)
     if (settimana >= 1 && settimana <= 5 && rnd() > 0.25) {
       const [desc, cat, min, max] = PROFILO.caffe;
-      add(d, desc, cat, pick(min, max));
+      add(d, desc, cat, pick(min, max), 'uscita', [7.5, 9.5]);
     }
-    // Spesa grossa il sabato
+    // Spesa grossa il sabato, tarda mattinata — l'orario tipico del giro
+    // settimanale, non un'ora a caso.
     if (settimana === 6) {
       const [desc, cat, min, max] = PROFILO.spesaSettimanale;
-      add(d, desc, cat, pick(min, max));
+      add(d, desc, cat, pick(min, max), 'uscita', [10, 12.5]);
     }
-    // Carburante ogni ~10 giorni
+    // Carburante ogni ~10 giorni, nel tragitto di fine giornata
     if (giorno % 10 === 3) {
       const [desc, cat, min, max] = PROFILO.carburante;
-      add(d, desc, cat, pick(min, max));
+      add(d, desc, cat, pick(min, max), 'uscita', [17.5, 19.5]);
     }
-    // Una spesa extra ogni tanto, variata
+    // Una spesa extra ogni tanto, variata — serata, quando capitano di piu'
+    // le spese non pianificate.
     if (rnd() > 0.72) {
       const [desc, cat, min, max] = PROFILO.extra[Math.floor(rnd() * PROFILO.extra.length)];
-      add(d, desc, cat, pick(min, max));
+      add(d, desc, cat, pick(min, max), 'uscita', [19, 21.5]);
     }
   }
 

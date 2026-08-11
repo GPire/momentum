@@ -479,6 +479,22 @@
        salvare da qualche parte) l'importo gia' digitato. Si apre con la
        stessa molla morbida usata per l'orb e il resto dell'app — mai un
        elemento che scatta di colpo. */
+    /* ── IL "DI SOLITO..." VISIBILE ──
+       Stesso trattamento a luce (non fondo pieno) degli altri avvisi, ma con
+       l'accento ciano: e' un'osservazione, non un allarme ne' un invito ad
+       agire come il suggerimento "creane una" — un registro diverso per un
+       significato diverso. */
+    .cat-context-hint {
+      display: block; width: calc(100% - 2rem); margin: .5rem 1rem 0; padding: .55rem .8rem;
+      font-size: 11px; line-height: 1.4;
+      color: color-mix(in srgb, var(--on-surface-secondary) 85%, transparent);
+      background: color-mix(in srgb, var(--cyan, var(--primary)) 6%, transparent);
+      border: 1px solid color-mix(in srgb, var(--cyan, var(--primary)) 18%, transparent);
+      border-radius: .8rem;
+      animation: new-cat-apri .3s ease-out both;
+    }
+    .cat-context-hint b { color: var(--on-surface); font-weight: 700; }
+
     /* ── IL SUGGERIMENTO "CREANE UNA SU MISURA" ──
        Compare solo quando l'IA di Momentum (la stessa che indovina la
        categoria mentre scrivi la descrizione) non riconosce niente: invece

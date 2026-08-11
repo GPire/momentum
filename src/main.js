@@ -449,6 +449,21 @@ const getTxFormHTML = () => `
         <div class="cat-scroll-wrapper shrink-0">
       <div class="flex gap-2.5 px-2 w-max" id="cat-scroll">${buildCatChipsHTML('uscita')}</div>
     </div>
+
+    <!-- IL "PERCHÉ" DIVENTA TESTO VERO, NON UN TOOLTIP.
+         Il cerchio luminoso su una categoria (src/predict/context-predictor.js
+         → predictCategoriesNow, "di solito la mattina compri X") portava la
+         spiegazione SOLO nell'attributo title — un tooltip che appare al
+         passaggio del mouse. Su un telefono, dove si aggiunge la stragrande
+         maggioranza delle spese, l'attributo title non esiste: il tocco non lo
+         mostra mai. Il PRIMO tentativo di questa riga era finito solo nella
+         logica JS, senza il suo elemento nel markup: querySelector restituiva
+         sempre null e il "fix" non faceva niente, in silenzio. Trovato
+         verificando dal vivo con l'orario forzato, non fidandosi del controllo
+         di sintassi che vede solo se il codice compila, non se un elemento
+         esiste davvero nel DOM. -->
+    <p id="cat-context-hint" class="cat-context-hint hidden"></p>
+
     <!-- Compare SOLO quando l'AI di Momentum (window.momentumOrchestrator /
          NeuralNexus, la stessa che suggerisce la categoria mentre scrivi) non
          riconosce NESSUNA categoria plausibile per quello che hai scritto:
@@ -966,11 +981,15 @@ const attachFormListeners = (container, prefill = null) => {
   // con un pattern temporale netto (altrimenti tace, niente forzature). ──
   try {
     const ctx = predictCategoriesNow(VaultDAO.state.transactions, new Date());
+    const hintEl = container.querySelector('#cat-context-hint');
     if (ctx.topPick && type === 'uscita') {
       const chip = container.querySelector(`[data-cat-id="${ctx.topPick.category}"]`);
       if (chip) {
         chip.classList.add('context-now');
-        chip.setAttribute('title', `Di solito ${ctx.topPick.reason}${ctx.topPick.typicalAmount ? ` · ~${formatMoney(ctx.topPick.typicalAmount)}` : ''}`);
+        const cNome = getCatById(ctx.topPick.category).name;
+        const spiegazione = `Di solito ${ctx.topPick.reason}: <b>${cNome}</b>${ctx.topPick.typicalAmount ? `, circa <b>${formatMoney(ctx.topPick.typicalAmount)}</b>` : ''}.`;
+        chip.setAttribute('title', spiegazione.replace(/<\/?b>/g, ''));
+        if (hintEl) { hintEl.innerHTML = spiegazione; hintEl.classList.remove('hidden'); }
         chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         // al tocco: se non hai ancora scritto un importo, pre-compilo quello tipico
         chip.addEventListener('click', () => {
@@ -978,8 +997,11 @@ const attachFormListeners = (container, prefill = null) => {
             rawVal = String(ctx.topPick.typicalAmount);
             updateAmount();
           }
+          hintEl?.classList.add('hidden');
         });
       }
+    } else if (hintEl) {
+      hintEl.classList.add('hidden');
     }
   } catch (_) { /* predizione assente: il form funziona identico */ }
 

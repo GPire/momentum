@@ -34,8 +34,15 @@ test('generateDemoTransactions: ordinato nel tempo e dentro la finestra richiest
   for (let i = 1; i < tx.length; i++) {
     assert.ok(tx[i].date >= tx[i - 1].date, 'le date devono essere crescenti');
   }
-  assert.ok(tx[0].date >= '2026-06-25', 'non deve andare più indietro di ~6 settimane');
-  assert.ok(tx[tx.length - 1].date <= '2026-08-06');
+  // Alcune voci ora portano anche l'ora (il caffè della mattina, la spesa del
+  // sabato...), quindi il campo può essere un timestamp ISO completo e non
+  // solo "YYYY-MM-DD" — il confronto sul CONFINE della finestra deve guardare
+  // solo il giorno di calendario, non la stringa intera: altrimenti una spesa
+  // delle 19:30 dell'ultimo giorno risulterebbe "oltre" un limite scritto
+  // come sola data, pur essendo nello stesso identico giorno.
+  const soloData = (s) => String(s).slice(0, 10);
+  assert.ok(soloData(tx[0].date) >= '2026-06-25', 'non deve andare più indietro di ~6 settimane');
+  assert.ok(soloData(tx[tx.length - 1].date) <= '2026-08-06');
 });
 
 test('generateDemoTransactions: nessun importo negativo o assurdo', () => {
@@ -149,4 +156,29 @@ test('le categorie del demo sono ID VERI, non etichette inventate', async () => 
   // ugualmente indistinta, solo con un'altra icona.
   const distinte = new Set(tx.map((t) => t.category));
   assert.ok(distinte.size >= 4, `solo ${distinte.size} categorie diverse`);
+});
+
+test('generateDemoTransactions: le abitudini portano un ORARIO vero, non solo una data', () => {
+  // Bug che avrebbe reso muto il motore delle abitudini per fascia oraria
+  // (src/predict/context-predictor.js): prima ogni transazione demo aveva
+  // solo "YYYY-MM-DD", che equivale a mezzanotte UTC per costruzione — tutte
+  // nella stessa fascia oraria, nessun pattern rilevabile nemmeno nella demo
+  // pensata apposta per mostrare l'app viva.
+  const tx = generateDemoTransactions({ now: NOW, weeks: 14 });
+  const caffe = tx.filter((t) => t.description === 'Bar');
+  assert.ok(caffe.length >= 10, `pochi caffè per verificare un pattern: ${caffe.length}`);
+  const ore = caffe.map((t) => new Date(t.date).getHours());
+  // Il caffè del mattino deve cadere davvero al mattino, non a mezzanotte.
+  for (const h of ore) assert.ok(h >= 6 && h <= 10, `ora fuori dalla fascia mattutina: ${h}`);
+  // E non sono tutte identiche: una vita vera ha variazione dentro la fascia,
+  // non lo stesso minuto ripetuto — altrimenti sarebbe un pattern troppo
+  // perfetto per essere credibile.
+  assert.ok(new Set(ore).size > 1, 'tutti i caffè alla stessa identica ora: non sembra vita vera');
+
+  const spesa = tx.filter((t) => t.description === 'Esselunga');
+  const oreSpesa = spesa.map((t) => new Date(t.date).getHours());
+  for (const h of oreSpesa) assert.ok(h >= 9 && h <= 13, `spesa del sabato fuori orario: ${h}`);
+  // E il giorno resta quello giusto: aggiungere l'ora non deve spostare la
+  // spesa fuori dal sabato per cui esiste questa regola.
+  for (const t of spesa) assert.equal(new Date(t.date).getDay(), 6, `spesa non di sabato: ${t.date}`);
 });
