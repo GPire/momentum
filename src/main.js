@@ -1695,31 +1695,40 @@ const renderDashboard = () => {
   // Tap → form uscita pre-compilato; la conferma passa dal salvataggio normale →
   // orchestrator.learn addestra il Core. Solo a mese corrente e con pattern netto
   // (altrimenti tace): predittivo ma mai inventato. ──
-  const nudgeEl = $('#next-expense-nudge');
-  if (nudgeEl) {
+  // DUPLICATO NEL COMMAND CENTER DESKTOP, stesso id: prima questa card
+  // esisteva solo nella Dashboard mobile, e chi usava il desktop non la
+  // vedeva mai — il pannello con lo stesso nome ("Command Center") mostrava
+  // oggettivamente meno intelligenza dello stesso modulo su telefono.
+  // `querySelectorAll` invece di un singolo `$` aggiorna entrambe le copie
+  // (mobile e desktop) con lo stesso HTML in un solo posto: non possono
+  // divergere perche' non esiste un secondo posto dove diventerebbero due
+  // cose diverse.
+  const nudgeEls = document.querySelectorAll('#next-expense-nudge');
+  if (nudgeEls.length) {
     const nudge = isCurrentMonth ? nextExpenseNudge(VaultDAO.state.transactions, realNow) : { show: false };
+    let nudgeHtml = '';
     if (nudge.show) {
       const c = getCatById(nudge.category);
       const amtLabel = formatMoney(nudge.typicalAmount);
-      nudgeEl.classList.remove('hidden');
       // Neurocolore: usa il colore della categoria (riconoscimento immediato,
       // "è la TUA abitudine"), non un neon generico. Tocco ≥44px, aria-label chiaro.
-      nudgeEl.innerHTML = `
+      nudgeHtml = `
         <button type="button" data-action="quick-add-predicted" data-cat="${nudge.category}" data-amt="${nudge.typicalAmount}"
           aria-label="Aggiungi ${c.name} da ${amtLabel}, ${nudge.reason || 'spesa abituale'}"
           class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border bg-[color-mix(in_srgb,var(--surface-elevated)_50%,transparent)] active:scale-[0.98] transition-transform text-left"
           style="border-color:${c.color}55">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0" style="background:${c.color}">${c.icon}</span>
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</span>
           <span class="min-w-0 flex-1">
             <span class="block text-[13px] font-bold text-[var(--on-surface)] truncate">${c.name} <span class="font-mono">${amtLabel}</span></span>
             <span class="block text-[11px] text-[var(--on-surface-secondary)] truncate">${nudge.reason ? nudge.reason.charAt(0).toUpperCase() + nudge.reason.slice(1) : 'La tua spesa abituale'} · tocca per aggiungere</span>
           </span>
           <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white" style="background:${c.color}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>`;
-    } else {
-      nudgeEl.classList.add('hidden');
-      nudgeEl.innerHTML = '';
     }
+    nudgeEls.forEach((nudgeEl) => {
+      nudgeEl.classList.toggle('hidden', !nudge.show);
+      nudgeEl.innerHTML = nudgeHtml;
+    });
   }
 
   // ── Riga-insight umana della Dashboard: UNA sola cosa notata, in una riga
@@ -1798,9 +1807,12 @@ const renderDashboard = () => {
   // mostrato SOLO se c'è un saldo aperto in un gruppo. Verde = ti devono (bello,
   // soldi in arrivo); ambra = devi tu (promemoria gentile, mai rosso/vergogna).
   // Un tocco apre "I miei gruppi" per saldare. Nascosto quando non c'è nulla. ──
-  const splitEl = $('#split-reminder');
-  if (splitEl) {
+  // Stesso schema del blocco sopra: aggiorna insieme la copia mobile e
+  // quella nel Command Center desktop, mai una sola.
+  const splitEls = document.querySelectorAll('#split-reminder');
+  if (splitEls.length) {
     const sr = splitReminder(VaultDAO.state.splitGroups || []);
+    let splitHtml = '';
     if (sr.show) {
       const owed = sr.direction === 'owed';
       const tone = owed
@@ -1811,18 +1823,18 @@ const renderDashboard = () => {
       const ico = owed
         ? '<path d="M12 19V5M5 12l7-7 7 7"/>'        // freccia su = entra a te
         : '<path d="M12 5v14M5 12l7 7 7-7"/>';       // freccia giù = esce da te
-      splitEl.classList.remove('hidden');
-      splitEl.innerHTML = `
+      splitHtml = `
         <button type="button" data-action="open-split" aria-label="${verb} ${formatMoney(sr.amount)} nel gruppo ${sr.groupName}. Tocca per saldare."
           class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${tone.bd} ${tone.bg} ${tone.tx} active:scale-[0.98] transition-transform text-left">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 ${tone.ic}">${ico}</svg>
           <span class="min-w-0 flex-1 text-[13px]"><b>${verb} ${formatMoney(sr.amount)}</b> in <b>${sr.groupName}</b>${extra}</span>
           <span class="shrink-0 text-[11px] font-bold ${tone.ic}">Salda →</span>
         </button>`;
-    } else {
-      splitEl.classList.add('hidden');
-      splitEl.innerHTML = '';
     }
+    splitEls.forEach((splitEl) => {
+      splitEl.classList.toggle('hidden', !sr.show);
+      splitEl.innerHTML = splitHtml;
+    });
   }
 
   // WebGL orb — disattivato su hardware debole (profilo misurato, non stimato)

@@ -248,6 +248,13 @@
     }
     @media (prefers-reduced-motion: reduce) { .polso-barra { animation: none; } }
 
+    .cc-titolo {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em;
+      color: color-mix(in srgb, var(--on-surface-secondary) 85%, transparent);
+    }
+    .cc-titolo svg { width: 16px; height: 16px; color: var(--primary); flex-shrink: 0; }
+
     /* ── LA NAVIGAZIONE FRA I MESI ──
        Niente contenitore: il mese e' un titolo, non un widget. Le frecce
        stanno accanto e pesano poco, perche' il loro compito e' farsi trovare
@@ -3448,7 +3455,23 @@
 
         <!-- DESKTOP COMMAND CENTER -->
         <aside id="desktop-sidebar" class="hidden xl:flex flex-col border-l border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-3xl p-6 xl:p-8 h-screen top-0 sticky">
-          <h2 class="text-xs font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mt-4 mb-4 shrink-0">Command Center</h2>
+          <!-- "Command Center" era un titolo nudo, senza nemmeno l'icona che
+               ha ogni altra intestazione di sezione dell'app (Salvadanaio,
+               Chiedi a Momentum...) — e non mostrava NESSUNA delle due cose
+               predittive che il mobile mostra sopra la stessa form (la
+               prossima spesa probabile, il promemoria di una spesa da
+               dividere): chi usa il desktop vedeva un pannello oggettivamente
+               meno intelligente dello stesso identico modulo su telefono.
+               Stessi due id di sotto, duplicati con lo stesso ID della
+               versione mobile: main.js li aggiorna entrambi in un colpo solo
+               con `document.querySelectorAll('#id')`, e tutte le animazioni
+               CSS gia' scritte per quegli id si applicano qui gratis. -->
+          <h2 class="cc-titolo mt-4 mb-4 shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            Command Center
+          </h2>
+          <div id="next-expense-nudge" class="shrink-0 hidden mb-2.5"></div>
+          <div id="split-reminder" class="shrink-0 hidden mb-2.5"></div>
           <div id="form-container-desktop" class="flex-grow min-h-0"></div>
         </aside>
       </div>
