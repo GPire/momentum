@@ -449,6 +449,12 @@ const getTxFormHTML = () => `
         <div class="cat-scroll-wrapper shrink-0">
       <div class="flex gap-2.5 px-2 w-max" id="cat-scroll">${buildCatChipsHTML('uscita')}</div>
     </div>
+    <!-- Compare SOLO quando l'AI di Momentum (window.momentumOrchestrator /
+         NeuralNexus, la stessa che suggerisce la categoria mentre scrivi) non
+         riconosce NESSUNA categoria plausibile per quello che hai scritto:
+         invece di lasciare l'utente a scegliere a caso fra le esistenti, gli
+         si dice esplicitamente che puo' crearne una su misura. -->
+    <button type="button" id="cat-suggerisci-nuova" class="cat-suggerisci-nuova hidden">Nessuna di queste sembra giusta? <b>Creane una su misura</b> — con nome e icona già pronti.</button>
 
     ${buildNewCatPanelHTML()}
 
@@ -605,6 +611,7 @@ const attachFormListeners = (container, prefill = null) => {
       const val = desc.value.trim();
       if (val.length < 3) {
         aiPanel.classList.remove('active');
+        container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
         return;
       }
       
@@ -621,7 +628,17 @@ const attachFormListeners = (container, prefill = null) => {
       const pred = window.momentumOrchestrator
         ? window.momentumOrchestrator.classify(val, amt, selectedDate)
         : NeuralNexus.predict(val, amt, selectedDate);
-      
+
+      // L'ORCHESTRATOR NON RESTITUISCE MAI null: propone sempre la sua ipotesi
+      // migliore, e quando e' incerto lo dice con `abstain: true` — e' gia'
+      // il segnale onesto e calibrato che serve (src/ai/orchestrator.js:
+      // "servono N tue conferme per una garanzia vera"). Il primo tentativo
+      // controllava `!pred`, che non scatta mai: il suggerimento restava
+      // muto anche davanti a un testo senza senso. La condizione giusta e'
+      // l'astensione stessa, non un'invenzione mia di soglia.
+      const suggerisciNuova = container.querySelector('#cat-suggerisci-nuova');
+      if (suggerisciNuova) suggerisciNuova.classList.toggle('hidden', !(pred && pred.abstain));
+
       if (pred) {
         const pCat = getCatById(pred.cat);
         // Astensione (orchestrator): quando l'AI "sa di non sapere" propone
@@ -707,7 +724,7 @@ const attachFormListeners = (container, prefill = null) => {
         // una categoria fantasma con id "__nuova__".
         if (c.dataset.catId === '__nuova__') {
           haptic('light');
-          openNewCatPanel();
+          openNewCatPanel(suggerisciNomeCategoria(desc?.value));
           return;
         }
         haptic('light');
@@ -715,6 +732,7 @@ const attachFormListeners = (container, prefill = null) => {
         catId = c.dataset.catId;
         container.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('selected'));
         c.classList.add('selected');
+        container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
         // Memoria importi (src/predict/amount-memory.js): se per questa
         // categoria/descrizione la cifra è sempre la stessa (es. sigarette),
         // si precompila da sola — l'utente può sempre cancellarla col DEL.
@@ -767,9 +785,12 @@ const attachFormListeners = (container, prefill = null) => {
     bollette: ['bolletta', 'bollette', 'fattura', 'utenz', 'internet', 'telefono'],
   };
   let iconaScelaManuale = false;
-  container.querySelector('#new-cat-nome')?.addEventListener('input', () => {
+  // Fattorizzato: serve sia mentre si digita a mano, sia per suggerire
+  // subito l'icona quando il pannello si apre gia' precompilato con un nome
+  // preso dalla descrizione della spesa (vedi openNewCatPanel piu' sotto).
+  const suggerisciIconaDaTesto = (testoGrezzo) => {
     if (iconaScelaManuale) return;
-    const testo = (container.querySelector('#new-cat-nome')?.value || '').toLowerCase();
+    const testo = (testoGrezzo || '').toLowerCase();
     if (!testo) return;
     const trovata = Object.entries(CAT_SUGGERIMENTI).find(([, parole]) => parole.some((p) => testo.includes(p)));
     if (!trovata) return;
@@ -778,23 +799,57 @@ const attachFormListeners = (container, prefill = null) => {
     catIconaScelta = ic;
     container.querySelectorAll('.new-cat-emoji').forEach((b) => b.classList.toggle('selected', b.dataset.icona === ic.chiave));
     aggiornaAnteprimaCat();
+  };
+  container.querySelector('#new-cat-nome')?.addEventListener('input', () => {
+    suggerisciIconaDaTesto(container.querySelector('#new-cat-nome')?.value);
   });
 
-  const openNewCatPanel = () => {
+  // Da una descrizione libera ("farmacia igea") a un NOME DI CATEGORIA
+  // proponibile ("Farmacia"): si tiene solo la prima parola significativa,
+  // maiuscola — una categoria e' un'etichetta breve, non la frase intera che
+  // qualcuno ha scritto per ricordarsi il negozio esatto. Resta un suggerimento
+  // da correggere con un tocco, mai imposto: il campo resta modificabile.
+  const suggerisciNomeCategoria = (descrizione) => {
+    const pulito = (descrizione || '').trim().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (!pulito) return '';
+    const prima = pulito.split(' ').slice(0, 2).join(' ');
+    return prima.charAt(0).toUpperCase() + prima.slice(1);
+  };
+
+  const openNewCatPanel = (nomeSuggerito = '') => {
     const panel = container.querySelector('#new-cat-panel');
     if (!panel) return;
+    container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
+    const nomeInput = container.querySelector('#new-cat-nome');
+    // Non si sovrascrive mai qualcosa che l'utente ha gia' scritto di suo —
+    // il suggerimento vale solo la prima volta che il pannello si apre vuoto.
+    if (nomeInput && !nomeInput.value && nomeSuggerito) {
+      nomeInput.value = nomeSuggerito;
+      suggerisciIconaDaTesto(nomeSuggerito);
+      aggiornaAnteprimaCat();
+    }
     panel.classList.remove('hidden');
     // Reflow forzato per far ripartire l'animazione di apertura ogni volta,
     // anche se il pannello era gia' stato aperto e richiuso in questa sessione.
     panel.classList.remove('new-cat-in'); void panel.offsetWidth; panel.classList.add('new-cat-in');
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    setTimeout(() => container.querySelector('#new-cat-nome')?.focus(), 250);
+    // Se il nome e' gia' precompilato, si seleziona il testo invece di
+    // limitarsi a mettere il cursore: chi vuole scrivere un nome diverso
+    // lo fa con un tocco solo, non deve prima cancellare a mano.
+    setTimeout(() => { const el = container.querySelector('#new-cat-nome'); el?.focus(); el?.select(); }, 250);
   };
   const closeNewCatPanel = () => {
     container.querySelector('#new-cat-panel')?.classList.add('hidden');
   };
 
   container.querySelector('#new-cat-cancel')?.addEventListener('click', () => { haptic('light'); closeNewCatPanel(); });
+  // Il paragrafo "nessuna di queste?" e' anche un tasto: un tocco solo porta
+  // dritti al pannello gia' precompilato, invece di dover prima leggere il
+  // consiglio e poi andare a cercare "+ Nuova" in fondo alla fascia.
+  container.querySelector('#cat-suggerisci-nuova')?.addEventListener('click', () => {
+    haptic('light');
+    openNewCatPanel(suggerisciNomeCategoria(desc?.value));
+  });
 
   container.querySelectorAll('.new-cat-emoji').forEach((btn) => {
     btn.addEventListener('click', () => {

@@ -472,6 +472,25 @@
        salvare da qualche parte) l'importo gia' digitato. Si apre con la
        stessa molla morbida usata per l'orb e il resto dell'app — mai un
        elemento che scatta di colpo. */
+    /* ── IL SUGGERIMENTO "CREANE UNA SU MISURA" ──
+       Compare solo quando l'IA di Momentum (la stessa che indovina la
+       categoria mentre scrivi la descrizione) non riconosce niente: invece
+       di lasciare l'utente a scegliere a caso fra le categorie esistenti,
+       gli si dice chiaramente che puo' farsene una su misura — ed e' un
+       bottone vero, non solo una frase: un tocco apre il pannello gia'
+       precompilato con nome e icona proposti da quello che ha scritto. */
+    .cat-suggerisci-nuova {
+      display: block; width: calc(100% - 2rem); margin: .4rem 1rem 0; padding: .6rem .8rem;
+      text-align: left; font-size: 11px; line-height: 1.4;
+      color: color-mix(in srgb, var(--on-surface-secondary) 82%, transparent);
+      background: color-mix(in srgb, var(--primary) 7%, transparent);
+      border: 1px dashed color-mix(in srgb, var(--primary) 30%, transparent);
+      border-radius: .9rem;
+      animation: new-cat-apri .3s ease-out both;
+    }
+    .cat-suggerisci-nuova b { color: var(--on-surface); font-weight: 700; }
+    .cat-suggerisci-nuova:active { transform: scale(.98); }
+
     .new-cat-panel {
       margin: .5rem 1rem 0; padding: .9rem 1rem 1.1rem;
       border-radius: 1.2rem; background: var(--surface-elevated);
