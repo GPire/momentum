@@ -104,6 +104,129 @@
       mask-image: linear-gradient(90deg, #000 0%, #000 38%, transparent 100%);
     }
 
+    /* ── LE CHIP DEL QA ──
+       Erano pillole con un fondo bianco al 5%: su un cielo scuro si leggono
+       come macchie grigie, e sei tutte uguali diventano una fascia informe.
+       Adesso sono contorni sottili — un suggerimento e' un invito, non un
+       bottone pieno — e prendono luce solo quando ci si posa sopra.
+       Entrano scaglionate: un blocco che appare di colpo e' rumore, lo stesso
+       elenco che si forma in mezzo secondo si legge una voce per volta. */
+    .qa-chip {
+      font-size: 10.5px; font-weight: 500; line-height: 1;
+      padding: .45rem .7rem; border-radius: 999px;
+      color: color-mix(in srgb, var(--on-surface-secondary) 88%, transparent);
+      background: transparent;
+      border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+      transition: color .18s, border-color .18s, background-color .18s, transform .18s;
+      animation: chip-in .38s cubic-bezier(.22,1,.36,1) both;
+      animation-delay: calc(var(--i, 0) * 45ms);
+    }
+    @keyframes chip-in { from { opacity: 0; transform: translateY(4px) scale(.96); } }
+    @media (hover: hover) {
+      .qa-chip:hover {
+        color: var(--on-surface);
+        border-color: color-mix(in srgb, var(--cyan, var(--primary)) 55%, transparent);
+        background: color-mix(in srgb, var(--cyan, var(--primary)) 9%, transparent);
+      }
+    }
+    .qa-chip:active { transform: scale(.94); }
+    @media (prefers-reduced-motion: reduce) { .qa-chip { animation: none; } }
+
+    /* ══════════════════════════════════════════════════════════
+       GLI AVVISI — vetro con una luce, non scatole tinte
+       ══════════════════════════════════════════════════════════
+       Il banner del demo e la riga dell'obiettivo erano riquadri ambra pieni
+       con bordo ambra saturo su tutti e quattro i lati. Su una schermata fatta
+       di pannelli di vetro sospesi nel buio sono corpi estranei: sembrano
+       incollati sopra invece che parte della scena, ed e' il motivo per cui
+       "stonano" anche quando il testo va bene.
+
+       Stessa materia delle card, allora: fondo di vetro, bordo appena
+       accennato, e il colore che entra come LUCE da sinistra — dal lato da cui
+       si comincia a leggere. Il significato resta (ambra = da sapere, verde =
+       va bene, rosso = attenzione), ma smette di gridare.
+
+       Da sinistra e non dall'alto perche' questi sono nastri orizzontali: la
+       luce entra dal lato corto, come farebbe davvero. */
+    .avviso {
+      position: relative; overflow: hidden;
+      display: flex; align-items: center; gap: .7rem;
+      padding: .7rem .9rem;
+      border-radius: 1rem;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid color-mix(in srgb, var(--accento, var(--gold, #eab308)) 22%, var(--glass-border));
+      --accento: var(--gold, #eab308);
+    }
+    .avviso::before {
+      content: ''; position: absolute; inset: 0 auto 0 0; width: 96px;
+      pointer-events: none; border-radius: inherit;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--accento) 15%, transparent) 0%,
+        transparent 100%);
+    }
+    /* Il filo di luce sul bordo sinistro: sottile, spento alle estremita'. */
+    .avviso::after {
+      content: ''; position: absolute; inset: 0 auto 0 0; width: 1.5px;
+      pointer-events: none;
+      background: linear-gradient(180deg,
+        transparent 0%,
+        color-mix(in srgb, var(--accento) 75%, transparent) 30%,
+        color-mix(in srgb, var(--accento) 75%, transparent) 70%,
+        transparent 100%);
+    }
+    .avviso > * { position: relative; z-index: 1; }
+    .avviso-testo { font-size: 12.5px; line-height: 1.45; color: color-mix(in srgb, var(--on-surface) 88%, transparent); }
+    .avviso-titolo { font-size: 12.5px; font-weight: 700; line-height: 1.35; color: color-mix(in srgb, var(--accento) 92%, white); }
+    .avviso .ms-n, .avviso b { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    /* ── LA NAVIGAZIONE FRA I MESI ──
+       Niente contenitore: il mese e' un titolo, non un widget. Le frecce
+       stanno accanto e pesano poco, perche' il loro compito e' farsi trovare
+       quando servono, non annunciarsi sempre. */
+    .mese-nav {
+      display: flex; align-items: center; justify-content: center; gap: .35rem;
+      margin-inline: auto; max-width: 100%;
+    }
+    .mese-nome {
+      font-size: clamp(.95rem, 4vw, 1.15rem); font-weight: 700;
+      letter-spacing: -.015em; padding-inline: .35rem;
+      color: color-mix(in srgb, var(--on-surface) 88%, transparent);
+      transition: color .2s;
+    }
+    .mese-freccia {
+      display: grid; place-items: center;
+      /* 40px: sotto questa misura un bersaglio col pollice si sbaglia. Il
+         disegno resta piccolo, l'area da toccare no — sono due cose diverse e
+         confonderle e' l'errore piu' comune nelle barre di navigazione. */
+      width: 40px; height: 40px; border-radius: 50%;
+      color: color-mix(in srgb, var(--on-surface-secondary) 55%, transparent);
+      transition: color .2s, background-color .2s, transform .2s, opacity .25s;
+    }
+    .mese-freccia svg { width: 18px; height: 18px; }
+    @media (hover: hover) { .mese-freccia:hover { color: var(--on-surface); background: color-mix(in srgb, currentColor 8%, transparent); } }
+    .mese-freccia:active { transform: scale(.88); }
+    /* IL COMANDO MORTO SPARISCE invece di restare spento. Occupa ancora il suo
+       spazio, cosi' il nome del mese non salta da una parte all'altra quando
+       si cambia mese — ma non chiede piu' attenzione. */
+    .mese-freccia[disabled], .mese-freccia.spenta {
+      opacity: 0; pointer-events: none;
+    }
+    /* Fuori dal mese corrente il titolo diventa un invito a tornare indietro:
+       si accende e si porta dietro un punto luminoso, come la sonda
+       sull'orbita — stesso segno per lo stesso significato, "sei qui". */
+    .mese-nome[data-action="jump-today"] {
+      cursor: pointer; color: var(--gold, #eab308);
+    }
+    .mese-nome .mese-oggi {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+      background: currentColor; margin-left: .4rem; vertical-align: middle;
+      box-shadow: 0 0 6px currentColor;
+      animation: mese-pulsa 2.6s ease-in-out infinite;
+    }
+    @keyframes mese-pulsa { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .mese-nome .mese-oggi { animation: none; } }
+
     /* ══════════════════════════════════════════════════════════
        L'ACCENTO DELLE CARD — luce sul bordo, non una striscia
        ══════════════════════════════════════════════════════════
@@ -2288,23 +2411,24 @@
                  numero, niente altro. -->
             <div id="orb-contesto" class="orb-contesto hidden"></div>
 
-            <div class="flex items-center justify-between bg-[var(--surface-elevated)] p-1.5 rounded-[1.2rem] sm:rounded-[1.5rem] border border-[var(--outline)] w-max mx-auto shadow-sm shrink-0 max-w-full">
-              <button data-action="prev-month" class="p-2 sm:p-3.5 rounded-xl sm:rounded-2xl hover:bg-[var(--outline)] active:scale-90 transition-transform shrink-0">
-                <svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            <!-- ── IL SELETTORE DEL MESE ──
+                 Era una pillola opaca con bordo, in mezzo a una schermata
+                 fatta di vetro e di cielo: l'unico oggetto solido, e per
+                 giunta largo quanto una fascia intera. E mostrava sempre due
+                 frecce, di cui quella "avanti" quasi sempre spenta ma
+                 comunque disegnata — un comando morto e' rumore che chiede di
+                 essere interpretato ogni volta.
+                 Adesso: nessuna scatola, il nome del mese in chiaro, e le
+                 frecce che ESISTONO solo quando portano da qualche parte. -->
+            <div class="mese-nav shrink-0">
+              <button data-action="prev-month" class="mese-freccia" aria-label="Mese precedente">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
               </button>
-              <h2 id="current-month-display" class="text-base sm:text-xl min-w-[140px] sm:min-w-[180px] text-center capitalize font-extrabold px-1 sm:px-2 tracking-tight truncate"></h2>
-              <button data-action="next-month" id="next-month-btn" class="p-2 sm:p-3.5 rounded-xl sm:rounded-2xl transition-transform shrink-0">
-                <svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+              <h2 id="current-month-display" class="mese-nome capitalize truncate"></h2>
+              <button data-action="next-month" id="next-month-btn" class="mese-freccia" aria-label="Mese successivo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
               </button>
             </div>
-
-            <!-- "Oggi puoi spendere": il numero unico del giorno (src/predict/advisor.js).
-                 Derivato dal budget settimanale meno gli abbonamenti in arrivo.
-                 Nascosta se manca il budget o se si guarda un mese diverso da oggi.
-                 Quando la Cassa Unica sotto è attiva (stipendio/impegni noti), QUESTA
-                 tace: due risposte diverse alla stessa domanda sulla stessa schermata
-                 erodevano la fiducia più di quanto la card in sé aggiungesse valore. -->
-            <div id="safe-to-spend-card" class="card p-5 sm:p-6 shrink-0 hidden"></div>
 
             <!-- "Il tuo mese, senza sorprese" (Cassa Unica): quando disponibile è LA
                  risposta a "quanto posso spendere" — spostata qui, subito dopo l'orb,

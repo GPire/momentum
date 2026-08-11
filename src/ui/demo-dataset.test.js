@@ -133,3 +133,20 @@ test('demoStatus: input vuoti -> nessun crash, nessun messaggio inventato', () =
   assert.equal(s.attivo, false);
   assert.equal(s.messaggio, null);
 });
+
+test('le categorie del demo sono ID VERI, non etichette inventate', async () => {
+  // Bug trovato guardando la lista dei movimenti nel browser: ogni riga del
+  // demo mostrava "Altro" con la stessa icona grigia, perché qui c'erano nomi
+  // ('Casa', 'Svago') e l'app cerca gli id di constants.js. Il demo esiste per
+  // far vedere l'app viva e la faceva vedere spenta.
+  const VALIDI = new Set(['spesa', 'ristoranti', 'shopping', 'abbonamenti', 'trasporti', 'stipendio', 'etf', 'crypto', 'risparmio']);
+  const tx = generateDemoTransactions({ now: new Date(2026, 7, 10) });
+  assert.ok(tx.length > 50);
+  for (const t of tx) {
+    assert.ok(VALIDI.has(t.category), `categoria inesistente: "${t.category}" su "${t.description}"`);
+  }
+  // E devono essercene DIVERSE: se fossero tutte uguali la lista sarebbe
+  // ugualmente indistinta, solo con un'altra icona.
+  const distinte = new Set(tx.map((t) => t.category));
+  assert.ok(distinte.size >= 4, `solo ${distinte.size} categorie diverse`);
+});

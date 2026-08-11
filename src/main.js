@@ -1110,16 +1110,16 @@ function renderDemoBanner() {
   const pct = Math.round((fatte / DEMO_FADE_AT) * 100);
   el.classList.remove('hidden');
   el.innerHTML = `
-    <div class="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3">
+    <div class="avviso" style="--accento:var(--gold);flex-direction:column;align-items:stretch;gap:.6rem">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0">
-          <p class="text-[12px] font-bold text-amber-300 leading-tight">Questo è un esempio, non i tuoi soldi</p>
-          <p class="text-[11px] text-amber-200/90 mt-1 leading-snug">Così vedi subito com'è Momentum pieno. Sparisce da solo mentre aggiungi le tue spese: ne mancano <b>${s.realiMancanti}</b>.</p>
+          <p class="avviso-titolo">Questo è un esempio, non i tuoi soldi</p>
+          <p class="t-nota mt-1">Così vedi subito com'è Momentum pieno. Sparisce da solo mentre aggiungi le tue spese: ne mancano <b>${s.realiMancanti}</b>.</p>
         </div>
-        <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-amber-400/40 text-amber-200 hover:bg-amber-400/10">Parti dai miei dati</button>
+        <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface)] hover:bg-white/5 transition-colors">Parti dai miei dati</button>
       </div>
-      <div class="h-1.5 rounded-full bg-black/30 overflow-hidden mt-2.5">
-        <div class="h-full rounded-full bg-amber-400/80 transition-all duration-500" style="width:${pct}%"></div>
+      <div class="h-[3px] rounded-full bg-black/30 overflow-hidden">
+        <div class="h-full rounded-full bg-[var(--gold)] opacity-70 transition-all duration-500" style="width:${pct}%"></div>
       </div>
     </div>`;
 }
@@ -1141,8 +1141,15 @@ const renderDashboard = () => {
   const isCurrentMonth = VaultDAO.state.currentDate.getFullYear() === realNow.getFullYear() && VaultDAO.state.currentDate.getMonth() === realNow.getMonth();
   const nextBtn = $('#next-month-btn');
   if (nextBtn) {
-    nextBtn.style.opacity = isCurrentMonth ? '0.2' : '1';
-    nextBtn.style.pointerEvents = isCurrentMonth ? 'none' : 'auto';
+    // L'opacita' inline era rimasta da prima e vinceva sulla classe: 0,2
+    // lascia un fantasma di freccia, che e' la cosa peggiore delle due —
+    // si vede abbastanza da chiedersi se sia cliccabile.
+    nextBtn.style.opacity = '';
+    // Un comando che non porta da nessuna parte non si mostra spento: si
+    // toglie. Lo spazio resta occupato perche' il nome del mese non deve
+    // saltare da una parte all'altra quando si naviga.
+    nextBtn.classList.toggle('spenta', isCurrentMonth);
+    nextBtn.disabled = isCurrentMonth;
   }
 
   const k = monthKey(VaultDAO.state.currentDate);
@@ -1159,7 +1166,7 @@ const renderDashboard = () => {
       display.title = '';
     } else {
       const dir = VaultDAO.state.currentDate < realNow ? 'passato' : 'futuro';
-      display.innerHTML = `${label} <span class="inline-block w-1.5 h-1.5 rounded-full bg-[var(--gold)] align-middle ml-1 animate-pulse"></span>`;
+      display.innerHTML = `${label}<span class="mese-oggi"></span>`;
       display.dataset.action = 'jump-today';
       display.style.cursor = 'pointer';
       display.title = `Stai guardando un mese ${dir} — tocca per tornare a oggi`;
@@ -1473,7 +1480,10 @@ const renderDashboard = () => {
     if (line) {
       const t = TONE[line.tone] || TONE.calm;
       insightEl.classList.remove('hidden');
-      insightEl.innerHTML = `<div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl ${t.bg} border ${t.bd} text-[13px] ${t.tx}">${line.icon}<span class="min-w-0">${line.text}</span></div>`;
+      // Stessa materia delle card: il tono resta ma diventa luce invece che
+      // fondo pieno. `--accento` prende il colore semantico del tono.
+      const COLORE = { gold: 'var(--gold)', green: 'var(--green)', amber: 'var(--gold)', red: 'var(--red)', calm: 'var(--cyan)' };
+      insightEl.innerHTML = `<div class="avviso" style="--accento:${COLORE[line.tone] || 'var(--cyan)'}">${line.icon}<span class="avviso-testo min-w-0">${line.text}</span></div>`;
     } else {
       insightEl.classList.add('hidden');
       insightEl.innerHTML = '';
@@ -10863,7 +10873,11 @@ const initApp = () => {
     ].filter(c => hasInvestments || !/patrimonio|net worth/.test(c));
     const chips = [...always, ...shuffledSample(pool, 5 - always.length)];
     const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    box.innerHTML = chips.map(c => `<button class="qa-chip text-[10px] px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,0.05)" data-question="${esc(c)}">${esc(c)}</button>`).join('');
+    // Le chip entrano una dopo l'altra invece che tutte insieme: un blocco di
+    // sei pillole che appare di colpo si legge come rumore, la stessa cosa
+    // scaglionata di pochi centesimi si legge come un elenco che si sta
+    // formando — e l'occhio le prende una per una.
+    box.innerHTML = chips.map((c, i) => `<button class="qa-chip" style="--i:${i}" data-question="${esc(c)}">${esc(c)}</button>`).join('');
     // Delegato, mai onclick inline: un nome di obiettivo con un apostrofo
     // (es. "L'auto nuova") romperebbe un onclick="..." costruito a mano —
     // bug reale trovato verificando dal vivo (SyntaxError in console).

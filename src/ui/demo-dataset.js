@@ -40,24 +40,35 @@ function lcg(seed) {
 // Ritmi veri di una vita normale, non numeri a caso: lo stipendio il 27,
 // l'affitto il 1°, la spesa grossa il sabato, il caffè la mattina nei
 // giorni feriali. È ciò che rende il demo riconoscibile invece che finto.
+// LE CATEGORIE SONO ID, NON NOMI — bug vero, trovato guardando la lista dei
+// movimenti nel browser: ogni riga del demo mostrava "Altro" con la stessa
+// icona grigia. Qui c'erano etichette inventate ('Casa', 'Svago', 'Salute')
+// mentre l'app cerca gli id definiti in constants.js ('spesa', 'ristoranti',
+// 'shopping', 'abbonamenti', 'trasporti', 'stipendio'). `getCatById` non
+// trovava niente e ripiegava sul generico.
+//
+// Il danno era proprio dove faceva piu' male: il demo esiste per mostrare
+// com'e' l'app quando e' viva e piena, e la mostrava spenta e indistinta —
+// venti righe grigie identiche. Un utente nuovo si formava l'idea sbagliata
+// dell'app guardando la cosa costruita apposta per dargli quella giusta.
 const PROFILO = {
-  stipendio: { desc: 'Stipendio', cat: 'Entrate', amount: 1850, giorno: 27, type: 'entrata' },
+  stipendio: { desc: 'Stipendio', cat: 'stipendio', amount: 1850, giorno: 27, type: 'entrata' },
   ricorrenti: [
-    { desc: 'Affitto', cat: 'Casa', amount: 650, giorno: 1 },
-    { desc: 'Netflix', cat: 'Svago', amount: 12.99, giorno: 8 },
-    { desc: 'Spotify', cat: 'Svago', amount: 10.99, giorno: 14 },
-    { desc: 'Palestra', cat: 'Salute', amount: 45, giorno: 5 },
-    { desc: 'Bolletta luce', cat: 'Casa', amount: 68.4, giorno: 18 },
+    { desc: 'Affitto', cat: 'abbonamenti', amount: 650, giorno: 1 },
+    { desc: 'Netflix', cat: 'abbonamenti', amount: 12.99, giorno: 8 },
+    { desc: 'Spotify', cat: 'abbonamenti', amount: 10.99, giorno: 14 },
+    { desc: 'Palestra', cat: 'abbonamenti', amount: 45, giorno: 5 },
+    { desc: 'Bolletta luce', cat: 'abbonamenti', amount: 68.4, giorno: 18 },
   ],
   // [descrizione, categoria, minimo, massimo]
-  spesaSettimanale: ['Esselunga', 'Spesa', 52, 81],
-  caffe: ['Bar', 'Bar e caffè', 1.2, 2.6],
-  carburante: ['Benzina', 'Trasporti', 48, 62],
+  spesaSettimanale: ['Esselunga', 'spesa', 52, 81],
+  caffe: ['Bar', 'ristoranti', 1.2, 2.6],
+  carburante: ['Benzina', 'trasporti', 48, 62],
   extra: [
-    ['Ristorante', 'Ristoranti', 28, 54],
-    ['Farmacia', 'Salute', 9, 24],
-    ['Amazon', 'Shopping', 15, 47],
-    ['Panetteria', 'Spesa', 3.5, 8],
+    ['Ristorante', 'ristoranti', 28, 54],
+    ['Farmacia', 'shopping', 9, 24],
+    ['Amazon', 'shopping', 15, 47],
+    ['Panetteria', 'spesa', 3.5, 8],
   ],
 };
 
