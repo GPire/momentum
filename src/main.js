@@ -1113,7 +1113,7 @@ function renderDemoBanner() {
     <div class="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0">
-          <p class="text-[12px] font-black text-amber-300 leading-tight">Questo è un esempio, non i tuoi soldi</p>
+          <p class="text-[12px] font-bold text-amber-300 leading-tight">Questo è un esempio, non i tuoi soldi</p>
           <p class="text-[11px] text-amber-200/90 mt-1 leading-snug">Così vedi subito com'è Momentum pieno. Sparisce da solo mentre aggiungi le tue spese: ne mancano <b>${s.realiMancanti}</b>.</p>
         </div>
         <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-amber-400/40 text-amber-200 hover:bg-amber-400/10">Parti dai miei dati</button>
@@ -1276,15 +1276,22 @@ const renderDashboard = () => {
           const m = MAP[tf.level] || MAP.ok;
           const pct = Math.max(4, Math.min(100, Math.round(tf.projectedTotal / VaultDAO.state.monthlyBudget * 100)));
           const methodNote = tf.confident ? 'Stima sui tuoi ultimi giorni' : 'Stima sul ritmo di questo mese';
+          // LA BARRA ROSSA PIENA, larga tutta la card, era l'elemento piu'
+          // aggressivo dello schermo — e per una STIMA, per giunta. Un pieno
+          // saturo su una previsione promette una certezza che non c'e'.
+          // Ora e' sottile e translucida, e il colore resta sul numero e sulla
+          // frase, dove il significato sta davvero.
+          // Il metodo resta dichiarato: una stima che non dice di essere una
+          // stima e' la cosa che fa perdere la fiducia quando poi sbaglia.
           trajHtml = `
           <div class="mt-3 pt-3 border-t border-[var(--glass-border)]">
             <div class="flex items-center justify-between gap-2">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-[var(--on-surface-secondary)]">Di questo passo, a fine mese</span>
-              <span class="font-mono font-black text-[13px] ${m.col} shrink-0">${formatMoney(tf.projectedTotal)}</span>
+              <span class="t-etichetta">Di questo passo, a fine mese</span>
+              <span class="t-dato t-dato-m font-mono ${m.col} shrink-0">${formatMoney(tf.projectedTotal)}</span>
             </div>
-            <div class="h-1.5 rounded-full bg-[var(--outline)] overflow-hidden mt-1.5"><div class="h-full ${m.bar}" style="width:${pct}%"></div></div>
-            <p class="text-[10px] ${m.col} mt-1 font-semibold">${m.txt}</p>
-            <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5 opacity-70">${methodNote}</p>
+            <div class="h-[3px] rounded-full bg-[var(--outline)] overflow-hidden mt-2"><div class="h-full ${m.bar} opacity-60" style="width:${pct}%"></div></div>
+            <p class="text-[10.5px] ${m.col} mt-1.5 font-semibold">${m.txt}</p>
+            <p class="t-nota mt-0.5">${methodNote}</p>
           </div>`;
         }
       } catch (_) { /* proiezione assente: la card resta il solo "oggi" */ }
@@ -1318,7 +1325,7 @@ const renderDashboard = () => {
         stsCard.setAttribute('aria-label', `Oggi puoi spendere ${formatMoney(sts.safeToday)}. Tocca per segnare una spesa.`);
         stsCard.style.cursor = 'pointer';
         stsCard.innerHTML = `
-          <p class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">${orbHaIlNumero ? 'Come stai messo questa settimana' : 'Oggi puoi spendere'}</p>
+          <p class="t-etichetta mb-1.5">${orbHaIlNumero ? 'Come stai messo questa settimana' : 'Oggi puoi spendere'}</p>
           ${orbHaIlNumero ? '' : `<p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>`}
           <p class="riga-dato ${orbHaIlNumero ? '' : 'mt-1'}">${evidenziaNumeri(`${formatMoney(sts.weekRemaining)} rimasti in ${sts.daysLeftInWeek} giorni`)}</p>
           ${chargeNote}
@@ -1401,7 +1408,12 @@ const renderDashboard = () => {
         // "sblocchi"): cosa fare + a che punto sei. Neuro-copy: anticipazione,
         // agency, zero vergogna.
         const goal = String(nm.desc || '').replace(/\.$/, '');
-        line = { icon: ICON.goal, tone: 'gold', text: `Ci sei quasi: ${goal}. Sei a <b>${nm.current} di ${nm.target}</b>${manca === 1 ? ', ne manca 1!' : `, ne mancano ${manca}.`}` };
+        // IL PUNTO ESCLAMATIVO E IL "CI SEI QUASI" sono il tono di un gioco a
+        // premi, e su una schermata che parla dei soldi di qualcuno stonano:
+        // chiedono entusiasmo per una cosa che non l'ha meritato. Il fatto e'
+        // lo stesso, detto senza spingere — chi vuole il traguardo lo vede
+        // comunque, chi non gliene importa non viene tirato per la manica.
+        line = { icon: ICON.goal, tone: 'gold', text: `${goal}: <b>${nm.current} di ${nm.target}</b>${manca === 1 ? ', ne manca uno' : `, ne mancano ${manca}`}.` };
       } else {
         const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
         if (life.patterns.length) {
@@ -1543,7 +1555,7 @@ const renderDashboard = () => {
   const reserveText = $('#cumulative-reserve-val');
   if (reserveText) {
     reserveText.textContent = formatMoney(cumulativeReserve);
-    reserveText.className = `text-2xl sm:text-3xl font-mono font-black ${cumulativeReserve >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]'} tracking-tighter truncate`;
+    reserveText.className = `t-dato t-dato-l font-mono ${cumulativeReserve >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]'} truncate`;
   }
 
   // Impegni ricorrenti in arrivo (affitto/mutuo/abbonamenti): calcolati una volta,
@@ -1674,12 +1686,17 @@ const renderDashboard = () => {
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shadow-inner shrink-0" style="background:${c.color}">${c.icon}</div>
           <div class="min-w-0 pr-2 flex-1">
-             <p class="font-bold text-[0.9rem] sm:text-[0.95rem] text-[var(--on-surface)] tracking-tight truncate flex items-center"><span class="truncate">${escTx(descLabel)}</span></p>
-             <p class="text-[10px] sm:text-[11px] text-[var(--on-surface-secondary)] font-bold uppercase tracking-wider mt-0.5 truncate">${escTx(dateLabel)}</p>
+             <!-- La descrizione e' quello che si LEGGE per riconoscere il
+                  movimento; l'importo e' il dato. Prima erano entrambi al
+                  massimo (14px/700 e 18px/900) e si contendevano l'occhio in
+                  ogni riga: in una lista di trenta, se tutto grida non spicca
+                  niente e scorrerla diventa faticoso. -->
+             <p class="tx-desc truncate flex items-center"><span class="truncate">${escTx(descLabel)}</span></p>
+             <p class="tx-data truncate">${escTx(dateLabel)}</p>
           </div>
         </div>
         <div class="flex flex-col items-end shrink-0 pl-2">
-          <span class="font-mono font-black text-lg sm:text-xl tracking-tighter ${isInc ? 'text-[var(--green)]' : isInv ? 'text-[var(--gold)]' : ''}">${isInc ? '+' : isInv ? '⟳' : '−'}${formatMoney(t.amount)}</span>
+          <span class="tx-importo font-mono ${isInc ? 'text-[var(--green)]' : isInv ? 'text-[var(--gold)]' : ''}">${isInc ? '+' : isInv ? '⟳' : '−'}${formatMoney(t.amount)}</span>
           <div class="flex mt-1 items-center">
             <!-- Neuro-UX + fix responsive: era "ELIMINA" testo su hover (invisibile
                  su touch → impossibile cancellare da mobile) e un muro di bottoni
