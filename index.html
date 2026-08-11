@@ -1404,8 +1404,44 @@
     @media (pointer: coarse) {
       #settings-view button, #analysis-view button,
       .segment-btn, .cat-chip { min-height: 44px; }
-      input[type="checkbox"] { width: 22px; height: 22px; }
     }
+    /* ── GLI INTERRUTTORI ──
+       Erano checkbox native del browser: un quadratino grigio scuro con la
+       spunta blu di sistema, l'unico elemento di tutta Impostazioni che non
+       segue ne' i colori ne' le forme dell'app — un corpo estraneo, come le
+       vecchie strisce sature sulle card. Qui diventano interruttori disegnati:
+       stessa materia scura a riposo, si accendono con lo stesso colore
+       primario usato ovunque. Restano <input type="checkbox"> veri (stesso
+       comportamento, stessa accessibilita' da tastiera, zero JS toccato):
+       cambia solo come si disegnano.
+       BUG MIO, trovato subito dopo aver scritto la regola: il primo tentativo
+       l'aveva lasciata per sbaglio dentro `@media (pointer: coarse)`, la
+       stessa regola qui sopra sui bersagli tattili — su desktop, dove il
+       puntatore e' "fine" e non "coarse", quella condizione non scatta mai, e
+       gli interruttori restavano quadratini di sistema. Doveva essere
+       incondizionata: un interruttore ha lo stesso aspetto touch o mouse. */
+    .toggle-input {
+      appearance: none; -webkit-appearance: none;
+      width: 42px; height: 25px; border-radius: 999px; flex-shrink: 0;
+      background: var(--outline);
+      border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+      position: relative; cursor: pointer;
+      transition: background-color .2s ease, border-color .2s ease;
+    }
+    .toggle-input::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 19px; height: 19px; border-radius: 50%;
+      background: #f4f4f5;
+      box-shadow: 0 1px 2px rgba(0,0,0,.35);
+      transition: transform .22s cubic-bezier(.34,1.56,.64,1);
+    }
+    .toggle-input:checked {
+      background: var(--primary); border-color: transparent;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .toggle-input:checked::after { transform: translateX(17px); background: #fff; }
+    .toggle-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { .toggle-input::after { transition: none; } }
 
     /* === "UNISCITI AL GRUPPO": ingresso morbido + badge che pulsa una volta,
        il feedback che "sei entrato" (studiato: non invadente, un solo battito). */
@@ -3144,7 +3180,7 @@
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Aiuta a far crescere Momentum</h3>
                   <p class="card-sub">Attivo di default: un numero anonimo (mai collegato ai tuoi dati — nessuna spesa, saldo o identità) dice a chi sviluppa Momentum quante persone lo usano. Spegnilo qui quando vuoi, un tocco.</p>
                   <label class="flex items-center gap-2 mt-3 text-xs cursor-pointer select-none">
-                    <input type="checkbox" id="telemetry-opt-in" checked onchange="window.setTelemetryOptIn(this.checked)" class="w-4 h-4" />
+                    <input type="checkbox" id="telemetry-opt-in" checked onchange="window.setTelemetryOptIn(this.checked)" class="toggle-input" />
                     <span>Conta anche il mio utilizzo (anonimo)</span>
                   </label>
                 </div>
@@ -3184,7 +3220,7 @@
                        nascosto) — prima era opt-in. Resta SOLO aggregato/anonimo,
                        mai transazioni/esercenti/conti; disattivabile con un tocco. -->
                   <label class="flex items-start gap-2 mt-3 text-xs cursor-pointer select-none">
-                    <input type="checkbox" id="chat-context-optin" checked onchange="window.setChatContextOptIn(this.checked)" class="w-4 h-4 mt-0.5" />
+                    <input type="checkbox" id="chat-context-optin" checked onchange="window.setChatContextOptIn(this.checked)" class="toggle-input mt-0.5" />
                     <span>Includi anche un riassunto ANONIMO e aggregato della mia situazione (es. "oggi puoi spendere 50€", mai transazioni, esercenti o conti) — risposte più pertinenti. Attivo di default, disattivabile qui.</span>
                   </label>
                   <!-- Il sistema/browser di alcuni utenti ha "Riduci movimento"
@@ -3194,7 +3230,7 @@
                        esplicita e consapevole: solo per l'attesa della chat
                        generica, solo se l'utente lo accende lui stesso. -->
                   <label class="flex items-start gap-2 mt-2 text-xs cursor-pointer select-none">
-                    <input type="checkbox" id="force-anim-optin" onchange="window.setForceAnimations(this.checked)" class="w-4 h-4 mt-0.5" />
+                    <input type="checkbox" id="force-anim-optin" onchange="window.setForceAnimations(this.checked)" class="toggle-input mt-0.5" />
                     <span>Mostra le micro-animazioni di attesa anche se il dispositivo ha "Riduci movimento" attivo (di base le rispettiamo, per chi le preferisce spente)</span>
                   </label>
                   <!-- Lingua di "Chiedi a Momentum": di default segue quella
@@ -3253,7 +3289,7 @@
                   <div class="card p-6">
                     <div class="flex items-center justify-between">
                       <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Trova abbonamenti dimenticati</h3>
-                      <input type="checkbox" id="settings-ghost-radar" onchange="toggleGhostRadar()" class="w-4 h-4" />
+                      <input type="checkbox" id="settings-ghost-radar" onchange="toggleGhostRadar()" class="toggle-input" />
                     </div>
                     <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Controlla in background le spese che si ripetono ogni mese.</p>
                   </div>
@@ -3261,7 +3297,7 @@
                   <div class="card p-6">
                     <div class="flex items-center justify-between">
                       <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>Suoni</h3>
-                      <input type="checkbox" id="settings-sound" onchange="toggleSound()" class="w-4 h-4" checked />
+                      <input type="checkbox" id="settings-sound" onchange="toggleSound()" class="toggle-input" checked />
                     </div>
                     <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Un piccolo suono quando salvi un movimento o superi un limite.</p>
                   </div>
