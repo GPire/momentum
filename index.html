@@ -1742,14 +1742,81 @@
     @keyframes ms-oro-in { from { opacity: 0; } }
     @keyframes ms-oro-respiro { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
 
+    /* ── LA STESSA GERARCHIA, OVUNQUE CI SIA UN DATO ──
+       Le stesse due classi valgono nelle card: una riga-dato porta il numero
+       che conta, una riga-nota porta la precisazione. Averle qui e non
+       ripetute a mano in ogni punto e' cio' che impedisce che fra sei mesi
+       esistano quattro modi diversi di scrivere lo stesso genere di frase. */
+    .riga-dato {
+      font-size: 12px; line-height: 1.45;
+      color: color-mix(in srgb, var(--on-surface-secondary) 78%, transparent);
+    }
+    .riga-nota {
+      font-size: 10.5px; line-height: 1.45; margin-top: .15rem;
+      color: color-mix(in srgb, var(--on-surface-secondary) 52%, transparent);
+    }
+    .riga-dato .ms-n, .riga-nota .ms-n {
+      font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+      color: color-mix(in srgb, var(--on-surface) 82%, transparent);
+    }
+    .riga-nota .ms-n { color: color-mix(in srgb, var(--on-surface) 62%, transparent); font-size: 1.03em; }
+    .riga-dato .ms-n { font-size: 1.12em; }
+
+    /* ── LE DUE ETICHETTE SOTTO L'ORBITA ──
+       Erano due righe di testo dello stesso peso, e l'occhio le leggeva come
+       una didascalia qualunque: "rovinano il design" e' stato il commento, ed
+       era giusto. Il problema non erano le parole, era che non c'era nessuna
+       gerarchia — due cose diverse presentate identiche.
+
+       Sono diverse per davvero. A SINISTRA c'e' il passato (quanto e' uscito):
+       utile ma su cui non si puo' fare niente. A DESTRA c'e' il futuro (quando
+       rientrano i soldi): l'unica delle due su cui si puo' agire. Quindi il
+       futuro pesa di piu', e il passato accompagna.
+
+       E dentro ogni etichetta c'e' un'altra gerarchia: il NUMERO e' il dato,
+       le parole servono solo a dire cos'e'. Il numero prende peso e cifre a
+       larghezza fissa, le parole restano leggere. La differenza fra leggere
+       una frase e vedere un dato sta tutta li'. */
     .ms-righe {
-      display: flex; justify-content: space-between; gap: .75rem;
-      margin-top: .2rem; line-height: 1.3;
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: .9rem; margin-top: .3rem;
+      font-size: clamp(9.5px, 2.7vw, 11px); line-height: 1.35;
       animation: orb-et-in .5s ease-out 1.1s both;
     }
-    .ms-attesa { color: color-mix(in srgb, var(--gold, #eab308) 78%, transparent); font-weight: 600; }
-    .ms-speso { color: color-mix(in srgb, var(--on-surface-secondary) 85%, transparent); }
+    /* Il numero: peso, cifre tabellari (cosi' non balla quando cambia) e una
+       spaziatura appena piu' stretta, che e' come si compongono i numeri. */
+    .ms-righe .ms-n {
+      font-weight: 700; font-variant-numeric: tabular-nums;
+      letter-spacing: -.01em; font-size: 1.08em;
+    }
+
+    /* PASSATO: sobrio. Le parole quasi si spengono, resta il numero. */
+    .ms-speso {
+      color: color-mix(in srgb, var(--on-surface-secondary) 62%, transparent);
+      font-weight: 400;
+    }
+    .ms-speso .ms-n { color: color-mix(in srgb, var(--on-surface) 78%, transparent); }
+
+    /* FUTURO: e' quello che si puo' usare per decidere, quindi ha piu'
+       presenza — non piu' grande (competerebbe con il numero dentro l'orb) ma
+       piu' definito: colore pieno e maiuscoletto sulle parole, che le rende
+       un'etichetta invece che una frase. */
+    .ms-attesa {
+      color: color-mix(in srgb, var(--gold, #eab308) 62%, transparent);
+      font-weight: 500; font-size: .92em;
+      text-transform: uppercase; letter-spacing: .045em;
+      text-align: right;
+    }
+    .ms-attesa .ms-n {
+      color: var(--gold, #eab308); font-size: 1.22em;
+      letter-spacing: 0; text-transform: none;
+    }
+    /* Quando c'e' un ritardo la frase si allunga: deve andare a capo pulita
+       invece di schiacciare l'altra etichetta contro il bordo. */
+    .ms-attesa { max-width: 58%; }
+    .ms-speso { white-space: nowrap; }
     .ms-righe:has(> :only-child) { justify-content: center; }
+    .ms-righe:has(> :only-child) .ms-attesa { max-width: 100%; text-align: center; }
 
     @media (prefers-reduced-motion: reduce) {
       .ms-passato { stroke-dashoffset: 0; animation: none; }

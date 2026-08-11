@@ -71,8 +71,12 @@ test('la striscia MOSTRA quello che la frase raccontava', () => {
   assert.match(h, /ms-orbita/, 'la rotta e\' un arco, non una barra dritta');
   assert.match(h, /ms-oggi/);
   assert.match(h, /ms-paga/);
-  assert.match(h, /stipendio fra 17 giorni/, 'il numero di giorni è l\'informazione che la frase non dava');
-  assert.match(h, /922\.13 € spesi/);
+  // Nel disegno i numeri sono separati dalle parole per poterli comporre
+  // diversamente: la frase intera si ritrova nella descrizione accessibile.
+  assert.match(h, /stipendio fra <b class="ms-n">17<\/b> giorni/,
+    'il numero di giorni è l\'informazione che la frase non dava, ed è il dato');
+  assert.match(h, /<b class="ms-n">922\.13 €<\/b> spesi/);
+  assert.match(h, /aria-label="[^"]*stipendio fra 17 giorni/, 'a parole resta una frase intera');
   // Accessibile: chi non vede la striscia deve ricevere la stessa cosa a parole.
   assert.match(h, /role="img"/);
   assert.match(h, /aria-label="[^"]*Giorno 10 di 31/);
@@ -82,6 +86,8 @@ test('"oggi" e "domani" invece di "fra 0 giorni"', () => {
   const base = { '2026-05': [entrata('2026-05-27')], '2026-06': [entrata('2026-06-27')], '2026-07': [entrata('2026-07-27')] };
   assert.match(stripHtml(statoDelMese(base, { oggi: new Date(2026, 7, 27) })), /stipendio oggi/);
   assert.match(stripHtml(statoDelMese(base, { oggi: new Date(2026, 7, 26) })), /stipendio domani/);
+  // Senza cifre non c'è niente da evidenziare: nessun markup inutile.
+  assert.ok(!/ms-n">oggi/.test(stripHtml(statoDelMese(base, { oggi: new Date(2026, 7, 27) }))));
 });
 
 test('a stipendio arrivato il segno SPARISCE: indicare un giorno passato è rumore', () => {
@@ -156,7 +162,7 @@ test('le PAROLE cambiano con quanto si sa: una data si promette, una stima no', 
   const dip = { '2026-05': [entrata('2026-05-27')], '2026-06': [entrata('2026-06-27')], '2026-07': [entrata('2026-07-27')] };
   const sDip = statoDelMese(dip, { oggi: new Date(2026, 7, 10), speso: 900 });
   assert.equal(sDip.certezza, 'data');
-  assert.match(stripHtml(sDip), /stipendio fra 17 giorni/);
+  assert.match(stripHtml(sDip), /stipendio fra <b class="ms-n">17<\/b> giorni/);
 });
 
 test('se è in RITARDO sul proprio ritmo, glielo si dice', () => {
@@ -182,4 +188,21 @@ test('la zona STIMATA si disegna diversa dal giorno certo', () => {
   };
   const s = statoDelMese(free, { oggi: new Date(2026, 7, 20), speso: 900 });
   if (s.giornoPaga !== null) assert.match(stripHtml(s), /ms-paga stimata/);
+});
+
+test('IL NUMERO è il dato, le parole lo accompagnano: la gerarchia è nel markup', async () => {
+  const { evidenziaNumeri } = await import('./mese-strip.js');
+  // Un importo con valuta è UN dato solo, non due.
+  assert.equal(evidenziaNumeri('972,67 € spesi'), '<b class="ms-n">972,67 €</b> spesi');
+  assert.equal(evidenziaNumeri('stipendio fra 17 giorni'), 'stipendio fra <b class="ms-n">17</b> giorni');
+  // Le frasi con due numeri li evidenziano entrambi: succede nel caso del
+  // ritardo, ed è la frase che conta di più.
+  assert.equal(
+    evidenziaNumeri('di solito incassi ogni 30 giorni: sei a 69'),
+    'di solito incassi ogni <b class="ms-n">30</b> giorni: sei a <b class="ms-n">69</b>',
+  );
+  // Frasi senza cifre restano pulite.
+  assert.equal(evidenziaNumeri('stipendio oggi'), 'stipendio oggi');
+  // E il markup ostile resta neutralizzato PRIMA di essere avvolto.
+  assert.ok(!/<script>/.test(evidenziaNumeri('<script>1</script>')));
 });

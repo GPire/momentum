@@ -67,7 +67,7 @@ import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
 import { generateDemoTransactions, fadeDemo, demoStatus, mergeDemoForDisplay, DEMO_FADE_AT } from './ui/demo-dataset.js';
-import { statoDelMese, stripHtml } from './ui/mese-strip.js';
+import { statoDelMese, stripHtml, evidenziaNumeri } from './ui/mese-strip.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
@@ -1293,12 +1293,20 @@ const renderDashboard = () => {
         stsCard.innerHTML = `
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-rose-400 mb-1">Oggi meglio non spendere</p>
           <p class="hero-num font-black font-mono text-rose-400 tracking-tighter">0€</p>
-          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Questa settimana sei oltre di ${formatMoney(Math.abs(sts.weekRemaining))}. Ogni giorno senza spese ti rimette in pari.</p>
+          <p class="riga-dato mt-1">${evidenziaNumeri(`Sei oltre di ${formatMoney(Math.abs(sts.weekRemaining))}`)}</p>
+          <p class="riga-nota">Ogni giorno senza spese ti rimette in pari.</p>
           ${trajHtml}
         `;
       } else {
+        // LA FRASE PIU' BRUTTA DELLA SCHERMATA, ed era una sola riga lunga:
+        // "162,81 € rimasti per questa settimana (7 giorni) · esclusi 10,99 €
+        // che serviranno per gli abbonamenti in arrivo". Due informazioni
+        // diverse incollate da un puntino, una parentesi in mezzo, e nessun
+        // appiglio per l'occhio. Adesso sono due righe: la prima e' il dato,
+        // la seconda e' la precisazione — e la precisazione sta piu' in basso
+        // e piu' spenta, perche' e' quello che e'.
         const chargeNote = sts.reservedForCharges > 0
-          ? ` · esclusi ${formatMoney(sts.reservedForCharges)} che serviranno per gli abbonamenti in arrivo`
+          ? `<p class="riga-nota">${evidenziaNumeri(`${formatMoney(sts.reservedForCharges)} sono già impegnati per gli abbonamenti in arrivo`)}</p>`
           : '';
         stsCard.style.borderTop = '3px solid var(--green)';
         // Il numero-eroe del giorno diventa l'AZIONE primaria a un tocco: chi sa
@@ -1312,7 +1320,8 @@ const renderDashboard = () => {
         stsCard.innerHTML = `
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">${orbHaIlNumero ? 'Come stai messo questa settimana' : 'Oggi puoi spendere'}</p>
           ${orbHaIlNumero ? '' : `<p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>`}
-          <p class="text-[11px] text-[var(--on-surface-secondary)] ${orbHaIlNumero ? '' : 'mt-1'}">${formatMoney(sts.weekRemaining)} rimasti per questa settimana (${sts.daysLeftInWeek} giorni)${chargeNote}</p>
+          <p class="riga-dato ${orbHaIlNumero ? '' : 'mt-1'}">${evidenziaNumeri(`${formatMoney(sts.weekRemaining)} rimasti in ${sts.daysLeftInWeek} giorni`)}</p>
+          ${chargeNote}
           <p class="text-[10px] font-bold text-emerald-400/80 mt-2 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>Tocca per segnare una spesa</p>
           ${trajHtml}
         `;

@@ -178,6 +178,26 @@ export function statoDelMese(txPerMese, { oggi = new Date(), speso = 0 } = {}) {
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// ── GERARCHIA DENTRO L'ETICHETTA ──
+// "972,67 € spesi" e "stipendio fra 17 giorni" erano due righe di testo tutte
+// dello stesso peso: l'occhio non trovava un appiglio e le leggeva come una
+// didascalia qualunque. Ma in ognuna c'e' UNA cosa che conta — il numero — e
+// delle parole che servono solo a dirgli cos'e'.
+//
+// Qui i numeri vengono separati dal resto, cosi' il foglio di stile puo' dargli
+// peso e cifre a larghezza fissa mentre le parole restano leggere. Non e' un
+// vezzo tipografico: e' la differenza fra leggere una frase e vedere un dato.
+//
+// Automatico e non a mano perche' le frasi cambiano in cinque punti diversi
+// (giorno fisso, ritmo, ritardo, oggi, domani) e prima o poi una si sarebbe
+// dimenticata.
+export function evidenziaNumeri(testo) {
+  const pulito = esc(testo);
+  // Numeri interi o con decimali, anche con separatore di migliaia, con
+  // l'eventuale simbolo di valuta attaccato: "972,67 €" e' un dato solo.
+  return pulito.replace(/(\d[\d.,]*(?:\s?€)?)/g, '<b class="ms-n">$1</b>');
+}
+
 // ── La striscia ──
 // Larghezza 100, così il contenitore decide quanto è larga davvero e non serve
 // sapere i pixel qui dentro.
@@ -273,8 +293,8 @@ export function stripHtml(stato, { formatMoney = (v) => `${v}` } = {}) {
       <circle class="ms-oggi" cx="${px(tOggi).toFixed(1)}" cy="${y(tOggi).toFixed(2)}" r="2.4" fill="#fff"/>
     </svg>
     <div class="ms-righe">
-      <span class="ms-speso">${esc(formatMoney(stato.speso))} spesi</span>
-      ${etichettaPaga ? `<span class="ms-attesa">${esc(etichettaPaga)}</span>` : ''}
+      <span class="ms-speso">${evidenziaNumeri(`${formatMoney(stato.speso)} spesi`)}</span>
+      ${etichettaPaga ? `<span class="ms-attesa">${evidenziaNumeri(etichettaPaga)}</span>` : ''}
     </div>
   </div>`;
 }
