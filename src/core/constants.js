@@ -4,6 +4,12 @@ const SCHEMA_VERSION = 50.0;
 const APP_VERSION = "Apex.V50.0.Quantum";
 const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+// Icone disegnate nello stesso stile — tratto 2.5, angoli arrotondati,
+// viewBox 24x24 — non emoji di sistema: l'utente ha chiesto esplicitamente
+// "non emoji standard, ma di design e coerenti col resto". Restano SVG a
+// contorno come le originali; quello che cambia e' il materiale del cerchio
+// che le contiene (vedi .cat-icon-glow in index.html): non piu' un colore
+// piatto, ma un rilievo luminoso con la stessa fisica dell'orb.
 const DEFAULT_CATEGORIES = {
   expense: [
     { id: 'spesa', name: 'Alimentari', color: '#e11d48', type: 'uscita', emoji: '🛒', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>` },

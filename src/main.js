@@ -312,14 +312,79 @@ const initWebGLOrb = (canvasId, balance=0, freqScore=0) => {
 // ==========================================
 // DYNAMIC INTERACTIVE FORM LAYOUT
 // ==========================================
+// Palette curata invece di un selettore colore libero: dieci tinte che
+// convivono bene fra loro (sono le stesse gia' usate nelle categorie di
+// fabbrica, piu' un paio nuove), cosi' una categoria creata da un utente non
+// puo' finire con un colore illeggibile o stonato — meno scelta, meno modi
+// di sbagliare, piu' vicino a "comprensibile anche da un bambino".
+const CAT_PALETTE = ['#e11d48', '#f97316', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6', '#10b981', '#eab308', '#06b6d4', '#a855f7'];
+// Dieci icone disegnate nello STESSO stile delle cinque di fabbrica — tratto
+// 2.5, angoli arrotondati, viewBox 24x24 — non emoji di sistema. L'utente lo
+// ha chiesto esplicitamente: un'emoji cambia disegno da un telefono
+// all'altro (il font emoji e' del sistema operativo, non dell'app) e non ha
+// niente a che fare con lo stile con cui e' disegnato il resto di Momentum.
+// Coprono le voci di spesa piu' comuni che non sono gia' fra le cinque di
+// fabbrica (cibo, ristoranti, shopping, abbonamenti, trasporti ci sono gia').
+const CAT_ICONE = [
+  { chiave: 'cinema', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></svg>' },
+  { chiave: 'gioco', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="10" rx="5"/><path d="M8 11v4M6 13h4"/><circle cx="16" cy="12" r="1"/><circle cx="18" cy="15" r="1"/></svg>' },
+  { chiave: 'libri', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' },
+  { chiave: 'viaggi', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>' },
+  { chiave: 'animali', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 12c-3 0-6 2-6 5a3 3 0 0 0 5 2c.5-.5 1-1 1-1s.5.5 1 1a3 3 0 0 0 5-2c0-3-3-5-6-5z"/></svg>' },
+  { chiave: 'salute', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>' },
+  { chiave: 'regali', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 8h18M12 8v13M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8zM16.5 8a2.5 2.5 0 0 0 0-5C14 3 12 8 12 8z"/></svg>' },
+  { chiave: 'casa', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>' },
+  { chiave: 'musica', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' },
+  { chiave: 'bollette', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg>' },
+];
+
 const buildCatChipsHTML = (type) => {
-  return getCatsByType(type).map(c => `
+  const chips = getCatsByType(type).map(c => `
     <button type="button" class="cat-chip" data-cat-id="${c.id}" style="--chip-color:${c.color};--chip-bg:${c.color}22">
-      <div class="cat-chip-icon" style="background:${c.color}">${c.icon}</div>
+      <div class="cat-chip-icon cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
       <span class="cat-chip-label">${c.name}</span>
     </button>
   `).join('');
+  // L'ULTIMA FASCIA, "+ NUOVA": la possibilita' di aggiungere una categoria
+  // esisteva gia' nei dati (VaultDAO.state.customCategories, letta da
+  // getCatById/getCatsByType) ma non c'era NESSUN MODO di crearne una —
+  // l'impianto era pronto e mancava la porta d'ingresso. E' un tocco in
+  // fondo alla stessa fascia di categorie, non un'altra schermata: restare
+  // dentro il gesto che si stava gia' facendo (scegliere una categoria) e'
+  // piu' vicino a come lo capirebbe chi non ha mai usato l'app prima.
+  const aggiungi = `
+    <button type="button" class="cat-chip cat-chip-add" data-cat-id="__nuova__">
+      <div class="cat-chip-icon cat-chip-icon-add">+</div>
+      <span class="cat-chip-label">Nuova</span>
+    </button>
+  `;
+  return chips + aggiungi;
 };
+
+// Il pannello di creazione: nome, un'emoji, un colore, un'anteprima che si
+// aggiorna mentre si sceglie. Si apre DENTRO il modulo che si sta gia'
+// compilando — niente modale sopra il modale, che su mobile avrebbe dovuto
+// far sparire (o salvare da qualche parte) l'importo gia' digitato.
+const buildNewCatPanelHTML = () => `
+  <div id="new-cat-panel" class="new-cat-panel hidden shrink-0">
+    <div class="new-cat-head">
+      <span class="t-etichetta">Nuova categoria</span>
+      <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="Annulla">✕</button>
+    </div>
+    <div class="new-cat-anteprima">
+      <div class="cat-chip-icon cat-icon-glow" id="new-cat-preview-icon" style="--icon-c:${CAT_PALETTE[0]}">${CAT_ICONE[0].svg}</div>
+      <span id="new-cat-preview-nome" class="new-cat-anteprima-nome">Nome categoria</span>
+    </div>
+    <input type="text" id="new-cat-nome" class="desc-input" maxlength="24" placeholder="Come la chiami?" autocomplete="off">
+    <div class="new-cat-griglia" id="new-cat-emoji-grid" role="radiogroup" aria-label="Icona">
+      ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-label="Icona ${ic.chiave}">${ic.svg}</button>`).join('')}
+    </div>
+    <div class="new-cat-griglia new-cat-griglia-colori" id="new-cat-color-grid" role="radiogroup" aria-label="Colore">
+      ${CAT_PALETTE.map((c, i) => `<button type="button" class="new-cat-colore${i === 0 ? ' selected' : ''}" data-colore="${c}" style="background:${c}" aria-label="Colore"></button>`).join('')}
+    </div>
+    <button type="button" id="new-cat-crea" class="new-cat-crea-btn">Crea categoria</button>
+  </div>
+`;
 
 const getTxFormHTML = () => `
   <div class="flex flex-col h-full bg-[var(--surface-solid)] lg:bg-[var(--surface)] p-3 sm:p-5 lg:p-0 rounded-2xl relative min-h-0">
@@ -384,6 +449,8 @@ const getTxFormHTML = () => `
         <div class="cat-scroll-wrapper shrink-0">
       <div class="flex gap-2.5 px-2 w-max" id="cat-scroll">${buildCatChipsHTML('uscita')}</div>
     </div>
+
+    ${buildNewCatPanelHTML()}
 
     <div class="desc-input-wrap mt-3 mb-2 shrink-0">
       <input type="text" id="tx-desc" class="desc-input" placeholder="Aggiungi nota descrittiva..." autocomplete="off">
@@ -635,6 +702,14 @@ const attachFormListeners = (container, prefill = null) => {
   const attachCatClick = () => {
     container.querySelectorAll('.cat-chip').forEach(c => {
       c.addEventListener('click', () => {
+        // "+ Nuova" non e' una categoria: apre il pannello di creazione ed
+        // esce, prima di toccare `catId` — altrimenti si "selezionerebbe"
+        // una categoria fantasma con id "__nuova__".
+        if (c.dataset.catId === '__nuova__') {
+          haptic('light');
+          openNewCatPanel();
+          return;
+        }
         haptic('light');
         AudioSynth.play('click');
         catId = c.dataset.catId;
@@ -656,6 +731,134 @@ const attachFormListeners = (container, prefill = null) => {
     });
   };
   attachCatClick();
+
+  // ── IL PANNELLO "NUOVA CATEGORIA" ──
+  // Definito qui perche' condivide la chiusura (container, type, catId,
+  // attachCatClick, updateAmount) con tutto il resto del modulo: creare la
+  // categoria e riselezionarla e' la stessa identica cosa che succede quando
+  // si tocca una categoria gia' esistente, solo che questa e' appena nata.
+  let catIconaScelta = CAT_ICONE[0];
+  let catColoreScelta = CAT_PALETTE[0];
+
+  const aggiornaAnteprimaCat = () => {
+    const icona = container.querySelector('#new-cat-preview-icon');
+    const nome = container.querySelector('#new-cat-preview-nome');
+    const nomeInput = container.querySelector('#new-cat-nome');
+    if (icona) { icona.innerHTML = catIconaScelta.svg; icona.style.setProperty('--icon-c', catColoreScelta); }
+    if (nome) nome.textContent = (nomeInput?.value || '').trim() || 'Nome categoria';
+  };
+
+  // ── SUGGERIMENTO PREDITTIVO ──
+  // Mentre si scrive il nome, l'icona piu' plausibile si accende da sola —
+  // non serve indovinare quale delle dieci corrisponda a "farmacia".
+  // Un piccolo dizionario di parole chiave, non un modello: onesto, e
+  // funziona SOLO finche' l'utente non ha scelto un'icona di persona (da
+  // quel momento la sua scelta vince sempre, la predizione tace).
+  const CAT_SUGGERIMENTI = {
+    cinema: ['cinema', 'film', 'netflix', 'streaming'],
+    gioco: ['gioco', 'giochi', 'videogioch', 'playstation', 'xbox', 'steam'],
+    libri: ['libro', 'libri', 'lettura', 'kindle'],
+    viaggi: ['viaggio', 'viaggi', 'volo', 'aereo', 'hotel', 'vacanz', 'treno'],
+    animali: ['cane', 'gatto', 'animal', 'veterinari', 'pet'],
+    salute: ['farmacia', 'medico', 'dentista', 'salute', 'palestra', 'medicin'],
+    regali: ['regalo', 'regali', 'compleanno', 'natale'],
+    casa: ['affitto', 'mutuo', 'casa', 'condomini', 'bolletta luce', 'bolletta gas'],
+    musica: ['musica', 'concerto', 'spotify', 'strument'],
+    bollette: ['bolletta', 'bollette', 'fattura', 'utenz', 'internet', 'telefono'],
+  };
+  let iconaScelaManuale = false;
+  container.querySelector('#new-cat-nome')?.addEventListener('input', () => {
+    if (iconaScelaManuale) return;
+    const testo = (container.querySelector('#new-cat-nome')?.value || '').toLowerCase();
+    if (!testo) return;
+    const trovata = Object.entries(CAT_SUGGERIMENTI).find(([, parole]) => parole.some((p) => testo.includes(p)));
+    if (!trovata) return;
+    const ic = CAT_ICONE.find((x) => x.chiave === trovata[0]);
+    if (!ic || ic === catIconaScelta) return;
+    catIconaScelta = ic;
+    container.querySelectorAll('.new-cat-emoji').forEach((b) => b.classList.toggle('selected', b.dataset.icona === ic.chiave));
+    aggiornaAnteprimaCat();
+  });
+
+  const openNewCatPanel = () => {
+    const panel = container.querySelector('#new-cat-panel');
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    // Reflow forzato per far ripartire l'animazione di apertura ogni volta,
+    // anche se il pannello era gia' stato aperto e richiuso in questa sessione.
+    panel.classList.remove('new-cat-in'); void panel.offsetWidth; panel.classList.add('new-cat-in');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(() => container.querySelector('#new-cat-nome')?.focus(), 250);
+  };
+  const closeNewCatPanel = () => {
+    container.querySelector('#new-cat-panel')?.classList.add('hidden');
+  };
+
+  container.querySelector('#new-cat-cancel')?.addEventListener('click', () => { haptic('light'); closeNewCatPanel(); });
+
+  container.querySelectorAll('.new-cat-emoji').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      haptic('light');
+      iconaScelaManuale = true;
+      container.querySelectorAll('.new-cat-emoji').forEach((b) => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      catIconaScelta = CAT_ICONE.find((ic) => ic.chiave === btn.dataset.icona) || CAT_ICONE[0];
+      aggiornaAnteprimaCat();
+    });
+  });
+  container.querySelectorAll('.new-cat-colore').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      haptic('light');
+      container.querySelectorAll('.new-cat-colore').forEach((b) => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      catColoreScelta = btn.dataset.colore;
+      aggiornaAnteprimaCat();
+    });
+  });
+  container.querySelector('#new-cat-nome')?.addEventListener('input', aggiornaAnteprimaCat);
+
+  container.querySelector('#new-cat-crea')?.addEventListener('click', () => {
+    const nomeInput = container.querySelector('#new-cat-nome');
+    const nome = (nomeInput?.value || '').trim();
+    if (!nome) {
+      // Niente inventato al posto del nome: si chiede di scriverlo, con un
+      // piccolo scatto che dice "manca qualcosa" senza un testo d'errore.
+      nomeInput?.classList.add('new-cat-shake');
+      setTimeout(() => nomeInput?.classList.remove('new-cat-shake'), 400);
+      nomeInput?.focus();
+      return;
+    }
+    // Un doppione silenzioso confonderebbe piu' di un avviso: se esiste gia'
+    // una categoria con lo stesso nome (per questo tipo), non se ne crea
+    // una seconda identica — si seleziona quella che c'e' gia'.
+    const esistente = getCatsByType(type).find((c) => c.name.toLowerCase() === nome.toLowerCase());
+    if (esistente) {
+      showToast(`Hai gia' una categoria "${esistente.name}".`, 'info');
+      closeNewCatPanel();
+      container.querySelector(`[data-cat-id="${esistente.id}"]`)?.click();
+      return;
+    }
+    const id = `custom-${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'cat'}-${Date.now().toString(36).slice(-4)}`;
+    const nuovaCat = { id, name: nome, type, color: catColoreScelta, icon: catIconaScelta.svg };
+    VaultDAO.state.customCategories = [...(VaultDAO.state.customCategories || []), nuovaCat];
+    VaultDAO.save();
+    haptic('heavy'); AudioSynth.play('success');
+    showToast(`Categoria "${nome}" creata.`, 'success');
+    closeNewCatPanel();
+    if (nomeInput) nomeInput.value = '';
+    catIconaScelta = CAT_ICONE[0]; catColoreScelta = CAT_PALETTE[0]; iconaScelaManuale = false;
+    // Si ridisegna la fascia con la categoria nuova dentro (stesso idioma
+    // gia' usato quando si cambia tipo uscita/entrata/investi) e la si
+    // seleziona subito: chi l'ha appena creata la sta gia' cercando.
+    const scroll = container.querySelector('#cat-scroll');
+    if (scroll) {
+      scroll.innerHTML = buildCatChipsHTML(type);
+      attachCatClick();
+      const nuovoChip = container.querySelector(`[data-cat-id="${id}"]`);
+      nuovoChip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      nuovoChip?.click();
+    }
+  });
 
   // Tasti rapidi: un tocco compila tipo+categoria+descrizione+importo,
   // il secondo tocco su "Conferma" registra. Appaiono solo se nei
@@ -1822,7 +2025,7 @@ const renderDashboard = () => {
     return `
       <div class="tx-card group" data-id="${t.id}">
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-          <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shadow-inner shrink-0" style="background:${c.color}">${c.icon}</div>
+          <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
           <div class="min-w-0 pr-2 flex-1">
              <!-- La descrizione e' quello che si LEGGE per riconoscere il
                   movimento; l'importo e' il dato. Prima erano entrambi al

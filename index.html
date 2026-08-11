@@ -428,10 +428,89 @@
     .cat-scroll-wrapper::-webkit-scrollbar { display: none; }
     .cat-chip { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 0.7rem 0.5rem 0.6rem; border-radius: 1.2rem; border: 2px solid transparent; background: var(--surface-elevated); cursor: pointer; transition: all var(--spring-fast); min-width: 68px; flex-shrink: 0;}
     .cat-chip-icon { width: 40px; height: 40px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; position: relative; color: white; transition: transform 0.3s; flex-shrink: 0;}
+    /* ── IL MATERIALE DELLE ICONE ──
+       Un cerchio a tinta piatta e' l'ultima cosa in tutta l'app che non
+       aveva rilievo — ogni altra superficie (l'orb, le card, la traiettoria
+       del mese) ha una luce che viene da un lato e si spegne verso il buio.
+       Questo lo allinea: la stessa fisica, alla scala di un'icona. Una sola
+       classe, usata ovunque un colore identifica una categoria — nella
+       fascia di scelta, nella lista dei movimenti, nell'anteprima di
+       creazione — cosi' sono automaticamente la stessa cosa ovunque
+       compaiano, non tre trattamenti diversi da tenere allineati a mano. */
+    .cat-icon-glow {
+      background:
+        radial-gradient(circle at 30% 26%, color-mix(in srgb, #fff 32%, var(--icon-c, #64748b)) 0%, var(--icon-c, #64748b) 55%, color-mix(in srgb, #000 22%, var(--icon-c, #64748b)) 100%) !important;
+      box-shadow:
+        0 3px 10px -3px color-mix(in srgb, var(--icon-c, #64748b) 65%, transparent),
+        inset 0 1px 1px rgba(255,255,255,.3),
+        inset 0 -2px 3px rgba(0,0,0,.2);
+    }
+    .cat-icon-glow svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
     .cat-chip-label { font-size: 0.65rem; font-weight: 800; color: var(--on-surface-secondary); text-align: center; line-height: 1.2; width: 100%; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cat-chip.selected { transform: translateY(-4px); border-color: var(--chip-color); background: var(--chip-bg); box-shadow: 0 6px 16px -4px var(--chip-color); }
     .cat-chip.selected .cat-chip-icon { transform: scale(1.1); }
-    
+    /* L'icona di una categoria personalizzata e' un'emoji dentro lo stesso
+       cerchio colorato delle icone di fabbrica: stessa taglia, stesso posto. */
+    .cat-emoji-icon { font-size: 1.25rem; line-height: 1; }
+
+    /* ── "+ NUOVA": la chip che apre la creazione ──
+       Tratteggiata invece che piena, cosi' si legge subito come un'AZIONE
+       ("aggiungi") e non come una categoria in piu' fra le altre — la stessa
+       differenza che rende riconoscibile un pulsante "+" da un'etichetta,
+       ma nel linguaggio visivo di questa fascia di chip. */
+    .cat-chip-add { background: transparent; border-style: dashed; border-color: color-mix(in srgb, currentColor 25%, transparent); }
+    .cat-chip-icon-add {
+      background: transparent !important; border: 1.5px dashed color-mix(in srgb, currentColor 35%, transparent);
+      color: color-mix(in srgb, var(--on-surface-secondary) 80%, transparent);
+      font-size: 1.3rem; font-weight: 300; line-height: 1;
+    }
+    @media (hover: hover) { .cat-chip-add:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); } }
+
+    /* ── IL PANNELLO DI CREAZIONE ──
+       Vive DENTRO il modulo che si sta gia' compilando, non in un modale
+       sopra: su mobile un secondo modale avrebbe dovuto far sparire (o
+       salvare da qualche parte) l'importo gia' digitato. Si apre con la
+       stessa molla morbida usata per l'orb e il resto dell'app — mai un
+       elemento che scatta di colpo. */
+    .new-cat-panel {
+      margin: .5rem 1rem 0; padding: .9rem 1rem 1.1rem;
+      border-radius: 1.2rem; background: var(--surface-elevated);
+      border: 1px solid var(--glass-border);
+      display: flex; flex-direction: column; gap: .7rem;
+    }
+    @keyframes new-cat-apri { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+    .new-cat-panel.new-cat-in { animation: new-cat-apri .32s cubic-bezier(.22,1,.36,1) both; }
+    .new-cat-head { display: flex; align-items: center; justify-content: space-between; }
+    .new-cat-chiudi {
+      width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+      color: var(--on-surface-secondary); font-size: .8rem;
+      background: color-mix(in srgb, currentColor 8%, transparent);
+    }
+    .new-cat-anteprima { display: flex; align-items: center; gap: .6rem; }
+    .new-cat-anteprima-nome { font-weight: 800; font-size: .95rem; color: var(--on-surface); }
+    .new-cat-griglia { display: grid; grid-template-columns: repeat(6, 1fr); gap: .45rem; }
+    .new-cat-griglia-colori { grid-template-columns: repeat(5, 1fr); }
+    .new-cat-emoji {
+      aspect-ratio: 1; border-radius: .9rem; font-size: 1.15rem;
+      display: grid; place-items: center; background: var(--surface-solid);
+      border: 1.5px solid transparent; transition: all var(--spring-fast);
+    }
+    .new-cat-emoji.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); transform: translateY(-2px); }
+    .new-cat-colore {
+      aspect-ratio: 1; border-radius: 50%;
+      border: 2px solid transparent; transition: all var(--spring-fast);
+    }
+    .new-cat-colore.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--colore, currentColor), 0 4px 10px -2px rgba(0,0,0,.4); transform: scale(1.12); }
+    .new-cat-crea-btn {
+      min-height: 3rem; border-radius: 1rem; background: var(--apex-gradient);
+      color: #fff; font-weight: 800; font-size: .9rem;
+    }
+    .new-cat-crea-btn:active { transform: scale(.97); }
+    /* L'errore di "manca il nome" e' uno scatto, non un testo rosso: si vede,
+       non richiede di essere letto, e sparisce da solo. */
+    @keyframes new-cat-scatto { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+    .new-cat-shake { animation: new-cat-scatto .35s ease; border-color: var(--red) !important; }
+
     .desc-input-wrap { position: relative; margin: 0 1rem; }
     .desc-input { width: 100%; padding: 0.9rem 1rem 0.9rem 2.5rem; border: 1.5px solid var(--outline); border-radius: 1.2rem; background: var(--surface-elevated); font-size: 0.9rem; font-weight: 600; transition: all var(--transition-core); color: var(--on-surface); }
     .desc-input:focus { outline: none; border-color: var(--primary); background: var(--surface-solid); box-shadow: 0 0 0 4px rgba(99,102,241,0.15); }
