@@ -353,7 +353,35 @@ const getTxFormHTML = () => `
       <div id="amount-impact" class="mt-2 min-h-[1.25rem] text-[12px] font-bold flex items-center justify-center gap-1.5 opacity-0 transition-opacity duration-200" aria-live="polite"></div>
     </div>
 
-    <div class="cat-scroll-wrapper shrink-0">
+    <!-- IL TASTIERINO SUBITO DOPO L'IMPORTO, non in fondo al modulo. Bug
+         reale segnalato dagli utenti: "clicco su 0 e non esce il tastierino".
+         Misurato dal vivo su un viewport di telefono realistico (497px di
+         altezza, con la barra degli indirizzi visibile): il tastierino
+         stava a partire da 477px e finiva a 606px — CENTONOVE PIXEL SOTTO IL
+         BORDO DELLO SCHERMO, raggiungibile solo scorrendo. Chi apre il
+         modulo vede l'importo "0" in alto, ci tocca sopra aspettandosi una
+         tastiera (e' un testo, non un campo — non succede niente), e non
+         immagina che il tastierino vero sia piu' in basso, fuori vista.
+         Categoria, descrizione e data restano utili ma non sono la prima
+         cosa che serve: scendono sotto, raggiungibili scorrendo DOPO aver
+         gia' scritto l'importo, non prima. -->
+    <div class="numpad-grid shrink-0" tabindex="0" aria-label="Tastierino importo — puoi anche digitare da tastiera fisica">
+      ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
+       <button type="button" class="numpad-key text-[var(--red)] font-bold h-full min-h-0 flex items-center justify-center" id="voice-rec-btn" aria-label="Detta l'importo a voce">
+         <svg class="w-6 h-6 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
+       </button>
+      <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
+      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="Cancella ultima cifra">DEL</button>
+    </div>
+
+    <!-- Suggerimento visibile SOLO con puntatore/tastiera fisici (desktop/laptop):
+         su touch resta nascosto perché lì il tastierino è la via naturale. -->
+    <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
+      Puoi digitare da tastiera: cifre, virgola, ⌫ e Invio per confermare
+    </p>
+
+        <div class="cat-scroll-wrapper shrink-0">
       <div class="flex gap-2.5 px-2 w-max" id="cat-scroll">${buildCatChipsHTML('uscita')}</div>
     </div>
 
@@ -377,22 +405,6 @@ const getTxFormHTML = () => `
           <span id="split-pill-text" class="truncate">Dividi</span>
        </button>
     </div>
-
-    <div class="numpad-grid mt-auto flex-1 min-h-[220px]" tabindex="0" aria-label="Tastierino importo — puoi anche digitare da tastiera fisica">
-      ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
-       <button type="button" class="numpad-key text-[var(--red)] font-bold h-full min-h-0 flex items-center justify-center" id="voice-rec-btn" aria-label="Detta l'importo a voce">
-         <svg class="w-6 h-6 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-       </button>
-      <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
-      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="Cancella ultima cifra">DEL</button>
-    </div>
-
-    <!-- Suggerimento visibile SOLO con puntatore/tastiera fisici (desktop/laptop):
-         su touch resta nascosto perché lì il tastierino è la via naturale. -->
-    <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
-      Puoi digitare da tastiera: cifre, virgola, ⌫ e Invio per confermare
-    </p>
 
     <button type="button" class="save-btn mt-3 shrink-0" id="save-tx-btn" disabled>Conferma</button>
   </div>

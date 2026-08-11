@@ -514,7 +514,16 @@
       .qa-learn-chip:hover { transform: none; }
     }
     
-    .save-btn { margin: 0.5rem 1rem; width: calc(100% - 2rem); min-height: 3.5rem; border-radius: 1.2rem; background: var(--apex-gradient); color: white; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); box-shadow: var(--glow-primary); flex-shrink: 0; padding: 0.5rem;}
+    /* IL BOTTONE DI CONFERMA RESTA SEMPRE RAGGIUNGIBILE. Segnalato
+       dall'utente subito dopo aver spostato il tastierino in alto: "il tasto
+       conferma risulta lontano". Vero — con importo, categorie, descrizione e
+       data tutti sopra, il bottone finiva in fondo a un modulo lungo, da
+       raggiungere scorrendo ogni volta, per ogni transazione.
+       `position: sticky` lo ancora al bordo basso della finestra di scroll
+       del modulo: resta visibile mentre si scorre il resto, senza bisogno di
+       un contenitore separato ne' di ricalcolare altezze — degrada da solo a
+       comportamento normale nei form troppo corti per aver bisogno di scorrere. */
+    .save-btn { position: sticky; bottom: 0; z-index: 5; margin: 0.5rem 1rem; width: calc(100% - 2rem); min-height: 3.5rem; border-radius: 1.2rem; background: var(--apex-gradient); color: white; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all var(--spring-fast); box-shadow: var(--glow-primary), 0 -8px 20px -6px rgba(0,0,0,.45); flex-shrink: 0; padding: 0.5rem;}
     .save-btn:active { transform: scale(0.96); box-shadow: none; }
     .save-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; filter: grayscale(1); }
     #join-go:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; filter: grayscale(1); pointer-events: none; }
