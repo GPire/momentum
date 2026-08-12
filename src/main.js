@@ -1137,6 +1137,10 @@ const attachFormListeners = (container, prefill = null) => {
     AudioSynth.play('success');
     const k = monthKey(selectedDate);
     
+    // Finestra di deduplica RISTRETTA a 15 minuti (non i 48h pensati per gli
+    // import bancari): qui protegge solo dal doppio tocco per errore, non
+    // fonde due caffe' veri comprati in giorni diversi — vedi il commento in
+    // VaultDAO.addTransaction per il bug che questo risolve.
     const { route } = VaultDAO.addTransaction(k, {
       id: Date.now(),
       amount: amt,
@@ -1144,7 +1148,7 @@ const attachFormListeners = (container, prefill = null) => {
       category: catId,
       description: desc?.value || getCatById(catId).name,
       date: selectedDate.toISOString()
-    });
+    }, { dedupWindowHours: 0.25 });
 
     if (window.momentumOrchestrator) {
       window.momentumOrchestrator.learn(desc?.value || getCatById(catId).name, catId, amt, selectedDate);
@@ -4546,7 +4550,7 @@ window.openSplitExpense = (prefill = {}) => {
       // il Core (categoria). learnFromSplit vive nel modulo split, testato.
       const { category, mine } = learnFromSplit(window.momentumOrchestrator, { description: state.description, myShare: myShareFrom(g), date: new Date() });
       const desc = state.description ? `${state.description} (la mia parte)` : 'Spesa condivisa (la mia parte)';
-      const res = VaultDAO.addTransaction(monthKey(new Date()), { id: Date.now(), amount: mine, type: 'uscita', category, description: desc, date: new Date().toISOString() });
+      const res = VaultDAO.addTransaction(monthKey(new Date()), { id: Date.now(), amount: mine, type: 'uscita', category, description: desc, date: new Date().toISOString() }, { dedupWindowHours: 0.25 });
       try { if (!res.duplicate && window.momentumOrchestrator) window.momentumOrchestrator.learn(desc, category, mine, new Date()); } catch (_) { }
       VaultDAO.save();
       closeModal();
@@ -8720,7 +8724,7 @@ window.applySweep = (sweep) => {
     category: 'risparmio',
     description: sweep.goalName ? `Risparmio per ${sweep.goalName} (da spostare tu)` : 'Risparmio avanzo (da spostare tu)',
     date: now.toISOString(),
-  });
+  }, { dedupWindowHours: 0.25 });
   VaultDAO.state.lastSweepWeek = sweep.weekKey; // campo additivo
   VaultDAO.save();
   showToast(`Segnato. Ora sposta davvero ${formatMoney(sweep.amount)} sul tuo conto risparmio — Momentum non tocca la banca.`, 'success');
@@ -12317,10 +12321,15 @@ window.askMomentum = askMomentum;
 window.matchSolito = (phrase) => matchSolito(phrase, VaultDAO.state.transactions, new Date());
 window.registerQuickAdd = (hit) => {
   const now = new Date();
+  // Stessa finestra ristretta del salvataggio manuale: e' letteralmente il
+  // caso che deve funzionare meglio di tutti — un'abitudine gia' riconosciuta,
+  // ri-confermata con un tocco. Con la finestra di import (48h) il secondo
+  // giorno consecutivo di fila sarebbe stato fuso col primo, e l'abitudine
+  // non avrebbe mai accumulato la storia che la rende riconoscibile.
   const { route } = VaultDAO.addTransaction(monthKey(now), {
     id: Date.now(), amount: hit.amount, type: hit.type || 'uscita',
     category: hit.category, description: hit.description, date: now.toISOString(),
-  });
+  }, { dedupWindowHours: 0.25 });
   if (window.momentumOrchestrator) window.momentumOrchestrator.learn(hit.description, hit.category, hit.amount, now);
   renderDashboard();
   renderAnalysis({ skipHeavyForecast: route === 'fast' });

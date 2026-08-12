@@ -238,7 +238,23 @@ const VaultDAO = {
     const candMonths = adjacentMonthKeys(month);
     const candidates = [];
     for (const mk of candMonths) { const b = this.state.transactions[mk]; if (b) for (const t of b) candidates.push(t); }
-    const match = opts.noDedup ? null : findDuplicate(tx, candidates);
+    // La finestra di 48 ore (findDuplicate, deduplicator.js) e' pensata per
+    // fondere la STESSA operazione descritta da fonti diverse (l'SMS della
+    // banca e la riga del CSV che arriva due giorni dopo) — un problema di
+    // AMBIGUITA' fra canali. Un tocco manuale sul modulo di aggiunta non ha
+    // quella ambiguita': l'utente sta guardando lo schermo e ha appena deciso
+    // consapevolmente di registrare QUESTA spesa. Applicargli la stessa
+    // finestra di 48 ore significa che due caffe' identici comprati in due
+    // giorni consecutivi (un'abitudine vera, non un doppione) vengono fusi in
+    // uno solo — e proprio quella fusione toglie al motore delle abitudini
+    // (src/predict/amount-memory.js, src/predict/context-predictor.js) le
+    // occorrenze ripetute di cui ha bisogno per riconoscere un pattern.
+    // BUG REALE, trovato aggiungendo tre spese vere identiche dal modulo e
+    // vedendone salvate solo una: l'utente ha chiesto "sei sicuro che
+    // funzioni? non vedo suggerimenti" ed era la domanda giusta.
+    // opts.dedupWindowHours permette a chi chiama di restringere la finestra
+    // senza toccare il comportamento di import/CSV, che restano a 48 ore.
+    const match = opts.noDedup ? null : findDuplicate(tx, candidates, opts.dedupWindowHours != null ? { windowHours: opts.dedupWindowHours } : {});
     if (match) {
       const merged = mergeTransaction(match, tx);
       merged.amount = match.amount;

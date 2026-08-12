@@ -52,3 +52,40 @@ test('noDedup: due transazioni distinte di pari importo/giorno NON vengono fuse 
   assert.equal(r.duplicate, true);
   assert.equal(VaultDAO.state.transactions['2024-10'].length, 1);
 });
+
+// ── LA FINESTRA DI DEDUPLICA RISTRETTA PER I TOCCHI MANUALI ──
+// Bug reale, trovato aggiungendo tre spese identiche dal modulo dell'app e
+// vedendone salvate solo una: la finestra di 48 ore di findDuplicate (pensata
+// per fondere la stessa operazione descritta da fonti diverse, es. import
+// bancario) fondeva anche due caffè genuinamente comprati in due giorni
+// diversi — e proprio quella fusione toglieva al motore delle abitudini le
+// occorrenze ripetute di cui ha bisogno per riconoscere un pattern.
+test('addTransaction: SENZA una finestra dedicata, due spese identiche a un giorno di distanza si fondono (comportamento import, invariato)', () => {
+  VaultDAO.state.transactions = {};
+  VaultDAO.state.lastHash = 'GENESIS';
+  VaultDAO.save = () => {};
+  VaultDAO.addTransaction('2026-08', { id: 1, amount: 1.5, category: 'ristoranti', type: 'uscita', description: 'Bar Centrale', date: '2026-08-10T08:00:00.000Z' });
+  const r = VaultDAO.addTransaction('2026-08', { id: 2, amount: 1.5, category: 'ristoranti', type: 'uscita', description: 'Bar Centrale', date: '2026-08-11T08:00:00.000Z' });
+  assert.equal(r.duplicate, true, 'senza finestra dedicata resta il comportamento di sempre: 48 ore, pensato per gli import');
+  assert.equal(VaultDAO.state.transactions['2026-08'].length, 1);
+});
+
+test('addTransaction: CON dedupWindowHours ristretta, due spese identiche a un giorno di distanza restano DUE', () => {
+  VaultDAO.state.transactions = {};
+  VaultDAO.state.lastHash = 'GENESIS';
+  VaultDAO.save = () => {};
+  VaultDAO.addTransaction('2026-08', { id: 1, amount: 1.5, category: 'ristoranti', type: 'uscita', description: 'Bar Centrale', date: '2026-08-10T08:00:00.000Z' }, { dedupWindowHours: 0.25 });
+  const r = VaultDAO.addTransaction('2026-08', { id: 2, amount: 1.5, category: 'ristoranti', type: 'uscita', description: 'Bar Centrale', date: '2026-08-11T08:00:00.000Z' }, { dedupWindowHours: 0.25 });
+  assert.ok(!r.duplicate, 'un giorno dopo è un\'abitudine reale, non un doppione — deve restare una seconda spesa');
+  assert.equal(VaultDAO.state.transactions['2026-08'].length, 2);
+});
+
+test('addTransaction: la finestra ristretta protegge ANCORA dal vero doppio tocco (due secondi dopo)', () => {
+  VaultDAO.state.transactions = {};
+  VaultDAO.state.lastHash = 'GENESIS';
+  VaultDAO.save = () => {};
+  VaultDAO.addTransaction('2026-08', { id: 1, amount: 1.5, category: 'ristoranti', type: 'uscita', description: 'Bar Centrale', date: '2026-08-10T08:00:00.000Z' }, { dedupWindowHours: 0.25 });
+  const r = VaultDAO.addTransaction('2026-08', { id: 2, amount: 1.5, category: 'ristoranti', type: 'uscita', description: 'Bar Centrale', date: '2026-08-10T08:00:02.000Z' }, { dedupWindowHours: 0.25 });
+  assert.equal(r.duplicate, true, 'due secondi dopo è quasi certamente un doppio tocco per errore, non una seconda abitudine');
+  assert.equal(VaultDAO.state.transactions['2026-08'].length, 1);
+});
