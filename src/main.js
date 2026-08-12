@@ -397,10 +397,24 @@ const getTxFormHTML = () => `
        <div class="ai-insight-action" id="ai-insight-btn">Usa questo suggerimento</div>
     </div>
 
+    <!-- Un'icona propria per ogni stato, non solo testo e colore: coerenza
+         con ogni altro chip dell'app (categorie, nav) che parla anche per
+         forma, non solo per etichetta — utile a chi scorre veloce o daltonico
+         quanto al design. Stessa costruzione a tratto (stroke, non riempito)
+         delle altre icone custom, mai emoji di sistema. -->
     <div class="type-toggle-track mb-3 shrink-0">
-      <button type="button" class="type-toggle-pill active-expense" data-type="uscita">Uscita</button>
-      <button type="button" class="type-toggle-pill" data-type="entrata">Entrata</button>
-      <button type="button" class="type-toggle-pill" data-type="invest">Investi</button>
+      <button type="button" class="type-toggle-pill active-expense" data-type="uscita">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        Uscita
+      </button>
+      <button type="button" class="type-toggle-pill" data-type="entrata">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+        Entrata
+      </button>
+      <button type="button" class="type-toggle-pill" data-type="invest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+        Investi
+      </button>
     </div>
 
     <!-- Tasti rapidi (src/predict/amount-memory.js): gli acquisti abituali
@@ -697,6 +711,7 @@ const attachFormListeners = (container, prefill = null) => {
           const tPill = container.querySelector(`[data-type="${type}"]`);
           if (tPill) {
             tPill.classList.add(type==='uscita'?'active-expense':type==='entrata'?'active-income':'active-invest');
+            tPill.classList.remove('type-toggle-pop'); void tPill.offsetWidth; tPill.classList.add('type-toggle-pop');
           }
           const scroll = container.querySelector('#cat-scroll');
           if (scroll) {
@@ -731,6 +746,7 @@ const attachFormListeners = (container, prefill = null) => {
 
       container.querySelectorAll('.type-toggle-pill').forEach(b => b.classList.remove('active-expense','active-income','active-invest'));
       btn.classList.add(type==='uscita'?'active-expense':type==='entrata'?'active-income':'active-invest');
+      btn.classList.remove('type-toggle-pop'); void btn.offsetWidth; btn.classList.add('type-toggle-pop');
 
       const scroll = container.querySelector('#cat-scroll');
       if (scroll) {
