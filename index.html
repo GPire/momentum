@@ -390,6 +390,147 @@
 
     .smart-toggles-row { display: flex; gap: 0.5rem; margin: 0.5rem 1rem 0; flex-wrap: wrap; }
     .neuro-pill-btn { flex: 1; min-width: 120px; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--outline); border-radius: 1.2rem; font-size: 0.75rem; font-weight: 800; color: var(--on-surface-secondary); transition: all var(--spring-fast); position: relative; overflow: hidden; cursor: pointer; white-space: nowrap;}
+
+    /* ══════════════════════════════════════════════════════════
+       LA PILLOLA CHE NASCE DA UN'INTUIZIONE
+       ══════════════════════════════════════════════════════════
+       Prima usava .neuro-pill-btn, la stessa forma di "Oggi" o "Dividi" — un
+       bottone di servizio. Ma questa non e' un tasto qualunque: e' Momentum
+       che ha guardato le tue abitudini per ora e giorno e ti sta dicendo "so
+       cosa stai per fare". Deve SENTIRSI diversa, con lo stesso materiale
+       dell'orb — luce che viene da un punto, non un colore piatto — non con
+       un'icona a fulmine che potrebbe significare qualunque cosa. */
+    /* Primo tentativo bocciato: un rettangolo scuro con un puntino e un
+       bordo sottile. Non bastava chiamarlo "scintilla" nel commento — doveva
+       ESSERE luce, non un dettaglio isolato su uno sfondo piatto. Qui la
+       card intera e' immersa nel colore della categoria (nebulosa, non
+       bordo), la scintilla e' un vero corpo luminoso a due strati (nucleo +
+       alone sfocato, la stessa costruzione dell'orb: centro chiaro, bordo
+       che sfuma nel colore, alone che si spegne nel buio), e l'intera
+       pillola respira — non solo il puntino. */
+    .pillola-intuito {
+      position: relative; flex: 1; min-width: 140px;
+      display: flex; align-items: center; gap: .65rem;
+      padding: .7rem .85rem;
+      border: none; border-radius: 1.3rem;
+      color: var(--on-surface);
+      cursor: pointer; white-space: nowrap; overflow: visible;
+      isolation: isolate;
+      transition: transform .25s cubic-bezier(.22,1,.36,1);
+      animation: pillola-in .45s cubic-bezier(.22,1,.36,1) both, pillola-fluttua 5s ease-in-out 1s infinite;
+      animation-delay: calc(var(--i, 0) * 90ms), calc(var(--i, 0) * 90ms + 1s);
+    }
+    /* Il finto tilt 3D (rotateX/rotateY con perspective) e' stato tolto: su
+       un elemento cosi' piccolo non si legge come inclinazione, si legge
+       come un ritaglio/zoom instabile — verificato dal vivo, confermato
+       dall'utente. Il "vivo e collegato a Momentum" ora passa da un
+       galleggiamento verticale reale (translateY, nessuna distorsione) e da
+       un respiro di LUCE — la nebulosa di sfondo che si accende e si spegne
+       piano, la stessa idea del bagliore dell'orb, non una geometria che
+       cambia. Solo transform e opacity restano animati: niente box-shadow,
+       background-position o filter sul contenitore, che con piu' pillole
+       insieme forzavano un ridisegno continuo (il "laggy" segnalato). */
+    @keyframes pillola-fluttua {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-3px); }
+    }
+    .pillola-intuito:hover { transform: translateY(-2px) scale(1.015); }
+    /* Lo sfondo: una nebulosa che parte dalla scintilla e si dirada verso il
+       buio, non un rettangolo con un bordo colorato — respira di intensita',
+       come il nucleo dell'orb, mai di forma. */
+    .pillola-intuito::before {
+      content: ''; position: absolute; inset: 0; z-index: -2; border-radius: inherit;
+      background:
+        radial-gradient(ellipse 90% 130% at 14% 50%, color-mix(in srgb, var(--icon-c, var(--primary)) 38%, transparent) 0%, transparent 65%),
+        var(--surface-elevated);
+      box-shadow: 0 4px 16px -6px color-mix(in srgb, var(--icon-c, var(--primary)) 40%, transparent);
+      animation: pillola-nebulosa-respiro 4.5s ease-in-out 1s infinite;
+      animation-delay: calc(var(--i, 0) * 90ms + 1s);
+    }
+    @keyframes pillola-nebulosa-respiro {
+      0%, 100% { opacity: .78; }
+      50%      { opacity: 1; }
+    }
+    /* Il bordo e' luce, non un tratto: sfuma dagli angoli verso il centro
+       alto, come il riflesso delle card — stessa fisica, colore proprio. */
+    .pillola-intuito::after {
+      content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; padding: 1px;
+      background: linear-gradient(135deg,
+        color-mix(in srgb, var(--icon-c, var(--primary)) 65%, transparent) 0%,
+        color-mix(in srgb, var(--icon-c, var(--primary)) 8%, transparent) 45%,
+        color-mix(in srgb, var(--icon-c, var(--primary)) 25%, transparent) 100%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+    }
+    .pillola-intuito:active { transform: scale(.96); }
+    @keyframes pillola-in { from { opacity: 0; transform: translateY(6px) scale(.94); } }
+
+    /* LA SCINTILLA E' UNA STELLA CADENTE IN MINIATURA — stessa identica
+       costruzione delle stelle cadenti della schermata iniziale (.shooting-star
+       qui sotto): una scia che si assottiglia e una coma luminosa alla testa.
+       Non e' un'invenzione nuova, e' la stessa materia della hero riusata a
+       una scala diversa — cosi' un utente che ha visto le stelle cadenti
+       all'apertura dell'app riconosce la stessa cosa qui, senza doverlo
+       spiegare: "questo e' arrivato da li'". La coda punta verso il testo,
+       come se la stella si fosse appena posata sul suggerimento portandolo. */
+    .pillola-scintilla {
+      position: relative; width: 20px; height: 2px; flex-shrink: 0; margin-left: 2px;
+      border-radius: 999px; transform-origin: right center;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--icon-c, var(--primary)) 55%, transparent) 55%,
+        color-mix(in srgb, #fff 40%, var(--icon-c, var(--primary))) 100%);
+      filter: drop-shadow(0 0 4px color-mix(in srgb, var(--icon-c, var(--primary)) 70%, transparent));
+      animation: pillola-atterra .7s cubic-bezier(.22,1,.36,1) both, pillola-scia 3.2s ease-in-out 1.1s infinite;
+      animation-delay: calc(var(--i, 0) * 90ms), calc(var(--i, 0) * 90ms + 1.1s);
+    }
+    /* La coda non sta ferma a respirare nell'ombra: si allunga e si ritira
+       davvero, come se la stella stesse ancora attraversando il cielo dentro
+       la pillola — moto visibile, non solo un'intensita' che cambia. */
+    @keyframes pillola-scia {
+      0%, 100% { transform: scaleX(1); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--icon-c, var(--primary)) 70%, transparent)); }
+      50%      { transform: scaleX(1.55); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--icon-c, var(--primary)) 95%, transparent)); }
+    }
+    /* La testa: il corpo luminoso vero, costruito come l'orb — nucleo quasi
+       bianco, colore della categoria, alone che si spegne nel buio. */
+    .pillola-scintilla::after {
+      content: ''; position: absolute; right: -1.5px; top: 50%; width: 8px; height: 8px;
+      margin-top: -4px; border-radius: 50%;
+      background: radial-gradient(circle at 32% 28%,
+        #fff 0%,
+        color-mix(in srgb, #fff 35%, var(--icon-c, var(--primary))) 30%,
+        var(--icon-c, var(--primary)) 65%,
+        color-mix(in srgb, var(--icon-c, var(--primary)) 60%, #000) 100%);
+      box-shadow:
+        0 0 5px color-mix(in srgb, var(--icon-c, var(--primary)) 85%, transparent),
+        0 0 11px color-mix(in srgb, var(--icon-c, var(--primary)) 45%, transparent);
+    }
+    /* Entra come una vera stella cadente: attraversa la pillola da sinistra
+       (da "fuori", come se venisse da lontano — dall'orb, in cima allo
+       schermo) e si ferma nel suo posto, dove resta a respirare piano. */
+    @keyframes pillola-atterra {
+      0%   { opacity: 0; transform: translateX(-26px) scale(.7); }
+      55%  { opacity: 1; }
+      100% { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    @keyframes pillola-scintilla-respiro { 0%, 100% { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--icon-c, var(--primary)) 70%, transparent)); } 50% { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--icon-c, var(--primary)) 90%, transparent)); } }
+
+    .pillola-corpo { display: flex; flex-direction: column; gap: .2rem; min-width: 0; flex: 1; position: relative; z-index: 1; }
+    .pillola-riga1 { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; font-size: .8rem; font-weight: 800; }
+    /* Il "perche'" viene PRIMA del suggerimento, non sotto come una nota a
+       piè di pagina: e' l'osservazione di Momentum, allineata a sinistra
+       (mai centrata nel vuoto) — si legge come l'inizio di una frase che il
+       nome e il prezzo, sotto, completano. */
+    .pillola-motivo {
+      display: block; text-align: left;
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      color: color-mix(in srgb, var(--icon-c, var(--primary)) 85%, white 25%);
+      opacity: .9;
+    }
+    .pillola-motivo-generico { text-transform: none; letter-spacing: 0; opacity: .55; font-weight: 600; }
+    @media (prefers-reduced-motion: reduce) {
+      .pillola-intuito, .pillola-scintilla, .pillola-scintilla::after { animation: none; }
+    }
     .neuro-pill-btn:active { transform: scale(0.96); }
     .neuro-pill-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
     .native-date-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }

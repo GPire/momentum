@@ -949,13 +949,37 @@ const attachFormListeners = (container, prefill = null) => {
     ).slice(0, 4);
     if (suggestions.length > 0) {
       quickRow.classList.remove('hidden');
-      quickRow.innerHTML = suggestions.map((s, i) => `
-        <button type="button" class="neuro-pill-btn shrink-0" data-quick-idx="${i}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M13 2L4.5 13.5H12l-1 8.5 8.5-11.5H12z"/></svg><span class="truncate max-w-[110px]">${s.description}</span>
-          <span class="font-mono font-bold">${formatMoney(s.amount)}</span>
-          ${i === 0 && s.reason ? `<span class="text-[11px] opacity-60">${s.reason}</span>` : ''}
-        </button>
-      `).join('');
+      // ── LA PILLOLA CHE SEMBRA UN'INTUIZIONE, NON UN BOTTONE ──
+      // Prima era .neuro-pill-btn, la STESSA classe generica usata per "Oggi"
+      // e "Dividi" — un tasto identico a un tasto qualunque, nonostante questo
+      // qui nasca da qualcosa che gli altri due non hanno: Momentum ha guardato
+      // le tue abitudini e ha indovinato cosa stai per comprare. Un fulmine
+      // generico non lo diceva.
+      // Ora porta il colore della categoria come alone (--icon-c, la stessa
+      // materia di luce gia' usata per le icone e per l'orb) e un puntino che
+      // pulsa piano — lo stesso respiro dell'orb e della sonda sull'orbita del
+      // mese: e' la firma visiva di "questo viene dall'intuito di Momentum",
+      // riconoscibile perche' e' sempre la stessa in tutta l'app.
+      // RISTRUTTURATA: prima il "perche'" era una didascalia in fondo, senza
+      // un posto chiaro a cui appartenere — ne' sotto il nome ne' sotto il
+      // prezzo, semplicemente centrata nel vuoto. Ora e' la PRIMA cosa che si
+      // legge, sopra il suggerimento: prima Momentum dice COSA ha notato
+      // ("di solito la sera"), poi COSA propone (nome e importo). E' l'ordine
+      // in cui succede davvero: l'osservazione viene prima della proposta.
+      quickRow.innerHTML = suggestions.map((s, i) => {
+        const c = getCatById(s.category);
+        return `
+        <button type="button" class="pillola-intuito shrink-0" data-quick-idx="${i}" style="--icon-c:${c.color};--i:${i}">
+          <span class="pillola-scintilla"></span>
+          <span class="pillola-corpo">
+            ${i === 0 && s.reason ? `<span class="pillola-motivo">${s.reason}</span>` : '<span class="pillola-motivo pillola-motivo-generico">un\'abitudine tua</span>'}
+            <span class="pillola-riga1">
+              <span class="truncate max-w-[120px]">${s.description}</span>
+              <span class="font-mono font-bold">${formatMoney(s.amount)}</span>
+            </span>
+          </span>
+        </button>`;
+      }).join('');
       quickRow.querySelectorAll('[data-quick-idx]').forEach(btn => {
         btn.addEventListener('click', () => {
           const s = suggestions[parseInt(btn.dataset.quickIdx)];
