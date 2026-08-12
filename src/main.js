@@ -494,8 +494,20 @@ const getTxFormHTML = () => `
        </button>
     </div>
 
-    <button type="button" class="save-btn mt-3 shrink-0" id="save-tx-btn" disabled>Conferma</button>
   </div>
+`;
+
+// Il Conferma vive FUORI dal corpo che scorre — stesso principio già
+// applicato a "Crea fattura" (vedi getInvoiceFooterHTML più sotto): un
+// modulo con AI insight, categorie, nota, data e "dividi" può facilmente
+// superare l'altezza di un telefono piccolo, e un bottone in fondo al
+// flusso normale resta irraggiungibile senza scorrere fino in fondo —
+// esattamente l'attrito segnalato dal vivo su schermi bassi. Su mobile
+// questo HTML va nel vero piè di pagina fisso di openModal (#modal-footer);
+// sul pannello desktop, dove lo spazio verticale non manca, resta incollato
+// in coda allo stesso form (vedi il sito che lo inietta più sotto).
+const getTxFormFooterHTML = () => `
+  <button type="button" class="save-btn mt-3 shrink-0" id="save-tx-btn" disabled>Conferma</button>
 `;
 
 const attachFormListeners = (container, prefill = null) => {
@@ -503,7 +515,15 @@ const attachFormListeners = (container, prefill = null) => {
   let rawVal = '';
   let catId = null;
   let selectedDate = new Date();
-  
+
+  // Su mobile #save-tx-btn vive nel piè di pagina fisso (#modal-footer), fuori
+  // da `container` (#modal-body); su desktop vive in #form-footer-desktop,
+  // fuori da #form-container-desktop — stesso principio in entrambi i posti,
+  // vedi getTxFormFooterHTML più sopra. .closest() risale al progenitore
+  // comune a form+piè di pagina in ciascun contesto; senza nessuno dei due
+  // (caso non dovrebbe capitare) resta `container` stesso.
+  const formRoot = container.closest('#modal-container') || container.closest('#desktop-sidebar') || container;
+
   const desc = container.querySelector('#tx-desc');
   const aiPanel = container.querySelector('#ai-insight-panel');
   const aiCatBadge = container.querySelector('#ai-cat-badge');
@@ -523,7 +543,7 @@ const attachFormListeners = (container, prefill = null) => {
     d.classList.remove('amount-pop'); void d.offsetWidth; d.classList.add('amount-pop');
 
     const amt = parseFloat(rawVal) || 0;
-    const saveBtn = container.querySelector('#save-tx-btn');
+    const saveBtn = formRoot.querySelector('#save-tx-btn');
     
     // Il freno spese ora vive nell'indicatore onesto sotto (renderAmountImpact):
     // niente "Spesa Bloccata" finto — l'app non blocca i tuoi soldi, ti dà un
@@ -534,7 +554,7 @@ const attachFormListeners = (container, prefill = null) => {
   };
 
   const updateSaveBtn = () => {
-    const btn = container.querySelector('#save-tx-btn');
+    const btn = formRoot.querySelector('#save-tx-btn');
     if (btn) btn.disabled = !(parseFloat(rawVal) > 0 && catId);
   };
 
@@ -1088,7 +1108,7 @@ const attachFormListeners = (container, prefill = null) => {
       if (typingText) return; // lascia cancellare il testo della nota
       rawVal = rawVal.slice(0, -1); e.preventDefault(); updateAmount();
     } else if (key === 'Enter') {
-      const btn = container.querySelector('#save-tx-btn');
+      const btn = formRoot.querySelector('#save-tx-btn');
       if (btn && !btn.disabled) { e.preventDefault(); btn.click(); }
     }
   };
@@ -1128,7 +1148,7 @@ const attachFormListeners = (container, prefill = null) => {
   }
 
   // Confirm Ledger Save
-  container.querySelector('#save-tx-btn').onclick = () => {
+  formRoot.querySelector('#save-tx-btn').onclick = () => {
     const amt = parseFloat(rawVal);
     if (!amt || !catId) return;
     
@@ -1358,7 +1378,7 @@ function evaluateAndCelebrateAchievements() {
 }
 
 const openTransactionModal = () => {
-  openModal(getTxFormHTML());
+  openModal(getTxFormHTML(), getTxFormFooterHTML());
   attachFormListeners($('#modal-body'));
 };
 
@@ -1367,7 +1387,7 @@ const openTransactionModal = () => {
 // stesso flusso di conferma → stesso apprendimento del Core).
 window.openPrefilledAdd = (prefill = {}) => {
   haptic('light');
-  openModal(getTxFormHTML());
+  openModal(getTxFormHTML(), getTxFormFooterHTML());
   attachFormListeners($('#modal-body'), prefill);
 };
 
@@ -9355,7 +9375,14 @@ const bootUI = () => {
   try {
     const desktopForm = $('#form-container-desktop');
     if (desktopForm) {
+      // Stesso principio del piè di pagina fisso mobile (#modal-footer),
+      // applicato alla sidebar: #form-container-desktop scorre da solo
+      // (categorie/nota/data), Conferma vive fuori in #form-footer-desktop,
+      // sempre visibile — anche su schermo grande si scorreva per
+      // raggiungerlo, difetto reale segnalato dal vivo.
       desktopForm.innerHTML = getTxFormHTML();
+      const desktopFooter = $('#form-footer-desktop');
+      if (desktopFooter) desktopFooter.innerHTML = getTxFormFooterHTML();
       attachFormListeners(desktopForm);
     }
   } catch(e) { console.error(e); }

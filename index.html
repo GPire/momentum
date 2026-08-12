@@ -3629,7 +3629,17 @@
           </h2>
           <div id="next-expense-nudge" class="shrink-0 hidden mb-2.5"></div>
           <div id="split-reminder" class="shrink-0 hidden mb-2.5"></div>
-          <div id="form-container-desktop" class="flex-grow min-h-0"></div>
+          <!-- BUG REALE segnalato dal vivo: su desktop, nonostante lo schermo
+               più grande, si era comunque costretti a scorrere per raggiungere
+               Conferma — stesso identico difetto già risolto sul modale mobile
+               (Conferma nel piè di pagina fisso #modal-footer), mai applicato
+               qui. #form-container-desktop non aveva overflow proprio: il
+               modulo semplicemente sporgeva oltre il fondo della sidebar
+               sticky. Ora SOLO l'area del modulo scorre (categorie, nota,
+               data restano raggiungibili scorrendo); Conferma vive fuori, in
+               #form-footer-desktop, sempre visibile senza scorrere nulla. -->
+          <div id="form-container-desktop" class="flex-grow min-h-0 overflow-y-auto"></div>
+          <div id="form-footer-desktop" class="shrink-0"></div>
         </aside>
       </div>
     </main>
