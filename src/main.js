@@ -9606,6 +9606,25 @@ window.closeModal = () => {
   }, 300);
 };
 
+// TASTIERA FISICA (desktop/laptop): Escape chiude il modale, come clic sul
+// backdrop — convenzione standard che qui mancava del tutto. Un'app che ha già
+// investito in digitazione diretta dell'importo e Invio-per-confermare dentro
+// lo stesso modale (vedi onPhysicalKey sopra) ma lascia Escape morto è
+// esattamente il tipo di incoerenza "non nativa per mouse+tastiera" che un
+// utente desktop percepisce senza saperla nominare. Ignora Escape mentre si
+// scrive in un campo di testo (lascerebbe l'utente a chiedersi se ha perso
+// quello che stava scrivendo) e nei form con conferma esplicita già gestita
+// altrove (nessuno qui: closeModal è sempre sicuro, il salvataggio avviene
+// solo su azione esplicita, mai su chiusura).
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const mc = document.getElementById('modal-container');
+  if (!mc || mc.classList.contains('hidden')) return;
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+  window.closeModal();
+});
+
 // Editor budget mensile a bassa frizione (src/predict/budget-advisor.js):
 // prima di questo, l'unico posto per impostare il budget era l'onboarding
 // una tantum (valore fisso 1000/1500/2200€ in base al profilo di rischio,
