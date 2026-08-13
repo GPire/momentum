@@ -11116,10 +11116,26 @@ const initApp = () => {
   // (Analisi Tensor), stessa identità visiva ovunque. Riassunto reale (mai
   // generato da Momentum), escape prima di tutto: il testo arriva da fonti
   // esterne, mai fidarsi ciecamente in innerHTML.
+  // "Digerire" le notizie invece di solo elencarle: una riga di sintesi
+  // calcolata sui punteggi REALI già restituiti da Alpha Vantage (mai un
+  // punteggio inventato o passato a un LLM esterno) — quanti articoli hanno
+  // un punteggio vero, la media, l'etichetta prevalente. Se nessun articolo
+  // ha un punteggio reale (Finnhub/Hacker News: 'sconosciuto'), non si mostra
+  // una sintesi finta.
+  function summarizeNewsSentiment(items) {
+    const scored = (items || []).filter(n => Number.isFinite(n.sentimentScore));
+    if (!scored.length) return null;
+    const avg = scored.reduce((s, n) => s + n.sentimentScore, 0) / scored.length;
+    const label = avg >= 0.35 ? 'bullish' : avg >= 0.15 ? 'somewhat-bullish' : avg >= -0.15 ? 'neutral' : avg >= -0.35 ? 'somewhat-bearish' : 'bearish';
+    const labelText = { bullish: 'positivo', 'somewhat-bullish': 'leggermente positivo', neutral: 'neutro', 'somewhat-bearish': 'leggermente negativo', bearish: 'negativo' }[label];
+    return { avg: +avg.toFixed(3), label, n: scored.length, testo: `Sentiment recente ${labelText} (media ${avg.toFixed(2)} su ${scored.length} articoli con punteggio).` };
+  }
   function buildNewsItemsHtml(items) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-[var(--on-surface-secondary)]', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     const escNews = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>` : '';
+    const synth = summarizeNewsSentiment(items);
+    const synthHtml = synth ? `<p class="text-[11px] font-semibold ${labelColor[synth.label]} mb-1">${escNews(synth.testo)}</p>` : '';
+    const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>${synthHtml}` : '';
     const itemsHtml = items.map(n => `
       <a href="${n.url}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="flex items-start gap-1.5">
