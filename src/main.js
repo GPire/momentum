@@ -41,6 +41,8 @@ import { NOMI_PAESI as PAESI_NOMI, PAESI_A as TASSI_MONDO_A } from './alpha/coun
 import { speedupCeiling } from './mesh/mesh-economics.js';
 import { announcePresence, bridgeStatus } from './core/surface-bridge.js';
 import { refertoCausale } from './alpha/macro-causality.js';
+import { stressIndex, stressText } from './alpha/market-stress.js';
+import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
@@ -7614,6 +7616,41 @@ function renderNetWorth() {
           <p class="opacity-70">Correlazione misurata, non predizione: nessun numero qui dice cosa fare, solo cosa è successo e cosa sta succedendo adesso.</p>
         </div>
       </details>`;
+  }
+  // Per chi investe attivamente (src/alpha/market-stress.js +
+  // src/alpha/posizionamento.js): indice di paura (volatilità, correlazione
+  // fra settori, distanza dal massimo — MAI la direzione, solo quanto
+  // "balla" il mercato) + estremi di posizionamento COT su più mercati.
+  // Entrambi i motori erano raggiungibili solo dalla chat QA (mercato-qa.js),
+  // mai come pannello che un trader può scorrere a colpo d'occhio. Dati
+  // statici: calcolo una sola volta per sessione, come il referto causale.
+  const traderEl = $('#trader-desk-panel');
+  if (traderEl) {
+    if (!window.__traderDeskCache) {
+      try {
+        const stress = stressIndex();
+        const posizionamento = quadroPosizionamento();
+        window.__traderDeskCache = { stress, posizionamento };
+      } catch (e) { console.warn('trader desk:', e); }
+    }
+    const c = window.__traderDeskCache;
+    if (c) {
+      const stato = c.stress?.stato;
+      const stressColor = stato === 'calmo' ? 'text-emerald-300' : stato === 'incerto' ? 'text-amber-300' : 'text-rose-300';
+      const stressPct = c.stress?.indice != null ? Math.round(c.stress.indice * 100) : null;
+      traderEl.innerHTML = `
+        ${stressPct != null ? `
+        <div class="mb-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] text-[var(--on-surface-secondary)]">Indice di paura</span>
+            <span class="font-mono text-[13px] font-bold ${stressColor}">${stressPct}/100</span>
+          </div>
+          <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full ${stressColor.replace('text-', 'bg-')}" style="width:${stressPct}%"></div></div>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5">${escapeHtml(stressText(c.stress) || '')}</p>
+        </div>` : ''}
+        ${c.posizionamento ? `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(posizionamentoText(c.posizionamento) || '')}</p>` : ''}
+        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-2">Correlazione e posizionamento misurati, mai una direzione: non è consulenza finanziaria.</p>`;
+    }
   }
   const ratesEl = $('#country-rates-panel');
   if (ratesEl) {

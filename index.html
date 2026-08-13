@@ -3189,6 +3189,16 @@
                     <div id="market-overview-panel"></div>
                  </div>
 
+                 <!-- Per chi investe attivamente (src/alpha/market-stress.js +
+                      src/alpha/posizionamento.js): indice di paura e estremi
+                      di posizionamento COT, prima raggiungibili solo dalla
+                      chat QA, mai come pannello da scorrere a colpo d'occhio. -->
+                 <div class="card p-6 order-4" id="trader-desk-card">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 19h16M7 15v4M12 10v9M17 5v14"/></svg>Per chi investe attivamente</h3>
+                    <p class="card-sub">Indice di paura e posizionamento estremo — misurati, mai una direzione</p>
+                    <div id="trader-desk-panel"></div>
+                 </div>
+
                  <!-- Confronto periodi (src/predict/period-compare.js): "quanto ho
                       speso questo mese rispetto al mese scorso, per categoria" —
                       dati reali già indicizzati per mese, nessun nuovo motore. -->
