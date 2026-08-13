@@ -5654,8 +5654,11 @@ window.selectAsset = async (idx) => {
       const hasCloudKey = ['groq', 'gemini', 'openrouter', 'mistral', 'qwen', 'moonshot', 'glm', 'cerebras', 'deepseek', 'xai', 'openai', 'anthropic'].some(p => cloudKeys[p]);
       window.__lastNewsItemsBySymbol = window.__lastNewsItemsBySymbol || {};
       window.__lastNewsItemsBySymbol[asset.symbol] = items;
+      // Storico REALE già accumulato per questo ticker (mai finto/precompilato):
+      // prova visibile che le letture precedenti non si perdono, si sommano.
+      const pastCount = (VaultDAO.state.newsInsightsHistory || []).filter(h => h.symbol === asset.symbol).length;
       const aiSummaryBtn = hasCloudKey
-        ? `<button onclick="window.summarizeNewsWithAI('${asset.symbol}')" id="news-ai-summary-btn-${asset.symbol}" class="text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Riassumi con la tua AI →</button>`
+        ? `<button onclick="window.summarizeNewsWithAI('${asset.symbol}')" id="news-ai-summary-btn-${asset.symbol}" class="text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Riassumi con la tua AI →</button>${pastCount > 0 ? `<span class="text-[10px] text-[var(--on-surface-secondary)] ml-2">${pastCount} lettura/e precedente/i salvata/e</span>` : ''}`
         : '';
       newsHtml = `<div class="mt-2">${stale ? '<p class="text-[11px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}${aiSummaryBtn}<div id="news-ai-summary-${asset.symbol}" class="mt-1.5"></div></div>`;
     }
@@ -11190,6 +11193,19 @@ const initApp = () => {
         </div>
         ${formatCloudAnswer(answer, 'text-violet-300')}
       </div>`;
+      // Memoria che CRESCE davvero: senza questo, ogni riassunto si perdeva
+      // alla chiusura della card. Non è "addestramento" (nessun peso di
+      // nessun modello cambia qui) — è uno storico locale reale, per ticker,
+      // che nel tempo permette di confrontare il sentiment di allora con
+      // cosa è successo davvero al prezzo. Onestà: il testo resta quello del
+      // provider esterno, mai riscritto da Momentum. Tetto a 200 voci
+      // totali (le più vecchie cadono) per non far crescere il vault senza
+      // limite.
+      const synth = summarizeNewsSentiment(items);
+      const hist = VaultDAO.state.newsInsightsHistory || [];
+      hist.push({ symbol, at: Date.now(), provider, testo: answer, sentimentMedio: synth?.avg ?? null, nArticoli: items.length });
+      VaultDAO.state.newsInsightsHistory = hist.slice(-200);
+      VaultDAO.save();
     } catch (e) {
       target.innerHTML = `<p class="text-[10px] text-rose-300">${escapeHtml(e.message)}</p>`;
     } finally {
