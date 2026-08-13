@@ -5645,7 +5645,20 @@ window.selectAsset = async (idx) => {
   let newsHtml = '', historyChart = '', trackRecordHtml = '';
   try {
     const { items, stale } = await window.fetchAssetNewsCascade(asset);
-    if (items.length) newsHtml = `<div class="mt-2">${stale ? '<p class="text-[11px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}</div>`;
+    if (items.length) {
+      // Riassunto via LLM esterno, OPT-IN (bottone, mai automatico): manda
+      // SOLO titoli/riassunti già pubblici delle notizie, MAI dati
+      // finanziari dell'utente. Stessa chiave/stesso pattern della chat
+      // generica (src/ai/chat-fallback.js) — nessun motore nuovo.
+      const cloudKeys = VaultDAO.state.liveDataKeys || {};
+      const hasCloudKey = ['groq', 'gemini', 'openrouter', 'mistral', 'qwen', 'moonshot', 'glm', 'cerebras', 'deepseek', 'xai', 'openai', 'anthropic'].some(p => cloudKeys[p]);
+      window.__lastNewsItemsBySymbol = window.__lastNewsItemsBySymbol || {};
+      window.__lastNewsItemsBySymbol[asset.symbol] = items;
+      const aiSummaryBtn = hasCloudKey
+        ? `<button onclick="window.summarizeNewsWithAI('${asset.symbol}')" id="news-ai-summary-btn-${asset.symbol}" class="text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Riassumi con la tua AI →</button>`
+        : '';
+      newsHtml = `<div class="mt-2">${stale ? '<p class="text-[11px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}${aiSummaryBtn}<div id="news-ai-summary-${asset.symbol}" class="mt-1.5"></div></div>`;
+    }
   } catch (_) { /* notizie opzionali: nessun errore bloccante se mancano */ }
   try {
     const { historyChart: chart, trackRecordHtml: tr } = await window.fetchAssetHistoryData(asset);
@@ -11150,6 +11163,40 @@ const initApp = () => {
     ).join('');
     return newsHeader + itemsHtml;
   }
+  // Riassunto delle notizie via LLM esterno, OPT-IN (bottone, mai
+  // automatico, mai in background): manda SOLO titoli/fonte/riassunto già
+  // pubblici delle notizie già raccolte — MAI dati finanziari dell'utente,
+  // MAI transazioni. Stessa chiave/stesso pattern della chat generica
+  // (src/ai/chat-fallback.js, askCloudFallbackChain) — nessun provider
+  // nuovo, nessuna infrastruttura nuova. Etichettato onestamente "non è
+  // Momentum", come ogni altra risposta cloud di questa sessione.
+  async function summarizeNewsWithAI(symbol) {
+    const target = document.getElementById(`news-ai-summary-${symbol}`);
+    const btn = document.getElementById(`news-ai-summary-btn-${symbol}`);
+    const items = (window.__lastNewsItemsBySymbol || {})[symbol] || [];
+    if (!target || !items.length) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Riassumo...'; }
+    target.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Chiedo alla tua AI...</p>`;
+    try {
+      const { askCloudFallbackChain } = await import('./ai/chat-fallback.js');
+      const keys = VaultDAO.state.liveDataKeys || {};
+      const elenco = items.slice(0, 8).map((n, i) => `${i + 1}. ${n.title}${n.summary ? ` — ${n.summary}` : ''} (fonte: ${n.source || 'sconosciuta'})`).join('\n');
+      const question = `Riassumi in italiano, in 3-4 frasi semplici, cosa dicono in sintesi queste notizie su ${symbol}. Non dare consigli di investimento, solo un riassunto onesto dei fatti riportati.\n\n${elenco}`;
+      const { answer, provider } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window) });
+      target.innerHTML = `<div class="mt-1 pt-1.5 border-t border-sky-500/10">
+        <div class="flex items-center justify-between mb-1">
+          <h5 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} ${provider}</h5>
+          <span class="text-[10px] text-violet-400/70">non è Momentum</span>
+        </div>
+        ${formatCloudAnswer(answer, 'text-violet-300')}
+      </div>`;
+    } catch (e) {
+      target.innerHTML = `<p class="text-[10px] text-rose-300">${escapeHtml(e.message)}</p>`;
+    } finally {
+      if (btn) btn.remove();
+    }
+  }
+  window.summarizeNewsWithAI = summarizeNewsWithAI;
   // BUG DI CHIAREZZA segnalato dal vivo dall'utente: per un'azione senza
   // nessuna chiave prezzi configurata, la card mostrava SOLO le notizie —
   // niente prezzo, niente grafico, in silenzio. Un utente (esperto o alle
