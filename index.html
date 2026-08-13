@@ -3176,6 +3176,19 @@
                     <div id="macro-causality-panel" class="overflow-x-auto"></div>
                  </div>
 
+                 <!-- Quadro di mercato: sintesi di regime (src/alpha/regime.js,
+                      già collegato via detectLiveRegimeFor), causale
+                      (macro-causality.js) e tassi-mondo (tassi-mondo.js) in
+                      UNA lettura. Pensata per due pubblici: la prima riga in
+                      linguaggio semplice, i dettagli con i numeri veri sotto
+                      un tocco — mai due schermate diverse per bambino ed
+                      esperto, la stessa con più o meno dettaglio aperto. -->
+                 <div class="card p-6 order-4" id="market-overview-card">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Quadro di mercato</h3>
+                    <p class="card-sub">Cosa sta succedendo adesso, in una frase — e nei numeri veri se vuoi guardare oltre</p>
+                    <div id="market-overview-panel"></div>
+                 </div>
+
                  <!-- Confronto periodi (src/predict/period-compare.js): "quanto ho
                       speso questo mese rispetto al mese scorso, per categoria" —
                       dati reali già indicizzati per mese, nessun nuovo motore. -->

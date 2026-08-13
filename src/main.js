@@ -7569,6 +7569,36 @@ function renderNetWorth() {
     const r = window.__refertoCausaleCache;
     causalEl.innerHTML = r ? `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(r.testo)}</p>` : '';
   }
+  // Quadro di mercato: sintesi di regime + causale + tassi-mondo in UNA
+  // lettura, per ogni scenario d'uso — la prima riga in linguaggio semplice
+  // (chi apre l'app la prima volta), i dettagli con i numeri veri sotto un
+  // tocco (chi investe attivamente). Nessun motore nuovo: solo la stessa
+  // sintesi che finora un trader avrebbe dovuto ricostruirsi a mano
+  // guardando tre card separate.
+  const overviewEl = $('#market-overview-panel');
+  if (overviewEl) {
+    const regime = (typeof detectLiveRegimeFor === 'function') ? detectLiveRegimeFor('indice') : null;
+    const r = window.__refertoCausaleCache;
+    const ciclo = cicloGlobale();
+    const regimeLabel = !regime ? null
+      : regime.regime === 'risk-on' ? 'Il mercato sta salendo con calma: momento tranquillo.'
+      : regime.regime === 'risk-off' ? 'Il mercato è agitato: sale la cautela in questo momento.'
+      : 'Il mercato non ha una direzione chiara in questo momento.';
+    const headline = regimeLabel || (ciclo.percentile > 0.8
+      ? 'I tassi nel mondo si muovono quasi tutti insieme: la geografia conta poco adesso.'
+      : 'Nessuna posizione collegata a un indice: aggiungi una posizione per vedere il regime live.');
+    overviewEl.innerHTML = `
+      <p class="text-[13px] font-bold text-slate-200 mb-2">${escapeHtml(headline)}</p>
+      <details class="text-[11px] text-[var(--on-surface-secondary)]">
+        <summary class="cursor-pointer select-none text-[var(--gold)]">Numeri veri, per chi vuole guardare oltre</summary>
+        <div class="mt-2 space-y-1.5">
+          ${regime ? `<p>${escapeHtml(regime.explanation)}</p>` : ''}
+          ${r ? `<p>${escapeHtml(r.testo)}</p>` : ''}
+          <p>Ciclo globale dei tassi al ${(ciclo.percentile * 100).toFixed(0)}° percentile storico.</p>
+          <p class="opacity-70">Correlazione misurata, non predizione: nessun numero qui dice cosa fare, solo cosa è successo e cosa sta succedendo adesso.</p>
+        </div>
+      </details>`;
+  }
   const ratesEl = $('#country-rates-panel');
   if (ratesEl) {
     const profCountry = (VaultDAO.state.invoiceProfile?.country || '').toLowerCase();
