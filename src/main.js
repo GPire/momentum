@@ -43,6 +43,7 @@ import { announcePresence, bridgeStatus } from './core/surface-bridge.js';
 import { refertoCausale } from './alpha/macro-causality.js';
 import { stressIndex, stressText } from './alpha/market-stress.js';
 import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento.js';
+import { tailRiskPortafoglio, tailRiskText } from './alpha/portfolio-tail-risk.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
@@ -5624,6 +5625,15 @@ window.selectAsset = async (idx) => {
     try {
       const { fetchAssetOverview } = await import('./alpha/asset-overview.js');
       const ov = await fetchAssetOverview(asset, { apiKey: VaultDAO.state.liveDataKeys?.alphavantage, fetchImpl: fetch.bind(window) });
+      // Il settore REALE dell'azienda si salva (campo additivo): serve a
+      // src/alpha/portfolio-tail-risk.js per collocare la posizione nel
+      // pannello storico dei nove settori. È crescita vera con l'uso — più
+      // schede si aprono, più parti del portafoglio diventano misurabili —
+      // e il dato è quello della fonte, mai indovinato da noi.
+      if (ov.kind === 'stock' && ov.sector && asset.symbol) {
+        VaultDAO.state.sectorByTicker = { ...(VaultDAO.state.sectorByTicker || {}), [asset.symbol.toUpperCase()]: ov.sector };
+        VaultDAO.save();
+      }
       const meta = ov.kind === 'stock' ? [ov.sector, ov.industry].filter(Boolean).join(' · ') : ov.category;
       let summary = ov.summary;
       let translatedTag = '';
@@ -7616,6 +7626,58 @@ function renderNetWorth() {
           <p class="opacity-70">Correlazione misurata, non predizione: nessun numero qui dice cosa fare, solo cosa è successo e cosa sta succedendo adesso.</p>
         </div>
       </details>`;
+  }
+  // IL RISCHIO DI CODA DEL PORTAFOGLIO REALE (src/alpha/portfolio-tail-risk.js):
+  // la differenza fra tutti i pannelli precedenti e questo è che gli altri
+  // mostrano lo stesso numero a chiunque, questo dipende dai TUOI pesi.
+  // Expected Shortfall al 97,5% (standard Basilea III/FRTB) su bootstrap a
+  // blocchi di 331 mesi reali, confrontato con un equipesato sugli STESSI
+  // scenari — così la differenza è attribuibile alla composizione, non al caso.
+  // Simulazione pesante: una volta per sessione, invalidata se il portafoglio
+  // cambia (la chiave include tickers e quantità).
+  const tailEl = $('#portfolio-tail-risk-panel');
+  if (tailEl) {
+    const chiave = (positions || []).map(p => `${p.ticker}:${p.quantity}`).sort().join('|');
+    if (window.__tailRiskCache?.chiave !== chiave) {
+      try {
+        const r = tailRiskPortafoglio(positions || [], {
+          priceByTicker: window.__livePrices || {},
+          sectorByTicker: VaultDAO.state.sectorByTicker || {},
+        });
+        window.__tailRiskCache = { chiave, r };
+      } catch (e) { console.warn('tail risk:', e); window.__tailRiskCache = { chiave, r: null }; }
+    }
+    const r = window.__tailRiskCache?.r;
+    if (!positions.length) {
+      tailEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Aggiungi le tue posizioni per misurare quanto perde il tuo portafoglio nei mesi peggiori.</p>`;
+    } else if (!r?.valutabile) {
+      // Rifiuto MOTIVATO, mai un pannello vuoto senza spiegazione.
+      tailEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || 'Non misurabile con i dati disponibili.')}</p>`;
+    } else {
+      const pct = (x) => `${(Math.abs(x) * 100).toFixed(1).replace('.', ',')}%`;
+      tailEl.innerHTML = `
+        <div class="flex items-baseline gap-2 mb-1">
+          <span class="text-2xl font-black font-mono text-rose-300">−${pct(r.es)}</span>
+          <span class="text-[11px] text-[var(--on-surface-secondary)]">nei 12 mesi peggiori su 100</span>
+        </div>
+        <p class="text-[11px] ${r.piuFragileDelMercato ? 'text-amber-300/90' : 'text-emerald-300/90'} mb-2">
+          ${r.piuFragileDelMercato
+            ? `Un portafoglio spalmato su tutti i settori, negli stessi mesi simulati, perderebbe ${pct(r.esDiversificato)}: ${pct(r.costoConcentrazione)} in meno di te.`
+            : `Meno di un portafoglio spalmato su tutti i settori negli stessi mesi (${pct(r.esDiversificato)}).`}
+        </p>
+        <div class="space-y-1.5 mb-2">${r.contributi.slice(0, 5).map(c => {
+          const w = Math.max(3, Math.round(c.quotaDellaPerdita * 100));
+          return `<div class="text-[10px]">
+            <div class="flex items-center justify-between mb-0.5">
+              <span class="text-[var(--on-surface-secondary)]">${escapeHtml(c.nome)}</span>
+              <span class="font-mono text-rose-300/80">${Math.round(c.quotaDellaPerdita * 100)}% della perdita</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-rose-400/60" style="width:${w}%"></div></div>
+          </div>`;
+        }).join('')}</div>
+        <p class="text-[10px] text-[var(--on-surface-secondary)]">${r.settoriEquivalenti} settori equivalenti su 9 · misurato sul ${Math.round(r.mappa.copertura * 100)}% del portafoglio${r.mappa.nonCoperti.length ? ` (fuori: ${escapeHtml(r.mappa.nonCoperti.map(n => n.ticker).join(', '))})` : ''}</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-1">Expected Shortfall 97,5% (standard Basilea III) su 331 mesi reali che contengono dot-com, 2008, COVID e 2022. È una misura di cosa c'è, non un consiglio su cosa fare.</p>`;
+    }
   }
   // Per chi investe attivamente (src/alpha/market-stress.js +
   // src/alpha/posizionamento.js): indice di paura (volatilità, correlazione

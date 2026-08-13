@@ -3199,6 +3199,19 @@
                     <div id="trader-desk-panel"></div>
                  </div>
 
+                 <!-- Rischio di coda del portafoglio REALE
+                      (src/alpha/portfolio-tail-risk.js): a differenza di ogni
+                      altro pannello di mercato, questo numero dipende dai pesi
+                      dell'utente. Expected Shortfall 97,5% (Basilea III/FRTB)
+                      su bootstrap a blocchi di 331 mesi veri, confrontato con
+                      un equipesato sugli STESSI scenari → il costo misurato
+                      della concentrazione, e da quali settori arriva. -->
+                 <div class="card p-6 order-2" id="portfolio-tail-risk-card">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M5 6c0 7 3 12 7 12s7-5 7-12"/><path d="M12 18v3"/></svg>Quanto rischi davvero</h3>
+                    <p class="card-sub">Quanto perde il tuo portafoglio nei mesi peggiori, e quanto ti costa com'è composto</p>
+                    <div id="portfolio-tail-risk-panel"></div>
+                 </div>
+
                  <!-- Confronto periodi (src/predict/period-compare.js): "quanto ho
                       speso questo mese rispetto al mese scorso, per categoria" —
                       dati reali già indicizzati per mese, nessun nuovo motore. -->
