@@ -24,6 +24,24 @@ test('valuePositions: senza prezzo → fallback avgPrice ETICHETTATO stale (ones
   assert.equal(v.total, 1000);
 });
 
+test('valuePositions: senza prezzo live ma con serie storica → nowcast (stima+banda), MAI il close grezzo spacciato per live', () => {
+  const now = new Date('2026-06-15').getTime();
+  const series = Array.from({ length: 10 }, (_, i) => ({ date: `2026-06-0${i + 1}`, close: 100 + i }));
+  const v = nw.valuePositions([{ ticker: 'AAPL', assetClass: 'stock', quantity: 10, avgPrice: 50 }], { pricesByTicker: { AAPL: series }, now });
+  assert.equal(v.rows[0].stale, true); // onestà: è una stima, non un prezzo live
+  assert.ok(v.rows[0].nowcast);
+  assert.notEqual(v.rows[0].price, 50); // non è il fallback a costo
+  assert.ok(v.rows[0].nowcast.band >= 0);
+});
+
+test('valuePositions: prezzo live presente → nessun nowcast, nessuna stima', () => {
+  const series = [{ date: '2026-06-01', close: 100 }];
+  const v = nw.valuePositions([{ ticker: 'AAPL', assetClass: 'stock', quantity: 10, avgPrice: 50 }], { pricesByTicker: { AAPL: series }, currentPriceByTicker: { AAPL: 120 } });
+  assert.equal(v.rows[0].price, 120);
+  assert.equal(v.rows[0].stale, false);
+  assert.equal(v.rows[0].nowcast, null);
+});
+
 test('computeNetWorth: aggrega cash+posizioni+asset dichiarati−debiti, aritmetica verificabile', () => {
   const n = nw.computeNetWorth({
     transactions: TX,

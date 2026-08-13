@@ -36,6 +36,11 @@ function syntheticAnnualReturns(mu, sigma, n = 40, seed = 1) {
   return out;
 }
 import { sectorRanking } from './alpha/sector-rotation.js';
+import { tassiMondoText, sincroniaConGliUsa, scartoFraPaesi, scartoText, cicloGlobale } from './alpha/tassi-mondo.js';
+import { NOMI_PAESI as PAESI_NOMI, PAESI_A as TASSI_MONDO_A } from './alpha/country-rates-panel.js';
+import { speedupCeiling } from './mesh/mesh-economics.js';
+import { announcePresence, bridgeStatus } from './core/surface-bridge.js';
+import { refertoCausale } from './alpha/macro-causality.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
@@ -193,6 +198,7 @@ function askMomentum(text) {
     // bnpl.js), mai un secondo calcolo isolato per il QA.
     positions: VaultDAO.state.positions || [],
     currentPriceByTicker: window.__livePrices || {},
+    pricesByTicker: window.__liveSeries || {},
     manualAssets: VaultDAO.state.manualAssets || [],
     liabilities: VaultDAO.state.liabilities || 0,
     salary: resolveSalary(VaultDAO.state, VaultDAO.state.transactions),
@@ -1272,6 +1278,22 @@ function renderMeshStatus() {
   const rejected = ledger.length - merges;
   el.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 align-middle"></span>${peers} dispositivo/i fidato/i collegato/i · modello su <b>${examples}</b> esempi · ${merges} fusioni accettate${rejected > 0 ? `, ${rejected} rifiutate (anti-manomissione)` : ''}.`;
   updateSplitMeshDot();
+  renderMeshEconomics(peers);
+}
+
+// Quanto la rete conta DAVVERO (src/mesh/mesh-economics.js): il tetto di
+// Amdahl coi dispositivi collegati adesso — "con n dispositivi la potenza è
+// illimitata" è vera solo sotto condizioni, e questo modulo esiste per
+// renderla verificabile invece che dichiarata. frazioneSeriale = 5% è il
+// valore di default del modulo (preparazione/verifica che resta comunque sul
+// dispositivo che chiede); non un numero misurato per questo carico
+// specifico, quindi il tetto è un limite superiore onesto, non una promessa.
+function renderMeshEconomics(peers) {
+  const el = document.getElementById('mesh-economics-status');
+  if (!el) return;
+  if (!peers) { el.innerHTML = ''; return; }
+  const c = speedupCeiling(0.05, peers + 1);
+  el.innerHTML = `Con ${peers} dispositivo/i collegato/i il calcolo condiviso può arrivare fino a ${c.conQuestiDispositivi}× più veloce (tetto teorico ${c.tetto === Infinity ? '∞' : c.tetto.toFixed(1) + '×'}${c.saturazioneA ? `, oltre ${c.saturazioneA} dispositivi il guadagno si appiattisce` : ''}) — solo per i calcoli su dati pubblici che Momentum condivide (proiezioni di mercato, mai i tuoi dati).`;
 }
 
 // Stesso pallino di stato, ma dentro "Insieme": prima si vedeva SOLO nelle
@@ -2711,6 +2733,7 @@ const renderAnalysis = (opts = {}) => {
     transactions: VaultDAO.state.transactions || {},
     positions: VaultDAO.state.positions || [],
     currentPriceByTicker: window.__livePrices || {},
+    pricesByTicker: window.__liveSeries || {},
     manualAssets: VaultDAO.state.manualAssets || [],
     liabilities: 0,
   }).invested;
@@ -7416,12 +7439,16 @@ function renderNetWorth() {
     transactions: VaultDAO.state.transactions || {},
     positions,
     currentPriceByTicker: window.__livePrices || {},
+    pricesByTicker: window.__liveSeries || {},
     manualAssets: VaultDAO.state.manualAssets || [],
     liabilities: VaultDAO.state.liabilities || 0,
   });
   totalEl.textContent = formatMoney(n.total);
   const parts = [`contante ${formatMoney(n.cash)}`];
-  if (n.invested > 0) parts.push(`investito ${formatMoney(n.invested)}${n.stale ? ' (a costo: prezzo live assente, stimato)' : ''}`);
+  const nowcasted = n.positions?.some(p => p.stale && p.nowcast);
+  const atCost = n.positions?.some(p => p.stale && !p.nowcast);
+  const staleLabel = nowcasted && atCost ? ' (parte stimata da serie storica, parte a costo)' : nowcasted ? ' (prezzo live assente: stimato da serie storica)' : atCost ? ' (a costo: prezzo live assente, stimato)' : '';
+  if (n.invested > 0) parts.push(`investito ${formatMoney(n.invested)}${staleLabel}`);
   if (n.liabilities > 0) parts.push(`debiti −${formatMoney(n.liabilities)}`);
   breakEl.textContent = parts.join(' · ');
   // Proiezione per strategia: parte dal patrimonio investibile attuale, con il
@@ -7521,6 +7548,52 @@ function renderNetWorth() {
           </div>`;
         }).join('')}</div>`;
     } else sectorEl.innerHTML = '';
+  }
+  // Tassi a lungo termine di 12 Paesi (src/alpha/tassi-mondo.js): la scoperta
+  // che l'Italia segue il ciclo dei tassi americano solo a 0,33 di sincronia
+  // contro lo 0,74 della Germania — motore scritto e testato ma finora
+  // irraggiungibile da qualunque schermata. Momentum è globale, non italiana
+  // (vedi memoria progetto): questo pannello è la prova che lo prende sul
+  // serio, non solo la dichiarazione.
+  // Causa ed effetto in macro (src/alpha/macro-causality.js): scritto,
+  // testato, MAI mostrato. La scoperta è controintuitiva e merita di
+  // arrivare all'utente: nessun dato macro precede la borsa, è la borsa che
+  // precede disoccupazione e inflazione. Calcolo pesante (discovery causale
+  // su grafo) e dati statici: si fa UNA sola volta per sessione, non a ogni
+  // render.
+  const causalEl = $('#macro-causality-panel');
+  if (causalEl) {
+    if (!window.__refertoCausaleCache) {
+      try { window.__refertoCausaleCache = refertoCausale(); } catch (e) { console.warn('refertoCausale:', e); }
+    }
+    const r = window.__refertoCausaleCache;
+    causalEl.innerHTML = r ? `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(r.testo)}</p>` : '';
+  }
+  const ratesEl = $('#country-rates-panel');
+  if (ratesEl) {
+    const profCountry = (VaultDAO.state.invoiceProfile?.country || '').toLowerCase();
+    const paese = PAESI_NOMI[profCountry] ? profCountry : (isItalianDevice() ? 'it' : 'us');
+    const testo = tassiMondoText(paese);
+    const riferimentoScarto = paese === 'de' ? 'us' : 'de';
+    const scarto = scartoFraPaesi(paese, riferimentoScarto);
+    const ciclo = cicloGlobale();
+    const sinc = sincroniaConGliUsa();
+    const nota = stalenessNote(new Date(`${TASSI_MONDO_A}-01`).getTime(), { now: Date.now(), maxAgeDays: 120, label: 'I tassi a lungo termine dei 12 Paesi' });
+    ratesEl.innerHTML = `
+      <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${escapeHtml(testo || '')}</p>
+      ${scarto.valido ? `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${escapeHtml(scartoText(scarto) || '')}</p>` : ''}
+      <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Ciclo globale dei tassi: sincronia media fra i 12 Paesi al ${(ciclo.percentile * 100).toFixed(0)}° percentile storico${ciclo.percentile > 0.8 ? ' — i tassi del mondo si muovono quasi tutti insieme, la geografia conta poco in questo momento' : ciclo.percentile < 0.2 ? ' — ogni Paese va per conto suo, la geografia conta molto in questo momento' : ''}.</p>
+      <div class="space-y-1.5">${sinc.righe.slice(0, 6).map(r => {
+        const pct = Math.max(4, Math.round(Math.abs(r.sincronia ?? 0) * 100));
+        return `<div class="text-[10px]">
+          <div class="flex items-center justify-between mb-0.5">
+            <span class="text-[var(--on-surface-secondary)]">${escapeHtml(r.nome)}</span>
+            <span class="font-mono text-[var(--gold)]">${r.sincronia === null ? '—' : r.sincronia.toFixed(2)}</span>
+          </div>
+          <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full ${r.seguelUsa ? 'bg-[color-mix(in_srgb,var(--gold)_70%,transparent)]' : 'bg-[color-mix(in_srgb,var(--primary)_50%,transparent)]'}" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('')}</div>
+      ${nota ? `<p class="text-[10px] text-amber-300/80 mt-2">⏱ ${escapeHtml(nota)}</p>` : ''}`;
   }
 }
 
@@ -11739,6 +11812,22 @@ const initApp = () => {
     // Hero: nessun invito scritto (secondo argomento assente) — resta ipnotica.
     try { initPrivacyProof(heroScene); } catch (e) { console.warn('privacy proof non armato:', e); }
   }
+
+  // Ponte PWA/browser (src/core/surface-bridge.js): risolve "installo la PWA,
+  // poi arrivo da Google col browser e perdo l'app". Ogni superficie annuncia
+  // la propria presenza via Cache Storage (l'unico canale che attraversa il
+  // confine PWA/Safari su iOS); se questa è una scheda browser e la PWA
+  // risulta già installata su questo dispositivo, lo diciamo UNA sola volta
+  // (stesso pattern del prompt di feedback: mai un avviso che torna).
+  try {
+    announcePresence().then(() => bridgeStatus()).then((status) => {
+      if (status.surface === 'browser' && status.pwaInstalled && !VaultDAO.state.bridgeNoticeShown) {
+        VaultDAO.state.bridgeNoticeShown = true;
+        VaultDAO.save();
+        setTimeout(() => { try { showToast(status.message, 'info'); } catch (_) {} }, 1500);
+      }
+    }).catch(() => {});
+  } catch (e) { console.warn('surface-bridge non avviato:', e); }
 };
 
 // Global click actions

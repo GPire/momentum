@@ -22,6 +22,7 @@
 // File .js generato con `export default {...}` (non .json): import nativo sia
 // per Vite sia per il test runner Node, nessuna import-assertion necessaria.
 import measured from './measured-assumptions.js';
+import { nowcastPrice, freshness } from './nowcast.js';
 
 // Ipotesi di rendimento/volatilità annua per strategia (nominali, EUR, lungo
 // periodo). Per 'indice' e 'momentum' NON sono più solo letteratura: quando
@@ -78,21 +79,32 @@ export function cashFromTransactions(transactions = {}) {
 // `currentPriceByTicker` = { TICKER: number }. Se un prezzo manca si usa
 // avgPrice (costo) e si segna `stale:true` per quella riga (onestà: non
 // inventiamo un prezzo di mercato che non abbiamo).
-export function valuePositions(positions = [], { pricesByTicker = {}, currentPriceByTicker = {} } = {}) {
+export function valuePositions(positions = [], { pricesByTicker = {}, currentPriceByTicker = {}, now = Date.now() } = {}) {
   const byClass = {};
   let total = 0, anyStale = false;
   const rows = positions.map(p => {
     const series = pricesByTicker[p.ticker];
     let price = currentPriceByTicker[p.ticker];
     let priced = price != null;
-    if (!priced && Array.isArray(series) && series.length) { price = series[series.length - 1].close; priced = true; }
     let stale = false;
+    let nowcast = null;
+    if (!priced && Array.isArray(series) && series.length) {
+      // src/alpha/nowcast.js: niente prezzo live, ma una serie storica c'è —
+      // invece di spacciare l'ultimo close per un prezzo di oggi (il numero
+      // poteva essere di giorni fa), lo si ESTRAPOLA con drift+volatilità e si
+      // dichiara la banda. Il valore usato resta la stima centrale: onesto
+      // sull'incertezza, non un prezzo bloccato.
+      const last = series[series.length - 1];
+      const stepsAhead = last?.date ? Math.max(0, Math.round((now - new Date(last.date).getTime()) / 86_400_000)) : 1;
+      nowcast = nowcastPrice(series.map(s => s.close), stepsAhead, { now });
+      if (nowcast.estimate != null) { price = nowcast.estimate; priced = true; stale = true; anyStale = true; }
+    }
     if (!priced) { price = p.avgPrice; stale = true; anyStale = true; } // fallback costo, etichettato
     const value = (Number(p.quantity) || 0) * (Number(price) || 0);
     total += value;
     const cls = p.assetClass || 'altro';
     byClass[cls] = (byClass[cls] || 0) + value;
-    return { ...p, price, value, priced: !stale, stale };
+    return { ...p, price, value, priced: !stale, stale, nowcast };
   });
   return { rows, total, byClass, stale: anyStale };
 }
@@ -103,7 +115,8 @@ export function valuePositions(positions = [], { pricesByTicker = {}, currentPri
 // mancava. `liabilities` opzionale (debiti) si sottrae.
 export function computeNetWorth({ transactions = {}, positions = [], pricesByTicker = {}, currentPriceByTicker = {}, manualAssets = [], liabilities = 0, asOf = new Date() } = {}) {
   const { cash } = cashFromTransactions(transactions);
-  const pos = valuePositions(positions, { pricesByTicker, currentPriceByTicker });
+  const nowMs = (asOf instanceof Date ? asOf : new Date(asOf)).getTime();
+  const pos = valuePositions(positions, { pricesByTicker, currentPriceByTicker, now: nowMs });
   const manualTotal = manualAssets.reduce((s, a) => s + (Number(a.value) || 0), 0);
   const debt = Number(liabilities) || 0;
   const invested = pos.total;

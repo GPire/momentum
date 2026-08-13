@@ -3154,6 +3154,28 @@
                     <div id="sector-ranking" class="overflow-x-auto mt-4"></div>
                  </div>
 
+                 <!-- Tassi a lungo termine di 12 Paesi (src/alpha/tassi-mondo.js):
+                      Momentum è globale, non un'app americana travestita — questo
+                      pannello mostra quanto il ciclo dei tassi USA riguardi
+                      davvero il tuo Paese, e lo scarto storico col Paese di
+                      riferimento (es. BTP-Bund per un utente italiano). -->
+                 <div class="card p-6 order-4" id="country-rates-card">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 4 5.7 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.7-4-9s1.5-6.5 4-9z"/></svg>Tassi nel mondo</h3>
+                    <p class="card-sub">Quanto il ciclo dei tassi americano riguarda davvero il tuo Paese — 12 Paesi, 419 mesi, stessa fonte per tutti</p>
+                    <div id="country-rates-panel" class="overflow-x-auto"></div>
+                 </div>
+
+                 <!-- Causa ed effetto in macro (src/alpha/macro-causality.js):
+                      grafo causale su tassi/inflazione/disoccupazione/borsa,
+                      419 mesi, sui LIVELLI vs sulle VARIAZIONI (i legami
+                      spuri spariscono). La scoperta: la borsa anticipa
+                      l'economia, non il contrario. -->
+                 <div class="card p-6 order-4" id="macro-causality-card">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8 16.5L16 7.5"/><path d="M13 7.5h3v3"/></svg>Causa ed effetto</h3>
+                    <p class="card-sub">Cosa precede davvero cosa, misurato — mai assunto</p>
+                    <div id="macro-causality-panel" class="overflow-x-auto"></div>
+                 </div>
+
                  <!-- Confronto periodi (src/predict/period-compare.js): "quanto ho
                       speso questo mese rispetto al mese scorso, per categoria" —
                       dati reali già indicizzati per mese, nessun nuovo motore. -->
@@ -3326,6 +3348,10 @@
                       <span class="text-[var(--on-surface-secondary)]">→</span>
                     </button>
                     <p id="mesh-status" class="text-[10px] text-[var(--on-surface-secondary)]">Nessun dispositivo collegato: l'AI impara solo da questo.</p>
+                    <!-- Quanto la rete conta DAVVERO (src/mesh/mesh-economics.js):
+                         il tetto di Amdahl coi dispositivi collegati adesso, non
+                         una promessa di "potenza illimitata" mai misurata. -->
+                    <p id="mesh-economics-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                     <button onclick="generateSyncQR()" class="btn-action w-full justify-between">
                       <span>Genera QR-Sync</span>
                       <span class="text-indigo-400">→</span>

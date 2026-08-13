@@ -15,6 +15,37 @@ Stato di partenza verificato: `HEAD a407d84`, **23 commit locali mai pushati**, 
 
 ---
 
+## STATO REALE — aggiornato 2026-08-13
+
+Questo file non è stato toccato da tempo mentre il lavoro andava avanti: `HEAD` è passato da
+a407d84 a 023c865 (~85 commit), e diversi T qui sotto sono probabilmente superati o parzialmente
+fatti da commit successivi (in particolare T6 — grafo causale visibile, T8 — Command Center
+desktop, T11 — liquidazione IVA). **Nessuno dei T2–T12 sotto è stato riverificato in questa
+sessione**: lo stato "aperto"/checkbox che leggete è quello del 04/08, non una conferma di oggi.
+Serve un turno dedicato di audit (rileggere ogni T contro `git log` e i test reali) prima di
+fidarsi di questa lista per decidere cosa fare dopo.
+
+Lavoro fatto in questa sessione (13/08), non presente in questo piano perché i motori esistevano
+già scritti e testati ma erano **orfani** (mai raggiungibili da nessuna schermata):
+- Pannello "Tassi nel mondo" (`src/alpha/tassi-mondo.js`): confronto tassi a lungo termine di 12
+  Paesi, sincronia col ciclo USA, scarto storico fra Paesi — collegato in Analisi.
+- Trasparenza mesh (`src/mesh/mesh-economics.js`): tetto di Amdahl coi dispositivi collegati
+  adesso, mostrato accanto allo stato mesh nelle Impostazioni.
+- Ponte PWA/browser (`src/core/surface-bridge.js`): avviso quando l'app è già installata e si
+  arriva dal browser.
+- Nowcast prezzi (`src/alpha/nowcast.js`): `net-worth.js` ora estrapola dalla serie storica con
+  banda dichiarata invece di mostrare il costo grezzo quando manca un prezzo live.
+- Referto causale macro (`src/alpha/macro-causality.js`): nuova card "Causa ed effetto".
+
+Trovati ma **non** collegati, segnalati come task separati invece di forzare un aggancio finto:
+- `src/mesh/contribution-drift.js` (anti-avvelenamento CUSUM): difende il merge LEVEL A di
+  `federated-distillation.js` (`mergeDistillationDigests`), che `main.js` non invoca mai — solo il
+  lessico LEVEL B è collegato. Va prima wired quel merge, poi CUSUM sopra.
+- `src/import/notification-parser.js` e `src/predict/state-space.js`: da verificare se sono ancora
+  scritti-ma-orfani o superati da lavoro successivo — non controllati in questa sessione per tempo.
+
+---
+
 ## T1 — Claim falsi nei documenti del 31/07 ✅ FATTO (04/08)
 
 **Problema**: `00_CRITICAL_PATH_WEEK_BY_WEEK.md` conteneva un commit message pronto da eseguire che
