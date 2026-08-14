@@ -45,6 +45,7 @@ import { stressIndex, stressText } from './alpha/market-stress.js';
 import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento.js';
 import { tailRiskPortafoglio, tailRiskText } from './alpha/portfolio-tail-risk.js';
 import { diagnosiIstituzionale, diagnosiTextSemplice } from './alpha/diagnosi-istituzionale.js';
+import { divarioComportamento, tempismoDeiVersamenti, divarioText, fonteDivario } from './alpha/divario-comportamento.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
@@ -7678,6 +7679,46 @@ function renderNetWorth() {
         }).join('')}</div>
         <p class="text-[10px] text-[var(--on-surface-secondary)]">${r.settoriEquivalenti} settori equivalenti su 9 · misurato sul ${Math.round(r.mappa.copertura * 100)}% del portafoglio${r.mappa.nonCoperti.length ? ` (fuori: ${escapeHtml(r.mappa.nonCoperti.map(n => n.ticker).join(', '))})` : ''}</p>
         <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-1">Expected Shortfall 97,5% (standard Basilea III) su 331 mesi reali che contengono dot-com, 2008, COVID e 2022. È una misura di cosa c'è, non un consiglio su cosa fare.</p>`;
+    }
+  }
+  // IL DIVARIO DI COMPORTAMENTO (src/alpha/divario-comportamento.js).
+  // Ricerca di agosto 2026: il problema numero uno di chi investe non è la
+  // mancanza di informazioni ma il comportamento — 848 punti base persi
+  // dall'investitore medio nel 2024 (16,54% contro 25,02% dell'indice), 48%
+  // con almeno un acquisto per FOMO, quindici anni consecutivi di
+  // sottoperformance. Momentum è l'unico posto dove quel divario si può
+  // calcolare per UNA persona: il broker ha le operazioni ma non la vita,
+  // l'app di bilancio ha le spese ma non gli investimenti. Qui ci sono
+  // entrambi.
+  const divarioEl = $('#divario-comportamento-panel');
+  if (divarioEl) {
+    const txs = VaultDAO.state.transactions || {};
+    const chiaveB = Object.keys(txs).sort().join(',') + '#' + Object.values(txs).flat().filter(t => t.type === 'invest').length;
+    if (window.__divarioCache?.chiave !== chiaveB) {
+      try {
+        window.__divarioCache = { chiave: chiaveB, d: divarioComportamento(txs), t: tempismoDeiVersamenti(txs) };
+      } catch (e) { console.warn('divario comportamento:', e); window.__divarioCache = { chiave: chiaveB, d: null, t: null }; }
+    }
+    const { d, t } = window.__divarioCache || {};
+    if (!d?.valutabile) {
+      divarioEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(d?.motivo || 'Registra i tuoi investimenti mese per mese: qui misuro quanto ti è costato (o reso) il momento in cui li hai fatti.')}</p>`;
+    } else {
+      const colore = !d.rilevante ? 'text-[var(--on-surface-secondary)]' : d.aTuoFavore ? 'text-emerald-300' : 'text-amber-300';
+      divarioEl.innerHTML = `
+        ${d.rilevante ? `<div class="flex items-baseline gap-2 mb-1.5">
+          <span class="text-2xl font-black font-mono ${colore}">${d.aTuoFavore ? '+' : '−'}${formatMoney(Math.abs(d.divarioEuro))}</span>
+          <span class="text-[11px] text-[var(--on-surface-secondary)]">rispetto a versare sempre uguale</span>
+        </div>` : ''}
+        <p class="text-[12px] text-slate-200 leading-snug mb-2">${escapeHtml(divarioText(d, t) || '')}</p>
+        <details class="text-[10px] text-[var(--on-surface-secondary)]">
+          <summary class="cursor-pointer select-none text-[var(--gold)]">Come l'ho calcolato</summary>
+          <div class="mt-1.5 space-y-1">
+            <p>Hai versato ${formatMoney(d.totaleVersato)} in ${d.versamenti} mesi, da ${d.da} a ${d.a}.</p>
+            <p>Il tuo risultato: ${formatMoney(d.valoreReale)} · versando sempre uguale: ${formatMoney(d.valorePac)}.</p>
+            ${d.fuoriFinestra > 0 ? `<p class="text-amber-300/80">${formatMoney(d.fuoriFinestra)} sono in mesi fuori dalla storia che ho: esclusi dal conto.</p>` : ''}
+            <p class="opacity-70">${escapeHtml(fonteDivario())}</p>
+          </div>
+        </details>`;
     }
   }
   // LA DIAGNOSI (src/alpha/diagnosi-istituzionale.js): le tre domande che fa
