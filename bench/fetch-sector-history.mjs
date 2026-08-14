@@ -40,14 +40,29 @@ async function fetchMonthly(symbol) {
   if (!r) throw new Error(`${symbol}: risposta senza dati`);
   const ts = r.timestamp || [];
   const closes = r.indicators?.quote?.[0]?.close || [];
-  const dates = [];
-  const outCloses = [];
+  // ⚠️ IL MESE FANTASMA (corretto il 2026-08-14, dopo averlo trovato dentro il
+  // pannello in produzione). Con interval=1mo Yahoo restituisce il mese IN
+  // CORSO come riga a se' stante ACCANTO all'ultimo mese chiuso, quindi lo
+  // stesso 'YYYY-MM' compare due volte. Chi calcola i rendimenti dalle
+  // chiusure ottiene cosi' un mese in piu' con variazione ZERO ESATTA — che
+  // per nove settori insieme e' il caso limite di massima concordanza, e
+  // falsava dispersione, correlazioni e indice di paura (percentile di
+  // dispersione 0,003 invece di 0,915).
+  // Qui si tiene UNA sola riga per mese, l'ULTIMA (la chiusura piu' recente
+  // di quel mese), e si scarta comunque il mese in corso: un mese non ancora
+  // finito non e' un dato mensile, e mostrarlo come tale sarebbe il dato falso
+  // piu' visibile di tutti.
+  const meseCorrente = new Date().toISOString().slice(0, 7);
+  const perMese = new Map();
   for (let i = 0; i < ts.length; i++) {
     if (!Number.isFinite(closes[i])) continue;
     const d = new Date(ts[i] * 1000);
-    dates.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
-    outCloses.push(closes[i]);
+    const mese = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    if (mese >= meseCorrente) continue;
+    perMese.set(mese, closes[i]); // l'ultima osservazione del mese vince
   }
+  const dates = [...perMese.keys()].sort();
+  const outCloses = dates.map((m) => perMese.get(m));
   return { dates, closes: outCloses };
 }
 
