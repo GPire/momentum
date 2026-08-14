@@ -44,6 +44,7 @@ import { refertoCausale } from './alpha/macro-causality.js';
 import { stressIndex, stressText } from './alpha/market-stress.js';
 import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento.js';
 import { tailRiskPortafoglio, tailRiskText } from './alpha/portfolio-tail-risk.js';
+import { diagnosiIstituzionale, diagnosiTextSemplice } from './alpha/diagnosi-istituzionale.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
@@ -7677,6 +7678,63 @@ function renderNetWorth() {
         }).join('')}</div>
         <p class="text-[10px] text-[var(--on-surface-secondary)]">${r.settoriEquivalenti} settori equivalenti su 9 · misurato sul ${Math.round(r.mappa.copertura * 100)}% del portafoglio${r.mappa.nonCoperti.length ? ` (fuori: ${escapeHtml(r.mappa.nonCoperti.map(n => n.ticker).join(', '))})` : ''}</p>
         <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-1">Expected Shortfall 97,5% (standard Basilea III) su 331 mesi reali che contengono dot-com, 2008, COVID e 2022. È una misura di cosa c'è, non un consiglio su cosa fare.</p>`;
+    }
+  }
+  // LA DIAGNOSI (src/alpha/diagnosi-istituzionale.js): le tre domande che fa
+  // chi gestisce soldi di mestiere, sul portafoglio vero. È il punto in cui i
+  // modelli di Momentum smettono di vivere separati — il pannello storico dei
+  // settori entra nel modello di CASSA (forced-sale-risk.js) e la domanda
+  // diventa "nel 2008 vero, con la TUA liquidità e le TUE spese, saresti
+  // stato costretto a vendere?". Due letture nella stessa card: una frase
+  // senza gergo per chi non ha mai investito, le misure sotto per chi le sa
+  // leggere.
+  const diagEl = $('#diagnosi-panel');
+  if (diagEl) {
+    const monthsN = Object.keys(VaultDAO.state.transactions || {}).length || 1;
+    let uscite = 0;
+    for (const t of Object.values(VaultDAO.state.transactions || {}).flat()) {
+      if (t.type === 'uscita') uscite += t.amount;
+    }
+    const speseMensili = uscite / monthsN;
+    const chiaveD = `${(positions || []).map(p => `${p.ticker}:${p.quantity}`).sort().join('|')}#${Math.round(n.cash)}#${Math.round(speseMensili)}`;
+    if (window.__diagnosiCache?.chiave !== chiaveD) {
+      try {
+        const d = diagnosiIstituzionale(positions || [], {
+          priceByTicker: window.__livePrices || {},
+          sectorByTicker: VaultDAO.state.sectorByTicker || {},
+          liquidita: Math.max(0, n.cash), speseMensili,
+        });
+        window.__diagnosiCache = { chiave: chiaveD, d };
+      } catch (e) { console.warn('diagnosi:', e); window.__diagnosiCache = { chiave: chiaveD, d: null }; }
+    }
+    const d = window.__diagnosiCache?.d;
+    if (!positions.length) {
+      diagEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Aggiungi le tue posizioni: qui compaiono le domande che si fa chi gestisce patrimoni, sul tuo portafoglio.</p>`;
+    } else if (!d?.valutabile) {
+      diagEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(d?.motivo || 'Non misurabile con i dati disponibili.')}</p>`;
+    } else {
+      const colore = { alta: 'text-rose-300', media: 'text-amber-300', bassa: 'text-[var(--on-surface-secondary)]' };
+      const bordo = { alta: 'border-rose-500/25 bg-rose-500/[0.04]', media: 'border-amber-500/20 bg-amber-500/[0.03]', bassa: 'border-[var(--outline)]' };
+      diagEl.innerHTML = `
+        <p class="text-[13px] font-bold text-slate-200 mb-2.5 leading-snug">${escapeHtml(diagnosiTextSemplice(d) || '')}</p>
+        ${d.osservazioni.map(o => `
+          <div class="p-2.5 rounded-xl border ${bordo[o.gravita]} mb-1.5">
+            <div class="flex items-baseline justify-between gap-2 mb-0.5">
+              <span class="text-[11px] font-bold ${colore[o.gravita]}">${escapeHtml(o.titolo)}</span>
+              ${o.misura ? `<span class="text-[10px] font-mono text-[var(--on-surface-secondary)] shrink-0">${escapeHtml(o.misura)}</span>` : ''}
+            </div>
+            <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${escapeHtml(o.dettaglio)}</p>
+          </div>`).join('')}
+        <details class="text-[10px] text-[var(--on-surface-secondary)] mt-2">
+          <summary class="cursor-pointer select-none text-[var(--gold)]">Gli episodi storici veri usati per la prova</summary>
+          <div class="mt-1.5 space-y-1">
+            ${(d.tenuta.esiti || []).map(e => `<div class="flex items-center justify-between">
+              <span>${e.da} → ${e.a}</span>
+              <span class="font-mono ${e.costretto ? 'text-rose-300' : 'text-emerald-300/80'}">${(e.perdita * 100).toFixed(1).replace('.', ',')}%${e.costretto ? ' · avresti venduto' : ' · avresti tenuto'}</span>
+            </div>`).join('')}
+            <p class="opacity-70 mt-1">Mesi veri, nell'ordine vero (1999-2026), con la tua composizione: non una simulazione.</p>
+          </div>
+        </details>`;
     }
   }
   // Per chi investe attivamente (src/alpha/market-stress.js +
