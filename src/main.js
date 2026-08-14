@@ -46,6 +46,7 @@ import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento
 import { tailRiskPortafoglio, tailRiskText } from './alpha/portfolio-tail-risk.js';
 import { diagnosiIstituzionale, diagnosiTextSemplice } from './alpha/diagnosi-istituzionale.js';
 import { divarioComportamento, tempismoDeiVersamenti, divarioText, fonteDivario } from './alpha/divario-comportamento.js';
+import { statoMercato } from './alpha/mercato-vivo.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
@@ -7693,13 +7694,22 @@ function renderNetWorth() {
   const divarioEl = $('#divario-comportamento-panel');
   if (divarioEl) {
     const txs = VaultDAO.state.transactions || {};
-    const chiaveB = Object.keys(txs).sort().join(',') + '#' + Object.values(txs).flat().filter(t => t.type === 'invest').length;
+    // La coda dal vivo (src/alpha/mercato-vivo.js) estende il pannello oltre
+    // lo scatto incorporato: senza, i versamenti dei mesi nuovi resterebbero
+    // fuori dal conto, e sempre di piu' col passare del tempo.
+    const codaSettori = VaultDAO.state.mercatoSettoriCoda || null;
+    const chiaveB = Object.keys(txs).sort().join(',') + '#' + Object.values(txs).flat().filter(t => t.type === 'invest').length + '#' + (codaSettori?.ultimo || '');
     if (window.__divarioCache?.chiave !== chiaveB) {
       try {
-        window.__divarioCache = { chiave: chiaveB, d: divarioComportamento(txs), t: tempismoDeiVersamenti(txs) };
+        window.__divarioCache = {
+          chiave: chiaveB,
+          d: divarioComportamento(txs, { coda: codaSettori }),
+          t: tempismoDeiVersamenti(txs, { coda: codaSettori }),
+          stato: statoMercato(codaSettori),
+        };
       } catch (e) { console.warn('divario comportamento:', e); window.__divarioCache = { chiave: chiaveB, d: null, t: null }; }
     }
-    const { d, t } = window.__divarioCache || {};
+    const { d, t, stato } = window.__divarioCache || {};
     if (!d?.valutabile) {
       divarioEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(d?.motivo || 'Registra i tuoi investimenti mese per mese: qui misuro quanto ti è costato (o reso) il momento in cui li hai fatti.')}</p>`;
     } else {
@@ -7717,6 +7727,7 @@ function renderNetWorth() {
             <p>Il tuo risultato: ${formatMoney(d.valoreReale)} · versando sempre uguale: ${formatMoney(d.valorePac)}.</p>
             ${d.fuoriFinestra > 0 ? `<p class="text-amber-300/80">${formatMoney(d.fuoriFinestra)} sono in mesi fuori dalla storia che ho: esclusi dal conto.</p>` : ''}
             <p class="opacity-70">${escapeHtml(fonteDivario())}</p>
+            ${stato ? `<p class="${stato.vecchio ? 'text-amber-300/80' : 'opacity-70'}">${escapeHtml(stato.avviso || stato.testo)}${stato.approssimazione ? ` (${escapeHtml(stato.approssimazione)})` : ''}</p>` : ''}
           </div>
         </details>`;
     }
@@ -12057,6 +12068,27 @@ const initApp = () => {
           // Con ricaduta: se una fonte non risponde si prova la successiva.
           const coda = await aggiornaConRicaduta(undefined, { daDate });
           if (coda.riuscito) { VaultDAO.state.mercatoCoda = coda; VaultDAO.save(); }
+        } catch (_) { /* mai bloccante */ }
+        // Il PANNELLO DEI SETTORI (src/alpha/mercato-vivo.js) invecchiava senza
+        // che nulla se ne accorgesse: e' uno scatto che finisce a 2026-07, e i
+        // versamenti fatti dopo cadevano fuori finestra — un difetto destinato
+        // a peggiorare da solo ogni mese. Qui si scaricano SOLO i mesi chiusi
+        // mancanti (S&P 500 da FRED, senza chiave), si conservano come coda a
+        // parte e la base verificata resta intatta.
+        try {
+          const { scaricaCoda, BASE_A } = await import('./alpha/mercato-vivo.js');
+          const prec = VaultDAO.state.mercatoSettoriCoda || null;
+          if (prec?.aggiornatoIl && Date.now() - prec.aggiornatoIl < 86400000) return;
+          const nuova = await scaricaCoda({ daMese: prec?.ultimo || BASE_A, fetchImpl: fetch.bind(window) });
+          if (nuova.riuscito) {
+            // I mesi gia' avuti non si perdono: la coda si accumula.
+            const punti = [...(prec?.punti || []), ...nuova.punti];
+            VaultDAO.state.mercatoSettoriCoda = { ...nuova, punti };
+            VaultDAO.save();
+            // I pannelli che dipendono dal mercato vanno ricalcolati.
+            window.__divarioCache = null;
+            try { renderNetWorth(); } catch (_) {}
+          }
         } catch (_) { /* mai bloccante */ }
       }).catch(() => {});
     }, 3000);

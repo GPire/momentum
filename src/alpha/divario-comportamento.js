@@ -51,6 +51,7 @@
 
 import { rendimentoMercato, pannello } from './market-stress.js';
 import { DATE_PANNELLO } from './historical-panel.js';
+import { mercatoVivo } from './mercato-vivo.js';
 
 // Sotto questo numero di mesi con un versamento non si parla di divario: e'
 // un campione, non un comportamento.
@@ -62,14 +63,23 @@ export const SOGLIA_RILEVANTE = 0.01;
 
 const [ANNO0, MESE0] = DATE_PANNELLO[0].split('-').map(Number);
 
+// La serie di mercato usata dai calcoli. Di default lo scatto incorporato;
+// con una `coda` (src/alpha/mercato-vivo.js) diventa lo scatto PIU' i mesi
+// aggiornati dal vivo — cosi' i versamenti fatti dopo la generazione del
+// pannello smettono di cadere fuori finestra col passare del tempo, che era
+// il difetto destinato a peggiorare da solo ogni mese.
+function serieMercato(coda = null) {
+  return coda?.punti?.length ? mercatoVivo(coda).valori : rendimentoMercato();
+}
+
 // 'YYYY-MM' -> indice nel pannello storico. null se fuori dalla finestra
 // coperta: mai un mese inventato per far quadrare un conto.
-export function indiceDiMese(chiave) {
+export function indiceDiMese(chiave, coda = null) {
   const m = /^(\d{4})-(\d{2})$/.exec(String(chiave || ''));
   if (!m) return null;
   const anno = Number(m[1]), mese = Number(m[2]);
   const i = (anno - ANNO0) * 12 + (mese - MESE0);
-  const n = rendimentoMercato().length;
+  const n = serieMercato(coda).length;
   return i >= 0 && i < n ? i : null;
 }
 
@@ -77,11 +87,11 @@ export function indiceDiMese(chiave) {
 // Solo i movimenti di tipo `invest`: sono quelli in cui l'utente ha spostato
 // denaro dal contante agli investimenti, cioe' esattamente le decisioni di
 // cui si sta misurando il tempismo.
-export function versamentiPerMese(transactions = {}) {
+export function versamentiPerMese(transactions = {}, { coda = null } = {}) {
   const perMese = new Map();
   let fuoriFinestra = 0;
   for (const chiave of Object.keys(transactions)) {
-    const i = indiceDiMese(chiave);
+    const i = indiceDiMese(chiave, coda);
     let somma = 0;
     for (const t of transactions[chiave] || []) {
       if (t?.type === 'invest') somma += Number(t.amount) || 0;
@@ -102,9 +112,9 @@ function cresciuto(importo, da, fino, mercato) {
 }
 
 // ── IL CALCOLO ──
-export function divarioComportamento(transactions = {}, { fino = null } = {}) {
-  const mercato = rendimentoMercato();
-  const { perMese, fuoriFinestra } = versamentiPerMese(transactions);
+export function divarioComportamento(transactions = {}, { fino = null, coda = null } = {}) {
+  const mercato = serieMercato(coda);
+  const { perMese, fuoriFinestra } = versamentiPerMese(transactions, { coda });
   const indici = [...perMese.keys()].sort((a, b) => a - b);
 
   if (indici.length < MIN_VERSAMENTI) {
@@ -189,9 +199,9 @@ function nomeMese(i) {
 // e' dove sarebbe finito, per costruzione, chi versa senza guardare il
 // mercato. Si confronta un comportamento con l'alternativa meccanica, non con
 // un numero tondo che sembrava ragionevole.
-export function tempismoDeiVersamenti(transactions = {}, { finestra = 12 } = {}) {
-  const mercato = rendimentoMercato();
-  const { perMese } = versamentiPerMese(transactions);
+export function tempismoDeiVersamenti(transactions = {}, { finestra = 12, coda = null } = {}) {
+  const mercato = serieMercato(coda);
+  const { perMese } = versamentiPerMese(transactions, { coda });
   const indici = [...perMese.keys()].sort((a, b) => a - b).filter((i) => i >= finestra);
 
   if (indici.length < MIN_VERSAMENTI) {

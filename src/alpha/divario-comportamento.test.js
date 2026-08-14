@@ -146,6 +146,31 @@ test('divarioText: non promette e non consiglia mai una mossa futura', () => {
   assert.doesNotMatch(testo, /dovresti|ti consiglio|compra ora|vendi|prevedo|guadagnerai/i);
 });
 
+test('IL PROBLEMA DELL INVECCHIAMENTO: senza coda i versamenti dopo il pannello cadono fuori finestra', () => {
+  // Il pannello finisce a 2026-07: agosto e settembre 2026 non hanno un
+  // mercato con cui essere confrontati, e finiscono in `fuoriFinestra`.
+  const v = dc.versamentiPerMese(tx([['2026-08', 300], ['2026-09', 300]]));
+  assert.equal(v.perMese.size, 0);
+  assert.equal(v.fuoriFinestra, 600);
+});
+
+test('LA SOLUZIONE: con la coda dal vivo gli stessi versamenti rientrano nel conto', () => {
+  const coda = { punti: [{ mese: '2026-08', rendimento: 0.01 }, { mese: '2026-09', rendimento: 0.02 }] };
+  const v = dc.versamentiPerMese(tx([['2026-08', 300], ['2026-09', 300]]), { coda });
+  assert.equal(v.perMese.size, 2, 'i due mesi devono essere ora misurabili');
+  assert.equal(v.fuoriFinestra, 0);
+});
+
+test('la coda estende davvero il divario: un versamento nel mese nuovo viene valutato', () => {
+  const coda = { punti: [{ mese: '2026-08', rendimento: 0.05 }] };
+  const mesi = [...mesiConsecutivi(2026, 1, 7), '2026-08'];
+  const senza = dc.divarioComportamento(tx(mesi.map((m) => [m, 100])));
+  const con = dc.divarioComportamento(tx(mesi.map((m) => [m, 100])), { coda });
+  assert.equal(senza.versamenti, 7, 'senza coda agosto è escluso');
+  assert.equal(con.versamenti, 8, 'con la coda agosto rientra');
+  assert.equal(con.a, '2026-08');
+});
+
 test('fonteDivario: dichiara sempre da dove vengono i numeri e che non c è senno di poi', () => {
   const f = dc.fonteDivario();
   assert.match(f, /settori/);
