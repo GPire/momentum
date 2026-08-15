@@ -230,7 +230,17 @@ export function intentoMercato(domanda) {
   // che nessun'altra regola sopra la intercetta prima per un motivo diverso.
   if (ha(q, 'recession', 'crisi in arrivo', 'curva dei tassi', 'curva dei rendimenti', 'curva invertita', 'curva')) return 'recessione';
   if (ha(q, 'come sta il mercato', 'come va il mercato', 'situazione dei mercati', 'clima di mercato', 'quanto e teso', 'stress')) return 'regime';
-  if (ha(q, 'quanto posso perdere', 'perdita massima', 'caso peggiore', 'quanto rischio di perdere', 'scenario peggiore')) return 'perdita-massima';
+  // BUG REALE trovato dal vivo in Chrome (2026-08-15): un trader esperto
+  // chiede con la terminologia tecnica vera ("expected shortfall", "var")
+  // — la risposta la cita gia' per nome (vedi sotto), ma senza queste parole
+  // chiave chi la conosce e la chiede per nome cadeva sul fallback generico.
+  // "Sto per perdere tutto?" (trovato dal vivo, 2026-08-15): la domanda di
+  // chi ha paura, non di chi analizza — ed è la più importante da non
+  // sbagliare, proprio perché a chi la fa un "non lo so ancora" suona come
+  // un abbandono nel momento peggiore. La risposta onesta (quanto si è
+  // davvero perso nei mesi peggiori misurati) rassicura coi fatti, mai con
+  // un "andrà tutto bene" vuoto.
+  if (ha(q, 'quanto posso perdere', 'perdita massima', 'caso peggiore', 'quanto rischio di perdere', 'scenario peggiore', 'expected shortfall', 'value at risk', 'perdere tutto', 'perdo tutto')) return 'perdita-massima';
   if (ha(q, 'se tornasse', 'se si ripetesse', 'e se succedesse di nuovo', 'come nel 2008', 'un altro 2008', 'ripetesse il')) return 'scenario-storico';
   if (ha(q, 'quanto dura', 'quanto durano', 'quanto tempo per recuperare', 'quando recupera', 'tempi di recupero', 'mercato orso')) return 'durata-orso';
   // Il SENTIMENT vero: dove sono schierati gli operatori con soldi veri.
