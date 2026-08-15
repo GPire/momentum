@@ -1988,8 +1988,26 @@
        non chiede di fidarsi.
        Il punto trascinato è clampato al raggio REALE della cupola letto dal
        DOM (non a una costante): così regge le tre scale responsive senza che
-       il muro si scolli dal disegno del muro. */
-    .privacy-scene { pointer-events: auto; touch-action: none; cursor: grab; }
+       il muro si scolli dal disegno del muro.
+
+       ⚠️ BUG REALE trovato dal vivo in Chrome (2026-08-15): questa regola era
+       `.privacy-scene { pointer-events: auto; ... }` SENZA ambito. La stessa
+       classe vive anche dentro #ota-overlay (la schermata "sto aprendo
+       Momentum"/aggiornamento), che di norma è invisibile (opacity:0;
+       pointer-events:none) finché non riceve `.active`. Ma pointer-events
+       impostato su un DISCENDENTE vince sempre su quello ereditato da un
+       antenato: la scena restava cliccabile anche a overlay spento, ferma al
+       centro esatto dello schermo (position:fixed;inset:0, stesso z-index
+       9999 del resto), grande fino a ~470×230px su un telefono medio —
+       un'area invisibile che rubava i tocchi a QUALUNQUE schermata sotto,
+       inclusi i pulsanti della prima domanda dell'onboarding (utenti che
+       toccavano "Ne approfitto" e non succedeva nulla: mai riprodotto nei
+       test perché node --test non ha un DOM/hit-test reale). Ora
+       l'interattività si attiva SOLO dove la scena è davvero quella
+       visibile: nella hero dell'onboarding (sempre presente e visibile
+       finché non viene rimossa dal DOM) o nell'overlay di apertura/
+       aggiornamento quando è esplicitamente `.active`. */
+    #genesis-container .privacy-scene, #ota-overlay.active .privacy-scene { pointer-events: auto; touch-action: none; cursor: grab; }
     .privacy-scene.dragging { cursor: grabbing; }
     .ps-pull { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 3;
       transform: translate3d(var(--px, 0px), var(--py, 0px), 40px); opacity: 0; }

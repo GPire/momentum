@@ -64,7 +64,14 @@ const GLOSSARIO = {
     numero: null,
   },
   curva: {
-    parole: ['curva dei rendimenti', 'curva dei tassi', 'curva invertita', 'inversione della curva'],
+    // BUG REALE trovato dal vivo in Chrome (2026-08-15): un trader chiede
+    // "quanto vale la curva a 18 mesi" — nessuno dice per intero "curva dei
+    // rendimenti" a voce. Con solo le frasi lunghe in elenco, "la curva"
+    // restava non riconosciuta e cadeva sul messaggio generico "non lo so
+    // ancora", pur avendo il motore la risposta pronta. 'curva' da sola è
+    // sicura in questo dominio: nessun'altra funzione dell'app usa la parola
+    // in un altro senso (verificato).
+    parole: ['curva dei rendimenti', 'curva dei tassi', 'curva invertita', 'inversione della curva', 'curva'],
     spiega: 'Di solito prestare soldi per dieci anni rende piu\' che prestarli per tre mesi, perche\' aspetti di piu\'. Quando succede il contrario — la curva si "inverte" — vuol dire che il mercato si aspetta che i tassi dovranno scendere, cioe\' che l\'economia rallentera\'.',
     numero: (M) => {
       const o = M.quadro?.orizzonteDiCiascunSegnale?.();
@@ -216,7 +223,12 @@ export function intentoMercato(domanda) {
   if (ha(q, 'proteg', 'rifugio', 'ripar', 'difend', 'salva')) return 'rifugi';
   if (ha(q, 'settor') && ha(q, 'crolla', 'crollo', 'cala', 'scend', 'peggior', 'tengon', 'reggon')) return 'settori';
   if (ha(q, 'diversific') && ha(q, 'mondo', 'geografic', 'paesi', 'estero', 'global')) return 'diversificazione';
-  if (ha(q, 'recession', 'crisi in arrivo', 'curva dei tassi', 'curva dei rendimenti', 'curva invertita')) return 'recessione';
+  // BUG REALE trovato dal vivo in Chrome (2026-08-15): "quanto vale la curva
+  // a 18 mesi" — la formulazione naturale di chi segue i mercati, senza mai
+  // dire per intero "curva dei rendimenti/tassi" — cadeva sul messaggio
+  // generico "non lo so ancora". 'curva' da sola e' sicura qui: verificato
+  // che nessun'altra regola sopra la intercetta prima per un motivo diverso.
+  if (ha(q, 'recession', 'crisi in arrivo', 'curva dei tassi', 'curva dei rendimenti', 'curva invertita', 'curva')) return 'recessione';
   if (ha(q, 'come sta il mercato', 'come va il mercato', 'situazione dei mercati', 'clima di mercato', 'quanto e teso', 'stress')) return 'regime';
   if (ha(q, 'quanto posso perdere', 'perdita massima', 'caso peggiore', 'quanto rischio di perdere', 'scenario peggiore')) return 'perdita-massima';
   if (ha(q, 'se tornasse', 'se si ripetesse', 'e se succedesse di nuovo', 'come nel 2008', 'un altro 2008', 'ripetesse il')) return 'scenario-storico';
