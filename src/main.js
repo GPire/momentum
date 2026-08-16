@@ -456,6 +456,14 @@ const getTxFormHTML = () => `
            conseguenza reale sul tuo "Oggi puoi spendere" + "più del solito?".
            Calcolato sui tuoi dati, non decorativo. Nascosto senza budget/importo. -->
       <div id="amount-impact" class="mt-2 min-h-[1.25rem] text-[12px] font-bold flex items-center justify-center gap-1.5 opacity-0 transition-opacity duration-200" aria-live="polite"></div>
+      <!-- Microfono SEMPRE visibile (richiesta esplicita 2026-08-16: niente
+           duplicazione tastierino/tastiera nativa su touch — il tastierino
+           disegnato sotto sparisce lì, ma la dettatura vocale deve restare
+           raggiungibile su ogni dispositivo, quindi vive fuori dalla griglia
+           invece che dentro. Stesso id/stesso handler di sempre. -->
+      <button type="button" id="voice-rec-btn" class="mt-2 mx-auto flex items-center justify-center w-11 h-11 rounded-full text-[var(--red)] border border-[var(--glass-border)] active:scale-95 transition-transform" aria-label="Detta l'importo a voce">
+        <svg class="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
+      </button>
     </div>
 
     <!-- IL TASTIERINO SUBITO DOPO L'IMPORTO, non in fondo al modulo. Bug
@@ -469,12 +477,20 @@ const getTxFormHTML = () => `
          immagina che il tastierino vero sia piu' in basso, fuori vista.
          Categoria, descrizione e data restano utili ma non sono la prima
          cosa che serve: scendono sotto, raggiungibili scorrendo DOPO aver
-         gia' scritto l'importo, non prima. -->
-    <div class="numpad-grid shrink-0" tabindex="0" aria-label="Tastierino importo — puoi anche digitare da tastiera fisica">
+         gia' scritto l'importo, non prima.
+
+         ⚠️ SU TOUCH ORA NASCOSTO (2026-08-16): da quando #tx-amount-display
+         è un vero input (tastiera nativa), avere ANCHE questo tastierino
+         disegnato sotto era una duplicazione — due modi di scrivere lo
+         stesso numero, uno dei quali (questo) costruito a mano e più
+         soggetto a bug di tocco (vedi il fix del 15/08 sull'overlay
+         invisibile che rubava i click qui vicino). Resta SOLO su desktop
+         (mouse+tastiera fisica, media query .cc-numpad-desktop-only sotto),
+         dove è comunque un modo comodo di cliccare senza toccare la
+         tastiera. -->
+    <div class="numpad-grid cc-numpad-desktop-only shrink-0" tabindex="0" aria-label="Tastierino importo — puoi anche digitare da tastiera fisica">
       ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
-       <button type="button" class="numpad-key text-[var(--red)] font-bold h-full min-h-0 flex items-center justify-center" id="voice-rec-btn" aria-label="Detta l'importo a voce">
-         <svg class="w-6 h-6 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-       </button>
+      <div></div>
       <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
       <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="Cancella ultima cifra">DEL</button>
     </div>

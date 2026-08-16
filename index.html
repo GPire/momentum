@@ -1573,6 +1573,14 @@
       .numpad-key:hover { border-color: var(--primary); background: var(--surface); }
       .numpad-grid:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 1rem; }
     }
+    /* Il tastierino disegnato duplicava la tastiera nativa ora che
+       #tx-amount-display è un vero input (2026-08-16): su touch resta SOLO
+       la tastiera del sistema, niente doppia via per scrivere lo stesso
+       numero. Stessa logica di rilevamento di .form-kbd-hint sopra, in
+       direzione opposta. */
+    @media (hover: none), (pointer: coarse) {
+      .cc-numpad-desktop-only { display: none; }
+    }
 
     /* ============================================================
        APP INSTALLATA (PWA) + SAFE-AREA: niente contenuti/notifiche tagliati
