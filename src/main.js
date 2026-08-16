@@ -436,7 +436,21 @@ const getTxFormHTML = () => `
     <div class="amount-stage shrink-0">
       <div class="flex items-center justify-center">
         <span class="text-2xl font-mono text-[var(--on-surface-secondary)] mr-1">€</span>
-        <div class="amount-display amount-negative" id="tx-amount-display">0</div>
+        <!-- Tastiera nativa del dispositivo (richiesta reale di più utenti,
+             2026-08-16): prima questo era un <div>, quindi su mobile toccarlo
+             non apriva NESSUNA tastiera — l'unica via era il tastierino
+             disegnato sotto. Ora è un vero input: su telefono il tocco apre
+             la tastiera numerica nativa (cifre e virgola veri, aptica e
+             autocorrezione del sistema), su desktop resta invariato (la
+             tastiera fisica passa comunque da onPhysicalKey più sotto, che
+             intercetta il keydown PRIMA che l'input nativo lo riceva — zero
+             doppio conteggio, verificato). Il tastierino disegnato sotto
+             resta: chi preferiva toccare i tasti continua a poterlo fare,
+             nessuna delle due vie sostituisce l'altra. -->
+        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
+          class="amount-display amount-negative bg-transparent border-0 outline-none text-center p-0"
+          style="width: 100%; max-width: 280px;"
+          id="tx-amount-display" value="0" aria-label="Importo — tocca per usare la tastiera del telefono" />
       </div>
       <!-- Tastierino VIVO (src/predict/command-center.js): mentre digiti, la
            conseguenza reale sul tuo "Oggi puoi spendere" + "più del solito?".
@@ -563,7 +577,9 @@ const attachFormListeners = (container, prefill = null) => {
 
   const updateAmount = () => {
     const d = container.querySelector('#tx-amount-display');
-    if (d) d.textContent = rawVal || '0';
+    // Ora è un <input> (tastiera nativa, vedi markup sopra): si scrive
+    // .value, non .textContent — su un input il secondo non farebbe niente.
+    if (d) d.value = rawVal || '0';
     d.className = `amount-display ${type==='entrata'?'amount-positive':type==='invest'?'amount-invest':'amount-negative'} truncate px-2`;
     // Micro-pop sul numero a ogni cifra digitata: feedback tattile immediato.
     d.classList.remove('amount-pop'); void d.offsetWidth; d.classList.add('amount-pop');
@@ -1076,6 +1092,31 @@ const attachFormListeners = (container, prefill = null) => {
       hintEl.classList.add('hidden');
     }
   } catch (_) { /* predizione assente: il form funziona identico */ }
+
+  // ── TASTIERA NATIVA DEL DISPOSITIVO ──
+  // #tx-amount-display è ora un input vero (vedi markup): questo listener
+  // legge quello che il sistema (tastiera del telefono, dettatura, incolla)
+  // ci scrive dentro e lo riporta allo stesso formato di rawVal usato da
+  // tastierino custom e tastiera fisica — un'unica fonte di verità, tre vie
+  // per riempirla. Ripulisce sempre: solo cifre e UNA virgola/punto, mai
+  // testo incollato per errore.
+  const sanitizeAmountInput = (raw) => {
+    let s = String(raw || '').replace(/[^0-9.,]/g, '').replace(',', '.');
+    const primoPunto = s.indexOf('.');
+    if (primoPunto !== -1) s = s.slice(0, primoPunto + 1) + s.slice(primoPunto + 1).replace(/\./g, '');
+    s = s.replace(/^0+(?=\d)/, ''); // "007" -> "7", ma "0," resta "0."
+    return s;
+  };
+  const amountInputEl = container.querySelector('#tx-amount-display');
+  if (amountInputEl) {
+    amountInputEl.addEventListener('input', () => {
+      const pulito = sanitizeAmountInput(amountInputEl.value);
+      if (pulito !== rawVal) { rawVal = pulito; haptic('light'); updateAmount(); }
+      else if (amountInputEl.value !== rawVal) updateAmount(); // riscrive per scartare caratteri non validi
+    });
+    // Un tocco seleziona tutto: si scrive lo zero iniziale, non lo si cancella a mano.
+    amountInputEl.addEventListener('focus', () => { try { amountInputEl.select(); } catch (_) {} });
+  }
 
   // Numpad key triggers
   container.querySelectorAll('.numpad-key').forEach(btn => {
