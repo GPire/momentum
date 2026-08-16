@@ -448,8 +448,8 @@ const getTxFormHTML = () => `
              resta: chi preferiva toccare i tasti continua a poterlo fare,
              nessuna delle due vie sostituisce l'altra. -->
         <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
-          class="amount-display amount-negative bg-transparent border-0 outline-none text-center p-0"
-          style="width: 100%; max-width: 280px;"
+          class="amount-display amount-negative text-center p-0"
+          style="width: 100%; max-width: 280px; background: none; border: none; outline: none; box-shadow: none; -webkit-appearance: none; appearance: none; border-radius: 0;"
           id="tx-amount-display" value="0" aria-label="Importo — tocca per usare la tastiera del telefono" />
       </div>
       <!-- Tastierino VIVO (src/predict/command-center.js): mentre digiti, la
