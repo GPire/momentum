@@ -453,9 +453,22 @@ const VoiceParser = {
   extractAmount(text) {
     const match = text.match(/\b(\d+([.,]\d{1,2})?)\b/);
     if (match) {
-      return parseFloat(match[1].replace(',', '.'));
+      const value = parseFloat(match[1].replace(',', '.'));
+      // BUG REALE segnalato dal vivo (2026-08-16): "113 euro e 39" detto a
+      // voce veniva letto come 113, i centesimi spariti in silenzio. Il
+      // motivo: questa regex trova il numero intero e si ferma SUBITO,
+      // prima ancora di arrivare al ramo sotto che sapeva gestire "e 39" —
+      // quel ramo non veniva mai raggiunto. Si applica SOLO se il numero
+      // trovato non aveva già una virgola/punto (match[2] assente): con
+      // "113,39 euro" i centesimi ci sono già, e non vanno cercati due volte.
+      if (!match[2]) {
+        const resto = text.slice(match.index + match[1].length);
+        const centesimi = resto.match(/^\s*(?:euro|eur|€)?\s*e\s+(\d{1,2})\b/i);
+        if (centesimi) return value + parseFloat(centesimi[1]) / 100;
+      }
+      return value;
     }
-    
+
     const phraseMatch = text.match(/\b(\d+)\s*(euro|dollari|dollars|usd|eur|e)\s*(e|and)?\s*(\d{1,2})\b/i);
     if (phraseMatch) {
       const whole = parseFloat(phraseMatch[1]);

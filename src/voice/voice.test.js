@@ -88,6 +88,31 @@ test('discorso lungo misto: 5 azioni distinte riconosciute con intent corretti',
 // Casistiche di discorso naturale trovate SIMULANDO (metodo: falsificazione):
 // bug reali corretti — decimali detti a voce, numeri-parola composti, azioni
 // concatenate senza "e", split solo quando c'è un PROPRIO importo.
+// extractAmount (VoiceParser): nessun test diretto esisteva finora — solo
+// test sull'intera pipeline VoiceParser.parse(). È il motivo per cui questo
+// bug è passato inosservato fino a una segnalazione dal vivo: il pulsante
+// microfono del form transazione (VoiceCore.toggle) instrada il testo
+// riconosciuto proprio dentro VoiceParser.parse(), che chiama extractAmount.
+test('extractAmount: "113 euro e 39" detto a voce → 113.39, non 113 coi centesimi persi', () => {
+  assert.equal(VoiceParser.extractAmount('ho speso 113 euro e 39'), 113.39);
+});
+
+test('extractAmount: "12 e 50 al bar" (senza "euro") → 12.5', () => {
+  assert.equal(VoiceParser.extractAmount('12 e 50 al bar'), 12.5);
+});
+
+test('extractAmount: importo scritto con la virgola "113,39 euro" → 113.39, non doppiato', () => {
+  assert.equal(VoiceParser.extractAmount('113,39 euro di spesa'), 113.39);
+});
+
+test('extractAmount: importo scritto col punto "27.50" → 27.5', () => {
+  assert.equal(VoiceParser.extractAmount('27.50 al supermercato'), 27.5);
+});
+
+test('extractAmount: numero intero senza centesimi "50 euro" → 50, non inventa decimali', () => {
+  assert.equal(VoiceParser.extractAmount('ho speso 50 euro'), 50);
+});
+
 test('decimale detto a voce: "12 e 50 al bar" → 12.50 (non 12)', () => {
   const r = VoiceParser.parse('ho speso 12 e 50 al bar');
   const tx = r.find(x => x.intent === 'transaction');
