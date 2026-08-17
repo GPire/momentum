@@ -7,7 +7,7 @@ globalThis.document = globalThis.document || { querySelector: () => null, queryS
 globalThis.indexedDB = undefined;
 globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: () => {} };
 
-const { VoiceParser } = await import("./voice.js");
+const { VoiceParser, linguaVoceAttiva, SPEECH_LOCALE } = await import("./voice.js");
 
 // Bug reale trovato testando con una frase lunga e naturale (10 clausole in
 // sequenza, come parlerebbe davvero un utente): "ho" da solo non veniva mai
@@ -202,4 +202,28 @@ test('rumore senza verbo né importo → nessuna transazione inventata', () => {
   const r = VoiceParser.parse('ciao come stai oggi');
   const tx = (r || []).filter(x => x.intent === 'transaction');
   assert.equal(tx.length, 0);
+});
+
+// ── LINGUA DEL RICONOSCIMENTO VOCALE ──
+// BUG REALE (2026-08-17): recognition.lang era fissato su 'it-IT' sempre —
+// un dispositivo in inglese veniva ascoltato con un modello linguistico
+// sbagliato, producendo trascrizioni spazzatura senza dirne il motivo.
+test('linguaVoceAttiva: dispositivo in inglese → "en", non sempre "it"', () => {
+  const prev = globalThis.navigator.language;
+  globalThis.navigator.language = 'en-US';
+  try { assert.equal(linguaVoceAttiva(), 'en'); }
+  finally { globalThis.navigator.language = prev; }
+});
+
+test('linguaVoceAttiva: nessun segnale → "it" (l\'app nasce italiana, mai un crash)', () => {
+  const prev = globalThis.navigator.language;
+  delete globalThis.navigator.language;
+  try { assert.equal(linguaVoceAttiva(), 'it'); }
+  finally { globalThis.navigator.language = prev; }
+});
+
+test('SPEECH_LOCALE: ogni lingua rilevabile ha un locale BCP-47 valido per il Web Speech API', () => {
+  for (const [lang, locale] of Object.entries(SPEECH_LOCALE)) {
+    assert.match(locale, /^[a-z]{2}-[A-Z]{2}$/, `${lang} -> "${locale}" non è un locale valido`);
+  }
 });

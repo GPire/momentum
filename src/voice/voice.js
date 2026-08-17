@@ -6,6 +6,32 @@ import { showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
 import { segmentIntents, FUZZY_AMOUNTS } from './intent-segmenter.js';
 import { predictAmount } from '../predict/amount-memory.js';
+import { detectDeviceLanguage } from '../i18n/detect.js';
+
+// Locale pieno che il Web Speech API richiede (BCP-47), a partire dal codice
+// corto già usato ovunque nell'app per il QA testuale — un'unica mappa,
+// niente formati diversi in posti diversi.
+export const SPEECH_LOCALE = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', pt: 'pt-PT' };
+
+// BUG REALE trovato facendo ricerca sui problemi di chi usa la voce in
+// italiano E in inglese (2026-08-17): il riconoscimento vocale era fissato
+// su 'it-IT' SEMPRE, a prescindere da tutto. Un dispositivo impostato in
+// inglese — o un utente italiano che parla inglese per un termine
+// finanziario — veniva ascoltato con un modello linguistico sbagliato:
+// il riconoscimento vocale non "capisce parole", trascrive FONEMI secondo
+// le regole della lingua impostata, quindi l'inglese pronunciato con un
+// riconoscitore italiano produce quasi sempre spazzatura, non un errore
+// dichiarato — il tipo di fallimento silenzioso peggiore, perché sembra
+// che l'app "non capisca mai" invece di dire perché.
+// Stessa priorità già usata per il QA testuale (resolveQaLanguage):
+// scelta manuale nelle Impostazioni > lingua del dispositivo > italiano.
+function linguaVoceAttiva() {
+  try {
+    const manuale = VaultDAO?.state?.qaLanguageOverride;
+    if (manuale && SPEECH_LOCALE[manuale]) return manuale;
+  } catch (_) {}
+  return detectDeviceLanguage() || 'it';
+}
 
 // ==========================================
 // VOICECORE™ v2 (🎙️)
@@ -16,6 +42,19 @@ const VoiceCore = {
   init(container) {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) return;
+    // BUG REALE segnalato dal vivo (2026-08-17): "in ascolto" scattava più
+    // volte, anche al primo tocco. Causa trovata: attachFormListeners (e con
+    // esso VoiceCore.init) viene richiamato a ogni apertura del modulo sullo
+    // STESSO #modal-body persistente (mai un nuovo elemento). Se il
+    // microfono era rimasto attivo da un'apertura precedente — modulo
+    // chiuso senza toccare stop, o riaperto in fretta — la vecchia sessione
+    // di riconoscimento non veniva mai fermata: ne restavano DUE vive
+    // insieme, ciascuna con i propri onstart/onresult che scrivevano sullo
+    // stesso bottone e mostravano lo stesso toast, in parallelo. Fermare
+    // sempre la sessione precedente prima di crearne una nuova la rende
+    // impossibile per costruzione, non solo probabile.
+    if (this.recognition) { try { this.recognition.abort(); } catch (_) {} }
+    this.isListening = false;
     this.recognition = new SpeechRec();
     // Bug reale segnalato dall'utente: con continuous=false il microfono
     // catturava UN SOLO comando e si fermava, ignorando tutto quello detto
@@ -23,7 +62,8 @@ const VoiceCore = {
     // pronunciata via via, finché l'utente non ferma manualmente.
     this.recognition.continuous = true;
     this.recognition.interimResults = false;
-    this.recognition.lang = 'it-IT';
+    this._lingua = linguaVoceAttiva();
+    this.recognition.lang = SPEECH_LOCALE[this._lingua] || 'it-IT';
     
     this.recognition.onstart = () => {
       this.isListening = true;
@@ -37,7 +77,44 @@ const VoiceCore = {
       const btn = container.querySelector('#voice-rec-btn');
       if (btn) btn.classList.remove('mic-listening');
     };
-    
+
+    // Feedback visivo di ESITO (2026-08-17), non solo "sto ascoltando": prima
+    // il microfono tornava allo stato di riposo identico sia che avesse
+    // capito tutto sia che non avesse capito niente — l'unico segnale era il
+    // toast, facile da perdere con lo sguardo già tornato sulla tastiera.
+    // Un lampo verde/ambra sul bottone stesso, dove l'occhio sta già.
+    const flashMic = (esito) => {
+      const btn = container.querySelector('#voice-rec-btn');
+      if (!btn) return;
+      const cls = esito === 'ok' ? 'mic-success' : 'mic-error';
+      btn.classList.add(cls);
+      setTimeout(() => btn.classList.remove(cls), 900);
+    };
+    this._flashMic = flashMic;
+
+    // BUG REALE: nessun gestore d'errore esisteva. Se l'utente negava il
+    // permesso del microfono (o lo aveva già bloccato da prima), l'app non
+    // diceva NIENTE — solo il popup nativo del browser, che sparisce da
+    // solo, e poi silenzio: nessun modo di capire cosa fare per rimediare.
+    // Ogni codice d'errore del Web Speech API ha qui la sua frase, mai un
+    // generico "errore" che non aiuta a risolvere.
+    this.recognition.onerror = (e) => {
+      this.isListening = false;
+      const btn = container.querySelector('#voice-rec-btn');
+      if (btn) btn.classList.remove('mic-listening');
+      flashMic('no');
+      const MESSAGGI = {
+        'not-allowed': 'Microfono bloccato: dai il permesso nelle impostazioni del browser per usare la dettatura.',
+        'service-not-allowed': 'Microfono bloccato: dai il permesso nelle impostazioni del browser per usare la dettatura.',
+        'no-speech': 'Non ho sentito niente. Riprova parlando più vicino al microfono.',
+        'audio-capture': 'Nessun microfono trovato su questo dispositivo.',
+        'network': 'Il riconoscimento vocale ha bisogno di rete: controlla la connessione.',
+        'aborted': null, // fermato di proposito (nuova sessione che sostituisce questa): non è un errore da mostrare
+      };
+      const msg = MESSAGGI[e.error];
+      if (msg) { AudioSynth.play('friction'); showToast(msg, 'error'); }
+    };
+
     this.recognition.onresult = (e) => {
       // Con continuous=true, e.results accumula TUTTE le frasi pronunciate
       // nella sessione — va processata solo l'ultima appena finalizzata,
@@ -57,10 +134,11 @@ const VoiceCore = {
         showToast(res.answer, 'info');
         if ('speechSynthesis' in window) {
           const u = new SpeechSynthesisUtterance(res.answer);
-          u.lang = 'it-IT';
+          u.lang = SPEECH_LOCALE[this._lingua] || 'it-IT';
           window.speechSynthesis.speak(u);
         }
         AudioSynth.play('success');
+        flashMic('ok');
         return;
       }
 
@@ -75,9 +153,11 @@ const VoiceCore = {
         if (hit) {
           window.registerQuickAdd?.(hit);
           AudioSynth.play('success');
+          flashMic('ok');
           showToast(`Registrato: ${hit.description} ${hit.amount}€`, 'success');
         } else {
           AudioSynth.play('friction');
+          flashMic('no');
           showToast('Non ho ancora un "solito" abbastanza chiaro. Registralo qualche volta prima.', 'error');
         }
         return;
@@ -182,6 +262,7 @@ const VoiceCore = {
           : r.intent === 'split' ? `dividi ${r.amount ? r.amount + '€ ' : ''}con ${r.people.filter(p => p !== 'Io').join(', ') || '…'}`
           : `${r.intent === 'appointment' ? 'appuntamento' : 'promemoria'}: ${r.description}`).join(' · ');
         AudioSynth.play('success');
+        flashMic('ok');
         showToast(`Fatto: ${summary}`, 'success');
         // Avvisi ONESTI e distinti, così l'utente sa cosa controllare.
         if (stimati.length) {
@@ -192,6 +273,7 @@ const VoiceCore = {
         }
       } else {
         AudioSynth.play('friction');
+        flashMic('no');
         showToast("Non ho capito l'importo o la descrizione.", "error");
       }
     };
@@ -489,4 +571,4 @@ const VoiceParser = {
 };
 
 
-export { VoiceCore, FUZZY_AMOUNTS, VoiceParser };
+export { VoiceCore, FUZZY_AMOUNTS, VoiceParser, linguaVoceAttiva };
