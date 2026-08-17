@@ -659,6 +659,12 @@ const VoiceParser = {
       return whole + cents;
     }
 
+    // I centesimi detti a PAROLE ("ventitré euro e cinquanta") sono già
+    // convertiti in cifre PRIMA di arrivare qui, da
+    // normalizeForSegmentation (intent-segmenter.js) — stesso bug, risolto
+    // a monte invece che qui, perché a valle il testo è già segmentato in
+    // due pezzi separati e questa funzione non vedrebbe mai la frase intera.
+
     const words = text.split(/\s+/);
     let sum = 0;
     words.forEach(word => {

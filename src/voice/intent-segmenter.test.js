@@ -36,6 +36,30 @@ test("spesa + appuntamento verbless-priced misti si separano", () => {
   assert.equal(s.length, 2);
 });
 
+// BUG REALE trovato testando dal vivo con frasi discorsive (2026-08-17):
+// "ventitré euro e cinquanta" (centesimi detti a parole) restava tagliato
+// in DUE segmenti (23€ e 50€) invece di restare un solo importo (23,50€) —
+// la segmentazione gira DOPO normalizeForSegmentation, quindi il fix deve
+// convertire in cifre PRIMA che il taglio in due avvenga, non dopo.
+test("BUG REALE: centesimi a parole (\"ventitré euro e cinquanta\") restano UN solo segmento", () => {
+  const s = segmentIntents("ho speso ventitré euro e cinquanta al ristorante");
+  assert.equal(s.length, 1);
+  assert.match(s[0], /23\.50/);
+});
+
+test('normalizeForSegmentation converte "undici euro e trenta" in "11.30 euro"', async () => {
+  const { normalizeForSegmentation } = await import('./intent-segmenter.js');
+  assert.match(normalizeForSegmentation('undici euro e trenta'), /11\.30 euro/);
+});
+
+test('centesimi a parole SOPRA i 99 non vengono confusi (mai un importo a 3 cifre scambiato per centesimi)', () => {
+  // "cento" non è nella lista sotto-cento: la frase resta gestita dal ramo
+  // esistente dei numeri composti ("cento" + "cinquanta" restano separati
+  // se non seguiti dal pattern "euro e"), nessun crash né importo inventato.
+  const s = segmentIntents("ho speso cento euro e ho speso cinquanta euro");
+  assert.equal(s.length, 2, 'due spese vere restano due spese, non si fondono per errore');
+});
+
 test("numeri-parola contigui restano uno (mille duecento)", () => {
   assert.equal(segmentIntents("ho speso mille e duecento euro di affitto").length, 1);
 });

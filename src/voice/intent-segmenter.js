@@ -179,6 +179,25 @@ export function normalizeForSegmentation(text) {
   t = t.replace(/(\d),(\d{1,2})\b/g, '$1.$2');
   // Decimale detto a voce "12 e 50" → "12.50" (num 1-4 cifre + e + 2 cifre).
   t = t.replace(/\b(\d{1,4})\s+e\s+(\d{2})\b(?!\s*\d)/gi, '$1.$2');
+  // Centesimi detti a PAROLE con l'importo intero anch'esso a parole
+  // ("ventitré euro e cinquanta" = 23,50€): senza questo la segmentazione
+  // (che gira DOPO questa normalizzazione) vede due importi separati e li
+  // taglia in due transazioni — bug reale trovato testando dal vivo
+  // (2026-08-17). Convertito subito in cifre ("23.50 euro"), lo stesso
+  // formato che il resto della pipeline già sa gestire perfettamente per
+  // i decimali scritti in numeri. Solo centesimi 1-99 (mai un importo a 3
+  // cifre scambiato per centesimi).
+  const PAROLE_SOTTO_CENTO = Object.entries(FUZZY_AMOUNTS)
+    .filter(([, v]) => v >= 1 && v <= 99)
+    .sort((a, b) => b[0].length - a[0].length);
+  if (PAROLE_SOTTO_CENTO.length) {
+    const gruppo = PAROLE_SOTTO_CENTO.map(([k]) => k).join('|');
+    const valori = Object.fromEntries(PAROLE_SOTTO_CENTO);
+    t = t.replace(
+      new RegExp(`\\b(${gruppo})\\s*(euro|eur|€)\\s+e\\s+(${gruppo})\\b`, 'gi'),
+      (intero, p1, valuta, p3) => `${valori[p1.toLowerCase()]}.${String(valori[p3.toLowerCase()]).padStart(2, '0')} ${valuta}`
+    );
+  }
   // Numeri-parola uniti da "e": "mille e duecento" → un solo importo (togli "e").
   const NUM = Object.keys(FUZZY_AMOUNTS).join('|');
   t = t.replace(new RegExp('\\b(' + NUM + ')\\s+e\\s+(?=(?:' + NUM + ')\\b)', 'gi'), '$1 ');
