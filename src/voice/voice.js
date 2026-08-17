@@ -303,6 +303,17 @@ const VoiceCore = {
   }
 };
 
+// BUG REALE trovato testando dal vivo con frasi discorsive (2026-08-17):
+// "con l'avvocato" diventava "Lavvocato" nella descrizione — l'apostrofo
+// dell'elisione ("l'", "un'", "dell'"...) veniva tolto dalla pulizia finale
+// (che scarta ogni carattere non alfanumerico) SENZA lasciare uno spazio,
+// fondendo l'articolo elisо con la parola dopo. "lo/la/il" pieni erano già
+// nella lista delle parole da togliere, ma non la loro forma con
+// l'apostrofo, che è un token diverso agli occhi di un `\b...\b` word-match.
+function rimuoviElisioni(testo) {
+  return String(testo || '').replace(/\b(l|un|dell|nell|all|sull|dall|quest|quell)'/gi, '');
+}
+
 const VoiceParser = {
   // Punto d'ingresso: gestisce frasi composte ("ho speso 20 euro dal
   // panettiere e ricordami di pagare l'affitto domani") scomponendole
@@ -437,7 +448,7 @@ const VoiceParser = {
         const reg = new RegExp('\\b' + w + '\\b', 'gi');
         cleanDesc = cleanDesc.replace(reg, '');
       });
-      cleanDesc = cleanDesc.replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '').replace(/\s+/g, ' ').trim();
+      cleanDesc = rimuoviElisioni(cleanDesc).replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '').replace(/\s+/g, ' ').trim();
       if (cleanDesc.length > 0) cleanDesc = cleanDesc.charAt(0).toUpperCase() + cleanDesc.slice(1);
 
       return {
@@ -463,7 +474,8 @@ const VoiceParser = {
         .replace(/\bcon\b.*$/i, ' ')      // taglia da "con <nomi>" in poi
         .replace(/\bwith\b.*$/i, ' ')
         .replace(/\b\d+([.,]\d{1,2})?\s*(euro|euros|eur|€|dollaro|dollari|dollar|dollars|usd)?\b/gi, ' ')
-        .replace(/\b(di|del|della|dello|dei|degli|delle|la|lo|il|per|a|da)\b/gi, ' ')
+        .replace(/\b(di|del|della|dello|dei|degli|delle|la|lo|il|per|a|da)\b/gi, ' ');
+      d = rimuoviElisioni(d)
         .replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '')
         .replace(/\s+/g, ' ').trim();
       if (d.length > 0) d = d.charAt(0).toUpperCase() + d.slice(1);
@@ -530,7 +542,7 @@ const VoiceParser = {
       desc = desc.replace(reg, '');
     });
 
-    desc = desc.replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '').replace(/\s+/g, ' ').trim();
+    desc = rimuoviElisioni(desc).replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '').replace(/\s+/g, ' ').trim();
     // Un connettivo isolato a fine descrizione ("Magliette e") è sempre un
     // residuo del taglio fra due clausole (es. "ho comprato magliette e ho
     // speso…", assorbito da _resolveAmountlessPurchase sopra), mai una

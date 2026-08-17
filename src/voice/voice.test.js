@@ -216,6 +216,28 @@ test('spesa indipendente + split indipendente restano due azioni distinte', () =
   assert.equal(split.amount, 40);
 });
 
+// ── ELISIONE ("l'avvocato" → "Lavvocato"): bug reale trovato testando dal
+// vivo con frasi discorsive (2026-08-17) — l'apostrofo veniva tolto dalla
+// pulizia finale senza lasciare uno spazio, fondendo l'articolo elisо con
+// la parola dopo, in TUTTE e tre le descrizioni (appuntamento/promemoria,
+// split, transazione) ──
+
+test('BUG REALE: "con l\'avvocato" → descrizione "Avvocato...", non "Lavvocato"', () => {
+  const r = VoiceParser.parse("ho un appuntamento con l'avvocato lunedì");
+  assert.match(r[0].description, /^Avvocato/);
+  assert.doesNotMatch(r[0].description, /lavvocato/i);
+});
+
+test('elisione anche nella descrizione di una transazione: "ho pagato l\'affitto"', () => {
+  const r = VoiceParser.parse("ho pagato 500 euro per l'affitto");
+  assert.equal(r[0].description, 'Affitto');
+});
+
+test('elisione anche nello split: "dividi la cena dell\'albergo con Marco"', () => {
+  const r = VoiceParser.parse("dividi 40 dell'albergo con Marco");
+  assert.equal(r[0].description, 'Albergo');
+});
+
 test('un promemoria "su" una divisione resta promemoria, non attiva lo split', () => {
   const r = VoiceParser.parse('ricordami di dividere le spese con Marco domani');
   assert.equal(r.length, 1);
