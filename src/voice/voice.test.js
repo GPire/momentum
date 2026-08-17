@@ -227,3 +227,29 @@ test('SPEECH_LOCALE: ogni lingua rilevabile ha un locale BCP-47 valido per il We
     assert.match(locale, /^[a-z]{2}-[A-Z]{2}$/, `${lang} -> "${locale}" non è un locale valido`);
   }
 });
+
+// ── VOCE IN INGLESE: bug reali trovati testando dal vivo (2026-08-17) ──
+test('inglese: "euros"/"dollars" (plurale) sparisce dalla descrizione, non solo "euro"/"dollar"', () => {
+  const [r] = VoiceParser.parse('I spent 15 euros on groceries');
+  assert.equal(r.amount, 15);
+  assert.doesNotMatch(r.description, /euros?/i);
+});
+
+test('inglese: "remind me to call X" resta UN promemoria, non due azioni ("call" è verbo qui, non il sostantivo "a call")', () => {
+  const r = VoiceParser.parse('remind me to call the accountant next Monday');
+  assert.equal(r.length, 1, `attesa 1 azione, trovate ${r.length}: ${JSON.stringify(r)}`);
+  assert.ok(r[0].intent === 'reminder' || r[0].intent === 'appointment');
+});
+
+test('inglese: "I have a call at 3pm" resta un appuntamento (uso legittimo di "call" come sostantivo, non rotto dal fix sopra)', () => {
+  const r = VoiceParser.parse('I have a call at 3pm');
+  const appt = r.find(x => x.intent === 'appointment');
+  assert.ok(appt, `atteso un appuntamento: ${JSON.stringify(r)}`);
+});
+
+test('inglese: connettivi residui ("my", "of", "the", "at") non restano nella descrizione', () => {
+  const [r] = VoiceParser.parse('I received my salary of 2000 euros');
+  assert.doesNotMatch(r.description, /\b(my|of)\b/i);
+  const [r2] = VoiceParser.parse('I spent 20 dollars at the supermarket');
+  assert.doesNotMatch(r2.description, /\b(at|the)\b/i);
+});

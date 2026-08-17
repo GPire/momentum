@@ -369,8 +369,8 @@ const VoiceParser = {
       // Rimuove parole di comando + articoli/preposizioni/verbi di servizio
       // + giorni della settimana, così "ho un appuntamento dal dentista
       // giovedì" → "Dentista" invece del residuo "Ho dal dentista giovedì".
-      let cleanDesc = textNoTime.replace(/\b(ricorda(mi)?|promemoria|sveglia|alarm|remind|reminder|schedule|calendar|calendario|fissa|appuntamento|appointment|meeting|ho|hai|un|una|uno|il|lo|la|di|da|dal|dalla|dallo|con|per|alle|alla|al|delle|della|prossimo|prossima|me|to|the|of|my|call|lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica|domani|dopodomani|oggi|stasera|monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today)\b/gi, '').trim();
-      cleanDesc = cleanDesc.replace(/\b\d+([.,]\d{1,2})?\s*(euro|dollari|dollars|usd|eur|e|cent|centesimi)?\b/gi, '');
+      let cleanDesc = textNoTime.replace(/\b(ricorda(mi)?|promemoria|sveglia|alarm|remind|reminder|schedule|calendar|calendario|fissa|appuntamento|appointment|meeting|ho|hai|un|una|uno|il|lo|la|di|da|dal|dalla|dallo|con|per|alle|alla|al|delle|della|prossimo|prossima|next|me|to|the|of|my|call|lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica|domani|dopodomani|oggi|stasera|monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today)\b/gi, '').trim();
+      cleanDesc = cleanDesc.replace(/\b\d+([.,]\d{1,2})?\s*(euro|euros|dollaro|dollari|dollar|dollars|usd|eur|e|cent|centesimi|cents)?\b/gi, '');
       Object.keys(FUZZY_AMOUNTS).forEach(w => {
         const reg = new RegExp('\\b' + w + '\\b', 'gi');
         cleanDesc = cleanDesc.replace(reg, '');
@@ -400,7 +400,7 @@ const VoiceParser = {
         .replace(SPLIT_RE, ' ')
         .replace(/\bcon\b.*$/i, ' ')      // taglia da "con <nomi>" in poi
         .replace(/\bwith\b.*$/i, ' ')
-        .replace(/\b\d+([.,]\d{1,2})?\s*(euro|eur|€|dollari|usd)?\b/gi, ' ')
+        .replace(/\b\d+([.,]\d{1,2})?\s*(euro|euros|eur|€|dollaro|dollari|dollar|dollars|usd)?\b/gi, ' ')
         .replace(/\b(di|del|della|dello|dei|degli|delle|la|lo|il|per|a|da)\b/gi, ' ')
         .replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '')
         .replace(/\s+/g, ' ').trim();
@@ -428,8 +428,8 @@ const VoiceParser = {
              || /\bda parte\b/.test(lower) || /\bmess[oa]\b.*\bparte\b/.test(lower)) type = 'invest';
 
     let desc = textNoTime;
-    desc = desc.replace(/\b\d+([.,]\d{1,2})?\s*(euro|dollari|dollars|usd|eur|e|cent|centesimi)?\b/gi, '');
-    desc = desc.replace(/\b\d+\s*(euro|dollari|dollars|usd|eur|e)\s*(e|and)?\s*\d{1,2}\b/gi, '');
+    desc = desc.replace(/\b\d+([.,]\d{1,2})?\s*(euro|euros|dollaro|dollari|dollar|dollars|usd|eur|e|cent|centesimi|cents)?\b/gi, '');
+    desc = desc.replace(/\b\d+\s*(euro|euros|dollaro|dollari|dollar|dollars|usd|eur|e)\s*(e|and)?\s*\d{1,2}\b/gi, '');
 
     Object.keys(FUZZY_AMOUNTS).forEach(w => {
       const reg = new RegExp('\\b' + w + '\\b', 'gi');
@@ -445,9 +445,15 @@ const VoiceParser = {
       // una descrizione vuota o sensata, bypassando il fallback sotto
       // (che scatta solo su stringa vuota, non su residui insensati).
       'ho comprato', 'comprato', 'comprata', 'preso', 'presa', 'pagato', 'pagata', 'speso', 'spesa', 'acquistato', 'acquistata',
-      'bought', 'spent', 'paid', 'purchased', 'got', 'for', 'a', 'an', 'per', 'in', 'su', 'da', 'di', 'con', 'ho',
+      'bought', 'spent', 'paid', 'purchased', 'got', 'for', 'a', 'an', 'at', 'per', 'in', 'su', 'da', 'di', 'con', 'ho',
       'investito', 'messo', 'invested', 'put', 'into', 'on', 'stipendio', 'salary', 'entrata', 'income', 'guadagnato', 'earned',
       'ricevuto', 'received', 'extra',
+      // BUG REALE trovato testando in inglese (2026-08-17): "I received my
+      // salary of 2000 euros" diventava "My of" — "salary"/"received" erano
+      // già nella lista, ma non i piccoli connettivi inglesi ("my", "of",
+      // "the") che restano dopo aver tolto il resto. Stesso principio degli
+      // articoli italiani sopra, applicato all'inglese.
+      'my', 'of', 'the',
       // articoli italiani
       'lo', 'la', 'il', 'i', 'gli', 'le', 'un', 'una', 'uno',
       // preposizioni articolate italiane (contrazione preposizione+articolo,
@@ -551,7 +557,7 @@ const VoiceParser = {
       return value;
     }
 
-    const phraseMatch = text.match(/\b(\d+)\s*(euro|dollari|dollars|usd|eur|e)\s*(e|and)?\s*(\d{1,2})\b/i);
+    const phraseMatch = text.match(/\b(\d+)\s*(euro|euros|dollaro|dollari|dollar|dollars|usd|eur|e)\s*(e|and)?\s*(\d{1,2})\b/i);
     if (phraseMatch) {
       const whole = parseFloat(phraseMatch[1]);
       const cents = parseFloat(phraseMatch[4]) / 100;

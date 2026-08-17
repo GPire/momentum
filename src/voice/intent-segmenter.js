@@ -101,7 +101,13 @@ function startsNewAction(tokens, i, cur) {
   //    Ma NON se è preceduto da articolo/preposizione ("una riunione", "di
   //    lavoro", "con Marco"): quella parola non apre un nuovo appuntamento.
   if (APPT_NOUN.test(w) || REMIND.test(w) || SPLIT_VERB.test(w)) {
-    if (/^(di|del|della|dello|dei|degli|delle|a|per|il|lo|la|con|un|uno|una)$/i.test(prev)) return false;
+    // BUG REALE trovato testando in inglese (2026-08-17): "remind me TO CALL
+    // the accountant" apriva DUE azioni — "call" e' anche un sostantivo
+    // d'appuntamento ("I have a call at 3pm"), ma qui e' il verbo "to call"
+    // (telefonare), preceduto dal marcatore d'infinito "to". Stessa logica
+    // degli articoli/preposizioni italiane sopra: "to" prima della parola
+    // dice che non sta aprendo un nuovo appuntamento.
+    if (/^(di|del|della|dello|dei|degli|delle|a|per|il|lo|la|con|un|uno|una|to)$/i.test(prev)) return false;
     return true;
   }
 
