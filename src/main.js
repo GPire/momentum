@@ -4699,7 +4699,25 @@ window.openSplitExpense = (prefill = {}) => {
       if (parsed.amount > 0) state.paid['Io'] = String(parsed.amount);
       render();
     });
-    $('#sp-newname')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { const n = e.target.value.trim(); if (!state.people.includes(n)) state.people.push(n); render(); } });
+    {
+      // BUG REALE segnalato dal vivo (2026-08-17): il nome si salvava SOLO
+      // premendo Invio. Su touch non c'è un tasto Invio fisico ovvio — si
+      // scrive un nome, si tocca altrove (la prossima persona, l'importo,
+      // qualunque cosa) e il nome spariva in silenzio, senza nessun avviso.
+      // Ora si salva anche quando il campo perde il focus per qualunque
+      // motivo (tocco altrove), non solo su Invio esplicito. Il controllo
+      // `!state.people.includes(n)` evita un doppio inserimento se Invio e
+      // blur dovessero mai scattare entrambi per lo stesso nome.
+      const commitNewName = (e) => {
+        const n = e.target.value.trim();
+        if (!n) return;
+        if (!state.people.includes(n)) state.people.push(n);
+        render();
+      };
+      const newNameInput = $('#sp-newname');
+      newNameInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') commitNewName(e); });
+      newNameInput?.addEventListener('blur', commitNewName);
+    }
     // Campi "ha messo €" — re-render live (aggiorna totale/anteprima) con cursore.
     document.querySelectorAll('[data-paid]').forEach(inp => inp.addEventListener('input', () => {
       state.paid[inp.dataset.paid] = inp.value;
