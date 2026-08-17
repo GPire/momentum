@@ -496,6 +496,34 @@ test('FALLBACK: senza ctx.qaLearning il comportamento resta quello di sempre (ne
   assert.ok(!('learned' in r) || !r.learned);
 });
 
+// ── ctx.semanticSimilarity (src/ai/semantic-embed.js): stesso punto di
+// innesto di qa-learning.js, verificato qui fino alla risposta reale ──
+
+test('ctx.semanticSimilarity: una parafrasi con ZERO parole in comune viene riconosciuta se la similarità semantica supera la soglia', () => {
+  const qaLearning = {
+    unknownLog: [],
+    learned: [{ question: 'quanto ho messo via questo mese', tokens: ['messo', 'via', 'questo', 'mese'], intent: 'savings', conferme: 2, ts: Date.now() }],
+  };
+  // Frase completamente diversa nelle parole: Jaccard darebbe 0 (verificato
+  // sotto), ma la finta similarità semantica simula un vero match di significato.
+  const domanda = 'a quanto ammonta il mio accantonamento recente';
+  const senzaSemantica = answerQuestion(domanda, { allTx: {}, referenceDate: new Date(2026, 6, 15), qaLearning });
+  assert.equal(senzaSemantica.intent, 'unknown');
+  const semanticSimilarity = (a, b) => 0.9;
+  const conSemantica = answerQuestion(domanda, { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15), qaLearning, semanticSimilarity });
+  assert.equal(conSemantica.intent, 'savings');
+  assert.equal(conSemantica.learned, true);
+});
+
+test('ctx.semanticSimilarity assente (utente senza il modello scaricato) → nessuna differenza, fallback a Jaccard', () => {
+  const qaLearning = {
+    unknownLog: [],
+    learned: [{ question: 'quanto ho messo via questo mese', tokens: ['messo', 'via', 'questo', 'mese'], intent: 'savings', conferme: 2, ts: Date.now() }],
+  };
+  const r = answerQuestion('quanto ho messo via il mese', { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15), qaLearning });
+  assert.equal(r.intent, 'savings');
+});
+
 // ── Il correttore di refusi non deve riscrivere parole vere ──
 
 test('BUG REALE: "perdere" e "vendere" non sono refusi di "spendere"', () => {

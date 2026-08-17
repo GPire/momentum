@@ -366,7 +366,7 @@ const UNKNOWN_MSG = {
 export function answerQuestion(question, ctx) {
   const risultato = answerQuestionCore(question, ctx);
   if (ctx?.qaLearning && risultato && risultato.intent !== 'unknown') {
-    const suggerito = suggestLearnedIntent(ctx.qaLearning, question);
+    const suggerito = suggestLearnedIntent(ctx.qaLearning, question, { similarity: ctx.semanticSimilarity });
     if (suggerito?.autoApplicabile && suggerito.intent === risultato.intent) {
       risultato.learned = true;
     }
@@ -393,7 +393,7 @@ function answerQuestionCore(question, ctx) {
   // mai una risposta che sembra magica senza dire che è stata imparata.
   let appresoIntent = null;
   if (ctx.qaLearning) {
-    const suggerito = suggestLearnedIntent(ctx.qaLearning, question);
+    const suggerito = suggestLearnedIntent(ctx.qaLearning, question, { similarity: ctx.semanticSimilarity });
     if (suggerito?.autoApplicabile && CANONICAL_TRIGGER[suggerito.intent]) {
       appresoIntent = suggerito.intent;
       qMatch = `${qMatch} ${CANONICAL_TRIGGER[suggerito.intent]}`;

@@ -190,9 +190,32 @@ const CalendarBridge = {
   }
 };
 
+// Comprensione semantica locale opt-in (src/ai/semantic-embed.js — EmbeddingGemma,
+// ~197MB scaricati una volta). Precomputa gli embedding PRIMA di chiamare
+// askMomentum (che resta sincrono, come tutto qa-engine.js): il costo
+// asincrono/di rete resta qui, mai dentro il motore di risposta puro.
+// Doppio cancello: solo se l'utente ha attivato l'opzione E il dispositivo
+// supporta davvero WASM SIMD (window.momentumDeviceProfile, device/profiler.js)
+// — su un dispositivo troppo vecchio per WASM il toggle è nascosto in UI, ma
+// qui si controlla comunque: mai fidarsi solo di uno stato salvato che
+// potrebbe provenire da un altro dispositivo via sync.
+async function prepareSemanticSimilarity(question) {
+  if (!VaultDAO.state.semanticQaOptIn) return null;
+  if (!window.momentumDeviceProfile?.simd) return null;
+  try {
+    const { embed, similaritaSincrona } = await import('./ai/semantic-embed.js');
+    const learned = VaultDAO.state.qaLearning?.learned || [];
+    await embed(question);
+    // Le voci già calcolate in questa sessione sono gratis (embedCache):
+    // qui si paga solo per le correzioni nuove dall'ultima domanda.
+    await Promise.all(learned.map((l) => embed(l.question).catch(() => null)));
+    return similaritaSincrona;
+  } catch (_) { return null; } // mai bloccante: senza embedding si ricade su Jaccard
+}
+
 // Punto unico delle risposte in linguaggio naturale (src/ai/qa-engine.js):
 // usato sia dalla card "Chiedi a Momentum" sia dalla console.
-function askMomentum(text) {
+function askMomentum(text, semanticSimilarity = null) {
   const ctx = {
     allTx: VaultDAO.state.transactions,
     monthlyBudget: VaultDAO.state.monthlyBudget,
@@ -230,6 +253,7 @@ function askMomentum(text) {
     // formulazioni che i pattern fissi non riconoscono — vedi askMomentum
     // più sotto per dove si registra/insegna.
     qaLearning: VaultDAO.state.qaLearning,
+    semanticSimilarity,
   };
   // Chatbot multilingua (src/ai/chat.js): se rileva EN/ES risponde in quella
   // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
@@ -5900,6 +5924,49 @@ function renderNotifyPrefs() {
   });
 }
 
+// Comprensione semantica locale (src/ai/semantic-embed.js): la card resta
+// NASCOSTA su dispositivi che non supportano WASM SIMD (window.momentumDeviceProfile,
+// device/profiler.js) — mai offrire un download di ~197MB a chi non può
+// nemmeno eseguirlo. Su chi lo supporta, mostra lo stato reale (attivo,
+// scaricamento in corso, pronto) invece di far finta che accada subito.
+function renderSemanticQaCard() {
+  const card = document.getElementById('semantic-qa-card');
+  if (!card) return;
+  const supportato = !!window.momentumDeviceProfile?.simd;
+  card.style.display = supportato ? '' : 'none';
+  if (!supportato) return;
+  const toggle = document.getElementById('semantic-qa-optin');
+  if (toggle) toggle.checked = !!VaultDAO.state.semanticQaOptIn;
+  const label = document.getElementById('semantic-qa-label');
+  if (label && VaultDAO.state.semanticQaOptIn) {
+    import('./ai/semantic-embed.js').then(({ semanticModelPronto }) => {
+      label.textContent = semanticModelPronto()
+        ? 'Attivo — comprende il significato, non solo le parole'
+        : 'Attivo — scaricamento in corso alla prossima domanda (~197MB, una volta sola)';
+    }).catch(() => {});
+  }
+}
+window.setSemanticQaOptIn = async (attiva) => {
+  VaultDAO.state.semanticQaOptIn = !!attiva;
+  VaultDAO.save();
+  if (!attiva) { renderSemanticQaCard(); return; }
+  showToast('Scarico il modello di comprensione del linguaggio (~197MB, una volta sola)…', 'info');
+  try {
+    const { caricaModelloSemantico } = await import('./ai/semantic-embed.js');
+    const esito = await caricaModelloSemantico();
+    if (esito.ok) showToast('Comprensione del linguaggio attiva: ora capisce il significato, non solo le parole.', 'success');
+    else {
+      showToast('Non sono riuscito a scaricare il modello: il QA continua a funzionare come prima.', 'info');
+      VaultDAO.state.semanticQaOptIn = false;
+      VaultDAO.save();
+    }
+  } catch (_) {
+    VaultDAO.state.semanticQaOptIn = false;
+    VaultDAO.save();
+  }
+  renderSemanticQaCard();
+};
+
 // Notifica fiscale opt-in (mai attiva di default: il permesso del browser va
 // comunque chiesto un tocco alla volta, stesso schema di addPriceAlert).
 // De-dup per `key` + giorno: una scadenza saltata o una cassa a rischio non
@@ -10040,7 +10107,7 @@ const navigate = (view) => {
   if (view === 'dashboard') window.renderQaSuggestions?.();
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
@@ -11955,7 +12022,8 @@ const initApp = () => {
         const handled = await tryAnswerWithRealNews(newsIntent.asset);
         if (handled) return;
       }
-      const res = askMomentum(question);
+      const semanticSimilarity = await prepareSemanticSimilarity(question);
+      const res = askMomentum(question, semanticSimilarity);
       styleQaAnswer(res);
       qaAnswer.classList.remove('hidden');
       haptic('light');

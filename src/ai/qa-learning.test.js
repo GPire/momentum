@@ -122,3 +122,40 @@ test('SCENARIO: copertura misurata distingue famiglie affidabili (≥2 conferme)
 test('FALLBACK: qaLearningCoverage su stato assente → tutti zero, nessun crash', () => {
   assert.deepEqual(qaLearningCoverage(undefined), { famiglieRiconosciute: 0, famiglieInAttesaDiConferma: 0, domandeMaiChiarite: 0 });
 });
+
+// --- similarità SEMANTICA opzionale (src/ai/semantic-embed.js) ---
+// Nessun modello reale nei test: una funzione finta ma deterministica
+// prova che il punto di innesto funziona, resta retrocompatibile (default
+// Jaccard invariato) e usa la soglia semantica diversa da quella Jaccard.
+
+test('similarity esplicita → sostituisce Jaccard, non lo somma né lo ignora', () => {
+  let state = { unknownLog: [], learned: [] };
+  state = learnCorrection(state, 'quanto spendo di solito al ristorante', 'topCategory');
+  state = learnCorrection(state, 'quanto spendo di solito al ristorante', 'topCategory'); // 2 conferme
+  // Zero parole in comune: Jaccard darebbe 0, la similarity finta simula un
+  // vero match semantico (stesso significato, parole diverse).
+  const similarity = (a, b) => (a === 'qual è la mia spesa abituale per mangiare fuori' ? 0.8 : 0);
+  const senzaSemantica = suggestLearnedIntent(state, 'qual è la mia spesa abituale per mangiare fuori');
+  assert.equal(senzaSemantica, null); // Jaccard non trova nulla: zero parole condivise
+  const conSemantica = suggestLearnedIntent(state, 'qual è la mia spesa abituale per mangiare fuori', { similarity });
+  assert.ok(conSemantica, 'con la similarità semantica il match deve esserci');
+  assert.equal(conSemantica.intent, 'topCategory');
+  assert.equal(conSemantica.autoApplicabile, true);
+});
+
+test('similarity semantica sotto soglia (0,62) → nessun match, mai un falso positivo per un punteggio debole', () => {
+  let state = { unknownLog: [], learned: [] };
+  state = learnCorrection(state, 'quanto ho risparmiato questo mese', 'savings');
+  state = learnCorrection(state, 'quanto ho risparmiato questo mese', 'savings');
+  const similarity = () => 0.4; // sotto la soglia semantica, sopra zero
+  assert.equal(suggestLearnedIntent(state, 'domanda vagamente imparentata', { similarity }), null);
+});
+
+test('senza similarity esplicita, il comportamento resta Jaccard puro (retrocompatibilità)', () => {
+  let state = { unknownLog: [], learned: [] };
+  state = learnCorrection(state, 'quanto ho messo via questo mese', 'savings');
+  state = learnCorrection(state, 'quanto ho messo via il mese scorso', 'savings');
+  const conJaccard = suggestLearnedIntent(state, 'quanto ho messo via questo mese qui');
+  assert.ok(conJaccard);
+  assert.equal(conJaccard.intent, 'savings');
+});

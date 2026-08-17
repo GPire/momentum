@@ -3938,6 +3938,22 @@
                     </div>
                   </div>
 
+                  <!-- Comprensione semantica locale opt-in (src/ai/semantic-embed.js,
+                       EmbeddingGemma — Google DeepMind, ~197MB q4, verificato
+                       gated=false su Hugging Face il 2026-08-17). Doppio
+                       cancello: il div in JS resta nascosto se il dispositivo
+                       non supporta WASM SIMD (device/profiler.js) — mai un
+                       download che non può nemmeno essere eseguito. -->
+                  <div class="card p-6" id="semantic-qa-card" style="display:none">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Comprensione del linguaggio (locale)</h3>
+                    <p class="card-sub">Il QA riconosce il SIGNIFICATO di una domanda, non solo le parole esatte — utile quando gli insegni una domanda in un modo e poi gliela fai in un altro.</p>
+                    <div class="flex items-center justify-between gap-3 mt-3">
+                      <span class="text-[12px] text-[var(--on-surface)]" id="semantic-qa-label">Attiva (scarica ~197MB una volta, poi resta offline)</span>
+                      <input type="checkbox" id="semantic-qa-optin" onchange="window.setSemanticQaOptIn(this.checked)" class="toggle-input" />
+                    </div>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2">Modello EmbeddingGemma di Google (open-source, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. Le tue domande non lasciano mai il dispositivo.</p>
+                  </div>
+
                   <div class="card p-6 flex flex-col">
                     <div class="flex items-center justify-between mb-4">
                       <div>

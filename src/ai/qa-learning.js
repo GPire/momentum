@@ -83,17 +83,34 @@ export function learnCorrection(state, question, intent) {
   return { ...state, learned: learned.slice(-MAX_LEARNED) };
 }
 
+// Sotto questa similarità un match SEMANTICO (embedding, non parole) non
+// basta a fidarsi — più alta della soglia Jaccard perché il coseno fra
+// frasi imparentate ma non parafrasi vere resta spesso comunque positivo
+// (0,3-0,5): qui serve un margine reale, non solo "più di zero".
+const SOGLIA_SIMILE_SEMANTICA = 0.62;
+
 // Cerca tra le correzioni imparate una corrispondenza per `question`.
 // Ritorna { intent, confidenza, conferme, autoApplicabile } o null.
-export function suggestLearnedIntent(state, question) {
+//
+// `similarity`, se passata, è una funzione SINCRONA (question, altraQuestion)
+// -> punteggio 0..1 che sostituisce il Jaccard per-parola con una misura
+// SEMANTICA (embedding + coseno, src/ai/semantic-embed.js) — così due
+// formulazioni con zero parole in comune ma lo stesso significato ("quanto
+// spendo di solito al ristorante" / "qual è la mia spesa abituale per
+// mangiare fuori") vengono riconosciute lo stesso. Il calcolo pesante
+// (embedding, opt-in, ~118MB scaricati una volta) resta FUORI da questo
+// modulo, che deve restare puro/sincrono — il chiamante lo precalcola e
+// passa qui solo la funzione di confronto già pronta.
+export function suggestLearnedIntent(state, question, { similarity } = {}) {
   const tokens = tokenize(question);
   if (!tokens.length) return null;
   let best = null, bestScore = 0;
   for (const l of state?.learned || []) {
-    const score = jaccard(l.tokens, tokens);
+    const score = similarity ? similarity(question, l.question) : jaccard(l.tokens, tokens);
     if (score > bestScore) { bestScore = score; best = l; }
   }
-  if (!best || bestScore < SOGLIA_SIMILE) return null;
+  const soglia = similarity ? SOGLIA_SIMILE_SEMANTICA : SOGLIA_SIMILE;
+  if (!best || bestScore < soglia) return null;
   return {
     intent: best.intent,
     confidenza: +bestScore.toFixed(2),
