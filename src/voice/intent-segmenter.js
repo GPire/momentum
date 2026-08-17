@@ -18,6 +18,85 @@
 // non confusi con gli importi. Robusto a decine di azioni miste.
 //
 // Funzioni PURE e testabili: il chiamante (VoiceParser) interpreta ogni segmento.
+//
+// TOLLERANZA AI REFUSI DI TRASCRIZIONE (2026-08-17): il riconoscimento vocale
+// del browser trascrive FONEMI, non intende parole — "appuntamento" può
+// arrivare come "apputmaneot" o "apputnamneot" senza che sia un errore
+// dell'utente. BUG REALE trovato testando dal vivo: una singola ancora non
+// riconosciuta per un refuso (es. "apputmaneot" invece di "appuntamento")
+// faceva collassare la segmentazione di TUTTA la frase a valanga — tutto ciò
+// che seguiva restava incollato alla transazione precedente. Stesso motore
+// già collaudato in qa-engine.js (correctTypos/levenshtein), applicato qui
+// al piccolo vocabolario delle ANCORE invece che a un dizionario generico:
+// un refuso, per definizione, non è una parola esistente — le parole vere e
+// semplicemente vicine per ortografia (l'equivalente di "perdere"/"vendere"
+// vs "spendere" già risolto in qa-engine.js) non vanno mai corrette.
+import { levenshtein } from '../core/utils.js';
+
+// UNA sola forma per famiglia (mai singolare+plurale/maschile+femminile
+// insieme): la regex dell'ancora (es. APPT_NOUN, "appuntament[oi]") copre
+// già l'altra forma una volta corretta questa, e avere entrambe nel
+// dizionario crea PAREGGI inutili — bug reale trovato testando dal vivo:
+// "apputmaneot" pareggiava fra "appuntamento" e "appuntamenti" (stessa
+// distanza), e un pareggio fa rifiutare la correzione per prudenza,
+// lasciando l'ancora non riconosciuta proprio quando serviva di più.
+const ANCORE_TIPICHE = [
+  'appuntamento', 'riunione', 'colloquio', 'conferenza', 'incontro', 'prenotazione',
+  'ricordami', 'ricorda', 'promemoria', 'scadenza', 'calendario',
+  'comprato', 'pagato', 'investito', 'acquistato', 'guadagnato', 'incassato',
+  'accantonato', 'risparmiato', 'dividiamo', 'dividere', 'spartisci', 'spartire',
+  'appointment', 'reminder', 'schedule',
+];
+// Parole vere, vicine per ortografia a un'ancora ma di significato diverso:
+// non vanno mai "corrette" in un'ancora. Stessa disciplina di
+// PAROLE_PROTETTE_IT in qa-engine.js. "parlare" trovato testando dal vivo:
+// somiglianza 0,625 con "spartire" (distanza 3 su 8), sopra soglia — due
+// verbi comuni e completamente diversi che la sola forma scritta avvicina.
+const PAROLE_PROTETTE_ANCORE = new Set([
+  'aggiornato', 'aggiornata', 'complicato', 'complicata', 'importante', 'importanti',
+  'parlare', 'parlato', 'parlando', 'parliamo', 'colleghi', 'collega', 'collega',
+]);
+
+// Corregge SOLO i refusi vicini a un'ancora nota, mai un dizionario generico
+// (che rischierebbe di alterare descrizioni/nomi propri).
+//
+// BUG REALE trovato testando dal vivo con una trascrizione reale (2026-08-17):
+// "apputmaneot" per "appuntamento" ha distanza di Levenshtein 5 (lettere
+// trasposte in blocco, non solo scambiate una a una) — una soglia FISSA
+// (come quella di qa-engine.js, tarata su refusi di battitura corti) non la
+// prende mai. Il parlato trascritto foneticamente produce errori più estesi
+// di un refuso di tastiera: qui la soglia è un RAPPORTO sulla lunghezza
+// della parola (quanto resta "riconoscibile"), non un numero fisso di
+// caratteri — cresce naturalmente con parole più lunghe, dove l'ambiguità
+// di un singolo carattere sbagliato pesa meno sul significato complessivo.
+export function correctAnchorTypos(text) {
+  return String(text || '').split(/(\s+)/).map((tok) => {
+    const m = tok.match(/^([^a-zàèéìòù]*)([a-zàèéìòù]+)([^a-zàèéìòù]*)$/i);
+    if (!m) return tok;
+    const [, pre, word, post] = m;
+    const lower = word.toLowerCase();
+    if (lower.length < 7) return tok; // refusi corti sono troppo ambigui da correggere
+    if (ANCORE_TIPICHE.includes(lower)) return tok; // già corretta
+    if (PAROLE_PROTETTE_ANCORE.has(lower)) return tok;
+    let best = null, bestDist = Infinity, ties = 0;
+    for (const cand of ANCORE_TIPICHE) {
+      if (cand.length < 7) continue; // le ancore corte non partecipano al confronto fuzzy
+      // Le prime 3 lettere devono coincidere: un refuso di trascrizione
+      // vocale scombina soprattutto il CENTRO della parola, raramente
+      // l'inizio — vincolo che scarta parole vere e diverse ma vagamente
+      // simili nel mezzo (bug reale trovato testando dal vivo: "vestiti"
+      // veniva "corretto" in "investito", "colleghi" in "colloquio").
+      if (lower.slice(0, 3) !== cand.slice(0, 3)) continue;
+      const dist = levenshtein(lower, cand);
+      if (dist < bestDist) { bestDist = dist; best = cand; ties = 1; }
+      else if (dist === bestDist) ties++;
+    }
+    if (!best || bestDist === 0 || ties !== 1) return tok;
+    const maxLen = Math.max(lower.length, best.length);
+    const somiglianza = 1 - bestDist / maxLen; // 1 = identiche, 0 = niente in comune
+    return somiglianza >= 0.55 ? pre + best + post : tok;
+  }).join('');
+}
 
 export const FUZZY_AMOUNTS = {
   'uno': 1, 'due': 2, 'tre': 3, 'quattro': 4, 'cinque': 5, 'sei': 6, 'sette': 7, 'otto': 8, 'nove': 9, 'dieci': 10,
@@ -31,6 +110,14 @@ export const FUZZY_AMOUNTS = {
 // Verbi che introducono una TRANSAZIONE (spesa/entrata/investimento).
 const SPEND_VERB = /^(comprat[oa]|pagat[oa]|spes[oa]|pres[oa]|acquistat[oa]|investit[oa]|ricevut[oa]|guadagnat[oa]|mess[oa]|incassat[oa]|accantonat[oa]|risparmiat[oa]|spent|paid|bought|got|received|invested)$/i;
 const HO_AUX = /^(ho|hai|abbiamo|hanno)$/i;
+// Equivalente inglese di HO_AUX, usato SOLO per il lookahead "have/has an
+// appointment" — in inglese i verbi di transazione (SPEND_VERB) sono già al
+// passato semplice ("spent", "earned") e non richiedono un ausiliare, quindi
+// HAVE_EN non entra nella regola 1 sopra, solo in quella dell'appuntamento.
+const HAVE_EN = /^(have|has)$/i;
+// Articolo indeterminativo, italiano E inglese insieme: "ho UN appuntamento"
+// e "I have AN appointment" sono la stessa identica costruzione.
+const ARTICOLO_INDET = /^(un|uno|una|a|an)$/i;
 // Sostantivi/verbi che introducono un APPUNTAMENTO o un PROMEMORIA.
 const APPT_NOUN = /^(appuntament[oi]|appointment|riunion[ei]|meeting|call|chiamat[ae]|visit[ae]|colloqui[oi]|conferenz[ae]|incontr[oi]|prenotazion[ei]|prenot[ao]|prenotare|cena|pranzo)$/i;
 const REMIND = /^(ricordami|ricorda|promemoria|svegli[ae]|scadenz[ae]|remind|reminder|schedule|calendario|calendar|evento|eventi)$/i;
@@ -91,11 +178,33 @@ function startsNewAction(tokens, i, cur) {
   //    dall'ausiliare o da "i" inglese (già coperti dalle due righe sopra).
   if (HO_AUX.test(w) && SPEND_VERB.test(next)) return true;
   if (w === 'i' && SPEND_VERB.test(next)) return true;
+  // "ho un appuntamento…"/"ho una riunione…"/"I have an appointment…": il
+  // taglio va PRIMA di "ho"/"have", non prima di "appuntamento" — a quel
+  // punto sono già dentro `cur` (consumati nei passaggi precedenti del
+  // ciclo) e non si possono più spostare nel segmento nuovo. Bug reale
+  // trovato testando dal vivo: "…dle mare blu ho un appuntamento…" restava
+  // spezzato come "…blu ho un" + "appuntamento…", con "ho un" abbandonato
+  // in coda al segmento sbagliato — stesso bug ritrovato in inglese
+  // ("I have an" + "appointment…") perché l'articolo indeterminativo va
+  // riconosciuto in entrambe le lingue, non solo in italiano. Stesso
+  // requisito di completezza del ramo APPT_NOUN sotto: taglia solo se
+  // PRIMA dell'ausiliare c'è già un'azione vera.
+  if ((HO_AUX.test(w) || HAVE_EN.test(w)) && ARTICOLO_INDET.test(next) &&
+      (APPT_NOUN.test(clean(tokens[i + 2] || '')) || REMIND.test(clean(tokens[i + 2] || '')))) {
+    return segmentIsComplete(cur);
+  }
   // Verbo nudo ("pagato 30 …" senza "ho"): apre un'azione SOLO se non preceduto
   // dall'ausiliare/"i" E non da articolo/preposizione — altrimenti è un
-  // SOSTANTIVO omografo ("di spesa" = la spesa, non spendere; "la presa").
+  // SOSTANTIVO omografo ("di spesa" = la spesa, non spendere; "la presa";
+  // "la ricevuta"). BUG REALE trovato testando dal vivo (2026-08-17): "ho
+  // speso 20 euro ALLA spesa" si spezzava a metà frase, perdendo la parola
+  // "spesa" e inquinando il segmento successivo — la lista escludeva solo le
+  // preposizioni articolate con "di" (del/della/dello/...) e dimenticava
+  // quelle con "a/da/su/in" (alla/dalla/nella/sulla/...), pur essendo
+  // "alla spesa"/"al bar"/"dal dentista" fra le costruzioni più comuni del
+  // parlato italiano — non un caso limite, la norma.
   if (SPEND_VERB.test(w) && !HO_AUX.test(prev) && prev !== 'i' &&
-      !/^(di|del|della|dello|dei|degli|delle|a|per|il|lo|la|un|uno|una|le|gli|i)$/i.test(prev)) return true;
+      !/^(di|del|della|dello|dei|degli|delle|a|al|allo|alla|ai|agli|alle|da|dal|dallo|dalla|dai|dagli|dalle|su|sul|sullo|sulla|sui|sugli|sulle|in|nel|nello|nella|nei|negli|nelle|con|per|tra|fra|il|lo|la|un|uno|una|le|gli|i)$/i.test(prev)) return true;
 
   // 2) Sostantivo di appuntamento / verbo di promemoria / divisione.
   //    Ma NON se è preceduto da articolo/preposizione ("una riunione", "di
@@ -107,7 +216,25 @@ function startsNewAction(tokens, i, cur) {
     // (telefonare), preceduto dal marcatore d'infinito "to". Stessa logica
     // degli articoli/preposizioni italiane sopra: "to" prima della parola
     // dice che non sta aprendo un nuovo appuntamento.
-    if (/^(di|del|della|dello|dei|degli|delle|a|per|il|lo|la|con|un|uno|una|to)$/i.test(prev)) return false;
+    // BUG REALE trovato testando dal vivo (2026-08-17): "ho UN appuntamento…"
+    // — la costruzione standard con cui in italiano si introduce un NUOVO
+    // appuntamento — veniva bloccata dalla stessa regola pensata per i
+    // riferimenti indiretti ("di un appuntamento", "per un appuntamento").
+    // La differenza è cosa precede "un/una/uno": se è l'ausiliare "ho" (o
+    // "abbiamo"), sta introducendo un'azione nuova, non descrivendone una
+    // già in corso — va aperta comunque.
+    if (ARTICOLO_INDET.test(prev)) {
+      // "ho un appuntamento"/"I have an appointment" apre una nuova azione
+      // SOLO se PRIMA c'è già un'azione COMPLETA accumulata (un importo o
+      // un'altra ancora) — non basta che ci sia qualche parola prima: un
+      // prefisso temporale puro ("giovedì ho una riunione") non è un'azione
+      // precedente da cui separarsi, è parte della STESSA riunione. Rete di
+      // sicurezza per i casi che la regola 1 sopra non ha già tagliato
+      // (es. ausiliare non riconosciuto): stessa logica, stesso risultato.
+      const primaAncora = clean(cur[cur.length - 2] || '');
+      const restoAncoraPrima = cur.slice(0, Math.max(0, cur.length - 2));
+      if (!(HO_AUX.test(primaAncora) || HAVE_EN.test(primaAncora)) || !segmentIsComplete(restoAncoraPrima)) return false;
+    } else if (/^(di|del|della|dello|dei|degli|delle|a|per|il|lo|la|con|to)$/i.test(prev)) return false;
     return true;
   }
 
@@ -159,7 +286,7 @@ function tokensUntilNextConnective(tokens, from) {
 
 // Punto d'ingresso: testo libero → array di segmenti (uno per azione).
 export function segmentIntents(text) {
-  const norm = normalizeForSegmentation(text);
+  const norm = normalizeForSegmentation(correctAnchorTypos(text));
   if (!norm) return [];
   const tokens = norm.split(/\s+/);
   const segments = [];

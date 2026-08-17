@@ -193,6 +193,113 @@ for (const [nome, ord] of Object.entries(ordinamenti(ATOMICHE))) {
   });
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// BUG REALE segnalato dall'utente (2026-08-17): "ho speso 20 euro ALLA
+// spesa" si spezzava a metà frase, perdendo la parola "spesa" — SPEND_VERB
+// riconosce "spesa" come il verbo "speso" (stesso participio, generi
+// diversi), e la lista di preposizioni/articoli che dovrebbero escluderlo
+// copriva solo le forme contratte con "di" (della/dello/...), dimenticando
+// quelle con "a/da/su/in" (alla/dalla/nella/sulla/...) — proprio le
+// costruzioni più comuni del parlato ("alla spesa", "dalla spesa"). Stesso
+// omografo esiste per "presa" (participio di "preso") e "ricevuta"
+// (participio di "ricevuto").
+// ══════════════════════════════════════════════════════════════════════════
+
+test('BUG REALE: "alla spesa" non si spezza a metà (spesa = sostantivo, non il verbo speso)', () => {
+  const s = segmentIntents('ho speso 20 euro alla spesa e ho un appuntamento dal dentista giovedì alle 15');
+  assert.equal(s.length, 2);
+  assert.equal(s[0], 'ho speso 20 euro alla spesa');
+  assert.match(s[1], /appuntamento/);
+});
+
+test('BUG REALE: stesso omografo con "dalla"/"nella"/"sulla" (non solo "alla")', () => {
+  assert.equal(segmentIntents('ho speso 30 euro dalla spesa e ho investito 100 euro nel fondo pensione').length, 2);
+  assert.equal(segmentIntents('ho speso 12 euro nella spesa settimanale e ho un appuntamento lunedì alle 11').length, 2);
+  assert.equal(segmentIntents('ho speso 45 euro sulla spesa alimentare e ho un appuntamento mercoledì alle 16').length, 2);
+});
+
+test('BUG REALE: stesso omografo con "presa" e "ricevuta" (non solo "spesa")', () => {
+  assert.equal(segmentIntents('ho pagato 10 euro alla presa elettrica').length, 1);
+  assert.equal(segmentIntents('ho comprato 5 euro alla ricevuta del panettiere').length, 1);
+});
+
+test('SCENARIO: entrata + uscita + investimento + appuntamento + promemoria, tutto in un unico discorso', () => {
+  const s = segmentIntents(
+    "ho guadagnato 500 euro di stipendio ho speso 45 euro sulla spesa alimentare e ho un appuntamento dal dottore mercoledì alle 16 e ricordami di pagare l'affitto venerdì"
+  );
+  assert.equal(s.length, 4);
+  assert.match(s[0], /guadagnato/);
+  assert.match(s[1], /speso/);
+  assert.match(s[2], /appuntamento/);
+  assert.match(s[3], /ricordami/);
+});
+
+test('BUG REALE: "ho un appuntamento" apre una nuova azione anche SENZA connettivo "e" prima (solo virgola/pausa)', () => {
+  // Trascrizione reale testata dal vivo (2026-08-17): fra la spesa e
+  // l'appuntamento non c'era "e" ma una virgola — che normalizeForSegmentation
+  // riduce a semplice spazio, quindi il taglio dipende SOLO dal
+  // riconoscimento dell'ancora "appuntamento", non dal connettivo. "ho un"
+  // restava incollato in coda al segmento SBAGLIATO (la spesa precedente)
+  // invece di aprire il nuovo segmento.
+  const s = segmentIntents('ho comprato una pizza 30 euro del ristorante ho un appuntamento domani alle 15');
+  assert.equal(s.length, 2);
+  assert.equal(s[0], 'ho comprato una pizza 30 euro del ristorante');
+  assert.equal(s[1], 'ho un appuntamento domani alle 15');
+});
+
+test('BUG REALE: "ho un appuntamento" a INIZIO frase resta un solo segmento (nessuna azione precedente da cui separarsi)', () => {
+  assert.equal(segmentIntents('ho un appuntamento con Marco domani alle 10').length, 1);
+  assert.equal(segmentIntents('giovedì ho una riunione di lavoro alle 10').length, 1);
+});
+
+test('ENGLISH: income + expense + investment + appointment + reminder, all in one utterance', () => {
+  const s = segmentIntents(
+    "I earned 500 euros of salary I spent 45 euros on groceries and I have an appointment with the doctor at 16 and remind me to pay the rent friday"
+  );
+  assert.equal(s.length, 4);
+  assert.match(s[0], /earned/);
+  assert.match(s[1], /spent/);
+  assert.match(s[2], /appointment/);
+  assert.match(s[3], /remind/);
+});
+
+test('ENGLISH end-to-end (VoiceParser.parse): the mixed sentence produces the right 4 intents with the right types', () => {
+  const r = VoiceParser.parse(
+    "I earned 500 euros of salary I spent 45 euros on groceries and I have an appointment with the doctor at 16 and remind me to pay the rent friday"
+  );
+  assert.ok(r);
+  const entrata = r.find(x => x.intent === 'transaction' && x.type === 'entrata');
+  const uscita = r.find(x => x.intent === 'transaction' && x.type === 'uscita');
+  const appt = r.find(x => x.intent === 'appointment');
+  const rem = r.find(x => x.intent === 'reminder');
+  assert.ok(entrata && entrata.amount === 500, 'missing/wrong income amount');
+  assert.ok(uscita && uscita.amount === 45, 'missing/wrong expense amount');
+  assert.ok(appt, 'missing appointment');
+  assert.ok(rem, 'missing reminder');
+});
+
+test('ENGLISH BUG REGRESSION: "I have an appointment" opens a new action mid-utterance without a connective too', () => {
+  const s = segmentIntents('I bought a pizza 30 euros from the restaurant I have an appointment tomorrow at 15');
+  assert.equal(s.length, 2);
+  assert.match(s[1], /appointment/);
+});
+
+test('SCENARIO end-to-end (VoiceParser.parse): la frase mista produce i 4 intenti giusti coi tipi giusti', () => {
+  const r = VoiceParser.parse(
+    "ho guadagnato 500 euro di stipendio ho speso 45 euro sulla spesa alimentare e ho un appuntamento dal dottore mercoledì alle 16 e ricordami di pagare l'affitto venerdì"
+  );
+  assert.ok(r);
+  const entrata = r.find(x => x.intent === 'transaction' && x.type === 'entrata');
+  const uscita = r.find(x => x.intent === 'transaction' && x.type === 'uscita');
+  const appt = r.find(x => x.intent === 'appointment');
+  const rem = r.find(x => x.intent === 'reminder');
+  assert.ok(entrata && entrata.amount === 500, 'entrata da 500€ mancante o importo sbagliato');
+  assert.ok(uscita && uscita.amount === 45, 'uscita da 45€ mancante o importo sbagliata');
+  assert.ok(appt, 'appuntamento mancante');
+  assert.equal(appt.hasTime, true, 'l\'orario del dottore (alle 16) deve essere riconosciuto');
+  assert.ok(rem, 'promemoria mancante');
+});
+
 // Combinazioni a COPPIE, in ENTRAMBI gli ordini: ogni tipo accanto a ogni altro,
 // avanti e indietro — nessuna coppia deve fondersi o perdere un pezzo.
 test("ogni COPPIA di tipi, nei due ordini, resta due azioni", () => {
