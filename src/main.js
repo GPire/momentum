@@ -146,6 +146,7 @@ import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { recordUnknownQuestion, learnCorrection, qaLearningCoverage } from './ai/qa-learning.js';
+import { recordVoiceCorrection } from './voice/voice-learning.js';
 import { mergeMorphology, initMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANGS } from './i18n/detect.js';
@@ -1332,7 +1333,18 @@ const attachFormListeners = (container, prefill = null) => {
   formRoot.querySelector('#save-tx-btn').onclick = () => {
     const amt = parseFloat(rawVal);
     if (!amt || !catId) return;
-    
+
+    // AUTO-APPRENDIMENTO DEL PARLATO (src/voice/voice-learning.js): se questa
+    // descrizione arrivava dalla voce (desc.dataset.voiceOriginal, impostato
+    // da voice.js quando popola il modulo) ed è stata modificata prima di
+    // salvare, è una correzione VERA — si registra, mai un'inferenza
+    // silenziosa. Il dataset si consuma subito dopo: non deve sopravvivere
+    // alla prossima transazione aperta nello stesso modulo persistente.
+    if (desc?.dataset.voiceOriginal) {
+      VaultDAO.state.voiceLearning = recordVoiceCorrection(VaultDAO.state.voiceLearning, desc.dataset.voiceOriginal, desc.value || '');
+      delete desc.dataset.voiceOriginal;
+    }
+
     // FRENO al salvataggio, integrato e onesto: solo in modalità "Deciso"
     // (predator) e solo quando il freno è FORTE (warn: la spesa fa chiudere il
     // mese in rosso o è ben oltre il margine di oggi) chiediamo un secondo tocco

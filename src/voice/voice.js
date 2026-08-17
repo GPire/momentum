@@ -7,6 +7,7 @@ import { NeuralNexus } from '../ai/neural-nexus.js';
 import { segmentIntents, FUZZY_AMOUNTS } from './intent-segmenter.js';
 import { predictAmount } from '../predict/amount-memory.js';
 import { detectDeviceLanguage } from '../i18n/detect.js';
+import { suggestVoiceCorrection } from './voice-learning.js';
 
 // Locale pieno che il Web Speech API richiede (BCP-47), a partire dal codice
 // corto già usato ovunque nell'app per il QA testuale — un'unica mappa,
@@ -236,14 +237,28 @@ const VoiceCore = {
           if (typeof window.openSplitExpense === 'function') {
             window.openSplitExpense({ amount: s.amount, description: s.description, people: s.people });
           }
+        } else if (txs.length === 1) {
+          // BUG REALE segnalato dall'utente (2026-08-17): dire UN solo importo/
+          // spesa popolava il modulo e restava lì fermo — l'utente doveva
+          // comunque toccare "Conferma", la stessa sensazione di doverlo
+          // registrare a mano che la voce dovrebbe evitare. Incoerente anche
+          // con questa stessa funzione: se dici DUE transazioni, la seconda si
+          // salva DA SOLA senza chiedere nulla — solo la prima (isolata)
+          // restava in sospeso. Un'unica transazione chiara si salva subito,
+          // esattamente come farebbe la seconda di due.
+          recordDirect(txs[0]);
         } else {
-          // Nessuno split: comportamento storico — la prima transazione va nel
-          // form (per rifinire categoria), le altre si registrano direttamente.
+          // Più transazioni: non si possono mostrare N moduli — la prima va
+          // nel form (per rifinire categoria), le altre si registrano
+          // direttamente, comportamento storico invariato.
           const firstTransaction = txs[0] || null;
           txs.slice(1).forEach(recordDirect);
           if (firstTransaction) {
             const descInput = container.querySelector('#tx-desc');
-            if (descInput) descInput.value = firstTransaction.description;
+            // Salva cosa la voce aveva capito PRIMA che l'utente la corregga:
+            // se al salvataggio il testo è diverso, main.js lo registra come
+            // correzione da imparare (src/voice/voice-learning.js).
+            if (descInput) { descInput.value = firstTransaction.description; descInput.dataset.voiceOriginal = firstTransaction.description; }
             const typeBtn = container.querySelector(`[data-type="${firstTransaction.type}"]`);
             if (typeBtn) typeBtn.click();
             window.updateRawVal(firstTransaction.amount.toString());
@@ -510,6 +525,18 @@ const VoiceParser = {
     if (desc.length > 0) {
       desc = desc.charAt(0).toUpperCase() + desc.slice(1);
     }
+
+    // AUTO-APPRENDIMENTO DEL PARLATO (src/voice/voice-learning.js): se
+    // QUESTO utente ha già corretto ≥2 volte questa stessa parola/frase
+    // mal trascritta (es. il microfono capisce sempre "Magleitte" invece di
+    // "Magliette" per il SUO modo di parlare), la correzione si applica da
+    // sola — mai al primo caso isolato, sempre dopo conferme ripetute.
+    // Applicata PRIMA della categoria: una descrizione corretta guida anche
+    // un indovinare migliore della categoria.
+    try {
+      const corretta = suggestVoiceCorrection(VaultDAO?.state?.voiceLearning, desc);
+      if (corretta) desc = corretta;
+    } catch (_) { /* apprendimento opzionale: mai bloccante */ }
 
     // Bug reale corretto: NeuralNexus è addestrato su TUTTE le categorie senza
     // vincoli, quindi entrate/investimenti a volte finivano classificati con
