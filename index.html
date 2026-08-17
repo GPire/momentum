@@ -607,7 +607,27 @@
         inset 0 -2px 3px rgba(0,0,0,.2);
     }
     .cat-icon-glow svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
-    .cat-chip-label { font-size: 0.65rem; font-weight: 800; color: var(--on-surface-secondary); text-align: center; line-height: 1.2; width: 100%; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* PRIMA: una riga sola, max-width:60px fisso, troncata con "…" appena il
+       nome superava ~9 caratteri — "Ristorazione" diventava "Ristorazio…"
+       SEMPRE, a qualunque larghezza di schermo (non era un problema di
+       responsive, il limite era un numero fisso indipendente dal testo).
+       Segnalato dal vivo (2026-08-17): la stessa criticità — un'etichetta
+       tagliata invece di andare a capo — si ripete ovunque nell'app un chip
+       porta un nome breve ma non brevissimo (categorie qui, ma lo stesso
+       pattern va verificato altrove: pillole di filtro, tag, badge).
+       SOLUZIONE generalizzata: due righe invece di una, clampate con
+       line-clamp (supporto nativo, nessun JS, nessuna libreria) — a questa
+       dimensione di font ci stanno comodamente fino a ~22 caratteri, che
+       copre OGNI nome di categoria attuale (il più lungo è "Ristorazione",
+       12) e la stragrande maggioranza dei nomi che un utente inventerebbe.
+       Solo oltre quella soglia scatta ancora l'ellissi, come ultima rete —
+       mai un taglio silenzioso per un nome normale. */
+    .cat-chip-label {
+      font-size: 0.65rem; font-weight: 800; color: var(--on-surface-secondary);
+      text-align: center; line-height: 1.2; width: 100%; max-width: 74px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; text-overflow: ellipsis; word-break: break-word;
+    }
     .cat-chip.selected { transform: translateY(-4px); border-color: var(--chip-color); background: var(--chip-bg); box-shadow: 0 6px 16px -4px var(--chip-color); }
     .cat-chip.selected .cat-chip-icon { transform: scale(1.1); }
     /* L'icona di una categoria personalizzata e' un'emoji dentro lo stesso

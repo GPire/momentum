@@ -957,10 +957,29 @@ const attachFormListeners = (container, prefill = null) => {
     return prima.charAt(0).toUpperCase() + prima.slice(1);
   };
 
+  // BUG REALE segnalato dal vivo (2026-08-17): "Nuova categoria" si apriva
+  // DENTRO il modulo (scelta voluta: niente modale-sopra-modale, che su
+  // mobile avrebbe fatto sparire l'importo già digitato — vedi il commento
+  // su buildNewCatPanelHTML), ma senza nascondere il resto, restavano
+  // visibili INSIEME la fascia categorie, la nota, "Oggi"/"Dividi" e il
+  // bottone Conferma esterno — DUE inviti a confermare sullo schermo
+  // insieme ("Crea categoria" qui dentro, "Conferma" grigio sotto), lo
+  // schermo sembrava rotto invece che un passo dentro un flusso. "Un focus
+  // per schermata" (principio del progetto): mentre si crea la categoria,
+  // il resto del modulo si nasconde — non sparisce, torna esattamente
+  // com'era alla chiusura del pannello.
+  const elementiDaNascondere = () => [
+    container.querySelector('#cat-scroll')?.closest('.cat-scroll-wrapper'),
+    container.querySelector('.desc-input-wrap'),
+    container.querySelector('.smart-toggles-row'),
+    formRoot.querySelector('#save-tx-btn'),
+  ].filter(Boolean);
+
   const openNewCatPanel = (nomeSuggerito = '') => {
     const panel = container.querySelector('#new-cat-panel');
     if (!panel) return;
     container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
+    elementiDaNascondere().forEach((el) => el.classList.add('hidden'));
     const nomeInput = container.querySelector('#new-cat-nome');
     // Non si sovrascrive mai qualcosa che l'utente ha gia' scritto di suo —
     // il suggerimento vale solo la prima volta che il pannello si apre vuoto.
@@ -981,6 +1000,7 @@ const attachFormListeners = (container, prefill = null) => {
   };
   const closeNewCatPanel = () => {
     container.querySelector('#new-cat-panel')?.classList.add('hidden');
+    elementiDaNascondere().forEach((el) => el.classList.remove('hidden'));
   };
 
   container.querySelector('#new-cat-cancel')?.addEventListener('click', () => { haptic('light'); closeNewCatPanel(); });
