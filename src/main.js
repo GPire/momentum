@@ -11025,9 +11025,9 @@ const initApp = () => {
       const cat = getCatById(id);
       const pct = Math.max(6, Math.round((v / max) * 100));
       return `<div class="flex items-center gap-2">
-        <span class="w-16 truncate text-[var(--on-surface-secondary)]">${cat.name}</span>
+        <span class="max-w-[7.5rem] shrink-0 truncate text-[var(--on-surface-secondary)]" title="${escapeHtml(cat.name)}">${escapeHtml(cat.name)}</span>
         <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full qa-cloud-block" style="width:${pct}%;background:${cat.color}"></div></div>
-        <span class="w-16 text-right font-mono" style="color:${cat.color}">${formatMoney(v)}</span>
+        <span class="w-16 shrink-0 text-right font-mono" style="color:${cat.color}">${formatMoney(v)}</span>
       </div>`;
     }).join('');
     return `<div class="space-y-1.5 mt-2">${rows}</div>`;
@@ -11129,9 +11129,9 @@ const initApp = () => {
       const pct = Math.max(6, Math.round((Math.abs(e.expectedPct) / maxAbs) * 100));
       const color = up ? '#fb7185' : '#34d399';
       return `<div class="flex items-center gap-2">
-        <span class="w-16 truncate text-[var(--on-surface-secondary)]">${cat.name}</span>
+        <span class="max-w-[7.5rem] shrink-0 truncate text-[var(--on-surface-secondary)]" title="${escapeHtml(cat.name)}">${escapeHtml(cat.name)}</span>
         <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div></div>
-        <span class="w-14 text-right font-mono" style="color:${color}">${up ? '+' : ''}${e.expectedPct}%</span>
+        <span class="w-14 shrink-0 text-right font-mono" style="color:${color}">${up ? '+' : ''}${e.expectedPct}%</span>
       </div>`;
     }).join('');
     return `<div class="space-y-1.5 mt-2">${rows}</div>`;
