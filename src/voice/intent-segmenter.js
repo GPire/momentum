@@ -150,6 +150,16 @@ const ARTICOLO_INDET = /^(un|uno|una|a|an)$/i;
 // Sostantivi/verbi che introducono un APPUNTAMENTO o un PROMEMORIA.
 const APPT_NOUN = /^(appuntament[oi]|appointment|riunion[ei]|meeting|call|chiamat[ae]|visit[ae]|colloqui[oi]|conferenz[ae]|incontr[oi]|prenotazion[ei]|prenot[ao]|prenotare|cena|pranzo)$/i;
 const REMIND = /^(ricordami|ricorda|promemoria|svegli[ae]|scadenz[ae]|remind|reminder|schedule|calendario|calendar|evento|eventi)$/i;
+// "ricordami DI chiamare... E DI pagare...": il secondo "ricordami" è
+// sottinteso — in italiano non si ripete l'ancora per ogni voce di un
+// elenco di cose da fare, ma il connettivo "e di [VERBO]" segnala
+// comunque un'azione NUOVA (bug reale trovato testando dal vivo,
+// 2026-08-17: due promemoria distinti restavano fusi in uno solo, con la
+// data del primo applicata anche al secondo). Lista curata deliberatamente
+// piccola (verbi comuni nei promemoria) invece di un riconoscitore
+// generico di infiniti italiani — troppe parole finiscono per "-are/-ere/
+// -ire" senza essere verbi ("mare", "sale") per rischiare un pattern largo.
+const REMIND_VERB_INFINITIVE = /^(pagare|chiamare|comprare|prenotare|mandare|scrivere|portare|ritirare|rinnovare|disdire|cancellare|confermare|controllare|contattare|rispondere|inviare|prendere|passare|fare)$/i;
 // Verbi di DIVISIONE (split).
 const SPLIT_VERB = /^(dividi\w*|dividere|spartisci|spartire|split)$/i;
 // Prefissi temporali che appartengono all'azione SEGUENTE (una data per un appt).
@@ -334,8 +344,22 @@ export function segmentIntents(text) {
     // e "riunione alle 10 e caffè 3" si tagliano, ma "pane e latte 5€",
     // "appuntamento con Marco e Luca", "mille duecento" NO.
     if (CONNECTIVE.test(w)) {
-      if (cur.length && segmentIsComplete(cur) && segmentIsComplete(tokensUntilNextConnective(tokens, i + 1))) {
+      const restoDopo = tokensUntilNextConnective(tokens, i + 1);
+      // "ricordami di chiamare X e DI pagare Y": il secondo "ricordami" è
+      // sottinteso, ma "e di [verbo noto]" da solo basta a separare —
+      // anche se la seconda metà non avrebbe la sua ANCORA esplicita e
+      // quindi non passerebbe segmentIsComplete (nessun REMIND/APPT_NOUN
+      // nella frase "pagare la bolletta entro venerdì").
+      const curHaGiaUnPromemoria = cur.some((t) => REMIND.test(clean(t)) || APPT_NOUN.test(clean(t)));
+      const restoEContinuazioneImplicita = curHaGiaUnPromemoria &&
+        clean(restoDopo[0]) === 'di' && REMIND_VERB_INFINITIVE.test(clean(restoDopo[1] || ''));
+      if (cur.length && (restoEContinuazioneImplicita || (segmentIsComplete(cur) && segmentIsComplete(restoDopo)))) {
         flush();
+        // Ricostruisce l'ancora sottintesa: senza "ricordami" davanti, il
+        // nuovo segmento ("di pagare la bolletta...") non avrebbe nessuna
+        // parola che _parseClause riconosce come promemoria e sparirebbe
+        // invece di diventare un secondo promemoria — peggio che fonderlo.
+        if (restoEContinuazioneImplicita) cur.push('ricordami');
         continue; // il connettivo è il confine: si scarta
       }
       if (!cur.length) continue; // connettivo in testa a un nuovo segmento: scarta

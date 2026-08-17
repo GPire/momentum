@@ -229,6 +229,28 @@ test('descrizione dello split pulita dai connettivi: "dividi 30 di pizza con Ann
   assert.deepEqual(r[0].people, ['Io', 'Anna']);
 });
 
+// ── DUE PROMEMORIA DISTINTI IN UNA FRASE (2026-08-17) — bug reale trovato
+// testando dal vivo con frasi discorsive: "ricordami di chiamare X e di
+// pagare Y" restava fuso in un solo promemoria (descrizione mescolata, data
+// solo del primo) — il secondo "ricordami" è sottinteso nel parlato ma il
+// connettivo "e di [verbo]" deve comunque separare le due azioni ──
+
+test('BUG REALE: "ricordami di chiamare X e di pagare Y" → DUE promemoria distinti, non uno fuso', () => {
+  const r = VoiceParser.parse("ricordami di chiamare mia madre domani e di pagare la bolletta entro venerdì");
+  const rem = r.filter(x => x.intent === 'reminder');
+  assert.equal(rem.length, 2, 'devono restare due promemoria separati');
+  assert.match(rem[0].description.toLowerCase(), /madre/);
+  assert.match(rem[1].description.toLowerCase(), /bolletta/);
+  assert.notEqual(rem[0].date, rem[1].date, 'ogni promemoria deve avere la SUA data, non quella del primo copiata sul secondo');
+});
+
+test('un solo verbo dopo "e" che NON è nella lista nota non forza uno split a vuoto (mai un falso positivo)', () => {
+  const r = VoiceParser.parse('ricordami di comprare il regalo e di essere puntuale');
+  // "essere" non è nella lista dei verbi noti: nessuna separazione forzata,
+  // resta un solo promemoria coerente con la frase originale.
+  assert.equal(r.filter(x => x.intent === 'reminder').length, 1);
+});
+
 // ── FUSIONE "cosa ho comprato" + "quanto ho speso" (2026-08-17) ──
 // Segnalato dall'utente con una trascrizione vocale reale: "ho comprato
 // magliette e ho speso 1039,49 euro" veniva registrato come DUE transazioni
