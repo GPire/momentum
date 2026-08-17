@@ -44,6 +44,7 @@ import { refertoCausale } from './alpha/macro-causality.js';
 import { stressIndex, stressText } from './alpha/market-stress.js';
 import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento.js';
 import { tailRiskPortafoglio, tailRiskText } from './alpha/portfolio-tail-risk.js';
+import { trackRecordPortafoglio } from './alpha/portfolio-track-record.js';
 import { diagnosiIstituzionale, diagnosiTextSemplice } from './alpha/diagnosi-istituzionale.js';
 import { divarioComportamento, tempismoDeiVersamenti, divarioText, fonteDivario } from './alpha/divario-comportamento.js';
 import { statoMercato } from './alpha/mercato-vivo.js';
@@ -7846,6 +7847,36 @@ function renderNetWorth() {
         }).join('')}</div>
         <p class="text-[10px] text-[var(--on-surface-secondary)]">${r.settoriEquivalenti} settori equivalenti su 9 · misurato sul ${Math.round(r.mappa.copertura * 100)}% del portafoglio${r.mappa.nonCoperti.length ? ` (fuori: ${escapeHtml(r.mappa.nonCoperti.map(n => n.ticker).join(', '))})` : ''}</p>
         <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-1">Expected Shortfall 97,5% (standard Basilea III) su 331 mesi reali che contengono dot-com, 2008, COVID e 2022. È una misura di cosa c'è, non un consiglio su cosa fare.</p>`;
+    }
+  }
+  // BRAVURA O FORTUNA? (src/alpha/portfolio-track-record.js): stesso vaglio
+  // scientifico di asset-track-record.js (Sharpe deflazionato) applicato
+  // all'allocazione REALE dell'utente sui 331 mesi veri, non a un singolo
+  // titolo cercato — la domanda che Bloomberg e Yahoo Finance non fanno mai.
+  const trackEl = $('#portfolio-track-record-panel');
+  if (trackEl) {
+    const chiaveT = (positions || []).map(p => `${p.ticker}:${p.quantity}`).sort().join('|');
+    if (window.__trackRecordCache?.chiave !== chiaveT) {
+      try {
+        const r = trackRecordPortafoglio(positions || [], {
+          priceByTicker: window.__livePrices || {},
+          sectorByTicker: VaultDAO.state.sectorByTicker || {},
+        });
+        window.__trackRecordCache = { chiave: chiaveT, r };
+      } catch (e) { console.warn('portfolio track record:', e); window.__trackRecordCache = { chiave: chiaveT, r: null }; }
+    }
+    const r = window.__trackRecordCache?.r;
+    if (!positions.length) {
+      trackEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Aggiungi le tue posizioni per sapere se la tua allocazione regge al controllo statistico o è stata fortunata.</p>`;
+    } else if (!r?.valutabile) {
+      trackEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || 'Non misurabile con i dati disponibili.')}</p>`;
+    } else {
+      const tono = r.verdetto === 'solido' ? 'text-emerald-300' : r.verdetto === 'probabile-fortuna' ? 'text-amber-300' : 'text-[var(--on-surface-secondary)]';
+      const conc = r.concentrazione ? `<p class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5">${escapeHtml(r.concentrazione.messaggio)}</p>` : '';
+      trackEl.innerHTML = `
+        <p class="text-sm font-bold ${tono} mb-1">${escapeHtml(r.messaggio)}</p>
+        ${conc}
+        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-2">Sharpe deflazionato su ${r.periodi} mesi reali (Bailey &amp; López de Prado) · misurato sul ${Math.round(r.mappa.copertura * 100)}% del portafoglio. Non è un consiglio su cosa fare: dice solo se il risultato misurato è distinguibile dal caso.</p>`;
     }
   }
   // IL DIVARIO DI COMPORTAMENTO (src/alpha/divario-comportamento.js).
