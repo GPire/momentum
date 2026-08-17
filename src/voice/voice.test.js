@@ -179,6 +179,47 @@ test('descrizione dello split pulita dai connettivi: "dividi 30 di pizza con Ann
   assert.deepEqual(r[0].people, ['Io', 'Anna']);
 });
 
+// ── FUSIONE "cosa ho comprato" + "quanto ho speso" (2026-08-17) ──
+// Segnalato dall'utente con una trascrizione vocale reale: "ho comprato
+// magliette e ho speso 1039,49 euro" veniva registrato come DUE transazioni
+// (una senza importo, una senza descrizione) invece di una sola. Il
+// segmentatore ha ragione a tenerle separate (due ancore verbali distinte),
+// ma _resolveAmountlessPurchase le fonde quando il secondo pezzo non porta
+// NESSUNA descrizione propria — segnale già calcolato da _parseClause
+// (descGeneric), non un'euristica nuova sul testo grezzo.
+test('BUG REALE: "ho comprato X e ho speso Y euro" → UNA transazione, non due', () => {
+  const r = VoiceParser.parse('ho comprato magliette e ho speso 1039.49 euro');
+  assert.equal(r.length, 1, 'le due clausole devono fondersi in una sola transazione');
+  assert.equal(r[0].intent, 'transaction');
+  assert.equal(r[0].amount, 1039.49);
+  assert.equal(r[0].description.toLowerCase(), 'magliette');
+  assert.ok(!r[0].amountMissing);
+});
+
+test('la "e" residua a fine descrizione sparisce dopo la fusione ("Magliette e" → "Magliette")', () => {
+  const r = VoiceParser.parse('ho comprato magliette e ho speso 50 euro');
+  assert.equal(r[0].description, 'Magliette');
+});
+
+test('due spese REALMENTE separate (entrambe con descrizione propria) NON si fondono', () => {
+  const r = VoiceParser.parse('ho comprato il pane e ho speso 20 euro alla spesa settimanale');
+  assert.equal(r.length, 2, 'due descrizioni vere restano due transazioni distinte');
+});
+
+test('la fusione avviene SOLO fra transazioni dello STESSO tipo (una spesa non eredita un importo detto per un investimento)', () => {
+  const r = VoiceParser.parse('ho comprato magliette e ho investito 500 euro in etf');
+  assert.equal(r.length, 2, 'tipi diversi restano due azioni separate, mai un dato inventato');
+  const uscita = r.find(x => x.type === 'uscita');
+  assert.ok(uscita && uscita.amountMissing, 'la spesa senza importo resta segnalata, non finta');
+});
+
+test('ENGLISH: "I bought t-shirts and I spent 1039.49 euros" → one transaction too', () => {
+  const r = VoiceParser.parse('I bought t shirts and I spent 1039.49 euros');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].amount, 1039.49);
+  assert.ok(!r[0].amountMissing);
+});
+
 // ── RECUPERO PREDITTIVO DELL'IMPORTO — anti-attrito onesto ──
 // Una spesa con un VERBO ma senza cifra prima veniva persa in silenzio. Ora è
 // marcata amountMissing (il chiamante la stima dalla storia o la segnala).

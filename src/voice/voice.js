@@ -301,7 +301,39 @@ const VoiceParser = {
     const clauses = segmentIntents(text);
     let results = clauses.map(c => this._parseClause(c)).filter(Boolean);
     results = this._resolveSplitAnaphora(results);
+    results = this._resolveAmountlessPurchase(results);
     return results.length ? results : null;
+  },
+
+  // "ho comprato magliette e ho speso 1039,49 euro": due clausole con la
+  // stessa ancora verbale (compra + spendi) restano DUE segmenti distinti
+  // per il segmentatore — corretto nella maggioranza dei casi reali ("ho
+  // comprato il pane, ho speso 5 euro, ho comprato il latte, ho speso 3
+  // euro" SONO due spese separate). Ma quando la seconda non porta NESSUNA
+  // descrizione propria (il chiamante l'ha già segnalato con descGeneric —
+  // stesso segnale già calcolato da _parseClause, nessuna euristica nuova
+  // indovinata sul testo grezzo), è quasi sempre la stessa frase spezzata
+  // in due: "cosa ho comprato" + "quanto ho speso", non due acquisti.
+  // Stesso schema di _resolveSplitAnaphora (eredita ed elimina), applicato
+  // qui a coppie transazione-senza-importo / importo-senza-descrizione,
+  // e SOLO fra lo stesso tipo (una spesa non eredita un importo detto per
+  // un investimento appena dopo — sarebbe un dato inventato, non ereditato).
+  _resolveAmountlessPurchase(results) {
+    const out = [];
+    for (const r of results) {
+      const prev = out[out.length - 1];
+      if (
+        prev && prev.intent === 'transaction' && prev.amountMissing &&
+        r.intent === 'transaction' && r.type === prev.type && r.descGeneric && !r.amountMissing
+      ) {
+        prev.amount = r.amount;
+        prev.amountEstimated = false;
+        delete prev.amountMissing;
+        continue; // il segmento-importo viene assorbito, non registrato a parte
+      }
+      out.push(r);
+    }
+    return out;
   },
 
   // Anafora dello split: "ho speso 40 di cena E DIVIDILA con Marco" — la clausola
@@ -469,6 +501,12 @@ const VoiceParser = {
     });
 
     desc = desc.replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '').replace(/\s+/g, ' ').trim();
+    // Un connettivo isolato a fine descrizione ("Magliette e") è sempre un
+    // residuo del taglio fra due clausole (es. "ho comprato magliette e ho
+    // speso…", assorbito da _resolveAmountlessPurchase sopra), mai una
+    // parola voluta — a differenza di un "e" in MEZZO alla descrizione
+    // ("pane e latte"), che resta intatto perché fa parte del significato.
+    desc = desc.replace(/\s+(e|and)$/i, '').trim();
     if (desc.length > 0) {
       desc = desc.charAt(0).toUpperCase() + desc.slice(1);
     }
@@ -500,6 +538,9 @@ const VoiceParser = {
       category: catId,
       description: descIsMeaningful ? desc : (type === 'entrata' ? "Entrata Vocale" : type === 'invest' ? "Investimento Vocale" : "Spesa Vocale"),
       ...(amountMissing ? { amountMissing: true } : {}),
+      // Serve a _resolveAmountlessPurchase sotto: distingue "non aveva
+      // niente da dire" da "una descrizione vera che è solo corta".
+      descGeneric: !descIsMeaningful,
     };
   },
 
