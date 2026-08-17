@@ -382,11 +382,26 @@ const VoiceParser = {
   // Estrae un orario esplicito ("alle 15", "alle 7", "at 3pm") PRIMA di
   // cercare importi, così "alle 15" non viene mai letto come 15 euro
   // (bug reale corretto: prima veniva confuso con un importo).
+  //
+  // BUG REALE trovato testando dal vivo con frasi discorsive (2026-08-17):
+  // "alle 11 e mezza"/"alle 9 e un quarto" — il modo più comune di dire un
+  // orario non in punto — non veniva riconosciuto affatto: "e mezza"
+  // restava come rumore nella descrizione E l'orario restava sbagliato
+  // (le mezz'ore/quarti d'ora si perdevano in silenzio).
+  _MINUTI_PARLATI: { 'mezza': 30, 'mezzo': 30, 'un quarto': 15, 'tre quarti': 45, 'quindici': 15, 'trenta': 30, 'quarantacinque': 45 },
   _extractTime(text) {
-    const m = text.match(/\balle?\s+(\d{1,2})(?:[:.](\d{2}))?\b/i) || text.match(/\bat\s+(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?\b/i);
+    const suffisso = '(?:\\s+e\\s+(mezza|mezzo|un quarto|tre quarti|quindici|trenta|quarantacinque))?';
+    const m = text.match(new RegExp('\\balle?\\s+(\\d{1,2})(?:[:.](\\d{2}))?' + suffisso, 'i'))
+      || text.match(/\bat\s+(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?\b/i);
     if (!m) return null;
     let hour = parseInt(m[1], 10);
-    const minute = m[2] ? parseInt(m[2], 10) : 0;
+    let minute = m[2] ? parseInt(m[2], 10) : 0;
+    // m[3] significa cose diverse a seconda di QUALE dei due pattern ha
+    // fatto match (sono alternative dello stesso `||`, mai entrambe
+    // insieme): "pm"/"am" nel ramo inglese, "mezza"/"un quarto"/... nel
+    // ramo italiano — mai confondibili fra loro, i valori non si sovrappongono.
+    const parolaItaliana = m[3] ? this._MINUTI_PARLATI[m[3].toLowerCase()] : undefined;
+    if (parolaItaliana !== undefined) minute = parolaItaliana;
     if (m[3] === 'pm' && hour < 12) hour += 12;
     if (hour < 0 || hour > 23) return null;
     return { hour, minute, matchedText: m[0] };

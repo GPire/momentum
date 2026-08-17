@@ -98,12 +98,41 @@ export function correctAnchorTypos(text) {
   }).join('');
 }
 
+// BUG REALE trovato testando dal vivo con frasi discorsive (2026-08-17):
+// "undici".."diciannove" (11-19) mancavano DEL TUTTO, e i composti
+// "ventitré"/"trentacinque"/... (21-99) non c'erano — in italiano sono
+// UNA sola parola (a differenza dell'inglese "twenty three", due token che
+// il motore già somma correttamente), quindi senza queste voci esplicite
+// nel dizionario "ho speso ventitré euro" perdeva l'importo in silenzio.
+// Generati con l'elisione vocalica reale dell'italiano (venti+uno→ventuno,
+// non ventiuno) invece di essere scritti a mano uno per uno — un refuso di
+// battitura in una lista di 70 voci sarebbe stato facile da non notare.
+function generaComposti() {
+  const decine = { venti: 20, trenta: 30, quaranta: 40, cinquanta: 50, sessanta: 60, settanta: 70, ottanta: 80, novanta: 90 };
+  const unita = { 1: 'uno', 2: 'due', 3: 'tre', 4: 'quattro', 5: 'cinque', 6: 'sei', 7: 'sette', 8: 'otto', 9: 'nove' };
+  const out = {};
+  for (const [parola, valore] of Object.entries(decine)) {
+    for (let u = 1; u <= 9; u++) {
+      // Elisione: la vocale finale della decina cade se l'unità inizia per
+      // vocale ("uno", "otto") — "ventuno"/"ventotto", non "ventiuno".
+      const radice = (u === 1 || u === 8) ? parola.slice(0, -1) : parola;
+      let composta = radice + unita[u];
+      out[composta] = valore + u;
+      if (u === 3) out[composta.slice(0, -1) + 'é'] = valore + u; // "tre" finale accentato: "ventitré"
+    }
+  }
+  return out;
+}
+
 export const FUZZY_AMOUNTS = {
   'uno': 1, 'due': 2, 'tre': 3, 'quattro': 4, 'cinque': 5, 'sei': 6, 'sette': 7, 'otto': 8, 'nove': 9, 'dieci': 10,
+  'undici': 11, 'dodici': 12, 'tredici': 13, 'quattordici': 14, 'quindici': 15, 'sedici': 16, 'diciassette': 17, 'diciotto': 18, 'diciannove': 19,
   'venti': 20, 'trenta': 30, 'quaranta': 40, 'cinquanta': 50, 'sessanta': 60, 'settanta': 70, 'ottanta': 80, 'novanta': 90,
+  ...generaComposti(),
   'cento': 100, 'duecento': 200, 'trecento': 300, 'quattrocento': 400, 'cinquecento': 500, 'seicento': 600, 'settecento': 700, 'ottocento': 800, 'novecento': 900,
   'mille': 1000, 'mila': 1000, 'duemila': 2000, 'tremila': 3000, 'cinquemila': 5000, 'diecimila': 10000,
   'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+  'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19,
   'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90, 'hundred': 100, 'thousand': 1000
 };
 

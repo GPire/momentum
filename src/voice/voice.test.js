@@ -137,6 +137,56 @@ test('due importi propri splittano, un solo importo condiviso NO', () => {
   assert.equal(VoiceParser.parse('pane e latte 5 euro').filter(x=>x.intent==='transaction').length, 1);
 });
 
+// ── NUMERI COMPOSTI PARLATI (11-99): bug reale trovato testando dal vivo
+// con frasi discorsive (2026-08-17) — "undici".."diciannove" mancavano DEL
+// TUTTO, e i composti 21-99 ("ventitré", "trentacinque"...) non erano nel
+// dizionario perché in italiano sono UNA sola parola (non due token come
+// in inglese "twenty three", già sommati correttamente prima) ──
+
+test('numeri fra 11 e 19 (mancavano tutti): "ho speso quindici euro"', () => {
+  const r = VoiceParser.parse('ho speso quindici euro di parcheggio');
+  assert.equal(r[0].amount, 15);
+});
+
+test('BUG REALE: numero composto 21-99 in una sola parola: "ho speso ventitré euro"', () => {
+  const r = VoiceParser.parse('ho speso ventitré euro di benzina');
+  assert.equal(r[0].amount, 23);
+});
+
+test('composti senza accento (trascrizione vocale spesso non lo mette): "ventitre" vale come "ventitré"', () => {
+  assert.equal(VoiceParser.parse('ho speso ventitre euro di benzina')[0].amount, 23);
+});
+
+test('elisione corretta: "ventuno"/"ventotto" (non "ventiuno"/"ventiotto")', () => {
+  assert.equal(VoiceParser.parse('ho speso ventuno euro di libri')[0].amount, 21);
+  assert.equal(VoiceParser.parse('ho speso ottantotto euro di scarpe')[0].amount, 88);
+});
+
+test('composti nelle decine alte: "novantanove", "sessantacinque"', () => {
+  assert.equal(VoiceParser.parse('ho speso novantanove euro di abbonamento')[0].amount, 99);
+  assert.equal(VoiceParser.parse('ho speso sessantacinque euro di scarpe')[0].amount, 65);
+});
+
+// ── ORARI DETTI CON MEZZE ORE/QUARTI: bug reale trovato testando dal vivo
+// (2026-08-17) — "alle 11 e mezza" (il modo più comune di dire un orario
+// non in punto) non veniva riconosciuto affatto: "e mezza" restava come
+// rumore nella descrizione E l'orario restava sbagliato (sempre in punto) ──
+
+test('BUG REALE: "alle 11 e mezza" → orario 11:30, non lasciato come rumore nella descrizione', () => {
+  const r = VoiceParser.parse('ho un appuntamento dal dentista alle 11 e mezza');
+  const appt = r.find(x => x.intent === 'appointment');
+  assert.ok(appt);
+  assert.equal(appt.hasTime, true);
+  assert.equal(new Date(appt.date).getMinutes(), 30);
+  assert.doesNotMatch(appt.description.toLowerCase(), /mezza/);
+});
+
+test('"alle 9 e un quarto" → orario 9:15', () => {
+  const r = VoiceParser.parse('ho un appuntamento dal dottore alle 9 e un quarto');
+  const appt = r.find(x => x.intent === 'appointment');
+  assert.equal(new Date(appt.date).getMinutes(), 15);
+});
+
 // ── INTENTO DIVISIONE (split) via voce — feature multi-intento proprietaria ──
 // Prima la clausola "dividi con Marco" (senza importo) veniva scartata da
 // _parseClause (path transazione: niente importo → null): l'azione di divisione
