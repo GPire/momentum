@@ -2213,40 +2213,183 @@
        gli anelli che si propagano restano l'indicatore più chiaro che
        esista), e due lampi brevi sul bottone stesso — verde capito, ambra
        non capito — dove l'occhio sta già, invece che in un angolo. */
+    /* ── UN PICCOLO BUCO NERO, non una sfera colorata ──────────────────────
+       Richiesta esplicita: deve richiamare l'orb, le stelle, un buco nero,
+       stelle cadenti, lo spazio — non un bottone rosso con un gradiente
+       timido. Qui: centro quasi vuoto (l'orizzonte degli eventi, dove la
+       luce non esce), un anello sottile e luminoso che gira attorno
+       (disco di accrescimento — stessa idea della rotazione continua
+       dell'orb, orb.rotation.y+=0.002 a ogni frame in initWebGLOrb, qui
+       in CSS), e due punti che orbitano come stelle cadenti. */
     #voice-rec-btn {
-      background: linear-gradient(155deg, color-mix(in srgb, var(--red) 14%, var(--surface-elevated)), var(--surface-elevated));
-      box-shadow: 0 1px 0 0 rgba(255,255,255,.04) inset, 0 6px 14px -8px rgba(244,63,94,.35), 0 1px 3px rgba(0,0,0,.3);
+      position: relative;
+      background:
+        radial-gradient(circle at 38% 32%, rgba(255,255,255,.10), transparent 30%),
+        radial-gradient(circle at 50% 50%, #000 0%, #050103 55%, #0d0106 100%);
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,.6) inset,
+        0 0 0 2px color-mix(in srgb, var(--red) 25%, transparent),
+        0 8px 22px -8px rgba(244,63,94,.5), 0 1px 3px rgba(0,0,0,.5);
       animation: mic-breathe 3.6s ease-in-out infinite;
-      transition: background .25s, box-shadow .25s, border-color .25s, transform .12s;
+      transition: box-shadow .3s, border-color .3s, transform .12s;
     }
     #voice-rec-btn:active { transform: scale(0.92); }
+    /* Il disco di accrescimento: un anello che gira, con lo stesso terzetto
+       di colori dell'orb (rosso/oro/blu — vedi cRed/cGold/cBlue nello
+       shader), non un solo rosso piatto. Solo a riposo: sparisce da solo
+       quando scatta .mic-listening, dove sono gli anelli che si propagano
+       (sotto) a raccontare "sto ascoltando" — due movimenti insieme
+       sarebbero rumore, non chiarezza. */
+    #voice-rec-btn:not(.mic-listening)::before {
+      content: ''; position: absolute; inset: -5px; border-radius: 50%; pointer-events: none;
+      background: conic-gradient(from 0deg,
+        color-mix(in srgb, var(--red) 75%, transparent) 0deg,
+        color-mix(in srgb, var(--gold) 65%, transparent) 90deg,
+        transparent 150deg, transparent 210deg,
+        color-mix(in srgb, #3b82f6 65%, transparent) 270deg,
+        color-mix(in srgb, var(--red) 75%, transparent) 360deg);
+      filter: blur(2px); opacity: .85;
+      -webkit-mask: radial-gradient(circle, transparent 68%, #000 72%, #000 88%, transparent 92%);
+      mask: radial-gradient(circle, transparent 68%, #000 72%, #000 88%, transparent 92%);
+      animation: mic-ring-spin 6s linear infinite;
+    }
+    @keyframes mic-ring-spin { to { transform: rotate(360deg); } }
+    /* SEMPRE attivo (non solo su touch — un tester desktop deve vederlo
+       subito, senza dover emulare un telefono): dimensione più grande, due
+       stelle cadenti che orbitano con una scia — stessa grammatica della
+       hero (stelle, orbite attorno al telefono in #genesis-container, la
+       scia dello sciame all'apertura) invece di un'icona isolata. La
+       differenza mobile/desktop resta solo funzionale (il tastierino
+       disegnato sparisce su touch, qui sotto), non più visiva sul microfono
+       stesso. */
+    #voice-rec-btn { width: 4.25rem; height: 4.25rem; }
+    #voice-rec-btn svg { width: 1.7rem; height: 1.7rem; }
+    .mic-orbit-dot {
+      content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px;
+      border-radius: 50%; pointer-events: none; opacity: .95; background: #fff;
+      /* La scia della stella cadente: più ombre, sempre più deboli e più
+         lunghe nella stessa direzione, invece di un punto isolato. */
+      box-shadow:
+        0 0 4px 1px #fff,
+        -6px 2px 5px -1px color-mix(in srgb, var(--gold) 70%, transparent),
+        -12px 4px 7px -2px color-mix(in srgb, var(--gold) 35%, transparent);
+      animation: mic-orbit 6.5s linear infinite;
+    }
+    .mic-orbit-dot-2 {
+      width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px;
+      box-shadow:
+        0 0 3px 1px #fff,
+        -5px -2px 4px -1px color-mix(in srgb, #38bdf8 70%, transparent),
+        -10px -4px 6px -2px color-mix(in srgb, #38bdf8 35%, transparent);
+      animation-duration: 4.8s; animation-direction: reverse; animation-delay: -1.5s;
+    }
+    /* NIENTE contro-rotazione qui di proposito: la scia (box-shadow, sopra)
+       ha un verso fisso nello spazio LOCALE del punto — lasciandolo
+       ruotare insieme al giro attorno al bottone, la coda segue sempre la
+       direzione del movimento invece di restare fissa sullo schermo. */
+    @keyframes mic-orbit {
+      from { transform: rotate(0deg) translateX(34px); }
+      to   { transform: rotate(360deg) translateX(34px); }
+    }
+    @media (hover: none), (pointer: coarse) {
+      /* Su touch il tastierino disegnato è sparito (tastiera nativa al suo
+         posto): qui, e SOLO qui, il microfono è l'unico modo di dettare —
+         ancora un po' più grande, coerente con l'essere l'elemento
+         principale della schermata invece che una scorciatoia fra tante. */
+      #voice-rec-btn { width: 5.5rem; height: 5.5rem; }
+      #voice-rec-btn svg { width: 2.2rem; height: 2.2rem; }
+      @keyframes mic-orbit { from { transform: rotate(0deg) translateX(42px); } to { transform: rotate(360deg) translateX(42px); } }
+    }
+    /* Il suggerimento sotto al microfono: stessa famiglia dei testi dorati
+       già usati per traguardi/obiettivi nell'app (var(--gold), mai grigio
+       piatto), la stellina invece delle virgolette svolazza piano — non un
+       lampeggio, un respiro, coerente col resto delle micro-animazioni. */
+    .voice-hint-text {
+      color: color-mix(in srgb, var(--gold) 75%, var(--on-surface-secondary));
+      transition: opacity .25s ease;
+      font-style: italic;
+    }
+    .voice-hint-text svg { animation: voice-hint-star-twinkle 2.6s ease-in-out infinite; color: var(--gold); }
+    @keyframes voice-hint-star-twinkle {
+      0%, 100% { opacity: .55; transform: scale(1) rotate(0deg); }
+      50% { opacity: 1; transform: scale(1.15) rotate(8deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .voice-hint-text svg { animation: none; opacity: .8; }
+      .mic-orbit-dot { animation: none !important; opacity: .5; }
+    }
+    /* Niente transform qui di proposito: il tocco (:active, sotto) deve
+       poter rispondere all'istante, e un'animazione che tocca transform ogni
+       frame vincerebbe sempre sulla scala di pressione, rendendola inerte —
+       trovato provando dal vivo. Solo il bagliore respira. */
     @keyframes mic-breathe {
-      0%, 100% { box-shadow: 0 1px 0 0 rgba(255,255,255,.04) inset, 0 6px 14px -8px rgba(244,63,94,.35), 0 1px 3px rgba(0,0,0,.3); }
-      50% { box-shadow: 0 1px 0 0 rgba(255,255,255,.06) inset, 0 8px 20px -8px rgba(244,63,94,.55), 0 1px 3px rgba(0,0,0,.3); }
+      0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 30%, transparent) inset, 0 1px 0 0 rgba(255,255,255,.08) inset, 0 6px 16px -8px rgba(244,63,94,.4), 0 1px 3px rgba(0,0,0,.3); }
+      50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent) inset, 0 1px 0 0 rgba(255,255,255,.12) inset, 0 10px 24px -8px rgba(244,63,94,.6), 0 1px 3px rgba(0,0,0,.3); }
     }
+    /* ── STATO ATTIVO: lo stesso buco nero, ma il disco di accrescimento
+       adesso brucia — non più un cerchio rosso piatto (design vecchio, mai
+       toccato finora). Il centro resta scuro (l'orizzonte degli eventi non
+       si illumina mai, nemmeno in ascolto — è l'idea stessa del buco nero),
+       l'anello diventa denso e veloce, e gli anelli che si propagano
+       (::before/::after sotto) restano l'indicatore più chiaro di tutti:
+       "sto ascoltando", raccontato dal movimento, non da un colore piatto. */
     @keyframes mic-glow {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244,63,94,0.4); }
-      50% { transform: scale(1.08); box-shadow: 0 0 15px 4px rgba(244,63,94,0.7); }
+      0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 70%, transparent), 0 0 20px 2px rgba(244,63,94,.55); }
+      50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 95%, transparent), 0 0 32px 6px rgba(244,63,94,.85); }
     }
-    .mic-listening { position: relative; animation: mic-glow 1.2s infinite ease-in-out; background: var(--red) !important; color: white !important; }
-    /* Anelli che si propagano: indicatore inequivocabile "sto ascoltando". */
-    .mic-listening::before, .mic-listening::after {
+    .mic-listening {
+      position: relative; animation: mic-glow 1.2s infinite ease-in-out;
+      background:
+        radial-gradient(circle at 38% 32%, rgba(255,255,255,.14), transparent 30%),
+        radial-gradient(circle at 50% 50%, #000 0%, #1a0208 55%, #2b0410 100%) !important;
+      color: white !important;
+    }
+    /* ::before = il disco di accrescimento che brucia (rotazione veloce).
+       ::after = l'anello che si propaga verso fuori — un solo pseudo-
+       elemento per uso, mai due regole sullo stesso ::after (bug corretto
+       qui: la prima stesura aveva sia il disco sia l'increspatura su
+       ::after, e la seconda definizione zittiva sempre la prima). */
+    .mic-listening::before {
+      content: ''; position: absolute; inset: -5px; border-radius: 50%; pointer-events: none;
+      background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--red) 90%, transparent) 15%, transparent 30%, transparent 70%, color-mix(in srgb, var(--gold) 70%, transparent) 85%, transparent);
+      filter: blur(1.5px); animation: mic-ring-spin 1.4s linear infinite;
+    }
+    /* Secondo strato, verso OPPOSTO: l'effetto ipnotico viene dal contrasto
+       fra i due giri, non da uno solo più veloce — elemento vero (span nel
+       markup) perché ::before/::after sul bottone erano già presi. */
+    .mic-swirl-2 { position: absolute; inset: 6px; border-radius: 50%; pointer-events: none; }
+    .mic-listening .mic-swirl-2 {
+      background: conic-gradient(from 180deg, transparent, color-mix(in srgb, var(--gold) 55%, transparent) 20%, transparent 40%, transparent 60%, color-mix(in srgb, #ec4899 45%, transparent) 80%, transparent);
+      filter: blur(2px); opacity: .8; animation: mic-ring-spin 2.3s linear infinite reverse;
+    }
+    /* L'anello che si propaga: indicatore inequivocabile "sto ascoltando". */
+    .mic-listening::after {
       content: ''; position: absolute; inset: 0; border-radius: inherit; border: 2px solid rgba(244,63,94,.55);
       pointer-events: none; animation: mic-ripple 1.6s cubic-bezier(.2,.6,.3,1) infinite;
     }
-    .mic-listening::after { animation-delay: .8s; }
     @keyframes mic-ripple { 0% { transform: scale(1); opacity: .75; } 100% { transform: scale(2); opacity: 0; } }
-    /* Capito: un pop verde, la stessa grammatica di ricompensa già usata a
-       fine compito nel resto dell'app (mai a interrompere un'attesa, sempre
-       a chiuderla). Non capito: uno scarto ambra a destra-sinistra, breve e
-       secco — mai rosso/vergogna, è un "riprova", non un errore della persona. */
-    .mic-success { animation: mic-success-pop .9s cubic-bezier(.16,1,.3,1) both !important; background: var(--green) !important; border-color: var(--green) !important; color: white !important; }
-    @keyframes mic-success-pop {
-      0% { transform: scale(1); }
-      35% { transform: scale(1.22); box-shadow: 0 0 0 10px rgba(16,185,129,0); }
-      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+    /* Capito / non capito: stesso buco nero di fondo (mai un riempimento
+       piatto, nemmeno negli stati d'esito — coerenza prima di tutto),
+       cambia solo l'anello. Capito = un'esplosione verde che si espande e
+       sfuma (una stella che si accende). Non capito = un anello ambra che
+       vibra secco e si spegne — mai rosso/vergogna, è un "riprova", non un
+       errore della persona. */
+    .mic-success {
+      animation: mic-success-pop .9s cubic-bezier(.16,1,.3,1) both !important;
+      background: radial-gradient(circle at 38% 32%, rgba(255,255,255,.14), transparent 30%), radial-gradient(circle at 50% 50%, #000 0%, #041a10 55%, #062b1a 100%) !important;
+      border-color: var(--green) !important; color: white !important;
     }
-    .mic-error { animation: mic-error-shake .5s cubic-bezier(.36,.07,.19,.97) both !important; background: var(--gold) !important; border-color: var(--gold) !important; color: #1a1200 !important; }
+    @keyframes mic-success-pop {
+      0% { box-shadow: 0 0 0 2px var(--green), 0 0 0 0 rgba(16,185,129,.6); }
+      40% { box-shadow: 0 0 0 2px var(--green), 0 0 0 14px rgba(16,185,129,0); transform: scale(1.15); }
+      100% { box-shadow: 0 0 0 2px var(--green), 0 0 0 14px rgba(16,185,129,0); transform: scale(1); }
+    }
+    .mic-error {
+      animation: mic-error-shake .5s cubic-bezier(.36,.07,.19,.97) both !important;
+      background: radial-gradient(circle at 38% 32%, rgba(255,255,255,.14), transparent 30%), radial-gradient(circle at 50% 50%, #000 0%, #1a1302 55%, #2b1f04 100%) !important;
+      border-color: var(--gold) !important; color: var(--gold) !important;
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 70%, transparent), 0 0 18px 2px rgba(234,179,8,.5) !important;
+    }
     @keyframes mic-error-shake {
       0%, 100% { transform: translateX(0); }
       20% { transform: translateX(-5px) rotate(-6deg); }

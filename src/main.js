@@ -4,7 +4,7 @@ import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO, DurableStore } from './core/vault.js';
 import { showSignatureAlert, showToast } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
-import { VoiceCore } from './voice/voice.js';
+import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
@@ -460,10 +460,36 @@ const getTxFormHTML = () => `
            duplicazione tastierino/tastiera nativa su touch — il tastierino
            disegnato sotto sparisce lì, ma la dettatura vocale deve restare
            raggiungibile su ogni dispositivo, quindi vive fuori dalla griglia
-           invece che dentro. Stesso id/stesso handler di sempre. -->
-      <button type="button" id="voice-rec-btn" class="mt-2 mx-auto flex items-center justify-center w-11 h-11 rounded-full text-[var(--red)] border border-[var(--glass-border)] active:scale-95 transition-transform" aria-label="Detta l'importo a voce">
-        <svg class="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-      </button>
+           invece che dentro. Stesso id/stesso handler di sempre.
+           Su touch (dove il tastierino è sparito ed è l'elemento principale
+           della schermata, non più uno fra tanti) è più grande e ha due
+           punti che gli orbitano attorno — stessa grammatica visiva della
+           hero (stelle, orbite, l'orb finanziario), non un'icona isolata. -->
+      <div class="mic-stage relative mt-2 mx-auto" style="width:fit-content">
+        <span class="mic-orbit-dot mic-orbit-dot-1" aria-hidden="true"></span>
+        <span class="mic-orbit-dot mic-orbit-dot-2" aria-hidden="true"></span>
+        <button type="button" id="voice-rec-btn" class="flex items-center justify-center w-11 h-11 rounded-full text-[var(--red)] border border-[var(--glass-border)] active:scale-95 transition-transform" aria-label="Detta l'importo a voce">
+          <!-- Secondo strato che ruota in controsenso SOLO in ascolto (.mic-listening
+               swirl-2): ::before/::after del bottone sono già presi (disco +
+               increscopatura), serviva un elemento vero per un secondo verso di
+               rotazione — lo swirl ipnotico viene dal contrasto fra i due giri
+               opposti, non da un giro solo più veloce. -->
+          <span class="mic-swirl-2" aria-hidden="true"></span>
+          <svg class="w-5 h-5 stroke-current relative" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
+        </button>
+      </div>
+      <!-- SCOPRIBILITÀ (richiesta esplicita 2026-08-17): chi non ha mai
+           usato la voce non sa cosa può dire — un microfono muto, per
+           quanto bello, resta un'icona indovinello. Un esempio vero,
+           sempre visibile, non un tooltip che nessuno apre. Due frasi che
+           cambiano da sole ogni pochi secondi (spesa + promemoria, i due
+           usi più comuni), in italiano o inglese a seconda della lingua
+           già rilevata per la voce (stessa logica di VoiceCore, mai due
+           fonti di verità sulla lingua). -->
+      <p id="voice-hint-example" class="voice-hint-text text-[10px] text-center mt-2 px-4 min-h-[2.2em] flex items-center justify-center gap-1.5" aria-live="off">
+        <svg class="w-3 h-3 shrink-0 opacity-70" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.3L20 10l-6.1 1.7L12 18l-1.9-6.3L4 10l6.1-1.7L12 2z"/></svg>
+        <span id="voice-hint-example-text"></span>
+      </p>
     </div>
 
     <!-- IL TASTIERINO SUBITO DOPO L'IMPORTO, non in fondo al modulo. Bug
@@ -683,6 +709,26 @@ const attachFormListeners = (container, prefill = null) => {
   if (voiceBtn) {
     VoiceCore.init(container);
     voiceBtn.onclick = () => VoiceCore.toggle();
+  }
+
+  // Esempi di cosa dire, sempre visibili (mai un tooltip che nessuno apre):
+  // due frasi vere che alternano da sole — spesa e promemoria, i due usi più
+  // comuni — nella lingua già rilevata per la voce (linguaVoceAttiva, stessa
+  // fonte di verità di VoiceCore, mai una seconda logica di lingua separata).
+  const hintTextEl = container.querySelector('#voice-hint-example-text');
+  if (hintTextEl) {
+    const ESEMPI = {
+      it: ['ho speso 15 euro al bar', 'promemoria dentista giovedì alle 15', 'quanto ho speso questo mese?'],
+      en: ['I spent 15 euros at the bar', 'remind me dentist Thursday at 3pm', 'how much did I spend this month?'],
+    };
+    const lista = ESEMPI[linguaVoceAttiva()] || ESEMPI.it;
+    let i = 0;
+    const mostra = () => {
+      hintTextEl.style.opacity = '0';
+      setTimeout(() => { hintTextEl.textContent = `“${lista[i % lista.length]}”`; hintTextEl.style.opacity = '1'; i++; }, 250);
+    };
+    hintTextEl.textContent = `“${lista[0]}”`; i = 1;
+    const timer = setInterval(() => { if (!container.isConnected) { clearInterval(timer); return; } mostra(); }, 3800);
   }
 
   // "Dividi" si aggiorna a ogni carattere digitato (può nominare il gruppo
