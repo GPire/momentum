@@ -204,8 +204,13 @@ async function prepareSemanticSimilarity(question) {
   if (!window.momentumDeviceProfile?.simd) return null;
   try {
     const { embed, similaritaSincrona } = await import('./ai/semantic-embed.js');
+    const { ESEMPI_CANONICI } = await import('./ai/qa-canonical-bank.js');
     const learned = VaultDAO.state.qaLearning?.learned || [];
     await embed(question);
+    // Il banco canonico è statico (mai cambia a runtime): una volta
+    // calcolati questi embedding restano in cache per tutta la sessione,
+    // costo pagato una sola volta e non ad ogni domanda.
+    await Promise.all(Object.values(ESEMPI_CANONICI).flat().map((e) => embed(e).catch(() => null)));
     // Le voci già calcolate in questa sessione sono gratis (embedCache):
     // qui si paga solo per le correzioni nuove dall'ultima domanda.
     await Promise.all(learned.map((l) => embed(l.question).catch(() => null)));

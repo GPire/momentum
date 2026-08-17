@@ -30,6 +30,7 @@ import { detectLanguage } from '../i18n/detect.js';
 import MEASURED from '../alpha/measured-assumptions.js';
 import { findMacroConfounderWarning, macroConfounderNote } from './causal-macro-note.js';
 import { suggestLearnedIntent } from './qa-learning.js';
+import { matchCanonico } from './qa-canonical-bank.js';
 
 // Una frase-innesco letterale per intento, garantita dal test dedicato a
 // combaciare col pattern italiano corrispondente in PATTERNS più sotto.
@@ -397,6 +398,21 @@ function answerQuestionCore(question, ctx) {
     if (suggerito?.autoApplicabile && CANONICAL_TRIGGER[suggerito.intent]) {
       appresoIntent = suggerito.intent;
       qMatch = `${qMatch} ${CANONICAL_TRIGGER[suggerito.intent]}`;
+    }
+  }
+  // RICONOSCIMENTO AL PRIMO TENTATIVO (src/ai/qa-canonical-bank.js): a
+  // differenza del ramo sopra (richiede che QUESTO utente l'abbia già
+  // insegnato e confermato 2 volte), qui basta che la domanda sia
+  // semanticamente vicina a un esempio curato — utile la primissima volta
+  // che qualcuno formula una domanda comune in un modo mai visto prima.
+  // Soglia più alta (0,72 vs 0,62) perché qui non c'è nessuna conferma
+  // umana a fare da rete di sicurezza. Solo se il ramo sopra non ha già
+  // trovato un match: mai due iniezioni diverse sullo stesso qMatch.
+  if (!appresoIntent && ctx.semanticSimilarity) {
+    const canonico = matchCanonico(question, ctx.semanticSimilarity);
+    if (canonico && CANONICAL_TRIGGER[canonico.intent]) {
+      appresoIntent = canonico.intent;
+      qMatch = `${qMatch} ${CANONICAL_TRIGGER[canonico.intent]}`;
     }
   }
 

@@ -515,6 +515,18 @@ test('ctx.semanticSimilarity: una parafrasi con ZERO parole in comune viene rico
   assert.equal(conSemantica.learned, true);
 });
 
+test('ctx.semanticSimilarity + banco canonico: una domanda MAI insegnata prima viene riconosciuta al primo tentativo se vicina a un esempio curato', () => {
+  const domanda = 'quanto sono disposto a spendere in questo preciso momento';
+  const senzaSemantica = answerQuestion(domanda, { allTx: {}, referenceDate: new Date(2026, 6, 15) });
+  assert.equal(senzaSemantica.intent, 'unknown');
+  const semanticSimilarity = (a, b) => (b === 'quanto posso spendere oggi' ? 0.9 : 0.1);
+  const conSemantica = answerQuestion(domanda, { allTx: { '2026-07': [] }, referenceDate: new Date(2026, 6, 15), semanticSimilarity });
+  assert.equal(conSemantica.intent, 'safe-to-spend');
+  // Mai un badge "imparato": non è stato insegnato da QUESTO utente, è un
+  // riconoscimento curato — la distinzione deve restare visibile.
+  assert.ok(!conSemantica.learned);
+});
+
 test('ctx.semanticSimilarity assente (utente senza il modello scaricato) → nessuna differenza, fallback a Jaccard', () => {
   const qaLearning = {
     unknownLog: [],
