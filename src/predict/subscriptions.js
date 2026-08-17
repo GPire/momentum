@@ -9,12 +9,28 @@ import { descriptionSimilarity } from '../core/deduplicator.js';
 const DEFAULT_OPTS = {
   minOccurrences: 2,       // almeno 2 addebiti per parlare di "ricorrente"
   intervalDays: { min: 25, max: 35 }, // tolleranza attorno al mese
+  quarterlyDays: { min: 80, max: 100 }, // tolleranza attorno al trimestre
+  annualDays: { min: 350, max: 380 },   // tolleranza attorno all'anno
   similarityThreshold: 0.72, // stessa soglia del merge del deduplicatore
   hikeThreshold: 0.10,     // 10% di aumento rispetto alla media precedente
   creepThreshold: 0.12,    // 12% di aumento CUMULATO (creep silenzioso)
   minForTrend: 3,          // addebiti minimi per parlare di "trend"
   anticipateWindow: 12,    // giorni: quanto prima avvisare del prossimo addebito
 };
+
+// BUG REALE trovato con ricerca di mercato (2026-08-17): il rilevatore
+// riconosceva SOLO cadenza mensile (25-35 giorni) — un abbonamento annuale
+// (Amazon Prime, assicurazione) o trimestrale non veniva MAI segnalato come
+// ricorrente, a prescindere da quanti anni di storia ci fossero. Ora ogni
+// gruppo viene classificato sulla cadenza REALE misurata dagli intervalli,
+// non solo su quella mensile.
+function classificaCadenza(intervals, o) {
+  const dentroFinestra = (w) => intervals.every((d) => d >= w.min && d <= w.max);
+  if (dentroFinestra(o.intervalDays)) return 'mensile';
+  if (dentroFinestra(o.quarterlyDays)) return 'trimestrale';
+  if (dentroFinestra(o.annualDays)) return 'annuale';
+  return null;
+}
 
 function flattenTx(allTx) {
   return Object.values(allTx || {}).flat().filter(t => t.type === 'uscita');
@@ -24,7 +40,8 @@ function flattenTx(allTx) {
 // deduplicatore) all'interno della stessa categoria, poi tiene solo i
 // gruppi con cadenza plausibilmente mensile.
 export function detectRecurring(allTx, opts = {}) {
-  const { minOccurrences, intervalDays, similarityThreshold } = { ...DEFAULT_OPTS, ...opts };
+  const o = { ...DEFAULT_OPTS, ...opts };
+  const { minOccurrences, similarityThreshold } = o;
   const txs = flattenTx(allTx).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const groups = [];
@@ -49,10 +66,10 @@ export function detectRecurring(allTx, opts = {}) {
         intervals.push(days);
       }
       const avgInterval = intervals.reduce((a, b) => a + b, 0) / (intervals.length || 1);
-      const isMonthly = intervals.every(d => d >= intervalDays.min && d <= intervalDays.max);
-      return { ...g, avgInterval, isMonthly };
+      const cadenza = classificaCadenza(intervals, o);
+      return { ...g, avgInterval, cadenza, isMonthly: cadenza === 'mensile' };
     })
-    .filter(g => g.isMonthly);
+    .filter(g => g.cadenza !== null);
 }
 
 // Per ogni serie ricorrente, confronta l'ultimo addebito con la media dei
@@ -73,9 +90,15 @@ export function subscriptionSummary(allTx, referenceDate = new Date(), opts = {}
     const recent = items.slice(-3);
     const amount = +(recent.reduce((a, t) => a + t.amount, 0) / recent.length).toFixed(2); // media ultimi 3 = prezzo attuale
     const next = new Date(last.date); next.setDate(next.getDate() + Math.round(g.avgInterval || 30));
-    return { name: g.representative, category: g.category, amount, occurrences: items.length, lastDate: last.date, nextDate: next.toISOString(), avgInterval: Math.round(g.avgInterval || 30) };
+    // Un abbonamento annuale/trimestrale addebita una cifra piena una tantum,
+    // non va sommato al totale MENSILE come se ricorresse ogni mese (bug che
+    // avrebbe gonfiato "quanto spendi al mese" di un abbonamento annuale intero).
+    const monthlyEquivalent = g.cadenza === 'annuale' ? +(amount / 12).toFixed(2)
+      : g.cadenza === 'trimestrale' ? +(amount / 3).toFixed(2)
+      : amount;
+    return { name: g.representative, category: g.category, amount, monthlyEquivalent, cadenza: g.cadenza, occurrences: items.length, lastDate: last.date, nextDate: next.toISOString(), avgInterval: Math.round(g.avgInterval || 30) };
   }).sort((a, b) => new Date(a.nextDate) - new Date(b.nextDate));
-  const monthlyTotal = +subs.reduce((s, x) => s + x.amount, 0).toFixed(2);
+  const monthlyTotal = +subs.reduce((s, x) => s + x.monthlyEquivalent, 0).toFixed(2);
   const upcoming = subs.filter(s => { const days = (new Date(s.nextDate) - now) / 86_400_000; return days >= -2 && days <= 31; });
   const upcomingTotal = +upcoming.reduce((s, x) => s + x.amount, 0).toFixed(2);
   const anticipated = anticipatePriceHikes(allTx, referenceDate, opts);

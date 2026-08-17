@@ -5865,13 +5865,38 @@ function renderWatchlist() {
 // quando disponibile (più affidabile in PWA), altrimenti Notification
 // diretta. Silenziosa se il permesso non c'è: mai bloccante, mai invadente
 // (il permesso si chiede solo quando l'utente crea il primo avviso).
-async function notifyUser(title, body) {
+// `category` è opzionale (retrocompatibile con chiamate esistenti senza
+// categoria, sempre inviate) — quando presente, rispetta la preferenza
+// granulare dell'utente (VaultDAO.state.notifyPrefs). BUG REALE trovato con
+// ricerca di mercato (2026-08-17): un solo permesso del browser attivava
+// insieme TUTTE le categorie di notifica (fiscale, cambio normativa, prezzi)
+// — chi voleva solo una finiva col disattivarle tutte per stanchezza. Default
+// `true` per ogni categoria non ancora impostata: non cambia il comportamento
+// di chi ha già dato il permesso prima di questa funzionalità.
+function notifyPrefAttiva(category) {
+  if (!category) return true;
+  const prefs = VaultDAO.state.notifyPrefs;
+  return !prefs || prefs[category] !== false;
+}
+async function notifyUser(title, body, category = null) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!notifyPrefAttiva(category)) return;
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
     if (reg?.showNotification) reg.showNotification(title, { body, icon: '/icons/icon-192.png' });
     else new Notification(title, { body });
   } catch (_) {}
+}
+window.setNotifyPref = (category, attiva) => {
+  VaultDAO.state.notifyPrefs = { ...(VaultDAO.state.notifyPrefs || {}), [category]: !!attiva };
+  VaultDAO.save();
+};
+function renderNotifyPrefs() {
+  const prefs = VaultDAO.state.notifyPrefs || {};
+  ['fiscale', 'normativa', 'prezzi'].forEach((cat) => {
+    const el = document.getElementById(`notify-pref-${cat}`);
+    if (el) el.checked = prefs[cat] !== false;
+  });
 }
 
 // Notifica fiscale opt-in (mai attiva di default: il permesso del browser va
@@ -5886,7 +5911,7 @@ function maybeNotifyTaxUrgency(key, title, body) {
   if (last && last.key === key && last.date === oggi) return;
   VaultDAO.state.taxLastNotified = { key, date: oggi };
   VaultDAO.save();
-  notifyUser(title, body);
+  notifyUser(title, body, 'fiscale');
 }
 
 // Attiva l'opt-in (chiede il permesso al tocco, mai in automatico) e
@@ -8363,6 +8388,7 @@ const renderSubscriptions = () => {
   if (!list) return;
   const s = subscriptionSummary(VaultDAO.state.transactions, new Date());
   if (totalEl) totalEl.textContent = s.count ? `${formatMoney(s.monthlyTotal)}/mese` : '';
+  if (totalEl) totalEl.title = 'Include anche gli abbonamenti annuali/trimestrali, riportati a costo mensile equivalente';
   if (!s.count) {
     list.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Nessun abbonamento ricorrente per ora. Appena importi qualche mese di spese, te li scovo qui — col prossimo addebito previsto.</p>`;
     return;
@@ -8382,10 +8408,11 @@ const renderSubscriptions = () => {
   }).join('');
   list.innerHTML = (anticipatedHtml ? `<div class="flex flex-col gap-2 mb-2">${anticipatedHtml}</div>` : '') + s.subscriptions.slice(0, 12).map(sub => {
     const hike = hikeMap.get(sub.name);
+    const cadenzaLabel = sub.cadenza && sub.cadenza !== 'mensile' ? ` · <span class="text-indigo-300">${sub.cadenza}</span>` : '';
     return `<div class="flex items-center justify-between gap-3 p-2 rounded-xl" style="background:rgba(255,255,255,0.03)">
       <div class="min-w-0">
         <p class="text-sm font-bold truncate">${sub.name}</p>
-        <p class="text-[10px] text-[var(--on-surface-secondary)]">prossimo ~${fmtDay(sub.nextDate)}${hike ? ` · <span class="text-rose-400">↑ +${hike.increasePct}% (era ${formatMoney(hike.previousAmount)})</span>` : ''}</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)]">prossimo ~${fmtDay(sub.nextDate)}${cadenzaLabel}${hike ? ` · <span class="text-rose-400">↑ +${hike.increasePct}% (era ${formatMoney(hike.previousAmount)})</span>` : ''}</p>
       </div>
       <span class="text-sm font-black font-mono shrink-0">${formatMoney(sub.amount)}</span>
     </div>`;
@@ -8745,7 +8772,7 @@ async function runAutoUpdateCycle({ manuale = false } = {}) {
           // ignorare anche quelli che contano.
           if (cambio) {
             VaultDAO.state.ultimoCambioRegole = { ...cambio, visto: false, quando: new Date().toISOString() };
-            notifyUser(cambio.titolo, cambio.sintesi);
+            notifyUser(cambio.titolo, cambio.sintesi, 'normativa');
             showToast(cambio.sintesi, 'info');
             renderAnalysis({ skipHeavyForecast: true });
           }
@@ -9982,7 +10009,7 @@ const navigate = (view) => {
   if (view === 'dashboard') window.renderQaSuggestions?.();
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
@@ -12823,7 +12850,7 @@ function initMomentumRealAI() {
         fired.forEach(a => {
           const msg = `${a.symbol} ha ${a.direction === 'above' ? 'superato' : 'toccato sotto'} ${formatMoney(a.threshold)} (ora ${formatMoney(a.triggeredPrice)}).`;
           showToast(msg, 'info');
-          notifyUser('Momentum · avviso di prezzo', msg);
+          notifyUser('Momentum · avviso di prezzo', msg, 'prezzi');
         });
         renderPriceAlerts();
       }

@@ -118,3 +118,55 @@ test("subscriptionSummary espone anticipated", () => {
   const s = subscriptionSummary(tx, new Date("2026-05-01"));
   assert.ok(Array.isArray(s.anticipated));
 });
+
+// --- cadenza annuale/trimestrale (bug reale: prima solo il mensile veniva riconosciuto) ---
+
+function serieConCadenza(description, category, amounts, giorniIntervallo, startDate) {
+  const start = new Date(startDate);
+  return amounts.map((amount, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i * giorniIntervallo);
+    return { id: `${description}-${i}`, date: d.toISOString(), amount, type: "uscita", category, description };
+  });
+}
+
+test("riconosce un abbonamento ANNUALE come ricorrente (prima veniva ignorato)", () => {
+  const tx = { all: serieConCadenza("Amazon Prime", "abbonamenti", [36, 36, 36], 365, "2023-06-01") };
+  const recurring = detectRecurring(tx);
+  assert.equal(recurring.length, 1);
+  assert.equal(recurring[0].cadenza, "annuale");
+});
+
+test("riconosce un abbonamento TRIMESTRALE come ricorrente", () => {
+  const tx = { all: serieConCadenza("Assicurazione", "abbonamenti", [45, 45, 45], 90, "2025-01-01") };
+  const recurring = detectRecurring(tx);
+  assert.equal(recurring.length, 1);
+  assert.equal(recurring[0].cadenza, "trimestrale");
+});
+
+test("non confonde un abbonamento annuale con uno mensile ravvicinato per errore", () => {
+  const tx = { all: serieConCadenza("Dominio web", "abbonamenti", [12, 12], 365, "2024-01-01") };
+  const recurring = detectRecurring(tx);
+  assert.equal(recurring[0].isMonthly, false);
+  assert.equal(recurring[0].cadenza, "annuale");
+});
+
+test("un intervallo a cavallo fra due finestre (es. 50 giorni) non viene classificato come nessuna cadenza nota", () => {
+  const tx = { all: serieConCadenza("Irregolare", "varie", [10, 10, 10], 50, "2026-01-01") };
+  assert.equal(detectRecurring(tx).length, 0);
+});
+
+test('subscriptionSummary: un abbonamento annuale conta come amount/12 nel totale mensile, non per intero', async () => {
+  const { subscriptionSummary } = await import('./subscriptions.js');
+  const allTx = { all: [
+    ...serieConCadenza("Amazon Prime", "abbonamenti", [36, 36], 365, "2024-06-01"),
+    ...monthlySeries("Netflix", "abbonamenti", [9.99, 9.99, 9.99], "2026-01-01"),
+  ] };
+  const s = subscriptionSummary(allTx, new Date("2026-06-15"));
+  const prime = s.subscriptions.find(x => /prime/i.test(x.name));
+  assert.ok(prime, "Amazon Prime deve comparire fra gli abbonamenti");
+  assert.equal(prime.cadenza, "annuale");
+  assert.ok(Math.abs(prime.monthlyEquivalent - 3) < 0.01); // 36/12 = 3
+  // totale mensile = 3 (Prime pro-rata) + 9.99 (Netflix), NON 36 + 9.99
+  assert.ok(Math.abs(s.monthlyTotal - 12.99) < 0.02);
+});
