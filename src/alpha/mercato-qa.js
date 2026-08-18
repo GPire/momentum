@@ -163,7 +163,7 @@ let ULTIMO_INTENTO = null;
 export function dimenticaContesto() { ULTIMO_INTENTO = null; }
 
 // ── Il riconoscimento dell'intento ──
-export function intentoMercato(domanda) {
+export function intentoMercato(domanda, similarity = null) {
   const q = normalizza(domanda);
   if (!q) return null;
 
@@ -266,6 +266,19 @@ export function intentoMercato(domanda) {
   if (ha(q, 'cosa e successo', 'cos e successo', 'che e successo', 'cosa succes', 'com e andata', 'perche e crollat', 'crollo di', 'cosa ando storto')) return 'evento';
   // Una data da sola, in una domanda, quasi sempre chiede un evento.
   if (estraiPeriodo(q) && ha(q, '?', 'spieg', 'raccont', 'dimm')) return 'evento';
+
+  // ── ULTIMA SPIAGGIA: capire per SIGNIFICATO invece che per parole ──
+  // Solo se tutto quanto sopra non ha riconosciuto niente. Cosi' il confronto
+  // semantico puo' soltanto AGGIUNGERE comprensione a domande che oggi
+  // ricevono un "non lo so ancora": non puo' cambiare nessuna risposta che
+  // gia' funziona, ed e' per questo che l'aggiunta non e' regressiva.
+  if (similarity && BANCO_SEMANTICO) {
+    const m = BANCO_SEMANTICO.matchMercato(domanda, similarity);
+    // I rifiuti li gestisce `rifiutoMotivato`, che gira prima: se qui arriva
+    // un rifiuto vuol dire che siamo su un percorso che non lo consulta, e
+    // allora non si risponde comunque.
+    if (m && !m.rifiuto) return m.intent;
+  }
   return null;
 }
 
@@ -677,7 +690,14 @@ export function rispostaSincrona(domanda) {
 // a non far scattare per sbaglio uno degli intenti sopra su una domanda che
 // merita un no.
 export const DOMANDE_SENZA_RISPOSTA = [
-  { riconosce: ['cosa compro', 'cosa devo comprare', 'su cosa investo', 'quale azione', 'conviene comprare', 'devo vendere', 'e il momento di comprare', 'quando comprare'],
+  // BUG TROVATO dal banco semantico (2026-08-18): "dimmi se e' il momento di
+  // entrare o di aspettare" e' una richiesta di tempismo identica a "e' il
+  // momento di comprare", ma sfuggiva a questo elenco e finiva sull'intento
+  // 'hype' — che risponde. La risposta era onesta, ma la domanda non doveva
+  // riceverne una: chiedere QUANDO entrare e chiedere COSA comprare sono la
+  // stessa domanda posta da due lati.
+  { riconosce: ['cosa compro', 'cosa devo comprare', 'su cosa investo', 'quale azione', 'conviene comprare', 'devo vendere', 'e il momento di comprare', 'quando comprare',
+    'e il momento di entrare', 'momento di entrare', 'entrare o aspettare', 'entro o aspetto', 'conviene entrare'],
     risposta: 'Non te lo dico, e non è prudenza: nessuno sa cosa farà il mercato, e chi te lo dice o sta indovinando o ti sta vendendo qualcosa. Quello che posso dirti è cosa è successo, cosa ha funzionato in passato e quanto sei esposto tu: sono tre domande a cui esiste una risposta vera.' },
   { riconosce: ['salira', 'scendera', 'dove va il mercato', 'previsione del mercato', 'cosa fara la borsa', 'quanto salira', 'quanto scendera'],
     risposta: 'La direzione non la so, e i dati dicono che non la sa nessuno: l\'indice di paura che calcolo prevede quanto il mercato ballerà, non da che parte andrà. Posso dirti quanto è probabile un rallentamento economico entro un anno e mezzo, che è una cosa diversa.' },
@@ -685,13 +705,39 @@ export const DOMANDE_SENZA_RISPOSTA = [
     risposta: 'Non lo so, e c\'è una ragione tecnica per cui nemmeno i dati lo direbbero: la banca centrale taglia proprio quando l\'economia peggiora, quindi nei numeri "taglio" e "recessione" arrivano insieme e un modello ingenuo concluderebbe che i tagli causano le recessioni.' },
 ];
 
-export function rifiutoMotivato(domanda) {
+// `similarity` e' opzionale: senza, il comportamento e' identico a prima
+// (parole chiave e basta, sincrono, nessun modello). Con, si aggiunge la rete
+// di sicurezza semantica — e serve, perche' un elenco di stringhe non puo'
+// catturare le parafrasi: "su quale settore mi conviene puntare i soldi" e'
+// la stessa domanda di "cosa devo comprare" e nessuna parola chiave le unisce.
+export function rifiutoMotivato(domanda, similarity = null) {
   const q = normalizza(domanda);
   for (const d of DOMANDE_SENZA_RISPOSTA) {
     if (d.riconosce.some((r) => q.includes(r))) return { intent: 'mercato-non-si-puo', answer: d.risposta };
   }
+  if (similarity && BANCO_SEMANTICO) {
+    const m = BANCO_SEMANTICO.matchMercato(domanda, similarity);
+    if (m?.rifiuto) {
+      // La famiglia semantica sceglie QUALE spiegazione dare: rifiutare senza
+      // spiegare e' una scusa, e spiegare la cosa sbagliata e' peggio.
+      const perFamiglia = { 'cosa-comprare': 0, 'dove-va': 1, 'mossa-banca-centrale': 2 };
+      const d = DOMANDE_SENZA_RISPOSTA[perFamiglia[m.intent] ?? 0];
+      return { intent: 'mercato-non-si-puo', answer: d.risposta, viaSemantica: true, confidenza: m.confidenza };
+    }
+  }
   return null;
 }
+
+// Il banco semantico si aggancia una volta sola, in modo asincrono, e finche'
+// non e' pronto tutto funziona come prima. Non si importa staticamente per non
+// legare il QA a un modulo che serve solo a chi ha attivato la comprensione
+// semantica (opt-in, ~197MB).
+let BANCO_SEMANTICO = null;
+export async function caricaBancoSemantico() {
+  if (!BANCO_SEMANTICO) BANCO_SEMANTICO = await import('./mercato-canonical-bank.js');
+  return BANCO_SEMANTICO;
+}
+export function bancoSemanticoPronto() { return BANCO_SEMANTICO !== null; }
 
 // Il punto d'ingresso unico: prima si guarda se la domanda è di quelle a cui
 // non si deve rispondere, poi si prova a rispondere.
