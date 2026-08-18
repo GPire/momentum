@@ -3,8 +3,60 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MODELLI, registraModello, scegliModello, modelloAttivo, elencoModelli,
-  riduci, normalizza, preparaTesto,
+  riduci, normalizza, preparaTesto, modelloPerDispositivo, MEMORIA_MINIMA_PESANTE,
 } from './embed-models.js';
+
+test('IL PREDEFINITO HA LICENZA PERMISSIVA: è il punto di tutto il lavoro', () => {
+  const m = modelloAttivo();
+  assert.equal(m.licenzaPermissiva, true, `il predefinito ha licenza "${m.licenza}"`);
+  assert.match(m.licenza, /MIT|Apache/);
+});
+
+test('il predefinito NON è più pesante di quello che sostituisce', () => {
+  // 113MB contro 197MB: la licenza pulita non si è pagata in peso. Se un
+  // giorno si cambiasse predefinito con qualcosa di più grosso, questo test
+  // costringe a dichiararlo invece di scoprirlo dagli utenti.
+  assert.equal(MODELLI['e5-small'].parametri, '118M');
+  assert.ok(MODELLI['e5-small'].pesoStimato.startsWith('113'));
+});
+
+test('ogni modello registrato dichiara licenza, peso, pooling e prefisso', () => {
+  for (const [chiave, m] of Object.entries(MODELLI)) {
+    assert.ok(m.licenza, `${chiave} senza licenza dichiarata`);
+    assert.equal(typeof m.licenzaPermissiva, 'boolean', `${chiave}: permissiva non dichiarata`);
+    assert.ok(m.pesoStimato, `${chiave} senza peso stimato`);
+    assert.ok(['frase', 'media', 'primo', 'ultimo'].includes(m.pooling), `${chiave}: pooling "${m.pooling}"`);
+    assert.equal(typeof m.prefisso, 'string', `${chiave}: prefisso non dichiarato`);
+  }
+});
+
+test('ogni modello ha il pooling GIUSTO per la sua famiglia', () => {
+  // Sbagliare qui non dà errori: dà vettori che sembrano funzionare e
+  // confrontano male. Va bloccato da un test, non dalla memoria di chi scrive.
+  assert.equal(MODELLI['e5-small'].pooling, 'media');            // E5: media dei token
+  assert.equal(MODELLI['qwen3-embedding-0.6b'].pooling, 'ultimo'); // Qwen3: ultimo token
+  assert.equal(MODELLI['embeddinggemma-300m'].pooling, 'frase');   // dà già il vettore
+  assert.match(MODELLI['e5-small'].prefisso, /^query: /);
+  assert.match(MODELLI['qwen3-embedding-0.6b'].prefisso, /^Instruct:/);
+});
+
+// ── IL MODELLO SI ADATTA AL DISPOSITIVO ──
+test('su dispositivo modesto si resta leggeri: 600MB non si scaricano', () => {
+  assert.equal(modelloPerDispositivo({ tier: 'minimo', memory: 2 }), 'e5-small');
+  assert.equal(modelloPerDispositivo({ tier: 'medio', memory: 8 }), 'e5-small');
+  // Fascia massima ma poca memoria dichiarata: si resta leggeri comunque.
+  assert.equal(modelloPerDispositivo({ tier: 'massimo', memory: 4 }), 'e5-small');
+});
+
+test('si sale al livello pesante SOLO su fascia massima con memoria sufficiente', () => {
+  assert.equal(modelloPerDispositivo({ tier: 'massimo', memory: 16 }), 'qwen3-embedding-0.6b');
+  assert.equal(modelloPerDispositivo({ tier: 'massimo', memory: MEMORIA_MINIMA_PESANTE }), 'qwen3-embedding-0.6b');
+});
+
+test('senza profilo hardware si resta leggeri, mai indovinando', () => {
+  assert.equal(modelloPerDispositivo(null), 'e5-small');
+  assert.equal(modelloPerDispositivo({}), 'e5-small');
+});
 
 test('il modello storico dichiara la sua licenza NON permissiva, in chiaro', () => {
   // Il punto di tutto il file: la licenza sta accanto al modello, dove si
@@ -37,7 +89,12 @@ test('un modello permissivo si registra e diventa selezionabile', () => {
   assert.equal(m.id, 'finto/modello-ONNX');
   assert.equal(modelloAttivo().licenzaPermissiva, true);
   assert.ok(elencoModelli().find((x) => x.chiave === 'prova-permissiva' && x.attivo));
-  scegliModello('embeddinggemma-300m'); // si rimette come prima
+  // Si ripristina il predefinito VERO. Rimettere qui il modello con licenza
+  // vincolata lascerebbe lo stato globale sbagliato per i test successivi, e
+  // il primo test del file (quello sulla licenza permissiva) passerebbe solo
+  // grazie all'ordine di esecuzione — cioe' per caso.
+  scegliModello('e5-small');
+  assert.equal(modelloAttivo().licenzaPermissiva, true);
 });
 
 test('scegliere un modello inesistente non passa in silenzio', () => {

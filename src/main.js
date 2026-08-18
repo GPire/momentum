@@ -191,8 +191,11 @@ const CalendarBridge = {
   }
 };
 
-// Comprensione semantica locale opt-in (src/ai/semantic-embed.js — EmbeddingGemma,
-// ~197MB scaricati una volta). Precomputa gli embedding PRIMA di chiamare
+// Comprensione semantica locale opt-in (src/ai/semantic-embed.js — modello
+// scelto dal profilo hardware fra quelli in src/ai/embed-models.js: di norma
+// multilingual-e5-small, licenza MIT, ~113MB scaricati una volta; sui
+// dispositivi di fascia massima con memoria sufficiente si sale a
+// Qwen3-Embedding-0.6B, Apache 2.0, ~600MB). Precomputa gli embedding PRIMA di chiamare
 // askMomentum (che resta sincrono, come tutto qa-engine.js): il costo
 // asincrono/di rete resta qui, mai dentro il motore di risposta puro.
 // Doppio cancello: solo se l'utente ha attivato l'opzione E il dispositivo

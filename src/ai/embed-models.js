@@ -51,6 +51,58 @@
 export const MODELLI = {
   // Il modello STORICO. Resta disponibile e documentato, ma non e' piu' la
   // scelta predefinita: vedi la nota di licenza sopra.
+  // ── LA SCELTA PREDEFINITA (verificata sulla model card il 2026-08-18) ──
+  // Licenza MIT: permissiva senza clausole, uso commerciale libero, nessun
+  // permesso revocabile. Ed e' anche PIU' LEGGERO di quello che sostituisce —
+  // 112,8MB in int8 contro 197MB — con 118M parametri contro 300M.
+  // Il compito qui e' la similarita' fra DOMANDE BREVI, non il recupero di
+  // documenti lunghi: e' esattamente cio' per cui la famiglia E5 e' forte, e
+  // la dimensione in meno non e' un compromesso su questo compito.
+  'e5-small': {
+    id: 'Xenova/multilingual-e5-small',
+    dtype: 'q8',
+    // La famiglia E5 e' addestrata con questo prefisso e SENZA di esso perde
+    // parecchio. Applicato in modo simmetrico ai due testi, perche' qui si
+    // confrontano due domande fra loro.
+    prefisso: 'query: ',
+    pooling: 'media',
+    licenza: 'MIT',
+    licenzaPermissiva: true,
+    lingue: '100',
+    parametri: '118M',
+    pesoStimato: '113MB (int8)',
+  },
+
+  // ── IL LIVELLO PESANTE, per i dispositivi che possono permetterselo ──
+  // Apache 2.0, non gated, oltre 100 lingue, primo su piu' classifiche
+  // multilingue nel 2025. Il prezzo e' il peso: 0,6B parametri e nessuna
+  // variante q4 pubblicata — solo fp32/fp16/q8, cioe' circa 600MB. Tre volte
+  // il modello predefinito, e su una connessione lenta e' la differenza fra
+  // "si scarica" e "l'utente rinuncia".
+  // Non e' quindi un'alternativa: e' un GRADINO SUPERIORE, e chi decide se
+  // salirlo e' il profilo del dispositivo (device/adaptive-runtime.js), non
+  // una preferenza scritta a mano.
+  'qwen3-embedding-0.6b': {
+    id: 'onnx-community/Qwen3-Embedding-0.6B-ONNX',
+    dtype: 'q8',
+    // Formato di istruzione della famiglia Qwen3-Embedding. Le istruzioni si
+    // scrivono in inglese anche per testi in altre lingue: e' la
+    // raccomandazione degli autori, non una nostra scelta stilistica.
+    prefisso: 'Instruct: Retrieve semantically similar questions\nQuery: ',
+    // Ultimo token, non media: applicare la media a un modello addestrato
+    // sull'ultimo token produce vettori che sembrano funzionare e confrontano
+    // male.
+    pooling: 'ultimo',
+    licenza: 'Apache-2.0',
+    licenzaPermissiva: true,
+    lingue: 'oltre 100',
+    parametri: '600M',
+    pesoStimato: '~600MB (q8, nessun q4 pubblicato)',
+  },
+
+  // ── IL MODELLO STORICO ──
+  // Resta registrato e documentato, ma NON e' piu' la scelta predefinita.
+  // Non per qualita': per licenza.
   'embeddinggemma-300m': {
     id: 'onnx-community/embeddinggemma-300m-ONNX',
     dtype: 'q4',
@@ -61,11 +113,29 @@ export const MODELLI = {
     notaLicenza: 'Non OSI. Google puo\' limitare l\'uso da remoto; le restrizioni si propagano a chi ridistribuisce.',
     lingue: 'oltre 100',
     parametri: '300M',
+    pesoStimato: '197MB (q4)',
   },
 };
 
-// Il modello in uso. Cambiarlo qui cambia tutto il resto.
-export let MODELLO_PREDEFINITO = 'embeddinggemma-300m';
+// Il modello in uso: quello con licenza pulita e il peso piu' basso.
+export let MODELLO_PREDEFINITO = 'e5-small';
+
+// ── IL MODELLO SI ADATTA AL DISPOSITIVO ──
+// Momentum ha gia' un profilo hardware MISURATO (device/profiler.js) e un
+// budget di esperti per fascia (device/adaptive-runtime.js). Il modello
+// linguistico entra nello stesso schema invece di essere una costante: su un
+// telefono modesto 113MB si scaricano, 600MB spesso no — e un download che
+// non finisce e' una funzione che non esiste.
+// Regola: si sale al livello pesante SOLO su fascia massima e con la memoria
+// dichiarata dal dispositivo, mai indovinando dal nome del chip.
+export const MEMORIA_MINIMA_PESANTE = 8; // GB dichiarati dal browser
+
+export function modelloPerDispositivo(profilo = null) {
+  const fascia = profilo?.tier;
+  const memoria = profilo?.memory ?? 0;
+  if (fascia === 'massimo' && memoria >= MEMORIA_MINIMA_PESANTE) return 'qwen3-embedding-0.6b';
+  return 'e5-small';
+}
 
 // Registra un modello nuovo (o ne sostituisce uno) senza toccare il resto del
 // codice. Rifiuta le licenze non permissive quando si chiede l'opposto: e' il

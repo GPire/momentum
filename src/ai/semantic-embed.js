@@ -51,7 +51,7 @@
 // Il prefisso resta applicato in modo SIMMETRICO ai due testi confrontati,
 // perché qui si confrontano due domande fra loro, non una domanda con un
 // documento.
-import { modelloAttivo, preparaTesto, riduci, normalizza } from './embed-models.js';
+import { modelloAttivo, preparaTesto, riduci, normalizza, modelloPerDispositivo, scegliModello } from './embed-models.js';
 
 let modelPromise = null;
 // Il modello con cui è stata riempita la cache: se si cambia modello i vettori
@@ -86,6 +86,13 @@ async function backendPreferito() {
 // altro "Piano B" opt-in del progetto (chiavi API, chat cloud).
 async function getModel() {
   if (!modelPromise) {
+    // IL MODELLO SI SCEGLIE DAL DISPOSITIVO, non da una costante. Lo stesso
+    // profilo MISURATO che governa il budget di esperti (device/profiler.js)
+    // decide anche quale modello linguistico scaricare: su un telefono modesto
+    // 113MB si scaricano, 600MB spesso no — e un download che non finisce e'
+    // una funzione che non esiste. Se il profilo non c'e', si resta leggeri:
+    // mai indovinare dal nome del chip.
+    try { scegliModello(modelloPerDispositivo(globalThis.window?.momentumDeviceProfile || null)); } catch (_) { /* si tiene il predefinito */ }
     const cfg = modelloAttivo();
     modelPromise = import('@huggingface/transformers').then(async ({ AutoModel, AutoTokenizer, env }) => {
       env.allowLocalModels = false;
