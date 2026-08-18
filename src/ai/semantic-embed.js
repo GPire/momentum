@@ -39,14 +39,25 @@
 // un errore bloccante per una funzionalità opzionale.
 'use strict';
 
-const MODEL_ID = 'onnx-community/embeddinggemma-300m-ONNX';
-// Prefisso ufficiale per confronto di SIMILARITÀ (non retrieval query↔documento
-// asimmetrico): documentato nel model card come "task: sentence similarity",
-// applicato in modo SIMMETRICO a entrambi i testi confrontati, perché qui si
-// confrontano due domande fra loro, non una domanda con un documento.
-const PREFISSO_SIMILARITA = 'task: sentence similarity | query: ';
+// ── IL MODELLO NON È PIÙ SCRITTO QUI DENTRO ──
+// Identificativo, quantizzazione, prefisso di input e modo di ridurre l'uscita
+// a un vettore vivono in `embed-models.js`, insieme alla LICENZA di ciascun
+// modello. Il motivo non è eleganza: EmbeddingGemma non è Apache 2.0 ma sotto
+// i "Gemma Terms of Use" — non OSI, con la possibilità per Google di limitare
+// l'uso da remoto e l'obbligo di propagare le restrizioni a valle. Per un'app
+// che promette di funzionare offline e per sempre sul dispositivo dell'utente,
+// dipendere da un permesso revocabile è una contraddizione. Il modello deve
+// quindi essere sostituibile in una riga, senza riscrivere questo file.
+// Il prefisso resta applicato in modo SIMMETRICO ai due testi confrontati,
+// perché qui si confrontano due domande fra loro, non una domanda con un
+// documento.
+import { modelloAttivo, preparaTesto, riduci, normalizza } from './embed-models.js';
 
 let modelPromise = null;
+// Il modello con cui è stata riempita la cache: se si cambia modello i vettori
+// vecchi non sono più confrontabili con i nuovi (spazi diversi), e mescolarli
+// produrrebbe somiglianze senza senso invece di un errore.
+let modelloInCache = null;
 // Cache embedding per testo — evita di ricalcolare il vettore di una
 // domanda già imparata a ogni nuovo confronto (qa-learning.js può avere
 // fino a 100 correzioni imparate: ricalcolarle tutte a ogni domanda nuova
@@ -75,12 +86,13 @@ async function backendPreferito() {
 // altro "Piano B" opt-in del progetto (chiavi API, chat cloud).
 async function getModel() {
   if (!modelPromise) {
+    const cfg = modelloAttivo();
     modelPromise = import('@huggingface/transformers').then(async ({ AutoModel, AutoTokenizer, env }) => {
       env.allowLocalModels = false;
       const device = await backendPreferito();
-      const tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID);
-      const model = await AutoModel.from_pretrained(MODEL_ID, { dtype: 'q4', ...(device ? { device } : {}) });
-      return { tokenizer, model };
+      const tokenizer = await AutoTokenizer.from_pretrained(cfg.id);
+      const model = await AutoModel.from_pretrained(cfg.id, { dtype: cfg.dtype || 'q4', ...(device ? { device } : {}) });
+      return { tokenizer, model, cfg };
     });
   }
   return modelPromise;
@@ -113,10 +125,31 @@ export async function embed(testo) {
   const chiave = String(testo || '').trim().toLowerCase();
   if (!chiave) return null;
   if (embedCache.has(chiave)) return embedCache.get(chiave);
-  const { tokenizer, model } = await getModel();
-  const inputs = await tokenizer([PREFISSO_SIMILARITA + chiave], { padding: true });
-  const { sentence_embedding } = await model(inputs);
-  const vec = Float32Array.from(sentence_embedding.tolist()[0]);
+  const { tokenizer, model, cfg } = await getModel();
+
+  // Cambiare modello invalida la cache: due modelli producono vettori in spazi
+  // diversi, e confrontarli darebbe somiglianze plausibili e prive di senso —
+  // il guasto silenzioso, senza nessun errore a segnalarlo.
+  if (modelloInCache && modelloInCache !== cfg.id) embedCache.clear();
+  modelloInCache = cfg.id;
+
+  const inputs = await tokenizer([preparaTesto(chiave)], { padding: true });
+  const uscita = await model(inputs);
+
+  let vec;
+  if (cfg.pooling === 'frase') {
+    // Il modello dà già il vettore della frase (EmbeddingGemma).
+    vec = Float32Array.from(uscita.sentence_embedding.tolist()[0]);
+  } else {
+    // Il modello dà un vettore per token: la riduzione la facciamo noi, con la
+    // maschera di attenzione, perché il riempimento non deve entrare nella
+    // media (vedi embed-models.js).
+    const tokens = (uscita.last_hidden_state || uscita.token_embeddings).tolist()[0];
+    const maschera = inputs.attention_mask ? inputs.attention_mask.tolist()[0] : null;
+    vec = normalizza(riduci(tokens, maschera, cfg.pooling));
+  }
+  if (!vec) return null;
+
   if (embedCache.size >= MAX_CACHE) {
     // FIFO semplice: la prima chiave inserita è la più probabile da non
     // servire più (le domande recenti sono quelle rilevanti ora).
