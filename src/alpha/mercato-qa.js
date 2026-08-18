@@ -26,6 +26,19 @@
 // complicata, ed è verificabile riga per riga.
 'use strict';
 
+// Somiglianza fra frasi senza nessun modello: e' il ripiego che rende la rete
+// di sicurezza disponibile su OGNI dispositivo, anche dove i 113MB
+// dell'embedding non si possono scaricare. Import statico e non dinamico
+// perche pesa poche righe e deve esserci sempre — un ripiego caricato in modo
+// asincrono non e' un ripiego.
+import { similaritaLessicale } from '../ai/similarita-lessicale.js';
+// Anche il banco di formulazioni e' import STATICO, per la stessa ragione:
+// e' l'elenco che permette di riconoscere le parafrasi delle domande da
+// rifiutare, ed era caricato in modo asincrono — quindi nei primi istanti
+// dopo l'avvio la protezione non c'era. Sono poche centinaia di stringhe:
+// il costo e' trascurabile, l'assenza no.
+import * as BANCO_STATICO from './mercato-canonical-bank.js';
+
 const NOMI_STATI_QA = ['condizioni distese', 'condizioni normali', 'condizioni tese'];
 
 // ── IL GLOSSARIO CHE PORTA UN NUMERO ──
@@ -369,8 +382,8 @@ export async function rispostaMercato(domanda) {
 
 // La versione sincrona: funziona solo dopo il precaricamento, ed e' quella che
 // il QA usa.
-export function rispostaSincrona(domanda) {
-  const intento = intentoMercato(domanda);
+export function rispostaSincrona(domanda, similarity = null) {
+  const intento = intentoMercato(domanda, similarity || similaritaLessicale);
   if (!intento) return null;
   if (!MODULI) {
     // BUG TROVATO SOLO PROVANDO NEL BROWSER, e invisibile a ogni test perche'
@@ -732,12 +745,11 @@ export function rifiutoMotivato(domanda, similarity = null) {
 // non e' pronto tutto funziona come prima. Non si importa staticamente per non
 // legare il QA a un modulo che serve solo a chi ha attivato la comprensione
 // semantica (opt-in, ~197MB).
-let BANCO_SEMANTICO = null;
-export async function caricaBancoSemantico() {
-  if (!BANCO_SEMANTICO) BANCO_SEMANTICO = await import('./mercato-canonical-bank.js');
-  return BANCO_SEMANTICO;
-}
-export function bancoSemanticoPronto() { return BANCO_SEMANTICO !== null; }
+const BANCO_SEMANTICO = BANCO_STATICO;
+// Resta per compatibilita' con chi la chiamava: ora non c'e' piu' niente da
+// attendere, il banco e' presente dal primo istante.
+export async function caricaBancoSemantico() { return BANCO_SEMANTICO; }
+export function bancoSemanticoPronto() { return true; }
 
 // Il punto d'ingresso unico: prima si guarda se la domanda è di quelle a cui
 // non si deve rispondere, poi si prova a rispondere.
@@ -755,6 +767,20 @@ export async function chiediAlMercato(domanda) {
 
 // Il punto d'ingresso SINCRONO per il QA: rifiuto motivato + risposta se i
 // moduli sono gia' pronti.
-export function chiediAlMercatoSync(domanda) {
-  return rifiutoMotivato(domanda) || rispostaSincrona(domanda);
+// `similarity` opzionale: se il chiamante ha il motore semantico pronto lo
+// passa, altrimenti si usa la SOMIGLIANZA LESSICALE — che non richiede
+// nessun modello e gira su qualunque dispositivo.
+//
+// PERCHE' IL RIPIEGO LESSICALE E' PREDEFINITO E NON UN'OPZIONE. Il banco di
+// prova (src/ai/qa-banco-prova.js) ha misurato che due domande su sette da
+// rifiutare sfuggivano alle sole parole chiave: "su quale settore mi conviene
+// puntare i soldi?" riceveva una risposta invece di un rifiuto. Cioe' la
+// protezione piu' importante dell'app mancava proprio dove il modello da
+// 113MB non si puo' scaricare. Rimisurato con la sola sovrapposizione di
+// parole: sicurezza dal 71,4% al 100%, copertura dal 75% al 78,1%, zero
+// errori gravi introdotti. Un pavimento che c'e' su ogni dispositivo vale
+// piu' di un tetto che c'e' solo su alcuni.
+export function chiediAlMercatoSync(domanda, similarity = null) {
+  const sim = similarity || similaritaLessicale;
+  return rifiutoMotivato(domanda, sim) || rispostaSincrona(domanda, sim);
 }
