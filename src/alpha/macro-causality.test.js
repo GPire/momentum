@@ -27,6 +27,31 @@ test('le serie non contengono buchi: un campione diverso per ogni coppia invente
   }
 });
 
+test('LE AZIONI SONO ALLINEATE AL CALENDARIO GIUSTO (guardia contro l\'off-by-one)', async () => {
+  // Perche' questo test esiste. L'archivio dei rendimenti dichiara `da:
+  // '1993-02'`, ma quello e' il mese del primo PREZZO: il primo RENDIMENTO e'
+  // di marzo. Qui la costante SPY_DA vale gia' '1993-03' e l'allineamento e'
+  // corretto — ma e' un dettaglio invisibile, di quelli che una modifica
+  // innocente rimette a posto "sistemando" la costante sul campo `da`.
+  //
+  // Uno sfasamento di un mese sarebbe particolarmente insidioso PROPRIO qui:
+  // sposterebbe le azioni un mese indietro rispetto alla macro e renderebbe
+  // piu' facile trovare che "le azioni precedono l'economia", che e' il
+  // risultato di punta di questo file. Un artefatto di allineamento che
+  // conferma la tesi e' il modo migliore di ingannarsi.
+  //
+  // Si ancora a due mesi di cui l'esito e' noto e non discutibile.
+  const { MACRO_DA } = await import('./macro-panel.js');
+  const s = serieMacro({ variazioni: false, conAzioni: true });
+  const [ys, ms] = [1993, 3]; // SPY_DA, non il campo `da` dell'archivio
+  const indiceDi = (anno, mese) => (anno - ys) * 12 + (mese - ms);
+
+  assert.ok(MACRO_DA < '1993-03', 'la macro deve iniziare prima delle azioni');
+  assert.ok(s.azioni[indiceDi(2008, 10)] < -0.14, `ottobre 2008 (Lehman) vale ${s.azioni[indiceDi(2008, 10)]}`);
+  assert.ok(s.azioni[indiceDi(2020, 3)] < -0.10, `marzo 2020 (covid) vale ${s.azioni[indiceDi(2020, 3)]}`);
+  assert.ok(s.azioni[indiceDi(2020, 4)] > 0.10, `aprile 2020 (rimbalzo) vale ${s.azioni[indiceDi(2020, 4)]}`);
+});
+
 test('livelli e variazioni sono davvero due cose diverse', () => {
   const liv = serieMacro({ variazioni: false });
   const va = serieMacro({ variazioni: true });
