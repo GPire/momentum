@@ -8,6 +8,8 @@
 // qui si limita a descrivere l'azienda/asset in sé.
 'use strict';
 
+import { valutaFondamentali } from './fondamentali.js';
+
 function stripHtml(s = '') {
   return String(s).replace(/<[^>]*>/g, '').trim();
 }
@@ -47,6 +49,11 @@ export async function fetchStockOverview(symbol, { apiKey, fetchImpl = fetch } =
     industry: json.Industry || null,
     marketCap: Number.isFinite(+json.MarketCapitalization) ? +json.MarketCapitalization : null,
     peRatio: Number.isFinite(+json.PERatio) ? +json.PERatio : null,
+    // La stessa risposta contiene gia' redditivita', margini e multipli: erano
+    // scaricati a ogni ricerca e buttati via. `fondamentali.js` li legge senza
+    // una chiamata in piu' e dice a quali criteri dei maestri questa azienda
+    // risponde — e soprattutto dove quei criteri si contraddicono fra loro.
+    fondamentali: valutaFondamentali(json),
   };
 }
 
