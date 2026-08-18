@@ -251,6 +251,18 @@ export function intentoMercato(domanda) {
 
   if (ha(q, 'cosa non sai', 'cosa non puoi', 'quali sono i tuoi limiti', 'di cosa non sei sicuro', 'dove sbagli', 'cosa ti manca')) return 'limiti';
   if (ha(q, 'quanto e affidabile', 'quanto ti posso credere', 'quanto sono affidabili', 'che affidabilita')) return 'limiti';
+
+  // LA DOMANDA PIU' RICHIESTA DI TUTTE: "cosa succedera'?". Non si puo'
+  // rispondere, ma si puo' rispondere alla versione che ha un senso: cosa e'
+  // successo, storicamente, partendo da una situazione come quella di adesso.
+  // Va DOPO 'limiti', e la ragione l'ha trovata un test gia' esistente:
+  // "quanto sono affidabili le tue PREVISIONI?" chiede dei limiti, non una
+  // previsione, e la parola chiave da sola la dirottava. Va anche dopo 'hype'
+  // e 'regime', che hanno risposte proprie piu' specifiche.
+  if (ha(q, 'che probabilita', 'quante probabilita', 'quanto e probabile che sal', 'quanto e probabile che scend',
+    'prossimi 12 mesi', 'prossimi sei mesi', 'prossimi 6 mesi', 'prossimo anno', 'nei prossimi mesi',
+    'cosa succede dopo situazioni', 'situazioni come questa', 'come adesso in passato',
+    'cosa dice la storia', 'quanto puo rendere', 'previsione', 'previsioni')) return 'previsione';
   if (ha(q, 'cosa e successo', 'cos e successo', 'che e successo', 'cosa succes', 'com e andata', 'perche e crollat', 'crollo di', 'cosa ando storto')) return 'evento';
   // Una data da sola, in una domanda, quasi sempre chiede un evento.
   if (estraiPeriodo(q) && ha(q, '?', 'spieg', 'raccont', 'dimm')) return 'evento';
@@ -284,8 +296,9 @@ export function precarica() {
     import('./macro-regime.js'), import('./quadro-unico.js'), import('./market-stress.js'),
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
-    import('./grafici.js'), import('./notizie.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz]) => {
+    import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
+    import('./historical-returns.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -297,7 +310,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -365,7 +378,7 @@ export function rispostaSincrona(domanda) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -388,6 +401,21 @@ export function rispostaSincrona(domanda) {
       for (const [k, alias] of QUALE) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) return k;
       return null;
     };
+
+    if (intento === 'previsione') {
+      // L'orizzonte lo sceglie chi chiede: "i prossimi sei mesi" e "il prossimo
+      // anno" sono domande diverse e danno risposte diverse.
+      const qn = normalizza(domanda);
+      const orizzonte = ha(qn, 'prossimi sei mesi', 'prossimi 6 mesi') ? 6
+        : ha(qn, 'prossimo mese', 'prossimi giorni') ? 1
+          : ha(qn, 'prossimi tre mesi', 'prossimi 3 mesi', 'trimestre') ? 3 : 12;
+      const r = prev.previsioneCondizionata(hr.SERIE_STORICHE.spy.rendimenti, {
+        orizzonte, etichetta: 'le azioni americane',
+      });
+      return conAvviso({
+        intent: 'mercato-previsione', data: r, answer: prev.testoPrevisione(r),
+      });
+    }
 
     if (intento === 'hype') {
       const d = ci.cosaSuccedeDopo();
