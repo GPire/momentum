@@ -210,15 +210,49 @@ test('I DUE ORIZZONTI hanno forze opposte, e si dicono entrambe', async () => {
   const giornaliere = {}, mensili = {};
   for (const [k, v] of Object.entries(GIORNALIERO)) giornaliere[NOMI_GIORNALIERI[k] || k] = v;
   for (const [k, v] of Object.entries(LUNGO)) mensili[NOMI_LUNGO[k] || k] = v;
-  const r = panoramicaDoppia({ giornaliere, mensili });
+  const r = panoramicaDoppia({
+    giornaliere, mensili,
+    etichettaBreve: 'gli ultimi cinque anni', etichettaLungo: 'i quarant\'anni',
+    crisiNelBreve: false,
+  });
   assert.equal(r.disponibile, true);
   // Il breve vede ma conosce poco; il lungo conosce molto ma non vede.
   assert.equal(r.breve.cieco, false);
   assert.equal(r.lungo.cieco, true);
-  assert.match(r.messaggio, /cinque anni recenti/);
+  assert.match(r.messaggio, /gli ultimi cinque anni/);
   assert.match(r.messaggio, /ne' un si' ne' un no/);
-  // Il limite del solo giornaliero va detto sempre.
-  assert.match(r.avviso, /non contengono una crisi profonda/);
+  // Il limite va detto quando è vero.
+  assert.match(r.avviso, /non contiene una crisi profonda/);
+});
+
+test('LE ETICHETTE NON SI SCRIVONO A MANO: invecchiano insieme ai dati', () => {
+  // Il testo diceva "cinque anni recenti" e "non contengono una crisi
+  // profonda" scritti dentro il modulo. Quando l'archivio giornaliero è
+  // passato da 5 a 26 anni quelle due frasi sono diventate FALSE senza che
+  // nulla si rompesse — nessun errore, solo una descrizione sbagliata dei
+  // propri stessi dati.
+  const rng = seme(31);
+  const g = {}; const m = {};
+  for (let i = 0; i < 4; i++) { g[`g${i}`] = serie(900, rng); m[`m${i}`] = serie(900, rng); }
+  const conCrisi = panoramicaDoppia({ giornaliere: g, mensili: m, etichettaBreve: 'i ventisei anni', crisiNelBreve: true });
+  assert.match(conCrisi.messaggio, /i ventisei anni/);
+  assert.match(conCrisi.avviso, /contiene almeno una crisi profonda/);
+  assert.equal(conCrisi.crisiNelBreve, true);
+  // E l'avviso opposto non deve comparire quando la crisi c'è: un avviso che
+  // si ripete senza motivo smette di essere letto.
+  assert.ok(!/non contiene una crisi/.test(conCrisi.avviso));
+});
+
+test('nessuna preposizione articolata costruita concatenando ("su gli", "su i")', () => {
+  // Stesso errore già corretto in titolo-causale.js: "da le azioni americane".
+  const rng = seme(32);
+  const g = {}; const m = {};
+  for (let i = 0; i < 4; i++) { g[`g${i}`] = serie(900, rng); m[`m${i}`] = serie(900, rng); }
+  const r = panoramicaDoppia({
+    giornaliere: g, mensili: m,
+    etichettaBreve: 'gli ultimi 26 anni', etichettaLungo: 'i quarant\'anni',
+  });
+  assert.ok(!/\b(su gli|su i|su le|su il|di il|da le)\b/i.test(r.messaggio), r.messaggio);
 });
 
 test('panoramicaDoppia con un solo archivio funziona comunque', async () => {

@@ -342,8 +342,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -355,7 +355,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -423,7 +423,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -451,7 +451,12 @@ export function rispostaSincrona(domanda, similarity = null) {
       // Si esclude l'indice della paura: e' gia' una misura di stress, e
       // includerlo fra gli attivi confonderebbe "quanto si muovono insieme"
       // con "quanta paura c'e'".
-      const dati = Object.entries(giorni.GIORNALIERO).filter(([k]) => k !== 'vix').map(([, v]) => v);
+      // Archivio LUNGO dal 2000: 26 anni, nove serie, e soprattutto contiene
+      // il 2008 — cinque anni di storia non hanno mai visto una crisi
+      // profonda, quindi non possono dire se cio' che vedono oggi sia raro.
+      const i2000 = lunghi.DATE_LUNGO.findIndex((d) => d >= '2000-09-01');
+      const complete = lunghi.serieComplete(i2000, 0.98);
+      const dati = Object.entries(complete).filter(([k]) => k !== 'paura').map(([, v]) => v.map((x) => (x === null ? 0 : x)));
       const rap = ass.serieAssorbimento(dati, { finestra: 250, passo: 5 });
       const sp = ass.spostamentoAssorbimento(rap);
       // La validazione e' costosa (permutazioni) e il suo esito non cambia da
@@ -470,8 +475,21 @@ export function rispostaSincrona(domanda, similarity = null) {
       const mensili = {};
       for (const [k, v] of Object.entries(lungo.LUNGO)) mensili[lungo.NOMI_LUNGO[k] || k] = v;
       const giornaliere = {};
-      for (const [k, v] of Object.entries(giorni.GIORNALIERO)) giornaliere[giorni.NOMI_GIORNALIERI[k] || k] = v;
-      const r = pan.panoramicaDoppia({ giornaliere, mensili });
+      const iDa = lunghi.DATE_LUNGO.findIndex((d) => d >= '2000-09-01');
+      for (const [k, v] of Object.entries(lunghi.serieComplete(iDa, 0.98))) {
+        giornaliere[lunghi.NOMI_LUNGO_GIORNI[k] || k] = v.map((x) => (x === null ? 0 : x));
+      }
+      // Le etichette e la presenza di una crisi si DICHIARANO dai dati, non
+      // si scrivono a mano: quando l'archivio giornaliero e' passato da 5 a
+      // 26 anni, le frasi scritte a mano sono diventate false in silenzio.
+      const daBreve = lunghi.DATE_LUNGO[iDa];
+      const anniBreve = Math.round((new Date(lunghi.GIORNI_LUNGO_A) - new Date(daBreve)) / 31557600000);
+      const r = pan.panoramicaDoppia({
+        giornaliere, mensili,
+        etichettaBreve: `gli ultimi ${anniBreve} anni giorno per giorno (dal ${daBreve.slice(0, 4)})`,
+        etichettaLungo: 'i quarant\'anni mese per mese',
+        crisiNelBreve: daBreve <= '2007-01-01',
+      });
       return conAvviso({ intent: 'mercato-panoramica', data: r, answer: `${r.messaggio} ${r.avviso}` });
     }
 

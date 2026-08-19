@@ -303,7 +303,17 @@ export function panoramica(fonti = {}, { finestra = 12, alpha = 0.05 } = {}) {
 // uno e tacere l'altro — e i disaccordi fra i due sono informazione, non
 // rumore: un valore raro negli ultimi cinque anni e ordinario negli ultimi
 // trenta e' esattamente il caso in cui un allarme sarebbe sbagliato.
-export function panoramicaDoppia({ giornaliere = null, mensili = null } = {}, opts = {}) {
+// `etichettaBreve`/`etichettaLungo` e `crisiNelBreve` NON sono cosmetici: il
+// testo diceva "cinque anni recenti" e "non contengono una crisi profonda"
+// scritti a mano, e quando l'archivio giornaliero e' passato da 5 a 26 anni
+// quelle due frasi sono diventate false senza che nulla si rompesse. Una
+// descrizione dei dati scritta a mano invecchia insieme ai dati: qui la
+// dichiara il chiamante, che i dati li ha.
+export function panoramicaDoppia({
+  giornaliere = null, mensili = null,
+  etichettaBreve = 'il periodo recente', etichettaLungo = 'la storia lunga',
+  crisiNelBreve = false,
+} = {}, opts = {}) {
   const g = giornaliere ? panoramica(giornaliere, { finestra: 21, ...opts }) : null;
   const m = mensili ? panoramica(mensili, { finestra: 12, ...opts }) : null;
   if (!g?.disponibile && !m?.disponibile) {
@@ -315,19 +325,23 @@ export function panoramicaDoppia({ giornaliere = null, mensili = null } = {}, op
   const suEntrambi = [...nomiG].filter((n) => nomiM.has(n));
   const soloBreve = [...nomiG].filter((n) => !nomiM.has(n));
 
+  // "Su" + etichetta produrrebbe "Su gli ultimi 26 anni" e "Su i quarant'anni":
+  // la preposizione articolata non si costruisce concatenando, ed e' lo stesso
+  // errore gia' corretto in titolo-causale.js ("da le azioni americane"). Si
+  // usa un gerundio, che regge qualunque etichetta senza articolo.
   const righe = [];
   if (g?.disponibile) {
     righe.push(g.cieco
-      ? `Sui cinque anni recenti non ho abbastanza storia per segnalare alcunche'.`
-      : `Sui cinque anni recenti ho guardato ${g.guardate} indicatori (${g.fontiEfficaci} direzioni distinte): ${g.notevoli.length === 0 ? 'niente fuori dall\'ordinario' : g.notevoli.map((x) => x.nome).join(', ')}.`);
+      ? `Guardando ${etichettaBreve}, non ho abbastanza storia per segnalare alcunche'.`
+      : `Guardando ${etichettaBreve}, ho esaminato ${g.guardate} indicatori (${g.fontiEfficaci} direzioni distinte): ${g.notevoli.length === 0 ? 'niente fuori dall\'ordinario' : g.notevoli.map((x) => x.nome).join(', ')}.`);
   }
   if (m?.disponibile) {
     righe.push(m.cieco
-      ? `Sui trent'anni ho piu' storia ma meno risoluzione: li' non potrei accorgermi di nulla nemmeno se fosse estremo, quindi da quel lato non arriva ne' un si' ne' un no.`
-      : `Sui trent'anni: ${m.notevoli.length === 0 ? 'niente fuori dall\'ordinario' : m.notevoli.map((x) => x.nome).join(', ')}.`);
+      ? `Guardando ${etichettaLungo}, ho piu' storia ma meno risoluzione: li' non potrei accorgermi di nulla nemmeno se fosse estremo, quindi da quel lato non arriva ne' un si' ne' un no.`
+      : `Guardando ${etichettaLungo}: ${m.notevoli.length === 0 ? 'niente fuori dall\'ordinario' : m.notevoli.map((x) => x.nome).join(', ')}.`);
   }
   if (soloBreve.length && m?.disponibile && !m.cieco) {
-    righe.push(`${soloBreve.join(', ')}: raro negli ultimi cinque anni ma ordinario sui trenta — quasi sempre significa che i cinque anni recenti sono stati insolitamente calmi, non che stia succedendo qualcosa.`);
+    righe.push(`${soloBreve.join(', ')}: raro su ${etichettaBreve} ma ordinario su ${etichettaLungo} — quasi sempre significa che il periodo recente e' stato insolitamente calmo, non che stia succedendo qualcosa.`);
   }
 
   return {
@@ -335,9 +349,14 @@ export function panoramicaDoppia({ giornaliere = null, mensili = null } = {}, op
     breve: g, lungo: m,
     suEntrambi, soloBreve,
     messaggio: righe.join(' '),
-    // Il limite strutturale del solo giornaliero, che va detto sempre: cinque
-    // anni non contengono una crisi come il 2008.
-    avviso: 'I cinque anni recenti non contengono una crisi profonda: quello che li\' sembra estremo puo\' essere normale su una storia piu\' lunga.',
+    crisiNelBreve,
+    // Il limite che va detto SOLO quando e' vero: un archivio che non ha mai
+    // visto una crisi profonda non puo' dire se cio' che vede oggi sia raro.
+    // Quando la crisi c'e', ripetere l'avviso sarebbe rumore — e gli avvisi
+    // che si ripetono senza motivo smettono di essere letti.
+    avviso: crisiNelBreve
+      ? `Questo periodo contiene almeno una crisi profonda, quindi il confronto e' molto piu' affidabile che su un archivio breve.`
+      : `Attenzione: ${etichettaBreve} non contiene una crisi profonda, quindi quello che li' sembra estremo puo' essere del tutto normale su una storia piu' lunga.`,
   };
 }
 

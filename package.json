@@ -29,6 +29,7 @@
     "bench:sparse-ablation": "node bench/sparse-ablation-bench.mjs",
     "bench:cash": "node bench/cash-forecast-bench.mjs",
     "bench:commitments": "node bench/commitment-training-bench.mjs",
+    "bench:daily-long": "node bench/fetch-daily-history.mjs",
     "bench:sectors": "node bench/fetch-sector-history.mjs",
     "bench:measured": "node bench/generate-measured-assumptions.mjs",
     "bench:mesh": "node bench/mesh-sync-bench.mjs"

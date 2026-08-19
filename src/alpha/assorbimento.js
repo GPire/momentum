@@ -34,6 +34,32 @@
 // La funzione `validaAssorbimento` fa esattamente questo: nessuna soglia
 // scelta guardando i dati, nessun periodo scelto a posteriori.
 //
+// ── IL RISULTATO MISURATO, su 41 anni di dati giornalieri (daily-long.js) ──
+// Prima versione di questa validazione girava su 5 anni e dava "non
+// distinguibile" con CINQUE osservazioni indipendenti — cioe' non diceva
+// niente. Con 10.487 giorni le osservazioni indipendenti diventano centinaia,
+// e la risposta cambia natura: da "non lo sappiamo" a "lo sappiamo".
+//
+//   Su 41 anni, ma solo 4 serie complete (azioni, tecnologia, tasso, dollaro):
+//     21 giorni  differenza +0,30 punti  p 0,344  (385 indipendenti)
+//     63 giorni  differenza +0,43 punti  p 0,622  (147 indipendenti)
+//   NESSUN effetto, e nemmeno nel verso giusto. Con quattro sole serie pero'
+//   la misura e' debole per costruzione: "quanto tutto si muove come una cosa
+//   sola" su quattro cose dice poco, e va detto invece di concludere.
+//
+//   Dal 2000 (26 anni, include il 2008) con 9 serie — azioni, tecnologia,
+//   piccole aziende, tasso, dollaro, oro, argento, rame, petrolio:
+//     21 giorni  differenza -0,59 punti  p 0,216  (227 indipendenti)
+//     63 giorni  differenza -1,73 punti  p 0,094  ( 86 indipendenti)
+//   Qui l'effetto va NEL VERSO PREVISTO ed e' economicamente sensato, ma non
+//   raggiunge la soglia nemmeno con 86 prove indipendenti.
+//
+// LA CONCLUSIONE ONESTA: il rapporto di assorbimento descrive bene lo stato
+// presente della diversificazione — quello lo misura davvero — ma sui nostri
+// dati NON anticipa i rendimenti in modo affidabile. Serve piu' come
+// termometro che come previsione, ed e' esattamente cosa dice il testo
+// mostrato all'utente.
+//
 // Funzioni PURE.
 'use strict';
 

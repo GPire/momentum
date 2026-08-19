@@ -57,8 +57,25 @@ export function drawdownEpisodes(closes = [], { minDepthPct = 10 } = {}) {
 // Base-rate del recupero per fascia di profondità: quanti episodi, e mediana
 // dei mesi di recupero (solo tra quelli RECUPERATI — gli episodi in corso non
 // hanno un tempo di recupero, e inventarlo sarebbe disonesto).
-export function recoveryBaseRates(closes = [], { minDepthPct = 10 } = {}) {
+// BUG LATENTE TROVATO estendendo l'archivio ai dati GIORNALIERI (2026-08-19):
+// questi campi contano DIFFERENZE DI INDICE, non mesi. Finche' l'unico
+// chiamante passava serie mensili i due coincidevano e il nome era corretto
+// per caso. Con 41 anni di dati giornalieri lo stesso codice ha prodotto
+// "medianRecoveryMonths: 1093" — che letto come mesi sono 91 anni, mentre
+// sono 1093 giorni di borsa, cioe' poco piu' di quattro anni.
+// Nessun errore, nessun crash: solo un'unita' sbagliata, che e' il modo piu'
+// silenzioso di mentire con un numero giusto.
+// I nomi storici restano per non rompere i chiamanti esistenti; si aggiungono
+// `periodi` (neutro) e `unita` (dichiarata), e chi passa dati giornalieri deve
+// dirlo — il valore predefinito resta mensile, come prima.
+export const CADENZE = {
+  mensile: { unita: 'mesi', perAnno: 12 },
+  giornaliera: { unita: 'giorni di borsa', perAnno: 252 },
+};
+
+export function recoveryBaseRates(closes = [], { minDepthPct = 10, cadenza = 'mensile' } = {}) {
   const episodes = drawdownEpisodes(closes, { minDepthPct });
+  const c = CADENZE[cadenza] || CADENZE.mensile;
   const buckets = { '10-20%': [], '20-35%': [], '35%+': [] };
   const bucketOf = (d) => d < 20 ? '10-20%' : d < 35 ? '20-35%' : '35%+';
   let ongoing = 0;
@@ -66,12 +83,24 @@ export function recoveryBaseRates(closes = [], { minDepthPct = 10 } = {}) {
     if (e.recovered) buckets[bucketOf(e.depthPct)].push(e.recoveryMonths);
     else ongoing++;
   }
-  const rows = Object.entries(buckets).map(([band, months]) => ({
-    band, count: months.length,
-    medianRecoveryMonths: median(months),
-    maxRecoveryMonths: months.length ? Math.max(...months) : null,
-  }));
-  return { rows, totalEpisodes: episodes.length, ongoing };
+  const rows = Object.entries(buckets).map(([band, periodi]) => {
+    const med = median(periodi);
+    const max = periodi.length ? Math.max(...periodi) : null;
+    return {
+      band, count: periodi.length,
+      // Nomi storici: invariati per i chiamanti che passano dati mensili.
+      medianRecoveryMonths: med,
+      maxRecoveryMonths: max,
+      // Nomi neutri, corretti a qualunque cadenza.
+      medianaPeriodi: med,
+      massimoPeriodi: max,
+      // E la stessa cosa in anni, che e' l'unita' che una persona capisce
+      // senza dover sapere quale cadenza sia stata usata.
+      medianaAnni: med === null ? null : +(med / c.perAnno).toFixed(1),
+      massimoAnni: max === null ? null : +(max / c.perAnno).toFixed(1),
+    };
+  });
+  return { rows, totalEpisodes: episodes.length, ongoing, cadenza, unita: c.unita };
 }
 
 // Contesto ONESTO sulla posizione attuale: quanto siamo sotto il massimo, e
