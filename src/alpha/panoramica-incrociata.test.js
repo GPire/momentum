@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   quantoStrano, autovaloriSimmetrica, numeroEfficaceDiFonti, matriceCorrelazione,
-  panoramica, testoPanoramica, MIN_STORIA,
+  panoramica, testoPanoramica, MIN_STORIA, correzioneEfficace, panoramicaDoppia,
 } from './panoramica-incrociata.js';
 import { LUNGO, NOMI_LUNGO } from './long-asset-panel.js';
 
@@ -166,6 +166,74 @@ test('il numero atteso PER CASO viene sempre dichiarato', () => {
   // Con fonti quasi indipendenti e alpha 5%, ci si aspetta circa 0,4 estremi
   // per puro caso su otto: è il numero che nessun briefing dichiara.
   assert.ok(r.attesePerCaso > 0 && r.attesePerCaso < 1, `attese ${r.attesePerCaso}`);
+});
+
+// ── LA CORREZIONE SUL NUMERO GIUSTO, e i dati giornalieri ──
+test('correggere per le direzioni EFFICACI è meno severo che per tutte le serie', () => {
+  // Non è generosità: undici serie che contengono nove direzioni distinte
+  // sono nove test, non undici. Correggere per undici è più severo del
+  // necessario, e la severità di troppo non è prudenza — è cecità.
+  const pv = [0.0018, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95];
+  const tutte = correzioneEfficace(pv, { alpha: 0.05, mEfficace: 11 });
+  const efficaci = correzioneEfficace(pv, { alpha: 0.05, mEfficace: 9 });
+  assert.ok(efficaci.sogliaPiuSevera > tutte.sogliaPiuSevera);
+  assert.equal(tutte.rifiutati.has(0), false);
+  assert.equal(efficaci.rifiutati.has(0), true);
+});
+
+test('correzioneEfficace non può mai essere più permissiva del numero di test reali', () => {
+  const pv = [0.01, 0.02, 0.03];
+  // Un mEfficace assurdo non deve poter scendere sotto 1 né salire sopra m.
+  assert.equal(correzioneEfficace(pv, { mEfficace: 0 }).mUsato, 1);
+  assert.equal(correzioneEfficace(pv, { mEfficace: 99 }).mUsato, 3);
+  assert.equal(correzioneEfficace([], {}).mUsato, 0);
+});
+
+test('I DATI GIORNALIERI ALZANO LA RISOLUZIONE: da cieco a vedente', async () => {
+  // Il motivo per cui il pannello giornaliero serve. 1253 osservazioni contro
+  // 400 portano il pavimento del valore p da 0,0051 a 0,0016, e con la
+  // correzione sulle direzioni efficaci (0,00196) il sistema smette di essere
+  // cieco. Con la sola correzione prudente (0,00151) resterebbe cieco: il
+  // verdetto dipende dal metodo, e il referto lo dichiara.
+  const { GIORNALIERO, NOMI_GIORNALIERI } = await import('./daily-panel.js');
+  const fonti = {};
+  for (const [k, v] of Object.entries(GIORNALIERO)) fonti[NOMI_GIORNALIERI[k] || k] = v;
+  const r = panoramica(fonti, { finestra: 21 });
+  assert.equal(r.cieco, false, 'col giornaliero il sistema deve poter vedere');
+  assert.ok(r.risoluzionePeggiore < r.sogliaPiuSevera);
+  assert.equal(r.dipendeDalMetodo, true, 'e deve dichiarare che dipende dal metodo');
+  assert.ok(r.avvisi.some((a) => /dipende da come si contano/.test(a)));
+});
+
+test('I DUE ORIZZONTI hanno forze opposte, e si dicono entrambe', async () => {
+  const { GIORNALIERO, NOMI_GIORNALIERI } = await import('./daily-panel.js');
+  const giornaliere = {}, mensili = {};
+  for (const [k, v] of Object.entries(GIORNALIERO)) giornaliere[NOMI_GIORNALIERI[k] || k] = v;
+  for (const [k, v] of Object.entries(LUNGO)) mensili[NOMI_LUNGO[k] || k] = v;
+  const r = panoramicaDoppia({ giornaliere, mensili });
+  assert.equal(r.disponibile, true);
+  // Il breve vede ma conosce poco; il lungo conosce molto ma non vede.
+  assert.equal(r.breve.cieco, false);
+  assert.equal(r.lungo.cieco, true);
+  assert.match(r.messaggio, /cinque anni recenti/);
+  assert.match(r.messaggio, /ne' un si' ne' un no/);
+  // Il limite del solo giornaliero va detto sempre.
+  assert.match(r.avviso, /non contengono una crisi profonda/);
+});
+
+test('panoramicaDoppia con un solo archivio funziona comunque', async () => {
+  const rng = seme(30);
+  const solo = {};
+  for (let i = 0; i < 4; i++) solo[`s${i}`] = serie(900, rng);
+  const r = panoramicaDoppia({ mensili: solo });
+  assert.equal(r.disponibile, true);
+  assert.equal(r.breve, null);
+  assert.ok(r.lungo.disponibile);
+});
+
+test('panoramicaDoppia senza dati: si dichiara invece di inventare', () => {
+  const r = panoramicaDoppia({});
+  assert.equal(r.disponibile, false);
 });
 
 test('il testo non promette eventi né suggerisce mosse', () => {

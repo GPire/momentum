@@ -139,6 +139,40 @@ export function numeroEfficaceDiFonti(matriceCorrelazione) {
   return Math.max(1, Math.min(n, +meff.toFixed(2)));
 }
 
+// ── LA CORREZIONE FATTA SUL NUMERO GIUSTO ──
+// Benjamini-Yekutieli divide per il numero di test. Ma se undici serie
+// contengono nove direzioni distinte, i test davvero indipendenti sono nove:
+// correggere per undici e' piu' severo del necessario, e la severita' di
+// troppo non e' prudenza — e' cecita'. Sul pannello giornaliero la differenza
+// e' esattamente quella fra vedere e non vedere: soglia 0,00151 con undici,
+// 0,00196 con nove, contro una risoluzione di 0,00162.
+//
+// Sostituire il numero di test con il numero EFFICACE e' precisamente l'uso
+// per cui il metodo di Li e Ji e' stato costruito. ONESTA': e' comunque
+// un'APPROSSIMAZIONE, validata originariamente su dati genetici e non su serie
+// finanziarie. Per questo il referto porta SEMPRE entrambe le soglie — quella
+// prudente e quella efficace — e dichiara se il verdetto dipende da quale si
+// usa. Un risultato che esiste solo con la soglia piu' generosa e' un risultato
+// fragile, e va detto invece di essere presentato come stabile.
+export function correzioneEfficace(pvalues = [], { alpha = 0.05, mEfficace = null } = {}) {
+  const validi = pvalues.map((p, i) => ({ i, p })).filter((x) => Number.isFinite(x.p)).sort((a, b) => a.p - b.p);
+  const m = validi.length;
+  if (!m) return { rifiutati: new Set(), soglia: 0, mUsato: 0 };
+  const mUsato = Math.max(1, Math.min(m, Math.ceil(mEfficace ?? m)));
+  const c = Array.from({ length: mUsato }, (_, j) => 1 / (j + 1)).reduce((s, v) => s + v, 0);
+
+  let kMax = -1;
+  for (let k = 0; k < m; k++) {
+    if (validi[k].p <= ((k + 1) / (mUsato * c)) * alpha) kMax = k;
+  }
+  return {
+    rifiutati: new Set(kMax >= 0 ? validi.slice(0, kMax + 1).map((x) => x.i) : []),
+    soglia: kMax >= 0 ? validi[kMax].p : 0,
+    mUsato,
+    sogliaPiuSevera: alpha / (mUsato * c),
+  };
+}
+
 export function matriceCorrelazione(serie = []) {
   const n = serie.length;
   const lung = Math.min(...serie.map((s) => s.length));
@@ -187,12 +221,23 @@ export function panoramica(fonti = {}, { finestra = 12, alpha = 0.05 } = {}) {
   // Correzione per aver guardato tante cose. Benjamini-Yekutieli e' la scelta
   // giusta qui perche' NON assume indipendenza — e queste serie sono tutt'altro
   // che indipendenti.
-  const by = benjaminiYekutieli(misure.map((m) => m.p), alpha);
-  // `rejected` e' un Set di INDICI nell'array passato, non un array di
-  // booleani: leggerlo come array darebbe sempre "niente di notevole", cioe'
-  // un modulo che sembra funzionare e non segnala mai nulla.
+  const pv = misure.map((m) => m.p);
+  // DUE letture, sempre entrambe: quella prudente (corregge per tutte le serie
+  // guardate) e quella efficace (corregge per le direzioni davvero distinte).
+  // `rejected` di benjaminiYekutieli e' un Set di INDICI, non un array di
+  // booleani: leggerlo come array darebbe sempre "niente di notevole", cioe' un
+  // modulo che sembra funzionare e non segnala mai nulla.
+  const prudente = benjaminiYekutieli(pv, alpha);
+  const efficace = correzioneEfficace(pv, { alpha, mEfficace: efficaci });
+
   const sopravvissuti = misure
-    .map((m, i) => ({ ...m, significativo: by.rejected.has(i) }))
+    .map((m, i) => ({
+      ...m,
+      significativo: efficace.rifiutati.has(i),
+      // Regge anche con la correzione piu' severa? Se no, e' un risultato
+      // FRAGILE, e va detto invece di essere presentato come stabile.
+      robusto: prudente.rejected.has(i),
+    }))
     .sort((a, b) => a.p - b.p);
 
   const notevoli = sopravvissuti.filter((x) => x.significativo);
@@ -207,19 +252,29 @@ export function panoramica(fonti = {}, { finestra = 12, alpha = 0.05 } = {}) {
   // "niente di notevole" in quel caso non e' un'osservazione: e' un'incapacita'
   // di osservare, ed e' onesto distinguere le due cose.
   const c = Array.from({ length: misure.length }, (_, j) => 1 / (j + 1)).reduce((s, v) => s + v, 0);
-  const sogliaPiuSevera = alpha / (misure.length * c);
+  const sogliaPrudente = alpha / (misure.length * c);
+  const sogliaPiuSevera = efficace.sogliaPiuSevera;
   const risoluzionePeggiore = Math.max(...misure.map((m) => m.risoluzione));
+  // Cieco solo se non si vedrebbe niente NEMMENO con la soglia efficace: se la
+  // storia non basta per la lettura piu' generosa, non basta per nessuna.
   const cieco = risoluzionePeggiore > sogliaPiuSevera;
+  // Il caso intermedio, e va dichiarato: con la sola correzione prudente si
+  // sarebbe ciechi, con quella efficace no. Il verdetto dipende dal metodo, e
+  // chi legge ha diritto di saperlo.
+  const dipendeDalMetodo = !cieco && risoluzionePeggiore > sogliaPrudente;
 
   return {
     disponibile: true,
     guardate: misure.length,
     fontiEfficaci: efficaci,
     attesePerCaso,
-    sogliaCorretta: by.soglia,
+    sogliaCorretta: efficace.soglia,
     sogliaPiuSevera: +sogliaPiuSevera.toFixed(5),
+    sogliaPrudente: +sogliaPrudente.toFixed(5),
     risoluzionePeggiore,
     cieco,
+    dipendeDalMetodo,
+    fragili: notevoli.filter((x) => !x.robusto).map((x) => x.nome),
     notevoli,
     tutte: sopravvissuti,
     messaggio: cieco
@@ -230,7 +285,59 @@ export function panoramica(fonti = {}, { finestra = 12, alpha = 0.05 } = {}) {
     avvisi: [
       'Insolito non vuol dire che stia per succedere qualcosa: vuol dire solo che il valore di adesso è raro rispetto alla storia di quella serie.',
       'Gli indicatori che si muovono insieme non sono prove separate: contarli come tali triplicherebbe una prova che è una sola.',
+      ...(dipendeDalMetodo ? ['Attenzione: con il conteggio più prudente (tutte le serie invece delle sole direzioni distinte) non si vedrebbe nulla. Questo risultato dipende da come si contano i confronti, e va trattato come indicativo.'] : []),
+      ...(notevoli.some((x) => !x.robusto) ? [`Risultato fragile: ${notevoli.filter((x) => !x.robusto).map((x) => x.nome).join(', ')} non regge alla correzione più severa.`] : []),
     ],
+  };
+}
+
+// ── I DUE ORIZZONTI, che hanno forze OPPOSTE ──
+// E' il pezzo che rende utile avere entrambi gli archivi invece di scegliere.
+//   · GIORNALIERO (5 anni, ~1250 osservazioni): abbastanza risoluzione per
+//     accorgersi di qualcosa, ma conosce solo cinque anni — non ha mai visto
+//     il 2008, e cio' che non ha visto non puo' considerarlo normale ne' raro.
+//   · MENSILE (33 anni, 400 osservazioni): ha visto tutto, ma con quella
+//     risoluzione non potrebbe segnalare nulla nemmeno se fosse estremo.
+// Nessuno dei due e' "il migliore": uno vede in dettaglio una stanza piccola,
+// l'altro vede una casa intera al buio. Dirlo e' piu' utile che sceglierne
+// uno e tacere l'altro — e i disaccordi fra i due sono informazione, non
+// rumore: un valore raro negli ultimi cinque anni e ordinario negli ultimi
+// trenta e' esattamente il caso in cui un allarme sarebbe sbagliato.
+export function panoramicaDoppia({ giornaliere = null, mensili = null } = {}, opts = {}) {
+  const g = giornaliere ? panoramica(giornaliere, { finestra: 21, ...opts }) : null;
+  const m = mensili ? panoramica(mensili, { finestra: 12, ...opts }) : null;
+  if (!g?.disponibile && !m?.disponibile) {
+    return { disponibile: false, motivo: 'Nessuno dei due archivi ha dati sufficienti.' };
+  }
+
+  const nomiG = new Set((g?.notevoli || []).map((x) => x.nome));
+  const nomiM = new Set((m?.notevoli || []).map((x) => x.nome));
+  const suEntrambi = [...nomiG].filter((n) => nomiM.has(n));
+  const soloBreve = [...nomiG].filter((n) => !nomiM.has(n));
+
+  const righe = [];
+  if (g?.disponibile) {
+    righe.push(g.cieco
+      ? `Sui cinque anni recenti non ho abbastanza storia per segnalare alcunche'.`
+      : `Sui cinque anni recenti ho guardato ${g.guardate} indicatori (${g.fontiEfficaci} direzioni distinte): ${g.notevoli.length === 0 ? 'niente fuori dall\'ordinario' : g.notevoli.map((x) => x.nome).join(', ')}.`);
+  }
+  if (m?.disponibile) {
+    righe.push(m.cieco
+      ? `Sui trent'anni ho piu' storia ma meno risoluzione: li' non potrei accorgermi di nulla nemmeno se fosse estremo, quindi da quel lato non arriva ne' un si' ne' un no.`
+      : `Sui trent'anni: ${m.notevoli.length === 0 ? 'niente fuori dall\'ordinario' : m.notevoli.map((x) => x.nome).join(', ')}.`);
+  }
+  if (soloBreve.length && m?.disponibile && !m.cieco) {
+    righe.push(`${soloBreve.join(', ')}: raro negli ultimi cinque anni ma ordinario sui trenta — quasi sempre significa che i cinque anni recenti sono stati insolitamente calmi, non che stia succedendo qualcosa.`);
+  }
+
+  return {
+    disponibile: true,
+    breve: g, lungo: m,
+    suEntrambi, soloBreve,
+    messaggio: righe.join(' '),
+    // Il limite strutturale del solo giornaliero, che va detto sempre: cinque
+    // anni non contengono una crisi come il 2008.
+    avviso: 'I cinque anni recenti non contengono una crisi profonda: quello che li\' sembra estremo puo\' essere normale su una storia piu\' lunga.',
   };
 }
 

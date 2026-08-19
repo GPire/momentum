@@ -330,8 +330,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -343,7 +343,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -411,7 +411,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -436,10 +436,17 @@ export function rispostaSincrona(domanda, similarity = null) {
     };
 
     if (intento === 'panoramica') {
-      const fonti = {};
-      for (const [k, v] of Object.entries(lungo.LUNGO)) fonti[lungo.NOMI_LUNGO[k] || k] = v;
-      const r = pan.panoramica(fonti);
-      return conAvviso({ intent: 'mercato-panoramica', data: r, answer: pan.testoPanoramica(r) });
+      // Si leggono ENTRAMBI gli orizzonti, perche' hanno forze opposte: il
+      // giornaliero ha la risoluzione per accorgersi di qualcosa ma conosce
+      // solo cinque anni, il mensile ha visto trent'anni ma non potrebbe
+      // segnalare nulla. Sceglierne uno e tacere l'altro nasconderebbe
+      // proprio il limite che rende la risposta interpretabile.
+      const mensili = {};
+      for (const [k, v] of Object.entries(lungo.LUNGO)) mensili[lungo.NOMI_LUNGO[k] || k] = v;
+      const giornaliere = {};
+      for (const [k, v] of Object.entries(giorni.GIORNALIERO)) giornaliere[giorni.NOMI_GIORNALIERI[k] || k] = v;
+      const r = pan.panoramicaDoppia({ giornaliere, mensili });
+      return conAvviso({ intent: 'mercato-panoramica', data: r, answer: `${r.messaggio} ${r.avviso}` });
     }
 
     if (intento === 'previsione') {
