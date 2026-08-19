@@ -269,6 +269,18 @@ export function intentoMercato(domanda, similarity = null) {
     'guarda tutto', 'guardando tutto', 'panoramica', 'quadro generale', 'visione d insieme',
     'cosa esce dall ordinario', 'qualcosa fuori dal normale', 'cosa ti salta all occhio')) return 'panoramica';
 
+  // "La diversificazione sta funzionando?" — la domanda che conta piu' di
+  // tutte per chi ha molte posizioni, e a cui nessuno risponde con un numero.
+  // Due parti, come le altre regole del file: "diversific" da solo finirebbe
+  // sulla regola geografica piu' sotto, e la frase intera "la diversificazione
+  // funziona" non prendeva "sta funzionando" — un pattern troppo rigido non
+  // sbaglia, semplicemente non scatta, ed e' il modo piu' silenzioso di non
+  // funzionare.
+  if (ha(q, 'diversific') && ha(q, 'funzion', 'sta reggendo', 'serve ancora', 'ho davvero', 'sto davvero')) return 'assorbimento';
+  if (ha(q, 'sto diversificando', 'diversificato',
+    'si muovono tutti insieme', 'si muove tutto insieme', 'muovono insieme', 'muove tutto insieme',
+    'quanto sono correlati', 'sono correlati', 'stessa scommessa')) return 'assorbimento';
+
   if (ha(q, 'cosa non sai', 'cosa non puoi', 'quali sono i tuoi limiti', 'di cosa non sei sicuro', 'dove sbagli', 'cosa ti manca')) return 'limiti';
   if (ha(q, 'quanto e affidabile', 'quanto ti posso credere', 'quanto sono affidabili', 'che affidabilita')) return 'limiti';
 
@@ -330,8 +342,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -343,7 +355,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -411,7 +423,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -434,6 +446,20 @@ export function rispostaSincrona(domanda, similarity = null) {
       for (const [k, alias] of QUALE) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) return k;
       return null;
     };
+
+    if (intento === 'assorbimento') {
+      // Si esclude l'indice della paura: e' gia' una misura di stress, e
+      // includerlo fra gli attivi confonderebbe "quanto si muovono insieme"
+      // con "quanta paura c'e'".
+      const dati = Object.entries(giorni.GIORNALIERO).filter(([k]) => k !== 'vix').map(([, v]) => v);
+      const rap = ass.serieAssorbimento(dati, { finestra: 250, passo: 5 });
+      const sp = ass.spostamentoAssorbimento(rap);
+      // La validazione e' costosa (permutazioni) e il suo esito non cambia da
+      // una domanda all'altra: si dichiara l'esito gia' misurato invece di
+      // ricalcolarlo a ogni domanda.
+      const testo = ass.testoAssorbimento(sp, { disponibile: true, funziona: false });
+      return conAvviso({ intent: 'mercato-assorbimento', data: { spostamento: sp }, answer: testo });
+    }
 
     if (intento === 'panoramica') {
       // Si leggono ENTRAMBI gli orizzonti, perche' hanno forze opposte: il
