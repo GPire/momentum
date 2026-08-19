@@ -262,6 +262,13 @@ export function intentoMercato(domanda, similarity = null) {
   if (ha(q, 'posizionament', 'cot', 'commitments of traders', 'speculator')) return 'sentiment';
   if (ha(q, 'sentiment', 'umore del mercato', 'come sono messi', 'da che parte stanno', 'tutti dalla stessa parte', 'euforia', 'panico')) return 'sentiment';
 
+  // LA PANORAMICA: "guarda tutto e dimmi se c'e' qualcosa di strano". E' la
+  // domanda che un operatore fa per prima ogni mattina, e finora l'app sapeva
+  // rispondere solo indicatore per indicatore.
+  if (ha(q, 'c e qualcosa di strano', 'qualcosa di anomalo', 'qualcosa di insolito', 'niente di strano',
+    'guarda tutto', 'guardando tutto', 'panoramica', 'quadro generale', 'visione d insieme',
+    'cosa esce dall ordinario', 'qualcosa fuori dal normale', 'cosa ti salta all occhio')) return 'panoramica';
+
   if (ha(q, 'cosa non sai', 'cosa non puoi', 'quali sono i tuoi limiti', 'di cosa non sei sicuro', 'dove sbagli', 'cosa ti manca')) return 'limiti';
   if (ha(q, 'quanto e affidabile', 'quanto ti posso credere', 'quanto sono affidabili', 'che affidabilita')) return 'limiti';
 
@@ -323,8 +330,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -336,7 +343,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -404,7 +411,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -427,6 +434,13 @@ export function rispostaSincrona(domanda, similarity = null) {
       for (const [k, alias] of QUALE) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) return k;
       return null;
     };
+
+    if (intento === 'panoramica') {
+      const fonti = {};
+      for (const [k, v] of Object.entries(lungo.LUNGO)) fonti[lungo.NOMI_LUNGO[k] || k] = v;
+      const r = pan.panoramica(fonti);
+      return conAvviso({ intent: 'mercato-panoramica', data: r, answer: pan.testoPanoramica(r) });
+    }
 
     if (intento === 'previsione') {
       // L'orizzonte lo sceglie chi chiede: "i prossimi sei mesi" e "il prossimo
