@@ -51,7 +51,7 @@ import { statoMercato } from './alpha/mercato-vivo.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
-import { chiediAlMercatoSync, precarica as precaricaMercato } from './alpha/mercato-qa.js';
+import { chiediAlMercatoSync, rifiutoMotivato, precarica as precaricaMercato } from './alpha/mercato-qa.js';
 import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed } from './core/telemetry.js';
 
 // Endpoint del contatore anonimo (server/telemetry-worker.js): vuoto finché
@@ -258,6 +258,14 @@ function askMomentum(text, semanticSimilarity = null) {
     // dopo l'avvio: chi non chiede mai di mercati non li scarica al primo
     // colpo, e chi chiede trova tutto gia' pronto.
     mercato: (testo) => { try { return chiediAlMercatoSync(testo); } catch (_) { return null; } },
+    // IL RIFIUTO, controllato PRIMA di ogni intento (qa-engine.js). Viveva
+    // solo nel ramo dei mercati, consultato per ultimo: cosi' "dimmi tu dove
+    // investire" trovava prima un intento di finanza personale e riceveva una
+    // risposta invece di un no motivato. Con la comprensione semantica accesa
+    // il problema peggiorava, perche' allargava la portata degli intenti
+    // personali senza allargare quella dei rifiuti. Riceve la stessa
+    // similarita' del resto del QA, cosi' prende anche le parafrasi.
+    rifiuto: (testo) => { try { return rifiutoMotivato(testo, semanticSimilarity); } catch (_) { return null; } },
     // src/ai/qa-learning.js: apprendimento locale, per-utente, delle
     // formulazioni che i pattern fissi non riconoscono — vedi askMomentum
     // più sotto per dove si registra/insegna.
@@ -13187,6 +13195,13 @@ window.renderAfterImport = () => {
 // ...e per il voice core (una domanda parlata viene instradata al motore
 // Q&A invece che al parser delle transazioni).
 window.askMomentum = askMomentum;
+// Diagnostica di calibrazione delle soglie semantiche (src/ai/semantic-embed.js):
+// esposta perche' le soglie giuste dipendono dai valori che il modello produce
+// davvero, e quelli si misurano solo con il modello acceso.
+window.momentumSimDiag = async (coppie) => {
+  const { distribuzioneSomiglianze } = await import('./ai/semantic-embed.js');
+  return distribuzioneSomiglianze(coppie);
+};
 // Voce "il solito" (src/voice/voice.js chiama questi): matching + registrazione
 window.matchSolito = (phrase) => matchSolito(phrase, VaultDAO.state.transactions, new Date());
 window.registerQuickAdd = (hit) => {

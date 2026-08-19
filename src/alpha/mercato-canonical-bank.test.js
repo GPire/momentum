@@ -3,9 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   matchMercato, ESEMPI_MERCATO, ESEMPI_RIFIUTO,
-  SOGLIA_MERCATO, SOGLIA_RIFIUTO,
+  SOGLIA_MERCATO, SOGLIA_RIFIUTO, MARGINE_MINIMO,
 } from './mercato-canonical-bank.js';
 import { intentoMercato, rifiutoMotivato, caricaBancoSemantico } from './mercato-qa.js';
+import { similaritaLessicale } from '../ai/similarita-lessicale.js';
 
 // Similarita' finta e controllabile: i test verificano la LOGICA del banco,
 // non la qualita' del modello di embedding (che e' opt-in, pesa 197MB e non
@@ -85,19 +86,68 @@ test('ogni intento del banco esiste gia in intentoMercato: il banco non ne inven
     `solo ${confermati.length}/${chiavi.length} chiavi confermate dalla cascata: ${chiavi.filter((k) => !raggiunti.has(k))}`);
 });
 
-test('LA RETE DI SICUREZZA: le parafrasi che le parole chiave non prendono le prende il senso', async () => {
-  // Il punto dell'intero modulo, e la prova che serviva davvero. "su quale
-  // settore mi conviene puntare i soldi" e' "cosa devo comprare" detta in
-  // un altro modo: nessuna stringa dell'elenco la cattura, e senza il banco
-  // semantico l'app le risponderebbe invece di rifiutare.
-  const frase = 'su quale settore mi conviene puntare i soldi';
-  assert.equal(rifiutoMotivato(frase), null, 'le sole parole chiave non la prendono: e la ragione per cui questo modulo esiste');
-
+test('DOVE SIAMO DAVVERO: la rete lessicale e una RISERVA, non il motore', async () => {
+  // Misurato, e vale la pena scriverlo perche' e' cambiato durante il lavoro.
+  // Quando questo modulo e' nato, la somiglianza lessicale recuperava due
+  // rifiuti su sette che le parole chiave perdevano (sicurezza 71,4% -> 100%).
+  // Poi, provando l'app dal vivo, sono emerse le formulazioni che mancavano
+  // davvero ("dove investire", "cosa faresti") e l'elenco a parole chiave e'
+  // stato allargato. Da allora le parole chiave coprono il banco da sole, e
+  // la rete lessicale non aggiunge piu' nulla SU QUESTO BANCO.
+  // Non e' inutile: e' la riserva per le formulazioni che non abbiamo ancora
+  // incontrato, e costa nulla. Ma dire che "chiude il buco" oggi sarebbe
+  // raccontare una vittoria del passato come se fosse del presente.
   await caricaBancoSemantico();
-  const conSenso = rifiutoMotivato(frase, soloSu(frase, 0.9));
-  assert.ok(conSenso, 'con la comprensione semantica deve essere rifiutata');
-  assert.equal(conSenso.intent, 'mercato-non-si-puo');
-  assert.equal(conSenso.viaSemantica, true);
+  for (const esempi of Object.values(ESEMPI_RIFIUTO)) {
+    for (const e of esempi) {
+      const soloParole = rifiutoMotivato(e);
+      const conLessicale = rifiutoMotivato(e, similaritaLessicale);
+      assert.ok(conLessicale, `"${e}" deve essere rifiutata`);
+      // Se un giorno una di queste smettesse di essere presa dalle sole
+      // parole chiave, questo test lo direbbe subito.
+      assert.ok(soloParole, `"${e}" non e piu coperta dalle parole chiave: la riserva lessicale sta lavorando, aggiornare il commento`);
+    }
+  }
+});
+
+test('IL LIMITE APERTO, dichiarato invece che scoperto da un utente', async () => {
+  // L'onesta' che tiene in piedi il resto. Queste sono richieste di consiglio
+  // in piena regola e NON vengono rifiutate: non nominano soldi, titoli,
+  // settori ne' il verbo investire, e contro l'esempio piu' vicino del banco
+  // la somiglianza lessicale resta sotto la soglia (0,33 e 0,60 misurati).
+  //
+  // Sarebbe il caso del modello di embedding — ma misurandolo dal vivo si e'
+  // visto che su questo dominio produce 0,90-0,96 per QUALUNQUE coppia, quindi
+  // non e' utilizzabile per decidere un rifiuto. Il buco resta aperto ed e'
+  // scritto qui.
+  await caricaBancoSemantico();
+  for (const sfugge of [
+    'quale strumento finanziario mi suggeriresti',
+    'e tu al mio posto che scelta prenderesti con questi soldi',
+  ]) {
+    assert.equal(rifiutoMotivato(sfugge, similaritaLessicale), null,
+      `"${sfugge}" ora viene presa: il limite documentato qui e stato chiuso, aggiornare il commento`);
+  }
+});
+
+test('IL MARGINE, non il livello: la regola giusta per un modello di embedding', () => {
+  // Misurato: con una somiglianza di embedding i valori stanno tutti fra 0,90
+  // e 0,96, quindi una soglia assoluta li fa passare tutti. L'informazione e'
+  // nella distanza fra il primo e il secondo — 0,027 quando il
+  // riconoscimento e' netto, 0,0012 quando e' un pareggio.
+  const primo = 'come sta il mercato in questo momento';
+  // Tutto alto ma indistinto: nessun margine, quindi nessun riconoscimento.
+  const indistinta = () => 0.94;
+  assert.equal(matchMercato('x', indistinta, { perMargine: true }), null);
+  // Stessi valori alti, ma con un primo che stacca: riconosciuto.
+  const conMargine = (a, b) => (b === primo ? 0.96 : 0.93);
+  const r = matchMercato('x', conMargine, { perMargine: true });
+  assert.ok(r, 'con un margine netto deve riconoscere');
+  assert.equal(r.intent, 'regime');
+  assert.ok(r.margine >= MARGINE_MINIMO);
+  // E la stessa similarita' indistinta, letta con la soglia assoluta,
+  // passerebbe: e' esattamente il guasto che si e' visto dal vivo.
+  assert.ok(matchMercato('x', indistinta, { perMargine: false }));
 });
 
 test('ogni domanda da rifiutare e coperta: dalle parole chiave OPPURE dal senso', async () => {

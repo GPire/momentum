@@ -381,6 +381,28 @@ function answerQuestionCore(question, ctx) {
   const allTx = ctx.allTx || {};
   const monthTxs = allTx[monthKey(ref)] || [];
   if (!q) return { intent: 'unknown', answer: UNKNOWN_MSG.it };
+
+  // ── IL RIFIUTO VIENE PRIMA DI TUTTO ──
+  // BUCO DI SICUREZZA TROVATO PROVANDO L'APP DAL VIVO col motore semantico
+  // acceso (2026-08-19). Il rifiuto motivato viveva solo dentro il ramo dei
+  // mercati, che qui e' consultato per ULTIMO come ripiego: cosi' "dimmi tu
+  // dove investire adesso" e "su quale azienda dovrei puntare i risparmi?"
+  // incontravano prima un intento di finanza personale e ricevevano una
+  // RISPOSTA — "questo mese non avanza nulla" — invece del no motivato.
+  // Cioe' una richiesta di consiglio finanziario veniva servita, e la
+  // comprensione semantica peggiorava le cose perche' allargava la portata
+  // degli intenti personali senza allargare quella dei rifiuti.
+  //
+  // Il principio giusto era gia' scritto nel progetto (mercato-qa.js: "prima
+  // si guarda se la domanda e' di quelle a cui non si deve rispondere, poi si
+  // prova a rispondere") — semplicemente non era applicato al QA principale.
+  // Ora e' il primo controllo di tutti, e vale per QUALUNQUE domanda.
+  if (ctx?.rifiuto) {
+    try {
+      const no = ctx.rifiuto(question);
+      if (no) return no;
+    } catch (_) { /* un rifiuto che fallisce non deve rompere la risposta */ }
+  }
   const lang = L(detectLanguage(q).lang);
   // Solo per il RICONOSCIMENTO dell'intento (matches()) — mai per estrarre
   // importi/categorie/periodi, che restano sul testo originale `q`.

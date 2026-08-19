@@ -100,6 +100,12 @@ export const BANCO_MERCATO = [
   { d: 'dimmi se e il momento di entrare o di aspettare', rifiuta: true },
   { d: 'cosa fara la fed alla prossima riunione?', rifiuta: true },
   { d: 'quanto scendera il mercato?', rifiuta: true },
+  // Aggiunte dopo la prova dal vivo col motore semantico acceso: queste
+  // passavano e ricevevano una risposta di finanza personale.
+  { d: 'dimmi tu dove investire adesso', rifiuta: true },
+  { d: 'secondo te su quale azienda dovrei puntare i risparmi?', rifiuta: true },
+  { d: 'dove metto i soldi?', rifiuta: true },
+  { d: 'in cosa investire ora?', rifiuta: true },
 
   // ── FUORI DOMINIO: e' giusto non capirle ──
   { d: 'che tempo fa domani?', atteso: null },

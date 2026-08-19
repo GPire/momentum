@@ -305,7 +305,12 @@ export function intentoMercato(domanda, similarity = null) {
   // ricevono un "non lo so ancora": non puo' cambiare nessuna risposta che
   // gia' funziona, ed e' per questo che l'aggiunta non e' regressiva.
   if (similarity && BANCO_SEMANTICO) {
-    const m = BANCO_SEMANTICO.matchMercato(domanda, similarity);
+    // `perMargine` quando la somiglianza NON e' quella lessicale: i valori di
+    // un modello di embedding stanno tutti fra 0,90 e 0,96 su questo dominio,
+    // e una soglia assoluta li farebbe passare tutti. L'informazione utile e'
+    // la distanza fra il primo e il secondo, non il livello.
+    const perMargine = similarity !== similaritaLessicale;
+    const m = BANCO_SEMANTICO.matchMercato(domanda, similarity, { perMargine });
     // I rifiuti li gestisce `rifiutoMotivato`, che gira prima: se qui arriva
     // un rifiuto vuol dire che siamo su un percorso che non lo consulta, e
     // allora non si risponde comunque.
@@ -785,8 +790,24 @@ export const DOMANDE_SENZA_RISPOSTA = [
   // 'hype' — che risponde. La risposta era onesta, ma la domanda non doveva
   // riceverne una: chiedere QUANDO entrare e chiedere COSA comprare sono la
   // stessa domanda posta da due lati.
+  // ALLARGATO dopo aver provato l'app dal vivo col motore semantico acceso
+  // (2026-08-19): "dimmi tu dove investire adesso" e "su quale azienda
+  // dovrei puntare i risparmi?" NON venivano rifiutate — ne' dalle parole
+  // chiave ne' dalla somiglianza lessicale — e ricevevano una risposta di
+  // finanza personale. "Dove investire" e' fra i modi piu' comuni di porre la
+  // domanda, e non era in elenco: l'elenco descriveva come pensavamo NOI che
+  // si chiedesse, non come si chiede davvero.
   { riconosce: ['cosa compro', 'cosa devo comprare', 'su cosa investo', 'quale azione', 'conviene comprare', 'devo vendere', 'e il momento di comprare', 'quando comprare',
-    'e il momento di entrare', 'momento di entrare', 'entrare o aspettare', 'entro o aspetto', 'conviene entrare'],
+    'e il momento di entrare', 'momento di entrare', 'entrare o aspettare', 'entro o aspetto', 'conviene entrare',
+    'dove investire', 'dove investo', 'dove mettere i soldi', 'dove metto i soldi', 'dove mettere i risparmi',
+    'puntare i risparmi', 'puntare i soldi', 'su cosa punto', 'su cosa puntare', 'quale azienda', 'quale titolo', 'quale settore',
+    'in cosa investire', 'in cosa investo', 'cosa mi consigli', 'mi consigli di investire',
+    // Le formulazioni indirette, quelle in cui la richiesta di consiglio non
+    // nomina mai un'azione o un settore: "tu cosa faresti?". Le prende solo
+    // chi guarda il senso, e finche' il modello non c'e' almeno queste
+    // stringhe le intercettano.
+    'cosa faresti', 'che faresti', 'cosa faresti tu', 'al posto mio', 'mi consiglieresti',
+    'come dovrei impiegare', 'come allocare', 'come investire'],
     risposta: 'Non te lo dico, e non è prudenza: nessuno sa cosa farà il mercato, e chi te lo dice o sta indovinando o ti sta vendendo qualcosa. Quello che posso dirti è cosa è successo, cosa ha funzionato in passato e quanto sei esposto tu: sono tre domande a cui esiste una risposta vera.' },
   { riconosce: ['salira', 'scendera', 'dove va il mercato', 'previsione del mercato', 'cosa fara la borsa', 'quanto salira', 'quanto scendera'],
     risposta: 'La direzione non la so, e i dati dicono che non la sa nessuno: l\'indice di paura che calcolo prevede quanto il mercato ballerà, non da che parte andrà. Posso dirti quanto è probabile un rallentamento economico entro un anno e mezzo, che è una cosa diversa.' },
@@ -804,8 +825,26 @@ export function rifiutoMotivato(domanda, similarity = null) {
   for (const d of DOMANDE_SENZA_RISPOSTA) {
     if (d.riconosce.some((r) => q.includes(r))) return { intent: 'mercato-non-si-puo', answer: d.risposta };
   }
-  if (similarity && BANCO_SEMANTICO) {
-    const m = BANCO_SEMANTICO.matchMercato(domanda, similarity);
+  // ── IL RIFIUTO NON SI FIDA DEGLI EMBEDDING, ed e' una misura, non un'opinione ──
+  // Misurato dal vivo con multilingual-e5-small acceso (2026-08-19), su questo
+  // dominio i valori sono tutti schiacciati in alto e le distanze fra "giusto"
+  // e "sbagliato" spariscono:
+  //     "quanto posso spendere oggi"   vs "cosa devo comprare"   0,9421
+  //     "dimmi tu dove investire"      vs "cosa devo comprare"   0,9254
+  //     "come si cuoce la carbonara"   vs "cosa devo comprare"   0,9174
+  // Cioe' una domanda legittima somiglia al rifiuto PIU' di una richiesta di
+  // consiglio vera, e una ricetta di cucina se la jjoca. Con le soglie tarate
+  // su Jaccard (dove due frasi diverse valgono 0) il risultato dal vivo e'
+  // stato che l'app rifiutava TUTTO, "quanto posso spendere oggi?" compreso.
+  //
+  // Il modello ORDINA ancora bene (il primo posto e' giusto in 3 casi su 4),
+  // ma con margini di 0,003-0,027: abbastanza per suggerire un intento, non
+  // per decidere se negare una risposta. Quindi il rifiuto resta sulla
+  // somiglianza LESSICALE, che sul banco di prova copre gia' il 100% dei casi
+  // ed e' interpretabile riga per riga. Un rifiuto e' una promessa verso
+  // l'utente: non si appoggia su un segnale che non sappiamo leggere.
+  if (BANCO_SEMANTICO) {
+    const m = BANCO_SEMANTICO.matchMercato(domanda, similaritaLessicale);
     if (m?.rifiuto) {
       // La famiglia semantica sceglie QUALE spiegazione dare: rifiutare senza
       // spiegare e' una scusa, e spiegare la cosa sbagliata e' peggio.

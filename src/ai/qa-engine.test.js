@@ -556,3 +556,42 @@ test('...ma i refusi VERI continuano a essere corretti', () => {
   assert.equal(answerQuestion('quanto posso spendrere oggi?', ctx).intent, 'safe-to-spend');
   assert.equal(answerQuestion('quanto posso spendere oggi?', ctx).intent, 'safe-to-spend');
 });
+
+// ── IL RIFIUTO VIENE PRIMA DI TUTTO ──
+// Buco di sicurezza trovato provando l'app dal vivo con il motore semantico
+// acceso (2026-08-19): il rifiuto motivato viveva solo nel ramo dei mercati,
+// consultato per ULTIMO come ripiego. Così "dimmi tu dove investire adesso"
+// incontrava prima l'intento `invest` della finanza personale e riceveva una
+// RISPOSTA ("questo mese non avanza nulla") invece del no motivato: una
+// richiesta di consiglio finanziario veniva servita.
+// E la comprensione semantica peggiorava la cosa, perché allargava la portata
+// degli intenti personali senza allargare quella dei rifiuti.
+test('una richiesta di CONSIGLIO viene rifiutata prima di qualunque intento', () => {
+  const rifiuto = (t) => (/dove investire|quale azienda|cosa compro/i.test(t)
+    ? { intent: 'mercato-non-si-puo', answer: 'Non te lo dico, e non è prudenza.' }
+    : null);
+  for (const d of ['dimmi tu dove investire adesso', 'su quale azienda dovrei puntare i risparmi?']) {
+    const r = answerQuestion(d, { ...CTX, rifiuto });
+    assert.equal(r.intent, 'mercato-non-si-puo', `"${d}" ha ricevuto ${r.intent}`);
+  }
+});
+
+test('il rifiuto NON intercetta le domande legittime sui propri soldi', () => {
+  // Una rete di sicurezza che rifiuta tutto è inutile quanto una che non
+  // rifiuta niente.
+  const rifiuto = (t) => (/dove investire/i.test(t) ? { intent: 'mercato-non-si-puo', answer: 'no' } : null);
+  const r = answerQuestion('quanto posso spendere oggi?', { ...CTX, rifiuto });
+  assert.notEqual(r.intent, 'mercato-non-si-puo');
+  assert.equal(r.intent, 'safe-to-spend');
+});
+
+test('un rifiuto che va in errore non rompe la risposta', () => {
+  const rifiuto = () => { throw new Error('boom'); };
+  const r = answerQuestion('quanto posso spendere oggi?', { ...CTX, rifiuto });
+  assert.equal(r.intent, 'safe-to-spend');
+});
+
+test('senza ctx.rifiuto il comportamento resta identico a prima', () => {
+  const r = answerQuestion('quanto posso spendere oggi?', CTX);
+  assert.equal(r.intent, 'safe-to-spend');
+});

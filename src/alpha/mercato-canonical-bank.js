@@ -56,8 +56,24 @@ export const ESEMPI_RIFIUTO = {
     'in quale azienda mi consigli di investire adesso',
     'secondo te dove dovrei mettere i miei risparmi',
     'quale titolo vale la pena prendere in questo momento',
+    // AGGIUNTE dopo la prova dal vivo: sono le formulazioni che gli utenti
+    // usano davvero e che non venivano riconosciute. Le prime due erano gia'
+    // nell'elenco a parole chiave in forma diversa — qui servono perche' la
+    // somiglianza le agganci anche quando la frase e' costruita altrimenti.
+    'dimmi tu dove investire adesso',
+    'secondo te su quale azienda dovrei puntare i risparmi',
+    'dove conviene mettere i soldi oggi',
     'what should I buy right now',
     'which stock should I invest in',
+    'where should I put my money',
+    // Le richieste di consiglio INDIRETTE: non nominano mai un titolo o un
+    // settore, quindi nessuna parola chiave le puo' prendere per costruzione.
+    // Sono il caso in cui serve davvero il modello di embedding.
+    'secondo te come dovrei impiegare i miei risparmi',
+    'che strumento finanziario mi consiglieresti',
+    'tu cosa faresti con questi soldi',
+    'che scelta faresti al posto mio sui mercati',
+    'what would you do with this money',
   ],
   'dove-va': [
     'dove andra il mercato',
@@ -153,29 +169,55 @@ export const ESEMPI_MERCATO = {
 // stessa firma sincrona usata altrove: (a,b) -> 0..1, con gli embedding gia'
 // in cache (il lavoro pesante lo fa `semantic-embed.js` prima, non qui).
 function migliore(question, similarity, banco) {
-  let best = null, bestScore = 0;
+  let best = null, bestScore = 0, secondo = 0;
   for (const [intent, esempi] of Object.entries(banco)) {
     for (const esempio of esempi) {
       const score = similarity(question, esempio);
-      if (score > bestScore) { bestScore = score; best = intent; }
+      if (score > bestScore) { secondo = bestScore; bestScore = score; best = intent; }
+      else if (score > secondo) { secondo = score; }
     }
   }
-  return { intent: best, punteggio: bestScore };
+  return { intent: best, punteggio: bestScore, margine: bestScore - secondo };
 }
+
+// ── DUE REGOLE DI DECISIONE, perche' due somiglianze non sono la stessa cosa ──
+// Misurato dal vivo (2026-08-19): la somiglianza LESSICALE parte da zero fra
+// frasi diverse, quindi una soglia assoluta la descrive bene. Quella di un
+// modello di EMBEDDING no: su questo dominio multilingual-e5-small produce
+// 0,90-0,96 per QUALUNQUE coppia — anche fra una ricetta di cucina e una
+// domanda di borsa — e con una soglia a 0,72 passerebbe tutto.
+// Il modello pero' ORDINA ancora correttamente: l'informazione non e' nel
+// livello, e' nel MARGINE fra il primo e il secondo. Misurati: 0,027 e 0,026
+// quando il riconoscimento e' giusto e netto, 0,0012-0,0028 quando e' un
+// sostanziale pareggio (e li' infatti sbagliava).
+// Da qui la soglia scelta: MARGINE_MINIMO = 0,015, cioe' a meta' fra i due
+// gruppi misurati. Non e' un numero elegante, e' dove passa la separazione.
+export const MARGINE_MINIMO = 0.015;
 
 // Il punto d'ingresso. Restituisce null quando non capisce — che e' una
 // risposta legittima e va preferita a una risposta inventata.
-export function matchMercato(question, similarity) {
+// `perMargine`: true quando la somiglianza viene da un modello di embedding,
+// i cui valori assoluti non sono confrontabili con una soglia fissa (vedi
+// MARGINE_MINIMO). Predefinito false = comportamento storico, adatto alla
+// somiglianza lessicale.
+export function matchMercato(question, similarity, { perMargine = false } = {}) {
   if (!similarity || !question) return null;
 
   // I RIFIUTI PER PRIMI, e con la soglia piu' bassa: se una domanda somiglia
   // sia a "cosa compro" sia a qualcosa di rispondibile, vince il rifiuto.
+  // NOTA: chi chiama per decidere un rifiuto deve passare la somiglianza
+  // LESSICALE, non quella di un modello — vedi la misura in mercato-qa.js.
   const rifiuto = migliore(question, similarity, ESEMPI_RIFIUTO);
-  if (rifiuto.intent && rifiuto.punteggio >= SOGLIA_RIFIUTO) {
-    return { intent: rifiuto.intent, confidenza: +rifiuto.punteggio.toFixed(2), rifiuto: true };
+  const rifiutoPassa = perMargine
+    ? (rifiuto.margine >= MARGINE_MINIMO)
+    : (rifiuto.punteggio >= SOGLIA_RIFIUTO);
+  if (rifiuto.intent && rifiutoPassa) {
+    return { intent: rifiuto.intent, confidenza: +rifiuto.punteggio.toFixed(3), margine: +rifiuto.margine.toFixed(4), rifiuto: true };
   }
 
   const m = migliore(question, similarity, ESEMPI_MERCATO);
-  if (!m.intent || m.punteggio < SOGLIA_MERCATO) return null;
-  return { intent: m.intent, confidenza: +m.punteggio.toFixed(2), rifiuto: false };
+  if (!m.intent) return null;
+  const passa = perMargine ? (m.margine >= MARGINE_MINIMO) : (m.punteggio >= SOGLIA_MERCATO);
+  if (!passa) return null;
+  return { intent: m.intent, confidenza: +m.punteggio.toFixed(3), margine: +m.margine.toFixed(4), rifiuto: false };
 }

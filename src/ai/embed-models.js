@@ -61,6 +61,13 @@ export const MODELLI = {
   'e5-small': {
     id: 'Xenova/multilingual-e5-small',
     dtype: 'q8',
+    // QUALE BACKEND, e non e' un dettaglio: la quantizzazione a 8 bit e'
+    // pensata per WASM, e chiederla insieme a WebGPU lascia il caricamento
+    // appeso senza mai fallire — trovato provandolo dal vivo, con il modello
+    // fermo dopo il tokenizer su una macchina con webgpu attivo. Un
+    // caricamento che non finisce e non da' errore e' peggio di uno che
+    // fallisce: l'utente aspetta per sempre una funzione che non arrivera'.
+    backend: 'wasm',
     // La famiglia E5 e' addestrata con questo prefisso e SENZA di esso perde
     // parecchio. Applicato in modo simmetrico ai due testi, perche' qui si
     // confrontano due domande fra loro.
@@ -85,6 +92,7 @@ export const MODELLI = {
   'qwen3-embedding-0.6b': {
     id: 'onnx-community/Qwen3-Embedding-0.6B-ONNX',
     dtype: 'q8',
+    backend: 'wasm',
     // Formato di istruzione della famiglia Qwen3-Embedding. Le istruzioni si
     // scrivono in inglese anche per testi in altre lingue: e' la
     // raccomandazione degli autori, non una nostra scelta stilistica.
@@ -106,6 +114,7 @@ export const MODELLI = {
   'embeddinggemma-300m': {
     id: 'onnx-community/embeddinggemma-300m-ONNX',
     dtype: 'q4',
+    backend: 'auto',
     prefisso: 'task: sentence similarity | query: ',
     pooling: 'frase',
     licenza: 'Gemma Terms of Use',

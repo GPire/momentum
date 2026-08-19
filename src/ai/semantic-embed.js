@@ -96,7 +96,12 @@ async function getModel() {
     const cfg = modelloAttivo();
     modelPromise = import('@huggingface/transformers').then(async ({ AutoModel, AutoTokenizer, env }) => {
       env.allowLocalModels = false;
-      const device = await backendPreferito();
+      // Il backend lo decide la CONFIGURAZIONE DEL MODELLO, non solo
+      // l'hardware: `backend: 'wasm'` significa "questo modello, con questa
+      // quantizzazione, gira solo qui" — chiedergli WebGPU lo lascia appeso
+      // per sempre senza mai fallire. Solo con 'auto' si torna a scegliere
+      // dal profilo del dispositivo.
+      const device = cfg.backend === 'wasm' ? undefined : await backendPreferito();
       const tokenizer = await AutoTokenizer.from_pretrained(cfg.id);
       const model = await AutoModel.from_pretrained(cfg.id, { dtype: cfg.dtype || 'q4', ...(device ? { device } : {}) });
       return { tokenizer, model, cfg };
@@ -187,4 +192,18 @@ export function similaritaSincrona(a, b) {
   const vb = embedCache.get(String(b || '').trim().toLowerCase());
   if (!va || !vb) return 0; // non ancora in cache: nessun confronto forzato, mai un errore
   return (cosineSim(va, vb) + 1) / 2; // da [-1,1] a [0,1], stessa scala di Jaccard
+}
+
+// ── DIAGNOSTICA DI CALIBRAZIONE ──
+// Serve a rispondere a una domanda che non si puo' indovinare: quali valori
+// produce DAVVERO questo modello su frasi imparentate e su frasi estranee?
+// Senza questa misura le soglie si scelgono a occhio, ed e' esattamente
+// l'errore che ha prodotto il guasto del 2026-08-19 (vedi `similaritaSincrona`).
+export async function distribuzioneSomiglianze(coppie = []) {
+  const out = [];
+  for (const [a, b] of coppie) {
+    await embed(a); await embed(b);
+    out.push({ a, b, sim: +similaritaSincrona(a, b).toFixed(4) });
+  }
+  return out;
 }
