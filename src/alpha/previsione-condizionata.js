@@ -251,6 +251,62 @@ export function previsioneCondizionata(rendimenti = [], {
 // Il testo per una persona. La regola: la forbice prima della mediana, e se lo
 // stato di oggi non informa, si dice per primo — perche' e' la cosa piu'
 // importante e quella che tutti nascondono.
+// ── PIU' ORIZZONTI INSIEME, e la trappola di provarne tanti ──
+// Trovata provando questo stesso modulo sui 41 anni giornalieri: a 21 giorni
+// il valore p usciva 0,044 — appena sotto la soglia — mentre a 63 e 252 giorni
+// era 0,262 e 0,498. Riportare il primo come "informativo" sarebbe stato
+// esattamente il cherry-picking che il progetto combatte in
+// panoramica-incrociata.js: provare tre cose e annunciare quella che passa.
+// Con tre orizzonti provati la soglia va corretta, e con quella correzione il
+// risultato a 21 giorni NON sopravvive.
+//
+// La correzione e' Benjamini-Yekutieli perche' gli orizzonti NON sono
+// indipendenti fra loro (i rendimenti a 21 e a 63 giorni si sovrappongono per
+// costruzione), ed e' l'unica variante valida sotto dipendenza arbitraria.
+export function previsioneMultiOrizzonte(rendimenti = [], {
+  orizzonti = [21, 63, 252], finestre = null, alpha = 0.05, rng = Math.random,
+  permutazioni = PERMUTAZIONI, etichetta = 'questo mercato',
+} = {}) {
+  const risultati = [];
+  for (let i = 0; i < orizzonti.length; i++) {
+    const o = orizzonti[i];
+    const f = finestre?.[i] ?? o;
+    const r = previsioneCondizionata(rendimenti, { orizzonte: o, finestra: f, rng, permutazioni, etichetta });
+    if (r.disponibile && r.test) risultati.push({ orizzonte: o, ...r });
+  }
+  if (!risultati.length) return { disponibile: false, motivo: 'Nessun orizzonte ha dati sufficienti.' };
+
+  const pv = risultati.map((r) => r.test.p).sort((a, b) => a - b);
+  const m = pv.length;
+  const c = Array.from({ length: m }, (_, j) => 1 / (j + 1)).reduce((s, v) => s + v, 0);
+  let kMax = -1;
+  for (let k = 0; k < m; k++) if (pv[k] <= ((k + 1) / (m * c)) * alpha) kMax = k;
+  const sogliaCorretta = kMax >= 0 ? pv[kMax] : (alpha / (m * c));
+
+  const conVerdetto = risultati.map((r) => ({
+    ...r,
+    informativoGrezzo: r.test.informativo,
+    informativo: kMax >= 0 && r.test.p <= pv[kMax],
+  }));
+  const sopravvissuti = conVerdetto.filter((r) => r.informativo);
+  const persiPerCorrezione = conVerdetto.filter((r) => r.informativoGrezzo && !r.informativo);
+
+  return {
+    disponibile: true,
+    etichetta,
+    orizzontiProvati: m,
+    sogliaCorretta: +sogliaCorretta.toFixed(4),
+    risultati: conVerdetto,
+    informativi: sopravvissuti.map((r) => r.orizzonte),
+    persiPerCorrezione: persiPerCorrezione.map((r) => ({ orizzonte: r.orizzonte, p: r.test.p })),
+    messaggio: sopravvissuti.length === 0
+      ? (persiPerCorrezione.length
+        ? `Ho provato ${m} orizzonti. A ${persiPerCorrezione.map((r) => r.orizzonte).join(' e ')} giorni il risultato sembrerebbe significativo preso da solo (p ${persiPerCorrezione.map((r) => r.test.p).join(', ')}), ma provandone ${m} ci si aspetta di vederne uno passare per caso: corretta la soglia a ${sogliaCorretta.toFixed(4)}, non sopravvive. Lo stato di oggi non dice nulla di distinguibile su nessun orizzonte.`
+        : `Ho provato ${m} orizzonti: su nessuno lo stato di oggi cambia in modo distinguibile cio' che e' successo dopo.`)
+      : `Ho provato ${m} orizzonti; regge a ${sopravvissuti.map((r) => r.orizzonte).join(', ')} giorni anche dopo aver corretto per averne provati ${m}.`,
+  };
+}
+
 export function testoPrevisione(r) {
   if (!r?.disponibile) return r?.motivo || null;
   const c = r.condizionata, t = r.test;
