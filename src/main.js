@@ -10124,7 +10124,15 @@ const navigate = (view) => {
   // fuori dalla closure di initApp, dove la funzione è definita — stesso
   // bug di scope già trovato e corretto per fetchAssetNewsCascade più
   // sotto in questo file; qui esposta su window per lo stesso motivo.
-  if (view === 'dashboard') window.renderQaSuggestions?.();
+  if (view === 'dashboard') {
+    window.renderQaSuggestions?.();
+    // La veglia gira DOPO il disegno e quando il browser è libero: carica
+    // 260 KB di archivio e nessun controllo di mercato vale un istante di
+    // ritardo sulla schermata principale. `requestIdleCallback` non esiste su
+    // Safari, quindi c'è il ripiego.
+    const quandoLibero = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    quandoLibero(() => window.renderVegliaMercato?.());
+  }
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
     renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard();
@@ -12030,6 +12038,67 @@ const initApp = () => {
   }
   window.renderQaSuggestions = renderQaSuggestions;
   renderQaSuggestions();
+
+  // ── LA VEGLIA: Momentum guarda da solo, e quasi sempre tace ──
+  // Fino a qui, per sapere qualcosa bisognava FARE una domanda. Questo è il
+  // pezzo che rompe quel modello: l'app controlla i mercati per conto suo e
+  // parla solo se trova qualcosa che sopravvive alla correzione per aver
+  // guardato tante cose (src/alpha/veglia.js).
+  //
+  // TRE SCELTE, e nessuna è cosmetica:
+  // 1. quando non c'è niente da dire il blocco resta VUOTO, non mostra un
+  //    "tutto tranquillo" verde. Un avviso che compare ogni giorno smette di
+  //    essere letto, e allora non si legge nemmeno quello che conta;
+  // 2. gira in sottofondo dopo il primo disegno e con import dinamico: sono
+  //    260 KB di archivio compresso, e chi non arriva mai alla dashboard non
+  //    deve pagarli;
+  // 3. non è mai una notifica di sistema. Interrompere qualcuno è un diritto
+  //    che si guadagna: qui si aspetta che sia lui ad aprire l'app.
+  let vegliaFatta = false;
+  async function renderVegliaMercato() {
+    const box = $('#veglia-mercato');
+    if (!box || vegliaFatta) return;
+    vegliaFatta = true;
+    try {
+      const [{ veglia, testoVeglia }, lunghi] = await Promise.all([
+        import('./alpha/veglia.js'), import('./alpha/daily-long.js'),
+      ]);
+      const iDa = lunghi.DATE_LUNGO.findIndex(d => d >= '2000-09-01');
+      const fonti = {};
+      for (const [k, v] of Object.entries(lunghi.serieComplete(iDa, 0.98))) {
+        fonti[lunghi.NOMI_LUNGO_GIORNI[k] || k] = v.map(x => (x === null ? 0 : x));
+      }
+      const anni = Math.round((new Date(lunghi.GIORNI_LUNGO_A) - new Date(lunghi.DATE_LUNGO[iDa])) / 31557600000);
+      const v = veglia(fonti, {
+        etichettaPeriodo: `${anni} anni di dati giornalieri`,
+        // Il VIX misura la paura, non è un attivo: tenerlo dentro il calcolo
+        // della struttura confonderebbe "quanto si muovono insieme" con
+        // "quanta paura c'è".
+        escludiDaStruttura: ['Indice della paura (VIX)'],
+      });
+      if (!v.disponibile || !v.parla) return; // il silenzio è invisibile, per scelta
+      const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+      const righe = v.osservazioni.map(o => `<li class="mt-1">${esc(o.testo)}${o.limite ? `<span class="block text-[10px] opacity-70 mt-0.5">${esc(o.limite)}</span>` : ''}</li>`).join('');
+      box.innerHTML = `<div class="card p-4 sm:p-5">
+        <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2"/><circle cx="12" cy="12" r="4"/></svg>Ho guardato i mercati per te</h3>
+        <ul class="text-xs leading-relaxed list-none">${righe}</ul>
+        <p class="text-[10px] opacity-60 mt-2">Ho controllato ${v.controllate} indicatori${v.efficaci ? ` (${v.efficaci} direzioni davvero distinte)` : ''} su ${esc(String(anni))} anni. Non è un consiglio: è cosa è già successo.</p>
+      </div>`;
+    } catch (_) {
+      // Una funzione in più non deve poter rompere la dashboard: se l'archivio
+      // non si carica, semplicemente non compare niente.
+    }
+  }
+  window.renderVegliaMercato = renderVegliaMercato;
+  // BUG DELLA MIA STESSA INTEGRAZIONE, trovato provandola nel browser:
+  // agganciarla solo a `navigate()` non basta, perche' all'avvio la dashboard
+  // viene disegnata senza passare di li'. La veglia sarebbe comparsa solo a
+  // chi cambiava schermata e tornava indietro — cioe' quasi mai, e in modo
+  // apparentemente casuale. Serve anche qui, alla prima apertura.
+  {
+    const quandoLibero = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    quandoLibero(() => renderVegliaMercato());
+  }
   if (qaInput && qaSend && qaAnswer) {
     const ask = async () => {
       const question = qaInput.value.trim();
