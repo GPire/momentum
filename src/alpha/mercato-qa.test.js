@@ -66,10 +66,23 @@ test('COSA È SUCCESSO in un periodo: fatto verificabile', async () => {
   assert.match(r.answer, /nel mezzo sono arrivate a perdere/);
 });
 
-test('un periodo fuori archivio riceve un no chiaro, non numeri inventati', async () => {
+test('il 1998 ORA si può raccontare: l\'archivio giornaliero parte dal 1985', async () => {
+  // Questo test asseriva "archivio dettagliato parte dal 2021" ed era giusto
+  // finché l'archivio giornaliero copriva cinque anni. Estendendolo al 1985
+  // quella frase è diventata FALSA — l'app aveva i dati e diceva di non
+  // averli — e il test la difendeva. Un test che difende una frase invece di
+  // un comportamento invecchia insieme alla frase.
   const r = await chiediAlMercato('cosa è successo nel 1998?');
   assert.equal(r.intent, 'mercato-evento');
-  assert.match(r.answer, /archivio dettagliato parte dal 2021/);
+  assert.match(r.answer, /giorni di borsa/);
+  assert.ok(!/parte dal 2021/.test(r.answer), r.answer);
+});
+
+test('un periodo DAVVERO fuori archivio riceve un no chiaro, non numeri inventati', async () => {
+  const r = await chiediAlMercato('cosa è successo nel 1970?');
+  assert.equal(r.intent, 'mercato-evento');
+  assert.match(r.answer, /Non ho i dati giorno per giorno/);
+  assert.match(r.answer, /1985/);
 });
 
 test('LE CRIPTO: risposta netta e con i numeri', async () => {

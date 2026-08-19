@@ -91,17 +91,36 @@ export function rotturaStrutturale(serie = [], { minTratto = 24, permutazioni = 
   const x = serie.filter(Number.isFinite);
   if (x.length < minTratto * 2) return null;
 
+  // ── SOMME CUMULATE, e non e' un'ottimizzazione facoltativa ──
+  // La prima versione tagliava l'array a ogni punto di divisione e ricalcolava
+  // media e varianza sui due pezzi: costo quadratico nella lunghezza, per ogni
+  // permutazione. Con 400 mesi era istantaneo e nessun test se ne accorgeva;
+  // con i 10.487 giorni dell'archivio lungo diventano miliardi di operazioni e
+  // **il browser si blocca** — trovato provando l'app dal vivo, non dai test.
+  // Con le somme cumulate media e varianza di qualunque tratto si ottengono in
+  // tempo costante, e l'intera scansione diventa lineare.
   const statistica = (arr) => {
+    const n = arr.length;
+    const s = new Float64Array(n + 1), s2 = new Float64Array(n + 1);
+    for (let i = 0; i < n; i++) { s[i + 1] = s[i] + arr[i]; s2[i + 1] = s2[i] + arr[i] * arr[i]; }
+    // Varianza campionaria di arr[da..a) dalle somme cumulate.
+    const varDa = (da, a) => {
+      const m = a - da;
+      if (m < 2) return 0;
+      const somma = s[a] - s[da];
+      const v = (s2[a] - s2[da] - (somma * somma) / m) / (m - 1);
+      return v > 0 ? v : 0;
+    };
+    const mediaDa = (da, a) => (a > da ? (s[a] - s[da]) / (a - da) : 0);
+    const scala = Math.sqrt(varDa(0, n)) || 1e-9;
+
     let best = 0, dove = -1;
-    for (let k = minTratto; k <= arr.length - minTratto; k++) {
-      const a = arr.slice(0, k), b = arr.slice(k);
+    for (let k = minTratto; k <= n - minTratto; k++) {
       // Distanza combinata: quanto si spostano centro e dispersione. La
       // dispersione e' normalizzata perche' su rendimenti e' li' che i regimi
       // si vedono davvero.
-      const dm = Math.abs(media(a) - media(b));
-      const va = varianza(a), vb = varianza(b);
-      const dv = Math.abs(Math.sqrt(va) - Math.sqrt(vb));
-      const scala = Math.sqrt(varianza(arr)) || 1e-9;
+      const dm = Math.abs(mediaDa(0, k) - mediaDa(k, n));
+      const dv = Math.abs(Math.sqrt(varDa(0, k)) - Math.sqrt(varDa(k, n)));
       const d = (dm + dv) / scala;
       if (d > best) { best = d; dove = k; }
     }

@@ -64,6 +64,34 @@ test('rottura di media: riconosciuta anche senza cambio di volatilita', () => {
   assert.equal(r.rotturaPresente, true, `p=${r.p}`);
 });
 
+test('SU DIECIMILA PUNTI resta istantaneo: la scansione è lineare, non quadratica', async () => {
+  // BUG TROVATO PROVANDO L'APP DAL VIVO, invisibile ai test: la prima versione
+  // tagliava l'array a ogni punto di divisione e ricalcolava media e varianza
+  // sui due pezzi. Con 400 mesi era istantaneo; con i 10.487 giorni
+  // dell'archivio lungo il browser SI BLOCCAVA (timeout a 45 secondi). Con le
+  // somme cumulate: 68 ms per 99 permutazioni.
+  const { GIORNALIERO_LUNGO } = await import('./daily-long.js');
+  const x = GIORNALIERO_LUNGO.azioniUsa.map((v) => (v === null ? 0 : v));
+  assert.ok(x.length > 10000);
+  const t0 = Date.now();
+  const r = rotturaStrutturale(x, { permutazioni: 99, rng: seme(1) });
+  const ms = Date.now() - t0;
+  assert.ok(r, 'deve produrre un risultato');
+  assert.ok(ms < 5000, `troppo lento: ${ms}ms su ${x.length} punti (era quadratico)`);
+});
+
+test('le somme cumulate danno lo STESSO risultato del calcolo diretto', () => {
+  // Un\'ottimizzazione che cambia il risultato non è un\'ottimizzazione.
+  const rng = seme(21);
+  const calmo = Array.from({ length: 100 }, () => rumore(rng) * 0.01);
+  const agitato = Array.from({ length: 100 }, () => rumore(rng) * 0.06);
+  const serie = [...calmo, ...agitato];
+  const r = rotturaStrutturale(serie, { rng: seme(4), permutazioni: 199 });
+  // Il punto di rottura deve restare dove il regime cambia davvero.
+  assert.ok(Math.abs(r.puntoDiRottura - 100) < 25, `trovata a ${r.puntoDiRottura}`);
+  assert.equal(r.rotturaPresente, true);
+});
+
 test('serie troppo corta per cercare una rottura: null, non un verdetto', () => {
   assert.equal(rotturaStrutturale(Array.from({ length: 30 }, () => 0.01)), null);
 });

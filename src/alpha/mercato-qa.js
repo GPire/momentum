@@ -342,8 +342,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -355,7 +355,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -423,7 +423,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -642,7 +642,18 @@ export function rispostaSincrona(domanda, similarity = null) {
       const { finestra, finestraText } = eventi;
       const f = finestra(p.da, p.a);
       if (!f.trovato) {
-        return { intent: 'mercato-evento', answer: `Su ${p.etichetta} non ho i dati giorno per giorno: il mio archivio dettagliato parte dal 2021. Posso dirti come è andato il mese nel complesso, ma non cosa è successo nei singoli giorni.` };
+        // Il pannello a cinque anni non arriva: si prova l'ARCHIVIO LUNGO
+        // (dal 1985). Prima qui si rispondeva "il mio archivio dettagliato
+        // parte dal 2021" — una frase vera quando fu scritta e diventata
+        // FALSA quando i dati sono stati estesi. L'app aveva i dati e diceva
+        // di non averli, e nessun test poteva accorgersene.
+        const fl = evLunghi.finestraLunga(p.da, p.a);
+        if (fl.trovato) {
+          return { intent: 'mercato-evento', data: fl, answer: evLunghi.finestraLungaText(fl, p.etichetta) };
+        }
+        // "Su" + etichetta produce "Su il 2008": la preposizione articolata
+        // non si costruisce concatenando (terzo caso in questa sessione).
+        return { intent: 'mercato-evento', answer: `Non ho i dati giorno per giorno per ${p.etichetta}: il mio archivio dettagliato parte dal ${evLunghi.PRIMO_GIORNO}. Posso dirti come è andato il mese nel complesso, ma non cosa è successo nei singoli giorni.` };
       }
       return { intent: 'mercato-evento', data: f, answer: finestraText(f) };
     }
