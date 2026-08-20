@@ -151,3 +151,38 @@ test('LA DISTINZIONE SOTTILE: "quanto posso investire" è legittima, "dove inves
     assert.equal(rifiutata(d), false, `"${d}" NON doveva essere rifiutata`);
   }
 });
+
+test('LA SICUREZZA VALE IN OGNI LINGUA, non solo in italiano', async () => {
+  // Buco trovato provando l'app dal vivo (2026-08-20): "where should I invest
+  // my money right now?" e "¿en qué debería invertir?" NON venivano rifiutate
+  // e ricevevano una risposta di finanza personale. La rete di rifiuto era
+  // quasi solo italiana mentre l'app risponde in sei lingue: la protezione
+  // più importante valeva per un sesto degli utenti.
+  await caricaBancoSemantico();
+  const rifiutata = (d) => !!rifiutoMotivato(d, similaritaLessicale);
+
+  for (const d of [
+    'cosa devo comprare?',
+    'where should I invest my money right now?',
+    'which stock should I buy?',
+    '¿en qué debería invertir?',
+    'où devrais-je investir ?',
+    'wo soll ich investieren?',
+    'onde devo investir?',
+  ]) {
+    assert.equal(rifiutata(d), true, `"${d}" doveva essere rifiutata`);
+  }
+
+  // E le domande legittime devono continuare a passare in tutte le lingue:
+  // una rete che rifiuta tutto è inutile quanto una che non rifiuta niente.
+  for (const d of [
+    'quanto posso spendere oggi?',
+    'how much can I spend today?',
+    '¿cuánto puedo gastar hoy?',
+    'combien puis-je dépenser ?',
+    'quanto posso investire?',
+    'how much can I invest?',
+  ]) {
+    assert.equal(rifiutata(d), false, `"${d}" NON doveva essere rifiutata`);
+  }
+});

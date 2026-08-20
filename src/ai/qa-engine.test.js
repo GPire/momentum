@@ -595,3 +595,43 @@ test('senza ctx.rifiuto il comportamento resta identico a prima', () => {
   const r = answerQuestion('quanto posso spendere oggi?', CTX);
   assert.equal(r.intent, 'safe-to-spend');
 });
+
+// ── IL BANCO CANONICO NON PUÒ RUBARE UNA DOMANDA DI MERCATO ──
+test('REGRESSIONE GRAVE: la semantica non deve dirottare le domande di borsa', () => {
+  // Trovata provando l'app come la userebbe un TRADER (2026-08-20): con la
+  // comprensione semantica accesa, "come sta il mercato?", "quanto rischio di
+  // perdere?" e "sono davvero diversificato?" ricevevano tutte "questo mese
+  // non avanza nulla: prima il budget". Con le sole parole chiave funzionavano
+  // perfettamente: il livello semantico rendeva IRRAGGIUNGIBILE metà dell'app.
+  //
+  // La causa era l'ORDINE — il banco canonico veniva consultato prima del ramo
+  // dei mercati — e nessuna soglia lo risolve, perché non è un problema di
+  // taglio. Ora il banco è l'ultima spiaggia: ci si arriva solo se nessun
+  // intento, personale o di mercato, ha riconosciuto la domanda.
+  const mercato = (t) => (/mercato|perdere|diversificat/i.test(t)
+    ? { intent: 'mercato-regime', answer: 'risposta di mercato' } : null);
+  // Una similarità che direbbe "safeToSpend" su qualunque cosa: il caso
+  // peggiore possibile.
+  const bugiarda = () => 0.99;
+  for (const d of ['come sta il mercato?', 'quanto rischio di perdere?', 'sono davvero diversificato?']) {
+    const r = answerQuestion(d, { ...CTX, mercato, semanticSimilarity: bugiarda });
+    assert.equal(r.intent, 'mercato-regime', `"${d}" dirottata dalla semantica`);
+  }
+});
+
+test('ma la semantica AGGIUNGE ancora comprensione dove nessuno riconosce', () => {
+  // La rete deve continuare a servire: se né le parole chiave né i mercati
+  // riconoscono la domanda, il banco canonico può ancora salvarla.
+  const similarity = (a, b) => (b === 'quanto posso spendere oggi' ? 0.99 : 0.01);
+  const r = answerQuestion('e oggi quanto mi è concesso tirare fuori', { ...CTX, semanticSimilarity: similarity });
+  assert.equal(r.intent, 'safe-to-spend');
+  assert.equal(r.viaBancoCanonico, true);
+});
+
+test('nessun ciclo infinito quando il banco inietta un indizio', () => {
+  // Il ri-riconoscimento con l'indizio iniettato potrebbe richiamare se
+  // stesso: la guardia `_daBanco` lo impedisce.
+  const similarity = () => 0.99;
+  const r = answerQuestion('frase che non somiglia a niente di riconoscibile', { ...CTX, semanticSimilarity: similarity });
+  assert.ok(r && r.intent, 'deve comunque restituire qualcosa');
+});

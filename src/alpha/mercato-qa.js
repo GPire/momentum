@@ -819,7 +819,22 @@ export const DOMANDE_SENZA_RISPOSTA = [
     // chi guarda il senso, e finche' il modello non c'e' almeno queste
     // stringhe le intercettano.
     'cosa faresti', 'che faresti', 'cosa faresti tu', 'al posto mio', 'mi consiglieresti',
-    'come dovrei impiegare', 'come allocare', 'come investire'],
+    'come dovrei impiegare', 'come allocare', 'come investire',
+    // ── LE ALTRE LINGUE, e il buco era grave ──
+    // Misurato dal vivo (2026-08-20): "where should I invest my money right
+    // now?" e "en que deberia invertir?" NON venivano rifiutate e ricevevano
+    // una risposta di finanza personale. La rete di rifiuto era quasi solo
+    // italiana, mentre l'app risponde in sei lingue: la protezione piu'
+    // importante valeva solo per un sesto degli utenti.
+    'where should i invest', 'what should i buy', 'which stock', 'what stock',
+    'should i buy', 'should i sell', 'what would you do', 'where to invest',
+    'what do you recommend', 'which sector should',
+    'en que deberia invertir', 'en que invierto', 'que deberia comprar', 'que compro',
+    'donde invierto', 'donde deberia invertir', 'que acciones', 'me recomiendas',
+    'ou investir', 'dois-je investir', 'devrais-je investir', 'que dois-je acheter',
+    'quelle action', 'tu ferais quoi', 'que me conseilles', 'je devrais investir',
+    'wo soll ich investieren', 'was soll ich kaufen', 'welche aktie',
+    'onde devo investir', 'o que devo comprar'],
     risposta: 'Non te lo dico, e non è prudenza: nessuno sa cosa farà il mercato, e chi te lo dice o sta indovinando o ti sta vendendo qualcosa. Quello che posso dirti è cosa è successo, cosa ha funzionato in passato e quanto sei esposto tu: sono tre domande a cui esiste una risposta vera.' },
   { riconosce: ['salira', 'scendera', 'dove va il mercato', 'previsione del mercato', 'cosa fara la borsa', 'quanto salira', 'quanto scendera'],
     risposta: 'La direzione non la so, e i dati dicono che non la sa nessuno: l\'indice di paura che calcolo prevede quanto il mercato ballerà, non da che parte andrà. Posso dirti quanto è probabile un rallentamento economico entro un anno e mezzo, che è una cosa diversa.' },

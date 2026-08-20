@@ -430,15 +430,9 @@ function answerQuestionCore(question, ctx) {
   // Soglia più alta (0,72 vs 0,62) perché qui non c'è nessuna conferma
   // umana a fare da rete di sicurezza. Solo se il ramo sopra non ha già
   // trovato un match: mai due iniezioni diverse sullo stesso qMatch.
-  if (!appresoIntent && ctx.semanticSimilarity) {
-    // La soglia calibrata sul banco di QUESTO dispositivo vince sulla costante:
-    // correggendo la geometria dello spazio la scala si sposta (misurato).
-    const canonico = matchCanonico(question, ctx.semanticSimilarity, { soglia: ctx.sogliaSemantica ?? null });
-    if (canonico && CANONICAL_TRIGGER[canonico.intent]) {
-      appresoIntent = canonico.intent;
-      qMatch = `${qMatch} ${CANONICAL_TRIGGER[canonico.intent]}`;
-    }
-  }
+  // NOTA: il banco canonico NON viene consultato qui. Vedi il fondo della
+  // funzione, dopo il ramo dei mercati — e il perche' e' una regressione
+  // grave trovata provando l'app come la userebbe un trader.
 
   // — "quanto posso investire?"
   if (matches('invest', qMatch)) {
@@ -742,6 +736,40 @@ function answerQuestionCore(question, ctx) {
   if (ctx?.mercato) {
     const m = ctx.mercato(question);
     if (m) return m;
+  }
+
+  // ── IL BANCO CANONICO, ORA COME ULTIMA SPIAGGIA ──
+  // REGRESSIONE GRAVE trovata provando l'app come la userebbe un trader
+  // (2026-08-20): con la comprensione semantica accesa, "come sta il
+  // mercato?", "quanto rischio di perdere?", "sono davvero diversificato?" e
+  // "cosa e' successo nel 2008?" ricevevano TUTTE "questo mese non avanza
+  // nulla: prima il budget". Con le sole parole chiave funzionavano
+  // perfettamente. Cioe' il livello semantico rendeva IRRAGGIUNGIBILE meta'
+  // dell'app.
+  //
+  // La causa era l'ordine: il banco canonico veniva consultato PRIMA del ramo
+  // dei mercati, e le domande di borsa — che non sono in quel banco e non
+  // dovrebbero esserci — cadevano comunque sopra la soglia e venivano
+  // catturate da un intento di finanza personale.
+  // Nessuna soglia risolve questo: e' un problema di ordine, non di taglio.
+  //
+  // Il principio giusto era gia' scritto in mercato-canonical-bank.js — "il
+  // confronto semantico interviene SOLO quando le parole chiave non hanno
+  // riconosciuto niente" — ma nel QA generale non era applicato. Ora si':
+  // qui ci si arriva solo se NESSUN intento, personale o di mercato, ha
+  // riconosciuto la domanda. Cosi' la semantica puo' soltanto AGGIUNGERE
+  // comprensione, e non puo' togliere una risposta che gia' funzionava.
+  if (ctx.semanticSimilarity) {
+    const canonico = matchCanonico(question, ctx.semanticSimilarity, { soglia: ctx.sogliaSemantica ?? null });
+    if (canonico && CANONICAL_TRIGGER[canonico.intent]) {
+      // Si ri-esegue il riconoscimento con l'indizio semantico iniettato: e'
+      // il solo modo di riusare gli stessi rami senza duplicarli. La guardia
+      // `_daBanco` impedisce il ciclo infinito.
+      if (!ctx._daBanco) {
+        const r = answerQuestionCore(`${question} ${CANONICAL_TRIGGER[canonico.intent]}`, { ...ctx, _daBanco: true });
+        if (r && r.intent !== 'unknown') return { ...r, viaBancoCanonico: true, confidenza: canonico.confidenza };
+      }
+    }
   }
 
   return { intent: 'unknown', answer: UNKNOWN_MSG[lang] };

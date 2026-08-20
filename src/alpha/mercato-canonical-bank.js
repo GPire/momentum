@@ -74,6 +74,16 @@ export const ESEMPI_RIFIUTO = {
     'tu cosa faresti con questi soldi',
     'che scelta faresti al posto mio sui mercati',
     'what would you do with this money',
+    // Le altre lingue nel banco semantico, per la stessa ragione per cui sono
+    // nelle parole chiave: un rifiuto che vale solo in italiano protegge solo
+    // gli utenti italiani.
+    'where should I invest my money right now',
+    'which stock should I buy today',
+    'en que deberia invertir mi dinero',
+    'que acciones me recomiendas comprar',
+    'ou devrais-je investir mon argent',
+    'wo soll ich mein geld investieren',
+    'onde devo investir o meu dinheiro',
   ],
   'dove-va': [
     'dove andra il mercato',
@@ -81,6 +91,9 @@ export const ESEMPI_RIFIUTO = {
     'quanto scendera il mercato nei prossimi mesi',
     'dimmi se e il momento di entrare o di aspettare',
     'will the market go up or down',
+    'va a subir o bajar la bolsa',
+    'le marche va monter ou descendre',
+    'wird der markt steigen oder fallen',
   ],
   'mossa-banca-centrale': [
     'cosa fara la fed alla prossima riunione',

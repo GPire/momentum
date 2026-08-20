@@ -305,24 +305,26 @@ export function calibraSoglia(coppieVicine = [], coppieLontane = [], spazio = nu
     //     (0,572): ammetterebbe coppie di intenti diversi.
     // Un tetto alla mediana delle genuine impedisce che, su un banco molto
     // rumoroso, la soglia salga tanto da non riconoscere piu' niente.
-    // ── DOVE METTERE LA SOGLIA: quattro tentativi, tre smentiti dal vivo ──
-    //   1) punto medio del vuoto -> 0,1029: passava tutto, e "a quanto
-    //      ammonta quello che possiedo" riceveva la proiezione di fine mese;
-    //   2) minimo delle coppie genuine -> 0,495, sotto il massimo delle
-    //      estranee (0,572): ammetteva coppie di intenti diversi;
-    //   3) massimo estranee + tetto alla MEDIANA -> 0,3092, ancora permissiva;
-    //   4) massimo estranee + tetto al TERZO QUARTILE -> 0,4051. VERIFICATA
-    //      dal vivo: riconosce le parafrasi vere, distingue il patrimonio
-    //      dalle spese, e continua a rifiutare le richieste di consiglio.
-    // Il tetto serve a non far salire la soglia tanto da non riconoscere piu'
-    // niente su un banco rumoroso; il terzo quartile e' il punto in cui, sui
-    // dati misurati, le due cose stanno insieme.
-    sogliaSicura: (() => {
-      const t = Math.max(...lontane) + 0.01;
-      const ordinate = [...vicine].sort((a, b) => a - b);
-      const tetto = ordinate[Math.min(ordinate.length - 1, Math.floor(ordinate.length * 0.75))];
-      return +Math.min(t, tetto).toFixed(4);
-    })(),
+    // ── DOVE METTERE LA SOGLIA: cinque tentativi, quattro smentiti dal vivo ──
+    //   1) punto medio del vuoto -> 0,1029: passava tutto;
+    //   2) minimo delle coppie genuine -> sotto il massimo delle estranee;
+    //   3) tetto alla MEDIANA -> 0,3092, ancora permissiva;
+    //   4) tetto al TERZO QUARTILE -> 0,3991: sembrava buona sulle domande di
+    //      finanza personale, ma provando l'app come la userebbe un TRADER e'
+    //      emersa una regressione grave — "come sta il mercato?", "quanto
+    //      rischio di perdere?", "sono davvero diversificato?" ricevevano
+    //      tutte "questo mese non avanza nulla: prima il budget", perche'
+    //      cadevano sopra la soglia e venivano catturate dal QA personale
+    //      prima che quello dei mercati potesse vederle. Il QA di borsa
+    //      diventava IRRAGGIUNGIBILE.
+    //   5) NESSUN TETTO: la soglia sta dove la mettono i negativi. Se questo
+    //      costa qualche parafrasi non riconosciuta, si paga — un "non ho
+    //      capito" costa una riformulazione, una domanda dirottata rende
+    //      inutilizzabile meta' dell'app.
+    // Il tetto proteggeva la copertura, ma la copertura non e' la cosa da
+    // proteggere per prima. E gli esempi FUORI DOMINIO servono a poco se poi
+    // un tetto impedisce alla soglia di superarli.
+    sogliaSicura: +(Math.max(...lontane) + 0.01).toFixed(4),
   };
 }
 

@@ -197,3 +197,39 @@ test('fetchNewsApiOrg: chiave non valida → errore col messaggio reale, mai dat
   const fetchImpl = async () => ({ ok: true, json: async () => ({ status: 'error', code: 'apiKeyInvalid', message: 'Your API key is invalid or incorrect.' }) });
   await assert.rejects(() => fetchNewsApiOrg('Apple', { apiKey: 'sbagliata', fetchImpl }), /API key is invalid/);
 });
+
+// ── "APPLE" DENTRO "APPLYING" ──
+test('titoloParlaDi: confine di PAROLA, non sottostringa', async () => {
+  const { titoloParlaDi } = await import('./news.js');
+  // Il caso reale segnalato dall'utente: chiedendo notizie su Apple arrivava
+  // "Foreign Students APPLYing to US Colleges". Algolia cerca per prefisso, e
+  // il filtro guardava solo la data. Il danno non è l'imprecisione: è che una
+  // notizia palesemente sbagliata accanto al nome di un'azienda fa sospettare
+  // che siano inventati anche i numeri veri lì di fianco.
+  assert.equal(titoloParlaDi('Foreign Students Applying to US Colleges Fell 10%', 'Apple'), false);
+  assert.equal(titoloParlaDi('Application deadline extended', 'Apple'), false);
+  assert.equal(titoloParlaDi('Apple announces new iPhone', 'Apple'), true);
+  assert.equal(titoloParlaDi('Microsoft and Apple settle dispute', 'Apple'), true);
+  // Anche a inizio e fine titolo, e con punteggiatura attaccata.
+  assert.equal(titoloParlaDi('Apple: the next decade', 'Apple'), true);
+  assert.equal(titoloParlaDi('Everything about Apple.', 'Apple'), true);
+});
+
+test('titoloParlaDi: accenti e maiuscole non contano', async () => {
+  const { titoloParlaDi } = await import('./news.js');
+  assert.equal(titoloParlaDi('NVIDIA batte le attese', 'nvidia'), true);
+  assert.equal(titoloParlaDi('Société Générale in rialzo', 'societe'), true);
+});
+
+test('titoloParlaDi: i simboli molto corti passano, e il motivo è dichiarato', async () => {
+  const { titoloParlaDi } = await import('./news.js');
+  // Con meno di tre lettere il confine di parola non distingue nulla di utile
+  // (ticker come "F" o "GM"): meglio qualche notizia in più che nessuna.
+  assert.equal(titoloParlaDi('Qualcosa di totalmente scorrelato', 'F'), true);
+});
+
+test('titoloParlaDi: titolo vuoto non passa mai', async () => {
+  const { titoloParlaDi } = await import('./news.js');
+  assert.equal(titoloParlaDi('', 'Apple'), false);
+  assert.equal(titoloParlaDi(null, 'Apple'), false);
+});

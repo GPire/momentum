@@ -138,6 +138,31 @@ export async function fetchFinnhubNews(symbol, { apiKey, fetchImpl = fetch, limi
 // MAX_ETA_GIORNI non viene mai mostrato spacciato per "notizia attuale",
 // anche se fosse l'unico risultato — mai stale silenzioso.
 const MAX_ETA_GIORNI_HN = 400;
+
+// ── IL TITOLO PARLA DAVVERO DI QUESTA AZIENDA? ──
+// SECONDO BUG REALE segnalato dall'utente dal vivo (2026-08-20): chiedendo
+// notizie su Apple arrivava "Foreign Students APPLYing to US Colleges Fell
+// 10%". Algolia cerca per PREFISSO, quindi "apple" trova "applying",
+// "applied", "application" — e il filtro precedente controllava solo la data,
+// non che la parola ci fosse davvero.
+// Il danno non e' l'imprecisione: e' che una notizia palesemente sbagliata
+// accanto al nome di un'azienda fa sospettare che siano inventati anche i
+// numeri veri che stanno di fianco.
+// Confine di PAROLA, non sottostringa — lo stesso errore gia' corretto nel
+// glossario di mercato-qa.js, dove "obbligazioni" contiene "azioni".
+export function titoloParlaDi(titolo, query) {
+  const pulisci = (x) => String(x || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const t = pulisci(titolo);
+  if (!t) return false;
+  // Ogni parola della ricerca lunga almeno tre lettere deve comparire NEL
+  // TITOLO come parola intera. Con meno di tre lettere (i ticker brevi tipo
+  // "F" o "GM") il confine di parola non basta a distinguere, e si accetta:
+  // meglio qualche notizia in piu' che nessuna su quei simboli.
+  const parole = pulisci(query).split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+  if (!parole.length) return true;
+  return parole.some((w) => new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`).test(t));
+}
 export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit = 5, cache = null } = {}) {
   if (!query) throw new Error('Serve un nome o simbolo da cercare.');
   const cacheKey = `hn-news:${query.toLowerCase()}`;
@@ -156,7 +181,8 @@ export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit 
   }
   const sogliaEta = Date.now() - MAX_ETA_GIORNI_HN * 86_400_000;
   const hits = (Array.isArray(json?.hits) ? json.hits : [])
-    .filter((h) => !h.created_at || new Date(h.created_at).getTime() >= sogliaEta);
+    .filter((h) => !h.created_at || new Date(h.created_at).getTime() >= sogliaEta)
+    .filter((h) => titoloParlaDi(h.title, query));
   const items = hits.filter(h => h.url).map((h) => ({
     title: h.title,
     url: h.url,

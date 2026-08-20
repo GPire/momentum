@@ -261,12 +261,36 @@ export function sogliaSemantica() { return SOGLIA_CALIBRATA; }
 // Queste frasi entrano SOLO fra le coppie "estranee": alzano la soglia fino
 // a dove serve perche' il fuori dominio resti fuori.
 export const FUORI_DOMINIO = [
+  // Domande che non c'entrano nulla.
   'come si cuoce la carbonara',
   'che tempo fa domani',
   'quanti anni ha il presidente',
   'raccontami una barzelletta',
   'how do I cook pasta',
   'what is the weather tomorrow',
+  // ── LE DOMANDE DI MERCATO, e questa e' la parte che mancava ──
+  // REGRESSIONE GRAVE trovata provando l'app come la userebbe un trader
+  // (2026-08-20): "come sta il mercato?", "quanto rischio di perdere?",
+  // "sono davvero diversificato?" ricevevano TUTTE la stessa risposta di
+  // finanza personale ("questo mese non avanza nulla: prima il budget").
+  // Il motivo: il banco canonico contiene solo intenti di finanza personale,
+  // quindi la soglia veniva calibrata senza sapere dove cadono le domande di
+  // BORSA — che finivano sopra di essa e venivano catturate prima che il QA
+  // dei mercati potesse vederle.
+  // Dal punto di vista del QA personale una domanda di mercato E' fuori
+  // dominio, e deve restare tale: la gestisce il ramo dei mercati, dopo.
+  // Un banco fatto solo di cio' che si vuole riconoscere misura l'ottimismo
+  // di chi l'ha scritto — terza volta che questa lezione si ripresenta.
+  'come sta il mercato',
+  'quanto rischio di perdere sui mercati',
+  'sono davvero diversificato',
+  'come sono posizionati gli operatori',
+  'quanto durano di solito i cali di borsa',
+  'cosa e successo nel 2008',
+  "c'e' qualcosa di strano nei mercati",
+  "l'oro protegge dai crolli",
+  'how are the markets doing',
+  'what happened during the crash',
 ];
 
 export async function adattaSpazioAlBanco(gruppi = {}, { fuoriDominio = FUORI_DOMINIO } = {}) {
