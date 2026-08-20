@@ -100,3 +100,57 @@ test('i dati coprono aziende di settori diversi, non solo tecnologia', () => {
     assert.ok(FONDAMENTALI_STORICI[t], `manca ${t}`);
   }
 });
+
+// ── LE TRAPPOLE EMERSE PASSANDO DA 14 A 82 AZIENDE ──
+test('IL ROE NON SI CALCOLA se il patrimonio è quasi zero', () => {
+  // Con 82 aziende invece di 14 è saltato fuori il problema: in cima alla
+  // classifica finivano Colgate (688%), Lockheed (515%), Boeing (326%).
+  // Non sono aziende straordinarie: hanno il patrimonio ridotto quasi a zero
+  // da riacquisti e passività pensionistiche, e dividere un utile normale per
+  // un numero minuscolo fa esplodere il rapporto. Boeing ha addirittura
+  // patrimonio NEGATIVO in diversi esercizi.
+  // Presentarlo come qualità avrebbe messo in cima alla lista di Buffett
+  // esattamente le aziende che lui non comprerebbe.
+  const c = classifica();
+  for (const q of c) {
+    assert.ok(q.media < 2, `${q.nome}: media ROE ${q.media}, un rapporto con denominatore che tende a zero`);
+  }
+  // E Boeing non deve comparire fra i primi.
+  assert.ok(!c.slice(0, 10).some((q) => /BOEING/i.test(q.nome)));
+});
+
+test('gli esercizi NON calcolabili vengono dichiarati, non nascosti', () => {
+  // Senza dichiararli, "7 su 7" sembra una storia completa quando metà è
+  // stata scartata.
+  const q = qualitaNelTempo('CL');
+  if (q.disponibile) {
+    assert.ok(Number.isFinite(q.esercizioEsclusi));
+    if (q.esercizioEsclusi > 0) assert.match(testoQualita(q), /non (e' calcolabile|sono calcolabili)/);
+  }
+});
+
+test('a parità di costanza vince chi ha PIÙ ANNI, non la media più alta', () => {
+  // La lezione che questa sessione ha incontrato quattro volte: un campione
+  // piccolo sembra impressionante. "7 esercizi su 7" e "18 su 18" sono
+  // entrambi il 100%, ma non sono la stessa prova — e ordinando per media,
+  // Colgate con sette anni superava Apple con diciotto.
+  const c = classifica();
+  const cento = c.filter((q) => q.quotaSopra === 100);
+  for (let i = 1; i < cento.length; i++) {
+    assert.ok(cento[i - 1].anni >= cento[i].anni,
+      `${cento[i - 1].nome} (${cento[i - 1].anni} anni) prima di ${cento[i].nome} (${cento[i].anni} anni)`);
+  }
+  // E in cima devono esserci le aziende di qualità classiche.
+  assert.ok(cento.slice(0, 4).some((q) => /Apple/i.test(q.nome)));
+});
+
+test('ottantadue aziende, di settori diversi', () => {
+  // Il settore conta più della dimensione: serve a dire se un ROE alto sia
+  // raro o normale dove quell'azienda opera. Una lista di sole società
+  // tecnologiche renderebbe "normale" il 30% e "scarso" il 15% di una banca.
+  const t = Object.keys(FONDAMENTALI_STORICI);
+  assert.ok(t.length >= 70, `solo ${t.length} aziende`);
+  for (const settore of [['JPM', 'GS', 'MS'], ['KO', 'PEP', 'PG'], ['XOM', 'CVX'], ['JNJ', 'PFE', 'LLY']]) {
+    assert.ok(settore.some((x) => t.includes(x)), `manca il settore di ${settore[0]}`);
+  }
+});

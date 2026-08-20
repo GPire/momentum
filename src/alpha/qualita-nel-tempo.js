@@ -57,6 +57,11 @@ export function qualitaNelTempo(ticker, { misura = 'roe' } = {}) {
   }
 
   const serie = dati.anni.filter((x) => Number.isFinite(x[misura]));
+  // Gli esercizi in cui la misura NON e' calcolabile: per il ROE sono quelli
+  // col patrimonio netto quasi azzerato dai riacquisti, dove il rapporto non
+  // ha significato. Vanno DICHIARATI, altrimenti "7 su 7" sembra una storia
+  // completa quando meta' e' stata scartata.
+  const esclusi = dati.anni.length - serie.length;
   if (serie.length < MIN_ANNI) {
     return { disponibile: false, motivo: `Per ${dati.nome} ho solo ${serie.length} esercizi con questo dato: troppo pochi per parlare di costanza nel tempo.` };
   }
@@ -74,6 +79,7 @@ export function qualitaNelTempo(ticker, { misura = 'roe' } = {}) {
     disponibile: true,
     ticker: t, nome: dati.nome, misura,
     anni: serie.length, da: serie[0].anno, a: serie[serie.length - 1].anno,
+    esercizioEsclusi: esclusi,
     soglia,
     anniSopra: sopra.length,
     quotaSopra: +(100 * sopra.length / serie.length).toFixed(0),
@@ -120,6 +126,13 @@ export function testoQualita(q) {
       : `Negli ultimi anni e' peggiorato rispetto ai primi (${pct(q.direzione)}).`);
   }
 
+  if (q.esercizioEsclusi > 0) {
+    // Il plurale si costruisce per intero, non attaccando una lettera: la
+    // prima versione produceva "calcolabilei".
+    righe.push(q.esercizioEsclusi === 1
+      ? `Un esercizio non e' calcolabile: il patrimonio netto era troppo vicino a zero perche' il rapporto avesse un significato.`
+      : `${q.esercizioEsclusi} esercizi non sono calcolabili: il patrimonio netto era troppo vicino a zero perche' il rapporto avesse un significato.`);
+  }
   righe.push(`Fonte: ${q.fonte}. Sono fatti depositati, non stime — e non sono un consiglio.`);
   return righe.join(' ');
 }
@@ -130,5 +143,12 @@ export function classifica({ misura = 'roe', minAnni = MIN_ANNI } = {}) {
   return Object.keys(FONDAMENTALI_STORICI)
     .map((t) => qualitaNelTempo(t, { misura }))
     .filter((q) => q.disponibile && q.anni >= minAnni)
-    .sort((a, b) => b.quotaSopra - a.quotaSopra || b.media - a.media);
+    // ── A PARITA' DI QUOTA VINCE CHI HA PIU' STORIA, non chi ha la media
+    // piu' alta. E' la lezione che questa sessione ha incontrato quattro
+    // volte: un campione piccolo sembra impressionante.
+    // Concretamente: "7 esercizi su 7" e "18 su 18" sono entrambi il 100%, ma
+    // non sono la stessa prova. Ordinando per media, Colgate con sette anni
+    // superava Apple con diciotto — e sette anni non dicono di piu' di
+    // diciotto, dicono di meno.
+    .sort((a, b) => b.quotaSopra - a.quotaSopra || b.anni - a.anni || b.media - a.media);
 }

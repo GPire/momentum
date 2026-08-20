@@ -281,6 +281,17 @@ export function intentoMercato(domanda, similarity = null) {
     'si muovono tutti insieme', 'si muove tutto insieme', 'muovono insieme', 'muove tutto insieme',
     'quanto sono correlati', 'sono correlati', 'stessa scommessa')) return 'assorbimento';
 
+  // "Da quanti anni Apple guadagna bene?" — la domanda che prima non aveva
+  // risposta, perche' l'app vedeva solo dodici mesi. Ora ne vede venti.
+  if (ha(q, 'da quanti anni', 'negli ultimi anni', 'storico dei bilanci', 'storia dei bilanci',
+    'da quanto tempo guadagna', 'e sempre stata redditizia', 'quanto e costante',
+    'bilanci di', 'conti di', 'roe storico', 'qualita nel tempo')) return 'qualita-storica';
+
+  // "Quali sono le aziende piu' solide?" — la classifica per COSTANZA, non
+  // per rendimento di oggi.
+  if (ha(q, 'aziende piu solide', 'aziende piu costanti', 'quali aziende hanno guadagnato sempre',
+    'chi guadagna bene da piu tempo', 'classifica delle aziende', 'aziende di qualita')) return 'classifica-qualita';
+
   // "Cosa devo guardare prima di comprare?" — la domanda giusta, e l'unica
   // vicina a "cosa compro" a cui si PUO' rispondere: non quale titolo, ma
   // quali domande farsi. Va PRIMA del rifiuto? No: dopo, perche' il rifiuto
@@ -355,8 +366,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'), import('./qualita-nel-tempo.js'), import('./fondamentali-storici.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qualMod, storici]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -368,7 +379,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual: { ...qualMod, ...storici } };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -436,7 +447,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -459,6 +470,33 @@ export function rispostaSincrona(domanda, similarity = null) {
       for (const [k, alias] of QUALE) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) return k;
       return null;
     };
+
+    if (intento === 'qualita-storica') {
+      // Quale azienda nomina la domanda: si cerca fra i ticker disponibili e
+      // fra i nomi. Senza un'azienda riconosciuta non si inventa nulla.
+      const qn = normalizza(domanda);
+      const T = qual.FONDAMENTALI_STORICI;
+      let trovato = null;
+      for (const t of Object.keys(T)) {
+        const nomeBreve = normalizza(T[t].nome).split(/[ ,.]/)[0];
+        if (new RegExp(`\\b${normalizza(t)}\\b`).test(qn) || (nomeBreve.length >= 4 && qn.includes(nomeBreve))) { trovato = t; break; }
+      }
+      if (!trovato) {
+        return { intent: 'mercato-qualita-storica', answer: `Di quale azienda? Ho i bilanci depositati alla SEC per ${Object.keys(T).length} societa' quotate negli Stati Uniti — per esempio Apple, Microsoft, Coca-Cola, JPMorgan, Berkshire. Per un'azienda europea non ho niente: la SEC e' l'autorita' americana.` };
+      }
+      const r = qual.qualitaNelTempo(trovato);
+      return { intent: 'mercato-qualita-storica', data: r, answer: qual.testoQualita(r) };
+    }
+
+    if (intento === 'classifica-qualita') {
+      const c = qual.classifica();
+      const primi = c.slice(0, 5);
+      const testo = primi.map((x) => `${x.nome.split(/[ ,]/)[0]} (${x.anniSopra}/${x.anni} esercizi, media ${Math.round(x.media * 100)}%)`).join('; ');
+      return {
+        intent: 'mercato-classifica-qualita', data: c,
+        answer: `Su ${c.length} aziende con bilanci depositati alla SEC, le piu' COSTANTI nel rendere sul capitale dei soci sono: ${testo}. La classifica premia la costanza, non il numero piu' alto di oggi — e a parita' di costanza vince chi ha piu' anni alle spalle, perche' sette esercizi non provano quanto diciotto. Non e' un consiglio: e' cosa hanno gia' fatto.`,
+      };
+    }
 
     if (intento === 'prima-di-comprare') {
       return conAvviso({ intent: 'mercato-prima-di-comprare', data: tesi.PRIMA_DI_COMPRARE, answer: tesi.testoPrimaDiComprare() });

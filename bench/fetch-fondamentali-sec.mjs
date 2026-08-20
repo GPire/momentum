@@ -44,25 +44,49 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const UA = process.env.SEC_CONTATTO || 'Momentum on-device finance research momentum-research@proton.me';
 const PAUSA = 350; // sotto le 10 richieste al secondo chieste dalla SEC
 
-// Le aziende: grandi, di settori diversi, e con almeno dieci anni di storia.
-// Berkshire c'e' perche' e' l'azienda di Buffett, e JP Morgan perche'
-// l'utente ha chiesto esplicitamente cosa guarda una banca d'affari.
-const AZIENDE = [
-  { t: 'AAPL', cik: '0000320193', nome: 'Apple' },
-  { t: 'MSFT', cik: '0000789019', nome: 'Microsoft' },
-  { t: 'GOOGL', cik: '0001652044', nome: 'Alphabet' },
-  { t: 'AMZN', cik: '0001018724', nome: 'Amazon' },
-  { t: 'NVDA', cik: '0001045810', nome: 'NVIDIA' },
-  { t: 'TSLA', cik: '0001318605', nome: 'Tesla' },
-  { t: 'META', cik: '0001326801', nome: 'Meta' },
-  { t: 'JPM', cik: '0000019617', nome: 'JPMorgan Chase' },
-  { t: 'BRK-B', cik: '0001067983', nome: 'Berkshire Hathaway' },
-  { t: 'KO', cik: '0000021344', nome: 'Coca-Cola' },
-  { t: 'JNJ', cik: '0000200406', nome: 'Johnson & Johnson' },
-  { t: 'V', cik: '0001403161', nome: 'Visa' },
-  { t: 'WMT', cik: '0000104169', nome: 'Walmart' },
-  { t: 'PG', cik: '0000080424', nome: 'Procter & Gamble' },
+// ── LE AZIENDE, e i codici NON si scrivono a mano ──
+// La prima versione aveva i CIK copiati dentro il file: quattordici numeri di
+// dieci cifre, ognuno un'occasione di sbagliare in silenzio — un codice errato
+// non da' errore, da' i bilanci di un'ALTRA azienda. E non scala: per ottanta
+// aziende sarebbero ottanta numeri da verificare a mano.
+// La SEC pubblica l'elenco completo (10.387 societa'): si risolve il ticker al
+// volo, e se un ticker non esiste lo si dice invece di scaricare il vuoto.
+//
+// La scelta delle aziende: grandi, di SETTORI DIVERSI e con storia lunga.
+// Il settore conta piu' della dimensione — serve a poter dire se un ROE alto
+// sia raro o normale dove quell'azienda opera, e una lista di sole societa'
+// tecnologiche renderebbe "normale" il 30% e "scarso" il 15% di una banca.
+// Berkshire c'e' perche' e' l'azienda di Buffett; JPMorgan, Goldman e Morgan
+// Stanley perche' l'utente ha chiesto cosa guarda una banca d'affari.
+const TICKER = [
+  // Tecnologia
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'AVGO', 'ORCL', 'CRM', 'ADBE',
+  'CSCO', 'INTC', 'AMD', 'QCOM', 'TXN', 'IBM', 'NOW', 'INTU', 'AMAT', 'MU',
+  // Banche e finanza
+  'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'SCHW', 'BLK', 'SPGI', 'AXP',
+  'V', 'MA', 'PYPL', 'BRK-B',
+  // Salute
+  'JNJ', 'UNH', 'LLY', 'PFE', 'ABBV', 'MRK', 'TMO', 'ABT', 'DHR', 'AMGN',
+  // Consumo
+  'KO', 'PEP', 'PG', 'WMT', 'COST', 'MCD', 'NKE', 'SBUX', 'HD', 'TGT',
+  'CL', 'KMB', 'MDLZ', 'MO',
+  // Industria ed energia
+  'XOM', 'CVX', 'COP', 'CAT', 'BA', 'HON', 'GE', 'LMT', 'RTX', 'UPS',
+  'UNP', 'DE', 'MMM', 'EMR',
+  // Auto, telecomunicazioni, servizi
+  'TSLA', 'F', 'GM', 'T', 'VZ', 'TMUS', 'DIS', 'NFLX', 'CMCSA', 'NEE',
 ];
+
+async function elencoCik() {
+  const res = await fetch('https://www.sec.gov/files/company_tickers.json', { headers: { 'User-Agent': UA } });
+  if (!res.ok) throw new Error(`elenco SEC: HTTP ${res.status}`);
+  const j = await res.json();
+  const perTicker = new Map();
+  for (const v of Object.values(j)) {
+    if (v?.ticker) perTicker.set(v.ticker.toUpperCase(), { cik: String(v.cik_str).padStart(10, '0'), nome: v.title });
+  }
+  return perTicker;
+}
 
 // I concetti contabili, con i nomi alternativi. Le aziende non usano tutte la
 // stessa etichetta XBRL per la stessa cosa — chi legge solo il primo nome
@@ -149,6 +173,17 @@ function perAnno(fatti, nomi, { flusso }) {
 }
 
 (async () => {
+  const perTicker = await elencoCik();
+  const AZIENDE = [];
+  const senzaCik = [];
+  for (const t of TICKER) {
+    const v = perTicker.get(t.toUpperCase());
+    if (v) AZIENDE.push({ t, cik: v.cik, nome: v.nome });
+    else senzaCik.push(t);
+  }
+  if (senzaCik.length) console.log(`Ticker non trovati nell'elenco SEC: ${senzaCik.join(', ')}\n`);
+  console.log(`${AZIENDE.length} aziende da scaricare\n`);
+
   const out = {};
   for (const a of AZIENDE) {
     try {
@@ -181,7 +216,23 @@ function perAnno(fatti, nomi, { flusso }) {
       nome: d.nome,
       anni: anni.map((y) => ({
         anno: y,
-        roe: pn.get(y) > 0 ? +(un.get(y) / pn.get(y)).toFixed(4) : null,
+        // ── IL ROE NON SIGNIFICA NIENTE SE IL PATRIMONIO E' QUASI ZERO ──
+        // Con 82 aziende invece di 14 e' saltato fuori il problema: in cima
+        // alla classifica per "costanza del ROE" finivano Colgate (688%),
+        // Lockheed (515%), Boeing (326%), Kimberly-Clark (315%). Non sono
+        // aziende straordinarie: hanno il patrimonio netto ridotto quasi a
+        // zero da anni di riacquisti e passivita' pensionistiche, e dividere
+        // un utile normale per un numero minuscolo fa esplodere il rapporto.
+        // Boeing ha addirittura patrimonio NEGATIVO in diversi esercizi.
+        // Un rapporto con un denominatore che tende a zero non e' un rapporto
+        // alto: e' un rapporto senza significato, e presentarlo come qualita'
+        // avrebbe messo in cima alla lista di Buffett esattamente le aziende
+        // che lui non comprerebbe.
+        // La soglia: il patrimonio deve valere almeno il 5% dell'attivo. Sotto,
+        // il ROE resta NULL — assente, non zero, perche' non e' "basso": e'
+        // non calcolabile.
+        roe: (pn.get(y) > 0 && at.get(y) > 0 && pn.get(y) / at.get(y) >= 0.05)
+          ? +(un.get(y) / pn.get(y)).toFixed(4) : null,
         margine: rv.get(y) > 0 ? +(un.get(y) / rv.get(y)).toFixed(4) : null,
         roa: at.get(y) > 0 ? +(un.get(y) / at.get(y)).toFixed(4) : null,
         utileNetto: un.get(y),
