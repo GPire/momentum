@@ -197,3 +197,143 @@ export function testoPrimaDiComprare() {
   const no = PRIMA_DI_COMPRARE.filter((x) => !x.misurabile);
   return `Le domande che i grandi investitori si fanno prima di comprare sono ${PRIMA_DI_COMPRARE.length}. Momentum ne misura ${sa.length}: ${sa.map((x) => x.voce.toLowerCase().replace('?', '')).join('; ')}. Le altre ${no.length} non le misura, e il motivo e' scritto accanto a ciascuna — una lista che fingesse di poter misurare tutto sarebbe piu' bella e meno utile.`;
 }
+
+// ============================================================
+// LA TESI SU DICIANNOVE ANNI — non "è rotta", ma QUANDO si è rotta
+// ============================================================
+// Fin qui la tesi si registrava sui numeri di OGGI e si confrontava con i
+// numeri di DOMANI: due fotografie, e in mezzo il buio. Con i bilanci
+// depositati alla SEC (fondamentali-storici.js, fino a vent'anni per azienda)
+// la domanda cambia natura.
+//
+// ── LE TRE COSE CHE PRIMA NON SI POTEVANO CHIEDERE ──
+// 1. QUANDO si e' rotta. "Il ROE e' sotto la soglia" e "il ROE e' sotto la
+//    soglia dal 2019, sei anni fa" sono la stessa informazione e due cose
+//    diverse: la seconda dice che non e' un incidente recente.
+// 2. ERA GIA' ROTTA QUANDO HAI COMPRATO? La tesi non si registra piu' dalla
+//    memoria di chi compra, ma dai conti depositati QUELL'ANNO. Se i numeri
+//    non c'erano gia' allora, il problema non e' che l'azienda e' peggiorata:
+//    e' che la ragione non c'e' mai stata. E' la cosa piu' scomoda che questo
+//    modulo puo' dire, ed e' il motivo per cui vale la pena dirla.
+// 3. E' UN CALO O UN CICLO? Un ROE sotto soglia per un anno, in un'azienda
+//    che negli ultimi quindici e' stata sotto altre quattro volte ed e' sempre
+//    risalita, non e' la stessa cosa di un'azienda che ci finisce per la prima
+//    volta. Il numero e' identico; la storia no.
+//
+// Nessun consiglio, mai: si dice cosa e' successo ai conti, non cosa fare.
+'use strict';
+
+// Import a fondo file per non toccare l'intestazione del modulo: questa e'
+// un'aggiunta, e il codice sopra continua a funzionare senza saperne niente.
+import { FONDAMENTALI_STORICI } from './fondamentali-storici.js';
+import { SOGLIE } from './qualita-nel-tempo.js';
+
+export const MISURE_STORICHE = ['roe', 'margine', 'roa'];
+
+// La tesi ricostruita dai conti VERI dell'anno di acquisto, non dalla memoria.
+export function tesiDaiBilanci(ticker, annoAcquisto) {
+  const t = String(ticker || '').toUpperCase();
+  const dati = FONDAMENTALI_STORICI[t];
+  if (!dati) return { disponibile: false, motivo: `Non ho i bilanci depositati per ${t || 'questa azienda'}: la SEC copre le societa' quotate negli Stati Uniti.` };
+
+  const anno = dati.anni.find((x) => x.anno === annoAcquisto);
+  if (!anno) {
+    const primi = dati.anni[0]?.anno, ultimi = dati.anni[dati.anni.length - 1]?.anno;
+    return { disponibile: false, motivo: `Per ${dati.nome} ho i bilanci dal ${primi} al ${ultimi}: del ${annoAcquisto} non ho niente, e non lo invento.` };
+  }
+
+  const ragioni = [];
+  for (const m of MISURE_STORICHE) {
+    const v = anno[m];
+    if (Number.isFinite(v) && v >= SOGLIE[m]) ragioni.push({ misura: m, valore: v, soglia: SOGLIE[m] });
+  }
+  return {
+    disponibile: true,
+    ticker: t, nome: dati.nome, anno: annoAcquisto,
+    ragioni,
+    // Il caso scomodo: comprata quando i conti NON la giustificavano.
+    nessunaRagione: ragioni.length === 0,
+  };
+}
+
+// Il racconto anno per anno di ogni ragione: quando ha smesso di valere, e
+// quante volte era gia' successo prima.
+export function storiaDellaTesi(ticker, annoAcquisto) {
+  const tesi = tesiDaiBilanci(ticker, annoAcquisto);
+  if (!tesi.disponibile) return tesi;
+  const dati = FONDAMENTALI_STORICI[tesi.ticker];
+  const dopo = dati.anni.filter((x) => x.anno > annoAcquisto);
+  const prima = dati.anni.filter((x) => x.anno < annoAcquisto);
+
+  const esiti = tesi.ragioni.map(({ misura, valore, soglia }) => {
+    const sotto = dopo.filter((x) => Number.isFinite(x[misura]) && x[misura] < soglia);
+    const primaRottura = sotto.length ? sotto[0].anno : null;
+    // Da quanti anni consecutivi e' sotto, guardando dall'ultimo indietro.
+    let consecutivi = 0;
+    for (let i = dopo.length - 1; i >= 0; i--) {
+      const v = dopo[i][misura];
+      if (Number.isFinite(v) && v < soglia) consecutivi++; else break;
+    }
+    // Quante volte era gia' scesa sotto PRIMA dell'acquisto: distingue un calo
+    // da un ciclo.
+    const cadutePrecedenti = prima.filter((x) => Number.isFinite(x[misura]) && x[misura] < soglia).length;
+    const ultimo = [...dopo].reverse().find((x) => Number.isFinite(x[misura]));
+
+    return {
+      misura, allAcquisto: valore, soglia,
+      adesso: ultimo ? ultimo[misura] : null,
+      annoUltimo: ultimo ? ultimo.anno : null,
+      regge: ultimo ? ultimo[misura] >= soglia : null,
+      primaRottura,
+      anniSottoDiFila: consecutivi,
+      cadutePrecedenti,
+      anniPrimaDisponibili: prima.filter((x) => Number.isFinite(x[misura])).length,
+    };
+  });
+
+  return {
+    disponibile: true,
+    ticker: tesi.ticker, nome: tesi.nome, annoAcquisto,
+    nessunaRagione: tesi.nessunaRagione,
+    esiti,
+    anniOsservati: dopo.length,
+    reggono: esiti.filter((e) => e.regge === true).length,
+    rotte: esiti.filter((e) => e.regge === false).length,
+  };
+}
+
+const pc = (x) => `${Math.round(x * 100)}%`;
+
+export function testoStoriaTesi(s) {
+  if (!s?.disponibile) return s?.motivo || null;
+  const righe = [];
+
+  if (s.nessunaRagione) {
+    // La cosa piu' scomoda che questo modulo puo' dire, e per questo va detta
+    // per prima e senza attenuarla.
+    return `Nel ${s.annoAcquisto} i conti di ${s.nome} non soddisfacevano nessuno dei criteri: ne' il rendimento sul capitale, ne' il margine, ne' il rendimento sulle attivita'. Non c'e' una tesi che si sia rotta — non ce n'era una, e questo lo dicono i bilanci depositati quell'anno, non un giudizio a posteriori.`;
+  }
+
+  righe.push(`Comprata nel ${s.annoAcquisto}, quando ${s.nome} soddisfaceva ${s.esiti.length} ${s.esiti.length === 1 ? 'criterio' : 'criteri'}. Da allora sono passati ${s.anniOsservati} esercizi.`);
+
+  for (const e of s.esiti) {
+    // Maiuscola: ogni voce apre una frase, e "il rendimento" dopo un punto si
+    // legge come una frase interrotta.
+    const nome = { roe: 'Il rendimento sul capitale', margine: 'Il margine', roa: 'Il rendimento sulle attivita\'' }[e.misura];
+    if (e.regge === null) { righe.push(`${nome}: non piu' calcolabile negli anni recenti.`); continue; }
+    if (e.regge) {
+      righe.push(e.primaRottura
+        ? `${nome} regge oggi (${pc(e.adesso)}), ma era sceso sotto soglia nel ${e.primaRottura} ed e' risalito.`
+        : `${nome} non e' mai sceso sotto soglia: era ${pc(e.allAcquisto)}, oggi ${pc(e.adesso)}.`);
+    } else {
+      righe.push(`${nome} e' sotto soglia dal ${e.primaRottura}${e.anniSottoDiFila > 1 ? `, e ci resta da ${e.anniSottoDiFila} esercizi di fila` : ''}: era ${pc(e.allAcquisto)} quando l'hai presa, oggi ${pc(e.adesso)}.`);
+      // Calo o ciclo: la distinzione che il numero da solo non fa.
+      righe.push(e.cadutePrecedenti > 0
+        ? `Nei ${e.anniPrimaDisponibili} esercizi precedenti all'acquisto era gia' finito sotto soglia ${e.cadutePrecedenti} ${e.cadutePrecedenti === 1 ? 'volta' : 'volte'}: per questa azienda non e' una novita'.`
+        : `Nei ${e.anniPrimaDisponibili} esercizi precedenti all'acquisto non era mai sceso sotto: e' la prima volta.`);
+    }
+  }
+
+  righe.push('Sono bilanci depositati, non stime. E non ti sto dicendo cosa fare: ti sto dicendo cosa e\' successo ai conti da quando hai comprato.');
+  return righe.join(' ');
+}

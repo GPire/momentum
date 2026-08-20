@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   registraTesi, verificaTesi, testoTesi, PRIMA_DI_COMPRARE, testoPrimaDiComprare,
+  tesiDaiBilanci, storiaDellaTesi, testoStoriaTesi,
 } from './tesi-investimento.js';
 
 // Un'azienda di qualità comprata quando i conti erano buoni.
@@ -127,4 +128,74 @@ test('il testo riassuntivo non promette di misurare tutto', () => {
   const t = testoPrimaDiComprare();
   assert.match(t, /non le misura/);
   assert.match(t, /piu' bella e meno utile/);
+});
+
+// ── LA TESI SU DICIANNOVE ANNI: non "è rotta", ma QUANDO ──
+test('INTEL: la tesi si è rotta nel 2017, otto anni fa — e nessuna fotografia poteva dirlo', () => {
+  // La dimostrazione del perché servivano i bilanci storici. Confrontando due
+  // fotografie si può solo dire "il ROE è sotto soglia". Con diciannove anni
+  // si dice da QUANDO — e "dal 2017" non è un incidente recente, è un declino
+  // lungo che l'utente ha attraversato senza che nessuno glielo dicesse.
+  const s = storiaDellaTesi('INTC', 2015);
+  assert.equal(s.disponibile, true);
+  const roe = s.esiti.find((e) => e.misura === 'roe');
+  assert.equal(roe.regge, false);
+  assert.ok(roe.primaRottura <= 2018, `prima rottura nel ${roe.primaRottura}`);
+  assert.ok(roe.allAcquisto >= 0.15, 'al momento dell\'acquisto la ragione c\'era davvero');
+  assert.ok(roe.adesso < 0.05, `oggi ${roe.adesso}`);
+  assert.match(testoStoriaTesi(s), /sotto soglia dal 20/);
+});
+
+test('APPLE: dieci anni dopo, tutte le ragioni reggono ancora', () => {
+  const s = storiaDellaTesi('AAPL', 2015);
+  assert.equal(s.rotte, 0);
+  assert.equal(s.esiti.length, 3);
+  assert.match(testoStoriaTesi(s), /non e' mai sceso sotto soglia/);
+});
+
+test('CALO O CICLO: distingue "prima volta" da "è già successo"', () => {
+  // Un ROE sotto soglia in un'azienda che negli ultimi quindici anni ci è
+  // finita altre undici volte non è la stessa cosa di una che ci arriva per
+  // la prima volta. Il numero è identico; la storia no.
+  const tesla = storiaDellaTesi('TSLA', 2021);
+  const roeT = tesla.esiti.find((e) => e.misura === 'roe');
+  assert.ok(roeT.cadutePrecedenti > 5, `solo ${roeT.cadutePrecedenti} cadute precedenti`);
+  assert.match(testoStoriaTesi(tesla), /non e' una novita'/);
+
+  const intel = storiaDellaTesi('INTC', 2015);
+  const margine = intel.esiti.find((e) => e.misura === 'margine');
+  assert.equal(margine.cadutePrecedenti, 0, 'per Intel il margine non era mai sceso prima');
+  assert.match(testoStoriaTesi(intel), /e' la prima volta/);
+});
+
+test('RISALITA: "era scesa nel 2017 ed è risalita" non è una tesi rotta', () => {
+  const s = storiaDellaTesi('KO', 2012);
+  const roe = s.esiti.find((e) => e.misura === 'roe');
+  assert.equal(roe.regge, true);
+  assert.ok(roe.primaRottura, 'era comunque scesa una volta');
+  assert.match(testoStoriaTesi(s), /ed e' risalito/);
+});
+
+test('LA COSA PIÙ SCOMODA: comprata quando i conti non la giustificavano', () => {
+  // Non "l'azienda è peggiorata" ma "la ragione non c'è mai stata", e lo
+  // dicono i bilanci depositati quell'anno, non un giudizio a posteriori.
+  const t = tesiDaiBilanci('TSLA', 2015);
+  assert.equal(t.disponibile, true);
+  assert.equal(t.nessunaRagione, true, 'nel 2015 Tesla perdeva soldi');
+  const s = storiaDellaTesi('TSLA', 2015);
+  assert.match(testoStoriaTesi(s), /non c'e' una tesi che si sia rotta/i);
+});
+
+test('un anno fuori archivio si dichiara, non si inventa', () => {
+  const t = tesiDaiBilanci('AAPL', 1995);
+  assert.equal(t.disponibile, false);
+  assert.match(t.motivo, /non lo invento/);
+  assert.match(tesiDaiBilanci('ENI', 2015).motivo, /Stati Uniti/);
+});
+
+test('il testo storico non dice mai cosa fare', () => {
+  const t = testoStoriaTesi(storiaDellaTesi('INTC', 2015));
+  assert.ok(!/(^|[.!?]\s+)(vendi|compra|esci|entra)\b/i.test(t), t);
+  assert.ok(!/\b(dovresti|ti consiglio|ti conviene)\b/i.test(t), t);
+  assert.match(t, /bilanci depositati, non stime/);
 });
