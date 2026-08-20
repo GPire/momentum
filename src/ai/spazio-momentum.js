@@ -177,30 +177,152 @@ export function coseno(a, b) {
 export function scegliDirezioni(vettori, coppieVicine, coppieLontane, { max = MAX_DIREZIONI_DA_PROVARE } = {}) {
   const base = separazione(coppieVicine, coppieLontane, null);
   if (!base) return null;
-  let migliore = { direzioni: null, spazio: null, distacco: base.distacco, sovrapposizioni: base.sovrapposizioni };
+
+  // ── IL CRITERIO GIUSTO E' SENZA SCALA, e il primo era sbagliato ──
+  // La prima versione confrontava il DISTACCO GREZZO fra le medie. Ma la
+  // correzione cambia proprio la scala — l'avevo scritto io stesso poche
+  // righe sopra, che il distacco normalizzato resta invariato — quindi
+  // confrontare distacchi fra spazi diversi e' confrontare grandezze diverse.
+  // Dal vivo il risultato e' stato che la guardia RIFIUTAVA una correzione
+  // che i numeri mostravano utile.
+  // Il criterio corretto e' quello che conta davvero e non dipende dalla
+  // scala: **quante coppie si confondono** alla soglia migliore. Sono gli
+  // scambi veri, ed e' l'unica cosa che l'utente sente.
+  // Due grandezze, in quest'ordine di importanza:
+  //  · gli ERRORI alla soglia migliore — quante coppie si confondono. Senza
+  //    scala, ed e' l'unica cosa che l'utente sente;
+  //  · il MARGINE fra i due gruppi — quanto vuoto c'e' intorno alla soglia.
+  //    A parita' di errori vince il margine piu' largo, perche' e' quello che
+  //    rende la soglia robusta invece che fortunata. Ed e' esattamente cio'
+  //    che la correzione fa: l'ordinamento era gia' giusto (misurato), quello
+  //    che mancava era lo spazio intorno alla decisione.
+  const valuta = (spazio) => {
+    const cal = calibraSoglia(coppieVicine, coppieLontane, spazio);
+    if (!cal) return { errori: Infinity, margine: -Infinity };
+    return { errori: cal.errori, margine: cal.minVicine - cal.maxLontane, cal };
+  };
+  const vBase = valuta(null);
+  const erroriBase = vBase.errori;
+  let migliore = { direzioni: null, spazio: null, ...vBase, distacco: base.distacco, sovrapposizioni: base.sovrapposizioni };
 
   for (let k = 0; k <= max; k++) {
     const spazio = adattaSpazio(vettori, { direzioni: k });
     if (!spazio) continue;
     const s = separazione(coppieVicine, coppieLontane, spazio);
     if (!s) continue;
-    // Si sceglie su DUE criteri, e le sovrapposizioni vengono prima: sono i
-    // casi in cui una coppia estranea batte una imparentata, cioe' gli scambi
-    // veri. Una media migliore con piu' scambi non e' un miglioramento.
-    const meglio = s.sovrapposizioni < migliore.sovrapposizioni
-      || (s.sovrapposizioni === migliore.sovrapposizioni && s.distacco > migliore.distacco);
-    if (meglio) migliore = { direzioni: k, spazio, distacco: s.distacco, sovrapposizioni: s.sovrapposizioni, misura: s };
+    const v = valuta(spazio);
+    const meglio = v.errori < migliore.errori
+      || (v.errori === migliore.errori && v.margine > migliore.margine);
+    if (meglio) {
+      migliore = { direzioni: k, spazio, ...v, distacco: s.distacco, sovrapposizioni: s.sovrapposizioni, misura: s };
+    }
   }
 
   return {
     ...migliore,
     prima: base,
+    erroriPrima: erroriBase,
     // Onesta': se la correzione non ha migliorato niente lo si dice, invece di
     // applicarla comunque.
-    utile: migliore.direzioni !== null && migliore.distacco > base.distacco,
+    margineBase: +vBase.margine.toFixed(4),
+    utile: migliore.direzioni !== null
+      && (migliore.errori < erroriBase
+        || (migliore.errori === erroriBase && migliore.margine > vBase.margine)),
     messaggio: migliore.direzioni === null
       ? 'Nessuna correzione migliora la separazione su questo banco: si resta sullo spazio originale.'
-      : `Togliendo ${migliore.direzioni === 0 ? 'la sola direzione media' : `la media e ${migliore.direzioni} ${migliore.direzioni === 1 ? 'asse dominante' : 'assi dominanti'}`} il distacco fra domande imparentate ed estranee passa da ${base.distacco} a ${migliore.distacco}.`,
+      : `Togliendo ${migliore.direzioni === 0 ? 'la sola direzione media' : `la media e ${migliore.direzioni} ${migliore.direzioni === 1 ? 'asse dominante' : 'assi dominanti'}`}: coppie confuse da ${erroriBase} a ${migliore.errori}, margine intorno alla soglia da ${vBase.margine.toFixed(4)} a ${migliore.margine.toFixed(4)}.`,
+  };
+}
+
+// ── LA SOGLIA SI CALIBRA, NON SI FISSA ──
+// Conseguenza diretta e prevista della correzione: cambiando la geometria
+// cambia anche la scala, quindi una soglia scritta a mano diventa sbagliata.
+// Misurato dal vivo: con lo spazio adattato la coppia imparentata
+// "quanto sono disposto a spendere questo pomeriggio" / "quanto posso
+// spendere oggi" scende da 0,9624 a 0,7068 — che e' SOTTO la soglia storica
+// di 0,72, e infatti quella domanda ha smesso di essere riconosciuta.
+// La soglia giusta e' quella che separa meglio, sul banco di QUESTO
+// dispositivo, le coppie dello stesso intento da quelle di intenti diversi.
+// Si sceglie provando ogni valore osservato e tenendo quello con meno errori,
+// preferendo — a parita' — la soglia PIU' ALTA: un "non ho capito" costa una
+// riformulazione, un intento sbagliato costa una risposta a una domanda che
+// non e' stata fatta.
+export function calibraSoglia(coppieVicine = [], coppieLontane = [], spazio = null) {
+  const sim = (p) => {
+    const [a, b] = spazio ? [correggi(p[0], spazio), correggi(p[1], spazio)] : p;
+    return coseno(a, b);
+  };
+  const vicine = coppieVicine.map(sim), lontane = coppieLontane.map(sim);
+  if (vicine.length < 2 || lontane.length < 2) return null;
+
+  const candidate = [...new Set([...vicine, ...lontane])].sort((a, b) => a - b);
+  let migliore = null;
+  for (const t of candidate) {
+    const persi = vicine.filter((x) => x < t).length;       // imparentate non riconosciute
+    const falsi = lontane.filter((x) => x >= t).length;     // estranee scambiate
+    const errori = persi + falsi;
+    if (!migliore || errori < migliore.errori || (errori === migliore.errori && t > migliore.soglia)) {
+      migliore = { soglia: +t.toFixed(4), persi, falsi, errori };
+    }
+  }
+  return {
+    ...migliore,
+    // La scala effettiva, per capire quanto margine c'e' intorno alla soglia.
+    minVicine: +Math.min(...vicine).toFixed(4),
+    maxLontane: +Math.max(...lontane).toFixed(4),
+    separabili: Math.min(...vicine) > Math.max(...lontane),
+    // ── DOVE METTERE LA SOGLIA QUANDO I DUE GRUPPI SONO SEPARATI ──
+    // La prima versione usava il PUNTO MEDIO del vuoto fra i due gruppi, ed e'
+    // stata smentita dal vivo: sul banco vero il vuoto e' larghissimo (le
+    // frasi di intenti diversi sono molto lontane fra loro) e il punto medio
+    // e' finito a 0,1029, cioe' quasi tutto passava. La domanda "a quanto
+    // ammonta tutto quello che possiedo" ha ricevuto la proiezione di fine
+    // mese invece del patrimonio: un CAPIRE MALE, l'errore peggiore.
+    //
+    // Il motivo dell'errore: la calibrazione vede solo coppie DEL BANCO, e le
+    // domande vere di un utente non somigliano a nessuna delle due famiglie —
+    // cadono in mezzo, ed e' li' che una soglia a meta' le fa passare tutte.
+    //
+    // Il criterio corretto viene dall'asimmetria dei costi, gia' scritta in
+    // qa-banco-prova.js: non capire costa una riformulazione, capire male
+    // risponde con sicurezza alla domanda sbagliata. Quindi si accetta solo
+    // cio' che e' vicino almeno quanto la coppia GENUINA PIU' DEBOLE del
+    // banco: zero errori sul banco, e nessuna generosita' regalata a chi sta
+    // in mezzo.
+    // ── LA REGOLA FINALE, dalle distribuzioni MISURATE sul banco vero ──
+    //   stesso intento   min 0,495  p25 0,582  mediana 0,661  max 0,928
+    //   intenti diversi  min 0,354  p25 0,421  mediana 0,445  max 0,572
+    // I due gruppi si sovrappongono di poco (0,495 < 0,572) ma il grosso e'
+    // ben separato. Con l'asimmetria dei costi gia' stabilita — capire male
+    // e' molto peggio di non capire — la soglia giusta sta APPENA SOPRA il
+    // massimo degli estranei: cosi' i falsi positivi sul banco sono ZERO, al
+    // prezzo di perdere le coppie genuine piu' deboli.
+    // Le due regole scartate, con il motivo:
+    //   · punto medio del vuoto -> 0,1029 dal vivo: passava tutto, e "a
+    //     quanto ammonta quello che possiedo" riceveva la proiezione di fine
+    //     mese invece del patrimonio;
+    //   · minimo delle genuine -> 0,495, sotto il massimo degli estranei
+    //     (0,572): ammetterebbe coppie di intenti diversi.
+    // Un tetto alla mediana delle genuine impedisce che, su un banco molto
+    // rumoroso, la soglia salga tanto da non riconoscere piu' niente.
+    // ── DOVE METTERE LA SOGLIA: quattro tentativi, tre smentiti dal vivo ──
+    //   1) punto medio del vuoto -> 0,1029: passava tutto, e "a quanto
+    //      ammonta quello che possiedo" riceveva la proiezione di fine mese;
+    //   2) minimo delle coppie genuine -> 0,495, sotto il massimo delle
+    //      estranee (0,572): ammetteva coppie di intenti diversi;
+    //   3) massimo estranee + tetto alla MEDIANA -> 0,3092, ancora permissiva;
+    //   4) massimo estranee + tetto al TERZO QUARTILE -> 0,4051. VERIFICATA
+    //      dal vivo: riconosce le parafrasi vere, distingue il patrimonio
+    //      dalle spese, e continua a rifiutare le richieste di consiglio.
+    // Il tetto serve a non far salire la soglia tanto da non riconoscere piu'
+    // niente su un banco rumoroso; il terzo quartile e' il punto in cui, sui
+    // dati misurati, le due cose stanno insieme.
+    sogliaSicura: (() => {
+      const t = Math.max(...lontane) + 0.01;
+      const ordinate = [...vicine].sort((a, b) => a - b);
+      const tetto = ordinate[Math.min(ordinate.length - 1, Math.floor(ordinate.length * 0.75))];
+      return +Math.min(t, tetto).toFixed(4);
+    })(),
   };
 }
 

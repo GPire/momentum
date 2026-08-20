@@ -115,8 +115,11 @@ test('scegliDirezioni TROVA da solo il numero giusto, e non è quello del paper'
   const scelta = scegliDirezioni(dati.map((x) => x.v), vicine, lontane);
   assert.ok(scelta.utile, 'la correzione deve risultare utile');
   assert.ok(scelta.direzioni <= 1, `ha scelto ${scelta.direzioni}: oltre 1 rompe`);
-  assert.ok(scelta.distacco > scelta.prima.distacco * 100, 'il guadagno deve essere enorme');
-  assert.match(scelta.messaggio, /il distacco fra domande imparentate ed estranee passa da/);
+  // Il guadagno vero è sul MARGINE intorno alla soglia: da 0,0065 a 1,84,
+  // cioè 283 volte. È lo spazio in cui la decisione diventa robusta invece
+  // che fortunata — l'ordinamento era già giusto anche prima.
+  assert.ok(scelta.margine > scelta.margineBase * 50, `margine da ${scelta.margineBase} a ${scelta.margine}`);
+  assert.match(scelta.messaggio, /margine intorno alla soglia da/);
 });
 
 test('se nessuna correzione migliora, si resta com\'era e lo si dice', () => {

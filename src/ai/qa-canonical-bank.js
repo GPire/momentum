@@ -100,8 +100,14 @@ export const ESEMPI_CANONICI = {
 // chiamata se `similarity` manca: senza un vero motore semantico questo
 // banco non serve a niente (il confronto a parole lo fa già qa-learning.js
 // sulle correzioni VERE dell'utente, più affidabili di esempi generici).
-export function matchCanonico(question, similarity) {
+// `soglia` opzionale: quando il motore semantico ha CALIBRATO una soglia sul
+// banco di questo dispositivo (src/ai/spazio-momentum.js), quella vince sulla
+// costante scritta qui. Motivo misurato: correggendo la geometria dello spazio
+// la scala si sposta, e una soglia fissa smette di funzionare — le domande
+// imparentate finivano sotto 0,72 e non venivano piu' riconosciute.
+export function matchCanonico(question, similarity, { soglia = null } = {}) {
   if (!similarity || !question) return null;
+  const limite = Number.isFinite(soglia) ? soglia : SOGLIA_CANONICA;
   let best = null, bestScore = 0;
   for (const [intent, esempi] of Object.entries(ESEMPI_CANONICI)) {
     for (const esempio of esempi) {
@@ -109,6 +115,6 @@ export function matchCanonico(question, similarity) {
       if (score > bestScore) { bestScore = score; best = intent; }
     }
   }
-  if (!best || bestScore < SOGLIA_CANONICA) return null;
+  if (!best || bestScore < limite) return null;
   return { intent: best, confidenza: +bestScore.toFixed(2) };
 }

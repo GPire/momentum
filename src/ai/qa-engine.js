@@ -431,7 +431,9 @@ function answerQuestionCore(question, ctx) {
   // umana a fare da rete di sicurezza. Solo se il ramo sopra non ha già
   // trovato un match: mai due iniezioni diverse sullo stesso qMatch.
   if (!appresoIntent && ctx.semanticSimilarity) {
-    const canonico = matchCanonico(question, ctx.semanticSimilarity);
+    // La soglia calibrata sul banco di QUESTO dispositivo vince sulla costante:
+    // correggendo la geometria dello spazio la scala si sposta (misurato).
+    const canonico = matchCanonico(question, ctx.semanticSimilarity, { soglia: ctx.sogliaSemantica ?? null });
     if (canonico && CANONICAL_TRIGGER[canonico.intent]) {
       appresoIntent = canonico.intent;
       qMatch = `${qMatch} ${CANONICAL_TRIGGER[canonico.intent]}`;

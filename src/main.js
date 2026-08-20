@@ -207,7 +207,7 @@ async function prepareSemanticSimilarity(question) {
   if (!VaultDAO.state.semanticQaOptIn) return null;
   if (!window.momentumDeviceProfile?.simd) return null;
   try {
-    const { embed, similaritaSincrona } = await import('./ai/semantic-embed.js');
+    const { embed, similaritaSincrona, adattaSpazioAlBanco, spazioAdattato } = await import('./ai/semantic-embed.js');
     const { ESEMPI_CANONICI } = await import('./ai/qa-canonical-bank.js');
     const learned = VaultDAO.state.qaLearning?.learned || [];
     await embed(question);
@@ -218,6 +218,23 @@ async function prepareSemanticSimilarity(question) {
     // Le voci già calcolate in questa sessione sono gratis (embedCache):
     // qui si paga solo per le correzioni nuove dall'ultima domanda.
     await Promise.all(learned.map((l) => embed(l.question).catch(() => null)));
+    // LO SPAZIO DI MOMENTUM (src/ai/spazio-momentum.js), adattato UNA volta
+    // sul banco canonico: senza, il coseno di questo modello sta fra 0,90 e
+    // 0,96 per qualunque coppia — misurato — e ogni soglia diventa inutile.
+    // Le frasi dello stesso intento fanno da coppie imparentate, quelle di
+    // intenti diversi da estranee: e' esattamente l'informazione che serve
+    // per capire quali direzioni distinguono e quali sono solo l'artefatto.
+    // Si include anche cio' che QUESTO utente ha insegnato, cosi' la
+    // geometria e' tarata su come parla lui e non lascia il dispositivo.
+    if (!spazioAdattato()) {
+      const perIntento = { ...ESEMPI_CANONICI };
+      for (const l of learned) {
+        if (!l?.intent || !l?.question) continue;
+        (perIntento[l.intent] = (perIntento[l.intent] || []).slice()).push(l.question);
+      }
+      await adattaSpazioAlBanco(perIntento).catch(() => null);
+    }
+    try { window.__sogliaSemantica = (await import('./ai/semantic-embed.js')).sogliaSemantica(); } catch (_) { /* resta la costante */ }
     return similaritaSincrona;
   } catch (_) { return null; } // mai bloccante: senza embedding si ricade su Jaccard
 }
@@ -271,6 +288,9 @@ function askMomentum(text, semanticSimilarity = null) {
     // più sotto per dove si registra/insegna.
     qaLearning: VaultDAO.state.qaLearning,
     semanticSimilarity,
+    // Soglia MISURATA sul banco di questo dispositivo (src/ai/spazio-momentum.js):
+    // vince sulla costante, perche' correggendo la geometria la scala si sposta.
+    sogliaSemantica: window.__sogliaSemantica ?? null,
   };
   // Chatbot multilingua (src/ai/chat.js): se rileva EN/ES risponde in quella
   // lingua; per l'italiano (o intento non coperto dal chat) usa il Q&A
@@ -13199,8 +13219,14 @@ window.askMomentum = askMomentum;
 // esposta perche' le soglie giuste dipendono dai valori che il modello produce
 // davvero, e quelli si misurano solo con il modello acceso.
 window.momentumSimDiag = async (coppie) => {
-  const { distribuzioneSomiglianze } = await import('./ai/semantic-embed.js');
-  return distribuzioneSomiglianze(coppie);
+  const { distribuzioneSomiglianze, spazioAdattato } = await import('./ai/semantic-embed.js');
+  return { spazio: spazioAdattato(), coppie: await distribuzioneSomiglianze(coppie) };
+};
+// Permette di misurare lo STESSO insieme di coppie con e senza lo spazio
+// adattato: e' l'unico modo di dire se e' servito davvero.
+window.momentumSpazioOff = async () => {
+  const { azzeraSpazio } = await import('./ai/semantic-embed.js');
+  azzeraSpazio(); return 'spazio azzerato';
 };
 // Voce "il solito" (src/voice/voice.js chiama questi): matching + registrazione
 window.matchSolito = (phrase) => matchSolito(phrase, VaultDAO.state.transactions, new Date());

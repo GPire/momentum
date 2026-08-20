@@ -52,6 +52,7 @@
 // perché qui si confrontano due domande fra loro, non una domanda con un
 // documento.
 import { modelloAttivo, preparaTesto, riduci, normalizza, modelloPerDispositivo, scegliModello } from './embed-models.js';
+import { correggi, scegliDirezioni, calibraSoglia } from './spazio-momentum.js';
 
 let modelPromise = null;
 // Il modello con cui è stata riempita la cache: se si cambia modello i vettori
@@ -191,7 +192,109 @@ export function similaritaSincrona(a, b) {
   const va = embedCache.get(String(a || '').trim().toLowerCase());
   const vb = embedCache.get(String(b || '').trim().toLowerCase());
   if (!va || !vb) return 0; // non ancora in cache: nessun confronto forzato, mai un errore
-  return (cosineSim(va, vb) + 1) / 2; // da [-1,1] a [0,1], stessa scala di Jaccard
+  // LO SPAZIO DI MOMENTUM (spazio-momentum.js), se e' stato adattato. Senza,
+  // il coseno grezzo di questo modello sta fra 0,90 e 0,96 per QUALUNQUE
+  // coppia — misurato — e la riscalatura in [0,1] lo comprime ancora di piu':
+  // ogni soglia diventa inutile e l'app finisce per rifiutare tutto.
+  const A = SPAZIO ? correggi(va, SPAZIO) : va;
+  const B = SPAZIO ? correggi(vb, SPAZIO) : vb;
+  return (cosineSim(A, B) + 1) / 2; // da [-1,1] a [0,1], stessa scala di Jaccard
+}
+
+// ── LO SPAZIO ADATTATO AL BANCO DI QUESTO DISPOSITIVO ──
+// Va calcolato UNA volta, dopo che gli embedding del banco sono in cache. Il
+// banco e' fatto di gruppi di frasi che significano la stessa cosa: proprio
+// l'informazione che serve per capire quali direzioni distinguono e quali
+// sono solo l'artefatto comune a ogni frase.
+let SPAZIO = null;
+
+let SOGLIA_CALIBRATA = null;
+
+export function spazioAdattato() {
+  return SPAZIO ? { direzioni: SPAZIO.assi.length, esempi: SPAZIO.esempi, soglia: SOGLIA_CALIBRATA } : null;
+}
+export function azzeraSpazio() { SPAZIO = null; SOGLIA_CALIBRATA = null; }
+// La soglia MISURATA su questo banco, se c'e'. Chi confronta la usa al posto
+// della costante scritta a mano: cambiando la geometria cambia la scala, e
+// una soglia fissa diventa sbagliata (misurato — vedi calibraSoglia).
+export function sogliaSemantica() { return SOGLIA_CALIBRATA; }
+
+// `gruppi`: { intento: [frasi] } — le frasi dello stesso intento sono le
+// coppie "imparentate", quelle di intenti diversi le "estranee". Il numero di
+// direzioni da togliere si SCEGLIE misurando su questi, non si copia da un
+// paper: misurato, la regola pubblicata (3-4 direzioni) su questo dominio
+// inverte il segno della separazione.
+// ── LE DOMANDE CHE NON DEVONO ESSERE CAPITE ──
+// Difetto trovato dal vivo: calibrando solo su coppie INTERNE al banco, la
+// soglia non sa dove cadono le domande fuori dominio — che non somigliano ne'
+// agli intenti fra loro ne' a nessuno in particolare, e finiscono in mezzo.
+// Risultato misurato: "come si cuoce la carbonara?" riceveva la proiezione di
+// fine mese. Un banco fatto solo di cio' che si vuole riconoscere misura
+// l'ottimismo di chi l'ha scritto — la stessa lezione gia' imparata in
+// qa-banco-prova.js, qui applicata alla calibrazione.
+// Queste frasi entrano SOLO fra le coppie "estranee": alzano la soglia fino
+// a dove serve perche' il fuori dominio resti fuori.
+export const FUORI_DOMINIO = [
+  'come si cuoce la carbonara',
+  'che tempo fa domani',
+  'quanti anni ha il presidente',
+  'raccontami una barzelletta',
+  'how do I cook pasta',
+  'what is the weather tomorrow',
+];
+
+export async function adattaSpazioAlBanco(gruppi = {}, { fuoriDominio = FUORI_DOMINIO } = {}) {
+  const nomi = Object.keys(gruppi).filter((k) => (gruppi[k] || []).length >= 2);
+  if (nomi.length < 2) return null;
+
+  const vettoriPerGruppo = {};
+  for (const n of nomi) {
+    const vs = [];
+    for (const frase of gruppi[n]) {
+      const v = await embed(frase).catch(() => null);
+      if (v) vs.push(v);
+    }
+    if (vs.length >= 2) vettoriPerGruppo[n] = vs;
+  }
+  const chiavi = Object.keys(vettoriPerGruppo);
+  if (chiavi.length < 2) return null;
+
+  const tutti = chiavi.flatMap((k) => vettoriPerGruppo[k]);
+  const vicine = [], lontane = [];
+  // TUTTE le coppie, non a due a due: la calibrazione della soglia vive o
+  // muore sulla quantita' di coppie che vede, e prenderne una su due
+  // dimezzava i dati proprio dove servivano di piu'.
+  for (const k of chiavi) {
+    const vs = vettoriPerGruppo[k];
+    for (let i = 0; i < vs.length; i++) for (let j = i + 1; j < vs.length; j++) vicine.push([vs[i], vs[j]]);
+  }
+  for (let i = 0; i < chiavi.length; i++) {
+    for (let j = i + 1; j < chiavi.length; j++) {
+      for (const x of vettoriPerGruppo[chiavi[i]]) for (const y of vettoriPerGruppo[chiavi[j]]) lontane.push([x, y]);
+    }
+  }
+  // Il fuori dominio contro OGNI esempio del banco: e' li' che la soglia deve
+  // arrivare, non solo fra un intento e l'altro.
+  for (const frase of fuoriDominio) {
+    const v = await embed(frase).catch(() => null);
+    if (!v) continue;
+    for (const k of chiavi) for (const x of vettoriPerGruppo[k]) lontane.push([x, v]);
+  }
+
+  if (!vicine.length || !lontane.length) return null;
+
+  const scelta = scegliDirezioni(tutti, vicine, lontane);
+  // Se la correzione non migliora, NON si applica: una correzione inutile va
+  // tolta, non tenuta perche' e' in un paper.
+  SPAZIO = scelta?.utile ? scelta.spazio : null;
+
+  // E la soglia si ricalibra sulla geometria appena scelta: e' la stessa
+  // misura, sugli stessi dati, e senza di essa la correzione fa PEGGIO —
+  // misurato dal vivo, le domande imparentate scendevano sotto la soglia
+  // storica e smettevano di essere riconosciute.
+  const cal = calibraSoglia(vicine, lontane, SPAZIO);
+  SOGLIA_CALIBRATA = cal ? (cal.sogliaSicura ?? cal.soglia) : null;
+  return { ...scelta, calibrazione: cal, sogliaScelta: SOGLIA_CALIBRATA };
 }
 
 // ── DIAGNOSTICA DI CALIBRAZIONE ──
