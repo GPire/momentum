@@ -78,10 +78,12 @@ export const MODELLI = {
     lingue: '100',
     parametri: '118M',
     pesoStimato: '113MB (int8)',
-    // MISURATO dal vivo, con lo spazio di Momentum applicato: divario 0,216
-    // fra coppie dello stesso intento e di intenti diversi. Il migliore dei
-    // due provati, e il piu' leggero.
-    divarioMisurato: 0.216,
+    // MISURATO dal vivo con lo spazio applicato: divario 0,220 sul banco da
+    // 88 esempi (era 0,216 con 44: ampliare il banco aiuta, poco). Grezzo
+    // vale 0,023 — cioe' quasi tutto il suo valore viene dalla correzione
+    // della geometria, non dal modello in se'.
+    divarioMisurato: 0.220,
+    divarioGrezzo: 0.023,
   },
 
   // ── IL LIVELLO PESANTE, per i dispositivi che possono permetterselo ──
@@ -97,10 +99,15 @@ export const MODELLI = {
     id: 'onnx-community/Qwen3-Embedding-0.6B-ONNX',
     dtype: 'q8',
     backend: 'wasm',
-    // Formato di istruzione della famiglia Qwen3-Embedding. Le istruzioni si
-    // scrivono in inglese anche per testi in altre lingue: e' la
-    // raccomandazione degli autori, non una nostra scelta stilistica.
-    prefisso: 'Instruct: Retrieve semantically similar questions\nQuery: ',
+    // ── ISTRUZIONE PIU' MIRATA, e il compito dichiarato per quello che e' ──
+    // La prima versione diceva "Retrieve semantically similar questions": e'
+    // il linguaggio del RECUPERO di documenti, che e' il compito per cui
+    // Qwen3-Embedding e' costruito e NON e' il nostro. Qui non si recupera
+    // niente: si decide se due domande brevi chiedono la stessa cosa.
+    // L'istruzione conta parecchio per i modelli istruiti, e dichiarare il
+    // compito sbagliato e' un modo di sprecarli. Resta in inglese anche per
+    // testi in altre lingue: e' la raccomandazione degli autori.
+    prefisso: 'Instruct: Given a user question about personal finance or markets, determine whether it asks for the same thing as another question\nQuery: ',
     // Ultimo token, non media: applicare la media a un modello addestrato
     // sull'ultimo token produce vettori che sembrano funzionare e confrontano
     // male.
@@ -110,10 +117,20 @@ export const MODELLI = {
     lingue: 'oltre 100',
     parametri: '600M',
     pesoStimato: '~600MB (q8, nessun q4 pubblicato)',
-    // MISURATO dal vivo: divario 0,183 contro lo 0,216 di e5-small, cioe'
-    // separa MENO pur essendo cinque volte piu' grande. Non e' il
-    // predefinito, e il motivo e' un numero, non un'opinione.
-    divarioMisurato: 0.183,
+    // MISURATO dal vivo, e il quadro e' piu' interessante di "il grande e'
+    // peggiore". Sullo stesso banco di 88 esempi:
+    //                        grezzo   con lo spazio di Momentum
+    //   e5-small              0,023            0,220
+    //   Qwen3 (istr. mirata)  0,056            0,161
+    // Qwen ha DUE VOLTE E MEZZA il segnale grezzo di e5: la taglia serve, e
+    // l'istruzione mirata l'ha migliorata ancora (prima diceva "recupera
+    // domande simili", che e' il linguaggio del retrieval e non il nostro
+    // compito). Ma la sua geometria e' molto meno correggibile — la stessa
+    // correzione moltiplica e5 per 9,6 e Qwen per 2,9 — e alla fine e5 resta
+    // avanti. Non e' che il modello grande sia scarso: e' che il piccolo
+    // risponde meglio al trattamento.
+    divarioMisurato: 0.161,
+    divarioGrezzo: 0.056,
   },
 
   // ── IL MODELLO STORICO ──
@@ -152,13 +169,14 @@ export const MEMORIA_MINIMA_PESANTE = 8; // GB dichiarati dal browser
 // spazio di Momentum applicato a tutti e due. Divario fra la mediana delle
 // coppie dello stesso intento e quella di intenti diversi — cioe' quanto il
 // modello DISTINGUE:
-//     e5-small   118M, 113MB, carica in 47s   divario 0,216
-//     Qwen3      600M, 600MB, carica in 58s   divario 0,183
-// Il modello cinque volte piu' grande separa MENO, scarica cinque volte di
-// piu' ed e' sensibilmente piu' lento nell'inferenza. Non e' un paradosso:
-// Qwen3-Embedding e' costruito per il recupero di documenti su istruzione,
-// non per dire se due domande brevi vogliono la stessa cosa — e su un banco
-// di domande di finanza personale la sua taglia non serve a niente.
+//                          grezzo   con lo spazio   peso    caricamento
+//     e5-small              0,023       0,220        113MB      47s
+//     Qwen3 (istr. mirata)  0,056       0,161        600MB      58s
+// Qwen ha DUE VOLTE E MEZZA il segnale grezzo: la taglia serve davvero. Ma
+// la sua geometria e' molto meno correggibile — la stessa correzione
+// moltiplica e5 per 9,6 e Qwen per 2,9 — e alla fine e5 resta avanti a un
+// quinto del peso. Non e' che il modello grande sia scarso: e' che il
+// piccolo risponde meglio al trattamento, e il trattamento e' nostro.
 // Quindi la promozione automatica al "livello pesante" e' TOLTA: si sceglie
 // e5-small sempre. Qwen3 resta registrato, provabile con `forzaModello`, e
 // con accanto il numero che dice perche' non e' il predefinito.

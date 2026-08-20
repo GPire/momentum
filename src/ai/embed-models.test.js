@@ -43,11 +43,12 @@ test('ogni modello ha il pooling GIUSTO per la sua famiglia', () => {
 // ── MISURATO: IL PIÙ GRANDE È PEGGIORE ──
 test('si sceglie SEMPRE e5-small: il modello più grande separa MENO', () => {
   // Provati entrambi dal vivo, stesse coppie, stesso spazio applicato:
-  //   e5-small  118M, 113MB  divario 0,216
-  //   Qwen3     600M, 600MB  divario 0,183
-  // Il cinque volte più grande distingue meno, pesa cinque volte e va più
-  // piano. La promozione automatica al livello pesante è stata tolta, e il
-  // motivo è un numero.
+  //                          grezzo   con lo spazio
+  //   e5-small (118M,113MB)   0,023       0,220
+  //   Qwen3    (600M,600MB)   0,056       0,161
+  // Qwen ha 2,5 volte il segnale GREZZO — la taglia serve — ma la sua
+  // geometria è meno correggibile: la stessa correzione moltiplica e5 per
+  // 9,6 e Qwen per 2,9. Alla fine vince e5 a un quinto del peso.
   for (const profilo of [null, {}, { tier: 'minimo', memory: 2 }, { tier: 'medio', memory: 8 }, { tier: 'massimo', memory: 32 }]) {
     assert.equal(modelloPerDispositivo(profilo), 'e5-small', `profilo ${JSON.stringify(profilo)}`);
   }
@@ -59,6 +60,9 @@ test('ogni modello porta il divario MISURATO, non una promessa', () => {
   // scelta tecnica.
   assert.ok(MODELLI['e5-small'].divarioMisurato > 0.2);
   assert.ok(MODELLI['qwen3-embedding-0.6b'].divarioMisurato > 0);
+  // E il divario GREZZO, che racconta la parte opposta: Qwen parte meglio.
+  assert.ok(MODELLI['qwen3-embedding-0.6b'].divarioGrezzo > MODELLI['e5-small'].divarioGrezzo,
+    'Qwen ha piu segnale grezzo: e la correzione a ribaltare il confronto');
 });
 
 test('il modello storico dichiara la sua licenza NON permissiva, in chiaro', () => {
