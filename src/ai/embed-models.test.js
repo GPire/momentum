@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MODELLI, registraModello, scegliModello, modelloAttivo, elencoModelli,
-  riduci, normalizza, preparaTesto, modelloPerDispositivo, MEMORIA_MINIMA_PESANTE,
+  riduci, normalizza, preparaTesto, modelloPerDispositivo,
 } from './embed-models.js';
 
 test('IL PREDEFINITO HA LICENZA PERMISSIVA: è il punto di tutto il lavoro', () => {
@@ -40,22 +40,25 @@ test('ogni modello ha il pooling GIUSTO per la sua famiglia', () => {
   assert.match(MODELLI['qwen3-embedding-0.6b'].prefisso, /^Instruct:/);
 });
 
-// ── IL MODELLO SI ADATTA AL DISPOSITIVO ──
-test('su dispositivo modesto si resta leggeri: 600MB non si scaricano', () => {
-  assert.equal(modelloPerDispositivo({ tier: 'minimo', memory: 2 }), 'e5-small');
-  assert.equal(modelloPerDispositivo({ tier: 'medio', memory: 8 }), 'e5-small');
-  // Fascia massima ma poca memoria dichiarata: si resta leggeri comunque.
-  assert.equal(modelloPerDispositivo({ tier: 'massimo', memory: 4 }), 'e5-small');
+// ── MISURATO: IL PIÙ GRANDE È PEGGIORE ──
+test('si sceglie SEMPRE e5-small: il modello più grande separa MENO', () => {
+  // Provati entrambi dal vivo, stesse coppie, stesso spazio applicato:
+  //   e5-small  118M, 113MB  divario 0,216
+  //   Qwen3     600M, 600MB  divario 0,183
+  // Il cinque volte più grande distingue meno, pesa cinque volte e va più
+  // piano. La promozione automatica al livello pesante è stata tolta, e il
+  // motivo è un numero.
+  for (const profilo of [null, {}, { tier: 'minimo', memory: 2 }, { tier: 'medio', memory: 8 }, { tier: 'massimo', memory: 32 }]) {
+    assert.equal(modelloPerDispositivo(profilo), 'e5-small', `profilo ${JSON.stringify(profilo)}`);
+  }
+  assert.ok(MODELLI['e5-small'].divarioMisurato > MODELLI['qwen3-embedding-0.6b'].divarioMisurato);
 });
 
-test('si sale al livello pesante SOLO su fascia massima con memoria sufficiente', () => {
-  assert.equal(modelloPerDispositivo({ tier: 'massimo', memory: 16 }), 'qwen3-embedding-0.6b');
-  assert.equal(modelloPerDispositivo({ tier: 'massimo', memory: MEMORIA_MINIMA_PESANTE }), 'qwen3-embedding-0.6b');
-});
-
-test('senza profilo hardware si resta leggeri, mai indovinando', () => {
-  assert.equal(modelloPerDispositivo(null), 'e5-small');
-  assert.equal(modelloPerDispositivo({}), 'e5-small');
+test('ogni modello porta il divario MISURATO, non una promessa', () => {
+  // Un modello registrato senza una misura è una scommessa travestita da
+  // scelta tecnica.
+  assert.ok(MODELLI['e5-small'].divarioMisurato > 0.2);
+  assert.ok(MODELLI['qwen3-embedding-0.6b'].divarioMisurato > 0);
 });
 
 test('il modello storico dichiara la sua licenza NON permissiva, in chiaro', () => {

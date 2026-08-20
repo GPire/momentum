@@ -59,6 +59,8 @@ let modelPromise = null;
 // vecchi non sono più confrontabili con i nuovi (spazi diversi), e mescolarli
 // produrrebbe somiglianze senza senso invece di un errore.
 let modelloInCache = null;
+// Scelta esplicita che vince sul profilo hardware (solo per misurare).
+let MODELLO_FORZATO = null;
 // Cache embedding per testo — evita di ricalcolare il vettore di una
 // domanda già imparata a ogni nuovo confronto (qa-learning.js può avere
 // fino a 100 correzioni imparate: ricalcolarle tutte a ogni domanda nuova
@@ -93,7 +95,15 @@ async function getModel() {
     // 113MB si scaricano, 600MB spesso no — e un download che non finisce e'
     // una funzione che non esiste. Se il profilo non c'e', si resta leggeri:
     // mai indovinare dal nome del chip.
-    try { scegliModello(modelloPerDispositivo(globalThis.window?.momentumDeviceProfile || null)); } catch (_) { /* si tiene il predefinito */ }
+    // ATTENZIONE: solo se NON c'e' una scelta esplicita. Bug trovato provando
+    // a misurare il modello pesante: `forzaModello` azzerava modelPromise, ma
+    // qui la scelta veniva rifatta dal profilo hardware e riportata indietro —
+    // cosi' la forzatura non faceva NIENTE e la misura confrontava e5-small
+    // con se stesso (rapporto di velocita' 1,1 fra un modello da 600M e uno da
+    // 118M: il numero che ha smascherato il guasto).
+    if (!MODELLO_FORZATO) {
+      try { scegliModello(modelloPerDispositivo(globalThis.window?.momentumDeviceProfile || null)); } catch (_) { /* si tiene il predefinito */ }
+    }
     const cfg = modelloAttivo();
     modelPromise = import('@huggingface/transformers').then(async ({ AutoModel, AutoTokenizer, env }) => {
       env.allowLocalModels = false;
@@ -214,6 +224,22 @@ export function spazioAdattato() {
   return SPAZIO ? { direzioni: SPAZIO.assi.length, esempi: SPAZIO.esempi, soglia: SOGLIA_CALIBRATA } : null;
 }
 export function azzeraSpazio() { SPAZIO = null; SOGLIA_CALIBRATA = null; }
+
+// ── FORZARE UN MODELLO, per misurarlo ──
+// Serve a provare il livello pesante su una macchina che non lo sceglierebbe:
+// senza, un modello resta "configurato e testato" ma mai visto girare, che e'
+// un modo elegante di non sapere se funziona. Azzera tutto — cache degli
+// embedding, spazio e soglia — perche' due modelli vivono in spazi diversi e
+// mescolarli darebbe somiglianze plausibili e prive di senso.
+export function forzaModello(chiave) {
+  MODELLO_FORZATO = chiave;
+  scegliModello(chiave);
+  modelPromise = null;
+  modelloInCache = null;
+  embedCache.clear();
+  azzeraSpazio();
+  return modelloAttivo();
+}
 // La soglia MISURATA su questo banco, se c'e'. Chi confronta la usa al posto
 // della costante scritta a mano: cambiando la geometria cambia la scala, e
 // una soglia fissa diventa sbagliata (misurato — vedi calibraSoglia).

@@ -78,6 +78,10 @@ export const MODELLI = {
     lingue: '100',
     parametri: '118M',
     pesoStimato: '113MB (int8)',
+    // MISURATO dal vivo, con lo spazio di Momentum applicato: divario 0,216
+    // fra coppie dello stesso intento e di intenti diversi. Il migliore dei
+    // due provati, e il piu' leggero.
+    divarioMisurato: 0.216,
   },
 
   // ── IL LIVELLO PESANTE, per i dispositivi che possono permetterselo ──
@@ -106,6 +110,10 @@ export const MODELLI = {
     lingue: 'oltre 100',
     parametri: '600M',
     pesoStimato: '~600MB (q8, nessun q4 pubblicato)',
+    // MISURATO dal vivo: divario 0,183 contro lo 0,216 di e5-small, cioe'
+    // separa MENO pur essendo cinque volte piu' grande. Non e' il
+    // predefinito, e il motivo e' un numero, non un'opinione.
+    divarioMisurato: 0.183,
   },
 
   // ── IL MODELLO STORICO ──
@@ -139,10 +147,24 @@ export let MODELLO_PREDEFINITO = 'e5-small';
 // dichiarata dal dispositivo, mai indovinando dal nome del chip.
 export const MEMORIA_MINIMA_PESANTE = 8; // GB dichiarati dal browser
 
+// ── MISURATO: IL MODELLO PIU' GRANDE E' PEGGIORE, QUI ──
+// Provati entrambi dal vivo nel browser (2026-08-20), stesse coppie, stesso
+// spazio di Momentum applicato a tutti e due. Divario fra la mediana delle
+// coppie dello stesso intento e quella di intenti diversi — cioe' quanto il
+// modello DISTINGUE:
+//     e5-small   118M, 113MB, carica in 47s   divario 0,216
+//     Qwen3      600M, 600MB, carica in 58s   divario 0,183
+// Il modello cinque volte piu' grande separa MENO, scarica cinque volte di
+// piu' ed e' sensibilmente piu' lento nell'inferenza. Non e' un paradosso:
+// Qwen3-Embedding e' costruito per il recupero di documenti su istruzione,
+// non per dire se due domande brevi vogliono la stessa cosa — e su un banco
+// di domande di finanza personale la sua taglia non serve a niente.
+// Quindi la promozione automatica al "livello pesante" e' TOLTA: si sceglie
+// e5-small sempre. Qwen3 resta registrato, provabile con `forzaModello`, e
+// con accanto il numero che dice perche' non e' il predefinito.
+// La lezione, che vale oltre questo caso: la taglia di un modello non e' una
+// misura della sua utilita' per il compito che hai.
 export function modelloPerDispositivo(profilo = null) {
-  const fascia = profilo?.tier;
-  const memoria = profilo?.memory ?? 0;
-  if (fascia === 'massimo' && memoria >= MEMORIA_MINIMA_PESANTE) return 'qwen3-embedding-0.6b';
   return 'e5-small';
 }
 

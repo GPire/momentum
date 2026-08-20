@@ -13224,6 +13224,14 @@ window.momentumSimDiag = async (coppie) => {
 };
 // Permette di misurare lo STESSO insieme di coppie con e senza lo spazio
 // adattato: e' l'unico modo di dire se e' servito davvero.
+// Forza un modello di embedding per misurarlo (src/ai/embed-models.js):
+// serve a provare il livello pesante su una macchina che non lo sceglierebbe.
+window.momentumForzaModello = async (chiave) => {
+  const m = await import('./ai/semantic-embed.js');
+  const cfg = m.forzaModello(chiave);
+  window.__sogliaSemantica = null;
+  return { id: cfg.id, dtype: cfg.dtype, backend: cfg.backend, pooling: cfg.pooling, parametri: cfg.parametri, licenza: cfg.licenza };
+};
 window.momentumSpazioOff = async () => {
   const { azzeraSpazio } = await import('./ai/semantic-embed.js');
   azzeraSpazio(); return 'spazio azzerato';
