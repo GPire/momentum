@@ -11955,6 +11955,48 @@ const initApp = () => {
     return { yoyNote, historyChart, multiYearNote, trackRecordHtml };
   }
   window.fetchAssetHistoryData = fetchAssetHistoryData;
+  // ── CRIPTO: quante scommesse hai davvero ──
+  // La cache vive nel vault come campo ADDITIVO (regola del progetto: i campi
+  // nuovi non rompono uno stato salvato prima). Non contiene niente di
+  // personale: sono prezzi pubblici, gli stessi per chiunque.
+  async function tryAnswerCriptoDiversificazione() {
+    try {
+      const [cd, cc] = await Promise.all([
+        import('./alpha/cripto-diversificazione.js'), import('./alpha/cripto-cache.js'),
+      ]);
+      let cache = VaultDAO.state.criptoCache || cc.nuovaCache();
+      // L'ELENCO ANCHE LUI DALLA CACHE. Chiederlo ogni volta costava una
+      // richiesta che al secondo giro veniva rifiutata: l'intero ramo cripto
+      // falliva in silenzio e la domanda riceveva la risposta sull'assorbimento
+      // delle AZIONI. Una risposta di un altro argomento e' peggio di un errore.
+      let monete = cc.elencoValido(cache);
+      if (!monete) {
+        monete = await cd.elencoTop(6, { fetchImpl: fetch.bind(window) });
+        cache = cc.salvaElenco(cache, monete);
+      }
+      const piano = cc.pianoAggiornamento(cache, monete.map((m) => m.simbolo));
+      // Si dice PRIMA quante richieste servono, invece di far aspettare al
+      // buio: la prima volta sono sei, dal giorno dopo quasi nessuna.
+      showQaThinking(piano.richieste
+        ? `Scarico i prezzi di ${piano.richieste} monete (le prossime volte non servira')...`
+        : 'Ho gia\' tutto sul dispositivo, calcolo...');
+
+      const out = await cd.scommesseConCache(cache, monete, { fetchImpl: fetch.bind(window), pausaMs: 2200 });
+      VaultDAO.state.criptoCache = out.cache;
+      VaultDAO.save?.();
+
+      if (!out.risultato.disponibile) {
+        styleQaAnswer({ intent: 'cripto-diversificazione', answer: out.risultato.motivo });
+        return true;
+      }
+      const testo = `${cd.testoScommesse(out.risultato)}${out.freschezza && !out.freschezza.fresca ? ` ${out.freschezza.messaggio}` : ''}`;
+      styleQaAnswer({ intent: 'cripto-diversificazione', data: out.risultato, answer: testo });
+      return true;
+    } catch (_) {
+      return false; // mai bloccante: si ricade sul QA normale
+    }
+  }
+
   async function tryAnswerWithRealNews(assetQuery) {
     try {
       const { searchAsset } = await import('./alpha/asset-search.js');
@@ -12137,6 +12179,16 @@ const initApp = () => {
         showQaThinking(`Cerco notizie reali su "${newsIntent.asset}"...`);
         haptic('light');
         const handled = await tryAnswerWithRealNews(newsIntent.asset);
+        if (handled) return;
+      }
+      // CRIPTO: "sono diversificato sulle cripto?" richiede la rete, e il QA
+      // e' sincrono — stessa struttura delle notizie. Qui pero' la rete serve
+      // quasi solo la prima volta: la cache on-device (cripto-cache.js) fa
+      // scendere le richieste a zero dal giorno dopo.
+      if (/cripto|crypto|bitcoin|monete/i.test(question) && /diversific|scommess|correlat|si muovono insieme|stessa cosa/i.test(question)) {
+        qaAnswer.classList.remove('hidden');
+        haptic('light');
+        const handled = await tryAnswerCriptoDiversificazione();
         if (handled) return;
       }
       const semanticSimilarity = await prepareSemanticSimilarity(question);

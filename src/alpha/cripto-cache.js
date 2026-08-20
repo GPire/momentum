@@ -37,7 +37,29 @@ const GIORNO = 86400000;
 // e il rischio di allineare male due tratti lontani non vale il guadagno.
 export const MAX_GIORNI_PER_CUCIRE = 30;
 
-export function nuovaCache() { return { versione: 1, monete: {} }; }
+export function nuovaCache() { return { versione: 1, monete: {}, elenco: null }; }
+
+// ── ANCHE L'ELENCO DELLE MONETE VA IN CACHE, e per un motivo trovato dal vivo ──
+// La prima versione teneva i PREZZI ma chiedeva ogni volta alla rete quali
+// fossero le prime monete per capitalizzazione. Quella richiesta e' piccola,
+// ma conta come tutte le altre nel limite: al secondo giro CoinGecko l'ha
+// rifiutata, l'intero ramo cripto e' fallito in silenzio e la domanda "sono
+// diversificato sulle cripto?" ha ricevuto la risposta sull'assorbimento
+// delle AZIONI. Una risposta di un altro argomento e' peggio di un errore.
+// La classifica per capitalizzazione cambia di rado: si tiene per qualche
+// giorno, e in cambio il secondo giro non tocca la rete.
+export const GIORNI_VALIDITA_ELENCO = 7;
+
+export function elencoValido(cache, { adesso = Date.now() } = {}) {
+  const e = cache?.elenco;
+  if (!e?.monete?.length || !e.aggiornato) return null;
+  const giorni = (adesso - new Date(e.aggiornato).getTime()) / GIORNO;
+  return giorni <= GIORNI_VALIDITA_ELENCO ? e.monete : null;
+}
+
+export function salvaElenco(cache, monete) {
+  return { ...cache, elenco: { monete, aggiornato: new Date().toISOString().slice(0, 10) } };
+}
 
 // Quanti giorni mancano fra l'ultimo che abbiamo e oggi. Zero significa che
 // non serve chiamare nessuno.

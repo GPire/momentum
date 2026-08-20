@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nuovaCache, salva, cuci, rendimenti, pianoAggiornamento, giorniMancanti, freschezza, MAX_GIORNI_PER_CUCIRE } from './cripto-cache.js';
+import { nuovaCache, salva, cuci, rendimenti, pianoAggiornamento, giorniMancanti, freschezza, MAX_GIORNI_PER_CUCIRE, elencoValido, salvaElenco, GIORNI_VALIDITA_ELENCO } from './cripto-cache.js';
 
 const G = (d) => new Date(d).getTime();
 
@@ -87,4 +87,38 @@ test('salvare non muta la cache precedente', () => {
   const b = salva(a, 'BTC', [{ data: '2026-01-01', prezzo: 1 }]);
   assert.equal(Object.keys(a.monete).length, 0);
   assert.equal(Object.keys(b.monete).length, 1);
+});
+
+// ── ANCHE L'ELENCO VA IN CACHE ──
+test('L\'ELENCO CHIESTO OGNI VOLTA FACEVA FALLIRE TUTTO IL RAMO CRIPTO', () => {
+  // Trovato provando l'app: la prima versione teneva i PREZZI ma chiedeva ogni
+  // volta alla rete quali fossero le prime monete per capitalizzazione. Quella
+  // richiesta è piccola ma conta come tutte le altre nel limite: al secondo
+  // giro CoinGecko l'ha rifiutata, l'intero ramo cripto è fallito in silenzio,
+  // e "sono diversificato sulle cripto?" ha ricevuto la risposta
+  // sull'assorbimento delle AZIONI.
+  // Una risposta di un altro argomento è peggio di un errore: l'utente non ha
+  // modo di accorgersene.
+  const monete = [{ id: 'bitcoin', simbolo: 'BTC' }, { id: 'ethereum', simbolo: 'ETH' }];
+  let c = nuovaCache();
+  assert.equal(elencoValido(c), null, 'una cache nuova non ha elenco');
+
+  c = salvaElenco(c, monete);
+  assert.deepEqual(elencoValido(c, { adesso: G('2026-08-20') }), monete);
+});
+
+test('l\'elenco scade: la classifica per capitalizzazione cambia, anche se di rado', () => {
+  const c = salvaElenco(nuovaCache(), [{ id: 'bitcoin', simbolo: 'BTC' }]);
+  const dopoUnGiorno = elencoValido(c, { adesso: Date.now() + 86400000 });
+  assert.ok(dopoUnGiorno, 'il giorno dopo vale ancora');
+  const dopoUnMese = elencoValido(c, { adesso: Date.now() + 30 * 86400000 });
+  assert.equal(dopoUnMese, null, 'dopo un mese va richiesto');
+  assert.ok(GIORNI_VALIDITA_ELENCO >= 3 && GIORNI_VALIDITA_ELENCO <= 30);
+});
+
+test('salvaElenco non muta la cache precedente', () => {
+  const a = nuovaCache();
+  const b = salvaElenco(a, [{ id: 'x', simbolo: 'X' }]);
+  assert.equal(a.elenco, null);
+  assert.ok(b.elenco.monete.length === 1);
 });

@@ -95,6 +95,62 @@ export async function scaricaStorie(monete = [], { fetchImpl = fetch, pausaMs = 
   return { serie, mancate, chieste: monete.length };
 }
 
+// ── LA VERSIONE CHE USA LA CACHE ──
+// Chiede alla rete SOLO quello che manca (cripto-cache.js): la prima volta
+// sono N richieste, dal giorno dopo quasi nessuna. E restituisce sempre la
+// cache aggiornata, cosi' chi chiama puo' salvarla dove vuole — questo modulo
+// non sa niente di dove viva lo stato, e non deve.
+export async function scommesseConCache(cache, monete = [], { fetchImpl = fetch, pausaMs = 2500, valuta = 'eur', adesso = Date.now() } = {}) {
+  const { pianoAggiornamento, salva, rendimenti, freschezza } = await import('./cripto-cache.js');
+  const simboli = monete.map((m) => m.simbolo);
+  const piano = pianoAggiornamento(cache, simboli, { adesso });
+
+  let c = cache;
+  const mancate = [];
+  const daChiedere = [
+    ...piano.daScaricare.map((s) => ({ simbolo: s, giorni: GIORNI })),
+    ...piano.daCucire.map((x) => ({ simbolo: x.simbolo, giorni: Math.max(2, x.giorni + 1) })),
+  ];
+
+  for (const richiesta of daChiedere) {
+    const m = monete.find((x) => x.simbolo === richiesta.simbolo);
+    if (!m) continue;
+    const punti = await prezziMoneta(m.id, { fetchImpl, valuta, giorni: richiesta.giorni });
+    if (punti?.length) c = salva(c, m.simbolo, punti);
+    else mancate.push(m.simbolo);
+    if (daChiedere.length > 1) await new Promise((r) => setTimeout(r, pausaMs));
+  }
+
+  const serie = {};
+  for (const s of simboli) {
+    const r = rendimenti(c, s);
+    if (r && r.length >= 60) serie[s] = r;
+  }
+
+  return {
+    cache: c,
+    piano,
+    risultato: quanteScommesse(serie, { mancate }),
+    freschezza: freschezza(c, simboli, { adesso }),
+  };
+}
+
+// I PREZZI con la data, non i soli rendimenti: la cache deve poter cucire i
+// giorni nuovi a quelli vecchi, e per farlo serve sapere QUALE giorno e'
+// ciascun punto. `storiaMoneta` restituisce solo i rendimenti ed e' rimasta
+// per chi non usa la cache.
+export async function prezziMoneta(id, { fetchImpl = fetch, valuta = 'eur', giorni = GIORNI } = {}) {
+  const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=${valuta}&days=${giorni}&interval=daily`;
+  try {
+    const res = await fetchImpl(url);
+    if (!res.ok) return null;
+    const j = await res.json();
+    return (j?.prices || [])
+      .filter((x) => Array.isArray(x) && Number.isFinite(x[1]) && x[1] > 0)
+      .map((x) => ({ data: new Date(x[0]).toISOString().slice(0, 10), prezzo: x[1] }));
+  } catch (_) { return null; }
+}
+
 export function quanteScommesse(serie = {}, { mancate = [] } = {}) {
   const nomi = Object.keys(serie).filter((k) => Array.isArray(serie[k]) && serie[k].length >= 60);
   if (nomi.length < MIN_MONETE) {
