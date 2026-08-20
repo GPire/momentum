@@ -281,6 +281,14 @@ export function intentoMercato(domanda, similarity = null) {
     'si muovono tutti insieme', 'si muove tutto insieme', 'muovono insieme', 'muove tutto insieme',
     'quanto sono correlati', 'sono correlati', 'stessa scommessa')) return 'assorbimento';
 
+  // "Cosa devo guardare prima di comprare?" — la domanda giusta, e l'unica
+  // vicina a "cosa compro" a cui si PUO' rispondere: non quale titolo, ma
+  // quali domande farsi. Va PRIMA del rifiuto? No: dopo, perche' il rifiuto
+  // gira prima di tutto. Qui basta che non somigli a "cosa devo comprare".
+  if (ha(q, 'cosa guardare prima', 'cosa devo guardare prima', 'che domande farmi', 'quali domande farsi',
+    'a cosa fare attenzione prima', 'cosa controllare prima', 'come si valuta un azienda',
+    'come valutare un titolo', 'cosa guarda warren buffett', 'cosa guardano i grandi investitori')) return 'prima-di-comprare';
+
   if (ha(q, 'cosa non sai', 'cosa non puoi', 'quali sono i tuoi limiti', 'di cosa non sei sicuro', 'dove sbagli', 'cosa ti manca')) return 'limiti';
   if (ha(q, 'quanto e affidabile', 'quanto ti posso credere', 'quanto sono affidabili', 'che affidabilita')) return 'limiti';
 
@@ -347,8 +355,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -360,7 +368,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -428,7 +436,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -451,6 +459,10 @@ export function rispostaSincrona(domanda, similarity = null) {
       for (const [k, alias] of QUALE) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) return k;
       return null;
     };
+
+    if (intento === 'prima-di-comprare') {
+      return conAvviso({ intent: 'mercato-prima-di-comprare', data: tesi.PRIMA_DI_COMPRARE, answer: tesi.testoPrimaDiComprare() });
+    }
 
     if (intento === 'assorbimento') {
       // Si esclude l'indice della paura: e' gia' una misura di stress, e
