@@ -1704,6 +1704,18 @@ function renderDemoBanner() {
     </div>`;
 }
 
+// L'IMPORT ERA SEPOLTO NELLE IMPOSTAZIONI. "Carica i tuoi movimenti" stava
+// solo nella 3ª card della tab "Momentum Vault" — zero chiamate all'azione in
+// Dashboard, la schermata che un utente nuovo vede per prima. Questa card
+// riusa l'input #multi-upload già cablato (nessuna pipeline duplicata) e
+// sparisce da sola non appena esiste almeno un movimento vero: da lì in poi
+// l'utente ha già trovato la strada, ripeterla sarebbe rumore.
+function renderImportCta() {
+  const el = document.getElementById('import-cta');
+  if (!el) return;
+  el.classList.toggle('hidden', realTxCount() > 0);
+}
+
 // "Parti dai miei dati": il demo sparisce subito e non torna più.
 window.dismissDemo = () => {
   VaultDAO.state.demoDismissed = true;
@@ -1755,6 +1767,7 @@ const renderDashboard = () => {
   ensureDemoSeeded();
   const txs = displayTxForMonth(k);
   renderDemoBanner();
+  renderImportCta();
 
   let inc = 0, exp = 0, inv = 0;
   txs.forEach(t => {

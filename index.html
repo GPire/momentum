@@ -3043,6 +3043,30 @@
                  numero, niente altro. -->
             <div id="orb-contesto" class="orb-contesto hidden"></div>
 
+            <!-- CTA IMPORT IN DASHBOARD — prima di questa card, "Carica i tuoi
+                 movimenti" era la 3ª voce dentro le Impostazioni ("Momentum
+                 Vault"), e in tutta la Dashboard non c'era una sola chiamata
+                 all'azione per importare. Un utente nuovo non aveva motivo di
+                 andare a cercarla in una tab che si chiama "Vault" — e il
+                 dataset dimostrativo, riempiendo lo schermo, toglieva anche
+                 l'ultimo stimolo a farlo. Riusa lo STESSO input #multi-upload
+                 già cablato in Impostazioni (main.js: runMulti/importFiles):
+                 nessuna pipeline duplicata, solo un secondo punto d'ingresso.
+                 Visibilità guidata dai dati (main.js: renderImportCta), non un
+                 banner permanente — sparisce da sola appena arrivano dati veri,
+                 stessa logica di ghost-forecast e delle altre card condizionali
+                 qui sopra. -->
+            <div id="import-cta" class="card p-4 sm:p-5 shrink-0 hidden">
+              <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
+                <div class="min-w-0">
+                  <h3 class="font-bold text-sm sm:text-base">Vedi i tuoi soldi veri, non l'esempio</h3>
+                  <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Importa l'estratto conto — CSV, PDF o anche uno screenshot.</p>
+                </div>
+              </div>
+              <button onclick="document.getElementById('multi-upload').click()" class="btn-action btn-primary w-full mt-3.5 font-bold text-sm sm:text-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa i tuoi movimenti</button>
+            </div>
+
             <!-- ── IL SELETTORE DEL MESE ──
                  Era una pillola opaca con bordo, in mezzo a una schermata
                  fatta di vetro e di cielo: l'unico oggetto solido, e per
