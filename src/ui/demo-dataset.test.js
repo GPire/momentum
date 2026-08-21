@@ -4,6 +4,13 @@ import assert from 'node:assert/strict';
 import {
   generateDemoTransactions, demoKeepCount, fadeDemo, mergeDemoForDisplay, demoStatus, DEMO_FADE_AT,
 } from './demo-dataset.js';
+// constants.js legge `window`/`navigator` a livello di modulo (isTouch): un
+// `import` statico verrebbe issato PRIMA di questo stub (le import sono
+// hoisted in ESM, l'ordine nel file non conta). Import dinamico dopo lo
+// stub, stesso pattern di import/categorize.test.js.
+globalThis.window = globalThis.window || {};
+globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
+const { ALL_CATS } = await import('../core/constants.js');
 
 const NOW = new Date('2026-08-06T12:00:00Z');
 
@@ -146,11 +153,24 @@ test('le categorie del demo sono ID VERI, non etichette inventate', async () => 
   // demo mostrava "Altro" con la stessa icona grigia, perché qui c'erano nomi
   // ('Casa', 'Svago') e l'app cerca gli id di constants.js. Il demo esiste per
   // far vedere l'app viva e la faceva vedere spenta.
-  const VALIDI = new Set(['spesa', 'ristoranti', 'shopping', 'abbonamenti', 'trasporti', 'stipendio', 'etf', 'crypto', 'risparmio']);
+  //
+  // L'insieme valido viene da ALL_CATS, non da un elenco scritto qui a mano:
+  // un elenco duplicato si disallinea silenziosamente ad ogni categoria nuova
+  // (e' successo davvero: questo stesso test aveva ancora le 9 categorie
+  // vecchie quando 'casa'/'bollette'/'salute'/'istruzione'/'viaggi'/'svago'
+  // erano gia' state aggiunte a constants.js).
+  const VALIDI = new Set(ALL_CATS.map((c) => c.id));
   const tx = generateDemoTransactions({ now: new Date(2026, 7, 10) });
   assert.ok(tx.length > 50);
   for (const t of tx) {
     assert.ok(VALIDI.has(t.category), `categoria inesistente: "${t.category}" su "${t.description}"`);
+  }
+  // E il contrario: le nuove categorie devono comparire davvero nel demo,
+  // non solo esistere come id validi in astratto — altrimenti il fix
+  // sarebbe invisibile a chi guarda l'app.
+  const usate = new Set(tx.map((t) => t.category));
+  for (const id of ['casa', 'bollette', 'salute', 'svago']) {
+    assert.ok(usate.has(id), `il demo non usa mai la categoria "${id}"`);
   }
   // E devono essercene DIVERSE: se fossero tutte uguali la lista sarebbe
   // ugualmente indistinta, solo con un'altra icona.

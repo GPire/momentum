@@ -51,14 +51,22 @@ function lcg(seed) {
 // com'e' l'app quando e' viva e piena, e la mostrava spenta e indistinta —
 // venti righe grigie identiche. Un utente nuovo si formava l'idea sbagliata
 // dell'app guardando la cosa costruita apposta per dargli quella giusta.
+//
+// SECONDO GIRO DELLO STESSO BUG (2026-08-21): quegli id ORA esistono
+// davvero ('casa', 'bollette', 'salute', 'istruzione', 'viaggi', 'svago' —
+// vedi core/constants.js), ma qui l'affitto e la bolletta finivano ancora
+// dentro 'abbonamenti' e la farmacia dentro 'shopping'. Non era piu' un id
+// mancante: era la prova, dentro l'app stessa, che 5 categorie di spesa
+// non bastavano — un canone e una bolletta non sono un abbonamento, sono
+// voci che pesano 10 volte tanto e meritano il loro conto a parte.
 const PROFILO = {
   stipendio: { desc: 'Stipendio', cat: 'stipendio', amount: 1850, giorno: 27, type: 'entrata' },
   ricorrenti: [
-    { desc: 'Affitto', cat: 'abbonamenti', amount: 650, giorno: 1 },
+    { desc: 'Affitto', cat: 'casa', amount: 650, giorno: 1 },
     { desc: 'Netflix', cat: 'abbonamenti', amount: 12.99, giorno: 8 },
     { desc: 'Spotify', cat: 'abbonamenti', amount: 10.99, giorno: 14 },
     { desc: 'Palestra', cat: 'abbonamenti', amount: 45, giorno: 5 },
-    { desc: 'Bolletta luce', cat: 'abbonamenti', amount: 68.4, giorno: 18 },
+    { desc: 'Bolletta luce', cat: 'bollette', amount: 68.4, giorno: 18 },
   ],
   // [descrizione, categoria, minimo, massimo]
   spesaSettimanale: ['Esselunga', 'spesa', 52, 81],
@@ -66,9 +74,10 @@ const PROFILO = {
   carburante: ['Benzina', 'trasporti', 48, 62],
   extra: [
     ['Ristorante', 'ristoranti', 28, 54],
-    ['Farmacia', 'shopping', 9, 24],
+    ['Farmacia', 'salute', 9, 24],
     ['Amazon', 'shopping', 15, 47],
     ['Panetteria', 'spesa', 3.5, 8],
+    ['Cinema', 'svago', 8, 14],
   ],
 };
 

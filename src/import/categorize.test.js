@@ -28,3 +28,13 @@ test('safeCategorize: esercente noto dal dizionario ha precedenza', () => {
   assert.equal(safeCategorize('Esselunga Milano', 30, new Date(), 'uscita'), 'spesa');
   assert.equal(safeCategorize('Binance BTC', 100, new Date(), 'uscita'), 'crypto');
 });
+
+test('safeCategorize: le sei categorie nuove non sono "a rischio" — passano senza guardia', () => {
+  // Il guardrail esiste per crypto/etf/stipendio (categorie che possono
+  // fuorviare le finanze dell'utente). casa/bollette/salute/istruzione/
+  // viaggi/svago non ne hanno bisogno: un falso positivo qui costa una
+  // riga nella torta sbagliata, non una decisione finanziaria sbagliata.
+  assert.equal(safeCategorize('Pagamento Affitto', 650, new Date(), 'uscita'), 'casa');
+  assert.equal(safeCategorize('Bolletta Enel', 68, new Date(), 'uscita'), 'bollette');
+  assert.equal(safeCategorize('Farmacia Comunale', 12, new Date(), 'uscita'), 'salute');
+});

@@ -34,3 +34,37 @@ test('lookup: esercente sconosciuto → null (cede al modello ML, non inventa)',
 test('lookup: stipendio riconosciuto da parole-contesto', () => {
   assert.equal(lookupMerchant('ACCREDITO STIPENDIO MESE').category, 'stipendio');
 });
+
+// ── Le sei categorie nuove (core/constants.js): casa, bollette, salute,
+// istruzione, viaggi, svago. Prima di questo lavoro 'bollette'/'salute'/
+// 'casa'/'svago' esistevano solo come regole morte in core/lexicon.js — un
+// classificatore che sapeva rispondere ma la cui risposta cadeva sempre nel
+// fallback "Altro" perché nessuna categoria con quell'id esisteva davvero.
+test('lookup: le sei categorie nuove sono raggiungibili', () => {
+  assert.equal(lookupMerchant('PAGAMENTO AFFITTO GENNAIO').category, 'casa');
+  assert.equal(lookupMerchant('BOLLETTA ENEL ENERGIA').category, 'bollette');
+  assert.equal(lookupMerchant('FARMACIA CENTRALE').category, 'salute');
+  assert.equal(lookupMerchant('TASSE UNIVERSITA BOLOGNA').category, 'istruzione');
+  assert.equal(lookupMerchant('RYANAIR VOLO ANDATA').category, 'viaggi');
+  assert.equal(lookupMerchant('CINEMA MULTISALA').category, 'svago');
+});
+
+test('lookup: le chiavi con spazio trailing (es. "tim ") servono solo se c\'è altro dopo', () => {
+  // Stesso pattern gia' in uso per 'md ' (spesa): un token "tim" isolato
+  // (es. il nome proprio "Tim") non deve far scattare "bollette".
+  assert.equal(lookupMerchant('TIM RICARICA FIBRA').category, 'bollette');
+  assert.equal(lookupMerchant('bonifico a favore di Tim'), null);
+});
+
+test('lookup: eni resta trasporti (carburante) — non e\' stato disambiguato con la bolletta', () => {
+  // ENI e' sia un distributore di carburante sia un fornitore di luce/gas.
+  // Serve il contesto dell'importo per distinguerli, che qui non c'e':
+  // onesto lasciarla dov'era piuttosto che indovinare.
+  assert.equal(lookupMerchant('ENI STATION').category, 'trasporti');
+});
+
+test('lookup: nessuna categoria nuova ruba una chiave gia\' esistente', () => {
+  // 'palestra' resta abbonamenti (abbonamento ricorrente), non e' stata
+  // spostata a 'svago' per errore di duplicazione della chiave.
+  assert.equal(lookupMerchant('PALESTRA MENSILE').category, 'abbonamenti');
+});

@@ -23,6 +23,22 @@ const DEFAULT_CATEGORIES = {
     // significa "si ripete", pulito.
     { id: 'abbonamenti', name: 'Abbonamenti', color: '#8b5cf6', type: 'uscita', emoji: '📱', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>` },
     { id: 'trasporti', name: 'Mobilità', color: '#3b82f6', type: 'uscita', emoji: '🚗', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M7 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>` },
+    // Le sei categorie qui sotto colmano il buco più concreto misurato in
+    // sessione: con solo 5 categorie di spesa, il demo dataset era COSTRETTO
+    // a mettere affitto e bolletta della luce dentro "Abbonamenti" (vedi
+    // ui/demo-dataset.js) — la prova che mancava qualcosa, dentro l'app
+    // stessa. 'casa', 'bollette', 'salute' e 'svago' non sono id inventati
+    // ora: esistevano già come regole morte in core/lexicon.js (CAT_RULES),
+    // scritte per categorie che il dizionario non conosceva — un classificatore
+    // che sapeva già rispondere "bollette" a "enel" ma la cui risposta cadeva
+    // sempre nel fallback "Altro" perché nessuna categoria con quell'id
+    // esisteva. Usare gli stessi id le sblocca senza toccare il motore.
+    { id: 'casa', name: 'Casa', color: '#b45309', type: 'uscita', emoji: '🏠', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10L12 3l9 7"/><path d="M5 9v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9"/></svg>` },
+    { id: 'bollette', name: 'Bollette', color: '#06b6d4', type: 'uscita', emoji: '💡', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 11-14h-7l1-8z"/></svg>` },
+    { id: 'salute', name: 'Salute', color: '#ef4444', type: 'uscita', emoji: '⚕️', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>` },
+    { id: 'istruzione', name: 'Istruzione', color: '#6366f1', type: 'uscita', emoji: '🎓', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 2.5 3 6 3s6-1.5 6-3v-5"/></svg>` },
+    { id: 'viaggi', name: 'Viaggi', color: '#0ea5e9', type: 'uscita', emoji: '✈️', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>` },
+    { id: 'svago', name: 'Tempo libero', color: '#d946ef', type: 'uscita', emoji: '🎟️', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 1 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 1 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M13 5v14"/></svg>` },
   ],
   income: [
     { id: 'stipendio', name: 'Entrata', color: '#10b981', type: 'entrata', emoji: '💰', icon: `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>` },

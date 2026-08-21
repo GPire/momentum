@@ -87,6 +87,41 @@ const DICTIONARY = {
   okx: 'crypto', 'crypto com': 'crypto', 'young platform': 'crypto', bitcoin: 'crypto', btc: 'crypto',
   ethereum: 'crypto', crypto: 'crypto', solana: 'crypto', cardano: 'crypto', ripple: 'crypto',
   litecoin: 'crypto', usdt: 'crypto', stablecoin: 'crypto', staking: 'crypto', wallet: 'crypto',
+  // casa (affitto, mutuo, utenze del condominio, manutenzione)
+  affitto: 'casa', mutuo: 'casa', condominio: 'casa', locazione: 'casa', rent: 'casa',
+  mortgage: 'casa', idraulico: 'casa', elettricista: 'casa', imbianchino: 'casa',
+  falegname: 'casa', 'agenzia immobiliare': 'casa', immobiliare: 'casa',
+  // bollette (utenze: luce, gas, acqua, telefono, internet). NOTA: 'eni' resta
+  // 'trasporti' (carburante, gia' in dizionario) — la stessa sigla e' anche un
+  // fornitore di luce/gas, ma disambiguarla richiederebbe il contesto
+  // dell'importo o della descrizione estesa: onesto lasciarla dov'e', non
+  // indovinare.
+  enel: 'bollette', a2a: 'bollette', hera: 'bollette', acea: 'bollette',
+  iren: 'bollette', edison: 'bollette', sorgenia: 'bollette', illumia: 'bollette',
+  bolletta: 'bollette', utenza: 'bollette', fastweb: 'bollette', vodafone: 'bollette',
+  'tim ': 'bollette', windtre: 'bollette', wind: 'bollette', iliad: 'bollette',
+  fibra: 'bollette', acquedotto: 'bollette', 'ho mobile': 'bollette',
+  kena: 'bollette', very: 'bollette', 'poste mobile': 'bollette',
+  // salute (farmacie, medici, dentisti, assicurazioni sanitarie)
+  farmacia: 'salute', parafarmacia: 'salute', dentista: 'salute', ottico: 'salute',
+  fisioterapia: 'salute', ospedale: 'salute', ambulatorio: 'salute', poliambulatorio: 'salute',
+  analisi: 'salute', veterinario: 'salute', pharmacy: 'salute', dentist: 'salute',
+  clinica: 'salute', policlinico: 'salute', unisalute: 'salute',
+  // istruzione (università, scuole, corsi, materiale didattico)
+  universita: 'istruzione', ateneo: 'istruzione', politecnico: 'istruzione',
+  scuola: 'istruzione', asilo: 'istruzione', nido: 'istruzione', udemy: 'istruzione',
+  coursera: 'istruzione', 'skuola net': 'istruzione', treccani: 'istruzione', duolingo: 'istruzione',
+  masterclass: 'istruzione', edx: 'istruzione',
+  // viaggi (voli, hotel, portali di prenotazione)
+  ryanair: 'viaggi', easyjet: 'viaggi', volotea: 'viaggi', wizzair: 'viaggi',
+  'ita airways': 'viaggi', alitalia: 'viaggi', lufthansa: 'viaggi', 'air france': 'viaggi',
+  booking: 'viaggi', airbnb: 'viaggi', expedia: 'viaggi', trivago: 'viaggi',
+  hotel: 'viaggi', hostel: 'viaggi', agriturismo: 'viaggi',
+  // svago / tempo libero (cinema, eventi, sport, gaming — distinto da ristoranti/shopping)
+  cinema: 'svago', teatro: 'svago', concerto: 'svago', ticketone: 'svago',
+  eventbrite: 'svago', vivaticket: 'svago', piscina: 'svago',
+  museo: 'svago', 'luna park': 'svago', bowling: 'svago', biliardo: 'svago',
+  steam: 'svago', playstation: 'svago', xbox: 'svago', nintendo: 'svago', twitch: 'svago',
 };
 
 // Normalizza: minuscolo, via accenti, via prefissi bancari e code carta,

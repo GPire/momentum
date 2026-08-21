@@ -9,6 +9,8 @@ const CAT_RULES = [
   { id: 'salute', kw: ['farmacia', 'farmac', 'medico', 'dottore', 'visita', 'esame', 'analisi', 'dentista', 'ottico', 'fisioterapia', 'ospedale', 'pharmacy', 'doctor'] },
   { id: 'svago', kw: ['netflix', 'spotify', 'prime video', 'disney', 'cinema', 'teatro', 'concert', 'palestra', 'gym', 'sport', 'dazn', 'sky ', 'steam', 'playstation', 'xbox'] },
   { id: 'casa', kw: ['affitto', 'mutuo', 'condominio', 'pulizie', 'assicurazione', 'idraulico', 'elettricista', 'mobili', 'rent', 'mortgage'] },
+  { id: 'istruzione', kw: ['universita', 'universität', 'scuola', 'corso', 'retta', 'tasse universitarie', 'libri scolastici', 'iscrizione esame', 'tuition', 'school fee', 'university'] },
+  { id: 'viaggi', kw: ['ryanair', 'easyjet', 'volotea', 'wizzair', 'ita airways', 'booking', 'airbnb', 'hotel', 'volo', 'aeroporto', 'valigia', 'trivago', 'expedia', 'flight'] },
   { id: 'stipendio', kw: ['stipendio', 'salario', 'bonifico', 'accredito', 'rimborso', 'salary', 'payroll'] }
 ];
 
