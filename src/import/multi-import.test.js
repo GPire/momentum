@@ -9,7 +9,7 @@ globalThis.window = {
   momentumOrchestrator: { learn: (d, c) => learned.push([d, c]) },
   requestIdleCallback: (fn) => setTimeout(() => fn({ timeRemaining: () => 10 }), 0),
 };
-const { learnInBackground } = await import('./multi-import.js');
+const { learnInBackground, readCsvText } = await import('./multi-import.js');
 
 test('learnInBackground: addestra i modelli da OGNI operazione importata (idle-chunked)', async () => {
   learned.length = 0;
@@ -51,3 +51,38 @@ test('isPortfolioCsv: riconosce le posizioni, NON i movimenti', async () => {
   assert.equal(isPortfolioCsv('Data;Descrizione;Uscite;Entrate;Saldo'), false);
   assert.equal(isPortfolioCsv('Date,Ticker,Type,Quantity,Price per share,Total Amount'), false); // storico trade
 });
+
+// ── readCsvText: encoding, non solo UTF-8 ──
+// file.text() (usato prima) decodifica SEMPRE come UTF-8. Molti export
+// bancari italiani/europei più vecchi sono Windows-1252: un accento diventa
+// un byte che UTF-8 non sa leggere, e il risultato erano lettere rotte in
+// silenzio ("CaffÃ¨" o peggio, un carattere di sostituzione), mai un errore.
+test('readCsvText: UTF-8 vero resta UTF-8 (nessun falso positivo)', async () => {
+  const testo = 'Descrizione;Importo\nCaffè bar;-1,20\nFarmacia età;-9,50\n';
+  const bytes = new TextEncoder().encode(testo); // UTF-8 vero: 'è' = 2 byte (0xC3 0xA8)
+  const risultato = await readCsvText(new Blob([bytes]));
+  assert.equal(risultato, testo);
+});
+
+test('readCsvText: Windows-1252 (export bancari italiani più vecchi) — accenti non rotti', async () => {
+  // "Caffè bar" con 'è' come SINGOLO byte 0xE8 (Windows-1252), non i due byte
+  // UTF-8 (0xC3 0xA8). new TextDecoder('utf-8',{fatal:true}) deve rifiutare
+  // questi byte (0xE8 da solo non è mai un inizio di sequenza UTF-8 valida
+  // seguito da uno spazio), facendo scattare il fallback.
+  const bytes = new Uint8Array([
+    0x43, 0x61, 0x66, 0x66, 0xE8, 0x20, 0x62, 0x61, 0x72, 0x3B, 0x2D, 0x31, 0x2C, 0x32, 0x30, // "Caffè bar;-1,20"
+  ]);
+  const risultato = await readCsvText(new Blob([bytes]));
+  assert.equal(risultato, 'Caffè bar;-1,20', 'accento leggibile, non rotto o sostituito');
+});
+
+// NOTA scoperta scrivendo questo test: lo standard WHATWG Encoding (seguito
+// dai browser veri, dove questo file gira davvero) mappa il byte 0x80 di
+// windows-1252 sul simbolo euro. Il TextDecoder di QUESTO Node/ICU invece lo
+// tratta come ISO-8859-1 puro (carattere di controllo C1) per l'intero
+// intervallo 0x80-0x9F — verificato byte per byte, non un'ipotesi. È una
+// differenza dell'ambiente di test, non del codice: non scrivo qui
+// un'asserzione che affermerebbe un comportamento che non posso verificare
+// in questo ambiente. Gli accenti (il caso reale che conta per gli estratti
+// conto italiani) sono già coperti dal test sopra e lì Node e i browser
+// concordano (0xE0→à, 0xE8→è, fuori dall'intervallo C1).

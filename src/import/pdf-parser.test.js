@@ -85,6 +85,54 @@ test('parseCellDate: ISO, giorno/mese a 1 cifra, mesi testuali IT/EN', () => {
   assert.equal(parseCellDate('senza data'), null);
 });
 
+// ── Il bug reale: un export USA in MM/DD/YYYY letto giorno-primo ──
+// "12/25/2025" (25 dicembre) con la vecchia logica diventava
+// new Date(2025, 24, 12) — mese 24 non esiste, e `Date` non lancia un
+// errore: SCORRE sull'anno dopo, dando gennaio 2027. Un dato sbagliato
+// senza nessun avviso, esattamente il tipo di errore silenzioso che
+// questo progetto rifiuta.
+test('parseCellDate: giorno/mese ambiguo resta giorno-primo (convenzione dichiarata)', () => {
+  const d = parseCellDate('05/03/2026'); // potrebbe essere 5 marzo o 3 maggio
+  assert.equal(d.getMonth(), 2, 'ambiguo → resta giorno-primo: 5 marzo');
+  assert.equal(d.getDate(), 5);
+});
+
+test('parseCellDate: quando il "mese" supera 12 non può essere ambiguo — si scambia', () => {
+  const d = parseCellDate('12/25/2025'); // 25 non è un mese in NESSUNA lettura
+  assert.equal(d.getFullYear(), 2025, 'prima "scorreva" silenziosamente al 2027');
+  assert.equal(d.getMonth(), 11, 'dicembre');
+  assert.equal(d.getDate(), 25);
+});
+
+test('parseCellDate: il caso INEQUIVOCABILE (giorno>12) restava già corretto', () => {
+  const d = parseCellDate('25/12/2025'); // 25 non può essere un mese: già giorno-primo
+  assert.equal(d.getMonth(), 11);
+  assert.equal(d.getDate(), 25);
+});
+
+// ── Mesi testuali in spagnolo, francese, tedesco, portoghese — le altre
+// 4 lingue che Momentum dichiara di supportare (i18n/detect.js), non solo
+// italiano e inglese. ──
+test('parseCellDate: mesi testuali ES/FR/DE/PT, incluse le abbreviazioni con accento', () => {
+  assert.equal(parseCellDate('3 ene 2026').getMonth(), 0, 'spagnolo: enero');
+  assert.equal(parseCellDate('15 Abr 2026').getMonth(), 3, 'spagnolo/portoghese: abril');
+  assert.equal(parseCellDate('9 mai 2026').getMonth(), 4, 'francese: mai');
+  assert.equal(parseCellDate('3 août 2026').getMonth(), 7, 'francese CON accento: août');
+  assert.equal(parseCellDate('20 Okt 2026').getMonth(), 9, 'tedesco: Oktober');
+  assert.equal(parseCellDate('1 Dez 2026').getMonth(), 11, 'tedesco: Dezember');
+  assert.equal(parseCellDate('12 déc 2026').getMonth(), 11, 'francese CON accento: décembre');
+  assert.equal(parseCellDate('4 Fev 2026').getMonth(), 1, 'portoghese: fevereiro');
+  assert.equal(parseCellDate('30 out 2026').getMonth(), 9, 'portoghese: outubro');
+});
+
+test('parseCellDate: ambiguità genuina fra lingue (francese juin/juillet) resta non riconosciuta, non indovinata', () => {
+  // Entrambi si accorciano a "jui" nelle prime 3 lettere: nessuna delle due
+  // letture è più giusta dell'altra senza sapere la lingua del documento.
+  // Meglio null (la riga viene saltata) che una data sbagliata a metà.
+  assert.equal(parseCellDate('3 juin 2026'), null);
+  assert.equal(parseCellDate('3 juillet 2026'), null);
+});
+
 // ---- regressione parseCellAmount (comportamento già verificato, fissato) ----
 
 test('parseCellAmount: formati IT/US e segni invariati', () => {

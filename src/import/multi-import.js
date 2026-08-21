@@ -14,7 +14,7 @@ import { VaultDAO, getCatById } from '../core/vault.js';
 import { monthKey } from '../core/constants.js';
 import { parseRevolutExport, isRevolutExport } from './revolut-csv.js';
 import { parseGenericCsv } from './csv-parser.js';
-import { extractTransactionsFromItems } from './pdf-parser.js';
+import { extractTransactionsFromItems, parseCellAmount, parseCellDate, COLUMN_KEYWORDS } from './pdf-parser.js';
 import { parseScreenshotTransactions } from './screenshot-parser.js';
 import { safeCategorize } from './categorize.js';
 
@@ -104,14 +104,80 @@ function mergePositions(parsed) {
   return merged;
 }
 
+// `file.text()` decodifica SEMPRE come UTF-8 — nessun modo di dirgli altro.
+// Molti export bancari italiani/europei più vecchi sono Windows-1252: gli
+// accenti (à, è, é) diventano byte che UTF-8 non sa interpretare, e il
+// risultato erano lettere rotte in silenzio, mai un errore.
+// Il test è affidabile: un file VERAMENTE UTF-8 non contiene MAI una
+// sequenza di byte non valida per quella codifica, quindi la decodifica
+// `fatal:true` fallisce in modo affidabile proprio (e solo) quando serve.
+// Windows-1252 non può mai fallire (mappa tutti i 256 byte), quindi non è
+// un test valido di per sé: va usato come fallback, non come primo tentativo.
+export async function readCsvText(file) {
+  const buf = await file.arrayBuffer();
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    return new TextDecoder('windows-1252').decode(buf);
+  }
+}
+
 async function parseCsvFile(file) {
-  const text = await file.text();
+  const text = await readCsvText(file);
   const first = text.split(/\r?\n/)[0] || '';
   if (isPortfolioCsv(first)) {
     const { parsePortfolioCsv } = await import('../alpha/portfolio-import.js');
     return { positions: parsePortfolioCsv(text) };
   }
   return isRevolutExport(first) ? parseRevolutExport(text) : parseGenericCsv(text);
+}
+
+// OCR di una pagina PDF SENZA testo estraibile (estratto conto scansionato,
+// non generato digitalmente). Prima d'ora questa capacità esisteva — scritta,
+// testata — ma in una funzione orfana (handlePDFUpload) mai collegata alla
+// pipeline vera: una pagina scansionata importava ZERO righe IN SILENZIO,
+// "0 transazioni trovate" su un file che a occhio si leggeva benissimo.
+// Colonne per POSIZIONE (gap di ≥2 spazi), non per parola chiave nel testo
+// intero: cercare "accredito" in OGNI riga scambierebbe una normalissima
+// "Accredito Stipendio Azienda SRL" per un'intestazione di colonna.
+async function ocrPdfPage(page) {
+  if (typeof Tesseract === 'undefined') return [];
+  const viewport = page.getViewport({ scale: 1.5 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  const { data: { text } } = await Tesseract.recognize(canvas, 'ita+eng');
+
+  const lines = text.split('\n').filter(l => l.trim().length > 3);
+  const headerLine = lines.find(l => COLUMN_KEYWORDS.expense.test(l) || COLUMN_KEYWORDS.income.test(l));
+  let expenseColIdx = -1, incomeColIdx = -1, dateColIdx = 0;
+  if (headerLine) {
+    const tokens = headerLine.split(/\s{2,}/);
+    expenseColIdx = tokens.findIndex(t => COLUMN_KEYWORDS.expense.test(t));
+    incomeColIdx = tokens.findIndex(t => COLUMN_KEYWORDS.income.test(t));
+    dateColIdx = tokens.findIndex(t => COLUMN_KEYWORDS.date.test(t));
+    if (dateColIdx === -1) dateColIdx = 0;
+  }
+
+  const out = [];
+  let lastDate = null;
+  for (const line of lines) {
+    if (line === headerLine) continue;
+    const parts = line.split(/\s{2,}/);
+    const datePart = parts[dateColIdx] ? parts[dateColIdx].trim() : '';
+    // Molte righe di uno statement portano la data solo sulla prima riga di
+    // un gruppo: quelle sotto ereditano l'ultima data vista, non oggi.
+    let date = parseCellDate(datePart);
+    if (!date) date = lastDate; else lastDate = date;
+    if (!date) continue;
+    const desc = parts.filter((p, idx) => idx !== dateColIdx && idx !== expenseColIdx && idx !== incomeColIdx).join(' ').trim() || 'Transazione OCR';
+    const expAmt = expenseColIdx >= 0 && parts[expenseColIdx] ? parseCellAmount(parts[expenseColIdx]) : null;
+    const incAmt = incomeColIdx >= 0 && parts[incomeColIdx] ? parseCellAmount(parts[incomeColIdx]) : null;
+    if (expAmt !== null && expAmt !== 0) out.push({ date, amount: Math.abs(expAmt), type: 'uscita', description: desc });
+    if (incAmt !== null && incAmt !== 0) out.push({ date, amount: Math.abs(incAmt), type: 'entrata', description: desc });
+  }
+  return out;
 }
 
 async function parsePdfFile(file) {
@@ -123,7 +189,12 @@ async function parsePdfFile(file) {
     const page = await pdf.getPage(p);
     const tc = await page.getTextContent();
     const items = tc.items.map(i => ({ text: i.str, x: i.transform[4], y: i.transform[5], width: i.width }));
-    out.push(...extractTransactionsFromItems(items));
+    let txs = extractTransactionsFromItems(items);
+    // Nessuna transazione dal testo → probabile pagina scansionata (immagine
+    // senza livello di testo). Un pdf.js che restituisce testo vuoto è
+    // esattamente il segnale che serve l'OCR, non un errore da propagare.
+    if (txs.length === 0) txs = await ocrPdfPage(page);
+    out.push(...txs);
   }
   return out;
 }

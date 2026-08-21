@@ -3,7 +3,6 @@ import { monthKey } from '../core/constants.js';
 import { VaultDAO } from '../core/vault.js';
 import { NeuralNexus } from './neural-nexus.js';
 import { VoiceParser } from '../voice/voice.js';
-import { handlePDFUpload } from '../import/pdf-parser.js';
 import { TrainedCategorizer } from './trained-categorizer.js';
 import { MeshNode } from '../mesh/mesh-signaling.js';
 import { lookupMerchant } from './merchant-dictionary.js';
@@ -23,7 +22,7 @@ import { initMorphology, observeMorphology, predictMorphology } from './merchant
 // che si allenano insieme — è un router reale e semplice tra i
 // sottosistemi già esistenti e funzionanti nella webapp V50.0
 // (NeuralNexus per categorizzazione, VoiceParser per la voce,
-// handlePDFUpload per gli estratti conto) più il layer nuovo di
+// import/multi-import.js per gli estratti conto) più il layer nuovo di
 // condivisione federata (mesh P2P). v3: i pesi del voto sono modulati
 // dall'affidabilità per-categoria MISURATA sulle conferme/correzioni reali
 // dell'utente (matrice di precisione incrementale in mlData.modelStats) —

@@ -170,9 +170,7 @@ import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigest
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
-import { handlePDFUpload } from './import/pdf-parser.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
-import { handleUniversalCSV } from './import/csv-parser.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.

@@ -1,10 +1,3 @@
-import { monthKey } from '../core/constants.js';
-import { logETL } from '../core/utils.js';
-import { getCatById, VaultDAO } from '../core/vault.js';
-import { showSignatureAlert, showToast } from '../ui/feedback.js';
-import { NeuralNexus } from '../ai/neural-nexus.js';
-import { safeCategorize } from './categorize.js';
-
 // ==========================================
 // PDF BANK PARSER (COLUMN RESONANCE)
 // ==========================================
@@ -201,130 +194,11 @@ const processPageWithColumnMap = async (page, existingTxs) => {
   return extractTransactionsFromItems(items);
 };
 
-const handlePDFUpload = async (file) => {
-  if (typeof pdfjsLib === 'undefined') {
-    showToast("Parser PDF non caricato (offline).", "error");
-    return;
-  }
-  const progressOverlay = document.getElementById('pdf-progress-overlay');
-  const progressText = document.getElementById('pdf-progress-text');
-  const progressPage = document.getElementById('pdf-progress-page');
-  if (progressOverlay) progressOverlay.classList.add('active');
-  logETL(`PDF ricevuto: ${file.name}. Avvio Column Resonance™...`);
-
-  const existingTxs = [];
-  Object.keys(VaultDAO.state.transactions).forEach(m => existingTxs.push(...VaultDAO.state.transactions[m]));
-  let addedCount = 0;
-
-  try {
-    const arrayBuf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
-    const totalPages = pdf.numPages;
-
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      if(progressText) progressText.textContent = `Analisi pagina ${pageNum} di ${totalPages}`;
-      if(progressPage) progressPage.textContent = `Pagina ${pageNum}/${totalPages}`;
-      const page = await pdf.getPage(pageNum);
-      let txs = await processPageWithColumnMap(page, existingTxs);
-      
-      if (txs.length === 0 && typeof Tesseract !== 'undefined') {
-        logETL(`Pagina ${pageNum}: nessuna transazione da testo, attivo Neural OCR...`);
-        const viewport = page.getViewport({ scale: 1.5 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        const worker = await (async () => {
-          if (!window._tesseractWorker) {
-            window._tesseractWorker = await Tesseract.createWorker('ita', 1, { logger: m => console.log(m) });
-          }
-          return window._tesseractWorker;
-        })();
-        const { data: { text } } = await worker.recognize(canvas);
-        const lines = text.split('\n').filter(l => l.trim().length > 3);
-        const headerLine = lines.find(l => COLUMN_KEYWORDS.expense.test(l) || COLUMN_KEYWORDS.income.test(l));
-        let expenseColIdx = -1, incomeColIdx = -1, dateColIdx = 0;
-        if (headerLine) {
-          const tokens = headerLine.split(/\s{2,}/);
-          expenseColIdx = tokens.findIndex(t => COLUMN_KEYWORDS.expense.test(t));
-          incomeColIdx = tokens.findIndex(t => COLUMN_KEYWORDS.income.test(t));
-          dateColIdx = tokens.findIndex(t => COLUMN_KEYWORDS.date.test(t));
-          if (dateColIdx === -1) dateColIdx = 0;
-        }
-        txs = [];
-        let lastDate = null;
-        for (const line of lines) {
-          if (line === headerLine) continue;
-          const parts = line.split(/\s{2,}/);
-          const datePart = parts[dateColIdx] ? parts[dateColIdx].trim() : '';
-          let date = parseCellDate(datePart);
-          if (!date) date = lastDate;
-          else lastDate = date;
-          if (!date) continue;
-          const desc = parts.filter((p, idx) => idx !== dateColIdx && idx !== expenseColIdx && idx !== incomeColIdx).join(' ').trim() || 'Transazione OCR';
-          const expAmt = expenseColIdx >= 0 && parts[expenseColIdx] ? parseCellAmount(parts[expenseColIdx]) : null;
-          const incAmt = incomeColIdx >= 0 && parts[incomeColIdx] ? parseCellAmount(parts[incomeColIdx]) : null;
-          if (expAmt !== null) txs.push({ date, amount: expAmt, type: 'uscita', description: desc });
-          if (incAmt !== null) txs.push({ date, amount: incAmt, type: 'entrata', description: desc });
-        }
-      }
-
-      txs.forEach(({ date, amount, type, description, category }) => {
-        if (!date || !amount || isNaN(amount) || amount === 0) return;
-        const absAmt = amount;
-        const k = monthKey(date);
-
-        // La deduplicazione fuzzy è centralizzata in VaultDAO.addTransaction
-        // (src/core/deduplicator.js) da quando esiste: prima questo import
-        // aveva un controllo duplicati locale, con soglia diversa (Levenshtein
-        // grezzo < 5) da quella usata ovunque il resto — due fonti di verità
-        // sullo stesso problema potevano disaccordare sullo stesso caso.
-        // Ora l'inserimento decide da solo se è un duplicato o una nuova riga.
-        // Il parser di conferme può SUGGERIRE la categoria (crypto/etf per un
-        // acquisto di investimenti): ha la precedenza. Altrimenti categorizzazione
-        // SICURA (dizionario + ML con guardrail anti-crypto/etf spurie).
-        const catId = category || safeCategorize(description, absAmt, date, type);
-        const newTx = {
-          id: Date.now() + Math.random(),
-          amount: absAmt,
-          type,
-          category: catId,
-          description,
-          color: getCatById(catId).color,
-          date: date.toISOString()
-        };
-        const { duplicate } = VaultDAO.addTransaction(k, newTx, { bulk: true });
-        if (!duplicate) {
-          if (window.momentumOrchestrator) {
-            window.momentumOrchestrator.learn(description, catId, absAmt, date);
-          } else {
-            NeuralNexus.train(description, catId, absAmt, date);
-          }
-          existingTxs.push(newTx);
-          addedCount++;
-        }
-      });
-    }
-
-    if (addedCount > 0) VaultDAO.save(); // UN solo salvataggio finale (estratti conto lunghi = molte pagine)
-    logETL(`PDF completato: ${addedCount} nuove transazioni intestate.`);
-    if (addedCount > 0) {
-      // via window: questo è un modulo ES, il nome nudo sarebbe un
-      // ReferenceError silenziato dal catch (bug reale: import riuscito
-      // ma dashboard mai aggiornata)
-      window.renderAfterImport ? window.renderAfterImport() : (window.renderDashboard?.(), window.renderAnalysis?.());
-      showSignatureAlert("PDF Decodificato", `Column Resonance™ ha estratto ${addedCount} operazioni.`);
-    } else {
-      showToast("Nessuna nuova transazione nel PDF.", "info");
-    }
-  } catch (err) {
-    logETL("Errore PDF: " + err.message, true);
-  } finally {
-    if(progressOverlay) progressOverlay.classList.remove('active');
-    document.getElementById('pdf-upload').value = '';
-  }
-};
+// handlePDFUpload è stata rimossa: era importata in main.js e mai chiamata
+// (#pdf-upload è cablato su runMulti → import/multi-import.js). Il suo
+// fallback OCR per pagine scansionate — capacità reale, non ridondante — è
+// stato PORTATO in multi-import.js (ocrPdfPage), non perso: senza, una pagina
+// scansionata importava zero righe in silenzio nella pipeline vera.
 
 // Bug reale corretto: la versione precedente cercava le parole chiave di
 // colonna ("accredito", "addebito", "importo"...) in OGNI riga del
@@ -388,9 +262,29 @@ const categorizeItemToColumn = (x, map) => {
   return dists[0].col;
 };
 
-// Mesi testuali abbreviati (estratti IT ed export EN: "3 gen 2025", "Jan 2025")
-const TEXT_MONTHS = { gen:0, feb:1, mar:2, apr:3, mag:4, giu:5, lug:6, ago:7, set:8, ott:9, nov:10, dic:11,
-                      jan:0, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, dec:11 };
+// Mesi testuali abbreviati — IT, EN, e le altre 4 lingue che Momentum
+// dichiara di supportare altrove (i18n/detect.js: it,en,es,fr,de,pt), non
+// solo IT+EN. Molte abbreviazioni COINCIDONO fra lingue per puro caso
+// (feb/mar/apr/nov sono identiche in italiano e inglese: non serve una voce
+// per lingua, la stessa chiave serve a entrambe) — quelle sotto sono SOLO le
+// abbreviazioni che nessun'altra lingua già copre.
+// 'giu' NON compare per il francese "juin"/"juillet": entrambi si accorciano
+// a "jui" nelle prime 3 lettere, e indovinare quale dei due sarebbe esattamente
+// il tipo di errore silenzioso che questo progetto rifiuta di fare — quella
+// riga resta semplicemente non riconosciuta invece di essere sbagliata a metà.
+const TEXT_MONTHS = {
+  gen:0, feb:1, mar:2, apr:3, mag:4, giu:5, lug:6, ago:7, set:8, ott:9, nov:10, dic:11, // IT
+  jan:0, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, dec:11,                              // EN (+coincidenze IT sopra)
+  ene:0, abr:3,                                                                        // ES (+coincidenze IT/EN)
+  avr:3, mai:4, aou:7,                                                                 // FR (+coincidenze IT/EN)
+  okt:9, dez:11,                                                                       // DE (+coincidenze sopra)
+  fev:1, out:9,                                                                        // PT (+coincidenze sopra)
+};
+
+// Stesso spogliamento d'accenti già usato in screenshot-parser.js (stripA):
+// "déc"/"févr"/"Mär" devono trovare "dec"/"fev"/"mar" senza una voce a parte
+// per ogni combinazione accento×lingua.
+const stripDiacritics = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 const parseCellDate = (text) => {
   // ISO 2025-01-03 (comune negli export N26/Revolut) — controllato per primo
@@ -401,17 +295,28 @@ const parseCellDate = (text) => {
     if (!isNaN(d.getTime())) return d;
   }
   // dd/mm/yyyy o d/m/yy (prima si accettavano solo giorno/mese a 2 cifre:
-  // "3/1/2025" veniva perso)
+  // "3/1/2025" veniva perso). CONVENZIONE DICHIARATA: giorno-primo, coerente
+  // col mercato primario (Italia/Europa) — MAI cambiata in base a un'ipotesi.
+  // L'unico caso corretto qui è quello INEQUIVOCABILE: se il secondo numero
+  // supera 12 non può essere un mese in NESSUNA lettura, quindi dev'essere il
+  // giorno — a differenza di `new Date()`, che con un mese fuori 0-11 non dà
+  // errore ma SCORRE silenziosamente sull'anno sbagliato (un vero export USA
+  // "12/25/2025" letto giorno-primo produceva il 12 gennaio 2027, un dato
+  // sbagliato senza nessun avviso). Quando ENTRAMBI i numeri stanno in 1-12
+  // resta l'ambiguità reale, e lì la convenzione dichiarata si applica.
   const match = text.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})/);
   if (match) {
     let yr = parseInt(match[3]);
     if (yr < 100) yr += 2000;
-    return new Date(yr, parseInt(match[2]) - 1, parseInt(match[1]));
+    let dd = parseInt(match[1]), mm = parseInt(match[2]);
+    if (mm > 12 && dd <= 12) { const t = dd; dd = mm; mm = t; } // l'unico scambio non ambiguo
+    return new Date(yr, mm - 1, dd);
   }
-  // "3 gen 2025" / "03 GEN 25"
-  const textual = text.match(/(\d{1,2})\s+([a-zà-ù]{3,})\.?\s+(\d{4}|\d{2})/i);
+  // "3 gen 2025" / "03 GEN 25" / "3 août 2025" / "3 Dez 2025"
+  const textual = text.match(/(\d{1,2})\s+([a-zà-ÿ]{3,})\.?\s+(\d{4}|\d{2})/i);
   if (textual) {
-    const m = TEXT_MONTHS[textual[2].slice(0, 3).toLowerCase()];
+    const chiave = stripDiacritics(textual[2].slice(0, 3).toLowerCase());
+    const m = TEXT_MONTHS[chiave];
     if (m !== undefined) {
       let yr = parseInt(textual[3]);
       if (yr < 100) yr += 2000;
@@ -471,4 +376,4 @@ const COLUMN_KEYWORDS = {
 };
 
 
-export { processPageWithColumnMap, extractTransactionsFromItems, handlePDFUpload, detectColumnMap, categorizeItemToColumn, parseCellDate, parseCellAmount, COLUMN_KEYWORDS };
+export { processPageWithColumnMap, extractTransactionsFromItems, detectColumnMap, categorizeItemToColumn, parseCellDate, parseCellAmount, COLUMN_KEYWORDS };
