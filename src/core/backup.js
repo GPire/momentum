@@ -103,6 +103,96 @@ export async function restoreFromShares(envelope, shareTexts = []) {
   }
 }
 
+// ---- Export IN CHIARO, dichiarato tale ----
+// Perche' esiste. Non tutti vogliono una passphrase da ricordare per anni o
+// tre pezzi da custodire: c'e' chi vuole solo una copia leggibile dei propri
+// movimenti da mettere in un posto che considera gia' sicuro. E' una scelta
+// legittima — a patto che sia una SCELTA, cioe' che il file dica cosa e', che
+// contenga tutto, e che si possa riaprire.
+//
+// LA VERSIONE PRECEDENTE FALLIVA SU TUTTI E TRE I PUNTI, ed e' il motivo per
+// cui questa funzione esiste. `exportOmegaDNA` produceva Base64 grezzo con la
+// STESSA estensione .momentum delle buste cifrate, conteneva solo movimenti +
+// budget + aggressivita' (non lo stato), e nessuna funzione era in grado di
+// rileggerlo: dandolo al ripristino si otteneva "File di backup non
+// riconosciuto". In un'app senza server, un utente convinto di avere un backup
+// che lo scopre il giorno in cui cambia telefono e' il fallimento peggiore
+// possibile — peggio di non avere il bottone.
+export function exportPlain(stateObj) {
+  return {
+    format: 'momentum-export-v1',
+    cifrato: false,
+    // Scritto dentro il file, non solo nella UI: chi lo ritrova fra due anni
+    // deve capire cosa ha in mano senza ricordarsi da dove viene.
+    avviso: 'Questo file NON e cifrato: chi lo apre legge tutti i tuoi dati. Tienilo in un posto sicuro, oppure usa il kit di recupero.',
+    data: stateObj,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+// ---- Il lettore unico: capisce QUALE file gli e' stato dato ----
+// Prima esistevano due funzioni di ripristino che conoscevano un formato
+// ciascuna e rispondevano "non riconosciuto" a tutto il resto, compresi i file
+// prodotti da questa stessa app. Qui il formato si riconosce PRIMA di chiedere
+// qualcosa all'utente: cosi' l'app puo' chiedere la passphrase solo quando
+// serve davvero, e aprire subito cio' che non ne ha bisogno.
+//
+// `serve` dice al chiamante cosa manca: 'niente' | 'passphrase' | 'pezzi'.
+export function readBackupFile(text) {
+  const raw = String(text || '').trim();
+  if (!raw) throw new Error('Il file e vuoto.');
+
+  let parsed = null;
+  try { parsed = JSON.parse(raw); } catch { /* non e' JSON: puo' essere un file "DNA" vecchio */ }
+
+  if (parsed && typeof parsed === 'object') {
+    if (parsed.format === 'momentum-backup-v1') return { format: parsed.format, cifrato: true, serve: 'passphrase', envelope: parsed, state: null };
+    if (parsed.format === 'momentum-backup-v2') return { format: parsed.format, cifrato: true, serve: 'pezzi', envelope: parsed, state: null };
+    if (parsed.format === 'momentum-export-v1') return { format: parsed.format, cifrato: false, serve: 'niente', envelope: parsed, state: parsed.data };
+  }
+
+  // ---- Il salvataggio dei file gia' esportati dalla versione rotta ----
+  // Questi file esistono gia' sui dischi delle persone. Aggiustare il formato
+  // e lasciarli illeggibili sarebbe risolvere una perdita di dati creandone
+  // un'altra: qui si riconoscono e si riaprono.
+  const legacy = readLegacyDna(raw);
+  if (legacy) return legacy;
+
+  throw new Error('File di backup non riconosciuto.');
+}
+
+function readLegacyDna(raw) {
+  let decoded;
+  try { decoded = decodeURIComponent(escape(atob(raw))); } catch { return null; }
+  let obj;
+  try { obj = JSON.parse(decoded); } catch { return null; }
+  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.transactions)) return null;
+
+  // Il vecchio formato APPIATTIVA i movimenti perdendo la chiave del mese. Si
+  // ricostruisce dalla data della singola transazione, che c'e' sempre; quelle
+  // senza data finiscono in 'sconosciuto' invece di sparire in silenzio.
+  const byMonth = {};
+  for (const tx of obj.transactions) {
+    const key = typeof tx?.date === 'string' && tx.date.length >= 7 ? tx.date.slice(0, 7) : 'sconosciuto';
+    (byMonth[key] ||= []).push(tx);
+  }
+
+  const state = { transactions: byMonth };
+  if (obj.budget !== undefined) state.monthlyBudget = obj.budget;
+  if (obj.aggression !== undefined) state.aiAggression = obj.aggression;
+
+  return {
+    format: 'momentum-dna-legacy',
+    cifrato: false,
+    serve: 'niente',
+    envelope: obj,
+    state,
+    // Dichiarato, non nascosto: questo file non conteneva tutto, e chi lo
+    // ripristina deve sapere cosa NON tornera' indietro.
+    parziale: 'Questo file e un vecchio export "DNA": contiene i movimenti, il budget e il livello del freno spese, ma NON obiettivi, fatture, gruppi di spesa ne cio che i modelli avevano imparato.',
+  };
+}
+
 // Cifra un oggetto stato → busta JSON portabile (versionata).
 export async function encryptBackup(stateObj, passphrase) {
   if (!passphrase || passphrase.length < 6) throw new Error('Passphrase troppo corta (min 6 caratteri).');

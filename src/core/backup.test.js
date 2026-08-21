@@ -95,6 +95,87 @@ test('kit di recupero: una busta manomessa viene rifiutata, mai importata a meta
   );
 });
 
+// ---- Il lettore unico, e il salvataggio dei file "DNA" gia esportati ----
+// Il guasto che questi test bloccano: l'app produceva un file .momentum che
+// l'app stessa non sapeva rileggere. Chi lo scopriva, lo scopriva cambiando
+// telefono — cioe' nel momento in cui non c'era piu' rimedio.
+
+const { exportPlain, readBackupFile } = await import('./backup.js');
+
+test('export in chiaro: si riapre, ed e la stessa cosa', () => {
+  const busta = exportPlain(sampleState);
+  const letto = readBackupFile(JSON.stringify(busta));
+  assert.equal(letto.serve, 'niente');
+  assert.equal(letto.cifrato, false);
+  assert.deepEqual(letto.state, sampleState);
+});
+
+test('export in chiaro: il file DICE di non essere cifrato', () => {
+  // L'avviso sta dentro il file, non solo nella schermata che l'ha prodotto:
+  // chi lo ritrova fra due anni deve capirlo dal file.
+  const busta = exportPlain(sampleState);
+  assert.equal(busta.cifrato, false);
+  assert.match(busta.avviso, /NON e cifrato/);
+});
+
+test('il lettore riconosce i tre formati e dice cosa serve, PRIMA di chiedere', async () => {
+  const cifrato = await encryptBackup(sampleState, 'passphrase-forte');
+  assert.equal(readBackupFile(JSON.stringify(cifrato)).serve, 'passphrase');
+
+  const { createRecoveryKit } = await import('./backup.js');
+  const kit = await createRecoveryKit(sampleState, { threshold: 2, total: 3 });
+  assert.equal(readBackupFile(JSON.stringify(kit.envelope)).serve, 'pezzi');
+
+  assert.equal(readBackupFile(JSON.stringify(exportPlain(sampleState))).serve, 'niente');
+});
+
+test('IL SALVATAGGIO: un vecchio file "DNA" si riapre invece di essere respinto', () => {
+  // Riproduco ESATTAMENTE cio' che produceva la vecchia exportOmegaDNA:
+  // Base64 grezzo, movimenti appiattiti, nessun campo `format`.
+  const flat = [
+    { id: 1, amount: 32.5, category: 'spesa', description: 'Esselunga', date: '2026-07-14T10:00:00.000Z' },
+    { id: 2, amount: 9.9, category: 'abbonamenti', description: 'Netflix', date: '2026-08-02T08:00:00.000Z' },
+  ];
+  const vecchio = btoa(unescape(encodeURIComponent(JSON.stringify({
+    meta: { schema: 50.0, generatedAt: '2026-08-01T00:00:00.000Z' },
+    transactions: flat, budget: 1500, aggression: 'advisor',
+  }))));
+
+  const letto = readBackupFile(vecchio);
+  assert.equal(letto.format, 'momentum-dna-legacy');
+  assert.equal(letto.serve, 'niente');
+  // La chiave del mese era stata PERSA dall'appiattimento: si ricostruisce
+  // dalla data, che c'e' sempre.
+  assert.deepEqual(Object.keys(letto.state.transactions).sort(), ['2026-07', '2026-08']);
+  assert.equal(letto.state.transactions['2026-07'][0].description, 'Esselunga');
+  assert.equal(letto.state.monthlyBudget, 1500);
+});
+
+test('un vecchio file "DNA" dichiara cosa NON riporta indietro', () => {
+  // Era un backup parziale spacciato per completo. Ripristinarlo in silenzio
+  // farebbe credere di aver recuperato anche obiettivi e fatture.
+  const vecchio = btoa(unescape(encodeURIComponent(JSON.stringify({
+    meta: { schema: 50.0 }, transactions: [], budget: 1200,
+  }))));
+  assert.match(readBackupFile(vecchio).parziale, /NON obiettivi, fatture/);
+});
+
+test('movimenti senza data non spariscono: finiscono in "sconosciuto"', () => {
+  const vecchio = btoa(unescape(encodeURIComponent(JSON.stringify({
+    transactions: [{ id: 7, amount: 5, description: 'senza data' }],
+  }))));
+  const letto = readBackupFile(vecchio);
+  assert.equal(letto.state.transactions['sconosciuto'].length, 1);
+});
+
+test('spazzatura → errore chiaro, mai uno stato mezzo costruito', () => {
+  assert.throws(() => readBackupFile('non sono un backup'), /non riconosciuto/);
+  assert.throws(() => readBackupFile('{"format":"qualcos-altro"}'), /non riconosciuto/);
+  assert.throws(() => readBackupFile(''), /vuoto/);
+  // Base64 valido ma senza l'elenco dei movimenti: non e' un file DNA.
+  assert.throws(() => readBackupFile(btoa('{"ciao":1}')), /non riconosciuto/);
+});
+
 test('kit di recupero: ogni pezzo si spiega da solo, senza gergo', async () => {
   const { createRecoveryKit } = await import('./backup.js');
   const kit = await createRecoveryKit({ tx: [] }, { threshold: 2, total: 3 });

@@ -167,7 +167,7 @@ import { loadOrCreateExchangeIdentity, openSealedAny, statoIdentita } from './me
 import { loadOrCreateDeviceIdentity } from './mesh/device-signing-identity.js';
 import { verificationWords, addTrustedDevice, isTrustedKey } from './mesh/device-trust.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
-import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares } from './core/backup.js';
+import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handlePDFUpload } from './import/pdf-parser.js';
@@ -8787,18 +8787,42 @@ window.exportEncryptedBackup = async () => {
   } catch (e) { showToast(e.message, 'error'); }
 };
 
+// Ripristino di QUALUNQUE file .momentum prodotto da quest'app.
+// Prima si guarda cosa e' il file, POI si chiede all'utente solo cio' che
+// manca davvero: chiedere la passphrase di un file che non ne ha una era il
+// modo piu' rapido per far credere a qualcuno che il suo backup fosse rotto.
 window.restoreEncryptedBackup = async (file) => {
-  const pass = prompt('Passphrase del backup:');
-  if (!pass) return;
+  let letto;
   try {
-    const envelope = JSON.parse(await file.text());
-    const restored = await decryptBackup(envelope, pass);
-    if (!confirm('Ripristinare sovrascriverà i dati attuali su questo dispositivo. Procedere?')) return;
-    VaultDAO.state = { ...VaultDAO.state, ...restored, currentDate: new Date() };
-    VaultDAO.save();
-    showToast('Dati ripristinati. Ricarico…', 'success');
-    setTimeout(() => window.location.reload(), 1000);
-  } catch (e) { showToast(e.message, 'error'); }
+    letto = readBackupFile(await file.text());
+  } catch (e) { showToast(e.message, 'error'); return; }
+
+  let restored = null;
+  try {
+    if (letto.serve === 'passphrase') {
+      const pass = prompt('Passphrase del backup:');
+      if (!pass) return;
+      restored = await decryptBackup(letto.envelope, pass);
+    } else if (letto.serve === 'pezzi') {
+      // Questo file vuole i pezzi del kit, che hanno una schermata dedicata:
+      // mandarci l'utente e' meglio che chiedergli di incollarli in un prompt.
+      showToast('Questo e un kit di recupero: aprilo da "Kit di recupero", servono 2 pezzi su 3.', 'error');
+      return;
+    } else {
+      restored = letto.state;
+    }
+  } catch (e) { showToast(e.message, 'error'); return; }
+
+  if (!restored) { showToast('Il file non contiene dati da ripristinare.', 'error'); return; }
+
+  // Cosa NON torna indietro va detto PRIMA di sovrascrivere, non dopo.
+  const avvisoParziale = letto.parziale ? `\n\n${letto.parziale}` : '';
+  if (!confirm(`Ripristinare sovrascriverà i dati attuali su questo dispositivo. Procedere?${avvisoParziale}`)) return;
+
+  VaultDAO.state = { ...VaultDAO.state, ...restored, currentDate: new Date() };
+  VaultDAO.save();
+  showToast('Dati ripristinati. Ricarico…', 'success');
+  setTimeout(() => window.location.reload(), 1000);
 };
 
 // ---- Aggiornamento autonomo dei dati, anche senza una nuova versione ----
@@ -9511,22 +9535,25 @@ window.connectWebRTCPeer = () => {
   }
 };
 
-window.exportOmegaDNA = () => {
-  const flat = [];
-  Object.keys(VaultDAO.state.transactions).forEach(m => flat.push(...VaultDAO.state.transactions[m]));
-  const payload = btoa(unescape(encodeURIComponent(JSON.stringify({
-    meta: { schema: SCHEMA_VERSION, generatedAt: new Date().toISOString() },
-    transactions: flat,
-    budget: VaultDAO.state.monthlyBudget,
-    aggression: VaultDAO.state.aiAggression
-  }))));
-  const blob = new Blob([payload], { type: 'application/octet-stream' });
-  const link = document.createElement("a");
+// Export in chiaro (src/core/backup.js: exportPlain). Era `exportOmegaDNA`, e
+// produceva un file che l'app stessa non sapeva rileggere — vedi il commento
+// esteso in backup.js. Adesso: stato COMPLETO, formato dichiarato dentro il
+// file, riapribile da restoreBackupFile, e il nome del file avvisa da solo.
+window.exportPlainBackup = () => {
+  const busta = exportPlain(VaultDAO.state);
+  const blob = new Blob([JSON.stringify(busta, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `momentum_dna_${Date.now()}.momentum`;
+  // Il nome dice cosa e': chi lo ritrova in una cartella non deve aprirlo per
+  // scoprire che e' leggibile da chiunque.
+  link.download = `momentum-IN-CHIARO-${new Date().toISOString().slice(0, 10)}.momentum`;
   link.click();
-  showToast("DNA Esportato con successo.", "success");
+  URL.revokeObjectURL(link.href);
+  showToast('Copia salvata. Non e cifrata: tienila in un posto sicuro.', 'success');
 };
+// Il vecchio nome resta agganciato: se un pulsante o una scorciatoia lo chiama
+// ancora, deve fare la cosa giusta invece di sparire.
+window.exportOmegaDNA = window.exportPlainBackup;
 
 // Spiegazione concreta di ogni livello del freno spese (cambia col tocco → si
 // capisce la differenza, e mostra che è integrato coi segnali reali del Core).

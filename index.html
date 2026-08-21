@@ -3616,11 +3616,14 @@
                  <!-- Import UNIFICATO: N file di formato MISTO (CSV+PDF+screenshot) in una sola selezione -->
                  <input type="file" id="multi-upload" accept=".csv,.pdf,image/*" multiple class="hidden">
                  <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold text-sm sm:text-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa tutto <span class="hidden sm:inline">(CSV · PDF · Screenshot — anche 50 insieme)</span></button>
-                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-auto">
+                 <!-- Solo IMPORT qui dentro. Il vecchio pulsante "DNA" stava in
+                      questa fila ed era un EXPORT: sembrava un formato da
+                      caricare, e il file che produceva non si poteva nemmeno
+                      rileggere. Ora sta con gli altri backup, più in basso. -->
+                 <div class="grid grid-cols-3 gap-2 sm:gap-3 mt-auto">
                    <button onclick="document.getElementById('csv-upload').click()" class="btn-action">CSV</button>
                    <button onclick="document.getElementById('pdf-upload').click()" class="btn-action">PDF Banca</button>
                    <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action">Screenshot</button>
-                   <button onclick="exportOmegaDNA()" class="btn-action">DNA</button>
                  </div>
               </div>
 
@@ -3701,6 +3704,16 @@
                           <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" />
                         </label>
                       </div>
+                      </details>
+                      <!-- Copia IN CHIARO. Esiste perché c'è chi non vuole né una
+                           password da ricordare né tre fogli da custodire — ma qui
+                           è dichiarata per quello che è, sta insieme agli altri
+                           backup (non fra gli import), e il file prodotto si
+                           riapre davvero da "Ripristina". -->
+                      <details class="mt-1">
+                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Voglio solo una copia leggibile, senza password</summary>
+                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2">Il file <strong>non è cifrato</strong>: chiunque lo apra legge tutti i tuoi dati. Va bene solo se lo tieni in un posto che consideri già sicuro.</p>
+                        <button onclick="window.exportPlainBackup()" class="btn-action w-full text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Salva una copia in chiaro</button>
                       </details>
                       <button onclick="window.exportTrainingData()" class="text-[10px] text-[var(--on-surface-secondary)] underline">Esporta dati per riaddestrare il modello (per gli sviluppatori)</button>
                     </div>
