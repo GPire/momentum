@@ -962,6 +962,10 @@
     }
     @keyframes installBtnBreath { 0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.35); } 50% { box-shadow: 0 0 0 6px rgba(99,102,241,0); } }
     #install-guide-btn:not(.hidden) { animation: installBtnBreath 2.6s ease-in-out infinite; }
+    /* Stesso respiro del pulsante d'installazione, riusato qui per lo stesso
+       motivo: un invito importante che non deve urlare, solo respirare. */
+    .import-cta-respiro { animation: installBtnBreath 2.6s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .import-cta-respiro { animation: none; } }
     /* Stack di alert/insight in Analisi (Spese insolite, Budget da aggiornare,
        Avanzo sicuro, ecc.): stessa disciplina a scaglione di .tx-in, così le
        card entrano in sequenza invece di comparire tutte insieme in blocco. */
@@ -3056,16 +3060,37 @@
                  banner permanente — sparisce da sola appena arrivano dati veri,
                  stessa logica di ghost-forecast e delle altre card condizionali
                  qui sopra. -->
-            <div id="import-cta" class="card p-4 sm:p-5 shrink-0 hidden">
-              <div class="flex items-center gap-3.5">
-                <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
-                <div class="min-w-0">
-                  <h3 class="font-bold text-sm sm:text-base">Vedi i tuoi soldi veri, non l'esempio</h3>
-                  <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Importa l'estratto conto — CSV, PDF o anche uno screenshot.</p>
-                </div>
-              </div>
-              <button onclick="document.getElementById('multi-upload').click()" class="btn-action btn-primary w-full mt-3.5 font-bold text-sm sm:text-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa i tuoi movimenti</button>
+            <!-- SECONDO GIRO DI DESIGN, non solo colori. Il primo tentativo
+                 (card con bordo + icona in un cerchio piatto + bottone) era
+                 ESATTAMENTE l'errore già scritto e corretto altrove in questo
+                 file per la striscia del mese (vedi il commento a
+                 ".mese-strip" qui sotto): forme diverse — un riquadro, un
+                 cerchio, una barra — bollate insieme non sono "coerenti", sono
+                 rumore. L'orb ipnotizza perché è UNA COSA SOLA. Qui niente
+                 card, niente bordo, niente icona a parte: solo testo che
+                 galleggia sullo sfondo stellato come .orb-contesto, e UN
+                 bagliore che respira — la stessa materia del pulsante
+                 dell'app, non un secondo oggetto accanto. -->
+            <div id="import-cta" class="ghost-hero text-center shrink-0 hidden" style="max-width:min(340px,88%); margin:0 auto;">
+              <!-- Stesso ritmo del testo di Genesis (index.html: "Niente esce
+                   da qui."): un'affermazione breve e diretta, poi UNA riga
+                   calma che spiega. Non una frase sola che incolla titolo e
+                   istruzione con un due punti — quella non ha un ritmo, è
+                   un elenco travestito da frase. -->
+              <h3 class="text-base font-black leading-tight mb-1">Vedi i tuoi soldi veri.</h3>
+              <p class="text-xs sm:text-[13px] text-[var(--on-surface-secondary)] leading-snug mb-3">Non l'esempio: importa il tuo estratto conto — CSV, PDF o anche uno screenshot.</p>
+              <button onclick="document.getElementById('multi-upload').click()" class="btn-action btn-primary import-cta-respiro px-6 py-3 font-bold text-sm mx-auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa i tuoi movimenti</button>
             </div>
+
+            <!-- Avviso dataset dimostrativo (src/ui/demo-dataset.js): PRIMA di
+                 qualunque predizione, non dopo. Stava sotto TUTTI i blocchi
+                 sottostanti (previsione di cassa, prossima spesa, insight,
+                 veglia mercati, perfino le 4 tessere numeriche): un utente
+                 poteva leggere sei numeri costruiti sul demo prima di sapere
+                 che erano finti. Sempre visibile finché l'esempio è attivo,
+                 mai nascosto in un angolo. Ambra = "momento consapevole",
+                 mai rosso-colpa. -->
+            <div id="demo-banner" class="hidden shrink-0"></div>
 
             <!-- ── IL SELETTORE DEL MESE ──
                  Era una pillola opaca con bordo, in mezzo a una schermata
@@ -3094,10 +3119,55 @@
               </button>
             </div>
 
+            <!-- UN FUOCO ALLA VOLTA, PARTE 2: le quattro tessere e la barra
+                 entrate/uscite sono FATTI (quello che è già successo questo
+                 mese), non predizioni — vengono subito dopo l'orb e il mese,
+                 prima di qualunque previsione. Prima stavano sotto sei blocchi
+                 di predizione: un utente nuovo scorreva sei "forse" prima di
+                 vedere un numero certo. -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 shrink-0">
+              <!-- Le quattro tessere usano la scala condivisa invece di nove
+                   classi di utilita' ciascuna: cosi' cambiare la gerarchia si
+                   fa in un posto solo, e non possono divergere fra loro. -->
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--green)">
+                <p class="t-etichetta mb-1 truncate">Entrate</p>
+                <p id="total-income" class="t-dato t-dato-l text-[var(--green)] font-mono truncate">€0</p>
+              </div>
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--red)">
+                <p class="t-etichetta mb-1 truncate">Uscite</p>
+                <p id="total-expense" class="t-dato t-dato-l text-[var(--red)] font-mono truncate">€0</p>
+              </div>
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--cyan)">
+                <!-- "Capitale Libero" era gergo, come nell'orb: qui la
+                     differenza fra entrate e uscite del mese si chiama con le
+                     parole con cui la si pensa. -->
+                <p class="t-etichetta mb-1 truncate" style="color:color-mix(in srgb, var(--cyan) 78%, transparent)">Quanto avanza</p>
+                <p id="total-liquidity" class="t-dato t-dato-l text-[var(--cyan)] font-mono truncate">€0</p>
+              </div>
+              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--gold)">
+                <p class="t-etichetta mb-1 truncate">Investito</p>
+                <p id="total-invest" class="t-dato t-dato-l text-[var(--gold)] font-mono truncate">€0</p>
+              </div>
+            </div>
+            <!-- Barra entrate/uscite: i 4 numeri sopra richiedono di fare la
+                 sottrazione a mente per capire il margine. Una barra a due
+                 colori (verde=entrate, rosso=uscite) sulla STESSA scala rende
+                 il rapporto visibile a colpo d'occhio, senza calcoli. -->
+            <div class="card p-3 sm:p-4 shrink-0" id="income-expense-bar-card">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                <span>Entrate vs uscite</span>
+                <span id="income-expense-bar-note"></span>
+              </div>
+              <div class="h-2.5 rounded-full bg-white/5 overflow-hidden flex">
+                <div id="income-expense-bar-inc" class="h-full bg-emerald-400/70" style="width:50%"></div>
+                <div id="income-expense-bar-exp" class="h-full bg-rose-400/70" style="width:50%"></div>
+              </div>
+            </div>
+
+            <!-- Da qui in giù: le PREDIZIONI, dopo i fatti — mai prima. -->
+
             <!-- "Il tuo mese, senza sorprese" (Cassa Unica): quando disponibile è LA
-                 risposta a "quanto posso spendere" — spostata qui, subito dopo l'orb,
-                 perché ora è il numero più importante della dashboard (non più sepolta
-                 sotto le tessere statistiche e il Salvadanaio). Un fuoco alla volta. -->
+                 risposta a "quanto posso spendere". Un fuoco alla volta. -->
             <div id="ghost-forecast" class="hidden shrink-0 mb-3"></div>
 
             <!-- Prossima spesa probabile (src/predict/command-center.js): in base
@@ -3144,50 +3214,6 @@
               </div>
               <div id="qa-suggestions" class="flex flex-wrap gap-1.5 mt-2.5"></div>
               <div id="qa-answer" class="text-xs mt-3 hidden p-3 rounded-xl"></div>
-            </div>
-
-            <!-- Avviso dataset dimostrativo (src/ui/demo-dataset.js): sempre
-                 visibile finché l'esempio è attivo, mai nascosto in un angolo.
-                 Ambra = "momento consapevole", mai rosso-colpa. -->
-            <div id="demo-banner" class="hidden shrink-0"></div>
-
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 shrink-0">
-              <!-- Le quattro tessere usano la scala condivisa invece di nove
-                   classi di utilita' ciascuna: cosi' cambiare la gerarchia si
-                   fa in un posto solo, e non possono divergere fra loro. -->
-              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--green)">
-                <p class="t-etichetta mb-1 truncate">Entrate</p>
-                <p id="total-income" class="t-dato t-dato-l text-[var(--green)] font-mono truncate">€0</p>
-              </div>
-              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--red)">
-                <p class="t-etichetta mb-1 truncate">Uscite</p>
-                <p id="total-expense" class="t-dato t-dato-l text-[var(--red)] font-mono truncate">€0</p>
-              </div>
-              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--cyan)">
-                <!-- "Capitale Libero" era gergo, come nell'orb: qui la
-                     differenza fra entrate e uscite del mese si chiama con le
-                     parole con cui la si pensa. -->
-                <p class="t-etichetta mb-1 truncate" style="color:color-mix(in srgb, var(--cyan) 78%, transparent)">Quanto avanza</p>
-                <p id="total-liquidity" class="t-dato t-dato-l text-[var(--cyan)] font-mono truncate">€0</p>
-              </div>
-              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--gold)">
-                <p class="t-etichetta mb-1 truncate">Investito</p>
-                <p id="total-invest" class="t-dato t-dato-l text-[var(--gold)] font-mono truncate">€0</p>
-              </div>
-            </div>
-            <!-- Barra entrate/uscite: i 4 numeri sopra richiedono di fare la
-                 sottrazione a mente per capire il margine. Una barra a due
-                 colori (verde=entrate, rosso=uscite) sulla STESSA scala rende
-                 il rapporto visibile a colpo d'occhio, senza calcoli. -->
-            <div class="card p-3 sm:p-4 shrink-0" id="income-expense-bar-card">
-              <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
-                <span>Entrate vs uscite</span>
-                <span id="income-expense-bar-note"></span>
-              </div>
-              <div class="h-2.5 rounded-full bg-white/5 overflow-hidden flex">
-                <div id="income-expense-bar-inc" class="h-full bg-emerald-400/70" style="width:50%"></div>
-                <div id="income-expense-bar-exp" class="h-full bg-rose-400/70" style="width:50%"></div>
-              </div>
             </div>
 
             <!-- SALVADANAIO: riserva cumulata + stato sicurezza + segna-avanzo.
