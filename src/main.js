@@ -11059,6 +11059,23 @@ window.applyBudgetSuggestion = (value) => {
 // ==========================================
 const initApp = () => {
   try { initTelemetryToggle(); } catch (e) { console.error('initTelemetryToggle:', e); }
+  // Il pianificatore (src/ai/pianificatore.js): registra le capacità che
+  // rispondono a un'interrogazione tipizzata. IMPORT DINAMICO apposta — non
+  // per bloccare l'avvio (il calcolo è banale) ma perché capacita-
+  // registrate.js trascina il pannello storico dei nove settori e l'archivio
+  // SEC (historical-panel.js, fondamentali-storici.js): messo in cima come
+  // import statico, +170KB nel bundle principale MISURATI (1.519,69KB →
+  // 1.690,15KB con `npm run build`) per capacità che oggi nessuna domanda
+  // reale raggiunge ancora — esattamente il peso che il piano chiede di far
+  // scendere, non salire. In coda, a inattività, come precaricaMercato poco
+  // sopra: pesa zero sul primo caricamento, resta pronto appena serve.
+  try {
+    (window.requestIdleCallback || ((fn) => setTimeout(fn, 2000)))(() => {
+      import('./alpha/capacita-registrate.js')
+        .then(({ registraCapacitaCausali }) => registraCapacitaCausali())
+        .catch((e) => console.error('registraCapacitaCausali:', e));
+    });
+  } catch (e) { console.error('registraCapacitaCausali (schedulazione):', e); }
   // Le regole fiscali adottate in una sessione precedente devono valere SUBITO,
   // dal primo numero mostrato — non dal prossimo aggiornamento riuscito.
   try { applicaRegoleFiscaliAttive(); } catch (e) { console.warn('Regole fiscali attive non applicate:', e); }
