@@ -310,6 +310,30 @@ const VaultDAO = {
     }
   },
 
+  // Correggere la categoria era IMPOSSIBILE: la riga di un movimento aveva
+  // solo il cestino (main.js: rigaTx). Dopo un import di centinaia di righe
+  // con categorizzazione imperfetta, l'unica azione era eliminare — e tutta
+  // l'infrastruttura che impara dalle correzioni (orchestrator.learn():
+  // gerarchia esercenti, morfologia, rete neurale online, DCGN) restava
+  // alimentata solo dal form di aggiunta manuale, mai dalla lista.
+  //
+  // NON tocca hash/prevHash: quella catena serve al digest del sync mesh
+  // (src/mesh/sync.js), che identifica le transazioni per ID, non per hash
+  // — un id già noto al peer non viene mai re-inviato ne' re-scritto in quel
+  // merge, quindi ricalcolare l'hash qui non lo romperebbe ma non servirebbe
+  // a nulla: la correzione locale resta locale, come ogni altra modifica di
+  // stato che questo vault non propaga automaticamente agli altri device.
+  updateTransactionCategory(month, id, newCategory) {
+    const list = this.state.transactions[month];
+    if (!list) return null;
+    const tx = list.find(t => t.id === id);
+    if (!tx || tx.category === newCategory) return null;
+    const prima = tx.category;
+    tx.category = newCategory;
+    this.save();
+    return { id, prima, dopo: newCategory };
+  },
+
   // Applica un merge di sync differenziale (src/mesh/sync.js): unisce le
   // transazioni ricevute da un device fidato senza toccare quelle esistenti
   // (hash chain intatta) e riallinea la testa della catena. Ritorna quante

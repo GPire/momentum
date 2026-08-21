@@ -2402,7 +2402,12 @@ const renderDashboard = () => {
     return `
       <div class="tx-card group" data-id="${t.id}">
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-          <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
+          <!-- Prima era un &lt;div&gt; muto: l'unica azione sulla riga era il
+               cestino. Ora l'icona e' un bottone che apre il cambio categoria —
+               senza, dopo un import imperfetto l'unica scelta era eliminare, e
+               l'apprendimento dalle correzioni (orchestrator.learn) restava
+               alimentato solo dal form di aggiunta manuale. -->
+          <button onclick="window.openCategoryPicker('${k}', ${t.id})" aria-label="Cambia categoria: ${escTx(c.name)}" title="Cambia categoria" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</button>
           <div class="min-w-0 pr-2 flex-1">
              <!-- La descrizione e' quello che si LEGGE per riconoscere il
                   movimento; l'importo e' il dato. Prima erano entrambi al
@@ -2410,7 +2415,7 @@ const renderDashboard = () => {
                   ogni riga: in una lista di trenta, se tutto grida non spicca
                   niente e scorrerla diventa faticoso. -->
              <p class="tx-desc truncate flex items-center"><span class="truncate">${escTx(descLabel)}</span></p>
-             <p class="tx-data truncate">${escTx(dateLabel)}</p>
+             <button onclick="window.openCategoryPicker('${k}', ${t.id})" class="tx-data truncate text-left hover:underline decoration-dotted underline-offset-2">${escTx(dateLabel)}</button>
           </div>
         </div>
         <div class="flex flex-col items-end shrink-0 pl-2">
@@ -2448,6 +2453,56 @@ window.deleteTx = (k, id) => {
       finish();
     }
   }
+};
+
+// Trova una transazione per id in un dato mese — helper condiviso fra il
+// selettore di categoria e chi lo consuma.
+function findTx(month, id) {
+  const list = VaultDAO.state.transactions[month];
+  return list ? list.find(t => t.id === id) : null;
+}
+
+// Apre il selettore di categoria per un movimento. Filtrato per TYPE: cambiare
+// una spesa in "Stipendio" (un'entrata) non ha senso, non e' nell'elenco.
+window.openCategoryPicker = (month, id) => {
+  const tx = findTx(month, id);
+  if (!tx) return;
+  const scelte = getCatsByType(tx.type);
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 modal-section-in">
+      <div class="text-center">
+        <h3 class="text-lg font-black leading-tight">Che categoria è?</h3>
+        <p class="card-sub !mb-0 mt-1.5">${escapeHtml(tx.description || '')} · ${formatMoney(tx.amount)}</p>
+      </div>
+      <div class="grid grid-cols-3 gap-2.5 w-full">
+        ${scelte.map(c => `
+          <button onclick="window.setTxCategory('${month}', ${id}, '${c.id}')" class="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border ${c.id === tx.category ? 'border-[var(--primary)] bg-white/5' : 'border-[var(--glass-border)]'} hover:bg-white/5 transition">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
+            <span class="text-[10px] font-bold text-center leading-tight">${escapeHtml(c.name)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>`);
+};
+
+// Applica la categoria scelta: aggiorna il vault, RIALIMENTA l'orchestrator
+// (esattamente come fa il form di aggiunta manuale — vedi orchestrator.learn
+// nelle altre chiamate in questo file), e ridisegna. È il canale che mancava:
+// senza, tutta l'infrastruttura che impara dalle correzioni (gerarchia
+// esercenti, morfologia, rete neurale online, DCGN) restava alimentata solo
+// da chi inseriva a mano, mai da chi correggeva la lista.
+window.setTxCategory = (month, id, newCat) => {
+  const tx = findTx(month, id);
+  if (!tx) { window.closeModal(); return; }
+  const esito = VaultDAO.updateTransactionCategory(month, id, newCat);
+  window.closeModal();
+  if (!esito) return; // era già quella categoria: nessun cambiamento, nessun rumore
+  try {
+    window.momentumOrchestrator?.learn(tx.description, newCat, tx.amount, new Date(tx.date));
+  } catch (e) { console.warn('Apprendimento dalla correzione fallito (la categoria è comunque cambiata):', e); }
+  renderDashboard();
+  renderAnalysis();
+  showToast(`Spostata in "${getCatById(newCat).name}".`, 'success');
 };
 
 window.toggleSound = () => {
