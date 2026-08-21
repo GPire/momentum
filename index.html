@@ -2638,6 +2638,27 @@
     .t-dato-xl { font-size: clamp(1.5rem, 7.5vw, 2.5rem); font-weight: 900; }
     .t-dato-l  { font-size: clamp(1.05rem, 4.6vw, 1.4rem); }
     .t-dato-m  { font-size: 13px; }
+
+    /* Le 4 tessere (Entrate/Uscite/Quanto avanza/Investito): BUG REALE
+       segnalato dall'utente e verificato dal vivo — a 375px "1270,59 €" e
+       "-1270,59 €" uscivano tagliati (scrollWidth 117-130px contro un box di
+       90px), perché .t-dato-l dipende dalla larghezza del VIEWPORT (vw), non
+       da quella della card — che è diversa a 2 colonne (mobile) o 4 (desktop,
+       lg:grid-cols-4). Nascondere una cifra di un importo non è un difetto
+       estetico, è un dato sbagliato mostrato all'utente: non si sistema con
+       un'ellissi. container-type sulla griglia rende .t-dato-tessera
+       consapevole della VERA larghezza disponibile (cqi), in modo nativo per
+       ogni combinazione dispositivo/colonne — non un numero indovinato. Se
+       anche così un importo eccezionalmente lungo non ci stesse, va a capo
+       (mai truncate: un importo troncato è peggio di uno su due righe). */
+    .tessere-grid { container-type: inline-size; }
+    /* Tetto misurato pixel per pixel con Canvas.measureText nello stesso font
+       (DM Mono 800), non indovinato: a 1440px con barra laterale + Command
+       Center desktop la card utile e' 90px (138px meno il padding), e
+       "1270,59 €" in quello spazio entra su una riga esattamente fino a 16px
+       (1rem) — un rem in piu' e andava gia' a capo. 0.95rem lascia un margine
+       di sicurezza reale, non a occhio. */
+    .t-dato-tessera { font-size: clamp(0.8rem, 4cqi, 0.95rem); white-space: normal; overflow-wrap: break-word; }
     .t-nota {
       font-size: 10.5px; font-weight: 400; line-height: 1.45;
       color: color-mix(in srgb, var(--on-surface-secondary) 55%, transparent);
@@ -3125,28 +3146,30 @@
                  prima di qualunque previsione. Prima stavano sotto sei blocchi
                  di predizione: un utente nuovo scorreva sei "forse" prima di
                  vedere un numero certo. -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 shrink-0">
+            <div class="tessere-grid grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 shrink-0">
               <!-- Le quattro tessere usano la scala condivisa invece di nove
                    classi di utilita' ciascuna: cosi' cambiare la gerarchia si
-                   fa in un posto solo, e non possono divergere fra loro. -->
+                   fa in un posto solo, e non possono divergere fra loro.
+                   t-dato-tessera (non t-dato-l): un importo non si tronca mai,
+                   vedi il commento sopra .tessere-grid. -->
               <div class="card card-accento p-4 sm:p-6" style="--accento:var(--green)">
                 <p class="t-etichetta mb-1 truncate">Entrate</p>
-                <p id="total-income" class="t-dato t-dato-l text-[var(--green)] font-mono truncate">€0</p>
+                <p id="total-income" class="t-dato t-dato-tessera text-[var(--green)] font-mono">€0</p>
               </div>
               <div class="card card-accento p-4 sm:p-6" style="--accento:var(--red)">
                 <p class="t-etichetta mb-1 truncate">Uscite</p>
-                <p id="total-expense" class="t-dato t-dato-l text-[var(--red)] font-mono truncate">€0</p>
+                <p id="total-expense" class="t-dato t-dato-tessera text-[var(--red)] font-mono">€0</p>
               </div>
               <div class="card card-accento p-4 sm:p-6" style="--accento:var(--cyan)">
                 <!-- "Capitale Libero" era gergo, come nell'orb: qui la
                      differenza fra entrate e uscite del mese si chiama con le
                      parole con cui la si pensa. -->
                 <p class="t-etichetta mb-1 truncate" style="color:color-mix(in srgb, var(--cyan) 78%, transparent)">Quanto avanza</p>
-                <p id="total-liquidity" class="t-dato t-dato-l text-[var(--cyan)] font-mono truncate">€0</p>
+                <p id="total-liquidity" class="t-dato t-dato-tessera text-[var(--cyan)] font-mono">€0</p>
               </div>
               <div class="card card-accento p-4 sm:p-6" style="--accento:var(--gold)">
                 <p class="t-etichetta mb-1 truncate">Investito</p>
-                <p id="total-invest" class="t-dato t-dato-l text-[var(--gold)] font-mono truncate">€0</p>
+                <p id="total-invest" class="t-dato t-dato-tessera text-[var(--gold)] font-mono">€0</p>
               </div>
             </div>
             <!-- Barra entrate/uscite: i 4 numeri sopra richiedono di fare la
