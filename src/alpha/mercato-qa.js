@@ -292,6 +292,12 @@ export function intentoMercato(domanda, similarity = null) {
   if (ha(q, 'aziende piu solide', 'aziende piu costanti', 'quali aziende hanno guadagnato sempre',
     'chi guadagna bene da piu tempo', 'classifica delle aziende', 'aziende di qualita')) return 'classifica-qualita';
 
+  // "L'ho presa nel 2015, come vanno i conti?" — la tesi raccontata anno per
+  // anno. Serve un anno nella domanda, altrimenti non c'e' un punto di
+  // partenza e si chiede quale.
+  if (ha(q, 'l ho presa nel', 'l ho comprata nel', 'comprata nel', 'presa nel', 'comprate nel',
+    'da quando l ho', 'come vanno i conti', 'la mia tesi', 'valgono ancora le ragioni')) return 'tesi-storica';
+
   // "Cosa devo guardare prima di comprare?" — la domanda giusta, e l'unica
   // vicina a "cosa compro" a cui si PUO' rispondere: non quale titolo, ma
   // quali domande farsi. Va PRIMA del rifiuto? No: dopo, perche' il rifiuto
@@ -470,6 +476,21 @@ export function rispostaSincrona(domanda, similarity = null) {
       for (const [k, alias] of QUALE) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) return k;
       return null;
     };
+
+    if (intento === 'tesi-storica') {
+      const qn = normalizza(domanda);
+      const T = qual.FONDAMENTALI_STORICI;
+      const anno = (qn.match(/\b(19|20)\d{2}\b/) || [])[0];
+      let tick = null;
+      for (const t of Object.keys(T)) {
+        const nomeBreve = normalizza(T[t].nome).split(/[ ,.]/)[0];
+        if (new RegExp(`\\b${normalizza(t)}\\b`).test(qn) || (nomeBreve.length >= 4 && qn.includes(nomeBreve))) { tick = t; break; }
+      }
+      if (!tick) return { intent: 'mercato-tesi-storica', answer: `Di quale azienda? Ho i bilanci depositati per ${Object.keys(T).length} societa' quotate negli Stati Uniti.` };
+      if (!anno) return { intent: 'mercato-tesi-storica', answer: `In che anno l'hai comprata? Senza un punto di partenza non posso dirti cosa e' cambiato da allora — e non lo indovino.` };
+      const st = tesi.storiaDellaTesi(tick, +anno);
+      return { intent: 'mercato-tesi-storica', data: st, answer: tesi.testoStoriaTesi(st) };
+    }
 
     if (intento === 'qualita-storica') {
       // Quale azienda nomina la domanda: si cerca fra i ticker disponibili e
