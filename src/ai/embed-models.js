@@ -61,12 +61,22 @@ export const MODELLI = {
   'e5-small': {
     id: 'Xenova/multilingual-e5-small',
     dtype: 'q8',
-    // QUALE BACKEND, e non e' un dettaglio: la quantizzazione a 8 bit e'
-    // pensata per WASM, e chiederla insieme a WebGPU lascia il caricamento
-    // appeso senza mai fallire — trovato provandolo dal vivo, con il modello
-    // fermo dopo il tokenizer su una macchina con webgpu attivo. Un
-    // caricamento che non finisce e non da' errore e' peggio di uno che
-    // fallisce: l'utente aspetta per sempre una funzione che non arrivera'.
+    // QUALE BACKEND, e non e' un dettaglio: RIMISURATO dal vivo il 2026-08-21,
+    // con navigator.gpu disponibile e funzionante sulla macchina di prova:
+    //   q8   + webgpu: NON si blocca, ma e' 6,6x PIU' LENTO di wasm a regime
+    //                  (113ms contro 18-19ms per inferenza, 5 giri, dopo il
+    //                  caricamento) — atteso: q8/int8 e' la via ottimizzata
+    //                  di WASM, non quella delle shader WebGPU qui.
+    //   fp32 + webgpu: BLOCCA il thread di rendering per oltre 45 secondi
+    //                  (poi si libera da solo) — lo stesso sintomo gia'
+    //                  documentato in precedenza con q8 su un'altra macchina,
+    //                  solo innescato da una combinazione diversa. Un
+    //                  bloccaggio del genere e' peggio di un errore: l'utente
+    //                  non vede nulla succedere, non solo aspetta un
+    //                  download lento.
+    // Conclusione stabile su due misure indipendenti: WebGPU resta SPENTO
+    // per questo modello, non perche' "non ancora provato" ma perche' provato
+    // e trovato peggiore in entrambe le configurazioni testate.
     backend: 'wasm',
     // La famiglia E5 e' addestrata con questo prefisso e SENZA di esso perde
     // parecchio. Applicato in modo simmetrico ai due testi, perche' qui si
