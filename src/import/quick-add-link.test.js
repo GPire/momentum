@@ -75,6 +75,23 @@ test('buildQuickAddPrefill: senza orchestratore disponibile (caso raro, app non 
   assert.equal(prefill.amount, 10);
 });
 
+// BUG REALE trovato testando dal vivo in Chrome: la valuta veniva estratta
+// e validata da extractQuickAddParams ma si perdeva prima del salvataggio —
+// una transazione in sterline finiva sommata al totale euro senza
+// conversione né segnalazione (esattamente il numero inventato che
+// currency-convert.js/dashboard esistono per evitare).
+test('buildQuickAddPrefill: la valuta rilevata nel link ARRIVA nel prefill, non si perde', () => {
+  const orch = { classify: () => ({ cat: 'spesa' }) };
+  const prefill = buildQuickAddPrefill({ amount: 45.20, merchant: 'TESCO', currency: 'GBP', card: 'Visa' }, orch);
+  assert.equal(prefill.currency, 'GBP');
+});
+
+test('buildQuickAddPrefill: senza valuta nel link, il prefill non ne dichiara una a caso', () => {
+  const orch = { classify: () => ({ cat: 'spesa' }) };
+  const prefill = buildQuickAddPrefill({ amount: 10, merchant: 'TESCO', currency: null, card: null }, orch);
+  assert.equal(prefill.currency, null);
+});
+
 test('buildQuickAddSetupInstructions: usa il dominio reale del dispositivo, non un segnaposto', () => {
   const r = buildQuickAddSetupInstructions('https://momentum.example.app');
   assert.equal(r.url, 'https://momentum.example.app/?quickadd=1&amount=[Importo]&merchant=[Nome esercente]&card=[Nome carta]');

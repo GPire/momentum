@@ -174,6 +174,7 @@ import { backupRisk, placementQuality, recordPlacement, placeLabel } from './cor
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
+import { NeuroSym } from './ai/neurosym.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
@@ -660,6 +661,15 @@ const attachFormListeners = (container, prefill = null) => {
   let rawVal = '';
   let catId = null;
   let selectedDate = new Date();
+  // BUG REALE TROVATO testando dal vivo in Chrome il deep-link quick-add
+  // (src/import/quick-add-link.js): la valuta veniva estratta e validata
+  // dall'URL, ma non arrivava mai al form — una transazione in sterline
+  // veniva salvata come se fosse in euro, sommata al totale base senza
+  // conversione né segnalazione (esattamente il numero inventato che
+  // renderDashboard/currency-convert.js esistono per evitare). Il prefill
+  // manuale non ha mai avuto un campo valuta perché nessuna fonte lo
+  // proponeva prima d'ora — quick-add-link.js è la prima.
+  let currency = null;
 
   // Su mobile #save-tx-btn vive nel piè di pagina fisso (#modal-footer), fuori
   // da `container` (#modal-body); su desktop vive in #form-footer-desktop,
@@ -1416,7 +1426,8 @@ const attachFormListeners = (container, prefill = null) => {
       type,
       category: catId,
       description: desc?.value || getCatById(catId).name,
-      date: selectedDate.toISOString()
+      date: selectedDate.toISOString(),
+      ...(currency ? { currency } : {}),
     }, { dedupWindowHours: 0.25 });
 
     if (window.momentumOrchestrator) {
@@ -1451,6 +1462,7 @@ const attachFormListeners = (container, prefill = null) => {
     }
     if (prefill.amount > 0) rawVal = String(prefill.amount);
     if (prefill.description && desc) desc.value = prefill.description;
+    if (prefill.currency) currency = prefill.currency;
     updateAmount();
   }
   renderSplitPill(); // stato iniziale (con o senza prefill)
@@ -10301,6 +10313,27 @@ document.addEventListener('click', (e) => {
 });
 renderQuickAddGuideCard();
 
+// Pannello "Come funziona Momentum" (src/ai/neurosym.js, NeuroSym.explain):
+// unico chiamante REALE di quel metodo nell'app — vedi il commento in testa
+// a neurosym.js. window.momentumDeviceProfile è lo stesso profilo hardware
+// che l'orchestratore già usa per lo sparse-MoE: cosa mostra questo pannello
+// e cosa attiva davvero l'ensemble sono LO STESSO calcolo, mai due fonti
+// che potrebbero dire cose diverse.
+function renderNeuroSymExplainCard() {
+  const layersEl = document.getElementById('neurosym-explain-layers');
+  if (!layersEl) return;
+  const info = NeuroSym.explain(window.momentumDeviceProfile || null);
+  layersEl.innerHTML = info.layers.map(l => `
+    <div>
+      <p class="text-xs font-bold">${l.name}</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${l.components.join(' · ')}</p>
+      <p class="text-[11px] text-[var(--primary)] mt-0.5">${l.mode}</p>
+    </div>`).join('');
+  const honestyEl = document.getElementById('neurosym-explain-honesty');
+  if (honestyEl) honestyEl.textContent = info.honesty;
+}
+renderNeuroSymExplainCard();
+
 const navigate = (view) => {
   haptic('light');
   VaultDAO.state.currentView = view;
@@ -10339,7 +10372,7 @@ const navigate = (view) => {
   }
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei

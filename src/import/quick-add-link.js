@@ -60,12 +60,22 @@ export function extractQuickAddParams(urlString) {
 }
 
 // Costruisce il prefill per il form di conferma (stessa forma già accettata
-// da attachFormListeners in main.js: { type, category, amount, description }).
-// La categorizzazione usa l'orchestratore VERO (stesso cervello di ogni
-// altro import) — mai una categoria a caso. Un pagamento Apple Pay è quasi
-// sempre un'uscita: la Wallet automation di iOS non dichiara il verso nel
-// payload documentato, quindi qui non si inventa un caso "entrata" mai
-// confermato — dichiarato, non nascosto.
+// da attachFormListeners in main.js: { type, category, amount, description,
+// currency }). La categorizzazione usa l'orchestratore VERO (stesso
+// cervello di ogni altro import) — mai una categoria a caso. Un pagamento
+// Apple Pay è quasi sempre un'uscita: la Wallet automation di iOS non
+// dichiara il verso nel payload documentato, quindi qui non si inventa un
+// caso "entrata" mai confermato — dichiarato, non nascosto.
+//
+// BUG REALE TROVATO testando dal vivo in Chrome: `currency` (già estratta
+// e validata da extractQuickAddParams) non veniva inclusa qui — una
+// transazione in sterline finiva salvata come se fosse in euro, sommata al
+// totale base senza conversione né segnalazione. Esattamente il numero
+// inventato che il lavoro sulla dashboard multi-valuta (currency-convert.js)
+// esiste per evitare — bug reintrodotto da un percorso nuovo che quel
+// lavoro non copriva ancora. `currency` è null quando il link non la
+// dichiara (mai una valuta indovinata): attachFormListeners in quel caso
+// non allega alcun campo, e la transazione resta valuta-base come sempre.
 export function buildQuickAddPrefill(params, orchestrator) {
   const result = orchestrator?.classify
     ? orchestrator.classify(params.merchant, params.amount, new Date())
@@ -75,6 +85,7 @@ export function buildQuickAddPrefill(params, orchestrator) {
     category: result.cat || null,
     amount: params.amount,
     description: params.card ? `${params.merchant} (${params.card})` : params.merchant,
+    currency: params.currency,
   };
 }
 

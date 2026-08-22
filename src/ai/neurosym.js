@@ -1,14 +1,23 @@
 // ============================================================
-// NEUROSYM — il motore AI unificato di Momentum (façade onesta)
+// NEUROSYM — façade di spiegazione (non un router: main.js chiama diretto)
 // ============================================================
-// Un unico punto d'ingresso che orchestra i sottosistemi REALI già costruiti,
-// con spiegazione tracciabile. NON è nuovo codice ML né un LLM: è
-// l'unificazione (nome + API + explain) di ciò che esiste, così che l'app e
-// un investitore/acquirente vedano UN cervello, non moduli sparsi.
-// Onestà (regola #1): ogni sottosistema è quello reale e testato; specs
-// misurate, mai param-count inventati. Vedi NEUROSYM.md.
+// STATO REALE (verificato 2026-08-23, sessione di pulizia codice morto):
+// main.js chiama GIÀ direttamente orchestrator.infer()/qa-engine.answerQuestion()
+// per categorizzazione e Q&A — NeuroSym.categorize()/ask() qui sotto sono
+// wrapper corretti ma NON sul percorso vivo, un'indirezione in più che
+// l'app non attraversa. La catena che UN TEMPO li chiamava (omega.js,
+// executive.js, nb-categorizer.js) era essa stessa irraggiungibile da
+// nessun punto dell'app — rimossa in questa sessione, non solo i tre file
+// ma anche i loro test (erano test di codice mai eseguito in produzione).
 //
-// Sottosistemi orchestrati:
+// L'UNICO metodo qui sotto sul percorso vivo è explain(): main.js lo
+// chiama per il pannello "Come funziona Momentum" (Impostazioni) — l'unica
+// ragione per cui questo file non è stato rimosso insieme al resto della
+// catena. Gli altri metodi restano (wrapper onesti, zero rischio a
+// tenerli) ma sono dichiarati qui per quello che sono: disponibili, non
+// wired.
+//
+// Sottosistemi REALMENTE dietro explain():
 //  - Categorizzazione: orchestrator (dizionario + Nano/Meso/DCGN + sparse-MoE)
 //  - Memoria episodica: DCGN (apprende online, decade)
 //  - Ragionamento causale: causal-graph (co-variazione tra categorie)
@@ -65,7 +74,7 @@ export const NeuroSym = {
         { name: 'Categorizzazione', components: ['dizionario esercenti', 'Nano', 'Meso', 'DCGN'], mode: 'sparse-MoE per tier' },
         { name: 'Memoria episodica', components: ['DCGN grafo online'], mode: 'apprende ad ogni transazione, decade' },
         { name: 'Ragionamento causale', components: ['causal-graph'], mode: 'co-variazione tra categorie' },
-        { name: 'Investimenti', components: ['value/growth/momentum/risk/reflexivity', 'arbitro Munger', 'portfolio risk-parity'], mode: 'strategie dei grandi, personalizzate per utente' },
+        { name: 'Investimenti', components: ['value/growth/momentum/risk/reflexivity', 'arbitro Munger', 'portfolio risk-parity', 'regime di correlazione (Frobenius)', 'segnale/rumore (Marchenko-Pastur)', 'screener settoriale (SEC, migliaia di aziende)', 'rischio di rovina (Monte Carlo)', 'Component Expected Shortfall'], mode: 'strategie dei grandi + analisi strutturale di livello istituzionale, personalizzate per utente' },
         { name: 'Q&A / fisco', components: ['qa-engine deterministico', 'tax P.IVA'], mode: 'on-device, offline' },
         { name: 'Adattività hardware', components: ['compute-planner', 'adaptive-runtime', 'INT8'], mode: `si plasma al device${heavy.length ? ' + heavy-expert attivo' : ' (heavy-expert slot vuoto)'}` },
       ],
