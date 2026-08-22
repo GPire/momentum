@@ -164,6 +164,14 @@ test('detectCurrency: simboli riconosciuti', () => {
   assert.equal(detectCurrency('¥4500'), 'JPY');
 });
 
+test('BUG REALE CORRETTO — detectCurrency: "R$" (real brasiliano) non deve essere confuso con "$" (USD)', () => {
+  // "R$" CONTIENE "$" come sottostringa — trovato aggiungendo il pattern
+  // PIX in notification-parser.js: "R$ 50,00" veniva letto come dollari.
+  assert.equal(detectCurrency('R$ 50,00'), 'BRL');
+  assert.equal(detectCurrency('R$50,00'), 'BRL');
+  assert.equal(detectCurrency('$45.00'), 'USD', 'il "$" da solo, senza "R" davanti, resta USD — nessuna regressione');
+});
+
 test('detectCurrency: un codice ISO esplicito ha PRECEDENZA sul simbolo ambiguo ($=USD/CAD/AUD/...)', () => {
   assert.equal(detectCurrency('45.00 CAD'), 'CAD');
   assert.equal(detectCurrency('AUD 45.00'), 'AUD');

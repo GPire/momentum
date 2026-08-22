@@ -69,6 +69,14 @@ const PATTERNS = [
   { re: new RegExp(`card ending\\s+(?:in\\s+)?\\d+:?\\s*purchase of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+approved\\s+at\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   // "Visa refund of $20.00 from TESCO" / "You received a refund of €10.00 from AMAZON"
   { re: new RegExp(`(?:visa|mastercard)?\\s*refund of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+(?:from|at)\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
+
+  // ── PIX ricevuto (Nubank, Brasile) — "Você recebeu um Pix de R$ 50,00
+  // de Maria Souza". Confidenza DICHIARATA media: fonte terza parte (guida
+  // non ufficiale), non la documentazione Nubank stessa — ricerca dedicata
+  // non ha trovato altre formulazioni PIX/carta brasiliane verificabili
+  // con fonte primaria, quindi qui c'è SOLO questo pattern, di proposito,
+  // non un'intera famiglia inventata per somiglianza.
+  { re: new RegExp(`voc[eê] recebeu um pix de\\s*r\\$\\s*${AMOUNT}\\s+de\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
 ];
 
 // Pulisce il nome esercente da code tecniche delle notifiche

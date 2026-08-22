@@ -54,7 +54,14 @@ export const VALUTE_ISO4217 = new Set([
 // "¥" per JPY/CNY) si sceglie il default più diffuso, dichiarato — un
 // codice ISO esplicito nel testo ha SEMPRE precedenza (vedi detectCurrency
 // in pdf-parser.js) e risolve l'ambiguità quando presente.
+//
+// "R$" (real brasiliano) va PRIMA di "$" nell'ordine delle chiavi: è un
+// simbolo di DUE caratteri che CONTIENE "$" come sottostringa — un testo
+// come "R$ 50,00" (verificato: è la notazione reale del Nubank, vedi
+// notification-parser.js) altrimenti veniva riconosciuto come "$" da solo,
+// cioè USD invece di BRL. BUG REALE trovato aggiungendo il pattern PIX.
 export const SIMBOLO_VALUTA = {
+  'R$': 'BRL',
   '€': 'EUR', '$': 'USD', '£': 'GBP', '¥': 'JPY', '₹': 'INR', '₩': 'KRW',
   '₪': 'ILS', '₽': 'RUB', '₺': 'TRY', '₫': 'VND', '₴': 'UAH', '₦': 'NGN',
   '₱': 'PHP', '₡': 'CRC', '₲': 'PYG', '₮': 'MNT', '₭': 'LAK', '฿': 'THB',

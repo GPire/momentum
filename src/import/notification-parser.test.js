@@ -109,6 +109,18 @@ test('rimborso carta: "Visa refund of $20.00 from TESCO" è un\'entrata, non un\
   assert.equal(r.description, 'TESCO');
 });
 
+// ── PIX ricevuto (Nubank, Brasile) — pattern a confidenza dichiarata
+// media (fonte terza parte, non nubank.com.br). Un solo pattern, di
+// proposito: ricerca dedicata non ha trovato altre formulazioni PIX/carta
+// brasiliane verificabili con fonte primaria.
+test('PIX Nubank: "Você recebeu um Pix de R$ 50,00 de Maria Souza" è un\'entrata in BRL', () => {
+  const r = parseNotificationText('Nubank', 'Você recebeu um Pix de R$ 50,00 de Maria Souza');
+  assert.equal(r.amount, 50);
+  assert.equal(r.type, 'entrata');
+  assert.equal(r.description, 'Maria Souza');
+  assert.equal(r.currency, 'BRL');
+});
+
 test('valuta assente quando il pattern italiano è EUR per costruzione (nessuna regressione)', () => {
   const r = parseNotificationText('Intesa Sanpaolo', 'Pagamento di 8,00€ presso BAR ROMA');
   assert.equal(r.currency, 'EUR');
