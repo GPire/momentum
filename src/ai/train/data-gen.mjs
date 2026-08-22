@@ -230,7 +230,9 @@ const ANGLO = {
     'best buy electronics', 'home depot store', 'lowes hardware', 'macys department', 'nordstrom store',
     'target clothing', 'tj maxx store'],
   abbonamenti: ['bt broadband bill', 'sky tv package', 'virgin media bundle', 'ee mobile plan', 'o2 mobile plan',
-    'three mobile sim', 'comcast xfinity', 'at&t wireless plan', 'verizon wireless bill', 't-mobile us plan', 'hulu subscription'],
+    'three mobile sim', 'comcast xfinity', 'at&t wireless plan', 'verizon wireless bill', 't-mobile us plan', 'hulu subscription',
+    'talktalk broadband', 'plusnet broadband bill', 'now broadband', 'now tv membership',
+    'telepass pay canone mensile'],
   trasporti: ['tfl oyster topup', 'national rail ticket', 'addison lee cab', 'shell station uk', 'lyft ride',
     'amtrak train ticket', 'greyhound bus ticket', 'chevron gas station', 'exxon fuel station', 'bp gas station us'],
   stipendio: ['paye salary payment', 'hmrc tax rebate', 'payroll direct deposit', 'adp payroll inc', 'irs tax refund'],
@@ -241,9 +243,11 @@ const ANGLO = {
   casa: ['council tax payment', 'letting agency fee', 'halifax mortgage payment', 'rent payment landlord',
     'mortgage payment bank', 'realtor commission fee', 'hoa fee monthly'],
   bollette: ['british gas bill', 'thames water bill', 'bt broadband invoice', 'ee mobile bill',
-    'pg&e electric bill', 'con edison bill', 'xfinity internet bill', 'verizon phone bill'],
+    'pg&e electric bill', 'con edison bill', 'xfinity internet bill', 'verizon phone bill',
+    'utility warehouse bill'],
   salute: ['boots pharmacy', 'nhs prescription charge', 'specsavers opticians', 'cvs pharmacy',
-    'walgreens pharmacy', 'kaiser permanente copay', 'blue cross blue shield premium'],
+    'walgreens pharmacy', 'kaiser permanente copay', 'blue cross blue shield premium',
+    'lloydspharmacy prescription', 'chemist direct order'],
   istruzione: ['ucas application fee', 'open university tuition', 'student loan uk repayment',
     'community college tuition', 'student loan payment us', 'khan academy donation'],
   viaggi: ['british airways ticket', 'premier inn hotel', 'travelodge hotel', 'delta airlines ticket',
@@ -252,6 +256,40 @@ const ANGLO = {
     'regal cinemas ticket', 'ticketmaster us event', 'dave busters arcade'],
 };
 for (const k in ANGLO) POOL[k] = [...(POOL[k] || []), ...ANGLO[k]];
+
+// Ondata BRASILE — esercenti REALI (ricerca dedicata: classifiche fatturato
+// 2026 Exame/ABRAS/IBEVAR per spesa/shopping/salute; il resto sono aziende
+// reali di conoscenza pubblica consolidata, non fabbricate — nessun testo
+// di notifica bancaria qui, solo nomi di esercenti per il training).
+// Onestà dichiarata: la formulazione ESATTA delle notifiche PIX/carta
+// brasiliane (Nubank, Itaú, Bradesco) non è stata trovata verificabile in
+// questa ricerca — un solo pattern di notifica PIX è stato aggiunto
+// altrove (notification-parser.js) con confidenza dichiarata media, il
+// resto NON è stato inventato.
+const BRASILE = {
+  spesa: ['carrefour brasil', 'assai atacadista', 'pao de acucar', 'extra supermercado',
+    'grupo mateus', 'dia supermercado brasil'],
+  ristoranti: ['ifood pedido', 'rappi brasil', 'habibs lanchonete', 'outback brasil',
+    'giraffas restaurante', 'mcdonalds brasil'],
+  shopping: ['magazine luiza', 'casas bahia', 'americanas loja online', 'mercado livre pedido',
+    'shopee brasil loja'],
+  abbonamenti: ['globoplay assinatura', 'netflix brasil', 'spotify brasil', 'amazon prime video brasil'],
+  trasporti: ['uber brasil corrida', '99 corrida', 'metro sp bilhete', 'posto combustivel brasil'],
+  stipendio: ['salario mensal deposito', 'folha de pagamento brasil', 'decimo terceiro salario'],
+  etf: ['xp investimentos aporte', 'rico investimentos', 'nuinvest aplicacao'],
+  crypto: ['mercado bitcoin compra', 'binance brasil', 'foxbit crypto'],
+  risparmio: ['poupanca nubank', 'caixinha nubank', 'cdb banco inter'],
+  casa: ['aluguel apartamento brasil', 'condominio mensal brasil', 'financiamento imovel caixa'],
+  bollette: ['sabesp conta agua', 'enel brasil conta luz', 'vivo internet fibra',
+    'claro celular conta', 'tim celular conta'],
+  salute: ['raia drogasil farmacia', 'drogasil compra', 'droga raia remedio', 'unimed plano saude'],
+  istruzione: ['mensalidade escola brasil', 'faculdade particular mensalidade',
+    'estacio universidade', 'descomplica curso online'],
+  viaggi: ['latam airlines passagem', 'gol linhas aereas', 'azul linhas aereas',
+    'decolar viagem', 'booking brasil hotel'],
+  svago: ['cinemark brasil ingresso', 'ingresso.com evento', 'sympla evento brasil'],
+};
+for (const k in BRASILE) POOL[k] = [...(POOL[k] || []), ...BRASILE[k]];
 
 // Categorie del bench (per allineare le etichette).
 export const CATEGORIES = Object.keys(POOL);
