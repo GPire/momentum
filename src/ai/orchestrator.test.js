@@ -289,6 +289,36 @@ test("morfologia a freddo: nessun tipo appreso → non vota (nessuna invenzione)
   assert.ok(!(r.sources || []).includes("morphology"), "a freddo lo strato morfologico tace");
 });
 
+// ── C4 (PIANO_TASK_2026-08-21.md): il peso di LogReg legge la sua vera
+// accuratezza dichiarata (meta.gate.candidateAcc), non più un fisso 0.80
+// incondizionato — bug reale trovato e corretto (HashedLogReg scartava
+// meta.gate al caricamento, orchestrator.js non poteva mai leggerlo). ─────
+test("C4: il peso di LogReg usa meta.gate.candidateAcc quando presente, non il fallback fisso — cambia davvero l'esito", () => {
+  const nexus = { predict: () => ({ cat: null, confidence: 0 }), tokenize: t => t.split(' '), train: () => {} };
+  // Tarato apposta: con l'ex fallback fisso (0.80) nano vince per un pelo;
+  // con la vera accuratezza dichiarata (91,46%) vince LogReg. La differenza
+  // di esito prova che il numero letto conta davvero, non solo che esiste.
+  const trained = { metrics: { test_accuracy: 0.79 }, predict: () => ({ category: "spesa", confidence: 1.0 }) };
+  const logregSenzaMeta = { meta: null, predict: () => ({ category: "trasporti", confidence: 0.98, allProbs: { trasporti: 0.98, spesa: 0.02 } }) };
+  const logregConMeta = { meta: { gate: { candidateAcc: 91.46 } }, predict: () => ({ category: "trasporti", confidence: 0.98, allProbs: { trasporti: 0.98, spesa: 0.02 } }) };
+
+  const rFallback = new MomentumOrchestrator({ vaultDAO: mockVault(), neuralNexus: nexus, trainedCategorizer: trained, trainedLogReg: logregSenzaMeta })
+    .classify("acme xyz", 10, new Date());
+  const rReale = new MomentumOrchestrator({ vaultDAO: mockVault(), neuralNexus: nexus, trainedCategorizer: trained, trainedLogReg: logregConMeta })
+    .classify("acme xyz", 10, new Date());
+
+  assert.equal(rFallback.cat, "spesa", "senza meta.gate, il fallback 0.80 lascia vincere nano");
+  assert.equal(rReale.cat, "trasporti", "con la vera accuratezza (91,46%), LogReg vince davvero");
+});
+
+test("C4: senza LogReg caricato, nessun voto 'logreg' compare (invariato)", () => {
+  const nexus = { predict: () => ({ cat: "spesa", confidence: 60 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: "spesa", confidence: 0.8 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVault(), neuralNexus: nexus, trainedCategorizer: trained });
+  const r = orch.classify("acme xyz", 10, new Date());
+  assert.ok(!(r.sources || []).includes("logreg"));
+});
+
 // ── Consenso federato (LIVELLO A — src/mesh/federated-distillation.js,
 // difeso dal rilevatore di deriva lenta in src/mesh/contribution-drift.js):
 // il recupero per un dispositivo NUOVO senza storico locale. ───────────────

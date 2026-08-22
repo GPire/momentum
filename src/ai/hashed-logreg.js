@@ -95,6 +95,15 @@ export class HashedLogReg {
     // W memorizzato come array piatto dim*nC per compattezza
     this.W = model.W;
     this.idf = model.idf || null; // pesi IDF opzionali (TF-IDF), retrocompatibile
+    // BUG REALE TROVATO (Cantiere C4, PIANO_TASK_2026-08-21.md): il modello
+    // spedito (public/momentum_logreg_model.json) dichiara la sua accuratezza
+    // MISURATA in meta.gate.candidateAcc (91,46% held-out) — ma questo
+    // costruttore la scartava in silenzio, tenendo solo i pesi numerici.
+    // orchestrator.js non aveva quindi MAI potuto leggere il numero vero,
+    // ed era condannato al suo fallback fisso (0,80) anche se il modello
+    // reale è più forte. Stesso principio già applicato a TrainedMeso
+    // (trained-meso.js: this.metrics = modelJson.metrics).
+    this.meta = model.meta || null;
   }
 
   _logits(vec) {

@@ -243,14 +243,25 @@ class MomentumOrchestrator {
 
     const candidates = [{ source: 'nexus', category: nexusPred.cat, confidence: nexusPred.confidence / 100, weight: nexusWeight }];
 
-    // Il Nano e il Meso si dividono il budget restante in proporzione alla
-    // loro accuratezza REALE su testo rumoroso (misurata in train_meso.py:
-    // Nano 80.0%, Meso 89.7% sullo stesso test set) — non un peso arbitrario.
+    // Nano, Meso e LogReg si dividono il budget restante in proporzione alla
+    // loro accuratezza REALE, letta dal modello CARICATO — non un peso
+    // arbitrario, e non un numero scritto qui a mano: ogni modello dichiara
+    // la propria misura, questo codice la legge. I fallback sotto (0.8/0.85)
+    // sono valori prudenti per il caso raro in cui un modello sia caricato
+    // ma senza la sua misura (mai un vero numero di oggi: leggere questi tre
+    // commenti come "se manca il dato" non come "quanto vale oggi" — i
+    // modelli si riaddestrano, un numero scritto qui invecchierebbe in
+    // silenzio esattamente come è successo prima di questo fix).
     const nanoAcc = this.trained ? (this.trained.metrics?.test_accuracy || 0.8) : 0;
     const mesoAcc = this.meso ? (this.meso.metrics?.hard_noisy_test_accuracy || 0.85) : 0;
-    // LogReg: accuratezza di generalizzazione MISURATA sul test held-out (0.80),
-    // la più alta tra gli esperti statici → si prende la quota maggiore del budget.
-    const logregAcc = this.logreg ? 0.80 : 0;
+    // BUG REALE CORRETTO (Cantiere C4): prima era `this.logreg ? 0.80 : 0`,
+    // incondizionato — l'UNICO dei tre esperti che non provava nemmeno a
+    // leggere una misura vera, perché HashedLogReg scartava meta.gate in
+    // silenzio al caricamento (corretto in hashed-logreg.js). Il modello
+    // spedito dichiara 91,46% held-out (meta.gate.candidateAcc, in punti
+    // percentuali) — più alto del fallback 0.80 che finora era l'unico
+    // valore mai usato: LogReg era sotto-pesato rispetto alla sua vera forza.
+    const logregAcc = this.logreg ? ((this.logreg.meta?.gate?.candidateAcc ?? 80) / 100) : 0;
     const accSum = nanoAcc + mesoAcc + logregAcc || 1;
 
     if (this.trained) {

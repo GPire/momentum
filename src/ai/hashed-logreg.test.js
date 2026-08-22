@@ -26,3 +26,17 @@ test('predict: distribuzione somma a 1', () => {
   const sum = Object.values(r.allProbs).reduce((s, v) => s + v, 0);
   assert.ok(Math.abs(sum - 1) < 1e-9);
 });
+
+// ── meta.gate: la misura di accuratezza dichiarata dal modello (Cantiere C4) ──
+test('HashedLogReg: conserva meta.gate del modello caricato, prima veniva scartato in silenzio', () => {
+  const model = trainHashedLogReg([['a b c', 'x'], ['d e f', 'y']], { dim: 512, epochs: 5 });
+  model.meta = { gate: { candidateAcc: 91.46 } };
+  const m = new HashedLogReg(model);
+  assert.equal(m.meta?.gate?.candidateAcc, 91.46);
+});
+
+test('HashedLogReg: senza meta nel modello, la proprietà resta null (mai un crash, mai un\'invenzione)', () => {
+  const model = trainHashedLogReg([['a b c', 'x'], ['d e f', 'y']], { dim: 512, epochs: 5 });
+  const m = new HashedLogReg(model);
+  assert.equal(m.meta, null);
+});
