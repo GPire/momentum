@@ -214,6 +214,45 @@ const EURO = {
 };
 for (const k in EURO) POOL[k] = [...(POOL[k] || []), ...EURO[k]];
 
+// ONDATA UK + USA: i due mercati anglofoni dove Momentum punta a crescere,
+// finora coperti solo dai brand globali già presenti (netflix, amazon,
+// uber...), mai da catene REGIONALI che un estratto conto inglese o
+// americano mostra davvero. Stile bancario reale (spesso tutto maiuscolo,
+// città + suffisso stato/codice postale) invece del multilingua europeo.
+const ANGLO = {
+  spesa: ['tesco superstore', 'sainsburys local', 'asda supermarket', 'morrisons store', 'waitrose grocery',
+    'marks spencer food', 'walmart supercenter', 'target grocery', 'kroger market', 'costco wholesale',
+    'trader joes', 'whole foods market', 'safeway store', 'publix supermarket', '7-eleven'],
+  ristoranti: ['nandos restaurant', 'greggs bakery', 'pret a manger', 'wetherspoons pub', 'deliveroo order',
+    'just eat takeaway', 'chipotle mexican grill', 'panera bread', 'chick fil a', 'in n out burger',
+    'doordash delivery', 'grubhub order', 'dunkin donuts'],
+  shopping: ['argos catalogue', 'john lewis department', 'currys pc world', 'next retail', 'asos order',
+    'best buy electronics', 'home depot store', 'lowes hardware', 'macys department', 'nordstrom store',
+    'target clothing', 'tj maxx store'],
+  abbonamenti: ['bt broadband bill', 'sky tv package', 'virgin media bundle', 'ee mobile plan', 'o2 mobile plan',
+    'three mobile sim', 'comcast xfinity', 'at&t wireless plan', 'verizon wireless bill', 't-mobile us plan', 'hulu subscription'],
+  trasporti: ['tfl oyster topup', 'national rail ticket', 'addison lee cab', 'shell station uk', 'lyft ride',
+    'amtrak train ticket', 'greyhound bus ticket', 'chevron gas station', 'exxon fuel station', 'bp gas station us'],
+  stipendio: ['paye salary payment', 'hmrc tax rebate', 'payroll direct deposit', 'adp payroll inc', 'irs tax refund'],
+  etf: ['vanguard isa uk', 'hargreaves lansdown', 'freetrade investing', 'vanguard etf us', 'fidelity brokerage',
+    'schwab brokerage account', 'robinhood investing'],
+  crypto: ['coinbase uk exchange', 'coinbase pro us', 'kraken us exchange', 'robinhood crypto trade'],
+  risparmio: ['isa savings account', 'premium bonds nsi', '401k contribution', 'high yield savings deposit'],
+  casa: ['council tax payment', 'letting agency fee', 'halifax mortgage payment', 'rent payment landlord',
+    'mortgage payment bank', 'realtor commission fee', 'hoa fee monthly'],
+  bollette: ['british gas bill', 'thames water bill', 'bt broadband invoice', 'ee mobile bill',
+    'pg&e electric bill', 'con edison bill', 'xfinity internet bill', 'verizon phone bill'],
+  salute: ['boots pharmacy', 'nhs prescription charge', 'specsavers opticians', 'cvs pharmacy',
+    'walgreens pharmacy', 'kaiser permanente copay', 'blue cross blue shield premium'],
+  istruzione: ['ucas application fee', 'open university tuition', 'student loan uk repayment',
+    'community college tuition', 'student loan payment us', 'khan academy donation'],
+  viaggi: ['british airways ticket', 'premier inn hotel', 'travelodge hotel', 'delta airlines ticket',
+    'united airlines ticket', 'american airlines ticket', 'marriott hotel stay', 'hilton hotel stay'],
+  svago: ['odeon cinema ticket', 'vue cinema booking', 'ticketmaster uk event', 'amc theatres ticket',
+    'regal cinemas ticket', 'ticketmaster us event', 'dave busters arcade'],
+};
+for (const k in ANGLO) POOL[k] = [...(POOL[k] || []), ...ANGLO[k]];
+
 // Categorie del bench (per allineare le etichette).
 export const CATEGORIES = Object.keys(POOL);
 
