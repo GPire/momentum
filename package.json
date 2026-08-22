@@ -30,6 +30,7 @@
     "bench:cash": "node bench/cash-forecast-bench.mjs",
     "bench:commitments": "node bench/commitment-training-bench.mjs",
     "bench:sec": "node bench/fetch-fondamentali-sec.mjs",
+    "bench:panel": "node bench/fetch-panel-sec.mjs",
     "bench:daily-long": "node bench/fetch-daily-history.mjs",
     "bench:sectors": "node bench/fetch-sector-history.mjs",
     "bench:measured": "node bench/generate-measured-assumptions.mjs",
