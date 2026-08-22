@@ -326,15 +326,31 @@ const parseCellDate = (text) => {
   return null;
 };
 
+// BUG REALE TROVATO E CORRETTO: la pulizia riconosceva SOLO € e $ — un
+// importo in sterline ("£45.00"), yen ("¥4500") o franchi svizzeri
+// ("CHF 45.00", "45.00 CHF") restava con un carattere non numerico dentro,
+// parseFloat restituiva NaN, e la transazione veniva SCARTATA in silenzio
+// (mai un crash, solo un movimento reale mai importato). Non un'ipotesi: la
+// stessa funzione alimenta CSV/PDF/screenshot/notifiche — tutti gli estratti
+// conto di banche inglesi, giapponesi, svizzere ne erano colpiti allo stesso
+// modo. Ora si spogliano i simboli noti PIÙ un eventuale codice valuta a 3
+// lettere davanti o dietro il numero, qualunque esso sia — il numero si
+// legge sempre, la sua valuta si rileva a parte (vedi detectCurrency sotto).
 const parseCellAmount = (text) => {
   if (!text) return null;
-  let cleaned = text.replace(/["'€$%\s]/g, '').trim();
-  
+  let cleaned = text.replace(/["'%\s]/g, '').trim();
+  cleaned = cleaned.replace(/[€$£¥₹₩₪]/g, '');
+  // Il segno può stare PRIMA o DOPO il codice valuta ("-CHF 45.00" tanto
+  // quanto "CHF-45.00", entrambi visti in estratti reali): si cattura
+  // quello dei due che c'è, mai perso, mentre il codice si toglie.
+  cleaned = cleaned.replace(/^([-−+]?)[A-Za-z]{2,4}([-−+]?)(?=[\d.,])/, (_, s1, s2) => s1 || s2 || '');
+  cleaned = cleaned.replace(/(?<=[\d.,])[A-Za-z]{2,4}$/, '');
+
   let isNegative = false;
   if (cleaned.startsWith('-') || cleaned.endsWith('-') || cleaned.includes('−')) {
     isNegative = true;
   }
-  
+
   // Clean sign character for parsing
   cleaned = cleaned.replace(/[-−]/g, '');
 
@@ -359,6 +375,28 @@ const parseCellAmount = (text) => {
   return isNegative ? -amt : amt;
 };
 
+// Codice ISO 4217 di una cella importo, se riconoscibile — funzione a parte
+// (non dentro parseCellAmount) perché il NUMERO va sempre letto anche
+// quando la valuta resta ignota: un utente che viaggia deve poter importare
+// un estratto anche di una banca/valuta che questa lista non copre ancora.
+// Un codice esplicito a 3 lettere ("CHF 45.00", "45.00 USD") è inequivocabile
+// e ha PRECEDENZA sul simbolo: "$" da solo è ambiguo (USD/CAD/AUD/... usano
+// tutti "$"), qui si assume USD come default dichiarato, non nascosto — se
+// serve distinguere, il codice esplicito lo permette già.
+const SYMBOL_CURRENCY = { '€': 'EUR', '$': 'USD', '£': 'GBP', '¥': 'JPY', '₹': 'INR', '₩': 'KRW', '₪': 'ILS' };
+const CODICI_VALUTA_NOTI = new Set([
+  'EUR', 'USD', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'CNY', 'SEK', 'NOK', 'DKK',
+  'PLN', 'CZK', 'HUF', 'MXN', 'BRL', 'INR', 'KRW', 'SGD', 'HKD', 'NZD', 'ZAR', 'TRY',
+]);
+const detectCurrency = (text) => {
+  if (!text) return null;
+  const s = String(text);
+  const codeMatch = s.toUpperCase().match(/\b([A-Z]{3})\b/);
+  if (codeMatch && CODICI_VALUTA_NOTI.has(codeMatch[1])) return codeMatch[1];
+  for (const sym of Object.keys(SYMBOL_CURRENCY)) if (s.includes(sym)) return SYMBOL_CURRENCY[sym];
+  return null; // nessun indizio: il chiamante ricade sulla valuta base del dispositivo
+};
+
 // Intestazioni italiane + inglesi (N26, Revolut e simili esportano in EN).
 // "saldo"/"balance" NON stanno più in expense (bug reale: la colonna del
 // saldo progressivo veniva importata come spese) — sono una colonna da
@@ -376,4 +414,4 @@ const COLUMN_KEYWORDS = {
 };
 
 
-export { processPageWithColumnMap, extractTransactionsFromItems, detectColumnMap, categorizeItemToColumn, parseCellDate, parseCellAmount, COLUMN_KEYWORDS };
+export { processPageWithColumnMap, extractTransactionsFromItems, detectColumnMap, categorizeItemToColumn, parseCellDate, parseCellAmount, detectCurrency, COLUMN_KEYWORDS };

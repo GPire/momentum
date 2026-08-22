@@ -6,7 +6,7 @@ globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 globalThis.document = globalThis.document || { querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {}, getElementById: () => null };
 
-const { extractTransactionsFromItems, parseCellDate, parseCellAmount } = await import('./pdf-parser.js');
+const { extractTransactionsFromItems, parseCellDate, parseCellAmount, detectCurrency } = await import('./pdf-parser.js');
 const { intesaLayout, unicreditLayout, n26Layout, revolutLayout, saldoColumnLayout } = await import('./fixtures/pdf-layouts.js');
 
 // ---- layout multi-banca ----
@@ -140,6 +140,41 @@ test('parseCellAmount: formati IT/US e segni invariati', () => {
   assert.equal(parseCellAmount('1,234.56'), 1234.56);
   assert.equal(parseCellAmount('-32,90'), -32.9);
   assert.equal(parseCellAmount('1.500'), 1500);
+});
+
+// ---- BUG REALE CORRETTO: solo € e $ venivano ripuliti, un importo in
+// sterline/yen/franchi restava con un carattere non numerico e parseFloat
+// restituiva NaN — la transazione veniva scartata in silenzio. Colpiva ogni
+// estratto conto UK/giapponese/svizzero (CSV, PDF, screenshot, notifiche
+// bancarie condividono tutti questa stessa funzione). ----
+
+test('parseCellAmount: valute prima ROTTE (£, ¥, CHF) ora si leggono come le altre', () => {
+  assert.equal(parseCellAmount('£45.00'), 45);
+  assert.equal(parseCellAmount('¥4500'), 4500);
+  assert.equal(parseCellAmount('CHF 45.00'), 45);
+  assert.equal(parseCellAmount('45.00 CHF'), 45);
+  assert.equal(parseCellAmount('USD-12.50'), -12.5, 'il segno resta corretto anche con un codice valuta davanti');
+  assert.equal(parseCellAmount('-CHF 45.00'), -45, 'il segno può stare anche PRIMA del codice valuta, non solo dopo');
+});
+
+test('detectCurrency: simboli riconosciuti', () => {
+  assert.equal(detectCurrency('€45,00'), 'EUR');
+  assert.equal(detectCurrency('$45.00'), 'USD');
+  assert.equal(detectCurrency('£45.00'), 'GBP');
+  assert.equal(detectCurrency('¥4500'), 'JPY');
+});
+
+test('detectCurrency: un codice ISO esplicito ha PRECEDENZA sul simbolo ambiguo ($=USD/CAD/AUD/...)', () => {
+  assert.equal(detectCurrency('45.00 CAD'), 'CAD');
+  assert.equal(detectCurrency('AUD 45.00'), 'AUD');
+  assert.equal(detectCurrency('CHF 45.00'), 'CHF', 'il franco non ha un simbolo dedicato, solo il codice');
+});
+
+test('detectCurrency: nessun indizio -> null, mai una valuta indovinata a caso', () => {
+  assert.equal(detectCurrency('-45,00'), null);
+  assert.equal(detectCurrency('1.234,56'), null);
+  assert.equal(detectCurrency(''), null);
+  assert.equal(detectCurrency(null), null);
 });
 
 test('estratto SPAGNOLO (Cargo/Abono): 2 transazioni, verso corretto', async () => {

@@ -1,4 +1,4 @@
-import { parseCellAmount, parseCellDate, COLUMN_KEYWORDS } from './pdf-parser.js';
+import { parseCellAmount, parseCellDate, detectCurrency, COLUMN_KEYWORDS } from './pdf-parser.js';
 import { parseCsvRow } from './revolut-csv.js';
 
 // ==========================================
@@ -100,16 +100,16 @@ export function parseGenericCsv(text) {
     const date = parseCellDate(dateRaw || '');
     if (!date) continue;
 
-    let signed = null;
-    if (amountCol >= 0) signed = robustAmount(cols[amountCol]);
+    let signed = null, rawAmountCell = null;
+    if (amountCol >= 0) { rawAmountCell = cols[amountCol]; signed = robustAmount(rawAmountCell); }
     else if (debitCol >= 0 || creditCol >= 0) {
       const dv = debitCol >= 0 ? robustAmount(cols[debitCol]) : null;
       const cv = creditCol >= 0 ? robustAmount(cols[creditCol]) : null;
-      if (dv !== null && Math.abs(dv) > 0) signed = -Math.abs(dv);
-      else if (cv !== null && Math.abs(cv) > 0) signed = Math.abs(cv);
+      if (dv !== null && Math.abs(dv) > 0) { signed = -Math.abs(dv); rawAmountCell = cols[debitCol]; }
+      else if (cv !== null && Math.abs(cv) > 0) { signed = Math.abs(cv); rawAmountCell = cols[creditCol]; }
     }
     if (signed === null) { // fallback: prima cella importo-like non-data
-      for (let c = 0; c < cols.length; c++) { if (c === dateCol) continue; const a = robustAmount(cols[c]); if (a !== null && looksAmount(cols[c])) { signed = a; break; } }
+      for (let c = 0; c < cols.length; c++) { if (c === dateCol) continue; const a = robustAmount(cols[c]); if (a !== null && looksAmount(cols[c])) { signed = a; rawAmountCell = cols[c]; break; } }
     }
     if (signed === null || signed === 0) continue;
 
@@ -118,7 +118,13 @@ export function parseGenericCsv(text) {
     if (dcCol >= 0 && cols[dcCol]) { if (DC_DEBIT.test(cols[dcCol].trim())) type = 'uscita'; else if (DC_CREDIT.test(cols[dcCol].trim())) type = 'entrata'; }
 
     let desc = descCol >= 0 ? cols[descCol] : (cols.find(c => looksText(c)) || 'Operazione');
-    out.push({ date, amount: Math.abs(signed), type, description: String(desc || 'Operazione').slice(0, 60) });
+    // valuta rilevata dalla cella importo stessa (simbolo o codice ISO):
+    // assente quando la cella non ne porta traccia — il chiamante ricade
+    // sulla valuta base del dispositivo, mai una valuta indovinata a caso.
+    const currency = detectCurrency(rawAmountCell);
+    const tx = { date, amount: Math.abs(signed), type, description: String(desc || 'Operazione').slice(0, 60) };
+    if (currency) tx.currency = currency;
+    out.push(tx);
   }
   return out;
 }

@@ -53,7 +53,21 @@ const DEFAULT_CATEGORIES = {
 const ALL_CATS = [...DEFAULT_CATEGORIES.expense, ...DEFAULT_CATEGORIES.income, ...DEFAULT_CATEGORIES.invest];
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
-const formatMoney = val => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(val);
+// Locale abbinata alla valuta: non solo il codice ISO ma anche COME si
+// formatta ("£45.20" in UK, non "45,20 £" alla italiana) — un utente che
+// vede una transazione in sterline se l'aspetta scritta all'inglese.
+// Default invariato (nessuna valuta passata -> 'it-IT'/'EUR', comportamento
+// IDENTICO a prima di questo fix: zero rischio per chi già chiama
+// formatMoney(val) senza secondo argomento).
+const LOCALE_PER_VALUTA = {
+  EUR: 'it-IT', USD: 'en-US', GBP: 'en-GB', JPY: 'ja-JP', CHF: 'de-CH',
+  CAD: 'en-CA', AUD: 'en-AU', CNY: 'zh-CN', SEK: 'sv-SE', NOK: 'nb-NO',
+  DKK: 'da-DK', PLN: 'pl-PL', CZK: 'cs-CZ', HUF: 'hu-HU', MXN: 'es-MX',
+  BRL: 'pt-BR', INR: 'en-IN', KRW: 'ko-KR', SGD: 'en-SG', HKD: 'en-HK',
+  NZD: 'en-NZ', ZAR: 'en-ZA', TRY: 'tr-TR',
+};
+const formatMoney = (val, currency = 'EUR') =>
+  new Intl.NumberFormat(LOCALE_PER_VALUTA[currency] || 'it-IT', { style: 'currency', currency }).format(val);
 const monthKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
 export { SCHEMA_VERSION, APP_VERSION, isTouch, DEFAULT_CATEGORIES, ALL_CATS, $, $$, formatMoney, monthKey };

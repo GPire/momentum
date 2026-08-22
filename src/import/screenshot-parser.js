@@ -9,7 +9,7 @@
 // vicino a "totale/importo/pagamento", non il più grande in assoluto —
 // evita di confondere "contanti"/"resto" col totale reale) e riusa
 // parseCellAmount dal parser PDF invece di duplicarne la logica.
-import { parseCellAmount } from './pdf-parser.js';
+import { parseCellAmount, detectCurrency } from './pdf-parser.js';
 import { monthKey } from '../core/constants.js';
 import { getCatById, VaultDAO } from '../core/vault.js';
 import { showToast } from '../ui/feedback.js';
@@ -97,10 +97,17 @@ export function parseScreenshotText(rawText) {
     || lines.find(l => !ANY_AMOUNT.test(l) || l.replace(ANY_AMOUNT, '').trim().length > 3)
     || 'Da screenshot';
 
+  // Valuta: cercata sull'intero testo OCR, non solo sulla cifra estratta —
+  // AMOUNT_RE_SRC cattura di proposito solo cifre/separatori (niente
+  // simboli), quindi un eventuale £/¥/CHF va cercato nel contesto attorno.
+  // Assente quando non c'è traccia: il chiamante ricade sulla valuta base.
+  const currency = detectCurrency(rawText);
+
   return {
     amount, date, type, description: description.slice(0, 60),
     confidence: amount !== null ? (keywordMatch ? 'alta' : 'media') : 'bassa',
     rawText,
+    ...(currency ? { currency } : {}),
   };
 }
 

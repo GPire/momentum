@@ -25,6 +25,19 @@ test("riconosce una notifica di accredito come entrata", () => {
   assert.equal(result.amount, 1500);
 });
 
+test("rileva la valuta cercando nell'intero testo OCR, non solo nella cifra estratta", () => {
+  const raw = "Tesco Store\nTotale £45.20\n01/03/2026";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.amount, 45.20);
+  assert.equal(result.currency, "GBP");
+});
+
+test("nessuna valuta riconoscibile: il campo currency resta assente, mai indovinato", () => {
+  const raw = "BAR ROMA\nTOTALE 38,90\nCONTANTI 40,00";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.currency, undefined);
+});
+
 test("riconosce una notifica di pagamento POS come uscita", () => {
   const raw = "Pagamento effettuato\nSATISPAY*BAR ROMA\nImporto 15,00\n01/07/2026";
   const result = parseScreenshotText(raw);

@@ -7,7 +7,7 @@ import { CAT_RULES } from './lexicon.js';
 // prima (le import sono hoisted in ESM, non importa dove sta nel file).
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
-const { ALL_CATS, DEFAULT_CATEGORIES } = await import('./constants.js');
+const { ALL_CATS, DEFAULT_CATEGORIES, formatMoney } = await import('./constants.js');
 
 // ── Il bug che questo file esiste per impedire ──
 // core/lexicon.js aveva regole (CAT_RULES) che rispondevano 'bollette',
@@ -56,4 +56,28 @@ test('le sei categorie nuove esistono, con lo stesso id delle regole in lexicon.
   // E devono essere di spesa: sono voci che escono, non entrano o si investono.
   const spesaIds = new Set(DEFAULT_CATEGORIES.expense.map((c) => c.id));
   for (const id of attese) assert.ok(spesaIds.has(id), `"${id}" non è fra le categorie di uscita`);
+});
+
+// ── formatMoney multi-valuta (chi viaggia il mondo, non solo EUR) ──
+// BUG REALE: formatMoney era codificata in modo fisso su 'it-IT'/'EUR' —
+// ogni transazione, anche una in sterline/yen/franchi correttamente
+// importata (vedi src/import/pdf-parser.js, detectCurrency), veniva
+// comunque MOSTRATA come se fosse in euro. Ora accetta una valuta opzionale.
+
+test('formatMoney: senza secondo argomento il comportamento è IDENTICO a prima (default EUR/it-IT)', () => {
+  // Regex, non stringa esatta: il separatore delle migliaia in it-IT dipende
+  // dai dati ICU della versione Node (quirk noto, già visto altrove in
+  // questa sessione) — qui si verifica il formato (virgola decimale, simbolo
+  // euro), non un dettaglio di build ambientale.
+  assert.match(formatMoney(1234.5), /1[.,]?234,50\s?€/);
+});
+
+test('formatMoney: valute diverse si formattano con la LORO convenzione, non forzate all\'italiana', () => {
+  assert.match(formatMoney(45.2, 'GBP'), /£/);
+  assert.match(formatMoney(45.2, 'GBP'), /45\.20/, 'inglese: punto decimale, non virgola');
+  assert.match(formatMoney(4500, 'JPY'), /4,500/, 'yen: senza decimali, migliaia con virgola');
+});
+
+test('formatMoney: una valuta non in tabella non fa mai crashare — ricade sulla formattazione it-IT', () => {
+  assert.doesNotThrow(() => formatMoney(10, 'XYZ'));
 });
