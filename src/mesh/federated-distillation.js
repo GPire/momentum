@@ -212,6 +212,39 @@ export function mergeDistillationDigests(localDigest, peerDigests = [], {
   };
 }
 
+// Il segnale per il rilevatore di deriva lenta (contribution-drift.js). Riduce
+// il digest di ogni peer a UN numero per round: quanta probabilità mette,
+// sonda per sonda, sulla categoria che il modello LOCALE considera in testa —
+// mediato sulle sole sonde in comune. Un peer onesto oscilla per rumore; uno
+// che avvelena piano concorda sempre un po' meno (o sempre di più su una
+// categoria sbagliata), sonda dopo sonda, mesi interi: è la persistenza che
+// CUSUM sa vedere e che un confronto isolato, per costruzione, non vede.
+//
+// Il locale è il riferimento SOLO qui, per questo scopo diagnostico:
+// mergeDistillationDigests (la funzione che decide il consenso vero) continua
+// a trattarlo come un voto fra pari, mai come una verità nota.
+export function roundContributions(localDigest, peerEntries = []) {
+  const answers = localDigest?.answers || {};
+  const contributi = {};
+  for (const { peerId, digest } of peerEntries || []) {
+    if (!peerId || digest?.probeVersion !== localDigest?.probeVersion) continue;
+    let somma = 0, n = 0;
+    for (const [probe, dist] of Object.entries(answers)) {
+      const top = Object.entries(dist).sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (!top) continue;
+      const peerDist = digest.answers?.[probe];
+      if (!peerDist) continue;
+      somma += peerDist[top] || 0;
+      n++;
+    }
+    // Meno di 3 sonde in comune non è un confronto (stesso principio di
+    // minSupport altrove nel progetto): meglio tacere che dare un giudizio
+    // costruito su una manciata di coincidenze.
+    if (n >= 3) contributi[peerId] = somma / n;
+  }
+  return contributi;
+}
+
 // ── LIVELLO B: lessico con soglia di corroborazione k-anonima ──
 
 // Offusca l'origine: serve solo a CONTARE quante fonti distinte hanno visto un

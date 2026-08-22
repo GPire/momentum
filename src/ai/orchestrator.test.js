@@ -289,6 +289,44 @@ test("morfologia a freddo: nessun tipo appreso → non vota (nessuna invenzione)
   assert.ok(!(r.sources || []).includes("morphology"), "a freddo lo strato morfologico tace");
 });
 
+// ── Consenso federato (LIVELLO A — src/mesh/federated-distillation.js,
+// difeso dal rilevatore di deriva lenta in src/mesh/contribution-drift.js):
+// il recupero per un dispositivo NUOVO senza storico locale. ───────────────
+test("consenso federato: un dispositivo NUOVO senza storico locale usa il consenso di rete su una parola-tipo generica", () => {
+  const nexus = { predict: () => ({ cat: null, confidence: 0 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: null, confidence: 0 }) };
+  const vault = mockVaultV3();
+  vault.state.mlData.federatedProbeConsensus = { notaio: { legale: 0.9, altro: 0.1 } };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: trained });
+  const r = orch.classify("NOTAIO ROSSI CENTRO", 15, new Date());
+  assert.equal(r.cat, "legale");
+  assert.ok((r.sources || []).includes("federated-probe"), "il voto deve arrivare dal consenso federato");
+});
+
+test("consenso federato: tace se la morfologia LOCALE sa già rispondere (precede solo il cold-start assoluto, non la sostituisce)", () => {
+  const nexus = { predict: () => ({ cat: null, confidence: 0 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: null, confidence: 0 }) };
+  const vault = mockVaultV3();
+  vault.state.mlData.federatedProbeConsensus = { officina: { spesa: 0.9 } };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: trained });
+  orch.learn("DA GINO OFFICINA", "trasporti", 120, new Date());
+  orch.learn("OFFICINA ROSSI SUD", "trasporti", 90, new Date());
+  orch.learn("MECCANICA BIANCHI OFFICINA", "trasporti", 150, new Date());
+  const r = orch.classify("AUTORIPARAZIONI VERDI OFFICINA CENTRO", 110, new Date());
+  assert.equal(r.cat, "trasporti");
+  assert.ok(!(r.sources || []).includes("federated-probe"), "la morfologia locale ha già risposto: il federato non deve votare sopra di lei");
+});
+
+test("consenso federato: sotto la soglia di confidenza non vota (meglio tacere che indovinare)", () => {
+  const nexus = { predict: () => ({ cat: null, confidence: 0 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: null, confidence: 0 }) };
+  const vault = mockVaultV3();
+  vault.state.mlData.federatedProbeConsensus = { notaio: { legale: 0.35, altro: 0.3, spesa: 0.35 } };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: trained });
+  const r = orch.classify("NOTAIO ROSSI CENTRO", 15, new Date());
+  assert.ok(!(r.sources || []).includes("federated-probe"), "0.35 di confidenza non basta per votare");
+});
+
 // ── Predizione conforme: da una soglia scelta a mano a una garanzia ──
 
 // Un vault con calibrazione: gli score sono 1 - p(vera) sulle correzioni

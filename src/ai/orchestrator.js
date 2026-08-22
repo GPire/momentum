@@ -13,7 +13,7 @@ import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.j
 import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
 import { initCalibrationState, recordExpertOutcome, calibrationGate, recordAbstention } from './calibration-gate.js';
 import { initMerchantHierarchy, observeMerchant, predictMerchant } from './merchant-hierarchy.js';
-import { initMorphology, observeMorphology, predictMorphology } from './merchant-morphology.js';
+import { initMorphology, observeMorphology, predictMorphology, typeTokens } from './merchant-morphology.js';
 
 // ============================================================
 // MOMENTUM ORCHESTRATOR — v1.0
@@ -318,9 +318,11 @@ class MomentumOrchestrator {
     // duplica il voto della gerarchia quando lei sa già rispondere, e resta un
     // recupero mirato sul cold-start. A freddo tace: nessun tipo ancora appreso.
     const mm = this.vault.state.mlData.merchantMorphology;
+    let morphologySpoke = false;
     if (mm && !hierarchySpoke) {
       const p = predictMorphology(mm, description);
       if (p) {
+        morphologySpoke = true;
         candidates.push({
           source: 'morphology',
           category: p.category,
@@ -329,6 +331,30 @@ class MomentumOrchestrator {
           // un tipo netto e molto visto pesa quanto un voto di gerarchia medio.
           weight: 0.15 + 0.3 * p.margin * Math.min(1, p.support / 6),
         });
+      }
+    }
+
+    // ── Consenso federato su sonde pubbliche (LIVELLO A —
+    // src/mesh/federated-distillation.js, difeso dal rilevatore di deriva
+    // lenta in src/mesh/contribution-drift.js): vota SOLO quando gerarchia E
+    // morfologia locale hanno taciuto ENTRAMBE — è il recupero per un
+    // dispositivo NUOVO che non ha ancora osservato nulla in proprio, mai un
+    // sostituto della morfologia locale una volta che questa sa rispondere.
+    // Copre solo le parole-tipo generiche di PROBE_SET (poche lingue): peso
+    // basso e fisso apposta, perché è un consenso di rete già mediato e
+    // filtrato contro l'avvelenamento lento, non un'osservazione diretta.
+    const fpc = this.vault.state.mlData.federatedProbeConsensus;
+    if (fpc && !hierarchySpoke && !morphologySpoke) {
+      const { tokens } = typeTokens(description);
+      let best = null;
+      for (const t of tokens) {
+        const dist = fpc[t];
+        if (!dist) continue;
+        const top = Object.entries(dist).sort((a, b) => b[1] - a[1])[0];
+        if (top && (!best || top[1] > best[1])) best = top;
+      }
+      if (best && best[1] >= 0.4) {
+        candidates.push({ source: 'federated-probe', category: best[0], confidence: best[1], weight: 0.1 });
       }
     }
 

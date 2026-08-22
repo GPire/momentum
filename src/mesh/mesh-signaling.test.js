@@ -205,6 +205,33 @@ test('shareMorphology: il modello arriva intatto al peer via morphology_share', 
   assert.deepEqual(got.model, model);
 });
 
+// ── shareDistillation: distillazione federata LIVELLO A ─────────────────────
+test('shareDistillation: il digest arriva intatto al peer via distillation_share', () => {
+  const { nodeA, nodeB } = twoNodes();
+  let got = null;
+  nodeB.onDistillationReceived = (peerId, digest) => { got = { peerId, digest }; };
+  const digest = { kind: 'distillation', probeVersion: 1, answers: { farmacia: { Salute: 1 } } };
+  nodeA.shareDistillation(digest);
+  assert.ok(got, 'distillation_share deve essere consegnato');
+  assert.equal(got.peerId, 'A');
+  assert.deepEqual(got.digest, digest);
+});
+
+test('shareDistillation: un digest vuoto non manda nulla (niente chiacchiericcio)', () => {
+  const { nodeA, nodeB } = twoNodes();
+  let chiamato = false;
+  nodeB.onDistillationReceived = () => { chiamato = true; };
+  assert.equal(nodeA.shareDistillation({ kind: 'distillation', probeVersion: 1, answers: {} }), 0);
+  assert.equal(nodeA.shareDistillation(null), 0);
+  assert.ok(!chiamato);
+});
+
+test('distillation_share senza handler registrato: nessun crash', () => {
+  const { nodeA, chB } = twoNodes();
+  nodeA.onDistillationReceived = null;
+  assert.doesNotThrow(() => chB.send(JSON.stringify({ type: 'distillation_share', digest: { probeVersion: 1, answers: {} } })));
+});
+
 test('morphology_share senza handler registrato: nessun crash', () => {
   const { nodeA, chB } = twoNodes();
   nodeA.onMorphologyReceived = null;

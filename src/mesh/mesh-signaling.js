@@ -248,6 +248,7 @@ class MeshNode {
     this.onSplitGroupsReceived = null; // callback opzionale (nodeId, groups) => {} — sync LIVE gruppi divisione
     this.onMorphologyReceived = null;  // callback opzionale (nodeId, model) => {} — federazione tipi esercente
     this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
+    this.onDistillationReceived = null; // callback opzionale (nodeId, digest) => {} — distillazione su sonde pubbliche, LIVELLO A (opt-in)
     this.onKnowledgeReceived = null;   // callback opzionale (nodeId, payload) => {} — staffetta dati pubblici verificati
     this.onDeviceHello = null;         // callback opzionale (nodeId, publicKey) => {} — device-trust.js
     // CLASSE DI RETE dei peer (nat-matrix.js): 'aperto' | 'prevedibile' |
@@ -416,6 +417,13 @@ class MeshNode {
         // Il merge (voto di maggioranza tra peer indipendenti) e' del
         // ricevente: qui si consegna soltanto.
         this.onLexiconReceived?.(peerId, msg.digest);
+      } else if (msg.type === 'distillation_share') {
+        // DISTILLAZIONE FEDERATA LIVELLO A (src/mesh/federated-distillation.js):
+        // il peer manda solo le previsioni del suo modello locale su sonde
+        // PUBBLICHE e fisse — mai pesi, gradienti o dati suoi. Il merge robusto
+        // per mediana e il rilevatore di deriva lenta (contribution-drift.js)
+        // sono del ricevente: qui si consegna soltanto, come per il lessico.
+        this.onDistillationReceived?.(peerId, msg.digest);
       } else if (msg.type === 'knowledge_share') {
         // STAFFETTA DELLA CONOSCENZA (src/mesh/knowledge-relay.js). Qui passano
         // SOLO dati pubblici già verificati da chi li manda (serie di mercato,
@@ -807,6 +815,20 @@ class MeshNode {
   shareLexicon(digest) {
     if (!digest || !Array.isArray(digest.entries) || !digest.entries.length) return 0;
     const msg = JSON.stringify({ type: 'lexicon_share', digest });
+    let inviati = 0;
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
+    }
+    return inviati;
+  }
+
+  // Condivide il digest di distillazione LIVELLO A (federated-distillation.js:
+  // buildDistillationDigest). Escono solo le previsioni del modello locale su
+  // sonde PUBBLICHE e fisse (PROBE_SET): mai un dato dell'utente, per
+  // costruzione — nessun gradiente, nessun peso, nessuna transazione.
+  shareDistillation(digest) {
+    if (!digest || !digest.answers || !Object.keys(digest.answers).length) return 0;
+    const msg = JSON.stringify({ type: 'distillation_share', digest });
     let inviati = 0;
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }

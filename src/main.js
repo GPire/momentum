@@ -147,7 +147,7 @@ import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from 
 import { answerQuestion } from './ai/qa-engine.js';
 import { recordUnknownQuestion, learnCorrection, qaLearningCoverage } from './ai/qa-learning.js';
 import { recordVoiceCorrection } from './voice/voice-learning.js';
-import { mergeMorphology, initMorphology } from './ai/merchant-morphology.js';
+import { mergeMorphology, initMorphology, predictMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANGS } from './i18n/detect.js';
 import { detectNewsIntent } from './predict/news-intent.js';
@@ -157,7 +157,7 @@ import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, mo
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
-import { appendUpdate, peerReputation } from './mesh/update-ledger.js';
+import { appendUpdate, peerReputation, reputationWeight } from './mesh/update-ledger.js';
 import { computeSyncDigest, transactionsMissingFromPeer } from './mesh/sync.js';
 import { rankMissingByMonth, scoreForSync } from './mesh/sync-priority.js';
 import { buildSketch, serializeCells, recommendedSize, reconcile } from './mesh/iblt.js';
@@ -166,7 +166,8 @@ import { acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.
 import { loadOrCreateExchangeIdentity, openSealedAny, statoIdentita } from './mesh/exchange-identity.js';
 import { loadOrCreateDeviceIdentity } from './mesh/device-signing-identity.js';
 import { verificationWords, addTrustedDevice, isTrustedKey } from './mesh/device-trust.js';
-import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY } from './mesh/federated-distillation.js';
+import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY, buildDistillationDigest, mergeDistillationDigests, roundContributions, PROBE_VERSION } from './mesh/federated-distillation.js';
+import { initDriftState, observeRound, combinedWeight, detectCollusion } from './mesh/contribution-drift.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
@@ -10799,6 +10800,26 @@ function shareLexiconIfAllowed() {
     return momentumMeshNode.shareLexicon(digest);
   } catch (e) { console.warn('Condivisione lessico non riuscita:', e); return 0; }
 }
+
+// Il predittore LOCALE passato a buildDistillationDigest (LIVELLO A): SOLO la
+// morfologia (tipi di esercente), non l'intero ensemble — è il dominio
+// naturale delle sonde di PROBE_SET (parole-tipo generiche in più lingue) e,
+// a differenza di un classify() completo, non tocca lo stato
+// classify()/learn() dell'orchestratore (quello resta legato al ciclo di una
+// transazione vera, mai a una sonda pubblica).
+function localDistillationPredict(probe) {
+  const mm = VaultDAO.state.mlData?.merchantMorphology;
+  if (!mm) return null;
+  const p = predictMorphology(mm, probe);
+  return p ? { [p.category]: p.confidence } : null;
+}
+function shareDistillationIfAllowed() {
+  try {
+    if (!VaultDAO.state.sharedLearningOptIn || !momentumMeshNode) return 0;
+    const digest = buildDistillationDigest(localDistillationPredict);
+    return momentumMeshNode.shareDistillation(digest);
+  } catch (e) { console.warn('Condivisione distillazione non riuscita:', e); return 0; }
+}
 window.openSharedLearning = () => {
   const pool = lexiconPool();
   const uscirebbero = eligibleLexicon(pool, { k: DEFAULT_K_ANONYMITY });
@@ -10832,6 +10853,7 @@ window.setSharedLearning = (on) => {
   VaultDAO.save();
   if (on) {
     const n = shareLexiconIfAllowed();
+    shareDistillationIfAllowed();
     showToast(n > 0 ? `Attivo — condiviso con ${n} dispositivo${n > 1 ? 'i' : ''}.` : 'Attivo: condividerò al prossimo collegamento.', 'success');
   } else {
     showToast('Disattivato: da adesso non esce più nulla.', 'info');
@@ -12969,7 +12991,7 @@ function initMomentumRealAI() {
       // impostazione predefinita. Esce un lessico gia' filtrato con soglia
       // k-anonima (un negozio visto da un solo dispositivo non esce MAI):
       // vedi window.openSharedLearning per il consenso e l'anteprima.
-      if (VaultDAO.state.sharedLearningOptIn) shareLexiconIfAllowed();
+      if (VaultDAO.state.sharedLearningOptIn) { shareLexiconIfAllowed(); shareDistillationIfAllowed(); }
       // Staffetta: a ogni incontro si scambiano i pacchetti in transito.
       for (const pid of momentumMeshNode.peers.keys()) scambiaStaffetta(pid);
       // FIDUCIA (device-trust.js): la propria chiave di firma viaggia ad
@@ -13062,6 +13084,40 @@ function initMomentumRealAI() {
         }
         VaultDAO.save();
       } catch (e) { console.warn('Lessico condiviso non applicato:', e); }
+    };
+    // Ricezione della distillazione LIVELLO A (src/mesh/federated-distillation.js):
+    // merge robusto per mediana, ma il peso di ogni peer è composto da DUE
+    // cose — la reputazione già esistente (update-ledger.js) e il rilevatore
+    // di deriva lenta (src/mesh/contribution-drift.js), che vede un peer che
+    // spinge poco ma sempre nella stessa direzione da mesi: né la mediana né
+    // la reputazione, prese da sole, lo vedono per costruzione (guardano un
+    // round alla volta). Il consenso risultante (federatedProbeConsensus)
+    // diventa un voto in più per l'ensemble (orchestrator.js), debole
+    // apposta, utile soprattutto a un dispositivo NUOVO senza storico locale.
+    momentumMeshNode.onDistillationReceived = (peerId, digest) => {
+      try {
+        if (!VaultDAO.state.sharedLearningOptIn) return; // chi non partecipa non riceve
+        if (!digest || digest.probeVersion !== PROBE_VERSION) return;
+        VaultDAO.state.mlData = VaultDAO.state.mlData || {};
+        const ml = VaultDAO.state.mlData;
+        const inbox = (ml.distillationInbox || []).filter((x) => x.peerId !== peerId);
+        inbox.push({ peerId, digest });
+        ml.distillationInbox = inbox.slice(-12); // finestra breve, come il lessico
+
+        const localDigest = buildDistillationDigest(localDistillationPredict);
+        const contributi = roundContributions(localDigest, ml.distillationInbox);
+        ml.distillationDrift = observeRound(ml.distillationDrift || initDriftState(), contributi);
+        const collusione = detectCollusion(ml.distillationDrift);
+
+        const merged = mergeDistillationDigests(localDigest, ml.distillationInbox, {
+          ledger: VaultDAO.state.updateLedger,
+          reputationWeightFn: (ledger, pid, base) =>
+            combinedWeight(ml.distillationDrift, pid, reputationWeight(ledger, pid, base), { collusione }),
+          minPeers: 2,
+        });
+        ml.federatedProbeConsensus = merged.answers;
+        VaultDAO.save();
+      } catch (e) { console.warn('Distillazione federata non applicata:', e); }
     };
     // Ricezione federata dei tipi esercente: merge anti-poisoning (cap per token)
     // sul modello locale. Zero dati grezzi ricevuti — solo parole-tipo+categorie.

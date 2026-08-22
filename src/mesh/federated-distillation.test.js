@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PROBE_SET, PROBE_VERSION,
-  buildDistillationDigest, mergeDistillationDigests, previewOutgoing,
+  buildDistillationDigest, mergeDistillationDigests, previewOutgoing, roundContributions,
   initPrivacyBudget, budgetStatus, spendBudget,
   initLexiconPool, observeLexicon, eligibleLexicon, heldBackLexicon,
   buildLexiconDigest, mergeLexiconDigests, originTag, DEFAULT_K_ANONYMITY,
@@ -106,6 +106,44 @@ test('digest di una versione diversa delle sonde vengono scartati, non fusi a fo
   const m = mergeDistillationDigests(null, [vecchio, nuovo], { minPeers: 1 });
   assert.equal(m.stats.scartatePerVersione, 1);
   assert.ok(!('Altro' in (m.answers.panetteria || {})));
+});
+
+// ── Il segnale per contribution-drift.js (CUSUM sulla persistenza) ──
+
+test('roundContributions: un peer concorde col locale su tutte le sonde comuni ottiene ~1', () => {
+  const locale = buildDistillationDigest(modello(MAPPA_SANA));
+  const stesso = { peerId: 'gemello', digest: buildDistillationDigest(modello(MAPPA_SANA)) };
+  const c = roundContributions(locale, [stesso]);
+  assert.ok(c.gemello > 0.99, `atteso ~1, avuto ${c.gemello}`);
+});
+
+test('roundContributions: un peer che discorda su tutto ottiene ~0', () => {
+  const locale = buildDistillationDigest(modello(MAPPA_SANA));
+  const mappaOpposta = { panetteria: 'Trasporti', farmacia: 'Alimentari', ristorante: 'Salute', benzina: 'Ristoranti' };
+  const discorde = { peerId: 'discorde', digest: buildDistillationDigest(modello(mappaOpposta)) };
+  const c = roundContributions(locale, [discorde]);
+  assert.ok(c.discorde < 0.01, `atteso ~0, avuto ${c.discorde}`);
+});
+
+test('roundContributions: meno di 3 sonde in comune non produce un giudizio (troppo poco per un confronto)', () => {
+  const mappaMinima = { panetteria: 'Alimentari' };
+  const locale = buildDistillationDigest(modello(mappaMinima));
+  const peer = { peerId: 'p', digest: buildDistillationDigest(modello(mappaMinima)) };
+  const c = roundContributions(locale, [peer]);
+  assert.equal(c.p, undefined);
+});
+
+test('roundContributions: digest di versione diversa vengono ignorati, non producono un falso 0', () => {
+  const locale = buildDistillationDigest(modello(MAPPA_SANA));
+  const vecchio = { peerId: 'vecchio', digest: { kind: 'distillation', probeVersion: 99, answers: { panetteria: { Alimentari: 1 } } } };
+  const c = roundContributions(locale, [vecchio]);
+  assert.equal(c.vecchio, undefined);
+});
+
+test('roundContributions: senza digest locale non produce contributi (nessun riferimento per confrontare)', () => {
+  const peer = { peerId: 'p', digest: buildDistillationDigest(modello(MAPPA_SANA)) };
+  const c = roundContributions(null, [peer]);
+  assert.deepEqual(c, {});
 });
 
 // ── Budget di privacy ──
