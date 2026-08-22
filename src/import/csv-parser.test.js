@@ -84,3 +84,40 @@ test('CSV Dare/Avere a due colonne, valute miste per riga: ogni riga porta la SU
   assert.equal(txs[1].currency, 'EUR');
   assert.equal(txs[1].type, 'entrata');
 });
+
+// ── Starling Bank (UK): formato CSV verificato con fonte reale (GitHub
+// mafonso/starling2freeagent, deadsimpleaccounting.co.uk) — "Amount (GBP)"
+// firmato in un'unica colonna, PIÙ una variante PDF a "Money In"/"Money Out"
+// separate (accounter.co.za). ──────────────────────────────────────────
+
+test('Starling Bank: formato verificato "Amount (GBP)" con segno, colonna unica', () => {
+  const csv = [
+    'Date,Counter Party,Reference,Type,Amount (GBP),Balance (GBP)',
+    '01/03/2026,TESCO STORES,Card payment,FASTER PAYMENT,-45.20,1200.00',
+    '02/03/2026,ACME LTD,Salary,FASTER PAYMENT,1500.00,2700.00',
+  ].join('\n');
+  const txs = parseGenericCsv(csv);
+  assert.equal(txs.length, 2);
+  assert.equal(txs[0].amount, 45.20);
+  assert.equal(txs[0].type, 'uscita');
+  assert.equal(txs[1].amount, 1500);
+  assert.equal(txs[1].type, 'entrata');
+});
+
+test('BUG REALE CORRETTO — "Money In"/"Money Out" (variante PDF Starling): il verso non deve dipendere dalla POSIZIONE delle colonne', () => {
+  // Prima di questo fix: nessuna delle due intestazioni matchava i pattern
+  // debito/credito, e l'euristica di riserva assegnava "debito" alla colonna
+  // più a sinistra per POSIZIONE — qui "Money In" precede "Money Out",
+  // quindi un'entrata (Money In) veniva scambiata per un'uscita e viceversa.
+  const csv = [
+    'Date,Description,Money In,Money Out,Balance',
+    '01/03/2026,TESCO STORES,,45.20,1200.00',
+    '02/03/2026,SALARY ACME LTD,1500.00,,2700.00',
+  ].join('\n');
+  const txs = parseGenericCsv(csv);
+  assert.equal(txs.length, 2);
+  assert.equal(txs[0].type, 'uscita', 'importo in "Money Out" -> uscita, non entrata');
+  assert.equal(txs[0].amount, 45.20);
+  assert.equal(txs[1].type, 'entrata', 'importo in "Money In" -> entrata, non uscita');
+  assert.equal(txs[1].amount, 1500);
+});

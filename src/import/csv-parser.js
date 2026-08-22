@@ -56,8 +56,16 @@ export function parseGenericCsv(text) {
     if (dateCol < 0 && COLUMN_KEYWORDS.date.test(h)) dateCol = i;
     else if (descCol < 0 && COLUMN_KEYWORDS.desc.test(h)) descCol = i;
     else if (amountCol < 0 && /(importo|ammontare|cifra|amount|montant|betrag|valor|importe)/i.test(h)) amountCol = i;
-    else if (debitCol < 0 && /(addebit|uscit|dare|debit|débit|soll|cargo)/i.test(h)) debitCol = i;
-    else if (creditCol < 0 && /(accredit|entrat|avere|credit|crédit|haben|abono)/i.test(h)) creditCol = i;
+    // "money out"/"paid out" e "money in"/"paid in": convenzione reale di
+    // banche UK (Starling, e non solo — verificato: le colonne CSV/PDF di
+    // Starling usano "Money In"/"Money Out"). BUG REALE TROVATO: senza
+    // questi termini nessuna delle due colonne matchava per header, e
+    // l'euristica di riserva sotto (due colonne monetarie non etichettate →
+    // "quella a sinistra è il debito") assegnava debito/credito per
+    // POSIZIONE — sbagliando il verso quando "Money In" precede "Money Out"
+    // nell'intestazione, come capita spesso.
+    else if (debitCol < 0 && /(addebit|uscit|dare|debit|débit|soll|cargo|money\s*out|paid\s*out)/i.test(h)) debitCol = i;
+    else if (creditCol < 0 && /(accredit|entrat|avere|credit|crédit|haben|abono|money\s*in|paid\s*in)/i.test(h)) creditCol = i;
     else if (dcCol < 0 && /(segno|d\/c|dare\/avere|tipo|type|sign)/i.test(h)) dcCol = i;
   });
 
