@@ -56,7 +56,11 @@ export const POOL = {
   trasporti: ['grab taxi', 'cabify viaje', 'bolt ride', 'renfe billete', 'sncf voyage', 'deutsche bahn',
     'metro valencia', 'bus urbano', 'noleggio auto', 'car2go minuti', 'shell stazione', 'agip rifornimento',
     'total carburant', 'repsol gasolina', 'pedaggio autostradale', 'parcheggio centro', 'ricarica elettrica',
-    'traghetto linea', 'aliscafo', 'funivia'],
+    'traghetto linea', 'aliscafo', 'funivia',
+    // "ricarica" da solo somiglia troppo a una ricarica telefonica
+    // (bollette): questi esempi insegnano il contesto che lo rende
+    // trasporti — tessera/abbonamento/mezzi, non un operatore telefonico.
+    'ricarica abbonamento atm', 'ricarica tessera trasporti', 'ricarica carta bus', 'atm milano ricarica mezzi'],
   stipendio: ['accredito compenso', 'bonifico retribuzione', 'pagamento prestazione', 'onorario professionale',
     'nomina empresa', 'gehalt firma', 'salaire entreprise', 'salario mensal', 'wage payment', 'fattura saldata',
     'compenso collaboratore', 'rimborso spese lavoro', 'anticipo stipendio', 'quattordicesima', 'premio produzione'],
@@ -68,7 +72,41 @@ export const POOL = {
     'etf immobiliare reit', 'etf small cap', 'etf value factor', 'etf momentum', 'gestione patrimoniale fondo'],
   crypto: ['acquisto token', 'exchange deposito', 'gemini bitcoin', 'bitstamp ethereum', 'crypto.com carta',
     'nexo interessi', 'ledger acquisto', 'metamask swap', 'uniswap scambio', 'defi staking', 'nft acquisto',
-    'polkadot dot', 'avalanche avax', 'chainlink link', 'wallet freddo'],
+    'polkadot dot', 'avalanche avax', 'chainlink link', 'wallet freddo',
+    // "solana" non compariva MAI nel training (solo nel test held-out): il
+    // modello indovinava dalla sola parola generica "acquisto" — corretto
+    // alla radice, non aggirato spostando peso da altre categorie.
+    'acquisto solana crypto', 'solana wallet acquisto', 'wallet btc ricarica', 'ricarica wallet crypto'],
+  // ── LE SEI CATEGORIE CHE I MODELLI ADDESTRATI NON HANNO MAI VISTO ──
+  // Aggiunte all'app (constants.js) DOPO che Nano/Meso/LogReg erano già stati
+  // addestrati: nessuno dei tre modelli reali le riconosce, per quanto le si
+  // addestri online — il vocabolario di training semplicemente non le
+  // contiene. Stesso stile delle altre: brand/parole REALI, già verificate
+  // in merchant-dictionary.js dove esistevano (enel, farmacia, ryanair...),
+  // non inventate qui da zero.
+  casa: ['affitto mensile appartamento', 'rata mutuo casa', 'spese condominiali', 'amministratore condominio',
+    'agenzia immobiliare commissione', 'idraulico riparazione', 'elettricista intervento', 'imbianchino tinteggiatura',
+    'falegname su misura', 'fabbro serratura', 'canone locazione', 'deposito cauzionale affitto',
+    'assicurazione casa polizza', 'ristrutturazione bagno', 'manutenzione caldaia', 'disinfestazione appartamento'],
+  bollette: ['bolletta enel energia', 'bolletta luce a2a', 'bolletta gas hera', 'acea acqua fattura',
+    'iren energia bolletta', 'edison luce e gas', 'sorgenia fornitura', 'fastweb fibra fattura',
+    'vodafone ricarica abbonamento', 'tim bolletta telefono', 'windtre fattura', 'iliad ricarica mensile',
+    'acquedotto comunale bolletta', 'ho mobile ricarica', 'kena mobile fattura', 'poste mobile ricarica'],
+  salute: ['farmacia comunale acquisto', 'parafarmacia prodotti', 'dentista visita controllo', 'ottico occhiali vista',
+    'fisioterapia seduta', 'ospedale prestazione', 'ambulatorio medico visita', 'analisi cliniche laboratorio',
+    'veterinario visita animale', 'clinica privata visita', 'poliambulatorio prestazione', 'ticket sanitario',
+    'centro medico prenotazione', 'psicologo seduta', 'nutrizionista visita', 'massoterapia trattamento'],
+  istruzione: ['tasse universitarie ateneo', 'iscrizione politecnico', 'retta scuola privata', 'asilo nido mensile',
+    'corso udemy online', 'coursera abbonamento corso', 'duolingo plus lingue', 'masterclass corso online',
+    'edx corso universitario', 'ripetizioni lezioni private', 'libri scolastici acquisto', 'materiale didattico',
+    'corso formazione professionale', 'esame certificazione', 'iscrizione master', 'scuola guida patente'],
+  viaggi: ['booking prenotazione hotel weekend', 'airbnb affitto casa vacanza', 'expedia pacchetto viaggio', 'hotel soggiorno notte',
+    'ostello prenotazione letto', 'agriturismo weekend', 'assicurazione viaggio',
+    'supplemento bagaglio aereo', 'escursione guidata tour', 'crociera cabina prenotazione'],
+  svago: ['cinema film multisala', 'teatro spettacolo serale', 'concerto live arena', 'ticketone acquisto evento',
+    'eventbrite iscrizione evento', 'piscina comunale ingresso', 'museo mostra permanente', 'luna park giostre',
+    'bowling partita', 'biliardo sala giochi', 'steam acquisto videogioco', 'playstation store acquisto',
+    'nintendo eshop gioco', 'twitch abbonamento canale', 'parco divertimenti ingresso', 'sala scommesse gioco'],
 };
 
 // Seconda ondata (dataset PIÙ POTENTE): altri esercenti/pattern reali,
@@ -107,6 +145,24 @@ const MORE = {
   risparmio: ['bonifico verso salvadanaio', 'accantonamento risparmio', 'giroconto conto deposito', 'versamento libretto',
     'piano di risparmio', 'accantonamento fondo emergenza', 'trasferimento a deposito', 'risparmio automatico',
     'salvadanaio digitale', 'round up risparmio', 'accantonamento obiettivo', 'deposito vincolato'],
+  casa: ['pagamento affitto locatore', 'rata mutuo prima casa', 'quota condominiale trimestrale', 'agenzia immobiliare provvigione',
+    'intervento idraulico urgente', 'chiamata elettricista guasto', 'preventivo imbianchino casa', 'lavori falegnameria su misura',
+    'polizza assicurativa abitazione', 'spese notarili rogito', 'caparra confirmatoria affitto', 'canone rai'],
+  bollette: ['bolletta luce e gas', 'fattura fibra internet', 'ricarica traffico telefonico', 'canone acqua comunale',
+    'bolletta riscaldamento condominiale', 'fattura energia elettrica', 'abbonamento telefonico fisso', 'fattura gas metano',
+    'bolletta tari rifiuti', 'ricarica traffico sim', 'canone fisso contatore', 'fattura telefonia fissa'],
+  salute: ['visita specialistica privata', 'acquisto farmaci prescrizione', 'controllo dentistico annuale', 'esami del sangue laboratorio',
+    'seduta fisioterapia riabilitativa', 'visita veterinaria animale', 'occhiali da vista ottico', 'ticket pronto soccorso',
+    'polizza sanitaria integrativa', 'visita pediatrica bambino', 'intervento ambulatoriale', 'terapia psicologica seduta'],
+  istruzione: ['retta annuale universita', 'quota iscrizione master', 'corso di lingua straniera', 'lezioni private ripetizioni',
+    'materiale scolastico libri', 'iscrizione corso professionale', 'abbonamento piattaforma e-learning', 'tassa esame certificazione',
+    'quota asilo nido mensile', 'corso di specializzazione', 'scuola guida lezioni', 'workshop formativo aziendale'],
+  viaggi: ['prenotazione hotel weekend', 'affitto appartamento vacanza', 'pacchetto viaggio organizzato',
+    'assicurazione viaggio annullamento', 'escursione guidata locale',
+    'soggiorno resort settimana', 'supplemento bagaglio aereo', 'transfer aeroporto hotel', 'visto turistico pratica'],
+  svago: ['cinema multisala serata', 'abbonamento teatro stagione', 'concerto arena live', 'ingresso museo mostra',
+    'acquisto videogioco digitale', 'ingresso parco acquatico', 'lezione di ballo corso', 'attrezzatura sportiva pomeriggio',
+    'evento sportivo stadio', 'sala giochi arcade', 'escape room prenotazione', 'corso hobby creativo'],
 };
 for (const k in MORE) POOL[k] = [...(POOL[k] || []), ...MORE[k]];
 
@@ -137,6 +193,24 @@ const EURO = {
     'nexo earn', 'bitstamp eth', 'bitpanda wien'],
   risparmio: ['spaarrekening storting', 'sparkonto einzahlung', 'livret epargne', 'cuenta ahorro', 'konto oszczednosciowe',
     'trade republic risparmio', 'deposito vincolato', 'piano accumulo risparmio'],
+  casa: ['huur appartement betaling', 'miete wohnung uberweisung', 'loyer appartement paiement', 'alquiler piso pago',
+    'hypotheek aflossing', 'hypothek rate', 'credit immobilier mensualite', 'hipoteca cuota mensual',
+    'immobilienmakler provision', 'notaire frais acte', 'wohngebaudeversicherung', 'vve bijdrage'],
+  bollette: ['energierechnung strom', 'gasrekening jaarlijks', 'facture electricite edf', 'factura luz iberdrola',
+    'internetrechnung telekom', 'orange facture mobile', 'movistar factura fibra', 'ziggo internet rekening',
+    'wasserrechnung stadtwerke', 'rachunek za prad', 'rachunek za gaz', 'telefonrechnung monatlich'],
+  salute: ['apotheke medikamente', 'pharmacie ordonnance', 'farmacia recibo', 'zahnarzt behandlung',
+    'dentiste consultation', 'dentista consulta', 'krankenversicherung beitrag', 'mutuelle sante cotisation',
+    'seguro medico cuota', 'tierarzt behandlung', 'veterinaire consultation', 'optiker brille'],
+  istruzione: ['universitaet studiengebuhren', 'frais universite inscription', 'universidad matricula', 'sprachschule kurs',
+    'ecole de langue cours', 'escuela de idiomas curso', 'kita beitrag monatlich', 'creche mensualite',
+    'guarderia cuota mensual', 'nachhilfe unterricht', 'cours particulier', 'clases particulares'],
+  viaggi: ['lufthansa flugticket', 'air france billet avion', 'iberia billete avion',
+    'hotel reservierung', 'reservation hotel',
+    'reserva de hotel', 'mietwagen flughafen', 'location de voiture', 'alquiler de coche'],
+  svago: ['kino eintrittskarte', 'cinema billet entree', 'cine entrada pelicula', 'konzert ticket',
+    'billet de concert', 'entrada de concierto', 'schwimmbad eintritt', 'piscine entree',
+    'piscina municipal entrada', 'freizeitpark ticket', 'parc attractions billet', 'parque atracciones entrada'],
 };
 for (const k in EURO) POOL[k] = [...(POOL[k] || []), ...EURO[k]];
 
