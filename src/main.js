@@ -173,6 +173,7 @@ import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exp
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
+import { extractQuickAddParams, buildQuickAddPrefill } from './import/quick-add-link.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
@@ -1587,6 +1588,28 @@ async function consumeJoinLink() {
     }
     window.openJoinConfirm(g);
   } catch (e) { console.warn('Link gruppo non recuperabile:', e); }
+}
+
+// ── DEEP-LINK "QUICK-ADD" (automazione iOS Shortcuts "Wallet"/"Transaction",
+// vedi src/import/quick-add-link.js) ─────────────────────────────────────
+// Stesso schema del deep-link "unisciti" sopra: estrae, pulisce SUBITO
+// l'URL (idempotenza — mai ri-consumare al reload), aspetta che l'app sia
+// pronta se serve, poi mostra il form di conferma GIÀ ESISTENTE
+// (openPrefilledAdd, lo stesso usato dalla scorciatoia della Dashboard) —
+// nessuna transazione viene salvata da sola: un link, anche legittimo,
+// resta input ESTERNO, e l'utente vede e conferma ogni campo prima del
+// salvataggio, esattamente come per l'invito a un gruppo.
+function consumeQuickAddLink() {
+  try {
+    const params = extractQuickAddParams(location.href);
+    if (!params) return;
+    history.replaceState(null, '', location.pathname);
+    const prefill = buildQuickAddPrefill(params, window.momentumOrchestrator);
+    if (!document.getElementById('app-core') || document.getElementById('app-core').classList.contains('hidden')) {
+      window._pendingQuickAdd = prefill; return;
+    }
+    window.openPrefilledAdd(prefill);
+  } catch (e) { console.warn('Link quick-add non recuperabile:', e); }
 }
 
 // Streak (src/predict/engagement.js): pura fuori, stato del vault dentro —
@@ -10113,6 +10136,10 @@ const endGenesis = () => {
           // l'app è pronta processa l'invito rimasto in sospeso.
           consumeJoinLink();
           if (window._pendingJoin) { const g = window._pendingJoin; window._pendingJoin = null; setTimeout(() => window.openJoinConfirm(g), 400); }
+          // Stesso schema per un link "quick-add" (automazione iOS Shortcuts)
+          // arrivato durante il primo avvio, prima che il form fosse pronto.
+          consumeQuickAddLink();
+          if (window._pendingQuickAdd) { const p = window._pendingQuickAdd; window._pendingQuickAdd = null; setTimeout(() => window.openPrefilledAdd(p), 400); }
         };
         setTimeout(chiudi, 1100);
       }
@@ -12691,6 +12718,7 @@ const initApp = () => {
     if (gExisting) { history.replaceState(null, '', location.pathname); setTimeout(() => { window.openJoinConfirm(gExisting); clearJoin(); }, 400); }
     else {
       clearJoin(); consumeJoinLink();
+      consumeQuickAddLink(); // link "quick-add" da un'automazione iOS Shortcuts
       // Feedback proposto UNA sola volta, dopo un uso reale (non al primo
       // avvio, mai un popup che torna): 10 giorni da quando questo
       // dispositivo ha iniziato a usare Momentum. Mai più dopo la prima
