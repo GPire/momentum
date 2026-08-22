@@ -177,6 +177,50 @@ test('detectCurrency: nessun indizio -> null, mai una valuta indovinata a caso',
   assert.equal(detectCurrency(null), null);
 });
 
+// ---- copertura GLOBALE (~150 valute, non solo EUR/USD/GBP): chi vive
+// altrove nel mondo non deve vedere le proprie transazioni scartate ----
+
+test('detectCurrency: valute di ogni continente, non solo europee/nordamericane', () => {
+  assert.equal(detectCurrency('NGN 4500'), 'NGN', 'Naira nigeriana');
+  assert.equal(detectCurrency('45000 IDR'), 'IDR', 'Rupia indonesiana');
+  assert.equal(detectCurrency('BRL 45,00'), 'BRL', 'Real brasiliano');
+  assert.equal(detectCurrency('₹450'), 'INR', 'Rupia indiana (simbolo)');
+  assert.equal(detectCurrency('₦4500'), 'NGN', 'Naira (simbolo)');
+  assert.equal(detectCurrency('฿450'), 'THB', 'Baht thailandese (simbolo)');
+  assert.equal(detectCurrency('KES 4500'), 'KES', 'Scellino keniano');
+  assert.equal(detectCurrency('45.00 PKR'), 'PKR', 'Rupia pakistana');
+  assert.equal(detectCurrency('45,00 VES'), 'VES', 'Bolivar venezuelano');
+});
+
+test('parseCellAmount: importi in valute globali si leggono correttamente, non solo EUR/USD/GBP', () => {
+  assert.equal(parseCellAmount('NGN 4500'), 4500);
+  assert.equal(parseCellAmount('45000 IDR'), 45000);
+  assert.equal(parseCellAmount('₹450'), 450);
+  assert.equal(parseCellAmount('KES 4500'), 4500);
+});
+
+// ---- FALSI POSITIVI: alcuni codici ISO reali coincidono con parole comuni
+// inglesi (ALL=lek albanese, TRY=lira turca, TOP=pa'anga tongano,
+// SOS=scellino somalo) — un codice isolato in un paragrafo qualunque non
+// deve MAI risultare in una valuta, solo se adiacente a un numero ----
+
+test('detectCurrency: parole comuni che coincidono con codici ISO reali NON scattano lontano da un numero', () => {
+  assert.equal(detectCurrency('PLEASE TRY AGAIN LATER'), null);
+  assert.equal(detectCurrency('ALL SERVICES INCLUDED, NO EXTRA FEES'), null);
+  assert.equal(detectCurrency('TOP UP YOUR ACCOUNT ANYTIME'), null);
+  assert.equal(detectCurrency('SOS EMERGENCY CONTACT UPDATED'), null);
+});
+
+test('detectCurrency: lo stesso codice ISO funziona quando è davvero adiacente a un importo', () => {
+  assert.equal(detectCurrency('TRY 45.00'), 'TRY');
+  assert.equal(detectCurrency('45.00 TRY'), 'TRY');
+});
+
+test('detectCurrency: un codice non deve scattare da dentro una parola più lunga ("TALL", "ALLOWANCE")', () => {
+  assert.equal(detectCurrency('TALL BUILDING FEE 45.00'), null);
+  assert.equal(detectCurrency('ANNUAL ALLOWANCE 45.00'), null);
+});
+
 test('estratto SPAGNOLO (Cargo/Abono): 2 transazioni, verso corretto', async () => {
   const { spanishLayout } = await import('./fixtures/pdf-layouts.js');
   const txs = extractTransactionsFromItems(spanishLayout());

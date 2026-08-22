@@ -1,3 +1,5 @@
+import { VALUTE_ISO4217, SIMBOLO_VALUTA } from '../core/iso4217.js';
+
 // ==========================================
 // PDF BANK PARSER (COLUMN RESONANCE)
 // ==========================================
@@ -383,17 +385,31 @@ const parseCellAmount = (text) => {
 // e ha PRECEDENZA sul simbolo: "$" da solo è ambiguo (USD/CAD/AUD/... usano
 // tutti "$"), qui si assume USD come default dichiarato, non nascosto — se
 // serve distinguere, il codice esplicito lo permette già.
-const SYMBOL_CURRENCY = { '€': 'EUR', '$': 'USD', '£': 'GBP', '¥': 'JPY', '₹': 'INR', '₩': 'KRW', '₪': 'ILS' };
-const CODICI_VALUTA_NOTI = new Set([
-  'EUR', 'USD', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'CNY', 'SEK', 'NOK', 'DKK',
-  'PLN', 'CZK', 'HUF', 'MXN', 'BRL', 'INR', 'KRW', 'SGD', 'HKD', 'NZD', 'ZAR', 'TRY',
-]);
+//
+// Elenco valute condiviso (src/core/iso4217.js, ~150 valute attive nel
+// mondo — non solo EUR/USD/GBP): un utente altrove nel mondo non deve
+// vedere le proprie transazioni scartate solo perché la sua valuta non era
+// in una lista pensata per l'Europa.
+//
+// IL CODICE NON PUÒ USARE \b PER IL CONFINE DESTRO: \b non scatta fra due
+// caratteri "di parola" in senso regex, e una cifra (0-9) LO è tanto quanto
+// una lettera — "CHF45.00" (nessuno spazio, estratti reali li scrivono
+// così) non avrebbe mai un confine fra "F" e "4". Si usano lookahead/
+// lookbehind negativi su [A-Z] per lo stesso scopo (non fare da parte di
+// una parola più lunga, tipo "TALL"/"ALLOWANCE") senza quel limite — e si
+// richiede SEMPRE l'adiacenza a una cifra (con segno ed eventuale spazio in
+// mezzo): un codice isolato in un paragrafo qualunque ("ALL SERVICES",
+// "PLEASE TRY AGAIN" — sì, "ALL" e "TRY" sono codici ISO veri, rispettivamente
+// lek albanese e lira turca) non deve MAI risultare in una valuta.
+const codiceValutaRe = /(?<![A-Z])([A-Z]{3})(?![A-Z])(?=\s*[-−+]?\s*[\d])|(?<=[\d]\s?)(?<![A-Z])([A-Z]{3})(?![A-Z])/g;
 const detectCurrency = (text) => {
   if (!text) return null;
   const s = String(text);
-  const codeMatch = s.toUpperCase().match(/\b([A-Z]{3})\b/);
-  if (codeMatch && CODICI_VALUTA_NOTI.has(codeMatch[1])) return codeMatch[1];
-  for (const sym of Object.keys(SYMBOL_CURRENCY)) if (s.includes(sym)) return SYMBOL_CURRENCY[sym];
+  for (const m of s.toUpperCase().matchAll(codiceValutaRe)) {
+    const code = m[1] || m[2];
+    if (VALUTE_ISO4217.has(code)) return code;
+  }
+  for (const sym of Object.keys(SIMBOLO_VALUTA)) if (s.includes(sym)) return SIMBOLO_VALUTA[sym];
   return null; // nessun indizio: il chiamante ricade sulla valuta base del dispositivo
 };
 

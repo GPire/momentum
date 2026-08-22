@@ -78,6 +78,14 @@ test('formatMoney: valute diverse si formattano con la LORO convenzione, non for
   assert.match(formatMoney(4500, 'JPY'), /4,500/, 'yen: senza decimali, migliaia con virgola');
 });
 
-test('formatMoney: una valuta non in tabella non fa mai crashare — ricade sulla formattazione it-IT', () => {
+test('formatMoney: una valuta non in tabella non fa mai crashare — ricade sul locale di sistema, mai forzata all\'italiana', () => {
   assert.doesNotThrow(() => formatMoney(10, 'XYZ'));
+  assert.match(formatMoney(10, 'XYZ'), /XYZ/, 'il codice ISO resta comunque visibile anche senza una locale dedicata');
+});
+
+test('formatMoney: copertura globale — valute di continenti diversi da Europa/Nord America si formattano correttamente', () => {
+  assert.doesNotThrow(() => formatMoney(4500, 'NGN'));  // Naira nigeriana
+  assert.doesNotThrow(() => formatMoney(4500, 'KES'));  // Scellino keniano
+  assert.doesNotThrow(() => formatMoney(45000, 'IDR')); // Rupia indonesiana
+  assert.doesNotThrow(() => formatMoney(45, 'PKR'));    // Rupia pakistana
 });
