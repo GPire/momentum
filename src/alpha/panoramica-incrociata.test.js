@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  quantoStrano, autovaloriSimmetrica, numeroEfficaceDiFonti, matriceCorrelazione,
+  quantoStrano, autovaloriSimmetrica, autovaloriEVettoriSimmetrica, numeroEfficaceDiFonti, matriceCorrelazione,
   panoramica, testoPanoramica, MIN_STORIA, correzioneEfficace, panoramicaDoppia,
 } from './panoramica-incrociata.js';
 import { LUNGO, NOMI_LUNGO } from './long-asset-panel.js';
@@ -79,6 +79,38 @@ test('autovalori: la somma è la traccia (controllo che l\'algoritmo non sballi)
   const M = matriceCorrelazione(Array.from({ length: 5 }, () => serie(200, rng)));
   const somma = autovaloriSimmetrica(M).reduce((s, v) => s + v, 0);
   assert.ok(Math.abs(somma - 5) < 1e-6, `somma autovalori ${somma}, attesa 5`);
+});
+
+// ── autovaloriEVettoriSimmetrica: serve alla proiezione MDS in correlation-regime.js ──
+test('autovettori: M·v = λ·v per ogni coppia (definizione stessa di autovettore)', () => {
+  const rng = seme(9);
+  const M = matriceCorrelazione(Array.from({ length: 5 }, () => serie(200, rng)));
+  const { valori, vettori } = autovaloriEVettoriSimmetrica(M);
+  for (let k = 0; k < valori.length; k++) {
+    const v = vettori[k], lambda = valori[k];
+    for (let i = 0; i < M.length; i++) {
+      const Mv_i = M[i].reduce((s, mij, j) => s + mij * v[j], 0);
+      assert.ok(Math.abs(Mv_i - lambda * v[i]) < 1e-6, `riga ${i}, autovalore ${k}: M·v=${Mv_i}, λ·v=${lambda * v[i]}`);
+    }
+  }
+});
+
+test('autovettori: gli stessi autovalori di autovaloriSimmetrica, stesso ordine', () => {
+  const rng = seme(10);
+  const M = matriceCorrelazione(Array.from({ length: 6 }, () => serie(150, rng)));
+  const soloValori = autovaloriSimmetrica(M);
+  const { valori } = autovaloriEVettoriSimmetrica(M);
+  for (let i = 0; i < valori.length; i++) assert.ok(Math.abs(valori[i] - soloValori[i]) < 1e-9);
+});
+
+test('autovettori: ogni autovettore ha norma 1 (la rotazione di Jacobi è ortogonale)', () => {
+  const rng = seme(11);
+  const M = matriceCorrelazione(Array.from({ length: 4 }, () => serie(100, rng)));
+  const { vettori } = autovaloriEVettoriSimmetrica(M);
+  for (const v of vettori) {
+    const norma = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+    assert.ok(Math.abs(norma - 1) < 1e-9, `norma ${norma}, attesa 1`);
+  }
 });
 
 // ── LA PANORAMICA ──

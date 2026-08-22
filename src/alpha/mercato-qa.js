@@ -372,8 +372,8 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'), import('./qualita-nel-tempo.js'), import('./fondamentali-storici.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qualMod, storici]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'), import('./qualita-nel-tempo.js'), import('./fondamentali-storici.js'), import('./correlation-regime.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qualMod, storici, correl]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -385,7 +385,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual: { ...qualMod, ...storici } };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual: { ...qualMod, ...storici }, correl };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -453,7 +453,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual, correl } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -790,7 +790,24 @@ export function rispostaSincrona(domanda, similarity = null) {
       const extra = s.concordi
         ? ' I tre segnali che guardo dicono la stessa cosa.'
         : ' I segnali che guardo non concordano fra loro: qualcosa è teso, qualcos\'altro no.';
-      return conAvviso({ intent: 'mercato-regime', data: s, answer: (testo || '') + extra });
+      // Una lente indipendente e complementare: non "quanto" sono tesi i
+      // mercati (i tre voti sopra) ma se il MODO in cui i settori si muovono
+      // insieme è cambiato di recente in modo statisticamente anomalo
+      // (distanza di Frobenius fra matrici di correlazione a finestra
+      // scorrevole — correlation-regime.js). Aggiunta al testo, mai fusa nel
+      // voto `s.concordi`: sono due domande diverse, e mescolarle in un solo
+      // numero avrebbe richiesto ritarare una soglia già testata sulle crisi
+      // note invece di limitarsi ad affiancarla.
+      let strutturale = '';
+      try {
+        const rs = correl.rilevaCambiRegime();
+        if (rs.disponibile && rs.cambi.length) {
+          const ultimo = rs.cambi[rs.cambi.length - 1];
+          const recente = rs.serie.length && ultimo.mese === rs.serie[rs.serie.length - 1].mese;
+          if (recente) strutturale = ' In più: negli ultimi mesi il modo in cui i settori si muovono insieme è cambiato in modo statisticamente anomalo rispetto alla sua storia recente.';
+        }
+      } catch (_) { /* segnale complementare: se non disponibile, si tace, mai un errore */ }
+      return conAvviso({ intent: 'mercato-regime', data: s, answer: (testo || '') + extra + strutturale });
     }
     if (intento.startsWith('spiega:')) {
       const voce = GLOSSARIO[intento.slice(7)];

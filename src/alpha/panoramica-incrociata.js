@@ -127,6 +127,51 @@ export function autovaloriSimmetrica(M, { iterazioni = 100, tolleranza = 1e-10 }
   return A.map((r, i) => r[i]).sort((a, b) => b - a);
 }
 
+// Stessa rotazione di Jacobi di `autovaloriSimmetrica`, ma accumulando anche
+// la matrice di rotazione V (inizializzata identità, ruotata a ogni passo
+// esattamente come A) — le sue colonne diventano gli AUTOVETTORI. Funzione
+// separata invece di far tornare due forme diverse dalla stessa: i chiamanti
+// che vogliono solo gli autovalori (numeroEfficaceDiFonti, assorbimento.js)
+// restano su quella più semplice e già verificata, senza il costo in più.
+export function autovaloriEVettoriSimmetrica(M, { iterazioni = 100, tolleranza = 1e-10 } = {}) {
+  const n = M.length;
+  const A = M.map((r) => r.slice());
+  const V = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)));
+  for (let iter = 0; iter < iterazioni; iter++) {
+    let p = 0, q = 1, massimo = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (Math.abs(A[i][j]) > massimo) { massimo = Math.abs(A[i][j]); p = i; q = j; }
+      }
+    }
+    if (massimo < tolleranza) break;
+    const theta = (A[q][q] - A[p][p]) / (2 * A[p][q]);
+    const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+    const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+    for (let k = 0; k < n; k++) {
+      const akp = A[k][p], akq = A[k][q];
+      A[k][p] = c * akp - s * akq;
+      A[k][q] = s * akp + c * akq;
+    }
+    for (let k = 0; k < n; k++) {
+      const apk = A[p][k], aqk = A[q][k];
+      A[p][k] = c * apk - s * aqk;
+      A[q][k] = s * apk + c * aqk;
+    }
+    // V accumula la STESSA rotazione, sulle colonne: dopo tutte le iterazioni
+    // le sue colonne sono gli autovettori di M nell'ordine (non ancora
+    // ordinato) in cui compaiono sulla diagonale di A.
+    for (let k = 0; k < n; k++) {
+      const vkp = V[k][p], vkq = V[k][q];
+      V[k][p] = c * vkp - s * vkq;
+      V[k][q] = s * vkp + c * vkq;
+    }
+  }
+  const coppie = A.map((r, i) => ({ valore: r[i], vettore: V.map((row) => row[i]) }))
+    .sort((a, b) => b.valore - a.valore);
+  return { valori: coppie.map((c) => c.valore), vettori: coppie.map((c) => c.vettore) };
+}
+
 // Metodo di Li e Ji (2005): ogni autovalore contribuisce con la sua parte
 // intera (se >= 1) piu' la sua parte frazionaria. Un blocco di serie
 // perfettamente correlate contribuisce 1, non quante sono.
