@@ -37,6 +37,7 @@ function syntheticAnnualReturns(mu, sigma, n = 40, seed = 1) {
   return out;
 }
 import { sectorRanking } from './alpha/sector-rotation.js';
+import { prendiNotizie } from './alpha/notizie.js';
 import { tassiMondoText, sincroniaConGliUsa, scartoFraPaesi, scartoText, cicloGlobale } from './alpha/tassi-mondo.js';
 import { NOMI_PAESI as PAESI_NOMI, PAESI_A as TASSI_MONDO_A } from './alpha/country-rates-panel.js';
 import { speedupCeiling } from './mesh/mesh-economics.js';
@@ -8288,6 +8289,7 @@ function renderNetWorth() {
       ${nota ? `<p class="text-[10px] text-amber-300/80 mt-2">⏱ ${escapeHtml(nota)}</p>` : ''}`;
   }
   renderPortfolioNews();
+  renderRegulatoryNews();
 }
 
 // Notizie sulle posizioni DAVVERO possedute (Cantiere H del piano: "le
@@ -8308,6 +8310,27 @@ function renderPortfolioNews() {
         <p class="text-[10px] font-bold text-[var(--gold)] mb-1">${t}</p>
         ${window.buildNewsItemsHtml ? window.buildNewsItemsHtml((byTicker[t].items || []).slice(0, 2)) : ''}
       </div>`).join('');
+}
+
+// Attività normativa USA (Cantiere H punto 3 del piano: "173 righe di
+// pipeline RSS ufficiale sono codice morto — prendiNotizie() non è
+// chiamata da nessuno"). Sola lettura da una cache popolata una volta da
+// idleFetchNews (stesso ciclo idle delle notizie sulle posizioni, vedi
+// dentro initApp) — mai rete qui, mai un blocco del render. Etichettata
+// per quello che è: atti normativi ufficiali (Tesoro/SEC/Fed/CFTC), non
+// notizie di mercato — onesto anche quando il contenuto è amministrativo
+// ("Modulo N-54A") e non eccitante come un taglio dei tassi.
+function renderRegulatoryNews() {
+  const el = document.getElementById('regulatory-news');
+  if (!el) return;
+  const voci = window.__regulatoryNews || [];
+  if (!voci.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Attività normativa USA — fonti ufficiali (${escapeHtml(voci[0]?.licenza || 'dominio pubblico')})</p>` +
+    voci.slice(0, 5).map(v => `
+      <a href="${v.link || '#'}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
+        <div class="font-semibold leading-snug text-[11px]">${escapeHtml(v.titolo)}</div>
+        <div class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(v.ente || v.nomeFonte || '')}${v.data ? ' · ' + escapeHtml(v.data) : ''}</div>
+      </a>`).join('');
 }
 
 // Drill-down giorno-per-giorno sulla heatmap "Le tue spese giorno per giorno":
@@ -13505,6 +13528,24 @@ function initMomentumRealAI() {
     };
     window.idleFetchNews = idleFetchNews;
     (window.requestIdleCallback || ((fn) => setTimeout(fn, 6000)))(idleFetchNews);
+
+    // ── Attività normativa USA (Cantiere H punto 3) ─────────────────────────
+    // Una sola volta per sessione (non per posizione: è macro, non legata a
+    // un titolo specifico) — prendiNotizie() gestisce già da sola le fonti
+    // che falliscono per CORS (Fed/BCE), degradando al Federal Register che
+    // risponde davvero (verificato dal vivo). Budget di rete minimo: max 4
+    // richieste (una per fonte configurata), mai in primo piano.
+    const idleFetchRegulatoryNews = () => {
+      if (!navigator.onLine) return;
+      prendiNotizie({ quante: 5 }).then((r) => {
+        if (r.voci?.length) {
+          window.__regulatoryNews = r.voci;
+          renderRegulatoryNews();
+        }
+      }).catch(() => {});
+    };
+    window.idleFetchRegulatoryNews = idleFetchRegulatoryNews;
+    (window.requestIdleCallback || ((fn) => setTimeout(fn, 8000)))(idleFetchRegulatoryNews);
 
     // Meso (src/ai/trained-meso.js): più accurato del Nano su testo rumoroso
     // (89.7% vs 80.0%, misurato) ma più pesante da caricare (~400KB, feature
