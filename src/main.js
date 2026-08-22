@@ -1,4 +1,5 @@
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
+import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.js';
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO, DurableStore } from './core/vault.js';
@@ -1768,13 +1769,32 @@ const renderDashboard = () => {
   renderDemoBanner();
   renderImportCta();
 
-  let inc = 0, exp = 0, inv = 0;
+  // Valuta base del dispositivo: senza un tasso di cambio (nessuna fonte
+  // remota per principio del progetto — vedi currency-convert.js) sommare
+  // "45 £" a "100 €" nello stesso totale sarebbe un numero INVENTATO. Le
+  // transazioni in altre valute restano FUORI da inc/exp/inv (mai incluse
+  // in silenzio) e si segnalano a parte in `notaValuta` — mai scartate in
+  // silenzio nemmeno loro.
+  const VALUTA_BASE = 'EUR';
+  const txsEntrata = [], txsUscita = [], txsInvest = [];
   txs.forEach(t => {
-    if (t.type === 'entrata') inc += t.amount;
-    else if (t.type === 'uscita') exp += t.amount;
-    else inv += t.amount;
+    if (t.type === 'entrata') txsEntrata.push(t);
+    else if (t.type === 'uscita') txsUscita.push(t);
+    else txsInvest.push(t);
   });
+  const gInc = raggruppaPerValuta(txsEntrata, VALUTA_BASE);
+  const gExp = raggruppaPerValuta(txsUscita, VALUTA_BASE);
+  const gInv = raggruppaPerValuta(txsInvest, VALUTA_BASE);
+  const inc = gInc.base.totale, exp = gExp.base.totale, inv = gInv.base.totale;
   const liquidity = inc - exp;
+  const altreValute = {};
+  for (const g of [gInc, gExp, gInv]) {
+    for (const [cod, v] of Object.entries(g.altre)) {
+      if (!altreValute[cod]) altreValute[cod] = { count: 0, totale: 0 };
+      altreValute[cod].count += v.count; altreValute[cod].totale += v.totale;
+    }
+  }
+  const notaValuta = notaValuteEstranee(altreValute, formatMoney);
 
   // ── IL POLSO DEL MESE ──
   // Sotto il titolo, prima ancora di aprire la lista, si vede dove la spesa si
@@ -1850,9 +1870,12 @@ const renderDashboard = () => {
     // solo fra due settimane.
     iebExp.style.opacity = entrataAncoraDaVenire ? '.45' : '';
     if (iebNote) {
-      iebNote.textContent = entrataAncoraDaVenire
+      const notaBase = entrataAncoraDaVenire
         ? 'lo stipendio deve ancora arrivare'
         : liquidity >= 0 ? `margine +${formatMoney(liquidity)}` : `margine ${formatMoney(liquidity)}`;
+      // Appesa in coda, mai al posto della nota principale: il caso normale
+      // (nessuna valuta estera) resta IDENTICO a prima di questo fix.
+      iebNote.textContent = notaValuta ? `${notaBase} · ${notaValuta}` : notaBase;
     }
   }
   // Pop-in scaglionato: i numeri VERI arrivano con vita, non un "€0" statico che
