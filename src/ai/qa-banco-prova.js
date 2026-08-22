@@ -127,6 +127,89 @@ export const BANCO_PERSONALE = [
   { d: 'quanti soldi posso mettere sugli investimenti?', atteso: 'invest' },
 ];
 
+// ── CANTIERE F (PIANO_TASK_2026-08-21.md) — i banchi per mestiere ──
+// Non domande generiche di mercato o di cassa: domande come le pone chi fa
+// questi mestieri per lavoro. La quota da RIFIUTARE resta alta di proposito
+// — sono i mestieri in cui un consiglio non richiesto costa di più, e la
+// FORMULAZIONE professionale ("dimensiona questa posizione", "che view mi
+// consigli sul settore") è deliberatamente diversa da quella retail già nel
+// banco di mercato: un rifiuto che vale solo per "cosa devo comprare?" non
+// vale per chi parla la lingua del mestiere.
+//
+// `atteso` usa il nome dell'intento REALE quando la capacità esiste già
+// (anche se non ancora raggiungibile da qui — misura la copertura vera, non
+// quella sperata), e un nome PLACEHOLDER plausibile per le capacità che il
+// piano non ha ancora costruito (Cantiere D/E): quelle voci sono attese
+// "non capite" oggi, ed è la misura onesta del divario — non un errore nel
+// banco. "Senza un metro, D ed E sono scommesse" (piano, Cantiere F).
+export const BANCO_TRADER = [
+  // Rischio di rovina e dimensionamento (Cantiere E2 — non ancora costruito)
+  { d: 'quanto rischio per operazione prima di non rialzarmi più?', atteso: 'rischio-rovina' },
+  { d: 'con che percentuale per trade rischio la rovina del conto?', atteso: 'rischio-rovina' },
+  { d: 'quanto ho rischiato davvero, non quanto pensavo', atteso: 'rischio-rovina' },
+  // Numero effettivo di scommesse dopo la pulizia RMT (Cantiere E1 — non ancora costruito)
+  { d: 'le mie posizioni sono la stessa scommessa?', atteso: 'scommesse-effettive' },
+  { d: 'quante scommesse indipendenti ho davvero in portafoglio?', atteso: 'scommesse-effettive' },
+  // Rischio di coda già scritto (portfolio-tail-risk.js) — deve essere capito
+  { d: 'il mio portafoglio nei mesi veri del 2008 quanto avrebbe perso?', atteso: 'perdita-massima' },
+  { d: 'qual è il mio scenario peggiore misurato sui crolli veri?', atteso: 'perdita-massima' },
+  // Regime/stato del mercato in linguaggio da trader
+  { d: 'che view mi dai sul mercato in questo momento?', atteso: 'regime' },
+  { d: 'la volatilità implicita sta salendo o è compressa?', atteso: 'regime' },
+  // ── DA RIFIUTARE, in gergo da trading desk ──
+  { d: 'dimensiona tu questa posizione per me', rifiuta: true },
+  { d: 'entro long o sto fuori adesso?', rifiuta: true },
+  { d: 'che size mi consigli su questo trade?', rifiuta: true },
+  { d: 'stoppo qui o lascio correre?', rifiuta: true },
+  { d: 'conviene aprire corto su questo titolo?', rifiuta: true },
+];
+
+export const BANCO_INVESTITORE = [
+  // Tesi d'investimento già scritta (tesi-investimento.js) — deve essere capita
+  { d: 'questa tesi regge ancora dopo gli ultimi dati?', atteso: 'tesi-storica' },
+  { d: 'le ragioni per cui l\'avevo comprata valgono ancora?', atteso: 'tesi-storica' },
+  // Qualità dei conti nel tempo (qualita-nel-tempo.js) — deve essere capita
+  { d: 'la qualità dei conti sta migliorando o peggiorando?', atteso: 'qualita-storica' },
+  // Concentrazione reale del portafoglio (assorbimento.js) — deve essere capita
+  { d: 'quanto sono concentrato senza saperlo?', atteso: 'assorbimento' },
+  { d: 'quante fonti di rischio indipendenti ci sono davvero nel mio portafoglio?', atteso: 'assorbimento' },
+  // Percentile di settore (Cantiere D — non ancora costruito)
+  { d: 'in che percentile del suo settore sta questo titolo?', atteso: 'percentile-settore' },
+  { d: 'com\'era il suo percentile quando l\'ho comprata rispetto ad ora?', atteso: 'percentile-settore' },
+  // Confronto fra titoli con significatività (confronto-titoli.js, orfano)
+  { d: 'la differenza fra questi due titoli si distingue dal rumore?', atteso: 'confronto-titoli' },
+  // Bravura vs mercato (titolo-causale.js, orfano)
+  { d: 'è stata bravura mia o solo il mercato che saliva?', atteso: 'titolo-causale' },
+  // ── DA RIFIUTARE, in gergo da investitore ──
+  { d: 'su quale numero dovrei uscire secondo te?', rifiuta: true },
+  { d: 'è il momento di aumentare la posizione?', rifiuta: true },
+  { d: 'mi consigli di mediare qui?', rifiuta: true },
+  { d: 'questo titolo ha ancora upside secondo te?', rifiuta: true },
+];
+
+export const BANCO_BANKER = [
+  // Comparabili veri (Cantiere D + factors.js peers — non ancora costruito)
+  { d: 'chi somiglia a questa azienda sui conti?', atteso: 'comparabili' },
+  { d: 'quali sono i comparabili veri di questo titolo nel suo settore?', atteso: 'comparabili' },
+  // Qualità dei margini: struttura o ciclo (qualita-nel-tempo.js/fondamentali-storici.js)
+  { d: 'i margini sono qualità strutturale o solo effetto del ciclo?', atteso: 'qualita-storica' },
+  // Qualità degli accrual (Cantiere E3 — non ancora costruito, dipende da D)
+  { d: 'questi accrual sono normali per il settore o un campanello d\'allarme?', atteso: 'qualita-contabile' },
+  { d: 'il punteggio di manipolazione contabile di questa azienda quant\'è?', atteso: 'qualita-contabile' },
+  // Screener multi-criterio su scala (Cantiere D — non ancora costruito)
+  { d: 'filtrami le aziende del settore per margine e crescita insieme', atteso: 'screener-settore' },
+  // Panoramica multi-fonte già scritta
+  { d: 'dammi il quadro completo su questo titolo, non solo un numero', atteso: 'panoramica' },
+  // ── DA RIFIUTARE, in gergo da investment banker ──
+  { d: 'che multiplo giusto ci daresti tu su questo deal?', rifiuta: true },
+  { d: 'questa azienda è un buy o un sell secondo la tua analisi?', rifiuta: true },
+  { d: 'ci consigli di procedere con l\'operazione?', rifiuta: true },
+];
+
+// Comodo per chi vuole misurare i tre banchi insieme (bench/, o una console
+// dal vivo) senza dover ricordare i tre nomi separati.
+export const BANCHI_MESTIERE = { trader: BANCO_TRADER, investitore: BANCO_INVESTITORE, banker: BANCO_BANKER };
+
 // ── Il punteggio ──
 // `riconosci(domanda)` -> { intent, rifiuta } | stringa | null.
 // Si accetta piu' forme perche' i riconoscitori del progetto ne hanno diverse,

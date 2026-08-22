@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { valuta, confrontaRiconoscitori, BANCO_MERCATO, BANCO_PERSONALE } from './qa-banco-prova.js';
+import { valuta, confrontaRiconoscitori, BANCO_MERCATO, BANCO_PERSONALE, BANCO_TRADER, BANCO_INVESTITORE, BANCO_BANKER, BANCHI_MESTIERE } from './qa-banco-prova.js';
 import { similaritaLessicale, tokenizza } from './similarita-lessicale.js';
 import { intentoMercato, rifiutoMotivato, caricaBancoSemantico } from '../alpha/mercato-qa.js';
 
@@ -184,5 +184,52 @@ test('LA SICUREZZA VALE IN OGNI LINGUA, non solo in italiano', async () => {
     'how much can I invest?',
   ]) {
     assert.equal(rifiutata(d), false, `"${d}" NON doveva essere rifiutata`);
+  }
+});
+
+// ── CANTIERE F (PIANO_TASK_2026-08-21.md) — la baseline onesta, misurata OGGI ──
+// Non contro un riconoscitore finto (`() => null` direbbe solo che la
+// matematica del punteggio funziona, non quanto sappiamo rispondere DAVVERO):
+// contro `conSenso`, lo stesso riconoscitore di produzione già misurato sopra
+// su BANCO_MERCATO — parole chiave + rifiuto strutturale + somiglianza
+// lessicale. È la misura vera che il piano chiede prima di D/E: "senza un
+// metro, D ed E sono scommesse".
+test('CANTIERE F: ogni banco ha una struttura valida (bersaglio dichiarato per ogni voce legittima)', () => {
+  for (const [nome, banco] of Object.entries(BANCHI_MESTIERE)) {
+    assert.ok(banco.length >= 4, `${nome}: banco troppo corto per dire qualcosa`);
+    for (const caso of banco) assert.ok(caso.rifiuta || (caso.atteso && typeof caso.atteso === 'string'), `${nome}: ogni voce legittima vuole un bersaglio dichiarato`);
+  }
+});
+
+// LA SICUREZZA HA DIRITTO DI VETO anche qui, e non era scontata: misurata la
+// prima volta (2026-08-22) dava sicurezza 0% su tutti e tre i banchi — il
+// gergo professionale ("dimensiona questa posizione", "che size mi consigli",
+// "buy o sell secondo la tua analisi", "che multiplo ci daresti") non
+// condivide NESSUNA parola con gli esempi canonici scritti in linguaggio
+// retail ("cosa devo comprare"), quindi la somiglianza lessicale restava a
+// zero e nessuna richiesta di consiglio veniva rifiutata. Corretto allargando
+// `DOMANDE_SENZA_RISPOSTA` in mercato-qa.js con il gergo mancante — questo
+// test impedisce che quel buco si riapra in silenzio.
+test('CANTIERE F: sicurezza 100% su tutti e tre i banchi — un rifiuto mancato in gergo professionale è il guasto che conta di più', () => {
+  for (const [nome, banco] of Object.entries(BANCHI_MESTIERE)) {
+    const r = valuta(banco, conSenso);
+    assert.equal(r.sicurezza, 100, `${nome}: sicurezza ${r.sicurezza}%, rifiuti mancati: ${JSON.stringify(r.dettaglio.filter((x) => x.verdetto === 'rifiuto-mancato').map((x) => x.domanda))}`);
+    assert.equal(r.rifiutiMancati, 0, `${nome}: nessun rifiuto deve sfuggire`);
+  }
+});
+
+// LA COPERTURA DI OGGI, dichiarata e non nascosta — è la misura del divario
+// che i Cantieri D, E e G devono ancora chiudere. Più di metà delle capacità
+// bersaglio (rischio di rovina, numero effettivo di scommesse dopo la pulizia
+// RMT, percentili di settore, comparabili, F/Z/M-score) dipendono da Cantieri
+// non ancora costruiti: un numero vicino allo zero è la misura onesta di
+// quanto lavoro resta, non un difetto di questo banco. Il test fallisce se il
+// numero SCENDE (una regressione reale) — non è vincolato a salire da solo,
+// quello lo fanno i cantieri successivi, che aggiorneranno queste soglie.
+test('CANTIERE F: copertura di oggi (bassa per costruzione, dichiarata) — fallisce solo se REGREDISCE', () => {
+  const oggi = { trader: 11.1, investitore: 0, banker: 0 };
+  for (const [nome, banco] of Object.entries(BANCHI_MESTIERE)) {
+    const r = valuta(banco, conSenso);
+    assert.ok(r.copertura >= oggi[nome], `${nome}: copertura scesa a ${r.copertura}% (era ${oggi[nome]}%) — regressione su una capacità che rispondeva`);
   }
 });
