@@ -97,6 +97,24 @@ const CONCETTI = {
   ricavi: ['Revenues', 'RevenueFromContractWithCustomerExcludingAssessedTax', 'SalesRevenueNet', 'RevenueFromContractWithCustomerIncludingAssessedTax'],
   attivo: ['Assets'],
   debitoLungo: ['LongTermDebtNoncurrent', 'LongTermDebt'],
+  // ── Aggiunti per earnings-quality.js (Beneish M-Score + Piotroski F-Score) ──
+  // Le banche/finanziarie NON hanno un bilancio "classificato" (corrente/non
+  // corrente) ne' un costo del venduto: verificato dal vivo su JPMorgan, tutti
+  // e tre assenti. Non e' un buco nei dati — e' che il modello di Beneish
+  // (pensato per aziende con inventario/margine lordo) non si applica a una
+  // banca per costruzione, ed e' cosi' che lo si scopre: dal dato assente,
+  // non da una lista scritta a mano di "chi escludere".
+  crediti: ['AccountsReceivableNetCurrent', 'ReceivablesNetCurrent', 'AccountsReceivableNet'],
+  costoVenduto: ['CostOfGoodsAndServicesSold', 'CostOfRevenue', 'CostOfGoodsSold'],
+  attivoCorrente: ['AssetsCurrent'],
+  passivoCorrente: ['LiabilitiesCurrent'],
+  // Beneish (1999) usa il valore NETTO (quello che compare davvero nello stato
+  // patrimoniale, additivo con l'attivo corrente nell'identita' CA+PPE+altro=TA)
+  // — il lordo mischierebbe una grandezza diversa nello stesso rapporto.
+  immobilizzazioniNette: ['PropertyPlantAndEquipmentNet'],
+  ammortamento: ['DepreciationDepletionAndAmortization', 'DepreciationAmortizationAndAccretionNet', 'Depreciation'],
+  speseSga: ['SellingGeneralAndAdministrativeExpense'],
+  flussoCassaOperativo: ['NetCashProvidedByUsedInOperatingActivities'],
 };
 
 const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -126,7 +144,7 @@ async function fatti(cik) {
 //    si tiene solo chi copre circa dodici mesi;
 //  · gli STOCK (patrimonio, attivo, debito) sono fotografie a una data, non
 //    hanno `start` — si tiene l'ultima dell'esercizio.
-const FLUSSI = new Set(['utileNetto', 'ricavi']);
+const FLUSSI = new Set(['utileNetto', 'ricavi', 'costoVenduto', 'speseSga', 'flussoCassaOperativo', 'ammortamento']);
 
 // TERZO BUG DELLA STESSA FAMIGLIA, e la soluzione era un'altra. Prima si
 // teneva il PRIMO nome contabile con almeno tre anni, poi il piu' COMPLETO:
@@ -172,13 +190,27 @@ function perAnno(fatti, nomi, { flusso }) {
   return { concetti: usati, anni };
 }
 
+// BUG REALE TROVATO: l'elenco ufficiale SEC ticker→CIK non e' statico — una
+// riorganizzazione societaria puo' spostare il ticker su un CIK NUOVO (una
+// holding appena creata, zero storia XBRL) mentre i bilanci VERI restano sul
+// CIK vecchio. Verificato dal vivo su XOM: l'elenco oggi lo punta a
+// "ExxonMobil Holdings Corp" (CIK 2115436, 0 esercizi), mentre "Exxon Mobil
+// Corporation" (CIK 34088) ha 48 anni di storia reale. Un ticker con 0
+// esercizi in output era gia' il sintomo — non falliva rumorosamente, dava
+// silenziosamente il vuoto. L'elenco qui e' l'eccezione dichiarata, non una
+// scorciatoia: si aggiunge SOLO dopo aver verificato a mano che il CIK giusto
+// abbia davvero la storia che quello sbagliato non ha.
+const CIK_OVERRIDE = { XOM: { cik: '0000034088', nome: 'Exxon Mobil Corporation' } };
+
 (async () => {
   const perTicker = await elencoCik();
   const AZIENDE = [];
   const senzaCik = [];
   for (const t of TICKER) {
+    const override = CIK_OVERRIDE[t.toUpperCase()];
     const v = perTicker.get(t.toUpperCase());
-    if (v) AZIENDE.push({ t, cik: v.cik, nome: v.nome });
+    if (override) AZIENDE.push({ t, cik: override.cik, nome: override.nome });
+    else if (v) AZIENDE.push({ t, cik: v.cik, nome: v.nome });
     else senzaCik.push(t);
   }
   if (senzaCik.length) console.log(`Ticker non trovati nell'elenco SEC: ${senzaCik.join(', ')}\n`);
@@ -211,6 +243,13 @@ function perAnno(fatti, nomi, { flusso }) {
   for (const [t, d] of Object.entries(out)) {
     const idx = (chiave) => new Map((d.voci[chiave]?.anni || []).map((x) => [x.anno, x.valore]));
     const pn = idx('patrimonioNetto'), un = idx('utileNetto'), rv = idx('ricavi'), at = idx('attivo');
+    // Grezzi per earnings-quality.js (Beneish M-Score/Piotroski F-Score): NON
+    // entrano in roe/margine/roa (quei tre restano esattamente come prima,
+    // nessun consumatore esistente li vede cambiare). Assenti per una banca
+    // per costruzione (vedi commento su CONCETTI): `null`, mai zero.
+    const cr = idx('crediti'), cv = idx('costoVenduto'), acr = idx('attivoCorrente'), pcr = idx('passivoCorrente'),
+      ppe = idx('immobilizzazioniNette'), amm = idx('ammortamento'), sga = idx('speseSga'),
+      cfo = idx('flussoCassaOperativo'), dl = idx('debitoLungo');
     const anni = [...pn.keys()].filter((y) => un.has(y)).sort((a, b) => a - b);
     serie[t] = {
       nome: d.nome,
@@ -238,6 +277,16 @@ function perAnno(fatti, nomi, { flusso }) {
         utileNetto: un.get(y),
         ricavi: rv.get(y) ?? null,
         patrimonioNetto: pn.get(y),
+        crediti: cr.get(y) ?? null,
+        costoVenduto: cv.get(y) ?? null,
+        attivoCorrente: acr.get(y) ?? null,
+        passivoCorrente: pcr.get(y) ?? null,
+        immobilizzazioniNette: ppe.get(y) ?? null,
+        ammortamento: amm.get(y) ?? null,
+        speseSga: sga.get(y) ?? null,
+        flussoCassaOperativo: cfo.get(y) ?? null,
+        attivoTotale: at.get(y) ?? null,
+        debitoLungo: dl.get(y) ?? null,
       })),
     };
   }

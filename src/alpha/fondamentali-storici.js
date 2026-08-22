@@ -12,7 +12,7 @@
 // niente. Va detto, non aggirato.
 'use strict';
 
-export const SEC_SCARICATO_IL = '2026-08-20';
+export const SEC_SCARICATO_IL = '2026-08-22';
 export const SEC_FONTE = 'SEC EDGAR — companyfacts XBRL, moduli 10-K';
 
 export const FONDAMENTALI_STORICI = {
@@ -26,7 +26,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 3496000000,
     "ricavi": 24006000000,
-    "patrimonioNetto": 14531000000
+    "patrimonioNetto": 14531000000,
+    "crediti": null,
+    "costoVenduto": 15852000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 317000000,
+    "speseSga": 2963000000,
+    "flussoCassaOperativo": 5470000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -35,7 +45,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1692,
     "utileNetto": 6119000000,
     "ricavi": 37491000000,
-    "patrimonioNetto": 22297000000
+    "patrimonioNetto": 22297000000,
+    "crediti": 2422000000,
+    "costoVenduto": 24294000000,
+    "attivoCorrente": 32311000000,
+    "passivoCorrente": 14092000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 496000000,
+    "speseSga": 3761000000,
+    "flussoCassaOperativo": 9596000000,
+    "attivoTotale": 36171000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -44,7 +64,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1734,
     "utileNetto": 8235000000,
     "ricavi": 42905000000,
-    "patrimonioNetto": 31640000000
+    "patrimonioNetto": 31640000000,
+    "crediti": 3361000000,
+    "costoVenduto": 25683000000,
+    "attivoCorrente": 31555000000,
+    "passivoCorrente": 11506000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 734000000,
+    "speseSga": 4149000000,
+    "flussoCassaOperativo": 10159000000,
+    "attivoTotale": 47501000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -53,7 +83,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1864,
     "utileNetto": 14013000000,
     "ricavi": 65225000000,
-    "patrimonioNetto": 47791000000
+    "patrimonioNetto": 47791000000,
+    "crediti": 5510000000,
+    "costoVenduto": 39541000000,
+    "attivoCorrente": 41678000000,
+    "passivoCorrente": 20722000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1027000000,
+    "speseSga": 5517000000,
+    "flussoCassaOperativo": 18595000000,
+    "attivoTotale": 75183000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -62,7 +102,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2228,
     "utileNetto": 25922000000,
     "ricavi": 108249000000,
-    "patrimonioNetto": 76615000000
+    "patrimonioNetto": 76615000000,
+    "crediti": 5369000000,
+    "costoVenduto": 64431000000,
+    "attivoCorrente": 44988000000,
+    "passivoCorrente": 27970000000,
+    "immobilizzazioniNette": 7777000000,
+    "ammortamento": 1814000000,
+    "speseSga": 7599000000,
+    "flussoCassaOperativo": 37529000000,
+    "attivoTotale": 116371000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -71,7 +121,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.237,
     "utileNetto": 41733000000,
     "ricavi": 156508000000,
-    "patrimonioNetto": 118210000000
+    "patrimonioNetto": 118210000000,
+    "crediti": 10930000000,
+    "costoVenduto": 87846000000,
+    "attivoCorrente": 57653000000,
+    "passivoCorrente": 38542000000,
+    "immobilizzazioniNette": 15452000000,
+    "ammortamento": 3277000000,
+    "speseSga": 10040000000,
+    "flussoCassaOperativo": 50856000000,
+    "attivoTotale": 176064000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2013,
@@ -80,7 +140,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1789,
     "utileNetto": 37037000000,
     "ricavi": 170910000000,
-    "patrimonioNetto": 123549000000
+    "patrimonioNetto": 123549000000,
+    "crediti": 13102000000,
+    "costoVenduto": 106606000000,
+    "attivoCorrente": 73286000000,
+    "passivoCorrente": 43658000000,
+    "immobilizzazioniNette": 16597000000,
+    "ammortamento": 6757000000,
+    "speseSga": 10830000000,
+    "flussoCassaOperativo": 53666000000,
+    "attivoTotale": 207000000000,
+    "debitoLungo": 16960000000
    },
    {
     "anno": 2014,
@@ -89,7 +159,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1704,
     "utileNetto": 39510000000,
     "ricavi": 182795000000,
-    "patrimonioNetto": 111547000000
+    "patrimonioNetto": 111547000000,
+    "crediti": 17460000000,
+    "costoVenduto": 112258000000,
+    "attivoCorrente": 68531000000,
+    "passivoCorrente": 63448000000,
+    "immobilizzazioniNette": 20624000000,
+    "ammortamento": 7946000000,
+    "speseSga": 11993000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 231839000000,
+    "debitoLungo": 28987000000
    },
    {
     "anno": 2015,
@@ -98,7 +178,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1839,
     "utileNetto": 53394000000,
     "ricavi": 233715000000,
-    "patrimonioNetto": 119355000000
+    "patrimonioNetto": 119355000000,
+    "crediti": 16849000000,
+    "costoVenduto": 140089000000,
+    "attivoCorrente": 89378000000,
+    "passivoCorrente": 80610000000,
+    "immobilizzazioniNette": 22471000000,
+    "ammortamento": 9200000000,
+    "speseSga": 14329000000,
+    "flussoCassaOperativo": 81266000000,
+    "attivoTotale": 290345000000,
+    "debitoLungo": 53329000000
    },
    {
     "anno": 2016,
@@ -107,7 +197,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.142,
     "utileNetto": 45687000000,
     "ricavi": 215639000000,
-    "patrimonioNetto": 128249000000
+    "patrimonioNetto": 128249000000,
+    "crediti": 15754000000,
+    "costoVenduto": 131376000000,
+    "attivoCorrente": 106869000000,
+    "passivoCorrente": 79006000000,
+    "immobilizzazioniNette": 27010000000,
+    "ammortamento": 10505000000,
+    "speseSga": 14194000000,
+    "flussoCassaOperativo": 66231000000,
+    "attivoTotale": 321686000000,
+    "debitoLungo": 75427000000
    },
    {
     "anno": 2017,
@@ -116,7 +216,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1288,
     "utileNetto": 48351000000,
     "ricavi": 229234000000,
-    "patrimonioNetto": 134047000000
+    "patrimonioNetto": 134047000000,
+    "crediti": 17874000000,
+    "costoVenduto": 141048000000,
+    "attivoCorrente": 128645000000,
+    "passivoCorrente": 100814000000,
+    "immobilizzazioniNette": 33783000000,
+    "ammortamento": 10157000000,
+    "speseSga": 15261000000,
+    "flussoCassaOperativo": 64225000000,
+    "attivoTotale": 375319000000,
+    "debitoLungo": 97207000000
    },
    {
     "anno": 2018,
@@ -125,7 +235,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1628,
     "utileNetto": 59531000000,
     "ricavi": 265595000000,
-    "patrimonioNetto": 107147000000
+    "patrimonioNetto": 107147000000,
+    "crediti": 23186000000,
+    "costoVenduto": 163756000000,
+    "attivoCorrente": 131339000000,
+    "passivoCorrente": 115929000000,
+    "immobilizzazioniNette": 41304000000,
+    "ammortamento": 10903000000,
+    "speseSga": 16705000000,
+    "flussoCassaOperativo": 77434000000,
+    "attivoTotale": 365725000000,
+    "debitoLungo": 93735000000
    },
    {
     "anno": 2019,
@@ -134,7 +254,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1632,
     "utileNetto": 55256000000,
     "ricavi": 260174000000,
-    "patrimonioNetto": 90488000000
+    "patrimonioNetto": 90488000000,
+    "crediti": 22926000000,
+    "costoVenduto": 161782000000,
+    "attivoCorrente": 162819000000,
+    "passivoCorrente": 105718000000,
+    "immobilizzazioniNette": 37378000000,
+    "ammortamento": 12547000000,
+    "speseSga": 18245000000,
+    "flussoCassaOperativo": 69391000000,
+    "attivoTotale": 338516000000,
+    "debitoLungo": 91807000000
    },
    {
     "anno": 2020,
@@ -143,7 +273,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1773,
     "utileNetto": 57411000000,
     "ricavi": 274515000000,
-    "patrimonioNetto": 65339000000
+    "patrimonioNetto": 65339000000,
+    "crediti": 16120000000,
+    "costoVenduto": 169559000000,
+    "attivoCorrente": 143713000000,
+    "passivoCorrente": 105392000000,
+    "immobilizzazioniNette": 36766000000,
+    "ammortamento": 11056000000,
+    "speseSga": 19916000000,
+    "flussoCassaOperativo": 80674000000,
+    "attivoTotale": 323888000000,
+    "debitoLungo": 98667000000
    },
    {
     "anno": 2021,
@@ -152,7 +292,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2697,
     "utileNetto": 94680000000,
     "ricavi": 365817000000,
-    "patrimonioNetto": 63090000000
+    "patrimonioNetto": 63090000000,
+    "crediti": 26278000000,
+    "costoVenduto": 212981000000,
+    "attivoCorrente": 134836000000,
+    "passivoCorrente": 125481000000,
+    "immobilizzazioniNette": 39440000000,
+    "ammortamento": 11284000000,
+    "speseSga": 21973000000,
+    "flussoCassaOperativo": 104038000000,
+    "attivoTotale": 351002000000,
+    "debitoLungo": 109106000000
    },
    {
     "anno": 2022,
@@ -161,7 +311,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2829,
     "utileNetto": 99803000000,
     "ricavi": 394328000000,
-    "patrimonioNetto": 50672000000
+    "patrimonioNetto": 50672000000,
+    "crediti": 28184000000,
+    "costoVenduto": 223546000000,
+    "attivoCorrente": 135405000000,
+    "passivoCorrente": 153982000000,
+    "immobilizzazioniNette": 42117000000,
+    "ammortamento": 11104000000,
+    "speseSga": 25094000000,
+    "flussoCassaOperativo": 122151000000,
+    "attivoTotale": 352755000000,
+    "debitoLungo": 98959000000
    },
    {
     "anno": 2023,
@@ -170,7 +330,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2751,
     "utileNetto": 96995000000,
     "ricavi": 383285000000,
-    "patrimonioNetto": 62146000000
+    "patrimonioNetto": 62146000000,
+    "crediti": 29508000000,
+    "costoVenduto": 214137000000,
+    "attivoCorrente": 143566000000,
+    "passivoCorrente": 145308000000,
+    "immobilizzazioniNette": 43715000000,
+    "ammortamento": 11519000000,
+    "speseSga": 24932000000,
+    "flussoCassaOperativo": 110543000000,
+    "attivoTotale": 352583000000,
+    "debitoLungo": 95281000000
    },
    {
     "anno": 2024,
@@ -179,7 +349,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2568,
     "utileNetto": 93736000000,
     "ricavi": 391035000000,
-    "patrimonioNetto": 56950000000
+    "patrimonioNetto": 56950000000,
+    "crediti": 33410000000,
+    "costoVenduto": 210352000000,
+    "attivoCorrente": 152987000000,
+    "passivoCorrente": 176392000000,
+    "immobilizzazioniNette": 45680000000,
+    "ammortamento": 11445000000,
+    "speseSga": 26097000000,
+    "flussoCassaOperativo": 118254000000,
+    "attivoTotale": 364980000000,
+    "debitoLungo": 85750000000
    },
    {
     "anno": 2025,
@@ -188,7 +368,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3118,
     "utileNetto": 112010000000,
     "ricavi": 416161000000,
-    "patrimonioNetto": 73733000000
+    "patrimonioNetto": 73733000000,
+    "crediti": 39777000000,
+    "costoVenduto": 220960000000,
+    "attivoCorrente": 147957000000,
+    "passivoCorrente": 165631000000,
+    "immobilizzazioniNette": 49834000000,
+    "ammortamento": 11698000000,
+    "speseSga": 27601000000,
+    "flussoCassaOperativo": 111482000000,
+    "attivoTotale": 359241000000,
+    "debitoLungo": 78328000000
    }
   ]
  },
@@ -202,7 +392,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 17681000000,
     "ricavi": 60420000000,
-    "patrimonioNetto": 36286000000
+    "patrimonioNetto": 36286000000,
+    "crediti": null,
+    "costoVenduto": 11598000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1400000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 21612000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -211,7 +411,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1871,
     "utileNetto": 14569000000,
     "ricavi": 58437000000,
-    "patrimonioNetto": 39558000000
+    "patrimonioNetto": 39558000000,
+    "crediti": 11192000000,
+    "costoVenduto": 12155000000,
+    "attivoCorrente": 49280000000,
+    "passivoCorrente": 27034000000,
+    "immobilizzazioniNette": 7535000000,
+    "ammortamento": 1700000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 19037000000,
+    "attivoTotale": 77888000000,
+    "debitoLungo": 3746000000
    },
    {
     "anno": 2010,
@@ -220,7 +430,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2179,
     "utileNetto": 18760000000,
     "ricavi": 62484000000,
-    "patrimonioNetto": 46175000000
+    "patrimonioNetto": 46175000000,
+    "crediti": 13014000000,
+    "costoVenduto": 12395000000,
+    "attivoCorrente": 55676000000,
+    "passivoCorrente": 26147000000,
+    "immobilizzazioniNette": 7630000000,
+    "ammortamento": 1800000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 24073000000,
+    "attivoTotale": 86113000000,
+    "debitoLungo": 4939000000
    },
    {
     "anno": 2011,
@@ -229,7 +449,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.213,
     "utileNetto": 23150000000,
     "ricavi": 69943000000,
-    "patrimonioNetto": 57083000000
+    "patrimonioNetto": 57083000000,
+    "crediti": 14987000000,
+    "costoVenduto": 15577000000,
+    "attivoCorrente": 74918000000,
+    "passivoCorrente": 28774000000,
+    "immobilizzazioniNette": 8162000000,
+    "ammortamento": 2000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 26994000000,
+    "attivoTotale": 108704000000,
+    "debitoLungo": 11921000000
    },
    {
     "anno": 2012,
@@ -238,7 +468,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.14,
     "utileNetto": 16978000000,
     "ricavi": 73723000000,
-    "patrimonioNetto": 66363000000
+    "patrimonioNetto": 66363000000,
+    "crediti": 15780000000,
+    "costoVenduto": 17530000000,
+    "attivoCorrente": 85084000000,
+    "passivoCorrente": 32688000000,
+    "immobilizzazioniNette": 8269000000,
+    "ammortamento": 2200000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 31626000000,
+    "attivoTotale": 121271000000,
+    "debitoLungo": 10713000000
    },
    {
     "anno": 2013,
@@ -247,7 +487,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1535,
     "utileNetto": 21863000000,
     "ricavi": 77849000000,
-    "patrimonioNetto": 78944000000
+    "patrimonioNetto": 78944000000,
+    "crediti": 17486000000,
+    "costoVenduto": 20385000000,
+    "attivoCorrente": 101466000000,
+    "passivoCorrente": 37417000000,
+    "immobilizzazioniNette": 9991000000,
+    "ammortamento": 2600000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 28833000000,
+    "attivoTotale": 142431000000,
+    "debitoLungo": 12601000000
    },
    {
     "anno": 2014,
@@ -256,7 +506,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1281,
     "utileNetto": 22074000000,
     "ricavi": 86833000000,
-    "patrimonioNetto": 89784000000
+    "patrimonioNetto": 89784000000,
+    "crediti": 19544000000,
+    "costoVenduto": 27078000000,
+    "attivoCorrente": 114246000000,
+    "passivoCorrente": 45625000000,
+    "immobilizzazioniNette": 13011000000,
+    "ammortamento": 3400000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 172384000000,
+    "debitoLungo": 20645000000
    },
    {
     "anno": 2015,
@@ -265,7 +525,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0699,
     "utileNetto": 12193000000,
     "ricavi": 93580000000,
-    "patrimonioNetto": 80083000000
+    "patrimonioNetto": 80083000000,
+    "crediti": 17908000000,
+    "costoVenduto": 33038000000,
+    "attivoCorrente": 122797000000,
+    "passivoCorrente": 49647000000,
+    "immobilizzazioniNette": 14731000000,
+    "ammortamento": 4100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 174472000000,
+    "debitoLungo": 27808000000
    },
    {
     "anno": 2016,
@@ -274,7 +544,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1062,
     "utileNetto": 20539000000,
     "ricavi": 91154000000,
-    "patrimonioNetto": 83090000000
+    "patrimonioNetto": 83090000000,
+    "crediti": 22300000000,
+    "costoVenduto": 32780000000,
+    "attivoCorrente": 139660000000,
+    "passivoCorrente": 59357000000,
+    "immobilizzazioniNette": 18356000000,
+    "ammortamento": 4900000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 33325000000,
+    "attivoTotale": 193468000000,
+    "debitoLungo": 40557000000
    },
    {
     "anno": 2017,
@@ -283,7 +563,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1018,
     "utileNetto": 25489000000,
     "ricavi": 96571000000,
-    "patrimonioNetto": 87711000000
+    "patrimonioNetto": 87711000000,
+    "crediti": 22431000000,
+    "costoVenduto": 34261000000,
+    "attivoCorrente": 162696000000,
+    "passivoCorrente": 55745000000,
+    "immobilizzazioniNette": 23734000000,
+    "ammortamento": 6100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 39507000000,
+    "attivoTotale": 250312000000,
+    "debitoLungo": 76073000000
    },
    {
     "anno": 2018,
@@ -292,7 +582,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.064,
     "utileNetto": 16571000000,
     "ricavi": 110360000000,
-    "patrimonioNetto": 82718000000
+    "patrimonioNetto": 82718000000,
+    "crediti": 26481000000,
+    "costoVenduto": 38353000000,
+    "attivoCorrente": 169662000000,
+    "passivoCorrente": 58488000000,
+    "immobilizzazioniNette": 29460000000,
+    "ammortamento": 7700000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 43884000000,
+    "attivoTotale": 258848000000,
+    "debitoLungo": 72242000000
    },
    {
     "anno": 2019,
@@ -301,7 +601,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1369,
     "utileNetto": 39240000000,
     "ricavi": 125843000000,
-    "patrimonioNetto": 102330000000
+    "patrimonioNetto": 102330000000,
+    "crediti": 29524000000,
+    "costoVenduto": 42910000000,
+    "attivoCorrente": 175552000000,
+    "passivoCorrente": 69420000000,
+    "immobilizzazioniNette": 36477000000,
+    "ammortamento": 9700000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 52185000000,
+    "attivoTotale": 286556000000,
+    "debitoLungo": 66662000000
    },
    {
     "anno": 2020,
@@ -310,7 +620,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.147,
     "utileNetto": 44281000000,
     "ricavi": 143015000000,
-    "patrimonioNetto": 118304000000
+    "patrimonioNetto": 118304000000,
+    "crediti": 32011000000,
+    "costoVenduto": 46078000000,
+    "attivoCorrente": 181915000000,
+    "passivoCorrente": 72310000000,
+    "immobilizzazioniNette": 44151000000,
+    "ammortamento": 10700000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 60675000000,
+    "attivoTotale": 301311000000,
+    "debitoLungo": 59578000000
    },
    {
     "anno": 2021,
@@ -319,7 +639,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1836,
     "utileNetto": 61271000000,
     "ricavi": 168088000000,
-    "patrimonioNetto": 141988000000
+    "patrimonioNetto": 141988000000,
+    "crediti": 38043000000,
+    "costoVenduto": 52232000000,
+    "attivoCorrente": 184406000000,
+    "passivoCorrente": 88657000000,
+    "immobilizzazioniNette": 59715000000,
+    "ammortamento": 9300000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 76740000000,
+    "attivoTotale": 333779000000,
+    "debitoLungo": 50074000000
    },
    {
     "anno": 2022,
@@ -328,7 +658,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1994,
     "utileNetto": 72738000000,
     "ricavi": 198270000000,
-    "patrimonioNetto": 166542000000
+    "patrimonioNetto": 166542000000,
+    "crediti": 44261000000,
+    "costoVenduto": 62650000000,
+    "attivoCorrente": 169684000000,
+    "passivoCorrente": 95082000000,
+    "immobilizzazioniNette": 74398000000,
+    "ammortamento": 12600000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 89035000000,
+    "attivoTotale": 364840000000,
+    "debitoLungo": 47032000000
    },
    {
     "anno": 2023,
@@ -337,7 +677,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1756,
     "utileNetto": 72361000000,
     "ricavi": 211915000000,
-    "patrimonioNetto": 206223000000
+    "patrimonioNetto": 206223000000,
+    "crediti": 48688000000,
+    "costoVenduto": 65863000000,
+    "attivoCorrente": 184257000000,
+    "passivoCorrente": 104149000000,
+    "immobilizzazioniNette": 95641000000,
+    "ammortamento": 11000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 87582000000,
+    "attivoTotale": 411976000000,
+    "debitoLungo": 41990000000
    },
    {
     "anno": 2024,
@@ -346,7 +696,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1721,
     "utileNetto": 88136000000,
     "ricavi": 245122000000,
-    "patrimonioNetto": 268477000000
+    "patrimonioNetto": 268477000000,
+    "crediti": 56924000000,
+    "costoVenduto": 74114000000,
+    "attivoCorrente": 159734000000,
+    "passivoCorrente": 125286000000,
+    "immobilizzazioniNette": 135591000000,
+    "ammortamento": 15200000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 118548000000,
+    "attivoTotale": 512163000000,
+    "debitoLungo": 42688000000
    },
    {
     "anno": 2025,
@@ -355,7 +715,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1645,
     "utileNetto": 101832000000,
     "ricavi": 281724000000,
-    "patrimonioNetto": 343479000000
+    "patrimonioNetto": 343479000000,
+    "crediti": 69905000000,
+    "costoVenduto": 87831000000,
+    "attivoCorrente": 191131000000,
+    "passivoCorrente": 141218000000,
+    "immobilizzazioniNette": 204966000000,
+    "ammortamento": 22000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 136162000000,
+    "attivoTotale": 619003000000,
+    "debitoLungo": 40152000000
    },
    {
     "anno": 2026,
@@ -364,7 +734,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1764,
     "utileNetto": 133749000000,
     "ricavi": 331839000000,
-    "patrimonioNetto": 442387000000
+    "patrimonioNetto": 442387000000,
+    "crediti": 80876000000,
+    "costoVenduto": 106374000000,
+    "attivoCorrente": 207710000000,
+    "passivoCorrente": 168825000000,
+    "immobilizzazioniNette": 313076000000,
+    "ammortamento": 34300000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 182935000000,
+    "attivoTotale": 758376000000,
+    "debitoLungo": 31067000000
    }
   ]
  },
@@ -378,7 +758,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 12733000000,
     "ricavi": 55519000000,
-    "patrimonioNetto": 86977000000
+    "patrimonioNetto": 86977000000,
+    "crediti": null,
+    "costoVenduto": 21993000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 18659000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -387,7 +777,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1094,
     "utileNetto": 14136000000,
     "ricavi": 66001000000,
-    "patrimonioNetto": 103860000000
+    "patrimonioNetto": 103860000000,
+    "crediti": 9383000000,
+    "costoVenduto": 25691000000,
+    "attivoCorrente": 78656000000,
+    "passivoCorrente": 16779000000,
+    "immobilizzazioniNette": 23883000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 23024000000,
+    "attivoTotale": 129187000000,
+    "debitoLungo": 2992000000
    },
    {
     "anno": 2015,
@@ -396,7 +796,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1109,
     "utileNetto": 16348000000,
     "ricavi": 74989000000,
-    "patrimonioNetto": 120331000000
+    "patrimonioNetto": 120331000000,
+    "crediti": 11556000000,
+    "costoVenduto": 28164000000,
+    "attivoCorrente": 90114000000,
+    "passivoCorrente": 19310000000,
+    "immobilizzazioniNette": 29016000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 26572000000,
+    "attivoTotale": 147461000000,
+    "debitoLungo": 1995000000
    },
    {
     "anno": 2016,
@@ -405,7 +815,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1163,
     "utileNetto": 19478000000,
     "ricavi": 90272000000,
-    "patrimonioNetto": 139036000000
+    "patrimonioNetto": 139036000000,
+    "crediti": 14137000000,
+    "costoVenduto": 35138000000,
+    "attivoCorrente": 105408000000,
+    "passivoCorrente": 16756000000,
+    "immobilizzazioniNette": 34234000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 36036000000,
+    "attivoTotale": 167497000000,
+    "debitoLungo": 3935000000
    },
    {
     "anno": 2017,
@@ -414,7 +834,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0642,
     "utileNetto": 12662000000,
     "ricavi": 110855000000,
-    "patrimonioNetto": 152502000000
+    "patrimonioNetto": 152502000000,
+    "crediti": 18336000000,
+    "costoVenduto": 45583000000,
+    "attivoCorrente": 124308000000,
+    "passivoCorrente": 24183000000,
+    "immobilizzazioniNette": 42383000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 37091000000,
+    "attivoTotale": 197295000000,
+    "debitoLungo": 3943000000
    },
    {
     "anno": 2018,
@@ -423,7 +853,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.132,
     "utileNetto": 30736000000,
     "ricavi": 136819000000,
-    "patrimonioNetto": 177628000000
+    "patrimonioNetto": 177628000000,
+    "crediti": 20838000000,
+    "costoVenduto": 59549000000,
+    "attivoCorrente": 135676000000,
+    "passivoCorrente": 34620000000,
+    "immobilizzazioniNette": 59719000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 47971000000,
+    "attivoTotale": 232792000000,
+    "debitoLungo": 3950000000
    },
    {
     "anno": 2019,
@@ -432,7 +872,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1245,
     "utileNetto": 34343000000,
     "ricavi": 161857000000,
-    "patrimonioNetto": 201442000000
+    "patrimonioNetto": 201442000000,
+    "crediti": 25326000000,
+    "costoVenduto": 71896000000,
+    "attivoCorrente": 152578000000,
+    "passivoCorrente": 45221000000,
+    "immobilizzazioniNette": 73646000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 54520000000,
+    "attivoTotale": 275909000000,
+    "debitoLungo": 3958000000
    },
    {
     "anno": 2020,
@@ -441,7 +891,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.126,
     "utileNetto": 40269000000,
     "ricavi": 182527000000,
-    "patrimonioNetto": 222544000000
+    "patrimonioNetto": 222544000000,
+    "crediti": 30930000000,
+    "costoVenduto": 84732000000,
+    "attivoCorrente": 174296000000,
+    "passivoCorrente": 56834000000,
+    "immobilizzazioniNette": 84749000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 65124000000,
+    "attivoTotale": 319616000000,
+    "debitoLungo": 15319000000
    },
    {
     "anno": 2021,
@@ -450,7 +910,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2116,
     "utileNetto": 76033000000,
     "ricavi": 257637000000,
-    "patrimonioNetto": 251635000000
+    "patrimonioNetto": 251635000000,
+    "crediti": 39304000000,
+    "costoVenduto": 110939000000,
+    "attivoCorrente": 188143000000,
+    "passivoCorrente": 64254000000,
+    "immobilizzazioniNette": 97599000000,
+    "ammortamento": 10273000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 91652000000,
+    "attivoTotale": 359268000000,
+    "debitoLungo": 15440000000
    },
    {
     "anno": 2022,
@@ -459,7 +929,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1642,
     "utileNetto": 59972000000,
     "ricavi": 282836000000,
-    "patrimonioNetto": 256144000000
+    "patrimonioNetto": 256144000000,
+    "crediti": 40258000000,
+    "costoVenduto": 126203000000,
+    "attivoCorrente": 164795000000,
+    "passivoCorrente": 69300000000,
+    "immobilizzazioniNette": 112668000000,
+    "ammortamento": 13475000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 91495000000,
+    "attivoTotale": 365264000000,
+    "debitoLungo": 15312000000
    },
    {
     "anno": 2023,
@@ -468,7 +948,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1834,
     "utileNetto": 73795000000,
     "ricavi": 307394000000,
-    "patrimonioNetto": 283379000000
+    "patrimonioNetto": 283379000000,
+    "crediti": 47964000000,
+    "costoVenduto": 133332000000,
+    "attivoCorrente": 171530000000,
+    "passivoCorrente": 81814000000,
+    "immobilizzazioniNette": 134345000000,
+    "ammortamento": 11946000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 101746000000,
+    "attivoTotale": 402392000000,
+    "debitoLungo": 11870000000
    },
    {
     "anno": 2024,
@@ -477,7 +967,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2224,
     "utileNetto": 100118000000,
     "ricavi": 350018000000,
-    "patrimonioNetto": 325084000000
+    "patrimonioNetto": 325084000000,
+    "crediti": 52340000000,
+    "costoVenduto": 146306000000,
+    "attivoCorrente": 163711000000,
+    "passivoCorrente": 89122000000,
+    "immobilizzazioniNette": 171036000000,
+    "ammortamento": 15311000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 125299000000,
+    "attivoTotale": 450256000000,
+    "debitoLungo": 10883000000
    },
    {
     "anno": 2025,
@@ -486,7 +986,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.222,
     "utileNetto": 132170000000,
     "ricavi": 402836000000,
-    "patrimonioNetto": 415265000000
+    "patrimonioNetto": 415265000000,
+    "crediti": 62886000000,
+    "costoVenduto": 162535000000,
+    "attivoCorrente": 206038000000,
+    "passivoCorrente": 102745000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 21136000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 164713000000,
+    "attivoTotale": 595281000000,
+    "debitoLungo": 46547000000
    }
   ]
  },
@@ -500,7 +1010,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 476000000,
     "ricavi": 14835000000,
-    "patrimonioNetto": 1197000000
+    "patrimonioNetto": 1197000000,
+    "crediti": null,
+    "costoVenduto": 11482000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1405000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -509,7 +1029,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0776,
     "utileNetto": 645000000,
     "ricavi": 19166000000,
-    "patrimonioNetto": 2672000000
+    "patrimonioNetto": 2672000000,
+    "crediti": 827000000,
+    "costoVenduto": 14896000000,
+    "attivoCorrente": 6157000000,
+    "passivoCorrente": 4746000000,
+    "immobilizzazioniNette": 854000000,
+    "ammortamento": 311000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1697000000,
+    "attivoTotale": 8314000000,
+    "debitoLungo": 409000000
    },
    {
     "anno": 2009,
@@ -518,7 +1048,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0653,
     "utileNetto": 902000000,
     "ricavi": 24509000000,
-    "patrimonioNetto": 5257000000
+    "patrimonioNetto": 5257000000,
+    "crediti": 988000000,
+    "costoVenduto": 18978000000,
+    "attivoCorrente": 9797000000,
+    "passivoCorrente": 7364000000,
+    "immobilizzazioniNette": 1290000000,
+    "ammortamento": 384000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3293000000,
+    "attivoTotale": 13813000000,
+    "debitoLungo": 109000000
    },
    {
     "anno": 2010,
@@ -527,7 +1067,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0613,
     "utileNetto": 1152000000,
     "ricavi": 34204000000,
-    "patrimonioNetto": 6864000000
+    "patrimonioNetto": 6864000000,
+    "crediti": 1587000000,
+    "costoVenduto": 26561000000,
+    "attivoCorrente": 13747000000,
+    "passivoCorrente": 10372000000,
+    "immobilizzazioniNette": 2414000000,
+    "ammortamento": 552000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3495000000,
+    "attivoTotale": 18797000000,
+    "debitoLungo": 184000000
    },
    {
     "anno": 2011,
@@ -536,7 +1086,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.025,
     "utileNetto": 631000000,
     "ricavi": 48077000000,
-    "patrimonioNetto": 7757000000
+    "patrimonioNetto": 7757000000,
+    "crediti": 2571000000,
+    "costoVenduto": 37288000000,
+    "attivoCorrente": 17490000000,
+    "passivoCorrente": 14896000000,
+    "immobilizzazioniNette": 4417000000,
+    "ammortamento": 1034000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3903000000,
+    "attivoTotale": 25278000000,
+    "debitoLungo": 255000000
    },
    {
     "anno": 2012,
@@ -545,7 +1105,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0012,
     "utileNetto": -39000000,
     "ricavi": 61093000000,
-    "patrimonioNetto": 8192000000
+    "patrimonioNetto": 8192000000,
+    "crediti": 3817000000,
+    "costoVenduto": 45971000000,
+    "attivoCorrente": 21296000000,
+    "passivoCorrente": 19002000000,
+    "immobilizzazioniNette": 7060000000,
+    "ammortamento": 1653000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4180000000,
+    "attivoTotale": 32555000000,
+    "debitoLungo": 3084000000
    },
    {
     "anno": 2013,
@@ -554,7 +1124,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0068,
     "utileNetto": 274000000,
     "ricavi": 74452000000,
-    "patrimonioNetto": 9746000000
+    "patrimonioNetto": 9746000000,
+    "crediti": 4767000000,
+    "costoVenduto": 54181000000,
+    "attivoCorrente": 24625000000,
+    "passivoCorrente": 22980000000,
+    "immobilizzazioniNette": 10949000000,
+    "ammortamento": 2460000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5475000000,
+    "attivoTotale": 40159000000,
+    "debitoLungo": 3191000000
    },
    {
     "anno": 2014,
@@ -563,7 +1143,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0044,
     "utileNetto": -241000000,
     "ricavi": 88988000000,
-    "patrimonioNetto": 10741000000
+    "patrimonioNetto": 10741000000,
+    "crediti": 5612000000,
+    "costoVenduto": 62752000000,
+    "attivoCorrente": 31327000000,
+    "passivoCorrente": 28089000000,
+    "immobilizzazioniNette": 16967000000,
+    "ammortamento": 3616000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6842000000,
+    "attivoTotale": 54505000000,
+    "debitoLungo": 8265000000
    },
    {
     "anno": 2015,
@@ -572,7 +1162,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0092,
     "utileNetto": 596000000,
     "ricavi": 107006000000,
-    "patrimonioNetto": 13384000000
+    "patrimonioNetto": 13384000000,
+    "crediti": 5654000000,
+    "costoVenduto": 71651000000,
+    "attivoCorrente": 35705000000,
+    "passivoCorrente": 33887000000,
+    "immobilizzazioniNette": 21838000000,
+    "ammortamento": 6281000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 12039000000,
+    "attivoTotale": 64747000000,
+    "debitoLungo": 8227000000
    },
    {
     "anno": 2016,
@@ -581,7 +1181,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0284,
     "utileNetto": 2371000000,
     "ricavi": 135987000000,
-    "patrimonioNetto": 19285000000
+    "patrimonioNetto": 19285000000,
+    "crediti": 8339000000,
+    "costoVenduto": 88265000000,
+    "attivoCorrente": 45781000000,
+    "passivoCorrente": 43816000000,
+    "immobilizzazioniNette": 29114000000,
+    "ammortamento": 8116000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 17203000000,
+    "attivoTotale": 83402000000,
+    "debitoLungo": 7694000000
    },
    {
     "anno": 2017,
@@ -590,7 +1200,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0231,
     "utileNetto": 3033000000,
     "ricavi": 177866000000,
-    "patrimonioNetto": 27709000000
+    "patrimonioNetto": 27709000000,
+    "crediti": 13164000000,
+    "costoVenduto": 111934000000,
+    "attivoCorrente": 60197000000,
+    "passivoCorrente": 57883000000,
+    "immobilizzazioniNette": 48866000000,
+    "ammortamento": 11478000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 18365000000,
+    "attivoTotale": 131310000000,
+    "debitoLungo": 24743000000
    },
    {
     "anno": 2018,
@@ -599,7 +1219,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0619,
     "utileNetto": 10073000000,
     "ricavi": 232887000000,
-    "patrimonioNetto": 43549000000
+    "patrimonioNetto": 43549000000,
+    "crediti": 16677000000,
+    "costoVenduto": 139156000000,
+    "attivoCorrente": 75101000000,
+    "passivoCorrente": 68391000000,
+    "immobilizzazioniNette": 61797000000,
+    "ammortamento": 15341000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 30723000000,
+    "attivoTotale": 162648000000,
+    "debitoLungo": 23495000000
    },
    {
     "anno": 2019,
@@ -608,7 +1238,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0514,
     "utileNetto": 11588000000,
     "ricavi": 280522000000,
-    "patrimonioNetto": 62060000000
+    "patrimonioNetto": 62060000000,
+    "crediti": 20816000000,
+    "costoVenduto": 165536000000,
+    "attivoCorrente": 96334000000,
+    "passivoCorrente": 87812000000,
+    "immobilizzazioniNette": 72705000000,
+    "ammortamento": 21789000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 38514000000,
+    "attivoTotale": 225248000000,
+    "debitoLungo": 23414000000
    },
    {
     "anno": 2020,
@@ -617,7 +1257,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0664,
     "utileNetto": 21331000000,
     "ricavi": 386064000000,
-    "patrimonioNetto": 93404000000
+    "patrimonioNetto": 93404000000,
+    "crediti": 24542000000,
+    "costoVenduto": 233307000000,
+    "attivoCorrente": 132733000000,
+    "passivoCorrente": 126385000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 25180000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 66064000000,
+    "attivoTotale": 321195000000,
+    "debitoLungo": 31816000000
    },
    {
     "anno": 2021,
@@ -626,7 +1276,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0793,
     "utileNetto": 33364000000,
     "ricavi": 469822000000,
-    "patrimonioNetto": 138245000000
+    "patrimonioNetto": 138245000000,
+    "crediti": 32891000000,
+    "costoVenduto": 272344000000,
+    "attivoCorrente": 161580000000,
+    "passivoCorrente": 142266000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 34433000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 46327000000,
+    "attivoTotale": 420549000000,
+    "debitoLungo": 48744000000
    },
    {
     "anno": 2022,
@@ -635,7 +1295,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0059,
     "utileNetto": -2722000000,
     "ricavi": 513983000000,
-    "patrimonioNetto": 146043000000
+    "patrimonioNetto": 146043000000,
+    "crediti": 42360000000,
+    "costoVenduto": 288831000000,
+    "attivoCorrente": 146791000000,
+    "passivoCorrente": 155393000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 41921000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 46752000000,
+    "attivoTotale": 462675000000,
+    "debitoLungo": 67150000000
    },
    {
     "anno": 2023,
@@ -644,7 +1314,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0576,
     "utileNetto": 30425000000,
     "ricavi": 574785000000,
-    "patrimonioNetto": 201875000000
+    "patrimonioNetto": 201875000000,
+    "crediti": 52253000000,
+    "costoVenduto": 304739000000,
+    "attivoCorrente": 172351000000,
+    "passivoCorrente": 164917000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 48663000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 84946000000,
+    "attivoTotale": 527854000000,
+    "debitoLungo": 58314000000
    },
    {
     "anno": 2024,
@@ -653,7 +1333,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0948,
     "utileNetto": 59248000000,
     "ricavi": 637959000000,
-    "patrimonioNetto": 285970000000
+    "patrimonioNetto": 285970000000,
+    "crediti": 55451000000,
+    "costoVenduto": 326288000000,
+    "attivoCorrente": 190867000000,
+    "passivoCorrente": 179431000000,
+    "immobilizzazioniNette": 252665000000,
+    "ammortamento": 52795000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 115877000000,
+    "attivoTotale": 624894000000,
+    "debitoLungo": 52623000000
    },
    {
     "anno": 2025,
@@ -662,7 +1352,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0949,
     "utileNetto": 77670000000,
     "ricavi": 716924000000,
-    "patrimonioNetto": 411065000000
+    "patrimonioNetto": 411065000000,
+    "crediti": 67729000000,
+    "costoVenduto": 356414000000,
+    "attivoCorrente": 229083000000,
+    "passivoCorrente": 218005000000,
+    "immobilizzazioniNette": 357025000000,
+    "ammortamento": 65756000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 139514000000,
+    "attivoTotale": 818042000000,
+    "debitoLungo": 65648000000
    }
   ]
  },
@@ -676,7 +1376,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 797645000,
     "ricavi": 4097860000,
-    "patrimonioNetto": 2617912000
+    "patrimonioNetto": 2617912000,
+    "crediti": null,
+    "costoVenduto": 2228580000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 341297000,
+    "flussoCassaOperativo": 1270196000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -685,7 +1395,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.009,
     "utileNetto": -30041000,
     "ricavi": 3424859000,
-    "patrimonioNetto": 2394652000
+    "patrimonioNetto": 2394652000,
+    "crediti": 318435000,
+    "costoVenduto": 2250590000,
+    "attivoCorrente": 2167958000,
+    "passivoCorrente": 778591000,
+    "immobilizzazioniNette": 625798000,
+    "ammortamento": 152400000,
+    "speseSga": 362222000,
+    "flussoCassaOperativo": 249360000,
+    "attivoTotale": 3350727000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -694,7 +1414,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.019,
     "utileNetto": -67987000,
     "ricavi": 3326445000,
-    "patrimonioNetto": 2665140000
+    "patrimonioNetto": 2665140000,
+    "crediti": 374963000,
+    "costoVenduto": 2149522000,
+    "attivoCorrente": 2480830000,
+    "passivoCorrente": 784378000,
+    "immobilizzazioniNette": 571858000,
+    "ammortamento": 165000000,
+    "speseSga": 367017000,
+    "flussoCassaOperativo": 487807000,
+    "attivoTotale": 3585918000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -703,7 +1433,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0563,
     "utileNetto": 253146000,
     "ricavi": 3543309000,
-    "patrimonioNetto": 3181462000
+    "patrimonioNetto": 3181462000,
+    "crediti": 348770000,
+    "costoVenduto": 2134219000,
+    "attivoCorrente": 3226950000,
+    "passivoCorrente": 942682000,
+    "immobilizzazioniNette": 568857000,
+    "ammortamento": 157000000,
+    "speseSga": 361513000,
+    "flussoCassaOperativo": 675797000,
+    "attivoTotale": 4495246000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -712,7 +1452,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1046,
     "utileNetto": 581090000,
     "ricavi": 3997930000,
-    "patrimonioNetto": 4145724000
+    "patrimonioNetto": 4145724000,
+    "crediti": 336143000,
+    "costoVenduto": 1941413000,
+    "attivoCorrente": 3905358000,
+    "passivoCorrente": 929958000,
+    "immobilizzazioniNette": 560072000,
+    "ammortamento": 145200000,
+    "speseSga": 405613000,
+    "flussoCassaOperativo": 909156000,
+    "attivoTotale": 5552928000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -721,7 +1471,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0877,
     "utileNetto": 562536000,
     "ricavi": 4280159000,
-    "patrimonioNetto": 4827000000
+    "patrimonioNetto": 4827000000,
+    "crediti": 454252000,
+    "costoVenduto": 2053816000,
+    "attivoCorrente": 4775258000,
+    "passivoCorrente": 976223000,
+    "immobilizzazioniNette": 576144000,
+    "ammortamento": 157600000,
+    "speseSga": 430822000,
+    "flussoCassaOperativo": 824172000,
+    "attivoTotale": 6412245000,
+    "debitoLungo": 0
    },
    {
     "anno": 2014,
@@ -730,7 +1490,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0607,
     "utileNetto": 440000000,
     "ricavi": 4130000000,
-    "patrimonioNetto": 4455000000
+    "patrimonioNetto": 4455000000,
+    "crediti": 426357000,
+    "costoVenduto": 1862000000,
+    "attivoCorrente": 5624711000,
+    "passivoCorrente": 945496000,
+    "immobilizzazioniNette": 582740000,
+    "ammortamento": 164000000,
+    "speseSga": 436000000,
+    "flussoCassaOperativo": 835000000,
+    "attivoTotale": 7250894000,
+    "debitoLungo": 1356375000
    },
    {
     "anno": 2015,
@@ -739,7 +1509,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0876,
     "utileNetto": 631000000,
     "ricavi": 4682000000,
-    "patrimonioNetto": 4418000000
+    "patrimonioNetto": 4418000000,
+    "crediti": 474000000,
+    "costoVenduto": 2083000000,
+    "attivoCorrente": 5713000000,
+    "passivoCorrente": 896000000,
+    "immobilizzazioniNette": 557000000,
+    "ammortamento": 143000000,
+    "speseSga": 480000000,
+    "flussoCassaOperativo": 906000000,
+    "attivoTotale": 7201000000,
+    "debitoLungo": 1384000000
    },
    {
     "anno": 2016,
@@ -748,7 +1528,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0833,
     "utileNetto": 614000000,
     "ricavi": 5010000000,
-    "patrimonioNetto": 4469000000
+    "patrimonioNetto": 4469000000,
+    "crediti": 505000000,
+    "costoVenduto": 2199000000,
+    "attivoCorrente": 6053000000,
+    "passivoCorrente": 2351000000,
+    "immobilizzazioniNette": 466000000,
+    "ammortamento": 124000000,
+    "speseSga": 602000000,
+    "flussoCassaOperativo": 1175000000,
+    "attivoTotale": 7370000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2017,
@@ -757,7 +1547,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1693,
     "utileNetto": 1666000000,
     "ricavi": 6910000000,
-    "patrimonioNetto": 5762000000
+    "patrimonioNetto": 5762000000,
+    "crediti": 826000000,
+    "costoVenduto": 2847000000,
+    "attivoCorrente": 8536000000,
+    "passivoCorrente": 1788000000,
+    "immobilizzazioniNette": 521000000,
+    "ammortamento": 118000000,
+    "speseSga": 663000000,
+    "flussoCassaOperativo": 1672000000,
+    "attivoTotale": 9841000000,
+    "debitoLungo": 1983000000
    },
    {
     "anno": 2018,
@@ -766,7 +1566,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2711,
     "utileNetto": 3047000000,
     "ricavi": 9714000000,
-    "patrimonioNetto": 7471000000
+    "patrimonioNetto": 7471000000,
+    "crediti": 1265000000,
+    "costoVenduto": 3892000000,
+    "attivoCorrente": 9255000000,
+    "passivoCorrente": 1153000000,
+    "immobilizzazioniNette": 997000000,
+    "ammortamento": 144000000,
+    "speseSga": 815000000,
+    "flussoCassaOperativo": 3502000000,
+    "attivoTotale": 11241000000,
+    "debitoLungo": 1985000000
    },
    {
     "anno": 2019,
@@ -775,7 +1585,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3115,
     "utileNetto": 4141000000,
     "ricavi": 11716000000,
-    "patrimonioNetto": 9342000000
+    "patrimonioNetto": 9342000000,
+    "crediti": 1424000000,
+    "costoVenduto": 4545000000,
+    "attivoCorrente": 10557000000,
+    "passivoCorrente": 1329000000,
+    "immobilizzazioniNette": 1404000000,
+    "ammortamento": 233000000,
+    "speseSga": 991000000,
+    "flussoCassaOperativo": 3743000000,
+    "attivoTotale": 13292000000,
+    "debitoLungo": 1988000000
    },
    {
     "anno": 2020,
@@ -784,7 +1604,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1615,
     "utileNetto": 2796000000,
     "ricavi": 10918000000,
-    "patrimonioNetto": 12204000000
+    "patrimonioNetto": 12204000000,
+    "crediti": 1657000000,
+    "costoVenduto": 4150000000,
+    "attivoCorrente": 13690000000,
+    "passivoCorrente": 1784000000,
+    "immobilizzazioniNette": 1674000000,
+    "ammortamento": 381000000,
+    "speseSga": 1093000000,
+    "flussoCassaOperativo": 4761000000,
+    "attivoTotale": 17315000000,
+    "debitoLungo": 1991000000
    },
    {
     "anno": 2021,
@@ -793,7 +1623,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1505,
     "utileNetto": 4332000000,
     "ricavi": 16675000000,
-    "patrimonioNetto": 16893000000
+    "patrimonioNetto": 16893000000,
+    "crediti": 2429000000,
+    "costoVenduto": 6279000000,
+    "attivoCorrente": 16055000000,
+    "passivoCorrente": 3925000000,
+    "immobilizzazioniNette": 2149000000,
+    "ammortamento": 1098000000,
+    "speseSga": 1940000000,
+    "flussoCassaOperativo": 5822000000,
+    "attivoTotale": 28791000000,
+    "debitoLungo": 5964000000
    },
    {
     "anno": 2022,
@@ -802,7 +1642,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2207,
     "utileNetto": 9752000000,
     "ricavi": 26914000000,
-    "patrimonioNetto": 26612000000
+    "patrimonioNetto": 26612000000,
+    "crediti": 4650000000,
+    "costoVenduto": 9439000000,
+    "attivoCorrente": 28829000000,
+    "passivoCorrente": 4335000000,
+    "immobilizzazioniNette": 2778000000,
+    "ammortamento": 1174000000,
+    "speseSga": 2166000000,
+    "flussoCassaOperativo": 9108000000,
+    "attivoTotale": 44187000000,
+    "debitoLungo": 10946000000
    },
    {
     "anno": 2023,
@@ -811,7 +1661,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1061,
     "utileNetto": 4368000000,
     "ricavi": 26974000000,
-    "patrimonioNetto": 22101000000
+    "patrimonioNetto": 22101000000,
+    "crediti": 3827000000,
+    "costoVenduto": 11618000000,
+    "attivoCorrente": 23073000000,
+    "passivoCorrente": 6563000000,
+    "immobilizzazioniNette": 3807000000,
+    "ammortamento": 1544000000,
+    "speseSga": 2440000000,
+    "flussoCassaOperativo": 5641000000,
+    "attivoTotale": 41182000000,
+    "debitoLungo": 9703000000
    },
    {
     "anno": 2024,
@@ -820,7 +1680,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.4528,
     "utileNetto": 29760000000,
     "ricavi": 60922000000,
-    "patrimonioNetto": 42978000000
+    "patrimonioNetto": 42978000000,
+    "crediti": 9999000000,
+    "costoVenduto": 16621000000,
+    "attivoCorrente": 44345000000,
+    "passivoCorrente": 10631000000,
+    "immobilizzazioniNette": 3914000000,
+    "ammortamento": 1508000000,
+    "speseSga": 2654000000,
+    "flussoCassaOperativo": 28090000000,
+    "attivoTotale": 65728000000,
+    "debitoLungo": 8459000000
    },
    {
     "anno": 2025,
@@ -829,7 +1699,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.653,
     "utileNetto": 72880000000,
     "ricavi": 130497000000,
-    "patrimonioNetto": 79327000000
+    "patrimonioNetto": 79327000000,
+    "crediti": 23065000000,
+    "costoVenduto": 32639000000,
+    "attivoCorrente": 80126000000,
+    "passivoCorrente": 18047000000,
+    "immobilizzazioniNette": 6283000000,
+    "ammortamento": 1864000000,
+    "speseSga": 3491000000,
+    "flussoCassaOperativo": 64089000000,
+    "attivoTotale": 111601000000,
+    "debitoLungo": 8463000000
    },
    {
     "anno": 2026,
@@ -838,7 +1718,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.5806,
     "utileNetto": 120067000000,
     "ricavi": 215938000000,
-    "patrimonioNetto": 157293000000
+    "patrimonioNetto": 157293000000,
+    "crediti": 38466000000,
+    "costoVenduto": 62475000000,
+    "attivoCorrente": 125605000000,
+    "passivoCorrente": 32163000000,
+    "immobilizzazioniNette": 10383000000,
+    "ammortamento": 2843000000,
+    "speseSga": 4579000000,
+    "flussoCassaOperativo": 102718000000,
+    "attivoTotale": 206803000000,
+    "debitoLungo": 7469000000
    }
   ]
  },
@@ -852,7 +1742,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.158,
     "utileNetto": 1000000000,
     "ricavi": 3711000000,
-    "patrimonioNetto": 4899000000
+    "patrimonioNetto": 4899000000,
+    "crediti": 547000000,
+    "costoVenduto": 860000000,
+    "attivoCorrente": 4604000000,
+    "passivoCorrente": 899000000,
+    "immobilizzazioniNette": 1475000000,
+    "ammortamento": 323000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1549000000,
+    "attivoTotale": 6331000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2012,
@@ -861,7 +1761,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0035,
     "utileNetto": 53000000,
     "ricavi": 5089000000,
-    "patrimonioNetto": 11755000000
+    "patrimonioNetto": 11755000000,
+    "crediti": 719000000,
+    "costoVenduto": 1364000000,
+    "attivoCorrente": 11267000000,
+    "passivoCorrente": 1052000000,
+    "immobilizzazioniNette": 2391000000,
+    "ammortamento": 649000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1612000000,
+    "attivoTotale": 15103000000,
+    "debitoLungo": 1500000000
    },
    {
     "anno": 2013,
@@ -870,7 +1780,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0838,
     "utileNetto": 1500000000,
     "ricavi": 7872000000,
-    "patrimonioNetto": 15470000000
+    "patrimonioNetto": 15470000000,
+    "crediti": 1109000000,
+    "costoVenduto": 1875000000,
+    "attivoCorrente": 13070000000,
+    "passivoCorrente": 1100000000,
+    "immobilizzazioniNette": 2882000000,
+    "ammortamento": 1011000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4222000000,
+    "attivoTotale": 17895000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2014,
@@ -879,7 +1799,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0736,
     "utileNetto": 2940000000,
     "ricavi": 12466000000,
-    "patrimonioNetto": 36096000000
+    "patrimonioNetto": 36096000000,
+    "crediti": 1678000000,
+    "costoVenduto": 2153000000,
+    "attivoCorrente": 13390000000,
+    "passivoCorrente": 1424000000,
+    "immobilizzazioniNette": 3967000000,
+    "ammortamento": 1243000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7326000000,
+    "attivoTotale": 39966000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -888,7 +1818,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0746,
     "utileNetto": 3688000000,
     "ricavi": 17928000000,
-    "patrimonioNetto": 44218000000
+    "patrimonioNetto": 44218000000,
+    "crediti": 2559000000,
+    "costoVenduto": 2867000000,
+    "attivoCorrente": 21652000000,
+    "passivoCorrente": 1925000000,
+    "immobilizzazioniNette": 5687000000,
+    "ammortamento": 1945000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10320000000,
+    "attivoTotale": 49407000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -897,7 +1837,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1573,
     "utileNetto": 10217000000,
     "ricavi": 27638000000,
-    "patrimonioNetto": 59194000000
+    "patrimonioNetto": 59194000000,
+    "crediti": 3993000000,
+    "costoVenduto": 3789000000,
+    "attivoCorrente": 34401000000,
+    "passivoCorrente": 2875000000,
+    "immobilizzazioniNette": 8591000000,
+    "ammortamento": 2342000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 16108000000,
+    "attivoTotale": 64961000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -906,7 +1856,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1885,
     "utileNetto": 15934000000,
     "ricavi": 40653000000,
-    "patrimonioNetto": 74347000000
+    "patrimonioNetto": 74347000000,
+    "crediti": 5832000000,
+    "costoVenduto": 5454000000,
+    "attivoCorrente": 48563000000,
+    "passivoCorrente": 3760000000,
+    "immobilizzazioniNette": 13721000000,
+    "ammortamento": 3025000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 24216000000,
+    "attivoTotale": 84524000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -915,7 +1875,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2272,
     "utileNetto": 22112000000,
     "ricavi": 55838000000,
-    "patrimonioNetto": 84127000000
+    "patrimonioNetto": 84127000000,
+    "crediti": 7587000000,
+    "costoVenduto": 9355000000,
+    "attivoCorrente": 50480000000,
+    "passivoCorrente": 7017000000,
+    "immobilizzazioniNette": 24683000000,
+    "ammortamento": 4315000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 29274000000,
+    "attivoTotale": 97334000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -924,7 +1894,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1386,
     "utileNetto": 18485000000,
     "ricavi": 70697000000,
-    "patrimonioNetto": 101054000000
+    "patrimonioNetto": 101054000000,
+    "crediti": 9518000000,
+    "costoVenduto": 12770000000,
+    "attivoCorrente": 66225000000,
+    "passivoCorrente": 15053000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 5741000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 36314000000,
+    "attivoTotale": 133376000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -933,7 +1913,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1829,
     "utileNetto": 29146000000,
     "ricavi": 85965000000,
-    "patrimonioNetto": 128290000000
+    "patrimonioNetto": 128290000000,
+    "crediti": 11335000000,
+    "costoVenduto": 16692000000,
+    "attivoCorrente": 75670000000,
+    "passivoCorrente": 14981000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 6862000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 38747000000,
+    "attivoTotale": 159316000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -942,7 +1932,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2372,
     "utileNetto": 39370000000,
     "ricavi": 117929000000,
-    "patrimonioNetto": 124879000000
+    "patrimonioNetto": 124879000000,
+    "crediti": 14039000000,
+    "costoVenduto": 22649000000,
+    "attivoCorrente": 66666000000,
+    "passivoCorrente": 21135000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7967000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 57683000000,
+    "attivoTotale": 165987000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2022,
@@ -951,7 +1951,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1249,
     "utileNetto": 23200000000,
     "ricavi": 116609000000,
-    "patrimonioNetto": 125713000000
+    "patrimonioNetto": 125713000000,
+    "crediti": 13466000000,
+    "costoVenduto": 25249000000,
+    "attivoCorrente": 59549000000,
+    "passivoCorrente": 27026000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8686000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 50475000000,
+    "attivoTotale": 185727000000,
+    "debitoLungo": 9923000000
    },
    {
     "anno": 2023,
@@ -960,7 +1970,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1703,
     "utileNetto": 39098000000,
     "ricavi": 134902000000,
-    "patrimonioNetto": 153168000000
+    "patrimonioNetto": 153168000000,
+    "crediti": 16169000000,
+    "costoVenduto": 25959000000,
+    "attivoCorrente": 85365000000,
+    "passivoCorrente": 31960000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 11178000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 71113000000,
+    "attivoTotale": 229623000000,
+    "debitoLungo": 18385000000
    },
    {
     "anno": 2024,
@@ -969,7 +1989,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2259,
     "utileNetto": 62360000000,
     "ricavi": 164501000000,
-    "patrimonioNetto": 182637000000
+    "patrimonioNetto": 182637000000,
+    "crediti": 16994000000,
+    "costoVenduto": 30161000000,
+    "attivoCorrente": 100045000000,
+    "passivoCorrente": 33596000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 15498000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 91328000000,
+    "attivoTotale": 276054000000,
+    "debitoLungo": 28826000000
    },
    {
     "anno": 2025,
@@ -978,7 +2008,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1652,
     "utileNetto": 60458000000,
     "ricavi": 200966000000,
-    "patrimonioNetto": 217243000000
+    "patrimonioNetto": 217243000000,
+    "crediti": 19769000000,
+    "costoVenduto": 36175000000,
+    "attivoCorrente": 108722000000,
+    "passivoCorrente": 41836000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 18616000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 115800000000,
+    "attivoTotale": 366021000000,
+    "debitoLungo": 58744000000
    }
   ]
  },
@@ -992,7 +2032,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": -1739000000,
     "ricavi": 13240000000,
-    "patrimonioNetto": 21876000000
+    "patrimonioNetto": 21876000000,
+    "crediti": null,
+    "costoVenduto": 7300000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 402000000,
+    "speseSga": 806000000,
+    "flussoCassaOperativo": 3411000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -1001,7 +2051,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0328,
     "utileNetto": 1784000000,
     "ricavi": 17636000000,
-    "patrimonioNetto": 23186000000
+    "patrimonioNetto": 23186000000,
+    "crediti": 2448000000,
+    "costoVenduto": 9127000000,
+    "attivoCorrente": 15823000000,
+    "passivoCorrente": 2529000000,
+    "immobilizzazioniNette": 2599000000,
+    "ammortamento": 451000000,
+    "speseSga": 789000000,
+    "flussoCassaOperativo": 6551000000,
+    "attivoTotale": 54418000000,
+    "debitoLungo": 17431000000
    },
    {
     "anno": 2018,
@@ -1010,7 +2070,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2516,
     "utileNetto": 12610000000,
     "ricavi": 20848000000,
-    "patrimonioNetto": 26657000000
+    "patrimonioNetto": 26657000000,
+    "crediti": 3325000000,
+    "costoVenduto": 10115000000,
+    "attivoCorrente": 9107000000,
+    "passivoCorrente": 2338000000,
+    "immobilizzazioniNette": 2635000000,
+    "ammortamento": 515000000,
+    "speseSga": 1056000000,
+    "flussoCassaOperativo": 8880000000,
+    "attivoTotale": 50124000000,
+    "debitoLungo": 17493000000
    },
    {
     "anno": 2019,
@@ -1019,7 +2089,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0404,
     "utileNetto": 2724000000,
     "ricavi": 22597000000,
-    "patrimonioNetto": 24941000000
+    "patrimonioNetto": 24941000000,
+    "crediti": 3259000000,
+    "costoVenduto": 10114000000,
+    "attivoCorrente": 9917000000,
+    "passivoCorrente": 6899000000,
+    "immobilizzazioniNette": 2565000000,
+    "ammortamento": 569000000,
+    "speseSga": 1709000000,
+    "flussoCassaOperativo": 9697000000,
+    "attivoTotale": 67493000000,
+    "debitoLungo": 30011000000
    },
    {
     "anno": 2020,
@@ -1028,7 +2108,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.039,
     "utileNetto": 2960000000,
     "ricavi": 23888000000,
-    "patrimonioNetto": 23874000000
+    "patrimonioNetto": 23874000000,
+    "crediti": 2297000000,
+    "costoVenduto": 10372000000,
+    "attivoCorrente": 11895000000,
+    "passivoCorrente": 6371000000,
+    "immobilizzazioniNette": 2509000000,
+    "ammortamento": 570000000,
+    "speseSga": 1935000000,
+    "flussoCassaOperativo": 12061000000,
+    "attivoTotale": 75933000000,
+    "debitoLungo": 40235000000
    },
    {
     "anno": 2021,
@@ -1037,7 +2127,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0891,
     "utileNetto": 6736000000,
     "ricavi": 27450000000,
-    "patrimonioNetto": 24962000000
+    "patrimonioNetto": 24962000000,
+    "crediti": 2071000000,
+    "costoVenduto": 10606000000,
+    "attivoCorrente": 16586000000,
+    "passivoCorrente": 6281000000,
+    "immobilizzazioniNette": 2348000000,
+    "ammortamento": 539000000,
+    "speseSga": 1347000000,
+    "flussoCassaOperativo": 13764000000,
+    "attivoTotale": 75570000000,
+    "debitoLungo": 39440000000
    },
    {
     "anno": 2022,
@@ -1046,7 +2146,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1569,
     "utileNetto": 11495000000,
     "ricavi": 33203000000,
-    "patrimonioNetto": 22709000000
+    "patrimonioNetto": 22709000000,
+    "crediti": 2958000000,
+    "costoVenduto": 11108000000,
+    "attivoCorrente": 18504000000,
+    "passivoCorrente": 7052000000,
+    "immobilizzazioniNette": 2223000000,
+    "ammortamento": 529000000,
+    "speseSga": 1382000000,
+    "flussoCassaOperativo": 16736000000,
+    "attivoTotale": 73249000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -1055,7 +2165,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1933,
     "utileNetto": 14082000000,
     "ricavi": 35819000000,
-    "patrimonioNetto": 23988000000
+    "patrimonioNetto": 23988000000,
+    "crediti": 3154000000,
+    "costoVenduto": 11129000000,
+    "attivoCorrente": 20847000000,
+    "passivoCorrente": 7405000000,
+    "immobilizzazioniNette": 2154000000,
+    "ammortamento": 502000000,
+    "speseSga": 1592000000,
+    "flussoCassaOperativo": 18085000000,
+    "attivoTotale": 72861000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -1064,7 +2184,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0356,
     "utileNetto": 5895000000,
     "ricavi": 51574000000,
-    "patrimonioNetto": 67678000000
+    "patrimonioNetto": 67678000000,
+    "crediti": 4416000000,
+    "costoVenduto": 19065000000,
+    "attivoCorrente": 19595000000,
+    "passivoCorrente": 16697000000,
+    "immobilizzazioniNette": 2521000000,
+    "ammortamento": 593000000,
+    "speseSga": 4959000000,
+    "flussoCassaOperativo": 19962000000,
+    "attivoTotale": 165645000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -1073,7 +2203,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1352,
     "utileNetto": 23126000000,
     "ricavi": 63887000000,
-    "patrimonioNetto": 81292000000
+    "patrimonioNetto": 81292000000,
+    "crediti": 7145000000,
+    "costoVenduto": 20593000000,
+    "attivoCorrente": 31573000000,
+    "passivoCorrente": 18514000000,
+    "immobilizzazioniNette": 2530000000,
+    "ammortamento": 574000000,
+    "speseSga": 4211000000,
+    "flussoCassaOperativo": 27537000000,
+    "attivoTotale": 171092000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -1087,7 +2227,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 5581000000,
     "ricavi": 22430000000,
-    "patrimonioNetto": 23394000000
+    "patrimonioNetto": 23394000000,
+    "crediti": null,
+    "costoVenduto": 0,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 268000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7402000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -1096,7 +2246,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1197,
     "utileNetto": 5677000000,
     "ricavi": 23252000000,
-    "patrimonioNetto": 25445000000
+    "patrimonioNetto": 25445000000,
+    "crediti": 4430000000,
+    "costoVenduto": 0,
+    "attivoCorrente": 18581000000,
+    "passivoCorrente": 9149000000,
+    "immobilizzazioniNette": 1922000000,
+    "ammortamento": 263000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8255000000,
+    "attivoTotale": 47416000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -1105,7 +2265,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0996,
     "utileNetto": 6135000000,
     "ricavi": 26820000000,
-    "patrimonioNetto": 31199000000
+    "patrimonioNetto": 31199000000,
+    "crediti": 5585000000,
+    "costoVenduto": 880000000,
+    "attivoCorrente": 27004000000,
+    "passivoCorrente": 14691000000,
+    "immobilizzazioniNette": 2763000000,
+    "ammortamento": 298000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8681000000,
+    "attivoTotale": 61578000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -1114,7 +2284,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1162,
     "utileNetto": 8547000000,
     "ricavi": 35622000000,
-    "patrimonioNetto": 40245000000
+    "patrimonioNetto": 40245000000,
+    "crediti": 6628000000,
+    "costoVenduto": 2057000000,
+    "attivoCorrente": 39174000000,
+    "passivoCorrente": 14192000000,
+    "immobilizzazioniNette": 2857000000,
+    "ammortamento": 368000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 11214000000,
+    "attivoTotale": 73535000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -1123,7 +2303,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1274,
     "utileNetto": 9981000000,
     "ricavi": 37121000000,
-    "patrimonioNetto": 44087000000
+    "patrimonioNetto": 44087000000,
+    "crediti": 6377000000,
+    "costoVenduto": null,
+    "attivoCorrente": 40023000000,
+    "passivoCorrente": 15388000000,
+    "immobilizzazioniNette": 3021000000,
+    "ammortamento": 486000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13743000000,
+    "attivoTotale": 78327000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -1132,7 +2322,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1335,
     "utileNetto": 10925000000,
     "ricavi": 37180000000,
-    "patrimonioNetto": 45145000000
+    "patrimonioNetto": 45145000000,
+    "crediti": 6049000000,
+    "costoVenduto": null,
+    "attivoCorrente": 41692000000,
+    "passivoCorrente": 12872000000,
+    "immobilizzazioniNette": 3053000000,
+    "ammortamento": 546000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14224000000,
+    "attivoTotale": 81812000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -1141,7 +2341,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1214,
     "utileNetto": 10955000000,
     "ricavi": 38275000000,
-    "patrimonioNetto": 47447000000
+    "patrimonioNetto": 47447000000,
+    "crediti": 6087000000,
+    "costoVenduto": null,
+    "attivoCorrente": 48128000000,
+    "passivoCorrente": 14389000000,
+    "immobilizzazioniNette": 3061000000,
+    "ammortamento": 608000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 90266000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -1150,7 +2360,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0896,
     "utileNetto": 9938000000,
     "ricavi": 38226000000,
-    "patrimonioNetto": 49098000000
+    "patrimonioNetto": 49098000000,
+    "crediti": 5618000000,
+    "costoVenduto": null,
+    "attivoCorrente": 62520000000,
+    "passivoCorrente": 15206000000,
+    "immobilizzazioniNette": 3686000000,
+    "ammortamento": 712000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 110903000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -1159,7 +2379,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0793,
     "utileNetto": 8901000000,
     "ricavi": 37047000000,
-    "patrimonioNetto": 47790000000
+    "patrimonioNetto": 47790000000,
+    "crediti": 5385000000,
+    "costoVenduto": null,
+    "attivoCorrente": 64313000000,
+    "passivoCorrente": 17208000000,
+    "immobilizzazioniNette": 4000000000,
+    "ammortamento": 871000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13685000000,
+    "attivoTotale": 112180000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -1168,7 +2398,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.07,
     "utileNetto": 9452000000,
     "ricavi": 37792000000,
-    "patrimonioNetto": 55130000000
+    "patrimonioNetto": 55130000000,
+    "crediti": 5300000000,
+    "costoVenduto": null,
+    "attivoCorrente": 74515000000,
+    "passivoCorrente": 24178000000,
+    "immobilizzazioniNette": 5315000000,
+    "ammortamento": 1000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14126000000,
+    "attivoTotale": 134991000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -1177,7 +2417,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.026,
     "utileNetto": 3587000000,
     "ricavi": 39383000000,
-    "patrimonioNetto": 46873000000
+    "patrimonioNetto": 46873000000,
+    "crediti": 5136000000,
+    "costoVenduto": null,
+    "attivoCorrente": 76159000000,
+    "passivoCorrente": 19124000000,
+    "immobilizzazioniNette": 5897000000,
+    "ammortamento": 1165000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15386000000,
+    "attivoTotale": 137851000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -1186,7 +2436,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.102,
     "utileNetto": 11083000000,
     "ricavi": 39506000000,
-    "patrimonioNetto": 22363000000
+    "patrimonioNetto": 22363000000,
+    "crediti": 5134000000,
+    "costoVenduto": null,
+    "attivoCorrente": 46386000000,
+    "passivoCorrente": 18630000000,
+    "immobilizzazioniNette": 6252000000,
+    "ammortamento": 1230000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14551000000,
+    "attivoTotale": 108709000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -1195,7 +2455,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0878,
     "utileNetto": 10135000000,
     "ricavi": 39068000000,
-    "patrimonioNetto": 12717000000
+    "patrimonioNetto": 12717000000,
+    "crediti": 5551000000,
+    "costoVenduto": null,
+    "attivoCorrente": 52140000000,
+    "passivoCorrente": 17200000000,
+    "immobilizzazioniNette": 6244000000,
+    "ammortamento": 1382000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13139000000,
+    "attivoTotale": 115438000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -1204,7 +2474,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1048,
     "utileNetto": 13746000000,
     "ricavi": 40479000000,
-    "patrimonioNetto": 5952000000
+    "patrimonioNetto": 5952000000,
+    "crediti": 5409000000,
+    "costoVenduto": null,
+    "attivoCorrente": 55567000000,
+    "passivoCorrente": 24164000000,
+    "immobilizzazioniNette": 7049000000,
+    "ammortamento": 1537000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15887000000,
+    "attivoTotale": 131107000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -1213,7 +2493,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0615,
     "utileNetto": 6717000000,
     "ricavi": 42440000000,
-    "patrimonioNetto": -5768000000
+    "patrimonioNetto": -5768000000,
+    "crediti": 5953000000,
+    "costoVenduto": null,
+    "attivoCorrente": 31633000000,
+    "passivoCorrente": 19511000000,
+    "immobilizzazioniNette": 9716000000,
+    "ammortamento": 1972000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9539000000,
+    "attivoTotale": 109297000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -1222,7 +2512,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0633,
     "utileNetto": 8503000000,
     "ricavi": 49954000000,
-    "patrimonioNetto": 1556000000
+    "patrimonioNetto": 1556000000,
+    "crediti": 6915000000,
+    "costoVenduto": null,
+    "attivoCorrente": 21004000000,
+    "passivoCorrente": 23090000000,
+    "immobilizzazioniNette": 17069000000,
+    "ammortamento": 2526000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 17165000000,
+    "attivoTotale": 134384000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -1231,7 +2531,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0742,
     "utileNetto": 10467000000,
     "ricavi": 52961000000,
-    "patrimonioNetto": 9239000000
+    "patrimonioNetto": 9239000000,
+    "crediti": 7874000000,
+    "costoVenduto": null,
+    "attivoCorrente": 22554000000,
+    "passivoCorrente": 31544000000,
+    "immobilizzazioniNette": 21536000000,
+    "ammortamento": 3129000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 18673000000,
+    "attivoTotale": 140976000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -1240,7 +2550,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0739,
     "utileNetto": 12443000000,
     "ricavi": 57399000000,
-    "patrimonioNetto": 20451000000
+    "patrimonioNetto": 20451000000,
+    "crediti": 8558000000,
+    "costoVenduto": null,
+    "attivoCorrente": 24579000000,
+    "passivoCorrente": 32643000000,
+    "immobilizzazioniNette": 43522000000,
+    "ammortamento": 3867000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 20821000000,
+    "attivoTotale": 168361000000,
+    "debitoLungo": null
    },
    {
     "anno": 2026,
@@ -1249,7 +2569,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0653,
     "utileNetto": 17087000000,
     "ricavi": 67357000000,
-    "patrimonioNetto": 42508000000
+    "patrimonioNetto": 42508000000,
+    "crediti": 10385000000,
+    "costoVenduto": null,
+    "attivoCorrente": 46567000000,
+    "passivoCorrente": 41764000000,
+    "immobilizzazioniNette": 99957000000,
+    "ammortamento": 7623000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 31977000000,
+    "attivoTotale": 261759000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -1263,7 +2593,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 18356000,
     "ricavi": 748700000,
-    "patrimonioNetto": 461002000
+    "patrimonioNetto": 461002000,
+    "crediti": null,
+    "costoVenduto": 171591000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 204275000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -1272,7 +2612,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0293,
     "utileNetto": 43428000,
     "ricavi": 1076769000,
-    "patrimonioNetto": 682487000
+    "patrimonioNetto": 682487000,
+    "crediti": 266555000,
+    "costoVenduto": 220471000,
+    "attivoCorrente": 1068557000,
+    "passivoCorrente": 766966000,
+    "immobilizzazioniNette": 77027000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 229557000,
+    "attivoTotale": 1479822000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -1281,7 +2631,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0328,
     "utileNetto": 80719000,
     "ricavi": 1305583000,
-    "patrimonioNetto": 1056666000
+    "patrimonioNetto": 1056666000,
+    "crediti": 320956000,
+    "costoVenduto": 257925000,
+    "attivoCorrente": 1706159000,
+    "passivoCorrente": 908130000,
+    "immobilizzazioniNette": 89711000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 270911000,
+    "attivoTotale": 2460201000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -1290,7 +2650,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0209,
     "utileNetto": 64474000,
     "ricavi": 1657139000,
-    "patrimonioNetto": 1276491000
+    "patrimonioNetto": 1276491000,
+    "crediti": 426943000,
+    "costoVenduto": 323813000,
+    "attivoCorrente": 1074924000,
+    "passivoCorrente": 1276466000,
+    "immobilizzazioniNette": 387174000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 459081000,
+    "attivoTotale": 3091165000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -1299,7 +2669,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0028,
     "utileNetto": -11572000,
     "ricavi": 2266539000,
-    "patrimonioNetto": 1587360000
+    "patrimonioNetto": 1587360000,
+    "crediti": 683745000,
+    "costoVenduto": 488886000,
+    "attivoCorrente": 1672222000,
+    "passivoCorrente": 2300031000,
+    "immobilizzazioniNette": 527946000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 591507000,
+    "attivoTotale": 4164154000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -1308,7 +2688,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0489,
     "utileNetto": -270445000,
     "ricavi": 3050195000,
-    "patrimonioNetto": 2317633000
+    "patrimonioNetto": 2317633000,
+    "crediti": 872634000,
+    "costoVenduto": 683579000,
+    "attivoCorrente": 2015880000,
+    "passivoCorrente": 2917624000,
+    "immobilizzazioniNette": 604669000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 736897000,
+    "attivoTotale": 5528956000,
+    "debitoLungo": 0
    },
    {
     "anno": 2014,
@@ -1317,7 +2707,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0254,
     "utileNetto": -232175000,
     "ricavi": 4071003000,
-    "patrimonioNetto": 3038510000
+    "patrimonioNetto": 3038510000,
+    "crediti": 1360837000,
+    "costoVenduto": 968428000,
+    "attivoCorrente": 2680252000,
+    "passivoCorrente": 3980188000,
+    "immobilizzazioniNette": 1240746000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 875469000,
+    "attivoTotale": 9152930000,
+    "debitoLungo": 255000000
    },
    {
     "anno": 2015,
@@ -1326,7 +2726,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0246,
     "utileNetto": -262688000,
     "ricavi": 5373586000,
-    "patrimonioNetto": 3975183000
+    "patrimonioNetto": 3975183000,
+    "crediti": 1905506000,
+    "costoVenduto": null,
+    "attivoCorrente": 3514544000,
+    "passivoCorrente": 4390103000,
+    "immobilizzazioniNette": 1125866000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1181444000,
+    "attivoTotale": 10665127000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -1335,7 +2745,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0037,
     "utileNetto": -47426000,
     "ricavi": 6667216000,
-    "patrimonioNetto": 5003000000
+    "patrimonioNetto": 5003000000,
+    "crediti": 2496165000,
+    "costoVenduto": null,
+    "attivoCorrente": 5731323000,
+    "passivoCorrente": 5617005000,
+    "immobilizzazioniNette": 1715828000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1672081000,
+    "attivoTotale": 12762920000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -1344,7 +2764,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0184,
     "utileNetto": 323000000,
     "ricavi": 8437000000,
-    "patrimonioNetto": 8230000000
+    "patrimonioNetto": 8230000000,
+    "crediti": 3196643000,
+    "costoVenduto": 2234000000,
+    "attivoCorrente": 5996827000,
+    "passivoCorrente": 7295466000,
+    "immobilizzazioniNette": 1787534000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2162000000,
+    "attivoTotale": 17584923000,
+    "debitoLungo": 2008391000
    },
    {
     "anno": 2018,
@@ -1353,7 +2783,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0164,
     "utileNetto": 360000000,
     "ricavi": 10540000000,
-    "patrimonioNetto": 10376000000
+    "patrimonioNetto": 10376000000,
+    "crediti": 3921000000,
+    "costoVenduto": 2773000000,
+    "attivoCorrente": 9584000000,
+    "passivoCorrente": 10067000000,
+    "immobilizzazioniNette": 1947000000,
+    "ammortamento": 373000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2738000000,
+    "attivoTotale": 21984000000,
+    "debitoLungo": 695000000
    },
    {
     "anno": 2019,
@@ -1362,7 +2802,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0361,
     "utileNetto": 1110000000,
     "ricavi": 13282000000,
-    "patrimonioNetto": 15605000000
+    "patrimonioNetto": 15605000000,
+    "crediti": 4924000000,
+    "costoVenduto": 3451000000,
+    "attivoCorrente": 10683000000,
+    "passivoCorrente": 11255000000,
+    "immobilizzazioniNette": 2051000000,
+    "ammortamento": 411000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3398000000,
+    "attivoTotale": 30737000000,
+    "debitoLungo": 3173000000
    },
    {
     "anno": 2020,
@@ -1371,7 +2821,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0023,
     "utileNetto": 126000000,
     "ricavi": 17098000000,
-    "patrimonioNetto": 33885000000
+    "patrimonioNetto": 33885000000,
+    "crediti": 6174000000,
+    "costoVenduto": 4235000000,
+    "attivoCorrente": 15963000000,
+    "passivoCorrente": 14845000000,
+    "immobilizzazioniNette": 2375000000,
+    "ammortamento": 455000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4331000000,
+    "attivoTotale": 55126000000,
+    "debitoLungo": 2673000000
    },
    {
     "anno": 2021,
@@ -1380,7 +2840,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0614,
     "utileNetto": 4072000000,
     "ricavi": 21252000000,
-    "patrimonioNetto": 41493000000
+    "patrimonioNetto": 41493000000,
+    "crediti": 7786000000,
+    "costoVenduto": 5438000000,
+    "attivoCorrente": 21889000000,
+    "passivoCorrente": 17728000000,
+    "immobilizzazioniNette": 2459000000,
+    "ammortamento": 579000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4801000000,
+    "attivoTotale": 66301000000,
+    "debitoLungo": 2673000000
    },
    {
     "anno": 2022,
@@ -1389,7 +2859,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0152,
     "utileNetto": 1444000000,
     "ricavi": 26492000000,
-    "patrimonioNetto": 58131000000
+    "patrimonioNetto": 58131000000,
+    "crediti": 9739000000,
+    "costoVenduto": 7026000000,
+    "attivoCorrente": 22850000000,
+    "passivoCorrente": 21788000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 678000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6000000000,
+    "attivoTotale": 95209000000,
+    "debitoLungo": 10592000000
    },
    {
     "anno": 2023,
@@ -1398,7 +2878,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0021,
     "utileNetto": 208000000,
     "ricavi": 31352000000,
-    "patrimonioNetto": 58359000000
+    "patrimonioNetto": 58359000000,
+    "crediti": 10755000000,
+    "costoVenduto": 8360000000,
+    "attivoCorrente": 26395000000,
+    "passivoCorrente": 25891000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 903000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7111000000,
+    "attivoTotale": 98849000000,
+    "debitoLungo": 9419000000
    },
    {
     "anno": 2024,
@@ -1407,7 +2897,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0414,
     "utileNetto": 4136000000,
     "ricavi": 34857000000,
-    "patrimonioNetto": 59646000000
+    "patrimonioNetto": 59646000000,
+    "crediti": 11414000000,
+    "costoVenduto": 8541000000,
+    "attivoCorrente": 29074000000,
+    "passivoCorrente": 26631000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10234000000,
+    "attivoTotale": 99823000000,
+    "debitoLungo": 8427000000
    },
    {
     "anno": 2025,
@@ -1416,7 +2916,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0602,
     "utileNetto": 6197000000,
     "ricavi": 37895000000,
-    "patrimonioNetto": 61173000000
+    "patrimonioNetto": 61173000000,
+    "crediti": 11945000000,
+    "costoVenduto": 8643000000,
+    "attivoCorrente": 29727000000,
+    "passivoCorrente": 27980000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13092000000,
+    "attivoTotale": 102928000000,
+    "debitoLungo": 8433000000
    },
    {
     "anno": 2026,
@@ -1425,7 +2935,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0664,
     "utileNetto": 7457000000,
     "ricavi": 41525000000,
-    "patrimonioNetto": 59142000000
+    "patrimonioNetto": 59142000000,
+    "crediti": 14339000000,
+    "costoVenduto": 9270000000,
+    "attivoCorrente": 28222000000,
+    "passivoCorrente": 37118000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1200000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14996000000,
+    "attivoTotale": 112305000000,
+    "debitoLungo": 10439000000
    }
   ]
  },
@@ -1439,7 +2959,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 723807000,
     "ricavi": 3157881000,
-    "patrimonioNetto": 4649982000
+    "patrimonioNetto": 4649982000,
+    "crediti": null,
+    "costoVenduto": 354694000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1441053000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -1448,7 +2978,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1498,
     "utileNetto": 871814000,
     "ricavi": 3579889000,
-    "patrimonioNetto": 4410354000
+    "patrimonioNetto": 4410354000,
+    "crediti": 467234000,
+    "costoVenduto": 362630000,
+    "attivoCorrente": 2735103000,
+    "passivoCorrente": 762599000,
+    "immobilizzazioniNette": 313037000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1280682000,
+    "attivoTotale": 5821598000,
+    "debitoLungo": 350000000
    },
    {
     "anno": 2009,
@@ -1457,7 +2997,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0531,
     "utileNetto": 386508000,
     "ricavi": 2945853000,
-    "patrimonioNetto": 4890568000
+    "patrimonioNetto": 4890568000,
+    "crediti": 410879000,
+    "costoVenduto": 296732000,
+    "attivoCorrente": 2473624000,
+    "passivoCorrente": 844553000,
+    "immobilizzazioniNette": 388132000,
+    "ammortamento": 282423000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1117794000,
+    "attivoTotale": 7282237000,
+    "debitoLungo": 1000000000
    },
    {
     "anno": 2010,
@@ -1466,7 +3016,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0952,
     "utileNetto": 774680000,
     "ricavi": 3800000000,
-    "patrimonioNetto": 5192387000
+    "patrimonioNetto": 5192387000,
+    "crediti": 554328000,
+    "costoVenduto": 403502000,
+    "attivoCorrente": 3216050000,
+    "passivoCorrente": 1068088000,
+    "immobilizzazioniNette": 448881000,
+    "ammortamento": 292738000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1112995000,
+    "attivoTotale": 8141148000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -1475,7 +3035,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0926,
     "utileNetto": 832847000,
     "ricavi": 4216258000,
-    "patrimonioNetto": 5783113000
+    "patrimonioNetto": 5783113000,
+    "crediti": 634373000,
+    "costoVenduto": 437873000,
+    "attivoCorrente": 3771451000,
+    "passivoCorrente": 1250779000,
+    "immobilizzazioniNette": 527828000,
+    "ammortamento": 270205000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1543314000,
+    "attivoTotale": 8991183000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -1484,7 +3054,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0829,
     "utileNetto": 832775000,
     "ricavi": 4403677000,
-    "patrimonioNetto": 6665182000
+    "patrimonioNetto": 6665182000,
+    "crediti": 617233000,
+    "costoVenduto": 483782000,
+    "attivoCorrente": 4397066000,
+    "passivoCorrente": 1271752000,
+    "immobilizzazioniNette": 664302000,
+    "ammortamento": 299766000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1499580000,
+    "attivoTotale": 10040229000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -1493,7 +3073,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0279,
     "utileNetto": 289985000,
     "ricavi": 4055240000,
-    "patrimonioNetto": 6724634000
+    "patrimonioNetto": 6724634000,
+    "crediti": 599820000,
+    "costoVenduto": 586557000,
+    "attivoCorrente": 4045929000,
+    "passivoCorrente": 1525648000,
+    "immobilizzazioniNette": 659774000,
+    "ammortamento": 321227000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1151686000,
+    "attivoTotale": 10380298000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -1502,7 +3092,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0249,
     "utileNetto": 268395000,
     "ricavi": 4147065000,
-    "patrimonioNetto": 6775905000
+    "patrimonioNetto": 6775905000,
+    "crediti": 591800000,
+    "costoVenduto": 622080000,
+    "attivoCorrente": 4602328000,
+    "passivoCorrente": 2494435000,
+    "immobilizzazioniNette": 785123000,
+    "ammortamento": 313590000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1287482000,
+    "attivoTotale": 10785829000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -1511,7 +3111,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0537,
     "utileNetto": 629551000,
     "ricavi": 4795511000,
-    "patrimonioNetto": 7001580000
+    "patrimonioNetto": 7001580000,
+    "crediti": 672006000,
+    "costoVenduto": 744317000,
+    "attivoCorrente": 4821892000,
+    "passivoCorrente": 2213556000,
+    "immobilizzazioniNette": 787421000,
+    "ammortamento": 339473000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1469502000,
+    "attivoTotale": 11726472000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -1520,7 +3130,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0921,
     "utileNetto": 1168782000,
     "ricavi": 5854430000,
-    "patrimonioNetto": 7424835000
+    "patrimonioNetto": 7424835000,
+    "crediti": 833033000,
+    "costoVenduto": 819908000,
+    "attivoCorrente": 5839774000,
+    "passivoCorrente": 2811635000,
+    "immobilizzazioniNette": 816264000,
+    "ammortamento": 331535000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2199728000,
+    "attivoTotale": 12697246000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -1529,7 +3149,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1165,
     "utileNetto": 1693954000,
     "ricavi": 7301505000,
-    "patrimonioNetto": 8459000000
+    "patrimonioNetto": 8459000000,
+    "crediti": 1217968000,
+    "costoVenduto": 1010491000,
+    "attivoCorrente": 7247813000,
+    "passivoCorrente": 3527457000,
+    "immobilizzazioniNette": 936976000,
+    "ammortamento": 325997000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2912853000,
+    "attivoTotale": 14535556000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -1538,7 +3168,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.138,
     "utileNetto": 2591000000,
     "ricavi": 9030000000,
-    "patrimonioNetto": 9362000000
+    "patrimonioNetto": 9362000000,
+    "crediti": 1315578000,
+    "costoVenduto": 1195000000,
+    "attivoCorrente": 4857039000,
+    "passivoCorrente": 4301126000,
+    "immobilizzazioniNette": 1075072000,
+    "ammortamento": 346000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4029000000,
+    "attivoTotale": 18768682000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -1547,7 +3187,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1421,
     "utileNetto": 2951000000,
     "ricavi": 11171000000,
-    "patrimonioNetto": 10530000000
+    "patrimonioNetto": 10530000000,
+    "crediti": 1535000000,
+    "costoVenduto": 1673000000,
+    "attivoCorrente": 6495000000,
+    "passivoCorrente": 8191000000,
+    "immobilizzazioniNette": 1293000000,
+    "ammortamento": 757000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4422000000,
+    "attivoTotale": 20762000000,
+    "debitoLungo": 989000000
    },
    {
     "anno": 2020,
@@ -1556,7 +3206,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2166,
     "utileNetto": 5260000000,
     "ricavi": 12868000000,
-    "patrimonioNetto": 13264000000
+    "patrimonioNetto": 13264000000,
+    "crediti": 1398000000,
+    "costoVenduto": 1722000000,
+    "attivoCorrente": 8146000000,
+    "passivoCorrente": 5512000000,
+    "immobilizzazioniNette": 1517000000,
+    "ammortamento": 757000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5727000000,
+    "attivoTotale": 24284000000,
+    "debitoLungo": 4117000000
    },
    {
     "anno": 2021,
@@ -1565,7 +3225,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.177,
     "utileNetto": 4822000000,
     "ricavi": 15785000000,
-    "patrimonioNetto": 14797000000
+    "patrimonioNetto": 14797000000,
+    "crediti": 1878000000,
+    "costoVenduto": 1865000000,
+    "attivoCorrente": 8669000000,
+    "passivoCorrente": 6932000000,
+    "immobilizzazioniNette": 1673000000,
+    "ammortamento": 788000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7230000000,
+    "attivoTotale": 27241000000,
+    "debitoLungo": 4123000000
    },
    {
     "anno": 2022,
@@ -1574,7 +3244,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1751,
     "utileNetto": 4756000000,
     "ricavi": 17606000000,
-    "patrimonioNetto": 14051000000
+    "patrimonioNetto": 14051000000,
+    "crediti": 2065000000,
+    "costoVenduto": 2165000000,
+    "attivoCorrente": 8996000000,
+    "passivoCorrente": 8128000000,
+    "immobilizzazioniNette": 1908000000,
+    "ammortamento": 856000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7838000000,
+    "attivoTotale": 27165000000,
+    "debitoLungo": 3629000000
    },
    {
     "anno": 2023,
@@ -1583,7 +3263,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1823,
     "utileNetto": 5428000000,
     "ricavi": 19409000000,
-    "patrimonioNetto": 16518000000
+    "patrimonioNetto": 16518000000,
+    "crediti": 2224000000,
+    "costoVenduto": 2354000000,
+    "attivoCorrente": 11084000000,
+    "passivoCorrente": 8251000000,
+    "immobilizzazioniNette": 2030000000,
+    "ammortamento": 872000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7302000000,
+    "attivoTotale": 29779000000,
+    "debitoLungo": 3634000000
    },
    {
     "anno": 2024,
@@ -1592,7 +3282,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1839,
     "utileNetto": 5560000000,
     "ricavi": 21505000000,
-    "patrimonioNetto": 14105000000
+    "patrimonioNetto": 14105000000,
+    "crediti": 2072000000,
+    "costoVenduto": 2358000000,
+    "attivoCorrente": 11232000000,
+    "passivoCorrente": 10521000000,
+    "immobilizzazioniNette": 1936000000,
+    "ammortamento": 857000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8056000000,
+    "attivoTotale": 30230000000,
+    "debitoLungo": 4129000000
    },
    {
     "anno": 2025,
@@ -1601,7 +3301,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2417,
     "utileNetto": 7130000000,
     "ricavi": 23769000000,
-    "patrimonioNetto": 11623000000
+    "patrimonioNetto": 11623000000,
+    "crediti": 2344000000,
+    "costoVenduto": 2551000000,
+    "attivoCorrente": 10163000000,
+    "passivoCorrente": 10200000000,
+    "immobilizzazioniNette": 1873000000,
+    "ammortamento": 818000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10031000000,
+    "attivoTotale": 29496000000,
+    "debitoLungo": 6210000000
    }
   ]
  },
@@ -1615,7 +3325,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 8052000000,
     "ricavi": 39540000000,
-    "patrimonioNetto": 34402000000
+    "patrimonioNetto": 34402000000,
+    "crediti": null,
+    "costoVenduto": 14194000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4151000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 12089000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -1624,7 +3344,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.09,
     "utileNetto": 6134000000,
     "ricavi": 36117000000,
-    "patrimonioNetto": 38677000000
+    "patrimonioNetto": 38677000000,
+    "crediti": 3177000000,
+    "costoVenduto": 13023000000,
+    "attivoCorrente": 44177000000,
+    "passivoCorrente": 13655000000,
+    "immobilizzazioniNette": 4043000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 9897000000,
+    "attivoTotale": 68128000000,
+    "debitoLungo": 10295000000
    },
    {
     "anno": 2010,
@@ -1633,7 +3363,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0957,
     "utileNetto": 7767000000,
     "ricavi": 40040000000,
-    "patrimonioNetto": 44285000000
+    "patrimonioNetto": 44285000000,
+    "crediti": 4929000000,
+    "costoVenduto": 14397000000,
+    "attivoCorrente": 51421000000,
+    "passivoCorrente": 19233000000,
+    "immobilizzazioniNette": 3941000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 10173000000,
+    "attivoTotale": 81130000000,
+    "debitoLungo": 12188000000
    },
    {
     "anno": 2011,
@@ -1642,7 +3382,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0745,
     "utileNetto": 6490000000,
     "ricavi": 43218000000,
-    "patrimonioNetto": 47259000000
+    "patrimonioNetto": 47259000000,
+    "crediti": 4698000000,
+    "costoVenduto": 16682000000,
+    "attivoCorrente": 57231000000,
+    "passivoCorrente": 17506000000,
+    "immobilizzazioniNette": 3916000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 10079000000,
+    "attivoTotale": 87095000000,
+    "debitoLungo": 16234000000
    },
    {
     "anno": 2012,
@@ -1651,7 +3401,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0876,
     "utileNetto": 8041000000,
     "ricavi": 46061000000,
-    "patrimonioNetto": 51301000000
+    "patrimonioNetto": 51301000000,
+    "crediti": 4369000000,
+    "costoVenduto": 17852000000,
+    "attivoCorrente": 61933000000,
+    "passivoCorrente": 17731000000,
+    "immobilizzazioniNette": 3402000000,
+    "ammortamento": 1100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 11491000000,
+    "attivoTotale": 91759000000,
+    "debitoLungo": 16297000000
    },
    {
     "anno": 2013,
@@ -1660,7 +3420,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0987,
     "utileNetto": 9983000000,
     "ricavi": 48607000000,
-    "patrimonioNetto": 59128000000
+    "patrimonioNetto": 59128000000,
+    "crediti": 5470000000,
+    "costoVenduto": 19167000000,
+    "attivoCorrente": 65521000000,
+    "passivoCorrente": 21996000000,
+    "immobilizzazioniNette": 3322000000,
+    "ammortamento": 1200000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 12894000000,
+    "attivoTotale": 101191000000,
+    "debitoLungo": 12928000000
    },
    {
     "anno": 2014,
@@ -1669,7 +3439,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0747,
     "utileNetto": 7853000000,
     "ricavi": 47142000000,
-    "patrimonioNetto": 56661000000
+    "patrimonioNetto": 56661000000,
+    "crediti": 5157000000,
+    "costoVenduto": 19373000000,
+    "attivoCorrente": 67114000000,
+    "passivoCorrente": 19809000000,
+    "immobilizzazioniNette": 3252000000,
+    "ammortamento": 1200000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 105070000000,
+    "debitoLungo": 20337000000
    },
    {
     "anno": 2015,
@@ -1678,7 +3458,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0792,
     "utileNetto": 8981000000,
     "ricavi": 49161000000,
-    "patrimonioNetto": 59707000000
+    "patrimonioNetto": 59707000000,
+    "crediti": 5344000000,
+    "costoVenduto": 19480000000,
+    "attivoCorrente": 73368000000,
+    "passivoCorrente": 23412000000,
+    "immobilizzazioniNette": 3332000000,
+    "ammortamento": 1100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 113373000000,
+    "debitoLungo": 21457000000
    },
    {
     "anno": 2016,
@@ -1687,7 +3477,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0883,
     "utileNetto": 10739000000,
     "ricavi": 49247000000,
-    "patrimonioNetto": 63585000000
+    "patrimonioNetto": 63585000000,
+    "crediti": 5847000000,
+    "costoVenduto": 18287000000,
+    "attivoCorrente": 78719000000,
+    "passivoCorrente": 24911000000,
+    "immobilizzazioniNette": 3506000000,
+    "ammortamento": 1000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13570000000,
+    "attivoTotale": 121652000000,
+    "debitoLungo": 24483000000
    },
    {
     "anno": 2017,
@@ -1696,7 +3496,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.074,
     "utileNetto": 9609000000,
     "ricavi": 48005000000,
-    "patrimonioNetto": 66137000000
+    "patrimonioNetto": 66137000000,
+    "crediti": 5146000000,
+    "costoVenduto": 17781000000,
+    "attivoCorrente": 83703000000,
+    "passivoCorrente": 27583000000,
+    "immobilizzazioniNette": 3322000000,
+    "ammortamento": 1100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13876000000,
+    "attivoTotale": 129818000000,
+    "debitoLungo": 25725000000
    },
    {
     "anno": 2018,
@@ -1705,7 +3515,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.001,
     "utileNetto": 110000000,
     "ricavi": 49330000000,
-    "patrimonioNetto": 43204000000
+    "patrimonioNetto": 43204000000,
+    "crediti": 5554000000,
+    "costoVenduto": 18724000000,
+    "attivoCorrente": 61837000000,
+    "passivoCorrente": 27035000000,
+    "immobilizzazioniNette": 3006000000,
+    "ammortamento": 1100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13666000000,
+    "attivoTotale": 108784000000,
+    "debitoLungo": 20331000000
    },
    {
     "anno": 2019,
@@ -1714,7 +3534,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1188,
     "utileNetto": 11621000000,
     "ricavi": 51904000000,
-    "patrimonioNetto": 33571000000
+    "patrimonioNetto": 33571000000,
+    "crediti": 5491000000,
+    "costoVenduto": 19238000000,
+    "attivoCorrente": 47755000000,
+    "passivoCorrente": 31712000000,
+    "immobilizzazioniNette": 2789000000,
+    "ammortamento": 1000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15831000000,
+    "attivoTotale": 97793000000,
+    "debitoLungo": 14475000000
    },
    {
     "anno": 2020,
@@ -1723,7 +3553,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1182,
     "utileNetto": 11214000000,
     "ricavi": 49301000000,
-    "patrimonioNetto": 37920000000
+    "patrimonioNetto": 37920000000,
+    "crediti": 5472000000,
+    "costoVenduto": 17618000000,
+    "attivoCorrente": 43573000000,
+    "passivoCorrente": 25331000000,
+    "immobilizzazioniNette": 2453000000,
+    "ammortamento": 900000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15426000000,
+    "attivoTotale": 94853000000,
+    "debitoLungo": 11578000000
    },
    {
     "anno": 2021,
@@ -1732,7 +3572,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1086,
     "utileNetto": 10591000000,
     "ricavi": 49818000000,
-    "patrimonioNetto": 41275000000
+    "patrimonioNetto": 41275000000,
+    "crediti": 5766000000,
+    "costoVenduto": 17924000000,
+    "attivoCorrente": 39112000000,
+    "passivoCorrente": 26257000000,
+    "immobilizzazioniNette": 2338000000,
+    "ammortamento": 800000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15454000000,
+    "attivoTotale": 97497000000,
+    "debitoLungo": 9018000000
    },
    {
     "anno": 2022,
@@ -1741,7 +3591,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1257,
     "utileNetto": 11812000000,
     "ricavi": 51557000000,
-    "patrimonioNetto": 39773000000
+    "patrimonioNetto": 39773000000,
+    "crediti": 6622000000,
+    "costoVenduto": 19309000000,
+    "attivoCorrente": 36717000000,
+    "passivoCorrente": 25640000000,
+    "immobilizzazioniNette": 1997000000,
+    "ammortamento": 800000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13226000000,
+    "attivoTotale": 94002000000,
+    "debitoLungo": 8416000000
    },
    {
     "anno": 2023,
@@ -1750,7 +3610,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1238,
     "utileNetto": 12613000000,
     "ricavi": 56998000000,
-    "patrimonioNetto": 44353000000
+    "patrimonioNetto": 44353000000,
+    "crediti": 5854000000,
+    "costoVenduto": 21245000000,
+    "attivoCorrente": 43348000000,
+    "passivoCorrente": 31309000000,
+    "immobilizzazioniNette": 2085000000,
+    "ammortamento": 700000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 19886000000,
+    "attivoTotale": 101852000000,
+    "debitoLungo": 6658000000
    },
    {
     "anno": 2024,
@@ -1759,7 +3629,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0829,
     "utileNetto": 10320000000,
     "ricavi": 53803000000,
-    "patrimonioNetto": 45457000000
+    "patrimonioNetto": 45457000000,
+    "crediti": 6685000000,
+    "costoVenduto": 18975000000,
+    "attivoCorrente": 36862000000,
+    "passivoCorrente": 40584000000,
+    "immobilizzazioniNette": 2090000000,
+    "ammortamento": 700000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10880000000,
+    "attivoTotale": 124413000000,
+    "debitoLungo": 19621000000
    },
    {
     "anno": 2025,
@@ -1768,7 +3648,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0832,
     "utileNetto": 10180000000,
     "ricavi": 56654000000,
-    "patrimonioNetto": 46843000000
+    "patrimonioNetto": 46843000000,
+    "crediti": 6701000000,
+    "costoVenduto": 19864000000,
+    "attivoCorrente": 34986000000,
+    "passivoCorrente": 35064000000,
+    "immobilizzazioniNette": 2113000000,
+    "ammortamento": 700000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14193000000,
+    "attivoTotale": 122291000000,
+    "debitoLungo": 22861000000
    }
   ]
  },
@@ -1782,7 +3672,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 6976000000,
     "ricavi": 38334000000,
-    "patrimonioNetto": 43220000000
+    "patrimonioNetto": 43220000000,
+    "crediti": null,
+    "costoVenduto": 18430000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 4546000000,
+    "speseSga": 5401000000,
+    "flussoCassaOperativo": 12625000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -1791,7 +3691,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1049,
     "utileNetto": 5292000000,
     "ricavi": 37586000000,
-    "patrimonioNetto": 39546000000
+    "patrimonioNetto": 39546000000,
+    "crediti": 1712000000,
+    "costoVenduto": 16742000000,
+    "attivoCorrente": 19871000000,
+    "passivoCorrente": 7818000000,
+    "immobilizzazioniNette": 17574000000,
+    "ammortamento": 4360000000,
+    "speseSga": 5452000000,
+    "flussoCassaOperativo": 10926000000,
+    "attivoTotale": 50472000000,
+    "debitoLungo": 1185000000
    },
    {
     "anno": 2009,
@@ -1800,7 +3710,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0823,
     "utileNetto": 4369000000,
     "ricavi": 35127000000,
-    "patrimonioNetto": 41704000000
+    "patrimonioNetto": 41704000000,
+    "crediti": 2273000000,
+    "costoVenduto": 15566000000,
+    "attivoCorrente": 21157000000,
+    "passivoCorrente": 7591000000,
+    "immobilizzazioniNette": 17225000000,
+    "ammortamento": 4744000000,
+    "speseSga": 7931000000,
+    "flussoCassaOperativo": 11170000000,
+    "attivoTotale": 53095000000,
+    "debitoLungo": 2049000000
    },
    {
     "anno": 2010,
@@ -1809,7 +3729,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1814,
     "utileNetto": 11464000000,
     "ricavi": 43623000000,
-    "patrimonioNetto": 49430000000
+    "patrimonioNetto": 49430000000,
+    "crediti": 2867000000,
+    "costoVenduto": 15132000000,
+    "attivoCorrente": 31611000000,
+    "passivoCorrente": 9327000000,
+    "immobilizzazioniNette": 17899000000,
+    "ammortamento": 4398000000,
+    "speseSga": 6309000000,
+    "flussoCassaOperativo": 16692000000,
+    "attivoTotale": 63186000000,
+    "debitoLungo": 2077000000
    },
    {
     "anno": 2011,
@@ -1818,7 +3748,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.182,
     "utileNetto": 12942000000,
     "ricavi": 53999000000,
-    "patrimonioNetto": 45911000000
+    "patrimonioNetto": 45911000000,
+    "crediti": 3650000000,
+    "costoVenduto": 20242000000,
+    "attivoCorrente": 25872000000,
+    "passivoCorrente": 12028000000,
+    "immobilizzazioniNette": 23627000000,
+    "ammortamento": 5141000000,
+    "speseSga": 7670000000,
+    "flussoCassaOperativo": 20963000000,
+    "attivoTotale": 71119000000,
+    "debitoLungo": 7084000000
    },
    {
     "anno": 2012,
@@ -1827,7 +3767,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1305,
     "utileNetto": 11005000000,
     "ricavi": 53341000000,
-    "patrimonioNetto": 51203000000
+    "patrimonioNetto": 51203000000,
+    "crediti": 3833000000,
+    "costoVenduto": 20190000000,
+    "attivoCorrente": 31358000000,
+    "passivoCorrente": 12898000000,
+    "immobilizzazioniNette": 27983000000,
+    "ammortamento": 6357000000,
+    "speseSga": 8057000000,
+    "flussoCassaOperativo": 18884000000,
+    "attivoTotale": 84351000000,
+    "debitoLungo": 13136000000
    },
    {
     "anno": 2013,
@@ -1836,7 +3786,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1042,
     "utileNetto": 9620000000,
     "ricavi": 52708000000,
-    "patrimonioNetto": 58256000000
+    "patrimonioNetto": 58256000000,
+    "crediti": 3582000000,
+    "costoVenduto": 21187000000,
+    "attivoCorrente": 32084000000,
+    "passivoCorrente": 13568000000,
+    "immobilizzazioniNette": 31428000000,
+    "ammortamento": 6790000000,
+    "speseSga": 8088000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 92358000000,
+    "debitoLungo": 13165000000
    },
    {
     "anno": 2014,
@@ -1845,7 +3805,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1274,
     "utileNetto": 11704000000,
     "ricavi": 55870000000,
-    "patrimonioNetto": 55865000000
+    "patrimonioNetto": 55865000000,
+    "crediti": 4427000000,
+    "costoVenduto": 20261000000,
+    "attivoCorrente": 27730000000,
+    "passivoCorrente": 16011000000,
+    "immobilizzazioniNette": 33238000000,
+    "ammortamento": 7380000000,
+    "speseSga": 8136000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 91900000000,
+    "debitoLungo": 12059000000
    },
    {
     "anno": 2015,
@@ -1854,7 +3824,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1126,
     "utileNetto": 11420000000,
     "ricavi": 55355000000,
-    "patrimonioNetto": 61085000000
+    "patrimonioNetto": 61085000000,
+    "crediti": 4787000000,
+    "costoVenduto": 20676000000,
+    "attivoCorrente": 38320000000,
+    "passivoCorrente": 15646000000,
+    "immobilizzazioniNette": 31858000000,
+    "ammortamento": 7821000000,
+    "speseSga": 7930000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 101459000000,
+    "debitoLungo": 20036000000
    },
    {
     "anno": 2016,
@@ -1863,7 +3843,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.091,
     "utileNetto": 10316000000,
     "ricavi": 59387000000,
-    "patrimonioNetto": 66226000000
+    "patrimonioNetto": 66226000000,
+    "crediti": 4690000000,
+    "costoVenduto": 23154000000,
+    "attivoCorrente": 35508000000,
+    "passivoCorrente": 20302000000,
+    "immobilizzazioniNette": 36171000000,
+    "ammortamento": 6266000000,
+    "speseSga": 8377000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 113327000000,
+    "debitoLungo": 20649000000
    },
    {
     "anno": 2017,
@@ -1872,7 +3862,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0779,
     "utileNetto": 9601000000,
     "ricavi": 62761000000,
-    "patrimonioNetto": 69653000000
+    "patrimonioNetto": 69653000000,
+    "crediti": 5607000000,
+    "costoVenduto": 23663000000,
+    "attivoCorrente": 29500000000,
+    "passivoCorrente": 17421000000,
+    "immobilizzazioniNette": 41109000000,
+    "ammortamento": 6752000000,
+    "speseSga": 7452000000,
+    "flussoCassaOperativo": 22110000000,
+    "attivoTotale": 123249000000,
+    "debitoLungo": 25037000000
    },
    {
     "anno": 2018,
@@ -1881,7 +3881,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1645,
     "utileNetto": 21053000000,
     "ricavi": 70848000000,
-    "patrimonioNetto": 74563000000
+    "patrimonioNetto": 74563000000,
+    "crediti": 6722000000,
+    "costoVenduto": 27111000000,
+    "attivoCorrente": 28787000000,
+    "passivoCorrente": 16626000000,
+    "immobilizzazioniNette": 48976000000,
+    "ammortamento": 7520000000,
+    "speseSga": 6950000000,
+    "flussoCassaOperativo": 29432000000,
+    "attivoTotale": 127963000000,
+    "debitoLungo": 25098000000
    },
    {
     "anno": 2019,
@@ -1890,7 +3900,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1542,
     "utileNetto": 21048000000,
     "ricavi": 71965000000,
-    "patrimonioNetto": 77504000000
+    "patrimonioNetto": 77504000000,
+    "crediti": 7659000000,
+    "costoVenduto": 29825000000,
+    "attivoCorrente": 31239000000,
+    "passivoCorrente": 22310000000,
+    "immobilizzazioniNette": 55386000000,
+    "ammortamento": 9204000000,
+    "speseSga": 6350000000,
+    "flussoCassaOperativo": 33145000000,
+    "attivoTotale": 136524000000,
+    "debitoLungo": 25308000000
    },
    {
     "anno": 2020,
@@ -1899,7 +3919,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1365,
     "utileNetto": 20899000000,
     "ricavi": 77867000000,
-    "patrimonioNetto": 81038000000
+    "patrimonioNetto": 81038000000,
+    "crediti": 6782000000,
+    "costoVenduto": 34255000000,
+    "attivoCorrente": 47249000000,
+    "passivoCorrente": 24754000000,
+    "immobilizzazioniNette": 56584000000,
+    "ammortamento": 10482000000,
+    "speseSga": 6180000000,
+    "flussoCassaOperativo": 35864000000,
+    "attivoTotale": 153091000000,
+    "debitoLungo": 33897000000
    },
    {
     "anno": 2021,
@@ -1908,7 +3938,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.118,
     "utileNetto": 19868000000,
     "ricavi": 79024000000,
-    "patrimonioNetto": 95391000000
+    "patrimonioNetto": 95391000000,
+    "crediti": 9457000000,
+    "costoVenduto": 35209000000,
+    "attivoCorrente": 58558000000,
+    "passivoCorrente": 27462000000,
+    "immobilizzazioniNette": 63245000000,
+    "ammortamento": 9953000000,
+    "speseSga": 6543000000,
+    "flussoCassaOperativo": 29456000000,
+    "attivoTotale": 168406000000,
+    "debitoLungo": 33510000000
    },
    {
     "anno": 2022,
@@ -1917,7 +3957,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.044,
     "utileNetto": 8014000000,
     "ricavi": 63054000000,
-    "patrimonioNetto": 103286000000
+    "patrimonioNetto": 103286000000,
+    "crediti": 4133000000,
+    "costoVenduto": 36188000000,
+    "attivoCorrente": 50407000000,
+    "passivoCorrente": 32155000000,
+    "immobilizzazioniNette": 80860000000,
+    "ammortamento": 11128000000,
+    "speseSga": 7002000000,
+    "flussoCassaOperativo": 15433000000,
+    "attivoTotale": 182103000000,
+    "debitoLungo": 37684000000
    },
    {
     "anno": 2023,
@@ -1926,7 +3976,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0088,
     "utileNetto": 1689000000,
     "ricavi": 54228000000,
-    "patrimonioNetto": 109965000000
+    "patrimonioNetto": 109965000000,
+    "crediti": 3402000000,
+    "costoVenduto": 32517000000,
+    "attivoCorrente": 43269000000,
+    "passivoCorrente": 28053000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7847000000,
+    "speseSga": 5634000000,
+    "flussoCassaOperativo": 11471000000,
+    "attivoTotale": 191572000000,
+    "debitoLungo": 46978000000
    },
    {
     "anno": 2024,
@@ -1935,7 +3995,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0955,
     "utileNetto": -18756000000,
     "ricavi": 53101000000,
-    "patrimonioNetto": 99270000000
+    "patrimonioNetto": 99270000000,
+    "crediti": 3478000000,
+    "costoVenduto": 35756000000,
+    "attivoCorrente": 47324000000,
+    "passivoCorrente": 35666000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 9951000000,
+    "speseSga": 5507000000,
+    "flussoCassaOperativo": 8288000000,
+    "attivoTotale": 196485000000,
+    "debitoLungo": 46282000000
    },
    {
     "anno": 2025,
@@ -1944,7 +4014,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0013,
     "utileNetto": -267000000,
     "ricavi": 52853000000,
-    "patrimonioNetto": 114281000000
+    "patrimonioNetto": 114281000000,
+    "crediti": 3839000000,
+    "costoVenduto": 34478000000,
+    "attivoCorrente": 63688000000,
+    "passivoCorrente": 31575000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 10757000000,
+    "speseSga": 4624000000,
+    "flussoCassaOperativo": 9697000000,
+    "attivoTotale": 211429000000,
+    "debitoLungo": 44086000000
    }
   ]
  },
@@ -1958,7 +4038,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": -3096000000,
     "ricavi": null,
-    "patrimonioNetto": 127000000
+    "patrimonioNetto": 127000000,
+    "crediti": null,
+    "costoVenduto": 3488000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 1304000000,
+    "flussoCassaOperativo": -692000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -1967,7 +4057,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0323,
     "utileNetto": 293000000,
     "ricavi": null,
-    "patrimonioNetto": 648000000
+    "patrimonioNetto": 648000000,
+    "crediti": 745000000,
+    "costoVenduto": 3131000000,
+    "attivoCorrente": 4275000000,
+    "passivoCorrente": 2210000000,
+    "immobilizzazioniNette": 3809000000,
+    "ammortamento": 948000000,
+    "speseSga": 994000000,
+    "flussoCassaOperativo": 473000000,
+    "attivoTotale": 9078000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -1976,7 +4076,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0949,
     "utileNetto": 471000000,
     "ricavi": 6494000000,
-    "patrimonioNetto": 1013000000
+    "patrimonioNetto": 1013000000,
+    "crediti": 968000000,
+    "costoVenduto": 3533000000,
+    "attivoCorrente": 3594000000,
+    "passivoCorrente": 1674000000,
+    "immobilizzazioniNette": 700000000,
+    "ammortamento": 256000000,
+    "speseSga": 934000000,
+    "flussoCassaOperativo": -412000000,
+    "attivoTotale": 4964000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -1985,7 +4095,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0991,
     "utileNetto": 491000000,
     "ricavi": 6568000000,
-    "patrimonioNetto": 1590000000
+    "patrimonioNetto": 1590000000,
+    "crediti": 919000000,
+    "costoVenduto": 3628000000,
+    "attivoCorrente": 3229000000,
+    "passivoCorrente": 1774000000,
+    "immobilizzazioniNette": 726000000,
+    "ammortamento": 217000000,
+    "speseSga": 992000000,
+    "flussoCassaOperativo": 382000000,
+    "attivoTotale": 4954000000,
+    "debitoLungo": 2065000000
    },
    {
     "anno": 2012,
@@ -1994,7 +4114,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.2958,
     "utileNetto": -1183000000,
     "ricavi": 5422000000,
-    "patrimonioNetto": 538000000
+    "patrimonioNetto": 538000000,
+    "crediti": 630000000,
+    "costoVenduto": 4187000000,
+    "attivoCorrente": 2265000000,
+    "passivoCorrente": 1397000000,
+    "immobilizzazioniNette": 658000000,
+    "ammortamento": 179000000,
+    "speseSga": 823000000,
+    "flussoCassaOperativo": -338000000,
+    "attivoTotale": 4000000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -2003,7 +4133,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0191,
     "utileNetto": -83000000,
     "ricavi": 5299000000,
-    "patrimonioNetto": 544000000
+    "patrimonioNetto": 544000000,
+    "crediti": 832000000,
+    "costoVenduto": 3321000000,
+    "attivoCorrente": 2884000000,
+    "passivoCorrente": 1618000000,
+    "immobilizzazioniNette": 346000000,
+    "ammortamento": 236000000,
+    "speseSga": 674000000,
+    "flussoCassaOperativo": -148000000,
+    "attivoTotale": 4337000000,
+    "debitoLungo": 1986000000
    },
    {
     "anno": 2014,
@@ -2012,7 +4152,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.107,
     "utileNetto": -403000000,
     "ricavi": 5506000000,
-    "patrimonioNetto": 187000000
+    "patrimonioNetto": 187000000,
+    "crediti": 818000000,
+    "costoVenduto": 3667000000,
+    "attivoCorrente": 2736000000,
+    "passivoCorrente": 1440000000,
+    "immobilizzazioniNette": 302000000,
+    "ammortamento": 203000000,
+    "speseSga": 604000000,
+    "flussoCassaOperativo": -98000000,
+    "attivoTotale": 3767000000,
+    "debitoLungo": 2025000000
    },
    {
     "anno": 2015,
@@ -2021,7 +4171,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.214,
     "utileNetto": -660000000,
     "ricavi": 3991000000,
-    "patrimonioNetto": -350000000
+    "patrimonioNetto": -350000000,
+    "crediti": 533000000,
+    "costoVenduto": 2911000000,
+    "attivoCorrente": 2320000000,
+    "passivoCorrente": 1403000000,
+    "immobilizzazioniNette": 188000000,
+    "ammortamento": 167000000,
+    "speseSga": 482000000,
+    "flussoCassaOperativo": -226000000,
+    "attivoTotale": 3084000000,
+    "debitoLungo": 2007000000
    },
    {
     "anno": 2016,
@@ -2030,7 +4190,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.15,
     "utileNetto": -498000000,
     "ricavi": 4319000000,
-    "patrimonioNetto": 477000000
+    "patrimonioNetto": 477000000,
+    "crediti": 372000000,
+    "costoVenduto": 3316000000,
+    "attivoCorrente": 2530000000,
+    "passivoCorrente": 1346000000,
+    "immobilizzazioniNette": 164000000,
+    "ammortamento": 133000000,
+    "speseSga": 466000000,
+    "flussoCassaOperativo": 81000000,
+    "attivoTotale": 3321000000,
+    "debitoLungo": 1435000000
    },
    {
     "anno": 2017,
@@ -2039,7 +4209,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0093,
     "utileNetto": -33000000,
     "ricavi": 5253000000,
-    "patrimonioNetto": 596000000
+    "patrimonioNetto": 596000000,
+    "crediti": 454000000,
+    "costoVenduto": 3466000000,
+    "attivoCorrente": 2634000000,
+    "passivoCorrente": 1513000000,
+    "immobilizzazioniNette": 261000000,
+    "ammortamento": 144000000,
+    "speseSga": 516000000,
+    "flussoCassaOperativo": 12000000,
+    "attivoTotale": 3552000000,
+    "debitoLungo": 1325000000
    },
    {
     "anno": 2018,
@@ -2048,7 +4228,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.074,
     "utileNetto": 337000000,
     "ricavi": 6475000000,
-    "patrimonioNetto": 1266000000
+    "patrimonioNetto": 1266000000,
+    "crediti": 1235000000,
+    "costoVenduto": 4028000000,
+    "attivoCorrente": 3540000000,
+    "passivoCorrente": 1984000000,
+    "immobilizzazioniNette": 348000000,
+    "ammortamento": 94000000,
+    "speseSga": 562000000,
+    "flussoCassaOperativo": 34000000,
+    "attivoTotale": 4556000000,
+    "debitoLungo": 1114000000
    },
    {
     "anno": 2019,
@@ -2057,7 +4247,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0566,
     "utileNetto": 341000000,
     "ricavi": 6731000000,
-    "patrimonioNetto": 2827000000
+    "patrimonioNetto": 2827000000,
+    "crediti": 1859000000,
+    "costoVenduto": 3863000000,
+    "attivoCorrente": 4597000000,
+    "passivoCorrente": 2359000000,
+    "immobilizzazioniNette": 500000000,
+    "ammortamento": 142000000,
+    "speseSga": 750000000,
+    "flussoCassaOperativo": 493000000,
+    "attivoTotale": 6028000000,
+    "debitoLungo": 486000000
    },
    {
     "anno": 2020,
@@ -2066,7 +4266,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2778,
     "utileNetto": 2490000000,
     "ricavi": 9763000000,
-    "patrimonioNetto": 5837000000
+    "patrimonioNetto": 5837000000,
+    "crediti": 2066000000,
+    "costoVenduto": 5416000000,
+    "attivoCorrente": 6143000000,
+    "passivoCorrente": 2417000000,
+    "immobilizzazioniNette": 641000000,
+    "ammortamento": 217000000,
+    "speseSga": 995000000,
+    "flussoCassaOperativo": 1071000000,
+    "attivoTotale": 8962000000,
+    "debitoLungo": 330000000
    },
    {
     "anno": 2021,
@@ -2075,7 +4285,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2546,
     "utileNetto": 3162000000,
     "ricavi": 16434000000,
-    "patrimonioNetto": 7497000000
+    "patrimonioNetto": 7497000000,
+    "crediti": 2706000000,
+    "costoVenduto": 8505000000,
+    "attivoCorrente": 8583000000,
+    "passivoCorrente": 4240000000,
+    "immobilizzazioniNette": 702000000,
+    "ammortamento": 296000000,
+    "speseSga": 1448000000,
+    "flussoCassaOperativo": 3521000000,
+    "attivoTotale": 12419000000,
+    "debitoLungo": 1000000
    },
    {
     "anno": 2022,
@@ -2084,7 +4304,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0195,
     "utileNetto": 1320000000,
     "ricavi": 23601000000,
-    "patrimonioNetto": 54750000000
+    "patrimonioNetto": 54750000000,
+    "crediti": 4126000000,
+    "costoVenduto": 12998000000,
+    "attivoCorrente": 15019000000,
+    "passivoCorrente": 6369000000,
+    "immobilizzazioniNette": 1513000000,
+    "ammortamento": 439000000,
+    "speseSga": 2336000000,
+    "flussoCassaOperativo": 3565000000,
+    "attivoTotale": 67580000000,
+    "debitoLungo": 2467000000
    },
    {
     "anno": 2023,
@@ -2093,7 +4323,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0126,
     "utileNetto": 854000000,
     "ricavi": 22680000000,
-    "patrimonioNetto": 55892000000
+    "patrimonioNetto": 55892000000,
+    "crediti": 4323000000,
+    "costoVenduto": 12220000000,
+    "attivoCorrente": 16768000000,
+    "passivoCorrente": 6689000000,
+    "immobilizzazioniNette": 1589000000,
+    "ammortamento": 441000000,
+    "speseSga": 2318000000,
+    "flussoCassaOperativo": 1667000000,
+    "attivoTotale": 67885000000,
+    "debitoLungo": 1717000000
    },
    {
     "anno": 2024,
@@ -2102,7 +4342,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0237,
     "utileNetto": 1641000000,
     "ricavi": 25785000000,
-    "patrimonioNetto": 57568000000
+    "patrimonioNetto": 57568000000,
+    "crediti": 6192000000,
+    "costoVenduto": 13060000000,
+    "attivoCorrente": 19049000000,
+    "passivoCorrente": 7281000000,
+    "immobilizzazioniNette": 1802000000,
+    "ammortamento": 454000000,
+    "speseSga": 2735000000,
+    "flussoCassaOperativo": 3041000000,
+    "attivoTotale": 69226000000,
+    "debitoLungo": 1721000000
    },
    {
     "anno": 2025,
@@ -2111,7 +4361,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0564,
     "utileNetto": 4335000000,
     "ricavi": 34639000000,
-    "patrimonioNetto": 62999000000
+    "patrimonioNetto": 62999000000,
+    "crediti": 6315000000,
+    "costoVenduto": 17487000000,
+    "attivoCorrente": 26947000000,
+    "passivoCorrente": 9455000000,
+    "immobilizzazioniNette": 2312000000,
+    "ammortamento": 521000000,
+    "speseSga": 4144000000,
+    "flussoCassaOperativo": 7709000000,
+    "attivoTotale": 76926000000,
+    "debitoLungo": 2348000000
    }
   ]
  },
@@ -2125,7 +4385,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 3303000000,
     "ricavi": 8871000000,
-    "patrimonioNetto": 15835000000
+    "patrimonioNetto": 15835000000,
+    "crediti": null,
+    "costoVenduto": 2681000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 1478000000,
+    "flussoCassaOperativo": 3811000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -2134,7 +4404,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1279,
     "utileNetto": 3160000000,
     "ricavi": 11142000000,
-    "patrimonioNetto": 17944000000
+    "patrimonioNetto": 17944000000,
+    "crediti": 4187000000,
+    "costoVenduto": 3414000000,
+    "attivoCorrente": 11872000000,
+    "passivoCorrente": 2440000000,
+    "immobilizzazioniNette": 2162000000,
+    "ammortamento": null,
+    "speseSga": 1717000000,
+    "flussoCassaOperativo": 3558000000,
+    "attivoTotale": 24712000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -2143,7 +4423,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.058,
     "utileNetto": 1592000000,
     "ricavi": 10387000000,
-    "patrimonioNetto": 20316000000
+    "patrimonioNetto": 20316000000,
+    "crediti": 700000000,
+    "costoVenduto": 3025000000,
+    "attivoCorrente": 12570000000,
+    "passivoCorrente": 2813000000,
+    "immobilizzazioniNette": 2387000000,
+    "ammortamento": null,
+    "speseSga": 1462000000,
+    "flussoCassaOperativo": 7172000000,
+    "attivoTotale": 27445000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -2152,7 +4442,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1062,
     "utileNetto": 3247000000,
     "ricavi": 10982000000,
-    "patrimonioNetto": 20858000000
+    "patrimonioNetto": 20858000000,
+    "crediti": 730000000,
+    "costoVenduto": 3301000000,
+    "attivoCorrente": 12133000000,
+    "passivoCorrente": 5468000000,
+    "immobilizzazioniNette": 2373000000,
+    "ammortamento": null,
+    "speseSga": 1503000000,
+    "flussoCassaOperativo": 4076000000,
+    "attivoTotale": 30572000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -2161,7 +4461,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.117,
     "utileNetto": 4260000000,
     "ricavi": 14957000000,
-    "patrimonioNetto": 26972000000
+    "patrimonioNetto": 26972000000,
+    "crediti": 993000000,
+    "costoVenduto": 4877000000,
+    "attivoCorrente": 14293000000,
+    "passivoCorrente": 5289000000,
+    "immobilizzazioniNette": 2414000000,
+    "ammortamento": null,
+    "speseSga": 1945000000,
+    "flussoCassaOperativo": 4900000000,
+    "attivoTotale": 36422000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -2170,7 +4480,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.142,
     "utileNetto": 6109000000,
     "ricavi": 19121000000,
-    "patrimonioNetto": 33545000000
+    "patrimonioNetto": 33545000000,
+    "crediti": 1459000000,
+    "costoVenduto": 7096000000,
+    "attivoCorrente": 15645000000,
+    "passivoCorrente": 5302000000,
+    "immobilizzazioniNette": 2851000000,
+    "ammortamento": null,
+    "speseSga": 2270000000,
+    "flussoCassaOperativo": 5998000000,
+    "attivoTotale": 43012000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -2179,7 +4499,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1506,
     "utileNetto": 6853000000,
     "ricavi": 24866000000,
-    "patrimonioNetto": 36087000000
+    "patrimonioNetto": 36087000000,
+    "crediti": 2142000000,
+    "costoVenduto": 9820000000,
+    "attivoCorrente": 19555000000,
+    "passivoCorrente": 5213000000,
+    "immobilizzazioniNette": 2995000000,
+    "ammortamento": null,
+    "speseSga": 2518000000,
+    "flussoCassaOperativo": 8778000000,
+    "attivoTotale": 45516000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -2188,7 +4518,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.164,
     "utileNetto": 7967000000,
     "ricavi": 26487000000,
-    "patrimonioNetto": 39166000000
+    "patrimonioNetto": 39166000000,
+    "crediti": 2362000000,
+    "costoVenduto": 10686000000,
+    "attivoCorrente": 22413000000,
+    "passivoCorrente": 6013000000,
+    "immobilizzazioniNette": 2487000000,
+    "ammortamento": 1150000000,
+    "speseSga": 2290000000,
+    "flussoCassaOperativo": 8887000000,
+    "attivoTotale": 48574000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2015,
@@ -2197,7 +4537,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1038,
     "utileNetto": 5271000000,
     "ricavi": 25281000000,
-    "patrimonioNetto": 31414000000
+    "patrimonioNetto": 31414000000,
+    "crediti": 1941000000,
+    "costoVenduto": 10378000000,
+    "attivoCorrente": 22099000000,
+    "passivoCorrente": 6100000000,
+    "immobilizzazioniNette": 2534000000,
+    "ammortamento": 1214000000,
+    "speseSga": 2344000000,
+    "flussoCassaOperativo": 5506000000,
+    "attivoTotale": 50796000000,
+    "debitoLungo": 9969000000
    },
    {
     "anno": 2016,
@@ -2206,7 +4556,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.109,
     "utileNetto": 5705000000,
     "ricavi": 23554000000,
-    "patrimonioNetto": 31768000000
+    "patrimonioNetto": 31768000000,
+    "crediti": 2194000000,
+    "costoVenduto": 9749000000,
+    "attivoCorrente": 22981000000,
+    "passivoCorrente": 7311000000,
+    "immobilizzazioniNette": 2306000000,
+    "ammortamento": 1428000000,
+    "speseSga": 2385000000,
+    "flussoCassaOperativo": 7632000000,
+    "attivoTotale": 52359000000,
+    "debitoLungo": 10008000000
    },
    {
     "anno": 2017,
@@ -2215,7 +4575,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0373,
     "utileNetto": 2445000000,
     "ricavi": 22258000000,
-    "patrimonioNetto": 30725000000
+    "patrimonioNetto": 30725000000,
+    "crediti": 3576000000,
+    "costoVenduto": 9792000000,
+    "attivoCorrente": 43593000000,
+    "passivoCorrente": 10907000000,
+    "immobilizzazioniNette": 3216000000,
+    "ammortamento": 1461000000,
+    "speseSga": 2658000000,
+    "flussoCassaOperativo": 5001000000,
+    "attivoTotale": 65498000000,
+    "debitoLungo": 19398000000
    },
    {
     "anno": 2018,
@@ -2224,7 +4594,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.1517,
     "utileNetto": -4964000000,
     "ricavi": 22611000000,
-    "patrimonioNetto": 807000000
+    "patrimonioNetto": 807000000,
+    "crediti": 2667000000,
+    "costoVenduto": 10244000000,
+    "attivoCorrente": 17384000000,
+    "passivoCorrente": 11389000000,
+    "immobilizzazioniNette": 2975000000,
+    "ammortamento": 1561000000,
+    "speseSga": 2986000000,
+    "flussoCassaOperativo": 3908000000,
+    "attivoTotale": 32718000000,
+    "debitoLungo": 15365000000
    },
    {
     "anno": 2019,
@@ -2233,7 +4613,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1331,
     "utileNetto": 4386000000,
     "ricavi": 24273000000,
-    "patrimonioNetto": 4909000000
+    "patrimonioNetto": 4909000000,
+    "crediti": 1046000000,
+    "costoVenduto": 8599000000,
+    "attivoCorrente": 16765000000,
+    "passivoCorrente": 8935000000,
+    "immobilizzazioniNette": 3081000000,
+    "ammortamento": 1401000000,
+    "speseSga": 2195000000,
+    "flussoCassaOperativo": 7286000000,
+    "attivoTotale": 32957000000,
+    "debitoLungo": 13437000000
    },
    {
     "anno": 2020,
@@ -2242,7 +4632,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.146,
     "utileNetto": 5198000000,
     "ricavi": 23531000000,
-    "patrimonioNetto": 6077000000
+    "patrimonioNetto": 6077000000,
+    "crediti": 2687000000,
+    "costoVenduto": 9255000000,
+    "attivoCorrente": 18519000000,
+    "passivoCorrente": 8672000000,
+    "immobilizzazioniNette": 3711000000,
+    "ammortamento": 1393000000,
+    "speseSga": 2074000000,
+    "flussoCassaOperativo": 5814000000,
+    "attivoTotale": 35594000000,
+    "debitoLungo": 15226000000
    },
    {
     "anno": 2021,
@@ -2251,7 +4651,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2193,
     "utileNetto": 9043000000,
     "ricavi": 33566000000,
-    "patrimonioNetto": 9950000000
+    "patrimonioNetto": 9950000000,
+    "crediti": 2214000000,
+    "costoVenduto": 14262000000,
+    "attivoCorrente": 20075000000,
+    "passivoCorrente": 11951000000,
+    "immobilizzazioniNette": 4559000000,
+    "ammortamento": 1582000000,
+    "speseSga": 2339000000,
+    "flussoCassaOperativo": 10536000000,
+    "attivoTotale": 41240000000,
+    "debitoLungo": 13701000000
    },
    {
     "anno": 2022,
@@ -2260,7 +4670,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2639,
     "utileNetto": 12936000000,
     "ricavi": 44200000000,
-    "patrimonioNetto": 18013000000
+    "patrimonioNetto": 18013000000,
+    "crediti": 4175000000,
+    "costoVenduto": 18635000000,
+    "attivoCorrente": 20724000000,
+    "passivoCorrente": 11866000000,
+    "immobilizzazioniNette": 5168000000,
+    "ammortamento": 1762000000,
+    "speseSga": 2570000000,
+    "flussoCassaOperativo": 9096000000,
+    "attivoTotale": 49014000000,
+    "debitoLungo": 13537000000
    },
    {
     "anno": 2023,
@@ -2269,7 +4689,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1417,
     "utileNetto": 7232000000,
     "ricavi": 35820000000,
-    "patrimonioNetto": 21581000000
+    "patrimonioNetto": 21581000000,
+    "crediti": 1923000000,
+    "costoVenduto": 15869000000,
+    "attivoCorrente": 22464000000,
+    "passivoCorrente": 9628000000,
+    "immobilizzazioniNette": 5042000000,
+    "ammortamento": 1809000000,
+    "speseSga": 2483000000,
+    "flussoCassaOperativo": 11299000000,
+    "attivoTotale": 51040000000,
+    "debitoLungo": 14484000000
    },
    {
     "anno": 2024,
@@ -2278,7 +4708,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1839,
     "utileNetto": 10142000000,
     "ricavi": 38962000000,
-    "patrimonioNetto": 26274000000
+    "patrimonioNetto": 26274000000,
+    "crediti": 2347000000,
+    "costoVenduto": 17060000000,
+    "attivoCorrente": 25231000000,
+    "passivoCorrente": 10504000000,
+    "immobilizzazioniNette": 4665000000,
+    "ammortamento": 1706000000,
+    "speseSga": 2759000000,
+    "flussoCassaOperativo": 12202000000,
+    "attivoTotale": 55154000000,
+    "debitoLungo": 13270000000
    },
    {
     "anno": 2025,
@@ -2287,7 +4727,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1105,
     "utileNetto": 5541000000,
     "ricavi": 44284000000,
-    "patrimonioNetto": 21206000000
+    "patrimonioNetto": 21206000000,
+    "crediti": 2855000000,
+    "costoVenduto": 19738000000,
+    "attivoCorrente": 25754000000,
+    "passivoCorrente": 9144000000,
+    "immobilizzazioniNette": 4690000000,
+    "ammortamento": 1602000000,
+    "speseSga": 3110000000,
+    "flussoCassaOperativo": 14012000000,
+    "attivoTotale": 50143000000,
+    "debitoLungo": 14811000000
    }
   ]
  },
@@ -2301,7 +4751,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.161,
     "utileNetto": 1920000000,
     "ricavi": 12501000000,
-    "patrimonioNetto": 9326000000
+    "patrimonioNetto": 9326000000,
+    "crediti": 913000000,
+    "costoVenduto": 6256000000,
+    "attivoCorrente": 5790000000,
+    "passivoCorrente": 1532000000,
+    "immobilizzazioniNette": 3304000000,
+    "ammortamento": 1022000000,
+    "speseSga": 1614000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 11923000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -2310,7 +4770,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1213,
     "utileNetto": 1470000000,
     "ricavi": 10427000000,
-    "patrimonioNetto": 9722000000
+    "patrimonioNetto": 9722000000,
+    "crediti": 1277000000,
+    "costoVenduto": 5428000000,
+    "attivoCorrente": 6114000000,
+    "passivoCorrente": 1587000000,
+    "immobilizzazioniNette": 3158000000,
+    "ammortamento": 877000000,
+    "speseSga": 1320000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 12119000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -2319,7 +4789,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2409,
     "utileNetto": 3228000000,
     "ricavi": 13966000000,
-    "patrimonioNetto": 10437000000
+    "patrimonioNetto": 10437000000,
+    "crediti": 1518000000,
+    "costoVenduto": 6474000000,
+    "attivoCorrente": 7060000000,
+    "passivoCorrente": 1981000000,
+    "immobilizzazioniNette": 3680000000,
+    "ammortamento": 865000000,
+    "speseSga": 1519000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 13401000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2011,
@@ -2328,7 +4808,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1091,
     "utileNetto": 2236000000,
     "ricavi": 13735000000,
-    "patrimonioNetto": 10952000000
+    "patrimonioNetto": 10952000000,
+    "crediti": 1545000000,
+    "costoVenduto": 6963000000,
+    "attivoCorrente": 7828000000,
+    "passivoCorrente": 3499000000,
+    "immobilizzazioniNette": 4428000000,
+    "ammortamento": 904000000,
+    "speseSga": 1638000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 20497000000,
+    "debitoLungo": 4211000000
    },
    {
     "anno": 2012,
@@ -2337,7 +4827,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0879,
     "utileNetto": 1759000000,
     "ricavi": 12825000000,
-    "patrimonioNetto": 10961000000
+    "patrimonioNetto": 10961000000,
+    "crediti": 1230000000,
+    "costoVenduto": 6457000000,
+    "attivoCorrente": 8230000000,
+    "passivoCorrente": 3430000000,
+    "immobilizzazioniNette": 3912000000,
+    "ammortamento": 957000000,
+    "speseSga": 1804000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 20021000000,
+    "debitoLungo": 4186000000
    },
    {
     "anno": 2013,
@@ -2346,7 +4846,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1142,
     "utileNetto": 2162000000,
     "ricavi": 12205000000,
-    "patrimonioNetto": 10807000000
+    "patrimonioNetto": 10807000000,
+    "crediti": 1203000000,
+    "costoVenduto": 5841000000,
+    "attivoCorrente": 8019000000,
+    "passivoCorrente": 2747000000,
+    "immobilizzazioniNette": 3399000000,
+    "ammortamento": 879000000,
+    "speseSga": 1858000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 18938000000,
+    "debitoLungo": 4158000000
    },
    {
     "anno": 2014,
@@ -2355,7 +4865,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1624,
     "utileNetto": 2821000000,
     "ricavi": 13045000000,
-    "patrimonioNetto": 10390000000
+    "patrimonioNetto": 10390000000,
+    "crediti": 1246000000,
+    "costoVenduto": 5618000000,
+    "attivoCorrente": 7421000000,
+    "passivoCorrente": 2658000000,
+    "immobilizzazioniNette": 2840000000,
+    "ammortamento": 850000000,
+    "speseSga": 1843000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 17372000000,
+    "debitoLungo": 3630000000
    },
    {
     "anno": 2015,
@@ -2364,7 +4884,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.184,
     "utileNetto": 2986000000,
     "ricavi": 13000000000,
-    "patrimonioNetto": 9946000000
+    "patrimonioNetto": 9946000000,
+    "crediti": 1165000000,
+    "costoVenduto": 5425000000,
+    "attivoCorrente": 7074000000,
+    "passivoCorrente": 2555000000,
+    "immobilizzazioniNette": 2596000000,
+    "ammortamento": 766000000,
+    "speseSga": 1728000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 16230000000,
+    "debitoLungo": 3120000000
    },
    {
     "anno": 2016,
@@ -2373,7 +4903,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2188,
     "utileNetto": 3595000000,
     "ricavi": 13370000000,
-    "patrimonioNetto": 10473000000
+    "patrimonioNetto": 10473000000,
+    "crediti": 1267000000,
+    "costoVenduto": 5113000000,
+    "attivoCorrente": 7457000000,
+    "passivoCorrente": 2264000000,
+    "immobilizzazioniNette": 2512000000,
+    "ammortamento": 605000000,
+    "speseSga": 1742000000,
+    "flussoCassaOperativo": 4614000000,
+    "attivoTotale": 16431000000,
+    "debitoLungo": 2978000000
    },
    {
     "anno": 2017,
@@ -2382,7 +4922,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2087,
     "utileNetto": 3682000000,
     "ricavi": 14961000000,
-    "patrimonioNetto": 10337000000
+    "patrimonioNetto": 10337000000,
+    "crediti": 1278000000,
+    "costoVenduto": 5347000000,
+    "attivoCorrente": 8734000000,
+    "passivoCorrente": 2258000000,
+    "immobilizzazioniNette": 2664000000,
+    "ammortamento": 539000000,
+    "speseSga": 1694000000,
+    "flussoCassaOperativo": 5363000000,
+    "attivoTotale": 17642000000,
+    "debitoLungo": 3577000000
    },
    {
     "anno": 2018,
@@ -2391,7 +4941,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3256,
     "utileNetto": 5580000000,
     "ricavi": 15784000000,
-    "patrimonioNetto": 8994000000
+    "patrimonioNetto": 8994000000,
+    "crediti": 1207000000,
+    "costoVenduto": 5507000000,
+    "attivoCorrente": 8097000000,
+    "passivoCorrente": 2474000000,
+    "immobilizzazioniNette": 3183000000,
+    "ammortamento": 590000000,
+    "speseSga": 1684000000,
+    "flussoCassaOperativo": 7189000000,
+    "attivoTotale": 17137000000,
+    "debitoLungo": 4319000000
    },
    {
     "anno": 2019,
@@ -2400,7 +4960,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2784,
     "utileNetto": 5017000000,
     "ricavi": 14383000000,
-    "patrimonioNetto": 8907000000
+    "patrimonioNetto": 8907000000,
+    "crediti": 1074000000,
+    "costoVenduto": 5219000000,
+    "attivoCorrente": 8761000000,
+    "passivoCorrente": 2123000000,
+    "immobilizzazioniNette": 3303000000,
+    "ammortamento": 708000000,
+    "speseSga": 1645000000,
+    "flussoCassaOperativo": 6649000000,
+    "attivoTotale": 18018000000,
+    "debitoLungo": 5303000000
    },
    {
     "anno": 2020,
@@ -2409,7 +4979,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2891,
     "utileNetto": 5595000000,
     "ricavi": 14461000000,
-    "patrimonioNetto": 9187000000
+    "patrimonioNetto": 9187000000,
+    "crediti": 1414000000,
+    "costoVenduto": 5192000000,
+    "attivoCorrente": 10239000000,
+    "passivoCorrente": 2390000000,
+    "immobilizzazioniNette": 3269000000,
+    "ammortamento": 733000000,
+    "speseSga": 1623000000,
+    "flussoCassaOperativo": 6139000000,
+    "attivoTotale": 19351000000,
+    "debitoLungo": 6248000000
    },
    {
     "anno": 2021,
@@ -2418,7 +4998,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3148,
     "utileNetto": 7769000000,
     "ricavi": 18344000000,
-    "patrimonioNetto": 13333000000
+    "patrimonioNetto": 13333000000,
+    "crediti": 1701000000,
+    "costoVenduto": 5968000000,
+    "attivoCorrente": 13685000000,
+    "passivoCorrente": 2569000000,
+    "immobilizzazioniNette": 5141000000,
+    "ammortamento": 755000000,
+    "speseSga": 1666000000,
+    "flussoCassaOperativo": 8756000000,
+    "attivoTotale": 24676000000,
+    "debitoLungo": 7241000000
    },
    {
     "anno": 2022,
@@ -2427,7 +5017,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3216,
     "utileNetto": 8749000000,
     "ricavi": 20028000000,
-    "patrimonioNetto": 14577000000
+    "patrimonioNetto": 14577000000,
+    "crediti": 1895000000,
+    "costoVenduto": 6257000000,
+    "attivoCorrente": 14021000000,
+    "passivoCorrente": 2985000000,
+    "immobilizzazioniNette": 6876000000,
+    "ammortamento": 925000000,
+    "speseSga": 1704000000,
+    "flussoCassaOperativo": 8720000000,
+    "attivoTotale": 27207000000,
+    "debitoLungo": 8235000000
    },
    {
     "anno": 2023,
@@ -2436,7 +5036,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2012,
     "utileNetto": 6510000000,
     "ricavi": 17519000000,
-    "patrimonioNetto": 16897000000
+    "patrimonioNetto": 16897000000,
+    "crediti": 1787000000,
+    "costoVenduto": 6500000000,
+    "attivoCorrente": 15122000000,
+    "passivoCorrente": 3320000000,
+    "immobilizzazioniNette": 9999000000,
+    "ammortamento": 1175000000,
+    "speseSga": 1825000000,
+    "flussoCassaOperativo": 6420000000,
+    "attivoTotale": 32348000000,
+    "debitoLungo": 10624000000
    },
    {
     "anno": 2024,
@@ -2445,7 +5055,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1351,
     "utileNetto": 4799000000,
     "ricavi": 15641000000,
-    "patrimonioNetto": 16903000000
+    "patrimonioNetto": 16903000000,
+    "crediti": 1719000000,
+    "costoVenduto": 6547000000,
+    "attivoCorrente": 15026000000,
+    "passivoCorrente": 3643000000,
+    "immobilizzazioniNette": 11347000000,
+    "ammortamento": 1508000000,
+    "speseSga": 1794000000,
+    "flussoCassaOperativo": 6318000000,
+    "attivoTotale": 35509000000,
+    "debitoLungo": 12846000000
    },
    {
     "anno": 2025,
@@ -2454,7 +5074,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1446,
     "utileNetto": 5001000000,
     "ricavi": 17682000000,
-    "patrimonioNetto": 16273000000
+    "patrimonioNetto": 16273000000,
+    "crediti": 1963000000,
+    "costoVenduto": 7599000000,
+    "attivoCorrente": 13750000000,
+    "passivoCorrente": 3159000000,
+    "immobilizzazioniNette": 12320000000,
+    "ammortamento": 1918000000,
+    "speseSga": 1860000000,
+    "flussoCassaOperativo": 7153000000,
+    "attivoTotale": 34585000000,
+    "debitoLungo": 13548000000
    }
   ]
  },
@@ -2468,7 +5098,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 10418000000,
     "ricavi": 98786000000,
-    "patrimonioNetto": 28615000000
+    "patrimonioNetto": 28615000000,
+    "crediti": null,
+    "costoVenduto": 57057000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 4038000000,
+    "speseSga": 22060000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -2477,7 +5117,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1126,
     "utileNetto": 12334000000,
     "ricavi": 103630000000,
-    "patrimonioNetto": 13584000000
+    "patrimonioNetto": 13584000000,
+    "crediti": null,
+    "costoVenduto": 57969000000,
+    "attivoCorrente": 49004000000,
+    "passivoCorrente": 42435000000,
+    "immobilizzazioniNette": 14305000000,
+    "ammortamento": 4140000000,
+    "speseSga": 23386000000,
+    "flussoCassaOperativo": 18812000000,
+    "attivoTotale": 109524000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -2486,7 +5136,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1231,
     "utileNetto": 13425000000,
     "ricavi": 95758000000,
-    "patrimonioNetto": 22755000000
+    "patrimonioNetto": 22755000000,
+    "crediti": null,
+    "costoVenduto": 51973000000,
+    "attivoCorrente": 48935000000,
+    "passivoCorrente": 36002000000,
+    "immobilizzazioniNette": 14165000000,
+    "ammortamento": 3773000000,
+    "speseSga": 20952000000,
+    "flussoCassaOperativo": 20773000000,
+    "attivoTotale": 109022000000,
+    "debitoLungo": 24154000000
    },
    {
     "anno": 2010,
@@ -2495,7 +5155,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1307,
     "utileNetto": 14833000000,
     "ricavi": 99870000000,
-    "patrimonioNetto": 23172000000
+    "patrimonioNetto": 23172000000,
+    "crediti": 10834000000,
+    "costoVenduto": 53857000000,
+    "attivoCorrente": 48116000000,
+    "passivoCorrente": 40562000000,
+    "immobilizzazioniNette": 14096000000,
+    "ammortamento": 3657000000,
+    "speseSga": 21837000000,
+    "flussoCassaOperativo": 19549000000,
+    "attivoTotale": 113452000000,
+    "debitoLungo": 21846000000
    },
    {
     "anno": 2011,
@@ -2504,7 +5174,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1362,
     "utileNetto": 15855000000,
     "ricavi": 106916000000,
-    "patrimonioNetto": 20236000000
+    "patrimonioNetto": 20236000000,
+    "crediti": 11179000000,
+    "costoVenduto": 56778000000,
+    "attivoCorrente": 50928000000,
+    "passivoCorrente": 42123000000,
+    "immobilizzazioniNette": 13883000000,
+    "ammortamento": 3589000000,
+    "speseSga": 23594000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 116433000000,
+    "debitoLungo": 22857000000
    },
    {
     "anno": 2012,
@@ -2513,7 +5193,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1393,
     "utileNetto": 16604000000,
     "ricavi": 102874000000,
-    "patrimonioNetto": 18984000000
+    "patrimonioNetto": 18984000000,
+    "crediti": 10667000000,
+    "costoVenduto": 52513000000,
+    "attivoCorrente": 49433000000,
+    "passivoCorrente": 43625000000,
+    "immobilizzazioniNette": 13996000000,
+    "ammortamento": 3392000000,
+    "speseSga": 23463000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 119213000000,
+    "debitoLungo": 24088000000
    },
    {
     "anno": 2013,
@@ -2522,7 +5212,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1312,
     "utileNetto": 16483000000,
     "ricavi": 98367000000,
-    "patrimonioNetto": 22929000000
+    "patrimonioNetto": 22929000000,
+    "crediti": 10465000000,
+    "costoVenduto": 49683000000,
+    "attivoCorrente": 51350000000,
+    "passivoCorrente": 40154000000,
+    "immobilizzazioniNette": 13821000000,
+    "ammortamento": 3327000000,
+    "speseSga": 23451000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 125641000000,
+    "debitoLungo": 32856000000
    },
    {
     "anno": 2014,
@@ -2531,7 +5231,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1025,
     "utileNetto": 12022000000,
     "ricavi": 92793000000,
-    "patrimonioNetto": 12014000000
+    "patrimonioNetto": 12014000000,
+    "crediti": 9090000000,
+    "costoVenduto": 46386000000,
+    "attivoCorrente": 47377000000,
+    "passivoCorrente": 39581000000,
+    "immobilizzazioniNette": 10771000000,
+    "ammortamento": 3145000000,
+    "speseSga": 23180000000,
+    "flussoCassaOperativo": 16868000000,
+    "attivoTotale": 117271000000,
+    "debitoLungo": 34991000000
    },
    {
     "anno": 2015,
@@ -2540,7 +5250,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1194,
     "utileNetto": 13190000000,
     "ricavi": 81741000000,
-    "patrimonioNetto": 14424000000
+    "patrimonioNetto": 14424000000,
+    "crediti": 8333000000,
+    "costoVenduto": 41057000000,
+    "attivoCorrente": 42504000000,
+    "passivoCorrente": 34269000000,
+    "immobilizzazioniNette": 10727000000,
+    "ammortamento": 2662000000,
+    "speseSga": 20430000000,
+    "flussoCassaOperativo": 17255000000,
+    "attivoTotale": 110495000000,
+    "debitoLungo": 33428000000
    },
    {
     "anno": 2016,
@@ -2549,7 +5269,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1011,
     "utileNetto": 11872000000,
     "ricavi": 79919000000,
-    "patrimonioNetto": 18392000000
+    "patrimonioNetto": 18392000000,
+    "crediti": 9182000000,
+    "costoVenduto": 41403000000,
+    "attivoCorrente": 43888000000,
+    "passivoCorrente": 36275000000,
+    "immobilizzazioniNette": 10830000000,
+    "ammortamento": 2837000000,
+    "speseSga": 20869000000,
+    "flussoCassaOperativo": 17084000000,
+    "attivoTotale": 117470000000,
+    "debitoLungo": 34655000000
    },
    {
     "anno": 2017,
@@ -2558,7 +5288,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0459,
     "utileNetto": 5753000000,
     "ricavi": 79139000000,
-    "patrimonioNetto": 17725000000
+    "patrimonioNetto": 17725000000,
+    "crediti": 8928000000,
+    "costoVenduto": 42196000000,
+    "attivoCorrente": 49735000000,
+    "passivoCorrente": 37363000000,
+    "immobilizzazioniNette": 11116000000,
+    "ammortamento": 3021000000,
+    "speseSga": 19680000000,
+    "flussoCassaOperativo": 16724000000,
+    "attivoTotale": 125356000000,
+    "debitoLungo": 39837000000
    },
    {
     "anno": 2018,
@@ -2567,7 +5307,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0707,
     "utileNetto": 8728000000,
     "ricavi": 79591000000,
-    "patrimonioNetto": 16929000000
+    "patrimonioNetto": 16929000000,
+    "crediti": 7432000000,
+    "costoVenduto": 42655000000,
+    "attivoCorrente": 49146000000,
+    "passivoCorrente": 38227000000,
+    "immobilizzazioniNette": 10792000000,
+    "ammortamento": 3127000000,
+    "speseSga": 19366000000,
+    "flussoCassaOperativo": 15247000000,
+    "attivoTotale": 123382000000,
+    "debitoLungo": 35605000000
    },
    {
     "anno": 2019,
@@ -2576,7 +5326,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.062,
     "utileNetto": 9431000000,
     "ricavi": 57714000000,
-    "patrimonioNetto": 20985000000
+    "patrimonioNetto": 20985000000,
+    "crediti": 7870000000,
+    "costoVenduto": 26181000000,
+    "attivoCorrente": 38420000000,
+    "passivoCorrente": 37701000000,
+    "immobilizzazioniNette": 10010000000,
+    "ammortamento": 4209000000,
+    "speseSga": 18724000000,
+    "flussoCassaOperativo": 14770000000,
+    "attivoTotale": 152186000000,
+    "debitoLungo": 54102000000
    },
    {
     "anno": 2020,
@@ -2585,7 +5345,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0358,
     "utileNetto": 5590000000,
     "ricavi": 55179000000,
-    "patrimonioNetto": 20727000000
+    "patrimonioNetto": 20727000000,
+    "crediti": 5790000000,
+    "costoVenduto": 24314000000,
+    "attivoCorrente": 39165000000,
+    "passivoCorrente": 39869000000,
+    "immobilizzazioniNette": 6205000000,
+    "ammortamento": 4227000000,
+    "speseSga": 20561000000,
+    "flussoCassaOperativo": 18197000000,
+    "attivoTotale": 155971000000,
+    "debitoLungo": 54217000000
    },
    {
     "anno": 2021,
@@ -2594,7 +5364,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0435,
     "utileNetto": 5743000000,
     "ricavi": 57350000000,
-    "patrimonioNetto": 18996000000
+    "patrimonioNetto": 18996000000,
+    "crediti": 6754000000,
+    "costoVenduto": 25865000000,
+    "attivoCorrente": 29539000000,
+    "passivoCorrente": 33619000000,
+    "immobilizzazioniNette": 5694000000,
+    "ammortamento": 3888000000,
+    "speseSga": 18745000000,
+    "flussoCassaOperativo": 12796000000,
+    "attivoTotale": 132001000000,
+    "debitoLungo": 44917000000
    },
    {
     "anno": 2022,
@@ -2603,7 +5383,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0129,
     "utileNetto": 1639000000,
     "ricavi": 60530000000,
-    "patrimonioNetto": 22021000000
+    "patrimonioNetto": 22021000000,
+    "crediti": 6541000000,
+    "costoVenduto": 27842000000,
+    "attivoCorrente": 29118000000,
+    "passivoCorrente": 31505000000,
+    "immobilizzazioniNette": 5334000000,
+    "ammortamento": 2407000000,
+    "speseSga": 18609000000,
+    "flussoCassaOperativo": 10435000000,
+    "attivoTotale": 127243000000,
+    "debitoLungo": 46189000000
    },
    {
     "anno": 2023,
@@ -2612,7 +5402,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0555,
     "utileNetto": 7502000000,
     "ricavi": 61860000000,
-    "patrimonioNetto": 22613000000
+    "patrimonioNetto": 22613000000,
+    "crediti": 7214000000,
+    "costoVenduto": 27560000000,
+    "attivoCorrente": 32908000000,
+    "passivoCorrente": 34122000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2109000000,
+    "speseSga": 19003000000,
+    "flussoCassaOperativo": 13931000000,
+    "attivoTotale": 135241000000,
+    "debitoLungo": 50121000000
    },
    {
     "anno": 2024,
@@ -2621,7 +5421,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0439,
     "utileNetto": 6023000000,
     "ricavi": 62753000000,
-    "patrimonioNetto": 27307000000
+    "patrimonioNetto": 27307000000,
+    "crediti": 6804000000,
+    "costoVenduto": 27201000000,
+    "attivoCorrente": 34482000000,
+    "passivoCorrente": 33142000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2168000000,
+    "speseSga": 19688000000,
+    "flussoCassaOperativo": 13445000000,
+    "attivoTotale": 137175000000,
+    "debitoLungo": 49884000000
    },
    {
     "anno": 2025,
@@ -2630,7 +5440,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0697,
     "utileNetto": 10593000000,
     "ricavi": 67535000000,
-    "patrimonioNetto": 32648000000
+    "patrimonioNetto": 32648000000,
+    "crediti": 8112000000,
+    "costoVenduto": 28239000000,
+    "attivoCorrente": 36944000000,
+    "passivoCorrente": 38658000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2284000000,
+    "speseSga": 20123000000,
+    "flussoCassaOperativo": 13193000000,
+    "attivoTotale": 151880000000,
+    "debitoLungo": 54836000000
    }
   ]
  },
@@ -2644,7 +5464,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": -29705000,
     "ricavi": 43329000,
-    "patrimonioNetto": -71262000
+    "patrimonioNetto": -71262000,
+    "crediti": null,
+    "costoVenduto": 16190000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 369000,
+    "speseSga": null,
+    "flussoCassaOperativo": -7532000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -2653,7 +5483,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0629,
     "utileNetto": 9830000,
     "ricavi": 92641000,
-    "patrimonioNetto": -57426000
+    "patrimonioNetto": -57426000,
+    "crediti": 44860000,
+    "costoVenduto": 31575000,
+    "attivoCorrente": 130507000,
+    "passivoCorrente": 126561000,
+    "immobilizzazioniNette": 20695000,
+    "ammortamento": 1472000,
+    "speseSga": null,
+    "flussoCassaOperativo": 37468000,
+    "attivoTotale": 156323000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -2662,7 +5502,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0781,
     "utileNetto": -37348000,
     "ricavi": 243712000,
-    "patrimonioNetto": 243405000
+    "patrimonioNetto": 243405000,
+    "crediti": 78163000,
+    "costoVenduto": 104009000,
+    "attivoCorrente": 422089000,
+    "passivoCorrente": 211627000,
+    "immobilizzazioniNette": 42342000,
+    "ammortamento": 13506000,
+    "speseSga": null,
+    "flussoCassaOperativo": 48766000,
+    "attivoTotale": 478114000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -2671,7 +5521,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0631,
     "utileNetto": -73708000,
     "ricavi": 424650000,
-    "patrimonioNetto": 394259000
+    "patrimonioNetto": 394259000,
+    "crediti": 108339000,
+    "costoVenduto": 155259000,
+    "attivoCorrente": 797749000,
+    "passivoCorrente": 328088000,
+    "immobilizzazioniNette": 75560000,
+    "ammortamento": 24152000,
+    "speseSga": null,
+    "flussoCassaOperativo": 81746000,
+    "attivoTotale": 1168476000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -2680,7 +5540,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.1259,
     "utileNetto": -179387000,
     "ricavi": 682563000,
-    "patrimonioNetto": 428675000
+    "patrimonioNetto": 428675000,
+    "crediti": 159171000,
+    "costoVenduto": 248776000,
+    "attivoCorrente": 906986000,
+    "passivoCorrente": 506997000,
+    "immobilizzazioniNette": 104237000,
+    "ammortamento": 42059000,
+    "speseSga": null,
+    "flussoCassaOperativo": 140937000,
+    "attivoTotale": 1424752000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -2689,7 +5559,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.1098,
     "utileNetto": -198426000,
     "ricavi": 1005480000,
-    "patrimonioNetto": 566814000
+    "patrimonioNetto": 566814000,
+    "crediti": 203333000,
+    "costoVenduto": 329413000,
+    "attivoCorrente": 1085635000,
+    "passivoCorrente": 731636000,
+    "immobilizzazioniNette": 144714000,
+    "ammortamento": 60356000,
+    "speseSga": null,
+    "flussoCassaOperativo": 317754000,
+    "attivoTotale": 1807052000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -2698,7 +5578,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.2037,
     "utileNetto": -414249000,
     "ricavi": 1390985000,
-    "patrimonioNetto": 541093000
+    "patrimonioNetto": 541093000,
+    "crediti": 322757000,
+    "costoVenduto": 398995000,
+    "attivoCorrente": 1342535000,
+    "passivoCorrente": 1071498000,
+    "immobilizzazioniNette": 181620000,
+    "ammortamento": 83082000,
+    "speseSga": null,
+    "flussoCassaOperativo": 159081000,
+    "attivoTotale": 2033767000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -2707,7 +5597,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0329,
     "utileNetto": -116846000,
     "ricavi": 1918494000,
-    "patrimonioNetto": 778744000
+    "patrimonioNetto": 778744000,
+    "crediti": 437051000,
+    "costoVenduto": 499862000,
+    "attivoCorrente": 2421951000,
+    "passivoCorrente": 2039479000,
+    "immobilizzazioniNette": 245124000,
+    "ammortamento": 113875000,
+    "speseSga": null,
+    "flussoCassaOperativo": 642940000,
+    "attivoTotale": 3550245000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -2716,7 +5616,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0069,
     "utileNetto": -26704000,
     "ricavi": 2608816000,
-    "patrimonioNetto": 1110000000
+    "patrimonioNetto": 1110000000,
+    "crediti": 574810000,
+    "costoVenduto": 622658000,
+    "attivoCorrente": 2344693000,
+    "passivoCorrente": 2012573000,
+    "immobilizzazioniNette": 347216000,
+    "ammortamento": 149604000,
+    "speseSga": null,
+    "flussoCassaOperativo": 811089000,
+    "attivoTotale": 3879140000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -2725,7 +5635,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1041,
     "utileNetto": 626698000,
     "ricavi": 3460000000,
-    "patrimonioNetto": 2127000000
+    "patrimonioNetto": 2127000000,
+    "crediti": 835279000,
+    "costoVenduto": 796000000,
+    "attivoCorrente": 2826901000,
+    "passivoCorrente": 2752785000,
+    "immobilizzazioniNette": 468085000,
+    "ammortamento": 252000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1236000000,
+    "attivoTotale": 6022430000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -2734,7 +5654,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0137,
     "utileNetto": 119000000,
     "ricavi": 4519000000,
-    "patrimonioNetto": 2834000000
+    "patrimonioNetto": 2834000000,
+    "crediti": 1009000000,
+    "costoVenduto": 987000000,
+    "attivoCorrente": 4522000000,
+    "passivoCorrente": 3737000000,
+    "immobilizzazioniNette": 660000000,
+    "ammortamento": 336000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1786000000,
+    "attivoTotale": 8715000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -2743,7 +5673,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0213,
     "utileNetto": 230000000,
     "ricavi": 5896000000,
-    "patrimonioNetto": 3695000000
+    "patrimonioNetto": 3695000000,
+    "crediti": 1390000000,
+    "costoVenduto": 1353000000,
+    "attivoCorrente": 5220000000,
+    "passivoCorrente": 4949000000,
+    "immobilizzazioniNette": 766000000,
+    "ammortamento": 472000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2191000000,
+    "attivoTotale": 10798000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -2752,7 +5692,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0244,
     "utileNetto": 325000000,
     "ricavi": 7245000000,
-    "patrimonioNetto": 5032000000
+    "patrimonioNetto": 5032000000,
+    "crediti": 1725000000,
+    "costoVenduto": 1573000000,
+    "attivoCorrente": 6654000000,
+    "passivoCorrente": 6005000000,
+    "immobilizzazioniNette": 1053000000,
+    "ammortamento": 433000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2723000000,
+    "attivoTotale": 13299000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -2761,7 +5711,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0996,
     "utileNetto": 1731000000,
     "ricavi": 8971000000,
-    "patrimonioNetto": 7628000000
+    "patrimonioNetto": 7628000000,
+    "crediti": 2036000000,
+    "costoVenduto": 1921000000,
+    "attivoCorrente": 7777000000,
+    "passivoCorrente": 7365000000,
+    "immobilizzazioniNette": 1358000000,
+    "ammortamento": 562000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3398000000,
+    "attivoTotale": 17387000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -2770,7 +5730,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0699,
     "utileNetto": 1425000000,
     "ricavi": 10984000000,
-    "patrimonioNetto": 9609000000
+    "patrimonioNetto": 9609000000,
+    "crediti": 2240000000,
+    "costoVenduto": 2287000000,
+    "attivoCorrente": 9187000000,
+    "passivoCorrente": 8358000000,
+    "immobilizzazioniNette": 1763000000,
+    "ammortamento": 564000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4267000000,
+    "attivoTotale": 20383000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -2779,7 +5749,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0671,
     "utileNetto": 1748000000,
     "ricavi": 13278000000,
-    "patrimonioNetto": 12964000000
+    "patrimonioNetto": 12964000000,
+    "crediti": 2627000000,
+    "costoVenduto": 2983000000,
+    "attivoCorrente": 10471000000,
+    "passivoCorrente": 10443000000,
+    "immobilizzazioniNette": 2289000000,
+    "ammortamento": 738000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5444000000,
+    "attivoTotale": 26038000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -2793,7 +5773,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 477000000,
     "ricavi": 2993000000,
-    "patrimonioNetto": 2080000000
+    "patrimonioNetto": 2080000000,
+    "crediti": null,
+    "costoVenduto": 154000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 117000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 830000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -2802,7 +5792,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0926,
     "utileNetto": 447000000,
     "ricavi": 3109000000,
-    "patrimonioNetto": 2557000000
+    "patrimonioNetto": 2557000000,
+    "crediti": 135000000,
+    "costoVenduto": 156000000,
+    "attivoCorrente": 1968000000,
+    "passivoCorrente": 1084000000,
+    "immobilizzazioniNette": 527000000,
+    "ammortamento": 149000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 812000000,
+    "attivoTotale": 4826000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -2811,7 +5811,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1104,
     "utileNetto": 574000000,
     "ricavi": 3403000000,
-    "patrimonioNetto": 2821000000
+    "patrimonioNetto": 2821000000,
+    "crediti": 135000000,
+    "costoVenduto": 144000000,
+    "attivoCorrente": 2295000000,
+    "passivoCorrente": 1221000000,
+    "immobilizzazioniNette": 510000000,
+    "ammortamento": 148000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 998000000,
+    "attivoTotale": 5198000000,
+    "debitoLungo": 998000000
    },
    {
     "anno": 2011,
@@ -2820,7 +5830,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1241,
     "utileNetto": 634000000,
     "ricavi": 3449000000,
-    "patrimonioNetto": 2616000000
+    "patrimonioNetto": 2616000000,
+    "crediti": 171000000,
+    "costoVenduto": 143000000,
+    "attivoCorrente": 2254000000,
+    "passivoCorrente": 1805000000,
+    "immobilizzazioniNette": 561000000,
+    "ammortamento": 164000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1013000000,
+    "attivoTotale": 5110000000,
+    "debitoLungo": 499000000
    },
    {
     "anno": 2012,
@@ -2829,7 +5849,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1691,
     "utileNetto": 792000000,
     "ricavi": 3808000000,
-    "patrimonioNetto": 2744000000
+    "patrimonioNetto": 2744000000,
+    "crediti": 142000000,
+    "costoVenduto": 146000000,
+    "attivoCorrente": 1523000000,
+    "passivoCorrente": 1265000000,
+    "immobilizzazioniNette": 543000000,
+    "ammortamento": 171000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1246000000,
+    "attivoTotale": 4684000000,
+    "debitoLungo": 499000000
    },
    {
     "anno": 2013,
@@ -2838,7 +5868,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1564,
     "utileNetto": 858000000,
     "ricavi": 3946000000,
-    "patrimonioNetto": 3531000000
+    "patrimonioNetto": 3531000000,
+    "crediti": 130000000,
+    "costoVenduto": 125000000,
+    "attivoCorrente": 2396000000,
+    "passivoCorrente": 1280000000,
+    "immobilizzazioniNette": 555000000,
+    "ammortamento": 166000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1366000000,
+    "attivoTotale": 5486000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -2847,7 +5887,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1744,
     "utileNetto": 907000000,
     "ricavi": 4243000000,
-    "patrimonioNetto": 3078000000
+    "patrimonioNetto": 3078000000,
+    "crediti": 115000000,
+    "costoVenduto": 137000000,
+    "attivoCorrente": 2621000000,
+    "passivoCorrente": 1421000000,
+    "immobilizzazioniNette": 589000000,
+    "ammortamento": 144000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1446000000,
+    "attivoTotale": 5201000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -2856,7 +5906,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0735,
     "utileNetto": 365000000,
     "ricavi": 4192000000,
-    "patrimonioNetto": 2332000000
+    "patrimonioNetto": 2332000000,
+    "crediti": 91000000,
+    "costoVenduto": 139000000,
+    "attivoCorrente": 2560000000,
+    "passivoCorrente": 1744000000,
+    "immobilizzazioniNette": 682000000,
+    "ammortamento": 157000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1589000000,
+    "attivoTotale": 4968000000,
+    "debitoLungo": 500000000
    },
    {
     "anno": 2016,
@@ -2865,7 +5925,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2304,
     "utileNetto": 979000000,
     "ricavi": 4694000000,
-    "patrimonioNetto": 1492000000
+    "patrimonioNetto": 1492000000,
+    "crediti": 108000000,
+    "costoVenduto": 131000000,
+    "attivoCorrente": 1614000000,
+    "passivoCorrente": 2251000000,
+    "immobilizzazioniNette": 1031000000,
+    "ammortamento": 195000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1460000000,
+    "attivoTotale": 4250000000,
+    "debitoLungo": 488000000
    },
    {
     "anno": 2017,
@@ -2874,7 +5944,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2421,
     "utileNetto": 985000000,
     "ricavi": 5196000000,
-    "patrimonioNetto": 1699000000
+    "patrimonioNetto": 1699000000,
+    "crediti": 103000000,
+    "costoVenduto": 120000000,
+    "attivoCorrente": 1415000000,
+    "passivoCorrente": 1944000000,
+    "immobilizzazioniNette": 1030000000,
+    "ammortamento": 214000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1599000000,
+    "attivoTotale": 4068000000,
+    "debitoLungo": 438000000
    },
    {
     "anno": 2018,
@@ -2883,7 +5963,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2589,
     "utileNetto": 1329000000,
     "ricavi": 6025000000,
-    "patrimonioNetto": 2816000000
+    "patrimonioNetto": 2816000000,
+    "crediti": 98000000,
+    "costoVenduto": null,
+    "attivoCorrente": 2422000000,
+    "passivoCorrente": 1743000000,
+    "immobilizzazioniNette": 812000000,
+    "ammortamento": 228000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2112000000,
+    "attivoTotale": 5134000000,
+    "debitoLungo": 388000000
    },
    {
     "anno": 2019,
@@ -2892,7 +5982,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2478,
     "utileNetto": 1557000000,
     "ricavi": 6784000000,
-    "patrimonioNetto": 3749000000
+    "patrimonioNetto": 3749000000,
+    "crediti": 87000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3594000000,
+    "passivoCorrente": 1966000000,
+    "immobilizzazioniNette": 780000000,
+    "ammortamento": 199000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2324000000,
+    "attivoTotale": 6283000000,
+    "debitoLungo": 386000000
    },
    {
     "anno": 2020,
@@ -2901,7 +6001,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.167,
     "utileNetto": 1826000000,
     "ricavi": 7679000000,
-    "patrimonioNetto": 5106000000
+    "patrimonioNetto": 5106000000,
+    "crediti": 149000000,
+    "costoVenduto": null,
+    "attivoCorrente": 7980000000,
+    "passivoCorrente": 3529000000,
+    "immobilizzazioniNette": 734000000,
+    "ammortamento": 189000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2414000000,
+    "attivoTotale": 10931000000,
+    "debitoLungo": 2031000000
    },
    {
     "anno": 2021,
@@ -2910,7 +6020,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1329,
     "utileNetto": 2062000000,
     "ricavi": 9633000000,
-    "patrimonioNetto": 9869000000
+    "patrimonioNetto": 9869000000,
+    "crediti": 391000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5157000000,
+    "passivoCorrente": 2655000000,
+    "immobilizzazioniNette": 780000000,
+    "ammortamento": 166000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3250000000,
+    "attivoTotale": 15516000000,
+    "debitoLungo": 2034000000
    },
    {
     "anno": 2022,
@@ -2919,7 +6039,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0745,
     "utileNetto": 2066000000,
     "ricavi": 12726000000,
-    "patrimonioNetto": 16441000000
+    "patrimonioNetto": 16441000000,
+    "crediti": 446000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5047000000,
+    "passivoCorrente": 3630000000,
+    "immobilizzazioniNette": 888000000,
+    "ammortamento": 187000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3889000000,
+    "attivoTotale": 27734000000,
+    "debitoLungo": 6415000000
    },
    {
     "anno": 2023,
@@ -2928,7 +6058,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0858,
     "utileNetto": 2384000000,
     "ricavi": 14368000000,
-    "patrimonioNetto": 17269000000
+    "patrimonioNetto": 17269000000,
+    "crediti": 405000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5557000000,
+    "passivoCorrente": 3790000000,
+    "immobilizzazioniNette": 969000000,
+    "ammortamento": 160000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5046000000,
+    "attivoTotale": 27780000000,
+    "debitoLungo": 6120000000
    },
    {
     "anno": 2024,
@@ -2937,7 +6077,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0922,
     "utileNetto": 2963000000,
     "ricavi": 16285000000,
-    "patrimonioNetto": 18436000000
+    "patrimonioNetto": 18436000000,
+    "crediti": 457000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9678000000,
+    "passivoCorrente": 7491000000,
+    "immobilizzazioniNette": 1009000000,
+    "ammortamento": 159000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4884000000,
+    "attivoTotale": 32132000000,
+    "debitoLungo": 5539000000
    },
    {
     "anno": 2025,
@@ -2946,7 +6096,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1047,
     "utileNetto": 3869000000,
     "ricavi": 18831000000,
-    "patrimonioNetto": 19710000000
+    "patrimonioNetto": 19710000000,
+    "crediti": 530000000,
+    "costoVenduto": null,
+    "attivoCorrente": 14107000000,
+    "passivoCorrente": 10370000000,
+    "immobilizzazioniNette": 961000000,
+    "ammortamento": 172000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6207000000,
+    "attivoTotale": 36958000000,
+    "debitoLungo": 5973000000
    }
   ]
  },
@@ -2960,7 +6120,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 1710196000,
     "ricavi": 9734856000,
-    "patrimonioNetto": 7821409000
+    "patrimonioNetto": 7821409000,
+    "crediti": null,
+    "costoVenduto": 5242413000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2209296000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -2969,7 +6139,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0873,
     "utileNetto": 960746000,
     "ricavi": 8129240000,
-    "patrimonioNetto": 7549000000
+    "patrimonioNetto": 7549000000,
+    "crediti": 1691027000,
+    "costoVenduto": 4686412000,
+    "attivoCorrente": 6664157000,
+    "passivoCorrente": 2945552000,
+    "immobilizzazioniNette": 1094200000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1710468000,
+    "attivoTotale": 11006318000,
+    "debitoLungo": 201576000
    },
    {
     "anno": 2009,
@@ -2978,7 +6158,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0319,
     "utileNetto": -305000000,
     "ricavi": 5014000000,
-    "patrimonioNetto": 7094000000
+    "patrimonioNetto": 7094000000,
+    "crediti": 1041495000,
+    "costoVenduto": 3583000000,
+    "attivoCorrente": 5688947000,
+    "passivoCorrente": 1939457000,
+    "immobilizzazioniNette": 1090433000,
+    "ammortamento": null,
+    "speseSga": 735000000,
+    "flussoCassaOperativo": 333000000,
+    "attivoTotale": 9574000000,
+    "debitoLungo": 200654000
    },
    {
     "anno": 2010,
@@ -2987,7 +6177,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0857,
     "utileNetto": 938000000,
     "ricavi": 9549000000,
-    "patrimonioNetto": 7536000000
+    "patrimonioNetto": 7536000000,
+    "crediti": 1831000000,
+    "costoVenduto": 5834000000,
+    "attivoCorrente": 6765000000,
+    "passivoCorrente": 2888000000,
+    "immobilizzazioniNette": 963000000,
+    "ammortamento": null,
+    "speseSga": 942000000,
+    "flussoCassaOperativo": 1723000000,
+    "attivoTotale": 10943000000,
+    "debitoLungo": 204000000
    },
    {
     "anno": 2011,
@@ -2996,7 +6196,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.139,
     "utileNetto": 1926000000,
     "ricavi": 10517000000,
-    "patrimonioNetto": 8800000000
+    "patrimonioNetto": 8800000000,
+    "crediti": 1532000000,
+    "costoVenduto": 6157000000,
+    "attivoCorrente": 10355000000,
+    "passivoCorrente": 2794000000,
+    "immobilizzazioniNette": 866000000,
+    "ammortamento": 194000000,
+    "speseSga": 901000000,
+    "flussoCassaOperativo": 2429000000,
+    "attivoTotale": 13861000000,
+    "debitoLungo": 1947000000
    },
    {
     "anno": 2012,
@@ -3005,7 +6215,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.009,
     "utileNetto": 109000000,
     "ricavi": 8719000000,
-    "patrimonioNetto": 7235000000
+    "patrimonioNetto": 7235000000,
+    "crediti": 1220000000,
+    "costoVenduto": 5406000000,
+    "attivoCorrente": 5102000000,
+    "passivoCorrente": 2265000000,
+    "immobilizzazioniNette": 910000000,
+    "ammortamento": 198000000,
+    "speseSga": 1076000000,
+    "flussoCassaOperativo": 1851000000,
+    "attivoTotale": 12102000000,
+    "debitoLungo": 1946000000
    },
    {
     "anno": 2013,
@@ -3014,7 +6234,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0213,
     "utileNetto": 256000000,
     "ricavi": 7509000000,
-    "patrimonioNetto": 7088000000
+    "patrimonioNetto": 7088000000,
+    "crediti": 1633000000,
+    "costoVenduto": 4518000000,
+    "attivoCorrente": 5642000000,
+    "passivoCorrente": 2443000000,
+    "immobilizzazioniNette": 850000000,
+    "ammortamento": 211000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 623000000,
+    "attivoTotale": 12043000000,
+    "debitoLungo": 1946000000
    },
    {
     "anno": 2014,
@@ -3023,7 +6253,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0814,
     "utileNetto": 1072000000,
     "ricavi": 9072000000,
-    "patrimonioNetto": 7868000000
+    "patrimonioNetto": 7868000000,
+    "crediti": 1670000000,
+    "costoVenduto": 5229000000,
+    "attivoCorrente": 6967000000,
+    "passivoCorrente": 2823000000,
+    "immobilizzazioniNette": 861000000,
+    "ammortamento": 191000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1800000000,
+    "attivoTotale": 13174000000,
+    "debitoLungo": 1947000000
    },
    {
     "anno": 2015,
@@ -3032,7 +6272,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.09,
     "utileNetto": 1377000000,
     "ricavi": 9659000000,
-    "patrimonioNetto": 7613000000
+    "patrimonioNetto": 7613000000,
+    "crediti": 1739000000,
+    "costoVenduto": 5707000000,
+    "attivoCorrente": 9261000000,
+    "passivoCorrente": 3798000000,
+    "immobilizzazioniNette": 892000000,
+    "ammortamento": 185000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1163000000,
+    "attivoTotale": 15308000000,
+    "debitoLungo": 3342000000
    },
    {
     "anno": 2016,
@@ -3041,7 +6291,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1181,
     "utileNetto": 1721000000,
     "ricavi": 10825000000,
-    "patrimonioNetto": 7413000000
+    "patrimonioNetto": 7413000000,
+    "crediti": 2279000000,
+    "costoVenduto": 6314000000,
+    "attivoCorrente": 8353000000,
+    "passivoCorrente": 3632000000,
+    "immobilizzazioniNette": 937000000,
+    "ammortamento": 200000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2566000000,
+    "attivoTotale": 14570000000,
+    "debitoLungo": 3125000000
    },
    {
     "anno": 2017,
@@ -3050,7 +6310,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1812,
     "utileNetto": 3519000000,
     "ricavi": 14698000000,
-    "patrimonioNetto": 9630000000
+    "patrimonioNetto": 9630000000,
+    "crediti": 2338000000,
+    "costoVenduto": 8086000000,
+    "attivoCorrente": 12918000000,
+    "passivoCorrente": 4115000000,
+    "immobilizzazioniNette": 1066000000,
+    "ammortamento": 214000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3789000000,
+    "attivoTotale": 19419000000,
+    "debitoLungo": 5304000000
    },
    {
     "anno": 2018,
@@ -3059,7 +6329,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1723,
     "utileNetto": 3038000000,
     "ricavi": 16705000000,
-    "patrimonioNetto": 6845000000
+    "patrimonioNetto": 6845000000,
+    "crediti": 2323000000,
+    "costoVenduto": 9188000000,
+    "attivoCorrente": 10604000000,
+    "passivoCorrente": 3922000000,
+    "immobilizzazioniNette": 1407000000,
+    "ammortamento": 258000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3787000000,
+    "attivoTotale": 17633000000,
+    "debitoLungo": 5309000000
    },
    {
     "anno": 2019,
@@ -3068,7 +6348,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1422,
     "utileNetto": 2706000000,
     "ricavi": 14608000000,
-    "patrimonioNetto": 8214000000
+    "patrimonioNetto": 8214000000,
+    "crediti": 2533000000,
+    "costoVenduto": 8222000000,
+    "attivoCorrente": 10206000000,
+    "passivoCorrente": 4447000000,
+    "immobilizzazioniNette": 1529000000,
+    "ammortamento": 363000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3247000000,
+    "attivoTotale": 19024000000,
+    "debitoLungo": 4713000000
    },
    {
     "anno": 2020,
@@ -3077,7 +6367,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1619,
     "utileNetto": 3619000000,
     "ricavi": 17202000000,
-    "patrimonioNetto": 10578000000
+    "patrimonioNetto": 10578000000,
+    "crediti": 2963000000,
+    "costoVenduto": 9510000000,
+    "attivoCorrente": 13369000000,
+    "passivoCorrente": 4459000000,
+    "immobilizzazioniNette": 1604000000,
+    "ammortamento": 376000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3804000000,
+    "attivoTotale": 22353000000,
+    "debitoLungo": 5448000000
    },
    {
     "anno": 2021,
@@ -3086,7 +6386,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.228,
     "utileNetto": 5888000000,
     "ricavi": 23063000000,
-    "patrimonioNetto": 12247000000
+    "patrimonioNetto": 12247000000,
+    "crediti": 4953000000,
+    "costoVenduto": 12149000000,
+    "attivoCorrente": 16107000000,
+    "passivoCorrente": 6344000000,
+    "immobilizzazioniNette": 1934000000,
+    "ammortamento": 345000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5442000000,
+    "attivoTotale": 25825000000,
+    "debitoLungo": 5452000000
    },
    {
     "anno": 2022,
@@ -3095,7 +6405,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2441,
     "utileNetto": 6525000000,
     "ricavi": 25785000000,
-    "patrimonioNetto": 12194000000
+    "patrimonioNetto": 12194000000,
+    "crediti": 6068000000,
+    "costoVenduto": 13792000000,
+    "attivoCorrente": 15925000000,
+    "passivoCorrente": 7379000000,
+    "immobilizzazioniNette": 2307000000,
+    "ammortamento": 404000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5399000000,
+    "attivoTotale": 26726000000,
+    "debitoLungo": 5457000000
    },
    {
     "anno": 2023,
@@ -3104,7 +6424,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2231,
     "utileNetto": 6856000000,
     "ricavi": 26517000000,
-    "patrimonioNetto": 16349000000
+    "patrimonioNetto": 16349000000,
+    "crediti": 5165000000,
+    "costoVenduto": 14133000000,
+    "attivoCorrente": 19147000000,
+    "passivoCorrente": 7372000000,
+    "immobilizzazioniNette": 2723000000,
+    "ammortamento": 471000000,
+    "speseSga": 1628000000,
+    "flussoCassaOperativo": 8700000000,
+    "attivoTotale": 30729000000,
+    "debitoLungo": 5461000000
    },
    {
     "anno": 2024,
@@ -3113,7 +6443,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2086,
     "utileNetto": 7177000000,
     "ricavi": 27176000000,
-    "patrimonioNetto": 19001000000
+    "patrimonioNetto": 19001000000,
+    "crediti": 5234000000,
+    "costoVenduto": 14279000000,
+    "attivoCorrente": 21220000000,
+    "passivoCorrente": 8468000000,
+    "immobilizzazioniNette": 3339000000,
+    "ammortamento": 346000000,
+    "speseSga": 1797000000,
+    "flussoCassaOperativo": 8677000000,
+    "attivoTotale": 34409000000,
+    "debitoLungo": 5460000000
    },
    {
     "anno": 2025,
@@ -3122,7 +6462,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1928,
     "utileNetto": 6998000000,
     "ricavi": 28368000000,
-    "patrimonioNetto": 20415000000
+    "patrimonioNetto": 20415000000,
+    "crediti": 5185000000,
+    "costoVenduto": 14560000000,
+    "attivoCorrente": 20881000000,
+    "passivoCorrente": 7999000000,
+    "immobilizzazioniNette": 4610000000,
+    "ammortamento": 389000000,
+    "speseSga": 1768000000,
+    "flussoCassaOperativo": 7958000000,
+    "attivoTotale": 36299000000,
+    "debitoLungo": 6455000000
    }
   ]
  },
@@ -3136,7 +6486,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": -1882000000,
     "ricavi": 4803000000,
-    "patrimonioNetto": 6939000000
+    "patrimonioNetto": 6939000000,
+    "crediti": null,
+    "costoVenduto": 5243000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 7089000000,
+    "ammortamento": 2114000000,
+    "speseSga": 354000000,
+    "flussoCassaOperativo": 1206000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -3145,7 +6505,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1259,
     "utileNetto": 1850000000,
     "ricavi": 8482000000,
-    "patrimonioNetto": 9816000000
+    "patrimonioNetto": 9816000000,
+    "crediti": 1238000000,
+    "costoVenduto": 5768000000,
+    "attivoCorrente": 6333000000,
+    "passivoCorrente": 2702000000,
+    "immobilizzazioniNette": 6601000000,
+    "ammortamento": 1922000000,
+    "speseSga": 528000000,
+    "flussoCassaOperativo": 3096000000,
+    "attivoTotale": 14693000000,
+    "debitoLungo": 1648000000
    },
    {
     "anno": 2011,
@@ -3154,7 +6524,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0113,
     "utileNetto": 167000000,
     "ricavi": 8788000000,
-    "patrimonioNetto": 9852000000
+    "patrimonioNetto": 9852000000,
+    "crediti": 1105000000,
+    "costoVenduto": 7030000000,
+    "attivoCorrente": 5832000000,
+    "passivoCorrente": 2480000000,
+    "immobilizzazioniNette": 7555000000,
+    "ammortamento": 2162000000,
+    "speseSga": 592000000,
+    "flussoCassaOperativo": 2484000000,
+    "attivoTotale": 14752000000,
+    "debitoLungo": 1861000000
    },
    {
     "anno": 2012,
@@ -3163,7 +6543,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.072,
     "utileNetto": -1032000000,
     "ricavi": 8234000000,
-    "patrimonioNetto": 8417000000
+    "patrimonioNetto": 8417000000,
+    "crediti": 933000000,
+    "costoVenduto": 7266000000,
+    "attivoCorrente": 5758000000,
+    "passivoCorrente": 2243000000,
+    "immobilizzazioniNette": 7103000000,
+    "ammortamento": 2222000000,
+    "speseSga": 620000000,
+    "flussoCassaOperativo": 2114000000,
+    "attivoTotale": 14328000000,
+    "debitoLungo": 3038000000
    },
    {
     "anno": 2013,
@@ -3172,7 +6562,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0622,
     "utileNetto": 1190000000,
     "ricavi": 9073000000,
-    "patrimonioNetto": 10006000000
+    "patrimonioNetto": 10006000000,
+    "crediti": 2069000000,
+    "costoVenduto": 7226000000,
+    "attivoCorrente": 8911000000,
+    "passivoCorrente": 4125000000,
+    "immobilizzazioniNette": 7626000000,
+    "ammortamento": 1926000000,
+    "speseSga": 562000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 19118000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -3181,7 +6581,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1358,
     "utileNetto": 3045000000,
     "ricavi": 16358000000,
-    "patrimonioNetto": 11562000000
+    "patrimonioNetto": 11562000000,
+    "crediti": 2524000000,
+    "costoVenduto": 10921000000,
+    "attivoCorrente": 10245000000,
+    "passivoCorrente": 4791000000,
+    "immobilizzazioniNette": 8682000000,
+    "ammortamento": 1990000000,
+    "speseSga": 707000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 22416000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -3190,7 +6600,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1201,
     "utileNetto": 2899000000,
     "ricavi": 16192000000,
-    "patrimonioNetto": 13239000000
+    "patrimonioNetto": 13239000000,
+    "crediti": 2188000000,
+    "costoVenduto": 10977000000,
+    "attivoCorrente": 8596000000,
+    "passivoCorrente": 3905000000,
+    "immobilizzazioniNette": 10554000000,
+    "ammortamento": 2550000000,
+    "speseSga": 719000000,
+    "flussoCassaOperativo": 5208000000,
+    "attivoTotale": 24143000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -3199,7 +6619,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.01,
     "utileNetto": -276000000,
     "ricavi": 12399000000,
-    "patrimonioNetto": 12928000000
+    "patrimonioNetto": 12928000000,
+    "crediti": 1765000000,
+    "costoVenduto": 9894000000,
+    "attivoCorrente": 9495000000,
+    "passivoCorrente": 4835000000,
+    "immobilizzazioniNette": 14686000000,
+    "ammortamento": 2980000000,
+    "speseSga": 659000000,
+    "flussoCassaOperativo": 3168000000,
+    "attivoTotale": 27540000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -3208,7 +6638,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.144,
     "utileNetto": 5089000000,
     "ricavi": 20322000000,
-    "patrimonioNetto": 19470000000
+    "patrimonioNetto": 19470000000,
+    "crediti": 3490000000,
+    "costoVenduto": 11886000000,
+    "attivoCorrente": 12457000000,
+    "passivoCorrente": 5334000000,
+    "immobilizzazioniNette": 19431000000,
+    "ammortamento": 3861000000,
+    "speseSga": 743000000,
+    "flussoCassaOperativo": 8153000000,
+    "attivoTotale": 35336000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -3217,7 +6657,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3259,
     "utileNetto": 14135000000,
     "ricavi": 30391000000,
-    "patrimonioNetto": 33164000000
+    "patrimonioNetto": 33164000000,
+    "crediti": 5056000000,
+    "costoVenduto": 12500000000,
+    "attivoCorrente": 16039000000,
+    "passivoCorrente": 5754000000,
+    "immobilizzazioniNette": 23672000000,
+    "ammortamento": 4759000000,
+    "speseSga": 813000000,
+    "flussoCassaOperativo": 17400000000,
+    "attivoTotale": 43376000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -3226,7 +6676,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1291,
     "utileNetto": 6313000000,
     "ricavi": 23406000000,
-    "patrimonioNetto": 36770000000
+    "patrimonioNetto": 36770000000,
+    "crediti": 2778000000,
+    "costoVenduto": 12704000000,
+    "attivoCorrente": 16503000000,
+    "passivoCorrente": 6390000000,
+    "immobilizzazioniNette": 28240000000,
+    "ammortamento": 5424000000,
+    "speseSga": 836000000,
+    "flussoCassaOperativo": 13189000000,
+    "attivoTotale": 48887000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -3235,7 +6695,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0501,
     "utileNetto": 2687000000,
     "ricavi": 21435000000,
-    "patrimonioNetto": 38996000000
+    "patrimonioNetto": 38996000000,
+    "crediti": 3494000000,
+    "costoVenduto": 14883000000,
+    "attivoCorrente": 17965000000,
+    "passivoCorrente": 6635000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 5650000000,
+    "speseSga": 881000000,
+    "flussoCassaOperativo": 8306000000,
+    "attivoTotale": 53678000000,
+    "debitoLungo": 6157000000
    },
    {
     "anno": 2021,
@@ -3244,7 +6714,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0996,
     "utileNetto": 5861000000,
     "ricavi": 27705000000,
-    "patrimonioNetto": 43933000000
+    "patrimonioNetto": 43933000000,
+    "crediti": 4920000000,
+    "costoVenduto": 17282000000,
+    "attivoCorrente": 19907000000,
+    "passivoCorrente": 6424000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 6214000000,
+    "speseSga": 894000000,
+    "flussoCassaOperativo": 12468000000,
+    "attivoTotale": 58849000000,
+    "debitoLungo": 5968000000
    },
    {
     "anno": 2022,
@@ -3253,7 +6733,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1311,
     "utileNetto": 8687000000,
     "ricavi": 30758000000,
-    "patrimonioNetto": 49907000000
+    "patrimonioNetto": 49907000000,
+    "crediti": 4765000000,
+    "costoVenduto": 16860000000,
+    "attivoCorrente": 21781000000,
+    "passivoCorrente": 7539000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7116000000,
+    "speseSga": 1066000000,
+    "flussoCassaOperativo": 15181000000,
+    "attivoTotale": 66283000000,
+    "debitoLungo": 6020000000
    },
    {
     "anno": 2023,
@@ -3262,7 +6752,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0908,
     "utileNetto": -5833000000,
     "ricavi": 15540000000,
-    "patrimonioNetto": 44120000000
+    "patrimonioNetto": 44120000000,
+    "crediti": 2048000000,
+    "costoVenduto": 16956000000,
+    "attivoCorrente": 21244000000,
+    "passivoCorrente": 4765000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7756000000,
+    "speseSga": 920000000,
+    "flussoCassaOperativo": 1559000000,
+    "attivoTotale": 64254000000,
+    "debitoLungo": 12049000000
    },
    {
     "anno": 2024,
@@ -3271,7 +6771,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0112,
     "utileNetto": 778000000,
     "ricavi": 25111000000,
-    "patrimonioNetto": 45131000000
+    "patrimonioNetto": 45131000000,
+    "crediti": 5419000000,
+    "costoVenduto": 19498000000,
+    "attivoCorrente": 24372000000,
+    "passivoCorrente": 9248000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7780000000,
+    "speseSga": 1129000000,
+    "flussoCassaOperativo": 8507000000,
+    "attivoTotale": 69416000000,
+    "debitoLungo": 11343000000
    },
    {
     "anno": 2025,
@@ -3280,7 +6790,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1031,
     "utileNetto": 8539000000,
     "ricavi": 37378000000,
-    "patrimonioNetto": 54165000000
+    "patrimonioNetto": 54165000000,
+    "crediti": 7163000000,
+    "costoVenduto": 22505000000,
+    "attivoCorrente": 28841000000,
+    "passivoCorrente": 11454000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8352000000,
+    "speseSga": 1205000000,
+    "flussoCassaOperativo": 17525000000,
+    "attivoTotale": 82798000000,
+    "debitoLungo": 11533000000
    }
   ]
  },
@@ -3294,7 +6814,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 15365000000,
     "ricavi": 71372000000,
-    "patrimonioNetto": 123221000000
+    "patrimonioNetto": 123221000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2427000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -110560000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -3303,7 +6833,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0026,
     "utileNetto": 5605000000,
     "ricavi": 67252000000,
-    "patrimonioNetto": 166884000000
+    "patrimonioNetto": 166884000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 10045000000,
+    "ammortamento": 3265000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 23930000000,
+    "attivoTotale": 2175052000000,
+    "debitoLungo": 270683000000
    },
    {
     "anno": 2009,
@@ -3312,7 +6852,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0055,
     "utileNetto": 11728000000,
     "ricavi": 100434000000,
-    "patrimonioNetto": 160845000000
+    "patrimonioNetto": 160845000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11118000000,
+    "ammortamento": 3308000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 122797000000,
+    "attivoTotale": 2119673000000,
+    "debitoLungo": 266318000000
    },
    {
     "anno": 2010,
@@ -3321,7 +6871,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0082,
     "utileNetto": 17370000000,
     "ricavi": 102694000000,
-    "patrimonioNetto": 176106000000
+    "patrimonioNetto": 176106000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 13355000000,
+    "ammortamento": 4029000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -3752000000,
+    "attivoTotale": 2117605000000,
+    "debitoLungo": 270653000000
    },
    {
     "anno": 2011,
@@ -3330,7 +6890,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0084,
     "utileNetto": 18976000000,
     "ricavi": 97234000000,
-    "patrimonioNetto": 183573000000
+    "patrimonioNetto": 183573000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14041000000,
+    "ammortamento": 4257000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 95932000000,
+    "attivoTotale": 2265792000000,
+    "debitoLungo": 256775000000
    },
    {
     "anno": 2012,
@@ -3339,7 +6909,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.009,
     "utileNetto": 21284000000,
     "ricavi": 97031000000,
-    "patrimonioNetto": 204069000000
+    "patrimonioNetto": 204069000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14519000000,
+    "ammortamento": 5147000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 25079000000,
+    "attivoTotale": 2359141000000,
+    "debitoLungo": 249024000000
    },
    {
     "anno": 2013,
@@ -3348,7 +6928,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0074,
     "utileNetto": 17886000000,
     "ricavi": 97367000000,
-    "patrimonioNetto": 210857000000
+    "patrimonioNetto": 210857000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14891000000,
+    "ammortamento": 5306000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 107953000000,
+    "attivoTotale": 2414879000000,
+    "debitoLungo": 267889000000
    },
    {
     "anno": 2014,
@@ -3357,7 +6947,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0085,
     "utileNetto": 21745000000,
     "ricavi": 95112000000,
-    "patrimonioNetto": 231727000000
+    "patrimonioNetto": 231727000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 15133000000,
+    "ammortamento": 4759000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 36593000000,
+    "attivoTotale": 2572274000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -3366,7 +6966,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0104,
     "utileNetto": 24442000000,
     "ricavi": 93543000000,
-    "patrimonioNetto": 247573000000
+    "patrimonioNetto": 247573000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14362000000,
+    "ammortamento": 4940000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 73466000000,
+    "attivoTotale": 2351698000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -3375,7 +6985,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 24733000000,
     "ricavi": 96569000000,
-    "patrimonioNetto": 254190000000
+    "patrimonioNetto": 254190000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14131000000,
+    "ammortamento": 5478000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 21884000000,
+    "attivoTotale": 2490972000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -3384,7 +7004,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0096,
     "utileNetto": 24441000000,
     "ricavi": 100705000000,
-    "patrimonioNetto": 255693000000
+    "patrimonioNetto": 255693000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14159000000,
+    "ammortamento": 6179000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -10827000000,
+    "attivoTotale": 2533600000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -3393,7 +7023,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0124,
     "utileNetto": 32474000000,
     "ricavi": 108783000000,
-    "patrimonioNetto": 256515000000
+    "patrimonioNetto": 256515000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14934000000,
+    "ammortamento": 7791000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15614000000,
+    "attivoTotale": 2622532000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -3402,7 +7042,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0136,
     "utileNetto": 36431000000,
     "ricavi": 115720000000,
-    "patrimonioNetto": 261330000000
+    "patrimonioNetto": 261330000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 25813000000,
+    "ammortamento": 8368000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4092000000,
+    "attivoTotale": 2686477000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -3411,7 +7061,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0086,
     "utileNetto": 29131000000,
     "ricavi": 119951000000,
-    "patrimonioNetto": 279354000000
+    "patrimonioNetto": 279354000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 27109000000,
+    "ammortamento": 8614000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -79910000000,
+    "attivoTotale": 3384757000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -3420,7 +7080,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0129,
     "utileNetto": 48334000000,
     "ricavi": 121649000000,
-    "patrimonioNetto": 294127000000
+    "patrimonioNetto": 294127000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 27070000000,
+    "ammortamento": 7932000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 78084000000,
+    "attivoTotale": 3743567000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -3429,7 +7099,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0103,
     "utileNetto": 37676000000,
     "ricavi": 128695000000,
-    "patrimonioNetto": 292332000000
+    "patrimonioNetto": 292332000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 27734000000,
+    "ammortamento": 7051000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 107119000000,
+    "attivoTotale": 3665743000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -3438,7 +7118,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0128,
     "utileNetto": 49552000000,
     "ricavi": 158104000000,
-    "patrimonioNetto": 327878000000
+    "patrimonioNetto": 327878000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7512000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 12974000000,
+    "attivoTotale": 3875393000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -3447,7 +7137,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0146,
     "utileNetto": 58471000000,
     "ricavi": 177556000000,
-    "patrimonioNetto": 344758000000
+    "patrimonioNetto": 344758000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7938000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -42012000000,
+    "attivoTotale": 4002814000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -3456,7 +7156,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0129,
     "utileNetto": 57048000000,
     "ricavi": 182447000000,
-    "patrimonioNetto": 362438000000
+    "patrimonioNetto": 362438000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8821000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -147782000000,
+    "attivoTotale": 4424900000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -3470,7 +7180,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 14982000000,
     "ricavi": 66833000000,
-    "patrimonioNetto": 146803000000
+    "patrimonioNetto": 146803000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 11036000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -3479,7 +7199,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 4008000000,
     "ricavi": 72782000000,
-    "patrimonioNetto": 177052000000
+    "patrimonioNetto": 177052000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 13161000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 4034000000,
+    "attivoTotale": 0,
+    "debitoLungo": 268292000000
    },
    {
     "anno": 2009,
@@ -3488,7 +7218,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0027,
     "utileNetto": 6276000000,
     "ricavi": 119643000000,
-    "patrimonioNetto": 231444000000
+    "patrimonioNetto": 231444000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 15500000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 129731000000,
+    "attivoTotale": 2330671000000,
+    "debitoLungo": 522877000000
    },
    {
     "anno": 2010,
@@ -3497,7 +7237,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.001,
     "utileNetto": -2238000000,
     "ricavi": 110220000000,
-    "patrimonioNetto": 228248000000
+    "patrimonioNetto": 228248000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 14306000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 82541000000,
+    "attivoTotale": 2264909000000,
+    "debitoLungo": 448431000000
    },
    {
     "anno": 2011,
@@ -3506,7 +7256,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0007,
     "utileNetto": 1446000000,
     "ricavi": 93454000000,
-    "patrimonioNetto": 230101000000
+    "patrimonioNetto": 230101000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 13637000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 64448000000,
+    "attivoTotale": 2129046000000,
+    "debitoLungo": 372265000000
    },
    {
     "anno": 2012,
@@ -3515,7 +7275,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0019,
     "utileNetto": 4188000000,
     "ricavi": 83334000000,
-    "patrimonioNetto": 236956000000
+    "patrimonioNetto": 236956000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11858000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -16056000000,
+    "attivoTotale": 2209974000000,
+    "debitoLungo": 275585000000
    },
    {
     "anno": 2013,
@@ -3524,7 +7294,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0054,
     "utileNetto": 11431000000,
     "ricavi": 88942000000,
-    "patrimonioNetto": 232475000000
+    "patrimonioNetto": 232475000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 10475000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 92817000000,
+    "attivoTotale": 2102273000000,
+    "debitoLungo": 249674000000
    },
    {
     "anno": 2014,
@@ -3533,7 +7313,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0026,
     "utileNetto": 5520000000,
     "ricavi": 85894000000,
-    "patrimonioNetto": 243476000000
+    "patrimonioNetto": 243476000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 10049000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 2104534000000,
+    "debitoLungo": 243139000000
    },
    {
     "anno": 2015,
@@ -3542,7 +7332,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0074,
     "utileNetto": 15910000000,
     "ricavi": 82965000000,
-    "patrimonioNetto": 255615000000
+    "patrimonioNetto": 255615000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9485000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 2144287000000,
+    "debitoLungo": 236764000000
    },
    {
     "anno": 2016,
@@ -3551,7 +7351,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0081,
     "utileNetto": 17822000000,
     "ricavi": 83701000000,
-    "patrimonioNetto": 266195000000
+    "patrimonioNetto": 266195000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9139000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 17277000000,
+    "attivoTotale": 2188067000000,
+    "debitoLungo": 216823000000
    },
    {
     "anno": 2017,
@@ -3560,7 +7370,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.008,
     "utileNetto": 18232000000,
     "ricavi": 87126000000,
-    "patrimonioNetto": 267146000000
+    "patrimonioNetto": 267146000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9247000000,
+    "ammortamento": 2103000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9864000000,
+    "attivoTotale": 2281234000000,
+    "debitoLungo": 227402000000
    },
    {
     "anno": 2018,
@@ -3569,7 +7389,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.012,
     "utileNetto": 28147000000,
     "ricavi": 91020000000,
-    "patrimonioNetto": 265325000000
+    "patrimonioNetto": 265325000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9906000000,
+    "ammortamento": 2063000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 39520000000,
+    "attivoTotale": 2354507000000,
+    "debitoLungo": 229392000000
    },
    {
     "anno": 2019,
@@ -3578,7 +7408,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0113,
     "utileNetto": 27430000000,
     "ricavi": 91244000000,
-    "patrimonioNetto": 264810000000
+    "patrimonioNetto": 264810000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 10561000000,
+    "ammortamento": 1729000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 61777000000,
+    "attivoTotale": 2434079000000,
+    "debitoLungo": 240856000000
    },
    {
     "anno": 2020,
@@ -3587,7 +7427,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0063,
     "utileNetto": 17894000000,
     "ricavi": 85528000000,
-    "patrimonioNetto": 272924000000
+    "patrimonioNetto": 272924000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11000000000,
+    "ammortamento": 1843000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 37993000000,
+    "attivoTotale": 2819627000000,
+    "debitoLungo": 262934000000
    },
    {
     "anno": 2021,
@@ -3596,7 +7446,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0101,
     "utileNetto": 31978000000,
     "ricavi": 89113000000,
-    "patrimonioNetto": 270066000000
+    "patrimonioNetto": 270066000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 10833000000,
+    "ammortamento": 1898000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -7193000000,
+    "attivoTotale": 3169495000000,
+    "debitoLungo": 280117000000
    },
    {
     "anno": 2022,
@@ -3605,7 +7465,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.009,
     "utileNetto": 27528000000,
     "ricavi": 94950000000,
-    "patrimonioNetto": 273197000000
+    "patrimonioNetto": 273197000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11510000000,
+    "ammortamento": 1978000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -6327000000,
+    "attivoTotale": 3051375000000,
+    "debitoLungo": 275982000000
    },
    {
     "anno": 2023,
@@ -3614,7 +7484,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0083,
     "utileNetto": 26305000000,
     "ricavi": 102769000000,
-    "patrimonioNetto": 290209000000
+    "patrimonioNetto": 290209000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11855000000,
+    "ammortamento": 2057000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 44982000000,
+    "attivoTotale": 3180151000000,
+    "debitoLungo": 302204000000
    },
    {
     "anno": 2024,
@@ -3623,7 +7503,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0083,
     "utileNetto": 26973000000,
     "ricavi": 105856000000,
-    "patrimonioNetto": 293963000000
+    "patrimonioNetto": 293963000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 12168000000,
+    "ammortamento": 2189000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -8805000000,
+    "attivoTotale": 3261299000000,
+    "debitoLungo": 283279000000
    },
    {
     "anno": 2025,
@@ -3632,7 +7522,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0089,
     "utileNetto": 30509000000,
     "ricavi": 113097000000,
-    "patrimonioNetto": 303243000000
+    "patrimonioNetto": 303243000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 12516000000,
+    "ammortamento": 2314000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 12613000000,
+    "attivoTotale": 3411738000000,
+    "debitoLungo": 317816000000
    }
   ]
  },
@@ -3646,7 +7546,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 8057000000,
     "ricavi": null,
-    "patrimonioNetto": 47886000000
+    "patrimonioNetto": 47886000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1532000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9286000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -3655,7 +7565,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.002,
     "utileNetto": 2655000000,
     "ricavi": null,
-    "patrimonioNetto": 102316000000
+    "patrimonioNetto": 102316000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11269000000,
+    "ammortamento": 1669000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -4788000000,
+    "attivoTotale": 1309639000000,
+    "debitoLungo": 267158000000
    },
    {
     "anno": 2009,
@@ -3664,7 +7584,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 12275000000,
     "ricavi": null,
-    "patrimonioNetto": 114359000000
+    "patrimonioNetto": 114359000000,
+    "crediti": 20565000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 10736000000,
+    "ammortamento": 2841000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 28613000000,
+    "attivoTotale": 1243646000000,
+    "debitoLungo": 203861000000
    },
    {
     "anno": 2010,
@@ -3673,7 +7603,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0098,
     "utileNetto": 12362000000,
     "ricavi": null,
-    "patrimonioNetto": 127889000000
+    "patrimonioNetto": 127889000000,
+    "crediti": 23763000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9644000000,
+    "ammortamento": 1924000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 18772000000,
+    "attivoTotale": 1258128000000,
+    "debitoLungo": 156983000000
    },
    {
     "anno": 2011,
@@ -3682,7 +7622,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0121,
     "utileNetto": 15869000000,
     "ricavi": null,
-    "patrimonioNetto": 141687000000
+    "patrimonioNetto": 141687000000,
+    "crediti": 25939000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9531000000,
+    "ammortamento": 2208000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13665000000,
+    "attivoTotale": 1313867000000,
+    "debitoLungo": 125354000000
    },
    {
     "anno": 2012,
@@ -3691,7 +7641,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0133,
     "utileNetto": 18897000000,
     "ricavi": null,
-    "patrimonioNetto": 158911000000
+    "patrimonioNetto": 158911000000,
+    "crediti": 25828000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9428000000,
+    "ammortamento": 2807000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 58540000000,
+    "attivoTotale": 1422968000000,
+    "debitoLungo": 127379000000
    },
    {
     "anno": 2013,
@@ -3700,7 +7660,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0144,
     "utileNetto": 21878000000,
     "ricavi": null,
-    "patrimonioNetto": 171008000000
+    "patrimonioNetto": 171008000000,
+    "crediti": 21422000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9156000000,
+    "ammortamento": 3293000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 57641000000,
+    "attivoTotale": 1523502000000,
+    "debitoLungo": 152998000000
    },
    {
     "anno": 2014,
@@ -3709,7 +7679,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0137,
     "utileNetto": 23057000000,
     "ricavi": null,
-    "patrimonioNetto": 185262000000
+    "patrimonioNetto": 185262000000,
+    "crediti": 27151000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 8743000000,
+    "ammortamento": 2515000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1687155000000,
+    "debitoLungo": 183943000000
    },
    {
     "anno": 2015,
@@ -3718,7 +7698,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0128,
     "utileNetto": 22894000000,
     "ricavi": null,
-    "patrimonioNetto": 193891000000
+    "patrimonioNetto": 193891000000,
+    "crediti": 26251000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 8704000000,
+    "ammortamento": 3288000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1787632000000,
+    "debitoLungo": 199536000000
    },
    {
     "anno": 2016,
@@ -3727,7 +7717,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0114,
     "utileNetto": 21938000000,
     "ricavi": 88267000000,
-    "patrimonioNetto": 200497000000
+    "patrimonioNetto": 200497000000,
+    "crediti": 31056000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 8333000000,
+    "ammortamento": 4970000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1930115000000,
+    "debitoLungo": 255077000000
    },
    {
     "anno": 2017,
@@ -3736,7 +7736,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0114,
     "utileNetto": 22183000000,
     "ricavi": 88389000000,
-    "patrimonioNetto": 208079000000
+    "patrimonioNetto": 208079000000,
+    "crediti": 39127000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 8847000000,
+    "ammortamento": 5406000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 18619000000,
+    "attivoTotale": 1951757000000,
+    "debitoLungo": 225020000000
    },
    {
     "anno": 2018,
@@ -3745,7 +7755,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0118,
     "utileNetto": 22393000000,
     "ricavi": 86408000000,
-    "patrimonioNetto": 197066000000
+    "patrimonioNetto": 197066000000,
+    "crediti": 34281000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 8920000000,
+    "ammortamento": 5593000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 36073000000,
+    "attivoTotale": 1895883000000,
+    "debitoLungo": 229044000000
    },
    {
     "anno": 2019,
@@ -3754,7 +7774,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0102,
     "utileNetto": 19715000000,
     "ricavi": 85063000000,
-    "patrimonioNetto": 187702000000
+    "patrimonioNetto": 187702000000,
+    "crediti": 29137000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 9309000000,
+    "ammortamento": 6573000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6730000000,
+    "attivoTotale": 1927555000000,
+    "debitoLungo": 228191000000
    },
    {
     "anno": 2020,
@@ -3763,7 +7793,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0017,
     "utileNetto": 3377000000,
     "ricavi": null,
-    "patrimonioNetto": 184994000000
+    "patrimonioNetto": 184994000000,
+    "crediti": 38116000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8219000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2051000000,
+    "attivoTotale": 1952911000000,
+    "debitoLungo": 212950000000
    },
    {
     "anno": 2021,
@@ -3772,7 +7812,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0113,
     "utileNetto": 22109000000,
     "ricavi": null,
-    "patrimonioNetto": 189889000000
+    "patrimonioNetto": 189889000000,
+    "crediti": 20831000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7890000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -11525000000,
+    "attivoTotale": 1948068000000,
+    "debitoLungo": 160689000000
    },
    {
     "anno": 2022,
@@ -3781,7 +7831,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0073,
     "utileNetto": 13677000000,
     "ricavi": null,
-    "patrimonioNetto": 182213000000
+    "patrimonioNetto": 182213000000,
+    "crediti": 23646000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 6832000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 27048000000,
+    "attivoTotale": 1881020000000,
+    "debitoLungo": 174870000000
    },
    {
     "anno": 2023,
@@ -3790,7 +7850,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 19142000000,
     "ricavi": null,
-    "patrimonioNetto": 187443000000
+    "patrimonioNetto": 187443000000,
+    "crediti": 30541000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 6271000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 40358000000,
+    "attivoTotale": 1932468000000,
+    "debitoLungo": 207588000000
    },
    {
     "anno": 2024,
@@ -3799,7 +7869,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0102,
     "utileNetto": 19722000000,
     "ricavi": null,
-    "patrimonioNetto": 179120000000
+    "patrimonioNetto": 179120000000,
+    "crediti": 19608000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7558000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3035000000,
+    "attivoTotale": 1929845000000,
+    "debitoLungo": 173078000000
    },
    {
     "anno": 2025,
@@ -3808,7 +7888,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 21338000000,
     "ricavi": null,
-    "patrimonioNetto": 181117000000
+    "patrimonioNetto": 181117000000,
+    "crediti": 19651000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7713000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -19001000000,
+    "attivoTotale": 2148631000000,
+    "debitoLungo": 174712000000
    }
   ]
  },
@@ -3822,7 +7912,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 11599000000,
     "ricavi": null,
-    "patrimonioNetto": 42800000000
+    "patrimonioNetto": 42800000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -3831,7 +7931,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0026,
     "utileNetto": 2322000000,
     "ricavi": null,
-    "patrimonioNetto": 64369000000
+    "patrimonioNetto": 64369000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 884547000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -3840,7 +7950,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0158,
     "utileNetto": 13385000000,
     "ricavi": null,
-    "patrimonioNetto": 70714000000
+    "patrimonioNetto": 70714000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11380000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 848942000000,
+    "debitoLungo": 196288000000
    },
    {
     "anno": 2010,
@@ -3849,7 +7969,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0092,
     "utileNetto": 8354000000,
     "ricavi": null,
-    "patrimonioNetto": 77356000000
+    "patrimonioNetto": 77356000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11106000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 911332000000,
+    "debitoLungo": 188247000000
    },
    {
     "anno": 2011,
@@ -3858,7 +7988,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0048,
     "utileNetto": 4442000000,
     "ricavi": null,
-    "patrimonioNetto": 70379000000
+    "patrimonioNetto": 70379000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 8697000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 923225000000,
+    "debitoLungo": 181724000000
    },
    {
     "anno": 2012,
@@ -3867,7 +8007,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.008,
     "utileNetto": 7475000000,
     "ricavi": null,
-    "patrimonioNetto": 75716000000
+    "patrimonioNetto": 75716000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 938555000000,
+    "debitoLungo": 176270000000
    },
    {
     "anno": 2013,
@@ -3876,7 +8026,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0088,
     "utileNetto": 8040000000,
     "ricavi": null,
-    "patrimonioNetto": 78467000000
+    "patrimonioNetto": 78467000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 911124000000,
+    "debitoLungo": 168489000000
    },
    {
     "anno": 2014,
@@ -3885,7 +8045,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 8477000000,
     "ricavi": null,
-    "patrimonioNetto": 82797000000
+    "patrimonioNetto": 82797000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 855842000000,
+    "debitoLungo": 174551000000
    },
    {
     "anno": 2015,
@@ -3894,7 +8064,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0071,
     "utileNetto": 6083000000,
     "ricavi": null,
-    "patrimonioNetto": 86728000000
+    "patrimonioNetto": 86728000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 861395000000,
+    "debitoLungo": 185942000000
    },
    {
     "anno": 2016,
@@ -3903,7 +8083,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0086,
     "utileNetto": 7398000000,
     "ricavi": null,
-    "patrimonioNetto": 86893000000
+    "patrimonioNetto": 86893000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6494000000,
+    "attivoTotale": 860165000000,
+    "debitoLungo": 197491000000
    },
    {
     "anno": 2017,
@@ -3912,7 +8102,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0047,
     "utileNetto": 4286000000,
     "ricavi": null,
-    "patrimonioNetto": 82243000000
+    "patrimonioNetto": 82243000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -20489000000,
+    "attivoTotale": 916776000000,
+    "debitoLungo": 227579000000
    },
    {
     "anno": 2018,
@@ -3921,7 +8121,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0112,
     "utileNetto": 10459000000,
     "ricavi": null,
-    "patrimonioNetto": 90185000000
+    "patrimonioNetto": 90185000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 16564000000,
+    "attivoTotale": 931796000000,
+    "debitoLungo": 236027000000
    },
    {
     "anno": 2019,
@@ -3930,7 +8140,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0085,
     "utileNetto": 8466000000,
     "ricavi": null,
-    "patrimonioNetto": 90265000000
+    "patrimonioNetto": 90265000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 23868000000,
+    "attivoTotale": 992968000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -3939,7 +8159,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0081,
     "utileNetto": 9459000000,
     "ricavi": null,
-    "patrimonioNetto": 95932000000
+    "patrimonioNetto": 95932000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -18535000000,
+    "attivoTotale": 1163028000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -3948,7 +8178,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0148,
     "utileNetto": 21635000000,
     "ricavi": null,
-    "patrimonioNetto": 109926000000
+    "patrimonioNetto": 109926000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6298000000,
+    "attivoTotale": 1463988000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -3957,7 +8197,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0078,
     "utileNetto": 11261000000,
     "ricavi": null,
-    "patrimonioNetto": 117189000000
+    "patrimonioNetto": 117189000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 17074000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 8708000000,
+    "attivoTotale": 1441799000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -3966,7 +8216,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0052,
     "utileNetto": 8516000000,
     "ricavi": null,
-    "patrimonioNetto": 116905000000
+    "patrimonioNetto": 116905000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 11244000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -12587000000,
+    "attivoTotale": 1641594000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -3975,7 +8235,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0085,
     "utileNetto": 14276000000,
     "ricavi": null,
-    "patrimonioNetto": 121996000000
+    "patrimonioNetto": 121996000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 8024000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -13212000000,
+    "attivoTotale": 1675972000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -3984,7 +8254,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0095,
     "utileNetto": 17176000000,
     "ricavi": null,
-    "patrimonioNetto": 124972000000
+    "patrimonioNetto": 124972000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 7474000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -45154000000,
+    "attivoTotale": 1809320000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -3998,7 +8278,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 3209000000,
     "ricavi": 26478000000,
-    "patrimonioNetto": 32897000000
+    "patrimonioNetto": 32897000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -22249000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -4007,7 +8297,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0025,
     "utileNetto": 1707000000,
     "ricavi": 22140000000,
-    "patrimonioNetto": 49456000000
+    "patrimonioNetto": 49456000000,
+    "crediti": 29265000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5095000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 73417000000,
+    "attivoTotale": 676764000000,
+    "debitoLungo": 179835000000
    },
    {
     "anno": 2009,
@@ -4016,7 +8316,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0017,
     "utileNetto": 1346000000,
     "ricavi": 23280000000,
-    "patrimonioNetto": 52780000000
+    "patrimonioNetto": 52780000000,
+    "crediti": 27594000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 7067000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -45951000000,
+    "attivoTotale": 771462000000,
+    "debitoLungo": 193374000000
    },
    {
     "anno": 2010,
@@ -4025,7 +8335,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0058,
     "utileNetto": 4703000000,
     "ricavi": 31230000000,
-    "patrimonioNetto": 65407000000
+    "patrimonioNetto": 65407000000,
+    "crediti": 35258000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 6154000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 40614000000,
+    "attivoTotale": 807698000000,
+    "debitoLungo": 192457000000
    },
    {
     "anno": 2011,
@@ -4034,7 +8354,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0055,
     "utileNetto": 4110000000,
     "ricavi": 32227000000,
-    "patrimonioNetto": 70078000000
+    "patrimonioNetto": 70078000000,
+    "crediti": 33977000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 6457000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 15892000000,
+    "attivoTotale": 749898000000,
+    "debitoLungo": 184234000000
    },
    {
     "anno": 2012,
@@ -4043,7 +8373,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0001,
     "utileNetto": 68000000,
     "ricavi": 26178000000,
-    "patrimonioNetto": 65428000000
+    "patrimonioNetto": 65428000000,
+    "crediti": 46197000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5946000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 24548000000,
+    "attivoTotale": 780960000000,
+    "debitoLungo": 169571000000
    },
    {
     "anno": 2013,
@@ -4052,7 +8392,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0035,
     "utileNetto": 2932000000,
     "ricavi": 32493000000,
-    "patrimonioNetto": 69030000000
+    "patrimonioNetto": 69030000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 6019000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 832702000000,
+    "debitoLungo": 153575000000
    },
    {
     "anno": 2014,
@@ -4061,7 +8411,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0043,
     "utileNetto": 3467000000,
     "ricavi": 34275000000,
-    "patrimonioNetto": 72104000000
+    "patrimonioNetto": 72104000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 6108000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 801510000000,
+    "debitoLungo": 152772000000
    },
    {
     "anno": 2015,
@@ -4070,7 +8430,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0078,
     "utileNetto": 6127000000,
     "ricavi": null,
-    "patrimonioNetto": 76184000000
+    "patrimonioNetto": 76184000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 6373000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -4463000000,
+    "attivoTotale": 787465000000,
+    "debitoLungo": 153768000000
    },
    {
     "anno": 2016,
@@ -4079,7 +8449,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0073,
     "utileNetto": 5979000000,
     "ricavi": null,
-    "patrimonioNetto": 77177000000
+    "patrimonioNetto": 77177000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 5383000000,
+    "attivoTotale": 814949000000,
+    "debitoLungo": 164775000000
    },
    {
     "anno": 2017,
@@ -4088,7 +8468,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0072,
     "utileNetto": 6111000000,
     "ricavi": null,
-    "patrimonioNetto": 78466000000
+    "patrimonioNetto": 78466000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -4505000000,
+    "attivoTotale": 851733000000,
+    "debitoLungo": 191063000000
    },
    {
     "anno": 2018,
@@ -4097,7 +8487,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0102,
     "utileNetto": 8748000000,
     "ricavi": null,
-    "patrimonioNetto": 81406000000
+    "patrimonioNetto": 81406000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7305000000,
+    "attivoTotale": 853531000000,
+    "debitoLungo": 188117000000
    },
    {
     "anno": 2019,
@@ -4106,7 +8506,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0101,
     "utileNetto": 9042000000,
     "ricavi": null,
-    "patrimonioNetto": 82697000000
+    "patrimonioNetto": 82697000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 40773000000,
+    "attivoTotale": 895429000000,
+    "debitoLungo": 190060000000
    },
    {
     "anno": 2020,
@@ -4115,7 +8525,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 10996000000,
     "ricavi": null,
-    "patrimonioNetto": 103149000000
+    "patrimonioNetto": 103149000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -25231000000,
+    "attivoTotale": 1115862000000,
+    "debitoLungo": 213388000000
    },
    {
     "anno": 2021,
@@ -4124,7 +8544,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0127,
     "utileNetto": 15034000000,
     "ricavi": null,
-    "patrimonioNetto": 106598000000
+    "patrimonioNetto": 106598000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 33971000000,
+    "attivoTotale": 1188140000000,
+    "debitoLungo": 227363000000
    },
    {
     "anno": 2022,
@@ -4133,7 +8563,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0093,
     "utileNetto": 11029000000,
     "ricavi": null,
-    "patrimonioNetto": 101231000000
+    "patrimonioNetto": 101231000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -6397000000,
+    "attivoTotale": 1180231000000,
+    "debitoLungo": 233867000000
    },
    {
     "anno": 2023,
@@ -4142,7 +8582,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0076,
     "utileNetto": 9087000000,
     "ricavi": null,
-    "patrimonioNetto": 99982000000
+    "patrimonioNetto": 99982000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -33536000000,
+    "attivoTotale": 1193693000000,
+    "debitoLungo": 260544000000
    },
    {
     "anno": 2024,
@@ -4151,7 +8601,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.011,
     "utileNetto": 13390000000,
     "ricavi": null,
-    "patrimonioNetto": 104511000000
+    "patrimonioNetto": 104511000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1362000000,
+    "attivoTotale": 1215071000000,
+    "debitoLungo": 284307000000
    },
    {
     "anno": 2025,
@@ -4160,7 +8620,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0119,
     "utileNetto": 16861000000,
     "ricavi": null,
-    "patrimonioNetto": 111632000000
+    "patrimonioNetto": 111632000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -17889000000,
+    "attivoTotale": 1420270000000,
+    "debitoLungo": 341681000000
    }
   ]
  },
@@ -4174,7 +8644,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 3617000000,
     "ricavi": 77300000000,
-    "patrimonioNetto": 118755000000
+    "patrimonioNetto": 118755000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2421000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -4183,7 +8663,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0143,
     "utileNetto": -27684000000,
     "ricavi": 51599000000,
-    "patrimonioNetto": 144022000000
+    "patrimonioNetto": 144022000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2466000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1938470000000,
+    "debitoLungo": 359593000000
    },
    {
     "anno": 2009,
@@ -4192,7 +8682,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0009,
     "utileNetto": -1606000000,
     "ricavi": 80285000000,
-    "patrimonioNetto": 152700000000
+    "patrimonioNetto": 152700000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2853000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1856646000000,
+    "debitoLungo": 364019000000
    },
    {
     "anno": 2010,
@@ -4201,7 +8701,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0055,
     "utileNetto": 10602000000,
     "ricavi": 86601000000,
-    "patrimonioNetto": 165789000000
+    "patrimonioNetto": 165789000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2664000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1913902000000,
+    "debitoLungo": 381183000000
    },
    {
     "anno": 2011,
@@ -4210,7 +8720,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0059,
     "utileNetto": 11067000000,
     "ricavi": 77331000000,
-    "patrimonioNetto": 179573000000
+    "patrimonioNetto": 179573000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2872000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1873878000000,
+    "debitoLungo": 323505000000
    },
    {
     "anno": 2012,
@@ -4219,7 +8739,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.004,
     "utileNetto": 7541000000,
     "ricavi": 69190000000,
-    "patrimonioNetto": 190997000000
+    "patrimonioNetto": 190997000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2507000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1864660000000,
+    "debitoLungo": 239463000000
    },
    {
     "anno": 2013,
@@ -4228,7 +8758,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0073,
     "utileNetto": 13659000000,
     "ricavi": 76724000000,
-    "patrimonioNetto": 205786000000
+    "patrimonioNetto": 205786000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3303000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1880382000000,
+    "debitoLungo": 221116000000
    },
    {
     "anno": 2014,
@@ -4237,7 +8777,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.004,
     "utileNetto": 7310000000,
     "ricavi": 77219000000,
-    "patrimonioNetto": 211696000000
+    "patrimonioNetto": 211696000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3589000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1842181000000,
+    "debitoLungo": 223080000000
    },
    {
     "anno": 2015,
@@ -4246,7 +8796,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.01,
     "utileNetto": 17242000000,
     "ricavi": 76354000000,
-    "patrimonioNetto": 223092000000
+    "patrimonioNetto": 223092000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3506000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1731210000000,
+    "debitoLungo": 201275000000
    },
    {
     "anno": 2016,
@@ -4255,7 +8815,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0083,
     "utileNetto": 14912000000,
     "ricavi": 70797000000,
-    "patrimonioNetto": 226143000000
+    "patrimonioNetto": 226143000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3720000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1792077000000,
+    "debitoLungo": 206178000000
    },
    {
     "anno": 2017,
@@ -4264,7 +8834,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0037,
     "utileNetto": -6798000000,
     "ricavi": 72444000000,
-    "patrimonioNetto": 201672000000
+    "patrimonioNetto": 201672000000,
+    "crediti": null,
+    "costoVenduto": 7451000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3659000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 1842465000000,
+    "debitoLungo": 236709000000
    },
    {
     "anno": 2018,
@@ -4273,7 +8853,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0094,
     "utileNetto": 18045000000,
     "ricavi": 72854000000,
-    "patrimonioNetto": 197074000000
+    "patrimonioNetto": 197074000000,
+    "crediti": null,
+    "costoVenduto": 7568000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3754000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 36952000000,
+    "attivoTotale": 1917383000000,
+    "debitoLungo": 231999000000
    },
    {
     "anno": 2019,
@@ -4282,7 +8872,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 19401000000,
     "ricavi": 75067000000,
-    "patrimonioNetto": 193946000000
+    "patrimonioNetto": 193946000000,
+    "crediti": null,
+    "costoVenduto": 8383000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3905000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -12837000000,
+    "attivoTotale": 1951158000000,
+    "debitoLungo": 248760000000
    },
    {
     "anno": 2020,
@@ -4291,7 +8891,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0049,
     "utileNetto": 11047000000,
     "ricavi": 75501000000,
-    "patrimonioNetto": 200200000000
+    "patrimonioNetto": 200200000000,
+    "crediti": null,
+    "costoVenduto": 17495000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3937000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -23488000000,
+    "attivoTotale": 2260000000000,
+    "debitoLungo": 271686000000
    },
    {
     "anno": 2021,
@@ -4300,7 +8910,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0096,
     "utileNetto": 21952000000,
     "ricavi": 71884000000,
-    "patrimonioNetto": 202672000000
+    "patrimonioNetto": 202672000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3964000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 47090000000,
+    "attivoTotale": 2291000000000,
+    "debitoLungo": 254374000000
    },
    {
     "anno": 2022,
@@ -4309,7 +8929,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0061,
     "utileNetto": 14845000000,
     "ricavi": 75338000000,
-    "patrimonioNetto": 201838000000
+    "patrimonioNetto": 201838000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 4262000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 25069000000,
+    "attivoTotale": 2417000000000,
+    "debitoLungo": 271606000000
    },
    {
     "anno": 2023,
@@ -4318,7 +8948,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0038,
     "utileNetto": 9228000000,
     "ricavi": 78066000000,
-    "patrimonioNetto": 206251000000
+    "patrimonioNetto": 206251000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 4560000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -73416000000,
+    "attivoTotale": 2412000000000,
+    "debitoLungo": 286619000000
    },
    {
     "anno": 2024,
@@ -4327,7 +8967,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0054,
     "utileNetto": 12682000000,
     "ricavi": 80722000000,
-    "patrimonioNetto": 208598000000
+    "patrimonioNetto": 208598000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 4311000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -19669000000,
+    "attivoTotale": 2352945000000,
+    "debitoLungo": 287300000000
    },
    {
     "anno": 2025,
@@ -4336,7 +8986,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0054,
     "utileNetto": 14306000000,
     "ricavi": 85225000000,
-    "patrimonioNetto": 212291000000
+    "patrimonioNetto": 212291000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 4373000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -67632000000,
+    "attivoTotale": 2657202000000,
+    "debitoLungo": 315827000000
    }
   ]
  },
@@ -4350,7 +9010,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 2407000000,
     "ricavi": 4994000000,
-    "patrimonioNetto": 3732000000
+    "patrimonioNetto": 3732000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1746000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -4359,7 +9029,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0235,
     "utileNetto": 1212000000,
     "ricavi": 5150000000,
-    "patrimonioNetto": 4061000000
+    "patrimonioNetto": 4061000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 661000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2000000,
+    "attivoTotale": 51675000000,
+    "debitoLungo": 883000000
    },
    {
     "anno": 2009,
@@ -4368,7 +9048,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0104,
     "utileNetto": 787000000,
     "ricavi": 4193000000,
-    "patrimonioNetto": 5073000000
+    "patrimonioNetto": 5073000000,
+    "crediti": 327000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 641000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1437000000,
+    "attivoTotale": 75431000000,
+    "debitoLungo": 1512000000
    },
    {
     "anno": 2010,
@@ -4377,7 +9067,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0049,
     "utileNetto": 454000000,
     "ricavi": 4248000000,
-    "patrimonioNetto": 6226000000
+    "patrimonioNetto": 6226000000,
+    "crediti": 320000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 624000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": -9000000,
+    "attivoTotale": 92568000000,
+    "debitoLungo": 2006000000
    },
    {
     "anno": 2011,
@@ -4386,7 +9086,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.008,
     "utileNetto": 864000000,
     "ricavi": 4691000000,
-    "patrimonioNetto": 7714000000
+    "patrimonioNetto": 7714000000,
+    "crediti": 330000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 685000000,
+    "ammortamento": 135000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2464000000,
+    "attivoTotale": 108553000000,
+    "debitoLungo": 2001000000
    },
    {
     "anno": 2012,
@@ -4395,7 +9105,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0069,
     "utileNetto": 928000000,
     "ricavi": 4883000000,
-    "patrimonioNetto": 9589000000
+    "patrimonioNetto": 9589000000,
+    "crediti": 417000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 675000000,
+    "ammortamento": 149000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1266000000,
+    "attivoTotale": 133637000000,
+    "debitoLungo": 1632000000
    },
    {
     "anno": 2013,
@@ -4404,7 +9124,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0075,
     "utileNetto": 1071000000,
     "ricavi": 5435000000,
-    "patrimonioNetto": 10381000000
+    "patrimonioNetto": 10381000000,
+    "crediti": 328000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 790000000,
+    "ammortamento": 154000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 143642000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -4413,7 +9143,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0085,
     "utileNetto": 1321000000,
     "ricavi": 6058000000,
-    "patrimonioNetto": 11803000000
+    "patrimonioNetto": 11803000000,
+    "crediti": 359000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1039000000,
+    "ammortamento": 155000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 154642000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -4422,7 +9162,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0079,
     "utileNetto": 1447000000,
     "ricavi": 6380000000,
-    "patrimonioNetto": 13402000000
+    "patrimonioNetto": 13402000000,
+    "crediti": 388000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1145000000,
+    "ammortamento": 179000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 183705000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -4431,7 +9181,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0085,
     "utileNetto": 1889000000,
     "ricavi": 7478000000,
-    "patrimonioNetto": 16421000000
+    "patrimonioNetto": 16421000000,
+    "crediti": 451000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1299000000,
+    "ammortamento": 197000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3603000000,
+    "attivoTotale": 223383000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -4440,7 +9200,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0097,
     "utileNetto": 2354000000,
     "ricavi": 8618000000,
-    "patrimonioNetto": 18525000000
+    "patrimonioNetto": 18525000000,
+    "crediti": 461000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1471000000,
+    "ammortamento": 232000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -839000000,
+    "attivoTotale": 243274000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -4449,7 +9219,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0118,
     "utileNetto": 3507000000,
     "ricavi": 10132000000,
-    "patrimonioNetto": 20670000000
+    "patrimonioNetto": 20670000000,
+    "crediti": 410000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1769000000,
+    "ammortamento": 277000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 12456000000,
+    "attivoTotale": 296482000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -4458,7 +9238,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0126,
     "utileNetto": 3704000000,
     "ricavi": 10721000000,
-    "patrimonioNetto": 21745000000
+    "patrimonioNetto": 21745000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 2128000000,
+    "ammortamento": 322000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9325000000,
+    "attivoTotale": 294000000000,
+    "debitoLungo": 7430000000
    },
    {
     "anno": 2020,
@@ -4467,7 +9257,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.006,
     "utileNetto": 3299000000,
     "ricavi": 11691000000,
-    "patrimonioNetto": 56060000000
+    "patrimonioNetto": 56060000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 2883000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6852000000,
+    "attivoTotale": 549009000000,
+    "debitoLungo": 13632000000
    },
    {
     "anno": 2021,
@@ -4476,7 +9276,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0088,
     "utileNetto": 5855000000,
     "ricavi": 18520000000,
-    "patrimonioNetto": 56261000000
+    "patrimonioNetto": 56261000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2118000000,
+    "attivoTotale": 667270000000,
+    "debitoLungo": 18914000000
    },
    {
     "anno": 2022,
@@ -4485,7 +9295,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.013,
     "utileNetto": 7183000000,
     "ricavi": 20762000000,
-    "patrimonioNetto": 36608000000
+    "patrimonioNetto": 36608000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2057000000,
+    "attivoTotale": 551772000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -4494,7 +9314,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0103,
     "utileNetto": 5067000000,
     "ricavi": 18837000000,
-    "patrimonioNetto": 40958000000
+    "patrimonioNetto": 40958000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 19587000000,
+    "attivoTotale": 493178000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -4503,7 +9333,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0124,
     "utileNetto": 5942000000,
     "ricavi": 19606000000,
-    "patrimonioNetto": 48375000000
+    "patrimonioNetto": 48375000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2670000000,
+    "attivoTotale": 479843000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -4512,7 +9352,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.018,
     "utileNetto": 8852000000,
     "ricavi": 23921000000,
-    "patrimonioNetto": 49425000000
+    "patrimonioNetto": 49425000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 9311000000,
+    "attivoTotale": 490995000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -4526,7 +9376,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 5178000000,
     "ricavi": 11061000000,
-    "patrimonioNetto": 37876000000
+    "patrimonioNetto": 37876000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 418000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4956000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -4535,7 +9395,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0447,
     "utileNetto": 5502000000,
     "ricavi": 17859000000,
-    "patrimonioNetto": 39500000000
+    "patrimonioNetto": 39500000000,
+    "crediti": 3916000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1112000000,
+    "ammortamento": 427000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4165000000,
+    "attivoTotale": 123211000000,
+    "debitoLungo": 7918000000
    },
    {
     "anno": 2024,
@@ -4544,7 +9414,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0459,
     "utileNetto": 6369000000,
     "ricavi": 20407000000,
-    "patrimonioNetto": 47495000000
+    "patrimonioNetto": 47495000000,
+    "crediti": 4304000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1103000000,
+    "ammortamento": 529000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4956000000,
+    "attivoTotale": 138615000000,
+    "debitoLungo": 12314000000
    },
    {
     "anno": 2025,
@@ -4553,7 +9433,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0327,
     "utileNetto": 5553000000,
     "ricavi": 24216000000,
-    "patrimonioNetto": 55888000000
+    "patrimonioNetto": 55888000000,
+    "crediti": 5158000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 1256000000,
+    "ammortamento": 1126000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3927000000,
+    "attivoTotale": 169998000000,
+    "debitoLungo": 12768000000
    }
   ]
  },
@@ -4567,7 +9457,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 1013559000,
     "ricavi": 6772281000,
-    "patrimonioNetto": 1677762000
+    "patrimonioNetto": 1677762000,
+    "crediti": null,
+    "costoVenduto": 2527600000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 112586000,
+    "speseSga": 2424085000,
+    "flussoCassaOperativo": 1716951000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -4576,7 +9476,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1315,
     "utileNetto": 799491000,
     "ricavi": 6355055000,
-    "patrimonioNetto": 1353000000
+    "patrimonioNetto": 1353000000,
+    "crediti": 1060858000,
+    "costoVenduto": 2518430000,
+    "attivoCorrente": 2302723000,
+    "passivoCorrente": 2530703000,
+    "immobilizzazioniNette": 621062000,
+    "ammortamento": 478700000,
+    "speseSga": 2283595000,
+    "flussoCassaOperativo": 1178050000,
+    "attivoTotale": 6080142000,
+    "debitoLungo": 1197611000
    },
    {
     "anno": 2009,
@@ -4585,7 +9495,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1129,
     "utileNetto": 731000000,
     "ricavi": 5870000000,
-    "patrimonioNetto": 1929000000
+    "patrimonioNetto": 1929000000,
+    "crediti": 969662000,
+    "costoVenduto": 2339000000,
+    "attivoCorrente": 2936396000,
+    "passivoCorrente": 2451954000,
+    "immobilizzazioniNette": 579796000,
+    "ammortamento": 450000000,
+    "speseSga": 2113000000,
+    "flussoCassaOperativo": 1330000000,
+    "attivoTotale": 6475250000,
+    "debitoLungo": 1197791000
    },
    {
     "anno": 2010,
@@ -4594,7 +9514,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1175,
     "utileNetto": 828000000,
     "ricavi": 3639000000,
-    "patrimonioNetto": 2292000000
+    "patrimonioNetto": 2292000000,
+    "crediti": 973000000,
+    "costoVenduto": 1206000000,
+    "attivoCorrente": 3375000000,
+    "passivoCorrente": 2681000000,
+    "immobilizzazioniNette": 522000000,
+    "ammortamento": 108000000,
+    "speseSga": 1318000000,
+    "flussoCassaOperativo": 704000000,
+    "attivoTotale": 7047000000,
+    "debitoLungo": 1198000000
    },
    {
     "anno": 2011,
@@ -4603,7 +9533,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1376,
     "utileNetto": 911000000,
     "ricavi": 3954000000,
-    "patrimonioNetto": 1584000000
+    "patrimonioNetto": 1584000000,
+    "crediti": 702000000,
+    "costoVenduto": 1387000000,
+    "attivoCorrente": 4312000000,
+    "passivoCorrente": 3369000000,
+    "immobilizzazioniNette": 373000000,
+    "ammortamento": 126000000,
+    "speseSga": 1377000000,
+    "flussoCassaOperativo": 924000000,
+    "attivoTotale": 6620000000,
+    "debitoLungo": 798000000
    },
    {
     "anno": 2012,
@@ -4612,7 +9552,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.062,
     "utileNetto": 437000000,
     "ricavi": 4270000000,
-    "patrimonioNetto": 840000000
+    "patrimonioNetto": 840000000,
+    "crediti": 954000000,
+    "costoVenduto": 1433000000,
+    "attivoCorrente": 3899000000,
+    "passivoCorrente": 3667000000,
+    "immobilizzazioniNette": 368000000,
+    "ammortamento": 141000000,
+    "speseSga": 1578000000,
+    "flussoCassaOperativo": 730000000,
+    "attivoTotale": 7052000000,
+    "debitoLungo": 799000000
    },
    {
     "anno": 2013,
@@ -4621,7 +9571,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.227,
     "utileNetto": 1376000000,
     "ricavi": 4702000000,
-    "patrimonioNetto": 1344000000
+    "patrimonioNetto": 1344000000,
+    "crediti": 949000000,
+    "costoVenduto": 1564000000,
+    "attivoCorrente": 2941000000,
+    "passivoCorrente": 2372000000,
+    "immobilizzazioniNette": 249000000,
+    "ammortamento": 137000000,
+    "speseSga": 1631000000,
+    "flussoCassaOperativo": 782000000,
+    "attivoTotale": 6061000000,
+    "debitoLungo": 799000000
    },
    {
     "anno": 2014,
@@ -4630,7 +9590,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.017,
     "utileNetto": -115000000,
     "ricavi": 5051000000,
-    "patrimonioNetto": 539000000
+    "patrimonioNetto": 539000000,
+    "crediti": 932000000,
+    "costoVenduto": 1651000000,
+    "attivoCorrente": 3962000000,
+    "passivoCorrente": 3920000000,
+    "immobilizzazioniNette": 206000000,
+    "ammortamento": 134000000,
+    "speseSga": 3144000000,
+    "flussoCassaOperativo": 1209000000,
+    "attivoTotale": 6773000000,
+    "debitoLungo": 795000000
    },
    {
     "anno": 2015,
@@ -4639,7 +9609,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1413,
     "utileNetto": 1156000000,
     "ricavi": 5313000000,
-    "patrimonioNetto": 243000000
+    "patrimonioNetto": 243000000,
+    "crediti": 991000000,
+    "costoVenduto": 1718000000,
+    "attivoCorrente": 3296000000,
+    "passivoCorrente": 2908000000,
+    "immobilizzazioniNette": 270000000,
+    "ammortamento": 157000000,
+    "speseSga": 1532000000,
+    "flussoCassaOperativo": 356000000,
+    "attivoTotale": 8183000000,
+    "debitoLungo": 3468000000
    },
    {
     "anno": 2016,
@@ -4648,7 +9628,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2429,
     "utileNetto": 2106000000,
     "ricavi": 5661000000,
-    "patrimonioNetto": 701000000
+    "patrimonioNetto": 701000000,
+    "crediti": 1122000000,
+    "costoVenduto": 1773000000,
+    "attivoCorrente": 3671000000,
+    "passivoCorrente": 2611000000,
+    "immobilizzazioniNette": 271000000,
+    "ammortamento": 181000000,
+    "speseSga": 1467000000,
+    "flussoCassaOperativo": 1560000000,
+    "attivoTotale": 8669000000,
+    "debitoLungo": 3564000000
    },
    {
     "anno": 2017,
@@ -4657,7 +9647,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1587,
     "utileNetto": 1496000000,
     "ricavi": 6063000000,
-    "patrimonioNetto": 766000000
+    "patrimonioNetto": 766000000,
+    "crediti": 1319000000,
+    "costoVenduto": 1694000000,
+    "attivoCorrente": 4324000000,
+    "passivoCorrente": 3214000000,
+    "immobilizzazioniNette": 275000000,
+    "ammortamento": 180000000,
+    "speseSga": 1606000000,
+    "flussoCassaOperativo": 2016000000,
+    "attivoTotale": 9425000000,
+    "debitoLungo": 3170000000
    },
    {
     "anno": 2018,
@@ -4666,7 +9666,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2074,
     "utileNetto": 1958000000,
     "ricavi": 6258000000,
-    "patrimonioNetto": 684000000
+    "patrimonioNetto": 684000000,
+    "crediti": 1449000000,
+    "costoVenduto": 1838000000,
+    "attivoCorrente": 3587000000,
+    "passivoCorrente": 2630000000,
+    "immobilizzazioniNette": 270000000,
+    "ammortamento": 206000000,
+    "speseSga": 1424000000,
+    "flussoCassaOperativo": 2064000000,
+    "attivoTotale": 9441000000,
+    "debitoLungo": 3662000000
    },
    {
     "anno": 2019,
@@ -4675,7 +9685,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1871,
     "utileNetto": 2123000000,
     "ricavi": 6699000000,
-    "patrimonioNetto": 536000000
+    "patrimonioNetto": 536000000,
+    "crediti": 1577000000,
+    "costoVenduto": 1976000000,
+    "attivoCorrente": 4712000000,
+    "passivoCorrente": 3093000000,
+    "immobilizzazioniNette": 320000000,
+    "ammortamento": 204000000,
+    "speseSga": 1342000000,
+    "flussoCassaOperativo": 2776000000,
+    "attivoTotale": 11348000000,
+    "debitoLungo": 3948000000
    },
    {
     "anno": 2020,
@@ -4684,7 +9704,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1866,
     "utileNetto": 2339000000,
     "ricavi": 7442000000,
-    "patrimonioNetto": 571000000
+    "patrimonioNetto": 571000000,
+    "crediti": 1593000000,
+    "costoVenduto": 2094000000,
+    "attivoCorrente": 5988000000,
+    "passivoCorrente": 3587000000,
+    "immobilizzazioniNette": 284000000,
+    "ammortamento": 206000000,
+    "speseSga": 1541000000,
+    "flussoCassaOperativo": 3567000000,
+    "attivoTotale": 12537000000,
+    "debitoLungo": 4110000000
    },
    {
     "anno": 2021,
@@ -4693,7 +9723,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2013,
     "utileNetto": 3024000000,
     "ricavi": 8297000000,
-    "patrimonioNetto": 2107000000
+    "patrimonioNetto": 2107000000,
+    "crediti": 1650000000,
+    "costoVenduto": 2180000000,
+    "attivoCorrente": 8810000000,
+    "passivoCorrente": 3815000000,
+    "immobilizzazioniNette": 241000000,
+    "ammortamento": 178000000,
+    "speseSga": 1729000000,
+    "flussoCassaOperativo": 3598000000,
+    "attivoTotale": 15026000000,
+    "debitoLungo": 4114000000
    },
    {
     "anno": 2022,
@@ -4702,7 +9742,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0526,
     "utileNetto": 3248000000,
     "ricavi": 11181000000,
-    "patrimonioNetto": 36477000000
+    "patrimonioNetto": 36477000000,
+    "crediti": 2494000000,
+    "costoVenduto": 3753000000,
+    "attivoCorrente": 5667000000,
+    "passivoCorrente": 5999000000,
+    "immobilizzazioniNette": 297000000,
+    "ammortamento": 1013000000,
+    "speseSga": 3396000000,
+    "flussoCassaOperativo": 2603000000,
+    "attivoTotale": 61784000000,
+    "debitoLungo": 10730000000
    },
    {
     "anno": 2023,
@@ -4711,7 +9761,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0433,
     "utileNetto": 2626000000,
     "ricavi": 12497000000,
-    "patrimonioNetto": 34300000000
+    "patrimonioNetto": 34300000000,
+    "crediti": 2826000000,
+    "costoVenduto": 4141000000,
+    "attivoCorrente": 5143000000,
+    "passivoCorrente": 6125000000,
+    "immobilizzazioniNette": 258000000,
+    "ammortamento": 1143000000,
+    "speseSga": 3159000000,
+    "flussoCassaOperativo": 3710000000,
+    "attivoTotale": 60589000000,
+    "debitoLungo": 11412000000
    },
    {
     "anno": 2024,
@@ -4720,7 +9780,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.064,
     "utileNetto": 3852000000,
     "ricavi": 14208000000,
-    "patrimonioNetto": 33159000000
+    "patrimonioNetto": 33159000000,
+    "crediti": 2867000000,
+    "costoVenduto": 4361000000,
+    "attivoCorrente": 5459000000,
+    "passivoCorrente": 6392000000,
+    "immobilizzazioniNette": 265000000,
+    "ammortamento": 1173000000,
+    "speseSga": 3196000000,
+    "flussoCassaOperativo": 5689000000,
+    "attivoTotale": 60221000000,
+    "debitoLungo": 11394000000
    },
    {
     "anno": 2025,
@@ -4729,7 +9799,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0731,
     "utileNetto": 4471000000,
     "ricavi": 15336000000,
-    "patrimonioNetto": 31127000000
+    "patrimonioNetto": 31127000000,
+    "crediti": 3441000000,
+    "costoVenduto": 4563000000,
+    "attivoCorrente": 6296000000,
+    "passivoCorrente": 7637000000,
+    "immobilizzazioniNette": 278000000,
+    "ammortamento": 1179000000,
+    "speseSga": 3417000000,
+    "flussoCassaOperativo": 5651000000,
+    "attivoTotale": 61200000000,
+    "debitoLungo": 12370000000
    }
   ]
  },
@@ -4743,7 +9823,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 4012000000,
     "ricavi": null,
-    "patrimonioNetto": 11029000000
+    "patrimonioNetto": 11029000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 648000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8011000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -4752,7 +9842,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0214,
     "utileNetto": 2699000000,
     "ricavi": 28365000000,
-    "patrimonioNetto": 11841000000
+    "patrimonioNetto": 11841000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 2948000000,
+    "ammortamento": 712000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7773000000,
+    "attivoTotale": 126074000000,
+    "debitoLungo": 60041000000
    },
    {
     "anno": 2009,
@@ -4761,7 +9861,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.017,
     "utileNetto": 2130000000,
     "ricavi": 24523000000,
-    "patrimonioNetto": 12637000000
+    "patrimonioNetto": 12637000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 2782000000,
+    "ammortamento": 1070000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6337000000,
+    "attivoTotale": 125145000000,
+    "debitoLungo": 77300000000
    },
    {
     "anno": 2010,
@@ -4770,7 +9880,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0277,
     "utileNetto": 4057000000,
     "ricavi": 27819000000,
-    "patrimonioNetto": 18794000000
+    "patrimonioNetto": 18794000000,
+    "crediti": 36880000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 2905000000,
+    "ammortamento": 917000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8935000000,
+    "attivoTotale": 146689000000,
+    "debitoLungo": 66416000000
    },
    {
     "anno": 2011,
@@ -4779,7 +9899,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0322,
     "utileNetto": 4935000000,
     "ricavi": null,
-    "patrimonioNetto": 18794000000
+    "patrimonioNetto": 18794000000,
+    "crediti": 40452000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 3367000000,
+    "ammortamento": 918000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10475000000,
+    "attivoTotale": 153337000000,
+    "debitoLungo": 59570000000
    },
    {
     "anno": 2012,
@@ -4788,7 +9918,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0293,
     "utileNetto": 4482000000,
     "ricavi": null,
-    "patrimonioNetto": 18886000000
+    "patrimonioNetto": 18886000000,
+    "crediti": 42338000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 3635000000,
+    "ammortamento": 991000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 153140000000,
+    "debitoLungo": 58973000000
    },
    {
     "anno": 2013,
@@ -4797,7 +9937,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.035,
     "utileNetto": 5359000000,
     "ricavi": null,
-    "patrimonioNetto": 19496000000
+    "patrimonioNetto": 19496000000,
+    "crediti": 43777000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 3875000000,
+    "ammortamento": 1020000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 153000000000,
+    "debitoLungo": 55330000000
    },
    {
     "anno": 2014,
@@ -4806,7 +9956,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.037,
     "utileNetto": 5885000000,
     "ricavi": null,
-    "patrimonioNetto": 20673000000
+    "patrimonioNetto": 20673000000,
+    "crediti": 44386000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 3938000000,
+    "ammortamento": 1012000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 159000000000,
+    "debitoLungo": 57955000000
    },
    {
     "anno": 2015,
@@ -4815,7 +9975,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0321,
     "utileNetto": 5163000000,
     "ricavi": null,
-    "patrimonioNetto": 20673000000
+    "patrimonioNetto": 20673000000,
+    "crediti": 43671000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4108000000,
+    "ammortamento": 1043000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 161000000000,
+    "debitoLungo": 48061000000
    },
    {
     "anno": 2016,
@@ -4824,7 +9994,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0338,
     "utileNetto": 5375000000,
     "ricavi": 24235000000,
-    "patrimonioNetto": 20523000000
+    "patrimonioNetto": 20523000000,
+    "crediti": 46841000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4433000000,
+    "ammortamento": 1095000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 159000000000,
+    "debitoLungo": 46990000000
    },
    {
     "anno": 2017,
@@ -4833,7 +10013,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0152,
     "utileNetto": 2748000000,
     "ricavi": 24780000000,
-    "patrimonioNetto": 18261000000
+    "patrimonioNetto": 18261000000,
+    "crediti": 53526000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4329000000,
+    "ammortamento": 1321000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13540000000,
+    "attivoTotale": 181000000000,
+    "debitoLungo": 55804000000
    },
    {
     "anno": 2018,
@@ -4842,7 +10032,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0366,
     "utileNetto": 6921000000,
     "ricavi": 26607000000,
-    "patrimonioNetto": 22290000000
+    "patrimonioNetto": 22290000000,
+    "crediti": 55320000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4416000000,
+    "ammortamento": 1293000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8930000000,
+    "attivoTotale": 189000000000,
+    "debitoLungo": 58423000000
    },
    {
     "anno": 2019,
@@ -4851,7 +10051,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0341,
     "utileNetto": 6759000000,
     "ricavi": 28159000000,
-    "patrimonioNetto": 23071000000
+    "patrimonioNetto": 23071000000,
+    "crediti": 56794000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4834000000,
+    "ammortamento": 1188000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13632000000,
+    "attivoTotale": 198000000000,
+    "debitoLungo": 57835000000
    },
    {
     "anno": 2020,
@@ -4860,7 +10070,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0164,
     "utileNetto": 3135000000,
     "ricavi": 21974000000,
-    "patrimonioNetto": 22984000000
+    "patrimonioNetto": 22984000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5015000000,
+    "ammortamento": 1543000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5591000000,
+    "attivoTotale": 191000000000,
+    "debitoLungo": 42952000000
    },
    {
     "anno": 2021,
@@ -4869,7 +10089,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0426,
     "utileNetto": 8060000000,
     "ricavi": 27716000000,
-    "patrimonioNetto": 22177000000
+    "patrimonioNetto": 22177000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4988000000,
+    "ammortamento": 1695000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14645000000,
+    "attivoTotale": 189000000000,
+    "debitoLungo": 38675000000
    },
    {
     "anno": 2022,
@@ -4878,7 +10108,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0329,
     "utileNetto": 7514000000,
     "ricavi": 34219000000,
-    "patrimonioNetto": 24711000000
+    "patrimonioNetto": 24711000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5215000000,
+    "ammortamento": 1626000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 21079000000,
+    "attivoTotale": 228354000000,
+    "debitoLungo": 42573000000
    },
    {
     "anno": 2023,
@@ -4887,7 +10127,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0321,
     "utileNetto": 8374000000,
     "ricavi": 37218000000,
-    "patrimonioNetto": 28057000000
+    "patrimonioNetto": 28057000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5138000000,
+    "ammortamento": 1651000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 18559000000,
+    "attivoTotale": 261108000000,
+    "debitoLungo": 47866000000
    },
    {
     "anno": 2024,
@@ -4896,7 +10146,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0373,
     "utileNetto": 10129000000,
     "ricavi": 38825000000,
-    "patrimonioNetto": 30264000000
+    "patrimonioNetto": 30264000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5371000000,
+    "ammortamento": 1676000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14050000000,
+    "attivoTotale": 271461000000,
+    "debitoLungo": 49715000000
    },
    {
     "anno": 2025,
@@ -4905,7 +10165,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0361,
     "utileNetto": 10833000000,
     "ricavi": 41304000000,
-    "patrimonioNetto": 33474000000
+    "patrimonioNetto": 33474000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 6118000000,
+    "ammortamento": 1777000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 18428000000,
+    "attivoTotale": 300052000000,
+    "debitoLungo": 56387000000
    }
   ]
  },
@@ -4919,7 +10189,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": -1076000000,
     "ricavi": 3590000000,
-    "patrimonioNetto": -463000000
+    "patrimonioNetto": -463000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 505000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -4928,7 +10208,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.023,
     "utileNetto": 804000000,
     "ricavi": 6263000000,
-    "patrimonioNetto": 21141000000
+    "patrimonioNetto": 21141000000,
+    "crediti": 342000000,
+    "costoVenduto": null,
+    "attivoCorrente": 11174000000,
+    "passivoCorrente": 7165000000,
+    "immobilizzazioniNette": 1080000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 531000000,
+    "attivoTotale": 34981000000,
+    "debitoLungo": 55000000
    },
    {
     "anno": 2009,
@@ -4937,7 +10227,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0729,
     "utileNetto": 2353000000,
     "ricavi": 6911000000,
-    "patrimonioNetto": 23193000000
+    "patrimonioNetto": 23193000000,
+    "crediti": 444000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9241000000,
+    "passivoCorrente": 4442000000,
+    "immobilizzazioniNette": 1204000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 558000000,
+    "attivoTotale": 32281000000,
+    "debitoLungo": 44000000
    },
    {
     "anno": 2010,
@@ -4946,7 +10246,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0888,
     "utileNetto": 2966000000,
     "ricavi": 8065000000,
-    "patrimonioNetto": 25014000000
+    "patrimonioNetto": 25014000000,
+    "crediti": 476000000,
+    "costoVenduto": null,
+    "attivoCorrente": 8734000000,
+    "passivoCorrente": 3498000000,
+    "immobilizzazioniNette": 1357000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2691000000,
+    "attivoTotale": 33408000000,
+    "debitoLungo": 32000000
    },
    {
     "anno": 2011,
@@ -4955,7 +10265,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.105,
     "utileNetto": 3650000000,
     "ricavi": 9188000000,
-    "patrimonioNetto": 26437000000
+    "patrimonioNetto": 26437000000,
+    "crediti": 560000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9190000000,
+    "passivoCorrente": 3451000000,
+    "immobilizzazioniNette": 1541000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3872000000,
+    "attivoTotale": 34760000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -4964,7 +10284,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0536,
     "utileNetto": 2144000000,
     "ricavi": 10421000000,
-    "patrimonioNetto": 27630000000
+    "patrimonioNetto": 27630000000,
+    "crediti": 723000000,
+    "costoVenduto": null,
+    "attivoCorrente": 11786000000,
+    "passivoCorrente": 7954000000,
+    "immobilizzazioniNette": 1634000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 5009000000,
+    "attivoTotale": 40013000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -4973,7 +10303,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1385,
     "utileNetto": 4980000000,
     "ricavi": 11778000000,
-    "patrimonioNetto": 26870000000
+    "patrimonioNetto": 26870000000,
+    "crediti": 761000000,
+    "costoVenduto": null,
+    "attivoCorrente": 7822000000,
+    "passivoCorrente": 4335000000,
+    "immobilizzazioniNette": 1732000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3022000000,
+    "attivoTotale": 35956000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -4982,7 +10322,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.141,
     "utileNetto": 5438000000,
     "ricavi": 12702000000,
-    "patrimonioNetto": 27413000000
+    "patrimonioNetto": 27413000000,
+    "crediti": 822000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9562000000,
+    "passivoCorrente": 6006000000,
+    "immobilizzazioniNette": 1892000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7205000000,
+    "attivoTotale": 38569000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -4991,7 +10341,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1607,
     "utileNetto": 6328000000,
     "ricavi": 13880000000,
-    "patrimonioNetto": 29842000000
+    "patrimonioNetto": 29842000000,
+    "crediti": 847000000,
+    "costoVenduto": null,
+    "attivoCorrente": 10021000000,
+    "passivoCorrente": 5355000000,
+    "immobilizzazioniNette": 1888000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6584000000,
+    "attivoTotale": 39367000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2016,
@@ -5000,7 +10360,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0936,
     "utileNetto": 5991000000,
     "ricavi": 15082000000,
-    "patrimonioNetto": 32912000000
+    "patrimonioNetto": 32912000000,
+    "crediti": 1041000000,
+    "costoVenduto": null,
+    "attivoCorrente": 14313000000,
+    "passivoCorrente": 8046000000,
+    "immobilizzazioniNette": 2150000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 5574000000,
+    "attivoTotale": 64035000000,
+    "debitoLungo": 15882000000
    },
    {
     "anno": 2017,
@@ -5009,7 +10379,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0985,
     "utileNetto": 6699000000,
     "ricavi": 18358000000,
-    "patrimonioNetto": 32760000000
+    "patrimonioNetto": 32760000000,
+    "crediti": 1132000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19023000000,
+    "passivoCorrente": 9994000000,
+    "immobilizzazioniNette": 2253000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 9317000000,
+    "attivoTotale": 67977000000,
+    "debitoLungo": 16618000000
    },
    {
     "anno": 2018,
@@ -5018,7 +10398,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1488,
     "utileNetto": 10301000000,
     "ricavi": 20609000000,
-    "patrimonioNetto": 34006000000
+    "patrimonioNetto": 34006000000,
+    "crediti": 1208000000,
+    "costoVenduto": null,
+    "attivoCorrente": 18216000000,
+    "passivoCorrente": 11305000000,
+    "immobilizzazioniNette": 2472000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 12941000000,
+    "attivoTotale": 69225000000,
+    "debitoLungo": 16630000000
    },
    {
     "anno": 2019,
@@ -5027,7 +10417,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1665,
     "utileNetto": 12080000000,
     "ricavi": 22977000000,
-    "patrimonioNetto": 34684000000
+    "patrimonioNetto": 34684000000,
+    "crediti": 1542000000,
+    "costoVenduto": null,
+    "attivoCorrente": 20970000000,
+    "passivoCorrente": 13415000000,
+    "immobilizzazioniNette": 2695000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 12784000000,
+    "attivoTotale": 72574000000,
+    "debitoLungo": 16729000000
    },
    {
     "anno": 2020,
@@ -5036,7 +10436,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1343,
     "utileNetto": 10866000000,
     "ricavi": 21846000000,
-    "patrimonioNetto": 36210000000
+    "patrimonioNetto": 36210000000,
+    "crediti": 1618000000,
+    "costoVenduto": null,
+    "attivoCorrente": 27645000000,
+    "passivoCorrente": 14510000000,
+    "immobilizzazioniNette": 2737000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 10440000000,
+    "attivoTotale": 80919000000,
+    "debitoLungo": 21071000000
    },
    {
     "anno": 2021,
@@ -5045,7 +10455,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1485,
     "utileNetto": 12311000000,
     "ricavi": 24105000000,
-    "patrimonioNetto": 37589000000
+    "patrimonioNetto": 37589000000,
+    "crediti": 1968000000,
+    "costoVenduto": null,
+    "attivoCorrente": 27607000000,
+    "passivoCorrente": 15739000000,
+    "immobilizzazioniNette": 2715000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 15227000000,
+    "attivoTotale": 82896000000,
+    "debitoLungo": 19978000000
    },
    {
     "anno": 2022,
@@ -5054,7 +10474,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1749,
     "utileNetto": 14957000000,
     "ricavi": 29310000000,
-    "patrimonioNetto": 35581000000
+    "patrimonioNetto": 35581000000,
+    "crediti": 2020000000,
+    "costoVenduto": null,
+    "attivoCorrente": 30205000000,
+    "passivoCorrente": 20853000000,
+    "immobilizzazioniNette": 3223000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 18849000000,
+    "attivoTotale": 85501000000,
+    "debitoLungo": 20200000000
    },
    {
     "anno": 2023,
@@ -5063,7 +10493,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1909,
     "utileNetto": 17273000000,
     "ricavi": 32653000000,
-    "patrimonioNetto": 38733000000
+    "patrimonioNetto": 38733000000,
+    "crediti": 2291000000,
+    "costoVenduto": null,
+    "attivoCorrente": 33532000000,
+    "passivoCorrente": 23098000000,
+    "immobilizzazioniNette": 3425000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 20755000000,
+    "attivoTotale": 90499000000,
+    "debitoLungo": 20463000000
    },
    {
     "anno": 2024,
@@ -5072,7 +10512,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2089,
     "utileNetto": 19743000000,
     "ricavi": 35926000000,
-    "patrimonioNetto": 39137000000
+    "patrimonioNetto": 39137000000,
+    "crediti": 2561000000,
+    "costoVenduto": null,
+    "attivoCorrente": 34033000000,
+    "passivoCorrente": 26517000000,
+    "immobilizzazioniNette": 3824000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 19950000000,
+    "attivoTotale": 94511000000,
+    "debitoLungo": 20836000000
    },
    {
     "anno": 2025,
@@ -5081,7 +10531,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2013,
     "utileNetto": 20058000000,
     "ricavi": 40000000000,
-    "patrimonioNetto": 37909000000
+    "patrimonioNetto": 37909000000,
+    "crediti": 3126000000,
+    "costoVenduto": null,
+    "attivoCorrente": 37766000000,
+    "passivoCorrente": 35048000000,
+    "immobilizzazioniNette": 4236000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 23059000000,
+    "attivoTotale": 99627000000,
+    "debitoLungo": 19602000000
    }
   ]
  },
@@ -5095,7 +10555,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 1085886000,
     "ricavi": 4067599000,
-    "patrimonioNetto": 3032000000
+    "patrimonioNetto": 3032000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 769861000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -5104,7 +10574,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0392,
     "utileNetto": -254000000,
     "ricavi": 4992000000,
-    "patrimonioNetto": 1932000000
+    "patrimonioNetto": 1932000000,
+    "crediti": 639482000,
+    "costoVenduto": null,
+    "attivoCorrente": 4311507000,
+    "passivoCorrente": 2990451000,
+    "immobilizzazioniNette": 306798000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 413000000,
+    "attivoTotale": 6475849000,
+    "debitoLungo": 19387000
    },
    {
     "anno": 2009,
@@ -5113,7 +10593,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1959,
     "utileNetto": 1463000000,
     "ricavi": 5099000000,
-    "patrimonioNetto": 3512000000
+    "patrimonioNetto": 3512000000,
+    "crediti": 536000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5003000000,
+    "passivoCorrente": 3167000000,
+    "immobilizzazioniNette": 449000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1378000000,
+    "attivoTotale": 7470000000,
+    "debitoLungo": 22000000
    },
    {
     "anno": 2010,
@@ -5122,7 +10612,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2089,
     "utileNetto": 1846000000,
     "ricavi": 5539000000,
-    "patrimonioNetto": 5216000000
+    "patrimonioNetto": 5216000000,
+    "crediti": 650000000,
+    "costoVenduto": null,
+    "attivoCorrente": 6454000000,
+    "passivoCorrente": 3143000000,
+    "immobilizzazioniNette": 439000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1697000000,
+    "attivoTotale": 8837000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -5131,7 +10631,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1782,
     "utileNetto": 1906000000,
     "ricavi": 6714000000,
-    "patrimonioNetto": 5877000000
+    "patrimonioNetto": 5877000000,
+    "crediti": 808000000,
+    "costoVenduto": null,
+    "attivoCorrente": 7741000000,
+    "passivoCorrente": 4217000000,
+    "immobilizzazioniNette": 449000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2684000000,
+    "attivoTotale": 10693000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -5140,7 +10650,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2214,
     "utileNetto": 2759000000,
     "ricavi": 7391000000,
-    "patrimonioNetto": 6929000000
+    "patrimonioNetto": 6929000000,
+    "crediti": 925000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9357000000,
+    "passivoCorrente": 4906000000,
+    "immobilizzazioniNette": 472000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2948000000,
+    "attivoTotale": 12462000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -5149,7 +10669,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2188,
     "utileNetto": 3116000000,
     "ricavi": 8312000000,
-    "patrimonioNetto": 7495000000
+    "patrimonioNetto": 7495000000,
+    "crediti": 966000000,
+    "costoVenduto": null,
+    "attivoCorrente": 10950000000,
+    "passivoCorrente": 6032000000,
+    "immobilizzazioniNette": 526000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 4135000000,
+    "attivoTotale": 14242000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2014,
@@ -5158,7 +10688,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.236,
     "utileNetto": 3617000000,
     "ricavi": 9441000000,
-    "patrimonioNetto": 6824000000
+    "patrimonioNetto": 6824000000,
+    "crediti": 1109000000,
+    "costoVenduto": null,
+    "attivoCorrente": 10997000000,
+    "passivoCorrente": 6222000000,
+    "immobilizzazioniNette": 615000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3407000000,
+    "attivoTotale": 15329000000,
+    "debitoLungo": 1494000000
    },
    {
     "anno": 2015,
@@ -5167,7 +10707,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2343,
     "utileNetto": 3808000000,
     "ricavi": 9667000000,
-    "patrimonioNetto": 6062000000
+    "patrimonioNetto": 6062000000,
+    "crediti": 1079000000,
+    "costoVenduto": null,
+    "attivoCorrente": 10984000000,
+    "passivoCorrente": 6269000000,
+    "immobilizzazioniNette": 675000000,
+    "ammortamento": 366000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4101000000,
+    "attivoTotale": 16250000000,
+    "debitoLungo": 3268000000
    },
    {
     "anno": 2016,
@@ -5176,7 +10726,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2173,
     "utileNetto": 4059000000,
     "ricavi": 10776000000,
-    "patrimonioNetto": 5684000000
+    "patrimonioNetto": 5684000000,
+    "crediti": 1416000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13228000000,
+    "passivoCorrente": 7206000000,
+    "immobilizzazioniNette": 733000000,
+    "ammortamento": 373000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4637000000,
+    "attivoTotale": 18675000000,
+    "debitoLungo": 5180000000
    },
    {
     "anno": 2017,
@@ -5185,7 +10745,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1836,
     "utileNetto": 3915000000,
     "ricavi": 12497000000,
-    "patrimonioNetto": 5497000000
+    "patrimonioNetto": 5497000000,
+    "crediti": 1969000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13797000000,
+    "passivoCorrente": 8793000000,
+    "immobilizzazioniNette": 829000000,
+    "ammortamento": 437000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5664000000,
+    "attivoTotale": 21329000000,
+    "debitoLungo": 5424000000
    },
    {
     "anno": 2018,
@@ -5194,7 +10764,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2357,
     "utileNetto": 5859000000,
     "ricavi": 14950000000,
-    "patrimonioNetto": 5418000000
+    "patrimonioNetto": 5418000000,
+    "crediti": 2276000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16171000000,
+    "passivoCorrente": 11593000000,
+    "immobilizzazioniNette": 921000000,
+    "ammortamento": 459000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6223000000,
+    "attivoTotale": 24860000000,
+    "debitoLungo": 5834000000
    },
    {
     "anno": 2019,
@@ -5203,7 +10783,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2777,
     "utileNetto": 8118000000,
     "ricavi": 16883000000,
-    "patrimonioNetto": 5917000000
+    "patrimonioNetto": 5917000000,
+    "crediti": 2514000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16902000000,
+    "passivoCorrente": 11904000000,
+    "immobilizzazioniNette": 1828000000,
+    "ammortamento": 522000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8183000000,
+    "attivoTotale": 29236000000,
+    "debitoLungo": 8527000000
    },
    {
     "anno": 2020,
@@ -5212,7 +10802,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1909,
     "utileNetto": 6411000000,
     "ricavi": 15301000000,
-    "patrimonioNetto": 6488000000
+    "patrimonioNetto": 6488000000,
+    "crediti": 2646000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19113000000,
+    "passivoCorrente": 11847000000,
+    "immobilizzazioniNette": 1902000000,
+    "ammortamento": 580000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7224000000,
+    "attivoTotale": 33584000000,
+    "debitoLungo": 12023000000
    },
    {
     "anno": 2021,
@@ -5221,7 +10821,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2306,
     "utileNetto": 8687000000,
     "ricavi": 18884000000,
-    "patrimonioNetto": 7383000000
+    "patrimonioNetto": 7383000000,
+    "crediti": 3006000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16949000000,
+    "passivoCorrente": 13162000000,
+    "immobilizzazioniNette": 1907000000,
+    "ammortamento": 726000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9463000000,
+    "attivoTotale": 37669000000,
+    "debitoLungo": 13109000000
    },
    {
     "anno": 2022,
@@ -5230,7 +10840,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2564,
     "utileNetto": 9930000000,
     "ricavi": 22237000000,
-    "patrimonioNetto": 6356000000
+    "patrimonioNetto": 6356000000,
+    "crediti": 3425000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16606000000,
+    "passivoCorrente": 14171000000,
+    "immobilizzazioniNette": 2006000000,
+    "ammortamento": 750000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 11195000000,
+    "attivoTotale": 38724000000,
+    "debitoLungo": 13749000000
    },
    {
     "anno": 2023,
@@ -5239,7 +10859,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2637,
     "utileNetto": 11195000000,
     "ricavi": 25098000000,
-    "patrimonioNetto": 6975000000
+    "patrimonioNetto": 6975000000,
+    "crediti": 4060000000,
+    "costoVenduto": null,
+    "attivoCorrente": 18961000000,
+    "passivoCorrente": 16264000000,
+    "immobilizzazioniNette": 2061000000,
+    "ammortamento": 799000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 11980000000,
+    "attivoTotale": 42448000000,
+    "debitoLungo": 14344000000
    },
    {
     "anno": 2024,
@@ -5248,7 +10878,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2678,
     "utileNetto": 12874000000,
     "ricavi": 28167000000,
-    "patrimonioNetto": 6485000000
+    "patrimonioNetto": 6485000000,
+    "crediti": 3773000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19724000000,
+    "passivoCorrente": 19220000000,
+    "immobilizzazioniNette": 2138000000,
+    "ammortamento": 897000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14780000000,
+    "attivoTotale": 48081000000,
+    "debitoLungo": 17476000000
    },
    {
     "anno": 2025,
@@ -5257,7 +10897,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2764,
     "utileNetto": 14968000000,
     "ricavi": 32791000000,
-    "patrimonioNetto": 7737000000
+    "patrimonioNetto": 7737000000,
+    "crediti": 4609000000,
+    "costoVenduto": null,
+    "attivoCorrente": 23558000000,
+    "passivoCorrente": 22762000000,
+    "immobilizzazioniNette": 2303000000,
+    "ammortamento": 1143000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 17648000000,
+    "attivoTotale": 54157000000,
+    "debitoLungo": 18251000000
    }
   ]
  },
@@ -5271,7 +10921,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 955000000,
     "ricavi": 6727000000,
-    "patrimonioNetto": 7390000000
+    "patrimonioNetto": 7390000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 453000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1993000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -5280,7 +10940,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0191,
     "utileNetto": 419000000,
     "ricavi": 8025000000,
-    "patrimonioNetto": 8248000000
+    "patrimonioNetto": 8248000000,
+    "crediti": 65000000,
+    "costoVenduto": null,
+    "attivoCorrente": 17565000000,
+    "passivoCorrente": 13283000000,
+    "immobilizzazioniNette": 922000000,
+    "ammortamento": 516000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2220000000,
+    "attivoTotale": 21917000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -5289,7 +10959,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0425,
     "utileNetto": 1228000000,
     "ricavi": 9248000000,
-    "patrimonioNetto": 13759000000
+    "patrimonioNetto": 13759000000,
+    "crediti": 137000000,
+    "costoVenduto": null,
+    "attivoCorrente": 20648000000,
+    "passivoCorrente": 13617000000,
+    "immobilizzazioniNette": 1344000000,
+    "ammortamento": 608000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2546000000,
+    "attivoTotale": 28881000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -5298,7 +10978,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0423,
     "utileNetto": 1401000000,
     "ricavi": 10842000000,
-    "patrimonioNetto": 14712000000
+    "patrimonioNetto": 14712000000,
+    "crediti": 214000000,
+    "costoVenduto": null,
+    "attivoCorrente": 25733000000,
+    "passivoCorrente": 16878000000,
+    "immobilizzazioniNette": 1482000000,
+    "ammortamento": 724000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3158000000,
+    "attivoTotale": 33103000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -5307,7 +10997,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.044,
     "utileNetto": 1795000000,
     "ricavi": 13094000000,
-    "patrimonioNetto": 15994000000
+    "patrimonioNetto": 15994000000,
+    "crediti": 283000000,
+    "costoVenduto": null,
+    "attivoCorrente": 32645000000,
+    "passivoCorrente": 22863000000,
+    "immobilizzazioniNette": 1528000000,
+    "ammortamento": 805000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2531000000,
+    "attivoTotale": 40774000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -5316,7 +11016,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0475,
     "utileNetto": 2057000000,
     "ricavi": 15451000000,
-    "patrimonioNetto": 15386000000
+    "patrimonioNetto": 15386000000,
+    "crediti": 313000000,
+    "costoVenduto": null,
+    "attivoCorrente": 32963000000,
+    "passivoCorrente": 25904000000,
+    "immobilizzazioniNette": 1724000000,
+    "ammortamento": 776000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5480000000,
+    "attivoTotale": 43332000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2019,
@@ -5325,7 +11035,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0479,
     "utileNetto": 2459000000,
     "ricavi": 17772000000,
-    "patrimonioNetto": 16929000000
+    "patrimonioNetto": 16929000000,
+    "crediti": 435000000,
+    "costoVenduto": null,
+    "attivoCorrente": 38495000000,
+    "passivoCorrente": 26919000000,
+    "immobilizzazioniNette": 1693000000,
+    "ammortamento": 912000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4071000000,
+    "attivoTotale": 51333000000,
+    "debitoLungo": 4965000000
    },
    {
     "anno": 2020,
@@ -5334,7 +11054,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0597,
     "utileNetto": 4202000000,
     "ricavi": 21454000000,
-    "patrimonioNetto": 20063000000
+    "patrimonioNetto": 20063000000,
+    "crediti": 577000000,
+    "costoVenduto": null,
+    "attivoCorrente": 50995000000,
+    "passivoCorrente": 38447000000,
+    "immobilizzazioniNette": 1807000000,
+    "ammortamento": 1189000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6219000000,
+    "attivoTotale": 70379000000,
+    "debitoLungo": 8939000000
    },
    {
     "anno": 2021,
@@ -5343,7 +11073,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.055,
     "utileNetto": 4169000000,
     "ricavi": 25371000000,
-    "patrimonioNetto": 21727000000
+    "patrimonioNetto": 21727000000,
+    "crediti": 800000000,
+    "costoVenduto": null,
+    "attivoCorrente": 52574000000,
+    "passivoCorrente": 43029000000,
+    "immobilizzazioniNette": 1909000000,
+    "ammortamento": 1265000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5797000000,
+    "attivoTotale": 75803000000,
+    "debitoLungo": 8049000000
    },
    {
     "anno": 2022,
@@ -5352,7 +11092,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0308,
     "utileNetto": 2419000000,
     "ricavi": 27518000000,
-    "patrimonioNetto": 20274000000
+    "patrimonioNetto": 20274000000,
+    "crediti": 963000000,
+    "costoVenduto": null,
+    "attivoCorrente": 57424000000,
+    "passivoCorrente": 45008000000,
+    "immobilizzazioniNette": 1730000000,
+    "ammortamento": 1317000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5813000000,
+    "attivoTotale": 78624000000,
+    "debitoLungo": 10417000000
    },
    {
     "anno": 2023,
@@ -5361,7 +11111,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0517,
     "utileNetto": 4246000000,
     "ricavi": 29771000000,
-    "patrimonioNetto": 21051000000
+    "patrimonioNetto": 21051000000,
+    "crediti": 1069000000,
+    "costoVenduto": null,
+    "attivoCorrente": 62569000000,
+    "passivoCorrente": 48466000000,
+    "immobilizzazioniNette": 1488000000,
+    "ammortamento": 1072000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4843000000,
+    "attivoTotale": 82166000000,
+    "debitoLungo": 9676000000
    },
    {
     "anno": 2024,
@@ -5370,7 +11130,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0527,
     "utileNetto": 4147000000,
     "ricavi": 31797000000,
-    "patrimonioNetto": 20417000000
+    "patrimonioNetto": 20417000000,
+    "crediti": 984000000,
+    "costoVenduto": null,
+    "attivoCorrente": 58206000000,
+    "passivoCorrente": 45490000000,
+    "immobilizzazioniNette": 1508000000,
+    "ammortamento": 1032000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7450000000,
+    "attivoTotale": 78725000000,
+    "debitoLungo": 9879000000
    },
    {
     "anno": 2025,
@@ -5379,7 +11149,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0653,
     "utileNetto": 5233000000,
     "ricavi": 33172000000,
-    "patrimonioNetto": 20256000000
+    "patrimonioNetto": 20256000000,
+    "crediti": 840000000,
+    "costoVenduto": null,
+    "attivoCorrente": 59759000000,
+    "passivoCorrente": 46443000000,
+    "immobilizzazioniNette": 1700000000,
+    "ammortamento": 963000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6416000000,
+    "attivoTotale": 80173000000,
+    "debitoLungo": 9987000000
    }
   ]
  },
@@ -5393,7 +11173,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0187,
     "utileNetto": 4994000000,
     "ricavi": 107786000000,
-    "patrimonioNetto": 109267000000
+    "patrimonioNetto": 109267000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2810000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 11252000000,
+    "attivoTotale": 267399000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -5402,7 +11192,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0271,
     "utileNetto": 8055000000,
     "ricavi": 112493000000,
-    "patrimonioNetto": 135785000000
+    "patrimonioNetto": 135785000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3127000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15846000000,
+    "attivoTotale": 297119000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -5411,7 +11211,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0348,
     "utileNetto": 12967000000,
     "ricavi": 136185000000,
-    "patrimonioNetto": 162934000000
+    "patrimonioNetto": 162934000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 4279000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 17895000000,
+    "attivoTotale": 372229000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -5420,7 +11230,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0261,
     "utileNetto": 10254000000,
     "ricavi": 143688000000,
-    "patrimonioNetto": 168961000000
+    "patrimonioNetto": 168961000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 5492000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 392647000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -5429,7 +11249,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0347,
     "utileNetto": 14824000000,
     "ricavi": 162463000000,
-    "patrimonioNetto": 191588000000
+    "patrimonioNetto": 191588000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 6154000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 427452000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -5438,7 +11268,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0402,
     "utileNetto": 19476000000,
     "ricavi": 182150000000,
-    "patrimonioNetto": 224485000000
+    "patrimonioNetto": 224485000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 6508000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 484624000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -5447,7 +11287,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0378,
     "utileNetto": 19872000000,
     "ricavi": 194699000000,
-    "patrimonioNetto": 242096000000
+    "patrimonioNetto": 242096000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7370000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 525867000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -5456,7 +11306,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0436,
     "utileNetto": 24083000000,
     "ricavi": 210943000000,
-    "patrimonioNetto": 257696000000
+    "patrimonioNetto": 257696000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7779000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 31491000000,
+    "attivoTotale": 552257000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -5465,7 +11325,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0388,
     "utileNetto": 24074000000,
     "ricavi": 215114000000,
-    "patrimonioNetto": 285428000000
+    "patrimonioNetto": 285428000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8901000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 32647000000,
+    "attivoTotale": 620854000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -5474,7 +11344,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.064,
     "utileNetto": 44940000000,
     "ricavi": 239933000000,
-    "patrimonioNetto": 351954000000
+    "patrimonioNetto": 351954000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 9188000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 45728000000,
+    "attivoTotale": 702095000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -5483,7 +11363,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0057,
     "utileNetto": 4021000000,
     "ricavi": 247837000000,
-    "patrimonioNetto": 352500000000
+    "patrimonioNetto": 352500000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 9779000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 37400000000,
+    "attivoTotale": 707794000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -5492,7 +11382,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0996,
     "utileNetto": 81417000000,
     "ricavi": 254616000000,
-    "patrimonioNetto": 428563000000
+    "patrimonioNetto": 428563000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 10064000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 38687000000,
+    "attivoTotale": 817729000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -5501,7 +11401,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0487,
     "utileNetto": 42521000000,
     "ricavi": 245579000000,
-    "patrimonioNetto": 444908000000
+    "patrimonioNetto": 444908000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 10596000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 39773000000,
+    "attivoTotale": 873729000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -5510,7 +11420,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0937,
     "utileNetto": 89937000000,
     "ricavi": 276185000000,
-    "patrimonioNetto": 510299000000
+    "patrimonioNetto": 510299000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 10718000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 39427000000,
+    "attivoTotale": 959388000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -5519,7 +11439,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.024,
     "utileNetto": -22759000000,
     "ricavi": 302020000000,
-    "patrimonioNetto": 481681000000
+    "patrimonioNetto": 481681000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 10899000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 37350000000,
+    "attivoTotale": 948465000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -5528,7 +11458,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0899,
     "utileNetto": 96223000000,
     "ricavi": 364482000000,
-    "patrimonioNetto": 567509000000
+    "patrimonioNetto": 567509000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 12486000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 49196000000,
+    "attivoTotale": 1069978000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -5537,7 +11477,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0771,
     "utileNetto": 88995000000,
     "ricavi": 371433000000,
-    "patrimonioNetto": 649368000000
+    "patrimonioNetto": 649368000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 12855000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 30592000000,
+    "attivoTotale": 1153881000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -5546,7 +11496,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0548,
     "utileNetto": 66968000000,
     "ricavi": 371444000000,
-    "patrimonioNetto": 717419000000
+    "patrimonioNetto": 717419000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 13476000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 45969000000,
+    "attivoTotale": 1222176000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -5560,7 +11520,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 10576000000,
     "ricavi": null,
-    "patrimonioNetto": 43319000000
+    "patrimonioNetto": 43319000000,
+    "crediti": null,
+    "costoVenduto": 17751000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2777000000,
+    "speseSga": 20451000000,
+    "flussoCassaOperativo": 15022000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -5569,7 +11539,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1525,
     "utileNetto": 12949000000,
     "ricavi": null,
-    "patrimonioNetto": 42511000000
+    "patrimonioNetto": 42511000000,
+    "crediti": 9719000000,
+    "costoVenduto": 18511000000,
+    "attivoCorrente": 34377000000,
+    "passivoCorrente": 20852000000,
+    "immobilizzazioniNette": 14365000000,
+    "ammortamento": 2832000000,
+    "speseSga": 21490000000,
+    "flussoCassaOperativo": 14972000000,
+    "attivoTotale": 84912000000,
+    "debitoLungo": 8120000000
    },
    {
     "anno": 2010,
@@ -5578,7 +11558,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1295,
     "utileNetto": 12266000000,
     "ricavi": null,
-    "patrimonioNetto": 50588000000
+    "patrimonioNetto": 50588000000,
+    "crediti": 9646000000,
+    "costoVenduto": 18447000000,
+    "attivoCorrente": 39541000000,
+    "passivoCorrente": 21731000000,
+    "immobilizzazioniNette": 14759000000,
+    "ammortamento": 2774000000,
+    "speseSga": 19801000000,
+    "flussoCassaOperativo": 16571000000,
+    "attivoTotale": 94682000000,
+    "debitoLungo": 8223000000
    },
    {
     "anno": 2011,
@@ -5587,7 +11577,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1296,
     "utileNetto": 13334000000,
     "ricavi": null,
-    "patrimonioNetto": 56579000000
+    "patrimonioNetto": 56579000000,
+    "crediti": 9774000000,
+    "costoVenduto": 18792000000,
+    "attivoCorrente": 47307000000,
+    "passivoCorrente": 23072000000,
+    "immobilizzazioniNette": 14553000000,
+    "ammortamento": 2939000000,
+    "speseSga": 19424000000,
+    "flussoCassaOperativo": 16385000000,
+    "attivoTotale": 102908000000,
+    "debitoLungo": 9156000000
    },
    {
     "anno": 2012,
@@ -5596,7 +11596,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0894,
     "utileNetto": 10853000000,
     "ricavi": null,
-    "patrimonioNetto": 64826000000
+    "patrimonioNetto": 64826000000,
+    "crediti": 11309000000,
+    "costoVenduto": 21658000000,
+    "attivoCorrente": 46116000000,
+    "passivoCorrente": 24262000000,
+    "immobilizzazioniNette": 14739000000,
+    "ammortamento": 3666000000,
+    "speseSga": 20869000000,
+    "flussoCassaOperativo": 15396000000,
+    "attivoTotale": 121347000000,
+    "debitoLungo": 11489000000
    },
    {
     "anno": 2013,
@@ -5605,7 +11615,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1042,
     "utileNetto": 13831000000,
     "ricavi": null,
-    "patrimonioNetto": 74053000000
+    "patrimonioNetto": 74053000000,
+    "crediti": 11713000000,
+    "costoVenduto": 22342000000,
+    "attivoCorrente": 56407000000,
+    "passivoCorrente": 25675000000,
+    "immobilizzazioniNette": 16710000000,
+    "ammortamento": 4104000000,
+    "speseSga": 21830000000,
+    "flussoCassaOperativo": 17414000000,
+    "attivoTotale": 132683000000,
+    "debitoLungo": 13328000000
    },
    {
     "anno": 2014,
@@ -5614,7 +11634,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1252,
     "utileNetto": 16323000000,
     "ricavi": null,
-    "patrimonioNetto": 69752000000
+    "patrimonioNetto": 69752000000,
+    "crediti": 10985000000,
+    "costoVenduto": 22746000000,
+    "attivoCorrente": 55744000000,
+    "passivoCorrente": 25031000000,
+    "immobilizzazioniNette": 16126000000,
+    "ammortamento": 3895000000,
+    "speseSga": 21954000000,
+    "flussoCassaOperativo": 18710000000,
+    "attivoTotale": 130358000000,
+    "debitoLungo": 15122000000
    },
    {
     "anno": 2016,
@@ -5623,7 +11653,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1155,
     "utileNetto": 15409000000,
     "ricavi": null,
-    "patrimonioNetto": 71150000000
+    "patrimonioNetto": 71150000000,
+    "crediti": 10734000000,
+    "costoVenduto": 21536000000,
+    "attivoCorrente": 60210000000,
+    "passivoCorrente": 27747000000,
+    "immobilizzazioniNette": 15905000000,
+    "ammortamento": 3746000000,
+    "speseSga": 21203000000,
+    "flussoCassaOperativo": 19569000000,
+    "attivoTotale": 133411000000,
+    "debitoLungo": 12857000000
    },
    {
     "anno": 2017,
@@ -5632,7 +11672,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0083,
     "utileNetto": 1300000000,
     "ricavi": 76450000000,
-    "patrimonioNetto": 60160000000
+    "patrimonioNetto": 60160000000,
+    "crediti": 13490000000,
+    "costoVenduto": 25439000000,
+    "attivoCorrente": 43088000000,
+    "passivoCorrente": 30537000000,
+    "immobilizzazioniNette": 17005000000,
+    "ammortamento": 5642000000,
+    "speseSga": 21520000000,
+    "flussoCassaOperativo": 21056000000,
+    "attivoTotale": 157303000000,
+    "debitoLungo": 30675000000
    },
    {
     "anno": 2018,
@@ -5641,7 +11691,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1,
     "utileNetto": 15297000000,
     "ricavi": 81581000000,
-    "patrimonioNetto": 59752000000
+    "patrimonioNetto": 59752000000,
+    "crediti": 14098000000,
+    "costoVenduto": 27091000000,
+    "attivoCorrente": 46033000000,
+    "passivoCorrente": 31230000000,
+    "immobilizzazioniNette": 17035000000,
+    "ammortamento": 6929000000,
+    "speseSga": 22540000000,
+    "flussoCassaOperativo": 22201000000,
+    "attivoTotale": 152954000000,
+    "debitoLungo": 27684000000
    },
    {
     "anno": 2019,
@@ -5650,7 +11710,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0959,
     "utileNetto": 15119000000,
     "ricavi": 82059000000,
-    "patrimonioNetto": 59471000000
+    "patrimonioNetto": 59471000000,
+    "crediti": 14481000000,
+    "costoVenduto": 27556000000,
+    "attivoCorrente": 45274000000,
+    "passivoCorrente": 35964000000,
+    "immobilizzazioniNette": 17658000000,
+    "ammortamento": 7009000000,
+    "speseSga": 22178000000,
+    "flussoCassaOperativo": 23416000000,
+    "attivoTotale": 157728000000,
+    "debitoLungo": 26494000000
    },
    {
     "anno": 2021,
@@ -5659,7 +11729,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0841,
     "utileNetto": 14714000000,
     "ricavi": 82584000000,
-    "patrimonioNetto": 63278000000
+    "patrimonioNetto": 63278000000,
+    "crediti": 13576000000,
+    "costoVenduto": 28427000000,
+    "attivoCorrente": 51237000000,
+    "passivoCorrente": 42493000000,
+    "immobilizzazioniNette": 18766000000,
+    "ammortamento": 7231000000,
+    "speseSga": 22084000000,
+    "flussoCassaOperativo": 23536000000,
+    "attivoTotale": 174894000000,
+    "debitoLungo": 32635000000
    },
    {
     "anno": 2022,
@@ -5668,7 +11748,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1147,
     "utileNetto": 20878000000,
     "ricavi": 78740000000,
-    "patrimonioNetto": 74023000000
+    "patrimonioNetto": 74023000000,
+    "crediti": 15283000000,
+    "costoVenduto": 23402000000,
+    "attivoCorrente": 60979000000,
+    "passivoCorrente": 45226000000,
+    "immobilizzazioniNette": 18962000000,
+    "ammortamento": 7390000000,
+    "speseSga": 20118000000,
+    "flussoCassaOperativo": 23410000000,
+    "attivoTotale": 182018000000,
+    "debitoLungo": 29985000000
    },
    {
     "anno": 2023,
@@ -5677,7 +11767,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2098,
     "utileNetto": 35153000000,
     "ricavi": 85159000000,
-    "patrimonioNetto": 76804000000
+    "patrimonioNetto": 76804000000,
+    "crediti": 14873000000,
+    "costoVenduto": 26553000000,
+    "attivoCorrente": 53495000000,
+    "passivoCorrente": 46282000000,
+    "immobilizzazioniNette": 19898000000,
+    "ammortamento": 7486000000,
+    "speseSga": 21512000000,
+    "flussoCassaOperativo": 22791000000,
+    "attivoTotale": 167558000000,
+    "debitoLungo": 25881000000
    },
    {
     "anno": 2024,
@@ -5686,7 +11786,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0781,
     "utileNetto": 14066000000,
     "ricavi": 88821000000,
-    "patrimonioNetto": 71490000000
+    "patrimonioNetto": 71490000000,
+    "crediti": 14842000000,
+    "costoVenduto": 27471000000,
+    "attivoCorrente": 55893000000,
+    "passivoCorrente": 50321000000,
+    "immobilizzazioniNette": 20518000000,
+    "ammortamento": 7339000000,
+    "speseSga": 22869000000,
+    "flussoCassaOperativo": 24266000000,
+    "attivoTotale": 180104000000,
+    "debitoLungo": 30651000000
    },
    {
     "anno": 2025,
@@ -5695,7 +11805,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1346,
     "utileNetto": 26804000000,
     "ricavi": 94193000000,
-    "patrimonioNetto": 81544000000
+    "patrimonioNetto": 81544000000,
+    "crediti": 17178000000,
+    "costoVenduto": 30256000000,
+    "attivoCorrente": 55624000000,
+    "passivoCorrente": 54126000000,
+    "immobilizzazioniNette": 23169000000,
+    "ammortamento": 7503000000,
+    "speseSga": 23676000000,
+    "flussoCassaOperativo": 24530000000,
+    "attivoTotale": 199210000000,
+    "debitoLungo": 39438000000
    }
   ]
  },
@@ -5709,7 +11829,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 4654000000,
     "ricavi": 75431000000,
-    "patrimonioNetto": 20063000000
+    "patrimonioNetto": 20063000000,
+    "crediti": null,
+    "costoVenduto": 768000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 10583000000,
+    "flussoCassaOperativo": 5877000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -5718,7 +11848,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0533,
     "utileNetto": 2977000000,
     "ricavi": 81186000000,
-    "patrimonioNetto": 20780000000
+    "patrimonioNetto": 20780000000,
+    "crediti": 1929000000,
+    "costoVenduto": 1480000000,
+    "attivoCorrente": 14990000000,
+    "passivoCorrente": 19761000000,
+    "immobilizzazioniNette": 2181000000,
+    "ammortamento": null,
+    "speseSga": 13103000000,
+    "flussoCassaOperativo": 4238000000,
+    "attivoTotale": 55815000000,
+    "debitoLungo": 11338000000
    },
    {
     "anno": 2009,
@@ -5727,7 +11867,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0647,
     "utileNetto": 3822000000,
     "ricavi": 87138000000,
-    "patrimonioNetto": 23606000000
+    "patrimonioNetto": 23606000000,
+    "crediti": 1954000000,
+    "costoVenduto": 1765000000,
+    "attivoCorrente": 18200000000,
+    "passivoCorrente": 22163000000,
+    "immobilizzazioniNette": 946000000,
+    "ammortamento": 436000000,
+    "speseSga": 12734000000,
+    "flussoCassaOperativo": 5625000000,
+    "attivoTotale": 59045000000,
+    "debitoLungo": 9009000000
    },
    {
     "anno": 2010,
@@ -5736,7 +11886,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0735,
     "utileNetto": 4634000000,
     "ricavi": 94155000000,
-    "patrimonioNetto": 25825000000
+    "patrimonioNetto": 25825000000,
+    "crediti": 2061000000,
+    "costoVenduto": 2116000000,
+    "attivoCorrente": 18393000000,
+    "passivoCorrente": 23700000000,
+    "immobilizzazioniNette": 2200000000,
+    "ammortamento": 398000000,
+    "speseSga": 14270000000,
+    "flussoCassaOperativo": 6273000000,
+    "attivoTotale": 63063000000,
+    "debitoLungo": 8662000000
    },
    {
     "anno": 2011,
@@ -5745,7 +11905,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0757,
     "utileNetto": 5142000000,
     "ricavi": 101862000000,
-    "patrimonioNetto": 28292000000
+    "patrimonioNetto": 28292000000,
+    "crediti": 2294000000,
+    "costoVenduto": 2385000000,
+    "attivoCorrente": 20350000000,
+    "passivoCorrente": 23922000000,
+    "immobilizzazioniNette": 2515000000,
+    "ammortamento": 386000000,
+    "speseSga": 15557000000,
+    "flussoCassaOperativo": 6968000000,
+    "attivoTotale": 67889000000,
+    "debitoLungo": 10656000000
    },
    {
     "anno": 2012,
@@ -5754,7 +11924,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0683,
     "utileNetto": 5526000000,
     "ricavi": 110618000000,
-    "patrimonioNetto": 31178000000
+    "patrimonioNetto": 31178000000,
+    "crediti": 2709000000,
+    "costoVenduto": 2523000000,
+    "attivoCorrente": 21052000000,
+    "passivoCorrente": 27116000000,
+    "immobilizzazioniNette": 3939000000,
+    "ammortamento": 449000000,
+    "speseSga": 17306000000,
+    "flussoCassaOperativo": 7155000000,
+    "attivoTotale": 80885000000,
+    "debitoLungo": 14041000000
    },
    {
     "anno": 2013,
@@ -5763,7 +11943,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0687,
     "utileNetto": 5625000000,
     "ricavi": 122489000000,
-    "patrimonioNetto": 32149000000
+    "patrimonioNetto": 32149000000,
+    "crediti": 3052000000,
+    "costoVenduto": 2891000000,
+    "attivoCorrente": 20380000000,
+    "passivoCorrente": 27881000000,
+    "immobilizzazioniNette": 4010000000,
+    "ammortamento": 445000000,
+    "speseSga": 18941000000,
+    "flussoCassaOperativo": 6991000000,
+    "attivoTotale": 81882000000,
+    "debitoLungo": 14891000000
    },
    {
     "anno": 2014,
@@ -5772,7 +11962,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0651,
     "utileNetto": 5619000000,
     "ricavi": 130474000000,
-    "patrimonioNetto": 32454000000
+    "patrimonioNetto": 32454000000,
+    "crediti": 4252000000,
+    "costoVenduto": 3826000000,
+    "attivoCorrente": 23556000000,
+    "passivoCorrente": 30623000000,
+    "immobilizzazioniNette": 4418000000,
+    "ammortamento": 532000000,
+    "speseSga": 21263000000,
+    "flussoCassaOperativo": 8051000000,
+    "attivoTotale": 86300000000,
+    "debitoLungo": 16007000000
    },
    {
     "anno": 2015,
@@ -5781,7 +11981,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0522,
     "utileNetto": 5813000000,
     "ricavi": 157107000000,
-    "patrimonioNetto": 33725000000
+    "patrimonioNetto": 33725000000,
+    "crediti": 6523000000,
+    "costoVenduto": 16206000000,
+    "attivoCorrente": 31639000000,
+    "passivoCorrente": 42898000000,
+    "immobilizzazioniNette": 4861000000,
+    "ammortamento": 613000000,
+    "speseSga": 24312000000,
+    "flussoCassaOperativo": 9740000000,
+    "attivoTotale": 111254000000,
+    "debitoLungo": 25331000000
    },
    {
     "anno": 2016,
@@ -5790,7 +12000,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0571,
     "utileNetto": 7017000000,
     "ricavi": 184840000000,
-    "patrimonioNetto": 38177000000
+    "patrimonioNetto": 38177000000,
+    "crediti": 8152000000,
+    "costoVenduto": 24416000000,
+    "attivoCorrente": 33879000000,
+    "passivoCorrente": 49252000000,
+    "immobilizzazioniNette": 5901000000,
+    "ammortamento": 698000000,
+    "speseSga": 28401000000,
+    "flussoCassaOperativo": 9795000000,
+    "attivoTotale": 122810000000,
+    "debitoLungo": 25777000000
    },
    {
     "anno": 2017,
@@ -5799,7 +12019,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0759,
     "utileNetto": 10558000000,
     "ricavi": 201159000000,
-    "patrimonioNetto": 49833000000
+    "patrimonioNetto": 49833000000,
+    "crediti": 9568000000,
+    "costoVenduto": 24112000000,
+    "attivoCorrente": 37084000000,
+    "passivoCorrente": 50463000000,
+    "immobilizzazioniNette": 7013000000,
+    "ammortamento": 799000000,
+    "speseSga": 29557000000,
+    "flussoCassaOperativo": 13596000000,
+    "attivoTotale": 139058000000,
+    "debitoLungo": 28835000000
    },
    {
     "anno": 2018,
@@ -5808,7 +12038,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0787,
     "utileNetto": 11986000000,
     "ricavi": 226247000000,
-    "patrimonioNetto": 54319000000
+    "patrimonioNetto": 54319000000,
+    "crediti": 11388000000,
+    "costoVenduto": 26998000000,
+    "attivoCorrente": 38692000000,
+    "passivoCorrente": 53209000000,
+    "immobilizzazioniNette": 8458000000,
+    "ammortamento": 924000000,
+    "speseSga": 34074000000,
+    "flussoCassaOperativo": 15713000000,
+    "attivoTotale": 152221000000,
+    "debitoLungo": 34581000000
    },
    {
     "anno": 2019,
@@ -5817,7 +12057,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0796,
     "utileNetto": 13839000000,
     "ricavi": 242155000000,
-    "patrimonioNetto": 60436000000
+    "patrimonioNetto": 60436000000,
+    "crediti": 11822000000,
+    "costoVenduto": 28117000000,
+    "attivoCorrente": 42634000000,
+    "passivoCorrente": 61782000000,
+    "immobilizzazioniNette": 8704000000,
+    "ammortamento": 995000000,
+    "speseSga": 35193000000,
+    "flussoCassaOperativo": 18463000000,
+    "attivoTotale": 173889000000,
+    "debitoLungo": 36808000000
    },
    {
     "anno": 2020,
@@ -5826,7 +12076,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0781,
     "utileNetto": 15403000000,
     "ricavi": 257141000000,
-    "patrimonioNetto": 68328000000
+    "patrimonioNetto": 68328000000,
+    "crediti": 12870000000,
+    "costoVenduto": 30745000000,
+    "attivoCorrente": 53718000000,
+    "passivoCorrente": 72420000000,
+    "immobilizzazioniNette": 8626000000,
+    "ammortamento": 1000000000,
+    "speseSga": 41704000000,
+    "flussoCassaOperativo": 22174000000,
+    "attivoTotale": 197289000000,
+    "debitoLungo": 38648000000
    },
    {
     "anno": 2021,
@@ -5835,7 +12095,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0815,
     "utileNetto": 17285000000,
     "ricavi": 287597000000,
-    "patrimonioNetto": 75045000000
+    "patrimonioNetto": 75045000000,
+    "crediti": 14216000000,
+    "costoVenduto": 31034000000,
+    "attivoCorrente": 61758000000,
+    "passivoCorrente": 78292000000,
+    "immobilizzazioniNette": 8969000000,
+    "ammortamento": 1000000000,
+    "speseSga": 42579000000,
+    "flussoCassaOperativo": 22343000000,
+    "attivoTotale": 212206000000,
+    "debitoLungo": 42383000000
    },
    {
     "anno": 2022,
@@ -5844,7 +12114,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0819,
     "utileNetto": 20120000000,
     "ricavi": 324162000000,
-    "patrimonioNetto": 81450000000
+    "patrimonioNetto": 81450000000,
+    "crediti": 17681000000,
+    "costoVenduto": 33703000000,
+    "attivoCorrente": 69069000000,
+    "passivoCorrente": 89237000000,
+    "immobilizzazioniNette": 10128000000,
+    "ammortamento": 1100000000,
+    "speseSga": 47782000000,
+    "flussoCassaOperativo": 26206000000,
+    "attivoTotale": 245705000000,
+    "debitoLungo": 54513000000
    },
    {
     "anno": 2023,
@@ -5853,7 +12133,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0818,
     "utileNetto": 22381000000,
     "ricavi": 371622000000,
-    "patrimonioNetto": 94421000000
+    "patrimonioNetto": 94421000000,
+    "crediti": 21276000000,
+    "costoVenduto": 38770000000,
+    "attivoCorrente": 78437000000,
+    "passivoCorrente": 99054000000,
+    "immobilizzazioniNette": 11450000000,
+    "ammortamento": 1100000000,
+    "speseSga": 54628000000,
+    "flussoCassaOperativo": 29068000000,
+    "attivoTotale": 273720000000,
+    "debitoLungo": 58263000000
    },
    {
     "anno": 2024,
@@ -5862,7 +12152,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0483,
     "utileNetto": 14405000000,
     "ricavi": 400278000000,
-    "patrimonioNetto": 98268000000
+    "patrimonioNetto": 98268000000,
+    "crediti": 22365000000,
+    "costoVenduto": 46694000000,
+    "attivoCorrente": 85779000000,
+    "passivoCorrente": 103769000000,
+    "immobilizzazioniNette": 10553000000,
+    "ammortamento": 1000000000,
+    "speseSga": 53013000000,
+    "flussoCassaOperativo": 24204000000,
+    "attivoTotale": 298278000000,
+    "debitoLungo": 72359000000
    },
    {
     "anno": 2025,
@@ -5871,7 +12171,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0389,
     "utileNetto": 12056000000,
     "ricavi": 447567000000,
-    "patrimonioNetto": 100090000000
+    "patrimonioNetto": 100090000000,
+    "crediti": 23018000000,
+    "costoVenduto": 50655000000,
+    "attivoCorrente": 90582000000,
+    "passivoCorrente": 114897000000,
+    "immobilizzazioniNette": 10762000000,
+    "ammortamento": 1000000000,
+    "speseSga": 59592000000,
+    "flussoCassaOperativo": 19697000000,
+    "attivoTotale": 309581000000,
+    "debitoLungo": 72320000000
    }
   ]
  },
@@ -5885,7 +12195,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0709,
     "utileNetto": -2071900000,
     "ricavi": 20371900000,
-    "patrimonioNetto": 6737700000
+    "patrimonioNetto": 6737700000,
+    "crediti": 2778800000,
+    "costoVenduto": 4376700000,
+    "attivoCorrente": 12453300000,
+    "passivoCorrente": 13109700000,
+    "immobilizzazioniNette": 8626300000,
+    "ammortamento": 1122600000,
+    "speseSga": 6626400000,
+    "flussoCassaOperativo": 7295600000,
+    "attivoTotale": 29212600000,
+    "debitoLungo": 4615700000
    },
    {
     "anno": 2009,
@@ -5894,7 +12214,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1576,
     "utileNetto": 4328800000,
     "ricavi": 21836000000,
-    "patrimonioNetto": 9525300000
+    "patrimonioNetto": 9525300000,
+    "crediti": 3343300000,
+    "costoVenduto": 4247000000,
+    "attivoCorrente": 12486500000,
+    "passivoCorrente": 6568100000,
+    "immobilizzazioniNette": 8197400000,
+    "ammortamento": 1297800000,
+    "speseSga": 6892500000,
+    "flussoCassaOperativo": 4335500000,
+    "attivoTotale": 27460900000,
+    "debitoLungo": 6634700000
    },
    {
     "anno": 2010,
@@ -5903,7 +12233,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1635,
     "utileNetto": 5069500000,
     "ricavi": 23076000000,
-    "patrimonioNetto": 12420300000
+    "patrimonioNetto": 12420300000,
+    "crediti": 3493800000,
+    "costoVenduto": 4366200000,
+    "attivoCorrente": 14840000000,
+    "passivoCorrente": 6926900000,
+    "immobilizzazioniNette": 7940700000,
+    "ammortamento": 1328200000,
+    "speseSga": 7053400000,
+    "flussoCassaOperativo": 6856800000,
+    "attivoTotale": 31001400000,
+    "debitoLungo": 6770500000
    },
    {
     "anno": 2011,
@@ -5912,7 +12252,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1292,
     "utileNetto": 4347700000,
     "ricavi": 24286500000,
-    "patrimonioNetto": 13541700000
+    "patrimonioNetto": 13541700000,
+    "crediti": 3597700000,
+    "costoVenduto": 5067900000,
+    "attivoCorrente": 14248200000,
+    "passivoCorrente": 8930900000,
+    "immobilizzazioniNette": 7760300000,
+    "ammortamento": 1373600000,
+    "speseSga": 7879900000,
+    "flussoCassaOperativo": 7234500000,
+    "attivoTotale": 33659800000,
+    "debitoLungo": 5464700000
    },
    {
     "anno": 2012,
@@ -5921,7 +12271,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1189,
     "utileNetto": 4088600000,
     "ricavi": 22603400000,
-    "patrimonioNetto": 14765200000
+    "patrimonioNetto": 14765200000,
+    "crediti": 3336300000,
+    "costoVenduto": 4796500000,
+    "attivoCorrente": 13038700000,
+    "passivoCorrente": 8389500000,
+    "immobilizzazioniNette": 7760200000,
+    "ammortamento": 1462200000,
+    "speseSga": 7513500000,
+    "flussoCassaOperativo": 5304800000,
+    "attivoTotale": 34398900000,
+    "debitoLungo": 5519400000
    },
    {
     "anno": 2013,
@@ -5930,7 +12290,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1329,
     "utileNetto": 4684800000,
     "ricavi": 23113100000,
-    "patrimonioNetto": 17631400000
+    "patrimonioNetto": 17631400000,
+    "crediti": 3434400000,
+    "costoVenduto": 4908100000,
+    "attivoCorrente": 13104700000,
+    "passivoCorrente": 8916600000,
+    "immobilizzazioniNette": 7975500000,
+    "ammortamento": 1445600000,
+    "speseSga": 7125600000,
+    "flussoCassaOperativo": 5735000000,
+    "attivoTotale": 35248700000,
+    "debitoLungo": 4200300000
    },
    {
     "anno": 2014,
@@ -5939,7 +12309,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0658,
     "utileNetto": 2390500000,
     "ricavi": 19615600000,
-    "patrimonioNetto": 15373200000
+    "patrimonioNetto": 15373200000,
+    "crediti": 3234600000,
+    "costoVenduto": 4932500000,
+    "attivoCorrente": 11928300000,
+    "passivoCorrente": 9741000000,
+    "immobilizzazioniNette": 7963900000,
+    "ammortamento": 1379000000,
+    "speseSga": 6620800000,
+    "flussoCassaOperativo": 4458400000,
+    "attivoTotale": 36307600000,
+    "debitoLungo": 5332800000
    },
    {
     "anno": 2015,
@@ -5948,7 +12328,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0677,
     "utileNetto": 2408400000,
     "ricavi": 19958700000,
-    "patrimonioNetto": 14571300000
+    "patrimonioNetto": 14571300000,
+    "crediti": 3513000000,
+    "costoVenduto": 5037200000,
+    "attivoCorrente": 12573600000,
+    "passivoCorrente": 8229600000,
+    "immobilizzazioniNette": 8053500000,
+    "ammortamento": 1427700000,
+    "speseSga": 6533000000,
+    "flussoCassaOperativo": 2964600000,
+    "attivoTotale": 35568900000,
+    "debitoLungo": 7972400000
    },
    {
     "anno": 2016,
@@ -5957,7 +12347,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0705,
     "utileNetto": 2737600000,
     "ricavi": 21222100000,
-    "patrimonioNetto": 14007700000
+    "patrimonioNetto": 14007700000,
+    "crediti": 4029400000,
+    "costoVenduto": 5710100000,
+    "attivoCorrente": 15101400000,
+    "passivoCorrente": 10986600000,
+    "immobilizzazioniNette": 8252600000,
+    "ammortamento": 1496600000,
+    "speseSga": 6528000000,
+    "flussoCassaOperativo": 4851000000,
+    "attivoTotale": 38805900000,
+    "debitoLungo": 8367800000
    },
    {
     "anno": 2017,
@@ -5966,7 +12366,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0045,
     "utileNetto": -204100000,
     "ricavi": 19973800000,
-    "patrimonioNetto": 11592200000
+    "patrimonioNetto": 11592200000,
+    "crediti": 4546300000,
+    "costoVenduto": 4447700000,
+    "attivoCorrente": 19202100000,
+    "passivoCorrente": 14535900000,
+    "immobilizzazioniNette": 8826500000,
+    "ammortamento": 1567300000,
+    "speseSga": 5982400000,
+    "flussoCassaOperativo": 5615600000,
+    "attivoTotale": 44981000000,
+    "debitoLungo": 9940500000
    },
    {
     "anno": 2018,
@@ -5975,7 +12385,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0736,
     "utileNetto": 3232000000,
     "ricavi": 21493300000,
-    "patrimonioNetto": 9828700000
+    "patrimonioNetto": 9828700000,
+    "crediti": 4593900000,
+    "costoVenduto": 4681700000,
+    "attivoCorrente": 20549600000,
+    "passivoCorrente": 11888100000,
+    "immobilizzazioniNette": 7996100000,
+    "ammortamento": 1609000000,
+    "speseSga": 5975100000,
+    "flussoCassaOperativo": 5524500000,
+    "attivoTotale": 43908400000,
+    "debitoLungo": 9196400000
    },
    {
     "anno": 2019,
@@ -5984,7 +12404,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2117,
     "utileNetto": 8318400000,
     "ricavi": 22319500000,
-    "patrimonioNetto": 2606900000
+    "patrimonioNetto": 2606900000,
+    "crediti": 4547300000,
+    "costoVenduto": 4721200000,
+    "attivoCorrente": 13709600000,
+    "passivoCorrente": 11775200000,
+    "immobilizzazioniNette": 7872900000,
+    "ammortamento": 1232600000,
+    "speseSga": 6213800000,
+    "flussoCassaOperativo": 4836600000,
+    "attivoTotale": 39286100000,
+    "debitoLungo": 13817900000
    },
    {
     "anno": 2020,
@@ -5993,7 +12423,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1328,
     "utileNetto": 6193700000,
     "ricavi": 24539800000,
-    "patrimonioNetto": 5641600000
+    "patrimonioNetto": 5641600000,
+    "crediti": 5875300000,
+    "costoVenduto": 5483300000,
+    "attivoCorrente": 17462100000,
+    "passivoCorrente": 12481600000,
+    "immobilizzazioniNette": 8681900000,
+    "ammortamento": 1323900000,
+    "speseSga": 6121200000,
+    "flussoCassaOperativo": 6499600000,
+    "attivoTotale": 46633100000,
+    "debitoLungo": 16586600000
    },
    {
     "anno": 2021,
@@ -6002,7 +12442,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1144,
     "utileNetto": 5581700000,
     "ricavi": 28318400000,
-    "patrimonioNetto": 8979200000
+    "patrimonioNetto": 8979200000,
+    "crediti": 6672800000,
+    "costoVenduto": 7312800000,
+    "attivoCorrente": 18452400000,
+    "passivoCorrente": 15052700000,
+    "immobilizzazioniNette": 8985100000,
+    "ammortamento": 1547600000,
+    "speseSga": 6431600000,
+    "flussoCassaOperativo": 7365900000,
+    "attivoTotale": 48806000000,
+    "debitoLungo": 15346400000
    },
    {
     "anno": 2022,
@@ -6011,7 +12461,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1262,
     "utileNetto": 6244800000,
     "ricavi": 28541400000,
-    "patrimonioNetto": 10649800000
+    "patrimonioNetto": 10649800000,
+    "crediti": 6896000000,
+    "costoVenduto": 6629800000,
+    "attivoCorrente": 18034500000,
+    "passivoCorrente": 17138200000,
+    "immobilizzazioniNette": 10144000000,
+    "ammortamento": 1522500000,
+    "speseSga": 6440400000,
+    "flussoCassaOperativo": 7585700000,
+    "attivoTotale": 49489800000,
+    "debitoLungo": 14737500000
    },
    {
     "anno": 2023,
@@ -6020,7 +12480,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0819,
     "utileNetto": 5240000000,
     "ricavi": 34124000000,
-    "patrimonioNetto": 10771900000
+    "patrimonioNetto": 10771900000,
+    "crediti": 9090500000,
+    "costoVenduto": 7082000000,
+    "attivoCorrente": 25727000000,
+    "passivoCorrente": 27293200000,
+    "immobilizzazioniNette": 12913600000,
+    "ammortamento": 1527000000,
+    "speseSga": 7404000000,
+    "flussoCassaOperativo": 4240000000,
+    "attivoTotale": 64006300000,
+    "debitoLungo": 18320800000
    },
    {
     "anno": 2024,
@@ -6029,7 +12499,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1345,
     "utileNetto": 10590000000,
     "ricavi": 45043000000,
-    "patrimonioNetto": 14272000000
+    "patrimonioNetto": 14272000000,
+    "crediti": 11006000000,
+    "costoVenduto": 8418000000,
+    "attivoCorrente": 32740000000,
+    "passivoCorrente": 28376000000,
+    "immobilizzazioniNette": 17102000000,
+    "ammortamento": 1767000000,
+    "speseSga": 8594000000,
+    "flussoCassaOperativo": 8818000000,
+    "attivoTotale": 78715000000,
+    "debitoLungo": 28527000000
    },
    {
     "anno": 2025,
@@ -6038,7 +12518,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1835,
     "utileNetto": 20640000000,
     "ricavi": 65179000000,
-    "patrimonioNetto": 26535000000
+    "patrimonioNetto": 26535000000,
+    "crediti": 17760000000,
+    "costoVenduto": 11052000000,
+    "attivoCorrente": 55629000000,
+    "passivoCorrente": 35228000000,
+    "immobilizzazioniNette": 24675000000,
+    "ammortamento": 1997000000,
+    "speseSga": 11094000000,
+    "flussoCassaOperativo": 16813000000,
+    "attivoTotale": 112476000000,
+    "debitoLungo": 40868000000
    }
   ]
  },
@@ -6052,7 +12542,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 8144000000,
     "ricavi": 48418000000,
-    "patrimonioNetto": 65124000000
+    "patrimonioNetto": 65124000000,
+    "crediti": null,
+    "costoVenduto": 11239000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 5200000000,
+    "speseSga": 15626000000,
+    "flussoCassaOperativo": 13353000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -6061,7 +12561,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0729,
     "utileNetto": 8104000000,
     "ricavi": 48296000000,
-    "patrimonioNetto": 57740000000
+    "patrimonioNetto": 57740000000,
+    "crediti": 8958000000,
+    "costoVenduto": 8112000000,
+    "attivoCorrente": 43076000000,
+    "passivoCorrente": 27009000000,
+    "immobilizzazioniNette": 13287000000,
+    "ammortamento": 5090000000,
+    "speseSga": 14537000000,
+    "flussoCassaOperativo": 18238000000,
+    "attivoTotale": 111148000000,
+    "debitoLungo": 7963000000
    },
    {
     "anno": 2009,
@@ -6070,7 +12580,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0405,
     "utileNetto": 8635000000,
     "ricavi": 49269000000,
-    "patrimonioNetto": 90446000000
+    "patrimonioNetto": 90446000000,
+    "crediti": 14645000000,
+    "costoVenduto": 8459000000,
+    "attivoCorrente": 61670000000,
+    "passivoCorrente": 37225000000,
+    "immobilizzazioniNette": 22780000000,
+    "ammortamento": 4757000000,
+    "speseSga": 14752000000,
+    "flussoCassaOperativo": 16587000000,
+    "attivoTotale": 212949000000,
+    "debitoLungo": 43193000000
    },
    {
     "anno": 2010,
@@ -6079,7 +12599,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0423,
     "utileNetto": 8257000000,
     "ricavi": 65165000000,
-    "patrimonioNetto": 88265000000
+    "patrimonioNetto": 88265000000,
+    "crediti": 13380000000,
+    "costoVenduto": 14788000000,
+    "attivoCorrente": 61013000000,
+    "passivoCorrente": 28636000000,
+    "immobilizzazioniNette": 17607000000,
+    "ammortamento": 8399000000,
+    "speseSga": 18973000000,
+    "flussoCassaOperativo": 11454000000,
+    "attivoTotale": 195014000000,
+    "debitoLungo": 38410000000
    },
    {
     "anno": 2011,
@@ -6088,7 +12618,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0532,
     "utileNetto": 10009000000,
     "ricavi": 61035000000,
-    "patrimonioNetto": 82621000000
+    "patrimonioNetto": 82621000000,
+    "crediti": 13058000000,
+    "costoVenduto": 12500000000,
+    "attivoCorrente": 60817000000,
+    "passivoCorrente": 28909000000,
+    "immobilizzazioniNette": 14673000000,
+    "ammortamento": 8701000000,
+    "speseSga": 17581000000,
+    "flussoCassaOperativo": 20240000000,
+    "attivoTotale": 188002000000,
+    "debitoLungo": 34926000000
    },
    {
     "anno": 2012,
@@ -6097,7 +12637,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0784,
     "utileNetto": 14570000000,
     "ricavi": 54657000000,
-    "patrimonioNetto": 81678000000
+    "patrimonioNetto": 81678000000,
+    "crediti": 10675000000,
+    "costoVenduto": 9821000000,
+    "attivoCorrente": 64831000000,
+    "passivoCorrente": 29186000000,
+    "immobilizzazioniNette": 13213000000,
+    "ammortamento": 7394000000,
+    "speseSga": 15171000000,
+    "flussoCassaOperativo": 16746000000,
+    "attivoTotale": 185798000000,
+    "debitoLungo": 31036000000
    },
    {
     "anno": 2013,
@@ -6106,7 +12656,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1278,
     "utileNetto": 22003000000,
     "ricavi": 51584000000,
-    "patrimonioNetto": 76620000000
+    "patrimonioNetto": 76620000000,
+    "crediti": 9357000000,
+    "costoVenduto": 9586000000,
+    "attivoCorrente": 56244000000,
+    "passivoCorrente": 23366000000,
+    "immobilizzazioniNette": 12397000000,
+    "ammortamento": 6306000000,
+    "speseSga": 14355000000,
+    "flussoCassaOperativo": 17684000000,
+    "attivoTotale": 172101000000,
+    "debitoLungo": 30462000000
    },
    {
     "anno": 2014,
@@ -6115,7 +12675,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0545,
     "utileNetto": 9135000000,
     "ricavi": null,
-    "patrimonioNetto": 71622000000
+    "patrimonioNetto": 71622000000,
+    "crediti": 8401000000,
+    "costoVenduto": 9577000000,
+    "attivoCorrente": 55595000000,
+    "passivoCorrente": 21587000000,
+    "immobilizzazioniNette": 11762000000,
+    "ammortamento": 5537000000,
+    "speseSga": 14097000000,
+    "flussoCassaOperativo": 17084000000,
+    "attivoTotale": 167566000000,
+    "debitoLungo": 31541000000
    },
    {
     "anno": 2015,
@@ -6124,7 +12694,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0416,
     "utileNetto": 6960000000,
     "ricavi": null,
-    "patrimonioNetto": 64998000000
+    "patrimonioNetto": 64998000000,
+    "crediti": 8176000000,
+    "costoVenduto": 9648000000,
+    "attivoCorrente": 43804000000,
+    "passivoCorrente": 29399000000,
+    "immobilizzazioniNette": 13766000000,
+    "ammortamento": 5157000000,
+    "speseSga": 14809000000,
+    "flussoCassaOperativo": 14688000000,
+    "attivoTotale": 167381000000,
+    "debitoLungo": 28740000000
    },
    {
     "anno": 2016,
@@ -6133,7 +12713,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.042,
     "utileNetto": 7215000000,
     "ricavi": 52824000000,
-    "patrimonioNetto": 59840000000
+    "patrimonioNetto": 59840000000,
+    "crediti": 8225000000,
+    "costoVenduto": 12322000000,
+    "attivoCorrente": 38949000000,
+    "passivoCorrente": 31115000000,
+    "immobilizzazioniNette": 13318000000,
+    "ammortamento": 5757000000,
+    "speseSga": 14844000000,
+    "flussoCassaOperativo": 16192000000,
+    "attivoTotale": 171615000000,
+    "debitoLungo": 31398000000
    },
    {
     "anno": 2017,
@@ -6142,7 +12732,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.124,
     "utileNetto": 21308000000,
     "ricavi": 52546000000,
-    "patrimonioNetto": 71656000000
+    "patrimonioNetto": 71656000000,
+    "crediti": 8221000000,
+    "costoVenduto": 11228000000,
+    "attivoCorrente": 41141000000,
+    "passivoCorrente": 30427000000,
+    "immobilizzazioniNette": 13865000000,
+    "ammortamento": 6269000000,
+    "speseSga": 14804000000,
+    "flussoCassaOperativo": 16802000000,
+    "attivoTotale": 171797000000,
+    "debitoLungo": 33538000000
    },
    {
     "anno": 2018,
@@ -6151,7 +12751,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.07,
     "utileNetto": 11153000000,
     "ricavi": 40825000000,
-    "patrimonioNetto": 63758000000
+    "patrimonioNetto": 63758000000,
+    "crediti": 8025000000,
+    "costoVenduto": 8987000000,
+    "attivoCorrente": 49926000000,
+    "passivoCorrente": 31858000000,
+    "immobilizzazioniNette": 13385000000,
+    "ammortamento": 6384000000,
+    "speseSga": 12612000000,
+    "flussoCassaOperativo": 15827000000,
+    "attivoTotale": 159422000000,
+    "debitoLungo": 32909000000
    },
    {
     "anno": 2019,
@@ -6160,7 +12770,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0956,
     "utileNetto": 16026000000,
     "ricavi": 40905000000,
-    "patrimonioNetto": 63447000000
+    "patrimonioNetto": 63447000000,
+    "crediti": 6772000000,
+    "costoVenduto": 8054000000,
+    "attivoCorrente": 32803000000,
+    "passivoCorrente": 37304000000,
+    "immobilizzazioniNette": 12969000000,
+    "ammortamento": 5755000000,
+    "speseSga": 12726000000,
+    "flussoCassaOperativo": 12588000000,
+    "attivoTotale": 167594000000,
+    "debitoLungo": 35955000000
    },
    {
     "anno": 2020,
@@ -6169,7 +12789,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0594,
     "utileNetto": 9159000000,
     "ricavi": 41651000000,
-    "patrimonioNetto": 63473000000
+    "patrimonioNetto": 63473000000,
+    "crediti": 7913000000,
+    "costoVenduto": 8484000000,
+    "attivoCorrente": 35067000000,
+    "passivoCorrente": 25920000000,
+    "immobilizzazioniNette": 13745000000,
+    "ammortamento": 4681000000,
+    "speseSga": 11597000000,
+    "flussoCassaOperativo": 14403000000,
+    "attivoTotale": 154229000000,
+    "debitoLungo": 37133000000
    },
    {
     "anno": 2021,
@@ -6178,7 +12808,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1211,
     "utileNetto": 21979000000,
     "ricavi": 81288000000,
-    "patrimonioNetto": 77462000000
+    "patrimonioNetto": 77462000000,
+    "crediti": 11479000000,
+    "costoVenduto": 30821000000,
+    "attivoCorrente": 59693000000,
+    "passivoCorrente": 42671000000,
+    "immobilizzazioniNette": 14882000000,
+    "ammortamento": 5191000000,
+    "speseSga": 12703000000,
+    "flussoCassaOperativo": 32580000000,
+    "attivoTotale": 181476000000,
+    "debitoLungo": 36195000000
    },
    {
     "anno": 2022,
@@ -6187,7 +12827,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1591,
     "utileNetto": 31372000000,
     "ricavi": 101175000000,
-    "patrimonioNetto": 95916000000
+    "patrimonioNetto": 95916000000,
+    "crediti": 10952000000,
+    "costoVenduto": 34344000000,
+    "attivoCorrente": 51259000000,
+    "passivoCorrente": 42138000000,
+    "immobilizzazioniNette": 16274000000,
+    "ammortamento": 5064000000,
+    "speseSga": 13677000000,
+    "flussoCassaOperativo": 29267000000,
+    "attivoTotale": 197205000000,
+    "debitoLungo": 32884000000
    },
    {
     "anno": 2023,
@@ -6196,7 +12846,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0094,
     "utileNetto": 2119000000,
     "ricavi": 59553000000,
-    "patrimonioNetto": 89288000000
+    "patrimonioNetto": 89288000000,
+    "crediti": 11566000000,
+    "costoVenduto": 24954000000,
+    "attivoCorrente": 43333000000,
+    "passivoCorrente": 47794000000,
+    "immobilizzazioniNette": 18940000000,
+    "ammortamento": 6290000000,
+    "speseSga": 14771000000,
+    "flussoCassaOperativo": 8700000000,
+    "attivoTotale": 226501000000,
+    "debitoLungo": 61538000000
    },
    {
     "anno": 2024,
@@ -6205,7 +12865,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0376,
     "utileNetto": 8031000000,
     "ricavi": 63627000000,
-    "patrimonioNetto": 88203000000
+    "patrimonioNetto": 88203000000,
+    "crediti": 11463000000,
+    "costoVenduto": 17851000000,
+    "attivoCorrente": 50358000000,
+    "passivoCorrente": 42995000000,
+    "immobilizzazioniNette": 18393000000,
+    "ammortamento": 7013000000,
+    "speseSga": 14730000000,
+    "flussoCassaOperativo": 12744000000,
+    "attivoTotale": 213396000000,
+    "debitoLungo": 57405000000
    },
    {
     "anno": 2025,
@@ -6214,7 +12884,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0373,
     "utileNetto": 7771000000,
     "ricavi": 62579000000,
-    "patrimonioNetto": 86476000000
+    "patrimonioNetto": 86476000000,
+    "crediti": 11874000000,
+    "costoVenduto": 16067000000,
+    "attivoCorrente": 42898000000,
+    "passivoCorrente": 36984000000,
+    "immobilizzazioniNette": 19317000000,
+    "ammortamento": 6592000000,
+    "speseSga": 13794000000,
+    "flussoCassaOperativo": 11704000000,
+    "attivoTotale": 208160000000,
+    "debitoLungo": 61641000000
    }
   ]
  },
@@ -6228,7 +12908,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0645,
     "utileNetto": 1774000000,
     "ricavi": 19960000000,
-    "patrimonioNetto": 1742000000
+    "patrimonioNetto": 1742000000,
+    "crediti": null,
+    "costoVenduto": 4426000000,
+    "attivoCorrente": 16081000000,
+    "passivoCorrente": 11393000000,
+    "immobilizzazioniNette": 2485000000,
+    "ammortamento": 383000000,
+    "speseSga": 7724000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 27513000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -6237,7 +12927,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.097,
     "utileNetto": 5144000000,
     "ricavi": 22859000000,
-    "patrimonioNetto": 3945000000
+    "patrimonioNetto": 3945000000,
+    "crediti": null,
+    "costoVenduto": 4500000000,
+    "attivoCorrente": 16314000000,
+    "passivoCorrente": 10894000000,
+    "immobilizzazioniNette": 2565000000,
+    "ammortamento": 417000000,
+    "speseSga": 6387000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 53050000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -6246,7 +12946,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0901,
     "utileNetto": 5953000000,
     "ricavi": 25638000000,
-    "patrimonioNetto": 4636000000
+    "patrimonioNetto": 4636000000,
+    "crediti": null,
+    "costoVenduto": 5832000000,
+    "attivoCorrente": 16187000000,
+    "passivoCorrente": 9781000000,
+    "immobilizzazioniNette": 2604000000,
+    "ammortamento": 425000000,
+    "speseSga": 5881000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 66099000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -6255,7 +12965,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.075,
     "utileNetto": 5309000000,
     "ricavi": 28216000000,
-    "patrimonioNetto": 5097000000
+    "patrimonioNetto": 5097000000,
+    "crediti": 5088000000,
+    "costoVenduto": 7042000000,
+    "attivoCorrente": 21223000000,
+    "passivoCorrente": 16641000000,
+    "immobilizzazioniNette": 2803000000,
+    "ammortamento": 425000000,
+    "speseSga": 6295000000,
+    "flussoCassaOperativo": 9960000000,
+    "attivoTotale": 70786000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -6264,7 +12984,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0958,
     "utileNetto": 5687000000,
     "ricavi": 32753000000,
-    "patrimonioNetto": -8446000000
+    "patrimonioNetto": -8446000000,
+    "crediti": 5384000000,
+    "costoVenduto": 7718000000,
+    "attivoCorrente": 16945000000,
+    "passivoCorrente": 17239000000,
+    "immobilizzazioniNette": 2883000000,
+    "ammortamento": 471000000,
+    "speseSga": 7399000000,
+    "flussoCassaOperativo": 13427000000,
+    "attivoTotale": 59352000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -6273,7 +13003,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0884,
     "utileNetto": 7882000000,
     "ricavi": 33266000000,
-    "patrimonioNetto": -8172000000
+    "patrimonioNetto": -8172000000,
+    "crediti": 5428000000,
+    "costoVenduto": 7439000000,
+    "attivoCorrente": 49519000000,
+    "passivoCorrente": 15585000000,
+    "immobilizzazioniNette": 2962000000,
+    "ammortamento": 464000000,
+    "speseSga": 6942000000,
+    "flussoCassaOperativo": 13324000000,
+    "attivoTotale": 89115000000,
+    "debitoLungo": 67233000000
    },
    {
     "anno": 2020,
@@ -6282,7 +13022,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0307,
     "utileNetto": 4616000000,
     "ricavi": 45804000000,
-    "patrimonioNetto": 13097000000
+    "patrimonioNetto": 13097000000,
+    "crediti": 8822000000,
+    "costoVenduto": 15387000000,
+    "attivoCorrente": 24173000000,
+    "passivoCorrente": 28661000000,
+    "immobilizzazioniNette": 5248000000,
+    "ammortamento": 666000000,
+    "speseSga": 11299000000,
+    "flussoCassaOperativo": 17588000000,
+    "attivoTotale": 150565000000,
+    "debitoLungo": 84948000000
    },
    {
     "anno": 2021,
@@ -6291,7 +13041,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0788,
     "utileNetto": 11542000000,
     "ricavi": 56197000000,
-    "patrimonioNetto": 15436000000
+    "patrimonioNetto": 15436000000,
+    "crediti": 9977000000,
+    "costoVenduto": 17446000000,
+    "attivoCorrente": 27928000000,
+    "passivoCorrente": 35194000000,
+    "immobilizzazioniNette": 5110000000,
+    "ammortamento": 803000000,
+    "speseSga": 12349000000,
+    "flussoCassaOperativo": 22777000000,
+    "attivoTotale": 146529000000,
+    "debitoLungo": 75962000000
    },
    {
     "anno": 2022,
@@ -6300,7 +13060,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0853,
     "utileNetto": 11836000000,
     "ricavi": 58054000000,
-    "patrimonioNetto": 17287000000
+    "patrimonioNetto": 17287000000,
+    "crediti": 11254000000,
+    "costoVenduto": 17414000000,
+    "attivoCorrente": 28463000000,
+    "passivoCorrente": 29538000000,
+    "immobilizzazioniNette": 4935000000,
+    "ammortamento": 778000000,
+    "speseSga": 15260000000,
+    "flussoCassaOperativo": 24943000000,
+    "attivoTotale": 138805000000,
+    "debitoLungo": 63128000000
    },
    {
     "anno": 2023,
@@ -6309,7 +13079,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0361,
     "utileNetto": 4863000000,
     "ricavi": 54318000000,
-    "patrimonioNetto": 10397000000
+    "patrimonioNetto": 10397000000,
+    "crediti": 11155000000,
+    "costoVenduto": 20415000000,
+    "attivoCorrente": 33002000000,
+    "passivoCorrente": 37841000000,
+    "immobilizzazioniNette": 4989000000,
+    "ammortamento": 752000000,
+    "speseSga": 12872000000,
+    "flussoCassaOperativo": 22839000000,
+    "attivoTotale": 134711000000,
+    "debitoLungo": 59245000000
    },
    {
     "anno": 2024,
@@ -6318,7 +13098,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0317,
     "utileNetto": 4278000000,
     "ricavi": 56334000000,
-    "patrimonioNetto": 3325000000
+    "patrimonioNetto": 3325000000,
+    "crediti": 10919000000,
+    "costoVenduto": 16904000000,
+    "attivoCorrente": 25582000000,
+    "passivoCorrente": 38749000000,
+    "immobilizzazioniNette": 5134000000,
+    "ammortamento": 764000000,
+    "speseSga": 14752000000,
+    "flussoCassaOperativo": 18806000000,
+    "attivoTotale": 135161000000,
+    "debitoLungo": 66841000000
    },
    {
     "anno": 2025,
@@ -6327,7 +13117,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0315,
     "utileNetto": 4226000000,
     "ricavi": 61160000000,
-    "patrimonioNetto": -3270000000
+    "patrimonioNetto": -3270000000,
+    "crediti": 12589000000,
+    "costoVenduto": 18204000000,
+    "attivoCorrente": 29062000000,
+    "passivoCorrente": 43289000000,
+    "immobilizzazioniNette": 5628000000,
+    "ammortamento": 762000000,
+    "speseSga": 14010000000,
+    "flussoCassaOperativo": 19030000000,
+    "attivoTotale": 133960000000,
+    "debitoLungo": 64503000000
    }
   ]
  },
@@ -6341,7 +13141,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 3275400000,
     "ricavi": 24197700000,
-    "patrimonioNetto": 20591000000
+    "patrimonioNetto": 20591000000,
+    "crediti": null,
+    "costoVenduto": 6140700000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1988200000,
+    "speseSga": 7556700000,
+    "flussoCassaOperativo": 6999200000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -6350,7 +13160,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1654,
     "utileNetto": 7808000000,
     "ricavi": 23850000000,
-    "patrimonioNetto": 21167000000
+    "patrimonioNetto": 21167000000,
+    "crediti": 2907700000,
+    "costoVenduto": 5583000000,
+    "attivoCorrente": 19112600000,
+    "passivoCorrente": 14318700000,
+    "immobilizzazioniNette": 12000000000,
+    "ammortamento": 1631000000,
+    "speseSga": 7377000000,
+    "flussoCassaOperativo": 6572000000,
+    "attivoTotale": 47195700000,
+    "debitoLungo": 3943300000
    },
    {
     "anno": 2009,
@@ -6359,7 +13179,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1148,
     "utileNetto": 12899000000,
     "ricavi": 27428000000,
-    "patrimonioNetto": 61485000000
+    "patrimonioNetto": 61485000000,
+    "crediti": 6603000000,
+    "costoVenduto": 9019000000,
+    "attivoCorrente": 28432000000,
+    "passivoCorrente": 15641000000,
+    "immobilizzazioniNette": 18279000000,
+    "ammortamento": 2576000000,
+    "speseSga": 8543000000,
+    "flussoCassaOperativo": 3392000000,
+    "attivoTotale": 112314000000,
+    "debitoLungo": 16095000000
    },
    {
     "anno": 2010,
@@ -6368,7 +13198,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0081,
     "utileNetto": 861000000,
     "ricavi": 45987000000,
-    "patrimonioNetto": 56805000000
+    "patrimonioNetto": 56805000000,
+    "crediti": 7344000000,
+    "costoVenduto": 18396000000,
+    "attivoCorrente": 29064000000,
+    "passivoCorrente": 15641000000,
+    "immobilizzazioniNette": 17082000000,
+    "ammortamento": 7381000000,
+    "speseSga": 13125000000,
+    "flussoCassaOperativo": 10822000000,
+    "attivoTotale": 105781000000,
+    "debitoLungo": 15482000000
    },
    {
     "anno": 2011,
@@ -6377,7 +13217,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0597,
     "utileNetto": 6272000000,
     "ricavi": null,
-    "patrimonioNetto": 56943000000
+    "patrimonioNetto": 56943000000,
+    "crediti": 8261000000,
+    "costoVenduto": 16871000000,
+    "attivoCorrente": 33181000000,
+    "passivoCorrente": 16245000000,
+    "immobilizzazioniNette": 16297000000,
+    "ammortamento": 7427000000,
+    "speseSga": 13733000000,
+    "flussoCassaOperativo": 12383000000,
+    "attivoTotale": 105128000000,
+    "debitoLungo": 15525000000
    },
    {
     "anno": 2012,
@@ -6386,7 +13236,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0581,
     "utileNetto": 6168000000,
     "ricavi": null,
-    "patrimonioNetto": 55463000000
+    "patrimonioNetto": 55463000000,
+    "crediti": 7672000000,
+    "costoVenduto": 16446000000,
+    "attivoCorrente": 34857000000,
+    "passivoCorrente": 18348000000,
+    "immobilizzazioniNette": 16030000000,
+    "ammortamento": 6978000000,
+    "speseSga": 12776000000,
+    "flussoCassaOperativo": 10022000000,
+    "attivoTotale": 106132000000,
+    "debitoLungo": 16254000000
    },
    {
     "anno": 2013,
@@ -6395,7 +13255,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0417,
     "utileNetto": 4404000000,
     "ricavi": null,
-    "patrimonioNetto": 52326000000
+    "patrimonioNetto": 52326000000,
+    "crediti": 7184000000,
+    "costoVenduto": 16954000000,
+    "attivoCorrente": 35685000000,
+    "passivoCorrente": 17868000000,
+    "immobilizzazioniNette": 14973000000,
+    "ammortamento": 6988000000,
+    "speseSga": 11911000000,
+    "flussoCassaOperativo": 11654000000,
+    "attivoTotale": 105645000000,
+    "debitoLungo": 20539000000
    },
    {
     "anno": 2014,
@@ -6404,7 +13274,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1214,
     "utileNetto": 11920000000,
     "ricavi": null,
-    "patrimonioNetto": 48791000000
+    "patrimonioNetto": 48791000000,
+    "crediti": 6626000000,
+    "costoVenduto": 16768000000,
+    "attivoCorrente": 32605000000,
+    "passivoCorrente": 18397000000,
+    "immobilizzazioniNette": 13136000000,
+    "ammortamento": 6691000000,
+    "speseSga": 11606000000,
+    "flussoCassaOperativo": 7989000000,
+    "attivoTotale": 98167000000,
+    "debitoLungo": 18699000000
    },
    {
     "anno": 2015,
@@ -6413,7 +13293,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0437,
     "utileNetto": 4442000000,
     "ricavi": null,
-    "patrimonioNetto": 44767000000
+    "patrimonioNetto": 44767000000,
+    "crediti": 6484000000,
+    "costoVenduto": 14934000000,
+    "attivoCorrente": 29751000000,
+    "passivoCorrente": 19201000000,
+    "immobilizzazioniNette": 12507000000,
+    "ammortamento": 6375000000,
+    "speseSga": 10313000000,
+    "flussoCassaOperativo": 12538000000,
+    "attivoTotale": 101677000000,
+    "debitoLungo": 23829000000
    },
    {
     "anno": 2016,
@@ -6422,7 +13312,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0411,
     "utileNetto": 3920000000,
     "ricavi": 39807000000,
-    "patrimonioNetto": 40308000000
+    "patrimonioNetto": 40308000000,
+    "crediti": 7018000000,
+    "costoVenduto": 14030000000,
+    "attivoCorrente": 30614000000,
+    "passivoCorrente": 17204000000,
+    "immobilizzazioniNette": 12026000000,
+    "ammortamento": 5471000000,
+    "speseSga": 10017000000,
+    "flussoCassaOperativo": 10376000000,
+    "attivoTotale": 95377000000,
+    "debitoLungo": 24274000000
    },
    {
     "anno": 2017,
@@ -6431,7 +13331,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0272,
     "utileNetto": 2394000000,
     "ricavi": 40122000000,
-    "patrimonioNetto": 34569000000
+    "patrimonioNetto": 34569000000,
+    "crediti": 6873000000,
+    "costoVenduto": 12912000000,
+    "attivoCorrente": 24766000000,
+    "passivoCorrente": 18614000000,
+    "immobilizzazioniNette": 12439000000,
+    "ammortamento": 4676000000,
+    "speseSga": 10074000000,
+    "flussoCassaOperativo": 6451000000,
+    "attivoTotale": 87872000000,
+    "debitoLungo": 21353000000
    },
    {
     "anno": 2018,
@@ -6440,7 +13350,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0753,
     "utileNetto": 6220000000,
     "ricavi": 42294000000,
-    "patrimonioNetto": 26882000000
+    "patrimonioNetto": 26882000000,
+    "crediti": 7071000000,
+    "costoVenduto": 13509000000,
+    "attivoCorrente": 25875000000,
+    "passivoCorrente": 22206000000,
+    "immobilizzazioniNette": 13291000000,
+    "ammortamento": 1416000000,
+    "speseSga": 10102000000,
+    "flussoCassaOperativo": 10922000000,
+    "attivoTotale": 82637000000,
+    "debitoLungo": 19806000000
    },
    {
     "anno": 2019,
@@ -6449,7 +13369,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1166,
     "utileNetto": 9843000000,
     "ricavi": 39121000000,
-    "patrimonioNetto": 26001000000
+    "patrimonioNetto": 26001000000,
+    "crediti": 6778000000,
+    "costoVenduto": 12016000000,
+    "attivoCorrente": 27483000000,
+    "passivoCorrente": 22220000000,
+    "immobilizzazioniNette": 14297000000,
+    "ammortamento": 1615000000,
+    "speseSga": 9455000000,
+    "flussoCassaOperativo": 13440000000,
+    "attivoTotale": 84397000000,
+    "debitoLungo": 22736000000
    },
    {
     "anno": 2020,
@@ -6458,7 +13388,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0772,
     "utileNetto": 7067000000,
     "ricavi": 41518000000,
-    "patrimonioNetto": 25404000000
+    "patrimonioNetto": 25404000000,
+    "crediti": 6803000000,
+    "costoVenduto": 13618000000,
+    "attivoCorrente": 27764000000,
+    "passivoCorrente": 27327000000,
+    "immobilizzazioniNette": 17000000000,
+    "ammortamento": 1669000000,
+    "speseSga": 8955000000,
+    "flussoCassaOperativo": 10253000000,
+    "attivoTotale": 91588000000,
+    "debitoLungo": 25360000000
    },
    {
     "anno": 2021,
@@ -6467,7 +13407,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1235,
     "utileNetto": 13049000000,
     "ricavi": 48704000000,
-    "patrimonioNetto": 38257000000
+    "patrimonioNetto": 38257000000,
+    "crediti": 9230000000,
+    "costoVenduto": 13626000000,
+    "attivoCorrente": 30266000000,
+    "passivoCorrente": 23872000000,
+    "immobilizzazioniNette": 19279000000,
+    "ammortamento": 1578000000,
+    "speseSga": 9634000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 105694000000,
+    "debitoLungo": 30690000000
    },
    {
     "anno": 2022,
@@ -6476,7 +13426,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.133,
     "utileNetto": 14519000000,
     "ricavi": 59283000000,
-    "patrimonioNetto": 46058000000
+    "patrimonioNetto": 46058000000,
+    "crediti": 9450000000,
+    "costoVenduto": 17411000000,
+    "attivoCorrente": 35722000000,
+    "passivoCorrente": 24239000000,
+    "immobilizzazioniNette": 21422000000,
+    "ammortamento": 1824000000,
+    "speseSga": 10042000000,
+    "flussoCassaOperativo": 19095000000,
+    "attivoTotale": 109160000000,
+    "debitoLungo": 28745000000
    },
    {
     "anno": 2023,
@@ -6485,7 +13445,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0034,
     "utileNetto": 365000000,
     "ricavi": 60115000000,
-    "patrimonioNetto": 37635000000
+    "patrimonioNetto": 37635000000,
+    "crediti": 10349000000,
+    "costoVenduto": 16126000000,
+    "attivoCorrente": 32168000000,
+    "passivoCorrente": 25694000000,
+    "immobilizzazioniNette": 23051000000,
+    "ammortamento": 1828000000,
+    "speseSga": 10504000000,
+    "flussoCassaOperativo": 13006000000,
+    "attivoTotale": 106675000000,
+    "debitoLungo": 33683000000
    },
    {
     "anno": 2024,
@@ -6494,7 +13464,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1462,
     "utileNetto": 17117000000,
     "ricavi": 64168000000,
-    "patrimonioNetto": 46313000000
+    "patrimonioNetto": 46313000000,
+    "crediti": 10278000000,
+    "costoVenduto": 15193000000,
+    "attivoCorrente": 38782000000,
+    "passivoCorrente": 28420000000,
+    "immobilizzazioniNette": 23779000000,
+    "ammortamento": 2104000000,
+    "speseSga": 10816000000,
+    "flussoCassaOperativo": 21468000000,
+    "attivoTotale": 117106000000,
+    "debitoLungo": 34462000000
    },
    {
     "anno": 2025,
@@ -6503,7 +13483,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1334,
     "utileNetto": 18254000000,
     "ricavi": 65011000000,
-    "patrimonioNetto": 52606000000
+    "patrimonioNetto": 52606000000,
+    "crediti": 11775000000,
+    "costoVenduto": 16382000000,
+    "attivoCorrente": 43516000000,
+    "passivoCorrente": 28327000000,
+    "immobilizzazioniNette": 25316000000,
+    "ammortamento": 3045000000,
+    "speseSga": 10733000000,
+    "flussoCassaOperativo": 16472000000,
+    "attivoTotale": 136866000000,
+    "debitoLungo": 46750000000
    }
   ]
  },
@@ -6517,7 +13507,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 748400000,
     "ricavi": 9746400000,
-    "patrimonioNetto": 14463600000
+    "patrimonioNetto": 14463600000,
+    "crediti": null,
+    "costoVenduto": 5079300000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 756800000,
+    "speseSga": 2549100000,
+    "flussoCassaOperativo": 1483500000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -6526,7 +13526,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0465,
     "utileNetto": 980900000,
     "ricavi": 10498000000,
-    "patrimonioNetto": 14926500000
+    "patrimonioNetto": 14926500000,
+    "crediti": 1478100000,
+    "costoVenduto": 5299600000,
+    "attivoCorrente": 4345900000,
+    "passivoCorrente": 1540200000,
+    "immobilizzazioniNette": 1275300000,
+    "ammortamento": 792700000,
+    "speseSga": 2692300000,
+    "flussoCassaOperativo": 1420200000,
+    "attivoTotale": 21090000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -6535,7 +13545,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0393,
     "utileNetto": 850300000,
     "ricavi": 9911600000,
-    "patrimonioNetto": 15430900000
+    "patrimonioNetto": 15430900000,
+    "crediti": 1409600000,
+    "costoVenduto": 5156300000,
+    "attivoCorrente": 4530900000,
+    "passivoCorrente": 1639300000,
+    "immobilizzazioniNette": 1333400000,
+    "ammortamento": 762900000,
+    "speseSga": 2592700000,
+    "flussoCassaOperativo": 1659200000,
+    "attivoTotale": 21625000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -6544,7 +13564,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0485,
     "utileNetto": 1035600000,
     "ricavi": 10393100000,
-    "patrimonioNetto": 15361000000
+    "patrimonioNetto": 15361000000,
+    "crediti": 1473800000,
+    "costoVenduto": 5264700000,
+    "attivoCorrente": 4135000000,
+    "passivoCorrente": 1709800000,
+    "immobilizzazioniNette": 1360200000,
+    "ammortamento": 739700000,
+    "speseSga": 2728800000,
+    "flussoCassaOperativo": 1497800000,
+    "attivoTotale": 21349400000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -6553,7 +13583,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0496,
     "utileNetto": 1329900000,
     "ricavi": 11558800000,
-    "patrimonioNetto": 15038100000
+    "patrimonioNetto": 15038100000,
+    "crediti": 1763700000,
+    "costoVenduto": 5733400000,
+    "attivoCorrente": 4821900000,
+    "passivoCorrente": 3113100000,
+    "immobilizzazioniNette": 1611300000,
+    "ammortamento": 859600000,
+    "speseSga": 3106500000,
+    "flussoCassaOperativo": 1691000000,
+    "attivoTotale": 26833700000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -6562,7 +13602,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0429,
     "utileNetto": 1177900000,
     "ricavi": 12509900000,
-    "patrimonioNetto": 15464700000
+    "patrimonioNetto": 15464700000,
+    "crediti": 1804900000,
+    "costoVenduto": 6101300000,
+    "attivoCorrente": 4834800000,
+    "passivoCorrente": 2093300000,
+    "immobilizzazioniNette": 1726400000,
+    "ammortamento": 983700000,
+    "speseSga": 3354900000,
+    "flussoCassaOperativo": 2039500000,
+    "attivoTotale": 27444600000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -6571,7 +13621,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.04,
     "utileNetto": 1273300000,
     "ricavi": 13090300000,
-    "patrimonioNetto": 16856100000
+    "patrimonioNetto": 16856100000,
+    "crediti": 1942300000,
+    "costoVenduto": 6309600000,
+    "attivoCorrente": 9880700000,
+    "passivoCorrente": 3126000000,
+    "immobilizzazioniNette": 1767400000,
+    "ammortamento": 999900000,
+    "speseSga": 3446300000,
+    "flussoCassaOperativo": 2010700000,
+    "attivoTotale": 31863400000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -6580,7 +13640,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0633,
     "utileNetto": 3698000000,
     "ricavi": 25542000000,
-    "patrimonioNetto": 29684000000
+    "patrimonioNetto": 29684000000,
+    "crediti": 4349000000,
+    "costoVenduto": null,
+    "attivoCorrente": 11893000000,
+    "passivoCorrente": 6197000000,
+    "immobilizzazioniNette": 4749000000,
+    "ammortamento": 564000000,
+    "speseSga": 6144000000,
+    "flussoCassaOperativo": 4973000000,
+    "attivoTotale": 58381000000,
+    "debitoLungo": 17076000000
    },
    {
     "anno": 2020,
@@ -6589,7 +13659,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0924,
     "utileNetto": 6377000000,
     "ricavi": 32218000000,
-    "patrimonioNetto": 34517000000
+    "patrimonioNetto": 34517000000,
+    "crediti": 5741000000,
+    "costoVenduto": null,
+    "attivoCorrente": 21957000000,
+    "passivoCorrente": 10304000000,
+    "immobilizzazioniNette": 5912000000,
+    "ammortamento": 658000000,
+    "speseSga": 6930000000,
+    "flussoCassaOperativo": 8289000000,
+    "attivoTotale": 69052000000,
+    "debitoLungo": 21728000000
    },
    {
     "anno": 2021,
@@ -6598,7 +13678,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0812,
     "utileNetto": 7728000000,
     "ricavi": 39211000000,
-    "patrimonioNetto": 40855000000
+    "patrimonioNetto": 40855000000,
+    "crediti": 7977000000,
+    "costoVenduto": null,
+    "attivoCorrente": 20113000000,
+    "passivoCorrente": 13436000000,
+    "immobilizzazioniNette": 8333000000,
+    "ammortamento": 831000000,
+    "speseSga": 8007000000,
+    "flussoCassaOperativo": 9312000000,
+    "attivoTotale": 95123000000,
+    "debitoLungo": 34670000000
    },
    {
     "anno": 2022,
@@ -6607,7 +13697,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0716,
     "utileNetto": 6960000000,
     "ricavi": 44915000000,
-    "patrimonioNetto": 44032000000
+    "patrimonioNetto": 44032000000,
+    "crediti": 8115000000,
+    "costoVenduto": null,
+    "attivoCorrente": 25229000000,
+    "passivoCorrente": 17010000000,
+    "immobilizzazioniNette": 9280000000,
+    "ammortamento": 986000000,
+    "speseSga": 8993000000,
+    "flussoCassaOperativo": 9154000000,
+    "attivoTotale": 97154000000,
+    "debitoLungo": 34278000000
    },
    {
     "anno": 2023,
@@ -6616,7 +13716,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0607,
     "utileNetto": 5995000000,
     "ricavi": 42857000000,
-    "patrimonioNetto": 46724000000
+    "patrimonioNetto": 46724000000,
+    "crediti": 8221000000,
+    "costoVenduto": null,
+    "attivoCorrente": 24589000000,
+    "passivoCorrente": 14012000000,
+    "immobilizzazioniNette": 9448000000,
+    "ammortamento": 1068000000,
+    "speseSga": 8445000000,
+    "flussoCassaOperativo": 8406000000,
+    "attivoTotale": 98726000000,
+    "debitoLungo": 34727000000
    },
    {
     "anno": 2024,
@@ -6625,7 +13735,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0651,
     "utileNetto": 6335000000,
     "ricavi": 42879000000,
-    "patrimonioNetto": 49584000000
+    "patrimonioNetto": 49584000000,
+    "crediti": 8191000000,
+    "costoVenduto": null,
+    "attivoCorrente": 22137000000,
+    "passivoCorrente": 13332000000,
+    "immobilizzazioniNette": 9306000000,
+    "ammortamento": 1156000000,
+    "speseSga": 8595000000,
+    "flussoCassaOperativo": 8667000000,
+    "attivoTotale": 97321000000,
+    "debitoLungo": 31072000000
    },
    {
     "anno": 2025,
@@ -6634,7 +13754,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0608,
     "utileNetto": 6704000000,
     "ricavi": 44556000000,
-    "patrimonioNetto": 53407000000
+    "patrimonioNetto": 53407000000,
+    "crediti": 8900000000,
+    "costoVenduto": null,
+    "attivoCorrente": 28707000000,
+    "passivoCorrente": 15189000000,
+    "immobilizzazioniNette": 10565000000,
+    "ammortamento": 1050000000,
+    "speseSga": 8732000000,
+    "flussoCassaOperativo": 7818000000,
+    "attivoTotale": 110343000000,
+    "debitoLungo": 39172000000
    }
   ]
  },
@@ -6648,7 +13778,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0908,
     "utileNetto": 3606314000,
     "ricavi": 25914238000,
-    "patrimonioNetto": 17823945000
+    "patrimonioNetto": 17823945000,
+    "crediti": 4946876000,
+    "costoVenduto": 11422046000,
+    "attivoCorrente": 14042733000,
+    "passivoCorrente": 9103278000,
+    "immobilizzazioniNette": 7518149000,
+    "ammortamento": 1072855000,
+    "speseSga": 7407998000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 39713924000,
+    "debitoLungo": 9487789000
    },
    {
     "anno": 2008,
@@ -6657,7 +13797,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1151,
     "utileNetto": 4880719000,
     "ricavi": 29527552000,
-    "patrimonioNetto": 17479551000
+    "patrimonioNetto": 17479551000,
+    "crediti": 5465660000,
+    "costoVenduto": 12612022000,
+    "attivoCorrente": 17042559000,
+    "passivoCorrente": 11591908000,
+    "immobilizzazioniNette": 7219166000,
+    "ammortamento": 1051728000,
+    "speseSga": 8435624000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 42419204000,
+    "debitoLungo": 8713327000
    },
    {
     "anno": 2009,
@@ -6666,7 +13816,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1093,
     "utileNetto": 5745838000,
     "ricavi": 30764707000,
-    "patrimonioNetto": 23144294000
+    "patrimonioNetto": 23144294000,
+    "crediti": 6541941000,
+    "costoVenduto": 13209329000,
+    "attivoCorrente": 23313891000,
+    "passivoCorrente": 13049489000,
+    "immobilizzazioniNette": 7619489000,
+    "ammortamento": 1210977000,
+    "speseSga": 8405904000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 52581623000,
+    "debitoLungo": 11266294000
    },
    {
     "anno": 2010,
@@ -6675,7 +13835,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0764,
     "utileNetto": 4626172000,
     "ricavi": 35166721000,
-    "patrimonioNetto": 22676802000
+    "patrimonioNetto": 22676802000,
+    "crediti": 7184034000,
+    "costoVenduto": 14665192000,
+    "attivoCorrente": 22317529000,
+    "passivoCorrente": 17262434000,
+    "immobilizzazioniNette": 7970956000,
+    "ammortamento": 1207450000,
+    "speseSga": 10376324000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 60573852000,
+    "debitoLungo": 12523517000
    },
    {
     "anno": 2011,
@@ -6684,7 +13854,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0784,
     "utileNetto": 4728000000,
     "ricavi": 21407000000,
-    "patrimonioNetto": 24439833000
+    "patrimonioNetto": 24439833000,
+    "crediti": 7683920000,
+    "costoVenduto": 10017000000,
+    "attivoCorrente": 23768774000,
+    "passivoCorrente": 15480228000,
+    "immobilizzazioniNette": 7873955000,
+    "ammortamento": 1395000000,
+    "speseSga": 7365000000,
+    "flussoCassaOperativo": 8970000000,
+    "attivoTotale": 60277000000,
+    "debitoLungo": 12039822000
    },
    {
     "anno": 2012,
@@ -6693,7 +13873,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0887,
     "utileNetto": 5963000000,
     "ricavi": 19050000000,
-    "patrimonioNetto": 26721000000
+    "patrimonioNetto": 26721000000,
+    "crediti": 7613000000,
+    "costoVenduto": 8899000000,
+    "attivoCorrente": 31323000000,
+    "passivoCorrente": 13280000000,
+    "immobilizzazioniNette": 8063000000,
+    "ammortamento": 1363000000,
+    "speseSga": 6735000000,
+    "flussoCassaOperativo": 9314000000,
+    "attivoTotale": 67235000000,
+    "debitoLungo": 18085000000
    },
    {
     "anno": 2013,
@@ -6702,7 +13892,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.06,
     "utileNetto": 2576000000,
     "ricavi": 19657000000,
-    "patrimonioNetto": 25171000000
+    "patrimonioNetto": 25171000000,
+    "crediti": 3986000000,
+    "costoVenduto": 9193000000,
+    "attivoCorrente": 19247000000,
+    "passivoCorrente": 9507000000,
+    "immobilizzazioniNette": 5905000000,
+    "ammortamento": 928000000,
+    "speseSga": 6372000000,
+    "flussoCassaOperativo": 3324000000,
+    "attivoTotale": 42937000000,
+    "debitoLungo": 3388000000
    },
    {
     "anno": 2014,
@@ -6711,7 +13911,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0554,
     "utileNetto": 2284000000,
     "ricavi": 20247000000,
-    "patrimonioNetto": 21526000000
+    "patrimonioNetto": 21526000000,
+    "crediti": 3586000000,
+    "costoVenduto": 9218000000,
+    "attivoCorrente": 13556000000,
+    "passivoCorrente": 10467000000,
+    "immobilizzazioniNette": 5935000000,
+    "ammortamento": 918000000,
+    "speseSga": 6530000000,
+    "flussoCassaOperativo": 3675000000,
+    "attivoTotale": 41207000000,
+    "debitoLungo": 3393000000
    },
    {
     "anno": 2015,
@@ -6720,7 +13930,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1072,
     "utileNetto": 4423000000,
     "ricavi": 20405000000,
-    "patrimonioNetto": 21211000000
+    "patrimonioNetto": 21211000000,
+    "crediti": 3418000000,
+    "costoVenduto": 8747000000,
+    "attivoCorrente": 14155000000,
+    "passivoCorrente": 9186000000,
+    "immobilizzazioniNette": 5730000000,
+    "ammortamento": 871000000,
+    "speseSga": 6785000000,
+    "flussoCassaOperativo": 2966000000,
+    "attivoTotale": 41247000000,
+    "debitoLungo": 5871000000
    },
    {
     "anno": 2016,
@@ -6729,7 +13949,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0266,
     "utileNetto": 1400000000,
     "ricavi": 20853000000,
-    "patrimonioNetto": 20538000000
+    "patrimonioNetto": 20538000000,
+    "crediti": 3248000000,
+    "costoVenduto": 9094000000,
+    "attivoCorrente": 26776000000,
+    "passivoCorrente": 6660000000,
+    "immobilizzazioniNette": 5705000000,
+    "ammortamento": 803000000,
+    "speseSga": 6736000000,
+    "flussoCassaOperativo": 3203000000,
+    "attivoTotale": 52666000000,
+    "debitoLungo": 20681000000
    },
    {
     "anno": 2017,
@@ -6738,7 +13968,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0063,
     "utileNetto": 477000000,
     "ricavi": 27390000000,
-    "patrimonioNetto": 30897000000
+    "patrimonioNetto": 30897000000,
+    "crediti": 5249000000,
+    "costoVenduto": 12409000000,
+    "attivoCorrente": 20147000000,
+    "passivoCorrente": 8912000000,
+    "immobilizzazioniNette": 7607000000,
+    "ammortamento": 1046000000,
+    "speseSga": 9182000000,
+    "flussoCassaOperativo": 5570000000,
+    "attivoTotale": 76250000000,
+    "debitoLungo": 27210000000
    },
    {
     "anno": 2018,
@@ -6747,7 +13987,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0353,
     "utileNetto": 2368000000,
     "ricavi": 30578000000,
-    "patrimonioNetto": 30524000000
+    "patrimonioNetto": 30524000000,
+    "crediti": 5182000000,
+    "costoVenduto": 12706000000,
+    "attivoCorrente": 14632000000,
+    "passivoCorrente": 9012000000,
+    "immobilizzazioniNette": 7563000000,
+    "ammortamento": 1100000000,
+    "speseSga": 9744000000,
+    "flussoCassaOperativo": 6300000000,
+    "attivoTotale": 67173000000,
+    "debitoLungo": 19359000000
    },
    {
     "anno": 2019,
@@ -6756,7 +14006,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0543,
     "utileNetto": 3687000000,
     "ricavi": 31904000000,
-    "patrimonioNetto": 31088000000
+    "patrimonioNetto": 31088000000,
+    "crediti": 5425000000,
+    "costoVenduto": 13231000000,
+    "attivoCorrente": 15667000000,
+    "passivoCorrente": 10863000000,
+    "immobilizzazioniNette": 8038000000,
+    "ammortamento": 1078000000,
+    "speseSga": 9765000000,
+    "flussoCassaOperativo": 6136000000,
+    "attivoTotale": 67887000000,
+    "debitoLungo": 16661000000
    },
    {
     "anno": 2020,
@@ -6765,7 +14025,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.062,
     "utileNetto": 4495000000,
     "ricavi": 34608000000,
-    "patrimonioNetto": 32784000000
+    "patrimonioNetto": 32784000000,
+    "crediti": 6414000000,
+    "costoVenduto": 15003000000,
+    "attivoCorrente": 20441000000,
+    "passivoCorrente": 11907000000,
+    "immobilizzazioniNette": 9029000000,
+    "ammortamento": 1195000000,
+    "speseSga": 9696000000,
+    "flussoCassaOperativo": 7901000000,
+    "attivoTotale": 72548000000,
+    "debitoLungo": 18527000000
    },
    {
     "anno": 2021,
@@ -6774,7 +14044,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.094,
     "utileNetto": 7071000000,
     "ricavi": 43075000000,
-    "patrimonioNetto": 35802000000
+    "patrimonioNetto": 35802000000,
+    "crediti": 6487000000,
+    "costoVenduto": 18537000000,
+    "attivoCorrente": 24239000000,
+    "passivoCorrente": 13105000000,
+    "immobilizzazioniNette": 8959000000,
+    "ammortamento": 1491000000,
+    "speseSga": 11324000000,
+    "flussoCassaOperativo": 10533000000,
+    "attivoTotale": 75196000000,
+    "debitoLungo": 17296000000
    },
    {
     "anno": 2022,
@@ -6783,7 +14063,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0931,
     "utileNetto": 6933000000,
     "ricavi": 43653000000,
-    "patrimonioNetto": 36686000000
+    "patrimonioNetto": 36686000000,
+    "crediti": 6218000000,
+    "costoVenduto": 19142000000,
+    "attivoCorrente": 25224000000,
+    "passivoCorrente": 15489000000,
+    "immobilizzazioniNette": 9162000000,
+    "ammortamento": 1254000000,
+    "speseSga": 11248000000,
+    "flussoCassaOperativo": 9581000000,
+    "attivoTotale": 74438000000,
+    "debitoLungo": 14522000000
    },
    {
     "anno": 2023,
@@ -6792,7 +14082,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0782,
     "utileNetto": 5723000000,
     "ricavi": 40109000000,
-    "patrimonioNetto": 38603000000
+    "patrimonioNetto": 38603000000,
+    "crediti": 6565000000,
+    "costoVenduto": 17975000000,
+    "attivoCorrente": 22670000000,
+    "passivoCorrente": 13841000000,
+    "immobilizzazioniNette": 10154000000,
+    "ammortamento": 1277000000,
+    "speseSga": 10949000000,
+    "flussoCassaOperativo": 7261000000,
+    "attivoTotale": 73214000000,
+    "debitoLungo": 13599000000
    },
    {
     "anno": 2024,
@@ -6801,7 +14101,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1646,
     "utileNetto": 13402000000,
     "ricavi": 41950000000,
-    "patrimonioNetto": 47664000000
+    "patrimonioNetto": 47664000000,
+    "crediti": 6925000000,
+    "costoVenduto": 18706000000,
+    "attivoCorrente": 23656000000,
+    "passivoCorrente": 14157000000,
+    "immobilizzazioniNette": 10658000000,
+    "ammortamento": 1340000000,
+    "speseSga": 11697000000,
+    "flussoCassaOperativo": 8558000000,
+    "attivoTotale": 81414000000,
+    "debitoLungo": 12625000000
    },
    {
     "anno": 2025,
@@ -6810,7 +14120,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0752,
     "utileNetto": 6524000000,
     "ricavi": 44328000000,
-    "patrimonioNetto": 52130000000
+    "patrimonioNetto": 52130000000,
+    "crediti": 7929000000,
+    "costoVenduto": 19319000000,
+    "attivoCorrente": 25996000000,
+    "passivoCorrente": 16496000000,
+    "immobilizzazioniNette": 11816000000,
+    "ammortamento": 1434000000,
+    "speseSga": 12332000000,
+    "flussoCassaOperativo": 9566000000,
+    "attivoTotale": 86713000000,
+    "debitoLungo": 9896000000
    }
   ]
  },
@@ -6824,7 +14144,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0753,
     "utileNetto": 1317631000,
     "ricavi": 12697456000,
-    "patrimonioNetto": 9808562000
+    "patrimonioNetto": 9808562000,
+    "crediti": 1894585000,
+    "costoVenduto": 6757262000,
+    "attivoCorrente": 4187119000,
+    "passivoCorrente": 2745097000,
+    "immobilizzazioniNette": 1108653000,
+    "ammortamento": 339300000,
+    "speseSga": 3345274000,
+    "flussoCassaOperativo": 1859029000,
+    "attivoTotale": 17490100000,
+    "debitoLungo": 2553170000
    },
    {
     "anno": 2009,
@@ -6833,7 +14163,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0588,
     "utileNetto": 1151704000,
     "ricavi": 10516681000,
-    "patrimonioNetto": 11630176000
+    "patrimonioNetto": 11630176000,
+    "crediti": 1916831000,
+    "costoVenduto": 5446584000,
+    "attivoCorrente": 5220628000,
+    "passivoCorrente": 2760960000,
+    "immobilizzazioniNette": 1143331000,
+    "ammortamento": 331800000,
+    "speseSga": 3115265000,
+    "flussoCassaOperativo": 1800834000,
+    "attivoTotale": 19595420000,
+    "debitoLungo": 2889023000
    },
    {
     "anno": 2010,
@@ -6842,7 +14182,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0807,
     "utileNetto": 1793000000,
     "ricavi": 12550000000,
-    "patrimonioNetto": 13711010000
+    "patrimonioNetto": 13711010000,
+    "crediti": 2097974000,
+    "costoVenduto": 6145500000,
+    "attivoCorrente": 6065455000,
+    "passivoCorrente": 3320702000,
+    "immobilizzazioniNette": 1129781000,
+    "ammortamento": 388300000,
+    "speseSga": 3603700000,
+    "flussoCassaOperativo": 2084400000,
+    "attivoTotale": 22217100000,
+    "debitoLungo": 2783907000
    },
    {
     "anno": 2011,
@@ -6851,7 +14201,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0725,
     "utileNetto": 2172300000,
     "ricavi": 16090500000,
-    "patrimonioNetto": 16904800000
+    "patrimonioNetto": 16904800000,
+    "crediti": 3049900000,
+    "costoVenduto": 7913900000,
+    "attivoCorrente": 6272400000,
+    "passivoCorrente": 4172000000,
+    "immobilizzazioniNette": 2101000000,
+    "ammortamento": 635000000,
+    "speseSga": 4607700000,
+    "flussoCassaOperativo": 2626300000,
+    "attivoTotale": 29949500000,
+    "debitoLungo": 5206800000
    },
    {
     "anno": 2012,
@@ -6860,7 +14220,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0726,
     "utileNetto": 2392200000,
     "ricavi": 18260400000,
-    "patrimonioNetto": 19016500000
+    "patrimonioNetto": 19016500000,
+    "crediti": 3267300000,
+    "costoVenduto": 8846100000,
+    "attivoCorrente": 7587800000,
+    "passivoCorrente": 4206100000,
+    "immobilizzazioniNette": 2140900000,
+    "ammortamento": 839800000,
+    "speseSga": 5181200000,
+    "flussoCassaOperativo": 3415000000,
+    "attivoTotale": 32941000000,
+    "debitoLungo": 5287600000
    },
    {
     "anno": 2013,
@@ -6869,7 +14239,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0777,
     "utileNetto": 2695000000,
     "ricavi": 18283100000,
-    "patrimonioNetto": 22385300000
+    "patrimonioNetto": 22385300000,
+    "crediti": 3451600000,
+    "costoVenduto": 8941100000,
+    "attivoCorrente": 9113700000,
+    "passivoCorrente": 4527400000,
+    "immobilizzazioniNette": 2211300000,
+    "ammortamento": 850600000,
+    "speseSga": 5117100000,
+    "flussoCassaOperativo": 3585300000,
+    "attivoTotale": 34672200000,
+    "debitoLungo": 3436700000
    },
    {
     "anno": 2014,
@@ -6878,7 +14258,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0702,
     "utileNetto": 2598400000,
     "ricavi": 12866900000,
-    "patrimonioNetto": 23378100000
+    "patrimonioNetto": 23378100000,
+    "crediti": 3445800000,
+    "costoVenduto": 6017400000,
+    "attivoCorrente": 9431300000,
+    "passivoCorrente": 5396400000,
+    "immobilizzazioniNette": 1665800000,
+    "ammortamento": 718100000,
+    "speseSga": 4035100000,
+    "flussoCassaOperativo": 3758400000,
+    "attivoTotale": 36991700000,
+    "debitoLungo": 3401500000
    },
    {
     "anno": 2015,
@@ -6887,7 +14277,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0696,
     "utileNetto": 3357400000,
     "ricavi": 14433700000,
-    "patrimonioNetto": 23690300000
+    "patrimonioNetto": 23690300000,
+    "crediti": 2985100000,
+    "costoVenduto": 6662600000,
+    "attivoCorrente": 7836700000,
+    "passivoCorrente": 6170400000,
+    "immobilizzazioniNette": 2302700000,
+    "ammortamento": 880800000,
+    "speseSga": 4747500000,
+    "flussoCassaOperativo": 3801800000,
+    "attivoTotale": 48222200000,
+    "debitoLungo": 12025200000
    },
    {
     "anno": 2016,
@@ -6896,7 +14296,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0564,
     "utileNetto": 2553700000,
     "ricavi": 16882400000,
-    "patrimonioNetto": 23002800000
+    "patrimonioNetto": 23002800000,
+    "crediti": 3186100000,
+    "costoVenduto": 7547800000,
+    "attivoCorrente": 6665100000,
+    "passivoCorrente": 6874000000,
+    "immobilizzazioniNette": 2354000000,
+    "ammortamento": 1128100000,
+    "speseSga": 5624300000,
+    "flussoCassaOperativo": 3521800000,
+    "attivoTotale": 45295300000,
+    "debitoLungo": 9674200000
    },
    {
     "anno": 2017,
@@ -6905,7 +14315,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0534,
     "utileNetto": 2492100000,
     "ricavi": 15518800000,
-    "patrimonioNetto": 26367800000
+    "patrimonioNetto": 26367800000,
+    "crediti": 3521800000,
+    "costoVenduto": 6947500000,
+    "attivoCorrente": 6850000000,
+    "passivoCorrente": 4792300000,
+    "immobilizzazioniNette": 2223400000,
+    "ammortamento": 1116900000,
+    "speseSga": 5042600000,
+    "flussoCassaOperativo": 3477800000,
+    "attivoTotale": 46648600000,
+    "debitoLungo": 10327400000
    },
    {
     "anno": 2018,
@@ -6914,7 +14334,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0554,
     "utileNetto": 2651000000,
     "ricavi": 17049000000,
-    "patrimonioNetto": 28225000000
+    "patrimonioNetto": 28225000000,
+    "crediti": 3029800000,
+    "costoVenduto": 7544000000,
+    "attivoCorrente": 7093800000,
+    "passivoCorrente": 4841500000,
+    "immobilizzazioniNette": 2250000000,
+    "ammortamento": 1178000000,
+    "speseSga": 5391000000,
+    "flussoCassaOperativo": 4022000000,
+    "attivoTotale": 47833000000,
+    "debitoLungo": 9688500000
    },
    {
     "anno": 2019,
@@ -6923,7 +14353,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0485,
     "utileNetto": 3008000000,
     "ricavi": 17911000000,
-    "patrimonioNetto": 30282000000
+    "patrimonioNetto": 30282000000,
+    "crediti": 3191000000,
+    "costoVenduto": 7927000000,
+    "attivoCorrente": 25596000000,
+    "passivoCorrente": 4932000000,
+    "immobilizzazioniNette": 2302000000,
+    "ammortamento": 1189000000,
+    "speseSga": 5589000000,
+    "flussoCassaOperativo": 3952000000,
+    "attivoTotale": 62082000000,
+    "debitoLungo": 21517000000
    },
    {
     "anno": 2020,
@@ -6932,7 +14372,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0479,
     "utileNetto": 3646000000,
     "ricavi": 22284000000,
-    "patrimonioNetto": 39777000000
+    "patrimonioNetto": 39777000000,
+    "crediti": 4045000000,
+    "costoVenduto": 9809000000,
+    "attivoCorrente": 13802000000,
+    "passivoCorrente": 7402000000,
+    "immobilizzazioniNette": 3262000000,
+    "ammortamento": 1775000000,
+    "speseSga": 6896000000,
+    "flussoCassaOperativo": 6208000000,
+    "attivoTotale": 76161000000,
+    "debitoLungo": 21193000000
    },
    {
     "anno": 2021,
@@ -6941,7 +14391,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0773,
     "utileNetto": 6433000000,
     "ricavi": 24802000000,
-    "patrimonioNetto": 45177000000
+    "patrimonioNetto": 45177000000,
+    "crediti": 4631000000,
+    "costoVenduto": 9563000000,
+    "attivoCorrente": 11648000000,
+    "passivoCorrente": 8140000000,
+    "immobilizzazioniNette": 3530000000,
+    "ammortamento": 2062000000,
+    "speseSga": 6817000000,
+    "flussoCassaOperativo": 8358000000,
+    "attivoTotale": 83184000000,
+    "debitoLungo": 22168000000
    },
    {
     "anno": 2022,
@@ -6950,7 +14410,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0855,
     "utileNetto": 7209000000,
     "ricavi": 26643000000,
-    "patrimonioNetto": 50090000000
+    "patrimonioNetto": 50090000000,
+    "crediti": 4102000000,
+    "costoVenduto": 10455000000,
+    "attivoCorrente": 15883000000,
+    "passivoCorrente": 8389000000,
+    "immobilizzazioniNette": 3709000000,
+    "ammortamento": 698000000,
+    "speseSga": 7124000000,
+    "flussoCassaOperativo": 8519000000,
+    "attivoTotale": 84350000000,
+    "debitoLungo": 19086000000
    },
    {
     "anno": 2023,
@@ -6959,7 +14429,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0564,
     "utileNetto": 4764000000,
     "ricavi": 23890000000,
-    "patrimonioNetto": 53490000000
+    "patrimonioNetto": 53490000000,
+    "crediti": 3922000000,
+    "costoVenduto": 9856000000,
+    "attivoCorrente": 13937000000,
+    "passivoCorrente": 8274000000,
+    "immobilizzazioniNette": 4553000000,
+    "ammortamento": 675000000,
+    "speseSga": 7329000000,
+    "flussoCassaOperativo": 7164000000,
+    "attivoTotale": 84488000000,
+    "debitoLungo": 16707000000
    },
    {
     "anno": 2024,
@@ -6968,7 +14448,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0503,
     "utileNetto": 3899000000,
     "ricavi": 23875000000,
-    "patrimonioNetto": 49543000000
+    "patrimonioNetto": 49543000000,
+    "crediti": 3537000000,
+    "costoVenduto": 9669000000,
+    "attivoCorrente": 9497000000,
+    "passivoCorrente": 6798000000,
+    "immobilizzazioniNette": 4990000000,
+    "ammortamento": 721000000,
+    "speseSga": 7759000000,
+    "flussoCassaOperativo": 6688000000,
+    "attivoTotale": 77542000000,
+    "debitoLungo": 15500000000
    },
    {
     "anno": 2025,
@@ -6977,7 +14467,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0433,
     "utileNetto": 3614000000,
     "ricavi": 24568000000,
-    "patrimonioNetto": 52534000000
+    "patrimonioNetto": 52534000000,
+    "crediti": 3913000000,
+    "costoVenduto": 10045000000,
+    "attivoCorrente": 12756000000,
+    "passivoCorrente": 6807000000,
+    "immobilizzazioniNette": 5531000000,
+    "ammortamento": 750000000,
+    "speseSga": 8235000000,
+    "flussoCassaOperativo": 6416000000,
+    "attivoTotale": 83464000000,
+    "debitoLungo": 18416000000
    }
   ]
  },
@@ -6991,7 +14491,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 3078000000,
     "ricavi": 14771000000,
-    "patrimonioNetto": 18512000000
+    "patrimonioNetto": 18512000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1202000000,
+    "speseSga": 3361000000,
+    "flussoCassaOperativo": 5401000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -7000,7 +14510,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1112,
     "utileNetto": 4052000000,
     "ricavi": 15003000000,
-    "patrimonioNetto": 20885000000
+    "patrimonioNetto": 20885000000,
+    "crediti": 2073000000,
+    "costoVenduto": null,
+    "attivoCorrente": 15221000000,
+    "passivoCorrente": 4886000000,
+    "immobilizzazioniNette": 5879000000,
+    "ammortamento": 1073000000,
+    "speseSga": 3789000000,
+    "flussoCassaOperativo": 5988000000,
+    "attivoTotale": 36427000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -7009,7 +14529,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1162,
     "utileNetto": 4605000000,
     "ricavi": 14642000000,
-    "patrimonioNetto": 22667000000
+    "patrimonioNetto": 22667000000,
+    "crediti": 2109000000,
+    "costoVenduto": null,
+    "attivoCorrente": 18932000000,
+    "passivoCorrente": 3873000000,
+    "immobilizzazioniNette": 5738000000,
+    "ammortamento": 1049000000,
+    "speseSga": 3820000000,
+    "flussoCassaOperativo": 6336000000,
+    "attivoTotale": 39629000000,
+    "debitoLungo": 10601000000
    },
    {
     "anno": 2010,
@@ -7018,7 +14548,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1064,
     "utileNetto": 4627000000,
     "ricavi": 15053000000,
-    "patrimonioNetto": 23944000000
+    "patrimonioNetto": 23944000000,
+    "crediti": 2335000000,
+    "costoVenduto": null,
+    "attivoCorrente": 23129000000,
+    "passivoCorrente": 6570000000,
+    "immobilizzazioniNette": 5522000000,
+    "ammortamento": 1017000000,
+    "speseSga": 3983000000,
+    "flussoCassaOperativo": 5787000000,
+    "attivoTotale": 43486000000,
+    "debitoLungo": 13362000000
    },
    {
     "anno": 2011,
@@ -7027,7 +14567,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0754,
     "utileNetto": 3683000000,
     "ricavi": 15582000000,
-    "patrimonioNetto": 19029000000
+    "patrimonioNetto": 19029000000,
+    "crediti": 2896000000,
+    "costoVenduto": 2708000000,
+    "attivoCorrente": 27593000000,
+    "passivoCorrente": 5754000000,
+    "immobilizzazioniNette": 5420000000,
+    "ammortamento": 1060000000,
+    "speseSga": 4499000000,
+    "flussoCassaOperativo": 5119000000,
+    "attivoTotale": 48871000000,
+    "debitoLungo": 21428000000
    },
    {
     "anno": 2012,
@@ -7036,7 +14586,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.08,
     "utileNetto": 4345000000,
     "ricavi": 17265000000,
-    "patrimonioNetto": 19060000000
+    "patrimonioNetto": 19060000000,
+    "crediti": 2518000000,
+    "costoVenduto": 3199000000,
+    "attivoCorrente": 31209000000,
+    "passivoCorrente": 8191000000,
+    "immobilizzazioniNette": 5326000000,
+    "ammortamento": 1088000000,
+    "speseSga": 4814000000,
+    "flussoCassaOperativo": 5882000000,
+    "attivoTotale": 54298000000,
+    "debitoLungo": 26529000000
    },
    {
     "anno": 2013,
@@ -7045,7 +14605,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0768,
     "utileNetto": 5081000000,
     "ricavi": 18676000000,
-    "patrimonioNetto": 22096000000
+    "patrimonioNetto": 22096000000,
+    "crediti": 2697000000,
+    "costoVenduto": 3346000000,
+    "attivoCorrente": 27367000000,
+    "passivoCorrente": 7947000000,
+    "immobilizzazioniNette": 5349000000,
+    "ammortamento": 1286000000,
+    "speseSga": 5184000000,
+    "flussoCassaOperativo": 6291000000,
+    "attivoTotale": 66125000000,
+    "debitoLungo": 29623000000
    },
    {
     "anno": 2014,
@@ -7054,7 +14624,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0747,
     "utileNetto": 5158000000,
     "ricavi": 20063000000,
-    "patrimonioNetto": 25778000000
+    "patrimonioNetto": 25778000000,
+    "crediti": 2546000000,
+    "costoVenduto": 4422000000,
+    "attivoCorrente": 34713000000,
+    "passivoCorrente": 7008000000,
+    "immobilizzazioniNette": 5223000000,
+    "ammortamento": 2092000000,
+    "speseSga": 4699000000,
+    "flussoCassaOperativo": 8952000000,
+    "attivoTotale": 69009000000,
+    "debitoLungo": 30215000000
    },
    {
     "anno": 2015,
@@ -7063,7 +14643,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0971,
     "utileNetto": 6939000000,
     "ricavi": 21662000000,
-    "patrimonioNetto": 28083000000
+    "patrimonioNetto": 28083000000,
+    "crediti": 2995000000,
+    "costoVenduto": 4227000000,
+    "attivoCorrente": 38515000000,
+    "passivoCorrente": 8664000000,
+    "immobilizzazioniNette": 4907000000,
+    "ammortamento": 2108000000,
+    "speseSga": 4846000000,
+    "flussoCassaOperativo": 9731000000,
+    "attivoTotale": 71449000000,
+    "debitoLungo": 29182000000
    },
    {
     "anno": 2016,
@@ -7072,7 +14662,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0995,
     "utileNetto": 7722000000,
     "ricavi": 22991000000,
-    "patrimonioNetto": 29875000000
+    "patrimonioNetto": 29875000000,
+    "crediti": 3165000000,
+    "costoVenduto": 4162000000,
+    "attivoCorrente": 46010000000,
+    "passivoCorrente": 11204000000,
+    "immobilizzazioniNette": 4961000000,
+    "ammortamento": 2105000000,
+    "speseSga": 5062000000,
+    "flussoCassaOperativo": 10354000000,
+    "attivoTotale": 77626000000,
+    "debitoLungo": 30193000000
    },
    {
     "anno": 2017,
@@ -7081,7 +14681,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0248,
     "utileNetto": 1979000000,
     "ricavi": 22849000000,
-    "patrimonioNetto": 25241000000
+    "patrimonioNetto": 25241000000,
+    "crediti": 3237000000,
+    "costoVenduto": 4069000000,
+    "attivoCorrente": 49476000000,
+    "passivoCorrente": 9020000000,
+    "immobilizzazioniNette": 4989000000,
+    "ammortamento": 1955000000,
+    "speseSga": 4870000000,
+    "flussoCassaOperativo": 11177000000,
+    "attivoTotale": 79954000000,
+    "debitoLungo": 34190000000
    },
    {
     "anno": 2018,
@@ -7090,7 +14700,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1264,
     "utileNetto": 8394000000,
     "ricavi": 23747000000,
-    "patrimonioNetto": 12500000000
+    "patrimonioNetto": 12500000000,
+    "crediti": 3580000000,
+    "costoVenduto": 4101000000,
+    "attivoCorrente": 37618000000,
+    "passivoCorrente": 13488000000,
+    "immobilizzazioniNette": 4958000000,
+    "ammortamento": 1946000000,
+    "speseSga": 5332000000,
+    "flussoCassaOperativo": 11296000000,
+    "attivoTotale": 66416000000,
+    "debitoLungo": 29510000000
    },
    {
     "anno": 2019,
@@ -7099,7 +14719,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1313,
     "utileNetto": 7842000000,
     "ricavi": 23362000000,
-    "patrimonioNetto": 9673000000
+    "patrimonioNetto": 9673000000,
+    "crediti": 4057000000,
+    "costoVenduto": 4356000000,
+    "attivoCorrente": 18440000000,
+    "passivoCorrente": 12835000000,
+    "immobilizzazioniNette": 4928000000,
+    "ammortamento": 2206000000,
+    "speseSga": 5150000000,
+    "flussoCassaOperativo": 9150000000,
+    "attivoTotale": 59707000000,
+    "debitoLungo": 26950000000
    },
    {
     "anno": 2020,
@@ -7108,7 +14738,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1154,
     "utileNetto": 7264000000,
     "ricavi": 25424000000,
-    "patrimonioNetto": 9409000000
+    "patrimonioNetto": 9409000000,
+    "crediti": 4525000000,
+    "costoVenduto": 6159000000,
+    "attivoCorrente": 21144000000,
+    "passivoCorrente": 11653000000,
+    "immobilizzazioniNette": 4889000000,
+    "ammortamento": 3601000000,
+    "speseSga": 5730000000,
+    "flussoCassaOperativo": 10497000000,
+    "attivoTotale": 62948000000,
+    "debitoLungo": 32895000000
    },
    {
     "anno": 2021,
@@ -7117,7 +14757,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0963,
     "utileNetto": 5893000000,
     "ricavi": 25979000000,
-    "patrimonioNetto": 6700000000
+    "patrimonioNetto": 6700000000,
+    "crediti": 4895000000,
+    "costoVenduto": 6454000000,
+    "attivoCorrente": 19385000000,
+    "passivoCorrente": 12184000000,
+    "immobilizzazioniNette": 5184000000,
+    "ammortamento": 3398000000,
+    "speseSga": 5368000000,
+    "flussoCassaOperativo": 9261000000,
+    "attivoTotale": 61165000000,
+    "debitoLungo": 33222000000
    },
    {
     "anno": 2022,
@@ -7126,7 +14776,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1006,
     "utileNetto": 6552000000,
     "ricavi": 26323000000,
-    "patrimonioNetto": 3661000000
+    "patrimonioNetto": 3661000000,
+    "crediti": 5563000000,
+    "costoVenduto": 6406000000,
+    "attivoCorrente": 22186000000,
+    "passivoCorrente": 15687000000,
+    "immobilizzazioniNette": 5427000000,
+    "ammortamento": 3417000000,
+    "speseSga": 5414000000,
+    "flussoCassaOperativo": 9721000000,
+    "attivoTotale": 65121000000,
+    "debitoLungo": 37354000000
    },
    {
     "anno": 2023,
@@ -7135,7 +14795,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0691,
     "utileNetto": 6717000000,
     "ricavi": 28190000000,
-    "patrimonioNetto": 6232000000
+    "patrimonioNetto": 6232000000,
+    "crediti": 7268000000,
+    "costoVenduto": 8451000000,
+    "attivoCorrente": 30332000000,
+    "passivoCorrente": 18392000000,
+    "immobilizzazioniNette": 5941000000,
+    "ammortamento": 4071000000,
+    "speseSga": 6179000000,
+    "flussoCassaOperativo": 8471000000,
+    "attivoTotale": 97154000000,
+    "debitoLungo": 63170000000
    },
    {
     "anno": 2024,
@@ -7144,7 +14814,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0445,
     "utileNetto": 4090000000,
     "ricavi": 33424000000,
-    "patrimonioNetto": 5877000000
+    "patrimonioNetto": 5877000000,
+    "crediti": 6782000000,
+    "costoVenduto": 12858000000,
+    "attivoCorrente": 29030000000,
+    "passivoCorrente": 23099000000,
+    "immobilizzazioniNette": 6543000000,
+    "ammortamento": 5592000000,
+    "speseSga": 7096000000,
+    "flussoCassaOperativo": 11490000000,
+    "attivoTotale": 91839000000,
+    "debitoLungo": 56549000000
    },
    {
     "anno": 2025,
@@ -7153,7 +14833,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0851,
     "utileNetto": 7711000000,
     "ricavi": 36751000000,
-    "patrimonioNetto": 8658000000
+    "patrimonioNetto": 8658000000,
+    "crediti": 9570000000,
+    "costoVenduto": 12037000000,
+    "attivoCorrente": 29057000000,
+    "passivoCorrente": 25489000000,
+    "immobilizzazioniNette": 7913000000,
+    "ammortamento": 5167000000,
+    "speseSga": 7050000000,
+    "flussoCassaOperativo": 9958000000,
+    "attivoTotale": 90586000000,
+    "debitoLungo": 50005000000
    }
   ]
  },
@@ -7167,7 +14857,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 5981000000,
     "ricavi": null,
-    "patrimonioNetto": 0
+    "patrimonioNetto": 0,
+    "crediti": null,
+    "costoVenduto": 10406000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1163000000,
+    "speseSga": 10945000000,
+    "flussoCassaOperativo": 7150000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -7176,7 +14876,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1433,
     "utileNetto": 5807000000,
     "ricavi": null,
-    "patrimonioNetto": 20472000000
+    "patrimonioNetto": 20472000000,
+    "crediti": 3090000000,
+    "costoVenduto": 11374000000,
+    "attivoCorrente": 12176000000,
+    "passivoCorrente": 12988000000,
+    "immobilizzazioniNette": 8326000000,
+    "ammortamento": 1228000000,
+    "speseSga": 11774000000,
+    "flussoCassaOperativo": 7571000000,
+    "attivoTotale": 40519000000,
+    "debitoLungo": 2781000000
    },
    {
     "anno": 2009,
@@ -7185,7 +14895,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1402,
     "utileNetto": 6824000000,
     "ricavi": null,
-    "patrimonioNetto": 24799000000
+    "patrimonioNetto": 24799000000,
+    "crediti": 3758000000,
+    "costoVenduto": 11088000000,
+    "attivoCorrente": 17551000000,
+    "passivoCorrente": 13721000000,
+    "immobilizzazioniNette": 9561000000,
+    "ammortamento": 1236000000,
+    "speseSga": 11358000000,
+    "flussoCassaOperativo": 8186000000,
+    "attivoTotale": 48671000000,
+    "debitoLungo": 5059000000
    },
    {
     "anno": 2010,
@@ -7194,7 +14914,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1616,
     "utileNetto": 11787000000,
     "ricavi": null,
-    "patrimonioNetto": 31003000000
+    "patrimonioNetto": 31003000000,
+    "crediti": 4430000000,
+    "costoVenduto": 12693000000,
+    "attivoCorrente": 21579000000,
+    "passivoCorrente": 18508000000,
+    "immobilizzazioniNette": 14727000000,
+    "ammortamento": 1443000000,
+    "speseSga": 13194000000,
+    "flussoCassaOperativo": 9532000000,
+    "attivoTotale": 72921000000,
+    "debitoLungo": 14041000000
    },
    {
     "anno": 2011,
@@ -7203,7 +14933,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1073,
     "utileNetto": 8584000000,
     "ricavi": null,
-    "patrimonioNetto": 31635000000
+    "patrimonioNetto": 31635000000,
+    "crediti": 4920000000,
+    "costoVenduto": 18215000000,
+    "attivoCorrente": 25497000000,
+    "passivoCorrente": 24283000000,
+    "immobilizzazioniNette": 14939000000,
+    "ammortamento": 1954000000,
+    "speseSga": 17422000000,
+    "flussoCassaOperativo": 9474000000,
+    "attivoTotale": 79974000000,
+    "debitoLungo": 13656000000
    },
    {
     "anno": 2012,
@@ -7212,7 +14952,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1047,
     "utileNetto": 9019000000,
     "ricavi": null,
-    "patrimonioNetto": 32790000000
+    "patrimonioNetto": 32790000000,
+    "crediti": 4759000000,
+    "costoVenduto": 19053000000,
+    "attivoCorrente": 30328000000,
+    "passivoCorrente": 27821000000,
+    "immobilizzazioniNette": 14476000000,
+    "ammortamento": 1982000000,
+    "speseSga": 17738000000,
+    "flussoCassaOperativo": 10645000000,
+    "attivoTotale": 86174000000,
+    "debitoLungo": 14736000000
    },
    {
     "anno": 2013,
@@ -7221,7 +14971,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0953,
     "utileNetto": 8584000000,
     "ricavi": null,
-    "patrimonioNetto": 33173000000
+    "patrimonioNetto": 33173000000,
+    "crediti": 4873000000,
+    "costoVenduto": 18421000000,
+    "attivoCorrente": 31304000000,
+    "passivoCorrente": 27811000000,
+    "immobilizzazioniNette": 14967000000,
+    "ammortamento": 1977000000,
+    "speseSga": 17310000000,
+    "flussoCassaOperativo": 10542000000,
+    "attivoTotale": 90055000000,
+    "debitoLungo": 19154000000
    },
    {
     "anno": 2014,
@@ -7230,7 +14990,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0771,
     "utileNetto": 7098000000,
     "ricavi": null,
-    "patrimonioNetto": 30320000000
+    "patrimonioNetto": 30320000000,
+    "crediti": 4466000000,
+    "costoVenduto": 17889000000,
+    "attivoCorrente": 32986000000,
+    "passivoCorrente": 32374000000,
+    "immobilizzazioniNette": 14633000000,
+    "ammortamento": 1976000000,
+    "speseSga": 17218000000,
+    "flussoCassaOperativo": 10615000000,
+    "attivoTotale": 92023000000,
+    "debitoLungo": 19063000000
    },
    {
     "anno": 2015,
@@ -7239,7 +15009,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0817,
     "utileNetto": 7351000000,
     "ricavi": null,
-    "patrimonioNetto": 25554000000
+    "patrimonioNetto": 25554000000,
+    "crediti": 3941000000,
+    "costoVenduto": 17482000000,
+    "attivoCorrente": 33395000000,
+    "passivoCorrente": 26929000000,
+    "immobilizzazioniNette": 12571000000,
+    "ammortamento": 1970000000,
+    "speseSga": 16427000000,
+    "flussoCassaOperativo": 10528000000,
+    "attivoTotale": 89996000000,
+    "debitoLungo": 28311000000
    },
    {
     "anno": 2016,
@@ -7248,7 +15028,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0748,
     "utileNetto": 6527000000,
     "ricavi": 41863000000,
-    "patrimonioNetto": 23062000000
+    "patrimonioNetto": 23062000000,
+    "crediti": 3856000000,
+    "costoVenduto": 16465000000,
+    "attivoCorrente": 34010000000,
+    "passivoCorrente": 26532000000,
+    "immobilizzazioniNette": 10635000000,
+    "ammortamento": 1787000000,
+    "speseSga": 15370000000,
+    "flussoCassaOperativo": 8792000000,
+    "attivoTotale": 87270000000,
+    "debitoLungo": 29684000000
    },
    {
     "anno": 2017,
@@ -7257,7 +15047,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0142,
     "utileNetto": 1248000000,
     "ricavi": 36212000000,
-    "patrimonioNetto": 17072000000
+    "patrimonioNetto": 17072000000,
+    "crediti": 3667000000,
+    "costoVenduto": 13721000000,
+    "attivoCorrente": 36545000000,
+    "passivoCorrente": 27194000000,
+    "immobilizzazioniNette": 9638000000,
+    "ammortamento": 1260000000,
+    "speseSga": 12834000000,
+    "flussoCassaOperativo": 7041000000,
+    "attivoTotale": 87896000000,
+    "debitoLungo": 31182000000
    },
    {
     "anno": 2018,
@@ -7266,7 +15066,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0773,
     "utileNetto": 6434000000,
     "ricavi": 34300000000,
-    "patrimonioNetto": 16981000000
+    "patrimonioNetto": 16981000000,
+    "crediti": 3685000000,
+    "costoVenduto": 13067000000,
+    "attivoCorrente": 24930000000,
+    "passivoCorrente": 28782000000,
+    "immobilizzazioniNette": 9598000000,
+    "ammortamento": 1086000000,
+    "speseSga": 11002000000,
+    "flussoCassaOperativo": 7627000000,
+    "attivoTotale": 83216000000,
+    "debitoLungo": 25376000000
    },
    {
     "anno": 2019,
@@ -7275,7 +15085,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1033,
     "utileNetto": 8920000000,
     "ricavi": 37266000000,
-    "patrimonioNetto": 18981000000
+    "patrimonioNetto": 18981000000,
+    "crediti": 3971000000,
+    "costoVenduto": 14619000000,
+    "attivoCorrente": 20411000000,
+    "passivoCorrente": 26973000000,
+    "immobilizzazioniNette": 10838000000,
+    "ammortamento": 1365000000,
+    "speseSga": 12103000000,
+    "flussoCassaOperativo": 10471000000,
+    "attivoTotale": 86381000000,
+    "debitoLungo": 27516000000
    },
    {
     "anno": 2020,
@@ -7284,7 +15104,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0887,
     "utileNetto": 7747000000,
     "ricavi": 33014000000,
-    "patrimonioNetto": 19299000000
+    "patrimonioNetto": 19299000000,
+    "crediti": 3144000000,
+    "costoVenduto": 13433000000,
+    "attivoCorrente": 19240000000,
+    "passivoCorrente": 14601000000,
+    "immobilizzazioniNette": 10777000000,
+    "ammortamento": 1536000000,
+    "speseSga": 9731000000,
+    "flussoCassaOperativo": 9844000000,
+    "attivoTotale": 87296000000,
+    "debitoLungo": 40125000000
    },
    {
     "anno": 2021,
@@ -7293,7 +15123,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1036,
     "utileNetto": 9771000000,
     "ricavi": 38655000000,
-    "patrimonioNetto": 22999000000
+    "patrimonioNetto": 22999000000,
+    "crediti": 3512000000,
+    "costoVenduto": 15357000000,
+    "attivoCorrente": 22545000000,
+    "passivoCorrente": 19950000000,
+    "immobilizzazioniNette": 9920000000,
+    "ammortamento": 1452000000,
+    "speseSga": 12144000000,
+    "flussoCassaOperativo": 12625000000,
+    "attivoTotale": 94354000000,
+    "debitoLungo": 38116000000
    },
    {
     "anno": 2022,
@@ -7302,7 +15142,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1029,
     "utileNetto": 9542000000,
     "ricavi": 43004000000,
-    "patrimonioNetto": 24105000000
+    "patrimonioNetto": 24105000000,
+    "crediti": 3487000000,
+    "costoVenduto": 18000000000,
+    "attivoCorrente": 22591000000,
+    "passivoCorrente": 19724000000,
+    "immobilizzazioniNette": 9841000000,
+    "ammortamento": 1260000000,
+    "speseSga": 12880000000,
+    "flussoCassaOperativo": 11018000000,
+    "attivoTotale": 92763000000,
+    "debitoLungo": 36377000000
    },
    {
     "anno": 2023,
@@ -7311,7 +15161,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1097,
     "utileNetto": 10714000000,
     "ricavi": 45754000000,
-    "patrimonioNetto": 25941000000
+    "patrimonioNetto": 25941000000,
+    "crediti": 3410000000,
+    "costoVenduto": 18520000000,
+    "attivoCorrente": 26732000000,
+    "passivoCorrente": 23571000000,
+    "immobilizzazioniNette": 9236000000,
+    "ammortamento": 1128000000,
+    "speseSga": 13972000000,
+    "flussoCassaOperativo": 11599000000,
+    "attivoTotale": 97703000000,
+    "debitoLungo": 35547000000
    },
    {
     "anno": 2024,
@@ -7320,7 +15180,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1057,
     "utileNetto": 10631000000,
     "ricavi": 47061000000,
-    "patrimonioNetto": 24856000000
+    "patrimonioNetto": 24856000000,
+    "crediti": 3569000000,
+    "costoVenduto": 18324000000,
+    "attivoCorrente": 25997000000,
+    "passivoCorrente": 25249000000,
+    "immobilizzazioniNette": 10303000000,
+    "ammortamento": 1075000000,
+    "speseSga": 14582000000,
+    "flussoCassaOperativo": 6805000000,
+    "attivoTotale": 100549000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -7329,7 +15199,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.125,
     "utileNetto": 13107000000,
     "ricavi": 47941000000,
-    "patrimonioNetto": 32169000000
+    "patrimonioNetto": 32169000000,
+    "crediti": 3038000000,
+    "costoVenduto": 18397000000,
+    "attivoCorrente": 31044000000,
+    "passivoCorrente": 21281000000,
+    "immobilizzazioniNette": 9613000000,
+    "ammortamento": 1050000000,
+    "speseSga": 14521000000,
+    "flussoCassaOperativo": 7408000000,
+    "attivoTotale": 104816000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -7343,7 +15223,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 5658000000,
     "ricavi": 39474000000,
-    "patrimonioNetto": 17296000000
+    "patrimonioNetto": 17296000000,
+    "crediti": null,
+    "costoVenduto": 18038000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1426000000,
+    "speseSga": 14196000000,
+    "flussoCassaOperativo": 6934000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -7352,7 +15242,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1429,
     "utileNetto": 5142000000,
     "ricavi": 43251000000,
-    "patrimonioNetto": 12582000000
+    "patrimonioNetto": 12582000000,
+    "crediti": null,
+    "costoVenduto": 20351000000,
+    "attivoCorrente": 10806000000,
+    "passivoCorrente": 8787000000,
+    "immobilizzazioniNette": 11663000000,
+    "ammortamento": 1543000000,
+    "speseSga": 15877000000,
+    "flussoCassaOperativo": 6999000000,
+    "attivoTotale": 35994000000,
+    "debitoLungo": 7858000000
    },
    {
     "anno": 2009,
@@ -7361,7 +15261,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1492,
     "utileNetto": 5946000000,
     "ricavi": 43232000000,
-    "patrimonioNetto": 17442000000
+    "patrimonioNetto": 17442000000,
+    "crediti": null,
+    "costoVenduto": 20099000000,
+    "attivoCorrente": 12571000000,
+    "passivoCorrente": 8756000000,
+    "immobilizzazioniNette": 12671000000,
+    "ammortamento": 1635000000,
+    "speseSga": 15026000000,
+    "flussoCassaOperativo": 6796000000,
+    "attivoTotale": 39848000000,
+    "debitoLungo": 7400000000
    },
    {
     "anno": 2010,
@@ -7370,7 +15280,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0927,
     "utileNetto": 6320000000,
     "ricavi": 57838000000,
-    "patrimonioNetto": 21476000000
+    "patrimonioNetto": 21476000000,
+    "crediti": null,
+    "costoVenduto": 26575000000,
+    "attivoCorrente": 17569000000,
+    "passivoCorrente": 15892000000,
+    "immobilizzazioniNette": 19058000000,
+    "ammortamento": 2327000000,
+    "speseSga": 22814000000,
+    "flussoCassaOperativo": 8448000000,
+    "attivoTotale": 68153000000,
+    "debitoLungo": 19999000000
    },
    {
     "anno": 2011,
@@ -7379,7 +15299,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0884,
     "utileNetto": 6443000000,
     "ricavi": 66504000000,
-    "patrimonioNetto": 20899000000
+    "patrimonioNetto": 20899000000,
+    "crediti": null,
+    "costoVenduto": 31593000000,
+    "attivoCorrente": 17441000000,
+    "passivoCorrente": 18154000000,
+    "immobilizzazioniNette": 19698000000,
+    "ammortamento": 2737000000,
+    "speseSga": 25145000000,
+    "flussoCassaOperativo": 8944000000,
+    "attivoTotale": 72882000000,
+    "debitoLungo": 20568000000
    },
    {
     "anno": 2012,
@@ -7388,7 +15318,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0828,
     "utileNetto": 6178000000,
     "ricavi": 65492000000,
-    "patrimonioNetto": 22399000000
+    "patrimonioNetto": 22399000000,
+    "crediti": null,
+    "costoVenduto": 31291000000,
+    "attivoCorrente": 18720000000,
+    "passivoCorrente": 17089000000,
+    "immobilizzazioniNette": 19136000000,
+    "ammortamento": 2689000000,
+    "speseSga": 24970000000,
+    "flussoCassaOperativo": 8479000000,
+    "attivoTotale": 74638000000,
+    "debitoLungo": 23544000000
    },
    {
     "anno": 2013,
@@ -7397,7 +15337,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.087,
     "utileNetto": 6740000000,
     "ricavi": 66415000000,
-    "patrimonioNetto": 24389000000
+    "patrimonioNetto": 24389000000,
+    "crediti": null,
+    "costoVenduto": 31243000000,
+    "attivoCorrente": 22203000000,
+    "passivoCorrente": 17839000000,
+    "immobilizzazioniNette": 18575000000,
+    "ammortamento": 2663000000,
+    "speseSga": 25357000000,
+    "flussoCassaOperativo": 9688000000,
+    "attivoTotale": 77478000000,
+    "debitoLungo": 24333000000
    },
    {
     "anno": 2014,
@@ -7406,7 +15356,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0924,
     "utileNetto": 6513000000,
     "ricavi": 66683000000,
-    "patrimonioNetto": 17548000000
+    "patrimonioNetto": 17548000000,
+    "crediti": null,
+    "costoVenduto": 31238000000,
+    "attivoCorrente": 20663000000,
+    "passivoCorrente": 18092000000,
+    "immobilizzazioniNette": 17244000000,
+    "ammortamento": 2625000000,
+    "speseSga": 25772000000,
+    "flussoCassaOperativo": 10506000000,
+    "attivoTotale": 70509000000,
+    "debitoLungo": 23821000000
    },
    {
     "anno": 2015,
@@ -7415,7 +15375,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0783,
     "utileNetto": 5452000000,
     "ricavi": 63056000000,
-    "patrimonioNetto": 12030000000
+    "patrimonioNetto": 12030000000,
+    "crediti": null,
+    "costoVenduto": 28731000000,
+    "attivoCorrente": 23031000000,
+    "passivoCorrente": 17578000000,
+    "immobilizzazioniNette": 16317000000,
+    "ammortamento": 2416000000,
+    "speseSga": 24613000000,
+    "flussoCassaOperativo": 10864000000,
+    "attivoTotale": 69667000000,
+    "debitoLungo": 29213000000
    },
    {
     "anno": 2016,
@@ -7424,7 +15394,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0861,
     "utileNetto": 6329000000,
     "ricavi": 62799000000,
-    "patrimonioNetto": 11199000000
+    "patrimonioNetto": 11199000000,
+    "crediti": null,
+    "costoVenduto": 28222000000,
+    "attivoCorrente": 26450000000,
+    "passivoCorrente": 21135000000,
+    "immobilizzazioniNette": 16591000000,
+    "ammortamento": 2368000000,
+    "speseSga": 24773000000,
+    "flussoCassaOperativo": 10663000000,
+    "attivoTotale": 73490000000,
+    "debitoLungo": 30053000000
    },
    {
     "anno": 2017,
@@ -7433,7 +15413,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0609,
     "utileNetto": 4857000000,
     "ricavi": 63525000000,
-    "patrimonioNetto": 10981000000
+    "patrimonioNetto": 10981000000,
+    "crediti": null,
+    "costoVenduto": 28796000000,
+    "attivoCorrente": 31027000000,
+    "passivoCorrente": 20502000000,
+    "immobilizzazioniNette": 17240000000,
+    "ammortamento": 2369000000,
+    "speseSga": 24453000000,
+    "flussoCassaOperativo": 10030000000,
+    "attivoTotale": 79804000000,
+    "debitoLungo": 33796000000
    },
    {
     "anno": 2018,
@@ -7442,7 +15432,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1612,
     "utileNetto": 12515000000,
     "ricavi": 64661000000,
-    "patrimonioNetto": 14602000000
+    "patrimonioNetto": 14602000000,
+    "crediti": null,
+    "costoVenduto": 29381000000,
+    "attivoCorrente": 21893000000,
+    "passivoCorrente": 22138000000,
+    "immobilizzazioniNette": 17589000000,
+    "ammortamento": 2399000000,
+    "speseSga": 25170000000,
+    "flussoCassaOperativo": 9415000000,
+    "attivoTotale": 77648000000,
+    "debitoLungo": 28295000000
    },
    {
     "anno": 2019,
@@ -7451,7 +15451,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0931,
     "utileNetto": 7314000000,
     "ricavi": 67161000000,
-    "patrimonioNetto": 14868000000
+    "patrimonioNetto": 14868000000,
+    "crediti": null,
+    "costoVenduto": 30132000000,
+    "attivoCorrente": 17645000000,
+    "passivoCorrente": 20461000000,
+    "immobilizzazioniNette": 19305000000,
+    "ammortamento": 2432000000,
+    "speseSga": 26738000000,
+    "flussoCassaOperativo": 9649000000,
+    "attivoTotale": 78547000000,
+    "debitoLungo": 29148000000
    },
    {
     "anno": 2020,
@@ -7460,7 +15470,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0766,
     "utileNetto": 7120000000,
     "ricavi": 70372000000,
-    "patrimonioNetto": 13552000000
+    "patrimonioNetto": 13552000000,
+    "crediti": null,
+    "costoVenduto": 31797000000,
+    "attivoCorrente": 23001000000,
+    "passivoCorrente": 23372000000,
+    "immobilizzazioniNette": 21369000000,
+    "ammortamento": 2548000000,
+    "speseSga": 28453000000,
+    "flussoCassaOperativo": 10613000000,
+    "attivoTotale": 92918000000,
+    "debitoLungo": 40370000000
    },
    {
     "anno": 2021,
@@ -7469,7 +15489,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0825,
     "utileNetto": 7618000000,
     "ricavi": 79474000000,
-    "patrimonioNetto": 16151000000
+    "patrimonioNetto": 16151000000,
+    "crediti": null,
+    "costoVenduto": 37075000000,
+    "attivoCorrente": 21783000000,
+    "passivoCorrente": 26220000000,
+    "immobilizzazioniNette": 22407000000,
+    "ammortamento": 2710000000,
+    "speseSga": 31237000000,
+    "flussoCassaOperativo": 11616000000,
+    "attivoTotale": 92377000000,
+    "debitoLungo": 36026000000
    },
    {
     "anno": 2022,
@@ -7478,7 +15508,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0967,
     "utileNetto": 8910000000,
     "ricavi": 86392000000,
-    "patrimonioNetto": 17273000000
+    "patrimonioNetto": 17273000000,
+    "crediti": null,
+    "costoVenduto": 40576000000,
+    "attivoCorrente": 21539000000,
+    "passivoCorrente": 26785000000,
+    "immobilizzazioniNette": 24291000000,
+    "ammortamento": 2763000000,
+    "speseSga": 34459000000,
+    "flussoCassaOperativo": 10811000000,
+    "attivoTotale": 92187000000,
+    "debitoLungo": 35657000000
    },
    {
     "anno": 2023,
@@ -7487,7 +15527,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0903,
     "utileNetto": 9074000000,
     "ricavi": 91471000000,
-    "patrimonioNetto": 18637000000
+    "patrimonioNetto": 18637000000,
+    "crediti": null,
+    "costoVenduto": 41881000000,
+    "attivoCorrente": 26950000000,
+    "passivoCorrente": 31647000000,
+    "immobilizzazioniNette": 27039000000,
+    "ammortamento": 2948000000,
+    "speseSga": 36677000000,
+    "flussoCassaOperativo": 13442000000,
+    "attivoTotale": 100495000000,
+    "debitoLungo": 37595000000
    },
    {
     "anno": 2024,
@@ -7496,7 +15546,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0963,
     "utileNetto": 9578000000,
     "ricavi": 91854000000,
-    "patrimonioNetto": 18041000000
+    "patrimonioNetto": 18041000000,
+    "crediti": null,
+    "costoVenduto": 41744000000,
+    "attivoCorrente": 25826000000,
+    "passivoCorrente": 31536000000,
+    "immobilizzazioniNette": 28008000000,
+    "ammortamento": 3160000000,
+    "speseSga": 37190000000,
+    "flussoCassaOperativo": 12507000000,
+    "attivoTotale": 99467000000,
+    "debitoLungo": 37224000000
    },
    {
     "anno": 2025,
@@ -7505,7 +15565,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0767,
     "utileNetto": 8240000000,
     "ricavi": 93925000000,
-    "patrimonioNetto": 20406000000
+    "patrimonioNetto": 20406000000,
+    "crediti": null,
+    "costoVenduto": 43066000000,
+    "attivoCorrente": 27949000000,
+    "passivoCorrente": 32764000000,
+    "immobilizzazioniNette": 29905000000,
+    "ammortamento": 3451000000,
+    "speseSga": 37368000000,
+    "flussoCassaOperativo": 12087000000,
+    "attivoTotale": 107399000000,
+    "debitoLungo": 42321000000
    }
   ]
  },
@@ -7519,7 +15589,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0839,
     "utileNetto": 12075000000,
     "ricavi": 79257000000,
-    "patrimonioNetto": 69784000000
+    "patrimonioNetto": 69784000000,
+    "crediti": null,
+    "costoVenduto": 39261000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 24017000000,
+    "flussoCassaOperativo": 15008000000,
+    "attivoTotale": 143992000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -7528,7 +15608,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0996,
     "utileNetto": 13436000000,
     "ricavi": 76694000000,
-    "patrimonioNetto": 63382000000
+    "patrimonioNetto": 63382000000,
+    "crediti": 5836000000,
+    "costoVenduto": 38690000000,
+    "attivoCorrente": 21905000000,
+    "passivoCorrente": 30901000000,
+    "immobilizzazioniNette": 19462000000,
+    "ammortamento": 3082000000,
+    "speseSga": 22630000000,
+    "flussoCassaOperativo": 14919000000,
+    "attivoTotale": 134833000000,
+    "debitoLungo": 20652000000
    },
    {
     "anno": 2010,
@@ -7537,7 +15627,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0994,
     "utileNetto": 12736000000,
     "ricavi": 77567000000,
-    "patrimonioNetto": 61439000000
+    "patrimonioNetto": 61439000000,
+    "crediti": 5335000000,
+    "costoVenduto": 37042000000,
+    "attivoCorrente": 18782000000,
+    "passivoCorrente": 24282000000,
+    "immobilizzazioniNette": 19244000000,
+    "ammortamento": 3108000000,
+    "speseSga": 24793000000,
+    "flussoCassaOperativo": 16131000000,
+    "attivoTotale": 128172000000,
+    "debitoLungo": 21360000000
    },
    {
     "anno": 2011,
@@ -7546,7 +15646,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0853,
     "utileNetto": 11797000000,
     "ricavi": 81104000000,
-    "patrimonioNetto": 68001000000
+    "patrimonioNetto": 68001000000,
+    "crediti": 6275000000,
+    "costoVenduto": 39859000000,
+    "attivoCorrente": 21970000000,
+    "passivoCorrente": 27293000000,
+    "immobilizzazioniNette": 21293000000,
+    "ammortamento": 2838000000,
+    "speseSga": 25750000000,
+    "flussoCassaOperativo": 13330000000,
+    "attivoTotale": 138354000000,
+    "debitoLungo": 22033000000
    },
    {
     "anno": 2012,
@@ -7555,7 +15665,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0813,
     "utileNetto": 10756000000,
     "ricavi": 28400000000,
-    "patrimonioNetto": 64035000000
+    "patrimonioNetto": 64035000000,
+    "crediti": 6068000000,
+    "costoVenduto": 41411000000,
+    "attivoCorrente": 21910000000,
+    "passivoCorrente": 24907000000,
+    "immobilizzazioniNette": 20377000000,
+    "ammortamento": 3204000000,
+    "speseSga": 25984000000,
+    "flussoCassaOperativo": 13284000000,
+    "attivoTotale": 132244000000,
+    "debitoLungo": 21080000000
    },
    {
     "anno": 2013,
@@ -7564,7 +15684,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0812,
     "utileNetto": 11312000000,
     "ricavi": 80116000000,
-    "patrimonioNetto": 68709000000
+    "patrimonioNetto": 68709000000,
+    "crediti": 6508000000,
+    "costoVenduto": 39991000000,
+    "attivoCorrente": 23990000000,
+    "passivoCorrente": 30037000000,
+    "immobilizzazioniNette": 21666000000,
+    "ammortamento": 2982000000,
+    "speseSga": 26000000000,
+    "flussoCassaOperativo": 14873000000,
+    "attivoTotale": 139263000000,
+    "debitoLungo": 19111000000
    },
    {
     "anno": 2014,
@@ -7573,7 +15703,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0807,
     "utileNetto": 11643000000,
     "ricavi": 74401000000,
-    "patrimonioNetto": 69976000000
+    "patrimonioNetto": 69976000000,
+    "crediti": 6386000000,
+    "costoVenduto": 39030000000,
+    "attivoCorrente": 31617000000,
+    "passivoCorrente": 33726000000,
+    "immobilizzazioniNette": 22304000000,
+    "ammortamento": 3141000000,
+    "speseSga": 21461000000,
+    "flussoCassaOperativo": 13958000000,
+    "attivoTotale": 144266000000,
+    "debitoLungo": 19811000000
    },
    {
     "anno": 2015,
@@ -7582,7 +15722,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0543,
     "utileNetto": 7036000000,
     "ricavi": 70749000000,
-    "patrimonioNetto": 63050000000
+    "patrimonioNetto": 63050000000,
+    "crediti": 4568000000,
+    "costoVenduto": 37056000000,
+    "attivoCorrente": 29646000000,
+    "passivoCorrente": 29790000000,
+    "immobilizzazioniNette": 19655000000,
+    "ammortamento": 3134000000,
+    "speseSga": 20616000000,
+    "flussoCassaOperativo": 14608000000,
+    "attivoTotale": 129495000000,
+    "debitoLungo": 18327000000
    },
    {
     "anno": 2016,
@@ -7591,7 +15741,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0827,
     "utileNetto": 10508000000,
     "ricavi": 65299000000,
-    "patrimonioNetto": 57983000000
+    "patrimonioNetto": 57983000000,
+    "crediti": 4373000000,
+    "costoVenduto": 32909000000,
+    "attivoCorrente": 33782000000,
+    "passivoCorrente": 30770000000,
+    "immobilizzazioniNette": 19385000000,
+    "ammortamento": 3078000000,
+    "speseSga": 18949000000,
+    "flussoCassaOperativo": 15435000000,
+    "attivoTotale": 127136000000,
+    "debitoLungo": 18945000000
    },
    {
     "anno": 2017,
@@ -7600,7 +15760,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1273,
     "utileNetto": 15326000000,
     "ricavi": 65058000000,
-    "patrimonioNetto": 55778000000
+    "patrimonioNetto": 55778000000,
+    "crediti": 4594000000,
+    "costoVenduto": 32638000000,
+    "attivoCorrente": 26494000000,
+    "passivoCorrente": 30210000000,
+    "immobilizzazioniNette": 19893000000,
+    "ammortamento": 2820000000,
+    "speseSga": 18654000000,
+    "flussoCassaOperativo": 12753000000,
+    "attivoTotale": 120406000000,
+    "debitoLungo": 18038000000
    },
    {
     "anno": 2018,
@@ -7609,7 +15779,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0824,
     "utileNetto": 9750000000,
     "ricavi": 66832000000,
-    "patrimonioNetto": 52883000000
+    "patrimonioNetto": 52883000000,
+    "crediti": 4686000000,
+    "costoVenduto": 34432000000,
+    "attivoCorrente": 23320000000,
+    "passivoCorrente": 28237000000,
+    "immobilizzazioniNette": 20600000000,
+    "ammortamento": 2834000000,
+    "speseSga": 19037000000,
+    "flussoCassaOperativo": 14867000000,
+    "attivoTotale": 118310000000,
+    "debitoLungo": 20863000000
    },
    {
     "anno": 2019,
@@ -7618,7 +15798,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0339,
     "utileNetto": 3897000000,
     "ricavi": 67684000000,
-    "patrimonioNetto": 47579000000
+    "patrimonioNetto": 47579000000,
+    "crediti": 4951000000,
+    "costoVenduto": 34768000000,
+    "attivoCorrente": 22473000000,
+    "passivoCorrente": 30011000000,
+    "immobilizzazioniNette": 21271000000,
+    "ammortamento": 2824000000,
+    "speseSga": 19084000000,
+    "flussoCassaOperativo": 15242000000,
+    "attivoTotale": 115095000000,
+    "debitoLungo": 20395000000
    },
    {
     "anno": 2020,
@@ -7627,7 +15817,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1079,
     "utileNetto": 13027000000,
     "ricavi": 70950000000,
-    "patrimonioNetto": 46878000000
+    "patrimonioNetto": 46878000000,
+    "crediti": 4178000000,
+    "costoVenduto": 35250000000,
+    "attivoCorrente": 27987000000,
+    "passivoCorrente": 32976000000,
+    "immobilizzazioniNette": 20692000000,
+    "ammortamento": 3013000000,
+    "speseSga": 19994000000,
+    "flussoCassaOperativo": 17403000000,
+    "attivoTotale": 120700000000,
+    "debitoLungo": 23537000000
    },
    {
     "anno": 2021,
@@ -7636,7 +15836,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1199,
     "utileNetto": 14306000000,
     "ricavi": 76118000000,
-    "patrimonioNetto": 46654000000
+    "patrimonioNetto": 46654000000,
+    "crediti": 4725000000,
+    "costoVenduto": 37108000000,
+    "attivoCorrente": 23091000000,
+    "passivoCorrente": 33132000000,
+    "immobilizzazioniNette": 21686000000,
+    "ammortamento": 2735000000,
+    "speseSga": 21024000000,
+    "flussoCassaOperativo": 18371000000,
+    "attivoTotale": 119307000000,
+    "debitoLungo": 23099000000
    },
    {
     "anno": 2022,
@@ -7645,7 +15855,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1258,
     "utileNetto": 14742000000,
     "ricavi": 80187000000,
-    "patrimonioNetto": 46854000000
+    "patrimonioNetto": 46854000000,
+    "crediti": 5143000000,
+    "costoVenduto": 42157000000,
+    "attivoCorrente": 21653000000,
+    "passivoCorrente": 33081000000,
+    "immobilizzazioniNette": 21195000000,
+    "ammortamento": 2807000000,
+    "speseSga": 20217000000,
+    "flussoCassaOperativo": 16723000000,
+    "attivoTotale": 117208000000,
+    "debitoLungo": 22848000000
    },
    {
     "anno": 2023,
@@ -7654,7 +15874,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1213,
     "utileNetto": 14653000000,
     "ricavi": 82006000000,
-    "patrimonioNetto": 47065000000
+    "patrimonioNetto": 47065000000,
+    "crediti": 5471000000,
+    "costoVenduto": 42760000000,
+    "attivoCorrente": 22648000000,
+    "passivoCorrente": 35756000000,
+    "immobilizzazioniNette": 21909000000,
+    "ammortamento": 2714000000,
+    "speseSga": 21112000000,
+    "flussoCassaOperativo": 16848000000,
+    "attivoTotale": 120829000000,
+    "debitoLungo": 24378000000
    },
    {
     "anno": 2024,
@@ -7663,7 +15893,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1216,
     "utileNetto": 14879000000,
     "ricavi": 84039000000,
-    "patrimonioNetto": 50559000000
+    "patrimonioNetto": 50559000000,
+    "crediti": 6118000000,
+    "costoVenduto": 40848000000,
+    "attivoCorrente": 24709000000,
+    "passivoCorrente": 33627000000,
+    "immobilizzazioniNette": 22152000000,
+    "ammortamento": 2896000000,
+    "speseSga": 23305000000,
+    "flussoCassaOperativo": 19846000000,
+    "attivoTotale": 122370000000,
+    "debitoLungo": 25269000000
    },
    {
     "anno": 2025,
@@ -7672,7 +15912,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1276,
     "utileNetto": 15974000000,
     "ricavi": 84284000000,
-    "patrimonioNetto": 52284000000
+    "patrimonioNetto": 52284000000,
+    "crediti": 6185000000,
+    "costoVenduto": 41164000000,
+    "attivoCorrente": 25392000000,
+    "passivoCorrente": 36058000000,
+    "immobilizzazioniNette": 23897000000,
+    "ammortamento": 2847000000,
+    "speseSga": 22669000000,
+    "flussoCassaOperativo": 17817000000,
+    "attivoTotale": 125231000000,
+    "debitoLungo": 24995000000
    },
    {
     "anno": 2026,
@@ -7681,7 +15931,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1268,
     "utileNetto": 16046000000,
     "ricavi": 87032000000,
-    "patrimonioNetto": 54311000000
+    "patrimonioNetto": 54311000000,
+    "crediti": 6056000000,
+    "costoVenduto": 43362000000,
+    "attivoCorrente": 26208000000,
+    "passivoCorrente": 38694000000,
+    "immobilizzazioniNette": 25360000000,
+    "ammortamento": 3160000000,
+    "speseSga": 23922000000,
+    "flussoCassaOperativo": 19556000000,
+    "attivoTotale": 126521000000,
+    "debitoLungo": 22842000000
    }
   ]
  },
@@ -7695,7 +15955,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 12731000000,
     "ricavi": 377023000000,
-    "patrimonioNetto": 66250000000
+    "patrimonioNetto": 66250000000,
+    "crediti": null,
+    "costoVenduto": 284137000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 70934000000,
+    "flussoCassaOperativo": 20642000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -7704,7 +15974,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0819,
     "utileNetto": 13381000000,
     "ricavi": 404254000000,
-    "patrimonioNetto": 66763000000
+    "patrimonioNetto": 66763000000,
+    "crediti": 3905000000,
+    "costoVenduto": 303941000000,
+    "attivoCorrente": 48949000000,
+    "passivoCorrente": 55390000000,
+    "immobilizzazioniNette": 92856000000,
+    "ammortamento": null,
+    "speseSga": 77546000000,
+    "flussoCassaOperativo": 23147000000,
+    "attivoTotale": 163429000000,
+    "debitoLungo": 31349000000
    },
    {
     "anno": 2010,
@@ -7713,7 +15993,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0843,
     "utileNetto": 14370000000,
     "ricavi": 408085000000,
-    "patrimonioNetto": 72648000000
+    "patrimonioNetto": 72648000000,
+    "crediti": 4144000000,
+    "costoVenduto": 304106000000,
+    "attivoCorrente": 48032000000,
+    "passivoCorrente": 55543000000,
+    "immobilizzazioniNette": 99544000000,
+    "ammortamento": null,
+    "speseSga": 79977000000,
+    "flussoCassaOperativo": 26249000000,
+    "attivoTotale": 170407000000,
+    "debitoLungo": 33231000000
    },
    {
     "anno": 2011,
@@ -7722,7 +16012,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0907,
     "utileNetto": 16389000000,
     "ricavi": 421849000000,
-    "patrimonioNetto": 71247000000
+    "patrimonioNetto": 71247000000,
+    "crediti": 5089000000,
+    "costoVenduto": 314946000000,
+    "attivoCorrente": 52012000000,
+    "passivoCorrente": 58603000000,
+    "immobilizzazioniNette": 105098000000,
+    "ammortamento": 7641000000,
+    "speseSga": 81361000000,
+    "flussoCassaOperativo": 23643000000,
+    "attivoTotale": 180782000000,
+    "debitoLungo": 40692000000
    },
    {
     "anno": 2012,
@@ -7731,7 +16031,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0812,
     "utileNetto": 15699000000,
     "ricavi": 446509000000,
-    "patrimonioNetto": 75761000000
+    "patrimonioNetto": 75761000000,
+    "crediti": 5937000000,
+    "costoVenduto": 334993000000,
+    "attivoCorrente": 54975000000,
+    "passivoCorrente": 62300000000,
+    "immobilizzazioniNette": 109603000000,
+    "ammortamento": 8130000000,
+    "speseSga": 85025000000,
+    "flussoCassaOperativo": 24255000000,
+    "attivoTotale": 193406000000,
+    "debitoLungo": 44070000000
    },
    {
     "anno": 2013,
@@ -7740,7 +16050,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0837,
     "utileNetto": 16999000000,
     "ricavi": 468651000000,
-    "patrimonioNetto": 81738000000
+    "patrimonioNetto": 81738000000,
+    "crediti": 6768000000,
+    "costoVenduto": 352297000000,
+    "attivoCorrente": 59940000000,
+    "passivoCorrente": 71818000000,
+    "immobilizzazioniNette": 113929000000,
+    "ammortamento": 8478000000,
+    "speseSga": 88629000000,
+    "flussoCassaOperativo": 25591000000,
+    "attivoTotale": 203105000000,
+    "debitoLungo": 38394000000
    },
    {
     "anno": 2014,
@@ -7749,7 +16069,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0783,
     "utileNetto": 16022000000,
     "ricavi": 476294000000,
-    "patrimonioNetto": 81339000000
+    "patrimonioNetto": 81339000000,
+    "crediti": 6677000000,
+    "costoVenduto": 358069000000,
+    "attivoCorrente": 61185000000,
+    "passivoCorrente": 69345000000,
+    "immobilizzazioniNette": 115364000000,
+    "ammortamento": 8870000000,
+    "speseSga": 91353000000,
+    "flussoCassaOperativo": 23257000000,
+    "attivoTotale": 204541000000,
+    "debitoLungo": 41771000000
    },
    {
     "anno": 2015,
@@ -7758,7 +16088,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0804,
     "utileNetto": 16363000000,
     "ricavi": 485651000000,
-    "patrimonioNetto": 85937000000
+    "patrimonioNetto": 85937000000,
+    "crediti": 6778000000,
+    "costoVenduto": 365086000000,
+    "attivoCorrente": 63278000000,
+    "passivoCorrente": 65253000000,
+    "immobilizzazioniNette": 114280000000,
+    "ammortamento": 9173000000,
+    "speseSga": 93418000000,
+    "flussoCassaOperativo": 28564000000,
+    "attivoTotale": 203490000000,
+    "debitoLungo": 40889000000
    },
    {
     "anno": 2016,
@@ -7767,7 +16107,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0736,
     "utileNetto": 14694000000,
     "ricavi": 482130000000,
-    "patrimonioNetto": 83611000000
+    "patrimonioNetto": 83611000000,
+    "crediti": 5624000000,
+    "costoVenduto": 360984000000,
+    "attivoCorrente": 60239000000,
+    "passivoCorrente": 64619000000,
+    "immobilizzazioniNette": 110171000000,
+    "ammortamento": 9454000000,
+    "speseSga": 97041000000,
+    "flussoCassaOperativo": 27552000000,
+    "attivoTotale": 199581000000,
+    "debitoLungo": 38214000000
    },
    {
     "anno": 2017,
@@ -7776,7 +16126,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0686,
     "utileNetto": 13643000000,
     "ricavi": 485873000000,
-    "patrimonioNetto": 80535000000
+    "patrimonioNetto": 80535000000,
+    "crediti": 5835000000,
+    "costoVenduto": 361256000000,
+    "attivoCorrente": 57689000000,
+    "passivoCorrente": 66928000000,
+    "immobilizzazioniNette": 107710000000,
+    "ammortamento": 10080000000,
+    "speseSga": 101853000000,
+    "flussoCassaOperativo": 31673000000,
+    "attivoTotale": 198825000000,
+    "debitoLungo": 36015000000
    },
    {
     "anno": 2018,
@@ -7785,7 +16145,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0482,
     "utileNetto": 9862000000,
     "ricavi": 500343000000,
-    "patrimonioNetto": 80822000000
+    "patrimonioNetto": 80822000000,
+    "crediti": 5614000000,
+    "costoVenduto": 373396000000,
+    "attivoCorrente": 59664000000,
+    "passivoCorrente": 78521000000,
+    "immobilizzazioniNette": 107675000000,
+    "ammortamento": 10529000000,
+    "speseSga": 106510000000,
+    "flussoCassaOperativo": 28337000000,
+    "attivoTotale": 204522000000,
+    "debitoLungo": 30045000000
    },
    {
     "anno": 2019,
@@ -7794,7 +16164,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0304,
     "utileNetto": 6670000000,
     "ricavi": 514405000000,
-    "patrimonioNetto": 79634000000
+    "patrimonioNetto": 79634000000,
+    "crediti": 6283000000,
+    "costoVenduto": 385301000000,
+    "attivoCorrente": 61897000000,
+    "passivoCorrente": 77477000000,
+    "immobilizzazioniNette": 104317000000,
+    "ammortamento": 10678000000,
+    "speseSga": 107147000000,
+    "flussoCassaOperativo": 27753000000,
+    "attivoTotale": 219295000000,
+    "debitoLungo": 43520000000
    },
    {
     "anno": 2020,
@@ -7803,7 +16183,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0629,
     "utileNetto": 14881000000,
     "ricavi": 523964000000,
-    "patrimonioNetto": 81552000000
+    "patrimonioNetto": 81552000000,
+    "crediti": 6284000000,
+    "costoVenduto": 394605000000,
+    "attivoCorrente": 61806000000,
+    "passivoCorrente": 77790000000,
+    "immobilizzazioniNette": 105208000000,
+    "ammortamento": 10987000000,
+    "speseSga": 108791000000,
+    "flussoCassaOperativo": 25255000000,
+    "attivoTotale": 236495000000,
+    "debitoLungo": 43714000000
    },
    {
     "anno": 2021,
@@ -7812,7 +16202,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0535,
     "utileNetto": 13510000000,
     "ricavi": 559151000000,
-    "patrimonioNetto": 87531000000
+    "patrimonioNetto": 87531000000,
+    "crediti": 6516000000,
+    "costoVenduto": 420315000000,
+    "attivoCorrente": 90067000000,
+    "passivoCorrente": 92645000000,
+    "immobilizzazioniNette": 92201000000,
+    "ammortamento": 11152000000,
+    "speseSga": 116288000000,
+    "flussoCassaOperativo": 36074000000,
+    "attivoTotale": 252496000000,
+    "debitoLungo": 41194000000
    },
    {
     "anno": 2022,
@@ -7821,7 +16221,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0558,
     "utileNetto": 13673000000,
     "ricavi": 572754000000,
-    "patrimonioNetto": 91891000000
+    "patrimonioNetto": 91891000000,
+    "crediti": 8280000000,
+    "costoVenduto": 429000000000,
+    "attivoCorrente": 81070000000,
+    "passivoCorrente": 87379000000,
+    "immobilizzazioniNette": 94515000000,
+    "ammortamento": 10658000000,
+    "speseSga": 117812000000,
+    "flussoCassaOperativo": 24181000000,
+    "attivoTotale": 244860000000,
+    "debitoLungo": 34864000000
    },
    {
     "anno": 2023,
@@ -7830,7 +16240,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.048,
     "utileNetto": 11680000000,
     "ricavi": 611289000000,
-    "patrimonioNetto": 83754000000
+    "patrimonioNetto": 83754000000,
+    "crediti": 7933000000,
+    "costoVenduto": 463721000000,
+    "attivoCorrente": 75655000000,
+    "passivoCorrente": 92198000000,
+    "immobilizzazioniNette": 100760000000,
+    "ammortamento": 10945000000,
+    "speseSga": 127140000000,
+    "flussoCassaOperativo": 28841000000,
+    "attivoTotale": 243197000000,
+    "debitoLungo": 34649000000
    },
    {
     "anno": 2024,
@@ -7839,7 +16259,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0615,
     "utileNetto": 15511000000,
     "ricavi": 648125000000,
-    "patrimonioNetto": 90349000000
+    "patrimonioNetto": 90349000000,
+    "crediti": 8796000000,
+    "costoVenduto": 490142000000,
+    "attivoCorrente": 76877000000,
+    "passivoCorrente": 92415000000,
+    "immobilizzazioniNette": 110810000000,
+    "ammortamento": 11853000000,
+    "speseSga": 130971000000,
+    "flussoCassaOperativo": 35726000000,
+    "attivoTotale": 252399000000,
+    "debitoLungo": 36132000000
    },
    {
     "anno": 2025,
@@ -7848,7 +16278,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0745,
     "utileNetto": 19436000000,
     "ricavi": 680985000000,
-    "patrimonioNetto": 91013000000
+    "patrimonioNetto": 91013000000,
+    "crediti": 9975000000,
+    "costoVenduto": 511753000000,
+    "attivoCorrente": 79458000000,
+    "passivoCorrente": 96584000000,
+    "immobilizzazioniNette": 119993000000,
+    "ammortamento": 12973000000,
+    "speseSga": 139884000000,
+    "flussoCassaOperativo": 36443000000,
+    "attivoTotale": 260823000000,
+    "debitoLungo": 33401000000
    },
    {
     "anno": 2026,
@@ -7857,7 +16297,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0769,
     "utileNetto": 21893000000,
     "ricavi": 713163000000,
-    "patrimonioNetto": 99617000000
+    "patrimonioNetto": 99617000000,
+    "crediti": 11172000000,
+    "costoVenduto": 535395000000,
+    "attivoCorrente": 84874000000,
+    "passivoCorrente": 107469000000,
+    "immobilizzazioniNette": 136083000000,
+    "ammortamento": 14203000000,
+    "speseSga": 147943000000,
+    "flussoCassaOperativo": 41565000000,
+    "attivoTotale": 284668000000,
+    "debitoLungo": 34624000000
    }
   ]
  },
@@ -7871,7 +16321,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.062,
     "utileNetto": 1283000000,
     "ricavi": 72483000000,
-    "patrimonioNetto": 9274000000
+    "patrimonioNetto": 9274000000,
+    "crediti": null,
+    "costoVenduto": 63503000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 10355000000,
+    "ammortamento": 653000000,
+    "speseSga": 6954000000,
+    "flussoCassaOperativo": 2206000000,
+    "attivoTotale": 20682000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -7880,7 +16340,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0494,
     "utileNetto": 1086000000,
     "ricavi": 71422000000,
-    "patrimonioNetto": 10104000000
+    "patrimonioNetto": 10104000000,
+    "crediti": 834000000,
+    "costoVenduto": 62335000000,
+    "attivoCorrente": 10337000000,
+    "passivoCorrente": 9281000000,
+    "immobilizzazioniNette": 10900000000,
+    "ammortamento": 728000000,
+    "speseSga": 7252000000,
+    "flussoCassaOperativo": 2092000000,
+    "attivoTotale": 21979000000,
+    "debitoLungo": 2130000000
    },
    {
     "anno": 2010,
@@ -7889,7 +16359,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0547,
     "utileNetto": 1303000000,
     "ricavi": 77946000000,
-    "patrimonioNetto": 10930000000
+    "patrimonioNetto": 10930000000,
+    "crediti": 884000000,
+    "costoVenduto": 67995000000,
+    "attivoCorrente": 11708000000,
+    "passivoCorrente": 10063000000,
+    "immobilizzazioniNette": 11314000000,
+    "ammortamento": 795000000,
+    "speseSga": 7848000000,
+    "flussoCassaOperativo": 2780000000,
+    "attivoTotale": 23815000000,
+    "debitoLungo": 2141000000
    },
    {
     "anno": 2011,
@@ -7898,7 +16378,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0546,
     "utileNetto": 1462000000,
     "ricavi": 88915000000,
-    "patrimonioNetto": 12573000000
+    "patrimonioNetto": 12573000000,
+    "crediti": 965000000,
+    "costoVenduto": 77739000000,
+    "attivoCorrente": 13706000000,
+    "passivoCorrente": 12050000000,
+    "immobilizzazioniNette": 12432000000,
+    "ammortamento": 855000000,
+    "speseSga": 8691000000,
+    "flussoCassaOperativo": 3198000000,
+    "attivoTotale": 26761000000,
+    "debitoLungo": 1253000000
    },
    {
     "anno": 2012,
@@ -7907,7 +16397,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.063,
     "utileNetto": 1709000000,
     "ricavi": 99137000000,
-    "patrimonioNetto": 12518000000
+    "patrimonioNetto": 12518000000,
+    "crediti": 1026000000,
+    "costoVenduto": 86823000000,
+    "attivoCorrente": 13526000000,
+    "passivoCorrente": 12260000000,
+    "immobilizzazioniNette": 12961000000,
+    "ammortamento": 908000000,
+    "speseSga": 9518000000,
+    "flussoCassaOperativo": 3057000000,
+    "attivoTotale": 27140000000,
+    "debitoLungo": 1381000000
    },
    {
     "anno": 2013,
@@ -7916,7 +16416,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0673,
     "utileNetto": 2039000000,
     "ricavi": 105156000000,
-    "patrimonioNetto": 11012000000
+    "patrimonioNetto": 11012000000,
+    "crediti": 1201000000,
+    "costoVenduto": 91948000000,
+    "attivoCorrente": 15840000000,
+    "passivoCorrente": 13257000000,
+    "immobilizzazioniNette": 13881000000,
+    "ammortamento": 946000000,
+    "speseSga": 10104000000,
+    "flussoCassaOperativo": 3437000000,
+    "attivoTotale": 30283000000,
+    "debitoLungo": 4998000000
    },
    {
     "anno": 2014,
@@ -7925,7 +16435,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.063,
     "utileNetto": 2058000000,
     "ricavi": 112640000000,
-    "patrimonioNetto": 12515000000
+    "patrimonioNetto": 12515000000,
+    "crediti": 1148000000,
+    "costoVenduto": 98458000000,
+    "attivoCorrente": 17588000000,
+    "passivoCorrente": 14412000000,
+    "immobilizzazioniNette": 14830000000,
+    "ammortamento": 1029000000,
+    "speseSga": 10899000000,
+    "flussoCassaOperativo": 3984000000,
+    "attivoTotale": 32662000000,
+    "debitoLungo": 5093000000
    },
    {
     "anno": 2015,
@@ -7934,7 +16454,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.072,
     "utileNetto": 2377000000,
     "ricavi": 116199000000,
-    "patrimonioNetto": 10843000000
+    "patrimonioNetto": 10843000000,
+    "crediti": 1224000000,
+    "costoVenduto": 101065000000,
+    "attivoCorrente": 16779000000,
+    "passivoCorrente": 16539000000,
+    "immobilizzazioniNette": 15401000000,
+    "ammortamento": 1127000000,
+    "speseSga": 11445000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 33017000000,
+    "debitoLungo": 4852000000
    },
    {
     "anno": 2016,
@@ -7943,7 +16473,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0709,
     "utileNetto": 2350000000,
     "ricavi": 118719000000,
-    "patrimonioNetto": 12332000000
+    "patrimonioNetto": 12332000000,
+    "crediti": 1252000000,
+    "costoVenduto": 102901000000,
+    "attivoCorrente": 15218000000,
+    "passivoCorrente": 15575000000,
+    "immobilizzazioniNette": 17043000000,
+    "ammortamento": 1255000000,
+    "speseSga": 12068000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 33163000000,
+    "debitoLungo": 4061000000
    },
    {
     "anno": 2017,
@@ -7952,7 +16492,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0737,
     "utileNetto": 2679000000,
     "ricavi": 129025000000,
-    "patrimonioNetto": 11079000000
+    "patrimonioNetto": 11079000000,
+    "crediti": 1432000000,
+    "costoVenduto": 111882000000,
+    "attivoCorrente": 17317000000,
+    "passivoCorrente": 17495000000,
+    "immobilizzazioniNette": 18161000000,
+    "ammortamento": 1370000000,
+    "speseSga": 12950000000,
+    "flussoCassaOperativo": 6726000000,
+    "attivoTotale": 36347000000,
+    "debitoLungo": 6573000000
    },
    {
     "anno": 2018,
@@ -7961,7 +16511,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0768,
     "utileNetto": 3134000000,
     "ricavi": 141576000000,
-    "patrimonioNetto": 13103000000
+    "patrimonioNetto": 13103000000,
+    "crediti": 1669000000,
+    "costoVenduto": 123152000000,
+    "attivoCorrente": 20289000000,
+    "passivoCorrente": 19926000000,
+    "immobilizzazioniNette": 19681000000,
+    "ammortamento": 1437000000,
+    "speseSga": 13876000000,
+    "flussoCassaOperativo": 5774000000,
+    "attivoTotale": 40830000000,
+    "debitoLungo": 6487000000
    },
    {
     "anno": 2019,
@@ -7970,7 +16530,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0806,
     "utileNetto": 3659000000,
     "ricavi": 152703000000,
-    "patrimonioNetto": 15584000000
+    "patrimonioNetto": 15584000000,
+    "crediti": 1535000000,
+    "costoVenduto": 132886000000,
+    "attivoCorrente": 23485000000,
+    "passivoCorrente": 23237000000,
+    "immobilizzazioniNette": 20890000000,
+    "ammortamento": 1492000000,
+    "speseSga": 14994000000,
+    "flussoCassaOperativo": 6356000000,
+    "attivoTotale": 45400000000,
+    "debitoLungo": 5124000000
    },
    {
     "anno": 2020,
@@ -7979,7 +16549,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.072,
     "utileNetto": 4002000000,
     "ricavi": 166761000000,
-    "patrimonioNetto": 18705000000
+    "patrimonioNetto": 18705000000,
+    "crediti": 1550000000,
+    "costoVenduto": 144939000000,
+    "attivoCorrente": 28120000000,
+    "passivoCorrente": 24844000000,
+    "immobilizzazioniNette": 21807000000,
+    "ammortamento": 1645000000,
+    "speseSga": 16387000000,
+    "flussoCassaOperativo": 8861000000,
+    "attivoTotale": 55556000000,
+    "debitoLungo": 7514000000
    },
    {
     "anno": 2021,
@@ -7988,7 +16568,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0845,
     "utileNetto": 5007000000,
     "ricavi": 195929000000,
-    "patrimonioNetto": 18078000000
+    "patrimonioNetto": 18078000000,
+    "crediti": 1803000000,
+    "costoVenduto": 170684000000,
+    "attivoCorrente": 29505000000,
+    "passivoCorrente": 29441000000,
+    "immobilizzazioniNette": 23492000000,
+    "ammortamento": 1781000000,
+    "speseSga": 18537000000,
+    "flussoCassaOperativo": 8958000000,
+    "attivoTotale": 59268000000,
+    "debitoLungo": 6692000000
    },
    {
     "anno": 2022,
@@ -7997,7 +16587,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0911,
     "utileNetto": 5844000000,
     "ricavi": 226954000000,
-    "patrimonioNetto": 20647000000
+    "patrimonioNetto": 20647000000,
+    "crediti": 2241000000,
+    "costoVenduto": 199382000000,
+    "attivoCorrente": 32696000000,
+    "passivoCorrente": 31998000000,
+    "immobilizzazioniNette": 24646000000,
+    "ammortamento": 1900000000,
+    "speseSga": 19779000000,
+    "flussoCassaOperativo": 7392000000,
+    "attivoTotale": 64166000000,
+    "debitoLungo": 6484000000
    },
    {
     "anno": 2023,
@@ -8006,7 +16606,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0912,
     "utileNetto": 6292000000,
     "ricavi": 242290000000,
-    "patrimonioNetto": 25058000000
+    "patrimonioNetto": 25058000000,
+    "crediti": 2285000000,
+    "costoVenduto": 212586000000,
+    "attivoCorrente": 35879000000,
+    "passivoCorrente": 33583000000,
+    "immobilizzazioniNette": 26684000000,
+    "ammortamento": 2077000000,
+    "speseSga": 21590000000,
+    "flussoCassaOperativo": 11068000000,
+    "attivoTotale": 68994000000,
+    "debitoLungo": 5377000000
    },
    {
     "anno": 2024,
@@ -8015,7 +16625,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1055,
     "utileNetto": 7367000000,
     "ricavi": 254453000000,
-    "patrimonioNetto": 23622000000
+    "patrimonioNetto": 23622000000,
+    "crediti": 2721000000,
+    "costoVenduto": 222358000000,
+    "attivoCorrente": 34246000000,
+    "passivoCorrente": 35464000000,
+    "immobilizzazioniNette": 29032000000,
+    "ammortamento": 2237000000,
+    "speseSga": 22810000000,
+    "flussoCassaOperativo": 11339000000,
+    "attivoTotale": 69831000000,
+    "debitoLungo": 5794000000
    },
    {
     "anno": 2025,
@@ -8024,7 +16644,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.105,
     "utileNetto": 8099000000,
     "ricavi": 275235000000,
-    "patrimonioNetto": 29164000000
+    "patrimonioNetto": 29164000000,
+    "crediti": 3203000000,
+    "costoVenduto": 239886000000,
+    "attivoCorrente": 38380000000,
+    "passivoCorrente": 37108000000,
+    "immobilizzazioniNette": 31909000000,
+    "ammortamento": 2426000000,
+    "speseSga": 24966000000,
+    "flussoCassaOperativo": 13335000000,
+    "attivoTotale": 77099000000,
+    "debitoLungo": 5713000000
    }
   ]
  },
@@ -8038,7 +16668,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 2395100000,
     "ricavi": 22786600000,
-    "patrimonioNetto": 15279800000
+    "patrimonioNetto": 15279800000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 2367000000,
+    "flussoCassaOperativo": 4876300000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -8047,7 +16687,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1515,
     "utileNetto": 4313200000,
     "ricavi": 23522400000,
-    "patrimonioNetto": 13382600000
+    "patrimonioNetto": 13382600000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 3517600000,
+    "passivoCorrente": 2537900000,
+    "immobilizzazioniNette": 20254500000,
+    "ammortamento": null,
+    "speseSga": 2355500000,
+    "flussoCassaOperativo": 5917200000,
+    "attivoTotale": 28461500000,
+    "debitoLungo": 10186000000
    },
    {
     "anno": 2009,
@@ -8056,7 +16706,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1506,
     "utileNetto": 4551000000,
     "ricavi": 22744700000,
-    "patrimonioNetto": 14033900000
+    "patrimonioNetto": 14033900000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 3416300000,
+    "passivoCorrente": 2988700000,
+    "immobilizzazioniNette": 21531500000,
+    "ammortamento": null,
+    "speseSga": 2234200000,
+    "flussoCassaOperativo": 5751000000,
+    "attivoTotale": 30224900000,
+    "debitoLungo": 10560300000
    },
    {
     "anno": 2010,
@@ -8065,7 +16725,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1547,
     "utileNetto": 4946300000,
     "ricavi": 24074600000,
-    "patrimonioNetto": 14634200000
+    "patrimonioNetto": 14634200000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4368500000,
+    "passivoCorrente": 2924700000,
+    "immobilizzazioniNette": 22060600000,
+    "ammortamento": 1200400000,
+    "speseSga": 2333300000,
+    "flussoCassaOperativo": 6341600000,
+    "attivoTotale": 31975200000,
+    "debitoLungo": 11497000000
    },
    {
     "anno": 2011,
@@ -8074,7 +16744,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1668,
     "utileNetto": 5503100000,
     "ricavi": 27006000000,
-    "patrimonioNetto": 14390200000
+    "patrimonioNetto": 14390200000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4403000000,
+    "passivoCorrente": 3509200000,
+    "immobilizzazioniNette": 22834500000,
+    "ammortamento": 1329600000,
+    "speseSga": 2393700000,
+    "flussoCassaOperativo": 7150100000,
+    "attivoTotale": 32989900000,
+    "debitoLungo": 12133800000
    },
    {
     "anno": 2012,
@@ -8083,7 +16763,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1544,
     "utileNetto": 5464800000,
     "ricavi": 27567000000,
-    "patrimonioNetto": 15293600000
+    "patrimonioNetto": 15293600000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4922100000,
+    "passivoCorrente": 3403100000,
+    "immobilizzazioniNette": 24677200000,
+    "ammortamento": 1402200000,
+    "speseSga": 2455200000,
+    "flussoCassaOperativo": 6966100000,
+    "attivoTotale": 35386500000,
+    "debitoLungo": 13632500000
    },
    {
     "anno": 2013,
@@ -8092,7 +16782,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1525,
     "utileNetto": 5585900000,
     "ricavi": 28105700000,
-    "patrimonioNetto": 16009700000
+    "patrimonioNetto": 16009700000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 5050100000,
+    "passivoCorrente": 3170000000,
+    "immobilizzazioniNette": 25747300000,
+    "ammortamento": 1498800000,
+    "speseSga": 2385600000,
+    "flussoCassaOperativo": 7120700000,
+    "attivoTotale": 36626300000,
+    "debitoLungo": 14129800000
    },
    {
     "anno": 2014,
@@ -8101,7 +16801,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.139,
     "utileNetto": 4757800000,
     "ricavi": 27441300000,
-    "patrimonioNetto": 12853400000
+    "patrimonioNetto": 12853400000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4185500000,
+    "passivoCorrente": 2747900000,
+    "immobilizzazioniNette": 24557500000,
+    "ammortamento": 1539300000,
+    "speseSga": 2487900000,
+    "flussoCassaOperativo": 6730300000,
+    "attivoTotale": 34227400000,
+    "debitoLungo": 14935700000
    },
    {
     "anno": 2015,
@@ -8110,7 +16820,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1194,
     "utileNetto": 4529300000,
     "ricavi": 25413000000,
-    "patrimonioNetto": 7087900000
+    "patrimonioNetto": 7087900000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 9643000000,
+    "passivoCorrente": 2950400000,
+    "immobilizzazioniNette": 23117600000,
+    "ammortamento": 1438000000,
+    "speseSga": 2434300000,
+    "flussoCassaOperativo": 6539100000,
+    "attivoTotale": 37938700000,
+    "debitoLungo": 24122100000
    },
    {
     "anno": 2016,
@@ -8119,7 +16839,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1511,
     "utileNetto": 4686500000,
     "ricavi": 24621900000,
-    "patrimonioNetto": -2204300000
+    "patrimonioNetto": -2204300000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4848600000,
+    "passivoCorrente": 3468300000,
+    "immobilizzazioniNette": 21257600000,
+    "ammortamento": 1390700000,
+    "speseSga": 2384500000,
+    "flussoCassaOperativo": 6059600000,
+    "attivoTotale": 31023900000,
+    "debitoLungo": 25878500000
    },
    {
     "anno": 2017,
@@ -8128,7 +16858,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1536,
     "utileNetto": 5192300000,
     "ricavi": 22820400000,
-    "patrimonioNetto": -3268000000
+    "patrimonioNetto": -3268000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 5327200000,
+    "passivoCorrente": 2890600000,
+    "immobilizzazioniNette": 22448300000,
+    "ammortamento": 1227500000,
+    "speseSga": 2231300000,
+    "flussoCassaOperativo": 5551200000,
+    "attivoTotale": 33803700000,
+    "debitoLungo": 29536400000
    },
    {
     "anno": 2018,
@@ -8137,7 +16877,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1806,
     "utileNetto": 5924300000,
     "ricavi": 21257900000,
-    "patrimonioNetto": -6258400000
+    "patrimonioNetto": -6258400000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4053200000,
+    "passivoCorrente": 2973500000,
+    "immobilizzazioniNette": 22842700000,
+    "ammortamento": 214800000,
+    "speseSga": 2200200000,
+    "flussoCassaOperativo": 6966700000,
+    "attivoTotale": 32811200000,
+    "debitoLungo": 31075300000
    },
    {
     "anno": 2019,
@@ -8146,7 +16896,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1268,
     "utileNetto": 6025400000,
     "ricavi": 21364400000,
-    "patrimonioNetto": -8210300000
+    "patrimonioNetto": -8210300000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 3557900000,
+    "passivoCorrente": 3621000000,
+    "immobilizzazioniNette": 24160000000,
+    "ammortamento": 262500000,
+    "speseSga": 2229400000,
+    "flussoCassaOperativo": 8122100000,
+    "attivoTotale": 47510800000,
+    "debitoLungo": 34118100000
    },
    {
     "anno": 2020,
@@ -8155,7 +16915,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0899,
     "utileNetto": 4730500000,
     "ricavi": 19207800000,
-    "patrimonioNetto": -7824900000
+    "patrimonioNetto": -7824900000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 6243200000,
+    "passivoCorrente": 6181200000,
+    "immobilizzazioniNette": 24958200000,
+    "ammortamento": 300600000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6265200000,
+    "attivoTotale": 52626800000,
+    "debitoLungo": 35196800000
    },
    {
     "anno": 2021,
@@ -8164,7 +16934,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1401,
     "utileNetto": 7545200000,
     "ricavi": 23222900000,
-    "patrimonioNetto": -4601000000
+    "patrimonioNetto": -4601000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 7148500000,
+    "passivoCorrente": 4020000000,
+    "immobilizzazioniNette": 24720600000,
+    "ammortamento": 329700000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9141500000,
+    "attivoTotale": 53854300000,
+    "debitoLungo": 35622700000
    },
    {
     "anno": 2022,
@@ -8173,7 +16953,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1225,
     "utileNetto": 6177000000,
     "ricavi": 23183000000,
-    "patrimonioNetto": -6003000000
+    "patrimonioNetto": -6003000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 5424200000,
+    "passivoCorrente": 3802100000,
+    "immobilizzazioniNette": 23773600000,
+    "ammortamento": 370000000,
+    "speseSga": 2863000000,
+    "flussoCassaOperativo": 7387000000,
+    "attivoTotale": 50436000000,
+    "debitoLungo": 35903500000
    },
    {
     "anno": 2023,
@@ -8182,7 +16972,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1508,
     "utileNetto": 8469000000,
     "ricavi": 25494000000,
-    "patrimonioNetto": -4707000000
+    "patrimonioNetto": -4707000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 7986000000,
+    "passivoCorrente": 6859000000,
+    "immobilizzazioniNette": 24908000000,
+    "ammortamento": 382000000,
+    "speseSga": 2817000000,
+    "flussoCassaOperativo": 9612000000,
+    "attivoTotale": 56147000000,
+    "debitoLungo": 37153000000
    },
    {
     "anno": 2024,
@@ -8191,7 +16991,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.149,
     "utileNetto": 8223000000,
     "ricavi": 25920000000,
-    "patrimonioNetto": -3797000000
+    "patrimonioNetto": -3797000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4599000000,
+    "passivoCorrente": 3861000000,
+    "immobilizzazioniNette": 25295000000,
+    "ammortamento": 447000000,
+    "speseSga": 2858000000,
+    "flussoCassaOperativo": 9447000000,
+    "attivoTotale": 55182000000,
+    "debitoLungo": 38424000000
    },
    {
     "anno": 2025,
@@ -8200,7 +17010,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1439,
     "utileNetto": 8563000000,
     "ricavi": 26885000000,
-    "patrimonioNetto": -1791000000
+    "patrimonioNetto": -1791000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 4163000000,
+    "passivoCorrente": 4361000000,
+    "immobilizzazioniNette": 28241000000,
+    "ammortamento": 457000000,
+    "speseSga": 3039000000,
+    "flussoCassaOperativo": 10551000000,
+    "attivoTotale": 59515000000,
+    "debitoLungo": 39973000000
    }
   ]
  },
@@ -8214,7 +17034,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 1883400000,
     "ricavi": 18627000000,
-    "patrimonioNetto": 7825000000
+    "patrimonioNetto": 7825000000,
+    "crediti": null,
+    "costoVenduto": 10239600000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 303600000,
+    "speseSga": 5953700000,
+    "flussoCassaOperativo": 1936300000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -8223,7 +17053,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1122,
     "utileNetto": 1487000000,
     "ricavi": 19176000000,
-    "patrimonioNetto": 8693000000
+    "patrimonioNetto": 8693000000,
+    "crediti": 2883900000,
+    "costoVenduto": 10572000000,
+    "attivoCorrente": 9734000000,
+    "passivoCorrente": 3277000000,
+    "immobilizzazioniNette": 1957700000,
+    "ammortamento": 335000000,
+    "speseSga": 6150000000,
+    "flussoCassaOperativo": 1736000000,
+    "attivoTotale": 13249600000,
+    "debitoLungo": 437200000
    },
    {
     "anno": 2010,
@@ -8232,7 +17072,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1323,
     "utileNetto": 1907000000,
     "ricavi": 19014000000,
-    "patrimonioNetto": 9754000000
+    "patrimonioNetto": 9754000000,
+    "crediti": 2650000000,
+    "costoVenduto": 10214000000,
+    "attivoCorrente": 10959000000,
+    "passivoCorrente": 3364000000,
+    "immobilizzazioniNette": 1932000000,
+    "ammortamento": 324000000,
+    "speseSga": 6326000000,
+    "flussoCassaOperativo": 3164000000,
+    "attivoTotale": 14419000000,
+    "debitoLungo": 446000000
    },
    {
     "anno": 2011,
@@ -8241,7 +17091,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1422,
     "utileNetto": 2133000000,
     "ricavi": 20117000000,
-    "patrimonioNetto": 9793000000
+    "patrimonioNetto": 9793000000,
+    "crediti": 3138000000,
+    "costoVenduto": 10915000000,
+    "attivoCorrente": 11297000000,
+    "passivoCorrente": 3958000000,
+    "immobilizzazioniNette": 2115000000,
+    "ammortamento": 335000000,
+    "speseSga": 6361000000,
+    "flussoCassaOperativo": 1812000000,
+    "attivoTotale": 14998000000,
+    "debitoLungo": 276000000
    },
    {
     "anno": 2012,
@@ -8250,7 +17110,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.143,
     "utileNetto": 2211000000,
     "ricavi": 23331000000,
-    "patrimonioNetto": 10319000000
+    "patrimonioNetto": 10319000000,
+    "crediti": 3132000000,
+    "costoVenduto": 13183000000,
+    "attivoCorrente": 11845000000,
+    "passivoCorrente": 3882000000,
+    "immobilizzazioniNette": 2209000000,
+    "ammortamento": 373000000,
+    "speseSga": 7079000000,
+    "flussoCassaOperativo": 1824000000,
+    "attivoTotale": 15465000000,
+    "debitoLungo": 228000000
    },
    {
     "anno": 2013,
@@ -8259,7 +17129,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1409,
     "utileNetto": 2472000000,
     "ricavi": 25313000000,
-    "patrimonioNetto": 11081000000
+    "patrimonioNetto": 11081000000,
+    "crediti": 3117000000,
+    "costoVenduto": 14279000000,
+    "attivoCorrente": 13630000000,
+    "passivoCorrente": 3962000000,
+    "immobilizzazioniNette": 2452000000,
+    "ammortamento": 438000000,
+    "speseSga": 7796000000,
+    "flussoCassaOperativo": 3032000000,
+    "attivoTotale": 17545000000,
+    "debitoLungo": 1210000000
    },
    {
     "anno": 2014,
@@ -8268,7 +17148,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1448,
     "utileNetto": 2693000000,
     "ricavi": 27799000000,
-    "patrimonioNetto": 10824000000
+    "patrimonioNetto": 10824000000,
+    "crediti": 3434000000,
+    "costoVenduto": 15353000000,
+    "attivoCorrente": 13696000000,
+    "passivoCorrente": 5027000000,
+    "immobilizzazioniNette": 2834000000,
+    "ammortamento": 518000000,
+    "speseSga": 8766000000,
+    "flussoCassaOperativo": 3013000000,
+    "attivoTotale": 18594000000,
+    "debitoLungo": 1199000000
    },
    {
     "anno": 2015,
@@ -8277,7 +17167,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1515,
     "utileNetto": 3273000000,
     "ricavi": 30601000000,
-    "patrimonioNetto": 12707000000
+    "patrimonioNetto": 12707000000,
+    "crediti": 3358000000,
+    "costoVenduto": 16534000000,
+    "attivoCorrente": 15587000000,
+    "passivoCorrente": 6332000000,
+    "immobilizzazioniNette": 3011000000,
+    "ammortamento": 606000000,
+    "speseSga": 9892000000,
+    "flussoCassaOperativo": 4680000000,
+    "attivoTotale": 21597000000,
+    "debitoLungo": 1079000000
    },
    {
     "anno": 2016,
@@ -8286,7 +17186,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1759,
     "utileNetto": 3760000000,
     "ricavi": 32376000000,
-    "patrimonioNetto": 12258000000
+    "patrimonioNetto": 12258000000,
+    "crediti": 3241000000,
+    "costoVenduto": 17405000000,
+    "attivoCorrente": 15025000000,
+    "passivoCorrente": 5358000000,
+    "immobilizzazioniNette": 3520000000,
+    "ammortamento": 649000000,
+    "speseSga": 10469000000,
+    "flussoCassaOperativo": 3399000000,
+    "attivoTotale": 21379000000,
+    "debitoLungo": 1993000000
    },
    {
     "anno": 2017,
@@ -8295,7 +17205,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1823,
     "utileNetto": 4240000000,
     "ricavi": 34350000000,
-    "patrimonioNetto": 12407000000
+    "patrimonioNetto": 12407000000,
+    "crediti": 3677000000,
+    "costoVenduto": 19038000000,
+    "attivoCorrente": 16061000000,
+    "passivoCorrente": 5474000000,
+    "immobilizzazioniNette": 3989000000,
+    "ammortamento": 706000000,
+    "speseSga": 10563000000,
+    "flussoCassaOperativo": 3846000000,
+    "attivoTotale": 23259000000,
+    "debitoLungo": 3471000000
    },
    {
     "anno": 2018,
@@ -8304,7 +17224,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0858,
     "utileNetto": 1933000000,
     "ricavi": 36397000000,
-    "patrimonioNetto": 9812000000
+    "patrimonioNetto": 9812000000,
+    "crediti": 3498000000,
+    "costoVenduto": 20441000000,
+    "attivoCorrente": 15134000000,
+    "passivoCorrente": 6040000000,
+    "immobilizzazioniNette": 4454000000,
+    "ammortamento": 747000000,
+    "speseSga": 11511000000,
+    "flussoCassaOperativo": 4955000000,
+    "attivoTotale": 22536000000,
+    "debitoLungo": 3468000000
    },
    {
     "anno": 2019,
@@ -8313,7 +17243,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1699,
     "utileNetto": 4029000000,
     "ricavi": 39117000000,
-    "patrimonioNetto": 9040000000
+    "patrimonioNetto": 9040000000,
+    "crediti": 4272000000,
+    "costoVenduto": 21643000000,
+    "attivoCorrente": 16525000000,
+    "passivoCorrente": 7866000000,
+    "immobilizzazioniNette": 4744000000,
+    "ammortamento": 705000000,
+    "speseSga": 12702000000,
+    "flussoCassaOperativo": 5903000000,
+    "attivoTotale": 23717000000,
+    "debitoLungo": 3464000000
    },
    {
     "anno": 2020,
@@ -8322,7 +17262,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.081,
     "utileNetto": 2539000000,
     "ricavi": 37403000000,
-    "patrimonioNetto": 8055000000
+    "patrimonioNetto": 8055000000,
+    "crediti": 2749000000,
+    "costoVenduto": 21162000000,
+    "attivoCorrente": 20556000000,
+    "passivoCorrente": 8284000000,
+    "immobilizzazioniNette": 4866000000,
+    "ammortamento": 721000000,
+    "speseSga": 13126000000,
+    "flussoCassaOperativo": 2485000000,
+    "attivoTotale": 31342000000,
+    "debitoLungo": 9406000000
    },
    {
     "anno": 2021,
@@ -8331,7 +17281,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1517,
     "utileNetto": 5727000000,
     "ricavi": 44538000000,
-    "patrimonioNetto": 12767000000
+    "patrimonioNetto": 12767000000,
+    "crediti": 4463000000,
+    "costoVenduto": 24576000000,
+    "attivoCorrente": 26291000000,
+    "passivoCorrente": 9674000000,
+    "immobilizzazioniNette": 4904000000,
+    "ammortamento": 744000000,
+    "speseSga": 13025000000,
+    "flussoCassaOperativo": 6657000000,
+    "attivoTotale": 37740000000,
+    "debitoLungo": 9413000000
    },
    {
     "anno": 2022,
@@ -8340,7 +17300,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1499,
     "utileNetto": 6046000000,
     "ricavi": 46710000000,
-    "patrimonioNetto": 15281000000
+    "patrimonioNetto": 15281000000,
+    "crediti": 4667000000,
+    "costoVenduto": 25231000000,
+    "attivoCorrente": 28213000000,
+    "passivoCorrente": 10730000000,
+    "immobilizzazioniNette": 4791000000,
+    "ammortamento": 717000000,
+    "speseSga": 14804000000,
+    "flussoCassaOperativo": 5188000000,
+    "attivoTotale": 40321000000,
+    "debitoLungo": 8920000000
    },
    {
     "anno": 2023,
@@ -8349,7 +17319,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1351,
     "utileNetto": 5070000000,
     "ricavi": 51217000000,
-    "patrimonioNetto": 14004000000
+    "patrimonioNetto": 14004000000,
+    "crediti": 4131000000,
+    "costoVenduto": 28925000000,
+    "attivoCorrente": 25202000000,
+    "passivoCorrente": 9256000000,
+    "immobilizzazioniNette": 5081000000,
+    "ammortamento": 703000000,
+    "speseSga": 16377000000,
+    "flussoCassaOperativo": 5841000000,
+    "attivoTotale": 37531000000,
+    "debitoLungo": 8927000000
    },
    {
     "anno": 2024,
@@ -8358,7 +17338,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1496,
     "utileNetto": 5700000000,
     "ricavi": 51362000000,
-    "patrimonioNetto": 14430000000
+    "patrimonioNetto": 14430000000,
+    "crediti": 4427000000,
+    "costoVenduto": 28475000000,
+    "attivoCorrente": 25382000000,
+    "passivoCorrente": 10593000000,
+    "immobilizzazioniNette": 5000000000,
+    "ammortamento": 796000000,
+    "speseSga": 16576000000,
+    "flussoCassaOperativo": 7429000000,
+    "attivoTotale": 38110000000,
+    "debitoLungo": 7903000000
    },
    {
     "anno": 2025,
@@ -8367,7 +17357,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.088,
     "utileNetto": 3219000000,
     "ricavi": 46309000000,
-    "patrimonioNetto": 13213000000
+    "patrimonioNetto": 13213000000,
+    "crediti": 4717000000,
+    "costoVenduto": 26519000000,
+    "attivoCorrente": 23362000000,
+    "passivoCorrente": 10566000000,
+    "immobilizzazioniNette": 4828000000,
+    "ammortamento": 775000000,
+    "speseSga": 16088000000,
+    "flussoCassaOperativo": 3698000000,
+    "attivoTotale": 36579000000,
+    "debitoLungo": 7961000000
    },
    {
     "anno": 2026,
@@ -8376,7 +17376,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0809,
     "utileNetto": 3108000000,
     "ricavi": 46398000000,
-    "patrimonioNetto": 14865000000
+    "patrimonioNetto": 14865000000,
+    "crediti": 5931000000,
+    "costoVenduto": 26487000000,
+    "attivoCorrente": 24603000000,
+    "passivoCorrente": 12547000000,
+    "immobilizzazioniNette": 4796000000,
+    "ammortamento": 747000000,
+    "speseSga": 16114000000,
+    "flussoCassaOperativo": 2868000000,
+    "attivoTotale": 38410000000,
+    "debitoLungo": 5942000000
    }
   ]
  },
@@ -8390,7 +17400,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 672600000,
     "ricavi": 9411500000,
-    "patrimonioNetto": 2301400000
+    "patrimonioNetto": 2301400000,
+    "crediti": null,
+    "costoVenduto": 3999100000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 491200000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1331200000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -8399,7 +17419,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0556,
     "utileNetto": 315500000,
     "ricavi": 10383000000,
-    "patrimonioNetto": 2509200000
+    "patrimonioNetto": 2509200000,
+    "crediti": 329500000,
+    "costoVenduto": 4645300000,
+    "attivoCorrente": 1748000000,
+    "passivoCorrente": 2189700000,
+    "immobilizzazioniNette": 2956400000,
+    "ammortamento": 604500000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1258700000,
+    "attivoTotale": 5672600000,
+    "debitoLungo": 549600000
    },
    {
     "anno": 2009,
@@ -8408,7 +17438,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0701,
     "utileNetto": 390800000,
     "ricavi": 9774600000,
-    "patrimonioNetto": 3056900000
+    "patrimonioNetto": 3056900000,
+    "crediti": 271000000,
+    "costoVenduto": 4324900000,
+    "attivoCorrente": 2035800000,
+    "passivoCorrente": 1581000000,
+    "immobilizzazioniNette": 2536400000,
+    "ammortamento": 563300000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1389000000,
+    "attivoTotale": 5576800000,
+    "debitoLungo": 549300000
    },
    {
     "anno": 2010,
@@ -8417,7 +17457,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1481,
     "utileNetto": 945600000,
     "ricavi": 10707400000,
-    "patrimonioNetto": 3682300000
+    "patrimonioNetto": 3682300000,
+    "crediti": 302700000,
+    "costoVenduto": 4416500000,
+    "attivoCorrente": 2756400000,
+    "passivoCorrente": 1779100000,
+    "immobilizzazioniNette": 2416500000,
+    "ammortamento": 540800000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1704900000,
+    "attivoTotale": 6385900000,
+    "debitoLungo": 549400000
    },
    {
     "anno": 2011,
@@ -8426,7 +17476,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1692,
     "utileNetto": 1245700000,
     "ricavi": 11700400000,
-    "patrimonioNetto": 4387300000
+    "patrimonioNetto": 4387300000,
+    "crediti": 386500000,
+    "costoVenduto": 4915500000,
+    "attivoCorrente": 3794900000,
+    "passivoCorrente": 2075800000,
+    "immobilizzazioniNette": 2355000000,
+    "ammortamento": 550000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1612400000,
+    "attivoTotale": 7360400000,
+    "debitoLungo": 549500000
    },
    {
     "anno": 2012,
@@ -8435,7 +17495,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1684,
     "utileNetto": 1383800000,
     "ricavi": 13276800000,
-    "patrimonioNetto": 5114500000
+    "patrimonioNetto": 5114500000,
+    "crediti": 485900000,
+    "costoVenduto": 5813300000,
+    "attivoCorrente": 4199600000,
+    "passivoCorrente": 2209800000,
+    "immobilizzazioniNette": 2658900000,
+    "ammortamento": 580600000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1750300000,
+    "attivoTotale": 8219200000,
+    "debitoLungo": 549600000
    },
    {
     "anno": 2013,
@@ -8444,7 +17514,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0007,
     "utileNetto": 8300000,
     "ricavi": 14866800000,
-    "patrimonioNetto": 4482300000
+    "patrimonioNetto": 4482300000,
+    "crediti": 561400000,
+    "costoVenduto": 6382300000,
+    "attivoCorrente": 5471400000,
+    "passivoCorrente": 5377300000,
+    "immobilizzazioniNette": 3200500000,
+    "ammortamento": 655600000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2908300000,
+    "attivoTotale": 11516700000,
+    "debitoLungo": 1299400000
    },
    {
     "anno": 2014,
@@ -8453,7 +17533,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1923,
     "utileNetto": 2068100000,
     "ricavi": 16447800000,
-    "patrimonioNetto": 5273700000
+    "patrimonioNetto": 5273700000,
+    "crediti": 631000000,
+    "costoVenduto": 6858800000,
+    "attivoCorrente": 4168700000,
+    "passivoCorrente": 3038700000,
+    "immobilizzazioniNette": 3519000000,
+    "ammortamento": 748400000,
+    "speseSga": null,
+    "flussoCassaOperativo": 607800000,
+    "attivoTotale": 10752900000,
+    "debitoLungo": 2048300000
    },
    {
     "anno": 2015,
@@ -8462,7 +17552,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2221,
     "utileNetto": 2757400000,
     "ricavi": 19162700000,
-    "patrimonioNetto": 5819800000
+    "patrimonioNetto": 5819800000,
+    "crediti": 719000000,
+    "costoVenduto": 7787500000,
+    "attivoCorrente": 3971000000,
+    "passivoCorrente": 3648100000,
+    "immobilizzazioniNette": 4088300000,
+    "ammortamento": 933800000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3749100000,
+    "attivoTotale": 12416300000,
+    "debitoLungo": 2347500000
    },
    {
     "anno": 2016,
@@ -8471,7 +17571,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1969,
     "utileNetto": 2817700000,
     "ricavi": 21315900000,
-    "patrimonioNetto": 5890700000
+    "patrimonioNetto": 5890700000,
+    "crediti": 768800000,
+    "costoVenduto": 8509000000,
+    "attivoCorrente": 4757900000,
+    "passivoCorrente": 4546800000,
+    "immobilizzazioniNette": 4533800000,
+    "ammortamento": 1030100000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4697900000,
+    "attivoTotale": 14312500000,
+    "debitoLungo": 3185300000
    },
    {
     "anno": 2017,
@@ -8480,7 +17590,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2008,
     "utileNetto": 2884700000,
     "ricavi": 22386800000,
-    "patrimonioNetto": 5457000000
+    "patrimonioNetto": 5457000000,
+    "crediti": 870400000,
+    "costoVenduto": 7065800000,
+    "attivoCorrente": 5283400000,
+    "passivoCorrente": 4220700000,
+    "immobilizzazioniNette": 4919500000,
+    "ammortamento": 1067100000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4251800000,
+    "attivoTotale": 14365600000,
+    "debitoLungo": 3932600000
    },
    {
     "anno": 2018,
@@ -8489,7 +17609,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.187,
     "utileNetto": 4518300000,
     "ricavi": 24719500000,
-    "patrimonioNetto": 1175800000
+    "patrimonioNetto": 1175800000,
+    "crediti": 693100000,
+    "costoVenduto": 7930700000,
+    "attivoCorrente": 12494200000,
+    "passivoCorrente": 5684200000,
+    "immobilizzazioniNette": 5929100000,
+    "ammortamento": 1305900000,
+    "speseSga": null,
+    "flussoCassaOperativo": 11937800000,
+    "attivoTotale": 24156400000,
+    "debitoLungo": 9090200000
    },
    {
     "anno": 2019,
@@ -8498,7 +17628,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1873,
     "utileNetto": 3599200000,
     "ricavi": 26508600000,
-    "patrimonioNetto": -6231000000
+    "patrimonioNetto": -6231000000,
+    "crediti": 879200000,
+    "costoVenduto": 8526900000,
+    "attivoCorrente": 5653900000,
+    "passivoCorrente": 6168700000,
+    "immobilizzazioniNette": 6431700000,
+    "ammortamento": 1449300000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5047000000,
+    "attivoTotale": 19219600000,
+    "debitoLungo": 11167000000
    },
    {
     "anno": 2020,
@@ -8507,7 +17647,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0316,
     "utileNetto": 928300000,
     "ricavi": 23518000000,
-    "patrimonioNetto": -7799400000
+    "patrimonioNetto": -7799400000,
+    "crediti": 883400000,
+    "costoVenduto": null,
+    "attivoCorrente": 7806400000,
+    "passivoCorrente": 7346800000,
+    "immobilizzazioniNette": 6241400000,
+    "ammortamento": 1503200000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1597800000,
+    "attivoTotale": 29374500000,
+    "debitoLungo": 14659600000
    },
    {
     "anno": 2021,
@@ -8516,7 +17666,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1338,
     "utileNetto": 4199300000,
     "ricavi": 29060600000,
-    "patrimonioNetto": -5314500000
+    "patrimonioNetto": -5314500000,
+    "crediti": 940000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9756400000,
+    "passivoCorrente": 8151400000,
+    "immobilizzazioniNette": 6369500000,
+    "ammortamento": 1524100000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5989100000,
+    "attivoTotale": 31392600000,
+    "debitoLungo": 13616900000
    },
    {
     "anno": 2022,
@@ -8525,7 +17685,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1173,
     "utileNetto": 3281600000,
     "ricavi": 32250300000,
-    "patrimonioNetto": -8698700000
+    "patrimonioNetto": -8698700000,
+    "crediti": 1175500000,
+    "costoVenduto": null,
+    "attivoCorrente": 7018700000,
+    "passivoCorrente": 9151800000,
+    "immobilizzazioniNette": 6560500000,
+    "ammortamento": 1529400000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4397300000,
+    "attivoTotale": 27978400000,
+    "debitoLungo": 13119900000
    },
    {
     "anno": 2023,
@@ -8534,7 +17704,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1401,
     "utileNetto": 4124500000,
     "ricavi": 35975600000,
-    "patrimonioNetto": -7987800000
+    "patrimonioNetto": -7987800000,
+    "crediti": 1184100000,
+    "costoVenduto": null,
+    "attivoCorrente": 7303400000,
+    "passivoCorrente": 9345300000,
+    "immobilizzazioniNette": 7387100000,
+    "ammortamento": 1450300000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6008700000,
+    "attivoTotale": 29445500000,
+    "debitoLungo": 13547600000
    },
    {
     "anno": 2024,
@@ -8543,7 +17723,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.12,
     "utileNetto": 3760900000,
     "ricavi": 36176200000,
-    "patrimonioNetto": -7448900000
+    "patrimonioNetto": -7448900000,
+    "crediti": 1213800000,
+    "costoVenduto": null,
+    "attivoCorrente": 6847400000,
+    "passivoCorrente": 9070000000,
+    "immobilizzazioniNette": 8665500000,
+    "ammortamento": 1592400000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6095600000,
+    "attivoTotale": 31339300000,
+    "debitoLungo": 14319500000
    },
    {
     "anno": 2025,
@@ -8552,7 +17742,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.058,
     "utileNetto": 1856400000,
     "ricavi": 37184400000,
-    "patrimonioNetto": -8096600000
+    "patrimonioNetto": -8096600000,
+    "crediti": 1277500000,
+    "costoVenduto": null,
+    "attivoCorrente": 7382300000,
+    "passivoCorrente": 10210400000,
+    "immobilizzazioniNette": 8493500000,
+    "ammortamento": 1771500000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4747500000,
+    "attivoTotale": 32019700000,
+    "debitoLungo": 14575900000
    }
   ]
  },
@@ -8566,7 +17766,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 4395000000,
     "ricavi": 77349000000,
-    "patrimonioNetto": 17714000000
+    "patrimonioNetto": 17714000000,
+    "crediti": null,
+    "costoVenduto": 51352000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1906000000,
+    "speseSga": 17053000000,
+    "flussoCassaOperativo": 5727000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -8575,7 +17785,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0549,
     "utileNetto": 2260000000,
     "ricavi": 71288000000,
-    "patrimonioNetto": 17777000000
+    "patrimonioNetto": 17777000000,
+    "crediti": 972000000,
+    "costoVenduto": 47298000000,
+    "attivoCorrente": 13362000000,
+    "passivoCorrente": 11153000000,
+    "immobilizzazioniNette": 26234000000,
+    "ammortamento": 1902000000,
+    "speseSga": 17846000000,
+    "flussoCassaOperativo": 5528000000,
+    "attivoTotale": 41164000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -8584,7 +17804,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0651,
     "utileNetto": 2661000000,
     "ricavi": 66176000000,
-    "patrimonioNetto": 19393000000
+    "patrimonioNetto": 19393000000,
+    "crediti": 964000000,
+    "costoVenduto": 43764000000,
+    "attivoCorrente": 13900000000,
+    "passivoCorrente": 10363000000,
+    "immobilizzazioniNette": 25550000000,
+    "ammortamento": 1806000000,
+    "speseSga": 15902000000,
+    "flussoCassaOperativo": 5125000000,
+    "attivoTotale": 40877000000,
+    "debitoLungo": 8662000000
    },
    {
     "anno": 2011,
@@ -8593,7 +17823,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0832,
     "utileNetto": 3338000000,
     "ricavi": 67997000000,
-    "patrimonioNetto": 18889000000
+    "patrimonioNetto": 18889000000,
+    "crediti": 1085000000,
+    "costoVenduto": 44693000000,
+    "attivoCorrente": 13479000000,
+    "passivoCorrente": 10122000000,
+    "immobilizzazioniNette": 25060000000,
+    "ammortamento": 1718000000,
+    "speseSga": 15849000000,
+    "flussoCassaOperativo": 4585000000,
+    "attivoTotale": 40125000000,
+    "debitoLungo": 8707000000
    },
    {
     "anno": 2012,
@@ -8602,7 +17842,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0958,
     "utileNetto": 3883000000,
     "ricavi": 70395000000,
-    "patrimonioNetto": 17898000000
+    "patrimonioNetto": 17898000000,
+    "crediti": 1245000000,
+    "costoVenduto": 46133000000,
+    "attivoCorrente": 14520000000,
+    "passivoCorrente": 9376000000,
+    "immobilizzazioniNette": 24448000000,
+    "ammortamento": 1682000000,
+    "speseSga": 16028000000,
+    "flussoCassaOperativo": 6651000000,
+    "attivoTotale": 40518000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -8611,7 +17861,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1104,
     "utileNetto": 4535000000,
     "ricavi": 74754000000,
-    "patrimonioNetto": 17777000000
+    "patrimonioNetto": 17777000000,
+    "crediti": 1395000000,
+    "costoVenduto": 48912000000,
+    "attivoCorrente": 15372000000,
+    "passivoCorrente": 11462000000,
+    "immobilizzazioniNette": 24069000000,
+    "ammortamento": 1684000000,
+    "speseSga": 16508000000,
+    "flussoCassaOperativo": 6975000000,
+    "attivoTotale": 41084000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -8620,7 +17880,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1329,
     "utileNetto": 5385000000,
     "ricavi": 78812000000,
-    "patrimonioNetto": 12522000000
+    "patrimonioNetto": 12522000000,
+    "crediti": 1398000000,
+    "costoVenduto": 51897000000,
+    "attivoCorrente": 15279000000,
+    "passivoCorrente": 10749000000,
+    "immobilizzazioniNette": 23348000000,
+    "ammortamento": 1757000000,
+    "speseSga": 16122000000,
+    "flussoCassaOperativo": 7628000000,
+    "attivoTotale": 40518000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -8629,7 +17899,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1588,
     "utileNetto": 6345000000,
     "ricavi": 83176000000,
-    "patrimonioNetto": 9322000000
+    "patrimonioNetto": 9322000000,
+    "crediti": 1484000000,
+    "costoVenduto": 54787000000,
+    "attivoCorrente": 15302000000,
+    "passivoCorrente": 11269000000,
+    "immobilizzazioniNette": 22720000000,
+    "ammortamento": 1786000000,
+    "speseSga": 16280000000,
+    "flussoCassaOperativo": 8242000000,
+    "attivoTotale": 39946000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -8638,7 +17918,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.167,
     "utileNetto": 7009000000,
     "ricavi": 88519000000,
-    "patrimonioNetto": 6316000000
+    "patrimonioNetto": 6316000000,
+    "crediti": 1890000000,
+    "costoVenduto": 58254000000,
+    "attivoCorrente": 16484000000,
+    "passivoCorrente": 12524000000,
+    "immobilizzazioniNette": 22191000000,
+    "ammortamento": 1863000000,
+    "speseSga": 16801000000,
+    "flussoCassaOperativo": 9373000000,
+    "attivoTotale": 41973000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -8647,7 +17937,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1852,
     "utileNetto": 7957000000,
     "ricavi": 94595000000,
-    "patrimonioNetto": 4333000000
+    "patrimonioNetto": 4333000000,
+    "crediti": 2029000000,
+    "costoVenduto": 62282000000,
+    "attivoCorrente": 17724000000,
+    "passivoCorrente": 14133000000,
+    "immobilizzazioniNette": 21914000000,
+    "ammortamento": 1973000000,
+    "speseSga": 17132000000,
+    "flussoCassaOperativo": 9783000000,
+    "attivoTotale": 42966000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -8656,7 +17956,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1938,
     "utileNetto": 8630000000,
     "ricavi": 100904000000,
-    "patrimonioNetto": 1454000000
+    "patrimonioNetto": 1454000000,
+    "crediti": 1952000000,
+    "costoVenduto": 66548000000,
+    "attivoCorrente": 18933000000,
+    "passivoCorrente": 16194000000,
+    "immobilizzazioniNette": 22075000000,
+    "ammortamento": 2062000000,
+    "speseSga": 17864000000,
+    "flussoCassaOperativo": 12031000000,
+    "attivoTotale": 44529000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -8665,7 +17975,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2527,
     "utileNetto": 11121000000,
     "ricavi": 108203000000,
-    "patrimonioNetto": -1878000000
+    "patrimonioNetto": -1878000000,
+    "crediti": 1936000000,
+    "costoVenduto": 71043000000,
+    "attivoCorrente": 18529000000,
+    "passivoCorrente": 16716000000,
+    "immobilizzazioniNette": 22375000000,
+    "ammortamento": 2152000000,
+    "speseSga": 19513000000,
+    "flussoCassaOperativo": 13165000000,
+    "attivoTotale": 44003000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -8674,7 +17994,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2194,
     "utileNetto": 11242000000,
     "ricavi": 110225000000,
-    "patrimonioNetto": -3116000000
+    "patrimonioNetto": -3116000000,
+    "crediti": 2106000000,
+    "costoVenduto": 72653000000,
+    "attivoCorrente": 19810000000,
+    "passivoCorrente": 18375000000,
+    "immobilizzazioniNette": 22770000000,
+    "ammortamento": 2296000000,
+    "speseSga": 19740000000,
+    "flussoCassaOperativo": 13687000000,
+    "attivoTotale": 51236000000,
+    "debitoLungo": 29500000000
    },
    {
     "anno": 2021,
@@ -8683,7 +18013,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1823,
     "utileNetto": 12866000000,
     "ricavi": 132110000000,
-    "patrimonioNetto": 3299000000
+    "patrimonioNetto": 3299000000,
+    "crediti": 2992000000,
+    "costoVenduto": 87257000000,
+    "attivoCorrente": 28477000000,
+    "passivoCorrente": 23166000000,
+    "immobilizzazioniNette": 24705000000,
+    "ammortamento": 2519000000,
+    "speseSga": 24447000000,
+    "flussoCassaOperativo": 18839000000,
+    "attivoTotale": 70581000000,
+    "debitoLungo": 34750000000
    },
    {
     "anno": 2022,
@@ -8692,7 +18032,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2286,
     "utileNetto": 16433000000,
     "ricavi": 151157000000,
-    "patrimonioNetto": -1696000000
+    "patrimonioNetto": -1696000000,
+    "crediti": 3426000000,
+    "costoVenduto": 100325000000,
+    "attivoCorrente": 29055000000,
+    "passivoCorrente": 28693000000,
+    "immobilizzazioniNette": 25199000000,
+    "ammortamento": 2862000000,
+    "speseSga": 25406000000,
+    "flussoCassaOperativo": 16571000000,
+    "attivoTotale": 71876000000,
+    "debitoLungo": 36400000000
    },
    {
     "anno": 2023,
@@ -8701,7 +18051,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2238,
     "utileNetto": 17105000000,
     "ricavi": 157403000000,
-    "patrimonioNetto": 1562000000
+    "patrimonioNetto": 1562000000,
+    "crediti": 3317000000,
+    "costoVenduto": 104625000000,
+    "attivoCorrente": 32471000000,
+    "passivoCorrente": 23110000000,
+    "immobilizzazioniNette": 25631000000,
+    "ammortamento": 2796000000,
+    "speseSga": 26284000000,
+    "flussoCassaOperativo": 14615000000,
+    "attivoTotale": 76445000000,
+    "debitoLungo": 41150000000
    },
    {
     "anno": 2024,
@@ -8710,7 +18070,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1979,
     "utileNetto": 15143000000,
     "ricavi": 152669000000,
-    "patrimonioNetto": 1044000000
+    "patrimonioNetto": 1044000000,
+    "crediti": 3328000000,
+    "costoVenduto": 101709000000,
+    "attivoCorrente": 29775000000,
+    "passivoCorrente": 22015000000,
+    "immobilizzazioniNette": 26154000000,
+    "ammortamento": 3061000000,
+    "speseSga": 26598000000,
+    "flussoCassaOperativo": 21172000000,
+    "attivoTotale": 76530000000,
+    "debitoLungo": 42150000000
    },
    {
     "anno": 2025,
@@ -8719,7 +18089,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.154,
     "utileNetto": 14806000000,
     "ricavi": 159514000000,
-    "patrimonioNetto": 6640000000
+    "patrimonioNetto": 6640000000,
+    "crediti": 4903000000,
+    "costoVenduto": 106206000000,
+    "attivoCorrente": 31683000000,
+    "passivoCorrente": 28661000000,
+    "immobilizzazioniNette": 26702000000,
+    "ammortamento": 3336000000,
+    "speseSga": 28748000000,
+    "flussoCassaOperativo": 19810000000,
+    "attivoTotale": 96119000000,
+    "debitoLungo": 51365000000
    },
    {
     "anno": 2026,
@@ -8728,7 +18108,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1347,
     "utileNetto": 14156000000,
     "ricavi": 164683000000,
-    "patrimonioNetto": 12813000000
+    "patrimonioNetto": 12813000000,
+    "crediti": 5597000000,
+    "costoVenduto": 109818000000,
+    "attivoCorrente": 34391000000,
+    "passivoCorrente": 32424000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3514000000,
+    "speseSga": 30702000000,
+    "flussoCassaOperativo": 16325000000,
+    "attivoTotale": 105095000000,
+    "debitoLungo": 49397000000
    }
   ]
  },
@@ -8742,7 +18132,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 2849000000,
     "ricavi": 63367000000,
-    "patrimonioNetto": 15307000000
+    "patrimonioNetto": 15307000000,
+    "crediti": null,
+    "costoVenduto": 42929000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1659000000,
+    "speseSga": 12670000000,
+    "flussoCassaOperativo": 4125000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -8751,7 +18151,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0502,
     "utileNetto": 2214000000,
     "ricavi": 64948000000,
-    "patrimonioNetto": 13712000000
+    "patrimonioNetto": 13712000000,
+    "crediti": null,
+    "costoVenduto": 44157000000,
+    "attivoCorrente": 17488000000,
+    "passivoCorrente": 10512000000,
+    "immobilizzazioniNette": 25756000000,
+    "ammortamento": 1826000000,
+    "speseSga": 12954000000,
+    "flussoCassaOperativo": 4430000000,
+    "attivoTotale": 44106000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -8760,7 +18170,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0559,
     "utileNetto": 2488000000,
     "ricavi": 65357000000,
-    "patrimonioNetto": 15347000000
+    "patrimonioNetto": 15347000000,
+    "crediti": null,
+    "costoVenduto": 44062000000,
+    "attivoCorrente": 18424000000,
+    "passivoCorrente": 11327000000,
+    "immobilizzazioniNette": 25280000000,
+    "ammortamento": 2023000000,
+    "speseSga": 13078000000,
+    "flussoCassaOperativo": 5881000000,
+    "attivoTotale": 44533000000,
+    "debitoLungo": 1000000000
    },
    {
     "anno": 2011,
@@ -8769,7 +18189,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0668,
     "utileNetto": 2920000000,
     "ricavi": 67390000000,
-    "patrimonioNetto": 15487000000
+    "patrimonioNetto": 15487000000,
+    "crediti": null,
+    "costoVenduto": 45725000000,
+    "attivoCorrente": 17213000000,
+    "passivoCorrente": 10070000000,
+    "immobilizzazioniNette": 25493000000,
+    "ammortamento": 2084000000,
+    "speseSga": 13469000000,
+    "flussoCassaOperativo": 5271000000,
+    "attivoTotale": 43705000000,
+    "debitoLungo": 15607000000
    },
    {
     "anno": 2012,
@@ -8778,7 +18208,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0628,
     "utileNetto": 2929000000,
     "ricavi": 69865000000,
-    "patrimonioNetto": 15821000000
+    "patrimonioNetto": 15821000000,
+    "crediti": null,
+    "costoVenduto": 47860000000,
+    "attivoCorrente": 16449000000,
+    "passivoCorrente": 14287000000,
+    "immobilizzazioniNette": 29149000000,
+    "ammortamento": 2131000000,
+    "speseSga": 14106000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 46630000000,
+    "debitoLungo": 13697000000
    },
    {
     "anno": 2021,
@@ -8787,7 +18227,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0852,
     "utileNetto": 4368000000,
     "ricavi": 93561000000,
-    "patrimonioNetto": 14440000000
+    "patrimonioNetto": 14440000000,
+    "crediti": null,
+    "costoVenduto": 66177000000,
+    "attivoCorrente": 20756000000,
+    "passivoCorrente": 20125000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2485000000,
+    "speseSga": 18615000000,
+    "flussoCassaOperativo": 10525000000,
+    "attivoTotale": 51248000000,
+    "debitoLungo": 10643000000
    },
    {
     "anno": 2022,
@@ -8796,7 +18246,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1291,
     "utileNetto": 6946000000,
     "ricavi": 106005000000,
-    "patrimonioNetto": 12827000000
+    "patrimonioNetto": 12827000000,
+    "crediti": null,
+    "costoVenduto": 74963000000,
+    "attivoCorrente": 21573000000,
+    "passivoCorrente": 21747000000,
+    "immobilizzazioniNette": 28181000000,
+    "ammortamento": 2642000000,
+    "speseSga": 19752000000,
+    "flussoCassaOperativo": 8625000000,
+    "attivoTotale": 53811000000,
+    "debitoLungo": 11568000000
    },
    {
     "anno": 2023,
@@ -8805,7 +18265,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0521,
     "utileNetto": 2780000000,
     "ricavi": 109120000000,
-    "patrimonioNetto": 11232000000
+    "patrimonioNetto": 11232000000,
+    "crediti": null,
+    "costoVenduto": 82306000000,
+    "attivoCorrente": 17846000000,
+    "passivoCorrente": 19500000000,
+    "immobilizzazioniNette": 31512000000,
+    "ammortamento": 2700000000,
+    "speseSga": 20581000000,
+    "flussoCassaOperativo": 4018000000,
+    "attivoTotale": 53335000000,
+    "debitoLungo": 14141000000
    },
    {
     "anno": 2024,
@@ -8814,7 +18284,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0748,
     "utileNetto": 4138000000,
     "ricavi": 107412000000,
-    "patrimonioNetto": 13432000000
+    "patrimonioNetto": 13432000000,
+    "crediti": null,
+    "costoVenduto": 77828000000,
+    "attivoCorrente": 17498000000,
+    "passivoCorrente": 19304000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2801000000,
+    "speseSga": 21462000000,
+    "flussoCassaOperativo": 8621000000,
+    "attivoTotale": 55356000000,
+    "debitoLungo": 14151000000
    },
    {
     "anno": 2025,
@@ -8823,7 +18303,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0708,
     "utileNetto": 4091000000,
     "ricavi": 106566000000,
-    "patrimonioNetto": 14666000000
+    "patrimonioNetto": 14666000000,
+    "crediti": null,
+    "costoVenduto": 76502000000,
+    "attivoCorrente": 19454000000,
+    "passivoCorrente": 20799000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2981000000,
+    "speseSga": 21969000000,
+    "flussoCassaOperativo": 7367000000,
+    "attivoTotale": 57769000000,
+    "debitoLungo": 13904000000
    },
    {
     "anno": 2026,
@@ -8832,7 +18322,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0623,
     "utileNetto": 3705000000,
     "ricavi": 104780000000,
-    "patrimonioNetto": 16165000000
+    "patrimonioNetto": 16165000000,
+    "crediti": null,
+    "costoVenduto": 75511000000,
+    "attivoCorrente": 20005000000,
+    "passivoCorrente": 21230000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3134000000,
+    "speseSga": 21535000000,
+    "flussoCassaOperativo": 6562000000,
+    "attivoTotale": 59490000000,
+    "debitoLungo": 14398000000
    }
   ]
  },
@@ -8846,7 +18346,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1961,
     "utileNetto": 1957000000,
     "ricavi": 15330000000,
-    "patrimonioNetto": 1923000000
+    "patrimonioNetto": 1923000000,
+    "crediti": 1592000000,
+    "costoVenduto": 6704000000,
+    "attivoCorrente": 3710000000,
+    "passivoCorrente": 2952000000,
+    "immobilizzazioniNette": 3119000000,
+    "ammortamento": 348000000,
+    "speseSga": 5422000000,
+    "flussoCassaOperativo": 2302000000,
+    "attivoTotale": 9979000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -8855,7 +18365,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2058,
     "utileNetto": 2291000000,
     "ricavi": 15327000000,
-    "patrimonioNetto": 3116000000
+    "patrimonioNetto": 3116000000,
+    "crediti": 1626000000,
+    "costoVenduto": 6319000000,
+    "attivoCorrente": 3810000000,
+    "passivoCorrente": 3599000000,
+    "immobilizzazioniNette": 3516000000,
+    "ammortamento": 351000000,
+    "speseSga": 5282000000,
+    "flussoCassaOperativo": 3277000000,
+    "attivoTotale": 11134000000,
+    "debitoLungo": 3147000000
    },
    {
     "anno": 2010,
@@ -8864,7 +18384,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1972,
     "utileNetto": 2203000000,
     "ricavi": 15564000000,
-    "patrimonioNetto": 2675000000
+    "patrimonioNetto": 2675000000,
+    "crediti": 1610000000,
+    "costoVenduto": 6360000000,
+    "attivoCorrente": 3730000000,
+    "passivoCorrente": 3728000000,
+    "immobilizzazioniNette": 3693000000,
+    "ammortamento": 376000000,
+    "speseSga": 5414000000,
+    "flussoCassaOperativo": 3211000000,
+    "attivoTotale": 11172000000,
+    "debitoLungo": 2815000000
    },
    {
     "anno": 2011,
@@ -8873,7 +18403,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1911,
     "utileNetto": 2431000000,
     "ricavi": 16734000000,
-    "patrimonioNetto": 2375000000
+    "patrimonioNetto": 2375000000,
+    "crediti": 1675000000,
+    "costoVenduto": 7144000000,
+    "attivoCorrente": 4402000000,
+    "passivoCorrente": 3716000000,
+    "immobilizzazioniNette": 3668000000,
+    "ammortamento": 421000000,
+    "speseSga": 5758000000,
+    "flussoCassaOperativo": 2896000000,
+    "attivoTotale": 12724000000,
+    "debitoLungo": 4430000000
    },
    {
     "anno": 2012,
@@ -8882,7 +18422,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1846,
     "utileNetto": 2472000000,
     "ricavi": 17085000000,
-    "patrimonioNetto": 2189000000
+    "patrimonioNetto": 2189000000,
+    "crediti": 1668000000,
+    "costoVenduto": 7153000000,
+    "attivoCorrente": 4556000000,
+    "passivoCorrente": 3736000000,
+    "immobilizzazioniNette": 3842000000,
+    "ammortamento": 425000000,
+    "speseSga": 5930000000,
+    "flussoCassaOperativo": 3196000000,
+    "attivoTotale": 13394000000,
+    "debitoLungo": 4926000000
    },
    {
     "anno": 2013,
@@ -8891,7 +18441,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1602,
     "utileNetto": 2241000000,
     "ricavi": 17420000000,
-    "patrimonioNetto": 2305000000
+    "patrimonioNetto": 2305000000,
+    "crediti": 1636000000,
+    "costoVenduto": 7219000000,
+    "attivoCorrente": 4931000000,
+    "passivoCorrente": 4579000000,
+    "immobilizzazioniNette": 4083000000,
+    "ammortamento": 439000000,
+    "speseSga": 6223000000,
+    "flussoCassaOperativo": 3204000000,
+    "attivoTotale": 13985000000,
+    "debitoLungo": 4749000000
    },
    {
     "anno": 2014,
@@ -8900,7 +18460,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1622,
     "utileNetto": 2180000000,
     "ricavi": 17277000000,
-    "patrimonioNetto": 1145000000
+    "patrimonioNetto": 1145000000,
+    "crediti": 1552000000,
+    "costoVenduto": 7168000000,
+    "attivoCorrente": 4863000000,
+    "passivoCorrente": 3946000000,
+    "immobilizzazioniNette": 4080000000,
+    "ammortamento": 442000000,
+    "speseSga": 5982000000,
+    "flussoCassaOperativo": 3298000000,
+    "attivoTotale": 13440000000,
+    "debitoLungo": 5644000000
    },
    {
     "anno": 2015,
@@ -8909,7 +18479,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.116,
     "utileNetto": 1384000000,
     "ricavi": 16034000000,
-    "patrimonioNetto": -299000000
+    "patrimonioNetto": -299000000,
+    "crediti": 1427000000,
+    "costoVenduto": 6635000000,
+    "attivoCorrente": 4384000000,
+    "passivoCorrente": 3534000000,
+    "immobilizzazioniNette": 3796000000,
+    "ammortamento": 449000000,
+    "speseSga": 5464000000,
+    "flussoCassaOperativo": 2949000000,
+    "attivoTotale": 11935000000,
+    "debitoLungo": 6246000000
    },
    {
     "anno": 2016,
@@ -8918,7 +18498,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2014,
     "utileNetto": 2441000000,
     "ricavi": 15195000000,
-    "patrimonioNetto": -243000000
+    "patrimonioNetto": -243000000,
+    "crediti": 1411000000,
+    "costoVenduto": 6072000000,
+    "attivoCorrente": 4338000000,
+    "passivoCorrente": 3305000000,
+    "immobilizzazioniNette": 3840000000,
+    "ammortamento": 443000000,
+    "speseSga": 5143000000,
+    "flussoCassaOperativo": 3141000000,
+    "attivoTotale": 12123000000,
+    "debitoLungo": 6520000000
    },
    {
     "anno": 2017,
@@ -8927,7 +18517,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1597,
     "utileNetto": 2024000000,
     "ricavi": 15454000000,
-    "patrimonioNetto": -60000000
+    "patrimonioNetto": -60000000,
+    "crediti": 1480000000,
+    "costoVenduto": 6174000000,
+    "attivoCorrente": 4639000000,
+    "passivoCorrente": 3408000000,
+    "immobilizzazioniNette": 4072000000,
+    "ammortamento": 475000000,
+    "speseSga": 5400000000,
+    "flussoCassaOperativo": 3054000000,
+    "attivoTotale": 12676000000,
+    "debitoLungo": 6566000000
    },
    {
     "anno": 2018,
@@ -8936,7 +18536,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1974,
     "utileNetto": 2400000000,
     "ricavi": 15544000000,
-    "patrimonioNetto": -102000000
+    "patrimonioNetto": -102000000,
+    "crediti": 1400000000,
+    "costoVenduto": 6313000000,
+    "attivoCorrente": 3793000000,
+    "passivoCorrente": 3341000000,
+    "immobilizzazioniNette": 3881000000,
+    "ammortamento": 511000000,
+    "speseSga": 5389000000,
+    "flussoCassaOperativo": 3056000000,
+    "attivoTotale": 12161000000,
+    "debitoLungo": 6354000000
    },
    {
     "anno": 2019,
@@ -8945,7 +18555,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1574,
     "utileNetto": 2367000000,
     "ricavi": 15693000000,
-    "patrimonioNetto": 117000000
+    "patrimonioNetto": 117000000,
+    "crediti": 1440000000,
+    "costoVenduto": 6368000000,
+    "attivoCorrente": 4179000000,
+    "passivoCorrente": 4038000000,
+    "immobilizzazioniNette": 3750000000,
+    "ammortamento": 519000000,
+    "speseSga": 5575000000,
+    "flussoCassaOperativo": 3133000000,
+    "attivoTotale": 15034000000,
+    "debitoLungo": 7333000000
    },
    {
     "anno": 2020,
@@ -8954,7 +18574,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1693,
     "utileNetto": 2695000000,
     "ricavi": 16471000000,
-    "patrimonioNetto": 743000000
+    "patrimonioNetto": 743000000,
+    "crediti": 1264000000,
+    "costoVenduto": 6454000000,
+    "attivoCorrente": 4338000000,
+    "passivoCorrente": 4404000000,
+    "immobilizzazioniNette": 3716000000,
+    "ammortamento": 539000000,
+    "speseSga": 6019000000,
+    "flussoCassaOperativo": 3719000000,
+    "attivoTotale": 15920000000,
+    "debitoLungo": 7334000000
    },
    {
     "anno": 2021,
@@ -8963,7 +18593,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.144,
     "utileNetto": 2166000000,
     "ricavi": 17421000000,
-    "patrimonioNetto": 609000000
+    "patrimonioNetto": 609000000,
+    "crediti": 1297000000,
+    "costoVenduto": 7046000000,
+    "attivoCorrente": 4397000000,
+    "passivoCorrente": 4051000000,
+    "immobilizzazioniNette": 3730000000,
+    "ammortamento": 556000000,
+    "speseSga": 6407000000,
+    "flussoCassaOperativo": 3325000000,
+    "attivoTotale": 15040000000,
+    "debitoLungo": 7194000000
    },
    {
     "anno": 2022,
@@ -8972,7 +18612,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1135,
     "utileNetto": 1785000000,
     "ricavi": 17967000000,
-    "patrimonioNetto": 401000000
+    "patrimonioNetto": 401000000,
+    "crediti": 1504000000,
+    "costoVenduto": 7719000000,
+    "attivoCorrente": 5113000000,
+    "passivoCorrente": 4004000000,
+    "immobilizzazioniNette": 4307000000,
+    "ammortamento": 545000000,
+    "speseSga": 6565000000,
+    "flussoCassaOperativo": 2556000000,
+    "attivoTotale": 15731000000,
+    "debitoLungo": 8741000000
    },
    {
     "anno": 2023,
@@ -8981,7 +18631,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1403,
     "utileNetto": 2300000000,
     "ricavi": 19457000000,
-    "patrimonioNetto": 609000000
+    "patrimonioNetto": 609000000,
+    "crediti": 1586000000,
+    "costoVenduto": 8131000000,
+    "attivoCorrente": 5279000000,
+    "passivoCorrente": 4741000000,
+    "immobilizzazioniNette": 4582000000,
+    "ammortamento": 567000000,
+    "speseSga": 7151000000,
+    "flussoCassaOperativo": 3745000000,
+    "attivoTotale": 16393000000,
+    "debitoLungo": 8219000000
    },
    {
     "anno": 2024,
@@ -8990,7 +18650,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.18,
     "utileNetto": 2889000000,
     "ricavi": 20101000000,
-    "patrimonioNetto": 212000000
+    "patrimonioNetto": 212000000,
+    "crediti": 1521000000,
+    "costoVenduto": 7940000000,
+    "attivoCorrente": 5317000000,
+    "passivoCorrente": 5759000000,
+    "immobilizzazioniNette": 4422000000,
+    "ammortamento": 605000000,
+    "speseSga": 7729000000,
+    "flussoCassaOperativo": 4107000000,
+    "attivoTotale": 16046000000,
+    "debitoLungo": 7289000000
    },
    {
     "anno": 2025,
@@ -8999,7 +18669,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1306,
     "utileNetto": 2132000000,
     "ricavi": 20382000000,
-    "patrimonioNetto": 54000000
+    "patrimonioNetto": 54000000,
+    "crediti": 1675000000,
+    "costoVenduto": 8131000000,
+    "attivoCorrente": 5709000000,
+    "passivoCorrente": 6853000000,
+    "immobilizzazioniNette": 4660000000,
+    "ammortamento": 630000000,
+    "speseSga": 7903000000,
+    "flussoCassaOperativo": 4198000000,
+    "attivoTotale": 16330000000,
+    "debitoLungo": 6871000000
    }
   ]
  },
@@ -9013,7 +18693,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0934,
     "utileNetto": 1690000000,
     "ricavi": 19415000000,
-    "patrimonioNetto": 3878000000
+    "patrimonioNetto": 3878000000,
+    "crediti": 2492000000,
+    "costoVenduto": 13557000000,
+    "attivoCorrente": 5813000000,
+    "passivoCorrente": 4752000000,
+    "immobilizzazioniNette": 7667000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2516000000,
+    "attivoTotale": 18089000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -9022,7 +18712,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0981,
     "utileNetto": 1884000000,
     "ricavi": 19115000000,
-    "patrimonioNetto": 5406000000
+    "patrimonioNetto": 5406000000,
+    "crediti": 2566000000,
+    "costoVenduto": 12695000000,
+    "attivoCorrente": 5864000000,
+    "passivoCorrente": 4923000000,
+    "immobilizzazioniNette": 8033000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3481000000,
+    "attivoTotale": 19209000000,
+    "debitoLungo": 5295000000
    },
    {
     "anno": 2010,
@@ -9031,7 +18731,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0928,
     "utileNetto": 1843000000,
     "ricavi": 19746000000,
-    "patrimonioNetto": 5917000000
+    "patrimonioNetto": 5917000000,
+    "crediti": 2472000000,
+    "costoVenduto": 13196000000,
+    "attivoCorrente": 6328000000,
+    "passivoCorrente": 5338000000,
+    "immobilizzazioniNette": 8356000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2744000000,
+    "attivoTotale": 19864000000,
+    "debitoLungo": 5385000000
    },
    {
     "anno": 2011,
@@ -9040,7 +18750,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0821,
     "utileNetto": 1591000000,
     "ricavi": 20846000000,
-    "patrimonioNetto": 5249000000
+    "patrimonioNetto": 5249000000,
+    "crediti": 2602000000,
+    "costoVenduto": 14694000000,
+    "attivoCorrente": 6283000000,
+    "passivoCorrente": 5397000000,
+    "immobilizzazioniNette": 8049000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 2288000000,
+    "attivoTotale": 19373000000,
+    "debitoLungo": 6045000000
    },
    {
     "anno": 2012,
@@ -9049,7 +18769,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0881,
     "utileNetto": 1750000000,
     "ricavi": 19467000000,
-    "patrimonioNetto": 4985000000
+    "patrimonioNetto": 4985000000,
+    "crediti": 2642000000,
+    "costoVenduto": 13338000000,
+    "attivoCorrente": 6589000000,
+    "passivoCorrente": 6091000000,
+    "immobilizzazioniNette": 8095000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3288000000,
+    "attivoTotale": 19873000000,
+    "debitoLungo": 5070000000
    },
    {
     "anno": 2013,
@@ -9058,7 +18788,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1132,
     "utileNetto": 2142000000,
     "ricavi": 19561000000,
-    "patrimonioNetto": 4856000000
+    "patrimonioNetto": 4856000000,
+    "crediti": 2545000000,
+    "costoVenduto": 12952000000,
+    "attivoCorrente": 6550000000,
+    "passivoCorrente": 5848000000,
+    "immobilizzazioniNette": 7948000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 18919000000,
+    "debitoLungo": 5386000000
    },
    {
     "anno": 2014,
@@ -9067,7 +18807,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0983,
     "utileNetto": 1526000000,
     "ricavi": 19724000000,
-    "patrimonioNetto": 729000000
+    "patrimonioNetto": 729000000,
+    "crediti": 2223000000,
+    "costoVenduto": 13041000000,
+    "attivoCorrente": 5559000000,
+    "passivoCorrente": 6226000000,
+    "immobilizzazioniNette": 7359000000,
+    "ammortamento": 862000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 15526000000,
+    "debitoLungo": 5630000000
    },
    {
     "anno": 2015,
@@ -9076,7 +18826,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0683,
     "utileNetto": 1013000000,
     "ricavi": 18591000000,
-    "patrimonioNetto": -174000000
+    "patrimonioNetto": -174000000,
+    "crediti": 2281000000,
+    "costoVenduto": 11967000000,
+    "attivoCorrente": 5426000000,
+    "passivoCorrente": 6349000000,
+    "immobilizzazioniNette": 7104000000,
+    "ammortamento": 746000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2306000000,
+    "attivoTotale": 14842000000,
+    "debitoLungo": 6106000000
    },
    {
     "anno": 2016,
@@ -9085,7 +18845,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1483,
     "utileNetto": 2166000000,
     "ricavi": 18287000000,
-    "patrimonioNetto": 117000000
+    "patrimonioNetto": 117000000,
+    "crediti": 2176000000,
+    "costoVenduto": 11596000000,
+    "attivoCorrente": 5115000000,
+    "passivoCorrente": 5846000000,
+    "immobilizzazioniNette": 7169000000,
+    "ammortamento": 705000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3232000000,
+    "attivoTotale": 14602000000,
+    "debitoLungo": 6439000000
    },
    {
     "anno": 2017,
@@ -9094,7 +18864,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1504,
     "utileNetto": 2278000000,
     "ricavi": 18348000000,
-    "patrimonioNetto": 882000000
+    "patrimonioNetto": 882000000,
+    "crediti": 2315000000,
+    "costoVenduto": 11761000000,
+    "attivoCorrente": 5211000000,
+    "passivoCorrente": 5858000000,
+    "immobilizzazioniNette": 7436000000,
+    "ammortamento": 724000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2929000000,
+    "attivoTotale": 15151000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -9103,7 +18883,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0971,
     "utileNetto": 1410000000,
     "ricavi": 18486000000,
-    "patrimonioNetto": -46000000
+    "patrimonioNetto": -46000000,
+    "crediti": 2164000000,
+    "costoVenduto": 12889000000,
+    "attivoCorrente": 5041000000,
+    "passivoCorrente": 6536000000,
+    "immobilizzazioniNette": 7159000000,
+    "ammortamento": 882000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2970000000,
+    "attivoTotale": 14518000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -9112,7 +18902,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1411,
     "utileNetto": 2157000000,
     "ricavi": 18450000000,
-    "patrimonioNetto": 194000000
+    "patrimonioNetto": 194000000,
+    "crediti": 2263000000,
+    "costoVenduto": 12415000000,
+    "attivoCorrente": 5057000000,
+    "passivoCorrente": 6919000000,
+    "immobilizzazioniNette": 7450000000,
+    "ammortamento": 917000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2736000000,
+    "attivoTotale": 15283000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -9121,7 +18921,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1342,
     "utileNetto": 2352000000,
     "ricavi": 19140000000,
-    "patrimonioNetto": 869000000
+    "patrimonioNetto": 869000000,
+    "crediti": 2235000000,
+    "costoVenduto": 12318000000,
+    "attivoCorrente": 5174000000,
+    "passivoCorrente": 6443000000,
+    "immobilizzazioniNette": 8042000000,
+    "ammortamento": 796000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3729000000,
+    "attivoTotale": 17523000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -9130,7 +18940,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1017,
     "utileNetto": 1814000000,
     "ricavi": 19440000000,
-    "patrimonioNetto": 737000000
+    "patrimonioNetto": 737000000,
+    "crediti": 2207000000,
+    "costoVenduto": 13452000000,
+    "attivoCorrente": 5565000000,
+    "passivoCorrente": 6749000000,
+    "immobilizzazioniNette": 8097000000,
+    "ammortamento": 766000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2730000000,
+    "attivoTotale": 17837000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -9139,7 +18959,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1076,
     "utileNetto": 1934000000,
     "ricavi": 20175000000,
-    "patrimonioNetto": 700000000
+    "patrimonioNetto": 700000000,
+    "crediti": 2280000000,
+    "costoVenduto": 13956000000,
+    "attivoCorrente": 5729000000,
+    "passivoCorrente": 7334000000,
+    "immobilizzazioniNette": 7885000000,
+    "ammortamento": 754000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2733000000,
+    "attivoTotale": 17970000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -9148,7 +18978,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1017,
     "utileNetto": 1764000000,
     "ricavi": 17146000000,
-    "patrimonioNetto": 1068000000
+    "patrimonioNetto": 1068000000,
+    "crediti": 2135000000,
+    "costoVenduto": 10877000000,
+    "attivoCorrente": 5703000000,
+    "passivoCorrente": 6930000000,
+    "immobilizzazioniNette": 7913000000,
+    "ammortamento": 753000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3542000000,
+    "attivoTotale": 17344000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -9157,7 +18997,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1538,
     "utileNetto": 2545000000,
     "ricavi": 16805000000,
-    "patrimonioNetto": 840000000
+    "patrimonioNetto": 840000000,
+    "crediti": 1728000000,
+    "costoVenduto": 10516000000,
+    "attivoCorrente": 5580000000,
+    "passivoCorrente": 7004000000,
+    "immobilizzazioniNette": 6284000000,
+    "ammortamento": 781000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3234000000,
+    "attivoTotale": 16546000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -9166,7 +19016,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1182,
     "utileNetto": 2021000000,
     "ricavi": 16447000000,
-    "patrimonioNetto": 1502000000
+    "patrimonioNetto": 1502000000,
+    "crediti": 1892000000,
+    "costoVenduto": 10524000000,
+    "attivoCorrente": 5310000000,
+    "passivoCorrente": 7125000000,
+    "immobilizzazioniNette": 6775000000,
+    "ammortamento": 805000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2777000000,
+    "attivoTotale": 17098000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -9180,7 +19040,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 2721000000,
     "ricavi": 35858000000,
-    "patrimonioNetto": 27445000000
+    "patrimonioNetto": 27445000000,
+    "crediti": null,
+    "costoVenduto": 23656000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 7587000000,
+    "flussoCassaOperativo": 3571000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -9189,7 +19059,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0457,
     "utileNetto": 2884000000,
     "ricavi": 40492000000,
-    "patrimonioNetto": 22356000000
+    "patrimonioNetto": 22356000000,
+    "crediti": 4704000000,
+    "costoVenduto": 27164000000,
+    "attivoCorrente": 11461000000,
+    "passivoCorrente": 11044000000,
+    "immobilizzazioniNette": 9917000000,
+    "ammortamento": 963000000,
+    "speseSga": 8613000000,
+    "flussoCassaOperativo": 4141000000,
+    "attivoTotale": 63173000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -9198,7 +19078,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0453,
     "utileNetto": 3021000000,
     "ricavi": 38754000000,
-    "patrimonioNetto": 25972000000
+    "patrimonioNetto": 25972000000,
+    "crediti": 5197000000,
+    "costoVenduto": 24819000000,
+    "attivoCorrente": 12454000000,
+    "passivoCorrente": 11491000000,
+    "immobilizzazioniNette": 10693000000,
+    "ammortamento": 905000000,
+    "speseSga": 8784000000,
+    "flussoCassaOperativo": 5084000000,
+    "attivoTotale": 66714000000,
+    "debitoLungo": 18024000000
    },
    {
     "anno": 2010,
@@ -9207,7 +19097,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0432,
     "utileNetto": 4114000000,
     "ricavi": 31489000000,
-    "patrimonioNetto": 35967000000
+    "patrimonioNetto": 35967000000,
+    "crediti": 6539000000,
+    "costoVenduto": 19617000000,
+    "attivoCorrente": 16221000000,
+    "passivoCorrente": 15893000000,
+    "immobilizzazioniNette": 13792000000,
+    "ammortamento": 1229000000,
+    "speseSga": 9140000000,
+    "flussoCassaOperativo": 3748000000,
+    "attivoTotale": 95289000000,
+    "debitoLungo": 26859000000
    },
    {
     "anno": 2011,
@@ -9216,7 +19116,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0379,
     "utileNetto": 3554000000,
     "ricavi": 35810000000,
-    "patrimonioNetto": 35382000000
+    "patrimonioNetto": 35382000000,
+    "crediti": 6361000000,
+    "costoVenduto": 22710000000,
+    "attivoCorrente": 16202000000,
+    "passivoCorrente": 18445000000,
+    "immobilizzazioniNette": 13813000000,
+    "ammortamento": 1260000000,
+    "speseSga": 9382000000,
+    "flussoCassaOperativo": 4520000000,
+    "attivoTotale": 93837000000,
+    "debitoLungo": 23095000000
    },
    {
     "anno": 2012,
@@ -9225,7 +19135,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0406,
     "utileNetto": 3067000000,
     "ricavi": 35015000000,
-    "patrimonioNetto": 32416000000
+    "patrimonioNetto": 32416000000,
+    "crediti": 6129000000,
+    "costoVenduto": 21939000000,
+    "attivoCorrente": 15673000000,
+    "passivoCorrente": 14870000000,
+    "immobilizzazioniNette": 10010000000,
+    "ammortamento": 1128000000,
+    "speseSga": 9176000000,
+    "flussoCassaOperativo": 3923000000,
+    "attivoTotale": 75477000000,
+    "debitoLungo": 19162000000
    },
    {
     "anno": 2013,
@@ -9234,7 +19154,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.054,
     "utileNetto": 3915000000,
     "ricavi": 35299000000,
-    "patrimonioNetto": 32532000000
+    "patrimonioNetto": 32532000000,
+    "crediti": 4463000000,
+    "costoVenduto": 22189000000,
+    "attivoCorrente": 13174000000,
+    "passivoCorrente": 14354000000,
+    "immobilizzazioniNette": 10247000000,
+    "ammortamento": 860000000,
+    "speseSga": 8679000000,
+    "flussoCassaOperativo": 6410000000,
+    "attivoTotale": 72464000000,
+    "debitoLungo": 15513000000
    },
    {
     "anno": 2014,
@@ -9243,7 +19173,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0327,
     "utileNetto": 2184000000,
     "ricavi": 34244000000,
-    "patrimonioNetto": 27853000000
+    "patrimonioNetto": 27853000000,
+    "crediti": 3802000000,
+    "costoVenduto": 21647000000,
+    "attivoCorrente": 11750000000,
+    "passivoCorrente": 14007000000,
+    "immobilizzazioniNette": 9827000000,
+    "ammortamento": 853000000,
+    "speseSga": 8457000000,
+    "flussoCassaOperativo": 3562000000,
+    "attivoTotale": 66771000000,
+    "debitoLungo": 15405000000
    },
    {
     "anno": 2015,
@@ -9252,7 +19192,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1156,
     "utileNetto": 7267000000,
     "ricavi": 29636000000,
-    "patrimonioNetto": 28100000000
+    "patrimonioNetto": 28100000000,
+    "crediti": 2634000000,
+    "costoVenduto": 18124000000,
+    "attivoCorrente": 8958000000,
+    "passivoCorrente": 10922000000,
+    "immobilizzazioniNette": 8362000000,
+    "ammortamento": 713000000,
+    "speseSga": 7577000000,
+    "flussoCassaOperativo": 3728000000,
+    "attivoTotale": 62843000000,
+    "debitoLungo": 15232000000
    },
    {
     "anno": 2016,
@@ -9261,7 +19211,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0266,
     "utileNetto": 1635000000,
     "ricavi": 25923000000,
-    "patrimonioNetto": 25195000000
+    "patrimonioNetto": 25195000000,
+    "crediti": 2611000000,
+    "costoVenduto": 15819000000,
+    "attivoCorrente": 8480000000,
+    "passivoCorrente": 14417000000,
+    "immobilizzazioniNette": 8229000000,
+    "ammortamento": 647000000,
+    "speseSga": 6546000000,
+    "flussoCassaOperativo": 2838000000,
+    "attivoTotale": 61506000000,
+    "debitoLungo": 14737000000
    },
    {
     "anno": 2017,
@@ -9270,7 +19230,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0449,
     "utileNetto": 2828000000,
     "ricavi": 25896000000,
-    "patrimonioNetto": 26025000000
+    "patrimonioNetto": 26025000000,
+    "crediti": 2691000000,
+    "costoVenduto": 15862000000,
+    "attivoCorrente": 7520000000,
+    "passivoCorrente": 15793000000,
+    "immobilizzazioniNette": 8677000000,
+    "ammortamento": 638000000,
+    "speseSga": 5938000000,
+    "flussoCassaOperativo": 2593000000,
+    "attivoTotale": 62957000000,
+    "debitoLungo": 14199000000
    },
    {
     "anno": 2018,
@@ -9279,7 +19249,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.053,
     "utileNetto": 3317000000,
     "ricavi": 25938000000,
-    "patrimonioNetto": 25602000000
+    "patrimonioNetto": 25602000000,
+    "crediti": 2262000000,
+    "costoVenduto": 15586000000,
+    "attivoCorrente": 7604000000,
+    "passivoCorrente": 16737000000,
+    "immobilizzazioniNette": 8482000000,
+    "ammortamento": 635000000,
+    "speseSga": 6475000000,
+    "flussoCassaOperativo": 3948000000,
+    "attivoTotale": 62618000000,
+    "debitoLungo": 15250000000
    },
    {
     "anno": 2019,
@@ -9288,7 +19268,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0609,
     "utileNetto": 3929000000,
     "ricavi": 25868000000,
-    "patrimonioNetto": 27317000000
+    "patrimonioNetto": 27317000000,
+    "crediti": 2212000000,
+    "costoVenduto": 15531000000,
+    "attivoCorrente": 7630000000,
+    "passivoCorrente": 15322000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 645000000,
+    "speseSga": 6136000000,
+    "flussoCassaOperativo": 3965000000,
+    "attivoTotale": 64515000000,
+    "debitoLungo": 15875000000
    },
    {
     "anno": 2020,
@@ -9297,7 +19287,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0524,
     "utileNetto": 3555000000,
     "ricavi": 26581000000,
-    "patrimonioNetto": 27654000000
+    "patrimonioNetto": 27654000000,
+    "crediti": 2297000000,
+    "costoVenduto": 16135000000,
+    "attivoCorrente": 9979000000,
+    "passivoCorrente": 15159000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 652000000,
+    "speseSga": 6098000000,
+    "flussoCassaOperativo": 3964000000,
+    "attivoTotale": 67810000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -9306,7 +19306,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0641,
     "utileNetto": 4300000000,
     "ricavi": 28720000000,
-    "patrimonioNetto": 28323000000
+    "patrimonioNetto": 28323000000,
+    "crediti": 2337000000,
+    "costoVenduto": 17466000000,
+    "attivoCorrente": 10342000000,
+    "passivoCorrente": 14008000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 683000000,
+    "speseSga": 6263000000,
+    "flussoCassaOperativo": 4141000000,
+    "attivoTotale": 67092000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -9315,7 +19325,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0382,
     "utileNetto": 2717000000,
     "ricavi": 31496000000,
-    "patrimonioNetto": 26920000000
+    "patrimonioNetto": 26920000000,
+    "crediti": 3088000000,
+    "costoVenduto": 20184000000,
+    "attivoCorrente": 10091000000,
+    "passivoCorrente": 16731000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 690000000,
+    "speseSga": 7384000000,
+    "flussoCassaOperativo": 3908000000,
+    "attivoTotale": 71161000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -9324,7 +19344,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0695,
     "utileNetto": 4959000000,
     "ricavi": 36016000000,
-    "patrimonioNetto": 28366000000
+    "patrimonioNetto": 28366000000,
+    "crediti": 3634000000,
+    "costoVenduto": 22252000000,
+    "attivoCorrente": 11703000000,
+    "passivoCorrente": 19013000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 741000000,
+    "speseSga": 8002000000,
+    "flussoCassaOperativo": 4714000000,
+    "attivoTotale": 71391000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -9333,7 +19363,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0673,
     "utileNetto": 4611000000,
     "ricavi": 36441000000,
-    "patrimonioNetto": 26932000000
+    "patrimonioNetto": 26932000000,
+    "crediti": 3874000000,
+    "costoVenduto": 22184000000,
+    "attivoCorrente": 13242000000,
+    "passivoCorrente": 19549000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 810000000,
+    "speseSga": 7439000000,
+    "flussoCassaOperativo": 4910000000,
+    "attivoTotale": 68497000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -9342,7 +19382,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0343,
     "utileNetto": 2451000000,
     "ricavi": 38537000000,
-    "patrimonioNetto": 25838000000
+    "patrimonioNetto": 25838000000,
+    "crediti": 3903000000,
+    "costoVenduto": 27602000000,
+    "attivoCorrente": 12951000000,
+    "passivoCorrente": 21864000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 853000000,
+    "speseSga": 7173000000,
+    "flussoCassaOperativo": 4514000000,
+    "attivoTotale": 71487000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -9356,7 +19406,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 9786000000,
     "ricavi": 18664000000,
-    "patrimonioNetto": 19320000000
+    "patrimonioNetto": 19320000000,
+    "crediti": null,
+    "costoVenduto": 7827000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 232000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10316000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -9365,7 +19425,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1812,
     "utileNetto": 4930000000,
     "ricavi": 19356000000,
-    "patrimonioNetto": 2828000000
+    "patrimonioNetto": 2828000000,
+    "crediti": 44000000,
+    "costoVenduto": 8270000000,
+    "attivoCorrente": 11076000000,
+    "passivoCorrente": 7142000000,
+    "immobilizzazioniNette": 2199000000,
+    "ammortamento": 215000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4881000000,
+    "attivoTotale": 27215000000,
+    "debitoLungo": 6839000000
    },
    {
     "anno": 2009,
@@ -9374,7 +19444,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0874,
     "utileNetto": 3206000000,
     "ricavi": 23556000000,
-    "patrimonioNetto": 4072000000
+    "patrimonioNetto": 4072000000,
+    "crediti": 96000000,
+    "costoVenduto": 7990000000,
+    "attivoCorrente": 5773000000,
+    "passivoCorrente": 7992000000,
+    "immobilizzazioniNette": 2684000000,
+    "ammortamento": 291000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3443000000,
+    "attivoTotale": 36677000000,
+    "debitoLungo": 11185000000
    },
    {
     "anno": 2010,
@@ -9383,7 +19463,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1045,
     "utileNetto": 3907000000,
     "ricavi": 24363000000,
-    "patrimonioNetto": 5195000000
+    "patrimonioNetto": 5195000000,
+    "crediti": 85000000,
+    "costoVenduto": 7704000000,
+    "attivoCorrente": 5981000000,
+    "passivoCorrente": 6840000000,
+    "immobilizzazioniNette": 2380000000,
+    "ammortamento": 276000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2767000000,
+    "attivoTotale": 37402000000,
+    "debitoLungo": 12194000000
    },
    {
     "anno": 2011,
@@ -9392,7 +19482,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0922,
     "utileNetto": 3390000000,
     "ricavi": 23800000000,
-    "patrimonioNetto": 3683000000
+    "patrimonioNetto": 3683000000,
+    "crediti": 268000000,
+    "costoVenduto": 7680000000,
+    "attivoCorrente": 6920000000,
+    "passivoCorrente": 7432000000,
+    "immobilizzazioniNette": 2216000000,
+    "ammortamento": 253000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3613000000,
+    "attivoTotale": 36751000000,
+    "debitoLungo": 13089000000
    },
    {
     "anno": 2012,
@@ -9401,7 +19501,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1183,
     "utileNetto": 4180000000,
     "ricavi": 24618000000,
-    "patrimonioNetto": 3170000000
+    "patrimonioNetto": 3170000000,
+    "crediti": 193000000,
+    "costoVenduto": 7937000000,
+    "attivoCorrente": 6315000000,
+    "passivoCorrente": 8259000000,
+    "immobilizzazioniNette": 2102000000,
+    "ammortamento": 225000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3903000000,
+    "attivoTotale": 35329000000,
+    "debitoLungo": 12419000000
    },
    {
     "anno": 2013,
@@ -9410,7 +19520,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1301,
     "utileNetto": 4535000000,
     "ricavi": 24466000000,
-    "patrimonioNetto": 4118000000
+    "patrimonioNetto": 4118000000,
+    "crediti": 115000000,
+    "costoVenduto": 7206000000,
+    "attivoCorrente": 6590000000,
+    "passivoCorrente": 7058000000,
+    "immobilizzazioniNette": 2028000000,
+    "ammortamento": 212000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4375000000,
+    "attivoTotale": 34859000000,
+    "debitoLungo": 13992000000
    },
    {
     "anno": 2014,
@@ -9419,7 +19539,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1471,
     "utileNetto": 5070000000,
     "ricavi": 24522000000,
-    "patrimonioNetto": 3010000000
+    "patrimonioNetto": 3010000000,
+    "crediti": 124000000,
+    "costoVenduto": 7785000000,
+    "attivoCorrente": 6878000000,
+    "passivoCorrente": 7673000000,
+    "immobilizzazioniNette": 1983000000,
+    "ammortamento": 208000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4663000000,
+    "attivoTotale": 34475000000,
+    "debitoLungo": 13693000000
    },
    {
     "anno": 2015,
@@ -9428,7 +19558,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1666,
     "utileNetto": 5241000000,
     "ricavi": 25434000000,
-    "patrimonioNetto": 2873000000
+    "patrimonioNetto": 2873000000,
+    "crediti": 124000000,
+    "costoVenduto": 7740000000,
+    "attivoCorrente": 4911000000,
+    "passivoCorrente": 7070000000,
+    "immobilizzazioniNette": 1982000000,
+    "ammortamento": 225000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5843000000,
+    "attivoTotale": 31459000000,
+    "debitoLungo": 12843000000
    },
    {
     "anno": 2016,
@@ -9437,7 +19577,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.31,
     "utileNetto": 14239000000,
     "ricavi": 25744000000,
-    "patrimonioNetto": 12773000000
+    "patrimonioNetto": 12773000000,
+    "crediti": 151000000,
+    "costoVenduto": 7765000000,
+    "attivoCorrente": 7260000000,
+    "passivoCorrente": 7375000000,
+    "immobilizzazioniNette": 1958000000,
+    "ammortamento": 204000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3826000000,
+    "attivoTotale": 45932000000,
+    "debitoLungo": 13881000000
    },
    {
     "anno": 2017,
@@ -9446,7 +19596,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2366,
     "utileNetto": 10222000000,
     "ricavi": 25576000000,
-    "patrimonioNetto": 15380000000
+    "patrimonioNetto": 15380000000,
+    "crediti": 142000000,
+    "costoVenduto": 7531000000,
+    "attivoCorrente": 4344000000,
+    "passivoCorrente": 6792000000,
+    "immobilizzazioniNette": 1914000000,
+    "ammortamento": 209000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4901000000,
+    "attivoTotale": 43202000000,
+    "debitoLungo": 13030000000
    },
    {
     "anno": 2018,
@@ -9455,7 +19615,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1256,
     "utileNetto": 6963000000,
     "ricavi": 25364000000,
-    "patrimonioNetto": 14789000000
+    "patrimonioNetto": 14789000000,
+    "crediti": 142000000,
+    "costoVenduto": 7373000000,
+    "attivoCorrente": 4299000000,
+    "passivoCorrente": 21193000000,
+    "immobilizzazioniNette": 1938000000,
+    "ammortamento": 227000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8391000000,
+    "attivoTotale": 55459000000,
+    "debitoLungo": 11898000000
    },
    {
     "anno": 2019,
@@ -9464,7 +19634,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0262,
     "utileNetto": -1293000000,
     "ricavi": 25110000000,
-    "patrimonioNetto": 6319000000
+    "patrimonioNetto": 6319000000,
+    "crediti": 152000000,
+    "costoVenduto": 7085000000,
+    "attivoCorrente": 4824000000,
+    "passivoCorrente": 8174000000,
+    "immobilizzazioniNette": 1999000000,
+    "ammortamento": 226000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7837000000,
+    "attivoTotale": 49271000000,
+    "debitoLungo": 27042000000
    },
    {
     "anno": 2020,
@@ -9473,7 +19653,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0942,
     "utileNetto": 4467000000,
     "ricavi": 26153000000,
-    "patrimonioNetto": 2925000000
+    "patrimonioNetto": 2925000000,
+    "crediti": 137000000,
+    "costoVenduto": 7818000000,
+    "attivoCorrente": 7117000000,
+    "passivoCorrente": 9063000000,
+    "immobilizzazioniNette": 2012000000,
+    "ammortamento": 257000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8385000000,
+    "attivoTotale": 47414000000,
+    "debitoLungo": 27971000000
    },
    {
     "anno": 2021,
@@ -9482,7 +19672,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0626,
     "utileNetto": 2475000000,
     "ricavi": 26013000000,
-    "patrimonioNetto": -1606000000
+    "patrimonioNetto": -1606000000,
+    "crediti": 47000000,
+    "costoVenduto": 7119000000,
+    "attivoCorrente": 6083000000,
+    "passivoCorrente": 8579000000,
+    "immobilizzazioniNette": 1553000000,
+    "ammortamento": 244000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8405000000,
+    "attivoTotale": 39523000000,
+    "debitoLungo": 26939000000
    },
    {
     "anno": 2022,
@@ -9491,7 +19691,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.156,
     "utileNetto": 5764000000,
     "ricavi": 25096000000,
-    "patrimonioNetto": -3923000000
+    "patrimonioNetto": -3923000000,
+    "crediti": 48000000,
+    "costoVenduto": 6442000000,
+    "attivoCorrente": 7220000000,
+    "passivoCorrente": 8616000000,
+    "immobilizzazioniNette": 1608000000,
+    "ammortamento": 226000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8256000000,
+    "attivoTotale": 36954000000,
+    "debitoLungo": 25124000000
    },
    {
     "anno": 2023,
@@ -9500,7 +19710,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.2108,
     "utileNetto": 8130000000,
     "ricavi": 24483000000,
-    "patrimonioNetto": -3490000000
+    "patrimonioNetto": -3490000000,
+    "crediti": 71000000,
+    "costoVenduto": 6218000000,
+    "attivoCorrente": 5585000000,
+    "passivoCorrente": 11319000000,
+    "immobilizzazioniNette": 1652000000,
+    "ammortamento": 272000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9287000000,
+    "attivoTotale": 38570000000,
+    "debitoLungo": 25112000000
    },
    {
     "anno": 2024,
@@ -9509,7 +19729,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3202,
     "utileNetto": 11264000000,
     "ricavi": 24018000000,
-    "patrimonioNetto": -2238000000
+    "patrimonioNetto": -2238000000,
+    "crediti": 177000000,
+    "costoVenduto": 6077000000,
+    "attivoCorrente": 4513000000,
+    "passivoCorrente": 8781000000,
+    "immobilizzazioniNette": 1617000000,
+    "ammortamento": 286000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8753000000,
+    "attivoTotale": 35177000000,
+    "debitoLungo": 23399000000
    },
    {
     "anno": 2025,
@@ -9518,13 +19748,385 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1984,
     "utileNetto": 6947000000,
     "ricavi": 23279000000,
-    "patrimonioNetto": -3502000000
+    "patrimonioNetto": -3502000000,
+    "crediti": 263000000,
+    "costoVenduto": 5597000000,
+    "attivoCorrente": 5932000000,
+    "passivoCorrente": 9154000000,
+    "immobilizzazioniNette": 1710000000,
+    "ammortamento": 266000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9290000000,
+    "attivoTotale": 35017000000,
+    "debitoLungo": 24140000000
    }
   ]
  },
  "XOM": {
-  "nome": "ExxonMobil Holdings Corp",
-  "anni": []
+  "nome": "Exxon Mobil Corporation",
+  "anni": [
+   {
+    "anno": 2007,
+    "roe": null,
+    "margine": null,
+    "roa": null,
+    "utileNetto": 40610000000,
+    "ricavi": null,
+    "patrimonioNetto": 126044000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 12250000000,
+    "speseSga": 14890000000,
+    "flussoCassaOperativo": 52002000000,
+    "attivoTotale": null,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2008,
+    "roe": 0.3848,
+    "margine": null,
+    "roa": 0.1983,
+    "utileNetto": 45220000000,
+    "ricavi": null,
+    "patrimonioNetto": 117523000000,
+    "crediti": 24702000000,
+    "costoVenduto": null,
+    "attivoCorrente": 72266000000,
+    "passivoCorrente": 49100000000,
+    "immobilizzazioniNette": 121346000000,
+    "ammortamento": 12379000000,
+    "speseSga": 15873000000,
+    "flussoCassaOperativo": 59725000000,
+    "attivoTotale": 228052000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2009,
+    "roe": 0.1671,
+    "margine": 0.0639,
+    "roa": 0.0826,
+    "utileNetto": 19280000000,
+    "ricavi": 301500000000,
+    "patrimonioNetto": 115392000000,
+    "crediti": 22186000000,
+    "costoVenduto": null,
+    "attivoCorrente": 55235000000,
+    "passivoCorrente": 52061000000,
+    "immobilizzazioniNette": 139116000000,
+    "ammortamento": 11917000000,
+    "speseSga": 14735000000,
+    "flussoCassaOperativo": 28438000000,
+    "attivoTotale": 233323000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2010,
+    "roe": 0.1995,
+    "margine": 0.0823,
+    "roa": 0.1007,
+    "utileNetto": 30460000000,
+    "ricavi": 370125000000,
+    "patrimonioNetto": 152679000000,
+    "crediti": 25439000000,
+    "costoVenduto": null,
+    "attivoCorrente": 58984000000,
+    "passivoCorrente": 62633000000,
+    "immobilizzazioniNette": 199548000000,
+    "ammortamento": 14760000000,
+    "speseSga": 14683000000,
+    "flussoCassaOperativo": 48413000000,
+    "attivoTotale": 302510000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2011,
+    "roe": 0.2554,
+    "margine": 0.0879,
+    "roa": 0.124,
+    "utileNetto": 41060000000,
+    "ricavi": 467029000000,
+    "patrimonioNetto": 160744000000,
+    "crediti": 30044000000,
+    "costoVenduto": null,
+    "attivoCorrente": 72963000000,
+    "passivoCorrente": 77505000000,
+    "immobilizzazioniNette": 214664000000,
+    "ammortamento": 15583000000,
+    "speseSga": 14983000000,
+    "flussoCassaOperativo": 55345000000,
+    "attivoTotale": 331052000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2012,
+    "roe": 0.2614,
+    "margine": 0.0994,
+    "roa": 0.1345,
+    "utileNetto": 44880000000,
+    "ricavi": 451509000000,
+    "patrimonioNetto": 171660000000,
+    "crediti": 28373000000,
+    "costoVenduto": null,
+    "attivoCorrente": 64460000000,
+    "passivoCorrente": 64139000000,
+    "immobilizzazioniNette": 226949000000,
+    "ammortamento": 15888000000,
+    "speseSga": 13877000000,
+    "flussoCassaOperativo": 56170000000,
+    "attivoTotale": 333795000000,
+    "debitoLungo": 7500000000
+   },
+   {
+    "anno": 2013,
+    "roe": 0.1805,
+    "margine": 0.0774,
+    "roa": 0.0939,
+    "utileNetto": 32580000000,
+    "ricavi": 420836000000,
+    "patrimonioNetto": 180495000000,
+    "crediti": 25993000000,
+    "costoVenduto": null,
+    "attivoCorrente": 59308000000,
+    "passivoCorrente": 71724000000,
+    "immobilizzazioniNette": 243650000000,
+    "ammortamento": 17182000000,
+    "speseSga": 12877000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 346808000000,
+    "debitoLungo": 6500000000
+   },
+   {
+    "anno": 2014,
+    "roe": 0.1796,
+    "margine": 0.0825,
+    "roa": 0.093,
+    "utileNetto": 32520000000,
+    "ricavi": 394105000000,
+    "patrimonioNetto": 181064000000,
+    "crediti": 18541000000,
+    "costoVenduto": null,
+    "attivoCorrente": 52910000000,
+    "passivoCorrente": 64633000000,
+    "immobilizzazioniNette": 252668000000,
+    "ammortamento": 17297000000,
+    "speseSga": 12598000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 349493000000,
+    "debitoLungo": 11300000000
+   },
+   {
+    "anno": 2015,
+    "roe": 0.0913,
+    "margine": 0.0673,
+    "roa": 0.048,
+    "utileNetto": 16150000000,
+    "ricavi": 239854000000,
+    "patrimonioNetto": 176810000000,
+    "crediti": 13243000000,
+    "costoVenduto": null,
+    "attivoCorrente": 42623000000,
+    "passivoCorrente": 53976000000,
+    "immobilizzazioniNette": 251605000000,
+    "ammortamento": 18048000000,
+    "speseSga": 11501000000,
+    "flussoCassaOperativo": 30344000000,
+    "attivoTotale": 336758000000,
+    "debitoLungo": 18700000000
+   },
+   {
+    "anno": 2016,
+    "roe": 0.0451,
+    "margine": 0.0391,
+    "roa": 0.0237,
+    "utileNetto": 7840000000,
+    "ricavi": 200628000000,
+    "patrimonioNetto": 173830000000,
+    "crediti": 16033000000,
+    "costoVenduto": null,
+    "attivoCorrente": 41416000000,
+    "passivoCorrente": 47638000000,
+    "immobilizzazioniNette": 244224000000,
+    "ammortamento": 22308000000,
+    "speseSga": 10443000000,
+    "flussoCassaOperativo": 22082000000,
+    "attivoTotale": 330314000000,
+    "debitoLungo": 27700000000
+   },
+   {
+    "anno": 2017,
+    "roe": 0.1013,
+    "margine": 0.0807,
+    "roa": 0.0565,
+    "utileNetto": 19710000000,
+    "ricavi": 244363000000,
+    "patrimonioNetto": 194500000000,
+    "crediti": 21274000000,
+    "costoVenduto": null,
+    "attivoCorrente": 47134000000,
+    "passivoCorrente": 57771000000,
+    "immobilizzazioniNette": 252630000000,
+    "ammortamento": 19893000000,
+    "speseSga": 10649000000,
+    "flussoCassaOperativo": 30066000000,
+    "attivoTotale": 348691000000,
+    "debitoLungo": 23100000000
+   },
+   {
+    "anno": 2018,
+    "roe": 0.105,
+    "margine": 0.0718,
+    "roa": 0.0602,
+    "utileNetto": 20840000000,
+    "ricavi": 290212000000,
+    "patrimonioNetto": 198528000000,
+    "crediti": 19638000000,
+    "costoVenduto": null,
+    "attivoCorrente": 47973000000,
+    "passivoCorrente": 57138000000,
+    "immobilizzazioniNette": 247101000000,
+    "ammortamento": 18745000000,
+    "speseSga": 11480000000,
+    "flussoCassaOperativo": 36014000000,
+    "attivoTotale": 346196000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2019,
+    "roe": 0.0721,
+    "margine": 0.0541,
+    "roa": 0.0395,
+    "utileNetto": 14340000000,
+    "ricavi": 264938000000,
+    "patrimonioNetto": 198938000000,
+    "crediti": 21100000000,
+    "costoVenduto": null,
+    "attivoCorrente": 50052000000,
+    "passivoCorrente": 63989000000,
+    "immobilizzazioniNette": 253018000000,
+    "ammortamento": 18998000000,
+    "speseSga": 11398000000,
+    "flussoCassaOperativo": 29716000000,
+    "attivoTotale": 362597000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2020,
+    "roe": -0.1367,
+    "margine": -0.1236,
+    "roa": -0.0674,
+    "utileNetto": -22440000000,
+    "ricavi": 181502000000,
+    "patrimonioNetto": 164130000000,
+    "crediti": 16339000000,
+    "costoVenduto": null,
+    "attivoCorrente": 44893000000,
+    "passivoCorrente": 56363000000,
+    "immobilizzazioniNette": 227553000000,
+    "ammortamento": 46009000000,
+    "speseSga": 10168000000,
+    "flussoCassaOperativo": 14668000000,
+    "attivoTotale": 332750000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2021,
+    "roe": 0.1311,
+    "margine": 0.0807,
+    "roa": 0.068,
+    "utileNetto": 23040000000,
+    "ricavi": 285640000000,
+    "patrimonioNetto": 175683000000,
+    "crediti": 26883000000,
+    "costoVenduto": null,
+    "attivoCorrente": 59154000000,
+    "passivoCorrente": 56643000000,
+    "immobilizzazioniNette": 216552000000,
+    "ammortamento": 20607000000,
+    "speseSga": 9574000000,
+    "flussoCassaOperativo": 48129000000,
+    "attivoTotale": 338923000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2022,
+    "roe": 0.2753,
+    "margine": 0.1347,
+    "roa": 0.151,
+    "utileNetto": 55740000000,
+    "ricavi": 413680000000,
+    "patrimonioNetto": 202473000000,
+    "crediti": 32844000000,
+    "costoVenduto": null,
+    "attivoCorrente": 97631000000,
+    "passivoCorrente": 69045000000,
+    "immobilizzazioniNette": 204692000000,
+    "ammortamento": 24040000000,
+    "speseSga": 10095000000,
+    "flussoCassaOperativo": 76797000000,
+    "attivoTotale": 369067000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2023,
+    "roe": 0.1694,
+    "margine": 0.1045,
+    "roa": 0.0957,
+    "utileNetto": 36010000000,
+    "ricavi": 344582000000,
+    "patrimonioNetto": 212538000000,
+    "crediti": 30296000000,
+    "costoVenduto": null,
+    "attivoCorrente": 96609000000,
+    "passivoCorrente": 65316000000,
+    "immobilizzazioniNette": 214940000000,
+    "ammortamento": 20641000000,
+    "speseSga": 9919000000,
+    "flussoCassaOperativo": 55369000000,
+    "attivoTotale": 376317000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2024,
+    "roe": 0.1277,
+    "margine": 0.0963,
+    "roa": 0.0743,
+    "utileNetto": 33680000000,
+    "ricavi": 349585000000,
+    "patrimonioNetto": 263705000000,
+    "crediti": 35282000000,
+    "costoVenduto": null,
+    "attivoCorrente": 91990000000,
+    "passivoCorrente": 70307000000,
+    "immobilizzazioniNette": 294318000000,
+    "ammortamento": 23442000000,
+    "speseSga": 9976000000,
+    "flussoCassaOperativo": 55022000000,
+    "attivoTotale": 453475000000,
+    "debitoLungo": null
+   },
+   {
+    "anno": 2025,
+    "roe": 0.1112,
+    "margine": 0.0868,
+    "roa": 0.0642,
+    "utileNetto": 28844000000,
+    "ricavi": 332238000000,
+    "patrimonioNetto": 259386000000,
+    "crediti": 35744000000,
+    "costoVenduto": null,
+    "attivoCorrente": 83382000000,
+    "passivoCorrente": 72330000000,
+    "immobilizzazioniNette": 299373000000,
+    "ammortamento": 25993000000,
+    "speseSga": 11128000000,
+    "flussoCassaOperativo": 51970000000,
+    "attivoTotale": 448980000000,
+    "debitoLungo": null
+   }
+  ]
  },
  "CVX": {
   "nome": "CHEVRON CORP",
@@ -9536,7 +20138,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 18688000000,
     "ricavi": 220904000000,
-    "patrimonioNetto": 77088000000
+    "patrimonioNetto": 77088000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8708000000,
+    "speseSga": 5926000000,
+    "flussoCassaOperativo": 24977000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -9545,7 +20157,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1485,
     "utileNetto": 23931000000,
     "ricavi": 273005000000,
-    "patrimonioNetto": 86648000000
+    "patrimonioNetto": 86648000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 36470000000,
+    "passivoCorrente": 32023000000,
+    "immobilizzazioniNette": 91780000000,
+    "ammortamento": 9528000000,
+    "speseSga": 5756000000,
+    "flussoCassaOperativo": 29632000000,
+    "attivoTotale": 161165000000,
+    "debitoLungo": 5742000000
    },
    {
     "anno": 2009,
@@ -9554,7 +20176,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0637,
     "utileNetto": 10483000000,
     "ricavi": 171636000000,
-    "patrimonioNetto": 91914000000
+    "patrimonioNetto": 91914000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 37216000000,
+    "passivoCorrente": 26211000000,
+    "immobilizzazioniNette": 96468000000,
+    "ammortamento": 12110000000,
+    "speseSga": 4527000000,
+    "flussoCassaOperativo": 19373000000,
+    "attivoTotale": 164621000000,
+    "debitoLungo": 9829000000
    },
    {
     "anno": 2010,
@@ -9563,7 +20195,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.103,
     "utileNetto": 19024000000,
     "ricavi": 204928000000,
-    "patrimonioNetto": 105811000000
+    "patrimonioNetto": 105811000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 48841000000,
+    "passivoCorrente": 29012000000,
+    "immobilizzazioniNette": 104504000000,
+    "ammortamento": 13063000000,
+    "speseSga": 4767000000,
+    "flussoCassaOperativo": 31354000000,
+    "attivoTotale": 184769000000,
+    "debitoLungo": 11003000000
    },
    {
     "anno": 2011,
@@ -9572,7 +20214,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1284,
     "utileNetto": 26895000000,
     "ricavi": 253706000000,
-    "patrimonioNetto": 122181000000
+    "patrimonioNetto": 122181000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 53234000000,
+    "passivoCorrente": 33600000000,
+    "immobilizzazioniNette": 122608000000,
+    "ammortamento": 12911000000,
+    "speseSga": 4745000000,
+    "flussoCassaOperativo": 41095000000,
+    "attivoTotale": 209474000000,
+    "debitoLungo": 9684000000
    },
    {
     "anno": 2012,
@@ -9581,7 +20233,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1124,
     "utileNetto": 26179000000,
     "ricavi": 241909000000,
-    "patrimonioNetto": 137832000000
+    "patrimonioNetto": 137832000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 55720000000,
+    "passivoCorrente": 34212000000,
+    "immobilizzazioniNette": 141348000000,
+    "ammortamento": 13413000000,
+    "speseSga": 4724000000,
+    "flussoCassaOperativo": 38812000000,
+    "attivoTotale": 232982000000,
+    "debitoLungo": 11966000000
    },
    {
     "anno": 2013,
@@ -9590,7 +20252,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0844,
     "utileNetto": 21423000000,
     "ricavi": 228848000000,
-    "patrimonioNetto": 150427000000
+    "patrimonioNetto": 150427000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 50250000000,
+    "passivoCorrente": 33018000000,
+    "immobilizzazioniNette": 164829000000,
+    "ammortamento": 14186000000,
+    "speseSga": 4510000000,
+    "flussoCassaOperativo": 35002000000,
+    "attivoTotale": 253753000000,
+    "debitoLungo": 19960000000
    },
    {
     "anno": 2014,
@@ -9599,7 +20271,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0723,
     "utileNetto": 19241000000,
     "ricavi": 211970000000,
-    "patrimonioNetto": 156191000000
+    "patrimonioNetto": 156191000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 42232000000,
+    "passivoCorrente": 31926000000,
+    "immobilizzazioniNette": 183173000000,
+    "ammortamento": 16793000000,
+    "speseSga": 4494000000,
+    "flussoCassaOperativo": 31475000000,
+    "attivoTotale": 266026000000,
+    "debitoLungo": 23960000000
    },
    {
     "anno": 2015,
@@ -9608,7 +20290,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0173,
     "utileNetto": 4587000000,
     "ricavi": 138477000000,
-    "patrimonioNetto": 153886000000
+    "patrimonioNetto": 153886000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 34430000000,
+    "passivoCorrente": 25467000000,
+    "immobilizzazioniNette": 188396000000,
+    "ammortamento": 21037000000,
+    "speseSga": 4443000000,
+    "flussoCassaOperativo": 19456000000,
+    "attivoTotale": 264540000000,
+    "debitoLungo": 33542000000
    },
    {
     "anno": 2016,
@@ -9617,7 +20309,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0019,
     "utileNetto": -497000000,
     "ricavi": 114472000000,
-    "patrimonioNetto": 146722000000
+    "patrimonioNetto": 146722000000,
+    "crediti": null,
+    "costoVenduto": 59321000000,
+    "attivoCorrente": 29619000000,
+    "passivoCorrente": 31785000000,
+    "immobilizzazioniNette": 182186000000,
+    "ammortamento": 19457000000,
+    "speseSga": 4305000000,
+    "flussoCassaOperativo": 12690000000,
+    "attivoTotale": 260078000000,
+    "debitoLungo": 35193000000
    },
    {
     "anno": 2017,
@@ -9626,7 +20328,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0362,
     "utileNetto": 9195000000,
     "ricavi": 141722000000,
-    "patrimonioNetto": 149319000000
+    "patrimonioNetto": 149319000000,
+    "crediti": null,
+    "costoVenduto": 75765000000,
+    "attivoCorrente": 28560000000,
+    "passivoCorrente": 27737000000,
+    "immobilizzazioniNette": 177712000000,
+    "ammortamento": 19349000000,
+    "speseSga": 4110000000,
+    "flussoCassaOperativo": 20338000000,
+    "attivoTotale": 253806000000,
+    "debitoLungo": 30234000000
    },
    {
     "anno": 2018,
@@ -9635,7 +20347,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0584,
     "utileNetto": 14824000000,
     "ricavi": 166339000000,
-    "patrimonioNetto": 155642000000
+    "patrimonioNetto": 155642000000,
+    "crediti": null,
+    "costoVenduto": 94578000000,
+    "attivoCorrente": 34021000000,
+    "passivoCorrente": 27171000000,
+    "immobilizzazioniNette": 169207000000,
+    "ammortamento": 19419000000,
+    "speseSga": 3838000000,
+    "flussoCassaOperativo": 30618000000,
+    "attivoTotale": 253863000000,
+    "debitoLungo": 23730000000
    },
    {
     "anno": 2019,
@@ -9644,7 +20366,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0123,
     "utileNetto": 2924000000,
     "ricavi": 146516000000,
-    "patrimonioNetto": 145208000000
+    "patrimonioNetto": 145208000000,
+    "crediti": null,
+    "costoVenduto": 80113000000,
+    "attivoCorrente": 28329000000,
+    "passivoCorrente": 26530000000,
+    "immobilizzazioniNette": 150494000000,
+    "ammortamento": 29218000000,
+    "speseSga": 4143000000,
+    "flussoCassaOperativo": 27314000000,
+    "attivoTotale": 237428000000,
+    "debitoLungo": 18730000000
    },
    {
     "anno": 2020,
@@ -9653,7 +20385,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0231,
     "utileNetto": -5543000000,
     "ricavi": 94692000000,
-    "patrimonioNetto": 132726000000
+    "patrimonioNetto": 132726000000,
+    "crediti": 9500000000,
+    "costoVenduto": 52148000000,
+    "attivoCorrente": 26078000000,
+    "passivoCorrente": 22183000000,
+    "immobilizzazioniNette": 156618000000,
+    "ammortamento": 19508000000,
+    "speseSga": 4213000000,
+    "flussoCassaOperativo": 10577000000,
+    "attivoTotale": 239790000000,
+    "debitoLungo": 25676000000
    },
    {
     "anno": 2021,
@@ -9662,7 +20404,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0652,
     "utileNetto": 15625000000,
     "ricavi": 162465000000,
-    "patrimonioNetto": 139940000000
+    "patrimonioNetto": 139940000000,
+    "crediti": 16400000000,
+    "costoVenduto": 92249000000,
+    "attivoCorrente": 33738000000,
+    "passivoCorrente": 26791000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 17925000000,
+    "speseSga": 4014000000,
+    "flussoCassaOperativo": 29187000000,
+    "attivoTotale": 239535000000,
+    "debitoLungo": 25676000000
    },
    {
     "anno": 2022,
@@ -9671,7 +20423,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1376,
     "utileNetto": 35465000000,
     "ricavi": 246252000000,
-    "patrimonioNetto": 160242000000
+    "patrimonioNetto": 160242000000,
+    "crediti": 18200000000,
+    "costoVenduto": 145416000000,
+    "attivoCorrente": 50343000000,
+    "passivoCorrente": 34208000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 16319000000,
+    "speseSga": 4312000000,
+    "flussoCassaOperativo": 49602000000,
+    "attivoTotale": 257709000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -9680,7 +20442,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0817,
     "utileNetto": 21369000000,
     "ricavi": 200949000000,
-    "patrimonioNetto": 161929000000
+    "patrimonioNetto": 161929000000,
+    "crediti": 17640000000,
+    "costoVenduto": 119196000000,
+    "attivoCorrente": 41128000000,
+    "passivoCorrente": 32258000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 17326000000,
+    "speseSga": 4141000000,
+    "flussoCassaOperativo": 35609000000,
+    "attivoTotale": 261632000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -9689,7 +20461,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0687,
     "utileNetto": 17661000000,
     "ricavi": 202792000000,
-    "patrimonioNetto": 152318000000
+    "patrimonioNetto": 152318000000,
+    "crediti": 18338000000,
+    "costoVenduto": 119206000000,
+    "attivoCorrente": 40911000000,
+    "passivoCorrente": 38558000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 17282000000,
+    "speseSga": 4834000000,
+    "flussoCassaOperativo": 31492000000,
+    "attivoTotale": 256938000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -9698,7 +20480,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.038,
     "utileNetto": 12299000000,
     "ricavi": 189031000000,
-    "patrimonioNetto": 186450000000
+    "patrimonioNetto": 186450000000,
+    "crediti": 15986000000,
+    "costoVenduto": 108214000000,
+    "attivoCorrente": 38552000000,
+    "passivoCorrente": 33387000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 20132000000,
+    "speseSga": 5126000000,
+    "flussoCassaOperativo": 33939000000,
+    "attivoTotale": 324012000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -9712,7 +20504,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 11891000000,
     "ricavi": 187437000000,
-    "patrimonioNetto": 89507000000
+    "patrimonioNetto": 89507000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8298000000,
+    "speseSga": 2306000000,
+    "flussoCassaOperativo": 24550000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -9721,7 +20523,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.1144,
     "utileNetto": -16349000000,
     "ricavi": 240842000000,
-    "patrimonioNetto": 56265000000
+    "patrimonioNetto": 56265000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 20843000000,
+    "passivoCorrente": 21780000000,
+    "immobilizzazioniNette": 83947000000,
+    "ammortamento": 9012000000,
+    "speseSga": 2229000000,
+    "flussoCassaOperativo": 22658000000,
+    "attivoTotale": 142865000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -9730,7 +20542,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.029,
     "utileNetto": 4414000000,
     "ricavi": 149341000000,
-    "patrimonioNetto": 62628000000
+    "patrimonioNetto": 62628000000,
+    "crediti": 13215000000,
+    "costoVenduto": null,
+    "attivoCorrente": 21167000000,
+    "passivoCorrente": 23695000000,
+    "immobilizzazioniNette": 87708000000,
+    "ammortamento": 9295000000,
+    "speseSga": 1830000000,
+    "flussoCassaOperativo": 12479000000,
+    "attivoTotale": 152138000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -9739,7 +20561,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0727,
     "utileNetto": 11358000000,
     "ricavi": 63335000000,
-    "patrimonioNetto": 69124000000
+    "patrimonioNetto": 69124000000,
+    "crediti": 15812000000,
+    "costoVenduto": null,
+    "attivoCorrente": 34660000000,
+    "passivoCorrente": 27419000000,
+    "immobilizzazioniNette": 82554000000,
+    "ammortamento": 8004000000,
+    "speseSga": 809000000,
+    "flussoCassaOperativo": 17045000000,
+    "attivoTotale": 156314000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -9748,7 +20580,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0812,
     "utileNetto": 12436000000,
     "ricavi": 66069000000,
-    "patrimonioNetto": 65749000000
+    "patrimonioNetto": 65749000000,
+    "crediti": 16526000000,
+    "costoVenduto": null,
+    "attivoCorrente": 30218000000,
+    "passivoCorrente": 28068000000,
+    "immobilizzazioniNette": 84180000000,
+    "ammortamento": 6827000000,
+    "speseSga": 865000000,
+    "flussoCassaOperativo": 19646000000,
+    "attivoTotale": 153230000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -9757,7 +20599,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0719,
     "utileNetto": 8428000000,
     "ricavi": 62004000000,
-    "patrimonioNetto": 48427000000
+    "patrimonioNetto": 48427000000,
+    "crediti": 9182000000,
+    "costoVenduto": null,
+    "attivoCorrente": 23989000000,
+    "passivoCorrente": 17443000000,
+    "immobilizzazioniNette": 67263000000,
+    "ammortamento": 6580000000,
+    "speseSga": 1106000000,
+    "flussoCassaOperativo": 13922000000,
+    "attivoTotale": 117144000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -9766,7 +20618,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0776,
     "utileNetto": 9156000000,
     "ricavi": 58248000000,
-    "patrimonioNetto": 52492000000
+    "patrimonioNetto": 52492000000,
+    "crediti": 8487000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19023000000,
+    "passivoCorrente": 15129000000,
+    "immobilizzazioniNette": 72827000000,
+    "ammortamento": 7434000000,
+    "speseSga": 854000000,
+    "flussoCassaOperativo": 16141000000,
+    "attivoTotale": 118057000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -9775,7 +20637,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0589,
     "utileNetto": 6869000000,
     "ricavi": 55517000000,
-    "patrimonioNetto": 52273000000
+    "patrimonioNetto": 52273000000,
+    "crediti": 6807000000,
+    "costoVenduto": null,
+    "attivoCorrente": 15068000000,
+    "passivoCorrente": 11537000000,
+    "immobilizzazioniNette": 75444000000,
+    "ammortamento": 8329000000,
+    "speseSga": 735000000,
+    "flussoCassaOperativo": 16569000000,
+    "attivoTotale": 116539000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -9784,7 +20656,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0454,
     "utileNetto": -4428000000,
     "ricavi": 30935000000,
-    "patrimonioNetto": 40082000000
+    "patrimonioNetto": 40082000000,
+    "crediti": 4514000000,
+    "costoVenduto": null,
+    "attivoCorrente": 8789000000,
+    "passivoCorrente": 9256000000,
+    "immobilizzazioniNette": 66446000000,
+    "ammortamento": 9113000000,
+    "speseSga": 953000000,
+    "flussoCassaOperativo": 7572000000,
+    "attivoTotale": 97484000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -9793,7 +20675,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0403,
     "utileNetto": -3615000000,
     "ricavi": 24360000000,
-    "patrimonioNetto": 35226000000
+    "patrimonioNetto": 35226000000,
+    "crediti": 3414000000,
+    "costoVenduto": 9994000000,
+    "attivoCorrente": 8609000000,
+    "passivoCorrente": 6909000000,
+    "immobilizzazioniNette": 58331000000,
+    "ammortamento": 9062000000,
+    "speseSga": 473000000,
+    "flussoCassaOperativo": 4403000000,
+    "attivoTotale": 89772000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -9802,7 +20694,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0117,
     "utileNetto": -855000000,
     "ricavi": 32584000000,
-    "patrimonioNetto": 30801000000
+    "patrimonioNetto": 30801000000,
+    "crediti": 4320000000,
+    "costoVenduto": 12475000000,
+    "attivoCorrente": 16512000000,
+    "passivoCorrente": 9397000000,
+    "immobilizzazioniNette": 45683000000,
+    "ammortamento": 6845000000,
+    "speseSga": 427000000,
+    "flussoCassaOperativo": 7077000000,
+    "attivoTotale": 73362000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -9811,7 +20713,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0894,
     "utileNetto": 6257000000,
     "ricavi": 38727000000,
-    "patrimonioNetto": 32064000000
+    "patrimonioNetto": 32064000000,
+    "crediti": 4067000000,
+    "costoVenduto": 14294000000,
+    "attivoCorrente": 13274000000,
+    "passivoCorrente": 7395000000,
+    "immobilizzazioniNette": 45698000000,
+    "ammortamento": 5956000000,
+    "speseSga": 401000000,
+    "flussoCassaOperativo": 12934000000,
+    "attivoTotale": 69980000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -9820,7 +20732,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.102,
     "utileNetto": 7189000000,
     "ricavi": 36670000000,
-    "patrimonioNetto": 35050000000
+    "patrimonioNetto": 35050000000,
+    "crediti": 2372000000,
+    "costoVenduto": 11842000000,
+    "attivoCorrente": 16913000000,
+    "passivoCorrente": 7043000000,
+    "immobilizzazioniNette": 42269000000,
+    "ammortamento": 6090000000,
+    "speseSga": 556000000,
+    "flussoCassaOperativo": 11104000000,
+    "attivoTotale": 70514000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -9829,7 +20751,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0431,
     "utileNetto": -2701000000,
     "ricavi": 18784000000,
-    "patrimonioNetto": 29849000000
+    "patrimonioNetto": 29849000000,
+    "crediti": 1827000000,
+    "costoVenduto": 8078000000,
+    "attivoCorrente": 12066000000,
+    "passivoCorrente": 5366000000,
+    "immobilizzazioniNette": 39893000000,
+    "ammortamento": 5521000000,
+    "speseSga": 430000000,
+    "flussoCassaOperativo": 4802000000,
+    "attivoTotale": 62618000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -9838,7 +20770,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0891,
     "utileNetto": 8079000000,
     "ricavi": 45828000000,
-    "patrimonioNetto": 45406000000
+    "patrimonioNetto": 45406000000,
+    "crediti": 5268000000,
+    "costoVenduto": 18158000000,
+    "attivoCorrente": 16050000000,
+    "passivoCorrente": 12021000000,
+    "immobilizzazioniNette": 64911000000,
+    "ammortamento": 7208000000,
+    "speseSga": 719000000,
+    "flussoCassaOperativo": 16996000000,
+    "attivoTotale": 90661000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -9847,7 +20789,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1991,
     "utileNetto": 18680000000,
     "ricavi": 78494000000,
-    "patrimonioNetto": 48003000000
+    "patrimonioNetto": 48003000000,
+    "crediti": 5241000000,
+    "costoVenduto": 33971000000,
+    "attivoCorrente": 18749000000,
+    "passivoCorrente": 12847000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 7504000000,
+    "speseSga": 623000000,
+    "flussoCassaOperativo": 28314000000,
+    "attivoTotale": 93829000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -9856,7 +20808,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1142,
     "utileNetto": 10957000000,
     "ricavi": 56141000000,
-    "patrimonioNetto": 49279000000
+    "patrimonioNetto": 49279000000,
+    "crediti": 4414000000,
+    "costoVenduto": 21975000000,
+    "attivoCorrente": 14330000000,
+    "passivoCorrente": 10005000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 8270000000,
+    "speseSga": 705000000,
+    "flussoCassaOperativo": 19965000000,
+    "attivoTotale": 95924000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -9865,7 +20827,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0753,
     "utileNetto": 9245000000,
     "ricavi": 54745000000,
-    "patrimonioNetto": 64796000000
+    "patrimonioNetto": 64796000000,
+    "crediti": 5398000000,
+    "costoVenduto": 20012000000,
+    "attivoCorrente": 15647000000,
+    "passivoCorrente": 12124000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 9599000000,
+    "speseSga": 1158000000,
+    "flussoCassaOperativo": 20124000000,
+    "attivoTotale": 122780000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -9874,7 +20846,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0655,
     "utileNetto": 7988000000,
     "ricavi": 58944000000,
-    "patrimonioNetto": 64487000000
+    "patrimonioNetto": 64487000000,
+    "crediti": 4416000000,
+    "costoVenduto": 22325000000,
+    "attivoCorrente": 15532000000,
+    "passivoCorrente": 11972000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 11500000000,
+    "speseSga": 893000000,
+    "flussoCassaOperativo": 19796000000,
+    "attivoTotale": 121939000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -9888,7 +20870,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0631,
     "utileNetto": 3541000000,
     "ricavi": 44958000000,
-    "patrimonioNetto": 8980000000
+    "patrimonioNetto": 8980000000,
+    "crediti": 8249000000,
+    "costoVenduto": 32626000000,
+    "attivoCorrente": 25477000000,
+    "passivoCorrente": 22245000000,
+    "immobilizzazioniNette": 9997000000,
+    "ammortamento": 1797000000,
+    "speseSga": 3821000000,
+    "flussoCassaOperativo": 7955000000,
+    "attivoTotale": 56132000000,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -9897,7 +20889,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0525,
     "utileNetto": 3557000000,
     "ricavi": 51324000000,
-    "patrimonioNetto": 6190000000
+    "patrimonioNetto": 6190000000,
+    "crediti": 9397000000,
+    "costoVenduto": 38415000000,
+    "attivoCorrente": 31885000000,
+    "passivoCorrente": 25625000000,
+    "immobilizzazioniNette": 12524000000,
+    "ammortamento": 1980000000,
+    "speseSga": 4399000000,
+    "flussoCassaOperativo": 4672000000,
+    "attivoTotale": 67782000000,
+    "debitoLungo": 22834000000
    },
    {
     "anno": 2009,
@@ -9906,7 +20908,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0138,
     "utileNetto": 827000000,
     "ricavi": 32396000000,
-    "patrimonioNetto": 8820000000
+    "patrimonioNetto": 8820000000,
+    "crediti": 5611000000,
+    "costoVenduto": 23886000000,
+    "attivoCorrente": 27217000000,
+    "passivoCorrente": 18975000000,
+    "immobilizzazioniNette": 12386000000,
+    "ammortamento": 2336000000,
+    "speseSga": 3645000000,
+    "flussoCassaOperativo": 6499000000,
+    "attivoTotale": 60038000000,
+    "debitoLungo": 21847000000
    },
    {
     "anno": 2010,
@@ -9915,7 +20927,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0431,
     "utileNetto": 2758000000,
     "ricavi": 42588000000,
-    "patrimonioNetto": 10864000000
+    "patrimonioNetto": 10864000000,
+    "crediti": 8494000000,
+    "costoVenduto": 30367000000,
+    "attivoCorrente": 31810000000,
+    "passivoCorrente": 22020000000,
+    "immobilizzazioniNette": 12539000000,
+    "ammortamento": 2296000000,
+    "speseSga": 4248000000,
+    "flussoCassaOperativo": 5009000000,
+    "attivoTotale": 64020000000,
+    "debitoLungo": 20437000000
    },
    {
     "anno": 2011,
@@ -9924,7 +20946,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0613,
     "utileNetto": 4981000000,
     "ricavi": 60138000000,
-    "patrimonioNetto": 12929000000
+    "patrimonioNetto": 12929000000,
+    "crediti": 10057000000,
+    "costoVenduto": 43578000000,
+    "attivoCorrente": 37900000000,
+    "passivoCorrente": 28357000000,
+    "immobilizzazioniNette": 14395000000,
+    "ammortamento": 2527000000,
+    "speseSga": 5203000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 81218000000,
+    "debitoLungo": 24944000000
    },
    {
     "anno": 2012,
@@ -9933,7 +20965,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0643,
     "utileNetto": 5722000000,
     "ricavi": 65875000000,
-    "patrimonioNetto": 17582000000
+    "patrimonioNetto": 17582000000,
+    "crediti": 9706000000,
+    "costoVenduto": 47055000000,
+    "attivoCorrente": 42138000000,
+    "passivoCorrente": 29415000000,
+    "immobilizzazioniNette": 16461000000,
+    "ammortamento": 2813000000,
+    "speseSga": 5919000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 88970000000,
+    "debitoLungo": 27752000000
    },
    {
     "anno": 2013,
@@ -9942,7 +20984,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0448,
     "utileNetto": 3803000000,
     "ricavi": 55656000000,
-    "patrimonioNetto": 20878000000
+    "patrimonioNetto": 20878000000,
+    "crediti": 8413000000,
+    "costoVenduto": 40727000000,
+    "attivoCorrente": 38335000000,
+    "passivoCorrente": 27297000000,
+    "immobilizzazioniNette": 17075000000,
+    "ammortamento": 3087000000,
+    "speseSga": 5547000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 84896000000,
+    "debitoLungo": 26719000000
    },
    {
     "anno": 2014,
@@ -9951,7 +21003,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0292,
     "utileNetto": 2468000000,
     "ricavi": 55184000000,
-    "patrimonioNetto": 16826000000
+    "patrimonioNetto": 16826000000,
+    "crediti": 7737000000,
+    "costoVenduto": 40718000000,
+    "attivoCorrente": 38867000000,
+    "passivoCorrente": 27877000000,
+    "immobilizzazioniNette": 16577000000,
+    "ammortamento": 3163000000,
+    "speseSga": 6529000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 84498000000,
+    "debitoLungo": 27784000000
    },
    {
     "anno": 2015,
@@ -9960,7 +21022,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0322,
     "utileNetto": 2523000000,
     "ricavi": 47011000000,
-    "patrimonioNetto": 14885000000
+    "patrimonioNetto": 14885000000,
+    "crediti": 6695000000,
+    "costoVenduto": 33546000000,
+    "attivoCorrente": 33508000000,
+    "passivoCorrente": 26242000000,
+    "immobilizzazioniNette": 16090000000,
+    "ammortamento": 3046000000,
+    "speseSga": 4951000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 78342000000,
+    "debitoLungo": 25169000000
    },
    {
     "anno": 2016,
@@ -9969,7 +21041,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0008,
     "utileNetto": -59000000,
     "ricavi": 38537000000,
-    "patrimonioNetto": 13228000000
+    "patrimonioNetto": 13228000000,
+    "crediti": 5981000000,
+    "costoVenduto": 28044000000,
+    "attivoCorrente": 31967000000,
+    "passivoCorrente": 26132000000,
+    "immobilizzazioniNette": 15322000000,
+    "ammortamento": 3034000000,
+    "speseSga": 4383000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 74704000000,
+    "debitoLungo": 22818000000
    },
    {
     "anno": 2017,
@@ -9978,7 +21060,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0099,
     "utileNetto": 759000000,
     "ricavi": 45462000000,
-    "patrimonioNetto": 13766000000
+    "patrimonioNetto": 13766000000,
+    "crediti": 7436000000,
+    "costoVenduto": 31260000000,
+    "attivoCorrente": 36244000000,
+    "passivoCorrente": 26931000000,
+    "immobilizzazioniNette": 14155000000,
+    "ammortamento": 2877000000,
+    "speseSga": 4999000000,
+    "flussoCassaOperativo": 5706000000,
+    "attivoTotale": 76962000000,
+    "debitoLungo": 23847000000
    },
    {
     "anno": 2018,
@@ -9987,7 +21079,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0783,
     "utileNetto": 6148000000,
     "ricavi": 54722000000,
-    "patrimonioNetto": 14080000000
+    "patrimonioNetto": 14080000000,
+    "crediti": 8802000000,
+    "costoVenduto": 36997000000,
+    "attivoCorrente": 38603000000,
+    "passivoCorrente": 28218000000,
+    "immobilizzazioniNette": 13574000000,
+    "ammortamento": 2766000000,
+    "speseSga": 5478000000,
+    "flussoCassaOperativo": 6558000000,
+    "attivoTotale": 78509000000,
+    "debitoLungo": 25000000000
    },
    {
     "anno": 2019,
@@ -9996,7 +21098,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0777,
     "utileNetto": 6094000000,
     "ricavi": 53800000000,
-    "patrimonioNetto": 14629000000
+    "patrimonioNetto": 14629000000,
+    "crediti": 8568000000,
+    "costoVenduto": 36630000000,
+    "attivoCorrente": 39193000000,
+    "passivoCorrente": 26621000000,
+    "immobilizzazioniNette": 12904000000,
+    "ammortamento": 2577000000,
+    "speseSga": 5162000000,
+    "flussoCassaOperativo": 6912000000,
+    "attivoTotale": 78453000000,
+    "debitoLungo": 26281000000
    },
    {
     "anno": 2020,
@@ -10005,7 +21117,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0383,
     "utileNetto": 3003000000,
     "ricavi": 41748000000,
-    "patrimonioNetto": 15378000000
+    "patrimonioNetto": 15378000000,
+    "crediti": 7317000000,
+    "costoVenduto": 29082000000,
+    "attivoCorrente": 39464000000,
+    "passivoCorrente": 25717000000,
+    "immobilizzazioniNette": 12401000000,
+    "ammortamento": 2432000000,
+    "speseSga": 4642000000,
+    "flussoCassaOperativo": 6327000000,
+    "attivoTotale": 78324000000,
+    "debitoLungo": 25999000000
    },
    {
     "anno": 2021,
@@ -10014,7 +21136,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0784,
     "utileNetto": 6493000000,
     "ricavi": 50971000000,
-    "patrimonioNetto": 16516000000
+    "patrimonioNetto": 16516000000,
+    "crediti": 8477000000,
+    "costoVenduto": 35513000000,
+    "attivoCorrente": 43455000000,
+    "passivoCorrente": 29847000000,
+    "immobilizzazioniNette": 12090000000,
+    "ammortamento": 2352000000,
+    "speseSga": 5365000000,
+    "flussoCassaOperativo": 7198000000,
+    "attivoTotale": 82793000000,
+    "debitoLungo": 26033000000
    },
    {
     "anno": 2022,
@@ -10023,7 +21155,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0818,
     "utileNetto": 6704000000,
     "ricavi": 59427000000,
-    "patrimonioNetto": 15891000000
+    "patrimonioNetto": 15891000000,
+    "crediti": 8856000000,
+    "costoVenduto": 413000000,
+    "attivoCorrente": 43785000000,
+    "passivoCorrente": 31531000000,
+    "immobilizzazioniNette": 12028000000,
+    "ammortamento": 2219000000,
+    "speseSga": 5651000000,
+    "flussoCassaOperativo": 7766000000,
+    "attivoTotale": 81943000000,
+    "debitoLungo": 25714000000
    },
    {
     "anno": 2023,
@@ -10032,7 +21174,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1181,
     "utileNetto": 10332000000,
     "ricavi": 67060000000,
-    "patrimonioNetto": 19503000000
+    "patrimonioNetto": 19503000000,
+    "crediti": 9310000000,
+    "costoVenduto": 160000000,
+    "attivoCorrente": 46949000000,
+    "passivoCorrente": 34728000000,
+    "immobilizzazioniNette": 12680000000,
+    "ammortamento": 2144000000,
+    "speseSga": 6371000000,
+    "flussoCassaOperativo": 12885000000,
+    "attivoTotale": 87476000000,
+    "debitoLungo": 24472000000
    },
    {
     "anno": 2024,
@@ -10041,7 +21193,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1229,
     "utileNetto": 10788000000,
     "ricavi": 64809000000,
-    "patrimonioNetto": 19494000000
+    "patrimonioNetto": 19494000000,
+    "crediti": 9282000000,
+    "costoVenduto": 33000000,
+    "attivoCorrente": 45682000000,
+    "passivoCorrente": 32272000000,
+    "immobilizzazioniNette": 13361000000,
+    "ammortamento": 2153000000,
+    "speseSga": 6667000000,
+    "flussoCassaOperativo": 12035000000,
+    "attivoTotale": 87764000000,
+    "debitoLungo": 27351000000
    },
    {
     "anno": 2025,
@@ -10050,7 +21212,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0901,
     "utileNetto": 8882000000,
     "ricavi": 67589000000,
-    "patrimonioNetto": 21318000000
+    "patrimonioNetto": 21318000000,
+    "crediti": 10920000000,
+    "costoVenduto": 49000000,
+    "attivoCorrente": 52485000000,
+    "passivoCorrente": 36558000000,
+    "immobilizzazioniNette": 15140000000,
+    "ammortamento": 2262000000,
+    "speseSga": 6985000000,
+    "flussoCassaOperativo": 11739000000,
+    "attivoTotale": 98585000000,
+    "debitoLungo": 30696000000
    }
   ]
  },
@@ -10064,7 +21236,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 4074000000,
     "ricavi": 66387000000,
-    "patrimonioNetto": 9078000000
+    "patrimonioNetto": 9078000000,
+    "crediti": null,
+    "costoVenduto": 53402000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1334000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9584000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -10073,7 +21255,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0497,
     "utileNetto": 2672000000,
     "ricavi": 60909000000,
-    "patrimonioNetto": -1142000000
+    "patrimonioNetto": -1142000000,
+    "crediti": 5602000000,
+    "costoVenduto": 50352000000,
+    "attivoCorrente": 25964000000,
+    "passivoCorrente": 30773000000,
+    "immobilizzazioniNette": 8762000000,
+    "ammortamento": 1013000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -401000000,
+    "attivoTotale": 53779000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -10082,7 +21274,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0211,
     "utileNetto": 1312000000,
     "ricavi": 68281000000,
-    "patrimonioNetto": 2225000000
+    "patrimonioNetto": 2225000000,
+    "crediti": 5785000000,
+    "costoVenduto": 56540000000,
+    "attivoCorrente": 35275000000,
+    "passivoCorrente": 32883000000,
+    "immobilizzazioniNette": 8784000000,
+    "ammortamento": 1066000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5603000000,
+    "attivoTotale": 62053000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -10091,7 +21293,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0482,
     "utileNetto": 3307000000,
     "ricavi": 64306000000,
-    "patrimonioNetto": 2862000000
+    "patrimonioNetto": 2862000000,
+    "crediti": 5422000000,
+    "costoVenduto": 51843000000,
+    "attivoCorrente": 40572000000,
+    "passivoCorrente": 35395000000,
+    "immobilizzazioniNette": 8931000000,
+    "ammortamento": 1746000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2952000000,
+    "attivoTotale": 68565000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -10100,7 +21312,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0502,
     "utileNetto": 4018000000,
     "ricavi": 68735000000,
-    "patrimonioNetto": 3608000000
+    "patrimonioNetto": 3608000000,
+    "crediti": 5793000000,
+    "costoVenduto": 55888000000,
+    "attivoCorrente": 49810000000,
+    "passivoCorrente": 41274000000,
+    "immobilizzazioniNette": 9313000000,
+    "ammortamento": 1675000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4023000000,
+    "attivoTotale": 79986000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -10109,7 +21331,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0439,
     "utileNetto": 3900000000,
     "ricavi": 81698000000,
-    "patrimonioNetto": 5967000000
+    "patrimonioNetto": 5967000000,
+    "crediti": 5608000000,
+    "costoVenduto": 68665000000,
+    "attivoCorrente": 57309000000,
+    "passivoCorrente": 44982000000,
+    "immobilizzazioniNette": 9660000000,
+    "ammortamento": 1811000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7508000000,
+    "attivoTotale": 88896000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -10118,7 +21350,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0495,
     "utileNetto": 4585000000,
     "ricavi": 86623000000,
-    "patrimonioNetto": 14997000000
+    "patrimonioNetto": 14997000000,
+    "crediti": 6546000000,
+    "costoVenduto": 73268000000,
+    "attivoCorrente": 65074000000,
+    "passivoCorrente": 51486000000,
+    "immobilizzazioniNette": 10224000000,
+    "ammortamento": 1844000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8179000000,
+    "attivoTotale": 92663000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -10127,7 +21369,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0586,
     "utileNetto": 5446000000,
     "ricavi": 90762000000,
-    "patrimonioNetto": 8790000000
+    "patrimonioNetto": 8790000000,
+    "crediti": 7729000000,
+    "costoVenduto": 76752000000,
+    "attivoCorrente": 67767000000,
+    "passivoCorrente": 48233000000,
+    "immobilizzazioniNette": 11007000000,
+    "ammortamento": 1906000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8858000000,
+    "attivoTotale": 92921000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -10136,7 +21388,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0548,
     "utileNetto": 5176000000,
     "ricavi": 96114000000,
-    "patrimonioNetto": 7298000000
+    "patrimonioNetto": 7298000000,
+    "crediti": 8713000000,
+    "costoVenduto": 82088000000,
+    "attivoCorrente": 68234000000,
+    "passivoCorrente": 50412000000,
+    "immobilizzazioniNette": 12076000000,
+    "ammortamento": 1833000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9363000000,
+    "attivoTotale": 94408000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -10145,7 +21407,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0559,
     "utileNetto": 5034000000,
     "ricavi": 93496000000,
-    "patrimonioNetto": 1917000000
+    "patrimonioNetto": 1917000000,
+    "crediti": 8832000000,
+    "costoVenduto": 79026000000,
+    "attivoCorrente": 62488000000,
+    "passivoCorrente": 50134000000,
+    "immobilizzazioniNette": 12807000000,
+    "ammortamento": 1889000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10496000000,
+    "attivoTotale": 89997000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -10154,7 +21426,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0753,
     "utileNetto": 8458000000,
     "ricavi": 94005000000,
-    "patrimonioNetto": 1713000000
+    "patrimonioNetto": 1713000000,
+    "crediti": 2894000000,
+    "costoVenduto": 76612000000,
+    "attivoCorrente": 85194000000,
+    "passivoCorrente": 74648000000,
+    "immobilizzazioniNette": 12672000000,
+    "ammortamento": 2047000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 13346000000,
+    "attivoTotale": 112362000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -10163,7 +21445,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0891,
     "utileNetto": 10460000000,
     "ricavi": 101127000000,
-    "patrimonioNetto": 410000000
+    "patrimonioNetto": 410000000,
+    "crediti": 3879000000,
+    "costoVenduto": 81490000000,
+    "attivoCorrente": 87830000000,
+    "passivoCorrente": 81590000000,
+    "immobilizzazioniNette": 12645000000,
+    "ammortamento": 2114000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 15322000000,
+    "attivoTotale": 117359000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -10172,7 +21464,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0048,
     "utileNetto": -636000000,
     "ricavi": 76559000000,
-    "patrimonioNetto": -8462000000
+    "patrimonioNetto": -8462000000,
+    "crediti": 3266000000,
+    "costoVenduto": 72093000000,
+    "attivoCorrente": 102229000000,
+    "passivoCorrente": 97312000000,
+    "immobilizzazioniNette": 12502000000,
+    "ammortamento": 2271000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -2446000000,
+    "attivoTotale": 133625000000,
+    "debitoLungo": 20964000000
    },
    {
     "anno": 2020,
@@ -10181,7 +21483,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.078,
     "utileNetto": -11873000000,
     "ricavi": 58158000000,
-    "patrimonioNetto": -18075000000
+    "patrimonioNetto": -18075000000,
+    "crediti": 1955000000,
+    "costoVenduto": 63843000000,
+    "attivoCorrente": 121642000000,
+    "passivoCorrente": 87280000000,
+    "immobilizzazioniNette": 11820000000,
+    "ammortamento": 2246000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -18410000000,
+    "attivoTotale": 152136000000,
+    "debitoLungo": 63380000000
    },
    {
     "anno": 2021,
@@ -10190,7 +21502,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0303,
     "utileNetto": -4202000000,
     "ricavi": 62286000000,
-    "patrimonioNetto": -14846000000
+    "patrimonioNetto": -14846000000,
+    "crediti": 2641000000,
+    "costoVenduto": 59237000000,
+    "attivoCorrente": 108666000000,
+    "passivoCorrente": 81992000000,
+    "immobilizzazioniNette": 10918000000,
+    "ammortamento": 2144000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -3416000000,
+    "attivoTotale": 138552000000,
+    "debitoLungo": 57921000000
    },
    {
     "anno": 2022,
@@ -10199,7 +21521,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.036,
     "utileNetto": -4935000000,
     "ricavi": 66608000000,
-    "patrimonioNetto": -15848000000
+    "patrimonioNetto": -15848000000,
+    "crediti": 2517000000,
+    "costoVenduto": 63078000000,
+    "attivoCorrente": 109523000000,
+    "passivoCorrente": 90052000000,
+    "immobilizzazioniNette": 10550000000,
+    "ammortamento": 1979000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3512000000,
+    "attivoTotale": 137100000000,
+    "debitoLungo": 56794000000
    },
    {
     "anno": 2023,
@@ -10208,7 +21540,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0162,
     "utileNetto": -2222000000,
     "ricavi": 77794000000,
-    "patrimonioNetto": -17228000000
+    "patrimonioNetto": -17228000000,
+    "crediti": 2649000000,
+    "costoVenduto": 70070000000,
+    "attivoCorrente": 109275000000,
+    "passivoCorrente": 95827000000,
+    "immobilizzazioniNette": 10661000000,
+    "ammortamento": 1861000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5960000000,
+    "attivoTotale": 137012000000,
+    "debitoLungo": 52055000000
    },
    {
     "anno": 2024,
@@ -10217,7 +21559,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0756,
     "utileNetto": -11817000000,
     "ricavi": 66517000000,
-    "patrimonioNetto": -3908000000
+    "patrimonioNetto": -3908000000,
+    "crediti": 2631000000,
+    "costoVenduto": 68508000000,
+    "attivoCorrente": 127998000000,
+    "passivoCorrente": 97078000000,
+    "immobilizzazioniNette": 11412000000,
+    "ammortamento": 1836000000,
+    "speseSga": null,
+    "flussoCassaOperativo": -12080000000,
+    "attivoTotale": 156363000000,
+    "debitoLungo": 53625000000
    },
    {
     "anno": 2025,
@@ -10226,7 +21578,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0133,
     "utileNetto": 2235000000,
     "ricavi": 89463000000,
-    "patrimonioNetto": 5454000000
+    "patrimonioNetto": 5454000000,
+    "crediti": 2921000000,
+    "costoVenduto": 85174000000,
+    "attivoCorrente": 128459000000,
+    "passivoCorrente": 108115000000,
+    "immobilizzazioniNette": 15361000000,
+    "ammortamento": 1953000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1065000000,
+    "attivoTotale": 168235000000,
+    "debitoLungo": 53848000000
    }
   ]
  },
@@ -10240,7 +21602,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 2444000000,
     "ricavi": 34589000000,
-    "patrimonioNetto": 9293000000
+    "patrimonioNetto": 9293000000,
+    "crediti": null,
+    "costoVenduto": 26300000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 837000000,
+    "speseSga": 4565000000,
+    "flussoCassaOperativo": 3911000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -10249,7 +21621,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0227,
     "utileNetto": 806000000,
     "ricavi": 36556000000,
-    "patrimonioNetto": 7187000000
+    "patrimonioNetto": 7187000000,
+    "crediti": 6129000000,
+    "costoVenduto": 31118000000,
+    "attivoCorrente": 13263000000,
+    "passivoCorrente": 12289000000,
+    "immobilizzazioniNette": 4934000000,
+    "ammortamento": 903000000,
+    "speseSga": 5130000000,
+    "flussoCassaOperativo": 3791000000,
+    "attivoTotale": 35490000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -10258,7 +21640,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.043,
     "utileNetto": 1548000000,
     "ricavi": 29951000000,
-    "patrimonioNetto": 8861000000
+    "patrimonioNetto": 8861000000,
+    "crediti": 6274000000,
+    "costoVenduto": 23260000000,
+    "attivoCorrente": 13936000000,
+    "passivoCorrente": 11147000000,
+    "immobilizzazioniNette": 4847000000,
+    "ammortamento": 936000000,
+    "speseSga": 4323000000,
+    "flussoCassaOperativo": 3946000000,
+    "attivoTotale": 35993000000,
+    "debitoLungo": 7264000000
    },
    {
     "anno": 2010,
@@ -10267,7 +21659,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0534,
     "utileNetto": 2022000000,
     "ricavi": 32350000000,
-    "patrimonioNetto": 10787000000
+    "patrimonioNetto": 10787000000,
+    "crediti": 6841000000,
+    "costoVenduto": 24721000000,
+    "attivoCorrente": 15486000000,
+    "passivoCorrente": 11724000000,
+    "immobilizzazioniNette": 4724000000,
+    "ammortamento": 970000000,
+    "speseSga": 4618000000,
+    "flussoCassaOperativo": 4203000000,
+    "attivoTotale": 37834000000,
+    "debitoLungo": 6278000000
    },
    {
     "anno": 2011,
@@ -10276,7 +21678,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0519,
     "utileNetto": 2067000000,
     "ricavi": 36529000000,
-    "patrimonioNetto": 10902000000
+    "patrimonioNetto": 10902000000,
+    "crediti": 7228000000,
+    "costoVenduto": 28556000000,
+    "attivoCorrente": 16134000000,
+    "passivoCorrente": 12275000000,
+    "immobilizzazioniNette": 4804000000,
+    "ammortamento": 948000000,
+    "speseSga": 5399000000,
+    "flussoCassaOperativo": 2833000000,
+    "attivoTotale": 39808000000,
+    "debitoLungo": 6896000000
    },
    {
     "anno": 2012,
@@ -10285,7 +21697,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0699,
     "utileNetto": 2926000000,
     "ricavi": 37665000000,
-    "patrimonioNetto": 13065000000
+    "patrimonioNetto": 13065000000,
+    "crediti": 7429000000,
+    "costoVenduto": 28291000000,
+    "attivoCorrente": 17598000000,
+    "passivoCorrente": 13045000000,
+    "immobilizzazioniNette": 5001000000,
+    "ammortamento": 926000000,
+    "speseSga": 5218000000,
+    "flussoCassaOperativo": 3517000000,
+    "attivoTotale": 41853000000,
+    "debitoLungo": 7020000000
    },
    {
     "anno": 2013,
@@ -10294,7 +21716,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0864,
     "utileNetto": 3924000000,
     "ricavi": 39055000000,
-    "patrimonioNetto": 17579000000
+    "patrimonioNetto": 17579000000,
+    "crediti": 7929000000,
+    "costoVenduto": 28364000000,
+    "attivoCorrente": 21164000000,
+    "passivoCorrente": 14181000000,
+    "immobilizzazioniNette": 5278000000,
+    "ammortamento": 989000000,
+    "speseSga": 5190000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 45435000000,
+    "debitoLungo": 7433000000
    },
    {
     "anno": 2014,
@@ -10303,7 +21735,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0933,
     "utileNetto": 4239000000,
     "ricavi": 40306000000,
-    "patrimonioNetto": 17784000000
+    "patrimonioNetto": 17784000000,
+    "crediti": 7960000000,
+    "costoVenduto": 28957000000,
+    "attivoCorrente": 22191000000,
+    "passivoCorrente": 14773000000,
+    "immobilizzazioniNette": 5383000000,
+    "ammortamento": 924000000,
+    "speseSga": 5518000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 45451000000,
+    "debitoLungo": 6985000000
    },
    {
     "anno": 2015,
@@ -10312,7 +21754,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0967,
     "utileNetto": 4768000000,
     "ricavi": 38581000000,
-    "patrimonioNetto": 18418000000
+    "patrimonioNetto": 18418000000,
+    "crediti": 8075000000,
+    "costoVenduto": 26747000000,
+    "attivoCorrente": 20053000000,
+    "passivoCorrente": 18371000000,
+    "immobilizzazioniNette": 5789000000,
+    "ammortamento": 883000000,
+    "speseSga": 5006000000,
+    "flussoCassaOperativo": 5519000000,
+    "attivoTotale": 49316000000,
+    "debitoLungo": 6131000000
    },
    {
     "anno": 2016,
@@ -10321,7 +21773,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0882,
     "utileNetto": 4812000000,
     "ricavi": 39302000000,
-    "patrimonioNetto": 18883000000
+    "patrimonioNetto": 18883000000,
+    "crediti": 8177000000,
+    "costoVenduto": 27677000000,
+    "attivoCorrente": 23058000000,
+    "passivoCorrente": 16331000000,
+    "immobilizzazioniNette": 5793000000,
+    "ammortamento": 1030000000,
+    "speseSga": 5574000000,
+    "flussoCassaOperativo": 5498000000,
+    "attivoTotale": 54566000000,
+    "debitoLungo": 12409000000
    },
    {
     "anno": 2017,
@@ -10330,7 +21792,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.026,
     "utileNetto": 1545000000,
     "ricavi": 40534000000,
-    "patrimonioNetto": 16665000000
+    "patrimonioNetto": 16665000000,
+    "crediti": 8866000000,
+    "costoVenduto": 28144000000,
+    "attivoCorrente": 26002000000,
+    "passivoCorrente": 18861000000,
+    "immobilizzazioniNette": 5926000000,
+    "ammortamento": 1115000000,
+    "speseSga": 6087000000,
+    "flussoCassaOperativo": 5966000000,
+    "attivoTotale": 59470000000,
+    "debitoLungo": 13924000000
    },
    {
     "anno": 2018,
@@ -10339,7 +21811,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1171,
     "utileNetto": 6765000000,
     "ricavi": 41802000000,
-    "patrimonioNetto": 18358000000
+    "patrimonioNetto": 18358000000,
+    "crediti": 7508000000,
+    "costoVenduto": 29046000000,
+    "attivoCorrente": 24362000000,
+    "passivoCorrente": 18924000000,
+    "immobilizzazioniNette": 5296000000,
+    "ammortamento": 1116000000,
+    "speseSga": 6051000000,
+    "flussoCassaOperativo": 6434000000,
+    "attivoTotale": 57773000000,
+    "debitoLungo": 12628000000
    },
    {
     "anno": 2019,
@@ -10348,7 +21830,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1047,
     "utileNetto": 6143000000,
     "ricavi": 36709000000,
-    "patrimonioNetto": 18706000000
+    "patrimonioNetto": 18706000000,
+    "crediti": 7493000000,
+    "costoVenduto": 24339000000,
+    "attivoCorrente": 24303000000,
+    "passivoCorrente": 18098000000,
+    "immobilizzazioniNette": 5325000000,
+    "ammortamento": 1088000000,
+    "speseSga": 5519000000,
+    "flussoCassaOperativo": 6897000000,
+    "attivoTotale": 58679000000,
+    "debitoLungo": 12486000000
    },
    {
     "anno": 2020,
@@ -10357,7 +21849,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.074,
     "utileNetto": 4779000000,
     "ricavi": 32637000000,
-    "patrimonioNetto": 17790000000
+    "patrimonioNetto": 17790000000,
+    "crediti": 6827000000,
+    "costoVenduto": 22169000000,
+    "attivoCorrente": 28175000000,
+    "passivoCorrente": 19197000000,
+    "immobilizzazioniNette": 5570000000,
+    "ammortamento": 1003000000,
+    "speseSga": 4772000000,
+    "flussoCassaOperativo": 6208000000,
+    "attivoTotale": 64586000000,
+    "debitoLungo": 18787000000
    },
    {
     "anno": 2021,
@@ -10366,7 +21868,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.086,
     "utileNetto": 5542000000,
     "ricavi": 34392000000,
-    "patrimonioNetto": 19242000000
+    "patrimonioNetto": 19242000000,
+    "crediti": 6830000000,
+    "costoVenduto": 22061000000,
+    "attivoCorrente": 25372000000,
+    "passivoCorrente": 19508000000,
+    "immobilizzazioniNette": 5562000000,
+    "ammortamento": 674000000,
+    "speseSga": 4798000000,
+    "flussoCassaOperativo": 6038000000,
+    "attivoTotale": 64470000000,
+    "debitoLungo": 16057000000
    },
    {
     "anno": 2022,
@@ -10375,7 +21887,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0797,
     "utileNetto": 4966000000,
     "ricavi": 35466000000,
-    "patrimonioNetto": 17319000000
+    "patrimonioNetto": 17319000000,
+    "crediti": 7440000000,
+    "costoVenduto": 22347000000,
+    "attivoCorrente": 24982000000,
+    "passivoCorrente": 19938000000,
+    "immobilizzazioniNette": 5471000000,
+    "ammortamento": 1204000000,
+    "speseSga": 5214000000,
+    "flussoCassaOperativo": 5274000000,
+    "attivoTotale": 62275000000,
+    "debitoLungo": 16853000000
    },
    {
     "anno": 2023,
@@ -10384,7 +21906,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.092,
     "utileNetto": 5658000000,
     "ricavi": 33009000000,
-    "patrimonioNetto": 16434000000
+    "patrimonioNetto": 16434000000,
+    "crediti": 7530000000,
+    "costoVenduto": 20637000000,
+    "attivoCorrente": 23502000000,
+    "passivoCorrente": 18539000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1004000000,
+    "speseSga": 4887000000,
+    "flussoCassaOperativo": 5340000000,
+    "attivoTotale": 61525000000,
+    "debitoLungo": 18358000000
    },
    {
     "anno": 2024,
@@ -10393,7 +21925,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0759,
     "utileNetto": 5705000000,
     "ricavi": 34717000000,
-    "patrimonioNetto": 18619000000
+    "patrimonioNetto": 18619000000,
+    "crediti": 7247000000,
+    "costoVenduto": 21360000000,
+    "attivoCorrente": 27908000000,
+    "passivoCorrente": 21256000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1153000000,
+    "speseSga": 5235000000,
+    "flussoCassaOperativo": 6097000000,
+    "attivoTotale": 75196000000,
+    "debitoLungo": 27265000000
    },
    {
     "anno": 2025,
@@ -10402,7 +21944,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0642,
     "utileNetto": 4729000000,
     "ricavi": 37442000000,
-    "patrimonioNetto": 13904000000
+    "patrimonioNetto": 13904000000,
+    "crediti": 7621000000,
+    "costoVenduto": 23613000000,
+    "attivoCorrente": 30387000000,
+    "passivoCorrente": 23414000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1388000000,
+    "speseSga": 5450000000,
+    "flussoCassaOperativo": 6408000000,
+    "attivoTotale": 73681000000,
+    "debitoLungo": 29046000000
    }
   ]
  },
@@ -10416,7 +21968,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 22208000000,
     "ricavi": 169964000000,
-    "patrimonioNetto": 115559000000
+    "patrimonioNetto": 115559000000,
+    "crediti": null,
+    "costoVenduto": 47309000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 10275000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 43322000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -10425,7 +21987,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0218,
     "utileNetto": 17410000000,
     "ricavi": 179769000000,
-    "patrimonioNetto": 104665000000
+    "patrimonioNetto": 104665000000,
+    "crediti": 21411000000,
+    "costoVenduto": 54602000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 78530000000,
+    "ammortamento": 11481000000,
+    "speseSga": 14401000000,
+    "flussoCassaOperativo": 48653000000,
+    "attivoTotale": 797769000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -10434,7 +22006,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0141,
     "utileNetto": 11025000000,
     "ricavi": 154396000000,
-    "patrimonioNetto": 117291000000
+    "patrimonioNetto": 117291000000,
+    "crediti": 16458000000,
+    "costoVenduto": 50580000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 68970000000,
+    "ammortamento": 10617000000,
+    "speseSga": 14842000000,
+    "flussoCassaOperativo": 24417000000,
+    "attivoTotale": 781949000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -10443,7 +22025,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0156,
     "utileNetto": 11644000000,
     "ricavi": 148875000000,
-    "patrimonioNetto": 118936000000
+    "patrimonioNetto": 118936000000,
+    "crediti": 18621000000,
+    "costoVenduto": 45998000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 66212000000,
+    "ammortamento": 9786000000,
+    "speseSga": 16341000000,
+    "flussoCassaOperativo": 36124000000,
+    "attivoTotale": 748491000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -10452,7 +22044,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0197,
     "utileNetto": 14151000000,
     "ricavi": 110062000000,
-    "patrimonioNetto": 116438000000
+    "patrimonioNetto": 116438000000,
+    "crediti": 20478000000,
+    "costoVenduto": 51455000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 65739000000,
+    "ammortamento": 10730000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 33359000000,
+    "attivoTotale": 718003000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -10461,7 +22063,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0199,
     "utileNetto": 13641000000,
     "ricavi": 112588000000,
-    "patrimonioNetto": 123026000000
+    "patrimonioNetto": 123026000000,
+    "crediti": 19902000000,
+    "costoVenduto": 56785000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 68633000000,
+    "ammortamento": 9192000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 31331000000,
+    "attivoTotale": 684999000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -10470,7 +22082,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0197,
     "utileNetto": 13057000000,
     "ricavi": 113245000000,
-    "patrimonioNetto": 130566000000
+    "patrimonioNetto": 130566000000,
+    "crediti": 21388000000,
+    "costoVenduto": 57867000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 68827000000,
+    "ammortamento": 6581000000,
+    "speseSga": 17945000000,
+    "flussoCassaOperativo": 28510000000,
+    "attivoTotale": 663247000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -10479,7 +22101,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0233,
     "utileNetto": 15233000000,
     "ricavi": 117184000000,
-    "patrimonioNetto": 128159000000
+    "patrimonioNetto": 128159000000,
+    "crediti": 23237000000,
+    "costoVenduto": 61257000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 48070000000,
+    "ammortamento": 6421000000,
+    "speseSga": 16848000000,
+    "flussoCassaOperativo": 27709000000,
+    "attivoTotale": 653931000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -10488,7 +22120,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0124,
     "utileNetto": -6126000000,
     "ricavi": 117386000000,
-    "patrimonioNetto": 98274000000
+    "patrimonioNetto": 98274000000,
+    "crediti": 27022000000,
+    "costoVenduto": 59905000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 54095000000,
+    "ammortamento": 6508000000,
+    "speseSga": 17831000000,
+    "flussoCassaOperativo": 19891000000,
+    "attivoTotale": 493071000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -10497,7 +22139,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0209,
     "utileNetto": 7500000000,
     "ricavi": 119469000000,
-    "patrimonioNetto": 70162000000
+    "patrimonioNetto": 70162000000,
+    "crediti": 24076000000,
+    "costoVenduto": 62440000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 50518000000,
+    "ammortamento": 7073000000,
+    "speseSga": 17756000000,
+    "flussoCassaOperativo": 1160000000,
+    "attivoTotale": 359122000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -10506,7 +22158,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.023,
     "utileNetto": -8484000000,
     "ricavi": 99279000000,
-    "patrimonioNetto": 56031000000
+    "patrimonioNetto": 56031000000,
+    "crediti": 24209000000,
+    "costoVenduto": 64328000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 53874000000,
+    "ammortamento": 4332000000,
+    "speseSga": 14257000000,
+    "flussoCassaOperativo": 6554000000,
+    "attivoTotale": 369245000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -10515,7 +22177,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0719,
     "utileNetto": -22355000000,
     "ricavi": 97012000000,
-    "patrimonioNetto": 30981000000
+    "patrimonioNetto": 30981000000,
+    "crediti": 14645000000,
+    "costoVenduto": 72818000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 43611000000,
+    "ammortamento": 4419000000,
+    "speseSga": 14643000000,
+    "flussoCassaOperativo": 4978000000,
+    "attivoTotale": 311072000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -10524,7 +22196,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0188,
     "utileNetto": -4979000000,
     "ricavi": 90221000000,
-    "patrimonioNetto": 28316000000
+    "patrimonioNetto": 28316000000,
+    "crediti": 16568000000,
+    "costoVenduto": 66911000000,
+    "attivoCorrente": 103096000000,
+    "passivoCorrente": 78865000000,
+    "immobilizzazioniNette": 45879000000,
+    "ammortamento": 2018000000,
+    "speseSga": 13806000000,
+    "flussoCassaOperativo": 8734000000,
+    "attivoTotale": 265177000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -10533,7 +22215,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0223,
     "utileNetto": 5704000000,
     "ricavi": 75833000000,
-    "patrimonioNetto": 37073000000
+    "patrimonioNetto": 37073000000,
+    "crediti": 16691000000,
+    "costoVenduto": 60421000000,
+    "attivoCorrente": 84853000000,
+    "passivoCorrente": 54613000000,
+    "immobilizzazioniNette": 44662000000,
+    "ammortamento": 2128000000,
+    "speseSga": 12628000000,
+    "flussoCassaOperativo": 3568000000,
+    "attivoTotale": 256211000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -10542,7 +22234,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0319,
     "utileNetto": -6337000000,
     "ricavi": 56469000000,
-    "patrimonioNetto": 33346000000
+    "patrimonioNetto": 33346000000,
+    "crediti": 15620000000,
+    "costoVenduto": null,
+    "attivoCorrente": 66348000000,
+    "passivoCorrente": 51953000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1622000000,
+    "speseSga": 8177000000,
+    "flussoCassaOperativo": 3481000000,
+    "attivoTotale": 198874000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -10551,7 +22253,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0018,
     "utileNetto": 336000000,
     "ricavi": 29139000000,
-    "patrimonioNetto": 34930000000
+    "patrimonioNetto": 34930000000,
+    "crediti": 14831000000,
+    "costoVenduto": null,
+    "attivoCorrente": 58384000000,
+    "passivoCorrente": 49428000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 846000000,
+    "speseSga": 3672000000,
+    "flussoCassaOperativo": 5917000000,
+    "attivoTotale": 188851000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -10560,7 +22272,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0547,
     "utileNetto": 9482000000,
     "ricavi": 35348000000,
-    "patrimonioNetto": 28605000000
+    "patrimonioNetto": 28605000000,
+    "crediti": 8703000000,
+    "costoVenduto": null,
+    "attivoCorrente": 42556000000,
+    "passivoCorrente": 32103000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 797000000,
+    "speseSga": 4045000000,
+    "flussoCassaOperativo": 5189000000,
+    "attivoTotale": 173300000000,
+    "debitoLungo": 20862000000
    },
    {
     "anno": 2024,
@@ -10569,7 +22291,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0532,
     "utileNetto": 6556000000,
     "ricavi": 38702000000,
-    "patrimonioNetto": 19342000000
+    "patrimonioNetto": 19342000000,
+    "crediti": 9327000000,
+    "costoVenduto": null,
+    "attivoCorrente": 37635000000,
+    "passivoCorrente": 34392000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 834000000,
+    "speseSga": 4437000000,
+    "flussoCassaOperativo": 4710000000,
+    "attivoTotale": 123140000000,
+    "debitoLungo": 19273000000
    },
    {
     "anno": 2025,
@@ -10578,7 +22310,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0669,
     "utileNetto": 8704000000,
     "ricavi": 45855000000,
-    "patrimonioNetto": 18677000000
+    "patrimonioNetto": 18677000000,
+    "crediti": 11773000000,
+    "costoVenduto": null,
+    "attivoCorrente": 40596000000,
+    "passivoCorrente": 38980000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 863000000,
+    "speseSga": 4088000000,
+    "flussoCassaOperativo": 8537000000,
+    "attivoTotale": 130169000000,
+    "debitoLungo": 20469000000
    }
   ]
  },
@@ -10592,7 +22334,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 3033000000,
     "ricavi": 41862000000,
-    "patrimonioNetto": 9805000000
+    "patrimonioNetto": 9805000000,
+    "crediti": null,
+    "costoVenduto": 37628000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 666000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4238000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -10601,7 +22353,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0962,
     "utileNetto": 3217000000,
     "ricavi": 41372000000,
-    "patrimonioNetto": 2865000000
+    "patrimonioNetto": 2865000000,
+    "crediti": 5296000000,
+    "costoVenduto": 36798000000,
+    "attivoCorrente": 10683000000,
+    "passivoCorrente": 10542000000,
+    "immobilizzazioniNette": 4488000000,
+    "ammortamento": 727000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4421000000,
+    "attivoTotale": 33439000000,
+    "debitoLungo": 3563000000
    },
    {
     "anno": 2009,
@@ -10610,7 +22372,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0847,
     "utileNetto": 2973000000,
     "ricavi": 43867000000,
-    "patrimonioNetto": 3966000000
+    "patrimonioNetto": 3966000000,
+    "crediti": 6061000000,
+    "costoVenduto": 39720000000,
+    "attivoCorrente": 12477000000,
+    "passivoCorrente": 10703000000,
+    "immobilizzazioniNette": 4520000000,
+    "ammortamento": 750000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3487000000,
+    "attivoTotale": 35111000000,
+    "debitoLungo": 5052000000
    },
    {
     "anno": 2010,
@@ -10619,7 +22391,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.082,
     "utileNetto": 2878000000,
     "ricavi": 45671000000,
-    "patrimonioNetto": 3497000000
+    "patrimonioNetto": 3497000000,
+    "crediti": 5692000000,
+    "costoVenduto": 41827000000,
+    "attivoCorrente": 12893000000,
+    "passivoCorrente": 11401000000,
+    "immobilizzazioniNette": 4554000000,
+    "ammortamento": 749000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3801000000,
+    "attivoTotale": 35113000000,
+    "debitoLungo": 5019000000
    },
    {
     "anno": 2011,
@@ -10628,7 +22410,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.07,
     "utileNetto": 2655000000,
     "ricavi": 46499000000,
-    "patrimonioNetto": 1001000000
+    "patrimonioNetto": 1001000000,
+    "crediti": 6064000000,
+    "costoVenduto": 42755000000,
+    "attivoCorrente": 14094000000,
+    "passivoCorrente": 12130000000,
+    "immobilizzazioniNette": 4611000000,
+    "ammortamento": 712000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4253000000,
+    "attivoTotale": 37908000000,
+    "debitoLungo": 6460000000
    },
    {
     "anno": 2012,
@@ -10637,7 +22429,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.071,
     "utileNetto": 2745000000,
     "ricavi": 47182000000,
-    "patrimonioNetto": 39000000
+    "patrimonioNetto": 39000000,
+    "crediti": 6563000000,
+    "costoVenduto": 42986000000,
+    "attivoCorrente": 13855000000,
+    "passivoCorrente": 12155000000,
+    "immobilizzazioniNette": 4675000000,
+    "ammortamento": 715000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 1561000000,
+    "attivoTotale": 38657000000,
+    "debitoLungo": 6158000000
    },
    {
     "anno": 2013,
@@ -10646,7 +22448,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0824,
     "utileNetto": 2981000000,
     "ricavi": 45358000000,
-    "patrimonioNetto": 4918000000
+    "patrimonioNetto": 4918000000,
+    "crediti": 5834000000,
+    "costoVenduto": 41171000000,
+    "attivoCorrente": 13329000000,
+    "passivoCorrente": 11120000000,
+    "immobilizzazioniNette": 4706000000,
+    "ammortamento": 714000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4546000000,
+    "attivoTotale": 36188000000,
+    "debitoLungo": 6152000000
    },
    {
     "anno": 2014,
@@ -10655,7 +22467,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0976,
     "utileNetto": 3614000000,
     "ricavi": 39946000000,
-    "patrimonioNetto": 3400000000
+    "patrimonioNetto": 3400000000,
+    "crediti": 5877000000,
+    "costoVenduto": 35263000000,
+    "attivoCorrente": 12322000000,
+    "passivoCorrente": 11112000000,
+    "immobilizzazioniNette": 4751000000,
+    "ammortamento": 713000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3866000000,
+    "attivoTotale": 37046000000,
+    "debitoLungo": 6142000000
    },
    {
     "anno": 2015,
@@ -10664,7 +22486,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0731,
     "utileNetto": 3605000000,
     "ricavi": 40536000000,
-    "patrimonioNetto": 3097000000
+    "patrimonioNetto": 3097000000,
+    "crediti": 7254000000,
+    "costoVenduto": 36044000000,
+    "attivoCorrente": 14573000000,
+    "passivoCorrente": 13918000000,
+    "immobilizzazioniNette": 5389000000,
+    "ammortamento": 716000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5101000000,
+    "attivoTotale": 49304000000,
+    "debitoLungo": 14305000000
    },
    {
     "anno": 2016,
@@ -10673,7 +22505,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1082,
     "utileNetto": 5173000000,
     "ricavi": 47290000000,
-    "patrimonioNetto": 1477000000
+    "patrimonioNetto": 1477000000,
+    "crediti": 8202000000,
+    "costoVenduto": 41889000000,
+    "attivoCorrente": 15108000000,
+    "passivoCorrente": 12542000000,
+    "immobilizzazioniNette": 5549000000,
+    "ammortamento": 747000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5189000000,
+    "attivoTotale": 47806000000,
+    "debitoLungo": 14282000000
    },
    {
     "anno": 2017,
@@ -10682,7 +22524,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0421,
     "utileNetto": 1963000000,
     "ricavi": 49960000000,
-    "patrimonioNetto": -776000000
+    "patrimonioNetto": -776000000,
+    "crediti": 2265000000,
+    "costoVenduto": 43589000000,
+    "attivoCorrente": 17505000000,
+    "passivoCorrente": 12913000000,
+    "immobilizzazioniNette": 5775000000,
+    "ammortamento": 760000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6476000000,
+    "attivoTotale": 46620000000,
+    "debitoLungo": 13513000000
    },
    {
     "anno": 2018,
@@ -10691,7 +22543,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1124,
     "utileNetto": 5046000000,
     "ricavi": 53762000000,
-    "patrimonioNetto": 1449000000
+    "patrimonioNetto": 1449000000,
+    "crediti": 2444000000,
+    "costoVenduto": 46488000000,
+    "attivoCorrente": 16103000000,
+    "passivoCorrente": 14398000000,
+    "immobilizzazioniNette": 6124000000,
+    "ammortamento": 759000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3138000000,
+    "attivoTotale": 44876000000,
+    "debitoLungo": 12604000000
    },
    {
     "anno": 2019,
@@ -10700,7 +22562,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1311,
     "utileNetto": 6230000000,
     "ricavi": 59812000000,
-    "patrimonioNetto": 3171000000
+    "patrimonioNetto": 3171000000,
+    "crediti": 2337000000,
+    "costoVenduto": 51445000000,
+    "attivoCorrente": 17095000000,
+    "passivoCorrente": 13972000000,
+    "immobilizzazioniNette": 6591000000,
+    "ammortamento": 794000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7311000000,
+    "attivoTotale": 47528000000,
+    "debitoLungo": 11404000000
    },
    {
     "anno": 2020,
@@ -10709,7 +22581,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1347,
     "utileNetto": 6833000000,
     "ricavi": 65398000000,
-    "patrimonioNetto": 6038000000
+    "patrimonioNetto": 6038000000,
+    "crediti": 1978000000,
+    "costoVenduto": 56744000000,
+    "attivoCorrente": 19378000000,
+    "passivoCorrente": 13933000000,
+    "immobilizzazioniNette": 7213000000,
+    "ammortamento": 853000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8183000000,
+    "attivoTotale": 50710000000,
+    "debitoLungo": 11669000000
    },
    {
     "anno": 2021,
@@ -10718,7 +22600,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1241,
     "utileNetto": 6315000000,
     "ricavi": 67044000000,
-    "patrimonioNetto": 10959000000
+    "patrimonioNetto": 10959000000,
+    "crediti": 1963000000,
+    "costoVenduto": 57983000000,
+    "attivoCorrente": 19815000000,
+    "passivoCorrente": 13997000000,
+    "immobilizzazioniNette": 7597000000,
+    "ammortamento": 904000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9221000000,
+    "attivoTotale": 50873000000,
+    "debitoLungo": 11670000000
    },
    {
     "anno": 2022,
@@ -10727,7 +22619,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1084,
     "utileNetto": 5732000000,
     "ricavi": 65984000000,
-    "patrimonioNetto": 9266000000
+    "patrimonioNetto": 9266000000,
+    "crediti": 2505000000,
+    "costoVenduto": 57697000000,
+    "attivoCorrente": 20991000000,
+    "passivoCorrente": 15887000000,
+    "immobilizzazioniNette": 7975000000,
+    "ammortamento": 903000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7802000000,
+    "attivoTotale": 52880000000,
+    "debitoLungo": 15429000000
    },
    {
     "anno": 2023,
@@ -10736,7 +22638,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1319,
     "utileNetto": 6920000000,
     "ricavi": 67571000000,
-    "patrimonioNetto": 6835000000
+    "patrimonioNetto": 6835000000,
+    "crediti": 2132000000,
+    "costoVenduto": 59092000000,
+    "attivoCorrente": 20521000000,
+    "passivoCorrente": 16937000000,
+    "immobilizzazioniNette": 8370000000,
+    "ammortamento": 1430000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7920000000,
+    "attivoTotale": 52456000000,
+    "debitoLungo": 17291000000
    },
    {
     "anno": 2024,
@@ -10745,7 +22657,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0959,
     "utileNetto": 5336000000,
     "ricavi": 71043000000,
-    "patrimonioNetto": 6333000000
+    "patrimonioNetto": 6333000000,
+    "crediti": 2351000000,
+    "costoVenduto": 64113000000,
+    "attivoCorrente": 21849000000,
+    "passivoCorrente": 19420000000,
+    "immobilizzazioniNette": 8726000000,
+    "ammortamento": 1559000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6972000000,
+    "attivoTotale": 55617000000,
+    "debitoLungo": 19627000000
    },
    {
     "anno": 2025,
@@ -10754,7 +22676,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0838,
     "utileNetto": 5017000000,
     "ricavi": 75048000000,
-    "patrimonioNetto": 6721000000
+    "patrimonioNetto": 6721000000,
+    "crediti": 3901000000,
+    "costoVenduto": 67429000000,
+    "attivoCorrente": 25362000000,
+    "passivoCorrente": 23335000000,
+    "immobilizzazioniNette": 8875000000,
+    "ammortamento": 1687000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8557000000,
+    "attivoTotale": 59840000000,
+    "debitoLungo": 20532000000
    }
   ]
  },
@@ -10768,7 +22700,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 4224000000,
     "ricavi": 55716000000,
-    "patrimonioNetto": 22064000000
+    "patrimonioNetto": 22064000000,
+    "crediti": null,
+    "costoVenduto": 30869000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1173000000,
+    "speseSga": 6109000000,
+    "flussoCassaOperativo": 5330000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -10777,7 +22719,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0825,
     "utileNetto": 4689000000,
     "ricavi": 59119000000,
-    "patrimonioNetto": 16681000000
+    "patrimonioNetto": 16681000000,
+    "crediti": 9480000000,
+    "costoVenduto": 32833000000,
+    "attivoCorrente": 24467000000,
+    "passivoCorrente": 19802000000,
+    "immobilizzazioniNette": 6348000000,
+    "ammortamento": 1321000000,
+    "speseSga": 6724000000,
+    "flussoCassaOperativo": 6161000000,
+    "attivoTotale": 56837000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -10786,7 +22738,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0687,
     "utileNetto": 3829000000,
     "ricavi": 52425000000,
-    "patrimonioNetto": 20999000000
+    "patrimonioNetto": 20999000000,
+    "crediti": 8469000000,
+    "costoVenduto": 28905000000,
+    "attivoCorrente": 23194000000,
+    "passivoCorrente": 17913000000,
+    "immobilizzazioniNette": 6364000000,
+    "ammortamento": 1258000000,
+    "speseSga": 6036000000,
+    "flussoCassaOperativo": 5353000000,
+    "attivoTotale": 55762000000,
+    "debitoLungo": 9490000000
    },
    {
     "anno": 2010,
@@ -10795,7 +22757,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0748,
     "utileNetto": 4373000000,
     "ricavi": 52275000000,
-    "patrimonioNetto": 22332000000
+    "patrimonioNetto": 22332000000,
+    "crediti": 8925000000,
+    "costoVenduto": 27513000000,
+    "attivoCorrente": 23510000000,
+    "passivoCorrente": 17732000000,
+    "immobilizzazioniNette": 6280000000,
+    "ammortamento": 1300000000,
+    "speseSga": 5798000000,
+    "flussoCassaOperativo": 5720000000,
+    "attivoTotale": 58493000000,
+    "debitoLungo": 10173000000
    },
    {
     "anno": 2011,
@@ -10804,7 +22776,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.081,
     "utileNetto": 4979000000,
     "ricavi": 55754000000,
-    "patrimonioNetto": 22820000000
+    "patrimonioNetto": 22820000000,
+    "crediti": 9546000000,
+    "costoVenduto": 29252000000,
+    "attivoCorrente": 25758000000,
+    "passivoCorrente": 18616000000,
+    "immobilizzazioniNette": 6201000000,
+    "ammortamento": 1263000000,
+    "speseSga": 6161000000,
+    "flussoCassaOperativo": 6460000000,
+    "attivoTotale": 61452000000,
+    "debitoLungo": 9630000000
    },
    {
     "anno": 2012,
@@ -10813,7 +22795,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0574,
     "utileNetto": 5130000000,
     "ricavi": 57708000000,
-    "patrimonioNetto": 27069000000
+    "patrimonioNetto": 27069000000,
+    "crediti": 11099000000,
+    "costoVenduto": 31094000000,
+    "attivoCorrente": 29610000000,
+    "passivoCorrente": 23786000000,
+    "immobilizzazioniNette": 8518000000,
+    "ammortamento": 1524000000,
+    "speseSga": 6452000000,
+    "flussoCassaOperativo": 6605000000,
+    "attivoTotale": 89409000000,
+    "debitoLungo": 22718000000
    },
    {
     "anno": 2013,
@@ -10822,7 +22814,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0631,
     "utileNetto": 5721000000,
     "ricavi": 56600000000,
-    "patrimonioNetto": 33219000000
+    "patrimonioNetto": 33219000000,
+    "crediti": 11458000000,
+    "costoVenduto": 30051000000,
+    "attivoCorrente": 29442000000,
+    "passivoCorrente": 22800000000,
+    "immobilizzazioniNette": 8866000000,
+    "ammortamento": 1735000000,
+    "speseSga": 6364000000,
+    "flussoCassaOperativo": 7505000000,
+    "attivoTotale": 90594000000,
+    "debitoLungo": 19853000000
    },
    {
     "anno": 2014,
@@ -10831,7 +22833,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0682,
     "utileNetto": 6220000000,
     "ricavi": 57900000000,
-    "patrimonioNetto": 32564000000
+    "patrimonioNetto": 32564000000,
+    "crediti": 10448000000,
+    "costoVenduto": 30367000000,
+    "attivoCorrente": 31483000000,
+    "passivoCorrente": 23475000000,
+    "immobilizzazioniNette": 8592000000,
+    "ammortamento": 1820000000,
+    "speseSga": 6172000000,
+    "flussoCassaOperativo": 7336000000,
+    "attivoTotale": 91206000000,
+    "debitoLungo": 19575000000
    },
    {
     "anno": 2015,
@@ -10840,7 +22852,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.087,
     "utileNetto": 7608000000,
     "ricavi": 56098000000,
-    "patrimonioNetto": 28844000000
+    "patrimonioNetto": 28844000000,
+    "crediti": 10653000000,
+    "costoVenduto": 29771000000,
+    "attivoCorrente": 26706000000,
+    "passivoCorrente": 22618000000,
+    "immobilizzazioniNette": 8732000000,
+    "ammortamento": 1863000000,
+    "speseSga": 5886000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 87484000000,
+    "debitoLungo": 19499000000
    },
    {
     "anno": 2016,
@@ -10849,7 +22871,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0564,
     "utileNetto": 5055000000,
     "ricavi": 57244000000,
-    "patrimonioNetto": 29169000000
+    "patrimonioNetto": 29169000000,
+    "crediti": 11481000000,
+    "costoVenduto": 30325000000,
+    "attivoCorrente": 28550000000,
+    "passivoCorrente": 21906000000,
+    "immobilizzazioniNette": 9158000000,
+    "ammortamento": 1962000000,
+    "speseSga": 5958000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 89706000000,
+    "debitoLungo": 23300000000
    },
    {
     "anno": 2017,
@@ -10858,7 +22890,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.047,
     "utileNetto": 4552000000,
     "ricavi": 59837000000,
-    "patrimonioNetto": 31421000000
+    "patrimonioNetto": 31421000000,
+    "crediti": 12595000000,
+    "costoVenduto": 31027000000,
+    "attivoCorrente": 32858000000,
+    "passivoCorrente": 24391000000,
+    "immobilizzazioniNette": 10186000000,
+    "ammortamento": 2140000000,
+    "speseSga": 6429000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 96920000000,
+    "debitoLungo": 27093000000
    },
    {
     "anno": 2018,
@@ -10867,7 +22909,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0393,
     "utileNetto": 5269000000,
     "ricavi": 34701000000,
-    "patrimonioNetto": 40610000000
+    "patrimonioNetto": 40610000000,
+    "crediti": 14271000000,
+    "costoVenduto": null,
+    "attivoCorrente": 35503000000,
+    "passivoCorrente": 31368000000,
+    "immobilizzazioniNette": 12297000000,
+    "ammortamento": 1896000000,
+    "speseSga": 2864000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 134211000000,
+    "debitoLungo": 44068000000
    },
    {
     "anno": 2019,
@@ -10876,7 +22928,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0397,
     "utileNetto": 5537000000,
     "ricavi": 45349000000,
-    "patrimonioNetto": 44231000000
+    "patrimonioNetto": 44231000000,
+    "crediti": 8743000000,
+    "costoVenduto": null,
+    "attivoCorrente": 61577000000,
+    "passivoCorrente": 46594000000,
+    "immobilizzazioniNette": 10322000000,
+    "ammortamento": 2708000000,
+    "speseSga": 3711000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 139615000000,
+    "debitoLungo": 40959000000
    },
    {
     "anno": 2020,
@@ -10885,7 +22947,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0217,
     "utileNetto": -3519000000,
     "ricavi": 56587000000,
-    "patrimonioNetto": 73852000000
+    "patrimonioNetto": 73852000000,
+    "crediti": 9254000000,
+    "costoVenduto": null,
+    "attivoCorrente": 43376000000,
+    "passivoCorrente": 35848000000,
+    "immobilizzazioniNette": 14962000000,
+    "ammortamento": 4156000000,
+    "speseSga": 5540000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 162153000000,
+    "debitoLungo": 31576000000
    },
    {
     "anno": 2021,
@@ -10894,7 +22966,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0239,
     "utileNetto": 3864000000,
     "ricavi": 64388000000,
-    "patrimonioNetto": 74664000000
+    "patrimonioNetto": 74664000000,
+    "crediti": 9661000000,
+    "costoVenduto": null,
+    "attivoCorrente": 42050000000,
+    "passivoCorrente": 35449000000,
+    "immobilizzazioniNette": 14972000000,
+    "ammortamento": 4557000000,
+    "speseSga": 5046000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 161404000000,
+    "debitoLungo": 31351000000
    },
    {
     "anno": 2022,
@@ -10903,7 +22985,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0327,
     "utileNetto": 5197000000,
     "ricavi": 67074000000,
-    "patrimonioNetto": 74178000000
+    "patrimonioNetto": 74178000000,
+    "crediti": 9108000000,
+    "costoVenduto": null,
+    "attivoCorrente": 42443000000,
+    "passivoCorrente": 39114000000,
+    "immobilizzazioniNette": 15170000000,
+    "ammortamento": 4108000000,
+    "speseSga": 5573000000,
+    "flussoCassaOperativo": 7168000000,
+    "attivoTotale": 158864000000,
+    "debitoLungo": 31289000000
    },
    {
     "anno": 2023,
@@ -10912,7 +23004,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0197,
     "utileNetto": 3195000000,
     "ricavi": 68920000000,
-    "patrimonioNetto": 61410000000
+    "patrimonioNetto": 61410000000,
+    "crediti": 10838000000,
+    "costoVenduto": null,
+    "attivoCorrente": 48417000000,
+    "passivoCorrente": 46761000000,
+    "immobilizzazioniNette": 15748000000,
+    "ammortamento": 4211000000,
+    "speseSga": 5809000000,
+    "flussoCassaOperativo": 7883000000,
+    "attivoTotale": 161869000000,
+    "debitoLungo": 43638000000
    },
    {
     "anno": 2024,
@@ -10921,7 +23023,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0293,
     "utileNetto": 4774000000,
     "ricavi": 80738000000,
-    "patrimonioNetto": 60156000000
+    "patrimonioNetto": 60156000000,
+    "crediti": 10976000000,
+    "costoVenduto": null,
+    "attivoCorrente": 51133000000,
+    "passivoCorrente": 51499000000,
+    "immobilizzazioniNette": 16089000000,
+    "ammortamento": 4364000000,
+    "speseSga": 5806000000,
+    "flussoCassaOperativo": 7159000000,
+    "attivoTotale": 162861000000,
+    "debitoLungo": 41078000000
    },
    {
     "anno": 2025,
@@ -10930,7 +23042,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0394,
     "utileNetto": 6732000000,
     "ricavi": 88603000000,
-    "patrimonioNetto": 65245000000
+    "patrimonioNetto": 65245000000,
+    "crediti": 14701000000,
+    "costoVenduto": null,
+    "attivoCorrente": 60332000000,
+    "passivoCorrente": 58784000000,
+    "immobilizzazioniNette": 16868000000,
+    "ammortamento": 4378000000,
+    "speseSga": 6095000000,
+    "flussoCassaOperativo": 10567000000,
+    "attivoTotale": 171079000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -10944,7 +23066,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0942,
     "utileNetto": 3003000000,
     "ricavi": 51486000000,
-    "patrimonioNetto": 6780000000
+    "patrimonioNetto": 6780000000,
+    "crediti": 5547000000,
+    "costoVenduto": null,
+    "attivoCorrente": 8845000000,
+    "passivoCorrente": 7817000000,
+    "immobilizzazioniNette": 18265000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 8426000000,
+    "attivoTotale": 31879000000,
+    "debitoLungo": 7797000000
    },
    {
     "anno": 2009,
@@ -10953,7 +23085,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0617,
     "utileNetto": 1968000000,
     "ricavi": 45297000000,
-    "patrimonioNetto": 7630000000
+    "patrimonioNetto": 7630000000,
+    "crediti": 5369000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9275000000,
+    "passivoCorrente": 6239000000,
+    "immobilizzazioniNette": 17979000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 5285000000,
+    "attivoTotale": 31883000000,
+    "debitoLungo": 8668000000
    },
    {
     "anno": 2010,
@@ -10962,7 +23104,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0994,
     "utileNetto": 3338000000,
     "ricavi": 49545000000,
-    "patrimonioNetto": 7979000000
+    "patrimonioNetto": 7979000000,
+    "crediti": 5627000000,
+    "costoVenduto": null,
+    "attivoCorrente": 11569000000,
+    "passivoCorrente": 5902000000,
+    "immobilizzazioniNette": 17387000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3835000000,
+    "attivoTotale": 33597000000,
+    "debitoLungo": 10491000000
    },
    {
     "anno": 2011,
@@ -10971,7 +23123,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1096,
     "utileNetto": 3804000000,
     "ricavi": 53105000000,
-    "patrimonioNetto": 7035000000
+    "patrimonioNetto": 7035000000,
+    "crediti": 6246000000,
+    "costoVenduto": null,
+    "attivoCorrente": 12284000000,
+    "passivoCorrente": 6514000000,
+    "immobilizzazioniNette": 17621000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7073000000,
+    "attivoTotale": 34701000000,
+    "debitoLungo": 11095000000
    },
    {
     "anno": 2012,
@@ -10980,7 +23142,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0208,
     "utileNetto": 807000000,
     "ricavi": 54127000000,
-    "patrimonioNetto": 4653000000
+    "patrimonioNetto": 4653000000,
+    "crediti": 6111000000,
+    "costoVenduto": null,
+    "attivoCorrente": 15591000000,
+    "passivoCorrente": 8390000000,
+    "immobilizzazioniNette": 17894000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7216000000,
+    "attivoTotale": 38863000000,
+    "debitoLungo": 11089000000
    },
    {
     "anno": 2013,
@@ -10989,7 +23161,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.123,
     "utileNetto": 4372000000,
     "ricavi": 55438000000,
-    "patrimonioNetto": 6474000000
+    "patrimonioNetto": 6474000000,
+    "crediti": 6502000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13387000000,
+    "passivoCorrente": 7131000000,
+    "immobilizzazioniNette": 17961000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7304000000,
+    "attivoTotale": 35553000000,
+    "debitoLungo": 10824000000
    },
    {
     "anno": 2014,
@@ -10998,7 +23180,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0856,
     "utileNetto": 3032000000,
     "ricavi": 58232000000,
-    "patrimonioNetto": 2141000000
+    "patrimonioNetto": 2141000000,
+    "crediti": 6661000000,
+    "costoVenduto": null,
+    "attivoCorrente": 11218000000,
+    "passivoCorrente": 8621000000,
+    "immobilizzazioniNette": 18281000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 5726000000,
+    "attivoTotale": 35440000000,
+    "debitoLungo": 9856000000
    },
    {
     "anno": 2015,
@@ -11007,7 +23199,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1264,
     "utileNetto": 4844000000,
     "ricavi": 58363000000,
-    "patrimonioNetto": 2470000000
+    "patrimonioNetto": 2470000000,
+    "crediti": 7134000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13208000000,
+    "passivoCorrente": 10696000000,
+    "immobilizzazioniNette": 18352000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7430000000,
+    "attivoTotale": 38311000000,
+    "debitoLungo": 11316000000
    },
    {
     "anno": 2016,
@@ -11016,7 +23218,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0844,
     "utileNetto": 3422000000,
     "ricavi": 61610000000,
-    "patrimonioNetto": 405000000
+    "patrimonioNetto": 405000000,
+    "crediti": 7695000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13849000000,
+    "passivoCorrente": 11730000000,
+    "immobilizzazioniNette": 18800000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6473000000,
+    "attivoTotale": 40545000000,
+    "debitoLungo": 12394000000
    },
    {
     "anno": 2017,
@@ -11025,7 +23237,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1076,
     "utileNetto": 4905000000,
     "ricavi": 66585000000,
-    "patrimonioNetto": 994000000
+    "patrimonioNetto": 994000000,
+    "crediti": 8773000000,
+    "costoVenduto": null,
+    "attivoCorrente": 15718000000,
+    "passivoCorrente": 12886000000,
+    "immobilizzazioniNette": 22118000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 1479000000,
+    "attivoTotale": 45574000000,
+    "debitoLungo": 20278000000
    },
    {
     "anno": 2018,
@@ -11034,7 +23256,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0958,
     "utileNetto": 4791000000,
     "ricavi": 71861000000,
-    "patrimonioNetto": 3021000000
+    "patrimonioNetto": 3021000000,
+    "crediti": 8958000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16210000000,
+    "passivoCorrente": 14087000000,
+    "immobilizzazioniNette": 26576000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 12711000000,
+    "attivoTotale": 50016000000,
+    "debitoLungo": 19931000000
    },
    {
     "anno": 2019,
@@ -11043,7 +23275,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0767,
     "utileNetto": 4440000000,
     "ricavi": 74094000000,
-    "patrimonioNetto": 3267000000
+    "patrimonioNetto": 3267000000,
+    "crediti": 9552000000,
+    "costoVenduto": null,
+    "attivoCorrente": 17103000000,
+    "passivoCorrente": 15413000000,
+    "immobilizzazioniNette": 30482000000,
+    "ammortamento": 212000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8639000000,
+    "attivoTotale": 57857000000,
+    "debitoLungo": 21818000000
    },
    {
     "anno": 2020,
@@ -11052,7 +23294,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0215,
     "utileNetto": 1343000000,
     "ricavi": 84628000000,
-    "patrimonioNetto": 657000000
+    "patrimonioNetto": 657000000,
+    "crediti": 10750000000,
+    "costoVenduto": null,
+    "attivoCorrente": 20216000000,
+    "passivoCorrente": 17016000000,
+    "immobilizzazioniNette": 32254000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 10459000000,
+    "attivoTotale": 62408000000,
+    "debitoLungo": 22031000000
    },
    {
     "anno": 2021,
@@ -11061,7 +23313,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1857,
     "utileNetto": 12890000000,
     "ricavi": 97287000000,
-    "patrimonioNetto": 14253000000
+    "patrimonioNetto": 14253000000,
+    "crediti": 12541000000,
+    "costoVenduto": null,
+    "attivoCorrente": 24934000000,
+    "passivoCorrente": 17569000000,
+    "immobilizzazioniNette": 33475000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 15007000000,
+    "attivoTotale": 69405000000,
+    "debitoLungo": 19784000000
    },
    {
     "anno": 2022,
@@ -11070,7 +23332,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1624,
     "utileNetto": 11548000000,
     "ricavi": 100338000000,
-    "patrimonioNetto": 19786000000
+    "patrimonioNetto": 19786000000,
+    "crediti": 12583000000,
+    "costoVenduto": null,
+    "attivoCorrente": 22217000000,
+    "passivoCorrente": 18140000000,
+    "immobilizzazioniNette": 34719000000,
+    "ammortamento": 76000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14104000000,
+    "attivoTotale": 71124000000,
+    "debitoLungo": 17321000000
    },
    {
     "anno": 2023,
@@ -11079,7 +23351,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0947,
     "utileNetto": 6708000000,
     "ricavi": 90958000000,
-    "patrimonioNetto": 17306000000
+    "patrimonioNetto": 17306000000,
+    "crediti": 11216000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19413000000,
+    "passivoCorrente": 17676000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2800000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10238000000,
+    "attivoTotale": 70857000000,
+    "debitoLungo": 21998000000
    },
    {
     "anno": 2024,
@@ -11088,7 +23370,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0825,
     "utileNetto": 5782000000,
     "ricavi": 91070000000,
-    "patrimonioNetto": 16718000000
+    "patrimonioNetto": 16718000000,
+    "crediti": 10871000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19310000000,
+    "passivoCorrente": 16441000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10122000000,
+    "attivoTotale": 70070000000,
+    "debitoLungo": 21030000000
    },
    {
     "anno": 2025,
@@ -11097,7 +23389,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0762,
     "utileNetto": 5572000000,
     "ricavi": 88661000000,
-    "patrimonioNetto": 16227000000
+    "patrimonioNetto": 16227000000,
+    "crediti": 11209000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19045000000,
+    "passivoCorrente": 15620000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 3000000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8450000000,
+    "attivoTotale": 73090000000,
+    "debitoLungo": 23585000000
    }
   ]
  },
@@ -11111,7 +23413,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 1855000000,
     "ricavi": 16283000000,
-    "patrimonioNetto": 15456000000
+    "patrimonioNetto": 15456000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1321000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3277000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -11120,7 +23432,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0588,
     "utileNetto": 2335000000,
     "ricavi": 17970000000,
-    "patrimonioNetto": 15315000000
+    "patrimonioNetto": 15315000000,
+    "crediti": 594000000,
+    "costoVenduto": null,
+    "attivoCorrente": 2813000000,
+    "passivoCorrente": 2880000000,
+    "immobilizzazioniNette": 35701000000,
+    "ammortamento": 1366000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4044000000,
+    "attivoTotale": 39722000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -11129,7 +23451,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0448,
     "utileNetto": 1890000000,
     "ricavi": 14143000000,
-    "patrimonioNetto": 16801000000
+    "patrimonioNetto": 16801000000,
+    "crediti": 666000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3680000000,
+    "passivoCorrente": 2682000000,
+    "immobilizzazioniNette": 37202000000,
+    "ammortamento": 1427000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 3204000000,
+    "attivoTotale": 42184000000,
+    "debitoLungo": 9848000000
    },
    {
     "anno": 2010,
@@ -11138,7 +23470,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0645,
     "utileNetto": 2780000000,
     "ricavi": 16965000000,
-    "patrimonioNetto": 17763000000
+    "patrimonioNetto": 17763000000,
+    "crediti": 1184000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3432000000,
+    "passivoCorrente": 2952000000,
+    "immobilizzazioniNette": 38253000000,
+    "ammortamento": 1487000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 4105000000,
+    "attivoTotale": 43088000000,
+    "debitoLungo": 9242000000
    },
    {
     "anno": 2011,
@@ -11147,7 +23489,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.073,
     "utileNetto": 3292000000,
     "ricavi": 19557000000,
-    "patrimonioNetto": 18578000000
+    "patrimonioNetto": 18578000000,
+    "crediti": 1401000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3727000000,
+    "passivoCorrente": 3317000000,
+    "immobilizzazioniNette": 39934000000,
+    "ammortamento": 1617000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 5873000000,
+    "attivoTotale": 45096000000,
+    "debitoLungo": 8906000000
    },
    {
     "anno": 2012,
@@ -11156,7 +23508,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0836,
     "utileNetto": 3943000000,
     "ricavi": 20926000000,
-    "patrimonioNetto": 19877000000
+    "patrimonioNetto": 19877000000,
+    "crediti": 1331000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3614000000,
+    "passivoCorrente": 3119000000,
+    "immobilizzazioniNette": 41997000000,
+    "ammortamento": 1760000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 6161000000,
+    "attivoTotale": 47153000000,
+    "debitoLungo": 8997000000
    },
    {
     "anno": 2013,
@@ -11165,7 +23527,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0882,
     "utileNetto": 4388000000,
     "ricavi": 21963000000,
-    "patrimonioNetto": 21225000000
+    "patrimonioNetto": 21225000000,
+    "crediti": 1414000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3990000000,
+    "passivoCorrente": 3791000000,
+    "immobilizzazioniNette": 43749000000,
+    "ammortamento": 1777000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 49731000000,
+    "debitoLungo": 9577000000
    },
    {
     "anno": 2014,
@@ -11174,7 +23546,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0989,
     "utileNetto": 5180000000,
     "ricavi": 23988000000,
-    "patrimonioNetto": 21189000000
+    "patrimonioNetto": 21189000000,
+    "crediti": 1611000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4401000000,
+    "passivoCorrente": 3764000000,
+    "immobilizzazioniNette": 46272000000,
+    "ammortamento": 1904000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 52372000000,
+    "debitoLungo": 11413000000
    },
    {
     "anno": 2015,
@@ -11183,7 +23565,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0874,
     "utileNetto": 4772000000,
     "ricavi": 21813000000,
-    "patrimonioNetto": 20702000000
+    "patrimonioNetto": 20702000000,
+    "crediti": 1356000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4130000000,
+    "passivoCorrente": 3206000000,
+    "immobilizzazioniNette": 48866000000,
+    "ammortamento": 2012000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 54600000000,
+    "debitoLungo": 14201000000
    },
    {
     "anno": 2016,
@@ -11192,7 +23584,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.076,
     "utileNetto": 4233000000,
     "ricavi": 19941000000,
-    "patrimonioNetto": 19932000000
+    "patrimonioNetto": 19932000000,
+    "crediti": 1258000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3596000000,
+    "passivoCorrente": 3640000000,
+    "immobilizzazioniNette": 50389000000,
+    "ammortamento": 2038000000,
+    "speseSga": null,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 55718000000,
+    "debitoLungo": 15007000000
    },
    {
     "anno": 2017,
@@ -11201,7 +23603,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1853,
     "utileNetto": 10712000000,
     "ricavi": 21240000000,
-    "patrimonioNetto": 24856000000
+    "patrimonioNetto": 24856000000,
+    "crediti": 1493000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4006000000,
+    "passivoCorrente": 3939000000,
+    "immobilizzazioniNette": 51605000000,
+    "ammortamento": 2105000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7230000000,
+    "attivoTotale": 57806000000,
+    "debitoLungo": 16944000000
    },
    {
     "anno": 2018,
@@ -11210,7 +23622,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1009,
     "utileNetto": 5966000000,
     "ricavi": 22832000000,
-    "patrimonioNetto": 20423000000
+    "patrimonioNetto": 20423000000,
+    "crediti": 1755000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4163000000,
+    "passivoCorrente": 4626000000,
+    "immobilizzazioniNette": 52679000000,
+    "ammortamento": 2191000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8686000000,
+    "attivoTotale": 59147000000,
+    "debitoLungo": 22391000000
    },
    {
     "anno": 2019,
@@ -11219,7 +23641,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.096,
     "utileNetto": 5919000000,
     "ricavi": 21708000000,
-    "patrimonioNetto": 18128000000
+    "patrimonioNetto": 18128000000,
+    "crediti": 1595000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3459000000,
+    "passivoCorrente": 4351000000,
+    "immobilizzazioniNette": 53916000000,
+    "ammortamento": 2216000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8609000000,
+    "attivoTotale": 61673000000,
+    "debitoLungo": 25200000000
    },
    {
     "anno": 2020,
@@ -11228,7 +23660,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0857,
     "utileNetto": 5349000000,
     "ricavi": 19533000000,
-    "patrimonioNetto": 16958000000
+    "patrimonioNetto": 16958000000,
+    "crediti": 1505000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4214000000,
+    "passivoCorrente": 4173000000,
+    "immobilizzazioniNette": 54161000000,
+    "ammortamento": 2210000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8540000000,
+    "attivoTotale": 62398000000,
+    "debitoLungo": 26729000000
    },
    {
     "anno": 2021,
@@ -11237,7 +23679,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1027,
     "utileNetto": 6523000000,
     "ricavi": 21804000000,
-    "patrimonioNetto": 14161000000
+    "patrimonioNetto": 14161000000,
+    "crediti": 1722000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3551000000,
+    "passivoCorrente": 5744000000,
+    "immobilizzazioniNette": 54871000000,
+    "ammortamento": 2208000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9032000000,
+    "attivoTotale": 63525000000,
+    "debitoLungo": 29729000000
    },
    {
     "anno": 2022,
@@ -11246,7 +23698,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1069,
     "utileNetto": 6998000000,
     "ricavi": 24875000000,
-    "patrimonioNetto": 12163000000
+    "patrimonioNetto": 12163000000,
+    "crediti": 1891000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3952000000,
+    "passivoCorrente": 5520000000,
+    "immobilizzazioniNette": 56038000000,
+    "ammortamento": 2246000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9362000000,
+    "attivoTotale": 65449000000,
+    "debitoLungo": 33326000000
    },
    {
     "anno": 2023,
@@ -11255,7 +23717,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.095,
     "utileNetto": 6379000000,
     "ricavi": 24119000000,
-    "patrimonioNetto": 14788000000
+    "patrimonioNetto": 14788000000,
+    "crediti": 2073000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4148000000,
+    "passivoCorrente": 5106000000,
+    "immobilizzazioniNette": 57398000000,
+    "ammortamento": 2318000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 8379000000,
+    "attivoTotale": 67132000000,
+    "debitoLungo": 32579000000
    },
    {
     "anno": 2024,
@@ -11264,7 +23736,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0996,
     "utileNetto": 6747000000,
     "ricavi": 24250000000,
-    "patrimonioNetto": 16890000000
+    "patrimonioNetto": 16890000000,
+    "crediti": 1894000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4021000000,
+    "passivoCorrente": 5254000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2398000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9346000000,
+    "attivoTotale": 67715000000,
+    "debitoLungo": 31192000000
    },
    {
     "anno": 2025,
@@ -11273,7 +23755,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1024,
     "utileNetto": 7138000000,
     "ricavi": 24510000000,
-    "patrimonioNetto": 18467000000
+    "patrimonioNetto": 18467000000,
+    "crediti": 1860000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4555000000,
+    "passivoCorrente": 5014000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2465000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 9290000000,
+    "attivoTotale": 69698000000,
+    "debitoLungo": 31814000000
    }
   ]
  },
@@ -11287,7 +23779,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 1821700000,
     "ricavi": 24082200000,
-    "patrimonioNetto": 7155800000
+    "patrimonioNetto": 7155800000,
+    "crediti": null,
+    "costoVenduto": 16252800000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 744400000,
+    "speseSga": 2620800000,
+    "flussoCassaOperativo": 2759400000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -11296,7 +23798,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.053,
     "utileNetto": 2052800000,
     "ricavi": 28437600000,
-    "patrimonioNetto": 6537200000
+    "patrimonioNetto": 6537200000,
+    "crediti": null,
+    "costoVenduto": 19574800000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4127700000,
+    "ammortamento": 831000000,
+    "speseSga": 2960200000,
+    "flussoCassaOperativo": 1949000000,
+    "attivoTotale": 38735000000,
+    "debitoLungo": 13899000000
    },
    {
     "anno": 2009,
@@ -11305,7 +23817,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0212,
     "utileNetto": 873500000,
     "ricavi": 23112400000,
-    "patrimonioNetto": 4822800000
+    "patrimonioNetto": 4822800000,
+    "crediti": null,
+    "costoVenduto": 16255200000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4532200000,
+    "ammortamento": 873300000,
+    "speseSga": 2780600000,
+    "flussoCassaOperativo": 1984800000,
+    "attivoTotale": 41133000000,
+    "debitoLungo": 17391700000
    },
    {
     "anno": 2010,
@@ -11314,7 +23836,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0431,
     "utileNetto": 1865000000,
     "ricavi": 26004600000,
-    "patrimonioNetto": 6303400000
+    "patrimonioNetto": 6303400000,
+    "crediti": null,
+    "costoVenduto": 17398800000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 914800000,
+    "speseSga": 2968700000,
+    "flussoCassaOperativo": 2282200000,
+    "attivoTotale": 43267000000,
+    "debitoLungo": 16814500000
    },
    {
     "anno": 2011,
@@ -11323,7 +23855,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0581,
     "utileNetto": 2799900000,
     "ricavi": 32012500000,
-    "patrimonioNetto": 6814900000
+    "patrimonioNetto": 6814900000,
+    "crediti": null,
+    "costoVenduto": 21919400000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 4352000000,
+    "ammortamento": 914900000,
+    "speseSga": 3168700000,
+    "flussoCassaOperativo": 2326300000,
+    "attivoTotale": 48207000000,
+    "debitoLungo": 16959900000
    },
    {
     "anno": 2012,
@@ -11332,7 +23874,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0545,
     "utileNetto": 3064700000,
     "ricavi": 36157100000,
-    "patrimonioNetto": 6862000000
+    "patrimonioNetto": 6862000000,
+    "crediti": null,
+    "costoVenduto": 25007800000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5012000000,
+    "ammortamento": 1004200000,
+    "speseSga": 3417000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 56266000000,
+    "debitoLungo": 22453100000
    },
    {
     "anno": 2013,
@@ -11341,7 +23893,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0594,
     "utileNetto": 3537300000,
     "ricavi": 37795400000,
-    "patrimonioNetto": 10267700000
+    "patrimonioNetto": 10267700000,
+    "crediti": null,
+    "costoVenduto": 25667300000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5467000000,
+    "ammortamento": 1140300000,
+    "speseSga": 3605500000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 59521000000,
+    "debitoLungo": 21577700000
    },
    {
     "anno": 2014,
@@ -11350,7 +23912,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0515,
     "utileNetto": 3161700000,
     "ricavi": 36066900000,
-    "patrimonioNetto": 9065500000
+    "patrimonioNetto": 9065500000,
+    "crediti": null,
+    "costoVenduto": 24775800000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5578000000,
+    "ammortamento": 1306500000,
+    "speseSga": 3284400000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 61336000000,
+    "debitoLungo": 24380700000
    },
    {
     "anno": 2015,
@@ -11359,7 +23931,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0335,
     "utileNetto": 1940000000,
     "ricavi": 28862800000,
-    "patrimonioNetto": 6757600000
+    "patrimonioNetto": 6757600000,
+    "crediti": null,
+    "costoVenduto": 20143200000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5181000000,
+    "ammortamento": 1382400000,
+    "speseSga": 2873300000,
+    "flussoCassaOperativo": 3758800000,
+    "attivoTotale": 57883000000,
+    "debitoLungo": 23832800000
    },
    {
     "anno": 2016,
@@ -11368,7 +23950,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0263,
     "utileNetto": 1523900000,
     "ricavi": 26644000000,
-    "patrimonioNetto": 6531000000
+    "patrimonioNetto": 6531000000,
+    "crediti": null,
+    "costoVenduto": 18248900000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5171000000,
+    "ammortamento": 1559800000,
+    "speseSga": 2791200000,
+    "flussoCassaOperativo": 3769700000,
+    "attivoTotale": 57918000000,
+    "debitoLungo": 23703000000
    },
    {
     "anno": 2017,
@@ -11377,7 +23969,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0328,
     "utileNetto": 2159000000,
     "ricavi": 29738000000,
-    "patrimonioNetto": 9560000000
+    "patrimonioNetto": 9560000000,
+    "crediti": null,
+    "costoVenduto": 19933500000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5068000000,
+    "ammortamento": 1716000000,
+    "speseSga": 3098000000,
+    "flussoCassaOperativo": 2196000000,
+    "attivoTotale": 65786000000,
+    "debitoLungo": 25891300000
    },
    {
     "anno": 2018,
@@ -11386,7 +23988,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0338,
     "utileNetto": 2368000000,
     "ricavi": 37358000000,
-    "patrimonioNetto": 11291000000
+    "patrimonioNetto": 11291000000,
+    "crediti": 5004000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5868000000,
+    "ammortamento": 1927000000,
+    "speseSga": 3455000000,
+    "flussoCassaOperativo": 1822000000,
+    "attivoTotale": 70108000000,
+    "debitoLungo": 27237000000
    },
    {
     "anno": 2019,
@@ -11395,7 +24007,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0446,
     "utileNetto": 3253000000,
     "ricavi": 39258000000,
-    "patrimonioNetto": 11417000000
+    "patrimonioNetto": 11417000000,
+    "crediti": 5230000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 5973000000,
+    "ammortamento": 2019000000,
+    "speseSga": 3551000000,
+    "flussoCassaOperativo": 3412000000,
+    "attivoTotale": 73011000000,
+    "debitoLungo": 30229000000
    },
    {
     "anno": 2020,
@@ -11404,7 +24026,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0366,
     "utileNetto": 2751000000,
     "ricavi": 35540000000,
-    "patrimonioNetto": 12944000000
+    "patrimonioNetto": 12944000000,
+    "crediti": 4171000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2118000000,
+    "speseSga": 3477000000,
+    "flussoCassaOperativo": 7483000000,
+    "attivoTotale": 75091000000,
+    "debitoLungo": 32734000000
    },
    {
     "anno": 2021,
@@ -11413,7 +24045,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0709,
     "utileNetto": 5963000000,
     "ricavi": 44024000000,
-    "patrimonioNetto": 18434000000
+    "patrimonioNetto": 18434000000,
+    "crediti": 4208000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2050000000,
+    "speseSga": 3383000000,
+    "flussoCassaOperativo": 7726000000,
+    "attivoTotale": 84114000000,
+    "debitoLungo": 32888000000
    },
    {
     "anno": 2022,
@@ -11422,7 +24064,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0792,
     "utileNetto": 7131000000,
     "ricavi": 52577000000,
-    "patrimonioNetto": 20265000000
+    "patrimonioNetto": 20265000000,
+    "crediti": 6410000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 1895000000,
+    "speseSga": 3863000000,
+    "flussoCassaOperativo": 4699000000,
+    "attivoTotale": 90030000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -11431,7 +24083,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0977,
     "utileNetto": 10166000000,
     "ricavi": 61251000000,
-    "patrimonioNetto": 21789000000
+    "patrimonioNetto": 21789000000,
+    "crediti": 7739000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2004000000,
+    "speseSga": 4595000000,
+    "flussoCassaOperativo": 8589000000,
+    "attivoTotale": 104087000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -11440,7 +24102,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0662,
     "utileNetto": 7100000000,
     "ricavi": 51716000000,
-    "patrimonioNetto": 22836000000
+    "patrimonioNetto": 22836000000,
+    "crediti": 5326000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2118000000,
+    "speseSga": 4840000000,
+    "flussoCassaOperativo": 9231000000,
+    "attivoTotale": 107320000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -11449,7 +24121,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0474,
     "utileNetto": 5027000000,
     "ricavi": 45684000000,
-    "patrimonioNetto": 25950000000
+    "patrimonioNetto": 25950000000,
+    "crediti": 5317000000,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 2229000000,
+    "speseSga": 4663000000,
+    "flussoCassaOperativo": 7459000000,
+    "attivoTotale": 105996000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -11463,7 +24145,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 4096000000,
     "ricavi": 24462000000,
-    "patrimonioNetto": 12072000000
+    "patrimonioNetto": 12072000000,
+    "crediti": null,
+    "costoVenduto": 12735000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 5015000000,
+    "flussoCassaOperativo": 4246000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -11472,7 +24164,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1341,
     "utileNetto": 3460000000,
     "ricavi": 25269000000,
-    "patrimonioNetto": 10304000000
+    "patrimonioNetto": 10304000000,
+    "crediti": 3195000000,
+    "costoVenduto": 13379000000,
+    "attivoCorrente": 9598000000,
+    "passivoCorrente": 5839000000,
+    "immobilizzazioniNette": 6886000000,
+    "ammortamento": 1153000000,
+    "speseSga": 5245000000,
+    "flussoCassaOperativo": 4533000000,
+    "attivoTotale": 25793000000,
+    "debitoLungo": 5166000000
    },
    {
     "anno": 2009,
@@ -11481,7 +24183,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.119,
     "utileNetto": 3244000000,
     "ricavi": 23123000000,
-    "patrimonioNetto": 13302000000
+    "patrimonioNetto": 13302000000,
+    "crediti": 3250000000,
+    "costoVenduto": 12109000000,
+    "attivoCorrente": 10795000000,
+    "passivoCorrente": 4897000000,
+    "immobilizzazioniNette": 7000000000,
+    "ammortamento": 1157000000,
+    "speseSga": 4907000000,
+    "flussoCassaOperativo": 4941000000,
+    "attivoTotale": 27250000000,
+    "debitoLungo": 5097000000
    },
    {
     "anno": 2010,
@@ -11490,7 +24202,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1355,
     "utileNetto": 4085000000,
     "ricavi": 26662000000,
-    "patrimonioNetto": 16017000000
+    "patrimonioNetto": 16017000000,
+    "crediti": 3615000000,
+    "costoVenduto": 13831000000,
+    "attivoCorrente": 12215000000,
+    "passivoCorrente": 6089000000,
+    "immobilizzazioniNette": 7279000000,
+    "ammortamento": 1120000000,
+    "speseSga": 5479000000,
+    "flussoCassaOperativo": 5174000000,
+    "attivoTotale": 30156000000,
+    "debitoLungo": 4183000000
    },
    {
     "anno": 2011,
@@ -11499,7 +24221,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1355,
     "utileNetto": 4283000000,
     "ricavi": 29611000000,
-    "patrimonioNetto": 15862000000
+    "patrimonioNetto": 15862000000,
+    "crediti": 3867000000,
+    "costoVenduto": 15693000000,
+    "attivoCorrente": 12240000000,
+    "passivoCorrente": 5441000000,
+    "immobilizzazioniNette": 7666000000,
+    "ammortamento": 1236000000,
+    "speseSga": 6170000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 31616000000,
+    "debitoLungo": 4484000000
    },
    {
     "anno": 2012,
@@ -11508,7 +24240,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1312,
     "utileNetto": 4444000000,
     "ricavi": 29904000000,
-    "patrimonioNetto": 18040000000
+    "patrimonioNetto": 18040000000,
+    "crediti": 4061000000,
+    "costoVenduto": 15685000000,
+    "attivoCorrente": 13630000000,
+    "passivoCorrente": 6200000000,
+    "immobilizzazioniNette": 8378000000,
+    "ammortamento": 1288000000,
+    "speseSga": 6102000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 33876000000,
+    "debitoLungo": 4916000000
    },
    {
     "anno": 2013,
@@ -11517,7 +24259,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1399,
     "utileNetto": 4659000000,
     "ricavi": 30871000000,
-    "patrimonioNetto": 17669000000
+    "patrimonioNetto": 17669000000,
+    "crediti": 4253000000,
+    "costoVenduto": 16106000000,
+    "attivoCorrente": 12733000000,
+    "passivoCorrente": 7498000000,
+    "immobilizzazioniNette": 8652000000,
+    "ammortamento": 1371000000,
+    "speseSga": 6384000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 33304000000,
+    "debitoLungo": 4326000000
    },
    {
     "anno": 2014,
@@ -11526,7 +24278,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.158,
     "utileNetto": 4956000000,
     "ricavi": 31821000000,
-    "patrimonioNetto": 12863000000
+    "patrimonioNetto": 12863000000,
+    "crediti": 4238000000,
+    "costoVenduto": 16447000000,
+    "attivoCorrente": 12303000000,
+    "passivoCorrente": 5964000000,
+    "immobilizzazioniNette": 8489000000,
+    "ammortamento": 1408000000,
+    "speseSga": 6469000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 31374000000,
+    "debitoLungo": 6705000000
    },
    {
     "anno": 2015,
@@ -11535,7 +24297,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.147,
     "utileNetto": 4833000000,
     "ricavi": 30274000000,
-    "patrimonioNetto": 11468000000
+    "patrimonioNetto": 11468000000,
+    "crediti": 4154000000,
+    "costoVenduto": 15383000000,
+    "attivoCorrente": 10986000000,
+    "passivoCorrente": 7118000000,
+    "immobilizzazioniNette": 8515000000,
+    "ammortamento": 1435000000,
+    "speseSga": 6229000000,
+    "flussoCassaOperativo": 6420000000,
+    "attivoTotale": 32883000000,
+    "debitoLungo": 8753000000
    },
    {
     "anno": 2016,
@@ -11544,7 +24316,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1535,
     "utileNetto": 5050000000,
     "ricavi": 30109000000,
-    "patrimonioNetto": 10343000000
+    "patrimonioNetto": 10343000000,
+    "crediti": 4392000000,
+    "costoVenduto": 15118000000,
+    "attivoCorrente": 11726000000,
+    "passivoCorrente": 6219000000,
+    "immobilizzazioniNette": 8516000000,
+    "ammortamento": 1474000000,
+    "speseSga": 6311000000,
+    "flussoCassaOperativo": 6662000000,
+    "attivoTotale": 32906000000,
+    "debitoLungo": 10678000000
    },
    {
     "anno": 2017,
@@ -11553,7 +24335,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1279,
     "utileNetto": 4858000000,
     "ricavi": 31657000000,
-    "patrimonioNetto": 11622000000
+    "patrimonioNetto": 11622000000,
+    "crediti": 4911000000,
+    "costoVenduto": 16055000000,
+    "attivoCorrente": 14277000000,
+    "passivoCorrente": 7687000000,
+    "immobilizzazioniNette": 8866000000,
+    "ammortamento": 1544000000,
+    "speseSga": 6626000000,
+    "flussoCassaOperativo": 6240000000,
+    "attivoTotale": 37987000000,
+    "debitoLungo": 12096000000
    },
    {
     "anno": 2018,
@@ -11562,7 +24354,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1465,
     "utileNetto": 5349000000,
     "ricavi": 32765000000,
-    "patrimonioNetto": 9848000000
+    "patrimonioNetto": 9848000000,
+    "crediti": 5020000000,
+    "costoVenduto": 16682000000,
+    "attivoCorrente": 13709000000,
+    "passivoCorrente": 7244000000,
+    "immobilizzazioniNette": 8738000000,
+    "ammortamento": 1488000000,
+    "speseSga": 7602000000,
+    "flussoCassaOperativo": 6439000000,
+    "attivoTotale": 36500000000,
+    "debitoLungo": 13411000000
    },
    {
     "anno": 2019,
@@ -11571,7 +24373,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1011,
     "utileNetto": 4517000000,
     "ricavi": 32136000000,
-    "patrimonioNetto": 10126000000
+    "patrimonioNetto": 10126000000,
+    "crediti": 4791000000,
+    "costoVenduto": 17136000000,
+    "attivoCorrente": 12971000000,
+    "passivoCorrente": 9222000000,
+    "immobilizzazioniNette": 9333000000,
+    "ammortamento": 1593000000,
+    "speseSga": 7029000000,
+    "flussoCassaOperativo": 7070000000,
+    "attivoTotale": 44659000000,
+    "debitoLungo": 17518000000
    },
    {
     "anno": 2020,
@@ -11580,7 +24392,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1151,
     "utileNetto": 5449000000,
     "ricavi": 32184000000,
-    "patrimonioNetto": 12931000000
+    "patrimonioNetto": 12931000000,
+    "crediti": 4705000000,
+    "costoVenduto": 16605000000,
+    "attivoCorrente": 14982000000,
+    "passivoCorrente": 7948000000,
+    "immobilizzazioniNette": 9421000000,
+    "ammortamento": 1911000000,
+    "speseSga": 6929000000,
+    "flussoCassaOperativo": 8113000000,
+    "attivoTotale": 47344000000,
+    "debitoLungo": 17989000000
    },
    {
     "anno": 2021,
@@ -11589,7 +24411,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1258,
     "utileNetto": 5921000000,
     "ricavi": 35355000000,
-    "patrimonioNetto": 15117000000
+    "patrimonioNetto": 15117000000,
+    "crediti": 4660000000,
+    "costoVenduto": 18795000000,
+    "attivoCorrente": 15403000000,
+    "passivoCorrente": 9035000000,
+    "immobilizzazioniNette": 9429000000,
+    "ammortamento": 1915000000,
+    "speseSga": 7197000000,
+    "flussoCassaOperativo": 7454000000,
+    "attivoTotale": 47072000000,
+    "debitoLungo": 16056000000
    },
    {
     "anno": 2022,
@@ -11598,7 +24430,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1244,
     "utileNetto": 5777000000,
     "ricavi": 26161000000,
-    "patrimonioNetto": 14770000000
+    "patrimonioNetto": 14770000000,
+    "crediti": 4532000000,
+    "costoVenduto": 15853000000,
+    "attivoCorrente": 14688000000,
+    "passivoCorrente": 9523000000,
+    "immobilizzazioniNette": 9178000000,
+    "ammortamento": 1831000000,
+    "speseSga": 7232000000,
+    "flussoCassaOperativo": 5591000000,
+    "attivoTotale": 46455000000,
+    "debitoLungo": 14001000000
    },
    {
     "anno": 2023,
@@ -11607,7 +24449,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.1383,
     "utileNetto": -6995000000,
     "ricavi": 24610000000,
-    "patrimonioNetto": 4868000000
+    "patrimonioNetto": 4868000000,
+    "crediti": 3601000000,
+    "costoVenduto": 14983000000,
+    "attivoCorrente": 16379000000,
+    "passivoCorrente": 15297000000,
+    "immobilizzazioniNette": 7690000000,
+    "ammortamento": 1987000000,
+    "speseSga": 19198000000,
+    "flussoCassaOperativo": 6680000000,
+    "attivoTotale": 50580000000,
+    "debitoLungo": 13088000000
    },
    {
     "anno": 2024,
@@ -11616,7 +24468,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1047,
     "utileNetto": 4173000000,
     "ricavi": 24575000000,
-    "patrimonioNetto": 3842000000
+    "patrimonioNetto": 3842000000,
+    "crediti": 3194000000,
+    "costoVenduto": 14447000000,
+    "attivoCorrente": 15884000000,
+    "passivoCorrente": 11256000000,
+    "immobilizzazioniNette": 7388000000,
+    "ammortamento": 1363000000,
+    "speseSga": 4221000000,
+    "flussoCassaOperativo": 1819000000,
+    "attivoTotale": 39868000000,
+    "debitoLungo": 11125000000
    },
    {
     "anno": 2025,
@@ -11625,7 +24487,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0861,
     "utileNetto": 3250000000,
     "ricavi": 24948000000,
-    "patrimonioNetto": 4702000000
+    "patrimonioNetto": 4702000000,
+    "crediti": 3533000000,
+    "costoVenduto": 14991000000,
+    "attivoCorrente": 16387000000,
+    "passivoCorrente": 9595000000,
+    "immobilizzazioniNette": 7101000000,
+    "ammortamento": 1308000000,
+    "speseSga": 3997000000,
+    "flussoCassaOperativo": 2306000000,
+    "attivoTotale": 37733000000,
+    "debitoLungo": 10932000000
    }
   ]
  },
@@ -11639,7 +24511,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1146,
     "utileNetto": 2412000000,
     "ricavi": 23751000000,
-    "patrimonioNetto": 9301000000
+    "patrimonioNetto": 9301000000,
+    "crediti": 4618000000,
+    "costoVenduto": 14813000000,
+    "attivoCorrente": 9331000000,
+    "passivoCorrente": 6573000000,
+    "immobilizzazioniNette": 3507000000,
+    "ammortamento": 707000000,
+    "speseSga": 4915000000,
+    "flussoCassaOperativo": 3293000000,
+    "attivoTotale": 21040000000,
+    "debitoLungo": 3297000000
    },
    {
     "anno": 2009,
@@ -11648,7 +24530,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0872,
     "utileNetto": 1724000000,
     "ricavi": 20102000000,
-    "patrimonioNetto": 8706000000
+    "patrimonioNetto": 8706000000,
+    "crediti": 3623000000,
+    "costoVenduto": 12542000000,
+    "attivoCorrente": 7653000000,
+    "passivoCorrente": 4956000000,
+    "immobilizzazioniNette": 3500000000,
+    "ammortamento": 727000000,
+    "speseSga": 4416000000,
+    "flussoCassaOperativo": 3086000000,
+    "attivoTotale": 19763000000,
+    "debitoLungo": 3998000000
    },
    {
     "anno": 2010,
@@ -11657,7 +24549,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0947,
     "utileNetto": 2164000000,
     "ricavi": 21039000000,
-    "patrimonioNetto": 9952000000
+    "patrimonioNetto": 9952000000,
+    "crediti": 3989000000,
+    "costoVenduto": 12713000000,
+    "attivoCorrente": 8363000000,
+    "passivoCorrente": 5849000000,
+    "immobilizzazioniNette": 3287000000,
+    "ammortamento": 816000000,
+    "speseSga": 4817000000,
+    "flussoCassaOperativo": 3292000000,
+    "attivoTotale": 22843000000,
+    "debitoLungo": 4586000000
    },
    {
     "anno": 2011,
@@ -11666,7 +24568,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1039,
     "utileNetto": 2480000000,
     "ricavi": 24222000000,
-    "patrimonioNetto": 10551000000
+    "patrimonioNetto": 10551000000,
+    "crediti": 4502000000,
+    "costoVenduto": 14665000000,
+    "attivoCorrente": 9345000000,
+    "passivoCorrente": 6465000000,
+    "immobilizzazioniNette": 3437000000,
+    "ammortamento": 867000000,
+    "speseSga": 5328000000,
+    "flussoCassaOperativo": 3233000000,
+    "attivoTotale": 23861000000,
+    "debitoLungo": 4324000000
    },
    {
     "anno": 2012,
@@ -11675,7 +24587,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0826,
     "utileNetto": 1968000000,
     "ricavi": 24412000000,
-    "patrimonioNetto": 10295000000
+    "patrimonioNetto": 10295000000,
+    "crediti": 4983000000,
+    "costoVenduto": 14644000000,
+    "attivoCorrente": 10126000000,
+    "passivoCorrente": 7133000000,
+    "immobilizzazioniNette": 3509000000,
+    "ammortamento": 823000000,
+    "speseSga": 5436000000,
+    "flussoCassaOperativo": 3053000000,
+    "attivoTotale": 23818000000,
+    "debitoLungo": 3787000000
    },
    {
     "anno": 2013,
@@ -11684,7 +24606,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0811,
     "utileNetto": 2004000000,
     "ricavi": 24669000000,
-    "patrimonioNetto": 10585000000
+    "patrimonioNetto": 10585000000,
+    "crediti": 4808000000,
+    "costoVenduto": 14717000000,
+    "attivoCorrente": 10999000000,
+    "passivoCorrente": 7625000000,
+    "immobilizzazioniNette": 3605000000,
+    "ammortamento": 819000000,
+    "speseSga": 5648000000,
+    "flussoCassaOperativo": 3649000000,
+    "attivoTotale": 24711000000,
+    "debitoLungo": 4055000000
    },
    {
     "anno": 2014,
@@ -11693,7 +24625,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0888,
     "utileNetto": 2147000000,
     "ricavi": 17733000000,
-    "patrimonioNetto": 10119000000
+    "patrimonioNetto": 10119000000,
+    "crediti": 5019000000,
+    "costoVenduto": 9971000000,
+    "attivoCorrente": 10867000000,
+    "passivoCorrente": 8454000000,
+    "immobilizzazioniNette": 3802000000,
+    "ammortamento": 569000000,
+    "speseSga": 4164000000,
+    "flussoCassaOperativo": 3692000000,
+    "attivoTotale": 24177000000,
+    "debitoLungo": 3559000000
    },
    {
     "anno": 2015,
@@ -11702,7 +24644,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1227,
     "utileNetto": 2710000000,
     "ricavi": 16249000000,
-    "patrimonioNetto": 8081000000
+    "patrimonioNetto": 8081000000,
+    "crediti": 2870000000,
+    "costoVenduto": 9241000000,
+    "attivoCorrente": 10049000000,
+    "passivoCorrente": 7800000000,
+    "immobilizzazioniNette": 2929000000,
+    "ammortamento": 573000000,
+    "speseSga": 3735000000,
+    "flussoCassaOperativo": 2529000000,
+    "attivoTotale": 22088000000,
+    "debitoLungo": 4289000000
    },
    {
     "anno": 2016,
@@ -11711,7 +24663,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0752,
     "utileNetto": 1635000000,
     "ricavi": 14522000000,
-    "patrimonioNetto": 7568000000
+    "patrimonioNetto": 7568000000,
+    "crediti": 2701000000,
+    "costoVenduto": 8260000000,
+    "attivoCorrente": 9960000000,
+    "passivoCorrente": 8008000000,
+    "immobilizzazioniNette": 2931000000,
+    "ammortamento": 568000000,
+    "speseSga": 3464000000,
+    "flussoCassaOperativo": 2881000000,
+    "attivoTotale": 21732000000,
+    "debitoLungo": 4051000000
    },
    {
     "anno": 2017,
@@ -11720,7 +24682,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0775,
     "utileNetto": 1518000000,
     "ricavi": 15264000000,
-    "patrimonioNetto": 8718000000
+    "patrimonioNetto": 8718000000,
+    "crediti": 3072000000,
+    "costoVenduto": 8833000000,
+    "attivoCorrente": 8252000000,
+    "passivoCorrente": 5045000000,
+    "immobilizzazioniNette": 3321000000,
+    "ammortamento": 636000000,
+    "speseSga": 3607000000,
+    "flussoCassaOperativo": 1912000000,
+    "attivoTotale": 19589000000,
+    "debitoLungo": 3794000000
    },
    {
     "anno": 2018,
@@ -11729,7 +24701,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.108,
     "utileNetto": 2203000000,
     "ricavi": 17408000000,
-    "patrimonioNetto": 8947000000
+    "patrimonioNetto": 8947000000,
+    "crediti": 3023000000,
+    "costoVenduto": 9976000000,
+    "attivoCorrente": 6619000000,
+    "passivoCorrente": 6164000000,
+    "immobilizzazioniNette": 3562000000,
+    "ammortamento": 758000000,
+    "speseSga": 4269000000,
+    "flussoCassaOperativo": 2892000000,
+    "attivoTotale": 20390000000,
+    "debitoLungo": 3137000000
    },
    {
     "anno": 2019,
@@ -11738,7 +24720,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1125,
     "utileNetto": 2306000000,
     "ricavi": 18372000000,
-    "patrimonioNetto": 8233000000
+    "patrimonioNetto": 8233000000,
+    "crediti": 2985000000,
+    "costoVenduto": 10557000000,
+    "attivoCorrente": 7139000000,
+    "passivoCorrente": 5976000000,
+    "immobilizzazioniNette": 3642000000,
+    "ammortamento": 822000000,
+    "speseSga": 4457000000,
+    "flussoCassaOperativo": 3006000000,
+    "attivoTotale": 20497000000,
+    "debitoLungo": 4277000000
    },
    {
     "anno": 2020,
@@ -11747,7 +24739,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0859,
     "utileNetto": 1965000000,
     "ricavi": 16785000000,
-    "patrimonioNetto": 8405000000
+    "patrimonioNetto": 8405000000,
+    "crediti": 2802000000,
+    "costoVenduto": 9776000000,
+    "attivoCorrente": 8806000000,
+    "passivoCorrente": 5785000000,
+    "immobilizzazioniNette": 3688000000,
+    "ammortamento": 854000000,
+    "speseSga": 3986000000,
+    "flussoCassaOperativo": 3083000000,
+    "attivoTotale": 22882000000,
+    "debitoLungo": 6326000000
    },
    {
     "anno": 2021,
@@ -11756,7 +24758,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0932,
     "utileNetto": 2303000000,
     "ricavi": 12932000000,
-    "patrimonioNetto": 9923000000
+    "patrimonioNetto": 9923000000,
+    "crediti": 2971000000,
+    "costoVenduto": 7202000000,
+    "attivoCorrente": 8432000000,
+    "passivoCorrente": 6246000000,
+    "immobilizzazioniNette": 3738000000,
+    "ammortamento": 762000000,
+    "speseSga": 3494000000,
+    "flussoCassaOperativo": 3575000000,
+    "attivoTotale": 24715000000,
+    "debitoLungo": 5793000000
    },
    {
     "anno": 2022,
@@ -11765,7 +24777,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0906,
     "utileNetto": 3231000000,
     "ricavi": 13804000000,
-    "patrimonioNetto": 16316000000
+    "patrimonioNetto": 16316000000,
+    "crediti": 2261000000,
+    "costoVenduto": 7498000000,
+    "attivoCorrente": 8506000000,
+    "passivoCorrente": 7777000000,
+    "immobilizzazioniNette": 2239000000,
+    "ammortamento": 842000000,
+    "speseSga": 3614000000,
+    "flussoCassaOperativo": 2922000000,
+    "attivoTotale": 35672000000,
+    "debitoLungo": 8259000000
    },
    {
     "anno": 2023,
@@ -11774,7 +24796,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.3092,
     "utileNetto": 13219000000,
     "ricavi": 15165000000,
-    "patrimonioNetto": 26598000000
+    "patrimonioNetto": 26598000000,
+    "crediti": 2518000000,
+    "costoVenduto": 7738000000,
+    "attivoCorrente": 13819000000,
+    "passivoCorrente": 5032000000,
+    "immobilizzazioniNette": 2363000000,
+    "ammortamento": 1051000000,
+    "speseSga": 4186000000,
+    "flussoCassaOperativo": 637000000,
+    "attivoTotale": 42746000000,
+    "debitoLungo": 7610000000
    },
    {
     "anno": 2024,
@@ -11783,7 +24815,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0445,
     "utileNetto": 1968000000,
     "ricavi": 17492000000,
-    "patrimonioNetto": 21636000000
+    "patrimonioNetto": 21636000000,
+    "crediti": 2927000000,
+    "costoVenduto": 8607000000,
+    "attivoCorrente": 10192000000,
+    "passivoCorrente": 5742000000,
+    "immobilizzazioniNette": 2807000000,
+    "ammortamento": 1689000000,
+    "speseSga": 5142000000,
+    "flussoCassaOperativo": 3332000000,
+    "attivoTotale": 44246000000,
+    "debitoLungo": 7155000000
    },
    {
     "anno": 2025,
@@ -11792,7 +24834,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0546,
     "utileNetto": 2293000000,
     "ricavi": 18016000000,
-    "patrimonioNetto": 20282000000
+    "patrimonioNetto": 20282000000,
+    "crediti": 3101000000,
+    "costoVenduto": 8497000000,
+    "attivoCorrente": 8583000000,
+    "passivoCorrente": 9797000000,
+    "immobilizzazioniNette": 2871000000,
+    "ammortamento": 1518000000,
+    "speseSga": 5103000000,
+    "flussoCassaOperativo": 3098000000,
+    "attivoTotale": 41964000000,
+    "debitoLungo": 8319000000
    }
   ]
  },
@@ -11806,7 +24858,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": -55740000,
     "ricavi": 111943000,
-    "patrimonioNetto": -253523000
+    "patrimonioNetto": -253523000,
+    "crediti": null,
+    "costoVenduto": 102408000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 42150000,
+    "flussoCassaOperativo": -80825000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -11815,7 +24877,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.3997,
     "utileNetto": -154328000,
     "ricavi": 116744000,
-    "patrimonioNetto": 207048000
+    "patrimonioNetto": 207048000,
+    "crediti": 6710000,
+    "costoVenduto": 86013000,
+    "attivoCorrente": 235886000,
+    "passivoCorrente": 85565000,
+    "immobilizzazioniNette": 114636000,
+    "ammortamento": 10000000,
+    "speseSga": 84573000,
+    "flussoCassaOperativo": -127817000,
+    "attivoTotale": 386082000,
+    "debitoLungo": 71828000
    },
    {
     "anno": 2011,
@@ -11824,7 +24896,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.3566,
     "utileNetto": -254411000,
     "ricavi": 204242000,
-    "patrimonioNetto": 224045000
+    "patrimonioNetto": 224045000,
+    "crediti": 9539000,
+    "costoVenduto": 142647000,
+    "attivoCorrente": 372838000,
+    "passivoCorrente": 191339000,
+    "immobilizzazioniNette": 298414000,
+    "ammortamento": 14600000,
+    "speseSga": 104102000,
+    "flussoCassaOperativo": -128034000,
+    "attivoTotale": 713448000,
+    "debitoLungo": 268335000
    },
    {
     "anno": 2012,
@@ -11833,7 +24915,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.3556,
     "utileNetto": -396213000,
     "ricavi": 413256000,
-    "patrimonioNetto": 124700000
+    "patrimonioNetto": 124700000,
+    "crediti": 26842000,
+    "costoVenduto": 383189000,
+    "attivoCorrente": 524768000,
+    "passivoCorrente": 539108000,
+    "immobilizzazioniNette": 552229000,
+    "ammortamento": 25300000,
+    "speseSga": 150372000,
+    "flussoCassaOperativo": -266081000,
+    "attivoTotale": 1114190000,
+    "debitoLungo": 401495000
    },
    {
     "anno": 2013,
@@ -11842,7 +24934,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0306,
     "utileNetto": -74014000,
     "ricavi": 2013496000,
-    "patrimonioNetto": 667120000
+    "patrimonioNetto": 667120000,
+    "crediti": 49109000,
+    "costoVenduto": 1557234000,
+    "attivoCorrente": 1265939000,
+    "passivoCorrente": 675160000,
+    "immobilizzazioniNette": 738494000,
+    "ammortamento": 83900000,
+    "speseSga": 285569000,
+    "flussoCassaOperativo": 257994000,
+    "attivoTotale": 2416930000,
+    "debitoLungo": 0
    },
    {
     "anno": 2014,
@@ -11851,7 +24953,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0504,
     "utileNetto": -294040000,
     "ricavi": 3198356000,
-    "patrimonioNetto": 911710000
+    "patrimonioNetto": 911710000,
+    "crediti": 226604000,
+    "costoVenduto": 2316685000,
+    "attivoCorrente": 3180073000,
+    "passivoCorrente": 2107166000,
+    "immobilizzazioniNette": 1829267000,
+    "ammortamento": 155900000,
+    "speseSga": 603660000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 5830667000,
+    "debitoLungo": 2959795000
    },
    {
     "anno": 2015,
@@ -11860,7 +24972,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.1101,
     "utileNetto": -888663000,
     "ricavi": 4046025000,
-    "patrimonioNetto": 1083704000
+    "patrimonioNetto": 1083704000,
+    "crediti": 168965000,
+    "costoVenduto": 3122522000,
+    "attivoCorrente": 2782006000,
+    "passivoCorrente": 2811035000,
+    "immobilizzazioniNette": 3403334000,
+    "ammortamento": 278700000,
+    "speseSga": 922232000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 8067939000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -11869,7 +24991,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0298,
     "utileNetto": -674914000,
     "ricavi": 7000132000,
-    "patrimonioNetto": 5538000000
+    "patrimonioNetto": 5538000000,
+    "crediti": 499142000,
+    "costoVenduto": 5400875000,
+    "attivoCorrente": 6259796000,
+    "passivoCorrente": 5827005000,
+    "immobilizzazioniNette": 5982957000,
+    "ammortamento": 477300000,
+    "speseSga": 1432189000,
+    "flussoCassaOperativo": -123829000,
+    "attivoTotale": 22664076000,
+    "debitoLungo": 5892016000
    },
    {
     "anno": 2017,
@@ -11878,7 +25010,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0685,
     "utileNetto": -1962000000,
     "ricavi": 11759000000,
-    "patrimonioNetto": 5234000000
+    "patrimonioNetto": 5234000000,
+    "crediti": 515381000,
+    "costoVenduto": 9536000000,
+    "attivoCorrente": 6570520000,
+    "passivoCorrente": 7674670000,
+    "immobilizzazioniNette": 10027522000,
+    "ammortamento": 769000000,
+    "speseSga": 2477000000,
+    "flussoCassaOperativo": -61000000,
+    "attivoTotale": 28655372000,
+    "debitoLungo": 8828985000
    },
    {
     "anno": 2018,
@@ -11887,7 +25029,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0328,
     "utileNetto": -976000000,
     "ricavi": 21461000000,
-    "patrimonioNetto": 5757000000
+    "patrimonioNetto": 5757000000,
+    "crediti": 949000000,
+    "costoVenduto": 17419000000,
+    "attivoCorrente": 8307000000,
+    "passivoCorrente": 9993000000,
+    "immobilizzazioniNette": 11330000000,
+    "ammortamento": 1110000000,
+    "speseSga": 2835000000,
+    "flussoCassaOperativo": 2098000000,
+    "attivoTotale": 29740000000,
+    "debitoLungo": 8411000000
    },
    {
     "anno": 2019,
@@ -11896,7 +25048,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0251,
     "utileNetto": -862000000,
     "ricavi": 24578000000,
-    "patrimonioNetto": 7467000000
+    "patrimonioNetto": 7467000000,
+    "crediti": 1324000000,
+    "costoVenduto": 20509000000,
+    "attivoCorrente": 12103000000,
+    "passivoCorrente": 10667000000,
+    "immobilizzazioniNette": 10396000000,
+    "ammortamento": 1370000000,
+    "speseSga": 2646000000,
+    "flussoCassaOperativo": 2405000000,
+    "attivoTotale": 34309000000,
+    "debitoLungo": 10402000000
    },
    {
     "anno": 2020,
@@ -11905,7 +25067,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0138,
     "utileNetto": 721000000,
     "ricavi": 31536000000,
-    "patrimonioNetto": 23075000000
+    "patrimonioNetto": 23075000000,
+    "crediti": 1886000000,
+    "costoVenduto": 24906000000,
+    "attivoCorrente": 26717000000,
+    "passivoCorrente": 14248000000,
+    "immobilizzazioniNette": 12747000000,
+    "ammortamento": 1570000000,
+    "speseSga": 3145000000,
+    "flussoCassaOperativo": 5943000000,
+    "attivoTotale": 52148000000,
+    "debitoLungo": 8462000000
    },
    {
     "anno": 2021,
@@ -11914,7 +25086,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0888,
     "utileNetto": 5519000000,
     "ricavi": 53823000000,
-    "patrimonioNetto": 31015000000
+    "patrimonioNetto": 31015000000,
+    "crediti": 1913000000,
+    "costoVenduto": 40217000000,
+    "attivoCorrente": 27100000000,
+    "passivoCorrente": 19705000000,
+    "immobilizzazioniNette": 12702000000,
+    "ammortamento": 1910000000,
+    "speseSga": 4517000000,
+    "flussoCassaOperativo": 11497000000,
+    "attivoTotale": 62131000000,
+    "debitoLungo": 4254000000
    },
    {
     "anno": 2022,
@@ -11923,7 +25105,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1525,
     "utileNetto": 12556000000,
     "ricavi": 81462000000,
-    "patrimonioNetto": 45489000000
+    "patrimonioNetto": 45489000000,
+    "crediti": 2952000000,
+    "costoVenduto": 60609000000,
+    "attivoCorrente": 40917000000,
+    "passivoCorrente": 26709000000,
+    "immobilizzazioniNette": 23548000000,
+    "ammortamento": 2420000000,
+    "speseSga": 3946000000,
+    "flussoCassaOperativo": 14724000000,
+    "attivoTotale": 82338000000,
+    "debitoLungo": 1029000000
    },
    {
     "anno": 2023,
@@ -11932,7 +25124,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1407,
     "utileNetto": 14997000000,
     "ricavi": 96773000000,
-    "patrimonioNetto": 63367000000
+    "patrimonioNetto": 63367000000,
+    "crediti": 3508000000,
+    "costoVenduto": 79113000000,
+    "attivoCorrente": 49616000000,
+    "passivoCorrente": 28748000000,
+    "immobilizzazioniNette": 29725000000,
+    "ammortamento": 3330000000,
+    "speseSga": 4800000000,
+    "flussoCassaOperativo": 13256000000,
+    "attivoTotale": 106618000000,
+    "debitoLungo": 2682000000
    },
    {
     "anno": 2024,
@@ -11941,7 +25143,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0581,
     "utileNetto": 7091000000,
     "ricavi": 97690000000,
-    "patrimonioNetto": 72913000000
+    "patrimonioNetto": 72913000000,
+    "crediti": 4418000000,
+    "costoVenduto": 80240000000,
+    "attivoCorrente": 58360000000,
+    "passivoCorrente": 28821000000,
+    "immobilizzazioniNette": 35836000000,
+    "ammortamento": 4120000000,
+    "speseSga": 5150000000,
+    "flussoCassaOperativo": 14923000000,
+    "attivoTotale": 122070000000,
+    "debitoLungo": 5535000000
    },
    {
     "anno": 2025,
@@ -11950,7 +25162,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0275,
     "utileNetto": 3794000000,
     "ricavi": 94827000000,
-    "patrimonioNetto": 82137000000
+    "patrimonioNetto": 82137000000,
+    "crediti": 4576000000,
+    "costoVenduto": 77733000000,
+    "attivoCorrente": 68642000000,
+    "passivoCorrente": 31714000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 5030000000,
+    "speseSga": 5834000000,
+    "flussoCassaOperativo": 14747000000,
+    "attivoTotale": 137806000000,
+    "debitoLungo": 6584000000
    }
   ]
  },
@@ -11964,7 +25186,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": -2795000000,
     "ricavi": 170572000000,
-    "patrimonioNetto": 7771000000
+    "patrimonioNetto": 7771000000,
+    "crediti": null,
+    "costoVenduto": 142587000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 21169000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -11973,7 +25205,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0676,
     "utileNetto": -14766000000,
     "ricavi": 143584000000,
-    "patrimonioNetto": -15371000000
+    "patrimonioNetto": -15371000000,
+    "crediti": null,
+    "costoVenduto": 126620000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 24143000000,
+    "ammortamento": null,
+    "speseSga": 21065000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 218298000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -11982,7 +25224,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0141,
     "utileNetto": 2717000000,
     "ricavi": 116283000000,
-    "patrimonioNetto": -7820000000
+    "patrimonioNetto": -7820000000,
+    "crediti": null,
+    "costoVenduto": 98866000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 22637000000,
+    "ammortamento": 7667000000,
+    "speseSga": 13029000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 192040000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -11991,7 +25243,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0398,
     "utileNetto": 6561000000,
     "ricavi": 128954000000,
-    "patrimonioNetto": -673000000
+    "patrimonioNetto": -673000000,
+    "crediti": null,
+    "costoVenduto": 104451000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 23179000000,
+    "ammortamento": 5900000000,
+    "speseSga": 11909000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 164687000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -12000,7 +25262,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1139,
     "utileNetto": 20213000000,
     "ricavi": 135605000000,
-    "patrimonioNetto": 14778000000
+    "patrimonioNetto": 14778000000,
+    "crediti": null,
+    "costoVenduto": 113611000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 22371000000,
+    "ammortamento": 4717000000,
+    "speseSga": 10884000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 177386000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -12009,7 +25281,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0296,
     "utileNetto": 5613000000,
     "ricavi": 133559000000,
-    "patrimonioNetto": 15882000000
+    "patrimonioNetto": 15882000000,
+    "crediti": null,
+    "costoVenduto": 113039000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 24942000000,
+    "ammortamento": 5486000000,
+    "speseSga": 11529000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 189571000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -12018,7 +25300,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0591,
     "utileNetto": 11953000000,
     "ricavi": 146917000000,
-    "patrimonioNetto": 26173000000
+    "patrimonioNetto": 26173000000,
+    "crediti": null,
+    "costoVenduto": 120190000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 27616000000,
+    "ammortamento": 6504000000,
+    "speseSga": 10850000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 202204000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -12027,7 +25319,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0059,
     "utileNetto": 1230000000,
     "ricavi": 144077000000,
-    "patrimonioNetto": 24465000000
+    "patrimonioNetto": 24465000000,
+    "crediti": null,
+    "costoVenduto": 125025000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": 30126000000,
+    "ammortamento": 2127000000,
+    "speseSga": 11842000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 208615000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -12036,7 +25338,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0328,
     "utileNetto": 7371000000,
     "ricavi": 149558000000,
-    "patrimonioNetto": 29223000000
+    "patrimonioNetto": 29223000000,
+    "crediti": 11042000000,
+    "costoVenduto": 124446000000,
+    "attivoCorrente": 102587000000,
+    "passivoCorrente": 82336000000,
+    "immobilizzazioniNette": 30163000000,
+    "ammortamento": 2049000000,
+    "speseSga": 10763000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 224925000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -12045,7 +25357,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0193,
     "utileNetto": 4600000000,
     "ricavi": 151800000000,
-    "patrimonioNetto": 29746000000
+    "patrimonioNetto": 29746000000,
+    "crediti": 11102000000,
+    "costoVenduto": 126195000000,
+    "attivoCorrente": 108461000000,
+    "passivoCorrente": 90281000000,
+    "immobilizzazioniNette": 32072000000,
+    "ammortamento": 2130000000,
+    "speseSga": 10972000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 238510000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -12054,7 +25376,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.03,
     "utileNetto": 7757000000,
     "ricavi": 156776000000,
-    "patrimonioNetto": 35606000000
+    "patrimonioNetto": 35606000000,
+    "crediti": 10599000000,
+    "costoVenduto": 131321000000,
+    "attivoCorrente": 116801000000,
+    "passivoCorrente": 94600000000,
+    "immobilizzazioniNette": 35327000000,
+    "ammortamento": 9241000000,
+    "speseSga": 11527000000,
+    "flussoCassaOperativo": 18096000000,
+    "attivoTotale": 258496000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -12063,7 +25395,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0144,
     "utileNetto": 3695000000,
     "ricavi": 160338000000,
-    "patrimonioNetto": 35966000000
+    "patrimonioNetto": 35966000000,
+    "crediti": 11195000000,
+    "costoVenduto": 136269000000,
+    "attivoCorrente": 114649000000,
+    "passivoCorrente": 95569000000,
+    "immobilizzazioniNette": 36178000000,
+    "ammortamento": 9385000000,
+    "speseSga": 11403000000,
+    "flussoCassaOperativo": 15022000000,
+    "attivoTotale": 256540000000,
+    "debitoLungo": 600000000
    },
    {
     "anno": 2019,
@@ -12072,7 +25414,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0003,
     "utileNetto": 84000000,
     "ricavi": 155900000000,
-    "patrimonioNetto": 33230000000
+    "patrimonioNetto": 33230000000,
+    "crediti": 9237000000,
+    "costoVenduto": 134693000000,
+    "attivoCorrente": 114047000000,
+    "passivoCorrente": 98132000000,
+    "immobilizzazioniNette": 36469000000,
+    "ammortamento": 10493000000,
+    "speseSga": 11161000000,
+    "flussoCassaOperativo": 17639000000,
+    "attivoTotale": 258537000000,
+    "debitoLungo": 470000000
    },
    {
     "anno": 2020,
@@ -12081,7 +25433,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0048,
     "utileNetto": -1276000000,
     "ricavi": 127144000000,
-    "patrimonioNetto": 30690000000
+    "patrimonioNetto": 30690000000,
+    "crediti": 9993000000,
+    "costoVenduto": 112752000000,
+    "attivoCorrente": 116744000000,
+    "passivoCorrente": 97192000000,
+    "immobilizzazioniNette": 37083000000,
+    "ammortamento": 8774000000,
+    "speseSga": 10193000000,
+    "flussoCassaOperativo": 24269000000,
+    "attivoTotale": 267261000000,
+    "debitoLungo": 291000000
    },
    {
     "anno": 2021,
@@ -12090,7 +25452,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0698,
     "utileNetto": 17937000000,
     "ricavi": 136341000000,
-    "patrimonioNetto": 48519000000
+    "patrimonioNetto": 48519000000,
+    "crediti": 11370000000,
+    "costoVenduto": 114651000000,
+    "attivoCorrente": 108996000000,
+    "passivoCorrente": 90727000000,
+    "immobilizzazioniNette": 37139000000,
+    "ammortamento": 7318000000,
+    "speseSga": 11915000000,
+    "flussoCassaOperativo": 15787000000,
+    "attivoTotale": 257035000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -12099,7 +25471,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0077,
     "utileNetto": -1981000000,
     "ricavi": 158057000000,
-    "patrimonioNetto": 43167000000
+    "patrimonioNetto": 43167000000,
+    "crediti": 15729000000,
+    "costoVenduto": 134397000000,
+    "attivoCorrente": 116476000000,
+    "passivoCorrente": 96866000000,
+    "immobilizzazioniNette": 37265000000,
+    "ammortamento": 7674000000,
+    "speseSga": 10888000000,
+    "flussoCassaOperativo": 6853000000,
+    "attivoTotale": 255884000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -12108,7 +25490,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0158,
     "utileNetto": 4329000000,
     "ricavi": 176191000000,
-    "patrimonioNetto": 42798000000
+    "patrimonioNetto": 42798000000,
+    "crediti": 15601000000,
+    "costoVenduto": 150550000000,
+    "attivoCorrente": 121481000000,
+    "passivoCorrente": 101531000000,
+    "immobilizzazioniNette": 40821000000,
+    "ammortamento": 7690000000,
+    "speseSga": 10702000000,
+    "flussoCassaOperativo": 14918000000,
+    "attivoTotale": 273310000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -12117,7 +25509,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0207,
     "utileNetto": 5894000000,
     "ricavi": 184992000000,
-    "patrimonioNetto": 44835000000
+    "patrimonioNetto": 44835000000,
+    "crediti": 14723000000,
+    "costoVenduto": 158434000000,
+    "attivoCorrente": 124474000000,
+    "passivoCorrente": 106859000000,
+    "immobilizzazioniNette": 41928000000,
+    "ammortamento": 7567000000,
+    "speseSga": 10287000000,
+    "flussoCassaOperativo": 15423000000,
+    "attivoTotale": 285196000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -12126,7 +25528,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0282,
     "utileNetto": -8162000000,
     "ricavi": 187267000000,
-    "patrimonioNetto": 35952000000
+    "patrimonioNetto": 35952000000,
+    "crediti": 15398000000,
+    "costoVenduto": 174466000000,
+    "attivoCorrente": 123487000000,
+    "passivoCorrente": 114890000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 15974000000,
+    "speseSga": 10849000000,
+    "flussoCassaOperativo": 21282000000,
+    "attivoTotale": 289160000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -12140,7 +25552,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0444,
     "utileNetto": 6172000000,
     "ricavi": 135592000000,
-    "patrimonioNetto": 37159000000
+    "patrimonioNetto": 37159000000,
+    "crediti": null,
+    "costoVenduto": 118768000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6780000000,
+    "attivoTotale": 138898000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -12149,7 +25571,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0636,
     "utileNetto": 9190000000,
     "ricavi": 150276000000,
-    "patrimonioNetto": 38991000000
+    "patrimonioNetto": 38991000000,
+    "crediti": null,
+    "costoVenduto": 130386000000,
+    "attivoCorrente": 64923000000,
+    "passivoCorrente": 53226000000,
+    "immobilizzazioniNette": 23005000000,
+    "ammortamento": null,
+    "speseSga": 12163000000,
+    "flussoCassaOperativo": 8166000000,
+    "attivoTotale": 144603000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -12158,7 +25590,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0414,
     "utileNetto": 6188000000,
     "ricavi": 152256000000,
-    "patrimonioNetto": 37000000000
+    "patrimonioNetto": 37000000000,
+    "crediti": null,
+    "costoVenduto": 140236000000,
+    "attivoCorrente": 69996000000,
+    "passivoCorrente": 53992000000,
+    "immobilizzazioniNette": 24196000000,
+    "ammortamento": null,
+    "speseSga": 14031000000,
+    "flussoCassaOperativo": 10605000000,
+    "attivoTotale": 149422000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -12167,7 +25609,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0322,
     "utileNetto": 5346000000,
     "ricavi": 155427000000,
-    "patrimonioNetto": 43174000000
+    "patrimonioNetto": 43174000000,
+    "crediti": null,
+    "costoVenduto": 134925000000,
+    "attivoCorrente": 81501000000,
+    "passivoCorrente": 62412000000,
+    "immobilizzazioniNette": 25867000000,
+    "ammortamento": null,
+    "speseSga": 12382000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 166231000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -12176,7 +25628,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0223,
     "utileNetto": 3949000000,
     "ricavi": 155929000000,
-    "patrimonioNetto": 36024000000
+    "patrimonioNetto": 36024000000,
+    "crediti": null,
+    "costoVenduto": 138082000000,
+    "attivoCorrente": 83626000000,
+    "passivoCorrente": 65657000000,
+    "immobilizzazioniNette": 27743000000,
+    "ammortamento": null,
+    "speseSga": 12158000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 177311000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -12185,7 +25647,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0498,
     "utileNetto": 9687000000,
     "ricavi": 135725000000,
-    "patrimonioNetto": 40323000000
+    "patrimonioNetto": 40323000000,
+    "crediti": null,
+    "costoVenduto": 112995000000,
+    "attivoCorrente": 69408000000,
+    "passivoCorrente": 71217000000,
+    "immobilizzazioniNette": 31229000000,
+    "ammortamento": 6753000000,
+    "speseSga": 11888000000,
+    "flussoCassaOperativo": 11769000000,
+    "attivoTotale": 194338000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -12194,7 +25666,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0425,
     "utileNetto": 9427000000,
     "ricavi": 149184000000,
-    "patrimonioNetto": 44075000000
+    "patrimonioNetto": 44075000000,
+    "crediti": null,
+    "costoVenduto": 121784000000,
+    "attivoCorrente": 76203000000,
+    "passivoCorrente": 85181000000,
+    "immobilizzazioniNette": 32603000000,
+    "ammortamento": 9686000000,
+    "speseSga": 10345000000,
+    "flussoCassaOperativo": 16607000000,
+    "attivoTotale": 221690000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -12203,7 +25685,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0182,
     "utileNetto": -3864000000,
     "ricavi": 145588000000,
-    "patrimonioNetto": 36200000000
+    "patrimonioNetto": 36200000000,
+    "crediti": null,
+    "costoVenduto": 116229000000,
+    "attivoCorrente": 68744000000,
+    "passivoCorrente": 76890000000,
+    "immobilizzazioniNette": 36253000000,
+    "ammortamento": 11967000000,
+    "speseSga": 9570000000,
+    "flussoCassaOperativo": 17328000000,
+    "attivoTotale": 212482000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -12212,7 +25704,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0353,
     "utileNetto": 8014000000,
     "ricavi": 147049000000,
-    "patrimonioNetto": 42777000000
+    "patrimonioNetto": 42777000000,
+    "crediti": null,
+    "costoVenduto": 120656000000,
+    "attivoCorrente": 75293000000,
+    "passivoCorrente": 82237000000,
+    "immobilizzazioniNette": 38758000000,
+    "ammortamento": 13142000000,
+    "speseSga": 9650000000,
+    "flussoCassaOperativo": 15256000000,
+    "attivoTotale": 227339000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -12221,7 +25723,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0295,
     "utileNetto": 6732000000,
     "ricavi": 137237000000,
-    "patrimonioNetto": 45957000000
+    "patrimonioNetto": 45957000000,
+    "crediti": 6797000000,
+    "costoVenduto": 110651000000,
+    "attivoCorrente": 74992000000,
+    "passivoCorrente": 84905000000,
+    "immobilizzazioniNette": 38750000000,
+    "ammortamento": 14060000000,
+    "speseSga": 8491000000,
+    "flussoCassaOperativo": 15021000000,
+    "attivoTotale": 228037000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -12230,7 +25742,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0273,
     "utileNetto": 6427000000,
     "ricavi": 122485000000,
-    "patrimonioNetto": 49677000000
+    "patrimonioNetto": 49677000000,
+    "crediti": 8035000000,
+    "costoVenduto": 97539000000,
+    "attivoCorrente": 80924000000,
+    "passivoCorrente": 79910000000,
+    "immobilizzazioniNette": 37632000000,
+    "ammortamento": 12676000000,
+    "speseSga": 7038000000,
+    "flussoCassaOperativo": 16670000000,
+    "attivoTotale": 235194000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -12239,7 +25761,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0409,
     "utileNetto": 10019000000,
     "ricavi": 127004000000,
-    "patrimonioNetto": 65815000000
+    "patrimonioNetto": 65815000000,
+    "crediti": 7394000000,
+    "costoVenduto": 100544000000,
+    "attivoCorrente": 82103000000,
+    "passivoCorrente": 74408000000,
+    "immobilizzazioniNette": 41115000000,
+    "ammortamento": 12047000000,
+    "speseSga": 8554000000,
+    "flussoCassaOperativo": 15188000000,
+    "attivoTotale": 244718000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -12248,7 +25780,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0376,
     "utileNetto": 9934000000,
     "ricavi": 156735000000,
-    "patrimonioNetto": 71927000000
+    "patrimonioNetto": 71927000000,
+    "crediti": 13333000000,
+    "costoVenduto": null,
+    "attivoCorrente": 100451000000,
+    "passivoCorrente": 91173000000,
+    "immobilizzazioniNette": 45248000000,
+    "ammortamento": 11276000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 16043000000,
+    "attivoTotale": 264037000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -12257,7 +25799,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0371,
     "utileNetto": 10127000000,
     "ricavi": 171842000000,
-    "patrimonioNetto": 68189000000
+    "patrimonioNetto": 68189000000,
+    "crediti": 12378000000,
+    "costoVenduto": null,
+    "attivoCorrente": 101618000000,
+    "passivoCorrente": 94445000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 11737000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 20930000000,
+    "attivoTotale": 273064000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -12266,7 +25818,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0215,
     "utileNetto": 6008000000,
     "ricavi": 187442000000,
-    "patrimonioNetto": 63072000000
+    "patrimonioNetto": 63072000000,
+    "crediti": 12827000000,
+    "costoVenduto": null,
+    "attivoCorrente": 108545000000,
+    "passivoCorrente": 96265000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 11456000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 20129000000,
+    "attivoTotale": 279761000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -12275,7 +25837,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0096,
     "utileNetto": 2697000000,
     "ricavi": 185019000000,
-    "patrimonioNetto": 61119000000
+    "patrimonioNetto": 61119000000,
+    "crediti": 13054000000,
+    "costoVenduto": null,
+    "attivoCorrente": 108767000000,
+    "passivoCorrente": 93342000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 11980000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 26867000000,
+    "attivoTotale": 281284000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -12289,7 +25861,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 11951000000,
     "ricavi": 118928000000,
-    "patrimonioNetto": 115256000000
+    "patrimonioNetto": 115256000000,
+    "crediti": null,
+    "costoVenduto": 46801000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 21577000000,
+    "speseSga": 30146000000,
+    "flussoCassaOperativo": 34242000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -12298,7 +25880,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0099,
     "utileNetto": -2625000000,
     "ricavi": 123443000000,
-    "patrimonioNetto": 96364000000
+    "patrimonioNetto": 96364000000,
+    "crediti": 16047000000,
+    "costoVenduto": 56688000000,
+    "attivoCorrente": 22556000000,
+    "passivoCorrente": 42290000000,
+    "immobilizzazioniNette": 98415000000,
+    "ammortamento": 19673000000,
+    "speseSga": 48772000000,
+    "flussoCassaOperativo": 33610000000,
+    "attivoTotale": 265245000000,
+    "debitoLungo": 60872000000
    },
    {
     "anno": 2009,
@@ -12307,7 +25899,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0452,
     "utileNetto": 12138000000,
     "ricavi": 122513000000,
-    "patrimonioNetto": 101989000000
+    "patrimonioNetto": 101989000000,
+    "crediti": 14845000000,
+    "costoVenduto": 50639000000,
+    "attivoCorrente": 25187000000,
+    "passivoCorrente": 36951000000,
+    "immobilizzazioniNette": 99519000000,
+    "ammortamento": 19515000000,
+    "speseSga": 31359000000,
+    "flussoCassaOperativo": 34405000000,
+    "attivoTotale": 268312000000,
+    "debitoLungo": 64720000000
    },
    {
     "anno": 2010,
@@ -12316,7 +25918,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0737,
     "utileNetto": 19864000000,
     "ricavi": 124280000000,
-    "patrimonioNetto": 111950000000
+    "patrimonioNetto": 111950000000,
+    "crediti": 13610000000,
+    "costoVenduto": 50257000000,
+    "attivoCorrente": 20854000000,
+    "passivoCorrente": 34854000000,
+    "immobilizzazioniNette": 103196000000,
+    "ammortamento": 19379000000,
+    "speseSga": 34986000000,
+    "flussoCassaOperativo": 35222000000,
+    "attivoTotale": 269391000000,
+    "debitoLungo": 58971000000
    },
    {
     "anno": 2011,
@@ -12325,7 +25937,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0146,
     "utileNetto": 3944000000,
     "ricavi": 126723000000,
-    "patrimonioNetto": 105797000000
+    "patrimonioNetto": 105797000000,
+    "crediti": 13231000000,
+    "costoVenduto": 54904000000,
+    "attivoCorrente": 22985000000,
+    "passivoCorrente": 30892000000,
+    "immobilizzazioniNette": 107087000000,
+    "ammortamento": 18377000000,
+    "speseSga": 41314000000,
+    "flussoCassaOperativo": 34743000000,
+    "attivoTotale": 270442000000,
+    "debitoLungo": 61300000000
    },
    {
     "anno": 2012,
@@ -12334,7 +25956,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0267,
     "utileNetto": 7264000000,
     "ricavi": 127434000000,
-    "patrimonioNetto": 95653000000
+    "patrimonioNetto": 95653000000,
+    "crediti": 12657000000,
+    "costoVenduto": 55228000000,
+    "attivoCorrente": 22706000000,
+    "passivoCorrente": 31787000000,
+    "immobilizzazioniNette": 109767000000,
+    "ammortamento": 18143000000,
+    "speseSga": 41066000000,
+    "flussoCassaOperativo": 39176000000,
+    "attivoTotale": 272315000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -12343,7 +25975,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0663,
     "utileNetto": 18418000000,
     "ricavi": 128752000000,
-    "patrimonioNetto": 94610000000
+    "patrimonioNetto": 94610000000,
+    "crediti": 12918000000,
+    "costoVenduto": 51464000000,
+    "attivoCorrente": 23196000000,
+    "passivoCorrente": 34995000000,
+    "immobilizzazioniNette": 110968000000,
+    "ammortamento": 18395000000,
+    "speseSga": 28414000000,
+    "flussoCassaOperativo": 34796000000,
+    "attivoTotale": 277787000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -12352,7 +25994,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0217,
     "utileNetto": 6442000000,
     "ricavi": 132447000000,
-    "patrimonioNetto": 90270000000
+    "patrimonioNetto": 90270000000,
+    "crediti": 14527000000,
+    "costoVenduto": 60611000000,
+    "attivoCorrente": 33606000000,
+    "passivoCorrente": 37282000000,
+    "immobilizzazioniNette": 112898000000,
+    "ammortamento": 18273000000,
+    "speseSga": 39697000000,
+    "flussoCassaOperativo": 31338000000,
+    "attivoTotale": 296834000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -12361,7 +26013,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0331,
     "utileNetto": 13345000000,
     "ricavi": 146801000000,
-    "patrimonioNetto": 123640000000
+    "patrimonioNetto": 123640000000,
+    "crediti": 16532000000,
+    "costoVenduto": null,
+    "attivoCorrente": 35992000000,
+    "passivoCorrente": 47816000000,
+    "immobilizzazioniNette": 124450000000,
+    "ammortamento": 22016000000,
+    "speseSga": 32919000000,
+    "flussoCassaOperativo": 35880000000,
+    "attivoTotale": 402672000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -12370,7 +26032,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0321,
     "utileNetto": 12976000000,
     "ricavi": 163786000000,
-    "patrimonioNetto": 124110000000
+    "patrimonioNetto": 124110000000,
+    "crediti": 16794000000,
+    "costoVenduto": null,
+    "attivoCorrente": 38369000000,
+    "passivoCorrente": 50576000000,
+    "immobilizzazioniNette": 124899000000,
+    "ammortamento": 25847000000,
+    "speseSga": 36845000000,
+    "flussoCassaOperativo": 38442000000,
+    "attivoTotale": 403821000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -12379,7 +26051,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0663,
     "utileNetto": 29450000000,
     "ricavi": 160546000000,
-    "patrimonioNetto": 142007000000
+    "patrimonioNetto": 142007000000,
+    "crediti": 16522000000,
+    "costoVenduto": null,
+    "attivoCorrente": 79146000000,
+    "passivoCorrente": 81389000000,
+    "immobilizzazioniNette": 125222000000,
+    "ammortamento": 24387000000,
+    "speseSga": 35465000000,
+    "flussoCassaOperativo": 38010000000,
+    "attivoTotale": 444097000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -12388,7 +26070,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0364,
     "utileNetto": 19370000000,
     "ricavi": 170756000000,
-    "patrimonioNetto": 193884000000
+    "patrimonioNetto": 193884000000,
+    "crediti": 26472000000,
+    "costoVenduto": null,
+    "attivoCorrente": 51427000000,
+    "passivoCorrente": 64420000000,
+    "immobilizzazioniNette": 131473000000,
+    "ammortamento": 28430000000,
+    "speseSga": 36765000000,
+    "flussoCassaOperativo": 43602000000,
+    "attivoTotale": 531864000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -12397,7 +26089,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0252,
     "utileNetto": 13903000000,
     "ricavi": 181193000000,
-    "patrimonioNetto": 201934000000
+    "patrimonioNetto": 201934000000,
+    "crediti": 22636000000,
+    "costoVenduto": null,
+    "attivoCorrente": 54761000000,
+    "passivoCorrente": 68911000000,
+    "immobilizzazioniNette": 130128000000,
+    "ammortamento": 28217000000,
+    "speseSga": 39422000000,
+    "flussoCassaOperativo": 48668000000,
+    "attivoTotale": 551669000000,
+    "debitoLungo": 161109000000
    },
    {
     "anno": 2020,
@@ -12406,7 +26108,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0098,
     "utileNetto": -5176000000,
     "ricavi": 143050000000,
-    "patrimonioNetto": 179240000000
+    "patrimonioNetto": 179240000000,
+    "crediti": 20215000000,
+    "costoVenduto": null,
+    "attivoCorrente": 52008000000,
+    "passivoCorrente": 63438000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 22523000000,
+    "speseSga": 30817000000,
+    "flussoCassaOperativo": 43130000000,
+    "attivoTotale": 525761000000,
+    "debitoLungo": 155209000000
    },
    {
     "anno": 2021,
@@ -12415,7 +26127,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0364,
     "utileNetto": 20081000000,
     "ricavi": 134038000000,
-    "patrimonioNetto": 183855000000
+    "patrimonioNetto": 183855000000,
+    "crediti": 12313000000,
+    "costoVenduto": null,
+    "attivoCorrente": 170768000000,
+    "passivoCorrente": 106230000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 17852000000,
+    "speseSga": 29669000000,
+    "flussoCassaOperativo": 41957000000,
+    "attivoTotale": 551622000000,
+    "debitoLungo": 167476000000
    },
    {
     "anno": 2022,
@@ -12424,7 +26146,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0212,
     "utileNetto": -8524000000,
     "ricavi": 120741000000,
-    "patrimonioNetto": 106457000000
+    "patrimonioNetto": 106457000000,
+    "crediti": 11466000000,
+    "costoVenduto": null,
+    "attivoCorrente": 33108000000,
+    "passivoCorrente": 56173000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 18021000000,
+    "speseSga": 28961000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 402853000000,
+    "debitoLungo": 133207000000
    },
    {
     "anno": 2023,
@@ -12433,7 +26165,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0354,
     "utileNetto": 14400000000,
     "ricavi": 122428000000,
-    "patrimonioNetto": 117442000000
+    "patrimonioNetto": 117442000000,
+    "crediti": 10289000000,
+    "costoVenduto": null,
+    "attivoCorrente": 36458000000,
+    "passivoCorrente": 51127000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 18777000000,
+    "speseSga": 28874000000,
+    "flussoCassaOperativo": 38314000000,
+    "attivoTotale": 407060000000,
+    "debitoLungo": 133402000000
    },
    {
     "anno": 2024,
@@ -12442,7 +26184,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0277,
     "utileNetto": 10948000000,
     "ricavi": 122336000000,
-    "patrimonioNetto": 118245000000
+    "patrimonioNetto": 118245000000,
+    "crediti": 9638000000,
+    "costoVenduto": null,
+    "attivoCorrente": 31168000000,
+    "passivoCorrente": 46872000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 20580000000,
+    "speseSga": 28411000000,
+    "flussoCassaOperativo": 38771000000,
+    "attivoTotale": 394795000000,
+    "debitoLungo": 122116000000
    },
    {
     "anno": 2025,
@@ -12451,7 +26203,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0522,
     "utileNetto": 21953000000,
     "ricavi": 125648000000,
-    "patrimonioNetto": 126491000000
+    "patrimonioNetto": 126491000000,
+    "crediti": 8843000000,
+    "costoVenduto": null,
+    "attivoCorrente": 48732000000,
+    "passivoCorrente": 53780000000,
+    "immobilizzazioniNette": null,
+    "ammortamento": 20886000000,
+    "speseSga": 28942000000,
+    "flussoCassaOperativo": 40284000000,
+    "attivoTotale": 420198000000,
+    "debitoLungo": 134718000000
    }
   ]
  },
@@ -12465,7 +26227,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 5521000000,
     "ricavi": 93469000000,
-    "patrimonioNetto": 82869000000
+    "patrimonioNetto": 82869000000,
+    "crediti": null,
+    "costoVenduto": 37547000000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": 25967000000,
+    "flussoCassaOperativo": 26839000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -12474,7 +26246,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0108,
     "utileNetto": -2193000000,
     "ricavi": 97354000000,
-    "patrimonioNetto": 78791000000
+    "patrimonioNetto": 78791000000,
+    "crediti": 11703000000,
+    "costoVenduto": 38615000000,
+    "attivoCorrente": 26075000000,
+    "passivoCorrente": 25906000000,
+    "immobilizzazioniNette": 86546000000,
+    "ammortamento": 13227000000,
+    "speseSga": 41517000000,
+    "flussoCassaOperativo": 27452000000,
+    "attivoTotale": 202352000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -12483,7 +26265,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0216,
     "utileNetto": 4894000000,
     "ricavi": 107808000000,
-    "patrimonioNetto": 84143000000
+    "patrimonioNetto": 84143000000,
+    "crediti": 12573000000,
+    "costoVenduto": 44579000000,
+    "attivoCorrente": 21745000000,
+    "passivoCorrente": 29136000000,
+    "immobilizzazioniNette": 91985000000,
+    "ammortamento": 14564000000,
+    "speseSga": 30717000000,
+    "flussoCassaOperativo": 31390000000,
+    "attivoTotale": 226907000000,
+    "debitoLungo": 55051000000
    },
    {
     "anno": 2010,
@@ -12492,7 +26284,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0116,
     "utileNetto": 2549000000,
     "ricavi": 106565000000,
-    "patrimonioNetto": 86912000000
+    "patrimonioNetto": 86912000000,
+    "crediti": 11781000000,
+    "costoVenduto": 44149000000,
+    "attivoCorrente": 22348000000,
+    "passivoCorrente": 30597000000,
+    "immobilizzazioniNette": 87711000000,
+    "ammortamento": 14593000000,
+    "speseSga": 31366000000,
+    "flussoCassaOperativo": 33363000000,
+    "attivoTotale": 220005000000,
+    "debitoLungo": 45252000000
    },
    {
     "anno": 2011,
@@ -12501,7 +26303,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0104,
     "utileNetto": 2404000000,
     "ricavi": 110875000000,
-    "patrimonioNetto": 85908000000
+    "patrimonioNetto": 85908000000,
+    "crediti": 11776000000,
+    "costoVenduto": 45875000000,
+    "attivoCorrente": 30939000000,
+    "passivoCorrente": 30761000000,
+    "immobilizzazioniNette": 88434000000,
+    "ammortamento": 14991000000,
+    "speseSga": 35624000000,
+    "flussoCassaOperativo": 29780000000,
+    "attivoTotale": 230461000000,
+    "debitoLungo": 50303000000
    },
    {
     "anno": 2012,
@@ -12510,7 +26322,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0039,
     "utileNetto": 875000000,
     "ricavi": 115846000000,
-    "patrimonioNetto": 85533000000
+    "patrimonioNetto": 85533000000,
+    "crediti": 12576000000,
+    "costoVenduto": 46275000000,
+    "attivoCorrente": 21235000000,
+    "passivoCorrente": 26956000000,
+    "immobilizzazioniNette": 88642000000,
+    "ammortamento": 14920000000,
+    "speseSga": 39951000000,
+    "flussoCassaOperativo": 31486000000,
+    "attivoTotale": 225222000000,
+    "debitoLungo": 47618000000
    },
    {
     "anno": 2013,
@@ -12519,7 +26341,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0419,
     "utileNetto": 11497000000,
     "ricavi": 120550000000,
-    "patrimonioNetto": 95416000000
+    "patrimonioNetto": 95416000000,
+    "crediti": 12439000000,
+    "costoVenduto": 16353000000,
+    "attivoCorrente": 70994000000,
+    "passivoCorrente": 27050000000,
+    "immobilizzazioniNette": 88956000000,
+    "ammortamento": 15019000000,
+    "speseSga": 27089000000,
+    "flussoCassaOperativo": 38818000000,
+    "attivoTotale": 274098000000,
+    "debitoLungo": 89658000000
    },
    {
     "anno": 2014,
@@ -12528,7 +26360,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0414,
     "utileNetto": 9625000000,
     "ricavi": 127079000000,
-    "patrimonioNetto": 13676000000
+    "patrimonioNetto": 13676000000,
+    "crediti": 13993000000,
+    "costoVenduto": 21625000000,
+    "attivoCorrente": 29499000000,
+    "passivoCorrente": 27987000000,
+    "immobilizzazioniNette": 89947000000,
+    "ammortamento": 14966000000,
+    "speseSga": 41016000000,
+    "flussoCassaOperativo": 30631000000,
+    "attivoTotale": 232616000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -12537,7 +26379,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0732,
     "utileNetto": 17879000000,
     "ricavi": 131620000000,
-    "patrimonioNetto": 17842000000
+    "patrimonioNetto": 17842000000,
+    "crediti": 13457000000,
+    "costoVenduto": 23119000000,
+    "attivoCorrente": 22355000000,
+    "passivoCorrente": 35052000000,
+    "immobilizzazioniNette": 83541000000,
+    "ammortamento": 14323000000,
+    "speseSga": 29986000000,
+    "flussoCassaOperativo": 39027000000,
+    "attivoTotale": 244175000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -12546,7 +26398,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0538,
     "utileNetto": 13127000000,
     "ricavi": 125980000000,
-    "patrimonioNetto": 24032000000
+    "patrimonioNetto": 24032000000,
+    "crediti": 17513000000,
+    "costoVenduto": 22238000000,
+    "attivoCorrente": 26395000000,
+    "passivoCorrente": 30340000000,
+    "immobilizzazioniNette": 84751000000,
+    "ammortamento": 14227000000,
+    "speseSga": 28102000000,
+    "flussoCassaOperativo": 21689000000,
+    "attivoTotale": 244180000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -12555,7 +26417,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1171,
     "utileNetto": 30101000000,
     "ricavi": 126034000000,
-    "patrimonioNetto": 44687000000
+    "patrimonioNetto": 44687000000,
+    "crediti": 23493000000,
+    "costoVenduto": 22147000000,
+    "attivoCorrente": 29913000000,
+    "passivoCorrente": 33037000000,
+    "immobilizzazioniNette": 88568000000,
+    "ammortamento": 14741000000,
+    "speseSga": 28592000000,
+    "flussoCassaOperativo": 24318000000,
+    "attivoTotale": 257143000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -12564,7 +26436,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0586,
     "utileNetto": 15528000000,
     "ricavi": 130863000000,
-    "patrimonioNetto": 54710000000
+    "patrimonioNetto": 54710000000,
+    "crediti": 25102000000,
+    "costoVenduto": null,
+    "attivoCorrente": 34636000000,
+    "passivoCorrente": 37930000000,
+    "immobilizzazioniNette": 89286000000,
+    "ammortamento": 15186000000,
+    "speseSga": 31083000000,
+    "flussoCassaOperativo": 34339000000,
+    "attivoTotale": 264829000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -12573,7 +26455,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.066,
     "utileNetto": 19265000000,
     "ricavi": 131868000000,
-    "patrimonioNetto": 62835000000
+    "patrimonioNetto": 62835000000,
+    "crediti": 25429000000,
+    "costoVenduto": null,
+    "attivoCorrente": 37473000000,
+    "passivoCorrente": 44868000000,
+    "immobilizzazioniNette": 91915000000,
+    "ammortamento": 14371000000,
+    "speseSga": 29896000000,
+    "flussoCassaOperativo": 35746000000,
+    "attivoTotale": 291727000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -12582,7 +26474,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0562,
     "utileNetto": 17801000000,
     "ricavi": 128292000000,
-    "patrimonioNetto": 69272000000
+    "patrimonioNetto": 69272000000,
+    "crediti": 23917000000,
+    "costoVenduto": null,
+    "attivoCorrente": 54594000000,
+    "passivoCorrente": 39660000000,
+    "immobilizzazioniNette": 94833000000,
+    "ammortamento": 14275000000,
+    "speseSga": 31573000000,
+    "flussoCassaOperativo": 41768000000,
+    "attivoTotale": 316481000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -12591,7 +26493,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0602,
     "utileNetto": 22065000000,
     "ricavi": 133613000000,
-    "patrimonioNetto": 83200000000
+    "patrimonioNetto": 83200000000,
+    "crediti": 23846000000,
+    "costoVenduto": null,
+    "attivoCorrente": 36728000000,
+    "passivoCorrente": 47160000000,
+    "immobilizzazioniNette": 99696000000,
+    "ammortamento": 14119000000,
+    "speseSga": 28658000000,
+    "flussoCassaOperativo": 39539000000,
+    "attivoTotale": 366596000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -12600,7 +26512,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.056,
     "utileNetto": 21256000000,
     "ricavi": 136835000000,
-    "patrimonioNetto": 92463000000
+    "patrimonioNetto": 92463000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 37857000000,
+    "passivoCorrente": 50171000000,
+    "immobilizzazioniNette": 107434000000,
+    "ammortamento": 14592000000,
+    "speseSga": 30136000000,
+    "flussoCassaOperativo": 37141000000,
+    "attivoTotale": 379680000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -12609,7 +26531,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0305,
     "utileNetto": 11614000000,
     "ricavi": 133974000000,
-    "patrimonioNetto": 93799000000
+    "patrimonioNetto": 93799000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 36814000000,
+    "passivoCorrente": 53223000000,
+    "immobilizzazioniNette": 108310000000,
+    "ammortamento": 14937000000,
+    "speseSga": 32745000000,
+    "flussoCassaOperativo": 37475000000,
+    "attivoTotale": 380255000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -12618,7 +26550,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0455,
     "utileNetto": 17506000000,
     "ricavi": 134788000000,
-    "patrimonioNetto": 100575000000
+    "patrimonioNetto": 100575000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 40523000000,
+    "passivoCorrente": 64771000000,
+    "immobilizzazioniNette": 108522000000,
+    "ammortamento": 15112000000,
+    "speseSga": 34113000000,
+    "flussoCassaOperativo": 36912000000,
+    "attivoTotale": 384711000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -12627,7 +26569,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0425,
     "utileNetto": 17174000000,
     "ricavi": 138191000000,
-    "patrimonioNetto": 105741000000
+    "patrimonioNetto": 105741000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": 56922000000,
+    "passivoCorrente": 62370000000,
+    "immobilizzazioniNette": 109467000000,
+    "ammortamento": 15350000000,
+    "speseSga": 33818000000,
+    "flussoCassaOperativo": 37137000000,
+    "attivoTotale": 404258000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -12641,7 +26593,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 149438000,
     "ricavi": 2751516000,
-    "patrimonioNetto": 2034323000
+    "patrimonioNetto": 2034323000,
+    "crediti": null,
+    "costoVenduto": 704648000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 255319000,
+    "speseSga": 447582000,
+    "flussoCassaOperativo": 447490000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -12650,7 +26612,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0239,
     "utileNetto": 176844000,
     "ricavi": 3480515000,
-    "patrimonioNetto": 2288142000
+    "patrimonioNetto": 2288142000,
+    "crediti": 51536000,
+    "costoVenduto": 2004324000,
+    "attivoCorrente": 1491391000,
+    "passivoCorrente": 797469000,
+    "immobilizzazioniNette": 3252213000,
+    "ammortamento": 377856000,
+    "speseSga": 567730000,
+    "flussoCassaOperativo": 899349000,
+    "attivoTotale": 7386017000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -12659,7 +26631,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0244,
     "utileNetto": 193415000,
     "ricavi": 4069353000,
-    "patrimonioNetto": 20492000000
+    "patrimonioNetto": 20492000000,
+    "crediti": 58056000,
+    "costoVenduto": 2317875000,
+    "attivoCorrente": 1593885000,
+    "passivoCorrente": 802420000,
+    "immobilizzazioniNette": 3659445000,
+    "ammortamento": 449732000,
+    "speseSga": 621660000,
+    "flussoCassaOperativo": 994500000,
+    "attivoTotale": 7918580000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -12668,7 +26650,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.4975,
     "utileNetto": -4718000000,
     "ricavi": 20618000000,
-    "patrimonioNetto": 15785000000
+    "patrimonioNetto": 15785000000,
+    "crediti": null,
+    "costoVenduto": 3646000000,
+    "attivoCorrente": 2743593000,
+    "passivoCorrente": 816723000,
+    "immobilizzazioniNette": 4017999000,
+    "ammortamento": 2982000000,
+    "speseSga": 6728000000,
+    "flussoCassaOperativo": 4980000000,
+    "attivoTotale": 9482931000,
+    "debitoLungo": 4471916000
    },
    {
     "anno": 2012,
@@ -12677,7 +26669,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.2182,
     "utileNetto": -7336000000,
     "ricavi": 19719000000,
-    "patrimonioNetto": 6115000000
+    "patrimonioNetto": 6115000000,
+    "crediti": 2678000000,
+    "costoVenduto": 3437000000,
+    "attivoCorrente": 5541000000,
+    "passivoCorrente": 5592000000,
+    "immobilizzazioniNette": 12807000000,
+    "ammortamento": 3187000000,
+    "speseSga": 6796000000,
+    "flussoCassaOperativo": 3862000000,
+    "attivoTotale": 33622000000,
+    "debitoLungo": 0
    },
    {
     "anno": 2013,
@@ -12686,7 +26688,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0007,
     "utileNetto": 35000000,
     "ricavi": 24420000000,
-    "patrimonioNetto": 14245000000
+    "patrimonioNetto": 14245000000,
+    "crediti": 2148000000,
+    "costoVenduto": 6976000000,
+    "attivoCorrente": 12228000000,
+    "passivoCorrente": 5808000000,
+    "immobilizzazioniNette": 15349000000,
+    "ammortamento": 3627000000,
+    "speseSga": 7382000000,
+    "flussoCassaOperativo": 3545000000,
+    "attivoTotale": 49953000000,
+    "debitoLungo": 14345000000
    },
    {
     "anno": 2014,
@@ -12695,7 +26707,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0044,
     "utileNetto": 247000000,
     "ricavi": 29564000000,
-    "patrimonioNetto": 15663000000
+    "patrimonioNetto": 15663000000,
+    "crediti": 1865000000,
+    "costoVenduto": 9621000000,
+    "attivoCorrente": 13984000000,
+    "passivoCorrente": 8776000000,
+    "immobilizzazioniNette": 16245000000,
+    "ammortamento": 4412000000,
+    "speseSga": 8863000000,
+    "flussoCassaOperativo": 4146000000,
+    "attivoTotale": 56653000000,
+    "debitoLungo": 16273000000
    },
    {
     "anno": 2015,
@@ -12704,7 +26726,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0117,
     "utileNetto": 733000000,
     "ricavi": 32467000000,
-    "patrimonioNetto": 16557000000
+    "patrimonioNetto": 16557000000,
+    "crediti": 1788000000,
+    "costoVenduto": 9344000000,
+    "attivoCorrente": 14890000000,
+    "passivoCorrente": 9528000000,
+    "immobilizzazioniNette": 20000000000,
+    "ammortamento": 4688000000,
+    "speseSga": 10189000000,
+    "flussoCassaOperativo": 5414000000,
+    "attivoTotale": 62413000000,
+    "debitoLungo": 20461000000
    },
    {
     "anno": 2016,
@@ -12713,7 +26745,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0222,
     "utileNetto": 1460000000,
     "ricavi": 37490000000,
-    "patrimonioNetto": 18236000000
+    "patrimonioNetto": 18236000000,
+    "crediti": 1896000000,
+    "costoVenduto": 10819000000,
+    "attivoCorrente": 14217000000,
+    "passivoCorrente": 9022000000,
+    "immobilizzazioniNette": 20943000000,
+    "ammortamento": 6243000000,
+    "speseSga": 11378000000,
+    "flussoCassaOperativo": 2779000000,
+    "attivoTotale": 65891000000,
+    "debitoLungo": 21832000000
    },
    {
     "anno": 2017,
@@ -12722,7 +26764,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0643,
     "utileNetto": 4536000000,
     "ricavi": 40604000000,
-    "patrimonioNetto": 22559000000
+    "patrimonioNetto": 22559000000,
+    "crediti": 1915000000,
+    "costoVenduto": 11608000000,
+    "attivoCorrente": 8915000000,
+    "passivoCorrente": 11515000000,
+    "immobilizzazioniNette": 22196000000,
+    "ammortamento": 5984000000,
+    "speseSga": 12259000000,
+    "flussoCassaOperativo": 3831000000,
+    "attivoTotale": 70563000000,
+    "debitoLungo": 12121000000
    },
    {
     "anno": 2018,
@@ -12731,7 +26783,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0399,
     "utileNetto": 2888000000,
     "ricavi": 43310000000,
-    "patrimonioNetto": 24718000000
+    "patrimonioNetto": 24718000000,
+    "crediti": 1769000000,
+    "costoVenduto": null,
+    "attivoCorrente": 8281000000,
+    "passivoCorrente": 10267000000,
+    "immobilizzazioniNette": 23359000000,
+    "ammortamento": 6486000000,
+    "speseSga": 13161000000,
+    "flussoCassaOperativo": 3899000000,
+    "attivoTotale": 72468000000,
+    "debitoLungo": 12124000000
    },
    {
     "anno": 2019,
@@ -12740,7 +26802,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0399,
     "utileNetto": 3468000000,
     "ricavi": 44998000000,
-    "patrimonioNetto": 28789000000
+    "patrimonioNetto": 28789000000,
+    "crediti": 1888000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9305000000,
+    "passivoCorrente": 12506000000,
+    "immobilizzazioniNette": 21984000000,
+    "ammortamento": 6616000000,
+    "speseSga": 14139000000,
+    "flussoCassaOperativo": 6824000000,
+    "attivoTotale": 86921000000,
+    "debitoLungo": 10958000000
    },
    {
     "anno": 2020,
@@ -12749,7 +26821,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0153,
     "utileNetto": 3064000000,
     "ricavi": 68397000000,
-    "patrimonioNetto": 65344000000
+    "patrimonioNetto": 65344000000,
+    "crediti": 4254000000,
+    "costoVenduto": null,
+    "attivoCorrente": 23885000000,
+    "passivoCorrente": 21703000000,
+    "immobilizzazioniNette": 41175000000,
+    "ammortamento": 14151000000,
+    "speseSga": 18926000000,
+    "flussoCassaOperativo": 8640000000,
+    "attivoTotale": 200162000000,
+    "debitoLungo": 61830000000
    },
    {
     "anno": 2021,
@@ -12758,7 +26840,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0146,
     "utileNetto": 3024000000,
     "ricavi": 80118000000,
-    "patrimonioNetto": 69102000000
+    "patrimonioNetto": 69102000000,
+    "crediti": 4194000000,
+    "costoVenduto": null,
+    "attivoCorrente": 20891000000,
+    "passivoCorrente": 23499000000,
+    "immobilizzazioniNette": 39803000000,
+    "ammortamento": 16383000000,
+    "speseSga": 20238000000,
+    "flussoCassaOperativo": 13917000000,
+    "attivoTotale": 206563000000,
+    "debitoLungo": 67076000000
    },
    {
     "anno": 2022,
@@ -12767,7 +26859,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0123,
     "utileNetto": 2590000000,
     "ricavi": 79571000000,
-    "patrimonioNetto": 69656000000
+    "patrimonioNetto": 69656000000,
+    "crediti": 4445000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19067000000,
+    "passivoCorrente": 24742000000,
+    "immobilizzazioniNette": 42086000000,
+    "ammortamento": 13651000000,
+    "speseSga": 21607000000,
+    "flussoCassaOperativo": 16781000000,
+    "attivoTotale": 211338000000,
+    "debitoLungo": 66796000000
    },
    {
     "anno": 2023,
@@ -12776,7 +26878,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.04,
     "utileNetto": 8317000000,
     "ricavi": 78558000000,
-    "patrimonioNetto": 64715000000
+    "patrimonioNetto": 64715000000,
+    "crediti": 4692000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19015000000,
+    "passivoCorrente": 20928000000,
+    "immobilizzazioniNette": 40432000000,
+    "ammortamento": 12818000000,
+    "speseSga": 21311000000,
+    "flussoCassaOperativo": 18559000000,
+    "attivoTotale": 207682000000,
+    "debitoLungo": 71399000000
    },
    {
     "anno": 2024,
@@ -12785,7 +26897,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0545,
     "utileNetto": 11339000000,
     "ricavi": 81400000000,
-    "patrimonioNetto": 61741000000
+    "patrimonioNetto": 61741000000,
+    "crediti": 4276000000,
+    "costoVenduto": null,
+    "attivoCorrente": 18404000000,
+    "passivoCorrente": 20174000000,
+    "immobilizzazioniNette": 38533000000,
+    "ammortamento": 12919000000,
+    "speseSga": 20818000000,
+    "flussoCassaOperativo": 22293000000,
+    "attivoTotale": 208035000000,
+    "debitoLungo": 74197000000
    },
    {
     "anno": 2025,
@@ -12794,7 +26916,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0501,
     "utileNetto": 10992000000,
     "ricavi": 88309000000,
-    "patrimonioNetto": 59203000000
+    "patrimonioNetto": 59203000000,
+    "crediti": 4874000000,
+    "costoVenduto": null,
+    "attivoCorrente": 24461000000,
+    "passivoCorrente": 24500000000,
+    "immobilizzazioniNette": 38333000000,
+    "ammortamento": 13508000000,
+    "speseSga": 23470000000,
+    "flussoCassaOperativo": 27950000000,
+    "attivoTotale": 219237000000,
+    "debitoLungo": 81147000000
    }
   ]
  },
@@ -12808,7 +26940,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1278,
     "utileNetto": 12598000000,
     "ricavi": 59434000000,
-    "patrimonioNetto": 48773000000
+    "patrimonioNetto": 48773000000,
+    "crediti": 9334000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16825000000,
+    "passivoCorrente": 17860000000,
+    "immobilizzazioniNette": 29540000000,
+    "ammortamento": 3011000000,
+    "speseSga": 8860000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 98598000000,
+    "debitoLungo": 17084000000
    },
    {
     "anno": 2019,
@@ -12817,7 +26959,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.057,
     "utileNetto": 11054000000,
     "ricavi": 69607000000,
-    "patrimonioNetto": 88877000000
+    "patrimonioNetto": 88877000000,
+    "crediti": 15481000000,
+    "costoVenduto": null,
+    "attivoCorrente": 28124000000,
+    "passivoCorrente": 31341000000,
+    "immobilizzazioniNette": 31603000000,
+    "ammortamento": 4167000000,
+    "speseSga": 11549000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 193984000000,
+    "debitoLungo": 38129000000
    },
    {
     "anno": 2020,
@@ -12826,7 +26978,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": -0.0142,
     "utileNetto": -2864000000,
     "ricavi": 65388000000,
-    "patrimonioNetto": 83583000000
+    "patrimonioNetto": 83583000000,
+    "crediti": 12708000000,
+    "costoVenduto": null,
+    "attivoCorrente": 35251000000,
+    "passivoCorrente": 26628000000,
+    "immobilizzazioniNette": 32078000000,
+    "ammortamento": 5345000000,
+    "speseSga": 12369000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 201549000000,
+    "debitoLungo": 52917000000
    },
    {
     "anno": 2021,
@@ -12835,7 +26997,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0098,
     "utileNetto": 1995000000,
     "ricavi": 67418000000,
-    "patrimonioNetto": 88553000000
+    "patrimonioNetto": 88553000000,
+    "crediti": 13367000000,
+    "costoVenduto": null,
+    "attivoCorrente": 33657000000,
+    "passivoCorrente": 31077000000,
+    "immobilizzazioniNette": 32624000000,
+    "ammortamento": 5111000000,
+    "speseSga": 13517000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 203609000000,
+    "debitoLungo": 48540000000
    },
    {
     "anno": 2022,
@@ -12844,7 +27016,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0154,
     "utileNetto": 3145000000,
     "ricavi": 82722000000,
-    "patrimonioNetto": 95008000000
+    "patrimonioNetto": 95008000000,
+    "crediti": 12652000000,
+    "costoVenduto": null,
+    "attivoCorrente": 29098000000,
+    "passivoCorrente": 29073000000,
+    "immobilizzazioniNette": 33596000000,
+    "ammortamento": 5163000000,
+    "speseSga": 16388000000,
+    "flussoCassaOperativo": null,
+    "attivoTotale": 203631000000,
+    "debitoLungo": 45299000000
    },
    {
     "anno": 2023,
@@ -12853,7 +27035,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0115,
     "utileNetto": 2354000000,
     "ricavi": 88898000000,
-    "patrimonioNetto": 99277000000
+    "patrimonioNetto": 99277000000,
+    "crediti": 12330000000,
+    "costoVenduto": null,
+    "attivoCorrente": 32763000000,
+    "passivoCorrente": 31139000000,
+    "immobilizzazioniNette": 34941000000,
+    "ammortamento": 5369000000,
+    "speseSga": 15336000000,
+    "flussoCassaOperativo": 9866000000,
+    "attivoTotale": 205579000000,
+    "debitoLungo": 42101000000
    },
    {
     "anno": 2024,
@@ -12862,7 +27054,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0253,
     "utileNetto": 4972000000,
     "ricavi": 91361000000,
-    "patrimonioNetto": 100696000000
+    "patrimonioNetto": 100696000000,
+    "crediti": 12729000000,
+    "costoVenduto": null,
+    "attivoCorrente": 25241000000,
+    "passivoCorrente": 34599000000,
+    "immobilizzazioniNette": 37041000000,
+    "ammortamento": 4990000000,
+    "speseSga": 15759000000,
+    "flussoCassaOperativo": 13971000000,
+    "attivoTotale": 196219000000,
+    "debitoLungo": 38970000000
    },
    {
     "anno": 2025,
@@ -12871,7 +27073,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0628,
     "utileNetto": 12404000000,
     "ricavi": 94425000000,
-    "patrimonioNetto": 109869000000
+    "patrimonioNetto": 109869000000,
+    "crediti": 13217000000,
+    "costoVenduto": null,
+    "attivoCorrente": 24267000000,
+    "passivoCorrente": 34162000000,
+    "immobilizzazioniNette": 41255000000,
+    "ammortamento": 5326000000,
+    "speseSga": 16501000000,
+    "flussoCassaOperativo": 18101000000,
+    "attivoTotale": 197514000000,
+    "debitoLungo": 35315000000
    }
   ]
  },
@@ -12885,7 +27097,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 66608000,
     "ricavi": 1205340000,
-    "patrimonioNetto": 429812000
+    "patrimonioNetto": 429812000,
+    "crediti": null,
+    "costoVenduto": 786168000,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 277424000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -12894,7 +27116,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1349,
     "utileNetto": 83026000,
     "ricavi": 1364661000,
-    "patrimonioNetto": 347155000
+    "patrimonioNetto": 347155000,
+    "crediti": null,
+    "costoVenduto": 910234000,
+    "attivoCorrente": 358925000,
+    "passivoCorrente": 216017000,
+    "immobilizzazioniNette": 124948000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 284037000,
+    "attivoTotale": 615424000,
+    "debitoLungo": 0
    },
    {
     "anno": 2009,
@@ -12903,7 +27135,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1704,
     "utileNetto": 115860000,
     "ricavi": 1670269000,
-    "patrimonioNetto": 199143000
+    "patrimonioNetto": 199143000,
+    "crediti": null,
+    "costoVenduto": 1079271000,
+    "attivoCorrente": 411013000,
+    "passivoCorrente": 227436000,
+    "immobilizzazioniNette": 131653000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 325063000,
+    "attivoTotale": 679734000,
+    "debitoLungo": 200000000
    },
    {
     "anno": 2010,
@@ -12912,7 +27154,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1638,
     "utileNetto": 160853000,
     "ricavi": 2162625000,
-    "patrimonioNetto": 290164000
+    "patrimonioNetto": 290164000,
+    "crediti": null,
+    "costoVenduto": 1357355000,
+    "attivoCorrente": 637231000,
+    "passivoCorrente": 388579000,
+    "immobilizzazioniNette": 128570000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 276401000,
+    "attivoTotale": 982067000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -12921,7 +27173,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0737,
     "utileNetto": 226126000,
     "ricavi": 3204577000,
-    "patrimonioNetto": 642810000
+    "patrimonioNetto": 642810000,
+    "crediti": null,
+    "costoVenduto": 2039901000,
+    "attivoCorrente": 1830857000,
+    "passivoCorrente": 1225055000,
+    "immobilizzazioniNette": 136353000,
+    "ammortamento": 43747000,
+    "speseSga": null,
+    "flussoCassaOperativo": 317712000,
+    "attivoTotale": 3069196000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -12930,7 +27192,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0043,
     "utileNetto": 17152000,
     "ricavi": 3609282000,
-    "patrimonioNetto": 744673000
+    "patrimonioNetto": 744673000,
+    "crediti": null,
+    "costoVenduto": 2652058000,
+    "attivoCorrente": 2240791000,
+    "passivoCorrente": 1675926000,
+    "immobilizzazioniNette": 131681000,
+    "ammortamento": 45469000,
+    "speseSga": null,
+    "flussoCassaOperativo": 21586000,
+    "attivoTotale": 3967890000,
+    "debitoLungo": 200000000
    },
    {
     "anno": 2013,
@@ -12939,7 +27211,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0208,
     "utileNetto": 112403000,
     "ricavi": 4374562000,
-    "patrimonioNetto": 1333561000
+    "patrimonioNetto": 1333561000,
+    "crediti": null,
+    "costoVenduto": 3117203000,
+    "attivoCorrente": 3058763000,
+    "passivoCorrente": 2154203000,
+    "immobilizzazioniNette": 133605000,
+    "ammortamento": 48374000,
+    "speseSga": null,
+    "flussoCassaOperativo": 97831000,
+    "attivoTotale": 5412563000,
+    "debitoLungo": 500000000
    },
    {
     "anno": 2014,
@@ -12948,7 +27230,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0379,
     "utileNetto": 266799000,
     "ricavi": 5504656000,
-    "patrimonioNetto": 1857708000
+    "patrimonioNetto": 1857708000,
+    "crediti": null,
+    "costoVenduto": 3752760000,
+    "attivoCorrente": 3927053000,
+    "passivoCorrente": 2663154000,
+    "immobilizzazioniNette": 149875000,
+    "ammortamento": 54028000,
+    "speseSga": null,
+    "flussoCassaOperativo": 16483000,
+    "attivoTotale": 7042500000,
+    "debitoLungo": 885849000
    },
    {
     "anno": 2015,
@@ -12957,7 +27249,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.012,
     "utileNetto": 122641000,
     "ricavi": 6779511000,
-    "patrimonioNetto": 2223426000
+    "patrimonioNetto": 2223426000,
+    "crediti": null,
+    "costoVenduto": 4591476000,
+    "attivoCorrente": 5431840000,
+    "passivoCorrente": 3529624000,
+    "immobilizzazioniNette": 173412000,
+    "ammortamento": 62283000,
+    "speseSga": null,
+    "flussoCassaOperativo": -749439000,
+    "attivoTotale": 10202871000,
+    "debitoLungo": 2371362000
    },
    {
     "anno": 2016,
@@ -12966,7 +27268,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0137,
     "utileNetto": 186678000,
     "ricavi": 8830669000,
-    "patrimonioNetto": 2679800000
+    "patrimonioNetto": 2679800000,
+    "crediti": null,
+    "costoVenduto": 6257462000,
+    "attivoCorrente": 5720291000,
+    "passivoCorrente": 4586657000,
+    "immobilizzazioniNette": 250395000,
+    "ammortamento": 57528000,
+    "speseSga": null,
+    "flussoCassaOperativo": -1473984000,
+    "attivoTotale": 13586610000,
+    "debitoLungo": 3364311000
    },
    {
     "anno": 2017,
@@ -12975,7 +27287,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0294,
     "utileNetto": 558929000,
     "ricavi": 11692713000,
-    "patrimonioNetto": 3581956000
+    "patrimonioNetto": 3581956000,
+    "crediti": null,
+    "costoVenduto": 8033000000,
+    "attivoCorrente": 7669974000,
+    "passivoCorrente": 5466312000,
+    "immobilizzazioniNette": 319404000,
+    "ammortamento": 71911000,
+    "speseSga": null,
+    "flussoCassaOperativo": -1785948000,
+    "attivoTotale": 19012742000,
+    "debitoLungo": 6499432000
    },
    {
     "anno": 2018,
@@ -12984,7 +27306,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0466,
     "utileNetto": 1211242000,
     "ricavi": 15794341000,
-    "patrimonioNetto": 5238765000
+    "patrimonioNetto": 5238765000,
+    "crediti": null,
+    "costoVenduto": 9967538000,
+    "attivoCorrente": 9694135000,
+    "passivoCorrente": 6487320000,
+    "immobilizzazioniNette": 418281000,
+    "ammortamento": 83157000,
+    "speseSga": null,
+    "flussoCassaOperativo": -2680479000,
+    "attivoTotale": 25974400000,
+    "debitoLungo": 10360058000
    },
    {
     "anno": 2019,
@@ -12993,7 +27325,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0549,
     "utileNetto": 1866916000,
     "ricavi": 20156447000,
-    "patrimonioNetto": 7582157000
+    "patrimonioNetto": 7582157000,
+    "crediti": null,
+    "costoVenduto": 12440213000,
+    "attivoCorrente": 6178504000,
+    "passivoCorrente": 6855696000,
+    "immobilizzazioniNette": 565221000,
+    "ammortamento": 103579000,
+    "speseSga": null,
+    "flussoCassaOperativo": -2887322000,
+    "attivoTotale": 33975712000,
+    "debitoLungo": 14759260000
    },
    {
     "anno": 2020,
@@ -13002,7 +27344,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0703,
     "utileNetto": 2761395000,
     "ricavi": 24996056000,
-    "patrimonioNetto": 11065240000
+    "patrimonioNetto": 11065240000,
+    "crediti": null,
+    "costoVenduto": 15276319000,
+    "attivoCorrente": 9761580000,
+    "passivoCorrente": 7805785000,
+    "immobilizzazioniNette": 960183000,
+    "ammortamento": 115710000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2427077000,
+    "attivoTotale": 39280359000,
+    "debitoLungo": 15809095000
    },
    {
     "anno": 2021,
@@ -13011,7 +27363,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1148,
     "utileNetto": 5116228000,
     "ricavi": 29697844000,
-    "patrimonioNetto": 15849248000
+    "patrimonioNetto": 15849248000,
+    "crediti": null,
+    "costoVenduto": 17332683000,
+    "attivoCorrente": 8069825000,
+    "passivoCorrente": 8488966000,
+    "immobilizzazioniNette": 1323453000,
+    "ammortamento": 208412000,
+    "speseSga": null,
+    "flussoCassaOperativo": 392610000,
+    "attivoTotale": 44584663000,
+    "debitoLungo": 14693072000
    },
    {
     "anno": 2022,
@@ -13020,7 +27382,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0924,
     "utileNetto": 4491924000,
     "ricavi": 31615550000,
-    "patrimonioNetto": 20777401000
+    "patrimonioNetto": 20777401000,
+    "crediti": null,
+    "costoVenduto": 19168285000,
+    "attivoCorrente": 9266473000,
+    "passivoCorrente": 7930974000,
+    "immobilizzazioniNette": 1398257000,
+    "ammortamento": 336682000,
+    "speseSga": null,
+    "flussoCassaOperativo": 2026257000,
+    "attivoTotale": 48594768000,
+    "debitoLungo": 14353076000
    },
    {
     "anno": 2023,
@@ -13029,7 +27401,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.111,
     "utileNetto": 5407990000,
     "ricavi": 33723297000,
-    "patrimonioNetto": 20588313000
+    "patrimonioNetto": 20588313000,
+    "crediti": null,
+    "costoVenduto": 19715368000,
+    "attivoCorrente": 9918133000,
+    "passivoCorrente": 8860655000,
+    "immobilizzazioniNette": 1491444000,
+    "ammortamento": 356947000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7274301000,
+    "attivoTotale": 48731992000,
+    "debitoLungo": 14143417000
    },
    {
     "anno": 2024,
@@ -13038,7 +27420,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1624,
     "utileNetto": 8711631000,
     "ricavi": 39000966000,
-    "patrimonioNetto": 24743567000
+    "patrimonioNetto": 24743567000,
+    "crediti": null,
+    "costoVenduto": 21038464000,
+    "attivoCorrente": 13100379000,
+    "passivoCorrente": 10755400000,
+    "immobilizzazioniNette": 1593756000,
+    "ammortamento": 328914000,
+    "speseSga": null,
+    "flussoCassaOperativo": 7361364000,
+    "attivoTotale": 53630374000,
+    "debitoLungo": 13798351000
    },
    {
     "anno": 2025,
@@ -13047,7 +27439,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1975,
     "utileNetto": 10981201000,
     "ricavi": 45183036000,
-    "patrimonioNetto": 26615488000
+    "patrimonioNetto": 26615488000,
+    "crediti": null,
+    "costoVenduto": 23275329000,
+    "attivoCorrente": 13020191000,
+    "passivoCorrente": 10980930000,
+    "immobilizzazioniNette": 2004350000,
+    "ammortamento": 333389000,
+    "speseSga": null,
+    "flussoCassaOperativo": 10149273000,
+    "attivoTotale": 55596993000,
+    "debitoLungo": 13463971000
    }
   ]
  },
@@ -13061,7 +27463,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": null,
     "utileNetto": 2587000000,
     "ricavi": 31060000000,
-    "patrimonioNetto": 41489000000
+    "patrimonioNetto": 41489000000,
+    "crediti": null,
+    "costoVenduto": null,
+    "attivoCorrente": null,
+    "passivoCorrente": null,
+    "immobilizzazioniNette": null,
+    "ammortamento": 5107000000,
+    "speseSga": 6940000000,
+    "flussoCassaOperativo": 8189000000,
+    "attivoTotale": null,
+    "debitoLungo": null
    },
    {
     "anno": 2008,
@@ -13070,7 +27482,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0225,
     "utileNetto": 2547000000,
     "ricavi": 34423000000,
-    "patrimonioNetto": 40576000000
+    "patrimonioNetto": 40576000000,
+    "crediti": 1626000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3716000000,
+    "passivoCorrente": 8939000000,
+    "immobilizzazioniNette": 24444000000,
+    "ammortamento": 5457000000,
+    "speseSga": 7629000000,
+    "flussoCassaOperativo": 10231000000,
+    "attivoTotale": 113017000000,
+    "debitoLungo": null
    },
    {
     "anno": 2009,
@@ -13079,7 +27501,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0323,
     "utileNetto": 3638000000,
     "ricavi": 35756000000,
-    "patrimonioNetto": 42811000000
+    "patrimonioNetto": 42811000000,
+    "crediti": 1711000000,
+    "costoVenduto": null,
+    "attivoCorrente": 3223000000,
+    "passivoCorrente": 7249000000,
+    "immobilizzazioniNette": 23855000000,
+    "ammortamento": 5483000000,
+    "speseSga": 7662000000,
+    "flussoCassaOperativo": 10281000000,
+    "attivoTotale": 112733000000,
+    "debitoLungo": null
    },
    {
     "anno": 2010,
@@ -13088,7 +27520,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0307,
     "utileNetto": 3635000000,
     "ricavi": 37937000000,
-    "patrimonioNetto": 44434000000
+    "patrimonioNetto": 44434000000,
+    "crediti": 1855000000,
+    "costoVenduto": null,
+    "attivoCorrente": 8886000000,
+    "passivoCorrente": 8234000000,
+    "immobilizzazioniNette": 23515000000,
+    "ammortamento": 5539000000,
+    "speseSga": 8091000000,
+    "flussoCassaOperativo": 11179000000,
+    "attivoTotale": 118534000000,
+    "debitoLungo": null
    },
    {
     "anno": 2011,
@@ -13097,7 +27539,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0264,
     "utileNetto": 4160000000,
     "ricavi": 55842000000,
-    "patrimonioNetto": 47655000000
+    "patrimonioNetto": 47655000000,
+    "crediti": 4652000000,
+    "costoVenduto": null,
+    "attivoCorrente": 8573000000,
+    "passivoCorrente": 13241000000,
+    "immobilizzazioniNette": 27559000000,
+    "ammortamento": 6040000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14345000000,
+    "attivoTotale": 157818000000,
+    "debitoLungo": null
    },
    {
     "anno": 2012,
@@ -13106,7 +27558,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0376,
     "utileNetto": 6203000000,
     "ricavi": 62570000000,
-    "patrimonioNetto": 49796000000
+    "patrimonioNetto": 49796000000,
+    "crediti": 5521000000,
+    "costoVenduto": null,
+    "attivoCorrente": 19991000000,
+    "passivoCorrente": 16714000000,
+    "immobilizzazioniNette": 27232000000,
+    "ammortamento": 6150000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14854000000,
+    "attivoTotale": 164971000000,
+    "debitoLungo": null
    },
    {
     "anno": 2013,
@@ -13115,7 +27577,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0429,
     "utileNetto": 6816000000,
     "ricavi": 64657000000,
-    "patrimonioNetto": 51058000000
+    "patrimonioNetto": 51058000000,
+    "crediti": 6376000000,
+    "costoVenduto": null,
+    "attivoCorrente": 14075000000,
+    "passivoCorrente": 18912000000,
+    "immobilizzazioniNette": 29840000000,
+    "ammortamento": 6254000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 14160000000,
+    "attivoTotale": 158813000000,
+    "debitoLungo": null
    },
    {
     "anno": 2014,
@@ -13124,7 +27596,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0526,
     "utileNetto": 8380000000,
     "ricavi": 68775000000,
-    "patrimonioNetto": 53068000000
+    "patrimonioNetto": 53068000000,
+    "crediti": 6321000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13531000000,
+    "passivoCorrente": 17410000000,
+    "immobilizzazioniNette": 30953000000,
+    "ammortamento": 6337000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 16945000000,
+    "attivoTotale": 159186000000,
+    "debitoLungo": null
    },
    {
     "anno": 2015,
@@ -13133,7 +27615,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.049,
     "utileNetto": 8163000000,
     "ricavi": 74510000000,
-    "patrimonioNetto": 53978000000
+    "patrimonioNetto": 53978000000,
+    "crediti": 6896000000,
+    "costoVenduto": null,
+    "attivoCorrente": 12303000000,
+    "passivoCorrente": 18178000000,
+    "immobilizzazioniNette": 33665000000,
+    "ammortamento": 6781000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 19485000000,
+    "attivoTotale": 166574000000,
+    "debitoLungo": null
    },
    {
     "anno": 2016,
@@ -13142,7 +27634,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0481,
     "utileNetto": 8678000000,
     "ricavi": 80736000000,
-    "patrimonioNetto": 56163000000
+    "patrimonioNetto": 56163000000,
+    "crediti": 7955000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16361000000,
+    "passivoCorrente": 21535000000,
+    "immobilizzazioniNette": 36253000000,
+    "ammortamento": 7464000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 19691000000,
+    "attivoTotale": 180500000000,
+    "debitoLungo": null
    },
    {
     "anno": 2017,
@@ -13151,7 +27653,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.1213,
     "utileNetto": 22735000000,
     "ricavi": 85029000000,
-    "patrimonioNetto": 69459000000
+    "patrimonioNetto": 69459000000,
+    "crediti": 8834000000,
+    "costoVenduto": null,
+    "attivoCorrente": 16343000000,
+    "passivoCorrente": 21993000000,
+    "immobilizzazioniNette": 38470000000,
+    "ammortamento": 7914000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 21261000000,
+    "attivoTotale": 187462000000,
+    "debitoLungo": null
    },
    {
     "anno": 2018,
@@ -13160,7 +27672,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0466,
     "utileNetto": 11731000000,
     "ricavi": 94507000000,
-    "patrimonioNetto": 72502000000
+    "patrimonioNetto": 72502000000,
+    "crediti": 11104000000,
+    "costoVenduto": null,
+    "attivoCorrente": 21848000000,
+    "passivoCorrente": 27603000000,
+    "immobilizzazioniNette": 44437000000,
+    "ammortamento": 8281000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 24297000000,
+    "attivoTotale": 251684000000,
+    "debitoLungo": null
    },
    {
     "anno": 2019,
@@ -13169,7 +27691,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0496,
     "utileNetto": 13057000000,
     "ricavi": 108942000000,
-    "patrimonioNetto": 83874000000
+    "patrimonioNetto": 83874000000,
+    "crediti": 11292000000,
+    "costoVenduto": null,
+    "attivoCorrente": 25392000000,
+    "passivoCorrente": 30292000000,
+    "immobilizzazioniNette": 48322000000,
+    "ammortamento": 12953000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 25697000000,
+    "attivoTotale": 263414000000,
+    "debitoLungo": null
    },
    {
     "anno": 2020,
@@ -13178,7 +27710,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0385,
     "utileNetto": 10534000000,
     "ricavi": 103564000000,
-    "patrimonioNetto": 91738000000
+    "patrimonioNetto": 91738000000,
+    "crediti": 11466000000,
+    "costoVenduto": null,
+    "attivoCorrente": 26741000000,
+    "passivoCorrente": 28796000000,
+    "immobilizzazioniNette": 51995000000,
+    "ammortamento": 13100000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 24737000000,
+    "attivoTotale": 273869000000,
+    "debitoLungo": null
    },
    {
     "anno": 2021,
@@ -13187,7 +27729,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0513,
     "utileNetto": 14159000000,
     "ricavi": 116385000000,
-    "patrimonioNetto": 97490000000
+    "patrimonioNetto": 97490000000,
+    "crediti": 12008000000,
+    "costoVenduto": null,
+    "attivoCorrente": 24807000000,
+    "passivoCorrente": 29348000000,
+    "immobilizzazioniNette": 54047000000,
+    "ammortamento": 13804000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 29146000000,
+    "attivoTotale": 275905000000,
+    "debitoLungo": null
    },
    {
     "anno": 2022,
@@ -13196,7 +27748,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0209,
     "utileNetto": 5370000000,
     "ricavi": 121427000000,
-    "patrimonioNetto": 81627000000
+    "patrimonioNetto": 81627000000,
+    "crediti": 12672000000,
+    "costoVenduto": null,
+    "attivoCorrente": 21826000000,
+    "passivoCorrente": 27887000000,
+    "immobilizzazioniNette": 55485000000,
+    "ammortamento": 13821000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 26413000000,
+    "attivoTotale": 257275000000,
+    "debitoLungo": null
    },
    {
     "anno": 2023,
@@ -13205,7 +27767,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0581,
     "utileNetto": 15388000000,
     "ricavi": 121572000000,
-    "patrimonioNetto": 83226000000
+    "patrimonioNetto": 83226000000,
+    "crediti": 13813000000,
+    "costoVenduto": null,
+    "attivoCorrente": 23987000000,
+    "passivoCorrente": 40198000000,
+    "immobilizzazioniNette": 59686000000,
+    "ammortamento": 14336000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 28501000000,
+    "attivoTotale": 264811000000,
+    "debitoLungo": null
    },
    {
     "anno": 2024,
@@ -13214,7 +27786,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0608,
     "utileNetto": 16192000000,
     "ricavi": 123731000000,
-    "patrimonioNetto": 85560000000
+    "patrimonioNetto": 85560000000,
+    "crediti": 13661000000,
+    "costoVenduto": null,
+    "attivoCorrente": 26801000000,
+    "passivoCorrente": 39581000000,
+    "immobilizzazioniNette": 62548000000,
+    "ammortamento": 14802000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 27673000000,
+    "attivoTotale": 266211000000,
+    "debitoLungo": null
    },
    {
     "anno": 2025,
@@ -13223,7 +27805,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0734,
     "utileNetto": 19998000000,
     "ricavi": 123707000000,
-    "patrimonioNetto": 96903000000
+    "patrimonioNetto": 96903000000,
+    "crediti": 13869000000,
+    "costoVenduto": null,
+    "attivoCorrente": 29567000000,
+    "passivoCorrente": 33524000000,
+    "immobilizzazioniNette": 65680000000,
+    "ammortamento": 16210000000,
+    "speseSga": null,
+    "flussoCassaOperativo": 33643000000,
+    "attivoTotale": 272631000000,
+    "debitoLungo": null
    }
   ]
  },
@@ -13237,7 +27829,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0366,
     "utileNetto": 1639000000,
     "ricavi": 16410000000,
-    "patrimonioNetto": 11681000000
+    "patrimonioNetto": 11681000000,
+    "crediti": 1443000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5392000000,
+    "passivoCorrente": 7689000000,
+    "immobilizzazioniNette": 32411000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3403000000,
+    "attivoTotale": 44821000000,
+    "debitoLungo": 13833000000
    },
    {
     "anno": 2009,
@@ -13246,7 +27848,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0333,
     "utileNetto": 1615000000,
     "ricavi": 15643000000,
-    "patrimonioNetto": 12967000000
+    "patrimonioNetto": 12967000000,
+    "crediti": 1431000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4337000000,
+    "passivoCorrente": 6449000000,
+    "immobilizzazioniNette": 36078000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 4463000000,
+    "attivoTotale": 48458000000,
+    "debitoLungo": 16300000000
    },
    {
     "anno": 2010,
@@ -13255,7 +27867,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0369,
     "utileNetto": 1957000000,
     "ricavi": 15317000000,
-    "patrimonioNetto": 14461000000
+    "patrimonioNetto": 14461000000,
+    "crediti": 1509000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5258000000,
+    "passivoCorrente": 6904000000,
+    "immobilizzazioniNette": 39075000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3834000000,
+    "attivoTotale": 52994000000,
+    "debitoLungo": 18013000000
    },
    {
     "anno": 2011,
@@ -13264,7 +27886,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0336,
     "utileNetto": 1923000000,
     "ricavi": 15341000000,
-    "patrimonioNetto": 14943000000
+    "patrimonioNetto": 14943000000,
+    "crediti": 1372000000,
+    "costoVenduto": null,
+    "attivoCorrente": 4872000000,
+    "passivoCorrente": 6719000000,
+    "immobilizzazioniNette": 42490000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 4074000000,
+    "attivoTotale": 57188000000,
+    "debitoLungo": 20810000000
    },
    {
     "anno": 2012,
@@ -13273,7 +27905,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0297,
     "utileNetto": 1911000000,
     "ricavi": 14256000000,
-    "patrimonioNetto": 16068000000
+    "patrimonioNetto": 16068000000,
+    "crediti": 1487000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5237000000,
+    "passivoCorrente": 8879000000,
+    "immobilizzazioniNette": 49413000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 3992000000,
+    "attivoTotale": 64439000000,
+    "debitoLungo": 23177000000
    },
    {
     "anno": 2013,
@@ -13282,7 +27924,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0276,
     "utileNetto": 1908000000,
     "ricavi": null,
-    "patrimonioNetto": 18040000000
+    "patrimonioNetto": 18040000000,
+    "crediti": 1777000000,
+    "costoVenduto": null,
+    "attivoCorrente": 5842000000,
+    "passivoCorrente": 9189000000,
+    "immobilizzazioniNette": 52720000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 5102000000,
+    "attivoTotale": 69007000000,
+    "debitoLungo": 23969000000
    },
    {
     "anno": 2014,
@@ -13291,7 +27943,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.033,
     "utileNetto": 2465000000,
     "ricavi": null,
-    "patrimonioNetto": 20168000000
+    "patrimonioNetto": 20168000000,
+    "crediti": 1805000000,
+    "costoVenduto": null,
+    "attivoCorrente": 6944000000,
+    "passivoCorrente": 9663000000,
+    "immobilizzazioniNette": 55705000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 5500000000,
+    "attivoTotale": 74605000000,
+    "debitoLungo": 24044000000
    },
    {
     "anno": 2015,
@@ -13300,7 +27962,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0334,
     "utileNetto": 2752000000,
     "ricavi": null,
-    "patrimonioNetto": 23112000000
+    "patrimonioNetto": 23112000000,
+    "crediti": 1784000000,
+    "costoVenduto": null,
+    "attivoCorrente": 6795000000,
+    "passivoCorrente": 10107000000,
+    "immobilizzazioniNette": 61386000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6089000000,
+    "attivoTotale": 82479000000,
+    "debitoLungo": 26681000000
    },
    {
     "anno": 2016,
@@ -13309,7 +27981,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0321,
     "utileNetto": 2906000000,
     "ricavi": null,
-    "patrimonioNetto": 25358000000
+    "patrimonioNetto": 25358000000,
+    "crediti": 1784000000,
+    "costoVenduto": null,
+    "attivoCorrente": 7409000000,
+    "passivoCorrente": 10919000000,
+    "immobilizzazioniNette": 66912000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6369000000,
+    "attivoTotale": 90474000000,
+    "debitoLungo": 27818000000
    },
    {
     "anno": 2017,
@@ -13318,7 +28000,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0549,
     "utileNetto": 5380000000,
     "ricavi": null,
-    "patrimonioNetto": 29531000000
+    "patrimonioNetto": 29531000000,
+    "crediti": 2220000000,
+    "costoVenduto": null,
+    "attivoCorrente": 7181000000,
+    "passivoCorrente": 11243000000,
+    "immobilizzazioniNette": 72289000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6458000000,
+    "attivoTotale": 97963000000,
+    "debitoLungo": 31410000000
    },
    {
     "anno": 2018,
@@ -13327,7 +28019,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.064,
     "utileNetto": 6638000000,
     "ricavi": 15400000000,
-    "patrimonioNetto": 37413000000
+    "patrimonioNetto": 37413000000,
+    "crediti": 2302000000,
+    "costoVenduto": null,
+    "attivoCorrente": 6393000000,
+    "passivoCorrente": 17563000000,
+    "immobilizzazioniNette": 70334000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 6593000000,
+    "attivoTotale": 103702000000,
+    "debitoLungo": 26782000000
    },
    {
     "anno": 2019,
@@ -13336,7 +28038,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.032,
     "utileNetto": 3769000000,
     "ricavi": 17500000000,
-    "patrimonioNetto": 41360000000
+    "patrimonioNetto": 41360000000,
+    "crediti": 2282000000,
+    "costoVenduto": null,
+    "attivoCorrente": 7408000000,
+    "passivoCorrente": 13853000000,
+    "immobilizzazioniNette": 82010000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 8155000000,
+    "attivoTotale": 117691000000,
+    "debitoLungo": 37543000000
    },
    {
     "anno": 2020,
@@ -13345,7 +28057,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0229,
     "utileNetto": 2919000000,
     "ricavi": 17000000000,
-    "patrimonioNetto": 44929000000
+    "patrimonioNetto": 44929000000,
+    "crediti": 2263000000,
+    "costoVenduto": null,
+    "attivoCorrente": 7382000000,
+    "passivoCorrente": 15558000000,
+    "immobilizzazioniNette": 91803000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7983000000,
+    "attivoTotale": 127684000000,
+    "debitoLungo": 41944000000
    },
    {
     "anno": 2021,
@@ -13354,7 +28076,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0254,
     "utileNetto": 3573000000,
     "ricavi": 18800000000,
-    "patrimonioNetto": 45424000000
+    "patrimonioNetto": 45424000000,
+    "crediti": 3378000000,
+    "costoVenduto": null,
+    "attivoCorrente": 9288000000,
+    "passivoCorrente": 17437000000,
+    "immobilizzazioniNette": 99348000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 7553000000,
+    "attivoTotale": 140912000000,
+    "debitoLungo": 50960000000
    },
    {
     "anno": 2022,
@@ -13363,7 +28095,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0261,
     "utileNetto": 4147000000,
     "ricavi": 23000000000,
-    "patrimonioNetto": 48326000000
+    "patrimonioNetto": 48326000000,
+    "crediti": 4349000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13490000000,
+    "passivoCorrente": 26695000000,
+    "immobilizzazioniNette": 111059000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 8262000000,
+    "attivoTotale": 158935000000,
+    "debitoLungo": 55256000000
    },
    {
     "anno": 2023,
@@ -13372,7 +28114,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0412,
     "utileNetto": 7310000000,
     "ricavi": 24800000000,
-    "patrimonioNetto": 57768000000
+    "patrimonioNetto": 57768000000,
+    "crediti": 3609000000,
+    "costoVenduto": null,
+    "attivoCorrente": 15361000000,
+    "passivoCorrente": 27963000000,
+    "immobilizzazioniNette": 125776000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 11301000000,
+    "attivoTotale": 177489000000,
+    "debitoLungo": 61405000000
    },
    {
     "anno": 2024,
@@ -13381,7 +28133,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0365,
     "utileNetto": 6946000000,
     "ricavi": 23500000000,
-    "patrimonioNetto": 50101000000
+    "patrimonioNetto": 50101000000,
+    "crediti": 3336000000,
+    "costoVenduto": null,
+    "attivoCorrente": 11951000000,
+    "passivoCorrente": 25355000000,
+    "immobilizzazioniNette": 138852000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 13260000000,
+    "attivoTotale": 190144000000,
+    "debitoLungo": 72385000000
    },
    {
     "anno": 2025,
@@ -13390,7 +28152,17 @@ export const FONDAMENTALI_STORICI = {
     "roa": 0.0321,
     "utileNetto": 6835000000,
     "ricavi": 25800000000,
-    "patrimonioNetto": 54608000000
+    "patrimonioNetto": 54608000000,
+    "crediti": 4018000000,
+    "costoVenduto": null,
+    "attivoCorrente": 13584000000,
+    "passivoCorrente": 22817000000,
+    "immobilizzazioniNette": 156197000000,
+    "ammortamento": null,
+    "speseSga": null,
+    "flussoCassaOperativo": 12485000000,
+    "attivoTotale": 212721000000,
+    "debitoLungo": 89556000000
    }
   ]
  }
