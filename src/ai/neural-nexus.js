@@ -259,6 +259,27 @@ const NeuralNexus = {
     });
     return totalLoss / examples.length;
   },
+
+  // Come validate(), ma SENZA schiacciare tutto in una sola media: una
+  // fusione che devasta una categoria rara (pochi esempi) può annegare
+  // nella media generale, esattamente come è già successo per davvero a
+  // LogReg in questa sessione (vedi merge-gate.js, evaluateMergePerCategoria
+  // che usa questo risultato). Sola lettura, come validate(): mai far
+  // crescere il net qui, serve solo a giudicare un merge.
+  validatePerCategoria(examples, net) {
+    const perCat = {};
+    examples.forEach(({ tokens, catId }) => {
+      const targetIdx = net.catIndex ? net.catIndex[catId] : undefined;
+      if (targetIdx === undefined) return;
+      const { probs } = this.forward(tokens, net);
+      const loss = -Math.log(Math.max(probs[targetIdx], 1e-10));
+      if (!perCat[catId]) perCat[catId] = { loss: 0, n: 0 };
+      perCat[catId].loss += loss;
+      perCat[catId].n++;
+    });
+    for (const cat of Object.keys(perCat)) perCat[cat].loss /= perCat[cat].n;
+    return perCat;
+  },
   train(text, catId, amount = 0, dateObj = new Date()) {
     try {
       const tokens = this.tokenize(text);

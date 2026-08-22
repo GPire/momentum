@@ -119,6 +119,39 @@ test('validate: su una categoria nota calcola una loss finita', () => {
   assert.ok(Number.isFinite(loss) && loss >= 0);
 });
 
+test('validatePerCategoria: NON schiaccia tutto in una media, restituisce loss e conteggio per ogni categoria', () => {
+  resetVault();
+  NeuralNexus.initPriorWeights(null);
+  const net = VaultDAO.state.mlData.neuralNet;
+  const esempi = [
+    { tokens: ['esselunga', 'spesa'], catId: 'spesa' },
+    { tokens: ['coop', 'alimentari'], catId: 'spesa' },
+    { tokens: ['farmacia', 'comunale'], catId: 'crypto' }, // catId reale è irrilevante per il forward, solo per l'etichetta
+  ];
+  const perCat = NeuralNexus.validatePerCategoria(esempi, net);
+  assert.equal(perCat.spesa.n, 2, 'due esempi di "spesa" -> conteggio 2, non fusi con "crypto"');
+  assert.equal(perCat.crypto.n, 1);
+  assert.ok(Number.isFinite(perCat.spesa.loss) && perCat.spesa.loss >= 0);
+  assert.ok(Number.isFinite(perCat.crypto.loss) && perCat.crypto.loss >= 0);
+});
+
+test('validatePerCategoria: una categoria mai vista dal net viene saltata (non compare nel risultato, mai un crash)', () => {
+  resetVault();
+  NeuralNexus.initPriorWeights(null);
+  const net = VaultDAO.state.mlData.neuralNet;
+  const perCat = NeuralNexus.validatePerCategoria([{ tokens: ['x'], catId: 'categoria-mai-vista-XYZ' }], net);
+  assert.deepEqual(perCat, {});
+});
+
+test('validatePerCategoria: sola lettura, come validate() — non fa mai crescere il net', () => {
+  resetVault();
+  NeuralNexus.initPriorWeights(null);
+  const net = VaultDAO.state.mlData.neuralNet;
+  const righeIniziali = net.W2.length;
+  NeuralNexus.validatePerCategoria([{ tokens: ['x'], catId: 'categoria-mai-vista-XYZ' }], net);
+  assert.equal(net.W2.length, righeIniziali);
+});
+
 test('cresciCategoria (indirettamente via train): l\'ordine delle categorie del seme resta 0-7 anche dopo aver aggiunto categorie nuove', () => {
   resetVault();
   NeuralNexus.train('bolletta enel', 'casa', 80); // nuova, prende indice 8

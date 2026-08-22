@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateMerge, TOLLERANZA_PASSO, TETTO_DERIVA, MIN_VERIFICA } from './merge-gate.js';
+import { evaluateMerge, TOLLERANZA_PASSO, TETTO_DERIVA, MIN_VERIFICA, evaluateMergePerCategoria, SOGLIA_NAT_PER_CAT, MIN_ESEMPI_PER_CAT } from './merge-gate.js';
 
 const V = 20; // esempi di verifica sufficienti
 
@@ -113,4 +113,51 @@ test('CONFRONTO COL VECCHIO CANCELLO: dove quello cedeva, questo tiene', () => {
   }
   assert.ok(lossVecchio > 3, `il vecchio cancello lasciava degradare fino a ${lossVecchio.toFixed(2)}x`);
   assert.ok(lossNuovo < 1.2, `il nuovo tiene a ${lossNuovo.toFixed(2)}x`);
+});
+
+// ── evaluateMergePerCategoria: il buco che l'aggregato da solo non vede ──
+
+test('per-categoria: IL CASO REALE che il cancello aggregato lascerebbe passare — una categoria rara devastata, annegata dalle altre nella media', () => {
+  // 27 esempi "spesa" quasi invariati, 3 "salute" devastati: la media pesata
+  // sull'insieme resta quasi piatta (la categoria rara pesa poco), ma
+  // "salute" specificamente è da rifiutare.
+  const perCatBefore = { spesa: { loss: 0.10, n: 27 }, salute: { loss: 0.20, n: 3 } };
+  const perCatAfter = { spesa: { loss: 0.09, n: 27 }, salute: { loss: 3.5, n: 3 } };
+  const r = evaluateMergePerCategoria({ perCatBefore, perCatAfter });
+  assert.equal(r.accept, false);
+  assert.equal(r.categoria, 'salute');
+  assert.match(r.reason, /salute/);
+});
+
+test('per-categoria: nessuna categoria peggiora oltre soglia -> accettato', () => {
+  const perCatBefore = { spesa: { loss: 0.10, n: 27 }, casa: { loss: 0.30, n: 10 } };
+  const perCatAfter = { spesa: { loss: 0.11, n: 27 }, casa: { loss: 0.35, n: 10 } };
+  const r = evaluateMergePerCategoria({ perCatBefore, perCatAfter });
+  assert.equal(r.accept, true);
+});
+
+test(`per-categoria: sotto ${MIN_ESEMPI_PER_CAT} esempi non si giudica QUELLA categoria (troppo rumore per fidarsi)`, () => {
+  const perCatBefore = { crypto: { loss: 0.1, n: 2 } }; // sotto la soglia minima
+  const perCatAfter = { crypto: { loss: 9.0, n: 2 } }; // peggiora moltissimo, ma non abbastanza dati per giudicarlo
+  const r = evaluateMergePerCategoria({ perCatBefore, perCatAfter });
+  assert.equal(r.accept, true, 'con solo 2 esempi non si può distinguere un vero peggioramento dal rumore');
+});
+
+test('per-categoria: soglia in NAT assoluti, non solo rapporto — un salto minuscolo in valore assoluto non fa scattare il rifiuto anche se il "rapporto" sembra grande', () => {
+  const perCatBefore = { etf: { loss: 0.001, n: 10 } };
+  const perCatAfter = { etf: { loss: 0.01, n: 10 } }; // 10x in rapporto, ma +0,009 nat: trascurabile
+  const r = evaluateMergePerCategoria({ perCatBefore, perCatAfter });
+  assert.equal(r.accept, true);
+});
+
+test('per-categoria: senza perCatBefore/perCatAfter (nexus senza validatePerCategoria) accetta senza giudicare — mai un crash', () => {
+  assert.equal(evaluateMergePerCategoria({}).accept, true);
+  assert.equal(evaluateMergePerCategoria({ perCatBefore: null, perCatAfter: null }).accept, true);
+});
+
+test('per-categoria: una categoria nuova solo nel "dopo" (il merge l\'ha portata) non è motivo di rifiuto — può solo migliorare, mai peggiorare qualcosa che prima non esisteva', () => {
+  const perCatBefore = { spesa: { loss: 0.1, n: 27 } };
+  const perCatAfter = { spesa: { loss: 0.1, n: 27 }, salute: { loss: 5.0, n: 4 } };
+  const r = evaluateMergePerCategoria({ perCatBefore, perCatAfter });
+  assert.equal(r.accept, true);
 });

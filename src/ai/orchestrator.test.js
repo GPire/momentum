@@ -552,3 +552,44 @@ test("mergeRemoteNeuralNet: il cancello di merge protegge anche questo percorso 
   assert.equal(vault.state.mlData.neuralNet, localNet, 'in caso di rifiuto il net locale non deve essere sostituito');
   assert.equal(vault.state.mlData.totalWords, 500, 'in caso di rifiuto il conteggio esempi non deve avanzare');
 });
+
+test("mergeRemoteNeuralNet: SECONDO CANCELLO per categoria — un merge che la MEDIA giudicherebbe un miglioramento viene comunque rifiutato se devasta una categoria rara annegata nella media", () => {
+  // "spesa" migliora molto (97/100 esempi), "salute" (solo 3/100) peggiora
+  // di oltre 1,6 nat — un salto reale (la probabilità della classe vera
+  // crolla da 50% a 10%). La media pesata sul validation set MIGLIORA
+  // comunque (0,69 -> 0,17): il primo cancello (evaluateMerge, aggregato)
+  // da SOLO avrebbe accettato con entusiasmo ("migliora il tuo modello").
+  // Questo è esattamente il tipo di buco misurato per davvero su LogReg in
+  // questa sessione (una categoria perdeva punti mentre l'accuratezza
+  // globale sembrava a posto) — qui riprodotto apposta sul percorso mesh
+  // per provare che il secondo cancello lo intercetta.
+  const localNet = retSpenta({
+    catIndex: { spesa: 0, salute: 1 }, indexToCat: ['spesa', 'salute'],
+    W2: [Array.from({ length: 12 }, () => 0), Array.from({ length: 12 }, () => 0)],
+    b2: [0, 0], // softmax([0,0]) = 50/50 per entrambe: punto di partenza neutro
+  });
+  const remoteNet = retSpenta({
+    catIndex: { spesa: 0, salute: 1 }, indexToCat: ['spesa', 'salute'],
+    W2: [Array.from({ length: 12 }, () => 0), Array.from({ length: 12 }, () => 0)],
+    // Con peso 50/50 la fusione porta la rete a b2=[ln(9), 0]: p(spesa)=90%,
+    // p(salute)=10% — "spesa" migliora, "salute" crolla dal 50% al 10%.
+    b2: [2 * Math.log(9), 0],
+  });
+
+  const vault = { state: { mlData: { neuralNet: localNet, totalWords: 500 } }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: NeuralNexus });
+  for (let i = 0; i < 97; i++) orch._validationSet.push({ tokens: ['x'], catId: 'spesa' });
+  for (let i = 0; i < 3; i++) orch._validationSet.push({ tokens: ['x'], catId: 'salute' });
+
+  // Prova che il PRIMO cancello da solo, su questi stessi numeri, accetterebbe.
+  const lossBefore = NeuralNexus.validate(orch._validationSet, localNet);
+  const netFusoPerVerifica = { ...localNet, b2: remoteNet.b2 }; // stessa forma, biases del "dopo" atteso
+  const lossAfterAtteso = NeuralNexus.validate(orch._validationSet, netFusoPerVerifica);
+  assert.ok(lossAfterAtteso < lossBefore, 'premessa del test: il cancello AGGREGATO da solo giudicherebbe questo un miglioramento');
+
+  const risultato = orch.mergeRemoteNeuralNet(remoteNet, 500);
+
+  assert.equal(risultato.accepted, false, 'il secondo cancello (per categoria) deve rifiutare anche se la media migliora');
+  assert.match(risultato.reason, /salute/, 'il motivo del rifiuto deve nominare la categoria colpita');
+  assert.equal(vault.state.mlData.neuralNet, localNet, 'in caso di rifiuto il net locale resta intatto');
+});

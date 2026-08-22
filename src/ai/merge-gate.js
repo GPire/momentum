@@ -85,3 +85,49 @@ export function evaluateMerge({
     nuovoBest: Math.min(ancora, lossAfter),
   };
 }
+
+// ============================================================
+// CANCELLO PER CATEGORIA — un buco reale del cancello sopra
+// ============================================================
+// evaluateMerge() giudica una SOLA media aggregata. Con l'output di
+// NeuralNexus ormai dinamico (una categoria rara può avere solo 2-3 esempi
+// nel validation set su 100), una fusione può devastare UNA categoria
+// specifica senza spostare quasi per niente la media generale — annegata
+// dalle categorie più frequenti, esattamente come è già successo (misurato
+// per davvero, non ipotizzato) al modello LogReg in questa stessa sessione,
+// dove "trasporti" perdeva 6-11 punti mentre l'accuratezza globale sembrava
+// a posto. Qui la stessa classe di problema si applica alla loss per
+// categoria invece che all'accuratezza, e al percorso mesh invece che al
+// retraining offline.
+//
+// Soglia in NAT assoluti (unità della cross-entropy), non solo un rapporto:
+// un rapporto puro esplode su basi minuscole (0,001->0,01 è "10x" ma
+// trascurabile), un salto assoluto di ~1 nat significa che la probabilità
+// della categoria vera è scesa di un fattore ~e — un peggioramento reale,
+// leggibile alla stessa scala per qualunque categoria.
+export const SOGLIA_NAT_PER_CAT = 1.0;
+export const MIN_ESEMPI_PER_CAT = 3;
+
+//  perCatBefore/perCatAfter  { [categoria]: { loss, n } } — vedi
+//                            NeuralNexus.validatePerCategoria
+export function evaluateMergePerCategoria({
+  perCatBefore, perCatAfter,
+  minEsempi = MIN_ESEMPI_PER_CAT, sogliaNat = SOGLIA_NAT_PER_CAT,
+} = {}) {
+  if (!perCatBefore || !perCatAfter) {
+    return { accept: true, reason: 'nessuna rottura per categoria da verificare' };
+  }
+  for (const [cat, prima] of Object.entries(perCatBefore)) {
+    if (!prima || prima.n < minEsempi || !Number.isFinite(prima.loss)) continue; // troppo pochi esempi per fidarsi
+    const dopo = perCatAfter[cat];
+    if (!dopo || !Number.isFinite(dopo.loss)) continue; // la categoria fusa non la conosce più: non dovrebbe succedere, ma non è materia di questo cancello
+    if (dopo.loss - prima.loss > sogliaNat) {
+      return {
+        accept: false,
+        categoria: cat,
+        reason: `questo modello peggiora "${cat}" in modo specifico (loss ${prima.loss.toFixed(2)} -> ${dopo.loss.toFixed(2)}), anche se la media generale può sembrare a posto`,
+      };
+    }
+  }
+  return { accept: true, reason: 'nessuna categoria specifica peggiora oltre soglia' };
+}

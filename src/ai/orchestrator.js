@@ -1,4 +1,4 @@
-import { evaluateMerge } from './merge-gate.js';
+import { evaluateMerge, evaluateMergePerCategoria } from './merge-gate.js';
 import { monthKey } from '../core/constants.js';
 import { VaultDAO } from '../core/vault.js';
 import { NeuralNexus, fondiOutputPerNome } from './neural-nexus.js';
@@ -593,6 +593,22 @@ class MomentumOrchestrator {
     });
     if (!verdetto.accept) {
       return { accepted: false, lossBefore, lossAfter, reason: verdetto.reason };
+    }
+
+    // SECONDO CANCELLO, PER CATEGORIA: la media sopra può sembrare a posto
+    // mentre una categoria rara (pochi esempi nel validation set) viene
+    // devastata — annegata dalle categorie più frequenti. Stessa classe di
+    // bug già misurata per davvero su LogReg in questa sessione (una
+    // categoria perdeva 6-11 punti mentre l'accuratezza globale reggeva),
+    // qui applicata alla loss per categoria sul percorso mesh. Vedi
+    // evaluateMergePerCategoria in merge-gate.js.
+    if (this.nexus.validatePerCategoria) {
+      const perCatBefore = this.nexus.validatePerCategoria(this._validationSet, localNet);
+      const perCatAfter = this.nexus.validatePerCategoria(this._validationSet, mergedNet);
+      const verdettoCat = evaluateMergePerCategoria({ perCatBefore, perCatAfter });
+      if (!verdettoCat.accept) {
+        return { accepted: false, lossBefore, lossAfter, reason: verdettoCat.reason };
+      }
     }
     if (Number.isFinite(verdetto.nuovoBest)) {
       this.vault.state.mlData.bestValidationLoss = verdetto.nuovoBest;
