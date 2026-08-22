@@ -27,6 +27,13 @@ import { parseCellAmount, detectCurrency } from './pdf-parser.js';
 
 const AMOUNT = '(\\d{1,3}(?:[.,]\\d{3})*[.,]\\d{1,2}|\\d+)';
 const SIMBOLO_OPZ = '[€$£¥]?';
+// Confine di fine-esercente: si ferma PRIMA di una data in coda ("... at
+// TESCO 01/03/2026"), non solo a fine stringa. Trovato integrando questo
+// modulo nel percorso screenshot (screenshot-parser.js): un OCR di
+// notifica include quasi sempre una riga di data/ora sotto, e un confine
+// `\s*$` da solo la inghiottiva dentro il nome dell'esercente ("TESCO
+// 01/03/2026" invece di "TESCO").
+const FINE_ESERCENTE = '(?:\\s+\\d{1,2}[/.-]\\d{1,2}|\\s*$)';
 
 // Ordine importante: i pattern più specifici prima. `type` è la direzione;
 // `merchant` è l'indice del gruppo col nome esercente/mittente (o null).
@@ -36,32 +43,32 @@ const PATTERNS = [
   // Apple Pay via banca / carte: "Pagamento di 8,00€ presso BAR ROMA"
   { re: new RegExp(`pagamento\\s+di\\s*€?\\s*${AMOUNT}\\s*€?\\s+(?:presso|a favore di|a|verso)\\s+(.+?)(?:\\s+il\\b|\\s+alle\\b|\\s*\\.|\\s*$)`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   // Satispay: "Hai inviato 15,00 € a Mario Rossi" / "Mario ti ha inviato 20 €"
-  { re: new RegExp(`hai inviato\\s*€?\\s*${AMOUNT}\\s*€?\\s+a\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`hai inviato\\s*€?\\s*${AMOUNT}\\s*€?\\s+a\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   { re: new RegExp(`(.+?)\\s+ti ha inviato\\s*€?\\s*${AMOUNT}\\s*€?`, 'i'), type: 'entrata', amountIdx: 2, merchantIdx: 1 },
   // Intesa/UniCredit/BPER stile SMS/push: "Addebito di 78,50 EUR per SDD ENEL"
   { re: new RegExp(`addebit\\w*\\s+(?:di\\s+)?€?\\s*${AMOUNT}\\s*(?:€|eur)?\\s*(?:per|causale)?\\s*(.*)$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   { re: new RegExp(`accredit\\w*\\s+(?:di\\s+)?€?\\s*${AMOUNT}\\s*(?:€|eur)?\\s*(?:per|causale|da)?\\s*(.*)$`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
   // Revolut: "Paid €12.40 at Tesco" / "You received €200 from ..."
-  { re: new RegExp(`paid\\s*€?\\s*${AMOUNT}\\s*€?\\s+(?:at|to)\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
-  { re: new RegExp(`(?:you\\s+)?received\\s*€?\\s*${AMOUNT}\\s*€?\\s+from\\s+(.+?)\\s*$`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`paid\\s*€?\\s*${AMOUNT}\\s*€?\\s+(?:at|to)\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`(?:you\\s+)?received\\s*€?\\s*${AMOUNT}\\s*€?\\s+from\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
   // PayPal: "Hai ricevuto 45,00 € da Luca Bianchi"
-  { re: new RegExp(`hai ricevuto\\s*€?\\s*${AMOUNT}\\s*€?\\s+da\\s+(.+?)\\s*$`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`hai ricevuto\\s*€?\\s*${AMOUNT}\\s*€?\\s+da\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
   // Generico prelievo: "Prelievo di 100,00 € carta *1234"
   { re: new RegExp(`prelievo\\s+(?:di\\s+)?€?\\s*${AMOUNT}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: null },
 
   // ── Avvisi carta Visa/Mastercard (inglese, molti emittenti nel mondo) ──
   // "You spent $45.00 on your Visa card at TESCO" / "...Mastercard ending 1234 at..."
-  { re: new RegExp(`you spent\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+on your (?:visa|mastercard)(?:\\s+card)?(?:\\s+ending\\s+(?:in\\s+)?\\d+)?\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`you spent\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+on your (?:visa|mastercard)(?:\\s+card)?(?:\\s+ending\\s+(?:in\\s+)?\\d+)?\\s+at\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   // "Your Visa card ending 1234 was charged $45.00 at TESCO"
-  { re: new RegExp(`your (?:visa|mastercard)(?:\\s+card)?(?:\\s+ending\\s+(?:in\\s+)?\\d+)?\\s+was charged\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`your (?:visa|mastercard)(?:\\s+card)?(?:\\s+ending\\s+(?:in\\s+)?\\d+)?\\s+was charged\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+at\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   // "A payment of $45.00 was made with your Mastercard at TESCO"
-  { re: new RegExp(`a payment of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+was made(?:\\s+(?:with|using) your (?:visa|mastercard)(?:\\s+card)?)?\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`a payment of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+was made(?:\\s+(?:with|using) your (?:visa|mastercard)(?:\\s+card)?)?\\s+at\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   // "Mastercard purchase: $45.00 at TESCO" / "Visa purchase £30.00 at STARBUCKS"
-  { re: new RegExp(`(?:visa|mastercard)\\s+purchase:?\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`(?:visa|mastercard)\\s+purchase:?\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+at\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   // "Card ending 1234: purchase of $50.00 approved at WALMART"
-  { re: new RegExp(`card ending\\s+(?:in\\s+)?\\d+:?\\s*purchase of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+approved\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`card ending\\s+(?:in\\s+)?\\d+:?\\s*purchase of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+approved\\s+at\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
   // "Visa refund of $20.00 from TESCO" / "You received a refund of €10.00 from AMAZON"
-  { re: new RegExp(`(?:visa|mastercard)?\\s*refund of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+(?:from|at)\\s+(.+?)\\s*$`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
+  { re: new RegExp(`(?:visa|mastercard)?\\s*refund of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+(?:from|at)\\s+(.+?)${FINE_ESERCENTE}`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
 ];
 
 // Pulisce il nome esercente da code tecniche delle notifiche

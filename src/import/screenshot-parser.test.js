@@ -38,6 +38,40 @@ test("nessuna valuta riconoscibile: il campo currency resta assente, mai indovin
   assert.equal(result.currency, undefined);
 });
 
+// ── Priorità ai pattern di NOTIFICA (notification-parser.js) quando il
+// testo è una notifica screenshottata, non uno scontrino — è il caso più
+// comune per davvero: questo modulo esiste apposta perché una webapp non
+// può leggere le notifiche di altre app, quindi l'utente le screenshotta.
+// Prima di questo collegamento, l'euristica "numero vicino a una parola
+// chiave" sbagliava sia l'esercente (prendeva il titolo dell'app) sia,
+// per un rimborso, il verso della transazione.
+
+test("screenshot di una notifica Visa: l'esercente VERO (TESCO), non il titolo dell'app", () => {
+  const raw = "Bank Alert\nYou spent $45.00 on your Visa card at TESCO\n01/03/2026";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.amount, 45);
+  assert.equal(result.type, "uscita");
+  assert.equal(result.description, "TESCO", "prima di questo fix sarebbe stato \"Bank Alert\", il titolo della notifica");
+  assert.equal(result.currency, "USD");
+  assert.equal(result.confidence, "alta");
+});
+
+test("screenshot di un rimborso carta: riconosciuto come ENTRATA, non uscita (INCOME_HINTS da solo non conosce \"refund\")", () => {
+  const raw = "Bank Alert\nVisa refund of $20.00 from TESCO\n01/03/2026";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.type, "entrata", "senza il pattern di notifica l'euristica generica avrebbe risposto \"uscita\" di default");
+  assert.equal(result.amount, 20);
+  assert.equal(result.description, "TESCO");
+});
+
+test("screenshot di uno scontrino: comportamento INVARIATO, il pattern di notifica non matcha e si ricade sull'euristica di sempre", () => {
+  const raw = "BAR ROMA\nVia Roma 12\nCaffe 1.20\nCornetto 1.50\nTOTALE 38,90\nCONTANTI 40,00\nRESTO 1,10";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.amount, 38.90);
+  assert.equal(result.type, "uscita");
+  assert.equal(result.confidence, "alta");
+});
+
 test("riconosce una notifica di pagamento POS come uscita", () => {
   const raw = "Pagamento effettuato\nSATISPAY*BAR ROMA\nImporto 15,00\n01/07/2026";
   const result = parseScreenshotText(raw);

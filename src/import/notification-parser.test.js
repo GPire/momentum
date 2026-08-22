@@ -114,6 +114,16 @@ test('valuta assente quando il pattern italiano è EUR per costruzione (nessuna 
   assert.equal(r.currency, 'EUR');
 });
 
+// BUG REALE TROVATO E CORRETTO integrando questo modulo nel percorso
+// screenshot: un confine `\s*$` da solo inghiottiva una data in coda
+// dentro il nome dell'esercente ("TESCO 01/03/2026" invece di "TESCO") —
+// e una notifica OCR ha quasi sempre una riga di data/ora sotto.
+test('l\'esercente si ferma PRIMA di una data in coda, non la inghiottisce (Visa, Revolut, Satispay)', () => {
+  assert.equal(parseNotificationText('Bank Alert', 'You spent $45.00 on your Visa card at TESCO 01/03/2026').description, 'TESCO');
+  assert.equal(parseNotificationText('Revolut', 'Paid €12.40 at Tesco 05.07.2026').description, 'Tesco');
+  assert.equal(parseNotificationText('Satispay', 'Hai inviato 15,00 € a Mario Rossi 01/03/2026').description, 'Mario Rossi');
+});
+
 test('testo non finanziario → null, mai transazioni inventate', () => {
   assert.equal(parseNotificationText('WhatsApp', 'Ciao, ci vediamo alle 8?'), null);
   assert.equal(parseNotificationText('Meteo', 'Domani pioggia, 12 gradi'), null);

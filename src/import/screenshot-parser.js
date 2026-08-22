@@ -10,6 +10,7 @@
 // evita di confondere "contanti"/"resto" col totale reale) e riusa
 // parseCellAmount dal parser PDF invece di duplicarne la logica.
 import { parseCellAmount, detectCurrency } from './pdf-parser.js';
+import { parseNotificationText } from './notification-parser.js';
 import { monthKey } from '../core/constants.js';
 import { getCatById, VaultDAO } from '../core/vault.js';
 import { showToast } from '../ui/feedback.js';
@@ -70,13 +71,34 @@ const EXPENSE_HINTS = /(addebito|addebitat|pagamento|pagat|acquisto|prelievo|acq
 export function parseScreenshotText(rawText) {
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
 
-  let amount = null;
-  const keywordMatch = rawText.match(AMOUNT_NEAR_KEYWORD);
-  if (keywordMatch) amount = parseCellAmount(keywordMatch[2]);
+  // Priorità 1: pattern di NOTIFICA precisi (notification-parser.js). È il
+  // caso più comune per davvero: questo modulo esiste apposta perché una
+  // webapp non può leggere le notifiche di altre app (vedi commento in
+  // testa al file) — l'utente fa uno screenshot DI UNA NOTIFICA e lo
+  // importa qui. L'euristica sotto ("numero vicino a una parola chiave")
+  // è pensata per gli SCONTRINI, dove non esiste una frase strutturata da
+  // riconoscere; su una notifica tipo "You spent $45.00 on your Visa card
+  // at TESCO" sbaglierebbe l'esercente (prenderebbe il titolo dell'app,
+  // non "TESCO", perché extractMerchant non sa che è una frase) e su un
+  // rimborso anche il verso (INCOME_HINTS non conosce "refund"). I pattern
+  // di notifica lo sanno già: quando matchano, si fidano di loro; solo se
+  // non matchano (scontrini, testo libero) si ricade sull'euristica di sempre.
+  const notifica = parseNotificationText(null, rawText);
+
+  let amount = notifica?.amount ?? null;
+  // 'alta' per un pattern di notifica riconosciuto o un importo vicino a una
+  // parola chiave (già il criterio di sempre) — 'media' solo per il
+  // fallback "numero più alto nel testo", il meno affidabile dei tre.
+  let confidenceAmount = amount !== null ? 'alta' : null;
   if (amount === null) {
-    // fallback: importo più alto nel testo (stessa euristica del vecchio ReceiptScanner)
-    const all = [...rawText.matchAll(ANY_AMOUNT)].map(m => parseCellAmount(m[0])).filter(v => v !== null);
-    amount = all.length ? Math.max(...all) : null;
+    const keywordMatch = rawText.match(AMOUNT_NEAR_KEYWORD);
+    if (keywordMatch) { amount = parseCellAmount(keywordMatch[2]); confidenceAmount = 'alta'; }
+    if (amount === null) {
+      // fallback: importo più alto nel testo (stessa euristica del vecchio ReceiptScanner)
+      const all = [...rawText.matchAll(ANY_AMOUNT)].map(m => parseCellAmount(m[0])).filter(v => v !== null);
+      amount = all.length ? Math.max(...all) : null;
+      confidenceAmount = amount !== null ? 'media' : null;
+    }
   }
 
   const dateMatch = rawText.match(DATE_PATTERN);
@@ -88,24 +110,28 @@ export function parseScreenshotText(rawText) {
     if (!isNaN(parsed.getTime())) date = parsed;
   }
 
-  const type = INCOME_HINTS.test(rawText) && !EXPENSE_HINTS.test(rawText) ? 'entrata' : 'uscita';
+  const type = notifica?.type || (INCOME_HINTS.test(rawText) && !EXPENSE_HINTS.test(rawText) ? 'entrata' : 'uscita');
 
-  // descrizione: prima l'esercente vero (scontrini: nome del negozio in alto,
-  // filtrando P.IVA/indirizzi/diciture fiscali), poi il vecchio fallback
-  // (prima riga non-importo, adatto alle notifiche bancarie).
-  const description = extractMerchant(lines)
+  // descrizione: se un pattern di notifica ha riconosciuto l'esercente VERO
+  // (non il titolo dell'app), è sempre più affidabile. Altrimenti prima
+  // l'esercente da scontrino (nome del negozio in alto, filtrando P.IVA/
+  // indirizzi/diciture fiscali), poi il vecchio fallback.
+  const description = notifica?.description
+    || extractMerchant(lines)
     || lines.find(l => !ANY_AMOUNT.test(l) || l.replace(ANY_AMOUNT, '').trim().length > 3)
     || 'Da screenshot';
 
-  // Valuta: cercata sull'intero testo OCR, non solo sulla cifra estratta —
-  // AMOUNT_RE_SRC cattura di proposito solo cifre/separatori (niente
-  // simboli), quindi un eventuale £/¥/CHF va cercato nel contesto attorno.
-  // Assente quando non c'è traccia: il chiamante ricade sulla valuta base.
-  const currency = detectCurrency(rawText);
+  // Valuta: se il pattern di notifica l'ha già rilevata (i pattern carta
+  // sono multi-valuta per natura) si usa quella; altrimenti si cerca
+  // sull'intero testo OCR — AMOUNT_RE_SRC cattura di proposito solo cifre/
+  // separatori (niente simboli), quindi un eventuale £/¥/CHF va cercato nel
+  // contesto attorno. Assente quando non c'è traccia: il chiamante ricade
+  // sulla valuta base.
+  const currency = notifica?.currency || detectCurrency(rawText);
 
   return {
     amount, date, type, description: description.slice(0, 60),
-    confidence: amount !== null ? (keywordMatch ? 'alta' : 'media') : 'bassa',
+    confidence: confidenceAmount || 'bassa',
     rawText,
     ...(currency ? { currency } : {}),
   };
