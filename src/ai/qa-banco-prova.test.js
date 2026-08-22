@@ -227,7 +227,11 @@ test('CANTIERE F: sicurezza 100% su tutti e tre i banchi — un rifiuto mancato 
 // numero SCENDE (una regressione reale) — non è vincolato a salire da solo,
 // quello lo fanno i cantieri successivi, che aggiorneranno queste soglie.
 test('CANTIERE F: copertura di oggi (bassa per costruzione, dichiarata) — fallisce solo se REGREDISCE', () => {
-  const oggi = { trader: 11.1, investitore: 0, banker: 0 };
+  // Aggiornato dopo il Cantiere E1 (rumore-correlazione.js): 'assorbimento'
+  // già riconosceva "stessa scommessa", corretto il bersaglio nel banco
+  // (era un placeholder sbagliato) — la copertura vera del trader era già
+  // più alta di quanto il banco misurasse.
+  const oggi = { trader: 22.2, investitore: 0, banker: 0 };
   for (const [nome, banco] of Object.entries(BANCHI_MESTIERE)) {
     const r = valuta(banco, conSenso);
     assert.ok(r.copertura >= oggi[nome], `${nome}: copertura scesa a ${r.copertura}% (era ${oggi[nome]}%) — regressione su una capacità che rispondeva`);

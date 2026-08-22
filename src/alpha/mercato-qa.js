@@ -38,6 +38,12 @@ import { similaritaLessicale } from '../ai/similarita-lessicale.js';
 // dopo l'avvio la protezione non c'era. Sono poche centinaia di stringhe:
 // il costo e' trascurabile, l'assenza no.
 import * as BANCO_STATICO from './mercato-canonical-bank.js';
+// Import statico, stessa ragione delle due sopra: rispostaSincrona() è
+// sincrona per contratto (rispostaSincrona() sotto), quindi tutto quello che
+// usa deve essere già caricato — un dynamic import qui non compilerebbe
+// nemmeno (await dentro una funzione non async). Il modulo è puro e leggero,
+// nessun costo a tenerlo statico.
+import { classificaAutovalori, testoRumoreCorrelazione } from './rumore-correlazione.js';
 
 const NOMI_STATI_QA = ['condizioni distese', 'condizioni normali', 'condizioni tese'];
 
@@ -539,7 +545,18 @@ export function rispostaSincrona(domanda, similarity = null) {
       // una domanda all'altra: si dichiara l'esito gia' misurato invece di
       // ricalcolarlo a ogni domanda.
       const testo = ass.testoAssorbimento(sp, { disponibile: true, funziona: false });
-      return conAvviso({ intent: 'mercato-assorbimento', data: { spostamento: sp }, answer: testo });
+      // Una seconda misura, rigorosa e complementare: quanti di questi asset
+      // sono davvero fattori di rischio DISTINTI, non solo "quanto si
+      // muovono insieme" (l'indice di assorbimento) ma "quanti autovalori si
+      // distinguono dal rumore statistico puro" (Marchenko-Pastur,
+      // rumore-correlazione.js — Cantiere E1). Additiva, mai al posto della
+      // risposta principale: sono due domande imparentate, non la stessa.
+      let mp = '';
+      try {
+        const r = classificaAutovalori(dati);
+        if (r.disponibile) mp = ` ${testoRumoreCorrelazione(r)}`;
+      } catch (_) { /* diagnostica complementare: se non disponibile, si tace */ }
+      return conAvviso({ intent: 'mercato-assorbimento', data: { spostamento: sp }, answer: testo + mp });
     }
 
     if (intento === 'panoramica') {

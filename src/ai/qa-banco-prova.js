@@ -147,9 +147,12 @@ export const BANCO_TRADER = [
   { d: 'quanto rischio per operazione prima di non rialzarmi più?', atteso: 'rischio-rovina' },
   { d: 'con che percentuale per trade rischio la rovina del conto?', atteso: 'rischio-rovina' },
   { d: 'quanto ho rischiato davvero, non quanto pensavo', atteso: 'rischio-rovina' },
-  // Numero effettivo di scommesse dopo la pulizia RMT (Cantiere E1 — non ancora costruito)
-  { d: 'le mie posizioni sono la stessa scommessa?', atteso: 'scommesse-effettive' },
-  { d: 'quante scommesse indipendenti ho davvero in portafoglio?', atteso: 'scommesse-effettive' },
+  // Numero effettivo di scommesse — 'assorbimento' già riconosce questa
+  // formulazione ('stessa scommessa' in mercato-qa.js), e dal Cantiere E1
+  // (rumore-correlazione.js) la risposta ora porta anche il conteggio
+  // rigoroso Marchenko-Pastur come nota aggiuntiva.
+  { d: 'le mie posizioni sono la stessa scommessa?', atteso: 'assorbimento' },
+  { d: 'quante scommesse indipendenti ho davvero in portafoglio?', atteso: 'assorbimento' },
   // Rischio di coda già scritto (portfolio-tail-risk.js) — deve essere capito
   { d: 'il mio portafoglio nei mesi veri del 2008 quanto avrebbe perso?', atteso: 'perdita-massima' },
   { d: 'qual è il mio scenario peggiore misurato sui crolli veri?', atteso: 'perdita-massima' },
