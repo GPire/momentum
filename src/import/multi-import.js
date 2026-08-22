@@ -17,6 +17,7 @@ import { parseGenericCsv } from './csv-parser.js';
 import { extractTransactionsFromItems, parseCellAmount, parseCellDate, COLUMN_KEYWORDS } from './pdf-parser.js';
 import { parseScreenshotTransactions } from './screenshot-parser.js';
 import { safeCategorize } from './categorize.js';
+import { parseCamt053, isCamt053 } from './camt053.js';
 
 // Categorizza (MCC/asset dal parser, altrimenti ML) e aggiunge in BULK una lista
 // di transazioni normalizzate. `seenIds` = dedup esatta condivisa tra i file.
@@ -206,30 +207,44 @@ async function parseImageFile(file) {
 }
 
 // Tipo di file da estensione + MIME (robusto: alcune app non settano il MIME).
+// Il .xml è AMBIGUO di per sé (anche una FatturaPA è .xml): non basta
+// l'estensione, va sniffato il contenuto — per questo 'xml' resta un tipo a
+// parte, deciso più avanti in parseCamtFile invece che qui.
 function fileKind(file) {
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   if (ext === 'csv' || file.type === 'text/csv') return 'csv';
   if (ext === 'pdf' || file.type === 'application/pdf') return 'pdf';
+  if (ext === 'xml' || file.type === 'text/xml' || file.type === 'application/xml') return 'xml';
   if ((file.type || '').startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'heic', 'gif', 'bmp'].includes(ext)) return 'image';
   return 'unknown';
 }
 
+// Un .xml è supportato SOLO se è un CAMT.053 riconosciuto dal contenuto (mai
+// dall'estensione, che un'altra fonte — es. una FatturaPA — condivide). Un
+// .xml di tipo diverso resta esplicitamente "non supportato": mai un dato
+// inventato da un tracciato che questo parser non conosce.
+async function parseCamtFile(file) {
+  const text = await readCsvText(file); // nome storico, ma è un lettore di testo robusto generico (UTF-8 con ricaduta Windows-1252)
+  if (!isCamt053(text)) throw new Error('XML non riconosciuto: non è un estratto conto CAMT.053 (ISO 20022)');
+  return parseCamt053(text);
+}
+
 // PUNTO D'INGRESSO: importa N file di formato misto. onProgress({i,n,name,kind}).
-// Ritorna { files, added, byType:{csv,pdf,image}, perFile:[{name,kind,added}], errors:[] }.
+// Ritorna { files, added, byType:{csv,pdf,image,xml}, perFile:[{name,kind,added}], errors:[] }.
 export async function importFiles(fileList, { onProgress } = {}) {
   const files = Array.from(fileList || []);
   const seenIds = new Set();
   for (const m of Object.values(VaultDAO.state.transactions || {})) for (const tx of m) if (tx.externalId) seenIds.add(tx.externalId);
 
   const learned = [];
-  const result = { files: files.length, added: 0, byType: { csv: 0, pdf: 0, image: 0 }, perFile: [], errors: [], learned };
+  const result = { files: files.length, added: 0, byType: { csv: 0, pdf: 0, image: 0, xml: 0 }, perFile: [], errors: [], learned };
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     const kind = fileKind(f);
     onProgress?.({ i: i + 1, n: files.length, name: f.name, kind });
     if (kind === 'unknown') { result.errors.push(`${f.name}: formato non supportato`); continue; }
     try {
-      const txs = kind === 'csv' ? await parseCsvFile(f) : kind === 'pdf' ? await parsePdfFile(f) : await parseImageFile(f);
+      const txs = kind === 'csv' ? await parseCsvFile(f) : kind === 'pdf' ? await parsePdfFile(f) : kind === 'xml' ? await parseCamtFile(f) : await parseImageFile(f);
       // CSV di portafoglio: posizioni, non transazioni → merge dedicato.
       if (txs && txs.positions) {
         const merged = mergePositions(txs.positions);

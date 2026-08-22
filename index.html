@@ -3686,9 +3686,11 @@
                  <input type="file" id="csv-upload" accept=".csv" multiple class="hidden">
                  <input type="file" id="pdf-upload" accept=".pdf" multiple class="hidden">
                  <input type="file" id="screenshot-upload" accept="image/*" multiple class="hidden">
-                 <!-- Import UNIFICATO: N file di formato MISTO (CSV+PDF+screenshot) in una sola selezione -->
-                 <input type="file" id="multi-upload" accept=".csv,.pdf,image/*" multiple class="hidden">
-                 <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold text-sm sm:text-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa tutto <span class="hidden sm:inline">(CSV · PDF · Screenshot — anche 50 insieme)</span></button>
+                 <!-- Import UNIFICATO: N file di formato MISTO (CSV+PDF+screenshot+CAMT.053) in una sola selezione.
+                      .xml è ammesso qui ma non nell'input CSV/PDF dedicato: il tipo si decide
+                      dal CONTENUTO (isCamt053 in camt053.js), mai dall'estensione da sola. -->
+                 <input type="file" id="multi-upload" accept=".csv,.pdf,.xml,image/*" multiple class="hidden">
+                 <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold text-sm sm:text-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa tutto <span class="hidden sm:inline">(CSV · PDF · Screenshot · CAMT.053 — anche 50 insieme)</span></button>
                  <!-- Solo IMPORT qui dentro. Il vecchio pulsante "DNA" stava in
                       questa fila ed era un EXPORT: sembrava un formato da
                       caricare, e il file che produceva non si poteva nemmeno
