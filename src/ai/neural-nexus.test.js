@@ -182,6 +182,45 @@ test('fondiOutputPerNome: BUG CORRETTO — categorie cresciute in ordine DIVERSO
   assert.equal(b2[iSalute], 9 * 0.5 + 90 * 0.5);
 });
 
+test('fondiOutputPerNome: con i conteggi PER categoria, il peso segue chi ha visto DI PIÙ quella categoria — non il totale globale del dispositivo', () => {
+  // Il locale ha tantissimi esempi in TOTALE (900) ma pochissimi di "salute"
+  // (3) — il remoto ha meno esempi in totale (100) ma ne ha visti 300 di
+  // "salute". Col peso GLOBALE (900 vs 100) la riga fusa penderebbe quasi
+  // tutta verso il locale, che su QUESTA categoria sa in realtà poco.
+  const catIndex = { salute: 0 };
+  const indexToCat = ['salute'];
+  const localNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(0)], b2: [0] };
+  const remoteNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(1000)], b2: [100] };
+  const wGlobaleLocale = 900 / 1000, wGlobaleRemoto = 100 / 1000;
+
+  const senzaConteggi = fondiOutputPerNome(localNet, remoteNet, wGlobaleLocale, wGlobaleRemoto);
+  const conConteggi = fondiOutputPerNome(localNet, remoteNet, wGlobaleLocale, wGlobaleRemoto, { salute: 3 }, { salute: 300 });
+
+  assert.ok(senzaConteggi.b2[0] < conConteggi.b2[0],
+    'senza i conteggi per categoria il peso globale penalizza ingiustamente il remoto, che su questa categoria sa di più');
+  // Con 3 vs 300 il remoto pesa quasi tutto (300/303 ≈ 0,99) su questa categoria.
+  assert.ok(Math.abs(conConteggi.b2[0] - 100 * (300 / 303)) < 0.5,
+    `il bias fuso deve pendere quasi tutto verso il remoto (3 vs 300 esempi), ottenuto ${conConteggi.b2[0]}`);
+});
+
+test('fondiOutputPerNome: senza conteggi per categoria (peer di formato vecchio) si ricade sul peso globale, come prima — nessuna regressione', () => {
+  const catIndex = { casa: 0 };
+  const indexToCat = ['casa'];
+  const localNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(0)], b2: [10] };
+  const remoteNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(100)], b2: [20] };
+  const { b2 } = fondiOutputPerNome(localNet, remoteNet, 0.3, 0.7, null, null);
+  assert.equal(b2[0], 10 * 0.3 + 20 * 0.7);
+});
+
+test('fondiOutputPerNome: conteggio per categoria mancante SOLO per una categoria specifica ricade sul peso globale per quella, senza NaN', () => {
+  const catIndex = { casa: 0 };
+  const indexToCat = ['casa'];
+  const localNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(0)], b2: [10] };
+  const remoteNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(100)], b2: [20] };
+  const { b2 } = fondiOutputPerNome(localNet, remoteNet, 0.3, 0.7, { altraCategoria: 5 }, { altraCategoria: 5 });
+  assert.equal(b2[0], 10 * 0.3 + 20 * 0.7, 'nessun conteggio per "casa" su nessuno dei due -> peso globale, mai NaN');
+});
+
 test('fondiOutputPerNome: una categoria nota solo a UN dispositivo viene adottata inalterata (sapere asimmetrico)', () => {
   const localNet = {
     catIndex: { spesa: 0, cryptoLocaleSolo: 1 },

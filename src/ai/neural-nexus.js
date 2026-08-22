@@ -51,7 +51,22 @@ function cresciCategoria(net, catId) {
 // peggiore. Qui si fonde per NOME di categoria, mai per indice grezzo.
 // Esportata perché il chiamante (orchestrator.js, mergeRemoteNeuralNet) deve
 // costruire la struttura del net FUSO prima di validarlo col cancello.
-export function fondiOutputPerNome(localNet, remoteNet, wLocal, wRemote) {
+//
+// PESO PER CATEGORIA (non solo globale): la ricerca sul federated learning
+// non-IID (RegMean/Fisher averaging, vedi commit successivo) converge su un
+// punto — mediare col peso GLOBALE del dispositivo (quanti esempi in
+// totale) è ingenuo quando i dati sono eterogenei per categoria, che è
+// esattamente il caso reale qui: due persone spendono in modo diverso, una
+// ha 300 transazioni "viaggi" e 3 "salute", un'altra il contrario. Se il
+// dispositivo locale ha visto "salute" solo 3 volte e il remoto 300, la
+// riga fusa deve pendere verso il remoto SU QUELLA categoria, anche se il
+// locale ha più esempi in totale su TUTTE le altre. `localCatCounts`/
+// `remoteCatCounts` (mlData.catCounts, già tracciati e ora trasmessi via
+// mesh, vedi nexus-adapter.js) rendono possibile questo peso mirato; se
+// mancano (peer con formato più vecchio, o categoria mai contata da
+// nessuno dei due) si ricade sul peso globale invariato — mai un crash,
+// mai un NaN.
+export function fondiOutputPerNome(localNet, remoteNet, wLocal, wRemote, localCatCounts = null, remoteCatCounts = null) {
   const catLoc = localNet.catIndex || { ...CAT_INDICES_SEME };
   const idxLoc = localNet.indexToCat || [...INDEX_TO_CAT_SEME];
   const catRem = remoteNet.catIndex || { ...CAT_INDICES_SEME };
@@ -66,9 +81,13 @@ export function fondiOutputPerNome(localNet, remoteNet, wLocal, wRemote) {
   for (const cat of unione) {
     const iL = catLoc[cat], iR = catRem[cat];
     if (iL !== undefined && iR !== undefined) {
-      // Entrambi la conoscono: media pesata, come per le altre matrici.
-      W2.push(localNet.W2[iL].map((v, j) => v * wLocal + remoteNet.W2[iR][j] * wRemote));
-      b2.push(localNet.b2[iL] * wLocal + remoteNet.b2[iR] * wRemote);
+      // Entrambi la conoscono: peso per QUESTA categoria se i conteggi ci
+      // sono ed è misurabile (evita NaN su 0/0), altrimenti il peso globale.
+      const cL = localCatCounts?.[cat] || 0, cR = remoteCatCounts?.[cat] || 0;
+      const totCat = cL + cR;
+      const [wL, wR] = totCat > 0 ? [cL / totCat, cR / totCat] : [wLocal, wRemote];
+      W2.push(localNet.W2[iL].map((v, j) => v * wL + remoteNet.W2[iR][j] * wR));
+      b2.push(localNet.b2[iL] * wL + remoteNet.b2[iR] * wR);
     } else if (iL !== undefined) {
       // Solo il locale la conosce: si adotta il suo peso, niente da mediare.
       W2.push(localNet.W2[iL]);

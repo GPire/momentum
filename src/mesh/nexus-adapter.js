@@ -18,6 +18,13 @@ export function createNexusMeshMind(orchestrator, vaultDAO) {
         format: 'nexus-v1',
         net: vaultDAO.state.mlData.neuralNet,
         trainedExamples: vaultDAO.state.mlData.totalWords || 1,
+        // Conteggi PER categoria (mlData.catCounts, già tracciati per il
+        // Naive Bayes) — permettono al merge di pesare ogni categoria in
+        // base a chi l'ha vista di più, non solo al totale del dispositivo
+        // (vedi fondiOutputPerNome in neural-nexus.js). Opzionale: un peer
+        // con un formato più vecchio semplicemente non li manda, e il
+        // merge ricade sul peso globale, invariato.
+        catCounts: vaultDAO.state.mlData.catCounts || {},
       }),
       get trainedExamples() { return vaultDAO.state.mlData.totalWords || 1; },
     },
@@ -35,7 +42,7 @@ export function createNexusMeshMind(orchestrator, vaultDAO) {
         vaultDAO.save();
         return { accepted: true, adopted: true, totalExamples: weights.trainedExamples || 1 };
       }
-      return orchestrator.mergeRemoteNeuralNet(weights.net, weights.trainedExamples || 1);
+      return orchestrator.mergeRemoteNeuralNet(weights.net, weights.trainedExamples || 1, weights.catCounts || null);
     },
   };
 }

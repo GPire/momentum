@@ -537,7 +537,7 @@ class MomentumOrchestrator {
   // ── Merge federato applicato al VERO stato neurale della webapp ──
   // Sostituisce la logica di merge scritta per il motore standalone:
   // qui opera direttamente su VaultDAO.state.mlData.neuralNet.
-  mergeRemoteNeuralNet(remoteNet, remoteExampleCount) {
+  mergeRemoteNeuralNet(remoteNet, remoteExampleCount, remoteCatCounts = null) {
     const localNet = this.vault.state.mlData.neuralNet;
     const localExampleCount = this.vault.state.mlData.totalWords || 1;
     const total = localExampleCount + remoteExampleCount;
@@ -561,8 +561,15 @@ class MomentumOrchestrator {
     // dispositivi possono aver imparato categorie diverse in ordine diverso,
     // e un merge per posizione fonderebbe "casa" di uno con "salute"
     // dell'altro — un errore silenzioso, mai un crash. fondiOutputPerNome
-    // fonde per NOME di categoria, mai per indice grezzo.
-    const { W2, b2, catIndex, indexToCat } = fondiOutputPerNome(localNet, remoteNet, wLocal, wRemote);
+    // fonde per NOME di categoria, mai per indice grezzo. Il peso passato
+    // qui (catCounts locali/remoti) è per CATEGORIA, non solo globale —
+    // due utenti spendono diversamente (uno ha tante "viaggi" e poche
+    // "salute", l'altro il contrario): sulla singola categoria pende verso
+    // chi ne ha visti di più, non verso chi ha più esempi in totale.
+    const { W2, b2, catIndex, indexToCat } = fondiOutputPerNome(
+      localNet, remoteNet, wLocal, wRemote,
+      this.vault.state.mlData?.catCounts || null, remoteCatCounts,
+    );
     const mergedNet = {
       embeddings: mergedEmbeddings,
       W1: mergeMatrix(localNet.W1, remoteNet.W1),
