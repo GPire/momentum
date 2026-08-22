@@ -42,6 +42,47 @@ function cresciCategoria(net, catId) {
   return idx;
 }
 
+// Fonde due output di rete cresciuti in modo INDIPENDENTE su due dispositivi
+// diversi — il caso che la crescita dinamica rende possibile e che un merge
+// "per posizione" romperebbe in silenzio: se il dispositivo A ha imparato
+// "casa" prima di "salute" e il dispositivo B il contrario, la riga 8 di A è
+// "casa" ma la riga 8 di B è "salute". Fondere riga-con-riga medierebbe due
+// categorie diverse — un errore silenzioso, mai un crash, quindi il tipo
+// peggiore. Qui si fonde per NOME di categoria, mai per indice grezzo.
+// Esportata perché il chiamante (orchestrator.js, mergeRemoteNeuralNet) deve
+// costruire la struttura del net FUSO prima di validarlo col cancello.
+export function fondiOutputPerNome(localNet, remoteNet, wLocal, wRemote) {
+  const catLoc = localNet.catIndex || { ...CAT_INDICES_SEME };
+  const idxLoc = localNet.indexToCat || [...INDEX_TO_CAT_SEME];
+  const catRem = remoteNet.catIndex || { ...CAT_INDICES_SEME };
+  const idxRem = remoteNet.indexToCat || [...INDEX_TO_CAT_SEME];
+
+  // L'unione: prima le categorie locali (ordine stabile per chi già le
+  // conosce), poi quelle viste SOLO dal remoto, in coda.
+  const unione = [...idxLoc];
+  for (const cat of idxRem) if (!unione.includes(cat)) unione.push(cat);
+
+  const W2 = [], b2 = [];
+  for (const cat of unione) {
+    const iL = catLoc[cat], iR = catRem[cat];
+    if (iL !== undefined && iR !== undefined) {
+      // Entrambi la conoscono: media pesata, come per le altre matrici.
+      W2.push(localNet.W2[iL].map((v, j) => v * wLocal + remoteNet.W2[iR][j] * wRemote));
+      b2.push(localNet.b2[iL] * wLocal + remoteNet.b2[iR] * wRemote);
+    } else if (iL !== undefined) {
+      // Solo il locale la conosce: si adotta il suo peso, niente da mediare.
+      W2.push(localNet.W2[iL]);
+      b2.push(localNet.b2[iL]);
+    } else {
+      // Solo il remoto la conosce: appresa da un peer, adottata direttamente
+      // (stesso principio già usato per le parole nuove in embeddings).
+      W2.push(remoteNet.W2[iR]);
+      b2.push(remoteNet.b2[iR]);
+    }
+  }
+  return { W2, b2, catIndex: Object.fromEntries(unione.map((c, i) => [c, i])), indexToCat: unione };
+}
+
 const NeuralNexus = {
   tokenize(text) {
     const stopwords = new Set(['il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'uno', 'una', 'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra', 'and', 'the', 'for']);

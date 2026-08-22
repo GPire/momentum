@@ -8,7 +8,7 @@ globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 globalThis.document = globalThis.document || { querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {} };
 
-const { NeuralNexus } = await import('./neural-nexus.js');
+const { NeuralNexus, fondiOutputPerNome } = await import('./neural-nexus.js');
 const { VaultDAO } = await import('../core/vault.js');
 
 function mlDataVuoto() {
@@ -126,4 +126,78 @@ test('cresciCategoria (indirettamente via train): l\'ordine delle categorie del 
   assert.equal(net.catIndex.spesa, 0);
   assert.equal(net.catIndex.crypto, 7);
   assert.equal(net.catIndex.casa, 8);
+});
+
+// ── fondiOutputPerNome: la fusione mesh deve seguire il NOME della
+// categoria, mai la posizione — due dispositivi possono far crescere le
+// loro reti in ordine diverso (PIANO_TASK_2026-08-21.md, seguito al
+// Cantiere C4) ───────────────────────────────────────────────────────────
+
+function rigaRiconoscibile(base, n = 12) {
+  return Array.from({ length: n }, (_, j) => base + j);
+}
+
+test('fondiOutputPerNome: stesso ordine di categorie su entrambi i net -> equivale alla media per posizione (nessuna regressione)', () => {
+  const catIndex = { spesa: 0, casa: 1 };
+  const indexToCat = ['spesa', 'casa'];
+  const localNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(0), rigaRiconoscibile(100)], b2: [1, 2] };
+  const remoteNet = { catIndex, indexToCat, W2: [rigaRiconoscibile(1000), rigaRiconoscibile(2000)], b2: [10, 20] };
+  const { W2, b2, indexToCat: unione } = fondiOutputPerNome(localNet, remoteNet, 0.5, 0.5);
+  assert.deepEqual(unione, ['spesa', 'casa']);
+  assert.deepEqual(W2[0], rigaRiconoscibile(0).map((v, j) => v * 0.5 + rigaRiconoscibile(1000)[j] * 0.5));
+  assert.equal(b2[0], 1 * 0.5 + 10 * 0.5);
+  assert.deepEqual(W2[1], rigaRiconoscibile(100).map((v, j) => v * 0.5 + rigaRiconoscibile(2000)[j] * 0.5));
+  assert.equal(b2[1], 2 * 0.5 + 20 * 0.5);
+});
+
+test('fondiOutputPerNome: BUG CORRETTO — categorie cresciute in ordine DIVERSO sui due dispositivi non si mescolano mai per posizione', () => {
+  // Dispositivo locale: ha imparato prima "casa" (riga 0) poi "salute" (riga 1).
+  const localNet = {
+    catIndex: { casa: 0, salute: 1 },
+    indexToCat: ['casa', 'salute'],
+    W2: [rigaRiconoscibile(800), rigaRiconoscibile(900)], // riga0=casa, riga1=salute
+    b2: [8, 9],
+  };
+  // Dispositivo remoto: stesso NOME "casa" ma cresciuto DOPO "salute" -> ordine invertito.
+  const remoteNet = {
+    catIndex: { salute: 0, casa: 1 },
+    indexToCat: ['salute', 'casa'],
+    W2: [rigaRiconoscibile(9000), rigaRiconoscibile(8000)], // riga0=salute, riga1=casa
+    b2: [90, 80],
+  };
+  const { W2, b2, catIndex, indexToCat } = fondiOutputPerNome(localNet, remoteNet, 0.5, 0.5);
+
+  const iCasa = catIndex.casa, iSalute = catIndex.salute;
+  assert.notEqual(iCasa, iSalute);
+  assert.equal(indexToCat[iCasa], 'casa');
+  assert.equal(indexToCat[iSalute], 'salute');
+
+  // "casa" fusa deve combinare SOLO le righe "casa" reali (800 locale, 8000 remoto) — mai con "salute".
+  const attesaCasa = rigaRiconoscibile(800).map((v, j) => v * 0.5 + rigaRiconoscibile(8000)[j] * 0.5);
+  assert.deepEqual(W2[iCasa], attesaCasa, 'la fusione di "casa" non deve mai contenere pesi di "salute"');
+  assert.equal(b2[iCasa], 8 * 0.5 + 80 * 0.5);
+
+  const attesaSalute = rigaRiconoscibile(900).map((v, j) => v * 0.5 + rigaRiconoscibile(9000)[j] * 0.5);
+  assert.deepEqual(W2[iSalute], attesaSalute, 'la fusione di "salute" non deve mai contenere pesi di "casa"');
+  assert.equal(b2[iSalute], 9 * 0.5 + 90 * 0.5);
+});
+
+test('fondiOutputPerNome: una categoria nota solo a UN dispositivo viene adottata inalterata (sapere asimmetrico)', () => {
+  const localNet = {
+    catIndex: { spesa: 0, cryptoLocaleSolo: 1 },
+    indexToCat: ['spesa', 'cryptoLocaleSolo'],
+    W2: [rigaRiconoscibile(0), rigaRiconoscibile(500)],
+    b2: [1, 5],
+  };
+  const remoteNet = {
+    catIndex: { spesa: 0 },
+    indexToCat: ['spesa'],
+    W2: [rigaRiconoscibile(1000)],
+    b2: [10],
+  };
+  const { W2, b2, catIndex } = fondiOutputPerNome(localNet, remoteNet, 0.3, 0.7);
+  const iSpesa = catIndex.spesa, iSolo = catIndex.cryptoLocaleSolo;
+  assert.deepEqual(W2[iSpesa], rigaRiconoscibile(0).map((v, j) => v * 0.3 + rigaRiconoscibile(1000)[j] * 0.7));
+  assert.deepEqual(W2[iSolo], rigaRiconoscibile(500), 'una categoria che il remoto non conosce resta quella locale, non modificata');
+  assert.equal(b2[iSolo], 5);
 });

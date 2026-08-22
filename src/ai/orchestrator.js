@@ -1,7 +1,7 @@
 import { evaluateMerge } from './merge-gate.js';
 import { monthKey } from '../core/constants.js';
 import { VaultDAO } from '../core/vault.js';
-import { NeuralNexus } from './neural-nexus.js';
+import { NeuralNexus, fondiOutputPerNome } from './neural-nexus.js';
 import { VoiceParser } from '../voice/voice.js';
 import { TrainedCategorizer } from './trained-categorizer.js';
 import { MeshNode } from '../mesh/mesh-signaling.js';
@@ -554,12 +554,20 @@ class MomentumOrchestrator {
         : vec; // parola nuova appresa solo dal peer: adottata direttamente
     }
 
+    // BUG REALE CORRETTO: W1/b1 restano un merge per posizione (embedding→
+    // hidden, dimensione FISSA 8→12, indipendente da quali categorie il
+    // dispositivo conosce — sempre allineati). W2/b2 (hidden→categorie) NO:
+    // da quando l'output cresce dinamicamente (cresciCategoria), due
+    // dispositivi possono aver imparato categorie diverse in ordine diverso,
+    // e un merge per posizione fonderebbe "casa" di uno con "salute"
+    // dell'altro — un errore silenzioso, mai un crash. fondiOutputPerNome
+    // fonde per NOME di categoria, mai per indice grezzo.
+    const { W2, b2, catIndex, indexToCat } = fondiOutputPerNome(localNet, remoteNet, wLocal, wRemote);
     const mergedNet = {
       embeddings: mergedEmbeddings,
       W1: mergeMatrix(localNet.W1, remoteNet.W1),
       b1: mergeVector(localNet.b1, remoteNet.b1),
-      W2: mergeMatrix(localNet.W2, remoteNet.W2),
-      b2: mergeVector(localNet.b2, remoteNet.b2),
+      W2, b2, catIndex, indexToCat,
     };
 
     // CANCELLO DI MERGE (src/ai/merge-gate.js). Il controllo precedente

@@ -10,6 +10,7 @@ globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0, hardwareConc
 globalThis.document = globalThis.document || { querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {} };
 
 const { MomentumOrchestrator } = await import("./orchestrator.js");
+const { NeuralNexus } = await import("./neural-nexus.js");
 
 function mockVault(totalWords = 0) {
   return { state: { mlData: { totalWords } } };
@@ -467,4 +468,87 @@ test("CONFORME: un colpo del dizionario NON entra nella calibrazione, ed e' corr
     orch.learn("esselunga", r.cat, 30, new Date());
     assert.equal(vault.state.mlData.conformalScores.length, 0);
   }
+});
+
+// ── mergeRemoteNeuralNet: fusione mesh per NOME di categoria, non per
+// posizione (seguito al Cantiere C4 — la crescita dinamica dell'output di
+// NeuralNexus rende possibile che due dispositivi abbiano ordini diversi) ──
+
+// Net "spento": W1/b1 a zero -> h1 sempre 0 -> i logit sono ESATTAMENTE b2
+// (il contenuto del testo non conta). Serve solo a isolare, nell'integrazione
+// col cancello di merge reale, l'unica cosa che qui deve essere testata: che
+// la fusione avvenga per NOME di categoria, non per posizione nell'array.
+function retSpenta({ catIndex, indexToCat, b2, W2 }) {
+  return {
+    embeddings: {},
+    W1: Array.from({ length: 12 }, () => Array.from({ length: 8 }, () => 0)),
+    b1: Array.from({ length: 12 }, () => 0),
+    W2, b2, catIndex, indexToCat,
+  };
+}
+
+test("mergeRemoteNeuralNet: ordini di categoria DIVERSI sui due dispositivi -> fusione per nome, categoria condivisa in comune riconosciuta anche se in posizione diversa", () => {
+  const rigaCasa = Array.from({ length: 12 }, (_, j) => j); // stessa riga su entrambi i dispositivi
+  const localNet = retSpenta({
+    catIndex: { spesa: 0, casa: 1 }, indexToCat: ['spesa', 'casa'],
+    W2: [Array.from({ length: 12 }, () => 1), rigaCasa], b2: [1, 5],
+  });
+  const remoteNet = retSpenta({
+    // "casa" è nota a ENTRAMBI ma a posizione DIVERSA (0 qui, 1 in locale) —
+    // esattamente il caso che il vecchio merge posizionale avrebbe rotto.
+    // "salute" ha un bias fortemente negativo apposta: una categoria nuova
+    // con probabilità trascurabile non deve alterare in modo misurabile la
+    // normalizzazione softmax delle categorie condivise, cosa che renderebbe
+    // questo test un falso negativo del cancello anziché una verifica pulita
+    // della fusione per nome.
+    catIndex: { casa: 0, salute: 1 }, indexToCat: ['casa', 'salute'],
+    W2: [rigaCasa, Array.from({ length: 12 }, () => 2)], b2: [5, -50],
+  });
+
+  const vault = { state: { mlData: { neuralNet: localNet, totalWords: 500 } }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: NeuralNexus });
+  for (let i = 0; i < 3; i++) orch._validationSet.push({ tokens: ['x'], catId: 'spesa' });
+  for (let i = 0; i < 3; i++) orch._validationSet.push({ tokens: ['x'], catId: 'casa' });
+
+  const risultato = orch.mergeRemoteNeuralNet(remoteNet, 500);
+
+  assert.equal(risultato.accepted, true, `il merge doveva essere accettato: ${risultato.reason}`);
+  assert.equal(risultato.totalExamples, 1000);
+
+  const fuso = vault.state.mlData.neuralNet;
+  assert.deepEqual([...fuso.indexToCat].sort(), ['casa', 'salute', 'spesa'], 'l\'unione deve contenere tutte e 3 le categorie, ognuna una sola volta');
+
+  const iCasa = fuso.catIndex.casa, iSpesa = fuso.catIndex.spesa, iSalute = fuso.catIndex.salute;
+  // "casa" nota a entrambi con lo STESSO peso (5 e 5, stessa riga) -> la
+  // fusione non deve alterarla, a riprova che è stata riconosciuta per nome
+  // e non mediata con "salute" (che a posizione locale 1 sarebbe toccata).
+  assert.equal(fuso.b2[iCasa], 5, 'il bias di "casa" fuso di due valori identici deve restare 5, non essere mescolato con "salute"');
+  assert.deepEqual(fuso.W2[iCasa], rigaCasa, 'la riga W2 di "casa" fusa da due valori identici deve restare invariata');
+  assert.equal(fuso.b2[iSpesa], 1, '"spesa" nota solo al locale deve restare inalterata');
+  assert.equal(fuso.b2[iSalute], -50, '"salute" nota solo al remoto deve essere adottata inalterata');
+});
+
+test("mergeRemoteNeuralNet: il cancello di merge protegge anche questo percorso — un peer che peggiora la categoria condivisa viene RIFIUTATO, il net locale resta intatto", () => {
+  const rigaCasaLocale = Array.from({ length: 12 }, (_, j) => j);
+  const localNet = retSpenta({
+    catIndex: { spesa: 0, casa: 1 }, indexToCat: ['spesa', 'casa'],
+    W2: [Array.from({ length: 12 }, () => 1), rigaCasaLocale], b2: [1, 9], // "casa" fortemente dominante in locale
+  });
+  const remoteNet = retSpenta({
+    // Stesso NOME "casa", ma un peer che la spinge nella direzione OPPOSTA —
+    // il caso che il cancello deve intercettare (avvelenamento, anche solo
+    // per rumore/dati di scarsa qualità di un peer).
+    catIndex: { casa: 0 }, indexToCat: ['casa'],
+    W2: [Array.from({ length: 12 }, () => -1)], b2: [-50],
+  });
+
+  const vault = { state: { mlData: { neuralNet: localNet, totalWords: 500 } }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: NeuralNexus });
+  for (let i = 0; i < 5; i++) orch._validationSet.push({ tokens: ['x'], catId: 'casa' });
+
+  const risultato = orch.mergeRemoteNeuralNet(remoteNet, 500);
+
+  assert.equal(risultato.accepted, false, 'un merge che peggiora drasticamente una categoria condivisa deve essere rifiutato');
+  assert.equal(vault.state.mlData.neuralNet, localNet, 'in caso di rifiuto il net locale non deve essere sostituito');
+  assert.equal(vault.state.mlData.totalWords, 500, 'in caso di rifiuto il conteggio esempi non deve avanzare');
 });
