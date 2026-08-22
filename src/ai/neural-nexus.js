@@ -5,10 +5,42 @@ import { CAT_RULES, SYNONYMS } from '../core/lexicon.js';
 // ==========================================
 // NEUROSYNAPSE™ V9.5 & ANTIFOMO CORE
 // ==========================================
-const CAT_INDICES = {
+// BUG REALE TROVATO E CORRETTO (Cantiere C4, PIANO_TASK_2026-08-21.md):
+// questi due elenchi erano l'intero output della rete — 8 categorie fisse,
+// scritte a mano. Da quando l'app ne ha 15 (casa/bollette/salute/istruzione/
+// viaggi/svago/risparmio aggiunte dopo), le 7 mancanti avevano un indice
+// SEMPRE undefined in predict() -> il contributo neurale per quelle era
+// SEMPRE zero. E peggiorava con l'uso: il peso della rete cresce quando
+// l'utente addestra di più (vedi `alpha` in predict()), quindi più l'app
+// veniva usata più queste 7 categorie diventavano IMPOSSIBILI da predire
+// dalla rete — l'opposto di "impara con l'uso".
+//
+// Restano qui SOLO come SEME per un net nuovo o come chiave di migrazione
+// per un net già salvato (i pesi W2 già addestrati sono allineati a questo
+// ordine, vanno letti con questa mappa la prima volta, non ricreati da
+// zero). Da qui in avanti l'elenco vero vive DENTRO il net stesso
+// (net.catIndex/net.indexToCat) e CRESCE da solo — vedi cresciCategoria().
+const CAT_INDICES_SEME = {
   'spesa': 0, 'ristoranti': 1, 'shopping': 2, 'abbonamenti': 3, 'trasporti': 4, 'stipendio': 5, 'etf': 6, 'crypto': 7
 };
-const INDEX_TO_CAT = ['spesa', 'ristoranti', 'shopping', 'abbonamenti', 'trasporti', 'stipendio', 'etf', 'crypto'];
+const INDEX_TO_CAT_SEME = ['spesa', 'ristoranti', 'shopping', 'abbonamenti', 'trasporti', 'stipendio', 'etf', 'crypto'];
+
+// Fa crescere l'output della rete di UNA categoria, se `catId` non è ancora
+// fra quelle che sa produrre — mai un esempio scartato in silenzio perché
+// "non era nell'elenco" (era esattamente il bug sopra). La nuova riga di
+// pesi nasce con la stessa inizializzazione delle altre (piccola, casuale):
+// impara dal primo esempio in poi, come ogni altra categoria.
+function cresciCategoria(net, catId) {
+  if (!net.catIndex) net.catIndex = {};
+  if (!net.indexToCat) net.indexToCat = [];
+  if (Object.prototype.hasOwnProperty.call(net.catIndex, catId)) return net.catIndex[catId];
+  const idx = net.indexToCat.length;
+  net.catIndex[catId] = idx;
+  net.indexToCat.push(catId);
+  net.W2.push(Array.from({ length: 12 }, () => (Math.random() - 0.5) * 0.5));
+  net.b2.push(0);
+  return idx;
+}
 
 const NeuralNexus = {
   tokenize(text) {
@@ -22,11 +54,21 @@ const NeuralNexus = {
         embeddings: {},
         W1: Array.from({length: 12}, () => Array.from({length: 8}, () => (Math.random() - 0.5) * 0.5)),
         b1: Array.from({length: 12}, () => 0),
-        W2: Array.from({length: 8}, () => Array.from({length: 12}, () => (Math.random() - 0.5) * 0.5)),
-        b2: Array.from({length: 8}, () => 0)
+        W2: INDEX_TO_CAT_SEME.map(() => Array.from({ length: 12 }, () => (Math.random() - 0.5) * 0.5)),
+        b2: INDEX_TO_CAT_SEME.map(() => 0),
+        catIndex: { ...CAT_INDICES_SEME },
+        indexToCat: [...INDEX_TO_CAT_SEME],
       };
+    } else if (!s.neuralNet.catIndex) {
+      // MIGRAZIONE: un net salvato prima di questo fix aveva l'output fisso
+      // a 8 righe (W2/b2) ma nessuna mappa che le colleghi alle categorie.
+      // Il seme è l'ordine ORIGINALE con cui quelle righe sono state
+      // addestrate: usarlo per allineare la mappa preserva i pesi già
+      // imparati invece di azzerarli. Da qui in poi il net cresce da solo.
+      s.neuralNet.catIndex = { ...CAT_INDICES_SEME };
+      s.neuralNet.indexToCat = [...INDEX_TO_CAT_SEME];
     }
-    
+
     const net = s.neuralNet;
     const prof = profile || { riskProfile: 'bilanciato', horizon: 'medio' };
     if (prof.riskProfile === 'aggressivo') {
@@ -65,8 +107,12 @@ const NeuralNexus = {
       h1[i] = Math.max(0, sum);
     }
 
-    let logits = Array.from({length: 8}, () => 0);
-    for (let i = 0; i < 8; i++) {
+    // Output DINAMICO: quante categorie il net conosce oggi (net.b2.length),
+    // non più 8 fisse — cresce con cresciCategoria() man mano che ne arrivano
+    // di nuove, mai un tetto scritto qui.
+    const nCat = net.b2.length;
+    let logits = Array.from({length: nCat}, () => 0);
+    for (let i = 0; i < nCat; i++) {
       let sum = net.b2[i];
       for (let j = 0; j < 12; j++) {
         sum += net.W2[i][j] * h1[j];
@@ -74,7 +120,7 @@ const NeuralNexus = {
       logits[i] = sum;
     }
 
-    let maxLogit = Math.max(...logits);
+    let maxLogit = Math.max(...logits, -Infinity);
     let exps = logits.map(l => Math.exp(l - maxLogit));
     let expSum = exps.reduce((a,b)=>a+b, 0);
     let probs = exps.map(e => e / (expSum || 1));
@@ -83,8 +129,11 @@ const NeuralNexus = {
   },
   trainNeural(tokens, targetCat, net) {
     if (tokens.length === 0) return;
-    const targetIdx = CAT_INDICES[targetCat];
-    if (targetIdx === undefined) return;
+    // Prima faceva `if (targetIdx === undefined) return` — un esempio di
+    // addestramento per una categoria nuova veniva scartato in silenzio,
+    // per sempre. Ora la categoria nasce al primo esempio: cresce, non si
+    // rifiuta.
+    const targetIdx = cresciCategoria(net, targetCat);
 
     const { embSum, h1, probs } = this.forward(tokens, net);
 
@@ -99,7 +148,8 @@ const NeuralNexus = {
     // su transazioni con importi anomali (exploding gradient reale, non teorico)
     const clip = (v, max = 5) => Math.max(-max, Math.min(max, v));
 
-    for (let i = 0; i < 8; i++) {
+    const nCat = net.b2.length; // dinamico, come in forward()
+    for (let i = 0; i < nCat; i++) {
       let dl = clip(dLogits[i]);
       net.b2[i] -= lr * dl;
       for (let j = 0; j < 12; j++) {
@@ -139,7 +189,10 @@ const NeuralNexus = {
     if (!examples.length) return 0;
     let totalLoss = 0;
     examples.forEach(({ tokens, catId }) => {
-      const targetIdx = CAT_INDICES[catId];
+      // Sola lettura apposta: validate() valuta un merge federato SENZA
+      // toccare il net (vedi commento sopra) — mai farlo crescere qui, una
+      // categoria mai vista in questo net semplicemente non è valutabile.
+      const targetIdx = net.catIndex ? net.catIndex[catId] : undefined;
       if (targetIdx === undefined) return;
       const { probs } = this.forward(tokens, net);
       totalLoss += -Math.log(Math.max(probs[targetIdx], 1e-10));
@@ -162,7 +215,11 @@ const NeuralNexus = {
         s.totalWords++;
       });
 
-      if (!s.neuralNet) this.initPriorWeights(VaultDAO.state.onboardingProfile);
+      // La seconda condizione fa scattare la MIGRAZIONE (initPriorWeights)
+      // anche su un net già esistente ma salvato prima di questo fix
+      // (senza catIndex) — altrimenti resterebbe bloccato alle 8 categorie
+      // originali per sempre, esattamente il bug appena corretto.
+      if (!s.neuralNet || !s.neuralNet.catIndex) this.initPriorWeights(VaultDAO.state.onboardingProfile);
       this.trainNeural(tokens, catId, s.neuralNet);
 
       VaultDAO.save();
@@ -210,17 +267,28 @@ const NeuralNexus = {
       cats.forEach(c => { bayesProbs[c] /= (bayesSum || 1); });
 
       // 2. Get Neural SLM probabilities
-      if (!s.neuralNet) this.initPriorWeights(VaultDAO.state.onboardingProfile);
+      // La seconda condizione fa scattare la MIGRAZIONE (initPriorWeights)
+      // anche su un net già esistente ma salvato prima di questo fix
+      // (senza catIndex) — altrimenti resterebbe bloccato alle 8 categorie
+      // originali per sempre, esattamente il bug appena corretto.
+      if (!s.neuralNet || !s.neuralNet.catIndex) this.initPriorWeights(VaultDAO.state.onboardingProfile);
       const neuralOutputs = this.forward(tokens, s.neuralNet);
 
       // 3. Dynamic Gating combination (alpha decay based on trained count)
       const sampleCount = s.totalWords || 0;
       const alpha = Math.max(0.15, 1.0 / (1.0 + sampleCount / 25.0));
 
+      // BUG CORRETTO QUI: leggeva CAT_INDICES (8 fisse) invece della mappa
+      // vera del net — le 7 categorie aggiunte dopo (casa, bollette, salute,
+      // istruzione, viaggi, svago, risparmio) avevano SEMPRE indice
+      // undefined, quindi SEMPRE neuralProb=0, e la cosa PEGGIORAVA con
+      // l'uso perché `alpha` (il peso di Bayes) scende quando l'utente
+      // addestra di più — più si usava l'app, più queste categorie
+      // diventavano invisibili alla parte neurale dell'ensemble.
       let finalProbs = {};
       cats.forEach(c => {
-        const catIdx = CAT_INDICES[c];
-        const neuralProb = neuralOutputs.probs[catIdx] || 0;
+        const catIdx = s.neuralNet.catIndex ? s.neuralNet.catIndex[c] : undefined;
+        const neuralProb = catIdx !== undefined ? (neuralOutputs.probs[catIdx] || 0) : 0;
         const bayesProb = bayesProbs[c] || 0;
         finalProbs[c] = alpha * bayesProb + (1 - alpha) * neuralProb;
       });
@@ -287,4 +355,4 @@ const QuantumRL = {
 };
 
 
-export { CAT_INDICES, INDEX_TO_CAT, NeuralNexus, AntiFOMO, QuantumRL };
+export { NeuralNexus, AntiFOMO, QuantumRL };
