@@ -77,3 +77,30 @@ export function buildQuickAddPrefill(params, orchestrator) {
     description: params.card ? `${params.merchant} (${params.card})` : params.merchant,
   };
 }
+
+// Genera l'URL pronto da incollare nella Shortcut e i passaggi guidati.
+// Ricerca dedicata (fonti: support.apple.com/guide/shortcuts, guida
+// pubblica di MoneyCoach — concorrente reale con la STESSA integrazione in
+// produzione dal 2026): non esiste un modo di installare un'automazione
+// Shortcuts con un tap solo senza possedere un iPhone/Mac per generare il
+// file firmato — nemmeno i concorrenti lo fanno, pubblicano una guida
+// passo-passo. Questa funzione costruisce quella guida, con l'URL già
+// pronto (dominio reale dell'installazione, non un segnaposto) da
+// incollare in UNA sola azione "Testo" di Shortcuts.
+// `origin` = location.origin del dispositivo dell'utente (iniettato dal
+// chiamante, mai letto qui: funzione pura, testabile senza DOM/browser).
+export function buildQuickAddSetupInstructions(origin) {
+  const url = `${origin}/?quickadd=1&amount=[Importo]&merchant=[Nome esercente]&card=[Nome carta]`;
+  return {
+    url,
+    passi: [
+      'Apri l\'app Comandi Rapidi (Shortcuts).',
+      'Tocca "Automazione" in basso, poi "+" → "Crea automazione personale".',
+      'Scegli "Wallet" (su iOS 17-25 si chiama "Transaction") e seleziona le carte da tenere d\'occhio, o "Qualsiasi carta".',
+      'Tocca "Aggiungi azione", cerca "Testo" e incollalo — poi tocca dentro il campo di testo e SOSTITUISCI [Importo], [Nome esercente] e [Nome carta] con le variabili vere: tocca l\'icona con i puntini sopra la tastiera e scegli quelle proposte dal trigger Wallet.',
+      'Aggiungi una seconda azione, "Apri URL", e collegala al testo appena creato.',
+      'Salva. Da ora ogni pagamento Apple Pay apre Momentum già con importo, esercente e categoria proposta — tu confermi con un tocco, mai un salvataggio automatico.',
+    ],
+    urlModello: url,
+  };
+}

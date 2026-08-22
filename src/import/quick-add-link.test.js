@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractQuickAddParams, buildQuickAddPrefill } from './quick-add-link.js';
+import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './quick-add-link.js';
 
 test('extractQuickAddParams: link valido in query -> params estratti correttamente', () => {
   const p = extractQuickAddParams('https://momentum.app/?quickadd=1&amount=45.20&merchant=TESCO&currency=GBP&card=Visa');
@@ -73,4 +73,15 @@ test('buildQuickAddPrefill: senza orchestratore disponibile (caso raro, app non 
   const prefill = buildQuickAddPrefill({ amount: 10, merchant: 'TESCO', currency: null, card: null }, null);
   assert.equal(prefill.category, null);
   assert.equal(prefill.amount, 10);
+});
+
+test('buildQuickAddSetupInstructions: usa il dominio reale del dispositivo, non un segnaposto', () => {
+  const r = buildQuickAddSetupInstructions('https://momentum.example.app');
+  assert.equal(r.url, 'https://momentum.example.app/?quickadd=1&amount=[Importo]&merchant=[Nome esercente]&card=[Nome carta]');
+});
+
+test('buildQuickAddSetupInstructions: passaggi in ordine, mai vuoti', () => {
+  const r = buildQuickAddSetupInstructions('https://x.app');
+  assert.ok(Array.isArray(r.passi) && r.passi.length >= 5);
+  for (const p of r.passi) assert.ok(p.length > 5);
 });
