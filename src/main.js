@@ -173,7 +173,7 @@ import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exp
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
-import { extractQuickAddParams, buildQuickAddPrefill } from './import/quick-add-link.js';
+import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
@@ -10269,6 +10269,38 @@ document.addEventListener('click', (e) => {
 });
 renderInstallGuide();
 
+// Card "Apple Pay in automatico" (src/import/quick-add-link.js): visibile
+// SOLO su iOS 17+ (unico OS dove esiste il trigger Shortcuts "Wallet"/
+// "Transaction", verificato) — su qualunque altro dispositivo resta
+// nascosta, mai una guida che promette qualcosa che non funziona lì.
+function renderQuickAddGuideCard() {
+  const card = document.getElementById('quickadd-guide-card');
+  if (!card) return;
+  const platform = detectPlatform(navigator.userAgent, {});
+  if (platform.os !== 'ios') { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const { url, passi } = buildQuickAddSetupInstructions(location.origin);
+  const stepsEl = document.getElementById('quickadd-guide-steps');
+  if (stepsEl) {
+    stepsEl.innerHTML = passi.map((testo, i) => `
+      <div class="flex items-start gap-3">
+        <div class="w-7 h-7 rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-xs">${i + 1}</div>
+        <p class="text-xs text-[var(--on-surface-secondary)] leading-snug flex-1">${testo}</p>
+      </div>`).join('');
+  }
+  const urlEl = document.getElementById('quickadd-guide-url');
+  if (urlEl) urlEl.textContent = url;
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest?.('#quickadd-guide-copy')) return;
+  const url = document.getElementById('quickadd-guide-url')?.textContent;
+  if (!url || !navigator.clipboard?.writeText) return;
+  navigator.clipboard.writeText(url)
+    .then(() => showToast('Indirizzo copiato.', 'success'))
+    .catch(() => showToast('Copia non riuscita: seleziona il testo a mano.', 'error'));
+});
+renderQuickAddGuideCard();
+
 const navigate = (view) => {
   haptic('light');
   VaultDAO.state.currentView = view;
@@ -10307,7 +10339,7 @@ const navigate = (view) => {
   }
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei

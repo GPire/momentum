@@ -3671,6 +3671,30 @@
                 <div id="install-guide-done" class="hidden text-center text-emerald-300 text-sm font-bold py-2">✓ App già installata</div>
               </div>
 
+              <!-- Automazione Shortcuts (iOS 17+, trigger "Wallet"/"Transaction"):
+                   src/import/quick-add-link.js costruisce l'URL pronto per il
+                   dispositivo reale. Solo iOS: su Android non esiste questo
+                   trigger (la via lì sarà NotificationListenerService, non
+                   ancora costruita) — mai una guida che promette qualcosa che
+                   quel dispositivo non può fare. -->
+              <div class="card p-6 flex flex-col hidden" id="quickadd-guide-card">
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg></div>
+                  <div>
+                    <h3 class="font-bold text-base">Apple Pay in automatico</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Un'automazione Shortcuts porta ogni pagamento dentro Momentum, pronto da confermare</p>
+                  </div>
+                </div>
+                <div id="quickadd-guide-steps" class="space-y-2.5"></div>
+                <div class="mt-4 p-3 rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)]">
+                  <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1.5">Indirizzo da incollare nell'azione "Testo" (passo 5)</p>
+                  <div class="flex items-center gap-2">
+                    <code id="quickadd-guide-url" class="text-[11px] flex-1 min-w-0 truncate select-all"></code>
+                    <button id="quickadd-guide-copy" class="shrink-0 text-xs font-bold text-[var(--primary)] px-2 py-1">Copia</button>
+                  </div>
+                </div>
+              </div>
+
               <!-- ETL terminal -->
               <div class="card p-6 flex flex-col">
                  <div class="flex items-center gap-4 mb-4">
