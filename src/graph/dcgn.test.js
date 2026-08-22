@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   tokenize, createGraph, observe, train, classify, decay,
   measureCompetence, mergeExpertWeighted, extractSubgraph,
+  validateLoss, validateLossPerCategoria,
 } from './dcgn.js';
 
 // ── Dataset deterministici (nessun Math.random: il grafo è riproducibile) ──
@@ -161,4 +162,57 @@ test('adattività device: maxTokens limita il calcolo mantenendo la predizione s
   // su un caso netto la categoria non cambia; il calcolo è ridotto
   assert.equal(limited.category, full.category);
   assert.equal(limited.category, 'spesa');
+});
+
+// ── validateLoss/validateLossPerCategoria: stessa "moneta" (nat) del
+// cancello di merge di NeuralNexus, per riusarlo pari pari sul grafo ──────
+
+test('validateLoss: un grafo ben addestrato ha loss bassa sui propri esempi, uno vuoto ha loss alta (nessuna categoria nota)', () => {
+  const g = graphFrom({ spesa: SPESA, ristoranti: RESTO }, 5);
+  const esempi = [{ text: 'esselunga supermercato', category: 'spesa' }, { text: 'trattoria da mario', category: 'ristoranti' }];
+  const lossAddestrato = validateLoss(g, esempi);
+  const lossVuoto = validateLoss(createGraph(), esempi);
+  assert.ok(lossAddestrato >= 0 && Number.isFinite(lossAddestrato));
+  assert.equal(lossVuoto, 0, 'un grafo senza categorie non ha nulla da giudicare -> 0, non un crash');
+});
+
+test('validateLoss: sola lettura, non modifica mai il grafo', () => {
+  const g = graphFrom({ spesa: SPESA }, 2);
+  const prima = JSON.stringify(g);
+  validateLoss(g, [{ text: 'esselunga supermercato', category: 'spesa' }]);
+  assert.equal(JSON.stringify(g), prima);
+});
+
+test('validateLossPerCategoria: restituisce loss e conteggio SEPARATI per categoria, non una sola media', () => {
+  const g = graphFrom({ spesa: SPESA, ristoranti: RESTO }, 5);
+  const esempi = [
+    { text: 'esselunga supermercato', category: 'spesa' },
+    { text: 'conad city', category: 'spesa' },
+    { text: 'trattoria da mario', category: 'ristoranti' },
+  ];
+  const perCat = validateLossPerCategoria(g, esempi);
+  assert.equal(perCat.spesa.n, 2);
+  assert.equal(perCat.ristoranti.n, 1);
+  assert.ok(Number.isFinite(perCat.spesa.loss) && Number.isFinite(perCat.ristoranti.loss));
+});
+
+test('validateLoss/validateLossPerCategoria: una categoria che il grafo non conosce viene saltata, mai un NaN', () => {
+  const g = graphFrom({ spesa: SPESA }, 3);
+  const esempi = [{ text: 'qualcosa di mai visto', category: 'categoria-mai-vista-XYZ' }];
+  assert.equal(validateLoss(g, esempi), 0);
+  assert.deepEqual(validateLossPerCategoria(g, esempi), {});
+});
+
+test('validateLoss dimostra un merge che PEGGIORA: un grafo devastato da un merge cattivo ha loss più alta di uno pulito, sugli stessi esempi', () => {
+  // repeats=1 (non 8): con un segnale locale troppo ripetuto il floor da
+  // solo non riesce a farsi notare — qui basta perché il punto è dimostrare
+  // che validateLoss REGISTRA il peggioramento, non tarare il floor giusto.
+  const pulito = graphFrom({ spesa: SPESA, ristoranti: RESTO }, 1);
+  const veleno = createGraph();
+  // Il peer "avvelenato" spinge OGNI token verso "crypto", indipendentemente dal significato
+  for (const p of [...SPESA, ...RESTO]) observe(veleno, p, 'crypto');
+  const { graph: fuso } = mergeExpertWeighted(pulito, [veleno], { validationSet: [], floor: 0.9 }); // floor alto: assorbe molto alla cieca
+  const esempi = [{ text: 'esselunga supermercato', category: 'spesa' }, { text: 'trattoria da mario', category: 'ristoranti' }];
+  assert.ok(validateLoss(fuso, esempi) > validateLoss(pulito, esempi),
+    'un merge che spinge tutto verso una categoria sbagliata deve peggiorare la loss misurabile su categorie vere');
 });

@@ -239,3 +239,37 @@ export function mergeExpertWeighted(localGraph, peerGraphs, opts = {}) {
 export function extractSubgraph(graph) {
   return cloneGraph(graph);
 }
+
+// ── Cross-entropy loss su un validation set — stessa "moneta" (nat) usata
+// dal cancello di merge di NeuralNexus (merge-gate.js), per poter riusare
+// LE STESSE evaluateMerge()/evaluateMergePerCategoria() invece di
+// inventarne una versione parallela per il grafo. Sola lettura: classify()
+// non modifica mai il grafo, quindi anche queste non lo fanno.
+export function validateLoss(graph, examples) {
+  if (!examples.length) return 0;
+  let total = 0, n = 0;
+  examples.forEach(({ text, category }) => {
+    const { scores } = classify(graph, text);
+    if (!(category in scores)) return; // categoria mai vista da questo grafo: non giudicabile, non un errore
+    total += -Math.log(Math.max(scores[category], 1e-10));
+    n++;
+  });
+  return n ? total / n : 0;
+}
+
+// Come validateLoss, ma per categoria — vedi evaluateMergePerCategoria in
+// merge-gate.js: una categoria rara può essere devastata senza spostare la
+// media generale.
+export function validateLossPerCategoria(graph, examples) {
+  const perCat = {};
+  examples.forEach(({ text, category }) => {
+    const { scores } = classify(graph, text);
+    if (!(category in scores)) return;
+    const loss = -Math.log(Math.max(scores[category], 1e-10));
+    if (!perCat[category]) perCat[category] = { loss: 0, n: 0 };
+    perCat[category].loss += loss;
+    perCat[category].n++;
+  });
+  for (const c of Object.keys(perCat)) perCat[c].loss /= perCat[c].n;
+  return perCat;
+}

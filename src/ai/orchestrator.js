@@ -8,7 +8,7 @@ import { MeshNode } from '../mesh/mesh-signaling.js';
 import { lookupMerchant } from './merchant-dictionary.js';
 import { fuseSignals } from './signal-fusion.js';
 import { calibrateClassifier, predictSet, conformalQuantile, minCalibrationFor } from './conformal.js';
-import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay } from '../graph/dcgn.js';
+import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay, mergeExpertWeighted as dcgnMergeExpertWeighted, validateLoss as dcgnValidateLoss, validateLossPerCategoria as dcgnValidateLossPerCategoria } from '../graph/dcgn.js';
 import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
 import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
 import { initCalibrationState, recordExpertOutcome, calibrationGate, recordAbstention } from './calibration-gate.js';
@@ -180,7 +180,11 @@ class MomentumOrchestrator {
     const tokens = this.nexus.tokenize(description);
     const isHoldout = (this.vault.state.mlData.totalWords || 0) % 10 === 9;
     if (isHoldout && this._validationSet.length < 100) {
-      this._validationSet.push({ tokens, catId });
+      // `text` (la descrizione grezza, non tokenizzata) serve al DCGN: ha un
+      // tokenizzatore PROPRIO (subword, namespace w:/c: — vedi src/graph/dcgn.js),
+      // diverso da quello di NeuralNexus. Senza il testo grezzo il grafo non
+      // potrebbe mai giudicare un merge sui propri termini.
+      this._validationSet.push({ tokens, catId, text: description });
     } else {
       this.nexus.train(description, catId, amount, date);
       // DCGN: apprendimento online Hebbiano — la transazione È il training.
@@ -618,6 +622,53 @@ class MomentumOrchestrator {
     this.vault.state.mlData.totalWords = total;
     this.vault.save();
     return { accepted: true, totalExamples: total };
+  }
+
+  // ── DCGN in mesh — prima un GRAFO ORFANO, mai condiviso ─────────────────
+  // dcgn.js ha già una federazione a competenza-per-argomento pronta
+  // (mergeExpertWeighted/measureCompetence), ma nessun punto del codice la
+  // chiamava mai: il grafo che impara online da ogni transazione confermata
+  // (vedi learn() sopra) restava chiuso sul singolo dispositivo — un secondo
+  // dispositivo in pairing riceveva la rete neurale del peer ma MAI la sua
+  // parte di ragionamento a grafo. Qui si collega, riusando GLI STESSI due
+  // cancelli già costruiti e testati per NeuralNexus (stessa "moneta", nat
+  // di cross-entropy) invece di inventarne di nuovi: mergeExpertWeighted da
+  // sola pesa per competenza ma non protegge dalla deriva lenta o dal
+  // peggioramento silenzioso su una categoria rara — gli stessi due difetti
+  // che il cancello di NeuralNexus era nato per correggere.
+  mergeRemoteGraph(remoteGraph) {
+    const localGraph = this.graph;
+    const validationSet = this._validationSet
+      .filter(v => v.text)
+      .map(v => ({ text: v.text, category: v.catId }));
+
+    const { graph: mergedGraph } = dcgnMergeExpertWeighted(localGraph, [remoteGraph], { validationSet });
+
+    const lossBefore = dcgnValidateLoss(localGraph, validationSet);
+    const lossAfter = dcgnValidateLoss(mergedGraph, validationSet);
+    const verdetto = evaluateMerge({
+      lossBefore, lossAfter,
+      bestLoss: this.vault.state.mlData?.bestGraphValidationLoss ?? null,
+      validationSize: validationSet.length,
+    });
+    if (!verdetto.accept) {
+      return { accepted: false, lossBefore, lossAfter, reason: verdetto.reason };
+    }
+
+    const perCatBefore = dcgnValidateLossPerCategoria(localGraph, validationSet);
+    const perCatAfter = dcgnValidateLossPerCategoria(mergedGraph, validationSet);
+    const verdettoCat = evaluateMergePerCategoria({ perCatBefore, perCatAfter });
+    if (!verdettoCat.accept) {
+      return { accepted: false, lossBefore, lossAfter, reason: verdettoCat.reason };
+    }
+
+    if (Number.isFinite(verdetto.nuovoBest)) {
+      this.vault.state.mlData.bestGraphValidationLoss = verdetto.nuovoBest;
+    }
+    this.graph = mergedGraph;
+    this.vault.state.mlData.dcgn = mergedGraph;
+    this.vault.save();
+    return { accepted: true };
   }
 
   getValidationSetSize() {

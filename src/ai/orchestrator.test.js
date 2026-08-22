@@ -11,6 +11,7 @@ globalThis.document = globalThis.document || { querySelector: () => null, queryS
 
 const { MomentumOrchestrator } = await import("./orchestrator.js");
 const { NeuralNexus } = await import("./neural-nexus.js");
+const { createGraph: dcgnCreateGraph, observe: dcgnObserve } = await import("../graph/dcgn.js");
 
 function mockVault(totalWords = 0) {
   return { state: { mlData: { totalWords } } };
@@ -592,4 +593,57 @@ test("mergeRemoteNeuralNet: SECONDO CANCELLO per categoria — un merge che la M
   assert.equal(risultato.accepted, false, 'il secondo cancello (per categoria) deve rifiutare anche se la media migliora');
   assert.match(risultato.reason, /salute/, 'il motivo del rifiuto deve nominare la categoria colpita');
   assert.equal(vault.state.mlData.neuralNet, localNet, 'in caso di rifiuto il net locale resta intatto');
+});
+
+// ── mergeRemoteGraph: il DCGN entra nella mesh — prima un grafo ORFANO ──
+// dcgn.js aveva già mergeExpertWeighted/measureCompetence pronti, ma nessun
+// punto del codice li collegava alla mesh. Qui si prova il collegamento con
+// gli STESSI due cancelli già validati sopra per NeuralNexus, riusati pari
+// pari (evaluateMerge + evaluateMergePerCategoria su validateLoss/
+// validateLossPerCategoria del grafo).
+
+const SPESA_G = ['esselunga supermercato', 'conad city', 'lidl italia', 'carrefour express'];
+const RESTO_G = ['trattoria da mario', 'pizzeria bella napoli', 'osteria del corso', 'ristorante il gambero'];
+
+function grafoLocaleDiProva() {
+  const g = dcgnCreateGraph();
+  for (const p of SPESA_G) dcgnObserve(g, p, 'spesa');
+  for (const p of RESTO_G) dcgnObserve(g, p, 'ristoranti');
+  return g;
+}
+
+function orchestratorConGrafo(graph) {
+  const vault = { state: { mlData: { neuralNet: null, totalWords: 0, dcgn: graph } }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: NeuralNexus });
+  for (const p of SPESA_G) orch._validationSet.push({ tokens: [], catId: 'spesa', text: p });
+  for (const p of RESTO_G) orch._validationSet.push({ tokens: [], catId: 'ristoranti', text: p });
+  return { orch, vault };
+}
+
+test("mergeRemoteGraph: un peer che rinforza in modo innocuo (stesse categorie, stessi esempi) viene accettato e il grafo locale viene aggiornato", () => {
+  const localGraph = grafoLocaleDiProva();
+  const { orch, vault } = orchestratorConGrafo(localGraph);
+  const remoteBuono = dcgnCreateGraph();
+  for (const p of SPESA_G) dcgnObserve(remoteBuono, p, 'spesa');
+  for (const p of RESTO_G) dcgnObserve(remoteBuono, p, 'ristoranti');
+
+  const risultato = orch.mergeRemoteGraph(remoteBuono);
+
+  assert.equal(risultato.accepted, true);
+  assert.equal(orch.graph, vault.state.mlData.dcgn, 'this.graph e il vault devono restare sincronizzati dopo l\'accettazione');
+  assert.ok(vault.state.mlData.dcgn.docs > localGraph.docs, 'il grafo fuso deve avere assorbito conoscenza dal peer (più documenti osservati)');
+});
+
+test("mergeRemoteGraph: un peer che spinge OGNI token verso una categoria sbagliata viene rifiutato, il grafo locale resta intatto", () => {
+  const localGraph = grafoLocaleDiProva();
+  const { orch, vault } = orchestratorConGrafo(localGraph);
+  const veleno = dcgnCreateGraph();
+  for (let i = 0; i < 20; i++) for (const p of [...SPESA_G, ...RESTO_G]) dcgnObserve(veleno, p, 'crypto');
+
+  const risultato = orch.mergeRemoteGraph(veleno);
+
+  assert.equal(risultato.accepted, false);
+  assert.ok(risultato.lossAfter > risultato.lossBefore, 'la loss misurata deve mostrare il peggioramento che ha causato il rifiuto');
+  assert.equal(vault.state.mlData.dcgn, localGraph, 'in caso di rifiuto il grafo locale non deve essere sostituito');
+  assert.equal(orch.graph, localGraph);
 });
