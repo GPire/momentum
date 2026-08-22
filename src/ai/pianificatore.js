@@ -28,6 +28,8 @@
 // perché guida cosa fare dopo (aggiungere dati, non aggiungere codice).
 'use strict';
 
+import { richiedeConsiglio, MESSAGGIO_RIFIUTO } from './rifiuto-strutturale.js';
+
 let REGISTRO = [];
 
 // Registra una capacità. Convalida la FORMA (non i dati — quello lo decide
@@ -54,6 +56,15 @@ export function azzeraRegistro() { REGISTRO = []; }
 // la esegue. Non lancia mai per "non trovato" — un rifiuto onesto è un
 // risultato valido, non un errore del chiamante.
 export function pianifica(interrogazione, ctx = {}) {
+  // IL PRIMO CONTROLLO ASSOLUTO — stesso principio di qa-engine.js:400.
+  // Prima ancora di cercare chi sa rispondere: se l'interrogazione chiede un
+  // consiglio o una previsione (rifiuto-strutturale.js), nessuna capacità la
+  // riceve mai, per costruzione — non dipende da cosa è registrato oggi né
+  // da cosa si registrerà domani.
+  if (richiedeConsiglio(interrogazione)) {
+    return { risolto: false, motivo: 'rifiuto-strutturale', mancante: MESSAGGIO_RIFIUTO };
+  }
+
   const candidate = REGISTRO.filter((c) => c.operazioni.includes(interrogazione.operazione) && c.misura === interrogazione.misura);
 
   if (!candidate.length) {

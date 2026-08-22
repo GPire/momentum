@@ -80,6 +80,27 @@ test('pianifica: ctx passato sia a copertura sia a calcola', () => {
   assert.equal(pianifica(q, { datiDisponibili: 99 }).risultato, 99);
 });
 
+// ── IL PRIMO CONTROLLO ASSOLUTO (rifiuto-strutturale.js) ──
+test('pianifica: rifiuta una misura vietata ANCHE SE una capacità registrata accetterebbe di rispondere', () => {
+  // Capacità deliberatamente "malscritta": copertura sempre vera, calcola
+  // darebbe una risposta. Il rifiuto strutturale deve intercettarla PRIMA
+  // di arrivare al registro — non deve dipendere da quanto è ben scritta
+  // ogni singola capacità.
+  registra({ nome: 'capacita-mal-scritta', operazioni: ['descrivi'], misura: 'cosa-comprare', copertura: () => true, calcola: () => 'AVREI RISPOSTO' });
+  const q = creaInterrogazione({ operazione: 'descrivi', misura: 'cosa-comprare' });
+  const r = pianifica(q, {});
+  assert.equal(r.risolto, false);
+  assert.equal(r.motivo, 'rifiuto-strutturale');
+  assert.match(r.mancante, /nessuno sa/i);
+});
+
+test('pianifica: il rifiuto strutturale vince anche senza nessuna capacità registrata (nessun registro, nessun ctx)', () => {
+  const q = creaInterrogazione({ operazione: 'spiega', misura: 'previsione-prezzo' });
+  const r = pianifica(q, {});
+  assert.equal(r.risolto, false);
+  assert.equal(r.motivo, 'rifiuto-strutturale');
+});
+
 test('elencoCapacita: riflette il registro, azzeraRegistro lo svuota', () => {
   assert.deepEqual(elencoCapacita(), []);
   registra({ nome: 'una', operazioni: ['descrivi'], misura: 'x', copertura: () => true, calcola: () => 1 });
