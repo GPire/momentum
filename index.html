@@ -3465,6 +3465,12 @@
                     <div id="net-worth-projection" class="overflow-x-auto"></div>
                     <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Proiezione probabilistica su ipotesi storiche dichiarate, non garantite. Non è consulenza finanziaria né promessa di rendimento.</p>
                     <div id="sector-ranking" class="overflow-x-auto mt-4"></div>
+                    <!-- Notizie sulle posizioni davvero possedute (Cantiere H del
+                         piano: fetchAssetNewsCascade esisteva già ma si attivava
+                         SOLO su ricerca manuale — mai collegato a state.positions,
+                         a differenza dei prezzi che lo fanno già in idleFetchPrices.
+                         Stesso schema: budget di rete ridotto, mai in primo piano. -->
+                    <div id="portfolio-news" class="mt-4"></div>
                  </div>
 
                  <!-- Tassi a lungo termine di 12 Paesi (src/alpha/tassi-mondo.js):

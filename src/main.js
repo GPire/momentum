@@ -8287,6 +8287,27 @@ function renderNetWorth() {
       }).join('')}</div>
       ${nota ? `<p class="text-[10px] text-amber-300/80 mt-2">⏱ ${escapeHtml(nota)}</p>` : ''}`;
   }
+  renderPortfolioNews();
+}
+
+// Notizie sulle posizioni DAVVERO possedute (Cantiere H del piano: "le
+// notizie non sanno cosa possiedi" — fetchAssetNewsCascade esisteva già,
+// ma si attivava SOLO quando l'utente cercava un titolo a mano, mai
+// scorrendo state.positions come già fa idleFetchPrices per i prezzi).
+// Sola lettura da una cache popolata da idleFetchNews altrove (window
+// scope, vedi dentro initApp): qui non fa mai rete, mai blocca il render.
+function renderPortfolioNews() {
+  const el = document.getElementById('portfolio-news');
+  if (!el) return;
+  const byTicker = window.__portfolioNews || {};
+  const tickers = Object.keys(byTicker);
+  if (!tickers.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Notizie sui tuoi investimenti</p>` +
+    tickers.map(t => `
+      <div class="mb-2">
+        <p class="text-[10px] font-bold text-[var(--gold)] mb-1">${t}</p>
+        ${window.buildNewsItemsHtml ? window.buildNewsItemsHtml((byTicker[t].items || []).slice(0, 2)) : ''}
+      </div>`).join('');
 }
 
 // Drill-down giorno-per-giorno sulla heatmap "Le tue spese giorno per giorno":
@@ -13453,6 +13474,37 @@ function initMomentumRealAI() {
     };
     window.idleFetchPrices = idleFetchPrices; // richiamabile subito dopo il salvataggio di una chiave (vedi saveLiveDataKey)
     (window.requestIdleCallback || ((fn) => setTimeout(fn, 4000)))(idleFetchPrices);
+
+    // ── Notizie sulle posizioni possedute (Cantiere H) ──────────────────────
+    // "Le notizie non sanno cosa possiedi": fetchAssetNewsCascade esisteva
+    // già (usata dalla ricerca manuale di un titolo) ma nessun codice
+    // scorreva state.positions per attivarla da solo — esattamente come
+    // idleFetchPrices già fa per i prezzi, qui accanto. Stesso principio di
+    // budget di rete ridotto (3 posizioni, meno delle 6 dei prezzi: le
+    // notizie pesano di più, 4 fonti a cascata ciascuna) e stessa disciplina
+    // "mai in primo piano" — un fallimento di rete qui non deve mai
+    // interrompere il resto dell'app (try/catch per posizione).
+    const idleFetchNews = () => {
+      const positions = VaultDAO.state.positions || [];
+      if (!positions.length || !navigator.onLine) return;
+      const top = [...positions].sort((a, b) => (b.quantity || 0) - (a.quantity || 0)).slice(0, 3);
+      (async () => {
+        const byTicker = {};
+        for (const p of top) {
+          if (!p.ticker) continue;
+          try {
+            const { items, stale } = await fetchAssetNewsCascade({ symbol: p.ticker, name: p.ticker });
+            if (items.length) byTicker[p.ticker] = { items, stale };
+          } catch (_) { /* onesto: niente notizie per questa posizione, le altre continuano */ }
+        }
+        if (Object.keys(byTicker).length) {
+          window.__portfolioNews = byTicker;
+          renderPortfolioNews();
+        }
+      })();
+    };
+    window.idleFetchNews = idleFetchNews;
+    (window.requestIdleCallback || ((fn) => setTimeout(fn, 6000)))(idleFetchNews);
 
     // Meso (src/ai/trained-meso.js): più accurato del Nano su testo rumoroso
     // (89.7% vs 80.0%, misurato) ma più pesante da caricare (~400KB, feature
