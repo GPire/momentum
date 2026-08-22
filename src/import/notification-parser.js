@@ -1,4 +1,5 @@
-// Parser del testo delle notifiche bancarie/wallet italiane.
+// Parser del testo delle notifiche bancarie/wallet — italiane E dei circuiti
+// carta internazionali (Visa/Mastercard, vedi sotto).
 //
 // PERCHÉ ESISTE: una webapp non può leggere le notifiche di altre app
 // (blocco di privacy del sistema operativo, identico su iOS e Android, non
@@ -9,12 +10,23 @@
 // per la lettura diretta. Su iPhone la lettura diretta non esisterà mai
 // (nemmeno per le app native); lì la via è l'Open Banking.
 //
-// Pattern reali dei principali wallet/banche italiane. Ogni pattern è
-// testato in node --test; quando nessun pattern matcha si ritorna null,
-// mai una transazione inventata.
-import { parseCellAmount } from './pdf-parser.js';
+// Pattern reali dei principali wallet/banche italiane, PIÙ un secondo
+// gruppo di pattern in inglese per gli avvisi generici dei circuiti carta
+// (Visa/Mastercard) — questi non li manda mai il circuito stesso, li manda
+// la banca/app emittente, ma la FORMULAZIONE ("Your Visa card ending 1234
+// was charged...", "Mastercard purchase: ...") è condivisa da moltissimi
+// emittenti nel mondo indipendentemente dalla lingua locale della banca —
+// a differenza dei pattern italiani sopra, che sono specifici di wallet
+// italiani e restano SEMPRE in euro. Onestà: non copre ogni banca del
+// mondo (impossibile senza un campione reale di ognuna), copre le
+// formulazioni più comuni in inglese, la lingua di default di moltissime
+// app quando il dispositivo non è impostato in italiano.
+// Ogni pattern è testato in node --test; quando nessun pattern matcha si
+// ritorna null, mai una transazione inventata.
+import { parseCellAmount, detectCurrency } from './pdf-parser.js';
 
 const AMOUNT = '(\\d{1,3}(?:[.,]\\d{3})*[.,]\\d{1,2}|\\d+)';
+const SIMBOLO_OPZ = '[€$£¥]?';
 
 // Ordine importante: i pattern più specifici prima. `type` è la direzione;
 // `merchant` è l'indice del gruppo col nome esercente/mittente (o null).
@@ -36,6 +48,20 @@ const PATTERNS = [
   { re: new RegExp(`hai ricevuto\\s*€?\\s*${AMOUNT}\\s*€?\\s+da\\s+(.+?)\\s*$`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
   // Generico prelievo: "Prelievo di 100,00 € carta *1234"
   { re: new RegExp(`prelievo\\s+(?:di\\s+)?€?\\s*${AMOUNT}`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: null },
+
+  // ── Avvisi carta Visa/Mastercard (inglese, molti emittenti nel mondo) ──
+  // "You spent $45.00 on your Visa card at TESCO" / "...Mastercard ending 1234 at..."
+  { re: new RegExp(`you spent\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+on your (?:visa|mastercard)(?:\\s+card)?(?:\\s+ending\\s+(?:in\\s+)?\\d+)?\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  // "Your Visa card ending 1234 was charged $45.00 at TESCO"
+  { re: new RegExp(`your (?:visa|mastercard)(?:\\s+card)?(?:\\s+ending\\s+(?:in\\s+)?\\d+)?\\s+was charged\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  // "A payment of $45.00 was made with your Mastercard at TESCO"
+  { re: new RegExp(`a payment of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+was made(?:\\s+(?:with|using) your (?:visa|mastercard)(?:\\s+card)?)?\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  // "Mastercard purchase: $45.00 at TESCO" / "Visa purchase £30.00 at STARBUCKS"
+  { re: new RegExp(`(?:visa|mastercard)\\s+purchase:?\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  // "Card ending 1234: purchase of $50.00 approved at WALMART"
+  { re: new RegExp(`card ending\\s+(?:in\\s+)?\\d+:?\\s*purchase of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+approved\\s+at\\s+(.+?)\\s*$`, 'i'), type: 'uscita', amountIdx: 1, merchantIdx: 2 },
+  // "Visa refund of $20.00 from TESCO" / "You received a refund of €10.00 from AMAZON"
+  { re: new RegExp(`(?:visa|mastercard)?\\s*refund of\\s*${SIMBOLO_OPZ}\\s*${AMOUNT}\\s*${SIMBOLO_OPZ}\\s+(?:from|at)\\s+(.+?)\\s*$`, 'i'), type: 'entrata', amountIdx: 1, merchantIdx: 2 },
 ];
 
 // Pulisce il nome esercente da code tecniche delle notifiche
@@ -63,11 +89,17 @@ export function parseNotificationText(title, text) {
     const amount = parseCellAmount(m[p.amountIdx]);
     if (amount === null || amount <= 0) continue;
     const merchant = p.merchantIdx ? cleanMerchant(m[p.merchantIdx]) : null;
+    // Valuta cercata sull'intero testo (simbolo o codice ISO), non solo
+    // sulla cifra estratta da AMOUNT (che di proposito cattura solo cifre):
+    // i pattern italiani sono sempre EUR per costruzione (wallet italiani),
+    // quelli carta internazionali no — assente quando non c'è indizio.
+    const currency = detectCurrency(full);
     return {
       amount: Math.abs(amount),
       type: p.type,
       description: merchant || (title || '').trim().slice(0, 60) || 'Da notifica',
       source: 'notification',
+      ...(currency ? { currency } : {}),
     };
   }
   return null;
