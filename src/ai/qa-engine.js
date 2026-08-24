@@ -364,11 +364,31 @@ const UNKNOWN_MSG = {
 // Nota onesta: può marcare `learned:true` anche quando la frase-innesco non
 // era strettamente necessaria (l'intento sarebbe scattato comunque) — è
 // comunque corretto dire "questo è rinforzato da ciò che mi hai insegnato".
+//
+// BUG REALE trovato dal vivo, non nei test automatici (2026-08-24, mai
+// scritto un test che confrontasse i due namespace fra loro): questo file
+// ha DUE modi di scrivere lo stesso intento — CANONICAL_TRIGGER/ESEMPI_
+// CANONICI (qa-canonical-bank.js) e QA_LEARN_TOPICS (main.js) usano
+// camelCase ('netWorth', 'budgetLeft', 'bnplOwed', 'safeToSpend',
+// 'monthEnd', 'topCategory'), ma il riconoscitore vero — quello che produce
+// `risultato.intent` qui sotto — usa kebab-case ('net-worth', 'budget-
+// left', ecc, vedi i `case` in main.js). Il confronto diretto `===` non ha
+// mai funzionato per questi 6 intenti (i 9 monoparola come 'spent'/
+// 'savings' non hanno il problema, la casistica si nasconde da sola):
+// l'utente confermava la stessa domanda 2 volte, il QA rispondeva giusto,
+// ma `learned` restava sempre `undefined` — la UI non diceva mai "questo
+// l'ho imparato da te" per patrimonio/budget/rate/spendibile-oggi/fine-
+// mese/categoria-top, proprio la cosa che questo commento sopra promette
+// di garantire SEMPRE. Corretto normalizzando entrambi i lati del
+// confronto (minuscolo, senza trattini) invece di rinominare tre registri
+// diversi — chirurgico, zero rischio sul resto.
+const normIntent = (s) => String(s || '').toLowerCase().replace(/-/g, '');
+
 export function answerQuestion(question, ctx) {
   const risultato = answerQuestionCore(question, ctx);
   if (ctx?.qaLearning && risultato && risultato.intent !== 'unknown') {
     const suggerito = suggestLearnedIntent(ctx.qaLearning, question, { similarity: ctx.semanticSimilarity });
-    if (suggerito?.autoApplicabile && suggerito.intent === risultato.intent) {
+    if (suggerito?.autoApplicabile && normIntent(suggerito.intent) === normIntent(risultato.intent)) {
       risultato.learned = true;
     }
   }

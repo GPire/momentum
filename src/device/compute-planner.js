@@ -31,6 +31,24 @@ export function planInferenceBackend(profile) {
   return { backend: 'js', reason: 'JavaScript puro: massima compatibilità', accelerated: false };
 }
 
+// ── Backend per un modello ONNX/transformers.js specifico ──
+// UNIFICATO (richiesto esplicitamente: "comunicare con il resto, non un
+// pezzo isolato") — prima src/ai/semantic-embed.js aveva la propria copia
+// di questa stessa logica; src/ai/local-sentiment.js ne aveva bisogno
+// identica, quindi la logica vive qui una volta sola, non due file che
+// possono divergere in silenzio.
+// `cfg.backend` è una proprietà del MODELLO (embed-models.js/sentiment-
+// model.js), non solo dell'hardware: 'wasm' fissato in config significa
+// "questo modello, con questa quantizzazione, gira solo qui" — chiederci
+// comunque WebGPU lo lascerebbe appeso per sempre senza mai fallire (già
+// misurato per e5-small, vedi embed-models.js). Solo 'auto' torna a
+// scegliere dal profilo hardware misurato.
+export function backendPerModello(cfg, profile) {
+  if (!cfg || cfg.backend !== 'auto') return undefined; // undefined = default (wasm) di transformers.js
+  const piano = planInferenceBackend(profile || {});
+  return piano.backend === 'webgpu' ? 'webgpu' : undefined;
+}
+
 // Piano completo: cosa fare, con quanta profondità, dove.
 // `intensity` è opzionale (dal dispatcher novelty): un evento di routine
 // non merita il percorso pesante anche su hardware potente — risparmio

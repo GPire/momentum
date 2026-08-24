@@ -34,6 +34,34 @@ import { DATE_GIORNI, GIORNALIERO, NOMI_GIORNALIERI } from './daily-panel.js';
 // ── Le fonti, con la licenza attaccata ──
 // L'ordine è quello di preferenza: prima le più pulite dal punto di vista dei
 // diritti, non le più comode.
+// ── IL BUCO CORS, e come è stato chiuso davvero ──
+// Verificato dal vivo (curl -I, 2026-08-24, non solo ipotizzato): NESSUNA
+// delle tre — federalreserve.gov, ecb.europa.eu, e anche data-api.ecb.
+// europa.eu che sources.js già usa per i dati numerici — manda l'header
+// `Access-Control-Allow-Origin`. Dal browser sono bloccate, punto: non è
+// un bug di Momentum, è una scelta dei loro server, e nessun trucco lato
+// client (no-cors, Image beacon, Service Worker) permette di LEGGERE una
+// risposta cross-origin senza quell'header — è la piattaforma, non manca
+// solo il codice giusto.
+// Provati e SCARTATI dal vivo tre proxy CORS generici (corsproxy.io,
+// allorigins.win, r.jina.ai): in un solo giro di test hanno risposto
+// rispettivamente 403, 500 e 524 — instabili per definizione (relay
+// gratuiti anonimi, nessun SLA, nessuno garantisce che domani funzionino).
+// Usarli come fonte "pulita" per un prodotto serio sarebbe stata la stessa
+// scommessa fragile già rifiutata per gli aggregatori di notizie.
+// La differenza con `rss2json.com`: non è un proxy generico anti-CORS, è un
+// prodotto che fa UNA cosa sola (RSS→JSON) con CORS abilitato di proposito
+// per questo uso — verificato dal vivo con dati REALI il 2026-08-24 (fed E
+// bce, `access-control-allow-origin: *` nell'header, contenuto identico
+// all'XML originale, solo riformattato). Resta comunque un RELAY di terzi,
+// non la fonte primaria: usato SOLO come fallback (mai al posto del fetch
+// diretto, che va sempre tentato per primo — se domani questi domini
+// aggiungessero l'header, il relay smetterebbe di servire senza cambiare
+// una riga), e ogni voce che passa da qui porta `viaRelay:true` — mai
+// presentata come se fosse arrivata diretta dalla fonte. Nessun dato
+// dell'utente attraversa questo relay: è una richiesta per un URL
+// pubblico, non diverso da chiedere a chiunque "apri questa pagina per
+// me" — la privacy del dispositivo non è in gioco.
 export const FONTI_NOTIZIE = [
   {
     chiave: 'fed', nome: 'Federal Reserve — comunicati di politica monetaria',
@@ -41,6 +69,11 @@ export const FONTI_NOTIZIE = [
     formato: 'rss', lingua: 'en',
     licenza: 'ente federale USA: i contenuti non sono soggetti a copyright',
     pulita: true,
+    fallback: {
+      url: 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.federalreserve.gov%2Ffeeds%2Fpress_monetary.xml',
+      formato: 'rss2json',
+      nota: 'via rss2json.com (relay pubblico CORS-abilitato): federalreserve.gov blocca il fetch diretto dal browser',
+    },
   },
   {
     chiave: 'fedTutti', nome: 'Federal Reserve — tutti i comunicati',
@@ -48,6 +81,11 @@ export const FONTI_NOTIZIE = [
     formato: 'rss', lingua: 'en',
     licenza: 'ente federale USA: i contenuti non sono soggetti a copyright',
     pulita: true,
+    fallback: {
+      url: 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.federalreserve.gov%2Ffeeds%2Fpress_all.xml',
+      formato: 'rss2json',
+      nota: 'via rss2json.com (relay pubblico CORS-abilitato): federalreserve.gov blocca il fetch diretto dal browser',
+    },
   },
   {
     chiave: 'bce', nome: 'Banca centrale europea — comunicati stampa',
@@ -55,6 +93,11 @@ export const FONTI_NOTIZIE = [
     formato: 'rss', lingua: 'en',
     licenza: 'riproduzione permessa citando la fonte',
     pulita: true,
+    fallback: {
+      url: 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.ecb.europa.eu%2Frss%2Fpress.html',
+      formato: 'rss2json',
+      nota: 'via rss2json.com (relay pubblico CORS-abilitato): ecb.europa.eu blocca il fetch diretto dal browser',
+    },
   },
   {
     chiave: 'federalRegister', nome: 'Federal Register — atti normativi USA',
@@ -126,8 +169,25 @@ function normalizzaData(s) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
+// ── Lettore rss2json.com (relay di fallback, mai la fonte primaria) ──
+// Forma reale osservata dal vivo: { status:'ok', items:[{title,pubDate,link}] }.
+// Difensivo come gli altri lettori: un JSON malformato o uno status diverso
+// da 'ok' dà lista vuota, mai un'eccezione che ferma prendiNotizie().
+export function leggiRss2Json(testo) {
+  try {
+    const j = typeof testo === 'string' ? JSON.parse(testo) : testo;
+    if (j?.status !== 'ok' || !Array.isArray(j?.items)) return [];
+    return j.items.filter((it) => it?.title).map((it) => ({
+      titolo: pulisci(it.title),
+      data: normalizzaData(it.pubDate),
+      link: it.link || null,
+    }));
+  } catch (_) { return []; }
+}
+
 export function leggi(formato, testo) {
   if (formato === 'json-fr') return leggiFederalRegister(testo);
+  if (formato === 'rss2json') return leggiRss2Json(testo);
   return leggiRss(testo);
 }
 
@@ -137,22 +197,48 @@ export function leggi(formato, testo) {
 export async function prendiNotizie({ fonti = FONTI_NOTIZIE, quante = 8, timeoutMs = 6000, fetchImpl = null } = {}) {
   const f = fetchImpl || (typeof fetch === 'function' ? fetch : null);
   if (!f) return { voci: [], fonti: [], errore: 'nessun modo di andare in rete in questo ambiente' };
+  // Un solo tentativo (url+formato): usato prima per la fonte diretta, poi —
+  // solo se quella non ha dato niente — per il `fallback` dichiarato sulla
+  // fonte, se esiste. Mai il contrario: la fonte diretta va sempre provata
+  // per prima, un domani in cui aggiungessero l'header CORS non richiede
+  // toccare una riga qui.
+  const provaUnaVolta = async (url, formato) => {
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    const t = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+    try {
+      const r = await f(url, { headers: INTESTAZIONI, signal: ctrl?.signal });
+      if (!r?.ok) return [];
+      const testo = await r.text();
+      return leggi(formato, testo);
+    } catch (_) {
+      return []; // una fonte che non risponde non e' un errore: e' il caso normale
+    } finally {
+      if (t) clearTimeout(t);
+    }
+  };
+
   const usate = [], voci = [];
   for (const fonte of fonti) {
-    try {
-      const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-      const t = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
-      const r = await f(fonte.url, { headers: INTESTAZIONI, signal: ctrl?.signal });
-      if (t) clearTimeout(t);
-      if (!r?.ok) continue;
-      const testo = await r.text();
-      const lette = leggi(fonte.formato, testo);
-      if (!lette.length) continue;
-      usate.push({ chiave: fonte.chiave, nome: fonte.nome, licenza: fonte.licenza, voci: lette.length });
-      // La fonte resta attaccata a ogni voce: senza, fra un mese nessuno sa
-      // piu' da dove venga una riga.
-      for (const v of lette) voci.push({ ...v, fonte: fonte.chiave, nomeFonte: fonte.nome, licenza: fonte.licenza });
-    } catch (_) { /* una fonte che non risponde non e' un errore: e' il caso normale */ }
+    let lette = await provaUnaVolta(fonte.url, fonte.formato);
+    let viaFallback = false;
+    if (!lette.length && fonte.fallback) {
+      lette = await provaUnaVolta(fonte.fallback.url, fonte.fallback.formato);
+      viaFallback = lette.length > 0;
+    }
+    if (!lette.length) continue;
+    usate.push({
+      chiave: fonte.chiave, nome: fonte.nome, licenza: fonte.licenza, voci: lette.length,
+      viaFallback, relayNota: viaFallback ? fonte.fallback.nota : null,
+    });
+    // La fonte resta attaccata a ogni voce: senza, fra un mese nessuno sa
+    // piu' da dove venga una riga. `viaRelay` dichiara SEMPRE quando il
+    // contenuto non è arrivato dal fetch diretto alla fonte ufficiale.
+    for (const v of lette) {
+      voci.push({
+        ...v, fonte: fonte.chiave, nomeFonte: fonte.nome, licenza: fonte.licenza,
+        viaRelay: viaFallback, relayNota: viaFallback ? fonte.fallback.nota : null,
+      });
+    }
   }
   // ORDINARE PER DATA SEMBRAVA OVVIO ED ERA SBAGLIATO. Il Federal Register
   // pubblica decine di atti ogni giorno, le banche centrali parlano ogni

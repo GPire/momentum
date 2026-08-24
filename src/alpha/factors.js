@@ -36,6 +36,27 @@ export function valueScore(m, peers = {}) {
   return { score: +score.toFixed(4), factor: 'value', parts };
 }
 
+// ── Quality (Piotroski): solidità fondamentale REALE, non un proxy ──
+// Diverso da valueScore sopra: quello stima "solidità" con ROE/leva come
+// PROXY confrontati coi peer (percentile relativo). Questo usa il vero
+// F-Score di Piotroski (src/alpha/quality-scores.js, Cantiere E3) — 8
+// criteri booleani misurati su due bilanci consecutivi della STESSA
+// azienda, un fatto assoluto ("l'azienda è migliorata sì/no"), non una
+// posizione relativa ai concorrenti. Completa il modello multi-fattore
+// istituzionale (value/growth/momentum/risk/reflexivity) con l'asse che
+// mancava: i quant desk lo chiamano "quality factor", uno dei 5 standard
+// (insieme a value/momentum/size/low-vol) da Fama-French/AQR in poi.
+// `piotroski` è il risultato GIÀ CALCOLATO da piotroskiFScore() — mai
+// ricalcolato qui: una sola fonte di verità per la formula stessa.
+export function qualityScore(piotroski) {
+  if (!piotroski?.valido) {
+    return { score: null, factor: 'quality', parts: [], motivo: piotroski?.motivo || 'punteggio di qualità non disponibile per questo titolo/anno' };
+  }
+  const parts = Object.entries(piotroski.criteri).map(([k, v]) => ({ k, s: v ? 1 : 0 }));
+  const score = piotroski.punteggio / piotroski.puntiMassimi;
+  return { score: +score.toFixed(4), factor: 'quality', parts, puntiGrezzi: `${piotroski.punteggio}/${piotroski.puntiMassimi}` };
+}
+
 // ── Growth (Lynch): crescita a prezzo ragionevole ──
 // metrics: { revCagr, epsCagr, peg, marginTrend }
 export function growthScore(m, peers = {}) {

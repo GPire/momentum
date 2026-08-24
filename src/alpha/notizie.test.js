@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FONTI_NOTIZIE, leggiRss, leggiFederalRegister, prendiNotizie,
+  FONTI_NOTIZIE, leggiRss, leggiFederalRegister, leggiRss2Json, prendiNotizie,
   reazioneAllaFed, reazioneText, cosaFecceroIMercati, MOSSE_FED,
 } from './notizie.js';
 
@@ -87,6 +87,69 @@ test('lo stesso comunicato in due feed compare una volta sola', async () => {
   const finto = async () => ({ ok: true, text: async () => stesso });
   const r = await prendiNotizie({ fetchImpl: finto, quante: 8 });
   assert.equal(r.voci.length, 1, 'il comunicato monetario esce anche nel feed generale');
+});
+
+// ── Il fallback CORS (Fed/BCE bloccate dal browser, rss2json come relay) ──
+
+test('leggiRss2Json legge la forma reale del servizio, e non si fida di niente', () => {
+  const vero = JSON.stringify({
+    status: 'ok',
+    items: [{ title: 'FOMC statement', pubDate: '2026-08-19 18:00:00', link: 'https://www.federalreserve.gov/x.htm' }],
+  });
+  const v = leggiRss2Json(vero);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].titolo, 'FOMC statement');
+  assert.equal(v[0].data, '2026-08-19');
+  for (const b of [null, undefined, '', 'non json', '{"status":"error"}', '{"status":"ok","items":"non un array"}', 42, {}]) {
+    assert.deepEqual(leggiRss2Json(b), [], `input ${JSON.stringify(b)}`);
+  }
+});
+
+test('ogni fonte con CORS noto-bloccato dichiara un fallback, e il fallback resta un relay dichiarato, mai la fonte "pulita"', () => {
+  for (const chiave of ['fed', 'fedTutti', 'bce']) {
+    const f = FONTI_NOTIZIE.find((x) => x.chiave === chiave);
+    assert.ok(f.fallback, `${chiave} senza fallback dichiarato`);
+    assert.match(f.fallback.url, /^https:\/\//);
+    assert.ok(f.fallback.nota && f.fallback.nota.length > 10, `${chiave}: fallback senza nota onesta`);
+  }
+});
+
+test('la fonte diretta si prova SEMPRE per prima: se risponde, il fallback non viene nemmeno chiamato', async () => {
+  const chiamate = [];
+  const finto = async (url) => {
+    chiamate.push(url);
+    return { ok: true, text: async () => '<rss><item><title>Comunicato diretto</title><pubDate>Tue, 4 Aug 2026 20:30:00 GMT</pubDate></item></rss>' };
+  };
+  const r = await prendiNotizie({ fonti: [FONTI_NOTIZIE.find((f) => f.chiave === 'fed')], fetchImpl: finto });
+  assert.equal(r.voci.length, 1);
+  assert.equal(r.voci[0].viaRelay, false);
+  assert.equal(chiamate.length, 1, 'il fallback non deve essere chiamato se la fonte diretta risponde');
+  assert.match(chiamate[0], /federalreserve\.gov/);
+});
+
+test('se la fonte diretta fallisce (CORS), si passa al relay dichiarato — e la voce lo dice', async () => {
+  const finto = async (url) => {
+    if (url.includes('rss2json')) {
+      return {
+        ok: true,
+        text: async () => JSON.stringify({ status: 'ok', items: [{ title: 'Fed via relay', pubDate: '2026-08-19', link: 'https://www.federalreserve.gov/x.htm' }] }),
+      };
+    }
+    throw new Error('Failed to fetch'); // il fallimento CORS reale nel browser
+  };
+  const r = await prendiNotizie({ fonti: [FONTI_NOTIZIE.find((f) => f.chiave === 'fed')], fetchImpl: finto });
+  assert.equal(r.voci.length, 1);
+  assert.equal(r.voci[0].titolo, 'Fed via relay');
+  assert.equal(r.voci[0].viaRelay, true, 'la voce deve dichiarare di essere passata dal relay');
+  assert.match(r.voci[0].relayNota, /rss2json/);
+  assert.equal(r.fonti[0].viaFallback, true);
+});
+
+test('se ANCHE il relay fallisce, niente eccezione — la fonte viene semplicemente saltata', async () => {
+  const finto = async () => { throw new Error('offline'); };
+  const r = await prendiNotizie({ fonti: [FONTI_NOTIZIE.find((f) => f.chiave === 'bce')], fetchImpl: finto });
+  assert.deepEqual(r.voci, []);
+  assert.match(r.errore, /nessuna fonte/);
 });
 
 // ── La parte che rende il modulo diverso da un lettore di feed ──

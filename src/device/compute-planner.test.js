@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { planInferenceBackend, planCompute, describePlan } = await import('./compute-planner.js');
+const { planInferenceBackend, planCompute, describePlan, backendPerModello } = await import('./compute-planner.js');
 
 const prof = (o = {}) => ({
   kappa: 0.5, cores: 4, memory: 8, lowMemory: false,
@@ -9,6 +9,16 @@ const prof = (o = {}) => ({
   tier: 'medio', enable3D: true, retrainEveryTx: 1,
   forecastBudget: { paths: 5000, capitalTrials: 2000 },
   ...o,
+});
+
+test('backendPerModello: "wasm" fisso in config vince sempre, anche con WebGPU vero disponibile', () => {
+  assert.equal(backendPerModello({ backend: 'wasm' }, prof({ webgpu: true })), undefined);
+  assert.equal(backendPerModello(null, prof({ webgpu: true })), undefined, 'nessuna config: mai un crash');
+});
+
+test('backendPerModello: "auto" segue il profilo hardware misurato', () => {
+  assert.equal(backendPerModello({ backend: 'auto' }, prof({ webgpu: true })), 'webgpu');
+  assert.equal(backendPerModello({ backend: 'auto' }, prof({ webgpu: false })), undefined);
 });
 
 test('backend: WebGPU reale preferito, fallback software escluso', () => {

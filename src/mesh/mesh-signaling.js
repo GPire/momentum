@@ -250,6 +250,7 @@ class MeshNode {
     this.onLexiconReceived = null;     // callback opzionale (nodeId, digest) => {} — lessico k-anonimo (opt-in)
     this.onDistillationReceived = null; // callback opzionale (nodeId, digest) => {} — distillazione su sonde pubbliche, LIVELLO A (opt-in)
     this.onKnowledgeReceived = null;   // callback opzionale (nodeId, payload) => {} — staffetta dati pubblici verificati
+    this.onSentimentReceived = null;   // callback opzionale (nodeId, payload) => {} — staffetta sentiment on-device (src/mesh/sentiment-relay.js)
     this.onDeviceHello = null;         // callback opzionale (nodeId, publicKey) => {} — device-trust.js
     // CLASSE DI RETE dei peer (nat-matrix.js): 'aperto' | 'prevedibile' |
     // 'variabile' | 'bloccato' | 'incerto'. Senza questa informazione
@@ -432,6 +433,14 @@ class MeshNode {
         // mai fidarsi dell'etichetta del mittente) e' del ricevente: qui si
         // consegna soltanto, esattamente come per il lessico.
         this.onKnowledgeReceived?.(peerId, msg.payload);
+      } else if (msg.type === 'sentiment_share') {
+        // STAFFETTA DEL SENTIMENT (src/mesh/sentiment-relay.js). Un titolo di
+        // notizia PUBBLICO (mai una transazione, mai un dato personale) e il
+        // suo punteggio già calcolato on-device — chi non ha scaricato il
+        // modello (o è su una rete dove il download resta bloccato, vedi
+        // src/core/con-timeout.js) può comunque saperlo. Stesso principio di
+        // knowledge_share sopra, cancello anti-avvelenamento del ricevente.
+        this.onSentimentReceived?.(peerId, msg.payload);
       } else if (msg.type === 'device_hello') {
         // FIDUCIA (device-trust.js): la scoperta di rete non prova CHI SEI.
         // Qui arriva solo una chiave pubblica dichiarata — la prova vera (le
@@ -843,6 +852,21 @@ class MeshNode {
   shareKnowledge(payload) {
     if (!payload || payload.v !== 1) return 0;
     const msg = JSON.stringify({ type: 'knowledge_share', payload });
+    let inviati = 0;
+    for (const entry of this.peers.values()) {
+      if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
+    }
+    return inviati;
+  }
+
+  // Manda un pacchetto già impacchettato da `packSentimentForRelay`
+  // (sentiment-relay.js) a tutti i peer diretti. Stesso schema di
+  // shareKnowledge sopra: broadcast semplice, il costo per la privacy è già
+  // deciso a monte (solo titoli di notizia pubblici + un punteggio, mai
+  // dati personali).
+  shareSentiment(payload) {
+    if (!payload || payload.v !== 1) return 0;
+    const msg = JSON.stringify({ type: 'sentiment_share', payload });
     let inviati = 0;
     for (const entry of this.peers.values()) {
       if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }

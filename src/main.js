@@ -6103,6 +6103,32 @@ function renderNotifyPrefs() {
 // device/profiler.js) — mai offrire un download di ~197MB a chi non può
 // nemmeno eseguirlo. Su chi lo supporta, mostra lo stato reale (attivo,
 // scaricamento in corso, pronto) invece di far finta che accada subito.
+// Sondaggio periodico del progresso (src/core/download-progress.js) mentre
+// un download è in corso — "non si capisce lo stato di avanzamento dei
+// download" (feedback diretto): senza, la label restava ferma su
+// "scaricamento in corso…" per l'intera attesa, indistinguibile da un
+// blocco vero (che ora sappiamo essere possibile per davvero, vedi
+// src/core/con-timeout.js). `fermaquando()` pulisce sempre l'intervallo,
+// anche se il caricamento fallisce o scade — mai un timer orfano che
+// continua a girare su una card che non esiste più.
+function sondaProgresso(modulo, labelId, testoPronto) {
+  let timer = null;
+  const aggiorna = () => {
+    const label = document.getElementById(labelId);
+    if (!label) { if (timer) clearInterval(timer); return; }
+    import(modulo).then((m) => {
+      const p = m.progressoScaricamento?.();
+      if (!p || p.fase !== 'scaricamento') return;
+      label.textContent = Number.isFinite(p.pct)
+        ? `Attivo — scaricamento in corso… ${p.pct}%`
+        : 'Attivo — scaricamento in corso… (dimensione non dichiarata dal server)';
+    }).catch(() => {});
+  };
+  timer = setInterval(aggiorna, 800);
+  aggiorna();
+  return () => { if (timer) { clearInterval(timer); timer = null; } };
+}
+
 function renderSemanticQaCard() {
   const card = document.getElementById('semantic-qa-card');
   if (!card) return;
@@ -6125,20 +6151,67 @@ window.setSemanticQaOptIn = async (attiva) => {
   VaultDAO.save();
   if (!attiva) { renderSemanticQaCard(); return; }
   showToast('Scarico il modello di comprensione del linguaggio (~197MB, una volta sola)…', 'info');
+  const fermaProgresso = sondaProgresso('./ai/semantic-embed.js', 'semantic-qa-label');
   try {
     const { caricaModelloSemantico } = await import('./ai/semantic-embed.js');
     const esito = await caricaModelloSemantico();
+    fermaProgresso();
     if (esito.ok) showToast('Comprensione del linguaggio attiva: ora capisce il significato, non solo le parole.', 'success');
     else {
-      showToast('Non sono riuscito a scaricare il modello: il QA continua a funzionare come prima.', 'info');
+      showToast(`Non sono riuscito a scaricare il modello (${esito.motivo || 'errore sconosciuto'}): il QA continua a funzionare come prima.`, 'info');
       VaultDAO.state.semanticQaOptIn = false;
       VaultDAO.save();
     }
   } catch (_) {
+    fermaProgresso();
     VaultDAO.state.semanticQaOptIn = false;
     VaultDAO.save();
   }
   renderSemanticQaCard();
+};
+
+// Sentiment on-device (src/ai/local-sentiment.js): stesso doppio schema
+// della card sopra — nascosta senza WASM SIMD, stato reale mostrato invece
+// di far finta che il download sia istantaneo.
+function renderSentimentLocalCard() {
+  const card = document.getElementById('sentiment-local-card');
+  if (!card) return;
+  const supportato = !!window.momentumDeviceProfile?.simd;
+  card.style.display = supportato ? '' : 'none';
+  if (!supportato) return;
+  const toggle = document.getElementById('sentiment-local-optin');
+  if (toggle) toggle.checked = !!VaultDAO.state.sentimentOptIn;
+  const label = document.getElementById('sentiment-local-label');
+  if (label && VaultDAO.state.sentimentOptIn) {
+    import('./ai/local-sentiment.js').then(({ sentimentModelPronto }) => {
+      label.textContent = sentimentModelPronto()
+        ? 'Attivo — assegna bullish/bearish alle notizie senza chiave API'
+        : 'Attivo — scaricamento in corso alla prossima notizia (~82MB, una volta sola)';
+    }).catch(() => {});
+  }
+}
+window.setSentimentLocalOptIn = async (attiva) => {
+  VaultDAO.state.sentimentOptIn = !!attiva;
+  VaultDAO.save();
+  if (!attiva) { renderSentimentLocalCard(); return; }
+  showToast('Scarico il modello di sentiment finanziario (~82MB, una volta sola)…', 'info');
+  const fermaProgresso = sondaProgresso('./ai/local-sentiment.js', 'sentiment-local-label');
+  try {
+    const { caricaModelloSentiment } = await import('./ai/local-sentiment.js');
+    const esito = await caricaModelloSentiment();
+    fermaProgresso();
+    if (esito.ok) showToast('Sentiment on-device attivo: le notizie senza chiave API avranno anche un punteggio bullish/bearish.', 'success');
+    else {
+      showToast(`Non sono riuscito a scaricare il modello (${esito.motivo || 'errore sconosciuto'}): le notizie continuano a funzionare come prima.`, 'info');
+      VaultDAO.state.sentimentOptIn = false;
+      VaultDAO.save();
+    }
+  } catch (_) {
+    fermaProgresso();
+    VaultDAO.state.sentimentOptIn = false;
+    VaultDAO.save();
+  }
+  renderSentimentLocalCard();
 };
 
 // Notifica fiscale opt-in (mai attiva di default: il permesso del browser va
@@ -8289,6 +8362,7 @@ function renderNetWorth() {
       ${nota ? `<p class="text-[10px] text-amber-300/80 mt-2">⏱ ${escapeHtml(nota)}</p>` : ''}`;
   }
   renderPortfolioNews();
+  renderPortfolioQuality();
   renderRegulatoryNews();
 }
 
@@ -8312,24 +8386,103 @@ function renderPortfolioNews() {
       </div>`).join('');
 }
 
-// Attività normativa USA (Cantiere H punto 3 del piano: "173 righe di
+// Qualità contabile delle posizioni possedute (Cantiere E3, quality-
+// scores.js: Beneish M-Score/Piotroski F-Score) — PROATTIVO come le notizie
+// sopra: Momentum lo dice da solo, senza che l'utente debba pensare di
+// chiederlo in chat. Sola lettura da window.__portfolioQuality (popolata da
+// idleFetchQuality, dentro initApp) — mai rete qui, mai un blocco del
+// render. Mostra SOLO le posizioni con qualcosa da segnalare (Beneish sopra
+// soglia o Piotroski molto basso): un'azienda "nella norma" non produce
+// rumore, stesso principio già applicato altrove nel progetto (le notizie
+// non mostrano "nessuna notizia", i limiti dichiarano solo ciò che manca).
+// ESTESA (richiesto esplicitamente: "verifica anche dove si ha investito,
+// ogni cosa che avrebbe bisogno un trader"): non più solo allarmi
+// contabili, ora anche il percentile di settore di OGNI posizione del
+// pannello — informazione utile anche quando non c'è nulla da segnalare.
+// `window.__portfolioQuality[ticker]` = { percentile, qualita } — `qualita`
+// è `null` quando non c'è un allarme reale (mai un testo di allarme finto
+// per riempire lo spazio).
+function renderPortfolioQuality() {
+  const el = document.getElementById('portfolio-quality');
+  if (!el) return;
+  const insights = window.__portfolioQuality || {};
+  const tickers = Object.keys(insights);
+  if (!tickers.length) { el.innerHTML = ''; return; }
+  // BUG REALE trovato dal vivo (2026-08-24): questa card aveva un SUO testo
+  // scritto a mano per i segnali di qualità, separato da
+  // testoQualitaContabile() (quality-scores.js, già usato dal QA testuale)
+  // — la card mostrava "profilo tipico di manipolazione contabile" SENZA
+  // l'avviso sul falso positivo da crescita legittima (trovato su NVDA
+  // reale), mentre la stessa domanda in chat lo mostrava già. Corretto
+  // riusando la STESSA fonte anche qui, non riscritta una seconda volta ora
+  // che la card fa anche altro.
+  Promise.all([import('./alpha/quality-scores.js'), import('./alpha/panel-settoriale.js')]).then(([{ testoQualitaContabile }, { SEC_PANEL_SCARICATO_IL }]) => {
+    // "Deve aggiornarsi costantemente" (richiesto esplicitamente): la parte
+    // di prezzo/rendimento PUÒ essere davvero live (i prezzi si aggiornano
+    // già via idleFetchPrices, window.__livePrices) — quella la mostriamo
+    // qui, calcolata al volo. Il percentile/Beneish/Piotroski invece vengono
+    // da bilanci SEC, che per NATURA non cambiano ogni giorno (un'azienda
+    // deposita un 10-K/10-Q poche volte l'anno, non ogni giorno) — la SEC
+    // stessa non offre CORS dal browser (verificato dal vivo, 2026-08-24,
+    // sia su frames sia su companyfacts: nessun header Access-Control), e
+    // anche potendolo fare non avrebbe senso "aggiornare ogni minuto" un
+    // dato che la fonte stessa aggiorna a trimestre. Onestà invece di una
+    // finta continuità: si dichiara la DATA del pannello, mai nascosta.
+    el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">I tuoi investimenti nel loro settore</p>` +
+      tickers.map(t => {
+        const { percentile, qualita } = insights[t];
+        const righe = [];
+        const pos = (VaultDAO.state.positions || []).find(p => (p.ticker || '').toUpperCase() === t);
+        const prezzoOra = window.__livePrices?.[t];
+        if (pos && Number.isFinite(pos.avgPrice) && pos.avgPrice > 0 && Number.isFinite(prezzoOra)) {
+          // Queste sono aziende del pannello SEC (solo titoli USA quotati):
+          // il prezzo è in dollari, non nella valuta di default dell'app
+          // (EUR) — a meno che la posizione stessa dichiari una valuta
+          // diversa (import multi-valuta, src/core/currency-convert.js).
+          // Sbagliare qui mischierebbe simbolo e cifra, lo stesso errore
+          // già trovato e corretto altrove nel progetto per le valute estere.
+          const valuta = pos.currency || 'USD';
+          const variazione = (prezzoOra / pos.avgPrice - 1) * 100;
+          righe.push(`${variazione >= 0 ? '📈' : '📉'} ${variazione >= 0 ? '+' : ''}${variazione.toFixed(1)}% dal tuo prezzo medio di carico (${formatMoney(prezzoOra, valuta)} ora, ${formatMoney(pos.avgPrice, valuta)} di carico) — questo È live, aggiornato al ciclo prezzi.`);
+        }
+        if (percentile) {
+          const voci = Object.entries(percentile.percentili || {}).map(([k, v]) => `${k} al ${v}° percentile`).join(', ');
+          if (voci) righe.push(`Nel settore ${percentile.settore}: ${voci}.`);
+        }
+        if (qualita) righe.push(`⚠ ${testoQualitaContabile(qualita)}`);
+        if (!righe.length) return '';
+        return `
+      <div class="mb-2 rounded-lg px-2.5 py-2" style="background:${qualita ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)'}">
+        <p class="text-[10px] font-bold text-[var(--gold)] mb-1">${escapeHtml(t)}</p>
+        ${righe.map(r => `<p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${escapeHtml(r)}</p>`).join('')}
+      </div>`;
+      }).join('') +
+      `<p class="text-[9px] text-[var(--on-surface-secondary)] opacity-60 mt-1">Bilanci SEC del ${escapeHtml(SEC_PANEL_SCARICATO_IL)} (le aziende depositano un nuovo bilancio poche volte l'anno, non ogni giorno — il prezzo sopra invece è live).</p>`;
+  }).catch(() => {});
+}
+
+// Fed/BCE/Federal Register (Cantiere H punto 3 del piano: "173 righe di
 // pipeline RSS ufficiale sono codice morto — prendiNotizie() non è
 // chiamata da nessuno"). Sola lettura da una cache popolata una volta da
-// idleFetchNews (stesso ciclo idle delle notizie sulle posizioni, vedi
-// dentro initApp) — mai rete qui, mai un blocco del render. Etichettata
-// per quello che è: atti normativi ufficiali (Tesoro/SEC/Fed/CFTC), non
-// notizie di mercato — onesto anche quando il contenuto è amministrativo
-// ("Modulo N-54A") e non eccitante come un taglio dei tassi.
+// idleFetchRegulatoryNews (vedi dentro initApp) — mai rete qui, mai un
+// blocco del render. Da quando prendiNotizie() ha un fallback dichiarato
+// per Fed/BCE (rss2json.com, notizie.js — i loro server non mandano
+// l'header CORS, verificato dal vivo, non aggirabile lato client) qui
+// possono comparire anche i COMUNICATI DI POLITICA MONETARIA veri, non
+// solo gli atti amministrativi del Federal Register: la fonte va quindi
+// dichiarata PER RIGA (licenza+eventuale relay), mai un'unica etichetta
+// globale presa dalla prima voce (che assumeva tutte le fonti uguali —
+// non lo sono più).
 function renderRegulatoryNews() {
   const el = document.getElementById('regulatory-news');
   if (!el) return;
   const voci = window.__regulatoryNews || [];
   if (!voci.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Attività normativa USA — fonti ufficiali (${escapeHtml(voci[0]?.licenza || 'dominio pubblico')})</p>` +
+  el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Fed, BCE e Registro Federale — fonti ufficiali</p>` +
     voci.slice(0, 5).map(v => `
       <a href="${v.link || '#'}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="font-semibold leading-snug text-[11px]">${escapeHtml(v.titolo)}</div>
-        <div class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(v.ente || v.nomeFonte || '')}${v.data ? ' · ' + escapeHtml(v.data) : ''}</div>
+        <div class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(v.ente || v.nomeFonte || '')}${v.data ? ' · ' + escapeHtml(v.data) : ''}${v.viaRelay ? ' · via relay pubblico (CORS)' : ''}</div>
       </a>`).join('');
 }
 
@@ -10416,7 +10569,7 @@ const navigate = (view) => {
   }
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard();
+    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
@@ -11685,6 +11838,16 @@ const initApp = () => {
   // seconda conferma su formulazioni simili il QA la riconosce da solo la
   // volta successiva (qa-learning.js, CONFERME_PER_AUTOAPPLICARE=2): mai
   // un'azione automatica da un caso isolato.
+  // Copertura ESTESA (era 6 su 15): CANONICAL_TRIGGER/qa-engine.js
+  // riconoscono 15 intenti reali, ma solo 6 avevano un chip di
+  // insegnamento — i restanti 9 (invest/affordability/safeToSpend/
+  // monthEnd/causal/topCategory/income/goal/payday) non potevano MAI
+  // essere insegnati da una domanda non riconosciuta, anche se il
+  // riconoscitore li sa già gestire. Ogni chiave qui SOTTO deve avere una
+  // voce corrispondente in CANONICAL_TRIGGER (qa-engine.js) — senza,
+  // insegnare quel tema non avrebbe alcun effetto (la reiniezione del
+  // trigger fallirebbe in silenzio, lo stesso genere di bug appena
+  // corretto per `learned:true`).
   const QA_LEARN_TOPICS = [
     { intent: 'spent', label: 'Quanto ho speso' },
     { intent: 'savings', label: 'Quanto ho risparmiato' },
@@ -11692,6 +11855,15 @@ const initApp = () => {
     { intent: 'budgetLeft', label: 'Quanto mi resta' },
     { intent: 'netWorth', label: 'Il mio patrimonio' },
     { intent: 'bnplOwed', label: 'Le mie rate' },
+    { intent: 'invest', label: 'Quanto posso investire' },
+    { intent: 'affordability', label: 'Posso permettermelo?' },
+    { intent: 'safeToSpend', label: 'Quanto posso spendere oggi' },
+    { intent: 'monthEnd', label: 'Come chiudo il mese' },
+    { intent: 'topCategory', label: 'Dove spendo di più' },
+    { intent: 'income', label: 'Quanto ho guadagnato' },
+    { intent: 'goal', label: 'I miei obiettivi di risparmio' },
+    { intent: 'payday', label: 'Quando mi pagano' },
+    { intent: 'causal', label: 'Cosa succede se spendo di più' },
   ];
   function recordQaUnknown(question) {
     VaultDAO.state.qaLearning = recordUnknownQuestion(VaultDAO.state.qaLearning, question);
@@ -11966,7 +12138,15 @@ const initApp = () => {
     const avg = scored.reduce((s, n) => s + n.sentimentScore, 0) / scored.length;
     const label = avg >= 0.35 ? 'bullish' : avg >= 0.15 ? 'somewhat-bullish' : avg >= -0.15 ? 'neutral' : avg >= -0.35 ? 'somewhat-bearish' : 'bearish';
     const labelText = { bullish: 'positivo', 'somewhat-bullish': 'leggermente positivo', neutral: 'neutro', 'somewhat-bearish': 'leggermente negativo', bearish: 'negativo' }[label];
-    return { avg: +avg.toFixed(3), label, n: scored.length, testo: `Sentiment recente ${labelText} (media ${avg.toFixed(2)} su ${scored.length} articoli con punteggio).` };
+    // Onestà sulla PROVENIENZA: se anche un solo punteggio nella media viene
+    // dal modello on-device (sentimentSource:'on-device', src/ai/local-
+    // sentiment.js) invece che da Alpha Vantage, va detto — un punteggio
+    // stimato localmente da un titolo non ha la stessa affidabilità di un
+    // servizio dedicato con più segnali, e presentarli come indistinguibili
+    // sarebbe suonare più sicuri di quanto si sia.
+    const onDevice = scored.some(n => n.sentimentSource === 'on-device');
+    const nota = onDevice ? ' (in parte stimato on-device dai soli titoli)' : '';
+    return { avg: +avg.toFixed(3), label, n: scored.length, testo: `Sentiment recente ${labelText} (media ${avg.toFixed(2)} su ${scored.length} articoli con punteggio)${nota}.` };
   }
   function buildNewsItemsHtml(items) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-[var(--on-surface-secondary)]', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
@@ -11980,7 +12160,7 @@ const initApp = () => {
           <span class="${labelColor[n.sentimentLabel] || 'text-[var(--on-surface-secondary)]'} mt-0.5 shrink-0">●</span>
           <div class="min-w-0">
             <div class="font-semibold leading-snug">${escNews(n.title)}</div>
-            <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}</div>
+            <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}${n.sentimentSource === 'on-device' ? ' · sentiment on-device' : ''}</div>
             ${n.summary ? `<div class="text-[var(--on-surface-secondary)] text-[10px] mt-1 leading-snug">${escNews(n.summary)}</div>` : ''}
           </div>
         </div>
@@ -12164,6 +12344,62 @@ const initApp = () => {
           groundedNewsNote = answer;
         } catch (_) { /* onesto: niente notizie via grounding, il resto continua comunque */ }
       }
+    }
+    // ── STAFFETTA DEL SENTIMENT (src/mesh/sentiment-relay.js) — PRIMA del
+    // modello locale, apposta ──
+    // Richiesto esplicitamente: "chi ha già scaricato il modello o ha una
+    // chiave deve poter potenziare anche gli altri dispositivi via mesh".
+    // Un titolo di notizia è testo PUBBLICO (la stessa notizia arriva a
+    // chiunque legga le stesse fonti) — se un PEER ha già classificato
+    // QUESTO titolo, lo usiamo senza bisogno del modello (~82MB) su questo
+    // dispositivo. Funziona ANCHE per chi non ha attivato l'opt-in
+    // locale: la mesh, non il download, diventa la porta d'accesso.
+    if (items.length && VaultDAO.state.sentimentRelay) {
+      try {
+        const { bestKnownSentiment } = await import('./mesh/sentiment-relay.js');
+        for (const item of items) {
+          if (Number.isFinite(item.sentimentScore) || !item.title) continue;
+          const trovato = bestKnownSentiment(VaultDAO.state.sentimentRelay, item.title);
+          if (trovato) {
+            item.sentimentScore = trovato.score;
+            item.sentimentLabel = trovato.label;
+            item.sentimentSource = trovato.affidabile ? 'relay-mesh' : 'relay-mesh (un solo peer, non ancora corroborato)';
+          }
+        }
+      } catch (_) { /* onesto: niente dalla mesh, il resto continua comunque */ }
+    }
+
+    // ── Sentiment ON-DEVICE (src/ai/local-sentiment.js), UN SOLO AGGANCIO ──
+    // Qui, non in un secondo sistema parallelo: qualunque cosa arrivi da
+    // QUALUNQUE ramo del cascade sopra (Finnhub/NewsAPI/Hacker News — tutte
+    // con `sentimentScore:null`, mai un punteggio Alpha Vantage) passa da
+    // qui, e ogni consumatore esistente (renderPortfolioNews, "Cerca un
+    // asset", aggregateNewsSentiment → investmentReadiness in
+    // reasoning-fusion.js → il layer "news-sentiment" della Dashboard, il
+    // QA su 'sentiment') lo riceve automaticamente. Opt-in esplicito (stessa
+    // card di Impostazioni della comprensione semantica, stesso gate SIMD):
+    // mai un download di ~82MB senza permesso, mai un blocco della UI se il
+    // modello fallisce o non è ancora pronto — il fallimento qui lascia
+    // `sentimentScore:null` esattamente come prima. Solo le voci che la
+    // mesh NON ha già risolto arrivano qui (Number.isFinite le esclude già).
+    if (items.length && VaultDAO.state.sentimentOptIn && window.momentumDeviceProfile?.simd) {
+      try {
+        const { arricchisciConSentimentLocale } = await import('./ai/local-sentiment.js');
+        const primaDiCalcolare = items.filter((i) => !Number.isFinite(i.sentimentScore) && i.title).map((i) => i.title);
+        items = await arricchisciConSentimentLocale(items, { limite: 6 });
+        // Quello che ABBIAMO appena calcolato noi (non quello arrivato dalla
+        // mesh un attimo fa) si rimanda in giro — così un peer senza il
+        // modello lo riceve al prossimo giro, esattamente come chiediamo noi
+        // di ricevere il loro qui sopra. Reciprocità, non solo consumo.
+        if (window.momentumMeshNode && primaDiCalcolare.length) {
+          const { packSentimentForRelay } = await import('./mesh/sentiment-relay.js');
+          for (const item of items) {
+            if (item.sentimentSource !== 'on-device' || !primaDiCalcolare.includes(item.title)) continue;
+            const pacchetto = packSentimentForRelay({ score: item.sentimentScore, label: item.sentimentLabel, modello: 'on-device' }, { testo: item.title });
+            if (pacchetto) window.momentumMeshNode.shareSentiment(pacchetto);
+          }
+        }
+      } catch (_) { /* onesto: niente sentiment on-device, il resto continua comunque */ }
     }
     return { items, stale, groundedNewsNote };
   }
@@ -13200,6 +13436,21 @@ function initMomentumRealAI() {
         }
       } catch (e) { console.warn('Staffetta della conoscenza non elaborata:', e); }
     };
+    // Staffetta del sentiment (src/mesh/sentiment-relay.js): stesso schema
+    // di onKnowledgeReceived sopra — il cancello anti-avvelenamento è tutto
+    // nel modulo, qui si consegna il pacchetto e si salva il verdetto.
+    momentumMeshNode.onSentimentReceived = async (peerId, payload) => {
+      try {
+        const { receiveSentimentRelayed, pruneSentimentRelay } = await import('./mesh/sentiment-relay.js');
+        const store = VaultDAO.state.sentimentRelay || {};
+        const r = receiveSentimentRelayed(store, payload, peerId, { now: Date.now(), ledger: VaultDAO.state.updateLedger || [] });
+        if (r.accepted) {
+          VaultDAO.state.sentimentRelay = pruneSentimentRelay(store);
+          if (r.ledger) VaultDAO.state.updateLedger = r.ledger;
+          VaultDAO.save();
+        }
+      } catch (e) { console.warn('Staffetta del sentiment non elaborata:', e); }
+    };
     momentumMeshNode.onDeviceHello = (peerId, publicKey) => {
       gestisciDeviceHello(peerId, publicKey).catch((e) => console.warn('Verifica dispositivo non riuscita:', e));
     };
@@ -13529,12 +13780,58 @@ function initMomentumRealAI() {
     window.idleFetchNews = idleFetchNews;
     (window.requestIdleCallback || ((fn) => setTimeout(fn, 6000)))(idleFetchNews);
 
-    // ── Attività normativa USA (Cantiere H punto 3) ─────────────────────────
+    // ── Qualità contabile delle posizioni possedute (Cantiere E3) ───────────
+    // Nessuna rete qui (a differenza delle notizie/prezzi qui sopra):
+    // qualitaContabile() legge solo il pannello SEC già nel bundle
+    // (panel-settoriale.js) — sincrona, pura, il costo è solo l'import
+    // dinamico del modulo. Mostra SOLO le posizioni fuori dal pannello di
+    // 600 aziende con settore noto vengono ignorate in silenzio (non è un
+    // errore: la maggior parte dei titoli non ci sarà mai, il pannello è
+    // un campione, non l'intero mercato).
+    // ESTESA (richiesto esplicitamente: "verifica anche dove si ha investito,
+    // ogni cosa che avrebbe bisogno un trader") oltre ai soli segnali di
+    // allarme: ora porta anche il PERCENTILE DI SETTORE di ogni posizione
+    // del pannello (screener-settore.js, percentileTitolo — già costruito e
+    // testato per il QA testuale, qui riusato tale e quale, mai una seconda
+    // implementazione). Il percentile si mostra SEMPRE quando disponibile
+    // (sapere "sei al 12° percentile del tuo settore" è informazione utile
+    // anche senza un allarme), i segnali Beneish/Piotroski restano gated
+    // come prima (mai rumore per una posizione nella norma).
+    const idleFetchQuality = () => {
+      const positions = VaultDAO.state.positions || [];
+      if (!positions.length) return;
+      import('./alpha/screener-settore.js').then(({ qualitaContabile, percentileTitolo }) => {
+        const insights = {};
+        for (const p of positions) {
+          if (!p.ticker) continue;
+          try {
+            const perc = percentileTitolo(p.ticker);
+            const qual = qualitaContabile(p.ticker);
+            const haSegnale = (qual.beneish?.valido && qual.beneish.manipolazioneProbabile) || (qual.piotroski?.valido && qual.piotroski.punteggio <= 2);
+            // Si porta avanti la posizione solo se c'è QUALCOSA di reale da
+            // dire (percentile disponibile O un segnale) — mai una riga
+            // vuota "niente da dire su questo titolo".
+            if (perc.disponibile || haSegnale) {
+              insights[p.ticker.toUpperCase()] = { percentile: perc.disponibile ? perc : null, qualita: haSegnale ? qual : null };
+            }
+          } catch (_) { /* onesto: niente su questa posizione, le altre continuano */ }
+        }
+        if (Object.keys(insights).length) {
+          window.__portfolioQuality = insights;
+          renderPortfolioQuality();
+        }
+      }).catch(() => {});
+    };
+    window.idleFetchQuality = idleFetchQuality;
+    (window.requestIdleCallback || ((fn) => setTimeout(fn, 7000)))(idleFetchQuality);
+
+    // ── Fed/BCE/Federal Register (Cantiere H punto 3) ───────────────────────
     // Una sola volta per sessione (non per posizione: è macro, non legata a
     // un titolo specifico) — prendiNotizie() gestisce già da sola le fonti
-    // che falliscono per CORS (Fed/BCE), degradando al Federal Register che
-    // risponde davvero (verificato dal vivo). Budget di rete minimo: max 4
-    // richieste (una per fonte configurata), mai in primo piano.
+    // che falliscono per CORS (Fed/BCE): prova il fetch diretto, e solo se
+    // fallisce ripiega sul relay dichiarato (rss2json.com). Budget di rete
+    // minimo: max 4 richieste dirette + fino a 2 di fallback, mai in primo
+    // piano.
     const idleFetchRegulatoryNews = () => {
       if (!navigator.onLine) return;
       prendiNotizie({ quante: 5 }).then((r) => {

@@ -51,12 +51,33 @@ const COPERTURA_SIC_MAX = 1500;
 
 // Concetti come in fetch-fondamentali-sec.mjs: piu' nomi per la stessa idea
 // contabile, perche' l'etichetta XBRL cambia nel tempo e fra aziende.
+//
+// GLI 8 CONCETTI IN PIU' (Cantiere E3, PIANO_TASK_2026-08-21.md): stessi
+// nomi XBRL gia' validati per le 82 aziende in fetch-fondamentali-sec.mjs
+// (commit cf20588) — serviranno a Beneish M-Score e Piotroski F-Score
+// (src/alpha/quality-scores.js), che qui prima non c'erano dati sufficienti
+// a costruire (panel-settoriale.js aveva solo ricavi/utileNetto/patrimonio/
+// attivo). Nessun concetto nuovo da inventare: gia' provato che funzionano.
 const CONCETTI = {
   ricavi: { nomi: ['Revenues', 'RevenueFromContractWithCustomerExcludingAssessedTax', 'SalesRevenueNet', 'RevenueFromContractWithCustomerIncludingAssessedTax'], flusso: true },
   utileNetto: { nomi: ['NetIncomeLoss', 'ProfitLoss'], flusso: true },
   patrimonioNetto: { nomi: ['StockholdersEquity', 'StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest'], flusso: false },
   attivo: { nomi: ['Assets'], flusso: false },
+  crediti: { nomi: ['AccountsReceivableNetCurrent', 'ReceivablesNetCurrent', 'AccountsReceivableNet'], flusso: false },
+  costoVenduto: { nomi: ['CostOfGoodsAndServicesSold', 'CostOfRevenue', 'CostOfGoodsSold'], flusso: true },
+  attivoCorrente: { nomi: ['AssetsCurrent'], flusso: false },
+  passivoCorrente: { nomi: ['LiabilitiesCurrent'], flusso: false },
+  immobilizzazioniNette: { nomi: ['PropertyPlantAndEquipmentNet'], flusso: false },
+  ammortamento: { nomi: ['DepreciationDepletionAndAmortization', 'DepreciationAmortizationAndAccretionNet', 'Depreciation'], flusso: true },
+  speseSga: { nomi: ['SellingGeneralAndAdministrativeExpense'], flusso: true },
+  flussoCassaOperativo: { nomi: ['NetCashProvidedByUsedInOperatingActivities'], flusso: true },
 };
+
+// Servono per Beneish/Piotroski ma NON per il pannello base
+// (ricavi/utileNetto/patrimonioNetto/attivo restano l'unico requisito per
+// entrare nel pannello — un'azienda senza questi 8 resta comunque dentro,
+// solo senza i due punteggi di qualita').
+const CONCETTI_QUALITA = ['crediti', 'costoVenduto', 'attivoCorrente', 'passivoCorrente', 'immobilizzazioniNette', 'ammortamento', 'speseSga', 'flussoCassaOperativo'];
 
 const ANNO_INIZIO = 2007, ANNO_FINE = 2025;
 
@@ -127,12 +148,22 @@ async function submissions(cik) {
       const pn = perDato.patrimonioNetto.get(cik)?.get(anno)?.val;
       const at = perDato.attivo.get(cik)?.get(anno)?.val;
       if (rv !== undefined && un !== undefined && pn !== undefined && at !== undefined) {
-        anni.push({
+        const riga = {
           anno, ricavi: rv, utileNetto: un, patrimonioNetto: pn, attivo: at,
           margine: rv !== 0 ? +(un / rv).toFixed(4) : null,
           roe: (pn > 0 && at > 0 && pn / at >= 0.05) ? +(un / pn).toFixed(4) : null,
           roa: at > 0 ? +(un / at).toFixed(4) : null,
-        });
+        };
+        // I concetti di qualita' (Beneish/Piotroski) sono OPZIONALI riga per
+        // riga: un'azienda senza costoVenduto in un anno non perde l'anno
+        // intero (margine/roe/roa restano validi), solo i due punteggi di
+        // qualita' per quell'anno non si potranno calcolare — dichiarato da
+        // quality-scores.js con un campo mancante, mai un valore inventato.
+        for (const chiave of CONCETTI_QUALITA) {
+          const v = perDato[chiave]?.get(cik)?.get(anno)?.val;
+          if (v !== undefined) riga[chiave] = v;
+        }
+        anni.push(riga);
       }
     }
     if (anni.length >= 3) cikCompleti.push({ cik, nome: nomiPerCik.get(cik) || `CIK${cik}`, anni });

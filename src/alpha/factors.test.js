@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { percentileRank, valueScore, growthScore, momentumScore, riskScore } from './factors.js';
+import { percentileRank, valueScore, growthScore, momentumScore, riskScore, qualityScore } from './factors.js';
+import { piotroskiFScore } from './quality-scores.js';
 
 test('percentileRank: soglie dinamiche, neutro senza dati', () => {
   assert.equal(percentileRank(5, [1, 2, 3, 4, 10], true), 0.8);
@@ -40,4 +41,32 @@ test('ogni fattore porta la spiegazione (parts), mai numero orfano', () => {
     assert.ok(Array.isArray(r.parts) && r.parts.length > 0);
     assert.ok(typeof r.score === 'number');
   }
+});
+
+// ── qualityScore (Cantiere E3): riusa il vero F-Score di Piotroski, non un proxy ──
+
+test('qualityScore: un\'azienda sana che migliora su tutti i fronti → score massimo (8/8)', () => {
+  const t1 = { ricavi: 1000, costoVenduto: 650, utileNetto: 80, attivo: 2000, attivoCorrente: 500, passivoCorrente: 400, debitoLungo: 600, flussoCassaOperativo: 100 };
+  const t = { ricavi: 1100, costoVenduto: 693, utileNetto: 110, attivo: 2100, attivoCorrente: 600, passivoCorrente: 380, debitoLungo: 550, flussoCassaOperativo: 140 };
+  const piotroski = piotroskiFScore(t, t1);
+  const r = qualityScore(piotroski);
+  assert.equal(r.score, 1);
+  assert.equal(r.puntiGrezzi, '8/8');
+  assert.equal(r.parts.length, 8);
+});
+
+test('qualityScore: senza un Piotroski valido, null dichiarato — mai uno score inventato', () => {
+  const r = qualityScore({ valido: false, motivo: 'dati mancanti: roaT' });
+  assert.equal(r.score, null);
+  assert.equal(r.factor, 'quality');
+  assert.match(r.motivo, /dati mancanti/);
+  assert.deepEqual(qualityScore(null).parts, []);
+});
+
+test('ogni fattore, quality incluso, porta la spiegazione (parts) quando lo score esiste', () => {
+  const t1 = { ricavi: 1000, costoVenduto: 650, utileNetto: 80, attivo: 2000, attivoCorrente: 500, passivoCorrente: 400, debitoLungo: 600, flussoCassaOperativo: 100 };
+  const t = { ricavi: 1100, costoVenduto: 693, utileNetto: 110, attivo: 2100, attivoCorrente: 600, passivoCorrente: 380, debitoLungo: 550, flussoCassaOperativo: 140 };
+  const r = qualityScore(piotroskiFScore(t, t1));
+  assert.ok(Array.isArray(r.parts) && r.parts.length > 0);
+  assert.ok(typeof r.score === 'number');
 });

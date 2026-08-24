@@ -171,12 +171,27 @@ import { cashFromTransactions } from '../alpha/net-worth.js';
 // forza in un unico numero. Onestà: sotto 3 articoli con punteggio reale la
 // confidenza resta bassa (troppo poco per un'aggregazione affidabile), mai
 // finta certezza da 1-2 titoli.
+// Da quando src/ai/local-sentiment.js esiste, `sentimentScore` non è più
+// SOLO Alpha Vantage: qualunque notizia del cascade (Finnhub/NewsAPI/
+// Hacker News/Federal Register/Fed/BCE, tutte a `null` prima) può arrivare
+// con un punteggio stimato ON-DEVICE (opt-in, `n.sentimentSource ===
+// 'on-device'`). Prima di questo, questo layer era quasi sempre vuoto per
+// chi non aveva una chiave Alpha Vantage personale — ora si riempie per
+// chiunque, ma la CONFIDENZA deve saperlo: uno score on-device stimato dal
+// solo titolo da un modello da 82M parametri non vale quanto un servizio
+// dedicato con più segnali. `onDevice:true` lo dichiara al chiamante (qui
+// e in investmentReadiness), mai presentato come identico.
 export function aggregateNewsSentiment(items = []) {
   const scored = items.filter((n) => Number.isFinite(n?.sentimentScore));
   if (!scored.length) return null;
   const avg = scored.reduce((s, n) => s + n.sentimentScore, 0) / scored.length;
   const label = avg >= 0.35 ? 'bullish' : avg >= 0.15 ? 'somewhat-bullish' : avg <= -0.35 ? 'bearish' : avg <= -0.15 ? 'somewhat-bearish' : 'neutral';
-  return { score: +avg.toFixed(3), label, n: scored.length, confidence: Math.min(0.7, 0.2 + 0.1 * scored.length) };
+  const onDevice = scored.some((n) => n.sentimentSource === 'on-device');
+  // Confidenza leggermente più prudente quando la media include stime
+  // on-device: stesso tetto di prima (0,7) ma un fattore in meno, mai
+  // spinta più in alto di quanto sarebbe con solo Alpha Vantage.
+  const confidence = Math.min(onDevice ? 0.6 : 0.7, 0.2 + 0.1 * scored.length);
+  return { score: +avg.toFixed(3), label, n: scored.length, confidence, onDevice };
 }
 
 export function investmentReadiness({
@@ -223,7 +238,7 @@ export function investmentReadiness({
     const marketAsOf = regimeSource === 'live' ? new Date(now).toISOString() : asset.fetchedAt;
     const staleDays = regimeSource === 'live' ? 0 : Math.round((now - new Date(asset.fetchedAt).getTime()) / 86_400_000);
     const freshnessNote = regimeSource === 'live' ? '' : `, ${staleDays} giorni fa — verifica un dato più recente`;
-    const sentimentNote = sentiment ? ` Le notizie recenti (${sentiment.n} fonti reali) sono ${sentiment.label === 'bullish' ? 'nettamente positive' : sentiment.label === 'somewhat-bullish' ? 'leggermente positive' : sentiment.label === 'bearish' ? 'nettamente negative' : sentiment.label === 'somewhat-bearish' ? 'leggermente negative' : 'neutre'}.` : '';
+    const sentimentNote = sentiment ? ` Le notizie recenti (${sentiment.n} fonti reali${sentiment.onDevice ? ', in parte stimate on-device dai soli titoli' : ''}) sono ${sentiment.label === 'bullish' ? 'nettamente positive' : sentiment.label === 'somewhat-bullish' ? 'leggermente positive' : sentiment.label === 'bearish' ? 'nettamente negative' : sentiment.label === 'somewhat-bearish' ? 'leggermente negative' : 'neutre'}.` : '';
     verdict = {
       marketRegime: regimeInfo.regime,
       marketAsOf,

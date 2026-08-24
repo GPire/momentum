@@ -44,6 +44,7 @@ import * as BANCO_STATICO from './mercato-canonical-bank.js';
 // nemmeno (await dentro una funzione non async). Il modulo è puro e leggero,
 // nessun costo a tenerlo statico.
 import { classificaAutovalori, testoRumoreCorrelazione } from './rumore-correlazione.js';
+import { testoQualitaContabile } from './quality-scores.js';
 
 const NOMI_STATI_QA = ['condizioni distese', 'condizioni normali', 'condizioni tese'];
 
@@ -179,7 +180,14 @@ const ha = (q, ...parole) => parole.some((p) => q.includes(p));
 // resto del mondo?". E' l'unica memoria di questo modulo, ed e' deliberatamente
 // minima: un intento, non la conversazione.
 let ULTIMO_INTENTO = null;
-export function dimenticaContesto() { ULTIMO_INTENTO = null; }
+// Stessa filosofia di ULTIMO_INTENTO ma per un'AZIENDA (pannello Cantiere D,
+// 600 titoli): "filtrami le aziende del settore per margine e crescita" non
+// nomina nessun settore — significa "il settore di cui stavamo parlando".
+// Impostata SOLO dai rami che riconoscono un'azienda del pannello nuovo
+// (qualita-contabile, comparabili, panoramica-per-azienda) — mai dal
+// pannello storico a 82 aziende, che è un universo diverso.
+let ULTIMO_TICKER = null;
+export function dimenticaContesto() { ULTIMO_INTENTO = null; ULTIMO_TICKER = null; }
 
 // ── Il riconoscimento dell'intento ──
 export function intentoMercato(domanda, similarity = null) {
@@ -248,7 +256,12 @@ export function intentoMercato(domanda, similarity = null) {
   // generico "non lo so ancora". 'curva' da sola e' sicura qui: verificato
   // che nessun'altra regola sopra la intercetta prima per un motivo diverso.
   if (ha(q, 'recession', 'crisi in arrivo', 'curva dei tassi', 'curva dei rendimenti', 'curva invertita', 'curva')) return 'recessione';
-  if (ha(q, 'come sta il mercato', 'come va il mercato', 'situazione dei mercati', 'clima di mercato', 'quanto e teso', 'stress')) return 'regime';
+  if (ha(q, 'come sta il mercato', 'come va il mercato', 'situazione dei mercati', 'clima di mercato', 'quanto e teso', 'stress',
+    // Gergo da trading desk (BANCO_TRADER): "che view mi dai sul mercato in
+    // questo momento?" e "la volatilita' implicita sta salendo o e'
+    // compressa?" sono la STESSA domanda di "come sta il mercato", posta
+    // con le parole di chi lo guarda ogni giorno per mestiere.
+    'che view mi dai', 'view sul mercato', 'volatilita implicita', 'vol implicita', 'vol compressa')) return 'regime';
   // BUG REALE trovato dal vivo in Chrome (2026-08-15): un trader esperto
   // chiede con la terminologia tecnica vera ("expected shortfall", "var")
   // — la risposta la cita gia' per nome (vedi sotto), ma senza queste parole
@@ -260,6 +273,18 @@ export function intentoMercato(domanda, similarity = null) {
   // davvero perso nei mesi peggiori misurati) rassicura coi fatti, mai con
   // un "andrà tutto bene" vuoto.
   if (ha(q, 'quanto posso perdere', 'perdita massima', 'caso peggiore', 'quanto rischio di perdere', 'scenario peggiore', 'expected shortfall', 'value at risk', 'perdere tutto', 'perdo tutto')) return 'perdita-massima';
+
+  // Rischio di ROVINA (Cantiere E2, src/alpha/rischio-rovina.js — costruito
+  // e testato ma mai raggiungibile da una domanda vera prima d'ora, stesso
+  // pattern degli altri moduli "orfani" trovati in questa sessione).
+  // DIVERSO da 'perdita-massima' sopra (che guarda le crisi REALI misurate):
+  // qui e' matematica sul DIMENSIONAMENTO delle operazioni — "se rischio X%
+  // a trade, quanto e' probabile rovinarmi" — non una misura sul
+  // comportamento passato dell'utente (dichiarato onestamente nel modulo:
+  // Momentum non ha un registro di trade discreti).
+  if (ha(q, 'rischio di rovina', 'rischio per operazione', 'rischio per trade', 'per trade rischio',
+    'rovina del conto', 'quanto rischio prima di', 'non rialzarmi', 'non rialzarsi',
+    'quanto ho rischiato davvero', 'probabilita di rovina', 'probabile la rovina', 'rischio di rovinarmi')) return 'rischio-rovina';
   if (ha(q, 'se tornasse', 'se si ripetesse', 'e se succedesse di nuovo', 'come nel 2008', 'un altro 2008', 'ripetesse il')) return 'scenario-storico';
   if (ha(q, 'quanto dura', 'quanto durano', 'quanto tempo per recuperare', 'quando recupera', 'tempi di recupero', 'mercato orso')) return 'durata-orso';
   // Il SENTIMENT vero: dove sono schierati gli operatori con soldi veri.
@@ -273,7 +298,13 @@ export function intentoMercato(domanda, similarity = null) {
   // rispondere solo indicatore per indicatore.
   if (ha(q, 'c e qualcosa di strano', 'qualcosa di anomalo', 'qualcosa di insolito', 'niente di strano',
     'guarda tutto', 'guardando tutto', 'panoramica', 'quadro generale', 'visione d insieme',
-    'cosa esce dall ordinario', 'qualcosa fuori dal normale', 'cosa ti salta all occhio')) return 'panoramica';
+    'cosa esce dall ordinario', 'qualcosa fuori dal normale', 'cosa ti salta all occhio',
+    // BANCO_BANKER (qa-banco-prova.js): "dammi il quadro completo su questo
+    // titolo, non solo un numero" — stessa RICHIESTA di panoramica ("non
+    // fermarti a un indicatore solo"), ma su UN'AZIENDA invece che sul
+    // mercato intero. Stesso intento, il handler sotto distingue i due casi
+    // guardando se la domanda nomina un'azienda del pannello.
+    'quadro completo', 'non solo un numero', 'quadro completo su questo titolo')) return 'panoramica';
 
   // "La diversificazione sta funzionando?" — la domanda che conta piu' di
   // tutte per chi ha molte posizioni, e a cui nessuno risponde con un numero.
@@ -285,13 +316,76 @@ export function intentoMercato(domanda, similarity = null) {
   if (ha(q, 'diversific') && ha(q, 'funzion', 'sta reggendo', 'serve ancora', 'ho davvero', 'sto davvero')) return 'assorbimento';
   if (ha(q, 'sto diversificando', 'diversificato',
     'si muovono tutti insieme', 'si muove tutto insieme', 'muovono insieme', 'muove tutto insieme',
-    'quanto sono correlati', 'sono correlati', 'stessa scommessa')) return 'assorbimento';
+    'quanto sono correlati', 'sono correlati', 'stessa scommessa',
+    // Gergo istituzionale (BANCO_TRADER/BANCO_INVESTITORE): "quante
+    // scommesse indipendenti ho davvero in portafoglio?"/"quante fonti di
+    // rischio indipendenti ci sono davvero?"/"quanto sono concentrato senza
+    // saperlo?" sono la stessa domanda di "sto diversificando davvero",
+    // posta guardando il numero di fattori distinti invece della parola
+    // "diversificazione".
+    'scommesse indipendenti', 'fonti di rischio indipendenti', 'quanto sono concentrato',
+    'concentrato senza saperlo', 'fattori di rischio distinti')) return 'assorbimento';
 
   // "Da quanti anni Apple guadagna bene?" — la domanda che prima non aveva
   // risposta, perche' l'app vedeva solo dodici mesi. Ora ne vede venti.
   if (ha(q, 'da quanti anni', 'negli ultimi anni', 'storico dei bilanci', 'storia dei bilanci',
     'da quanto tempo guadagna', 'e sempre stata redditizia', 'quanto e costante',
-    'bilanci di', 'conti di', 'roe storico', 'qualita nel tempo')) return 'qualita-storica';
+    'bilanci di', 'conti di', 'roe storico', 'qualita nel tempo',
+    // Gergo da investment banker (BANCO_BANKER, qa-banco-prova.js): "i
+    // margini sono qualità strutturale o solo effetto del ciclo?" restava
+    // 'unknown' — stessa domanda di "quanto è costante il ROE nel tempo",
+    // posta con le parole di chi il mestiere lo fa davvero.
+    'qualita strutturale', 'effetto del ciclo', 'strutturale o ciclica', 'strutturale o solo il ciclo',
+    'qualita dei conti', 'migliorando o peggiorando')) return 'qualita-storica';
+
+  // Qualità degli ACCRUAL/manipolazione contabile (Cantiere E3, src/alpha/
+  // quality-scores.js — Beneish M-Score + Piotroski F-Score, non ancora
+  // costruito quando qa-banco-prova.js scrisse questi due casi di test:
+  // "questi accrual sono normali o un campanello d'allarme" e "il punteggio
+  // di manipolazione contabile quant'e'" restavano entrambi non riconosciuti).
+  // DIVERSO da 'qualita-storica' sopra (che guarda la COSTANZA nel tempo di
+  // un'azienda): qui si guarda se gli ULTIMI DUE bilanci hanno i segnali
+  // classici di un utile "di carta" (crediti che crescono piu' delle
+  // vendite, utile senza cassa dietro).
+  if (ha(q, 'manipolazione contabile', 'accrual', 'bilancio manipolato', 'utile manipolato',
+    'campanello d allarme sui conti', 'punteggio di qualita contabile', 'beneish', 'piotroski',
+    'f-score', 'm-score', 'qualita del bilancio', 'segnali di allarme sui conti')) return 'qualita-contabile';
+
+  // Comparabili veri (Cantiere D, src/alpha/screener-settore.js — stesso
+  // settore E taglia simile, non solo "aziende dello stesso settore" a caso).
+  if (ha(q, 'comparabili', 'aziende simili', 'chi somiglia', 'peer veri', 'peer di questo titolo',
+    'aziende comparabili', 'con chi si confronta')) return 'comparabili';
+
+  // Percentile di settore, isolato (Cantiere D, screener-settore.js —
+  // percentileTitolo, già usato dentro 'panoramica' per-azienda ma qui
+  // richiesto DA SOLO: "in che percentile del suo settore sta questo
+  // titolo?" chiede un numero preciso, non il quadro intero).
+  if (ha(q, 'in che percentile', 'che percentile', 'percentile del suo settore', 'percentile quando l ho comprata',
+    'come percentile')) return 'percentile-settore';
+
+  // Confronto fra due titoli (src/alpha/confronto-titoli.js — 166 righe
+  // scritte e testate dal 2026-08-21, mai raggiungibili da una domanda vera
+  // fino a questa sessione: vedi src/alpha/sic-settore-map.js per come si
+  // sono sbloccate senza uno storico prezzi per singola azienda).
+  if (ha(q, 'si distingue dal rumore', 'differenza fra questi due', 'quale dei due ha reso',
+    'confronta questi due', 'meglio questo o quello', 'quale conviene fra')) return 'confronto-titoli';
+
+  // Scomposizione causale titolo-vs-mercato (src/alpha/titolo-causale.js —
+  // stessa scoperta di cui sopra: "bravura mia o solo il mercato che
+  // saliva" e' la domanda che questo modulo esiste apposta per rispondere,
+  // ed era irraggiungibile.
+  if (ha(q, 'bravura mia', 'merito mio', 'solo il mercato che saliva', 'solo il mercato a farlo',
+    'e stato il mercato o', 'colpa mia o del mercato')) return 'titolo-causale';
+
+  // Screener multi-criterio (Cantiere D/G, src/alpha/screener-settore.js —
+  // filtraSettore): "filtrami/classificami/ordina le aziende [del settore]
+  // per X e Y insieme". PRIMA di 'comparabili' sopra non serve — le parole
+  // sono diverse ("filtra"/"classifica"/"ordina" contro "somiglia") — ma
+  // l'ordine conta comunque: questo controllo deve restare specifico
+  // (verbo di filtro esplicito), mai "aziende" da sola, che catturerebbe
+  // troppe domande diverse.
+  if (ha(q, 'filtrami', 'filtra le aziende', 'classificami le aziende', 'classifica le aziende',
+    'ordina le aziende', 'screener', 'quali aziende del settore')) return 'screener-settore';
 
   // "Quali sono le aziende piu' solide?" — la classifica per COSTANZA, non
   // per rendimento di oggi.
@@ -302,7 +396,12 @@ export function intentoMercato(domanda, similarity = null) {
   // anno. Serve un anno nella domanda, altrimenti non c'e' un punto di
   // partenza e si chiede quale.
   if (ha(q, 'l ho presa nel', 'l ho comprata nel', 'comprata nel', 'presa nel', 'comprate nel',
-    'da quando l ho', 'come vanno i conti', 'la mia tesi', 'valgono ancora le ragioni')) return 'tesi-storica';
+    'da quando l ho', 'come vanno i conti', 'la mia tesi', 'valgono ancora le ragioni',
+    // Stessa domanda, ordine delle parole invertito (BANCO_INVESTITORE):
+    // "la tesi regge ancora dopo gli ultimi dati?"/"le ragioni per cui
+    // l'avevo comprata valgono ancora?" — `ha()` e' un confronto per
+    // sottostringa esatta, quindi l'ordine conta e va coperto a parte.
+    'tesi regge ancora', 'ragioni per cui l avevo comprata', 'valgono ancora')) return 'tesi-storica';
 
   // "Cosa devo guardare prima di comprare?" — la domanda giusta, e l'unica
   // vicina a "cosa compro" a cui si PUO' rispondere: non quale titolo, ma
@@ -378,8 +477,9 @@ export function precarica() {
     import('./historical-sequences.js'), import('./freschezza.js'),
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
-    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'), import('./qualita-nel-tempo.js'), import('./fondamentali-storici.js'), import('./correlation-regime.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qualMod, storici, correl]) => {
+    import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'), import('./qualita-nel-tempo.js'), import('./fondamentali-storici.js'), import('./correlation-regime.js'), import('./screener-settore.js'), import('./rischio-rovina.js'),
+    import('./confronto-titoli.js'), import('./titolo-causale.js'), import('./sic-settore-map.js'), import('./historical-panel.js'), import('./mercato-vivo.js'), import('./capacita-registrate.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qualMod, storici, correl, scrn, rovina, confTit, titCaus, sicMap, panSettori, mercatoVivo, capReg]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -391,7 +491,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual: { ...qualMod, ...storici }, correl };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual: { ...qualMod, ...storici }, correl, scrn, rovina, confTit, titCaus, sicMap, panSettori, mercatoVivo, capReg };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -490,7 +590,14 @@ export function rispostaSincrona(domanda, similarity = null) {
       let tick = null;
       for (const t of Object.keys(T)) {
         const nomeBreve = normalizza(T[t].nome).split(/[ ,.]/)[0];
-        if (new RegExp(`\\b${normalizza(t)}\\b`).test(qn) || (nomeBreve.length >= 4 && qn.includes(nomeBreve))) { tick = t; break; }
+        // Stesso bug reale trovato dal vivo in screener-settore.js (Cantiere
+        // E3, 2026-08-24): un ticker a 1-2 lettere ("D", "T", "C"...)
+        // combacia a confine di parola con preposizioni/articoli qualunque
+        // ("un campanello d'allarme" → ticker "D"), e `includes` senza
+        // confine di parola fa scattare un nome su un suo prefisso ("quest"
+        // dentro "questi"). Stessa correzione qui: ticker solo da 3 lettere
+        // in su, nome solo a confine di parola vero.
+        if ((t.length >= 3 && new RegExp(`\\b${normalizza(t)}\\b`).test(qn)) || (nomeBreve.length >= 4 && new RegExp(`\\b${nomeBreve}\\b`).test(qn))) { tick = t; break; }
       }
       if (!tick) return { intent: 'mercato-tesi-storica', answer: `Di quale azienda? Ho i bilanci depositati per ${Object.keys(T).length} societa' quotate negli Stati Uniti.` };
       if (!anno) return { intent: 'mercato-tesi-storica', answer: `In che anno l'hai comprata? Senza un punto di partenza non posso dirti cosa e' cambiato da allora — e non lo indovino.` };
@@ -506,13 +613,144 @@ export function rispostaSincrona(domanda, similarity = null) {
       let trovato = null;
       for (const t of Object.keys(T)) {
         const nomeBreve = normalizza(T[t].nome).split(/[ ,.]/)[0];
-        if (new RegExp(`\\b${normalizza(t)}\\b`).test(qn) || (nomeBreve.length >= 4 && qn.includes(nomeBreve))) { trovato = t; break; }
+        // Stessa correzione del ramo 'tesi-storica' sopra — vedi quel
+        // commento per il bug reale che l'ha motivata.
+        if ((t.length >= 3 && new RegExp(`\\b${normalizza(t)}\\b`).test(qn)) || (nomeBreve.length >= 4 && new RegExp(`\\b${nomeBreve}\\b`).test(qn))) { trovato = t; break; }
       }
       if (!trovato) {
         return { intent: 'mercato-qualita-storica', answer: `Di quale azienda? Ho i bilanci depositati alla SEC per ${Object.keys(T).length} societa' quotate negli Stati Uniti — per esempio Apple, Microsoft, Coca-Cola, JPMorgan, Berkshire. Per un'azienda europea non ho niente: la SEC e' l'autorita' americana.` };
       }
       const r = qual.qualitaNelTempo(trovato);
       return { intent: 'mercato-qualita-storica', data: r, answer: qual.testoQualita(r) };
+    }
+
+    // Cantiere E3 (src/alpha/quality-scores.js — Beneish M-Score + Piotroski
+    // F-Score): universo del PANNELLO nuovo (600 aziende, screener-
+    // settore.js), non le 82 storiche di 'qualita-storica' sopra — due
+    // dataset diversi, due domande diverse.
+    if (intento === 'qualita-contabile') {
+      const az = MODULI.scrn.trovaAziendaInTesto(domanda);
+      if (!az) {
+        return { intent: 'mercato-qualita-contabile', answer: `Di quale azienda? Il punteggio di qualità contabile (Beneish/Piotroski) ce l'ho per ${MODULI.scrn.numeroAziendeConSettore()} società quotate USA con settore noto — per esempio Apple, Microsoft, JPMorgan.` };
+      }
+      ULTIMO_TICKER = az;
+      const r = MODULI.scrn.qualitaContabile(az.ticker);
+      return { intent: 'mercato-qualita-contabile', data: r, answer: testoQualitaContabile(r) };
+    }
+
+    if (intento === 'comparabili') {
+      const az = MODULI.scrn.trovaAziendaInTesto(domanda);
+      if (!az) {
+        return { intent: 'mercato-comparabili', answer: `Di quale azienda vuoi i comparabili? Ho il settore vero (dichiarato alla SEC) per ${MODULI.scrn.numeroAziendeConSettore()} società quotate USA.` };
+      }
+      ULTIMO_TICKER = az;
+      const r = MODULI.scrn.comparabili(az.ticker);
+      const testo = r.disponibile
+        ? `Comparabili di ${az.nome} (${az.sicDescription}), per taglia di ricavi: ${r.comparabili.slice(0, 5).map((c) => c.nome.split(/[ ,]/)[0]).join(', ')}. Stesso settore E taglia simile — non solo "stesso settore", che da solo confronterebbe una big cap con una micro cap.`
+        : `Non ho comparabili per ${az.nome}: il suo settore ha troppe poche aziende nel pannello per un confronto onesto.`;
+      return { intent: 'mercato-comparabili', data: r, answer: testo };
+    }
+
+    if (intento === 'percentile-settore') {
+      const az = MODULI.scrn.trovaAziendaInTesto(domanda) || ULTIMO_TICKER;
+      if (!az) {
+        return { intent: 'mercato-percentile-settore', answer: `Di quale azienda? Il percentile di settore ce l'ho per ${MODULI.scrn.numeroAziendeConSettore()} società quotate USA.` };
+      }
+      ULTIMO_TICKER = az;
+      const attuale = MODULI.scrn.percentileTitolo(az.ticker);
+      if (!attuale.disponibile) {
+        return { intent: 'mercato-percentile-settore', data: attuale, answer: attuale.motivo || `Non ho un percentile calcolabile per ${az.nome}.` };
+      }
+      const voci = Object.entries(attuale.percentili).map(([k, v]) => `${k} al ${v}° percentile`).join(', ');
+      // "Com'era il suo percentile quando l'ho comprata rispetto ad ora?":
+      // se la domanda nomina un anno, si aggiunge il confronto — mai
+      // inventato se quell'anno non è nel pannello per questa azienda.
+      const anno = (String(domanda).match(/\b(19|20)\d{2}\b/) || [])[0];
+      let confronto = '';
+      if (anno && +anno !== attuale.anno) {
+        const storico = MODULI.scrn.percentileTitolo(az.ticker, { anno: +anno });
+        confronto = storico.disponibile
+          ? ` Nel ${anno}: ${Object.entries(storico.percentili).map(([k, v]) => `${k} al ${v}° percentile`).join(', ')} — confronta con oggi per vedere se è migliorata o peggiorata rispetto al suo settore, non solo in assoluto.`
+          : ` Non ho un percentile per il ${anno}: fuori dal pannello per questa azienda.`;
+      }
+      return {
+        intent: 'mercato-percentile-settore', data: { attuale, anno: anno ? +anno : null },
+        answer: `${az.nome}, nel settore ${attuale.settore} (anno ${attuale.anno}): ${voci}.${confronto}`,
+      };
+    }
+
+    // ── confronto-titoli / titolo-causale, sbloccati via SETTORE (non
+    // storico prezzi per singola azienda, che non esiste on-device — vedi
+    // sic-settore-map.js per l'onestà sul limite). Helper condiviso dai due
+    // rami sotto: azienda → { simbolo XLx, nome, serie mensile grezza }.
+    const settoreDiAzienda = (az) => {
+      const xl = MODULI.sicMap.sicASettoreETF(az.sic);
+      if (!xl) return null;
+      const s = MODULI.panSettori.PANNELLO_SETTORI.find((x) => x.simbolo === xl);
+      return s ? { xl, nomeSettore: MODULI.sicMap.NOMI_SETTORE_SPDR[xl], serie: s.r } : null;
+    };
+    const AVVERTENZA_SETTORE = 'Onestà sul dato: non esiste uno storico prezzi mensile per il singolo titolo on-device — questo confronto usa il SETTORE a cui appartiene (classificazione approssimata dal codice SIC, non un prezzo del titolo stesso). È un\'analisi reale, ma sul settore, non sulla singola azienda.';
+
+    if (intento === 'confronto-titoli') {
+      const [azA, azB] = MODULI.scrn.trovaAziendeInTesto(domanda, { limite: 2 });
+      if (!azA || !azB) {
+        return { intent: 'mercato-confronto-titoli', answer: 'Quali due aziende vuoi confrontare? Nominale entrambe nella stessa domanda.' };
+      }
+      const sA = settoreDiAzienda(azA), sB = settoreDiAzienda(azB);
+      if (!sA || !sB) {
+        return { intent: 'mercato-confronto-titoli', answer: `Non riesco a classificare il settore di ${!sA ? azA.nome : azB.nome} — senza quello non ho una serie storica da confrontare.` };
+      }
+      if (sA.xl === sB.xl) {
+        return { intent: 'mercato-confronto-titoli', answer: `${azA.nome} e ${azB.nome} sono nello stesso settore approssimato (${sA.nomeSettore}): con i soli dati di settore risulterebbero identici, un confronto che non direbbe niente di vero. Servirebbe uno storico prezzi specifico per ciascun titolo, che non ho on-device.` };
+      }
+      const { comeSerieMensile } = MODULI.capReg;
+      const a = comeSerieMensile(sA.serie, `${azA.nome} (settore ${sA.nomeSettore})`);
+      const b = comeSerieMensile(sB.serie, `${azB.nome} (settore ${sB.nomeSettore})`);
+      const mercato = comeSerieMensile(MODULI.mercatoVivo.mercatoBase(), 'mercato').mensili;
+      const r = MODULI.confTit.confronta(a, b, { mercato });
+      return { intent: 'mercato-confronto-titoli', data: r, answer: `${MODULI.confTit.testoConfronto(r)} ${AVVERTENZA_SETTORE}` };
+    }
+
+    if (intento === 'titolo-causale') {
+      const az = MODULI.scrn.trovaAziendaInTesto(domanda) || ULTIMO_TICKER;
+      if (!az) {
+        return { intent: 'mercato-titolo-causale', answer: 'Di quale azienda? Nominala nella domanda, o chiedimi prima qualcosa su un\'azienda specifica.' };
+      }
+      const s = settoreDiAzienda(az);
+      if (!s) {
+        return { intent: 'mercato-titolo-causale', answer: `Non riesco a classificare il settore di ${az.nome} — senza quello non ho una serie storica da scomporre.` };
+      }
+      ULTIMO_TICKER = az;
+      const r = MODULI.titCaus.analizzaTitolo(s.serie, MODULI.mercatoVivo.mercatoBase(), { nome: `${az.nome} (settore ${s.nomeSettore})`, indice: 'il mercato (media dei nove settori)' });
+      return { intent: 'mercato-titolo-causale', data: r, answer: `${MODULI.titCaus.testoTitolo(r)} ${AVVERTENZA_SETTORE}` };
+    }
+
+    if (intento === 'screener-settore') {
+      // Il settore: o un'azienda nominata QUI (implica il suo settore), o
+      // — "del settore" senza nominarne una, la forma che il banco banker
+      // usa davvero — l'ultima azienda di cui si è parlato (ULTIMO_TICKER).
+      // Senza nessuno dei due non si inventa un settore a caso.
+      const azContesto = MODULI.scrn.trovaAziendaInTesto(domanda) || ULTIMO_TICKER;
+      if (!azContesto) {
+        return { intent: 'mercato-screener-settore', answer: 'Il settore di quale azienda? Nominane una, o chiedimi prima qualcosa su un\'azienda specifica — userò il suo settore.' };
+      }
+      // Quali criteri chiede la domanda: NOMI_CRITERI_SCREENER (screener-
+      // settore.js) è la STESSA lista che filtraSettore riconosce come
+      // chiavi valide — un solo posto dove "crescita" vuol dire "crescita".
+      const qn = normalizza(domanda);
+      const criteriTrovati = Object.entries(MODULI.scrn.NOMI_CRITERI_SCREENER)
+        .filter(([, parole]) => parole.some((p) => qn.includes(p)))
+        .map(([chiave]) => chiave);
+      const criteri = criteriTrovati.length ? criteriTrovati : ['margine', 'roe']; // predefiniti se la domanda non li nomina esplicitamente
+      const r = MODULI.scrn.filtraSettore(azContesto.sic, { criteri });
+      if (!r.disponibile) {
+        return { intent: 'mercato-screener-settore', data: r, answer: `Non riesco a filtrare: ${r.motivo}` };
+      }
+      const elenco = r.classificate.slice(0, 5).map((c) => `${c.nome.split(/[ ,]/)[0]} (${Math.round(c.punteggioCombinato * 100)}° percentile combinato)`).join(', ');
+      return {
+        intent: 'mercato-screener-settore', data: r,
+        answer: `Nel settore ${r.settore} (${r.aziendeNelGruppo} aziende comparabili), classificate insieme per ${r.criteri.join(' + ')}: ${elenco}. Il punteggio combina il percentile di CIASCUN criterio dentro lo stesso settore — un'azienda forte solo su uno non basta per stare in cima.`,
+      };
     }
 
     if (intento === 'classifica-qualita') {
@@ -560,6 +798,33 @@ export function rispostaSincrona(domanda, similarity = null) {
     }
 
     if (intento === 'panoramica') {
+      // "Quadro completo su QUESTO TITOLO" (BANCO_BANKER) e' una richiesta
+      // diversa da "panoramica del mercato": stessa RICHIESTA ("non un solo
+      // indicatore"), ma su un'azienda invece che sull'intero mercato. Se la
+      // domanda nomina un'azienda del pannello (Cantiere D/E3), si risponde
+      // qui componendo TRE cose gia' costruite e testate separatamente
+      // (percentili di settore, qualita' contabile, comparabili) — mai un
+      // quarto sistema nuovo, solo la composizione di quello che gia' esiste.
+      // Senza un'azienda riconosciuta si scende al ramo sotto (panoramica
+      // di mercato) — mai un'invenzione al posto del quadro generale.
+      const azNominata = MODULI.scrn.trovaAziendaInTesto(domanda);
+      if (azNominata) {
+        ULTIMO_TICKER = azNominata;
+        const perc = MODULI.scrn.percentileTitolo(azNominata.ticker);
+        const qual2 = MODULI.scrn.qualitaContabile(azNominata.ticker);
+        const comp = MODULI.scrn.comparabili(azNominata.ticker, { limite: 4 });
+        const parti = [];
+        if (perc.disponibile) {
+          const voci = Object.entries(perc.percentili).map(([k, v]) => `${k} al ${v}° percentile`).join(', ');
+          if (voci) parti.push(`Nel suo settore (${perc.settore}, anno ${perc.anno}): ${voci}.`);
+        }
+        parti.push(testoQualitaContabile(qual2));
+        if (comp.disponibile) parti.push(`Comparabili: ${comp.comparabili.slice(0, 4).map((c) => c.nome.split(/[ ,]/)[0]).join(', ')}.`);
+        return {
+          intent: 'mercato-panoramica', data: { percentili: perc, qualita: qual2, comparabili: comp },
+          answer: `${azNominata.nome} — ${parti.join(' ')}`,
+        };
+      }
       // Si leggono ENTRAMBI gli orizzonti, perche' hanno forze opposte: il
       // giornaliero ha la risoluzione per accorgersi di qualcosa ma conosce
       // solo cinque anni, il mensile ha visto trent'anni ma non potrebbe
@@ -839,9 +1104,28 @@ export function rispostaSincrona(domanda, similarity = null) {
       const es = expectedShortfall(rendimentoMercato());
       const pct = (x) => (Math.abs(x) * 100).toFixed(1).replace('.', ',');
       return {
-        intent: 'mercato-perdita', data: es,
+        intent: 'mercato-perdita-massima', data: es,
         answer: `Nel 2,5% dei mesi peggiori della storia recente si e' perso in media il ${pct(es.es)}% in un mese solo, e il mese peggiore di tutti ha fatto ${pct(es.peggiore)}%. Attenzione a una cosa: la soglia oltre la quale si entra in quel 2,5% e' il ${pct(es.var)}%, quindi guardare solo la soglia fa sottostimare la perdita di ${pct(es.quantoIlVarNonVede)} punti. E' l'errore che ha reso famoso il VaR.`,
       };
+    }
+
+    if (intento === 'rischio-rovina') {
+      // Se la domanda nomina una percentuale ("rischio il 2% a trade") si
+      // calcola SOLO quella. Senza un numero — il caso più comune di questa
+      // domanda, "quanto POSSO rischiare prima di rovinarmi" — non si
+      // inventa un rischio a caso: si mostra il confronto fra tre livelli
+      // di riferimento (1/2/5%), la stessa tabella che risponde davvero
+      // alla domanda "dove sta il limite".
+      const pctTestuale = String(domanda || '').match(/(\d+(?:[.,]\d+)?)\s?(?:%|per\s?cento)/i);
+      const livelli = pctTestuale ? [parseFloat(pctTestuale[1].replace(',', '.')) / 100] : [0.01, 0.02, 0.05];
+      const risultati = livelli.map((l) => MODULI.rovina.rischioDiRovina({ rischioPerOperazione: l }));
+      if (risultati.some((r) => !r.disponibile)) {
+        return { intent: 'mercato-rischio-rovina', answer: risultati.find((r) => !r.disponibile)?.motivo || 'Non riesco a calcolarlo con questi numeri.' };
+      }
+      const testo = risultati.length === 1
+        ? MODULI.rovina.rischioDiRovinaText(risultati[0])
+        : `Non c'è un numero giusto in assoluto — dipende da quanto sei disposto a rischiare — ma la relazione è netta e vale la pena vederla affiancata: ${risultati.map((r) => `al ${Math.round(r.rischioPerOperazione * 100)}% a operazione, ${Math.round(r.probabilitaRovina * 100)}% di probabilità di rovina su ${r.percorsi.toLocaleString('it-IT')} percorsi simulati`).join('; ')}. Calcolato edge-neutro (tasso di vincita 50/50): con un vantaggio reale i numeri migliorano, ma qui nessuno se lo assume senza dirlo.`;
+      return { intent: 'mercato-rischio-rovina', data: risultati, answer: testo };
     }
 
     if (intento === 'scenario-storico') {
@@ -948,7 +1232,22 @@ export const DOMANDE_SENZA_RISPOSTA = [
     'ha ancora upside', 'upside secondo te',
     'multiplo giusto', 'multiplo ci daresti', 'che multiplo',
     'un buy o un sell', 'buy o sell', 'e un buy o', 'e un sell o',
-    'consigli di procedere', 'procedere con l operazione', 'procediamo con l operazione'],
+    'consigli di procedere', 'procedere con l operazione', 'procediamo con l operazione',
+    // BUG REALE trovato dal vivo (2026-08-24, non dal banco semantico stavolta
+    // — da un test scritto per tutt'altro, la divulgazione di un punteggio
+    // tecnico): "Apple e' un buy secondo il suo Beneish M-Score?" NON veniva
+    // rifiutata — l'elenco chiedeva SEMPRE la coppia "buy o sell" insieme,
+    // mai "buy"/"sell" da soli. "È un buy?"/"is it a buy?" e' probabilmente
+    // la forma PIU' comune in gergo da analista (rating "buy/hold/sell"),
+    // non quella accoppiata. Vale anche in inglese: stesso principio del
+    // "buco quasi solo italiano" gia' corretto sopra, non da ripetere.
+    'un buy secondo', 'buy secondo te', 'e un buy', 'un buy?', 'e un sell', 'un sell?',
+    // "is Apple a buy?" (il ticker/nome fra "is" e "a buy" rompe i pattern
+    // sopra, che richiedono l'adiacenza) — "a buy"/"a sell" da soli, non
+    // adiacenti a "is/this/it", coprono la forma piu' comune in assoluto in
+    // gergo da analista USA ("is $TICKER a buy or a sell").
+    'is it a buy', 'is this a buy', 'is a buy', 'a buy rating', 'buy rating', 'sell rating',
+    'a buy or', 'a buy?', 'a sell?'],
     risposta: 'Non te lo dico, e non è prudenza: nessuno sa cosa farà il mercato, e chi te lo dice o sta indovinando o ti sta vendendo qualcosa. Quello che posso dirti è cosa è successo, cosa ha funzionato in passato e quanto sei esposto tu: sono tre domande a cui esiste una risposta vera.' },
   { riconosce: ['salira', 'scendera', 'dove va il mercato', 'previsione del mercato', 'cosa fara la borsa', 'quanto salira', 'quanto scendera'],
     risposta: 'La direzione non la so, e i dati dicono che non la sa nessuno: l\'indice di paura che calcolo prevede quanto il mercato ballerà, non da che parte andrà. Posso dirti quanto è probabile un rallentamento economico entro un anno e mezzo, che è una cosa diversa.' },
@@ -1018,7 +1317,52 @@ export async function chiediAlMercato(domanda) {
   if (MODULI && SETTORI_CACHE === null && intentoMercato(domanda) === 'settori') {
     SETTORI_CACHE = await MODULI.rifugi.settoriNeiCrolli();
   }
+  // ── "bravura mia o solo il mercato che saliva?" su una CRIPTO ──
+  // rispostaSincrona() non può fare rete (resta sincrona per chi la chiama
+  // così): il ramo cripto vive SOLO qui, nell'ingresso asincrono, perché
+  // richiede uno storico prezzi vero (CoinGecko, src/alpha/crypto-
+  // storico.js — verificato dal vivo: il piano gratuito dà solo 365 giorni,
+  // non i mesi che il resto del modulo usa per le azioni via settore). Se
+  // la domanda nomina una cripto, questo ramo risponde e basta — mai
+  // provare anche il percorso azionario sulla stessa domanda.
+  if (intentoMercato(domanda) === 'titolo-causale') {
+    const cripto = await rispostaCausaleCripto(domanda).catch(() => null);
+    if (cripto) return cripto;
+  }
   return rispostaSincrona(domanda);
+}
+
+// Separata da chiediAlMercato per restare testabile da sola. `null` se la
+// domanda non nomina una cripto riconosciuta (si scende al ramo azionario)
+// o se qualcosa fallisce (rete assente, CoinGecko non risponde) — MAI
+// un'eccezione che rompe l'intero chiediAlMercato per un ramo opzionale.
+export async function rispostaCausaleCripto(domanda, { fetchImpl = fetch } = {}) {
+  const { trovaCriptoInTesto } = await import('./crypto-storico.js');
+  const trovata = trovaCriptoInTesto(domanda);
+  if (!trovata) return null;
+  if (trovata.id === 'bitcoin') {
+    return {
+      intent: 'mercato-titolo-causale',
+      answer: 'Bitcoin è di solito il riferimento con cui si confrontano le altre cripto ("il mercato cripto"), non ha senso scomporlo contro se stesso. Chiedimi di un\'altra cripto (Ethereum, Solana, ecc.) per vedere quanto si muove insieme a Bitcoin e quanto per conto sua.',
+    };
+  }
+  const { fetchStoricoRendimentiCripto } = await import('./crypto-storico.js');
+  const [btc, coin] = await Promise.all([
+    fetchStoricoRendimentiCripto('bitcoin', { fetchImpl }),
+    fetchStoricoRendimentiCripto(trovata.id, { fetchImpl }),
+  ]);
+  const { scomponi } = await import('./titolo-causale.js');
+  const s = scomponi(coin.rendimenti, btc.rendimenti);
+  if (!s) {
+    return { intent: 'mercato-titolo-causale', answer: `Ho lo storico di ${trovata.chiave} (${coin.giorni} giorni via CoinGecko) ma non è abbastanza per separare la sua parte da quella di Bitcoin.` };
+  }
+  return {
+    intent: 'mercato-titolo-causale', data: { scomposizione: s, giorni: coin.giorni, fonte: coin.fonte },
+    // "giorni", MAI "mesi": granularità diversa dal ramo azionario (via
+    // settore, 330 mesi) — dichiarare l'unità sbagliata sarebbe un'unità di
+    // misura falsa, non un dettaglio stilistico.
+    answer: `Di quanto ha fatto ${trovata.chiave} in questi ${s.osservazioni} giorni (storico CoinGecko, piano gratuito — limitato a un anno), il ${s.quotaMercato}% del movimento se lo spiega Bitcoin: solo il ${s.quotaSua}% è roba sua. In tutto ha reso ${s.rendimentoTotale}%, muovendosi soltanto insieme a Bitcoin avrebbe reso ${s.rendimentoDaMercato}%. Si muove ${s.beta > 1 ? 'più' : 'meno'} di Bitcoin: quando Bitcoin fa 1, lui fa ${s.beta}. È la scomposizione di un numero che stai già guardando, non un giudizio sulla cripto e non un consiglio.`,
+  };
 }
 
 // Il punto d'ingresso SINCRONO per il QA: rifiuto motivato + risposta se i

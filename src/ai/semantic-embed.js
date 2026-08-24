@@ -53,8 +53,26 @@
 // documento.
 import { modelloAttivo, preparaTesto, riduci, normalizza, modelloPerDispositivo, scegliModello } from './embed-models.js';
 import { correggi, scegliDirezioni, calibraSoglia } from './spazio-momentum.js';
+import { conTimeout } from '../core/con-timeout.js';
+import { creaTracciatoreProgresso } from '../core/download-progress.js';
+
+// Vedi src/core/con-timeout.js: trovato dal vivo (2026-08-24) che la CDN
+// Xet di Hugging Face può restare "pending" per sempre su alcune reti —
+// senza un limite, `modelPromise` resterebbe una promise mai risolta, e chi
+// aspetta (embed(), caricaModelloSemantico()) resterebbe bloccato con lei
+// per sempre invece di ricevere l'errore onesto già previsto sotto.
+// 120s, non 60 come src/ai/local-sentiment.js: qui il modello può arrivare
+// a ~600MB (qwen3-embedding-0.6b, il livello pesante), non solo ~82-197MB.
+const TIMEOUT_CARICAMENTO_MS = 120_000;
 
 let modelPromise = null;
+let tracciatore = null;
+// Stato del download corrente per la UI (src/core/download-progress.js) —
+// stessa forma esposta da src/ai/local-sentiment.js. `null` se nessun
+// caricamento è mai partito in questa sessione.
+export function progressoScaricamento() {
+  return tracciatore ? tracciatore.stato() : null;
+}
 // Il modello con cui è stata riempita la cache: se si cambia modello i vettori
 // vecchi non sono più confrontabili con i nuovi (spazi diversi), e mescolarli
 // produrrebbe somiglianze senza senso invece di un errore.
@@ -76,11 +94,13 @@ const MAX_CACHE = 300;
 // Bug reale trovato testando dal vivo (2026-08-17): il primo tentativo di
 // embed() restava bloccato ben oltre 45 secondi su un dispositivo con
 // webgpu:true nel profilo, perché il backend non veniva mai scelto.
-async function backendPreferito() {
+// La logica vera vive in device/compute-planner.js (backendPerModello),
+// condivisa con src/ai/local-sentiment.js — un solo posto dove si decide
+// "wasm fisso vs auto dal profilo", mai due copie che possono divergere.
+async function backendPreferito(cfg) {
   try {
-    const { planInferenceBackend } = await import('../device/compute-planner.js');
-    const piano = planInferenceBackend(window.momentumDeviceProfile || {});
-    return piano.backend === 'webgpu' ? 'webgpu' : undefined; // undefined = default (wasm) di transformers.js
+    const { backendPerModello } = await import('../device/compute-planner.js');
+    return backendPerModello(cfg, window.momentumDeviceProfile || {});
   } catch (_) { return undefined; }
 }
 
@@ -105,18 +125,24 @@ async function getModel() {
       try { scegliModello(modelloPerDispositivo(globalThis.window?.momentumDeviceProfile || null)); } catch (_) { /* si tiene il predefinito */ }
     }
     const cfg = modelloAttivo();
-    modelPromise = import('@huggingface/transformers').then(async ({ AutoModel, AutoTokenizer, env }) => {
+    tracciatore = creaTracciatoreProgresso();
+    const carica = import('@huggingface/transformers').then(async ({ AutoModel, AutoTokenizer, env }) => {
       env.allowLocalModels = false;
       // Il backend lo decide la CONFIGURAZIONE DEL MODELLO, non solo
       // l'hardware: `backend: 'wasm'` significa "questo modello, con questa
       // quantizzazione, gira solo qui" — chiedergli WebGPU lo lascia appeso
       // per sempre senza mai fallire. Solo con 'auto' si torna a scegliere
       // dal profilo del dispositivo.
-      const device = cfg.backend === 'wasm' ? undefined : await backendPreferito();
-      const tokenizer = await AutoTokenizer.from_pretrained(cfg.id);
-      const model = await AutoModel.from_pretrained(cfg.id, { dtype: cfg.dtype || 'q4', ...(device ? { device } : {}) });
+      const device = await backendPreferito(cfg);
+      const tokenizer = await AutoTokenizer.from_pretrained(cfg.id, { progress_callback: tracciatore.callback });
+      const model = await AutoModel.from_pretrained(cfg.id, { dtype: cfg.dtype || 'q4', progress_callback: tracciatore.callback, ...(device ? { device } : {}) });
       return { tokenizer, model, cfg };
     });
+    modelPromise = conTimeout(carica, TIMEOUT_CARICAMENTO_MS, 'il download del modello di comprensione semantica ha impiegato troppo (rete lenta o CDN bloccata)');
+    // Stessa ragione di local-sentiment.js: un timeout non deve restare in
+    // cache come fallimento permanente, altrimenti ogni chiamata futura
+    // ripete lo stesso errore anche dopo che la rete si è sbloccata.
+    modelPromise.catch(() => { modelPromise = null; });
   }
   return modelPromise;
 }

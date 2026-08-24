@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizza, estraiPeriodo, intentoMercato, rifiutoMotivato,
-  chiediAlMercato, chiediAlMercatoSync, precarica, pronto,
+  chiediAlMercato, chiediAlMercatoSync, precarica, pronto, rispostaCausaleCripto,
   DOMANDE_SENZA_RISPOSTA,
   dimenticaContesto,
   rispostaSincrona,
@@ -180,7 +180,7 @@ test('IL PRECARICAMENTO SCALDA ANCHE I SETTORI: la prima domanda non riceve "non
 
 test('LE DOMANDE DA OPERATORE: perdita massima, scenario, durata, limiti', async () => {
   const attesi = {
-    'quanto posso perdere nel caso peggiore?': 'mercato-perdita',
+    'quanto posso perdere nel caso peggiore?': 'mercato-perdita-massima',
     'e se si ripetesse il 2008?': 'mercato-scenario',
     'quanto dura un mercato orso?': 'mercato-durata',
     'cosa non sai?': 'mercato-limiti',
@@ -198,6 +198,23 @@ test('LA PERDITA MASSIMA spiega perché la soglia da sola inganna', async () => 
   const r = await chiediAlMercato('quanto posso perdere nel caso peggiore?');
   assert.match(r.answer, /sottostimare la perdita/);
   assert.ok(r.data.es < r.data.var, 'la perdita media nella coda deve essere peggiore della soglia');
+});
+
+test('RISCHIO DI ROVINA (BANCO_TRADER, Cantiere E2 — costruito e mai raggiungibile prima di questa sessione): senza un numero nella domanda, confronta 1/2/5% invece di indovinare', async () => {
+  const r = await chiediAlMercato('quanto rischio per operazione prima di non rialzarmi più?');
+  assert.equal(r.intent, 'mercato-rischio-rovina');
+  assert.match(r.answer, /1%/);
+  assert.match(r.answer, /2%/);
+  assert.match(r.answer, /5%/);
+  assert.match(r.answer, /edge-neutro|50\/50/, 'deve dichiarare l\'assunzione di tasso di vincita, mai nasconderla');
+});
+
+test('RISCHIO DI ROVINA: con una percentuale nella domanda, calcola SOLO quella — stessi numeri già misurati in una sessione precedente (2%→38%, 1%→4%)', async () => {
+  const due = await chiediAlMercato('rischio il 2% a operazione, qual è la probabilità di rovina?');
+  assert.equal(due.intent, 'mercato-rischio-rovina');
+  assert.match(due.answer, /38%/);
+  const uno = await chiediAlMercato('rischio l\'1% a operazione, qual è la probabilità di rovina?');
+  assert.match(uno.answer, /4%/);
 });
 
 test('LO SCENARIO dice "simulare" e non "prevedere"', async () => {
@@ -342,6 +359,218 @@ test('"il mattone non scende mai" riceve 28 Paesi, non un\'opinione', async () =
   assert.match(r.answer, /28 Paesi/);
   assert.match(r.answer, /Irlanda/);
   assert.ok(!/dovresti|ti consiglio/i.test(r.answer));
+});
+
+// ── Cantiere E3/D via il pannello nuovo (screener-settore.js, 600 aziende) ──
+// I due casi che qa-banco-prova.js (BANCO_BANKER) aspettava da prima che
+// questi moduli esistessero: "il punteggio di manipolazione contabile" e
+// "chi somiglia a questa azienda" — entrambi 'unknown' prima di questa
+// sessione, mai wired dentro mercato-qa.js nonostante screener-settore.js
+// esistesse già.
+
+test('"il punteggio di manipolazione contabile di Apple" riceve Beneish/Piotroski, non "non lo so"', async () => {
+  await precarica();
+  const r = rispostaSincrona('qual è il punteggio di manipolazione contabile di Apple?');
+  assert.ok(r, 'la domanda non deve cadere nel rifiuto generico');
+  assert.equal(r.intent, 'mercato-qualita-contabile');
+  // O calcola davvero (Beneish/Piotroski citati) o dichiara onestamente
+  // perché non può — mai un silenzio, mai un numero senza spiegazione.
+  assert.ok(/Beneish|Piotroski|Non ho i due bilanci/.test(r.answer), r.answer);
+  assert.ok(!/non lo so$/i.test(r.answer.trim()));
+});
+
+test('senza nominare un\'azienda, la domanda sulla qualità contabile chiede quale, non inventa', async () => {
+  await precarica();
+  const r = rispostaSincrona('questi accrual sono normali o un campanello d\'allarme?');
+  assert.equal(r.intent, 'mercato-qualita-contabile');
+  assert.match(r.answer, /di quale azienda/i);
+});
+
+test('"chi somiglia a questa azienda sui conti" (Apple) riceve comparabili REALI, stesso settore e taglia simile', async () => {
+  await precarica();
+  const r = rispostaSincrona('chi somiglia ad Apple sui conti?');
+  assert.ok(r, 'la domanda non deve cadere nel rifiuto generico');
+  assert.equal(r.intent, 'mercato-comparabili');
+  assert.ok(/Comparabili di|Non ho comparabili/.test(r.answer), r.answer);
+});
+
+test('il rifiuto motivato continua a intercettare consigli travestiti da domande sui conti', async () => {
+  await precarica();
+  const no = rifiutoMotivato('Apple è un buy secondo il suo Beneish M-Score?');
+  assert.ok(no, 'un consiglio di investimento travestito da domanda tecnica deve restare rifiutato');
+});
+
+test('"quadro completo su questo titolo" (BANCO_BANKER): senza azienda nominata resta la panoramica di MERCATO, invariata', async () => {
+  await precarica();
+  const r = rispostaSincrona('dammi il quadro completo su questo titolo, non solo un numero');
+  assert.equal(r.intent, 'mercato-panoramica');
+  assert.match(r.answer, /indicatori|archivio/i, 'senza un\'azienda deve restare la panoramica generale, non inventarne una');
+});
+
+test('"quadro completo su Apple" compone percentili + qualità contabile + comparabili — tre cose già costruite, non una quarta nuova', async () => {
+  await precarica();
+  const r = rispostaSincrona('dammi il quadro completo su Apple, non solo un numero');
+  assert.equal(r.intent, 'mercato-panoramica');
+  assert.match(r.answer, /Apple/);
+  assert.match(r.answer, /percentile/);
+  assert.match(r.answer, /Beneish|Piotroski/);
+  assert.match(r.answer, /Comparabili/);
+  assert.ok(!/dovresti|ti consiglio|compra|vendi/i.test(r.answer));
+});
+
+test('"filtrami le aziende del settore per margine e crescita insieme" (BANCO_BANKER, testuale): senza contesto, chiede quale azienda', async () => {
+  await precarica();
+  dimenticaContesto();
+  const r = rispostaSincrona('filtrami le aziende del settore per margine e crescita insieme');
+  assert.equal(r.intent, 'mercato-screener-settore');
+  assert.match(r.answer, /quale azienda/i);
+});
+
+test('lo screener EREDITA il settore dall\'ultima azienda discussa (stesso schema del contesto regionale "e in Asia?")', async () => {
+  await precarica();
+  dimenticaContesto();
+  rispostaSincrona('chi somiglia ad Apple sui conti?'); // imposta il contesto (settore di Apple)
+  const r = rispostaSincrona('filtrami le aziende del settore per margine e crescita insieme');
+  assert.equal(r.intent, 'mercato-screener-settore');
+  assert.ok(r.data.disponibile, JSON.stringify(r.data));
+  assert.deepEqual(r.data.criteri, ['margine', 'crescita']);
+  // Ordine DECRESCENTE — mai una lista a caso.
+  for (let i = 1; i < r.data.classificate.length; i++) {
+    assert.ok(r.data.classificate[i - 1].punteggioCombinato >= r.data.classificate[i].punteggioCombinato);
+  }
+  dimenticaContesto();
+});
+
+test('senza criteri nominati nella domanda, lo screener usa un default sensato invece di rifiutarsi', async () => {
+  await precarica();
+  dimenticaContesto();
+  rispostaSincrona('chi somiglia ad Apple sui conti?');
+  const r = rispostaSincrona('filtrami le aziende del settore');
+  assert.equal(r.intent, 'mercato-screener-settore');
+  assert.ok(r.data.criteri.length > 0, 'mai zero criteri: un default deve scattare');
+  dimenticaContesto();
+});
+
+// ── confronto-titoli / titolo-causale — sbloccati via settore SPDR
+// (sic-settore-map.js), 777 righe di src/alpha/confronto-titoli.js e
+// titolo-causale.js costruite e testate dal 2026-08-21 ma mai raggiungibili
+// da una domanda vera fino a questa sessione (BANCO_INVESTITORE). ──
+
+test('BANCO_INVESTITORE: "la differenza fra questi due titoli si distingue dal rumore?" (Apple vs Caterpillar, settori diversi) risponde con dati reali', async () => {
+  await precarica();
+  const r = rispostaSincrona('la differenza fra Apple e Caterpillar si distingue dal rumore?');
+  assert.equal(r.intent, 'mercato-confronto-titoli');
+  assert.ok(r.data.disponibile, JSON.stringify(r.data));
+  assert.match(r.answer, /Apple/);
+  assert.match(r.answer, /CATERPILLAR|Caterpillar/i);
+  assert.match(r.answer, /distinguibile dal rumore/);
+  assert.match(r.answer, /non esiste uno storico prezzi mensile per il singolo titolo/, 'deve sempre dichiarare l\'approssimazione di settore');
+  // Confine di parola, non sottostringa: "comprando" (descrittivo, legittimo
+  // qui: "stanno comprando la stessa cosa" = stessa esposizione) contiene
+  // "compra" — lo stesso errore di sottostringa già trovato e corretto più
+  // volte in questa sessione (screener-settore.js: "quest" dentro "questi").
+  assert.ok(!/\bdovresti\b|\bti consiglio\b|\bcompra\b|\bvendi\b/i.test(r.answer));
+});
+
+test('confronto-titoli: due aziende dello STESSO settore approssimato non vengono confrontate come se fossero dati distinti — si dichiara, mai un confronto degenere', async () => {
+  await precarica();
+  // Apple e Microsoft finiscono entrambe nel settore Tecnologia con questa mappa.
+  const r = rispostaSincrona('la differenza fra Apple e Microsoft si distingue dal rumore?');
+  assert.equal(r.intent, 'mercato-confronto-titoli');
+  assert.match(r.answer, /stesso settore approssimato/);
+});
+
+test('confronto-titoli: senza due aziende nominate, chiede quali — mai un confronto a caso', async () => {
+  await precarica();
+  const r = rispostaSincrona('la differenza fra questi due titoli si distingue dal rumore?');
+  assert.equal(r.intent, 'mercato-confronto-titoli');
+  assert.match(r.answer, /quali due aziende/i);
+});
+
+test('BANCO_INVESTITORE: "è stata bravura mia o solo il mercato che saliva?" scompone il titolo (via il suo settore) dal mercato', async () => {
+  await precarica();
+  dimenticaContesto();
+  rispostaSincrona('chi somiglia ad Apple sui conti?'); // imposta il contesto
+  const r = rispostaSincrona('è stata bravura mia o solo il mercato che saliva?');
+  assert.equal(r.intent, 'mercato-titolo-causale');
+  assert.ok(r.data.disponibile, JSON.stringify(r.data));
+  assert.match(r.answer, /Apple/);
+  assert.match(r.answer, /roba sua/);
+  assert.match(r.answer, /non esiste uno storico prezzi mensile per il singolo titolo/);
+  dimenticaContesto();
+});
+
+test('titolo-causale: senza contesto né azienda nominata, chiede quale — mai un titolo a caso', async () => {
+  await precarica();
+  dimenticaContesto();
+  const r = rispostaSincrona('è stata bravura mia o solo il mercato che saliva?');
+  assert.equal(r.intent, 'mercato-titolo-causale');
+  assert.match(r.answer, /di quale azienda/i);
+});
+
+// ── titolo-causale su CRIPTO (crypto-storico.js — CoinGecko, storico
+// giornaliero, non mensile: il piano gratuito limita a 365 giorni,
+// verificato dal vivo il 2026-08-24) — separato dal ramo azionario via
+// settore perché richiede una rete vera, mai dentro rispostaSincrona. ──
+
+function serieBtcEAltcoin(n, beta, seedRumore = 1) {
+  // Serie sintetiche, non casuali: BTC oscilla in modo prevedibile, l'altcoin
+  // è ESATTAMENTE beta*BTC + un piccolo rumore deterministico — così scomponi()
+  // deve ritrovare un beta vicino a quello vero, non un numero a caso.
+  const btc = Array.from({ length: n }, (_, i) => 0.01 * Math.sin(i / 3));
+  const alt = btc.map((r, i) => beta * r + seedRumore * 0.0005 * Math.cos(i / 5));
+  return { btc, alt };
+}
+
+function fetchImplCripto({ giorni = 300, beta = 1.2 } = {}) {
+  const { btc, alt } = serieBtcEAltcoin(giorni, beta);
+  const aPrezzi = (rend) => {
+    const p = [1000];
+    for (const r of rend) p.push(p.at(-1) * (1 + r));
+    return p.map((v, i) => [i * 86400000, v]);
+  };
+  return async (url) => ({
+    ok: true,
+    json: async () => ({ prices: aPrezzi(url.includes('/bitcoin/') ? btc : alt) }),
+  });
+}
+
+test('rispostaCausaleCripto: scompone un altcoin contro Bitcoin, testo in GIORNI non mesi (granularità diversa dal ramo azionario)', async () => {
+  const r = await rispostaCausaleCripto('è stata bravura mia o solo il mercato per Ethereum?', { fetchImpl: fetchImplCripto({ beta: 1.2 }) });
+  assert.ok(r, 'una cripto riconosciuta deve rispondere');
+  assert.equal(r.intent, 'mercato-titolo-causale');
+  assert.match(r.answer, /giorni/);
+  assert.ok(!/\bmesi\b/.test(r.answer), 'granularità giornaliera: mai "mesi" nel testo');
+  assert.match(r.answer, /Bitcoin/);
+  // Beta ricostruito dalla regressione vicino a quello vero (1,2) — prova
+  // che scomponi() sta davvero leggendo i dati iniettati, non un fisso.
+  assert.ok(Math.abs(r.data.scomposizione.beta - 1.2) < 0.15, `beta=${r.data.scomposizione.beta}`);
+});
+
+test('rispostaCausaleCripto: Bitcoin contro se stesso si rifiuta, onestamente', async () => {
+  const r = await rispostaCausaleCripto('è stata bravura mia o solo il mercato per Bitcoin?', { fetchImpl: fetchImplCripto() });
+  assert.equal(r.intent, 'mercato-titolo-causale');
+  assert.match(r.answer, /contro se stess/);
+});
+
+test('rispostaCausaleCripto: nessuna cripto nominata → null (si scende al ramo azionario)', async () => {
+  const r = await rispostaCausaleCripto('è stata bravura mia o solo il mercato che saliva?', { fetchImpl: fetchImplCripto() });
+  assert.equal(r, null);
+});
+
+test('chiediAlMercato: una domanda su Ethereum passa dal ramo cripto, non da quello azionario via settore', async () => {
+  // chiediAlMercato usa fetch globale (non riceve fetchImpl): si inietta
+  // temporaneamente global.fetch, stesso schema usato altrove nei test di
+  // rete di questo progetto quando la funzione pubblica non prende fetchImpl.
+  const originale = global.fetch;
+  global.fetch = fetchImplCripto({ beta: 0.8 });
+  try {
+    const r = await chiediAlMercato('è stata bravura mia o solo il mercato per Ethereum?');
+    assert.equal(r.intent, 'mercato-titolo-causale');
+    assert.match(r.answer, /giorni/);
+  } finally {
+    global.fetch = originale;
+  }
 });
 
 test('PRIMA che gli archivi siano pronti NON si dice "non lo so": si dice di riprovare', async () => {

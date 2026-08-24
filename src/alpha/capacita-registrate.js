@@ -49,7 +49,11 @@ function etichetteMensili(daISO, n) {
   return out;
 }
 
-function comeSerieMensile(valori, nome) {
+// Esportata: mercato-qa.js la riusa per la stessa conversione (settore→
+// {nome,mensili}) quando applica confronto-titoli.js a un titolo via il
+// suo settore SPDR (src/alpha/sic-settore-map.js) — un solo posto dove si
+// sa come trasformare un array di rendimenti grezzi in questa forma.
+export function comeSerieMensile(valori, nome) {
   const etichette = etichetteMensili(DATE_PANNELLO[0], valori.length);
   return { nome, mensili: valori.map((rendimento, i) => ({ mese: etichette[i], rendimento })) };
 }

@@ -3471,6 +3471,15 @@
                          a differenza dei prezzi che lo fanno già in idleFetchPrices.
                          Stesso schema: budget di rete ridotto, mai in primo piano. -->
                     <div id="portfolio-news" class="mt-4"></div>
+                    <!-- Le posizioni possedute nel loro settore (Cantiere E3/D,
+                         screener-settore.js — percentile di settore +
+                         Beneish/Piotroski): proattivo come le notizie sopra, MAI
+                         un secondo sistema — stessa logica già costruita per il
+                         QA testuale (mercato-qa.js, intenti 'percentile-settore'/
+                         'qualita-contabile'), qui applicata da sola a chi
+                         possiedi davvero. Vuoto quando non c'è nulla di reale da
+                         dire: mai rumore per una posizione fuori dal pannello. -->
+                    <div id="portfolio-quality" class="mt-4"></div>
                     <!-- Attività normativa USA (src/alpha/notizie.js, Cantiere H
                          punto 3): fonti primarie ufficiali, non un aggregatore.
                          Verificato dal vivo (2026-08-23): Fed/BCE bloccate da
@@ -4103,6 +4112,21 @@
                       <input type="checkbox" id="semantic-qa-optin" onchange="window.setSemanticQaOptIn(this.checked)" class="toggle-input" />
                     </div>
                     <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2">Modello EmbeddingGemma di Google (open-source, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. Le tue domande non lasciano mai il dispositivo.</p>
+                  </div>
+
+                  <!-- Sentiment on-device opt-in (src/ai/local-sentiment.js,
+                       DistilRoBERTa affinato su notizie finanziarie, ~82,5MB
+                       q8 — vedi src/ai/sentiment-model.js per la scelta e
+                       l'onestà su "non è davvero TinyFinBERT"). Stesso doppio
+                       cancello della card sopra: nascosta senza WASM SIMD. -->
+                  <div class="card p-6" id="sentiment-local-card" style="display:none">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>Sentiment delle notizie (locale)</h3>
+                    <p class="card-sub">Un punteggio bullish/bearish calcolato sul TUO dispositivo per le notizie senza chiave API (Hacker News, Federal Register, Fed/BCE) — oggi quelle notizie non hanno mai un sentiment, solo Alpha Vantage lo fornisce a chi ha una chiave.</p>
+                    <div class="flex items-center justify-between gap-3 mt-3">
+                      <span class="text-[12px] text-[var(--on-surface)]" id="sentiment-local-label">Attiva (scarica ~82MB una volta, poi resta offline)</span>
+                      <input type="checkbox" id="sentiment-local-optin" onchange="window.setSentimentLocalOptIn(this.checked)" class="toggle-input" />
+                    </div>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2">Modello DistilRoBERTa affinato su notizie finanziarie (Apache-2.0, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. I titoli restano sul dispositivo, mai inviati altrove per essere valutati.</p>
                   </div>
 
                   <div class="card p-6 flex flex-col">

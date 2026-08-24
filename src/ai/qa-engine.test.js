@@ -467,6 +467,31 @@ test('SCENARIO: con 2 conferme già date su formulazioni simili, la stessa famig
   assert.equal(r.learned, true);
 });
 
+// BUG REALE trovato dal vivo (2026-08-24): CANONICAL_TRIGGER/QA_LEARN_TOPICS
+// scrivono gli intenti a più parole in camelCase ('netWorth', 'budgetLeft',
+// 'bnplOwed', 'safeToSpend', 'monthEnd', 'topCategory'), ma il riconoscitore
+// vero produce kebab-case ('net-worth', 'budget-left', ecc) — il confronto
+// diretto non ha mai marcato `learned:true` per questi 6, silenziosamente,
+// anche con le 2 conferme richieste già date. I 9 intenti monoparola (come
+// 'savings' sopra) non hanno mai avuto il problema, per questo è passato
+// inosservato: serve testare esplicitamente ognuno dei 6 a più parole.
+test('SCENARIO: `learned:true` funziona anche per gli intenti a più parole (camelCase insegnato vs kebab-case riconosciuto)', () => {
+  const casi = [
+    { insegna: 'netWorth', domanda: 'quanto sono ricco adesso in totale', atteso: 'net-worth' },
+    { insegna: 'budgetLeft', domanda: 'quanto mi rimane da spendere oggi ancora', atteso: 'budget-left' },
+    { insegna: 'bnplOwed', domanda: 'quanto devo ancora pagare a rate adesso', atteso: 'bnpl-owed' },
+  ];
+  for (const { insegna, domanda, atteso } of casi) {
+    const qaLearning = {
+      unknownLog: [],
+      learned: [{ question: domanda, tokens: domanda.split(' '), intent: insegna, conferme: 2, ts: Date.now() }],
+    };
+    const r = answerQuestion(domanda, { allTx: {}, referenceDate: new Date(2026, 6, 15), qaLearning });
+    assert.equal(r.intent, atteso, `domanda "${domanda}"`);
+    assert.equal(r.learned, true, `"${insegna}" insegnato ma learned non marcato per l'intento "${atteso}"`);
+  }
+});
+
 test('SCENARIO: con UNA sola conferma, la domanda resta "unknown" — mai un\'azione automatica da n=1', () => {
   const qaLearning = {
     unknownLog: [],

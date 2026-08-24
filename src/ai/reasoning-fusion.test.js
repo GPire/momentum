@@ -220,6 +220,16 @@ test('aggregateNewsSentiment: notizie miste negative → etichetta bearish/somew
   assert.equal(r.label, 'bearish');
 });
 
+test('aggregateNewsSentiment: dichiara quando la media include stime on-device (src/ai/local-sentiment.js), e resta un po\' più prudente', () => {
+  const soloAlphaVantage = aggregateNewsSentiment([{ sentimentScore: 0.4 }, { sentimentScore: 0.4 }, { sentimentScore: 0.4 }]);
+  assert.equal(soloAlphaVantage.onDevice, false);
+  const conOnDevice = aggregateNewsSentiment([
+    { sentimentScore: 0.4 }, { sentimentScore: 0.4 }, { sentimentScore: 0.4, sentimentSource: 'on-device' },
+  ]);
+  assert.equal(conOnDevice.onDevice, true);
+  assert.ok(conOnDevice.confidence <= soloAlphaVantage.confidence, 'la presenza di stime on-device non deve MAI aumentare la confidenza rispetto a fonti tutte reali');
+});
+
 function richHistoryAllTx() {
   const allTx = {};
   for (let i = 1; i <= 60; i++) {

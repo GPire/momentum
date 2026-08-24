@@ -6,7 +6,12 @@
 // risponde o la chiave manca, si dichiara e basta.
 'use strict';
 
-const SENTIMENT_LABELS = [
+// Esportate (non più solo interne): src/ai/local-sentiment.js le riusa per
+// etichettare il punteggio calcolato ON-DEVICE con le STESSE soglie di
+// Alpha Vantage — un'unica scala per "bullish/bearish" in tutto il
+// progetto, mai due sistemi di etichette che dicono cose diverse per lo
+// stesso numero.
+export const SENTIMENT_LABELS = [
   [-Infinity, -0.35, 'bearish'],
   [-0.35, -0.15, 'somewhat-bearish'],
   [-0.15, 0.15, 'neutral'],
@@ -14,7 +19,7 @@ const SENTIMENT_LABELS = [
   [0.35, Infinity, 'bullish'],
 ];
 
-function labelFor(score) {
+export function labelFor(score) {
   const hit = SENTIMENT_LABELS.find(([lo, hi]) => score >= lo && score < hi);
   return hit ? hit[2] : 'neutral';
 }
