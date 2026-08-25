@@ -105,6 +105,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 // parte visibile dice di che gruppo si tratta.
 import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './split/invite-codec.js';
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement } from './split/group-chat.js';
+import { valutaLivelli } from './ai/progress-milestones.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
@@ -1763,6 +1764,12 @@ window.dismissDemo = () => {
 };
 
 const renderDashboard = () => {
+  // Ogni volta che la Dashboard si aggiorna è il momento in cui l'utente
+  // vede l'effetto di quello che ha appena fatto (nuova spesa, nuova
+  // categoria) — il punto giusto per controllare i traguardi (progress-
+  // milestones.js), non un ciclo separato. Economico, sicuro anche se la
+  // card non è nella schermata attiva (controllaTraguardi lo gestisce).
+  try { controllaTraguardi(); } catch (_) {}
   let score = 400;
   try { score = PredictiveOracle.calculateMomentumScore(); } catch(e) {}
   
@@ -6831,6 +6838,24 @@ function renderSplitForesight(g, names) {
   </div>`;
 }
 
+// Avatar leggeri per le persone nei gruppi di spese: iniziali + colore
+// deterministico dal nome — stesso nome, stesso colore, su ogni dispositivo,
+// senza sincronizzare nulla (hash puro, zero stato). Rende "un gruppo" visto
+// come persone vere, non righe di una tabella — la parte social/condivisione
+// della gamification (mai su spesa/budget/investimenti, quella resta pulita).
+const AVATAR_PALETTE = ['#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#a855f7', '#ec4899', '#84cc16'];
+function avatarIniziali(nome) {
+  return String(nome || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('') || '?';
+}
+function avatarColore(nome) {
+  let h = 0; for (const c of String(nome || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
+}
+function avatarHtml(nome, sizeClass = 'w-7 h-7 text-[11px]') {
+  const s = String(nome || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  return `<span class="inline-flex items-center justify-center rounded-full font-black text-white shrink-0 ${sizeClass}" style="background:${avatarColore(nome)}" title="${s}">${avatarIniziali(nome)}</span>`;
+}
+
 window.openSplitGroup = (openId = null) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
@@ -6941,7 +6966,7 @@ window.openSplitGroup = (openId = null) => {
         <div class="${liveSync ? 'split-sync-pulse' : ''}">
           <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Persone (${members.length}) · saldo</div>
           <div class="flex flex-col gap-1 split-rows-in">
-            ${members.map(m => `<div class="split-row flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--outline)]"><span class="font-bold">${esc(m.name)}</span><span class="font-mono ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
+            ${members.map(m => `<div class="split-row flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--outline)]"><span class="inline-flex items-center gap-2 min-w-0">${avatarHtml(m.name)}<span class="font-bold truncate">${esc(m.name)}</span></span><span class="font-mono shrink-0 ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
           </div>
           <div class="flex flex-wrap gap-2 mt-2">
             ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--outline)] text-[var(--on-surface-secondary)]">+ ${esc(f.name)}</button>`).join('')}
@@ -7006,6 +7031,8 @@ window.openSplitGroup = (openId = null) => {
       const p2p = await tryCreateP2POffer();
       _groupInvitePairing = p2p?.pairing || null;
       window.openShareCode({ code: await buildInviteCode(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo. Le spese si uniscono, anche da un altro Paese, senza server.', pairing: _groupInvitePairing });
+      VaultDAO.state.gruppiCondivisiCount = (VaultDAO.state.gruppiCondivisiCount || 0) + 1;
+      VaultDAO.save(); controllaTraguardi();
     });
     $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
   };
@@ -7040,9 +7067,12 @@ window.openExpenseChat = (groupId, expenseId) => {
     const disputed = isDisputed(g, expenseId);
 
     const msgRows = messagesFor(g, expenseId).map(m => `
-      <div class="text-[12.5px] py-1.5 border-b border-[var(--outline)] last:border-0">
-        <span class="font-bold">${esc(m.autore)}</span>${m.tipo === 'contestazione' ? '<span class="text-[10px] font-bold text-amber-400 ml-1.5">ha contestato</span>' : m.tipo === 'risolto' ? '<span class="text-[10px] font-bold text-emerald-400 ml-1.5">ha risolto</span>' : ''}
-        <div class="text-[var(--on-surface-secondary)]">${esc(m.testo)}</div>
+      <div class="flex items-start gap-2 py-1.5 border-b border-[var(--outline)] last:border-0">
+        ${avatarHtml(m.autore, 'w-6 h-6 text-[9.5px] mt-0.5')}
+        <div class="min-w-0 text-[12.5px]">
+          <span class="font-bold">${esc(m.autore)}</span>${m.tipo === 'contestazione' ? '<span class="text-[10px] font-bold text-amber-400 ml-1.5">ha contestato</span>' : m.tipo === 'risolto' ? '<span class="text-[10px] font-bold text-emerald-400 ml-1.5">ha risolto</span>' : ''}
+          <div class="text-[var(--on-surface-secondary)]">${esc(m.testo)}</div>
+        </div>
       </div>`).join('') || `<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun messaggio ancora su questa spesa.</p>`;
 
     openModal(`
@@ -7065,6 +7095,7 @@ window.openExpenseChat = (groupId, expenseId) => {
       const t = $('#ec-text')?.value?.trim();
       if (!t) return;
       persist(addMessage(g, { autore: myName, testo: t, expenseId }));
+      if (!VaultDAO.state.chatSpesaUsata) { VaultDAO.state.chatSpesaUsata = true; VaultDAO.save(); controllaTraguardi(); }
       render();
     });
     $('#ec-text')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#ec-send')?.click(); });
@@ -7072,7 +7103,9 @@ window.openExpenseChat = (groupId, expenseId) => {
       const ng = disputed
         ? resolveExpense(g, { autore: myName, expenseId })
         : contestExpense(g, { autore: myName, expenseId });
-      persist(ng); render();
+      persist(ng);
+      if (!VaultDAO.state.chatSpesaUsata) { VaultDAO.state.chatSpesaUsata = true; VaultDAO.save(); controllaTraguardi(); }
+      render();
     });
   };
   render();
@@ -8548,7 +8581,10 @@ function renderPortfolioQuality() {
         }
         if (percentile) {
           const voci = Object.entries(percentile.percentili || {}).map(([k, v]) => `${k} al ${v}° percentile`).join(', ');
-          if (voci) righe.push(`Nel settore ${percentile.settore}: ${voci}.`);
+          if (voci) {
+            righe.push(`Nel settore ${percentile.settore}: ${voci}.`);
+            if (!VaultDAO.state.percentileSettoreVisto) { VaultDAO.state.percentileSettoreVisto = true; controllaTraguardi(); }
+          }
         }
         if (qualita) righe.push(`⚠ ${testoQualitaContabile(qualita)}`);
         if (!righe.length) return '';
@@ -8783,6 +8819,7 @@ async function renderCausalGraphViz() {
       samples: analisi.motore === 'pcmci' ? l.n : l.samples,
       p: l.p,
     }));
+  if (links.length && links.length !== VaultDAO.state.__ultimiLegamiCausali) { VaultDAO.state.__ultimiLegamiCausali = links.length; controllaTraguardi(); }
 
   if (!links.length) {
     el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(analisi.riassunto || 'Non emergono ancora legami affidabili tra categorie nei tuoi dati (serve più storia).')}</p>`;
@@ -10631,6 +10668,113 @@ function renderNeuroSymExplainCard() {
   if (honestyEl) honestyEl.textContent = info.honesty;
 }
 renderNeuroSymExplainCard();
+
+// Traguardi (src/ai/progress-milestones.js): raccoglie i segnali REALI da
+// questo dispositivo (mai stimati) e mostra cosa Momentum ha davvero
+// imparato/collegato. Chiamata dopo ogni evento che potrebbe sbloccarne uno
+// nuovo — è economica (pochi conteggi), non c'è bisogno di farla rara.
+function raccogliSegnaliTraguardi() {
+  const allTx = Object.values(VaultDAO.state.transactions || {}).flat();
+  const categorieUsate = new Set(allTx.map(t => t?.category).filter(Boolean)).size;
+  const date = allTx.map(t => t?.date).filter(Boolean).sort();
+  const giorniStorico = date.length ? Math.ceil((new Date(date[date.length - 1]) - new Date(date[0])) / 86400000) + 1 : 0;
+  return {
+    categorieUsate, transazioni: allTx.length, giorniStorico,
+    legamiCausali: VaultDAO.state.__ultimiLegamiCausali || 0,
+    sentimentCalcolati: VaultDAO.state.sentimentLocaleCount || 0,
+    sentimentRicevutiViaMesh: VaultDAO.state.sentimentMeshRicevutiCount || 0,
+    percentileSettoreVisto: !!VaultDAO.state.percentileSettoreVisto,
+    gruppiCondivisi: VaultDAO.state.gruppiCondivisiCount || 0,
+    chatSpesaUsata: !!VaultDAO.state.chatSpesaUsata,
+  };
+}
+
+// 4 livelli, 2 traguardi ciascuno (src/ai/progress-milestones.js) — lo
+// stesso arco narrativo "Bambino → Studente → Maestro → Insegnante" già
+// scritto in NEURO_VIRALITY_HYPNOTIC_ENGINE.md ma con fatti veri al posto
+// di un punteggio. Il tracker mostra tutti e 4 i livelli sempre (mai
+// nascosti per creare un falso mistero — il filtro etico in quel documento,
+// §6.3, vale anche qui): quelli futuri sono solo visivamente in secondo
+// piano, non spoilerati nel dettaglio finché non è il turno loro.
+function renderTraguardiCard() {
+  const list = $('#momentum-traguardi-list');
+  if (!list) return null;
+  const stato = valutaLivelli(raccogliSegnaliTraguardi(), VaultDAO.state.traguardiMostrati || []);
+  const idx = Math.min(stato.livelloCorrente, stato.totaleLivelli) - 1;
+  const corrente = stato.livelli[idx];
+
+  // Tracker orizzontale: un pallino per livello, collegati da un segmento —
+  // pieno/verde se completo, dorato col numero se è quello corrente, muto se
+  // è ancora nel futuro (visibile, ma non enfatizzato).
+  const tracker = $('#momentum-livelli-tracker');
+  if (tracker) {
+    tracker.innerHTML = stato.livelli.map((l, i) => {
+      const stile = l.completo
+        ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400'
+        : l.numero === stato.livelloCorrente
+          ? 'bg-[var(--gold)]/15 border-[var(--gold)]/60 text-[var(--gold)]'
+          : 'border-[var(--outline)] text-[var(--on-surface-secondary)] opacity-45';
+      const pallino = `<div class="w-7 h-7 rounded-full border flex items-center justify-center text-[11px] font-black shrink-0 ${stile}">${l.completo ? '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : l.numero}</div>`;
+      const linea = i < stato.livelli.length - 1 ? `<div class="flex-1 h-[2px] ${l.completo ? 'bg-emerald-500/40' : 'bg-[var(--outline)]'}"></div>` : '';
+      return pallino + linea;
+    }).join('');
+  }
+
+  const badge = $('#momentum-livello-badge');
+  if (badge) {
+    badge.innerHTML = stato.tuttoCompleto ? '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/><circle cx="12" cy="8" r="7"/></svg>' : String(stato.livelloCorrente);
+  }
+  const titolo = $('#momentum-livello-titolo');
+  if (titolo) titolo.textContent = stato.tuttoCompleto ? 'Tutti i traguardi raggiunti' : `Livello ${stato.livelloCorrente} — ${corrente.nome}`;
+  const sottotitolo = $('#momentum-livello-sottotitolo');
+  if (sottotitolo) sottotitolo.textContent = stato.tuttoCompleto ? 'Ogni capacità reale di Momentum, sbloccata dall\'uso vero — non resta altro da mostrare qui.' : corrente.sottotitolo;
+  const riepilogo = $('#momentum-traguardi-riepilogo');
+  if (riepilogo) riepilogo.textContent = `${stato.livelli.filter(l => l.completo).length} di ${stato.totaleLivelli} livelli — cresce con l'uso reale, mai con un premio finto`;
+
+  // Dettaglio: i 2 traguardi del livello CORRENTE (o dell'ultimo, a tutto
+  // completo) — un focus per schermata, non tutti e 8 sempre in vista.
+  const daMostrare = stato.tuttoCompleto ? stato.livelli[stato.livelli.length - 1] : corrente;
+  list.innerHTML = (daMostrare?.traguardi || []).map(t => `
+    <div class="flex items-start gap-2.5 ${t.raggiunto ? '' : 'opacity-50'}">
+      <svg class="w-4 h-4 shrink-0 mt-0.5 ${t.raggiunto ? 'text-emerald-400' : 'text-[var(--on-surface-secondary)]'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${t.raggiunto ? '<path d="M20 6L9 17l-5-5"/>' : '<circle cx="12" cy="12" r="9"/>'}</svg>
+      <div class="min-w-0"><p class="text-[12.5px] font-bold leading-snug">${t.testo}</p><p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${t.sottotesto}</p></div>
+    </div>`).join('');
+
+  // Gli altri livelli, in riga compatta: fatti (nome + stato), niente
+  // dettaglio — restano onestamente visibili, mai nascosti per curiosità.
+  const altri = $('#momentum-livelli-altri');
+  if (altri) {
+    altri.innerHTML = stato.livelli.filter(l => l.numero !== daMostrare?.numero).map(l => `
+      <div class="flex items-center gap-2 text-[11.5px] ${l.completo ? '' : 'text-[var(--on-surface-secondary)] opacity-70'}">
+        <span class="font-bold ${l.completo ? 'text-emerald-400' : ''}">${l.completo ? '✓' : l.numero}</span>
+        <span>Livello ${l.numero} — ${l.nome}</span>
+      </div>`).join('');
+  }
+  return stato;
+}
+
+// Notifica UNA volta sola ogni traguardo appena raggiunto, e in modo più
+// marcato quando SI COMPLETA UN LIVELLO INTERO (mai ripetuta, mai tolta:
+// vedi il filtro etico in NEURO_VIRALITY_HYPNOTIC_ENGINE.md §6.3 — il
+// progresso si mostra, non si punisce mai una rottura).
+function controllaTraguardi() {
+  const stato = renderTraguardiCard();
+  if (!stato || !stato.nuoviTraguardi.length) return;
+  VaultDAO.state.traguardiMostrati = [...(VaultDAO.state.traguardiMostrati || []), ...stato.nuoviTraguardi];
+  VaultDAO.save();
+  if (stato.livelloCompletatoOra) {
+    showToast(`Livello ${stato.livelloCompletatoOra} completato: ${stato.nomeLivelloCompletatoOra}`, 'success');
+    const badge = $('#momentum-livello-badge');
+    if (badge) { badge.classList.remove('qa-icon-glow'); void badge.offsetWidth; badge.classList.add('qa-icon-glow'); }
+    const card = $('#momentum-traguardi-card');
+    if (card) { card.classList.remove('momentum-livello-up'); void card.offsetWidth; card.classList.add('momentum-livello-up'); }
+  } else {
+    const primoNuovo = stato.nuoviTraguardi[0];
+    const testo = stato.livelli.flatMap(l => l.traguardi).find(t => t.id === primoNuovo)?.testo;
+    if (testo) showToast(testo, 'success');
+  }
+}
+controllaTraguardi();
 
 const navigate = (view) => {
   haptic('light');
@@ -12502,6 +12646,8 @@ const initApp = () => {
         const { arricchisciConSentimentLocale } = await import('./ai/local-sentiment.js');
         const primaDiCalcolare = items.filter((i) => !Number.isFinite(i.sentimentScore) && i.title).map((i) => i.title);
         items = await arricchisciConSentimentLocale(items, { limite: 6 });
+        const neCalcolatiOra = items.filter((i) => i.sentimentSource === 'on-device' && primaDiCalcolare.includes(i.title)).length;
+        if (neCalcolatiOra) { VaultDAO.state.sentimentLocaleCount = (VaultDAO.state.sentimentLocaleCount || 0) + neCalcolatiOra; controllaTraguardi(); }
         // Quello che ABBIAMO appena calcolato noi (non quello arrivato dalla
         // mesh un attimo fa) si rimanda in giro — così un peer senza il
         // modello lo riceve al prossimo giro, esattamente come chiediamo noi
@@ -13562,7 +13708,9 @@ function initMomentumRealAI() {
         if (r.accepted) {
           VaultDAO.state.sentimentRelay = pruneSentimentRelay(store);
           if (r.ledger) VaultDAO.state.updateLedger = r.ledger;
+          VaultDAO.state.sentimentMeshRicevutiCount = (VaultDAO.state.sentimentMeshRicevutiCount || 0) + 1;
           VaultDAO.save();
+          controllaTraguardi();
         }
       } catch (e) { console.warn('Staffetta del sentiment non elaborata:', e); }
     };

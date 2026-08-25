@@ -774,6 +774,12 @@
        così si adatta da solo al colore del blocco (ambra/smeraldo/cielo per
        Momentum, rosso per l'errore) senza bisogno di una regola per tono. */
     @keyframes qaIconGlow { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+    /* Livello completato (progress-milestones.js): un unico "pop" con una
+       leggera inclinazione 3D (perspective+rotateX), non un loop — stessa
+       disciplina di qa-icon-glow sopra: il momento arriva e si posa. */
+    @keyframes momentumLivelloUp { 0% { transform: perspective(600px) rotateX(0deg) scale(1); } 35% { transform: perspective(600px) rotateX(-6deg) scale(1.035); } 65% { transform: perspective(600px) rotateX(3deg) scale(1.015); } 100% { transform: perspective(600px) rotateX(0deg) scale(1); } }
+    .momentum-livello-up { animation: momentumLivelloUp .7s cubic-bezier(.22,1,.36,1) 1; }
+    @media (prefers-reduced-motion: reduce) { .momentum-livello-up { animation: none; } }
     .qa-icon-glow { border-radius: 50%; animation: qaIconGlow .9s ease-out 1; }
     /* L'icona che arriva "respira" due volte con lo STESSO respiro dell'orb
        di Momo (qaOrbBreath, sopra) prima di assestarsi — l'energia sembra
@@ -3731,6 +3737,24 @@
                 </div>
                 <div id="neurosym-explain-layers" class="space-y-3"></div>
                 <p id="neurosym-explain-honesty" class="text-[11px] text-[var(--on-surface-secondary)] mt-4 pt-4 border-t border-[var(--outline)] leading-snug"></p>
+              </div>
+
+              <!-- Traguardi (src/ai/progress-milestones.js): fatti veri sullo stato
+                   del modello e della mesh su QUESTO dispositivo, mai un punteggio
+                   o un badge esterno. Un traguardo raggiunto resta visibile per
+                   sempre — non c'è nulla da perdere qui, solo da scoprire. -->
+              <div class="card p-6 flex flex-col" id="momentum-traguardi-card">
+                <div class="flex items-center gap-4 mb-1">
+                  <div id="momentum-livello-badge" class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--gold)] flex items-center justify-center shrink-0 font-black text-base">1</div>
+                  <div class="min-w-0 flex-1">
+                    <h3 id="momentum-livello-titolo" class="font-bold text-base truncate">I traguardi di Momentum</h3>
+                    <p id="momentum-traguardi-riepilogo" class="text-xs text-[var(--on-surface-secondary)] mt-0.5"></p>
+                  </div>
+                </div>
+                <div id="momentum-livelli-tracker" class="flex items-center gap-1 my-4"></div>
+                <p id="momentum-livello-sottotitolo" class="text-[12px] text-[var(--on-surface-secondary)] leading-snug mb-3"></p>
+                <div id="momentum-traguardi-list" class="space-y-2.5"></div>
+                <div id="momentum-livelli-altri" class="mt-4 pt-4 border-t border-[var(--outline)] space-y-1.5"></div>
               </div>
 
               <!-- ETL terminal -->
