@@ -18,6 +18,7 @@ import { extractTransactionsFromItems, parseCellAmount, parseCellDate, COLUMN_KE
 import { parseScreenshotTransactions } from './screenshot-parser.js';
 import { safeCategorize } from './categorize.js';
 import { parseCamt053, isCamt053 } from './camt053.js';
+import { rilevaAcquistoTitolo } from './security-purchase-detector.js';
 
 // Categorizza (MCC/asset dal parser, altrimenti ML) e aggiunge in BULK una lista
 // di transazioni normalizzate. `seenIds` = dedup esatta condivisa tra i file.
@@ -237,7 +238,7 @@ export async function importFiles(fileList, { onProgress } = {}) {
   for (const m of Object.values(VaultDAO.state.transactions || {})) for (const tx of m) if (tx.externalId) seenIds.add(tx.externalId);
 
   const learned = [];
-  const result = { files: files.length, added: 0, byType: { csv: 0, pdf: 0, image: 0, xml: 0 }, perFile: [], errors: [], learned };
+  const result = { files: files.length, added: 0, byType: { csv: 0, pdf: 0, image: 0, xml: 0 }, perFile: [], errors: [], learned, acquistiDaConfermare: [] };
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     const kind = fileKind(f);
@@ -256,6 +257,16 @@ export async function importFiles(fileList, { onProgress } = {}) {
       result.added += added;
       result.byType[kind] += 1;
       result.perFile.push({ name: f.name, kind, parsed: txs.length, added });
+      // Transazioni che sembrano un acquisto di titoli/cripto ma con
+      // ticker/quantità non chiari dal testo: raccolte per file, mai
+      // aggiunte automaticamente al portafoglio — tocca all'interfaccia
+      // chiederle all'utente dopo l'import (vedi security-purchase-detector.js).
+      for (const t of txs) {
+        const rilevato = rilevaAcquistoTitolo({ description: t.description, amount: t.amount });
+        if (rilevato.rilevato && !rilevato.certo) {
+          result.acquistiDaConfermare.push({ description: t.description, amount: t.amount, date: t.date, ...rilevato });
+        }
+      }
     } catch (e) {
       result.errors.push(`${f.name}: ${e.message || e}`);
     }

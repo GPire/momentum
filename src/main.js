@@ -107,6 +107,7 @@ import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './spli
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
+import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
@@ -7210,6 +7211,62 @@ window.openDebiti = () => {
   render();
 };
 
+// Conferma acquisti titoli/cripto rilevati durante l'import ma senza
+// ticker/quantità chiari dal testo (src/import/security-purchase-detector.js)
+// — richiesto esplicitamente: "se non si capisce, chiedere all'utente quanti
+// ne detiene". Un tap "Salta" per riga: mai forzare una risposta su una
+// transazione che magari non era nemmeno un acquisto (falso positivo del
+// rilevatore, dichiarato come possibile fin dal modulo).
+window.openConfermaAcquisti = (lista) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${Math.abs(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const righe = lista.map((a, i) => ({ ...a, idx: i, ticker: a.ticker || '', quantity: a.quantity || '' }));
+
+  const render = () => {
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div><h3 class="text-base font-black">Questi sembrano acquisti di titoli</h3><p class="card-sub !mb-0">Non sono sicuro di ticker/quantità per ${righe.length === 1 ? 'questa transazione' : `queste ${righe.length} transazioni`} — conferma o correggi, oppure salta se non era un acquisto.</p></div>
+        ${righe.map((a) => `
+        <div class="card p-3" data-riga="${a.idx}">
+          <p class="text-[12px] text-[var(--on-surface-secondary)] mb-2">${esc(a.description || 'Transazione')} · ${eur(a.amount)}${a.date ? ` · ${new Date(a.date).toLocaleDateString('it-IT')}` : ''}</p>
+          <div class="flex gap-2">
+            <input data-ticker="${a.idx}" value="${esc(a.ticker)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono uppercase" placeholder="Ticker" />
+            <input data-qty="${a.idx}" type="number" inputmode="decimal" value="${esc(a.quantity)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono min-w-0" placeholder="Quante ne hai comprate" />
+          </div>
+          <div class="flex gap-2 mt-2">
+            <button data-conferma="${a.idx}" class="btn-action btn-primary flex-1 py-2 font-bold rounded-xl text-[12px]">Conferma</button>
+            <button data-salta="${a.idx}" class="px-3 py-2 font-bold rounded-xl border border-[var(--outline)] text-[11px] text-[var(--on-surface-secondary)]">Non era un acquisto</button>
+          </div>
+        </div>`).join('')}
+      </div>`, `<button id="ca-chiudi" class="btn-action w-full py-3 font-bold rounded-xl text-sm">Chiudi</button>`);
+
+    $('#ca-chiudi')?.addEventListener('click', () => closeModal());
+    document.querySelectorAll('[data-conferma]').forEach(b => b.addEventListener('click', () => {
+      const idx = +b.dataset.conferma;
+      const el = document.querySelector(`[data-riga="${idx}"]`);
+      const ticker = el.querySelector('[data-ticker]').value.trim().toUpperCase();
+      const quantity = parseFloat(String(el.querySelector('[data-qty]').value).replace(',', '.'));
+      if (!ticker || !(quantity > 0)) { showToast('Servono ticker e quantità (maggiore di zero).', 'error'); return; }
+      const riga = righe.find(r => r.idx === idx);
+      VaultDAO.state.positions = aggiornaPosizioneConAcquisto(VaultDAO.state.positions, {
+        ticker, quantity, prezzoUnitario: riga.prezzoUnitario || (Math.abs(riga.amount) / quantity),
+        assetClass: /^(BITCOIN|ETH|ETHEREUM|BTC)$/i.test(ticker) ? 'crypto' : 'stock',
+      });
+      VaultDAO.save();
+      righe.splice(righe.findIndex(r => r.idx === idx), 1);
+      showToast(`${ticker}: posizione aggiornata.`, 'success');
+      if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
+      righe.length ? render() : closeModal();
+    }));
+    document.querySelectorAll('[data-salta]').forEach(b => b.addEventListener('click', () => {
+      const idx = +b.dataset.salta;
+      righe.splice(righe.findIndex(r => r.idx === idx), 1);
+      righe.length ? render() : closeModal();
+    }));
+  };
+  render();
+};
+
 // ── CREA FATTURA (v10): semplice come un tap, nativa per ogni schermo, coerente
 // con gli stili dell'app. 3 campi (cliente, quanto, per cosa), regime pre-scelto,
 // anteprima LIVE del netto a ricevere, un bottone che genera e stampa (→PDF
@@ -13222,6 +13279,10 @@ const initApp = () => {
     elClose?.classList.remove('hidden');
     if (res.added > 0) evaluateAndCelebrateAchievements(); // traguardi 50/500 tx scattano qui
     if (res.errors.length) console.warn('Import — file con problemi:', res.errors);
+    // Transazioni che sembravano un acquisto di titoli/cripto ma senza
+    // ticker/quantità chiari dal testo (security-purchase-detector.js) —
+    // mai aggiunte al portafoglio da sole, si chiede all'utente.
+    if (res.acquistiDaConfermare?.length) window.openConfermaAcquisti(res.acquistiDaConfermare);
   };
   const multiIn = $('#multi-upload'); if (multiIn) multiIn.addEventListener('change', e => runMulti(e.target.files, multiIn));
   const csvIn = $('#csv-upload'); if (csvIn) csvIn.addEventListener('change', e => runMulti(e.target.files, csvIn));
