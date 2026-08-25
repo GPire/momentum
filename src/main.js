@@ -104,6 +104,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 // riceveva. Qui si comprime, il contenuto va nel fragment (mai al server) e la
 // parte visibile dice di che gruppo si tratta.
 import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './split/invite-codec.js';
+import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement } from './split/group-chat.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
@@ -6888,8 +6889,12 @@ window.openSplitGroup = (openId = null) => {
   const renderDetail = (g, liveSync = false) => {
     const names = nameById(g);
     const members = g.members;
-    const bal = computeBalances(g);
-    const { transfers } = settlementView(g);
+    // Le spese contestate (group-chat.js) restano fuori dal saldo finché non
+    // sono risolte — la conversazione cambia i conti, non corre solo a fianco.
+    const gSaldo = groupForSettlement(g);
+    const bal = computeBalances(gSaldo);
+    const { transfers } = settlementView(gSaldo);
+    const cstat = chatStatus(g);
     // Il default di "chi paga" era SEMPRE il primo membro dell'array — per chi
     // entra in un gruppo dopo la creazione (mai in posizione 0), il form si
     // apriva con il CREATORE preselezionato come pagante invece che se stesso.
@@ -6901,11 +6906,18 @@ window.openSplitGroup = (openId = null) => {
     }
     const involved = form.involved || members.map(m => m.id);
 
-    const expRows = (g.expenses || []).map(e => `
-      <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0">
-        <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}</span>
-        <button data-delexp="${e.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
-      </div>`).join('');
+    const expRows = (g.expenses || []).map(e => {
+      const disputed = isDisputed(g, e.id);
+      const nMsg = messagesFor(g, e.id).length;
+      return `
+      <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0${disputed ? ' bg-amber-500/5 -mx-1 px-1 rounded-lg' : ''}">
+        <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}${disputed ? ' <span class="text-[10px] font-bold text-amber-400">· in discussione</span>' : ''}</span>
+        <span class="shrink-0 inline-flex items-center gap-2">
+          <button data-chat="${e.id}" class="text-[11px] font-bold ${nMsg ? 'text-[var(--gold)]' : 'text-[var(--on-surface-secondary)]'} inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${nMsg || ''}</button>
+          <button data-delexp="${e.id}" class="text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
+        </span>
+      </div>`;
+    }).join('');
 
     const settleRows = transfers.map(t => {
       const line = t.toName === 'Io' ? `<b>${esc(t.fromName)}</b> deve darti <b>${eur(t.amount)}</b>`
@@ -6936,6 +6948,7 @@ window.openSplitGroup = (openId = null) => {
             <input id="sg-newmember" class="text-[12px] bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi persona" />
           </div>
         </div>
+        ${cstat.testo ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">${esc(cstat.testo)}</span></div>` : ''}
         ${(g.expenses || []).length ? `<div class="card p-3${liveSync ? ' split-sync-pulse' : ''}"><div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Spese (${g.expenses.length})</div><div class="split-rows-in">${expRows}</div></div>` : ''}
         ${renderSplitForesight(g, names)}
         <div class="card p-3">
@@ -6986,6 +6999,7 @@ window.openSplitGroup = (openId = null) => {
       } catch (e) { showToast('Non ho potuto aggiungere la spesa: ' + e.message, 'error'); }
     });
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
+    document.querySelectorAll('[data-chat]').forEach(b => b.addEventListener('click', () => window.openExpenseChat(g.id, b.dataset.chat)));
     document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => { let mLink = ''; try { mLink = buildJoinLink(encodeGroupShare(g)); } catch (_) {} window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: g.name, momentumLink: mLink }); }));
     document.querySelectorAll('[data-tell]').forEach(b => b.addEventListener('click', async () => { const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tell)} per ${g.name}. Mandami l'IBAN così ti giro il bonifico!`; try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { } }));
     $('#sg-share')?.addEventListener('click', async () => {
@@ -6996,6 +7010,71 @@ window.openSplitGroup = (openId = null) => {
     $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
   };
 
+  render();
+};
+
+// La conversazione ANCORATA a una spesa (src/split/group-chat.js) — modulo
+// scritto, testato e già sincronizzato via mesh (mergeGroups→mergeChat in
+// split-engine.js) ma mai collegato a una schermata: orfano, come altri
+// moduli trovati e sbloccati in questa sessione. "Il taxi da 40€ chi l'ha
+// preso?" ha senso solo accanto alla riga di spesa di cui parla — qui vive
+// lì, non su WhatsApp staccato dai numeri tre giorni dopo.
+window.openExpenseChat = (groupId, expenseId) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const findGroup = () => (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
+  const persist = (ng) => {
+    VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], ng);
+    VaultDAO.save();
+    try { window.momentumMeshNode?.shareSplitGroups([ng], peerAppartieneAlGruppo); } catch (_) {}
+  };
+
+  const render = () => {
+    const g = findGroup();
+    if (!g) { window.openSplitGroup(); return; }
+    const exp = (g.expenses || []).find(e => e.id === expenseId);
+    if (!exp) { window.openSplitGroup(groupId); return; }
+    const names = Object.fromEntries(g.members.map(m => [m.id, m.name]));
+    const myId = myMemberId(g, VaultDAO.state.deviceId);
+    const myName = names[myId] || 'Io';
+    const disputed = isDisputed(g, expenseId);
+
+    const msgRows = messagesFor(g, expenseId).map(m => `
+      <div class="text-[12.5px] py-1.5 border-b border-[var(--outline)] last:border-0">
+        <span class="font-bold">${esc(m.autore)}</span>${m.tipo === 'contestazione' ? '<span class="text-[10px] font-bold text-amber-400 ml-1.5">ha contestato</span>' : m.tipo === 'risolto' ? '<span class="text-[10px] font-bold text-emerald-400 ml-1.5">ha risolto</span>' : ''}
+        <div class="text-[var(--on-surface-secondary)]">${esc(m.testo)}</div>
+      </div>`).join('') || `<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun messaggio ancora su questa spesa.</p>`;
+
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div class="flex items-center gap-2">
+          <button id="ec-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
+          <div class="min-w-0"><span class="font-black text-sm block truncate">${esc(exp.description || 'Spesa')}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${esc(names[exp.payer] || '?')} ha pagato ${eur(exp.amount)}</span></div>
+        </div>
+        ${disputed ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">In discussione: questa spesa resta fuori dai saldi finché non è risolta.</span></div>` : ''}
+        <div class="card p-3">${msgRows}</div>
+        <div class="flex gap-2">
+          <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder='es. "il conto era 120 non 100"' />
+          <button id="ec-send" class="btn-action btn-primary px-4 py-2.5 font-bold rounded-xl text-sm">Invia</button>
+        </div>
+        <button id="ec-toggle" class="w-full py-2.5 font-bold rounded-xl border ${disputed ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400'} text-[12px]">${disputed ? 'Segna come risolto' : 'Contesta questa spesa'}</button>
+      </div>`);
+
+    $('#ec-back')?.addEventListener('click', () => window.openSplitGroup(groupId));
+    $('#ec-send')?.addEventListener('click', () => {
+      const t = $('#ec-text')?.value?.trim();
+      if (!t) return;
+      persist(addMessage(g, { autore: myName, testo: t, expenseId }));
+      render();
+    });
+    $('#ec-text')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#ec-send')?.click(); });
+    $('#ec-toggle')?.addEventListener('click', () => {
+      const ng = disputed
+        ? resolveExpense(g, { autore: myName, expenseId })
+        : contestExpense(g, { autore: myName, expenseId });
+      persist(ng); render();
+    });
+  };
   render();
 };
 
