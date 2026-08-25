@@ -103,14 +103,23 @@ test('l\'elenco dichiara cosa Momentum NON sa misurare, con il motivo', () => {
   // Una lista che fingesse di poter misurare tutto sarebbe più bella e meno
   // utile. Ogni voce non misurabile deve dire perché.
   const nonMisurabili = PRIMA_DI_COMPRARE.filter((x) => !x.misurabile);
-  assert.ok(nonMisurabili.length >= 3, 'devono essercene diverse: è il punto');
+  assert.ok(nonMisurabili.length >= 2, 'devono essercene almeno un paio: è il punto');
   for (const v of nonMisurabili) {
     assert.ok(v.nota && v.nota.length > 30, `"${v.voce}" senza motivo dichiarato`);
   }
   // E il debito, che è il buco più serio, deve essere fra queste.
   assert.ok(nonMisurabili.some((x) => /debito/i.test(x.voce)));
-  // I dieci anni di conti pure: è ciò che Buffett chiede davvero.
-  assert.ok(nonMisurabili.some((x) => /dieci anni/i.test(x.voce)));
+});
+
+// "I dieci anni di conti" è passata da non misurabile a misurabile il
+// 2026-08-25: screener-settore.js ha aggiunto lo storico multi-anno reale
+// (fino a ~19 anni). Test dedicato invece che dentro quello sopra, per non
+// confondere "non misurabile" con "misurabile da poco".
+test('"i conti reggono da dieci anni" è misurabile, da quando esiste lo storico multi-anno', () => {
+  const voce = PRIMA_DI_COMPRARE.find((x) => /dieci anni/i.test(x.voce));
+  assert.ok(voce, 'la voce sui dieci anni deve esistere nell\'elenco');
+  assert.equal(voce.misurabile, true);
+  assert.match(voce.doveInMomentum, /screener-settore/);
 });
 
 test('ogni voce misurabile dice DOVE, in Momentum, viene misurata', () => {

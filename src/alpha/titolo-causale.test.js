@@ -5,6 +5,7 @@ import {
   correlazione, livelliDaRendimenti, scomponi, trappolaDeiLivelli,
   anticipaOSegue, analizzaTitolo, testoTitolo, MIN_OSSERVAZIONI,
   mensiliDaSerie, mesiArchivio, allinea,
+  serieResiduiMensili, motiviCaliPicchi, testoMotiviCaliPicchi, svgResiduiMensili,
 } from './titolo-causale.js';
 import { SERIE_STORICHE } from './historical-returns.js';
 
@@ -179,4 +180,53 @@ test('il testo non costruisce preposizioni sgrammaticate ("da le", "di il")', ()
   const t = testoTitolo(analizzaTitolo(btc.slice(-n), spy.slice(-n), { nome: 'Bitcoin', indice: 'le azioni americane' }));
   assert.ok(!/\b(da le|di il|a il|da il|di le|in il)\b/.test(t), t);
   assert.ok(!/\bpiu del mercato\b/.test(t), 'accento mancante su "più"');
+});
+
+// ── serieResiduiMensili / motiviCaliPicchi / testoMotiviCaliPicchi / svgResiduiMensili ──
+// (grafico mensile "cosa è davvero suo", richiesto esplicitamente: "quello
+// che guarderebbero i più grandi trader e investitori, come i motivi dei
+// cali e dei picchi")
+
+test('serieResiduiMensili: un punto per mese, allineato alle etichette (offset gestito quando scomponi tronca)', () => {
+  const btc = SERIE_STORICHE.btc.rendimenti, spy = SERIE_STORICHE.spy.rendimenti;
+  const n = Math.min(btc.length, spy.length);
+  const r = analizzaTitolo(btc.slice(-n), spy.slice(-n), { nome: 'Bitcoin', indice: 'azioni USA' });
+  const mesi = Array.from({ length: n }, (_, i) => `2010-${String((i % 12) + 1).padStart(2, '0')}`);
+  const punti = serieResiduiMensili(r, mesi);
+  assert.equal(punti.length, r.scomposizione.residui.length);
+  assert.ok(punti.every((p) => /^\d{4}-\d{2}-01$/.test(p.time)));
+  assert.ok(punti.every((p) => Number.isFinite(p.value)));
+});
+
+test('serieResiduiMensili: input non disponibile o senza mesi torna array vuoto, mai un dato inventato', () => {
+  assert.deepEqual(serieResiduiMensili({ disponibile: false }, ['2020-01']), []);
+  assert.deepEqual(serieResiduiMensili({ disponibile: true, scomposizione: { residui: [0.01] } }, null), []);
+});
+
+test('motiviCaliPicchi: trova davvero il mese migliore e il mese peggiore, non i primi/ultimi per caso', () => {
+  const punti = [
+    { time: '2020-01-01', value: 1 }, { time: '2020-02-01', value: -8 },
+    { time: '2020-03-01', value: 3 }, { time: '2020-04-01', value: 12 },
+    { time: '2020-05-01', value: -1 }, { time: '2020-06-01', value: 0.5 },
+  ];
+  const eventi = motiviCaliPicchi(punti, { quanti: 1 });
+  const tipi = Object.fromEntries(eventi.map((e) => [e.time, e]));
+  assert.equal(tipi['2020-04-01'].tipo, 'picco');
+  assert.equal(tipi['2020-02-01'].tipo, 'calo');
+  assert.equal(eventi.length, 2);
+});
+
+test('testoMotiviCaliPicchi: nessun evento -> null; con eventi, testo onesto (non un giudizio)', () => {
+  assert.equal(testoMotiviCaliPicchi([]), null);
+  assert.equal(testoMotiviCaliPicchi(null), null);
+  const t = testoMotiviCaliPicchi([{ time: '2020-04-01', value: 12, tipo: 'picco' }, { time: '2020-02-01', value: -8, tipo: 'calo' }]);
+  assert.match(t, /2020-04.*\+12%.*sopra/);
+  assert.match(t, /2020-02.*-8%.*sotto/);
+});
+
+test('svgResiduiMensili: SVG scritto a mano per il toggle "classico", null sotto i 2 punti', () => {
+  assert.equal(svgResiduiMensili([{ time: '2020-01-01', value: 1 }], 'Bitcoin'), null);
+  const svg = svgResiduiMensili([{ time: '2020-01-01', value: 1 }, { time: '2020-02-01', value: -3 }], 'Bitcoin');
+  assert.match(svg, /<svg/);
+  assert.match(svg, /Bitcoin/);
 });

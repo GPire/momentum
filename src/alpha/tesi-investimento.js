@@ -179,10 +179,15 @@ export const PRIMA_DI_COMPRARE = [
     nota: 'La fonte usata da Momentum non espone il debito. Due aziende con lo stesso ROE possono avere solidita' + ' molto diverse, e questo buco va dichiarato invece di far finta.',
   },
   {
+    // Era misurabile:false ("Momentum vede solo gli ultimi 12 mesi") fino al
+    // 2026-08-25: screener-settore.js:serieStoricaPercentili/
+    // segnaliQualitaNelTempo hanno aggiunto lo storico multi-anno (fino a
+    // ~19 anni reali su alcune aziende del pannello SEC) — questa domanda è
+    // diventata davvero misurabile, non è più solo un'istantanea.
     voce: 'I conti reggono da dieci anni o solo da uno?',
     maestro: 'Buffett',
-    misurabile: false,
-    nota: 'Momentum vede gli ultimi dodici mesi. Un ROE alto in un istante non e\' un ROE alto sostenuto, che e\' quello che Buffett chiede davvero.',
+    misurabile: true,
+    doveInMomentum: 'screener-settore.js — serieStoricaPercentili/segnaliQualitaNelTempo, fino a ~19 anni per azienda',
   },
   {
     voce: 'Saresti costretto a vendere in un anno brutto?',

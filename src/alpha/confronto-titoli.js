@@ -142,18 +142,25 @@ export function testoConfronto(r) {
 
   righe.push(`Confrontabili su ${r.mesiComuni} mesi in comune (${r.da} → ${r.a}): ${nA} ${r.totali[nA]}%, ${nB} ${r.totali[nB]}%.`);
 
+  // Il "p" e' una frazione 0-1 (0.032): scritto cosi' in un testo altrimenti
+  // in chiaro e' l'unico punto rimasto a parlare "da statistico" invece che
+  // come il resto della risposta — in %, coerente con come l'app esprime
+  // ovunque una probabilita' (rischio-rovina.js: "probabilita' misurata...
+  // e' 12%", mai "0.12"). Stesso numero, non ricalcolato: solo scritto come
+  // lo leggerebbe chi non sa cos'e' un p-value.
+  const comeQuota = (p) => `${(p * 100).toFixed(1)}%`;
   if (r.test) {
     righe.push(r.test.distinguibile
-      ? `La differenza regge a un controllo sul caso (probabilita' che sia fortuna: ${r.test.p}).`
-      : `**La differenza NON e' distinguibile dal rumore** (probabilita' che sia fortuna: ${r.test.p}): su questi mesi non c'e' abbastanza per dire che uno abbia fatto meglio dell'altro.`);
+      ? `La differenza regge a un controllo sul caso (probabilita' che sia solo fortuna: ${comeQuota(r.test.p)}).`
+      : `**La differenza NON e' distinguibile dal rumore** (probabilita' che sia solo fortuna: ${comeQuota(r.test.p)}): su questi mesi non c'e' abbastanza per dire che uno abbia fatto meglio dell'altro.`);
   }
 
   if (r.scelta) {
     righe.push(`Nel frattempo il mercato ha fatto ${r.scelta.rendimentoMercato}%: di ${nA} solo il ${r.scelta.a.quotaSua}% del movimento e' roba sua, di ${nB} il ${r.scelta.b.quotaSua}%.`);
     if (r.scelta.sullaParteSua) {
       righe.push(r.scelta.sullaParteSua.distinguibile
-        ? `Anche togliendo il mercato la differenza resta (${r.scelta.sullaParteSua.p}): e' li' che le due scelte si separano davvero.`
-        : `Tolto il mercato, quel che resta dei due non si distingue (${r.scelta.sullaParteSua.p}): stanno comprando in gran parte la stessa cosa.`);
+        ? `Anche togliendo il mercato la differenza resta (probabilita' che sia solo fortuna: ${comeQuota(r.scelta.sullaParteSua.p)}): e' li' che le due scelte si separano davvero.`
+        : `Tolto il mercato, quel che resta dei due non si distingue (probabilita' che sia solo fortuna: ${comeQuota(r.scelta.sullaParteSua.p)}): stanno comprando in gran parte la stessa cosa.`);
     }
   }
 

@@ -180,6 +180,27 @@
     .qa-chip:active { transform: scale(.94); }
     @media (prefers-reduced-motion: reduce) { .qa-chip { animation: none; } }
 
+    /* Il toggle Avanzato/Classico sul grafico storico del percentile: stessa
+       pillola-invito delle chip qui sopra, non un bottone Tailwind generico
+       — deve sembrare Momentum anche nel dettaglio piu' piccolo. */
+    .qa-chart-tab {
+      color: color-mix(in srgb, var(--on-surface-secondary) 80%, transparent);
+      background: transparent;
+      border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+      transition: color .18s, border-color .18s, background-color .18s;
+    }
+    .qa-chart-tab.is-active {
+      color: var(--primary-content, #fff);
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    /* Ingresso del grafico storico: un fade+lift discreto (12px, .4s), non
+       uno spettacolo — leggibilità prima di tutto su un numero che deve
+       reggere lo sguardo di un banker quanto quello di un principiante. */
+    @keyframes qa-chart-in { from { opacity: 0; transform: translateY(8px); } }
+    .qa-chart-in { animation: qa-chart-in .4s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .qa-chart-in { animation: none; } }
+
     /* ══════════════════════════════════════════════════════════
        GLI AVVISI — vetro con una luce, non scatole tinte
        ══════════════════════════════════════════════════════════

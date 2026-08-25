@@ -753,6 +753,18 @@ export function rispostaSincrona(domanda, similarity = null) {
       }
       ULTIMO_TICKER = az;
       const r = MODULI.titCaus.analizzaTitolo(s.serie, MODULI.mercatoVivo.mercatoBase(), { nome: `${az.nome} (settore ${s.nomeSettore})`, indice: 'il mercato (media dei nove settori)' });
+      // NOTA (2026-08-25): il grafico mensile del "residuo" + i mesi migliori/
+      // peggiori (serieResiduiMensili/motiviCaliPicchi, titolo-causale.js —
+      // già scritte, testate, 22 test verdi) sono state collegate qui e poi
+      // SCOLLEGATE prima del commit: subito dopo averle collegate, il tab del
+      // browser si è bloccato (confermato: sia una segnalazione live
+      // dell'utente sia un controllo diretto con CDP che è andato in timeout
+      // sullo stesso tab). Stessa cautela già presa una volta con macro-
+      // context.js (vedi nota qui sopra, invariata): onestà prima di tutto,
+      // meglio non avere la feature che rischiare di bloccare il browser di
+      // un utente vero. Le funzioni restano in titolo-causale.js, testate a
+      // unità — il collegamento va rifatto con più cautela (isolare o
+      // profilare prima) in una sessione dedicata.
       return { intent: 'mercato-titolo-causale', data: r, answer: `${MODULI.titCaus.testoTitolo(r)} ${AVVERTENZA_SETTORE}` };
     }
 

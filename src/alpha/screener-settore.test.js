@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { percentileTitolo, serieStoricaPercentili, testoPicchi, segnaliQualitaNelTempo, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
+import { percentileTitolo, serieStoricaPercentili, testoPicchi, svgStoricoPercentili, segnaliQualitaNelTempo, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
 import { AZIENDE_PANEL } from './panel-settoriale.js';
 
 // ── percentileTitolo ──
@@ -50,6 +50,16 @@ test('serieStoricaPercentili: un titolo reale (AAPL) restituisce una serie ordin
     // Ordine cronologico: Lightweight Charts richiede tempi crescenti, mai
     // un punto fuori ordine che romperebbe il rendering.
     for (let i = 1; i < punti.length; i++) assert.ok(punti[i].time > punti[i - 1].time, `${k} non ordinato: ${punti[i-1].time} poi ${punti[i].time}`);
+  }
+});
+
+test('serieStoricaPercentili: serieValori porta lo stesso anno del percentile, ma il numero vero (%) non il percentile — per chi legge da esperto', () => {
+  const r = serieStoricaPercentili('AAPL');
+  for (const k of ['margine', 'roe', 'roa']) {
+    assert.equal(r.serieValori[k].length, r.serie[k].length, `${k}: stesso numero di punti fra percentile e valore assoluto`);
+    for (let i = 0; i < r.serie[k].length; i++) {
+      assert.equal(r.serieValori[k][i].time, r.serie[k][i].time, `${k}[${i}]: stesso anno`);
+    }
   }
 });
 
@@ -112,6 +122,19 @@ test('testoPicchi: il massimo trovato è VERAMENTE il massimo della serie (non i
   };
   const t = testoPicchi(serieFinta);
   assert.match(t, /2019 \(95° percentile\)/);
+});
+
+// ── svgStoricoPercentili (grafico "classico" Momentum, toggle accanto al nuovo Lightweight Charts) ──
+
+test('svgStoricoPercentili: su un titolo reale con storia sufficiente (AAPL) produce SVG scritto a mano, uno per metrica disponibile', () => {
+  const html = svgStoricoPercentili('AAPL');
+  assert.ok(html, 'deve produrre qualcosa per un titolo con storia');
+  assert.match(html, /<svg/);
+  assert.match(html, /AAPL/); // il titolo della carta cita il ticker, non un grafico anonimo
+});
+
+test('svgStoricoPercentili: ticker sconosciuto al pannello torna null, mai un grafico vuoto', () => {
+  assert.equal(svgStoricoPercentili('NONESISTE'), null);
 });
 
 // ── Cantiere E3: Beneish M-Score + Piotroski F-Score dentro percentileTitolo ──

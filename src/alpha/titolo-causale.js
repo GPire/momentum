@@ -41,6 +41,8 @@
 // di un numero che l'utente sta gia' guardando. Funzioni PURE.
 'use strict';
 
+import { linea } from './grafici.js';
+
 // Sotto questo numero di osservazioni comuni non si scompone niente: una
 // regressione su dodici punti produce numeri, non conoscenza.
 export const MIN_OSSERVAZIONI = 24;
@@ -271,4 +273,54 @@ export function testoTitolo(r) {
 
   righe.push('E\' la scomposizione di un numero che stai gia\' guardando, non un giudizio sul titolo e non un consiglio.');
   return righe.join(' ');
+}
+
+// ── I mesi migliori e peggiori — "cosa guarderebbe un trader" ──
+// Non "quando è salito il titolo" (quello lo dice già il grafico dei
+// prezzi): il RESIDUO di scomponi() è il mese per mese di ciò che NON si
+// spiega col mercato — la parte "sua" del titolo, positiva o negativa.
+// `mesi` sono le stesse etichette anno-mese usate per allineare l'archivio
+// (mesiArchivio, sopra): mai ricalcolate qui, sempre passate da chi ha già
+// fatto l'allineamento, per non rischiare un disallineamento silenzioso.
+export function serieResiduiMensili(r, mesi) {
+  if (!r?.disponibile || !Array.isArray(mesi)) return [];
+  const residui = r.scomposizione.residui;
+  const offset = mesi.length - residui.length; // scomponi() usa le ULTIME n osservazioni
+  if (offset < 0) return [];
+  const out = [];
+  for (let i = 0; i < residui.length; i++) {
+    const mese = mesi[offset + i];
+    if (!mese || !Number.isFinite(residui[i])) continue;
+    out.push({ time: `${mese}-01`, value: +(residui[i] * 100).toFixed(2) });
+  }
+  return out;
+}
+
+// I `quanti` mesi migliori e peggiori (di norma 2+2): non ogni mese, solo
+// quelli che un trader segnerebbe come "qui è successo qualcosa di suo".
+export function motiviCaliPicchi(punti, { quanti = 2 } = {}) {
+  if (!Array.isArray(punti) || punti.length < 3) return [];
+  const ordinati = [...punti].sort((a, b) => b.value - a.value);
+  const picchi = ordinati.slice(0, quanti).map((p) => ({ ...p, tipo: 'picco' }));
+  const cali = ordinati.slice(-quanti).map((p) => ({ ...p, tipo: 'calo' }));
+  const visti = new Set();
+  const uniti = [...picchi, ...cali].filter((p) => (visti.has(p.time) ? false : (visti.add(p.time), true)));
+  return uniti.sort((a, b) => a.time.localeCompare(b.time));
+}
+
+export function testoMotiviCaliPicchi(eventi) {
+  if (!eventi?.length) return null;
+  const fmt = (p) => `${p.time.slice(0, 7)}: ${p.value > 0 ? '+' : ''}${p.value}% ${p.tipo === 'picco' ? 'sopra' : 'sotto'} quanto spiegabile dal mercato in quel mese — la parte davvero "sua"`;
+  return `Mesi in cui si è mosso più del solito per conto suo (non per il mercato): ${eventi.map(fmt).join('; ')}.`;
+}
+
+// Lo stile "classico" (grafici.js:linea — SVG scritto a mano), stesso
+// toggle accanto al nuovo grafico di svgStoricoPercentili in screener-
+// settore.js: coerenza fra le due feature, non due modi diversi di offrire
+// la stessa scelta.
+export function svgResiduiMensili(punti, nomeTitolo) {
+  if (!Array.isArray(punti) || punti.length < 2) return null;
+  const valori = punti.map((p) => p.value);
+  const etichette = punti.map((p) => p.time.slice(0, 7));
+  return linea(valori, { etichette, titolo: `Quanto è "suo" ${nomeTitolo || 'il titolo'}, mese per mese`, unita: '%', larghezza: 300, altezza: 84 });
 }

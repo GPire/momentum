@@ -12210,13 +12210,31 @@ const initApp = () => {
   // c'è più di un anno di dati — un punto solo non è un "andamento", e
   // LightweightCharts stesso lo renderebbe come un grafico vuoto e confuso.
   let __percentileChartInstance = null;
-  async function renderStoricoPercentileChart(ticker, containerId) {
+  async function renderStoricoPercentileChart(ticker, containerId, modalita = 'percentile') {
     const el = document.getElementById(containerId);
     if (!el || typeof window.LightweightCharts === 'undefined') return;
+    // BUG TROVATO DAL VIVO, dopo qualche giro di toggle Percentile→Valori→
+    // Classico→Percentile: il contenitore non ha MAI un'altezza CSS propria
+    // (il wrapper interno di Lightweight Charts è width/height:100% del
+    // contenitore che gli passiamo) — funzionava al primo giro solo perché
+    // la libreria fissa l'altezza al valore passato al createChart INIZIALE,
+    // ma un resize() successivo o una ricreazione mentre il div è ancora
+    // display:none rompe quel legame implicito e il grafico collassa a
+    // pochi pixel. Un'altezza esplicita e STABILE sul contenitore toglie
+    // la circolarità alla radice, indipendentemente da quando/come il
+    // grafico viene creato o ridimensionato.
+    el.style.height = '190px';
     try {
       const { serieStoricaPercentili, segnaliQualitaNelTempo } = await import('./alpha/screener-settore.js');
       const r = serieStoricaPercentili(ticker);
       if (!r.disponibile) { el.remove(); return; }
+      // "Percentile" (default, si legge senza sapere niente di finanza: "meglio
+      // del 95% del settore") o "Valori" (il numero vero, %, richiesto
+      // esplicitamente per chi legge da investment banker) — STESSI anni,
+      // STESSA fonte (serieStoricaPercentili sopra), solo l'unità cambia.
+      const perValori = modalita === 'valori';
+      const serieDaUsare = perValori ? r.serieValori : r.serie;
+      const suffisso = perValori ? '%' : '°pct';
       // Combina l'analisi proprietaria di Momentum (Beneish, quality-scores.js)
       // col grafico appena integrato — richiesto esplicitamente: non trattare
       // grafico e modelli come due cose separate. Anni con segnale di
@@ -12226,27 +12244,60 @@ const initApp = () => {
       try { segnaliQualita = segnaliQualitaNelTempo(ticker); } catch (_) { /* onesto: nessun segnale, non un errore che blocca il grafico */ }
       if (__percentileChartInstance) { try { __percentileChartInstance.remove(); } catch (_) {} }
       const isDark = document.documentElement.classList.contains('dark') || window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+      // Font e colori sono quelli VERI di Momentum (index.html: --primary,
+      // --gold, --purple; 'DM Mono' è già il font usato in tutta l'app per i
+      // numeri — amount-display, ml-confidence, ecc.), non una palette
+      // generica presa a caso: il grafico deve sembrare Momentum, non un
+      // widget qualunque incollato sopra. attributionLogo:false toglie il
+      // logo TradingView dal grafico — lecito per licenza Apache 2.0 finché
+      // l'attribuzione resta da qualche parte nel codice (c'è già, nei
+      // commenti di index.html e di questa funzione), verificato sulla
+      // documentazione ufficiale prima di attivarlo.
       const chart = window.LightweightCharts.createChart(el, {
-        width: el.clientWidth, height: 160, autoSize: true,
-        layout: { background: { color: 'transparent' }, textColor: isDark ? '#a1a1aa' : '#52525b', fontSize: 10 },
+        width: el.clientWidth, height: 190, autoSize: true,
+        layout: {
+          background: { color: 'transparent' }, textColor: isDark ? '#a1a1aa' : '#52525b', fontSize: 10,
+          fontFamily: "'DM Mono', monospace", attributionLogo: false,
+        },
         grid: { vertLines: { visible: false }, horzLines: { color: isDark ? '#27272a' : '#e4e4e7' } },
         rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false },
-        crosshair: { mode: 0 },
+        crosshair: { mode: 1 },
       });
-      const COLORI = { margine: '#22c55e', roe: '#3b82f6', roa: '#f59e0b' };
+      const COLORI = { margine: '#6366f1', roe: '#eab308', roa: '#8b5cf6' };
+      const AREA = {
+        margine: { top: 'rgba(99,102,241,.28)', bottom: 'rgba(99,102,241,0)' },
+        roe: { top: 'rgba(234,179,8,.28)', bottom: 'rgba(234,179,8,0)' },
+        roa: { top: 'rgba(139,92,246,.28)', bottom: 'rgba(139,92,246,0)' },
+      };
       const NOMI = { margine: 'Margine', roe: 'ROE', roa: 'ROA' };
+      const legendaEl = document.getElementById(`${containerId}-legend`);
+      const serieAttive = []; // per aggiornare la legenda al passaggio del mouse
       let ne_ha_una = false;
       let primaSerie = null; // porta i marcatori Beneish: uno solo per grafico, non uno a metrica (sarebbe tripla ripetizione dello stesso anno)
       for (const chiave of ['margine', 'roe', 'roa']) {
-        const punti = r.serie[chiave];
+        const punti = serieDaUsare[chiave];
         if (punti.length < 2) continue;
         // v5: addLineSeries() è stato rimosso, sostituito da
         // addSeries(LineSeries, opts) — verificato con la documentazione
         // ufficiale della migrazione v4→v5 prima di scriverlo, non per
         // tentativi: usare il nome vecchio fallirebbe in silenzio (nessun
-        // errore visibile, solo un grafico che non compare mai).
-        const s = chart.addSeries(window.LightweightCharts.LineSeries, { color: COLORI[chiave], lineWidth: 2, title: NOMI[chiave], priceFormat: { type: 'custom', formatter: (v) => `${v.toFixed(0)}°pct` } });
+        // errore visibile, solo un grafico che non compare mai). Area
+        // invece di linea piatta: riempimento a gradiente, coerente con lo
+        // stile "premium" del resto di Momentum, non un grafico da manuale.
+        // NIENTE `title`: trovato dal vivo che lastValueVisible:false NON
+        // basta a togliere l'etichetta del nome sull'asse dei prezzi — in
+        // Lightweight Charts v5 quel tag resta finché la serie ha un
+        // `title`, a prescindere da lastValueVisible/priceLineVisible (letto
+        // sulla sorgente della libreria dopo il pasticcio di sovrapposizioni
+        // visto qui sotto, non assunto). La legenda sopra il grafico mostra
+        // già nome e valore in modo pulito: qui sarebbe pura ridondanza.
+        const s = chart.addSeries(window.LightweightCharts.AreaSeries, {
+          lineColor: COLORI[chiave], lineWidth: 2, topColor: AREA[chiave].top, bottomColor: AREA[chiave].bottom,
+          priceFormat: { type: 'custom', formatter: (v) => `${v.toFixed(perValori ? 1 : 0)}${suffisso}` },
+          lastValueVisible: false, priceLineVisible: false,
+        });
         s.setData(punti);
+        serieAttive.push({ s, chiave, ultimo: punti[punti.length - 1].value });
         // Il picco di sempre di questa metrica (richiesto esplicitamente:
         // "comparazioni dei momenti di picco"). Solo il MASSIMO storico, non
         // ogni massimo locale. BUG DI LEGGIBILITÀ TROVATO DAL VIVO: un testo
@@ -12280,10 +12331,84 @@ const initApp = () => {
         })));
       }
       chart.timeScale().fitContent();
+      // Legenda viva: al passaggio del mouse mostra il valore ESATTO di
+      // quel punto (non solo l'ultimo), come un terminale professionale —
+      // richiesto esplicitamente ("non è innovativo"): un grafico muto con
+      // solo l'ultimo valore in alto a destra non lo è, uno che risponde al
+      // cursore sì. Di default (nessun hover) mostra l'ultimo valore reale.
+      const disegnaLegenda = (valori) => {
+        if (!legendaEl) return;
+        legendaEl.innerHTML = serieAttive.map(({ chiave }) => {
+          const v = valori[chiave];
+          return `<span class="inline-flex items-center gap-1"><span class="inline-block w-1.5 h-1.5 rounded-full" style="background:${COLORI[chiave]}"></span>${NOMI[chiave]} <b>${Number.isFinite(v) ? v.toFixed(perValori ? 1 : 0) + suffisso : '—'}</b></span>`;
+        }).join('');
+      };
+      disegnaLegenda(Object.fromEntries(serieAttive.map(({ chiave, ultimo }) => [chiave, ultimo])));
+      chart.subscribeCrosshairMove((param) => {
+        if (!param.time) { disegnaLegenda(Object.fromEntries(serieAttive.map(({ chiave, ultimo }) => [chiave, ultimo]))); return; }
+        disegnaLegenda(Object.fromEntries(serieAttive.map(({ s, chiave }) => [chiave, param.seriesData.get(s)?.value])));
+      });
       __percentileChartInstance = chart;
+      // Micro-animazione d'ingresso: un fade+lift discreto, non uno spettacolo
+      // — richiesto esplicitamente più design/animazioni, ma un grafico che
+      // un banker deve leggere e di cui fidarsi non è la sede per un 3D
+      // vistoso (si è già discusso e concordato: niente ipnosi vicino a
+      // decisioni sui soldi). CSS, non JS: sparisce da sola con
+      // prefers-reduced-motion (regola .qa-chart-in in index.html).
+      el.classList.remove('qa-chart-in'); void el.offsetWidth; el.classList.add('qa-chart-in');
     } catch (e) { console.warn('Grafico percentile storico non disponibile:', e); el.remove(); }
   }
   window.renderStoricoPercentileChart = renderStoricoPercentileChart;
+
+  // Toggle "Avanzato" (Lightweight Charts, nuovo) / "Classico" (grafici.js,
+  // lo stile SVG scritto a mano che Momentum usava prima) — richiesto
+  // esplicitamente: poter TESTARE anche il vecchio grafico invece di
+  // perderlo del tutto quando è stato integrato quello nuovo. Lo SVG
+  // classico viene disegnato solo al primo click (non subito): è già un
+  // secondo motore di rendering, non ha senso pagarne il costo se l'utente
+  // non lo apre mai.
+  function wireChartToggle(ticker, chartId) {
+    const nuovoWrap = document.getElementById(chartId);
+    const legendaWrap = document.getElementById(`${chartId}-legend`);
+    const classicoWrap = document.getElementById(`${chartId}-classico`);
+    if (!nuovoWrap || !classicoWrap) return;
+    let disegnatoClassico = false;
+    let modalitaCorrente = 'percentile'; // 'percentile' | 'valori' — quale dei due il grafico Lightweight sta mostrando ora
+    document.querySelectorAll(`.qa-chart-tab[data-chart="${chartId}"]`).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        document.querySelectorAll(`.qa-chart-tab[data-chart="${chartId}"]`).forEach((b) => b.classList.toggle('is-active', b === btn));
+        const vista = btn.dataset.view; // 'percentile' | 'valori' | 'classico'
+        const vuoleClassico = vista === 'classico';
+        if (vuoleClassico && !disegnatoClassico) {
+          disegnatoClassico = true;
+          try {
+            const { svgStoricoPercentili } = await import('./alpha/screener-settore.js');
+            classicoWrap.innerHTML = svgStoricoPercentili(ticker) || '<p class="text-[10px] opacity-60">Nessun grafico classico disponibile per questo titolo.</p>';
+          } catch (_) { classicoWrap.innerHTML = '<p class="text-[10px] opacity-60">Grafico classico non disponibile.</p>'; }
+        }
+        // "Percentile" (beginner) e "Valori" (banker) sono la STESSA vista
+        // Lightweight Charts, ridisegnata nell'unità richiesta — non due
+        // grafici diversi da tenere sincronizzati.
+        if (!vuoleClassico && vista !== modalitaCorrente) {
+          modalitaCorrente = vista;
+          await renderStoricoPercentileChart(ticker, chartId, vista);
+        }
+        nuovoWrap.classList.toggle('hidden', vuoleClassico);
+        if (legendaWrap) legendaWrap.classList.toggle('hidden', vuoleClassico);
+        classicoWrap.classList.toggle('hidden', !vuoleClassico);
+        // BUG TROVATO DAL VIVO: tornando su "Avanzato" dopo essere stati su
+        // "Classico", il grafico Lightweight Charts restava schiacciato a
+        // pochi pixel — l'autoSize del ResizeObserver interno resta legato
+        // all'ultima misura presa mentre il contenitore era display:none
+        // (larghezza/altezza zero) e non si ricalcola da solo alla riapertura.
+        // Un resize esplicito, dopo che il div è di nuovo visibile (un frame
+        // dopo, altrimenti clientWidth è ancora quello vecchio), lo risolve.
+        if (!vuoleClassico && __percentileChartInstance) {
+          requestAnimationFrame(() => { try { __percentileChartInstance.resize(nuovoWrap.clientWidth, 190); } catch (_) {} });
+        }
+      });
+    });
+  }
 
   function styleQaAnswer(res) {
     const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
@@ -12311,8 +12436,20 @@ const initApp = () => {
     qaAnswer.innerHTML = `
       <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum${learnedBadge}</h4>
       <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>${chart}
-      ${percentileChartId ? `<div class="mt-2.5"><p class="text-[9px] font-bold uppercase tracking-wide opacity-60 mb-1">Andamento del percentile nel tempo (bilanci SEC reali)</p><div id="${percentileChartId}"></div></div>` : ''}`;
-    if (percentileChartId) renderStoricoPercentileChart(percentileTicker, percentileChartId);
+      ${percentileChartId ? `<div class="mt-2.5">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-[9px] font-bold uppercase tracking-wide opacity-60">Andamento del percentile nel tempo (bilanci SEC reali)</p>
+          <div class="flex gap-1 shrink-0">
+            <button type="button" class="qa-chart-tab is-active text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="percentile" title="Come si confronta col settore — si legge senza sapere niente di finanza">Percentile</button>
+            <button type="button" class="qa-chart-tab text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="valori" title="Il numero vero, in %, per chi legge da esperto">Valori</button>
+            <button type="button" class="qa-chart-tab text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="classico">Classico</button>
+          </div>
+        </div>
+        <div id="${percentileChartId}-legend" class="flex items-center gap-3 mb-1 text-[10px]" style="font-family:'DM Mono',monospace"></div>
+        <div id="${percentileChartId}"></div>
+        <div id="${percentileChartId}-classico" class="hidden space-y-2"></div>
+      </div>` : ''}`;
+    if (percentileChartId) { renderStoricoPercentileChart(percentileTicker, percentileChartId); wireChartToggle(percentileTicker, percentileChartId); }
     replayQaAnimation();
   }
   // Momento focale vero, non un'iconcina persa nel testo: l'utente ha

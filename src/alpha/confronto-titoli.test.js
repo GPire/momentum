@@ -78,7 +78,14 @@ test('IL CASO CHE INGANNA: totali molto diversi, differenza non distinguibile', 
   const differenzaTotali = Math.abs(out.totali.A - out.totali.B);
   assert.ok(differenzaTotali > 10, `i totali differiscono di ${differenzaTotali} punti`);
   assert.equal(out.test.distinguibile, false, `eppure p=${out.test.p}`);
-  assert.match(testoConfronto(out), /NON e' distinguibile dal rumore/);
+  const t = testoConfronto(out);
+  assert.match(t, /NON e' distinguibile dal rumore/);
+  // Linguaggio chiaro (richiesto esplicitamente, stessa disciplina già
+  // applicata a percentile-settore/qualita-contabile): il "p" è una frazione
+  // 0-1, nel testo va in %, mai come decimale nudo ("0.62") che solo chi sa
+  // cos'è un p-value saprebbe leggere.
+  assert.match(t, /probabilita' che sia solo fortuna: \d+(\.\d+)?%/);
+  assert.ok(!/fortuna: 0\.\d+\)/.test(t), `decimale nudo rimasto nel testo: ${t}`);
 });
 
 test('due titoli che sono la STESSA scommessa vengono dichiarati tali', () => {

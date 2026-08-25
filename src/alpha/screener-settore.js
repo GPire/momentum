@@ -20,6 +20,7 @@
 import { AZIENDE_PANEL, percentileSettore } from './panel-settoriale.js';
 import { beneishMScore, piotroskiFScore } from './quality-scores.js';
 import { percentileRank } from './factors.js';
+import { linea } from './grafici.js';
 
 const gruppoSic = (sic) => (sic ? String(sic).padStart(4, '0').slice(0, 2) : null);
 
@@ -152,16 +153,26 @@ export function serieStoricaPercentili(ticker) {
   const az = aziendaPerTicker(ticker);
   if (!az) return { disponibile: false, motivo: `"${ticker}" non è fra le aziende con settore noto in questo pannello.` };
   const serie = { margine: [], roe: [], roa: [] };
+  // Accanto al percentile (il confronto col settore, quello che si legge
+  // senza sapere niente di finanza) anche il VALORE assoluto — richiesto
+  // esplicitamente: dati comprensibili sia da un investment banker (il
+  // numero vero, %) sia da chi è alle prime armi (il percentile). Stesso
+  // anno, stessa fonte, mai due numeri che possono raccontare storie
+  // diverse: `serieValori` nasce dalla STESSA riga di `serie`, qui sotto.
+  const serieValori = { margine: [], roe: [], roa: [] };
   for (const riga of az.anni) {
     for (const misura of ['margine', 'roe', 'roa']) {
       if (riga[misura] === null || riga[misura] === undefined) continue;
       const p = percentileSettore(az.sic, riga.anno, misura, riga[misura]);
-      if (p !== null) serie[misura].push({ time: `${riga.anno}-01-01`, value: p });
+      if (p !== null) {
+        serie[misura].push({ time: `${riga.anno}-01-01`, value: p });
+        serieValori[misura].push({ time: `${riga.anno}-01-01`, value: +(riga[misura] * 100).toFixed(1) });
+      }
     }
   }
   const haDati = serie.margine.length > 1 || serie.roe.length > 1 || serie.roa.length > 1; // un solo punto non è un "trend"
   return {
-    disponibile: haDati, ticker: az.ticker, nome: az.nome, settore: az.sicDescription, serie,
+    disponibile: haDati, ticker: az.ticker, nome: az.nome, settore: az.sicDescription, serie, serieValori,
     motivo: haDati ? null : `non ci sono abbastanza anni con percentile calcolabile per ${ticker} da mostrare un andamento.`,
   };
 }
@@ -185,6 +196,31 @@ export function testoPicchi(r) {
     righe.push(`${NOME_BREVE_METRICA[chiave] || chiave}: il migliore di sempre fu il ${picco.time.slice(0, 4)} (${picco.value.toFixed(0)}° percentile)${oraStesso ? ' — è ORA, il valore di oggi è il record storico' : ''}.`);
   }
   return righe.length ? righe.join(' ') : null;
+}
+
+// Lo stile "classico" di Momentum (grafici.js:linea — SVG scritto a mano,
+// niente librerie esterne), tenuto in piedi ACCANTO al nuovo grafico
+// Lightweight Charts invece di sostituito: richiesto esplicitamente dopo che
+// il nuovo è stato giudicato "non abbastanza innovativo", per poter
+// confrontare i due e non perdere lo stile precedente. Una carta SVG per
+// metrica (non tre linee sullo stesso asse): è il modo in cui linea() è
+// pensata, un numero protagonista grande per grafico, non tre in
+// competizione per l'attenzione.
+export function svgStoricoPercentili(ticker) {
+  const r = serieStoricaPercentili(ticker);
+  if (!r.disponibile) return null;
+  const carte = [];
+  for (const chiave of ['margine', 'roe', 'roa']) {
+    const punti = r.serie[chiave];
+    if (punti.length < 2) continue;
+    const valori = punti.map((p) => p.value);
+    const etichette = punti.map((p) => p.time.slice(0, 4));
+    const svg = linea(valori, {
+      etichette, titolo: `${NOME_BREVE_METRICA[chiave] || chiave} di ${r.ticker} nel tempo`, unita: '°', larghezza: 300, altezza: 84,
+    });
+    if (svg) carte.push(svg);
+  }
+  return carte.length ? carte.join('') : null;
 }
 
 // Punto d'ingresso diretto per ticker (mercato-qa.js, intento
