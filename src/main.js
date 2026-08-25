@@ -122,7 +122,7 @@ import { comparePeriods, lastNMonthKeys } from './predict/period-compare.js';
 import { buildCausalGraph, pruneNonCausal, buildCategorySeries } from './predict/causal-graph.js';
 import { analyzeCausalStructure } from './predict/causal-orchestrator.js';
 import { startCategoryExperiment, stopCategoryExperiment, experimentStatus } from './predict/experiment-tracker.js';
-import { fetchMacroSeries, alignMacroToWeeks } from './predict/macro-context.js';
+import { fetchMacroSeriesConFallback, alignMacroToWeeks } from './predict/macro-context.js';
 import { classifyCategoryChips } from './predict/experiment-chip.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
@@ -8841,11 +8841,14 @@ async function ensureMacroContext(weeks) {
   if (__macroContextCache || __macroContextFetchInCorso) return __macroContextCache;
   __macroContextFetchInCorso = true;
   try {
-    const r = await fetchMacroSeries({ fetchImpl: fetch.bind(window) }); // default: BCE, verificato dal vivo
+    // Catena di fallback (BCE → BIS → OCSE, src/predict/macro-context.js):
+    // prima solo BCE veniva provata, senza ripiego se irraggiungibile. Ogni
+    // fonte è verificata CORS-aperta dal vivo, la prima che risponde vince.
+    const r = await fetchMacroSeriesConFallback(undefined, { fetchImpl: fetch.bind(window) });
     if (r.affidabile && r.series.length) {
       const allineato = alignMacroToWeeks(r.series, { weeks, referenceDate: new Date() });
       if (allineato.copertura >= 0.3) {
-        __macroContextCache = { ...allineato, label: 'il tasso di riferimento BCE/BIS' };
+        __macroContextCache = { ...allineato, label: r.label || 'il tasso di riferimento BCE/BIS' };
         // Raggiunta la fonte davvero: lo si mette a disposizione della mesh
         // per chi non ci riesce (firewall, rete mobile che blocca l'API, in
         // quel momento la fonte è in rate-limit). Riusa knowledge-relay.js,

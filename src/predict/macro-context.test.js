@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { alignMacroToWeeks, explainConfoundersWithMacro, fetchMacroSeries } from './macro-context.js';
+import { alignMacroToWeeks, explainConfoundersWithMacro, fetchMacroSeries, fetchMacroSeriesConFallback, CATENA_MACRO_DEFAULT } from './macro-context.js';
 import { buildLaggedFrame, discoverCausalGraph } from './causal-discovery.js';
 import { detectLatentConfounders } from './causal-diagnostics.js';
 
@@ -198,4 +198,46 @@ test('fetchMacroSeries con dati validi restituisce una serie utilizzabile e dich
   const r = await fetchMacroSeries({ sourceId: 'bis', symbol: 'WS_CBPOL', fetchImpl });
   assert.ok(r.series.length > 0);
   assert.equal(r.affidabile, true);
+});
+
+// ── Catena di fallback multi-fonte (2026-08-25) ──
+// PROBLEMA REALE TROVATO: il registro sources.js aveva 4+ fonti macro, ma
+// ensureMacroContext (main.js) chiamava sempre e solo fetchMacroSeries() coi
+// default (ECB), senza mai ripiegare su BIS/OECD se ECB era irraggiungibile.
+
+test('fetchMacroSeriesConFallback: prova la prima fonte, se funziona non tocca le altre', async () => {
+  let chiamate = 0;
+  const fetchImpl = async () => { chiamate++; return { ok: true, status: 200, text: async () => 'TIME_PERIOD,OBS_VALUE\n2026-06,3.5' }; };
+  const r = await fetchMacroSeriesConFallback(CATENA_MACRO_DEFAULT, { fetchImpl });
+  assert.equal(chiamate, 1, 'la prima fonte (ECB) ha già dati validi, BIS/OECD non vanno provate');
+  assert.equal(r.affidabile, true);
+  assert.equal(r.label, CATENA_MACRO_DEFAULT[0].label);
+});
+
+test('fetchMacroSeriesConFallback: se la prima fonte fallisce, prova la seconda — mai un crash', async () => {
+  let tentativo = 0;
+  const fetchImpl = async () => {
+    tentativo++;
+    if (tentativo === 1) throw new Error('ECB irraggiungibile');
+    return { ok: true, status: 200, text: async () => 'TIME_PERIOD,OBS_VALUE\n2026-06,3.5' };
+  };
+  const r = await fetchMacroSeriesConFallback(CATENA_MACRO_DEFAULT, { fetchImpl });
+  assert.equal(r.affidabile, true);
+  assert.equal(r.label, CATENA_MACRO_DEFAULT[1].label, 'la seconda fonte della catena (BIS) ha risposto');
+  assert.equal(r.tentativi.length, 2);
+});
+
+test('fetchMacroSeriesConFallback: se TUTTE le fonti falliscono, dichiara onestamente invece di inventare', async () => {
+  const fetchImpl = async () => { throw new Error('rete assente'); };
+  const r = await fetchMacroSeriesConFallback(CATENA_MACRO_DEFAULT, { fetchImpl });
+  assert.deepEqual(r.series, []);
+  assert.equal(r.affidabile, false);
+  assert.equal(r.label, null);
+  assert.equal(r.tentativi.length, CATENA_MACRO_DEFAULT.length, 'ha provato TUTTE le fonti prima di arrendersi');
+});
+
+test('CATENA_MACRO_DEFAULT: ogni passo ha sourceId/symbol/label reali, nessun campo vuoto', () => {
+  for (const passo of CATENA_MACRO_DEFAULT) {
+    assert.ok(passo.sourceId && passo.symbol && passo.label, JSON.stringify(passo));
+  }
 });

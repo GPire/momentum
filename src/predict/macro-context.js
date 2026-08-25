@@ -150,3 +150,34 @@ export async function fetchMacroSeries({ sourceId = 'ecb', symbol = 'FM/D.U2.EUR
     asOf: r.asOf, source: r.source, symbol, kind: sources[0].kind,
   };
 }
+
+// ── Catena di fallback multi-fonte (2026-08-25) ──
+// PROBLEMA REALE TROVATO integrando OECD/Eurostat in sources.js: nonostante
+// il registro avesse 4+ fonti macro (ecb/bis/oecd/eurostat/fred), l'UNICO
+// punto di consumo reale (ensureMacroContext in main.js) chiamava sempre e
+// solo `fetchMacroSeries()` coi default — cioè SOLO ECB, senza fallback. Se
+// ECB è irraggiungibile (rete che blocca l'endpoint, manutenzione, rate
+// limit), Momentum restava senza contesto macro anche se BIS/OECD erano
+// perfettamente raggiungibili. Ogni fonte ha il proprio formato di
+// simbolo/dataflow (non intercambiabili: una serie BCE non è una serie
+// OCSE) — si prova nell'ordine dichiarato, la prima che risponde con dati
+// plausibili vince, mai un crash, sempre dichiarato chi ha risposto.
+export const CATENA_MACRO_DEFAULT = [
+  { sourceId: 'ecb', symbol: 'FM/D.U2.EUR.4F.KR.MRR_FR.LEV', label: 'il tasso di riferimento BCE' },
+  { sourceId: 'bis', symbol: 'WS_CBPOL', label: 'il tasso di policy (BIS)' },
+  // VERIFICATO dal vivo in un vero browser il 2026-08-25 (200 OK, CSV reale
+  // con TIME_PERIOD/OBS_VALUE) — tasso di disoccupazione USA, copertura
+  // globale non solo area euro, utile quando ECB/BIS non rispondono.
+  { sourceId: 'oecd', symbol: 'OECD.SDD.TPS,DSD_LFS@DF_IALFS_UNE_M,1.0/USA..._Z.Y._T.Y_GE15..M', label: 'il tasso di disoccupazione USA (OCSE)' },
+];
+
+export async function fetchMacroSeriesConFallback(catena = CATENA_MACRO_DEFAULT, { fetchImpl, cache } = {}) {
+  const tentativi = [];
+  for (const passo of catena) {
+    const r = await fetchMacroSeries({ sourceId: passo.sourceId, symbol: passo.symbol, fetchImpl, cache });
+    tentativi.push({ sourceId: passo.sourceId, verified: r.verified, note: r.note });
+    if (r.affidabile && r.series.length) return { ...r, label: passo.label, tentativi };
+  }
+  // Tutte le fonti hanno fallito: dichiarato, mai un dato inventato.
+  return { series: [], verified: 'nessuna-fonte-raggiungibile', affidabile: false, tentativi, label: null };
+}

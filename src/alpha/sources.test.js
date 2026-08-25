@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { SOURCE_REGISTRY, crossCheck, plausibility, fetchVerified, trainingEligible, parseFredJson, parseEcbCsv, parseDefiLlamaTvlJson } =
+const { SOURCE_REGISTRY, crossCheck, plausibility, fetchVerified, trainingEligible, parseFredJson, parseEcbCsv, parseDefiLlamaTvlJson, parseEurostatJsonStat } =
   await import('./sources.js');
 
 // ── helper: mock delle risposte fetch per CoinGecko (json) e Stooq (csv) ──
@@ -40,6 +40,24 @@ test('BIS e DefiLlama: le uniche due nuove fonti trovate DAVVERO raggiungibili d
   assert.equal(byId.defillama.cors, 'yes');
   assert.equal(byId.defillama.excluded, undefined);
   assert.match(byId.defillama.note, /VERIFICATO/);
+});
+
+// ── Ricerca di mercato (2026-08-25, RICERCA_MERCATO_2026-08-25.md): OECD ed
+// Eurostat verificate dal vivo in un vero browser (fetch reale, non curl —
+// vedi la lezione su sec-edgar sotto, dove curl aveva dato un falso
+// positivo). ──
+test('OECD ed Eurostat: nuove fonti macro verificate DAL VIVO in un vero browser', () => {
+  const byId = Object.fromEntries(SOURCE_REGISTRY.map(s => [s.id, s]));
+  assert.equal(byId.oecd.cors, 'yes');
+  assert.equal(byId.oecd.kind, 'macro');
+  assert.equal(byId.oecd.excluded, undefined);
+  assert.equal(byId.oecd.parse, parseEcbCsv, 'riusa lo stesso parser di ECB: stesse colonne TIME_PERIOD/OBS_VALUE, verificato');
+  assert.match(byId.oecd.note, /VERIFICATO/);
+  assert.equal(byId.eurostat.cors, 'yes');
+  assert.equal(byId.eurostat.kind, 'macro');
+  assert.equal(byId.eurostat.excluded, undefined);
+  assert.equal(byId.eurostat.parse, parseEurostatJsonStat);
+  assert.match(byId.eurostat.note, /VERIFICATO/);
 });
 
 test('le fonti "gold standard" istituzionali provate e risultate bloccate sono documentate, non nascoste', () => {
@@ -347,4 +365,45 @@ test('parseFredJson/parseEcbCsv: input vuoto o malformato → [] senza throw', (
   assert.deepEqual(parseFredJson({}), []);
   assert.deepEqual(parseEcbCsv(''), []);
   assert.deepEqual(parseEcbCsv('colonne,sbagliate\n1,2'), []);
+});
+
+// ============ parser Eurostat (JSON-stat 2.0) ============
+
+// Forma reale verificata dal vivo il 2026-08-25 (fetch da browser su
+// prc_hicp_manr, geo=IT, coicop=CP00): tutte le altre dimensioni singleton,
+// solo `time` ha più di una categoria.
+const EUROSTAT_REALE = {
+  id: ['freq', 'unit', 'coicop', 'geo', 'time'],
+  size: [1, 1, 1, 1, 3],
+  dimension: {
+    time: { category: { index: { '2026-01': 0, '2026-02': 1, '2026-03': 2 } } },
+  },
+  value: { 0: 1.7, 1: 1.6, 2: 1.8 },
+};
+
+test('parseEurostatJsonStat: forma reale (dimensioni singleton tranne time) → serie ordinata', () => {
+  const p = parseEurostatJsonStat(EUROSTAT_REALE);
+  assert.deepEqual(p, [
+    { date: '2026-01-01', close: 1.7 },
+    { date: '2026-02-01', close: 1.6 },
+    { date: '2026-03-01', close: 1.8 },
+  ]);
+});
+
+test('parseEurostatJsonStat: se un\'altra dimensione ha più di una categoria, dichiara [] invece di disallineare i dati', () => {
+  const multiGeo = { ...EUROSTAT_REALE, size: [1, 1, 1, 2, 3] };
+  assert.deepEqual(parseEurostatJsonStat(multiGeo), []);
+});
+
+test('parseEurostatJsonStat: input vuoto/malformato → [] senza throw', () => {
+  assert.deepEqual(parseEurostatJsonStat(null), []);
+  assert.deepEqual(parseEurostatJsonStat({}), []);
+  assert.deepEqual(parseEurostatJsonStat({ id: ['geo'], size: [1], dimension: {}, value: {} }), [], 'nessuna dimensione time');
+});
+
+test('parseEurostatJsonStat: valori non finiti nel value scartati singolarmente, non fanno fallire tutta la serie', () => {
+  const conBuco = { ...EUROSTAT_REALE, value: { 0: 1.7, 1: null, 2: 1.8 } };
+  const p = parseEurostatJsonStat(conBuco);
+  assert.equal(p.length, 2);
+  assert.deepEqual(p.map(x => x.date), ['2026-01-01', '2026-03-01']);
 });

@@ -96,6 +96,45 @@ export function parseDefiLlamaTvlJson(json) {
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// ── Parser Eurostat (JSON-stat 2.0: value:{"0":n,...} + dimension.time.
+// category.index:{"2024-01":0,...}) — VERIFICATO dal vivo in un vero browser
+// (fetch da localhost:5173, non solo curl) il 2026-08-25, richiesta reale a
+// ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/{dataset}.
+// Il formato "flat" del JSON-stat presuppone che, filtrando la query a un
+// solo paese/indicatore, TUTTE le altre dimensioni abbiano size=1: in quel
+// caso l'indice della dimensione time coincide con la chiave di `value`.
+// Se una query restituisse più di una categoria su un'altra dimensione (es.
+// più paesi insieme), l'indice andrebbe ricalcolato con la formula generale
+// JSON-stat — non implementata qui perché Momentum interroga sempre un solo
+// paese/indicatore alla volta: dichiarato esplicitamente, mai un dato
+// disallineato spacciato per corretto. ──
+export function parseEurostatJsonStat(json) {
+  const dim = json && json.dimension;
+  const ids = json && json.id;
+  const sizes = json && json.size;
+  if (!dim || !Array.isArray(ids) || !Array.isArray(sizes)) return [];
+  const timeIdx = ids.indexOf('time');
+  if (timeIdx < 0) return [];
+  const altreDimensioniSingole = sizes.every((s, i) => i === timeIdx || s === 1);
+  if (!altreDimensioniSingole) return [];
+  const timeCat = dim.time && dim.time.category && dim.time.category.index;
+  if (!timeCat) return [];
+  const out = [];
+  for (const [label, idx] of Object.entries(timeCat)) {
+    // Number(null) vale 0 (non NaN) — stesso bug già trovato in
+    // parseDefiLlamaTvlJson: un buco nella serie (valore mancante, spesso
+    // reso `null` nel JSON-stat) va escluso ESPLICITAMENTE prima della
+    // coercizione, altrimenti diventa un falso zero.
+    const raw = json.value && json.value[idx];
+    if (raw === null || raw === undefined) continue;
+    const v = Number(raw);
+    if (!Number.isFinite(v)) continue;
+    const date = /^\d{4}-\d{2}$/.test(label) ? `${label}-01` : (/^\d{4}$/.test(label) ? `${label}-01-01` : label);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) out.push({ date, close: v });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ── Whitelist onesta delle fonti. Ogni voce dichiara COSA offre, COME la
 // raggiungiamo e PERCHÉ (o perché no). Le esclusioni documentate fanno parte
 // del deliverable: dire chiaramente cosa NON possiamo usare è metà dell'onestà. ──
@@ -136,6 +175,43 @@ export const SOURCE_REGISTRY = [
     cors: 'yes', type: 'text', parse: parseEcbCsv,
     urlFor: (s) => `https://data-api.ecb.europa.eu/service/data/${s}?format=csvdata`,
     note: 'Serie macro area euro in CSV. Molte serie sono CORS-aperte, ma va verificato a runtime per singola serie: se il browser blocca, si passa oltre senza fingere.',
+  },
+  {
+    // VERIFICATO dal vivo (2026-08-25, ricerca di mercato + riconciliazione
+    // con un vero fetch da browser, non solo curl): formato CSV
+    // (`format=csvfilewithlabels`) usa le STESSE colonne TIME_PERIOD/OBS_VALUE
+    // di ECB — riusa parseEcbCsv, nessun parser nuovo necessario.
+    id: 'oecd', kind: 'macro', name: 'OECD SDMX API', trust: 'primary',
+    cors: 'yes', type: 'text', parse: parseEcbCsv,
+    // BUG REALE TROVATO integrando la catena di fallback (2026-08-25): senza
+    // `startPeriod`, l'API torna l'INTERA storia del dataflow (858 punti dal
+    // 1948 per la disoccupazione USA) — include lo shock COVID 2020 (3,5%→
+    // 14,7% in due mesi), che la funzione plausibility() di questo file
+    // segnala giustamente come "salto assurdo" (pensata per tassi di policy
+    // stabili, non per crisi reali). Non è un bug di plausibility() da
+    // allentare — è la query che chiedeva più storia di quanta serva:
+    // `startPeriod` limita alla finestra recente che il contesto macro usa
+    // davvero (allineamento settimanale, tipicamente <52 settimane).
+    urlFor: (dataflowConChiave, { startPeriod = '2022-01' } = {}) => `https://sdmx.oecd.org/public/rest/data/${dataflowConChiave}?format=csvfilewithlabels&startPeriod=${encodeURIComponent(startPeriod)}`,
+    note: 'VERIFICATO dal vivo in un vero browser (200 OK, CORS confermato): dati macro OCSE (disoccupazione, indicatori compositi, ecc.), copertura globale non solo EU/USA, gratis senza chiave. `dataflowConChiave` include già dataset+filtri (es. "OECD.SDD.TPS,DSD_LFS@DF_IALFS_UNE_M,1.0/USA..._Z.Y._T.Y_GE15..M"), non un semplice ticker. `startPeriod` di default limita a dati recenti (evita shock storici tipo COVID che farebbero scattare il controllo di plausibilità pensato per serie stabili).',
+  },
+  {
+    // VERIFICATO dal vivo (2026-08-25): fetch reale da browser, 200 OK,
+    // JSON-stat 2.0 con Access-Control-Allow-Origin:* esplicito.
+    id: 'eurostat', kind: 'macro', name: 'Eurostat Statistics API', trust: 'primary',
+    cors: 'yes', type: 'json', parse: parseEurostatJsonStat,
+    urlFor: (dataset, { params = '' } = {}) => `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${dataset}?format=JSON&lang=EN${params}`,
+    // ATTENZIONE OPERATIVA (bug reale trovato dal vivo, 2026-08-25): chiamare
+    // questa fonte SENZA `params` (nessun filtro geo/indicatore) ha fatto
+    // andare in stallo per >45s una vera scheda del browser — il dataset
+    // completo (ogni Paese × ogni categoria COICOP × tutta la storia) è
+    // enorme. `parseEurostatJsonStat` resta comunque sicuro in quel caso
+    // (ritorna [] perché rileva più di una categoria sulle altre dimensioni,
+    // mai un dato disallineato) — ma il fetch stesso può appendere a lungo
+    // PRIMA che il parser abbia la possibilità di scartarlo. `params` NON è
+    // opzionale nella pratica: sempre con almeno `&geo=XX` e un filtro
+    // sull'indicatore (es. "&geo=IT&coicop=CP00&sinceTimePeriod=2024-01").
+    note: 'VERIFICATO dal vivo in un vero browser: dati macro EU granulari (inflazione HICP, disoccupazione, ecc. per singolo Paese), aggiornati 2 volte/giorno, gratis senza chiave. `params` porta i filtri e va SEMPRE specificato (es. "&geo=IT&coicop=CP00&sinceTimePeriod=2024-01") — senza, il dataset completo non filtrato può bloccare a lungo il fetch (verificato dal vivo). Un solo Paese/indicatore per query, vedi limite dichiarato in parseEurostatJsonStat.',
   },
   {
     id: 'bloomberg', kind: 'prices', name: 'Bloomberg', trust: 'primary',
