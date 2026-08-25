@@ -673,9 +673,14 @@ export function rispostaSincrona(domanda, similarity = null) {
           ? ` Nel ${anno}: ${MODULI.scrn.testoPercentile(storico)} Confronta con oggi per vedere se è migliorata o peggiorata rispetto al suo settore, non solo in assoluto.`
           : ` Non ho un percentile per il ${anno}: fuori dal pannello per questa azienda.`;
       }
+      // Momenti di picco (richiesto esplicitamente): quando è stato il
+      // MIGLIORE anno di sempre per ogni metrica — nel testo, non sul
+      // grafico (vedi testoPicchi in screener-settore.js per il perché).
+      const serieStorica = MODULI.scrn.serieStoricaPercentili(az.ticker);
+      const picchi = MODULI.scrn.testoPicchi(serieStorica);
       return {
         intent: 'mercato-percentile-settore', data: { attuale, anno: anno ? +anno : null },
-        answer: `${az.nome}, nel settore ${attuale.settore} (anno ${attuale.anno}): ${voci}${confronto}`,
+        answer: `${az.nome}, nel settore ${attuale.settore} (anno ${attuale.anno}): ${voci}${confronto}${picchi ? ` ${picchi}` : ''}`,
       };
     }
 

@@ -166,6 +166,27 @@ export function serieStoricaPercentili(ticker) {
   };
 }
 
+const NOME_BREVE_METRICA = { margine: 'margine', roe: 'ROE', roa: 'ROA' };
+
+// Testo dei "momenti di picco" (richiesto esplicitamente) — separato dal
+// grafico apposta: un'etichetta per metrica sopra un grafico alto 160px
+// diventava un pasticcio illeggibile quando i picchi cadono in anni vicini
+// (caso reale, NVIDIA — trovato verificando dal vivo). Qui lo spazio non è
+// un problema: dice ESATTAMENTE quando è stato il momento migliore di
+// sempre per ciascuna metrica, e se coincide con oggi lo dichiara.
+export function testoPicchi(r) {
+  if (!r?.disponibile) return null;
+  const righe = [];
+  for (const [chiave, punti] of Object.entries(r.serie)) {
+    if (punti.length < 2) continue;
+    const picco = punti.reduce((m, p) => (p.value > m.value ? p : m), punti[0]);
+    const ultimo = punti[punti.length - 1];
+    const oraStesso = picco.time === ultimo.time;
+    righe.push(`${NOME_BREVE_METRICA[chiave] || chiave}: il migliore di sempre fu il ${picco.time.slice(0, 4)} (${picco.value.toFixed(0)}° percentile)${oraStesso ? ' — è ORA, il valore di oggi è il record storico' : ''}.`);
+  }
+  return righe.length ? righe.join(' ') : null;
+}
+
 // Punto d'ingresso diretto per ticker (mercato-qa.js, intento
 // 'qualita-contabile'): stessi due punteggi già dentro percentileTitolo(),
 // ma qui isolati — chi chiede "il punteggio di manipolazione contabile"

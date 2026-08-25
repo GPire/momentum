@@ -12230,14 +12230,31 @@ const initApp = () => {
       const NOMI = { margine: 'Margine', roe: 'ROE', roa: 'ROA' };
       let ne_ha_una = false;
       for (const chiave of ['margine', 'roe', 'roa']) {
-        if (r.serie[chiave].length < 2) continue;
+        const punti = r.serie[chiave];
+        if (punti.length < 2) continue;
         // v5: addLineSeries() è stato rimosso, sostituito da
         // addSeries(LineSeries, opts) — verificato con la documentazione
         // ufficiale della migrazione v4→v5 prima di scriverlo, non per
         // tentativi: usare il nome vecchio fallirebbe in silenzio (nessun
         // errore visibile, solo un grafico che non compare mai).
         const s = chart.addSeries(window.LightweightCharts.LineSeries, { color: COLORI[chiave], lineWidth: 2, title: NOMI[chiave], priceFormat: { type: 'custom', formatter: (v) => `${v.toFixed(0)}°pct` } });
-        s.setData(r.serie[chiave]);
+        s.setData(punti);
+        // Il picco di sempre di questa metrica (richiesto esplicitamente:
+        // "comparazioni dei momenti di picco"). Solo il MASSIMO storico, non
+        // ogni massimo locale. BUG DI LEGGIBILITÀ TROVATO DAL VIVO: un testo
+        // per marcatore (3 metriche) si sovrapponeva in un pasticcio
+        // illeggibile quando i picchi cadono in anni vicini (caso reale,
+        // NVIDIA) — un grafico alto 160px non ha spazio per tre etichette
+        // di testo. Corretto: solo un piccolo cerchio muto sul grafico (il
+        // colore già dice quale metrica), il dettaglio testuale (quale anno,
+        // quale valore) va nella risposta scritta qui sotto, dove lo spazio
+        // non è un problema — vedi testoPicchi() in screener-settore.js.
+        // v5: createSeriesMarkers(), non più series.setMarkers() (verificato
+        // con la documentazione ufficiale, stessa cautela di addSeries sopra).
+        const picco = punti.reduce((m, p) => (p.value > m.value ? p : m), punti[0]);
+        if (window.LightweightCharts.createSeriesMarkers) {
+          window.LightweightCharts.createSeriesMarkers(s, [{ time: picco.time, position: 'inBar', color: COLORI[chiave], shape: 'circle', size: 1 }]);
+        }
         ne_ha_una = true;
       }
       if (!ne_ha_una) { chart.remove(); el.remove(); return; }

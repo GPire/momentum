@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { percentileTitolo, serieStoricaPercentili, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
+import { percentileTitolo, serieStoricaPercentili, testoPicchi, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
 import { AZIENDE_PANEL } from './panel-settoriale.js';
 
 // ── percentileTitolo ──
@@ -62,6 +62,30 @@ test('serieStoricaPercentili: un ticker fuori dal pannello si dichiara, non inve
 test('serieStoricaPercentili: input assente non crasha', () => {
   assert.equal(serieStoricaPercentili(null).disponibile, false);
   assert.equal(serieStoricaPercentili(undefined).disponibile, false);
+});
+
+// ── testoPicchi (momenti di picco, in testo — non sul grafico) ──
+
+test('testoPicchi: trova il massimo storico reale per ogni metrica di un titolo vero (AAPL)', () => {
+  const r = serieStoricaPercentili('AAPL');
+  const t = testoPicchi(r);
+  assert.ok(t, 'deve produrre del testo per un titolo con dati');
+  assert.match(t, /migliore di sempre fu il \d{4}/);
+  assert.match(t, /° percentile\)/);
+});
+
+test('testoPicchi: senza dati disponibili, torna null — mai un testo su un picco inventato', () => {
+  assert.equal(testoPicchi({ disponibile: false }), null);
+  assert.equal(testoPicchi(null), null);
+});
+
+test('testoPicchi: il massimo trovato è VERAMENTE il massimo della serie (non il primo o l\'ultimo per caso)', () => {
+  const serieFinta = {
+    disponibile: true,
+    serie: { margine: [{ time: '2018-01-01', value: 40 }, { time: '2019-01-01', value: 95 }, { time: '2020-01-01', value: 60 }], roe: [], roa: [] },
+  };
+  const t = testoPicchi(serieFinta);
+  assert.match(t, /2019 \(95° percentile\)/);
 });
 
 // ── Cantiere E3: Beneish M-Score + Piotroski F-Score dentro percentileTitolo ──
