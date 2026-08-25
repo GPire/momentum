@@ -6,7 +6,7 @@
 
 **No server. No subscription. Nothing leaves your phone.**
 
-[![tests](https://img.shields.io/badge/tests-2173%20passing-brightgreen)](#verify-it-yourself-30-seconds)
+[![tests](https://img.shields.io/badge/tests-3768%20passing-brightgreen)](#verify-it-yourself-30-seconds)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#the-one-thing-that-makes-it-different)
 [![no cloud](https://img.shields.io/badge/cloud-none-blue)](#the-one-thing-that-makes-it-different)
 [![PWA](https://img.shields.io/badge/PWA-offline%20first-blue)](#works-with-no-signal)
@@ -23,6 +23,8 @@
 Most money apps die for two reasons: **typing every expense** and **numbers that mean nothing**.
 
 Momentum answers the one question you actually ask — **"how much can I spend today?"** — and it does the maths where your data already lives: on your device.
+
+There's a second, quieter reason people quit finance apps: every notification is designed to make you anxious about a badge, a streak, a tier you might lose. Momentum's only feedback is *"your pattern is understood, your number is real"* — the dopamine of being in control, not the dopamine of being chased.
 
 **It's for you if you:**
 - want to know what you can spend **today**, not a chart of last month
@@ -74,6 +76,17 @@ Plus: net worth, Monte Carlo projections with declared assumptions, market regim
 
 **Never a buy/sell recommendation.** The picture, never the order — that's a regulatory line, and it's also what makes it integrable rather than blockable.
 
+### 🏦 Institutional-grade signals, built from public filings
+Momentum reads real SEC filings — not a marketing claim, a script (`bench/fetch-panel-sec.mjs`) that pulls XBRL data for **11,304** US companies with reported revenue, enriches **1,500** with their real SIC code, and ships **600** of them in full inside the app.
+
+- **Sector percentile ranking** — where a holding sits against real peers on revenue growth, margins and more, via a hand-built SIC→sector bridge (no free official crosswalk exists — documented, not hidden).
+- **Beneish M-Score & Piotroski F-Score** — the same academic fraud/quality screens due-diligence teams use, computed on-device from the filings above. Momentum states their known blind spot in the same breath it shows the score: very high *legitimate* revenue growth can trigger a false positive on Beneish, and it says so every time.
+- **Causal & comparative analysis, per single stock or crypto** — a 777-line statistics engine (regression decomposition, permutation testing) sat unreachable in this repo until the SIC→sector bridge unlocked it for any of the 600 tracked companies; a CoinGecko integration extends the same reasoning to major cryptocurrencies.
+- **On-device news sentiment** — a real DistilRoBERTa model (82.5MB, Apache-2.0, fine-tuned on financial news) reads the tone of a headline in under 100ms once loaded, no server, no API key.
+- **Peer-shared signals** — a device that already computed a headline's sentiment, or already knows a price/rate, relays it (label + score only, never raw personal data) over the same P2P mesh to trusted peers who haven't downloaded the model yet — cross-checked against a second independent peer, or a peer with a track record, before anyone trusts it.
+
+None of this pretends to be a live feed: every screen states exactly when the filing data was pulled. Reproduce it: `npm run bench:panel` regenerates the sector data straight from SEC EDGAR.
+
 ### 🧠 AI that actually learns from you
 An ensemble that votes, plus an arbiter that learns **which of its own models to trust, category by category**, from your real corrections.
 
@@ -108,13 +121,33 @@ Dual-cache service worker, IndexedDB + localStorage, schema migrations, and a **
 
 ---
 
+## How it compares
+
+Full breakdown, competitor by competitor, with the exact file that backs every claim: **[ANALISI_COMPETITOR.md](ANALISI_COMPETITOR.md)** (Italian).
+
+The short version: Bloomberg Terminal and Bloomberg Intelligence see the market but never your cash. Revolut and your bank see their own account but not the market — and their business model profits from your spread, not your savings rate. Robinhood profits from your order flow. Copilot and Monarch need your bank credentials on a third party's server (Plaid) just to function. YNAB tracks what you already spent, never what the market is doing right now.
+
+Momentum is the only one of these that puts your real cash position and real market data — sector percentiles, quality scores, sentiment — in the same on-device answer, because it's the only one with no server keeping them apart.
+
+## What's next
+
+An honest pipeline, not a promise list — full detail and priority order in [ANALISI_COMPETITOR.md §5](ANALISI_COMPETITOR.md#5-roadmap-proprietaria-onesta-in-ordine-di-impatto) and [PIANO_MOMENTUM.md](PIANO_MOMENTUM.md).
+
+- Ship the already-built anonymous adoption counter — the code is ready, only the deploy step is left.
+- Mesh discovery beyond an already-exchanged pairing code.
+- A second cryptocurrency in a pairwise causal comparison (today only vs. Bitcoin).
+- Extend the causal engine to markets once there's enough personal-history data to be honest about the result.
+- Deeper SLM reasoning for statistics/physics/algorithms beyond finance — not yet researched with the same rigor as the filings work above.
+
+---
+
 ## Verify it yourself (30 seconds)
 
 Don't take the claims. Run them.
 
 ```bash
 npm install
-npm test      # 2173 tests, node --test src/
+npm test      # 3768 tests, node --test src/
 ```
 
 Every capability above has tests next to the code. The Swiss QR-bill is checked against the official SIX examples; the tax rates carry the date they were verified and the source; the AI numbers regenerate with `npm run bench:*`.
@@ -124,7 +157,7 @@ Every capability above has tests next to the code. The Swiss QR-bill is checked 
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 2173 tests
+npm test                  # 3768 tests
 npm run build             # multi-file PWA in dist/
 npm run build:singlefile  # single ~575KB HTML file
 ```
@@ -150,7 +183,7 @@ src/
   voice/     multi-action voice parser
 ```
 
-170 source modules. 16 domains.
+278 source modules across 15 domains (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
 
 ## Declared limits
 

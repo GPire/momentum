@@ -6,7 +6,7 @@
 
 **Nessun server. Nessun abbonamento. Niente esce dal tuo telefono.**
 
-[![test](https://img.shields.io/badge/test-2173%20verdi-brightgreen)](#verificalo-tu-30-secondi)
+[![test](https://img.shields.io/badge/test-3768%20verdi-brightgreen)](#verificalo-tu-30-secondi)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
 [![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
 [![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
@@ -23,6 +23,8 @@
 Le app di finanza personale si abbandonano per due motivi: **scrivere ogni spesa a mano** e **numeri che non dicono niente**.
 
 Momentum risponde alla domanda che ti fai davvero — **"quanto posso spendere oggi?"** — e fa i conti dove i tuoi dati già stanno: sul tuo dispositivo.
+
+C'è un terzo motivo, più silenzioso, per cui si abbandonano le app di finanza: ogni notifica è pensata per farti temere di perdere un badge, una serie, un livello. L'unico feedback di Momentum è *"il tuo andamento è capito, il tuo numero è vero"* — la dopamina del controllo, non quella dell'inseguimento.
 
 **È per te se:**
 - vuoi sapere quanto puoi spendere **oggi**, non un grafico del mese scorso
@@ -74,6 +76,17 @@ E poi: patrimonio netto, proiezioni Monte Carlo con ipotesi dichiarate, regime d
 
 **Mai un consiglio compra/vendi.** Il quadro, mai l'ordine — è una linea normativa, ed è anche ciò che rende Momentum integrabile invece che bloccabile.
 
+### 🏦 Analisi da livello istituzionale, costruita sui bilanci pubblici
+Momentum legge bilanci SEC veri — non uno slogan, uno script (`bench/fetch-panel-sec.mjs`) che scarica dati XBRL per **11.304** aziende USA con ricavi depositati, ne arricchisce **1.500** con il vero codice SIC, e ne pubblica **600** per intero dentro l'app.
+
+- **Percentile di settore** — dove si colloca un titolo rispetto a veri competitor per crescita ricavi, margini e altro, via un ponte SIC→settore costruito a mano (non esiste un crosswalk ufficiale gratuito — dichiarato, non nascosto).
+- **Beneish M-Score e Piotroski F-Score** — gli stessi screening accademici di frode/qualità contabile che usano i team di due diligence, calcolati sul dispositivo dagli stessi bilanci. Momentum dichiara il loro limite noto nella stessa frase in cui mostra il punteggio: una crescita dei ricavi legittima e molto rapida può generare un falso positivo su Beneish, e lo dice sempre, non solo qui.
+- **Analisi causale e comparativa, per singolo titolo o cripto** — un motore statistico di 777 righe (scomposizione a regressione, test di permutazione) restava irraggiungibile in questo repo finché il ponte SIC→settore non l'ha sbloccato per ognuna delle 600 aziende tracciate; un'integrazione CoinGecko estende lo stesso ragionamento alle principali criptovalute.
+- **Sentiment delle notizie on-device** — un vero modello DistilRoBERTa (82,5MB, Apache-2.0, addestrato su notizie finanziarie) legge il tono di un titolo in meno di 100ms a modello caldo, senza server né chiave API.
+- **Segnali condivisi tra pari** — un dispositivo che ha già calcolato il sentiment di un titolo di notizia, o che già conosce un prezzo/tasso, lo inoltra (solo etichetta e punteggio, mai un dato personale) sulla stessa mesh P2P ai dispositivi fidati che non hanno ancora scaricato il modello — verificato incrociando un secondo peer indipendente, o un peer con una storia affidabile, prima di fidarsene.
+
+Niente di questo finge di essere un flusso in tempo reale: ogni schermata dichiara esattamente quando i dati di bilancio sono stati scaricati. Per riprodurlo: `npm run bench:panel` rigenera i dati di settore direttamente da SEC EDGAR.
+
 ### 🧠 Un'AI che impara davvero da te
 Un ensemble che vota, più un arbitro che impara **quale dei suoi stessi modelli ascoltare, categoria per categoria**, dalle tue correzioni vere.
 
@@ -108,13 +121,33 @@ Service worker a doppia cache, IndexedDB + localStorage, migrazioni di schema, e
 
 ---
 
+## Come si confronta
+
+Il confronto completo, competitor per competitor, con il file esatto che sostiene ogni claim: **[ANALISI_COMPETITOR.md](ANALISI_COMPETITOR.md)**.
+
+In breve: Bloomberg Terminal e Bloomberg Intelligence vedono il mercato ma mai la tua cassa. Revolut e la tua banca vedono il loro conto ma non il mercato — e il loro modello di business guadagna sul tuo spread, non sul tuo risparmio. Robinhood guadagna sul flusso ordini. Copilot e Monarch hanno bisogno delle tue credenziali bancarie su un server terzo (Plaid) solo per funzionare. YNAB traccia quello che hai già speso, mai quello che sta facendo il mercato in questo momento.
+
+Momentum è l'unico di questi che mette la tua cassa reale e i dati di mercato reali — percentili di settore, punteggi di qualità, sentiment — nella stessa risposta on-device, perché è l'unico senza un server che li tiene separati.
+
+## Cosa c'è in cantiere
+
+Una pipeline onesta, non un elenco di promesse — dettaglio e ordine di priorità in [ANALISI_COMPETITOR.md §5](ANALISI_COMPETITOR.md#5-roadmap-proprietaria-onesta-in-ordine-di-impatto) e [PIANO_MOMENTUM.md](PIANO_MOMENTUM.md).
+
+- Pubblicare il contatore anonimo di adozione, già costruito — manca solo il deploy.
+- Mesh-discovery oltre un codice di pairing già scambiato a mano.
+- Una seconda criptovaluta nel confronto causale a coppia (oggi solo vs. Bitcoin).
+- Estendere il motore causale ai mercati quando ci sarà storia personale sufficiente per un risultato onesto.
+- Ragionamento SLM più profondo per statistica/fisica/algoritmi oltre alla finanza — non ancora affrontato con lo stesso rigore del lavoro sui bilanci qui sopra.
+
+---
+
 ## Verificalo tu (30 secondi)
 
 Non fidarti delle affermazioni. Eseguile.
 
 ```bash
 npm install
-npm test      # 2173 test, node --test src/
+npm test      # 3768 test, node --test src/
 ```
 
 Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizzera è confrontata con gli esempi ufficiali SIX; le aliquote portano la data in cui sono state verificate e la fonte; i numeri dell'AI si rigenerano con `npm run bench:*`.
@@ -124,7 +157,7 @@ Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizze
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 2173 test
+npm test                  # 3768 test
 npm run build             # PWA multi-file in dist/
 npm run build:singlefile  # singolo file HTML ~575KB
 ```
@@ -150,7 +183,7 @@ src/
   voice/     parser vocale multi-azione
 ```
 
-170 moduli sorgente. 16 domini.
+278 moduli sorgente in 15 domini (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
 
 ## Limiti dichiarati
 

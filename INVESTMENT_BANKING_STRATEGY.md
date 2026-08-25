@@ -1,7 +1,9 @@
 # MOMENTUM — Investment Banking Strategy & Federated Learning Deep Dive
 ## Valutazione finanziaria, moat costruibile, tokenomics mesh, auto-training loop
-**Data**: 2026-07-31  
+**Data**: 2026-07-31 · **Corretto con dati reali il 2026-08-24**  
 **Livello**: VC due diligence, equity story, financial modeling  
+
+> ⚠️ **Nota di correzione (2026-08-24)**: questo documento mescola due cose diverse che vanno tenute separate. (A) **Fatti verificabili** — architettura del codice, benchmark riproducibili con `npm test`/`npm run bench`. (B) **Ipotesi di pianificazione** — TAM/SAM/SOM, valutazioni, multipli di exit, MAU/ARR proiettati: sono scenari, non misure, perché descrivono un futuro che non è ancora accaduto. La versione originale presentava alcune citazioni come fatti verificati senza esserlo davvero: una ricerca "SurveyMonkey 2026" e una conferma "McKinsey" mai trovate con una fonte reale in questa sessione, e un confronto "5/5 vs 2/5" contro LLM cloud mai eseguito per davvero. Corrette sotto. Il resto (TAM/SAM/valutazione/exit) resta un'ipotesi di piano dichiarata come tale, non riscritta punto per punto — un piano è legittimo restare ambizioso, purché non si spacci per un fatto misurato.
 
 ---
 
@@ -9,10 +11,9 @@
 
 ### I. Il Mercato Indirizzabile (TAM)
 
-**Segmentazione** (dati 2026, Statista/McKinsey):
-- **Global fintech users**: 1.2B (crescita 15%/anno)
-- **TAM Privacy-first finance**: 180M (15% del totale; utenti che rifiutano Plaid/dati su cloud)
-- **TAM On-device AI finance**: 45M (niche, ma crescente; tech-forward, privacy-paranoid)
+**Segmentazione — nota sull'affidabilità di questi numeri (verificato 2026-08-24)**: la ricerca web mostra stime di mercato "personal finance apps" che vanno da 9,44 miliardi $ a 207,69 miliardi $ per il 2026 **a seconda della società di ricerca** (varianza enorme, nessuna fonte gratuita primaria unica) — quindi qualunque cifra di mercato citata qui va letta come un'ipotesi di lavoro, non un fatto stabilito. L'unico dato con una convergenza ragionevole tra fonti: utenti di app di finanza personale nel mondo stimati intorno a **1,8 miliardi**, crescita ~14%/anno (fonti divergenti, nessuna citabile come definitiva).
+- **Global fintech users**: ~1,8B stimati (non 1,2B come nella versione precedente — la cifra "Statista/McKinsey" originale non ha trovato una fonte verificabile in questa ricerca)
+- **TAM Privacy-first finance / On-device AI finance**: nessuna fonte pubblica segmenta il mercato in questo modo — le cifre "180M"/"45M" della versione precedente erano una stima interna non sourced, non un dato di terzi. Vanno trattate come ipotesi di lavoro per il modello sotto, non come ricerca di mercato citata.
 
 **MOMENTUM SAM** (Serviceable Available Market):
 - **Mobile-first + Europe** (GDPR compliance, payment systems SEPA): 25M utenti potenziali
@@ -48,6 +49,8 @@
 ---
 
 ## 🧠 FEDERATED LEARNING — LOOP CHIUSO & AUTO-APPRENDIMENTO
+
+> ⚠️ **Correzione 2026-08-24**: gli snippet di codice sotto citano `src/mesh/federated-sync.js` e `src/mesh/aggregation.js` come se fossero file reali del repo — **non esistono** (verificato con `ls src/mesh/`). I file reali che coprono concetti simili sono `src/mesh/federated-distillation.js` (distillazione federata), `src/mesh/update-ledger.js` (reputazione/ledger degli aggiornamenti, usato anche da `knowledge-relay.js` e `sentiment-relay.js`), `src/mesh/sybil-resistance.js` (anti-Sybil), `src/mesh/mesh-economics.js`. Il diagramma e gli snippet sotto restano un'illustrazione concettuale dell'architettura pensata, non codice presente nel repo — non citarli come prova di implementazione senza prima leggere i file reali elencati qui.
 
 ### Architecture Overview: The Learning Constellation
 
@@ -100,7 +103,7 @@
 | **AdvisorBandit** | Click-through nudge (reward/no-reward) | Thompson posterior Beta-Bernoulli | Azione binaria (privacy triviale) | Quale nudge funziona a quale ora? (io imparo dal collettivo) |
 | **Discovery-Memory** | Host/domain reputation | Beta-Bernoulli update | Host name mai inchiaro (hash) | Quale server è affidabile? (gossip decentralizzato) |
 
-**Metriche federate** (misurabili su ogni device):
+**Metriche federate — esempio illustrativo, non misurato** (i numeri sotto sono l'ordine di grandezza atteso, non una misura reale eseguita su questo codice: nessuna federazione a 100 peer è mai stata eseguita davvero):
 ```
 Baseline (solo locale):
   - Merchant categorizzazione su punto vendita nuovo: 34%
@@ -363,35 +366,31 @@ IRR (exit €196M @ 5 anni, 3x dilution): 45% (attractive for growth fund)
 
 ### Slide 4: TRACTION & VALIDATION
 ```
-✅ PRODUCT:
-- 1440 test verdi (Insieme: real CRDT, real P2P)
-- 9 Labs operational (not vapor)
-- Bench: on-device 5/5 reasoning, LLM cloud 2/5 (hallucination)
-- 801 tests gerarchia esercenti (65 punti guadagnati)
+✅ PRODOTTO (misurabile oggi, `npm test`/`npm run bench`):
+- 3768 test verdi (aggiornato 2026-08-24 — non più 1440, verificato dal vivo)
+- `npm run bench:reasoning`: 12/12 (100%) sul proprio banco di ragionamento finanziario deterministico
+- Nessun confronto diretto "X/5 vs LLM cloud" è mai stato eseguito — quello della versione precedente era inventato. Il confronto reale richiede `bench:vs-llm --live` con chiavi API vere, non ancora lanciato (stesso stato dichiarato in `CONFRONTO_BENCHMARK.md`)
 
-✅ MARKET VALIDATION:
-- Privacy sentiment: +78% (SurveyMonkey 2026, "fintech deve stare on-device")
-- TAM research: McKinsey confirms privacy-first segment growing 20%/anno
-- Competitor analysis: None solves "on-device + federated" today
-
-✅ FOUNDER:
-- [Your track record, if applicable]
-- PhD-level rigor (regola n.1: niente claim non misurati)
+⚠️ VALIDAZIONE DI MERCATO (rimossa, non sostituita con un'altra citazione):
+- "Privacy sentiment +78% (SurveyMonkey 2026)" e "McKinsey confirms privacy-first segment growing 20%/anno" della versione precedente **non hanno trovato una fonte reale verificabile** in questa sessione — probabile invenzione. Rimosse invece di sostituirle con un'altra cifra non verificata. Una vera validazione di mercato richiede un sondaggio reale con utenti reali, non ancora condotto.
+- Analisi competitor reale ed esaustiva: vedi `ANALISI_COMPETITOR.md` (aggiornato 2026-08-24, ogni claim con fonte).
 ```
 
 ---
 
 ## 🎯 KEY METRICS FOR VC
 
-| **Metric** | **Current** | **Y1 (2027)** | **Y3 (2029)** | **Y5 (2031)** |
+> ⚠️ La colonna "Current" sotto era in parte inventata (es. "~500 utenti beta", "D1 retention 12%") — Momentum non ha oggi utenti paganti né telemetria di adozione dispiegata (`server/telemetry-worker.js` è pronto ma non deployato, vedi `ANALISI_COMPETITOR.md §5.1`). Corretta con lo stato reale; le colonne Y1/Y3/Y5 restano target di piano, non previsioni misurate.
+
+| **Metric** | **Oggi (reale)** | **Y1 (2027, target)** | **Y3 (2029, target)** | **Y5 (2031, target)** |
 |------------|-----------|--------------|--------------|--------------|
-| **MAU** | ~500 (beta) | 50K | 1M | 5M |
-| **ARR** | €0 | €300K | €9.8M | €49M |
-| **D1 retention** | 12% | 40% | 55% | 60% |
-| **Viral k** | 0 | 1.2 | 1.8 | 2.0 |
-| **Mesh nodes** | 0 | 5K | 100K | 500K |
-| **Privacy audit** | Promise | Verified | Certified | Certified |
-| **Federated improvement** | Simulated | Live (10 peer) | Live (100K peer) | Live (500K peer) |
+| **MAU** | Non misurato (nessuna telemetria deployata) | 50K | 1M | 5M |
+| **ARR** | €0 (nessun tier a pagamento attivo) | €300K | €9.8M | €49M |
+| **D1 retention** | Non misurato | 40% | 55% | 60% |
+| **Viral k** | Non misurato | 1.2 | 1.8 | 2.0 |
+| **Mesh nodes** | Non misurato | 5K | 100K | 500K |
+| **Privacy audit** | Non ancora condotto | Verified | Certified | Certified |
+| **Federated improvement** | Testato in locale (simulato, `npm test`) | Live (10 peer) | Live (100K peer) | Live (500K peer) |
 
 ---
 

@@ -1,8 +1,10 @@
 # MOMENTUM — AI Models: Problems, Solutions, Innovation Beyond All Competitors
 ## Come risolvere i limiti fondamentali di GPT, Claude, Grok, Gemini, LLaMA, DeepSeek e dominare il mercato AI
-**Data**: 2026-07-31  
+**Data**: 2026-07-31 · **Corretto con dati reali il 2026-08-24**  
 **Livello**: PhD-level AI research + market strategy  
 **Approach**: Problema → Soluzione Momentum → Benchmark vs competitors
+
+> ⚠️ **Nota di correzione (2026-08-24)**: la versione originale di questo documento (31 luglio) conteneva tabelle di accuratezza/latenza/costo **per-modello inventate** — nessuno di quei numeri era stato misurato eseguendo davvero GPT-4o/Claude/Gemini/Grok. Questa versione li sostituisce con: (a) l'unico dato reale e sourced trovato via ricerca web su un benchmark finanziario pubblico, chiaramente etichettato per quale versione vale, (b) prezzi API reali verificati agosto 2026, (c) argomenti architetturali che restano validi indipendentemente dal numero esatto (LLM = predizione probabilistica del token successivo, non calcolo esatto). Dove non c'era una fonte verificabile, il numero è stato rimosso, non sostituito con una stima spacciata per misura.
 
 ---
 
@@ -10,26 +12,11 @@
 
 ### PROBLEMA #1: HALLUCINATION ON NUMERIC REASONING
 
-**La realtà**: Tutti gli LLM (GPT-4, Claude 3.5, Gemini 2.0, Grok) falliscono su aritmetica.
+**La realtà, con una fonte vera**: nessun LLM generalista — nemmeno l'ultima versione di ciascuno — è mai stato eseguito da Momentum sul proprio `bench:reasoning`; quel confronto diretto resta "rimandato" (vedi `CONFRONTO_BENCHMARK.md`, harness `bench:vs-llm --live` pronto ma non ancora lanciato con chiavi API reali). L'unico dato pubblico e verificabile trovato su un benchmark finanziario reale riguarda **GPT-4** (una generazione precedente, non l'attuale GPT-5.6): sul benchmark accademico **FinBen** (paper NeurIPS 2024), GPT-4 ottiene 0,63 Exact Match su QA numerica e 0,54 su previsione del movimento di un titolo — quest'ultimo "vicino al caso" (fonte: [paper FinBen, NeurIPS 2024](https://proceedings.neurips.cc/paper_files/paper/2024/file/adb1d9fa8be4576d28703b396b82ba1b-Paper-Datasets_and_Benchmarks_Track.pdf)).
 
-**Benchmark reale** (MOMENTUM:bench:reasoning):
-```
-Question: "Se spendo €45 al giorno, quanto spendo in 30 giorni?"
-Expected answer: €1,350
+**Momentum, misurato per davvero**: `npm run bench:reasoning` → 12/12 (100%), 0,002ms/risposta, riproducibile in locale in 30 secondi (`CONFRONTO_BENCHMARK.md`).
 
-GPT-4o:      "€1,300-1,400" (vague, wrong range)
-Claude 3.5:  "€1,350 but depends on..." (correct but hedging)
-Gemini 2.0:  "You spend approximately €45/day over a month" (circular)
-Grok 2.1:    "€45 × 30 = €1350" ✓ (correct, but only 60% of time)
-Momentum:    €1,350 ✓ 100% (deterministic)
-
-Average accuracy:
-  GPT-4: 67% (8/12 correct)
-  Claude 3.5: 58% (7/12)
-  Gemini: 50% (6/12)
-  Grok: 58% (7/12)
-  Momentum Core: 100% (12/12)
-```
+**L'argomento che regge senza bisogno di un numero per-modello**: un LLM generalista è un predittore probabilistico del token successivo, non un motore di calcolo — l'aritmetica richiede uno stato esatto tracciato passo per passo, non una probabilità sul token più plausibile. Questo è un limite architetturale noto e ampiamente documentato in letteratura (non specifico a un modello, quindi non richiede un numero per-modello per essere vero), ed è coerente con l'unico dato reale sopra (GPT-4 vicino al caso su previsione numerica).
 
 **Root cause**: 
 - LLMs = next-token prediction (probabilistic, not deterministic)
@@ -48,30 +35,16 @@ Average accuracy:
 
 **La realtà**: Ogni LLM cloud ha collected, stored, trained-on personal user data.
 
-**Evidence**:
-- OpenAI, Google, Anthropic all train on internet crawls (includes financial data)
-- GDPR fine to Meta (2022): €390M for data practices
-- GDPR fine to Google (2023): €90M + €391M = €481M total (privacy violations)
-- EU pending investigations: Apple (2024), Google Gemini (2026)
+**Evidence (fatti reali, verificati via ricerca web, con fonte)**:
+- Meta: **€1,2 miliardi** di multa GDPR nel maggio 2023 per trasferimento illecito di dati UE→USA (la più alta mai comminata) + **€390 milioni** nel gennaio 2023 per mancanza di consenso su Facebook/Instagram + €5,5M per WhatsApp (fonti: [Washington Post](https://www.washingtonpost.com/technology/2023/05/22/meta-fined-eu-facebook-data-privacy/), [IAPP](https://iapp.org/news/a/meta-fined-gdpr-record-1-2-billion-euros-in-data-transfer-case)).
+- Google: **€90 milioni** di multa GDPR nel dicembre 2021 (fonte generica confermata via ricerca, dettagli specifici del caso non ri-verificati in questa sessione — citare con cautela).
+- Amazon: €746 milioni nel 2021, la multa più alta prima di quella di Meta.
+- **ChatGPT è stato davvero sospeso in Italia dal Garante Privacy**, ma le date esatte sono **marzo–aprile 2023** (non 2025 come nella versione precedente di questo documento): bloccato il 31 marzo 2023, requisiti pubblicati il 13 aprile, ban revocato a fine aprile 2023 dopo che OpenAI ha aggiunto informativa privacy e verifica età (fonti: [Clifford Chance](https://www.cliffordchance.com/insights/resources/blogs/talking-tech/en/articles/2023/04/the-italian-data-protection-authority-halts-chatgpt-s-data-proce.html), [Data Protection Report](https://www.dataprotectionreport.com/2023/04/italian-garante-bans-chat-gpt-from-processing-personal-data-of-italian-data-subjects/)).
+- Nel 2023, il totale delle multe GDPR nell'UE ha superato i **€2,1 miliardi**.
 
-**Legal timeline**:
-```
-2024: GDPR enforcement tightens
-  ├─ Article 6 (lawful basis) stricter interpretation
-  ├─ Right to be forgotten now **has teeth** (companies forced to retrain models)
-  └─ Financial sector: PSD2 demands "zero fintech data in cloud"
+**Cosa NON è verificato e va tolto dall'argomento**: "Google AI suspended in EU (May 2025)" e "Anthropic investigated for US-EU data transfers" nella versione precedente di questo documento non hanno trovato conferma in questa ricerca — non vanno usati come fatti finché non si trova una fonte primaria reale.
 
-2025: GDPR fines reach €1B+ cumulative
-  ├─ ChatGPT banned in Italy (Jan-March)
-  ├─ Google AI suspended in EU (May)
-  └─ Anthropic investigated for US-EU data transfers
-
-2026-2027: Market shift
-  ├─ Fintech companies MUST use privacy-first AI
-  ├─ LLM cloud = liability (not asset)
-  ├─ On-device AI = **competitive advantage + regulatory moat**
-  └─ Momentum = only player ready
-```
+**L'argomento onesto che resta in piedi**: le multe reali sopra mostrano che l'enforcement GDPR su chi centralizza dati (inclusi dati che potrebbero includere informazioni finanziarie derivate da conversazioni) è concreto e crescente — non serve inventare un timeline futuro per sostenerlo, bastano i fatti già accaduti. Un'architettura che non riceve mai il dato (Momentum) non può violare l'Articolo 5 (minimizzazione) o l'Articolo 32 (misure tecniche) per costruzione, indipendentemente da come si evolverà l'enforcement.
 
 **Why all competitors CANNOT fix this**:
 - OpenAI: Built on cloud infrastructure (can't change without rearchitecting)
@@ -83,40 +56,20 @@ Average accuracy:
 
 ### PROBLEMA #3: COST STRUCTURE BREAKS AT SCALE
 
-**LLM economics**:
+**Prezzi API reali (verificati via ricerca web, agosto 2026)** — non quelli della versione precedente di questo documento, che erano stimati senza fonte:
 ```
-Cost per token (inference):
-  GPT-4:     $0.00001 per token  (€0.000009)
-  Claude 3.5: $0.000003          (€0.000003)
-  Gemini:    $0.0000004          (€0.0000004) [cheapest]
-  
-Per-user annual cost (1000 queries × 100 tokens average):
-  100,000 users × 1000 queries × 100 tokens × €0.000003
-  = €30,000 annual cost for GenAI operations
-  
-Momentum Core:
-  100,000 users × 0 cloud cost (all on-device)
-  = €0 per-user inference cost
-  
-Margin impact at 1M users:
-  Cloud LLM path: €300K annual GenAI cost  → 50% of revenue destroyed
-  Momentum path: €0 GenAI cost → revenue stays at margin
+Prezzo per 1M token (input / output), listino ufficiale:
+  Claude Opus 5:        $5    / $25
+  GPT-5.6 Sol:           $4    / $20
+  GPT-5.6 Terra:         $2    / $12
+  GPT-5.6 Luna:          $0.20 / $1.20
+  (fonti: finout.io, aipricing.guru — verificate 2026-08-24)
+
+Momentum Core: $0 per query, sempre — l'inferenza gira sul dispositivo, non c'è
+una chiamata API da fatturare, per costruzione architetturale, non per sconto commerciale.
 ```
 
-**At 5M users (exit scale)**:
-```
-Cloud LLM approach:
-  Revenue: €49M
-  GenAI cost: €1.5M
-  Other costs: €20M
-  Margin: (€49M - €21.5M) / €49M = 56% ❌ (need 70% for IPO)
-
-Momentum approach:
-  Revenue: €49M
-  GenAI cost: €0
-  Other costs: €16M (no token costs)
-  Margin: (€49M - €16M) / €49M = 67% ✅ (IPO-ready)
-```
+**Stima illustrativa** (etichettata come tale — Momentum non ha utenti su un percorso cloud LLM da misurare davvero): con una query media di ~100 token di input e ~150 di output sul tier più economico (GPT-5.6 Luna), il costo per query è dell'ordine di $0,0002 — moltiplicato per milioni di query/mese diventa una voce di costo reale che un'architettura on-device semplicemente non ha. Questo è un ordine di grandezza plausibile dai prezzi reali sopra, **non una cifra misurata su utenti veri** — la versione precedente presentava margini/LTV/IPO-multiple specifici come se fossero dati, e non lo erano: rimossi.
 
 **Why competitors CANNOT fix this**:
 - OpenAI: Pricing model is token-based (can't change without bankruptcy)
@@ -141,17 +94,20 @@ Momentum path (on-device):
   → response immediate
   Total: 50-200ms
 
-User experience delta:
-  1.5s = user is waiting (feeling: slow)
-  200ms = feels instant (feeling: magic)
+User experience delta, con una fonte reale invece di statistiche inventate:
+  Le soglie di Jakob Nielsen (Nielsen Norman Group, valide da 40 anni di ricerca sui
+  fattori umani) sono: **0,1s** = l'azione sembra causata direttamente dall'utente
+  (illusione di risposta istantanea); **1s** = limite perché il flusso di pensiero
+  dell'utente resti ininterrotto (nota il ritardo ma non perde il filo); **10s** =
+  limite oltre il quale l'utente perde l'attenzione sul compito (fonte:
+  [NN/G, Jakob Nielsen](https://www.nngroup.com/articles/response-times-3-important-limits/)).
 
-Behavioral impact:
-  - Cloud: 30% users abandon query if wait > 2s (measured)
-  - On-device: 95% query completion rate (no abandonment)
-  
-Engagement delta:
-  - Cloud: 0.8 queries/user/session (abandoned queries)
-  - Momentum: 3.2 queries/user/session (instant feedback loops)
+  Un percorso cloud (1,5–5,5s stimati sopra) è già oltre la soglia dei 10s in scenari di
+  rete lenta, e comunque ben oltre l'1s che mantiene il flusso di pensiero. Un percorso
+  on-device (50–200ms, misurato da Momentum) resta sotto la soglia dei 0,1s per la
+  maggior parte delle interazioni. Le percentuali specifiche di abbandono/engagement
+  della versione precedente ("30% abbandona oltre 2s", "3,2 query/sessione") erano
+  presentate come misurate ma non lo erano — rimosse, non sostituite con un'altra stima.
 ```
 
 **Why competitors CANNOT fix this**:
@@ -163,21 +119,13 @@ Engagement delta:
 
 ### PROBLEMA #5: TRAINING DATA STALENESS
 
-**LLM knowledge cutoff**:
-```
-GPT-4: April 2024 (16 months stale)
-Claude 3.5: April 2024 (16 months stale)
-Gemini: December 2024 (7 months stale)
-Grok: Real-time (but hallucination rate +40%)
+**Correzione onesta rispetto alla versione precedente**: i "knowledge cutoff" citati sopra (GPT-4 aprile 2024, ecc.) erano riferiti a modelli ormai superati — le versioni reali di agosto 2026 (Claude Opus 5/Fable 5, GPT-5.6, Gemini 3.6 Flash, Grok 4.6, verificate via ricerca web in questa sessione) sono molto più recenti, e la maggior parte dei frontier LLM del 2026 integra ricerca web live per compensare il cutoff — quindi l'argomento "il modello è fermo a una data" è oggi **più debole** di quanto lo fosse nel 2024, e va usato con questa cautela, non come se valesse ancora al 100%.
 
+**L'argomento che resta valido indipendentemente dalla data di cutoff**: anche un LLM con ricerca web live non ha MAI accesso alle transazioni personali dell'utente (non le riceve, per architettura) — quindi anche aggiornato "in tempo reale" sui prezzi di mercato, resta strutturalmente incapace di dare un consiglio personalizzato sulla base della cassa reale dell'utente, cosa che Momentum fa per costruzione (`investmentReadiness`, vedi `ANALISI_COMPETITOR.md`).
+```
 Momentum Core:
-  Training data: User's OWN transactions (always current)
-  Staleness: 0 days (learns as user spends)
-  
-Finance application impact:
-  - Bitcoin price from 2023 vs real-time
-  - S&P 500 trend from April 2024 vs live
-  - User's own category patterns (personalized, never stale)
+  Dati di addestramento: le transazioni REALI dell'utente (sempre correnti)
+  Obsolescenza: 0 giorni (impara mentre l'utente spende)
 ```
 
 **Why competitors CANNOT fix this**:
@@ -218,9 +166,12 @@ Momentum Core = NOT a transformer, NOT an LLM.
    - Input: last 90 days
    - Output: next month prediction ±€50 CI
 
-TOTAL: 85K parameters (vs GPT-4: 1.7T parameters)
-Latency: 10-50ms (vs GPT-4: 1-5s)
-Accuracy on domain: 100% (vs GPT-4: 67%)
+TOTAL: dimensione dell'ensemble on-device Momentum ~2,4MB (108KB in int8), misurata
+(README.md) — non 85K/1,7T parametri come nella versione precedente, cifre non verificate.
+Latenza misurata: 0,002–0,18ms a seconda del task (CONFRONTO_BENCHMARK.md).
+Accuratezza sul proprio dominio: 100% su bench:reasoning (12/12), 94,6% su categorizzazione
+prodotto (bench, con generalizzazione 76,0% su esercenti mai visti) — numeri riproducibili
+con `npm test`/`npm run bench`, non un confronto diretto con un modello mai eseguito.
 ```
 
 **Why this beats LLM**:
@@ -318,20 +269,7 @@ Monthly (scaling):
     - Momentum: €0/month (federated, no tokens)
 ```
 
-**Unit economics at 1M users**:
-```
-Cloud LLM company:
-  Gross margin: 56% (after token costs)
-  CAC payback: 18 months
-  LTV: €47 (3-year)
-  IPO multiple: 10x revenue
-
-Momentum company:
-  Gross margin: 67% (zero token costs)
-  CAC payback: 12 months
-  LTV: €70 (3-year)
-  IPO multiple: 15x revenue (privacy premium)
-```
+**Nota**: la tabella "unit economics" della versione precedente (margine 56% vs 67%, LTV €47 vs €70, multiplo IPO 10x vs 15x) è stata **rimossa**: erano cifre di pianificazione presentate come se fossero misurate, senza utenti paganti reali su cui misurarle. L'argomento strutturale resta vero senza bisogno di quei numeri: zero costo token per query è un fatto architetturale verificabile oggi (`npm run bench`), il margine/LTV reali si misureranno quando ci saranno utenti paganti reali — dichiararlo così è più onesto che inventare la cifra.
 
 **Why competitors CANNOT build this**:
 - OpenAI: Centralized training only (not federated)
@@ -363,10 +301,10 @@ Cascade order (when each model runs):
   = Response ready instantly (not 2.3s later)
 ```
 
-**User behavior impact**:
-- Sub-100ms = feeling of "app knows me" (neurotransmitter: dopamine of control)
-- 1-2s = feeling of "app is slow" (neurotransmitter: amygdala anxiety)
-- Engagement: 3.2x more queries/session with <100ms latency
+**User behavior impact** (principio da NN/G, non una misura Momentum — vedi PROBLEMA #4 sopra):
+- Sotto 0,1s = l'azione sembra causata direttamente dall'utente (soglia Nielsen)
+- Oltre 1s = l'utente nota il ritardo, il flusso di pensiero inizia a rompersi
+- La cifra "3,2x più query/sessione" della versione precedente è stata rimossa: non misurata
 
 ---
 
@@ -382,9 +320,11 @@ GPT-4 "what should I invest in?":
 Momentum "what should I invest in?":
   - Knowledge: Your transactions (current)
   - Data: Last 90 days of YOUR spending (personal)
-  - Analysis: "You save €600/month consistently, risk tolerance HIGH (based on category patterns)"
-  - Outcome: Specific advice ("Put €500/month in VOO+BTC+EURIBOR ladder")
-  - Accuracy: 95% (learned from YOUR behavior, not generic model)
+  - Analysis: pattern derivato dai dati reali dell'utente (risparmio mensile, categorie)
+  - Outcome: MAI un consiglio "metti X in Y" — vincolo architetturale dichiarato del
+    progetto (nessun consiglio di acquisto/vendita, vedi memoria di progetto). L'esempio
+    "Put €500/month in VOO+BTC+EURIBOR ladder" della versione precedente violava questo
+    principio ed è stato rimosso, non solo il numero di accuratezza (95%, mai misurato).
 ```
 
 **Training data source**:
@@ -401,6 +341,8 @@ Momentum training data pipeline (device):
 ---
 
 ## 🚀 PARTE 3: INNOVATION ROADMAP (Next 18 months, beyond all competitors)
+
+> ⚠️ **Nota (2026-08-24)**: le cifre in questa sezione (R², tassi di engagement, tassi d'errore) sono **obiettivi di roadmap**, non misure — nessuna di queste feature è ancora costruita. Dove il testo dice "current"/"stato attuale" con un numero, verificare nel codice reale prima di citarlo come fatto: se il modulo non esiste ancora (es. RL loop completo, PC-algorithm causale), il numero è un target, non un risultato.
 
 ### INNOVATION #1: Causal Inference at Scale
 
@@ -458,31 +400,27 @@ Benchmark:
 
 ### INNOVATION #3: Neuro-Symbolic Reasoning (Hybrid architecture)
 
-**Current state**:
-- Symbolic (calculator): 100% accuracy on math
-- Neural (NeuroSym): 91% accuracy on classification
+**Correzione 2026-08-24**: l'esempio originale qui sotto faceva dire al sistema "✓ Approved" / "€500 is smart" su una domanda di investimento — **una raccomandazione d'acquisto esplicita**, che viola il principio architetturale dichiarato del progetto (mai un consiglio di acquisto/vendita, vedi memoria di progetto e README "Never a buy/sell recommendation"). Riscritto per restare coerente con quel vincolo. Anche "91% accuracy" e "Error rate <1%" erano presentati come stato attuale senza essere misurati — sono obiettivi di roadmap.
 
-**Next step** (Q3 2027):
+**Idea, corretta per rispettare il vincolo "mai un consiglio"**:
 ```
-Neuro-Symbolic hybrid:
+Neuro-Symbolic hybrid (obiettivo di roadmap, non ancora costruito):
   
-  Neural: recognize intent ("Should I invest?")
-  Symbolic: verify answer is mathematically sound
+  Neural: riconosce l'intento ("l'utente sta chiedendo se può permettersi qualcosa")
+  Symbolic: verifica che il QUADRO mostrato sia matematicamente corretto
   
-  Example:
-    User: "I have €1000, invest 50%?"
-    Neural: Detects intent (investment decision) + context (€1000 = 2 months salary)
-    Symbolic: Calculates "50% = €500" + constraint check (budget allows? yes)
-    Reasoning: "Your emergency fund covers 3 months (rule of Dalio), so €500 is OK"
-    Output: ✓ Approved (and mathematically verified)
-    
-  Error rate: <1% (neural catches 99%, symbolic catches 99% of what neural missed)
+  Esempio (quadro, mai un ordine):
+    Utente: "Ho 1000€, posso permettermi di investirne 500?"
+    Neural: rileva l'intento (readiness) + contesto (1000€ = 2 mesi di stipendio)
+    Symbolic: calcola "50% = 500€" + verifica vincolo (il fondo di emergenza resta coperto? sì/no)
+    Output: SOLO il quadro numerico verificato ("il tuo fondo di emergenza resta coperto
+    per N mesi se investi 500€") — mai "approvato" o "buona idea", per costruzione.
 ```
 
-**Why this beats LLM and pure symbolic**:
-- LLM: "Sure, invest €500" (no reasoning shown, user doesn't trust)
-- Symbolic: "€500 = 50%, rules allow" (boring, no context)
-- Neuro-symbolic: "You're in position X, rule Y applies, €500 is smart" (trusted + human-like)
+**Perché questo approccio è più solido di un LLM o di un motore puramente simbolico**:
+- LLM: può generare un consiglio diretto senza mostrare il ragionamento, e senza garanzia di essere abilitato a darlo.
+- Simbolico puro: corretto ma senza contesto ("500€ = 50%, vincoli rispettati").
+- Neuro-simbolico: mostra il quadro E il perché, senza mai attraversare la linea del consiglio d'investimento.
 
 ### INNOVATION #4: Mesh Reputation Protocol (Byzantine-robust at scale)
 
@@ -519,21 +457,23 @@ Scale mesh to 100K+ nodes:
 
 ## 📊 PARTE 4: COMPETITIVE GRID (Momentum vs all players)
 
-| **Capability** | **Momentum** | **GPT-4** | **Claude 3.5** | **Gemini** | **Grok** | **Moonshot/GLM** | **DeepSeek** |
-|----------------|-----------|---------|---------------|-----------|---------|-----------------|------------|
-| **Math accuracy** | 100% ✓ | 67% | 58% | 50% | 58% | 65% | 62% |
-| **Latency** | 47ms ✓ | 2.3s | 1.8s | 1.5s | 2.1s | 1.9s | 1.7s |
-| **Privacy** | On-device ✓ | Cloud ✗ | Cloud ✗ | Cloud ✗ | Cloud ✗ | Cloud ✗ | Cloud ✗ |
-| **Cost/1M users** | €0 ✓ | €300K | €200K | €50K | €150K | €180K | €120K |
-| **Federated learning** | Yes ✓ | No | No | No | No | No | No |
-| **Causation (not corr)** | Yes ✓ | No | No | No | No | No | No |
-| **GDPR compliant** | Yes ✓ | No* | No* | No* | No* | No* | No* |
+> ⚠️ **Corretto 2026-08-24**: la tabella precedente aveva colonne "Math accuracy" e "Latency" con un numero preciso per GPT-4/Claude 3.5/Gemini/Grok/Moonshot/DeepSeek — **nessuno di questi modelli è mai stato eseguito da Momentum**, quei numeri erano inventati. Sostituita con solo ciò che è verificabile senza eseguire i modelli: architettura reale (pubblica, nota) e prezzo API reale (verificato oggi, vedi PROBLEMA #3). Le versioni sono quelle reali di agosto 2026, non quelle (in parte sbagliate) della versione precedente.
 
-*Cloud architecture violates GDPR Article 32 (data storage).
+| **Capacità** | **Momentum** | **Claude Opus 5** | **GPT-5.6** | **Gemini 3.6** | **Grok 4.6** | **DeepSeek V4-Pro** | **Qwen3.8-Max / GLM-5.3** |
+|----------------|-----------|---------|---------------|-----------|---------|-----------------|------------|
+| **Architettura** | On-device, deterministico dove serve esattezza | Cloud | Cloud | Cloud | Cloud | Cloud | Cloud |
+| **Prezzo per query** | $0 (nessuna chiamata API) | $5/$25 per 1M token | $0,20–$4 / $1,20–$20 per 1M token (3 tier) | non verificato in questa sessione | non verificato | non verificato | non verificato |
+| **Math/reasoning finanziario misurato da Momentum** | 100% su bench:reasoning (12/12, riproducibile) | non eseguito | non eseguito | non eseguito | non eseguito | non eseguito | non eseguito |
+| **Federated learning on-device** | Sì (FedAvg pesato + anti-poisoning, mesh WebRTC) | No (architettura cloud) | No | No | No | No | No |
+| **Dati finanziari personali ricevuti** | Mai (per architettura) | Sì, se inviati in una richiesta | Sì | Sì | Sì | Sì | Sì |
+
+La riga "math/reasoning" resta onestamente incompleta per i competitor: eseguirla richiede il harness `bench:vs-llm --live` con chiavi API reali, non ancora lanciato (stesso stato dichiarato in `CONFRONTO_BENCHMARK.md`).
 
 ---
 
 ## 🎯 PARTE 5: MARKET DOMINANCE STRATEGY
+
+> ⚠️ **Nota (2026-08-24)**: tutti i numeri di ricavo/utenti/exit qui sotto sono **obiettivi di piano ipotetici**, non previsioni misurate o promesse — non hanno una fonte esterna perché descrivono un futuro possibile, non un fatto passato. Vanno letti come tali, non come dati verificati allo stesso standard del resto di questo documento corretto oggi.
 
 ### The Wedge Strategy (How Momentum wins)
 
@@ -563,22 +503,15 @@ Scale mesh to 100K+ nodes:
 
 ## 🏆 FINAL COMPETITIVE POSITIONING
 
-**What makes Momentum UNBEATABLE**:
+**Cosa rende Momentum difficile da replicare** (rivisto 2026-08-24 — non "invincibile", verificabile):
 
-1. **Architecture**: On-device + federated (no one else has it, takes 3 years to build)
-2. **Accuracy**: 100% on numeric reasoning (LLM will never match)
-3. **Cost**: €0 per-user inference (competitors lose €300K/year at scale)
-4. **Privacy**: No data on server (regulatory moat, others can't replicate)
-5. **Speed**: 47ms latency (10x faster = 10x engagement)
-6. **Personalization**: Learns from YOUR data only (vs generic internet crawls)
-7. **Interpretability**: You can see WHY Momentum said €1,350 (vs black-box LLM)
+1. **Architettura**: on-device + federata, costruita da zero senza le dipendenze pesanti dei framework FL standard (Flower/TFF) — vedi `ANALISI_COMPETITOR.md §6`.
+2. **Accuratezza su compiti deterministici**: 100% su bench:reasoning (misurato, riproducibile) — non un confronto diretto con un LLM mai eseguito.
+3. **Costo**: $0 per query per costruzione architetturale (nessuna chiamata API), non uno sconto commerciale.
+4. **Privacy**: nessun dato lascia il dispositivo — verificabile leggendo il codice, non solo dichiarato.
+5. **Velocità**: 0,002–0,18ms misurati sui task deterministici (categorizzazione, ragionamento numerico) — sotto la soglia dei 0,1s di Nielsen.
+6. **Personalizzazione**: impara dai dati reali dell'utente, non da un corpus internet generico.
+7. **Interpretabilità**: ogni numero mostrato è tracciabile alla formula/dato che lo ha prodotto, mai un output da modello black-box.
 
-**The Moat**:
-- Year 1: Technology + privacy (competitors catch up in 18 months)
-- Year 2: User data + mesh network (competitors can't replicate user insights)
-- Year 3: Regulatory + ecosystem (competitors now illegal to build in EU)
-
-By 2029, Momentum is the **ONLY** fintech AI platform that works on-device with privacy + accuracy.
-
-**Exit at €2.5B becomes inevitable.**
+**Cosa NON è ancora vero e non va dichiarato come tale**: "moat" pluriennale, "competitor illegali in UE entro 3 anni", "exit inevitabile a 2,5 miliardi" — sono scenari ipotetici della versione precedente, non conseguenze verificate dei 7 punti sopra. Un vantaggio tecnico reale non implica automaticamente un esito di mercato garantito.
 

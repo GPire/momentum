@@ -3766,7 +3766,17 @@ function renderTax(monthK) {
       html += `<div class="mt-3 border border-[color-mix(in_srgb,var(--gold)_25%,transparent)] bg-[color-mix(in_srgb,var(--gold)_5%,transparent)] rounded-xl px-3 py-2.5">
         <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wider">${pend.count} fattur${pend.count > 1 ? 'e' : 'a'} da caricare sullo SdI</span></div>
         <div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div>
-        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <!-- BUG REALE segnalato dal vivo (2026-08-25): questo promemoria offriva
+               solo il link nudo al portale — la guida passo-passo esisteva ma SOLO
+               subito dopo aver creato la fattura (showUploadHelp/openSdiWalkthrough
+               in window.openCreateInvoice). Chi torna qui più tardi (il caso più
+               comune: si crea la fattura e la si trasmette un altro giorno) restava
+               di nuovo senza aiuto sul portale reale. Stesso walkthrough, richiamato
+               senza nome file esatto (fallback onesto a "il file XML" generico). -->
+          <button type="button" onclick="window.openSdiWalkthrough(null, ${pend.invoices[0].number}, ${pend.invoices[0].year})" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[var(--on-surface-secondary)]"><svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>Guidami passo dopo passo</button>
+        </div>
       </div>`;
     }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
@@ -7023,7 +7033,7 @@ function showUploadHelp(filename, number, year) {
       <div class="mt-2">${tl1Checklist('tl1-check-sdi', ['SPID, CIE, CNS oppure credenziali Entratel/Fisconline', `Il file ${(filename || 'XML').replace(/</g, '')} già scaricato da Momentum (fatto)`])}</div>
       <div class="font-bold mt-3 mb-1.5 text-[10px] uppercase tracking-wide text-[var(--on-surface-secondary)]">Come caricarla (una volta sola, poi è routine)</div>
       <div class="flex flex-col gap-2">
-        ${tl1Step(1, 'Accedi al portale <b class="text-[var(--on-surface)]">Fatture e Corrispettivi</b> con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline.')}
+        ${tl1Step(1, 'Accedi al portale <b class="text-[var(--on-surface)]">Fatture e Corrispettivi</b> con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline. Se dopo l\'accesso finisci su una pagina diversa (es. "Registrazione indirizzo telematico"), non hai sbagliato: cerca il link <b class="text-[var(--on-surface)]">"torna a Fatture e Corrispettivi"</b> in alto e riparti da lì.')}
         ${tl1Step(2, 'Alla prima schermata scegli il profilo <b class="text-[var(--on-surface)]">"Me stesso"</b> (sei tu che fatturi, non un\'altra persona/azienda) — è il punto dove più persone si bloccano: se vedi un elenco di aziende/deleghe, "Me stesso" è comunque sempre la prima opzione in alto.')}
         ${tl1Step(3, 'Apri la sezione <b class="text-[var(--on-surface)]">Fatturazione elettronica</b> e cerca <b class="text-[var(--on-surface)]">"trasmetti" / "importa un file"</b>.')}
         ${tl1Step(4, `Carica il file <b class="text-[var(--on-surface)]">${(filename || 'XML').replace(/</g, '')}</b> che hai appena scaricato da Momentum.`)}
@@ -7043,6 +7053,10 @@ function showUploadHelp(filename, number, year) {
           ${tl1Step(3, 'Tieni le ricevute che arrivano: dicono se la fattura è stata consegnata o scartata.')}
           <div class="text-[10px] text-amber-300 opacity-90">Attenzione: mandare il file direttamente alla PEC del cliente, senza passare per lo SdI, NON vale come fattura elettronica — va sempre allo SdI prima.</div>
         </div>
+      </details>
+      <details class="mt-2.5 pt-2.5 border-t border-emerald-400/20">
+        <summary class="cursor-pointer font-bold text-[11px]">Vuoi anche ricevere automaticamente le fatture dei tuoi fornitori? (facoltativo, una volta sola)</summary>
+        <div class="mt-2 text-[11px] text-[var(--on-surface-secondary)] leading-snug">Questa guida ti porta a <b class="text-[var(--on-surface)]">inviare</b> la fattura che hai creato — è una cosa diversa dal <b class="text-[var(--on-surface)]">ricevere</b> quelle dei tuoi fornitori. Sullo stesso portale c'è una sezione separata, "Registrazione dell'indirizzo telematico", dove dici all'Agenzia dove recapitarti le fatture in arrivo (Codice Destinatario o PEC). Non è obbligatoria — senza, le fatture in arrivo restano comunque nel tuo cassetto fiscale — ma se la vedi comparire dopo il login, ora sai cos'è: un'impostazione a parte, non un errore.</div>
       </details>
       <button type="button" id="tl1-sdi-expert-toggle" class="mt-2 text-[10px] font-bold text-[var(--on-surface-secondary)] underline">Sei del mestiere? Mostra i riferimenti normativi</button>
       <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: obbligo generalizzato di fatturazione elettronica tra privati dal 1° gennaio 2019 — L. 205/2017 (Legge di Bilancio 2018), art. 1 commi 909–928. Regole tecniche del Sistema di Interscambio: DM 55/2013.</div>
@@ -7068,7 +7082,7 @@ function showUploadHelp(filename, number, year) {
 // e Momentum non può vederli in anticipo) — sono passi ricreati nella
 // sequenza ufficiale, dichiarati come tali fin dal primo schermo.
 const SDI_WALKTHROUGH_STEPS = [
-  { icon: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', title: 'Accedi', text: 'Apri il portale Fatture e Corrispettivi ed entra con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline — le stesse che usi per la dichiarazione dei redditi.', link: true },
+  { icon: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', title: 'Accedi', text: 'Apri il portale Fatture e Corrispettivi ed entra con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline — le stesse che usi per la dichiarazione dei redditi. Se dopo l\'accesso ti ritrovi su una pagina diversa (es. "Registrazione indirizzo telematico"), tranquillo: cerca il link "torna a Fatture e Corrispettivi" in alto e riparti da lì.', link: true },
   { icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', title: '"Me stesso"', text: 'Alla prima schermata scegli il profilo "Me stesso": sei tu che fatturi, non un\'altra persona o azienda. È sempre la prima opzione in alto, anche se vedi un elenco di deleghe.' },
   { icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', title: 'Fatturazione elettronica', text: 'Nel menu principale cerca la voce "Fatturazione elettronica", poi "Trasmetti" o "Importa un file".', link: true },
   { icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>', title: 'Carica il file', text: null },
@@ -7854,6 +7868,14 @@ window.openCreateInvoice = (prefillClient) => {
       ${warns.length ? `<div class="mt-2 opacity-80">Nota: ${warns.map(w => w.message).join(' ')}</div>` : ''}`;
     box.classList.remove('hidden');
     showUploadHelp(out.filename, res.number, res.year);
+    // BUG REALE segnalato dal vivo (2026-08-24): il pulsante "Scarica fattura
+    // elettronica (XML)" è ancorato in fondo (piè di pagina fisso), ma la
+    // conferma + guida passo-passo compaiono in #inv-xml-controls, più in alto
+    // nel modulo — fuori dallo schermo per chi non scorre da solo. L'utente
+    // vedeva il download partire e "nessuna guida", perché la guida c'era ma
+    // era invisibile sopra la piega. Stesso scroll dolce già usato altrove nel
+    // progetto per portare in vista un contenuto appena apparso.
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     $('#inv-mark-transmitted')?.addEventListener('click', (e) => {
       window.markTransmitted(res.number, res.year);
       const btn = e.currentTarget;
@@ -10621,7 +10643,20 @@ function ensureModalFooterResizeSync() {
   });
   __modalFooterObserver.observe(footer);
 }
+// BUG REALE trovato dal vivo (2026-08-24, testando "Partita IVA"): closeModal()
+// pianifica la sua pulizia (nascondere #modal-container, sbloccare lo scroll)
+// con un setTimeout di 300ms. Alcuni flussi chiamano `closeModal(); openXyz();`
+// nello stesso gestore per passare subito al passo successivo (es. "Sì, ce
+// l'ho già" → apre il selettore regime). Il nuovo modale si apriva e spariva
+// da solo 300ms dopo, perché il timeout ORMAI scaduto di closeModal() non sa
+// che nel frattempo è stato aperto un modale diverso: nasconde comunque il
+// contenitore. Visto dall'utente sembra che il modale "si blocchi" — in
+// realtà si apre e si richiude da solo. Fix: openModal() annulla qualunque
+// chiusura ancora in sospeso, perché aprire un nuovo modale supera per
+// definizione qualunque chiusura pianificata in precedenza.
+let __modalCloseTimer = null;
 window.openModal = (html, footerHtml = '') => {
+  if (__modalCloseTimer) { clearTimeout(__modalCloseTimer); __modalCloseTimer = null; }
   const body = $('#modal-body');
   body.innerHTML = html;
   // Reset di default: solo chi la chiede esplicitamente (openCreateInvoice)
@@ -10683,7 +10718,8 @@ window.closeModal = () => {
   $('#modal-content').classList.add('modal-closing');
   $('#modal-content').classList.add('translate-y-full', 'lg:scale-95', 'opacity-0');
   $('#modal-backdrop').style.opacity = '0';
-  setTimeout(() => {
+  __modalCloseTimer = setTimeout(() => {
+    __modalCloseTimer = null;
     $('#modal-container').classList.add('hidden');
     // Bug reale trovato dal vivo: il piè di pagina è `position:fixed`, quindi
     // sta FUORI da #modal-container — nasconderlo qui e non solo il

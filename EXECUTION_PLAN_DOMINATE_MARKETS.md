@@ -1,8 +1,10 @@
 # MOMENTUM — Piano di Esecuzione Completo
 ## Da oggi (2026-07-31) a €2.5B exit (2028-2029)
-**Stato**: 1440 test verdi, Insieme non-committato, 3 file modificati  
+**Stato**: 1440 test verdi (31 luglio) → **3768 test verdi (2026-08-24, verificato dal vivo)**, "Insieme" già committato e pushato  
 **Target**: Commit + push, Series A €100M, IPO/acquisition €2.5B  
 **Timeline**: 8-12 settimane a milestone critico (Series A close)
+
+> ⚠️ **Nota di correzione (2026-08-24)**: questo documento è un **piano/scenario ipotetico**, non un fatto o una relazione reale in corso. In particolare: (a) i nomi "Bloomberg", "McKinsey", "Visa", "Sequoia", "Accel" come investitori con ticket/ruolo assegnato sono **categorie di target illustrative**, non contatti reali né interesse confermato da nessuna di queste aziende — non vanno mai presentati a terzi come se fosse già in corso una trattativa; (b) il confronto benchmark nella sezione White Paper sotto ("91,6% vs 87% cloud LLM", "Momentum 12/12 vs GPT-4 8/12") era presentato come misurato ma **non è mai stato eseguito** — corretto sotto; (c) tutte le cifre di traction (500+ beta, 30% D7 retention, viral k) sono obiettivi, non dati posseduti oggi — Momentum non ha telemetria di adozione deployata (vedi `ANALISI_COMPETITOR.md §5.1`).
 
 ---
 
@@ -94,10 +96,8 @@ White paper (arXiv): [link to submit]
    - Federated aggregation: CRDT mesh + Byzantine-resilient median
    - Privacy guarantee: DP-noise, hash-chain anti-poisoning
    
-4. Evaluation (3 pages):
-   - Banking77 dataset: 91.6% accuracy vs 87% cloud LLM
-   - Reasoning benchmark (12 questions): Momentum 12/12 vs GPT-4 8/12
-   - Mesh convergence: N=20 devices, < 3 days gossip
+4. Evaluation (3 pages) — **corretto 2026-08-24**: "91,6% vs 87% cloud LLM" e "Momentum 12/12 vs GPT-4 8/12" non erano mai stati misurati eseguendo davvero un LLM cloud — se questo paper viene scritto per davvero, va eseguito prima `bench:vs-llm --live` con chiavi API reali (pronto, mai lanciato). Fino ad allora: solo numeri Momentum reali (`bench:reasoning` 12/12 = 100%, categorizzazione 94,6%, riproducibili con `npm run bench`).
+   - Mesh convergence: N=20 devices, < 3 days gossip — non verificato in questa sessione, verificare prima di citarlo in un paper
    
 5. Results (2 pages): Benchmarks, tables, figures
    

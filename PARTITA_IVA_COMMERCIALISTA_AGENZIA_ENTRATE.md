@@ -1,8 +1,10 @@
 # MOMENTUM — Infrastruttura Fiscale Italia: P.IVA, Commercialista, Agenzia Entrate
 ## Da app privata a piattaforma di stato (Innovativa, semplice, usabile da bambino di 8 anni)
-**Data**: 2026-07-31  
+**Data**: 2026-07-31 · **Corretto con dati reali il 2026-08-24**  
 **Scope**: Italia first, then EU/global expansion  
 **Target**: Risolvere complessità fiscale italiana in modo rivoluzionario
+
+> ⚠️ **Nota di correzione (2026-08-24)**: alcune statistiche sotto sono state verificate via ricerca web e corrette con fonte reale; altre non hanno trovato una fonte verificabile e sono state esplicitamente marcate come tali invece di essere lasciate come se fossero dati misurati.
 
 ---
 
@@ -11,20 +13,30 @@
 ### La Realtà Italiana Oggi
 
 ```
-NUMERO DI P.IVA IN ITALIA: 4.2M
-- Microimprese (1-3 dipendenti): 3.8M (90%)
-- Freelancer/artigiani: 2.1M
-- Ditte individuali: 1.2M
+NUMERO DI P.IVA ATTIVE IN ITALIA: oltre 4,1 milioni (confermato, fonte MEF/Osservatorio
+Partite IVA + Agenzia delle Entrate, dati 2025 — verificato 2026-08-24). La scomposizione
+per "microimprese/freelancer/ditte individuali" della versione precedente (3.8M/2.1M/1.2M
+— che tra l'altro non sommano nemmeno a 4.2M) non ha trovato una fonte reale e va
+considerata un'ipotesi interna, non un dato ufficiale.
+Aperture nel 2025: oltre 500.000 nuove partite IVA (fonte: italpress.com, MEF).
+Nel I trimestre 2026: 184.895 nuove aperture (-2,2% sul 2025), 56,3% in regime
+forfettario (fonte: Dipartimento Finanze, Osservatorio partite IVA I trim. 2026).
 
 COMPLESSITÀ FISCALE (Agenzia Entrate)
-- Adempimenti annuali per P.IVA: 23 obblighi diversi
-- Moduli da compilare: 15+ (F24, 730, REDDITI, IRAP, IVA, ecc)
-- Tempo medio per compliance: 80 ore/anno per P.IVA
-- Costo commercialista medio: €1500-3000/anno
-- Tasso di errore (dichiarazioni sbagliate): 35-40%
+- "23 obblighi diversi", "80 ore/anno di compliance", "tasso di errore 35-40%": **nessuna
+  fonte verificabile trovata in questa sessione** — non ripeterli come dati misurati finché
+  non si trova una fonte primaria reale (es. rapporto CNDCEC, Confartigianato, o dato ufficiale
+  Agenzia Entrate specifico).
+- Moduli reali che una P.IVA può dover gestire: F24, dichiarazione dei redditi (modello
+  REDDITI PF), IVA periodica/annuale, IRAP (se dovuta) — elenco corretto nella sostanza,
+  il numero esatto "15+" non è stato riverificato.
+- Costo commercialista: **Fiscozen** (competitor reale, verificato oggi) costa 449€/anno
+  per il regime forfettario o 1.149€/anno per il semplificato (fonte: fiscozen.it,
+  verificato 2026-08-24) — un dato reale e più preciso del range "€1500-3000/anno" della
+  versione precedente, che restava non sourced.
 
 PERCHÉ È BRUTTO:
-  - P.IVA rinuncia a fatturare per non gestire tasse (nero economico ~€200B/anno)
+  - P.IVA rinuncia a fatturare per non gestire tasse (economia sommersa "legale" in Italia: €197,6 miliardi nel 2023, +14,9 miliardi sull'anno precedente — fonte reale ISTAT, verificata 2026-08-24 (l'economia non osservata totale, sommersa+illegale, è €217,5 miliardi = 10,2% del PIL))
   - Commercialista diventa "black box" (imprenditore non capisce cosa paga)
   - Agenzia Entrate riceve dichiarazioni sbagliate (errori involontari)
   - No interoperabilità: fatture in 10 app diverse (Excel, Wave, FatturaPa, Moneysmart, ecc)
@@ -34,9 +46,14 @@ PERCHÉ È BRUTTO:
 
 ```
 COMPETITOR OGGI:
-  - Danea Aeros (€10/mese) → fatture + libro IVA, ma non EDUCAZIONE
+  - Danea Easyfatt (corretto: non "Danea Aeros" — il prodotto reale si chiama Easyfatt, ed
+    è del gruppo TeamSystem, non un concorrente indipendente da TeamSystem): 15-40€/mese
+    (180€/anno Professional, 420€/anno Enterprise), desktop-only, gestionale magazzino +
+    fatturazione, non tasse italiane specifiche (fonte: srlonline.com, verificato 2026-08-24)
   - Wave (free) → fatture, ma non tasse italiane (US-focused)
-  - TeamSystem (€30-80/mese) → suite completa, ma COMPLESSO (non per bambino)
+  - Fiscozen: 449€/anno forfettario, 1.149€/anno semplificato, con commercialista umano
+    incluso (fonte reale, vedi sopra) — il prezzo "€30-80/mese TeamSystem" della versione
+    precedente non è stato riverificato con questa esattezza in questa sessione
   - Commercialista (€1500-3000/anno) → tutto risolto, ma BLACK BOX (non capisce)
 
 COSA MANCA:
@@ -584,9 +601,10 @@ Usabile da bambino di 8 anni:
 ```
 Contatto: Dipartimento per la Semplificazione, Presidenza Consiglio
 Messaggio: "Abbiamo una soluzione per il problema italiano:
-           - 35% dichiarazioni sbagliate (Agenzia dati)
-           - 80 ore/anno per compliance
-           - Nero economico €200B/anno
+           - Economia sommersa legale: €197,6 miliardi nel 2023 (fonte ISTAT, reale)
+           - "35% dichiarazioni sbagliate" e "80 ore/anno per compliance": cifre non
+             verificate in questa sessione — non usarle finché non si trova una fonte
+             primaria reale (es. CNDCEC, Corte dei Conti, Agenzia Entrate)
 
            Momentum risolve tutto con interoperabilità zero-carta."
 
