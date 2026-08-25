@@ -88,6 +88,33 @@ export function trovaAziendaInTesto(domanda) {
   return trovaAziendeInTesto(domanda, { limite: 1 })[0] || null;
 }
 
+// Le tre metriche in linguaggio semplice — segnalato esplicitamente
+// dall'utente: "margine al 95° percentile" da solo non lo capiscono né un
+// inesperto né un trader al volo. Ogni voce porta il NUMERO VERO (mai
+// arrotondato a un giudizio) più una frase che lo rende leggibile a chi non
+// sa cos'è un ROE, senza nasconderlo a chi lo sa già (resta scritto).
+const SPIEGAZIONE_METRICA = {
+  margine: 'margine di profitto (quanto resta di ogni euro di vendite, dopo i costi)',
+  roe: 'ROE — return on equity (quanto rende il capitale messo dagli azionisti)',
+  roa: 'ROA — return on assets (quanto rende ogni euro di beni che l\'azienda possiede)',
+};
+
+// Testo in linguaggio semplice per un risultato di percentileTitolo() —
+// stesso principio di testoQualitaContabile/testoConfronto altrove nel
+// progetto: un solo posto che genera il testo, riusato ovunque serva (chat
+// E card Dashboard), mai due formattatori che rischiano di dire cose
+// diverse sullo stesso dato.
+export function testoPercentile(attuale) {
+  if (!attuale?.disponibile) return attuale?.motivo || null;
+  const voci = Object.entries(attuale.percentili).map(([chiave, percentile]) => {
+    const spiegazione = SPIEGAZIONE_METRICA[chiave] || chiave;
+    const valore = attuale.valori?.[chiave];
+    const valoreTesto = Number.isFinite(valore) ? ` — oggi è ${(valore * 100).toFixed(1)}%` : '';
+    return `${spiegazione}${valoreTesto}: meglio del ${percentile}% delle aziende del settore (${percentile}° percentile)`;
+  });
+  return voci.join('. ') + '.';
+}
+
 // Il percentile di UN titolo nel suo settore, sull'anno più recente
 // disponibile (o quello richiesto). null onesto se il titolo non è fra le
 // 600 pubblicate per intero, o se il gruppo-settore-anno non ha abbastanza

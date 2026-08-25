@@ -661,7 +661,7 @@ export function rispostaSincrona(domanda, similarity = null) {
       if (!attuale.disponibile) {
         return { intent: 'mercato-percentile-settore', data: attuale, answer: attuale.motivo || `Non ho un percentile calcolabile per ${az.nome}.` };
       }
-      const voci = Object.entries(attuale.percentili).map(([k, v]) => `${k} al ${v}° percentile`).join(', ');
+      const voci = MODULI.scrn.testoPercentile(attuale);
       // "Com'era il suo percentile quando l'ho comprata rispetto ad ora?":
       // se la domanda nomina un anno, si aggiunge il confronto — mai
       // inventato se quell'anno non è nel pannello per questa azienda.
@@ -670,12 +670,12 @@ export function rispostaSincrona(domanda, similarity = null) {
       if (anno && +anno !== attuale.anno) {
         const storico = MODULI.scrn.percentileTitolo(az.ticker, { anno: +anno });
         confronto = storico.disponibile
-          ? ` Nel ${anno}: ${Object.entries(storico.percentili).map(([k, v]) => `${k} al ${v}° percentile`).join(', ')} — confronta con oggi per vedere se è migliorata o peggiorata rispetto al suo settore, non solo in assoluto.`
+          ? ` Nel ${anno}: ${MODULI.scrn.testoPercentile(storico)} Confronta con oggi per vedere se è migliorata o peggiorata rispetto al suo settore, non solo in assoluto.`
           : ` Non ho un percentile per il ${anno}: fuori dal pannello per questa azienda.`;
       }
       return {
         intent: 'mercato-percentile-settore', data: { attuale, anno: anno ? +anno : null },
-        answer: `${az.nome}, nel settore ${attuale.settore} (anno ${attuale.anno}): ${voci}.${confronto}`,
+        answer: `${az.nome}, nel settore ${attuale.settore} (anno ${attuale.anno}): ${voci}${confronto}`,
       };
     }
 

@@ -194,8 +194,12 @@ export function testoQualitaContabile(r) {
     parti.push(`Beneish M-Score non applicabile (${r.beneish.motivo}).`);
   }
   if (r.piotroski?.valido) {
-    parti.push(`Piotroski F-Score ${r.piotroski.punteggio}/${r.piotroski.puntiMassimi} — ${r.piotroski.punteggio >= 6 ? 'fondamentali in miglioramento su quasi tutti i fronti' : r.piotroski.punteggio <= 2 ? 'fondamentali in peggioramento su quasi tutti i fronti' : 'quadro misto, né forte né debole'}.`);
+    parti.push(`Piotroski F-Score ${r.piotroski.punteggio}/${r.piotroski.puntiMassimi} (${r.piotroski.puntiMassimi} controlli di solidità sui conti — redditività, debito, efficienza: quanti ne supera; il criterio originale sulle nuove azioni emesse non è calcolabile con questi dati, dichiarato) — ${r.piotroski.punteggio >= 6 ? 'fondamentali in miglioramento su quasi tutti i fronti' : r.piotroski.punteggio <= 2 ? 'fondamentali in peggioramento su quasi tutti i fronti' : 'quadro misto, né forte né debole'}.`);
   }
   if (!parti.length) return 'Nessuno dei due punteggi è calcolabile per questa azienda con i dati che ho.';
-  return `${parti.join(' ')} Sono modelli statistici stimati su casi storici, non un verdetto: indicano dove guardare più a fondo, non "vero" o "falso".`;
+  // Segnalato esplicitamente dall'utente: "M-Score"/"F-Score" da soli non li
+  // capisce chi non li conosce già — una riga d'apertura dice cosa sono
+  // PRIMA dei numeri, non solo dopo, sia per chi non li ha mai sentiti sia
+  // per chi (analista, investment banker) li riconosce e vuole solo i dati.
+  return `Due controlli accademici standard usati anche in due diligence professionale, calcolati sui bilanci reali: ${parti.join(' ')} Sono modelli statistici stimati su casi storici, non un verdetto: indicano dove guardare più a fondo, non "vero" o "falso".`;
 }
