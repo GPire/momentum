@@ -564,6 +564,69 @@ Network topology becomes visible to user (empowering):
 
 ---
 
+> ⚠️ **Nota di correzione (2026-08-25)**: i numeri nella tabella "THE PITCH" e in "NEUROBIOLOGICAL SUMMARY" sotto (D1 retention 12%/45%, conversione 3.8x, k>1.5, ecc.) sono **proiezioni illustrative del piano originale (2026-07-31), mai misurate** — Momentum non ha ancora utenti reali né telemetria deployata (vedi `ANALISI_COMPETITOR.md §5.1`). Vanno lette come obiettivi di design, non come dati. La sezione che segue (PARTE 6) applica invece la stessa disciplina usata nel resto del progetto: solo case study reali, con fonte.
+
+## 🔬 PARTE 6: Fenomeni virali reali — ricerca 2026-08-25 (cosa prendere, cosa rifiutare, architettura di connessione utente-utente)
+
+Richiesto esplicitamente: studiare i fenomeni più virali al mondo — tecnologia, giochi, app, cultura — con neuromarketing/neurodesign/dopamina/attrito psicologico/ipnosi, per potenziare la gamification di Momentum e trovare il modo di far comunicare/connettere gli utenti tra loro. Segue la stessa regola #1 di questo repo: solo meccanismi reali, con fonte, mai un numero inventato. 13 casi di studio, verificati via ricerca web il 2026-08-25.
+
+### 6.1 Meccanismi da PRENDERE (allineati al principio "dopamina del controllo" già scelto per Momentum)
+
+| Caso | Meccanismo reale | Perché è onesto (non un trucco) |
+|---|---|---|
+| **Wordle** | Un solo puzzle al giorno (scarsità di design, non FOMO) + griglia emoji condivisibile senza spoiler. Crescita: ~90 giocatori/giorno (nov 2021) → ~3M/giorno (metà gen 2022), zero marketing, zero ads (fonti: [Puzzle Cottage](https://puzzlecottage.com/wordle-history), [Smithsonian](https://www.smithsonianmag.com/smart-news/heres-why-the-word-game-wordle-went-viral-180979439/)) | La condivisione mostra il RISULTATO (competenza), mai il contenuto (nessuno spoiler) — prova sociale onesta, non un annuncio pubblicitario travestito |
+| **Strava — Kudos** | Un "pollice in su" leggero fra atleti; le attività di gruppo ricevono il 95-121% in più di kudos delle attività singole (fonte: [ScienceDirect](https://www.sciencedirect.com/science/article/pii/S0378873322000909), [Trophy.so](https://trophy.so/blog/strava-gamification-case-study)) | Reciprocità a bassissimo attrito (un tap), nessuna competizione forzata — rinforza un comportamento già fatto, non ne induce uno nuovo per ansia |
+| **Peloton — High five** | Saluto virtuale durante le classi live, esteso anche fuori dalla classe per "accountability" continua (fonte: [The Clip Out](https://theclipout.com/peloton-out-of-class-high-fives/)) | Riconoscimento reciproco fra pari reali, non un punteggio contro un algoritmo |
+| **Pokémon GO — Community Day** | Eventi mensili che spingono l'incontro FISICO reale in parchi/luoghi pubblici; eventi da migliaia a 2 milioni di partecipanti (fonte: [Wikipedia](https://en.wikipedia.org/wiki/Pok%C3%A9mon_Go_live_events), [community.day](https://community.day/)) | Il game design converte l'engagement digitale in legami reali nel mondo fisico — l'opposto di tenerti incollato allo schermo |
+| **Cash App / Nubank — referral P2P** | Cash App acquisisce clienti a **~5$/utente** via network effect (10x più efficiente della pubblicità a pagamento), $218 miliardi di volume P2P/anno; Nubank ha raggiunto 350.000 clienti carta in poco più di un anno soprattutto via referral (fonti: [Fintech Takes](https://newsletter.fintechtakes.com/p/cash-app-culture), [GrowSurf](https://growsurf.com/examples/fintech-referral-programs/)) | La viralità nasce dal bisogno REALE di avere l'altra persona sulla stessa piattaforma per scambiarsi soldi — non da un incentivo artificiale |
+| **Headspace — "gentle gamification"** | Streak presente ma senza notifiche colpevolizzanti quando si rompe; le app più criticate sono quelle che mostrano lo streak in modo invasivo (fonte: [analisi comparativa app meditazione, 2026](https://relativeinsight.com/analyzing-mindfulness-app-reviews-calm-vs-headspace/)) | Conferma diretta della filosofia già scelta per Momentum (PARTE 1 sopra): il progresso si mostra, la rottura non si punisce |
+| **ALS Ice Bucket Challenge** | Non un'app — un fenomeno culturale puro. Motore: nomina PUBBLICA di 2-3 persone specifiche + costo di partecipazione quasi zero + obbligo sociale visibile (il silenzio è visibile quanto la partecipazione). Raccolti 35 volte i fondi dello stesso periodo dell'anno precedente, solo USA (fonte: [PENNEP](https://www.pennep.com/blogs/the-ice-bucket-challenge-lessons-in-cause-driven-viral-campaigns), [ScienceDaily](https://www.sciencedaily.com/releases/2017/02/170213124318.htm)) | Dimostra che la nomina NOMINALE e pubblica batte l'invito generico — rilevante per il design dell'invito a dividere una spesa (già in PARTE 2 sopra) |
+
+### 6.2 Meccanismi da RIFIUTARE ESPLICITAMENTE (dark pattern reali, con conseguenze reali)
+
+| Caso | Meccanismo reale | Conseguenza reale documentata |
+|---|---|---|
+| **Robinhood — coriandoli** | Animazione di festa a ogni trade dal 2016, citata da un regolatore come esempio di "gamification" che spinge a tradare più spesso | Il Massachusetts ha citato la feature in una denuncia formale; Robinhood ha **patteggiato per ~7,5 milioni $** e ha rimosso coriandoli e altre feature contestate (fonte: [CNBC](https://www.cnbc.com/2021/03/31/robinhood-gets-rid-of-confetti-feature-amid-scrutiny-over-gamification.html)) — l'esatto errore che il posizionamento "mai un consiglio compra/vendi" di Momentum evita per costruzione |
+| **Loot box (variable-ratio reinforcement)** | Ricompensa casuale non prevedibile — lo schema di rinforzo che produce il tasso di risposta più alto e più resistente all'estinzione fra tutti (B.F. Skinner) | Belgio, Paesi Bassi hanno classificato alcuni loot box come gioco d'azzardo non autorizzato; studi peer-reviewed (BMJ) collegano la spesa in loot box a comportamenti da gioco problematico, più forte negli adolescenti (fonte: [PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC7882574/)) |
+| **Snapchat streak** | Perdita = dolore psicologico maggiore del guadagno equivalente (loss aversion) | Circa **70% dei ragazzi delle medie** si sente "obbligato" a mantenere lo streak anche con persone che non gli piacciono; un senatore USA ha proposto una legge per limitare i meccanismi di gamification sui social (fonte: [ricerca ScienceDirect](https://www.sciencedirect.com/science/article/pii/S2772503023000476)) |
+| **TikTok — scroll infinito** | Rimuove deliberatamente il "punto di stop naturale" che ogni altro formato ha; rinforzo intermittente (contenuti neutri intervallati da contenuti ad alto reward) | Descritto in letteratura come progettato per impedire la scelta di fermarsi, non come conseguenza tecnica accidentale (fonte: [ricerca su scroll infinito, 2026](https://www.thebrink.me/the-scroll-trap-how-infinite-feeds-hijack-your-brain-like-a-slot-machine/)) |
+| **Venmo — feed pubblico di default** | Le transazioni erano pubbliche di default; solo dopo pressione (25.000 firme raccolte da Mozilla) e un accordo con la FTC per informativa privacy inadeguata è arrivata la rimozione del feed globale | Un ricercatore ha costruito un sito che mostrava dati sensibili (liti di coppia, terapie, sex worker) presi dal feed pubblico; utenti sono stati **rintracciati/molestati** tramite questi dati (fonte: [TechCrunch](https://techcrunch.com/2021/07/20/venmo-removes-its-global-public-feed-in-a-significant-app-redesign/), [Mozilla Foundation](https://www.mozillafoundation.org/en/blog/venmo-finally-gets-the-message-people-want-privacy/)) — il caso più diretto contro qualunque "feed sociale" di spese visibile per default in un'app finanziaria |
+| **Duolingo streak** | Rinforza con successo (utenti con streak di 7+ giorni **ritengono 2,4x** di più; wager sullo streak dà +14% di retention al giorno 14 — fonte: [Trophy.so](https://trophy.so/blog/duolingo-gamification-case-study)) ma è anche il caso più citato di ansia da streak, tanto che nel 2026 Duolingo ha introdotto il "ripristino streak" (3 lezioni per recuperare uno streak di 30+ giorni perso) | **Caso limite, non da scartare in blocco**: il meccanismo FUNZIONA, ma la stessa Duolingo ha dovuto ammorbidirlo dopo le critiche — prova diretta che va preso solo nella forma "gentile" (vedi 6.3) |
+
+### 6.3 Il filtro etico applicato (non uno slogan — un criterio operativo)
+
+Ogni meccanismo sopra passa da 3 domande, prima di essere anche solo considerato per Momentum:
+
+1. **La rottura viene punita, o solo il progresso viene mostrato?** (Snapchat/loot box = punita → rifiutato. Strava kudos/Wordle/Headspace gentle = solo mostrato → accettato.)
+2. **L'utente capirebbe SUBITO, se glielo spiegassi, perché esiste questo meccanismo?** (Venmo pubblico di default = no, esiste per virality non per l'utente → rifiutato. Cash App/Nubank referral = sì, "ti serve l'altra persona sulla piattaforma per scambiarti i soldi" → accettato.)
+3. **Il meccanismo dipende da un algoritmo che ottimizza il TEMPO SPESO, o da un fatto vero sul comportamento dell'utente?** (TikTok scroll = tempo speso → rifiutato per costruzione, Momentum non ha un feed. Duolingo streak "gentile" = fatto vero + reversibile → accettato solo nella forma con ripristino, mai colpevolizzante.)
+
+### 6.4 Architettura concreta: connessione e comunicazione fra utenti Momentum
+
+Il gap reale (già in roadmap, `ANALISI_COMPETITOR.md §5.2`: "mesh-discovery oltre un codice di pairing già scambiato") ha ora due strade concrete, informate dai case study sopra:
+
+- **Opzione A — scoperta locale, zero server (ispirata a Pokémon GO Community Day)**: due dispositivi Momentum sulla stessa rete Wi-Fi o entro portata Bluetooth LE si annunciano a vicenda (mDNS/BLE advertising, nessun dato lascia la rete locale) — utile per famiglia/coinquilini/una cena fra amici nella stessa stanza. Coerente al 100% con "zero server" — nessuna eccezione da dichiarare.
+- **Opzione B — signaling minimo opt-in (per amici non nella stessa stanza)**: un server di solo signaling (scambia un codice per aprire la connessione WebRTC diretta, non vede mai i dati) — stessa eccezione dichiarata già del `telemetry-worker.js`. Necessario se il target è "amici su reti diverse", non evitabile con zero server.
+- **Comunicazione fra utenti — NON una chat generica**: costruire messaggistica libera aprirebbe una superficie di rischio (contenuto libero, moderazione, spam) sproporzionata per un'app finanziaria on-device. La forma coerente con l'architettura esistente è un **segnale reciproco a bassissimo attrito, stile Strava kudos / Peloton high-five**, agganciato al flusso di split-spesa già progettato in PARTE 2: quando l'amico paga la sua parte, un tap opzionale manda un "🎯 fatto, grazie" — non testo libero, un segnale di stato con significato fisso, zero superficie di abuso.
+- **Nomina pubblica sopra invito generico (lezione dell'Ice Bucket Challenge)**: il flusso "Dividi con Marco, Sarah, Alex" già in PARTE 2 è coerente con questa lezione — nominare persone specifiche converte l'intenzione in azione molto meglio di un link di invito generico "Prova Momentum".
+
+### 6.5 Gamification del modello AI (estende PARTE 4 con le feature costruite nella sessione 2026-08-24/25)
+
+Le milestone già progettate in PARTE 4 ("Momentum ha imparato 5 categorie", "rete mesh: tu + 8 amici in sync") vanno estese con le capacità reali aggiunte in questa sessione, stessa disciplina (fatto reale mostrato, mai un badge esterno):
+
+- `"Momentum ha calcolato il sentiment di {N} notizie senza mai contattare un server"` — quando il modello locale di sentiment (`local-sentiment.js`) supera la prima soglia d'uso.
+- `"Un altro dispositivo ti ha appena passato un giudizio di sentiment che non avevi ancora calcolato tu"` — al primo evento `onSentimentReceived` ricevuto via `sentiment-relay.js`: rende visibile la mesh che funziona, non solo dichiarata.
+- `"Il tuo titolo X è nel {percentile}° percentile del suo settore, su {N} aziende reali"` — primo uso dello screener (`screener-settore.js`), stesso principio "fatto vero, non un livello".
+
+### 6.6 Cosa NON fare (per restare fedeli al filtro 6.3)
+
+- Nessun feed pubblico/semi-pubblico di spese o investimenti per default (lezione Venmo) — se mai costruito, opt-in esplicito e visibile solo a chi l'utente ha scelto uno per uno, mai un default.
+- Nessuna notifica che usa il senso di colpa quando un budget/streak si rompe (lezione Snapchat/Headspace) — solo "ripristino" stile Duolingo 2026, mai un contatore che punisce.
+- Nessun elemento a ricompensa casuale/imprevedibile (loot-box pattern) da nessuna parte, incluso nel copy — è esattamente il meccanismo che ha portato Robinhood a un'azione regolatoria.
+- Nessuna chat a testo libero fra utenti in questa fase — la superficie di rischio (moderazione, spam, contenuto non finanziario) non è giustificata dal beneficio, quando un segnale reciproco fisso (6.4) copre lo stesso bisogno di "sentirsi connessi" con rischio quasi zero.
+
+---
+
 ## 🎬 THE PITCH (Investor/Media ready)
 
 ```
