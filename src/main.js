@@ -106,6 +106,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './split/invite-codec.js';
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
@@ -7107,6 +7108,104 @@ window.openExpenseChat = (groupId, expenseId) => {
       if (!VaultDAO.state.chatSpesaUsata) { VaultDAO.state.chatSpesaUsata = true; VaultDAO.save(); controllaTraguardi(); }
       render();
     });
+  };
+  render();
+};
+
+// Piano di estinzione debiti (src/predict/debt-payoff.js) — gap trovato via
+// ricerca di mercato (RICERCA_MERCATO_2026-08-25.md): calcolo puro (valanga
+// vs palla di neve), mai un consiglio ("estingui prima questo"), le due
+// strategie mostrate affiancate, la scelta resta dell'utente.
+window.openDebiti = () => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const debiti = () => VaultDAO.state.debiti || [];
+  const persist = (d) => { VaultDAO.state.debiti = d; VaultDAO.save(); };
+  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '' };
+  let strategia = 'valanga';
+  let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
+  const dataFraMesi = (n) => {
+    if (n === null || n === undefined) return '—';
+    const o = new Date();
+    return new Date(o.getFullYear(), o.getMonth() + n, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  };
+
+  const render = () => {
+    const ds = debiti();
+    const righeForm = ds.length ? '' : `<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun debito ancora. Aggiungine uno: carta di credito, prestito, un prestito fra amici — qualunque cosa con un saldo e un tasso (anche 0%).</p>`;
+    const listaRighe = ds.map(d => `
+      <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0">
+        <span class="min-w-0"><b>${esc(d.nome)}</b> · <span class="text-[var(--on-surface-secondary)]">${eur(d.saldo)} al ${d.tasso}% · min ${eur(d.pagamentoMinimo)}/mese</span></span>
+        <button data-deldebito="${d.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
+      </div>`).join('');
+
+    let risultato = '';
+    if (ds.length) {
+      const confronto = confrontaStrategie(ds, extraMensile);
+      const sim = strategia === 'valanga' ? confronto.valanga : confronto.pallaDiNeve;
+      const ordineRighe = sim.debiti.map((d, i) => `
+        <div class="flex items-center justify-between gap-2 py-1.5 text-[12.5px] ${d.mesePagato ? '' : 'opacity-50'} border-b border-[var(--outline)] last:border-0">
+          <span><b>${i + 1}.</b> ${esc(d.nome)}</span>
+          <span class="text-[var(--on-surface-secondary)]">${d.mesePagato ? `estinto ${dataFraMesi(d.mesePagato)}` : '—'}</span>
+        </div>`).join('');
+      risultato = `
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>Ordine di estinzione — ${strategia === 'valanga' ? 'valanga (priorità al tasso)' : 'palla di neve (priorità al saldo)'}</div>
+          ${sim.irrisolvibile ? `<p class="text-[12px] text-amber-400 font-bold leading-snug">${esc(sim.motivo)}</p>` : `
+            ${ordineRighe}
+            <p class="text-[12px] mt-2"><b>Libero da debiti:</b> ${dataFraMesi(sim.mesiTotali)} · <b>Interessi totali pagati:</b> ${eur(sim.interesseTotale)}</p>
+          `}
+          <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(testoConfronto(confronto))}</p>
+        </div>`;
+    }
+
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div><h3 class="text-base font-black">Debiti e prestiti</h3><p class="card-sub !mb-0">Il quadro, mai un consiglio: i numeri di entrambe le strategie, decidi tu.</p></div>
+        <div class="card p-3">${righeForm}${listaRighe}</div>
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi un debito</div>
+          <div class="flex flex-col gap-2">
+            <input id="dt-nome" value="${esc(form.nome)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="Es. Carta di credito" />
+            <div class="flex gap-2">
+              <input id="dt-saldo" type="number" inputmode="decimal" value="${esc(form.saldo)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Saldo €" />
+              <input id="dt-tasso" type="number" inputmode="decimal" value="${esc(form.tasso)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Tasso %" />
+            </div>
+            <input id="dt-min" type="number" inputmode="decimal" value="${esc(form.pagamentoMinimo)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="Pagamento minimo mensile €" />
+            <button id="dt-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">Aggiungi</button>
+          </div>
+        </div>
+        ${ds.length ? `
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Extra mensile disponibile</div>
+          <input id="dt-extra" type="number" inputmode="decimal" value="${extraMensile || ''}" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="Oltre i pagamenti minimi, € al mese" />
+          <div class="flex gap-2 mt-2">
+            <button data-strat="valanga" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'valanga' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">Valanga (meno interessi)</button>
+            <button data-strat="palla-di-neve" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'palla-di-neve' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">Palla di neve (vittorie rapide)</button>
+          </div>
+        </div>
+        ${risultato}` : ''}
+      </div>`, `<button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">Chiudi</button>`);
+
+    $('#dt-close')?.addEventListener('click', () => closeModal());
+    $('#dt-nome')?.addEventListener('input', (e) => { form.nome = e.target.value; });
+    $('#dt-saldo')?.addEventListener('input', (e) => { form.saldo = e.target.value; });
+    $('#dt-tasso')?.addEventListener('input', (e) => { form.tasso = e.target.value; });
+    $('#dt-min')?.addEventListener('input', (e) => { form.pagamentoMinimo = e.target.value; });
+    $('#dt-add')?.addEventListener('click', () => {
+      const saldo = parseFloat(String(form.saldo).replace(',', '.'));
+      const tasso = parseFloat(String(form.tasso).replace(',', '.'));
+      const pagamentoMinimo = parseFloat(String(form.pagamentoMinimo).replace(',', '.'));
+      if (!form.nome.trim() || !(saldo > 0) || !(pagamentoMinimo > 0) || !(tasso >= 0)) {
+        showToast('Servono nome, saldo e pagamento minimo (il tasso può essere 0).', 'error'); return;
+      }
+      persist([...debiti(), { id: `d${Date.now().toString(36)}`, nome: form.nome.trim(), saldo, tasso, pagamentoMinimo }]);
+      form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = '';
+      render();
+    });
+    $('#dt-extra')?.addEventListener('input', (e) => { extraMensile = parseFloat(String(e.target.value).replace(',', '.')) || 0; VaultDAO.state.debitiExtraMensile = extraMensile; VaultDAO.save(); render(); });
+    document.querySelectorAll('[data-strat]').forEach(b => b.addEventListener('click', () => { strategia = b.dataset.strat; render(); }));
+    document.querySelectorAll('[data-deldebito]').forEach(b => b.addEventListener('click', () => { persist(debiti().filter(d => d.id !== b.dataset.deldebito)); render(); }));
   };
   render();
 };
