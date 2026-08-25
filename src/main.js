@@ -13041,7 +13041,22 @@ const initApp = () => {
       it ? 'notizie su Apple' : 'news on Apple',
       it ? 'posso permettermi 50€?' : 'can I afford 50€?',
     ].filter(c => hasInvestments || !/patrimonio|net worth/.test(c));
-    const chips = [...always, ...shuffledSample(pool, 5 - always.length)];
+    // Casi d'uso "mercato" — screener/qualità contabile/causale/rischio
+    // (src/alpha/mercato-qa.js, sbloccati questa sessione via sic-settore-map.js
+    // e il pannello SEC): senza questi in pool, un utente non scopre MAI che
+    // Momentum sa rispondere anche a domande da trader/investment banker, non
+    // solo di finanza personale — segnalato esplicitamente dall'utente.
+    // Solo italiano per ora: mercato-qa.js non è localizzato (vedi memoria
+    // Cantiere J), mostrarle in inglese risponderebbe comunque in italiano.
+    const poolMercato = it ? [
+      'in che percentile è NVDA nel suo settore?',
+      'c\'è manipolazione contabile in NVDA?',
+      'è stato il mercato o NVDA a fare il prezzo?',
+      'quali aziende sono comparabili a NVDA?',
+      'quanto rischio per operazione prima di rovinarmi?',
+      'che sentiment c\'è sul mercato?',
+    ] : [];
+    const chips = [...always, ...shuffledSample([...pool, ...poolMercato], 5 - always.length)];
     const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     // Le chip entrano una dopo l'altra invece che tutte insieme: un blocco di
     // sei pillole che appare di colpo si legge come rumore, la stessa cosa
@@ -13129,7 +13144,7 @@ const initApp = () => {
         showQaThinking(`Cerco notizie reali su "${newsIntent.asset}"...`);
         haptic('light');
         const handled = await tryAnswerWithRealNews(newsIntent.asset);
-        if (handled) return;
+        if (handled) { window.renderQaSuggestions?.(); return; }
       }
       // CRIPTO: "sono diversificato sulle cripto?" richiede la rete, e il QA
       // e' sincrono — stessa struttura delle notizie. Qui pero' la rete serve
@@ -13139,13 +13154,18 @@ const initApp = () => {
         qaAnswer.classList.remove('hidden');
         haptic('light');
         const handled = await tryAnswerCriptoDiversificazione();
-        if (handled) return;
+        if (handled) { window.renderQaSuggestions?.(); return; }
       }
       const semanticSimilarity = await prepareSemanticSimilarity(question);
       const res = askMomentum(question, semanticSimilarity);
       styleQaAnswer(res);
       qaAnswer.classList.remove('hidden');
       haptic('light');
+      // Chip rotanti (richiesto esplicitamente: non restare sempre le stesse
+      // durante la sessione, non solo al primo caricamento) — un nuovo
+      // campione casuale a ogni risposta, cosi' si scoprono altri casi
+      // d'uso nel tempo invece di vedere sempre le prime 5 pescate.
+      window.renderQaSuggestions?.();
       // I dati di mercato si caricano in sottofondo dopo l'avvio, e nei primi
       // secondi non ci sono. Chi chiedeva subito "quanto e' salito l'oro"
       // riceveva un "questa non la so ancora" — un rifiuto secco a una domanda
