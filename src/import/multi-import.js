@@ -262,7 +262,7 @@ export async function importFiles(fileList, { onProgress } = {}) {
       // aggiunte automaticamente al portafoglio — tocca all'interfaccia
       // chiederle all'utente dopo l'import (vedi security-purchase-detector.js).
       for (const t of txs) {
-        const rilevato = rilevaAcquistoTitolo({ description: t.description, amount: t.amount });
+        const rilevato = await rilevaAcquistoTitolo({ description: t.description, amount: t.amount });
         if (rilevato.rilevato && !rilevato.certo) {
           result.acquistiDaConfermare.push({ description: t.description, amount: t.amount, date: t.date, ...rilevato });
         }

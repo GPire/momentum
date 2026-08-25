@@ -64,7 +64,15 @@ function trovaTickerPlausibile(testo) {
 
 // Prova a leggere ticker/quantità/prezzo dalla descrizione. Mai
 // un'invenzione: un campo non trovato con certezza resta `null`.
-export function estraiDettagliAcquisto(description, { criptoMap = CRIPTO_ID_COINGECKO } = {}) {
+// Async (2026-08-25, richiesto esplicitamente: rendere il riconoscimento
+// "più avanzato"): quando ticker/cripto non emergono da un pattern esplicito,
+// riusa trovaAziendaInTesto (screener-settore.js, già testato — confine di
+// parola vero, stesso motore del QA di mercato) per riconoscere un nome
+// d'azienda scritto per esteso ("ho comprato azioni Apple" → AAPL), invece
+// di limitarsi a un token maiuscolo esplicito. Import dinamico apposta: il
+// pannello aziende (2,9MB) non deve pesare su OGNI import bancario, solo
+// quando il resto non ha già trovato un ticker.
+export async function estraiDettagliAcquisto(description, { criptoMap = CRIPTO_ID_COINGECKO } = {}) {
   const testo = String(description || '');
   let quantity = null, ticker = null, prezzoUnitario = null;
 
@@ -86,6 +94,23 @@ export function estraiDettagliAcquisto(description, { criptoMap = CRIPTO_ID_COIN
     if (chiave) ticker = chiave.toUpperCase();
   }
 
+  // Nome azienda per esteso, o conferma del ticker già trovato — SEMPRE
+  // tentato (non solo come ultima risorsa), e ha PRECEDENZA sul match
+  // grezzo del regex quando trova qualcosa. BUG REALE TROVATO DAI TEST: le
+  // estrazioni bancarie sono spesso TUTTE MAIUSCOLE ("ACQUISTO 5 AZIONI DI
+  // NVIDIA") — il regex ingenuo prendeva "NVIDIA" come se fosse già un
+  // ticker valido (6 lettere maiuscole, non in lista d'esclusione), invece
+  // del vero ticker NVDA. trovaAziendaInTesto (screener-settore.js, già
+  // testato, confine di parola vero) riconosce sia ticker sia nomi per
+  // esteso: quando risolve qualcosa, è più affidabile del regex grezzo. Se
+  // il pannello non è disponibile (offline, errore sul chunk), si resta sul
+  // match grezzo invece di rompere l'intero import per questo.
+  try {
+    const { trovaAziendaInTesto } = await import('../alpha/screener-settore.js');
+    const az = trovaAziendaInTesto(testo);
+    if (az?.ticker) ticker = az.ticker;
+  } catch (_) { /* onesto: resta il match grezzo, se c'era */ }
+
   return {
     ticker, quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : null, prezzoUnitario,
     certo: !!(ticker && Number.isFinite(quantity) && quantity > 0),
@@ -97,9 +122,9 @@ export function estraiDettagliAcquisto(description, { criptoMap = CRIPTO_ID_COIN
 // categorizzazione), dice se sembra un acquisto e cosa si è capito. Se
 // `rilevato:true` e `certo:false`, l'interfaccia deve chiedere all'utente —
 // mai assumere una quantità.
-export function rilevaAcquistoTitolo(transazione) {
+export async function rilevaAcquistoTitolo(transazione) {
   if (!sembraAcquistoTitolo(transazione)) return { rilevato: false };
-  return { rilevato: true, ...estraiDettagliAcquisto(transazione?.description) };
+  return { rilevato: true, ...(await estraiDettagliAcquisto(transazione?.description)) };
 }
 
 // Aggiorna (o crea) una posizione dopo un acquisto REALE nel tempo: se il

@@ -30,71 +30,97 @@ test('sembraAcquistoTitolo: una spesa qualsiasi non categorizzata resta false', 
 
 // ── estraiDettagliAcquisto ──
 
-test('estraiDettagliAcquisto: pattern "10x AAPL" — quantità e ticker insieme, certo:true', () => {
-  const r = estraiDettagliAcquisto('Ordine eseguito 10x AAPL @150.25');
+test('estraiDettagliAcquisto: pattern "10x AAPL" — quantità e ticker insieme, certo:true', async () => {
+  const r = await estraiDettagliAcquisto('Ordine eseguito 10x AAPL @150.25');
   assert.equal(r.ticker, 'AAPL');
   assert.equal(r.quantity, 10);
   assert.equal(r.prezzoUnitario, 150.25);
   assert.equal(r.certo, true);
 });
 
-test('estraiDettagliAcquisto: quantità con parola ("5 azioni TSLA") e ticker separato', () => {
-  const r = estraiDettagliAcquisto('Acquisto 5 azioni TSLA');
+test('estraiDettagliAcquisto: quantità con parola ("5 azioni TSLA") e ticker separato', async () => {
+  const r = await estraiDettagliAcquisto('Acquisto 5 azioni TSLA');
   assert.equal(r.quantity, 5);
   assert.equal(r.ticker, 'TSLA');
   assert.equal(r.certo, true);
 });
 
-test('estraiDettagliAcquisto: quantità con la virgola decimale italiana', () => {
-  const r = estraiDettagliAcquisto('2,5x BTC');
+test('estraiDettagliAcquisto: quantità con la virgola decimale italiana', async () => {
+  const r = await estraiDettagliAcquisto('2,5x BTC');
   assert.equal(r.quantity, 2.5);
   assert.equal(r.ticker, 'BTC');
 });
 
-test('estraiDettagliAcquisto: cripto citata per nome, non solo come ticker maiuscolo', () => {
-  const r = estraiDettagliAcquisto('Acquisto di bitcoin su Kraken');
+test('estraiDettagliAcquisto: cripto citata per nome, non solo come ticker maiuscolo', async () => {
+  const r = await estraiDettagliAcquisto('Acquisto di bitcoin su Kraken');
   assert.equal(r.ticker, 'BITCOIN');
   // Nessuna quantità esplicita nel testo: certo deve restare false, mai inventata.
   assert.equal(r.quantity, null);
   assert.equal(r.certo, false);
 });
 
-test('estraiDettagliAcquisto: solo un ticker senza quantità → certo:false, mai una quantità a caso', () => {
-  const r = estraiDettagliAcquisto('BINANCE*ORDER ETH');
+test('estraiDettagliAcquisto: solo un ticker senza quantità → certo:false, mai una quantità a caso', async () => {
+  const r = await estraiDettagliAcquisto('BINANCE*ORDER ETH');
   assert.equal(r.ticker, 'ETH');
   assert.equal(r.quantity, null);
   assert.equal(r.certo, false);
 });
 
-test('estraiDettagliAcquisto: descrizione senza nessun pattern riconoscibile → tutto null, mai un\'eccezione', () => {
-  const r = estraiDettagliAcquisto('Bonifico a Directa SPA');
+test('estraiDettagliAcquisto: descrizione senza nessun pattern riconoscibile → tutto null, mai un\'eccezione', async () => {
+  const r = await estraiDettagliAcquisto('Bonifico a caso senza senso zzqx');
   assert.equal(r.ticker, null);
   assert.equal(r.quantity, null);
   assert.equal(r.certo, false);
 });
 
-test('estraiDettagliAcquisto: input vuoto/assente non lancia mai', () => {
-  assert.doesNotThrow(() => estraiDettagliAcquisto(undefined));
-  assert.doesNotThrow(() => estraiDettagliAcquisto(null));
-  assert.equal(estraiDettagliAcquisto('').certo, false);
+test('estraiDettagliAcquisto: input vuoto/assente non lancia mai', async () => {
+  await assert.doesNotReject(() => estraiDettagliAcquisto(undefined));
+  await assert.doesNotReject(() => estraiDettagliAcquisto(null));
+  assert.equal((await estraiDettagliAcquisto('')).certo, false);
+});
+
+// ── Nome azienda per esteso (fallback su trovaAziendaInTesto, screener-settore.js) ──
+// "Più avanzato" richiesto esplicitamente: non solo ticker maiuscoli, anche
+// nomi scritti normalmente — riusa il motore già testato del QA di mercato
+// invece di reinventare un riconoscimento debole.
+
+test('estraiDettagliAcquisto: nome azienda per esteso ("NVIDIA") riconosciuto anche senza ticker maiuscolo esplicito', async () => {
+  const r = await estraiDettagliAcquisto('Ho comprato 5 azioni di NVIDIA');
+  assert.equal(r.ticker, 'NVDA');
+  assert.equal(r.quantity, 5);
+  assert.equal(r.certo, true);
+});
+
+test('estraiDettagliAcquisto: descrizione bancaria REALISTICA tutta maiuscola non confonde il nome azienda con un ticker', async () => {
+  // Scenario reale: molti export bancari sono interamente in maiuscolo.
+  const r = await estraiDettagliAcquisto('ACQUISTO 10 AZIONI DI NVIDIA VALORE 150.25');
+  assert.equal(r.ticker, 'NVDA');
+  assert.equal(r.quantity, 10);
+});
+
+test('estraiDettagliAcquisto: "SPA" (abbreviazione societaria) NON deve mai far ripiegare sul nome azienda per sbaglio', async () => {
+  // "Directa SPA" non è un'azienda del pannello — il fallback deve tornare
+  // onestamente null, non un match a caso sulla prima azienda del pannello.
+  const r = await estraiDettagliAcquisto('Bonifico a Directa SPA');
+  assert.equal(r.ticker, null);
 });
 
 // ── rilevaAcquistoTitolo (punto d'ingresso) ──
 
-test('rilevaAcquistoTitolo: non rilevato per una transazione che non sembra un acquisto', () => {
-  assert.deepEqual(rilevaAcquistoTitolo({ description: 'Supermercato Coop', amount: -45 }), { rilevato: false });
+test('rilevaAcquistoTitolo: non rilevato per una transazione che non sembra un acquisto', async () => {
+  assert.deepEqual(await rilevaAcquistoTitolo({ description: 'Supermercato Coop', amount: -45 }), { rilevato: false });
 });
 
-test('rilevaAcquistoTitolo: rilevato E certo quando ticker e quantità sono entrambi chiari', () => {
-  const r = rilevaAcquistoTitolo({ description: '10x AAPL @150', amount: -1500, category: 'stock' });
+test('rilevaAcquistoTitolo: rilevato E certo quando ticker e quantità sono entrambi chiari', async () => {
+  const r = await rilevaAcquistoTitolo({ description: '10x AAPL @150', amount: -1500, category: 'stock' });
   assert.equal(r.rilevato, true);
   assert.equal(r.certo, true);
   assert.equal(r.ticker, 'AAPL');
   assert.equal(r.quantity, 10);
 });
 
-test('rilevaAcquistoTitolo: rilevato ma NON certo quando manca la quantità — qui l\'interfaccia deve chiedere', () => {
-  const r = rilevaAcquistoTitolo({ description: 'Bonifico a Directa SPA', amount: -500, category: 'etf' });
+test('rilevaAcquistoTitolo: rilevato ma NON certo quando manca la quantità — qui l\'interfaccia deve chiedere', async () => {
+  const r = await rilevaAcquistoTitolo({ description: 'Bonifico a Directa SPA', amount: -500, category: 'etf' });
   assert.equal(r.rilevato, true);
   assert.equal(r.certo, false);
 });
