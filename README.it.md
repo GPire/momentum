@@ -10,7 +10,7 @@
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
 [![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
 [![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
-[![zero dipendenze](https://img.shields.io/badge/dipendenze%20runtime-0-blue)](#avvio-rapido)
+[![dipendenze minime](https://img.shields.io/badge/dipendenze%20runtime-1-blue)](#avvio-rapido)
 
 [English](README.md) · **Italiano**
 
@@ -162,7 +162,7 @@ npm run build             # PWA multi-file in dist/
 npm run build:singlefile  # singolo file HTML ~575KB
 ```
 
-**Zero dipendenze a runtime.** Vite è l'unica dipendenza di sviluppo.
+**Una sola dipendenza a runtime**: [`@huggingface/transformers`](https://www.npmjs.com/package/@huggingface/transformers), per il modello di sentiment on-device (opt-in, vedi sopra). Vite resta l'unica dipendenza di sviluppo. Questa dichiarazione diceva "zero" — aggiornata il giorno in cui è arrivata la feature sentiment, non lasciata vecchia.
 
 ## Struttura
 
