@@ -12203,6 +12203,50 @@ const initApp = () => {
           .map((g) => `<div class="qa-grafico mt-2.5">${g}</div>`).join('');
     }
   }
+  // Grafico dell'andamento del percentile di settore (Lightweight Charts,
+  // TradingView — Apache 2.0, solo la libreria di rendering, MAI dati loro:
+  // qui disegna solo bilanci SEC reali già verificati da Momentum, vedi
+  // src/alpha/screener-settore.js:serieStoricaPercentili). Creato SOLO se
+  // c'è più di un anno di dati — un punto solo non è un "andamento", e
+  // LightweightCharts stesso lo renderebbe come un grafico vuoto e confuso.
+  let __percentileChartInstance = null;
+  async function renderStoricoPercentileChart(ticker, containerId) {
+    const el = document.getElementById(containerId);
+    if (!el || typeof window.LightweightCharts === 'undefined') return;
+    try {
+      const { serieStoricaPercentili } = await import('./alpha/screener-settore.js');
+      const r = serieStoricaPercentili(ticker);
+      if (!r.disponibile) { el.remove(); return; }
+      if (__percentileChartInstance) { try { __percentileChartInstance.remove(); } catch (_) {} }
+      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+      const chart = window.LightweightCharts.createChart(el, {
+        width: el.clientWidth, height: 160, autoSize: true,
+        layout: { background: { color: 'transparent' }, textColor: isDark ? '#a1a1aa' : '#52525b', fontSize: 10 },
+        grid: { vertLines: { visible: false }, horzLines: { color: isDark ? '#27272a' : '#e4e4e7' } },
+        rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false },
+        crosshair: { mode: 0 },
+      });
+      const COLORI = { margine: '#22c55e', roe: '#3b82f6', roa: '#f59e0b' };
+      const NOMI = { margine: 'Margine', roe: 'ROE', roa: 'ROA' };
+      let ne_ha_una = false;
+      for (const chiave of ['margine', 'roe', 'roa']) {
+        if (r.serie[chiave].length < 2) continue;
+        // v5: addLineSeries() è stato rimosso, sostituito da
+        // addSeries(LineSeries, opts) — verificato con la documentazione
+        // ufficiale della migrazione v4→v5 prima di scriverlo, non per
+        // tentativi: usare il nome vecchio fallirebbe in silenzio (nessun
+        // errore visibile, solo un grafico che non compare mai).
+        const s = chart.addSeries(window.LightweightCharts.LineSeries, { color: COLORI[chiave], lineWidth: 2, title: NOMI[chiave], priceFormat: { type: 'custom', formatter: (v) => `${v.toFixed(0)}°pct` } });
+        s.setData(r.serie[chiave]);
+        ne_ha_una = true;
+      }
+      if (!ne_ha_una) { chart.remove(); el.remove(); return; }
+      chart.timeScale().fitContent();
+      __percentileChartInstance = chart;
+    } catch (e) { console.warn('Grafico percentile storico non disponibile:', e); el.remove(); }
+  }
+  window.renderStoricoPercentileChart = renderStoricoPercentileChart;
+
   function styleQaAnswer(res) {
     const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
     const good = res?.data?.onTrack === true || (typeof res?.data?.net === 'number' && res.data.net >= 0);
@@ -12220,10 +12264,17 @@ const initApp = () => {
     const learnedBadge = res.learned
       ? ` <span class="qa-learned-badge text-[9px] font-normal normal-case tracking-normal inline-flex items-center gap-0.5" style="color:var(--primary)"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_LEARNED}</span> imparato da te</span>`
       : '';
+    // Contenitore per il grafico storico (percentile-settore): un id univoco
+    // per turno di risposta, cosi' due domande di fila non si contendono lo
+    // stesso elemento mentre LightweightCharts sta ancora disegnando.
+    const percentileTicker = res.intent === 'mercato-percentile-settore' ? res.data?.attuale?.ticker : null;
+    const percentileChartId = percentileTicker ? `lc-percentile-${Date.now()}` : null;
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + tone.cls;
     qaAnswer.innerHTML = `
       <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum${learnedBadge}</h4>
-      <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>${chart}`;
+      <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>${chart}
+      ${percentileChartId ? `<div class="mt-2.5"><p class="text-[9px] font-bold uppercase tracking-wide opacity-60 mb-1">Andamento del percentile nel tempo (bilanci SEC reali)</p><div id="${percentileChartId}"></div></div>` : ''}`;
+    if (percentileChartId) renderStoricoPercentileChart(percentileTicker, percentileChartId);
     replayQaAnimation();
   }
   // Momento focale vero, non un'iconcina persa nel testo: l'utente ha

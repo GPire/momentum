@@ -36,6 +36,13 @@
   <!-- CDNs for WebGL, Charts and PDF/OCR -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+  <!-- Lightweight Charts™ (TradingView, Apache 2.0, open source) — solo la
+       libreria di rendering, MAI dati di TradingView: usata per disegnare i
+       dati che Momentum già verifica da sé (es. andamento del percentile di
+       settore su bilanci SEC reali). TradingView non ha un'API dati pubblica
+       (verificato via ricerca web 2026-08-25) — questa è l'unica parte
+       legittimamente utilizzabile del loro ecosistema. -->
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     if (window.pdfjsLib) {

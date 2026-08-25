@@ -141,6 +141,31 @@ export function percentileTitolo(ticker, { anno = null } = {}) {
   };
 }
 
+// Il percentile di margine/ROE/ROA per OGNI anno disponibile (fino a ~19
+// anni reali su alcune aziende, media 16,9 sul pannello) — il grafico
+// (Lightweight Charts, main.js) mostra il TREND, non solo lo scatto
+// dell'anno più recente che dà percentileTitolo(). Formato {time, value}
+// già pronto per una serie Lightweight Charts (time = 'YYYY-01-01', dato
+// annuale). Un anno senza abbastanza aziende comparabili per quella misura
+// viene saltato, mai un punto inventato per non lasciare un buco nel grafico.
+export function serieStoricaPercentili(ticker) {
+  const az = aziendaPerTicker(ticker);
+  if (!az) return { disponibile: false, motivo: `"${ticker}" non è fra le aziende con settore noto in questo pannello.` };
+  const serie = { margine: [], roe: [], roa: [] };
+  for (const riga of az.anni) {
+    for (const misura of ['margine', 'roe', 'roa']) {
+      if (riga[misura] === null || riga[misura] === undefined) continue;
+      const p = percentileSettore(az.sic, riga.anno, misura, riga[misura]);
+      if (p !== null) serie[misura].push({ time: `${riga.anno}-01-01`, value: p });
+    }
+  }
+  const haDati = serie.margine.length > 1 || serie.roe.length > 1 || serie.roa.length > 1; // un solo punto non è un "trend"
+  return {
+    disponibile: haDati, ticker: az.ticker, nome: az.nome, settore: az.sicDescription, serie,
+    motivo: haDati ? null : `non ci sono abbastanza anni con percentile calcolabile per ${ticker} da mostrare un andamento.`,
+  };
+}
+
 // Punto d'ingresso diretto per ticker (mercato-qa.js, intento
 // 'qualita-contabile'): stessi due punteggi già dentro percentileTitolo(),
 // ma qui isolati — chi chiede "il punteggio di manipolazione contabile"

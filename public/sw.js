@@ -6,7 +6,7 @@
 // senza questa cache l'app "offline-first" perdeva stile, grafici e OCR
 // appena mancava la rete. La cache vendor NON viene spazzata dai bump
 // dell'app: contiene anche i ~15MB di wasm/traineddata di Tesseract.
-const APP_CACHE = 'momentum-vault-v106';
+const APP_CACHE = 'momentum-vault-v107';
 const VENDOR_CACHE = 'momentum-vendor-v1';
 
 const CDN_HOSTS = [
@@ -27,7 +27,8 @@ const VENDOR_PRECACHE = [
   'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-  'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js'
+  'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js',
+  'https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js'
 ];
 
 // Un asset alla volta, mai addAll (è atomico: un solo CDN irraggiungibile

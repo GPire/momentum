@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { percentileTitolo, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
+import { percentileTitolo, serieStoricaPercentili, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
 import { AZIENDE_PANEL } from './panel-settoriale.js';
 
 // ── percentileTitolo ──
@@ -31,6 +31,37 @@ test('percentileTitolo: input assente non crasha', () => {
   assert.equal(percentileTitolo(null).disponibile, false);
   assert.equal(percentileTitolo(undefined).disponibile, false);
   assert.equal(percentileTitolo('').disponibile, false);
+});
+
+// ── serieStoricaPercentili (Lightweight Charts, main.js) ──
+
+test('serieStoricaPercentili: un titolo reale (AAPL) restituisce una serie ordinata pronta per un grafico', () => {
+  const r = serieStoricaPercentili('AAPL');
+  assert.ok(r.disponibile, r.motivo);
+  assert.equal(r.ticker, 'AAPL');
+  const almenoUnaSerie = ['margine', 'roe', 'roa'].some((k) => r.serie[k].length > 1);
+  assert.ok(almenoUnaSerie, 'deve avere almeno una metrica con più di un anno');
+  for (const k of ['margine', 'roe', 'roa']) {
+    const punti = r.serie[k];
+    for (const p of punti) {
+      assert.match(p.time, /^\d{4}-01-01$/);
+      assert.ok(p.value >= 0 && p.value <= 100, `percentile fuori range: ${p.value}`);
+    }
+    // Ordine cronologico: Lightweight Charts richiede tempi crescenti, mai
+    // un punto fuori ordine che romperebbe il rendering.
+    for (let i = 1; i < punti.length; i++) assert.ok(punti[i].time > punti[i - 1].time, `${k} non ordinato: ${punti[i-1].time} poi ${punti[i].time}`);
+  }
+});
+
+test('serieStoricaPercentili: un ticker fuori dal pannello si dichiara, non inventa una serie', () => {
+  const r = serieStoricaPercentili('TICKERCHENONESISTE');
+  assert.equal(r.disponibile, false);
+  assert.match(r.motivo, /non è fra le aziende/);
+});
+
+test('serieStoricaPercentili: input assente non crasha', () => {
+  assert.equal(serieStoricaPercentili(null).disponibile, false);
+  assert.equal(serieStoricaPercentili(undefined).disponibile, false);
 });
 
 // ── Cantiere E3: Beneish M-Score + Piotroski F-Score dentro percentileTitolo ──
