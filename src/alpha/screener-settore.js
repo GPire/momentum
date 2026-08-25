@@ -201,6 +201,29 @@ export function qualitaContabile(ticker, { anno = null } = {}) {
   return { ticker: az.ticker, nome: az.nome, settore: az.sicDescription, anno: riga.anno, ...q };
 }
 
+// Beneish/Piotroski per OGNI anno del pannello, non solo il più recente —
+// richiesto esplicitamente: combinare le analisi proprietarie di Momentum
+// (qui, il rilevatore di manipolazione contabile) con il grafico
+// Lightweight Charts appena integrato, invece di trattarli come due cose
+// separate. `qualitaBilancio` già fa il calcolo per un anno: qui si scorre
+// tutta la storia disponibile, riusando la stessa funzione, mai un secondo
+// motore di calcolo. Un anno segnalato SOLO se il modello ha dati validi
+// per quell'anno — mai un falso "tutto pulito" per un buco nei dati.
+export function segnaliQualitaNelTempo(ticker) {
+  const az = aziendaPerTicker(ticker);
+  if (!az) return { disponibile: false, motivo: `"${ticker}" non è fra le aziende con settore noto in questo pannello.` };
+  const segnali = [];
+  for (let i = 1; i < az.anni.length; i++) {
+    const anno = az.anni[i].anno;
+    if (az.anni[i - 1].anno !== anno - 1) continue; // salto negli anni: confronto anno-su-anno non valido
+    const q = qualitaBilancio(az, anno);
+    if (q.beneish?.valido && q.beneish.manipolazioneProbabile) {
+      segnali.push({ time: `${anno}-01-01`, tipo: 'beneish', motivo: `Beneish M-Score ${q.beneish.score} sopra soglia (${anno})` });
+    }
+  }
+  return { disponibile: true, ticker: az.ticker, segnali };
+}
+
 // ── Beneish M-Score + Piotroski F-Score (Cantiere E3, src/alpha/quality-
 // scores.js) — richiedono l'anno richiesto E quello precedente nello STESSO
 // pannello (`az.anni` è già ordinato per anno da bench/fetch-panel-sec.mjs).

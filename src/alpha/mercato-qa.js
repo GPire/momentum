@@ -678,9 +678,22 @@ export function rispostaSincrona(domanda, similarity = null) {
       // grafico (vedi testoPicchi in screener-settore.js per il perché).
       const serieStorica = MODULI.scrn.serieStoricaPercentili(az.ticker);
       const picchi = MODULI.scrn.testoPicchi(serieStorica);
+      // Segnali Beneish su TUTTA la storia (non solo l'anno più recente),
+      // combinati col grafico sopra (main.js) — richiesto esplicitamente:
+      // le analisi proprietarie di Momentum e il grafico non restano due
+      // cose separate. Stesso avviso obbligatorio sul falso positivo da
+      // crescita legittima già usato in testoQualitaContabile — un anno
+      // segnalato non è mai presentato come "manipolazione", solo come
+      // "da guardare più a fondo".
+      let notaQualita = '';
+      const segnaliQualita = MODULI.scrn.segnaliQualitaNelTempo(az.ticker);
+      if (segnaliQualita?.segnali?.length) {
+        const anniSegnalati = segnaliQualita.segnali.map((s) => s.time.slice(0, 4)).join(', ');
+        notaQualita = ` Attenzione: ${segnaliQualita.segnali.length} ann${segnaliQualita.segnali.length === 1 ? 'o' : 'i'} (${anniSegnalati}) con un profilo Beneish M-Score tipico di manipolazione contabile — ma il modello ha un limite noto, una crescita dei ricavi molto rapida può dare lo stesso segnale anche quando è del tutto legittima: è un invito a guardare più a fondo, non un verdetto.`;
+      }
       return {
         intent: 'mercato-percentile-settore', data: { attuale, anno: anno ? +anno : null },
-        answer: `${az.nome}, nel settore ${attuale.settore} (anno ${attuale.anno}): ${voci}${confronto}${picchi ? ` ${picchi}` : ''}`,
+        answer: `${az.nome}, nel settore ${attuale.settore} (anno ${attuale.anno}): ${voci}${confronto}${picchi ? ` ${picchi}` : ''}${notaQualita}`,
       };
     }
 

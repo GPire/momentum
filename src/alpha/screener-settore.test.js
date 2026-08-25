@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { percentileTitolo, serieStoricaPercentili, testoPicchi, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
+import { percentileTitolo, serieStoricaPercentili, testoPicchi, segnaliQualitaNelTempo, comparabili, peersDaPannello, crescitaRicavi, filtraSettore, trovaAziendeInTesto } from './screener-settore.js';
 import { AZIENDE_PANEL } from './panel-settoriale.js';
 
 // ── percentileTitolo ──
@@ -77,6 +77,32 @@ test('testoPicchi: trova il massimo storico reale per ogni metrica di un titolo 
 test('testoPicchi: senza dati disponibili, torna null — mai un testo su un picco inventato', () => {
   assert.equal(testoPicchi({ disponibile: false }), null);
   assert.equal(testoPicchi(null), null);
+});
+
+// ── segnaliQualitaNelTempo (Beneish per ogni anno, non solo il più recente) ──
+
+test('segnaliQualitaNelTempo: su un titolo reale con storia di segnalazioni note (NVDA), trova gli anni giusti', () => {
+  const r = segnaliQualitaNelTempo('NVDA');
+  assert.ok(r.disponibile);
+  assert.ok(r.segnali.length > 0, 'NVDA ha anni reali segnalati (crescita esplosiva, limite noto del modello)');
+  for (const s of r.segnali) {
+    assert.match(s.time, /^\d{4}-01-01$/);
+    assert.equal(s.tipo, 'beneish');
+    assert.match(s.motivo, /Beneish M-Score/);
+  }
+  // Gli anni devono essere in ordine cronologico (stesso ordine di az.anni).
+  for (let i = 1; i < r.segnali.length; i++) assert.ok(r.segnali[i].time > r.segnali[i - 1].time);
+});
+
+test('segnaliQualitaNelTempo: un ticker fuori dal pannello si dichiara, non inventa segnali', () => {
+  const r = segnaliQualitaNelTempo('TICKERCHENONESISTE');
+  assert.equal(r.disponibile, false);
+  assert.match(r.motivo, /non è fra le aziende/);
+});
+
+test('segnaliQualitaNelTempo: input assente non crasha', () => {
+  assert.equal(segnaliQualitaNelTempo(null).disponibile, false);
+  assert.equal(segnaliQualitaNelTempo(undefined).disponibile, false);
 });
 
 test('testoPicchi: il massimo trovato è VERAMENTE il massimo della serie (non il primo o l\'ultimo per caso)', () => {

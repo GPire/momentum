@@ -12214,9 +12214,16 @@ const initApp = () => {
     const el = document.getElementById(containerId);
     if (!el || typeof window.LightweightCharts === 'undefined') return;
     try {
-      const { serieStoricaPercentili } = await import('./alpha/screener-settore.js');
+      const { serieStoricaPercentili, segnaliQualitaNelTempo } = await import('./alpha/screener-settore.js');
       const r = serieStoricaPercentili(ticker);
       if (!r.disponibile) { el.remove(); return; }
+      // Combina l'analisi proprietaria di Momentum (Beneish, quality-scores.js)
+      // col grafico appena integrato — richiesto esplicitamente: non trattare
+      // grafico e modelli come due cose separate. Anni con segnale di
+      // attenzione contabile su TUTTA la storia, non solo l'anno più recente
+      // (percentileTitolo guarda solo l'ultimo anno).
+      let segnaliQualita = { segnali: [] };
+      try { segnaliQualita = segnaliQualitaNelTempo(ticker); } catch (_) { /* onesto: nessun segnale, non un errore che blocca il grafico */ }
       if (__percentileChartInstance) { try { __percentileChartInstance.remove(); } catch (_) {} }
       const isDark = document.documentElement.classList.contains('dark') || window.matchMedia?.('(prefers-color-scheme: dark)').matches;
       const chart = window.LightweightCharts.createChart(el, {
@@ -12229,6 +12236,7 @@ const initApp = () => {
       const COLORI = { margine: '#22c55e', roe: '#3b82f6', roa: '#f59e0b' };
       const NOMI = { margine: 'Margine', roe: 'ROE', roa: 'ROA' };
       let ne_ha_una = false;
+      let primaSerie = null; // porta i marcatori Beneish: uno solo per grafico, non uno a metrica (sarebbe tripla ripetizione dello stesso anno)
       for (const chiave of ['margine', 'roe', 'roa']) {
         const punti = r.serie[chiave];
         if (punti.length < 2) continue;
@@ -12255,9 +12263,22 @@ const initApp = () => {
         if (window.LightweightCharts.createSeriesMarkers) {
           window.LightweightCharts.createSeriesMarkers(s, [{ time: picco.time, position: 'inBar', color: COLORI[chiave], shape: 'circle', size: 1 }]);
         }
+        if (!primaSerie) primaSerie = s;
         ne_ha_una = true;
       }
       if (!ne_ha_una) { chart.remove(); el.remove(); return; }
+      // Segnali Beneish (src/alpha/quality-scores.js, sopra): un triangolo
+      // ambra sotto la linea, distinto dal cerchio del picco (colore/forma/
+      // posizione diversi apposta, per non confondere "il tuo miglior anno"
+      // con "anno con un segnale di attenzione contabile" — due fatti
+      // diversi che possono anche coincidere sullo stesso anno). Wordless
+      // come i marcatori di picco: il dettaglio (con l'avviso obbligatorio
+      // sul falso positivo da crescita legittima) sta nel testo qui sotto.
+      if (primaSerie && segnaliQualita.segnali?.length && window.LightweightCharts.createSeriesMarkers) {
+        window.LightweightCharts.createSeriesMarkers(primaSerie, segnaliQualita.segnali.map((s) => ({
+          time: s.time, position: 'belowBar', color: '#f59e0b', shape: 'arrowUp', size: 0.8,
+        })));
+      }
       chart.timeScale().fitContent();
       __percentileChartInstance = chart;
     } catch (e) { console.warn('Grafico percentile storico non disponibile:', e); el.remove(); }
