@@ -62,6 +62,38 @@ export function alignMacroToWeeks(macroSeries, { weeks, referenceDate = new Date
   return { values, copertura: +copertura.toFixed(2) };
 }
 
+// Come alignMacroToWeeks ma su griglia MENSILE — serve per spiegare la parte
+// "propria" di un titolo (src/alpha/titolo-causale.js:scomponi, residui
+// mensili) col contesto macro, invece che la spesa personale settimanale.
+// `meseFinale` è il mese più recente della griglia (formato 'YYYY-MM'),
+// `mesi` quanti mesi indietro copre la griglia — stesso principio "porta
+// avanti l'ultimo valore noto", stessa onestà: mesi prima del primo dato
+// noto restano null, mai un'interpolazione inventata.
+export function alignMacroToMonths(macroSeries, { mesi, meseFinale } = {}) {
+  const points = (macroSeries || [])
+    .filter((p) => Number.isFinite(p?.close) && /^\d{4}-\d{2}$/.test(String(p?.date).slice(0, 7)))
+    .map((p) => ({ ym: String(p.date).slice(0, 7), close: p.close }))
+    .sort((a, b) => a.ym.localeCompare(b.ym));
+  if (!points.length || !Number.isFinite(mesi) || !/^\d{4}-\d{2}$/.test(meseFinale || '')) return { values: [], copertura: 0 };
+
+  const [annoFin, meseFin] = meseFinale.split('-').map(Number);
+  const ymAt = (offset) => { // offset 0 = meseFinale, offset -1 = mese prima, ecc.
+    const totale = (annoFin * 12 + (meseFin - 1)) + offset;
+    const a = Math.floor(totale / 12), m = (totale % 12) + 1;
+    return `${a}-${String(m).padStart(2, '0')}`;
+  };
+
+  const values = new Array(mesi).fill(null);
+  let idx = 0, ultimo = null;
+  for (let w = 0; w < mesi; w++) {
+    const ymCorrente = ymAt(w - (mesi - 1)); // dal più vecchio al più recente
+    while (idx < points.length && points[idx].ym <= ymCorrente) { ultimo = points[idx].close; idx++; }
+    values[w] = ultimo;
+  }
+  const copertura = values.filter((v) => v !== null).length / mesi;
+  return { values, copertura: +copertura.toFixed(2) };
+}
+
 // Dato un residuo (già calcolato da detectLatentConfounders, MAI ricalcolato
 // qui) e la serie macro riallineata, verifica se il macro spiega davvero il
 // pattern. Solo le settimane con un valore macro noto entrano nel test —
@@ -75,7 +107,7 @@ export function alignMacroToWeeks(macroSeries, { weeks, referenceDate = new Date
 // correla con la variazione del macro, non con il suo livello. Ignorare la
 // variazione avrebbe fatto perdere esattamente il caso più realistico: un
 // cambiamento di tasso inatteso che sposta più spese nello stesso momento.
-function correlaConMacro(residuo, macroAllineato) {
+export function correlaConMacro(residuo, macroAllineato) {
   const test = (serie) => {
     const coppie = [];
     const n = Math.min(residuo.length, serie.length);
@@ -126,6 +158,21 @@ export function explainConfoundersWithMacro(latentResult, macroAllineato, {
     };
   });
   return { ...latentResult, sospetti, macroDisponibile: true };
+}
+
+// Come explainConfoundersWithMacro, ma per UN SOLO residuo — nato per
+// titolo-causale.js: quanto di ciò che sembra "specifico di questo titolo"
+// (il residuo dopo aver tolto il settore, src/alpha/titolo-causale.js:
+// scomponi) è in realtà il contesto macro (tassi, disoccupazione), non il
+// titolo. Stessa disciplina: mai un'attribuzione a metà, "non spiegato" è
+// una risposta onesta quanto "spiegato".
+export function spiegaResiduoConMacro(residuo, macroAllineato, { label = 'il tasso di riferimento', alpha = 0.05, coperturaMinima = 0.5 } = {}) {
+  if (!macroAllineato || macroAllineato.copertura < coperturaMinima || !Array.isArray(residuo) || !residuo.length) {
+    return { disponibile: false, spiegato: false };
+  }
+  const c = correlaConMacro(residuo, macroAllineato.values);
+  if (!c || c.p === null || c.p >= alpha) return { disponibile: true, spiegato: false };
+  return { disponibile: true, spiegato: true, r: +c.r.toFixed(3), p: c.p, forma: c.forma, label };
 }
 
 // ── Adattatore di rete (non puro): usa fetchVerified già esistente, SOLO
@@ -180,4 +227,25 @@ export async function fetchMacroSeriesConFallback(catena = CATENA_MACRO_DEFAULT,
   }
   // Tutte le fonti hanno fallito: dichiarato, mai un dato inventato.
   return { series: [], verified: 'nessuna-fonte-raggiungibile', affidabile: false, tentativi, label: null };
+}
+
+// ── Cache di sessione condivisa (sync in lettura) ──
+// mercato-qa.js:rispostaSincrona (usata dalla chat) è per design SINCRONA —
+// non può aspettare una fetch di rete mentre risponde a "è stato il settore
+// o NVDA?". Questa cache, popolata la prima volta che QUALCUNO la scalda
+// (tipicamente main.js, alla Dashboard/grafo causale — vedi
+// scaldaContestoMacroCondiviso), rende il contesto macro leggibile
+// SINCRONAMENTE da lì in poi. Se non è ancora calda: si dichiara "non
+// disponibile ora", mai un dato inventato per riempire il vuoto.
+let _cacheCondivisaMacro = null;
+export function contestoMacroSeGiaCaldo() { return _cacheCondivisaMacro; }
+export async function scaldaContestoMacroCondiviso({ fetchImpl, cache } = {}) {
+  if (_cacheCondivisaMacro) return _cacheCondivisaMacro;
+  const r = await fetchMacroSeriesConFallback(undefined, { fetchImpl, cache });
+  // asOf/verified/source portati con sé (non solo series/label): servono a
+  // chi condivide questo contesto via mesh (packForRelay li richiede tutti,
+  // vedi src/mesh/knowledge-relay.js) — senza, la staffetta fallirebbe in
+  // silenzio per un pacchetto sempre scartato.
+  if (r.affidabile && r.series.length) _cacheCondivisaMacro = { series: r.series, label: r.label, verified: r.verified, asOf: r.asOf, source: r.source };
+  return _cacheCondivisaMacro;
 }

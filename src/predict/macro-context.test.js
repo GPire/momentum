@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { alignMacroToWeeks, explainConfoundersWithMacro, fetchMacroSeries, fetchMacroSeriesConFallback, CATENA_MACRO_DEFAULT } from './macro-context.js';
+import { alignMacroToWeeks, alignMacroToMonths, correlaConMacro, spiegaResiduoConMacro, explainConfoundersWithMacro, fetchMacroSeries, fetchMacroSeriesConFallback, CATENA_MACRO_DEFAULT, contestoMacroSeGiaCaldo, scaldaContestoMacroCondiviso } from './macro-context.js';
 import { buildLaggedFrame, discoverCausalGraph } from './causal-discovery.js';
 import { detectLatentConfounders } from './causal-diagnostics.js';
 
@@ -240,4 +240,103 @@ test('CATENA_MACRO_DEFAULT: ogni passo ha sourceId/symbol/label reali, nessun ca
   for (const passo of CATENA_MACRO_DEFAULT) {
     assert.ok(passo.sourceId && passo.symbol && passo.label, JSON.stringify(passo));
   }
+});
+
+// ── alignMacroToMonths: come alignMacroToWeeks ma su griglia mensile
+// (src/alpha/titolo-causale.js:scomponi produce residui MENSILI, non
+// settimanali) ──
+
+test('alignMacroToMonths: porta avanti l\'ultimo valore noto, mai un\'interpolazione', () => {
+  const macro = [{ date: '2026-01-15', close: 3.5 }, { date: '2026-04-10', close: 4.0 }];
+  const { values, copertura } = alignMacroToMonths(macro, { mesi: 6, meseFinale: '2026-06' });
+  // mesi: gen feb mar apr mag giu (indice 0..5)
+  assert.equal(values.length, 6);
+  assert.equal(values[0], 3.5, 'gennaio: il valore di gennaio è già noto');
+  assert.equal(values[2], 3.5, 'marzo: ancora nessun dato nuovo, resta il valore di gennaio');
+  assert.equal(values[3], 4.0, 'aprile: arriva il nuovo dato');
+  assert.equal(values[5], 4.0, 'giugno: resta l\'ultimo noto');
+  assert.ok(copertura > 0);
+});
+
+test('alignMacroToMonths: i mesi prima del primo dato noto restano null', () => {
+  const macro = [{ date: '2026-05-01', close: 2 }];
+  const { values } = alignMacroToMonths(macro, { mesi: 6, meseFinale: '2026-06' });
+  assert.deepEqual(values.slice(0, 4), [null, null, null, null]);
+  assert.equal(values[4], 2);
+});
+
+test('alignMacroToMonths: input vuoto/malformato → copertura zero, mai un crash', () => {
+  assert.deepEqual(alignMacroToMonths([], { mesi: 6, meseFinale: '2026-06' }), { values: [], copertura: 0 });
+  assert.deepEqual(alignMacroToMonths([{ date: '2026-01-01', close: 1 }], { mesi: 6, meseFinale: 'non-un-mese' }), { values: [], copertura: 0 });
+  assert.deepEqual(alignMacroToMonths([{ date: '2026-01-01', close: 1 }], {}), { values: [], copertura: 0 });
+});
+
+test('alignMacroToMonths: attraversa un cambio d\'anno correttamente', () => {
+  const macro = [{ date: '2025-12-01', close: 1 }, { date: '2026-02-01', close: 2 }];
+  const { values } = alignMacroToMonths(macro, { mesi: 4, meseFinale: '2026-02' }); // nov dic gen feb
+  assert.deepEqual(values, [null, 1, 1, 2]);
+});
+
+// ── spiegaResiduoConMacro: la versione a un solo residuo, per titolo-causale.js ──
+
+test('spiegaResiduoConMacro: un macro che spiega davvero il residuo viene dichiarato, con la forma giusta', () => {
+  const rnd = rng(23);
+  const n = 100;
+  const macro = []; let m = 3;
+  const residuo = [];
+  for (let t = 0; t < n; t++) {
+    m += 0.1 * gauss(rnd);
+    macro.push(m);
+    residuo.push(0.9 * m + 0.1 * gauss(rnd));
+  }
+  const allineato = { values: macro, copertura: 1 };
+  const r = spiegaResiduoConMacro(residuo, allineato, { label: 'il tasso BIS' });
+  assert.equal(r.disponibile, true);
+  assert.equal(r.spiegato, true);
+  assert.equal(r.label, 'il tasso BIS');
+  assert.ok(['livello', 'variazione'].includes(r.forma));
+});
+
+test('spiegaResiduoConMacro: un residuo indipendente dal macro resta onestamente "non spiegato"', () => {
+  const rnd = rng(29);
+  const n = 100;
+  const macro = Array.from({ length: n }, () => gauss(rnd));
+  const residuo = Array.from({ length: n }, () => gauss(rnd));
+  const r = spiegaResiduoConMacro(residuo, { values: macro, copertura: 1 });
+  assert.equal(r.disponibile, true);
+  assert.equal(r.spiegato, false);
+});
+
+test('spiegaResiduoConMacro: senza copertura sufficiente o senza residuo, non disponibile — mai un crash', () => {
+  assert.equal(spiegaResiduoConMacro([1, 2, 3], { values: [1, 2, 3], copertura: 0.1 }).disponibile, false);
+  assert.equal(spiegaResiduoConMacro([], { values: [1], copertura: 1 }).disponibile, false);
+  assert.equal(spiegaResiduoConMacro(null, { values: [1], copertura: 1 }).disponibile, false);
+  assert.equal(spiegaResiduoConMacro([1, 2], null).disponibile, false);
+});
+
+// ── Cache di sessione condivisa: sync in lettura, popolata da chi la scalda ──
+
+test('contestoMacroSeGiaCaldo: null onestamente finché nessuno l\'ha scaldata', () => {
+  // Nota: questo test presuppone di girare PRIMA di scaldaContestoMacroCondiviso
+  // in questo processo — node --test isola i moduli per file, quindi è sicuro
+  // solo se nessun altro test in QUESTO file scalda la cache prima. Verificato
+  // con l'ordine dei test in questo file (nessuna chiamata precedente).
+  assert.equal(contestoMacroSeGiaCaldo(), null);
+});
+
+test('scaldaContestoMacroCondiviso: con tutte le fonti giù, resta null — mai un dato inventato', async () => {
+  const fetchImpl = async () => { throw new Error('rete assente'); };
+  const r = await scaldaContestoMacroCondiviso({ fetchImpl });
+  assert.equal(r, null);
+  assert.equal(contestoMacroSeGiaCaldo(), null);
+});
+
+test('scaldaContestoMacroCondiviso: con dati validi, scalda la cache e porta con sé i campi per la staffetta mesh', async () => {
+  const fetchImpl = async () => ({ ok: true, status: 200, text: async () => 'TIME_PERIOD,OBS_VALUE\n2026-06,3.5\n2026-07,3.6' });
+  const r = await scaldaContestoMacroCondiviso({ fetchImpl });
+  assert.ok(r);
+  assert.ok(r.series.length > 0);
+  assert.ok(r.label);
+  assert.ok('verified' in r && 'asOf' in r && 'source' in r, 'servono a packForRelay in knowledge-relay.js');
+  assert.deepEqual(contestoMacroSeGiaCaldo(), r, 'da qui in poi la cache è calda e sincronamente leggibile');
 });

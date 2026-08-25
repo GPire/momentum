@@ -122,7 +122,7 @@ import { comparePeriods, lastNMonthKeys } from './predict/period-compare.js';
 import { buildCausalGraph, pruneNonCausal, buildCategorySeries } from './predict/causal-graph.js';
 import { analyzeCausalStructure } from './predict/causal-orchestrator.js';
 import { startCategoryExperiment, stopCategoryExperiment, experimentStatus } from './predict/experiment-tracker.js';
-import { fetchMacroSeriesConFallback, alignMacroToWeeks } from './predict/macro-context.js';
+import { scaldaContestoMacroCondiviso, alignMacroToWeeks } from './predict/macro-context.js';
 import { classifyCategoryChips } from './predict/experiment-chip.js';
 
 // Proxy noti per rilevare un regime LIVE (invece dello scatto statico
@@ -8844,17 +8844,20 @@ async function ensureMacroContext(weeks) {
     // Catena di fallback (BCE → BIS → OCSE, src/predict/macro-context.js):
     // prima solo BCE veniva provata, senza ripiego se irraggiungibile. Ogni
     // fonte è verificata CORS-aperta dal vivo, la prima che risponde vince.
-    const r = await fetchMacroSeriesConFallback(undefined, { fetchImpl: fetch.bind(window) });
-    if (r.affidabile && r.series.length) {
-      const allineato = alignMacroToWeeks(r.series, { weeks, referenceDate: new Date() });
+    // scaldaContestoMacroCondiviso() popola ANCHE la cache condivisa che
+    // mercato-qa.js legge sincronamente per "è stato il settore o il
+    // titolo?" — un solo fetch, due consumatori.
+    const caldo = await scaldaContestoMacroCondiviso({ fetchImpl: fetch.bind(window) });
+    if (caldo && caldo.series.length) {
+      const allineato = alignMacroToWeeks(caldo.series, { weeks, referenceDate: new Date() });
       if (allineato.copertura >= 0.3) {
-        __macroContextCache = { ...allineato, label: r.label || 'il tasso di riferimento BCE/BIS' };
+        __macroContextCache = { ...allineato, label: caldo.label || 'il tasso di riferimento BCE/BIS' };
         // Raggiunta la fonte davvero: lo si mette a disposizione della mesh
         // per chi non ci riesce (firewall, rete mobile che blocca l'API, in
         // quel momento la fonte è in rate-limit). Riusa knowledge-relay.js,
         // che ricontrolla la plausibilità in locale invece di fidarsi
         // dell'etichetta — chi riceve non deve fidarsi di noi sulla parola.
-        shareMacroKnowledge(r);
+        shareMacroKnowledge({ prices: caldo.series, symbol: 'macro-condiviso', kind: 'macro', verified: caldo.verified, asOf: caldo.asOf, source: caldo.source });
         return __macroContextCache;
       }
     }

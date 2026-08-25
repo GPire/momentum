@@ -691,6 +691,19 @@ export function rispostaSincrona(domanda, similarity = null) {
     };
     const AVVERTENZA_SETTORE = 'Onestà sul dato: non esiste uno storico prezzi mensile per il singolo titolo on-device — questo confronto usa il SETTORE a cui appartiene (classificazione approssimata dal codice SIC, non un prezzo del titolo stesso). È un\'analisi reale, ma sul settore, non sulla singola azienda.';
 
+    // NOTA (2026-08-25): un collegamento a spiegaResiduoConMacro (src/predict/
+    // macro-context.js) è stato scritto e poi RIMOSSO da qui prima del commit
+    // — durante la verifica dal vivo in Chrome, la combinazione reale
+    // (residuo di scomponi() + contesto macro reale allineato) ha bloccato il
+    // tab due volte, senza che una rilettura attenta del codice trovasse un
+    // ciclo infinito. Non si è riusciti a confermare dal vivo se fosse un bug
+    // vero o un problema del tooling di verifica: onestà prima di tutto, si
+    // preferisce NON avere la feature piuttosto che rischiare di bloccare il
+    // browser di un utente vero sulla domanda "chi ha fatto il prezzo?".
+    // Le funzioni (alignMacroToMonths, spiegaResiduoConMacro) restano in
+    // macro-context.js, testate a unità (27 test) — il collegamento a questo
+    // punto della chat va rifatto con più cautela in una sessione dedicata.
+
     if (intento === 'confronto-titoli') {
       const [azA, azB] = MODULI.scrn.trovaAziendeInTesto(domanda, { limite: 2 });
       if (!azA || !azB) {
