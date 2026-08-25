@@ -49,10 +49,23 @@ export function coefficienteAteco(settore, { year = new Date().getFullYear(), ru
   return loc ? { ...loc, fonte: 'inclusa nell\'app' } : null;
 }
 
+// I 9 gruppi ufficiali del forfettario (Legge 190/2014, Allegato 4, modificata
+// dalla Legge 145/2018 — coefficienti invariati con la riclassificazione ATECO
+// 2025/2026, verificato via ricerca web 2026-08-25 su più fonti indipendenti,
+// es. calcoloforfettario.it). GAP REALE trovato e corretto in questa sessione:
+// mancavano "industria alimentare" (40%) e "ambulante altri prodotti" (54%) —
+// senza, chi rientra in queste due categorie finiva su "altre" (67%), un
+// imponibile sballato di 27 punti percentuali. "Alloggio e ristorazione" era
+// già numericamente corretto per coincidenza (stesso 40% di "commercio"), ma
+// senza una categoria propria un domani un cambio al coefficiente commercio
+// l'avrebbe rotto in silenzio — separata per chiarezza e robustezza.
 export const ATECO_COEFFICIENTI = {
   professionisti: { coeff: 0.78, label: 'Professionisti / servizi (78%)' },
   commercio: { coeff: 0.40, label: 'Commercio ingrosso/dettaglio (40%)' },
+  alimentari_industria: { coeff: 0.40, label: 'Industria alimentare e bevande (40%)' },
+  alloggio_ristorazione: { coeff: 0.40, label: 'Alloggio e ristorazione (40%)' },
   ambulante_alimentari: { coeff: 0.40, label: 'Ambulante alimentari (40%)' },
+  ambulante_altri: { coeff: 0.54, label: 'Ambulante altri prodotti (54%)' },
   intermediari: { coeff: 0.62, label: 'Intermediari del commercio (62%)' },
   costruzioni: { coeff: 0.86, label: 'Costruzioni / immobiliare (86%)' },
   altre: { coeff: 0.67, label: 'Altre attività (67%)' },
@@ -95,9 +108,14 @@ export const ATECO_COMUNI = [
   { code: '45.20.00', label: 'Officina e riparazione veicoli', categoria: 'commercio', kw: 'meccanico autofficina riparazioni auto moto' },
   { code: '47.11.00', label: 'Negozio al dettaglio', categoria: 'commercio', kw: 'negozio vendita prodotti bottega commerciante' },
   { code: '47.91.00', label: 'E-commerce / vendita online', categoria: 'commercio', kw: 'vendo online shop negozio internet dropshipping etsy' },
-  { code: '56.10.00', label: 'Ristorante / pizzeria', categoria: 'commercio', kw: 'ristorazione cucina pizza cuoco chef' },
-  { code: '56.30.00', label: 'Bar / caffetteria', categoria: 'commercio', kw: 'bar caffè caffetteria' },
-  { code: '55.20.00', label: 'B&B / affittacamere', categoria: 'commercio', kw: 'bed and breakfast affitti brevi turistici casa vacanze' },
+  { code: '56.10.00', label: 'Ristorante / pizzeria', categoria: 'alloggio_ristorazione', kw: 'ristorazione cucina pizza cuoco chef' },
+  { code: '56.30.00', label: 'Bar / caffetteria', categoria: 'alloggio_ristorazione', kw: 'bar caffè caffetteria' },
+  { code: '55.20.00', label: 'B&B / affittacamere', categoria: 'alloggio_ristorazione', kw: 'bed and breakfast affitti brevi turistici casa vacanze' },
+  { code: '10.71.00', label: 'Panificio / pasticceria artigianale', categoria: 'alimentari_industria', kw: 'panetteria pasticcere forno pane dolci produzione artigianale' },
+  { code: '11.05.00', label: 'Birrificio artigianale', categoria: 'alimentari_industria', kw: 'birra artigianale microbirrificio brewery' },
+  { code: '10.89.00', label: 'Produzione alimentare artigianale', categoria: 'alimentari_industria', kw: 'conserve marmellate sottaceti produzione cibo artigianale gastronomia' },
+  { code: '47.82.00', label: 'Ambulante abbigliamento / mercatini', categoria: 'ambulante_altri', kw: 'bancarella mercato ambulante vestiti abbigliamento non alimentare' },
+  { code: '47.89.00', label: 'Ambulante altri prodotti', categoria: 'ambulante_altri', kw: 'bancarella mercato ambulante oggettistica artigianato hobbistica' },
 ];
 export const ATECO_UFFICIALE_URL = 'https://ateco.infocamere.it';
 // Ricerca libera in italiano: normalizza (minuscolo, accenti via, spazi) e
