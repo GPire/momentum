@@ -22,9 +22,24 @@
 //      come endpoint (vedi commento ENDPOINT lì) e in App Vault → Impostazioni
 //      → "Aiuta a far crescere Momentum" per chi accetta di attivarlo.
 //
-// Uso: POST / {id, event:'install'|'active', month?:'YYYY-MM'} per contare;
-// GET /stats?token=IL_TUO_STATS_TOKEN per leggere i numeri.
+// Uso: POST / {id, event:'install'|'active'|'feature', key?, month?:'YYYY-MM'}
+// per contare; GET /stats?token=IL_TUO_STATS_TOKEN per leggere i numeri.
 'use strict';
+
+// STESSO elenco chiuso del client (src/core/telemetry.js:FEATURE_KEYS) —
+// duplicato qui apposta (difesa in profondità): il worker non si fida MAI
+// di una chiave arbitraria mandata dal client per costruirci una chiave KV,
+// anche se il client onesto la filtra già. Se i due elenchi divergono, un
+// evento nuovo dal client viene scartato qui finché non si aggiorna anche
+// questo file — un piccolo attrito voluto, mai un salvataggio automatico
+// di una chiave mai vista prima.
+const FEATURE_KEYS = new Set([
+  'onboarding_completed', 'first_real_transaction', 'analysis_tensor_opened',
+  'spain_tax_activated', 'swiss_tax_opened', 'italy_piva_activated', 'group_chat_used',
+  'nudge_acted_sweep', 'nudge_acted_causal', 'nudge_acted_month-end',
+  'nudge_acted_price-hike', 'nudge_acted_budget-stale', 'nudge_acted_bnpl-exposure',
+  'nudge_acted_es-tax-set-aside', 'nudge_acted_investment-readiness',
+]);
 
 async function listAllKeys(kv, prefix) {
   const keys = [];
@@ -72,11 +87,25 @@ export async function computeStats(kv, { monthsBack = 6, now = new Date() } = {}
       retentionRate = +(retained / prevSet.size).toFixed(3);
     }
   }
+  // Eventi di funzionalità: dispositivi UNICI che hanno toccato ogni pietra
+  // miliare, per mese — stesso principio di activeByMonth sopra (unicità
+  // per id, mai un conteggio grezzo di eventi). Chiave KV:
+  // feature:<key>:<month>:<id> — <key> non contiene mai ':' (whitelist
+  // sopra), quindi lo split resta sicuro anche se <id> lo contenesse.
+  const featureKeys = await listAllKeys(kv, 'feature:');
+  const monthSet = new Set(months);
+  const featureByMonth = Object.fromEntries(months.map((m) => [m, {}]));
+  for (const k of featureKeys) {
+    const [, key, month] = k.name.split(':');
+    if (!key || !month || !monthSet.has(month) || !FEATURE_KEYS.has(key)) continue;
+    featureByMonth[month][key] = (featureByMonth[month][key] || 0) + 1;
+  }
   return {
     totalInstallsEver: installs.length,
     activeByMonth,
     currentMonthActive: activeByMonth[months[0]] || 0,
     retentionRateMonthOverMonth: retentionRate,
+    featureByMonth,
     generatedAt: now.toISOString(),
   };
 }
@@ -93,12 +122,14 @@ export async function handleRequest(request, env) {
   if (request.method === 'POST' && url.pathname === '/') {
     let body;
     try { body = await request.json(); } catch (_) { return new Response('JSON non valido.', { status: 400 }); }
-    const { id, event, month } = body || {};
+    const { id, event, month, key } = body || {};
     if (!id || typeof id !== 'string' || id.length > 128) return new Response('id mancante o non valido.', { status: 400 });
     if (event === 'install') {
       await env.MOMENTUM_TELEMETRY.put(`install:${id}`, String(Date.now()));
     } else if (event === 'active' && /^\d{4}-\d{2}$/.test(month || '')) {
       await env.MOMENTUM_TELEMETRY.put(`active:${month}:${id}`, String(Date.now()));
+    } else if (event === 'feature' && /^\d{4}-\d{2}$/.test(month || '') && FEATURE_KEYS.has(key)) {
+      await env.MOMENTUM_TELEMETRY.put(`feature:${key}:${month}:${id}`, String(Date.now()));
     } else {
       return new Response('event non valido.', { status: 400 });
     }

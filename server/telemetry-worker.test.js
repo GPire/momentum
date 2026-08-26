@@ -87,3 +87,43 @@ test('handleRequest: rotta sconosciuta → 404', async () => {
   const r = await handleRequest(new Request('https://x.test/altro'), env);
   assert.equal(r.status, 404);
 });
+
+// ── event: 'feature' (2026-08-26) — pietre miliari anonime, elenco chiuso ──
+
+test('handleRequest: POST feature con chiave valida → salva, conta unico per (chiave,mese,id)', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+  const post = async (body) => handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify(body) }), env);
+  assert.equal((await post({ id: 'a', event: 'feature', key: 'onboarding_completed', month: '2026-07' })).status, 200);
+  assert.equal((await post({ id: 'a', event: 'feature', key: 'onboarding_completed', month: '2026-07' })).status, 200); // stesso id, sovrascrive
+  assert.equal((await post({ id: 'b', event: 'feature', key: 'onboarding_completed', month: '2026-07' })).status, 200);
+  const stats = await (await handleRequest(new Request('https://x.test/stats?token=segreto'), env)).json();
+  assert.equal(stats.featureByMonth['2026-07'].onboarding_completed, 2);
+});
+
+test('handleRequest: POST feature con chiave NON in whitelist → 400, mai salvato (difesa in profondità sul server)', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+  const r = await handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify({ id: 'a', event: 'feature', key: 'chiave_mai_vista', month: '2026-07' }) }), env);
+  assert.equal(r.status, 400);
+  assert.equal(kv.store.size, 0);
+});
+
+test('handleRequest: POST feature senza mese valido → 400', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+  const r = await handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify({ id: 'a', event: 'feature', key: 'onboarding_completed', month: 'non-un-mese' }) }), env);
+  assert.equal(r.status, 400);
+});
+
+test('computeStats: featureByMonth separa chiavi e mesi diversi, mai un totale mischiato', async () => {
+  const kv = fakeKv();
+  await kv.put('feature:onboarding_completed:2026-07:a', '1');
+  await kv.put('feature:onboarding_completed:2026-07:b', '1');
+  await kv.put('feature:analysis_tensor_opened:2026-07:a', '1');
+  await kv.put('feature:onboarding_completed:2026-06:a', '1');
+  const r = await computeStats(kv, { now: new Date('2026-07-27') });
+  assert.equal(r.featureByMonth['2026-07'].onboarding_completed, 2);
+  assert.equal(r.featureByMonth['2026-07'].analysis_tensor_opened, 1);
+  assert.equal(r.featureByMonth['2026-06'].onboarding_completed, 1);
+});

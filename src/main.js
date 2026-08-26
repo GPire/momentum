@@ -54,13 +54,18 @@ import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
 import { chiediAlMercatoSync, rifiutoMotivato, precarica as precaricaMercato } from './alpha/mercato-qa.js';
-import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed } from './core/telemetry.js';
+import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed, sendFeatureEvent } from './core/telemetry.js';
 
 // Endpoint del contatore anonimo (server/telemetry-worker.js): vuoto finché
 // non viene distribuito — con endpoint vuoto sendTelemetryPings è un no-op
 // silenzioso, così il repo resta clonabile/utilizzabile da chiunque senza
 // dover configurare nulla. Da valorizzare con l'URL reale dopo il deploy.
 const TELEMETRY_ENDPOINT = '';
+// Pietra miliare anonima (src/core/telemetry.js:FEATURE_KEYS, elenco chiuso
+// — una chiave fuori lista è un no-op silenzioso lì, mai un typo che manda
+// qualcosa a caso). Wrapper unico per non ripetere il .catch in ogni punto
+// di chiamata: mai bloccante, mai un errore visibile all'utente.
+const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch(() => {}); };
 
 // Etichette statiche (non dati) tradotte in italiano quando il dispositivo è
 // italiano — Alpha Vantage restituisce region/exchange sempre in inglese.
@@ -1435,12 +1440,13 @@ const attachFormListeners = (container, prefill = null) => {
     haptic('heavy');
     AudioSynth.play('success');
     const k = monthKey(selectedDate);
-    
+    const eraLaPrima = realTxCount() === 0;
+
     // Finestra di deduplica RISTRETTA a 15 minuti (non i 48h pensati per gli
     // import bancari): qui protegge solo dal doppio tocco per errore, non
     // fonde due caffe' veri comprati in giorni diversi — vedi il commento in
     // VaultDAO.addTransaction per il bug che questo risolve.
-    const { route } = VaultDAO.addTransaction(k, {
+    const { route, duplicate } = VaultDAO.addTransaction(k, {
       id: Date.now(),
       amount: amt,
       type,
@@ -1449,6 +1455,10 @@ const attachFormListeners = (container, prefill = null) => {
       date: selectedDate.toISOString(),
       ...(currency ? { currency } : {}),
     }, { dedupWindowHours: 0.25 });
+    // Pietra miliare "attivazione" reale (mai per un import di massa, solo
+    // dal tocco manuale): la primissima transazione VERA di questo
+    // dispositivo, non un doppione fuso dal dedup.
+    if (eraLaPrima && !duplicate) pingFeature('first_real_transaction');
 
     if (window.momentumOrchestrator) {
       window.momentumOrchestrator.learn(desc?.value || getCatById(catId).name, catId, amt, selectedDate);
@@ -3932,6 +3942,7 @@ window.setEsActive = (val) => {
   VaultDAO.state.esActive = !!val;
   VaultDAO.save();
   showToast(tCh(val ? 'esActivatedToast' : 'esDeactivatedToast', __esLang), val ? 'success' : 'info');
+  if (val) pingFeature('spain_tax_activated');
   window.closeModal?.();
   renderTaxEs(monthKey(new Date()));
 };
@@ -4231,6 +4242,7 @@ function tl1InitChecklist(id) {
 const __chLang = resolveUiLanguage();
 
 window.openSwissSimulator = () => {
+  pingFeature('swiss_tax_opened');
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
@@ -4875,7 +4887,7 @@ window.openTaxRegimePicker = () => {
     </div>`);
 };
 
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); renderTaxSettings(); renderAnalysis(); };
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderAnalysis(); };
 // "Sono dipendente, non mi serve": rispetta la scelta e smette di chiedere,
 // ma resta reversibile con un tocco (cambiare lavoro è normale, non un caso
 // limite da nascondere per sempre dietro un flag irreversibile).
@@ -7279,6 +7291,7 @@ window.openSplitGroup = (openId = null) => {
 // preso?" ha senso solo accanto alla riga di spesa di cui parla — qui vive
 // lì, non su WhatsApp staccato dai numeri tre giorni dopo.
 window.openExpenseChat = (groupId, expenseId) => {
+  pingFeature('group_chat_used');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const findGroup = () => (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
@@ -10317,6 +10330,11 @@ window.nudgeActed = (kind, handlerName, payload) => {
     VaultDAO.state.advisorBandit = banditObserve(VaultDAO.state.advisorBandit, { context: pending.context, kind, reward: 1 });
     pending.acted.push(kind);
     VaultDAO.save();
+    // Pietra miliare anonima "questo TIPO di consiglio ha fatto agire
+    // qualcuno" (mai il contenuto, mai l'utente) — il domani in cui
+    // esisteranno numeri reali, /stats potrà dire in aggregato quale kind
+    // funziona di più, per ritarare a mano i pesi iniziali di banditSeed().
+    pingFeature(`nudge_acted_${kind}`);
   }
   const handler = window[handlerName];
   if (typeof handler === 'function') handler(payload);
@@ -10904,6 +10922,7 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   try { VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk, p.cashflowStress); } catch (_) {}
   // Priori della rete neurale on-device.
   try { NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile); } catch (_) {}
+  pingFeature('onboarding_completed');
 }
 
 // ATTIVAZIONE LAMPO (anti-attrito): chi arriva da un link di divisione NON deve
@@ -11296,6 +11315,7 @@ controllaTraguardi();
 
 const navigate = (view) => {
   haptic('light');
+  if (view === 'analysis') pingFeature('analysis_tensor_opened');
   VaultDAO.state.currentView = view;
   ['dashboard', 'analysis', 'settings'].forEach(v => {
     const el = $(`#${v}-view`);
