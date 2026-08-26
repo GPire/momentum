@@ -659,8 +659,17 @@ const getTxFormHTML = () => `
 // questo HTML va nel vero piè di pagina fisso di openModal (#modal-footer);
 // sul pannello desktop, dove lo spazio verticale non manca, resta incollato
 // in coda allo stesso form (vedi il sito che lo inietta più sotto).
+// NIENTE id qui: questo template viene iniettato DUE volte nella stessa
+// pagina (piè di pagina mobile fisso + form desktop persistente, vedi nota
+// sopra) — un id duplicato è HTML non valido e un ordigno silenzioso per
+// chiunque in futuro scriva un lookup non scoperto a `formRoot` (oggi ogni
+// query qui sotto passa già da formRoot.querySelector, quindi funziona, ma
+// un solo bug reale trovato investigando main.js:1401, e questo era vicino).
+// `tx-save-btn` è dedicata a questo bottone (mai riusata altrove, a
+// differenza di `.save-btn` che è solo lo stile condiviso — vedi "Copia
+// Token" più sotto nel file, stessa classe di stile, bottone diverso).
 const getTxFormFooterHTML = () => `
-  <button type="button" class="save-btn mt-3 shrink-0" id="save-tx-btn" disabled>Conferma</button>
+  <button type="button" class="save-btn tx-save-btn mt-3 shrink-0" disabled>Conferma</button>
 `;
 
 const attachFormListeners = (container, prefill = null) => {
@@ -678,7 +687,7 @@ const attachFormListeners = (container, prefill = null) => {
   // proponeva prima d'ora — quick-add-link.js è la prima.
   let currency = null;
 
-  // Su mobile #save-tx-btn vive nel piè di pagina fisso (#modal-footer), fuori
+  // Su mobile .tx-save-btn vive nel piè di pagina fisso (#modal-footer), fuori
   // da `container` (#modal-body); su desktop vive in #form-footer-desktop,
   // fuori da #form-container-desktop — stesso principio in entrambi i posti,
   // vedi getTxFormFooterHTML più sopra. .closest() risale al progenitore
@@ -707,7 +716,7 @@ const attachFormListeners = (container, prefill = null) => {
     d.classList.remove('amount-pop'); void d.offsetWidth; d.classList.add('amount-pop');
 
     const amt = parseFloat(rawVal) || 0;
-    const saveBtn = formRoot.querySelector('#save-tx-btn');
+    const saveBtn = formRoot.querySelector('.tx-save-btn');
     
     // Il freno spese ora vive nell'indicatore onesto sotto (renderAmountImpact):
     // niente "Spesa Bloccata" finto — l'app non blocca i tuoi soldi, ti dà un
@@ -718,7 +727,7 @@ const attachFormListeners = (container, prefill = null) => {
   };
 
   const updateSaveBtn = () => {
-    const btn = formRoot.querySelector('#save-tx-btn');
+    const btn = formRoot.querySelector('.tx-save-btn');
     if (btn) btn.disabled = !(parseFloat(rawVal) > 0 && catId);
   };
 
@@ -1052,7 +1061,7 @@ const attachFormListeners = (container, prefill = null) => {
     container.querySelector('#cat-scroll')?.closest('.cat-scroll-wrapper'),
     container.querySelector('.desc-input-wrap'),
     container.querySelector('.smart-toggles-row'),
-    formRoot.querySelector('#save-tx-btn'),
+    formRoot.querySelector('.tx-save-btn'),
   ].filter(Boolean);
 
   const openNewCatPanel = (nomeSuggerito = '') => {
@@ -1339,7 +1348,7 @@ const attachFormListeners = (container, prefill = null) => {
       if (typingText) return; // lascia cancellare il testo della nota
       rawVal = rawVal.slice(0, -1); e.preventDefault(); updateAmount();
     } else if (key === 'Enter') {
-      const btn = formRoot.querySelector('#save-tx-btn');
+      const btn = formRoot.querySelector('.tx-save-btn');
       if (btn && !btn.disabled) { e.preventDefault(); btn.click(); }
     }
   };
@@ -1379,7 +1388,7 @@ const attachFormListeners = (container, prefill = null) => {
   }
 
   // Confirm Ledger Save
-  formRoot.querySelector('#save-tx-btn').onclick = () => {
+  formRoot.querySelector('.tx-save-btn').onclick = () => {
     const amt = parseFloat(rawVal);
     if (!amt || !catId) return;
 
