@@ -77,7 +77,7 @@ function translateRegionLabel(region) {
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL } from './predict/tax.js';
 import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL } from './predict/tax-ch.js';
-import { cuotaReta, irpfEstatal, RETENCION_IRPF } from './predict/tax-es.js';
+import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predict/tax-es.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
@@ -3183,6 +3183,7 @@ const renderAnalysis = (opts = {}) => {
   renderPeriodCompare();
   renderCausalGraphViz();
   renderTax(k);
+  renderTaxEs(k);
 };
 
 // ── I TRE BLOCCHI CHE NESSUN PORTALE PUÒ MOSTRARE ──────────────────────────
@@ -3851,6 +3852,77 @@ function renderTax(monthK) {
     card.classList.toggle('tax-alert', !!__taxCardUrgent);
   }
 }
+// Card "RETA + IRPF (España)" (src/predict/tax-es.js:retaIrpfPeriodo) —
+// gemella di renderTax sopra ma per gli autónomos, mostrata SOLO dopo che
+// l'utente ha attivato esplicitamente il tracciamento reale
+// (VaultDAO.state.esActive, bottone su openSpainSimulatorResult). Non tocca
+// renderTax/#tax-card: card separata, stesso principio già seguito per i
+// moduli fiscali (tax.js/tax-ch.js/tax-es.js separati perché i sistemi non
+// si mappano l'uno sull'altro).
+function renderTaxEs(monthK) {
+  const card = $('#tax-es-card'); if (!card) return;
+  if (!VaultDAO.state.esActive) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const setEl = $('#tax-es-setaside'), noteEl = $('#tax-es-note'), extraEl = $('#tax-es-extra'), subEl = $('#tax-es-sub'), discEl = $('#tax-es-disclaimer');
+  if (subEl) subEl.textContent = tCh('esCardSub', __esLang);
+  if (discEl) discEl.textContent = tCh('esCardDisclaimer', __esLang);
+  if (extraEl) extraEl.innerHTML = '';
+  const learned = VaultDAO.state.taxLearned || {};
+  const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
+  // Infinity clampa alla base MÁXIMA del tramo (cuotaReta già lo fa da sé —
+  // niente logica di tramo duplicata qui, stesso principio "una sola fonte
+  // di verità" già seguito nel resto del progetto).
+  const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
+  const monthTxs = VaultDAO.state.transactions[monthK] || [];
+  const r = retaIrpfPeriodo(monthTxs, { learned, model: incomeModel, baseElegida });
+  if (r.count > 0) {
+    setEl.textContent = formatMoney(r.reta.cuotaMensual + r.irpfMensual);
+    noteEl.textContent = tCh('esCardNoteFn', __esLang, r.count, Math.round(r.incassato), Math.round(r.reta.cuotaMensual + r.irpfMensual), Math.round(r.disponibleReal));
+  } else {
+    setEl.textContent = '—';
+    noteEl.textContent = tCh('esCardNoInvoice', __esLang);
+  }
+  if (!extraEl) return;
+  let html = '';
+  // ── Avviso cambio tramo: confronta col mese precedente completo ──
+  const prevKey = monthKey(new Date(new Date(monthK + '-01').setMonth(new Date(monthK + '-01').getMonth() - 1)));
+  const prevTxs = VaultDAO.state.transactions[prevKey] || [];
+  if (r.count > 0 && prevTxs.length) {
+    const prev = retaIrpfPeriodo(prevTxs, { learned, model: incomeModel, baseElegida });
+    if (prev.count > 0 && prev.reta.tramo.rendimientoHasta !== r.reta.tramo.rendimientoHasta) {
+      html += `<div class="flex items-start gap-1.5 text-[11px] text-amber-300 border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>${tCh('esTramoChanged', __esLang, Number.isFinite(prev.reta.tramo.rendimientoHasta) ? prev.reta.tramo.rendimientoHasta : '6.000+', Number.isFinite(r.reta.tramo.rendimientoHasta) ? r.reta.tramo.rendimientoHasta : '6.000+')}</span></div>`;
+    }
+  }
+  // ── Entrate incerte: stesso tap "è fattura?" già in uso per l'Italia,
+  // stesso VaultDAO.state.taxLearned (classifyIncome è condiviso, non
+  // duplicato per la Spagna). ──
+  if (r.uncertainCount > 0) {
+    const rows = r.uncertain.slice(0, 4).map(t =>
+      `<div class="flex items-center justify-between gap-2 py-1">
+        <span class="min-w-0 truncate">${t.description || 'entrada'} · <b>${formatMoney(t.amount)}</b></span>
+        <span class="shrink-0 flex gap-2">
+          <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "invoice")' class="text-[11px] font-bold text-emerald-400 underline">${tCh('esConfirmYes', __esLang)}</button>
+          <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "personal")' class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">${tCh('esConfirmNo', __esLang)}</button>
+        </span>
+      </div>`).join('');
+    html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} ${tCh('esUncertainLabel', __esLang)}</div><div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div></div>`;
+  }
+  html += `<button onclick="window.setEsActive(false)" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2">${tCh('esDeactivate', __esLang)}</button>`;
+  extraEl.innerHTML = html;
+}
+
+// Attiva/disattiva il tracciamento reale RETA+IRPF dalle transazioni vere —
+// reversibile con un tocco, stesso principio già seguito per setNoPartitaIva
+// (mai un flag irreversibile che costringe a riscrivere dati per tornare
+// indietro).
+window.setEsActive = (val) => {
+  VaultDAO.state.esActive = !!val;
+  VaultDAO.save();
+  showToast(tCh(val ? 'esActivatedToast' : 'esDeactivatedToast', __esLang), val ? 'success' : 'info');
+  window.closeModal?.();
+  renderTaxEs(monthKey(new Date()));
+};
+
 // Rilevamento condiviso "questo utente fattura?" — riusato dalla card Analisi e
 // dalla card Impostazioni (una sola definizione = un solo comportamento).
 function hasInvoiceIncome() {
@@ -4242,10 +4314,17 @@ window.openSpainSimulator = () => {
 };
 
 window.openSpainSimulatorResult = (rendimientoNetoMensual) => {
-  const reta = cuotaReta(rendimientoNetoMensual);
+  // Scelta base mínima/máxima (punto 2, 2026-08-26): PERSISTENTE, non solo di
+  // questa simulazione — ha senso come scelta previdenziale stabile, e la
+  // stessa scelta alimenta anche l'accantonamento reale (renderTaxEs sopra),
+  // Infinity clampa già alla base máxima dentro cuotaReta (nessuna logica
+  // duplicata).
+  const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
+  const reta = cuotaReta(rendimientoNetoMensual, { baseElegida });
   const irpfAnnuo = irpfEstatal(rendimientoNetoMensual * 12);
   const irpfMensile = irpfAnnuo / 12;
   const netoMensile = rendimientoNetoMensual - reta.cuotaMensual - irpfMensile;
+  const esMaxima = VaultDAO.state.esBaseChoice === 'maxima';
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--gold')}
@@ -4267,9 +4346,24 @@ window.openSpainSimulatorResult = (rendimientoNetoMensual) => {
           <div class="text-[11px] text-amber-200/90 mt-1 leading-snug">${tCh('esIrpfNote', __esLang)}</div>
         </div>
         <div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug text-left px-1">${tCh('esRetencionNote', __esLang, Math.round(RETENCION_IRPF.general * 100))}</div>
+        <div class="flex gap-2 w-full">
+          <button onclick="window.setEsBaseChoice('minima', ${rendimientoNetoMensual})" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-lg border ${esMaxima ? 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]' : 'border-[var(--gold)] text-[var(--gold)]'}">${tCh('esBaseMinLabel', __esLang)}</button>
+          <button onclick="window.setEsBaseChoice('maxima', ${rendimientoNetoMensual})" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-lg border ${esMaxima ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'}">${tCh('esBaseMaxLabel', __esLang)}</button>
+        </div>
+        <div class="text-[11px] text-[var(--on-surface-secondary)] text-left px-1">${tCh('esBaseChoiceNote', __esLang, Math.round(reta.baseUsata))}</div>
       </div>
+      <button onclick="window.setEsActive(true)" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${tCh('esActivateReal', __esLang)}</button>
       <button onclick="window.openSpainSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('esRecalculate', __esLang)}</button>
     </div>`);
+};
+
+// Scelta base RETA mínima/máxima (punto 2, 2026-08-26): persistente su
+// VaultDAO.state, non solo su questa simulazione — riapre lo stesso
+// risultato con la nuova base per un confronto immediato.
+window.setEsBaseChoice = (choice, rendimientoNetoMensual) => {
+  VaultDAO.state.esBaseChoice = choice === 'maxima' ? 'maxima' : 'minima';
+  VaultDAO.save();
+  window.openSpainSimulatorResult(rendimientoNetoMensual);
 };
 
 // FATTURA SVIZZERA CON QR-BILL — colma la lacuna dichiarata: prima "Crea
@@ -9412,6 +9506,29 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
         body: `Ti restano ${formatMoney(bnpl.totalRemaining)} da pagare in tutto${bnpl.nextDue ? `, prossima rata il ${dayName(bnpl.nextDue.date)} (${bnpl.nextDue.providerLabel}).` : '.'}`,
         action: { label: 'Gestisci piani', handler: 'openBnplManager', payload: null },
       });
+    }
+  } catch (_) {}
+
+  // ── RETA+IRPF Spagna (src/predict/tax-es.js, 2026-08-26): stesso principio
+  // del BNPL sopra — entra nello STESSO feed/bandit unificato invece di un
+  // riquadro a parte, così un cuscinetto sottile (cashflowStress='corto',
+  // vedi banditSeed in onboarding-priors.js) lo fa comparire più in alto.
+  // Card dedicata (#tax-es-card) mostra sempre il dato: questo è solo il
+  // promemoria nel feed, non l'unica fonte del numero.
+  try {
+    if (VaultDAO.state.esActive) {
+      const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
+      const esR = retaIrpfPeriodo(VaultDAO.state.transactions[monthKey(realNow)] || [],
+        { learned: VaultDAO.state.taxLearned || {}, model: (typeof window !== 'undefined' && window.__incomeModel) || null, baseElegida });
+      if (esR.count > 0) {
+        const aParte = esR.reta.cuotaMensual + esR.irpfMensual;
+        rawInsights.push({
+          kind: 'es-tax-set-aside',
+          severity: 'info',
+          title: tCh('esCardSub', __esLang),
+          body: tCh('esCardNoteFn', __esLang, esR.count, Math.round(esR.incassato), Math.round(aParte), Math.round(esR.disponibleReal)),
+        });
+      }
     }
   } catch (_) {}
 

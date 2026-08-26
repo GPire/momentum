@@ -84,13 +84,19 @@ export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMo
 // principio), solo QUANTO IN ALTO l'avviso finisce nel feed una volta
 // rilevato — la differenza fra "cosa è vero" (mai negoziabile) e "cosa
 // vedi per primo" (legittimamente personalizzabile).
+// Stesso identico principio applicato a 'es-tax-set-aside' (2026-08-26,
+// tax-es.js): un cuscinetto sottile rende più urgente vedere subito quanto
+// mettere da parte per RETA+IRPF — anche qui il bias non decide se
+// l'avviso esiste (retaIrpfPeriodo resta puro), solo la sua priorità nel
+// feed. Innocuo per chi non lavora in Spagna: quell'insight non viene mai
+// generato per loro, il braccio del bandit resta seminato ma inerte.
 export function banditSeed(risk = 'bilanciato', cashflowStress = null) {
   const r = RISKS.has(risk) ? risk : 'bilanciato';
   // kind favorito e forza del bias (pseudo-successi aggiunti al prior a=1).
   const favor = r === 'conservativo' ? { sweep: 0.6, causal: 0.1 }
     : r === 'aggressivo' ? { causal: 0.6, sweep: 0.1 }
     : { sweep: 0.3, causal: 0.3 };
-  if (cashflowStress === 'corto') favor['bnpl-exposure'] = 0.5;
+  if (cashflowStress === 'corto') { favor['bnpl-exposure'] = 0.5; favor['es-tax-set-aside'] = 0.5; }
   const contexts = ['ok:early', 'ok:mid', 'ok:late', 'over:early', 'over:mid', 'over:late'];
   const arms = {};
   for (const ctx of contexts) {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   RETA_TRAMOS_2026, RETA_ALIQUOTA_2026, tramoReta, cuotaReta,
   IRPF_ESTATAL_2026, irpfEstatal, IVA_ES, RETENCION_IRPF, nettoFatturaConRitenuta,
+  retaIrpfPeriodo,
 } from './tax-es.js';
 
 // ── RETA: 15 tramos reali dal BOE (Orden PJC/297/2026) — verificato con
@@ -94,4 +95,65 @@ test('nettoFatturaConRitenuta: ritenuta generale 15%, ridotta 7% nei primi anni 
 test('nettoFatturaConRitenuta: importo 0 o negativo non crasha', () => {
   assert.equal(nettoFatturaConRitenuta(0).netto, 0);
   assert.equal(nettoFatturaConRitenuta(-500).netto, 0);
+});
+
+// ── retaIrpfPeriodo: accantonamento reale dalle transazioni del Vault ──
+
+test('retaIrpfPeriodo: nessuna transazione -> count 0, nessun crash', () => {
+  const r = retaIrpfPeriodo([]);
+  assert.equal(r.count, 0);
+  assert.equal(r.incassato, 0);
+  assert.equal(r.reta, null);
+});
+
+test('retaIrpfPeriodo: riconosce le fatture in SPAGNOLO ("factura", "cliente"), non solo IT/EN', () => {
+  const txs = [
+    { type: 'entrata', amount: 1500, description: 'Factura cliente ACME' },
+    { type: 'entrata', amount: 500, description: 'Nómina empresa X' }, // salario, escluso
+    { type: 'entrata', amount: 100, description: 'Reembolso Amazon' }, // rimborso, escluso
+  ];
+  const r = retaIrpfPeriodo(txs);
+  assert.equal(r.count, 1);
+  assert.equal(r.incassato, 1500);
+  assert.equal(r.excludedCount, 2);
+});
+
+test('retaIrpfPeriodo: somma PRIMA tutte le fatture del mese e cerca il tramo UNA VOLTA sul totale, non per singola transazione (la RETA non è proporzionale come l\'INPS italiano)', () => {
+  // 10 fatture da 300€ = 3000€ reali: devono finire nel tramo di 3000€
+  // (2760-3190), NON in 10 volte il tramo di 300€ (fino a 670€).
+  const txs = Array.from({ length: 10 }, (_, i) => ({ type: 'entrata', amount: 300, description: `Factura ${i}` }));
+  const r = retaIrpfPeriodo(txs);
+  assert.equal(r.incassato, 3000);
+  assert.equal(r.reta.tramo.rendimientoHasta, 3190, 'deve usare il tramo del TOTALE (3000€), non 10 tramos separati da 300€');
+  assert.equal(r.reta.cuotaMensual, cuotaReta(3000).cuotaMensual);
+});
+
+test('retaIrpfPeriodo: irpfMensual coerente con irpfEstatal annualizzato sul reddito del periodo', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const r = retaIrpfPeriodo(txs);
+  assert.equal(r.irpfMensual, +(irpfEstatal(2000 * 12) / 12).toFixed(2));
+});
+
+test('retaIrpfPeriodo: disponibleReal = incassato - cuota RETA - IRPF mensile, mai un numero scollegato', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const r = retaIrpfPeriodo(txs);
+  assert.equal(r.disponibleReal, +(2000 - r.reta.cuotaMensual - r.irpfMensual).toFixed(2));
+});
+
+test('retaIrpfPeriodo: entrate ambigue (kind uncertain) restano fuori dal calcolo ma vengono segnalate, mai tassate d\'ufficio', () => {
+  const txs = [
+    { type: 'entrata', amount: 1000, description: 'Factura cliente' },
+    { type: 'entrata', amount: 200, description: 'Movimiento sin descripción clara' },
+  ];
+  const r = retaIrpfPeriodo(txs);
+  assert.equal(r.incassato, 1000, 'la entrata ambigua non entra nel tassabile');
+  assert.equal(r.uncertainCount, 1);
+  assert.equal(r.uncertain.length, 1);
+});
+
+test('retaIrpfPeriodo: passa baseElegida a cuotaReta quando fornita (scelta base máxima)', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }]; // tramo 1850-2030
+  const r = retaIrpfPeriodo(txs, { baseElegida: 2030 });
+  assert.equal(r.reta.baseUsata, 2030);
+  assert.equal(r.reta.baseÈMinima, false);
 });

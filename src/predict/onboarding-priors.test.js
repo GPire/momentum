@@ -123,6 +123,15 @@ test('seedBanditState: propaga cashflowStress a banditSeed, senza toccare i brac
   assert.ok(out.arms['ok:mid|bnpl-exposure']);
 });
 
+test('banditSeed: cashflowStress="corto" favorisce anche es-tax-set-aside (stesso meccanismo di bnpl-exposure, 2026-08-26)', () => {
+  const mean = (arm) => arm.a / (arm.a + arm.b);
+  const senzaStress = banditSeed('bilanciato', null);
+  const conStress = banditSeed('bilanciato', 'corto');
+  assert.equal(senzaStress['ok:mid|es-tax-set-aside'], undefined);
+  assert.ok(conStress['ok:mid|es-tax-set-aside']);
+  assert.ok(mean(conStress['ok:mid|es-tax-set-aside']) > 0.5);
+});
+
 test('seedBanditState: da stato vuoto/nullo produce uno stato valido seminato', () => {
   const out = seedBanditState(null, 'aggressivo');
   assert.equal(out.version, 1);

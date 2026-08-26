@@ -131,6 +131,27 @@ test('predict: continua a funzionare su una categoria del seme originale (nessun
   assert.ok(Number.isFinite(r.confidence));
 });
 
+// ── Riconoscimento in SPAGNOLO (2026-08-26, core/lexicon.js:CAT_RULES) —
+// stessa prima passata ad alta precisione già usata per l'italiano, non un
+// motore separato: senza addestramento, senza dati pregressi, riconosce
+// subito marchi/parole spagnole reali (verificato: Mercadona, Iberdrola,
+// Renfe, El Corte Inglés sono catene realmente esistenti, non inventate). ──
+test('predict: riconosce transazioni descritte in spagnolo senza bisogno di addestramento (regola CAT_RULES, non il neurale)', () => {
+  resetVault();
+  const casi = [
+    ['Compra en Mercadona', 'spesa'],
+    ['Factura de la luz Iberdrola', 'bollette'],
+    ['Billete Renfe Madrid-Barcelona', 'trasporti'],
+    ['El Corte Inglés ropa', 'shopping'],
+    ['Nómina empresa', 'stipendio'],
+  ];
+  for (const [testo, catAttesa] of casi) {
+    const r = NeuralNexus.predict(testo, 50);
+    assert.equal(r.cat, catAttesa, `"${testo}" doveva risolvere a "${catAttesa}", ottenuto "${r.cat}"`);
+    assert.equal(r.confidence, 75, 'la regola CAT_RULES risponde sempre con confidenza 75, mai una stima incerta per un match diretto');
+  }
+});
+
 test('validate: NON fa crescere il net (sola lettura) — una categoria mai vista viene semplicemente saltata', () => {
   resetVault();
   NeuralNexus.initPriorWeights(null);

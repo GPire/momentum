@@ -380,11 +380,15 @@ export function taxSetAside(amount, opts = {}) {
 // dal testo (e da un flag esplicito se presente), con onestà: le entrate
 // ambigue NON si assumono in silenzio, si marcano 'uncertain' così la UI può
 // chiedere "è una fattura?". Regola #1: mai un numero spacciato per certo.
-const INVOICE_KW = /(fattura|invoice|compenso|parcella|prestazione|onorario|notula|saldo\s?fatt|acconto\s?fatt|p\.?\s?iva|partita iva|corrispettiv|cliente|consulenz|consulting|freelance|collaborazione)/i;
-const SALARY_KW = /(stipendio|cedolino|busta paga|emolument|salary|payroll|wage|tredicesima|quattordicesima|netto in busta|retribuzione)/i;
+// IT + EN + ES (spagnolo aggiunto 2026-08-26 per il tracciamento reale degli
+// autónomos, tax-es.js: senza queste parole nessuna fattura descritta in
+// spagnolo verrebbe mai riconosciuta, la funzione resterebbe inutilizzabile
+// per un utente reale in Spagna nonostante il motore fiscale fosse pronto).
+const INVOICE_KW = /(fattura|invoice|factura|compenso|parcella|prestazione|onorario|notula|honorarios|saldo\s?fatt|acconto\s?fatt|p\.?\s?iva|partita iva|corrispettiv|cliente|consulenz|consulting|consultor[ií]a|freelance|collaborazione)/i;
+const SALARY_KW = /(stipendio|cedolino|busta paga|emolument|salary|payroll|wage|tredicesima|quattordicesima|netto in busta|retribuzione|n[oó]mina|sueldo)/i;
 // Non imponibili come fattura P.IVA: rimborsi, regali, giroconti, interessi,
-// dividendi, bonus bancari, prestiti (IT + EN per gli export Revolut).
-const PERSONAL_KW = /(rimborso|refund|regalo|gift|restituzione|giroconto|storno|reversal|cashback|vincita|prestito|loan|bonifico da|transfer from|ricarica|top.?up|interess|interest|dividend|bonus)/i;
+// dividendi, bonus bancari, prestiti (IT + EN + ES per gli export bancari).
+const PERSONAL_KW = /(rimborso|refund|reembolso|regalo|gift|restituzione|devoluci[oó]n|giroconto|storno|reversal|cashback|vincita|prestito|loan|pr[eé]stamo|bonifico da|transfer from|transferencia de|ricarica|top.?up|interess|interest|inter[eé]s|dividend|bonus)/i;
 
 // Ritorna { kind: 'invoice'|'salary'|'personal'|'uncertain', reason }.
 // Priorità: (1) flag esplicito dell'utente; (2) parole nella DESCRIZIONE (il

@@ -82,6 +82,9 @@ test('t: la lingua spagnola risponde correttamente, e le chiavi es esistono anch
   const chiaviEs = [
     'esSimTitle', 'esSimSubtitle', 'esSimPlaceholder', 'esSimCta', 'esSimBack',
     'esResultSubtitle', 'esRetaLabel', 'esRetaBaseNote', 'esIrpfLabel', 'esIrpfNote', 'esRecalculate',
+    'esActivateReal', 'esActivatedToast', 'esDeactivate', 'esDeactivatedToast', 'esCardSub',
+    'esCardNoInvoice', 'esCardDisclaimer', 'esBaseMinLabel', 'esBaseMaxLabel',
+    'esConfirmYes', 'esConfirmNo', 'esUncertainLabel',
   ];
   for (const lang of ['it', 'en', 'es']) {
     for (const k of chiaviEs) {
@@ -95,6 +98,13 @@ test('t: le chiavi-funzione spagnole interpolano correttamente', () => {
   assert.equal(t('esResultTitle', 'es', '2000'), 'Con 2000€/mes');
   assert.equal(t('esResultTitle', 'en', '2000'), 'With 2000€/month');
   assert.match(t('esRetencionNote', 'es', 15), /15%/);
+});
+
+test('t: esTramoChanged e esBaseChoiceNote (card RETA+IRPF con tracciamento reale, 2026-08-26) interpolano correttamente in ogni lingua', () => {
+  assert.equal(t('esTramoChanged', 'es', 670, 900), 'Tu tramo RETA cambió respecto al mes pasado: antes hasta 670€/mes, ahora hasta 900€/mes — tu cuota cambiará en consecuencia.');
+  assert.match(t('esTramoChanged', 'it', 670, 900), /670€\/mese/);
+  assert.match(t('esTramoChanged', 'en', 670, 900), /€670\/month/);
+  assert.equal(t('esBaseChoiceNote', 'es', 1500), 'Base elegida actual: 1500€/mes.');
 });
 
 test('t: chi ha il dispositivo in tedesco/francese e finisce comunque sulla schermata spagnola ricade su EN, mai su una chiave grezza', () => {

@@ -32,6 +32,7 @@
 'use strict';
 
 import { computeIrpef } from './tax-rules.js';
+import { classifyIncome } from './tax.js';
 
 // ── RETA: contributi per tramo di reddito netto mensile ──
 // Tabla reducida (rendimientos bassi) + tabla general, tabella 2026
@@ -131,4 +132,54 @@ export function nettoFatturaConRitenuta(importe, { primeriAnni = false } = {}) {
   const aliquota = primeriAnni ? RETENCION_IRPF.reducidaPrimeriAnni : RETENCION_IRPF.general;
   const ritenuta = +(imp * aliquota).toFixed(2);
   return { importe: imp, ritenuta, netto: +(imp - ritenuta).toFixed(2), aliquota };
+}
+
+// ── Accantonamento reale su un periodo (2026-08-26) — dalle TRANSAZIONI VERE
+// del Vault, non da un importo digitato a mano ogni volta. Riusa
+// classifyIncome (tax.js, ora esteso con parole spagnole: factura, honorarios,
+// nómina, reembolso...) per riconoscere quali entrate sono fatture.
+//
+// DIFFERENZA IMPORTANTE rispetto a taxSetAsideForPeriod (Italia): lì si somma
+// il "da accantonare" transazione per transazione, corretto perché l'INPS/
+// IRPEF italiani sono proporzionali al singolo incasso. La RETA spagnola
+// NON lo è — è un IMPORTO FISSO per tramo di reddito MENSILE TOTALE. Sommare
+// per-transazione produrrebbe più tramos bassi invece di uno solo corretto
+// sul totale (es. 10 fatture da 300€ darebbero 10 cuote basse invece di UNA
+// cuota sul tramo dei 3.000€ reali) — qui si somma PRIMA, si cerca il tramo
+// DOPO, una volta sola.
+export function retaIrpfPeriodo(transactions, opts = {}) {
+  const learned = opts.learned || null;
+  const model = opts.model || null;
+  const entrate = (transactions || []).filter((t) => t.type === 'entrata');
+  let taxableGross = 0, excludedGross = 0, uncertainGross = 0;
+  let taxableCount = 0, excludedCount = 0, uncertainCount = 0;
+  const uncertain = [];
+  for (const t of entrate) {
+    const { kind } = classifyIncome(t, learned, model);
+    if (kind === 'invoice') { taxableGross += t.amount; taxableCount++; }
+    else if (kind === 'uncertain') { uncertainGross += t.amount; uncertainCount++; uncertain.push(t); }
+    else { excludedGross += t.amount; excludedCount++; }
+  }
+  if (taxableCount === 0) {
+    return {
+      incassato: 0, count: 0, reta: null, irpfMensual: 0, disponibleReal: 0,
+      excludedGross: +excludedGross.toFixed(2), excludedCount,
+      uncertainGross: +uncertainGross.toFixed(2), uncertainCount, uncertain,
+      note: excludedCount || uncertainCount ? 'Ninguna factura este periodo.' : 'Ningún ingreso registrado en este periodo.',
+    };
+  }
+  const reta = cuotaReta(taxableGross, { baseElegida: opts.baseElegida });
+  // IRPF: annualizza il reddito di QUESTO periodo (assume reddito costante
+  // nel resto dell'anno) — stessa semplificazione dichiarata di
+  // projectAnnualTax per l'Italia, mai spacciata per una dichiarazione
+  // fiscale vera: è una stima del mese, non un calcolo annuale definitivo.
+  const irpfAnnuo = irpfEstatal(taxableGross * 12);
+  const irpfMensual = +(irpfAnnuo / 12).toFixed(2);
+  const disponibleReal = +(taxableGross - reta.cuotaMensual - irpfMensual).toFixed(2);
+  return {
+    incassato: +taxableGross.toFixed(2), count: taxableCount, reta, irpfMensual, disponibleReal,
+    excludedGross: +excludedGross.toFixed(2), excludedCount,
+    uncertainGross: +uncertainGross.toFixed(2), uncertainCount, uncertain,
+    note: `Sobre ${taxableCount} factura${taxableCount > 1 ? 's' : ''} (${taxableGross.toFixed(0)}€) aparta ~${(reta.cuotaMensual + irpfMensual).toFixed(0)}€ (RETA+IRPF): lo disponible real es ${disponibleReal.toFixed(0)}€.`,
+  };
 }
