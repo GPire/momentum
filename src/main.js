@@ -9276,7 +9276,12 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   if (!alertsBox) return;
   alertsBox.innerHTML = '';
 
-  const anomalies = AnomalyDetector.detectAll().filter(a => monthKey(new Date(a.tx.date)) === k);
+  // Collegato al profilo dell'onboarding (2026-08-26), a senso unico: con
+  // liquidità reale corta dichiarata (domanda 1) la soglia scende da 2.0 a
+  // 1.6 deviazioni standard — PIÙ sensibile, mai meno, per nessun profilo.
+  // Vedi la nota estesa in anomaly.js:detectAll sul perché mai il contrario.
+  const zThreshold = VaultDAO.state.investmentPrefs?.cashflowStress === 'corto' ? 1.6 : 2.0;
+  const anomalies = AnomalyDetector.detectAll({ zThreshold }).filter(a => monthKey(new Date(a.tx.date)) === k);
   // Ghost Radar v2: le anomalie con esercente MAI visto prima diventano
   // interattive — "È mia" conferma e addestra l'AI (modelStats), "Non la
   // riconosco" marca la tx come sospetta (campo additivo, mai tocca importo).

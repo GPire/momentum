@@ -21,7 +21,17 @@ export function findUnknownMerchants(anomalies, allTx, opts = {}) {
 }
 
 const AnomalyDetector = {
-  detectAll() {
+  // `zThreshold` (opzionale, default 2.0 — invariato): quante deviazioni
+  // standard servono per segnalare una spesa come insolita. Si può SOLO
+  // ABBASSARE (mai alzare) rispetto al default — collegato al profilo
+  // dell'onboarding (main.js: cashflowStress==='corto' → soglia più bassa,
+  // più sensibile), MAI il contrario. Un profilo "aggressivo" non deve MAI
+  // ricevere MENO avvisi di uno prudente: sarebbe sopprimere un fatto sui
+  // dati sulla base di un'opinione dichiarata, il rischio che ha già escluso
+  // BNPL/anomalie dal collegamento diretto col rischio. Qui il collegamento
+  // esiste ma è a senso unico, solo verso PIÙ attenzione per chi ha meno
+  // margine — mai meno per nessuno.
+  detectAll({ zThreshold = 2.0 } = {}) {
     const anomalies = [];
     const dataByCategory = {};
     Object.keys(VaultDAO.state.transactions).forEach(m => {
@@ -41,7 +51,7 @@ const AnomalyDetector = {
       const stdDev = Math.sqrt(variance);
       if (stdDev === 0) continue;
       txs.forEach(t => {
-        if ((t.amount - avg) / stdDev > 2.0) anomalies.push({ tx: t, zScore: (t.amount - avg)/stdDev });
+        if ((t.amount - avg) / stdDev > zThreshold) anomalies.push({ tx: t, zScore: (t.amount - avg)/stdDev });
       });
     }
     return anomalies;
