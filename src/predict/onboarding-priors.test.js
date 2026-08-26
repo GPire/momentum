@@ -31,6 +31,60 @@ test('derivePriors: input non validi → default bilanciato/medio', () => {
   assert.equal(d.monthlyBudget, 1500);
 });
 
+// ── liquidityMonths (domanda 1 dell'onboarding): vince sul valore derivato dal rischio ──
+
+test('derivePriors: senza liquidityMonths, emergencyMonths resta quello derivato dal rischio (comportamento invariato)', () => {
+  const d = derivePriors('bilanciato', 'medio');
+  assert.equal(d.emergencyMonths, 6);
+  assert.equal(d.cashflowStress, null);
+  assert.equal(d.liquidityMonths, null);
+});
+
+test('derivePriors: la liquidità reale dichiarata VINCE su quella derivata dal rischio', () => {
+  const d = derivePriors('conservativo', 'medio', 1); // derivato sarebbe 9, dichiara 1
+  assert.equal(d.emergencyMonths, 1);
+  assert.equal(d.liquidityMonths, 1);
+  assert.equal(d.cashflowStress, 'corto');
+});
+
+test('derivePriors: CONTRADDIZIONE dichiarata — profilo aggressivo ma liquidità corta attiva comunque il freno protettivo', () => {
+  const d = derivePriors('aggressivo', 'lungo', 0.5); // da solo sarebbe 'zen'
+  assert.equal(d.aiAggression, 'predator', 'il bisogno reale vince sul profilo dichiarato');
+  assert.equal(d.cashflowStress, 'corto');
+});
+
+test('derivePriors: liquidità ampia (12+ mesi) si dichiara "ampio", ma non forza zen da sola', () => {
+  const d = derivePriors('conservativo', 'medio', 18);
+  assert.equal(d.cashflowStress, 'ampio');
+  assert.equal(d.emergencyMonths, 18);
+});
+
+test('derivePriors: liquidityMonths assente/non valida (null, undefined, negativa, NaN) non altera il comportamento derivato', () => {
+  for (const v of [null, undefined, -1, NaN, 'boh']) {
+    const d = derivePriors('bilanciato', 'medio', v);
+    assert.equal(d.emergencyMonths, 6, `con liquidityMonths=${v}`);
+    assert.equal(d.cashflowStress, null, `con liquidityMonths=${v}`);
+  }
+});
+
+// ── invests (uscita esplicita "non investo"): ortogonale al rischio ──
+
+test('derivePriors: invests=true (default) è invariato rispetto a prima', () => {
+  const d = derivePriors('aggressivo', 'medio');
+  assert.equal(d.invests, true);
+  assert.equal(d.investFraction, 0.85);
+});
+
+test('derivePriors: invests=false azzera SOLO investFraction, budget/cuscinetto/freno restano quelli del profilo (chi non investe ha comunque bisogno di tutto il resto)', () => {
+  const conRischio = derivePriors('aggressivo', 'medio', null, true);
+  const senzaInvestimenti = derivePriors('aggressivo', 'medio', null, false);
+  assert.equal(senzaInvestimenti.invests, false);
+  assert.equal(senzaInvestimenti.investFraction, 0);
+  assert.equal(senzaInvestimenti.monthlyBudget, conRischio.monthlyBudget);
+  assert.equal(senzaInvestimenti.emergencyMonths, conRischio.emergencyMonths);
+  assert.equal(senzaInvestimenti.aiAggression, conRischio.aiAggression);
+});
+
 test('banditSeed: prudente favorisce "sweep" (risparmio), aggressivo "causal"', () => {
   const cons = banditSeed('conservativo');
   const aggr = banditSeed('aggressivo');

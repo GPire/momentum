@@ -2912,32 +2912,51 @@
              capisce, e dice esattamente quello che la scena ha appena fatto. -->
         <div class="privacy-claim mb-6">
           <h2 class="text-2xl font-black leading-tight mb-1">Niente esce da qui.</h2>
-          <p class="text-sm text-[var(--on-surface-secondary)] leading-snug">I tuoi dati provano a uscire e tornano dentro. Nessun server, nessun account: restano sul tuo telefono. Due domande e sei dentro.</p>
+          <p class="text-sm text-[var(--on-surface-secondary)] leading-snug">I tuoi dati provano a uscire e tornano dentro. Nessun server, nessun account: restano sul tuo telefono. Tre domande e sei dentro.</p>
         </div>
         <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext(1)">Inizia — bastano 20 secondi</button>
       </div>
-      <!-- Step 1 — stessa domanda-profilo (valori invariati) ma in parole umane. -->
+      <!-- Step 1 — cuscinetto di liquidità: non derivato dal profilo di
+           rischio (due persone "aggressive" possono avere situazioni di
+           liquidità opposte), chiesto davvero. "Non lo so" passa una
+           stringa vuota apposta: è falsy, quindi genesisNext la tratta come
+           "nessuna risposta" e derivePriors ricade sul valore derivato dal
+           profilo — stessa logica di ogni altra domanda qui, nessun caso
+           speciale da mantenere a parte. -->
       <div class="genesis-step" id="g-step-1">
-        <div class="g-progress" aria-hidden="true"><span class="on"></span><span></span></div>
-        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 1 di 2</p>
+        <div class="g-progress" aria-hidden="true"><span class="on"></span><span></span><span></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 1 di 3</p>
+        <h2 class="text-2xl font-black mb-1">Se le tue entrate si fermassero oggi.</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Quanto potresti andare avanti, spendendo come adesso?</p>
+        <button class="g-option" style="--i:1" onclick="genesisNext(2, 0.5)">Meno di un mese</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(2, 2.5)">Due o tre mesi</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(2, 6)">Mezzo anno circa</button>
+        <button class="g-option" style="--i:4" onclick="genesisNext(2, 12)">Un anno o più</button>
+        <button class="g-option" style="--i:5" onclick="genesisNext(2, '')">Non lo so</button>
+      </div>
+      <!-- Step 2 — stessa domanda-profilo (valori invariati) ma in parole umane. -->
+      <div class="genesis-step" id="g-step-2">
+        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="on"></span><span></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 2 di 3</p>
         <h2 class="text-2xl font-black mb-1">Il mercato scende del 20%.</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Tu cosa faresti?</p>
-        <button class="g-option" style="--i:1" onclick="genesisNext(2, 'aggressivo')">Compro ancora, è in saldo</button>
-        <button class="g-option" style="--i:2" onclick="genesisNext(2, 'bilanciato')">Aspetto e osservo</button>
-        <button class="g-option" style="--i:3" onclick="genesisNext(2, 'conservativo')">Vendo, non voglio rischiare</button>
+        <button class="g-option" style="--i:1" onclick="genesisNext(3, 'aggressivo')">Compro ancora, è in saldo</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(3, 'bilanciato')">Aspetto e osservo</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(3, 'conservativo')">Vendo, non voglio rischiare</button>
+        <button class="g-option" style="--i:4" onclick="genesisNext(3, 'non-investe')">Non investo, non mi riguarda</button>
       </div>
-      <!-- Step 2 -->
-      <div class="genesis-step" id="g-step-2">
-        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="on"></span></div>
-        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 2 di 2 — l'ultima</p>
+      <!-- Step 3 -->
+      <div class="genesis-step" id="g-step-3">
+        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="done"></span><span class="on"></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 3 di 3 — l'ultima</p>
         <h2 class="text-2xl font-black mb-1">Fra quanto ti servono?</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Così i consigli sono cuciti su di te.</p>
-        <button class="g-option" style="--i:1" onclick="genesisNext(3, 'lungo')">Fra molti anni — sto costruendo</button>
-        <button class="g-option" style="--i:2" onclick="genesisNext(3, 'medio')">Fra qualche anno — un progetto</button>
-        <button class="g-option" style="--i:3" onclick="genesisNext(3, 'breve')">Presto — mi servono a breve</button>
+        <button class="g-option" style="--i:1" onclick="genesisNext(4, 'lungo')">Fra molti anni — sto costruendo</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(4, 'medio')">Fra qualche anno — un progetto</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(4, 'breve')">Presto — mi servono a breve</button>
       </div>
-      <!-- Step 3 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
-      <div class="genesis-step" id="g-step-3">
+      <!-- Step 4 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
+      <div class="genesis-step" id="g-step-4">
         <h2 class="text-2xl font-black mb-2 text-center">Tutto pronto.</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-4 text-center">Da ora Momentum ragiona come te. Ecco cosa ho già regolato:</p>
         <!-- Payoff visibile: le 2 risposte hanno GIÀ cambiato budget, freno
@@ -4123,6 +4142,12 @@
                     <!-- Spiegazione dinamica del livello scelto (cambia col tocco):
                          così si CAPISCE la differenza e non sembra finto. -->
                     <p id="ai-mode-desc" class="text-[12px] text-[var(--on-surface-secondary)] mt-3 leading-snug"></p>
+                    <!-- Collegamento con la domanda 1 dell'onboarding (liquidità
+                         reale dichiarata): visibile SOLO se quella risposta ha
+                         davvero influenzato questo livello — mai un avviso
+                         generico che compare sempre, sarebbe rumore. Vuoto di
+                         default, riempito da renderBrakeDesc() in main.js. -->
+                    <p id="ai-mode-liquidity-note" class="text-[11px] mt-2 leading-snug hidden" style="color:var(--primary)"></p>
                   </div>
 
                   <div class="card p-6">

@@ -15,7 +15,25 @@ const HORIZONS = new Set(['breve', 'medio', 'lungo']);
 
 // Config di base derivata dal profilo (centralizza la logica prima inline in
 // seedProfileState → una sola fonte di verità, niente divergenze).
-export function derivePriors(risk = 'bilanciato', horizon = 'medio') {
+//
+// `liquidityMonths` (opzionale, terzo parametro): la liquidità REALE
+// dichiarata dall'utente (domanda 1 dell'onboarding), non derivata dal
+// profilo di rischio come `emergencyMonths` qui sotto — due persone
+// "aggressive" possono avere situazioni di liquidità opposte, e trattarle
+// uguali sarebbe un dato inventato spacciato per personalizzazione. Quando
+// c'è, VINCE sul valore derivato dal rischio (con un minimo di 1 mese: mai
+// zero, un numero che romperebbe le proiezioni a valle). Contraddizione
+// dichiarata, non risolta in silenzio (regola del progetto): un profilo
+// "aggressivo" ma con meno di 2 mesi di liquidità reale attiva comunque il
+// freno protettivo — il bisogno reale vince sulla dichiarazione di
+// tolleranza al rischio, e `cashflowStress` lo rende leggibile a chi
+// consuma questi priori (es. il payoff visibile in main.js).
+// `invests` (opzionale, quarto parametro): "non investo e preferisco non
+// farlo" è un fatto ORTOGONALE al profilo di rischio, non un livello di
+// rischio in più — chi non investe ha comunque bisogno di budget, cuscinetto
+// e freno spese come chiunque altro, solo `investFraction` si azzera (mai
+// una quota "investibile" proposta a chi ha detto esplicitamente di no).
+export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMonths = null, invests = true) {
   const r = RISKS.has(risk) ? risk : 'bilanciato';
   const hz = HORIZONS.has(horizon) ? horizon : 'medio';
   const monthlyBudget = r === 'conservativo' ? 1000 : r === 'aggressivo' ? 2200 : 1500;
@@ -35,7 +53,19 @@ export function derivePriors(risk = 'bilanciato', horizon = 'medio') {
   let aiAggression = 'advisor';
   if (hz === 'breve' || r === 'conservativo') aiAggression = 'predator';
   else if (r === 'aggressivo' && hz === 'lungo') aiAggression = 'zen';
-  return { risk: r, horizon: hz, monthlyBudget, investFraction, emergencyMonths, riskFloor, aiAggression };
+
+  let finalEmergencyMonths = emergencyMonths;
+  let cashflowStress = null;
+  const haLiquiditaReale = Number.isFinite(liquidityMonths) && liquidityMonths >= 0;
+  if (haLiquiditaReale) {
+    finalEmergencyMonths = Math.max(1, Math.round(liquidityMonths));
+    cashflowStress = liquidityMonths < 2 ? 'corto' : liquidityMonths >= 12 ? 'ampio' : 'normale';
+    if (cashflowStress === 'corto' && aiAggression !== 'predator') aiAggression = 'predator';
+  }
+  return {
+    risk: r, horizon: hz, monthlyBudget, investFraction: invests ? investFraction : 0, emergencyMonths: finalEmergencyMonths, riskFloor, aiAggression,
+    cashflowStress, liquidityMonths: haLiquiditaReale ? +liquidityMonths : null, invests: !!invests,
+  };
 }
 
 // Priori DEBOLI per il contextual bandit dell'advisor (Beta-Bernoulli). Encodano
