@@ -10320,7 +10320,7 @@ window.genesisNext = (step, value = '') => {
         const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false);
         VaultDAO.state.aiAggression = p.aiAggression;
         VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests };
-        VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk);
+        VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk, p.cashflowStress);
       } catch (_) { /* priming best-effort: non blocca mai l'onboarding */ }
     }
 
@@ -10694,7 +10694,7 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   // Priori DEBOLI per il contextual bandit dell'advisor: il primo consiglio è
   // già orientato al profilo (prudente→risparmio, aggressivo→ottimizzazione),
   // ma i dati reali li superano in fretta. Non tocca i bracci già appresi.
-  try { VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk); } catch (_) {}
+  try { VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk, p.cashflowStress); } catch (_) {}
   // Priori della rete neurale on-device.
   try { NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile); } catch (_) {}
 }

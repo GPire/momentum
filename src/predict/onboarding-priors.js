@@ -75,12 +75,22 @@ export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMo
 // deboli (bias ≤ 0.6 pseudo-conteggi): bastano poche interazioni reali a
 // sovrascriverli. Ritorna una mappa { "context|kind": {a, b} } pronta da fondere
 // nello stato `advisorBandit`. Contesti coperti: entrambe le fasi mese × over/ok.
-export function banditSeed(risk = 'bilanciato') {
+// `cashflowStress` (opzionale, secondo parametro): quando 'corto' (liquidità
+// reale sotto 2 mesi, domanda 1 dell'onboarding — indipendente dal rischio)
+// aggiunge un bias sul kind 'bnpl-exposure' — un avviso di esposizione a
+// piani rateali conta di più con un cuscinetto sottile. IMPORTANTE: questo
+// NON tocca se bnpl.js rileva un piano (resta puramente sui dati, mai sul
+// profilo dichiarato — vedi la nota in neural-nexus.js sullo stesso
+// principio), solo QUANTO IN ALTO l'avviso finisce nel feed una volta
+// rilevato — la differenza fra "cosa è vero" (mai negoziabile) e "cosa
+// vedi per primo" (legittimamente personalizzabile).
+export function banditSeed(risk = 'bilanciato', cashflowStress = null) {
   const r = RISKS.has(risk) ? risk : 'bilanciato';
   // kind favorito e forza del bias (pseudo-successi aggiunti al prior a=1).
   const favor = r === 'conservativo' ? { sweep: 0.6, causal: 0.1 }
     : r === 'aggressivo' ? { causal: 0.6, sweep: 0.1 }
     : { sweep: 0.3, causal: 0.3 };
+  if (cashflowStress === 'corto') favor['bnpl-exposure'] = 0.5;
   const contexts = ['ok:early', 'ok:mid', 'ok:late', 'over:early', 'over:mid', 'over:late'];
   const arms = {};
   for (const ctx of contexts) {
@@ -94,9 +104,9 @@ export function banditSeed(risk = 'bilanciato') {
 // Fonde i priori del bandit dentro uno stato advisorBandit esistente SENZA
 // sovrascrivere bracci già appresi (se l'utente ha già dati reali, quelli
 // vincono: si semina solo dove non c'è ancora nulla). Puro.
-export function seedBanditState(existing, risk = 'bilanciato') {
+export function seedBanditState(existing, risk = 'bilanciato', cashflowStress = null) {
   const base = existing && existing.arms ? existing : { version: 1, arms: {} };
-  const seed = banditSeed(risk);
+  const seed = banditSeed(risk, cashflowStress);
   const arms = { ...base.arms };
   for (const [key, val] of Object.entries(seed)) {
     if (!arms[key]) arms[key] = val; // non toccare i bracci già appresi

@@ -103,6 +103,26 @@ test('seedBanditState: semina solo bracci vuoti, NON tocca quelli appresi', () =
   assert.ok(out.arms['over:mid|sweep'], 'i bracci vuoti vengono seminati');
 });
 
+// ── banditSeed con cashflowStress: collega BNPL al profilo SENZA toccare
+// la rilevazione (bnpl.js resta puro sui dati) — solo quanto in alto un
+// avviso già rilevato finisce nel feed ordinato dal bandit. ──
+
+test('banditSeed: cashflowStress="corto" favorisce la visibilità di bnpl-exposure, indipendentemente dal rischio', () => {
+  const mean = (arm) => arm.a / (arm.a + arm.b);
+  const senzaStress = banditSeed('aggressivo', null);
+  const conStress = banditSeed('aggressivo', 'corto');
+  assert.equal(senzaStress['ok:mid|bnpl-exposure'], undefined, 'senza liquidità dichiarata, nessun bias su bnpl-exposure');
+  assert.ok(conStress['ok:mid|bnpl-exposure'], 'con liquidità corta, il braccio esiste');
+  assert.ok(mean(conStress['ok:mid|bnpl-exposure']) > 0.5, 'prior debole ma orientato a favore');
+  // Il bias sweep/causal per il rischio resta intatto, cashflowStress si aggiunge, non sostituisce.
+  assert.ok(mean(conStress['ok:mid|causal']) > mean(conStress['ok:mid|sweep']), 'aggressivo → causal, invariato');
+});
+
+test('seedBanditState: propaga cashflowStress a banditSeed, senza toccare i bracci già appresi', () => {
+  const out = seedBanditState(null, 'bilanciato', 'corto');
+  assert.ok(out.arms['ok:mid|bnpl-exposure']);
+});
+
 test('seedBanditState: da stato vuoto/nullo produce uno stato valido seminato', () => {
   const out = seedBanditState(null, 'aggressivo');
   assert.equal(out.version, 1);
