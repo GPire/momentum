@@ -4,8 +4,10 @@
 // utenti attivi al mese, tasso di adozione) per investitori/partner. Non
 // riceve MAI dati finanziari, transazioni, o identità reali — solo un id
 // casuale generato dal client (src/core/telemetry.js) e un evento
-// 'install'/'active'. Disattivato di default nel client (opt-in esplicito
-// dell'utente): questo worker può ricevere traffico zero per anni, è normale.
+// 'install'/'active'. Attivo di default nel client (opt-OUT esplicito e
+// immediato al primo avvio, mai nascosto — vedi telemetry.js): con
+// l'endpoint vuoto (default del repo finché non distribuito) questo worker
+// può comunque ricevere traffico zero per anni, è normale.
 //
 // DEPLOY (5 minuti, gratuito su Cloudflare — free tier: 100k richieste/
 // giorno, ampiamente sufficiente in questa fase):
