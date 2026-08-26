@@ -6,7 +6,7 @@
 // senza questa cache l'app "offline-first" perdeva stile, grafici e OCR
 // appena mancava la rete. La cache vendor NON viene spazzata dai bump
 // dell'app: contiene anche i ~15MB di wasm/traineddata di Tesseract.
-const APP_CACHE = 'momentum-vault-v107';
+const APP_CACHE = 'momentum-vault-v108';
 const VENDOR_CACHE = 'momentum-vendor-v1';
 
 const CDN_HOSTS = [
@@ -89,18 +89,26 @@ async function vendorCacheFirst(request) {
 self.addEventListener('fetch', e => {
   // Web Share Target (solo Android Chrome, PWA installata; iOS non supporta
   // share_target per le PWA — limite Apple, non aggirabile): l'utente
-  // condivide uno screenshot (es. notifica del wallet) direttamente a
-  // Momentum. Il blob viene parcheggiato nella cache come mailbox SW→client
-  // e la pagina viene aperta con ?shared=1; consumeSharedImage() in main.js
-  // lo raccoglie e lo instrada nell'OCR esistente.
+  // condivide uno screenshot (es. notifica del wallet) O testo (es. un SMS/
+  // notifica inoltrata come testo) direttamente a Momentum. Il contenuto
+  // viene parcheggiato nella cache come mailbox SW→client e la pagina viene
+  // aperta con ?shared=1; consumeSharedContent() in main.js lo raccoglie —
+  // l'immagine va nell'OCR esistente, il testo nel parser di notifiche
+  // (src/import/notification-parser.js), con conferma dell'utente prima di
+  // salvare (mai un testo condiviso salvato da solo, stessa cautela del
+  // deep-link quick-add).
   if (e.request.method === 'POST' && new URL(e.request.url).pathname.endsWith('/share-target')) {
     e.respondWith((async () => {
       try {
         const formData = await e.request.formData();
         const file = formData.get('image');
+        const text = formData.get('text');
+        const cache = await caches.open(APP_CACHE);
         if (file) {
-          const cache = await caches.open(APP_CACHE);
           await cache.put('./__shared-image', new Response(file, { headers: { 'Content-Type': file.type || 'image/png' } }));
+        }
+        if (text) {
+          await cache.put('./__shared-text', new Response(text, { headers: { 'Content-Type': 'text/plain' } }));
         }
       } catch (_) { /* condivisione malformata: si apre comunque l'app */ }
       return Response.redirect('./index.html?shared=1', 303);

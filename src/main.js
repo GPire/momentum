@@ -179,6 +179,7 @@ import { backupRisk, placementQuality, recordPlacement, placeLabel } from './cor
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
+import { parseNotificationText } from './import/notification-parser.js';
 import { NeuroSym } from './ai/neurosym.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
@@ -1531,26 +1532,76 @@ function updateSplitMeshDot() {
     : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-[var(--on-surface-secondary)] opacity-50"></span>Nessun collegamento diretto — il link basta comunque`;
 }
 
-// Web Share Target (Android): il SW ha parcheggiato lo screenshot condiviso
-// nella cache come './__shared-image' e ci ha aperti con ?shared=1. Qui lo
-// si raccoglie, si pulisce URL e mailbox (mai ri-consumare al reload) e lo
-// si instrada nell'OCR esistente — identico all'upload manuale.
+// Cerca una chiave in QUALUNQUE cache 'momentum-vault-*' (non solo quella
+// con la versione più recente). BUG REALE TROVATO dal vivo: questa funzione
+// apriva la cache con un nome di versione SCRITTO A MANO ('momentum-vault-
+// v52'), che restava fermo mentre APP_CACHE in sw.js è già arrivato a v107
+// — da tempo la condivisione non veniva più raccolta MAI (cache.match su
+// una cache sbagliata torna sempre vuoto, in silenzio, nessun errore). Il
+// nome della cache viene sempre e solo da sw.js: cercare in tutte quelle
+// col prefisso giusto rende il codice immune al prossimo bump di versione.
+async function trovaInCacheCondivisa(chiave) {
+  const nomi = await caches.keys();
+  for (const nome of nomi) {
+    if (!nome.startsWith('momentum-vault-')) continue;
+    const cache = await caches.open(nome);
+    const res = await cache.match(chiave);
+    if (res) return { cache, res };
+  }
+  return null;
+}
+
+// Web Share Target (Android): il SW ha parcheggiato il contenuto condiviso
+// nella cache — immagine come './__shared-image', testo come
+// './__shared-text' — e ci ha aperti con ?shared=1. Qui lo si raccoglie, si
+// pulisce URL e mailbox (mai ri-consumare al reload) e lo si instrada.
+// L'immagine passa dall'OCR esistente e si auto-salva (l'utente ha già
+// scelto visivamente lo screenshot, come per l'upload manuale). Il testo
+// invece è input più ambiguo — stessa cautela già scritta per il deep-link
+// quick-add (src/import/quick-add-link.js): non si salva da solo, si
+// prefill+conferma nel form di aggiunta già esistente.
 // Su iOS questo flusso non esiste (Apple non supporta share_target per PWA).
-async function consumeSharedImage() {
+async function consumeSharedContent() {
+  if (!new URLSearchParams(location.search).has('shared')) return;
+  history.replaceState(null, '', './index.html');
+
   try {
-    if (!new URLSearchParams(location.search).has('shared')) return;
-    history.replaceState(null, '', './index.html');
-    const cache = await caches.open('momentum-vault-v52'); // stesso APP_CACHE di sw.js
-    const res = await cache.match('./__shared-image');
-    if (!res) return;
-    await cache.delete('./__shared-image');
-    const blob = await res.blob();
-    const result = await handleScreenshotUpload(blob);
-    if (result) {
-      renderDashboard();
-      renderAnalysis({ skipHeavyForecast: result.route === 'fast' });
+    const immagine = await trovaInCacheCondivisa('./__shared-image');
+    if (immagine) {
+      await immagine.cache.delete('./__shared-image');
+      const blob = await immagine.res.blob();
+      const result = await handleScreenshotUpload(blob);
+      if (result) {
+        renderDashboard();
+        renderAnalysis({ skipHeavyForecast: result.route === 'fast' });
+      }
     }
   } catch (e) { console.warn('Immagine condivisa non recuperabile:', e); }
+
+  try {
+    const testo = await trovaInCacheCondivisa('./__shared-text');
+    if (testo) {
+      await testo.cache.delete('./__shared-text');
+      const raw = (await testo.res.text()).trim();
+      const parsed = raw ? parseNotificationText('', raw) : null;
+      if (!parsed) {
+        if (raw) showToast('Testo condiviso ma non riconosciuto: aggiungilo a mano.', 'info');
+        return;
+      }
+      const result = window.momentumOrchestrator?.classify
+        ? window.momentumOrchestrator.classify(parsed.description, parsed.amount, new Date())
+        : { cat: null };
+      const prefill = {
+        type: parsed.type, category: result.cat || null, amount: parsed.amount,
+        description: parsed.description, currency: parsed.currency || null,
+      };
+      if (!document.getElementById('app-core') || document.getElementById('app-core').classList.contains('hidden')) {
+        window._pendingQuickAdd = prefill;
+      } else {
+        window.openPrefilledAdd(prefill);
+      }
+    }
+  } catch (e) { console.warn('Testo condiviso non recuperabile:', e); }
 }
 
 // ── DEEP-LINK "UNISCITI" (abbatte l'attrito del condividi) ───────────────────
@@ -13728,7 +13779,7 @@ const initApp = () => {
         } catch (_) { /* mai bloccante */ }
       }).catch(() => {});
     }, 3000);
-    consumeSharedImage(); // screenshot condiviso via share target (Android)
+    consumeSharedContent(); // immagine o testo condivisi via share target (Android)
     // Utente già attivo che arriva (o torna dopo un reload SW) da un link di
     // divisione: apri direttamente la conferma d'ingresso, dal payload
     // sopravvissuto in sessionStorage se l'URL è già stato ripulito.
