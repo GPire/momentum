@@ -1934,6 +1934,17 @@
     @keyframes gRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
     .genesis-step.active h1, .genesis-step.active h2, .genesis-step.active > p { animation: gRise 0.5s cubic-bezier(0.22,1,0.36,1) both; }
     .genesis-step.active .g-option { animation: gRise 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay: calc(0.12s + var(--i, 0) * 0.09s); }
+    /* Payoff (step 4): stesse regole di ingresso a scaglione delle opzioni
+       sopra — una card per volta, non un blocco che appare di colpo. Stessa
+       animazione gRise, non una seconda inventata a parte. */
+    .genesis-step.active .payoff-card { animation: gRise 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay: calc(0.12s + var(--i, 0) * 0.09s); }
+    @media (prefers-reduced-motion: reduce) { .genesis-step.active .payoff-card { animation: none; } }
+    /* Le card del payoff sono vetro, non piene: lo starfield/nebulosa già
+       presenti dietro OGNI step (vedi .starfield, poco sopra in questo
+       file) restano visibili attraverso, invece di sparire dietro un
+       riquadro opaco — è la continuità col tema cosmico dell'hero che
+       mancava, senza duplicare lo starfield che esiste già una volta sola. */
+    .payoff-card { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
     /* progresso "1 di 2": pallini semplici, il corrente più grande e colorato */
     .g-progress { display: flex; gap: 8px; justify-content: center; margin-bottom: 1.25rem; }
     .g-progress span { width: 8px; height: 8px; border-radius: 999px; background: var(--outline); transition: all 0.35s cubic-bezier(0.22,1,0.36,1); }

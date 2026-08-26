@@ -10350,34 +10350,54 @@ window.genesisNext = (step, value = '') => {
 // possono raccontare due cose diverse). Neuro-colori: verde=protezione,
 // oro=variabile/dipendente dal profilo, mai rosso in una schermata di
 // benvenuto.
-const renderGenesisPayoff = () => {
+// Etichetta breve del livello (già usata in setAIAggression: unica fonte,
+// non riscritta qui). BRAKE_DESC resta la spiegazione lunga per le
+// Impostazioni — in una card di 4 righe ripeterla per intero dominava
+// visivamente sulle altre (trovato dal vivo, l'utente l'ha segnalato:
+// "popup bruttissimo, per niente coerente col design").
+const LABEL_FRENO = { zen: 'Delicato', advisor: 'Consigliere', predator: 'Deciso' };
+function renderGenesisPayoff() {
   const el = document.getElementById('genesis-payoff');
   if (!el) return;
   const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false);
-  const riga = (colore, testo) => `<div class="flex items-center gap-2 text-[12px] text-left"><span class="inline-block w-1.5 h-1.5 rounded-full shrink-0" style="background:${colore}"></span><span>${testo}</span></div>`;
+  // Stessa card icona+testo di openMomentumReveal (sopra in questo file) —
+  // riuso apposta, non un nuovo stile inventato: è il linguaggio visivo che
+  // l'app usa già per "ecco cosa ho fatto per te", e deve restare coerente
+  // ovunque compare, non reinventato schermata per schermata.
+  const tono = {
+    green: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5',
+    gold: 'text-amber-400 border-amber-400/40 bg-amber-400/5',
+    primary: 'text-[var(--primary)] border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]',
+    purple: 'text-purple-400 border-purple-400/40 bg-purple-400/5',
+  };
+  let indiceCard = 0;
+  const card = (colore, icona, titolo, testo) => `
+    <div class="payoff-card flex items-center gap-3 rounded-2xl border p-3 ${tono[colore]}" style="--i:${indiceCard++}">
+      <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icona}</svg></div>
+      <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${titolo}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${testo}</div></div>
+    </div>`;
   const righe = [
-    riga('var(--green)', `Budget del mese: <b>${p.monthlyBudget.toLocaleString('it-IT')}€</b> di partenza — lo aggiusti quando vuoi.`),
-    riga('var(--gold)', `Freno spese: <b>${BRAKE_DESC[p.aiAggression]}</b>`),
-    // Chi ha detto "non investo" non deve vedere una quota "investibile"
-    // proposta comunque (sarebbe ignorare la risposta appena data): il
-    // cuscinetto resta un fatto reale e utile per chiunque, la frase su
-    // "quanto puoi investire" no.
+    card('green', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      `Budget: ${p.monthlyBudget.toLocaleString('it-IT')}€/mese`, 'Il punto di partenza — lo aggiusti quando vuoi.'),
+    card('gold', '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>',
+      `Freno spese: ${LABEL_FRENO[p.aiAggression]}`, BRAKE_DESC[p.aiAggression].split('.')[0] + '.'),
     p.invests
-      ? riga('var(--primary)', `Cuscinetto: <b>${p.emergencyMonths} ${p.emergencyMonths === 1 ? 'mese' : 'mesi'}</b> di spese protetti, poi fino al <b>${Math.round(p.investFraction * 100)}%</b> dell'avanzo può andare a investimenti.`)
-      : riga('var(--primary)', `Cuscinetto: <b>${p.emergencyMonths} ${p.emergencyMonths === 1 ? 'mese' : 'mesi'}</b> di spese protetti. Niente proposte di investimento: hai detto che non ti interessa.`),
+      ? card('primary', '<path d="M3 12h4l3 8 4-16 3 8h4"/>', `Cuscinetto: ${p.emergencyMonths} ${p.emergencyMonths === 1 ? 'mese' : 'mesi'}`, `Poi fino al ${Math.round(p.investFraction * 100)}% dell'avanzo può andare a investimenti.`)
+      : card('primary', '<path d="M3 12h4l3 8 4-16 3 8h4"/>', `Cuscinetto: ${p.emergencyMonths} ${p.emergencyMonths === 1 ? 'mese' : 'mesi'}`, 'Niente proposte di investimento: hai detto che non ti interessa.'),
     p.invests
-      ? riga('var(--gold)', testoConsiglio(p.risk))
-      : riga('var(--gold)', 'I consigli restano su budget e risparmio, non su cosa comprare in mercato.'),
+      ? card('purple', '<path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0012 3z"/>', 'Consigli su misura', testoConsiglio(p.risk))
+      : card('purple', '<path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0012 3z"/>', 'Consigli su misura', 'Su budget e risparmio, non su cosa comprare in mercato.'),
   ];
   // Contraddizione dichiarata, non nascosta (regola del progetto): la
   // liquidità reale può ribaltare il freno spese rispetto a quello che il
   // solo profilo di rischio avrebbe suggerito — l'utente deve saperlo, non
   // scoprirlo dopo chiedendosi perché l'app "lo tratta da prudente".
   if (p.cashflowStress === 'corto') {
-    righe.push(riga('var(--primary)', `Con meno di due mesi di liquidità reale, il freno resta protettivo anche se il tuo profilo era più aggressivo — il bisogno vince sulla dichiarazione.`));
+    righe.push(card('primary', '<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>',
+      'Liquidità corta', 'Il freno resta protettivo anche con un profilo più aggressivo — il bisogno vince sulla dichiarazione.'));
   }
   el.innerHTML = righe.join('');
-};
+}
 
 const initGenesisHold = () => {
   const btn = document.getElementById('genesis-btn');
