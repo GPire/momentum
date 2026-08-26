@@ -258,7 +258,16 @@ test('descrizione dello split pulita dai connettivi: "dividi 30 di pizza con Ann
 // connettivo "e di [verbo]" deve comunque separare le due azioni ──
 
 test('BUG REALE: "ricordami di chiamare X e di pagare Y" → DUE promemoria distinti, non uno fuso', () => {
-  const r = VoiceParser.parse("ricordami di chiamare mia madre domani e di pagare la bolletta entro venerdì");
+  // "domani" e "dopodomani" (mai "entro venerdì"/un giorno della settimana):
+  // un giorno della settimana può capitare a coincidere con "domani" quando
+  // il test gira proprio nel giorno immediatamente precedente a quello
+  // nominato (es. gira di giovedì, "domani" = "il prossimo venerdì" sono lo
+  // STESSO giorno di calendario — non è un bug, è corretto che coincidano,
+  // ma rende il test intermittente in base al giorno della settimana in cui
+  // gira, trovato dal vivo con `npm test` fallito 4 volte su 5 di giovedì).
+  // domani/dopodomani sono SEMPRE +1/+2 giorni da oggi, non possono mai
+  // coincidere fra loro qualunque sia il giorno vero di esecuzione.
+  const r = VoiceParser.parse("ricordami di chiamare mia madre domani e di pagare la bolletta dopodomani");
   const rem = r.filter(x => x.intent === 'reminder');
   assert.equal(rem.length, 2, 'devono restare due promemoria separati');
   assert.match(rem[0].description.toLowerCase(), /madre/);
