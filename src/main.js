@@ -7239,14 +7239,22 @@ window.openSplitGroup = (openId = null) => {
       </div>`;
     }).join('');
 
-    const settleRows = transfers.map(t => {
+    // "Chi deve cosa a chi" è la vera risposta di questa schermata — prima
+    // era l'unica lista senza l'animazione d'ingresso già in uso per
+    // persone/spese (split-rows-in/.split-row, sopra): un vuoto reale,
+    // non un'aggiunta per l'estetica. Stesso meccanismo, nessun nuovo
+    // keyframe.
+    const settleRowsInner = transfers.map(t => {
       const line = t.to === myId ? `<b>${esc(t.fromName)}</b> deve darti <b>${eur(t.amount)}</b>`
         : t.from === myId ? `Devi <b>${eur(t.amount)}</b> a <b>${esc(t.toName)}</b>`
           : `<b>${esc(t.fromName)}</b> → <b>${esc(t.toName)}</b>: ${eur(t.amount)}`;
       const act = t.to === myId ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
         : t.from === myId ? `<button data-tell="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
-      return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px]">${line}${act}</div>`;
-    }).join('') || `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+      return `<div class="split-row flex items-center justify-between gap-2 py-1.5 text-[13px]">${line}${act}</div>`;
+    }).join('');
+    const settleRows = settleRowsInner
+      ? `<div class="split-rows-in">${settleRowsInner}</div>`
+      : `<div class="split-row flex items-center gap-2 py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
       <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
       <span class="text-[12px] font-bold text-emerald-400">Tutto in pari — nessuno deve niente a nessuno</span>
     </div>`;
@@ -7306,7 +7314,14 @@ window.openSplitGroup = (openId = null) => {
       set.has(b.dataset.involve) ? set.delete(b.dataset.involve) : set.add(b.dataset.involve);
       form.involved = members.map(m => m.id).filter(id => set.has(id));
       if (!form.involved.length) form.involved = members.map(m => m.id);
+      const toccato = b.dataset.involve;
       render();
+      // Micro-feedback tattile sul chip appena toccato (stesso balzo già
+      // usato per il toggle Entrata/Uscita, .type-toggle-pop — non un
+      // nuovo keyframe): il chip cambia colore/barrato già da solo, questo
+      // aggiunge solo "l'ho sentito", non un effetto nuovo.
+      const nuovoChip = document.querySelector(`[data-involve="${toccato}"]`);
+      if (nuovoChip) { nuovoChip.classList.add('type-toggle-pop'); }
     }));
     $('#sg-amt')?.addEventListener('input', (e) => { form.amount = e.target.value; });
     $('#sg-desc')?.addEventListener('input', (e) => { form.desc = e.target.value; });
