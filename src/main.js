@@ -1398,7 +1398,11 @@ const attachFormListeners = (container, prefill = null) => {
     // (predator) e solo quando il freno è FORTE (warn: la spesa fa chiudere il
     // mese in rosso o è ben oltre il margine di oggi) chiediamo un secondo tocco
     // di conferma — mai un blocco, decidi tu. Le altre modalità non frenano qui.
-    if ((VaultDAO.state.aiAggression || 'advisor') === 'predator' && !window.__brakeConfirmed) {
+    // SOLO sulle uscite (bug reale trovato il 2026-08-26 investigando un salvataggio
+    // che sembrava fallire in silenzio): senza questo controllo, registrare
+    // un'ENTRATA (es. lo stipendio) chiedeva "sei sicuro di voler spendere?" —
+    // il freno ha senso solo su una spesa, mai su un incasso.
+    if (type === 'uscita' && (VaultDAO.state.aiAggression || 'advisor') === 'predator' && !window.__brakeConfirmed) {
       let sTd = null, mDelta = null, typ = null;
       try {
         const mTx = VaultDAO.state.transactions[monthKey(selectedDate)] || [];
