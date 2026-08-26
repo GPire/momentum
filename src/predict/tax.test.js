@@ -500,19 +500,66 @@ test('simulateNewPartitaIva: oltre il tetto (regime ordinario) → nessuna strat
   assert.equal(s.strategie.length, 0);
 });
 
-test('taxSetAside: cassa previdenziale propria -> INPS azzerato, mai calcolato al posto della cassa vera', () => {
+test('taxSetAside: cassa NON coperta da regole (una delle altre 13) -> INPS azzerato, mai un\'aliquota inventata', () => {
   const senzaCassa = taxSetAside(30000, { regime: 'forfettario' });
-  const conCassa = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'avvocati' });
+  const conCassa = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'medici_odontoiatri' }); // ENPAM, non in CASSE_CON_REGOLE
   assert.ok(senzaCassa.breakdown.find(b => b.voce === 'Contributi INPS').importo > 0);
-  const rigaCassa = conCassa.breakdown.find(b => /Cassa Forense/.test(b.voce));
+  const rigaCassa = conCassa.breakdown.find(b => /ENPAM/.test(b.voce));
   assert.ok(rigaCassa, 'la scomposizione deve nominare la cassa vera, non "INPS"');
-  assert.equal(rigaCassa.importo, 0, 'Momentum non inventa l\'aliquota della cassa altrui');
-  assert.match(rigaCassa.nota, /Cassa Forense/);
+  assert.equal(rigaCassa.importo, 0, 'Momentum non inventa l\'aliquota di una cassa non verificata');
+  assert.match(rigaCassa.nota, /ENPAM/);
   assert.match(rigaCassa.nota, /non all'INPS/);
-  // Col professionista in cassa propria il netto è PIÙ ALTO (niente INPS
-  // sottratto) — non un dettaglio di stile, è il punto del fix.
-  assert.ok(conCassa.net > senzaCassa.net);
-  assert.equal(conCassa.cassaNome, 'Cassa Forense');
+  assert.equal(conCassa.cassaCalcolo, null);
+  assert.equal(conCassa.cassaNome, 'ENPAM');
+});
+
+// ── Cassa professionale REALE (Cassa Forense/Inarcassa/CNPADC, 2026-08-26):
+// aliquote/minimi verificati incrociando più fonti — vedi CASSE_CON_REGOLE.
+// Numeri attesi calcolati a mano con la stessa aritmetica del codice, non
+// dedotti dall'output della funzione stessa. ──
+
+test('taxSetAside: Cassa Forense calcolata per davvero — soggettivo 17% + integrativo 4%, entrambi sopra il minimo a questo fatturato', () => {
+  const r = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'avvocati' });
+  // redditoImponibile = 30000*0.78 = 23400; soggettivo = 23400*0.17 = 3978 (> minimo 2790)
+  // integrativo = 30000*0.04 = 1200 (> minimo 355)
+  const soggettivo = r.breakdown.find(b => /soggettivo.*Cassa Forense/.test(b.voce));
+  const integrativo = r.breakdown.find(b => /integrativo.*Cassa Forense/.test(b.voce));
+  assert.ok(soggettivo && integrativo);
+  assert.equal(soggettivo.importo, 3978);
+  assert.equal(integrativo.importo, 1200);
+  assert.equal(r.cassaCalcolo.totale, 5178);
+  // Il soggettivo è deducibile: baseImposta = 23400-3978=19422, imposta = 19422*0.15=2913.3
+  const imposta = r.breakdown.find(b => /Imposta/.test(b.voce));
+  assert.equal(imposta.importo, 2913.3);
+  assert.equal(r.setAside, 8091.3); // 2913.3 (imposta) + 5178 (cassa), zero INPS/IVA
+  assert.equal(r.net, 21908.7);
+});
+
+test('taxSetAside: Cassa Forense — minimi applicati a un fatturato basso dove il calcolato scenderebbe sotto', () => {
+  const r = taxSetAside(3000, { regime: 'forfettario', cassaPropria: 'avvocati' });
+  // redditoImponibile = 3000*0.78=2340; soggettivo calcolato = 2340*0.17=397.8, MOLTO sotto il minimo 2790
+  // integrativo calcolato = 3000*0.04=120, sotto il minimo 355
+  assert.equal(r.cassaCalcolo.soggettivo, 2790, 'vince il minimo, non il calcolato');
+  assert.equal(r.cassaCalcolo.integrativo, 355, 'vince il minimo, non il calcolato');
+});
+
+test('taxSetAside: Inarcassa e CNPADC calcolate con le rispettive aliquote/minimi reali', () => {
+  const inarcassa = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'ingegneri_architetti' });
+  // redditoImponibile=23400; soggettivo=23400*0.145=3393 (>2800); integrativo=30000*0.04=1200 (>850)
+  assert.equal(inarcassa.cassaCalcolo.soggettivo, 3393);
+  assert.equal(inarcassa.cassaCalcolo.integrativo, 1200);
+
+  const cnpadc = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'commercialisti' });
+  // soggettivo=23400*0.12=2808 (>3180? NO: 2808<3180, vince il minimo)
+  assert.equal(cnpadc.cassaCalcolo.soggettivo, 3180);
+  // integrativo CNPADC: nessun minimo confermato -> solo il calcolato, 30000*0.04=1200
+  assert.equal(cnpadc.cassaCalcolo.integrativo, 1200);
+});
+
+test('contributiCassaProfessionale: cassa non coperta -> null, mai un numero a caso', async () => {
+  const { contributiCassaProfessionale } = await import('./tax.js');
+  assert.equal(contributiCassaProfessionale(23400, 30000, 'medici_odontoiatri'), null);
+  assert.equal(contributiCassaProfessionale(23400, 30000, 'professione_mai_sentita'), null);
 });
 
 test('taxSetAside: aliquota INPS ridotta al 24% per chi ha già un\'altra copertura previdenziale (LACUNA COLMATA)', () => {
@@ -529,11 +576,18 @@ test('taxSetAside: aliquota INPS ridotta al 24% per chi ha già un\'altra copert
   assert.equal(rigaRidotta.importo, +(23400 * 0.24).toFixed(2));
   assert.ok(ridotta.net > piena.net);
 });
-test('taxSetAside: cassa propria e altra copertura insieme -> vince la cassa propria (esenzione totale, non 24%)', () => {
-  const r = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'avvocati', altraCoperturaPrevidenziale: true });
-  const riga = r.breakdown.find(b => /Cassa Forense/.test(b.voce));
+test('taxSetAside: cassa propria (non coperta da regole) e altra copertura insieme -> vince la cassa propria (esenzione INPS totale, non 24%)', () => {
+  const r = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'medici_odontoiatri', altraCoperturaPrevidenziale: true });
+  const riga = r.breakdown.find(b => /ENPAM/.test(b.voce));
   assert.ok(riga);
-  assert.equal(riga.importo, 0); // esenzione totale, non la ridotta al 24%
+  assert.equal(riga.importo, 0); // esenzione totale, non la ridotta al 24% — l'INPS non c'entra comunque
+});
+
+test('taxSetAside: cassa propria CALCOLATA e altra copertura insieme -> l\'INPS resta comunque a zero, il contributo cassa non cambia con quel flag', () => {
+  const soloCassa = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'avvocati' });
+  const cassaEAltraCopertura = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'avvocati', altraCoperturaPrevidenziale: true });
+  assert.equal(cassaEAltraCopertura.cassaCalcolo.totale, soloCassa.cassaCalcolo.totale, 'altraCoperturaPrevidenziale riguarda l\'INPS, non la cassa propria');
+  assert.equal(cassaEAltraCopertura.breakdown.find(b => b.voce === 'Contributi INPS'), undefined);
 });
 
 test('taxSetAside: nome cassa sconosciuto -> messaggio prudente, mai un crash o un nome inventato', () => {
@@ -548,13 +602,23 @@ test('CASSE_PROFESSIONALI: copre le professioni ordinistiche più comuni con nom
   assert.equal(CASSE_PROFESSIONALI.medici_odontoiatri, 'ENPAM');
 });
 
-test('simulateNewPartitaIva: cassa propria propagata nel simulatore, con strategia dedicata che lo spiega', () => {
+test('simulateNewPartitaIva: cassa COPERTA (INARCASSA) propagata nel simulatore, il netto include già il contributo reale', () => {
   const s = simulateNewPartitaIva(30000, { cassaPropria: 'ingegneri_architetti' });
   assert.equal(s.cassaNome, 'INARCASSA');
+  assert.ok(s.cassaCalcolo, 'il simulatore deve esporre il dettaglio del calcolo, non solo il nome');
   const tip = s.strategie.find(t => t.icon === 'cassa');
   assert.ok(tip);
   assert.match(tip.testo, /INARCASSA/);
+  assert.match(tip.testo, /include già/); // NON "non lo include": ora lo calcola davvero
+});
+
+test('simulateNewPartitaIva: cassa NON coperta (ENPAM) — il simulatore avvisa che il numero non la include', () => {
+  const s = simulateNewPartitaIva(30000, { cassaPropria: 'medici_odontoiatri' });
+  assert.equal(s.cassaNome, 'ENPAM');
+  assert.equal(s.cassaCalcolo, null);
+  const tip = s.strategie.find(t => t.icon === 'cassa');
   assert.match(tip.testo, /non all'INPS/);
+  assert.match(tip.testo, /NON li include/);
 });
 
 test('simulateNewPartitaIva: dipendente che apre anche la P.IVA -> aliquota INPS ridotta al 24%, verificata e applicata davvero', () => {

@@ -154,6 +154,66 @@ export const CASSE_PROFESSIONALI = {
   notai: 'Cassa Nazionale del Notariato',
 };
 
+// Regole REALI delle 3 casse più numerose (ADEPP 2025: Cassa Forense 217k
+// iscritti attivi, Inarcassa 173k, CNPADC 74k — insieme ~480k professionisti
+// che finora Momentum trattava con un contributo a zero e la nota "non lo
+// calcoliamo"). Le altre 13 casse in CASSE_PROFESSIONALI restano SENZA
+// regole: stesso comportamento onesto di sempre, mai un'aliquota indovinata
+// per una cassa non verificata riga per riga.
+// Fonti incrociate (agosto 2026), aliquote/minimi 2026:
+//  - Cassa Forense: fiscoetasse.com, centrofiscale.com, tedeschiepartners.it
+//  - Inarcassa: money.it, centrofiscale.com, taxmanapp.it
+//  - CNPADC: cnpadc.it (sito ufficiale) — il contributo integrativo NON ha
+//    un minimo confermato da fonte primaria (a differenza delle altre due):
+//    qui si applica SOLO l'aliquota %, mai un minimo indovinato.
+export const CASSE_CON_REGOLE = {
+  avvocati: {
+    nomeBreve: 'Cassa Forense',
+    aliquotaSoggettivo: 0.17, sogliaAliquotaRidotta: 131800, aliquotaSoggettivoOltreSoglia: 0.03,
+    minimoSoggettivo: 2790,
+    aliquotaIntegrativo: 0.04, minimoIntegrativo: 355,
+  },
+  ingegneri_architetti: {
+    nomeBreve: 'Inarcassa',
+    aliquotaSoggettivo: 0.145, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 2800,
+    aliquotaIntegrativo: 0.04, minimoIntegrativo: 850,
+  },
+  commercialisti: {
+    nomeBreve: 'CNPADC',
+    // Aliquota BASE: CNPADC permette di versarne di più volontariamente
+    // (12%-100%, per una pensione futura più alta) — qui si usa sempre la
+    // base, mai una scelta volontaria che Momentum non può conoscere.
+    aliquotaSoggettivo: 0.12, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 3180,
+    aliquotaIntegrativo: 0.04, minimoIntegrativo: null,
+  },
+};
+
+// Contributi alla cassa professionale propria (contributo soggettivo +
+// integrativo), SOLO per le 3 casse sopra. `redditoImponibile` = base per il
+// soggettivo (stesso reddito su cui si calcolerebbe l'INPS); `fatturato` =
+// base per l'integrativo (il volume d'affari IVA, non il reddito netto: è
+// così che le casse lo calcolano davvero, mai approssimato sul reddito).
+// Pura, testabile: nessun accesso a VaultDAO.
+export function contributiCassaProfessionale(redditoImponibile, fatturato, cassaKey) {
+  const regole = CASSE_CON_REGOLE[cassaKey];
+  if (!regole) return null; // cassa non coperta — onestà, non un numero a caso
+  const reddito = Math.max(0, redditoImponibile || 0);
+  const entro = regole.sogliaAliquotaRidotta ? Math.min(reddito, regole.sogliaAliquotaRidotta) : reddito;
+  const oltre = regole.sogliaAliquotaRidotta && reddito > regole.sogliaAliquotaRidotta
+    ? (reddito - regole.sogliaAliquotaRidotta) * regole.aliquotaSoggettivoOltreSoglia : 0;
+  const soggettivo = Math.max(entro * regole.aliquotaSoggettivo + oltre, regole.minimoSoggettivo);
+  const integrativoCalcolato = Math.max(0, fatturato || 0) * regole.aliquotaIntegrativo;
+  const integrativo = regole.minimoIntegrativo != null ? Math.max(integrativoCalcolato, regole.minimoIntegrativo) : integrativoCalcolato;
+  return {
+    nomeBreve: regole.nomeBreve,
+    soggettivo: +soggettivo.toFixed(2),
+    integrativo: +integrativo.toFixed(2),
+    totale: +(soggettivo + integrativo).toFixed(2),
+  };
+}
+
 // Tetto di ricavi per restare nel regime forfettario (Italia, 85.000€/anno).
 // Superarlo obbliga al regime ordinario: è un'informazione predittiva reale
 // e utile, non una previsione inventata.
@@ -242,7 +302,18 @@ export function taxSetAside(amount, opts = {}) {
     ? rInps.inpsGestioneSeparataRidotta : INPS_GESTIONE_SEPARATA_RIDOTTA;
   const aliquotaInps = opts.altraCoperturaPrevidenziale ? inpsRidotta : inpsPiena;
   const inps = cassaNome ? 0 : redditoImponibile * aliquotaInps;
-  const baseImposta = redditoImponibile - inps; // INPS deducibile (0 se cassa propria: l'imposta si calcola comunque sul reddito lordo di contributi in quel caso — dettaglio da verificare con la propria cassa)
+  // Cassa professionale REALE (2026-08-26): prima qui l'INPS si azzerava e
+  // basta, "vai a calcolarlo altrove" — ora, per le 3 casse più numerose
+  // (Cassa Forense/Inarcassa/CNPADC, vedi CASSE_CON_REGOLE sopra), il
+  // contributo soggettivo+integrativo è calcolato per davvero, con le
+  // stesse aliquote/minimi verificati. Per le altre 13 casse resta null:
+  // stesso comportamento onesto di prima, mai un numero indovinato.
+  const cassaCalcolo = opts.cassaPropria ? contributiCassaProfessionale(redditoImponibile, imponibile, opts.cassaPropria) : null;
+  // Il soggettivo è deducibile dall'imponibile IRPEF, stesso trattamento
+  // dell'INPS (sono entrambi contributi previdenziali obbligatori) —
+  // l'integrativo NO: è in rivalsa sul cliente, un pass-through come l'IVA,
+  // non un costo che riduce il reddito imponibile del professionista.
+  const baseImposta = redditoImponibile - inps - (cassaCalcolo ? cassaCalcolo.soggettivo : 0);
 
   // Regime ordinario: usa gli scaglioni IRPEF REALI dell'anno se sono stati
   // verificati (tax-rules.js, computeIrpef — ogni fascia paga solo la sua
@@ -285,18 +356,21 @@ export function taxSetAside(amount, opts = {}) {
     impostaLabel = aliquota <= 0.15 ? 'Imposta sostitutiva' : 'Imposta (stima)';
   }
 
-  const setAside = +(iva + inps + imposta).toFixed(2);
+  const setAside = +(iva + inps + imposta + (cassaCalcolo ? cassaCalcolo.totale : 0)).toFixed(2);
   const net = +(gross - setAside).toFixed(2);
   const breakdown = [
     ...(iva > 0 ? [{ voce: 'IVA da versare', importo: +iva.toFixed(2) }] : []),
-    ...(cassaNome
-      ? [{ voce: `Contributi (${cassaNome}, non INPS)`, importo: 0, nota: `Sei iscritto a ${cassaNome}: i contributi vanno lì, non all'INPS Gestione Separata (le due sono incompatibili per legge). Momentum non conosce l'aliquota della tua cassa — spesso ha un minimo fisso indipendente dal reddito — quindi qui non la calcola: aggiungila tu o chiedi al commercialista.` }]
+    ...(cassaCalcolo
+      ? [{ voce: `Contributo soggettivo (${cassaCalcolo.nomeBreve})`, importo: cassaCalcolo.soggettivo, nota: 'Deducibile dal reddito imponibile, come l\'INPS.' },
+         { voce: `Contributo integrativo (${cassaCalcolo.nomeBreve})`, importo: cassaCalcolo.integrativo, nota: 'In rivalsa sul cliente, non deducibile — come l\'IVA.' }]
+      : cassaNome
+      ? [{ voce: `Contributi (${cassaNome}, non INPS)`, importo: 0, nota: `Sei iscritto a ${cassaNome}: i contributi vanno lì, non all'INPS Gestione Separata (le due sono incompatibili per legge). Momentum non conosce ancora le aliquote di questa cassa — quindi qui non le calcola: aggiungile tu o chiedi al commercialista.` }]
       : opts.altraCoperturaPrevidenziale
       ? [{ voce: 'Contributi INPS (aliquota ridotta 24%)', importo: +inps.toFixed(2), nota: 'Aliquota ridotta al 24% (invece del 26,07% pieno) perché sei già coperto da un\'altra forma previdenziale obbligatoria — verificato su circolare INPS n. 8 del 3 febbraio 2026.' }]
       : [{ voce: 'Contributi INPS', importo: +inps.toFixed(2) }]),
     { voce: impostaLabel, importo: +imposta.toFixed(2) },
   ];
-  return { setAside, net, breakdown, regime: r.label, effectiveRate: +((setAside / gross) * 100).toFixed(1), cassaNome };
+  return { setAside, net, breakdown, regime: r.label, effectiveRate: +((setAside / gross) * 100).toFixed(1), cassaNome, cassaCalcolo };
 }
 
 // ── Classificazione INTELLIGENTE dell'entrata (fix "tasse messe a caso") ──
@@ -613,7 +687,7 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   const atecoInfo = regimeKey.startsWith('forfettario') && opts.ateco
     ? coefficienteAteco(opts.ateco, { year: opts.year, rulesOverride: opts.rulesOverride }) : null;
   const atecoCoeff = atecoInfo ? { coeffRedditivita: atecoInfo.coeff } : null;
-  const { setAside, net, cassaNome } = taxSetAside(fatturato, { regime: regimeKey, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, overrides: { ...atecoCoeff, ...opts.overrides } });
+  const { setAside, net, cassaNome, cassaCalcolo } = taxSetAside(fatturato, { regime: regimeKey, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, overrides: { ...atecoCoeff, ...opts.overrides } });
   const netMensile = net / 12;
   // Strategie legittime, non trucchi: entrambe verificate su fonte ufficiale
   // (Agenzia delle Entrate), mai un'ottimizzazione inventata. L'eleggibilità
@@ -637,13 +711,17 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
       testo: `Sei già al ${suggestion.pctOfCeiling}% del tetto forfettario da fermo: se ti avvicini ulteriormente, valuta con chi ti paga di spostare gli incassi di fine anno a gennaio — nel forfettario conta quando INCASSI, non quando fatturi.`,
     });
   }
-  // Cassa previdenziale propria (albo professionale): l'INPS non c'entra,
-  // e il numero mostrato sopra NON include i contributi — vanno detti qui,
-  // non lasciati intuire da un totale più basso del previsto.
+  // Cassa previdenziale propria (albo professionale): l'INPS non c'entra.
+  // Per le 3 casse più numerose (CASSE_CON_REGOLE) il numero sopra include
+  // GIÀ il contributo reale (soggettivo+integrativo, aliquote 2026
+  // verificate) — per le altre 13, resta escluso e va detto chiaramente,
+  // mai lasciato intuire da un totale più basso del previsto.
   if (cassaNome) {
     strategie.push({
       icon: 'cassa',
-      testo: `Sei iscritto a ${cassaNome}: i contributi previdenziali vanno lì, non all'INPS — per questo il numero sopra NON li include. Aggiungi tu l'importo della tua cassa (spesso ha un minimo fisso, indipendente dal reddito) per avere la cifra vera.`,
+      testo: cassaCalcolo
+        ? `Sei iscritto a ${cassaNome}: il numero sopra include già il contributo soggettivo (${Math.round(cassaCalcolo.soggettivo).toLocaleString('it-IT')}€) e quello integrativo (${Math.round(cassaCalcolo.integrativo).toLocaleString('it-IT')}€), con le aliquote 2026 verificate — non l'INPS, che per te non si applica.`
+        : `Sei iscritto a ${cassaNome}: i contributi previdenziali vanno lì, non all'INPS — per questo il numero sopra NON li include. Aggiungi tu l'importo della tua cassa (spesso ha un minimo fisso, indipendente dal reddito) per avere la cifra vera.`,
     });
   }
   // Dipendente che apre ANCHE la Partita IVA (nessuna cassa propria, quindi
@@ -664,6 +742,7 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
     regimeLabel: REGIMI[regimeKey].label,
     atecoLabel: atecoCoeff ? ATECO_COEFFICIENTI[opts.ateco].label : null,
     cassaNome,
+    cassaCalcolo,
     suggestion,
     strategie,
     setAside: +setAside.toFixed(2),
