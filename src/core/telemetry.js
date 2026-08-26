@@ -55,6 +55,7 @@ export const FEATURE_KEYS = [
   'swiss_tax_opened',
   'italy_piva_activated',
   'group_chat_used',
+  'milestone_shared',
   // Un evento per ogni "kind" di consiglio che il bandit già conosce
   // (advisor.js/advisor-bandit.js) — così /stats può un giorno mostrare
   // quale TIPO di consiglio fa agire di più, in aggregato, mai per singolo

@@ -11268,6 +11268,19 @@ function renderTraguardiCard() {
   const riepilogo = $('#momentum-traguardi-riepilogo');
   if (riepilogo) riepilogo.textContent = `${stato.livelli.filter(l => l.completo).length} di ${stato.totaleLivelli} livelli — cresce con l'uso reale, mai con un premio finto`;
 
+  // Condivisione (2026-08-27): un traguardo raggiunto è l'unico punto della
+  // gamification autorizzato a uscire dall'app (confine già concordato:
+  // niente coriandoli/punti vicino a spese/budget, SOLO su
+  // social/condivisione — vedi progress-milestones.js). Bottone visibile
+  // solo se c'è almeno un livello completo (nulla da condividere altrimenti).
+  const completati = stato.livelli.filter(l => l.completo);
+  const btnCondividi = $('#momentum-livello-condividi');
+  if (btnCondividi) {
+    const ultimo = completati[completati.length - 1];
+    btnCondividi.classList.toggle('hidden', !ultimo);
+    window.__ultimoLivelloCompletato = ultimo ? { numero: ultimo.numero, nome: ultimo.nome, sottotitolo: ultimo.sottotitolo } : null;
+  }
+
   // Dettaglio: i 2 traguardi del livello CORRENTE (o dell'ultimo, a tutto
   // completo) — un focus per schermata, non tutti e 8 sempre in vista.
   const daMostrare = stato.tuttoCompleto ? stato.livelli[stato.livelli.length - 1] : corrente;
@@ -11312,6 +11325,23 @@ function controllaTraguardi() {
   }
 }
 controllaTraguardi();
+
+// Condivide l'ULTIMO livello completato (mai numeri finanziari, mai dati
+// personali — solo il nome del livello, un fatto pubblico sul modello,
+// stesso principio già seguito per gli inviti gruppo-spese: navigator.share
+// con ripiego su copia negli appunti). Nessun link incluso: l'app non ha
+// ancora una pagina pubblica/store da linkare — onestà, non un URL
+// inventato solo per sembrare completo (da aggiungere qui appena esiste).
+window.condividiTraguardo = async () => {
+  const l = window.__ultimoLivelloCompletato;
+  if (!l) return;
+  const msg = `Livello ${l.numero} — ${l.nome} sbloccato su Momentum: ${l.sottotitolo}. Zero server: i miei dati restano solo sul mio telefono.`;
+  pingFeature('milestone_shared');
+  try {
+    if (navigator.share) await navigator.share({ text: msg });
+    else { await navigator.clipboard?.writeText(msg); showToast('Copiato — incollalo dove vuoi condividerlo.', 'success'); }
+  } catch (_) { /* utente ha annullato la condivisione, nessun errore da mostrare */ }
+};
 
 const navigate = (view) => {
   haptic('light');
