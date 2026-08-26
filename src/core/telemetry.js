@@ -56,6 +56,7 @@ export const FEATURE_KEYS = [
   'italy_piva_activated',
   'group_chat_used',
   'milestone_shared',
+  'app_invite_shared',
   // Un evento per ogni "kind" di consiglio che il bandit già conosce
   // (advisor.js/advisor-bandit.js) — così /stats può un giorno mostrare
   // quale TIPO di consiglio fa agire di più, in aggregato, mai per singolo

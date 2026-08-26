@@ -6861,6 +6861,46 @@ window.openShareCode = ({ code, title = 'Condividi il gruppo', sub = '', groupNa
   });
 };
 
+// ── INVITA UN AMICO A MOMENTUM (2026-08-27) — gap reale trovato: l'unico
+// modo per condividere l'app era tramite un gruppo spese (openShareCode
+// sopra, richiede un `group` vero). Chi vuole solo consigliare Momentum,
+// senza una spesa in comune, non aveva alcun canale. Riusa lo stesso
+// linguaggio visivo (QR+link+WhatsApp/Email/Altro) ma senza nessun codice
+// di gruppo: il link è semplicemente la root dell'app (installabile come
+// PWA), mai un URL inventato/non verificato — è la stessa origine su cui
+// gira Momentum in questo momento. Testo onesto, preso dalle stesse tre
+// frasi già verificate in README.md ("In 10 seconds"), non marketing
+// nuovo inventato qui.
+window.inviteToMomentum = () => {
+  pingFeature('app_invite_shared');
+  const link = `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
+  let qr = '';
+  try { qr = qrSvg(link, { moduleSize: 4, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
+  const msg = `Uso Momentum per sapere davvero quanto posso spendere oggi.\n`
+    + `Gira tutto sul telefono: niente banca collegata a un server esterno, i tuoi conti restano solo tuoi.\n`
+    + `È gratis, non serve registrarsi.\n`
+    + `${link}`;
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">Invita un amico</h3><p class="card-sub !mb-0">Non serve una spesa in comune: consiglia Momentum e basta.</p></div>
+      ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(200px,60vw)">${qr}</div>` : ''}
+      <div class="flex items-center gap-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5">
+        <svg class="w-4 h-4 shrink-0 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+        <span class="text-[11px] font-mono truncate flex-1">${link}</span>
+      </div>
+      <button id="im-copy" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Copia il link</button>
+      <div class="grid grid-cols-3 gap-2">
+        <button id="im-wa" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.6 4.7-1.2A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4z"/></svg>WhatsApp</button>
+        <button id="im-email" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</button>
+        <button id="im-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Altro…</button>
+      </div>
+    </div>`);
+  $('#im-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(link); showToast('Link copiato.', 'success'); haptic('light'); });
+  $('#im-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'));
+  $('#im-email')?.addEventListener('click', () => { window.location.href = `mailto:?subject=${encodeURIComponent('Prova Momentum')}&body=${encodeURIComponent(msg)}`; });
+  $('#im-share')?.addEventListener('click', async () => { try { if (navigator.share) await navigator.share({ title: 'Momentum', text: msg }); else { navigator.clipboard?.writeText(link); showToast('Link copiato.', 'info'); } } catch (_) { } });
+};
+
 // ── RICEVI UN GRUPPO: incolla il codice ricevuto → merge conflict-free nell'elenco
 // locale (idempotente: reincollare non duplica). ──
 window.receiveSplitGroup = () => {
@@ -7241,6 +7281,7 @@ window.openSplitGroup = (openId = null) => {
           <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[color-mix(in_srgb,var(--red)_30%,transparent)] text-[var(--red)] text-sm">Elimina</button>
         </div>
         <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
+        <button onclick="window.inviteToMomentum()" class="text-[11px] text-[var(--on-surface-secondary)] underline self-start">Consiglia Momentum anche a chi non ha spese in comune con te</button>
       </div>`);
 
     // bind

@@ -36,7 +36,7 @@
 const FEATURE_KEYS = new Set([
   'onboarding_completed', 'first_real_transaction', 'analysis_tensor_opened',
   'spain_tax_activated', 'swiss_tax_opened', 'italy_piva_activated', 'group_chat_used',
-  'milestone_shared',
+  'milestone_shared', 'app_invite_shared',
   'nudge_acted_sweep', 'nudge_acted_causal', 'nudge_acted_month-end',
   'nudge_acted_price-hike', 'nudge_acted_budget-stale', 'nudge_acted_bnpl-exposure',
   'nudge_acted_es-tax-set-aside', 'nudge_acted_investment-readiness',
