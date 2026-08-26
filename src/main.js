@@ -7198,6 +7198,17 @@ window.openSplitGroup = (openId = null) => {
   const renderDetail = (g, liveSync = false) => {
     const names = nameById(g);
     const members = g.members;
+    // BUG REALE trovato beta-testando con un SECONDO dispositivo simulato
+    // (2026-08-27): "chi deve cosa a chi" confrontava i nomi con la stringa
+    // letterale 'Io' — corretto SOLO per il dispositivo che ha creato il
+    // gruppo (il cui slot si chiama davvero "Io" nei dati condivisi). Un
+    // amico che si unisce e rivendica lo slot "Marco" vedeva ANCORA "Devi
+    // 40€ a Marco" sul PROPRIO schermo — la direzione del debito sembrava
+    // rivolta a lui stesso, invece che il contrario (lui è chi deve
+    // ricevere). Confronto ora per ID rivendicato (myMemberId), non per il
+    // nome letterale — corretto per chiunque apra il gruppo, non solo per
+    // chi lo ha creato.
+    const myId = myMemberId(g, VaultDAO.state.deviceId);
     // Le spese contestate (group-chat.js) restano fuori dal saldo finché non
     // sono risolte — la conversazione cambia i conti, non corre solo a fianco.
     const gSaldo = groupForSettlement(g);
@@ -7229,11 +7240,11 @@ window.openSplitGroup = (openId = null) => {
     }).join('');
 
     const settleRows = transfers.map(t => {
-      const line = t.toName === 'Io' ? `<b>${esc(t.fromName)}</b> deve darti <b>${eur(t.amount)}</b>`
-        : t.fromName === 'Io' ? `Devi <b>${eur(t.amount)}</b> a <b>${esc(t.toName)}</b>`
+      const line = t.to === myId ? `<b>${esc(t.fromName)}</b> deve darti <b>${eur(t.amount)}</b>`
+        : t.from === myId ? `Devi <b>${eur(t.amount)}</b> a <b>${esc(t.toName)}</b>`
           : `<b>${esc(t.fromName)}</b> → <b>${esc(t.toName)}</b>: ${eur(t.amount)}`;
-      const act = t.toName === 'Io' ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
-        : t.fromName === 'Io' ? `<button data-tell="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
+      const act = t.to === myId ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
+        : t.from === myId ? `<button data-tell="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
       return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px]">${line}${act}</div>`;
     }).join('') || `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
       <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
