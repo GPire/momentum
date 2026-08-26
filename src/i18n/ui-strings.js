@@ -22,7 +22,7 @@
 import { detectDeviceLanguage } from './detect.js';
 
 export const UI_LANG_DEFAULT = 'en';
-export const UI_LANGS = ['it', 'en', 'de', 'fr'];
+export const UI_LANGS = ['it', 'en', 'de', 'fr', 'es'];
 
 // Priorità: 1) scelta esplicita (mai ignorata), 2) lingua del dispositivo se
 // tra quelle coperte, 3) inglese come rete di sicurezza — mai l'italiano
@@ -66,6 +66,25 @@ const S = {
     chResDisclaimer: 'Qualunque app bancaria svizzera legge questo codice per pagare — verificato contro il formato ufficiale SIX. Allegalo alla tua fattura o mostralo direttamente al cliente.',
     chResNewInvoice: '← Crea un\'altra fattura',
     chRefLabel: 'Riferimento',
+    // Spagna (autónomos, src/predict/tax-es.js) — chiavi in italiano per chi
+    // ha il dispositivo in IT ma incontra comunque questa schermata; il
+    // pubblico vero è la lingua 'es' qui sotto.
+    esSimTitle: 'Lavori come autónomo in Spagna?',
+    esSimSubtitle: 'Niente Partita IVA qui: la Seguridad Social funziona per tramos di reddito. Dimmi quanto pensi di fatturare al mese e calcolo io il resto.',
+    esSimPlaceholder: 'Es. 2000',
+    esSimCta: 'Scopri cosa ti resterebbe',
+    esSimBack: '← Torna indietro',
+    esSimErrAmount: 'Inserisci un importo valido.',
+    esResultTitle: (v) => `Con ${v}€/mese`,
+    esResultSubtitle: 'Ecco cosa ti riguarda davvero.',
+    esNetoLabel: 'Ti resterebbero',
+    esPerMes: '/mese',
+    esRetaLabel: 'Cuota RETA (Seguridad Social)',
+    esRetaBaseNote: 'Calcolata sulla base mínima del tuo tramo — puoi scegliere una base più alta per una pensione futura maggiore.',
+    esIrpfLabel: 'IRPF (solo scaglione statale)',
+    esIrpfNote: 'Questa è solo la parte statale. La parte autonómica varia per comunidad autónoma e non è inclusa — verificala con il tuo gestor.',
+    esRetencionNote: (pct) => `Se fatturi come professionista, i tuoi clienti di solito trattengono il ${pct}% di ogni fattura e lo versano direttamente all'Hacienda — non lo vedrai sul conto, ma conta per il tuo IRPF finale.`,
+    esRecalculate: '← Rifai il calcolo',
   },
   en: {
     chSimTitle: 'Working in Switzerland?',
@@ -99,6 +118,24 @@ const S = {
     chResDisclaimer: 'Any Swiss banking app can read this code to pay — verified against the official SIX format. Attach it to your invoice or show it directly to your client.',
     chResNewInvoice: '← Create another invoice',
     chRefLabel: 'Reference',
+    // Spain (autónomos) — English fallback: shown if the device isn't
+    // Spanish/Italian and lands here anyway (t()'s fallback chain).
+    esSimTitle: 'Working as an autónomo in Spain?',
+    esSimSubtitle: 'No Partita IVA here: Social Security works in income brackets (tramos). Tell me your estimated monthly revenue and I\'ll work out the rest.',
+    esSimPlaceholder: 'E.g. 2000',
+    esSimCta: 'See what you\'d keep',
+    esSimBack: '← Go back',
+    esSimErrAmount: 'Enter a valid amount.',
+    esResultTitle: (v) => `With ${v}€/month`,
+    esResultSubtitle: 'Here\'s what actually concerns you.',
+    esNetoLabel: 'You\'d keep',
+    esPerMes: '/month',
+    esRetaLabel: 'RETA contribution (Social Security)',
+    esRetaBaseNote: 'Calculated on your bracket\'s minimum base — you can choose a higher base for a bigger future pension.',
+    esIrpfLabel: 'IRPF (state bracket only)',
+    esIrpfNote: 'This is only the state portion. The regional portion varies by comunidad autónoma and isn\'t included — check it with your gestor.',
+    esRetencionNote: (pct) => `If you invoice as a professional, clients usually withhold ${pct}% of each invoice and pay it directly to Hacienda — you won\'t see it in your account, but it counts toward your final IRPF.`,
+    esRecalculate: '← Recalculate',
   },
   de: {
     chSimTitle: 'Arbeitest du in der Schweiz?',
@@ -165,6 +202,28 @@ const S = {
     chResDisclaimer: 'N\'importe quelle app bancaire suisse peut lire ce code pour payer — vérifié par rapport au format officiel SIX. Joignez-le à votre facture ou montrez-le directement à votre client.',
     chResNewInvoice: '← Créer une autre facture',
     chRefLabel: 'Référence',
+  },
+  // Spagna (autónomos, src/predict/tax-es.js) — la lingua vera per questa
+  // schermata, non un fallback come le altre 4 sopra. Nessuna chiave
+  // svizzera (chXxx) qui: nessun autónomo spagnolo la vedrebbe mai, e
+  // t() ricade comunque su EN poi IT per una chiave assente.
+  es: {
+    esSimTitle: '¿Trabajas como autónomo en España?',
+    esSimSubtitle: 'Nada de Partita IVA aquí: la Seguridad Social funciona por tramos de rendimientos. Dime cuánto crees que facturarás al mes y calculo el resto.',
+    esSimPlaceholder: 'Ej. 2000',
+    esSimCta: 'Ver qué te quedaría',
+    esSimBack: '← Volver',
+    esSimErrAmount: 'Introduce un importe válido.',
+    esResultTitle: (v) => `Con ${v}€/mes`,
+    esResultSubtitle: 'Esto es lo que te afecta de verdad.',
+    esNetoLabel: 'Te quedarían',
+    esPerMes: '/mes',
+    esRetaLabel: 'Cuota RETA (Seguridad Social)',
+    esRetaBaseNote: 'Calculada sobre la base mínima de tu tramo — puedes elegir una base más alta para una pensión futura mayor.',
+    esIrpfLabel: 'IRPF (solo tramo estatal)',
+    esIrpfNote: 'Esta es solo la parte estatal. La parte autonómica varía según tu comunidad autónoma y no está incluida — verifícala con tu gestor.',
+    esRetencionNote: (pct) => `Si facturas como profesional, tus clientes suelen retener el ${pct}% de cada factura y lo ingresan directamente en Hacienda — no lo verás en tu cuenta, pero cuenta para tu IRPF final.`,
+    esRecalculate: '← Recalcular',
   },
 };
 

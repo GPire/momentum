@@ -77,6 +77,7 @@ function translateRegionLabel(region) {
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL } from './predict/tax.js';
 import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL } from './predict/tax-ch.js';
+import { cuotaReta, irpfEstatal, RETENCION_IRPF } from './predict/tax-es.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
@@ -3743,7 +3744,8 @@ function renderTax(monthK) {
     if (extraEl) extraEl.innerHTML = `
       <button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Simula la tua Partita IVA</button>
       <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">Sono dipendente, non mi serve</button>
-      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">🇨🇭 Lavori in Svizzera?</button>`;
+      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">🇨🇭 Lavori in Svizzera?</button>
+      <button onclick="window.openSpainSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">🇪🇸 ¿Trabajas en España?</button>`;
     return;
   }
   card.classList.remove('hidden');
@@ -4197,6 +4199,76 @@ window.openSwissSimulatorResult = (reddito) => {
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chCantonNote', __chLang)}</p>
       <button onclick="window.closeModal(); window.openCreateInvoiceCH();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">${tCh('chCreateInvoice', __chLang)}</button>
       <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chRecalculate', __chLang)}</button>
+    </div>`);
+};
+
+// ── AUTÓNOMOS SPAGNOLI (src/predict/tax-es.js) — stesso pattern del
+// simulatore svizzero sopra, stessa disciplina i18n (ui-strings.js, lingua
+// 'es' vera per il pubblico vero, non un fallback). Diverso da entrambi
+// gli altri due nel dato chiesto: qui si chiede il reddito NETTO mensile
+// (rendimiento neto — dopo le spese reali), non il fatturato lordo come
+// l'Italia — perché la Spagna non ha un coefficiente di redditività
+// forfettario che trasformi l'uno nell'altro, e inventarne uno sarebbe
+// esattamente il tipo di numero indovinato che questo progetto rifiuta.
+// Niente QR-bill: la Spagna non ha un sistema di fattura standardizzato
+// paragonabile a quello svizzero, non se ne finge uno.
+const __esLang = resolveUiLanguage();
+
+window.openSpainSimulator = () => {
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--gold')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">${tCh('esSimTitle', __esLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('esSimSubtitle', __esLang)}</p>
+      </div>
+      <div class="w-full flex items-center gap-2">
+        <button type="button" id="es-step-down" aria-label="-" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
+        <input id="es-amount" type="number" inputmode="decimal" placeholder="${tCh('esSimPlaceholder', __esLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+        <button type="button" id="es-step-up" aria-label="+" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
+      </div>
+      <button id="es-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esSimCta', __esLang)}</button>
+      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('esSimBack', __esLang)}</button>
+    </div>`);
+  const input = document.getElementById('es-amount');
+  input?.focus();
+  document.getElementById('es-step-down')?.addEventListener('click', () => { input.value = Math.max(0, (+input.value || 0) - 100); });
+  document.getElementById('es-step-up')?.addEventListener('click', () => { input.value = (+input.value || 0) + 100; });
+  document.getElementById('es-go')?.addEventListener('click', () => {
+    const rendimiento = parseFloat(String(input.value).replace(',', '.'));
+    if (!(rendimiento > 0)) { showToast(tCh('esSimErrAmount', __esLang), 'error'); return; }
+    window.openSpainSimulatorResult(rendimiento);
+  });
+};
+
+window.openSpainSimulatorResult = (rendimientoNetoMensual) => {
+  const reta = cuotaReta(rendimientoNetoMensual);
+  const irpfAnnuo = irpfEstatal(rendimientoNetoMensual * 12);
+  const irpfMensile = irpfAnnuo / 12;
+  const netoMensile = rendimientoNetoMensual - reta.cuotaMensual - irpfMensile;
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--gold')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">${tCh('esResultTitle', __esLang, Math.round(rendimientoNetoMensual).toLocaleString('es-ES'))}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('esResultSubtitle', __esLang)}</p>
+      </div>
+      <div class="rounded-2xl border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-4 py-3.5 w-full">
+        <div class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${tCh('esNetoLabel', __esLang)}</div>
+        <div class="text-2xl font-black mt-0.5">~${Math.round(netoMensile).toLocaleString('es-ES')}€<span class="text-xs font-bold opacity-60">${tCh('esPerMes', __esLang)}</span></div>
+      </div>
+      <div class="w-full flex flex-col gap-2.5">
+        <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-3 text-left">
+          <div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${tCh('esRetaLabel', __esLang)}</span><span class="font-mono font-bold text-sm">${Math.round(reta.cuotaMensual).toLocaleString('es-ES')}€${tCh('esPerMes', __esLang)}</span></div>
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1 leading-snug">${tCh('esRetaBaseNote', __esLang)}</div>
+        </div>
+        <div class="rounded-xl border border-amber-400/40 bg-amber-500/10 px-3.5 py-3 text-left">
+          <div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wide text-amber-300">${tCh('esIrpfLabel', __esLang)}</span><span class="font-mono font-bold text-sm text-amber-200">${Math.round(irpfMensile).toLocaleString('es-ES')}€${tCh('esPerMes', __esLang)}</span></div>
+          <div class="text-[11px] text-amber-200/90 mt-1 leading-snug">${tCh('esIrpfNote', __esLang)}</div>
+        </div>
+        <div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug text-left px-1">${tCh('esRetencionNote', __esLang, Math.round(RETENCION_IRPF.general * 100))}</div>
+      </div>
+      <button onclick="window.openSpainSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('esRecalculate', __esLang)}</button>
     </div>`);
 };
 
