@@ -10686,7 +10686,7 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   // valore derivato dal profilo, mai un dato inventato per far tornare i conti.
   const p = derivePriors(risk, hz, liquidityMonths, invests);
   VaultDAO.state.isFirstLaunch = false;
-  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon };
+  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress };
   VaultDAO.state.monthlyBudget = p.monthlyBudget;
   VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests };
   // Tono dei nudge di spesa personalizzato subito.

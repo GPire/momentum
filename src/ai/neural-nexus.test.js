@@ -32,6 +32,36 @@ test('initPriorWeights: un net nuovo parte dal seme (8 categorie), catIndex pres
   assert.equal(net.catIndex.spesa, 0);
 });
 
+// ── Profilo onboarding esteso (2026-08-26): invests/cashflowStress oltre a
+// riskProfile — vedi src/predict/onboarding-priors.js:derivePriors ──
+
+test('initPriorWeights: invests:false pre-orienta verso risparmio/budget anche con un profilo NON conservativo', () => {
+  resetVault();
+  NeuralNexus.initPriorWeights({ riskProfile: 'aggressivo', horizon: 'lungo', invests: false });
+  const net = VaultDAO.state.mlData.neuralNet;
+  assert.ok(net.embeddings['risparmio'], 'deve seminare risparmio anche per un profilo aggressivo che non investe');
+  assert.ok(net.embeddings['budget']);
+  // Il ramo 'aggressivo' resta comunque seminato: invests non lo sostituisce.
+  assert.ok(net.embeddings['crypto']);
+});
+
+test('initPriorWeights: cashflowStress "corto" seed le parole di spesa fissa, indipendentemente dal rischio', () => {
+  resetVault();
+  NeuralNexus.initPriorWeights({ riskProfile: 'aggressivo', horizon: 'lungo', cashflowStress: 'corto' });
+  const net = VaultDAO.state.mlData.neuralNet;
+  assert.ok(net.embeddings['bolletta']);
+  assert.ok(net.embeddings['affitto']);
+  assert.ok(net.embeddings['rata']);
+});
+
+test('initPriorWeights: senza invests/cashflowStress (profilo pre-2026-08-26, retrocompatibile) non crasha e non semina nulla in più', () => {
+  resetVault();
+  NeuralNexus.initPriorWeights({ riskProfile: 'bilanciato', horizon: 'medio' });
+  const net = VaultDAO.state.mlData.neuralNet;
+  assert.equal(net.embeddings['budget'], undefined);
+  assert.equal(net.embeddings['bolletta'], undefined);
+});
+
 test('MIGRAZIONE: un net vecchio (senza catIndex, W2/b2 già a 8 righe) viene allineato senza perdere i pesi già addestrati', () => {
   resetVault();
   const w2Originale = Array.from({ length: 8 }, (_, i) => Array.from({ length: 12 }, (_, j) => i * 100 + j)); // valori riconoscibili

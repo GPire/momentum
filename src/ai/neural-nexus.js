@@ -141,6 +141,28 @@ const NeuralNexus = {
       net.embeddings['spesa'] = [0.5, 0.4, -0.3, -0.1, 0.2, -0.2, -0.4, -0.5];
       net.embeddings['bolletta'] = [0.6, 0.3, -0.2, -0.3, 0.1, -0.1, -0.5, -0.4];
     }
+    // Chi ha detto esplicitamente "non investo" (domanda 2 dell'onboarding,
+    // indipendente dal rischio dichiarato — vedi onboarding-priors.js:
+    // derivePriors, parametro `invests`): stesso pre-orientamento di
+    // 'risparmio' del profilo conservativo, non perché sia "prudente" ma
+    // perché chi non investe non genera quasi mai transazioni con queste
+    // parole — il modello parte già più pronto a riconoscerle come
+    // risparmio/budget invece che come investimento. Il ramo conservativo
+    // sopra le seeda già: qui si evita solo di sovrascriverle inutilmente.
+    if (prof.invests === false && prof.riskProfile !== 'conservativo') {
+      net.embeddings['risparmio'] = [0.4, 0.3, 0.1, -0.2, 0.5, 0.1, 0.1, -0.3];
+      net.embeddings['budget'] = [0.3, 0.2, 0.0, -0.1, 0.3, 0.0, -0.1, -0.2];
+    }
+    // Liquidità reale corta (domanda 1, `cashflowStress==='corto'`) —
+    // indipendente dal rischio: pre-orienta il riconoscimento verso le
+    // spese fisse/essenziali, quelle che pesano di più quando il cuscinetto
+    // è corto. Stessa logica di `aiAggression='predator'` per lo stesso
+    // stato in derivePriors(), qui applicata al lessico invece che al freno.
+    if (prof.cashflowStress === 'corto') {
+      net.embeddings['bolletta'] = [0.6, 0.3, -0.2, -0.3, 0.1, -0.1, -0.5, -0.4];
+      net.embeddings['affitto'] = [0.55, 0.35, -0.15, -0.25, 0.15, -0.05, -0.4, -0.35];
+      net.embeddings['rata'] = [0.5, 0.3, -0.1, -0.2, 0.2, 0.0, -0.3, -0.3];
+    }
   },
   forward(tokens, net) {
     let embSum = Array.from({length: 8}, () => 0);
