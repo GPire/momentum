@@ -73,3 +73,16 @@ export function seedBanditState(existing, risk = 'bilanciato') {
   }
   return { ...base, version: base.version || 1, arms };
 }
+
+// Cosa dice DAVVERO banditSeed() sopra, in una frase — per il payoff visibile
+// dell'onboarding ("ogni risposta deve cambiare qualcosa di vero, non solo
+// restare un dato salvato"). Stessa condizione, stessa soglia: se cambia
+// banditSeed, questa frase smette di essere vera finché non si aggiorna
+// insieme (nessuna descrizione scritta a mano e slegata dal codice che fa
+// il lavoro).
+export function testoConsiglio(risk = 'bilanciato') {
+  const r = RISKS.has(risk) ? risk : 'bilanciato';
+  if (r === 'conservativo') return 'I consigli partono orientati al risparmio automatico.';
+  if (r === 'aggressivo') return 'I consigli partono orientati a ottimizzare dove spendi.';
+  return 'I consigli restano equilibrati fra risparmio e ottimizzazione, finché non mostri una preferenza.';
+}

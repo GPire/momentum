@@ -147,7 +147,7 @@ import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscripti
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
-import { derivePriors, seedBanditState } from './predict/onboarding-priors.js';
+import { derivePriors, seedBanditState, testoConsiglio } from './predict/onboarding-priors.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -10301,8 +10301,31 @@ window.genesisNext = (step, value = '') => {
     }
     window.genesisStep = step;
 
-    if (step === 3) initGenesisHold();
+    if (step === 3) { initGenesisHold(); renderGenesisPayoff(); }
   } catch(e) { console.error("genesisNext error:", e); }
+};
+
+// PAYOFF VISIBILE (richiesto esplicitamente: "ogni risposta deve cambiare
+// il funzionamento dell'app, non solo restare un dato salvato"). Le 2
+// domande GIÀ cambiano budget/freno spese/investimenti/consigli via
+// derivePriors() (src/predict/onboarding-priors.js) — prima questo restava
+// invisibile, l'utente doveva fidarsi sulla parola. Qui si mostrano gli
+// STESSI valori che stanno per essere salvati (stessa chiamata di
+// seedProfileState, non un riassunto ricalcolato a parte: testo e dato non
+// possono raccontare due cose diverse). Neuro-colori: verde=protezione,
+// oro=variabile/dipendente dal profilo, mai rosso in una schermata di
+// benvenuto.
+const renderGenesisPayoff = () => {
+  const el = document.getElementById('genesis-payoff');
+  if (!el) return;
+  const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio');
+  const riga = (colore, testo) => `<div class="flex items-center gap-2 text-[12px] text-left"><span class="inline-block w-1.5 h-1.5 rounded-full shrink-0" style="background:${colore}"></span><span>${testo}</span></div>`;
+  el.innerHTML = [
+    riga('var(--green)', `Budget del mese: <b>${p.monthlyBudget.toLocaleString('it-IT')}€</b> di partenza — lo aggiusti quando vuoi.`),
+    riga('var(--gold)', `Freno spese: <b>${BRAKE_DESC[p.aiAggression]}</b>`),
+    riga('var(--primary)', `Cuscinetto: <b>${p.emergencyMonths} mesi</b> di spese protetti, poi fino al <b>${Math.round(p.investFraction * 100)}%</b> dell'avanzo può andare a investimenti.`),
+    riga('var(--gold)', testoConsiglio(p.risk)),
+  ].join('');
 };
 
 const initGenesisHold = () => {

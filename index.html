@@ -2939,7 +2939,14 @@
       <!-- Step 3 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
       <div class="genesis-step" id="g-step-3">
         <h2 class="text-2xl font-black mb-2 text-center">Tutto pronto.</h2>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-6 text-center">Da ora Momentum ragiona come te.</p>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-4 text-center">Da ora Momentum ragiona come te. Ecco cosa ho già regolato:</p>
+        <!-- Payoff visibile: le 2 risposte hanno GIÀ cambiato budget, freno
+             spese, investimenti e consigli (derivePriors(), onboarding-
+             priors.js) — prima questo restava invisibile, l'utente doveva
+             fidarsi sulla parola. Riempito da renderGenesisPayoff() in
+             main.js con gli STESSI valori reali che verranno salvati, non
+             un riassunto approssimativo. -->
+        <div id="genesis-payoff" class="flex flex-col gap-2 mb-6"></div>
         <div class="relative w-[148px] h-[148px] mx-auto flex items-center justify-center">
           <svg class="haptic-ring-svg" viewBox="0 0 148 148">
             <circle cx="74" cy="74" r="65" fill="none" stroke="var(--outline)" stroke-width="4"/>

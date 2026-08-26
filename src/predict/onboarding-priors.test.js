@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { derivePriors, banditSeed, seedBanditState } from './onboarding-priors.js';
+import { derivePriors, banditSeed, seedBanditState, testoConsiglio } from './onboarding-priors.js';
 
 test('derivePriors: profili diversi → config diverse e sensate', () => {
   const cons = derivePriors('conservativo', 'breve');
@@ -53,4 +53,24 @@ test('seedBanditState: da stato vuoto/nullo produce uno stato valido seminato', 
   const out = seedBanditState(null, 'aggressivo');
   assert.equal(out.version, 1);
   assert.ok(Object.keys(out.arms).length > 0);
+});
+
+// testoConsiglio: usata nel payoff visibile dell'onboarding — deve restare
+// coerente con QUELLO CHE banditSeed() favorisce davvero, non una frase
+// scritta a mano che potrebbe raccontare una storia diversa dal codice.
+test('testoConsiglio: coerente con ciò che banditSeed() favorisce per ogni profilo', () => {
+  const mean = (arm) => arm.a / (arm.a + arm.b);
+  for (const risk of ['conservativo', 'aggressivo', 'bilanciato']) {
+    const arms = banditSeed(risk);
+    const sweep = mean(arms['ok:mid|sweep']), causal = mean(arms['ok:mid|causal']);
+    const t = testoConsiglio(risk);
+    if (risk === 'conservativo') { assert.ok(sweep > causal); assert.match(t, /risparmio/); }
+    if (risk === 'aggressivo') { assert.ok(causal > sweep); assert.match(t, /ottimizzare/); }
+    if (risk === 'bilanciato') { assert.equal(sweep, causal); assert.match(t, /equilibrati/); }
+  }
+});
+
+test('testoConsiglio: input non valido → default bilanciato, mai un crash', () => {
+  assert.match(testoConsiglio('boh'), /equilibrati/);
+  assert.match(testoConsiglio(), /equilibrati/);
 });
