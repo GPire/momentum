@@ -3050,11 +3050,15 @@
        <div class="starfield"><div class="star-layer sl-small"></div><div class="star-layer sl-mid"></div><div class="star-layer sl-big"></div><div class="star-layer sl-glow"></div><div class="shooting-star s1"></div><div class="shooting-star s2"></div><div class="shooting-star s3"></div></div>
     </div>
     <div class="absolute inset-0 z-[5] pointer-events-none" style="background: radial-gradient(ellipse 60% 45% at 50% 48%, rgba(5,7,15,0.82) 0%, rgba(5,7,15,0.55) 45%, rgba(5,7,15,0) 78%);"></div>
-    <div class="relative z-10 w-full max-w-md px-6 flex flex-col items-center text-center gap-4">
+    <div class="relative z-10 w-full max-w-md px-6 max-h-[92vh] flex flex-col items-center text-center gap-4">
       <p class="eyebrow !mb-0 text-[var(--primary)]">Momentum · Novità</p>
       <h2 class="text-2xl font-black text-white tracking-tight">Cosa c'è di nuovo</h2>
-      <div id="whats-new-list" class="w-full flex flex-col gap-2.5 text-left"></div>
-      <button id="whats-new-close" class="btn-action btn-primary w-full py-3 font-bold rounded-xl mt-2">Ho capito</button>
+      <!-- Storico concatenato (più release non ancora viste, non solo
+           l'ultima): con un dispositivo fermo da mesi la lista può crescere
+           parecchio — scroll interno, mai un layout che rompe o un
+           bottone "Ho capito" spinto fuori schermo su un telefono piccolo. -->
+      <div id="whats-new-list" class="w-full flex flex-col gap-3 text-left overflow-y-auto pr-0.5" style="max-height: min(52vh, 420px);"></div>
+      <button id="whats-new-close" class="btn-action btn-primary w-full py-3 font-bold rounded-xl mt-1 shrink-0">Ho capito</button>
     </div>
   </div>
 

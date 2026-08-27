@@ -112,7 +112,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './split/invite-codec.js';
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
-import { shouldShowWhatsNew, WHATS_NEW_ITEMS, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
+import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -7140,22 +7140,39 @@ const AVATAR_PALETTE = ['#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '
 // (quello ha già il suo toast, un'interruzione non è il momento per uno
 // starfield). Riusa esattamente lo stile icona+testo di renderGenesisPayoff
 // sopra (stessa disciplina "un solo linguaggio visivo per queste card").
+// STORICO concatenato (2026-08-27, richiesto esplicitamente dall'utente):
+// un dispositivo fermo da mesi vede TUTTE le release che si è perso, non
+// solo l'ultima — nasconderle sarebbe un dato taciuto, contrario al
+// principio del progetto. `unseenReleases` fa il lavoro puro; qui solo il
+// rendering.
 function showWhatsNewIfDue() {
   if (!shouldShowWhatsNew(VaultDAO.state)) return;
+  const releases = unseenReleases(VaultDAO.state);
+  if (!releases.length) return;
   const overlay = document.getElementById('whats-new-overlay');
   const list = document.getElementById('whats-new-list');
   if (!overlay || !list) return;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const tono = {
     green: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5',
     gold: 'text-amber-400 border-amber-400/40 bg-amber-400/5',
     primary: 'text-[var(--primary)] border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]',
     purple: 'text-purple-400 border-purple-400/40 bg-purple-400/5',
   };
-  list.innerHTML = WHATS_NEW_ITEMS.map((v, i) => `
-    <div class="payoff-card flex items-center gap-3 rounded-2xl border p-3 ${tono[v.colore]}" style="--i:${i}">
-      <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[v.colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></div>
-      <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${v.titolo}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${v.testo}</div></div>
-    </div>`).join('');
+  let indice = 0;
+  const soloUnaRelease = releases.length === 1;
+  list.innerHTML = releases.map((rel) => `
+    ${soloUnaRelease ? '' : `<div class="text-[10px] font-bold uppercase tracking-widest text-[var(--on-surface-secondary)] opacity-70 mt-1 first:mt-0">${esc(rel.versione)}</div>`}
+    ${rel.voci.map((v) => {
+      const html = `
+      <div class="payoff-card flex items-center gap-3 rounded-2xl border p-3 ${tono[v.colore]}" style="--i:${indice}">
+        <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[v.colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></div>
+        <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${esc(v.titolo)}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(v.testo)}</div></div>
+      </div>`;
+      indice++;
+      return html;
+    }).join('')}
+  `).join('');
   const chiudi = () => {
     overlay.classList.remove('active');
     overlay.classList.add('hidden');
