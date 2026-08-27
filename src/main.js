@@ -14557,11 +14557,38 @@ function initMomentumRealAI() {
       return learnOriginale(description, category, amount, date);
     };
 
+    // BUG REALE trovato beta-testando (2026-08-27): `new MeshNode(undefined, ...)`
+    // generava un nodeId di sessione CASUALE ad ogni avvio (crypto.randomUUID()
+    // dentro il costruttore) — slegato da VaultDAO.state.deviceId, l'identità
+    // PERSISTENTE che claimMember scrive in `claimedBy`. peerAppartieneAlGruppo
+    // (sotto) confronta `m.claimedBy === peerId`: con due spazi di id
+    // indipendenti, quel confronto non è MAI vero, per costruzione — non un
+    // caso raro, sempre. Risultato: shareSplitGroups(groups, peerAppartieneAlGruppo)
+    // — l'UNICO modo in cui viene chiamato in produzione (persist() del
+    // gruppo, persist() della chat, e qui sotto al pairing) — filtrava fuori
+    // OGNI peer, SEMPRE: rinomina, nuove spese, nuovi membri, messaggi in
+    // chat non hanno MAI raggiunto un peer via push live, in nessuna sessione
+    // reale. Stesso motivo rompeva silenziosamente anche la reputazione dei
+    // peer (mesh/update-ledger.js: peerReputation richiede un id STABILE fra
+    // sessioni per accumulare storia, mai visto perché mai testato con id
+    // realistici). Riprodotto e confermato con un test dedicato prima di
+    // questo fix (mesh-signaling.test.js).
+    // FIX: il nodeId della mesh DIVENTA VaultDAO.state.deviceId — la stessa
+    // identità già scritta in claimedBy, già visibile a chiunque nel gruppo
+    // condiviso (fa già parte del payload di sync). Nessun nuovo dato esce
+    // che non uscisse già; l'unica sfumatura residua onestamente dichiarata:
+    // usare LA STESSA identità per ogni gruppo/contesto mesh di questo
+    // dispositivo rende teoricamente possibile correlare due gruppi
+    // indipendenti (es. coinquilini + amici di viaggio) SE i loro peer
+    // finissero mai connessi fra loro via gossip multi-hop — un limite
+    // preesistente all'architettura mesh (che già scambia liste di peer),
+    // non introdotto da questo fix, e comunque necessario per far funzionare
+    // la sincronizzazione live per cui il filtro esiste.
     // Mente condivisa: MeshNode collegato al VERO stato NeuralNexus tramite
     // l'adapter (prima sincronizzava il motore standalone, una copia morta).
     // learn() dell'orchestratore chiama già mesh.broadcastLearning() — quindi
     // ogni apprendimento locale si propaga da solo ai dispositivi collegati.
-    momentumMeshNode = new MeshNode(undefined, createNexusMeshMind(momentumOrchestrator, VaultDAO));
+    momentumMeshNode = new MeshNode(VaultDAO.state.deviceId, createNexusMeshMind(momentumOrchestrator, VaultDAO));
     // Sync differenziale dei DATI tra device fidati (src/mesh/sync.js):
     // callback che la mesh usa per scambiare digest→delta e per il merge.
     // Il digest porta anche le CANCELLAZIONI, altrimenti l'altro dispositivo

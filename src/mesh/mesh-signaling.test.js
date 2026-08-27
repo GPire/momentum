@@ -193,6 +193,60 @@ test('shareSplitGroups: il ricevente può fondere col CRDT (mergeIntoGroups) sen
   assert.equal(localGroups[0].expenses.length, 1, 'la spesa condivisa da A si unisce al gruppo locale');
 });
 
+// ── BUG REALE trovato beta-testando (2026-08-27): con la wiring vera di
+// produzione, il nodeId della mesh era CASUALE ad ogni sessione
+// (new MeshNode(undefined,...)), slegato dal deviceId persistito che
+// claimMember scrive in claimedBy — peerAppartieneAlGruppo(peerId, g)
+// confronta m.claimedBy === peerId, e con due spazi di id indipendenti
+// quel confronto non è MAI vero. Risultato: shareSplitGroups(groups,
+// peerAppartieneAlGruppo) filtrava fuori OGNI peer, sempre — nessuna
+// rinomina/spesa/messaggio è mai arrivato via push live in produzione.
+// Fix: il nodeId della mesh DIVENTA VaultDAO.state.deviceId (main.js) —
+// qui si riproduce esattamente lo scenario reale (id realistici, non le
+// etichette corte 'A'/'B' del resto del file) prima/dopo il fix. ──
+function peerAppartieneAlGruppo(peerId, gruppo) {
+  if (!gruppo || !Array.isArray(gruppo.members)) return false;
+  return gruppo.members.some((m) => m.claimedBy && m.claimedBy === peerId);
+}
+
+test('shareSplitGroups + peerAppartieneAlGruppo: con nodeId di mesh SLEGATO dal deviceId (bug reale, wiring pre-fix) non arriva NULLA', async () => {
+  const { claimMember } = await import('../split/split-engine.js');
+  const meshNodeIdA = crypto.randomUUID(), meshNodeIdB = crypto.randomUUID();
+  const deviceIdB = crypto.randomUUID(); // MAI uguale a meshNodeIdB — è il bug
+  const [chA, chB] = linkedChannels();
+  const nodeA = new MeshNode(meshNodeIdA, fakeMind());
+  const nodeB = new MeshNode(meshNodeIdB, fakeMind());
+  nodeB.addDirectPeer(meshNodeIdA, null, chB);
+  nodeA.addDirectPeer(meshNodeIdB, null, chA);
+  let g = { id: 'g1', name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }], expenses: [] };
+  g = claimMember(g, 'm1', deviceIdB);
+  let ricevuto = null;
+  nodeB.onSplitGroupsReceived = (peerId, groups) => { ricevuto = groups; };
+  const inviati = nodeA.shareSplitGroups([{ ...g, name: 'Weekend a Barcellona' }], peerAppartieneAlGruppo);
+  assert.equal(inviati, 0, 'con id slegati, il filtro esclude ogni peer — riproduce esattamente il bug');
+  assert.equal(ricevuto, null, 'Marco non riceve la rinomina: questo è il bug, non il comportamento voluto');
+});
+
+test('shareSplitGroups + peerAppartieneAlGruppo: con nodeId di mesh = deviceId (wiring corretta, post-fix) la rinomina arriva', async () => {
+  const { claimMember } = await import('../split/split-engine.js');
+  const deviceIdA = crypto.randomUUID(), deviceIdB = crypto.randomUUID();
+  const [chA, chB] = linkedChannels();
+  // Stessa identità usata sia dalla mesh (nodeId) sia da claimMember — il fix.
+  const nodeA = new MeshNode(deviceIdA, fakeMind());
+  const nodeB = new MeshNode(deviceIdB, fakeMind());
+  nodeB.addDirectPeer(deviceIdA, null, chB);
+  nodeA.addDirectPeer(deviceIdB, null, chA);
+  let g = { id: 'g1', name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }], expenses: [] };
+  g = claimMember(g, 'm0', deviceIdA);
+  g = claimMember(g, 'm1', deviceIdB);
+  let ricevuto = null;
+  nodeB.onSplitGroupsReceived = (peerId, groups) => { ricevuto = groups; };
+  const inviati = nodeA.shareSplitGroups([{ ...g, name: 'Weekend a Barcellona' }], peerAppartieneAlGruppo);
+  assert.equal(inviati, 1, 'con id allineati, il filtro riconosce correttamente Marco come membro del gruppo');
+  assert.ok(ricevuto, 'Marco riceve la rinomina');
+  assert.equal(ricevuto[0].name, 'Weekend a Barcellona');
+});
+
 // ── shareMorphology: federazione dei tipi esercente ─────────────────────────
 test('shareMorphology: il modello arriva intatto al peer via morphology_share', () => {
   const { nodeA, nodeB } = twoNodes();
