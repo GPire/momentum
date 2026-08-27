@@ -719,6 +719,67 @@ test('con piu\' gruppi, ognuno va solo ai suoi', () => {
   assert.deepEqual(r.b[0].groups.map((g) => g.id), ['g2']);
 });
 
+// ── I test PRIVACY sopra usano etichette scelte a mano ('io'/'amico'/'a'/
+// 'b') che combaciano PER COSTRUZIONE — provano che il FILTRO è corretto in
+// isolamento, ma non che la wiring REALE (nodeId di mesh generato a parte,
+// deviceId persistito a parte, collegati SOLO dal fix di questo commit)
+// produca mai quella corrispondenza. Richiesto esplicitamente dall'utente
+// ("un Momentum con 10 gruppi diversi, persone diverse, manda l'uno ad
+// uno?"): stesso scenario, ma con id realistici e indipendenti (crypto.
+// randomUUID() per ognuno, come in produzione) e MeshNode vero (non solo
+// N.peers.set() a mano) per ogni persona. ──
+test('SCALA REALE: un dispositivo con 10 gruppi indipendenti (10 persone diverse, id realistici) — ognuno riceve ESATTAMENTE il proprio, zero fughe verso gli altri 9', async () => {
+  const { claimMember, createGroup } = await import('../split/split-engine.js');
+  const appartiene = (peerId, g) => g.members.some((m) => m.claimedBy && m.claimedBy === peerId);
+  const deviceIdIo = crypto.randomUUID();
+  const nodeIo = new MeshNode(deviceIdIo, fakeMind());
+  const persone = Array.from({ length: 10 }, () => ({ deviceId: crypto.randomUUID() }));
+  const gruppi = persone.map((p, i) => {
+    let g = createGroup({ id: `g${i}`, name: `Gruppo ${i}`, members: [{ id: 'io', name: 'Io' }, { id: 'lui', name: `Persona${i}` }] });
+    g = claimMember(g, 'io', deviceIdIo);
+    g = claimMember(g, 'lui', p.deviceId);
+    return g;
+  });
+  const ricevutoDa = persone.map(() => []);
+  persone.forEach((p, i) => {
+    const [chIo, chLui] = linkedChannels();
+    const nodeLui = new MeshNode(p.deviceId, fakeMind());
+    nodeLui.addDirectPeer(deviceIdIo, null, chLui);
+    nodeIo.addDirectPeer(p.deviceId, null, chIo);
+    nodeLui.onSplitGroupsReceived = (peerId, groups) => { ricevutoDa[i].push(...groups); };
+  });
+  const inviati = nodeIo.shareSplitGroups(gruppi, appartiene);
+  assert.equal(inviati, 10, 'tutti e 10 i peer collegati devono ricevere qualcosa');
+  persone.forEach((p, i) => {
+    assert.deepEqual(ricevutoDa[i].map((g) => g.id), [`g${i}`], `Persona${i} deve ricevere SOLO il proprio gruppo g${i}, mai gli altri 9`);
+  });
+});
+
+test('SCALA REALE: una persona in PIÙ gruppi di Io insieme riceve tutti i suoi, mai un terzo gruppo non suo', async () => {
+  const { claimMember, createGroup } = await import('../split/split-engine.js');
+  const appartiene = (peerId, g) => g.members.some((m) => m.claimedBy && m.claimedBy === peerId);
+  const deviceIdIo = crypto.randomUUID();
+  const deviceIdAmico = crypto.randomUUID();
+  const deviceIdEstraneo = crypto.randomUUID();
+  let gA = createGroup({ id: 'weekend', name: 'Weekend', members: [{ id: 'io', name: 'Io' }, { id: 'lui', name: 'Amico' }] });
+  gA = claimMember(claimMember(gA, 'io', deviceIdIo), 'lui', deviceIdAmico);
+  let gB = createGroup({ id: 'coinquilini', name: 'Coinquilini', members: [{ id: 'io', name: 'Io' }, { id: 'lui', name: 'Amico' }] });
+  gB = claimMember(claimMember(gB, 'io', deviceIdIo), 'lui', deviceIdAmico);
+  // Un terzo gruppo di Io a cui l'Amico NON appartiene affatto.
+  let gC = createGroup({ id: 'lavoro', name: 'Lavoro', members: [{ id: 'io', name: 'Io' }, { id: 'lui', name: 'Collega' }] });
+  gC = claimMember(claimMember(gC, 'io', deviceIdIo), 'lui', deviceIdEstraneo);
+
+  const nodeIo = new MeshNode(deviceIdIo, fakeMind());
+  const nodeAmico = new MeshNode(deviceIdAmico, fakeMind());
+  const [chIo, chAmico] = linkedChannels();
+  nodeAmico.addDirectPeer(deviceIdIo, null, chAmico);
+  nodeIo.addDirectPeer(deviceIdAmico, null, chIo);
+  const ricevuti = [];
+  nodeAmico.onSplitGroupsReceived = (peerId, groups) => { ricevuti.push(...groups); };
+  nodeIo.shareSplitGroups([gA, gB, gC], appartiene);
+  assert.deepEqual(ricevuti.map((g) => g.id).sort(), ['coinquilini', 'weekend'], 'Amico riceve i suoi 2 gruppi, mai "lavoro" a cui non appartiene');
+});
+
 test('un dispositivo che non ha rivendicato nessuno slot non riceve niente', () => {
   const N = new MeshNode('io', null);
   let n = 0;
