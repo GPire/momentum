@@ -7377,6 +7377,14 @@ window.openExpenseChat = (groupId, expenseId) => {
     const myId = myMemberId(g, VaultDAO.state.deviceId);
     const myName = names[myId] || 'Io';
     const disputed = isDisputed(g, expenseId);
+    // Gap reale (2026-08-27): la chat vive sulla SINGOLA spesa, ma finché
+    // qualcuno non è ancora entrato nel gruppo (unclaimedMembers) non vede
+    // né la contestazione né la discussione — l'unico modo che aveva era
+    // tornare alla schermata gruppo e ricordarsi di condividere di nuovo il
+    // link. Qui, dove la conversazione sta succedendo DAVVERO, l'invito
+    // diventa contestuale: "Marco non ha ancora ricevuto questo messaggio"
+    // è più concreto di un pulsante "Condividi" generico altrove.
+    const nonAncoraEntrati = unclaimedMembers(g);
 
     const msgRows = messagesFor(g, expenseId).map(m => `
       <div class="flex items-start gap-2 py-1.5 border-b border-[var(--outline)] last:border-0">
@@ -7394,6 +7402,11 @@ window.openExpenseChat = (groupId, expenseId) => {
           <div class="min-w-0"><span class="font-black text-sm block truncate">${esc(exp.description || 'Spesa')}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${esc(names[exp.payer] || '?')} ha pagato ${eur(exp.amount)}</span></div>
         </div>
         ${disputed ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">In discussione: questa spesa resta fuori dai saldi finché non è risolta.</span></div>` : ''}
+        ${nonAncoraEntrati.length ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-sky-500/10 border border-sky-500/20">
+          <svg class="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M17 8v6M14 11h6"/></svg>
+          <span class="text-[12px] flex-1 min-w-0"><b>${esc(nonAncoraEntrati.map(m => m.name).join(', '))}</b> non ${nonAncoraEntrati.length > 1 ? 'hanno' : 'ha'} ancora ricevuto questa conversazione.</span>
+          <button id="ec-invita" class="shrink-0 text-[11px] font-bold text-sky-400 underline">Invita</button>
+        </div>` : ''}
         <div class="card p-3">${msgRows}</div>
         <div class="flex gap-2">
           <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder='es. "il conto era 120 non 100"' />
@@ -7403,6 +7416,14 @@ window.openExpenseChat = (groupId, expenseId) => {
       </div>`);
 
     $('#ec-back')?.addEventListener('click', () => window.openSplitGroup(groupId));
+    $('#ec-invita')?.addEventListener('click', async () => {
+      // Stesso invito del gruppo (openShareCode/buildInviteCode, già in uso
+      // altrove) — non un secondo canale: qui è solo il punto in cui viene
+      // proposto, perché è dove il bisogno è appena diventato visibile.
+      const p2p = await tryCreateP2POffer();
+      _groupInvitePairing = p2p?.pairing || null;
+      window.openShareCode({ code: await buildInviteCode(g, p2p?.offer), groupName: g.name, title: `Invita a "${g.name}"`, sub: 'Manda il link: l\'amico lo tocca e Momentum si apre già sul gruppo, con questa conversazione dentro.', pairing: _groupInvitePairing });
+    });
     $('#ec-send')?.addEventListener('click', () => {
       const t = $('#ec-text')?.value?.trim();
       if (!t) return;
