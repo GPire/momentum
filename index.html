@@ -1175,6 +1175,21 @@
       50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold) 0%, transparent); transform: scale(1.25); }
     }
     @media (prefers-reduced-motion: reduce) { .tax-alert .eyebrow::after { animation: none; } }
+    /* Stesso "respiro" gold già usato su .tax-alert (2026-08-27, feedback
+       utente: il badge messaggi non letti non si leggeva abbastanza come
+       "notifica") — riuso letterale, non un keyframe nuovo. Deliberatamente
+       NIENTE starfield/stelle cadenti/orb/3D qui: quel linguaggio resta
+       riservato ai momenti di ARRIVO volontario (onboarding, "Cosa c'è di
+       nuovo" — vedi whats-new.js), mai su un elemento che può comparire
+       spesso durante la normale navigazione, tanto meno vicino a soldi. */
+    .notify-pulse { position: relative; }
+    .notify-pulse::after {
+      content: ''; position: absolute; top: -0.15rem; right: -0.15rem; width: 0.4rem; height: 0.4rem;
+      background: var(--gold); border-radius: 50%;
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 55%, transparent);
+      animation: tl1TaxAlertPulse 1.8s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) { .notify-pulse::after { animation: none; } }
     /* Ricerca ATECO libera ("descrivi cosa farai"): suggerimenti che
        rientrano a scaglione, come le opzioni del menu a tendina. */
     .tl1-ateco-hit { animation: txRise .3s cubic-bezier(.22,1,.36,1) both; }
@@ -1445,6 +1460,18 @@
     .ghost-curve-line { filter: drop-shadow(0 0 2.5px rgba(255,255,255,0.3)); }
     @keyframes ghostDotPop { 0% { opacity: 0; transform: scale(0); } 70% { transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
     .ghost-curve-dot { animation: ghostDotPop .4s cubic-bezier(.34,1.56,.64,1) both; animation-delay: .5s; transform-origin: center; transform-box: fill-box; }
+    /* Riuso di ghostDotPop (2026-08-27) per i badge IT/CH/ES della card Tasse
+       e per i badge "non letti" (lista gruppi + promemoria Dashboard) — un
+       piccolo ingresso "a molla" invece di un nuovo keyframe dedicato, stesso
+       principio "un solo posto per ogni logica" già seguito nel resto
+       dell'app. Mai un'animazione continua/in loop su un elemento che resta
+       a schermo: un solo colpo all'apparire, poi fermo. */
+    .tax-flag-pop { animation: ghostDotPop .35s cubic-bezier(.34,1.56,.64,1) both; }
+    .tax-flag-pop:nth-of-type(1) { animation-delay: .05s; }
+    .tax-flag-pop:nth-of-type(2) { animation-delay: .12s; }
+    .tax-flag-pop:nth-of-type(3) { animation-delay: .19s; }
+    .unread-badge-pop { animation: ghostDotPop .4s cubic-bezier(.34,1.56,.64,1) both; transform-origin: center; }
+    @media (prefers-reduced-motion: reduce) { .tax-flag-pop, .unread-badge-pop { animation: none; } }
     .ghost-details summary::-webkit-details-marker { display: none; }
     .ghost-details[open] > div { animation: insightFade .35s ease both; }
     @media (prefers-reduced-motion: reduce) {
@@ -3315,6 +3342,14 @@
                  quando non c'è nulla di aperto — nessun rumore. -->
             <div id="split-reminder" class="shrink-0 hidden"></div>
 
+            <!-- Scoperta Partita IVA (2026-08-27): il dettaglio/calcolo vive in
+                 Momentum Vault (spostato via da Analisi Tensor, che deve restare
+                 solo trader/investimenti), ma chi non l'ha ancora mai vista
+                 rischierebbe di non scoprirla mai. Appare SOLO a chi non ha
+                 ancora un regime né fatture rilevate e non ha già detto "sono
+                 dipendente" — un tocco apre subito la simulazione. -->
+            <div id="tax-discover-card" class="shrink-0 hidden"></div>
+
             <!-- Chiedi a Momentum (src/ai/qa-engine.js): risposte calcolate
                  sui dati veri dell'utente, on-device, anche offline, in 5
                  lingue. Chip di suggerimento DINAMICI (main.js li sceglie in
@@ -3546,27 +3581,11 @@
                     </div>
                  </div>
 
-                 <!-- Partita IVA (src/predict/tax.js): accantonamento fiscale -->
-                 <div class="card p-6 hidden order-6" id="tax-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>Tasse da mettere da parte</h3>
-                    <p class="card-sub">Su ogni incasso, quanto mettere via per fisco e contributi — il tuo vero disponibile</p>
-                    <p id="tax-setaside" class="text-2xl font-black font-mono text-[var(--red)] mb-1">—</p>
-                    <p id="tax-note" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
-                    <div id="tax-extra" class="mt-3"></div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Non è consulenza fiscale: stime su aliquote dichiarate. Verifica col tuo commercialista.</p>
-                 </div>
-
-                 <!-- Partita IVA Spagna (src/predict/tax-es.js): accantonamento RETA+IRPF
-                      dalle transazioni vere del Vault, gemella della card sopra ma solo per
-                      chi ha attivato il tracciamento reale (VaultDAO.state.esActive). -->
-                 <div class="card p-6 hidden order-6" id="tax-es-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>RETA + IRPF (España)</h3>
-                    <p class="card-sub" id="tax-es-sub"></p>
-                    <p id="tax-es-setaside" class="text-2xl font-black font-mono text-[var(--red)] mb-1">—</p>
-                    <p id="tax-es-note" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
-                    <div id="tax-es-extra" class="mt-3"></div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" id="tax-es-disclaimer"></p>
-                 </div>
+                 <!-- Partita IVA (Italia/Spagna): spostata in Momentum Vault (2026-08-27,
+                      richiesto dagli utenti via feedback) — Analisi Tensor resta solo
+                      trader/investimenti/borsa, senza contenuti fiscali/split che
+                      creavano confusione di contesto. Vedi #tax-card/#tax-es-card
+                      accanto a #tax-settings-card nella schermata Momentum Vault. -->
 
                  <!-- Investimenti (src/alpha/): quanto puoi investire + regime -->
                  <div class="card p-6 order-4" id="invest-card">
@@ -3928,15 +3947,82 @@
                    per un freelance nuovo la Partita IVA "spariva". Qui non sparisce mai,
                    e il body è predittivo: se il modello entrate vede fatture ma manca il
                    regime, lo dice e propone di attivarlo. -->
+              <!-- Tasse — UNA sola card per Italia/Svizzera/Spagna (2026-08-27,
+                   consolidata dopo feedback utente: prima erano 3 card separate
+                   impilate, quasi ridondanti, in Momentum Vault — affollamento
+                   visivo reale, non solo percepito. Gli ID interni restano
+                   INVARIATI (tax-settings-body/tax-setaside/tax-note/tax-extra/
+                   tax-es-*): zero rischio sulle 3 funzioni di render già testate
+                   (renderTaxSettings/renderTax/renderTaxEs), solo il contenitore
+                   cambia. Le tre bandiere in alto rendono i 3 sistemi fiscali
+                   scopribili insieme, senza fingerli uguali (non lo sono: IT ha
+                   regime forfettario/ordinario+SdI, ES ha RETA+IRPF, CH è solo
+                   un simulatore AVS — restano 3 motori distinti per scelta
+                   dichiarata, qui si unifica solo dove si TROVANO, non come
+                   funzionano). -->
               <div class="card p-6 flex flex-col" id="tax-settings-card">
-                <div class="flex items-center gap-4 mb-4">
+                <div class="flex items-center gap-4 mb-1">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
-                  <div>
-                    <h3 class="font-bold text-base">Partita IVA e fatture</h3>
-                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Se fatturi, calcolo io quanto mettere da parte per il fisco e ti creo la fattura.</p>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-2">
+                      <h3 class="font-bold text-base">Tasse · Partita IVA</h3>
+                      <!-- Badge ISO invece di emoji bandiera (2026-08-27, feedback
+                           utente: "ci devono essere icone di design"): stesso
+                           linguaggio già usato ovunque nell'app per valuta/paese
+                           (font-mono, pillola con bordo — vedi ISO 4217 in
+                           iso4217.js), coerente con lo stroke-style del resto
+                           della UI invece di un font emoji che varia per OS. -->
+                      <!-- 2026-08-27, secondo giro di feedback: il solo codice
+                           ISO era troppo astratto ("comprensibile anche a un
+                           bambino" — principio del progetto). Aggiunta una
+                           piccola striscia di colore per Paese (disegnata in
+                           CSS, non un font emoji): un bambino riconosce un
+                           pattern di colore anche senza saper leggere le
+                           lettere, resta comunque un'icona "di design" e non
+                           un pittogramma di sistema. -->
+                      <span class="shrink-0 inline-flex items-center gap-1.5">
+                        <button type="button" onclick="window.openTaxRegimePicker()" title="Italia" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                          <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(90deg,#009246 0 33%,#fff 33% 66%,#ce2b37 66% 100%)"></span>
+                          <span class="font-mono text-[10px] font-bold">IT</span>
+                        </button>
+                        <button type="button" onclick="window.openSwissSimulator()" title="Svizzera" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                          <!-- Croce bianca disegnata in CSS (2 barre a
+                               gradiente) invece di un pallino rosso pieno,
+                               che non si leggeva come Svizzera (feedback
+                               utente) — niente immagine, resta un'icona. -->
+                          <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background: linear-gradient(#fff,#fff) center/58% 20% no-repeat, linear-gradient(#fff,#fff) center/20% 58% no-repeat, #d52b1e"></span>
+                          <span class="font-mono text-[10px] font-bold">CH</span>
+                        </button>
+                        <button type="button" onclick="window.openSpainSimulator()" title="España" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                          <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(180deg,#c60b1e 0 25%,#ffc400 25% 75%,#c60b1e 75% 100%)"></span>
+                          <span class="font-mono text-[10px] font-bold">ES</span>
+                        </button>
+                      </span>
+                    </div>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Se fatturi (qui o altrove), calcolo io quanto mettere da parte — un solo posto per i tre Paesi.</p>
                   </div>
                 </div>
-                <div id="tax-settings-body" class="mt-auto"></div>
+                <div id="tax-settings-body" class="mt-3"></div>
+
+                <!-- Dettaglio Italia (src/predict/tax.js): stessi ID di sempre,
+                     ora dentro la card unica invece che in una propria. -->
+                <div class="hidden pt-3 mt-3 border-t border-[var(--outline)]" id="tax-card">
+                   <p class="card-sub !mb-1">Su ogni incasso, quanto mettere via per fisco e contributi — il tuo vero disponibile</p>
+                   <p id="tax-setaside" class="text-2xl font-black font-mono text-[var(--red)] mb-1">—</p>
+                   <p id="tax-note" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
+                   <div id="tax-extra" class="mt-3"></div>
+                   <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Non è consulenza fiscale: stime su aliquote dichiarate. Verifica col tuo commercialista.</p>
+                </div>
+
+                <!-- Dettaglio Spagna (src/predict/tax-es.js): idem, stessi ID. -->
+                <div class="hidden pt-3 mt-3 border-t border-[var(--outline)]" id="tax-es-card">
+                   <h3 class="eyebrow !mb-1"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>RETA + IRPF (España)</h3>
+                   <p class="card-sub !mb-1" id="tax-es-sub"></p>
+                   <p id="tax-es-setaside" class="text-2xl font-black font-mono text-[var(--red)] mb-1">—</p>
+                   <p id="tax-es-note" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
+                   <div id="tax-es-extra" class="mt-3"></div>
+                   <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" id="tax-es-disclaimer"></p>
+                </div>
               </div>
 
               <!-- P2P Sincronizzazione Serverless -->
@@ -4344,6 +4430,7 @@
           </h2>
           <div id="next-expense-nudge" class="shrink-0 hidden mb-2.5"></div>
           <div id="split-reminder" class="shrink-0 hidden mb-2.5"></div>
+          <div id="tax-discover-card" class="shrink-0 hidden mb-2.5"></div>
           <!-- BUG REALE segnalato dal vivo: su desktop, nonostante lo schermo
                più grande, si era comunque costretti a scorrere per raggiungere
                Conferma — stesso identico difetto già risolto sul modale mobile

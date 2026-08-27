@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './command-center.js';
 import { createGroup, addSharedExpense, claimMember } from '../split/split-engine.js';
+import { addMessage, contestExpense } from '../split/group-chat.js';
 
 // Helper: costruisce N transazioni di una categoria in una data/ora fissa.
 function tx(category, amount, dateISO) {
@@ -147,6 +148,87 @@ test('splitReminder con deviceId: il creatore del gruppo (slot "Io" rivendicato 
   assert.equal(r.show, true);
   assert.equal(r.direction, 'owed');
   assert.equal(r.amount, 20);
+});
+
+// ── splitReminder → attività chat non vista (2026-08-27): quando NON c'è
+// nessun saldo aperto ma qualcuno ha scritto in un gruppo, il promemoria
+// segnala comunque — "un solo focus, mai rumore", ma un messaggio mai visto
+// è un pending reale quanto un debito. ──
+test('splitReminder: nessun saldo ma un messaggio mai visto → mostra "messages"', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = claimMember(g, 'm0', 'device-io');
+  g = addMessage(g, { autore: 'Marco', testo: 'Ci vediamo alle 9?', now: 1000 });
+  const r = splitReminder([g], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.show, true);
+  assert.equal(r.direction, 'messages');
+  assert.equal(r.groupId, g.id);
+  assert.equal(r.count, 1);
+});
+
+test('splitReminder: un messaggio già visto (chatSeenAt aggiornato) non segnala più nulla', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = claimMember(g, 'm0', 'device-io');
+  g = addMessage(g, { autore: 'Marco', testo: 'Ci vediamo alle 9?', now: 1000 });
+  const r = splitReminder([g], { deviceId: 'device-io', chatSeenAt: { [g.id]: 2000 } });
+  assert.equal(r.show, false);
+});
+
+test('splitReminder: il PROPRIO messaggio non conta mai come "non letto"', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = claimMember(g, 'm0', 'device-io');
+  g = addMessage(g, { autore: 'Io', testo: 'ho pagato io il taxi', now: 1000 });
+  const r = splitReminder([g], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.show, false, 'un messaggio scritto da me stesso non deve mai risultare "non letto"');
+});
+
+// ── splitReminder → spesa contestata non ancora chiarita (2026-08-27,
+// segnalato dall'utente): groupForSettlement esclude le spese contestate dal
+// saldo finché non sono risolte — un gruppo con SOLO una spesa contestata
+// arriva qui con saldo zero, ma quei soldi non sono affatto "in pari". ──
+test('splitReminder: nessun saldo pulito ma una spesa contestata → mostra "dispute", non silenzio', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = claimMember(g, 'm0', 'device-io');
+  g = addSharedExpense(g, { payer: 'm0', amount: 40, description: 'Taxi', shares: { equalAmong: ['m0', 'm1'] } });
+  const expenseId = g.expenses[0].id;
+  g = contestExpense(g, { autore: 'Marco', expenseId, motivo: 'non mi torna' });
+  const r = splitReminder([g], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.show, true);
+  assert.equal(r.direction, 'dispute');
+  assert.equal(r.groupId, g.id);
+  assert.equal(r.amount, 40);
+  assert.equal(r.count, 1);
+});
+
+test('splitReminder: una contestazione aperta ha priorità su un semplice messaggio (riguarda soldi)', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = claimMember(g, 'm0', 'device-io');
+  g = addSharedExpense(g, { payer: 'm0', amount: 40, shares: { equalAmong: ['m0', 'm1'] } });
+  const expenseId = g.expenses[0].id;
+  g = contestExpense(g, { autore: 'Marco', expenseId });
+  g = addMessage(g, { autore: 'Marco', testo: 'ciao!', now: Date.now() });
+  const r = splitReminder([g], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.direction, 'dispute', 'i soldi in sospeso contano più di un messaggio generico');
+});
+
+test('splitReminder: un saldo aperto ha SEMPRE priorità anche su una contestazione altrove (un solo focus)', () => {
+  let g1 = createGroup({ name: 'Affitto', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g1 = claimMember(g1, 'm0', 'device-io');
+  g1 = addSharedExpense(g1, { payer: 'm0', amount: 800, shares: { equalAmong: ['m0', 'm1'] } });
+  let g2 = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Sara' }] });
+  g2 = claimMember(g2, 'm0', 'device-io');
+  g2 = addSharedExpense(g2, { payer: 'm0', amount: 40, shares: { equalAmong: ['m0', 'm1'] } });
+  g2 = contestExpense(g2, { autore: 'Sara', expenseId: g2.expenses[0].id });
+  const r = splitReminder([g1, g2], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.direction, 'owed', 'il saldo vero (Affitto) vince sempre sulla contestazione di un altro gruppo');
+});
+
+test('splitReminder: un saldo aperto ha SEMPRE priorità su un messaggio non visto (un solo focus)', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = claimMember(g, 'm0', 'device-io');
+  g = addSharedExpense(g, { payer: 'm0', amount: 100, shares: { equalAmong: ['m0', 'm1'] } });
+  g = addMessage(g, { autore: 'Marco', testo: 'grazie!', now: 1000 });
+  const r = splitReminder([g], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.direction, 'owed', 'il saldo da 50€ deve vincere sul semplice messaggio');
 });
 
 // ── amountEntryImpact (tastierino vivo) ──

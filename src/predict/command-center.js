@@ -7,7 +7,8 @@
 // stessa fascia oraria (non ripropone ciò che hai già fatto). Funzioni pure,
 // nessun DOM — la UI (main.js) si limita a disegnare ciò che questo decide.
 import { predictCategoriesNow, slotOf } from './context-predictor.js';
-import { settlementView, myMemberId } from '../split/split-engine.js';
+import { settlementView, myMemberId, displayNames } from '../split/split-engine.js';
+import { unreadCount, chatStatus, groupForSettlement } from '../split/group-chat.js';
 import { descriptionSimilarity } from '../core/deduplicator.js';
 
 // Ritorna il nudge "prossima spesa probabile" per il momento presente, oppure
@@ -79,7 +80,15 @@ export function splitReminder(groups = [], opts = {}) {
   for (const g of groups || []) {
     if (!g || !Array.isArray(g.members) || !Array.isArray(g.expenses) || g.expenses.length === 0) continue;
     let view;
-    try { view = settlementView(g); } catch (_) { continue; }
+    // BUG REALE trovato scrivendo il ramo "dispute" sotto (2026-08-27):
+    // splitReminder calcolava il saldo su TUTTE le spese, incluse quelle
+    // contestate — diverso dalla schermata di dettaglio gruppo
+    // (groupForSettlement le esclude finché non risolte). Risultato: il
+    // promemoria Dashboard poteva mostrare un saldo che includeva soldi
+    // ancora in discussione, un numero diverso da quello vero mostrato
+    // aprendo il gruppo. groupForSettlement è un no-op se non ci sono
+    // contestazioni aperte — nessun cambiamento per il caso comune.
+    try { view = settlementView(groupForSettlement(g)); } catch (_) { continue; }
     // Con un deviceId fornito, quel gruppo conta SOLO se questo dispositivo
     // ha uno slot rivendicato al suo interno — mai un nome indovinato (né
     // 'Io' né opts.meName) per un gruppo dove non sappiamo ancora chi
@@ -110,7 +119,59 @@ export function splitReminder(groups = [], opts = {}) {
     const net = +(owed - owe).toFixed(2);
     if (Math.abs(net) > 0.009) perGroup.push({ id: g.id, name: g.name, net, gross: owed + owe });
   }
-  if (perGroup.length === 0) return { show: false };
+  if (perGroup.length === 0) {
+    // Nessun saldo "pulito" da mostrare: prima di tacere del tutto, due
+    // controlli in ordine di priorità (2026-08-27, segnalato dall'utente:
+    // "se qualcuno ti deve dei soldi ma c'è una chat in corso non ancora
+    // chiusa" quei soldi restano invisibili). groupForSettlement esclude le
+    // spese contestate dal saldo finché non sono risolte — quindi un gruppo
+    // con SOLO una spesa contestata risulta a saldo zero qui sopra, ma i
+    // soldi non sono affatto "in pari": sono bloccati in una discussione
+    // aperta. Questo merita un segnale PRIMA di un semplice "nuovo
+    // messaggio" (riguarda soldi, non solo una chat) — priorità: saldo >
+    // contestazione aperta > messaggio non letto > niente.
+    if (opts.deviceId) {
+      let bestDispute = null;
+      for (const g of groups || []) {
+        if (!g || !Array.isArray(g.members) || !Array.isArray(g.chat) || !g.chat.length) continue;
+        const myId = myMemberId(g, opts.deviceId);
+        if (!myId) continue;
+        const cs = chatStatus(g);
+        if (cs.discussioniAperte > 0 && (!bestDispute || cs.importoInDiscussione > bestDispute.amount)) {
+          bestDispute = { id: g.id, name: g.name, amount: cs.importoInDiscussione, count: cs.discussioniAperte };
+        }
+      }
+      if (bestDispute) return { show: true, direction: 'dispute', groupId: bestDispute.id, groupName: bestDispute.name, amount: bestDispute.amount, count: bestDispute.count };
+    }
+    // Nessuna contestazione aperta: controlla se c'è attività in chat mai
+    // vista (collega `unreadCount`, scritta e testata in group-chat.js ma
+    // mai agganciata a nessuna UI prima). Stesso principio "un solo focus,
+    // mai rumore": questo appare SOLO quando non c'è già un saldo o una
+    // contestazione da mostrare, e SOLO per gruppi dove questo dispositivo
+    // ha uno slot rivendicato — mai un nome indovinato. `opts.chatSeenAt`:
+    // mappa groupId→timestamp dell'ultima apertura di quel gruppo su
+    // QUESTO dispositivo.
+    if (opts.deviceId) {
+      const seenMap = opts.chatSeenAt || {};
+      let best = null;
+      for (const g of groups || []) {
+        if (!g || !Array.isArray(g.members) || !Array.isArray(g.chat) || !g.chat.length) continue;
+        const myId = myMemberId(g, opts.deviceId);
+        if (!myId) continue;
+        // Due candidati validi per "sono io" (bug reale trovato in test dal
+        // vivo con nomi duplicati nel gruppo — vedi il commento su
+        // unreadCount in group-chat.js): il nome grezzo del proprio membro
+        // (come scritto prima di un'eventuale collisione) e la sua versione
+        // disambiguata attuale (come scritto dopo).
+        const rawName = g.members.find((m) => m.id === myId)?.name;
+        const dispName = (displayNames(g.members))[myId];
+        const n = unreadCount(g, [rawName, dispName], seenMap[g.id] || 0);
+        if (n > 0 && (!best || n > best.count)) best = { id: g.id, name: g.name, count: n };
+      }
+      if (best) return { show: true, direction: 'messages', groupId: best.id, groupName: best.name, count: best.count };
+    }
+    return { show: false };
+  }
   // Priorità: importo netto più grande (poi lordo) — la cosa che pesa di più.
   perGroup.sort((a, b) => (Math.abs(b.net) - Math.abs(a.net)) || (b.gross - a.gross));
   const top = perGroup[0];

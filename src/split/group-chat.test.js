@@ -148,9 +148,63 @@ test('senza discussioni aperte non si dice niente', () => {
   assert.equal(chatStatus(conSpese()).testo, null);
 });
 
+// `autore` è sempre il NOME visualizzato di chi scrive (mai un deviceId —
+// vedi il commento su unreadCount in group-chat.js), quindi i test usano
+// nomi reali ('Io'/'Marco'), non etichette generiche che mascondano il vero
+// contratto della funzione (stessa lezione della mesh: mai testare con
+// etichette che combaciano per costruzione se la produzione usa spazi
+// diversi).
 test('i non letti non contano i propri messaggi', () => {
-  let g = addMessage(conSpese(), { autore: 'dev-io', testo: 'mio', now: 10 });
-  g = addMessage(g, { autore: 'dev-altro', testo: 'suo', now: 20 });
-  assert.equal(unreadCount(g, 'dev-io', 0), 1);
-  assert.equal(unreadCount(g, 'dev-io', 20), 0);
+  let g = addMessage(conSpese(), { autore: 'Io', testo: 'mio', now: 10 });
+  g = addMessage(g, { autore: 'Marco', testo: 'suo', now: 20 });
+  assert.equal(unreadCount(g, 'Io', 0), 1);
+  assert.equal(unreadCount(g, 'Io', 20), 0);
+});
+
+test('BUG REALE (mai innescato, mai collegato a UI): un deviceId al posto del nome non troverebbe mai un match, contando ANCHE i propri messaggi come non letti', () => {
+  let g = addMessage(conSpese(), { autore: 'Io', testo: 'mio', now: 10 });
+  g = addMessage(g, { autore: 'Marco', testo: 'suo', now: 20 });
+  // Un vero deviceId (UUID) non combacia mai con un `autore` (nome) — il
+  // conteggio "sbagliato" salirebbe a 2 invece di 1, includendo il proprio
+  // messaggio. Documenta perché il parametro DEVE essere il nome risolto.
+  const finoDeviceIdFinto = unreadCount(g, 'a1b2c3d4-uuid-non-un-nome', 0);
+  assert.equal(finoDeviceIdFinto, 2);
+});
+
+// SECONDO BUG REALE, trovato in test dal vivo (2026-08-27) con dati reali di
+// un dispositivo in un gruppo con DUE membri chiamati "Marco": displayNames
+// (split-engine.js) disambigua "Marco #1"/"Marco #2" solo al momento del
+// render, in base all'ordine corrente dei membri — non è un'etichetta scritta
+// una volta. Un messaggio mandato PRIMA della collisione porta `autore:
+// "Marco"` (grezzo); uno mandato DOPO porta già "Marco #1" (disambiguato).
+// Un solo nome "attuale" passato a unreadCount ne perde sempre uno dei due.
+test('unreadCount accetta PIÙ nomi validi per "sono io" (nome grezzo + disambiguato): un messaggio proprio scritto prima di una collisione di nomi non risulta più "non letto"', () => {
+  // Messaggio scritto quando "Marco" era ancora l'unico nel gruppo (autore grezzo).
+  let g = addMessage(conSpese(), { autore: 'Marco', testo: 'prima della collisione', now: 10 });
+  // Un secondo "Marco" si è unito dopo: da qui in poi main.js scrive autore
+  // già disambiguato per i messaggi nuovi.
+  g = addMessage(g, { autore: 'Marco #1', testo: 'dopo la collisione, ancora io', now: 20 });
+  g = addMessage(g, { autore: 'Marco #2', testo: 'questo è davvero un altro', now: 30 });
+  // Passando SOLO il nome disambiguato attuale, il primo messaggio (autore
+  // grezzo "Marco") risulterebbe erroneamente non letto — bug reale trovato
+  // dal vivo. Passando ENTRAMBI i candidati, si riconoscono correttamente
+  // come propri sia il messaggio vecchio che quello nuovo.
+  assert.equal(unreadCount(g, ['Marco', 'Marco #1'], 0), 1, 'solo il messaggio del vero altro membro (Marco #2) deve contare');
+});
+
+// Generalizza a N persone con lo STESSO nome (non solo 2): displayNames
+// (split-engine.js) numera in ordine "#1".."#N" in base all'ordine dei
+// membri, mai un numero fisso — il fix sopra passa il nome disambiguato
+// RISOLTO PER QUESTO membro specifico (displayNames(g.members)[myId]), non
+// un "#1"/"#2" scritto a mano: funziona identico con 2, 3 o 10 omonimi.
+test('unreadCount con TRE persone chiamate "Marco" (non solo due): ognuna riconosce solo i propri messaggi come "letti"', () => {
+  const g0 = createGroup({ name: 'Trasferta', members: ['Marco', 'Marco', 'Marco', 'Sara'] });
+  // displayNames assegna "Marco #1"/"Marco #2"/"Marco #3" in ordine d'array.
+  // Io sono il secondo "Marco" nell'array — sarà "Marco #2".
+  let g = addMessage(g0, { autore: 'Marco #1', testo: 'msg del primo Marco', now: 10 });
+  g = addMessage(g, { autore: 'Marco #2', testo: 'msg mio (secondo Marco)', now: 20 });
+  g = addMessage(g, { autore: 'Marco #3', testo: 'msg del terzo Marco', now: 30 });
+  g = addMessage(g, { autore: 'Sara', testo: 'msg di Sara', now: 40 });
+  // Io sono "Marco #2": solo il MIO messaggio va escluso, gli altri 3 contano.
+  assert.equal(unreadCount(g, ['Marco', 'Marco #2'], 0), 3);
 });

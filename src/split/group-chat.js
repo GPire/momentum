@@ -106,8 +106,33 @@ export function messagesFor(group, expenseId = null) {
   return (group?.chat || []).filter((m) => m.expenseId === expenseId).sort((a, b) => a.at - b.at);
 }
 
-export function unreadCount(group, deviceId, lastSeenAt = 0) {
-  return (group?.chat || []).filter((m) => m.at > lastSeenAt && m.autore !== deviceId).length;
+// BUG REALE trovato (2026-08-27), mai innescato in produzione perché la
+// funzione non era ancora collegata a nessuna UI: `autore` in ogni messaggio
+// è il NOME visualizzato di chi scrive (`addMessage(g, { autore: myName,
+// ... })` in main.js — "Io"/"Marco"/ecc.), MAI un deviceId. Confrontare
+// `m.autore !== deviceId` con un vero deviceId (una UUID) non avrebbe MAI
+// combaciato, per costruzione — ogni messaggio, compresi i propri, sarebbe
+// contato come "non letto da qualcun altro". Stessa classe di bug già
+// trovata e corretta per il nodeId della mesh (main.js): due spazi di
+// identità indipendenti che sembrano equivalenti solo nei test con etichette
+// scelte a mano. Fix: il terzo parametro è ora il NOME risolto di questo
+// dispositivo in QUESTO gruppo (es. via myMemberId+displayNames), non un
+// deviceId grezzo — coerente con come `autore` è scritto davvero.
+// SECONDO BUG REALE trovato (2026-08-27), in test dal vivo con dati reali di
+// un dispositivo con due membri chiamati "Marco" nello stesso gruppo:
+// `displayNames()` (split-engine.js) disambigua i nomi duplicati SOLO al
+// momento del render ("Marco #1"/"Marco #2"), in base all'ordine corrente
+// dei membri — non è un'etichetta scritta una volta e stabile. Un messaggio
+// mandato PRIMA che esistesse la collisione ha `autore:"Marco"` (nome
+// grezzo); uno mandato DOPO ha `autore:"Marco #1"` (già disambiguato, da
+// main.js). Confrontare con UN SOLO nome "attuale" perde sempre l'altro
+// caso — gli stessi messaggi di chi scrive risultavano "non letti da un
+// altro". Fix: si accettano PIÙ nomi validi per "sono io" (il nome grezzo
+// del proprio membro E la sua versione disambiguata corrente) — copre
+// entrambi gli stati possibili senza dover riscrivere la chat esistente.
+export function unreadCount(group, meNames, lastSeenAt = 0) {
+  const mine = new Set(Array.isArray(meNames) ? meNames : [meNames]);
+  return (group?.chat || []).filter((m) => m.at > lastSeenAt && !mine.has(m.autore)).length;
 }
 
 // ── Il merge, che è la parte che rende la chat P2P invece che locale ──

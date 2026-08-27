@@ -110,7 +110,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 // riceveva. Qui si comprime, il contenuto va nel fragment (mai al server) e la
 // parte visibile dice di che gruppo si tratta.
 import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './split/invite-codec.js';
-import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement } from './split/group-chat.js';
+import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement, unreadCount } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
@@ -2278,9 +2278,35 @@ const renderDashboard = () => {
   // quella nel Command Center desktop, mai una sola.
   const splitEls = document.querySelectorAll('#split-reminder');
   if (splitEls.length) {
-    const sr = splitReminder(VaultDAO.state.splitGroups || [], { deviceId: VaultDAO.state.deviceId });
+    const sr = splitReminder(VaultDAO.state.splitGroups || [], { deviceId: VaultDAO.state.deviceId, chatSeenAt: VaultDAO.state.chatSeenAt || {} });
     let splitHtml = '';
-    if (sr.show) {
+    if (sr.show && sr.direction === 'dispute') {
+      // Soldi bloccati in una spesa contestata (2026-08-27, segnalato
+      // dall'utente): il saldo qui sopra li esclude finché non è risolta,
+      // ma "invisibile in Dashboard" sarebbe peggio di "saldo zero" — sono
+      // soldi in sospeso, non soldi risolti. Stessa icona di allerta già
+      // usata nel dettaglio gruppo per le contestazioni, priorità sopra un
+      // semplice messaggio (qui riguarda soldi, non solo una chat).
+      splitHtml = `
+        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${formatMoney(sr.amount)} in discussione nel gruppo ${sr.groupName}. Tocca per vedere."
+          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-amber-500/30 bg-amber-950/10 text-amber-100 active:scale-[0.98] transition-transform text-left">
+          <svg class="notify-pulse w-4 h-4 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          <span class="min-w-0 flex-1 text-[13px]"><b>${formatMoney(sr.amount)}</b> in discussione in <b>${sr.groupName}</b> — ${sr.count === 1 ? 'una spesa' : `${sr.count} spese`} non ancora chiarite</span>
+          <span class="shrink-0 text-[11px] font-bold text-amber-400">Vedi →</span>
+        </button>`;
+    } else if (sr.show && sr.direction === 'messages') {
+      // Nessun saldo aperto ma un messaggio mai visto (unreadCount,
+      // group-chat.js — scritta e testata ma mai collegata finora): stesso
+      // linguaggio visivo già usato per i contatori messaggi sulle righe
+      // spesa (icona fumetto + colore gold), non un nuovo stile.
+      splitHtml = `
+        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="Nuovo messaggio nel gruppo ${sr.groupName}. Tocca per leggerlo."
+          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-amber-100 active:scale-[0.98] transition-transform text-left">
+          <svg class="unread-badge-pop notify-pulse w-4 h-4 shrink-0 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span class="min-w-0 flex-1 text-[13px]">${sr.count === 1 ? 'Nuovo messaggio' : `${sr.count} nuovi messaggi`} in <b>${sr.groupName}</b></span>
+          <span class="shrink-0 text-[11px] font-bold text-[var(--gold)]">Leggi →</span>
+        </button>`;
+    } else if (sr.show) {
       const owed = sr.direction === 'owed';
       const tone = owed
         ? { bd: 'border-emerald-500/30', bg: 'bg-emerald-950/10', tx: 'text-emerald-200', ic: 'text-emerald-400' }
@@ -2302,6 +2328,27 @@ const renderDashboard = () => {
       splitEl.classList.toggle('hidden', !sr.show);
       splitEl.innerHTML = splitHtml;
     });
+  }
+
+  // ── SCOPERTA PARTITA IVA (2026-08-27) ────────────────────────────────────
+  // Il dettaglio/calcolo vive in Momentum Vault (spostato via da Analisi
+  // Tensor: gli utenti hanno segnalato che mischiava contenuti fiscali/split
+  // dentro una schermata che deve restare solo trader/investimenti). Ma senza
+  // un punto di scoperta su una schermata che TUTTI aprono, chi non ha ancora
+  // mai visto questa funzione rischierebbe di non trovarla mai — stesso
+  // principio già seguito altrove: insight/scoperta sulla Dashboard, mai
+  // sepolti in una sotto-schermata. Appare SOLO a chi non ha ancora un regime
+  // né fatture rilevate e non ha già detto "sono dipendente, non mi serve".
+  const taxDiscoverEls = document.querySelectorAll('#tax-discover-card');
+  if (taxDiscoverEls.length) {
+    let showDiscover = false;
+    try { showDiscover = !VaultDAO.state.taxRegime && !hasInvoiceIncome() && !VaultDAO.state.noPartitaIva; } catch (_) { showDiscover = false; }
+    const discoverHtml = showDiscover ? `
+      <div class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-left">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-[var(--gold)]"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+        <span class="min-w-0 flex-1 text-[13px]">Hai la Partita IVA, o la stai valutando? <button type="button" onclick="window.openTaxLevel1()" class="font-bold text-[var(--gold)] underline">Scopri cosa ti resterebbe</button></span>
+      </div>` : '';
+    taxDiscoverEls.forEach((el) => { el.classList.toggle('hidden', !showDiscover); el.innerHTML = discoverHtml; });
   }
 
   // WebGL orb — disattivato su hardware debole (profilo misurato, non stimato)
@@ -3206,8 +3253,6 @@ const renderAnalysis = (opts = {}) => {
   renderNetWorth();
   renderPeriodCompare();
   renderCausalGraphViz();
-  renderTax(k);
-  renderTaxEs(k);
 };
 
 // ── I TRE BLOCCHI CHE NESSUN PORTALE PUÒ MOSTRARE ──────────────────────────
@@ -3766,11 +3811,23 @@ function renderTax(monthK) {
     card.classList.remove('hidden');
     setEl.textContent = '';
     noteEl.textContent = 'Stai valutando se aprire la Partita IVA? Scopri in un attimo cosa ti resterebbe davvero in tasca.';
+    // I link CH/ES qui sotto sono stati tolti (2026-08-27): ridondanti con i
+    // badge IT/CH/ES già in cima alla card unica in Momentum Vault — averli
+    // in due punti della stessa card sarebbe di nuovo l'affollamento appena
+    // corretto (vedi il commento sulla card in index.html).
     if (extraEl) extraEl.innerHTML = `
       <button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Simula la tua Partita IVA</button>
-      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">Sono dipendente, non mi serve</button>
-      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">🇨🇭 Lavori in Svizzera?</button>
-      <button onclick="window.openSpainSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">🇪🇸 ¿Trabajas en España?</button>`;
+      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">Sono dipendente, non mi serve</button>`;
+    return;
+  }
+  // Un solo Paese alla volta mostrato per esteso (2026-08-27, segnalato
+  // dall'utente: Italia e Spagna comparivano impilate insieme nella stessa
+  // card — realistico solo per un vero freelance con redditi in due Paesi,
+  // fuorviante per chiunque altro). Nessun dato viene perso: entrambi restano
+  // attivi nello stato, cambia solo QUALE dei due si vede qui — l'altro è a
+  // un tocco (badge IT/CH/ES in cima, o il link "mostra" sotto).
+  if (VaultDAO.state.taxActiveCountry === 'es' && VaultDAO.state.esActive) {
+    card.classList.add('hidden');
     return;
   }
   card.classList.remove('hidden');
@@ -3869,6 +3926,11 @@ function renderTax(monthK) {
     }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
     html += `<button onclick="window.openCreateInvoice()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>`;
+    // Entrambi i Paesi attivi (raro, ma reale): l'Italia si mostra per
+    // default, uno switch esplicito porta alla Spagna — mai le due insieme.
+    if (VaultDAO.state.esActive) {
+      html += `<button onclick="window.setTaxActiveCountry('es')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">Hai anche la Spagna attiva — mostra quella invece</button>`;
+    }
     extraEl.innerHTML = html;
     // Segnale discreto SOLO se c'è un motivo vero (scadenza saltata o cassa a
     // rischio) — niente popup, niente nuova schermata: un piccolo bagliore
@@ -3886,6 +3948,13 @@ function renderTax(monthK) {
 function renderTaxEs(monthK) {
   const card = $('#tax-es-card'); if (!card) return;
   if (!VaultDAO.state.esActive) { card.classList.add('hidden'); return; }
+  // Un solo Paese alla volta (vedi lo stesso guard in renderTax): con un
+  // regime italiano attivo E senza uno switch esplicito verso la Spagna,
+  // l'Italia resta quella mostrata di default — mai le due impilate insieme.
+  if (VaultDAO.state.taxRegime && VaultDAO.state.taxActiveCountry !== 'es') {
+    card.classList.add('hidden');
+    return;
+  }
   card.classList.remove('hidden');
   const setEl = $('#tax-es-setaside'), noteEl = $('#tax-es-note'), extraEl = $('#tax-es-extra'), subEl = $('#tax-es-sub'), discEl = $('#tax-es-disclaimer');
   if (subEl) subEl.textContent = tCh('esCardSub', __esLang);
@@ -3932,8 +4001,21 @@ function renderTaxEs(monthK) {
     html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} ${tCh('esUncertainLabel', __esLang)}</div><div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div></div>`;
   }
   html += `<button onclick="window.setEsActive(false)" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2">${tCh('esDeactivate', __esLang)}</button>`;
+  if (VaultDAO.state.taxRegime) {
+    html += `<button onclick="window.setTaxActiveCountry('it')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">Hai anche l'Italia attiva — mostra quella invece</button>`;
+  }
   extraEl.innerHTML = html;
 }
+
+// Quale Paese mostrare per esteso quando più di uno è attivo insieme
+// (2026-08-27, segnalato dall'utente: Italia e Spagna comparivano impilate
+// nella stessa card). Nessun dato tolto: cambia solo quale card è visibile.
+window.setTaxActiveCountry = (paese) => {
+  VaultDAO.state.taxActiveCountry = paese;
+  VaultDAO.save();
+  renderTax(monthKey(new Date()));
+  renderTaxEs(monthKey(new Date()));
+};
 
 // Attiva/disattiva il tracciamento reale RETA+IRPF dalle transazioni vere —
 // reversibile con un tocco, stesso principio già seguito per setNoPartitaIva
@@ -3941,6 +4023,9 @@ function renderTaxEs(monthK) {
 // indietro).
 window.setEsActive = (val) => {
   VaultDAO.state.esActive = !!val;
+  // Attivare la Spagna diventa anche il Paese mostrato per default — chi
+  // sta appena attivando qualcosa vuole vederlo, non l'altro rimasto attivo.
+  if (val) VaultDAO.state.taxActiveCountry = 'es';
   VaultDAO.save();
   showToast(tCh(val ? 'esActivatedToast' : 'esDeactivatedToast', __esLang), val ? 'success' : 'info');
   if (val) pingFeature('spain_tax_activated');
@@ -4002,7 +4087,7 @@ function renderTaxSettings() {
     body.innerHTML = `
       <div class="flex items-center gap-2 text-xs text-emerald-300 mb-3">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
-        <span>Regime attivo: <b>${label}</b>. Il dettaglio mese per mese è nella scheda Analisi.</span>
+        <span>Regime attivo: <b>${label}</b>. Il dettaglio mese per mese è qui sotto.</span>
       </div>
       ${predLine}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
@@ -4888,7 +4973,7 @@ window.openTaxRegimePicker = () => {
     </div>`);
 };
 
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderAnalysis(); };
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); };
 // "Sono dipendente, non mi serve": rispetta la scelta e smette di chiedere,
 // ma resta reversibile con un tocco (cambiare lavoro è normale, non un caso
 // limite da nascondere per sempre dietro un flag irreversibile).
@@ -7233,8 +7318,24 @@ window.openSplitGroup = (openId = null) => {
     const gs = groups();
     const rows = gs.map(g => {
       const total = (g.expenses || []).reduce((s, e) => s + e.amount, 0);
+      // Badge messaggi non visti (unreadCount, group-chat.js) — scoperta
+      // diretta nella lista gruppi, non solo dal promemoria Dashboard: chi
+      // apre "Insieme" per un altro motivo vede comunque dove c'è novità.
+      let unread = 0;
+      try {
+        const myId = myMemberId(g, VaultDAO.state.deviceId);
+        if (myId) {
+          // Due candidati per "sono io" (nome grezzo + disambiguato attuale)
+          // — stesso fix di command-center.js, stesso bug reale trovato in
+          // test dal vivo con nomi duplicati.
+          const rawName = g.members.find((m) => m.id === myId)?.name;
+          const dispName = (displayNames(g.members))[myId];
+          unread = unreadCount(g, [rawName, dispName], (VaultDAO.state.chatSeenAt || {})[g.id] || 0);
+        }
+      } catch (_) { unread = 0; }
+      const badge = unread > 0 ? `<span class="unread-badge-pop shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--gold)] text-[10px] font-black text-black">${unread > 9 ? '9+' : unread}</span>` : '';
       return `<button data-open="${g.id}" class="split-row w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-left">
-        <span class="min-w-0"><span class="font-bold text-sm block truncate">${esc(g.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${g.members.length} persone · ${(g.expenses || []).length} spese</span></span>
+        <span class="min-w-0 inline-flex items-center gap-2"><span class="min-w-0"><span class="font-bold text-sm block truncate">${esc(g.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${g.members.length} persone · ${(g.expenses || []).length} spese</span></span>${badge}</span>
         <span class="font-mono font-black text-sm shrink-0">${eur(total)}</span></button>`;
     }).join('');
     openModal(`
@@ -7270,6 +7371,13 @@ window.openSplitGroup = (openId = null) => {
     // nome letterale — corretto per chiunque apra il gruppo, non solo per
     // chi lo ha creato.
     const myId = myMemberId(g, VaultDAO.state.deviceId);
+    // Aprire il gruppo = leggerlo (stessa convenzione di qualunque chat):
+    // segna il "visto fin qui" per questo dispositivo. Non un salvataggio a
+    // parte per ogni apertura — si aggancia al normale VaultDAO.save() che
+    // già gira nel resto del flusso di questa schermata.
+    if (!VaultDAO.state.chatSeenAt) VaultDAO.state.chatSeenAt = {};
+    VaultDAO.state.chatSeenAt[g.id] = Date.now();
+    VaultDAO.save();
     // Le spese contestate (group-chat.js) restano fuori dal saldo finché non
     // sono risolte — la conversazione cambia i conti, non corre solo a fianco.
     const gSaldo = groupForSettlement(g);
@@ -11536,7 +11644,11 @@ const navigate = (view) => {
   }
   if (view === 'analysis') renderAnalysis();
   if (view === 'settings') {
-    renderTaxSettings(); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard();
+    // #tax-card/#tax-es-card vivono qui (spostate da Analisi Tensor, vedi
+    // index.html): il dettaglio mensile dell'accantonamento fiscale sta
+    // accanto a #tax-settings-card, non più mescolato ai contenuti di
+    // trading/investimento di Analisi Tensor.
+    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
