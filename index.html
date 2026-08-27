@@ -1938,7 +1938,11 @@
        sopra — una card per volta, non un blocco che appare di colpo. Stessa
        animazione gRise, non una seconda inventata a parte. */
     .genesis-step.active .payoff-card { animation: gRise 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay: calc(0.12s + var(--i, 0) * 0.09s); }
-    @media (prefers-reduced-motion: reduce) { .genesis-step.active .payoff-card { animation: none; } }
+    /* "Cosa c'è di nuovo" (whats-new-overlay): stessa gRise a scaglione,
+       stesse .payoff-card in vetro — nessuna nuova animazione inventata. */
+    #whats-new-overlay.active h2, #whats-new-overlay.active .eyebrow { animation: gRise 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+    #whats-new-overlay.active .payoff-card { animation: gRise 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay: calc(0.12s + var(--i, 0) * 0.09s); }
+    @media (prefers-reduced-motion: reduce) { .genesis-step.active .payoff-card, #whats-new-overlay.active .payoff-card, #whats-new-overlay.active h2, #whats-new-overlay.active .eyebrow { animation: none; } }
     /* Le card del payoff sono vetro, non piene: lo starfield/nebulosa già
        presenti dietro OGNI step (vedi .starfield, poco sopra in questo
        file) restano visibili attraverso, invece di sparire dietro un
@@ -3026,6 +3030,32 @@
      <h1 class="text-3xl font-black text-white tracking-tighter mb-2">I tuoi dati restano qui.</h1>
      <p id="ota-privacy-hint" class="hidden-hint text-[var(--primary)] font-bold text-xs tracking-widest uppercase mb-4">Non ci credi? Trascina un dato fuori</p>
      <div class="ota-log" id="ota-log-container"></div>
+  </div>
+
+  <!-- "Cosa c'è di nuovo" (2026-08-27): mostrata SOLO al prossimo avvio
+       VOLONTARIO dopo un aggiornamento (mai durante il reload forzato che
+       il service worker già gestisce con un toast — un'interruzione non
+       richiesta non è il momento per aggiungere spettacolo, il contrario).
+       #genesis-container viene RIMOSSO dal DOM per un utente già onboardato
+       (main.js, ramo hasOnboarded) — questo overlay è un'istanza separata
+       ma riusa LO STESSO starfield/nebulosa/scrim (mai un secondo stile
+       inventato) e le stesse .payoff-card in vetro già usate per il payoff
+       dell'onboarding. Nascosto di default, mostrato solo se whatsNew.js
+       (main.js) trova versione mai vista. -->
+  <div id="whats-new-overlay" class="hidden fixed inset-0 z-[9998] bg-[#000] flex items-center justify-center overflow-hidden">
+    <div class="absolute inset-0 z-0 pointer-events-none">
+       <div class="absolute inset-0" style="background:
+            radial-gradient(60% 55% at 27% 30%, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0) 60%),
+            radial-gradient(55% 50% at 76% 72%, rgba(34,211,238,0.12) 0%, rgba(34,211,238,0) 60%);"></div>
+       <div class="starfield"><div class="star-layer sl-small"></div><div class="star-layer sl-mid"></div><div class="star-layer sl-big"></div><div class="star-layer sl-glow"></div><div class="shooting-star s1"></div><div class="shooting-star s2"></div><div class="shooting-star s3"></div></div>
+    </div>
+    <div class="absolute inset-0 z-[5] pointer-events-none" style="background: radial-gradient(ellipse 60% 45% at 50% 48%, rgba(5,7,15,0.82) 0%, rgba(5,7,15,0.55) 45%, rgba(5,7,15,0) 78%);"></div>
+    <div class="relative z-10 w-full max-w-md px-6 flex flex-col items-center text-center gap-4">
+      <p class="eyebrow !mb-0 text-[var(--primary)]">Momentum · Novità</p>
+      <h2 class="text-2xl font-black text-white tracking-tight">Cosa c'è di nuovo</h2>
+      <div id="whats-new-list" class="w-full flex flex-col gap-2.5 text-left"></div>
+      <button id="whats-new-close" class="btn-action btn-primary w-full py-3 font-bold rounded-xl mt-2">Ho capito</button>
+    </div>
   </div>
 
   <div id="pdf-progress-overlay">

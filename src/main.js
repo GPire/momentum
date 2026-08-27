@@ -112,6 +112,7 @@ import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSp
 import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './split/invite-codec.js';
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
+import { shouldShowWhatsNew, WHATS_NEW_ITEMS, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -7133,6 +7134,41 @@ function renderSplitForesight(g, names) {
 // come persone vere, non righe di una tabella — la parte social/condivisione
 // della gamification (mai su spesa/budget/investimenti, quella resta pulita).
 const AVATAR_PALETTE = ['#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#a855f7', '#ec4899', '#84cc16'];
+// "Cosa c'è di nuovo" (src/core/whats-new.js): mostrata SOLO al prossimo
+// avvio volontario di un utente già onboardato che non ha ancora visto la
+// versione corrente — mai durante il reload forzato dal service worker
+// (quello ha già il suo toast, un'interruzione non è il momento per uno
+// starfield). Riusa esattamente lo stile icona+testo di renderGenesisPayoff
+// sopra (stessa disciplina "un solo linguaggio visivo per queste card").
+function showWhatsNewIfDue() {
+  if (!shouldShowWhatsNew(VaultDAO.state)) return;
+  const overlay = document.getElementById('whats-new-overlay');
+  const list = document.getElementById('whats-new-list');
+  if (!overlay || !list) return;
+  const tono = {
+    green: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5',
+    gold: 'text-amber-400 border-amber-400/40 bg-amber-400/5',
+    primary: 'text-[var(--primary)] border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]',
+    purple: 'text-purple-400 border-purple-400/40 bg-purple-400/5',
+  };
+  list.innerHTML = WHATS_NEW_ITEMS.map((v, i) => `
+    <div class="payoff-card flex items-center gap-3 rounded-2xl border p-3 ${tono[v.colore]}" style="--i:${i}">
+      <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[v.colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></div>
+      <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${v.titolo}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${v.testo}</div></div>
+    </div>`).join('');
+  const chiudi = () => {
+    overlay.classList.remove('active');
+    overlay.classList.add('hidden');
+    VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
+    VaultDAO.save();
+  };
+  document.getElementById('whats-new-close').onclick = chiudi;
+  overlay.classList.remove('hidden');
+  // Un frame dopo, così la transizione .active parte da uno stato pulito
+  // (stesso schema già in uso per .qa-chart-in/.tx-in altrove nel file).
+  requestAnimationFrame(() => overlay.classList.add('active'));
+}
+
 function avatarIniziali(nome) {
   return String(nome || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('') || '?';
 }
@@ -11019,6 +11055,11 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   // Priori della rete neurale on-device.
   try { NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile); } catch (_) {}
   pingFeature('onboarding_completed');
+  // Chi arriva ORA non ha nulla con cui confrontare "cosa c'è di nuovo" —
+  // marcato come già visto per non mostrargli, subito dopo l'onboarding,
+  // una schermata su funzioni che per lui sono semplicemente "come funziona
+  // Momentum", non una novità.
+  VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
 }
 
 // ATTIVAZIONE LAMPO (anti-attrito): chi arriva da un link di divisione NON deve
@@ -14288,6 +14329,11 @@ const initApp = () => {
       if (newly.length) { VaultDAO.state.achievements = unlocked; VaultDAO.save(); }
     }
     bootUI();
+    // "Cosa c'è di nuovo": dopo che la dashboard è già visibile e usabile,
+    // mai prima — non deve competere col primo paint né sembrare un
+    // blocco. Un ritardo breve, non zero: l'utente deve prima vedere "sono
+    // arrivato", poi eventualmente "cosa è cambiato".
+    setTimeout(() => { try { showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
     // I dati di mercato si scaricano in sottofondo, senza bloccare niente: se
     // l'utente chiedera' "cosa protegge quando crolla" li trovera' pronti, e
     // se non lo chiedera' mai non avra' pagato nulla all'avvio.
