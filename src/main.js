@@ -12883,6 +12883,84 @@ const initApp = () => {
     });
   }
 
+  // Grafico mensile del "residuo" per titolo-causale (src/alpha/titolo-
+  // causale.js:serieResiduiMensili/motiviCaliPicchi) — RICOLLEGATO il
+  // 2026-08-27 dopo un blocco browser reale la prima volta (2026-08-25, mai
+  // confermata la causa). Stessa identica disciplina di sicurezza già
+  // verificata per renderStoricoPercentileChart: altezza esplicita e
+  // STABILE (non lasciata all'autoSize iniziale), una sola istanza tracciata
+  // e sempre rimossa prima di ricrearne un'altra (mai due grafici Lightweight
+  // vivi sullo stesso container in parallelo — il sospetto più concreto per
+  // un "blocco dopo un po' di domande" è proprio l'accumulo di istanze mai
+  // ripulite, non l'aritmetica di titolo-causale.js, riletta a fondo oggi e
+  // puramente O(n) su ≤330 punti). `punti`/`eventi` arrivano già calcolati
+  // dal chiamante (mai ricalcolati qui): questa funzione resta un puro
+  // renderer, la logica resta in titolo-causale.js.
+  let __causaleChartInstance = null;
+  async function renderResiduiMensiliChart(containerId, punti, eventi, nomeTitolo) {
+    const el = document.getElementById(containerId);
+    if (!el || typeof window.LightweightCharts === 'undefined' || !Array.isArray(punti) || punti.length < 2) { if (el) el.remove(); return; }
+    el.style.height = '150px';
+    try {
+      if (__causaleChartInstance) { try { __causaleChartInstance.remove(); } catch (_) {} }
+      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+      const chart = window.LightweightCharts.createChart(el, {
+        width: el.clientWidth, height: 150, autoSize: true,
+        layout: { background: { color: 'transparent' }, textColor: isDark ? '#a1a1aa' : '#52525b', fontSize: 10, fontFamily: "'DM Mono', monospace", attributionLogo: false },
+        grid: { vertLines: { visible: false }, horzLines: { color: isDark ? '#27272a' : '#e4e4e7' } },
+        rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false },
+        crosshair: { mode: 1 },
+      });
+      // Istogramma, non area: ogni mese è un'osservazione a sé (il "quanto è
+      // suo" quel mese), non una quantità cumulata — colorato per segno,
+      // stesso significato immediato di un grafico a barre su un residuo.
+      const serie = chart.addSeries(window.LightweightCharts.HistogramSeries, {
+        priceFormat: { type: 'custom', formatter: (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%` },
+        lastValueVisible: false, priceLineVisible: false,
+      });
+      serie.setData(punti.map((p) => ({ time: p.time, value: p.value, color: p.value >= 0 ? 'rgba(16,185,129,.75)' : 'rgba(225,29,72,.7)' })));
+      if (eventi?.length && window.LightweightCharts.createSeriesMarkers) {
+        // Wordless come i marcatori già in uso altrove (percentile-settore):
+        // il dettaglio (quale mese, quale valore) sta nel testo della
+        // risposta, non in un'etichetta stipata su un grafico alto 150px.
+        window.LightweightCharts.createSeriesMarkers(serie, eventi.map((e) => ({
+          time: e.time, position: e.tipo === 'picco' ? 'aboveBar' : 'belowBar',
+          color: e.tipo === 'picco' ? '#10b981' : '#e11d48', shape: e.tipo === 'picco' ? 'arrowUp' : 'arrowDown', size: 0.9,
+        })));
+      }
+      chart.timeScale().fitContent();
+      __causaleChartInstance = chart;
+      el.classList.remove('qa-chart-in'); void el.offsetWidth; el.classList.add('qa-chart-in');
+    } catch (e) { console.warn('Grafico residuo mensile non disponibile:', e); el.remove(); }
+  }
+  function wireCausaleChartToggle(containerId, punti, nomeTitolo) {
+    const nuovoWrap = document.getElementById(containerId);
+    const classicoWrap = document.getElementById(`${containerId}-classico`);
+    if (!nuovoWrap || !classicoWrap) return;
+    let disegnatoClassico = false;
+    document.querySelectorAll(`.qa-chart-tab[data-chart="${containerId}"]`).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        document.querySelectorAll(`.qa-chart-tab[data-chart="${containerId}"]`).forEach((b) => b.classList.toggle('is-active', b === btn));
+        const vuoleClassico = btn.dataset.view === 'classico';
+        if (vuoleClassico && !disegnatoClassico) {
+          disegnatoClassico = true;
+          try {
+            const { svgResiduiMensili } = await import('./alpha/titolo-causale.js');
+            classicoWrap.innerHTML = svgResiduiMensili(punti, nomeTitolo) || '<p class="text-[10px] opacity-60">Nessun grafico classico disponibile.</p>';
+          } catch (_) { classicoWrap.innerHTML = '<p class="text-[10px] opacity-60">Grafico classico non disponibile.</p>'; }
+        }
+        nuovoWrap.classList.toggle('hidden', vuoleClassico);
+        classicoWrap.classList.toggle('hidden', !vuoleClassico);
+        // Stesso fix già verificato per il grafico percentile-settore: senza
+        // un resize esplicito al ritorno, Lightweight Charts resta schiacciato
+        // se il container è stato display:none nel frattempo.
+        if (!vuoleClassico && __causaleChartInstance) {
+          requestAnimationFrame(() => { try { __causaleChartInstance.resize(nuovoWrap.clientWidth, 150); } catch (_) {} });
+        }
+      });
+    });
+  }
+
   function styleQaAnswer(res) {
     const warn = res?.data?.isOverBudget === true || res?.data?.willOverspend === true || res?.data?.onTrack === false || (typeof res?.data?.net === 'number' && res.data.net < 0);
     const good = res?.data?.onTrack === true || (typeof res?.data?.net === 'number' && res.data.net >= 0);
@@ -12905,6 +12983,12 @@ const initApp = () => {
     // stesso elemento mentre LightweightCharts sta ancora disegnando.
     const percentileTicker = res.intent === 'mercato-percentile-settore' ? res.data?.attuale?.ticker : null;
     const percentileChartId = percentileTicker ? `lc-percentile-${Date.now()}` : null;
+    // titolo-causale: `res.mesi` esiste SOLO sul ramo azionario/settoriale
+    // (mensile) — il ramo cripto (giornaliero, rete live) non lo produce,
+    // quindi qui resta naturalmente disattivato, mai un grafico mensile
+    // disegnato su dati giornalieri.
+    const causaleOk = res.intent === 'mercato-titolo-causale' && res.data?.disponibile && Array.isArray(res.mesi);
+    const causaleChartId = causaleOk ? `lc-causale-${Date.now()}` : null;
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl ' + tone.cls;
     qaAnswer.innerHTML = `
       <h4 class="text-[10px] font-bold ${tone.label} uppercase tracking-widest flex items-center gap-1 mb-2"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> Momentum${learnedBadge}</h4>
@@ -12921,8 +13005,30 @@ const initApp = () => {
         <div id="${percentileChartId}-legend" class="flex items-center gap-3 mb-1 text-[10px]" style="font-family:'DM Mono',monospace"></div>
         <div id="${percentileChartId}"></div>
         <div id="${percentileChartId}-classico" class="hidden space-y-2"></div>
+      </div>` : ''}
+      ${causaleChartId ? `<div class="mt-2.5">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-[9px] font-bold uppercase tracking-wide opacity-60">Quanto è "suo", mese per mese (residuo dal mercato)</p>
+          <div class="flex gap-1 shrink-0">
+            <button type="button" class="qa-chart-tab is-active text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${causaleChartId}" data-view="grafico">Grafico</button>
+            <button type="button" class="qa-chart-tab text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${causaleChartId}" data-view="classico">Classico</button>
+          </div>
+        </div>
+        <div id="${causaleChartId}"></div>
+        <div id="${causaleChartId}-classico" class="hidden space-y-2"></div>
       </div>` : ''}`;
     if (percentileChartId) { renderStoricoPercentileChart(percentileTicker, percentileChartId); wireChartToggle(percentileTicker, percentileChartId); }
+    if (causaleChartId) {
+      // Import pigro (stessa disciplina di svgStoricoPercentili sopra): il
+      // motore di titolo-causale.js si carica solo quando serve davvero un
+      // grafico, non ad ogni risposta di chat.
+      import('./alpha/titolo-causale.js').then(({ serieResiduiMensili, motiviCaliPicchi }) => {
+        const punti = serieResiduiMensili(res.data, res.mesi);
+        const eventi = motiviCaliPicchi(punti);
+        renderResiduiMensiliChart(causaleChartId, punti, eventi, res.data.nome);
+        wireCausaleChartToggle(causaleChartId, punti, res.data.nome);
+      }).catch((e) => console.warn('Grafico residuo mensile non disponibile:', e));
+    }
     replayQaAnimation();
   }
   // Momento focale vero, non un'iconcina persa nel testo: l'utente ha

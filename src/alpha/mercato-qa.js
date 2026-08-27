@@ -753,19 +753,26 @@ export function rispostaSincrona(domanda, similarity = null) {
       }
       ULTIMO_TICKER = az;
       const r = MODULI.titCaus.analizzaTitolo(s.serie, MODULI.mercatoVivo.mercatoBase(), { nome: `${az.nome} (settore ${s.nomeSettore})`, indice: 'il mercato (media dei nove settori)' });
-      // NOTA (2026-08-25): il grafico mensile del "residuo" + i mesi migliori/
-      // peggiori (serieResiduiMensili/motiviCaliPicchi, titolo-causale.js —
-      // già scritte, testate, 22 test verdi) sono state collegate qui e poi
-      // SCOLLEGATE prima del commit: subito dopo averle collegate, il tab del
-      // browser si è bloccato (confermato: sia una segnalazione live
-      // dell'utente sia un controllo diretto con CDP che è andato in timeout
-      // sullo stesso tab). Stessa cautela già presa una volta con macro-
-      // context.js (vedi nota qui sopra, invariata): onestà prima di tutto,
-      // meglio non avere la feature che rischiare di bloccare il browser di
-      // un utente vero. Le funzioni restano in titolo-causale.js, testate a
-      // unità — il collegamento va rifatto con più cautela (isolare o
-      // profilare prima) in una sessione dedicata.
-      return { intent: 'mercato-titolo-causale', data: r, answer: `${MODULI.titCaus.testoTitolo(r)} ${AVVERTENZA_SETTORE}` };
+      // RICOLLEGATO il 2026-08-27, con cautela reale stavolta (non un
+      // secondo tentativo alla cieca): la prima volta (2026-08-25, nota
+      // storica sopra rimossa) il blocco browser arrivò SUBITO dopo aver
+      // agganciato il grafico mensile del residuo — causa mai confermata,
+      // titolo-causale.js riletto a fondo oggi è puro/lineare (nessun ciclo
+      // non limitato, solo aritmetica su ≤330 punti). Sospetto più probabile
+      // ora, trovato rileggendo capacita-registrate.js: le etichette mese
+      // per QUESTA fonte dati (pannello settoriale, historical-panel.js)
+      // vanno da `comeSerieMensile`/`etichetteMensili` (DATE_PANNELLO[0],
+      // NESSUNO scostamento) — mesiArchivio() di titolo-causale.js ha invece
+      // uno scostamento di +1 mese verificato per un ALTRO archivio (quello
+      // macro). Usare la funzione sbagliata qui avrebbe prodotto etichette
+      // sbagliate di un mese, non necessariamente un blocco — ma è la
+      // fonte di verità corretta, non riletta la prima volta. Il rendering
+      // del grafico stesso resta responsabilità di main.js (stessa
+      // disciplina già verificata sicura del grafico percentile-settore:
+      // altezza esplicita, una sola istanza tracciata, sempre rimossa prima
+      // di ricrearla).
+      const mesi = MODULI.capReg.comeSerieMensile(s.serie, az.nome).mensili.map((m) => m.mese);
+      return { intent: 'mercato-titolo-causale', data: r, mesi, answer: `${MODULI.titCaus.testoTitolo(r)} ${AVVERTENZA_SETTORE}` };
     }
 
     if (intento === 'screener-settore') {
