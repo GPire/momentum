@@ -2277,7 +2277,7 @@ const renderDashboard = () => {
   // quella nel Command Center desktop, mai una sola.
   const splitEls = document.querySelectorAll('#split-reminder');
   if (splitEls.length) {
-    const sr = splitReminder(VaultDAO.state.splitGroups || []);
+    const sr = splitReminder(VaultDAO.state.splitGroups || [], { deviceId: VaultDAO.state.deviceId });
     let splitHtml = '';
     if (sr.show) {
       const owed = sr.direction === 'owed';
@@ -2290,7 +2290,7 @@ const renderDashboard = () => {
         ? '<path d="M12 19V5M5 12l7-7 7 7"/>'        // freccia su = entra a te
         : '<path d="M12 5v14M5 12l7 7 7-7"/>';       // freccia giù = esce da te
       splitHtml = `
-        <button type="button" data-action="open-split" aria-label="${verb} ${formatMoney(sr.amount)} nel gruppo ${sr.groupName}. Tocca per saldare."
+        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${verb} ${formatMoney(sr.amount)} nel gruppo ${sr.groupName}. Tocca per saldare."
           class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${tone.bd} ${tone.bg} ${tone.tx} active:scale-[0.98] transition-transform text-left">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 ${tone.ic}">${ico}</svg>
           <span class="min-w-0 flex-1 text-[13px]"><b>${verb} ${formatMoney(sr.amount)}</b> in <b>${sr.groupName}</b>${extra}</span>
@@ -14489,8 +14489,14 @@ document.addEventListener('click', e => {
         amount: parseFloat(t.dataset.amt) || 0,
       });
     } else if (a === 'open-split') {
-      // Promemoria "ti devono / devi" tappato → apre i gruppi per saldare.
-      if (typeof window.openSplitGroup === 'function') window.openSplitGroup();
+      // BUG REALE trovato beta-testando (2026-08-27): il promemoria nomina
+      // ESPLICITAMENTE un gruppo nel testo ("Devi 20€ in Weekend"), ma il
+      // tap apriva sempre la lista generica di tutti i gruppi — con più di
+      // un gruppo attivo, l'utente doveva ritrovare quello giusto da solo,
+      // proprio il tipo di notifica generica (non specifica al gruppo) che
+      // un competitor come Splitwise viene criticato per fare. Ora apre
+      // DIRETTAMENTE il gruppo nominato nel promemoria.
+      if (typeof window.openSplitGroup === 'function') window.openSplitGroup(t.dataset.splitGroup || null);
     }
   } catch(err) { console.error(err); }
 });

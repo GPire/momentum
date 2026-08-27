@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './command-center.js';
-import { createGroup, addSharedExpense } from '../split/split-engine.js';
+import { createGroup, addSharedExpense, claimMember } from '../split/split-engine.js';
 
 // Helper: costruisce N transazioni di una categoria in una data/ora fissa.
 function tx(category, amount, dateISO) {
@@ -111,6 +111,42 @@ test('splitReminder: sceglie il gruppo con importo più rilevante', () => {
   assert.equal(r.groupName, 'Affitto');
   assert.equal(r.amount, 400);
   assert.equal(r.groups, 2);
+});
+
+// ── splitReminder con opts.deviceId — BUG REALE trovato beta-testando
+// (2026-08-27): senza deviceId, 'Io' era la stringa fissa confrontata coi
+// nomi del gruppo — corretta SOLO per chi ha creato il gruppo (il cui slot
+// si chiama davvero "Io"). Un dispositivo che si è unito a un gruppo altrui
+// ha il proprio nome vero (es. "Marco"), mai "Io" — con deviceId, l'identità
+// si risolve per SLOT RIVENDICATO, corretta per chiunque. ──
+test('splitReminder con deviceId: chi si è unito a un gruppo (non lo ha creato) vede la direzione giusta, non invertita', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = claimMember(g, 'm1', 'device-marco');
+  g = addSharedExpense(g, { payer: 'm0', amount: 100, description: 'Affitto', shares: { equalAmong: ['m0', 'm1'] } });
+  // Dal punto di vista del dispositivo di Marco: lui DEVE 50€ (non li riceve).
+  const r = splitReminder([g], { deviceId: 'device-marco' });
+  assert.equal(r.show, true);
+  assert.equal(r.direction, 'owe', 'Marco deve pagare, non deve ricevere — la vecchia versione lo segnava "owed" per errore');
+  assert.equal(r.amount, 50);
+});
+
+test('splitReminder con deviceId: un dispositivo senza slot rivendicato in un gruppo lo ignora, mai un nome indovinato', () => {
+  let g = createGroup({ name: 'Weekend', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 100, shares: { equalAmong: ['m0', 'm1'] } });
+  // Nessuno slot rivendicato da 'device-sconosciuto': il gruppo non deve
+  // contribuire al promemoria (mai un fallback silenzioso su 'Io').
+  const r = splitReminder([g], { deviceId: 'device-sconosciuto' });
+  assert.equal(r.show, false);
+});
+
+test('splitReminder con deviceId: il creatore del gruppo (slot "Io" rivendicato dal proprio device) continua a funzionare come prima', () => {
+  let g = createGroup({ name: 'Cena', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Anna' }] });
+  g = claimMember(g, 'm0', 'device-creatore');
+  g = addSharedExpense(g, { payer: 'm0', amount: 40, shares: { equalAmong: ['m0', 'm1'] } });
+  const r = splitReminder([g], { deviceId: 'device-creatore' });
+  assert.equal(r.show, true);
+  assert.equal(r.direction, 'owed');
+  assert.equal(r.amount, 20);
 });
 
 // ── amountEntryImpact (tastierino vivo) ──

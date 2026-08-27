@@ -7,7 +7,7 @@
 // stessa fascia oraria (non ripropone ciò che hai già fatto). Funzioni pure,
 // nessun DOM — la UI (main.js) si limita a disegnare ciò che questo decide.
 import { predictCategoriesNow, slotOf } from './context-predictor.js';
-import { settlementView } from '../split/split-engine.js';
+import { settlementView, myMemberId } from '../split/split-engine.js';
 import { descriptionSimilarity } from '../core/deduplicator.js';
 
 // Ritorna il nudge "prossima spesa probabile" per il momento presente, oppure
@@ -60,17 +60,47 @@ export function nextExpenseNudge(allTx = {}, referenceDate = new Date(), opts = 
 // (essere pagati / non dimenticare un debito riporta l'utente), ed è onesta:
 // zero saldo in sospeso → { show:false }, niente da mostrare.
 //
-// groups: VaultDAO.state.splitGroups. me: nome dell'utente nei gruppi ('Io').
+// groups: VaultDAO.state.splitGroups. `opts.deviceId`: il device di QUESTO
+// dispositivo (VaultDAO.state.deviceId) — chi sei tu VARIA per gruppo (nel
+// gruppo che hai creato ti chiami "Io", in un gruppo a cui ti sei unito hai
+// il tuo nome vero, es. "Marco": mai la stringa fissa 'Io'). BUG REALE
+// trovato beta-testando (2026-08-27, stessa classe già corretta in main.js
+// per la schermata di dettaglio gruppo): prima confrontava `t.fromName`/
+// `t.toName` con la stringa letterale 'Io' — per QUALSIASI gruppo a cui ci
+// si è uniti (non creato), la direzione del saldo risultava INVERTITA sul
+// promemoria della Dashboard, il primissimo numero che l'utente vede.
+// `opts.meName` resta come ripiego esplicito per chi chiama senza un
+// deviceId (es. i test che passano un nome letterale).
 // Ritorna il gruppo con l'importo in gioco più rilevante:
 //   { show, direction:'owed'|'owe', amount, groupId, groupName, groups, totalOwed, totalOwe }
 export function splitReminder(groups = [], opts = {}) {
-  const me = opts.meName || 'Io';
   let totalOwed = 0, totalOwe = 0;
   const perGroup = [];
   for (const g of groups || []) {
     if (!g || !Array.isArray(g.members) || !Array.isArray(g.expenses) || g.expenses.length === 0) continue;
     let view;
     try { view = settlementView(g); } catch (_) { continue; }
+    // Con un deviceId fornito, quel gruppo conta SOLO se questo dispositivo
+    // ha uno slot rivendicato al suo interno — mai un nome indovinato (né
+    // 'Io' né opts.meName) per un gruppo dove non sappiamo ancora chi
+    // siamo: sarebbe lo stesso tipo di dato inventato che il progetto
+    // rifiuta ovunque. `opts.meName` resta il ripiego SOLO per chi chiama
+    // senza deviceId affatto (compatibilità con i chiamanti/test esistenti
+    // che non gestiscono identità multi-dispositivo).
+    if (opts.deviceId) {
+      const myId = myMemberId(g, opts.deviceId);
+      if (!myId) continue;
+      let owed = 0, owe = 0;
+      for (const t of view.transfers) {
+        if (t.to === myId) owed += t.amount;
+        else if (t.from === myId) owe += t.amount;
+      }
+      totalOwed += owed; totalOwe += owe;
+      const net = +(owed - owe).toFixed(2);
+      if (Math.abs(net) > 0.009) perGroup.push({ id: g.id, name: g.name, net, gross: owed + owe });
+      continue;
+    }
+    const me = opts.meName || 'Io';
     let owed = 0, owe = 0;
     for (const t of view.transfers) {
       if (t.toName === me) owed += t.amount;        // qualcuno deve pagare TE
