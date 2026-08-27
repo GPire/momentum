@@ -104,7 +104,7 @@ import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames } from './split/split-engine.js';
 // Codice d'invito corto e leggibile (src/split/invite-codec.js): il link che
 // finisce su WhatsApp era lungo 1.759 caratteri e faceva paura a chi lo
 // riceveva. Qui si comprime, il contenuto va nel fragment (mai al server) e la
@@ -6927,7 +6927,12 @@ window.openJoinConfirm = (g) => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const already = (VaultDAO.state.splitGroups || []).find(x => x.id === g.id);
   const total = (g.expenses || []).reduce((s, e) => s + (+e.amount || 0), 0);
-  const names = (g.members || []).map(m => m.name).filter(Boolean);
+  // displayNames (split-engine.js): se due slot liberi hanno lo stesso nome
+  // (es. due "Marco" mai rivendicati), senza disambiguazione chi entra non
+  // avrebbe modo di sapere quale dei due è il proprio — caso reale trovato
+  // beta-testando, stesso principio già applicato al resto della UI split.
+  const nameById = displayNames(g.members || []);
+  const names = (g.members || []).map(m => nameById[m.id]).filter(Boolean);
   // Chi sono io in questo gruppo? Se questo dispositivo ha già uno slot (qui
   // o nella copia locale già salvata) non richiediamolo di nuovo — solo la
   // PRIMA volta si sceglie, mai un attrito ripetuto ad ogni sync successivo.
@@ -6949,7 +6954,7 @@ window.openJoinConfirm = (g) => {
       <div>
         <p class="text-[11px] font-bold text-center mb-2">Chi sei tu, tra queste persone?</p>
         <div id="join-who-chips" class="flex flex-wrap justify-center gap-2">
-          ${freeSlots.map(m => `<button type="button" data-who="${esc(m.id)}" class="join-who-chip px-4 py-2 rounded-full border border-[var(--outline)] bg-[var(--surface-elevated)] text-[13px] font-bold"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${esc(m.name)}</button>`).join('')}
+          ${freeSlots.map(m => `<button type="button" data-who="${esc(m.id)}" class="join-who-chip px-4 py-2 rounded-full border border-[var(--outline)] bg-[var(--surface-elevated)] text-[13px] font-bold"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${esc(nameById[m.id])}</button>`).join('')}
           <button type="button" id="join-who-new" class="join-who-chip px-4 py-2 rounded-full border border-dashed border-[var(--outline)] text-[13px] font-bold text-[var(--on-surface-secondary)]"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Non ci sono, aggiungimi</button>
         </div>
         <input id="join-who-name" type="text" placeholder="Il tuo nome…" class="hidden modal-input mt-2 w-full" maxlength="30" />
@@ -7154,7 +7159,10 @@ window.openSplitGroup = (openId = null) => {
     VaultDAO.save();
     try { window.momentumMeshNode?.shareSplitGroups([g], peerAppartieneAlGruppo); } catch (_) {}
   };
-  const nameById = (g) => Object.fromEntries(g.members.map(m => [m.id, m.name]));
+  // displayNames (split-engine.js): disambigua automaticamente due membri
+  // con lo stesso nome (es. due "Marco") — mai toccare un nome che è già
+  // unico, mai un cambiamento visibile a chi non è coinvolto nella collisione.
+  const nameById = (g) => displayNames(g.members);
   let currentId = openId;
   const form = { payer: null, amount: '', desc: '', involved: null }; // involved=null → tutti
 
@@ -7269,7 +7277,7 @@ window.openSplitGroup = (openId = null) => {
         <div class="${liveSync ? 'split-sync-pulse' : ''}">
           <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Persone (${members.length}) · saldo</div>
           <div class="flex flex-col gap-1 split-rows-in">
-            ${members.map(m => `<div class="split-row flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--outline)]"><span class="inline-flex items-center gap-2 min-w-0">${avatarHtml(m.name)}<span class="font-bold truncate">${esc(m.name)}</span></span><span class="font-mono shrink-0 ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
+            ${members.map(m => `<div class="split-row flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--outline)]"><span class="inline-flex items-center gap-2 min-w-0">${avatarHtml(names[m.id])}<span class="font-bold truncate">${esc(names[m.id])}</span></span><span class="font-mono shrink-0 ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
           </div>
           <div class="flex flex-wrap gap-2 mt-2">
             ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--outline)] text-[var(--on-surface-secondary)]">+ ${esc(f.name)}</button>`).join('')}
@@ -7281,13 +7289,13 @@ window.openSplitGroup = (openId = null) => {
         ${renderSplitForesight(g, names)}
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi una spesa</div>
-          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(m.name)} paga</button>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(names[m.id])} paga</button>`).join('')}</div>
           <div class="flex gap-2">
             <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto €" />
             <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="Per cosa" />
           </div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">Chi partecipa a questa spesa (tocca per escludere):</div>
-          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(m.name)}</button>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(names[m.id])}</button>`).join('')}</div>
           <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">Aggiungi la spesa</button>
         </div>
         <div class="card p-3">
@@ -7373,7 +7381,7 @@ window.openExpenseChat = (groupId, expenseId) => {
     if (!g) { window.openSplitGroup(); return; }
     const exp = (g.expenses || []).find(e => e.id === expenseId);
     if (!exp) { window.openSplitGroup(groupId); return; }
-    const names = Object.fromEntries(g.members.map(m => [m.id, m.name]));
+    const names = displayNames(g.members);
     const myId = myMemberId(g, VaultDAO.state.deviceId);
     const myName = names[myId] || 'Io';
     const disputed = isDisputed(g, expenseId);
@@ -7404,7 +7412,7 @@ window.openExpenseChat = (groupId, expenseId) => {
         ${disputed ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">In discussione: questa spesa resta fuori dai saldi finché non è risolta.</span></div>` : ''}
         ${nonAncoraEntrati.length ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-sky-500/10 border border-sky-500/20">
           <svg class="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M17 8v6M14 11h6"/></svg>
-          <span class="text-[12px] flex-1 min-w-0"><b>${esc(nonAncoraEntrati.map(m => m.name).join(', '))}</b> non ${nonAncoraEntrati.length > 1 ? 'hanno' : 'ha'} ancora ricevuto questa conversazione.</span>
+          <span class="text-[12px] flex-1 min-w-0"><b>${esc(nonAncoraEntrati.map(m => names[m.id]).join(', '))}</b> non ${nonAncoraEntrati.length > 1 ? 'hanno' : 'ha'} ancora ricevuto questa conversazione.</span>
           <button id="ec-invita" class="shrink-0 text-[11px] font-bold text-sky-400 underline">Invita</button>
         </div>` : ''}
         <div class="card p-3">${msgRows}</div>

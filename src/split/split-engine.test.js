@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, encodeGroupInvite, decodeGroupShare, settlementCounts, describeGroupChanges, claimMember, myMemberId, unclaimedMembers } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, encodeGroupInvite, decodeGroupShare, settlementCounts, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames } = await import('./split-engine.js');
 
 test('SEMPLIFICAZIONE: due coppie a somma-zero → 2 bonifici (non 4)', () => {
   const bal = { A: 10, B: -10, C: 10, D: -10 };
@@ -971,4 +971,40 @@ test('CENTESIMI: spese vecchie senza regola salvata restano corrette se corrette
   const quote = Object.values(g.expenses[0].owed).map(cent);
   assert.equal(quote.reduce((s, v) => s + v, 0), 100000);
   assert.ok(Math.max(...quote) - Math.min(...quote) <= 1, `dedotta male la regola: ${quote.join('/')}`);
+});
+
+// ── displayNames: BUG REALE trovato beta-testando (2026-08-27) — due
+// membri con lo stesso nome (coinquilini, familiari) erano visivamente
+// identici ovunque (stesso avatar/colore, "Marco ha pagato" indistinguibile
+// da un altro "Marco ha pagato"). ──
+test('displayNames: nessuna collisione → nomi invariati', () => {
+  const members = [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }, { id: 'm2', name: 'Anna' }];
+  assert.deepEqual(displayNames(members), { m0: 'Io', m1: 'Marco', m2: 'Anna' });
+});
+
+test('displayNames: due membri collidenti ricevono un suffisso stabile, gli altri restano intatti', () => {
+  const members = [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }, { id: 'm2', name: 'Marco' }];
+  const out = displayNames(members);
+  assert.equal(out.m0, 'Io', 'un nome unico non deve mai essere toccato');
+  assert.equal(out.m1, 'Marco #1');
+  assert.equal(out.m2, 'Marco #2');
+  assert.notEqual(out.m1, out.m2, 'i due Marco devono avere etichette diverse, altrimenti restano indistinguibili nella UI');
+});
+
+test('displayNames: collisione a tre vie', () => {
+  const members = [{ id: 'a', name: 'Sam' }, { id: 'b', name: 'Sam' }, { id: 'c', name: 'Sam' }];
+  const out = displayNames(members);
+  assert.deepEqual(Object.values(out).sort(), ['Sam #1', 'Sam #2', 'Sam #3']);
+});
+
+test('displayNames: nessun membro → oggetto vuoto, mai un crash', () => {
+  assert.deepEqual(displayNames([]), {});
+  assert.deepEqual(displayNames(undefined), {});
+});
+
+test('displayNames: usata da describeGroupChanges — un membro con nome duplicato entra nel gruppo, il messaggio lo distingue', () => {
+  const before = createGroup({ id: 'g1', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Marco' }] });
+  const after = { ...before, members: [...before.members, { id: 'm2', name: 'Marco' }] };
+  const { changes } = describeGroupChanges(before, after);
+  assert.ok(changes.some((c) => c.includes('Marco #2') || c.includes('#2')), `il messaggio deve distinguere il nuovo Marco dal primo, ottenuto: ${JSON.stringify(changes)}`);
 });

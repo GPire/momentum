@@ -486,6 +486,35 @@ export function myMemberId(group, deviceId) {
   return group.members.find(m => m.claimedBy === deviceId)?.id || null;
 }
 
+// BUG REALE trovato beta-testando (2026-08-27): niente impedisce a due
+// membri di avere lo stesso nome (coinquilini che si chiamano entrambi
+// "Marco", un familiare che si aggiunge con lo stesso nome di un amico) —
+// caso realistico, non un edge case remoto. Senza disambiguazione erano
+// visivamente IDENTICI ovunque: avatarColore()/avatarIniziali() sono
+// funzioni pure del solo nome, quindi stesso colore, stesse iniziali, e
+// "Marco ha pagato 40€" indistinguibile da un altro "Marco ha pagato 40€"
+// nella stessa lista. Fix a UN SOLO PUNTO (qui, non nella UI): un nome
+// duplicato riceve un suffisso stabile SOLO quando serve — mai un nome
+// unico modificato — cosicché ogni consumatore a valle (avatar, righe
+// spesa, chat) erediti automaticamente l'etichetta già distinguibile senza
+// dover essere toccato uno per uno.
+export function displayNames(members = []) {
+  const conteggi = new Map();
+  for (const m of members) conteggi.set(m.name, (conteggi.get(m.name) || 0) + 1);
+  const visti = new Map();
+  const out = {};
+  for (const m of members) {
+    if ((conteggi.get(m.name) || 0) > 1) {
+      const n = (visti.get(m.name) || 0) + 1;
+      visti.set(m.name, n);
+      out[m.id] = `${m.name} #${n}`;
+    } else {
+      out[m.id] = m.name;
+    }
+  }
+  return out;
+}
+
 // Slot ancora liberi (nessun dispositivo li ha rivendicati) — la UI di
 // ingresso mostra SOLO questi come scelta, oltre a "aggiungi il mio nome".
 export function unclaimedMembers(group) {
@@ -682,7 +711,7 @@ export function decodeGroupShare(code) {
 // saldi un amico DAVVERO, on-device, senza pagamenti in-app. Ritorna null se non
 // si conosce l'IBAN del destinatario (allora resta la richiesta a voce).
 export function settlementToSepa(transfer, group, ibansById = {}) {
-  const byId = Object.fromEntries(group.members.map(m => [m.id, m.name]));
+  const byId = displayNames(group.members);
   const iban = ibansById[transfer.to];
   if (!iban) return null;
   return {
@@ -706,13 +735,13 @@ export function describeGroupChanges(before, after) {
   const changes = [];
   if (before.name !== after.name) changes.push(`Il gruppo è stato rinominato in "${after.name}"`);
 
+  const nameById = displayNames(after.members);
   const beforeMemberIds = new Set(before.members.map(m => m.id));
   for (const m of after.members) {
-    if (!beforeMemberIds.has(m.id)) changes.push(`${m.name} è entrato/a nel gruppo`);
+    if (!beforeMemberIds.has(m.id)) changes.push(`${nameById[m.id] || m.name} è entrato/a nel gruppo`);
   }
 
   const beforeExpenseIds = new Set(before.expenses.map(e => e.id));
-  const nameById = Object.fromEntries(after.members.map(m => [m.id, m.name]));
   for (const e of after.expenses) {
     if (!beforeExpenseIds.has(e.id)) {
       const who = nameById[e.payer] || 'qualcuno';
