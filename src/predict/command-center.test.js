@@ -231,6 +231,52 @@ test('splitReminder: un saldo aperto ha SEMPRE priorità su un messaggio non vis
   assert.equal(r.direction, 'owed', 'il saldo da 50€ deve vincere sul semplice messaggio');
 });
 
+// ── Scansione MULTI-GRUPPO quando nessuno ha un saldo pulito (richiesto
+// esplicitamente dall'utente: "la notifica è presente anche in gruppi
+// diversi da quello dove ti devono soldi?") — verifica che best/bestDispute
+// scansionino TUTTI i gruppi passati, non solo il primo, e scelgano quello
+// giusto anche quando il segnale non è nel primo gruppo della lista. ──
+test('splitReminder: 3 gruppi, nessun saldo in nessuno, un messaggio SOLO nel terzo → lo trova comunque', () => {
+  let g1 = createGroup({ name: 'Palestra', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Anna' }] });
+  g1 = claimMember(g1, 'm0', 'device-io');
+  let g2 = createGroup({ name: 'Cena', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Luca' }] });
+  g2 = claimMember(g2, 'm0', 'device-io');
+  let g3 = createGroup({ name: 'Vacanza', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Sara' }] });
+  g3 = claimMember(g3, 'm0', 'device-io');
+  g3 = addMessage(g3, { autore: 'Sara', testo: 'quando partiamo?', now: 1000 });
+  const r = splitReminder([g1, g2, g3], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.show, true);
+  assert.equal(r.direction, 'messages');
+  assert.equal(r.groupName, 'Vacanza', 'deve trovare il messaggio anche se non è nel primo gruppo della lista');
+});
+
+test('splitReminder: 3 gruppi senza saldo, uno con messaggio e uno con contestazione → vince la contestazione (riguarda soldi) anche se in un gruppo diverso', () => {
+  let g1 = createGroup({ name: 'Palestra', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Anna' }] });
+  g1 = claimMember(g1, 'm0', 'device-io');
+  g1 = addMessage(g1, { autore: 'Anna', testo: 'ciao!', now: 1000 });
+  let g2 = createGroup({ name: 'Cena', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Luca' }] });
+  g2 = claimMember(g2, 'm0', 'device-io');
+  g2 = addSharedExpense(g2, { payer: 'm0', amount: 30, shares: { equalAmong: ['m0', 'm1'] } });
+  g2 = contestExpense(g2, { autore: 'Luca', expenseId: g2.expenses[0].id });
+  const r = splitReminder([g1, g2], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.direction, 'dispute');
+  assert.equal(r.groupName, 'Cena', 'la contestazione vince anche se non è nel primo gruppo scansionato');
+});
+
+test('splitReminder: più gruppi con messaggi mai visti → sceglie quello col numero più alto, non semplicemente il primo', () => {
+  let g1 = createGroup({ name: 'Palestra', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Anna' }] });
+  g1 = claimMember(g1, 'm0', 'device-io');
+  g1 = addMessage(g1, { autore: 'Anna', testo: 'uno', now: 1000 });
+  let g2 = createGroup({ name: 'Vacanza', members: [{ id: 'm0', name: 'Io' }, { id: 'm1', name: 'Sara' }] });
+  g2 = claimMember(g2, 'm0', 'device-io');
+  g2 = addMessage(g2, { autore: 'Sara', testo: 'uno', now: 1000 });
+  g2 = addMessage(g2, { autore: 'Sara', testo: 'due', now: 1100 });
+  g2 = addMessage(g2, { autore: 'Sara', testo: 'tre', now: 1200 });
+  const r = splitReminder([g1, g2], { deviceId: 'device-io', chatSeenAt: {} });
+  assert.equal(r.groupName, 'Vacanza');
+  assert.equal(r.count, 3);
+});
+
 // ── amountEntryImpact (tastierino vivo) ──
 test('amountEntryImpact: senza budget (safeToday null) → show:false', () => {
   assert.equal(amountEntryImpact({ safeToday: null, pendingAmount: 10 }).show, false);
