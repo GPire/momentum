@@ -4,6 +4,10 @@ dist-singlefile/
 .DS_Store
 public/_test/
 bench/data/
+# Avvisi di plausibilità del pannello SEC (bench/fetch-panel-sec.mjs):
+# transitorio, rigenerato ad ogni run, mai committato — la cache SIC
+# (bench/sic-cache.json) invece SI committa, è persistente per design.
+bench/panel-avvisi.json
 
 # worktree isolati dei subagenti (non vanno versionati)
 .claude/worktrees/

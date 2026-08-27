@@ -35,13 +35,34 @@
 // per restare dentro tempi di sviluppo ragionevoli). Il file generato dichiara
 // ENTRAMBI i numeri, sempre — mai un "~5.000" lasciato intendere quando la
 // copertura reale e' diversa.
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { beneishMScore } from '../src/alpha/quality-scores.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const UA = process.env.SEC_CONTATTO || 'Momentum on-device finance research momentum-research@proton.me';
 const PAUSA = 110; // sotto le 10 richieste al secondo chieste dalla SEC (frames + submissions)
+
+// ── CACHE SIC, incrementale (2026-08-27) ── Il codice SIC di un'azienda
+// cambia quasi mai (una riclassificazione e' un evento raro, non annuale):
+// rifare 1.500 richieste `submissions` ad ogni run — l'unica parte
+// realmente O(aziende) di questo script, la parte `frames` resta O(1) per
+// concetto-anno indipendentemente da quante aziende ci sono dentro — è
+// tempo sprecato per un dato che nel 99% dei casi non e' cambiato. La
+// cache persiste su disco (committata: e' un piccolo lookup, non un
+// segreto) e viene aggiornata solo per le aziende NUOVE o quelle senza SIC
+// risolto l'ultima volta. `--force-sic` (env FORCE_SIC=1) ignora la cache
+// per un refresh completo occasionale (es. una volta all'anno, a mano).
+const SIC_CACHE_PATH = join(root, 'bench/sic-cache.json');
+const FORCE_SIC = process.env.FORCE_SIC === '1';
+function caricaSicCache() {
+  if (FORCE_SIC || !existsSync(SIC_CACHE_PATH)) return new Map();
+  try {
+    const raw = JSON.parse(readFileSync(SIC_CACHE_PATH, 'utf8'));
+    return new Map(Object.entries(raw));
+  } catch (_) { return new Map(); } // cache corrotta o assente: si ricostruisce da zero, mai un crash
+}
 
 // Quante aziende ricevono il codice SIC (e quindi un percentile di SETTORE),
 // scelte per COMPLETEZZA di dati (piu' anni coperti, non capitalizzazione che
@@ -175,17 +196,61 @@ async function submissions(cik) {
   const daArricchire = cikCompleti.slice(0, COPERTURA_SIC_MAX);
   console.log(`Arricchimento SIC per le prime ${daArricchire.length} aziende per completezza...`);
 
-  let fatte = 0;
+  const sicCache = caricaSicCache();
+  let fatte = 0, daRete = 0, dallaCache = 0;
   for (const az of daArricchire) {
-    try {
-      const s = await submissions(az.cik);
-      if (s) { az.sic = s.sic; az.sicDescription = s.sicDescription; az.ticker = s.ticker; if (s.nome) az.nome = s.nome; }
-    } catch (_) { /* un'azienda senza SIC resta senza settore, non blocca le altre */ }
+    const cached = sicCache.get(String(az.cik));
+    if (cached?.sic) {
+      az.sic = cached.sic; az.sicDescription = cached.sicDescription; az.ticker = cached.ticker; if (cached.nome) az.nome = cached.nome;
+      dallaCache++;
+    } else {
+      try {
+        const s = await submissions(az.cik);
+        if (s) {
+          az.sic = s.sic; az.sicDescription = s.sicDescription; az.ticker = s.ticker; if (s.nome) az.nome = s.nome;
+          sicCache.set(String(az.cik), { sic: s.sic, sicDescription: s.sicDescription, ticker: s.ticker, nome: s.nome, risoltoIl: new Date().toISOString().slice(0, 10) });
+        }
+      } catch (_) { /* un'azienda senza SIC resta senza settore, non blocca le altre — e non entra in cache, si ritenta al prossimo run */ }
+      daRete++;
+      await attendi(PAUSA);
+    }
     fatte++;
     if (fatte % 50 === 0) process.stdout.write(`\r  ${fatte}/${daArricchire.length}`);
-    await attendi(PAUSA);
   }
-  console.log(`\nSIC ottenuto per ${daArricchire.filter((a) => a.sic).length}/${daArricchire.length} aziende.`);
+  console.log(`\nSIC ottenuto per ${daArricchire.filter((a) => a.sic).length}/${daArricchire.length} aziende (${dallaCache} dalla cache, ${daRete} da rete).`);
+  writeFileSync(SIC_CACHE_PATH, JSON.stringify(Object.fromEntries(sicCache), null, 1));
+
+  // ── 3b. Controllo di plausibilità (2026-08-27) — riusa Beneish M-Score
+  // (src/alpha/quality-scores.js, GIÀ nel progetto, usato dal vivo per gli
+  // utenti) come sanity check sull'INGESTIONE, non sull'analisi: qui non
+  // interessa "è manipolazione contabile vera" (quella soglia, -1,78, resta
+  // SOLO in quality-scores.js per l'utente finale) — interessa "un M-Score
+  // fuori da QUALSIASI intervallo plausibile può anche significare un
+  // campo XBRL mal interpretato da questo script" (unità sbagliata, segno
+  // invertito). Aziende sane tipiche stanno a grandi linee fra -1 e -5; un
+  // valore ASSOLUTO oltre 10, in una direzione o nell'altra, è così fuori
+  // scala da essere più plausibilmente un bug di parsing che una vera
+  // manipolazione contabile da record. MAI scartato in automatico — solo
+  // segnalato in un file a parte, per una revisione umana prima del
+  // prossimo commit del pannello.
+  const SOGLIA_AVVISO_INGESTIONE = 10;
+  const avvisiQualita = [];
+  for (const az of daArricchire) {
+    if (az.anni.length < 2) continue;
+    const t = az.anni.at(-1), t1 = az.anni.at(-2);
+    let r;
+    try { r = beneishMScore(t, t1, { sic: az.sic }); } catch (_) { continue; }
+    if (r?.valido && Math.abs(r.score) >= SOGLIA_AVVISO_INGESTIONE) {
+      avvisiQualita.push({ cik: az.cik, nome: az.nome, ticker: az.ticker, anno: t.anno, score: r.score, motivo: 'M-Score fuori da qualsiasi intervallo plausibile — controllare che i campi XBRL di questo bilancio non siano stati interpretati male, prima di fidarsi ciecamente' });
+    }
+  }
+  if (avvisiQualita.length) {
+    const avvisiPath = join(root, 'bench/panel-avvisi.json');
+    writeFileSync(avvisiPath, JSON.stringify(avvisiQualita, null, 1));
+    console.log(`⚠ ${avvisiQualita.length} aziende con M-Score fuori da ±${SOGLIA_AVVISO_INGESTIONE} — possibile dato mal interpretato, non manipolazione: vedi ${avvisiPath}. Il pannello viene comunque scritto (mai bloccato da un avviso), la revisione resta umana.`);
+  } else {
+    console.log('Controllo di plausibilità (Beneish): nessuna anomalia estrema trovata.');
+  }
 
   // ── 4. Percentili per SETTORE (2 cifre del SIC, "major group") × anno × misura ──
   // Sotto MIN_BUCKET aziende nello stesso gruppo-anno il percentile non si

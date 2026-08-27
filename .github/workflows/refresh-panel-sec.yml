@@ -1,0 +1,86 @@
+name: Aggiorna il pannello SEC settoriale
+
+# Rigenera src/alpha/panel-settoriale.js (bilanci reali SEC EDGAR) una volta
+# al mese: i depositi 10-K/10-Q non cambiano più spesso di così per la
+# stragrande maggioranza delle aziende, e la SEC chiede comunque di restare
+# sotto 10 richieste/secondo — un run più frequente non porterebbe dati più
+# freschi, solo più carico sulla loro API. `workflow_dispatch` resta per un
+# rilancio manuale quando serve (es. dopo aver alzato COPERTURA_SIC_MAX).
+#
+# Apre una PR invece di scrivere direttamente su main: il pannello è dati
+# reali che finiscono nell'app di ogni utente, merita un occhio umano prima
+# di entrare, non un push automatico silenzioso — coerente con la
+# disciplina "onestà sui dati" di tutto il resto del progetto.
+on:
+  schedule:
+    - cron: '17 6 1 * *'  # il giorno 1 di ogni mese, 06:17 UTC — un orario/minuto non tondo, per non cadere nello stesso istante di mille altri job schedulati altrove
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # User-Agent con contatto reale: la SEC blocca le richieste senza
+      # (verificato dal vivo in una sessione precedente, vedi commento nello
+      # script) — usa il default già dichiarato nello script se non
+      # configurato altrove nei secret del repo.
+      - name: Rigenera il pannello (bench/fetch-panel-sec.mjs)
+        env:
+          SEC_CONTATTO: ${{ secrets.SEC_CONTATTO }}
+        run: node bench/fetch-panel-sec.mjs
+
+      # Prima di proporre qualunque cosa: la suite intera deve restare
+      # verde. Un pannello che rompe un test non diventa mai una PR.
+      - name: Verifica che i test restino verdi col pannello aggiornato
+        run: npm test
+
+      - name: Verifica che la build resti pulita
+        run: npm run build
+
+      - name: Avvisi di plausibilità (Beneish, solo se presenti)
+        id: avvisi
+        run: |
+          if [ -f bench/panel-avvisi.json ]; then
+            echo "trovati=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "trovati=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Carica gli avvisi come artefatto (per la revisione umana, mai committati)
+        if: steps.avvisi.outputs.trovati == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-avvisi
+          path: bench/panel-avvisi.json
+          retention-days: 30
+
+      - name: Apri una PR se il pannello o la cache SIC sono cambiati
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore: aggiorna il pannello SEC settoriale (automatico)'
+          title: 'Aggiornamento mensile pannello SEC'
+          body: |
+            Rigenerato da `bench/fetch-panel-sec.mjs` (workflow schedulato).
+
+            - Test e build verificati verdi con questo aggiornamento prima di aprire la PR.
+            - Se sono stati trovati avvisi di plausibilità (M-Score fuori scala, possibile dato mal interpretato), sono allegati come artefatto di questo run — controllarli prima di unire, mai auto-esclusi dal pannello.
+
+            Nessun push diretto su main: revisione umana richiesta come per ogni altra modifica.
+          branch: auto/refresh-panel-sec
+          delete-branch: true
+          add-paths: |
+            src/alpha/panel-settoriale.js
+            bench/sic-cache.json
