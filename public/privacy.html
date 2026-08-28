@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Policy — Momentum</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.6; color: #1a1a1a; background: #fff; }
+  @media (prefers-color-scheme: dark) { body { color: #eee; background: #111; } a { color: #7db8ff; } }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; margin-top: 2.2em; border-top: 1px solid #8883; padding-top: 1em; }
+  .aggiornato { color: #888; font-size: 0.85rem; margin-bottom: 2em; }
+  .box { background: #80808014; border-radius: 12px; padding: 14px 18px; margin: 1em 0; font-size: 0.92rem; }
+  ul { padding-left: 1.3em; }
+  li { margin-bottom: 0.5em; }
+  a { color: #0b5fff; }
+  code { background: #80808022; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy di Momentum</h1>
+<p class="aggiornato">Ultimo aggiornamento: 28 agosto 2026</p>
+
+<p>Questa pagina descrive esattamente cosa fa Momentum con i tuoi dati — non un modello generico, quello che il codice fa davvero. Titolare del trattamento: Giorgio Piredda, contattabile a <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>.</p>
+
+<div class="box"><b>In sintesi:</b> le tue transazioni, saldi e categorie restano SOLO sul tuo dispositivo. Nessun server di Momentum le riceve, le legge o le conserva mai. Tutto il resto di questa pagina spiega le poche eccezioni — sempre esplicite, sempre disattivabili, sempre limitate al minimo indispensabile.</p></div>
+
+<h2>1. I tuoi dati finanziari</h2>
+<p>Ogni transazione, categoria, saldo, obiettivo di risparmio o impostazione fiscale che inserisci viene salvata esclusivamente sul tuo dispositivo, in tre copie locali ridondanti (per evitare perdite accidentali): due nella memoria del browser e una in un database locale (IndexedDB). Nessuna di queste copie lascia mai il dispositivo verso un server — Momentum non ha un backend che riceve o archivia le tue finanze.</p>
+<p>Non esistono account, login o password: non c'è nulla da creare, e quindi nessuna credenziale da proteggere lato server perché non esiste un "lato server" per i tuoi dati.</p>
+
+<h2>2. Sincronizzazione tra i tuoi dispositivi (Mesh)</h2>
+<p>Se scegli di collegare più dispositivi tuoi, Momentum usa una connessione diretta dispositivo-a-dispositivo (WebRTC), non un server centrale che fa da tramite per i dati. Il primo aggancio avviene tramite un codice o QR che generi e condividi tu stesso.</p>
+<p>Per stabilire la connessione diretta, i due dispositivi devono scambiarsi informazioni tecniche di rete (indirizzo IP) tramite server STUN pubblici e standard (Google, Cloudflare) — lo stesso meccanismo usato da qualunque videochiamata basata su WebRTC. Questi server vedono solo informazioni di connessione, mai i tuoi dati finanziari.</p>
+<p>Esiste una modalità opzionale e disattivata di default per ricollegare da remoto due dispositivi mai stati vicini fisicamente, che richiede una configurazione Firebase fornita da te stesso (non un servizio Momentum) — se non la configuri, questa modalità semplicemente non esiste per il tuo utilizzo.</p>
+
+<h2>3. Conteggio anonimo di utilizzo (telemetria)</h2>
+<p>Momentum invia un numero anonimo — un identificativo casuale generato sul dispositivo, mai collegato al tuo nome, email o dati finanziari — per sapere quante persone usano l'app. Nello specifico, solo questi eventi: "installato", "attivo questo mese", "attivo oggi", quale sistema operativo/browser stai usando in generale (es. "iOS", non il tuo modello esatto) e se sei arrivato tramite un invito o direttamente. Nessuna transazione, importo, categoria o saldo viene mai incluso.</p>
+<p>Questo conteggio è <b>attivo di default</b> (dichiarato qui, non nascosto) e va a un server che gestisco personalmente (Cloudflare Workers). Puoi disattivarlo in qualsiasi momento con un tocco in Impostazioni → "Aiuta a far crescere Momentum".</p>
+
+<h2>4. Feedback</h2>
+<p>Se scrivi un feedback dall'app, il testo che scrivi tu (e solo quello, mai dati finanziari automaticamente allegati) viene inviato tramite un servizio di terze parti (Formspree) alla mia casella email. Succede solo se tocchi tu stesso "Invia".</p>
+
+<h2>5. Chat generica "Chiedi a Momentum" (opzionale, disattivata di default)</h2>
+<p>Questa funzione è spenta finché non la attivi tu e non inserisci una tua chiave API personale di un fornitore a tua scelta (Gemini, Groq, DeepSeek, OpenAI o Anthropic) — Momentum non fornisce una chiave propria, quindi le richieste vanno direttamente dal tuo dispositivo al fornitore che scegli, con la tua chiave.</p>
+<p>Se attiva, viene inviato il testo della tua domanda. Di default (disattivabile) viene incluso anche un riassunto anonimo e aggregato della tua situazione (es. "oggi puoi spendere 50€") — mai transazioni, esercenti o conti singoli.</p>
+
+<h2>6. Dati di mercato (opzionale)</h2>
+<p>Se aggiungi una tua chiave API di un fornitore di dati finanziari (es. TwelveData, Financial Modeling Prep, Finnhub, NewsAPI), Momentum la usa per scaricare prezzi/notizie pubbliche direttamente dal tuo dispositivo a quel fornitore. Non è un dato su di te: sono prezzi di mercato pubblici.</p>
+
+<h2>7. I tuoi diritti</h2>
+<p>Poiché i tuoi dati finanziari non sono mai su un server, non c'è nulla da richiedere in cancellazione lato server: cancellarli sul tuo dispositivo (Impostazioni → esportazione/cancellazione dati) è definitivo e completo. Per il conteggio anonimo, disattivarlo in Impostazioni interrompe immediatamente ogni invio futuro. Per qualunque domanda, scrivimi a <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>.</p>
+
+<h2>8. Modifiche</h2>
+<p>Se questa pagina cambia in modo sostanziale, la data in cima verrà aggiornata. Ti consiglio di ricontrollarla ogni tanto se usi Momentum a lungo termine.</p>
+
+</body>
+</html>

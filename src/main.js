@@ -2785,8 +2785,10 @@ window.setTxCategory = (month, id, newCat) => {
   const esito = VaultDAO.updateTransactionCategory(month, id, newCat);
   window.closeModal();
   if (!esito) return; // era già quella categoria: nessun cambiamento, nessun rumore
+  let imparato = false;
   try {
     window.momentumOrchestrator?.learn(tx.description, newCat, tx.amount, new Date(tx.date));
+    imparato = true;
   } catch (e) { console.warn('Apprendimento dalla correzione fallito (la categoria è comunque cambiata):', e); }
   // Registro affidabilità (source-registry.js, 2026-08-28): screenshot/CSV/
   // PDF si auto-salvano senza chiedere conferma (a differenza del testo
@@ -2803,7 +2805,11 @@ window.setTxCategory = (month, id, newCat) => {
   }
   renderDashboard();
   renderAnalysis();
-  showToast(`Spostata in "${getCatById(newCat).name}".`, 'success');
+  const nomeCat = getCatById(newCat).name;
+  showToast(
+    imparato ? `Spostata in "${nomeCat}" — imparato, la riconoscerò meglio la prossima volta.` : `Spostata in "${nomeCat}".`,
+    'success'
+  );
 };
 
 window.toggleSound = () => {
