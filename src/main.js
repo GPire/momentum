@@ -56,11 +56,12 @@ import { isItalianDevice } from './alpha/translate.js';
 import { chiediAlMercatoSync, rifiutoMotivato, precarica as precaricaMercato } from './alpha/mercato-qa.js';
 import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed, sendFeatureEvent } from './core/telemetry.js';
 
-// Endpoint del contatore anonimo (server/telemetry-worker.js): vuoto finché
-// non viene distribuito — con endpoint vuoto sendTelemetryPings è un no-op
-// silenzioso, così il repo resta clonabile/utilizzabile da chiunque senza
-// dover configurare nulla. Da valorizzare con l'URL reale dopo il deploy.
-const TELEMETRY_ENDPOINT = '';
+// Endpoint del contatore anonimo (server/telemetry-worker.js) — distribuito
+// su Cloudflare Workers il 2026-08-28 (piano gratuito). Un id casuale non
+// collegabile a nessuna identità reale, mai dati finanziari/transazioni:
+// vedi il commento esteso in src/core/telemetry.js. Opt-out sempre
+// disponibile in Momentum Vault → Impostazioni.
+const TELEMETRY_ENDPOINT = 'https://momentum-telemetry.momentum-finance.workers.dev';
 // Pietra miliare anonima (src/core/telemetry.js:FEATURE_KEYS, elenco chiuso
 // — una chiave fuori lista è un no-op silenzioso lì, mai un typo che manda
 // qualcosa a caso). Wrapper unico per non ripetere il .catch in ogni punto
