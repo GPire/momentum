@@ -22,9 +22,17 @@
 //      come endpoint (vedi commento ENDPOINT lì) e in App Vault → Impostazioni
 //      → "Aiuta a far crescere Momentum" per chi accetta di attivarlo.
 //
-// Uso: POST / {id, event:'install'|'active'|'feature', key?, month?:'YYYY-MM'}
-// per contare; GET /stats?token=IL_TUO_STATS_TOKEN per leggere i numeri.
+// Uso: POST / {id, event:'install'|'active'|'active_day'|'feature', key?,
+// month?:'YYYY-MM', day?:'YYYY-MM-DD', platform?, source?} per contare;
+// GET /stats?token=IL_TUO_STATS_TOKEN per leggere i numeri.
 'use strict';
+
+// Elenchi chiusi (2026-08-28) per platform/source sull'evento 'install' —
+// STESSI elenchi del client (src/core/telemetry.js:PLATFORMS/INSTALL_SOURCES),
+// duplicati qui per lo stesso motivo di FEATURE_KEYS sotto: il worker non si
+// fida mai di un valore arbitrario mandato dal client.
+const PLATFORMS = new Set(['ios', 'android', 'mac', 'windows', 'altro']);
+const INSTALL_SOURCES = new Set(['invito', 'diretto']);
 
 // STESSO elenco chiuso del client (src/core/telemetry.js:FEATURE_KEYS) —
 // duplicato qui apposta (difesa in profondità): il worker non si fida MAI
@@ -61,6 +69,10 @@ function monthKeysBack(n, now) {
     out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
   return out;
+}
+
+function dayKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // Tasso di adozione/retention: quota di id attivi nel mese M-1 che sono
@@ -101,12 +113,50 @@ export async function computeStats(kv, { monthsBack = 6, now = new Date() } = {}
     if (!key || !month || !monthSet.has(month) || !FEATURE_KEYS.has(key)) continue;
     featureByMonth[month][key] = (featureByMonth[month][key] || 0) + 1;
   }
+  // Attivi OGGI (2026-08-28) — DAU, e il rapporto DAU/MAU ("stickiness":
+  // quanto spesso torna chi è già attivo questo mese, non solo SE torna).
+  // Un id in activeDayIds è per costruzione anche in activeIdsByMonth[mese
+  // corrente] (active_day non viene mai mandato senza il ping 'active'
+  // dello stesso avvio) — nessuna intersezione da calcolare, il rapporto è
+  // diretto.
+  const todayKey = dayKey(now);
+  const activeDayKeys = await listAllKeys(kv, `active_day:${todayKey}:`);
+  const currentDayActive = activeDayKeys.length;
+  const currentMonthActive = activeByMonth[months[0]] || 0;
+  const dauMauRatio = currentMonthActive > 0 ? +(currentDayActive / currentMonthActive).toFixed(3) : null;
+
+  // Piattaforma e provenienza (2026-08-28) — SOLO sull'evento 'install',
+  // una volta per dispositivo: dice dove investire per primi (bug/feature)
+  // e se gli inviti fanno crescere Momentum da soli (coefficiente virale
+  // grezzo: quota di installazioni con source='invito').
+  const platformKeys = await listAllKeys(kv, 'install_platform:');
+  const installsByPlatform = {};
+  for (const k of platformKeys) {
+    const [, piattaforma] = k.name.split(':');
+    if (!PLATFORMS.has(piattaforma)) continue;
+    installsByPlatform[piattaforma] = (installsByPlatform[piattaforma] || 0) + 1;
+  }
+  const sourceKeys = await listAllKeys(kv, 'install_source:');
+  const installsBySource = {};
+  for (const k of sourceKeys) {
+    const [, provenienza] = k.name.split(':');
+    if (!INSTALL_SOURCES.has(provenienza)) continue;
+    installsBySource[provenienza] = (installsBySource[provenienza] || 0) + 1;
+  }
+  const totaleConProvenienza = (installsBySource.invito || 0) + (installsBySource.diretto || 0);
+  const viralShare = totaleConProvenienza > 0 ? +((installsBySource.invito || 0) / totaleConProvenienza).toFixed(3) : null;
+
   return {
     totalInstallsEver: installs.length,
     activeByMonth,
-    currentMonthActive: activeByMonth[months[0]] || 0,
+    currentMonthActive,
+    currentDayActive,
+    dauMauRatio,
     retentionRateMonthOverMonth: retentionRate,
     featureByMonth,
+    installsByPlatform,
+    installsBySource,
+    viralShare,
     generatedAt: now.toISOString(),
   };
 }
@@ -123,12 +173,18 @@ export async function handleRequest(request, env) {
   if (request.method === 'POST' && url.pathname === '/') {
     let body;
     try { body = await request.json(); } catch (_) { return new Response('JSON non valido.', { status: 400 }); }
-    const { id, event, month, key } = body || {};
+    const { id, event, month, day, key, platform, source } = body || {};
     if (!id || typeof id !== 'string' || id.length > 128) return new Response('id mancante o non valido.', { status: 400 });
     if (event === 'install') {
       await env.MOMENTUM_TELEMETRY.put(`install:${id}`, String(Date.now()));
+      // platform/source sono opzionali (client più vecchi non li mandano
+      // ancora) e SOLO se dentro l'elenco chiuso — mai un valore libero.
+      if (PLATFORMS.has(platform)) await env.MOMENTUM_TELEMETRY.put(`install_platform:${platform}:${id}`, '1');
+      if (INSTALL_SOURCES.has(source)) await env.MOMENTUM_TELEMETRY.put(`install_source:${source}:${id}`, '1');
     } else if (event === 'active' && /^\d{4}-\d{2}$/.test(month || '')) {
       await env.MOMENTUM_TELEMETRY.put(`active:${month}:${id}`, String(Date.now()));
+    } else if (event === 'active_day' && /^\d{4}-\d{2}-\d{2}$/.test(day || '')) {
+      await env.MOMENTUM_TELEMETRY.put(`active_day:${day}:${id}`, String(Date.now()));
     } else if (event === 'feature' && /^\d{4}-\d{2}$/.test(month || '') && FEATURE_KEYS.has(key)) {
       await env.MOMENTUM_TELEMETRY.put(`feature:${key}:${month}:${id}`, String(Date.now()));
     } else {

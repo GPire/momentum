@@ -127,3 +127,76 @@ test('computeStats: featureByMonth separa chiavi e mesi diversi, mai un totale m
   assert.equal(r.featureByMonth['2026-07'].analysis_tensor_opened, 1);
   assert.equal(r.featureByMonth['2026-06'].onboarding_completed, 1);
 });
+
+// ── DAU/piattaforma/provenienza (2026-08-28, richiesto esplicitamente
+// dall'utente/investitori: "utenti attivi al giorno" + "cos'altro chiederebbero
+// gli investitori") ──
+
+test('handleRequest: POST active_day → salva, computeStats lo conta come currentDayActive (per la data giusta)', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+  await handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify({ id: 'a', event: 'active_day', day: '2026-07-27' }) }), env);
+  await handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify({ id: 'b', event: 'active_day', day: '2026-07-27' }) }), env);
+  // /stats (via handleRequest) non accetta una data finta: usa sempre "ora"
+  // vero — qui si verifica computeStats direttamente con la data del test,
+  // stesso pattern già in uso sopra per gli altri test sensibili alla data.
+  const stats = await computeStats(kv, { now: new Date('2026-07-27') });
+  assert.equal(stats.currentDayActive, 2);
+});
+
+test('handleRequest: POST active_day con giorno non valido → 400', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+  const r = await handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify({ id: 'a', event: 'active_day', day: 'non-un-giorno' }) }), env);
+  assert.equal(r.status, 400);
+});
+
+test('computeStats: dauMauRatio = attivi oggi / attivi questo mese, null se nessuno attivo questo mese', async () => {
+  const kv = fakeKv();
+  const r0 = await computeStats(kv, { now: new Date('2026-07-27') });
+  assert.equal(r0.dauMauRatio, null);
+  await kv.put('active:2026-07:a', '1'); await kv.put('active:2026-07:b', '1'); await kv.put('active:2026-07:c', '1'); await kv.put('active:2026-07:d', '1');
+  await kv.put('active_day:2026-07-27:a', '1');
+  const r1 = await computeStats(kv, { now: new Date('2026-07-27') });
+  assert.equal(r1.currentDayActive, 1);
+  assert.equal(r1.currentMonthActive, 4);
+  assert.equal(r1.dauMauRatio, 0.25);
+});
+
+test('handleRequest: POST install con platform/source validi → contati in installsByPlatform/installsBySource', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+  const post = (body) => handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify(body) }), env);
+  await post({ id: 'a', event: 'install', platform: 'ios', source: 'invito' });
+  await post({ id: 'b', event: 'install', platform: 'ios', source: 'diretto' });
+  await post({ id: 'c', event: 'install', platform: 'android', source: 'diretto' });
+  const stats = await (await handleRequest(new Request('https://x.test/stats?token=segreto'), env)).json();
+  assert.equal(stats.totalInstallsEver, 3);
+  assert.deepEqual(stats.installsByPlatform, { ios: 2, android: 1 });
+  assert.deepEqual(stats.installsBySource, { invito: 1, diretto: 2 });
+  assert.equal(stats.viralShare, 0.333);
+});
+
+test('handleRequest: POST install SENZA platform/source (client vecchio) → salva comunque, nessun errore, contatori platform/source assenti per quell\'id', () => {
+  return (async () => {
+    const kv = fakeKv();
+    const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+    const r = await handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify({ id: 'a', event: 'install' }) }), env);
+    assert.equal(r.status, 200);
+    const stats = await (await handleRequest(new Request('https://x.test/stats?token=segreto'), env)).json();
+    assert.equal(stats.totalInstallsEver, 1);
+    assert.deepEqual(stats.installsByPlatform, {});
+    assert.equal(stats.viralShare, null);
+  })();
+});
+
+test('handleRequest: POST install con platform/source FUORI whitelist → scartati in silenzio, install comunque salvato', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv, STATS_TOKEN: 'segreto' };
+  const r = await handleRequest(new Request('https://x.test/', { method: 'POST', body: JSON.stringify({ id: 'a', event: 'install', platform: 'linux-hackerato', source: 'boh' }) }), env);
+  assert.equal(r.status, 200);
+  const stats = await (await handleRequest(new Request('https://x.test/stats?token=segreto'), env)).json();
+  assert.equal(stats.totalInstallsEver, 1);
+  assert.deepEqual(stats.installsByPlatform, {});
+  assert.deepEqual(stats.installsBySource, {});
+});

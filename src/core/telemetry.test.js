@@ -46,28 +46,68 @@ test('sendTelemetryPings: disattivato esplicitamente dall\'utente → no-op, mai
   assert.equal(called, false);
 });
 
-test('sendTelemetryPings: primo avvio → invia install E active, poi mai più install', async () => {
+test('sendTelemetryPings: primo avvio → invia install, active E active_day, poi mai più install', async () => {
   const s = fakeStorage({ momentum_telemetry_opt_in: '1' });
   const calls = [];
   const fetchImpl = async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true }; };
   const now = new Date('2026-07-27');
   const r1 = await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now });
-  assert.deepEqual(r1.sent, ['install', 'active']);
+  assert.deepEqual(r1.sent, ['install', 'active', 'active_day']);
   const r2 = await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now });
-  assert.deepEqual(r2.sent, []); // stesso mese, già inviato tutto
-  assert.equal(calls.length, 2);
+  assert.deepEqual(r2.sent, []); // stesso mese E stesso giorno, già inviato tutto
+  assert.equal(calls.length, 3);
   assert.equal(calls[0].event, 'install');
   assert.equal(calls[1].event, 'active');
+  assert.equal(calls[2].event, 'active_day');
 });
 
-test('sendTelemetryPings: mese nuovo → invia di nuovo "active" ma non "install"', async () => {
+test('sendTelemetryPings: mese nuovo → invia di nuovo "active" e "active_day" ma non "install"', async () => {
   const s = fakeStorage({ momentum_telemetry_opt_in: '1' });
   const calls = [];
   const fetchImpl = async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true }; };
   await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now: new Date('2026-07-27') });
   await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now: new Date('2026-08-03') });
-  assert.equal(calls.length, 3); // install+active luglio, active agosto
-  assert.deepEqual(calls.map(c => c.event), ['install', 'active', 'active']);
+  assert.equal(calls.length, 5); // install+active+active_day luglio, active+active_day agosto
+  assert.deepEqual(calls.map(c => c.event), ['install', 'active', 'active_day', 'active', 'active_day']);
+});
+
+test('sendTelemetryPings: giorno nuovo (stesso mese) → invia di nuovo "active_day" ma non "active" né "install"', async () => {
+  const s = fakeStorage({ momentum_telemetry_opt_in: '1' });
+  const calls = [];
+  const fetchImpl = async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true }; };
+  await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now: new Date('2026-07-27') });
+  const r2 = await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now: new Date('2026-07-28') });
+  assert.deepEqual(r2.sent, ['active_day']);
+});
+
+test('sendTelemetryPings: platform/source viaggiano SOLO sull\'evento install, mai su active/active_day', async () => {
+  const s = fakeStorage({ momentum_telemetry_opt_in: '1' });
+  const calls = [];
+  const fetchImpl = async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true }; };
+  await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now: new Date('2026-07-27'), platform: 'ios', cameFromInvite: true });
+  const installCall = calls.find(c => c.event === 'install');
+  assert.equal(installCall.platform, 'ios');
+  assert.equal(installCall.source, 'invito');
+  for (const c of calls.filter(c => c.event !== 'install')) {
+    assert.equal(c.platform, undefined);
+    assert.equal(c.source, undefined);
+  }
+});
+
+test('sendTelemetryPings: senza cameFromInvite (default) → source "diretto"', async () => {
+  const s = fakeStorage({ momentum_telemetry_opt_in: '1' });
+  const calls = [];
+  const fetchImpl = async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true }; };
+  await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now: new Date('2026-07-27'), platform: 'android' });
+  assert.equal(calls[0].source, 'diretto');
+});
+
+test('sendTelemetryPings: platform fuori dall\'elenco chiuso → campo omesso, mai un valore libero mandato', async () => {
+  const s = fakeStorage({ momentum_telemetry_opt_in: '1' });
+  const calls = [];
+  const fetchImpl = async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true }; };
+  await sendTelemetryPings('https://x.test', { storage: s, fetchImpl, now: new Date('2026-07-27'), platform: 'linux-hackerato' });
+  assert.equal(calls[0].platform, undefined);
 });
 
 test('sendTelemetryPings: id mai cambia tra ping diversi', async () => {

@@ -66,6 +66,18 @@ const TELEMETRY_ENDPOINT = '';
 // qualcosa a caso). Wrapper unico per non ripetere il .catch in ogni punto
 // di chiamata: mai bloccante, mai un errore visibile all'utente.
 const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch(() => {}); };
+// Piattaforma e provenienza per il ping "install" (2026-08-28, richiesto
+// esplicitamente: cosa chiederebbe un investitore oltre agli utenti al
+// mese). Catturati QUI, al caricamento dello script — PRIMA che
+// consumeJoinLink() (più sotto) ripulisca l'URL con history.replaceState:
+// da lì in poi il link d'invito nell'URL sarebbe già sparito. `detectOS`
+// (via detectPlatform, già importata per la guida d'installazione) usa lo
+// STESSO elenco chiuso di src/core/telemetry.js:PLATFORMS — riuso diretto,
+// nessuna seconda logica di rilevamento piattaforma.
+const __telemetryPlatform = detectPlatform(navigator.userAgent, {
+  standalone: window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true,
+}).os;
+const __telemetryCameFromInvite = !!extractJoinPayload();
 
 // Etichette statiche (non dati) tradotte in italiano quando il dispositivo è
 // italiano — Alpha Vantage restituisce region/exchange sempre in inglese.
@@ -6115,12 +6127,12 @@ window.saveGuideKey = (provider) => {
 window.setTelemetryOptIn = (checked) => {
   setTelemetryEnabled(checked);
   showToast(checked ? 'Grazie: un numero anonimo aiuterà a far crescere Momentum.' : 'Conteggio disattivato.', 'success');
-  if (checked) sendTelemetryPings(TELEMETRY_ENDPOINT).catch(() => {});
+  if (checked) sendTelemetryPings(TELEMETRY_ENDPOINT, { platform: __telemetryPlatform, cameFromInvite: __telemetryCameFromInvite }).catch(() => {});
 };
 function initTelemetryToggle() {
   const cb = document.getElementById('telemetry-opt-in');
   if (cb) cb.checked = isTelemetryEnabled();
-  if (isTelemetryEnabled()) sendTelemetryPings(TELEMETRY_ENDPOINT).catch(() => {});
+  if (isTelemetryEnabled()) sendTelemetryPings(TELEMETRY_ENDPOINT, { platform: __telemetryPlatform, cameFromInvite: __telemetryCameFromInvite }).catch(() => {});
   // Avviso ESPLICITO al primissimo avvio (mai silenzioso): attivo di
   // default, ma l'utente lo scopre subito con un modo immediato per
   // disattivarlo, non solo sepolto in Impostazioni.

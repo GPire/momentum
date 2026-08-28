@@ -21,7 +21,15 @@ const OPT_IN_KEY = 'momentum_telemetry_opt_in';
 const DISCLOSED_KEY = 'momentum_telemetry_disclosed';
 const INSTALL_SENT_KEY = 'momentum_telemetry_install_sent';
 const ACTIVE_MONTH_KEY = 'momentum_telemetry_active_month';
+const ACTIVE_DAY_KEY = 'momentum_telemetry_active_day';
 const FEATURE_SENT_KEY = 'momentum_telemetry_feature_sent';
+
+// Piattaforma/provenienza: SOLO categorie chiuse, mai testo libero (stesso
+// principio di FEATURE_KEYS sotto — un valore fuori da questi elenchi non
+// parte mai). Risponde a "su quale piattaforma investire per primi" e "gli
+// inviti fanno crescere Momentum da soli", mai "chi" installa.
+export const PLATFORMS = ['ios', 'android', 'mac', 'windows', 'altro'];
+export const INSTALL_SOURCES = ['invito', 'diretto'];
 
 // ============================================================
 // EVENTI DI FUNZIONALITÀ (2026-08-26) — stessa infrastruttura, stessa
@@ -95,15 +103,22 @@ export function getAnonId(storage = localStorage, uuidFn = () => crypto.randomUU
   return id;
 }
 
-// Al massimo un ping "install" per sempre e uno "active" per mese solare —
-// mai più frequente, mai un log dettagliato di utilizzo.
-export async function sendTelemetryPings(endpoint, { storage = localStorage, fetchImpl = fetch, now = new Date() } = {}) {
+// Al massimo un ping "install" per sempre, uno "active" per mese solare e
+// uno "active_day" per giorno solare — mai più frequente, mai un log
+// dettagliato di utilizzo. `platform`/`source` viaggiano SOLO sull'evento
+// "install" (la provenienza si decide una volta, all'installazione — non
+// ha senso ripeterla ogni mese) e solo se dentro l'elenco chiuso sopra:
+// un valore imprevisto viene scartato in silenzio, mai inoltrato com'è.
+export async function sendTelemetryPings(endpoint, { storage = localStorage, fetchImpl = fetch, now = new Date(), platform = null, cameFromInvite = false } = {}) {
   if (!endpoint || !isTelemetryEnabled(storage)) return { sent: [] };
   const id = getAnonId(storage);
   const sent = [];
   if (storage.getItem(INSTALL_SENT_KEY) !== '1') {
     try {
-      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'install' }) });
+      const body = { id, event: 'install' };
+      if (PLATFORMS.includes(platform)) body.platform = platform;
+      body.source = cameFromInvite ? 'invito' : 'diretto';
+      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       storage.setItem(INSTALL_SENT_KEY, '1');
       sent.push('install');
     } catch (_) { /* riprova al prossimo avvio, mai bloccante */ }
@@ -114,6 +129,18 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
       await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active', month }) });
       storage.setItem(ACTIVE_MONTH_KEY, month);
       sent.push('active');
+    } catch (_) { /* riprova al prossimo avvio */ }
+  }
+  // Giornaliero (2026-08-28, richiesto esplicitamente): abilita DAU e il
+  // rapporto DAU/MAU ("stickiness"), la metrica di engagement più guardata
+  // da un investitore — senza, /stats sa solo "attivo questo mese", non
+  // "quanto spesso".
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (storage.getItem(ACTIVE_DAY_KEY) !== day) {
+    try {
+      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active_day', day }) });
+      storage.setItem(ACTIVE_DAY_KEY, day);
+      sent.push('active_day');
     } catch (_) { /* riprova al prossimo avvio */ }
   }
   return { sent };
