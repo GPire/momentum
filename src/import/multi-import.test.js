@@ -9,7 +9,7 @@ globalThis.window = {
   momentumOrchestrator: { learn: (d, c) => learned.push([d, c]) },
   requestIdleCallback: (fn) => setTimeout(() => fn({ timeRemaining: () => 10 }), 0),
 };
-const { learnInBackground, readCsvText } = await import('./multi-import.js');
+const { learnInBackground, readCsvText, addParsed, KIND_TO_SOURCE } = await import('./multi-import.js');
 
 test('learnInBackground: addestra i modelli da OGNI operazione importata (idle-chunked)', async () => {
   learned.length = 0;
@@ -74,6 +74,36 @@ test('readCsvText: Windows-1252 (export bancari italiani più vecchi) — accent
   ]);
   const risultato = await readCsvText(new Blob([bytes]));
   assert.equal(risultato, 'Caffè bar;-1,20', 'accento leggibile, non rotto o sostituito');
+});
+
+// ── Provenienza per source-registry.js (2026-08-28) — CSV/PDF/screenshot
+// multiplo si auto-salvano senza conferma per-riga: senza un tag di
+// provenienza, il registro di affidabilità non può misurarli. ──
+
+test('addParsed: ogni transazione salvata porta il tag "source" passato, per il registro affidabilità', async () => {
+  const { VaultDAO } = await import('../core/vault.js');
+  VaultDAO.state.transactions = {};
+  VaultDAO.save = () => {};
+  const seenIds = new Set();
+  const txs = [{ date: new Date('2026-07-01'), amount: 12.5, type: 'uscita', description: 'Bar Roma' }];
+  addParsed(txs, seenIds, [], 'csv');
+  const salvata = VaultDAO.state.transactions['2026-07'][0];
+  assert.equal(salvata.source, 'csv');
+});
+
+test('addParsed: senza un source passato, nessun campo "source" viene aggiunto (retrocompatibile con chi non lo passa)', async () => {
+  const { VaultDAO } = await import('../core/vault.js');
+  VaultDAO.state.transactions = {};
+  VaultDAO.save = () => {};
+  const seenIds = new Set();
+  const txs = [{ date: new Date('2026-07-01'), amount: 12.5, type: 'uscita', description: 'Bar Roma' }];
+  addParsed(txs, seenIds, []);
+  const salvata = VaultDAO.state.transactions['2026-07'][0];
+  assert.equal(salvata.source, undefined);
+});
+
+test('KIND_TO_SOURCE: copre i 4 formati reali gestiti da importFiles, screenshot multiplo condivide lo STESSO tag del singolo (un solo canale misurato, non due)', () => {
+  assert.deepEqual(KIND_TO_SOURCE, { csv: 'csv', pdf: 'pdf', xml: 'camt053', image: 'screenshot_ocr' });
 });
 
 // NOTA scoperta scrivendo questo test: lo standard WHATWG Encoding (seguito

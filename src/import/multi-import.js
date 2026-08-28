@@ -22,7 +22,15 @@ import { rilevaAcquistoTitolo } from './security-purchase-detector.js';
 
 // Categorizza (MCC/asset dal parser, altrimenti ML) e aggiunge in BULK una lista
 // di transazioni normalizzate. `seenIds` = dedup esatta condivisa tra i file.
-function addParsed(txs, seenIds, learned) {
+// `source` (2026-08-28): tag di provenienza — CSV/PDF/screenshot multiplo si
+// auto-salvano senza conferma per-riga (nessun tap da osservare), esattamente
+// come lo screenshot singolo da share-target. Senza questo tag, source-
+// registry.js non può misurare l'affidabilità di questi canali: prima
+// d'ora restava scritto SOLO per lo screenshot singolo (screenshot-parser.js),
+// mai per il percorso bulk che passa da qui — stesso canale reale ("lettura
+// OCR di uno screenshot"), stesso tag 'screenshot_ocr', per restare UN solo
+// canale misurato invece di due contatori separati per la stessa cosa.
+export function addParsed(txs, seenIds, learned, source) {
   let added = 0;
   for (const t of txs) {
     if (!t.date || !t.amount) continue;
@@ -34,12 +42,17 @@ function addParsed(txs, seenIds, learned) {
     // guardrail anti-crypto/etf spurie).
     const catId = t.category || safeCategorize(t.description, t.amount, t.date, t.type);
     const cat = getCatById(catId) || getCatById('spesa');
-    const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: extId };
+    const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: extId, ...(source ? { source } : {}) };
     const { duplicate } = VaultDAO.addTransaction(monthKey(t.date), tx, { bulk: true, noDedup: !!extId });
     if (!duplicate) { added++; if (learned) learned.push({ description: t.description, category: cat.id, amount: t.amount, date: t.date }); }
   }
   return added;
 }
+// kind ('csv'/'pdf'/'xml'/'image', da fileKind() più sotto) → tag di
+// provenienza per source-registry.js. 'xml' (CAMT.053) resta senza
+// affidabilità misurata per ora (formato meno comune, fuori scope qui) —
+// il tag comunque si scrive, pronto per quando servirà.
+export const KIND_TO_SOURCE = { csv: 'csv', pdf: 'pdf', xml: 'camt053', image: 'screenshot_ocr' };
 
 // APPRENDIMENTO in BACKGROUND: i modelli imparano dalle categorizzazioni degli
 // import, ma a CHUNK durante l'idle del browser → non blocca la UI anche con
@@ -253,7 +266,7 @@ export async function importFiles(fileList, { onProgress } = {}) {
         result.perFile.push({ name: f.name, kind: 'portfolio', parsed: txs.positions.length, added: merged });
         continue;
       }
-      const added = addParsed(txs, seenIds, learned);
+      const added = addParsed(txs, seenIds, learned, KIND_TO_SOURCE[kind]);
       result.added += added;
       result.byType[kind] += 1;
       result.perFile.push({ name: f.name, kind, parsed: txs.length, added });

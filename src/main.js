@@ -201,6 +201,13 @@ import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
 import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './import/source-registry.js';
+// tx.source (scritto da chi importa: notification-parser.js/screenshot-
+// parser.js/multi-import.js) → canale di source-registry.js. Due nomi
+// diversi per lo stesso screenshot (source 'screenshot_ocr', canale
+// 'screenshot') perché il primo descrive IL FORMATO del dato salvato, il
+// secondo LA MISURA di affidabilità — non serve farli combaciare, serve
+// una sola mappa scritta una volta, riusata in ogni punto che osserva.
+const SOURCE_TO_CANALE = { screenshot_ocr: 'screenshot', csv: 'csv', pdf: 'pdf' };
 import { NeuroSym } from './ai/neurosym.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
@@ -2704,16 +2711,20 @@ window.deleteTx = (k, id) => {
   if (confirm("Rimuovere questo movimento?")) {
     const finish = () => {
       // Registro affidabilità (source-registry.js): cancellare una spesa
-      // arrivata da screenshot ENTRO POCHE ORE dalla creazione è quasi
-      // sempre "questo era sbagliato/duplicato", non un ripensamento
-      // qualunque — stesso principio della correzione categoria sopra.
-      // Oltre quella finestra si smette di misurare: una spesa vecchia
-      // cancellata mesi dopo (es. riordino) non dice niente sul canale.
+      // arrivata da un canale che si auto-salva (screenshot/CSV/PDF) ENTRO
+      // POCHE ORE dalla creazione è quasi sempre "questo era sbagliato/
+      // duplicato", non un ripensamento qualunque — stesso principio della
+      // correzione categoria sopra. Oltre quella finestra si smette di
+      // misurare: una spesa vecchia cancellata mesi dopo (es. riordino) non
+      // dice niente sul canale. CSV/PDF sono stati aggiunti qui il
+      // 2026-08-28 (prima solo screenshot) — stesso tag `SOURCE_TO_CANALE`
+      // usato in setTxCategory e nel controllo periodico più sotto.
       const txPrima = findTx(k, id);
-      if (txPrima?.source === 'screenshot_ocr') {
+      const canale = SOURCE_TO_CANALE[txPrima?.source];
+      if (canale) {
         const eta = Date.now() - new Date(txPrima.date).getTime();
         if (eta >= 0 && eta < 6 * 60 * 60 * 1000) {
-          VaultDAO.state.sourceRegistry = observeImport(VaultDAO.state.sourceRegistry, 'screenshot', false);
+          VaultDAO.state.sourceRegistry = observeImport(VaultDAO.state.sourceRegistry, canale, false);
         }
       }
       VaultDAO.deleteTransaction(k, id);
@@ -2781,13 +2792,13 @@ window.setTxCategory = (month, id, newCat) => {
   // PDF si auto-salvano senza chiedere conferma (a differenza del testo
   // condiviso), quindi non c'è un tap di conferma da osservare — QUESTA
   // correzione è il segnale onesto disponibile: chi ha dovuto correggere la
-  // categoria di una spesa arrivata da screenshot ci dice che quel
-  // riconoscimento è andato storto. Mai per gli altri canali (manuale/CSV):
-  // qui si misura solo dove il canale può davvero sbagliare qualcosa che
-  // l'utente non ha scelto lui stesso.
-  if (tx.source === 'screenshot_ocr' && !tx._srSeen) {
-    VaultDAO.state.sourceRegistry = observeImport(VaultDAO.state.sourceRegistry, 'screenshot', false);
-    tx._srSeen = true; // mai ricontata dal controllo periodico (sweepScreenshotObservations) più sotto
+  // categoria di una spesa arrivata da uno di questi canali ci dice che
+  // quel riconoscimento è andato storto. Mai per il manuale: lì la
+  // categoria l'ha scelta l'utente stesso, non c'è nulla da misurare.
+  const canaleCorretto = SOURCE_TO_CANALE[tx.source];
+  if (canaleCorretto && !tx._srSeen) {
+    VaultDAO.state.sourceRegistry = observeImport(VaultDAO.state.sourceRegistry, canaleCorretto, false);
+    tx._srSeen = true; // mai ricontata dal controllo periodico (sweepImportObservations) più sotto
     VaultDAO.save();
   }
   renderDashboard();
@@ -7381,22 +7392,25 @@ async function checkIosHandoffIfEmpty() {
 
 // Segnale POSITIVO per il registro affidabilità (source-registry.js): per
 // screenshot/CSV/PDF non esiste un tap di conferma da osservare (si
-// auto-salvano). Una spesa da screenshot rimasta INTATTA per 48 ore — mai
-// corretta, mai cancellata — è il proxy onesto più semplice di "questa
-// volta il canale ha azzeccato". Ogni transazione conta UNA sola volta
-// (`_srSeen`, marcato anche dai segnali negativi in setTxCategory/deleteTx
-// più sopra: mai un doppio conteggio della stessa spesa).
-function sweepScreenshotObservations() {
+// auto-salvano). Una spesa arrivata da uno di questi canali rimasta INTATTA
+// per 48 ore — mai corretta, mai cancellata — è il proxy onesto più
+// semplice di "questa volta il canale ha azzeccato". Ogni transazione conta
+// UNA sola volta (`_srSeen`, marcato anche dai segnali negativi in
+// setTxCategory/deleteTx più sopra: mai un doppio conteggio della stessa
+// spesa). Esteso a CSV/PDF il 2026-08-28 (prima solo screenshot) — stesso
+// meccanismo, stessa mappa `SOURCE_TO_CANALE`, un solo posto per la logica.
+function sweepImportObservations() {
   const GRACE_MS = 48 * 60 * 60 * 1000;
   const now = Date.now();
   let registry = VaultDAO.state.sourceRegistry;
   let changed = false;
   for (const mese of Object.keys(VaultDAO.state.transactions || {})) {
     for (const tx of VaultDAO.state.transactions[mese] || []) {
-      if (tx.source !== 'screenshot_ocr' || tx._srSeen) continue;
+      const canale = SOURCE_TO_CANALE[tx.source];
+      if (!canale || tx._srSeen) continue;
       const eta = now - new Date(tx.date).getTime();
       if (!(eta >= GRACE_MS)) continue; // troppo recente, o data anomala: si aspetta
-      registry = observeImport(registry, 'screenshot', true);
+      registry = observeImport(registry, canale, true);
       tx._srSeen = true;
       changed = true;
     }
@@ -14635,7 +14649,7 @@ const initApp = () => {
     // alcune versioni). Se non trova nulla, non succede niente: resta il
     // pulsante manuale "Importa il tuo backup" già in Dashboard.
     setTimeout(() => { try { checkIosHandoffIfEmpty(); } catch (e) { console.warn('ios-handoff:', e); } }, 1200);
-    setTimeout(() => { try { sweepScreenshotObservations(); } catch (e) { console.warn('source-registry sweep:', e); } }, 1500);
+    setTimeout(() => { try { sweepImportObservations(); } catch (e) { console.warn('source-registry sweep:', e); } }, 1500);
     // I dati di mercato si scaricano in sottofondo, senza bloccare niente: se
     // l'utente chiedera' "cosa protegge quando crolla" li trovera' pronti, e
     // se non lo chiedera' mai non avra' pagato nulla all'avvio.
