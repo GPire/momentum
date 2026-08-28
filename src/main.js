@@ -11556,6 +11556,22 @@ function renderSourceReliabilitySummary() {
   }).join('');
 }
 
+// Applica le traduzioni statiche marcate con data-i18n-key (onboarding
+// g-step-0..4, 2026-08-28) — riusa lo STESSO t()/resolveUiLanguage() già in
+// produzione per le schermate fiscali CH/ES (src/i18n/ui-strings.js), non un
+// meccanismo nuovo. Come per quelle schermate, nessun selettore di lingua
+// dedicato ancora: segue solo la lingua del dispositivo (resolveUiLanguage
+// supporta comunque un override, pronto per quando/se arriverà). Chiamata
+// una volta al boot, prima che il genesis sia mostrato — se il genesis è
+// già stato rimosso dal DOM (utente già onboarded), querySelectorAll non
+// trova nulla ed è un no-op economico, sicuro da chiamare sempre.
+function applyUiTranslations() {
+  const lang = resolveUiLanguage();
+  document.querySelectorAll('[data-i18n-key]').forEach(el => {
+    el.textContent = tCh(el.dataset.i18nKey, lang);
+  });
+}
+
 function renderInstallGuide() {
   const stepsEl = document.getElementById('install-guide-steps');
   if (!stepsEl) return;
@@ -14766,6 +14782,10 @@ const initApp = () => {
   // Il cielo stellato del primo avvio è ora in CSS PURO (index.html: .starfield),
   // quindi non serve disegnarlo da JS: è sempre presente, gira su qualsiasi
   // dispositivo e non dipende dal timing del boot (fix del canvas che non partiva).
+
+  // Traduzione onboarding (data-i18n-key, 2026-08-28): no-op sicuro se il
+  // genesis è già stato rimosso dal DOM sopra (utente già onboarded).
+  try { applyUiTranslations(); } catch (_) {}
 
   // "Provaci tu": si arma solo se il primo avvio è davvero a schermo. Nei rami
   // sopra il genesis viene rimosso dal DOM, e armare listener su una scena che

@@ -114,3 +114,39 @@ test('t: chi ha il dispositivo in tedesco/francese e finisce comunque sulla sche
   assert.notEqual(t('esSimTitle', 'de'), 'esSimTitle');
   assert.equal(t('esSimTitle', 'de'), t('esSimTitle', 'en'));
 });
+
+// ── Onboarding (g-step-0..4, index.html) — 2026-08-28, punto più ad alto
+// impatto virale: la prima cosa che vede chiunque arrivi da un link di
+// divisione. Solo IT/EN/ES (priorità già stabilita nel modulo): DE/FR
+// ricadono su EN per queste chiavi, verificato esplicitamente sotto. ──
+
+test('t: tutte le chiavi genesis esistono in IT/EN/ES — nessuna traduzione dimenticata', () => {
+  const chiavi = [
+    'genesisTagline', 'genesisPrivacyTitle', 'genesisPrivacyText', 'genesisStart',
+    'genesisProgress1', 'genesisProgress2', 'genesisProgress3', 'genesisProgress4Last',
+    'genesisQ1Title', 'genesisQ1Sub', 'genesisQ1Opt1', 'genesisQ1Opt2', 'genesisQ1Opt3', 'genesisQ1Opt4', 'genesisQ1Opt5',
+    'genesisQ2Title', 'genesisQ2Sub', 'genesisQ2Opt1', 'genesisQ2Opt2', 'genesisQ2Opt3', 'genesisQ2Opt4',
+    'genesisQ3Title', 'genesisQ3Sub', 'genesisQ3Opt1', 'genesisQ3Opt2', 'genesisQ3Opt3',
+    'genesisQ4Title', 'genesisQ4Sub', 'genesisQ4Opt1', 'genesisQ4Opt2', 'genesisQ4Opt3', 'genesisQ4Opt4',
+  ];
+  for (const lang of ['it', 'en', 'es']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
+    }
+  }
+});
+
+test('t: le chiavi genesis in tedesco/francese ricadono su EN (nessuna traduzione DE/FR scritta per queste, per scelta di scope)', () => {
+  for (const lang of ['de', 'fr']) {
+    assert.equal(t('genesisTagline', lang), t('genesisTagline', 'en'));
+    assert.equal(t('genesisQ1Title', lang), t('genesisQ1Title', 'en'));
+  }
+});
+
+test('t: la domanda 4 (regolarità entrate, D2) traduce correttamente in ognuna delle 3 lingue coperte', () => {
+  assert.equal(t('genesisQ4Title', 'it'), 'Le tue entrate, come arrivano?');
+  assert.equal(t('genesisQ4Title', 'en'), 'How does your income arrive?');
+  assert.equal(t('genesisQ4Title', 'es'), '¿Cómo llegan tus ingresos?');
+  assert.equal(t('genesisQ4Opt3', 'en'), 'Changes a lot, month to month');
+});
