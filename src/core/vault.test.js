@@ -6,7 +6,7 @@ globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 globalThis.indexedDB = undefined;
 globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: () => {} };
 
-const { runSchemaMigrations } = await import("./vault.js");
+const { runSchemaMigrations, tryReadIosHandoff } = await import("./vault.js");
 
 test("senza migrazioni registrate, i dati passano invariati (nessuna trasformazione inventata)", () => {
   const loaded = { schemaVersion: 50.0, transactions: { "2026-07": [{ id: 1, amount: 10 }] } };
@@ -66,4 +66,61 @@ test("simulazione realistica: rinominare un campo tra due versioni non perde i d
   assert.equal(result.budget.monthly, 1500);
   assert.equal(result.monthlyBudget, undefined);
   assert.deepEqual(result.transactions, oldUserData.transactions); // le transazioni non sono mai state toccate
+});
+
+// ── Ponte iOS Safari→PWA (2026-08-28, tryReadIosHandoff) — best-effort, mai
+// l'unica via di ripristino (quella resta il backup-file manuale). Qui si
+// verifica solo che la funzione sia sicura in ogni condizione: senza Cache
+// Storage disponibile, con la cache vuota, e col dato davvero presente. ──
+test("tryReadIosHandoff: senza Cache Storage disponibile (browser/contesto che non la supporta) → null, mai un errore", async () => {
+  const savedCaches = globalThis.caches;
+  delete globalThis.caches;
+  try {
+    const r = await tryReadIosHandoff();
+    assert.equal(r, null);
+  } finally {
+    if (savedCaches !== undefined) globalThis.caches = savedCaches;
+  }
+});
+
+test("tryReadIosHandoff: Cache Storage disponibile ma nessuna istantanea salvata → null", async () => {
+  const savedCaches = globalThis.caches;
+  globalThis.caches = { open: async () => ({ match: async () => undefined }) };
+  try {
+    const r = await tryReadIosHandoff();
+    assert.equal(r, null);
+  } finally {
+    globalThis.caches = savedCaches;
+  }
+});
+
+test("tryReadIosHandoff: istantanea presente → la ritorna decodificata (nessuna sovrascrittura qui: quella è responsabilità di chi chiama, solo dopo conferma esplicita dell'utente)", async () => {
+  const savedCaches = globalThis.caches;
+  const stato = { schemaVersion: 50, transactions: { "2026-08": [{ id: 1, amount: 12.5 }] } };
+  globalThis.caches = {
+    open: async () => ({
+      match: async () => ({ text: async () => JSON.stringify(stato) }),
+    }),
+  };
+  try {
+    const r = await tryReadIosHandoff();
+    assert.deepEqual(r, stato);
+  } finally {
+    globalThis.caches = savedCaches;
+  }
+});
+
+test("tryReadIosHandoff: un'istantanea corrotta (JSON non valido) → null, mai un crash", async () => {
+  const savedCaches = globalThis.caches;
+  globalThis.caches = {
+    open: async () => ({
+      match: async () => ({ text: async () => "{questo non è JSON valido" }),
+    }),
+  };
+  try {
+    const r = await tryReadIosHandoff();
+    assert.equal(r, null);
+  } finally {
+    globalThis.caches = savedCaches;
+  }
 });

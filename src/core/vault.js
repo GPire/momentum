@@ -106,6 +106,54 @@ const DurableStore = {
 };
 
 // ==========================================
+// PONTE iOS — Safari → PWA installata (2026-08-28)
+// ==========================================
+// BUG REALE segnalato da utenti: su iPhone, dopo "Aggiungi a Home", ogni
+// transazione andava reinserita a mano. Causa VERIFICATA via ricerca (non
+// ipotizzata): WebKit isola completamente localStorage/IndexedDB/cookie tra
+// Safari e l'istanza standalone, ANCHE per la stessa identica origine — un
+// limite di iOS (Android invece condivide lo storage, nessun problema lì).
+//
+// La via SICURA e sempre affidabile resta il backup-file manuale (un tap,
+// window.exportPlainBackup + window.restoreEncryptedBackup, collegati nella
+// guida d'installazione e nella Dashboard vuota). QUESTO blocco aggiunge
+// solo una scorciatoia AUTOMATICA best-effort: da iOS 14 Safari condivide
+// la Cache Storage (non lo storage web classico) con l'istanza standalone —
+// comportamento MAI documentato ufficialmente da Apple, e trovato rotto su
+// iOS 17 beta in alcuni test indipendenti. Per questo è SOLO un livello in
+// più, silenzioso, mai l'unica via: se non trova nulla (Safari chiuso da
+// troppo tempo, versione iOS dove non funziona), il percorso manuale resta
+// intatto e resta quello onestamente garantito.
+const IOS_HANDOFF_CACHE = 'momentum-ios-handoff-v1';
+const IOS_HANDOFF_KEY = 'https://momentum.local/ios-handoff-snapshot';
+function isIosNonStandalone() {
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent || '') && !/Windows Phone/.test(navigator.userAgent || '');
+  if (!ios) return false;
+  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+  return !standalone;
+}
+function saveIosHandoff(payload) {
+  if (typeof caches === 'undefined' || !isIosNonStandalone()) return;
+  caches.open(IOS_HANDOFF_CACHE)
+    .then((c) => c.put(IOS_HANDOFF_KEY, new Response(payload, { headers: { 'content-type': 'application/json' } })))
+    .catch(() => {});
+}
+// Chiamata SOLO al boot di un'istanza standalone senza dati propri (mai
+// altrimenti: non deve MAI sovrascrivere dati reali già presenti). Ritorna
+// lo stato trovato o null — chi chiama decide se e come proporlo
+// all'utente (mai un ripristino silenzioso senza conferma).
+async function tryReadIosHandoff() {
+  if (typeof caches === 'undefined') return null;
+  try {
+    const cache = await caches.open(IOS_HANDOFF_CACHE);
+    const res = await cache.match(IOS_HANDOFF_KEY);
+    if (!res) return null;
+    return JSON.parse(await res.text());
+  } catch (_) { return null; }
+}
+
+// ==========================================
 // VAULTDAO STORAGE LAYER
 // ==========================================
 const VaultDAO = {
@@ -209,6 +257,11 @@ const VaultDAO = {
     localStorage.setItem('omega_core_db', payload);
     localStorage.setItem('omega_shadow_vault', btoa(unescape(encodeURIComponent(payload))));
     DurableStore.put('state', payload, 'main').catch(() => {});
+    // Ponte iOS best-effort (2026-08-28) — vedi IOS_HANDOFF sotto: scrive un
+    // istantanea in Cache Storage, MAI l'unica via di ripristino (quella
+    // resta il backup file, sempre affidabile). Fire-and-forget, mai un
+    // errore qui deve interrompere il salvataggio vero.
+    try { saveIosHandoff(payload); } catch (_) {}
   },
   // Rileva se `tx` è già presente (stessa spesa arrivata da due canali, es. notifica
   // push + import PDF). In caso di duplicato arricchisce l'esistente con eventuali
@@ -351,4 +404,4 @@ const VaultDAO = {
   }
 };
 
-export { getCatById, getCatsByType, VaultDAO, DurableStore, runSchemaMigrations };
+export { getCatById, getCatsByType, VaultDAO, DurableStore, runSchemaMigrations, tryReadIosHandoff };

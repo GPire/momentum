@@ -83,6 +83,36 @@ test('installSteps: iPhone Chrome → dice onestamente di aprire Safari, mai fin
   assert.ok(r.steps.some(s => /Safari/.test(s.text)));
 });
 
+// ── hasData: avviso pre-installazione su iOS (2026-08-28, bug reale
+// segnalato da utenti — reinserire ogni transazione a mano dopo "Aggiungi a
+// Home"). WebKit isola lo storage tra Safari e l'app installata anche per
+// la stessa origine: nessun bypass tecnico esiste, l'unico avviso onesto è
+// dirlo PRIMA, con un'azione concreta (salvare un backup). ──
+test('installSteps: iPhone Safari CON dati già presenti → avvisa di salvare un backup PRIMA di installare', () => {
+  const p = detectPlatform(UA.iosSafari);
+  const r = installSteps(p, { hasData: true });
+  assert.ok(r.steps.some(s => s.action === 'exportPlainBackup'), 'deve esserci un passo con azione di backup');
+  assert.ok(r.steps.some(s => /vuota.*backup da importare|backup da importare/.test(s.text)), 'deve anche dire cosa fare dopo, se la app appare vuota');
+});
+
+test('installSteps: iPhone Safari SENZA dati → nessun avviso di backup (rumore per chi non ha nulla da perdere)', () => {
+  const p = detectPlatform(UA.iosSafari);
+  const r = installSteps(p, { hasData: false });
+  assert.ok(!r.steps.some(s => s.action === 'exportPlainBackup'));
+});
+
+test('installSteps: iPhone Chrome con dati → stesso avviso di backup (stesso WebKit sotto, stesso limite)', () => {
+  const p = detectPlatform(UA.iosChrome);
+  const r = installSteps(p, { hasData: true });
+  assert.ok(r.steps.some(s => s.action === 'exportPlainBackup'));
+});
+
+test('installSteps: Android Chrome con dati → NESSUN avviso di backup (lo storage È condiviso lì, verificato — avvisare sarebbe un falso allarme)', () => {
+  const p = detectPlatform(UA.androidChrome);
+  const r = installSteps(p, { hasData: true });
+  assert.ok(!r.steps.some(s => s.action === 'exportPlainBackup'));
+});
+
 test('installSteps: Android Chrome → pulsante Installa reale', () => {
   const p = detectPlatform(UA.androidChrome);
   const r = installSteps(p);

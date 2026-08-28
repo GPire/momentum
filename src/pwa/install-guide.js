@@ -55,10 +55,26 @@ export function detectPlatform(userAgent = '', { standalone = false } = {}) {
   return { os, browser, inAppBrowser, standalone, supportsNativePrompt };
 }
 
+// Passo aggiuntivo SOLO per iOS con dati già presenti (2026-08-28, bug reale
+// segnalato da utenti: dopo "Aggiungi a Home" su iPhone, ogni transazione
+// andava reinserita a mano). Causa verificata (non ipotizzata — vedi
+// ricerca): WebKit isola completamente localStorage/IndexedDB/cookie tra
+// Safari e l'istanza standalone, ANCHE per la stessa identica origine —
+// limite di iOS, non un bug di Momentum, e non capita su Android (lì lo
+// storage È condiviso, verificato). Nessun bypass tecnico esiste senza un
+// server (che il progetto rifiuta): l'unico ponte reale che attraversa il
+// confine è il FILE SYSTEM (Download/File di iOS, non storage web) — da qui
+// il backup in chiaro un-tap (`exportPlainBackup`, già esistente) PRIMA di
+// installare, poi importato nella PWA appena aperta.
+const IOS_BACKUP_STEP = { icon: 'info', text: 'Hai già delle spese salvate? Tocca "Salva le tue spese ora" qui sotto PRIMA di continuare: su iPhone i dati non passano da soli a Safari a un\'app installata.', action: 'exportPlainBackup' };
+
 // Passi in linguaggio semplice, un'azione per riga. `icon` è una chiave
 // testuale (share/menu/plus/home) che la UI traduce in un'icona reale — mai
 // testo tecnico ("tocca l'ellissi"), sempre concreto ("tocca i tre puntini").
-export function installSteps(platform) {
+// `hasData` (default false): questo dispositivo ha già transazioni vere —
+// SOLO allora ha senso avvisare del salvataggio pre-installazione (mai
+// rumore per chi sta ancora guardando l'app vuota, nulla da perdere).
+export function installSteps(platform, { hasData = false } = {}) {
   const { os, browser, standalone, inAppBrowser } = platform;
   if (standalone) return { title: 'App già installata', steps: [] };
 
@@ -83,9 +99,11 @@ export function installSteps(platform) {
       return {
         title: 'Installa su iPhone/iPad (Safari)',
         steps: [
+          ...(hasData ? [IOS_BACKUP_STEP] : []),
           { icon: 'share', text: 'Tocca l\'icona Condividi (il quadrato con la freccia verso l\'alto), in basso al centro' },
           { icon: 'plus', text: 'Scorri l\'elenco (a volte serve scorrere parecchio) e tocca "Aggiungi a Home"' },
           { icon: 'home', text: 'Tocca "Aggiungi": l\'icona di Momentum apparirà sulla schermata Home' },
+          ...(hasData ? [{ icon: 'info', text: 'Aprila dalla Home: se la vedi vuota, tocca "Ho un backup da importare" nella prima schermata — è il file che hai appena salvato' }] : []),
         ],
       };
     }
@@ -94,8 +112,10 @@ export function installSteps(platform) {
     return {
       title: 'Installa su iPhone/iPad',
       steps: [
+        ...(hasData ? [IOS_BACKUP_STEP] : []),
         { icon: 'info', text: 'Su iPhone/iPad solo Safari può installare le app — apri questa pagina in Safari' },
         { icon: 'share', text: 'Poi tocca Condividi → "Aggiungi a Home"' },
+        ...(hasData ? [{ icon: 'info', text: 'Aprila dalla Home: se la vedi vuota, tocca "Ho un backup da importare" nella prima schermata — è il file che hai appena salvato' }] : []),
       ],
     };
   }

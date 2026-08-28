@@ -2,7 +2,7 @@ import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.j
 import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.js';
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
-import { getCatById, getCatsByType, VaultDAO, DurableStore } from './core/vault.js';
+import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } from './core/vault.js';
 import { showSignatureAlert, showToast } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -7271,6 +7271,28 @@ function showWhatsNewIfDue() {
   requestAnimationFrame(() => overlay.classList.add('active'));
 }
 
+// Ponte iOS Safari→PWA (2026-08-28, vedi il commento esteso in vault.js su
+// IOS_HANDOFF): se questa istanza è una PWA appena installata su iOS senza
+// transazioni proprie, cerca un'istantanea recente lasciata da Safari in
+// Cache Storage. Best-effort per costruzione — mai un ripristino silenzioso
+// (sempre una conferma esplicita, stesso principio di restoreEncryptedBackup):
+// se non trova nulla, semplicemente non fa niente, resta il pulsante
+// manuale "Importa il tuo backup" già in Dashboard.
+async function checkIosHandoffIfEmpty() {
+  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+  if (!standalone) return;
+  if (realTxCount() > 0) return; // mai proporre un ripristino a chi ha già dati suoi
+  const snapshot = await tryReadIosHandoff();
+  if (!snapshot || typeof snapshot !== 'object') return;
+  const n = Object.values(snapshot.transactions || {}).reduce((s, arr) => s + (arr?.length || 0), 0);
+  if (!n) return; // un'istantanea vuota non vale la pena di proporla
+  if (!confirm(`Ho trovato ${n} transazioni salvate da quando usavi Momentum nel browser. Vuoi importarle qui? (Puoi anche importarle dopo dal pulsante in Dashboard)`)) return;
+  VaultDAO.state = { ...VaultDAO.state, ...snapshot, currentDate: new Date() };
+  VaultDAO.save();
+  showToast('Dati importati da Safari. Ricarico…', 'success');
+  setTimeout(() => window.location.reload(), 1000);
+}
+
 function avatarIniziali(nome) {
   return String(nome || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('') || '?';
 }
@@ -11368,7 +11390,7 @@ function renderInstallGuide() {
   if (!stepsEl) return;
   const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
   const platform = detectPlatform(navigator.userAgent, { standalone });
-  const { title, steps } = installSteps(platform);
+  const { title, steps } = installSteps(platform, { hasData: realTxCount() > 0 });
   const titleEl = document.getElementById('install-guide-title');
   const btnEl = document.getElementById('install-guide-btn');
   const doneEl = document.getElementById('install-guide-done');
@@ -11383,9 +11405,12 @@ function renderInstallGuide() {
   stepsEl.innerHTML = steps.map((s, i) => `
     <div class="flex items-start gap-3 install-step-in">
       <div class="w-7 h-7 rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)] flex items-center justify-center shrink-0 font-bold text-xs">${i + 1}</div>
-      <div class="flex items-center gap-2 flex-1 min-w-0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)] shrink-0">${INSTALL_ICON_SVG[s.icon] || INSTALL_ICON_SVG.info}</svg>
-        <p class="text-xs text-[var(--on-surface-secondary)] leading-snug">${s.text}</p>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)] shrink-0">${INSTALL_ICON_SVG[s.icon] || INSTALL_ICON_SVG.info}</svg>
+          <p class="text-xs text-[var(--on-surface-secondary)] leading-snug">${s.text}</p>
+        </div>
+        ${s.action === 'exportPlainBackup' ? '<button onclick="window.exportPlainBackup()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Salva le tue spese ora</button>' : ''}
       </div>
     </div>`).join('');
   // Il pulsante nativo appare SOLO se il browser ha davvero offerto
@@ -14463,6 +14488,13 @@ const initApp = () => {
     // blocco. Un ritardo breve, non zero: l'utente deve prima vedere "sono
     // arrivato", poi eventualmente "cosa è cambiato".
     setTimeout(() => { try { showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
+    // Ponte iOS Safari→PWA (2026-08-28, vedi vault.js): appena aperta una
+    // PWA installata su iOS SENZA transazioni proprie, controlla se Safari
+    // ha lasciato un'istantanea recente in Cache Storage — best-effort, mai
+    // garantito (comportamento non documentato da Apple, noto rotto su
+    // alcune versioni). Se non trova nulla, non succede niente: resta il
+    // pulsante manuale "Importa il tuo backup" già in Dashboard.
+    setTimeout(() => { try { checkIosHandoffIfEmpty(); } catch (e) { console.warn('ios-handoff:', e); } }, 1200);
     // I dati di mercato si scaricano in sottofondo, senza bloccare niente: se
     // l'utente chiedera' "cosa protegge quando crolla" li trovera' pronti, e
     // se non lo chiedera' mai non avra' pagato nulla all'avvio.

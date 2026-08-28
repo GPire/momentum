@@ -3233,6 +3233,16 @@
               <h3 class="text-base font-black leading-tight mb-1">Vedi i tuoi soldi veri.</h3>
               <p class="text-xs sm:text-[13px] text-[var(--on-surface-secondary)] leading-snug mb-3">Non l'esempio: importa il tuo estratto conto — CSV, PDF o anche uno screenshot.</p>
               <button onclick="document.getElementById('multi-upload').click()" class="btn-action btn-primary import-cta-respiro px-6 py-3 font-bold text-sm mx-auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa i tuoi movimenti</button>
+              <!-- 2026-08-28, bug reale segnalato da utenti: su iPhone, dopo
+                   "Aggiungi a Home", ogni transazione andava reinserita a
+                   mano — WebKit isola lo storage tra Safari e l'app
+                   installata, anche per lo stesso sito (verificato via
+                   ricerca, non capita su Android). Riusa l'input file già
+                   esistente per il ripristino backup (#backup-restore-input,
+                   cablato in main.js) — nessuna logica nuova, solo un punto
+                   d'accesso in più, proprio dove un dispositivo appena
+                   installato e vuoto viene notato per la prima volta. -->
+              <button onclick="document.getElementById('backup-restore-input').click()" class="mt-2.5 text-[11px] text-[var(--on-surface-secondary)] underline">Hai già usato Momentum da un browser? Importa qui il tuo backup</button>
             </div>
 
             <!-- Avviso dataset dimostrativo (src/ui/demo-dataset.js): PRIMA di
