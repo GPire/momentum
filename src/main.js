@@ -2690,6 +2690,19 @@ const renderDashboard = () => {
 window.deleteTx = (k, id) => {
   if (confirm("Rimuovere questo movimento?")) {
     const finish = () => {
+      // Registro affidabilità (source-registry.js): cancellare una spesa
+      // arrivata da screenshot ENTRO POCHE ORE dalla creazione è quasi
+      // sempre "questo era sbagliato/duplicato", non un ripensamento
+      // qualunque — stesso principio della correzione categoria sopra.
+      // Oltre quella finestra si smette di misurare: una spesa vecchia
+      // cancellata mesi dopo (es. riordino) non dice niente sul canale.
+      const txPrima = findTx(k, id);
+      if (txPrima?.source === 'screenshot_ocr') {
+        const eta = Date.now() - new Date(txPrima.date).getTime();
+        if (eta >= 0 && eta < 6 * 60 * 60 * 1000) {
+          VaultDAO.state.sourceRegistry = observeImport(VaultDAO.state.sourceRegistry, 'screenshot', false);
+        }
+      }
       VaultDAO.deleteTransaction(k, id);
       renderDashboard();
       renderAnalysis();
@@ -2751,6 +2764,19 @@ window.setTxCategory = (month, id, newCat) => {
   try {
     window.momentumOrchestrator?.learn(tx.description, newCat, tx.amount, new Date(tx.date));
   } catch (e) { console.warn('Apprendimento dalla correzione fallito (la categoria è comunque cambiata):', e); }
+  // Registro affidabilità (source-registry.js, 2026-08-28): screenshot/CSV/
+  // PDF si auto-salvano senza chiedere conferma (a differenza del testo
+  // condiviso), quindi non c'è un tap di conferma da osservare — QUESTA
+  // correzione è il segnale onesto disponibile: chi ha dovuto correggere la
+  // categoria di una spesa arrivata da screenshot ci dice che quel
+  // riconoscimento è andato storto. Mai per gli altri canali (manuale/CSV):
+  // qui si misura solo dove il canale può davvero sbagliare qualcosa che
+  // l'utente non ha scelto lui stesso.
+  if (tx.source === 'screenshot_ocr' && !tx._srSeen) {
+    VaultDAO.state.sourceRegistry = observeImport(VaultDAO.state.sourceRegistry, 'screenshot', false);
+    tx._srSeen = true; // mai ricontata dal controllo periodico (sweepScreenshotObservations) più sotto
+    VaultDAO.save();
+  }
   renderDashboard();
   renderAnalysis();
   showToast(`Spostata in "${getCatById(newCat).name}".`, 'success');
@@ -7338,6 +7364,31 @@ async function checkIosHandoffIfEmpty() {
   VaultDAO.save();
   showToast('Dati importati da Safari. Ricarico…', 'success');
   setTimeout(() => window.location.reload(), 1000);
+}
+
+// Segnale POSITIVO per il registro affidabilità (source-registry.js): per
+// screenshot/CSV/PDF non esiste un tap di conferma da osservare (si
+// auto-salvano). Una spesa da screenshot rimasta INTATTA per 48 ore — mai
+// corretta, mai cancellata — è il proxy onesto più semplice di "questa
+// volta il canale ha azzeccato". Ogni transazione conta UNA sola volta
+// (`_srSeen`, marcato anche dai segnali negativi in setTxCategory/deleteTx
+// più sopra: mai un doppio conteggio della stessa spesa).
+function sweepScreenshotObservations() {
+  const GRACE_MS = 48 * 60 * 60 * 1000;
+  const now = Date.now();
+  let registry = VaultDAO.state.sourceRegistry;
+  let changed = false;
+  for (const mese of Object.keys(VaultDAO.state.transactions || {})) {
+    for (const tx of VaultDAO.state.transactions[mese] || []) {
+      if (tx.source !== 'screenshot_ocr' || tx._srSeen) continue;
+      const eta = now - new Date(tx.date).getTime();
+      if (!(eta >= GRACE_MS)) continue; // troppo recente, o data anomala: si aspetta
+      registry = observeImport(registry, 'screenshot', true);
+      tx._srSeen = true;
+      changed = true;
+    }
+  }
+  if (changed) { VaultDAO.state.sourceRegistry = registry; VaultDAO.save(); }
 }
 
 function avatarIniziali(nome) {
@@ -14571,6 +14622,7 @@ const initApp = () => {
     // alcune versioni). Se non trova nulla, non succede niente: resta il
     // pulsante manuale "Importa il tuo backup" già in Dashboard.
     setTimeout(() => { try { checkIosHandoffIfEmpty(); } catch (e) { console.warn('ios-handoff:', e); } }, 1200);
+    setTimeout(() => { try { sweepScreenshotObservations(); } catch (e) { console.warn('source-registry sweep:', e); } }, 1500);
     // I dati di mercato si scaricano in sottofondo, senza bloccare niente: se
     // l'utente chiedera' "cosa protegge quando crolla" li trovera' pronti, e
     // se non lo chiedera' mai non avra' pagato nulla all'avvio.
