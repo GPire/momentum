@@ -1,0 +1,12 @@
+# Proxy trasparente verso l'hosting attuale (Cloudflare Pages).
+# Chi ha installato Momentum come PWA da questo indirizzo Netlify prima
+# della migrazione continua a vederlo identico: l'icona e l'origine
+# restano questa (nessuna rottura della modalità standalone), ma il
+# contenuto servito è sempre quello live di Cloudflare Pages — un solo
+# deploy di QUESTO file su Netlify, poi non serve più toccarlo: ogni
+# nuova versione rilasciata su Cloudflare arriva qui in automatico.
+# Sicuro per questa app: manifest.json, service worker e tutte le
+# risorse usano percorsi relativi (./), nessun URL assoluto che
+# presupponga un'origine fissa (verificato in public/manifest.json e
+# public/sw.js prima di scrivere questa regola).
+/*  https://momentum-finance.pages.dev/:splat  200
