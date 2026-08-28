@@ -187,7 +187,7 @@ import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
-import { observeImport } from './import/source-registry.js';
+import { observeImport, affidabilitaCanale } from './import/source-registry.js';
 import { NeuroSym } from './ai/neurosym.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
@@ -1635,13 +1635,39 @@ async function consumeSharedContent() {
       const prefill = {
         type: parsed.type, category: result.cat || null, amount: parsed.amount,
         description: parsed.description, currency: parsed.currency || null,
-        // Etichetta il canale (source-registry.js, 2026-08-28): misura se
-        // l'utente conferma questo suggerimento così com'è o lo corregge
-        // prima di salvare — mai usato per saltare la conferma, solo per
-        // sapere quanto fidarsi di questo canale in futuro.
         channel: 'testo-condiviso',
       };
-      if (!document.getElementById('app-core') || document.getElementById('app-core').classList.contains('hidden')) {
+      // Fiducia GUADAGNATA, non presunta (source-registry.js, 2026-08-28):
+      // screenshot/CSV/PDF salvano già in automatico in questo progetto
+      // (un file scelto esplicitamente è meno ambiguo di un testo condiviso)
+      // — qui si estende LO STESSO automatismo al testo condiviso, ma solo
+      // dopo che questo canale, su QUESTO dispositivo, ha dimostrato di
+      // azzeccarci abbastanza volte (etichetta "bene": ≥5 osservazioni reali,
+      // ≥85% corrette — mai sulla parola, sempre su numeri misurati). Finché
+      // non lo dimostra, o se manca una categoria da salvare, resta il form
+      // di conferma di sempre — mai un salto scommesso.
+      const fiducia = affidabilitaCanale(VaultDAO.state.sourceRegistry, 'testo-condiviso');
+      const appVisibile = document.getElementById('app-core') && !document.getElementById('app-core').classList.contains('hidden');
+      if (appVisibile && fiducia.etichetta === 'bene' && prefill.category) {
+        const tx = {
+          id: Date.now() + Math.random(), amount: prefill.amount, type: prefill.type,
+          category: prefill.category, description: prefill.description,
+          date: new Date().toISOString(), source: 'shared_text',
+          ...(prefill.currency ? { currency: prefill.currency } : {}),
+        };
+        const { duplicate } = VaultDAO.addTransaction(monthKey(new Date()), tx);
+        if (!duplicate) {
+          if (window.momentumOrchestrator) window.momentumOrchestrator.learn(prefill.description, prefill.category, prefill.amount, new Date());
+          VaultDAO.save();
+          renderDashboard(); renderAnalysis({ skipHeavyForecast: true });
+        }
+        showToast(
+          duplicate
+            ? 'Testo condiviso riconosciuto come duplicato di una transazione già presente.'
+            : `Salvata da sola: ${prefill.description} ${formatMoney(prefill.amount)} — questo canale si è dimostrato affidabile. Puoi sempre correggerla dalla lista.`,
+          duplicate ? 'info' : 'success'
+        );
+      } else if (!appVisibile) {
         window._pendingQuickAdd = prefill;
       } else {
         window.openPrefilledAdd(prefill);
