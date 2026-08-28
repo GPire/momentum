@@ -187,6 +187,7 @@ import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
+import { observeImport } from './import/source-registry.js';
 import { NeuroSym } from './ai/neurosym.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
@@ -1461,6 +1462,21 @@ const attachFormListeners = (container, prefill = null) => {
     // dispositivo, non un doppione fuso dal dedup.
     if (eraLaPrima && !duplicate) pingFeature('first_real_transaction');
 
+    // Registro affidabilità per canale (source-registry.js, 2026-08-28):
+    // SOLO misura, non decide — un suggerimento arrivato da un canale (es.
+    // notifica/testo condiviso) è "corretto" se l'utente lo ha salvato
+    // com'era (stesso importo E categoria), "corretto dall'utente" se ha
+    // cambiato uno dei due prima di salvare. Mai usato per saltare la
+    // conferma: quella resta sempre, per ogni canale, senza eccezioni.
+    if (prefill?.channel && !duplicate) {
+      const corretto = Math.abs((prefill.amount || 0) - amt) < 0.005 && prefill.category === catId;
+      VaultDAO.state.sourceRegistry = observeImport(VaultDAO.state.sourceRegistry, prefill.channel, corretto);
+      // addTransaction ha già salvato sopra (prima che sourceRegistry fosse
+      // aggiornato: dipende dall'esito che restituisce) — un secondo save()
+      // qui è l'unico modo per non perdere questo aggiornamento.
+      VaultDAO.save();
+    }
+
     if (window.momentumOrchestrator) {
       window.momentumOrchestrator.learn(desc?.value || getCatById(catId).name, catId, amt, selectedDate);
     } else {
@@ -1619,6 +1635,11 @@ async function consumeSharedContent() {
       const prefill = {
         type: parsed.type, category: result.cat || null, amount: parsed.amount,
         description: parsed.description, currency: parsed.currency || null,
+        // Etichetta il canale (source-registry.js, 2026-08-28): misura se
+        // l'utente conferma questo suggerimento così com'è o lo corregge
+        // prima di salvare — mai usato per saltare la conferma, solo per
+        // sapere quanto fidarsi di questo canale in futuro.
+        channel: 'testo-condiviso',
       };
       if (!document.getElementById('app-core') || document.getElementById('app-core').classList.contains('hidden')) {
         window._pendingQuickAdd = prefill;
