@@ -53,6 +53,28 @@ const DEFAULT_OPTS = {
   descriptionThreshold: 0.72,
 };
 
+// PENDING → POSTED (2026-08-28): verificato via ricerca (non ipotizzato) —
+// la causa più citata di duplicati sfuggiti in un tracker di spese multi-
+// canale è proprio questa: una notifica bancaria/uno screenshot cattura
+// l'addebito SUBITO con un importo ancora provvisorio ("pending" — es. un
+// ristorante prima di aggiungere la mancia, o una valuta estera prima della
+// conversione finale), mentre l'estratto conto (CSV/PDF) arriva DOPO con
+// l'importo VERO ("posted") — a volte giorni dopo, se nel mezzo c'è un
+// weekend o un festivo. Con la finestra stretta di sempre (48h, 1 centesimo)
+// questi due arrivi della STESSA spesa reale rischiano di non incontrarsi
+// mai e restare due righe duplicate. Qui si allarga la finestra SOLO per
+// questo caso specifico — mai per il confronto generale, che resta quello
+// stretto di sempre — e SOLO in una direzione: dalla transazione "immediata"
+// già presente (source notifica/screenshot) verso quella "definitiva" che
+// arriva dopo (CSV/PDF, senza quei source). L'importo che resta è quello
+// GIÀ salvato (mai riscritto: fa parte della catena hash usata per la
+// sincronizzazione, vedi VaultDAO.addTransaction) — questo risolve "vedo la
+// spesa due volte", non "l'importo esatto al centesimo", che richiederebbe
+// toccare quella catena e non vale il rischio per un problema di UX.
+const PENDING_SOURCES = new Set(['notification', 'screenshot_ocr']);
+const PENDING_WINDOW_HOURS = 120; // fino a 5 giorni: copre un weekend lungo
+const PENDING_AMOUNT_TOLERANCE_PCT = 0.15; // fino al 15% (mance/conversioni valuta)
+
 // Restituisce la transazione esistente che fa match, o null.
 // Le transazioni di questa app hanno forma: { date, amount, type, description, category }
 export function findDuplicate(newTx, existingTxs, opts = {}) {
@@ -61,33 +83,51 @@ export function findDuplicate(newTx, existingTxs, opts = {}) {
 
   let best = null;
   let bestScore = 0;
+  let bestPending = null;
+  let bestPendingScore = 0;
 
   for (const tx of existingTxs) {
     const timeDiffHours = Math.abs(new Date(tx.date).getTime() - newDate) / 3_600_000;
-    if (timeDiffHours > windowHours) continue;
 
-    const sameAmount = Math.abs(tx.amount - newTx.amount) <= amountTolerance;
-    if (!sameAmount) continue;
-
-    if (newTx.type && tx.type && newTx.type !== tx.type) continue;
+    const sameType = !newTx.type || !tx.type || newTx.type === tx.type;
 
     // MOVIMENTO AUTO-AVVIATO (bonifico SEPA/sweep registrato da Momentum): quando
     // poi arriva il rigo della banca (CSV) con una descrizione MOLTO diversa, la
     // similarità testo fallirebbe. Ma sai di averlo fatto tu: stesso importo,
     // stesso tipo, stessa finestra su una tx flaggata selfTransfer non ancora
     // riconciliata = è lo stesso movimento. Match forte a prescindere dal testo.
-    if (tx.selfTransfer && !tx.reconciledBank) {
+    if (timeDiffHours <= windowHours && sameType && tx.selfTransfer && !tx.reconciledBank
+      && Math.abs(tx.amount - newTx.amount) <= amountTolerance) {
       return tx; // riconciliazione certa, nessun rischio di doppio conteggio
     }
 
-    const score = descriptionSimilarity(tx.description, newTx.description);
-    if (score >= descriptionThreshold && score > bestScore) {
-      best = tx;
-      bestScore = score;
+    if (timeDiffHours <= windowHours && sameType && Math.abs(tx.amount - newTx.amount) <= amountTolerance) {
+      const score = descriptionSimilarity(tx.description, newTx.description);
+      if (score >= descriptionThreshold && score > bestScore) {
+        best = tx;
+        bestScore = score;
+      }
+    }
+
+    // Ramo pending→posted: SOLO se la strict-match sopra non ha già trovato
+    // nulla per questa tx, mai per allargare oltre quanto serve.
+    if (sameType && PENDING_SOURCES.has(tx.source) && !PENDING_SOURCES.has(newTx.source || '')
+      && timeDiffHours <= PENDING_WINDOW_HOURS) {
+      const pctDiff = tx.amount > 0 ? Math.abs(tx.amount - newTx.amount) / tx.amount : 1;
+      if (pctDiff <= PENDING_AMOUNT_TOLERANCE_PCT) {
+        const score = descriptionSimilarity(tx.description, newTx.description);
+        if (score >= descriptionThreshold && score > bestPendingScore) {
+          bestPending = tx;
+          bestPendingScore = score;
+        }
+      }
     }
   }
 
-  return best;
+  // La strict-match (finestra e tolleranza di sempre) vince sempre quando
+  // esiste: è il confronto più affidabile. Il ramo pending→posted interviene
+  // SOLO quando quello stretto non ha trovato niente.
+  return best || bestPending;
 }
 
 export function isDuplicate(newTx, existingTxs, opts = {}) {
