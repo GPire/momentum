@@ -28,6 +28,11 @@
 // modificare una voce già pubblicata (un dispositivo che l'ha già vista
 // non deve rivederla cambiata), e mai una release senza almeno una voce
 // reale (niente "release vuote" solo per marcare una versione).
+// `titoloKey`/`testoKey` (2026-08-28): riferimento a src/i18n/ui-strings.js
+// per IT/EN/ES/DE/FR — `titolo`/`testo` restano la sorgente italiana E il
+// fallback se una voce futura non ha ancora una chiave (mai un buco muto:
+// meglio italiano che niente). Chi rilascia una nuova voce può aggiungerla
+// senza la chiave, tradurla dopo — non blocca il rilascio della funzione.
 export const RELEASES = [
   {
     versione: '2026-08-27',
@@ -37,24 +42,28 @@ export const RELEASES = [
         icona: '<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>',
         titolo: 'Partita IVA Spagna, con le tue fatture vere',
         testo: 'Non più solo un simulatore: se lavori come autónomo, RETA e IRPF ora si calcolano dalle transazioni reali che registri, mese per mese.',
+        titoloKey: 'wn0827_0_t', testoKey: 'wn0827_0_d',
       },
       {
         colore: 'primary',
         icona: '<circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/>',
         titolo: 'Divisione spese più affidabile',
         testo: 'Chi deve cosa a chi ora è sempre corretto anche per chi si unisce a un gruppo (non solo per chi lo crea), e due persone con lo stesso nome non si confondono più.',
+        titoloKey: 'wn0827_1_t', testoKey: 'wn0827_1_d',
       },
       {
         colore: 'green',
         icona: '<path d="M20 6L9 17l-5-5"/>',
         titolo: 'Sincronizzazione tra dispositivi, corretta alla radice',
         testo: 'Rinominare un gruppo, aggiungere una spesa o scrivere in chat ora raggiunge davvero gli altri dispositivi collegati, subito.',
+        titoloKey: 'wn0827_2_t', testoKey: 'wn0827_2_d',
       },
       {
         colore: 'purple',
         icona: '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
         titolo: 'Quanto è merito tuo, mese per mese',
         testo: 'Nell\'analisi di un titolo, un grafico mostra ora quanto del suo andamento è davvero "suo" e non solo il mercato che sale — mese dopo mese, non solo un numero unico.',
+        titoloKey: 'wn0827_3_t', testoKey: 'wn0827_3_d',
       },
     ],
   },
@@ -66,24 +75,28 @@ export const RELEASES = [
         icona: '<path d="M3 3v18h18M7 14l4-4 3 3 5-6"/>',
         titolo: 'I tuoi canali di import, monitorati da soli',
         testo: 'Screenshot, CSV e PDF che si dimostrano affidabili iniziano a salvarsi da soli, senza chiedere conferma ogni volta — visibile in Momentum Vault, sotto gli import.',
+        titoloKey: 'wn0828_0_t', testoKey: 'wn0828_0_d',
       },
       {
         colore: 'green',
         icona: '<path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>',
         titolo: 'Il backup prima di installarla come app',
         testo: 'Su iPhone, aggiungere Momentum alla Home ora avvisa di salvare un backup prima — e chi l\'ha già usata da un browser può recuperare i suoi dati con un tocco.',
+        titoloKey: 'wn0828_1_t', testoKey: 'wn0828_1_d',
       },
       {
         colore: 'primary',
         icona: '<path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
         titolo: 'Niente più doppioni tra notifica e conto',
         testo: 'Una spesa vista prima da una notifica o uno screenshot, e poi confermata dall\'estratto conto arrivato dopo, non compare più due volte.',
+        titoloKey: 'wn0828_2_t', testoKey: 'wn0828_2_d',
       },
       {
         colore: 'purple',
         icona: '<path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/>',
         titolo: 'L\'app ti dice quando ha imparato qualcosa',
         testo: 'Correggere la categoria di una spesa ora mostra subito che Momentum se lo ricorderà — non resta più un cambiamento invisibile.',
+        titoloKey: 'wn0828_3_t', testoKey: 'wn0828_3_d',
       },
     ],
   },

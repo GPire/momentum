@@ -7362,7 +7362,7 @@ function showWhatsNewIfDue() {
       const html = `
       <div class="payoff-card flex items-center gap-3 rounded-2xl border p-3 ${tono[v.colore]}" style="--i:${indice}">
         <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[v.colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></div>
-        <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${esc(v.titolo)}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(v.testo)}</div></div>
+        <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${esc(v.titoloKey ? tCh(v.titoloKey, __uiLang) : v.titolo)}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(v.testoKey ? tCh(v.testoKey, __uiLang) : v.testo)}</div></div>
       </div>`;
       indice++;
       return html;

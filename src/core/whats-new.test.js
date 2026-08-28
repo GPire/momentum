@@ -28,6 +28,20 @@ test('RELEASES: ogni release ha almeno una voce, ogni voce ha titolo e testo non
   }
 });
 
+// titoloKey/testoKey (2026-08-28): riferimento a src/i18n/ui-strings.js,
+// opzionale per non bloccare il rilascio di una voce nuova non ancora
+// tradotta — ma le release ESISTENTI (già tradotte in questa sessione)
+// devono averle entrambe, altrimenti main.js ricadrebbe silenziosamente
+// sull'italiano per un utente che ha scelto un'altra lingua.
+test('RELEASES: ogni voce delle release esistenti ha titoloKey e testoKey (nessun buco silenzioso in altre lingue)', () => {
+  for (const r of RELEASES) {
+    for (const v of r.voci) {
+      assert.ok(v.titoloKey, `voce "${v.titolo}" (${r.versione}) senza titoloKey`);
+      assert.ok(v.testoKey, `voce "${v.titolo}" (${r.versione}) senza testoKey`);
+    }
+  }
+});
+
 // ── unseenReleases: STORICO, non solo l'ultima (richiesto esplicitamente
 // dall'utente) — un dispositivo fermo da mesi deve vedere TUTTO quello che
 // si è perso, non solo la voce più recente. ──

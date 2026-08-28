@@ -197,6 +197,34 @@ test('t: tutte le chiavi dashImport* esistono in IT/EN/ES/DE/FR', () => {
   }
 });
 
+// ── "Cosa c'è di nuovo" (src/core/whats-new.js) — 2026-08-28: segnalato
+// dall'utente che era rimasta solo in italiano dopo la prima passata di
+// traduzioni. ──
+
+test('t: tutte le chiavi wn* (header + 8 voci × titolo/testo) esistono in IT/EN/ES/DE/FR', () => {
+  const chiavi = ['wnEyebrow', 'wnTitle', 'wnClose'];
+  for (const rel of ['0827', '0828']) {
+    for (let i = 0; i < 4; i++) {
+      chiavi.push(`wn${rel}_${i}_t`, `wn${rel}_${i}_d`);
+    }
+  }
+  assert.equal(chiavi.length, 3 + 16);
+  for (const lang of ['it', 'en', 'es', 'de', 'fr']) {
+    for (const k of chiavi) {
+      assert.notEqual(t(k, lang), k, `chiave "${k}" mancante in lingua "${lang}"`);
+    }
+  }
+});
+
+test('t: wnTitle e wnClose traducono correttamente in tutte le 5 lingue', () => {
+  assert.equal(t('wnTitle', 'it'), 'Cosa c\'è di nuovo');
+  assert.equal(t('wnTitle', 'en'), 'What\'s new');
+  assert.equal(t('wnTitle', 'es'), 'Novedades');
+  assert.equal(t('wnTitle', 'de'), 'Was ist neu');
+  assert.equal(t('wnTitle', 'fr'), 'Quoi de neuf');
+  assert.equal(t('wnClose', 'en'), 'Got it');
+});
+
 test('t: dashImportTitle traduce correttamente in tutte le 5 lingue', () => {
   assert.equal(t('dashImportTitle', 'it'), 'Vedi i tuoi soldi veri.');
   assert.equal(t('dashImportTitle', 'en'), 'See your real money.');
