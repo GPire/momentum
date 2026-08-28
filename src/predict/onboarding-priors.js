@@ -12,6 +12,7 @@
 
 const RISKS = new Set(['conservativo', 'bilanciato', 'aggressivo']);
 const HORIZONS = new Set(['breve', 'medio', 'lungo']);
+const INCOME_REGULARITY = new Set(['regolare', 'variabile', 'irregolare']);
 
 // Config di base derivata dal profilo (centralizza la logica prima inline in
 // seedProfileState → una sola fonte di verità, niente divergenze).
@@ -33,7 +34,17 @@ const HORIZONS = new Set(['breve', 'medio', 'lungo']);
 // rischio in più — chi non investe ha comunque bisogno di budget, cuscinetto
 // e freno spese come chiunque altro, solo `investFraction` si azzera (mai
 // una quota "investibile" proposta a chi ha detto esplicitamente di no).
-export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMonths = null, invests = true) {
+// `incomeRegularity` (opzionale, quinto parametro, domanda 4 dell'onboarding
+// dal 2026-08-28): quanto sono prevedibili le entrate mese per mese — un
+// segnale DIVERSO dalla liquidità (`liquidityMonths`): un cuscinetto pieno
+// OGGI non dice nulla su quanto sarà prevedibile l'entrata del mese
+// prossimo, e chi ha entrate irregolari (freelance, provvigioni, PIVA) ne
+// ha bisogno anche con un buon cuscinetto attuale. Onesto: 'irregolare' non
+// può MAI rendere il sistema più permissivo di quanto sarebbe con entrate
+// regolari (stesso principio del bisogno che vince sulla dichiarazione già
+// applicato a liquidityMonths) — può solo aggiungere cautela, mai toglierla.
+export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMonths = null, invests = true, incomeRegularity = null) {
+  const ir = INCOME_REGULARITY.has(incomeRegularity) ? incomeRegularity : null;
   const r = RISKS.has(risk) ? risk : 'bilanciato';
   const hz = HORIZONS.has(horizon) ? horizon : 'medio';
   const monthlyBudget = r === 'conservativo' ? 1000 : r === 'aggressivo' ? 2200 : 1500;
@@ -62,9 +73,20 @@ export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMo
     cashflowStress = liquidityMonths < 2 ? 'corto' : liquidityMonths >= 12 ? 'ampio' : 'normale';
     if (cashflowStress === 'corto' && aiAggression !== 'predator') aiAggression = 'predator';
   }
+  // Entrate irregolari: mai un peggioramento silenzioso, sempre un numero e
+  // un motivo visibili a valle (payoff in main.js). Il tetto su 'ampio' non
+  // sovrascrive 'corto' (che resta il segnale più forte, invariato sopra);
+  // il +2 mesi si somma SEMPRE, sia che il cuscinetto venga dalla liquidità
+  // dichiarata sia che venga dal solo profilo — un'entrata imprevedibile
+  // pesa allo stesso modo in entrambi i casi.
+  if (ir === 'irregolare') {
+    if (cashflowStress === 'ampio' || cashflowStress === null) cashflowStress = 'normale';
+    finalEmergencyMonths += 2;
+    if (aiAggression === 'zen') aiAggression = 'advisor';
+  }
   return {
     risk: r, horizon: hz, monthlyBudget, investFraction: invests ? investFraction : 0, emergencyMonths: finalEmergencyMonths, riskFloor, aiAggression,
-    cashflowStress, liquidityMonths: haLiquiditaReale ? +liquidityMonths : null, invests: !!invests,
+    cashflowStress, liquidityMonths: haLiquiditaReale ? +liquidityMonths : null, invests: !!invests, incomeRegularity: ir,
   };
 }
 
@@ -90,13 +112,21 @@ export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMo
 // l'avviso esiste (retaIrpfPeriodo resta puro), solo la sua priorità nel
 // feed. Innocuo per chi non lavora in Spagna: quell'insight non viene mai
 // generato per loro, il braccio del bandit resta seminato ma inerte.
-export function banditSeed(risk = 'bilanciato', cashflowStress = null) {
+// `incomeRegularity` (opzionale, terzo parametro): 'irregolare' aggiunge lo
+// stesso bias di cashflowStress='corto' su 'es-tax-set-aside' (mettere da
+// parte prima che arrivi una fattura conta di più con entrate imprevedibili,
+// a prescindere dal cuscinetto attuale) ma un po' più debole (0.3 non 0.5) —
+// è un segnale dichiarato sull'onboarding, non ancora osservato sui dati
+// reali. Math.max, non somma: due segnali che puntano nella stessa
+// direzione non devono raddoppiare il bias, solo confermarlo.
+export function banditSeed(risk = 'bilanciato', cashflowStress = null, incomeRegularity = null) {
   const r = RISKS.has(risk) ? risk : 'bilanciato';
   // kind favorito e forza del bias (pseudo-successi aggiunti al prior a=1).
   const favor = r === 'conservativo' ? { sweep: 0.6, causal: 0.1 }
     : r === 'aggressivo' ? { causal: 0.6, sweep: 0.1 }
     : { sweep: 0.3, causal: 0.3 };
   if (cashflowStress === 'corto') { favor['bnpl-exposure'] = 0.5; favor['es-tax-set-aside'] = 0.5; }
+  if (incomeRegularity === 'irregolare') { favor['es-tax-set-aside'] = Math.max(favor['es-tax-set-aside'] || 0, 0.3); }
   const contexts = ['ok:early', 'ok:mid', 'ok:late', 'over:early', 'over:mid', 'over:late'];
   const arms = {};
   for (const ctx of contexts) {
@@ -110,9 +140,9 @@ export function banditSeed(risk = 'bilanciato', cashflowStress = null) {
 // Fonde i priori del bandit dentro uno stato advisorBandit esistente SENZA
 // sovrascrivere bracci già appresi (se l'utente ha già dati reali, quelli
 // vincono: si semina solo dove non c'è ancora nulla). Puro.
-export function seedBanditState(existing, risk = 'bilanciato', cashflowStress = null) {
+export function seedBanditState(existing, risk = 'bilanciato', cashflowStress = null, incomeRegularity = null) {
   const base = existing && existing.arms ? existing : { version: 1, arms: {} };
-  const seed = banditSeed(risk, cashflowStress);
+  const seed = banditSeed(risk, cashflowStress, incomeRegularity);
   const arms = { ...base.arms };
   for (const [key, val] of Object.entries(seed)) {
     if (!arms[key]) arms[key] = val; // non toccare i bracci già appresi

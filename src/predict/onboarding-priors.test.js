@@ -157,3 +157,77 @@ test('testoConsiglio: input non valido → default bilanciato, mai un crash', ()
   assert.match(testoConsiglio('boh'), /equilibrati/);
   assert.match(testoConsiglio(), /equilibrati/);
 });
+
+// ── incomeRegularity (domanda 4 dell'onboarding, 2026-08-28): mai più
+// permissivo di entrate regolari, solo più cauto — mai il contrario. ──
+
+test('derivePriors: incomeRegularity assente/non valido → comportamento identico a prima (retrocompatibile)', () => {
+  const base = derivePriors('bilanciato', 'medio', 6, true);
+  for (const v of [undefined, null, 'boh', '']) {
+    const d = derivePriors('bilanciato', 'medio', 6, true, v);
+    assert.deepEqual(d, { ...base, incomeRegularity: null });
+  }
+});
+
+test('derivePriors: irregolare abbassa il tetto "ampio" a "normale", anche con liquidità dichiarata molto alta', () => {
+  const d = derivePriors('bilanciato', 'medio', 18, true, 'irregolare');
+  assert.equal(d.cashflowStress, 'normale', 'un cuscinetto pieno oggi non garantisce entrate prevedibili domani');
+});
+
+test('derivePriors: irregolare NON peggiora "corto" (che resta il segnale più forte, invariato)', () => {
+  const d = derivePriors('bilanciato', 'medio', 1, true, 'irregolare');
+  assert.equal(d.cashflowStress, 'corto');
+});
+
+test('derivePriors: irregolare senza liquidità dichiarata imposta comunque un floor "normale" (mai null)', () => {
+  const d = derivePriors('bilanciato', 'medio', null, true, 'irregolare');
+  assert.equal(d.cashflowStress, 'normale');
+});
+
+test('derivePriors: irregolare aggiunge sempre +2 mesi di cuscinetto, sia che venga dal profilo sia dalla liquidità dichiarata', () => {
+  const senzaIrregolare = derivePriors('bilanciato', 'medio');
+  const conIrregolare = derivePriors('bilanciato', 'medio', null, true, 'irregolare');
+  assert.equal(conIrregolare.emergencyMonths, senzaIrregolare.emergencyMonths + 2);
+
+  const senzaIrregolareLiq = derivePriors('bilanciato', 'medio', 5);
+  const conIrregolareLiq = derivePriors('bilanciato', 'medio', 5, true, 'irregolare');
+  assert.equal(conIrregolareLiq.emergencyMonths, senzaIrregolareLiq.emergencyMonths + 2);
+});
+
+test('derivePriors: irregolare non lascia mai il freno spese sul minimo ("zen") — lo alza almeno ad "advisor"', () => {
+  const d = derivePriors('aggressivo', 'lungo', null, true, 'irregolare'); // da solo sarebbe zen
+  assert.equal(d.aiAggression, 'advisor');
+});
+
+test('derivePriors: irregolare non tocca aiAggression già "predator" (nessun downgrade, solo mai peggio del previsto)', () => {
+  const d = derivePriors('conservativo', 'breve', null, true, 'irregolare');
+  assert.equal(d.aiAggression, 'predator');
+});
+
+test('derivePriors: "regolare"/"variabile" non attivano nessuna delle regole di "irregolare"', () => {
+  for (const ir of ['regolare', 'variabile']) {
+    const d = derivePriors('bilanciato', 'medio', 18, true, ir);
+    assert.equal(d.cashflowStress, 'ampio', `con incomeRegularity=${ir}`);
+    assert.equal(d.emergencyMonths, 18, `con incomeRegularity=${ir}`);
+  }
+});
+
+test('banditSeed: incomeRegularity="irregolare" favorisce es-tax-set-aside anche senza cashflowStress="corto"', () => {
+  const mean = (arm) => arm.a / (arm.a + arm.b);
+  const senza = banditSeed('bilanciato', null, null);
+  const conIrregolare = banditSeed('bilanciato', null, 'irregolare');
+  assert.equal(senza['ok:mid|es-tax-set-aside'], undefined);
+  assert.ok(conIrregolare['ok:mid|es-tax-set-aside']);
+  assert.ok(mean(conIrregolare['ok:mid|es-tax-set-aside']) > 0.5);
+});
+
+test('banditSeed: cashflowStress="corto" + incomeRegularity="irregolare" non raddoppiano il bias su es-tax-set-aside (Math.max, non somma)', () => {
+  const soloCorto = banditSeed('bilanciato', 'corto', null);
+  const entrambi = banditSeed('bilanciato', 'corto', 'irregolare');
+  assert.deepEqual(entrambi['ok:mid|es-tax-set-aside'], soloCorto['ok:mid|es-tax-set-aside']);
+});
+
+test('seedBanditState: propaga incomeRegularity a banditSeed, senza toccare i bracci già appresi', () => {
+  const out = seedBanditState(null, 'bilanciato', null, 'irregolare');
+  assert.ok(out.arms['ok:mid|es-tax-set-aside']);
+});

@@ -10923,11 +10923,11 @@ window.nukeVault = () => {
 // ==========================================
 // BOOT & ONBOARDING LIFE CYCLES
 // ==========================================
-// Ordine domande (dal 2026-08-26): 1=liquidità, 2=rischio, 3=orizzonte,
-// 4=payoff+conferma. "step" nel nome dei parametri qui sotto è lo step di
-// DESTINAZIONE (quello a cui si sta navigando), non quello corrente — la
-// risposta appena data arriva insieme al numero dello step successivo,
-// stesso schema per tutte e tre le domande.
+// Ordine domande (dal 2026-08-28): 1=liquidità, 2=rischio, 3=orizzonte,
+// 4=regolarità entrate, 5=payoff+conferma. "step" nel nome dei parametri qui
+// sotto è lo step di DESTINAZIONE (quello a cui si sta navigando), non
+// quello corrente — la risposta appena data arriva insieme al numero dello
+// step successivo, stesso schema per tutte e quattro le domande.
 window.genesisStep = 0;
 window.genesisNext = (step, value = '') => {
   try {
@@ -10945,17 +10945,21 @@ window.genesisNext = (step, value = '') => {
       window.userRiskProfile = value === 'non-investe' ? 'bilanciato' : value;
     }
     if (step === 4) window.userTimeHorizon = value;
+    // Domanda 4 (regolarità entrate, 2026-08-28): '' = "preferisco non
+    // dirlo", stesso schema falsy-di-'Non lo so'-liquidità → derivePriors
+    // riceve null e non applica nessuna delle regole di 'irregolare'.
+    if (step === 5) window.userIncomeRegularity = value === '' ? null : value;
 
     // PRIMING PROGRESSIVO (anti-abbandono): a ogni risposta seminiamo i priori in
     // memoria (SENZA salvare: il save avviene solo alla conferma finale, per non
     // marcare "onboarded" a metà). Se l'utente completa, il motore è già caldo;
     // se torna indietro, l'ultima risposta ridefinisce i priori senza residui.
-    if (value !== '' && (step === 2 || step === 3 || step === 4)) {
+    if (value !== '' && (step === 2 || step === 3 || step === 4 || step === 5)) {
       try {
-        const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false);
+        const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
         VaultDAO.state.aiAggression = p.aiAggression;
         VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests };
-        VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk, p.cashflowStress);
+        VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk, p.cashflowStress, p.incomeRegularity);
       } catch (_) { /* priming best-effort: non blocca mai l'onboarding */ }
     }
 
@@ -10971,7 +10975,7 @@ window.genesisNext = (step, value = '') => {
     }
     window.genesisStep = step;
 
-    if (step === 4) { initGenesisHold(); renderGenesisPayoff(); }
+    if (step === 5) { initGenesisHold(); renderGenesisPayoff(); }
   } catch(e) { console.error("genesisNext error:", e); }
 };
 
@@ -10994,7 +10998,7 @@ const LABEL_FRENO = { zen: 'Delicato', advisor: 'Consigliere', predator: 'Deciso
 function renderGenesisPayoff() {
   const el = document.getElementById('genesis-payoff');
   if (!el) return;
-  const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false);
+  const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
   // Stessa card icona+testo di openMomentumReveal (sopra in questo file) —
   // riuso apposta, non un nuovo stile inventato: è il linguaggio visivo che
   // l'app usa già per "ecco cosa ho fatto per te", e deve restare coerente
@@ -11030,6 +11034,13 @@ function renderGenesisPayoff() {
   if (p.cashflowStress === 'corto') {
     righe.push(card('primary', '<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>',
       'Liquidità corta', 'Il freno resta protettivo anche con un profilo più aggressivo — il bisogno vince sulla dichiarazione.'));
+  }
+  // Stessa trasparenza applicata a incomeRegularity (domanda 4, 2026-08-28):
+  // se ha aggiunto cuscinetto, l'utente deve vederlo qui, non scoprirlo dopo
+  // chiedendosi perché il numero è più alto di quanto si aspettava.
+  if (p.incomeRegularity === 'irregolare') {
+    righe.push(card('gold', '<path d="M3 3v18h18M7 14l4-4 3 3 5-6"/>',
+      'Entrate irregolari', 'Cuscinetto aumentato di 2 mesi: con entrate che variano, un margine più ampio protegge di più.'));
   }
   el.innerHTML = righe.join('');
 }
@@ -11138,7 +11149,7 @@ const initGenesisHold = () => {
   // fatta, così il listener non sopravvive oltre l'onboarding.
   const keyHandler = (e) => {
     if (endGenesis._done) { document.removeEventListener('keydown', keyHandler); return; }
-    if (window.genesisStep === 3 && (e.key === 'Enter' || e.key === ' ')) {
+    if (window.genesisStep === 5 && (e.key === 'Enter' || e.key === ' ')) {
       try { e.preventDefault(); } catch(err) {}
       document.removeEventListener('keydown', keyHandler);
       if (holdTimer) clearInterval(holdTimer);
@@ -11311,25 +11322,25 @@ const initPrivacyProof = (scene, hint = null, autoInvito = true) => {
 // modello) da rischio+orizzonte. Unica fonte di verità: la usano sia
 // l'onboarding completo (endGenesis) sia l'attivazione "lampo" (activateLite) e
 // il potenziamento dal Reveal — così le tre strade non divergono mai.
-function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = null, invests = true) {
+function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = null, invests = true, incomeRegularity = null) {
   // LE DOMANDE ADDESTRANO IL CORE (src/predict/onboarding-priors.js): dai
   // profili deriviamo priori per PIÙ modelli, così Momentum parte già
   // personalizzato e predittivo dal primo tocco (nessun concorrente lo fa).
-  // `liquidityMonths`/`invests` sono opzionali: l'onboarding completo li
-  // chiede (domande 1 e 2), l'attivazione "lampo" e la versione compatta
-  // no — in quei percorsi restano ai default e derivePriors ricade sul
+  // `liquidityMonths`/`invests`/`incomeRegularity` sono opzionali: l'onboarding
+  // completo li chiede (domande 1, 2 e 4), l'attivazione "lampo" e la versione
+  // compatta no — in quei percorsi restano ai default e derivePriors ricade sul
   // valore derivato dal profilo, mai un dato inventato per far tornare i conti.
-  const p = derivePriors(risk, hz, liquidityMonths, invests);
+  const p = derivePriors(risk, hz, liquidityMonths, invests, incomeRegularity);
   VaultDAO.state.isFirstLaunch = false;
-  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress };
+  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress, incomeRegularity: p.incomeRegularity };
   VaultDAO.state.monthlyBudget = p.monthlyBudget;
-  VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests };
+  VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests, incomeRegularity: p.incomeRegularity };
   // Tono dei nudge di spesa personalizzato subito.
   VaultDAO.state.aiAggression = p.aiAggression;
   // Priori DEBOLI per il contextual bandit dell'advisor: il primo consiglio è
   // già orientato al profilo (prudente→risparmio, aggressivo→ottimizzazione),
   // ma i dati reali li superano in fretta. Non tocca i bracci già appresi.
-  try { VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk, p.cashflowStress); } catch (_) {}
+  try { VaultDAO.state.advisorBandit = seedBanditState(VaultDAO.state.advisorBandit, p.risk, p.cashflowStress, p.incomeRegularity); } catch (_) {}
   // Priori della rete neurale on-device.
   try { NeuralNexus.initPriorWeights(VaultDAO.state.onboardingProfile); } catch (_) {}
   pingFeature('onboarding_completed');
@@ -11364,7 +11375,7 @@ const endGenesis = () => {
     // Logica condivisa con l'attivazione "lampo" (seedProfileState) per non
     // divergere mai. Il campo `activatedLite` viene tolto: qui il profilo è
     // scelto davvero dall'utente (onboarding completo).
-    seedProfileState(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false);
+    seedProfileState(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
     delete VaultDAO.state.activatedLite;
     VaultDAO.save();
     const overlay = $('#genesis-container');

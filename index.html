@@ -2954,7 +2954,7 @@
              capisce, e dice esattamente quello che la scena ha appena fatto. -->
         <div class="privacy-claim mb-6">
           <h2 class="text-2xl font-black leading-tight mb-1">Niente esce da qui.</h2>
-          <p class="text-sm text-[var(--on-surface-secondary)] leading-snug">I tuoi dati provano a uscire e tornano dentro. Nessun server, nessun account: restano sul tuo telefono. Tre domande e sei dentro.</p>
+          <p class="text-sm text-[var(--on-surface-secondary)] leading-snug">I tuoi dati provano a uscire e tornano dentro. Nessun server, nessun account: restano sul tuo telefono. Quattro domande e sei dentro.</p>
         </div>
         <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext(1)">Inizia — bastano 20 secondi</button>
       </div>
@@ -2966,8 +2966,8 @@
            profilo — stessa logica di ogni altra domanda qui, nessun caso
            speciale da mantenere a parte. -->
       <div class="genesis-step" id="g-step-1">
-        <div class="g-progress" aria-hidden="true"><span class="on"></span><span></span><span></span></div>
-        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 1 di 3</p>
+        <div class="g-progress" aria-hidden="true"><span class="on"></span><span></span><span></span><span></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 1 di 4</p>
         <h2 class="text-2xl font-black mb-1">Se le tue entrate si fermassero oggi.</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Quanto potresti andare avanti, spendendo come adesso?</p>
         <button class="g-option" style="--i:1" onclick="genesisNext(2, 0.5)">Meno di un mese</button>
@@ -2978,8 +2978,8 @@
       </div>
       <!-- Step 2 — stessa domanda-profilo (valori invariati) ma in parole umane. -->
       <div class="genesis-step" id="g-step-2">
-        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="on"></span><span></span></div>
-        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 2 di 3</p>
+        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="on"></span><span></span><span></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 2 di 4</p>
         <h2 class="text-2xl font-black mb-1">Il mercato scende del 20%.</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Tu cosa faresti?</p>
         <button class="g-option" style="--i:1" onclick="genesisNext(3, 'aggressivo')">Compro ancora, è in saldo</button>
@@ -2989,16 +2989,32 @@
       </div>
       <!-- Step 3 -->
       <div class="genesis-step" id="g-step-3">
-        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="done"></span><span class="on"></span></div>
-        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 3 di 3 — l'ultima</p>
+        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="done"></span><span class="on"></span><span></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 3 di 4</p>
         <h2 class="text-2xl font-black mb-1">Fra quanto ti servono?</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Così i consigli sono cuciti su di te.</p>
         <button class="g-option" style="--i:1" onclick="genesisNext(4, 'lungo')">Fra molti anni — sto costruendo</button>
         <button class="g-option" style="--i:2" onclick="genesisNext(4, 'medio')">Fra qualche anno — un progetto</button>
         <button class="g-option" style="--i:3" onclick="genesisNext(4, 'breve')">Presto — mi servono a breve</button>
       </div>
-      <!-- Step 4 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
+      <!-- Step 4 — regolarità entrate (2026-08-28): segnale indipendente dal
+           cuscinetto dichiarato allo step 1 — un buon cuscinetto OGGI non
+           dice nulla su quanto sarà prevedibile l'entrata del mese prossimo.
+           Alimenta derivePriors()/banditSeed() in src/predict/onboarding-
+           priors.js (vedi commenti lì): mai per allentare, solo per
+           aggiungere cautela quando le entrate sono irregolari. -->
       <div class="genesis-step" id="g-step-4">
+        <div class="g-progress" aria-hidden="true"><span class="done"></span><span class="done"></span><span class="done"></span><span class="on"></span></div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2">Domanda 4 di 4 — l'ultima</p>
+        <h2 class="text-2xl font-black mb-1">Le tue entrate, come arrivano?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6">Stipendio fisso o più imprevedibili — cambia quanto cuscinetto ti serve davvero.</p>
+        <button class="g-option" style="--i:1" onclick="genesisNext(5, 'regolare')">Sempre uguali, ogni mese</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(5, 'variabile')">Variano un po', ma prevedibili</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(5, 'irregolare')">Cambiano molto, mese per mese</button>
+        <button class="g-option" style="--i:4" onclick="genesisNext(5, '')">Preferisco non dirlo</button>
+      </div>
+      <!-- Step 5 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
+      <div class="genesis-step" id="g-step-5">
         <h2 class="text-2xl font-black mb-2 text-center">Tutto pronto.</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-4 text-center">Da ora Momentum ragiona come te. Ecco cosa ho già regolato:</p>
         <!-- Payoff visibile: le 2 risposte hanno GIÀ cambiato budget, freno
