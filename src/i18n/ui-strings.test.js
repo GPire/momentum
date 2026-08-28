@@ -117,10 +117,13 @@ test('t: chi ha il dispositivo in tedesco/francese e finisce comunque sulla sche
 
 // ── Onboarding (g-step-0..4, index.html) — 2026-08-28, punto più ad alto
 // impatto virale: la prima cosa che vede chiunque arrivi da un link di
-// divisione. Solo IT/EN/ES (priorità già stabilita nel modulo): DE/FR
-// ricadono su EN per queste chiavi, verificato esplicitamente sotto. ──
+// divisione. IT/EN/ES/DE/FR: tedesco e francese aggiunti dopo una ricerca
+// esplicita sui mercati reali della divisione spese (Tricount, stessa
+// categoria di prodotto, è forte in Francia/Belgio/Germania/Paesi Bassi,
+// non solo popolazione generica) — non ripiegano più su EN per queste
+// chiavi. ──
 
-test('t: tutte le chiavi genesis esistono in IT/EN/ES — nessuna traduzione dimenticata', () => {
+test('t: tutte le chiavi genesis esistono in IT/EN/ES/DE/FR — nessuna traduzione dimenticata', () => {
   const chiavi = [
     'genesisTagline', 'genesisPrivacyTitle', 'genesisPrivacyText', 'genesisStart',
     'genesisProgress1', 'genesisProgress2', 'genesisProgress3', 'genesisProgress4Last',
@@ -129,7 +132,7 @@ test('t: tutte le chiavi genesis esistono in IT/EN/ES — nessuna traduzione dim
     'genesisQ3Title', 'genesisQ3Sub', 'genesisQ3Opt1', 'genesisQ3Opt2', 'genesisQ3Opt3',
     'genesisQ4Title', 'genesisQ4Sub', 'genesisQ4Opt1', 'genesisQ4Opt2', 'genesisQ4Opt3', 'genesisQ4Opt4',
   ];
-  for (const lang of ['it', 'en', 'es']) {
+  for (const lang of ['it', 'en', 'es', 'de', 'fr']) {
     for (const k of chiavi) {
       const v = t(k, lang);
       assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
@@ -137,16 +140,46 @@ test('t: tutte le chiavi genesis esistono in IT/EN/ES — nessuna traduzione dim
   }
 });
 
-test('t: le chiavi genesis in tedesco/francese ricadono su EN (nessuna traduzione DE/FR scritta per queste, per scelta di scope)', () => {
-  for (const lang of ['de', 'fr']) {
-    assert.equal(t('genesisTagline', lang), t('genesisTagline', 'en'));
-    assert.equal(t('genesisQ1Title', lang), t('genesisQ1Title', 'en'));
-  }
+test('t: le chiavi genesis in tedesco e francese sono traduzioni reali, non un ripiego su EN', () => {
+  assert.notEqual(t('genesisTagline', 'de'), t('genesisTagline', 'en'));
+  assert.notEqual(t('genesisQ1Title', 'fr'), t('genesisQ1Title', 'en'));
+  assert.equal(t('genesisTagline', 'de'), 'Dein Geld, endlich klar.');
+  assert.equal(t('genesisTagline', 'fr'), 'Ton argent, enfin clair.');
 });
 
-test('t: la domanda 4 (regolarità entrate, D2) traduce correttamente in ognuna delle 3 lingue coperte', () => {
+test('t: la domanda 4 (regolarità entrate, D2) traduce correttamente in ognuna delle 5 lingue coperte', () => {
   assert.equal(t('genesisQ4Title', 'it'), 'Le tue entrate, come arrivano?');
   assert.equal(t('genesisQ4Title', 'en'), 'How does your income arrive?');
   assert.equal(t('genesisQ4Title', 'es'), '¿Cómo llegan tus ingresos?');
+  assert.equal(t('genesisQ4Title', 'de'), 'Wie kommt dein Einkommen an?');
+  assert.equal(t('genesisQ4Title', 'fr'), 'Comment arrivent tes revenus ?');
   assert.equal(t('genesisQ4Opt3', 'en'), 'Changes a lot, month to month');
+});
+
+// ── Dashboard — solo l'orb principale (2026-08-28), la parte più vista di
+// tutta l'app: il numero e l'etichetta che compaiono ad ogni apertura. ──
+
+test('t: tutte le chiavi dash* dell\'orb principale esistono in IT/EN/ES/DE/FR', () => {
+  const chiavi = ['dashOggiPuoiSpendere', 'dashComeStaiMesso', 'dashToccaSegnaSpesa', 'dashSpesoFinora', 'dashEntrateMenoUscite'];
+  for (const lang of ['it', 'en', 'es', 'de', 'fr']) {
+    for (const k of chiavi) {
+      assert.notEqual(t(k, lang), k, `chiave "${k}" mancante in lingua "${lang}"`);
+    }
+  }
+});
+
+test('t: dashOggiPuoiSpendere traduce correttamente in tutte le 5 lingue', () => {
+  assert.equal(t('dashOggiPuoiSpendere', 'it'), 'Oggi puoi spendere');
+  assert.equal(t('dashOggiPuoiSpendere', 'en'), 'You can spend today');
+  assert.equal(t('dashOggiPuoiSpendere', 'es'), 'Hoy puedes gastar');
+  assert.equal(t('dashOggiPuoiSpendere', 'de'), 'Heute kannst du ausgeben');
+  assert.equal(t('dashOggiPuoiSpendere', 'fr'), 'Tu peux dépenser aujourd\'hui');
+});
+
+test('t: dashAriaOggiPuoiSpendere (aria-label, chiave-funzione) interpola correttamente in ogni lingua', () => {
+  assert.equal(t('dashAriaOggiPuoiSpendere', 'it', '50€'), 'Oggi puoi spendere 50€. Tocca per segnare una spesa.');
+  assert.equal(t('dashAriaOggiPuoiSpendere', 'en', '€50'), 'You can spend €50 today. Tap to log an expense.');
+  assert.equal(t('dashAriaOggiPuoiSpendere', 'es', '50€'), 'Hoy puedes gastar 50€. Toca para registrar un gasto.');
+  assert.equal(t('dashAriaOggiPuoiSpendere', 'de', '50€'), 'Heute kannst du 50€ ausgeben. Tippen, um eine Ausgabe zu erfassen.');
+  assert.equal(t('dashAriaOggiPuoiSpendere', 'fr', '50€'), 'Tu peux dépenser 50€ aujourd\'hui. Touche pour enregistrer une dépense.');
 });

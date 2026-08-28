@@ -124,6 +124,17 @@ const S = {
     genesisQ4Title: 'Le tue entrate, come arrivano?',
     genesisQ4Sub: 'Stipendio fisso o più imprevedibili — cambia quanto cuscinetto ti serve davvero.',
     genesisQ4Opt1: 'Sempre uguali, ogni mese', genesisQ4Opt2: 'Variano un po\', ma prevedibili', genesisQ4Opt3: 'Cambiano molto, mese per mese', genesisQ4Opt4: 'Preferisco non dirlo',
+    // Dashboard — solo l'orb principale (2026-08-28): il numero e l'etichetta
+    // che OGNI utente vede ad ogni apertura dell'app, la parte più vista di
+    // tutta la Dashboard. Il resto (striscia di contesto sotto l'orb, card
+    // secondarie) resta italiano: sono in un modulo separato (ui/mese-strip.js)
+    // o intrecciate con calcoli — cantiere a parte, non finto qui.
+    dashOggiPuoiSpendere: 'Oggi puoi spendere',
+    dashComeStaiMesso: 'Come stai messo questa settimana',
+    dashToccaSegnaSpesa: 'Tocca per segnare una spesa',
+    dashAriaOggiPuoiSpendere: (money) => `Oggi puoi spendere ${money}. Tocca per segnare una spesa.`,
+    dashSpesoFinora: 'Speso finora questo mese',
+    dashEntrateMenoUscite: 'Entrate meno uscite, questo mese',
   },
   en: {
     chSimTitle: 'Working in Switzerland?',
@@ -207,6 +218,12 @@ const S = {
     genesisQ4Title: 'How does your income arrive?',
     genesisQ4Sub: 'Fixed salary or more unpredictable — changes how much of a buffer you actually need.',
     genesisQ4Opt1: 'Always the same, every month', genesisQ4Opt2: 'Varies a bit, but predictable', genesisQ4Opt3: 'Changes a lot, month to month', genesisQ4Opt4: 'Prefer not to say',
+    dashOggiPuoiSpendere: 'You can spend today',
+    dashComeStaiMesso: 'How your week is looking',
+    dashToccaSegnaSpesa: 'Tap to log an expense',
+    dashAriaOggiPuoiSpendere: (money) => `You can spend ${money} today. Tap to log an expense.`,
+    dashSpesoFinora: 'Spent so far this month',
+    dashEntrateMenoUscite: 'Income minus expenses, this month',
   },
   de: {
     chSimTitle: 'Arbeitest du in der Schweiz?',
@@ -240,6 +257,33 @@ const S = {
     chResDisclaimer: 'Jede Schweizer Banking-App kann diesen Code zum Bezahlen lesen — geprüft gegen das offizielle SIX-Format. Füge ihn deiner Rechnung bei oder zeige ihn direkt deinem Kunden.',
     chResNewInvoice: '← Weitere Rechnung erstellen',
     chRefLabel: 'Referenz',
+    // Onboarding + Dashboard (2026-08-28): DE prioritario per la viralità
+    // della divisione spese (Tricount, lo stesso genere di prodotto, è
+    // forte in Germania/Belgio/Paesi Bassi, verificato via ricerca) — non
+    // solo popolazione generica.
+    genesisTagline: 'Dein Geld, endlich klar.',
+    genesisPrivacyTitle: 'Nichts verlässt diesen Ort.',
+    genesisPrivacyText: 'Deine Daten versuchen rauszugehen und kommen zurück. Kein Server, kein Konto: sie bleiben auf deinem Handy. Vier Fragen, dann bist du drin.',
+    genesisStart: 'Los geht\'s — dauert 20 Sekunden',
+    genesisProgress1: 'Frage 1 von 4', genesisProgress2: 'Frage 2 von 4', genesisProgress3: 'Frage 3 von 4', genesisProgress4Last: 'Frage 4 von 4 — die letzte',
+    genesisQ1Title: 'Wenn dein Einkommen heute stoppen würde.',
+    genesisQ1Sub: 'Wie lange könntest du durchhalten, bei gleichbleibenden Ausgaben?',
+    genesisQ1Opt1: 'Weniger als einen Monat', genesisQ1Opt2: 'Zwei oder drei Monate', genesisQ1Opt3: 'Etwa ein halbes Jahr', genesisQ1Opt4: 'Ein Jahr oder mehr', genesisQ1Opt5: 'Ich weiß nicht',
+    genesisQ2Title: 'Der Markt fällt um 20%.',
+    genesisQ2Sub: 'Was würdest du tun?',
+    genesisQ2Opt1: 'Ich kaufe mehr, es ist im Angebot', genesisQ2Opt2: 'Ich warte und beobachte', genesisQ2Opt3: 'Ich verkaufe, kein Risiko', genesisQ2Opt4: 'Ich investiere nicht, betrifft mich nicht',
+    genesisQ3Title: 'Wie bald brauchst du es?',
+    genesisQ3Sub: 'So passen die Ratschläge zu dir.',
+    genesisQ3Opt1: 'Viele Jahre entfernt — ich baue auf', genesisQ3Opt2: 'In ein paar Jahren — ein Projekt', genesisQ3Opt3: 'Bald — ich brauche es demnächst',
+    genesisQ4Title: 'Wie kommt dein Einkommen an?',
+    genesisQ4Sub: 'Festes Gehalt oder eher unvorhersehbar — das ändert, wie viel Puffer du wirklich brauchst.',
+    genesisQ4Opt1: 'Immer gleich, jeden Monat', genesisQ4Opt2: 'Variiert etwas, aber vorhersehbar', genesisQ4Opt3: 'Ändert sich stark, Monat für Monat', genesisQ4Opt4: 'Möchte ich nicht sagen',
+    dashOggiPuoiSpendere: 'Heute kannst du ausgeben',
+    dashComeStaiMesso: 'Wie deine Woche aussieht',
+    dashToccaSegnaSpesa: 'Tippen, um eine Ausgabe zu erfassen',
+    dashAriaOggiPuoiSpendere: (money) => `Heute kannst du ${money} ausgeben. Tippen, um eine Ausgabe zu erfassen.`,
+    dashSpesoFinora: 'Bisher ausgegeben diesen Monat',
+    dashEntrateMenoUscite: 'Einnahmen minus Ausgaben, diesen Monat',
   },
   fr: {
     chSimTitle: 'Vous travaillez en Suisse ?',
@@ -273,6 +317,32 @@ const S = {
     chResDisclaimer: 'N\'importe quelle app bancaire suisse peut lire ce code pour payer — vérifié par rapport au format officiel SIX. Joignez-le à votre facture ou montrez-le directement à votre client.',
     chResNewInvoice: '← Créer une autre facture',
     chRefLabel: 'Référence',
+    // Onboarding + Dashboard (2026-08-28): FR prioritario per la viralità
+    // della divisione spese (Tricount, stessa categoria di prodotto, è nato
+    // ed è fortissimo in Francia/Belgio, verificato via ricerca).
+    genesisTagline: 'Ton argent, enfin clair.',
+    genesisPrivacyTitle: 'Rien ne sort d\'ici.',
+    genesisPrivacyText: 'Tes données essaient de sortir et reviennent. Aucun serveur, aucun compte : elles restent sur ton téléphone. Quatre questions et c\'est fait.',
+    genesisStart: 'Commencer — ça prend 20 secondes',
+    genesisProgress1: 'Question 1 sur 4', genesisProgress2: 'Question 2 sur 4', genesisProgress3: 'Question 3 sur 4', genesisProgress4Last: 'Question 4 sur 4 — la dernière',
+    genesisQ1Title: 'Si tes revenus s\'arrêtaient aujourd\'hui.',
+    genesisQ1Sub: 'Combien de temps pourrais-tu tenir, en dépensant comme maintenant ?',
+    genesisQ1Opt1: 'Moins d\'un mois', genesisQ1Opt2: 'Deux ou trois mois', genesisQ1Opt3: 'Environ six mois', genesisQ1Opt4: 'Un an ou plus', genesisQ1Opt5: 'Je ne sais pas',
+    genesisQ2Title: 'Le marché chute de 20 %.',
+    genesisQ2Sub: 'Tu ferais quoi ?',
+    genesisQ2Opt1: 'J\'achète plus, c\'est en solde', genesisQ2Opt2: 'J\'attends et j\'observe', genesisQ2Opt3: 'Je vends, je ne veux pas risquer', genesisQ2Opt4: 'Je n\'investis pas, ça ne me concerne pas',
+    genesisQ3Title: 'Dans combien de temps en as-tu besoin ?',
+    genesisQ3Sub: 'Pour que les conseils te correspondent.',
+    genesisQ3Opt1: 'Dans plusieurs années — je construis', genesisQ3Opt2: 'Dans quelques années — un projet', genesisQ3Opt3: 'Bientôt — j\'en aurai besoin sous peu',
+    genesisQ4Title: 'Comment arrivent tes revenus ?',
+    genesisQ4Sub: 'Salaire fixe ou plus imprévisible — ça change le coussin de sécurité dont tu as vraiment besoin.',
+    genesisQ4Opt1: 'Toujours pareil, chaque mois', genesisQ4Opt2: 'Varie un peu, mais prévisible', genesisQ4Opt3: 'Change beaucoup, mois après mois', genesisQ4Opt4: 'Je préfère ne pas dire',
+    dashOggiPuoiSpendere: 'Tu peux dépenser aujourd\'hui',
+    dashComeStaiMesso: 'Comment se présente ta semaine',
+    dashToccaSegnaSpesa: 'Touche pour enregistrer une dépense',
+    dashAriaOggiPuoiSpendere: (money) => `Tu peux dépenser ${money} aujourd'hui. Touche pour enregistrer une dépense.`,
+    dashSpesoFinora: 'Dépensé jusqu\'ici ce mois-ci',
+    dashEntrateMenoUscite: 'Revenus moins dépenses, ce mois-ci',
   },
   // Spagna (autónomos, src/predict/tax-es.js) — la lingua vera per questa
   // schermata, non un fallback come le altre 4 sopra. Nessuna chiave
@@ -327,6 +397,12 @@ const S = {
     genesisQ4Title: '¿Cómo llegan tus ingresos?',
     genesisQ4Sub: 'Sueldo fijo o más imprevisibles — cambia cuánto colchón necesitas de verdad.',
     genesisQ4Opt1: 'Siempre iguales, cada mes', genesisQ4Opt2: 'Varían un poco, pero previsibles', genesisQ4Opt3: 'Cambian mucho, mes a mes', genesisQ4Opt4: 'Prefiero no decirlo',
+    dashOggiPuoiSpendere: 'Hoy puedes gastar',
+    dashComeStaiMesso: 'Cómo va tu semana',
+    dashToccaSegnaSpesa: 'Toca para registrar un gasto',
+    dashAriaOggiPuoiSpendere: (money) => `Hoy puedes gastar ${money}. Toca para registrar un gasto.`,
+    dashSpesoFinora: 'Gastado hasta ahora este mes',
+    dashEntrateMenoUscite: 'Ingresos menos gastos, este mes',
   },
 };
 

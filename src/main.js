@@ -99,6 +99,13 @@ import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predi
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
+// Lingua UI generale (Dashboard, 2026-08-28) — stesso resolveUiLanguage()
+// già usato per le schermate fiscali CH/ES e per l'onboarding, calcolata
+// una sola volta al carico del modulo (device-only, nessun selettore
+// dedicato ancora, stesso limite di quelle schermate). Dichiarata qui, in
+// cima, così è già pronta per qualunque funzione più sotto nel file —
+// incluse quelle definite (ma non ancora chiamate) prima di questa riga.
+const __uiLang = resolveUiLanguage();
 import { generateDemoTransactions, fadeDemo, demoStatus, mergeDemoForDisplay, DEMO_FADE_AT } from './ui/demo-dataset.js';
 import { statoDelMese, stripHtml, evidenziaNumeri } from './ui/mese-strip.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
@@ -2209,14 +2216,14 @@ const renderDashboard = () => {
         stsCard.dataset.action = 'quick-add-expense';
         stsCard.setAttribute('role', 'button');
         stsCard.setAttribute('tabindex', '0');
-        stsCard.setAttribute('aria-label', `Oggi puoi spendere ${formatMoney(sts.safeToday)}. Tocca per segnare una spesa.`);
+        stsCard.setAttribute('aria-label', tCh('dashAriaOggiPuoiSpendere', __uiLang, formatMoney(sts.safeToday)));
         stsCard.style.cursor = 'pointer';
         stsCard.innerHTML = `
-          <p class="t-etichetta mb-1.5">${orbHaIlNumero ? 'Come stai messo questa settimana' : 'Oggi puoi spendere'}</p>
+          <p class="t-etichetta mb-1.5">${orbHaIlNumero ? tCh('dashComeStaiMesso', __uiLang) : tCh('dashOggiPuoiSpendere', __uiLang)}</p>
           ${orbHaIlNumero ? '' : `<p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>`}
           <p class="riga-dato ${orbHaIlNumero ? '' : 'mt-1'}">${evidenziaNumeri(`${formatMoney(sts.weekRemaining)} rimasti in ${sts.daysLeftInWeek} giorni`)}</p>
           ${chargeNote}
-          <p class="text-[10px] font-bold text-emerald-400/80 mt-2 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>Tocca per segnare una spesa</p>
+          <p class="text-[10px] font-bold text-emerald-400/80 mt-2 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>${tCh('dashToccaSegnaSpesa', __uiLang)}</p>
           ${trajHtml}
         `;
       }
@@ -2444,8 +2451,8 @@ const renderDashboard = () => {
     // e la card qui sotto tace per non dare due volte la stessa risposta —
     // la stessa regola gia' scritta per la Cassa Unica.
     const azionabile = stsPerOrb && Number.isFinite(stsPerOrb.safeToday) ? stsPerOrb.safeToday : null;
-    const etichetta = azionabile !== null ? 'Oggi puoi spendere'
-      : entrataAncoraDaVenire ? 'Speso finora questo mese' : 'Entrate meno uscite, questo mese';
+    const etichetta = azionabile !== null ? tCh('dashOggiPuoiSpendere', __uiLang)
+      : entrataAncoraDaVenire ? tCh('dashSpesoFinora', __uiLang) : tCh('dashEntrateMenoUscite', __uiLang);
     // Il ROSSO si usa quando c'e' davvero una brutta notizia. Un mese a meta'
     // senza stipendio non lo e': li' il numero resta neutro, e sotto c'e' una
     // riga che spiega perche'. Il colore e' un'informazione, non una decorazione:
