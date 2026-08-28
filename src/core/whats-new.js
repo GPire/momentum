@@ -58,6 +58,35 @@ export const RELEASES = [
       },
     ],
   },
+  {
+    versione: '2026-08-28',
+    voci: [
+      {
+        colore: 'gold',
+        icona: '<path d="M3 3v18h18M7 14l4-4 3 3 5-6"/>',
+        titolo: 'I tuoi canali di import, monitorati da soli',
+        testo: 'Screenshot, CSV e PDF che si dimostrano affidabili iniziano a salvarsi da soli, senza chiedere conferma ogni volta — visibile in Momentum Vault, sotto gli import.',
+      },
+      {
+        colore: 'green',
+        icona: '<path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>',
+        titolo: 'Il backup prima di installarla come app',
+        testo: 'Su iPhone, aggiungere Momentum alla Home ora avvisa di salvare un backup prima — e chi l\'ha già usata da un browser può recuperare i suoi dati con un tocco.',
+      },
+      {
+        colore: 'primary',
+        icona: '<path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        titolo: 'Niente più doppioni tra notifica e conto',
+        testo: 'Una spesa vista prima da una notifica o uno screenshot, e poi confermata dall\'estratto conto arrivato dopo, non compare più due volte.',
+      },
+      {
+        colore: 'purple',
+        icona: '<path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/>',
+        titolo: 'L\'app ti dice quando ha imparato qualcosa',
+        testo: 'Correggere la categoria di una spesa ora mostra subito che Momentum se lo ricorderà — non resta più un cambiamento invisibile.',
+      },
+    ],
+  },
 ];
 
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
