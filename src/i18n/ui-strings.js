@@ -135,6 +135,13 @@ const S = {
     dashAriaOggiPuoiSpendere: (money) => `Oggi puoi spendere ${money}. Tocca per segnare una spesa.`,
     dashSpesoFinora: 'Speso finora questo mese',
     dashEntrateMenoUscite: 'Entrate meno uscite, questo mese',
+    // Import CTA (2026-08-28): il momento di attivazione più importante —
+    // convincere un utente appena entrato a importare dati veri, non
+    // restare sull'esempio. Statico in index.html (#import-cta).
+    dashImportTitle: 'Vedi i tuoi soldi veri.',
+    dashImportSub: 'Non l\'esempio: importa il tuo estratto conto — CSV, PDF o anche uno screenshot.',
+    dashImportBtn: 'Importa i tuoi movimenti',
+    dashImportBackup: 'Hai già usato Momentum da un browser? Importa qui il tuo backup',
   },
   en: {
     chSimTitle: 'Working in Switzerland?',
@@ -224,6 +231,10 @@ const S = {
     dashAriaOggiPuoiSpendere: (money) => `You can spend ${money} today. Tap to log an expense.`,
     dashSpesoFinora: 'Spent so far this month',
     dashEntrateMenoUscite: 'Income minus expenses, this month',
+    dashImportTitle: 'See your real money.',
+    dashImportSub: 'Not the example: import your statement — CSV, PDF, or even a screenshot.',
+    dashImportBtn: 'Import your transactions',
+    dashImportBackup: 'Already used Momentum from a browser? Import your backup here',
   },
   de: {
     chSimTitle: 'Arbeitest du in der Schweiz?',
@@ -284,6 +295,10 @@ const S = {
     dashAriaOggiPuoiSpendere: (money) => `Heute kannst du ${money} ausgeben. Tippen, um eine Ausgabe zu erfassen.`,
     dashSpesoFinora: 'Bisher ausgegeben diesen Monat',
     dashEntrateMenoUscite: 'Einnahmen minus Ausgaben, diesen Monat',
+    dashImportTitle: 'Sieh dein echtes Geld.',
+    dashImportSub: 'Nicht das Beispiel: importiere deinen Kontoauszug — CSV, PDF oder sogar ein Screenshot.',
+    dashImportBtn: 'Importiere deine Umsätze',
+    dashImportBackup: 'Momentum schon im Browser genutzt? Importiere hier dein Backup',
   },
   fr: {
     chSimTitle: 'Vous travaillez en Suisse ?',
@@ -343,6 +358,10 @@ const S = {
     dashAriaOggiPuoiSpendere: (money) => `Tu peux dépenser ${money} aujourd'hui. Touche pour enregistrer une dépense.`,
     dashSpesoFinora: 'Dépensé jusqu\'ici ce mois-ci',
     dashEntrateMenoUscite: 'Revenus moins dépenses, ce mois-ci',
+    dashImportTitle: 'Vois ton argent réel.',
+    dashImportSub: 'Pas l\'exemple : importe ton relevé — CSV, PDF ou même une capture d\'écran.',
+    dashImportBtn: 'Importe tes mouvements',
+    dashImportBackup: 'Tu as déjà utilisé Momentum depuis un navigateur ? Importe ta sauvegarde ici',
   },
   // Spagna (autónomos, src/predict/tax-es.js) — la lingua vera per questa
   // schermata, non un fallback come le altre 4 sopra. Nessuna chiave
@@ -403,6 +422,10 @@ const S = {
     dashAriaOggiPuoiSpendere: (money) => `Hoy puedes gastar ${money}. Toca para registrar un gasto.`,
     dashSpesoFinora: 'Gastado hasta ahora este mes',
     dashEntrateMenoUscite: 'Ingresos menos gastos, este mes',
+    dashImportTitle: 'Mira tu dinero real.',
+    dashImportSub: 'No el ejemplo: importa tu extracto — CSV, PDF o incluso una captura de pantalla.',
+    dashImportBtn: 'Importa tus movimientos',
+    dashImportBackup: '¿Ya usaste Momentum desde un navegador? Importa aquí tu copia de seguridad',
   },
 };
 

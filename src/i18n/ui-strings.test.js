@@ -183,3 +183,24 @@ test('t: dashAriaOggiPuoiSpendere (aria-label, chiave-funzione) interpola corret
   assert.equal(t('dashAriaOggiPuoiSpendere', 'de', '50€'), 'Heute kannst du 50€ ausgeben. Tippen, um eine Ausgabe zu erfassen.');
   assert.equal(t('dashAriaOggiPuoiSpendere', 'fr', '50€'), 'Tu peux dépenser 50€ aujourd\'hui. Touche pour enregistrer une dépense.');
 });
+
+// ── Import CTA (#import-cta, index.html) — 2026-08-28: il momento di
+// attivazione più importante, convincere chi è appena entrato a importare
+// dati veri invece di restare sull'esempio. ──
+
+test('t: tutte le chiavi dashImport* esistono in IT/EN/ES/DE/FR', () => {
+  const chiavi = ['dashImportTitle', 'dashImportSub', 'dashImportBtn', 'dashImportBackup'];
+  for (const lang of ['it', 'en', 'es', 'de', 'fr']) {
+    for (const k of chiavi) {
+      assert.notEqual(t(k, lang), k, `chiave "${k}" mancante in lingua "${lang}"`);
+    }
+  }
+});
+
+test('t: dashImportTitle traduce correttamente in tutte le 5 lingue', () => {
+  assert.equal(t('dashImportTitle', 'it'), 'Vedi i tuoi soldi veri.');
+  assert.equal(t('dashImportTitle', 'en'), 'See your real money.');
+  assert.equal(t('dashImportTitle', 'es'), 'Mira tu dinero real.');
+  assert.equal(t('dashImportTitle', 'de'), 'Sieh dein echtes Geld.');
+  assert.equal(t('dashImportTitle', 'fr'), 'Vois ton argent réel.');
+});
