@@ -187,7 +187,7 @@ import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js
 import { handleScreenshotUpload } from './import/screenshot-parser.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
-import { observeImport, affidabilitaCanale } from './import/source-registry.js';
+import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './import/source-registry.js';
 import { NeuroSym } from './ai/neurosym.js';
 import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
@@ -11432,6 +11432,35 @@ const INSTALL_ICON_SVG = {
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   install: '<path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 19h16"/>',
 };
+// Riepilogo "come vanno i tuoi canali di import" (source-registry.js,
+// 2026-08-28): etichette in linguaggio semplice, mai un numero grezzo tipo
+// "0,87" — un bambino deve poter capire "questo va bene" senza sapere cos'è
+// un Beta-Bernoulli. Vuoto/nascosto finché nessun canale ha almeno una
+// osservazione: niente righe su qualcosa che l'utente non ha ancora usato.
+const CANALE_LABEL = {
+  notifica: 'Notifiche bancarie', screenshot: 'Screenshot/foto', csv: 'File CSV',
+  pdf: 'PDF banca', 'testo-condiviso': 'Testo condiviso', manuale: 'Inserimento a mano',
+};
+const CANALE_ETICHETTA_TESTO = {
+  bene: { testo: 'Funziona bene — ora si salva da solo', colore: 'text-emerald-400' },
+  'da-confermare': { testo: 'Ti chiedo ancora conferma ogni volta', colore: 'text-[var(--on-surface-secondary)]' },
+  male: { testo: 'Spesso sbaglia — controllalo sempre', colore: 'text-amber-400' },
+};
+function renderSourceReliabilitySummary() {
+  const el = document.getElementById('source-reliability-summary');
+  if (!el) return;
+  const righe = riepilogoAffidabilita(VaultDAO.state.sourceRegistry);
+  if (!righe.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  el.innerHTML = righe.map((r) => {
+    const et = CANALE_ETICHETTA_TESTO[r.etichetta] || CANALE_ETICHETTA_TESTO['da-confermare'];
+    return `<div class="flex items-center justify-between text-[11px]">
+      <span class="text-[var(--on-surface-secondary)]">${CANALE_LABEL[r.canale] || r.canale}</span>
+      <span class="font-bold ${et.colore}">${et.testo}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderInstallGuide() {
   const stepsEl = document.getElementById('install-guide-steps');
   if (!stepsEl) return;
@@ -11720,7 +11749,7 @@ const navigate = (view) => {
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
     // accanto a #tax-settings-card, non più mescolato ai contenuti di
     // trading/investimento di Analisi Tensor.
-    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard();
+    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei
