@@ -12968,6 +12968,32 @@ const initApp = () => {
     VaultDAO.init();
   } catch(e) { console.error("VaultDAO init error:", e); }
 
+  // Recupero da tx_log (2026-08-29) — per chi ha GIÀ subito il bug di
+  // perdita dati risolto in VaultDAO.init()/save(): tx_log è un log
+  // IndexedDB append-only mai toccato da quel bug, può ancora avere le
+  // transazioni che lo snapshot "state" aveva perso. Fire-and-forget,
+  // dopo il render iniziale (mai bloccare il primo paint): SOLO propone,
+  // mai un ripristino silenzioso — l'utente conferma o ignora.
+  VaultDAO.checkTxLogRecovery().then(({ recovered, addedCount }) => {
+    if (addedCount <= 0) return;
+    window.openModal(`
+      <div class="text-center px-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 mx-auto mb-3 text-[var(--primary)]"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 3v6h6"/></svg>
+        <h3 class="text-base font-black mb-2">${tCh('dataRecoveryTitle', __uiLang)}</h3>
+        <p class="text-xs text-[var(--on-surface-secondary)] leading-snug">${tCh('dataRecoveryBody', __uiLang, addedCount)}</p>
+      </div>`,
+      `<button onclick="window.applyTxLogRecovery()" class="save-btn w-full">${tCh('dataRecoveryConfirmBtn', __uiLang)}</button>
+       <button onclick="closeModal()" class="w-full mt-2 text-xs text-[var(--on-surface-secondary)] underline">${tCh('dataRecoveryDismissBtn', __uiLang)}</button>`
+    );
+    window.applyTxLogRecovery = () => {
+      const added = VaultDAO.applyTxLogRecovery(recovered);
+      closeModal();
+      showToast(tCh('dataRecoverySuccessToast', __uiLang, added), 'success');
+      renderDashboard();
+      renderAnalysis();
+    };
+  }).catch((e) => console.warn('checkTxLogRecovery fallito, nessun recupero proposto:', e));
+
   initMomentumRealAI();
 
   const mobileAddBtn = document.getElementById('mobile-add-btn');

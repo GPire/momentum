@@ -813,3 +813,16 @@ test('t: tutte le chiavi dinamiche alpha* (renderAnalysis: budget settimanale, f
   assert.equal(t('alphaOfBudget', 'en', '100€'), 'of 100€');
   assert.equal(t('alphaWeekTitle', 'en', '1 Jan', '7 Jan'), 'This week (1 Jan - 7 Jan)');
 });
+
+test('t: chiavi dataRecovery* (recupero da tx_log dopo il bug di perdita dati) esistono nelle 7 lingue', () => {
+  const chiavi = ['dataRecoveryTitle', 'dataRecoveryBody', 'dataRecoveryConfirmBtn', 'dataRecoveryDismissBtn', 'dataRecoverySuccessToast'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 3);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.match(t('dataRecoveryBody', 'en', 3), /3/);
+  assert.match(t('dataRecoverySuccessToast', 'it', 1), /1/);
+});

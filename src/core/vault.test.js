@@ -6,7 +6,7 @@ globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 globalThis.indexedDB = undefined;
 globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: () => {} };
 
-const { runSchemaMigrations, tryReadIosHandoff, VaultDAO } = await import("./vault.js");
+const { runSchemaMigrations, tryReadIosHandoff, VaultDAO, DurableStore, reconstructMissingFromTxLog } = await import("./vault.js");
 
 // Semplice localStorage in-memory per i test sotto — supporta anche
 // removeItem e un limite di quota opzionale (simula QuotaExceededError).
@@ -232,5 +232,129 @@ test('VaultDAO.save: la scrittura di "shadow" fallisce per quota superata → "m
     VaultDAO.state = savedState;
     globalThis.localStorage = savedLS;
     globalThis.indexedDB = savedIDB;
+  }
+});
+
+// ── Recupero da tx_log per chi ha GIÀ subito il bug di perdita dati sopra
+// (2026-08-29): tx_log è uno store IndexedDB append-only separato dallo
+// snapshot "state"/"main" colpito dal bug — queste transazioni possono
+// essere ancora lì anche quando lo snapshot le ha "perse". ──
+test('reconstructMissingFromTxLog: transazioni in tx_log ma assenti dallo stato attuale vengono recuperate', () => {
+  const currentState = { transactions: { '2026-08': [{ id: 'a' }] }, deletedTx: {} };
+  const log = [
+    { month: '2026-08', tx: { id: 'a' } }, // già presente, non deve contare
+    { month: '2026-08', tx: { id: 'b' } }, // mancante
+  ];
+  const { recovered, addedCount } = reconstructMissingFromTxLog(log, currentState);
+  assert.equal(addedCount, 1);
+  assert.deepEqual(recovered['2026-08'].map(t => t.id), ['b']);
+});
+
+test("reconstructMissingFromTxLog: una transazione cancellata di proposito (lapide in deletedTx) non viene MAI resuscitata", () => {
+  const currentState = { transactions: {}, deletedTx: { x: '2026-08-20T00:00:00Z' } };
+  const log = [{ month: '2026-08', tx: { id: 'x' } }];
+  const { addedCount } = reconstructMissingFromTxLog(log, currentState);
+  assert.equal(addedCount, 0);
+});
+
+test('reconstructMissingFromTxLog: duplicati nello stesso log vengono contati una sola volta', () => {
+  const currentState = { transactions: {}, deletedTx: {} };
+  const log = [
+    { month: '2026-08', tx: { id: 'd' } },
+    { month: '2026-08', tx: { id: 'd' } },
+  ];
+  const { addedCount, recovered } = reconstructMissingFromTxLog(log, currentState);
+  assert.equal(addedCount, 1);
+  assert.equal(recovered['2026-08'].length, 1);
+});
+
+test('reconstructMissingFromTxLog: voci senza "month" ma con una data valida derivano il mese dalla data della transazione', () => {
+  const currentState = { transactions: {}, deletedTx: {} };
+  const log = [{ tx: { id: 'e', date: '2026-05-14T10:00:00Z' } }]; // niente month esplicito
+  const { recovered, addedCount } = reconstructMissingFromTxLog(log, currentState);
+  assert.equal(addedCount, 1);
+  assert.deepEqual(recovered['2026-05'].map(t => t.id), ['e']);
+});
+
+test('reconstructMissingFromTxLog: voci malformate (senza tx, senza id, senza mese né data) vengono ignorate senza crash', () => {
+  const currentState = { transactions: {}, deletedTx: {} };
+  const log = [null, {}, { tx: {} }, { tx: { id: 'f' } }]; // l'ultima non ha né month né date: scartata
+  assert.doesNotThrow(() => {
+    const { addedCount } = reconstructMissingFromTxLog(log, currentState);
+    assert.equal(addedCount, 0);
+  });
+});
+
+test('reconstructMissingFromTxLog: log o stato vuoti/assenti non fanno crashare nulla', () => {
+  assert.deepEqual(reconstructMissingFromTxLog([], {}), { recovered: {}, addedCount: 0 });
+  assert.deepEqual(reconstructMissingFromTxLog(null, null), { recovered: {}, addedCount: 0 });
+});
+
+test('VaultDAO.checkTxLogRecovery: legge tx_log e ritorna SOLO cosa manca, senza scrivere nulla nello stato (pura rispetto allo stato)', async () => {
+  const savedGetAll = DurableStore.getAll;
+  const savedState = VaultDAO.state;
+  try {
+    VaultDAO.state = { ...VaultDAO.state, transactions: { '2026-08': [{ id: 'a', amount: 1 }] }, deletedTx: {} };
+    DurableStore.getAll = async (store) => {
+      assert.equal(store, 'tx_log');
+      return [
+        { month: '2026-08', tx: { id: 'a', amount: 1 } },
+        { month: '2026-08', tx: { id: 'b', amount: 20 } },
+        { month: '2026-07', tx: { id: 'c', amount: 30 } },
+      ];
+    };
+    const { recovered, addedCount } = await VaultDAO.checkTxLogRecovery();
+    assert.equal(addedCount, 2);
+    assert.deepEqual(recovered['2026-08'].map(t => t.id), ['b']);
+    assert.deepEqual(recovered['2026-07'].map(t => t.id), ['c']);
+    assert.equal(VaultDAO._countTx(VaultDAO.state), 1, 'check non deve modificare lo stato reale, solo apply');
+  } finally {
+    DurableStore.getAll = savedGetAll;
+    VaultDAO.state = savedState;
+  }
+});
+
+test('VaultDAO.checkTxLogRecovery: IndexedDB non disponibile/errore → nessun crash, nessuna transazione recuperata', async () => {
+  const savedGetAll = DurableStore.getAll;
+  try {
+    DurableStore.getAll = async () => { throw new Error('IndexedDB non disponibile'); };
+    const { recovered, addedCount } = await VaultDAO.checkTxLogRecovery();
+    assert.equal(addedCount, 0);
+    assert.deepEqual(recovered, {});
+  } finally {
+    DurableStore.getAll = savedGetAll;
+  }
+});
+
+test('VaultDAO.applyTxLogRecovery: applica SOLO dopo la chiamata esplicita (mai automatica), è puramente additiva e salva', () => {
+  const savedState = VaultDAO.state;
+  const savedLS = globalThis.localStorage;
+  try {
+    VaultDAO.state = { ...VaultDAO.state, transactions: { '2026-08': [{ id: 'a', amount: 1 }] }, currentDate: new Date() };
+    const ls = fakeLocalStorage();
+    globalThis.localStorage = ls;
+    const added = VaultDAO.applyTxLogRecovery({ '2026-08': [{ id: 'b', amount: 20 }], '2026-07': [{ id: 'c', amount: 30 }] });
+    assert.equal(added, 2);
+    assert.equal(VaultDAO._countTx(VaultDAO.state), 3, 'la transazione "a" già presente resta, "b" e "c" si aggiungono');
+    assert.ok(ls.getItem('omega_core_db'), 'deve salvare dopo aver applicato il recupero');
+  } finally {
+    VaultDAO.state = savedState;
+    globalThis.localStorage = savedLS;
+  }
+});
+
+test('VaultDAO.applyTxLogRecovery: un recupero vuoto non chiama save() (nessuna scrittura inutile)', () => {
+  const savedState = VaultDAO.state;
+  const savedLS = globalThis.localStorage;
+  try {
+    VaultDAO.state = { ...VaultDAO.state, transactions: {}, currentDate: new Date() };
+    const ls = fakeLocalStorage();
+    globalThis.localStorage = ls;
+    const added = VaultDAO.applyTxLogRecovery({});
+    assert.equal(added, 0);
+    assert.equal(ls.getItem('omega_core_db'), null);
+  } finally {
+    VaultDAO.state = savedState;
+    globalThis.localStorage = savedLS;
   }
 });

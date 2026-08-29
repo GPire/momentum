@@ -102,6 +102,17 @@ const DurableStore = {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
+  },
+  // Serve al recupero da tx_log (2026-08-29, vedi reconstructMissingFromTxLog
+  // sotto): legge OGNI voce di uno store, non solo una chiave nota.
+  async getAll(store) {
+    const db = await this.open();
+    if (!db) return [];
+    return new Promise((resolve, reject) => {
+      const req = db.transaction(store, 'readonly').objectStore(store).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
   }
 };
 
@@ -151,6 +162,52 @@ async function tryReadIosHandoff() {
     if (!res) return null;
     return JSON.parse(await res.text());
   } catch (_) { return null; }
+}
+
+// ==========================================
+// RECUPERO DA tx_log — per chi ha già subito il bug di perdita dati sopra
+// ==========================================
+// `tx_log` (IndexedDB, append-only, mai riscritto) registra ogni transazione
+// aggiunta manualmente/da voce/da singolo import — vedi addTransaction():
+// `if (!opts.bulk) DurableStore.append('tx_log', { month, tx, ts })`. Il bug
+// di perdita dati (vedi init()/save() sopra) colpiva SOLO lo snapshot
+// consolidato "state"/"main": tx_log è uno store IndexedDB SEPARATO, con le
+// sue proprie chiavi auto-incrementali, mai toccato da quella logica — le
+// transazioni che un utente aveva aggiunto prima del bug possono quindi
+// essere ancora tutte lì, anche se lo snapshot consolidato le ha "perse".
+//
+// Limiti onesti, dichiarati (mai spacciato per un ripristino completo):
+// (1) i BULK import (CSV/PDF di centinaia di righe) saltano il log per
+//     prestazioni — non recuperabili da qui, serve il backup-file manuale;
+// (2) una categoria corretta DOPO l'aggiunta (updateTransactionCategory) non
+//     viene ri-loggata: una transazione recuperata torna con la categoria
+//     ORIGINALE, non con eventuali correzioni successive;
+// (3) mai un ripristino silenzioso: questa funzione è pura e SOLO calcola
+//     cosa manca — chi chiama decide se e come proporlo all'utente, la
+//     scrittura reale avviene solo con VaultDAO.applyTxLogRecovery(),
+//     mai automaticamente.
+function reconstructMissingFromTxLog(txLogEntries, currentState) {
+  const existingIds = new Set();
+  for (const arr of Object.values(currentState?.transactions || {})) {
+    for (const t of (arr || [])) if (t?.id) existingIds.add(t.id);
+  }
+  // Una transazione cancellata di proposito (lapide in deletedTx) non va
+  // mai fatta "resuscitare" da un log più vecchio della cancellazione.
+  const deletedIds = new Set(Object.keys(currentState?.deletedTx || {}));
+  const seen = new Set();
+  const recovered = {};
+  let addedCount = 0;
+  for (const entry of (txLogEntries || [])) {
+    const tx = entry?.tx;
+    if (!tx || !tx.id || existingIds.has(tx.id) || deletedIds.has(tx.id) || seen.has(tx.id)) continue;
+    seen.add(tx.id);
+    const month = entry.month || (tx.date ? String(tx.date).slice(0, 7) : null);
+    if (!month) continue;
+    if (!recovered[month]) recovered[month] = [];
+    recovered[month].push(tx);
+    addedCount++;
+  }
+  return { recovered, addedCount };
 }
 
 // ==========================================
@@ -472,7 +529,38 @@ const VaultDAO = {
     // ricevuta dall'altro dispositivo si perdeva al riavvio.
     if (added > 0 || removed > 0) this.save();
     return added;
+  },
+
+  // Calcola SOLO cosa manca rispetto a tx_log — non scrive nulla (pura
+  // rispetto allo stato: legge IndexedDB ma non muta this.state). Chi
+  // chiama (main.js) decide come proporlo all'utente, mai un ripristino
+  // silenzioso — vedi reconstructMissingFromTxLog sopra per i limiti onesti.
+  async checkTxLogRecovery() {
+    try {
+      const entries = await DurableStore.getAll('tx_log');
+      if (!entries.length) return { recovered: {}, addedCount: 0 };
+      return reconstructMissingFromTxLog(entries, this.state);
+    } catch (e) {
+      console.warn('VaultDAO.checkTxLogRecovery: impossibile leggere tx_log:', e);
+      return { recovered: {}, addedCount: 0 };
+    }
+  },
+  // Applica SOLO dopo conferma esplicita dell'utente (mai chiamata da sola).
+  // Puramente additivo: non tocca/sovrascrive nessuna transazione già
+  // presente, per costruzione (reconstructMissingFromTxLog esclude già gli
+  // id noti, questo è un controllo ridondante di sicurezza in più).
+  applyTxLogRecovery(recovered) {
+    let added = 0;
+    for (const [month, txs] of Object.entries(recovered || {})) {
+      if (!this.state.transactions[month]) this.state.transactions[month] = [];
+      const existingIds = new Set(this.state.transactions[month].map(t => t.id));
+      for (const tx of txs) {
+        if (!existingIds.has(tx.id)) { this.state.transactions[month].push(tx); added++; }
+      }
+    }
+    if (added > 0) this.save();
+    return added;
   }
 };
 
-export { getCatById, getCatsByType, VaultDAO, DurableStore, runSchemaMigrations, tryReadIosHandoff };
+export { getCatById, getCatsByType, VaultDAO, DurableStore, runSchemaMigrations, tryReadIosHandoff, reconstructMissingFromTxLog };
