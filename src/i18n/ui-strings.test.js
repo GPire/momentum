@@ -596,3 +596,23 @@ test('t: navAnalysis (nome sezione "Analisi Tensor") esiste nelle 7 lingue — "
     assert.match(t('navAnalysis', lang), /Tensor/, `lingua "${lang}": "Tensor" deve restare fisso`);
   }
 });
+
+// ── "Chiedi a Momentum" (QA) + Salvadanaio + intestazione lista movimenti
+// (2026-08-29) — verificato dal vivo in Chrome dopo segnalazione utente. ──
+
+test('t: tutte le chiavi qa*/jar*/dashYourTransactions esistono nelle 7 lingue', () => {
+  const chiavi = ['qaTitle', 'qaPlaceholder', 'qaSendAria', 'jarTitle', 'jarSubtitle', 'jarSetAsideSoFar', 'jarMonthsCovered', 'jarSweepTitle', 'jarSweepSubtitle', 'jarEstimatedOverflow', 'jarMarkBtn', 'dashYourTransactions'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: jarSweepSubtitle porta il markup <b> in ogni lingua (consumata via data-i18n-html)', () => {
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    assert.match(t('jarSweepSubtitle', lang), /<b>.*<\/b>/, `lingua "${lang}": manca <b> in jarSweepSubtitle`);
+  }
+});

@@ -3395,11 +3395,11 @@
             <div id="veglia-mercato" class="shrink-0"></div>
 
             <div class="card p-4 sm:p-5 shrink-0">
-              <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg>Chiedi a Momentum</h3>
+              <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg><span data-i18n-key="qaTitle">Chiedi a Momentum</span></h3>
               <div class="flex gap-2">
-                <input id="qa-input" type="text" enterkeyhint="send" placeholder='Chiedi: "quanto posso spendere oggi?"'
+                <input id="qa-input" type="text" enterkeyhint="send" placeholder='Chiedi: "quanto posso spendere oggi?"' data-i18n-placeholder="qaPlaceholder"
                        class="flex-grow bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0" />
-                <button id="qa-send" class="btn-action px-4 shrink-0" aria-label="Chiedi">→</button>
+                <button id="qa-send" class="btn-action px-4 shrink-0" aria-label="Chiedi" data-i18n-aria="qaSendAria">→</button>
               </div>
               <div id="qa-suggestions" class="flex flex-wrap gap-1.5 mt-2.5"></div>
               <div id="qa-answer" class="text-xs mt-3 hidden p-3 rounded-xl"></div>
@@ -3429,18 +3429,18 @@
                 <div>
                   <div class="flex items-center gap-2">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--cyan)] shrink-0"><rect x="3.5" y="4" width="17" height="17" rx="2.5"/><circle cx="12" cy="12.5" r="4.5"/><circle cx="12" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><path d="M12 8v1.4M7.5 4V2.3M16.5 4V2.3"/></svg>
-                    <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--cyan)]">Salvadanaio</h3>
+                    <h3 class="text-xs font-extrabold uppercase tracking-widest text-[var(--cyan)]" data-i18n-key="jarTitle">Salvadanaio</h3>
                   </div>
-                  <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1 max-w-md">Quanto hai messo via finora, un mese dopo l'altro — senza toccare mai la banca da solo.</p>
+                  <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1 max-w-md" data-i18n-key="jarSubtitle">Quanto hai messo via finora, un mese dopo l'altro — senza toccare mai la banca da solo.</p>
                 </div>
 
                 <div class="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-4 sm:items-center">
                   <div>
-                    <p class="t-etichetta">Messo via finora</p>
+                    <p class="t-etichetta" data-i18n-key="jarSetAsideSoFar">Messo via finora</p>
                     <p id="cumulative-reserve-val" class="t-dato t-dato-l font-mono text-[var(--cyan)]">€0,00</p>
                   </div>
                   <div class="sm:border-l sm:border-[var(--outline)] sm:pl-4">
-                    <p class="t-etichetta">Mesi che potresti coprire</p>
+                    <p class="t-etichetta" data-i18n-key="jarMonthsCovered">Mesi che potresti coprire</p>
                     <p id="safety-status" class="text-xs font-bold text-[var(--yellow)] mt-1">Sicurezza: 0%</p>
                   </div>
                 </div>
@@ -3449,22 +3449,22 @@
               <!-- Sweeper Interaction Card/Button -->
               <div class="z-10 bg-black/30 border border-[var(--outline)] p-4 rounded-xl flex flex-col justify-between shrink-0 sm:w-64">
                 <div>
-                  <h4 class="t-etichetta">Metti al sicuro quello che avanza</h4>
-                  <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-relaxed">Segna quanto dell'avanzo destinare al risparmio. <b>Il trasferimento sul tuo conto lo fai tu</b>: Momentum non tocca la banca, tiene solo il conto.</p>
+                  <h4 class="t-etichetta" data-i18n-key="jarSweepTitle">Metti al sicuro quello che avanza</h4>
+                  <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-relaxed" data-i18n-html="jarSweepSubtitle">Segna quanto dell'avanzo destinare al risparmio. <b>Il trasferimento sul tuo conto lo fai tu</b>: Momentum non tocca la banca, tiene solo il conto.</p>
                 </div>
 
                 <div class="mt-4 flex items-center justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="t-etichetta">Avanzo stimato</p>
+                    <p class="t-etichetta" data-i18n-key="jarEstimatedOverflow">Avanzo stimato</p>
                     <p id="sweeper-estimate-val" class="font-mono text-xs font-bold text-emerald-400 truncate">€0,00</p>
                   </div>
-                  <button id="sweep-btn" onclick="window.runAIOverflowSweep()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-500 active:scale-95 text-white font-bold rounded-lg text-[10px] tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none">SEGNA</button>
+                  <button id="sweep-btn" onclick="window.runAIOverflowSweep()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-500 active:scale-95 text-white font-bold rounded-lg text-[10px] tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none" data-i18n-key="jarMarkBtn">SEGNA</button>
                 </div>
               </div>
             </div>
 
             <div class="flex-grow flex flex-col min-h-[300px]">
-              <h2 class="text-xl sm:text-2xl font-extrabold mb-4 tracking-tight shrink-0">I tuoi movimenti</h2>
+              <h2 class="text-xl sm:text-2xl font-extrabold mb-4 tracking-tight shrink-0" data-i18n-key="dashYourTransactions">I tuoi movimenti</h2>
               <!-- Soldi GIA' IMPEGNATI (getMonthlyCommitments): la quota del saldo
                    gia' promessa agli impegni ricorrenti in arrivo (affitto, mutuo,
                    abbonamenti) — cosi' non spendi soldi che sono gia' spoken-for. -->
