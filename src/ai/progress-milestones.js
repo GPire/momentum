@@ -10,7 +10,37 @@
 // ottimizza il tempo passato sull'app. Un traguardo raggiunto resta
 // raggiunto per sempre — non esiste un contatore che torna a zero, non
 // esiste una "serie" da perdere.
+//
+// Multilingua (2026-08-29): TRAGUARDI/LIVELLI restano invariati (Italiano,
+// stessa forma di sempre — li legge ancora del codice che non passa una
+// lingua, e i test esistenti verificano il loro .testo/.nome grezzo).
+// valutaTraguardi/valutaLivelli accettano ora un `lang` opzionale (default
+// 'it', stesso comportamento di sempre) e restituiscono testo tradotto
+// tramite le chiavi in MILESTONE_KEYS/LIVELLO_KEYS — un solo posto dove
+// aggiungere un traguardo aggiorna sia il testo IT sia il punto da tradurre.
 'use strict';
+
+import { t as tMilestone } from '../i18n/ui-strings.js';
+
+// id → chiavi i18n (testo statico + sottotesto, con gli argomenti da passare
+// presi dai segnali normalizzati `s`). Un solo posto per non disallineare
+// mai il numero di argomenti fra chiave e chiamata.
+const MILESTONE_KEYS = {
+  prima_categorizzazione: { testo: 'mstPrimaCatTesto', sotto: 'mstPrimaCatSotto', args: (s) => [s.categorieUsate] },
+  pattern_settimanale: { testo: 'mstPatternTesto', sotto: 'mstPatternSotto', args: (s) => [s.transazioni, s.giorniStorico] },
+  causale_trovato: { testo: 'mstCausaleTesto', sotto: 'mstCausaleSotto', args: () => [] },
+  sentiment_locale: { testo: 'mstSentimentTesto', sotto: 'mstSentimentSotto', args: (s) => [s.sentimentCalcolati] },
+  sentiment_da_mesh: { testo: 'mstMeshTesto', sotto: 'mstMeshSotto', args: () => [] },
+  percentile_settore: { testo: 'mstPercentileTesto', sotto: 'mstPercentileSotto', args: () => [] },
+  primo_gruppo_condiviso: { testo: 'mstGruppoTesto', sotto: 'mstGruppoSotto', args: () => [] },
+  chat_spesa_usata: { testo: 'mstChatTesto', sotto: 'mstChatSotto', args: () => [] },
+};
+const LIVELLO_KEYS = {
+  1: { nome: 'lvl1Nome', sotto: 'lvl1Sotto' },
+  2: { nome: 'lvl2Nome', sotto: 'lvl2Sotto' },
+  3: { nome: 'lvl3Nome', sotto: 'lvl3Sotto' },
+  4: { nome: 'lvl4Nome', sotto: 'lvl4Sotto' },
+};
 
 export const TRAGUARDI = [
   {
@@ -80,12 +110,18 @@ function normalizza(segnali) {
 // serve SOLO a calcolare `nuovi` (da notificare una volta, ora), mai a
 // nascondere un traguardo dalla lista completa — un traguardo raggiunto
 // resta visibile per sempre in `tutti`, a prescindere da `giaMostrati`.
-export function valutaTraguardi(segnali, giaMostrati = []) {
+export function valutaTraguardi(segnali, giaMostrati = [], lang = 'it') {
   const s = normalizza(segnali);
   const mostratiSet = new Set(giaMostrati);
-  const tutti = TRAGUARDI.map((t) => ({
-    id: t.id, testo: t.testo, sottotesto: t.sottotesto(s), raggiunto: !!t.raggiunta(s),
-  }));
+  const tutti = TRAGUARDI.map((tg) => {
+    const k = MILESTONE_KEYS[tg.id];
+    return {
+      id: tg.id,
+      testo: k ? tMilestone(k.testo, lang) : tg.testo,
+      sottotesto: k ? tMilestone(k.sotto, lang, ...k.args(s)) : tg.sottotesto(s),
+      raggiunto: !!tg.raggiunta(s),
+    };
+  });
   const nuovi = tutti.filter((t) => t.raggiunto && !mostratiSet.has(t.id)).map((t) => t.id);
   return { tutti, nuovi, totali: tutti.length, raggiunti: tutti.filter((t) => t.raggiunto).length };
 }
@@ -109,13 +145,16 @@ export const LIVELLI = [
 // tutti — mai un "livello 5" inventato, il chiamante decide come mostrarlo).
 // `livelloCompletatoOra` è non-null SOLO nel preciso controllo in cui l'ultimo
 // dei suoi 2 traguardi è appena stato raggiunto — un momento, non uno stato.
-export function valutaLivelli(segnali, giaMostrati = []) {
-  const { tutti, nuovi } = valutaTraguardi(segnali, giaMostrati);
+export function valutaLivelli(segnali, giaMostrati = [], lang = 'it') {
+  const { tutti, nuovi } = valutaTraguardi(segnali, giaMostrati, lang);
   const byId = Object.fromEntries(tutti.map((t) => [t.id, t]));
   const livelli = LIVELLI.map((l) => {
     const traguardi = l.ids.map((id) => byId[id]);
     const raggiunti = traguardi.filter((t) => t.raggiunto).length;
-    return { ...l, traguardi, raggiunti, richiesti: l.ids.length, completo: raggiunti === l.ids.length };
+    const k = LIVELLO_KEYS[l.numero];
+    const nome = k ? tMilestone(k.nome, lang) : l.nome;
+    const sottotitolo = k ? tMilestone(k.sotto, lang) : l.sottotitolo;
+    return { ...l, nome, sottotitolo, traguardi, raggiunti, richiesti: l.ids.length, completo: raggiunti === l.ids.length };
   });
   const idxCorrente = livelli.findIndex((l) => !l.completo);
   const livelloCorrente = idxCorrente === -1 ? livelli.length + 1 : livelli[idxCorrente].numero;

@@ -616,3 +616,52 @@ test('t: jarSweepSubtitle porta il markup <b> in ogni lingua (consumata via data
     assert.match(t('jarSweepSubtitle', lang), /<b>.*<\/b>/, `lingua "${lang}": manca <b> in jarSweepSubtitle`);
   }
 });
+
+// ── Traguardi/livelli (src/ai/progress-milestones.js) + achievements
+// (src/predict/achievements.js) + wrapper "Livello N — Nome" in main.js
+// (2026-08-29) — moduli puri separati, mai passati dal catalogo prima.
+// Bug reale trovato dal vivo in Chrome durante la verifica: "Livello 2 —
+// The pattern" restava mezzo tradotto perché il wrapper in main.js non
+// passava dalle chiavi lvl* — corretto e coperto qui. ──
+
+test('t: tutte le chiavi mst*/lvl1-4 (progress-milestones.js) esistono nelle 7 lingue', () => {
+  const chiavi = ['mstPrimaCatTesto', 'mstPrimaCatSotto', 'mstPatternTesto', 'mstPatternSotto', 'mstCausaleTesto', 'mstCausaleSotto', 'mstSentimentTesto', 'mstSentimentSotto', 'mstMeshTesto', 'mstMeshSotto', 'mstPercentileTesto', 'mstPercentileSotto', 'mstGruppoTesto', 'mstGruppoSotto', 'mstChatTesto', 'mstChatSotto', 'lvl1Nome', 'lvl1Sotto', 'lvl2Nome', 'lvl2Sotto', 'lvl3Nome', 'lvl3Sotto', 'lvl4Nome', 'lvl4Sotto'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 1, 2);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: tutte le chiavi ach* (achievements.js) esistono nelle 7 lingue', () => {
+  const chiavi = ['achUnlockedToast', 'achFirstStepName', 'achFirstStepDesc', 'achGettingSeriousName', 'achGettingSeriousDesc', 'achVeteranName', 'achVeteranDesc', 'achStreak3Name', 'achStreak3Desc', 'achStreak7Name', 'achStreak7Desc', 'achStreak30Name', 'achStreak30Desc', 'achStreak100Name', 'achStreak100Desc', 'achFirstSavedName', 'achFirstSavedDesc', 'achUnderBudgetName', 'achUnderBudgetDesc', 'achFirstGoalName', 'achFirstGoalDesc', 'achConsistencyName', 'achConsistencyDesc'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: tutte le chiavi lvl* del wrapper "Livello N — Nome" (main.js:renderTraguardiCard) esistono nelle 7 lingue — mai più mezzo tradotto', () => {
+  const chiavi = ['lvlLabel', 'lvlAllCompleteTitle', 'lvlAllCompleteSubtitle', 'lvlSummary', 'lvlCompletedToast', 'lvlShareMsg', 'lvlCopiedToast'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 2, 'X', 'Y');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.equal(t('lvlLabel', 'en', 2, 'The pattern'), 'Level 2 — The pattern');
+});
+
+test('t: dashSalaryPending/dashMarginPositive/dashMarginNegative esistono nelle 7 lingue — bug reale trovato dal vivo (chiave grezza "dashMarginPositive" mostrata a schermo)', () => {
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    assert.notEqual(t('dashSalaryPending', lang), 'dashSalaryPending');
+    assert.notEqual(t('dashMarginPositive', lang, '50€'), 'dashMarginPositive');
+    assert.notEqual(t('dashMarginNegative', lang, '50€'), 'dashMarginNegative');
+  }
+});

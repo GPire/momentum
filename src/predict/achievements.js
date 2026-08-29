@@ -9,6 +9,7 @@
 'use strict';
 
 import { computeGoalProgress } from './engagement.js';
+import { t as tAch } from '../i18n/ui-strings.js';
 
 const monthKeyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
@@ -27,6 +28,39 @@ export const ACHIEVEMENTS = [
   { id: 'first-goal', name: 'Obiettivo raggiunto', icon: '🎯', desc: 'Hai completato un obiettivo di risparmio.', check: s => s.goalsDone >= 1 },
   { id: 'consistency', name: 'Costanza', icon: '📆', desc: '3 mesi di storia tracciata.', check: s => s.monthsTracked >= 3, progress: s => ({ current: Math.min(s.monthsTracked, 3), target: 3 }) },
 ];
+
+// id → chiavi i18n (2026-08-29). ACHIEVEMENTS resta invariato (id/name/desc/
+// icon in italiano, stessa forma di sempre — letto ancora così da chi non
+// passa una lingua) — achievementLabel() è il punto unico da cui main.js e
+// nextMilestone() leggono la versione tradotta, mai due mappe a rischio di
+// disallinearsi.
+const ACH_KEYS = {
+  'first-step': { name: 'achFirstStepName', desc: 'achFirstStepDesc' },
+  'getting-serious': { name: 'achGettingSeriousName', desc: 'achGettingSeriousDesc' },
+  veteran: { name: 'achVeteranName', desc: 'achVeteranDesc' },
+  'streak-3': { name: 'achStreak3Name', desc: 'achStreak3Desc' },
+  'streak-7': { name: 'achStreak7Name', desc: 'achStreak7Desc' },
+  'streak-30': { name: 'achStreak30Name', desc: 'achStreak30Desc' },
+  'streak-100': { name: 'achStreak100Name', desc: 'achStreak100Desc' },
+  'first-saved': { name: 'achFirstSavedName', desc: 'achFirstSavedDesc' },
+  'under-budget': { name: 'achUnderBudgetName', desc: 'achUnderBudgetDesc' },
+  'first-goal': { name: 'achFirstGoalName', desc: 'achFirstGoalDesc' },
+  consistency: { name: 'achConsistencyName', desc: 'achConsistencyDesc' },
+};
+
+// Traduce nome+descrizione di un achievement per id. Ripiega sul testo
+// italiano grezzo di ACHIEVEMENTS se l'id non è mappato (non dovrebbe mai
+// succedere: ACH_KEYS copre tutti gli id sopra, verificato da un test).
+export function achievementLabel(id, lang = 'it') {
+  const a = ACHIEVEMENTS.find(x => x.id === id);
+  if (!a) return null;
+  const k = ACH_KEYS[id];
+  return {
+    id, icon: a.icon,
+    name: k ? tAch(k.name, lang) : a.name,
+    desc: k ? tAch(k.desc, lang) : a.desc,
+  };
+}
 
 // Metriche misurate dallo stato del vault. Esclude il mese CORRENTE (parziale)
 // dal conteggio "mesi sotto budget": a inizio mese si è sempre sotto, contarlo
@@ -77,14 +111,17 @@ export function evaluateAchievements(unlocked = {}, stats, referenceDate = new D
 // Dopamina anticipatoria: il traguardo progressivo NON ancora sbloccato più
 // vicino (percentuale di completamento più alta). Ritorna { id, name, icon,
 // current, target, pct } | null se non ci sono progressivi in corso.
-export function nextMilestone(unlocked = {}, stats) {
+export function nextMilestone(unlocked = {}, stats, lang = 'it') {
   let best = null;
   for (const a of ACHIEVEMENTS) {
     if (unlocked[a.id] || !a.progress) continue;
     const { current, target } = a.progress(stats);
     if (current >= target) continue;
     const pct = target > 0 ? current / target : 0;
-    if (!best || pct > best.pct) best = { id: a.id, name: a.name, icon: a.icon, desc: a.desc, current, target, pct: +pct.toFixed(3) };
+    if (!best || pct > best.pct) {
+      const label = achievementLabel(a.id, lang);
+      best = { id: a.id, name: label.name, icon: label.icon, desc: label.desc, current, target, pct: +pct.toFixed(3) };
+    }
   }
   return best;
 }

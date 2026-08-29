@@ -183,7 +183,7 @@ import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
 import { derivePriors, seedBanditState, testoConsiglio } from './predict/onboarding-priors.js';
 import { evaluateBrake } from './predict/spending-brake.js';
-import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone } from './predict/achievements.js';
+import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
 import { recordUnknownQuestion, learnCorrection, qaLearningCoverage } from './ai/qa-learning.js';
 import { recordVoiceCorrection } from './voice/voice-learning.js';
@@ -1811,8 +1811,8 @@ function evaluateAndCelebrateAchievements() {
     VaultDAO.state.achievements = unlocked;
     VaultDAO.save();
     for (const id of newly) {
-      const a = ACHIEVEMENTS.find(x => x.id === id);
-      if (a) showToast(`Traguardo raggiunto: ${a.name}!`, 'success');
+      const a = achievementLabel(id, __uiLang);
+      if (a) showToast(tCh('achUnlockedToast', __uiLang, a.name), 'success');
     }
     try { haptic('heavy'); AudioSynth.play('success'); } catch (_) {}
   }
@@ -2316,7 +2316,7 @@ const renderDashboard = () => {
     let line = null;
     if (isCurrentMonth) {
       const aStats = computeStats(VaultDAO.state, realNow);
-      const nm = nextMilestone(VaultDAO.state.achievements || {}, aStats);
+      const nm = nextMilestone(VaultDAO.state.achievements || {}, aStats, __uiLang);
       if (nm && nm.pct >= 0.6) {
         const manca = nm.target - nm.current;
         // Descrive il COMPORTAMENTO in parole di tutti (niente nomi-badge né
@@ -11756,7 +11756,7 @@ function raccogliSegnaliTraguardi() {
 function renderTraguardiCard() {
   const list = $('#momentum-traguardi-list');
   if (!list) return null;
-  const stato = valutaLivelli(raccogliSegnaliTraguardi(), VaultDAO.state.traguardiMostrati || []);
+  const stato = valutaLivelli(raccogliSegnaliTraguardi(), VaultDAO.state.traguardiMostrati || [], __uiLang);
   const idx = Math.min(stato.livelloCorrente, stato.totaleLivelli) - 1;
   const corrente = stato.livelli[idx];
 
@@ -11782,11 +11782,11 @@ function renderTraguardiCard() {
     badge.innerHTML = stato.tuttoCompleto ? '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/><circle cx="12" cy="8" r="7"/></svg>' : String(stato.livelloCorrente);
   }
   const titolo = $('#momentum-livello-titolo');
-  if (titolo) titolo.textContent = stato.tuttoCompleto ? 'Tutti i traguardi raggiunti' : `Livello ${stato.livelloCorrente} — ${corrente.nome}`;
+  if (titolo) titolo.textContent = stato.tuttoCompleto ? tCh('lvlAllCompleteTitle', __uiLang) : tCh('lvlLabel', __uiLang, stato.livelloCorrente, corrente.nome);
   const sottotitolo = $('#momentum-livello-sottotitolo');
-  if (sottotitolo) sottotitolo.textContent = stato.tuttoCompleto ? 'Ogni capacità reale di Momentum, sbloccata dall\'uso vero — non resta altro da mostrare qui.' : corrente.sottotitolo;
+  if (sottotitolo) sottotitolo.textContent = stato.tuttoCompleto ? tCh('lvlAllCompleteSubtitle', __uiLang) : corrente.sottotitolo;
   const riepilogo = $('#momentum-traguardi-riepilogo');
-  if (riepilogo) riepilogo.textContent = `${stato.livelli.filter(l => l.completo).length} di ${stato.totaleLivelli} livelli — cresce con l'uso reale, mai con un premio finto`;
+  if (riepilogo) riepilogo.textContent = tCh('lvlSummary', __uiLang, stato.livelli.filter(l => l.completo).length, stato.totaleLivelli);
 
   // Condivisione (2026-08-27): un traguardo raggiunto è l'unico punto della
   // gamification autorizzato a uscire dall'app (confine già concordato:
@@ -11817,7 +11817,7 @@ function renderTraguardiCard() {
     altri.innerHTML = stato.livelli.filter(l => l.numero !== daMostrare?.numero).map(l => `
       <div class="flex items-center gap-2 text-[11.5px] ${l.completo ? '' : 'text-[var(--on-surface-secondary)] opacity-70'}">
         <span class="font-bold ${l.completo ? 'text-emerald-400' : ''}">${l.completo ? '✓' : l.numero}</span>
-        <span>Livello ${l.numero} — ${l.nome}</span>
+        <span>${tCh('lvlLabel', __uiLang, l.numero, l.nome)}</span>
       </div>`).join('');
   }
   return stato;
@@ -11833,7 +11833,7 @@ function controllaTraguardi() {
   VaultDAO.state.traguardiMostrati = [...(VaultDAO.state.traguardiMostrati || []), ...stato.nuoviTraguardi];
   VaultDAO.save();
   if (stato.livelloCompletatoOra) {
-    showToast(`Livello ${stato.livelloCompletatoOra} completato: ${stato.nomeLivelloCompletatoOra}`, 'success');
+    showToast(tCh('lvlCompletedToast', __uiLang, stato.livelloCompletatoOra, stato.nomeLivelloCompletatoOra), 'success');
     const badge = $('#momentum-livello-badge');
     if (badge) { badge.classList.remove('qa-icon-glow'); void badge.offsetWidth; badge.classList.add('qa-icon-glow'); }
     const card = $('#momentum-traguardi-card');
@@ -11855,11 +11855,11 @@ controllaTraguardi();
 window.condividiTraguardo = async () => {
   const l = window.__ultimoLivelloCompletato;
   if (!l) return;
-  const msg = `Livello ${l.numero} — ${l.nome} sbloccato su Momentum: ${l.sottotitolo}. Zero server: i miei dati restano solo sul mio telefono.`;
+  const msg = tCh('lvlShareMsg', __uiLang, l.numero, l.nome, l.sottotitolo);
   pingFeature('milestone_shared');
   try {
     if (navigator.share) await navigator.share({ text: msg });
-    else { await navigator.clipboard?.writeText(msg); showToast('Copiato — incollalo dove vuoi condividerlo.', 'success'); }
+    else { await navigator.clipboard?.writeText(msg); showToast(tCh('lvlCopiedToast', __uiLang), 'success'); }
   } catch (_) { /* utente ha annullato la condivisione, nessun errore da mostrare */ }
 };
 
