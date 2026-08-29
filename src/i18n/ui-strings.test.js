@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { t, resolveUiLanguage, UI_LANG_DEFAULT, UI_LANGS } from './ui-strings.js';
 
-test('UI_LANGS copre le 3 lingue nazionali svizzere principali + inglese + spagnolo (autónomos) + olandese (2026-08-29, Paesi Bassi/Fiandre)', () => {
-  assert.deepEqual(UI_LANGS.sort(), ['de', 'en', 'es', 'fr', 'it', 'nl'].sort());
+test('UI_LANGS copre le 3 lingue nazionali svizzere principali + inglese + spagnolo (autónomos) + olandese + portoghese (2026-08-29, Brasile: gap PIX Nubank già nel repo)', () => {
+  assert.deepEqual(UI_LANGS.sort(), ['de', 'en', 'es', 'fr', 'it', 'nl', 'pt'].sort());
 });
 
 test('UI_LANG_DEFAULT è inglese (richiesta esplicita: "se non riconosciuta, magari inglese")', () => {
@@ -276,4 +276,70 @@ test('t: dashImportTitle traduce correttamente in tutte le 6 lingue', () => {
   assert.equal(t('dashImportTitle', 'de'), 'Sieh dein echtes Geld.');
   assert.equal(t('dashImportTitle', 'fr'), 'Vois ton argent réel.');
   assert.equal(t('dashImportTitle', 'nl'), 'Bekijk je echte geld.');
+});
+
+// ── Divisione spese — invito/ingresso (2026-08-29): il loop virale vero
+// (README: "Momentum's own viral loop"). Copre openShareCode/inviteToMomentum/
+// receiveSplitGroup/openJoinConfirm/openMomentumReveal/openActivationQuestions/
+// renderSplitForesight in main.js — le schermate che vede chi NON è ancora
+// un utente Momentum. Prima volta a 7 lingue (portoghese incluso: gap
+// concreto, non ipotetico — vedi commento su UI_LANGS/pt sopra). ──
+
+test('t: tutte le chiavi share*/invite*/receive*/join*/reveal*/act*/fore* esistono nelle 7 lingue coperte, mai un fallback sulla chiave grezza', () => {
+  const chiavi = [
+    'shareDefaultTitle', 'shareDefaultGroupName', 'shareFallbackSub', 'shareInviteTitle',
+    'shareInviteSub', 'shareInviteSubChat', 'shareQrHint', 'shareCopyLink', 'shareOther',
+    'shareCodeFallback', 'shareP2pSummary', 'shareP2pText', 'shareP2pPlaceholder',
+    'shareP2pConnect', 'shareP2pConnected', 'shareToastCopied', 'shareToastInvalidAnswer',
+    'shareToastNeedPaste', 'shareToastP2pActive', 'shareWaMsg', 'shareEmailSubject',
+    'inviteTitle', 'inviteSub', 'inviteMsg', 'inviteEmailSubject', 'inviteFromGroupCta',
+    'receiveTitle', 'receiveSub', 'receivePlaceholder', 'receiveBtn', 'receiveToastInvalid',
+    'joinEyebrow', 'joinTitleNew', 'joinTitleUpdate', 'joinWithNames', 'joinAndOthers',
+    'joinExpensesCount', 'joinNoExpenses', 'joinWhoAreYou', 'joinNotThere', 'joinNamePlaceholder',
+    'joinBtnUpdate', 'joinBtnNew', 'joinFooterBase', 'joinFooterExtra', 'joinToastChooseWho',
+    'joinToastMerged', 'joinToastJoined',
+    'revealTitle', 'revealSub', 'revealCard1Title', 'revealCard1Desc', 'revealCard2Title',
+    'revealCard2DescHook', 'revealCard2DescNoHook', 'revealCard3Title', 'revealCard3Desc',
+    'revealActivate', 'revealLater', 'revealToastActivated',
+    'actQ1Title', 'actQ1Opt1', 'actQ1Opt2', 'actQ1Opt3', 'actQ2Title', 'actQ2Opt1', 'actQ2Opt2', 'actQ2Opt3',
+    'foreNowLabel', 'foreInDays', 'foreUsuallyPays', 'foreEyebrow', 'foreDisclaimer',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      // le chiavi-funzione (shareWaMsg, joinExpensesCount, ecc.) restituiscono
+      // una stringa interpolata: passiamo argomenti fittizi solo per farle
+      // eseguire, il controllo di copertura riguarda la funzione stessa (mai
+      // `undefined` o la chiave grezza), non il contenuto interpolato qui.
+      const v = t(k, lang, 'X', 'Y');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: joinTitleNew/joinTitleUpdate (grammatica per lingua, non concatenazione a schema fisso) interpolano correttamente', () => {
+  assert.equal(t('joinTitleNew', 'it', 'Weekend a Roma'), 'Unisciti a «Weekend a Roma»');
+  assert.equal(t('joinTitleNew', 'en', 'Rome weekend'), 'Join "Rome weekend"');
+  assert.equal(t('joinTitleNew', 'de', 'Rom-Wochenende'), 'Tritt „Rom-Wochenende" bei');
+  assert.equal(t('joinTitleUpdate', 'fr', 'Week-end à Rome'), 'Mettre à jour « Week-end à Rome »');
+  assert.equal(t('joinTitleNew', 'pt', 'Fim de semana em Roma'), 'Entrar em «Fim de semana em Roma»');
+});
+
+test('t: shareWaMsg (messaggio WhatsApp d\'invito) porta sempre il link da solo sull\'ultima riga, in ogni lingua — regola esplicita del commento in main.js', () => {
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    const msg = t('shareWaMsg', lang, 'Weekend', 'https://esempio.test/x');
+    const righe = msg.split('\n');
+    assert.equal(righe[righe.length - 1], 'https://esempio.test/x', `lingua "${lang}": il link non è sull'ultima riga da solo`);
+  }
+});
+
+test('t: il portoghese (Brasile) copre lo stesso catalogo genesis*/dash*/wn*/cat* già coperto da it/en/de/fr/es/nl', () => {
+  const chiavi = [
+    'genesisTagline', 'genesisStart', 'dashOggiPuoiSpendere', 'dashImportTitle',
+    'wnTitle', 'wnClose', 'cat_spesa', 'cat_stipendio', 'catNuovaCategoria',
+  ];
+  for (const k of chiavi) {
+    assert.notEqual(t(k, 'pt'), k, `chiave "${k}" mancante in portoghese`);
+  }
+  assert.equal(t('dashOggiPuoiSpendere', 'pt'), 'Hoje você pode gastar');
 });
