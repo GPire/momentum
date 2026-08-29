@@ -35,6 +35,18 @@ test('resolveUiLanguage: nessun dato disponibile -> fallback inglese', () => {
   assert.equal(resolveUiLanguage({ navigatorLike: {} }), 'en');
 });
 
+test('resolveUiLanguage: chiamata SENZA argomenti (come fa main.js: resolveUiLanguage()) legge il navigator VERO del browser — bug reale trovato dal vivo (2026-08-29): il default navigatorLike=null passava null a detectDeviceLanguage, che con null esplicito (mai undefined) non ripiegava mai sul navigator reale, quindi l\'app mostrava sempre inglese a prescindere dal dispositivo', () => {
+  const realNavigator = globalThis.navigator;
+  try {
+    globalThis.navigator = { language: 'it-IT', languages: ['it-IT'] };
+    assert.equal(resolveUiLanguage(), 'it', 'con navigator reale in italiano, resolveUiLanguage() senza argomenti deve restituire "it", non ripiegare su "en"');
+    globalThis.navigator = { language: 'de-CH', languages: ['de-CH'] };
+    assert.equal(resolveUiLanguage(), 'de');
+  } finally {
+    globalThis.navigator = realNavigator;
+  }
+});
+
 test('t: restituisce la stringa giusta in ognuna delle 4 lingue', () => {
   assert.equal(t('chSimTitle', 'it'), 'Lavori in Svizzera?');
   assert.equal(t('chSimTitle', 'en'), 'Working in Switzerland?');
@@ -664,4 +676,16 @@ test('t: dashSalaryPending/dashMarginPositive/dashMarginNegative esistono nelle 
     assert.notEqual(t('dashMarginPositive', lang, '50€'), 'dashMarginPositive');
     assert.notEqual(t('dashMarginNegative', lang, '50€'), 'dashMarginNegative');
   }
+});
+
+test('t: tutte le chiavi inst* (install-guide.js, guida installazione PWA) esistono nelle 7 lingue', () => {
+  const chiavi = ['instAlreadyInstalledTitle', 'instInAppTitle', 'instInAppWarning', 'instInAppOpenSafari', 'instInAppOpenChrome', 'instInAppThenWorks', 'instIosSafariTitle', 'instIosBackupWarning', 'instIosShareIcon', 'instIosAddToHome', 'instIosConfirmAdd', 'instIosEmptyAfterInstall', 'instIosOtherTitle', 'instIosOnlySafari', 'instIosShareThenHome', 'instAndroidTitle', 'instAndroidTapInstall', 'instAndroidConfirm', 'instAndroidMenuDots', 'instAndroidAddHome', 'instDesktopTitle', 'instDesktopTapInstall', 'instDesktopOpensWindow', 'instFirefoxNotSupported', 'instFirefoxAlternative', 'instFallbackTitle', 'instFallbackStep'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'Instagram');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.match(t('instInAppTitle', 'en', 'Instagram'), /Instagram/);
 });

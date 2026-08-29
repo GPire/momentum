@@ -854,6 +854,11 @@ const attachFormListeners = (container, prefill = null) => {
       fr: ['j\'ai dépensé 15 euros au bar', 'rappel dentiste jeudi à 15h', 'combien ai-je dépensé ce mois-ci ?'],
       de: ['ich habe 15 Euro in der Bar ausgegeben', 'Erinnerung Zahnarzt Donnerstag um 15 Uhr', 'wie viel habe ich diesen Monat ausgegeben?'],
       pt: ['gastei 15 euros no bar', 'lembrete dentista quinta às 15h', 'quanto gastei este mês?'],
+      // 'nl' mancava qui (bug reale, 2026-08-29): linguaVoceAttiva() può
+      // restituire 'nl' (è in UI_LANGS/SUPPORTED), ma senza questa voce
+      // l'esempio ripiegava sempre sull'italiano per un utente olandese —
+      // anche se il resto della UI era già in olandese.
+      nl: ['ik heb 15 euro uitgegeven aan de bar', 'herinnering tandarts donderdag om 15 uur', 'hoeveel heb ik deze maand uitgegeven?'],
     };
     const lista = ESEMPI[linguaVoceAttiva()] || ESEMPI.it;
     let i = 0;
@@ -11623,7 +11628,7 @@ function renderInstallGuide() {
   if (!stepsEl) return;
   const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
   const platform = detectPlatform(navigator.userAgent, { standalone });
-  const { title, steps } = installSteps(platform, { hasData: realTxCount() > 0 });
+  const { title, steps } = installSteps(platform, { hasData: realTxCount() > 0, lang: __uiLang });
   const titleEl = document.getElementById('install-guide-title');
   const btnEl = document.getElementById('install-guide-btn');
   const doneEl = document.getElementById('install-guide-done');
@@ -11643,7 +11648,7 @@ function renderInstallGuide() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[var(--on-surface-secondary)] shrink-0">${INSTALL_ICON_SVG[s.icon] || INSTALL_ICON_SVG.info}</svg>
           <p class="text-xs text-[var(--on-surface-secondary)] leading-snug">${s.text}</p>
         </div>
-        ${s.action === 'exportPlainBackup' ? '<button onclick="window.exportPlainBackup()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Salva le tue spese ora</button>' : ''}
+        ${s.action === 'exportPlainBackup' ? `<button onclick="window.exportPlainBackup()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">${tCh('instSaveExpensesBtn', __uiLang)}</button>` : ''}
       </div>
     </div>`).join('');
   // Il pulsante nativo appare SOLO se il browser ha davvero offerto

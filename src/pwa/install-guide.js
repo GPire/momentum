@@ -3,7 +3,15 @@
 // linguaggio semplice ("comprensibile anche a un bambino"). Funzione pura,
 // testabile: prende userAgent come parametro invece di leggere
 // navigator.userAgent direttamente, mai un side-effect nascosto.
+//
+// Multilingua (2026-08-29): installSteps() accetta ora `lang` (default
+// 'it', stesso comportamento di sempre — tutti i test esistenti, che non
+// passano una lingua, continuano a leggere l'italiano originale byte per
+// byte). detectPlatform()/detectOS()/detectBrowser()/detectInAppBrowser()
+// restano invariate: rilevano fatti sul dispositivo, non producono testo.
 'use strict';
+
+import { t as tInst } from '../i18n/ui-strings.js';
 
 function detectOS(ua) {
   if (/iPad|iPhone|iPod/.test(ua) && !/Windows Phone/.test(ua)) return 'ios';
@@ -66,7 +74,7 @@ export function detectPlatform(userAgent = '', { standalone = false } = {}) {
 // confine è il FILE SYSTEM (Download/File di iOS, non storage web) — da qui
 // il backup in chiaro un-tap (`exportPlainBackup`, già esistente) PRIMA di
 // installare, poi importato nella PWA appena aperta.
-const IOS_BACKUP_STEP = { icon: 'info', text: 'Hai già delle spese salvate? Tocca "Salva le tue spese ora" qui sotto PRIMA di continuare: su iPhone i dati non passano da soli a Safari a un\'app installata.', action: 'exportPlainBackup' };
+const iosBackupStep = (lang) => ({ icon: 'info', text: tInst('instIosBackupWarning', lang), action: 'exportPlainBackup' });
 
 // Passi in linguaggio semplice, un'azione per riga. `icon` è una chiave
 // testuale (share/menu/plus/home) che la UI traduce in un'icona reale — mai
@@ -74,9 +82,9 @@ const IOS_BACKUP_STEP = { icon: 'info', text: 'Hai già delle spese salvate? Toc
 // `hasData` (default false): questo dispositivo ha già transazioni vere —
 // SOLO allora ha senso avvisare del salvataggio pre-installazione (mai
 // rumore per chi sta ancora guardando l'app vuota, nulla da perdere).
-export function installSteps(platform, { hasData = false } = {}) {
+export function installSteps(platform, { hasData = false, lang = 'it' } = {}) {
   const { os, browser, standalone, inAppBrowser } = platform;
-  if (standalone) return { title: 'App già installata', steps: [] };
+  if (standalone) return { title: tInst('instAlreadyInstalledTitle', lang), steps: [] };
 
   // PRIORITÀ ASSOLUTA: un browser in-app (aperto da un link dentro
   // Instagram/Facebook/TikTok/WhatsApp/LinkedIn/X) non può installare NULLA,
@@ -85,11 +93,11 @@ export function installSteps(platform, { hasData = false } = {}) {
   // mai lasciato scoprire dopo passi che falliscono silenziosamente.
   if (inAppBrowser) {
     return {
-      title: `Sei dentro ${inAppBrowser}, non in un browser vero`,
+      title: tInst('instInAppTitle', lang, inAppBrowser),
       steps: [
-        { icon: 'info', text: `${inAppBrowser} apre i link in una finestra sua, senza la funzione "Installa": è la causa più comune di "non ci riesco"` },
-        { icon: 'menu', text: os === 'ios' ? 'Tocca i tre puntini (o Condividi) in alto e scegli "Apri in Safari"' : 'Tocca i tre puntini in alto e scegli "Apri nel browser" (Chrome)' },
-        { icon: 'home', text: 'Da lì la guida qui sotto funzionerà davvero' },
+        { icon: 'info', text: tInst('instInAppWarning', lang, inAppBrowser) },
+        { icon: 'menu', text: os === 'ios' ? tInst('instInAppOpenSafari', lang) : tInst('instInAppOpenChrome', lang) },
+        { icon: 'home', text: tInst('instInAppThenWorks', lang) },
       ],
     };
   }
@@ -97,25 +105,25 @@ export function installSteps(platform, { hasData = false } = {}) {
   if (os === 'ios') {
     if (browser === 'safari') {
       return {
-        title: 'Installa su iPhone/iPad (Safari)',
+        title: tInst('instIosSafariTitle', lang),
         steps: [
-          ...(hasData ? [IOS_BACKUP_STEP] : []),
-          { icon: 'share', text: 'Tocca l\'icona Condividi (il quadrato con la freccia verso l\'alto), in basso al centro' },
-          { icon: 'plus', text: 'Scorri l\'elenco (a volte serve scorrere parecchio) e tocca "Aggiungi a Home"' },
-          { icon: 'home', text: 'Tocca "Aggiungi": l\'icona di Momentum apparirà sulla schermata Home' },
-          ...(hasData ? [{ icon: 'info', text: 'Aprila dalla Home: se la vedi vuota, tocca "Ho un backup da importare" nella prima schermata — è il file che hai appena salvato' }] : []),
+          ...(hasData ? [iosBackupStep(lang)] : []),
+          { icon: 'share', text: tInst('instIosShareIcon', lang) },
+          { icon: 'plus', text: tInst('instIosAddToHome', lang) },
+          { icon: 'home', text: tInst('instIosConfirmAdd', lang) },
+          ...(hasData ? [{ icon: 'info', text: tInst('instIosEmptyAfterInstall', lang) }] : []),
         ],
       };
     }
     // Chrome/Firefox su iOS: stesso motore Safari sotto, stesso percorso di
     // condivisione — Apple obbliga tutti i browser iOS a usare WebKit.
     return {
-      title: 'Installa su iPhone/iPad',
+      title: tInst('instIosOtherTitle', lang),
       steps: [
-        ...(hasData ? [IOS_BACKUP_STEP] : []),
-        { icon: 'info', text: 'Su iPhone/iPad solo Safari può installare le app — apri questa pagina in Safari' },
-        { icon: 'share', text: 'Poi tocca Condividi → "Aggiungi a Home"' },
-        ...(hasData ? [{ icon: 'info', text: 'Aprila dalla Home: se la vedi vuota, tocca "Ho un backup da importare" nella prima schermata — è il file che hai appena salvato' }] : []),
+        ...(hasData ? [iosBackupStep(lang)] : []),
+        { icon: 'info', text: tInst('instIosOnlySafari', lang) },
+        { icon: 'share', text: tInst('instIosShareThenHome', lang) },
+        ...(hasData ? [{ icon: 'info', text: tInst('instIosEmptyAfterInstall', lang) }] : []),
       ],
     };
   }
@@ -123,18 +131,18 @@ export function installSteps(platform, { hasData = false } = {}) {
   if (os === 'android') {
     if (['chrome', 'edge', 'samsung'].includes(browser)) {
       return {
-        title: 'Installa su Android',
+        title: tInst('instAndroidTitle', lang),
         steps: [
-          { icon: 'install', text: 'Tocca il pulsante "Installa" qui sotto' },
-          { icon: 'home', text: 'Conferma: Momentum apparirà come un\'app vera, con la sua icona' },
+          { icon: 'install', text: tInst('instAndroidTapInstall', lang) },
+          { icon: 'home', text: tInst('instAndroidConfirm', lang) },
         ],
       };
     }
     return {
-      title: 'Installa su Android',
+      title: tInst('instAndroidTitle', lang),
       steps: [
-        { icon: 'menu', text: 'Tocca i tre puntini in alto a destra' },
-        { icon: 'plus', text: 'Tocca "Aggiungi a schermata Home" o "Installa app"' },
+        { icon: 'menu', text: tInst('instAndroidMenuDots', lang) },
+        { icon: 'plus', text: tInst('instAndroidAddHome', lang) },
       ],
     };
   }
@@ -142,26 +150,26 @@ export function installSteps(platform, { hasData = false } = {}) {
   // Desktop (Windows/Mac/altro)
   if (['chrome', 'edge'].includes(browser)) {
     return {
-      title: 'Installa sul computer',
+      title: tInst('instDesktopTitle', lang),
       steps: [
-        { icon: 'install', text: 'Tocca il pulsante "Installa" qui sotto, oppure l\'icona ⊕ nella barra degli indirizzi' },
-        { icon: 'home', text: 'Momentum si aprirà in una sua finestra, come un programma vero' },
+        { icon: 'install', text: tInst('instDesktopTapInstall', lang) },
+        { icon: 'home', text: tInst('instDesktopOpensWindow', lang) },
       ],
     };
   }
   if (browser === 'firefox') {
     return {
-      title: 'Installa sul computer',
+      title: tInst('instDesktopTitle', lang),
       steps: [
-        { icon: 'info', text: 'Firefox desktop non supporta ancora l\'installazione delle app web' },
-        { icon: 'menu', text: 'Puoi comunque creare un segnalibro o aprire Momentum in un altro browser (Chrome/Edge) per installarla' },
+        { icon: 'info', text: tInst('instFirefoxNotSupported', lang) },
+        { icon: 'menu', text: tInst('instFirefoxAlternative', lang) },
       ],
     };
   }
   return {
-    title: 'Installa Momentum',
+    title: tInst('instFallbackTitle', lang),
     steps: [
-      { icon: 'menu', text: 'Cerca "Installa app" o "Aggiungi a schermata Home" nel menu del tuo browser' },
+      { icon: 'menu', text: tInst('instFallbackStep', lang) },
     ],
   };
 }
