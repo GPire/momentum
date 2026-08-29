@@ -678,6 +678,29 @@ test('t: dashSalaryPending/dashMarginPositive/dashMarginNegative esistono nelle 
   }
 });
 
+test('t: tutte le chiavi brake* (Momentum Vault, freno spese Delicato/Consigliere/Deciso) esistono nelle 7 lingue', () => {
+  const chiavi = ['brakeDescZen', 'brakeDescAdvisor', 'brakeDescPredator', 'brakeLiquidityNote', 'brakeToast'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.equal(t('brakeToast', 'en', 'Firm'), 'Spending brake: Firm.');
+});
+
+test('t: tutte le chiavi neuro* (neurosym.js, pannello "Come funziona Momentum") esistono nelle 7 lingue', () => {
+  const chiavi = ['neuroCatName', 'neuroCatComponents', 'neuroCatMode', 'neuroEpiName', 'neuroEpiComponents', 'neuroEpiMode', 'neuroCausalName', 'neuroCausalComponents', 'neuroCausalMode', 'neuroInvestName', 'neuroInvestComponents', 'neuroInvestMode', 'neuroQaName', 'neuroQaComponents', 'neuroQaMode', 'neuroHwName', 'neuroHwComponents', 'neuroHwModeActive', 'neuroHwModeInactive', 'neuroHonesty'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
 test('t: tutte le chiavi inst* (install-guide.js, guida installazione PWA) esistono nelle 7 lingue', () => {
   const chiavi = ['instAlreadyInstalledTitle', 'instInAppTitle', 'instInAppWarning', 'instInAppOpenSafari', 'instInAppOpenChrome', 'instInAppThenWorks', 'instIosSafariTitle', 'instIosBackupWarning', 'instIosShareIcon', 'instIosAddToHome', 'instIosConfirmAdd', 'instIosEmptyAfterInstall', 'instIosOtherTitle', 'instIosOnlySafari', 'instIosShareThenHome', 'instAndroidTitle', 'instAndroidTapInstall', 'instAndroidConfirm', 'instAndroidMenuDots', 'instAndroidAddHome', 'instDesktopTitle', 'instDesktopTapInstall', 'instDesktopOpensWindow', 'instFirefoxNotSupported', 'instFirefoxAlternative', 'instFallbackTitle', 'instFallbackStep'];
   for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {

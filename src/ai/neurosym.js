@@ -32,6 +32,18 @@ import { analyzePortfolio } from '../alpha/portfolio-import.js';
 import { taxSetAsideForPeriod } from '../predict/tax.js';
 import { activatableHeavyExperts } from './expert-adapter.js';
 import { explainMacro, investorFor } from '../graph/market-knowledge.js';
+import { t as tNeuro } from '../i18n/ui-strings.js';
+
+// id → chiavi i18n (2026-08-29). explain() accetta `lang` (default 'it',
+// stesso comportamento di sempre — il test esistente, che non passa una
+// lingua, continua a leggere l'italiano originale byte per byte).
+const NEURO_LAYER_KEYS = [
+  { name: 'neuroCatName', components: 'neuroCatComponents', mode: 'neuroCatMode' },
+  { name: 'neuroEpiName', components: 'neuroEpiComponents', mode: 'neuroEpiMode' },
+  { name: 'neuroCausalName', components: 'neuroCausalComponents', mode: 'neuroCausalMode' },
+  { name: 'neuroInvestName', components: 'neuroInvestComponents', mode: 'neuroInvestMode' },
+  { name: 'neuroQaName', components: 'neuroQaComponents', mode: 'neuroQaMode' },
+];
 
 export const NeuroSym = {
   // Categorizzazione: delega all'orchestratore (unico cervello di categoria).
@@ -66,20 +78,24 @@ export const NeuroSym = {
 
   // Auto-descrizione onesta dell'architettura ATTIVA su questo device: cosa è
   // acceso, con quali specs misurabili. Serve alla UI e alla due diligence.
-  explain(profile = null) {
+  explain(profile = null, lang = 'it') {
     const heavy = activatableHeavyExperts(profile);
     return {
       engine: 'NeuroSym',
       layers: [
-        { name: 'Categorizzazione', components: ['dizionario esercenti', 'Nano', 'Meso', 'DCGN'], mode: 'sparse-MoE per tier' },
-        { name: 'Memoria episodica', components: ['DCGN grafo online'], mode: 'apprende ad ogni transazione, decade' },
-        { name: 'Ragionamento causale', components: ['causal-graph'], mode: 'co-variazione tra categorie' },
-        { name: 'Investimenti', components: ['value/growth/momentum/risk/reflexivity', 'arbitro Munger', 'portfolio risk-parity', 'regime di correlazione (Frobenius)', 'segnale/rumore (Marchenko-Pastur)', 'screener settoriale (SEC, migliaia di aziende)', 'rischio di rovina (Monte Carlo)', 'Component Expected Shortfall'], mode: 'strategie dei grandi + analisi strutturale di livello istituzionale, personalizzate per utente' },
-        { name: 'Q&A / fisco', components: ['qa-engine deterministico', 'tax P.IVA'], mode: 'on-device, offline' },
-        { name: 'Adattività hardware', components: ['compute-planner', 'adaptive-runtime', 'INT8'], mode: `si plasma al device${heavy.length ? ' + heavy-expert attivo' : ' (heavy-expert slot vuoto)'}` },
+        ...NEURO_LAYER_KEYS.map(k => ({
+          name: tNeuro(k.name, lang),
+          components: tNeuro(k.components, lang),
+          mode: tNeuro(k.mode, lang),
+        })),
+        {
+          name: tNeuro('neuroHwName', lang),
+          components: tNeuro('neuroHwComponents', lang),
+          mode: heavy.length ? tNeuro('neuroHwModeActive', lang) : tNeuro('neuroHwModeInactive', lang),
+        },
       ],
       heavyExpertReady: heavy.length > 0,
-      honesty: 'Specs misurate (dimensione/latenza reali). Nessun param-count inventato; sul ragionamento aperto i frontier LLM restano avanti — vinciamo su specializzazione, aritmetica verificabile e assi strutturali.',
+      honesty: tNeuro('neuroHonesty', lang),
     };
   },
 };

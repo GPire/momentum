@@ -10889,15 +10889,11 @@ window.exportOmegaDNA = window.exportPlainBackup;
 
 // Spiegazione concreta di ogni livello del freno spese (cambia col tocco → si
 // capisce la differenza, e mostra che è integrato coi segnali reali del Core).
-const BRAKE_DESC = {
-  zen: 'Ti lascio libero: ti avviso solo per spese davvero fuori scala. Nessuna interruzione.',
-  advisor: 'Equilibrato: quando una spesa intacca troppo il tuo margine di oggi o la proiezione di fine mese, te lo dico con calma.',
-  predator: 'Protettivo: ti avviso presto e, sulle spese che ti farebbero chiudere il mese in rosso, ti chiedo un secondo tocco di conferma. Mai un blocco — decidi tu.',
-};
+const BRAKE_DESC_KEYS = { zen: 'brakeDescZen', advisor: 'brakeDescAdvisor', predator: 'brakeDescPredator' };
 function renderBrakeDesc() {
   const el = $('#ai-mode-desc'); if (!el) return;
   const mode = VaultDAO.state.aiAggression || 'advisor';
-  el.textContent = BRAKE_DESC[mode] || BRAKE_DESC.advisor;
+  el.textContent = tCh(BRAKE_DESC_KEYS[mode] || BRAKE_DESC_KEYS.advisor, __uiLang);
   $$('.segment-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.aiMode === mode);
     btn.classList.toggle('predator', mode === 'predator' && btn.dataset.aiMode === 'predator');
@@ -10913,7 +10909,7 @@ function renderBrakeDesc() {
   if (note) {
     const corto = VaultDAO.state.investmentPrefs?.cashflowStress === 'corto' && mode === 'predator';
     note.classList.toggle('hidden', !corto);
-    if (corto) note.textContent = `Partito da qui: hai dichiarato meno di due mesi di liquidità reale nell'onboarding. Puoi cambiarlo quando vuoi.`;
+    if (corto) note.textContent = tCh('brakeLiquidityNote', __uiLang);
   }
 }
 window.setAIAggression = (mode) => {
@@ -10921,8 +10917,8 @@ window.setAIAggression = (mode) => {
   VaultDAO.state.aiAggression = mode;
   VaultDAO.save();
   renderBrakeDesc();
-  const label = mode === 'zen' ? 'Delicato' : mode === 'predator' ? 'Deciso' : 'Consigliere';
-  showToast(`Freno spese: ${label}.`, 'success');
+  const labelKey = mode === 'zen' ? 'vaultModeZen' : mode === 'predator' ? 'vaultModePredator' : 'vaultModeAdvisor';
+  showToast(tCh('brakeToast', __uiLang, tCh(labelKey, __uiLang)), 'success');
 };
 
 window.toggleGhostRadar = () => {
@@ -11719,11 +11715,11 @@ renderQuickAddGuideCard();
 function renderNeuroSymExplainCard() {
   const layersEl = document.getElementById('neurosym-explain-layers');
   if (!layersEl) return;
-  const info = NeuroSym.explain(window.momentumDeviceProfile || null);
+  const info = NeuroSym.explain(window.momentumDeviceProfile || null, __uiLang);
   layersEl.innerHTML = info.layers.map(l => `
     <div>
       <p class="text-xs font-bold">${l.name}</p>
-      <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${l.components.join(' · ')}</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${l.components}</p>
       <p class="text-[11px] text-[var(--primary)] mt-0.5">${l.mode}</p>
     </div>`).join('');
   const honestyEl = document.getElementById('neurosym-explain-honesty');
