@@ -826,3 +826,29 @@ test('t: chiavi dataRecovery* (recupero da tx_log dopo il bug di perdita dati) e
   assert.match(t('dataRecoveryBody', 'en', 3), /3/);
   assert.match(t('dataRecoverySuccessToast', 'it', 1), /1/);
 });
+
+test('t: tutte le chiavi nw* (renderNetWorth: proiezione, settori, macro, tail risk, track record, divario comportamento, diagnosi, trader desk, tassi Paesi) esistono nelle 7 lingue', () => {
+  const chiavi = ['nwCashLine', 'nwInvestedLine', 'nwLiabilitiesLine', 'nwStaleBothLabel', 'nwStaleNowcastLabel', 'nwStaleCostLabel', 'nwProjectionLegend', 'nwSolidBadge', 'nwSolidBadgeTitle', 'nwLuckBadge', 'nwLuckBadgeTitle', 'nwBarTooltip', 'nwTrialsNote', 'nwStaleParamsLabel', 'nwSectorRankingHeader', 'nwRegimeNowTitle', 'nwRegimeCalm', 'nwRegimeVolatile', 'nwRegimeUnclear', 'nwHeadlineRatesSync', 'nwHeadlineNoPosition', 'nwRealNumbersSummary', 'nwGlobalRateCycle', 'nwCorrelationNote', 'nwTailRiskEmpty', 'nwNotMeasurable', 'nwTailRiskWorstMonths', 'nwTailRiskMoreFragile', 'nwTailRiskLessFragile', 'nwTailRiskLossShare', 'nwTailRiskEquivSectors', 'nwTailRiskUncovered', 'nwTailRiskMethodNote', 'nwTrackRecordEmpty', 'nwTrackRecordMethodNote', 'nwBehaviorGapEmpty', 'nwBehaviorGapVsFlat', 'nwHowCalculated', 'nwBehaviorGapDeposited', 'nwBehaviorGapResult', 'nwBehaviorGapExcluded', 'nwDiagnosisEmpty', 'nwDiagnosisHistoricalSummary', 'nwDiagnosisSold', 'nwDiagnosisHeld', 'nwDiagnosisRealMonthsNote', 'nwFearIndex', 'nwTraderDeskDisclaimer', 'nwGlobalRateCycleSync', 'nwRatesSyncedGlobal', 'nwRatesDecoupled', 'nwLongTermRatesLabel'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X', 'Y', 'Z', 'W');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.equal(t('nwCashLine', 'en', '100€'), 'cash 100€');
+  assert.equal(t('nwTailRiskLossShare', 'it', 42), '42% della perdita');
+});
+
+test('t: tutte le chiavi alphaGoals*/alphaSubs* (obiettivi risparmio, abbonamenti — Analisi Tensor) esistono nelle 7 lingue', () => {
+  const chiavi = ['alphaGoalsCreateFirst', 'alphaGoalsCreateFirstSub', 'alphaGoalsRemove', 'alphaGoalsOnTrack', 'alphaGoalsBehindTrack', 'alphaGoalsProgressLine', 'alphaSubsEmpty', 'alphaSubsPerMonth', 'alphaSubsIncludesNote', 'alphaSubsNextDate', 'alphaSubsHikeNote'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X', 'Y', 'Z');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.equal(t('alphaGoalsProgressLine', 'en', '100€', '500€', 20), '100€ of 500€ (20%)');
+  assert.equal(t('alphaSubsPerMonth', 'it', '15€'), '15€/mese');
+});
