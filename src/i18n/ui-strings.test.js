@@ -343,3 +343,43 @@ test('t: il portoghese (Brasile) copre lo stesso catalogo genesis*/dash*/wn*/cat
   }
   assert.equal(t('dashOggiPuoiSpendere', 'pt'), 'Hoje você pode gastar');
 });
+
+// ── Dashboard — resto della schermata oltre l'orb (2026-08-29): traiettoria
+// di fine mese, card "oggi meglio non spendere", promemoria divisione spese,
+// impegni già prenotati, lista movimenti. La parte più vista di tutta
+// l'app — copre main.js:renderDashboard oltre alle chiavi dash* già
+// esistenti per l'orb principale. ──
+
+test('t: tutte le chiavi Dashboard (traiettoria/overspend/nudge/insight/split-reminder/fisco/streak/impegni/lista) esistono nelle 7 lingue, mai un fallback sulla chiave grezza', () => {
+  const chiavi = [
+    'dashMonthTooltipPast', 'dashMonthTooltipFuture', 'dashWeekTitle',
+    'dashTrajOver', 'dashTrajTight', 'dashTrajOk', 'dashTrajMethodConfident', 'dashTrajMethodRhythm',
+    'dashTrajLabel', 'dashTrajBudgetLine',
+    'dashOverspendTitle', 'dashOverAmount', 'dashOverTip', 'dashChargesReserved', 'dashWeekRemaining',
+    'dashNudgeAria', 'dashNudgeDefaultReason', 'dashNudgeTapSuffix',
+    'dashInsightOf', 'dashInsightMissingOne', 'dashInsightMissingMany', 'dashInsightAwarenessTail', 'dashInsightNextGoal',
+    'dashSplitDisputeCount', 'dashSplitDisputeText', 'dashSplitDisputeAria', 'dashSplitSeeArrow',
+    'dashSplitMsgAria', 'dashSplitMsgCount', 'dashSplitReadArrow',
+    'dashSplitOwedVerb', 'dashSplitOweVerb', 'dashSplitBalanceAria', 'dashSplitOtherGroups', 'dashSplitSettleArrow',
+    'dashTaxDiscoverQuestion', 'dashTaxDiscoverCta', 'dashStreakDays',
+    'dashCommittedTitle', 'dashTaxSetAsideTitle', 'dashRealAvailable', 'dashKeepMoneyNote', 'dashSafetyLabel',
+    'dashNoTx', 'dashNoDate', 'dashToday', 'dashYesterday',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X', 'Y', 'Z');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: dashOverspendTitle e dashTrajLabel traducono correttamente nelle 7 lingue', () => {
+  assert.equal(t('dashOverspendTitle', 'it'), 'Oggi meglio non spendere');
+  assert.equal(t('dashOverspendTitle', 'en'), 'Better not to spend today');
+  assert.equal(t('dashOverspendTitle', 'de'), 'Heute besser nichts ausgeben');
+  assert.equal(t('dashOverspendTitle', 'fr'), 'Mieux vaut ne rien dépenser aujourd\'hui');
+  assert.equal(t('dashOverspendTitle', 'es'), 'Mejor no gastar hoy');
+  assert.equal(t('dashOverspendTitle', 'nl'), 'Vandaag beter niets uitgeven');
+  assert.equal(t('dashOverspendTitle', 'pt'), 'Melhor não gastar hoje');
+});

@@ -106,6 +106,13 @@ import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
 // cima, così è già pronta per qualunque funzione più sotto nel file —
 // incluse quelle definite (ma non ancora chiamate) prima di questa riga.
 const __uiLang = resolveUiLanguage();
+// Locale reale per Intl/toLocaleDateString: senza questa mappa i nomi di
+// mese/giorno (es. "agosto", "lun") restavano in italiano anche a
+// interfaccia tradotta — una traduzione di UI che si fermava all'ultimo
+// centimetro. Solo le lingue coperte da UI_LANGS; 'it-IT' resta il
+// ripiego onesto per qualunque valore imprevisto.
+const __LOCALE_BY_LANG = { it: 'it-IT', en: 'en-US', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', nl: 'nl-NL', pt: 'pt-BR' };
+const __uiLocale = __LOCALE_BY_LANG[__uiLang] || 'it-IT';
 import { generateDemoTransactions, fadeDemo, demoStatus, mergeDemoForDisplay, DEMO_FADE_AT } from './ui/demo-dataset.js';
 import { statoDelMese, stripHtml, evidenziaNumeri } from './ui/mese-strip.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
@@ -1943,7 +1950,7 @@ const renderDashboard = () => {
   const k = monthKey(VaultDAO.state.currentDate);
   const display = $('#current-month-display');
   if (display) {
-    const label = VaultDAO.state.currentDate.toLocaleDateString('it-IT', {month:'long', year:'numeric'});
+    const label = VaultDAO.state.currentDate.toLocaleDateString(__uiLocale, {month:'long', year:'numeric'});
     // Micro-interazione intelligente: fuori dal mese corrente il titolo diventa
     // un tap-target per tornare a oggi (affordance visibile solo quando serve:
     // pallino pulsante + cursore). Nel mese corrente è testo normale, zero rumore.
@@ -1953,11 +1960,11 @@ const renderDashboard = () => {
       display.style.cursor = '';
       display.title = '';
     } else {
-      const dir = VaultDAO.state.currentDate < realNow ? 'passato' : 'futuro';
+      const dir = VaultDAO.state.currentDate < realNow ? 'past' : 'future';
       display.innerHTML = `${label}<span class="mese-oggi"></span>`;
       display.dataset.action = 'jump-today';
       display.style.cursor = 'pointer';
-      display.title = `Stai guardando un mese ${dir} — tocca per tornare a oggi`;
+      display.title = dir === 'past' ? tCh('dashMonthTooltipPast', __uiLang) : tCh('dashMonthTooltipFuture', __uiLang);
     }
   }
   ensureDemoSeeded();
@@ -2021,7 +2028,7 @@ const renderDashboard = () => {
       polso.innerHTML = usate.map((v, i) => {
         const h = Math.max(10, Math.round((v / max) * 100));
         const attiva = i === oggiSettimana;
-        return `<span class="polso-barra${attiva ? ' attiva' : ''}" style="--h:${h}%;--i:${i}" title="Settimana ${i + 1}: ${formatMoney(v)}"></span>`;
+        return `<span class="polso-barra${attiva ? ' attiva' : ''}" style="--h:${h}%;--i:${i}" title="${tCh('dashWeekTitle', __uiLang, i + 1, formatMoney(v))}"></span>`;
       }).join('');
     }
   }
@@ -2134,13 +2141,13 @@ const renderDashboard = () => {
         const tf = monthTrajectoryFocus({ projection, monthlyBudget: VaultDAO.state.monthlyBudget, referenceDate: realNow });
         if (tf.show) {
           const MAP = {
-            over:  { col: 'text-rose-400',    bar: 'bg-rose-400/80',    txt: `chiudi oltre il budget di ${formatMoney(Math.abs(tf.delta))}` },
-            tight: { col: 'text-amber-400',   bar: 'bg-amber-400/80',   txt: `resti dentro per un soffio (+${formatMoney(tf.delta)})` },
-            ok:    { col: 'text-emerald-400', bar: 'bg-emerald-400/80', txt: `resti dentro, +${formatMoney(tf.delta)} di margine` },
+            over:  { col: 'text-rose-400',    bar: 'bg-rose-400/80',    txt: tCh('dashTrajOver', __uiLang, formatMoney(Math.abs(tf.delta))) },
+            tight: { col: 'text-amber-400',   bar: 'bg-amber-400/80',   txt: tCh('dashTrajTight', __uiLang, formatMoney(tf.delta)) },
+            ok:    { col: 'text-emerald-400', bar: 'bg-emerald-400/80', txt: tCh('dashTrajOk', __uiLang, formatMoney(tf.delta)) },
           };
           const m = MAP[tf.level] || MAP.ok;
           const pct = Math.max(4, Math.min(100, Math.round(tf.projectedTotal / VaultDAO.state.monthlyBudget * 100)));
-          const methodNote = tf.confident ? 'Stima sui tuoi ultimi giorni' : 'Stima sul ritmo di questo mese';
+          const methodNote = tf.confident ? tCh('dashTrajMethodConfident', __uiLang) : tCh('dashTrajMethodRhythm', __uiLang);
           // LA BARRA ROSSA PIENA, larga tutta la card, era l'elemento piu'
           // aggressivo dello schermo — e per una STIMA, per giunta. Un pieno
           // saturo su una previsione promette una certezza che non c'e'.
@@ -2151,7 +2158,7 @@ const renderDashboard = () => {
           trajHtml = `
           <div class="mt-3 pt-3 border-t border-[var(--glass-border)]">
             <div class="flex items-center justify-between gap-2">
-              <span class="t-etichetta">Di questo passo, a fine mese</span>
+              <span class="t-etichetta">${tCh('dashTrajLabel', __uiLang)}</span>
               <span class="t-dato t-dato-m font-mono ${m.col} shrink-0">${formatMoney(tf.projectedTotal)}</span>
             </div>
             <!-- LA BARRA CHE NON DICEVA NIENTE. Con la proiezione oltre il
@@ -2176,7 +2183,7 @@ const renderDashboard = () => {
               ${oltre ? `<div class="absolute inset-y-0 ${m.bar} opacity-80" style="left:${quotaBudget}%;right:0"></div>` : ''}
               ${oltre ? `<div class="absolute inset-y-0 w-px bg-white/70" style="left:${quotaBudget}%"></div>` : ''}
             </div>
-            ${oltre ? `<p class="t-nota mt-1">La riga chiara è il tuo budget: quello che sta a destra è quanto lo superi.</p>` : ''}`;
+            ${oltre ? `<p class="t-nota mt-1">${tCh('dashTrajBudgetLine', __uiLang)}</p>` : ''}`;
             })()}
             <p class="text-[10.5px] ${m.col} mt-1.5 font-semibold">${m.txt}</p>
             <p class="t-nota mt-0.5">${methodNote}</p>
@@ -2190,10 +2197,10 @@ const renderDashboard = () => {
         stsCard.classList.add('card-accento');
         stsCard.style.setProperty('--accento', 'var(--red)');
         stsCard.innerHTML = `
-          <p class="text-[10px] font-extrabold uppercase tracking-widest text-rose-400 mb-1">Oggi meglio non spendere</p>
+          <p class="text-[10px] font-extrabold uppercase tracking-widest text-rose-400 mb-1">${tCh('dashOverspendTitle', __uiLang)}</p>
           <p class="hero-num font-black font-mono text-rose-400 tracking-tighter">0€</p>
-          <p class="riga-dato mt-1">${evidenziaNumeri(`Sei oltre di ${formatMoney(Math.abs(sts.weekRemaining))}`)}</p>
-          <p class="riga-nota">Ogni giorno senza spese ti rimette in pari.</p>
+          <p class="riga-dato mt-1">${evidenziaNumeri(tCh('dashOverAmount', __uiLang, formatMoney(Math.abs(sts.weekRemaining))))}</p>
+          <p class="riga-nota">${tCh('dashOverTip', __uiLang)}</p>
           ${trajHtml}
         `;
       } else {
@@ -2205,7 +2212,7 @@ const renderDashboard = () => {
         // la seconda e' la precisazione — e la precisazione sta piu' in basso
         // e piu' spenta, perche' e' quello che e'.
         const chargeNote = sts.reservedForCharges > 0
-          ? `<p class="riga-nota">${evidenziaNumeri(`${formatMoney(sts.reservedForCharges)} sono già impegnati per gli abbonamenti in arrivo`)}</p>`
+          ? `<p class="riga-nota">${evidenziaNumeri(tCh('dashChargesReserved', __uiLang, formatMoney(sts.reservedForCharges)))}</p>`
           : '';
         stsCard.style.borderTop = '';
         stsCard.classList.add('card-accento');
@@ -2221,7 +2228,7 @@ const renderDashboard = () => {
         stsCard.innerHTML = `
           <p class="t-etichetta mb-1.5">${orbHaIlNumero ? tCh('dashComeStaiMesso', __uiLang) : tCh('dashOggiPuoiSpendere', __uiLang)}</p>
           ${orbHaIlNumero ? '' : `<p class="hero-num font-black font-mono text-emerald-400 tracking-tighter">${formatMoney(sts.safeToday)}</p>`}
-          <p class="riga-dato ${orbHaIlNumero ? '' : 'mt-1'}">${evidenziaNumeri(`${formatMoney(sts.weekRemaining)} rimasti in ${sts.daysLeftInWeek} giorni`)}</p>
+          <p class="riga-dato ${orbHaIlNumero ? '' : 'mt-1'}">${evidenziaNumeri(tCh('dashWeekRemaining', __uiLang, formatMoney(sts.weekRemaining), sts.daysLeftInWeek))}</p>
           ${chargeNote}
           <p class="text-[10px] font-bold text-emerald-400/80 mt-2 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>${tCh('dashToccaSegnaSpesa', __uiLang)}</p>
           ${trajHtml}
@@ -2253,15 +2260,16 @@ const renderDashboard = () => {
       const amtLabel = formatMoney(nudge.typicalAmount);
       // Neurocolore: usa il colore della categoria (riconoscimento immediato,
       // "è la TUA abitudine"), non un neon generico. Tocco ≥44px, aria-label chiaro.
+      const cLabel = catName(c, __uiLang);
       nudgeHtml = `
         <button type="button" data-action="quick-add-predicted" data-cat="${nudge.category}" data-amt="${nudge.typicalAmount}"
-          aria-label="Aggiungi ${c.name} da ${amtLabel}, ${nudge.reason || 'spesa abituale'}"
+          aria-label="${tCh('dashNudgeAria', __uiLang, cLabel, amtLabel, nudge.reason || tCh('dashNudgeDefaultReason', __uiLang))}"
           class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border bg-[color-mix(in_srgb,var(--surface-elevated)_50%,transparent)] active:scale-[0.98] transition-transform text-left"
           style="border-color:${c.color}55">
           <span class="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</span>
           <span class="min-w-0 flex-1">
-            <span class="block text-[13px] font-bold text-[var(--on-surface)] truncate">${c.name} <span class="font-mono">${amtLabel}</span></span>
-            <span class="block text-[11px] text-[var(--on-surface-secondary)] truncate">${nudge.reason ? nudge.reason.charAt(0).toUpperCase() + nudge.reason.slice(1) : 'La tua spesa abituale'} · tocca per aggiungere</span>
+            <span class="block text-[13px] font-bold text-[var(--on-surface)] truncate">${cLabel} <span class="font-mono">${amtLabel}</span></span>
+            <span class="block text-[11px] text-[var(--on-surface-secondary)] truncate">${nudge.reason ? nudge.reason.charAt(0).toUpperCase() + nudge.reason.slice(1) : tCh('dashNudgeDefaultReason', __uiLang)} · ${tCh('dashNudgeTapSuffix', __uiLang)}</span>
           </span>
           <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white" style="background:${c.color}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg></span>
         </button>`;
@@ -2316,18 +2324,18 @@ const renderDashboard = () => {
         // chiedono entusiasmo per una cosa che non l'ha meritato. Il fatto e'
         // lo stesso, detto senza spingere — chi vuole il traguardo lo vede
         // comunque, chi non gliene importa non viene tirato per la manica.
-        line = { icon: ICON.goal, tone: 'gold', text: `${goal}: <b>${nm.current} di ${nm.target}</b>${manca === 1 ? ', ne manca uno' : `, ne mancano ${manca}`}.` };
+        line = { icon: ICON.goal, tone: 'gold', text: `${goal}: <b>${tCh('dashInsightOf', __uiLang, nm.current, nm.target)}</b>${manca === 1 ? tCh('dashInsightMissingOne', __uiLang) : tCh('dashInsightMissingMany', __uiLang, manca)}` };
       } else {
         const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
         if (life.patterns.length) {
           const p = life.patterns[0];
           const tone = POSITIVE.has(p.id) ? 'green' : CAUTION.has(p.id) ? 'amber' : 'calm';
           // ambra = momento consapevole: invito gentile a fermarsi, mai un giudizio.
-          const tail = tone === 'amber' ? ' <span class="opacity-70">— solo per consapevolezza, la scelta è tua.</span>' : '';
+          const tail = tone === 'amber' ? `<span class="opacity-70">${tCh('dashInsightAwarenessTail', __uiLang)}</span>` : '';
           line = { icon: ICON[tone] || ICON.calm, tone, text: `<b>${p.label}.</b> ${p.evidence}${tail}` };
         } else if (nm && nm.pct >= 0.3) {
           const goal = String(nm.desc || '').replace(/\.$/, '');
-          line = { icon: ICON.goal, tone: 'gold', text: `Prossimo obiettivo: ${goal}. Sei a <b>${nm.current} di ${nm.target}</b>.` };
+          line = { icon: ICON.goal, tone: 'gold', text: tCh('dashInsightNextGoal', __uiLang, goal, nm.current, nm.target) };
         }
       }
     }
@@ -2362,11 +2370,11 @@ const renderDashboard = () => {
       // usata nel dettaglio gruppo per le contestazioni, priorità sopra un
       // semplice messaggio (qui riguarda soldi, non solo una chat).
       splitHtml = `
-        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${formatMoney(sr.amount)} in discussione nel gruppo ${sr.groupName}. Tocca per vedere."
+        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${tCh('dashSplitDisputeAria', __uiLang, formatMoney(sr.amount), sr.groupName)}"
           class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-amber-500/30 bg-amber-950/10 text-amber-100 active:scale-[0.98] transition-transform text-left">
           <svg class="notify-pulse w-4 h-4 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-          <span class="min-w-0 flex-1 text-[13px]"><b>${formatMoney(sr.amount)}</b> in discussione in <b>${sr.groupName}</b> — ${sr.count === 1 ? 'una spesa' : `${sr.count} spese`} non ancora chiarite</span>
-          <span class="shrink-0 text-[11px] font-bold text-amber-400">Vedi →</span>
+          <span class="min-w-0 flex-1 text-[13px]">${tCh('dashSplitDisputeText', __uiLang, formatMoney(sr.amount), sr.groupName, tCh('dashSplitDisputeCount', __uiLang, sr.count))}</span>
+          <span class="shrink-0 text-[11px] font-bold text-amber-400">${tCh('dashSplitSeeArrow', __uiLang)}</span>
         </button>`;
     } else if (sr.show && sr.direction === 'messages') {
       // Nessun saldo aperto ma un messaggio mai visto (unreadCount,
@@ -2374,28 +2382,28 @@ const renderDashboard = () => {
       // linguaggio visivo già usato per i contatori messaggi sulle righe
       // spesa (icona fumetto + colore gold), non un nuovo stile.
       splitHtml = `
-        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="Nuovo messaggio nel gruppo ${sr.groupName}. Tocca per leggerlo."
+        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${tCh('dashSplitMsgAria', __uiLang, sr.groupName)}"
           class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-amber-100 active:scale-[0.98] transition-transform text-left">
           <svg class="unread-badge-pop notify-pulse w-4 h-4 shrink-0 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          <span class="min-w-0 flex-1 text-[13px]">${sr.count === 1 ? 'Nuovo messaggio' : `${sr.count} nuovi messaggi`} in <b>${sr.groupName}</b></span>
-          <span class="shrink-0 text-[11px] font-bold text-[var(--gold)]">Leggi →</span>
+          <span class="min-w-0 flex-1 text-[13px]">${tCh('dashSplitMsgCount', __uiLang, sr.count)} in <b>${sr.groupName}</b></span>
+          <span class="shrink-0 text-[11px] font-bold text-[var(--gold)]">${tCh('dashSplitReadArrow', __uiLang)}</span>
         </button>`;
     } else if (sr.show) {
       const owed = sr.direction === 'owed';
       const tone = owed
         ? { bd: 'border-emerald-500/30', bg: 'bg-emerald-950/10', tx: 'text-emerald-200', ic: 'text-emerald-400' }
         : { bd: 'border-amber-500/30', bg: 'bg-amber-950/10', tx: 'text-amber-200', ic: 'text-amber-400' };
-      const verb = owed ? 'Ti devono' : 'Devi';
-      const extra = sr.groups > 1 ? ` <span class="opacity-60">· e altri ${sr.groups - 1} gruppi</span>` : '';
+      const verb = owed ? tCh('dashSplitOwedVerb', __uiLang) : tCh('dashSplitOweVerb', __uiLang);
+      const extra = sr.groups > 1 ? `<span class="opacity-60">${tCh('dashSplitOtherGroups', __uiLang, sr.groups - 1)}</span>` : '';
       const ico = owed
         ? '<path d="M12 19V5M5 12l7-7 7 7"/>'        // freccia su = entra a te
         : '<path d="M12 5v14M5 12l7 7 7-7"/>';       // freccia giù = esce da te
       splitHtml = `
-        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${verb} ${formatMoney(sr.amount)} nel gruppo ${sr.groupName}. Tocca per saldare."
+        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${tCh('dashSplitBalanceAria', __uiLang, verb, formatMoney(sr.amount), sr.groupName)}"
           class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${tone.bd} ${tone.bg} ${tone.tx} active:scale-[0.98] transition-transform text-left">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 ${tone.ic}">${ico}</svg>
           <span class="min-w-0 flex-1 text-[13px]"><b>${verb} ${formatMoney(sr.amount)}</b> in <b>${sr.groupName}</b>${extra}</span>
-          <span class="shrink-0 text-[11px] font-bold ${tone.ic}">Salda →</span>
+          <span class="shrink-0 text-[11px] font-bold ${tone.ic}">${tCh('dashSplitSettleArrow', __uiLang)}</span>
         </button>`;
     }
     splitEls.forEach((splitEl) => {
@@ -2420,7 +2428,7 @@ const renderDashboard = () => {
     const discoverHtml = showDiscover ? `
       <div class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-left">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-[var(--gold)]"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-        <span class="min-w-0 flex-1 text-[13px]">Hai la Partita IVA, o la stai valutando? <button type="button" onclick="window.openTaxLevel1()" class="font-bold text-[var(--gold)] underline">Scopri cosa ti resterebbe</button></span>
+        <span class="min-w-0 flex-1 text-[13px]">${tCh('dashTaxDiscoverQuestion', __uiLang)} <button type="button" onclick="window.openTaxLevel1()" class="font-bold text-[var(--gold)] underline">${tCh('dashTaxDiscoverCta', __uiLang)}</button></span>
       </div>` : '';
     taxDiscoverEls.forEach((el) => { el.classList.toggle('hidden', !showDiscover); el.innerHTML = discoverHtml; });
   }
@@ -2435,7 +2443,7 @@ const renderDashboard = () => {
     // un "1 giorno di fila" non motiva nessuno, meglio niente.
     const streak = VaultDAO.state.engagement?.streak || 0;
     const streakHtml = streak >= 2
-      ? `<div class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400 mt-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 2 2c1.5 0 1.5-2 1.5-4 0-2-.5-4-.5-4z"/></svg>${streak} giorni di fila</div>`
+      ? `<div class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400 mt-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 2 2c1.5 0 1.5-2 1.5-4 0-2-.5-4-.5-4z"/></svg>${tCh('dashStreakDays', __uiLang, streak)}</div>`
       : '';
     // "Capitale Libero" e' gergo: nessuno dice cosi' parlando dei propri soldi.
     // La riga sopra il numero dice in italiano che numero e', e cambia con la
@@ -2546,7 +2554,7 @@ const renderDashboard = () => {
 
   const safetyStatusText = $('#safety-status');
   if (safetyStatusText) {
-    safetyStatusText.textContent = `Sicurezza: ${safetyScore}%`;
+    safetyStatusText.textContent = tCh('dashSafetyLabel', __uiLang, safetyScore);
     safetyStatusText.style.color = safetyScore >= 100 ? 'var(--green)' : (safetyScore > 50 ? 'var(--yellow)' : 'var(--red)');
   }
 
@@ -2588,20 +2596,20 @@ const renderDashboard = () => {
       commitEl.innerHTML = `
         <div class="rounded-2xl border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] p-3.5">
           ${com.reserved > 0 ? `<div class="flex items-center justify-between gap-2 mb-1.5">
-            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Già impegnati entro fine mese</span>
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>${tCh('dashCommittedTitle', __uiLang)}</span>
             <span class="font-mono font-black text-sm text-amber-300">${formatMoney(com.reserved)}</span>
           </div>` : ''}
           ${taxReserved > 0 ? `<div class="flex items-center justify-between gap-2 mb-2">
-            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Da mettere via per il fisco</span>
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>${tCh('dashTaxSetAsideTitle', __uiLang)}</span>
             <span class="font-mono font-black text-sm text-orange-300">${formatMoney(taxReserved)}</span>
           </div>` : ''}
           <div class="h-2 rounded-full bg-emerald-500/25 overflow-hidden"><div class="h-full bg-amber-400/70" style="width:${pctCommitted}%"></div></div>
           <div class="flex items-center justify-between mt-2">
-            <span class="text-[10px] text-[var(--on-surface-secondary)]">Disponibile vero (già tolti impegni e fisco)</span>
+            <span class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('dashRealAvailable', __uiLang)}</span>
             <span class="font-mono font-bold text-sm text-emerald-400">${formatMoney(free)}</span>
           </div>
           ${chips ? `<div class="flex flex-wrap gap-1.5 mt-2">${chips}</div>` : ''}
-          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 opacity-80">Lascia questi soldi sul conto: serviranno per gli impegni in arrivo${taxReserved > 0 ? ' e per le tasse' : ''}. Momentum non li sposta — te lo ricorda soltanto.</p>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 opacity-80">${tCh('dashKeepMoneyNote', __uiLang, taxReserved > 0)}</p>
         </div>`;
     } else {
       commitEl.classList.add('hidden');
@@ -2616,7 +2624,7 @@ const renderDashboard = () => {
   const list = $('#transaction-list-container');
   list.innerHTML = '';
   if (txs.length === 0) {
-    list.innerHTML = `<p class="text-center text-xs text-[var(--on-surface-secondary)] py-6">Nessun movimento ancora registrato.</p>`;
+    list.innerHTML = `<p class="text-center text-xs text-[var(--on-surface-secondary)] py-6">${tCh('dashNoTx', __uiLang)}</p>`;
     return;
   }
 
@@ -2650,10 +2658,10 @@ const renderDashboard = () => {
     const righe = perGiorno.get(giorno).sort((a, b) => b.id - a.id);
     const nettoGiorno = righe.reduce((s2, t) => s2 + (t.type === 'entrata' ? t.amount : t.type === 'invest' ? 0 : -t.amount), 0);
     let etichettaGiorno;
-    if (giorno === '—') etichettaGiorno = 'Senza data';
-    else if (giorno === oggiISO) etichettaGiorno = 'Oggi';
-    else if (giorno === ieriISO) etichettaGiorno = 'Ieri';
-    else etichettaGiorno = new Date(giorno).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+    if (giorno === '—') etichettaGiorno = tCh('dashNoDate', __uiLang);
+    else if (giorno === oggiISO) etichettaGiorno = tCh('dashToday', __uiLang);
+    else if (giorno === ieriISO) etichettaGiorno = tCh('dashYesterday', __uiLang);
+    else etichettaGiorno = new Date(giorno).toLocaleDateString(__uiLocale, { weekday: 'short', day: 'numeric', month: 'short' });
     corpo += `<div class="tx-giorno">
       <span>${escTx(etichettaGiorno)}</span>
       <span class="tx-giorno-tot ${nettoGiorno < 0 ? 'neg' : nettoGiorno > 0 ? 'pos' : ''}">${nettoGiorno === 0 ? '' : `${nettoGiorno > 0 ? '+' : ''}${formatMoney(nettoGiorno)}`}</span>
@@ -2672,10 +2680,10 @@ const renderDashboard = () => {
     const c = getCatById(t.category);
     const isInc = t.type === 'entrata';
     const isInv = t.type === 'invest';
-    const descLabel = (t.description && String(t.description).trim()) || c.name;
+    const descLabel = (t.description && String(t.description).trim()) || catName(c, __uiLang);
     // La data e' ora nell'intestazione del giorno: la riga porta solo la
     // categoria, che e' l'informazione che cambia da riga a riga.
-    const dateLabel = c.name;
+    const dateLabel = catName(c, __uiLang);
 
     return `
       <div class="tx-card group" data-id="${t.id}">
