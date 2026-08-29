@@ -433,3 +433,54 @@ test('t: vaultInstallBtn e vaultSyncTitle traducono correttamente nelle 7 lingue
   assert.equal(t('vaultInstallBtn', 'nl'), 'Nu installeren');
   assert.equal(t('vaultInstallBtn', 'pt'), 'Instalar agora');
 });
+
+// ── Momentum Vault — seconda passata (2026-08-29): prezzi live (5 chiavi
+// API), telemetria, feedback, chat generica, freno spese, radar
+// abbonamenti, suoni, notifiche granulari, comprensione semantica/
+// sentiment locali (solo cornice statica: le label di stato download
+// restano JS-managed, fuori da questo batch), scadenze/promemoria. ──
+
+test('t: tutte le chiavi vault* della seconda passata esistono nelle 7 lingue, mai un fallback sulla chiave grezza', () => {
+  const chiavi = [
+    'vaultLivePricesTitle', 'vaultLivePricesSubtitle', 'vaultKeyPlaceholderAV', 'vaultSave', 'vaultKeyGuideLink',
+    'vaultPlanBStocks', 'vaultKeyPlaceholderTD', 'vaultPlanBUsStocks', 'vaultKeyPlaceholderFMP',
+    'vaultPlanBNews', 'vaultKeyPlaceholderFinnhub', 'vaultPlanBGeneralNews', 'vaultKeyPlaceholderNewsApi',
+    'vaultTelemetryTitle', 'vaultTelemetrySubtitle', 'vaultTelemetryToggle',
+    'vaultFeedbackTitle', 'vaultFeedbackSubtitle', 'vaultWriteFeedback',
+    'vaultGenericChatTitle', 'vaultGenericChatSubtitle', 'vaultGeminiRecommend',
+    'vaultChatContextToggle', 'vaultForceAnimToggle', 'vaultQaLanguageLabel', 'vaultQaLanguageAuto',
+    'vaultOtherProvidersSummary', 'vaultProviderGroq', 'vaultProviderDeepseek', 'vaultProviderOpenai',
+    'vaultProviderAnthropic', 'vaultProvidersFooter', 'vaultUnrecognizedQSummary',
+    'vaultBrakeTitle', 'vaultBrakeSubtitle', 'vaultModeZen', 'vaultModeAdvisor', 'vaultModePredator',
+    'vaultGhostRadarTitle', 'vaultGhostRadarSubtitle', 'vaultSoundsTitle', 'vaultSoundsSubtitle',
+    'vaultNotificationsTitle', 'vaultNotificationsSubtitle', 'vaultNotifyTaxDeadlines',
+    'vaultNotifyTaxLaw', 'vaultNotifyPriceAlerts',
+    'vaultSemanticQaTitle', 'vaultSemanticQaSubtitle', 'vaultSemanticQaFooter',
+    'vaultSentimentTitle', 'vaultSentimentSubtitle', 'vaultSentimentFooter',
+    'vaultRemindersTitle', 'vaultRemindersSubtitle', 'vaultSyncIcs',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: vaultGeminiRecommend porta il markup <b> in ogni lingua (consumata via data-i18n-html)', () => {
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    const v = t('vaultGeminiRecommend', lang);
+    assert.match(v, /<b>Gemini<\/b>/, `lingua "${lang}": manca <b>Gemini</b> in vaultGeminiRecommend`);
+  }
+});
+
+test('t: vaultModeZen/Advisor/Predator traducono correttamente nelle 7 lingue', () => {
+  assert.equal(t('vaultModeZen', 'it'), 'Delicato');
+  assert.equal(t('vaultModeZen', 'en'), 'Gentle');
+  assert.equal(t('vaultModePredator', 'de'), 'Bestimmt');
+  assert.equal(t('vaultModeAdvisor', 'fr'), 'Conseiller');
+  assert.equal(t('vaultModePredator', 'es'), 'Firme');
+  assert.equal(t('vaultModeZen', 'nl'), 'Zacht');
+  assert.equal(t('vaultModePredator', 'pt'), 'Firme');
+});

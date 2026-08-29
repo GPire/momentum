@@ -4144,58 +4144,58 @@
                    cui inviarla. -->
               <div class="card p-6 flex flex-col justify-between">
                 <div>
-                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg>Prezzi live (opzionale)</h3>
-                  <p class="card-sub">Le cripto funzionano già, senza fare nulla. Per azioni/indici serve una chiave gratuita tua (mai un account Momentum): 20 secondi su Alpha Vantage, poi incollala qui sotto.</p>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n-key="vaultLivePricesTitle">Prezzi live (opzionale)</span></h3>
+                  <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Le cripto funzionano già, senza fare nulla. Per azioni/indici serve una chiave gratuita tua (mai un account Momentum): 20 secondi su Alpha Vantage, poi incollala qui sotto.</p>
                   <div class="space-y-2 mt-3">
                     <div class="flex gap-2">
-                      <input type="password" id="alphavantage-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Alpha Vantage..." />
-                      <button onclick="window.saveLiveDataKey('alphavantage')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+                      <input type="password" id="alphavantage-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Alpha Vantage..." data-i18n-placeholder="vaultKeyPlaceholderAV" />
+                      <button onclick="window.saveLiveDataKey('alphavantage')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
-                    <button onclick="window.openApiKeyGuide('alphavantage')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
+                    <button onclick="window.openApiKeyGuide('alphavantage')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
                     <p id="live-price-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                   </div>
                   <!-- Piano B a cascata (richiesto esplicitamente: "mai
                        dipendere da un solo provider") — se Alpha Vantage
                        manca o non risponde, Momentum prova Twelve Data. -->
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
-                    <p class="text-[10px] text-[var(--on-surface-secondary)]">Piano B per azioni/ETF (quota più generosa, se Alpha Vantage non basta):</p>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBStocks">Piano B per azioni/ETF (quota più generosa, se Alpha Vantage non basta):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="twelvedata-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Twelve Data..." />
-                      <button onclick="window.saveLiveDataKey('twelvedata')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+                      <input type="password" id="twelvedata-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Twelve Data..." data-i18n-placeholder="vaultKeyPlaceholderTD" />
+                      <button onclick="window.saveLiveDataKey('twelvedata')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
-                    <button onclick="window.openApiKeyGuide('twelvedata')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
+                    <button onclick="window.openApiKeyGuide('twelvedata')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
                     <p id="twelvedata-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                   </div>
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
-                    <p class="text-[10px] text-[var(--on-surface-secondary)]">Terzo piano B, solo azioni USA (250 richieste/giorno gratis, storico fino al 1985):</p>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBUsStocks">Terzo piano B, solo azioni USA (250 richieste/giorno gratis, storico fino al 1985):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="fmp-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Financial Modeling Prep..." />
-                      <button onclick="window.saveLiveDataKey('fmp')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+                      <input type="password" id="fmp-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Financial Modeling Prep..." data-i18n-placeholder="vaultKeyPlaceholderFMP" />
+                      <button onclick="window.saveLiveDataKey('fmp')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
-                    <button onclick="window.openApiKeyGuide('fmp')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
+                    <button onclick="window.openApiKeyGuide('fmp')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
                     <p id="fmp-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                   </div>
                   <!-- Piano B per le NOTIZIE (richiesto esplicitamente: Alpha
                        Vantage News condivide lo stesso limite di 25/giorno
                        della ricerca, facile da esaurire). Finnhub: 60/minuto. -->
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
-                    <p class="text-[10px] text-[var(--on-surface-secondary)]">Piano B per le notizie (quota molto più generosa, 60/minuto):</p>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBNews">Piano B per le notizie (quota molto più generosa, 60/minuto):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="finnhub-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Finnhub..." />
-                      <button onclick="window.saveLiveDataKey('finnhub')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+                      <input type="password" id="finnhub-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Finnhub..." data-i18n-placeholder="vaultKeyPlaceholderFinnhub" />
+                      <button onclick="window.saveLiveDataKey('finnhub')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
-                    <button onclick="window.openApiKeyGuide('finnhub')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
+                    <button onclick="window.openApiKeyGuide('finnhub')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
                     <p id="finnhub-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                   </div>
                   <!-- Quarto piano B, generaliste — Hacker News invece non
                        serve chiave: funziona già senza configurare nulla. -->
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
-                    <p class="text-[10px] text-[var(--on-surface-secondary)]">Notizie generaliste, non solo finanza (opzionale):</p>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBGeneralNews">Notizie generaliste, non solo finanza (opzionale):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="newsapi-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave NewsAPI.org..." />
-                      <button onclick="window.saveLiveDataKey('newsapi')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+                      <input type="password" id="newsapi-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave NewsAPI.org..." data-i18n-placeholder="vaultKeyPlaceholderNewsApi" />
+                      <button onclick="window.saveLiveDataKey('newsapi')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
-                    <button onclick="window.openApiKeyGuide('newsapi')" class="text-[10px] text-[var(--primary)] underline text-left">Non sai come? Guida passo-passo →</button>
+                    <button onclick="window.openApiKeyGuide('newsapi')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
                     <p id="newsapi-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                   </div>
                 </div>
@@ -4210,11 +4210,11 @@
                    tocco, mai nascosto in un sottomenu. -->
               <div class="card p-6 flex flex-col justify-between">
                 <div>
-                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Aiuta a far crescere Momentum</h3>
-                  <p class="card-sub">Attivo di default: un numero anonimo (mai collegato ai tuoi dati — nessuna spesa, saldo o identità) dice a chi sviluppa Momentum quante persone lo usano. Spegnilo qui quando vuoi, un tocco.</p>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span data-i18n-key="vaultTelemetryTitle">Aiuta a far crescere Momentum</span></h3>
+                  <p class="card-sub" data-i18n-key="vaultTelemetrySubtitle">Attivo di default: un numero anonimo (mai collegato ai tuoi dati — nessuna spesa, saldo o identità) dice a chi sviluppa Momentum quante persone lo usano. Spegnilo qui quando vuoi, un tocco.</p>
                   <label class="flex items-center gap-2 mt-3 text-xs cursor-pointer select-none">
                     <input type="checkbox" id="telemetry-opt-in" checked onchange="window.setTelemetryOptIn(this.checked)" class="toggle-input" />
-                    <span>Conta anche il mio utilizzo (anonimo)</span>
+                    <span data-i18n-key="vaultTelemetryToggle">Conta anche il mio utilizzo (anonimo)</span>
                   </label>
                 </div>
               </div>
@@ -4224,9 +4224,9 @@
                    tocca "Invia" (mai automatico, mai dati finanziari). -->
               <div class="card p-6 flex flex-col justify-between">
                 <div>
-                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Il tuo feedback</h3>
-                  <p class="card-sub">Cosa funziona, cosa no, cosa vorresti diverso: due righe bastano. Nessun account, nessuna spesa o saldo lascia mai questo telefono.</p>
-                  <button onclick="window.openFeedbackModal()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm">Scrivi un feedback</button>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n-key="vaultFeedbackTitle">Il tuo feedback</span></h3>
+                  <p class="card-sub" data-i18n-key="vaultFeedbackSubtitle">Cosa funziona, cosa no, cosa vorresti diverso: due righe bastano. Nessun account, nessuna spesa o saldo lascia mai questo telefono.</p>
+                  <button onclick="window.openFeedbackModal()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm" data-i18n-key="vaultWriteFeedback">Scrivi un feedback</button>
                 </div>
               </div>
 
@@ -4236,9 +4236,9 @@
                    automatico) verso Groq — va acceso consapevolmente. -->
               <div class="card p-6 flex flex-col justify-between">
                 <div>
-                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Chat generica (opzionale)</h3>
-                  <p class="card-sub">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Di base riceve SOLO il testo che scrivi.</p>
-                  <p class="text-[11px] text-slate-500 mt-2"><b>Gemini</b>: la scelta migliore per la maggior parte — ragionamento generale forte, capisce domande lunghe/articolate, quota gratuita generosa (verificato).</p>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span data-i18n-key="vaultGenericChatTitle">Chat generica (opzionale)</span></h3>
+                  <p class="card-sub" data-i18n-key="vaultGenericChatSubtitle">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Di base riceve SOLO il testo che scrivi.</p>
+                  <p class="text-[11px] text-slate-500 mt-2" data-i18n-html="vaultGeminiRecommend"><b>Gemini</b>: la scelta migliore per la maggior parte — ragionamento generale forte, capisce domande lunghe/articolate, quota gratuita generosa (verificato).</p>
                   <!-- Prima non si capiva se una chiave era già salvata o no
                        (l'utente l'ha segnalato: "sembra sempre che debba
                        essere messa anche quando c'è già") — questa lista
@@ -4254,7 +4254,7 @@
                        mai transazioni/esercenti/conti; disattivabile con un tocco. -->
                   <label class="flex items-start gap-2 mt-3 text-xs cursor-pointer select-none">
                     <input type="checkbox" id="chat-context-optin" checked onchange="window.setChatContextOptIn(this.checked)" class="toggle-input mt-0.5" />
-                    <span>Includi anche un riassunto ANONIMO e aggregato della mia situazione (es. "oggi puoi spendere 50€", mai transazioni, esercenti o conti) — risposte più pertinenti. Attivo di default, disattivabile qui.</span>
+                    <span data-i18n-key="vaultChatContextToggle">Includi anche un riassunto ANONIMO e aggregato della mia situazione (es. "oggi puoi spendere 50€", mai transazioni, esercenti o conti) — risposte più pertinenti. Attivo di default, disattivabile qui.</span>
                   </label>
                   <!-- Il sistema/browser di alcuni utenti ha "Riduci movimento"
                        attivo (accessibilità) — Momentum lo rispetta OVUNQUE
@@ -4264,16 +4264,16 @@
                        generica, solo se l'utente lo accende lui stesso. -->
                   <label class="flex items-start gap-2 mt-2 text-xs cursor-pointer select-none">
                     <input type="checkbox" id="force-anim-optin" onchange="window.setForceAnimations(this.checked)" class="toggle-input mt-0.5" />
-                    <span>Mostra le micro-animazioni di attesa anche se il dispositivo ha "Riduci movimento" attivo (di base le rispettiamo, per chi le preferisce spente)</span>
+                    <span data-i18n-key="vaultForceAnimToggle">Mostra le micro-animazioni di attesa anche se il dispositivo ha "Riduci movimento" attivo (di base le rispettiamo, per chi le preferisce spente)</span>
                   </label>
                   <!-- Lingua di "Chiedi a Momentum": di default segue quella
                        del dispositivo (prima un testo ambiguo cadeva sempre
                        sull'italiano) — qui la scelta manuale, quando serve,
                        vince SEMPRE su tutto il resto. -->
                   <div class="mt-3">
-                    <label class="text-[11px] text-[var(--on-surface-secondary)]">Lingua di "Chiedi a Momentum"</label>
+                    <label class="text-[11px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultQaLanguageLabel">Lingua di "Chiedi a Momentum"</label>
                     <select id="qa-language-select" onchange="window.setQaLanguage(this.value)" class="modal-input !mb-0 mt-1 text-xs py-2">
-                      <option value="">Automatica (segue il dispositivo)</option>
+                      <option value="" data-i18n-key="vaultQaLanguageAuto">Automatica (segue il dispositivo)</option>
                       <option value="it">Italiano</option>
                       <option value="en">English</option>
                       <option value="es">Español</option>
@@ -4283,13 +4283,13 @@
                     </select>
                   </div>
                   <details class="mt-2">
-                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Altre opzioni, con quando conviene ognuna</summary>
+                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer" data-i18n-key="vaultOtherProvidersSummary">Altre opzioni, con quando conviene ognuna</summary>
                     <div class="flex flex-col gap-2 mt-2">
-                      <button onclick="window.openApiKeyGuide('groq')" class="text-[10px] text-[var(--primary)] underline text-left">Groq — gratis, la più VELOCE (risposte quasi istantanee), buona per domande semplici e rapide →</button>
-                      <button onclick="window.openApiKeyGuide('deepseek')" class="text-[10px] text-[var(--primary)] underline text-left">DeepSeek — molto forte sul ragionamento passo-passo (matematica/logica), verifica tu i costi →</button>
-                      <button onclick="window.openApiKeyGuide('openai')" class="text-[10px] text-amber-300 underline text-left">OpenAI (ChatGPT) — a pagamento, se hai già la fatturazione API →</button>
-                      <button onclick="window.openApiKeyGuide('anthropic')" class="text-[10px] text-amber-300 underline text-left">Anthropic (Claude) — a pagamento, il più accurato su testi lunghi, se hai già la fatturazione API →</button>
-                      <p class="text-[11px] text-slate-500">Senza il riassunto attivato: SOLO la domanda che scrivi (mai spese/saldi). Se configuri più chiavi, Momentum le prova in quest'ordine e usa la prima che risponde. L'abbonamento ChatGPT Plus/Claude Pro NON dà accesso qui: l'API si paga separatamente.</p>
+                      <button onclick="window.openApiKeyGuide('groq')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultProviderGroq">Groq — gratis, la più VELOCE (risposte quasi istantanee), buona per domande semplici e rapide →</button>
+                      <button onclick="window.openApiKeyGuide('deepseek')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultProviderDeepseek">DeepSeek — molto forte sul ragionamento passo-passo (matematica/logica), verifica tu i costi →</button>
+                      <button onclick="window.openApiKeyGuide('openai')" class="text-[10px] text-amber-300 underline text-left" data-i18n-key="vaultProviderOpenai">OpenAI (ChatGPT) — a pagamento, se hai già la fatturazione API →</button>
+                      <button onclick="window.openApiKeyGuide('anthropic')" class="text-[10px] text-amber-300 underline text-left" data-i18n-key="vaultProviderAnthropic">Anthropic (Claude) — a pagamento, il più accurato su testi lunghi, se hai già la fatturazione API →</button>
+                      <p class="text-[11px] text-slate-500" data-i18n-key="vaultProvidersFooter">Senza il riassunto attivato: SOLO la domanda che scrivi (mai spese/saldi). Se configuri più chiavi, Momentum le prova in quest'ordine e usa la prima che risponde. L'abbonamento ChatGPT Plus/Claude Pro NON dà accesso qui: l'API si paga separatamente.</p>
                     </div>
                   </details>
                   <!-- Onestà su "impara dalle domande": qui NON si finge che le
@@ -4298,7 +4298,7 @@
                        quali domande sono uscite dal riconoscimento locale, la
                        base reale per ampliarlo nel tempo. -->
                   <details class="mt-2">
-                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Domande che Momentum non riconosce ancora da solo</summary>
+                    <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer" data-i18n-key="vaultUnrecognizedQSummary">Domande che Momentum non riconosce ancora da solo</summary>
                     <div id="cloud-fallback-log" class="flex flex-col gap-1 mt-2 text-[10px] text-[var(--on-surface-secondary)]"></div>
                   </details>
                 </div>
@@ -4307,12 +4307,12 @@
               <!-- Options Column -->
               <div class="flex flex-col gap-5 sm:gap-6 xl:col-span-2">
                   <div class="card p-6">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h7M4 18h13"/><circle cx="18" cy="6" r="2"/><circle cx="15" cy="12" r="2"/></svg>Quanto l'app ti frena sulle spese</h3>
-                    <p class="card-sub">Da un tocco leggero a un promemoria più deciso quando stai per spendere troppo.</p>
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h7M4 18h13"/><circle cx="18" cy="6" r="2"/><circle cx="15" cy="12" r="2"/></svg><span data-i18n-key="vaultBrakeTitle">Quanto l'app ti frena sulle spese</span></h3>
+                    <p class="card-sub" data-i18n-key="vaultBrakeSubtitle">Da un tocco leggero a un promemoria più deciso quando stai per spendere troppo.</p>
                     <div class="segmented-control">
-                       <div class="segment-btn" data-ai-mode="zen" onclick="window.setAIAggression('zen')">Delicato</div>
-                       <div class="segment-btn" data-ai-mode="advisor" onclick="window.setAIAggression('advisor')">Consigliere</div>
-                       <div class="segment-btn" data-ai-mode="predator" onclick="window.setAIAggression('predator')">Deciso</div>
+                       <div class="segment-btn" data-ai-mode="zen" onclick="window.setAIAggression('zen')" data-i18n-key="vaultModeZen">Delicato</div>
+                       <div class="segment-btn" data-ai-mode="advisor" onclick="window.setAIAggression('advisor')" data-i18n-key="vaultModeAdvisor">Consigliere</div>
+                       <div class="segment-btn" data-ai-mode="predator" onclick="window.setAIAggression('predator')" data-i18n-key="vaultModePredator">Deciso</div>
                     </div>
                     <!-- Spiegazione dinamica del livello scelto (cambia col tocco):
                          così si CAPISCE la differenza e non sembra finto. -->
@@ -4327,18 +4327,18 @@
 
                   <div class="card p-6">
                     <div class="flex items-center justify-between">
-                      <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Trova abbonamenti dimenticati</h3>
+                      <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span data-i18n-key="vaultGhostRadarTitle">Trova abbonamenti dimenticati</span></h3>
                       <input type="checkbox" id="settings-ghost-radar" onchange="toggleGhostRadar()" class="toggle-input" />
                     </div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Controlla in background le spese che si ripetono ogni mese.</p>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2" data-i18n-key="vaultGhostRadarSubtitle">Controlla in background le spese che si ripetono ogni mese.</p>
                   </div>
 
                   <div class="card p-6">
                     <div class="flex items-center justify-between">
-                      <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>Suoni</h3>
+                      <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg><span data-i18n-key="vaultSoundsTitle">Suoni</span></h3>
                       <input type="checkbox" id="settings-sound" onchange="toggleSound()" class="toggle-input" checked />
                     </div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2">Un piccolo suono quando salvi un movimento o superi un limite.</p>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2" data-i18n-key="vaultSoundsSubtitle">Un piccolo suono quando salvi un movimento o superi un limite.</p>
                   </div>
 
                   <!-- Notifiche granulari (2026-08-17): prima un solo permesso del
@@ -4347,19 +4347,19 @@
                        ritrovava tutte e tre, causa comune di disattivazione totale.
                        Ora ogni categoria si spegne da sola, il resto resta attivo. -->
                   <div class="card p-6">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notifiche</h3>
-                    <p class="card-sub">Scegli quali avvisi ricevere — anche ad app chiusa, solo se il browser lo permette.</p>
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span data-i18n-key="vaultNotificationsTitle">Notifiche</span></h3>
+                    <p class="card-sub" data-i18n-key="vaultNotificationsSubtitle">Scegli quali avvisi ricevere — anche ad app chiusa, solo se il browser lo permette.</p>
                     <div class="flex flex-col gap-3 mt-3">
                       <div class="flex items-center justify-between gap-3">
-                        <span class="text-[12px] text-[var(--on-surface)]">Scadenze fiscali urgenti</span>
+                        <span class="text-[12px] text-[var(--on-surface)]" data-i18n-key="vaultNotifyTaxDeadlines">Scadenze fiscali urgenti</span>
                         <input type="checkbox" id="notify-pref-fiscale" onchange="window.setNotifyPref('fiscale', this.checked)" class="toggle-input" checked />
                       </div>
                       <div class="flex items-center justify-between gap-3">
-                        <span class="text-[12px] text-[var(--on-surface)]">Cambi di normativa fiscale</span>
+                        <span class="text-[12px] text-[var(--on-surface)]" data-i18n-key="vaultNotifyTaxLaw">Cambi di normativa fiscale</span>
                         <input type="checkbox" id="notify-pref-normativa" onchange="window.setNotifyPref('normativa', this.checked)" class="toggle-input" checked />
                       </div>
                       <div class="flex items-center justify-between gap-3">
-                        <span class="text-[12px] text-[var(--on-surface)]">Avvisi di prezzo (asset seguiti)</span>
+                        <span class="text-[12px] text-[var(--on-surface)]" data-i18n-key="vaultNotifyPriceAlerts">Avvisi di prezzo (asset seguiti)</span>
                         <input type="checkbox" id="notify-pref-prezzi" onchange="window.setNotifyPref('prezzi', this.checked)" class="toggle-input" checked />
                       </div>
                     </div>
@@ -4372,13 +4372,13 @@
                        non supporta WASM SIMD (device/profiler.js) — mai un
                        download che non può nemmeno essere eseguito. -->
                   <div class="card p-6" id="semantic-qa-card" style="display:none">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Comprensione del linguaggio (locale)</h3>
-                    <p class="card-sub">Il QA riconosce il SIGNIFICATO di una domanda, non solo le parole esatte — utile quando gli insegni una domanda in un modo e poi gliela fai in un altro.</p>
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span data-i18n-key="vaultSemanticQaTitle">Comprensione del linguaggio (locale)</span></h3>
+                    <p class="card-sub" data-i18n-key="vaultSemanticQaSubtitle">Il QA riconosce il SIGNIFICATO di una domanda, non solo le parole esatte — utile quando gli insegni una domanda in un modo e poi gliela fai in un altro.</p>
                     <div class="flex items-center justify-between gap-3 mt-3">
                       <span class="text-[12px] text-[var(--on-surface)]" id="semantic-qa-label">Attiva (scarica ~197MB una volta, poi resta offline)</span>
                       <input type="checkbox" id="semantic-qa-optin" onchange="window.setSemanticQaOptIn(this.checked)" class="toggle-input" />
                     </div>
-                    <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2">Modello EmbeddingGemma di Google (open-source, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. Le tue domande non lasciano mai il dispositivo.</p>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2" data-i18n-key="vaultSemanticQaFooter">Modello EmbeddingGemma di Google (open-source, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. Le tue domande non lasciano mai il dispositivo.</p>
                   </div>
 
                   <!-- Sentiment on-device opt-in (src/ai/local-sentiment.js,
@@ -4387,22 +4387,22 @@
                        l'onestà su "non è davvero TinyFinBERT"). Stesso doppio
                        cancello della card sopra: nascosta senza WASM SIMD. -->
                   <div class="card p-6" id="sentiment-local-card" style="display:none">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>Sentiment delle notizie (locale)</h3>
-                    <p class="card-sub">Un punteggio bullish/bearish calcolato sul TUO dispositivo per le notizie senza chiave API (Hacker News, Federal Register, Fed/BCE) — oggi quelle notizie non hanno mai un sentiment, solo Alpha Vantage lo fornisce a chi ha una chiave.</p>
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg><span data-i18n-key="vaultSentimentTitle">Sentiment delle notizie (locale)</span></h3>
+                    <p class="card-sub" data-i18n-key="vaultSentimentSubtitle">Un punteggio bullish/bearish calcolato sul TUO dispositivo per le notizie senza chiave API (Hacker News, Federal Register, Fed/BCE) — oggi quelle notizie non hanno mai un sentiment, solo Alpha Vantage lo fornisce a chi ha una chiave.</p>
                     <div class="flex items-center justify-between gap-3 mt-3">
                       <span class="text-[12px] text-[var(--on-surface)]" id="sentiment-local-label">Attiva (scarica ~82MB una volta, poi resta offline)</span>
                       <input type="checkbox" id="sentiment-local-optin" onchange="window.setSentimentLocalOptIn(this.checked)" class="toggle-input" />
                     </div>
-                    <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2">Modello DistilRoBERTa affinato su notizie finanziarie (Apache-2.0, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. I titoli restano sul dispositivo, mai inviati altrove per essere valutati.</p>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2" data-i18n-key="vaultSentimentFooter">Modello DistilRoBERTa affinato su notizie finanziarie (Apache-2.0, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. I titoli restano sul dispositivo, mai inviati altrove per essere valutati.</p>
                   </div>
 
                   <div class="card p-6 flex flex-col">
                     <div class="flex items-center justify-between mb-4">
                       <div>
-                        <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Scadenze e promemoria</h3>
-                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">Le tue scadenze future, esportabili nel calendario del telefono.</p>
+                        <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg><span data-i18n-key="vaultRemindersTitle">Scadenze e promemoria</span></h3>
+                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultRemindersSubtitle">Le tue scadenze future, esportabili nel calendario del telefono.</p>
                       </div>
-                      <button onclick="exportEventsToICS()" class="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 rounded-lg text-[10px] font-bold transition-all">Sincronizza (.ics)</button>
+                      <button onclick="exportEventsToICS()" class="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 rounded-lg text-[10px] font-bold transition-all" data-i18n-key="vaultSyncIcs">Sincronizza (.ics)</button>
                     </div>
 
                     <!-- Add Event Form — importo FACOLTATIVO (un appuntamento non
