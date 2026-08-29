@@ -219,44 +219,115 @@ const VaultDAO = {
     advisorBandit: { version: 1, arms: {} },
     banditPending: null
   },
+  // Conta le transazioni reali di uno stato candidato — unico criterio
+  // onesto per scegliere fra due copie salvate quando divergono (mai un
+  // checksum cieco, vedi sotto). Esposta anche fuori dalla classe per i test.
+  _countTx(s) {
+    return Object.values((s && s.transactions) || {}).reduce((n, arr) => n + (Array.isArray(arr) ? arr.length : 0), 0);
+  },
+  // BUG CRITICO REALE (trovato 2026-08-29, segnalato da utenti che perdevano
+  // le transazioni "ogni tot tempo o al rilascio di una nuova versione" e si
+  // ritrovavano con i dati di esempio del primo avvio): la vecchia init()
+  // faceva UN solo tentativo — se il checksum di "shadow" non combaciava con
+  // "main", si fidava CIECAMENTE di "shadow" anche quando era semplicemente
+  // rimasta indietro (causa verificata: "shadow" è ~33% più grande del
+  // payload reale per via della codifica base64 in save(), quindi può
+  // superare la quota di localStorage PRIMA del payload vero — main si
+  // salva, shadow no, resta vecchia). Peggio: se quel tentativo di fallback
+  // falliva (shadow corrotta), l'ECCEZIONE risaliva fino al catch esterno e
+  // scartava in silenzio anche "main", che nel frattempo era stata già
+  // analizzata con successo — un utente con dati perfettamente validi in
+  // "main" finiva con lo stato di default (isFirstLaunch:true, transactions
+  // vuote), che la UI mostra come i dati dimostrativi del primo avvio.
+  //
+  // Fix: mai un solo tentativo silenzioso. Si prova a leggere OGNI copia
+  // disponibile, si scarta solo quella che non fa JSON.parse (loggando
+  // perché, mai in silenzio), e fra le copie valide si sceglie quella con
+  // PIÙ transazioni reali — mai la "shadow" per definizione, mai la prima
+  // che càpita. Solo se NESSUNA copia è leggibile si riparte dal default,
+  // e anche allora si logga forte (mai un errore ingoiato senza traccia).
   init() {
-    let main = localStorage.getItem('omega_core_db');
-    let shadow = localStorage.getItem('omega_shadow_vault');
+    const main = localStorage.getItem('omega_core_db');
+    const shadow = localStorage.getItem('omega_shadow_vault');
+    const candidates = [];
     if (main) {
+      try { candidates.push({ source: 'main', state: JSON.parse(main) }); }
+      catch (e) { console.error('VaultDAO.init: omega_core_db corrotto, JSON non valido — scartato:', e); }
+    }
+    if (shadow) {
+      try { candidates.push({ source: 'shadow', state: JSON.parse(decodeURIComponent(escape(atob(shadow)))) }); }
+      catch (e) { console.error('VaultDAO.init: omega_shadow_vault corrotto — scartato:', e); }
+    }
+    if (candidates.length > 0) {
+      let best = candidates[0];
+      for (const c of candidates.slice(1)) if (this._countTx(c.state) > this._countTx(best.state)) best = c;
+      if (candidates.length > 1 && candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {
+        const riepilogo = candidates.map(c => `${c.source}:${this._countTx(c.state)}tx`).join(', ');
+        console.warn(`VaultDAO.init: le copie salvate divergono (${riepilogo}) — uso "${best.source}" (più transazioni), mai un checksum cieco.`);
+      }
       try {
-        let p = JSON.parse(main);
-        if (shadow && btoa(unescape(encodeURIComponent(main))) !== shadow) {
-          p = JSON.parse(decodeURIComponent(escape(atob(shadow))));
-        }
-        p = runSchemaMigrations(p);
+        const p = runSchemaMigrations(best.state);
         this.state = { ...this.state, ...p, schemaVersion: SCHEMA_VERSION, currentDate: new Date() };
-      } catch(e) {}
+      } catch (e) {
+        console.error('VaultDAO.init: migrazione schema fallita — parto dal default, dati NON applicati:', e);
+      }
     }
     window.state = this.state;
   },
-  // Riconciliazione con IndexedDB, da chiamare PRIMA di init():
-  // - se IndexedDB ha uno stato e localStorage no (evizione/pulizia), lo ripristina;
-  // - se localStorage ha dati e IndexedDB no, migra (una-tantum).
-  // In caso di errore IndexedDB l'app continua con solo localStorage, come prima.
+  // Riconciliazione con IndexedDB, da chiamare PRIMA di init(): stessa
+  // disciplina "mai un checksum cieco" di init() sopra, estesa a una TERZA
+  // copia (IndexedDB, quota molto più alta — il backstop più affidabile).
+  // Riscrive SEMPRE main+shadow allineate alla copia più completa fra le
+  // tre, così la init() sincrona che segue trova dati già coerenti — non
+  // deve più indovinare quale fonte fidarsi.
   async initDurable() {
     try {
       const idbPayload = await DurableStore.get('state', 'main');
-      const lsPayload = localStorage.getItem('omega_core_db');
-      if (idbPayload && !lsPayload) {
-        localStorage.setItem('omega_core_db', idbPayload);
-        localStorage.setItem('omega_shadow_vault', btoa(unescape(encodeURIComponent(idbPayload))));
-      } else if (lsPayload && !idbPayload) {
-        await DurableStore.put('state', lsPayload, 'main');
+      const lsMain = localStorage.getItem('omega_core_db');
+      const lsShadow = localStorage.getItem('omega_shadow_vault');
+      const candidates = [];
+      const tryParse = (raw, source, decode) => {
+        if (!raw) return;
+        try { candidates.push({ source, state: JSON.parse(decode ? decode(raw) : raw) }); }
+        catch (e) { console.error(`VaultDAO.initDurable: copia "${source}" corrotta — scartata:`, e); }
+      };
+      tryParse(lsMain, 'localStorage(main)');
+      tryParse(lsShadow, 'localStorage(shadow)', (raw) => decodeURIComponent(escape(atob(raw))));
+      tryParse(idbPayload, 'indexedDB');
+      if (candidates.length === 0) return; // nessuna copia leggibile: init() partirà dal default
+      let best = candidates[0];
+      for (const c of candidates.slice(1)) if (this._countTx(c.state) > this._countTx(best.state)) best = c;
+      if (candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {
+        const riepilogo = candidates.map(c => `${c.source}:${this._countTx(c.state)}tx`).join(', ');
+        console.warn(`VaultDAO.initDurable: copie salvate non allineate (${riepilogo}) — ricostruisco da "${best.source}" (più completa).`);
       }
+      const bestPayload = JSON.stringify(best.state);
+      localStorage.setItem('omega_core_db', bestPayload);
+      localStorage.setItem('omega_shadow_vault', btoa(unescape(encodeURIComponent(bestPayload))));
+      if (best.source !== 'indexedDB') await DurableStore.put('state', bestPayload, 'main').catch(() => {});
     } catch (e) {
       console.warn('IndexedDB non disponibile, continuo con localStorage:', e);
     }
   },
   save() {
     const payload = JSON.stringify({ ...this.state, currentDate: this.state.currentDate.toISOString() });
-    localStorage.setItem('omega_core_db', payload);
-    localStorage.setItem('omega_shadow_vault', btoa(unescape(encodeURIComponent(payload))));
-    DurableStore.put('state', payload, 'main').catch(() => {});
+    try {
+      localStorage.setItem('omega_core_db', payload);
+    } catch (e) {
+      console.error('VaultDAO.save: scrittura di omega_core_db fallita (localStorage pieno?):', e);
+    }
+    try {
+      localStorage.setItem('omega_shadow_vault', btoa(unescape(encodeURIComponent(payload))));
+    } catch (e) {
+      // "shadow" è ~33% più grande del payload reale (overhead base64): può
+      // superare la quota PRIMA del payload vero, lasciando una copia
+      // VECCHIA — causa verificata del bug di perdita dati (vedi init()).
+      // Meglio nessuna shadow che una shadow stantia che sembri "più fresca"
+      // a un futuro controllo di mismatch.
+      console.error('VaultDAO.save: scrittura di omega_shadow_vault fallita — la rimuovo per non lasciare una copia stantia:', e);
+      try { localStorage.removeItem('omega_shadow_vault'); } catch (_) {}
+    }
+    DurableStore.put('state', payload, 'main').catch((e) => console.error('VaultDAO.save: scrittura IndexedDB fallita:', e));
     // Ponte iOS best-effort (2026-08-28) — vedi IOS_HANDOFF sotto: scrive un
     // istantanea in Cache Storage, MAI l'unica via di ripristino (quella
     // resta il backup file, sempre affidabile). Fire-and-forget, mai un
