@@ -343,6 +343,41 @@ test('VaultDAO.applyTxLogRecovery: applica SOLO dopo la chiamata esplicita (mai 
   }
 });
 
+test('scenario reale segnalato dall\'utente: chi ha già reinserito a mano NUOVE transazioni prima del fix, al recupero deve ritrovare ANCHE le vecchie perse — mai una sovrascrittura, mai un doppione, mai perdere le nuove', async () => {
+  const savedState = VaultDAO.state;
+  const savedLS = globalThis.localStorage;
+  const savedGetAll = DurableStore.getAll;
+  try {
+    // Stato ATTUALE: l'utente, dopo aver perso i dati vecchi per il bug, ha
+    // già reinserito a mano una transazione nuova prima che arrivasse il fix.
+    VaultDAO.state = {
+      ...VaultDAO.state,
+      transactions: { '2026-08': [{ id: 'nuova1', amount: 25, description: 'Reinserita a mano dopo il bug' }] },
+      deletedTx: {},
+      currentDate: new Date(),
+    };
+    const ls = fakeLocalStorage();
+    globalThis.localStorage = ls;
+    // tx_log (mai toccato dal bug): ha ANCORA le due transazioni vecchie
+    // perse, registrate PRIMA del bug.
+    DurableStore.getAll = async () => [
+      { month: '2026-08', tx: { id: 'vecchia1', amount: 55.9, description: 'Vecchia persa 1' } },
+      { month: '2026-08', tx: { id: 'vecchia2', amount: 999, description: 'Stipendio vecchio perso' } },
+    ];
+    const { recovered, addedCount } = await VaultDAO.checkTxLogRecovery();
+    assert.equal(addedCount, 2, 'deve trovare le 2 vecchie perse, "nuova1" è già nello stato e non va ricontata');
+    const applied = VaultDAO.applyTxLogRecovery(recovered);
+    assert.equal(applied, 2);
+    const ids = VaultDAO.state.transactions['2026-08'].map(t => t.id).sort();
+    assert.deepEqual(ids, ['nuova1', 'vecchia1', 'vecchia2'], 'la nuova reinserita a mano resta, le due vecchie perse si aggiungono, nessun doppione');
+    assert.equal(VaultDAO._countTx(VaultDAO.state), 3);
+  } finally {
+    VaultDAO.state = savedState;
+    globalThis.localStorage = savedLS;
+    DurableStore.getAll = savedGetAll;
+  }
+});
+
 test('VaultDAO.applyTxLogRecovery: un recupero vuoto non chiama save() (nessuna scrittura inutile)', () => {
   const savedState = VaultDAO.state;
   const savedLS = globalThis.localStorage;
@@ -356,5 +391,71 @@ test('VaultDAO.applyTxLogRecovery: un recupero vuoto non chiama save() (nessuna 
   } finally {
     VaultDAO.state = savedState;
     globalThis.localStorage = savedLS;
+  }
+});
+
+// ── "Cancella tutti i dati" (window.nukeVault) deve significare davvero
+// tutto (2026-08-29, bug reale segnalato dall'utente): prima cancellava
+// SOLO localStorage — IndexedDB restava intatto e, al riavvio,
+// initDurable() lo trovava ancora lì e lo ripristinava (prima solo se
+// localStorage era vuoto, condizione ESATTAMENTE vera appena dopo un
+// "cancella tutto"; con la riconciliazione "più transazioni vince" del fix
+// di init()/save() sopra, IndexedDB avrebbe vinto SEMPRE contro un
+// localStorage appena svuotato). Un utente che chiedeva la cancellazione
+// completa si ritrovava i dati indietro — l'opposto di quello che chiedeva. ──
+test('DurableStore.deleteAll: con IndexedDB disponibile, chiama indexedDB.deleteDatabase("momentum_vault") e chiude la connessione già aperta', async () => {
+  const savedAvailable = DurableStore.available;
+  const savedDb = DurableStore.db;
+  const savedIDB = globalThis.indexedDB;
+  try {
+    DurableStore.available = true;
+    let closedCalled = false;
+    DurableStore.db = { close: () => { closedCalled = true; } };
+    let deletedName = null;
+    globalThis.indexedDB = {
+      deleteDatabase: (name) => {
+        deletedName = name;
+        const req = {};
+        setTimeout(() => req.onsuccess && req.onsuccess(), 0);
+        return req;
+      },
+    };
+    await DurableStore.deleteAll();
+    assert.equal(deletedName, 'momentum_vault');
+    assert.equal(closedCalled, true, 'deve chiudere la connessione aperta prima di cancellare, altrimenti il browser può bloccare la delete');
+    assert.equal(DurableStore.db, null, 'la connessione va azzerata dopo la cancellazione');
+  } finally {
+    DurableStore.available = savedAvailable;
+    DurableStore.db = savedDb;
+    globalThis.indexedDB = savedIDB;
+  }
+});
+
+test('DurableStore.deleteAll: IndexedDB non disponibile → no-op sicuro, mai un crash', async () => {
+  const savedAvailable = DurableStore.available;
+  try {
+    DurableStore.available = false;
+    await assert.doesNotReject(() => DurableStore.deleteAll());
+  } finally {
+    DurableStore.available = savedAvailable;
+  }
+});
+
+test('DurableStore.deleteAll: un errore o un blocco di IndexedDB durante la cancellazione non deve MAI impedire il reset (mai bloccare una cancellazione richiesta esplicitamente dall\'utente per un dettaglio tecnico)', async () => {
+  const savedAvailable = DurableStore.available;
+  const savedIDB = globalThis.indexedDB;
+  try {
+    DurableStore.available = true;
+    globalThis.indexedDB = {
+      deleteDatabase: () => {
+        const req = {};
+        setTimeout(() => req.onerror && req.onerror(new Error('boom')), 0);
+        return req;
+      },
+    };
+    await assert.doesNotReject(() => DurableStore.deleteAll());
+  } finally {
+    DurableStore.available = savedAvailable;
+    globalThis.indexedDB = savedIDB;
   }
 });

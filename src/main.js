@@ -10940,9 +10940,14 @@ window.toggleGhostRadar = () => {
   showToast("Ghost Radar aggiornato.", "success");
 };
 
-window.nukeVault = () => {
+window.nukeVault = async () => {
   if (confirm("Distruggere l'intero database locale? Questa azione è irreversibile.")) {
     localStorage.clear();
+    // Bug reale corretto il 2026-08-29: prima si cancellava solo
+    // localStorage, mai IndexedDB — al riavvio i dati "cancellati"
+    // tornavano indietro da lì (vedi DurableStore.deleteAll in vault.js).
+    // "Cancella tutti i dati" deve significare davvero tutto, ovunque sia.
+    try { await DurableStore.deleteAll(); } catch (_) {}
     location.reload();
   }
 };

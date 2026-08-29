@@ -113,6 +113,29 @@ const DurableStore = {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
+  },
+  // BUG REALE trovato il 2026-08-29 (segnalato dall'utente mentre verificava
+  // il recupero da tx_log sopra: "non ci devono essere problemi quando vuoi
+  // eliminare i dati"): window.nukeVault() ("Cancella tutti i dati" nel
+  // Vault) faceva SOLO `localStorage.clear()` — non toccava MAI IndexedDB.
+  // Al riavvio, initDurable() trovava ancora lo stato vecchio in IndexedDB
+  // e lo RIPRISTINAVA in localStorage (prima solo quando localStorage era
+  // vuoto; con la riconciliazione "più transazioni vince" del fix sopra,
+  // IndexedDB avrebbe vinto SEMPRE contro un localStorage appena svuotato):
+  // un utente che chiedeva la cancellazione completa si ritrovava i dati
+  // di nuovo dopo il reload — l'esatto opposto di quello che stava
+  // chiedendo, un problema di fiducia serio quanto la perdita dati stessa.
+  // Elimina l'INTERO database (tutti gli store, 'state' e 'tx_log') così
+  // "cancella tutto" significa davvero tutto, ovunque sia salvato.
+  async deleteAll() {
+    if (this.db) { try { this.db.close(); } catch (_) {} this.db = null; }
+    if (!this.available) return;
+    return new Promise((resolve) => {
+      const req = indexedDB.deleteDatabase('momentum_vault');
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve(); // mai bloccare una cancellazione richiesta dall'utente per un errore IndexedDB
+      req.onblocked = () => resolve(); // un'altra scheda con una connessione aperta può ritardarla, ma non deve bloccare QUESTA
+    });
   }
 };
 
