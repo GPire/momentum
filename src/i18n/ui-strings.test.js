@@ -746,3 +746,46 @@ test('t: tutte le chiavi inst* (install-guide.js, guida installazione PWA) esist
   }
   assert.match(t('instInAppTitle', 'en', 'Instagram'), /Instagram/);
 });
+
+test('t: tutte le chiavi tax*/es* nuove (renderTax/renderTaxEs/renderTaxSettings, Momentum Vault) esistono nelle 7 lingue', () => {
+  const chiaviPlain = ['taxLvl0Note', 'taxSimulateBtn', 'taxNotSelfEmployedBtn', 'taxAskRegimeNote', 'taxNoInvoiceThisMonth', 'taxNoInvoiceYet', 'taxIncomeFallback', 'taxConfirmInvoiceBtn', 'taxConfirmNoBtn', 'taxCreateBtn', 'taxMarkTransmittedBtn', 'taxOpenSdiPortalBtn', 'taxSdiGuideBtn', 'taxCreateInvoiceBtn', 'taxShowSpainInstead', 'esIncomeFallback', 'esShowItalyInstead', 'taxYearPaceLabel', 'taxToSetAsideLabel', 'taxChangeRegimeBtn', 'taxSeenInvoicesNote', 'taxJustCuriousBtn', 'taxEmployedNote', 'taxChangedMindBtn', 'taxIntroNote', 'taxPartitaIvaBtn', 'taxClientFallback'];
+  const chiaviFn = ['taxUncertainCount', 'taxRecurringDue', 'taxSdiPendingCount', 'taxActiveRegimeLine'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiaviPlain) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+    for (const k of chiaviFn) {
+      const v = t(k, lang, 2, 'Mensile', 'Mario Rossi', 50, 3, 'Forfettario');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.equal(t('taxUncertainCount', 'it', 1), '1 entrata da confermare');
+  assert.equal(t('taxUncertainCount', 'it', 2), '2 entrate da confermare');
+  assert.equal(t('taxUncertainCount', 'en', 1), '1 income to confirm');
+  assert.equal(t('taxUncertainCount', 'en', 3), '3 incomes to confirm');
+  assert.match(t('taxRecurringDue', 'en', 'Monthly', 'Mario Rossi', 50), /Mario Rossi/);
+  assert.match(t('taxRecurringDue', 'en', 'Monthly', 'Mario Rossi', null), /not issued yet/);
+});
+
+test('t: tutte le chiavi mesh* nuove (renderMeshStatus/renderMeshEconomics/updateSplitMeshDot) esistono nelle 7 lingue', () => {
+  const chiaviFn = ['meshNoPeers', 'meshConnectedStatus', 'meshEconomicsStatus', 'splitMeshConnected'];
+  const chiaviPlain = ['splitMeshDisconnected'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiaviFn) {
+      const v = t(k, lang, 3, 120, 5, 2, '4.2×', 20);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+    for (const k of chiaviPlain) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.equal(t('meshConnectedStatus', 'it', 1, 50, 3, 0), '1 dispositivo fidato collegato · modello su <b>50</b> esempi · 3 fusioni accettate.');
+  assert.equal(t('splitMeshConnected', 'it', 1), '1 dispositivo collegato in diretta');
+  assert.equal(t('splitMeshConnected', 'it', 3), '3 dispositivi collegati in diretta');
+});
