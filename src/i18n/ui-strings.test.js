@@ -484,3 +484,37 @@ test('t: vaultModeZen/Advisor/Predator traducono correttamente nelle 7 lingue', 
   assert.equal(t('vaultModeZen', 'nl'), 'Zacht');
   assert.equal(t('vaultModePredator', 'pt'), 'Firme');
 });
+
+// ── Momentum Vault — coda (2026-08-29): form "Aggiungi scadenza", pulsante
+// aggiornamenti, cancellazione dati, link legali. Con questi la cornice
+// STATICA di index.html sotto #settings-view è coperta per intero nelle 7
+// lingue (verificato con una scansione riga-per-riga del blocco: ogni testo
+// rivolto all'utente porta un data-i18n-*, tranne le 3 eccezioni deliberate
+// — nomi di lingua nel select, "Core:"/"Synapse Nodes:" come branding
+// tecnico, "Connect" come termine tecnico WebRTC). Il contenuto generato da
+// altri moduli JS resta un cantiere separato, per ciascun modulo. ──
+
+test('t: tutte le chiavi vault* della coda esistono nelle 7 lingue, mai un fallback sulla chiave grezza', () => {
+  const chiavi = [
+    'vaultEventTitlePlaceholder', 'vaultEventNotePlaceholder', 'vaultEventAmountPlaceholder',
+    'vaultAddEventAria', 'vaultCheckUpdates', 'vaultDeleteAllData',
+    'vaultPrivacyPolicy', 'vaultTermsOfService',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: vaultDeleteAllData traduce correttamente nelle 7 lingue (azione distruttiva, mai ambigua)', () => {
+  assert.equal(t('vaultDeleteAllData', 'it'), 'Cancella tutti i dati');
+  assert.equal(t('vaultDeleteAllData', 'en'), 'Delete all data');
+  assert.equal(t('vaultDeleteAllData', 'de'), 'Alle Daten löschen');
+  assert.equal(t('vaultDeleteAllData', 'fr'), 'Supprimer toutes les données');
+  assert.equal(t('vaultDeleteAllData', 'es'), 'Eliminar todos los datos');
+  assert.equal(t('vaultDeleteAllData', 'nl'), 'Alle gegevens verwijderen');
+  assert.equal(t('vaultDeleteAllData', 'pt'), 'Apagar todos os dados');
+});

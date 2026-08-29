@@ -11577,12 +11577,13 @@ function renderSourceReliabilitySummary() {
 // Esteso (2026-08-29, Momentum Vault) oltre il solo textContent: il resto
 // dell'app statica in index.html mescola testo e SVG nello stesso elemento
 // (icona+testo in un bottone) o porta enfasi inline (<strong>) — impostare
-// textContent lì cancellerebbe l'icona o l'enfasi. Quattro varianti dello
+// textContent lì cancellerebbe l'icona o l'enfasi. Cinque varianti dello
 // stesso meccanismo, stesso dizionario:
 //  · data-i18n-key       → el.textContent (testo puro, nessun figlio da perdere)
 //  · data-i18n-html      → el.innerHTML (quando la chiave stessa porta markup, es. <strong>)
 //  · data-i18n-title     → attributo title (tooltip)
 //  · data-i18n-placeholder → attributo placeholder (input)
+//  · data-i18n-aria      → attributo aria-label (bottoni icona-soltanto, es. "+")
 function applyUiTranslations() {
   const lang = resolveUiLanguage();
   document.querySelectorAll('[data-i18n-key]').forEach(el => {
@@ -11596,6 +11597,9 @@ function applyUiTranslations() {
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = tCh(el.dataset.i18nPlaceholder, lang);
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    el.setAttribute('aria-label', tCh(el.dataset.i18nAria, lang));
   });
 }
 
