@@ -22,8 +22,13 @@
 // cui le entrate sono arrivate più spesso in passato. Se non c'è uno schema
 // chiaro non si inventa — la striscia semplicemente non mostra quel segno.
 //
-// Funzioni PURE: entrano transazioni e una data, esce una stringa.
+// Funzioni PURE: entrano transazioni e una data, esce una stringa (+ lingua,
+// da quando la striscia parla anche inglese/tedesco/francese/spagnolo/
+// olandese/portoghese, 2026-08-29 — nessuno stato, nessun DOM: la purezza
+// resta intatta, `lang` è solo un altro argomento della funzione).
 'use strict';
+
+import { t as tMs } from '../i18n/ui-strings.js';
 
 // Quante entrate servono per dire che esiste un giorno di paga ricorrente.
 // Con due si vedono schemi ovunque; con tre si comincia a poterci contare.
@@ -201,7 +206,7 @@ export function evidenziaNumeri(testo) {
 // ── La striscia ──
 // Larghezza 100, così il contenitore decide quanto è larga davvero e non serve
 // sapere i pixel qui dentro.
-export function stripHtml(stato, { formatMoney = (v) => `${v}` } = {}) {
+export function stripHtml(stato, { formatMoney = (v) => `${v}`, lang = 'it' } = {}) {
   if (!stato?.giorniTotali) return '';
   const x = (giorno) => Math.max(0, Math.min(100, (giorno / stato.giorniTotali) * 100));
   const oggiX = x(stato.giornoOggi);
@@ -222,25 +227,25 @@ export function stripHtml(stato, { formatMoney = (v) => `${v}` } = {}) {
   if (stato.inRitardo) {
     const g = Math.abs(stato.giorniAllaPaga);
     etichettaPaga = stato.certezza === 'data'
-      ? `di solito arrivavano il ${stato.giornoPaga}: sono ${g} giorni`
-      : `di solito incassi ogni ${stato.ogniGiorni} giorni: sei a ${stato.ogniGiorni + g}`;
+      ? tMs('msLateFixed', lang, stato.giornoPaga, g)
+      : tMs('msLateRhythm', lang, stato.ogniGiorni, stato.ogniGiorni + g);
   } else if (mostraPaga && stato.certezza === 'data') {
-    etichettaPaga = stato.giorniAllaPaga === 0 ? 'stipendio oggi'
-      : stato.giorniAllaPaga === 1 ? 'stipendio domani'
-        : `stipendio fra ${stato.giorniAllaPaga} giorni`;
+    etichettaPaga = stato.giorniAllaPaga === 0 ? tMs('msPayToday', lang)
+      : stato.giorniAllaPaga === 1 ? tMs('msPayTomorrow', lang)
+        : tMs('msPayInDays', lang, stato.giorniAllaPaga);
   } else if (stato.certezza === 'stima') {
     etichettaPaga = stato.giorniAllaPaga === 0
-      ? `di solito incassi ogni ${stato.ogniGiorni} giorni: ci siamo`
-      : `di solito incassi fra ~${stato.giorniAllaPaga} giorni`;
+      ? tMs('msRhythmToday', lang, stato.ogniGiorni)
+      : tMs('msRhythmInDays', lang, stato.giorniAllaPaga);
   }
 
   // La descrizione per chi non vede la striscia si compone dai pezzi che ci
   // sono davvero: concatenare a vuoto produceva "Giorno 10 di 31. . Speso...",
   // e un doppio punto letto ad alta voce e' una pausa senza motivo.
-  const pezzi = [`Giorno ${stato.giornoOggi} di ${stato.giorniTotali}`];
+  const pezzi = [tMs('msDayOfTotal', lang, stato.giornoOggi, stato.giorniTotali)];
   if (etichettaPaga) pezzi.push(etichettaPaga);
-  else if (stato.entrataArrivata) pezzi.push('stipendio gia\' arrivato');
-  pezzi.push(`speso finora ${formatMoney(stato.speso)}`);
+  else if (stato.entrataArrivata) pezzi.push(tMs('msSalaryArrived', lang));
+  pezzi.push(tMs('msSpentSoFar', lang, formatMoney(stato.speso)));
 
   // ── L'ORBITA ──
   // La striscia era dritta e l'orb e' rotondo: due geometrie che non si
@@ -293,7 +298,7 @@ export function stripHtml(stato, { formatMoney = (v) => `${v}` } = {}) {
       <circle class="ms-oggi" cx="${px(tOggi).toFixed(1)}" cy="${y(tOggi).toFixed(2)}" r="2.4" fill="#fff"/>
     </svg>
     <div class="ms-righe">
-      <span class="ms-speso">${evidenziaNumeri(`${formatMoney(stato.speso)} spesi`)}</span>
+      <span class="ms-speso">${evidenziaNumeri(tMs('msSpent', lang, formatMoney(stato.speso)))}</span>
       ${etichettaPaga ? `<span class="ms-attesa">${evidenziaNumeri(etichettaPaga)}</span>` : ''}
     </div>
   </div>`;

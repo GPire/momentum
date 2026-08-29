@@ -8,6 +8,7 @@ import { segmentIntents, FUZZY_AMOUNTS } from './intent-segmenter.js';
 import { predictAmount } from '../predict/amount-memory.js';
 import { detectDeviceLanguage } from '../i18n/detect.js';
 import { suggestVoiceCorrection } from './voice-learning.js';
+import { t as tVoice } from '../i18n/ui-strings.js';
 
 // Locale pieno che il Web Speech API richiede (BCP-47), a partire dal codice
 // corto già usato ovunque nell'app per il QA testuale — un'unica mappa,
@@ -70,7 +71,7 @@ const VoiceCore = {
       this.isListening = true;
       const btn = container.querySelector('#voice-rec-btn');
       if (btn) btn.classList.add('mic-listening');
-      showToast("In ascolto vocale...", "info");
+      showToast(tVoice('voiceListening', this._lingua), "info");
     };
     
     this.recognition.onend = () => {
@@ -105,11 +106,11 @@ const VoiceCore = {
       if (btn) btn.classList.remove('mic-listening');
       flashMic('no');
       const MESSAGGI = {
-        'not-allowed': 'Microfono bloccato: dai il permesso nelle impostazioni del browser per usare la dettatura.',
-        'service-not-allowed': 'Microfono bloccato: dai il permesso nelle impostazioni del browser per usare la dettatura.',
-        'no-speech': 'Non ho sentito niente. Riprova parlando più vicino al microfono.',
-        'audio-capture': 'Nessun microfono trovato su questo dispositivo.',
-        'network': 'Il riconoscimento vocale ha bisogno di rete: controlla la connessione.',
+        'not-allowed': tVoice('voiceErrNotAllowed', this._lingua),
+        'service-not-allowed': tVoice('voiceErrNotAllowed', this._lingua),
+        'no-speech': tVoice('voiceErrNoSpeech', this._lingua),
+        'audio-capture': tVoice('voiceErrNoMic', this._lingua),
+        'network': tVoice('voiceErrNetwork', this._lingua),
         'aborted': null, // fermato di proposito (nuova sessione che sostituisce questa): non è un errore da mostrare
       };
       const msg = MESSAGGI[e.error];
@@ -155,11 +156,11 @@ const VoiceCore = {
           window.registerQuickAdd?.(hit);
           AudioSynth.play('success');
           flashMic('ok');
-          showToast(`Registrato: ${hit.description} ${hit.amount}€`, 'success');
+          showToast(tVoice('voiceRegistered', this._lingua, hit.description, hit.amount), 'success');
         } else {
           AudioSynth.play('friction');
           flashMic('no');
-          showToast('Non ho ancora un "solito" abbastanza chiaro. Registralo qualche volta prima.', 'error');
+          showToast(tVoice('voiceNoSolito', this._lingua), 'error');
         }
         return;
       }
@@ -273,23 +274,23 @@ const VoiceCore = {
         // chiunque): cosa ho capito, cosa ho stimato, cosa mi manca.
         const usable = results.filter(r => !(r.intent === 'transaction' && r.amountMissing));
         const summary = usable.map(r =>
-          r.intent === 'transaction' ? `${r.description} ${r.amount}€${r.amountEstimated ? ' (stima)' : ''}`
-          : r.intent === 'split' ? `dividi ${r.amount ? r.amount + '€ ' : ''}con ${r.people.filter(p => p !== 'Io').join(', ') || '…'}`
-          : `${r.intent === 'appointment' ? 'appuntamento' : 'promemoria'}: ${r.description}`).join(' · ');
+          r.intent === 'transaction' ? `${r.description} ${r.amount}€${r.amountEstimated ? tVoice('voiceEstimatedSuffixInline', this._lingua) : ''}`
+          : r.intent === 'split' ? tVoice('voiceSummarySplit', this._lingua, r.amount || null, r.people.filter(p => p !== 'Io').join(', ') || '…')
+          : (r.intent === 'appointment' ? tVoice('voiceSummaryAppointment', this._lingua, r.description) : tVoice('voiceSummaryReminder', this._lingua, r.description))).join(' · ');
         AudioSynth.play('success');
         flashMic('ok');
-        showToast(`Fatto: ${summary}`, 'success');
+        showToast(tVoice('voiceDone', this._lingua, summary), 'success');
         // Avvisi ONESTI e distinti, così l'utente sa cosa controllare.
         if (stimati.length) {
-          showToast(`${stimati.length === 1 ? 'Un importo stimato' : stimati.length + ' importi stimati'} dalla tua storia: controlla che siano giusti.`, 'info');
+          showToast(tVoice('voiceEstimatedNote', this._lingua, stimati.length), 'info');
         }
         if (senzaImporto.length) {
-          showToast(`Non ho l'importo di: ${senzaImporto.map(r => r.description).join(', ')}. Dimmelo e le registro.`, 'info');
+          showToast(tVoice('voiceMissingAmounts', this._lingua, senzaImporto.map(r => r.description).join(', ')), 'info');
         }
       } else {
         AudioSynth.play('friction');
         flashMic('no');
-        showToast("Non ho capito l'importo o la descrizione.", "error");
+        showToast(tVoice('voiceParseError', this._lingua), "error");
       }
     };
   },
@@ -298,7 +299,7 @@ const VoiceCore = {
       if (this.isListening) this.recognition.stop();
       else this.recognition.start();
     } else {
-      showToast("Microfono non supportato nel browser.", "error");
+      showToast(tVoice('voiceMicNotSupported', this._lingua), "error");
     }
   }
 };

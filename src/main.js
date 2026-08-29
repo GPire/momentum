@@ -500,11 +500,11 @@ const buildNewCatPanelHTML = () => `
       <span id="new-cat-preview-nome" class="new-cat-anteprima-nome">${tCh('catNomeCategoria', __uiLang)}</span>
     </div>
     <input type="text" id="new-cat-nome" class="desc-input" maxlength="24" placeholder="${tCh('catComeChiami', __uiLang)}" autocomplete="off">
-    <div class="new-cat-griglia" id="new-cat-emoji-grid" role="radiogroup" aria-label="Icona">
+    <div class="new-cat-griglia" id="new-cat-emoji-grid" role="radiogroup" aria-label="${tCh('catIconAria', __uiLang)}">
       ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-label="Icona ${ic.chiave}">${ic.svg}</button>`).join('')}
     </div>
-    <div class="new-cat-griglia new-cat-griglia-colori" id="new-cat-color-grid" role="radiogroup" aria-label="Colore">
-      ${CAT_PALETTE.map((c, i) => `<button type="button" class="new-cat-colore${i === 0 ? ' selected' : ''}" data-colore="${c}" style="background:${c}" aria-label="Colore"></button>`).join('')}
+    <div class="new-cat-griglia new-cat-griglia-colori" id="new-cat-color-grid" role="radiogroup" aria-label="${tCh('catColorAria', __uiLang)}">
+      ${CAT_PALETTE.map((c, i) => `<button type="button" class="new-cat-colore${i === 0 ? ' selected' : ''}" data-colore="${c}" style="background:${c}" aria-label="${tCh('catColorAria', __uiLang)}"></button>`).join('')}
     </div>
     <button type="button" id="new-cat-crea" class="new-cat-crea-btn">${tCh('catCreaCategoria', __uiLang)}</button>
   </div>
@@ -515,10 +515,10 @@ const getTxFormHTML = () => `
     
     <!-- NLP Prediction preview & AntiFOMO warnings -->
     <div id="ai-insight-panel" class="ai-insight-panel">
-       <div class="ai-insight-header"><span class="inline-flex items-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg>Categoria suggerita</span><span id="ai-cat-badge" class="truncate max-w-[120px]">Cat</span></div>
-       <div class="text-[11px] font-mono text-[var(--on-surface-secondary)] mb-1">Sicurezza: <span class="ml-confidence" id="ml-confidence-score">0%</span></div>
-       <div class="ai-insight-body" id="ai-insight-text">Sto guardando cosa hai scritto...</div>
-       <div class="ai-insight-action" id="ai-insight-btn">Usa questo suggerimento</div>
+       <div class="ai-insight-header"><span class="inline-flex items-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg>${tCh('txCategorySuggested', __uiLang)}</span><span id="ai-cat-badge" class="truncate max-w-[120px]">Cat</span></div>
+       <div class="text-[11px] font-mono text-[var(--on-surface-secondary)] mb-1">${tCh('txSecurityLabel', __uiLang)} <span class="ml-confidence" id="ml-confidence-score">0%</span></div>
+       <div class="ai-insight-body" id="ai-insight-text">${tCh('txAiThinking', __uiLang)}</div>
+       <div class="ai-insight-action" id="ai-insight-btn">${tCh('txUseSuggestion', __uiLang)}</div>
     </div>
 
     <!-- Un'icona propria per ogni stato, non solo testo e colore: coerenza
@@ -529,15 +529,15 @@ const getTxFormHTML = () => `
     <div class="type-toggle-track mb-3 shrink-0">
       <button type="button" class="type-toggle-pill active-expense" data-type="uscita">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
-        Uscita
+        ${tCh('txTypeExpense', __uiLang)}
       </button>
       <button type="button" class="type-toggle-pill" data-type="entrata">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
-        Entrata
+        ${tCh('txTypeIncome', __uiLang)}
       </button>
       <button type="button" class="type-toggle-pill" data-type="invest">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-        Investi
+        ${tCh('txTypeInvest', __uiLang)}
       </button>
     </div>
 
@@ -562,7 +562,7 @@ const getTxFormHTML = () => `
         <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
           class="amount-display amount-negative text-center p-0"
           style="width: 100%; max-width: 280px; background: none; border: none; outline: none; box-shadow: none; -webkit-appearance: none; appearance: none; border-radius: 0;"
-          id="tx-amount-display" value="0" aria-label="Importo — tocca per usare la tastiera del telefono" />
+          id="tx-amount-display" value="0" aria-label="${tCh('txAmountAria', __uiLang)}" />
       </div>
       <!-- Tastierino VIVO (src/predict/command-center.js): mentre digiti, la
            conseguenza reale sul tuo "Oggi puoi spendere" + "più del solito?".
@@ -580,7 +580,7 @@ const getTxFormHTML = () => `
       <div class="mic-stage relative mt-2 mx-auto" style="width:fit-content">
         <span class="mic-orbit-dot mic-orbit-dot-1" aria-hidden="true"></span>
         <span class="mic-orbit-dot mic-orbit-dot-2" aria-hidden="true"></span>
-        <button type="button" id="voice-rec-btn" class="flex items-center justify-center w-11 h-11 rounded-full text-[var(--red)] border border-[var(--glass-border)] active:scale-95 transition-transform" aria-label="Detta l'importo a voce">
+        <button type="button" id="voice-rec-btn" class="flex items-center justify-center w-11 h-11 rounded-full text-[var(--red)] border border-[var(--glass-border)] active:scale-95 transition-transform" aria-label="${tCh('txVoiceAria', __uiLang)}">
           <!-- Secondo strato che ruota in controsenso SOLO in ascolto (.mic-listening
                swirl-2): ::before/::after del bottone sono già presi (disco +
                increscopatura), serviva un elemento vero per un secondo verso di
@@ -626,18 +626,18 @@ const getTxFormHTML = () => `
          (mouse+tastiera fisica, media query .cc-numpad-desktop-only sotto),
          dove è comunque un modo comodo di cliccare senza toccare la
          tastiera. -->
-    <div class="numpad-grid cc-numpad-desktop-only shrink-0" tabindex="0" aria-label="Tastierino importo — puoi anche digitare da tastiera fisica">
+    <div class="numpad-grid cc-numpad-desktop-only shrink-0" tabindex="0" aria-label="${tCh('txNumpadAria', __uiLang)}">
       ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
       <div></div>
       <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
-      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="Cancella ultima cifra">DEL</button>
+      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="${tCh('txDelAria', __uiLang)}">DEL</button>
     </div>
 
     <!-- Suggerimento visibile SOLO con puntatore/tastiera fisici (desktop/laptop):
          su touch resta nascosto perché lì il tastierino è la via naturale. -->
     <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
-      Puoi digitare da tastiera: cifre, virgola, ⌫ e Invio per confermare
+      ${tCh('txKbdHint', __uiLang)}
     </p>
 
         <div class="cat-scroll-wrapper shrink-0">
@@ -663,18 +663,18 @@ const getTxFormHTML = () => `
          riconosce NESSUNA categoria plausibile per quello che hai scritto:
          invece di lasciare l'utente a scegliere a caso fra le esistenti, gli
          si dice esplicitamente che puo' crearne una su misura. -->
-    <button type="button" id="cat-suggerisci-nuova" class="cat-suggerisci-nuova hidden">Nessuna di queste sembra giusta? <b>Creane una su misura</b> — con nome e icona già pronti.</button>
+    <button type="button" id="cat-suggerisci-nuova" class="cat-suggerisci-nuova hidden">${tCh('txSuggestNewCat', __uiLang)}</button>
 
     ${buildNewCatPanelHTML()}
 
     <div class="desc-input-wrap mt-3 mb-2 shrink-0">
-      <input type="text" id="tx-desc" class="desc-input" placeholder="Aggiungi nota descrittiva..." autocomplete="off">
+      <input type="text" id="tx-desc" class="desc-input" placeholder="${tCh('txDescPlaceholder', __uiLang)}" autocomplete="off">
     </div>
     
     <div class="smart-toggles-row mb-3 shrink-0">
        <div class="neuro-pill-btn" id="date-pill-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
-          <span id="date-pill-text" class="truncate">Oggi</span>
+          <span id="date-pill-text" class="truncate">${tCh('txDateToday', __uiLang)}</span>
           <input type="date" id="tx-date-input" class="native-date-input" max="${new Date().toISOString().split('T')[0]}">
        </div>
        <!-- "È da dividere?" (src/predict/command-center.js → splitCandidate): sempre
@@ -684,7 +684,7 @@ const getTxFormHTML = () => `
             la divisione (già pronta con importo/descrizione) invece di doverci pensare dopo. -->
        <button type="button" id="split-pill-btn" class="neuro-pill-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span id="split-pill-text" class="truncate">Dividi</span>
+          <span id="split-pill-text" class="truncate">${tCh('txSplit', __uiLang)}</span>
        </button>
     </div>
 
@@ -710,7 +710,7 @@ const getTxFormHTML = () => `
 // differenza di `.save-btn` che è solo lo stile condiviso — vedi "Copia
 // Token" più sotto nel file, stessa classe di stile, bottone diverso).
 const getTxFormFooterHTML = () => `
-  <button type="button" class="save-btn tx-save-btn mt-3 shrink-0" disabled>Conferma</button>
+  <button type="button" class="save-btn tx-save-btn mt-3 shrink-0" disabled>${tCh('txConfirm', __uiLang)}</button>
 `;
 
 const attachFormListeners = (container, prefill = null) => {
@@ -831,7 +831,7 @@ const attachFormListeners = (container, prefill = null) => {
       sc = splitCandidate({ type, description: desc?.value || '', groups: VaultDAO.state.splitGroups || [] });
     } catch (_) { sc = { show: true, confident: false, groupName: null }; }
     const txt = btn.querySelector('#split-pill-text');
-    if (txt) txt.textContent = sc.confident && sc.groupName ? `Dividi con ${sc.groupName}` : 'Dividi';
+    if (txt) txt.textContent = sc.confident && sc.groupName ? tCh('txSplitWith', __uiLang, sc.groupName) : tCh('txSplit', __uiLang);
   };
 
   // Voice Activation
@@ -850,6 +850,10 @@ const attachFormListeners = (container, prefill = null) => {
     const ESEMPI = {
       it: ['ho speso 15 euro al bar', 'promemoria dentista giovedì alle 15', 'quanto ho speso questo mese?'],
       en: ['I spent 15 euros at the bar', 'remind me dentist Thursday at 3pm', 'how much did I spend this month?'],
+      es: ['gasté 15 euros en el bar', 'recuérdame dentista el jueves a las 15', '¿cuánto he gastado este mes?'],
+      fr: ['j\'ai dépensé 15 euros au bar', 'rappel dentiste jeudi à 15h', 'combien ai-je dépensé ce mois-ci ?'],
+      de: ['ich habe 15 Euro in der Bar ausgegeben', 'Erinnerung Zahnarzt Donnerstag um 15 Uhr', 'wie viel habe ich diesen Monat ausgegeben?'],
+      pt: ['gastei 15 euros no bar', 'lembrete dentista quinta às 15h', 'quanto gastei este mês?'],
     };
     const lista = ESEMPI[linguaVoceAttiva()] || ESEMPI.it;
     let i = 0;
@@ -886,8 +890,8 @@ const attachFormListeners = (container, prefill = null) => {
       
       // Anti-FOMO Check
       if (AntiFOMO.scan(val)) {
-        aiCatBadge.textContent = "ATTENZIONE";
-        aiText.innerHTML = `<span class="text-red-500 font-bold">Rilevata spesa d'impulso (FOMO). Ti consigliamo di attendere 24 ore prima di confermare.</span>`;
+        aiCatBadge.textContent = tCh('txFomoBadge', __uiLang);
+        aiText.innerHTML = `<span class="text-red-500 font-bold">${tCh('txFomoMessage', __uiLang)}</span>`;
         aiPanel.classList.add('active', 'anomalous');
         aiBtn.style.display = 'none';
         return;
@@ -913,7 +917,7 @@ const attachFormListeners = (container, prefill = null) => {
         // Astensione (orchestrator): quando l'AI "sa di non sapere" propone
         // comunque la sua ipotesi migliore ma lo dice chiaramente e invita
         // l'utente a confermare — meglio di una categoria forzata sbagliata.
-        aiCatBadge.textContent = pred.abstain ? `${pCat.name}?` : pCat.name;
+        aiCatBadge.textContent = pred.abstain ? `${catName(pCat, __uiLang)}?` : catName(pCat, __uiLang);
         aiText.textContent = pred.abstain
           ? pred.advice
           : `${pred.advice} (sicurezza ${pred.confidence}%)`;
@@ -1034,7 +1038,7 @@ const attachFormListeners = (container, prefill = null) => {
     const nome = container.querySelector('#new-cat-preview-nome');
     const nomeInput = container.querySelector('#new-cat-nome');
     if (icona) { icona.innerHTML = catIconaScelta.svg; icona.style.setProperty('--icon-c', catColoreScelta); }
-    if (nome) nome.textContent = (nomeInput?.value || '').trim() || 'Nome categoria';
+    if (nome) nome.textContent = (nomeInput?.value || '').trim() || tCh('catNomeCategoria', __uiLang);
   };
 
   // ── SUGGERIMENTO PREDITTIVO ──
@@ -1890,10 +1894,10 @@ function renderDemoBanner() {
     <div class="avviso" style="--accento:var(--gold);flex-direction:column;align-items:stretch;gap:.6rem">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0">
-          <p class="avviso-titolo">Questo è un esempio, non i tuoi soldi</p>
-          <p class="t-nota mt-1">Così vedi subito com'è Momentum pieno. Sparisce da solo mentre aggiungi le tue spese: ne mancano <b>${s.realiMancanti}</b>.</p>
+          <p class="avviso-titolo">${tCh('demoTitle', __uiLang)}</p>
+          <p class="t-nota mt-1">${tCh('demoSubtitle', __uiLang, s.realiMancanti)}</p>
         </div>
-        <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface)] hover:bg-white/5 transition-colors">Parti dai miei dati</button>
+        <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface)] hover:bg-white/5 transition-colors">${tCh('demoStartFresh', __uiLang)}</button>
       </div>
       <div class="h-[3px] rounded-full bg-black/30 overflow-hidden">
         <div class="h-full rounded-full bg-[var(--gold)] opacity-70 transition-all duration-500" style="width:${pct}%"></div>
@@ -1918,7 +1922,7 @@ window.dismissDemo = () => {
   VaultDAO.state.demoDismissed = true;
   VaultDAO.state.demoTransactions = [];
   VaultDAO.save();
-  showToast('Fatto — ora vedi solo i tuoi dati.', 'success');
+  showToast(tCh('demoDismissedToast', __uiLang), 'success');
   renderDashboard();
 };
 
@@ -2074,8 +2078,8 @@ const renderDashboard = () => {
     iebExp.style.opacity = entrataAncoraDaVenire ? '.45' : '';
     if (iebNote) {
       const notaBase = entrataAncoraDaVenire
-        ? 'lo stipendio deve ancora arrivare'
-        : liquidity >= 0 ? `margine +${formatMoney(liquidity)}` : `margine ${formatMoney(liquidity)}`;
+        ? tCh('dashSalaryPending', __uiLang)
+        : liquidity >= 0 ? tCh('dashMarginPositive', __uiLang, formatMoney(liquidity)) : tCh('dashMarginNegative', __uiLang, formatMoney(liquidity));
       // Appesa in coda, mai al posto della nota principale: il caso normale
       // (nessuna valuta estera) resta IDENTICO a prima di questo fix.
       iebNote.textContent = notaValuta ? `${notaBase} · ${notaValuta}` : notaBase;
@@ -2487,7 +2491,7 @@ const renderDashboard = () => {
     const contesto = $('#orb-contesto');
     if (contesto) {
       const stato = statoDelMese(displayAllTx(), { oggi: realNow, speso: exp });
-      const html = isCurrentMonth ? stripHtml(stato, { formatMoney }) : '';
+      const html = isCurrentMonth ? stripHtml(stato, { formatMoney, lang: __uiLang }) : '';
       contesto.innerHTML = html;
       contesto.classList.toggle('hidden', !html);
     }
@@ -5724,7 +5728,7 @@ function renderGhostForecast() {
   let anyLearned = false;
   const ghostChips = commitments.filter(c => +c.amount > 0).slice(0, 6).map(c => {
     const rem = remainingInstallments(c, Date.now());
-    const tail = rem !== null ? ` · ${rem} rate` : '';
+    const tail = rem !== null ? tCh('ghostRateSuffix', __uiLang, rem) : '';
     const done = paidIds.has(c.id);
     if (c.learned) anyLearned = true;
     // "~" davanti a un importo appreso dalla media reale (es. bolletta variabile).
@@ -5732,11 +5736,11 @@ function renderGhostForecast() {
     // un impegno già materializzato nel mese si mostra spuntato (già contato per davvero).
     return `<span class="text-[10px] px-2 py-0.5 rounded-full ${done ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-black/25 border-[var(--glass-border)]'} border whitespace-nowrap">${done ? ICON_CHECK_SM + ' ' : ''}${esc(c.name.length > 16 ? c.name.slice(0, 15) + '…' : c.name)} · ${amt}${done ? '' : tail}</span>`;
   }).join('');
-  const paidNote = f.paidTotal > 0 ? `<p class="text-[10.5px] text-emerald-400/90 mt-1.5">${ICON_CHECK_SM} Già pagati questo mese: ${eur(f.paidTotal)} (non più contati come fantasmi).</p>` : '';
-  const learnNote = anyLearned ? `<p class="text-[10px] text-[color-mix(in_srgb,var(--primary)_80%,transparent)] mt-1.5">Gli importi con “~” sono la media dei tuoi pagamenti reali passati: più mesi importi, più diventano precisi.</p>` : '';
+  const paidNote = f.paidTotal > 0 ? `<p class="text-[10.5px] text-emerald-400/90 mt-1.5">${ICON_CHECK_SM} ${tCh('ghostAlreadyPaid', __uiLang, eur(f.paidTotal))}</p>` : '';
+  const learnNote = anyLearned ? `<p class="text-[10px] text-[color-mix(in_srgb,var(--primary)_80%,transparent)] mt-1.5">${tCh('ghostLearnedNote', __uiLang)}</p>` : '';
 
   const endingMsg = f.endingSoon.length
-    ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">${ICON_FLAG}Quasi finito: ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} (${e.remaining} rate, chiude ${e.payoff})`).join(' · ')}</p>` : '';
+    ? `<p class="text-[10.5px] text-emerald-400/90 mt-2">${ICON_FLAG}${tCh('ghostEndingSoonLabel', __uiLang)} ${f.endingSoon.slice(0, 2).map(e => `${esc(e.name)} ${tCh('ghostEndingItem', __uiLang, e.remaining, e.payoff)}`).join(' · ')}</p>` : '';
 
   // ── UN SOLO FUOCO: "quanto posso spendere oggi senza rovinare il mese?" ────
   // Tutto il resto (impegni, totali, spiegazioni) sta sotto, a scomparsa. La
@@ -5764,16 +5768,16 @@ function renderGhostForecast() {
 
   const paceLine = adaptive
     ? (adaptive.onTrack
-      ? `<b class="${toneColor}">Stai andando bene.</b> <span class="text-[var(--on-surface-secondary)]">Hai speso ${eur(adaptive.spent)} dei ${eur(adaptive.budget)} liberi.</span>`
-      : `<b class="${toneColor}">Stai correndo un po'.</b> <span class="text-[var(--on-surface-secondary)]">Hai speso ${eur(adaptive.spent)} dei ${eur(adaptive.budget)} liberi: con ${eur(oggi)} al giorno arrivi comunque in fondo.</span>`)
-    : `<span class="text-[var(--on-surface-secondary)]">Tolti gli impegni fissi, questo è ciò che resta da qui allo stipendio.</span>`;
+      ? `<b class="${toneColor}">${tCh('ghostOnTrack', __uiLang)}</b> <span class="text-[var(--on-surface-secondary)]">${tCh('ghostOnTrackDetail', __uiLang, eur(adaptive.spent), eur(adaptive.budget))}</span>`
+      : `<b class="${toneColor}">${tCh('ghostRunningFast', __uiLang)}</b> <span class="text-[var(--on-surface-secondary)]">${tCh('ghostRunningFastDetail', __uiLang, eur(adaptive.spent), eur(adaptive.budget), eur(oggi))}</span>`)
+    : `<span class="text-[var(--on-surface-secondary)]">${tCh('ghostNoAdaptive', __uiLang)}</span>`;
 
   el.classList.remove('hidden');
   el.innerHTML = `
     <div class="ghost-card rounded-2xl border ${oggi !== null ? toneBorder : 'border-[var(--glass-border)]'} bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] p-4">
       <div class="flex items-center justify-between gap-2 mb-3">
-        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M9 14l2 2 4-4"/></svg>Il tuo mese, senza sorprese</span>
-        <button id="ghost-manage" class="text-[11px] font-bold text-[var(--primary)] px-2 py-1 -mr-1 rounded-lg min-h-[32px]">Gestisci</button>
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M9 14l2 2 4-4"/></svg>${tCh('ghostSectionTitle', __uiLang)}</span>
+        <button id="ghost-manage" class="text-[11px] font-bold text-[var(--primary)] px-2 py-1 -mr-1 rounded-lg min-h-[32px]">${tCh('ghostManageBtn', __uiLang)}</button>
       </div>
 
       ${oggi !== null ? `
@@ -5782,30 +5786,30 @@ function renderGhostForecast() {
         <div class="flex items-center justify-center gap-3">
           ${ringHtml}
           <div class="text-left">
-            <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Oggi puoi spendere</div>
+            <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">${tCh('dashOggiPuoiSpendere', __uiLang)}</div>
             <div class="ghost-hero font-mono font-black text-[2.4rem] leading-none ${toneColor}">${eur(oggi)}</div>
           </div>
         </div>
-        <div class="text-[11.5px] text-[var(--on-surface-secondary)] text-center mt-1.5">${days === 1 ? 'Domani ti pagano.' : `Poi ti pagano fra <b class="text-[var(--on-surface)]">${days} giorni</b>.`}</div>
+        <div class="text-[11.5px] text-[var(--on-surface-secondary)] text-center mt-1.5">${days === 1 ? tCh('ghostPayTomorrow', __uiLang) : tCh('ghostPayInDays', __uiLang, days)}</div>
         ${adaptive ? `<div class="flex items-center justify-center gap-3 mt-1.5 text-[11px] text-[var(--on-surface-secondary)]">
-          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full" style="background:linear-gradient(135deg,${toneHex[0]},${toneHex[1]})"></span>quanto hai speso</span>
-          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-white/60"></span>a che punto è il mese</span>
+          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full" style="background:linear-gradient(135deg,${toneHex[0]},${toneHex[1]})"></span>${tCh('ghostSpentLegend', __uiLang)}</span>
+          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-white/60"></span>${tCh('ghostTimeLegend', __uiLang)}</span>
         </div>` : ''}
         <p class="text-[10.5px] mt-2 leading-snug text-center">${paceLine}</p>
-        ${a.perWeek ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1 text-center">Se preferisci ragionare a settimane: <b class="text-[var(--on-surface)]">${eur(a.perWeek)}</b>.</p>` : ''}
+        ${a.perWeek ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1 text-center">${tCh('ghostPerWeek', __uiLang, eur(a.perWeek))}</p>` : ''}
       ` : stip !== null ? `
         <div class="text-center">
-          <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">Ti resta davvero questo mese</div>
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">${tCh('ghostRemainingThisMonth', __uiLang)}</div>
           <div class="ghost-hero font-mono font-black text-[2.4rem] leading-none text-emerald-400">${eur(real)}</div>
-          <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">stipendio ${eur(stip)} − impegni ${eur(ghosts)}</div>
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${tCh('ghostSalaryMinusCommitments', __uiLang, eur(stip), eur(ghosts))}</div>
         </div>
         <div class="h-2.5 rounded-full bg-emerald-500/25 overflow-hidden mt-3"><div class="ghost-bar h-full bg-amber-400/70" style="width:${pctGhost}%"></div></div>
       ` : `
         <!-- COLD START: niente stipendio noto. Una domanda sola, un tocco. -->
         <div class="text-center py-1">
-          <div class="text-[13px] font-bold mb-1">Ogni mese se ne vanno ${eur(ghosts)} da soli.</div>
-          <p class="text-[11.5px] text-[var(--on-surface-secondary)] mb-2.5">Dimmi quando ti pagano e ti dico quanto puoi spendere ogni giorno, senza pensarci.</p>
-          <button id="ghost-setup-salary" class="w-full min-h-[44px] rounded-xl font-bold text-[13px] text-white" style="background:var(--apex-gradient)">Quando ti pagano?</button>
+          <div class="text-[13px] font-bold mb-1">${tCh('ghostColdStartLine', __uiLang, eur(ghosts))}</div>
+          <p class="text-[11.5px] text-[var(--on-surface-secondary)] mb-2.5">${tCh('ghostColdStartSub', __uiLang)}</p>
+          <button id="ghost-setup-salary" class="w-full min-h-[44px] rounded-xl font-bold text-[13px] text-white" style="background:var(--apex-gradient)">${tCh('ghostSetupSalaryBtn', __uiLang)}</button>
         </div>
       `}
 
@@ -5816,17 +5820,17 @@ function renderGhostForecast() {
         <summary class="flex items-center justify-between gap-2 cursor-pointer list-none min-h-[36px] text-[11.5px] font-bold text-[var(--on-surface-secondary)]">
           <span class="inline-flex items-center gap-1.5">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="w-3.5 h-3.5 transition-transform group-open:rotate-90"><path d="M9 6l6 6-6 6"/></svg>
-            Cosa se ne va da solo
+            ${tCh('ghostWhatGoesAlone', __uiLang)}
           </span>
-          <span class="font-mono text-amber-300">${eur(f.monthlyFixedTotal)}/mese</span>
+          <span class="font-mono text-amber-300">${tCh('ghostPerMonth', __uiLang, eur(f.monthlyFixedTotal))}</span>
         </summary>
         <div class="pt-2">
-          ${ghostChips ? `<div class="flex flex-wrap gap-1.5">${ghostChips}</div>` : `<p class="text-[11px] text-[var(--on-surface-secondary)]">Non hai ancora scritto cosa paghi ogni mese.</p>`}
-          ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">Prima dello stipendio devi ancora coprire <b class="text-amber-300">${eur(f.dueBeforePaydayTotal)}</b>.</p>` : ''}
+          ${ghostChips ? `<div class="flex flex-wrap gap-1.5">${ghostChips}</div>` : `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('ghostNoCommitmentsYet', __uiLang)}</p>`}
+          ${f.payday && f.dueBeforePaydayTotal > 0 ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-2">${tCh('ghostDueBeforePayday', __uiLang, eur(f.dueBeforePaydayTotal))}</p>` : ''}
           ${paidNote}
           ${learnNote}
           ${endingMsg}
-          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2 opacity-75">Sono stime dai tuoi impegni, non certezze. Gli impegni sono soldi già promessi: tienili da parte.</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2 opacity-75">${tCh('ghostEstimateDisclaimer', __uiLang)}</p>
         </div>
       </details>
     </div>`;
@@ -5841,43 +5845,43 @@ window.openCommitmentsManager = (onDone = null) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const list = () => VaultDAO.state.fixedCommitments || [];
-  const KINDS = [['affitto', 'Affitto'], ['mutuo', 'Mutuo'], ['prestito', 'Prestito'], ['bolletta', 'Bolletta'], ['abbonamento', 'Abbonamento']];
+  const KINDS = [['affitto', tCh('fcKindRent', __uiLang)], ['mutuo', tCh('fcKindMortgage', __uiLang)], ['prestito', tCh('fcKindLoan', __uiLang)], ['bolletta', tCh('fcKindBill', __uiLang)], ['abbonamento', tCh('fcKindSubscription', __uiLang)]];
   const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
 
   const render = () => {
     const rows = list().map(c => {
       const rem = remainingInstallments(c, Date.now());
-      const sub = rem !== null ? `giorno ${c.dayOfMonth} · ${rem} rate rimaste · chiude ${payoffDate(c)}` : `giorno ${c.dayOfMonth} · ricorrente`;
+      const sub = rem !== null ? tCh('fcRowInstallments', __uiLang, c.dayOfMonth, rem, payoffDate(c)) : tCh('fcRowRecurring', __uiLang, c.dayOfMonth);
       return `<div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20">
-        <button data-edit="${c.id}" class="min-w-0 text-left flex-1"><span class="font-bold text-[13px] block truncate">${esc(c.name)} <span class="text-[10px] text-[var(--primary)] opacity-80">modifica</span></span><span class="text-[10.5px] text-[var(--on-surface-secondary)]">${sub}</span></button>
+        <button data-edit="${c.id}" class="min-w-0 text-left flex-1"><span class="font-bold text-[13px] block truncate">${esc(c.name)} <span class="text-[10px] text-[var(--primary)] opacity-80">${tCh('fcEditLabel', __uiLang)}</span></span><span class="text-[10.5px] text-[var(--on-surface-secondary)]">${sub}</span></button>
         <span class="flex items-center gap-2 shrink-0"><span class="font-mono font-black text-[13px] text-amber-300">${eur(c.amount)}</span><button data-del="${c.id}" class="text-[11px] text-[var(--red)] opacity-70">✕</button></span>
       </div>`;
     }).join('');
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div>
-          <p class="eyebrow !mb-0 text-[var(--primary)]">Impegni fissi</p>
-          <h3 class="text-base font-black">Mutuo, prestiti, affitto, bollette</h3>
-          <p class="card-sub !mb-0">Li tolgo dallo stipendio come "fantasmi": vedi subito quanto ti resta davvero. Per mutuo e prestiti dimmi le rate e so anche quando finiscono.</p>
+          <p class="eyebrow !mb-0 text-[var(--primary)]">${tCh('fcEyebrow', __uiLang)}</p>
+          <h3 class="text-base font-black">${tCh('fcTitle', __uiLang)}</h3>
+          <p class="card-sub !mb-0">${tCh('fcSubtitle', __uiLang)}</p>
         </div>
         <button id="fc-salary" class="card p-3 text-left flex items-center justify-between">
-          <span class="text-[13px] font-bold">Il tuo stipendio</span>
-          <span class="text-[12px] text-${salary ? 'emerald-400' : 'amber-300'} font-mono">${salary ? `${eur(salary.amount)} il ${salary.dayOfMonth}` : 'da impostare ›'}</span>
+          <span class="text-[13px] font-bold">${tCh('fcYourSalary', __uiLang)}</span>
+          <span class="text-[12px] text-${salary ? 'emerald-400' : 'amber-300'} font-mono">${salary ? tCh('fcSalaryLine', __uiLang, eur(salary.amount), salary.dayOfMonth) : tCh('fcSalaryNotSet', __uiLang)}</span>
         </button>
-        ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun impegno ancora. Aggiungine uno qui sotto.</p>'}
+        ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('fcNoCommitments', __uiLang)}</p>`}
         <div class="card p-3 flex flex-col gap-2">
-          <div class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi un impegno</div>
+          <div class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${tCh('fcAddOne', __uiLang)}</div>
           <div class="flex flex-wrap gap-1.5" id="fc-kinds">${KINDS.map((k, i) => `<button data-kind="${k[0]}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${i === 0 ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${k[1]}</button>`).join('')}</div>
-          <input id="fc-name" placeholder="Nome (es. Mutuo casa)" class="bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm" />
+          <input id="fc-name" placeholder="${tCh('fcNamePlaceholder', __uiLang)}" class="bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm" />
           <div class="flex gap-2">
-            <input id="fc-amt" inputmode="decimal" placeholder="Importo €" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
-            <input id="fc-day" inputmode="numeric" placeholder="Giorno" class="w-24 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+            <input id="fc-amt" inputmode="decimal" placeholder="${tCh('fcAmountPlaceholder', __uiLang)}" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+            <input id="fc-day" inputmode="numeric" placeholder="${tCh('fcDayPlaceholder', __uiLang)}" class="w-24 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
           </div>
           <div id="fc-term-wrap" class="hidden flex gap-2">
             <input id="fc-start" type="date" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-[13px] font-mono" />
-            <input id="fc-months" inputmode="numeric" placeholder="Rate totali" class="w-28 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+            <input id="fc-months" inputmode="numeric" placeholder="${tCh('fcTotalInstallmentsPlaceholder', __uiLang)}" class="w-28 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
           </div>
-          <button id="fc-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl">Aggiungi</button>
+          <button id="fc-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl">${tCh('fcAddBtn', __uiLang)}</button>
         </div>
       </div>`);
 
@@ -5901,7 +5905,7 @@ window.openCommitmentsManager = (onDone = null) => {
       selectKind(c.kind || 'affitto');
       if (c.startDate) document.getElementById('fc-start').value = c.startDate;
       if (c.termMonths) document.getElementById('fc-months').value = c.termMonths;
-      const addBtn = document.getElementById('fc-add'); if (addBtn) addBtn.textContent = 'Salva modifiche';
+      const addBtn = document.getElementById('fc-add'); if (addBtn) addBtn.textContent = tCh('fcSaveChangesBtn', __uiLang);
       document.getElementById('fc-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }));
     document.querySelectorAll('#fc-kinds [data-kind]').forEach(b => b.addEventListener('click', () => selectKind(b.dataset.kind)));
@@ -5914,7 +5918,7 @@ window.openCommitmentsManager = (onDone = null) => {
       const name = String(document.getElementById('fc-name').value).trim();
       const amt = parseFloat(String(document.getElementById('fc-amt').value).replace(',', '.'));
       const day = parseInt(String(document.getElementById('fc-day').value).replace(/\D/g, ''), 10);
-      if (!name || !(amt > 0) || !(day >= 1 && day <= 31)) { showToast('Metti nome, importo e giorno (1–31).', 'error'); return; }
+      if (!name || !(amt > 0) || !(day >= 1 && day <= 31)) { showToast(tCh('fcToastMissingFields', __uiLang), 'error'); return; }
       const c = { id: editingId || ('fc_' + Date.now().toString(36)), name, amount: Math.round(amt * 100) / 100, dayOfMonth: day, kind };
       if (kind === 'mutuo' || kind === 'prestito') {
         const start = document.getElementById('fc-start').value;
@@ -5926,7 +5930,7 @@ window.openCommitmentsManager = (onDone = null) => {
         ? list().map(x => x.id === editingId ? c : x)
         : [...list(), c];
       VaultDAO.save(); haptic('medium');
-      showToast(editingId ? `"${name}" aggiornato.` : `"${name}" aggiunto: ${eur(amt)} il giorno ${day}.`, 'success');
+      showToast(editingId ? tCh('fcToastUpdated', __uiLang, name) : tCh('fcToastAdded', __uiLang, name, eur(amt), day), 'success');
       editingId = null;
       render();
     });

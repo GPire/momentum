@@ -518,3 +518,81 @@ test('t: vaultDeleteAllData traduce correttamente nelle 7 lingue (azione distrut
   assert.equal(t('vaultDeleteAllData', 'nl'), 'Alle gegevens verwijderen');
   assert.equal(t('vaultDeleteAllData', 'pt'), 'Apagar todos os dados');
 });
+
+// ── Command Center (form di inserimento, 2026-08-29): la UI più usata di
+// tutta l'app. Cassa Unica / "Il tuo mese, senza sorprese" + gestore
+// impegni fissi. Banner demo. Le 4 tessere Entrate/Uscite/Quanto avanza/
+// Investito + striscia sotto l'orb (src/ui/mese-strip.js, modulo puro
+// separato — trovato non tradotto da un test dal vivo dell'utente). ──
+
+test('t: tutte le chiavi tx*/catIconAria/catColorAria (form inserimento) esistono nelle 7 lingue', () => {
+  const chiavi = ['txCategorySuggested','txSecurityLabel','txAiThinking','txUseSuggestion','txTypeExpense','txTypeIncome','txTypeInvest','txAmountAria','txVoiceAria','txNumpadAria','txDelAria','txKbdHint','txSuggestNewCat','txDescPlaceholder','txDateToday','txSplit','txSplitWith','txConfirm','catIconAria','catColorAria','txFomoBadge','txFomoMessage'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: tutte le chiavi demo*/ghost*/fc* (banner demo + Cassa Unica + impegni fissi) esistono nelle 7 lingue', () => {
+  const chiavi = ['demoTitle','demoSubtitle','demoStartFresh','demoDismissedToast','ghostSectionTitle','ghostManageBtn','ghostPayTomorrow','ghostPayInDays','ghostSpentLegend','ghostTimeLegend','ghostOnTrack','ghostOnTrackDetail','ghostRunningFast','ghostRunningFastDetail','ghostNoAdaptive','ghostPerWeek','ghostRemainingThisMonth','ghostSalaryMinusCommitments','ghostColdStartLine','ghostColdStartSub','ghostSetupSalaryBtn','ghostRateSuffix','ghostAlreadyPaid','ghostLearnedNote','ghostEndingSoonLabel','ghostEndingItem','ghostWhatGoesAlone','ghostPerMonth','ghostNoCommitmentsYet','ghostDueBeforePayday','ghostEstimateDisclaimer','fcKindRent','fcKindMortgage','fcKindLoan','fcKindBill','fcKindSubscription','fcRowInstallments','fcRowRecurring','fcEditLabel','fcEyebrow','fcTitle','fcSubtitle','fcYourSalary','fcSalaryLine','fcSalaryNotSet','fcNoCommitments','fcAddOne','fcNamePlaceholder','fcAmountPlaceholder','fcDayPlaceholder','fcTotalInstallmentsPlaceholder','fcAddBtn','fcSaveChangesBtn','fcToastMissingFields','fcToastUpdated','fcToastAdded'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X', 'Y', 'Z');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: le 4 tessere Dashboard (Entrate/Uscite/Quanto avanza/Investito) e la striscia sotto l\'orb esistono nelle 7 lingue', () => {
+  const chiavi = ['dashPrevMonthAria','dashNextMonthAria','dashWeeklySpendCaption','dashIncome','dashExpense','dashRemaining','dashInvested','dashIncomeVsExpense','msLateFixed','msLateRhythm','msPayToday','msPayTomorrow','msPayInDays','msRhythmToday','msRhythmInDays','msDayOfTotal','msSalaryArrived','msSpentSoFar','msSpent'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 1, 2);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+// ── VoiceCore (2026-08-29, src/voice/voice.js) + nome sezione "Analisi
+// Tensor" nella sidebar/titolo — segnalati dall'utente come rimasti
+// italiani anche a UI/voce in un'altra lingua. VoiceCore usa this._lingua
+// (linguaVoceAttiva), non __uiLang: la voce può parlare una lingua diversa
+// dall'interfaccia per scelta esplicita. ──
+
+test('t: tutte le chiavi voice* (toast e riepilogo dettatura) esistono nelle 7 lingue, mai un fallback sulla chiave grezza', () => {
+  const chiavi = ['voiceListening','voiceErrNotAllowed','voiceErrNoSpeech','voiceErrNoMic','voiceErrNetwork','voiceRegistered','voiceNoSolito','voiceEstimatedSuffixInline','voiceSummarySplit','voiceSummaryAppointment','voiceSummaryReminder','voiceDone','voiceEstimatedNote','voiceMissingAmounts','voiceParseError','voiceMicNotSupported'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'X', 'Y');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: voiceSummarySplit gestisce sia il caso con importo sia senza, in ogni lingua', () => {
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    const withAmount = t('voiceSummarySplit', lang, 50, 'Marco, Luca');
+    const withoutAmount = t('voiceSummarySplit', lang, null, 'Marco, Luca');
+    assert.ok(withAmount.includes('50') && withAmount.includes('Marco, Luca'), `lingua "${lang}": manca importo o persone`);
+    assert.ok(withoutAmount.includes('Marco, Luca') && !withoutAmount.includes('null'), `lingua "${lang}": caso senza importo rotto`);
+  }
+});
+
+test('t: navAnalysis (nome sezione "Analisi Tensor") esiste nelle 7 lingue — "Tensor" resta fisso come "Momentum", solo "Analisi" si traduce', () => {
+  assert.equal(t('navAnalysis', 'it'), 'Analisi Tensor');
+  assert.equal(t('navAnalysis', 'en'), 'Tensor Analysis');
+  assert.equal(t('navAnalysis', 'de'), 'Tensor-Analyse');
+  assert.equal(t('navAnalysis', 'fr'), 'Analyse Tensor');
+  assert.equal(t('navAnalysis', 'es'), 'Análisis Tensor');
+  assert.equal(t('navAnalysis', 'nl'), 'Tensor-analyse');
+  assert.equal(t('navAnalysis', 'pt'), 'Análise Tensor');
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    assert.match(t('navAnalysis', lang), /Tensor/, `lingua "${lang}": "Tensor" deve restare fisso`);
+  }
+});
