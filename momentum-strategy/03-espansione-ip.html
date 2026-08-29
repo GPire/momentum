@@ -1,0 +1,309 @@
+<title>Espansione IP Momentum</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F1F0E9; --surface:#FFFFFF; --surface-2:#E9E7DD;
+    --ink:#181B1D; --ink-soft:#4E5459; --ink-faint:#7C8288; --rule:#D8D5C8;
+    --accent:#2F5D50; --accent-soft:#DCE6E1; --accent-ink:#1F4238;
+    --gold:#A8712C; --gold-soft:#F0E3CC; --warn:#8A3B2A; --warn-soft:#F3E0D9;
+    --shadow: 0 1px 2px rgba(24,27,29,0.06), 0 8px 24px -12px rgba(24,27,29,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14181A; --surface:#1B2022; --surface-2:#20262A;
+      --ink:#ECEAE2; --ink-soft:#A9AEA9; --ink-faint:#787E7C;
+      --rule:#33393B; --accent:#6BAE9B; --accent-soft:#20302C; --accent-ink:#9AD1BF;
+      --gold:#D9A44E; --gold-soft:#332A1B; --warn:#E08A6F; --warn-soft:#3A241D;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14181A; --surface:#1B2022; --surface-2:#20262A;
+    --ink:#ECEAE2; --ink-soft:#A9AEA9; --ink-faint:#787E7C;
+    --rule:#33393B; --accent:#6BAE9B; --accent-soft:#20302C; --accent-ink:#9AD1BF;
+    --gold:#D9A44E; --gold-soft:#332A1B; --warn:#E08A6F; --warn-soft:#3A241D;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:"Source Sans 3", ui-sans-serif, system-ui, sans-serif; font-size:16.5px; line-height:1.62; -webkit-font-smoothing:antialiased; }
+  ::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+  a{ color:var(--accent-ink); text-decoration-thickness:1px; text-underline-offset:2px; }
+  a:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
+  code{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.9em; background:var(--surface-2); padding:0.1em 0.35em; border-radius:4px; }
+
+  .wrap{ max-width:860px; margin:0 auto; padding:0 24px 96px; }
+  header.doc-head{ padding:64px 0 40px; border-bottom:1px solid var(--rule); margin-bottom:44px; }
+  .doc-kicker{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .doc-kicker .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); flex:none; }
+  h1.doc-title{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:clamp(28px, 4.2vw, 40px); line-height:1.16; letter-spacing:-0.01em; margin:0 0 14px; text-wrap:balance; color:var(--ink); }
+  .doc-sub{ font-size:17px; color:var(--ink-soft); max-width:64ch; margin:0 0 24px; }
+  .doc-meta{ display:flex; flex-wrap:wrap; gap:8px 22px; font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); }
+  .doc-meta b{ color:var(--ink-soft); font-weight:600; }
+
+  section{ margin:0 0 52px; }
+  h2{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:24px; letter-spacing:-0.005em; margin:0 0 6px; color:var(--ink); text-wrap:balance; }
+  .section-n{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--gold); letter-spacing:0.05em; display:block; margin-bottom:6px; }
+  .section-dek{ color:var(--ink-soft); font-size:15px; margin:0 0 22px; max-width:64ch; }
+  h3{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:18px; margin:30px 0 8px; color:var(--ink); }
+  h4{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:15.5px; margin:0 0 6px; color:var(--ink); }
+  p{ margin:0 0 16px; max-width:68ch; }
+  p.lede{ font-size:18px; color:var(--ink); }
+  ul, ol{ margin:0 0 16px; padding-left:1.25em; max-width:66ch; }
+  li{ margin-bottom:7px; }
+  strong{ font-weight:600; }
+  .cite{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12.5px; color:var(--ink-faint); vertical-align:2px; }
+  .cite a{ color:var(--ink-faint); text-decoration:none; border-bottom:1px dotted var(--ink-faint); }
+  .cite a:hover{ color:var(--accent-ink); border-color:var(--accent-ink); }
+
+  .today-strip{ display:flex; align-items:flex-start; gap:14px; background:var(--accent-soft); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius:10px; padding:16px 18px; margin:18px 0 8px; }
+  .today-strip .badge{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; background:var(--accent); color:var(--surface); padding:3px 8px; border-radius:5px; flex:none; margin-top:2px; }
+  .today-strip p{ margin:0; font-size:14.5px; color:var(--accent-ink); }
+
+  .model-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin:22px 0 8px; }
+  .model{ background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:20px 20px 18px; box-shadow:var(--shadow); display:flex; flex-direction:column; }
+  .model-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px; }
+  .model-name{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:14px; font-weight:600; color:var(--ink); }
+  .model-size{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--gold); white-space:nowrap; }
+  .model p{ font-size:14px; color:var(--ink-soft); margin:0 0 10px; max-width:none; }
+  .model .task{ font-size:13px; color:var(--ink); background:var(--surface-2); border-radius:6px; padding:8px 10px; margin-top:auto; }
+  .model .task b{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:3px; font-weight:500; }
+
+  .tech-card{ border:1px solid var(--rule); border-radius:12px; background:var(--surface); box-shadow:var(--shadow); padding:22px 24px 20px; margin-bottom:16px; }
+  .tech-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+  .tech-head h3{ margin:0; }
+  .tech-verdict{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; margin-left:auto; white-space:nowrap; }
+  .tech-verdict.ready{ background:var(--accent-soft); color:var(--accent-ink); }
+  .tech-verdict.caution{ background:var(--gold-soft); color:var(--gold); }
+  .tech-verdict.no{ background:var(--warn-soft); color:var(--warn); }
+  .tech-body{ font-size:14.5px; color:var(--ink-soft); }
+  .tech-body p{ max-width:none; }
+  .tech-num{ display:inline-block; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; font-weight:600; color:var(--accent-ink); background:var(--accent-soft); padding:1px 7px; border-radius:5px; font-size:0.92em; }
+
+  /* verification cards for real companies */
+  .verify-card{ border:1px solid var(--rule); border-radius:12px; background:var(--surface); box-shadow:var(--shadow); padding:22px 24px 20px; margin-bottom:16px; }
+  .verify-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .verify-head h3{ margin:0; }
+  .verify-verdict{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; margin-left:auto; white-space:nowrap; }
+  .verify-verdict.confirmed{ background:var(--accent-soft); color:var(--accent-ink); }
+  .verify-verdict.mixed{ background:var(--gold-soft); color:var(--gold); }
+  .verify-verdict.contradicted{ background:var(--warn-soft); color:var(--warn); }
+  .verify-body{ font-size:14.5px; color:var(--ink-soft); }
+  .verify-body p{ max-width:none; }
+  .verify-premise{ font-size:13px; color:var(--ink-faint); font-style:italic; margin:0 0 10px; padding:8px 12px; border-left:2px solid var(--rule); }
+  .verify-module{ font-size:13px; margin-top:12px; background:var(--surface-2); border-radius:6px; padding:8px 10px; }
+  .verify-module b{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:3px; font-weight:500; }
+
+  .use-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:16px; margin:20px 0 8px; }
+  .use{ border:1px solid var(--rule); border-radius:10px; padding:18px 18px 16px; background:var(--surface); }
+  .use .use-cat{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.07em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; }
+  .use h4{ margin:0 0 8px; }
+  .use p{ font-size:13.5px; color:var(--ink-soft); margin:0; max-width:none; }
+
+  .horizon{ border:1px solid var(--rule); border-radius:12px; background:var(--surface); box-shadow:var(--shadow); padding:24px 26px 22px; margin-bottom:18px; }
+  .horizon-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:6px; flex-wrap:wrap; }
+  .horizon-n{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--gold); letter-spacing:0.05em; }
+  .horizon h3{ margin:0; font-size:19px; }
+  .horizon-when{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); margin-left:auto; }
+  .horizon .grounded{ font-size:14px; color:var(--ink-soft); margin:10px 0 4px; }
+  .horizon .grounded b{ color:var(--ink); font-weight:600; }
+  .signal-list{ margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
+  .signal-list li{ font-size:13.5px; color:var(--ink-soft); padding-left:1.4em; position:relative; margin:0; }
+  .signal-list li::before{ content:"→"; position:absolute; left:0; color:var(--accent); font-family:"IBM Plex Mono", ui-monospace, monospace; }
+
+  .callout{ background:var(--accent-soft); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius:10px; padding:18px 20px; margin:20px 0; }
+  .callout h4{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent-ink); margin:0 0 8px; }
+  .callout p:last-child{ margin-bottom:0; }
+  .warn-box{ background:var(--warn-soft); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius:10px; padding:20px 22px; margin:20px 0; }
+  .warn-box h4{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--warn); margin:0 0 10px; }
+  .warn-box p:last-child, .warn-box ul:last-child{ margin-bottom:0; }
+
+  footer.doc-foot{ border-top:1px solid var(--rule); margin-top:56px; padding-top:28px; }
+  .sources{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); line-height:1.9; }
+  .sources a{ color:var(--ink-soft); }
+  .sources ol{ padding-left:1.4em; margin:10px 0 0; }
+  .back-link{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); margin-top:10px; display:block; }
+
+  @media (max-width:600px){
+    header.doc-head{ padding-top:44px; }
+    .horizon-when, .tech-verdict, .verify-verdict{ margin-left:0; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="doc-head">
+    <div class="doc-kicker"><span class="dot"></span>Blueprint tecnico · terzo di tre documenti</div>
+    <h1 class="doc-title">Oltre la finanza personale: inferenza causale, crypto, trading quantitativo</h1>
+    <p class="doc-sub">Tre nuove direzioni tecniche con la stessa disciplina dei primi due — e una verifica reale, non assunta, dei problemi che tre aziende specifiche affrontano davvero.</p>
+    <div class="doc-meta">
+      <span><b>Compagni</b> — "Cosa c'è davvero" · "Architettura AI Momentum"</span>
+      <span><b>Preparato</b> — 30 agosto 2026</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="lede">Prima di tutto, una correzione. La richiesta che ha originato questo documento presentava come "problema noto" che Robinhood perda utenti attivi verso Interactive Brokers. Ho controllato l'ultima earnings call pubblica (Q4 2025) invece di darlo per buono — ed è vero il contrario: Robinhood dichiara di voler far sentire gli utenti attivi "in svantaggio" su qualunque altra piattaforma, con crescita a doppia cifra su opzioni ed equity nel Q1 2026 <span class="cite"><a href="https://www.investing.com/news/transcripts/earnings-call-transcript-robinhood-q4-2025-sees-record-revenue-eps-beat-93CH-4498493" target="_blank" rel="noopener">[1]</a></span>. Non è un dettaglio: è la prova che il controllo prima di scrivere non è una formalità, cambia la conclusione. Il resto del documento segue la stessa regola — verificato quando trovato, dichiarato "non verificato" quando non trovato, mai la cornice di partenza data per vera.</p>
+    <div class="warn-box">
+      <h4>Cosa NON è più in questo documento, e perché</h4>
+      <p>La richiesta originale chiude su "un asset che Deloitte, Robinhood, Visa, JP Morgan pagherebbero centinaia di milioni per acquisire". È la terza volta che questa cornice compare in forme diverse in questa conversazione, e non ha una fonte la terza volta più della prima. Non entra in questo documento. Quello che segue riguarda solo due cose verificabili: cosa sarebbe tecnicamente sensato costruire, e cosa dicono fonti reali sui problemi che tre aziende specifiche affrontano oggi.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">01</span>
+    <h2>Inferenza causale, non solo correlazione</h2>
+    <p class="section-dek">Il limite reale: Beneish, Piotroski e le regressioni già in Momentum dicono cosa si muove insieme, mai cosa causa cosa. "Cosa succederebbe SE la Fed alzasse i tassi di 50bp" è una domanda controfattuale — nessun modello correlazionale può rispondere onestamente.</p>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Structural Causal Models (SCM)</h3><span class="tech-verdict caution">fondamento solido, applicazione finanziaria non banale</span></div>
+      <div class="tech-body">
+        <p>Il framework concettuale viene da Judea Pearl (<em>Causality</em>, 2009) — grafi causali diretti aciclici, calcolo do(), inferenza controfattuale. In pratica esistono due librerie open source mature per applicarlo su dati osservazionali: <strong>DoWhy</strong> (Microsoft Research) e <strong>EconML</strong> (Microsoft Research, stima di effetti causali eterogenei) <span class="cite"><a href="https://github.com/py-why/dowhy" target="_blank" rel="noopener">[2]</a></span>.</p>
+        <p><strong>Il caveat onesto:</strong> l'inferenza causale su serie storiche finanziarie ha un limite strutturale ben noto — richiede assunzioni sul grafo causale che nessun dato osservazionale può verificare da solo (il problema dell'identificabilità, discusso ampiamente nella letteratura di Pearl). Un modello <code>Momentum-Causal</code> non "scopre" la causalità dai dati: applica un grafo di ipotesi dichiarate (es. "i tassi Fed influenzano il settore tech con un lag di N mesi", un'ipotesi macro nota, non inventata dal modello) e stima l'effetto SE quell'ipotesi è corretta. Onestà da dichiarare nell'output esattamente come già si fa per Beneish: "questa stima assume XYZ, non lo dimostra".</p>
+      </div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Attribuzione causale della performance</h3><span class="tech-verdict caution">tecnica reale, non sostituisce la decomposizione fattoriale standard</span></div>
+      <div class="tech-body">
+        <p>I valori di Shapley (dalla teoria dei giochi cooperativi) sono già usati per spiegare le predizioni di modelli ML (SHAP, libreria open source consolidata); applicarli per attribuire quanto della performance di un portafoglio è dovuto a ciascun fattore è un'estensione naturale, non un'invenzione — ma resta un'attribuzione statistica, non una prova causale nel senso di Pearl. Vale la pena presentarla come "scomposizione", termine più onesto di "causa", finché il grafo causale sottostante non è validato.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">02</span>
+    <h2>Modelli crypto-specifici</h2>
+    <p class="section-dek">Oggi Momentum integra CoinGecko per i prezzi, senza IP proprietario nel dominio crypto. Tre direzioni, con lo stesso livello di scrutinio delle altre.</p>
+
+    <div class="model-grid">
+      <div class="model">
+        <div class="model-head"><span class="model-name">Momentum-OnChain</span><span class="model-size">target &lt;40MB</span></div>
+        <p>Classificazione di pattern storici (accumulo/distribuzione, movimenti whale) contro il comportamento del wallet dell'utente — mai analisi on-chain live (impossibile on-device senza un nodo o un provider RPC, che romperebbe il principio "nessun server").</p>
+        <div class="task"><b>Limite onesto</b>Dati on-chain storici etichettati per l'addestramento non esistono in Momentum oggi — servirebbe una fonte esterna (es. dataset pubblici Etherscan/Dune), primo passo prima di qualunque modello.</div>
+      </div>
+      <div class="model">
+        <div class="model-head"><span class="model-name">Momentum-DeFi-Risk</span><span class="model-size">target &lt;30MB</span></div>
+        <p>Stima di impermanent loss per posizioni LP, classificazione di sostenibilità tokenomics da whitepaper.</p>
+        <div class="task"><b>Limite onesto</b>Il rischio di sandwich attack/MEV dipende da condizioni di mempool in tempo reale — genuinamente non stimabile offline/on-device con accuratezza utile. Va tolto dal target realistico, o ridefinito come "probabilità storica media per tipo di pool", molto più debole di quanto suggerisce il nome.</div>
+      </div>
+      <div class="model">
+        <div class="model-head"><span class="model-name">Momentum-Crypto-Sentiment</span><span class="model-size">target &lt;50MB</span></div>
+        <p>Estensione del DistilRoBERTa già in produzione, ma distillato su discorso crypto (non news finanziarie generiche) — stesso pattern di distillazione già usato oggi per il sentiment generico, applicato a un dominio diverso.</p>
+        <div class="task"><b>Limite onesto</b>Rilevare "pump-and-dump" da segnali social aggregati è un'area con letteratura accademica reale ma anche con un tasso di falsi positivi documentato alto — qualunque claim di accuratezza va misurato su un banco di prova dedicato prima di essere mostrato all'utente, stessa disciplina già richiesta nel documento 2 per Momentum-Tax-LM.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">03</span>
+    <h2>Fattori quantitativi da un dataset che Momentum ha già</h2>
+    <p class="section-dek">Il pannello SEC (11.304 filing XBRL) è l'asset più concreto e già reale di questa sezione — il resto ne è un'estensione diretta.</p>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Fattori alternativi da NLP sui filing</h3><span class="tech-verdict ready">estensione diretta di un asset già reale</span></div>
+      <div class="tech-body">
+        <p>Fama e French hanno stabilito 5 fattori standard (mercato, size, value, profittabilità, investimento) — Carhart ha aggiunto momentum. Estrarre fattori NON standard dal <em>linguaggio</em> dei filing (tono del MD&amp;A, menzioni di indagini regolatorie, linguaggio di "strategic alternatives" prima di un M&amp;A) è un'area di ricerca reale in NLP finanziario, non un'invenzione — ma è anche esattamente il tipo di segnale più difficile da validare senza sovra-adattarsi al passato (il rischio di overfitting su pattern linguistici è alto, va misurato out-of-sample con rigore).</p>
+        <p>Il vantaggio reale per Momentum: il pannello SEC esiste già, aggiornato via script riproducibile — costruire un fattore linguistico è un progetto di feature engineering su dati che Momentum già possiede, non un nuovo problema di raccolta dati.</p>
+      </div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Rilevamento eventi (earnings surprise, Form 4, covenant breach)</h3><span class="tech-verdict caution">i filing SEC non sono in tempo reale</span></div>
+      <div class="tech-body">
+        <p>I filing XBRL sono depositati con un ritardo regolatorio (giorni, non secondi) — "quasi tempo reale" nella richiesta originale non è accurato per questo tipo di dato. Il pannello SEC di Momentum si aggiorna manualmente (dichiarato onestamente anche nei primi due documenti), non è un feed. Un modulo di questo tipo avrebbe valore reale per analisi retrospettiva/storica (già il caso d'uso di <code>screener-settore.js</code>), non per trading a bassa latenza — vale la pena correggere l'ambizione a questo, più modesta ma vera.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">04</span>
+    <h2>Tre aziende, verificate — non dieci, assunte</h2>
+    <p class="section-dek">Per ognuna: la premessa che mi era stata data, cosa ho trovato cercando davvero, e cosa ne segue onestamente.</p>
+
+    <div class="verify-card">
+      <div class="verify-head"><h3>Robinhood</h3><span class="verify-verdict contradicted">premessa smentita dai dati reali</span></div>
+      <div class="verify-body">
+        <p class="verify-premise">Premessa data: "problema noto di retention, utenti attivi che migrano verso Interactive Brokers".</p>
+        <p>La earnings call Q4 2025 dice l'opposto: Prediction Markets a run-rate $300M+ nel primo anno, shorting equity oltre $11 miliardi nozionali, 600.000 clienti Gold, crescita a doppia cifra su opzioni ed equity nel Q1 2026 — la strategia dichiarata è "far sentire gli utenti attivi in svantaggio su qualunque altra piattaforma" <span class="cite"><a href="https://www.investing.com/news/transcripts/earnings-call-transcript-robinhood-q4-2025-sees-record-revenue-eps-beat-93CH-4498493" target="_blank" rel="noopener">[1]</a></span>.</p>
+        <div class="verify-module"><b>Conclusione onesta</b>Nessun caso d'uso B2B credibile da questa premessa. Se esiste un'apertura, sarebbe per un modulo che Robinhood non sta già costruendo in casa (es. attribuzione causale o fiscalità multi-paese) — ma è una congettura, non un problema documentato: va segnalata come tale.</div>
+      </div>
+    </div>
+
+    <div class="verify-card">
+      <div class="verify-head"><h3>Trade Republic</h3><span class="verify-verdict confirmed">gap reale, verificato</span></div>
+      <div class="verify-body">
+        <p class="verify-premise">Premessa data: "motore fiscale per plusvalenze crypto rudimentale, fonte di lamentele".</p>
+        <p>Non ho trovato lamentele specifiche citabili, ma un fatto pubblico più solido: Trade Republic NON genera report fiscali completi per crypto su tutte le giurisdizioni EU in cui opera (18 paesi) — è il motivo per cui esistono servizi terzi dedicati (CoinTracking, Koinly, Blockpit) specificamente per importare gli export di Trade Republic e calcolare le tasse crypto <span class="cite"><a href="https://cointracking.info/blog/cointracking-trade-republic-import/" target="_blank" rel="noopener">[3]</a></span>. Con DAC8, dal 2026 i broker EU devono comunque riportare i dati alle autorità fiscali <span class="cite"><a href="https://www.blockpit.io/tax-guides/crypto-tax-germany" target="_blank" rel="noopener">[4]</a></span> — un obbligo normativo in più, non un motore di calcolo per l'utente.</p>
+        <div class="verify-module"><b>Modulo Momentum rilevante</b>Il motore fiscale multi-paese proposto nel documento 2 (sezione 3), esteso alla Germania — un mercato reale di terzi esiste già per questo identico problema, prova indiretta ma concreta di domanda.</div>
+      </div>
+    </div>
+
+    <div class="verify-card">
+      <div class="verify-head"><h3>Revolut</h3><span class="verify-verdict mixed">segnale debole, non un vuoto di prodotto</span></div>
+      <div class="verify-body">
+        <p class="verify-premise">Premessa data: "sta espandendo in crypto/trading ma non ha capacità di analisi fondamentale proprietaria".</p>
+        <p>In parte falso: Revolut ha già "Revolut Suggestions", analisi fondamentale con dati istituzionali licenziati da Factset UK Limited <span class="cite"><a href="https://www.investing.com/brokers/reviews/revolut/" target="_blank" rel="noopener">[5]</a></span>. Un sito di recensioni terze lo descrive come "non la piattaforma più avanzata" per analisi approfondita — ma è un'opinione editoriale, non un'ammissione dell'azienda.</p>
+        <div class="verify-module"><b>Conclusione onesta</b>Revolut già compra analisi istituzionale da terzi (Factset) — prova che PAGANO per questo tipo di dato, non prova che comprerebbero da Momentum specificamente. Un segnale di mercato reale (il modello "licenzia dati esterni" esiste), non un problema documentato di Revolut.</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h4>Le altre categorie del primo documento restano valide, senza nomi nuovi</h4>
+      <p>Broker crypto, banche, consulenza strategica: restano come categorie di acquirente plausibile (documento 1), non come aziende con un "problema documentato" — perché non ho verificato gli altri sette nomi della lista originale, e presentarli con lo stesso formato di Trade Republic (verificato) senza la stessa verifica sarebbe fuorviante nella forma, anche scrivendo il contenuto onestamente.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">05</span>
+    <h2>Roadmap tecnico aggiornato — 4 stadi</h2>
+    <p class="section-dek">Stessa logica dei documenti precedenti: ogni stadio ha una condizione di verifica prima di passare al successivo, mai un calendario fisso.</p>
+
+    <div class="horizon">
+      <div class="horizon-head"><span class="horizon-n">STADIO A</span><h3>Come nel documento 2 — nessuna modifica</h3><span class="horizon-when">0–6 mesi</span></div>
+      <p class="grounded"><b>Invariato:</b> consolidare i modelli esistenti, ricostruire la pipeline di training Nano/Meso (il prerequisito nascosto), footprint sotto i 30MB.</p>
+    </div>
+    <div class="horizon">
+      <div class="horizon-head"><span class="horizon-n">STADIO B</span><h3>Momentum-Tax-LM/Categorizer + primo prototipo causale</h3><span class="horizon-when">6–18 mesi</span></div>
+      <ul class="signal-list">
+        <li>Come nel documento 2, più: un prototipo Momentum-Causal su dati SINTETICI (mai reali), con DoWhy, su un grafo causale dichiarato a mano (es. tassi Fed → settore tech) — obiettivo: verificare che l'inferenza sia numericamente stabile, non ancora che sia utile all'utente</li>
+        <li>Segnale per procedere: il prototipo produce stime coerenti con la letteratura macro nota su casi storici verificabili (es. il taper tantrum 2013), non stime arbitrarie</li>
+      </ul>
+    </div>
+    <div class="horizon">
+      <div class="horizon-head"><span class="horizon-n">STADIO C</span><h3>Fattori NLP sui filing + primo modulo crypto</h3><span class="horizon-when">18–30 mesi</span></div>
+      <ul class="signal-list">
+        <li>Fattore linguistico da MD&amp;A dei filing SEC già nel pannello — misurato out-of-sample, mai dichiarato utile senza backtesting rigoroso</li>
+        <li>UN modulo crypto (probabilmente Momentum-Crypto-Sentiment, il più fattibile dei tre — riusa la distillazione già in produzione), non tutti e tre insieme</li>
+        <li>Nessuna partnership B2B ancora attiva a questo stadio, salvo un segnale reale in ingresso — vedi documento 1, Orizzonte 2</li>
+      </ul>
+    </div>
+    <div class="horizon">
+      <div class="horizon-head"><span class="horizon-n">STADIO D</span><h3>Espansione condizionata a domanda reale</h3><span class="horizon-when">30–48 mesi</span></div>
+      <ul class="signal-list">
+        <li>Momentum-OnChain/DeFi-Risk, motore fiscale su 5+ paesi, eventuale conversazione reale con Trade Republic o un partner equivalente sul gap crypto-tax verificato in questo documento</li>
+        <li>Nessuna cifra di fatturato o valutazione stimabile onestamente da qui — dipende da conversazioni che non sono ancora avvenute</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="callout">
+    <h4>Cosa dimostra, più di quello che contiene</h4>
+    <p>La correzione su Robinhood in apertura vale più di ogni sezione tecnica del documento: mostra cosa succede quando una premessa plausibile viene controllata invece che accettata. La stessa disciplina va applicata a ogni futura versione di questo materiale — anche quando arriva già scritta con sicurezza da qualcun altro.</p>
+  </div>
+
+  <p class="back-link">← "Cosa c'è davvero, e a chi potrebbe interessare" · "Architettura AI Momentum" (stesso repository)</p>
+
+  <footer class="doc-foot">
+    <div class="sources">
+      Fonti citate nel testo:
+      <ol>
+        <li>Investing.com, "Robinhood Q4 2025 Earnings Call Transcript" — <a href="https://www.investing.com/news/transcripts/earnings-call-transcript-robinhood-q4-2025-sees-record-revenue-eps-beat-93CH-4498493" target="_blank" rel="noopener">investing.com</a></li>
+        <li>PyWhy / Microsoft Research, DoWhy — libreria open source di inferenza causale — <a href="https://github.com/py-why/dowhy" target="_blank" rel="noopener">github.com/py-why/dowhy</a></li>
+        <li>CoinTracking, "Trade Republic Crypto Tax 2026: Import CSV Exports" — <a href="https://cointracking.info/blog/cointracking-trade-republic-import/" target="_blank" rel="noopener">cointracking.info</a></li>
+        <li>Blockpit, "Crypto Taxes in Germany: Complete Guide 2026" (DAC8) — <a href="https://www.blockpit.io/tax-guides/crypto-tax-germany" target="_blank" rel="noopener">blockpit.io</a></li>
+        <li>Investing.com, "Revolut Review 2026" — <a href="https://www.investing.com/brokers/reviews/revolut/" target="_blank" rel="noopener">investing.com</a></li>
+      </ol>
+    </div>
+  </footer>
+
+</div>

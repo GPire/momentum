@@ -12,8 +12,10 @@
 // ============================================================
 'use strict';
 
+import { quantizeModel, matmulQuantized } from './quantize.js';
+
 class TrainedCategorizer {
-  constructor(modelJson) {
+  constructor(modelJson, opts = {}) {
     this.vocabulary = modelJson.vocabulary;
     this.idf = modelJson.idf;
     this.categories = modelJson.categories;
@@ -21,12 +23,20 @@ class TrainedCategorizer {
     this.intercepts = modelJson.intercepts; // [b1(16), b2(nCat)]
     this.metrics = modelJson.metrics;
     this.vocabSize = Object.keys(this.vocabulary).length;
+    // Path int8 opzionale (src/ai/quantize.js), stesso schema già in
+    // produzione per il Meso (trained-meso.js): pesi 8× più compatti in
+    // memoria, dequantizzati al volo. Il Nano è l'UNICO modello attivo sul
+    // tier minimo (Meso non carica nemmeno lì, vedi main.js) — è quindi il
+    // caso dove la quantizzazione conta di più, non un'aggiunta simmetrica
+    // per coerenza. Default 'false' (float): mai un cambio di comportamento
+    // per chi già costruisce `new TrainedCategorizer(json)` senza opts.
+    this.quantized = opts.int8 ? quantizeModel(this.coefs) : null;
   }
 
-  static async load(url) {
+  static async load(url, opts = {}) {
     const res = await fetch(url);
     const json = await res.json();
-    return new TrainedCategorizer(json);
+    return new TrainedCategorizer(json, opts);
   }
 
   // Tokenizzazione identica a TfidfVectorizer di default (token_pattern
@@ -77,24 +87,36 @@ class TrainedCategorizer {
     const x = this._tfidfVector(text);
     const [W1, W2] = this.coefs;
     const [b1, b2] = this.intercepts;
-
-    // Layer 1: x (nFeat) · W1 (nFeat x 16) + b1 → ReLU
     const hiddenDim = W1[0].length;
-    const h1 = new Array(hiddenDim).fill(0);
-    for (let j = 0; j < hiddenDim; j++) {
-      let s = b1[j];
-      for (let i = 0; i < x.length; i++) s += x[i] * W1[i][j];
-      h1[j] = s;
-    }
-    const a1 = this._relu(h1);
-
-    // Layer 2: a1 (16) · W2 (16 x nCat) + b2 → softmax
     const nCat = W2[0].length;
-    const logits = new Array(nCat).fill(0);
-    for (let k = 0; k < nCat; k++) {
-      let s = b2[k];
-      for (let j = 0; j < hiddenDim; j++) s += a1[j] * W2[j][k];
-      logits[k] = s;
+
+    let h1, logits;
+    if (this.quantized) {
+      // Path int8: pesi quantizzati, dequantizzati al volo — stesso schema
+      // già verificato in produzione per il Meso (trained-meso.js).
+      const [qW1, qW2] = this.quantized;
+      const acc1 = matmulQuantized(Array.from(x), qW1);
+      h1 = acc1.map((v, j) => v + b1[j]);
+      const a1 = this._relu(h1);
+      const acc2 = matmulQuantized(a1, qW2);
+      logits = acc2.map((v, k) => v + b2[k]);
+    } else {
+      // Layer 1: x (nFeat) · W1 (nFeat x 16) + b1 → ReLU
+      h1 = new Array(hiddenDim).fill(0);
+      for (let j = 0; j < hiddenDim; j++) {
+        let s = b1[j];
+        for (let i = 0; i < x.length; i++) s += x[i] * W1[i][j];
+        h1[j] = s;
+      }
+      const a1 = this._relu(h1);
+
+      // Layer 2: a1 (16) · W2 (16 x nCat) + b2 → softmax
+      logits = new Array(nCat).fill(0);
+      for (let k = 0; k < nCat; k++) {
+        let s = b2[k];
+        for (let j = 0; j < hiddenDim; j++) s += a1[j] * W2[j][k];
+        logits[k] = s;
+      }
     }
     const probs = this._softmax(logits);
 

@@ -1,0 +1,379 @@
+<title>Architettura AI Momentum</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F1F0E9;
+    --surface:#FFFFFF;
+    --surface-2:#E9E7DD;
+    --ink:#181B1D;
+    --ink-soft:#4E5459;
+    --ink-faint:#7C8288;
+    --rule:#D8D5C8;
+    --accent:#2F5D50;
+    --accent-soft:#DCE6E1;
+    --accent-ink:#1F4238;
+    --gold:#A8712C;
+    --gold-soft:#F0E3CC;
+    --warn:#8A3B2A;
+    --warn-soft:#F3E0D9;
+    --shadow: 0 1px 2px rgba(24,27,29,0.06), 0 8px 24px -12px rgba(24,27,29,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14181A; --surface:#1B2022; --surface-2:#20262A;
+      --ink:#ECEAE2; --ink-soft:#A9AEA9; --ink-faint:#787E7C;
+      --rule:#33393B; --accent:#6BAE9B; --accent-soft:#20302C; --accent-ink:#9AD1BF;
+      --gold:#D9A44E; --gold-soft:#332A1B; --warn:#E08A6F; --warn-soft:#3A241D;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14181A; --surface:#1B2022; --surface-2:#20262A;
+    --ink:#ECEAE2; --ink-soft:#A9AEA9; --ink-faint:#787E7C;
+    --rule:#33393B; --accent:#6BAE9B; --accent-soft:#20302C; --accent-ink:#9AD1BF;
+    --gold:#D9A44E; --gold-soft:#332A1B; --warn:#E08A6F; --warn-soft:#3A241D;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:"Source Sans 3", ui-sans-serif, system-ui, sans-serif; font-size:16.5px; line-height:1.62; -webkit-font-smoothing:antialiased; }
+  ::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+  a{ color:var(--accent-ink); text-decoration-thickness:1px; text-underline-offset:2px; }
+  a:focus-visible, button:focus-visible, summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
+  code{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.9em; background:var(--surface-2); padding:0.1em 0.35em; border-radius:4px; }
+
+  .wrap{ max-width:860px; margin:0 auto; padding:0 24px 96px; }
+  header.doc-head{ padding:64px 0 40px; border-bottom:1px solid var(--rule); margin-bottom:44px; }
+  .doc-kicker{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .doc-kicker .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); flex:none; }
+  h1.doc-title{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:clamp(30px, 4.4vw, 42px); line-height:1.14; letter-spacing:-0.01em; margin:0 0 14px; text-wrap:balance; color:var(--ink); }
+  .doc-sub{ font-size:17px; color:var(--ink-soft); max-width:62ch; margin:0 0 24px; }
+  .doc-meta{ display:flex; flex-wrap:wrap; gap:8px 22px; font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); }
+  .doc-meta b{ color:var(--ink-soft); font-weight:600; }
+
+  section{ margin:0 0 52px; }
+  h2{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:24px; letter-spacing:-0.005em; margin:0 0 6px; color:var(--ink); text-wrap:balance; }
+  .section-n{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--gold); letter-spacing:0.05em; display:block; margin-bottom:6px; }
+  .section-dek{ color:var(--ink-soft); font-size:15px; margin:0 0 22px; max-width:64ch; }
+  h3{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:18px; margin:30px 0 8px; color:var(--ink); }
+  h4{ font-family:"Source Serif 4", Georgia, serif; font-weight:600; font-size:15.5px; margin:0 0 6px; color:var(--ink); }
+  p{ margin:0 0 16px; max-width:68ch; }
+  p.lede{ font-size:18px; color:var(--ink); }
+  ul, ol{ margin:0 0 16px; padding-left:1.25em; max-width:66ch; }
+  li{ margin-bottom:7px; }
+  strong{ font-weight:600; }
+  .cite{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12.5px; color:var(--ink-faint); vertical-align:2px; }
+  .cite a{ color:var(--ink-faint); text-decoration:none; border-bottom:1px dotted var(--ink-faint); }
+  .cite a:hover{ color:var(--accent-ink); border-color:var(--accent-ink); }
+
+  /* today vs proposed strip */
+  .today-strip{
+    display:flex; align-items:flex-start; gap:14px;
+    background:var(--accent-soft); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-radius:10px; padding:16px 18px; margin:18px 0 8px;
+  }
+  .today-strip .badge{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase;
+    background:var(--accent); color:var(--surface); padding:3px 8px; border-radius:5px; flex:none; margin-top:2px;
+  }
+  .today-strip p{ margin:0; font-size:14.5px; color:var(--accent-ink); }
+  .today-strip code{ background:color-mix(in srgb, var(--accent) 18%, transparent); }
+
+  /* model cards */
+  .model-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin:22px 0 8px; }
+  .model{ background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:20px 20px 18px; box-shadow:var(--shadow); display:flex; flex-direction:column; }
+  .model-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px; }
+  .model-name{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:14px; font-weight:600; color:var(--ink); }
+  .model-size{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--gold); white-space:nowrap; }
+  .model p{ font-size:14px; color:var(--ink-soft); margin:0 0 10px; max-width:none; }
+  .model .task{ font-size:13px; color:var(--ink); background:var(--surface-2); border-radius:6px; padding:8px 10px; margin-top:auto; }
+  .model .task b{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:3px; font-weight:500; }
+
+  /* technique cards */
+  .tech-card{ border:1px solid var(--rule); border-radius:12px; background:var(--surface); box-shadow:var(--shadow); padding:22px 24px 20px; margin-bottom:16px; }
+  .tech-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+  .tech-head h3{ margin:0; }
+  .tech-verdict{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:3px 9px; border-radius:20px; margin-left:auto;
+  }
+  .tech-verdict.ready{ background:var(--accent-soft); color:var(--accent-ink); }
+  .tech-verdict.caution{ background:var(--gold-soft); color:var(--gold); }
+  .tech-body{ font-size:14.5px; color:var(--ink-soft); }
+  .tech-body p{ max-width:none; }
+  .tech-num{
+    display:inline-block; font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums;
+    font-weight:600; color:var(--accent-ink); background:var(--accent-soft); padding:1px 7px; border-radius:5px; font-size:0.92em;
+  }
+
+  .stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:10px; overflow:hidden; margin:20px 0 10px; }
+  .stat{ background:var(--surface); padding:20px 18px; }
+  .stat .num{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; font-size:24px; font-weight:600; color:var(--accent-ink); line-height:1.1; }
+  .stat .lbl{ font-size:13px; color:var(--ink-soft); margin-top:6px; line-height:1.4; }
+  .stat .src{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; color:var(--ink-faint); margin-top:8px; }
+
+  pre{
+    background:var(--surface-2); border:1px solid var(--rule); border-radius:10px;
+    padding:16px 18px; overflow-x:auto; margin:16px 0; font-size:13px; line-height:1.6;
+  }
+  pre code{ background:none; padding:0; color:var(--ink); }
+  .comment{ color:var(--ink-faint); }
+  .kw{ color:var(--accent-ink); }
+
+  .callout{ background:var(--accent-soft); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius:10px; padding:18px 20px; margin:20px 0; }
+  .callout h4{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent-ink); margin:0 0 8px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .warn-box{ background:var(--warn-soft); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius:10px; padding:20px 22px; margin:20px 0; }
+  .warn-box h4{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--warn); margin:0 0 10px; }
+  .warn-box p:last-child, .warn-box ul:last-child{ margin-bottom:0; }
+
+  /* use case grid */
+  .use-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:16px; margin:20px 0 8px; }
+  .use{ border:1px solid var(--rule); border-radius:10px; padding:18px 18px 16px; background:var(--surface); }
+  .use .use-cat{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.07em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; }
+  .use h4{ margin:0 0 8px; }
+  .use p{ font-size:13.5px; color:var(--ink-soft); margin:0; max-width:none; }
+
+  /* roadmap horizons */
+  .horizon{ border:1px solid var(--rule); border-radius:12px; background:var(--surface); box-shadow:var(--shadow); padding:24px 26px 22px; margin-bottom:18px; }
+  .horizon-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:6px; flex-wrap:wrap; }
+  .horizon-n{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--gold); letter-spacing:0.05em; }
+  .horizon h3{ margin:0; font-size:19px; }
+  .horizon-when{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); margin-left:auto; }
+  .horizon .grounded{ font-size:14px; color:var(--ink-soft); margin:10px 0 4px; }
+  .horizon .grounded b{ color:var(--ink); font-weight:600; }
+  .signal-list{ margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
+  .signal-list li{ font-size:13.5px; color:var(--ink-soft); padding-left:1.4em; position:relative; margin:0; }
+  .signal-list li::before{ content:"→"; position:absolute; left:0; color:var(--accent); font-family:"IBM Plex Mono", ui-monospace, monospace; }
+
+  .table-wrap{ overflow-x:auto; }
+  table{ border-collapse:collapse; width:100%; margin:18px 0; font-size:13.5px; }
+  thead th{ text-align:left; font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); border-bottom:1px solid var(--rule); padding:0 12px 8px 0; font-weight:500; white-space:nowrap; }
+  tbody td{ padding:10px 12px 10px 0; border-bottom:1px solid var(--rule); vertical-align:top; color:var(--ink-soft); }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody td.num{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; color:var(--ink); }
+
+  footer.doc-foot{ border-top:1px solid var(--rule); margin-top:56px; padding-top:28px; }
+  .sources{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); line-height:1.9; }
+  .sources a{ color:var(--ink-soft); }
+  .sources ol{ padding-left:1.4em; margin:10px 0 0; }
+  .back-link{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--ink-faint); margin-top:10px; }
+
+  @media (max-width:600px){
+    header.doc-head{ padding-top:44px; }
+    .horizon-when{ margin-left:0; }
+    .tech-verdict{ margin-left:0; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="doc-head">
+    <div class="doc-kicker"><span class="dot"></span>Blueprint tecnico · secondo di due documenti</div>
+    <h1 class="doc-title">Da un modello generico a un laboratorio di modelli proprietari</h1>
+    <p class="doc-sub">Architettura AI e roadmap tecnico per Momentum: quattro modelli specializzati, come farli girare senza occupare un gigabyte, un framework fiscale davvero modulare, e cosa di tutto questo è già vero oggi nel codice.</p>
+    <div class="doc-meta">
+      <span><b>Compagno di</b> — "Cosa c'è davvero, e a chi potrebbe interessare"</span>
+      <span><b>Preparato</b> — 30 agosto 2026</span>
+      <span><b>Base</b> — repo GPire/momentum, src/ai/ + src/predict/tax*.js</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="lede">Ogni scelta qui sotto è ancorata a due cose: cosa fa già oggi il codice in <code>src/ai/</code>, e una fonte tecnica esterna verificabile per la tecnica proposta. Dove le due cose non coincidono — dove una tecnica è promettente ma non ancora provata nello stack che Momentum usa davvero — lo dico esplicitamente, invece di presentarla come già pronta.</p>
+    <div class="today-strip">
+      <span class="badge">già vero oggi</span>
+      <p>Momentum non parte da zero: <code>src/ai/quantize.js</code> quantizza già i pesi del categorizzatore in INT8; il modello di sentiment (DistilRoBERTa) e il modello di embedding (EmbeddingGemma) girano già rispettivamente in q8 e q4 via ONNX Runtime; <code>src/ai/expert-adapter.js</code> ha già lo slot per un "heavy expert" condizionale, vuoto ma pronto. Il resto di questo documento estende una disciplina che esiste, non ne inventa una nuova.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">01</span>
+    <h2>Quattro modelli, non un wrapper generico</h2>
+    <p class="section-dek">Ogni riga di dimensione qui sotto è un obiettivo di progetto, non una misura — nessuno di questi modelli esiste ancora. La colonna "precedente reale" dice perché il target è plausibile, non garantito.</p>
+
+    <div class="model-grid">
+      <div class="model">
+        <div class="model-head"><span class="model-name">Momentum-Tax-LM</span><span class="model-size">target &lt;50MB</span></div>
+        <p>Classifica la natura fiscale di una transazione (compenso professionale, spesa detraibile, movimento personale) e suggerisce l'accantonamento, già condizionato al regime del paese dell'utente — non un classificatore generico a cui si passa il regime come contesto ogni volta.</p>
+        <div class="task"><b>Precedente reale</b>Non esiste ancora un dataset etichettato per questo task specifico in Momentum: <code>src/predict/tax.js</code> ha già la logica dei coefficienti ATECO/regime, ma NON ha mai fatto classificazione NLP della natura di una spesa — questo è il gap più grande dei quattro modelli, non solo tecnico.</div>
+      </div>
+      <div class="model">
+        <div class="model-head"><span class="model-name">Momentum-Categorizer</span><span class="model-size">target &lt;15MB</span></div>
+        <p>Più preciso dell'ensemble Nano/Meso/DCGN attuale su transazioni europee reali (non un dataset generico americano riadattato).</p>
+        <div class="task"><b>Precedente reale</b><code>bench/train-logreg.mjs</code> esiste già ed è riproducibile per il componente LogReg — ma Nano e Meso (le due reti più piccole dell'ensemble) NON sono riproducibili in questo repo: sono stati addestrati altrove, senza script. Prima di promettere +X% di accuratezza serve prima ricostruire la pipeline di training che oggi manca.</div>
+      </div>
+      <div class="model">
+        <div class="model-head"><span class="model-name">Momentum-Macro-Signal</span><span class="model-size">target &lt;30MB</span></div>
+        <p>Legge notizie e filing per segnali macro, sia per l'utente sia per alimentare la mesh P2P — un'estensione di quello che <code>local-sentiment.js</code> fa già per il sentiment bullish/bearish.</p>
+        <div class="task"><b>Precedente reale</b>Il modello di sentiment attuale (DistilRoBERTa, 82,5MB in q8) copre solo bullish/bearish — estrarre un "segnale macro" strutturato (non solo un punteggio) è un task di information extraction più complesso, senza precedente nel repo oggi.</div>
+      </div>
+      <div class="model">
+        <div class="model-head"><span class="model-name">Momentum-QA</span><span class="model-size">target &lt;80MB</span></div>
+        <p>Risponde SOLO a domande fiscali/finanziarie del paese dell'utente, radicate nelle sue transazioni vere — non un chatbot generico con un prompt di sistema.</p>
+        <div class="task"><b>Precedente reale</b><code>qa-engine.js</code> già fa questo oggi, ma con un motore deterministico a intenti chiusi (15 intenti riconosciuti), non un modello linguistico generativo. Il salto a &lt;80MB generativo è il più ambizioso dei quattro: nessun modello di quella taglia in circolazione oggi genera testo fiscale affidabile senza allucinare — richiederebbe vincolare fortemente l'output (es. slot-filling su template, non generazione libera).</div>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <h4>Il vincolo reale non è la taglia del modello</h4>
+      <p>È il dato di addestramento. Nessuna delle quattro proposte ha oggi un dataset etichettato specifico — Momentum, per design, non vede mai i dati grezzi degli utenti su un server, quindi non può centralizzare le transazioni per etichettarle come farebbe una fintech con un backend. Le due vie compatibili con questo vincolo sono: <strong>apprendimento federato</strong> (il modello si aggiorna localmente e condivide solo gradienti/pesi aggregati — il progetto ha già questa disciplina nella mesh P2P per DCGN/NeuralNexus) o <strong>dataset sintetici derivati</strong> (transazioni plausibili generate da regole fiscali note, non dati reali di nessuno). Entrambe le vie richiedono lavoro di ML engineering vero, non solo scrittura di codice — settimane o mesi, non un pomeriggio.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">02</span>
+    <h2>Come farli girare senza occupare un gigabyte</h2>
+    <p class="section-dek">Cinque tecniche, ciascuna con un verdetto onesto: pronta da usare oggi nello stack di Momentum, o promettente ma da validare prima di impegnarsi.</p>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Quantizzazione INT4/INT8/GGUF</h3><span class="tech-verdict ready">già in uso</span></div>
+      <div class="tech-body">
+        <p>Momentum quantizza già: <code>quantize.js</code> fa INT8 simmetrico per-matrice sui pesi del categorizzatore (8× più compatto in memoria, errore misurato, non stimato); EmbeddingGemma gira in q4 via ONNX, scelto esplicitamente come "il compromesso reale" nel codice esistente. Per i nuovi modelli, gli stessi principi si applicano al formato GGUF se si passa da ONNX a un runtime tipo llama.cpp: <span class="tech-num">Q4_K_M</span> è il compromesso raccomandato per la maggior parte degli usi (su un modello 7B, circa 4,5GB contro il float16, con una perdita di perplexità nell'ordine di poche centesimi/decimi di punto secondo i benchmark ufficiali) mentre <span class="tech-num">Q8_0</span> resta quasi indistinguibile dall'originale (+0,01 di perplessità) ma dimezza meno la dimensione <span class="cite">[1][2]</span>.</p>
+        <p>Per modelli target &lt;50MB come quelli proposti sopra, la quantizzazione da sola non basta — serve partire da un'architettura piccola (poche decine di milioni di parametri), non da un 7B quantizzato al minimo.</p>
+      </div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Distillazione da modelli più grandi</h3><span class="tech-verdict ready">tecnica già scelta da Momentum</span></div>
+      <div class="tech-body">
+        <p>Il caso di riferimento più citato è DistilBERT: 40% più piccolo di BERT, 60% più veloce, e conserva circa il 97% delle capacità di comprensione del linguaggio del modello originale, misurato su GLUE <span class="cite"><a href="https://arxiv.org/abs/1910.01108" target="_blank" rel="noopener">[3]</a></span>. Questo non è solo un precedente esterno: <strong>il modello di sentiment che Momentum usa già oggi è, letteralmente, un DistilRoBERTa</strong> — la tecnica non va introdotta, va solo ripetuta per i task nuovi (tax classification, macro-signal), distillando da un modello insegnante più grande (es. un modello multilingue da poche centinaia di milioni di parametri) verso l'architettura piccola target.</p>
+      </div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>LoRA adapter per paese fiscale</h3><span class="tech-verdict caution">promettente, non ancora verificato nello stack di Momentum</span></div>
+      <div class="tech-body">
+        <p>LoRA riduce i parametri addestrabili fino a <span class="tech-num">10.000×</span> rispetto al fine-tuning completo di un modello grande, con memoria GPU necessaria ridotta di circa 3×, a parità di qualità su benchmark come RoBERTa/DeBERTa/GPT <span class="cite"><a href="https://arxiv.org/abs/2106.09685" target="_blank" rel="noopener">[4]</a></span>. Il lavoro su S-LoRA dimostra che si possono servire migliaia di adapter concorrenti da un unico modello base <span class="cite"><a href="https://arxiv.org/pdf/2311.03285" target="_blank" rel="noopener">[5]</a></span> — l'idea di "un adapter per paese, caricato solo quando serve" ha quindi un fondamento reale nella letteratura.</p>
+        <p><strong>Il caveat onesto:</strong> Momentum oggi esegue inferenza in browser via <code>@huggingface/transformers</code> (transformers.js) sopra ONNX Runtime Web — la ricerca su questo documento non ha trovato evidenza pubblica di supporto maturo per il caricamento/switch di adapter LoRA in quello specifico stack <span class="cite"><a href="https://huggingface.co/blog/transformersjs-v4" target="_blank" rel="noopener">[6]</a></span>. LoRA resta la via più elegante sulla carta, ma va prototipata e misurata prima di essere promessa: nella pratica potrebbe voler dire "un modello quantizzato completo per paese" come alternativa più semplice ma meno elegante, almeno nella prima iterazione.</p>
+      </div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Multi-task learning (un modello, più output)</h3><span class="tech-verdict caution">valido come ottimizzazione successiva, non come primo passo</span></div>
+      <div class="tech-body">
+        <p>Un unico modello con più "teste" (categorizzazione + sentiment + tax-hint) condivide la maggior parte dei pesi e riduce il footprint totale rispetto a modelli separati — ma introduce un rischio reale e misurabile: un task che domina l'addestramento può degradare gli altri (interferenza negativa fra task), un fenomeno documentato ampiamente in letteratura di multi-task learning. Raccomandazione onesta: costruire prima i modelli separati (più facili da valutare e da correggere singolarmente, coerente con la disciplina "un solo colpevole misurabile per bug" già seguita nel resto del progetto), poi valutare la fusione multi-task come ottimizzazione di seconda fase quando i target di accuratezza individuali sono già raggiunti.</p>
+      </div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-head"><h3>Mixture of Experts leggero</h3><span class="tech-verdict caution">il beneficio teorico non sempre si materializza su hardware edge reale</span></div>
+      <div class="tech-body">
+        <p>EdgeMoE (2023) è il primo motore di inferenza on-device per LLM sparse MoE, e ottiene efficienza sia di memoria che di calcolo separando i pesi "sempre attivi" da quelli degli esperti, caricati solo quando servono <span class="cite"><a href="https://arxiv.org/abs/2308.14352" target="_blank" rel="noopener">[7]</a></span> — concettualmente identico allo <code>HEAVY_EXPERT_SLOT</code> già presente in <code>expert-adapter.js</code>. Ma uno studio empirico più recente (2026) su hardware di consumo ed edge reale (Apple M2 Pro, NVIDIA Jetson Orin Nano) trova che il vantaggio teorico dell'attivazione sparsa non sempre si traduce in un vantaggio reale — su alcuni dispositivi il guadagno si erode quasi del tutto <span class="cite"><a href="https://arxiv.org/html/2606.21428v3" target="_blank" rel="noopener">[8]</a></span>.</p>
+        <p>Per Momentum questo si traduce in una raccomandazione concreta: il MoE leggero è un'estensione naturale dello slot già esistente, ma va introdotto SOLO dopo aver misurato dal vivo (come già si fa per ogni altra feature del progetto) che il guadagno è reale sui dispositivi target — mai assunto per definizione.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">03</span>
+    <h2>Un motore fiscale davvero modulare</h2>
+    <p class="section-dek">Oggi <code>tax.js</code> (Italia), <code>tax-ch.js</code> (Svizzera) e <code>tax-es.js</code> (Spagna) sono tre file indipendenti, ciascuno con una propria forma di funzione — <code>taxAdvice(input)</code>, <code>computeAvsIndipendente(redditoAnnuo)</code>, <code>cuotaReta(rendimientoNetoMensual, opts)</code> — perché i tre sistemi fiscali sono strutturalmente diversi (coefficienti di redditività contro fasce di reddito contro tramos), non per un'accidente di design. Un'interfaccia comune non elimina questa differenza, la organizza.</p>
+
+    <h3>Un'interfaccia possibile</h3>
+    <pre><code><span class="comment">// src/predict/tax-engine.js — interfaccia proposta, non ancora esistente</span>
+<span class="kw">export</span> function registerTaxModule(countryCode, {
+  computeLiability,     <span class="comment">// (transactions, profile) => { imposta, contributi, note[] }</span>
+  generateInvoice,      <span class="comment">// (data) => documento fattura/ricevuta nel formato del paese</span>
+  generateFilingEquiv,  <span class="comment">// (period, transactions) => equivalente locale dell'F24</span>
+  regimeOptions,        <span class="comment">// elenco dei regimi/schemi disponibili in quel paese</span>
+}) { <span class="comment">/* registra nel motore, mai sovrascrive un paese già presente */</span> }</code></pre>
+    <p>I tre moduli esistenti si adattano a questa forma senza essere riscritti — diventano implementazioni dell'interfaccia, non sostituiti da essa. Un decimo paese aggiunge un decimo modulo, mai una modifica al motore.</p>
+
+    <div class="warn-box">
+      <h4>Il vero collo di bottiglia non è l'interfaccia</h4>
+      <p>È la ricerca delle regole fiscali reali di ogni nuovo paese — lo stesso lavoro che per l'Italia ha richiesto correggere due gruppi ATECO mancanti sui coefficienti ufficiali (Legge 190/2014, Allegato 4), e per la Svizzera verificare la QR-bill byte per byte contro lo standard. Ogni nuovo paese (Francia, Germania, Portogallo, Olanda, UK, USA, Brasile) richiede lo stesso livello di verifica contro fonti primarie — un'interfaccia comune organizza il lavoro, non lo riduce. Aggiungere un paese resta, onestamente, settimane di ricerca normativa per paese, non un giorno di codice.</p>
+    </div>
+
+    <h3>Differenze di reporting senza duplicare codice</h3>
+    <p>La parte che davvero si condivide fra paesi non è il calcolo dell'imposta (specifico per definizione) ma tre livelli sotto: parsing delle transazioni in categorie fiscalmente rilevanti (già condiviso), formattazione di date/valute/numeri secondo la locale (il modulo <code>i18n/ui-strings.js</code> lo fa già per la UI, la stessa disciplina si estende ai documenti fiscali), e generazione PDF/XML da un template dichiarativo per paese invece che da codice imperativo per paese — un cambio di rendering, non di logica fiscale.</p>
+  </section>
+
+  <section>
+    <span class="section-n">04</span>
+    <h2>Oltre l'utente finale — condizionato a domanda reale, mai assunto</h2>
+    <p class="section-dek">La stessa architettura risolve problemi reali di altri attori del settore. Nessuno di questi è un piano attivo oggi: sono opzioni che diventano sensate solo quando arriva una richiesta concreta da fuori, esattamente come l'Orizzonte 2 del primo documento.</p>
+
+    <div class="use-grid">
+      <div class="use">
+        <div class="use-cat">Fintech &amp; broker</div>
+        <h4>SDK di calcolo offload</h4>
+        <p>Il motore fiscale gira sul dispositivo del cliente finale, non sui server della fintech — taglia esattamente la voce di costo di compliance-su-dati-sensibili citata nel primo documento (15-20% dei costi operativi). Vale come argomento economico oggi; vale come prodotto solo dopo che qualcuno lo chiede.</p>
+      </div>
+      <div class="use">
+        <div class="use-cat">Ricerca istituzionale</div>
+        <h4>Segnali macro aggregati dalla mesh</h4>
+        <p><code>knowledge-relay.js</code> e <code>sentiment-relay.js</code> già condividono segnali pubblici fra dispositivi. Un indicatore aggregato (mai dati personali) ha valore SOLO a scala — oggi la rete non ha il volume di dispositivi per produrre un segnale statisticamente interessante a nessuno.</p>
+      </div>
+      <div class="use">
+        <div class="use-cat">Commercialisti &amp; revisori</div>
+        <h4>Momentum-QA come assistente interno</h4>
+        <p>Lo stesso modello vincolato a rispondere solo su fiscalità/regime del paese, applicato come strumento di consultazione rapida invece che come feature consumer — un riuso dello stesso asset, non un prodotto nuovo da costruire.</p>
+      </div>
+      <div class="use">
+        <div class="use-cat">Banche</div>
+        <h4>Motore fiscale embedded</h4>
+        <p>Componente white-label nelle app di home banking business — la versione più ambiziosa e più lontana delle quattro: richiede il framework della sezione 3 già maturo su almeno 5-6 paesi prima di essere credibile come prodotto imbottigliabile.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-n">05</span>
+    <h2>Roadmap tecnico a 3 stadi</h2>
+    <p class="section-dek">Parallelo ai 3 orizzonti del primo documento, ma per il lato AI/modelli. Ogni stadio ha un obiettivo misurabile e una condizione per passare al successivo — se la condizione non si verifica, lo stadio resta dove è, non si forza il successivo.</p>
+
+    <div class="horizon">
+      <div class="horizon-head"><span class="horizon-n">STADIO A</span><h3>Consolidare e quantizzare al massimo quello che esiste</h3><span class="horizon-when">0–6 mesi</span></div>
+      <p class="grounded"><b>Parte da:</b> categorizzatore (Nano/Meso/DCGN), sentiment (DistilRoBERTa q8, 82,5MB), embedding (EmbeddingGemma q4).</p>
+      <ul class="signal-list">
+        <li>Obiettivo misurabile: footprint AI totale dell'app sotto i 30MB scaricati di default (i modelli opt-in restano a parte, dichiarati come oggi)</li>
+        <li>Precondizione tecnica reale prima di tutto il resto: ricostruire la pipeline di training di Nano/Meso (oggi non riproducibile in questo repo) — senza questo, "migliorare il categorizzatore" resta un'affermazione non verificabile</li>
+        <li>Segnale per passare allo Stadio B: il footprint sotto i 30MB è raggiunto E la pipeline di training esiste e produce risultati riproducibili</li>
+      </ul>
+    </div>
+
+    <div class="horizon">
+      <div class="horizon-head"><span class="horizon-n">STADIO B</span><h3>Addestrare Momentum-Tax-LM e Momentum-Categorizer</h3><span class="horizon-when">6–18 mesi</span></div>
+      <p class="grounded"><b>Parte da:</b> pipeline di training ricostruita nello Stadio A, dataset sintetico derivato dalle regole fiscali (mai dati reali di utenti), distillazione da un modello insegnante più grande.</p>
+      <ul class="signal-list">
+        <li>Obiettivo dichiarato dall'utente: +30% di accuratezza sui task fiscali rispetto ai modelli generici — da trattare come TARGET da validare con un benchmark costruito ad hoc, non come risultato garantito: oggi non esiste un benchmark pubblico "categorizzazione fiscale europea" su cui misurarsi</li>
+        <li>Primo passo concreto del benchmark: costruire lo stesso tipo di banco di prova già usato per il QA di mercato (<code>qa-banco-prova.js</code>) ma per il dominio fiscale, PRIMA di allenare qualunque modello — altrimenti "+30%" non si può nemmeno misurare</li>
+        <li>Segnale per passare allo Stadio C: il benchmark esiste, il modello lo supera in modo misurato e ripetibile</li>
+      </ul>
+    </div>
+
+    <div class="horizon">
+      <div class="horizon-head"><span class="horizon-n">STADIO C</span><h3>LoRA per nuovi paesi, apertura SDK</h3><span class="horizon-when">18–36 mesi</span></div>
+      <p class="grounded"><b>Parte da:</b> Momentum-Tax-LM validato (Stadio B), framework dell'interfaccia fiscale (sezione 3), prototipo LoRA verificato nello stack transformers.js/ONNX (sezione 2).</p>
+      <ul class="signal-list">
+        <li>Obiettivo dichiarato dall'utente: 3 partnership B2B a pagamento — condizione dura, non un traguardo di calendario: senza almeno una conversazione reale con un partner che paga, l'SDK resta un esercizio architetturale, non un prodotto</li>
+        <li>Se LoRA non si dimostra maturo nello stack browser (vedi caveat sezione 2), l'alternativa di fallback è un modello quantizzato completo per paese — più pesante ma reale</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="callout">
+    <h4>Cosa questo documento non è</h4>
+    <p>Non è una promessa che questi quattro modelli esisteranno, né che +30% di accuratezza si materializzerà. È una mappa di cosa sarebbe tecnicamente sensato costruire, con le fonti che sostengono ogni tecnica e — altrettanto importante — i punti dove la fonte esterna non basta a garantire che funzioni nello stack specifico di Momentum. Il passo successivo onesto non è "iniziare a costruire tutto": è scegliere UNA cosa dello Stadio A (probabilmente: ricostruire la pipeline di training di Nano/Meso, il vero prerequisito nascosto) e verificarla prima di impegnarsi sul resto.</p>
+  </div>
+
+  <p class="back-link">← Compagno di "Cosa c'è davvero, e a chi potrebbe interessare" (nota di posizionamento, stesso repository)</p>
+
+  <footer class="doc-foot">
+    <div class="sources">
+      Fonti citate nel testo:
+      <ol>
+        <li>llama.cpp — documentazione ufficiale sulla quantizzazione dei modelli — <a href="https://mintlify.com/ggml-org/llama.cpp/models/quantizing-models" target="_blank" rel="noopener">ggml-org/llama.cpp</a></li>
+        <li>ggml-org/llama.cpp, Discussion #2094, confronto fra metodi di quantizzazione — <a href="https://github.com/ggml-org/llama.cpp/discussions/2094" target="_blank" rel="noopener">github.com</a></li>
+        <li>Sanh et al., "DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter" (2019) — <a href="https://arxiv.org/abs/1910.01108" target="_blank" rel="noopener">arxiv.org/abs/1910.01108</a></li>
+        <li>Hu et al., "LoRA: Low-Rank Adaptation of Large Language Models" (2021) — <a href="https://arxiv.org/abs/2106.09685" target="_blank" rel="noopener">arxiv.org/abs/2106.09685</a></li>
+        <li>"S-LoRA: Serving Thousands of Concurrent LoRA Adapters" — <a href="https://arxiv.org/pdf/2311.03285" target="_blank" rel="noopener">arxiv.org/abs/2311.03285</a></li>
+        <li>Hugging Face, "Transformers.js v4: Now Available on NPM" — <a href="https://huggingface.co/blog/transformersjs-v4" target="_blank" rel="noopener">huggingface.co</a></li>
+        <li>"EdgeMoE: Empowering Sparse Large Language Models on Mobile Devices" (2023) — <a href="https://arxiv.org/abs/2308.14352" target="_blank" rel="noopener">arxiv.org/abs/2308.14352</a></li>
+        <li>"Does Mixture-of-Experts Actually Help Inference on Consumer and Edge Hardware? An Empirical Study" (2026) — <a href="https://arxiv.org/html/2606.21428v3" target="_blank" rel="noopener">arxiv.org/abs/2606.21428</a></li>
+      </ol>
+    </div>
+  </footer>
+
+</div>

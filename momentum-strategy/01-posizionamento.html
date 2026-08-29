@@ -1,0 +1,621 @@
+<title>Posizionamento Momentum</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F1F0E9;
+    --surface:#FFFFFF;
+    --surface-2:#E9E7DD;
+    --ink:#181B1D;
+    --ink-soft:#4E5459;
+    --ink-faint:#7C8288;
+    --rule:#D8D5C8;
+    --accent:#2F5D50;
+    --accent-soft:#DCE6E1;
+    --accent-ink:#1F4238;
+    --gold:#A8712C;
+    --gold-soft:#F0E3CC;
+    --warn:#8A3B2A;
+    --warn-soft:#F3E0D9;
+    --shadow: 0 1px 2px rgba(24,27,29,0.06), 0 8px 24px -12px rgba(24,27,29,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14181A;
+      --surface:#1B2022;
+      --surface-2:#20262A;
+      --ink:#ECEAE2;
+      --ink-soft:#A9AEA9;
+      --ink-faint:#787E7C;
+      --rule:#33393B;
+      --accent:#6BAE9B;
+      --accent-soft:#20302C;
+      --accent-ink:#9AD1BF;
+      --gold:#D9A44E;
+      --gold-soft:#332A1B;
+      --warn:#E08A6F;
+      --warn-soft:#3A241D;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14181A;
+    --surface:#1B2022;
+    --surface-2:#20262A;
+    --ink:#ECEAE2;
+    --ink-soft:#A9AEA9;
+    --ink-faint:#787E7C;
+    --rule:#33393B;
+    --accent:#6BAE9B;
+    --accent-soft:#20302C;
+    --accent-ink:#9AD1BF;
+    --gold:#D9A44E;
+    --gold-soft:#332A1B;
+    --warn:#E08A6F;
+    --warn-soft:#3A241D;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    font-size:16.5px;
+    line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+
+  a{ color:var(--accent-ink); text-decoration-thickness:1px; text-underline-offset:2px; }
+  a:focus-visible, button:focus-visible, summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
+
+  .wrap{ max-width:820px; margin:0 auto; padding:0 24px 96px; }
+
+  header.doc-head{
+    padding:64px 0 40px;
+    border-bottom:1px solid var(--rule);
+    margin-bottom:44px;
+  }
+  .doc-kicker{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11.5px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .doc-kicker .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); flex:none; }
+  h1.doc-title{
+    font-family:"Source Serif 4", Georgia, serif;
+    font-weight:600;
+    font-size:clamp(30px, 4.4vw, 42px);
+    line-height:1.14;
+    letter-spacing:-0.01em;
+    margin:0 0 14px;
+    text-wrap:balance;
+    color:var(--ink);
+  }
+  .doc-sub{
+    font-size:17px;
+    color:var(--ink-soft);
+    max-width:60ch;
+    margin:0 0 24px;
+  }
+  .doc-meta{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 22px;
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12px;
+    color:var(--ink-faint);
+  }
+  .doc-meta b{ color:var(--ink-soft); font-weight:600; }
+
+  section{ margin:0 0 52px; }
+  h2{
+    font-family:"Source Serif 4", Georgia, serif;
+    font-weight:600;
+    font-size:24px;
+    letter-spacing:-0.005em;
+    margin:0 0 6px;
+    color:var(--ink);
+    text-wrap:balance;
+  }
+  .section-dek{
+    color:var(--ink-soft);
+    font-size:15px;
+    margin:0 0 22px;
+    max-width:62ch;
+  }
+  h3{
+    font-family:"Source Serif 4", Georgia, serif;
+    font-weight:600;
+    font-size:18px;
+    margin:28px 0 8px;
+    color:var(--ink);
+  }
+  p{ margin:0 0 16px; max-width:66ch; }
+  p.lede{ font-size:18px; color:var(--ink); }
+  ul, ol{ margin:0 0 16px; padding-left:1.25em; max-width:64ch; }
+  li{ margin-bottom:7px; }
+  strong{ font-weight:600; }
+  .cite{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12.5px;
+    color:var(--ink-faint);
+    vertical-align:2px;
+  }
+  .cite a{ color:var(--ink-faint); text-decoration:none; border-bottom:1px dotted var(--ink-faint); }
+  .cite a:hover{ color:var(--accent-ink); border-color:var(--accent-ink); }
+
+  /* capability cards */
+  .cap-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));
+    gap:14px;
+    margin:22px 0 8px;
+  }
+  .cap{
+    background:var(--surface);
+    border:1px solid var(--rule);
+    border-radius:10px;
+    padding:18px 18px 16px;
+    box-shadow:var(--shadow);
+  }
+  .cap .cap-label{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:8px;
+  }
+  .cap h4{
+    font-family:"Source Serif 4", Georgia, serif;
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 6px;
+    color:var(--ink);
+  }
+  .cap p{ font-size:14px; color:var(--ink-soft); margin:0; max-width:none; }
+
+  /* data stat row */
+  .stat-row{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
+    gap:1px;
+    background:var(--rule);
+    border:1px solid var(--rule);
+    border-radius:10px;
+    overflow:hidden;
+    margin:20px 0 10px;
+  }
+  .stat{
+    background:var(--surface);
+    padding:20px 18px;
+  }
+  .stat .num{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:26px;
+    font-weight:600;
+    color:var(--accent-ink);
+    line-height:1.1;
+  }
+  .stat .lbl{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-top:6px;
+    line-height:1.4;
+  }
+  .stat .src{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:10.5px;
+    color:var(--ink-faint);
+    margin-top:8px;
+  }
+  .stat .src a{ color:var(--ink-faint); }
+
+  blockquote{
+    margin:22px 0;
+    padding:4px 0 4px 18px;
+    border-left:3px solid var(--gold);
+    color:var(--ink-soft);
+    font-size:15px;
+    max-width:60ch;
+  }
+
+  .callout{
+    background:var(--accent-soft);
+    border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-radius:10px;
+    padding:18px 20px;
+    margin:20px 0;
+  }
+  .callout h4{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    margin:0 0 8px;
+  }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .warn-box{
+    background:var(--warn-soft);
+    border:1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    border-radius:10px;
+    padding:20px 22px;
+    margin:20px 0;
+  }
+  .warn-box h4{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--warn);
+    margin:0 0 10px;
+  }
+  .warn-box p:last-child{ margin-bottom:0; }
+  .warn-box ul{ margin-bottom:0; }
+
+  /* roadmap */
+  .horizon{
+    border:1px solid var(--rule);
+    border-radius:12px;
+    background:var(--surface);
+    box-shadow:var(--shadow);
+    padding:24px 26px 22px;
+    margin-bottom:18px;
+  }
+  .horizon-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:6px;
+    flex-wrap:wrap;
+  }
+  .horizon-n{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12px;
+    color:var(--gold);
+    letter-spacing:0.05em;
+  }
+  .horizon h3{ margin:0; font-size:19px; }
+  .horizon-when{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12px;
+    color:var(--ink-faint);
+    margin-left:auto;
+  }
+  .horizon .grounded{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin:10px 0 4px;
+  }
+  .horizon .grounded b{ color:var(--ink); font-weight:600; }
+  .signal-list{
+    margin:12px 0 0;
+    padding:0;
+    list-style:none;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .signal-list li{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    padding-left:1.4em;
+    position:relative;
+    margin:0;
+  }
+  .signal-list li::before{
+    content:"→";
+    position:absolute;
+    left:0;
+    color:var(--accent);
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  /* buyer categories */
+  .buyer-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+    gap:16px;
+    margin:20px 0 8px;
+  }
+  .buyer{
+    border:1px solid var(--rule);
+    border-radius:10px;
+    padding:18px 18px 16px;
+    background:var(--surface);
+  }
+  .buyer .buyer-cat{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:10.5px;
+    letter-spacing:0.07em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    margin-bottom:8px;
+  }
+  .buyer h4{
+    font-family:"Source Serif 4", Georgia, serif;
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 8px;
+  }
+  .buyer p{ font-size:13.5px; color:var(--ink-soft); margin:0; max-width:none; }
+
+  table{ border-collapse:collapse; width:100%; margin:18px 0; font-size:14px; }
+  thead th{
+    text-align:left;
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    border-bottom:1px solid var(--rule);
+    padding:0 12px 8px 0;
+    font-weight:500;
+  }
+  tbody td{
+    padding:10px 12px 10px 0;
+    border-bottom:1px solid var(--rule);
+    vertical-align:top;
+    color:var(--ink-soft);
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  .table-wrap{ overflow-x:auto; }
+
+  footer.doc-foot{
+    border-top:1px solid var(--rule);
+    margin-top:56px;
+    padding-top:28px;
+  }
+  .sources{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12px;
+    color:var(--ink-faint);
+    line-height:1.9;
+  }
+  .sources a{ color:var(--ink-soft); }
+  .sources ol{ padding-left:1.4em; margin:10px 0 0; }
+
+  @media (max-width:600px){
+    header.doc-head{ padding-top:44px; }
+    .horizon-when{ margin-left:0; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="doc-head">
+    <div class="doc-kicker"><span class="dot"></span>Nota interna · non un documento di offerta</div>
+    <h1 class="doc-title">Cosa c'è davvero, e a chi potrebbe interessare</h1>
+    <p class="doc-sub">Un inventario onesto delle capacità reali nel repository di Momentum, incrociato con segnali di mercato verificabili — senza cifre di valutazione inventate e senza nomi di aziende presentati come interessate quando non lo sono.</p>
+    <div class="doc-meta">
+      <span><b>Oggetto</b> — Momentum, motore finanziario on-device</span>
+      <span><b>Preparato</b> — 30 agosto 2026</span>
+      <span><b>Base</b> — repo GPire/momentum, stato al commit 9e2e391</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="lede">Il documento che hai ricevuto da un altro strumento AI presenta Momentum come un'infrastruttura già bramata da Apple, OpenAI e JP Morgan, con una valutazione di 2 miliardi di euro pronta a materializzarsi in 36 mesi. Nessuna di queste affermazioni è verificabile — e trattarle come vere con un investitore reale sarebbe un rischio, non un vantaggio.</p>
+    <p>Quello che segue è diverso: parte solo da due cose verificabili — cosa c'è davvero scritto nel codice, e cosa dicono fonti di mercato reali e citate — e le tiene separate. Dove i dati non bastano a sostenere una conclusione, questo documento lo dice, invece di riempire il vuoto con una cifra plausibile.</p>
+  </section>
+
+  <section>
+    <h2>Cosa c'è davvero, oggi</h2>
+    <p class="section-dek">Non un elenco di feature promesse — solo moduli con codice, test, e (dove citato nella memoria di progetto) verifica dal vivo.</p>
+
+    <div class="cap-grid">
+      <div class="cap">
+        <div class="cap-label">Motore fiscale — Italia</div>
+        <h4>Regime forfettario reale</h4>
+        <p>Coefficienti di redditività per i 9 gruppi ufficiali (L. 190/2014, Allegato 4), accantonamento calcolato dalle transazioni vere registrate, non da un simulatore statico.</p>
+      </div>
+      <div class="cap">
+        <div class="cap-label">Motore fiscale — Svizzera</div>
+        <h4>AVS/AI/IPG + QR-bill</h4>
+        <p>Calcolo contributi indipendenti, generazione fattura QR-bill verificata byte per byte contro lo standard, referenza QRR.</p>
+      </div>
+      <div class="cap">
+        <div class="cap-label">Motore fiscale — Spagna</div>
+        <h4>RETA + IRPF</h4>
+        <p>Simulatore autónomo su reddito netto mensile dichiarato, senza inventare un coefficiente forfettario che la Spagna non ha.</p>
+      </div>
+      <div class="cap">
+        <div class="cap-label">Dati istituzionali</div>
+        <h4>Pannello SEC su scala</h4>
+        <p>11.304 aziende con ricavi depositati (XBRL, SEC EDGAR), 1.500 con SIC verificato, aggiornato via script riproducibile — non un dato live, dichiarato onestamente.</p>
+      </div>
+      <div class="cap">
+        <div class="cap-label">Modelli quantitativi</div>
+        <h4>Beneish M-Score, Piotroski F-Score</h4>
+        <p>Formule verificate contro i paper originali, con il limite noto (falso positivo su crescita legittima molto rapida) dichiarato automaticamente nel testo mostrato all'utente.</p>
+      </div>
+      <div class="cap">
+        <div class="cap-label">AI on-device</div>
+        <h4>Categorizzazione + sentiment</h4>
+        <p>Ensemble Nano/Meso/DCGN per le transazioni, DistilRoBERTa (82,5MB, Apache-2.0) per il sentiment delle notizie — nessuna chiamata cloud per i dati finanziari dell'utente.</p>
+      </div>
+      <div class="cap">
+        <div class="cap-label">Sincronizzazione</div>
+        <h4>Mesh P2P via WebRTC</h4>
+        <p>Federated learning non-IID fra dispositivi, staffette di dati pubblici (prezzi/tassi/sentiment) con cross-check di reputazione — mai dati personali condivisi.</p>
+      </div>
+      <div class="cap">
+        <div class="cap-label">Prodotto</div>
+        <h4>7 lingue, zero server</h4>
+        <p>UI localizzata IT/EN/DE/FR/ES/NL/PT, persistenza solo locale (localStorage + IndexedDB), nessun account richiesto per usare l'app.</p>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <h4>Limiti dichiarati, non nascosti</h4>
+      <p>Perché un documento "onesto" deve includerli: il pannello SEC si aggiorna manualmente (non è un feed live); il vocabolario di categorizzazione resta Euro/UK/USA/Brasile-centrico; l'app ha appena avuto — e risolto — un bug di perdita dati che ha eroso la fiducia di una parte degli utenti; e nessuna azienda citata in questo documento ha mai espresso interesse verificabile per un'acquisizione. Un documento di posizionamento che nasconde questi punti non è più credibile di uno che inventa una valutazione.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Segnali di mercato, con fonte</h2>
+    <p class="section-dek">Numeri reali sul segmento che Momentum serve oggi (autonomi/freelance in Italia e Svizzera) e sui due trend che ne motivano l'architettura (costi di compliance fintech, crescita dell'edge AI). Dove le fonti divergono, sono riportate entrambe.</p>
+
+    <h3>Il mercato degli autonomi che Momentum già serve</h3>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num">4,17M</div>
+        <div class="lbl">Partite IVA attive in Italia — livello 2023, confermato in linea nel 2025</div>
+        <div class="src">MEF — Osservatorio Partite IVA <span class="cite">[1]</span></div>
+      </div>
+      <div class="stat">
+        <div class="num">492.176</div>
+        <div class="lbl">Nuove partite IVA aperte nel 2025 (-1,9% sul 2024)</div>
+        <div class="src">Unimpresa su dati MEF <span class="cite">[2]</span></div>
+      </div>
+      <div class="stat">
+        <div class="num">~48–70%</div>
+        <div class="lbl">Quota che sceglie il regime forfettario — 48,5% di tutte le nuove aperture (MEF); 7 su 10 fra le sole persone fisiche (Unimpresa)</div>
+        <div class="src">MEF / Unimpresa <span class="cite">[1][2]</span></div>
+      </div>
+      <div class="stat">
+        <div class="num">~800K*</div>
+        <div class="lbl">Lavoratori indipendenti in Svizzera — stima ricavata da 16,6% degli occupati totali (non un dato pubblicato come cifra unica)</div>
+        <div class="src">World Bank / BFS <span class="cite">[3][4]</span></div>
+      </div>
+    </div>
+    <p style="font-size:13px; color:var(--ink-faint); margin-top:-2px;">* Stima derivata: 16,61% degli occupati svizzeri risultava lavoratore indipendente nel 2023 (World Bank), su una popolazione occupata di 4,87M nel quarto trimestre 2025 (BFS) — nessuna fonte pubblica un'unica cifra aggiornata, questa è una combinazione dichiarata di due dataset diversi.</p>
+
+    <h3>Perché l'architettura "on-device" è un vantaggio economico, non solo di privacy</h3>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num">15–20%</div>
+        <div class="lbl">Quota dei costi operativi che una fintech tipica dedica alla compliance regolatoria, secondo più analisi di settore</div>
+        <div class="src">FinTech Global / NatLawReview <span class="cite">[5][6]</span></div>
+      </div>
+      <div class="stat">
+        <div class="num">19%</div>
+        <div class="lbl">Costo medio di compliance sul fatturato annuo, dato specifico Model Office / Fidelity Adviser Solutions</div>
+        <div class="src">FinTech Global <span class="cite">[5]</span></div>
+      </div>
+      <div class="stat">
+        <div class="num">$24–29B</div>
+        <div class="lbl">Dimensione del mercato Edge AI nel 2025, a seconda della società di ricerca citata</div>
+        <div class="src">Grand View Research / Research&Markets <span class="cite">[7][8]</span></div>
+      </div>
+      <div class="stat">
+        <div class="num">~20–29%</div>
+        <div class="lbl">CAGR previsto, verso 100–165 miliardi $ entro il 2030–2035 (le stime divergono ampiamente per orizzonte)</div>
+        <div class="src">DataM Intelligence / Precedence Research <span class="cite">[9][10]</span></div>
+      </div>
+    </div>
+
+    <blockquote>Un motore che calcola tasse e categorizza spese <em>sul telefono dell'utente</em>, senza mai vedere i dati grezzi su un server, elimina esattamente la voce di costo (compliance su dati sensibili, storage regolamentato) che pesa il 15–20% sui conti di una fintech che fa tutto in cloud. Questo è un argomento economico concreto, indipendentemente da chi — se qualcuno — deciderà mai di comprarlo.</blockquote>
+  </section>
+
+  <section>
+    <h2>Categorie di partner plausibili — non nomi con un'offerta pronta</h2>
+    <p class="section-dek">Nessuna delle aziende sotto ha espresso interesse per Momentum. Sono categorie di attori per cui il problema che Momentum risolve è documentabilmente reale, con — dove esiste — un segnale pubblico debole a supporto.</p>
+
+    <div class="buyer-grid">
+      <div class="buyer">
+        <div class="buyer-cat">Segnale pubblico più forte</div>
+        <h4>Neobank europee per autonomi</h4>
+        <p>N26 pubblica già contenuti dedicati alla dichiarazione fiscale dei freelance e al pagamento delle tasse da conto business <span class="cite"><a href="https://n26.com/en-es/blog/how-to-submit-your-tax-declaration-as-a-freelancer" target="_blank" rel="noopener">[11]</a></span> — prova di interesse reale per il segmento, non per Momentum in sé, e non un motore di calcolo integrato oggi.</p>
+      </div>
+      <div class="buyer">
+        <div class="buyer-cat">Argomento economico, non segnale diretto</div>
+        <h4>Broker/exchange crypto</h4>
+        <p>Calcolo plusvalenze e accantonamento fiscale su trading sono un costo di compliance ricorrente citato nel range 15–20% sopra — un motore che gira sul dispositivo del cliente sposterebbe quel costo, in teoria. Nessun broker specifico ha commentato pubblicamente su questo.</p>
+      </div>
+      <div class="buyer">
+        <div class="buyer-cat">Categoria, non azienda</div>
+        <h4>Buyer di infrastruttura edge AI</h4>
+        <p>Il mercato edge AI cresce a doppia cifra per il motivo esatto per cui Momentum è costruita così (nessuna inferenza cloud) — questo rende la categoria "compratore di showcase edge AI" plausibile in astratto, non identifica un singolo acquirente reale.</p>
+      </div>
+      <div class="buyer">
+        <div class="buyer-cat">Non verificato, escluso di proposito</div>
+        <h4>Big Tech / hardware (Apple, ecc.)</h4>
+        <p>Nessuna fonte pubblica collega queste aziende a un interesse per prodotti fiscali on-device di terze parti. Includerle come "acquirenti probabili" senza una fonte sarebbe esattamente l'errore che questo documento vuole evitare.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tre orizzonti, collegati al codice che esiste già</h2>
+    <p class="section-dek">Non una promessa di 36 mesi a un'uscita — tre stadi plausibili, ciascuno condizionato a segnali verificabili prima di investire nel successivo. Se un segnale non arriva, lo stadio successivo semplicemente non si giustifica ancora.</p>
+
+    <div class="horizon">
+      <div class="horizon-head">
+        <span class="horizon-n">ORIZZONTE 1</span>
+        <h3>Consolidare il prodotto B2C nei mercati già coperti</h3>
+        <span class="horizon-when">nessuna precondizione — parte da subito</span>
+      </div>
+      <p class="grounded"><b>Codice reale coinvolto:</b> motori fiscali IT/CH/ES, le 7 localizzazioni, il sistema di recupero dati appena costruito.</p>
+      <ul class="signal-list">
+        <li>Chiudere i buchi di traduzione rimasti (Analisi Tensor, in corso)</li>
+        <li>Zero regressioni sulla persistenza dati — appena rafforzata, va misurata nel tempo</li>
+        <li>Segnale da cercare: crescita organica del passaparola fra autonomi IT/CH, non acquisizione a pagamento</li>
+      </ul>
+    </div>
+
+    <div class="horizon">
+      <div class="horizon-head">
+        <span class="horizon-n">ORIZZONTE 2</span>
+        <h3>Verificare se il motore fiscale ha valore FUORI dall'app</h3>
+        <span class="horizon-when">condizionato a: Orizzonte 1 stabile + una richiesta reale in ingresso</span>
+      </div>
+      <p class="grounded"><b>Codice reale coinvolto:</b> i moduli fiscali sono già isolati per Paese in <code>src/predict/tax*.js</code> — architetturalmente separabili da un SDK, non lo sono oggi.</p>
+      <ul class="signal-list">
+        <li>Non partire costruendo un SDK "nel vuoto": partire da una conversazione reale con UNA fintech/broker che chiede esplicitamente questa funzione</li>
+        <li>Segnale da cercare: qualcuno fuori dal progetto che paga (anche poco) per usare il motore fiscale, non una promessa</li>
+        <li>Se questo segnale non arriva entro un tempo ragionevole, l'Orizzonte 2 resta un'opzione futura, non un piano attivo</li>
+      </ul>
+    </div>
+
+    <div class="horizon">
+      <div class="horizon-head">
+        <span class="horizon-n">ORIZZONTE 3</span>
+        <h3>Dati aggregati anonimi come prodotto separato</h3>
+        <span class="horizon-when">condizionato a: una base utenti reale che genera segnali mesh in volume</span>
+      </div>
+      <p class="grounded"><b>Codice reale coinvolto:</b> <code>src/mesh/knowledge-relay.js</code> e <code>sentiment-relay.js</code> già condividono segnali pubblici (prezzi/sentiment) fra dispositivi con cross-check di reputazione.</p>
+      <ul class="signal-list">
+        <li>Oggi il volume di dispositivi collegati è troppo basso per produrre un segnale statisticamente interessante a chiunque</li>
+        <li>Questo orizzonte dipende interamente dal successo dell'Orizzonte 1 — non è un piano parallelo, è una conseguenza eventuale</li>
+        <li>Nessuna cifra di fatturato o valutazione è stimabile onestamente da qui: dipende da una scala che oggi non esiste</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="callout">
+    <h4>Perché questo documento si ferma qui</h4>
+    <p>Un piano a 3 stadi con condizioni verificabili vale più di una roadmap a 36 mesi con un prezzo di uscita già scritto — perché puoi controllare, fra sei mesi, se il segnale dell'Orizzonte 1 si è davvero materializzato, e decidere di conseguenza. Una cifra come "2 miliardi di euro" non è verificabile in nessun momento: non aiuta a decidere niente, aiuta solo a sentirsi bene per un pomeriggio.</p>
+  </div>
+
+  <footer class="doc-foot">
+    <div class="sources">
+      Fonti citate nel testo:
+      <ol>
+        <li>MEF — Dipartimento delle Finanze, Osservatorio sulle partite IVA, sintesi 2025 — <a href="https://www.finanze.gov.it/it/archivi/notizie/dettaglio-notizie/Osservatorio-sulle-partite-IVA-sintesi-dei-dati-anno-2025-00001/" target="_blank" rel="noopener">finanze.gov.it</a></li>
+        <li>Unimpresa, "Nel 2025 500mila nuove partite IVA" — <a href="https://www.unimpresa.it/nuove-partite-iva/72596" target="_blank" rel="noopener">unimpresa.it</a></li>
+        <li>Trading Economics / World Bank, Switzerland self-employed % of total employed — <a href="https://tradingeconomics.com/switzerland/self-employed-total-percent-of-total-employed-wb-data.html" target="_blank" rel="noopener">tradingeconomics.com</a></li>
+        <li>Federal Statistical Office (BFS), Swiss Labour Force Survey Q4 2025 — <a href="https://www.bfs.admin.ch/bfs/en/home/statistics/work-income/employment-working-hours/labour-force-characteristics/multiple-employment.gnpdetail.2025-0484.html" target="_blank" rel="noopener">bfs.admin.ch</a></li>
+        <li>FinTech Global, "The high price of non-compliance in financial services" — <a href="https://fintech.global/2025/03/31/the-high-price-of-non-compliance-in-financial-services/" target="_blank" rel="noopener">fintech.global</a></li>
+        <li>National Law Review, "FinTech Compliance Costs Hit 20% of Budgets" — <a href="https://natlawreview.com/press-releases/fintech-compliance-costs-hit-20-budgets-driving-developer-hiring-latin" target="_blank" rel="noopener">natlawreview.com</a></li>
+        <li>Grand View Research, Edge AI Market Report 2026-2033 — <a href="https://www.grandviewresearch.com/industry-analysis/edge-ai-market-report" target="_blank" rel="noopener">grandviewresearch.com</a></li>
+        <li>Research and Markets, Edge AI Market Report 2026 — <a href="https://www.researchandmarkets.com/reports/6226171/edge-ai-market-report" target="_blank" rel="noopener">researchandmarkets.com</a></li>
+        <li>DataM Intelligence, Edge AI Market Growth Forecast — <a href="https://www.datamintelligence.com/research-report/edge-ai-market" target="_blank" rel="noopener">datamintelligence.com</a></li>
+        <li>Precedence Research, Edge AI Market Size to 2035 — <a href="https://www.precedenceresearch.com/edge-ai-market" target="_blank" rel="noopener">precedenceresearch.com</a></li>
+        <li>N26, "How to file your tax declaration when you're self-employed" — <a href="https://n26.com/en-es/blog/how-to-submit-your-tax-declaration-as-a-freelancer" target="_blank" rel="noopener">n26.com</a></li>
+      </ol>
+    </div>
+  </footer>
+
+</div>

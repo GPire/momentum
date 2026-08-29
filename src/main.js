@@ -15026,7 +15026,16 @@ let momentumOrchestrator = null;
 let momentumMeshNode = null;
 function initMomentumRealAI() {
   try {
-    const trainedCategorizer = new TrainedCategorizer(MOMENTUM_TRAINED_MODEL_DATA);
+    // Quantizzazione int8 (src/ai/quantize.js) estesa al Nano il 2026-08-30 —
+    // stesso schema già in produzione per il Meso, ma con una soglia più
+    // aggressiva: il Nano è l'UNICO modello garantito attivo sul tier
+    // hardware minimo (il Meso, sotto, non carica nemmeno lì), quindi è il
+    // caso dove la quantizzazione conta di più. Su tier massimo resta float
+    // per la precisione piena; su minimo/medio (o tier non ancora rilevato,
+    // stesso ripiego prudente già usato altrove) si quantizza.
+    const nanoTier = window.momentumDeviceProfile?.tier;
+    const nanoUseInt8 = nanoTier !== 'massimo';
+    const trainedCategorizer = new TrainedCategorizer(MOMENTUM_TRAINED_MODEL_DATA, { int8: nanoUseInt8 });
     momentumOrchestrator = new MomentumOrchestrator({
       vaultDAO: VaultDAO,
       neuralNexus: NeuralNexus,
@@ -15034,7 +15043,7 @@ function initMomentumRealAI() {
       meshNode: null,
     });
     window.momentumOrchestrator = momentumOrchestrator;
-    console.log('Momentum Real AI orchestrator pronto (NeuralNexus + Nano in ensemble).');
+    console.log(`Momentum Real AI orchestrator pronto (NeuralNexus + Nano in ensemble, Nano ${nanoUseInt8 ? 'int8' : 'float'} su tier ${nanoTier || 'non rilevato'}).`);
 
     // Il lessico condivisibile si alimenta da OGNI categorizzazione, ovunque
     // avvenga: intercettando learn() una volta sola invece di toccare i sei
