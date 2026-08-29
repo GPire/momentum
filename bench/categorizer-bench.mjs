@@ -7,6 +7,11 @@
 // di descrizioni bancarie italiane sporche MAI viste in training, generate
 // con gli stessi tipi di rumore reale del train_meso.py (prefissi POS/
 // SATISPAY, maiuscole, concatenazioni, vocali cadute, code carta).
+//
+// Fino al 2026-08-30 copriva SOLO le 8 categorie originali, duplicando
+// BASE/PREFIXES/SUFFIXES/noisify anche in bench/train-eval.mjs — unificato
+// in bench/held-out-set.mjs ed esteso alle 15 categorie reali (vedi il
+// commento in quel file per la cronologia del gap).
 globalThis.window = {};
 globalThis.navigator = { maxTouchPoints: 0 };
 
@@ -23,54 +28,11 @@ const { TrainedMeso } = await imp('src/ai/trained-meso.js');
 const { MOMENTUM_TRAINED_MODEL_DATA } = await imp('src/ai/trained-model-data.js');
 const { HashedLogReg } = await imp('src/ai/hashed-logreg.js');
 const { calibratedEnsemble } = await imp('src/ai/calibration.js');
+const { buildHeldOutSet } = await imp('bench/held-out-set.mjs');
 
-// ── RNG deterministico (mulberry32): stesso seed = stesso dataset, sempre ──
-function mulberry32(seed) {
-  return function () {
-    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 const SEED = 20260706;
-const rnd = mulberry32(SEED);
-const pick = arr => arr[Math.floor(rnd() * arr.length)];
-
-// ── Vocabolario di test: esercenti/frasi plausibili per le 8 categorie ──
-const BASE = {
-  abbonamenti: ['netflix', 'spotify premium', 'disney plus', 'dazn', 'amazon prime', 'now tv', 'apple music', 'youtube premium', 'palestra mensile', 'telepass abbonamento'],
-  crypto: ['binance acquisto btc', 'coinbase ethereum', 'kraken bitcoin', 'crypto exchange deposito', 'acquisto solana', 'bitpanda crypto', 'wallet btc ricarica'],
-  etf: ['acquisto etf msci world', 'vanguard sp500', 'ishares etf global', 'pac etf mensile', 'directa acquisto etf', 'etf obbligazionario acquisto'],
-  ristoranti: ['trattoria da mario', 'pizzeria bella napoli', 'sushi bar tokyo', 'ristorante il gambero', 'osteria del corso', 'mcdonalds', 'burger king', 'bar pasticceria centrale', 'kebab house'],
-  shopping: ['zara abbigliamento', 'amazon marketplace', 'h m store', 'mediaworld elettronica', 'decathlon sport', 'zalando ordine', 'ikea mobili', 'sephora profumeria', 'libreria feltrinelli'],
-  spesa: ['esselunga supermercato', 'coop alleanza', 'conad city', 'lidl italia', 'carrefour express', 'eurospin', 'pam panorama', 'mercato ortofrutta', 'penny market'],
-  stipendio: ['accredito emolumenti azienda', 'stipendio mensile bonifico', 'salary payment', 'competenze mese corrente', 'bonifico stipendio srl', 'cedolino accredito'],
-  trasporti: ['trenitalia biglietto', 'italo treno', 'atm milano ricarica', 'benzina q8', 'esso carburante', 'autostrade pedaggio', 'uber trip', 'taxi 3570', 'flixbus viaggio'],
-};
-
-// ── Rumore reale delle descrizioni bancarie (stessi tipi del train_meso) ──
-const PREFIXES = ['PAGAMENTO POS ', 'SATISPAY*', 'ADDEBITO SDD ', 'CRV*', 'PAGAMENTO CARTA ', 'POS ', ''];
-const SUFFIXES = [' CARTA *4412', ' 05/07', ' MILANO ITA', ' EUR', '', ''];
-
-function dropVowels(s, p) {
-  return s.split('').filter(ch => !('aeiou'.includes(ch) && rnd() < p)).join('');
-}
-function noisify(text) {
-  let t = text;
-  const roll = rnd();
-  if (roll < 0.3) t = t.toUpperCase();
-  else if (roll < 0.45) t = t.split(' ').map(w => rnd() < 0.5 ? w.toUpperCase() : w).join(' ');
-  if (rnd() < 0.25) t = t.replace(/ /g, ''); // concatenazione senza spazi
-  if (rnd() < 0.25) t = dropVowels(t, 0.25); // vocali cadute (OCR/abbreviazioni)
-  return pick(PREFIXES) + t + pick(SUFFIXES);
-}
-
 const PER_CAT = 60;
-const dataset = [];
-for (const [cat, phrases] of Object.entries(BASE)) {
-  for (let i = 0; i < PER_CAT; i++) dataset.push({ text: noisify(pick(phrases)), cat });
-}
+const dataset = buildHeldOutSet({ perCat: PER_CAT, seed: SEED }); // tutte le 15 categorie
 
 // ── Modelli ──
 const nano = new TrainedCategorizer(MOMENTUM_TRAINED_MODEL_DATA);
@@ -145,7 +107,8 @@ const rLog = logreg ? accuracy(t => logreg.predict(t).category) : null;
 const rEnsV2 = accuracy(ensembleV2);
 
 const fmt = (r, ms) => `${(r.acc * 100).toFixed(1)}%  (${(ms / dataset.length).toFixed(2)} ms/predizione)`;
-console.log(`\nMomentum categorizer bench — seed ${SEED}, ${dataset.length} esempi sporchi, 8 categorie\n`);
+const nCats = new Set(dataset.map(d => d.cat)).size;
+console.log(`\nMomentum categorizer bench — seed ${SEED}, ${dataset.length} esempi sporchi, ${nCats} categorie\n`);
 console.log('  --- Generalizzazione ML pura (esercenti held-out mai visti in training) ---');
 console.log(`  Nano       ${fmt(rNano, t1 - t0)}`);
 console.log(`  Meso v2    ${fmt(rMeso, t2 - t1)}`);

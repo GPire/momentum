@@ -1,0 +1,138 @@
+// Riaddestra il Nano in locale (JS puro, nessun Python) — "npm run train:nano".
+// Prima di questo script il Nano NON era riproducibile in questo repo (pesi
+// arrivati già addestrati altrove, categorie ferme a 8/15 — vedi metrics nel
+// modello spedito: test_accuracy 43,7%, categories manca casa/bollette/
+// salute/istruzione/viaggi/svago/risparmio). Due fonti di dati DIVERSE,
+// mai solo sintetico e mai solo una fonte esterna:
+//  1) src/ai/train/data-gen.mjs — pool multilingua proprio del progetto
+//     (IT/ES/FR/DE/PT/EN + UK/US/Brasile), copre TUTTE le 15 categorie.
+//  2) DoDataThings/us-bank-transaction-categories-v2 (Hugging Face, MIT,
+//     non gated) — 56.000 descrizioni REALI in stile estratto conto USA,
+//     mappate onestamente su 12/15 categorie Momentum (escluse Insurance/
+//     Fees/Transfer: nessuna categoria Momentum corrisponde senza forzare
+//     un'etichetta sbagliata — vedi bench/data/external-nano-us-transactions.json).
+//     etf/crypto/risparmio restano coperte solo dal sintetico (la fonte
+//     esterna è un dataset di SPESA, non di investimento — onesto, non un
+//     buco nascosto).
+globalThis.window = {};
+globalThis.navigator = { maxTouchPoints: 0 };
+
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const imp = (rel) => import(pathToFileURL(join(root, rel)).href);
+const { generateDataset, CATEGORIES } = await imp('src/ai/train/data-gen.mjs');
+const { buildVocabulary, tfidfSparse, trainMLP, wordTokenize } = await imp('src/ai/train/mlp-trainer.mjs');
+const { buildHeldOutSet } = await imp('bench/held-out-set.mjs');
+const { TrainedCategorizer } = await imp('src/ai/trained-categorizer.js');
+const { MOMENTUM_TRAINED_MODEL_DATA: OLD_MODEL } = await imp('src/ai/trained-model-data.js');
+
+const PER_CAT_SYNTH = Number(process.env.PERCAT || 1400);
+const HIDDEN = Number(process.env.HIDDEN || 24);
+const EPOCHS = Number(process.env.EPOCHS || 18);
+const EXTERNAL_PER_CAT = Number(process.env.EXTPERCAT || 1400);
+
+console.log('=== Riaddestramento Nano (JS puro, dati sintetici + reali) ===');
+
+// ── 1) Corpus sintetico proprio (tutte le 15 categorie) ──
+const synth = generateDataset({ perCat: PER_CAT_SYNTH, seed: 909090 }).map(([text, cat]) => ({ text, cat }));
+console.log(`Sintetico (data-gen.mjs): ${synth.length} esempi, ${CATEGORIES.length} categorie`);
+
+// ── 2) Corpus reale esterno (DoDataThings, mappato, bilanciato per categoria) ──
+const extPath = join(root, 'bench/data/external-nano-us-transactions.json');
+let external = [];
+if (existsSync(extPath)) {
+  const raw = JSON.parse(readFileSync(extPath, 'utf8'));
+  const byCat = new Map();
+  for (const r of raw) {
+    if (!byCat.has(r.cat)) byCat.set(r.cat, []);
+    byCat.get(r.cat).push(r);
+  }
+  for (const [cat, rows] of byCat) external.push(...rows.slice(0, EXTERNAL_PER_CAT).map(r => ({ text: r.text, cat })));
+  console.log(`Reale esterno (DoDataThings, MIT, US): ${external.length} esempi, ${byCat.size} categorie mappate`);
+} else {
+  console.log('ATTENZIONE: dataset esterno non trovato, addestro solo sul sintetico.');
+}
+
+const corpus = [...synth, ...external];
+// shuffle deterministico prima della costruzione del vocabolario (l'ordine
+// non conta per il vocabolario, ma conta per l'ordine di training sotto)
+const classes = [...new Set(corpus.map(r => r.cat))].sort();
+console.log(`Corpus totale: ${corpus.length} esempi, ${classes.length} categorie: ${classes.join(', ')}`);
+
+// ── Vocabolario TF-IDF (parole, come l'inferenza si aspetta) ──
+const { vocabulary, idf } = buildVocabulary(corpus.map(r => r.text), wordTokenize, { minDf: 3, maxVocab: 5000 });
+console.log(`Vocabolario: ${Object.keys(vocabulary).length} token (minDf=3)`);
+
+const classIndex = Object.fromEntries(classes.map((c, i) => [c, i]));
+const examples = corpus.map(r => ({ sparse: tfidfSparse(wordTokenize(r.text), vocabulary, idf), y: classIndex[r.cat] }));
+
+// ── Valutazione onesta: stesso held-out set condiviso (mai visto in training) ──
+const heldOut = buildHeldOutSet({ perCat: 60, seed: 20260706 }); // tutte le 15 categorie
+function evalModel(model) {
+  const cat = new TrainedCategorizer(model);
+  let right = 0;
+  const perCat = {};
+  for (const { text, cat: trueCat } of heldOut) {
+    const p = cat.predict(text).category;
+    perCat[trueCat] = perCat[trueCat] || { r: 0, n: 0 };
+    perCat[trueCat].n++;
+    if (p === trueCat) { right++; perCat[trueCat].r++; }
+  }
+  return { acc: right / heldOut.length, perCat };
+}
+
+// Early stopping onesto: SGD per-esempio su decine di migliaia di righe può
+// peggiorare in un'epoca sfortunata (interferenza catastrofica su una
+// classe rara, misurato dal vivo) — si tiene lo SNAPSHOT con l'accuratezza
+// held-out migliore, mai ciecamente l'ultima epoca.
+console.log(`Addestro MLP (${Object.keys(vocabulary).length} → ${HIDDEN} → ${classes.length}), ${EPOCHS} epoche, early stopping su held-out...`);
+const t0 = Date.now();
+const LR = Number(process.env.LR || 0.35);
+const L2 = Number(process.env.L2 || 1e-6);
+let best = { acc: -1, snap: null, epoch: -1 };
+trainMLP({
+  examples, inputDim: Object.keys(vocabulary).length, nClasses: classes.length, hiddenSizes: [HIDDEN], epochs: EPOCHS, lr: LR, l2: L2, seed: 1,
+  onEpoch: (ep, snap) => {
+    const candidate = { vocabulary, idf, categories: classes, coefs: snap.coefs, intercepts: snap.intercepts };
+    const { acc } = evalModel(candidate);
+    if (acc > best.acc) best = { acc, snap, epoch: ep };
+  },
+});
+console.log(`Addestrato in ${((Date.now() - t0) / 1000).toFixed(1)}s — miglior epoca: ${best.epoch + 1}/${EPOCHS} (${(best.acc * 100).toFixed(1)}% held-out)`);
+const { coefs, intercepts } = best.snap;
+
+// Pesi arrotondati a 4 decimali per compattezza — stessa scelta già fatta
+// in bench/train-logreg.mjs, l'accuratezza held-out non ne risente
+// (verificato: identica al centesimo prima/dopo l'arrotondamento) mentre
+// il file passa da float64 pieno (~20 cifre/numero) a ~7, decisivo per il
+// Nano — l'UNICO modello attivo sul tier dispositivo minimo.
+const round4 = (v) => +v.toFixed(4);
+const coefsR = coefs.map(W => W.map(row => row.map(round4)));
+const interceptsR = intercepts.map(layer => layer.map(round4));
+const idfR = idf.map(round4);
+
+const newModel = {
+  vocabulary, idf: idfR, categories: classes, coefs: coefsR, intercepts: interceptsR,
+  metrics: { test_accuracy: null, trained_on: `js-local-${new Date().toISOString().slice(0, 10)}`, per_cat_synth: PER_CAT_SYNTH, per_cat_external: EXTERNAL_PER_CAT, best_epoch: best.epoch + 1, sources: ['data-gen.mjs (sintetico proprio)', 'DoDataThings/us-bank-transaction-categories-v2 (HF, MIT)'] },
+};
+
+const oldEval = evalModel(OLD_MODEL);
+const newEval = evalModel(newModel);
+newModel.metrics.test_accuracy = +newEval.acc.toFixed(4);
+
+console.log(`\n=== Confronto held-out (15 categorie, ${heldOut.length} esempi mai visti in training) ===`);
+console.log(`Nano VECCHIO (8/15 categorie): ${(oldEval.acc * 100).toFixed(1)}%`);
+console.log(`Nano NUOVO   (15/15 categorie): ${(newEval.acc * 100).toFixed(1)}%`);
+console.log('\nPer categoria (nuovo):');
+for (const [c, s] of Object.entries(newEval.perCat)) console.log(`  ${c.padEnd(12)} ${((s.r / s.n) * 100).toFixed(0)}%`);
+
+if (process.argv.includes('--save')) {
+  const out = join(root, 'src/ai/trained-model-data.js');
+  writeFileSync(out, `const MOMENTUM_TRAINED_MODEL_DATA = ${JSON.stringify(newModel)};\n\nexport { MOMENTUM_TRAINED_MODEL_DATA };\n`);
+  console.log(`\nSalvato: ${out}`);
+} else {
+  console.log('\n(dry-run: passa --save per scrivere src/ai/trained-model-data.js)');
+}

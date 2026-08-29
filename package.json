@@ -20,6 +20,8 @@
     "bench:public": "node bench/public-bench.mjs",
     "train:eval": "node bench/train-eval.mjs",
     "train:logreg": "node bench/train-logreg.mjs",
+    "train:nano": "node bench/train-nano.mjs",
+    "prepare:nano-data": "node bench/prepare-nano-external-dataset.mjs",
     "train:gate": "node bench/model-regression.mjs",
     "train:income": "node bench/train-income.mjs",
     "bench:income": "node bench/income-bench.mjs",
