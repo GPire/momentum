@@ -3476,13 +3476,13 @@
           <!-- ANALISI TENSOR VIEW -->
           <div id="analysis-view" class="hidden w-full flex-grow min-w-0 space-y-6 sm:space-y-10 animate-slideUpFade">
             <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight" data-i18n-key="navAnalysis">Analisi Tensor</h2>
-            <p class="text-xs text-[var(--on-surface-secondary)]">Dove vanno i tuoi soldi e come andrà a finire il mese</p>
+            <p class="text-xs text-[var(--on-surface-secondary)]" data-i18n-key="alphaSubtitle">Dove vanno i tuoi soldi e come andrà a finire il mese</p>
             
             <div class="analysis-grid gap-6 sm:gap-8">
                <div class="xl:col-span-1 space-y-6 sm:space-y-8">
                  <!-- Budget card -->
                  <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] relative overflow-hidden cursor-pointer" onclick="window.openBudgetEditor()">
-                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg>Budget del mese<span class="eyebrow-extra">tocca per modificare</span></h3>
+                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg><span data-i18n-key="alphaBudgetTitle">Budget del mese</span><span class="eyebrow-extra" data-i18n-key="alphaBudgetTapHint">tocca per modificare</span></h3>
                    <div class="flex flex-wrap justify-between items-end gap-x-2 gap-y-0 mb-2">
                      <p class="text-3xl font-black font-mono tracking-tighter min-w-0 truncate" id="budget-spent">€0</p>
                      <p class="text-xs font-bold text-[var(--on-surface-secondary)] shrink-0" id="budget-limit">su €0</p>
@@ -3497,8 +3497,8 @@
                       progresso calcolato dal risparmio netto reale, mai stimato -->
                  <div id="savings-goals-card" class="card p-6">
                    <div class="flex justify-between items-center mb-2">
-                     <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>I tuoi obiettivi</h3>
-                     <button onclick="window.openGoalEditor()" class="text-[11px] font-bold text-[var(--primary)] underline">+ Nuovo</button>
+                     <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg><span data-i18n-key="alphaGoalsTitle">I tuoi obiettivi</span></h3>
+                     <button onclick="window.openGoalEditor()" class="text-[11px] font-bold text-[var(--primary)] underline" data-i18n-key="alphaGoalsNewBtn">+ Nuovo</button>
                    </div>
                    <div id="savings-goals-container" class="space-y-3"></div>
                  </div>
@@ -3506,29 +3506,29 @@
                  <!-- Estinzione debiti (src/predict/debt-payoff.js): valanga
                       vs palla di neve, calcolo puro, mai un consiglio -->
                  <div class="card p-6">
-                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Debiti e prestiti</h3>
-                   <p class="card-sub">Carta di credito, prestito auto, un prestito fra amici: l'ordine per estinguerli prima, con i numeri di entrambe le strategie.</p>
-                   <button onclick="window.openDebiti()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Il mio piano di estinzione</button>
+                   <h3 class="eyebrow" data-i18n-key="alphaDebtTitle">Debiti e prestiti</h3>
+                   <p class="card-sub" data-i18n-key="alphaDebtSub">Carta di credito, prestito auto, un prestito fra amici: l'ordine per estinguerli prima, con i numeri di entrambe le strategie.</p>
+                   <button onclick="window.openDebiti()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span data-i18n-key="alphaDebtBtn">Il mio piano di estinzione</span></button>
                  </div>
 
                  <!-- Category Doughnut chart -->
                  <div class="card p-6">
-                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3v9l7.5 4.5"/><circle cx="12" cy="12" r="9"/></svg>Dove vanno i tuoi soldi</h3>
-                   <p class="card-sub">La torta delle tue spese: più grande la fetta, più ci spendi</p>
+                   <h3 class="eyebrow" data-i18n-key="alphaWhereGoesTitle">Dove vanno i tuoi soldi</h3>
+                   <p class="card-sub" data-i18n-key="alphaWhereGoesSub">La torta delle tue spese: più grande la fetta, più ci spendi</p>
                    <div class="h-48 relative flex items-center justify-center"><canvas id="category-chart"></canvas></div>
                    <div id="category-chart-legend" class="mt-3 space-y-1.5"></div>
                  </div>
 
                  <!-- Insieme: dividi una spesa (split P2P on-device) -->
                  <div class="card p-6">
-                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Insieme</h3>
-                   <p class="card-sub">Cena, vacanza, casa: dividi una spesa e sai subito chi deve cosa a chi — senza account, tutto sul tuo telefono.</p>
-                   <button onclick="window.openSplitGroup()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7h6M9 12h6M9 17h3"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg>I miei gruppi (dividi le spese)</button>
+                   <h3 class="eyebrow" data-i18n-key="alphaTogetherTitle">Insieme</h3>
+                   <p class="card-sub" data-i18n-key="alphaTogetherSub">Cena, vacanza, casa: dividi una spesa e sai subito chi deve cosa a chi — senza account, tutto sul tuo telefono.</p>
+                   <button onclick="window.openSplitGroup()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7h6M9 12h6M9 17h3"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg><span data-i18n-key="alphaTogetherGroupsBtn">I miei gruppi (dividi le spese)</span></button>
                    <!-- Era bg-black/20 + text-[var(--on-surface-secondary)]: colori fissi pensati solo per
                         tema scuro, in tema chiaro diventava testo quasi invisibile su
                         sfondo chiaro. Sostituito con .btn-action, la stessa convenzione
                         già usata per i pulsanti secondari theme-aware in tutta l'app. -->
-                   <button onclick="window.openSplitExpense()" class="btn-action w-full mt-2 py-2 text-[12px]">Divisione veloce (una spesa)</button>
+                   <button onclick="window.openSplitExpense()" class="btn-action w-full mt-2 py-2 text-[12px]" data-i18n-key="alphaQuickSplitBtn">Divisione veloce (una spesa)</button>
                  </div>
                </div>
                
@@ -3537,7 +3537,7 @@
                  <div class="card p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between order-2">
                    <div class="flex justify-between items-start mb-4">
                      <div>
-                       <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 7-7"/><path d="M17 8h4v4"/></svg>Come cresce il tuo patrimonio</h3>
+                       <h3 class="eyebrow" data-i18n-key="alphaWealthGrowthTitle">Come cresce il tuo patrimonio</h3>
                        <p class="text-xs text-[var(--on-surface-secondary)] mt-1" id="forecast-cagr">Crescita media stimata: 5.0%</p>
                      </div>
                      <span id="discipline-score" class="text-xs font-mono bg-black/40 px-2.5 py-1.5 rounded-lg border border-[var(--outline)] text-[var(--on-surface-secondary)]">Costanza: 50/100</span>
@@ -3545,11 +3545,11 @@
                    
                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                      <div class="bg-[var(--surface-elevated)] p-4 rounded-xl border border-[var(--outline)]">
-                       <p class="text-[11px] font-bold text-[var(--on-surface-secondary)] uppercase">Proiezione 1 Anno</p>
+                       <p class="text-[11px] font-bold text-[var(--on-surface-secondary)] uppercase" data-i18n-key="alphaProjection1y">Proiezione 1 Anno</p>
                        <p class="text-xl font-bold font-mono" id="forecast-1y">€0</p>
                      </div>
                      <div class="bg-[var(--surface-elevated)] p-4 rounded-xl border border-[var(--outline)]">
-                       <p class="text-[11px] font-bold text-[var(--gold)] uppercase">Proiezione 5 Anni</p>
+                       <p class="text-[11px] font-bold text-[var(--gold)] uppercase" data-i18n-key="alphaProjection5y">Proiezione 5 Anni</p>
                        <p class="text-xl font-bold font-mono text-[var(--gold)]" id="forecast-5y">€0</p>
                      </div>
                    </div>
@@ -3561,12 +3561,12 @@
                        <div class="jar-liquid" id="forecast-jar-fill" style="height: 50%;"></div>
                      </div>
                      <div class="flex-grow">
-                       <p class="text-xs font-bold text-[var(--on-surface-secondary)]">Quando potresti vivere di rendita</p>
-                       <p class="text-[10px] text-[var(--on-surface-secondary)]">Tra quanti anni i tuoi risparmi potrebbero mantenerti, al ritmo attuale</p>
+                       <p class="text-xs font-bold text-[var(--on-surface-secondary)]" data-i18n-key="alphaFireTitle">Quando potresti vivere di rendita</p>
+                       <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="alphaFireSub">Tra quanti anni i tuoi risparmi potrebbero mantenerti, al ritmo attuale</p>
                        <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">
-                         Anni stimati: <span id="fire-years" class="text-[var(--gold)] font-bold">Calcolo...</span>
+                         <span data-i18n-key="alphaFireYearsLabel">Anni stimati:</span> <span id="fire-years" class="text-[var(--gold)] font-bold" data-i18n-key="alphaCalculating">Calcolo...</span>
                        </div>
-                       <div class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">Target Capital: <span id="fire-target-val">€0</span></div>
+                       <div class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5"><span data-i18n-key="alphaTargetCapitalLabel">Target Capital:</span> <span id="fire-target-val">€0</span></div>
                        <div class="text-[11px] text-slate-500 mt-0.5" id="fire-coast-note"></div>
                      </div>
                    </div>
@@ -3574,17 +3574,17 @@
 
                  <!-- Scenario What-If Slider -->
                  <div class="card p-6 order-5">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="9" cy="8" r="2.2"/><circle cx="15" cy="16" r="2.2"/></svg>E se… (simulatore)</h3>
-                    <p class="card-sub">"E se risparmiassi X in più al mese?" — muovi la barra e guarda</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaWhatIfTitle">E se… (simulatore)</h3>
+                    <p class="card-sub" data-i18n-key="alphaWhatIfSub">"E se risparmiassi X in più al mese?" — muovi la barra e guarda</p>
                     <div class="bg-black/30 p-4 rounded-xl border border-[var(--outline)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div class="flex-grow">
-                        <span class="text-xs font-bold text-[var(--on-surface-secondary)] block mb-1">Aumenta risparmio mensile:</span>
+                        <span class="text-xs font-bold text-[var(--on-surface-secondary)] block mb-1" data-i18n-key="alphaIncreaseSavingsLabel">Aumenta risparmio mensile:</span>
                         <input type="range" id="scenario-slider" min="0" max="1000" step="50" value="0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
                       </div>
                       <div class="text-right shrink-0">
                         <span class="text-lg font-bold font-mono text-[var(--green)] block" id="scenario-extra-val">+€0/m</span>
                         <span class="text-[11px] text-[var(--on-surface-secondary)]" id="scenario-future-impact">5 Anni: +€0</span>
-                        <span class="text-[10px] text-slate-600 block">se va male – tipico – se va bene (Monte Carlo)</span>
+                        <span class="text-[10px] text-slate-600 block" data-i18n-key="alphaMonteCarloRange">se va male – tipico – se va bene (Monte Carlo)</span>
                       </div>
                     </div>
                     <!-- Confronto strategie per QUESTO risparmio extra: stesso
@@ -3597,7 +3597,7 @@
                     <!-- What-If v2 per categoria (src/predict/what-if.js): taglia/aumenta
                          una categoria e vedi l'effetto reale, compresa la catena causale -->
                     <div class="bg-black/30 p-4 rounded-xl border border-[var(--outline)] mt-3">
-                      <span class="text-xs font-bold text-[var(--on-surface-secondary)] block mb-2">Oppure: e se cambiassi una categoria?</span>
+                      <span class="text-xs font-bold text-[var(--on-surface-secondary)] block mb-2" data-i18n-key="alphaWhatIfCategoryLabel">Oppure: e se cambiassi una categoria?</span>
                       <div class="flex gap-2 items-center mb-2">
                         <select id="whatif-cat" class="bg-black/40 border border-[var(--glass-border)] rounded-lg p-2 text-xs flex-grow min-w-0"></select>
                         <input type="range" id="whatif-slider" min="-50" max="50" step="10" value="-20" class="flex-grow h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
@@ -3615,25 +3615,25 @@
 
                  <!-- Investimenti (src/alpha/): quanto puoi investire + regime -->
                  <div class="card p-6 order-4" id="invest-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>Investimenti</h3>
-                    <p class="card-sub">Quanto puoi mettere sul mercato senza rompere il budget — prima il fondo d'emergenza</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaInvestTitle">Investimenti</h3>
+                    <p class="card-sub" data-i18n-key="alphaInvestSub">Quanto puoi mettere sul mercato senza rompere il budget — prima il fondo d'emergenza</p>
                     <p id="invest-surplus" class="text-2xl font-black font-mono text-[var(--gold)] mb-1">—</p>
                     <p id="invest-note" class="text-[11px] text-[var(--on-surface-secondary)] mb-2"></p>
                     <div id="invest-fund-bar" class="mb-2"></div>
                     <p id="invest-regime" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Non è consulenza finanziaria: sono proprietà calcolate sui tuoi dati e su statistiche storiche/simulate.</p>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="alphaInvestDisclaimer">Non è consulenza finanziaria: sono proprietà calcolate sui tuoi dati e su statistiche storiche/simulate.</p>
                  </div>
 
                  <!-- Patrimonio netto unificato (src/alpha/net-worth.js): UN numero
                       = contante + investimenti − debiti. Sotto: proiezione Monte Carlo
                       per strategia (ipotesi dichiarate, mai promesse). -->
                  <div class="card p-6 order-1" id="net-worth-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14" r="1"/></svg>Patrimonio netto</h3>
-                    <p class="card-sub">Tutto quello che hai, in un numero: contante + investimenti</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaNetWorthTitle">Patrimonio netto</h3>
+                    <p class="card-sub" data-i18n-key="alphaNetWorthSub">Tutto quello che hai, in un numero: contante + investimenti</p>
                     <p id="net-worth-total" class="text-3xl font-black font-mono text-[var(--gold)] mb-1">—</p>
                     <p id="net-worth-breakdown" class="text-[11px] text-[var(--on-surface-secondary)] mb-3"></p>
                     <div id="net-worth-projection" class="overflow-x-auto"></div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Proiezione probabilistica su ipotesi storiche dichiarate, non garantite. Non è consulenza finanziaria né promessa di rendimento.</p>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="alphaNetWorthDisclaimer">Proiezione probabilistica su ipotesi storiche dichiarate, non garantite. Non è consulenza finanziaria né promessa di rendimento.</p>
                     <div id="sector-ranking" class="overflow-x-auto mt-4"></div>
                     <!-- Notizie sulle posizioni davvero possedute (Cantiere H del
                          piano: fetchAssetNewsCascade esisteva già ma si attivava
@@ -3666,8 +3666,8 @@
                       davvero il tuo Paese, e lo scarto storico col Paese di
                       riferimento (es. BTP-Bund per un utente italiano). -->
                  <div class="card p-6 order-4" id="country-rates-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 4 5.7 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.7-4-9s1.5-6.5 4-9z"/></svg>Tassi nel mondo</h3>
-                    <p class="card-sub">Quanto il ciclo dei tassi americano riguarda davvero il tuo Paese — 12 Paesi, 419 mesi, stessa fonte per tutti</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaRatesWorldTitle">Tassi nel mondo</h3>
+                    <p class="card-sub" data-i18n-key="alphaRatesWorldSub">Quanto il ciclo dei tassi americano riguarda davvero il tuo Paese — 12 Paesi, 419 mesi, stessa fonte per tutti</p>
                     <div id="country-rates-panel" class="overflow-x-auto"></div>
                  </div>
 
@@ -3677,8 +3677,8 @@
                       spuri spariscono). La scoperta: la borsa anticipa
                       l'economia, non il contrario. -->
                  <div class="card p-6 order-4" id="macro-causality-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8 16.5L16 7.5"/><path d="M13 7.5h3v3"/></svg>Causa ed effetto</h3>
-                    <p class="card-sub">Cosa precede davvero cosa, misurato — mai assunto</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaCauseEffectTitle">Causa ed effetto</h3>
+                    <p class="card-sub" data-i18n-key="alphaCauseEffectSub">Cosa precede davvero cosa, misurato — mai assunto</p>
                     <div id="macro-causality-panel" class="overflow-x-auto"></div>
                  </div>
 
@@ -3690,8 +3690,8 @@
                       un tocco — mai due schermate diverse per bambino ed
                       esperto, la stessa con più o meno dettaglio aperto. -->
                  <div class="card p-6 order-4" id="market-overview-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Quadro di mercato</h3>
-                    <p class="card-sub">Cosa sta succedendo adesso, in una frase — e nei numeri veri se vuoi guardare oltre</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaMarketOverviewTitle">Quadro di mercato</h3>
+                    <p class="card-sub" data-i18n-key="alphaMarketOverviewSub">Cosa sta succedendo adesso, in una frase — e nei numeri veri se vuoi guardare oltre</p>
                     <div id="market-overview-panel"></div>
                  </div>
 
@@ -3700,8 +3700,8 @@
                       di posizionamento COT, prima raggiungibili solo dalla
                       chat QA, mai come pannello da scorrere a colpo d'occhio. -->
                  <div class="card p-6 order-4" id="trader-desk-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 19h16M7 15v4M12 10v9M17 5v14"/></svg>Per chi investe attivamente</h3>
-                    <p class="card-sub">Indice di paura e posizionamento estremo — misurati, mai una direzione</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaTraderDeskTitle">Per chi investe attivamente</h3>
+                    <p class="card-sub" data-i18n-key="alphaTraderDeskSub">Indice di paura e posizionamento estremo — misurati, mai una direzione</p>
                     <div id="trader-desk-panel"></div>
                  </div>
 
@@ -3713,8 +3713,8 @@
                       un equipesato sugli STESSI scenari → il costo misurato
                       della concentrazione, e da quali settori arriva. -->
                  <div class="card p-6 order-2" id="portfolio-tail-risk-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M5 6c0 7 3 12 7 12s7-5 7-12"/><path d="M12 18v3"/></svg>Quanto rischi davvero</h3>
-                    <p class="card-sub">Quanto perde il tuo portafoglio nei mesi peggiori, e quanto ti costa com'è composto</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaTailRiskTitle">Quanto rischi davvero</h3>
+                    <p class="card-sub" data-i18n-key="alphaTailRiskSub">Quanto perde il tuo portafoglio nei mesi peggiori, e quanto ti costa com'è composto</p>
                     <div id="portfolio-tail-risk-panel"></div>
                  </div>
 
@@ -3728,8 +3728,8 @@
                       vaglio che un desk di risk management applica a un
                       trader). Mai un consiglio: solo se il numero regge. -->
                  <div class="card p-6 order-2" id="portfolio-track-record-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.5 4L8 13.5 3 9l6.5-.5z"/></svg>Bravura o fortuna?</h3>
-                    <p class="card-sub">La tua allocazione, messa alla prova su 331 mesi reali: il risultato regge al controllo statistico o no</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaTrackRecordTitle">Bravura o fortuna?</h3>
+                    <p class="card-sub" data-i18n-key="alphaTrackRecordSub">La tua allocazione, messa alla prova su 331 mesi reali: il risultato regge al controllo statistico o no</p>
                     <div id="portfolio-track-record-panel"></div>
                  </div>
 
@@ -3742,8 +3742,8 @@
                       costretto a vendere? È il punto in cui il pannello
                       storico dei settori entra nel modello di cassa. -->
                  <div class="card p-6 order-2" id="diagnosi-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/><path d="M11 8v6M8 11h6"/></svg>La diagnosi</h3>
-                    <p class="card-sub">Le domande che si fa chi gestisce patrimoni, sul tuo portafoglio — misurate, mai consigli</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaDiagnosisTitle">La diagnosi</h3>
+                    <p class="card-sub" data-i18n-key="alphaDiagnosisSub">Le domande che si fa chi gestisce patrimoni, sul tuo portafoglio — misurate, mai consigli</p>
                     <div id="diagnosi-panel"></div>
                  </div>
 
@@ -3758,8 +3758,8 @@
                       stessa cifra totale, stesso arco, versata sempre uguale
                       (nessun senno di poi). -->
                  <div class="card p-6 order-2" id="divario-comportamento-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 8-9"/><path d="M3 21h18"/><circle cx="8" cy="12" r="1.5"/><circle cx="12" cy="15" r="1.5"/></svg>Il tuo tempismo</h3>
-                    <p class="card-sub">Quanto ti è costato — o reso — il momento in cui hai investito, sui tuoi movimenti veri</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaTimingTitle">Il tuo tempismo</h3>
+                    <p class="card-sub" data-i18n-key="alphaTimingSub">Quanto ti è costato — o reso — il momento in cui hai investito, sui tuoi movimenti veri</p>
                     <div id="divario-comportamento-panel"></div>
                  </div>
 
@@ -3767,11 +3767,11 @@
                       speso questo mese rispetto al mese scorso, per categoria" —
                       dati reali già indicizzati per mese, nessun nuovo motore. -->
                  <div class="card p-6 order-1" id="period-compare-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-6 3 3 5-8"/></svg>Confronto periodi</h3>
-                    <p class="card-sub">Come cambia la spesa per categoria rispetto al periodo prima</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaPeriodCompareTitle">Confronto periodi</h3>
+                    <p class="card-sub" data-i18n-key="alphaPeriodCompareSub">Come cambia la spesa per categoria rispetto al periodo prima</p>
                     <div class="flex gap-1.5 mb-3">
-                      <button type="button" class="qa-period-btn period-cmp-btn text-[11px] px-2 py-0.5 rounded-full qa-period-active" data-period-compare="month">Mese vs mese scorso</button>
-                      <button type="button" class="qa-period-btn period-cmp-btn text-[11px] px-2 py-0.5 rounded-full" data-period-compare="year">Anno vs anno scorso</button>
+                      <button type="button" class="qa-period-btn period-cmp-btn text-[11px] px-2 py-0.5 rounded-full qa-period-active" data-period-compare="month" data-i18n-key="alphaPeriodMonthBtn">Mese vs mese scorso</button>
+                      <button type="button" class="qa-period-btn period-cmp-btn text-[11px] px-2 py-0.5 rounded-full" data-period-compare="year" data-i18n-key="alphaPeriodYearBtn">Anno vs anno scorso</button>
                     </div>
                     <div id="period-compare-body"></div>
                  </div>
@@ -3782,8 +3782,8 @@
                       Ora un layout a cerchio con archi reali (spessore = forza
                       della co-variazione misurata, colore = direzione). -->
                  <div class="card p-6 order-1" id="causal-graph-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M10.5 7l-4 9.5M13.5 7l4 9.5"/></svg>Categorie collegate</h3>
-                    <p class="card-sub">Quali spese si muovono insieme nei tuoi dati (correlazione misurata, non causalità certa)</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaLinkedCatsTitle">Categorie collegate</h3>
+                    <p class="card-sub" data-i18n-key="alphaLinkedCatsSub">Quali spese si muovono insieme nei tuoi dati (correlazione misurata, non causalità certa)</p>
                     <div id="causal-graph-viz"></div>
                  </div>
 
@@ -3792,11 +3792,11 @@
                       un consiglio di acquisto — solo dati e la possibilità di
                       essere avvisati quando un prezzo tocca una soglia scelta. -->
                  <div class="card p-6 order-2" id="asset-search-card">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cerca un asset</h3>
-                    <p class="card-sub">Cripto, azioni o ETF: prezzo, notizie reali e avvisi di prezzo</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaAssetSearchTitle">Cerca un asset</h3>
+                    <p class="card-sub" data-i18n-key="alphaAssetSearchSub">Cripto, azioni o ETF: prezzo, notizie reali e avvisi di prezzo</p>
                     <div class="flex gap-2 mt-2">
-                      <input type="text" id="asset-search-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Es. bitcoin, Apple, XLK..." onkeydown="if(event.key==='Enter') window.runAssetSearch()" />
-                      <button onclick="window.runAssetSearch()" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Cerca</button>
+                      <input type="text" id="asset-search-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Es. bitcoin, Apple, XLK..." data-i18n-placeholder="alphaAssetSearchPlaceholder" onkeydown="if(event.key==='Enter') window.runAssetSearch()" />
+                      <button onclick="window.runAssetSearch()" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="alphaSearchBtn">Cerca</button>
                     </div>
                     <!-- Suggerimenti rapidi: una casella vuota non invita a nulla —
                          un tocco su un asset comune parte subito, utile anche solo
@@ -3805,19 +3805,19 @@
                       <button type="button" onclick="window.quickAssetSearch('Bitcoin')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.0s">Bitcoin</button>
                       <button type="button" onclick="window.quickAssetSearch('S&amp;P 500')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.05s">S&amp;P 500</button>
                       <button type="button" onclick="window.quickAssetSearch('Apple')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.1s">Apple</button>
-                      <button type="button" onclick="window.quickAssetSearch('Oro')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.15s">Oro</button>
+                      <button type="button" onclick="window.quickAssetSearch('Oro')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.15s" data-i18n-key="alphaGoldChip">Oro</button>
                     </div>
                     <div id="asset-search-results" class="mt-2 flex flex-col gap-1"></div>
                     <div id="asset-detail" class="mt-3"></div>
                     <div id="asset-watchlist" class="mt-3 flex flex-col gap-1.5"></div>
                     <div id="price-alerts-list" class="mt-3 flex flex-col gap-1.5"></div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Gli avvisi arrivano come notifica reale mentre l'app è aperta o in background di recente; ad app completamente chiusa il sistema operativo decide quando ricontrollare (di solito entro qualche ora) — nessuna app on-device senza server può garantire un controllo istantaneo ad app chiusa.</p>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="alphaAlertsDisclaimer">Gli avvisi arrivano come notifica reale mentre l'app è aperta o in background di recente; ad app completamente chiusa il sistema operativo decide quando ricontrollare (di solito entro qualche ora) — nessuna app on-device senza server può garantire un controllo istantaneo ad app chiusa.</p>
                  </div>
 
                  <!-- Heatmap grid -->
                  <div class="card p-6 order-7">
-                    <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Le tue spese giorno per giorno</h3>
-                    <p class="card-sub">Più il giorno è acceso, più hai speso — tocca un giorno per la cifra</p>
+                    <h3 class="eyebrow" data-i18n-key="alphaHeatmapTitle">Le tue spese giorno per giorno</h3>
+                    <p class="card-sub" data-i18n-key="alphaHeatmapSub">Più il giorno è acceso, più hai speso — tocca un giorno per la cifra</p>
                     <div class="heatmap-grid" id="heatmap-grid"></div>
                     <div id="heatmap-day-detail" class="mt-3"></div>
                  </div>
@@ -3825,10 +3825,10 @@
                  <!-- Ghost Charge Radar: abbonamenti trovati (predittivo, dal tuo storico) -->
                  <div class="card p-6 order-3" id="subscriptions-card">
                     <div class="flex items-center justify-between mb-1">
-                      <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 12V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 12v3a4 4 0 0 1-4 4H3"/></svg>Abbonamenti trovati</h3>
+                      <h3 class="eyebrow !mb-0" data-i18n-key="alphaSubsTitle">Abbonamenti trovati</h3>
                       <span id="subs-total" class="text-sm font-black font-mono text-[var(--on-surface)]"></span>
                     </div>
-                    <p class="card-sub">Spese che si ripetono ogni mese — scovate dal tuo storico, col prossimo addebito previsto.</p>
+                    <p class="card-sub" data-i18n-key="alphaSubsSub">Spese che si ripetono ogni mese — scovate dal tuo storico, col prossimo addebito previsto.</p>
                     <div id="subs-list" class="space-y-2"></div>
                  </div>
 
