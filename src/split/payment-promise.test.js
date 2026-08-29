@@ -57,8 +57,15 @@ test('il cuscinetto viene rispettato: "non scoperto" non vuol dire "a zero"', ()
 
 test('DALLA CASSA ESCE SOLO UNA DATA: nessun saldo, nessuno stipendio', () => {
   const f = forecast([-800, -200, 350, 900]);
-  const v = earliestComfortableDate(f, 40);
-  const p = makePromise({ memberId: 'm1', importo: 40, valutazione: v });
+  // `now` fissato in ENTRAMBE le chiamate (mai Date.now() reale): sia `at`
+  // (epoch millisecondi) sia `data` (derivata dallo stesso `now`) possono
+  // contenere per puro caso una qualunque sequenza di 3 cifre — incluso
+  // "800" — rendendo questo test instabile senza che sia mai uscito un
+  // dato vero. Un valore fisso e verificato (nessuna delle cifre cercate
+  // compare in "1000000000000") rende il test deterministico, non solo
+  // statisticamente improbabile da rompere.
+  const v = earliestComfortableDate(f, 40, { now: 1000000000000 });
+  const p = makePromise({ memberId: 'm1', importo: 40, valutazione: v, now: 1000000000000 });
   const serializzato = JSON.stringify(p);
   for (const numero of ['-800', '-200', '350', '900', '800']) {
     assert.ok(!serializzato.includes(numero), `il saldo ${numero} e' uscito dal dispositivo`);
