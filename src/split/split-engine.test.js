@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, encodeGroupInvite, decodeGroupShare, settlementCounts, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, minimalSettlementDetailed, settlementView, settlementVerificationLog, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, encodeGroupInvite, decodeGroupShare, settlementCounts, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames } = await import('./split-engine.js');
 
 test('SEMPLIFICAZIONE: due coppie a somma-zero → 2 bonifici (non 4)', () => {
   const bal = { A: 10, B: -10, C: 10, D: -10 };
@@ -1007,4 +1007,64 @@ test('displayNames: usata da describeGroupChanges — un membro con nome duplica
   const after = { ...before, members: [...before.members, { id: 'm2', name: 'Marco' }] };
   const { changes } = describeGroupChanges(before, after);
   assert.ok(changes.some((c) => c.includes('Marco #2') || c.includes('#2')), `il messaggio deve distinguere il nuovo Marco dal primo, ottenuto: ${JSON.stringify(changes)}`);
+});
+
+// ── minimalSettlementDetailed / settlementVerificationLog (2026-08-30) ──
+// Gap trovato nella ricerca competitor su Splitwise (ANALISI_COMPETITOR.md,
+// §7): il solver esatto c'è già, ma non un modo leggibile di verificarlo.
+
+test('minimalSettlementDetailed: stessa lista di minimalSettlement, più il metodo usato ("exact" su un caso piccolo)', () => {
+  let g = createGroup({ members: ['Anna', 'Bea', 'Carlo'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 90 });
+  const bal = computeBalances(g);
+  const plain = minimalSettlement(bal);
+  const detailed = minimalSettlementDetailed(bal);
+  assert.deepEqual(detailed.transfers, plain, 'minimalSettlement deve restare un involucro identico, stesso identico output');
+  assert.equal(detailed.method, 'exact');
+});
+
+test('minimalSettlementDetailed: nessun saldo da sistemare → method "none", lista vuota', () => {
+  assert.deepEqual(minimalSettlementDetailed({}), { transfers: [], method: 'none' });
+});
+
+test('minimalSettlementDetailed: oltre EXACT_MAX_N persone → method "greedy", dichiarato onestamente', () => {
+  const bal = {};
+  for (let i = 0; i < 30; i++) bal['p' + i] = i % 2 === 0 ? 10 : -10;
+  const { method } = minimalSettlementDetailed(bal);
+  assert.equal(method, 'greedy');
+});
+
+test('settlementVerificationLog: ogni passaggio mostra il saldo di chi paga e chi riceve PRIMA e DOPO, e il log è verificato (torna a zero)', () => {
+  let g = createGroup({ members: ['Anna', 'Bea', 'Carlo'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 90 }); // Bea e Carlo devono 30 ciascuno ad Anna
+  const log = settlementVerificationLog(g);
+  assert.equal(log.method, 'exact');
+  assert.equal(log.steps.length, 2);
+  assert.ok(log.verified, 'i saldi devono tornare esattamente a zero applicando i passaggi in ordine');
+  for (const s of log.steps) {
+    // chi paga: il saldo (negativo, è in debito) si avvicina a zero salendo
+    assert.ok(s.fromBalanceAfter > s.fromBalanceBefore || s.fromBalanceAfter === 0);
+    // chi riceve: il saldo (positivo, gli è dovuto) si avvicina a zero scendendo
+    assert.ok(s.toBalanceAfter < s.toBalanceBefore || s.toBalanceAfter === 0);
+    assert.ok(s.fromName && s.toName, 'i nomi devono essere risolti, non solo gli id');
+  }
+  // l'ultimo passaggio deve lasciare TUTTI a zero (nessun saldo residuo nascosto)
+  assert.ok(Object.values(log.finalBalances).every((v) => Math.abs(v) < 0.01));
+});
+
+test('settlementVerificationLog: gruppo già in pareggio → nessun passaggio, comunque verificato', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] });
+  const log = settlementVerificationLog(g);
+  assert.equal(log.method, 'none');
+  assert.deepEqual(log.steps, []);
+  assert.ok(log.verified);
+});
+
+test('settlementVerificationLog: catena a 3 persone (A paga per B, B paga per C) — verificato passo per passo, non solo nel totale', () => {
+  let g = createGroup({ members: ['A', 'B', 'C'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 30, shares: { equalAmong: ['m1'] } });
+  g = addSharedExpense(g, { payer: 'm1', amount: 30, shares: { equalAmong: ['m2'] } });
+  const log = settlementVerificationLog(g);
+  assert.ok(log.verified);
+  assert.ok(log.steps.length >= 1);
 });

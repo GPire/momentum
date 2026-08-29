@@ -345,6 +345,32 @@ test('t: shareWaMsg (messaggio WhatsApp d\'invito) porta sempre il link da solo 
   }
 });
 
+// ── Log di verifica del settlement (2026-08-30): idea #1 da
+// ANALISI_COMPETITOR.md §7 (Splitwise), collega window.openSettlementVerification
+// in main.js a settlementVerificationLog in split-engine.js. ──
+
+test('t: tutte le chiavi settleVerify* esistono nelle 7 lingue coperte, mai un fallback sulla chiave grezza', () => {
+  const chiavi = [
+    'settleVerifyCta', 'settleVerifyTitle', 'settleVerifyMethodExact', 'settleVerifyMethodGreedy',
+    'settleVerifyStepArrow', 'settleVerifyBeforeAfter', 'settleVerifiedYes', 'settleVerifiedNo',
+    'settleVerifyClose',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'Marco', 'Giulia', '12,50 €');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: settleVerifyStepArrow/settleVerifyBeforeAfter interpolano correttamente nomi e importo in ogni lingua', () => {
+  assert.equal(t('settleVerifyStepArrow', 'it', 'Marco', 'Giulia', '12,50 €'), 'Marco → Giulia: 12,50 €');
+  assert.equal(t('settleVerifyStepArrow', 'en', 'Marco', 'Giulia', '€12.50'), 'Marco → Giulia: €12.50');
+  assert.equal(t('settleVerifyBeforeAfter', 'it', 'Marco', '-12,50 €', '0,00 €'), 'Marco: da -12,50 € a 0,00 €');
+  assert.equal(t('settleVerifyBeforeAfter', 'en', 'Marco', '-€12.50', '€0.00'), 'Marco: from -€12.50 to €0.00');
+});
+
 test('t: il portoghese (Brasile) copre lo stesso catalogo genesis*/dash*/wn*/cat* già coperto da it/en/de/fr/es/nl', () => {
   const chiavi = [
     'genesisTagline', 'genesisStart', 'dashOggiPuoiSpendere', 'dashImportTitle',

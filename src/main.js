@@ -138,7 +138,7 @@ import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog } from './split/split-engine.js';
 // Codice d'invito corto e leggibile (src/split/invite-codec.js): il link che
 // finisce su WhatsApp era lungo 1.759 caratteri e faceva paura a chi lo
 // riceveva. Qui si comprime, il contenuto va nel fragment (mai al server) e la
@@ -7647,6 +7647,7 @@ window.openSplitGroup = (openId = null) => {
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>Chi deve cosa a chi (meno bonifici possibili)</div>
           ${(() => { const c = settlementCounts(g); return c.saved > 0 ? `<div class="text-[11px] text-emerald-300 mb-1.5">Semplificato: <b>${c.simplified} pagament${c.simplified === 1 ? 'o' : 'i'}</b> invece di ${c.raw} — ${c.saved} in meno.</div>` : ''; })()}
           ${settleRows}
+          ${transfers.length ? `<button onclick="window.openSettlementVerification('${g.id}')" class="text-[11px] text-[var(--primary)] underline mt-2">${tCh('settleVerifyCta', __uiLang)}</button>` : ''}
         </div>
         <div class="flex gap-2">
           <button id="sg-share" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
@@ -7795,6 +7796,47 @@ window.openExpenseChat = (groupId, expenseId) => {
     });
   };
   render();
+};
+
+// Log di verifica del settlement (ANALISI_COMPETITOR.md §7, idea #1 da
+// Splitwise): il gruppo mostra già "chi deve cosa a chi" ma mai il PERCHÉ —
+// qui il minimo di bonifici (settlementVerificationLog, split-engine.js)
+// diventa una sequenza leggibile e verificata passo-passo, mai solo un
+// risultato da fidarsi sulla parola.
+window.openSettlementVerification = (groupId) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const g = (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
+  if (!g) { window.openSplitGroup(); return; }
+  const gSaldo = groupForSettlement(g);
+  const { method, steps, verified } = settlementVerificationLog(gSaldo);
+
+  const stepRows = steps.map(s => `
+    <div class="py-2 border-b border-[var(--outline)] last:border-0">
+      <div class="text-[13px] font-bold">${esc(tCh('settleVerifyStepArrow', __uiLang, s.fromName, s.toName, eur(s.amount)))}</div>
+      <div class="text-[11px] text-[var(--on-surface-secondary)] font-mono">${esc(tCh('settleVerifyBeforeAfter', __uiLang, s.fromName, eur(s.fromBalanceBefore), eur(s.fromBalanceAfter)))}</div>
+      <div class="text-[11px] text-[var(--on-surface-secondary)] font-mono">${esc(tCh('settleVerifyBeforeAfter', __uiLang, s.toName, eur(s.toBalanceBefore), eur(s.toBalanceAfter)))}</div>
+    </div>`).join('');
+
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="flex items-center gap-2">
+        <button id="sv-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
+        <span class="font-black text-sm">${esc(tCh('settleVerifyTitle', __uiLang))}</span>
+      </div>
+      <div class="flex items-center gap-2 py-2 px-3 rounded-xl ${method === 'exact' ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-amber-500/10 border border-amber-500/20'}">
+        <span class="text-[12px] ${method === 'exact' ? 'text-emerald-300' : 'text-amber-300'}">${esc(method === 'exact' ? tCh('settleVerifyMethodExact', __uiLang) : tCh('settleVerifyMethodGreedy', __uiLang))}</span>
+      </div>
+      <div class="card p-3">${stepRows}</div>
+      <div class="flex items-center gap-2 py-2 px-3 rounded-xl ${verified ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-[var(--red)]/10 border border-[color-mix(in_srgb,var(--red)_30%,transparent)]'}">
+        <svg class="w-4 h-4 shrink-0 ${verified ? 'text-emerald-400' : 'text-[var(--red)]'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${verified ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M12 9v4M12 17h.01"/>'}</svg>
+        <span class="text-[12px] font-bold ${verified ? 'text-emerald-400' : 'text-[var(--red)]'}">${esc(verified ? tCh('settleVerifiedYes', __uiLang) : tCh('settleVerifiedNo', __uiLang))}</span>
+      </div>
+      <button id="sv-close" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(tCh('settleVerifyClose', __uiLang))}</button>
+    </div>`);
+
+  $('#sv-back')?.addEventListener('click', () => window.openSplitGroup(groupId));
+  $('#sv-close')?.addEventListener('click', () => window.openSplitGroup(groupId));
 };
 
 // Piano di estinzione debiti (src/predict/debt-payoff.js) — gap trovato via

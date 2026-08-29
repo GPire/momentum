@@ -270,19 +270,28 @@ function popcount(x) { let c = 0; while (x) { x &= x - 1; c++; } return c; }
 // nullo; oltre, o se l'esplorazione sfora il budget, greedy near-ottimo.
 // Sempre corretto: azzera tutti i saldi. Piu' potente di Splitwise/Settle Up,
 // che semplificano con euristiche di tipo greedy.
-export function minimalSettlement(balances) {
+// Come minimalSettlement, ma dichiara anche COME ci è arrivato ('exact' —
+// minimo assoluto dimostrato — o 'greedy', quando il problema supera il
+// budget calcolabile su questo dispositivo). Estratta il 2026-08-30 per
+// alimentare settlementVerificationLog() sotto — il gap reale trovato nella
+// ricerca competitor su Splitwise: il solver esatto c'è già, ma non mostra
+// mai il "perché" in modo leggibile, e almeno un utente Splitwise riporta
+// di non fidarsi delle riconciliazioni automatiche (ANALISI_COMPETITOR.md,
+// §7). minimalSettlement() sotto resta un involucro sottile: stessa firma,
+// stesso comportamento, NESSUN chiamante esistente deve cambiare.
+export function minimalSettlementDetailed(balances) {
   const entries = Object.entries(balances).map(([m, v]) => ({ m, v: round2(v) })).filter(e => Math.abs(e.v) > EPS);
   const n = entries.length;
-  if (n === 0) return [];
-  if (n > EXACT_MAX_N) return greedySettle(entries);
+  if (n === 0) return { transfers: [], method: 'none' };
+  if (n > EXACT_MAX_N) return { transfers: greedySettle(entries), method: 'greedy' };
 
   const cents = entries.map(e => Math.round(e.v * 100));
   // Se i saldi non sommano esattamente a zero (arrotondamenti a monte), nessuna
   // partizione esiste: il greedy resta comunque corretto e chiude tutto.
-  if (cents.reduce((s, c) => s + c, 0) !== 0) return greedySettle(entries);
+  if (cents.reduce((s, c) => s + c, 0) !== 0) return { transfers: greedySettle(entries), method: 'greedy' };
 
   const blocks = zeroSumMinimalBlocks(cents);
-  if (!blocks) return greedySettle(entries); // budget sforato → onestamente greedy
+  if (!blocks) return { transfers: greedySettle(entries), method: 'greedy' }; // budget sforato → onestamente greedy
 
   // Ogni blocco viene provato solo dal mask che ha il suo bit piu' basso come
   // primo bit libero: cosi' ogni partizione e' generata una volta sola.
@@ -310,7 +319,7 @@ export function minimalSettlement(balances) {
     return bestVal;
   };
   const full = n === 32 ? -1 : (1 << n) - 1;
-  if (solve(full) < 0 || dpOverflow) return greedySettle(entries);
+  if (solve(full) < 0 || dpOverflow) return { transfers: greedySettle(entries), method: 'greedy' };
 
   const tx = []; let mask = full;
   while (mask) {
@@ -318,7 +327,11 @@ export function minimalSettlement(balances) {
     const sub = []; for (let i = 0; i < n; i++) if (s & (1 << i)) sub.push({ ...entries[i] });
     tx.push(...greedySettle(sub)); mask ^= s;
   }
-  return tx;
+  return { transfers: tx, method: 'exact' };
+}
+
+export function minimalSettlement(balances) {
+  return minimalSettlementDetailed(balances).transfers;
 }
 
 // Statistica per la UI: quanti pagamenti servirebbero SENZA semplificazione
@@ -387,6 +400,52 @@ export function settlementView(group) {
   const balances = computeBalances(group);
   const transfers = minimalSettlement(balances).map(t => ({ ...t, fromName: byId[t.from], toName: byId[t.to] }));
   return { balances, transfers, total: round2(group.expenses.reduce((s, e) => s + e.amount, 0)) };
+}
+
+// ── LOG DI VERIFICA DEL SETTLEMENT (2026-08-30) ──────────────────────────────
+// Gap reale trovato nella ricerca competitor (ANALISI_COMPETITOR.md, §7):
+// Splitwise mostra IL RISULTATO del suo debt-simplification (chi paga chi),
+// ma non un modo leggibile di VERIFICARE che sia corretto — almeno un utente
+// riporta di non fidarsi delle riconciliazioni automatiche e di dover
+// esportare tutto per controllare a mano. Momentum ha già il solver esatto
+// (minimalSettlementDetailed sopra); questa funzione lo fa RACCONTARE cosa
+// ha fatto, passo per passo, invece di limitarsi a mostrare il totale.
+//
+// Non è un export Excel: è una traccia leggibile — ogni passaggio mostra il
+// saldo di chi paga e chi riceve PRIMA e DOPO quel bonifico, così l'utente
+// può controllare a occhio, un passaggio alla volta, senza fidarsi e basta.
+// `verified` è un controllo aritmetico VERO (non un'etichenda decorativa):
+// applica ogni trasferimento in sequenza e conferma che ogni saldo torni a
+// zero alla fine — se per un bug futuro non tornasse, questo campo lo dice,
+// non lo nasconde.
+export function settlementVerificationLog(group) {
+  const byId = Object.fromEntries(group.members.map(m => [m.id, m.name]));
+  const balances = computeBalances(group);
+  const { transfers, method } = minimalSettlementDetailed(balances);
+
+  const running = { ...balances };
+  const steps = transfers.map((t) => {
+    const fromBalanceBefore = round2(running[t.from] ?? 0);
+    const toBalanceBefore = round2(running[t.to] ?? 0);
+    running[t.from] = round2(fromBalanceBefore + t.amount); // meno debito (si avvicina a 0)
+    running[t.to] = round2(toBalanceBefore - t.amount);     // meno credito (si avvicina a 0)
+    return {
+      from: t.from, fromName: byId[t.from],
+      to: t.to, toName: byId[t.to],
+      amount: t.amount,
+      fromBalanceBefore, fromBalanceAfter: running[t.from],
+      toBalanceBefore, toBalanceAfter: running[t.to],
+    };
+  });
+
+  const verified = Object.values(running).every((v) => Math.abs(v) <= EPS);
+
+  return {
+    method,          // 'exact' (minimo dimostrato) | 'greedy' (budget di calcolo superato) | 'none' (già tutto a zero)
+    steps,           // un passaggio leggibile per bonifico, nell'ordine in cui va eseguito
+    verified,        // true SOLO se ogni saldo torna davvero a zero applicando i passaggi in ordine
+    finalBalances: running,
+  };
 }
 
 // DIVISIONE ISTANTANEA (semplice per chiunque): "quanto in totale, in quante
