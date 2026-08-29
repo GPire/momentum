@@ -8936,12 +8936,12 @@ function renderNetWorth() {
     liabilities: VaultDAO.state.liabilities || 0,
   });
   totalEl.textContent = formatMoney(n.total);
-  const parts = [`contante ${formatMoney(n.cash)}`];
+  const parts = [tCh('nwCashLine', __uiLang, formatMoney(n.cash))];
   const nowcasted = n.positions?.some(p => p.stale && p.nowcast);
   const atCost = n.positions?.some(p => p.stale && !p.nowcast);
-  const staleLabel = nowcasted && atCost ? ' (parte stimata da serie storica, parte a costo)' : nowcasted ? ' (prezzo live assente: stimato da serie storica)' : atCost ? ' (a costo: prezzo live assente, stimato)' : '';
-  if (n.invested > 0) parts.push(`investito ${formatMoney(n.invested)}${staleLabel}`);
-  if (n.liabilities > 0) parts.push(`debiti −${formatMoney(n.liabilities)}`);
+  const staleLabel = nowcasted && atCost ? tCh('nwStaleBothLabel', __uiLang) : nowcasted ? tCh('nwStaleNowcastLabel', __uiLang) : atCost ? tCh('nwStaleCostLabel', __uiLang) : '';
+  if (n.invested > 0) parts.push(`${tCh('nwInvestedLine', __uiLang, formatMoney(n.invested))}${staleLabel}`);
+  if (n.liabilities > 0) parts.push(tCh('nwLiabilitiesLine', __uiLang, formatMoney(n.liabilities)));
   breakEl.textContent = parts.join(' · ');
   // Proiezione per strategia: parte dal patrimonio investibile attuale, con il
   // risparmio medio mensile come contributo. Tabella minima p5/p50/p95.
@@ -8982,7 +8982,7 @@ function renderNetWorth() {
       const solide = new Set((vaglio?.solide || []).map((s) => s.name));
 
       projEl.innerHTML = `
-        <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Strategia (10 anni) · chiaro = se va bene, pieno = tipico, trattino = se va male</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${tCh('nwProjectionLegend', __uiLang)}</p>
         <div class="space-y-2.5">${proj.rows.map(r => {
           const rowMax = Math.max(1, r.p95);
           const p95Pct = 100;
@@ -8991,27 +8991,27 @@ function renderNetWorth() {
           const regge = solide.has(r.label);
           const marchio = vaglio
             ? (regge
-              ? '<span class="text-emerald-400 text-[9px] font-bold" title="Il risultato storico regge anche tenendo conto che stai confrontando più strategie insieme">✓ regge</span>'
-              : '<span class="text-amber-400/80 text-[9px] font-bold" title="Confrontando più strategie insieme, un risultato così capita anche per caso: non c\'è motivo di crederci più delle altre">~ può essere fortuna</span>')
+              ? `<span class="text-emerald-400 text-[9px] font-bold" title="${escapeHtml(tCh('nwSolidBadgeTitle', __uiLang))}">${tCh('nwSolidBadge', __uiLang)}</span>`
+              : `<span class="text-amber-400/80 text-[9px] font-bold" title="${escapeHtml(tCh('nwLuckBadgeTitle', __uiLang))}">${tCh('nwLuckBadge', __uiLang)}</span>`)
             : '';
           return `<div class="text-[10px]">
             <div class="flex items-center justify-between mb-1 gap-2">
               <span class="text-[var(--on-surface-secondary)] truncate">${r.label}</span>
               <span class="flex items-center gap-2 shrink-0">${marchio}<span class="font-mono text-[var(--gold)]">${formatMoney(r.p50)}</span></span>
             </div>
-            <div class="relative h-2 rounded-full bg-white/5 overflow-hidden" title="se va male ${formatMoney(r.p5)} · tipico ${formatMoney(r.p50)} · se va bene ${formatMoney(r.p95)}">
+            <div class="relative h-2 rounded-full bg-white/5 overflow-hidden" title="${escapeHtml(tCh('nwBarTooltip', __uiLang, formatMoney(r.p5), formatMoney(r.p50), formatMoney(r.p95)))}">
               <div class="absolute inset-y-0 left-0 rounded-full bg-[color-mix(in_srgb,var(--gold)_25%,transparent)]" style="width:${p95Pct}%"></div>
               <div class="absolute inset-y-0 left-0 rounded-full bg-[var(--gold)]" style="width:${p50Pct}%"></div>
               <div class="absolute inset-y-0 w-0.5 bg-rose-300/80" style="left:${p5Pct}%"></div>
             </div>
           </div>`;
         }).join('')}</div>
-        ${vaglio ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-2.5 leading-relaxed">${escapeHtml(vaglio.riassunto)} Stai confrontando ${vaglio.trials} strategie: più ne guardi insieme, più è facile che la migliore lo sia per caso.</p>` : ''}
+        ${vaglio ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-2.5 leading-relaxed">${escapeHtml(vaglio.riassunto)}${tCh('nwTrialsNote', __uiLang, vaglio.trials)}</p>` : ''}
         ${(() => {
           // src/core/data-freshness.js: i parametri storici (measured-assumptions.js)
           // sono generati una volta e poi restano fermi finché non si rilancia lo
           // script — l'app deve saperlo e dirlo, non mostrarli come sempre freschi.
-          const nota = measuredAssumptions?.generatedAt ? stalenessNote(measuredAssumptions.generatedAt, { now: Date.now(), maxAgeDays: 90, label: 'I parametri storici misurati' }) : null;
+          const nota = measuredAssumptions?.generatedAt ? stalenessNote(measuredAssumptions.generatedAt, { now: Date.now(), maxAgeDays: 90, label: tCh('nwStaleParamsLabel', __uiLang) }) : null;
           return nota ? `<p class="text-[10px] text-amber-300/80 mt-1">⏱ ${escapeHtml(nota)}</p>` : '';
         })()}`;
     } else projEl.innerHTML = '';
@@ -9028,12 +9028,12 @@ function renderNetWorth() {
       // invece di una colonna testuale da leggere riga per riga.
       const maxSharpe = Math.max(0.01, ...rows.map(r => r.sharpe));
       const regimeColor = (r) => r === 'risk-on' ? 'bg-emerald-400' : r === 'risk-off' ? 'bg-rose-400' : 'bg-amber-300';
-      sectorEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Settori S&P 500 per rendimento/rischio storico (~${yearsCovered} anni misurati, mai una previsione)</p>
+      sectorEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${tCh('nwSectorRankingHeader', __uiLang, yearsCovered)}</p>
         <div class="space-y-2">${rows.map(r => {
           const pct = Math.max(4, Math.round((r.sharpe / maxSharpe) * 100));
           return `<div class="text-[10px]">
             <div class="flex items-center justify-between mb-0.5">
-              <span class="flex items-center gap-1.5 text-[var(--on-surface-secondary)]"><span class="inline-block w-1.5 h-1.5 rounded-full ${regimeColor(r.regime)}" title="Regime ora: ${r.regime || '—'}"></span>${r.label}</span>
+              <span class="flex items-center gap-1.5 text-[var(--on-surface-secondary)]"><span class="inline-block w-1.5 h-1.5 rounded-full ${regimeColor(r.regime)}" title="${escapeHtml(tCh('nwRegimeNowTitle', __uiLang, r.regime || '—'))}"></span>${r.label}</span>
               <span class="font-mono text-[var(--gold)]">${r.sharpe.toFixed(2)}</span>
             </div>
             <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[color-mix(in_srgb,var(--gold)_70%,transparent)]" style="width:${pct}%"></div></div>
@@ -9073,21 +9073,21 @@ function renderNetWorth() {
     const r = window.__refertoCausaleCache;
     const ciclo = cicloGlobale();
     const regimeLabel = !regime ? null
-      : regime.regime === 'risk-on' ? 'Il mercato sta salendo con calma: momento tranquillo.'
-      : regime.regime === 'risk-off' ? 'Il mercato è agitato: sale la cautela in questo momento.'
-      : 'Il mercato non ha una direzione chiara in questo momento.';
+      : regime.regime === 'risk-on' ? tCh('nwRegimeCalm', __uiLang)
+      : regime.regime === 'risk-off' ? tCh('nwRegimeVolatile', __uiLang)
+      : tCh('nwRegimeUnclear', __uiLang);
     const headline = regimeLabel || (ciclo.percentile > 0.8
-      ? 'I tassi nel mondo si muovono quasi tutti insieme: la geografia conta poco adesso.'
-      : 'Nessuna posizione collegata a un indice: aggiungi una posizione per vedere il regime live.');
+      ? tCh('nwHeadlineRatesSync', __uiLang)
+      : tCh('nwHeadlineNoPosition', __uiLang));
     overviewEl.innerHTML = `
       <p class="text-[13px] font-bold text-slate-200 mb-2">${escapeHtml(headline)}</p>
       <details class="text-[11px] text-[var(--on-surface-secondary)]">
-        <summary class="cursor-pointer select-none text-[var(--gold)]">Numeri veri, per chi vuole guardare oltre</summary>
+        <summary class="cursor-pointer select-none text-[var(--gold)]">${tCh('nwRealNumbersSummary', __uiLang)}</summary>
         <div class="mt-2 space-y-1.5">
           ${regime ? `<p>${escapeHtml(regime.explanation)}</p>` : ''}
           ${r ? `<p>${escapeHtml(r.testo)}</p>` : ''}
-          <p>Ciclo globale dei tassi al ${(ciclo.percentile * 100).toFixed(0)}° percentile storico.</p>
-          <p class="opacity-70">Correlazione misurata, non predizione: nessun numero qui dice cosa fare, solo cosa è successo e cosa sta succedendo adesso.</p>
+          <p>${tCh('nwGlobalRateCycle', __uiLang, (ciclo.percentile * 100).toFixed(0))}</p>
+          <p class="opacity-70">${tCh('nwCorrelationNote', __uiLang)}</p>
         </div>
       </details>`;
   }
@@ -9113,34 +9113,34 @@ function renderNetWorth() {
     }
     const r = window.__tailRiskCache?.r;
     if (!positions.length) {
-      tailEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Aggiungi le tue posizioni per misurare quanto perde il tuo portafoglio nei mesi peggiori.</p>`;
+      tailEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTailRiskEmpty', __uiLang)}</p>`;
     } else if (!r?.valutabile) {
       // Rifiuto MOTIVATO, mai un pannello vuoto senza spiegazione.
-      tailEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || 'Non misurabile con i dati disponibili.')}</p>`;
+      tailEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || tCh('nwNotMeasurable', __uiLang))}</p>`;
     } else {
       const pct = (x) => `${(Math.abs(x) * 100).toFixed(1).replace('.', ',')}%`;
       tailEl.innerHTML = `
         <div class="flex items-baseline gap-2 mb-1">
           <span class="text-2xl font-black font-mono text-rose-300">−${pct(r.es)}</span>
-          <span class="text-[11px] text-[var(--on-surface-secondary)]">nei 12 mesi peggiori su 100</span>
+          <span class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTailRiskWorstMonths', __uiLang)}</span>
         </div>
         <p class="text-[11px] ${r.piuFragileDelMercato ? 'text-amber-300/90' : 'text-emerald-300/90'} mb-2">
           ${r.piuFragileDelMercato
-            ? `Un portafoglio spalmato su tutti i settori, negli stessi mesi simulati, perderebbe ${pct(r.esDiversificato)}: ${pct(r.costoConcentrazione)} in meno di te.`
-            : `Meno di un portafoglio spalmato su tutti i settori negli stessi mesi (${pct(r.esDiversificato)}).`}
+            ? tCh('nwTailRiskMoreFragile', __uiLang, pct(r.esDiversificato), pct(r.costoConcentrazione))
+            : tCh('nwTailRiskLessFragile', __uiLang, pct(r.esDiversificato))}
         </p>
         <div class="space-y-1.5 mb-2">${r.contributi.slice(0, 5).map(c => {
           const w = Math.max(3, Math.round(c.quotaDellaPerdita * 100));
           return `<div class="text-[10px]">
             <div class="flex items-center justify-between mb-0.5">
               <span class="text-[var(--on-surface-secondary)]">${escapeHtml(c.nome)}</span>
-              <span class="font-mono text-rose-300/80">${Math.round(c.quotaDellaPerdita * 100)}% della perdita</span>
+              <span class="font-mono text-rose-300/80">${tCh('nwTailRiskLossShare', __uiLang, Math.round(c.quotaDellaPerdita * 100))}</span>
             </div>
             <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-rose-400/60" style="width:${w}%"></div></div>
           </div>`;
         }).join('')}</div>
-        <p class="text-[10px] text-[var(--on-surface-secondary)]">${r.settoriEquivalenti} settori equivalenti su 9 · misurato sul ${Math.round(r.mappa.copertura * 100)}% del portafoglio${r.mappa.nonCoperti.length ? ` (fuori: ${escapeHtml(r.mappa.nonCoperti.map(n => n.ticker).join(', '))})` : ''}</p>
-        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-1">Expected Shortfall 97,5% (standard Basilea III) su 331 mesi reali che contengono dot-com, 2008, COVID e 2022. È una misura di cosa c'è, non un consiglio su cosa fare.</p>`;
+        <p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('nwTailRiskEquivSectors', __uiLang, r.settoriEquivalenti, Math.round(r.mappa.copertura * 100))}${r.mappa.nonCoperti.length ? tCh('nwTailRiskUncovered', __uiLang, escapeHtml(r.mappa.nonCoperti.map(n => n.ticker).join(', '))) : ''}</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-1">${tCh('nwTailRiskMethodNote', __uiLang)}</p>`;
     }
   }
   // BRAVURA O FORTUNA? (src/alpha/portfolio-track-record.js): stesso vaglio
@@ -9161,16 +9161,16 @@ function renderNetWorth() {
     }
     const r = window.__trackRecordCache?.r;
     if (!positions.length) {
-      trackEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Aggiungi le tue posizioni per sapere se la tua allocazione regge al controllo statistico o è stata fortunata.</p>`;
+      trackEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTrackRecordEmpty', __uiLang)}</p>`;
     } else if (!r?.valutabile) {
-      trackEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || 'Non misurabile con i dati disponibili.')}</p>`;
+      trackEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || tCh('nwNotMeasurable', __uiLang))}</p>`;
     } else {
       const tono = r.verdetto === 'solido' ? 'text-emerald-300' : r.verdetto === 'probabile-fortuna' ? 'text-amber-300' : 'text-[var(--on-surface-secondary)]';
       const conc = r.concentrazione ? `<p class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5">${escapeHtml(r.concentrazione.messaggio)}</p>` : '';
       trackEl.innerHTML = `
         <p class="text-sm font-bold ${tono} mb-1">${escapeHtml(r.messaggio)}</p>
         ${conc}
-        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-2">Sharpe deflazionato su ${r.periodi} mesi reali (Bailey &amp; López de Prado) · misurato sul ${Math.round(r.mappa.copertura * 100)}% del portafoglio. Non è un consiglio su cosa fare: dice solo se il risultato misurato è distinguibile dal caso.</p>`;
+        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-2">${tCh('nwTrackRecordMethodNote', __uiLang, r.periodi, Math.round(r.mappa.copertura * 100))}</p>`;
     }
   }
   // IL DIVARIO DI COMPORTAMENTO (src/alpha/divario-comportamento.js).
@@ -9202,21 +9202,21 @@ function renderNetWorth() {
     }
     const { d, t, stato } = window.__divarioCache || {};
     if (!d?.valutabile) {
-      divarioEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(d?.motivo || 'Registra i tuoi investimenti mese per mese: qui misuro quanto ti è costato (o reso) il momento in cui li hai fatti.')}</p>`;
+      divarioEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(d?.motivo || tCh('nwBehaviorGapEmpty', __uiLang))}</p>`;
     } else {
       const colore = !d.rilevante ? 'text-[var(--on-surface-secondary)]' : d.aTuoFavore ? 'text-emerald-300' : 'text-amber-300';
       divarioEl.innerHTML = `
         ${d.rilevante ? `<div class="flex items-baseline gap-2 mb-1.5">
           <span class="text-2xl font-black font-mono ${colore}">${d.aTuoFavore ? '+' : '−'}${formatMoney(Math.abs(d.divarioEuro))}</span>
-          <span class="text-[11px] text-[var(--on-surface-secondary)]">rispetto a versare sempre uguale</span>
+          <span class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwBehaviorGapVsFlat', __uiLang)}</span>
         </div>` : ''}
         <p class="text-[12px] text-slate-200 leading-snug mb-2">${escapeHtml(divarioText(d, t) || '')}</p>
         <details class="text-[10px] text-[var(--on-surface-secondary)]">
-          <summary class="cursor-pointer select-none text-[var(--gold)]">Come l'ho calcolato</summary>
+          <summary class="cursor-pointer select-none text-[var(--gold)]">${tCh('nwHowCalculated', __uiLang)}</summary>
           <div class="mt-1.5 space-y-1">
-            <p>Hai versato ${formatMoney(d.totaleVersato)} in ${d.versamenti} mesi, da ${d.da} a ${d.a}.</p>
-            <p>Il tuo risultato: ${formatMoney(d.valoreReale)} · versando sempre uguale: ${formatMoney(d.valorePac)}.</p>
-            ${d.fuoriFinestra > 0 ? `<p class="text-amber-300/80">${formatMoney(d.fuoriFinestra)} sono in mesi fuori dalla storia che ho: esclusi dal conto.</p>` : ''}
+            <p>${tCh('nwBehaviorGapDeposited', __uiLang, formatMoney(d.totaleVersato), d.versamenti, d.da, d.a)}</p>
+            <p>${tCh('nwBehaviorGapResult', __uiLang, formatMoney(d.valoreReale), formatMoney(d.valorePac))}</p>
+            ${d.fuoriFinestra > 0 ? `<p class="text-amber-300/80">${tCh('nwBehaviorGapExcluded', __uiLang, formatMoney(d.fuoriFinestra))}</p>` : ''}
             <p class="opacity-70">${escapeHtml(fonteDivario())}</p>
             ${stato ? `<p class="${stato.vecchio ? 'text-amber-300/80' : 'opacity-70'}">${escapeHtml(stato.avviso || stato.testo)}${stato.approssimazione ? ` (${escapeHtml(stato.approssimazione)})` : ''}</p>` : ''}
           </div>
@@ -9252,9 +9252,9 @@ function renderNetWorth() {
     }
     const d = window.__diagnosiCache?.d;
     if (!positions.length) {
-      diagEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Aggiungi le tue posizioni: qui compaiono le domande che si fa chi gestisce patrimoni, sul tuo portafoglio.</p>`;
+      diagEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwDiagnosisEmpty', __uiLang)}</p>`;
     } else if (!d?.valutabile) {
-      diagEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(d?.motivo || 'Non misurabile con i dati disponibili.')}</p>`;
+      diagEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(d?.motivo || tCh('nwNotMeasurable', __uiLang))}</p>`;
     } else {
       const colore = { alta: 'text-rose-300', media: 'text-amber-300', bassa: 'text-[var(--on-surface-secondary)]' };
       const bordo = { alta: 'border-rose-500/25 bg-rose-500/[0.04]', media: 'border-amber-500/20 bg-amber-500/[0.03]', bassa: 'border-[var(--outline)]' };
@@ -9269,13 +9269,13 @@ function renderNetWorth() {
             <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${escapeHtml(o.dettaglio)}</p>
           </div>`).join('')}
         <details class="text-[10px] text-[var(--on-surface-secondary)] mt-2">
-          <summary class="cursor-pointer select-none text-[var(--gold)]">Gli episodi storici veri usati per la prova</summary>
+          <summary class="cursor-pointer select-none text-[var(--gold)]">${tCh('nwDiagnosisHistoricalSummary', __uiLang)}</summary>
           <div class="mt-1.5 space-y-1">
             ${(d.tenuta.esiti || []).map(e => `<div class="flex items-center justify-between">
               <span>${e.da} → ${e.a}</span>
-              <span class="font-mono ${e.costretto ? 'text-rose-300' : 'text-emerald-300/80'}">${(e.perdita * 100).toFixed(1).replace('.', ',')}%${e.costretto ? ' · avresti venduto' : ' · avresti tenuto'}</span>
+              <span class="font-mono ${e.costretto ? 'text-rose-300' : 'text-emerald-300/80'}">${(e.perdita * 100).toFixed(1).replace('.', ',')}%${e.costretto ? tCh('nwDiagnosisSold', __uiLang) : tCh('nwDiagnosisHeld', __uiLang)}</span>
             </div>`).join('')}
-            <p class="opacity-70 mt-1">Mesi veri, nell'ordine vero (1999-2026), con la tua composizione: non una simulazione.</p>
+            <p class="opacity-70 mt-1">${tCh('nwDiagnosisRealMonthsNote', __uiLang)}</p>
           </div>
         </details>`;
     }
@@ -9305,14 +9305,14 @@ function renderNetWorth() {
         ${stressPct != null ? `
         <div class="mb-3">
           <div class="flex items-center justify-between mb-1">
-            <span class="text-[11px] text-[var(--on-surface-secondary)]">Indice di paura</span>
+            <span class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwFearIndex', __uiLang)}</span>
             <span class="font-mono text-[13px] font-bold ${stressColor}">${stressPct}/100</span>
           </div>
           <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full ${stressColor.replace('text-', 'bg-')}" style="width:${stressPct}%"></div></div>
           <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5">${escapeHtml(stressText(c.stress) || '')}</p>
         </div>` : ''}
         ${c.posizionamento ? `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(posizionamentoText(c.posizionamento) || '')}</p>` : ''}
-        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-2">Correlazione e posizionamento misurati, mai una direzione: non è consulenza finanziaria.</p>`;
+        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-2">${tCh('nwTraderDeskDisclaimer', __uiLang)}</p>`;
     }
   }
   const ratesEl = $('#country-rates-panel');
@@ -9324,11 +9324,11 @@ function renderNetWorth() {
     const scarto = scartoFraPaesi(paese, riferimentoScarto);
     const ciclo = cicloGlobale();
     const sinc = sincroniaConGliUsa();
-    const nota = stalenessNote(new Date(`${TASSI_MONDO_A}-01`).getTime(), { now: Date.now(), maxAgeDays: 120, label: 'I tassi a lungo termine dei 12 Paesi' });
+    const nota = stalenessNote(new Date(`${TASSI_MONDO_A}-01`).getTime(), { now: Date.now(), maxAgeDays: 120, label: tCh('nwLongTermRatesLabel', __uiLang) });
     ratesEl.innerHTML = `
       <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${escapeHtml(testo || '')}</p>
       ${scarto.valido ? `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${escapeHtml(scartoText(scarto) || '')}</p>` : ''}
-      <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Ciclo globale dei tassi: sincronia media fra i 12 Paesi al ${(ciclo.percentile * 100).toFixed(0)}° percentile storico${ciclo.percentile > 0.8 ? ' — i tassi del mondo si muovono quasi tutti insieme, la geografia conta poco in questo momento' : ciclo.percentile < 0.2 ? ' — ogni Paese va per conto suo, la geografia conta molto in questo momento' : ''}.</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${tCh('nwGlobalRateCycleSync', __uiLang, (ciclo.percentile * 100).toFixed(0))}${ciclo.percentile > 0.8 ? tCh('nwRatesSyncedGlobal', __uiLang) : ciclo.percentile < 0.2 ? tCh('nwRatesDecoupled', __uiLang) : ''}.</p>
       <div class="space-y-1.5">${sinc.righe.slice(0, 6).map(r => {
         const pct = Math.max(4, Math.round(Math.abs(r.sincronia ?? 0) * 100));
         return `<div class="text-[10px]">
@@ -9845,14 +9845,14 @@ const renderSubscriptions = () => {
   const totalEl = document.getElementById('subs-total');
   if (!list) return;
   const s = subscriptionSummary(VaultDAO.state.transactions, new Date());
-  if (totalEl) totalEl.textContent = s.count ? `${formatMoney(s.monthlyTotal)}/mese` : '';
-  if (totalEl) totalEl.title = 'Include anche gli abbonamenti annuali/trimestrali, riportati a costo mensile equivalente';
+  if (totalEl) totalEl.textContent = s.count ? tCh('alphaSubsPerMonth', __uiLang, formatMoney(s.monthlyTotal)) : '';
+  if (totalEl) totalEl.title = tCh('alphaSubsIncludesNote', __uiLang);
   if (!s.count) {
-    list.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Nessun abbonamento ricorrente per ora. Appena importi qualche mese di spese, te li scovo qui — col prossimo addebito previsto.</p>`;
+    list.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('alphaSubsEmpty', __uiLang)}</p>`;
     return;
   }
   const hikeMap = new Map(s.hikes.map(h => [h.description, h]));
-  const fmtDay = d => new Date(d).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  const fmtDay = d => new Date(d).toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
   // AVVISI ANTICIPATORI (anticipatePriceHikes): creep silenzioso + rincaro
   // previsto PRIMA dell'addebito, con impatto annuale (rende concreto il "poco"
   // mensile). Ambra = attenzione consapevole, mai giudizio. In cima, è il valore.
@@ -9870,7 +9870,7 @@ const renderSubscriptions = () => {
     return `<div class="flex items-center justify-between gap-3 p-2 rounded-xl" style="background:rgba(255,255,255,0.03)">
       <div class="min-w-0">
         <p class="text-sm font-bold truncate">${sub.name}</p>
-        <p class="text-[10px] text-[var(--on-surface-secondary)]">prossimo ~${fmtDay(sub.nextDate)}${cadenzaLabel}${hike ? ` · <span class="text-rose-400">↑ +${hike.increasePct}% (era ${formatMoney(hike.previousAmount)})</span>` : ''}</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('alphaSubsNextDate', __uiLang, fmtDay(sub.nextDate))}${cadenzaLabel}${hike ? ` · <span class="text-rose-400">${tCh('alphaSubsHikeNote', __uiLang, hike.increasePct, formatMoney(hike.previousAmount))}</span>` : ''}</p>
       </div>
       <span class="text-sm font-black font-mono shrink-0">${formatMoney(sub.amount)}</span>
     </div>`;
@@ -12124,10 +12124,10 @@ function renderSavingsGoals() {
       <button onclick="window.openGoalEditor()" class="w-full text-left p-3 rounded-xl border border-dashed border-[var(--glass-border)] hover:border-[color-mix(in_srgb,var(--primary)_50%,transparent)] transition-colors">
         <div class="flex items-center gap-2 mb-2 text-[var(--on-surface-secondary)]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>
-          <span class="text-xs font-bold">Crea il tuo primo obiettivo</span>
+          <span class="text-xs font-bold">${tCh('alphaGoalsCreateFirst', __uiLang)}</span>
         </div>
         <div class="budget-track opacity-40"><div class="budget-fill" style="width:0%; background:var(--cyan);"></div></div>
-        <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Vedere la barra riempirsi è metà della motivazione — tocca per iniziare.</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${tCh('alphaGoalsCreateFirstSub', __uiLang)}</p>
       </button>`;
     return;
   }
@@ -12135,16 +12135,16 @@ function renderSavingsGoals() {
     const prog = computeGoalProgress(g, VaultDAO.state.transactions);
     const barColor = prog.pct >= 100 ? 'var(--green)' : (prog.onTrack === false ? 'var(--yellow)' : 'var(--cyan)');
     const trackNote = prog.onTrack === null ? '' : (prog.onTrack
-      ? `<span class="text-emerald-400">sei in linea</span>`
-      : `<span class="text-amber-400">sei indietro rispetto al ritmo necessario</span>`);
+      ? `<span class="text-emerald-400">${tCh('alphaGoalsOnTrack', __uiLang)}</span>`
+      : `<span class="text-amber-400">${tCh('alphaGoalsBehindTrack', __uiLang)}</span>`);
     return `
       <div class="relative">
         <div class="flex justify-between items-baseline mb-1">
           <p class="text-xs font-bold">${g.name}</p>
-          <button onclick="window.deleteSavingsGoal(${g.id})" class="text-[10px] text-[var(--on-surface-secondary)] opacity-60">rimuovi</button>
+          <button onclick="window.deleteSavingsGoal(${g.id})" class="text-[10px] text-[var(--on-surface-secondary)] opacity-60">${tCh('alphaGoalsRemove', __uiLang)}</button>
         </div>
         <div class="budget-track"><div class="budget-fill" style="width:${Math.min(100, prog.pct)}%; background:${barColor};"></div></div>
-        <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${formatMoney(prog.saved)} su ${formatMoney(g.target)} (${prog.pct}%) ${trackNote}</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${tCh('alphaGoalsProgressLine', __uiLang, formatMoney(prog.saved), formatMoney(g.target), prog.pct)} ${trackNote}</p>
       </div>
     `;
   }).join('');
