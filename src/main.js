@@ -1583,12 +1583,12 @@ function renderMeshStatus() {
   const examples = VaultDAO.state.mlData?.totalWords || 0;
   const ledger = VaultDAO.state.updateLedger || [];
   if (peers === 0) {
-    el.innerHTML = `Nessun dispositivo collegato: l'AI impara solo da questo (${examples} esempi finora).`;
+    el.innerHTML = tCh('meshNoPeers', __uiLang, examples);
     return;
   }
   const merges = ledger.filter(e => e.accepted).length;
   const rejected = ledger.length - merges;
-  el.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 align-middle"></span>${peers} dispositivo/i fidato/i collegato/i · modello su <b>${examples}</b> esempi · ${merges} fusioni accettate${rejected > 0 ? `, ${rejected} rifiutate (anti-manomissione)` : ''}.`;
+  el.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 align-middle"></span>${tCh('meshConnectedStatus', __uiLang, peers, examples, merges, rejected)}`;
   updateSplitMeshDot();
   renderMeshEconomics(peers);
 }
@@ -1605,7 +1605,8 @@ function renderMeshEconomics(peers) {
   if (!el) return;
   if (!peers) { el.innerHTML = ''; return; }
   const c = speedupCeiling(0.05, peers + 1);
-  el.innerHTML = `Con ${peers} dispositivo/i collegato/i il calcolo condiviso può arrivare fino a ${c.conQuestiDispositivi}× più veloce (tetto teorico ${c.tetto === Infinity ? '∞' : c.tetto.toFixed(1) + '×'}${c.saturazioneA ? `, oltre ${c.saturazioneA} dispositivi il guadagno si appiattisce` : ''}) — solo per i calcoli su dati pubblici che Momentum condivide (proiezioni di mercato, mai i tuoi dati).`;
+  const tettoStr = c.tetto === Infinity ? '∞' : c.tetto.toFixed(1) + '×';
+  el.innerHTML = tCh('meshEconomicsStatus', __uiLang, peers, c.conQuestiDispositivi, tettoStr, c.saturazioneA);
 }
 
 // Stesso pallino di stato, ma dentro "Insieme": prima si vedeva SOLO nelle
@@ -1619,8 +1620,8 @@ function updateSplitMeshDot() {
   if (!el) return;
   const peers = window.momentumMeshNode?.peers?.size || 0;
   el.innerHTML = peers > 0
-    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${peers} dispositivo${peers === 1 ? '' : 'i'} collegat${peers === 1 ? 'o' : 'i'} in diretta`
-    : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-[var(--on-surface-secondary)] opacity-50"></span>Nessun collegamento diretto — il link basta comunque`;
+    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${tCh('splitMeshConnected', __uiLang, peers)}`
+    : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-[var(--on-surface-secondary)] opacity-50"></span>${tCh('splitMeshDisconnected', __uiLang)}`;
 }
 
 // Cerca una chiave in QUALUNQUE cache 'momentum-vault-*' (non solo quella
@@ -3944,14 +3945,14 @@ function renderTax(monthK) {
     if (VaultDAO.state.noPartitaIva) { card.classList.add('hidden'); return; }
     card.classList.remove('hidden');
     setEl.textContent = '';
-    noteEl.textContent = 'Stai valutando se aprire la Partita IVA? Scopri in un attimo cosa ti resterebbe davvero in tasca.';
+    noteEl.textContent = tCh('taxLvl0Note', __uiLang);
     // I link CH/ES qui sotto sono stati tolti (2026-08-27): ridondanti con i
     // badge IT/CH/ES già in cima alla card unica in Momentum Vault — averli
     // in due punti della stessa card sarebbe di nuovo l'affollamento appena
     // corretto (vedi il commento sulla card in index.html).
     if (extraEl) extraEl.innerHTML = `
-      <button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">Simula la tua Partita IVA</button>
-      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">Sono dipendente, non mi serve</button>`;
+      <button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">${tCh('taxSimulateBtn', __uiLang)}</button>
+      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">${tCh('taxNotSelfEmployedBtn', __uiLang)}</button>`;
     return;
   }
   // Un solo Paese alla volta mostrato per esteso (2026-08-27, segnalato
@@ -3971,7 +3972,7 @@ function renderTax(monthK) {
   // si CHIEDE con un tocco — poi il calcolo diventa reale.
   if (everInvoice && !regime) {
     setEl.textContent = '?';
-    noteEl.textContent = 'Vedo delle fatture ma non so il tuo regime fiscale: senza, il calcolo sarebbe a caso. Dimmelo con un tocco e calcolo tasse + contributi giusti.';
+    noteEl.textContent = tCh('taxAskRegimeNote', __uiLang);
     if (extraEl) {
       extraEl.innerHTML = `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
         `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] hover:border-[var(--red)]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
@@ -3986,8 +3987,8 @@ function renderTax(monthK) {
   } else {
     setEl.textContent = '—';
     noteEl.textContent = everInvoice
-      ? 'Nessuna fattura registrata questo mese: niente da accantonare.'
-      : 'Non vedo fatture P.IVA. Se sei un libero professionista, registra un\'entrata come fattura (parole tipo "fattura", "compenso"): calcolo io quanto mettere da parte per il fisco.';
+      ? tCh('taxNoInvoiceThisMonth', __uiLang)
+      : tCh('taxNoInvoiceYet', __uiLang);
   }
 
   if (extraEl) {
@@ -4014,13 +4015,13 @@ function renderTax(monthK) {
     if (r.uncertainCount > 0) {
       const rows = r.uncertain.slice(0, 4).map(t =>
         `<div class="flex items-center justify-between gap-2 py-1">
-          <span class="min-w-0 truncate">${t.description || 'entrata'} · <b>${formatMoney(t.amount)}</b></span>
+          <span class="min-w-0 truncate">${t.description || tCh('taxIncomeFallback', __uiLang)} · <b>${formatMoney(t.amount)}</b></span>
           <span class="shrink-0 flex gap-2">
-            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "invoice")' class="text-[11px] font-bold text-emerald-400 underline">è fattura</button>
-            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "personal")' class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">no</button>
+            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "invoice")' class="text-[11px] font-bold text-emerald-400 underline">${tCh('taxConfirmInvoiceBtn', __uiLang)}</button>
+            <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "personal")' class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">${tCh('taxConfirmNoBtn', __uiLang)}</button>
           </span>
         </div>`).join('');
-      html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} entrat${r.uncertainCount > 1 ? 'e' : 'a'} da confermare</div><div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div></div>`;
+      html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${tCh('taxUncertainCount', __uiLang, r.uncertainCount)}</div><div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div></div>`;
     }
     // ── PROMEMORIA PROATTIVO: fatture ricorrenti (mensili) di questo mese non
     // ancora emesse. Predittivo + automatico, MAI auto-invia: un tap apre il
@@ -4029,8 +4030,8 @@ function renderTax(monthK) {
     for (const c of dovute) {
       html += `<div class="flex items-center gap-2 mt-2 text-xs text-amber-200 bg-amber-950/10 border border-amber-500/20 rounded-xl px-3 py-2">
         <span class="text-[var(--gold)]">${REPEAT_ICON}</span>
-        <span class="min-w-0 flex-1">Fattura ${c.cadence || ''} per <b>${c.client}</b>${c.typicalAmount ? ` (~${Math.round(c.typicalAmount)}€)` : ''}: non ancora fatta questo mese.</span>
-        <button onclick='window.openCreateInvoice(${JSON.stringify(c.client)})' class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Crea</button>
+        <span class="min-w-0 flex-1">${tCh('taxRecurringDue', __uiLang, c.cadence || '', c.client, c.typicalAmount ? Math.round(c.typicalAmount) : null)}</span>
+        <button onclick='window.openCreateInvoice(${JSON.stringify(c.client)})' class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">${tCh('taxCreateBtn', __uiLang)}</button>
       </div>`;
     }
     // ── CICLO SdI: e-fatture create ma NON ancora trasmesse. Promemoria onesto
@@ -4039,14 +4040,14 @@ function renderTax(monthK) {
     if (pend.count > 0) {
       const rows = pend.invoices.slice(0, 4).map(i =>
         `<div class="flex items-center justify-between gap-2 py-1">
-          <span class="min-w-0 truncate">n.${i.number}/${i.year} · ${i.client || 'cliente'} · <b>${formatMoney(i.imponibile)}</b></span>
-          <button onclick='window.markTransmitted(${i.number}, ${i.year})' class="shrink-0 text-[11px] font-bold text-emerald-400 underline">segna trasmessa</button>
+          <span class="min-w-0 truncate">n.${i.number}/${i.year} · ${i.client || tCh('taxClientFallback', __uiLang)} · <b>${formatMoney(i.imponibile)}</b></span>
+          <button onclick='window.markTransmitted(${i.number}, ${i.year})' class="shrink-0 text-[11px] font-bold text-emerald-400 underline">${tCh('taxMarkTransmittedBtn', __uiLang)}</button>
         </div>`).join('');
       html += `<div class="mt-3 border border-[color-mix(in_srgb,var(--gold)_25%,transparent)] bg-[color-mix(in_srgb,var(--gold)_5%,transparent)] rounded-xl px-3 py-2.5">
-        <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wider">${pend.count} fattur${pend.count > 1 ? 'e' : 'a'} da caricare sullo SdI</span></div>
+        <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wider">${tCh('taxSdiPendingCount', __uiLang, pend.count)}</span></div>
         <div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div>
         <div class="flex flex-wrap gap-2 mt-2">
-          <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+          <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">${tCh('taxOpenSdiPortalBtn', __uiLang)}<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
           <!-- BUG REALE segnalato dal vivo (2026-08-25): questo promemoria offriva
                solo il link nudo al portale — la guida passo-passo esisteva ma SOLO
                subito dopo aver creato la fattura (showUploadHelp/openSdiWalkthrough
@@ -4054,16 +4055,16 @@ function renderTax(monthK) {
                comune: si crea la fattura e la si trasmette un altro giorno) restava
                di nuovo senza aiuto sul portale reale. Stesso walkthrough, richiamato
                senza nome file esatto (fallback onesto a "il file XML" generico). -->
-          <button type="button" onclick="window.openSdiWalkthrough(null, ${pend.invoices[0].number}, ${pend.invoices[0].year})" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[var(--on-surface-secondary)]"><svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>Guidami passo dopo passo</button>
+          <button type="button" onclick="window.openSdiWalkthrough(null, ${pend.invoices[0].number}, ${pend.invoices[0].year})" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[var(--on-surface-secondary)]"><svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>${tCh('taxSdiGuideBtn', __uiLang)}</button>
         </div>
       </div>`;
     }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
-    html += `<button onclick="window.openCreateInvoice()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>`;
+    html += `<button onclick="window.openCreateInvoice()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tCh('taxCreateInvoiceBtn', __uiLang)}</button>`;
     // Entrambi i Paesi attivi (raro, ma reale): l'Italia si mostra per
     // default, uno switch esplicito porta alla Spagna — mai le due insieme.
     if (VaultDAO.state.esActive) {
-      html += `<button onclick="window.setTaxActiveCountry('es')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">Hai anche la Spagna attiva — mostra quella invece</button>`;
+      html += `<button onclick="window.setTaxActiveCountry('es')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">${tCh('taxShowSpainInstead', __uiLang)}</button>`;
     }
     extraEl.innerHTML = html;
     // Segnale discreto SOLO se c'è un motivo vero (scadenza saltata o cassa a
@@ -4126,7 +4127,7 @@ function renderTaxEs(monthK) {
   if (r.uncertainCount > 0) {
     const rows = r.uncertain.slice(0, 4).map(t =>
       `<div class="flex items-center justify-between gap-2 py-1">
-        <span class="min-w-0 truncate">${t.description || 'entrada'} · <b>${formatMoney(t.amount)}</b></span>
+        <span class="min-w-0 truncate">${t.description || tCh('esIncomeFallback', __uiLang)} · <b>${formatMoney(t.amount)}</b></span>
         <span class="shrink-0 flex gap-2">
           <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "invoice")' class="text-[11px] font-bold text-emerald-400 underline">${tCh('esConfirmYes', __esLang)}</button>
           <button onclick='window.learnIncome(${JSON.stringify(t.description || "")}, "personal")' class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">${tCh('esConfirmNo', __esLang)}</button>
@@ -4136,7 +4137,7 @@ function renderTaxEs(monthK) {
   }
   html += `<button onclick="window.setEsActive(false)" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2">${tCh('esDeactivate', __esLang)}</button>`;
   if (VaultDAO.state.taxRegime) {
-    html += `<button onclick="window.setTaxActiveCountry('it')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">Hai anche l'Italia attiva — mostra quella invece</button>`;
+    html += `<button onclick="window.setTaxActiveCountry('it')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">${tCh('esShowItalyInstead', __uiLang)}</button>`;
   }
   extraEl.innerHTML = html;
 }
@@ -4208,11 +4209,11 @@ function renderTaxSettings() {
         const eur = (n) => `${Math.round(n).toLocaleString('it-IT')}€`;
         predLine = `<div class="grid grid-cols-2 gap-2 mb-3">
           <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2">
-            <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">A questo ritmo, quest'anno</p>
+            <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">${tCh('taxYearPaceLabel', __uiLang)}</p>
             <p class="text-base font-black font-mono text-white">~${eur(proj.annualizedRevenue)}</p>
           </div>
           <div class="rounded-xl border border-[color-mix(in_srgb,var(--red)_25%,transparent)] bg-[color-mix(in_srgb,var(--red)_5%,transparent)] px-3 py-2">
-            <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">Da mettere da parte</p>
+            <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">${tCh('taxToSetAsideLabel', __uiLang)}</p>
             <p class="text-base font-black font-mono text-[var(--red)]">~${eur(proj.estimatedAnnualTax)}</p>
           </div>
         </div>`;
@@ -4221,12 +4222,12 @@ function renderTaxSettings() {
     body.innerHTML = `
       <div class="flex items-center gap-2 text-xs text-emerald-300 mb-3">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
-        <span>Regime attivo: <b>${label}</b>. Il dettaglio mese per mese è qui sotto.</span>
+        <span>${tCh('taxActiveRegimeLine', __uiLang, label)}</span>
       </div>
       ${predLine}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-        <button onclick="window.openCreateInvoice()" class="btn-action btn-primary justify-center font-bold"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Crea fattura</button>
-        <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between"><span>Cambia regime fiscale</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button onclick="window.openCreateInvoice()" class="btn-action btn-primary justify-center font-bold"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tCh('taxCreateInvoiceBtn', __uiLang)}</button>
+        <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between"><span>${tCh('taxChangeRegimeBtn', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
       </div>`;
     return;
   }
@@ -4236,10 +4237,10 @@ function renderTaxSettings() {
     body.innerHTML = `
       <div class="flex items-start gap-2 text-xs text-amber-200 bg-amber-950/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mb-3">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-        <span>Ho visto entrate che sembrano <b>fatture</b>, ma non conosco il tuo regime: senza, il calcolo delle tasse sarebbe a caso. Dimmelo e lo calcolo giusto.</span>
+        <span>${tCh('taxSeenInvoicesNote', __uiLang)}</span>
       </div>
       ${regimeButtons('var(--amber)')}
-      <button onclick="window.openTaxLevel1Simulate()" class="mt-3 text-[11px] text-[var(--on-surface-secondary)] underline">Non ce l'ho ancora — voglio solo sapere cosa mi resterebbe</button>`;
+      <button onclick="window.openTaxLevel1Simulate()" class="mt-3 text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('taxJustCuriousBtn', __uiLang)}</button>`;
     return;
   }
 
@@ -4248,8 +4249,8 @@ function renderTaxSettings() {
   if (VaultDAO.state.noPartitaIva) {
     body.innerHTML = `
       <div class="flex items-center justify-between gap-2 text-xs text-[var(--on-surface-secondary)]">
-        <span>Hai detto di essere dipendente: non ti chiedo più della Partita IVA.</span>
-        <button onclick="window.setNoPartitaIva(false)" class="text-[11px] font-bold text-[var(--primary)] underline shrink-0">Ho cambiato idea</button>
+        <span>${tCh('taxEmployedNote', __uiLang)}</span>
+        <button onclick="window.setNoPartitaIva(false)" class="text-[11px] font-bold text-[var(--primary)] underline shrink-0">${tCh('taxChangedMindBtn', __uiLang)}</button>
       </div>`;
     return;
   }
@@ -4261,9 +4262,9 @@ function renderTaxSettings() {
   // ignorando in Momentum Vault proprio lo scenario "se aprissi la P.IVA"
   // che il simulatore Livello 1 esiste apposta per coprire).
   body.innerHTML = `
-    <p class="text-xs text-[var(--on-surface-secondary)] mb-3">Hai la Partita IVA, o la stai valutando? In entrambi i casi Momentum ti aiuta: calcola tasse e contributi da mettere da parte, o ti dice subito cosa ti resterebbe se la aprissi.</p>
-    <button onclick="window.openTaxLevel1()" class="btn-action btn-primary justify-between w-full"><span>Partita IVA</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button onclick="window.setNoPartitaIva(true)" class="mt-2 text-[11px] text-[var(--on-surface-secondary)] underline">Sono dipendente, non mi serve</button>`;
+    <p class="text-xs text-[var(--on-surface-secondary)] mb-3">${tCh('taxIntroNote', __uiLang)}</p>
+    <button onclick="window.openTaxLevel1()" class="btn-action btn-primary justify-between w-full"><span>${tCh('taxPartitaIvaBtn', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button onclick="window.setNoPartitaIva(true)" class="mt-2 text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('taxNotSelfEmployedBtn', __uiLang)}</button>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
