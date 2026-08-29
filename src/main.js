@@ -11574,10 +11574,28 @@ function renderSourceReliabilitySummary() {
 // una volta al boot, prima che il genesis sia mostrato — se il genesis è
 // già stato rimosso dal DOM (utente già onboarded), querySelectorAll non
 // trova nulla ed è un no-op economico, sicuro da chiamare sempre.
+// Esteso (2026-08-29, Momentum Vault) oltre il solo textContent: il resto
+// dell'app statica in index.html mescola testo e SVG nello stesso elemento
+// (icona+testo in un bottone) o porta enfasi inline (<strong>) — impostare
+// textContent lì cancellerebbe l'icona o l'enfasi. Quattro varianti dello
+// stesso meccanismo, stesso dizionario:
+//  · data-i18n-key       → el.textContent (testo puro, nessun figlio da perdere)
+//  · data-i18n-html      → el.innerHTML (quando la chiave stessa porta markup, es. <strong>)
+//  · data-i18n-title     → attributo title (tooltip)
+//  · data-i18n-placeholder → attributo placeholder (input)
 function applyUiTranslations() {
   const lang = resolveUiLanguage();
   document.querySelectorAll('[data-i18n-key]').forEach(el => {
     el.textContent = tCh(el.dataset.i18nKey, lang);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = tCh(el.dataset.i18nHtml, lang);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = tCh(el.dataset.i18nTitle, lang);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = tCh(el.dataset.i18nPlaceholder, lang);
   });
 }
 

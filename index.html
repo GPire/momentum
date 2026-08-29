@@ -3856,12 +3856,12 @@
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
                   <div>
                     <h3 class="font-bold text-base" id="install-guide-title">Installa Momentum</h3>
-                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Come un'app vera, con la sua icona — niente browser da riaprire ogni volta</p>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultInstallSubtitle">Come un'app vera, con la sua icona — niente browser da riaprire ogni volta</p>
                   </div>
                 </div>
                 <div id="install-guide-steps" class="space-y-2.5"></div>
-                <button id="install-guide-btn" class="btn-action w-full mt-4 font-bold text-sm hidden">Installa ora</button>
-                <div id="install-guide-done" class="hidden text-center text-emerald-300 text-sm font-bold py-2">✓ App già installata</div>
+                <button id="install-guide-btn" class="btn-action w-full mt-4 font-bold text-sm hidden" data-i18n-key="vaultInstallBtn">Installa ora</button>
+                <div id="install-guide-done" class="hidden text-center text-emerald-300 text-sm font-bold py-2" data-i18n-key="vaultInstallDone">✓ App già installata</div>
               </div>
 
               <!-- Automazione Shortcuts (iOS 17+, trigger "Wallet"/"Transaction"):
@@ -3874,16 +3874,16 @@
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg></div>
                   <div>
-                    <h3 class="font-bold text-base">Apple Pay in automatico</h3>
-                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Un'automazione Shortcuts porta ogni pagamento dentro Momentum, pronto da confermare</p>
+                    <h3 class="font-bold text-base" data-i18n-key="vaultQuickaddTitle">Apple Pay in automatico</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultQuickaddSubtitle">Un'automazione Shortcuts porta ogni pagamento dentro Momentum, pronto da confermare</p>
                   </div>
                 </div>
                 <div id="quickadd-guide-steps" class="space-y-2.5"></div>
                 <div class="mt-4 p-3 rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)]">
-                  <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1.5">Indirizzo da incollare nell'azione "Testo" (passo 5)</p>
+                  <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1.5" data-i18n-key="vaultQuickaddUrlLabel">Indirizzo da incollare nell'azione "Testo" (passo 5)</p>
                   <div class="flex items-center gap-2">
                     <code id="quickadd-guide-url" class="text-[11px] flex-1 min-w-0 truncate select-all"></code>
-                    <button id="quickadd-guide-copy" class="shrink-0 text-xs font-bold text-[var(--primary)] px-2 py-1">Copia</button>
+                    <button id="quickadd-guide-copy" class="shrink-0 text-xs font-bold text-[var(--primary)] px-2 py-1" data-i18n-key="vaultCopy">Copia</button>
                   </div>
                 </div>
               </div>
@@ -3895,8 +3895,8 @@
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
                   <div>
-                    <h3 class="font-bold text-base">Come funziona Momentum</h3>
-                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Cosa è davvero acceso su questo dispositivo, non un elenco di marketing</p>
+                    <h3 class="font-bold text-base" data-i18n-key="vaultHowItWorksTitle">Come funziona Momentum</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultHowItWorksSubtitle">Cosa è davvero acceso su questo dispositivo, non un elenco di marketing</p>
                   </div>
                 </div>
                 <div id="neurosym-explain-layers" class="space-y-3"></div>
@@ -3919,7 +3919,7 @@
                 <p id="momentum-livello-sottotitolo" class="text-[12px] text-[var(--on-surface-secondary)] leading-snug mb-3"></p>
                 <div id="momentum-traguardi-list" class="space-y-2.5"></div>
                 <div id="momentum-livelli-altri" class="mt-4 pt-4 border-t border-[var(--outline)] space-y-1.5"></div>
-                <button id="momentum-livello-condividi" onclick="window.condividiTraguardo()" class="hidden mt-4 text-[11px] font-bold text-[var(--gold)] underline self-start">Condividi questo traguardo</button>
+                <button id="momentum-livello-condividi" onclick="window.condividiTraguardo()" class="hidden mt-4 text-[11px] font-bold text-[var(--gold)] underline self-start" data-i18n-key="vaultShareGoal">Condividi questo traguardo</button>
               </div>
 
               <!-- ETL terminal -->
@@ -3927,8 +3927,8 @@
                  <div class="flex items-center gap-4 mb-4">
                     <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
                     <div>
-                      <h3 class="font-bold text-base">Carica i tuoi movimenti</h3>
-                      <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Importa estratti conto o esporta tutti i tuoi dati (cifrati).</p>
+                      <h3 class="font-bold text-base" data-i18n-key="vaultImportTitle">Carica i tuoi movimenti</h3>
+                      <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultImportSubtitle">Importa estratti conto o esporta tutti i tuoi dati (cifrati).</p>
                     </div>
                  </div>
                  
@@ -3941,15 +3941,15 @@
                       .xml è ammesso qui ma non nell'input CSV/PDF dedicato: il tipo si decide
                       dal CONTENUTO (isCamt053 in camt053.js), mai dall'estensione da sola. -->
                  <input type="file" id="multi-upload" accept=".csv,.pdf,.xml,image/*" multiple class="hidden">
-                 <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold text-sm sm:text-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>Importa tutto <span class="hidden sm:inline">(CSV · PDF · Screenshot · CAMT.053 — anche 50 insieme)</span></button>
+                 <button onclick="document.getElementById('multi-upload').click()" class="btn-action w-full mb-3 font-bold text-sm sm:text-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg><span data-i18n-key="vaultImportAllBtn">Importa tutto</span> <span class="hidden sm:inline" data-i18n-key="vaultImportAllHint">(CSV · PDF · Screenshot · CAMT.053 — anche 50 insieme)</span></button>
                  <!-- Solo IMPORT qui dentro. Il vecchio pulsante "DNA" stava in
                       questa fila ed era un EXPORT: sembrava un formato da
                       caricare, e il file che produceva non si poteva nemmeno
                       rileggere. Ora sta con gli altri backup, più in basso. -->
                  <div class="grid grid-cols-3 gap-2 sm:gap-3 mt-auto">
                    <button onclick="document.getElementById('csv-upload').click()" class="btn-action">CSV</button>
-                   <button onclick="document.getElementById('pdf-upload').click()" class="btn-action">PDF Banca</button>
-                   <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action">Screenshot</button>
+                   <button onclick="document.getElementById('pdf-upload').click()" class="btn-action" data-i18n-key="vaultImportPdfBtn">PDF Banca</button>
+                   <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action" data-i18n-key="vaultImportScreenshotBtn">Screenshot</button>
                  </div>
                  <!-- Riepilogo affidabilità canali (source-registry.js, 2026-08-28):
                       etichette semplici, mai un numero grezzo — "comprensibile
@@ -3963,13 +3963,13 @@
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
                   <div>
-                    <h3 class="font-bold text-base">Il tuo accredito e i pagamenti</h3>
-                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Quando ti arriva lo stipendio (lo capisco dai movimenti) e come vuoi essere pagato.</p>
+                    <h3 class="font-bold text-base" data-i18n-key="vaultPayrollTitle">Il tuo accredito e i pagamenti</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultPayrollSubtitle">Quando ti arriva lo stipendio (lo capisco dai movimenti) e come vuoi essere pagato.</p>
                   </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-auto">
-                  <button onclick="window.openSalaryEditor()" class="btn-action justify-between"><span>Il mio accredito</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
-                  <button onclick="window.openPayoutSetup()" class="btn-action justify-between"><span>Come farmi pagare</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+                  <button onclick="window.openSalaryEditor()" class="btn-action justify-between"><span data-i18n-key="vaultMySalary">Il mio accredito</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+                  <button onclick="window.openPayoutSetup()" class="btn-action justify-between"><span data-i18n-key="vaultHowToBePaid">Come farmi pagare</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
                 </div>
               </div>
 
@@ -3996,7 +3996,7 @@
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-2">
-                      <h3 class="font-bold text-base">Tasse · Partita IVA</h3>
+                      <h3 class="font-bold text-base" data-i18n-key="vaultTaxTitle">Tasse · Partita IVA</h3>
                       <!-- Badge ISO invece di emoji bandiera (2026-08-27, feedback
                            utente: "ci devono essere icone di design"): stesso
                            linguaggio già usato ovunque nell'app per valuta/paese
@@ -4012,11 +4012,11 @@
                            lettere, resta comunque un'icona "di design" e non
                            un pittogramma di sistema. -->
                       <span class="shrink-0 inline-flex items-center gap-1.5">
-                        <button type="button" onclick="window.openTaxRegimePicker()" title="Italia" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                        <button type="button" onclick="window.openTaxRegimePicker()" title="Italia" data-i18n-title="vaultTaxItalyTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
                           <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(90deg,#009246 0 33%,#fff 33% 66%,#ce2b37 66% 100%)"></span>
                           <span class="font-mono text-[10px] font-bold">IT</span>
                         </button>
-                        <button type="button" onclick="window.openSwissSimulator()" title="Svizzera" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                        <button type="button" onclick="window.openSwissSimulator()" title="Svizzera" data-i18n-title="vaultTaxSwissTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
                           <!-- Croce bianca disegnata in CSS (2 barre a
                                gradiente) invece di un pallino rosso pieno,
                                che non si leggeva come Svizzera (feedback
@@ -4024,13 +4024,13 @@
                           <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background: linear-gradient(#fff,#fff) center/58% 20% no-repeat, linear-gradient(#fff,#fff) center/20% 58% no-repeat, #d52b1e"></span>
                           <span class="font-mono text-[10px] font-bold">CH</span>
                         </button>
-                        <button type="button" onclick="window.openSpainSimulator()" title="España" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                        <button type="button" onclick="window.openSpainSimulator()" title="España" data-i18n-title="vaultTaxSpainTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
                           <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(180deg,#c60b1e 0 25%,#ffc400 25% 75%,#c60b1e 75% 100%)"></span>
                           <span class="font-mono text-[10px] font-bold">ES</span>
                         </button>
                       </span>
                     </div>
-                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5">Se fatturi (qui o altrove), calcolo io quanto mettere da parte — un solo posto per i tre Paesi.</p>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultTaxSubtitle">Se fatturi (qui o altrove), calcolo io quanto mettere da parte — un solo posto per i tre Paesi.</p>
                   </div>
                 </div>
                 <div id="tax-settings-body" class="mt-3"></div>
@@ -4038,11 +4038,11 @@
                 <!-- Dettaglio Italia (src/predict/tax.js): stessi ID di sempre,
                      ora dentro la card unica invece che in una propria. -->
                 <div class="hidden pt-3 mt-3 border-t border-[var(--outline)]" id="tax-card">
-                   <p class="card-sub !mb-1">Su ogni incasso, quanto mettere via per fisco e contributi — il tuo vero disponibile</p>
+                   <p class="card-sub !mb-1" data-i18n-key="vaultTaxItLabel">Su ogni incasso, quanto mettere via per fisco e contributi — il tuo vero disponibile</p>
                    <p id="tax-setaside" class="text-2xl font-black font-mono text-[var(--red)] mb-1">—</p>
                    <p id="tax-note" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
                    <div id="tax-extra" class="mt-3"></div>
-                   <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70">Non è consulenza fiscale: stime su aliquote dichiarate. Verifica col tuo commercialista.</p>
+                   <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="vaultTaxItDisclaimer">Non è consulenza fiscale: stime su aliquote dichiarate. Verifica col tuo commercialista.</p>
                 </div>
 
                 <!-- Dettaglio Spagna (src/predict/tax-es.js): idem, stessi ID. -->
@@ -4059,14 +4059,14 @@
               <!-- P2P Sincronizzazione Serverless -->
               <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] flex flex-col justify-between">
                 <div>
-                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 6H15M6 8.5v7M8 18h7.5"/></svg>Sincronizza tra i tuoi dispositivi</h3>
-                  <p class="card-sub">I tuoi dati passano da un tuo dispositivo all'altro direttamente, senza server: restano solo tuoi.</p>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 6H15M6 8.5v7M8 18h7.5"/></svg><span data-i18n-key="vaultSyncTitle">Sincronizza tra i tuoi dispositivi</span></h3>
+                  <p class="card-sub" data-i18n-key="vaultSyncSubtitle">I tuoi dati passano da un tuo dispositivo all'altro direttamente, senza server: restano solo tuoi.</p>
 
                   <div class="space-y-3">
                     <!-- Mente condivisa (mesh federata, src/mesh/): l'AI impara
                          da tutti i tuoi dispositivi collegati, i dati restano su ognuno -->
                     <button onclick="window.openMeshPairing()" class="btn-action w-full justify-between">
-                      <span class="inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg>Collega un dispositivo (AI condivisa)</span>
+                      <span class="inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg><span data-i18n-key="vaultLinkDevice">Collega un dispositivo (AI condivisa)</span></span>
                       <span class="text-[var(--on-surface-secondary)]">→</span>
                     </button>
                     <p id="mesh-status" class="text-[10px] text-[var(--on-surface-secondary)]">Nessun dispositivo collegato: l'AI impara solo da questo.</p>
@@ -4075,7 +4075,7 @@
                          una promessa di "potenza illimitata" mai misurata. -->
                     <p id="mesh-economics-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                     <button onclick="generateSyncQR()" class="btn-action w-full justify-between">
-                      <span>Genera QR-Sync</span>
+                      <span data-i18n-key="vaultGenerateQrSync">Genera QR-Sync</span>
                       <span class="text-indigo-400">→</span>
                     </button>
 
@@ -4089,16 +4089,16 @@
                            posto al mondo, con il numero vero (src/core/backup-health.js). -->
                       <div id="backup-health-card"></div>
                       <div class="flex gap-2">
-                        <button onclick="window.openRecoveryKit()" class="btn-action btn-primary flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Metti al sicuro</button>
-                        <button onclick="window.openRecoveryRestore()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Torna dentro</button>
+                        <button onclick="window.openRecoveryKit()" class="btn-action btn-primary flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span data-i18n-key="vaultSecureBackup">Metti al sicuro</span></button>
+                        <button onclick="window.openRecoveryRestore()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg><span data-i18n-key="vaultRestoreBackup">Torna dentro</span></button>
                       </div>
                       <details class="mt-1">
-                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Preferisco una password mia</summary>
-                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2">Funziona lo stesso, ma se la dimentichi i dati non tornano più: è la ragione per cui non è più il modo consigliato.</p>
+                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer" data-i18n-key="vaultPreferOwnPassword">Preferisco una password mia</summary>
+                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2" data-i18n-key="vaultPasswordWarning">Funziona lo stesso, ma se la dimentichi i dati non tornano più: è la ragione per cui non è più il modo consigliato.</p>
                       <div class="flex gap-2">
-                        <button onclick="window.exportEncryptedBackup()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Esporta (cifrato)</button>
+                        <button onclick="window.exportEncryptedBackup()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span data-i18n-key="vaultExportEncrypted">Esporta (cifrato)</span></button>
                         <label class="btn-action flex-1 text-xs justify-center cursor-pointer text-center gap-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>Ripristina
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg><span data-i18n-key="vaultRestoreLabel">Ripristina</span>
                           <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" />
                         </label>
                       </div>
@@ -4109,11 +4109,11 @@
                            backup (non fra gli import), e il file prodotto si
                            riapre davvero da "Ripristina". -->
                       <details class="mt-1">
-                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Voglio solo una copia leggibile, senza password</summary>
-                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2">Il file <strong>non è cifrato</strong>: chiunque lo apra legge tutti i tuoi dati. Va bene solo se lo tieni in un posto che consideri già sicuro.</p>
-                        <button onclick="window.exportPlainBackup()" class="btn-action w-full text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Salva una copia in chiaro</button>
+                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer" data-i18n-key="vaultPlainCopyOption">Voglio solo una copia leggibile, senza password</summary>
+                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2" data-i18n-html="vaultPlainCopyWarning">Il file <strong>non è cifrato</strong>: chiunque lo apra legge tutti i tuoi dati. Va bene solo se lo tieni in un posto che consideri già sicuro.</p>
+                        <button onclick="window.exportPlainBackup()" class="btn-action w-full text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg><span data-i18n-key="vaultSavePlainCopy">Salva una copia in chiaro</span></button>
                       </details>
-                      <button onclick="window.exportTrainingData()" class="text-[10px] text-[var(--on-surface-secondary)] underline">Esporta dati per riaddestrare il modello (per gli sviluppatori)</button>
+                      <button onclick="window.exportTrainingData()" class="text-[10px] text-[var(--on-surface-secondary)] underline" data-i18n-key="vaultExportTrainingData">Esporta dati per riaddestrare il modello (per gli sviluppatori)</button>
                     </div>
 
                     <!-- Aggiornamento autonomo (src/core/auto-update.js + data-freshness.js):
@@ -4122,16 +4122,16 @@
                     <div id="data-freshness-card"></div>
 
                     <div class="border-t border-[var(--outline)] pt-3 mt-3">
-                      <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2">Inserisci codice WebRTC Peer-Id per sincronizzare in tempo reale:</p>
+                      <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2" data-i18n-key="vaultWebrtcLabel">Inserisci codice WebRTC Peer-Id per sincronizzare in tempo reale:</p>
                       <div class="flex gap-2">
-                        <input type="text" id="webrtc-peer-input" class="modal-input !mb-0 py-2 text-xs" placeholder="Inserisci Peer ID..." />
+                        <input type="text" id="webrtc-peer-input" class="modal-input !mb-0 py-2 text-xs" placeholder="Inserisci Peer ID..." data-i18n-placeholder="vaultPeerIdPlaceholder" />
                         <button onclick="connectWebRTCPeer()" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold">Connect</button>
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                <div class="text-[11px] text-[var(--on-surface-secondary)] mt-4 leading-relaxed">
+                <div class="text-[11px] text-[var(--on-surface-secondary)] mt-4 leading-relaxed" data-i18n-key="vaultWebrtcFooter">
                   WebRTC P2P direct data channel. Sincronizzazione locale e remota cifrata end-to-end.
                 </div>
               </div>

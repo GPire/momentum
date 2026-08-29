@@ -383,3 +383,53 @@ test('t: dashOverspendTitle e dashTrajLabel traducono correttamente nelle 7 ling
   assert.equal(t('dashOverspendTitle', 'nl'), 'Vandaag beter niets uitgeven');
   assert.equal(t('dashOverspendTitle', 'pt'), 'Melhor não gastar hoje');
 });
+
+// ── Momentum Vault (impostazioni) — prima passata (2026-08-29): solo il
+// testo statico di index.html mai riscritto da JS (verificato per ogni id
+// prima di tradurlo — install-guide-title/steps, neurosym-explain-*, i
+// traguardi, mesh-status, tax-settings-body/tax-es-* restano italiani,
+// generati da altri moduli, cantiere separato). Consumato via
+// data-i18n-key/-html/-title/-placeholder in index.html + applyUiTranslations()
+// in main.js, stesso meccanismo dell'onboarding esteso con tre varianti. ──
+
+test('t: tutte le chiavi vault* (prima passata Momentum Vault) esistono nelle 7 lingue, mai un fallback sulla chiave grezza', () => {
+  const chiavi = [
+    'vaultInstallSubtitle', 'vaultInstallBtn', 'vaultInstallDone',
+    'vaultQuickaddTitle', 'vaultQuickaddSubtitle', 'vaultQuickaddUrlLabel', 'vaultCopy',
+    'vaultHowItWorksTitle', 'vaultHowItWorksSubtitle', 'vaultShareGoal',
+    'vaultImportTitle', 'vaultImportSubtitle', 'vaultImportAllBtn', 'vaultImportAllHint',
+    'vaultImportPdfBtn', 'vaultImportScreenshotBtn',
+    'vaultPayrollTitle', 'vaultPayrollSubtitle', 'vaultMySalary', 'vaultHowToBePaid',
+    'vaultTaxTitle', 'vaultTaxItalyTitle', 'vaultTaxSwissTitle', 'vaultTaxSpainTitle',
+    'vaultTaxSubtitle', 'vaultTaxItLabel', 'vaultTaxItDisclaimer',
+    'vaultSyncTitle', 'vaultSyncSubtitle', 'vaultLinkDevice', 'vaultGenerateQrSync',
+    'vaultSecureBackup', 'vaultRestoreBackup', 'vaultPreferOwnPassword', 'vaultPasswordWarning',
+    'vaultExportEncrypted', 'vaultRestoreLabel', 'vaultPlainCopyOption', 'vaultPlainCopyWarning',
+    'vaultSavePlainCopy', 'vaultExportTrainingData', 'vaultWebrtcLabel', 'vaultPeerIdPlaceholder',
+    'vaultWebrtcFooter',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}" (ripiegata sulla chiave grezza)`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: vaultPlainCopyWarning porta il markup <strong> in ogni lingua (consumata via data-i18n-html, mai textContent — l\'enfasi non deve sparire in nessuna lingua)', () => {
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    const v = t('vaultPlainCopyWarning', lang);
+    assert.match(v, /<strong>.*<\/strong>/, `lingua "${lang}": manca <strong> in vaultPlainCopyWarning`);
+  }
+});
+
+test('t: vaultInstallBtn e vaultSyncTitle traducono correttamente nelle 7 lingue', () => {
+  assert.equal(t('vaultInstallBtn', 'it'), 'Installa ora');
+  assert.equal(t('vaultInstallBtn', 'en'), 'Install now');
+  assert.equal(t('vaultInstallBtn', 'de'), 'Jetzt installieren');
+  assert.equal(t('vaultInstallBtn', 'fr'), 'Installer maintenant');
+  assert.equal(t('vaultInstallBtn', 'es'), 'Instalar ahora');
+  assert.equal(t('vaultInstallBtn', 'nl'), 'Nu installeren');
+  assert.equal(t('vaultInstallBtn', 'pt'), 'Instalar agora');
+});
