@@ -701,6 +701,40 @@ test('t: tutte le chiavi neuro* (neurosym.js, pannello "Come funziona Momentum")
   }
 });
 
+test('t: providerChangeBtn/providerActivateBtn/toastAnon* (lista provider AI + disclosure telemetria/chat) esistono nelle 7 lingue', () => {
+  const chiavi = ['providerChangeBtn', 'providerActivateBtn', 'toastAnonBoth', 'toastAnonTelemetry', 'toastAnonChatCtx'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: chiavi key* (stato chiavi API prezzi live, Momentum Vault) esistono nelle 7 lingue', () => {
+  const chiavi = ['keyStatusSaved', 'keyStatusNotConfigured', 'keyPasteFirst', 'keySavedOnDevice', 'keySavedToast'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'abcd…wxyz');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: chiavi semantic-embed/sentiment on-device (Momentum Vault) esistono nelle 7 lingue', () => {
+  const chiavi = ['semanticQaActivateLabel', 'sentimentActivateLabel', 'progressPct', 'progressUnknownSize', 'semanticQaReadyLabel', 'semanticQaDownloadingLabel', 'semanticQaDownloadToast', 'semanticQaSuccessToast', 'semanticQaFailToast', 'sentimentReadyLabel', 'sentimentDownloadingLabel', 'sentimentDownloadToast', 'sentimentSuccessToast', 'sentimentFailToast', 'errUnknownReason', 'remindersEmptyTitle', 'remindersEmptyBody'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 42, 'network error');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+    assert.match(t('remindersEmptyBody', lang), /<b>.*<\/b>/, `remindersEmptyBody deve contenere <b> in lingua "${lang}"`);
+  }
+});
+
 test('t: tutte le chiavi inst* (install-guide.js, guida installazione PWA) esistono nelle 7 lingue', () => {
   const chiavi = ['instAlreadyInstalledTitle', 'instInAppTitle', 'instInAppWarning', 'instInAppOpenSafari', 'instInAppOpenChrome', 'instInAppThenWorks', 'instIosSafariTitle', 'instIosBackupWarning', 'instIosShareIcon', 'instIosAddToHome', 'instIosConfirmAdd', 'instIosEmptyAfterInstall', 'instIosOtherTitle', 'instIosOnlySafari', 'instIosShareThenHome', 'instAndroidTitle', 'instAndroidTapInstall', 'instAndroidConfirm', 'instAndroidMenuDots', 'instAndroidAddHome', 'instDesktopTitle', 'instDesktopTapInstall', 'instDesktopOpensWindow', 'instFirefoxNotSupported', 'instFirefoxAlternative', 'instFallbackTitle', 'instFallbackStep'];
   for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {

@@ -98,14 +98,21 @@ import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, I
 import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predict/tax-es.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
-import { t as tCh, resolveUiLanguage } from './i18n/ui-strings.js';
+import { t as tCh, resolveUiLanguage, UI_LANGS } from './i18n/ui-strings.js';
 // Lingua UI generale (Dashboard, 2026-08-28) — stesso resolveUiLanguage()
 // già usato per le schermate fiscali CH/ES e per l'onboarding, calcolata
 // una sola volta al carico del modulo (device-only, nessun selettore
 // dedicato ancora, stesso limite di quelle schermate). Dichiarata qui, in
 // cima, così è già pronta per qualunque funzione più sotto nel file —
 // incluse quelle definite (ma non ancora chiamate) prima di questa riga.
-const __uiLang = resolveUiLanguage();
+// `?lang=xx` in URL (2026-08-29): override esplicito SOLO per verifica
+// visiva rapida (dev/QA, mai salvato da nessuna parte, sparisce alla
+// prossima visita senza il parametro) — stessa priorità "scelta esplicita
+// vince sempre" già usata da resolveUiLanguage per gli altri override.
+const __uiLangParam = (() => {
+  try { return new URLSearchParams(window.location.search).get('lang'); } catch (_) { return null; }
+})();
+const __uiLang = resolveUiLanguage({ override: UI_LANGS.includes(__uiLangParam) ? __uiLangParam : null });
 // Locale reale per Intl/toLocaleDateString: senza questa mappa i nomi di
 // mese/giorno (es. "agosto", "lun") restavano in italiano anche a
 // interfaccia tradotta — una traduzione di UI che si fermava all'ultimo
@@ -2916,8 +2923,8 @@ window.renderCalendarEvents = () => {
     // così l'app è utile e chiara già dal primo avvio, anche senza dati.
     list.innerHTML = `<div class="text-center py-4 px-2">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 mx-auto mb-2 text-[var(--on-surface-secondary)]"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/><path d="M12 13v3M10.5 14.5h3"/></svg>
-      <p class="text-xs font-bold text-white">Qui prevedo cosa ti aspetta</p>
-      <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Appena aggiungi o importi qualche spesa, scovo da solo gli abbonamenti e le bollette ricorrenti e ti dico <b>quando</b> arriva il prossimo addebito — senza che tu inserisca nulla.</p>
+      <p class="text-xs font-bold text-white">${tCh('remindersEmptyTitle', __uiLang)}</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${tCh('remindersEmptyBody', __uiLang)}</p>
     </div>`;
     return;
   }
@@ -4452,7 +4459,12 @@ function tl1InitChecklist(id) {
 // non l'ha scelto e il cui dispositivo non lo suggerisce. Primo modulo
 // riusabile: stesso pattern da estendere schermata per schermata quando si
 // aggiunge il prossimo mercato, non riscritto da capo ogni volta.
-const __chLang = resolveUiLanguage();
+// Riusa __uiLang (calcolato una sola volta in cima al file, con lo stesso
+// override esplicito ?lang= se presente) invece di una propria
+// resolveUiLanguage() indipendente — due fonti separate della "stessa"
+// lingua avevano già causato un bug reale (vedi applyUiTranslations più
+// sotto), stesso principio applicato qui per non ripeterlo.
+const __chLang = __uiLang;
 
 window.openSwissSimulator = () => {
   pingFeature('swiss_tax_opened');
@@ -4522,7 +4534,7 @@ window.openSwissSimulatorResult = (reddito) => {
 // esattamente il tipo di numero indovinato che questo progetto rifiuta.
 // Niente QR-bill: la Spagna non ha un sistema di fattura standardizzato
 // paragonabile a quello svizzero, non se ne finge uno.
-const __esLang = resolveUiLanguage();
+const __esLang = __uiLang;
 
 window.openSpainSimulator = () => {
   window.openModal(`
@@ -5959,8 +5971,8 @@ function renderKeyStatusDot(elId, provider) {
   if (!el) return;
   const key = VaultDAO.state.liveDataKeys?.[provider];
   el.innerHTML = key
-    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>Chiave salvata (${maskKey(key)}). Tocca "Guida" per cambiarla.`
-    : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-600 mr-1"></span>Non ancora configurata.`;
+    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>${tCh('keyStatusSaved', __uiLang, maskKey(key))}`
+    : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-600 mr-1"></span>${tCh('keyStatusNotConfigured', __uiLang)}`;
 }
 window.saveLiveDataKey = (provider) => {
   const input = document.getElementById(`${provider}-key-input`);
@@ -5970,12 +5982,12 @@ window.saveLiveDataKey = (provider) => {
   // avrebbe sempre scritto sullo stato di Alpha Vantage a prescindere.
   const status = document.getElementById(provider === 'alphavantage' ? 'live-price-status' : `${provider}-status`);
   const value = (input?.value || '').trim();
-  if (!value) { showToast('Incolla prima la tua chiave.', 'error'); return; }
+  if (!value) { showToast(tCh('keyPasteFirst', __uiLang), 'error'); return; }
   VaultDAO.state.liveDataKeys = { ...(VaultDAO.state.liveDataKeys || {}), [provider]: value };
   VaultDAO.save();
   if (input) input.value = '';
-  if (status) status.innerHTML = '<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>Chiave salvata su questo dispositivo. I prezzi si aggiorneranno in background.';
-  showToast('Chiave salvata.', 'success');
+  if (status) status.innerHTML = `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>${tCh('keySavedOnDevice', __uiLang)}`;
+  showToast(tCh('keySavedToast', __uiLang), 'success');
   try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
 };
 
@@ -6195,15 +6207,15 @@ function initTelemetryToggle() {
   if (needsChatCtx) localStorage.setItem('momentum_chatctx_disclosed', '1');
   if (needsTelemetry && needsChatCtx) {
     setTimeout(() => {
-      showToast('Un numero anonimo (mai i tuoi dati) aiuta Momentum a crescere, e la chat generica include un riassunto anonimo della tua situazione (mai le transazioni). Entrambi disattivabili in Momentum Vault.', 'info');
+      showToast(tCh('toastAnonBoth', __uiLang), 'info');
     }, 2500);
   } else if (needsTelemetry) {
     setTimeout(() => {
-      showToast('Un numero anonimo (mai i tuoi dati) aiuta Momentum a crescere. Disattivabile in Momentum Vault.', 'info');
+      showToast(tCh('toastAnonTelemetry', __uiLang), 'info');
     }, 2500);
   } else if (needsChatCtx) {
     setTimeout(() => {
-      showToast('La chat generica ora include di default un riassunto anonimo della tua situazione (mai transazioni). Disattivabile in Momentum Vault.', 'info');
+      showToast(tCh('toastAnonChatCtx', __uiLang), 'info');
     }, 2500);
   }
   const animCb = document.getElementById('force-anim-optin');
@@ -6253,7 +6265,7 @@ function renderChatProviderStatus() {
           <span class="w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
           ${p.label}${active ? ` <span class="text-slate-500 font-mono">${maskKey(keys[p.id])}</span>` : ''}
         </span>
-        <button onclick="window.openApiKeyGuide('${p.id}')" class="text-[10px] underline ${active ? 'text-[var(--on-surface-secondary)]' : 'text-[var(--primary)]'}">${active ? 'Cambia' : 'Attiva'} →</button>
+        <button onclick="window.openApiKeyGuide('${p.id}')" class="text-[10px] underline ${active ? 'text-[var(--on-surface-secondary)]' : 'text-[var(--primary)]'}">${active ? tCh('providerChangeBtn', __uiLang) : tCh('providerActivateBtn', __uiLang)} →</button>
       </div>`;
   }).join('');
 }
@@ -6595,8 +6607,8 @@ function sondaProgresso(modulo, labelId, testoPronto) {
       const p = m.progressoScaricamento?.();
       if (!p || p.fase !== 'scaricamento') return;
       label.textContent = Number.isFinite(p.pct)
-        ? `Attivo — scaricamento in corso… ${p.pct}%`
-        : 'Attivo — scaricamento in corso… (dimensione non dichiarata dal server)';
+        ? tCh('progressPct', __uiLang, p.pct)
+        : tCh('progressUnknownSize', __uiLang);
     }).catch(() => {});
   };
   timer = setInterval(aggiorna, 800);
@@ -6616,8 +6628,8 @@ function renderSemanticQaCard() {
   if (label && VaultDAO.state.semanticQaOptIn) {
     import('./ai/semantic-embed.js').then(({ semanticModelPronto }) => {
       label.textContent = semanticModelPronto()
-        ? 'Attivo — comprende il significato, non solo le parole'
-        : 'Attivo — scaricamento in corso alla prossima domanda (~197MB, una volta sola)';
+        ? tCh('semanticQaReadyLabel', __uiLang)
+        : tCh('semanticQaDownloadingLabel', __uiLang);
     }).catch(() => {});
   }
 }
@@ -6625,15 +6637,15 @@ window.setSemanticQaOptIn = async (attiva) => {
   VaultDAO.state.semanticQaOptIn = !!attiva;
   VaultDAO.save();
   if (!attiva) { renderSemanticQaCard(); return; }
-  showToast('Scarico il modello di comprensione del linguaggio (~197MB, una volta sola)…', 'info');
+  showToast(tCh('semanticQaDownloadToast', __uiLang), 'info');
   const fermaProgresso = sondaProgresso('./ai/semantic-embed.js', 'semantic-qa-label');
   try {
     const { caricaModelloSemantico } = await import('./ai/semantic-embed.js');
     const esito = await caricaModelloSemantico();
     fermaProgresso();
-    if (esito.ok) showToast('Comprensione del linguaggio attiva: ora capisce il significato, non solo le parole.', 'success');
+    if (esito.ok) showToast(tCh('semanticQaSuccessToast', __uiLang), 'success');
     else {
-      showToast(`Non sono riuscito a scaricare il modello (${esito.motivo || 'errore sconosciuto'}): il QA continua a funzionare come prima.`, 'info');
+      showToast(tCh('semanticQaFailToast', __uiLang, esito.motivo || tCh('errUnknownReason', __uiLang)), 'info');
       VaultDAO.state.semanticQaOptIn = false;
       VaultDAO.save();
     }
@@ -6660,8 +6672,8 @@ function renderSentimentLocalCard() {
   if (label && VaultDAO.state.sentimentOptIn) {
     import('./ai/local-sentiment.js').then(({ sentimentModelPronto }) => {
       label.textContent = sentimentModelPronto()
-        ? 'Attivo — assegna bullish/bearish alle notizie senza chiave API'
-        : 'Attivo — scaricamento in corso alla prossima notizia (~82MB, una volta sola)';
+        ? tCh('sentimentReadyLabel', __uiLang)
+        : tCh('sentimentDownloadingLabel', __uiLang);
     }).catch(() => {});
   }
 }
@@ -6669,15 +6681,15 @@ window.setSentimentLocalOptIn = async (attiva) => {
   VaultDAO.state.sentimentOptIn = !!attiva;
   VaultDAO.save();
   if (!attiva) { renderSentimentLocalCard(); return; }
-  showToast('Scarico il modello di sentiment finanziario (~82MB, una volta sola)…', 'info');
+  showToast(tCh('sentimentDownloadToast', __uiLang), 'info');
   const fermaProgresso = sondaProgresso('./ai/local-sentiment.js', 'sentiment-local-label');
   try {
     const { caricaModelloSentiment } = await import('./ai/local-sentiment.js');
     const esito = await caricaModelloSentiment();
     fermaProgresso();
-    if (esito.ok) showToast('Sentiment on-device attivo: le notizie senza chiave API avranno anche un punteggio bullish/bearish.', 'success');
+    if (esito.ok) showToast(tCh('sentimentSuccessToast', __uiLang), 'success');
     else {
-      showToast(`Non sono riuscito a scaricare il modello (${esito.motivo || 'errore sconosciuto'}): le notizie continuano a funzionare come prima.`, 'info');
+      showToast(tCh('sentimentFailToast', __uiLang, esito.motivo || tCh('errUnknownReason', __uiLang)), 'info');
       VaultDAO.state.sentimentOptIn = false;
       VaultDAO.save();
     }
@@ -11590,7 +11602,15 @@ function renderSourceReliabilitySummary() {
 //  · data-i18n-placeholder → attributo placeholder (input)
 //  · data-i18n-aria      → attributo aria-label (bottoni icona-soltanto, es. "+")
 function applyUiTranslations() {
-  const lang = resolveUiLanguage();
+  // BUG REALE trovato dal vivo (2026-08-29): questa funzione richiamava una
+  // SECONDA resolveUiLanguage() propria invece di riusare __uiLang già
+  // calcolato in cima al file — due fonti indipendenti della "stessa"
+  // lingua, esattamente il pattern di duplicazione già segnalato altrove nel
+  // progetto. Prima del fix al bug di resolveUiLanguage() coincidevano per
+  // caso (entrambe sempre 'en'); dopo quel fix, `?lang=xx` (override solo su
+  // __uiLang) veniva ignorato qui, lasciando alcune card (es. #import-cta)
+  // sempre nella lingua del dispositivo invece che nella lingua scelta.
+  const lang = __uiLang;
   document.querySelectorAll('[data-i18n-key]').forEach(el => {
     el.textContent = tCh(el.dataset.i18nKey, lang);
   });
