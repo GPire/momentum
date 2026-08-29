@@ -3169,7 +3169,7 @@ const renderAnalysis = (opts = {}) => {
 
   const budgetLimit = VaultDAO.state.monthlyBudget;
   $('#budget-spent').textContent = formatMoney(exp);
-  $('#budget-limit').textContent = `su ${formatMoney(budgetLimit)}`;
+  $('#budget-limit').textContent = tCh('alphaOfBudget', __uiLang, formatMoney(budgetLimit));
   
   const bBar = $('#budget-progress');
   if (budgetLimit > 0) {
@@ -3191,22 +3191,22 @@ const renderAnalysis = (opts = {}) => {
     // niente — coerente in entrambi i casi con questa scelta).
     const referenceDate = viewingCurrentMonth ? realNowForWeekly : VaultDAO.state.currentDate;
     const { currentWeek, weeks } = getWeeklyStatus(txs, budgetLimit, referenceDate);
-    const fmtDay = d => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+    const fmtDay = d => d.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
 
     if (currentWeek) {
       const overBudget = currentWeek.remaining < 0;
       weeklyBox.innerHTML = `
-        <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">Questa settimana (${fmtDay(currentWeek.start)} - ${fmtDay(currentWeek.end)})</h4>
+        <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">${tCh('alphaWeekTitle', __uiLang, fmtDay(currentWeek.start), fmtDay(currentWeek.end))}</h4>
         <div class="flex flex-wrap justify-between items-end gap-x-2">
           <p class="text-xl font-black font-mono min-w-0 truncate ${overBudget ? 'text-rose-400' : 'text-emerald-400'}">${formatMoney(Math.abs(currentWeek.remaining))}</p>
-          <p class="text-[11px] text-[var(--on-surface-secondary)] shrink-0">${overBudget ? 'oltre budget' : 'rimanenti'} su ${formatMoney(currentWeek.budget)}</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] shrink-0">${overBudget ? tCh('alphaOverBudget', __uiLang) : tCh('alphaRemaining', __uiLang)} ${tCh('alphaOfBudget', __uiLang, formatMoney(currentWeek.budget))}</p>
         </div>
-        ${currentWeek.rolloverIn ? `<p class="text-[10px] mt-1 ${currentWeek.rolloverIn > 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}">${currentWeek.rolloverIn > 0 ? '+' : ''}${formatMoney(currentWeek.rolloverIn)} riportato dalla settimana scorsa</p>` : ''}
+        ${currentWeek.rolloverIn ? `<p class="text-[10px] mt-1 ${currentWeek.rolloverIn > 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}">${tCh('alphaRolloverIn', __uiLang, `${currentWeek.rolloverIn > 0 ? '+' : ''}${formatMoney(currentWeek.rolloverIn)}`)}</p>` : ''}
       `;
     } else {
       // mese non corrente: mostra il riepilogo di tutte le settimane invece del solo "questa settimana"
       weeklyBox.innerHTML = `
-        <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-2">Budget per settimana</h4>
+        <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-2">${tCh('alphaWeeklyBudgetTitle', __uiLang)}</h4>
         <div class="space-y-1 text-[11px]">
           ${weeks.map(w => `<div class="flex justify-between"><span class="text-[var(--on-surface-secondary)]">${fmtDay(w.start)}-${fmtDay(w.end)}</span><span class="${w.remaining < 0 ? 'text-rose-400' : 'text-[var(--on-surface-secondary)]'}">${formatMoney(w.remaining)}</span></div>`).join('')}
         </div>
@@ -3266,14 +3266,14 @@ const renderAnalysis = (opts = {}) => {
 
   // Predictions & Jar Fill
   const proj = PredictiveOracle.calculateProjections();
-  $('#forecast-cagr').textContent = `Crescita media stimata: ${(proj.dynCagr * 100).toFixed(1)}%`;
+  $('#forecast-cagr').textContent = tCh('alphaCagrEstimate', __uiLang, (proj.dynCagr * 100).toFixed(1));
   $('#forecast-1y').textContent = formatMoney(proj.proj1y);
   $('#forecast-5y').textContent = formatMoney(proj.proj5y);
   const bandDisplay = document.getElementById('forecast-band-display');
   if (bandDisplay && proj.sim5y) {
-    bandDisplay.textContent = `Scenari possibili tra 5 anni (dal 5% al 95%): ${formatMoney(proj.sim5y.p5)} - ${formatMoney(proj.sim5y.p95)}`;
+    bandDisplay.textContent = tCh('alphaScenarios5y', __uiLang, formatMoney(proj.sim5y.p5), formatMoney(proj.sim5y.p95));
   }
-  $('#discipline-score').textContent = `Costanza: ${proj.discipline}/100`;
+  $('#discipline-score').textContent = tCh('alphaDiscipline', __uiLang, proj.discipline);
   $('#forecast-jar-fill').style.height = `${proj.discipline}%`;
 
   // Aggiornamento progressivo: il worker ricalcola con l'ensemble
@@ -3286,14 +3286,14 @@ const renderAnalysis = (opts = {}) => {
       $('#forecast-5y').textContent = formatMoney(r.sims.y5.p50);
       const band = document.getElementById('forecast-band-display');
       if (band) {
-        let txt = `Scenari possibili tra 5 anni (dal 5% al 95%): ${formatMoney(r.sims.y5.p5)} - ${formatMoney(r.sims.y5.p95)}`;
-        if (r.mcExpenses) txt += ` · Spese del prossimo mese: di solito ${formatMoney(r.mcExpenses.p50)}, al massimo ${formatMoney(r.mcExpenses.var95)}`;
+        let txt = tCh('alphaScenarios5y', __uiLang, formatMoney(r.sims.y5.p5), formatMoney(r.sims.y5.p95));
+        if (r.mcExpenses) txt += tCh('alphaNextMonthExpenses', __uiLang, formatMoney(r.mcExpenses.p50), formatMoney(r.mcExpenses.var95));
         band.textContent = txt;
       }
       const cagrEl = $('#forecast-cagr');
       if (cagrEl && r.ensemble?.weights) {
         const w = r.ensemble.weights;
-        cagrEl.textContent = `Crescita media stimata: ${(proj.dynCagr * 100).toFixed(1)}%`;
+        cagrEl.textContent = tCh('alphaCagrEstimate', __uiLang, (proj.dynCagr * 100).toFixed(1));
       }
       // Il livello Holt-Winters (spesa giornaliera destagionalizzata) rende
       // la proiezione di fine mese dell'advisor un vero forecast invece del
@@ -3340,11 +3340,11 @@ const renderAnalysis = (opts = {}) => {
     targetCapital: fireTargetVal,
     expectedAnnualReturn: fireExpectedReturn,
   });
-  $('#fire-years').textContent = fireResult.reachable ? `${fireResult.years.toFixed(1)} anni` : "Nessun risparmio.";
+  $('#fire-years').textContent = fireResult.reachable ? tCh('alphaFireYearsResult', __uiLang, fireResult.years.toFixed(1)) : tCh('alphaFireNoSavings', __uiLang);
   const coastNoteEl = $('#fire-coast-note');
   if (coastNoteEl) {
     const coast = coastFireCheck({ currentAge: 35, retirementAge: 65, currentInvested: fireInvested, targetCapital: fireTargetVal, expectedAnnualReturn: fireExpectedReturn });
-    coastNoteEl.textContent = `Rendimento ipotizzato ${(fireExpectedReturn * 100).toFixed(1)}%/anno (misurato su SPY, non promesso).${fireInvested > 0 && coast.isCoastFire ? ' Il capitale già investito, da solo, potrebbe già bastare entro i 65 anni (Coast FIRE).' : ''}`;
+    coastNoteEl.textContent = tCh('alphaFireCoastNote', __uiLang, (fireExpectedReturn * 100).toFixed(1)) + (fireInvested > 0 && coast.isCoastFire ? tCh('alphaFireCoastBonus', __uiLang) : '');
   }
 
   // Heatmap Grid
@@ -3363,7 +3363,7 @@ const renderAnalysis = (opts = {}) => {
         (__heatmapDayTx[d] = __heatmapDayTx[d] || []).push(t);
       }
     });
-    __heatmapMonthLabel = VaultDAO.state.currentDate.toLocaleDateString('it-IT', { month: 'long' });
+    __heatmapMonthLabel = VaultDAO.state.currentDate.toLocaleDateString(__uiLocale, { month: 'long' });
 
     for (let i = 1; i <= days; i++) {
       const amt = spends[i] || 0;
@@ -3375,7 +3375,7 @@ const renderAnalysis = (opts = {}) => {
 
       // title = tooltip per mouse; il click (sotto) è il vero drill-down,
       // necessario perché su touch il title non appare mai al tocco.
-      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[11px] font-mono text-[var(--on-surface-secondary)] cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : 'nessuna spesa'}">${i}</div>`;
+      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[11px] font-mono text-[var(--on-surface-secondary)] cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : tCh('alphaHeatmapNoExpense', __uiLang)}">${i}</div>`;
     }
     $('#heatmap-day-detail').innerHTML = '';
   }
@@ -14610,13 +14610,15 @@ const initApp = () => {
       const pct = parseInt(wSlider.value);
       wPct.textContent = `${pct > 0 ? '+' : ''}${pct}%`;
       const sim = simulateCategoryChange({ allTx: VaultDAO.state.transactions, catId: wCat.value, deltaPct: pct });
-      if (!sim) { wResult.textContent = 'Non ho ancora abbastanza storia recente su questa categoria per simulare.'; return; }
-      const verb = sim.directMonthly >= 0 ? 'risparmi' : 'spendi in più';
-      let txt = `${verb} ${formatMoney(Math.abs(sim.directMonthly))} al mese`;
+      if (!sim) { wResult.textContent = tCh('alphaWhatIfNoHistory', __uiLang); return; }
+      const verb = sim.directMonthly >= 0 ? tCh('alphaWhatIfVerbSave', __uiLang) : tCh('alphaWhatIfVerbSpendMore', __uiLang);
+      let txt = tCh('alphaWhatIfResultLine', __uiLang, verb, formatMoney(Math.abs(sim.directMonthly)));
       if (sim.chainEffects.length > 0) {
         const e = sim.chainEffects[0];
-        txt += ` — e nei tuoi dati ${getCatById(e.category).name} di solito ${e.pct < 0 ? 'scende' : 'sale'} con lei (${e.monthlyEur > 0 ? '+' : ''}${formatMoney(e.monthlyEur)} in più${e.lagWeeks > 0 ? ', la settimana dopo' : ''})`;
-        txt += `. Totale stimato: ${formatMoney(sim.totalMonthly)}/mese.`;
+        const direction = e.pct < 0 ? tCh('alphaWhatIfDirectionDown', __uiLang) : tCh('alphaWhatIfDirectionUp', __uiLang);
+        const lagSuffix = e.lagWeeks > 0 ? tCh('alphaWhatIfLagWeek', __uiLang) : '';
+        txt += tCh('alphaWhatIfChainLine', __uiLang, getCatById(e.category).name, direction, `${e.monthlyEur > 0 ? '+' : ''}${formatMoney(e.monthlyEur)}`, lagSuffix);
+        txt += tCh('alphaWhatIfTotalEstimate', __uiLang, formatMoney(sim.totalMonthly));
       } else {
         txt += '.';
       }
@@ -14639,14 +14641,14 @@ const initApp = () => {
   if (slider) {
     slider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value) || 0;
-      $('#scenario-extra-val').textContent = `+€${val}/m`;
+      $('#scenario-extra-val').textContent = tCh('alphaScenarioExtraVal', __uiLang, val);
       try {
         const a = measuredAssumptions.spy?.buyHold;
         const mu = a?.mu ?? 0.09, sigma = a?.sigma ?? 0.15;
         const r = projectStrategy({ start: 0, monthlyContribution: val, years: 5, mu, sigma, paths: 500 });
         $('#scenario-future-impact').textContent = val > 0
-          ? `5 anni: ${formatMoney(r.p5)} – ${formatMoney(r.p50)} – ${formatMoney(r.p95)}`
-          : '5 Anni: +€0';
+          ? tCh('alphaScenario5yResult', __uiLang, formatMoney(r.p5), formatMoney(r.p50), formatMoney(r.p95))
+          : tCh('alphaScenario5yZero', __uiLang);
         // Confronto tra le 8 strategie per QUESTO risparmio extra (richiesto
         // esplicitamente: "e con questo risparmio, quale strategia conviene
         // di più?") — stesso motore già usato per la tabella "Strategia (10
@@ -14659,7 +14661,7 @@ const initApp = () => {
             const top = cmp.rows.slice(0, 4);
             const maxP50 = Math.max(1, ...top.map(row => row.p50));
             compareEl.classList.remove('hidden');
-            compareEl.innerHTML = `<p class="text-[11px] text-slate-500 mb-1">Con questo risparmio, le strategie migliori a 5 anni (tipico):</p>
+            compareEl.innerHTML = `<p class="text-[11px] text-slate-500 mb-1">${tCh('alphaBestStrategiesIntro', __uiLang)}</p>
               <div class="space-y-1.5">${top.map((row, i) => `
                 <div class="text-[10px]">
                   <div class="flex items-center justify-between mb-0.5">

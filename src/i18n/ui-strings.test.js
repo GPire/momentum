@@ -746,3 +746,28 @@ test('t: tutte le chiavi inst* (install-guide.js, guida installazione PWA) esist
   }
   assert.match(t('instInAppTitle', 'en', 'Instagram'), /Instagram/);
 });
+
+test('t: tutte le chiavi statiche alpha* (Analisi Tensor, cornice cards) esistono nelle 7 lingue', () => {
+  const chiavi = ['alphaSubtitle', 'alphaBudgetTitle', 'alphaBudgetTapHint', 'alphaGoalsTitle', 'alphaGoalsNewBtn', 'alphaDebtTitle', 'alphaDebtSub', 'alphaDebtBtn', 'alphaWhereGoesTitle', 'alphaWhereGoesSub', 'alphaTogetherTitle', 'alphaTogetherSub', 'alphaTogetherGroupsBtn', 'alphaQuickSplitBtn', 'alphaWealthGrowthTitle', 'alphaProjection1y', 'alphaProjection5y', 'alphaFireTitle', 'alphaFireSub', 'alphaFireYearsLabel', 'alphaCalculating', 'alphaTargetCapitalLabel', 'alphaWhatIfTitle', 'alphaWhatIfSub', 'alphaIncreaseSavingsLabel', 'alphaMonteCarloRange', 'alphaWhatIfCategoryLabel', 'alphaInvestTitle', 'alphaInvestSub', 'alphaInvestDisclaimer', 'alphaNetWorthTitle', 'alphaNetWorthSub', 'alphaNetWorthDisclaimer', 'alphaRatesWorldTitle', 'alphaRatesWorldSub', 'alphaCauseEffectTitle', 'alphaCauseEffectSub', 'alphaMarketOverviewTitle', 'alphaMarketOverviewSub', 'alphaTraderDeskTitle', 'alphaTraderDeskSub', 'alphaTailRiskTitle', 'alphaTailRiskSub', 'alphaTrackRecordTitle', 'alphaTrackRecordSub', 'alphaDiagnosisTitle', 'alphaDiagnosisSub', 'alphaTimingTitle', 'alphaTimingSub', 'alphaPeriodCompareTitle', 'alphaPeriodCompareSub', 'alphaPeriodMonthBtn', 'alphaPeriodYearBtn', 'alphaLinkedCatsTitle', 'alphaLinkedCatsSub', 'alphaAssetSearchTitle', 'alphaAssetSearchSub', 'alphaAssetSearchPlaceholder', 'alphaSearchBtn', 'alphaGoldChip', 'alphaAlertsDisclaimer', 'alphaHeatmapTitle', 'alphaHeatmapSub', 'alphaSubsTitle', 'alphaSubsSub'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+});
+
+test('t: tutte le chiavi dinamiche alpha* (renderAnalysis: budget settimanale, forecast, FIRE, heatmap, what-if) esistono nelle 7 lingue', () => {
+  const chiavi = ['alphaOfBudget', 'alphaWeekTitle', 'alphaOverBudget', 'alphaRemaining', 'alphaRolloverIn', 'alphaWeeklyBudgetTitle', 'alphaCagrEstimate', 'alphaScenarios5y', 'alphaNextMonthExpenses', 'alphaDiscipline', 'alphaFireYearsResult', 'alphaFireNoSavings', 'alphaFireCoastNote', 'alphaFireCoastBonus', 'alphaHeatmapNoExpense', 'alphaWhatIfNoHistory', 'alphaWhatIfVerbSave', 'alphaWhatIfVerbSpendMore', 'alphaWhatIfResultLine', 'alphaWhatIfDirectionDown', 'alphaWhatIfDirectionUp', 'alphaWhatIfLagWeek', 'alphaWhatIfChainLine', 'alphaWhatIfTotalEstimate', 'alphaScenarioExtraVal', 'alphaScenario5yResult', 'alphaScenario5yZero', 'alphaBestStrategiesIntro'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, '10€', '20€', '5', 'lun', 'ven', 'Cibo', 'sale', ', la settimana dopo');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.equal(t('alphaOfBudget', 'it', '100€'), 'su 100€');
+  assert.equal(t('alphaOfBudget', 'en', '100€'), 'of 100€');
+  assert.equal(t('alphaWeekTitle', 'en', '1 Jan', '7 Jan'), 'This week (1 Jan - 7 Jan)');
+});
