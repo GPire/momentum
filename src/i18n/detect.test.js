@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectDeviceLanguage, resolveQaLanguage } from './detect.js';
+import { detectDeviceLanguage, resolveQaLanguage, detectLanguage, SUPPORTED } from './detect.js';
 
 test('detectDeviceLanguage: legge navigator.language e riduce a 2 lettere supportate', () => {
   assert.equal(detectDeviceLanguage({ language: 'en-US' }), 'en');
@@ -44,4 +44,22 @@ test('resolveQaLanguage: nessun segnale e nessun device → it di default', () =
   const r = resolveQaLanguage('50', {});
   assert.equal(r.lang, 'it');
   assert.equal(r.source, 'default');
+});
+
+// ── Olandese (2026-08-29): Paesi Bassi + Fiandre, mercati forti per la
+// divisione spese (Tricount) — aggiunto dopo ricerca, non a caso. ──
+
+test('detectDeviceLanguage: nl-NL riconosciuto', () => {
+  assert.equal(detectDeviceLanguage({ language: 'nl-NL' }), 'nl');
+  assert.equal(detectDeviceLanguage({ language: 'nl-BE' }), 'nl', 'Fiandre (Belgio) devono risolvere in olandese');
+});
+
+test('SUPPORTED include ora l\'olandese', () => {
+  assert.ok(SUPPORTED.includes('nl'));
+});
+
+test('detectLanguage: testo in olandese con segnale chiaro riconosciuto', () => {
+  const r = detectLanguage('hoeveel geld kan ik deze maand uitgeven?');
+  assert.equal(r.lang, 'nl');
+  assert.ok(r.confidence > 0);
 });

@@ -459,7 +459,7 @@ const buildCatChipsHTML = (type) => {
   const chips = getCatsByType(type).map(c => `
     <button type="button" class="cat-chip" data-cat-id="${c.id}" style="--chip-color:${c.color};--chip-bg:${c.color}22">
       <div class="cat-chip-icon cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
-      <span class="cat-chip-label">${c.name}</span>
+      <span class="cat-chip-label">${catName(c, __uiLang)}</span>
     </button>
   `).join('');
   // L'ULTIMA FASCIA, "+ NUOVA": la possibilita' di aggiungere una categoria
@@ -472,7 +472,7 @@ const buildCatChipsHTML = (type) => {
   const aggiungi = `
     <button type="button" class="cat-chip cat-chip-add" data-cat-id="__nuova__">
       <div class="cat-chip-icon cat-chip-icon-add">+</div>
-      <span class="cat-chip-label">Nuova</span>
+      <span class="cat-chip-label">${tCh('catNuova', __uiLang)}</span>
     </button>
   `;
   return chips + aggiungi;
@@ -485,21 +485,21 @@ const buildCatChipsHTML = (type) => {
 const buildNewCatPanelHTML = () => `
   <div id="new-cat-panel" class="new-cat-panel hidden shrink-0">
     <div class="new-cat-head">
-      <span class="t-etichetta">Nuova categoria</span>
-      <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="Annulla">✕</button>
+      <span class="t-etichetta">${tCh('catNuovaCategoria', __uiLang)}</span>
+      <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="${tCh('catAnnulla', __uiLang)}">✕</button>
     </div>
     <div class="new-cat-anteprima">
       <div class="cat-chip-icon cat-icon-glow" id="new-cat-preview-icon" style="--icon-c:${CAT_PALETTE[0]}">${CAT_ICONE[0].svg}</div>
-      <span id="new-cat-preview-nome" class="new-cat-anteprima-nome">Nome categoria</span>
+      <span id="new-cat-preview-nome" class="new-cat-anteprima-nome">${tCh('catNomeCategoria', __uiLang)}</span>
     </div>
-    <input type="text" id="new-cat-nome" class="desc-input" maxlength="24" placeholder="Come la chiami?" autocomplete="off">
+    <input type="text" id="new-cat-nome" class="desc-input" maxlength="24" placeholder="${tCh('catComeChiami', __uiLang)}" autocomplete="off">
     <div class="new-cat-griglia" id="new-cat-emoji-grid" role="radiogroup" aria-label="Icona">
       ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-label="Icona ${ic.chiave}">${ic.svg}</button>`).join('')}
     </div>
     <div class="new-cat-griglia new-cat-griglia-colori" id="new-cat-color-grid" role="radiogroup" aria-label="Colore">
       ${CAT_PALETTE.map((c, i) => `<button type="button" class="new-cat-colore${i === 0 ? ' selected' : ''}" data-colore="${c}" style="background:${c}" aria-label="Colore"></button>`).join('')}
     </div>
-    <button type="button" id="new-cat-crea" class="new-cat-crea-btn">Crea categoria</button>
+    <button type="button" id="new-cat-crea" class="new-cat-crea-btn">${tCh('catCreaCategoria', __uiLang)}</button>
   </div>
 `;
 
@@ -2685,7 +2685,7 @@ const renderDashboard = () => {
                senza, dopo un import imperfetto l'unica scelta era eliminare, e
                l'apprendimento dalle correzioni (orchestrator.learn) restava
                alimentato solo dal form di aggiunta manuale. -->
-          <button onclick="window.openCategoryPicker('${k}', ${t.id})" aria-label="Cambia categoria: ${escTx(c.name)}" title="Cambia categoria" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</button>
+          <button onclick="window.openCategoryPicker('${k}', ${t.id})" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(catName(c, __uiLang)))}" title="${tCh('catCambiaCategoria', __uiLang)}" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</button>
           <div class="min-w-0 pr-2 flex-1">
              <!-- La descrizione e' quello che si LEGGE per riconoscere il
                   movimento; l'importo e' il dato. Prima erano entrambi al
@@ -2704,7 +2704,7 @@ const renderDashboard = () => {
                  rossi urlati. Ora: icona cestino DISCRETA (azione distruttiva a
                  bassa prominenza, principio "non rendere facile lo sbaglio") ma
                  SEMPRE accessibile su ogni dispositivo, area tocco adeguata. -->
-            <button onclick="deleteTx('${k}', ${t.id})" aria-label="Elimina transazione" title="Elimina" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] focus:opacity-100 active:text-[var(--red)] transition p-2 -m-1">
+            <button onclick="deleteTx('${k}', ${t.id})" aria-label="${tCh('txEliminaAria', __uiLang)}" title="${tCh('txElimina', __uiLang)}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] focus:opacity-100 active:text-[var(--red)] transition p-2 -m-1">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
             </button>
           </div>
@@ -2715,7 +2715,7 @@ const renderDashboard = () => {
 };
 
 window.deleteTx = (k, id) => {
-  if (confirm("Rimuovere questo movimento?")) {
+  if (confirm(tCh('txRimuoviConferma', __uiLang))) {
     const finish = () => {
       // Registro affidabilità (source-registry.js): cancellare una spesa
       // arrivata da un canale che si auto-salva (screenshot/CSV/PDF) ENTRO
@@ -11577,6 +11577,17 @@ function applyUiTranslations() {
   document.querySelectorAll('[data-i18n-key]').forEach(el => {
     el.textContent = tCh(el.dataset.i18nKey, lang);
   });
+}
+
+// Nome categoria per la UI (2026-08-29) — SOLO visualizzazione: `cat.name`
+// (italiano) resta la sorgente interna invariata, usata per storage/lexicon/
+// modelli — mai toccata qui, zero rischio per la logica esistente. Le
+// categorie personalizzate (create dall'utente, nessuna chiave 'cat_<id>'
+// corrispondente) ricadono sul loro nome reale, mai su una chiave grezza.
+function catName(cat, lang) {
+  const key = 'cat_' + cat.id;
+  const v = tCh(key, lang);
+  return v === key ? cat.name : v;
 }
 
 function renderInstallGuide() {

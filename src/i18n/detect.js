@@ -18,6 +18,10 @@ const MARKERS = {
   fr: ['combien', 'puis', 'dépensé', 'dépenser', 'mois', 'argent', 'pourquoi', 'comment', 'quand', 'épargne', 'investir', 'impôts', 'mes'],
   de: ['wie', 'viel', 'kann', 'ausgegeben', 'monat', 'geld', 'warum', 'wann', 'sparen', 'investieren', 'steuern', 'diesen', 'meine'],
   pt: ['quanto', 'posso', 'gastei', 'gastar', 'mês', 'mes', 'dinheiro', 'este', 'porquê', 'porque', 'como', 'quando', 'poupança', 'poupar', 'investir', 'impostos', 'meus'],
+  // Olandese (2026-08-29): Paesi Bassi + Fiandre (Belgio) — mercati forti
+  // per la divisione spese (Tricount, stessa categoria di prodotto di
+  // Momentum), verificato via ricerca prima di aggiungerlo.
+  nl: ['hoeveel', 'kan', 'uitgegeven', 'uitgeven', 'maand', 'geld', 'dit', 'wat', 'wanneer', 'waarom', 'hoe', 'sparen', 'investeren', 'belasting', 'mijn'],
 };
 
 // Ritorna { lang, confidence, scores }. Default 'it' se nessun segnale
@@ -43,8 +47,8 @@ export function detectLanguage(text) {
 
 // Lingue con supporto COMPLETO del chatbot (risposte localizzate) vs
 // rilevate ma non ancora complete (fallback a EN).
-export const SUPPORTED = ['it', 'en', 'es', 'fr', 'de', 'pt'];
-export const DETECTED = ['it', 'en', 'es', 'fr', 'de', 'pt'];
+export const SUPPORTED = ['it', 'en', 'es', 'fr', 'de', 'pt', 'nl'];
+export const DETECTED = ['it', 'en', 'es', 'fr', 'de', 'pt', 'nl'];
 export function isSupported(lang) { return SUPPORTED.includes(lang); }
 
 // Legge navigator.language (es. "en-US" → "en") e la riduce alla lingua
