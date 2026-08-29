@@ -15730,10 +15730,15 @@ function initMomentumRealAI() {
 
 document.addEventListener('DOMContentLoaded', () => {
   // Riconcilia IndexedDB <-> localStorage prima di leggere lo stato;
-  // se IndexedDB fallisce si parte comunque (fallback localStorage puro).
+  // se IndexedDB fallisce si parte comunque (fallback localStorage puro,
+  // vedi il timeout su DurableStore.open() in vault.js — un IndexedDB
+  // bloccato non deve MAI impedire a questa promise di risolversi, altrimenti
+  // initApp() non parte mai e l'intera app resta sulla schermata iniziale).
   // Il profilo hardware (micro-benchmark ~40ms, poi in cache 24h) decide
   // i budget di calcolo: path Monte Carlo, 3D on/off.
-  Promise.allSettled([VaultDAO.initDurable(), initDeviceProfile()]).finally(() => initApp());
+  Promise.allSettled([VaultDAO.initDurable(), initDeviceProfile()]).finally(() => {
+    try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
+  });
 });
 // Esposizione globale per handler inline nell'HTML (onclick="...")
 window.showToast = showToast;

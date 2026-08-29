@@ -459,3 +459,59 @@ test('DurableStore.deleteAll: un errore o un blocco di IndexedDB durante la canc
     globalThis.indexedDB = savedIDB;
   }
 });
+
+// ── BUG CRITICO REALE trovato dal vivo (2026-08-29): indexedDB.open() può
+// restare "in sospeso" INDEFINITAMENTE se un'altra scheda/connessione
+// blocca l'apertura (es. un deleteDatabase() in coda altrove — vedi
+// DurableStore.deleteAll sopra) — nessun evento onsuccess/onerror mai,
+// solo silenzio. Effetto reale osservato: initDurable() non completava
+// mai, `Promise.allSettled(...).finally()` nel boot di main.js non
+// scattava mai, initApp() non partiva MAI — l'intera app restava sulla
+// schermata iniziale statica, senza traduzioni, senza dati, senza un solo
+// errore in console (il tipo di fallimento silenzioso più difficile da
+// diagnosticare). Stessa disciplina già in con-timeout.js. ──
+test('DurableStore.open: indexedDB.open() che non chiama mai onsuccess/onerror/onblocked (bloccato per sempre) non blocca il boot — risolve entro il timeout con null invece di restare in sospeso all\'infinito', async () => {
+  const savedAvailable = DurableStore.available;
+  const savedDb = DurableStore.db;
+  const savedIDB = globalThis.indexedDB;
+  try {
+    DurableStore.available = true;
+    DurableStore.db = null;
+    globalThis.indexedDB = {
+      open: () => ({}), // nessun onsuccess/onerror/onblocked chiamato MAI: simula un IndexedDB bloccato per sempre
+    };
+    const db = await DurableStore.open();
+    assert.equal(db, null, 'deve ripiegare su null entro il timeout, mai restare in sospeso per sempre');
+  } finally {
+    DurableStore.available = savedAvailable;
+    DurableStore.db = savedDb;
+    globalThis.indexedDB = savedIDB;
+  }
+});
+
+test('DurableStore.open: caso normale (indexedDB.open() risponde subito) resta comunque veloce, il timeout non rallenta il percorso felice', async () => {
+  const savedAvailable = DurableStore.available;
+  const savedDb = DurableStore.db;
+  const savedIDB = globalThis.indexedDB;
+  try {
+    DurableStore.available = true;
+    DurableStore.db = null;
+    const fakeDb = { name: 'momentum_vault' };
+    globalThis.indexedDB = {
+      open: () => {
+        const req = {};
+        setTimeout(() => { req.onsuccess && req.onsuccess(); }, 0);
+        req.result = fakeDb;
+        return req;
+      },
+    };
+    const start = Date.now();
+    const db = await DurableStore.open();
+    assert.equal(db, fakeDb);
+    assert.ok(Date.now() - start < 1000, 'il percorso felice non deve mai aspettare il timeout di sicurezza');
+  } finally {
+    DurableStore.available = savedAvailable;
+    DurableStore.db = savedDb;
+    globalThis.indexedDB = savedIDB;
+  }
+});

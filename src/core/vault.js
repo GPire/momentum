@@ -3,6 +3,7 @@ import { simpleHash } from './utils.js';
 import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
 import { mergeTransactions, reconcileHead, markDeleted, pruneTombstones } from '../mesh/sync.js';
+import { conTimeout } from './con-timeout.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -61,10 +62,26 @@ const getCatsByType = (type) => { const base = type === 'uscita' ? DEFAULT_CATEG
 const DurableStore = {
   db: null,
   available: typeof indexedDB !== 'undefined',
+  // BUG CRITICO REALE trovato dal vivo (2026-08-29, mentre si verificava un
+  // problema separato con ?lang=): indexedDB.open() può restare "in sospeso"
+  // INDEFINITAMENTE se un'altra scheda/connessione blocca l'apertura (es.
+  // un deleteDatabase() avviato altrove — vedi deleteAll() sotto — resta
+  // in coda finché ogni connessione a quel nome di database non si chiude).
+  // Nessun errore, nessun evento onsuccess/onerror mai: solo silenzio.
+  // Stessa classe di bug già documentata in con-timeout.js per i download
+  // Hugging Face — qui l'effetto è molto peggiore: initDurable() non
+  // completa mai, `Promise.allSettled(...).finally()` nel boot di main.js
+  // non scatta mai mai, initApp() non parte MAI — l'intera app resta sulla
+  // schermata iniziale statica, senza traduzioni, senza dati, senza un solo
+  // errore in console (il tipo di fallimento silenzioso più difficile da
+  // diagnosticare che esista). Un timeout esplicito, stessa disciplina di
+  // conTimeout, garantisce che il boot prosegua comunque, ripiegando su
+  // solo localStorage — mai propagato come errore fatale: chi chiama già
+  // gestisce "nessun db disponibile" come caso normale (vedi get/put/ecc.).
   async open() {
     if (!this.available) return null;
     if (this.db) return this.db;
-    this.db = await new Promise((resolve, reject) => {
+    const opening = new Promise((resolve, reject) => {
       const req = indexedDB.open('momentum_vault', 1);
       req.onupgradeneeded = () => {
         const db = req.result;
@@ -73,7 +90,14 @@ const DurableStore = {
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
+      req.onblocked = () => {}; // il timeout sotto se ne occupa comunque
     });
+    try {
+      this.db = await conTimeout(opening, 5000, 'apertura di IndexedDB bloccata o troppo lenta');
+    } catch (e) {
+      console.warn('DurableStore.open: apertura IndexedDB fallita o scaduta, continuo con solo localStorage:', e);
+      return null;
+    }
     return this.db;
   },
   async get(store, key) {
