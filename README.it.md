@@ -6,7 +6,7 @@
 
 **Nessun server. Nessun abbonamento. Niente esce dal tuo telefono.**
 
-[![test](https://img.shields.io/badge/test-3768%20verdi-brightgreen)](#verificalo-tu-30-secondi)
+[![test](https://img.shields.io/badge/test-4005%20verdi-brightgreen)](#verificalo-tu-30-secondi)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
 [![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
 [![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
@@ -113,6 +113,9 @@ Intent deterministici calcolati sui dati veri — *"quanto ho speso a giugno?"*,
 ### ⚡ Frizione zero
 Tasti one-tap per gli acquisti abituali, **ordinati per quello che è probabile adesso** (istogrammi misurati di ora e giorno: il caffè in cima alle 8, la spesa il sabato), con il perché spiegato. Memoria degli importi. Import da PDF bancari (Intesa, UniCredit, N26, Revolut), CSV, OCR degli scontrini, voce con frasi multi-azione.
 
+### 🌍 Sei lingue dove conta davvero
+Le schermate che ogni utente incontra — onboarding, il numero principale della Dashboard, i nomi categoria, l'invito a importare, "Cosa c'è di nuovo" — in italiano, inglese, spagnolo, tedesco, francese e olandese (rilevate in automatico, nessun selettore da cercare). Scelte su dati reali, non a intuito: Francia, Belgio, Paesi Bassi e Germania sono dove le app di divisione spese (lo stesso motore virale di Momentum) hanno già l'adozione più profonda. Il resto dell'app — impostazioni, analisi, schermate fiscali — resta solo in italiano; dichiarato qui sopra in "Cosa c'è in cantiere", non nascosto.
+
 ### 🌐 Sincronizzazione senza server
 Collegamento esplicito tra dispositivi fidati via WebRTC. FedAvg pesato, **anti-poisoning validato su un set locale**, e un dispositivo nuovo **eredita** la rete addestrata al primo collegamento.
 
@@ -133,7 +136,7 @@ Momentum è l'unico di questi che mette la tua cassa reale e i dati di mercato r
 
 Una pipeline onesta, non un elenco di promesse — dettaglio e ordine di priorità in [ANALISI_COMPETITOR.md §5](ANALISI_COMPETITOR.md#5-roadmap-proprietaria-onesta-in-ordine-di-impatto) e [PIANO_MOMENTUM.md](PIANO_MOMENTUM.md).
 
-- Pubblicare il contatore anonimo di adozione, già costruito — manca solo il deploy.
+- Estendere la traduzione dell'interfaccia oltre onboarding, numero principale della Dashboard, nomi categoria e invito a importare — la maggior parte dell'app (impostazioni, analisi, schermate fiscali) resta solo in italiano.
 - Mesh-discovery oltre un codice di pairing già scambiato a mano.
 - Una seconda criptovaluta nel confronto causale a coppia (oggi solo vs. Bitcoin).
 - Estendere il motore causale ai mercati quando ci sarà storia personale sufficiente per un risultato onesto.
@@ -147,7 +150,7 @@ Non fidarti delle affermazioni. Eseguile.
 
 ```bash
 npm install
-npm test      # 3768 test, node --test src/
+npm test      # 4005 test, node --test src/
 ```
 
 Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizzera è confrontata con gli esempi ufficiali SIX; le aliquote portano la data in cui sono state verificate e la fonte; i numeri dell'AI si rigenerano con `npm run bench:*`.
@@ -157,7 +160,7 @@ Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizze
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 3768 test
+npm test                  # 4005 test
 npm run build             # PWA multi-file in dist/
 npm run build:singlefile  # singolo file HTML ~575KB
 ```
@@ -183,7 +186,7 @@ src/
   voice/     parser vocale multi-azione
 ```
 
-278 moduli sorgente in 15 domini (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+284 moduli sorgente in 15 domini (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
 
 ## Limiti dichiarati
 
@@ -196,6 +199,8 @@ La fiducia si costruisce con quello che un progetto ammette, non con quello che 
 - La QR-bill svizzera produce un **codice corretto e scansionabile**, non ancora il layout stampabile del bollettino a norma.
 - Sotto CHF 60'500 l'AVS usa una scala degressiva che non è una formula pubblica semplice: Momentum mostra il minimo verificato e rimanda al calcolatore ufficiale, invece di inventare un numero.
 - **Non è consulenza fiscale.** Sono stime su aliquote pubbliche, ognuna con la sua data di verifica.
+- **Alcuni moduli AI sono ricerca, non produzione.** `src/ai/omega.js`, `neurosym.js`, `expert-adapter.js`, `executive.js` e `nb-categorizer.js` sono scritti e testati ma **nessun percorso di produzione li esegue** — il percorso di classificazione reale è `orchestrator.js` + `expert-bandit.js` + `trained-categorizer` + `hashed-logreg`. Lo diciamo qui invece di lasciare che il conteggio dei file lasci intendere altro: un modulo testato che nessuno esegue non è una funzione.
+- **Gli aggiornamenti automatici delle regole fiscali richiedono una fonte raggiungibile.** Verificato dal vivo: l'Agenzia delle Entrate e Normattiva bloccano le richieste cross-origin, quindi un browser non può leggerle, e trasformare un testo di legge in aliquote in automatico sarebbe esattamente il tipo di numero inventato che questo progetto vieta. Le regole sono verificate a mano e pubblicate come file JSON firmato che l'app scarica da sola.
 
 ## Principi non negoziabili
 

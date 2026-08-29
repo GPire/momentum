@@ -6,7 +6,7 @@
 
 **No server. No subscription. Nothing leaves your phone.**
 
-[![tests](https://img.shields.io/badge/tests-3768%20passing-brightgreen)](#verify-it-yourself-30-seconds)
+[![tests](https://img.shields.io/badge/tests-4005%20passing-brightgreen)](#verify-it-yourself-30-seconds)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#the-one-thing-that-makes-it-different)
 [![no cloud](https://img.shields.io/badge/cloud-none-blue)](#the-one-thing-that-makes-it-different)
 [![PWA](https://img.shields.io/badge/PWA-offline%20first-blue)](#works-with-no-signal)
@@ -113,6 +113,9 @@ Deterministic intents computed on your real data — *"how much did I spend in J
 ### ⚡ Zero friction input
 One-tap buttons for habitual purchases, **ordered by what's likely right now** (measured hour-of-day and day-of-week histograms — coffee at 8am, groceries on Saturday), with the reason shown. Amount memory. Bank PDF import (Intesa, UniCredit, N26, Revolut), CSV, receipt OCR, voice with multi-action sentences.
 
+### 🌍 Six languages where it counts
+The screens every user hits — onboarding, the Dashboard's headline number, category names, the import prompt, the "what's new" screen — in Italian, English, Spanish, German, French and Dutch (auto-detected, no toggle to hunt for). Chosen from real data, not a guess: France, Belgium, the Netherlands and Germany are where expense-splitting apps (Momentum's own viral loop) already have the deepest adoption. The rest of the app — settings, analysis, tax screens — is still Italian-only; that's declared above under "What's next," not hidden.
+
 ### 🌐 Sync without a server
 Explicit pairing between trusted devices over WebRTC. Weighted FedAvg, **anti-poisoning validated on a local set**, and a new device *inherits* the trained network on first link.
 
@@ -133,7 +136,7 @@ Momentum is the only one of these that puts your real cash position and real mar
 
 An honest pipeline, not a promise list — full detail and priority order in [ANALISI_COMPETITOR.md §5](ANALISI_COMPETITOR.md#5-roadmap-proprietaria-onesta-in-ordine-di-impatto) and [PIANO_MOMENTUM.md](PIANO_MOMENTUM.md).
 
-- Ship the already-built anonymous adoption counter — the code is ready, only the deploy step is left.
+- Extend UI translation beyond onboarding, the Dashboard headline, category names and the import prompt — most of the app (settings, analysis, tax screens) is still Italian-only.
 - Mesh discovery beyond an already-exchanged pairing code.
 - A second cryptocurrency in a pairwise causal comparison (today only vs. Bitcoin).
 - Extend the causal engine to markets once there's enough personal-history data to be honest about the result.
@@ -147,7 +150,7 @@ Don't take the claims. Run them.
 
 ```bash
 npm install
-npm test      # 3768 tests, node --test src/
+npm test      # 4005 tests, node --test src/
 ```
 
 Every capability above has tests next to the code. The Swiss QR-bill is checked against the official SIX examples; the tax rates carry the date they were verified and the source; the AI numbers regenerate with `npm run bench:*`.
@@ -157,7 +160,7 @@ Every capability above has tests next to the code. The Swiss QR-bill is checked 
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 3768 tests
+npm test                  # 4005 tests
 npm run build             # multi-file PWA in dist/
 npm run build:singlefile  # single ~575KB HTML file
 ```
@@ -183,7 +186,7 @@ src/
   voice/     multi-action voice parser
 ```
 
-278 source modules across 15 domains (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+284 source modules across 15 domains (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
 
 ## Declared limits
 
