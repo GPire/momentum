@@ -890,3 +890,15 @@ test('t: tutte le chiavi alphaSubsDormant* (abbonamenti dimenticati, 2026-08-30)
   }
   assert.match(t('alphaSubsDormantBody', 'it', 'Netflix', 200, '19,98 €'), /Netflix/);
 });
+
+test('t: tutte le chiavi alphaSubsNew* (nuovo addebito ricorrente, 2026-08-30) esistono nelle 7 lingue', () => {
+  const chiavi = ['alphaSubsNewTitle', 'alphaSubsNewBody'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'Disney Plus', '8,99 €');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.match(t('alphaSubsNewBody', 'it', 'Disney Plus', '8,99 €'), /Disney Plus/);
+});

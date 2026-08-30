@@ -213,6 +213,31 @@ export function dormantSubscriptionKey(sub) {
   return `${sub.category}::${sub.name}`.toLowerCase();
 }
 
+// "Nuovo addebito ricorrente" — ricerca di mercato 2026-08-30 (Rocket
+// Money/CNBC Select): il problema più citato non è dimenticare un
+// abbonamento vecchio, sono i FREE TRIAL che si convertono in pagamento
+// senza preavviso. Onestà: Momentum vede solo transazioni bancarie
+// COMPLETATE, mai calendari/email — non può sapere che un trial esiste né
+// avvisare PRIMA che scada (quello richiederebbe accesso a email/calendario,
+// fuori scopo per un'app che non legge altro che l'estratto conto). La
+// versione onesta e costruibile: segnalare un addebito ricorrente APPENA
+// si conferma (alla minOccurrences-esima occorrenza, es. la 2ª) invece di
+// lasciarlo silenzioso nella lista fino a quando l'utente non lo nota da
+// solo — mesi dopo, come per il caso dormiente sopra. Stesso principio di
+// reviewedAt: un click "ho controllato" lo azzittisce, mai persistito qui.
+export function detectNewSubscriptions(allTx, referenceDate = new Date(), opts = {}) {
+  const o = { ...DEFAULT_OPTS, ...opts };
+  const reviewedAt = opts.reviewedAt || {};
+  const now = new Date(referenceDate);
+  const summary = subscriptionSummary(allTx, now, opts);
+
+  return summary.subscriptions
+    .filter(s => s.occurrences === o.minOccurrences) // appena confermato, non ancora "vecchio"
+    .map(s => ({ ...s, key: dormantSubscriptionKey(s) }))
+    .filter(s => !reviewedAt[s.key])
+    .sort((a, b) => new Date(b.lastDate) - new Date(a.lastDate));
+}
+
 export function detectDormantSubscriptions(allTx, referenceDate = new Date(), opts = {}) {
   const o = { ...DEFAULT_OPTS, ...opts };
   const reviewedAt = opts.reviewedAt || {};

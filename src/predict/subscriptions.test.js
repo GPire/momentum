@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { detectRecurring, detectPriceHikes, detectDormantSubscriptions, dormantSubscriptionKey } from "./subscriptions.js";
+import { detectRecurring, detectPriceHikes, detectDormantSubscriptions, detectNewSubscriptions, dormantSubscriptionKey } from "./subscriptions.js";
 
 function monthlySeries(description, category, amounts, startDate = "2026-03-15") {
   const start = new Date(startDate);
@@ -207,4 +207,30 @@ test("dormant: una revisione vecchia quanto la soglia stessa non basta a tenerlo
   const reviewedAt = { [key]: new Date("2026-06-01").toISOString() }; // riguardato >180gg fa
   const dormant = detectDormantSubscriptions(allTx, refDate, { reviewedAt });
   assert.equal(dormant.length, 1, "una revisione troppo vecchia non deve azzittire per sempre l'avviso");
+});
+
+// ── detectNewSubscriptions: "nuovo addebito ricorrente" — segnala APPENA
+// confermato (2ª occorrenza), non mesi dopo. Onestà: mai "era un trial",
+// Momentum non può saperlo — solo "addebito ricorrente appena confermato". ──
+test("new: un addebito ricorrente appena confermato (2 occorrenze) viene segnalato subito", () => {
+  const allTx = { all: monthlySeries("Disney Plus", "abbonamenti", [8.99, 8.99]) };
+  const refDate = new Date("2026-04-20"); // subito dopo la 2ª occorrenza
+  const fresh = detectNewSubscriptions(allTx, refDate);
+  assert.equal(fresh.length, 1);
+  assert.equal(fresh[0].name, "Disney Plus");
+});
+
+test("new: un abbonamento con 5 occorrenze non è più 'nuovo' — è già in lista da tempo", () => {
+  const allTx = { all: monthlySeries("Netflix", "abbonamenti", Array(5).fill(9.99)) };
+  const refDate = new Date("2026-08-20");
+  const fresh = detectNewSubscriptions(allTx, refDate);
+  assert.equal(fresh.length, 0);
+});
+
+test("new: una volta segnalato come 'controllato', non ricompare", () => {
+  const allTx = { all: monthlySeries("Disney Plus", "abbonamenti", [8.99, 8.99]) };
+  const refDate = new Date("2026-04-20");
+  const key = dormantSubscriptionKey({ category: "abbonamenti", name: "Disney Plus" });
+  const fresh = detectNewSubscriptions(allTx, refDate, { reviewedAt: { [key]: Date.now() } });
+  assert.equal(fresh.length, 0);
 });

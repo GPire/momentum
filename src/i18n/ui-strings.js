@@ -950,6 +950,8 @@ const S = {
     alphaSubsDormantSub: 'Attivi da tanto tempo, mai riguardati qui dentro — vale la pena controllarli.',
     alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> ti addebita da almeno ${days} giorni (${total} pagati finora) — l'hai mai riguardato?`,
     alphaSubsDormantReview: 'Controllato, va bene così',
+    alphaSubsNewTitle: 'Nuovo addebito ricorrente',
+    alphaSubsNewBody: (name, amount) => `<b>${name}</b> ti ha addebitato per la seconda volta ${amount} — è confermato ricorrente. Se non lo aspettavi, controllalo subito.`,
   },
   en: {
     chSimTitle: 'Working in Switzerland?',
@@ -1771,6 +1773,8 @@ const S = {
     alphaSubsDormantSub: 'Active for a long time, never reviewed here — worth a look.',
     alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> has been charging you for at least ${days} days (${total} paid so far) — have you checked it lately?`,
     alphaSubsDormantReview: "Checked, it's fine",
+    alphaSubsNewTitle: 'New recurring charge',
+    alphaSubsNewBody: (name, amount) => `<b>${name}</b> has charged you ${amount} for the second time — it's confirmed recurring. If you weren't expecting it, check it right away.`,
   },
   de: {
     chSimTitle: 'Arbeitest du in der Schweiz?',
@@ -2563,6 +2567,8 @@ const S = {
     alphaSubsDormantSub: 'Seit langem aktiv, hier nie überprüft — ein Blick lohnt sich.',
     alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> bucht dich seit mindestens ${days} Tagen ab (bisher ${total} bezahlt) — hast du es zuletzt geprüft?`,
     alphaSubsDormantReview: 'Geprüft, alles gut',
+    alphaSubsNewTitle: 'Neue wiederkehrende Abbuchung',
+    alphaSubsNewBody: (name, amount) => `<b>${name}</b> hat dich zum zweiten Mal mit ${amount} belastet — bestätigt wiederkehrend. Falls unerwartet, sofort prüfen.`,
   },
   fr: {
     chSimTitle: 'Vous travaillez en Suisse ?',
@@ -3354,6 +3360,8 @@ const S = {
     alphaSubsDormantSub: "Actifs depuis longtemps, jamais revus ici — ça vaut le coup d'œil.",
     alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> te prélève depuis au moins ${days} jours (${total} payés jusqu'ici) — l'as-tu vérifié récemment ?`,
     alphaSubsDormantReview: 'Vérifié, tout va bien',
+    alphaSubsNewTitle: 'Nouveau prélèvement récurrent',
+    alphaSubsNewBody: (name, amount) => `<b>${name}</b> t'a prélevé ${amount} pour la deuxième fois — c'est confirmé récurrent. Si tu ne l'attendais pas, vérifie tout de suite.`,
   },
   // Spagna (autónomos, src/predict/tax-es.js) — la lingua vera per questa
   // schermata, non un fallback come le altre 4 sopra. Nessuna chiave
@@ -4146,6 +4154,8 @@ const S = {
     alphaSubsDormantSub: 'Activas desde hace tiempo, nunca revisadas aquí — vale la pena mirarlas.',
     alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> te cobra desde hace al menos ${days} días (${total} pagados hasta ahora) — ¿la has revisado últimamente?`,
     alphaSubsDormantReview: 'Revisado, está bien',
+    alphaSubsNewTitle: 'Nuevo cargo recurrente',
+    alphaSubsNewBody: (name, amount) => `<b>${name}</b> te ha cobrado ${amount} por segunda vez — confirmado como recurrente. Si no lo esperabas, revísalo enseguida.`,
   },
   // Olandese (2026-08-29) — Paesi Bassi + Fiandre (Belgio), aggiunto dopo
   // ricerca (Tricount, stessa categoria di prodotto della divisione spese
@@ -4908,6 +4918,8 @@ const S = {
     alphaSubsDormantSub: 'Al lang actief, hier nooit bekeken — een blik waard.',
     alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> incasseert al minstens ${days} dagen (tot nu toe ${total} betaald) — heb je het onlangs bekeken?`,
     alphaSubsDormantReview: 'Bekeken, prima zo',
+    alphaSubsNewTitle: 'Nieuwe terugkerende afschrijving',
+    alphaSubsNewBody: (name, amount) => `<b>${name}</b> heeft je voor de tweede keer ${amount} in rekening gebracht — bevestigd terugkerend. Als je dit niet verwachtte, controleer het meteen.`,
   },
   // Portoghese (2026-08-29) — Brasile, non solo "gratis" come nel piano:
   // segnale concreto già nel repo, non un'ipotesi. `notification-parser.js`
@@ -5680,6 +5692,8 @@ const S = {
     alphaSubsDormantSub: 'Ativas há muito tempo, nunca revisadas aqui — vale a pena dar uma olhada.',
     alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> te cobra há pelo menos ${days} dias (${total} pagos até agora) — você revisou recentemente?`,
     alphaSubsDormantReview: 'Revisado, está tudo bem',
+    alphaSubsNewTitle: 'Nova cobrança recorrente',
+    alphaSubsNewBody: (name, amount) => `<b>${name}</b> te cobrou ${amount} pela segunda vez — confirmado como recorrente. Se não esperava, confira agora mesmo.`,
   },
 };
 

@@ -9,7 +9,7 @@ import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
-import { subscriptionSummary, detectDormantSubscriptions, dormantSubscriptionKey } from './predict/subscriptions.js';
+import { subscriptionSummary, detectDormantSubscriptions, detectNewSubscriptions, dormantSubscriptionKey } from './predict/subscriptions.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
@@ -9921,7 +9921,20 @@ const renderSubscriptions = () => {
       <button onclick="window.markSubReviewed('${esc(d.key)}')" class="shrink-0 text-[10px] font-bold text-sky-300 underline whitespace-nowrap">${tCh('alphaSubsDormantReview', __uiLang)}</button>
     </div>`).join('');
 
-  list.innerHTML = (dormantHtml ? `<div class="flex flex-col gap-2 mb-2">${dormantHtml}</div>` : '') + (anticipatedHtml ? `<div class="flex flex-col gap-2 mb-2">${anticipatedHtml}</div>` : '') + s.subscriptions.slice(0, 12).map(sub => {
+  // "Nuovo addebito ricorrente" (2026-08-30, ricerca di mercato: il problema
+  // più citato sono i free trial che si convertono senza preavviso —
+  // Momentum non vede trial/email, solo transazioni: la versione onesta è
+  // segnalare APPENA un addebito si conferma ricorrente, non mesi dopo).
+  const fresh = detectNewSubscriptions(VaultDAO.state.transactions, new Date(), { reviewedAt: VaultDAO.state.subReviewedAt || {} }).slice(0, 3);
+  const bellIco = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+  const freshHtml = fresh.map(f => `
+    <div class="flex items-start gap-2 p-2.5 rounded-xl border border-violet-500/25 bg-violet-950/10 text-violet-200 text-[11px] leading-snug">
+      ${bellIco}
+      <span class="flex-1 min-w-0">${tCh('alphaSubsNewBody', __uiLang, esc(f.name), formatMoney(f.amount))}</span>
+      <button onclick="window.markSubReviewed('${esc(f.key)}')" class="shrink-0 text-[10px] font-bold text-violet-300 underline whitespace-nowrap">${tCh('alphaSubsDormantReview', __uiLang)}</button>
+    </div>`).join('');
+
+  list.innerHTML = (freshHtml ? `<div class="flex flex-col gap-2 mb-2">${freshHtml}</div>` : '') + (dormantHtml ? `<div class="flex flex-col gap-2 mb-2">${dormantHtml}</div>` : '') + (anticipatedHtml ? `<div class="flex flex-col gap-2 mb-2">${anticipatedHtml}</div>` : '') + s.subscriptions.slice(0, 12).map(sub => {
     const hike = hikeMap.get(sub.name);
     const cadenzaLabel = sub.cadenza && sub.cadenza !== 'mensile' ? ` · <span class="text-indigo-300">${sub.cadenza}</span>` : '';
     return `<div class="flex items-center justify-between gap-3 p-2 rounded-xl" style="background:rgba(255,255,255,0.03)">
