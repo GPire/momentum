@@ -33,7 +33,116 @@
 // fallback se una voce futura non ha ancora una chiave (mai un buco muto:
 // meglio italiano che niente). Chi rilascia una nuova voce può aggiungerla
 // senza la chiave, tradurla dopo — non blocca il rilascio della funzione.
+// Voci storiche aggiunte il 2026-08-30, richieste esplicitamente
+// dall'utente: "dipende sempre da quanto un utente non entra nell'app,
+// deve essere personalizzata su questo" — RELEASES esisteva solo dal
+// 27/08, un dispositivo fermo da settimane vedeva solo quelle 3 voci
+// recenti anche se si era perso mesi di sviluppo vero. Ricostruite da
+// fatti verificati (git log + memoria di progetto), non inventate.
+// Tradotte come tutte le altre (titoloKey/testoKey), stessa disciplina.
 export const RELEASES = [
+  {
+    versione: '2026-07-20',
+    voci: [
+      {
+        colore: 'primary',
+        icona: '<circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/>',
+        titolo: 'Un solo stile, ovunque',
+        testo: 'Icone coerenti al posto delle emoji sparse, e i termini tecnici tradotti in chiaro (es. "Deciso" invece di "Apex Predator") — la stessa Momentum, più facile da leggere a colpo d\'occhio.',
+        titoloKey: 'wn0720_0_t', testoKey: 'wn0720_0_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
+        titolo: 'Fattura elettronica vera, non solo un PDF',
+        testo: 'Chi ha Partita IVA può generare l\'XML ufficiale FatturaPA direttamente sul telefono, con una guida che dice cosa manca prima di caricarla.',
+        titoloKey: 'wn0720_1_t', testoKey: 'wn0720_1_d',
+      },
+      {
+        colore: 'green',
+        icona: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+        titolo: 'Fatti pagare con un QR',
+        testo: 'Un codice QR di bonifico SEPA pronto da inquadrare con l\'app della banca — niente IBAN da ricopiare a mano.',
+        titoloKey: 'wn0720_2_t', testoKey: 'wn0720_2_d',
+      },
+    ],
+  },
+  {
+    versione: '2026-07-21',
+    voci: [
+      {
+        colore: 'purple',
+        icona: '<circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/>',
+        titolo: 'Dividi le spese, senza account',
+        testo: 'Cena, vacanza, casa: crea un gruppo e sai subito chi deve cosa a chi — tutto resta sul telefono, nessun server nel mezzo.',
+        titoloKey: 'wn0721_0_t', testoKey: 'wn0721_0_d',
+      },
+      {
+        colore: 'primary',
+        icona: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
+        titolo: 'Crea una fattura in pochi tocchi',
+        testo: 'Cliente, importo, causale: Momentum calcola netto e ritenuta al volo e genera il documento pronto da inviare.',
+        titoloKey: 'wn0721_1_t', testoKey: 'wn0721_1_d',
+      },
+    ],
+  },
+  {
+    versione: '2026-08-10',
+    voci: [
+      {
+        colore: 'gold',
+        icona: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        titolo: 'La prima schermata, ridisegnata',
+        testo: 'Il numero che conta davvero — quanto puoi spendere oggi — ora è il primo che vedi, al centro, invece di essere sotto la piega.',
+        titoloKey: 'wn0810_0_t', testoKey: 'wn0810_0_d',
+      },
+      {
+        colore: 'primary',
+        icona: '<path d="M4 19V5M4 19h16M8 15l3-3 3 3 4-6"/>',
+        titolo: 'Numeri più facili da leggere',
+        testo: 'Uno stile unico per ogni tipo di testo in tutta l\'app — a colpo d\'occhio si capisce subito cosa è un dato e cosa è solo una spiegazione.',
+        titoloKey: 'wn0810_1_t', testoKey: 'wn0810_1_d',
+      },
+    ],
+  },
+  {
+    versione: '2026-08-17',
+    voci: [
+      {
+        colore: 'green',
+        icona: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+        titolo: 'Notifiche, una per una',
+        testo: 'Scadenze fiscali, cambi di normativa, avvisi di prezzo: ora si spengono singolarmente, non serve più disattivarle tutte per toglierne una sola.',
+        titoloKey: 'wn0817_0_t', testoKey: 'wn0817_0_d',
+      },
+      {
+        colore: 'purple',
+        icona: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+        titolo: 'Capisce il significato, non solo le parole',
+        testo: 'Un modello di comprensione del linguaggio (opzionale, scaricabile in Momentum Vault) fa riconoscere una domanda anche quando la fai in un modo diverso da come l\'hai insegnata.',
+        titoloKey: 'wn0817_1_t', testoKey: 'wn0817_1_d',
+      },
+    ],
+  },
+  {
+    versione: '2026-08-26',
+    voci: [
+      {
+        colore: 'gold',
+        icona: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+        titolo: 'Quattro domande, su misura per te',
+        testo: 'Il primo avvio ora chiede anche quanto potresti resistere se le entrate si fermassero — e ti mostra subito cosa è cambiato per te, con i tuoi numeri veri.',
+        titoloKey: 'wn0826_0_t', testoKey: 'wn0826_0_d',
+      },
+      {
+        colore: 'primary',
+        icona: '<path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        titolo: '"Non investo" è ora una risposta vera',
+        testo: 'Chi sceglie di non investire non riceve più consigli su come farlo — l\'app rispetta la scelta invece di insistere.',
+        titoloKey: 'wn0826_1_t', testoKey: 'wn0826_1_d',
+      },
+    ],
+  },
   {
     versione: '2026-08-27',
     voci: [

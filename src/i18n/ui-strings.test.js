@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { t, resolveUiLanguage, UI_LANG_DEFAULT, UI_LANGS } from './ui-strings.js';
+import { RELEASES } from '../core/whats-new.js';
 
 test('UI_LANGS copre le 3 lingue nazionali svizzere principali + inglese + spagnolo (autónomos) + olandese + portoghese (2026-08-29, Brasile: gap PIX Nubank già nel repo)', () => {
   assert.deepEqual(UI_LANGS.sort(), ['de', 'en', 'es', 'fr', 'it', 'nl', 'pt'].sort());
@@ -218,14 +219,19 @@ test('t: tutte le chiavi dashImport* esistono in IT/EN/ES/DE/FR', () => {
 // dall'utente che era rimasta solo in italiano dopo la prima passata di
 // traduzioni. ──
 
-test('t: tutte le chiavi wn* (header + 12 voci × titolo/testo) esistono in IT/EN/ES/DE/FR', () => {
+test('t: tutte le chiavi wn* (header + ogni voce di ogni release × titolo/testo) esistono in IT/EN/ES/DE/FR/NL', () => {
+  // Deriva le chiavi attese direttamente da RELEASES (titoloKey/testoKey
+  // reali), non da un conteggio fisso per release: dal 2026-08-30 le
+  // release storiche aggiunte in backfill non hanno tutte lo stesso
+  // numero di voci (3 o 2, non sempre 4) — un conteggio hardcoded si
+  // sarebbe rotto silenziosamente o avrebbe testato chiavi inesistenti.
   const chiavi = ['wnEyebrow', 'wnTitle', 'wnClose'];
-  for (const rel of ['0827', '0828', '0830']) {
-    for (let i = 0; i < 4; i++) {
-      chiavi.push(`wn${rel}_${i}_t`, `wn${rel}_${i}_d`);
+  for (const rel of RELEASES) {
+    for (const v of rel.voci) {
+      assert.ok(v.titoloKey && v.testoKey, `release ${rel.versione}: voce senza titoloKey/testoKey`);
+      chiavi.push(v.titoloKey, v.testoKey);
     }
   }
-  assert.equal(chiavi.length, 3 + 24);
   for (const lang of ['it', 'en', 'es', 'de', 'fr', 'nl']) {
     for (const k of chiavi) {
       assert.notEqual(t(k, lang), k, `chiave "${k}" mancante in lingua "${lang}"`);
