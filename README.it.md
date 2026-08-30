@@ -6,7 +6,7 @@
 
 **Nessun server. Nessun abbonamento. Niente esce dal tuo telefono.**
 
-[![test](https://img.shields.io/badge/test-4005%20verdi-brightgreen)](#verificalo-tu-30-secondi)
+[![test](https://img.shields.io/badge/test-4162%20verdi-brightgreen)](#verificalo-tu-30-secondi)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
 [![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
 [![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
@@ -82,6 +82,9 @@ Momentum legge bilanci SEC veri — non uno slogan, uno script (`bench/fetch-pan
 - **Percentile di settore** — dove si colloca un titolo rispetto a veri competitor per crescita ricavi, margini e altro, via un ponte SIC→settore costruito a mano (non esiste un crosswalk ufficiale gratuito — dichiarato, non nascosto).
 - **Beneish M-Score e Piotroski F-Score** — gli stessi screening accademici di frode/qualità contabile che usano i team di due diligence, calcolati sul dispositivo dagli stessi bilanci. Momentum dichiara il loro limite noto nella stessa frase in cui mostra il punteggio: una crescita dei ricavi legittima e molto rapida può generare un falso positivo su Beneish, e lo dice sempre, non solo qui.
 - **Analisi causale e comparativa, per singolo titolo o cripto** — un motore statistico di 777 righe (scomposizione a regressione, test di permutazione) restava irraggiungibile in questo repo finché il ponte SIC→settore non l'ha sbloccato per ognuna delle 600 aziende tracciate; un'integrazione CoinGecko estende lo stesso ragionamento alle principali criptovalute.
+- **Comparabili (comps)** — mediana EV/EBITDA ed EV/Revenue contro pari reali, valutazione implicita, esportazione CSV pronta per Excel. Si chiede in chat ("quali aziende sono comparabili a NVDA?") o dalla scheda dell'asset.
+- **Posizionamento sui derivati crypto** — funding rate, open interest e squilibrio long/short combinati (non solo affiancati): l'affollamento reale si dichiara solo quando un funding elevato E un posizionamento sbilanciato si rinforzano a vicenda, verificato contro la storia recente della stessa moneta, non una soglia universale. Nessuna chiave richiesta (API pubblica di Binance Futures). Si chiede in chat ("sono troppo affollato su bitcoin?") o dalla scheda dell'asset.
+- **Storico prezzi azionario senza alcuna configurazione** — per le azioni senza una chiave dati personale, Momentum ripiega sul loro proxy tokenizzato (xStock/Ondo/Backed e simili, quotati come cripto normali sulla stessa API gratuita di CoinGecko), sempre dichiarato come proxy, mai spacciato per il prezzo esatto del titolo in borsa.
 - **Sentiment delle notizie on-device** — un vero modello DistilRoBERTa (82,5MB, Apache-2.0, addestrato su notizie finanziarie) legge il tono di un titolo in meno di 100ms a modello caldo, senza server né chiave API.
 - **Segnali condivisi tra pari** — un dispositivo che ha già calcolato il sentiment di un titolo di notizia, o che già conosce un prezzo/tasso, lo inoltra (solo etichetta e punteggio, mai un dato personale) sulla stessa mesh P2P ai dispositivi fidati che non hanno ancora scaricato il modello — verificato incrociando un secondo peer indipendente, o un peer con una storia affidabile, prima di fidarsene.
 
@@ -150,7 +153,7 @@ Non fidarti delle affermazioni. Eseguile.
 
 ```bash
 npm install
-npm test      # 4005 test, node --test src/
+npm test      # 4162 test, node --test src/
 ```
 
 Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizzera è confrontata con gli esempi ufficiali SIX; le aliquote portano la data in cui sono state verificate e la fonte; i numeri dell'AI si rigenerano con `npm run bench:*`.
@@ -160,7 +163,7 @@ Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizze
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4005 test
+npm test                  # 4162 test
 npm run build             # PWA multi-file in dist/
 npm run build:singlefile  # singolo file HTML ~575KB
 ```

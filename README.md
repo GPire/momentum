@@ -6,7 +6,7 @@
 
 **No server. No subscription. Nothing leaves your phone.**
 
-[![tests](https://img.shields.io/badge/tests-4005%20passing-brightgreen)](#verify-it-yourself-30-seconds)
+[![tests](https://img.shields.io/badge/tests-4162%20passing-brightgreen)](#verify-it-yourself-30-seconds)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#the-one-thing-that-makes-it-different)
 [![no cloud](https://img.shields.io/badge/cloud-none-blue)](#the-one-thing-that-makes-it-different)
 [![PWA](https://img.shields.io/badge/PWA-offline%20first-blue)](#works-with-no-signal)
@@ -82,6 +82,9 @@ Momentum reads real SEC filings — not a marketing claim, a script (`bench/fetc
 - **Sector percentile ranking** — where a holding sits against real peers on revenue growth, margins and more, via a hand-built SIC→sector bridge (no free official crosswalk exists — documented, not hidden).
 - **Beneish M-Score & Piotroski F-Score** — the same academic fraud/quality screens due-diligence teams use, computed on-device from the filings above. Momentum states their known blind spot in the same breath it shows the score: very high *legitimate* revenue growth can trigger a false positive on Beneish, and it says so every time.
 - **Causal & comparative analysis, per single stock or crypto** — a 777-line statistics engine (regression decomposition, permutation testing) sat unreachable in this repo until the SIC→sector bridge unlocked it for any of the 600 tracked companies; a CoinGecko integration extends the same reasoning to major cryptocurrencies.
+- **Comparable company analysis (comps)** — median EV/EBITDA and EV/Revenue against real peers, implied valuation, CSV export straight into Excel. Ask it in chat ("which companies are comparable to NVDA?") or from the asset screen.
+- **Crypto derivatives positioning** — funding rate, open interest and long/short skew combined (not just listed side by side): real crowding is only declared when an elevated funding rate *and* a skewed position reinforce each other, checked against the coin's own recent history, not one universal threshold. No key needed (Binance Futures' public API). Ask it in chat ("am I too crowded on bitcoin?") or from the asset screen.
+- **Real stock price history with zero setup** — for stocks without a personal market-data key, Momentum falls back to their tokenized proxy (xStock/Ondo/Backed and similar, quoted as ordinary crypto on the same free CoinGecko API), always disclosed as a proxy, never passed off as the exact exchange price.
 - **On-device news sentiment** — a real DistilRoBERTa model (82.5MB, Apache-2.0, fine-tuned on financial news) reads the tone of a headline in under 100ms once loaded, no server, no API key.
 - **Peer-shared signals** — a device that already computed a headline's sentiment, or already knows a price/rate, relays it (label + score only, never raw personal data) over the same P2P mesh to trusted peers who haven't downloaded the model yet — cross-checked against a second independent peer, or a peer with a track record, before anyone trusts it.
 
@@ -150,7 +153,7 @@ Don't take the claims. Run them.
 
 ```bash
 npm install
-npm test      # 4005 tests, node --test src/
+npm test      # 4162 tests, node --test src/
 ```
 
 Every capability above has tests next to the code. The Swiss QR-bill is checked against the official SIX examples; the tax rates carry the date they were verified and the source; the AI numbers regenerate with `npm run bench:*`.
@@ -160,7 +163,7 @@ Every capability above has tests next to the code. The Swiss QR-bill is checked 
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4005 tests
+npm test                  # 4162 tests
 npm run build             # multi-file PWA in dist/
 npm run build:singlefile  # single ~575KB HTML file
 ```
