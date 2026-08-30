@@ -1444,6 +1444,28 @@ const attachFormListeners = (container, prefill = null) => {
       updateAmount();
     };
   }
+  // prefill.date (richiesto esplicitamente: "aggiungi una spesa per QUEL
+  // giorno" dal drill-down del calendario spese) — finora il form apriva
+  // sempre su oggi, nessun modo di pre-impostare la data da fuori.
+  // MAI `new Date(prefill.date)` su una stringa "YYYY-MM-DD": lo standard
+  // ISO la interpreta come mezzanotte UTC, e in un fuso indietro rispetto a
+  // UTC (tutte le Americhe: Momentum è un'app globale, non solo italiana)
+  // qualunque lettura locale successiva (getDate, toLocaleDateString) la
+  // fa scivolare al giorno prima. Si parsano i componenti a mano, come già
+  // fa dateInput.onchange qui sopra.
+  if (prefill.date) {
+    const [py, pm, pd] = String(prefill.date).split('-').map(Number);
+    if (py && pm && pd) {
+      const d = new Date(py, pm - 1, pd);
+      selectedDate = d;
+      if (dateInput) dateInput.value = prefill.date;
+      if (datePillText) {
+        const now = new Date();
+        const isToday = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+        datePillText.textContent = isToday ? 'Oggi' : d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+      }
+    }
+  }
 
   // Confirm Ledger Save
   formRoot.querySelector('.tx-save-btn').onclick = () => {
@@ -3204,13 +3226,23 @@ const renderAnalysis = (opts = {}) => {
 
     if (currentWeek) {
       const overBudget = currentWeek.remaining < 0;
+      // Stessa semantica cromatica del monitor mensile appena sopra (verde/ambra/
+      // rosso), qui applicata anche a una barra dedicata: prima la settimana
+      // aveva solo testo, nessuna lettura visiva immediata come quella mensile —
+      // incoerenza di linguaggio tra due numeri fratelli nella stessa card.
+      const weekPct = currentWeek.budget > 0 ? Math.min((currentWeek.spent / currentWeek.budget) * 100, 100) : 0;
+      const weekColor = overBudget ? 'var(--danger-gradient)' : (weekPct > 75 ? 'var(--yellow)' : 'var(--green)');
       weeklyBox.innerHTML = `
-        <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1">${tCh('alphaWeekTitle', __uiLang, fmtDay(currentWeek.start), fmtDay(currentWeek.end))}</h4>
+        <h4 class="text-[10px] font-extrabold uppercase tracking-widest text-[var(--on-surface-secondary)] mb-1 flex items-center gap-1.5">
+          <span class="inline-block w-1.5 h-1.5 rounded-full shrink-0" style="background:var(--gold); box-shadow:0 0 6px var(--gold);"></span>
+          ${tCh('alphaWeekTitle', __uiLang, fmtDay(currentWeek.start), fmtDay(currentWeek.end))}
+        </h4>
         <div class="flex flex-wrap justify-between items-end gap-x-2">
           <p class="text-xl font-black font-mono min-w-0 truncate ${overBudget ? 'text-rose-400' : 'text-emerald-400'}">${formatMoney(Math.abs(currentWeek.remaining))}</p>
           <p class="text-[11px] text-[var(--on-surface-secondary)] shrink-0">${overBudget ? tCh('alphaOverBudget', __uiLang) : tCh('alphaRemaining', __uiLang)} ${tCh('alphaOfBudget', __uiLang, formatMoney(currentWeek.budget))}</p>
         </div>
-        ${currentWeek.rolloverIn ? `<p class="text-[10px] mt-1 ${currentWeek.rolloverIn > 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}">${tCh('alphaRolloverIn', __uiLang, `${currentWeek.rolloverIn > 0 ? '+' : ''}${formatMoney(currentWeek.rolloverIn)}`)}</p>` : ''}
+        <div class="budget-track" style="height:6px; margin-top:0.4rem;"><div class="budget-fill" style="width:${weekPct}%; background:${weekColor};"></div></div>
+        ${currentWeek.rolloverIn ? `<p class="text-[10px] mt-1.5 ${currentWeek.rolloverIn > 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}">${tCh('alphaRolloverIn', __uiLang, `${currentWeek.rolloverIn > 0 ? '+' : ''}${formatMoney(currentWeek.rolloverIn)}`)}</p>` : ''}
       `;
     } else {
       // mese non corrente: mostra il riepilogo di tutte le settimane invece del solo "questa settimana"
@@ -9707,11 +9739,60 @@ document.addEventListener('click', (e) => {
   document.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('ring-2', 'ring-[var(--gold)]'));
   cell.classList.add('ring-2', 'ring-[var(--gold)]');
   const dayTxs = __heatmapDayTx[day] || [];
+  const total = dayTxs.reduce((s, t) => s + t.amount, 0);
+
+  // Confronto col budget giornaliero (richiesto esplicitamente, feedback
+  // utenti "come Google Calendar: seleziono il giorno e vedo se rispetto
+  // il budget"): quota semplice budget-mensile/giorni-del-mese, MAI un
+  // secondo riporto giorno-per-giorno — quello esiste già a livello
+  // SETTIMANALE (weekly-budget.js, con riporto reale) ed è la lettura
+  // "intelligente" di riferimento; un riporto anche a livello di giorno
+  // sarebbe un secondo numero in disaccordo con quello, confusione non
+  // chiarezza.
+  const annoSel = VaultDAO.state.currentDate.getFullYear();
+  const meseSel = VaultDAO.state.currentDate.getMonth();
+  const giorniNelMese = new Date(annoSel, meseSel + 1, 0).getDate();
+  const budgetMensile = VaultDAO.state.monthlyBudget || 0;
+  const quotaGiorno = giorniNelMese > 0 ? budgetMensile / giorniNelMese : 0;
+  // MAI toISOString() qui: converte a UTC e in fusi avanti su Greenwich
+  // (l'Italia inclusa) il giorno scelto scivola di uno indietro — bug
+  // reale trovato testando dal vivo (giorno 26 selezionato → data passata
+  // al form "2026-08-25"). Si costruisce la stringa dai componenti locali.
+  const dd = String(parseInt(day, 10)).padStart(2, '0');
+  const mm = String(meseSel + 1).padStart(2, '0');
+  const dataIso = `${annoSel}-${mm}-${dd}`;
+
+  const budgetHtml = quotaGiorno > 0 ? (() => {
+    const pct = Math.round((total / quotaGiorno) * 100);
+    const colore = pct > 100 ? 'text-rose-300' : pct > 80 ? 'text-amber-300' : 'text-emerald-300';
+    return `<p class="text-[10px] ${colore} mt-1">${tCh('alphaDayBudgetCompare', __uiLang, formatMoney(quotaGiorno), pct)}</p>`;
+  })() : '';
+  const addBtnHtml = `<button type="button" onclick="window.openPrefilledAdd({ type: 'uscita', date: '${dataIso}' })" class="text-[10px] text-[var(--primary)] underline mt-2">${tCh('alphaDayAddExpenseBtn', __uiLang)}</button>`;
+
   if (!dayTxs.length) {
-    detailEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)] p-2">${day} ${__heatmapMonthLabel}: nessuna spesa registrata.</p>`;
+    detailEl.innerHTML = `<div class="p-2.5 rounded-lg bg-black/20">
+      <p class="text-[10px] text-[var(--on-surface-secondary)]">${day} ${__heatmapMonthLabel}: ${tCh('alphaHeatmapNoExpense', __uiLang)}</p>
+      ${budgetHtml}
+      ${addBtnHtml}
+    </div>`;
     return;
   }
-  const total = dayTxs.reduce((s, t) => s + t.amount, 0);
+  // Riepilogo per categoria (richiesto esplicitamente dai tester: "dove hai
+  // speso di più" deve leggersi subito, non solo dedotto scorrendo le righe).
+  // Mostrato solo con 2+ categorie diverse: con una sola sarebbe lo stesso
+  // numero già in cima, ridondante non chiaro.
+  const catTotalsDay = {};
+  dayTxs.forEach(t => { catTotalsDay[t.category] = (catTotalsDay[t.category] || 0) + t.amount; });
+  const catEntries = Object.entries(catTotalsDay).sort((a, b) => b[1] - a[1]);
+  const catBreakdownHtml = catEntries.length > 1 ? `<div class="flex flex-wrap gap-x-3 gap-y-1 mb-2 pb-2 border-b border-white/5">
+    ${catEntries.map(([catId, amt]) => {
+      const cat = getCatById(catId);
+      return `<span class="inline-flex items-center gap-1 text-[10px] text-[var(--on-surface-secondary)]">
+        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cat?.color || '#888'}"></span>
+        ${cat?.name || catId} <span class="font-mono text-slate-300">${formatMoney(amt)}</span>
+      </span>`;
+    }).join('')}
+  </div>` : '';
   const rows = [...dayTxs].sort((a, b) => b.amount - a.amount).map(t => {
     const cat = getCatById(t.category);
     return `<div class="flex items-center justify-between text-[10px] py-1 border-b border-white/5 last:border-0">
@@ -9724,7 +9805,10 @@ document.addEventListener('click', (e) => {
       <span class="text-[11px] font-bold text-slate-200">${day} ${__heatmapMonthLabel}</span>
       <span class="font-mono text-[13px] font-bold text-[var(--gold)]">${formatMoney(total)}</span>
     </div>
+    ${budgetHtml}
+    ${catBreakdownHtml}
     ${rows}
+    ${addBtnHtml}
   </div>`;
 });
 
@@ -13190,10 +13274,25 @@ window.openBudgetEditor = () => {
           <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Media ultimi ${suggestion.basedOnMonths} mesi (${formatMoney(suggestion.rawAverage)}) + margine di sicurezza. Tocca per usarlo.</p>
         </div>
       ` : `<p class="text-xs text-[var(--on-surface-secondary)]">Non c'è ancora abbastanza storico per un suggerimento — imposta un valore di partenza, lo affineremo appena avrai qualche mese di spese registrate.</p>`}
-      <input id="budget-edit-input" type="number" inputmode="decimal" value="${current}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
+      <input id="budget-edit-input" type="number" inputmode="decimal" value="${current}" oninput="window.updateBudgetWeeklyHint()" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
+      <p id="budget-edit-weekly-hint" class="text-center text-[11px] text-[var(--on-surface-secondary)]"></p>
       <button onclick="window.confirmBudgetEdit()" class="btn-action w-full">Conferma</button>
     </div>
   `);
+  window.updateBudgetWeeklyHint();
+};
+
+// Stima "quanto è a settimana" mentre l'utente digita il budget mensile
+// (richiesto esplicitamente: sapere subito il ritmo settimanale senza dover
+// prima confermare e aprire la card di Analisi Tensor). Media di 4,345
+// settimane/mese (365,25/12/7): una stima dichiarata, non il calcolo esatto
+// coi giorni reali del mese che vive in weekly-budget.js.
+window.updateBudgetWeeklyHint = () => {
+  const input = document.getElementById('budget-edit-input');
+  const hint = document.getElementById('budget-edit-weekly-hint');
+  if (!input || !hint) return;
+  const val = parseFloat(input.value);
+  hint.textContent = val > 0 ? tCh('alphaBudgetPerWeekHint', __uiLang, formatMoney(val / 4.345)) : '';
 };
 
 window.confirmBudgetEdit = () => {

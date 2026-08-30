@@ -1723,6 +1723,20 @@
        display:none quando "hidden" è presente, qualunque sia l'ordine con
        cui Tailwind genera le utility responsive. */
     #modal-container.hidden { display: none !important; }
+    /* Coerenza visiva coi bagliori già usati nel resto dell'app (aurora del
+       body, glow indigo di .desc-input/.numpad-key): finora ogni modale
+       (Budget mensile, Nuovo obiettivo, ecc.) era una scheda piatta, sola,
+       senza nessuno di quei bagliori — un linguaggio visivo diverso da
+       tutto il resto, non "un'altra schermata dello stesso universo". */
+    #modal-content { position: relative; overflow: hidden; box-shadow: var(--shadow-elevation), 0 0 60px -20px color-mix(in srgb, var(--primary) 35%, transparent); }
+    /* z-index: -1, non 0: un elemento posizionato con z-index:auto (il resto
+       del contenuto, tutto statico) dipinge SOPRA i fratelli posizionati
+       anche se questi vengono prima nel markup — con z-index:0 il bagliore
+       avrebbe coperto testo e input invece di restare dietro. */
+    #modal-content::before { content: ''; position: absolute; top: -30%; left: 50%; translate: -50% 0; width: 140%; height: 55%; background: radial-gradient(ellipse closest-side, color-mix(in srgb, var(--primary) 16%, transparent) 0%, transparent 70%); pointer-events: none; z-index: -1; }
+    #modal-content input[type="number"]:focus,
+    #modal-content input[type="text"]:focus,
+    #modal-content input[type="date"]:focus { outline: none; border-color: var(--primary) !important; box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 15%, transparent); }
     /* Apertura: leggero "pop" morbido con overshoot (coerente col resto del
        sistema di motion). Chiusura: mai overshoot, curva più rapida e lineare —
        la classe .modal-closing (aggiunta da closeModal) sostituisce la curva. */
