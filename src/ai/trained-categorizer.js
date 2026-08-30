@@ -19,10 +19,22 @@ class TrainedCategorizer {
     this.vocabulary = modelJson.vocabulary;
     this.idf = modelJson.idf;
     this.categories = modelJson.categories;
-    this.coefs = modelJson.coefs;           // [W1(nFeat x 16), W2(16 x nCat)]
-    this.intercepts = modelJson.intercepts; // [b1(16), b2(nCat)]
+    this.coefs = modelJson.coefs;           // [W1(nFeat x hidden), W2(hidden x nCat)]
+    this.intercepts = modelJson.intercepts; // [b1(hidden), b2(nCat)]
     this.metrics = modelJson.metrics;
     this.vocabSize = Object.keys(this.vocabulary).length;
+    // Feature a caratteri (opzionale, retrocompatibile — 2026-08-30): un
+    // vocabolario SOLO a parole non generalizza mai a typo/abbreviazioni
+    // ("amzn" non condivide nessun token con "amazon"), motivo reale per
+    // cui LogReg (hashed-logreg.js: word+char hashati insieme) e Meso
+    // (trained-meso.js: stesso principio con vocabolario esplicito)
+    // generalizzano meglio del Nano sullo stesso held-out. Un modello
+    // vecchio senza char_vocabulary continua a funzionare identico a
+    // prima: charVocabSize resta 0, _featureVector() equivale a
+    // _tfidfVector() word-only.
+    this.charVocabulary = modelJson.char_vocabulary || null;
+    this.charIdf = modelJson.char_idf || null;
+    this.charVocabSize = this.charVocabulary ? Object.keys(this.charVocabulary).length : 0;
     // Path int8 opzionale (src/ai/quantize.js), stesso schema già in
     // produzione per il Meso (trained-meso.js): pesi 8× più compatti in
     // memoria, dequantizzati al volo. Il Nano è l'UNICO modello attivo sul
@@ -74,6 +86,61 @@ class TrainedCategorizer {
     return vec;
   }
 
+  // Identico a trained-meso.js/_charNgrams (analyzer='char_wb' sklearn,
+  // n=3..5) e a src/ai/train/mlp-trainer.mjs/charNgrams usato in training —
+  // le tre implementazioni devono restare bit-per-bit identiche o il
+  // vettore di training e quello di inferenza divergono in silenzio.
+  _charNgrams(text) {
+    const normalized = text.toLowerCase().replace(/\s+/g, ' ');
+    const [minN, maxN] = [3, 5];
+    const ngrams = [];
+    for (const rawWord of normalized.split(' ')) {
+      if (!rawWord) continue;
+      const w = ' ' + rawWord + ' ';
+      const wLen = w.length;
+      for (let n = minN; n <= Math.min(maxN, wLen); n++) {
+        let offset = 0;
+        ngrams.push(w.slice(offset, offset + n));
+        while (offset + n < wLen) { offset++; ngrams.push(w.slice(offset, offset + n)); }
+        if (offset === 0) break;
+      }
+    }
+    return ngrams;
+  }
+
+  _charTfidfVector(text) {
+    const tokens = this._charNgrams(text);
+    const counts = {};
+    for (const t of tokens) {
+      if (this.charVocabulary[t] !== undefined) counts[t] = (counts[t] || 0) + 1;
+    }
+    const vec = new Float64Array(this.charVocabSize);
+    for (const [token, count] of Object.entries(counts)) {
+      const idx = this.charVocabulary[token];
+      vec[idx] = count * this.charIdf[idx];
+    }
+    let norm = 0;
+    for (let i = 0; i < vec.length; i++) norm += vec[i] * vec[i];
+    norm = Math.sqrt(norm);
+    if (norm > 0) for (let i = 0; i < vec.length; i++) vec[i] /= norm;
+    return vec;
+  }
+
+  // Vettore di feature usato davvero da predict(): word-TFIDF da solo per
+  // un modello vecchio/word-only (charVocabSize===0, comportamento
+  // invariato), altrimenti word+char concatenati — ciascuno normalizzato
+  // L2 per conto proprio PRIMA della concatenazione (np.hstack, stessa
+  // scelta già in trained-meso.js), mai una seconda normalizzazione congiunta.
+  _featureVector(text) {
+    const wordVec = this._tfidfVector(text);
+    if (!this.charVocabSize) return wordVec;
+    const charVec = this._charTfidfVector(text);
+    const combined = new Float64Array(wordVec.length + charVec.length);
+    combined.set(wordVec, 0);
+    combined.set(charVec, wordVec.length);
+    return combined;
+  }
+
   _relu(x) { return x.map(v => Math.max(0, v)); }
 
   _softmax(logits) {
@@ -84,7 +151,7 @@ class TrainedCategorizer {
   }
 
   predict(text) {
-    const x = this._tfidfVector(text);
+    const x = this._featureVector(text);
     const [W1, W2] = this.coefs;
     const [b1, b2] = this.intercepts;
     const hiddenDim = W1[0].length;

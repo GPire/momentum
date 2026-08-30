@@ -43,16 +43,16 @@ export const BASE = {
   risparmio: ['apertura conto deposito vincolato', 'versamento fondo pensione integrativo', 'accantonamento buffer liquidita', 'trasferimento verso libretto postale', 'sottoscrizione buoni fruttiferi', 'contributo cassa previdenza volontaria'],
   // ── 10 categorie SUBCAT (Fase 1, 2026-08-30) — frasi disgiunte dal pool
   // SUBCAT in src/ai/train/data-gen.mjs, stesso principio del resto. ──
-  assicurazioni: ['polizza responsabilita civile', 'rinnovo assicurazione annuale', 'premio assicurativo abitazione', 'quota associativa assicurativa', 'copertura assicurativa viaggio', 'assicurazione animali domestici'],
-  commissioni: ['spese istruttoria pratica bancaria', 'commissione cambio assegno', 'penale chiusura anticipata conto', 'spese invio estratto conto cartaceo'],
-  trasferimenti: ['movimento interno tra conti', 'spostamento fondi conto secondario', 'trasferimento verso conto cointestato'],
-  regali: ['articolo da regalo confezionato', 'buono acquisto per anniversario', 'mazzo di fiori consegna'],
-  professionale: ['parcella professionista incarico', 'fattura consulenza tecnica', 'onorario perito tecnico'],
-  rimborsi: ['accredito rimborso imposta', 'restituzione somma pagamento errato', 'rimborso viaggio cancellato'],
-  scommesse: ['giocata al totocalcio', 'deposito piattaforma di gioco', 'puntata scommessa ippica'],
-  manutenzione: ['intervento urgente idraulico notturno', 'sostituzione guarnizione rubinetto', 'controllo impianto elettrico annuale'],
-  animali: ['visita di controllo dal veterinario', 'acquisto cuccia per cane', 'trattamento antiparassitario animale'],
-  alcolici: ['bottega del vino acquisto', 'negozio specializzato superalcolici', 'acquisto cassa di birra artigianale'],
+  assicurazioni: ['polizza responsabilita civile', 'rinnovo assicurazione annuale', 'premio assicurativo abitazione', 'quota associativa assicurativa', 'copertura assicurativa viaggio', 'assicurazione animali domestici', 'car insurance renewal payment', 'home insurance annual premium'],
+  commissioni: ['spese istruttoria pratica bancaria', 'commissione cambio assegno', 'penale chiusura anticipata conto', 'spese invio estratto conto cartaceo', 'overdraft charge notification', 'account maintenance fee monthly'],
+  trasferimenti: ['movimento interno tra conti', 'spostamento fondi conto secondario', 'trasferimento verso conto cointestato', 'own account balance transfer'],
+  regali: ['articolo da regalo confezionato', 'buono acquisto per anniversario', 'mazzo di fiori consegna', 'birthday present online order'],
+  professionale: ['parcella professionista incarico', 'fattura consulenza tecnica', 'onorario perito tecnico', 'freelance invoice consulting fee'],
+  rimborsi: ['accredito rimborso imposta', 'restituzione somma pagamento errato', 'rimborso viaggio cancellato', 'refund pending order cancelled'],
+  scommesse: ['giocata al totocalcio', 'deposito piattaforma di gioco', 'puntata scommessa ippica', 'sports betting stake placed'],
+  manutenzione: ['intervento urgente idraulico notturno', 'sostituzione guarnizione rubinetto', 'controllo impianto elettrico annuale', 'appliance repair callout fee'],
+  animali: ['visita di controllo dal veterinario', 'acquisto cuccia per cane', 'trattamento antiparassitario animale', 'pet grooming appointment payment'],
+  alcolici: ['bottega del vino acquisto', 'negozio specializzato superalcolici', 'acquisto cassa di birra artigianale', 'craft spirits online order'],
 };
 
 export const PREFIXES = ['PAGAMENTO POS ', 'SATISPAY*', 'ADDEBITO SDD ', 'CRV*', 'PAGAMENTO CARTA ', 'POS ', ''];

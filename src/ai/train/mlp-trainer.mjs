@@ -113,7 +113,7 @@ function softmax(logits) {
 //
 // examples: [{ sparse:[[idx,val],...], y: classIndex }, ...]
 // Ritorna { coefs:[W1,...,Wn] (annidati number[][]), intercepts:[b1,...,bn] }.
-export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epochs = 30, lr = 0.3, l2 = 1e-5, seed = 42, onEpoch = null }) {
+export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epochs = 30, lr = 0.3, l2 = 1e-5, seed = 42, onEpoch = null, labelSmoothing = 0 }) {
   const rnd = mulberry32(seed);
   const gauss = () => { // Box-Muller, per un'inizializzazione He più sana di uniform(-1,1)
     let u = 0, v = 0;
@@ -176,7 +176,19 @@ export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epo
       const logits = acts[acts.length - 1];
       const probs = softmax(logits);
       let dOut = probs.slice();
-      dOut[y] -= 1; // gradiente softmax+cross-entropy
+      if (labelSmoothing > 0) {
+        // Label smoothing (Szegedy et al. 2016, arXiv:1512.00567): il target
+        // non è più un one-hot rigido ma (1-eps) sulla classe vera + eps/(K-1)
+        // sulle altre — il gradiente softmax+cross-entropy resta probs-target,
+        // solo il target cambia. Riduce l'overconfidence su un dataset con
+        // categorie semanticamente vicine (es. manutenzione/casa), dove un
+        // modello troppo sicuro su un confine sfumato generalizza peggio.
+        const nC = probs.length;
+        const off = labelSmoothing / (nC - 1);
+        for (let c = 0; c < nC; c++) dOut[c] -= (c === y ? 1 - labelSmoothing : off);
+      } else {
+        dOut[y] -= 1; // gradiente softmax+cross-entropy (one-hot)
+      }
 
       // ── backward strati densi (dal fondo verso lo strato 1) ──
       let dNext = dOut;

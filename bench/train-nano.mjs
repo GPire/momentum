@@ -19,6 +19,14 @@
 //  alla tassonomia reale Plaid PFC v2 (10 nuove ADDITIVE, mai split di una
 //  categoria che merchant-dictionary.js intercetta già — vedi il commento
 //  SUBCAT in data-gen.mjs per il criterio completo).
+//  Feature a caratteri opzionali (2026-08-30, CHARVOCAB>0): il Nano usava
+//  SOLO parole, mentre LogReg (hashed-logreg.js: word+char hashati) e Meso
+//  (trained-meso.js: stesso principio) generalizzano meglio proprio perché
+//  gli n-grammi di caratteri catturano typo/abbreviazioni che un
+//  vocabolario a sole parole non può mai generalizzare ("amzn" non
+//  condivide nessun token con "amazon", ma condivide n-grammi di
+//  caratteri). trained-categorizer.js supporta ora entrambi (retrocompat:
+//  un modello senza char_vocabulary si comporta come prima).
 globalThis.window = {};
 globalThis.navigator = { maxTouchPoints: 0 };
 
@@ -29,7 +37,7 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const imp = (rel) => import(pathToFileURL(join(root, rel)).href);
 const { generateDataset, CATEGORIES } = await imp('src/ai/train/data-gen.mjs');
-const { buildVocabulary, tfidfSparse, trainMLP, wordTokenize } = await imp('src/ai/train/mlp-trainer.mjs');
+const { buildVocabulary, tfidfSparse, trainMLP, wordTokenize, charNgrams } = await imp('src/ai/train/mlp-trainer.mjs');
 const { buildHeldOutSet } = await imp('bench/held-out-set.mjs');
 const { TrainedCategorizer } = await imp('src/ai/trained-categorizer.js');
 const { MOMENTUM_TRAINED_MODEL_DATA: OLD_MODEL } = await imp('src/ai/trained-model-data.js');
@@ -71,10 +79,31 @@ console.log(`Corpus totale: ${corpus.length} esempi, ${classes.length} categorie
 const MAXVOCAB = Number(process.env.MAXVOCAB || 5000);
 const MINDF = Number(process.env.MINDF || 3);
 const { vocabulary, idf } = buildVocabulary(corpus.map(r => r.text), wordTokenize, { minDf: MINDF, maxVocab: MAXVOCAB });
-console.log(`Vocabolario: ${Object.keys(vocabulary).length} token (minDf=3)`);
+const wordVocabSize = Object.keys(vocabulary).length;
+console.log(`Vocabolario parole: ${wordVocabSize} token (minDf=${MINDF})`);
+
+// CHARVOCAB=0 (default): comportamento invariato, solo parole. CHARVOCAB>0:
+// aggiunge n-grammi di caratteri (char_wb, 3-5) come LogReg/Meso — vocabolario
+// tenuto DELIBERATAMENTE più piccolo di quello del Meso (il Nano resta il
+// modello per il tier dispositivo minimo, non deve gonfiarsi quanto il Meso).
+const CHARVOCAB = Number(process.env.CHARVOCAB || 0);
+let charVocabulary = null, charIdf = null, charVocabSize = 0;
+if (CHARVOCAB > 0) {
+  const built = buildVocabulary(corpus.map(r => r.text), charNgrams, { minDf: MINDF, maxVocab: CHARVOCAB });
+  charVocabulary = built.vocabulary; charIdf = built.idf;
+  charVocabSize = Object.keys(charVocabulary).length;
+  console.log(`Vocabolario caratteri: ${charVocabSize} n-grammi (char_wb 3-5, minDf=${MINDF})`);
+}
+
+function featureSparse(text) {
+  const wSparse = tfidfSparse(wordTokenize(text), vocabulary, idf);
+  if (!charVocabSize) return wSparse;
+  const cSparse = tfidfSparse(charNgrams(text), charVocabulary, charIdf).map(([i, v]) => [i + wordVocabSize, v]);
+  return [...wSparse, ...cSparse];
+}
 
 const classIndex = Object.fromEntries(classes.map((c, i) => [c, i]));
-const examples = corpus.map(r => ({ sparse: tfidfSparse(wordTokenize(r.text), vocabulary, idf), y: classIndex[r.cat] }));
+const examples = corpus.map(r => ({ sparse: featureSparse(r.text), y: classIndex[r.cat] }));
 
 // ── Valutazione onesta: stesso held-out set condiviso (mai visto in training) ──
 const heldOut = buildHeldOutSet({ perCat: 60, seed: 20260706 }); // tutte le 15 categorie
@@ -95,15 +124,17 @@ function evalModel(model) {
 // peggiorare in un'epoca sfortunata (interferenza catastrofica su una
 // classe rara, misurato dal vivo) — si tiene lo SNAPSHOT con l'accuratezza
 // held-out migliore, mai ciecamente l'ultima epoca.
-console.log(`Addestro MLP (${Object.keys(vocabulary).length} → ${HIDDEN} → ${classes.length}), ${EPOCHS} epoche, early stopping su held-out...`);
+const inputDim = wordVocabSize + charVocabSize;
+console.log(`Addestro MLP (${inputDim} → ${HIDDEN} → ${classes.length}), ${EPOCHS} epoche, early stopping su held-out...`);
 const t0 = Date.now();
 const LR = Number(process.env.LR || 0.35);
 const L2 = Number(process.env.L2 || 1e-6);
+const SMOOTH = Number(process.env.SMOOTH || 0);
 let best = { acc: -1, snap: null, epoch: -1 };
 trainMLP({
-  examples, inputDim: Object.keys(vocabulary).length, nClasses: classes.length, hiddenSizes: [HIDDEN], epochs: EPOCHS, lr: LR, l2: L2, seed: 1,
+  examples, inputDim, nClasses: classes.length, hiddenSizes: [HIDDEN], epochs: EPOCHS, lr: LR, l2: L2, seed: Number(process.env.SEED || 1), labelSmoothing: SMOOTH,
   onEpoch: (ep, snap) => {
-    const candidate = { vocabulary, idf, categories: classes, coefs: snap.coefs, intercepts: snap.intercepts };
+    const candidate = { vocabulary, idf, char_vocabulary: charVocabulary, char_idf: charIdf, categories: classes, coefs: snap.coefs, intercepts: snap.intercepts };
     const { acc } = evalModel(candidate);
     if (acc > best.acc) best = { acc, snap, epoch: ep };
   },
@@ -120,10 +151,11 @@ const round4 = (v) => +v.toFixed(4);
 const coefsR = coefs.map(W => W.map(row => row.map(round4)));
 const interceptsR = intercepts.map(layer => layer.map(round4));
 const idfR = idf.map(round4);
+const charIdfR = charIdf ? charIdf.map(round4) : null;
 
 const newModel = {
-  vocabulary, idf: idfR, categories: classes, coefs: coefsR, intercepts: interceptsR,
-  metrics: { test_accuracy: null, trained_on: `js-local-${new Date().toISOString().slice(0, 10)}`, per_cat_synth: PER_CAT_SYNTH, per_cat_external: EXTERNAL_PER_CAT, best_epoch: best.epoch + 1, sources: ['data-gen.mjs (sintetico proprio)', 'DoDataThings/us-bank-transaction-categories-v2 (HF, MIT)'] },
+  vocabulary, idf: idfR, char_vocabulary: charVocabulary, char_idf: charIdfR, categories: classes, coefs: coefsR, intercepts: interceptsR,
+  metrics: { test_accuracy: null, trained_on: `js-local-${new Date().toISOString().slice(0, 10)}`, per_cat_synth: PER_CAT_SYNTH, per_cat_external: EXTERNAL_PER_CAT, best_epoch: best.epoch + 1, char_features: charVocabSize > 0, sources: ['data-gen.mjs (sintetico proprio)', 'DoDataThings/us-bank-transaction-categories-v2 (HF, MIT)'] },
 };
 
 const oldEval = evalModel(OLD_MODEL);
