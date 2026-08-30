@@ -14512,6 +14512,44 @@ const initApp = () => {
     }
   }
 
+  // Comps (comparable company analysis, src/alpha/comps-multipli.js) via
+  // chat — segnalato dal vivo dall'utente insieme al posizionamento derivati
+  // sopra: la stessa analisi esisteva SOLO come bottone in "Cerca un asset".
+  // Riusa `trovaAziendaInTesto` (screener-settore.js), la STESSA estrazione
+  // già usata dall'intento 'comparabili' di mercato-qa.js per lo stesso tipo
+  // di domanda — mai una seconda logica di riconoscimento nome azienda.
+  // Richiede una chiave Alpha Vantage (come il bottone): senza chiave
+  // ritorna false e la domanda ricade sull'intento 'comparabili' esistente
+  // (nomi dei pari, nessuna chiave) — un piano B onesto, non un buco.
+  async function tryAnswerCompsChat(question) {
+    try {
+      const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
+      if (!apiKey) return false;
+      const [{ trovaAziendaInTesto, comparabili }, { fetchStockOverview }, { analizzaComps, testoComps }] = await Promise.all([
+        import('./alpha/screener-settore.js'), import('./alpha/asset-overview.js'), import('./alpha/comps-multipli.js'),
+      ]);
+      const az = trovaAziendaInTesto(question);
+      if (!az) return false;
+      const comp = comparabili(az.ticker);
+      if (!comp.disponibile) return false;
+      showQaThinking(`Scarico i multipli di ${comp.comparabili.length + 1} aziende (${comp.comparabili.length} pari + ${az.ticker})...`);
+      const overviews = await Promise.all(
+        [{ ticker: az.ticker }, ...comp.comparabili].map(c => fetchStockOverview(c.ticker, { apiKey, fetchImpl: fetch.bind(window) }).catch(() => null))
+      );
+      const [targetOv, ...peerOvs] = overviews;
+      if (!targetOv) return false;
+      const target = { symbol: az.ticker, name: targetOv.name, evToEbitda: targetOv.evToEbitda, evToRevenue: targetOv.evToRevenue, ebitda: targetOv.ebitda, revenueTTM: targetOv.revenueTTM };
+      const peers = comp.comparabili.map((c, i) => peerOvs[i] ? { symbol: c.ticker, name: peerOvs[i].name, evToEbitda: peerOvs[i].evToEbitda, evToRevenue: peerOvs[i].evToRevenue } : null).filter(Boolean);
+      const r = analizzaComps(target, peers);
+      window.__lastCompsResult = r;
+      const testo = testoComps(r) + (r.disponibile ? ' (Esporta CSV disponibile in Analisi Tensor → Cerca un asset.)' : '');
+      styleQaAnswer({ intent: 'mercato-comps-multipli', data: r, answer: testo });
+      return true;
+    } catch (_) {
+      return false; // mai bloccante: si ricade sull'intento 'comparabili' esistente
+    }
+  }
+
   // Divergenza sentiment↔prezzo (src/alpha/sentiment-divergence.js): scritta
   // e testata in una sessione precedente ma MAI collegata a nessuna UI —
   // stesso pattern già visto più volte in questo progetto (group-chat.js,
@@ -14652,7 +14690,15 @@ const initApp = () => {
       'quanto rischio per operazione prima di rovinarmi?',
       'che sentiment c\'è sul mercato?',
     ] : [];
-    const chips = [...always, ...shuffledSample([...pool, ...poolMercato], 5 - always.length)];
+    // Cripto/comps (2026-08-30): senza queste in pool, chi ha appena
+    // sbloccato queste due funzioni (posizionamento derivati crypto, comps
+    // reali) non scopre MAI di poterle chiedere in chat, non solo dal
+    // bottone in "Cerca un asset" — segnalato dal vivo dall'utente.
+    const poolCriptoComps = it ? [
+      'sono troppo affollato su bitcoin?',
+      'qual è il funding rate di ethereum?',
+    ] : [];
+    const chips = [...always, ...shuffledSample([...pool, ...poolMercato, ...poolCriptoComps], 5 - always.length)];
     const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     // Le chip entrano una dopo l'altra invece che tutte insieme: un blocco di
     // sei pillole che appare di colpo si legge come rumore, la stessa cosa
@@ -14762,6 +14808,15 @@ const initApp = () => {
         qaAnswer.classList.remove('hidden');
         haptic('light');
         const handled = await tryAnswerCryptoPosizionamentoChat(question);
+        if (handled) { window.renderQaSuggestions?.(); return; }
+      }
+      // Comps reali (EV/EBITDA, non solo nomi dei pari) — SOLO se l'utente
+      // ha già una chiave Alpha Vantage, altrimenti prosegue sotto
+      // sull'intento 'comparabili' esistente (mercato-qa.js, gratis).
+      if (/comparabil|multipli di mercato|ev\/ebitda|ev\/revenue/i.test(question) && VaultDAO.state.liveDataKeys?.alphavantage) {
+        qaAnswer.classList.remove('hidden');
+        haptic('light');
+        const handled = await tryAnswerCompsChat(question);
         if (handled) { window.renderQaSuggestions?.(); return; }
       }
       const semanticSimilarity = await prepareSemanticSimilarity(question);
