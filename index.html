@@ -3864,7 +3864,7 @@
                    src/pwa/install-guide.js rileva la piattaforma REALE e mostra
                    solo i passi che funzionano davvero su quel dispositivo, mai
                    una guida generica uguale per tutti. -->
-              <div class="card p-6 flex flex-col" id="install-guide-card">
+              <div class="card p-6 flex flex-col order-3" id="install-guide-card">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
                   <div>
@@ -3882,7 +3882,7 @@
                    una licenza firmata (bench/issue-license.mjs) si verifica qui
                    con la sola chiave pubblica. Card sempre visibile (mai
                    nascosta a chi è già FREE: deve scoprire che PRO esiste). -->
-              <div class="card p-6 flex flex-col" id="pro-license-card">
+              <div class="card p-6 flex flex-col order-6" id="pro-license-card">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg></div>
                   <div>
@@ -3910,7 +3910,7 @@
                    trigger (la via lì sarà NotificationListenerService, non
                    ancora costruita) — mai una guida che promette qualcosa che
                    quel dispositivo non può fare. -->
-              <div class="card p-6 flex flex-col hidden" id="quickadd-guide-card">
+              <div class="card p-6 flex flex-col hidden order-4" id="quickadd-guide-card">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg></div>
                   <div>
@@ -3931,7 +3931,7 @@
               <!-- Trasparenza architettura (src/ai/neurosym.js, NeuroSym.explain):
                    cosa è ACCESO su questo dispositivo, con specs misurate —
                    mai un elenco statico uguale per tutti i device. -->
-              <div class="card p-6 flex flex-col" id="neurosym-explain-card">
+              <div class="card p-6 flex flex-col order-10" id="neurosym-explain-card">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
                   <div>
@@ -3947,7 +3947,7 @@
                    del modello e della mesh su QUESTO dispositivo, mai un punteggio
                    o un badge esterno. Un traguardo raggiunto resta visibile per
                    sempre — non c'è nulla da perdere qui, solo da scoprire. -->
-              <div class="card p-6 flex flex-col" id="momentum-traguardi-card">
+              <div class="card p-6 flex flex-col order-11" id="momentum-traguardi-card">
                 <div class="flex items-center gap-4 mb-1">
                   <div id="momentum-livello-badge" class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--gold)] flex items-center justify-center shrink-0 font-black text-base">1</div>
                   <div class="min-w-0 flex-1">
@@ -3963,7 +3963,7 @@
               </div>
 
               <!-- ETL terminal -->
-              <div class="card p-6 flex flex-col">
+              <div class="card p-6 flex flex-col order-1">
                  <div class="flex items-center gap-4 mb-4">
                     <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
                     <div>
@@ -3999,7 +3999,7 @@
               </div>
 
               <!-- Accredito (stipendio) + come farti pagare — centrale, riusato ovunque -->
-              <div class="card p-6 flex flex-col">
+              <div class="card p-6 flex flex-col order-2">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
                   <div>
@@ -4031,7 +4031,7 @@
                    un simulatore AVS — restano 3 motori distinti per scelta
                    dichiarata, qui si unifica solo dove si TROVANO, non come
                    funzionano). -->
-              <div class="card p-6 flex flex-col" id="tax-settings-card">
+              <div class="card p-6 flex flex-col order-7" id="tax-settings-card">
                 <div class="flex items-center gap-4 mb-1">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
                   <div class="min-w-0 flex-1">
@@ -4097,7 +4097,7 @@
               </div>
 
               <!-- P2P Sincronizzazione Serverless -->
-              <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] flex flex-col justify-between">
+              <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] flex flex-col justify-between order-8">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 6H15M6 8.5v7M8 18h7.5"/></svg><span data-i18n-key="vaultSyncTitle">Sincronizza tra i tuoi dispositivi</span></h3>
                   <p class="card-sub" data-i18n-key="vaultSyncSubtitle">I tuoi dati passano da un tuo dispositivo all'altro direttamente, senza server: restano solo tuoi.</p>
@@ -4181,7 +4181,7 @@
                    chi ha detto in fase di attivazione di non investire non
                    vede più il tab "Analisi Tensor" né le card di mercato qui
                    sotto — sempre reversibile da qui, un tap, mai un modulo. -->
-              <div class="card p-6" id="analysis-tensor-pref-card"></div>
+              <div class="card p-6 order-5" id="analysis-tensor-pref-card"></div>
 
               <!-- Prezzi live (opzionale) — CoinGecko per le cripto funziona SEMPRE
                    senza chiave (verificato CORS-aperto); per azioni/indici serve una
@@ -4189,7 +4189,7 @@
                    bloccano le chiamate dirette dal browser (verificato). La chiave
                    vive SOLO in questo dispositivo: nessun server Momentum esiste a
                    cui inviarla. -->
-              <div class="card p-6 flex flex-col justify-between" id="live-prices-card">
+              <div class="card p-6 flex flex-col justify-between order-9" id="live-prices-card">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n-key="vaultLivePricesTitle">Prezzi live (opzionale)</span></h3>
                   <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Le cripto funzionano già, senza fare nulla. Per azioni/indici serve una chiave gratuita tua (mai un account Momentum): 20 secondi su Alpha Vantage, poi incollala qui sotto.</p>
@@ -4255,7 +4255,7 @@
                    sviluppa Momentum per sapere quante persone lo usano
                    davvero. Onestà: dichiarato qui in chiaro, spegnibile a un
                    tocco, mai nascosto in un sottomenu. -->
-              <div class="card p-6 flex flex-col justify-between">
+              <div class="card p-6 flex flex-col justify-between order-12">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span data-i18n-key="vaultTelemetryTitle">Aiuta a far crescere Momentum</span></h3>
                   <p class="card-sub" data-i18n-key="vaultTelemetrySubtitle">Attivo di default: un numero anonimo (mai collegato ai tuoi dati — nessuna spesa, saldo o identità) dice a chi sviluppa Momentum quante persone lo usano. Spegnilo qui quando vuoi, un tocco.</p>
@@ -4269,7 +4269,7 @@
               <!-- Feedback: nessun form nascosto in un sottomenu di terzo
                    livello, un tocco dal Vault. Il testo esce SOLO se l'utente
                    tocca "Invia" (mai automatico, mai dati finanziari). -->
-              <div class="card p-6 flex flex-col justify-between">
+              <div class="card p-6 flex flex-col justify-between order-12">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n-key="vaultFeedbackTitle">Il tuo feedback</span></h3>
                   <p class="card-sub" data-i18n-key="vaultFeedbackSubtitle">Cosa funziona, cosa no, cosa vorresti diverso: due righe bastano. Nessun account, nessuna spesa o saldo lascia mai questo telefono.</p>
@@ -4281,7 +4281,7 @@
                    di tutto il resto dell'app, qui esce il TESTO SCRITTO
                    dall'utente (non i dati finanziari, mai allegati in
                    automatico) verso Groq — va acceso consapevolmente. -->
-              <div class="card p-6 flex flex-col justify-between">
+              <div class="card p-6 flex flex-col justify-between order-12">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span data-i18n-key="vaultGenericChatTitle">Chat generica (opzionale)</span></h3>
                   <p class="card-sub" data-i18n-key="vaultGenericChatSubtitle">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Di base riceve SOLO il testo che scrivi.</p>
