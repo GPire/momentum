@@ -32,7 +32,7 @@ const { buildHeldOutSet } = await imp('bench/held-out-set.mjs');
 
 const SEED = 20260706;
 const PER_CAT = 60;
-const dataset = buildHeldOutSet({ perCat: PER_CAT, seed: SEED }); // tutte le 15 categorie
+const dataset = buildHeldOutSet({ perCat: PER_CAT, seed: SEED }); // tutte le categorie di bench/held-out-set.mjs
 
 // ── Modelli ──
 const nano = new TrainedCategorizer(MOMENTUM_TRAINED_MODEL_DATA);
@@ -40,7 +40,13 @@ const meso = new TrainedMeso(JSON.parse(readFileSync(join(root, 'public/momentum
 // LogReg riaddestrato in locale (src/ai/hashed-logreg.js): 3° esperto statico.
 let logreg = null;
 try { logreg = new HashedLogReg(JSON.parse(readFileSync(join(root, 'public/momentum_logreg_model.json'), 'utf8'))); } catch { /* modello non ancora addestrato */ }
-const categories = meso.categories;
+// Unione delle categorie di TUTTI gli esperti, mai solo quelle di uno
+// (era `meso.categories` da solo: con Meso ancora fermo a 8/25 categorie
+// e Nano/LogReg già estesi, l'ensemble non poteva MAI votare per le altre
+// 17 anche quando Nano o LogReg le riconoscevano correttamente — trovato
+// il 2026-08-30 mentre si indagava perché l'ensemble votasse peggio del
+// solo LogReg: non erano i pesi di affidabilità, era questo).
+const categories = [...new Set([...nano.categories, ...meso.categories, ...(logreg?.classes || [])])];
 
 // Ensemble: stesso voto pesato dell'Orchestrator v3 (senza NeuralNexus né
 // storico correzioni: pesi base per accuratezza misurata, condizione "primo
@@ -84,7 +90,20 @@ function fullSystemPredict(text) {
 
 // Ensemble v2 (con LogReg): soft-voting calibrato Nano+Meso+LogReg. Il LogReg
 // è riaddestrato in locale; l'ensemble batte il vecchio Nano+Meso (misurato).
-const nanoGenAcc = 0.55, mesoGenAcc = 0.75, logregGenAcc = 0.80; // accuratezze held-out reali
+//
+// Le 3 accuratezze erano COSTANTI hardcoded (0.55/0.75/0.80, scritte 2026-07)
+// invece di leggere il campo che ogni modello dichiara di sé — esattamente
+// il campo che orchestrator.js legge DAVVERO in produzione
+// (this.trained.metrics?.test_accuracy, this.meso.metrics?.
+// hard_noisy_test_accuracy, this.logreg.meta?.gate?.candidateAcc). Trovato
+// il 2026-08-30 estendendo il bench a 25 categorie: con Nano/LogReg
+// riaddestrati e Meso ancora fermo a 8 categorie, le costanti stantie
+// facevano votare l'ensemble PEGGIO del solo LogReg (31,1% contro 76,9%) —
+// un bug del bench, non dell'orchestratore reale, ma ingannevole allo
+// stesso modo: qui si allinea a cosa fa davvero il prodotto.
+const nanoGenAcc = MOMENTUM_TRAINED_MODEL_DATA.metrics?.test_accuracy || 0.8;
+const mesoGenAcc = meso.metrics?.hard_noisy_test_accuracy || 0.85;
+const logregGenAcc = logreg ? ((logreg.meta?.gate?.candidateAcc ?? 80) / 100) : 0.8;
 function ensembleV2(text) {
   const preds = [
     { ...nano.predict(text), accuracy: nanoGenAcc },

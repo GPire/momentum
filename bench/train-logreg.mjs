@@ -53,16 +53,38 @@ const heldOut = buildHeldOutSet({ perCat: 60, seed: 20260706 });
 function evalLogreg(m) {
   const lr = new HashedLogReg(m);
   let right = 0;
-  for (const { text, cat } of heldOut) if (lr.predict(text).category === cat) right++;
-  return right / heldOut.length;
+  const perCat = {};
+  for (const { text, cat } of heldOut) {
+    const ok = lr.predict(text).category === cat;
+    if (ok) right++;
+    perCat[cat] = perCat[cat] || { r: 0, n: 0 };
+    perCat[cat].n++;
+    if (ok) perCat[cat].r++;
+  }
+  return { acc: right / heldOut.length, perCat: Object.fromEntries(Object.entries(perCat).map(([c, s]) => [c, +(s.r / s.n * 100).toFixed(2)])) };
 }
 const out = join(root, 'public/momentum_logreg_model.json');
 const oldModel = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : null;
-const oldAcc = oldModel ? evalLogreg(oldModel) : null;
-const newAcc = evalLogreg(model);
+const oldEval = oldModel ? evalLogreg(oldModel) : null;
+const newEval = evalLogreg(model);
+const oldAcc = oldEval ? oldEval.acc : null;
+const newAcc = newEval.acc;
 console.log(`\nHeld-out (15 categorie, ${heldOut.length} esempi): vecchio ${oldAcc !== null ? (oldAcc * 100).toFixed(1) + '%' : 'n/d'} → nuovo ${(newAcc * 100).toFixed(1)}%`);
 
-model.meta = { config: CONFIG, trainedAt: new Date().toISOString().slice(0, 10), heldOutAcc: +(newAcc * 100).toFixed(2), sources: external.length ? ['data-gen.mjs (sintetico proprio)', 'DoDataThings/us-bank-transaction-categories-v2 (HF, MIT)'] : ['data-gen.mjs (sintetico proprio)'], note: 'ML generalizzazione held-out; ensemble con Meso' };
+// meta.gate.candidateAcc è il campo che orchestrator.js legge DAVVERO per
+// pesare il voto di LogReg nell'ensemble di produzione (this.logreg.meta?.
+// gate?.candidateAcc ?? 80) — stessa forma già scritta da
+// bench/model-regression.mjs. Prima di questo fix (2026-08-30) questo
+// script scriveva un campo diverso (heldOutAcc), mai letto da nessuno:
+// dopo un retrain via train-logreg.mjs (non passando da model-regression.mjs)
+// l'orchestratore ripiegava silenziosamente sul default 80%, ignorando
+// l'accuratezza reale appena misurata.
+model.meta = {
+  config: CONFIG, trainedAt: new Date().toISOString().slice(0, 10),
+  gate: { baselineAcc: oldAcc !== null ? +(oldAcc * 100).toFixed(2) : null, candidateAcc: +(newAcc * 100).toFixed(2), perCat: newEval.perCat, date: new Date().toISOString(), parentTrainedAt: oldModel?.meta?.trainedAt || null },
+  sources: external.length ? ['data-gen.mjs (sintetico proprio)', 'DoDataThings/us-bank-transaction-categories-v2 (HF, MIT)'] : ['data-gen.mjs (sintetico proprio)'],
+  note: 'ML generalizzazione held-out; ensemble con Meso',
+};
 
 if (process.argv.includes('--force') || oldAcc === null || newAcc >= oldAcc) {
   writeFileSync(out, JSON.stringify(model));
