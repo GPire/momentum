@@ -197,7 +197,7 @@ import { recordVoiceCorrection } from './voice/voice-learning.js';
 import { mergeMorphology, initMorphology, predictMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANGS } from './i18n/detect.js';
-import { detectNewsIntent } from './predict/news-intent.js';
+import { detectNewsIntent, looksLikeBareAssetQuery } from './predict/news-intent.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
 import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './predict/command-center.js';
@@ -6519,7 +6519,13 @@ window.selectAsset = async (idx) => {
   const compsBtn = asset.kind === 'stock' && VaultDAO.state.liveDataKeys?.alphavantage
     ? `<button onclick="window.showAssetComps('${asset.symbol}')" id="comps-btn-${asset.symbol}" class="text-[10px] font-bold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Confronta con i pari →</button><div id="comps-result-${asset.symbol}" class="mt-1.5"></div>`
     : '';
-  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}${compsBtn}
+  // Posizionamento derivati crypto (funding rate + open interest + long/short,
+  // src/alpha/crypto-derivati.js) — solo per i perpetui Binance realmente
+  // quotati, nessuna chiave richiesta (endpoint pubblico CORS-aperto).
+  const derivatiBtn = asset.kind === 'crypto'
+    ? `<button onclick="window.showCryptoPosizionamento('${asset.symbol}')" id="deriv-btn-${asset.symbol}" class="text-[10px] font-bold text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5 ml-1.5">Posizionamento derivati →</button><div id="deriv-result-${asset.symbol}" class="mt-1.5"></div>`
+    : '';
+  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}${compsBtn}${derivatiBtn}
     <div class="flex gap-1.5 mt-2">
       <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
       <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" />
@@ -6591,6 +6597,31 @@ window.downloadCompsCsv = async () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+};
+
+// Posizionamento derivati crypto (funding rate + open interest + long/short
+// skew) — src/alpha/crypto-derivati.js, 2026-08-30. Binance Futures API,
+// CORS-aperto verificato dal vivo, nessuna chiave utente necessaria (a
+// differenza dei comps azionari, che dipendono da Alpha Vantage).
+window.showCryptoPosizionamento = async (symbol) => {
+  const box = document.getElementById(`deriv-result-${symbol}`);
+  const btn = document.getElementById(`deriv-btn-${symbol}`);
+  if (!box) return;
+  const perpSymbol = `${symbol}USDT`;
+  try {
+    if (btn) btn.disabled = true;
+    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Scarico funding rate, open interest e posizionamento da Binance...</p>`;
+    const { fetchPosizionamentoCrypto, analizzaPosizionamentoCrypto } = await import('./alpha/crypto-derivati.js');
+    const dati = await fetchPosizionamentoCrypto(perpSymbol, { fetchImpl: fetch.bind(window) });
+    const r = analizzaPosizionamentoCrypto(dati);
+    box.innerHTML = r.disponibile
+      ? `<div class="p-2 rounded-lg border ${r.affollamentoConfermato ? 'border-amber-500/25 bg-amber-950/10 text-amber-200' : 'border-violet-500/25 bg-violet-950/10 text-violet-200'} text-[10px] leading-snug">${escapeHtml(r.testo)}</div>`
+      : `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(r.motivo)}</p>`;
+  } catch (e) {
+    box.innerHTML = `<p class="text-[10px] text-rose-300">Posizionamento non disponibile: ${escapeHtml(e.message || 'errore sconosciuto')}.</p>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 };
 
 window.addToWatchlist = (symbol, kind, id, name) => {
@@ -14678,6 +14709,23 @@ const initApp = () => {
           if (!secondo?.inCaricamento) { styleQaAnswer(secondo); haptic('light'); }
         }).catch(() => {});
         return;
+      }
+      // BUG REALE segnalato dal vivo dall'utente (2026-08-30): digitare un
+      // nome secco ("apple", "tesla", "bitcoin"), SENZA cornice ("quanto
+      // vale...", "prezzo di..."), non attivava detectNewsIntent (frase-based
+      // per costruzione) e finiva SEMPRE su "questa non la so ancora" — pur
+      // essendo il modo più naturale in assoluto di cercare un asset, e pur
+      // avendo Momentum i dati reali per rispondere (searchAsset ha una
+      // tabella statica di ~50 ticker noti, funziona anche senza chiave).
+      // Tentativo speculativo, mai un dirottamento: looksLikeBareAssetQuery è
+      // solo un filtro di FORMA (1-3 parole, niente riempitivi/domande), la
+      // verifica vera è tryAnswerWithRealNews→searchAsset che si autoverifica
+      // su una fonte reale e ritorna false senza toccare la UI se non trova
+      // nulla — una domanda ignota non finanziaria prosegue sotto invariata.
+      if (res.intent === 'unknown' && !newsIntent && looksLikeBareAssetQuery(question)) {
+        showQaThinking(`Cerco "${question}" tra i mercati reali...`);
+        const handledBare = await tryAnswerWithRealNews(question);
+        if (handledBare) { window.renderQaSuggestions?.(); return; }
       }
       const keys = VaultDAO.state.liveDataKeys || {};
       const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;

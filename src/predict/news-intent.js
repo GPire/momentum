@@ -55,3 +55,30 @@ export function detectNewsIntent(question) {
   }
   return null;
 }
+
+// BUG REALE segnalato dal vivo dall'utente: digitare un nome secco ("apple",
+// "tesla", "bitcoin"), SENZA nessuna cornice ("quanto vale...", "prezzo
+// di..."), non matcha nessun PATTERN sopra — sono tutti frase-based per
+// costruzione — e la domanda finiva sempre su "non lo so ancora" pur
+// essendo il modo più naturale in assoluto di chiedere un asset. Questo
+// NON estrae un asset (mai un falso positivo su qui è un nome): dice solo
+// "questo testo ha la FORMA di un nome/ticker" (1-3 parole, niente
+// interrogativi/riempitivi comuni) — la verifica vera resta a
+// tryAnswerWithRealNews→searchAsset, che è già autoverificante (fonte
+// reale, nessun risultato → nessuna risposta).
+const STOPWORDS_NOME_SECCO = new Set([
+  'che', 'cosa', 'come', 'quando', 'dove', 'perché', 'perche', 'chi', 'ciao',
+  'ok', 'si', 'sì', 'no', 'grazie', 'aiuto', 'aiutami', 'boh', 'forse',
+  'magari', 'quanto', 'quanti', 'quante', 'cioè', 'cioe', 'allora', 'ecco',
+  'bene', 'male', 'the', 'what', 'how', 'when', 'where', 'why', 'who', 'hi',
+  'hello', 'yes', 'thanks', 'help', 'please', 'and', 'or', 'is', 'are',
+]);
+
+export function looksLikeBareAssetQuery(question) {
+  const stripped = String(question || '').trim().replace(/[?!.]+$/, '').trim();
+  if (!stripped) return false;
+  const words = stripped.split(/\s+/);
+  if (words.length < 1 || words.length > 3) return false;
+  if (!/^[a-zA-ZÀ-ÿ0-9&.'-]+(\s+[a-zA-ZÀ-ÿ0-9&.'-]+){0,2}$/.test(stripped)) return false;
+  return !words.some((w) => STOPWORDS_NOME_SECCO.has(w.toLowerCase()));
+}

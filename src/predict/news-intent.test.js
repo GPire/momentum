@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectNewsIntent } from './news-intent.js';
+import { detectNewsIntent, looksLikeBareAssetQuery } from './news-intent.js';
 
 test('detectNewsIntent: "dammi le notizie di Nvidia di oggi" -> Nvidia', () => {
   const r = detectNewsIntent("dammi le notizie di Nvidia di oggi");
@@ -119,4 +119,54 @@ test('GUARDIA: "quanto costano i miei abbonamenti?" -> null', () => {
 
 test('GUARDIA: "quanto vale il mio conto?" -> null', () => {
   assert.equal(detectNewsIntent('quanto vale il mio conto?'), null);
+});
+
+// ============================================================
+// looksLikeBareAssetQuery — BUG REALE segnalato dal vivo dall'utente
+// (2026-08-30, "ho fatto i test come utente... scrivo apple e mi risponde
+// sempre non lo so ancora"): un nome secco, senza nessuna cornice, non
+// matcha nessun PATTERN di detectNewsIntent (frase-based per costruzione).
+// Verificato dal vivo in Chrome PRIMA del fix: digitare "apple" in "Chiedi a
+// Momentum" e premere invio dava sempre "Questa non la so ancora."
+// ============================================================
+
+test('looksLikeBareAssetQuery: "apple" -> true (il caso esatto segnalato dal vivo)', () => {
+  assert.equal(looksLikeBareAssetQuery('apple'), true);
+});
+
+test('looksLikeBareAssetQuery: "tesla", "bitcoin", "NVDA" -> true', () => {
+  assert.equal(looksLikeBareAssetQuery('tesla'), true);
+  assert.equal(looksLikeBareAssetQuery('bitcoin'), true);
+  assert.equal(looksLikeBareAssetQuery('NVDA'), true);
+});
+
+test('looksLikeBareAssetQuery: nomi composti brevi -> true ("coca cola", "goldman sachs")', () => {
+  assert.equal(looksLikeBareAssetQuery('coca cola'), true);
+  assert.equal(looksLikeBareAssetQuery('goldman sachs'), true);
+});
+
+test('looksLikeBareAssetQuery: stringa vuota/spazi -> false', () => {
+  assert.equal(looksLikeBareAssetQuery(''), false);
+  assert.equal(looksLikeBareAssetQuery('   '), false);
+  assert.equal(looksLikeBareAssetQuery(null), false);
+});
+
+test('looksLikeBareAssetQuery: troppe parole (frase, non un nome) -> false', () => {
+  assert.equal(looksLikeBareAssetQuery('questa è una frase con troppe parole'), false);
+});
+
+test('looksLikeBareAssetQuery: riempitivi/domande comuni -> false (mai rubare una domanda generica)', () => {
+  assert.equal(looksLikeBareAssetQuery('ciao'), false);
+  assert.equal(looksLikeBareAssetQuery('grazie'), false);
+  assert.equal(looksLikeBareAssetQuery('come stai'), false);
+  assert.equal(looksLikeBareAssetQuery('cosa devo fare'), false);
+  assert.equal(looksLikeBareAssetQuery('aiutami'), false);
+});
+
+test('looksLikeBareAssetQuery: già gestito da detectNewsIntent -> non serve, ma non deve rompersi su frasi con cornice', () => {
+  // Una frase con cornice ha comunque più di 3 parole nella maggior parte
+  // dei casi reali, o contiene un riempitivo escluso — qui verifichiamo solo
+  // che la funzione non esploda, la precedenza reale è garantita in main.js
+  // dal controllo `!newsIntent` prima di chiamare questa funzione.
+  assert.equal(looksLikeBareAssetQuery('quanto vale bitcoin?'), false);
 });
