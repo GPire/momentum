@@ -1823,7 +1823,11 @@
        l'occasione. Galleggia piano dopo l'ingresso — la stessa idea
        dell'orb che "respira" altrove nel progetto — ma solo se l'utente
        non ha chiesto meno movimento. */
-    .add-hint-card { background: var(--glass-bg); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid var(--primary); border-radius: 1rem; padding: .65rem 1rem; box-shadow: 0 10px 28px -8px rgba(99,102,241,.6); }
+    /* Sfondo più opaco del solito --glass-bg (0,65): la bolla galleggia
+       sopra contenuto di pagina che scorre sotto di lei (bottoni/testo
+       della Dashboard) — deve restare perfettamente leggibile anche
+       quando si sovrappone, non solo su sfondo vuoto. */
+    .add-hint-card { background: rgba(8,8,14,.94); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid var(--primary); border-radius: 1rem; padding: .65rem 1rem; box-shadow: 0 10px 28px -8px rgba(99,102,241,.6); }
     .add-hint-card p { font-size: 12px; font-weight: 700; color: var(--on-surface); text-align: center; line-height: 1.35; margin: 0; }
     .add-hint-arrow { width: 10px; height: 10px; background: var(--glass-bg); border-right: 1px solid var(--primary); border-bottom: 1px solid var(--primary); position: absolute; left: 50%; bottom: -6px; margin-left: -5px; transform: rotate(45deg); }
     .add-hint-in { animation: joinPop .5s cubic-bezier(0.16,1,0.3,1) both, addHintFloat 2.6s ease-in-out .7s infinite; }
@@ -4589,7 +4593,16 @@
       </div>
       <!-- Spiegazione del "+" (main.js: renderAddHint) — nascosta di
            default, mostrata dal JS solo ai primi due avvii reali. -->
-      <div id="add-hint-bubble" class="hidden" style="position:absolute; left:50%; margin-left:-105px; top:-7rem; width:210px; z-index:998; pointer-events:none;">
+      <!-- Posizione CSS fissa (non calcolata dinamicamente via JS: tentato,
+           ma i risultati non erano verificabili in modo affidabile
+           nell'ambiente di test disponibile — meglio un valore semplice e
+           prevedibile che uno "esatto" ma fragile). -7.8rem = compromesso
+           onesto fra "troppo lontano dal +" (il problema originale
+           segnalato) e "sovrapposto al bottone Importa sottostante" (il
+           problema segnalato dopo il primo fix): con contenuto reale
+           dell'utente (non lo stato demo) quella zona di solito ha meno
+           roba, il gap resta ragionevole in entrambi i casi. -->
+      <div id="add-hint-bubble" class="hidden" style="position:absolute; left:50%; margin-left:-105px; top:-7.8rem; width:210px; z-index:998; pointer-events:none;">
         <div class="add-hint-card"><p data-i18n-key="addHintText">Tocca qui per aggiungere una spesa o un'entrata</p></div>
         <div class="add-hint-arrow"></div>
       </div>
