@@ -9,6 +9,9 @@
     "build": "vite build",
     "build:singlefile": "vite build --mode singlefile",
     "preview": "vite preview",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:android": "npm run cap:sync && npx cap open android",
+    "cap:ios": "npm run cap:sync && npx cap open ios",
     "bench": "node bench/categorizer-bench.mjs",
     "bench:forecast": "node bench/forecast-bench.mjs",
     "bench:graph": "node bench/graph-bench.mjs",
@@ -39,6 +42,10 @@
     "bench:mesh": "node bench/mesh-sync-bench.mjs"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "vite": "^5.4.0",
     "vite-plugin-singlefile": "^2.0.2"
   },
