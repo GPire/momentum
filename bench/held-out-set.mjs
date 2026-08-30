@@ -41,6 +41,18 @@ export const BASE = {
   viaggi: ['volo low cost prenotazione', 'noleggio auto aeroporto settimana', 'pacchetto viaggio tutto incluso', 'traghetto isola prenotazione', 'guida turistica tour organizzato', 'visto turistico consolato'],
   svago: ['biglietto stadio partita calcio', 'escape room gioco esperienza', 'abbonamento stagionale teatro lirico', 'ingresso parco acquatico estivo', 'noleggio attrezzatura sci montagna', 'torneo poker sala giochi'],
   risparmio: ['apertura conto deposito vincolato', 'versamento fondo pensione integrativo', 'accantonamento buffer liquidita', 'trasferimento verso libretto postale', 'sottoscrizione buoni fruttiferi', 'contributo cassa previdenza volontaria'],
+  // ── 10 categorie SUBCAT (Fase 1, 2026-08-30) — frasi disgiunte dal pool
+  // SUBCAT in src/ai/train/data-gen.mjs, stesso principio del resto. ──
+  assicurazioni: ['polizza responsabilita civile', 'rinnovo assicurazione annuale', 'premio assicurativo abitazione', 'quota associativa assicurativa', 'copertura assicurativa viaggio', 'assicurazione animali domestici'],
+  commissioni: ['spese istruttoria pratica bancaria', 'commissione cambio assegno', 'penale chiusura anticipata conto', 'spese invio estratto conto cartaceo'],
+  trasferimenti: ['movimento interno tra conti', 'spostamento fondi conto secondario', 'trasferimento verso conto cointestato'],
+  regali: ['articolo da regalo confezionato', 'buono acquisto per anniversario', 'mazzo di fiori consegna'],
+  professionale: ['parcella professionista incarico', 'fattura consulenza tecnica', 'onorario perito tecnico'],
+  rimborsi: ['accredito rimborso imposta', 'restituzione somma pagamento errato', 'rimborso viaggio cancellato'],
+  scommesse: ['giocata al totocalcio', 'deposito piattaforma di gioco', 'puntata scommessa ippica'],
+  manutenzione: ['intervento urgente idraulico notturno', 'sostituzione guarnizione rubinetto', 'controllo impianto elettrico annuale'],
+  animali: ['visita di controllo dal veterinario', 'acquisto cuccia per cane', 'trattamento antiparassitario animale'],
+  alcolici: ['bottega del vino acquisto', 'negozio specializzato superalcolici', 'acquisto cassa di birra artigianale'],
 };
 
 export const PREFIXES = ['PAGAMENTO POS ', 'SATISPAY*', 'ADDEBITO SDD ', 'CRV*', 'PAGAMENTO CARTA ', 'POS ', ''];

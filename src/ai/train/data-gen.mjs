@@ -291,6 +291,66 @@ const BRASILE = {
 };
 for (const k in BRASILE) POOL[k] = [...(POOL[k] || []), ...BRASILE[k]];
 
+// ── ONDATA SUBCAT (Fase 1, 2026-08-30): 10 nuove categorie, richieste
+// esplicitamente dall'utente per espandere la tassonomia oltre le 15
+// originali. Ancorate alla tassonomia REALE di Plaid (Personal Finance
+// Category v2, plaid.com/docs/transactions/pfc-migration — 16 primary/104
+// detailed, verificata scaricando il CSV pubblico) invece che inventate:
+// BANK_FEES→commissioni, GOVERNMENT_AND_NON_PROFIT→regali/rimborsi,
+// GENERAL_SERVICES→professionale, TRANSFER_IN/OUT→trasferimenti,
+// GENERAL_SERVICES_INSURANCE→assicurazioni, MEDICAL_VETERINARY→animali,
+// ENTERTAINMENT_CASINOS→scommesse, HOME_IMPROVEMENT_REPAIR→manutenzione,
+// FOOD_AND_DRINK_BEER_WINE_LIQUOR→alcolici.
+//
+// SOLO 10 delle 22 candidate individuate: le altre 12 (fastfood,
+// caffetteria, farmacia, dentista, carburante, pedaggi, taxi, elettronica,
+// marketplace, videogiochi, voli, arredamento) sarebbero SPLIT di
+// categorie che src/ai/merchant-dictionary.js già instrada con match
+// esatti e alta confidenza (es. "mcdonald"→ristoranti, "farmacia"→salute,
+// "steam"→svago) — un modello ML non può mai vincere quel primo stadio
+// (lookupMerchant ha precedenza), quindi split parziale del dizionario
+// sarebbe richiesto PRIMA, con la sua stessa verifica di non-regressione
+// sulle 8 categorie originali (oggi al 97,7% misurato, vedi
+// bench/categorizer-bench.mjs) — deliberatamente rimandato a un
+// incremento successivo, non un buco nascosto.
+// Le 10 qui sotto sono invece ADDITIVE PURE: nessuna voce preesistente nel
+// dizionario le intercetta (verificato leggendo merchant-dictionary.js
+// riga per riga), quindi guadagno reale sia in bench ML sia nel prodotto.
+const SUBCAT = {
+  assicurazioni: ['polizza assicurativa auto', 'assicurazione rc auto premio', 'premio assicurativo vita',
+    'assicurazione infortuni annuale', 'polizza casa incendio furto', 'generali assicurazioni premio',
+    'allianz polizza rata', 'unipol sai premio', 'axa assicurazione premio', 'zurich polizza rata',
+    'assicurazione moto rc', 'polizza sanitaria integrativa'],
+  commissioni: ['commissione bancaria conto corrente', 'spese tenuta conto trimestrale', 'commissione prelievo atm estero',
+    'canone conto corrente mensile', 'spese bonifico estero swift', 'commissione carta di credito annua',
+    'penale scoperto di conto', 'spese incasso rid', 'commissione cambio valuta', 'spese gestione carta'],
+  trasferimenti: ['giroconto tra conti correnti', 'bonifico interno stesso intestatario', 'trasferimento tra conti propri',
+    'storno bonifico errato', 'bonifico verso secondo conto', 'ricarica conto deposito interno',
+    'girofondo conto risparmio', 'trasferimento saldo conto chiuso'],
+  regali: ['buono regalo amazon acquisto', 'gift card compleanno acquisto', 'fiorista bouquet regalo',
+    'negozio regali articoli', 'regalo compleanno acquisto online', 'buono regalo ristorante coppia',
+    'confezione regalo natale', 'gift card itunes acquisto', 'buono regalo zalando'],
+  professionale: ['consulenza commercialista fattura', 'onorario avvocato pratica', 'consulente del lavoro fattura',
+    'notaio parcella atto', 'consulenza fiscale professionista', 'studio legale parcella',
+    'commercialista tenuta contabilita', 'consulenza aziendale fattura', 'perito assicurativo parcella'],
+  rimborsi: ['rimborso fiscale agenzia entrate', 'rimborso irpef dichiarazione redditi', 'accredito rimborso f24',
+    'rimborso spese assicurazione sinistro', 'rimborso acquisto reso merce', 'storno rimborso ordine online',
+    'rimborso biglietto annullato', 'rimborso spese mediche assicurazione'],
+  scommesse: ['scommessa sportiva online', 'sisal matchpoint giocata', 'snai scommessa calcio',
+    'poker online piattaforma deposito', 'casino online deposito gioco', 'bet365 deposito conto gioco',
+    'gratta e vinci acquisto', 'superenalotto giocata'],
+  manutenzione: ['riparazione elettrodomestico tecnico', 'assistenza tecnica caldaia intervento', 'manutenzione ascensore condominio',
+    'intervento tecnico climatizzatore', 'riparazione lavatrice tecnico', 'tinteggiatura pareti intervento',
+    'disinfestazione appartamento intervento', 'manutenzione caldaia annuale', 'riparazione infissi tecnico'],
+  animali: ['petshop mangime cane', 'veterinario visita animale', 'toelettatura cane gatto', 'clinica veterinaria intervento',
+    'crocchette gatto acquisto', 'ambulatorio veterinario visita', 'pensione per cani soggiorno',
+    'assicurazione animale domestico', 'accessori animali acquisto'],
+  alcolici: ['vineria acquisto vino bottiglia', 'cantina vini selezione', 'birreria artigianale bottiglie',
+    'liquoreria acquisto distillati', 'wine shop acquisto online', 'distilleria acquisto whisky',
+    'champagneria acquisto bollicine', 'birrificio acquisto casse'],
+};
+for (const k in SUBCAT) POOL[k] = [...(POOL[k] || []), ...SUBCAT[k]];
+
 // Categorie del bench (per allineare le etichette).
 export const CATEGORIES = Object.keys(POOL);
 

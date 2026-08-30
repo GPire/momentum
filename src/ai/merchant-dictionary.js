@@ -87,10 +87,10 @@ const DICTIONARY = {
   okx: 'crypto', 'crypto com': 'crypto', 'young platform': 'crypto', bitcoin: 'crypto', btc: 'crypto',
   ethereum: 'crypto', crypto: 'crypto', solana: 'crypto', cardano: 'crypto', ripple: 'crypto',
   litecoin: 'crypto', usdt: 'crypto', stablecoin: 'crypto', staking: 'crypto', wallet: 'crypto',
-  // casa (affitto, mutuo, utenze del condominio, manutenzione)
+  // casa (affitto, mutuo, agenzia immobiliare — la manutenzione/riparazioni
+  // ha una categoria propria dal 2026-08-30, vedi 'manutenzione' sotto)
   affitto: 'casa', mutuo: 'casa', condominio: 'casa', locazione: 'casa', rent: 'casa',
-  mortgage: 'casa', idraulico: 'casa', elettricista: 'casa', imbianchino: 'casa',
-  falegname: 'casa', 'agenzia immobiliare': 'casa', immobiliare: 'casa',
+  mortgage: 'casa', 'agenzia immobiliare': 'casa', immobiliare: 'casa',
   // bollette (utenze: luce, gas, acqua, telefono, internet). NOTA: 'eni' resta
   // 'trasporti' (carburante, gia' in dizionario) — la stessa sigla e' anche un
   // fornitore di luce/gas, ma disambiguarla richiederebbe il contesto
@@ -102,10 +102,12 @@ const DICTIONARY = {
   'tim ': 'bollette', windtre: 'bollette', wind: 'bollette', iliad: 'bollette',
   fibra: 'bollette', acquedotto: 'bollette', 'ho mobile': 'bollette',
   kena: 'bollette', very: 'bollette', 'poste mobile': 'bollette',
-  // salute (farmacie, medici, dentisti, assicurazioni sanitarie)
+  // salute (farmacie, medici, dentisti, assicurazioni sanitarie — gli
+  // animali hanno una categoria propria dal 2026-08-30, 'veterinario'
+  // spostato sotto in 'animali')
   farmacia: 'salute', parafarmacia: 'salute', dentista: 'salute', ottico: 'salute',
   fisioterapia: 'salute', ospedale: 'salute', ambulatorio: 'salute', poliambulatorio: 'salute',
-  analisi: 'salute', veterinario: 'salute', pharmacy: 'salute', dentist: 'salute',
+  analisi: 'salute', pharmacy: 'salute', dentist: 'salute',
   clinica: 'salute', policlinico: 'salute', unisalute: 'salute',
   // istruzione (università, scuole, corsi, materiale didattico)
   universita: 'istruzione', ateneo: 'istruzione', politecnico: 'istruzione',
@@ -122,6 +124,33 @@ const DICTIONARY = {
   eventbrite: 'svago', vivaticket: 'svago', piscina: 'svago',
   museo: 'svago', 'luna park': 'svago', bowling: 'svago', biliardo: 'svago',
   steam: 'svago', playstation: 'svago', xbox: 'svago', nintendo: 'svago', twitch: 'svago',
+  // ── 10 categorie nuove (Fase 1, 2026-08-30) — vedi il commento in
+  // src/ai/train/data-gen.mjs (SUBCAT) per il criterio di scelta: solo
+  // categorie ADDITIVE, mai uno split di una categoria che questo
+  // dizionario intercetta già con match esatto (regressione da evitare,
+  // non un dettaglio: questo dizionario dà a "Momentum Core" il suo 97,7%
+  // misurato sulle 8 categorie originali — vedi bench/categorizer-bench.mjs).
+  manutenzione: 'manutenzione', idraulico: 'manutenzione', elettricista: 'manutenzione',
+  imbianchino: 'manutenzione', falegname: 'manutenzione', fabbro: 'manutenzione',
+  'assistenza tecnica': 'manutenzione', disinfestazione: 'manutenzione',
+  animali: 'animali', veterinario: 'animali', petshop: 'animali', toelettatura: 'animali',
+  crocchette: 'animali', 'pensione per cani': 'animali', canile: 'animali', gattile: 'animali',
+  assicurazioni: 'assicurazioni', polizza: 'assicurazioni', assicurazione: 'assicurazioni',
+  generali: 'assicurazioni', allianz: 'assicurazioni', unipolsai: 'assicurazioni',
+  'unipol sai': 'assicurazioni', axa: 'assicurazioni', zurich: 'assicurazioni',
+  groupama: 'assicurazioni', 'reale mutua': 'assicurazioni',
+  commissioni: 'commissioni', commissione: 'commissioni', 'canone conto': 'commissioni',
+  'spese conto': 'commissioni', 'spese bancarie': 'commissioni', 'commissione bancaria': 'commissioni',
+  trasferimenti: 'trasferimenti', giroconto: 'trasferimenti', 'bonifico interno': 'trasferimenti',
+  regali: 'regali', 'gift card': 'regali', 'buono regalo': 'regali', fiorista: 'regali',
+  professionale: 'professionale', commercialista: 'professionale', notaio: 'professionale',
+  avvocato: 'professionale', 'consulente del lavoro': 'professionale', 'studio legale': 'professionale',
+  rimborsi: 'rimborsi', 'rimborso fiscale': 'rimborsi', 'rimborso irpef': 'rimborsi',
+  'agenzia entrate': 'rimborsi',
+  scommesse: 'scommesse', sisal: 'scommesse', snai: 'scommesse', bet365: 'scommesse',
+  'gratta e vinci': 'scommesse', superenalotto: 'scommesse', 'casino online': 'scommesse',
+  alcolici: 'alcolici', vineria: 'alcolici', liquoreria: 'alcolici', distilleria: 'alcolici',
+  'cantina vini': 'alcolici',
 };
 
 // Normalizza: minuscolo, via accenti, via prefissi bancari e code carta,

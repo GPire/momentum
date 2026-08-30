@@ -45,7 +45,13 @@ const MAP = {
   Education: 'istruzione',
   Restaurants: 'ristoranti',
   Travel: 'viaggi',
-  // esclusi: Insurance, Fees, Transfer
+  // Recuperate il 2026-08-30 (Fase 1): prima escluse per mancanza di una
+  // categoria Momentum corrispondente onesta — ora esiste (vedi SUBCAT in
+  // src/ai/train/data-gen.mjs), quindi questi 12.000 esempi reali tornano
+  // utili invece di essere scartati.
+  Insurance: 'assicurazioni',
+  Fees: 'commissioni',
+  Transfer: 'trasferimenti',
 };
 
 console.log('Scarico il parquet da Hugging Face (MIT, non gated)...');

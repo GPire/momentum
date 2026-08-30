@@ -325,12 +325,19 @@ test("C4: senza LogReg caricato, nessun voto 'logreg' compare (invariato)", () =
 // difeso dal rilevatore di deriva lenta in src/mesh/contribution-drift.js):
 // il recupero per un dispositivo NUOVO senza storico locale. ───────────────
 test("consenso federato: un dispositivo NUOVO senza storico locale usa il consenso di rete su una parola-tipo generica", () => {
+  // "notaio" era la parola-tipo originale di questo test, finché il
+  // dizionario esercenti (Fase 1, 2026-08-30: src/ai/merchant-dictionary.js)
+  // non ha imparato "notaio"→professionale — ora Stadio 0 risponde da solo
+  // e il test smetteva di esercitare il fallback federato che vuole
+  // verificare. Sostituita con una parola-tipo genuinamente sconosciuta a
+  // dizionario/morfologia (mai un vero esercente), l'intento del test resta
+  // identico.
   const nexus = { predict: () => ({ cat: null, confidence: 0 }), tokenize: t => t.split(' '), train: () => {} };
   const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: null, confidence: 0 }) };
   const vault = mockVaultV3();
-  vault.state.mlData.federatedProbeConsensus = { notaio: { legale: 0.9, altro: 0.1 } };
+  vault.state.mlData.federatedProbeConsensus = { glorfindo: { legale: 0.9, altro: 0.1 } };
   const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: trained });
-  const r = orch.classify("NOTAIO ROSSI CENTRO", 15, new Date());
+  const r = orch.classify("GLORFINDO ROSSI CENTRO", 15, new Date());
   assert.equal(r.cat, "legale");
   assert.ok((r.sources || []).includes("federated-probe"), "il voto deve arrivare dal consenso federato");
 });

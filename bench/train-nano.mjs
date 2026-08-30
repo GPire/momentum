@@ -5,15 +5,20 @@
 // salute/istruzione/viaggi/svago/risparmio). Due fonti di dati DIVERSE,
 // mai solo sintetico e mai solo una fonte esterna:
 //  1) src/ai/train/data-gen.mjs — pool multilingua proprio del progetto
-//     (IT/ES/FR/DE/PT/EN + UK/US/Brasile), copre TUTTE le 15 categorie.
+//     (IT/ES/FR/DE/PT/EN + UK/US/Brasile), copre TUTTE le categorie.
 //  2) DoDataThings/us-bank-transaction-categories-v2 (Hugging Face, MIT,
-//     non gated) — 56.000 descrizioni REALI in stile estratto conto USA,
-//     mappate onestamente su 12/15 categorie Momentum (escluse Insurance/
-//     Fees/Transfer: nessuna categoria Momentum corrisponde senza forzare
-//     un'etichetta sbagliata — vedi bench/data/external-nano-us-transactions.json).
+//     non gated) — 68.000 descrizioni REALI in stile estratto conto USA,
+//     mappate su TUTTE le 15/15 categorie originali (Insurance/Fees/
+//     Transfer, escluse fino al 2026-08-30 per mancanza di corrispondente
+//     onesto, ora mappano su assicurazioni/commissioni/trasferimenti —
+//     vedi Fase 1, bench/prepare-nano-external-dataset.mjs).
 //     etf/crypto/risparmio restano coperte solo dal sintetico (la fonte
 //     esterna è un dataset di SPESA, non di investimento — onesto, non un
 //     buco nascosto).
+//  Fase 1 (2026-08-30): tassonomia estesa da 15 a 25 categorie, ancorata
+//  alla tassonomia reale Plaid PFC v2 (10 nuove ADDITIVE, mai split di una
+//  categoria che merchant-dictionary.js intercetta già — vedi il commento
+//  SUBCAT in data-gen.mjs per il criterio completo).
 globalThis.window = {};
 globalThis.navigator = { maxTouchPoints: 0 };
 
@@ -63,7 +68,9 @@ const classes = [...new Set(corpus.map(r => r.cat))].sort();
 console.log(`Corpus totale: ${corpus.length} esempi, ${classes.length} categorie: ${classes.join(', ')}`);
 
 // ── Vocabolario TF-IDF (parole, come l'inferenza si aspetta) ──
-const { vocabulary, idf } = buildVocabulary(corpus.map(r => r.text), wordTokenize, { minDf: 3, maxVocab: 5000 });
+const MAXVOCAB = Number(process.env.MAXVOCAB || 5000);
+const MINDF = Number(process.env.MINDF || 3);
+const { vocabulary, idf } = buildVocabulary(corpus.map(r => r.text), wordTokenize, { minDf: MINDF, maxVocab: MAXVOCAB });
 console.log(`Vocabolario: ${Object.keys(vocabulary).length} token (minDf=3)`);
 
 const classIndex = Object.fromEntries(classes.map((c, i) => [c, i]));
