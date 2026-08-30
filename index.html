@@ -3879,6 +3879,11 @@
                 </div>
                 <div id="pro-license-status" class="hidden mb-3 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/25 text-emerald-200 text-xs"></div>
                 <div id="pro-license-form" class="flex flex-col gap-2">
+                  <!-- Collegamento onboarding→PRO (richiesto esplicitamente):
+                       mai un blocco, solo un suggerimento onesto e specifico
+                       quando il profilo dichiarato usa davvero i mercati —
+                       vedi renderProLicenseCard() in main.js. -->
+                  <p id="pro-license-profile-hint" class="hidden text-[11px] text-[var(--gold)] mb-1"></p>
                   <input type="text" id="pro-license-input" class="modal-input !mb-0" placeholder="Incolla il codice di attivazione" autocomplete="off" spellcheck="false" />
                   <button id="pro-license-activate-btn" class="btn-action w-full font-bold text-sm">Attiva</button>
                   <p id="pro-license-error" class="hidden text-xs text-rose-300"></p>
@@ -4158,13 +4163,20 @@
                 </div>
               </div>
 
+              <!-- Cosa ti interessa di Momentum (profilazione reversibile,
+                   src/predict/onboarding-priors.js: shouldShowAnalysisTensor):
+                   chi ha detto in fase di attivazione di non investire non
+                   vede più il tab "Analisi Tensor" né le card di mercato qui
+                   sotto — sempre reversibile da qui, un tap, mai un modulo. -->
+              <div class="card p-6" id="analysis-tensor-pref-card"></div>
+
               <!-- Prezzi live (opzionale) — CoinGecko per le cripto funziona SEMPRE
                    senza chiave (verificato CORS-aperto); per azioni/indici serve una
                    chiave PERSONALE gratuita (Alpha Vantage) perché Yahoo/Stooq
                    bloccano le chiamate dirette dal browser (verificato). La chiave
                    vive SOLO in questo dispositivo: nessun server Momentum esiste a
                    cui inviarla. -->
-              <div class="card p-6 flex flex-col justify-between">
+              <div class="card p-6 flex flex-col justify-between" id="live-prices-card">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n-key="vaultLivePricesTitle">Prezzi live (opzionale)</span></h3>
                   <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Le cripto funzionano già, senza fare nulla. Per azioni/indici serve una chiave gratuita tua (mai un account Momentum): 20 secondi su Alpha Vantage, poi incollala qui sotto.</p>

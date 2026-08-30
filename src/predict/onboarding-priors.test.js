@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { derivePriors, banditSeed, seedBanditState, testoConsiglio } from './onboarding-priors.js';
+import { derivePriors, banditSeed, seedBanditState, testoConsiglio, shouldShowAnalysisTensor } from './onboarding-priors.js';
 
 test('derivePriors: profili diversi → config diverse e sensate', () => {
   const cons = derivePriors('conservativo', 'breve');
@@ -230,4 +230,18 @@ test('banditSeed: cashflowStress="corto" + incomeRegularity="irregolare" non rad
 test('seedBanditState: propaga incomeRegularity a banditSeed, senza toccare i bracci già appresi', () => {
   const out = seedBanditState(null, 'bilanciato', null, 'irregolare');
   assert.ok(out.arms['ok:mid|es-tax-set-aside']);
+});
+
+test('shouldShowAnalysisTensor: invests===false esplicito -> nascosta', () => {
+  assert.equal(shouldShowAnalysisTensor({ invests: false }), false);
+});
+
+test('shouldShowAnalysisTensor: invests===true -> visibile', () => {
+  assert.equal(shouldShowAnalysisTensor({ invests: true }), true);
+});
+
+test('shouldShowAnalysisTensor: nessun segnale (mai onboardato, undefined/null) -> visibile per default, mai nascondere senza un segnale esplicito', () => {
+  assert.equal(shouldShowAnalysisTensor(undefined), true);
+  assert.equal(shouldShowAnalysisTensor(null), true);
+  assert.equal(shouldShowAnalysisTensor({}), true);
 });

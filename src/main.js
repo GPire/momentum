@@ -189,7 +189,7 @@ import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscripti
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
-import { derivePriors, seedBanditState, testoConsiglio } from './predict/onboarding-priors.js';
+import { derivePriors, seedBanditState, testoConsiglio, shouldShowAnalysisTensor } from './predict/onboarding-priors.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -1947,6 +1947,12 @@ const renderDashboard = () => {
   // milestones.js), non un ciclo separato. Economico, sicuro anche se la
   // card non è nella schermata attiva (controllaTraguardi lo gestisce).
   try { controllaTraguardi(); } catch (_) {}
+  // Stesso motivo del punto sopra: la Dashboard si disegna anche al primo
+  // avvio SENZA passare da navigate() (vedi commento vicino a
+  // renderVegliaMercato più sotto per lo stesso bug già trovato una volta) —
+  // il tab "Analisi Tensor" deve riflettere subito la preferenza salvata,
+  // non solo dopo il primo cambio schermata.
+  try { window.updateAnalysisTensorVisibility?.(); } catch (_) {}
   let score = 400;
   try { score = PredictiveOracle.calculateMomentumScore(); } catch(e) {}
   
@@ -6735,7 +6741,9 @@ function sondaProgresso(modulo, labelId, testoPronto) {
 function renderSemanticQaCard() {
   const card = document.getElementById('semantic-qa-card');
   if (!card) return;
-  const supportato = !!window.momentumDeviceProfile?.simd;
+  // Serve solo a capire domande di MERCATO dette in modo diverso — inutile
+  // per chi ha detto di non investire (stesso gate di Analisi Tensor).
+  const supportato = !!window.momentumDeviceProfile?.simd && shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs);
   card.style.display = supportato ? '' : 'none';
   if (!supportato) return;
   const toggle = document.getElementById('semantic-qa-optin');
@@ -6779,7 +6787,8 @@ window.setSemanticQaOptIn = async (attiva) => {
 function renderSentimentLocalCard() {
   const card = document.getElementById('sentiment-local-card');
   if (!card) return;
-  const supportato = !!window.momentumDeviceProfile?.simd;
+  // Sentiment delle notizie FINANZIARIE — stesso gate di Analisi Tensor.
+  const supportato = !!window.momentumDeviceProfile?.simd && shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs);
   card.style.display = supportato ? '' : 'none';
   if (!supportato) return;
   const toggle = document.getElementById('sentiment-local-optin');
@@ -11573,6 +11582,7 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   // una schermata su funzioni che per lui sono semplicemente "come funziona
   // Momentum", non una novità.
   VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
+  updateAnalysisTensorVisibility();
 }
 
 // ATTIVAZIONE LAMPO (anti-attrito): chi arriva da un link di divisione NON deve
@@ -11967,9 +11977,62 @@ function renderProLicenseCard() {
     statusEl.classList.add('hidden');
     formEl.classList.remove('hidden');
     deactivateBtn.classList.add('hidden');
+    // Collegamento onboarding→PRO (richiesto esplicitamente): mai un
+    // blocco, solo un suggerimento onesto quando il profilo dichiarato usa
+    // davvero i mercati (stesso segnale di shouldShowAnalysisTensor) —
+    // chi ha detto "solo spese" non lo vede mai, non è pertinente per lui.
+    const hint = document.getElementById('pro-license-profile-hint');
+    if (hint) {
+      const mostra = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) && VaultDAO.state.onboardingProfile;
+      hint.classList.toggle('hidden', !mostra);
+      if (mostra) hint.textContent = tCh('proLicenseProfileHint', __uiLang);
+    }
   }
 }
 renderProLicenseCard();
+
+// "Cosa ti interessa di Momentum?" — profilazione reversibile richiesta
+// esplicitamente ("utenti molto inesperti vogliono solo tracciare/dividere
+// spese, non gli interessa finanza/cripto/PIVA, e viceversa"). Due chip
+// grandi (stesso stile/stesso colore attivo di window.setEsBaseChoice, non
+// un pattern nuovo), mai un checkbox tecnico — un tap, effetto visibile
+// subito (il tab Analisi Tensor appare/sparisce dal vivo sotto i loro occhi).
+function renderAnalysisTensorPrefCard() {
+  const el = document.getElementById('analysis-tensor-pref-card');
+  if (!el) return;
+  const invests = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs);
+  const attivo = 'border-[var(--gold)] text-[var(--gold)] type-toggle-pop';
+  const inattivo = 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]';
+  el.innerHTML = `
+    <h3 class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg><span>${tCh('analysisPrefTitle', __uiLang)}</span></h3>
+    <p class="card-sub">${tCh('analysisPrefSubtitle', __uiLang)}</p>
+    <div class="flex gap-2 mt-3">
+      <button onclick="window.setInvestsPreference(true)" class="flex-1 text-[11px] font-bold px-2.5 py-2.5 rounded-lg border transition-all ${invests ? attivo : inattivo}">${tCh('analysisPrefInvestBtn', __uiLang)}</button>
+      <button onclick="window.setInvestsPreference(false)" class="flex-1 text-[11px] font-bold px-2.5 py-2.5 rounded-lg border transition-all ${!invests ? attivo : inattivo}">${tCh('analysisPrefNoInvestBtn', __uiLang)}</button>
+    </div>`;
+}
+renderAnalysisTensorPrefCard();
+
+window.setInvestsPreference = (invests) => {
+  // Riusa derivePriors (stesso motore dell'onboarding, mai una scorciatoia
+  // duplicata): invests=false azzera SOLO investFraction, tutto il resto
+  // del profilo (budget/cuscinetto/freno spese/rischio) resta invariato —
+  // e riattivando, investFraction torna al valore giusto per il rischio
+  // dichiarato invece di restare a 0 per sempre.
+  const prefs = VaultDAO.state.investmentPrefs || {};
+  const risk = VaultDAO.state.onboardingProfile?.riskProfile || 'bilanciato';
+  const p = derivePriors(risk, prefs.horizon || 'medio', prefs.liquidityMonths ?? null, invests, prefs.incomeRegularity ?? null);
+  VaultDAO.state.onboardingProfile = { ...(VaultDAO.state.onboardingProfile || {}), invests: p.invests };
+  VaultDAO.state.investmentPrefs = { ...prefs, investFraction: p.investFraction, invests: p.invests };
+  VaultDAO.save();
+  renderAnalysisTensorPrefCard();
+  window.updateAnalysisTensorVisibility?.();
+  renderSemanticQaCard(); renderSentimentLocalCard();
+  const card = document.getElementById('live-prices-card');
+  if (card) card.style.display = invests ? '' : 'none';
+  haptic('light');
+  showToast(invests ? tCh('analysisPrefOnToast', __uiLang) : tCh('analysisPrefOffToast', __uiLang), 'success');
+};
 
 document.getElementById('pro-license-activate-btn')?.addEventListener('click', async () => {
   const input = document.getElementById('pro-license-input');
@@ -12139,6 +12202,20 @@ window.condividiTraguardo = async () => {
   } catch (_) { /* utente ha annullato la condivisione, nessun errore da mostrare */ }
 };
 
+// Profilazione: "utenti molto inesperti che vogliono solo tracciare/dividere
+// spese, non interessati a finanza/cripto, e viceversa" (richiesto
+// esplicitamente) — Analisi Tensor sparisce dalla navigazione per chi ha
+// dichiarato esplicitamente di non investere (onboarding, domanda 2),
+// SEMPRE reversibile dalla card dedicata in Momentum Vault. Se l'utente si
+// trova PROPRIO sulla vista che sta per sparire, lo riporta in Dashboard —
+// mai una vista vuota/inaccessibile lasciata aperta dietro un tab nascosto.
+function updateAnalysisTensorVisibility() {
+  const show = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs);
+  $$('.nav-btn[data-view="analysis"]').forEach(btn => btn.classList.toggle('hidden', !show));
+  if (!show && VaultDAO.state.currentView === 'analysis') navigate('dashboard');
+}
+window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
+
 const navigate = (view) => {
   haptic('light');
   if (view === 'analysis') pingFeature('analysis_tensor_opened');
@@ -12182,7 +12259,8 @@ const navigate = (view) => {
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
     // accanto a #tax-settings-card, non più mescolato ai contenuti di
     // trading/investimento di Analisi Tensor.
-    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary();
+    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); renderAnalysisTensorPrefCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary();
+    { const c = document.getElementById('live-prices-card'); if (c) c.style.display = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) ? '' : 'none'; }
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei

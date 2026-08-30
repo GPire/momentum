@@ -162,3 +162,15 @@ export function testoConsiglio(risk = 'bilanciato') {
   if (r === 'aggressivo') return 'I consigli partono orientati a ottimizzare dove spendi.';
   return 'I consigli restano equilibrati fra risparmio e ottimizzazione, finché non mostri una preferenza.';
 }
+
+// Chi non investe non è interessato alla parte finanza/cripto (Analisi
+// Tensor) — profilazione richiesta esplicitamente: "utenti molto inesperti
+// che vogliono solo tracciare spese/dividere spese, non gli interessa
+// finanza/cripto/partita IVA, e viceversa". `invests` è l'unico segnale
+// esplicito che l'utente ha già dato su questo (domanda 2 dell'onboarding);
+// finché non l'ha dato (mai onboardato, o percorso "lampo" senza quella
+// domanda) resta visibile per default — mai nascondere una sezione intera
+// per un utente su cui non abbiamo un segnale esplicito.
+export function shouldShowAnalysisTensor(investmentPrefs) {
+  return investmentPrefs?.invests !== false;
+}
