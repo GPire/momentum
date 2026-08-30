@@ -72,6 +72,18 @@ test("le settimane future mostrano solo il budget di base, senza riporto (non an
   future.forEach(w => assert.equal(w.rolloverIn, null));
 });
 
+test("l'ultimo giorno della settimana (domenica) resta isCurrent anche a un'ora reale dopo mezzanotte", () => {
+  // bug reale: week.end è mezzanotte (solo data); un referenceDate con
+  // un'ora reale successiva (es. sera) sulla domenica finiva classificato
+  // "isPast" invece di "isCurrent", e la card del budget settimanale
+  // mostrava la lista di tutte le settimane invece del riquadro corrente.
+  const domenicaSera = new Date(2026, 7, 30, 21, 30, 0); // domenica 30 agosto 2026, ore 21:30
+  const status = getWeeklyStatus([], 400, domenicaSera);
+  const week = status.currentWeek;
+  assert.ok(week, "la settimana in corso deve essere trovata anche a sera inoltrata della domenica");
+  assert.equal(week.end.getDate(), 30);
+});
+
 test("la somma dei budget di base di tutte le settimane è pari al budget mensile (nessun euro perso o duplicato)", () => {
   const weeks = getMonthWeeks("2026-07");
   const totalDays = weeks.reduce((s, w) => s + w.daysInMonth, 0);

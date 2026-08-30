@@ -65,8 +65,18 @@ export function getWeeklyStatus(monthTxs, monthlyBudget, referenceDate = new Dat
 
   for (const week of weeks) {
     const baseBudget = monthlyBudget * (week.daysInMonth / totalDays);
-    const isPast = referenceDate > week.end;
-    const isCurrent = referenceDate >= week.start && referenceDate <= week.end;
+    // week.end è costruito a mezzanotte (solo data, vedi getMonthWeeks): un
+    // confronto diretto con `referenceDate` (che ha l'ora reale) classificava
+    // la settimana corrente come "isPast" per tutto il giorno finale della
+    // settimana (la domenica) tranne l'istante esatto di mezzanotte — bug
+    // reale trovato confrontando il rendering live con l'orario reale: la
+    // card mostrava la lista di tutte le settimane invece del riquadro
+    // "questa settimana", proprio perché nessuna settimana risultava mai
+    // isCurrent dopo la mezzanotte dell'ultimo giorno. Fix: confrontare
+    // contro la fine del giorno, non contro la mezzanotte che lo apre.
+    const weekEndCutoff = new Date(week.end.getFullYear(), week.end.getMonth(), week.end.getDate(), 23, 59, 59, 999);
+    const isPast = referenceDate > weekEndCutoff;
+    const isCurrent = referenceDate >= week.start && referenceDate <= weekEndCutoff;
     const isFuture = referenceDate < week.start;
 
     if (isFuture) {
