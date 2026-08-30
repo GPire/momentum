@@ -10,7 +10,8 @@ import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
 import { subscriptionSummary, detectDormantSubscriptions, detectNewSubscriptions, dormantSubscriptionKey } from './predict/subscriptions.js';
-import { getWeeklyStatus } from './predict/weekly-budget.js';
+import { getWeeklyStatus, getIsoWeekStatus } from './predict/weekly-budget.js';
+import { weekCategoryInsight } from './predict/week-insight.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
 import { computeNetWorth, projectNetWorthByStrategy, projectStrategy } from './alpha/net-worth.js';
@@ -189,7 +190,7 @@ import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscripti
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
-import { derivePriors, seedBanditState, testoConsiglio, shouldShowAnalysisTensor } from './predict/onboarding-priors.js';
+import { derivePriors, seedBanditState, shouldShowAnalysisTensor } from './predict/onboarding-priors.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -1438,8 +1439,8 @@ const attachFormListeners = (container, prefill = null) => {
           && selectedDate.getMonth() === now.getMonth()
           && selectedDate.getDate() === now.getDate();
         datePillText.textContent = isToday
-          ? 'Oggi'
-          : selectedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+          ? tCh('txDateToday', __uiLang)
+          : selectedDate.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
       }
       updateAmount();
     };
@@ -1453,7 +1454,11 @@ const attachFormListeners = (container, prefill = null) => {
   // qualunque lettura locale successiva (getDate, toLocaleDateString) la
   // fa scivolare al giorno prima. Si parsano i componenti a mano, come già
   // fa dateInput.onchange qui sopra.
-  if (prefill.date) {
+  // `prefill` vale null nella chiamata più comune di tutte (bootUI, form
+  // desktop sempre presente): senza questa guardia l'accesso a .date lanciava
+  // a ogni avvio e interrompeva bootUI a metà — l'app si apriva con pezzi di
+  // Dashboard non disegnati e nessun errore visibile all'utente.
+  if (prefill && prefill.date) {
     const [py, pm, pd] = String(prefill.date).split('-').map(Number);
     if (py && pm && pd) {
       const d = new Date(py, pm - 1, pd);
@@ -1462,7 +1467,7 @@ const attachFormListeners = (container, prefill = null) => {
       if (datePillText) {
         const now = new Date();
         const isToday = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-        datePillText.textContent = isToday ? 'Oggi' : d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+        datePillText.textContent = isToday ? tCh('txDateToday', __uiLang) : d.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
       }
     }
   }
@@ -1977,6 +1982,323 @@ function dailyBudgetQuota(date) {
 function dailyBudgetPctColor(pct) {
   return pct > 100 ? 'text-rose-400' : pct > 80 ? 'text-amber-400' : 'text-emerald-400';
 }
+
+// Contenuto del drill-down di un giorno (spesa totale, confronto col budget
+// di giornata, riepilogo per categoria, righe, bottone "aggiungi qui") —
+// condiviso tra il calendario di Analisi Tensor e la striscia settimanale
+// della Dashboard (richiesto esplicitamente: unire le due viste senza
+// duplicare la logica, altrimenti rischio reale di due letture diverse
+// dello stesso giorno). `dayTxs` può contenere qualunque tipo di movimento:
+// filtra da sola le sole uscite, come già faceva il chiamante originale.
+function buildDayDetailHtml(dateObj, dayTxs, dayLabel) {
+  const uscite = (dayTxs || []).filter(t => t.type === 'uscita');
+  const total = uscite.reduce((s, t) => s + t.amount, 0);
+  const quotaGiorno = dailyBudgetQuota(dateObj);
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dataIso = `${dateObj.getFullYear()}-${mm}-${dd}`;
+  const label = dayLabel || dateObj.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'long' });
+
+  // "(17% usato)" chiede all'utente di tradurre una percentuale in soldi
+  // veri. Due importi affiancati non chiedono niente: quanto potevi
+  // spendere in un giorno, quanto ne hai usato. La percentuale resta viva
+  // dove serve davvero — nel colore.
+  const budgetHtml = quotaGiorno > 0 ? (() => {
+    const pct = Math.round((total / quotaGiorno) * 100);
+    return `<p class="text-[10px] ${dailyBudgetPctColor(pct)} mt-1">${tCh('alphaDayBudgetCompare', __uiLang, formatMoney(quotaGiorno), formatMoney(total))}</p>`;
+  })() : '';
+  // L'AZIONE DEVE DIRE SU QUALE GIORNO CADE, E SEMBRARE UN'AZIONE.
+  // Era un link sottolineato da 10px che diceva "questo giorno": chi lo
+  // leggeva doveva ricordarsi quale aveva toccato tre secondi prima. Ora
+  // porta il nome del giorno scritto ("giovedì 3") ed è un bersaglio pieno,
+  // alto abbastanza per un dito (48px, la soglia già adottata nel progetto).
+  // Il "+" vive dentro un cerchietto luminoso: lo stesso pianeta della fila
+  // qui sopra, in versione azione — un solo linguaggio visivo su tutta la
+  // card, non un bottone preso da un'altra app.
+  const giornoEsteso = dateObj.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric' });
+  const addBtnHtml = `<button type="button" onclick="window.openPrefilledAdd({ type: 'uscita', date: '${dataIso}' })" class="day-add-btn">
+    <span class="day-add-orb"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+    <span class="day-add-testo">${tCh('alphaDayAddExpenseBtn', __uiLang, giornoEsteso)}</span>
+  </button>`;
+
+  if (!uscite.length) {
+    return `<div class="p-2.5 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)]">
+      <p class="text-[10px] text-[var(--on-surface-secondary)]">${label}: ${tCh('alphaHeatmapNoExpense', __uiLang)}</p>
+      ${budgetHtml}
+      ${addBtnHtml}
+    </div>`;
+  }
+
+  const catTotalsDay = {};
+  uscite.forEach(t => { catTotalsDay[t.category] = (catTotalsDay[t.category] || 0) + t.amount; });
+  const catEntries = Object.entries(catTotalsDay).sort((a, b) => b[1] - a[1]);
+  const catBreakdownHtml = catEntries.length > 1 ? `<div class="flex flex-wrap gap-x-3 gap-y-1 mb-2 pb-2 border-b border-[var(--outline)]">
+    ${catEntries.map(([catId, amt]) => {
+      const cat = getCatById(catId);
+      return `<span class="inline-flex items-center gap-1 text-[10px] text-[var(--on-surface-secondary)]">
+        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cat?.color || '#888'}"></span>
+        ${cat?.name || catId} <span class="font-mono text-[var(--on-surface)]">${formatMoney(amt)}</span>
+      </span>`;
+    }).join('')}
+  </div>` : '';
+  // La riga porta la DESCRIZIONE della spesa ("Bar", "Esselunga"), non il
+  // nome della categoria: con la categoria, le righe ripetevano parola per
+  // parola il riepilogo per categoria qui sopra — due volte la stessa
+  // informazione e mai quella che serve davvero per riconoscere una spesa.
+  // Il colore della categoria resta, come pallino: dice a quale gruppo
+  // appartiene senza rubare il posto al nome.
+  const rows = [...uscite].sort((a, b) => b.amount - a.amount).map(t => {
+    const cat = getCatById(t.category);
+    const nome = t.description || t.note || cat?.name || t.category;
+    return `<div class="flex items-center justify-between gap-2 text-[10px] py-1 border-b border-[var(--outline)] last:border-0">
+      <span class="text-[var(--on-surface-secondary)] inline-flex items-center gap-1.5 min-w-0">
+        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cat?.color || '#888'}"></span>
+        <span class="truncate">${nome}</span>
+      </span>
+      <span class="font-mono text-[var(--on-surface)] shrink-0">${formatMoney(t.amount)}</span>
+    </div>`;
+  }).join('');
+  return `<div class="p-2.5 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)]">
+    <div class="flex items-baseline justify-between mb-1.5">
+      <span class="text-[11px] font-bold text-[var(--on-surface)]">${label}</span>
+      <span class="font-mono text-[13px] font-bold text-[var(--gold)]">${formatMoney(total)}</span>
+    </div>
+    ${budgetHtml}
+    ${catBreakdownHtml}
+    ${rows}
+    ${addBtnHtml}
+  </div>`;
+}
+
+// Cache dei 7 giorni della settimana mostrata, per evitare di ricalcolare la
+// query di stato a ogni tap (usata da window.__toggleDashDay).
+let __dashWeekData = {};
+// Settimana mostrata, in numero di settimane rispetto a quella in corso
+// (0 = questa, -1 = la scorsa). Mai avanti: una settimana futura non ha
+// niente da mostrare in un'app di spese già avvenute.
+let __dashWeekOffset = 0;
+
+function isoDay(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const renderDashboardWeekStrip = () => {
+  const row = $('#dash-week-strip');
+  const detailEl = $('#dash-week-strip-detail');
+  if (!row || !detailEl) return;
+
+  const today = new Date();
+  const dow = today.getDay(); // 0=domenica..6=sabato
+  const diff = (dow === 0 ? -6 : 1) - dow;
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diff + __dashWeekOffset * 7);
+
+  const days = [];
+  for (let i = 0; i < 7; i++) days.push(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i));
+
+  // Fonte dati: displayTxForMonth, MAI state.transactions — le voci di
+  // esempio vivono apposta fuori dal vault (demo-dataset.js) e un utente
+  // nuovo vedrebbe la settimana vuota mentre il resto della Dashboard è
+  // pieno. Stessa trappola già documentata per "Oggi puoi spendere".
+  __dashWeekData = {};
+  let maxSpend = 0;
+  const catWeek = {};
+  const dayInfo = days.map((d) => {
+    const iso = isoDay(d);
+    const dayTxs = displayTxForMonth(monthKey(d)).filter(t => String(t.date).slice(0, 10) === iso);
+    const uscite = dayTxs.filter(t => t.type === 'uscita');
+    const spend = uscite.reduce((s, t) => s + t.amount, 0);
+    uscite.forEach(t => { catWeek[t.category] = (catWeek[t.category] || 0) + t.amount; });
+    maxSpend = Math.max(maxSpend, spend);
+    __dashWeekData[iso] = { date: d, txs: dayTxs };
+    return { date: d, iso, spend };
+  });
+
+  const isSameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  // Riferimento per la GRANDEZZA del pianeta: quanto è tanto, per te.
+  // Scalare sul massimo della settimana (prima versione) ingannava — in una
+  // settimana da 8 € totali quel giorno diventava il pianeta più grande
+  // possibile, e a colpo d'occhio sembrava una spesa enorme. Il riferimento
+  // giusto è la quota giornaliera del budget; senza budget, la media dei
+  // giorni con spesa di questa settimana. Mai il massimo, che si ridefinisce
+  // da solo a ogni settimana.
+  const giorniConSpesa = dayInfo.filter(d => d.spend > 0);
+  const mediaGiorno = giorniConSpesa.length ? giorniConSpesa.reduce((s, d) => s + d.spend, 0) / giorniConSpesa.length : 0;
+
+  // Un giorno si legge sempre contro la SUA quota, non contro quella di
+  // oggi: a cavallo di due mesi i giorni appartengono a mesi con un numero
+  // di giorni diverso, e con un budget mensile uguale la quota cambia.
+  row.innerHTML = dayInfo.map((di, i) => {
+    const quotaGiorno = dailyBudgetQuota(di.date);
+    const pct = quotaGiorno > 0 ? Math.round((di.spend / quotaGiorno) * 100) : null;
+    const color = di.spend === 0 ? 'var(--outline)' : (pct === null ? 'var(--primary)' : pct > 100 ? '#f43f5e' : pct > 80 ? '#f59e0b' : '#10b981');
+    const riferimento = quotaGiorno > 0 ? quotaGiorno : mediaGiorno;
+    const rel = riferimento > 0 ? Math.min(1, di.spend / (riferimento * 1.5)) : (maxSpend > 0 ? di.spend / maxSpend : 0);
+    const dotSize = di.spend > 0 ? Math.round(16 + 18 * rel) : 12;
+    // 'narrow' dà una lettera sola: in italiano lunedì e martedì diventano
+    // entrambi "L"/"M" e mercoledì di nuovo "M" — due colonne indistinguibili
+    // su sette. 'short' dà le tre lettere con cui i giorni si chiamano
+    // davvero ("lun", "mar", "mer"), leggibili anche da chi sta imparando a
+    // leggere. Il numero del giorno resta sotto, come su un calendario vero.
+    const letter = di.date.toLocaleDateString(__uiLocale, { weekday: 'short' }).replace(/\.$/, '');
+    const todayFlag = isSameDay(di.date, today);
+    const futuro = di.date > today && !todayFlag;
+    // Etichetta parlata per intero: un lettore di schermo non deve sentire
+    // "L 25", ma il giorno vero e quanto si è speso.
+    const aria = `${di.date.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${di.spend > 0 ? formatMoney(di.spend) : tCh('alphaHeatmapNoExpense', __uiLang)}`;
+    return `<button type="button" class="week-orb-btn${futuro ? ' is-future' : ''}" style="--i:${i}" data-iso="${di.iso}" aria-label="${aria}" onclick="window.__toggleDashDay('${di.iso}')">
+      <span class="week-orb-label">${letter}</span>
+      <span class="week-orb-dot ${todayFlag ? 'is-today' : ''}" style="--dot-size:${dotSize}px; --dot-color:${color};"></span>
+      <span class="week-orb-num">${di.date.getDate()}</span>
+    </button>`;
+  }).join('');
+
+  renderDashWeekSummary(days, catWeek);
+
+  detailEl.classList.remove('is-open');
+  detailEl.innerHTML = '';
+  detailEl.dataset.iso = '';
+};
+
+// Riga di sintesi sopra i sette giorni: dove siamo (frecce), quanto si è
+// speso nella settimana e — se un budget esiste — come sta andando rispetto
+// al budget SETTIMANALE vero (weekly-budget.js, quello col riporto reale da
+// una settimana all'altra), mai una seconda formula inventata qui: due
+// numeri in disaccordo sulla stessa domanda erodono la fiducia più di
+// quanto un numero in più aiuti.
+function renderDashWeekSummary(days, catWeek) {
+  const box = $('#dash-week-summary');
+  if (!box) return;
+  const oggi = new Date();
+  const fmtDay = d => d.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
+
+  const budgetMensile = VaultDAO.state.monthlyBudget || 0;
+  // "Speso" è sempre la somma dei sette giorni mostrati: deve combaciare con
+  // i pianeti che l'utente ha davanti, sempre, senza eccezioni.
+  const speso = days.reduce((s, d) => {
+    const iso = isoDay(d);
+    return s + (__dashWeekData[iso]?.txs || []).filter(t => t.type === 'uscita').reduce((a, t) => a + t.amount, 0);
+  }, 0);
+
+  // Il budget della settimana viene dal motore unico (getIsoWeekStatus in
+  // weekly-budget.js: settimana vera lunedì→domenica, riporto reale incluso,
+  // segmenti sommati quando cade a cavallo di due mesi). Nessuna seconda
+  // formula qui: è lo stesso numero che alimenta "oggi puoi spendere".
+  const settimana = budgetMensile > 0
+    ? getIsoWeekStatus(displayAllTx(), budgetMensile, days[0])
+    : null;
+
+  const puoIndietro = __dashWeekOffset > -12;
+  const puoAvanti = __dashWeekOffset < 0;
+  // Sempre l'intervallo di date, mai "Questa settimana": quel titolo è già
+  // l'intestazione della card, ripeterlo qui sarebbe la stessa parola due
+  // volte a tre righe di distanza — e per chi torna indietro l'intervallo è
+  // l'unica informazione che dice DOVE si trova.
+  const titolo = `${fmtDay(days[0])} – ${fmtDay(days[6])}`;
+
+  // Le frecce spariscono quando non portano da nessuna parte (regola già in
+  // uso per il selettore del mese): un comando spento a metà è la peggiore
+  // delle opzioni, si vede abbastanza da chiedersi se è cliccabile.
+  const freccia = (dir, attiva) => attiva
+    ? `<button type="button" class="week-nav-btn" onclick="window.__dashWeekShift(${dir})" aria-label="${tCh(dir < 0 ? 'dashWeekPrev' : 'dashWeekNext', __uiLang)}">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="${dir < 0 ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg>
+      </button>`
+    : '<span class="week-nav-btn is-off" aria-hidden="true"></span>';
+
+  // UN SOLO NUMERO PROTAGONISTA, DETTO A PAROLE SEMPLICI.
+  // Prima la card apriva con due numeri appaiati ("Speso 8,35 €" e
+  // "880,75 € rimanenti su 889,10 €"): tre importi in due righe, e il primo
+  // che l'occhio incontrava era quello su cui non si può fare niente.
+  // Qui la domanda è una sola — "quanto mi resta per questa settimana" — e
+  // il resto scende a nota. Chi non ha un budget vede l'unico numero che
+  // esiste per lui: quanto ha speso.
+  let testa;
+  if (settimana && settimana.budget > 0) {
+    const sforato = settimana.remaining < 0;
+    const pct = Math.min(Math.round((settimana.spent / settimana.budget) * 100), 100);
+    const colore = sforato ? '#f43f5e' : (pct > 75 ? '#f59e0b' : '#10b981');
+    testa = `
+      <p class="t-etichetta mt-2">${sforato ? tCh('dashWeekOverLabel', __uiLang) : tCh('dashWeekLeftLabel', __uiLang)}</p>
+      <p class="t-dato t-dato-l week-num ${sforato ? 'text-rose-400' : 'text-emerald-400'}">${formatMoney(Math.abs(settimana.remaining))}</p>
+      <div class="budget-track" style="height:8px; margin-top:0.5rem;"><div class="budget-fill" style="width:${pct}%; background:${colore};"></div></div>
+      <p class="t-nota mt-1.5">${evidenziaNumeri(tCh('dashWeekSpentOf', __uiLang, formatMoney(speso), formatMoney(settimana.budget)))}</p>`;
+  } else {
+    testa = `
+      <p class="t-etichetta mt-2">${tCh('dashWeekSpent', __uiLang)}</p>
+      <p class="t-dato t-dato-l week-num">${formatMoney(speso)}</p>`;
+  }
+
+  const catTop = Object.entries(catWeek).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const rigaCat = catTop.length ? `<div class="flex flex-wrap gap-x-3 gap-y-1 mt-2.5">
+    ${catTop.map(([id, amt]) => {
+      const cat = getCatById(id);
+      return `<span class="inline-flex items-center gap-1 t-nota"><span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cat?.color || '#888'}"></span>${cat?.name || id} <span class="font-mono text-[var(--on-surface)]">${formatMoney(amt)}</span></span>`;
+    }).join('')}
+  </div>` : '';
+
+  // Il consiglio: dove stanno andando i soldi rispetto al TUO solito, non a
+  // una media inventata (src/predict/week-insight.js — mediana delle settimane
+  // passate, confronto a pari giorni). Quando lo storico non basta lo dice,
+  // mai una frase generica che sembra un consiglio senza esserlo.
+  let rigaConsiglio = '';
+  try {
+    const ins = weekCategoryInsight(displayAllTx(), days[0], { oggi });
+    const nome = ins.categoria ? (getCatById(ins.categoria)?.name || ins.categoria) : '';
+    if (ins.tipo === 'sopra') {
+      rigaConsiglio = `<p class="week-advice is-warn">${tCh('dashWeekAdviceOver', __uiLang, nome, formatMoney(ins.valore), formatMoney(ins.tipico))}</p>`;
+    } else if (ins.tipo === 'sotto') {
+      rigaConsiglio = `<p class="week-advice is-good">${tCh('dashWeekAdviceUnder', __uiLang, nome, formatMoney(ins.tipico))}</p>`;
+    } else if (ins.motivo === 'poco-storico' && speso > 0) {
+      rigaConsiglio = `<p class="week-advice">${tCh('dashWeekAdviceLearning', __uiLang)}</p>`;
+    } else if (ins.motivo === 'in-linea') {
+      rigaConsiglio = `<p class="week-advice is-good">${tCh('dashWeekAdviceOnTrack', __uiLang)}</p>`;
+    }
+  } catch (e) { console.error('weekCategoryInsight:', e); }
+
+  box.innerHTML = `
+    <div class="flex items-center justify-between gap-2">
+      ${freccia(-1, puoIndietro)}
+      <p class="t-etichetta text-center min-w-0 truncate">${titolo}</p>
+      ${freccia(1, puoAvanti)}
+    </div>
+    ${testa}
+    ${rigaCat}
+    ${rigaConsiglio}`;
+}
+
+// Cambio settimana: nessun salto oltre la settimana in corso, e il dettaglio
+// aperto si chiude (apparterrebbe a un giorno che non è più sullo schermo).
+window.__dashWeekShift = (dir) => {
+  const nuovo = __dashWeekOffset + dir;
+  if (nuovo > 0 || nuovo < -12) return;
+  __dashWeekOffset = nuovo;
+  haptic('light');
+  renderDashboardWeekStrip();
+};
+
+// Tap su un "pianeta" della settimana: apre/chiude il dettaglio del giorno
+// (stessa costruzione del calendario di Analisi Tensor, vedi buildDayDetailHtml)
+// — un secondo tap sullo STESSO giorno richiude, coerente col comportamento
+// "fisarmonica" già atteso in un'interfaccia touch.
+window.__toggleDashDay = (iso) => {
+  const detailEl = $('#dash-week-strip-detail');
+  const row = $('#dash-week-strip');
+  if (!detailEl || !row) return;
+  const alreadyOpen = detailEl.classList.contains('is-open') && detailEl.dataset.iso === iso;
+  row.querySelectorAll('.week-orb-btn').forEach(b => b.classList.remove('is-selected'));
+  if (alreadyOpen) {
+    detailEl.classList.remove('is-open');
+    detailEl.dataset.iso = '';
+    return;
+  }
+  const info = __dashWeekData[iso];
+  if (!info) return;
+  haptic('light');
+  detailEl.innerHTML = buildDayDetailHtml(info.date, info.txs);
+  detailEl.dataset.iso = iso;
+  detailEl.classList.add('is-open');
+  row.querySelector(`[data-iso="${iso}"]`)?.classList.add('is-selected');
+};
 
 const renderDashboard = () => {
   // Ogni volta che la Dashboard si aggiorna è il momento in cui l'utente
@@ -2547,12 +2869,26 @@ const renderDashboard = () => {
     // ricostruirle leggendo.
     // Ed e' piu' precisa: "deve ancora arrivare" non distingue tre giorni da
     // diciotto, che sono situazioni completamente diverse. La striscia si'.
+    // UNO ZERO SENZA MOTIVO È LA COSA PEGGIORE CHE POSSA STARE QUI.
+    // Caso reale trovato dal vivo: "oggi puoi spendere 0,00 €" mentre la
+    // settimana aveva ancora 580 € liberi — erano tutti riservati a un
+    // affitto in arrivo. Il motivo esisteva (dashChargesReserved) ma viveva
+    // solo nella card più in basso, sotto la piega: chi apre l'app vede
+    // prima lo zero e si spaventa. Sta FUORI dall'orb (dentro il cerchio è
+    // già stato bocciato: appesantisce il disegno e sborda) e compare solo
+    // quando serve davvero, mai come commento perenne.
+    const perche = (azionabile === 0 && stsPerOrb)
+      ? (stsPerOrb.reservedForCharges > 0
+          ? tCh('dashChargesReserved', __uiLang, formatMoney(stsPerOrb.reservedForCharges))
+          : tCh('dashWeekBudgetSpent', __uiLang))
+      : '';
     const contesto = $('#orb-contesto');
     if (contesto) {
       const stato = statoDelMese(displayAllTx(), { oggi: realNow, speso: exp });
       const html = isCurrentMonth ? stripHtml(stato, { formatMoney, lang: __uiLang }) : '';
-      contesto.innerHTML = html;
-      contesto.classList.toggle('hidden', !html);
+      const perchehtml = perche ? `<p class="orb-perche">${evidenziaNumeri(perche)}</p>` : '';
+      contesto.innerHTML = html + perchehtml;
+      contesto.classList.toggle('hidden', !html && !perchehtml);
     }
     const spiega = '';
     orbText.innerHTML = `
@@ -2682,6 +3018,8 @@ const renderDashboard = () => {
 
   // Fantasmi: stipendio − impegni fissi (mutuo/prestiti/affitto/bollette).
   try { renderGhostForecast(); } catch (_) {}
+
+  try { renderDashboardWeekStrip(); } catch (e) { console.error('renderDashboardWeekStrip:', e); }
 
   // Ledger list
   const list = $('#transaction-list-container');
@@ -9765,75 +10103,8 @@ document.addEventListener('click', (e) => {
   document.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('ring-2', 'ring-[var(--gold)]'));
   cell.classList.add('ring-2', 'ring-[var(--gold)]');
   const dayTxs = __heatmapDayTx[day] || [];
-  const total = dayTxs.reduce((s, t) => s + t.amount, 0);
-
-  // Confronto col budget giornaliero (richiesto esplicitamente, feedback
-  // utenti "come Google Calendar: seleziono il giorno e vedo se rispetto
-  // il budget"): quota semplice budget-mensile/giorni-del-mese, MAI un
-  // secondo riporto giorno-per-giorno — quello esiste già a livello
-  // SETTIMANALE (weekly-budget.js, con riporto reale) ed è la lettura
-  // "intelligente" di riferimento; un riporto anche a livello di giorno
-  // sarebbe un secondo numero in disaccordo con quello, confusione non
-  // chiarezza.
-  const annoSel = VaultDAO.state.currentDate.getFullYear();
-  const meseSel = VaultDAO.state.currentDate.getMonth();
-  const quotaGiorno = dailyBudgetQuota(VaultDAO.state.currentDate);
-  // MAI toISOString() qui: converte a UTC e in fusi avanti su Greenwich
-  // (l'Italia inclusa) il giorno scelto scivola di uno indietro — bug
-  // reale trovato testando dal vivo (giorno 26 selezionato → data passata
-  // al form "2026-08-25"). Si costruisce la stringa dai componenti locali.
-  const dd = String(parseInt(day, 10)).padStart(2, '0');
-  const mm = String(meseSel + 1).padStart(2, '0');
-  const dataIso = `${annoSel}-${mm}-${dd}`;
-
-  const budgetHtml = quotaGiorno > 0 ? (() => {
-    const pct = Math.round((total / quotaGiorno) * 100);
-    const colore = pct > 100 ? 'text-rose-300' : pct > 80 ? 'text-amber-300' : 'text-emerald-300';
-    return `<p class="text-[10px] ${colore} mt-1">${tCh('alphaDayBudgetCompare', __uiLang, formatMoney(quotaGiorno), pct)}</p>`;
-  })() : '';
-  const addBtnHtml = `<button type="button" onclick="window.openPrefilledAdd({ type: 'uscita', date: '${dataIso}' })" class="text-[10px] text-[var(--primary)] underline mt-2">${tCh('alphaDayAddExpenseBtn', __uiLang)}</button>`;
-
-  if (!dayTxs.length) {
-    detailEl.innerHTML = `<div class="p-2.5 rounded-lg bg-black/20">
-      <p class="text-[10px] text-[var(--on-surface-secondary)]">${day} ${__heatmapMonthLabel}: ${tCh('alphaHeatmapNoExpense', __uiLang)}</p>
-      ${budgetHtml}
-      ${addBtnHtml}
-    </div>`;
-    return;
-  }
-  // Riepilogo per categoria (richiesto esplicitamente dai tester: "dove hai
-  // speso di più" deve leggersi subito, non solo dedotto scorrendo le righe).
-  // Mostrato solo con 2+ categorie diverse: con una sola sarebbe lo stesso
-  // numero già in cima, ridondante non chiaro.
-  const catTotalsDay = {};
-  dayTxs.forEach(t => { catTotalsDay[t.category] = (catTotalsDay[t.category] || 0) + t.amount; });
-  const catEntries = Object.entries(catTotalsDay).sort((a, b) => b[1] - a[1]);
-  const catBreakdownHtml = catEntries.length > 1 ? `<div class="flex flex-wrap gap-x-3 gap-y-1 mb-2 pb-2 border-b border-white/5">
-    ${catEntries.map(([catId, amt]) => {
-      const cat = getCatById(catId);
-      return `<span class="inline-flex items-center gap-1 text-[10px] text-[var(--on-surface-secondary)]">
-        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cat?.color || '#888'}"></span>
-        ${cat?.name || catId} <span class="font-mono text-slate-300">${formatMoney(amt)}</span>
-      </span>`;
-    }).join('')}
-  </div>` : '';
-  const rows = [...dayTxs].sort((a, b) => b.amount - a.amount).map(t => {
-    const cat = getCatById(t.category);
-    return `<div class="flex items-center justify-between text-[10px] py-1 border-b border-white/5 last:border-0">
-      <span class="text-[var(--on-surface-secondary)]">${cat?.name || t.category}${t.note ? ` · ${t.note}` : ''}</span>
-      <span class="font-mono text-slate-200">${formatMoney(t.amount)}</span>
-    </div>`;
-  }).join('');
-  detailEl.innerHTML = `<div class="p-2.5 rounded-lg bg-black/20">
-    <div class="flex items-baseline justify-between mb-1.5">
-      <span class="text-[11px] font-bold text-slate-200">${day} ${__heatmapMonthLabel}</span>
-      <span class="font-mono text-[13px] font-bold text-[var(--gold)]">${formatMoney(total)}</span>
-    </div>
-    ${budgetHtml}
-    ${catBreakdownHtml}
-    ${rows}
-    ${addBtnHtml}
-  </div>`;
+  const dateObj = new Date(VaultDAO.state.currentDate.getFullYear(), VaultDAO.state.currentDate.getMonth(), parseInt(day, 10));
+  detailEl.innerHTML = buildDayDetailHtml(dateObj, dayTxs, `${day} ${__heatmapMonthLabel}`);
 });
 
 // Confronto periodi (src/predict/period-compare.js): richiesto esplicitamente
@@ -11395,12 +11666,10 @@ window.genesisNext = (step, value = '') => {
 // possono raccontare due cose diverse). Neuro-colori: verde=protezione,
 // oro=variabile/dipendente dal profilo, mai rosso in una schermata di
 // benvenuto.
-// Etichetta breve del livello (già usata in setAIAggression: unica fonte,
-// non riscritta qui). BRAKE_DESC resta la spiegazione lunga per le
-// Impostazioni — in una card di 4 righe ripeterla per intero dominava
-// visivamente sulle altre (trovato dal vivo, l'utente l'ha segnalato:
-// "popup bruttissimo, per niente coerente col design").
-const LABEL_FRENO = { zen: 'Delicato', advisor: 'Consigliere', predator: 'Deciso' };
+// Della descrizione lunga del freno si mostra solo la prima frase: in una
+// card di 4 righe ripeterla per intero dominava visivamente sulle altre
+// (segnalato dal vivo dall'utente: "popup bruttissimo, non coerente col
+// design").
 function renderGenesisPayoff() {
   const el = document.getElementById('genesis-payoff');
   if (!el) return;
@@ -11421,17 +11690,27 @@ function renderGenesisPayoff() {
       <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icona}</svg></div>
       <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${titolo}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${testo}</div></div>
     </div>`;
+  // Etichetta e descrizione del freno vengono dalle STESSE chiavi i18n usate
+  // dalle Impostazioni (vaultMode*/brakeDesc*): un secondo dizionario locale
+  // qui è già costato un crash reale — `BRAKE_DESC`, rimasto scritto a mano
+  // dopo che la traduzione lo aveva sostituito con `BRAKE_DESC_KEYS`, mandava
+  // in eccezione l'INTERA schermata di payoff (visibile a ogni nuovo utente:
+  // "ecco cosa ho già regolato" seguito dal vuoto).
+  const LABEL_FRENO_KEYS = { zen: 'vaultModeZen', advisor: 'vaultModeAdvisor', predator: 'vaultModePredator' };
+  const CHIAVI_CONSIGLIO = { conservativo: 'payoffAdviceSaver', bilanciato: 'payoffAdviceBalanced', aggressivo: 'payoffAdviceOptimizer' };
+  const modo = LABEL_FRENO_KEYS[p.aiAggression] ? p.aiAggression : 'advisor';
+  const descrizioneFreno = tCh(BRAKE_DESC_KEYS[modo], __uiLang).split('.')[0] + '.';
   const righe = [
     card('green', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-      `Budget: ${p.monthlyBudget.toLocaleString('it-IT')}€/mese`, 'Il punto di partenza — lo aggiusti quando vuoi.'),
+      tCh('payoffBudgetTitle', __uiLang, formatMoney(p.monthlyBudget)), tCh('payoffBudgetSub', __uiLang)),
     card('gold', '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>',
-      `Freno spese: ${LABEL_FRENO[p.aiAggression]}`, BRAKE_DESC[p.aiAggression].split('.')[0] + '.'),
-    p.invests
-      ? card('primary', '<path d="M3 12h4l3 8 4-16 3 8h4"/>', `Cuscinetto: ${p.emergencyMonths} ${p.emergencyMonths === 1 ? 'mese' : 'mesi'}`, `Poi fino al ${Math.round(p.investFraction * 100)}% dell'avanzo può andare a investimenti.`)
-      : card('primary', '<path d="M3 12h4l3 8 4-16 3 8h4"/>', `Cuscinetto: ${p.emergencyMonths} ${p.emergencyMonths === 1 ? 'mese' : 'mesi'}`, 'Niente proposte di investimento: hai detto che non ti interessa.'),
-    p.invests
-      ? card('purple', '<path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0012 3z"/>', 'Consigli su misura', testoConsiglio(p.risk))
-      : card('purple', '<path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0012 3z"/>', 'Consigli su misura', 'Su budget e risparmio, non su cosa comprare in mercato.'),
+      tCh('payoffBrakeTitle', __uiLang, tCh(LABEL_FRENO_KEYS[modo], __uiLang)), descrizioneFreno),
+    card('primary', '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+      tCh('payoffCushionTitle', __uiLang, p.emergencyMonths),
+      p.invests ? tCh('payoffCushionSubInvest', __uiLang, Math.round(p.investFraction * 100)) : tCh('payoffCushionSubNoInvest', __uiLang)),
+    card('purple', '<path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0012 3z"/>',
+      tCh('payoffAdviceTitle', __uiLang),
+      p.invests ? tCh(CHIAVI_CONSIGLIO[p.risk] || CHIAVI_CONSIGLIO.bilanciato, __uiLang) : tCh('payoffAdviceNoInvest', __uiLang)),
   ];
   // Contraddizione dichiarata, non nascosta (regola del progetto): la
   // liquidità reale può ribaltare il freno spese rispetto a quello che il
@@ -11439,14 +11718,14 @@ function renderGenesisPayoff() {
   // scoprirlo dopo chiedendosi perché l'app "lo tratta da prudente".
   if (p.cashflowStress === 'corto') {
     righe.push(card('primary', '<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>',
-      'Liquidità corta', 'Il freno resta protettivo anche con un profilo più aggressivo — il bisogno vince sulla dichiarazione.'));
+      tCh('payoffShortLiquidityTitle', __uiLang), tCh('payoffShortLiquiditySub', __uiLang)));
   }
   // Stessa trasparenza applicata a incomeRegularity (domanda 4, 2026-08-28):
   // se ha aggiunto cuscinetto, l'utente deve vederlo qui, non scoprirlo dopo
   // chiedendosi perché il numero è più alto di quanto si aspettava.
   if (p.incomeRegularity === 'irregolare') {
     righe.push(card('gold', '<path d="M3 3v18h18M7 14l4-4 3 3 5-6"/>',
-      'Entrate irregolari', 'Cuscinetto aumentato di 2 mesi: con entrate che variano, un margine più ampio protegge di più.'));
+      tCh('payoffIrregularTitle', __uiLang), tCh('payoffIrregularSub', __uiLang)));
   }
   el.innerHTML = righe.join('');
 }
@@ -12385,6 +12664,12 @@ window.condividiTraguardo = async () => {
 function updateAnalysisTensorVisibility() {
   const show = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs);
   $$('.nav-btn[data-view="analysis"]').forEach(btn => btn.classList.toggle('hidden', !show));
+  // La stessa dichiarazione dell'utente vale ovunque, non solo sul tab:
+  // la tessera "Investito" in Dashboard mostrerebbe 0,00 € per sempre a chi
+  // ha detto che gli investimenti non lo riguardano. Una griglia da 4 che
+  // diventa da 3 è più leggera, non "rotta": le tessere si ridistribuiscono
+  // da sole (grid-cols-2 su mobile, 4 su desktop → l'ultima riga si accorcia).
+  document.getElementById('tessera-investito')?.classList.toggle('hidden', !show);
   if (!show && VaultDAO.state.currentView === 'analysis') navigate('dashboard');
 }
 window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
@@ -15093,7 +15378,12 @@ const initApp = () => {
       it ? 'quanto vale bitcoin?' : "what's bitcoin worth?",
       it ? 'notizie su Apple' : 'news on Apple',
       it ? 'posso permettermi 50€?' : 'can I afford 50€?',
-    ].filter(c => hasInvestments || !/patrimonio|net worth/.test(c));
+    ].filter(c => hasInvestments || !/patrimonio|net worth/.test(c))
+      // Chi ha dichiarato di non investire non trova proposte di mercato
+      // nemmeno nel pool generale (bitcoin, notizie su un titolo, "quanto
+      // posso investire"): la coerenza vale per tutte le chip, non solo per
+      // quelle esplicitamente "da trader".
+      .filter(c => shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) || !/bitcoin|investire|invest|notizie su|news on/i.test(c));
     // Casi d'uso "mercato" — screener/qualità contabile/causale/rischio
     // (src/alpha/mercato-qa.js, sbloccati questa sessione via sic-settore-map.js
     // e il pannello SEC): senza questi in pool, un utente non scopre MAI che
@@ -15101,7 +15391,15 @@ const initApp = () => {
     // solo di finanza personale — segnalato esplicitamente dall'utente.
     // Solo italiano per ora: mercato-qa.js non è localizzato (vedi memoria
     // Cantiere J), mostrarle in inglese risponderebbe comunque in italiano.
-    const poolMercato = it ? [
+    // PROFILO PRIMA DI TUTTO: chi ha risposto "non investo, non mi riguarda"
+    // nell'onboarding non deve trovarsi proposto "qual è il funding rate di
+    // ethereum?" nella schermata di casa — è la domanda che fa sembrare
+    // l'app difficile a chi voleva solo tenere le spese. Stesso segnale
+    // esplicito (`invests`) che già decide se mostrare Analisi Tensor:
+    // un'unica dichiarazione dell'utente, un unico comportamento coerente
+    // in ogni punto dell'app. Senza segnale esplicito, restano visibili.
+    const profiloInveste = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs);
+    const poolMercato = it && profiloInveste ? [
       'in che percentile è NVDA nel suo settore?',
       'c\'è manipolazione contabile in NVDA?',
       'è stato il mercato o NVDA a fare il prezzo?',
@@ -15113,7 +15411,7 @@ const initApp = () => {
     // sbloccato queste due funzioni (posizionamento derivati crypto, comps
     // reali) non scopre MAI di poterle chiedere in chat, non solo dal
     // bottone in "Cerca un asset" — segnalato dal vivo dall'utente.
-    const poolCriptoComps = it ? [
+    const poolCriptoComps = it && profiloInveste ? [
       'sono troppo affollato su bitcoin?',
       'qual è il funding rate di ethereum?',
     ] : [];

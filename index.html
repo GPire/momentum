@@ -1351,6 +1351,114 @@
     .budget-track { width: 100%; height: 10px; background: var(--outline); border-radius: 5px; overflow: hidden; margin-top: 0.5rem; }
     .budget-fill { height: 100%; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1), background 0.5s ease; border-radius: 6px; }
 
+    /* === STRISCIA SETTIMANALE (Dashboard) ===
+       7 "pianeti" in fila, uno per giorno: dimensione e colore del nucleo
+       raccontano quanto si è speso senza dover leggere un numero (pensato
+       per essere capito anche da un bambino) — nucleo chiaro al centro e
+       bagliore verso il bordo, la stessa identità visiva del grande orb
+       della Dashboard, solo in scala. */
+    .week-strip-row { display: flex; justify-content: space-between; gap: 0.35rem; margin-top: 1rem; }
+    .week-orb-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      background: none; border: none; padding: 0.3rem 0.15rem; cursor: pointer;
+      flex: 1 1 0; min-width: 0; border-radius: 0.9rem;
+      opacity: 0; transform: translateY(6px) scale(0.9);
+      animation: weekOrbIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+      animation-delay: calc(var(--i, 0) * 60ms);
+      transition: background 0.2s ease;
+    }
+    @keyframes weekOrbIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+    .week-orb-btn:active { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+    @media (hover: hover) { .week-orb-btn:hover .week-orb-dot { filter: brightness(1.15); transform: scale(1.08); } }
+    .week-orb-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--on-surface-secondary); }
+    .week-orb-dot {
+      width: var(--dot-size, 16px); height: var(--dot-size, 16px); border-radius: 50%;
+      background: radial-gradient(circle at 32% 28%, color-mix(in srgb, #fff 45%, var(--dot-color, var(--outline))) 0%, var(--dot-color, var(--outline)) 60%, color-mix(in srgb, #000 25%, var(--dot-color, var(--outline))) 100%);
+      box-shadow: 0 0 calc(var(--dot-size, 16px) * 0.5) -2px color-mix(in srgb, var(--dot-color, transparent) 65%, transparent);
+      transition: width 0.4s cubic-bezier(0.16,1,0.3,1), height 0.4s cubic-bezier(0.16,1,0.3,1), transform 0.2s ease, filter 0.2s ease;
+    }
+    .week-orb-dot.is-today { box-shadow: 0 0 0 2px var(--gold), 0 0 calc(var(--dot-size, 16px) * 0.6) -1px color-mix(in srgb, var(--dot-color, transparent) 70%, transparent); }
+    /* Il giorno scelto: un anello che si allarga una volta sola, come il
+       cerchio nell'acqua dove hai toccato. Un colpo solo, mai un loop —
+       qualcosa che pulsa in continuazione su una schermata di soldi diventa
+       ansia, non attenzione (stessa regola già seguita per il level-up). */
+    /* Il giorno aperto resta marcato finché è aperto: senza, il pannello
+       sotto parlava di un giorno che nella fila non si distingueva da
+       nessun altro — "di che giorno mi sta parlando?" era la prima domanda. */
+    .week-orb-btn.is-selected { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+    .week-orb-btn.is-selected .week-orb-label,
+    .week-orb-btn.is-selected .week-orb-num { color: var(--primary); font-weight: 800; }
+    .week-orb-btn.is-selected .week-orb-dot { transform: scale(1.18); outline: 2px solid color-mix(in srgb, var(--primary) 65%, transparent); outline-offset: 3px; }
+    .week-orb-btn.is-selected .week-orb-dot::after {
+      content: ''; position: absolute; inset: -6px; border-radius: 50%;
+      border: 2px solid var(--dot-color, var(--primary));
+      animation: weekPing .55s cubic-bezier(.22,1,.36,1) 1 both;
+    }
+    .week-orb-dot { position: relative; }
+    @keyframes weekPing {
+      from { opacity: .8; transform: scale(.6); }
+      to   { opacity: 0;  transform: scale(1.5); }
+    }
+    /* Il numero della settimana si compone come quello dell'orb: un importo
+       che appare già fatto è un verdetto, uno che sale in mezzo secondo è un
+       calcolo che finisce davanti a te. */
+    .week-num { animation: orb-num-in .45s cubic-bezier(.22,1,.36,1) both; }
+    @media (prefers-reduced-motion: reduce) {
+      .week-orb-btn.is-selected .week-orb-dot::after, .week-num { animation: none; }
+    }
+    .week-orb-num { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--on-surface-secondary); }
+    /* Un giorno non ancora arrivato non è "vuoto", è solo futuro: si vede
+       che c'è (resta toccabile, ci si può registrare una spesa dimenticata)
+       ma non compete con i giorni che portano un dato vero. */
+    .week-orb-btn.is-future { opacity: 0.4; }
+    /* Frecce: area tocco 40px anche se il disegno è piccolo — stessa regola
+       già usata per il selettore del mese. Quando non portano da nessuna
+       parte non si spengono a metà, spariscono (lo spazio resta, così la
+       riga non salta). */
+    .week-nav-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; flex: 0 0 auto; border: none; background: none;
+      border-radius: 50%; color: var(--on-surface-secondary); cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    @media (hover: hover) { .week-nav-btn:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--on-surface); } }
+    .week-nav-btn.is-off { visibility: hidden; pointer-events: none; }
+    /* Il consiglio della settimana: una riga sola, mai un riquadro tinto —
+       ambra = momento consapevole, verde = comportamento sano, mai rosso
+       sulla persona. */
+    .week-advice { font-size: 11px; line-height: 1.45; margin-top: 0.6rem; color: var(--on-surface-secondary); }
+    .week-advice.is-warn { color: #fbbf24; }
+    .week-advice.is-good { color: #34d399; }
+    /* L'azione del giorno aperto: un pianeta piccolo che invita a essere
+       toccato, con la stessa materia di vetro delle card e lo stesso alone
+       dei pianeti della settimana. Alto 48px: la soglia di bersaglio touch
+       già adottata in tutto il progetto. */
+    .day-add-btn {
+      display: flex; align-items: center; gap: .6rem; width: 100%;
+      min-height: 48px; margin-top: .75rem; padding: .5rem .75rem;
+      border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+      border-radius: .85rem; background: color-mix(in srgb, var(--primary) 8%, transparent);
+      color: var(--on-surface); font-size: 12px; font-weight: 700; text-align: left;
+      cursor: pointer; transition: transform .18s cubic-bezier(.22,1,.36,1), background .2s ease;
+    }
+    @media (hover: hover) { .day-add-btn:hover { background: color-mix(in srgb, var(--primary) 14%, transparent); } }
+    .day-add-btn:active { transform: scale(.97); }
+    .day-add-orb {
+      width: 26px; height: 26px; flex: 0 0 auto; border-radius: 50%;
+      display: grid; place-items: center; color: #fff;
+      background: radial-gradient(circle at 32% 28%, color-mix(in srgb, #fff 45%, var(--primary)) 0%, var(--primary) 62%, color-mix(in srgb, #000 25%, var(--primary)) 100%);
+      box-shadow: 0 0 12px -3px color-mix(in srgb, var(--primary) 70%, transparent);
+    }
+    .day-add-testo { min-width: 0; }
+    @media (prefers-reduced-motion: reduce) { .day-add-btn { transition: none; } }
+    .week-strip-detail { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease, margin-top 0.35s ease; }
+    .week-strip-detail.is-open { grid-template-rows: 1fr; opacity: 1; margin-top: 0.85rem; }
+    .week-strip-detail > div { overflow: hidden; min-height: 0; }
+    @media (prefers-reduced-motion: reduce) {
+      .week-orb-btn { animation: none; opacity: 1; transform: none; }
+      .week-orb-dot, .week-strip-detail { transition: none; }
+    }
+
     /* === ETL TERMINAL === */
     .etl-terminal { background: #000; border: 1px solid var(--outline); border-radius: 1rem; padding: 1rem; font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--green); height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.2rem; }
     .data-integrity-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; box-shadow: 0 0 10px rgba(16,185,129,0.8); animation: matrixSync 3s infinite; flex-shrink: 0;}
@@ -1677,6 +1785,28 @@
        navigazione mobile sempre sopra la home-indicator. */
     @media (display-mode: standalone), (display-mode: window-controls-overlay) {
       .mobile-nav { padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)); }
+    }
+    /* ── BARRA MOBILE: ICONA + PAROLA ──
+       Ricerca reale (2026-08-31): sia Apple (HIG) sia Material chiedono
+       un'etichetta di testo sulle voci della barra; NN/g ha misurato che
+       solo tre icone al mondo sono riconosciute quasi da tutti (casa,
+       stampante, lente) — tutte le altre hanno bisogno della parola.
+       Togliere le etichette è la scorciatoia estetica che sacrifica la
+       comprensione. Qui restano, ma disegnate perché non gridino:
+       icona più piccola, parola minuscola e muta, altezza barra invariata. */
+    .nav-etichetta {
+      font-size: 9px; font-weight: 800; letter-spacing: .03em; line-height: 1;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      opacity: .85;
+    }
+    @media (max-width: 340px) { .nav-etichetta { font-size: 8px; } }
+    /* Metà barra per gruppo, contenuto distribuito da solo: se una voce
+       viene nascosta (feature disattivata dal profilo) quello che resta
+       si ricentra invece di restare appeso a un margine fisso. Lo spazio
+       al centro è del "+", che vive fuori dal flusso. */
+    .nav-gruppo { flex: 1 1 0; display: flex; align-items: center; justify-content: space-evenly; min-width: 0; }
+    .nav-gruppo:first-of-type { padding-right: 2.25rem; }
+    .nav-gruppo:last-of-type { padding-left: 2.25rem; }
     /* Stessa dissolvenza sincronizzata di .card: la bottom-nav e la sidebar
        desktop non transizionavano affatto background/border, scattavano
        istantanee mentre il resto della pagina sfumava. */
@@ -2588,6 +2718,16 @@
        spiegazione. Invertire l'ordine fa leggere la nota a chi non ha ancora
        capito la domanda. */
     .orb-contesto { animation: orb-et-in .4s ease-out .35s both; }
+    /* Il PERCHÉ di uno zero: ambra (momento consapevole), mai rosso — non è
+       una colpa dell'utente, è un soldo già promesso a qualcos'altro. */
+    /* Centrata sotto l'orb, sull'asse del numero: allineata a sinistra
+       spezzava la simmetria del cerchio, che è l'unico elemento davvero
+       centrato della schermata. Ambra (momento consapevole), mai rosso —
+       non è una colpa dell'utente, sono soldi già promessi a qualcos'altro. */
+    .orb-perche {
+      font-size: 11px; line-height: 1.4; color: #fbbf24; margin-top: .5rem;
+      text-align: center; max-width: 30ch; margin-left: auto; margin-right: auto;
+    }
     @media (prefers-reduced-motion: reduce) {
       .orb-etichetta, .orb-numero, .orb-contesto { animation: none; }
     }
@@ -3158,8 +3298,16 @@
   <!-- ===================== MAIN APPLICATION STRUCTURE ===================== -->
   <!-- MOBILE TOP BAR -->
   <div class="md:hidden fixed top-0 inset-x-0 z-[60] flex justify-between p-3 sm:p-4 pointer-events-none" style="padding-top:calc(var(--safe-top) + 0.5rem)">
-    <div class="pointer-events-auto flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--outline)] shadow-lg px-3 py-1.5 rounded-full shrink-0">
-       <div class="data-integrity-dot"></div><span class="text-[11px] sm:text-[10px] font-mono no-privacy-blur font-bold tracking-widest text-[var(--on-surface-secondary)]">MOMENTUM VAULT</span>
+    <!-- Diceva "MOMENTUM VAULT" su OGNI schermata, Dashboard compresa: e
+         "Vault" è anche il nome di una sezione vera nella barra in basso —
+         chi apriva l'app leggeva in alto il nome di un posto in cui non era.
+         Ora porta il nome dell'app (identità, sempre vero ovunque) e il
+         pallino verde ha finalmente una spiegazione al tocco/lettore di
+         schermo: prima pulsava cambiando tonalità senza dire niente a
+         nessuno. -->
+    <div class="pointer-events-auto flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--outline)] shadow-lg px-3 py-1.5 rounded-full shrink-0"
+         title="I tuoi dati restano su questo telefono" aria-label="Momentum — i tuoi dati restano su questo telefono" data-i18n-title="topBarPrivacyTitle" data-i18n-aria="topBarPrivacyTitle">
+       <div class="data-integrity-dot"></div><span class="text-[11px] sm:text-[10px] font-mono no-privacy-blur font-bold tracking-widest text-[var(--on-surface-secondary)]">MOMENTUM</span>
     </div>
     <!-- Privacy: sfoca tutti i numeri con un tocco, per quando qualcuno ti
          guarda lo schermo — nessun dato lascia il dispositivo, è solo un
@@ -3272,6 +3420,15 @@
                  galleggia sullo sfondo stellato come .orb-contesto, e UN
                  bagliore che respira — la stessa materia del pulsante
                  dell'app, non un secondo oggetto accanto. -->
+            <!-- Avviso dataset dimostrativo (src/ui/demo-dataset.js): PRIMA di
+                 qualunque predizione, non dopo. Stava sotto TUTTI i blocchi
+                 sottostanti (previsione di cassa, prossima spesa, insight,
+                 veglia mercati, perfino le 4 tessere numeriche): un utente
+                 poteva leggere sei numeri costruiti sul demo prima di sapere
+                 che erano finti. Sempre visibile finché l'esempio è attivo,
+                 mai nascosto in un angolo. Ambra = "momento consapevole",
+                 mai rosso-colpa. -->
+            <div id="demo-banner" class="hidden shrink-0"></div>
             <div id="import-cta" class="ghost-hero text-center shrink-0 hidden" style="max-width:min(340px,88%); margin:1.25rem auto 0;">
               <!-- Stesso ritmo del testo di Genesis (index.html: "Niente esce
                    da qui."): un'affermazione breve e diretta, poi UNA riga
@@ -3293,15 +3450,6 @@
               <button onclick="document.getElementById('backup-restore-input').click()" class="mt-2.5 text-[11px] text-[var(--on-surface-secondary)] underline" data-i18n-key="dashImportBackup">Hai già usato Momentum da un browser? Importa qui il tuo backup</button>
             </div>
 
-            <!-- Avviso dataset dimostrativo (src/ui/demo-dataset.js): PRIMA di
-                 qualunque predizione, non dopo. Stava sotto TUTTI i blocchi
-                 sottostanti (previsione di cassa, prossima spesa, insight,
-                 veglia mercati, perfino le 4 tessere numeriche): un utente
-                 poteva leggere sei numeri costruiti sul demo prima di sapere
-                 che erano finti. Sempre visibile finché l'esempio è attivo,
-                 mai nascosto in un angolo. Ambra = "momento consapevole",
-                 mai rosso-colpa. -->
-            <div id="demo-banner" class="hidden shrink-0"></div>
 
             <!-- ── IL SELETTORE DEL MESE ──
                  Era una pillola opaca con bordo, in mezzo a una schermata
@@ -3328,6 +3476,24 @@
               <button data-action="next-month" id="next-month-btn" class="mese-freccia" aria-label="Mese successivo" data-i18n-aria="dashNextMonthAria">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
               </button>
+            </div>
+
+            <!-- QUESTA SETTIMANA, GIORNO PER GIORNO — subito sotto il numero
+                 di oggi, non in fondo alla schermata.
+                 Il filo logico della Dashboard è temporale: oggi (l'orb) →
+                 questa settimana (qui) → il mese appena raccontato dalle
+                 tessere → i movimenti uno per uno. Stava in fondo, dopo
+                 Salvadanaio e "Chiedi a Momentum", cioè dopo due argomenti
+                 diversi: chi voleva solo capire "come sta andando" doveva
+                 scorrere oltre roba che non stava cercando.
+                 Sette giorni come piccoli pianeti in orbita: stesso
+                 linguaggio visivo del grande orb (bagliore, nucleo luminoso),
+                 mai una seconda estetica scollegata dal resto. -->
+            <div class="card p-5 sm:p-6 relative overflow-hidden shrink-0" id="dash-week-strip-card">
+              <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span data-i18n-key="dashWeekStripTitle">Questa settimana</span></h3>
+              <div id="dash-week-summary" class="mt-1"></div>
+              <div id="dash-week-strip" class="week-strip-row"></div>
+              <div id="dash-week-strip-detail" class="week-strip-detail"></div>
             </div>
 
             <!-- UN FUOCO ALLA VOLTA, PARTE 2: le quattro tessere e la barra
@@ -3357,7 +3523,11 @@
                 <p class="t-etichetta mb-1 truncate" style="color:color-mix(in srgb, var(--cyan) 78%, transparent)" data-i18n-key="dashRemaining">Quanto avanza</p>
                 <p id="total-liquidity" class="t-dato t-dato-tessera text-[var(--cyan)] font-mono">€0</p>
               </div>
-              <div class="card card-accento p-4 sm:p-6" style="--accento:var(--gold)">
+              <!-- Nascosta a chi ha dichiarato di non investire (main.js,
+                   updateAnalysisTensorVisibility): una tessera "Investito
+                   0,00 €" a chi ha appena detto che gli investimenti non lo
+                   riguardano occupa un quarto della griglia per dire niente. -->
+              <div id="tessera-investito" class="card card-accento p-4 sm:p-6" style="--accento:var(--gold)">
                 <p class="t-etichetta mb-1 truncate" data-i18n-key="dashInvested">Investito</p>
                 <p id="total-invest" class="t-dato t-dato-tessera text-[var(--gold)] font-mono">€0</p>
               </div>
@@ -3495,6 +3665,13 @@
               </div>
             </div>
 
+            <!-- STRISCIA SETTIMANALE: richiesta esplicita di portare il
+                 drill-down per-giorno (finora solo in Analisi Tensor) anche
+                 in Dashboard, "senza appesantire" — quindi non la griglia
+                 intera del mese, solo i 7 giorni di questa settimana, come
+                 piccoli pianeti in orbita: stesso linguaggio visivo del
+                 grande orb qui sopra (bagliore, nucleo luminoso), mai una
+                 seconda estetica scollegata dal resto della Dashboard. -->
             <div class="flex-grow flex flex-col min-h-[300px]">
               <h2 class="text-xl sm:text-2xl font-extrabold mb-4 tracking-tight shrink-0" data-i18n-key="dashYourTransactions">I tuoi movimenti</h2>
               <!-- Soldi GIA' IMPEGNATI (getMonthlyCommitments): la quota del saldo
@@ -4592,13 +4769,30 @@
   </div>
 
   <!-- MOBILE NAVIGATION DOCK (Netlify Style) -->
-  <nav class="mobile-nav theme-fade md:hidden fixed bottom-0 inset-x-0 z-[50] flex justify-between items-center px-6 h-[85px] bg-[var(--glass-bg)] backdrop-blur-[48px] border-t border-[var(--glass-border)] pb-[var(--safe-bottom)] pointer-events-none">
-    <button data-view="dashboard" data-action="switch-view" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--primary)] gap-1 w-12 h-full">
-      <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+  <!-- DUE GRUPPI, NON QUATTRO BOTTONI SCIOLTI: una sezione può sparire
+       davvero (chi dice "non investo" nell'onboarding non vede Analisi
+       Tensor). Con `justify-between` e margini fissi attorno al "+", il
+       bottone rimasto scivolava di lato e la barra restava sbilanciata.
+       Ogni gruppo occupa metà barra e distribuisce da solo quello che
+       contiene: con due voci o con una, resta centrato e simmetrico. -->
+  <nav class="mobile-nav theme-fade md:hidden fixed bottom-0 inset-x-0 z-[50] flex items-center px-3 h-[85px] bg-[var(--glass-bg)] backdrop-blur-[48px] border-t border-[var(--glass-border)] pb-[var(--safe-bottom)] pointer-events-none">
+    <!-- ETICHETTE SOTTO LE ICONE (2026-08-31): la barra mobile era di sole
+         icone, senza nemmeno un aria-label — chi non conosce già l'app deve
+         indovinare dove porta ogni simbolo, e un lettore di schermo non
+         annuncia nulla. Sul desktop le stesse voci hanno sempre avuto il
+         nome scritto accanto: la versione mobile era l'unica a chiederlo
+         all'utente. Icona + parola è la forma che si capisce a qualunque
+         età, e costa 10px di altezza. -->
+    <div class="nav-gruppo">
+    <button data-view="dashboard" data-action="switch-view" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--primary)] gap-0.5 w-16 h-full">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      <span class="nav-etichetta">Dashboard</span>
     </button>
-    <button data-view="analysis" data-action="switch-view" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-1 w-12 h-full mr-12">
-      <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+    <button data-view="analysis" data-action="switch-view" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-0.5 w-16 h-full">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+      <span class="nav-etichetta" data-i18n-key="navAnalysisShort">Analisi</span>
     </button>
+    </div>
 
     <!-- NEURO BUTTON -->
     <div class="absolute left-1/2 -translate-x-1/2 -top-7 z-[999] pointer-events-auto">
@@ -4622,12 +4816,16 @@
       </div>
     </div>
 
-    <button data-view="settings" data-action="switch-view" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-1 w-12 h-full ml-12">
+    <div class="nav-gruppo">
+    <button data-view="settings" data-action="switch-view" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-0.5 w-16 h-full">
       <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      <span class="nav-etichetta">Vault</span>
     </button>
-    <button data-action="toggle-theme" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-1 w-12 h-full">
-      <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+    <button data-action="toggle-theme" data-i18n-aria="navThemeAria" aria-label="Cambia tema chiaro/scuro" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-0.5 w-16 h-full">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      <span class="nav-etichetta" data-i18n-key="navTheme">Tema</span>
     </button>
+    </div>
   </nav>
 
   <!-- FAB TABLET (solo md→xl): su tablet niente bottom-nav mobile (ridondante con

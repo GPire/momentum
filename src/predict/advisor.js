@@ -10,7 +10,7 @@
 // gli addebiti ricorrenti attesi prima di fine settimana — così il numero
 // non promette soldi che Netflix si porterà via dopodomani.
 // Funzioni pure sui dati (pattern engines.js), nessun DOM.
-import { getWeeklyStatus } from './weekly-budget.js';
+import { getWeeklyStatus, getIsoWeekStatus } from './weekly-budget.js';
 import { detectRecurring, detectPriceHikes } from './subscriptions.js';
 import { buildCausalGraph } from './causal-graph.js';
 
@@ -50,6 +50,9 @@ export function getUpcomingCharges(allTx, referenceDate = new Date(), horizonDay
       amount: latest.amount,
       expectedDate: expected,
       daysUntil: Math.max(0, daysUntil),
+      // Ogni quanti giorni si ripete: serve a capire quanto COSTA AL GIORNO
+      // un addebito ricorrente, non solo quando arriverà.
+      intervalDays: Math.max(1, Math.round(group.avgInterval)),
     });
   }
   return charges.sort((a, b) => a.daysUntil - b.daysUntil);
@@ -87,7 +90,23 @@ export function getMonthlyCommitments(allTx, referenceDate = new Date(), opts = 
 export function getDailySafeToSpend({ monthTxs, allTx, monthlyBudget, referenceDate = new Date() }) {
   if (!monthlyBudget || monthlyBudget <= 0) return null;
 
-  const { currentWeek } = getWeeklyStatus(monthTxs, monthlyBudget, referenceDate);
+  // La settimana di riferimento è quella VERA, lunedì→domenica (getIsoWeek-
+  // Status somma i segmenti quando cade a cavallo di due mesi). Prima si
+  // usava il segmento tagliato al mese e l'ultimo giorno del mese diventava
+  // una "settimana" di un giorno solo: tutti gli addebiti in arrivo finivano
+  // su quel singolo giorno e il numero crollava a 0 senza che fosse vero.
+  // Ripiego sul segmento mensile solo se la settimana ISO non è calcolabile.
+  // `monthTxs` resta la fonte per il mese di riferimento anche nella lettura
+  // per settimana ISO: alcuni chiamanti passano il mese lì e non dentro
+  // `allTx` (e i test lo fanno di proposito). Senza questa sovrapposizione la
+  // spesa del mese corrente sparirebbe dal conto — bug silenzioso che
+  // avrebbe gonfiato il "puoi spendere" invece di sgonfiarlo.
+  const mkRef = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, '0')}`;
+  const mappaTx = { ...(allTx || {}) };
+  if (monthTxs?.length && !mappaTx[mkRef]?.length) mappaTx[mkRef] = monthTxs;
+
+  const currentWeek = getIsoWeekStatus(mappaTx, monthlyBudget, referenceDate)
+    || getWeeklyStatus(monthTxs, monthlyBudget, referenceDate).currentWeek;
   if (!currentWeek) return null;
 
   const ref = startOfDay(referenceDate);
@@ -95,7 +114,24 @@ export function getDailySafeToSpend({ monthTxs, allTx, monthlyBudget, referenceD
 
   const daysToWeekEnd = Math.round((startOfDay(currentWeek.end) - ref) / DAY_MS);
   const upcomingCharges = getUpcomingCharges(allTx, referenceDate, daysToWeekEnd);
-  const reservedForCharges = +upcomingCharges.reduce((s, c) => s + c.amount, 0).toFixed(2);
+
+  // UN AFFITTO MENSILE NON È UNA SPESA DELLA SETTIMANA IN CUI CADE.
+  // Prima si riservava l'INTERO importo dell'addebito atteso entro fine
+  // settimana: un affitto di 650 € azzerava per giorni il "puoi spendere",
+  // mentre le settimane senza affitto sembravano ricchissime — lo stesso
+  // budget mensile raccontato in due modi opposti a seconda del giorno.
+  // Una spesa che si ripete ogni N giorni costa `importo / N` al giorno:
+  // la settimana ne mette da parte solo la quota dei giorni che le restano.
+  // Sull'arco del mese la somma riservata resta l'importo pieno, ma
+  // distribuita — che è come una persona vive davvero una spesa fissa.
+  const reservedForCharges = +upcomingCharges.reduce((s, c) => {
+    const perGiorno = c.amount / Math.max(1, c.intervalDays || 30);
+    return s + perGiorno * daysLeftInWeek;
+  }, 0).toFixed(2);
+  // L'importo pieno resta disponibile alla UI: serve a dire "l'affitto di
+  // 650 € arriva giovedì", che è un'informazione diversa da quanto se ne
+  // tiene da parte oggi.
+  const chargesFullAmount = +upcomingCharges.reduce((s, c) => s + c.amount, 0).toFixed(2);
 
   const available = currentWeek.remaining - reservedForCharges;
 
@@ -104,6 +140,7 @@ export function getDailySafeToSpend({ monthTxs, allTx, monthlyBudget, referenceD
     weekRemaining: currentWeek.remaining,
     daysLeftInWeek,
     reservedForCharges,
+    chargesFullAmount,
     upcomingCharges,
     isOverBudget: currentWeek.remaining < 0,
   };

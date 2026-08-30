@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { getMonthWeeks, getWeeklyStatus } = await import("./weekly-budget.js");
+const { getMonthWeeks, getWeeklyStatus, getIsoWeekStatus } = await import("./weekly-budget.js");
 
 test("getMonthWeeks copre esattamente tutti i giorni del mese, senza buchi né sovrapposizioni", () => {
   // luglio 2026 ha 31 giorni, inizia di mercoledì
@@ -90,4 +90,50 @@ test("la somma dei budget di base di tutte le settimane è pari al budget mensil
   const status = getWeeklyStatus([], 3100, new Date(2026, 6, 1));
   const totalBase = status.weeks.reduce((s, w) => s + (w.isFuture ? w.budget : w.budget - (w.rolloverIn || 0)), 0);
   assert.ok(Math.abs(totalBase - 3100) < 0.05);
+});
+
+// ── getIsoWeekStatus: la settimana come la vive una persona ──
+// Caso reale che l'ha resa necessaria: lunedì 31 agosto 2026 (ultimo giorno
+// del mese) il segmento mensile durava un giorno solo, e "oggi puoi spendere"
+// crollava a 0 perché tutti gli addebiti in arrivo pesavano su quel giorno.
+
+test('getIsoWeekStatus: settimana a cavallo di due mesi = sette giorni, budget sommato', () => {
+  const allTx = {
+    '2026-08': [{ date: '2026-08-31', amount: 10, type: 'uscita', category: 'spesa' }],
+    '2026-09': [{ date: '2026-09-02', amount: 20, type: 'uscita', category: 'spesa' }],
+  };
+  const w = getIsoWeekStatus(allTx, 1500, new Date(2026, 7, 31)); // lun 31 ago
+  assert.ok(w);
+  assert.equal(w.start.getDate(), 31);
+  assert.equal(w.start.getMonth(), 7);
+  assert.equal(w.end.getDate(), 6);
+  assert.equal(w.end.getMonth(), 8);
+  // spese di ENTRAMBI i mesi dentro la settimana
+  assert.equal(w.spent, 30);
+  assert.equal(w.remaining, +(w.budget - 30).toFixed(2));
+  // il budget della settimana non può essere quello di un giorno solo
+  const unGiorno = 1500 / 31;
+  assert.ok(w.budget > unGiorno * 3, `budget settimana ${w.budget} troppo vicino a un giorno solo`);
+});
+
+test('getIsoWeekStatus: settimana tutta dentro un mese = stesso risultato del motore mensile', () => {
+  const allTx = { '2026-07': [{ date: '2026-07-14', amount: 200, type: 'uscita', category: 'spesa' }] };
+  const iso = getIsoWeekStatus(allTx, 3100, new Date(2026, 6, 15));
+  const { currentWeek } = getWeeklyStatus(allTx['2026-07'], 3100, new Date(2026, 6, 15));
+  assert.equal(iso.budget, currentWeek.budget);
+  assert.equal(iso.spent, currentWeek.spent);
+  assert.equal(iso.remaining, currentWeek.remaining);
+});
+
+test('getIsoWeekStatus: senza budget non inventa niente', () => {
+  assert.equal(getIsoWeekStatus({}, 0, new Date(2026, 7, 31)), null);
+});
+
+test('getIsoWeekStatus: le entrate non contano come spesa', () => {
+  const allTx = { '2026-07': [
+    { date: '2026-07-14', amount: 2000, type: 'entrata', category: 'stipendio' },
+    { date: '2026-07-15', amount: 50, type: 'uscita', category: 'spesa' },
+  ] };
+  const w = getIsoWeekStatus(allTx, 3100, new Date(2026, 6, 15));
+  assert.equal(w.spent, 50);
 });

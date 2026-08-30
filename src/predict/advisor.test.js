@@ -105,7 +105,13 @@ test('getDailySafeToSpend: l\'abbonamento in arrivo riduce il numero di oggi', (
   const monthTxs = [tx('2026-07-14', 200, 'Spesa grossa')];
   const con = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: 3100, referenceDate: REF });
   const senza = getDailySafeToSpend({ monthTxs, allTx: {}, monthlyBudget: 3100, referenceDate: REF });
-  assert.equal(con.reservedForCharges, 12.99);
+  // L'importo PIENO dell'addebito atteso resta disponibile alla UI...
+  assert.equal(con.chargesFullAmount, 12.99);
+  // ...ma quello messo da parte è solo la quota dei giorni che restano:
+  // una spesa che torna ogni ~30 giorni costa 12,99/30 al giorno, non 12,99
+  // alla settimana in cui cade (altrimenti quella settimana crollerebbe e le
+  // altre sembrerebbero ricche — stesso budget, due racconti opposti).
+  assert.ok(con.reservedForCharges > 0 && con.reservedForCharges < 12.99);
   assert.ok(con.safeToday < senza.safeToday);
 });
 
@@ -212,4 +218,19 @@ test('sweep: già fatto questa settimana → non riproporre', () => {
 
 test('sweep: senza budget → null (mai proposte inventate)', () => {
   assert.equal(getSweepSuggestion({ allTx: {}, monthlyBudget: 0, referenceDate: REF }), null);
+});
+
+test('getDailySafeToSpend: una spesa fissa mensile non azzera la settimana in cui cade', () => {
+  // Caso reale (2026-08-31): affitto 650 € atteso a giorni, budget 1500/mese.
+  // Prima l'intero importo veniva tolto alla settimana corrente e
+  // "oggi puoi spendere" andava a 0. Ora se ne riserva la quota giornaliera.
+  const affitto = {};
+  for (let m = 3; m <= 6; m++) {
+    const mk = `2026-0${m}`;
+    affitto[mk] = [{ date: `${mk}-15`, amount: 650, type: 'uscita', category: 'casa', description: 'Affitto' }];
+  }
+  const res = getDailySafeToSpend({ monthTxs: [], allTx: affitto, monthlyBudget: 1500, referenceDate: new Date(2026, 6, 14) });
+  assert.ok(res, 'atteso un risultato con budget impostato');
+  assert.ok(res.reservedForCharges < 650, 'mai l\'intero affitto su una settimana sola');
+  assert.ok(res.safeToday > 0, 'la settimana dell\'affitto non deve azzerare il numero del giorno');
 });

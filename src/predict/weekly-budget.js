@@ -109,3 +109,48 @@ export function getWeeklyStatus(monthTxs, monthlyBudget, referenceDate = new Dat
     currentWeek: result.find(w => w.isCurrent) || null,
   };
 }
+
+// LA SETTIMANA COME LA VIVE UNA PERSONA: lunedì → domenica, anche quando
+// cade a cavallo di due mesi.
+//
+// `getWeeklyStatus` taglia le settimane ai confini del mese, e deve farlo:
+// il budget è mensile. Ma per chi guarda l'app quella non è "una settimana".
+// Il caso reale che ha reso necessaria questa funzione: lunedì 31 agosto,
+// ultimo giorno del mese, il segmento del mese durava UN giorno — l'affitto
+// di 650 € in arrivo veniva scaricato tutto su quell'unico giorno e
+// "oggi puoi spendere" diventava 0, mentre la settimana vera (31 ago → 6 set)
+// aveva sette giorni su cui distribuirlo.
+//
+// Qui i segmenti mensili che la settimana attraversa si SOMMANO: il budget
+// resta quello del motore (riporto incluso), la settimana torna di sette
+// giorni. `allTx` è la mappa {monthKey: [tx]} già usata ovunque.
+export function getIsoWeekStatus(allTx, monthlyBudget, referenceDate = new Date()) {
+  if (!monthlyBudget || monthlyBudget <= 0) return null;
+  const start = mondayOf(referenceDate);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+
+  const giorni = [];
+  for (let i = 0; i < 7; i++) giorni.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+  const mesi = [...new Set(giorni.map(d => monthKey(d)))];
+
+  let budget = 0;
+  let trovato = false;
+  for (const mk of mesi) {
+    const giornoNelMese = giorni.find(d => monthKey(d) === mk);
+    const { weeks } = getWeeklyStatus(allTx?.[mk] || [], monthlyBudget, giornoNelMese);
+    const seg = weeks.find(w => giornoNelMese >= w.start
+      && giornoNelMese <= new Date(w.end.getFullYear(), w.end.getMonth(), w.end.getDate(), 23, 59, 59, 999));
+    if (seg) { budget += seg.budget; trovato = true; }
+  }
+  if (!trovato) return null;
+
+  // Lo speso si conta sui sette giorni veri, non sui segmenti: deve sempre
+  // combaciare con quello che l'utente vede giorno per giorno.
+  const spent = mesi.reduce((s, mk) => s + sumExpenses(allTx?.[mk] || [], start, end), 0);
+  return {
+    start, end,
+    budget: +budget.toFixed(2),
+    spent: +spent.toFixed(2),
+    remaining: +(budget - spent).toFixed(2),
+  };
+}
