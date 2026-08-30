@@ -1962,6 +1962,22 @@ window.dismissDemo = () => {
   renderDashboard();
 };
 
+// Quota di budget giornaliero (mensile/giorni del mese) e il suo confronto
+// con la spesa reale — condiviso tra l'intestazione-giorno della Dashboard
+// e il drill-down del calendario in Analisi Tensor. Un'unica funzione: prima
+// il calcolo viveva solo nel calendario, duplicarlo a mano nella Dashboard
+// avrebbe rischiato due numeri in disaccordo per lo stesso giorno (lo stesso
+// principio già seguito per il riporto settimanale, mai duplicato).
+function dailyBudgetQuota(date) {
+  const budgetMensile = VaultDAO.state.monthlyBudget || 0;
+  if (budgetMensile <= 0) return 0;
+  const giorniNelMese = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  return giorniNelMese > 0 ? budgetMensile / giorniNelMese : 0;
+}
+function dailyBudgetPctColor(pct) {
+  return pct > 100 ? 'text-rose-400' : pct > 80 ? 'text-amber-400' : 'text-emerald-400';
+}
+
 const renderDashboard = () => {
   // Ogni volta che la Dashboard si aggiorna è il momento in cui l'utente
   // vede l'effetto di quello che ha appena fatto (nuova spesa, nuova
@@ -2709,8 +2725,18 @@ const renderDashboard = () => {
     else if (giorno === oggiISO) etichettaGiorno = tCh('dashToday', __uiLang);
     else if (giorno === ieriISO) etichettaGiorno = tCh('dashYesterday', __uiLang);
     else etichettaGiorno = new Date(giorno).toLocaleDateString(__uiLocale, { weekday: 'short', day: 'numeric', month: 'short' });
+    // Stesso confronto col budget di giornata già disponibile nel calendario
+    // di Analisi Tensor (dailyBudgetQuota condivisa) — integrato qui, non
+    // duplicato in una seconda vista: l'utente lo vede già dove guarda ogni
+    // giorno, senza un widget in più da imparare (richiesto esplicitamente:
+    // "unire senza appesantire, abbattendo tipologia di vista").
+    const speseGiorno = righe.filter(t => t.type === 'uscita').reduce((s2, t) => s2 + t.amount, 0);
+    const quotaGiornoTx = giorno !== '—' ? dailyBudgetQuota(new Date(giorno)) : 0;
+    const budgetPctHtml = quotaGiornoTx > 0 && speseGiorno > 0
+      ? `<span class="${dailyBudgetPctColor(Math.round((speseGiorno / quotaGiornoTx) * 100))} normal-case font-semibold ml-1.5">${Math.round((speseGiorno / quotaGiornoTx) * 100)}%</span>`
+      : '';
     corpo += `<div class="tx-giorno">
-      <span>${escTx(etichettaGiorno)}</span>
+      <span>${escTx(etichettaGiorno)}${budgetPctHtml}</span>
       <span class="tx-giorno-tot ${nettoGiorno < 0 ? 'neg' : nettoGiorno > 0 ? 'pos' : ''}">${nettoGiorno === 0 ? '' : `${nettoGiorno > 0 ? '+' : ''}${formatMoney(nettoGiorno)}`}</span>
     </div>`;
     for (const t of righe) corpo += rigaTx(t);
@@ -9751,9 +9777,7 @@ document.addEventListener('click', (e) => {
   // chiarezza.
   const annoSel = VaultDAO.state.currentDate.getFullYear();
   const meseSel = VaultDAO.state.currentDate.getMonth();
-  const giorniNelMese = new Date(annoSel, meseSel + 1, 0).getDate();
-  const budgetMensile = VaultDAO.state.monthlyBudget || 0;
-  const quotaGiorno = giorniNelMese > 0 ? budgetMensile / giorniNelMese : 0;
+  const quotaGiorno = dailyBudgetQuota(VaultDAO.state.currentDate);
   // MAI toISOString() qui: converte a UTC e in fusi avanti su Greenwich
   // (l'Italia inclusa) il giorno scelto scivola di uno indietro — bug
   // reale trovato testando dal vivo (giorno 26 selezionato → data passata
