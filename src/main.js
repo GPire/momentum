@@ -147,6 +147,7 @@ import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './spli
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement, unreadCount } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
+import { currentTier, activateLicense, deactivateLicense, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -11944,6 +11945,63 @@ function renderNeuroSymExplainCard() {
 }
 renderNeuroSymExplainCard();
 
+// Momentum PRO (src/core/subscription.js + license.js, 2026-08-30):
+// attivazione interamente on-device, mai una chiamata di rete — la
+// verifica della firma avviene tutta nel browser (Web Crypto). Card
+// SEMPRE visibile: un piano che si vede solo a chi lo ha già comprato non
+// converte nessuno di nuovo.
+function renderProLicenseCard() {
+  const statusEl = document.getElementById('pro-license-status');
+  const formEl = document.getElementById('pro-license-form');
+  const deactivateBtn = document.getElementById('pro-license-deactivate-btn');
+  if (!statusEl || !formEl || !deactivateBtn) return;
+  const tier = currentTier(VaultDAO.state);
+  if (tier !== TIER_FREE) {
+    const lic = VaultDAO.state.license;
+    const scadenza = lic?.exp ? new Date(lic.exp).toLocaleDateString() : null;
+    statusEl.classList.remove('hidden');
+    statusEl.innerHTML = `<p class="font-bold">Piano attivo: ${tier === TIER_PRO_INVESTOR ? 'PRO Investor' : 'PRO'}</p><p class="mt-0.5">${scadenza ? `Valido fino al ${scadenza}` : 'Licenza a vita'}</p>`;
+    formEl.classList.add('hidden');
+    deactivateBtn.classList.remove('hidden');
+  } else {
+    statusEl.classList.add('hidden');
+    formEl.classList.remove('hidden');
+    deactivateBtn.classList.add('hidden');
+  }
+}
+renderProLicenseCard();
+
+document.getElementById('pro-license-activate-btn')?.addEventListener('click', async () => {
+  const input = document.getElementById('pro-license-input');
+  const errorEl = document.getElementById('pro-license-error');
+  const btn = document.getElementById('pro-license-activate-btn');
+  const code = input?.value?.trim();
+  errorEl?.classList.add('hidden');
+  if (!code) return;
+  btn.disabled = true;
+  try {
+    const r = await activateLicense(code, VaultDAO.state);
+    if (r.attivata) {
+      VaultDAO.save();
+      input.value = '';
+      showToast('Momentum PRO attivato — grazie!', 'success');
+      renderProLicenseCard();
+    } else if (errorEl) {
+      errorEl.textContent = r.motivo || 'Codice non valido.';
+      errorEl.classList.remove('hidden');
+    }
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('pro-license-deactivate-btn')?.addEventListener('click', () => {
+  deactivateLicense(VaultDAO.state);
+  VaultDAO.save();
+  showToast('Momentum PRO disattivato su questo dispositivo.', 'info');
+  renderProLicenseCard();
+});
+
 // Traguardi (src/ai/progress-milestones.js): raccoglie i segnali REALI da
 // questo dispositivo (mai stimati) e mostra cosa Momentum ha davvero
 // imparato/collegato. Chiamata dopo ogni evento che potrebbe sbloccarne uno
@@ -12124,7 +12182,7 @@ const navigate = (view) => {
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
     // accanto a #tax-settings-card, non più mescolato ai contenuti di
     // trading/investimento di Analisi Tensor.
-    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary();
+    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei

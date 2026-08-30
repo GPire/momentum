@@ -3864,6 +3864,28 @@
                 <div id="install-guide-done" class="hidden text-center text-emerald-300 text-sm font-bold py-2" data-i18n-key="vaultInstallDone">✓ App già installata</div>
               </div>
 
+              <!-- Momentum PRO (src/core/license.js + subscription.js, 2026-08-30):
+                   attivazione interamente on-device, nessuna chiamata di rete —
+                   una licenza firmata (bench/issue-license.mjs) si verifica qui
+                   con la sola chiave pubblica. Card sempre visibile (mai
+                   nascosta a chi è già FREE: deve scoprire che PRO esiste). -->
+              <div class="card p-6 flex flex-col" id="pro-license-card">
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg></div>
+                  <div>
+                    <h3 class="font-bold text-base">Momentum PRO</h3>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" id="pro-license-subtitle">Motore fiscale completo, pannello SEC, sentiment on-device e altro</p>
+                  </div>
+                </div>
+                <div id="pro-license-status" class="hidden mb-3 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/25 text-emerald-200 text-xs"></div>
+                <div id="pro-license-form" class="flex flex-col gap-2">
+                  <input type="text" id="pro-license-input" class="modal-input !mb-0" placeholder="Incolla il codice di attivazione" autocomplete="off" spellcheck="false" />
+                  <button id="pro-license-activate-btn" class="btn-action w-full font-bold text-sm">Attiva</button>
+                  <p id="pro-license-error" class="hidden text-xs text-rose-300"></p>
+                </div>
+                <button id="pro-license-deactivate-btn" class="hidden mt-2 text-xs text-[var(--on-surface-secondary)] underline self-start">Disattiva su questo dispositivo</button>
+              </div>
+
               <!-- Automazione Shortcuts (iOS 17+, trigger "Wallet"/"Transaction"):
                    src/import/quick-add-link.js costruisce l'URL pronto per il
                    dispositivo reale. Solo iOS: su Android non esiste questo

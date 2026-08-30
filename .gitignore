@@ -11,3 +11,8 @@ bench/panel-avvisi.json
 
 # worktree isolati dei subagenti (non vanno versionati)
 .claude/worktrees/
+
+# Chiave PRIVATA di firma delle licenze PRO (bench/issue-license.mjs) — MAI
+# committata: chi la possiede può emettere licenze PRO valide a chiunque.
+# Solo la chiave PUBBLICA (già dentro src/core/license.js) va nel repo.
+bench/license-signing-key.json
