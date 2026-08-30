@@ -1,12 +1,16 @@
 # Il proxy verso Cloudflare Pages (public/_redirects) è inutile se la CDN
-# di Netlify mette comunque in cache la risposta al suo bordo: verificato
-# con curl -I, la risposta proxata arrivava con "age: 1794" (quasi 30
-# minuti) nonostante "must-revalidate" — Netlify non rivalida davvero un
-# rewrite verso un'origine esterna, la tiene in cache per un suo tempo
-# interno. Risultato reale: chi ha la PWA installata da questo indirizzo
-# vedeva contenuto vecchio anche con il proxy configurato correttamente.
-# Forzare no-store su tutto elimina la cache di bordo: ogni richiesta
-# arriva sempre fresca da Cloudflare Pages, prezzo accettabile per un'app
-# che deve arrivare aggiornata, non per il traffico di questa beta.
+# di Netlify mette comunque in cache la risposta al suo bordo. Il fix
+# precedente (solo "Cache-Control: no-store") non bastava: verificato di
+# nuovo con curl -I il 2026-08-30, la risposta arrivava ancora con
+# "cache-status: hit" e "age" di diverse ore nonostante no-store. Motivo
+# reale: Netlify separa TRE livelli di cache-control — "Cache-Control"
+# parla solo al browser dell'utente finale, "Netlify-CDN-Cache-Control"
+# parla al bordo di Netlify stesso. Senza quest'ultimo, l'edge di Netlify
+# decide la cache del rewrite in base agli header dell'origine (Cloudflare
+# Pages), ignorando il nostro no-store. Risultato reale: chi ha la PWA
+# installata da questo indirizzo, o la usa da browser, non riceveva mai
+# gli aggiornamenti — né su iOS né altrove, perché il problema è
+# sull'edge di Netlify, non sul dispositivo dell'utente.
 /*
   Cache-Control: no-store
+  Netlify-CDN-Cache-Control: no-store
