@@ -9278,6 +9278,7 @@ function renderNetWorth() {
       } catch (e) { console.warn('tail risk:', e); window.__tailRiskCache = { chiave, r: null }; }
     }
     const r = window.__tailRiskCache?.r;
+    document.getElementById('portfolio-tail-risk-card')?.classList.toggle('hidden', !positions.length);
     if (!positions.length) {
       tailEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTailRiskEmpty', __uiLang)}</p>`;
     } else if (!r?.valutabile) {
@@ -9326,6 +9327,7 @@ function renderNetWorth() {
       } catch (e) { console.warn('portfolio track record:', e); window.__trackRecordCache = { chiave: chiaveT, r: null }; }
     }
     const r = window.__trackRecordCache?.r;
+    document.getElementById('portfolio-track-record-card')?.classList.toggle('hidden', !positions.length);
     if (!positions.length) {
       trackEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTrackRecordEmpty', __uiLang)}</p>`;
     } else if (!r?.valutabile) {
@@ -9417,6 +9419,7 @@ function renderNetWorth() {
       } catch (e) { console.warn('diagnosi:', e); window.__diagnosiCache = { chiave: chiaveD, d: null }; }
     }
     const d = window.__diagnosiCache?.d;
+    document.getElementById('diagnosi-card')?.classList.toggle('hidden', !positions.length);
     if (!positions.length) {
       diagEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwDiagnosisEmpty', __uiLang)}</p>`;
     } else if (!d?.valutabile) {
@@ -9444,6 +9447,25 @@ function renderNetWorth() {
             <p class="opacity-70 mt-1">${tCh('nwDiagnosisRealMonthsNote', __uiLang)}</p>
           </div>
         </details>`;
+    }
+  }
+  // Sblocco progressivo (richiesto esplicitamente, "non mostrare tutte
+  // quelle sezioni fino a quel momento, ma con avviso"): "Quanto rischi
+  // davvero"/"Bravura o fortuna?"/"La diagnosi" mostravano ognuna il proprio
+  // muro di testo "aggiungi le tue posizioni" — a un utente nuovo (0
+  // posizioni, il caso più comune) risultavano 3 card vuote di fila, la
+  // stessa "prima impressione difficile" segnalata più volte. Ora si
+  // nascondono (le tre righe `.classList.toggle('hidden', ...)` sopra) e al
+  // loro posto compare UNA card positiva che spiega cosa sblocca cosa —
+  // mai un vuoto silenzioso, sempre un annuncio onesto e azionabile.
+  const lockedTeaser = document.getElementById('portfolio-locked-teaser');
+  if (lockedTeaser) {
+    lockedTeaser.classList.toggle('hidden', !!positions.length);
+    if (!positions.length) {
+      lockedTeaser.innerHTML = `
+        <h3 class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>${tCh('portfolioLockedTitle', __uiLang)}</span></h3>
+        <p class="card-sub">${tCh('portfolioLockedSub', __uiLang)}</p>
+        <button type="button" onclick="window.goToInvestQuickAdd?.()" class="btn-action w-full mt-2 py-2 text-[12px] font-bold">${tCh('portfolioLockedCta', __uiLang)}</button>`;
     }
   }
   // Per chi investe attivamente (src/alpha/market-stress.js +
@@ -12215,6 +12237,19 @@ function updateAnalysisTensorVisibility() {
   if (!show && VaultDAO.state.currentView === 'analysis') navigate('dashboard');
 }
 window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
+
+// CTA della card "sblocco progressivo" (vedi renderNetWorth): porta l'utente
+// diretto sul tab "Investi" del Command Center in Dashboard, invece di un
+// generico "vai in impostazioni" — un acquisto registrato lì (poi confermato
+// con ticker/quantità nel modale dedicato) è il vero modo di aggiungere una
+// posizione, non c'è un pulsante "aggiungi posizione" separato.
+window.goToInvestQuickAdd = () => {
+  navigate('dashboard');
+  setTimeout(() => {
+    document.querySelector('.type-toggle-pill[data-type="invest"]')?.click();
+    document.getElementById('tx-amount-display')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, 150);
+};
 
 const navigate = (view) => {
   haptic('light');
