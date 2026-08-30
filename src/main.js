@@ -1953,6 +1953,7 @@ const renderDashboard = () => {
   // il tab "Analisi Tensor" deve riflettere subito la preferenza salvata,
   // non solo dopo il primo cambio schermata.
   try { window.updateAnalysisTensorVisibility?.(); } catch (_) {}
+  try { window.renderAddHint?.(); } catch (_) {}
   let score = 400;
   try { score = PredictiveOracle.calculateMomentumScore(); } catch(e) {}
   
@@ -8098,14 +8099,35 @@ window.openConfermaAcquisti = (lista) => {
       const quantity = parseFloat(String(el.querySelector('[data-qty]').value).replace(',', '.'));
       if (!ticker || !(quantity > 0)) { showToast('Servono ticker e quantità (maggiore di zero).', 'error'); return; }
       const riga = righe.find(r => r.idx === idx);
+      const assetClass = /^(BITCOIN|ETH|ETHEREUM|BTC)$/i.test(ticker) ? 'crypto' : 'stock';
       VaultDAO.state.positions = aggiornaPosizioneConAcquisto(VaultDAO.state.positions, {
         ticker, quantity, prezzoUnitario: riga.prezzoUnitario || (Math.abs(riga.amount) / quantity),
-        assetClass: /^(BITCOIN|ETH|ETHEREUM|BTC)$/i.test(ticker) ? 'crypto' : 'stock',
+        assetClass,
       });
       VaultDAO.save();
       righe.splice(righe.findIndex(r => r.idx === idx), 1);
       showToast(`${ticker}: posizione aggiornata.`, 'success');
       if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
+      // BUG REALE trovato il 2026-08-30: questo era l'UNICO modo naturale di
+      // aggiungere una posizione (conferma di una transazione "Investi"), ma
+      // src/alpha/portfolio-tail-risk.js/track-record/diagnosi hanno bisogno
+      // di VaultDAO.state.sectorByTicker per collocare il titolo nel pannello
+      // storico — e quella mappa si popolava SOLO aprendo la scheda del
+      // titolo in "Cerca un asset" (vedi sopra, riga ~6471). Chi confermava
+      // un acquisto da qui restava bloccato a "misurato lo 0%" per sempre,
+      // senza un modo ovvio per capire perché. Stessa fonte, stesso
+      // meccanismo, solo richiamato anche da qui — mai un secondo motore.
+      if (assetClass === 'stock' && VaultDAO.state.liveDataKeys?.alphavantage && !VaultDAO.state.sectorByTicker?.[ticker]) {
+        import('./alpha/asset-overview.js').then(({ fetchAssetOverview }) =>
+          fetchAssetOverview({ kind: 'stock', symbol: ticker }, { apiKey: VaultDAO.state.liveDataKeys.alphavantage, fetchImpl: fetch.bind(window) })
+        ).then(ov => {
+          if (ov?.kind === 'stock' && ov.sector) {
+            VaultDAO.state.sectorByTicker = { ...(VaultDAO.state.sectorByTicker || {}), [ticker]: ov.sector };
+            VaultDAO.save();
+            if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
+          }
+        }).catch(() => {});
+      }
       righe.length ? render() : closeModal();
     }));
     document.querySelectorAll('[data-salta]').forEach(b => b.addEventListener('click', () => {
@@ -9085,6 +9107,20 @@ function renderInvestments() {
   }
 }
 
+// Un solo posto per il messaggio "non misurabile" di rischio di
+// coda/bravura-o-fortuna/diagnosi (main.js, 3 pannelli, stesso motivo reale
+// sotto): quando la causa è "nessuna posizione collocabile nei settori" e
+// manca la chiave Alpha Vantage, il motivo VERO è quasi sempre quello (senza
+// chiave, sectorByTicker non si popola mai per un titolo azionario — vedi
+// commento alla conferma acquisto sopra) — un CTA diretto invece di lasciare
+// l'utente a indovinare cosa fare con un messaggio tecnico da solo.
+function motivoNonMisurabileHtml(motivo) {
+  const base = `<p class="text-[11px] text-amber-300/90">${escapeHtml(motivo || tCh('nwNotMeasurable', __uiLang))}</p>`;
+  const causaProbabileChiaveMancante = /nessuna posizione collocabile/i.test(motivo || '') && !VaultDAO.state.liveDataKeys?.alphavantage;
+  if (!causaProbabileChiaveMancante) return base;
+  return `${base}<button type="button" onclick="document.querySelector('[data-view=\\'settings\\']')?.click(); setTimeout(() => window.openApiKeyGuide?.('alphavantage'), 200);" class="text-[11px] text-[var(--gold)] underline mt-1.5 block">${tCh('nwAddAvKeyCta', __uiLang)}</button>`;
+}
+
 // Patrimonio netto unificato (src/alpha/net-worth.js): UN numero dominante =
 // contante (dai movimenti) + posizioni (VaultDAO.state.positions, additive) −
 // debiti. Sotto: proiezione Monte Carlo a 10 anni per strategia con ipotesi
@@ -9283,7 +9319,7 @@ function renderNetWorth() {
       tailEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTailRiskEmpty', __uiLang)}</p>`;
     } else if (!r?.valutabile) {
       // Rifiuto MOTIVATO, mai un pannello vuoto senza spiegazione.
-      tailEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || tCh('nwNotMeasurable', __uiLang))}</p>`;
+      tailEl.innerHTML = motivoNonMisurabileHtml(r?.motivo);
     } else {
       const pct = (x) => `${(Math.abs(x) * 100).toFixed(1).replace('.', ',')}%`;
       tailEl.innerHTML = `
@@ -9331,7 +9367,7 @@ function renderNetWorth() {
     if (!positions.length) {
       trackEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTrackRecordEmpty', __uiLang)}</p>`;
     } else if (!r?.valutabile) {
-      trackEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(r?.motivo || tCh('nwNotMeasurable', __uiLang))}</p>`;
+      trackEl.innerHTML = motivoNonMisurabileHtml(r?.motivo);
     } else {
       const tono = r.verdetto === 'solido' ? 'text-emerald-300' : r.verdetto === 'probabile-fortuna' ? 'text-amber-300' : 'text-[var(--on-surface-secondary)]';
       const conc = r.concentrazione ? `<p class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5">${escapeHtml(r.concentrazione.messaggio)}</p>` : '';
@@ -9423,7 +9459,7 @@ function renderNetWorth() {
     if (!positions.length) {
       diagEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwDiagnosisEmpty', __uiLang)}</p>`;
     } else if (!d?.valutabile) {
-      diagEl.innerHTML = `<p class="text-[11px] text-amber-300/90">${escapeHtml(d?.motivo || tCh('nwNotMeasurable', __uiLang))}</p>`;
+      diagEl.innerHTML = motivoNonMisurabileHtml(d?.motivo);
     } else {
       const colore = { alta: 'text-rose-300', media: 'text-amber-300', bassa: 'text-[var(--on-surface-secondary)]' };
       const bordo = { alta: 'border-rose-500/25 bg-rose-500/[0.04]', media: 'border-amber-500/20 bg-amber-500/[0.03]', bassa: 'border-[var(--outline)]' };
@@ -12268,6 +12304,35 @@ function setActivityLocked(key, isLocked, label) {
     <h3 class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>${tCh('activityLockedTitle', __uiLang)}</span></h3>
     <p class="card-sub">${tCh('activityLockedSub', __uiLang, lista.join(', '))}</p>`;
 }
+
+// Spiegazione del "+" ai primi avvii (richiesto esplicitamente, 2026-08-30:
+// "molti utenti si sono lamentati che non si capisce dove si aggiungono le
+// transazioni"). Mostrata per le prime 2 aperture reali dell'app
+// (VaultDAO.state.addHintShownCount, persistente), mai più dopo — un solo
+// avviso per volta a schermo, coerente col principio "mai più segnali
+// insieme" già seguito altrove nel progetto (command-center.js). Guardia
+// __addHintRenderedThisLoad: renderDashboard() gira più volte per sessione,
+// questo deve decidere una volta sola per apertura dell'app.
+let __addHintRenderedThisLoad = false;
+function renderAddHint() {
+  if (__addHintRenderedThisLoad) return;
+  __addHintRenderedThisLoad = true;
+  // Niente controllo su VaultDAO.state.currentView: può restare "stale" da
+  // una sessione precedente (il boot non richiama mai navigate() per
+  // ripristinare l'ultima vista, la Dashboard è sempre quella mostrata
+  // all'avvio) — essere dentro renderDashboard() è già la garanzia giusta.
+  const count = VaultDAO.state.addHintShownCount || 0;
+  const bubbles = [document.getElementById('add-hint-bubble'), document.getElementById('add-hint-bubble-tablet')].filter(Boolean);
+  if (!bubbles.length || count >= 2) return;
+  bubbles.forEach(b => { b.classList.remove('hidden'); b.classList.add('add-hint-in'); });
+  VaultDAO.state.addHintShownCount = count + 1;
+  VaultDAO.save();
+  const dismiss = () => bubbles.forEach(b => b.classList.add('hidden'));
+  setTimeout(dismiss, 6000);
+  document.getElementById('mobile-add-btn')?.addEventListener('click', dismiss, { once: true });
+  document.getElementById('tablet-fab')?.addEventListener('click', dismiss, { once: true });
+}
+window.renderAddHint = renderAddHint;
 
 window.goToInvestQuickAdd = () => {
   navigate('dashboard');

@@ -1815,6 +1815,20 @@
        il feedback che "sei entrato" (studiato: non invadente, un solo battito). */
     .join-pop { animation: joinPop 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
     @keyframes joinPop { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+    /* Spiegazione del "+" ai primi avvii (richiesta esplicita, 2026-08-30:
+       "molti utenti si sono lamentati che non si capisce dove si
+       aggiungono le transazioni"). Stesso vetro/bordo indigo del resto
+       dell'app (--glass-bg/--primary), mai un colore nuovo inventato per
+       l'occasione. Galleggia piano dopo l'ingresso — la stessa idea
+       dell'orb che "respira" altrove nel progetto — ma solo se l'utente
+       non ha chiesto meno movimento. */
+    .add-hint-card { background: var(--glass-bg); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid var(--primary); border-radius: 1rem; padding: .65rem 1rem; box-shadow: 0 10px 28px -8px rgba(99,102,241,.6); }
+    .add-hint-card p { font-size: 12px; font-weight: 700; color: var(--on-surface); text-align: center; line-height: 1.35; margin: 0; }
+    .add-hint-arrow { width: 10px; height: 10px; background: var(--glass-bg); border-right: 1px solid var(--primary); border-bottom: 1px solid var(--primary); position: absolute; left: 50%; bottom: -6px; margin-left: -5px; transform: rotate(45deg); }
+    .add-hint-in { animation: joinPop .5s cubic-bezier(0.16,1,0.3,1) both, addHintFloat 2.6s ease-in-out .7s infinite; }
+    @keyframes addHintFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @media (prefers-reduced-motion: reduce) { .add-hint-in { animation: joinPop .3s ease both; } }
     .join-badge { animation: joinBadge 0.7s ease-out 0.15s both; }
     @keyframes joinBadge { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 
@@ -4558,6 +4572,12 @@
       <div id="mobile-add-btn" class="neuro-add-btn">
         <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
       </div>
+      <!-- Spiegazione del "+" (main.js: renderAddHint) — nascosta di
+           default, mostrata dal JS solo ai primi due avvii reali. -->
+      <div id="add-hint-bubble" class="hidden" style="position:absolute; left:50%; margin-left:-105px; top:-7rem; width:210px; z-index:998; pointer-events:none;">
+        <div class="add-hint-card"><p data-i18n-key="addHintText">Tocca qui per aggiungere una spesa o un'entrata</p></div>
+        <div class="add-hint-arrow"></div>
+      </div>
     </div>
 
     <button data-view="settings" data-action="switch-view" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-1 w-12 h-full ml-12">
@@ -4572,12 +4592,32 @@
        la sidebar) → una nav sola + questo pulsante flottante GRANDE (64px, angolo
        basso-destra, comodo con un dito/pollice) per aggiungere una spesa. Su
        desktop c'è il Command Center inline, su mobile la bottom-nav. -->
+  <!-- BUG REALE trovato il 2026-08-30 (segnalato dall'utente: "prima
+       pulsava e ora non più"): il bottone mobile (#mobile-add-btn) ha
+       sempre avuto la pulsazione (.neuro-add-btn, animation: neuroPulse) —
+       questo FAB tablet è stato aggiunto in un secondo momento e non
+       l'aveva mai ricevuta. Su un dispositivo/finestra in formato tablet
+       (md→xl) l'utente vedeva SOLO questo bottone, mai animato, da sempre —
+       non una regressione del bottone mobile, un gap mai colmato su questo
+       secondo bottone. Stessa animazione, stessa keyframe, mai una seconda
+       definita apposta. -->
   <button id="tablet-fab" onclick="document.getElementById('mobile-add-btn').click()"
     class="hidden md:flex xl:hidden fixed z-[70] items-center justify-center w-16 h-16 rounded-full text-white active:scale-90 transition-transform"
-    style="right: max(1.5rem, env(safe-area-inset-right)); bottom: max(1.5rem, env(safe-area-inset-bottom)); background: var(--apex-gradient); box-shadow: 0 10px 30px -6px rgba(99,102,241,.7), 0 0 0 1px rgba(129,140,248,.4);"
+    style="right: max(1.5rem, env(safe-area-inset-right)); bottom: max(1.5rem, env(safe-area-inset-bottom)); background: var(--apex-gradient); box-shadow: 0 10px 30px -6px rgba(99,102,241,.7), 0 0 0 1px rgba(129,140,248,.4); animation: neuroPulse 3s infinite;"
     aria-label="Aggiungi una spesa">
     <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
   </button>
+  <!-- Stesso hint del bottone mobile (main.js: renderAddHint), riposizionato
+       per il FAB tablet (angolo basso-destra invece che centrato). Wrapper
+       separato: la visibilità per formato (hidden md:block xl:hidden) e
+       quella controllata da JS (id="add-hint-bubble-tablet", classList
+       hidden/remove) non possono vivere sulla stessa classe "hidden". -->
+  <div class="hidden md:block xl:hidden">
+    <div id="add-hint-bubble-tablet" class="hidden" style="position:fixed; right: max(1.5rem, env(safe-area-inset-right)); bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 76px); width:210px; z-index:998; pointer-events:none;">
+      <div class="add-hint-card"><p data-i18n-key="addHintText">Tocca qui per aggiungere una spesa o un'entrata</p></div>
+      <div class="add-hint-arrow" style="left:auto; right:22px; margin-left:0;"></div>
+    </div>
+  </div>
 
   <!-- ===================== MODALS ===================== -->
   <div id="modal-container" class="fixed inset-0 z-[200] hidden lg:flex lg:items-center lg:justify-center">
