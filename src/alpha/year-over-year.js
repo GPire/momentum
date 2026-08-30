@@ -75,11 +75,26 @@ export async function fetchCryptoMultiYearComparison(coinId, { yearsList = [1, 2
 // che l'utente debba registrare nulla — la fonte "senza alcuna chiave"
 // richiesta esplicitamente. Copre solo le coppie quotate su Binance: se il
 // simbolo non esiste lì, ritorna array vuoto (mai un dato stimato).
+//
+// BUG REALE trovato dal vivo (2026-08-30, testando un simbolo che Binance
+// non quota affatto — un token tokenizzato tipo "AAPLX"): per una coppia
+// del tutto inesistente Binance a volte risponde SENZA header CORS validi
+// invece di un JSON d'errore pulito — il browser non riesce nemmeno a
+// leggere la risposta e `fetch()` la rifiuta con "Failed to fetch" PRIMA
+// che `res.ok` sia mai valutabile. Senza un try/catch qui, quell'eccezione
+// risaliva fino a fetchCryptoHistoryCascade e IMPEDIVA il piano B
+// (CoinGecko) di scattare — l'esatto contrario del motivo per cui la
+// cascata esiste.
 export async function fetchCryptoKlinesSeries(symbol, { vsCurrency = 'EUR', fetchImpl = fetch, limit = 60 } = {}) {
   if (!symbol) return [];
   const pair = `${symbol.toUpperCase()}${vsCurrency.toUpperCase()}`;
   const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=1M&limit=${limit}`;
-  const res = await fetchImpl(url);
+  let res;
+  try {
+    res = await fetchImpl(url);
+  } catch (_) {
+    return [];
+  }
   if (!res.ok) return [];
   const rows = await res.json().catch(() => null);
   if (!Array.isArray(rows)) return [];

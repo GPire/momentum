@@ -14376,7 +14376,7 @@ const initApp = () => {
           }).join(' · ');
         }
       } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
-    } else if (asset.kind === 'stock' && (apiKey || VaultDAO.state.liveDataKeys?.twelvedata || VaultDAO.state.liveDataKeys?.fmp)) {
+    } else if (asset.kind === 'stock') {
       // Azioni/ETF: Alpha Vantage TIME_SERIES_MONTHLY o Twelve Data
       // /time_series danno storico reale spesso 20+ anni anche gratis (a
       // differenza del limite di 365gg di CoinGecko per le cripto) — qui
@@ -14384,10 +14384,38 @@ const initApp = () => {
       // singoli. Segnalato dall'utente: "non accade solo con Nvidia" —
       // vale per ogni azione/ETF. A CASCATA (richiesta esplicita): mai
       // dipendere da un solo provider, l'utente porta le proprie chiavi.
-      try {
-        const { fetchStockMonthlySeriesCascade, describeStockYearsAgo } = await import('./alpha/stock-history.js');
-        const { series } = await fetchStockMonthlySeriesCascade(asset.symbol, { keys: VaultDAO.state.liveDataKeys || {}, fetchImpl: fetch.bind(window) });
-        if (series.length > 1) {
+      let series = [];
+      const keys = VaultDAO.state.liveDataKeys || {};
+      if (apiKey || keys.twelvedata || keys.fmp) {
+        try {
+          const { fetchStockMonthlySeriesCascade } = await import('./alpha/stock-history.js');
+          const r = await fetchStockMonthlySeriesCascade(asset.symbol, { keys, fetchImpl: fetch.bind(window) });
+          series = r.series;
+        } catch (_) { /* onesto: prosegue sotto sul piano B senza chiave */ }
+      }
+      // PIANO B SENZA ALCUNA CHIAVE (trovato dal vivo 2026-08-30, richiesto
+      // esplicitamente dall'utente: "non possiamo rispondere 'non lo so
+      // ancora' per uno stock/una cripto"): molte azioni note hanno un
+      // "token tokenizzato" che le traccia 1:1 su una piattaforma cripto
+      // (xStock, Ondo, bStocks...) — quel token è una cripto normalissima
+      // per CoinGecko, la stessa API pubblica senza chiave già usata
+      // ovunque nel progetto. Tentato SOLO se il piano con chiave non ha
+      // dato nulla (mai al posto del dato reale della borsa, quando c'è).
+      let fonteProxy = null;
+      if (series.length <= 1) {
+        try {
+          const { resolveTokenizedStockProxy } = await import('./alpha/stock-tokenized-proxy.js');
+          const proxy = await resolveTokenizedStockProxy(asset.name || asset.symbol, { fetchImpl: fetch.bind(window) });
+          if (proxy) {
+            const { fetchCryptoHistoryCascade } = await import('./alpha/year-over-year.js');
+            const r = await fetchCryptoHistoryCascade(proxy.id, proxy.symbol, { fetchImpl: fetch.bind(window) });
+            if (r.series.length > 1) { series = r.series; fonteProxy = proxy; }
+          }
+        } catch (_) { /* onesto: niente storico, il resto continua comunque */ }
+      }
+      if (series.length > 1) {
+        try {
+          const { describeStockYearsAgo } = await import('./alpha/stock-history.js');
           const { yearlyExtremes } = await import('./alpha/year-over-year.js');
           const current = series[series.length - 1].price;
           yoyNote = describeStockYearsAgo(series, 1, current);
@@ -14396,8 +14424,15 @@ const initApp = () => {
           const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
           if (points.length) multiYearNote = points.map(p => p.note).join(' ');
           priceSeries = series;
-        }
-      } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
+          // ONESTÀ: un token tokenizzato traccia da vicino il titolo reale
+          // ma non è il titolo quotato in borsa — dichiarato SEMPRE quando
+          // questa è la fonte usata, mai spacciato per il prezzo esatto.
+          if (fonteProxy) {
+            const nota = `Storico da un proxy tokenizzato (${fonteProxy.name}, nessuna chiave richiesta): traccia da vicino ${asset.symbol} ma non è il prezzo esatto del titolo in borsa.`;
+            multiYearNote = multiYearNote ? `${multiYearNote} ${nota}` : nota;
+          }
+        } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
+      }
     }
     return { yoyNote, historyChart, multiYearNote, trackRecordHtml, priceSeries };
   }
@@ -14726,6 +14761,18 @@ const initApp = () => {
         showQaThinking(`Cerco "${question}" tra i mercati reali...`);
         const handledBare = await tryAnswerWithRealNews(question);
         if (handledBare) { window.renderQaSuggestions?.(); return; }
+        // Richiesto esplicitamente dall'utente: se la FORMA era chiaramente
+        // un nome/ticker ma le fonti reali (CoinGecko + tabella statica,
+        // nessuna chiave richiesta) non hanno trovato nulla, dirlo — mai
+        // rispondere con i suggerimenti generici di finanza personale
+        // ("quanto ho speso questo mese?") a chi ha chiesto uno stock/una
+        // cripto, e mai spendere una chiamata cloud a indovinare un nome
+        // che la ricerca reale ha già escluso.
+        qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
+        qaAnswer.innerHTML = `<p class="text-[var(--on-surface-secondary)]">Non ho trovato un asset reale corrispondente a "${escapeHtml(question)}" — potrebbe non essere un nome/ticker noto, o le fonti gratuite non l'hanno trovato in questo momento. Prova con il nome completo (es. "Apple" invece di un ticker meno comune) o cerca in Analisi Tensor → Cerca un asset.</p>`;
+        replayQaAnimation();
+        window.renderQaSuggestions?.();
+        return;
       }
       const keys = VaultDAO.state.liveDataKeys || {};
       const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;

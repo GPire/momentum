@@ -119,6 +119,17 @@ test('fetchCryptoKlinesSeries: simbolo non quotato su Binance -> array vuoto', a
   assert.deepEqual(r, []);
 });
 
+// BUG REALE trovato dal vivo (2026-08-30, simbolo genuinamente inesistente
+// su Binance — un token tokenizzato tipo "AAPLX"): Binance a volte rifiuta
+// la richiesta a livello di rete/CORS invece di rispondere con un JSON
+// d'errore pulito — fetch() la rigetta con un'eccezione PRIMA che `res.ok`
+// sia mai valutabile. Senza un try/catch, quell'eccezione risaliva fino a
+// fetchCryptoHistoryCascade e impediva al piano B (CoinGecko) di scattare.
+test('fetchCryptoKlinesSeries: un fetch che rifiuta a livello di rete (mai un res.ok) -> array vuoto, mai un\'eccezione che blocca il chiamante', async () => {
+  const r = await fetchCryptoKlinesSeries('AAPLX', { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  assert.deepEqual(r, []);
+});
+
 test('fetchCryptoKlinesSeries: nessun simbolo -> array vuoto', async () => {
   assert.deepEqual(await fetchCryptoKlinesSeries(null, { fetchImpl: async () => ({}) }), []);
 });
@@ -138,6 +149,18 @@ test('fetchCryptoHistoryCascade: ripiega su CoinGecko se il simbolo non è su Bi
     return { ok: true, json: async () => ({ prices: [[1700000000000, 50]] }) }; // CoinGecko: reale
   };
   const r = await fetchCryptoHistoryCascade('somecoin', 'XYZ', { fetchImpl });
+  assert.equal(r.source, 'coingecko');
+  assert.equal(r.series.length, 1);
+});
+
+test('fetchCryptoHistoryCascade: Binance rifiuta a livello di rete (mai un res.ok) -> ripiega comunque su CoinGecko, non si blocca', async () => {
+  let call = 0;
+  const fetchImpl = async () => {
+    call++;
+    if (call === 1) throw new TypeError('Failed to fetch'); // Binance: rifiuto di rete/CORS, simbolo inesistente
+    return { ok: true, json: async () => ({ prices: [[1700000000000, 321.27]] }) }; // CoinGecko: reale
+  };
+  const r = await fetchCryptoHistoryCascade('apple-xstock', 'AAPLX', { fetchImpl });
   assert.equal(r.source, 'coingecko');
   assert.equal(r.series.length, 1);
 });
