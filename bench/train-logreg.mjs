@@ -24,7 +24,11 @@ const { trainHashedLogReg, HashedLogReg } = await imp('src/ai/hashed-logreg.js')
 const { generateDataset } = await imp('src/ai/train/data-gen.mjs');
 const { buildHeldOutSet } = await imp('bench/held-out-set.mjs');
 
-const CONFIG = { perCat: 800, epochs: 40, dim: 16384, lr: 0.5, l2: 1e-6, seed: 1, dataSeed: 777, useIdf: true };
+const CONFIG = {
+  perCat: Number(process.env.PERCAT || 800), epochs: Number(process.env.EPOCHS || 40),
+  dim: Number(process.env.DIM || 16384), lr: Number(process.env.LR || 0.5), l2: Number(process.env.L2 || 1e-6),
+  seed: 1, dataSeed: 777, useIdf: true, optimizer: process.env.OPT || 'sgd',
+};
 console.log('Addestro HashedLogReg (locale, JS):', JSON.stringify(CONFIG));
 const synth = generateDataset({ perCat: CONFIG.perCat, seed: CONFIG.dataSeed });
 

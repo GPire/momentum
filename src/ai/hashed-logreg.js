@@ -132,18 +132,31 @@ export class HashedLogReg {
 
 // TRAINER (discesa del gradiente, SGD con L2). Ritorna il modello serializzabile.
 // pairs: [[testo, categoria], ...]. Eseguibile in Node (script) o nel browser.
+// optimizer: 'sgd' (default, invariato) o 'adam' (Kingma & Ba 2014,
+// arXiv:1412.6980) — stesso principio già misurato sul Meso (mlp-trainer.mjs):
+// SGD per-esempio (non a minibatch) ha un gradiente rumoroso ad ogni singolo
+// aggiornamento; Adam mantiene momento (m) e varianza (v) per parametro, che
+// smorzano quel rumore. Con 'adam' usare un learning rate molto più basso
+// (0.001-0.005) di quello SGD di default (0.5) — scale diverse per natura.
 export function trainHashedLogReg(pairs, opts = {}) {
   const dim = opts.dim ?? 8192;
   const epochs = opts.epochs ?? 25;
   const lr0 = opts.lr ?? 0.5;
   const l2 = opts.l2 ?? 1e-5;
   const seed = opts.seed ?? 42;
+  const useAdam = opts.optimizer === 'adam';
+  const ADAM_B1 = 0.9, ADAM_B2 = 0.999, ADAM_EPS = 1e-8;
+  let adamT = 0;
 
   const classes = [...new Set(pairs.map(p => p[1]))].sort();
   const classIndex = Object.fromEntries(classes.map((c, i) => [c, i]));
   const nC = classes.length;
   const W = new Float32Array(dim * nC); // init a 0
   const b = new Array(nC).fill(0);
+  const mW = useAdam ? new Float64Array(dim * nC) : null;
+  const vW = useAdam ? new Float64Array(dim * nC) : null;
+  const mb = useAdam ? new Array(nC).fill(0) : null;
+  const vb = useAdam ? new Array(nC).fill(0) : null;
 
   // IDF opzionale (TF-IDF): calcolato UNA volta dal train, applicato alle
   // feature e salvato nel modello (usato identico in inferenza).
@@ -161,6 +174,7 @@ export function trainHashedLogReg(pairs, opts = {}) {
     shuffle(order);
     const lr = lr0 / (1 + 0.05 * ep); // decadimento del learning rate
     for (const i of order) {
+      adamT++;
       const { vec, y } = data[i];
       // forward
       const logits = b.slice();
@@ -169,10 +183,27 @@ export function trainHashedLogReg(pairs, opts = {}) {
       // gradiente (softmax - onehot); update solo sulle feature attive
       for (let c = 0; c < nC; c++) {
         const g = p[c] - (c === y ? 1 : 0);
-        b[c] -= lr * g;
+        if (useAdam) {
+          const mbc = ADAM_B1 * mb[c] + (1 - ADAM_B1) * g;
+          const vbc = ADAM_B2 * vb[c] + (1 - ADAM_B2) * g * g;
+          mb[c] = mbc; vb[c] = vbc;
+          const mHat = mbc / (1 - ADAM_B1 ** adamT), vHat = vbc / (1 - ADAM_B2 ** adamT);
+          b[c] -= lr * mHat / (Math.sqrt(vHat) + ADAM_EPS);
+        } else {
+          b[c] -= lr * g;
+        }
         for (const [idx, val] of vec) {
           const wi = idx * nC + c;
-          W[wi] -= lr * (g * val + l2 * W[wi]);
+          const gw = g * val + l2 * W[wi];
+          if (useAdam) {
+            const m = ADAM_B1 * mW[wi] + (1 - ADAM_B1) * gw;
+            const v = ADAM_B2 * vW[wi] + (1 - ADAM_B2) * gw * gw;
+            mW[wi] = m; vW[wi] = v;
+            const mHat = m / (1 - ADAM_B1 ** adamT), vHat = v / (1 - ADAM_B2 ** adamT);
+            W[wi] -= lr * mHat / (Math.sqrt(vHat) + ADAM_EPS);
+          } else {
+            W[wi] -= lr * gw;
+          }
         }
       }
     }
