@@ -285,3 +285,55 @@ test('askCloudFallback: GLM -> forma reale, estrae il testo', async () => {
   const r = await askCloudFallback('ciao', { apiKey: 'k', provider: 'glm', fetchImpl });
   assert.equal(r.answer, 'Risposta da GLM');
 });
+
+// ============================================================
+// BUG REALE segnalato dal vivo dall'utente (2026-08-30, account reale con
+// una chiave di chat cloud configurata): "Chiedi a Momentum" restava
+// bloccato su "sto cercando..." indefinitamente. Isolato dal vivo:
+// extractAssetName chiama uno di questi provider PRIMA di ricadere sulla
+// chat generica — un fetch che resta "pending" senza mai rispondere né
+// fallire lasciava l'intera catena bloccata per sempre, mai un errore che
+// il try/catch a monte potesse intercettare. Timer finti: mai un test
+// reale da 30 secondi.
+// ============================================================
+test('askCloudFallback (Gemini): un fetch che non risponde mai scade con un errore chiaro, non blocca per sempre', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(
+    () => askCloudFallback('ciao', { apiKey: 'k', provider: 'gemini', fetchImpl: cheNonFiniscePiu }),
+    /non risponde da troppo tempo/,
+  );
+  t.mock.timers.tick(30_000);
+  await p;
+});
+
+test('askCloudFallback (provider OpenAI-compatibile, es. Groq): un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(
+    () => askCloudFallback('ciao', { apiKey: 'k', provider: 'groq', fetchImpl: cheNonFiniscePiu }),
+    /non risponde da troppo tempo/,
+  );
+  t.mock.timers.tick(30_000);
+  await p;
+});
+
+test('askCloudFallback (Anthropic): un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(
+    () => askCloudFallback('ciao', { apiKey: 'k', provider: 'anthropic', fetchImpl: cheNonFiniscePiu }),
+    /non risponde da troppo tempo/,
+  );
+  t.mock.timers.tick(30_000);
+  await p;
+});
+
+test('extractAssetName: un provider bloccato per sempre non blocca la chiamata per sempre — ritorna null onestamente, come ogni altro fallimento', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = extractAssetName('quanto vale apple?', { apiKey: 'k', provider: 'gemini', fetchImpl: cheNonFiniscePiu })
+    .then((r) => assert.equal(r, null));
+  t.mock.timers.tick(30_000);
+  await p;
+});

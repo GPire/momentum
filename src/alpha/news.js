@@ -6,6 +6,20 @@
 // risponde o la chiave manca, si dichiara e basta.
 'use strict';
 
+import { conTimeout } from '../core/con-timeout.js';
+
+// Nessuna delle 4 fonti sotto aveva un limite di tempo esplicito — lo
+// stesso buco già trovato e corretto in src/ai/local-sentiment.js (vedi
+// src/core/con-timeout.js): un host che resta "pending" senza mai
+// rispondere né fallire (misurato dal vivo con un provider a chiave reale
+// rate-limitato) lasciava `await fetchImpl(url)` bloccato per sempre,
+// mai intercettato dal try/catch perché non è mai un errore — e a
+// cascata bloccava PER SEMPRE "Chiedi a Momentum"/"Cerca un asset" su
+// "sto cercando...", indistinguibile per l'utente da un bug che non
+// risponde mai. 15s (non 60s come i modelli: qui è solo JSON, non un
+// download di decine di MB).
+const TIMEOUT_NOTIZIE_MS = 15_000;
+
 // Esportate (non più solo interne): src/ai/local-sentiment.js le riusa per
 // etichettare il punteggio calcolato ON-DEVICE con le STESSE soglie di
 // Alpha Vantage — un'unica scala per "bullish/bearish" in tutto il
@@ -47,7 +61,7 @@ export async function fetchNewsSentiment(symbol, { apiKey, fetchImpl = fetch, li
   const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey)}`;
   let json;
   try {
-    const res = await fetchImpl(url);
+    const res = await conTimeout(fetchImpl(url), TIMEOUT_NOTIZIE_MS, 'Alpha Vantage news non risponde da troppo tempo');
     if (!res.ok) throw new Error(`Alpha Vantage news: HTTP ${res.status}`);
     json = await res.json();
     if (json?.Note || json?.Information) {
@@ -98,7 +112,7 @@ export async function fetchFinnhubNews(symbol, { apiKey, fetchImpl = fetch, limi
   const url = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${fmt(from)}&to=${fmt(to)}&token=${encodeURIComponent(apiKey)}`;
   let json;
   try {
-    const res = await fetchImpl(url);
+    const res = await conTimeout(fetchImpl(url), TIMEOUT_NOTIZIE_MS, 'Finnhub news non risponde da troppo tempo');
     json = await res.json().catch(() => null);
     if (!res.ok || json?.error) throw new Error(json?.error || `Finnhub news: HTTP ${res.status}`);
   } catch (err) {
@@ -174,7 +188,7 @@ export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit 
   const url = `https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(query)}&tags=story&hitsPerPage=${limit}&restrictSearchableAttributes=title`;
   let json;
   try {
-    const res = await fetchImpl(url);
+    const res = await conTimeout(fetchImpl(url), TIMEOUT_NOTIZIE_MS, 'Hacker News non risponde da troppo tempo');
     if (!res.ok) throw new Error(`Hacker News: HTTP ${res.status}`);
     json = await res.json();
   } catch (err) {
@@ -214,7 +228,7 @@ export async function fetchNewsApiOrg(query, { apiKey, fetchImpl = fetch, limit 
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&pageSize=${limit}&apiKey=${encodeURIComponent(apiKey)}`;
   let json;
   try {
-    const res = await fetchImpl(url);
+    const res = await conTimeout(fetchImpl(url), TIMEOUT_NOTIZIE_MS, 'NewsAPI.org non risponde da troppo tempo');
     json = await res.json().catch(() => null);
     if (!res.ok || json?.status === 'error') throw new Error(json?.message || `NewsAPI.org: HTTP ${res.status}`);
   } catch (err) {

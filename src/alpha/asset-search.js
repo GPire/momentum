@@ -4,6 +4,15 @@
 // azioni/ETF. Mai un risultato inventato: fonte vuota → lista vuota.
 'use strict';
 
+import { conTimeout } from '../core/con-timeout.js';
+
+// Stesso buco già trovato e corretto in src/ai/local-sentiment.js: un
+// provider a chiave reale che resta "pending" senza mai rispondere né
+// fallire bloccava `await fetchImpl(url)` per sempre — a cascata "Chiedi a
+// Momentum"/"Cerca un asset" restava bloccato su "sto cercando..." per
+// sempre, mai un errore che il catch a monte potesse intercettare.
+const TIMEOUT_RICERCA_MS = 15_000;
+
 // BUG REALE trovato simulando la ricerca "tesla" (2026-07-27): CoinGecko
 // restituisce fino a 8 token cripto derivati/tokenizzati chiamati "Tesla"
 // (TSLAX, Tesla Ondo Tokenized, Backed Tesla...) — tutti legittimi come
@@ -17,7 +26,7 @@
 // ordinata da Alpha Vantage via matchScore), poi alle cripto per notorietà.
 export async function searchCrypto(query, { fetchImpl = fetch } = {}) {
   if (!query || !query.trim()) return [];
-  const res = await fetchImpl(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query.trim())}`);
+  const res = await conTimeout(fetchImpl(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query.trim())}`), TIMEOUT_RICERCA_MS, 'CoinGecko search non risponde da troppo tempo');
   if (!res.ok) throw new Error(`CoinGecko search: HTTP ${res.status}`);
   const json = await res.json();
   const coins = Array.isArray(json?.coins) ? json.coins : [];
@@ -67,7 +76,7 @@ export async function searchStock(query, { apiKey, fetchImpl = fetch } = {}) {
   if (!query || !query.trim()) return [];
   if (!apiKey) throw new Error('Serve la tua chiave Alpha Vantage personale (Momentum Vault → Prezzi live).');
   const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(query.trim())}&apikey=${encodeURIComponent(apiKey)}`;
-  const res = await fetchImpl(url);
+  const res = await conTimeout(fetchImpl(url), TIMEOUT_RICERCA_MS, 'Alpha Vantage search non risponde da troppo tempo');
   if (!res.ok) throw new Error(`Alpha Vantage search: HTTP ${res.status}`);
   const json = await res.json();
   if (json?.Note || json?.Information) throw new Error('Limite richieste Alpha Vantage raggiunto o chiave non valida — riprova tra un minuto.');
@@ -91,7 +100,7 @@ export async function searchStockTwelveData(query, { apiKey, fetchImpl = fetch }
   if (!query || !query.trim()) return [];
   if (!apiKey) throw new Error('Serve la tua chiave Twelve Data personale (Momentum Vault → Prezzi live).');
   const url = `https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(query.trim())}&apikey=${encodeURIComponent(apiKey)}`;
-  const res = await fetchImpl(url);
+  const res = await conTimeout(fetchImpl(url), TIMEOUT_RICERCA_MS, 'Twelve Data search non risponde da troppo tempo');
   if (!res.ok) throw new Error(`Twelve Data search: HTTP ${res.status}`);
   const json = await res.json();
   if (json?.status === 'error' || json?.code) throw new Error(json?.message || 'Twelve Data: chiave non valida o limite raggiunto.');
@@ -105,7 +114,7 @@ export async function searchStockFMP(query, { apiKey, fetchImpl = fetch } = {}) 
   if (!query || !query.trim()) return [];
   if (!apiKey) throw new Error('Serve la tua chiave Financial Modeling Prep personale (Momentum Vault → Prezzi live).');
   const url = `https://financialmodelingprep.com/stable/search-name?query=${encodeURIComponent(query.trim())}&apikey=${encodeURIComponent(apiKey)}`;
-  const res = await fetchImpl(url);
+  const res = await conTimeout(fetchImpl(url), TIMEOUT_RICERCA_MS, 'FMP search non risponde da troppo tempo');
   if (!res.ok) throw new Error(`FMP search: HTTP ${res.status}`);
   const json = await res.json();
   if (json?.['Error Message']) throw new Error(json['Error Message']);

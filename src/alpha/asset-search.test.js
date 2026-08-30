@@ -332,3 +332,56 @@ test('tabella statica: query senza corrispondenza -> nessun match statico, compo
   assert.equal(r.results.length, 1);
   assert.equal(r.results[0].kind, 'crypto');
 });
+
+// ============================================================
+// BUG REALE segnalato dal vivo dall'utente (2026-08-30, account reale con
+// chiavi configurate): "Cerca un asset" restava bloccato indefinitamente
+// per certi asset. Riprodotto in isolamento: un provider che resta
+// "pending" senza mai rispondere né fallire lasciava `await fetchImpl(url)`
+// bloccato per sempre — stesso buco già trovato e corretto in
+// src/ai/local-sentiment.js. Timer finti: mai un test reale da 15 secondi.
+// ============================================================
+test('searchCrypto: un fetch che non risponde mai scade con un errore chiaro, non blocca per sempre', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(() => searchCrypto('apple', { fetchImpl: cheNonFiniscePiu }), /non risponde da troppo tempo/);
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('searchStock: un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(() => searchStock('apple', { apiKey: 'k', fetchImpl: cheNonFiniscePiu }), /non risponde da troppo tempo/);
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('searchStockTwelveData: un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(() => searchStockTwelveData('apple', { apiKey: 'k', fetchImpl: cheNonFiniscePiu }), /non risponde da troppo tempo/);
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('searchStockFMP: un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(() => searchStockFMP('apple', { apiKey: 'k', fetchImpl: cheNonFiniscePiu }), /non risponde da troppo tempo/);
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('searchAsset: un provider azionario bloccato per sempre non impedisce comunque il risultato cripto/statico', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fetchImpl = async (url) => {
+    if (String(url).includes('coingecko')) return { ok: true, json: async () => ({ coins: [] }) };
+    return new Promise(() => {}); // il provider azionario resta bloccato per sempre
+  };
+  const p = searchAsset('apple', { apiKey: 'k', fetchImpl }).then((r) => {
+    assert.equal(r.results[0].symbol, 'AAPL', 'la tabella statica risponde comunque, il provider bloccato non impedisce il resto');
+  });
+  t.mock.timers.tick(15_000);
+  await p;
+});

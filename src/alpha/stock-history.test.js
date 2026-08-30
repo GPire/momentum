@@ -129,3 +129,35 @@ test('fetchStockMonthlySeriesCascade: prova anche FMP come terzo piano B', async
   assert.equal(r.provider, 'fmp');
   assert.equal(r.series.length, 1);
 });
+
+// ============================================================
+// BUG REALE segnalato dal vivo dall'utente (2026-08-30, account reale con
+// chiavi configurate): lo storico prezzi restava bloccato indefinitamente.
+// Riprodotto in isolamento: un provider che resta "pending" senza mai
+// rispondere né fallire lasciava `await fetchImpl(url)` bloccato per
+// sempre — stesso buco già trovato e corretto in src/ai/local-sentiment.js.
+// Timer finti: mai un test reale da 15 secondi.
+// ============================================================
+test('fetchStockMonthlySeries: un provider che non risponde mai NON blocca per sempre, torna serie vuota (mai un prezzo inventato)', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = fetchStockMonthlySeries('AAPL', { apiKey: 'k', fetchImpl: cheNonFiniscePiu, provider: 'alphavantage' })
+    .then((series) => assert.deepEqual(series, []));
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('fetchStockMonthlySeriesCascade: un provider bloccato per sempre non impedisce al successivo di rispondere', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fetchImpl = async (url) => {
+    if (String(url).includes('alphavantage')) return new Promise(() => {}); // resta bloccato per sempre
+    return { ok: true, json: async () => ({ values: [{ datetime: '2026-01-01', close: '50' }] }) };
+  };
+  const p = fetchStockMonthlySeriesCascade('AAPL', { keys: { alphavantage: 'a', twelvedata: 't' }, fetchImpl })
+    .then((r) => {
+      assert.equal(r.provider, 'twelvedata');
+      assert.equal(r.series.length, 1);
+    });
+  t.mock.timers.tick(15_000);
+  await p;
+});

@@ -15,6 +15,24 @@
 // consapevolmente.
 'use strict';
 
+import { conTimeout } from '../core/con-timeout.js';
+
+// BUG REALE segnalato dal vivo dall'utente (2026-08-30, account reale con
+// una chiave di chat cloud configurata): "Chiedi a Momentum" restava
+// bloccato su "sto cercando..." indefinitamente — mai un errore, mai una
+// risposta. Isolato dal vivo: extractAssetName (sotto) chiama uno di
+// questi provider per capire di quale asset parla una domanda formulata
+// in modo libero, PRIMA di ricadere sulla chat generica — se quella
+// chiamata resta "pending" senza mai rispondere né fallire (host lento/
+// rate-limitato, capita davvero con le API cloud gratuite), l'intera
+// catena restava bloccata per sempre, mai intercettata dal try/catch a
+// monte perché non è mai un errore. Stesso buco già trovato e corretto in
+// src/ai/local-sentiment.js (vedi src/core/con-timeout.js). 30s (non 15s
+// come le altre fonti dati di questa sessione): un completamento LLM con
+// grounding/ricerca web reale è onestamente più lento di una singola
+// chiamata JSON, tagliarlo troppo presto scarterebbe risposte vere.
+const TIMEOUT_CHAT_MS = 30_000;
+
 // Il tono conta: l'utente ha chiesto che la chat generica "sembri Momentum"
 // che risponde, non un'AI fredda e estranea — calda, motivante, capace di
 // spiegarsi anche a un bambino, MAI un consiglio d'investimento (quello
@@ -68,11 +86,11 @@ async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-flash-la
     contents: [{ parts: [{ text: question }] }],
   };
   if (grounding) body.tools = [{ google_search: {} }];
-  const res = await fetchImpl(url, {
+  const res = await conTimeout(fetchImpl(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
+  }), TIMEOUT_CHAT_MS, 'Gemini non risponde da troppo tempo');
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error?.message || `Gemini: HTTP ${res.status}`);
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -86,7 +104,7 @@ async function askGemini(question, { apiKey, fetchImpl, model = 'gemini-flash-la
 // DeepSeek, solo host/modello cambiano.
 function makeOpenAiCompatible(baseUrl, defaultModel, label) {
   return async (question, { apiKey, fetchImpl, model = defaultModel, systemPrompt = SYSTEM_PROMPT }) => {
-    const res = await fetchImpl(baseUrl, {
+    const res = await conTimeout(fetchImpl(baseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -94,7 +112,7 @@ function makeOpenAiCompatible(baseUrl, defaultModel, label) {
         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: question }],
         max_tokens: 400,
       }),
-    });
+    }), TIMEOUT_CHAT_MS, `${label} non risponde da troppo tempo`);
     const json = await res.json().catch(() => null);
     // Alcuni provider "OpenAI-compatibili" non lo sono fino in fondo:
     // xAI, per esempio, a volte restituisce `error` come STRINGA diretta
@@ -173,11 +191,11 @@ const askOpenAI = makeOpenAiCompatible('https://api.openai.com/v1/chat/completio
 // dal browser (altrimenti blocca per sicurezza — comportamento suo, non un
 // bug qui). A PAGAMENTO A CONSUMO come OpenAI: Claude Pro non include l'API.
 async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-haiku-20241022', systemPrompt = SYSTEM_PROMPT }) {
-  const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
+  const res = await conTimeout(fetchImpl('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({ model, max_tokens: 400, system: systemPrompt, messages: [{ role: 'user', content: question }] }),
-  });
+  }), TIMEOUT_CHAT_MS, 'Anthropic non risponde da troppo tempo');
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error?.message || `Anthropic: HTTP ${res.status}`);
   const text = json?.content?.[0]?.text;

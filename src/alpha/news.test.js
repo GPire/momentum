@@ -233,3 +233,59 @@ test('titoloParlaDi: titolo vuoto non passa mai', async () => {
   assert.equal(titoloParlaDi('', 'Apple'), false);
   assert.equal(titoloParlaDi(null, 'Apple'), false);
 });
+
+// ============================================================
+// BUG REALE segnalato dal vivo dall'utente (2026-08-30, account reale con
+// chiavi configurate): "Chiedi a Momentum" restava bloccato su "sto
+// cercando..." indefinitamente per certi asset — mai un errore, mai una
+// risposta. Riprodotto in isolamento: un provider a chiave reale che resta
+// "pending" senza mai rispondere né fallire (host lento/rate-limitato)
+// lasciava `await fetchImpl(url)` bloccato per sempre, esattamente lo
+// stesso buco già trovato e corretto in src/ai/local-sentiment.js (vedi
+// src/core/con-timeout.js, già testato a fondo lì). Qui si verifica solo
+// che il collegamento a conTimeout ci sia in ognuna delle 4 fonti — con i
+// timer finti, mai un test reale da 15 secondi.
+// ============================================================
+test('fetchNewsSentiment: un fetch che non risponde mai NON blocca per sempre, scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(
+    () => fetchNewsSentiment('AAPL', { apiKey: 'k', fetchImpl: cheNonFiniscePiu }),
+    /non risponde da troppo tempo/,
+  );
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('fetchFinnhubNews: un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(
+    () => fetchFinnhubNews('AAPL', { apiKey: 'k', fetchImpl: cheNonFiniscePiu }),
+    /non risponde da troppo tempo/,
+  );
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('fetchHackerNewsMentions: un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(
+    () => fetchHackerNewsMentions('Apple', { fetchImpl: cheNonFiniscePiu }),
+    /non risponde da troppo tempo/,
+  );
+  t.mock.timers.tick(15_000);
+  await p;
+});
+
+test('fetchNewsApiOrg: un fetch che non risponde mai scade con un errore chiaro', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const cheNonFiniscePiu = () => new Promise(() => {});
+  const p = assert.rejects(
+    () => fetchNewsApiOrg('Apple', { apiKey: 'k', fetchImpl: cheNonFiniscePiu }),
+    /non risponde da troppo tempo/,
+  );
+  t.mock.timers.tick(15_000);
+  await p;
+});
