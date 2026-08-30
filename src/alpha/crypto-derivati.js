@@ -36,6 +36,30 @@ const DATA_BASE = 'https://fapi.binance.com/futures/data';
 // moneta che Binance non quota sui perpetui USDT-margined.
 export const SIMBOLI_SUPPORTATI = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT'];
 
+// Nome/simbolo parlato → ticker Binance Futures — serve a collegare questo
+// modulo a "Chiedi a Momentum" (richiesto esplicitamente dall'utente dal
+// vivo, 2026-08-30: la funzione esisteva solo come bottone in "Cerca un
+// asset", MAI raggiungibile scrivendo una domanda). Solo le 8 monete
+// realmente coperte sopra, mai un nome che risolve a un simbolo inventato.
+const NOMI_SIMBOLI = {
+  bitcoin: 'BTCUSDT', btc: 'BTCUSDT',
+  ethereum: 'ETHUSDT', eth: 'ETHUSDT', ether: 'ETHUSDT',
+  solana: 'SOLUSDT', sol: 'SOLUSDT',
+  bnb: 'BNBUSDT', binancecoin: 'BNBUSDT',
+  xrp: 'XRPUSDT', ripple: 'XRPUSDT',
+  dogecoin: 'DOGEUSDT', doge: 'DOGEUSDT',
+  cardano: 'ADAUSDT', ada: 'ADAUSDT',
+  avalanche: 'AVAXUSDT', avax: 'AVAXUSDT',
+};
+
+export function simboloDaNome(testo) {
+  const t = String(testo || '').toLowerCase();
+  for (const [nome, simbolo] of Object.entries(NOMI_SIMBOLI)) {
+    if (new RegExp(`\\b${nome}\\b`).test(t)) return simbolo;
+  }
+  return null;
+}
+
 async function getJson(url, fetchImpl) {
   const res = await fetchImpl(url);
   if (!res.ok) throw new Error(`Binance Futures: HTTP ${res.status} su ${url}`);

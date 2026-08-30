@@ -6512,11 +6512,15 @@ window.selectAsset = async (idx) => {
     trackRecordHtml = tr || '';
   } catch (_) { /* grafico opzionale: nessun errore bloccante se manca */ }
   // "Confronta con i pari" (comps, 2026-08-30): solo azioni (serve il
-  // settore SEC del pannello, screener-settore.js) e solo con una chiave
-  // Alpha Vantage propria — ogni pari in più è una richiesta API in più,
-  // mai avviato senza un click esplicito dell'utente (stesso principio già
-  // usato per il download prezzi in tryAnswerCriptoDiversificazione).
-  const compsBtn = asset.kind === 'stock' && VaultDAO.state.liveDataKeys?.alphavantage
+  // settore SEC del pannello, screener-settore.js) — i pari veri richiedono
+  // una chiave Alpha Vantage personale (ogni pari in più è una richiesta
+  // API in più, mai avviato senza un click esplicito dell'utente), ma il
+  // BOTTONE resta sempre visibile anche senza chiave: nasconderlo del tutto
+  // rendeva la funzione invisibile e scopribile solo leggendo il codice —
+  // segnalato dal vivo dall'utente ("non mi sembrano collegate lato UI").
+  // showAssetComps gestisce l'assenza di chiave con un messaggio onesto e
+  // azionabile, non un silenzio.
+  const compsBtn = asset.kind === 'stock'
     ? `<button onclick="window.showAssetComps('${asset.symbol}')" id="comps-btn-${asset.symbol}" class="text-[10px] font-bold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Confronta con i pari →</button><div id="comps-result-${asset.symbol}" class="mt-1.5"></div>`
     : '';
   // Posizionamento derivati crypto (funding rate + open interest + long/short,
@@ -6549,7 +6553,14 @@ window.showAssetComps = async (symbol) => {
   const btn = document.getElementById(`comps-btn-${symbol}`);
   if (!box) return;
   const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
-  if (!apiKey) { box.innerHTML = `<p class="text-[10px] text-rose-300">Serve la tua chiave Alpha Vantage.</p>`; return; }
+  if (!apiKey) {
+    box.innerHTML = `<p class="text-[10px] text-rose-300">Il confronto con i pari usa i bilanci reali di Alpha Vantage: serve la tua chiave personale gratuita (pochi secondi, nessuna carta). <button id="comps-add-key-${symbol}" class="underline font-bold">Aggiungila →</button></p>`;
+    document.getElementById(`comps-add-key-${symbol}`)?.addEventListener('click', () => {
+      document.querySelector('[data-view="settings"]')?.click(); // Momentum Vault
+      setTimeout(() => window.openApiKeyGuide?.('alphavantage'), 250);
+    });
+    return;
+  }
   try {
     const [{ comparabili }, { fetchStockOverview }, { analizzaComps, testoComps }] = await Promise.all([
       import('./alpha/screener-settore.js'), import('./alpha/asset-overview.js'), import('./alpha/comps-multipli.js'),
@@ -14479,6 +14490,28 @@ const initApp = () => {
     }
   }
 
+  // Posizionamento derivati crypto via chat (src/alpha/crypto-derivati.js) —
+  // stessa funzione già disponibile come bottone in "Cerca un asset",
+  // collegata qui anche a una domanda scritta. `simboloDaNome` riconosce
+  // solo le 8 monete realmente coperte sui perpetui Binance: se la domanda
+  // non ne nomina una, ritorna false e si ricade sul QA normale, mai un
+  // simbolo indovinato.
+  async function tryAnswerCryptoPosizionamentoChat(question) {
+    try {
+      const { simboloDaNome, fetchPosizionamentoCrypto, analizzaPosizionamentoCrypto } = await import('./alpha/crypto-derivati.js');
+      const simbolo = simboloDaNome(question);
+      if (!simbolo) return false;
+      showQaThinking(`Cerco funding rate e posizionamento su ${simbolo}...`);
+      const dati = await fetchPosizionamentoCrypto(simbolo, { fetchImpl: fetch.bind(window) });
+      const r = analizzaPosizionamentoCrypto(dati);
+      if (!r.disponibile) { styleQaAnswer({ intent: 'crypto-posizionamento', answer: r.motivo }); return true; }
+      styleQaAnswer({ intent: 'crypto-posizionamento', data: r, answer: r.testo });
+      return true;
+    } catch (_) {
+      return false; // mai bloccante: si ricade sul QA normale
+    }
+  }
+
   // Divergenza sentiment↔prezzo (src/alpha/sentiment-divergence.js): scritta
   // e testata in una sessione precedente ma MAI collegata a nessuna UI —
   // stesso pattern già visto più volte in questo progetto (group-chat.js,
@@ -14717,6 +14750,18 @@ const initApp = () => {
         qaAnswer.classList.remove('hidden');
         haptic('light');
         const handled = await tryAnswerCriptoDiversificazione();
+        if (handled) { window.renderQaSuggestions?.(); return; }
+      }
+      // Posizionamento derivati crypto (funding rate/open interest/long-short,
+      // src/alpha/crypto-derivati.js) — segnalato dal vivo dall'utente: la
+      // funzione esisteva SOLO come bottone in "Cerca un asset", mai
+      // raggiungibile scrivendo una domanda in chat ("quando chiedo non noto
+      // differenze"). `simboloDaNome` riconosce solo le 8 monete realmente
+      // coperte sui perpetui Binance — mai un simbolo inventato.
+      if (/funding|posizionament|affollat|open interest|leva\b/i.test(question)) {
+        qaAnswer.classList.remove('hidden');
+        haptic('light');
+        const handled = await tryAnswerCryptoPosizionamentoChat(question);
         if (handled) { window.renderQaSuggestions?.(); return; }
       }
       const semanticSimilarity = await prepareSemanticSimilarity(question);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analizzaPosizionamentoCrypto, SIMBOLI_SUPPORTATI } from './crypto-derivati.js';
+import { analizzaPosizionamentoCrypto, SIMBOLI_SUPPORTATI, simboloDaNome } from './crypto-derivati.js';
 
 function serie(rate, n, drift = 0) {
   return Array.from({ length: n }, (_, i) => ({ rate: rate + drift * i, time: 1_700_000_000_000 + i * 28_800_000 }));
@@ -117,4 +117,28 @@ test('SIMBOLI_SUPPORTATI: solo simboli reali dei perpetui Binance, mai un ticker
   assert.ok(SIMBOLI_SUPPORTATI.includes('BTCUSDT'));
   assert.ok(SIMBOLI_SUPPORTATI.includes('ETHUSDT'));
   assert.ok(SIMBOLI_SUPPORTATI.length >= 5);
+});
+
+// simboloDaNome: collega il modulo a "Chiedi a Momentum" (richiesto dal
+// vivo dall'utente — la funzione esisteva solo come bottone, mai
+// raggiungibile scrivendo una domanda in chat).
+test('simboloDaNome: riconosce nome e ticker parlato per ogni moneta coperta', () => {
+  assert.equal(simboloDaNome('sono troppo affollato su bitcoin?'), 'BTCUSDT');
+  assert.equal(simboloDaNome('qual è il funding rate di btc'), 'BTCUSDT');
+  assert.equal(simboloDaNome('posizionamento su ethereum'), 'ETHUSDT');
+  assert.equal(simboloDaNome('affollamento su solana'), 'SOLUSDT');
+  assert.equal(simboloDaNome('dogecoin è affollato?'), 'DOGEUSDT');
+  assert.equal(simboloDaNome('avalanche funding'), 'AVAXUSDT');
+});
+
+test('simboloDaNome: confine di parola, non sottostringa (stesso errore già corretto altrove nel progetto)', () => {
+  // "ada" non deve matchare dentro "canada" o "strada"
+  assert.equal(simboloDaNome('quanto costa andare in canada'), null);
+  assert.equal(simboloDaNome('quanto vale ada'), 'ADAUSDT');
+});
+
+test('simboloDaNome: nessuna moneta riconosciuta -> null, mai un simbolo a caso', () => {
+  assert.equal(simboloDaNome('quanto ho speso questo mese?'), null);
+  assert.equal(simboloDaNome(''), null);
+  assert.equal(simboloDaNome(null), null);
 });
