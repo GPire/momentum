@@ -9251,7 +9251,7 @@ function renderNetWorth() {
         <summary class="cursor-pointer select-none text-[var(--gold)]">${tCh('nwRealNumbersSummary', __uiLang)}</summary>
         <div class="mt-2 space-y-1.5">
           ${regime ? `<p>${escapeHtml(regime.explanation)}</p>` : ''}
-          ${r ? `<p>${escapeHtml(r.testo)}</p>` : ''}
+          ${r ? `<p class="opacity-70">${tCh('alphaCauseEffectSub', __uiLang)}</p><p>${escapeHtml(r.testo)}</p>` : ''}
           <p>${tCh('nwGlobalRateCycle', __uiLang, (ciclo.percentile * 100).toFixed(0))}</p>
           <p class="opacity-70">${tCh('nwCorrelationNote', __uiLang)}</p>
         </div>
