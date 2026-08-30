@@ -6563,14 +6563,34 @@ window.showAssetComps = async (symbol) => {
     const peers = comp.comparabili.map((c, i) => peerOvs[i] ? { symbol: c.ticker, name: peerOvs[i].name, evToEbitda: peerOvs[i].evToEbitda, evToRevenue: peerOvs[i].evToRevenue } : null).filter(Boolean);
     const r = analizzaComps(target, peers);
     const testo = testoComps(r);
+    // Esporta CSV (2026-08-30, ricerca reale: gli analisti IB "care più
+    // degli agganci a Office che degli screenshot" — vogliono la tabella
+    // dentro il proprio modello Excel, non solo una frase da leggere).
+    window.__lastCompsResult = r;
+    const exportBtn = r.disponibile ? `<button onclick="window.downloadCompsCsv()" class="mt-1.5 text-[10px] font-bold text-indigo-300 underline">Esporta CSV →</button>` : '';
     box.innerHTML = r.disponibile
-      ? `<div class="p-2 rounded-lg border border-indigo-500/25 bg-indigo-950/10 text-indigo-200 text-[10px] leading-snug">${escapeHtml(testo)}</div>`
+      ? `<div class="p-2 rounded-lg border border-indigo-500/25 bg-indigo-950/10 text-indigo-200 text-[10px] leading-snug">${escapeHtml(testo)}${exportBtn}</div>`
       : `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(testo)}</p>`;
   } catch (e) {
     box.innerHTML = `<p class="text-[10px] text-rose-300">Confronto non riuscito: ${escapeHtml(e.message || 'errore sconosciuto')}.</p>`;
   } finally {
     if (btn) btn.disabled = false;
   }
+};
+
+window.downloadCompsCsv = async () => {
+  const r = window.__lastCompsResult;
+  if (!r?.disponibile) return;
+  const { esportaCompsCsv } = await import('./alpha/comps-multipli.js');
+  const csv = esportaCompsCsv(r);
+  if (!csv) return;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `comps_${r.target.symbol}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 window.addToWatchlist = (symbol, kind, id, name) => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analizzaComps, testoComps } from './comps-multipli.js';
+import { analizzaComps, testoComps, esportaCompsCsv } from './comps-multipli.js';
 
 test('senza pari, dichiara onestamente non disponibile', () => {
   const r = analizzaComps({ symbol: 'ACME' }, []);
@@ -79,4 +79,32 @@ test('testoComps: mai un consiglio di acquisto/vendita, sempre dichiarato come i
 test('testoComps: quando non disponibile, ritorna il motivo dichiarato', () => {
   const r = analizzaComps({ symbol: 'ACME' }, []);
   assert.equal(testoComps(r), r.motivo);
+});
+
+// ── esportaCompsCsv: gli analisti IB vogliono la tabella dentro Excel, non
+// solo una frase (ricerca 2026-08-30, complaint reale su Bloomberg/Capital IQ:
+// "care più degli agganci a Office che degli screenshot"). ──
+test('esportaCompsCsv: riga target + righe pari + riga mediana, stesse colonne', () => {
+  const target = { symbol: 'ACME', name: 'Acme Corp', evToEbitda: 12, evToRevenue: 3, ebitda: 1_000_000 };
+  const peers = [{ symbol: 'A', name: 'Alpha Inc', evToEbitda: 10, evToRevenue: 2.5 }, { symbol: 'B', name: 'Beta Ltd', evToEbitda: 10, evToRevenue: 2.5 }];
+  const r = analizzaComps(target, peers);
+  const csv = esportaCompsCsv(r);
+  const righe = csv.split('\r\n');
+  assert.equal(righe.length, 5); // intestazione + target + 2 pari + mediana
+  assert.match(righe[0], /Ticker,Nome,EV\/EBITDA,EV\/Revenue,Ruolo/);
+  assert.match(righe[1], /^ACME,Acme Corp,12,3,TARGET$/);
+  assert.match(righe[4], /MEDIANA PARI,10,2.5/);
+});
+
+test('esportaCompsCsv: un nome azienda con la virgola dentro non rompe il CSV (RFC 4180)', () => {
+  const target = { symbol: 'ACME', name: 'Acme, Inc.', evToEbitda: 12, ebitda: 1_000_000 };
+  const peers = [{ symbol: 'A', name: 'Alpha', evToEbitda: 10 }];
+  const r = analizzaComps(target, peers);
+  const csv = esportaCompsCsv(r);
+  assert.match(csv, /"Acme, Inc\."/);
+});
+
+test('esportaCompsCsv: quando non disponibile, ritorna stringa vuota (mai un CSV a metà)', () => {
+  const r = analizzaComps({ symbol: 'ACME' }, []);
+  assert.equal(esportaCompsCsv(r), '');
 });

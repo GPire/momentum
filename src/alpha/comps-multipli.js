@@ -75,10 +75,31 @@ export function analizzaComps(target, peers = []) {
     target: { symbol: target.symbol, name: target.name || target.symbol, evToEbitda: target.evToEbitda ?? null, evToRevenue: target.evToRevenue ?? null },
     numeroPari: peersValidi.length,
     pariConDato: { evEbitda: evEbitdaPeers.length, evRevenue: evRevenuePeers.length },
+    // Riga per riga, non solo la mediana aggregata — ricerca 2026 (analisti
+    // IB): "care più degli agganci a Office che degli screenshot", vogliono
+    // la tabella dentro il proprio modello, non solo una frase riassuntiva.
+    // Vedi esportaCompsCsv() sotto, e il pulsante "Esporta CSV" in main.js.
+    tabellaPari: peersValidi.map((p) => ({ symbol: p.symbol, name: p.name || p.symbol, evToEbitda: p.evToEbitda ?? null, evToRevenue: p.evToRevenue ?? null })),
     medianaEvEbitda, medianaEvRevenue,
     evImplicitoEbitda, evImplicitoRevenue,
     scostoEbitda, scostoRevenue,
   };
+}
+
+// CSV pronto per Excel/Fogli — riga target + righe pari, stesse colonne.
+// Nessuna libreria: RFC 4180 minimo (virgolette raddoppiate, mai un campo
+// che rompe il parsing su un nome azienda con la virgola dentro).
+function csvCell(v) {
+  const s = v === null || v === undefined ? '' : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+export function esportaCompsCsv(r) {
+  if (!r?.disponibile) return '';
+  const righe = [['Ticker', 'Nome', 'EV/EBITDA', 'EV/Revenue', 'Ruolo']];
+  righe.push([r.target.symbol, r.target.name, r.target.evToEbitda ?? '', r.target.evToRevenue ?? '', 'TARGET']);
+  for (const p of r.tabellaPari) righe.push([p.symbol, p.name, p.evToEbitda ?? '', p.evToRevenue ?? '', 'pari']);
+  righe.push(['', 'MEDIANA PARI', r.medianaEvEbitda ?? '', r.medianaEvRevenue ?? '', '']);
+  return righe.map((row) => row.map(csvCell).join(',')).join('\r\n');
 }
 
 // ── Il testo per l'utente — bambino di 8 anni, mai un consiglio ──
