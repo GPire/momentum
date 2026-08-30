@@ -218,14 +218,14 @@ test('t: tutte le chiavi dashImport* esistono in IT/EN/ES/DE/FR', () => {
 // dall'utente che era rimasta solo in italiano dopo la prima passata di
 // traduzioni. ──
 
-test('t: tutte le chiavi wn* (header + 8 voci × titolo/testo) esistono in IT/EN/ES/DE/FR', () => {
+test('t: tutte le chiavi wn* (header + 12 voci × titolo/testo) esistono in IT/EN/ES/DE/FR', () => {
   const chiavi = ['wnEyebrow', 'wnTitle', 'wnClose'];
-  for (const rel of ['0827', '0828']) {
+  for (const rel of ['0827', '0828', '0830']) {
     for (let i = 0; i < 4; i++) {
       chiavi.push(`wn${rel}_${i}_t`, `wn${rel}_${i}_d`);
     }
   }
-  assert.equal(chiavi.length, 3 + 16);
+  assert.equal(chiavi.length, 3 + 24);
   for (const lang of ['it', 'en', 'es', 'de', 'fr', 'nl']) {
     for (const k of chiavi) {
       assert.notEqual(t(k, lang), k, `chiave "${k}" mancante in lingua "${lang}"`);

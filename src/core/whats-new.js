@@ -100,6 +100,39 @@ export const RELEASES = [
       },
     ],
   },
+  {
+    versione: '2026-08-30',
+    voci: [
+      {
+        colore: 'primary',
+        icona: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+        titolo: 'Chiedi "Apple" o "Tesla", punto e basta',
+        testo: 'Scrivere il nome secco di un\'azione o una cripto in chat ora funziona — prima serviva una frase completa ("quanto vale..."), e se proprio non trova nulla te lo dice chiaramente, invece del solito "non lo so".',
+        titoloKey: 'wn0830_0_t', testoKey: 'wn0830_0_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<path d="M3 3v18h18M7 14l4-4 4 4 4-8"/>',
+        titolo: 'Storico prezzi azionario, senza configurare nulla',
+        testo: 'Apple, Tesla, NVIDIA e molte altre ora mostrano un grafico storico reale anche senza una chiave dati personale — dichiarato sempre onestamente quando il prezzo viene da questa fonte.',
+        titoloKey: 'wn0830_1_t', testoKey: 'wn0830_1_d',
+      },
+      {
+        colore: 'purple',
+        icona: '<path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/>',
+        titolo: 'Comparabili e posizionamento crypto, anche in chat',
+        testo: 'Il confronto con i pari (EV/EBITDA) e il posizionamento sui derivati crypto (funding rate, affollamento) prima erano solo un bottone — ora si chiedono anche scrivendo, es. "sono troppo affollato su bitcoin?".',
+        titoloKey: 'wn0830_2_t', testoKey: 'wn0830_2_d',
+      },
+      {
+        colore: 'green',
+        icona: '<path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/>',
+        titolo: 'Mai più un\'attesa infinita',
+        testo: 'Se una fonte esterna non risponde, ora Momentum lo dice entro pochi secondi invece di restare bloccato su "sto cercando..." per sempre.',
+        titoloKey: 'wn0830_3_t', testoKey: 'wn0830_3_d',
+      },
+    ],
+  },
 ];
 
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
