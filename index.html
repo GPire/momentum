@@ -3773,6 +3773,12 @@
                  <!-- Confronto periodi (src/predict/period-compare.js): "quanto ho
                       speso questo mese rispetto al mese scorso, per categoria" —
                       dati reali già indicizzati per mese, nessun nuovo motore. -->
+                 <!-- Sblocco progressivo, stesso principio della card sopra
+                      (portfolio-locked-teaser): un unico avviso invece di
+                      period-compare/causal-graph/subscriptions vuote una
+                      dietro l'altra per chi ha ancora poco storico. -->
+                 <div class="card p-6 order-4 hidden" id="activity-locked-teaser"></div>
+
                  <div class="card p-6 order-4" id="period-compare-card">
                     <h3 class="eyebrow" data-i18n-key="alphaPeriodCompareTitle">Confronto periodi</h3>
                     <p class="card-sub" data-i18n-key="alphaPeriodCompareSub">Come cambia la spesa per categoria rispetto al periodo prima</p>

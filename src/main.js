@@ -9712,7 +9712,10 @@ function renderPeriodCompare(mode = __periodCompareMode) {
   const curKeys = isYear ? lastNMonthKeys(ref, 12, 1) : lastNMonthKeys(ref, 1, 1);
   const prevKeys = isYear ? lastNMonthKeys(ref, 12, 13) : lastNMonthKeys(ref, 1, 2);
   const r = comparePeriods(allTx, curKeys, prevKeys);
-  if (r.current === 0 && r.previous === 0) {
+  const periodEmpty = r.current === 0 && r.previous === 0;
+  document.getElementById('period-compare-card')?.classList.toggle('hidden', periodEmpty);
+  setActivityLocked('period', periodEmpty, tCh('alphaPeriodCompareTitle', __uiLang));
+  if (periodEmpty) {
     bodyEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Non ho ancora ${isYear ? 'due anni' : 'due mesi'} completi di storia da confrontare.</p>`;
     return;
   }
@@ -9861,6 +9864,8 @@ async function renderCausalGraphViz() {
     }));
   if (links.length && links.length !== VaultDAO.state.__ultimiLegamiCausali) { VaultDAO.state.__ultimiLegamiCausali = links.length; controllaTraguardi(); }
 
+  document.getElementById('causal-graph-card')?.classList.toggle('hidden', !links.length);
+  setActivityLocked('causal', !links.length, tCh('alphaLinkedCatsTitle', __uiLang));
   if (!links.length) {
     el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(analisi.riassunto || 'Non emergono ancora legami affidabili tra categorie nei tuoi dati (serve più storia).')}</p>`;
     return;
@@ -10036,6 +10041,8 @@ const renderSubscriptions = () => {
   const s = subscriptionSummary(VaultDAO.state.transactions, new Date());
   if (totalEl) totalEl.textContent = s.count ? tCh('alphaSubsPerMonth', __uiLang, formatMoney(s.monthlyTotal)) : '';
   if (totalEl) totalEl.title = tCh('alphaSubsIncludesNote', __uiLang);
+  document.getElementById('subscriptions-card')?.classList.toggle('hidden', !s.count);
+  setActivityLocked('subs', !s.count, tCh('alphaSubsTitle', __uiLang));
   if (!s.count) {
     list.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('alphaSubsEmpty', __uiLang)}</p>`;
     return;
@@ -12243,6 +12250,25 @@ window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
 // generico "vai in impostazioni" — un acquisto registrato lì (poi confermato
 // con ticker/quantità nel modale dedicato) è il vero modo di aggiungere una
 // posizione, non c'è un pulsante "aggiungi posizione" separato.
+// Sblocco progressivo, secondo cluster (Confronto periodi/Categorie
+// collegate/Abbonamenti): ognuna delle tre chiama questa funzione quando si
+// nasconde o riappare — stato per-chiave (mai un array con push, una di
+// queste tre può ridisegnarsi da sola in modo asincrono dopo la prima
+// passata: causal-graph-viz aspetta il contesto macro) e la card
+// riassuntiva si ridisegna a ogni chiamata, mai solo a fine funzione.
+window.__activityLocked = {};
+function setActivityLocked(key, isLocked, label) {
+  window.__activityLocked[key] = isLocked ? label : null;
+  const teaser = document.getElementById('activity-locked-teaser');
+  if (!teaser) return;
+  const lista = Object.values(window.__activityLocked).filter(Boolean);
+  teaser.classList.toggle('hidden', !lista.length);
+  if (!lista.length) return;
+  teaser.innerHTML = `
+    <h3 class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>${tCh('activityLockedTitle', __uiLang)}</span></h3>
+    <p class="card-sub">${tCh('activityLockedSub', __uiLang, lista.join(', '))}</p>`;
+}
+
 window.goToInvestQuickAdd = () => {
   navigate('dashboard');
   setTimeout(() => {
