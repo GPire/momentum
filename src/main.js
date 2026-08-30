@@ -9,7 +9,7 @@ import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
-import { subscriptionSummary } from './predict/subscriptions.js';
+import { subscriptionSummary, detectDormantSubscriptions, dormantSubscriptionKey } from './predict/subscriptions.js';
 import { getWeeklyStatus } from './predict/weekly-budget.js';
 import { getDailySafeToSpend, getAdvisorInsights, getMonthEndProjection, getUpcomingCharges, getMonthlyCommitments } from './predict/advisor.js';
 import { investableSurplus } from './alpha/bridge.js';
@@ -9886,6 +9886,7 @@ const renderSubscriptions = () => {
   const list = document.getElementById('subs-list');
   const totalEl = document.getElementById('subs-total');
   if (!list) return;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const s = subscriptionSummary(VaultDAO.state.transactions, new Date());
   if (totalEl) totalEl.textContent = s.count ? tCh('alphaSubsPerMonth', __uiLang, formatMoney(s.monthlyTotal)) : '';
   if (totalEl) totalEl.title = tCh('alphaSubsIncludesNote', __uiLang);
@@ -9906,17 +9907,38 @@ const renderSubscriptions = () => {
       : `<b>${a.name}</b> è salito da ${formatMoney(a.baseline)} a ${formatMoney(a.current)} (+${a.totalPct}%) un po' alla volta: <b>+${formatMoney(a.annualImpact)}/anno</b> senza che si notasse.`;
     return `<div class="flex items-start gap-2 p-2.5 rounded-xl border border-amber-500/25 bg-amber-950/10 text-amber-200 text-[11px] leading-snug">${warnIco}<span>${body}</span></div>`;
   }).join('');
-  list.innerHTML = (anticipatedHtml ? `<div class="flex flex-col gap-2 mb-2">${anticipatedHtml}</div>` : '') + s.subscriptions.slice(0, 12).map(sub => {
+  // "Abbonamenti dimenticati" (2026-08-30): Momentum vede l'estratto conto,
+  // MAI se il servizio è davvero usato — mai un giudizio "non lo usi più",
+  // solo il fatto misurabile "attivo da X giorni, mai riguardato qui".
+  // subReviewedAt persiste il click "Controllato" per abbonamento (stesso
+  // pattern di chatSeenAt nei gruppi spesa).
+  const dormant = detectDormantSubscriptions(VaultDAO.state.transactions, new Date(), { reviewedAt: VaultDAO.state.subReviewedAt || {} }).slice(0, 3);
+  const eyeIco = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const dormantHtml = dormant.map(d => `
+    <div class="flex items-start gap-2 p-2.5 rounded-xl border border-sky-500/25 bg-sky-950/10 text-sky-200 text-[11px] leading-snug">
+      ${eyeIco}
+      <span class="flex-1 min-w-0">${tCh('alphaSubsDormantBody', __uiLang, esc(d.name), d.daysSinceFirst, formatMoney(d.totalPaidSoFar))}</span>
+      <button onclick="window.markSubReviewed('${esc(d.key)}')" class="shrink-0 text-[10px] font-bold text-sky-300 underline whitespace-nowrap">${tCh('alphaSubsDormantReview', __uiLang)}</button>
+    </div>`).join('');
+
+  list.innerHTML = (dormantHtml ? `<div class="flex flex-col gap-2 mb-2">${dormantHtml}</div>` : '') + (anticipatedHtml ? `<div class="flex flex-col gap-2 mb-2">${anticipatedHtml}</div>` : '') + s.subscriptions.slice(0, 12).map(sub => {
     const hike = hikeMap.get(sub.name);
     const cadenzaLabel = sub.cadenza && sub.cadenza !== 'mensile' ? ` · <span class="text-indigo-300">${sub.cadenza}</span>` : '';
     return `<div class="flex items-center justify-between gap-3 p-2 rounded-xl" style="background:rgba(255,255,255,0.03)">
       <div class="min-w-0">
-        <p class="text-sm font-bold truncate">${sub.name}</p>
+        <p class="text-sm font-bold truncate">${esc(sub.name)}</p>
         <p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('alphaSubsNextDate', __uiLang, fmtDay(sub.nextDate))}${cadenzaLabel}${hike ? ` · <span class="text-rose-400">${tCh('alphaSubsHikeNote', __uiLang, hike.increasePct, formatMoney(hike.previousAmount))}</span>` : ''}</p>
       </div>
       <span class="text-sm font-black font-mono shrink-0">${formatMoney(sub.amount)}</span>
     </div>`;
   }).join('');
+};
+
+window.markSubReviewed = (key) => {
+  if (!VaultDAO.state.subReviewedAt) VaultDAO.state.subReviewedAt = {};
+  VaultDAO.state.subReviewedAt[key] = Date.now();
+  VaultDAO.save();
+  renderSubscriptions();
 };
 
 // Rende uniformi tutti gli avvisi in #radar-alerts-container: anomalie

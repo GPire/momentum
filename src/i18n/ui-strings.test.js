@@ -878,3 +878,15 @@ test('t: tutte le chiavi alphaGoals*/alphaSubs* (obiettivi risparmio, abbonament
   assert.equal(t('alphaGoalsProgressLine', 'en', '100€', '500€', 20), '100€ of 500€ (20%)');
   assert.equal(t('alphaSubsPerMonth', 'it', '15€'), '15€/mese');
 });
+
+test('t: tutte le chiavi alphaSubsDormant* (abbonamenti dimenticati, 2026-08-30) esistono nelle 7 lingue', () => {
+  const chiavi = ['alphaSubsDormantTitle', 'alphaSubsDormantSub', 'alphaSubsDormantBody', 'alphaSubsDormantReview'];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang, 'Netflix', 200, '19,98 €');
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
+  assert.match(t('alphaSubsDormantBody', 'it', 'Netflix', 200, '19,98 €'), /Netflix/);
+});

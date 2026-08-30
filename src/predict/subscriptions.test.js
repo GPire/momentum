@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { detectRecurring, detectPriceHikes } from "./subscriptions.js";
+import { detectRecurring, detectPriceHikes, detectDormantSubscriptions, dormantSubscriptionKey } from "./subscriptions.js";
 
 function monthlySeries(description, category, amounts, startDate = "2026-03-15") {
   const start = new Date(startDate);
@@ -169,4 +169,42 @@ test('subscriptionSummary: un abbonamento annuale conta come amount/12 nel total
   assert.ok(Math.abs(prime.monthlyEquivalent - 3) < 0.01); // 36/12 = 3
   // totale mensile = 3 (Prime pro-rata) + 9.99 (Netflix), NON 36 + 9.99
   assert.ok(Math.abs(s.monthlyTotal - 12.99) < 0.02);
+});
+
+// ── detectDormantSubscriptions: "abbonamento dimenticato" — onestà: Momentum
+// non sa se il servizio è USATO, sa solo da quanto tempo l'utente non l'ha
+// mai riguardato nell'app. Mai un giudizio "non lo usi più". ──
+test("dormant: un abbonamento con 12 mesi di storia e mai riguardato viene segnalato", () => {
+  const allTx = { all: monthlySeries("Netflix", "abbonamenti", Array(12).fill(9.99)) };
+  const refDate = new Date("2027-03-20"); // ~12 mesi dopo l'ultimo addebito generato
+  const dormant = detectDormantSubscriptions(allTx, refDate);
+  assert.equal(dormant.length, 1);
+  assert.equal(dormant[0].name, "Netflix");
+  assert.ok(dormant[0].daysSinceFirst >= 180);
+  assert.equal(dormant[0].neverReviewed, true);
+});
+
+test("dormant: un abbonamento nuovo (4 mesi) non viene segnalato — serve tempo per parlare di dimenticato", () => {
+  const allTx = { all: monthlySeries("Spotify", "abbonamenti", Array(4).fill(9.99)) };
+  const refDate = new Date("2026-07-20"); // ~4 mesi dopo l'inizio, sotto la soglia di 180gg
+  const dormant = detectDormantSubscriptions(allTx, refDate);
+  assert.equal(dormant.length, 0);
+});
+
+test("dormant: un abbonamento riguardato di recente non viene segnalato, anche se vecchio", () => {
+  const allTx = { all: monthlySeries("Netflix", "abbonamenti", Array(12).fill(9.99)) };
+  const refDate = new Date("2027-03-20");
+  const key = dormantSubscriptionKey({ category: "abbonamenti", name: "Netflix" });
+  const reviewedAt = { [key]: new Date("2027-02-20").toISOString() }; // riguardato 1 mese fa
+  const dormant = detectDormantSubscriptions(allTx, refDate, { reviewedAt });
+  assert.equal(dormant.length, 0);
+});
+
+test("dormant: una revisione vecchia quanto la soglia stessa non basta a tenerlo silenzioso per sempre", () => {
+  const allTx = { all: monthlySeries("Netflix", "abbonamenti", Array(12).fill(9.99)) };
+  const refDate = new Date("2027-03-20");
+  const key = dormantSubscriptionKey({ category: "abbonamenti", name: "Netflix" });
+  const reviewedAt = { [key]: new Date("2026-06-01").toISOString() }; // riguardato >180gg fa
+  const dormant = detectDormantSubscriptions(allTx, refDate, { reviewedAt });
+  assert.equal(dormant.length, 1, "una revisione troppo vecchia non deve azzittire per sempre l'avviso");
 });

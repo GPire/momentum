@@ -946,6 +946,10 @@ const S = {
     alphaSubsIncludesNote: 'Include anche gli abbonamenti annuali/trimestrali, riportati a costo mensile equivalente',
     alphaSubsNextDate: (d) => `prossimo ~${d}`,
     alphaSubsHikeNote: (pct, prev) => `↑ +${pct}% (era ${prev})`,
+    alphaSubsDormantTitle: 'Abbonamenti dimenticati',
+    alphaSubsDormantSub: 'Attivi da tanto tempo, mai riguardati qui dentro — vale la pena controllarli.',
+    alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> ti addebita da almeno ${days} giorni (${total} pagati finora) — l'hai mai riguardato?`,
+    alphaSubsDormantReview: 'Controllato, va bene così',
   },
   en: {
     chSimTitle: 'Working in Switzerland?',
@@ -1763,6 +1767,10 @@ const S = {
     alphaSubsIncludesNote: 'Also includes annual/quarterly subscriptions, converted to an equivalent monthly cost',
     alphaSubsNextDate: (d) => `next ~${d}`,
     alphaSubsHikeNote: (pct, prev) => `↑ +${pct}% (was ${prev})`,
+    alphaSubsDormantTitle: 'Forgotten subscriptions',
+    alphaSubsDormantSub: 'Active for a long time, never reviewed here — worth a look.',
+    alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> has been charging you for at least ${days} days (${total} paid so far) — have you checked it lately?`,
+    alphaSubsDormantReview: "Checked, it's fine",
   },
   de: {
     chSimTitle: 'Arbeitest du in der Schweiz?',
@@ -2551,6 +2559,10 @@ const S = {
     alphaSubsIncludesNote: 'Enthält auch jährliche/vierteljährliche Abos, umgerechnet auf einen äquivalenten Monatspreis',
     alphaSubsNextDate: (d) => `nächste ~${d}`,
     alphaSubsHikeNote: (pct, prev) => `↑ +${pct}% (war ${prev})`,
+    alphaSubsDormantTitle: 'Vergessene Abos',
+    alphaSubsDormantSub: 'Seit langem aktiv, hier nie überprüft — ein Blick lohnt sich.',
+    alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> bucht dich seit mindestens ${days} Tagen ab (bisher ${total} bezahlt) — hast du es zuletzt geprüft?`,
+    alphaSubsDormantReview: 'Geprüft, alles gut',
   },
   fr: {
     chSimTitle: 'Vous travaillez en Suisse ?',
@@ -3338,6 +3350,10 @@ const S = {
     alphaSubsIncludesNote: 'Inclut aussi les abonnements annuels/trimestriels, ramenés à un coût mensuel équivalent',
     alphaSubsNextDate: (d) => `prochain ~${d}`,
     alphaSubsHikeNote: (pct, prev) => `↑ +${pct}% (était ${prev})`,
+    alphaSubsDormantTitle: 'Abonnements oubliés',
+    alphaSubsDormantSub: "Actifs depuis longtemps, jamais revus ici — ça vaut le coup d'œil.",
+    alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> te prélève depuis au moins ${days} jours (${total} payés jusqu'ici) — l'as-tu vérifié récemment ?`,
+    alphaSubsDormantReview: 'Vérifié, tout va bien',
   },
   // Spagna (autónomos, src/predict/tax-es.js) — la lingua vera per questa
   // schermata, non un fallback come le altre 4 sopra. Nessuna chiave
@@ -4126,6 +4142,10 @@ const S = {
     alphaSubsIncludesNote: 'Incluye también los abonos anuales/trimestrales, convertidos a coste mensual equivalente',
     alphaSubsNextDate: (d) => `próximo ~${d}`,
     alphaSubsHikeNote: (pct, prev) => `↑ +${pct}% (era ${prev})`,
+    alphaSubsDormantTitle: 'Suscripciones olvidadas',
+    alphaSubsDormantSub: 'Activas desde hace tiempo, nunca revisadas aquí — vale la pena mirarlas.',
+    alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> te cobra desde hace al menos ${days} días (${total} pagados hasta ahora) — ¿la has revisado últimamente?`,
+    alphaSubsDormantReview: 'Revisado, está bien',
   },
   // Olandese (2026-08-29) — Paesi Bassi + Fiandre (Belgio), aggiunto dopo
   // ricerca (Tricount, stessa categoria di prodotto della divisione spese
@@ -4884,6 +4904,10 @@ const S = {
     alphaSubsIncludesNote: 'Inclusief jaarlijkse/driemaandelijkse abonnementen, omgerekend naar een equivalente maandelijkse kost',
     alphaSubsNextDate: (d) => `volgende ~${d}`,
     alphaSubsHikeNote: (pct, prev) => `↑ +${pct}% (was ${prev})`,
+    alphaSubsDormantTitle: 'Vergeten abonnementen',
+    alphaSubsDormantSub: 'Al lang actief, hier nooit bekeken — een blik waard.',
+    alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> incasseert al minstens ${days} dagen (tot nu toe ${total} betaald) — heb je het onlangs bekeken?`,
+    alphaSubsDormantReview: 'Bekeken, prima zo',
   },
   // Portoghese (2026-08-29) — Brasile, non solo "gratis" come nel piano:
   // segnale concreto già nel repo, non un'ipotesi. `notification-parser.js`
@@ -5652,6 +5676,10 @@ const S = {
     alphaSubsIncludesNote: 'Inclui também assinaturas anuais/trimestrais, convertidas para um custo mensal equivalente',
     alphaSubsNextDate: (d) => `próxima ~${d}`,
     alphaSubsHikeNote: (pct, prev) => `↑ +${pct}% (era ${prev})`,
+    alphaSubsDormantTitle: 'Assinaturas esquecidas',
+    alphaSubsDormantSub: 'Ativas há muito tempo, nunca revisadas aqui — vale a pena dar uma olhada.',
+    alphaSubsDormantBody: (name, days, total) => `<b>${name}</b> te cobra há pelo menos ${days} dias (${total} pagos até agora) — você revisou recentemente?`,
+    alphaSubsDormantReview: 'Revisado, está tudo bem',
   },
 };
 

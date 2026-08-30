@@ -16,6 +16,8 @@ const DEFAULT_OPTS = {
   creepThreshold: 0.12,    // 12% di aumento CUMULATO (creep silenzioso)
   minForTrend: 3,          // addebiti minimi per parlare di "trend"
   anticipateWindow: 12,    // giorni: quanto prima avvisare del prossimo addebito
+  dormantMinDays: 180,     // "dormiente" solo dopo mezzo anno di storia, mai al primo addebito
+  dormantMinOccurrences: 4, // storia minima per non confondere un abbonamento nuovo con uno dimenticato
 };
 
 // BUG REALE trovato con ricerca di mercato (2026-08-17): il rilevatore
@@ -195,4 +197,42 @@ export function detectPriceHikes(allTx, opts = {}) {
     }
   }
   return hikes.sort((a, b) => b.increasePct - a.increasePct);
+}
+
+// "Abbonamento dimenticato" — onestà (regola #1): Momentum vede l'estratto
+// conto, MAI se l'app/servizio viene davvero usata. Non dichiara mai "non lo
+// usi più" (non lo sa), dichiara il fatto misurabile: da quanto tempo questo
+// addebito ricorre senza che l'utente l'abbia MAI riguardato in Momentum —
+// che è il proxy onesto più vicino a "te ne sei dimenticato" disponibile con
+// i dati che l'app ha davvero. `reviewedAt`: mappa opzionale
+// {chiaveAbbonamento: timestampMs} — chi chiama (main.js) la popola quando
+// l'utente apre/conferma un abbonamento nella UI, stesso pattern già in uso
+// per `chatSeenAt` nei gruppi spesa. Senza `reviewedAt` (o con la voce
+// assente), il "mai riguardato" resta l'unica interpretazione onesta.
+export function dormantSubscriptionKey(sub) {
+  return `${sub.category}::${sub.name}`.toLowerCase();
+}
+
+export function detectDormantSubscriptions(allTx, referenceDate = new Date(), opts = {}) {
+  const o = { ...DEFAULT_OPTS, ...opts };
+  const reviewedAt = opts.reviewedAt || {};
+  const now = new Date(referenceDate);
+  const summary = subscriptionSummary(allTx, now, opts);
+
+  return summary.subscriptions
+    .filter(s => s.occurrences >= o.dormantMinOccurrences)
+    .map(s => {
+      const key = dormantSubscriptionKey(s);
+      const firstDate = new Date(s.lastDate);
+      firstDate.setDate(firstDate.getDate() - Math.round((s.occurrences - 1) * (s.avgInterval || 30)));
+      const daysSinceFirst = Math.round((now - firstDate) / 86_400_000);
+      const daysSinceReview = reviewedAt[key] ? Math.round((now - new Date(reviewedAt[key])) / 86_400_000) : null;
+      // "Mai riguardato" = nessuna voce in reviewedAt (interpretazione onesta
+      // di default) OPPURE una revisione precedente ormai vecchia quanto la
+      // finestra dormiente stessa — non basta un click una tantum anni fa.
+      const neverReviewed = daysSinceReview === null || daysSinceReview >= o.dormantMinDays;
+      return { ...s, key, daysSinceFirst, daysSinceReview, totalPaidSoFar: +(s.amount * s.occurrences).toFixed(2), neverReviewed };
+    })
+    .filter(s => s.daysSinceFirst >= o.dormantMinDays && s.neverReviewed)
+    .sort((a, b) => b.daysSinceFirst - a.daysSinceFirst);
 }
