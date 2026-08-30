@@ -49,6 +49,15 @@ export async function fetchStockOverview(symbol, { apiKey, fetchImpl = fetch } =
     industry: json.Industry || null,
     marketCap: Number.isFinite(+json.MarketCapitalization) ? +json.MarketCapitalization : null,
     peRatio: Number.isFinite(+json.PERatio) ? +json.PERatio : null,
+    // Multipli di mercato per i comps (2026-08-30): la stessa risposta li
+    // porta già (EVToEBITDA/EVToRevenue), scaricati per ogni ricerca e mai
+    // letti finora — vedi src/alpha/comps-multipli.js. `null` onesto se
+    // Alpha Vantage non li espone per questa azienda (perdita operativa,
+    // small cap poco coperta), mai uno zero finto.
+    evToEbitda: Number.isFinite(+json.EVToEBITDA) ? +json.EVToEBITDA : null,
+    evToRevenue: Number.isFinite(+json.EVToRevenue) ? +json.EVToRevenue : null,
+    ebitda: Number.isFinite(+json.EBITDA) ? +json.EBITDA : null,
+    revenueTTM: Number.isFinite(+json.RevenueTTM) ? +json.RevenueTTM : null,
     // La stessa risposta contiene gia' redditivita', margini e multipli: erano
     // scaricati a ogni ricerca e buttati via. `fondamentali.js` li legge senza
     // una chiamata in piu' e dice a quali criteri dei maestri questa azienda

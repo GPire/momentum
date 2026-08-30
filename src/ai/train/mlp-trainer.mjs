@@ -113,7 +113,7 @@ function softmax(logits) {
 //
 // examples: [{ sparse:[[idx,val],...], y: classIndex }, ...]
 // Ritorna { coefs:[W1,...,Wn] (annidati number[][]), intercepts:[b1,...,bn] }.
-export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epochs = 30, lr = 0.3, l2 = 1e-5, seed = 42, onEpoch = null, labelSmoothing = 0 }) {
+export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epochs = 30, lr = 0.3, l2 = 1e-5, seed = 42, onEpoch = null, labelSmoothing = 0, optimizer = 'sgd' }) {
   const rnd = mulberry32(seed);
   const gauss = () => { // Box-Muller, per un'inizializzazione He più sana di uniform(-1,1)
     let u = 0, v = 0;
@@ -138,6 +138,35 @@ export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epo
     Wrest.push(W);
   }
 
+  // Adam (Kingma & Ba, 2014, arXiv:1412.6980), opzionale — SGD per-esempio
+  // (non a mini-batch) ha un gradiente molto rumoroso a ogni singolo
+  // aggiornamento; Adam mantiene momento (m) e varianza (v) per parametro,
+  // che smorzano quel rumore ed è documentato aiutare proprio le reti più
+  // profonde ad allenarsi bene — misurato dal vivo su questo stesso
+  // problema: il Meso (2 strati nascosti) restava sistematicamente sotto
+  // al Nano (1 strato) con SGD semplice, nonostante più capacità nominale.
+  const useAdam = optimizer === 'adam';
+  const ADAM_B1 = 0.9, ADAM_B2 = 0.999, ADAM_EPS = 1e-8;
+  let adamT = 0;
+  const mW0 = useAdam ? new Float64Array(W0.length) : null;
+  const vW0 = useAdam ? new Float64Array(W0.length) : null;
+  const mB = useAdam ? b.map(l => new Array(l.length).fill(0)) : null;
+  const vB = useAdam ? b.map(l => new Array(l.length).fill(0)) : null;
+  const mWrest = useAdam ? Wrest.map(W => W.map(row => new Array(row.length).fill(0))) : null;
+  const vWrest = useAdam ? Wrest.map(W => W.map(row => new Array(row.length).fill(0))) : null;
+  // Aggiorna UN parametro scalare, SGD o Adam a seconda di useAdam — stesso
+  // punto di updated in entrambi i casi, mai due implementazioni divergenti.
+  function step(theta, grad, mArr, vArr, idx, lrEp, l2Local = l2) {
+    const g = grad + l2Local * theta;
+    if (!useAdam) return theta - lrEp * g;
+    const m = ADAM_B1 * mArr[idx] + (1 - ADAM_B1) * g;
+    const v = ADAM_B2 * vArr[idx] + (1 - ADAM_B2) * g * g;
+    mArr[idx] = m; vArr[idx] = v;
+    const mHat = m / (1 - ADAM_B1 ** adamT);
+    const vHat = v / (1 - ADAM_B2 ** adamT);
+    return theta - lrEp * mHat / (Math.sqrt(vHat) + ADAM_EPS);
+  }
+
   const order = examples.map((_, i) => i);
   const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } };
 
@@ -145,6 +174,7 @@ export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epo
     shuffle(order);
     const lrEp = lr / (1 + 0.04 * ep);
     for (const idx of order) {
+      adamT++;
       const { sparse, y } = examples[idx];
       const h1dim = dims[1];
 
@@ -200,14 +230,15 @@ export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epo
         for (let i = 0; i < prevAct.length; i++) {
           const wi = W[i];
           const ai = prevAct[i];
+          const mWi = useAdam ? mWrest[l - 1][i] : null, vWi = useAdam ? vWrest[l - 1][i] : null;
           let s = 0;
           for (let k = 0; k < outDim; k++) {
             s += wi[k] * dNext[k];
-            wi[k] -= lrEp * (dNext[k] * ai + l2 * wi[k]);
+            wi[k] = step(wi[k], dNext[k] * ai, mWi, vWi, k, lrEp);
           }
           dPrev[i] = s;
         }
-        for (let k = 0; k < outDim; k++) bl[k] -= lrEp * dNext[k];
+        for (let k = 0; k < outDim; k++) bl[k] = step(bl[k], dNext[k], mB ? mB[l] : null, vB ? vB[l] : null, k, lrEp, 0);
         // ReLU'(pre_{l-1}) applicato scendendo verso lo strato precedente
         const preHere = pres[l - 1];
         for (let i = 0; i < dPrev.length; i++) if (preHere[i] <= 0) dPrev[i] = 0;
@@ -217,9 +248,9 @@ export function trainMLP({ examples, inputDim, nClasses, hiddenSizes = [16], epo
       // ── backward strato 0 (sparso: solo gli indici attivi) ──
       for (const [fi, val] of sparse) {
         const base = fi * h1dim;
-        for (let j = 0; j < h1dim; j++) W0[base + j] -= lrEp * (dNext[j] * val + l2 * W0[base + j]);
+        for (let j = 0; j < h1dim; j++) W0[base + j] = step(W0[base + j], dNext[j] * val, mW0, vW0, base + j, lrEp);
       }
-      for (let j = 0; j < h1dim; j++) b[0][j] -= lrEp * dNext[j];
+      for (let j = 0; j < h1dim; j++) b[0][j] = step(b[0][j], dNext[j], mB ? mB[0] : null, vB ? vB[0] : null, j, lrEp, 0);
     }
     // SGD per-esempio su un corpus di decine di migliaia di righe può
     // "dimenticare" una classe rara in un'epoca sfortunata (interferenza

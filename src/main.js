@@ -6511,7 +6511,15 @@ window.selectAsset = async (idx) => {
     historyChart = chart || '';
     trackRecordHtml = tr || '';
   } catch (_) { /* grafico opzionale: nessun errore bloccante se manca */ }
-  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}
+  // "Confronta con i pari" (comps, 2026-08-30): solo azioni (serve il
+  // settore SEC del pannello, screener-settore.js) e solo con una chiave
+  // Alpha Vantage propria — ogni pari in più è una richiesta API in più,
+  // mai avviato senza un click esplicito dell'utente (stesso principio già
+  // usato per il download prezzi in tryAnswerCriptoDiversificazione).
+  const compsBtn = asset.kind === 'stock' && VaultDAO.state.liveDataKeys?.alphavantage
+    ? `<button onclick="window.showAssetComps('${asset.symbol}')" id="comps-btn-${asset.symbol}" class="text-[10px] font-bold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Confronta con i pari →</button><div id="comps-result-${asset.symbol}" class="mt-1.5"></div>`
+    : '';
+  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}${compsBtn}
     <div class="flex gap-1.5 mt-2">
       <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
       <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" />
@@ -6519,6 +6527,50 @@ window.selectAsset = async (idx) => {
     </div>
     <button onclick="window.addToWatchlist('${asset.symbol}','${asset.kind}','${asset.id}','${(asset.name || '').replace(/'/g, "\\'")}')" class="mt-1.5 text-[10px] text-[var(--primary)] underline">Segui questo asset (aggiorna il prezzo da solo, senza rifare la ricerca)</button>
   </div>`;
+};
+
+// "Comparable company analysis" (comps) da investment banker, con dati
+// pubblici reali — 2026-08-30, vedi src/alpha/comps-multipli.js per la
+// motivazione completa. I pari vengono da comparabili() (screener-settore.js,
+// stesso pannello SEC già in uso, aziende dello stesso settore ordinate per
+// vicinanza di ricavi — la stessa logica "0,3-3x ricavi" che la ricerca sul
+// settore raccomanda), i loro multipli di mercato reali (EV/EBITDA,
+// EV/Revenue) da Alpha Vantage OVERVIEW, la stessa fonte già usata per il
+// target. Costo dichiarato PRIMA di partire (richiesta esplicita: mai
+// bruciare la quota giornaliera dell'utente senza dirlo).
+window.showAssetComps = async (symbol) => {
+  const box = document.getElementById(`comps-result-${symbol}`);
+  const btn = document.getElementById(`comps-btn-${symbol}`);
+  if (!box) return;
+  const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
+  if (!apiKey) { box.innerHTML = `<p class="text-[10px] text-rose-300">Serve la tua chiave Alpha Vantage.</p>`; return; }
+  try {
+    const [{ comparabili }, { fetchStockOverview }, { analizzaComps, testoComps }] = await Promise.all([
+      import('./alpha/screener-settore.js'), import('./alpha/asset-overview.js'), import('./alpha/comps-multipli.js'),
+    ]);
+    const comp = comparabili(symbol, { limite: 5 });
+    if (!comp.disponibile) { box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(comp.motivo)}</p>`; return; }
+    if (btn) btn.disabled = true;
+    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Scarico i multipli di ${comp.comparabili.length + 1} aziende (${comp.comparabili.length} pari + ${symbol})...</p>`;
+    const overviews = await Promise.all(
+      [{ ticker: symbol }, ...comp.comparabili].map(c =>
+        fetchStockOverview(c.ticker, { apiKey, fetchImpl: fetch.bind(window) }).catch(() => null)
+      )
+    );
+    const [targetOv, ...peerOvs] = overviews;
+    if (!targetOv) { box.innerHTML = `<p class="text-[10px] text-rose-300">Non riesco a scaricare i dati di mercato di ${symbol}.</p>`; return; }
+    const target = { symbol, name: targetOv.name, evToEbitda: targetOv.evToEbitda, evToRevenue: targetOv.evToRevenue, ebitda: targetOv.ebitda, revenueTTM: targetOv.revenueTTM };
+    const peers = comp.comparabili.map((c, i) => peerOvs[i] ? { symbol: c.ticker, name: peerOvs[i].name, evToEbitda: peerOvs[i].evToEbitda, evToRevenue: peerOvs[i].evToRevenue } : null).filter(Boolean);
+    const r = analizzaComps(target, peers);
+    const testo = testoComps(r);
+    box.innerHTML = r.disponibile
+      ? `<div class="p-2 rounded-lg border border-indigo-500/25 bg-indigo-950/10 text-indigo-200 text-[10px] leading-snug">${escapeHtml(testo)}</div>`
+      : `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(testo)}</p>`;
+  } catch (e) {
+    box.innerHTML = `<p class="text-[10px] text-rose-300">Confronto non riuscito: ${escapeHtml(e.message || 'errore sconosciuto')}.</p>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 };
 
 window.addToWatchlist = (symbol, kind, id, name) => {
@@ -14048,7 +14100,7 @@ const initApp = () => {
       <button id="qa-add-stock-key" class="shrink-0 text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors">Aggiungila →</button>
     </div>`;
   }
-  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml = '') {
+  function showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml = '', divergenceHtml = '') {
     qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
     const newsBlockHtml = buildNewsItemsHtml(items);
     // Dato storico REALE (CoinGecko, mai una previsione) — risponde a
@@ -14078,7 +14130,7 @@ const initApp = () => {
         <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
         <span class="text-[11px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
       </div>
-      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${trackRecordHtml || ''}${groundedHtml}${stockKeyCta}`;
+      <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${trackRecordHtml || ''}${divergenceHtml || ''}${groundedHtml}${stockKeyCta}`;
     document.getElementById('qa-add-stock-key')?.addEventListener('click', () => {
       document.querySelector('[data-view="settings"]')?.click(); // Momentum Vault
       setTimeout(() => window.openApiKeyGuide?.('alphavantage'), 250);
@@ -14227,7 +14279,7 @@ const initApp = () => {
   window.buildNewsItemsHtml = buildNewsItemsHtml;
   async function fetchAssetHistoryData(asset) {
     const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
-    let yoyNote = null, historyChart = '', multiYearNote = null, trackRecordHtml = '';
+    let yoyNote = null, historyChart = '', multiYearNote = null, trackRecordHtml = '', priceSeries = null;
     // Sullo STESSO storico reale già scaricato (mai una serie a parte),
     // src/alpha/asset-track-record.js applica il vaglio scientifico
     // (Sharpe deflazionato + Munger): risponde a "questo rendimento è
@@ -14262,6 +14314,7 @@ const initApp = () => {
         yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
         if (series.length > 1) historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
         trackRecordHtml = await buildTrackRecord(series);
+        priceSeries = series;
         // Punti reali a 2/3/5 anni (mai una linea continua fabbricata:
         // CoinGecko gratuito limita la serie a 365gg, ma il singolo punto
         // storico non ha questo limite — dati veri, non un grafico finto).
@@ -14291,10 +14344,11 @@ const initApp = () => {
           trackRecordHtml = await buildTrackRecord(series);
           const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
           if (points.length) multiYearNote = points.map(p => p.note).join(' ');
+          priceSeries = series;
         }
       } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
     }
-    return { yoyNote, historyChart, multiYearNote, trackRecordHtml };
+    return { yoyNote, historyChart, multiYearNote, trackRecordHtml, priceSeries };
   }
   window.fetchAssetHistoryData = fetchAssetHistoryData;
   // ── CRIPTO: quante scommesse hai davvero ──
@@ -14339,6 +14393,36 @@ const initApp = () => {
     }
   }
 
+  // Divergenza sentiment↔prezzo (src/alpha/sentiment-divergence.js): scritta
+  // e testata in una sessione precedente ma MAI collegata a nessuna UI —
+  // stesso pattern già visto più volte in questo progetto (group-chat.js,
+  // confronto-titoli.js...). Riusa SOLO dati già scaricati qui sopra: il
+  // sentiment aggregato delle notizie (aggregateNewsSentiment, la stessa
+  // funzione che alimenta investmentReadiness) e gli ultimi due punti della
+  // serie prezzi già in mano (mai una richiesta di rete in più). La finestra
+  // dichiarata è quella VERA tra le due date reali della serie — mensile per
+  // le azioni, giornaliera per le cripto — mai un numero assunto a caso.
+  async function buildSentimentDivergenceHtml(items, priceSeries) {
+    try {
+      if (!items?.length || !priceSeries || priceSeries.length < 2) return '';
+      const { aggregateNewsSentiment } = await import('./ai/reasoning-fusion.js');
+      const { divergenzaSentimentPrezzo } = await import('./alpha/sentiment-divergence.js');
+      const sentiment = aggregateNewsSentiment(items);
+      if (!sentiment) return '';
+      const prev = priceSeries[priceSeries.length - 2], last = priceSeries[priceSeries.length - 1];
+      if (!(prev.price > 0)) return '';
+      const variazionePrezzo = (last.price - prev.price) / prev.price;
+      const finestraGiorni = Math.max(1, Math.round((new Date(last.date) - new Date(prev.date)) / 86_400_000));
+      const r = divergenzaSentimentPrezzo({ sentiment, variazionePrezzo, finestraGiorni });
+      if (!r.valido) return '';
+      const tono = r.divergente ? 'border-amber-500/25 bg-amber-950/10 text-amber-200' : 'border-emerald-500/25 bg-emerald-950/10 text-emerald-200';
+      return `<div class="mt-1.5 p-2 rounded-lg border ${tono}">
+        <p class="text-[10px] font-bold">${escapeHtml(r.testo)}</p>
+        <p class="text-[9px] opacity-70 mt-0.5">${escapeHtml(r.avvertenza)}</p>
+      </div>`;
+    } catch (_) { return ''; } // onesto: niente divergenza, il resto continua comunque
+  }
+
   async function tryAnswerWithRealNews(assetQuery) {
     try {
       const { searchAsset } = await import('./alpha/asset-search.js');
@@ -14369,9 +14453,10 @@ const initApp = () => {
       const asset = results?.[0];
       if (!asset) return false;
       const { items, stale, groundedNewsNote } = await fetchAssetNewsCascade(asset);
-      const { yoyNote, historyChart, multiYearNote, trackRecordHtml } = await fetchAssetHistoryData(asset);
+      const { yoyNote, historyChart, multiYearNote, trackRecordHtml, priceSeries } = await fetchAssetHistoryData(asset);
       if (!items.length && !yoyNote && !historyChart && !groundedNewsNote) return false;
-      showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml);
+      const divergenceHtml = await buildSentimentDivergenceHtml(items, priceSeries);
+      showQaNewsAnswer(asset, items, stale, yoyNote, historyChart, multiYearNote, groundedNewsNote, trackRecordHtml, divergenceHtml);
       return true;
     } catch (_) { return false; }
   }

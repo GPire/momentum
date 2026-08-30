@@ -321,6 +321,29 @@ test("C4: senza LogReg caricato, nessun voto 'logreg' compare (invariato)", () =
   assert.ok(!(r.sources || []).includes("logreg"));
 });
 
+// ── Categorie dinamiche (2026-08-30): scoreByCategory NON enumera un
+// elenco fisso di categorie da nessuna parte (a differenza del bug trovato
+// e corretto in bench/categorizer-bench.mjs, dove l'universo di voto era
+// limitato a `meso.categories`) — accumula qualunque stringa proponga
+// ciascun esperto. Questo significa che una categoria che SOLO NeuralNexus
+// conosce (perché cresce dinamicamente per categoria, mai Nano/Meso, che
+// sono esperti statici pre-addestrati offline) può vincere il voto anche
+// quando gli esperti statici non l'hanno mai vista — verificato qui, non
+// solo assunto dalla lettura del codice. ──
+test("categoria dinamica: una categoria che SOLO NeuralNexus conosce può vincere il voto, anche se Nano/Meso non l'hanno mai vista", () => {
+  // totalWords alto = dispositivo con storico reale (NON cold-start): il
+  // peso di NeuralNexus (nexusWeight = min(0.8, 0.2+totalWords/500)) cresce
+  // con quanto l'utente ha già insegnato all'app — coerente con "una
+  // categoria personalizzata che l'utente ha corretto molte volte deve
+  // poter vincere", non un dispositivo mai usato.
+  const nexus = { predict: () => ({ cat: "hobby_personalizzato", confidence: 85 }), tokenize: t => t.split(' '), train: () => {} };
+  const trained = { metrics: { test_accuracy: 0.8 }, predict: () => ({ category: "shopping", confidence: 0.5 }) };
+  const meso = { metrics: { hard_noisy_test_accuracy: 0.8 }, predict: () => ({ category: "shopping", confidence: 0.5 }) };
+  const orch = new MomentumOrchestrator({ vaultDAO: mockVault(2000), neuralNexus: nexus, trainedCategorizer: trained, trainedMeso: meso });
+  const r = orch.classify("acquisto modellismo ferroviario", 40, new Date());
+  assert.equal(r.cat, "hobby_personalizzato", "una categoria mai vista dagli esperti statici deve poter vincere via NeuralNexus, senza bisogno di riaddestrare Nano/Meso");
+});
+
 // ── Consenso federato (LIVELLO A — src/mesh/federated-distillation.js,
 // difeso dal rilevatore di deriva lenta in src/mesh/contribution-drift.js):
 // il recupero per un dispositivo NUOVO senza storico locale. ───────────────

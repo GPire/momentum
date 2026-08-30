@@ -98,7 +98,7 @@ const t0 = Date.now();
 let best = { acc: -1, snap: null, epoch: -1 };
 trainMLP({
   examples, inputDim: wordVocabSize + charVocabSize, nClasses: classes.length, hiddenSizes: HIDDEN,
-  epochs: EPOCHS, lr: LR, l2: L2, seed: SEED, labelSmoothing: SMOOTH,
+  epochs: EPOCHS, lr: LR, l2: L2, seed: SEED, labelSmoothing: SMOOTH, optimizer: process.env.OPT || 'sgd',
   onEpoch: (ep, snap) => {
     const candidate = { word_vocabulary: wordVocab, word_idf: wordIdf, char_vocabulary: charVocabRaw, char_idf: charIdfRaw, categories: classes, coefs: snap.coefs, intercepts: snap.intercepts, temperature: 1.0 };
     const { acc } = evalModel(candidate);

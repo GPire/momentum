@@ -132,7 +132,7 @@ const L2 = Number(process.env.L2 || 1e-6);
 const SMOOTH = Number(process.env.SMOOTH || 0);
 let best = { acc: -1, snap: null, epoch: -1 };
 trainMLP({
-  examples, inputDim, nClasses: classes.length, hiddenSizes: [HIDDEN], epochs: EPOCHS, lr: LR, l2: L2, seed: Number(process.env.SEED || 1), labelSmoothing: SMOOTH,
+  examples, inputDim, nClasses: classes.length, hiddenSizes: [HIDDEN], epochs: EPOCHS, lr: LR, l2: L2, seed: Number(process.env.SEED || 1), labelSmoothing: SMOOTH, optimizer: process.env.OPT || 'sgd',
   onEpoch: (ep, snap) => {
     const candidate = { vocabulary, idf, char_vocabulary: charVocabulary, char_idf: charIdf, categories: classes, coefs: snap.coefs, intercepts: snap.intercepts };
     const { acc } = evalModel(candidate);
