@@ -13081,6 +13081,40 @@ const initApp = () => {
         btn?.classList.remove('checking-update');
       }
     };
+
+    // ── SECONDO CANALE di rilevamento versione, indipendente dal service
+    // worker (2026-08-30) ──────────────────────────────────────────────────
+    // BUG DI SETTORE, non solo nostro (verificato via ricerca web): su iOS
+    // Safari in modalità standalone, WebKit può smettere di controllare
+    // aggiornamenti del service worker per lunghi periodi, o azzerarne lo
+    // stato dopo inattività — un limite della PIATTAFORMA, non risolvibile
+    // agendo solo sul ciclo di vita del SW (già solido sopra). Questo
+    // controllo non passa MAI dal service worker: un fetch diretto di
+    // version.json (generato una volta per build, vedi vite.config.js;
+    // public/_headers forza no-store su tutto) confrontato col valore
+    // incorporato in QUESTO bundle in esecuzione — se il dispositivo sta
+    // ancora eseguendo un bundle vecchio, il valore incorporato è vecchio
+    // per costruzione, indipendentemente da cosa il SW pensa di controllare.
+    // Un solo reload, mai un loop: la guardia usa lo stesso pattern di
+    // `reloadedForUpdate` sopra per il flusso del service worker.
+    let reloadedForVersionCheck = false;
+    const checkAppVersionDirect = async () => {
+      if (reloadedForVersionCheck) return;
+      try {
+        const res = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const { version } = await res.json();
+        if (version && version !== __BUILD_VERSION__) {
+          reloadedForVersionCheck = true;
+          showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info');
+          setTimeout(() => window.location.reload(), 1200); // tempo reale per leggere il toast
+        }
+      } catch (_) { /* onesto: rete assente o version.json non ancora deployato, si ricontrolla al prossimo giro */ }
+    };
+    checkAppVersionDirect();
+    setInterval(checkAppVersionDirect, 30 * 60 * 1000);
+    window.addEventListener('focus', checkAppVersionDirect);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkAppVersionDirect(); });
   }
 
   // ── FEEDBACK ─────────────────────────────────────────────────────────────
