@@ -555,6 +555,12 @@ const getTxFormHTML = () => `
     <div id="quick-add-row" class="flex gap-2 overflow-x-auto mb-2 shrink-0 hidden"></div>
 
     <div class="amount-stage shrink-0">
+      <!-- LA DOMANDA, PRIMA DEL CAMPO. Il pannello mostrava un € , uno zero
+           e un tastierino: chi non conosce già l'app deve dedurre da solo
+           che quello è il posto dove si scrive quanto ha speso. Una riga di
+           tre parole toglie quella deduzione a chiunque — bambino o
+           ottantenne — e cambia da sola col tipo scelto. -->
+      <p id="amount-domanda" class="t-etichetta text-center mb-1">${tCh('txAskExpense', __uiLang)}</p>
       <div class="flex items-center justify-center">
         <span class="text-2xl font-mono text-[var(--on-surface-secondary)] mr-1">€</span>
         <!-- Tastiera nativa del dispositivo (richiesta reale di più utenti,
@@ -569,7 +575,7 @@ const getTxFormHTML = () => `
              resta: chi preferiva toccare i tasti continua a poterlo fare,
              nessuna delle due vie sostituisce l'altra. -->
         <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
-          class="amount-display amount-negative text-center p-0"
+          class="amount-display amount-vuoto text-center p-0"
           style="width: 100%; max-width: 280px; background: none; border: none; outline: none; box-shadow: none; -webkit-appearance: none; appearance: none; border-radius: 0;"
           id="tx-amount-display" value="0" aria-label="${tCh('txAmountAria', __uiLang)}" />
       </div>
@@ -589,7 +595,11 @@ const getTxFormHTML = () => `
       <div class="mic-stage relative mt-2 mx-auto" style="width:fit-content">
         <span class="mic-orbit-dot mic-orbit-dot-1" aria-hidden="true"></span>
         <span class="mic-orbit-dot mic-orbit-dot-2" aria-hidden="true"></span>
-        <button type="button" id="voice-rec-btn" class="flex items-center justify-center w-11 h-11 rounded-full text-[var(--red)] border border-[var(--glass-border)] active:scale-95 transition-transform" aria-label="${tCh('txVoiceAria', __uiLang)}">
+        <!-- A riposo NON è rosso: un microfono rosso significa "sto
+             registrando" in ogni app del mondo, e qui lo era sempre, anche
+             appena aperto il pannello. Il rosso arriva solo con
+             .mic-listening, quando l'ascolto è davvero in corso. -->
+        <button type="button" id="voice-rec-btn" class="flex items-center justify-center w-11 h-11 rounded-full text-[var(--on-surface-secondary)] border border-[var(--glass-border)] active:scale-95 transition-transform" aria-label="${tCh('txVoiceAria', __uiLang)}">
           <!-- Secondo strato che ruota in controsenso SOLO in ascolto (.mic-listening
                swirl-2): ::before/::after del bottone sono già presi (disco +
                increscopatura), serviva un elemento vero per un secondo verso di
@@ -761,7 +771,16 @@ const attachFormListeners = (container, prefill = null) => {
     // Ora è un <input> (tastiera nativa, vedi markup sopra): si scrive
     // .value, non .textContent — su un input il secondo non farebbe niente.
     if (d) d.value = rawVal || '0';
-    d.className = `amount-display ${type==='entrata'?'amount-positive':type==='invest'?'amount-invest':'amount-negative'} truncate px-2`;
+    // UNO ZERO NON È UNA BRUTTA NOTIZIA. Il campo vuoto mostrava uno "0"
+    // grande e ROSSO (il colore del tipo "uscita"): con lo zero barrato del
+    // font monospace sembrava un segnale di divieto, la prima cosa che
+    // vedeva chi apriva il pannello per registrare una spesa. Il colore del
+    // tipo arriva quando c'è davvero un importo — il rosso deve significare
+    // qualcosa, non fare da sfondo.
+    const vuoto = !rawVal || parseFloat(rawVal) === 0;
+    const classeColore = vuoto ? 'amount-vuoto'
+      : (type === 'entrata' ? 'amount-positive' : type === 'invest' ? 'amount-invest' : 'amount-negative');
+    d.className = `amount-display ${classeColore} truncate px-2`;
     // Micro-pop sul numero a ogni cifra digitata: feedback tattile immediato.
     d.classList.remove('amount-pop'); void d.offsetWidth; d.classList.add('amount-pop');
 
@@ -985,6 +1004,12 @@ const attachFormListeners = (container, prefill = null) => {
       container.querySelectorAll('.type-toggle-pill').forEach(b => b.classList.remove('active-expense','active-income','active-invest'));
       btn.classList.add(type==='uscita'?'active-expense':type==='entrata'?'active-income':'active-invest');
       btn.classList.remove('type-toggle-pop'); void btn.offsetWidth; btn.classList.add('type-toggle-pop');
+
+      // La domanda sopra il campo segue il tipo scelto: "quanto hai speso"
+      // e "quanto hai incassato" sono due cose diverse, e l'unico posto in
+      // cui la differenza si legge in parole è questo.
+      const domanda = container.querySelector('#amount-domanda');
+      if (domanda) domanda.textContent = tCh(type === 'entrata' ? 'txAskIncome' : type === 'invest' ? 'txAskInvest' : 'txAskExpense', __uiLang);
 
       const scroll = container.querySelector('#cat-scroll');
       if (scroll) {
@@ -12154,7 +12179,39 @@ const endGenesis = () => {
   }
 };
 
+// LA ROTELLA DEVE SEMPRE SCORRERE QUALCOSA.
+// Problema reale segnalato da utenti su computer: "non riesco mai a
+// scorrere la pagina, a meno di portare il mouse fino alla barra di
+// scorrimento a destra". Causa: il Command Center (colonna destra, dove il
+// puntatore sta naturalmente mentre si registra una spesa) è un contenitore
+// con `overflow-y:auto`; la rotella scorre LUI, e quando arriva in fondo il
+// browser non passa il resto del gesto alla pagina. Chi guardava lì restava
+// bloccato senza capire perché.
+// Rimedio: quando un'isola di scroll è già al limite nella direzione del
+// gesto, il movimento passa alla finestra. Nessun cambio di layout, nessuna
+// altezza forzata: solo il comportamento che una persona si aspetta.
+// NON va applicato ai modali a schermo intero, dove l'isolamento è voluto.
+function collegaScrollAllaPagina(el) {
+  if (!el || el.dataset.scrollCollegato === '1') return;
+  el.dataset.scrollCollegato = '1';
+  el.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) return; // zoom del browser, mai intercettato
+    const giu = e.deltaY > 0;
+    const spazio = el.scrollHeight - el.clientHeight;
+    const alLimite = spazio <= 1 || (giu ? Math.ceil(el.scrollTop) >= spazio - 1 : el.scrollTop <= 0);
+    if (!alLimite) return;
+    e.preventDefault();
+    window.scrollBy({ top: e.deltaY, behavior: 'auto' });
+  }, { passive: false });
+}
+
 const bootUI = () => {
+  try {
+    collegaScrollAllaPagina(document.getElementById('form-container-desktop'));
+    collegaScrollAllaPagina(document.querySelector('#desktop-sidebar'));
+    document.querySelectorAll('aside nav.overflow-y-auto').forEach(collegaScrollAllaPagina);
+  } catch (e) { console.error('collegaScrollAllaPagina:', e); }
+
   try {
     renderMeshStatus();
     const agg = VaultDAO.state.aiAggression;

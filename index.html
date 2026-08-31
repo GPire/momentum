@@ -607,6 +607,8 @@
     @media (min-width: 400px) { .amount-display { font-size: 4.5rem; } }
     @media (min-width: 640px) { .amount-display { font-size: 5.5rem; } }
     .amount-display.amount-positive { color: var(--green); } .amount-display.amount-negative { color: var(--red); } .amount-display.amount-invest { color: var(--gold); }
+    /* Campo ancora vuoto: il numero è muto, non allarmato. */
+    .amount-display.amount-vuoto { color: color-mix(in srgb, var(--on-surface-secondary) 55%, transparent); }
     /* Micro-pop sul NUMERO stesso a ogni cifra digitata (non solo sul tasto):
        feedback tattile immediato che il valore è cambiato davvero. */
     @keyframes amountPop { 0% { transform: scale(1); } 45% { transform: scale(1.03); } 100% { transform: scale(1); } }
@@ -2907,6 +2909,19 @@
        (1rem) — un rem in piu' e andava gia' a capo. 0.95rem lascia un margine
        di sicurezza reale, non a occhio. */
     .t-dato-tessera { font-size: clamp(0.8rem, 4cqi, 0.95rem); white-space: normal; overflow-wrap: break-word; }
+    /* QUATTRO COLONNE SOLO SE C'È DAVVERO POSTO.
+       `lg:grid-cols-4` guarda la larghezza della FINESTRA, ma qui lo spazio
+       reale è quello che resta fra barra laterale e Command Center: su un
+       portatile da 1350px la colonna centrale è ~600px, e le quattro tessere
+       si stringono al punto che "1850,00 €" va a capo dopo la virgola e
+       l'etichetta diventa "QUANTO A…". Un importo spezzato in due righe e
+       un'etichetta mozzata sono un dato peggiorato, non un dettaglio
+       estetico. La container query misura lo spazio VERO (#dashboard-view è
+       già `container-name: dash`), non quello che il dispositivo promette.
+       Selettore con l'id per battere in cascata l'utility di Tailwind. */
+    @container dash (max-width: 780px) {
+      #dashboard-view .tessere-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
     .t-nota {
       font-size: 10.5px; font-weight: 400; line-height: 1.45;
       color: color-mix(in srgb, var(--on-surface-secondary) 55%, transparent);
