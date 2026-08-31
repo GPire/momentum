@@ -2312,9 +2312,23 @@ const renderDashboardWeekStrip = () => {
     // salgono di qualche pixel, gli estremi scendono — la stessa curva
     // percorsa dalla traiettoria disegnata dietro.
     const arco = -Math.sin((i / 6) * Math.PI) * 7;
-    return `<button type="button" class="week-orb-btn${futuro ? ' is-future' : ''}" style="--i:${i}; --arco:${arco.toFixed(1)}px" data-iso="${di.iso}" aria-label="${aria}" onclick="window.__toggleDashDay('${di.iso}')">
+    // AGGIUNGERE UNA SPESA DA QUI DEVE COSTARE UN TOCCO, NON DUE.
+    // Prima ogni pianeta apriva il dettaglio, e su un giorno vuoto il
+    // dettaglio non ha nient'altro da mostrare che "nessuna spesa" + il
+    // bottone "Aggiungi" — due tocchi per arrivare dove uno bastava. Un
+    // giorno passato o odierno SENZA spese porta ora un "+" visibile: un
+    // tocco solo, dritto al modulo con quella data già impostata. Un giorno
+    // CON spese continua ad aprire il dettaglio (lì il primo tocco deve
+    // mostrare cosa c'è, non presumere che si voglia aggiungere altro), e
+    // un giorno futuro resta muto (non si registra una spesa che non è
+    // ancora successa).
+    const vuoto = di.spend === 0 && !futuro;
+    const azione = vuoto
+      ? `window.openPrefilledAdd({ type: 'uscita', date: '${di.iso}' })`
+      : `window.__toggleDashDay('${di.iso}')`;
+    return `<button type="button" class="week-orb-btn${futuro ? ' is-future' : ''}${vuoto ? ' is-vuoto' : ''}" style="--i:${i}; --arco:${arco.toFixed(1)}px" data-iso="${di.iso}" aria-label="${vuoto ? tCh('alphaDayAddExpenseBtn', __uiLang, di.date.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric' })) : aria}" onclick="${azione}">
       <span class="week-orb-label">${letter}</span>
-      <span class="week-orb-dot ${todayFlag ? 'is-today' : ''}" style="--dot-size:${dotSize}px; --dot-color:${color};"></span>
+      <span class="week-orb-dot ${todayFlag ? 'is-today' : ''}" style="--dot-size:${dotSize}px; --dot-color:${color};">${vuoto ? '<svg class="week-orb-plus" viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>' : ''}</span>
       <span class="week-orb-num">${di.date.getDate()}</span>
     </button>`;
   }).join('');
@@ -2435,6 +2449,26 @@ function renderDashWeekSummary(days, catWeek) {
     ${rigaCat}
     ${rigaConsiglio}`;
 }
+
+// "Il mese intero": si apre DENTRO la card, mai un cambio di schermata —
+// mandare a un'altra vista per vedere un mese è comunque un salto, anche se
+// automatico (segnalato esplicitamente: troppi giri fra Dashboard e Analisi
+// Tensor). Disegna con LA STESSA funzione del calendario di Analisi Tensor
+// (window.renderMonthCalendarInto), la prima volta che si apre — non ad ogni
+// render della Dashboard, che gira spesso e ridisegnerebbe un pannello
+// magari già aperto dall'utente per niente.
+window.__toggleMeseInDashboard = (btn) => {
+  haptic('light');
+  const wrap = document.getElementById('dash-month-wrap');
+  if (!wrap) return;
+  const apri = !wrap.classList.contains('aperto');
+  wrap.classList.toggle('aperto', apri);
+  btn.setAttribute('aria-expanded', apri ? 'true' : 'false');
+  if (apri && !wrap.dataset.disegnato) {
+    wrap.dataset.disegnato = '1';
+    window.renderMonthCalendarInto('dash-month-grid');
+  }
+};
 
 // Cambio settimana: nessun salto oltre la settimana in corso, e il dettaglio
 // aperto si chiude (apparterrebbe a un giorno che non è più sullo schermo).
@@ -3206,6 +3240,18 @@ const renderDashboard = () => {
   try { renderGhostForecast(); } catch (_) {}
 
   try { renderDashboardWeekStrip(); } catch (e) { console.error('renderDashboardWeekStrip:', e); }
+  // Il calendario mensile dentro la card della settimana si ridisegna SOLO
+  // se l'utente lo ha già aperto (dataset.disegnato): senza questa
+  // condizione, ogni renderDashboard() lo costruirebbe anche a pannello
+  // chiuso, lavoro sprecato ad ogni tocco di una spesa. Ma se è aperto e si
+  // cambia mese, deve aggiornarsi come tutto il resto — stesso identico bug
+  // (due punti della UI in disaccordo sulla stessa domanda) già trovato e
+  // risolto in questa sessione per il selettore del mese.
+  try {
+    if (document.getElementById('dash-month-wrap')?.dataset.disegnato) {
+      window.renderMonthCalendarInto('dash-month-grid');
+    }
+  } catch (e) { console.error('renderMonthCalendarInto dash:', e); }
 
   // Ledger list
   const list = $('#transaction-list-container');
@@ -3987,72 +4033,17 @@ const renderAnalysis = (opts = {}) => {
   //  2) leggeva solo le transazioni vere, mentre tutto il resto della
   //     schermata mostra anche l'esempio — due conteggi diversi per lo
   //     stesso mese (vedi il commento su txsVista in cima a renderAnalysis).
-  const grid = $('#heatmap-grid');
-  if (grid) {
-    const anno = VaultDAO.state.currentDate.getFullYear();
-    const mese = VaultDAO.state.currentDate.getMonth();
-    const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
-    const oggi = new Date();
-
-    const spends = {};
-    __heatmapDayTx = {};
-    txsVista.forEach(t => {
-      if (t.type === 'uscita') {
-        const d = new Date(t.date).getDate();
-        spends[d] = (spends[d] || 0) + t.amount;
-        (__heatmapDayTx[d] = __heatmapDayTx[d] || []).push(t);
-      }
-    });
-    __heatmapMonthLabel = VaultDAO.state.currentDate.toLocaleDateString(__uiLocale, { month: 'long' });
-
-    // Intestazioni dei giorni prese dal locale (lun…dom in Italia, sun…sat
-    // dove la settimana inizia di domenica lo sarebbe comunque per noi:
-    // qui la settimana resta lunedì→domenica, la stessa del budget
-    // settimanale e della striscia in Dashboard — una sola definizione).
-    let html = ''; // 1 gennaio 2024 era un lunedì: base per i nomi dei giorni
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(2024, 0, 1 + i);
-      html += `<div class="cal-intestazione">${d.toLocaleDateString(__uiLocale, { weekday: 'short' }).replace(/\.$/, '')}</div>`;
-    }
-    // Caselle vuote prima del giorno 1, per allineare il mese alla settimana.
-    const dowPrimo = new Date(anno, mese, 1).getDay(); // 0=domenica
-    const vuotePrima = (dowPrimo === 0 ? 6 : dowPrimo - 1);
-    for (let i = 0; i < vuotePrima; i++) html += '<div class="cal-vuota" aria-hidden="true"></div>';
-
-    const quotaGiorno = dailyBudgetQuota(new Date(anno, mese, 1));
-    for (let g = 1; g <= giorniNelMese; g++) {
-      const amt = spends[g] || 0;
-      const data = new Date(anno, mese, g);
-      const isOggi = data.toDateString() === oggi.toDateString();
-      const futuro = data > oggi && !isOggi;
-      // Il colore dice quanto pesa il giorno sul budget di giornata; senza
-      // budget resta la scala relativa al mese, mai un giudizio inventato.
-      let livello = 0;
-      if (amt > 0) {
-        const rel = quotaGiorno > 0 ? amt / quotaGiorno : amt / 100;
-        livello = rel > 1.5 ? 4 : rel > 1 ? 3 : rel > 0.5 ? 2 : 1;
-      }
-      const etichetta = `${data.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${amt > 0 ? formatMoney(amt) : tCh('alphaHeatmapNoExpense', __uiLang)}`;
-      html += `<button type="button" class="heatmap-day cal-giorno liv-${livello}${isOggi ? ' cal-oggi' : ''}${futuro ? ' cal-futuro' : ''}" data-heatmap-day="${g}" title="${etichetta}" aria-label="${etichetta}">
-        <span class="cal-numero">${g}</span>
-        ${amt > 0 ? `<span class="cal-importo">${formatMoney(amt)}</span>` : ''}
-      </button>`;
-    }
-    grid.innerHTML = html;
-    // Riapre da solo il giorno che era aperto, MA solo se il mese è ancora
-    // lo stesso: un salvataggio ridisegna senza cambiare mese (si riapre),
-    // cambiare mese col bottone < > invece deve chiudere — un giorno "31"
-    // riaperto per errore su un mese senza quel numero sarebbe peggio del
-    // pannello vuoto che questo fix risolve.
-    const meseCorrente = `${anno}-${mese}`;
-    if (__heatmapGiornoAperto && window.__heatmapMeseAperto === meseCorrente) {
-      apriDettaglioGiornoCalendario(__heatmapGiornoAperto);
-    } else {
-      __heatmapGiornoAperto = null;
-      $('#heatmap-day-detail').innerHTML = '';
-    }
-    window.__heatmapMeseAperto = meseCorrente;
-  }
+  // Costruzione dell'HTML + i dati per-giorno: UNA sola volta, popola le
+  // variabili condivise (__heatmapDayTx/__heatmapMonthLabel — sempre lo
+  // stesso mese globale, quindi sempre gli stessi dati per chiunque li
+  // legga). renderMonthCalendarInto (sotto) scrive il risultato su
+  // QUALUNQUE contenitore venga passato: è quello che permette al
+  // calendario di vivere sia in Analisi Tensor sia — richiesto
+  // esplicitamente per abbattere il salto fra le due schermate — dentro la
+  // card della settimana in Dashboard, senza un secondo motore che possa
+  // disallinearsi (stesso identico bug già trovato e risolto in questa
+  // sessione per il selettore del mese).
+  window.renderMonthCalendarInto('heatmap-grid');
 
   // Alerts & Anomalie: prima chiamata sincrona (proiezione run-rate), poi
   // il forecast worker la ri-renderizza con il livello Holt-Winters vero.
@@ -10395,21 +10386,93 @@ function renderRegulatoryNews() {
 // Drill-down giorno-per-giorno sulla heatmap "Le tue spese giorno per giorno":
 // il title nativo non appare mai su tocco (touch), quindi il tap deve aprire
 // un pannello visibile con le voci reali di quel giorno — mai solo la cifra.
+// ── UN SOLO CALENDARIO, DUE POSTI DOVE PUÒ VIVERE ──
+// Dati condivisi (stesso mese globale = sempre gli stessi dati, per
+// costruzione: nessuna istanza può disallinearsi dalle altre). Lo stato
+// "quale giorno è aperto" invece è PER ISTANZA (una Map per gridId): il
+// calendario di Analisi Tensor e quello dentro la card della settimana in
+// Dashboard possono avere ciascuno il proprio giorno aperto senza
+// interferire — sono la stessa funzione, non lo stesso elemento.
 let __heatmapDayTx = {};
 let __heatmapMonthLabel = '';
-// Giorno con il dettaglio aperto: serve a RIAPRIRLO da solo dopo un
-// salvataggio. Prima, aggiungere una spesa dal calendario chiudeva il
-// modulo, la casella del giorno si aggiornava correttamente (30,00 €), ma
-// il pannello sotto restava vuoto — l'utente doveva ritoccare lo stesso
-// giorno per vedere conferma che la spesa fosse arrivata davvero.
-let __heatmapGiornoAperto = null;
-function apriDettaglioGiornoCalendario(day) {
-  const cell = document.querySelector(`.heatmap-day[data-heatmap-day="${day}"]`);
-  const detailEl = $('#heatmap-day-detail');
+const __heatmapGiornoApertoPer = {};   // gridId -> giorno aperto (stringa) o null
+const __heatmapMeseApertoPer = {};     // gridId -> "anno-mese" dell'ultimo render
+
+// Costruisce la griglia del mese (intestazioni, caselle vuote di
+// allineamento, un bottone per giorno con numero+importo) e la scrive
+// sull'elemento #gridId. `txsVista` è sempre la stessa fonte di Dashboard
+// (displayTxForMonth: transazioni vere + esempio), mai un secondo conteggio.
+window.renderMonthCalendarInto = function renderMonthCalendarInto(gridId) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const anno = VaultDAO.state.currentDate.getFullYear();
+  const mese = VaultDAO.state.currentDate.getMonth();
+  const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
+  const oggi = new Date();
+  const txsVista = displayTxForMonth(monthKey(VaultDAO.state.currentDate));
+
+  const spends = {};
+  __heatmapDayTx = {};
+  txsVista.forEach(t => {
+    if (t.type === 'uscita') {
+      const d = new Date(t.date).getDate();
+      spends[d] = (spends[d] || 0) + t.amount;
+      (__heatmapDayTx[d] = __heatmapDayTx[d] || []).push(t);
+    }
+  });
+  __heatmapMonthLabel = VaultDAO.state.currentDate.toLocaleDateString(__uiLocale, { month: 'long' });
+
+  let html = ''; // 1 gennaio 2024 era un lunedì: base per i nomi dei giorni
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(2024, 0, 1 + i);
+    html += `<div class="cal-intestazione">${d.toLocaleDateString(__uiLocale, { weekday: 'short' }).replace(/\.$/, '')}</div>`;
+  }
+  const dowPrimo = new Date(anno, mese, 1).getDay(); // 0=domenica
+  const vuotePrima = (dowPrimo === 0 ? 6 : dowPrimo - 1);
+  for (let i = 0; i < vuotePrima; i++) html += '<div class="cal-vuota" aria-hidden="true"></div>';
+
+  const quotaGiorno = dailyBudgetQuota(new Date(anno, mese, 1));
+  for (let g = 1; g <= giorniNelMese; g++) {
+    const amt = spends[g] || 0;
+    const data = new Date(anno, mese, g);
+    const isOggi = data.toDateString() === oggi.toDateString();
+    const futuro = data > oggi && !isOggi;
+    let livello = 0;
+    if (amt > 0) {
+      const rel = quotaGiorno > 0 ? amt / quotaGiorno : amt / 100;
+      livello = rel > 1.5 ? 4 : rel > 1 ? 3 : rel > 0.5 ? 2 : 1;
+    }
+    const etichetta = `${data.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${amt > 0 ? formatMoney(amt) : tCh('alphaHeatmapNoExpense', __uiLang)}`;
+    html += `<button type="button" class="heatmap-day cal-giorno liv-${livello}${isOggi ? ' cal-oggi' : ''}${futuro ? ' cal-futuro' : ''}" data-heatmap-day="${g}" title="${etichetta}" aria-label="${etichetta}">
+      <span class="cal-numero">${g}</span>
+      ${amt > 0 ? `<span class="cal-importo">${formatMoney(amt)}</span>` : ''}
+    </button>`;
+  }
+  grid.innerHTML = html;
+
+  // Riapre da solo il giorno che era aperto IN QUESTA istanza, MA solo se il
+  // mese è ancora lo stesso: un salvataggio ridisegna senza cambiare mese
+  // (si riapre), cambiare mese col bottone < > invece deve chiudere.
+  const meseCorrente = `${anno}-${mese}`;
+  const giornoAperto = __heatmapGiornoApertoPer[gridId];
+  if (giornoAperto && __heatmapMeseApertoPer[gridId] === meseCorrente) {
+    apriDettaglioGiornoCalendario(gridId, giornoAperto);
+  } else {
+    __heatmapGiornoApertoPer[gridId] = null;
+    const detailEl = document.querySelector(`[data-detail-for="${gridId}"]`);
+    if (detailEl) detailEl.innerHTML = '';
+  }
+  __heatmapMeseApertoPer[gridId] = meseCorrente;
+};
+
+function apriDettaglioGiornoCalendario(gridId, day) {
+  const grid = document.getElementById(gridId);
+  const cell = grid?.querySelector(`.heatmap-day[data-heatmap-day="${day}"]`);
+  const detailEl = document.querySelector(`[data-detail-for="${gridId}"]`);
   if (!cell || !detailEl) return;
-  document.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('is-scelto'));
+  grid.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('is-scelto'));
   cell.classList.add('is-scelto');
-  __heatmapGiornoAperto = day;
+  __heatmapGiornoApertoPer[gridId] = day;
   const dayTxs = __heatmapDayTx[day] || [];
   const dateObj = new Date(VaultDAO.state.currentDate.getFullYear(), VaultDAO.state.currentDate.getMonth(), parseInt(day, 10));
   const etichettaGiorno = dateObj.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -10418,17 +10481,19 @@ function apriDettaglioGiornoCalendario(day) {
 document.addEventListener('click', (e) => {
   const cell = e.target.closest('.heatmap-day');
   if (!cell) return;
+  const gridId = cell.closest('[id]')?.id;
+  if (!gridId) return;
   const day = cell.dataset.heatmapDay;
   // Un secondo tocco sullo stesso giorno lo richiude — coerente con la
   // stessa "fisarmonica" già usata nella striscia settimanale.
-  if (__heatmapGiornoAperto === day) {
-    __heatmapGiornoAperto = null;
+  if (__heatmapGiornoApertoPer[gridId] === day) {
+    __heatmapGiornoApertoPer[gridId] = null;
     cell.classList.remove('is-scelto');
-    const detailEl = $('#heatmap-day-detail');
+    const detailEl = document.querySelector(`[data-detail-for="${gridId}"]`);
     if (detailEl) detailEl.innerHTML = '';
     return;
   }
-  apriDettaglioGiornoCalendario(day);
+  apriDettaglioGiornoCalendario(gridId, day);
 });
 
 // Confronto periodi (src/predict/period-compare.js): richiesto esplicitamente

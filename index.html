@@ -1561,14 +1561,48 @@
        suo punto della curva, non tutti sulla stessa riga. */
     @keyframes weekOrbIn { to { opacity: 1; transform: translateY(var(--arco, 0px)) scale(1); } }
     .week-orb-btn:active { background: color-mix(in srgb, var(--primary) 8%, transparent); }
-    @media (hover: hover) { .week-orb-btn:hover .week-orb-dot { filter: brightness(1.15); transform: scale(1.08); } }
+    /* PROFONDITÀ VERA, MA SOLO CSS. Un pianeta è già una sfera con luce da un
+       lato (il gradiente radiale sotto): al tocco/passaggio, il corpo si
+       solleva un poco e l'ombra si allunga verso il basso — lo stesso
+       linguaggio del vetro sospeso usato per le card, mai un motore 3D. Zero
+       rischio, stessa promessa già data sul niente-spettacolo vicino ai soldi
+       (l'unica eccezione resta l'orb, che è pura decorazione). */
+    @media (hover: hover) {
+      .week-orb-btn:hover .week-orb-dot { filter: brightness(1.15); transform: translateY(-2px) scale(1.08); box-shadow: 0 6px 10px -4px color-mix(in srgb, var(--dot-color, transparent) 55%, transparent), 0 0 calc(var(--dot-size, 16px) * 0.5) -2px color-mix(in srgb, var(--dot-color, transparent) 65%, transparent); }
+    }
+    .week-orb-btn:active .week-orb-dot { transform: translateY(0) scale(0.94); transition-duration: .12s; }
     .week-orb-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--on-surface-secondary); }
     .week-orb-dot {
+      position: relative; display: flex; align-items: center; justify-content: center;
       width: var(--dot-size, 16px); height: var(--dot-size, 16px); border-radius: 50%;
       background: radial-gradient(circle at 32% 28%, color-mix(in srgb, #fff 45%, var(--dot-color, var(--outline))) 0%, var(--dot-color, var(--outline)) 60%, color-mix(in srgb, #000 25%, var(--dot-color, var(--outline))) 100%);
       box-shadow: 0 0 calc(var(--dot-size, 16px) * 0.5) -2px color-mix(in srgb, var(--dot-color, transparent) 65%, transparent);
-      transition: width 0.4s cubic-bezier(0.16,1,0.3,1), height 0.4s cubic-bezier(0.16,1,0.3,1), transform 0.2s ease, filter 0.2s ease;
+      transition: width 0.4s cubic-bezier(0.16,1,0.3,1), height 0.4s cubic-bezier(0.16,1,0.3,1), transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
     }
+    /* Il "+" su un giorno vuoto: bianco, dentro il pianeta muto (grigio) — si
+       vede da solo che quel giorno "aspetta" un tocco, senza una parola. */
+    .week-orb-plus { color: #fff; opacity: .8; }
+    .week-month-link {
+      display: inline-flex; align-items: center; gap: .3rem; flex: 0 0 auto;
+      min-height: 32px; padding: .2rem .1rem;
+      font-size: 10.5px; font-weight: 700; color: var(--primary);
+      background: none; border: none; cursor: pointer;
+    }
+    @media (hover: hover) { .week-month-link:hover { text-decoration: underline; } }
+    .week-month-freccia { transition: transform .3s cubic-bezier(.16,1,.3,1); }
+    .week-month-link[aria-expanded="true"] .week-month-freccia { transform: rotate(180deg); }
+    /* Stesso pattern a fisarmonica già usato per "Cambia data, o dividi"
+       nel Command Center: max-height perché il grid 0fr→1fr, dentro un
+       contenitore non-flex-col come questa card, non funziona (già
+       verificato dal vivo in un altro punto di questa stessa sessione). */
+    .dash-month-wrap {
+      max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height .4s cubic-bezier(.16,1,.3,1), opacity .3s ease, margin-top .4s ease;
+    }
+    .dash-month-wrap.aperto { max-height: 900px; opacity: 1; margin-top: 1.1rem; }
+    @media (prefers-reduced-motion: reduce) { .dash-month-wrap, .week-month-freccia { transition: none; } }
+    .week-orb-btn.is-vuoto .week-orb-dot { background: color-mix(in srgb, var(--outline) 140%, transparent); }
+    @media (hover: hover) { .week-orb-btn.is-vuoto:hover .week-orb-plus { opacity: 1; } }
     .week-orb-dot.is-today { box-shadow: 0 0 0 2px var(--gold), 0 0 calc(var(--dot-size, 16px) * 0.6) -1px color-mix(in srgb, var(--dot-color, transparent) 70%, transparent); }
     /* OGGI respira come l'orb: stesso ritmo di 5,5 secondi, lo stesso di
        tutta l'app. Non è un secondo effetto: è lo stesso organismo visto in
@@ -3812,10 +3846,29 @@
                  linguaggio visivo del grande orb (bagliore, nucleo luminoso),
                  mai una seconda estetica scollegata dal resto. -->
             <div class="card p-5 sm:p-6 relative overflow-hidden shrink-0" id="dash-week-strip-card">
-              <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span data-i18n-key="dashWeekStripTitle">Questa settimana</span></h3>
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span data-i18n-key="dashWeekStripTitle">Questa settimana</span></h3>
+                <!-- "Il mese intero" apre il calendario QUI, non cambia
+                     schermata: mandare a un'altra vista per vedere un mese
+                     è comunque un salto, anche se automatico (segnalato
+                     esplicitamente). Chiama LA STESSA funzione che disegna
+                     il calendario di Analisi Tensor (window.
+                     renderMonthCalendarInto) su un contenitore diverso: un
+                     solo motore, mai due formule che possono disallinearsi
+                     — lo stesso bug già trovato e risolto in questa sessione
+                     per il selettore del mese. -->
+                <button type="button" class="week-month-link" aria-expanded="false" aria-controls="dash-month-wrap" onclick="window.__toggleMeseInDashboard(this)">
+                  <span data-i18n-key="dashSeeFullMonth">Il mese intero</span>
+                  <svg class="week-month-freccia" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+              </div>
               <div id="dash-week-summary" class="mt-1"></div>
               <div id="dash-week-strip" class="week-strip-row"></div>
               <div id="dash-week-strip-detail" class="week-strip-detail"></div>
+              <div id="dash-month-wrap" class="dash-month-wrap">
+                <div class="heatmap-grid" id="dash-month-grid"></div>
+                <div id="dash-month-detail" data-detail-for="dash-month-grid" class="mt-3"></div>
+              </div>
             </div>
 
             <!-- UN FUOCO ALLA VOLTA, PARTE 2: le quattro tessere e la barra
@@ -4373,7 +4426,7 @@
                     <h3 class="eyebrow" data-i18n-key="alphaHeatmapTitle">Le tue spese giorno per giorno</h3>
                     <p class="card-sub" data-i18n-key="alphaHeatmapSub">Più il giorno è acceso, più hai speso — tocca un giorno per la cifra</p>
                     <div class="heatmap-grid" id="heatmap-grid"></div>
-                    <div id="heatmap-day-detail" class="mt-3"></div>
+                    <div id="heatmap-day-detail" data-detail-for="heatmap-grid" class="mt-3"></div>
                  </div>
 
                  <!-- Ghost Charge Radar: abbonamenti trovati (predittivo, dal tuo storico) -->
