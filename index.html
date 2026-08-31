@@ -1512,17 +1512,31 @@
        per essere capito anche da un bambino) — nucleo chiaro al centro e
        bagliore verso il bordo, la stessa identità visiva del grande orb
        della Dashboard, solo in scala. */
-    .week-strip-row { display: flex; justify-content: space-between; gap: 0.35rem; margin-top: 1rem; }
+    .week-strip-row { display: flex; justify-content: space-between; gap: 0.35rem; margin-top: 1rem; position: relative; }
+    /* La traiettoria dietro i sette giorni: stessa materia della striscia
+       del mese sotto l'orb (un filo di luce, non una linea di tabella).
+       Sta dietro i pianeti e non riceve tocchi. */
+    .week-orbita {
+      /* All'altezza dei centri dei pianeti: più in basso tagliava i numeri
+         dei giorni, più in alto le sigle. Misurato dal vivo. */
+      position: absolute; left: 6%; right: 6%; top: 38%; width: 88%; height: 16px;
+      pointer-events: none; z-index: 0;
+      color: color-mix(in srgb, var(--primary) 30%, transparent);
+      opacity: .75;
+    }
+    .week-orb-btn { position: relative; z-index: 1; }
     .week-orb-btn {
       display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
       background: none; border: none; padding: 0.3rem 0.15rem; cursor: pointer;
       flex: 1 1 0; min-width: 0; border-radius: 0.9rem;
-      opacity: 0; transform: translateY(6px) scale(0.9);
+      opacity: 0; transform: translateY(calc(var(--arco, 0px) + 6px)) scale(0.9);
       animation: weekOrbIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
       animation-delay: calc(var(--i, 0) * 60ms);
       transition: background 0.2s ease;
     }
-    @keyframes weekOrbIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+    /* L'arrivo in posizione tiene conto dell'arco: ogni giorno atterra sul
+       suo punto della curva, non tutti sulla stessa riga. */
+    @keyframes weekOrbIn { to { opacity: 1; transform: translateY(var(--arco, 0px)) scale(1); } }
     .week-orb-btn:active { background: color-mix(in srgb, var(--primary) 8%, transparent); }
     @media (hover: hover) { .week-orb-btn:hover .week-orb-dot { filter: brightness(1.15); transform: scale(1.08); } }
     .week-orb-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--on-surface-secondary); }
@@ -1533,6 +1547,20 @@
       transition: width 0.4s cubic-bezier(0.16,1,0.3,1), height 0.4s cubic-bezier(0.16,1,0.3,1), transform 0.2s ease, filter 0.2s ease;
     }
     .week-orb-dot.is-today { box-shadow: 0 0 0 2px var(--gold), 0 0 calc(var(--dot-size, 16px) * 0.6) -1px color-mix(in srgb, var(--dot-color, transparent) 70%, transparent); }
+    /* OGGI respira come l'orb: stesso ritmo di 5,5 secondi, lo stesso di
+       tutta l'app. Non è un secondo effetto: è lo stesso organismo visto in
+       piccolo. L'alone sta dietro il pianeta e non intercetta i tocchi. */
+    .week-orb-dot.is-today::before {
+      content: ''; position: absolute; inset: -9px; border-radius: 50%; z-index: -1;
+      background: radial-gradient(circle, color-mix(in srgb, var(--gold) 32%, transparent) 0%, transparent 68%);
+      animation: respiroPuro 5.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+    /* Solo scala: `aloneRespiro` porta con sé la traslazione del suo
+       elemento (l'alone dell'importo, centrato con translate) e qui
+       sposterebbe il pianeta fuori posto. */
+    @keyframes respiroPuro { 0%, 100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.12); opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .week-orb-dot.is-today::before { animation: none; } }
     /* Il giorno scelto: un anello che si allarga una volta sola, come il
        cerchio nell'acqua dove hai toccato. Un colpo solo, mai un loop —
        qualcosa che pulsa in continuazione su una schermata di soldi diventa

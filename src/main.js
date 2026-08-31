@@ -865,9 +865,20 @@ const attachFormListeners = (container, prefill = null) => {
     renderAmountImpact();
   };
 
+  // UN BOTTONE GRIGIO NON DICE PERCHÉ.
+  // Conferma resta spento finché non ci sono importo E categoria, ma non lo
+  // diceva a nessuno: l'utente digita, guarda il bottone morto e non sa cosa
+  // gli manca — è il punto in cui si abbandona un modulo. Ora il bottone
+  // stesso dice il passo che manca, e diventa "Conferma" solo quando si può
+  // davvero confermare. Nessun passaggio in più: cambia solo la parola.
   const updateSaveBtn = () => {
     const btn = formRoot.querySelector('.tx-save-btn');
-    if (btn) btn.disabled = !(parseFloat(rawVal) > 0 && catId);
+    if (!btn) return;
+    const importoOk = parseFloat(rawVal) > 0;
+    btn.disabled = !(importoOk && catId);
+    btn.textContent = !importoOk ? tCh('txNeedAmount', __uiLang)
+      : !catId ? tCh('txNeedCategory', __uiLang)
+      : tCh('txConfirm', __uiLang);
   };
 
   // ── TASTIERINO VIVO E PREDITTIVO ──
@@ -2283,12 +2294,22 @@ const renderDashboardWeekStrip = () => {
     // Etichetta parlata per intero: un lettore di schermo non deve sentire
     // "L 25", ma il giorno vero e quanto si è speso.
     const aria = `${di.date.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${di.spend > 0 ? formatMoney(di.spend) : tCh('alphaHeatmapNoExpense', __uiLang)}`;
-    return `<button type="button" class="week-orb-btn${futuro ? ' is-future' : ''}" style="--i:${i}" data-iso="${di.iso}" aria-label="${aria}" onclick="window.__toggleDashDay('${di.iso}')">
+    // I sette giorni stanno su un ARCO, non su una riga dritta: l'orb è
+    // rotondo e la striscia del mese è già un arco: una fila dritta sarebbe
+    // la terza geometria della stessa schermata. I due giorni centrali
+    // salgono di qualche pixel, gli estremi scendono — la stessa curva
+    // percorsa dalla traiettoria disegnata dietro.
+    const arco = -Math.sin((i / 6) * Math.PI) * 7;
+    return `<button type="button" class="week-orb-btn${futuro ? ' is-future' : ''}" style="--i:${i}; --arco:${arco.toFixed(1)}px" data-iso="${di.iso}" aria-label="${aria}" onclick="window.__toggleDashDay('${di.iso}')">
       <span class="week-orb-label">${letter}</span>
       <span class="week-orb-dot ${todayFlag ? 'is-today' : ''}" style="--dot-size:${dotSize}px; --dot-color:${color};"></span>
       <span class="week-orb-num">${di.date.getDate()}</span>
     </button>`;
   }).join('');
+  // La traiettoria che lega i sette giorni: un filo di luce sottile, la
+  // stessa materia della striscia del mese sotto l'orb. Disegnata dietro i
+  // pianeti (mai sopra), non tocca gli eventi del mouse.
+  row.insertAdjacentHTML('afterbegin', `<svg class="week-orbita" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 Q 50 1 98 9" fill="none" stroke="currentColor" stroke-width="0.6" stroke-linecap="round"/></svg>`);
 
   renderDashWeekSummary(days, catWeek);
 
