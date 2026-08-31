@@ -560,7 +560,10 @@ const getTxFormHTML = () => `
            che quello è il posto dove si scrive quanto ha speso. Una riga di
            tre parole toglie quella deduzione a chiunque — bambino o
            ottantenne — e cambia da sola col tipo scelto. -->
-      <p id="amount-domanda" class="t-etichetta text-center mb-1">${tCh('txAskExpense', __uiLang)}</p>
+      <p class="text-center mb-1"><span id="amount-domanda" class="t-etichetta amount-domanda">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+        <span id="amount-domanda-testo">${tCh('txAskExpense', __uiLang)}</span>
+      </span></p>
       <div class="flex items-center justify-center">
         <span class="text-2xl font-mono text-[var(--on-surface-secondary)] mr-1">€</span>
         <!-- Tastiera nativa del dispositivo (richiesta reale di più utenti,
@@ -781,6 +784,16 @@ const attachFormListeners = (container, prefill = null) => {
     const classeColore = vuoto ? 'amount-vuoto'
       : (type === 'entrata' ? 'amount-positive' : type === 'invest' ? 'amount-invest' : 'amount-negative');
     d.className = `amount-display ${classeColore} truncate px-2`;
+    // L'alone dietro l'importo (stesso respiro dell'orb, 5,5s) si accende
+    // solo quando un importo esiste: su un campo vuoto sarebbe decorazione.
+    const palco = d.closest('.amount-stage');
+    if (palco) {
+      palco.classList.toggle('ha-importo', !vuoto);
+      palco.style.setProperty('--alone-colore', vuoto ? 'transparent'
+        : type === 'entrata' ? 'color-mix(in srgb, var(--green) 32%, transparent)'
+        : type === 'invest' ? 'color-mix(in srgb, var(--gold) 30%, transparent)'
+        : 'color-mix(in srgb, var(--red) 26%, transparent)');
+    }
     // Micro-pop sul numero a ogni cifra digitata: feedback tattile immediato.
     d.classList.remove('amount-pop'); void d.offsetWidth; d.classList.add('amount-pop');
 
@@ -1007,9 +1020,14 @@ const attachFormListeners = (container, prefill = null) => {
 
       // La domanda sopra il campo segue il tipo scelto: "quanto hai speso"
       // e "quanto hai incassato" sono due cose diverse, e l'unico posto in
-      // cui la differenza si legge in parole è questo.
+      // cui la differenza si legge in parole è questo. Entra con una piccola
+      // salita in dissolvenza invece di cambiare di scatto: il testo che
+      // muta di colpo sotto le dita non si legge come una risposta al tocco,
+      // si legge come un errore.
       const domanda = container.querySelector('#amount-domanda');
-      if (domanda) domanda.textContent = tCh(type === 'entrata' ? 'txAskIncome' : type === 'invest' ? 'txAskInvest' : 'txAskExpense', __uiLang);
+      const domandaTesto = container.querySelector('#amount-domanda-testo');
+      if (domandaTesto) domandaTesto.textContent = tCh(type === 'entrata' ? 'txAskIncome' : type === 'invest' ? 'txAskInvest' : 'txAskExpense', __uiLang);
+      if (domanda) { domanda.classList.remove('cambia'); void domanda.offsetWidth; domanda.classList.add('cambia'); }
 
       const scroll = container.querySelector('#cat-scroll');
       if (scroll) {

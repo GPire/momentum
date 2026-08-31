@@ -603,6 +603,42 @@
     @keyframes ctxPulse { 0%,100%{ opacity:1; transform:scale(1);} 50%{ opacity:0.5; transform:scale(0.8);} }
     /* === FORM NUMPAD & INPUTS === */
     .amount-stage { text-align: center; padding: 1rem 0.5rem 0.5rem; position: relative; }
+    /* ── L'IMPORTO È UN ASTRO, NON UN CAMPO DI UN MODULO ──
+       Il pannello per segnare una spesa viveva in un'estetica sua: etichetta
+       maiuscoletta, cifre, tastierino. Ma è la stessa app dell'orb, delle
+       stelle e dei pianeti della settimana — e questa è la schermata che si
+       apre più volte al giorno. Qui l'importo prende lo stesso alone morbido
+       dell'orb (nucleo chiaro, bagliore che sfuma), che respira allo STESSO
+       ritmo di 5,5s: due cose che pulsano insieme sono un organismo, a ritmi
+       diversi sono due animazioni scollegate.
+       L'alone si accende solo quando un importo esiste davvero: su un campo
+       vuoto sarebbe decorazione, e la decorazione perenne smette di essere
+       vista. Il colore lo eredita dal tipo scelto (rosso uscita, verde
+       entrata, oro investimento) senza una seconda tabella di colori. */
+    .amount-stage::before {
+      content: ''; position: absolute; left: 50%; top: 32%;
+      width: min(70%, 280px); aspect-ratio: 1; transform: translate(-50%, -50%);
+      border-radius: 50%; pointer-events: none; z-index: 0;
+      background: radial-gradient(circle at 50% 45%, var(--alone-colore, transparent) 0%, transparent 62%);
+      opacity: 0; transition: opacity .6s ease, background .4s ease;
+      animation: aloneRespiro 5.5s ease-in-out infinite;
+    }
+    .amount-stage.ha-importo::before { opacity: .55; }
+    @keyframes aloneRespiro { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.06); } }
+    .amount-stage > * { position: relative; z-index: 1; }
+    /* Due puntini in orbita ai lati della domanda: la stessa grammatica già
+       usata attorno al microfono (mic-orbit-dot), non una nuova invenzione. */
+    .amount-domanda {
+      display: inline-flex; align-items: center; gap: .5rem;
+      color: var(--on-surface-secondary);
+    }
+    .amount-domanda svg { width: 12px; height: 12px; opacity: .85; }
+    .amount-domanda.cambia { animation: domandaIn .45s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes domandaIn { from { opacity: 0; transform: translateY(-6px); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .amount-stage::before { animation: none; }
+      .amount-domanda.cambia { animation: none; }
+    }
     .amount-display { font-family: 'DM Mono', monospace; font-size: 3.5rem; font-weight: 500; line-height: 1; letter-spacing: -0.05em; color: var(--on-surface); transition: color 0.3s; word-break: break-all; }
     @media (min-width: 400px) { .amount-display { font-size: 4.5rem; } }
     @media (min-width: 640px) { .amount-display { font-size: 5.5rem; } }
