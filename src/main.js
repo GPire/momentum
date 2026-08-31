@@ -2943,7 +2943,11 @@ const renderDashboard = () => {
   const reserveText = $('#cumulative-reserve-val');
   if (reserveText) {
     reserveText.textContent = formatMoney(cumulativeReserve);
-    reserveText.className = `t-dato t-dato-l font-mono ${cumulativeReserve >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]'} truncate`;
+    // MAI `truncate` su un importo: qui produceva "0,0…" al posto di
+    // "0,00 €" perché la colonna è mezza card. Un numero tagliato è un dato
+    // sbagliato, non un dettaglio di layout — la misura viene dal
+    // contenitore (.jar-importo, container query) e al peggio va a capo.
+    reserveText.className = `t-dato jar-importo font-mono ${cumulativeReserve >= 0 ? 'text-[var(--cyan)]' : 'text-[var(--red)]'}`;
   }
 
   // Impegni ricorrenti in arrivo (affitto/mutuo/abbonamenti): calcolati una volta,
@@ -2978,8 +2982,20 @@ const renderDashboard = () => {
 
   const safetyStatusText = $('#safety-status');
   if (safetyStatusText) {
-    safetyStatusText.textContent = tCh('dashSafetyLabel', __uiLang, safetyScore);
-    safetyStatusText.style.color = safetyScore >= 100 ? 'var(--green)' : (safetyScore > 50 ? 'var(--yellow)' : 'var(--red)');
+    // L'ETICHETTA CHIEDEVA MESI, IL NUMERO RISPONDEVA IN PERCENTUALE.
+    // Sotto "Mesi che potresti coprire" compariva "Sicurezza: 0%": due
+    // unità di misura diverse nella stessa frase, e la percentuale era di
+    // un obiettivo (sei mesi) che da nessuna parte veniva detto. Ora la
+    // risposta è nella stessa unità della domanda — i mesi che i soldi
+    // messi via coprirebbero davvero.
+    const mesiCoperti = safetyBasis > 0 ? cumulativeReserve / safetyBasis : 0;
+    const arrotondati = mesiCoperti >= 10 ? Math.round(mesiCoperti) : Math.round(mesiCoperti * 10) / 10;
+    safetyStatusText.textContent = tCh('dashMonthsCovered', __uiLang, arrotondati);
+    // Mai rosso su chi sta ancora iniziando: zero mesi da parte non è una
+    // colpa, è il punto di partenza di tutti.
+    safetyStatusText.style.color = mesiCoperti >= 6 ? 'var(--green)'
+      : mesiCoperti >= 3 ? 'var(--yellow)'
+      : 'var(--on-surface-secondary)';
   }
 
   const waveBar = $('#reserve-wave');
@@ -3095,17 +3111,20 @@ const renderDashboard = () => {
     // "unire senza appesantire, abbattendo tipologia di vista").
     const speseGiorno = righe.filter(t => t.type === 'uscita').reduce((s2, t) => s2 + t.amount, 0);
     const quotaGiornoTx = giorno !== '—' ? dailyBudgetQuota(new Date(giorno)) : 0;
-    // UNA PERCENTUALE NUDA NON SIGNIFICA NIENTE PER NESSUNO.
-    // Accanto alla data compariva un "17%" senza una parola intorno:
-    // percentuale di cosa? Segnalato dall'utente, ed è la stessa classe di
-    // problema del "(17% usato)" già corretto nel dettaglio del giorno.
-    // Qui lo spazio è una riga di intestazione, quindi si dice la cosa più
-    // corta possibile che sia comunque vera: "17% del giorno". Il colore
-    // continua a fare il resto (verde/ambra/rosso).
+    // NIENTE PERCENTUALI QUI. Accanto alla data c'era un "19%" nudo, e ogni
+    // utente ha fatto la stessa domanda: 19% di cosa? Anche riscritto in
+    // "19% del budget" resta un concetto che a sette anni non si è ancora
+    // studiato — e questa riga la legge chiunque, ogni giorno.
+    // Al suo posto una barretta piena a metà: si capisce senza saper leggere
+    // (poco pieno = ho speso poco), il colore dice se il giorno è sereno,
+    // ambra o oltre, e la frase intera per esteso resta per chi la cerca
+    // (tocco lungo, mouse fermo, lettore di schermo).
     const budgetPctHtml = quotaGiornoTx > 0 && speseGiorno > 0
       ? (() => {
           const pct = Math.round((speseGiorno / quotaGiornoTx) * 100);
-          return `<span class="${dailyBudgetPctColor(pct)} normal-case font-semibold ml-1.5" title="${tCh('dashDayBudgetTitle', __uiLang, formatMoney(quotaGiornoTx))}">${tCh('dashDayBudgetShare', __uiLang, pct)}</span>`;
+          const colore = pct > 100 ? '#f43f5e' : pct > 80 ? '#f59e0b' : '#10b981';
+          const frase = tCh('dashDayBudgetPlain', __uiLang, formatMoney(speseGiorno), formatMoney(quotaGiornoTx));
+          return `<span class="giorno-barra" style="--riempimento:${Math.min(pct, 100)}%; --colore:${colore}" title="${frase}" aria-label="${frase}" role="img"></span>`;
         })()
       : '';
     corpo += `<div class="tx-giorno">

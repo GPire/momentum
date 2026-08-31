@@ -906,6 +906,21 @@
       color: color-mix(in srgb, var(--on-surface-secondary) 55%, transparent);
     }
     .tx-giorno:not(:first-child) { margin-top: .15rem; border-top: 1px solid color-mix(in srgb, var(--glass-border) 40%, transparent); padding-top: .7rem; }
+    /* Quanto pesa questo giorno sul budget, senza numeri e senza percentuali:
+       una barretta che si riempie. Si legge prima di saper leggere, e non
+       ruba spazio alla data. La frase per esteso vive in title/aria-label. */
+    .giorno-barra {
+      display: inline-block; vertical-align: middle; width: 34px; height: 4px;
+      margin-left: .5rem; border-radius: 2px; overflow: hidden;
+      background: color-mix(in srgb, var(--on-surface-secondary) 22%, transparent);
+      position: relative;
+    }
+    .giorno-barra::after {
+      content: ''; position: absolute; inset: 0 auto 0 0;
+      width: var(--riempimento, 0%); background: var(--colore, var(--green));
+      border-radius: 2px; transition: width .5s cubic-bezier(.16,1,.3,1);
+    }
+    @media (prefers-reduced-motion: reduce) { .giorno-barra::after { transition: none; } }
     .tx-giorno-tot { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -.01em; }
     .tx-giorno-tot.neg { color: color-mix(in srgb, var(--on-surface-secondary) 70%, transparent); }
     .tx-giorno-tot.pos { color: color-mix(in srgb, var(--green) 80%, transparent); }
@@ -2085,6 +2100,30 @@
     .neuro-add-btn { width: 64px; height: 64px; border-radius: 1.8rem; background: var(--apex-gradient); border: 5px solid var(--bg); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 8px 24px -4px rgba(99,102,241,0.8); transition: transform 0.2s; cursor: pointer; animation: neuroPulse 3s infinite; }
     .neuro-add-btn:active { transform: scale(0.85); }
     @keyframes neuroPulse { 0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 70% { box-shadow: 0 0 0 20px rgba(99,102,241,0); } 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } }
+    /* SECONDO SEGNALE, INDIPENDENTE DAL BOX-SHADOW.
+       La pulsazione del "+" viveva solo su `box-shadow` animato: è l'effetto
+       che i browser mobile sacrificano per primo (non gira sulla GPU, e su
+       una barra con backdrop-filter accanto viene spesso saltato del tutto).
+       Segnalato dall'utente che "non pulsa più". Qui l'anello si espande con
+       transform/opacity, cioè le due sole proprietà che ogni browser anima
+       sempre sul compositor: se la prima non si vede, questa sì.
+       `pointer-events:none` perché è decorazione: non deve mai rubare il
+       tocco al bottone vero. */
+    .neuro-add-btn, .pulsa-anello { position: relative; }
+    .neuro-add-btn::after, .pulsa-anello::after {
+      content: ''; position: absolute; inset: -5px; border-radius: inherit;
+      border: 2px solid rgba(129,140,248,.55); pointer-events: none;
+      animation: neuroRing 3s infinite cubic-bezier(.22,1,.36,1);
+    }
+    @keyframes neuroRing {
+      0%   { opacity: .7; transform: scale(1); }
+      70%  { opacity: 0;  transform: scale(1.5); }
+      100% { opacity: 0;  transform: scale(1.5); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .neuro-add-btn, .pulsa-anello { animation: none; }
+      .neuro-add-btn::after, .pulsa-anello::after { animation: none; opacity: 0; }
+    }
 
     /* === GENESIS ONBOARDING === */
     #genesis-container { position: fixed; inset: 0; z-index: 9999; bg: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: #000; }
@@ -2902,6 +2941,10 @@
        anche così un importo eccezionalmente lungo non ci stesse, va a capo
        (mai truncate: un importo troncato è peggio di uno su due righe). */
     .tessere-grid { container-type: inline-size; }
+    /* Salvadanaio: gli stessi due numeri misurati sul contenitore, non sul
+       viewport (vedi il commento nel markup). */
+    .jar-numeri { container-type: inline-size; }
+    .jar-importo { font-size: clamp(1rem, 7cqi, 1.6rem); line-height: 1.15; white-space: normal; overflow-wrap: break-word; }
     /* Tetto misurato pixel per pixel con Canvas.measureText nello stesso font
        (DM Mono 800), non indovinato: a 1440px con barra laterale + Command
        Center desktop la card utile e' 90px (138px meno il padding), e
@@ -3651,14 +3694,21 @@
                   <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1 max-w-md" data-i18n-key="jarSubtitle">Quanto hai messo via finora, un mese dopo l'altro — senza toccare mai la banca da solo.</p>
                 </div>
 
-                <div class="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-4 sm:items-center">
-                  <div>
+                <!-- L'importo qui veniva TAGLIATO ("0,0…" invece di 0,00 €):
+                     .t-dato-l si dimensiona sul viewport, ma lo spazio vero è
+                     mezza card affiancata a un'altra colonna. Un importo
+                     mozzato è un dato sbagliato mostrato all'utente, non un
+                     dettaglio estetico — stesso problema già risolto per le
+                     quattro tessere, stessa soluzione: la misura viene dal
+                     contenitore (cqi), e se proprio non ci sta va a capo. -->
+                <div class="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-4 sm:items-center jar-numeri">
+                  <div class="min-w-0">
                     <p class="t-etichetta" data-i18n-key="jarSetAsideSoFar">Messo via finora</p>
-                    <p id="cumulative-reserve-val" class="t-dato t-dato-l font-mono text-[var(--cyan)]">€0,00</p>
+                    <p id="cumulative-reserve-val" class="t-dato jar-importo font-mono text-[var(--cyan)]">0,00 €</p>
                   </div>
-                  <div class="sm:border-l sm:border-[var(--outline)] sm:pl-4">
+                  <div class="sm:border-l sm:border-[var(--outline)] sm:pl-4 min-w-0">
                     <p class="t-etichetta" data-i18n-key="jarMonthsCovered">Mesi che potresti coprire</p>
-                    <p id="safety-status" class="text-xs font-bold text-[var(--yellow)] mt-1">Sicurezza: 0%</p>
+                    <p id="safety-status" class="t-dato jar-importo font-mono text-[var(--on-surface-secondary)]">0 mesi</p>
                   </div>
                 </div>
               </div>
@@ -4880,7 +4930,7 @@
        secondo bottone. Stessa animazione, stessa keyframe, mai una seconda
        definita apposta. -->
   <button id="tablet-fab" onclick="document.getElementById('mobile-add-btn').click()"
-    class="hidden md:flex xl:hidden fixed z-[70] items-center justify-center w-16 h-16 rounded-full text-white active:scale-90 transition-transform"
+    class="pulsa-anello hidden md:flex xl:hidden fixed z-[70] items-center justify-center w-16 h-16 rounded-full text-white active:scale-90 transition-transform"
     style="right: max(1.5rem, env(safe-area-inset-right)); bottom: max(1.5rem, env(safe-area-inset-bottom)); background: var(--apex-gradient); box-shadow: 0 10px 30px -6px rgba(99,102,241,.7), 0 0 0 1px rgba(129,140,248,.4); animation: neuroPulse 3s infinite;"
     aria-label="Aggiungi una spesa">
     <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
