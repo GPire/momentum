@@ -1059,6 +1059,17 @@
       border-radius: 2px; transition: width .5s cubic-bezier(.16,1,.3,1);
     }
     @media (prefers-reduced-motion: reduce) { .giorno-barra::after { transition: none; } }
+    /* La riga appena salvata: un lampo verde che si spegne da solo in poco
+       più di un secondo. Non è una festa (niente coriandoli su una schermata
+       di soldi): è la risposta alla domanda "dove è finita la spesa che ho
+       appena inserito". */
+    .tx-appena-aggiunta { animation: txArrivata 1.6s ease-out 1 both; }
+    @keyframes txArrivata {
+      0%   { background: color-mix(in srgb, var(--green) 26%, transparent); }
+      35%  { background: color-mix(in srgb, var(--green) 20%, transparent); }
+      100% { background: transparent; }
+    }
+    @media (prefers-reduced-motion: reduce) { .tx-appena-aggiunta { animation: none; } }
     .tx-giorno-tot { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -.01em; }
     .tx-giorno-tot.neg { color: color-mix(in srgb, var(--on-surface-secondary) 70%, transparent); }
     .tx-giorno-tot.pos { color: color-mix(in srgb, var(--green) 80%, transparent); }

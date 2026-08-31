@@ -1674,8 +1674,9 @@ const attachFormListeners = (container, prefill = null) => {
     // import bancari): qui protegge solo dal doppio tocco per errore, non
     // fonde due caffe' veri comprati in giorni diversi — vedi il commento in
     // VaultDAO.addTransaction per il bug che questo risolve.
+    const idNuovaTx = Date.now();
     const { route, duplicate } = VaultDAO.addTransaction(k, {
-      id: Date.now(),
+      id: idNuovaTx,
       amount: amt,
       type,
       category: catId,
@@ -1708,10 +1709,21 @@ const attachFormListeners = (container, prefill = null) => {
     } else {
       NeuralNexus.train(desc?.value || getCatById(catId).name, catId, amt, selectedDate);
     }
-    showToast("Movimento salvato.", "success");
+    // Il messaggio dice COSA è stato salvato, non solo che è successo
+    // qualcosa: "Segnata: 9,00 € in Alimentari" chiude il cerchio aperto
+    // dalle due domande del modulo (quanto, per cosa). Era anche l'ultima
+    // stringa italiana scritta a mano rimasta in questo percorso.
+    showToast(tCh('txSavedToast', __uiLang, formatMoney(amt), catName(getCatById(catId), __uiLang)), 'success');
     updateStreak();
     evaluateAndCelebrateAchievements();
     closeModal();
+    // DOVE È FINITA LA MIA SPESA? Dopo il salvataggio la Dashboard si
+    // ridisegna e la nuova riga compare in mezzo alle altre, identica:
+    // chi ha appena inserito qualcosa non ha modo di vederla arrivare, e
+    // resta il dubbio di aver premuto a vuoto. La riga appena creata si
+    // illumina per un attimo (vedi .tx-appena-aggiunta): il tempo di
+    // riconoscerla, poi torna una riga come le altre.
+    window.__txAppenaAggiunta = duplicate ? null : idNuovaTx;
     renderDashboard();
     renderAnalysis({ skipHeavyForecast: route === 'fast' });
   };
@@ -3270,6 +3282,10 @@ const renderDashboard = () => {
   // Ingresso scaglionato (stesso principio di .view-in): reflow forzato per
   // ri-attivare l'animazione a ogni render (nuovo mese, nuova tx, eliminazione).
   list.classList.remove('tx-in'); void list.offsetWidth; list.classList.add('tx-in');
+  // Il segno "appena aggiunta" vale UNA sola volta: senza azzerarlo, la
+  // stessa riga resterebbe illuminata a ogni ridisegno successivo, e un
+  // evidenziamento che non finisce smette di significare "nuovo".
+  window.__txAppenaAggiunta = null;
   return;
 
   // Funzione dichiarata: l'hoisting la rende disponibile anche se e' scritta
@@ -3283,8 +3299,11 @@ const renderDashboard = () => {
     // categoria, che e' l'informazione che cambia da riga a riga.
     const dateLabel = catName(c, __uiLang);
 
+    // La riga appena salvata si illumina un attimo, così chi ha appena
+    // inserito una spesa la vede arrivare invece di cercarla.
+    const appenaAggiunta = window.__txAppenaAggiunta && String(t.id) === String(window.__txAppenaAggiunta);
     return `
-      <div class="tx-card group" data-id="${t.id}">
+      <div class="tx-card group${appenaAggiunta ? ' tx-appena-aggiunta' : ''}" data-id="${t.id}">
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <!-- Prima era un &lt;div&gt; muto: l'unica azione sulla riga era il
                cestino. Ora l'icona e' un bottone che apre il cambio categoria —
