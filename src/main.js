@@ -939,34 +939,36 @@ const attachFormListeners = (container, prefill = null) => {
     voiceBtn.onclick = () => VoiceCore.toggle();
   }
 
-  // Esempi di cosa dire, sempre visibili (mai un tooltip che nessuno apre):
-  // due frasi vere che alternano da sole — spesa e promemoria, i due usi più
-  // comuni — nella lingua già rilevata per la voce (linguaVoceAttiva, stessa
-  // fonte di verità di VoiceCore, mai una seconda logica di lingua separata).
+  // UNA FRASE SOLA, QUELLA CHE SERVE ADESSO.
+  // Prima gli esempi ruotavano da soli ogni 3,8 secondi fra spesa,
+  // promemoria e domanda. Due difetti veri: un testo che cambia da solo
+  // sotto gli occhi sparisce prima che chi legge piano (un bambino, una
+  // persona anziana) l'abbia finito; e mentre registri una USCITA ti veniva
+  // proposto "promemoria dentista giovedì alle 15", che appartiene a un
+  // altro compito e fa credere che il microfono serva ad altro.
+  // Ora la frase è ferma e segue il tipo scelto. La scoperta degli altri
+  // usi non è persa: resta nella guida vocale e nelle schermate dedicate.
+  // La lingua è quella della VOCE (linguaVoceAttiva), che può essere diversa
+  // da quella dell'interfaccia — stessa fonte di verità di VoiceCore.
   const hintTextEl = container.querySelector('#voice-hint-example-text');
-  if (hintTextEl) {
-    const ESEMPI = {
-      it: ['ho speso 15 euro al bar', 'promemoria dentista giovedì alle 15', 'quanto ho speso questo mese?'],
-      en: ['I spent 15 euros at the bar', 'remind me dentist Thursday at 3pm', 'how much did I spend this month?'],
-      es: ['gasté 15 euros en el bar', 'recuérdame dentista el jueves a las 15', '¿cuánto he gastado este mes?'],
-      fr: ['j\'ai dépensé 15 euros au bar', 'rappel dentiste jeudi à 15h', 'combien ai-je dépensé ce mois-ci ?'],
-      de: ['ich habe 15 Euro in der Bar ausgegeben', 'Erinnerung Zahnarzt Donnerstag um 15 Uhr', 'wie viel habe ich diesen Monat ausgegeben?'],
-      pt: ['gastei 15 euros no bar', 'lembrete dentista quinta às 15h', 'quanto gastei este mês?'],
-      // 'nl' mancava qui (bug reale, 2026-08-29): linguaVoceAttiva() può
-      // restituire 'nl' (è in UI_LANGS/SUPPORTED), ma senza questa voce
-      // l'esempio ripiegava sempre sull'italiano per un utente olandese —
-      // anche se il resto della UI era già in olandese.
-      nl: ['ik heb 15 euro uitgegeven aan de bar', 'herinnering tandarts donderdag om 15 uur', 'hoeveel heb ik deze maand uitgegeven?'],
-    };
-    const lista = ESEMPI[linguaVoceAttiva()] || ESEMPI.it;
-    let i = 0;
-    const mostra = () => {
-      hintTextEl.style.opacity = '0';
-      setTimeout(() => { hintTextEl.textContent = `“${lista[i % lista.length]}”`; hintTextEl.style.opacity = '1'; i++; }, 250);
-    };
-    hintTextEl.textContent = `“${lista[0]}”`; i = 1;
-    const timer = setInterval(() => { if (!container.isConnected) { clearInterval(timer); return; } mostra(); }, 3800);
-  }
+  const ESEMPI_VOCE = {
+    it: { uscita: 'ho speso 15 euro al bar', entrata: 'ho ricevuto 1500 euro di stipendio', invest: 'ho investito 200 euro' },
+    en: { uscita: 'I spent 15 euros at the bar', entrata: 'I received 1500 euros of salary', invest: 'I invested 200 euros' },
+    es: { uscita: 'gasté 15 euros en el bar', entrata: 'he cobrado 1500 euros de sueldo', invest: 'he invertido 200 euros' },
+    fr: { uscita: "j'ai dépensé 15 euros au bar", entrata: "j'ai reçu 1500 euros de salaire", invest: "j'ai investi 200 euros" },
+    de: { uscita: 'ich habe 15 Euro in der Bar ausgegeben', entrata: 'ich habe 1500 Euro Gehalt bekommen', invest: 'ich habe 200 Euro angelegt' },
+    pt: { uscita: 'gastei 15 euros no bar', entrata: 'recebi 1500 euros de salário', invest: 'investi 200 euros' },
+    // 'nl' mancava qui (bug reale, 2026-08-29): linguaVoceAttiva() può
+    // restituire 'nl' (è in UI_LANGS/SUPPORTED), e senza questa voce
+    // l'esempio ripiegava sull'italiano per un utente olandese.
+    nl: { uscita: 'ik heb 15 euro uitgegeven aan de bar', entrata: 'ik heb 1500 euro salaris ontvangen', invest: 'ik heb 200 euro belegd' },
+  };
+  const aggiornaEsempioVoce = () => {
+    if (!hintTextEl) return;
+    const perLingua = ESEMPI_VOCE[linguaVoceAttiva()] || ESEMPI_VOCE.it;
+    hintTextEl.textContent = `“${perLingua[type] || perLingua.uscita}”`;
+  };
+  aggiornaEsempioVoce();
 
   // "Dividi" si aggiorna a ogni carattere digitato (può nominare il gruppo
   // giusto man mano che la descrizione somiglia a una spesa già divisa).
@@ -1089,6 +1091,9 @@ const attachFormListeners = (container, prefill = null) => {
       const domandaTesto = container.querySelector('#amount-domanda-testo');
       if (domandaTesto) domandaTesto.textContent = tCh(type === 'entrata' ? 'txAskIncome' : type === 'invest' ? 'txAskInvest' : 'txAskExpense', __uiLang);
       if (domanda) { domanda.classList.remove('cambia'); void domanda.offsetWidth; domanda.classList.add('cambia'); }
+      // Anche l'esempio vocale segue il tipo: dire "ho speso 15 euro al bar"
+      // sotto un modulo di ENTRATA insegnerebbe la frase sbagliata.
+      try { aggiornaEsempioVoce(); } catch (_) {}
 
       const scroll = container.querySelector('#cat-scroll');
       if (scroll) {

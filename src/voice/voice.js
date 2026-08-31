@@ -43,7 +43,20 @@ const VoiceCore = {
   isListening: false,
   init(container) {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRec) return;
+    if (!SpeechRec) {
+      // BROWSER SENZA DETTATURA (Firefox desktop, diversi browser Android
+      // alternativi): prima si usciva e basta, lasciando in pagina un
+      // microfono che si poteva toccare e non faceva NULLA — nessun errore,
+      // nessuna spiegazione, solo un comando morto. Un bottone che non
+      // risponde è peggio di un bottone assente: chi lo tocca pensa che
+      // l'app sia rotta, o che sia colpa sua. Qui sparisce, insieme alla
+      // frase di esempio che invitava a usarlo.
+      try {
+        container?.querySelector('.mic-stage')?.classList.add('hidden');
+        container?.querySelector('#voice-hint-example')?.classList.add('hidden');
+      } catch (_) {}
+      return;
+    }
     // BUG REALE segnalato dal vivo (2026-08-17): "in ascolto" scattava più
     // volte, anche al primo tocco. Causa trovata: attachFormListeners (e con
     // esso VoiceCore.init) viene richiamato a ogni apertura del modulo sullo
