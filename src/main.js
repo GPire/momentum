@@ -3587,10 +3587,19 @@ window.runAIOverflowSweep = () => {
 const renderAnalysis = (opts = {}) => {
   const k = monthKey(VaultDAO.state.currentDate);
   const txs = VaultDAO.state.transactions[k] || [];
+  // DUE SCHERMATE NON POSSONO DARE DUE RISPOSTE ALLA STESSA DOMANDA.
+  // Il budget qui leggeva solo le transazioni vere: con l'esempio attivo
+  // (utente appena arrivato) diceva "0,00 € su 1500,00 €" mentre la
+  // Dashboard, tre tocchi più in là, diceva "919,25 € spesi". Chi apre le
+  // due schermate di fila non pensa "una usa i dati demo": pensa che l'app
+  // sbagli i conti. Per QUELLO CHE SI VEDE si usa la stessa fonte della
+  // Dashboard; `txs` (solo dati veri) resta per tutto il resto della
+  // funzione, dove i numeri finti non devono entrare.
+  const txsVista = displayTxForMonth(k);
   let exp = 0;
   const catTotals = {};
 
-  txs.forEach(t => {
+  txsVista.forEach(t => {
     if (t.type === 'uscita') {
       exp += t.amount;
       catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
@@ -3620,7 +3629,15 @@ const renderAnalysis = (opts = {}) => {
     // per un mese futuro risulterebbero tutte "future" senza mai calcolare
     // niente — coerente in entrambi i casi con questa scelta).
     const referenceDate = viewingCurrentMonth ? realNowForWeekly : VaultDAO.state.currentDate;
-    const { currentWeek, weeks } = getWeeklyStatus(txs, budgetLimit, referenceDate);
+    // Stessa fonte della Dashboard (esempio incluso, vedi sopra) e stessa
+    // settimana VERA lunedì→domenica: qui compariva "Questa settimana
+    // (31 ago - 31 ago)" perché il motore taglia le settimane ai confini del
+    // mese — un solo giorno chiamato "settimana" non lo capisce nessuno.
+    const { weeks } = getWeeklyStatus(txsVista, budgetLimit, referenceDate);
+    const isoWeek = viewingCurrentMonth ? getIsoWeekStatus(displayAllTx(), budgetLimit, referenceDate) : null;
+    const currentWeek = isoWeek
+      ? { ...isoWeek, rolloverIn: weeks.find(w => w.isCurrent)?.rolloverIn ?? null }
+      : weeks.find(w => w.isCurrent) || null;
     const fmtDay = d => d.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
 
     if (currentWeek) {
