@@ -1893,6 +1893,29 @@
       .numpad-key { min-height: 2rem; font-size: 1rem; }
     }
 
+    /* ── L'AREA DA TOCCARE È PIÙ GRANDE DI QUELLO CHE SI VEDE ──
+       Misurati dal vivo 98 elementi toccabili sotto i 44px nella sola
+       Dashboard: le frecce del mese (40px), i chip delle domande (27px),
+       "Parti dai miei dati" (31px), il link al backup (17px di altezza).
+       Su un telefono, con un dito, e ancora di più con la mano di una
+       persona anziana, quei bersagli si mancano — e mancare un bersaglio
+       due volte di fila è uno dei motivi per cui si chiude un'app.
+       Qui NON si ingrandisce il disegno (romperebbe la densità studiata di
+       ogni schermata): si estende l'area sensibile oltre il bordo visibile,
+       con uno pseudo-elemento trasparente. È la tecnica standard per
+       arrivare ai 44px di Apple/WCAG AAA senza toccare l'estetica.
+       Solo su puntatore grosso: col mouse la precisione c'è già. */
+    @media (pointer: coarse) {
+      .qa-chip, .mese-freccia, .cat-suggerisci-nuova, .tx-giorno-tot,
+      #demo-banner button, #import-cta button, #import-cta a { position: relative; }
+      .qa-chip::after, .mese-freccia::after, .cat-suggerisci-nuova::after,
+      #demo-banner button::after, #import-cta button::after, #import-cta a::after {
+        content: ''; position: absolute; left: 0; right: 0;
+        top: 50%; transform: translateY(-50%);
+        height: 44px; min-height: 100%;
+      }
+    }
+
     /* — TABLET (768–1023): il form respira, chip e tasti un filo più grandi. — */
     @media (min-width: 768px) and (max-width: 1023px) {
       .cat-chip { min-width: 76px; }
