@@ -523,7 +523,14 @@ const getTxFormHTML = () => `
   <div class="flex flex-col h-full bg-[var(--surface-solid)] lg:bg-[var(--surface)] p-3 sm:p-5 lg:p-0 rounded-2xl relative min-h-0">
     
     <!-- NLP Prediction preview & AntiFOMO warnings -->
-    <div id="ai-insight-panel" class="ai-insight-panel">
+    <!-- aria-hidden finché non è attivo: il pannello è invisibile agli occhi
+         (opacity 0) ma un lettore di schermo lo leggeva comunque, e chi non
+         vede si sentiva annunciare "categoria suggerita, sicurezza 0%, sto
+         guardando cosa hai scritto" PRIMA di aver scritto qualsiasi cosa.
+         Invisibile e "non ancora esistente" devono coincidere.
+         ATTENZIONE per il futuro: questo è dentro un template literal JS —
+         nessun backtick nei commenti qui dentro, chiuderebbe la stringa. -->
+    <div id="ai-insight-panel" class="ai-insight-panel" aria-hidden="true">
        <div class="ai-insight-header"><span class="inline-flex items-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg>${tCh('txCategorySuggested', __uiLang)}</span><span id="ai-cat-badge" class="truncate max-w-[120px]">Cat</span></div>
        <div class="text-[11px] font-mono text-[var(--on-surface-secondary)] mb-1">${tCh('txSecurityLabel', __uiLang)} <span class="ml-confidence" id="ml-confidence-score">0%</span></div>
        <div class="ai-insight-body" id="ai-insight-text">${tCh('txAiThinking', __uiLang)}</div>
@@ -930,6 +937,7 @@ const attachFormListeners = (container, prefill = null) => {
       const val = desc.value.trim();
       if (val.length < 3) {
         aiPanel.classList.remove('active');
+        aiPanel.setAttribute('aria-hidden', 'true');
         container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
         return;
       }
@@ -939,6 +947,7 @@ const attachFormListeners = (container, prefill = null) => {
         aiCatBadge.textContent = tCh('txFomoBadge', __uiLang);
         aiText.innerHTML = `<span class="text-red-500 font-bold">${tCh('txFomoMessage', __uiLang)}</span>`;
         aiPanel.classList.add('active', 'anomalous');
+        aiPanel.setAttribute('aria-hidden', 'false');
         aiBtn.style.display = 'none';
         return;
       }
@@ -968,6 +977,7 @@ const attachFormListeners = (container, prefill = null) => {
           ? pred.advice
           : `${pred.advice} (sicurezza ${pred.confidence}%)`;
         aiPanel.classList.add('active');
+        aiPanel.setAttribute('aria-hidden', 'false');
         aiPanel.classList.remove('anomalous');
         aiBtn.style.display = 'block';
         
@@ -1001,6 +1011,7 @@ const attachFormListeners = (container, prefill = null) => {
         
         aiBtn.onclick = () => {
           aiPanel.classList.remove('active');
+        aiPanel.setAttribute('aria-hidden', 'true');
           haptic('heavy');
         };
       }
@@ -12255,6 +12266,31 @@ const endGenesis = () => {
 // gesto, il movimento passa alla finestra. Nessun cambio di layout, nessuna
 // altezza forzata: solo il comportamento che una persona si aspetta.
 // NON va applicato ai modali a schermo intero, dove l'isolamento è voluto.
+// "C'È ALTRO SOTTO": il pannello per segnare una spesa mostra 542px di
+// contenuto su 791 — categoria, nota, data e "Dividi" restano sotto la
+// piega, mentre CONFERMA è sempre visibile in fondo. Chi non sa che sotto
+// c'è altro conferma senza aver scelto niente: non è distrazione, è che
+// nulla glielo diceva. Una sfumatura sul bordo basso (più una freccina che
+// respira) è il segnale minimo che si legge a qualunque età, e sparisce da
+// sola appena si arriva in fondo — mai un ornamento perenne.
+function segnalaAltroSotto(el) {
+  if (!el || el.dataset.segnaleScroll === '1') return;
+  el.dataset.segnaleScroll = '1';
+  const genitore = el.parentElement;
+  if (genitore && getComputedStyle(genitore).position === 'static') genitore.style.position = 'relative';
+  const aggiorna = () => {
+    const spazio = el.scrollHeight - el.clientHeight;
+    const inFondo = spazio <= 4 || Math.ceil(el.scrollTop) >= spazio - 4;
+    el.classList.toggle('ha-altro-sotto', !inFondo);
+  };
+  el.addEventListener('scroll', aggiorna, { passive: true });
+  try { new ResizeObserver(aggiorna).observe(el); } catch (_) {}
+  // Il contenuto del modulo si ridisegna (cambio tipo, nuove categorie):
+  // senza questo il segnale resterebbe fermo alla prima misura.
+  try { new MutationObserver(aggiorna).observe(el, { childList: true, subtree: true }); } catch (_) {}
+  aggiorna();
+}
+
 function collegaScrollAllaPagina(el) {
   if (!el || el.dataset.scrollCollegato === '1') return;
   el.dataset.scrollCollegato = '1';
@@ -12272,6 +12308,7 @@ function collegaScrollAllaPagina(el) {
 const bootUI = () => {
   try {
     collegaScrollAllaPagina(document.getElementById('form-container-desktop'));
+    segnalaAltroSotto(document.getElementById('form-container-desktop'));
     collegaScrollAllaPagina(document.querySelector('#desktop-sidebar'));
     document.querySelectorAll('aside nav.overflow-y-auto').forEach(collegaScrollAllaPagina);
   } catch (e) { console.error('collegaScrollAllaPagina:', e); }
