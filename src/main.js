@@ -3095,8 +3095,18 @@ const renderDashboard = () => {
     // "unire senza appesantire, abbattendo tipologia di vista").
     const speseGiorno = righe.filter(t => t.type === 'uscita').reduce((s2, t) => s2 + t.amount, 0);
     const quotaGiornoTx = giorno !== '—' ? dailyBudgetQuota(new Date(giorno)) : 0;
+    // UNA PERCENTUALE NUDA NON SIGNIFICA NIENTE PER NESSUNO.
+    // Accanto alla data compariva un "17%" senza una parola intorno:
+    // percentuale di cosa? Segnalato dall'utente, ed è la stessa classe di
+    // problema del "(17% usato)" già corretto nel dettaglio del giorno.
+    // Qui lo spazio è una riga di intestazione, quindi si dice la cosa più
+    // corta possibile che sia comunque vera: "17% del giorno". Il colore
+    // continua a fare il resto (verde/ambra/rosso).
     const budgetPctHtml = quotaGiornoTx > 0 && speseGiorno > 0
-      ? `<span class="${dailyBudgetPctColor(Math.round((speseGiorno / quotaGiornoTx) * 100))} normal-case font-semibold ml-1.5">${Math.round((speseGiorno / quotaGiornoTx) * 100)}%</span>`
+      ? (() => {
+          const pct = Math.round((speseGiorno / quotaGiornoTx) * 100);
+          return `<span class="${dailyBudgetPctColor(pct)} normal-case font-semibold ml-1.5" title="${tCh('dashDayBudgetTitle', __uiLang, formatMoney(quotaGiornoTx))}">${tCh('dashDayBudgetShare', __uiLang, pct)}</span>`;
+        })()
       : '';
     corpo += `<div class="tx-giorno">
       <span>${escTx(etichettaGiorno)}${budgetPctHtml}</span>
