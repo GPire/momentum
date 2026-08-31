@@ -3935,16 +3935,28 @@ const renderAnalysis = (opts = {}) => {
     coastNoteEl.textContent = tCh('alphaFireCoastNote', __uiLang, (fireExpectedReturn * 100).toFixed(1)) + (fireInvested > 0 && coast.isCoastFire ? tCh('alphaFireCoastBonus', __uiLang) : '');
   }
 
-  // Heatmap Grid
+  // ── IL CALENDARIO DEL MESE, FATTO COME UN CALENDARIO ──
+  // Prima era una griglia a 7 colonne con i numeri da 1 a 31 messi in fila:
+  // il giorno 1 finiva SEMPRE nella prima colonna, qualunque giorno della
+  // settimana fosse. Le colonne quindi non volevano dire niente — chi ci
+  // cerca "il sabato" (il pattern che ogni persona ha in testa da Google
+  // Calendar e dal calendario di carta) leggeva una cosa sbagliata.
+  // Due bug veri corretti insieme:
+  //  1) il numero di giorni veniva dal mese DI OGGI, non da quello scelto:
+  //     navigando a febbraio si disegnavano comunque 31 caselle;
+  //  2) leggeva solo le transazioni vere, mentre tutto il resto della
+  //     schermata mostra anche l'esempio — due conteggi diversi per lo
+  //     stesso mese (vedi il commento su txsVista in cima a renderAnalysis).
   const grid = $('#heatmap-grid');
   if (grid) {
-    grid.innerHTML = '';
-    const today = new Date();
-    const days = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const anno = VaultDAO.state.currentDate.getFullYear();
+    const mese = VaultDAO.state.currentDate.getMonth();
+    const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
+    const oggi = new Date();
 
     const spends = {};
     __heatmapDayTx = {};
-    txs.forEach(t => {
+    txsVista.forEach(t => {
       if (t.type === 'uscita') {
         const d = new Date(t.date).getDate();
         spends[d] = (spends[d] || 0) + t.amount;
@@ -3953,18 +3965,40 @@ const renderAnalysis = (opts = {}) => {
     });
     __heatmapMonthLabel = VaultDAO.state.currentDate.toLocaleDateString(__uiLocale, { month: 'long' });
 
-    for (let i = 1; i <= days; i++) {
-      const amt = spends[i] || 0;
-      let bg = 'bg-slate-900/40 border border-[var(--glass-border)]';
-      if (amt > 0 && amt <= 20) bg = 'bg-indigo-900/30';
-      else if (amt > 20 && amt <= 80) bg = 'bg-indigo-700/50';
-      else if (amt > 80 && amt <= 200) bg = 'bg-indigo-500/70';
-      else if (amt > 200) bg = 'bg-indigo-400';
-
-      // title = tooltip per mouse; il click (sotto) è il vero drill-down,
-      // necessario perché su touch il title non appare mai al tocco.
-      grid.innerHTML += `<div class="heatmap-day ${bg} flex items-center justify-center text-[11px] font-mono text-[var(--on-surface-secondary)] cursor-pointer" data-heatmap-day="${i}" title="${i} ${__heatmapMonthLabel}: ${amt > 0 ? formatMoney(amt) : tCh('alphaHeatmapNoExpense', __uiLang)}">${i}</div>`;
+    // Intestazioni dei giorni prese dal locale (lun…dom in Italia, sun…sat
+    // dove la settimana inizia di domenica lo sarebbe comunque per noi:
+    // qui la settimana resta lunedì→domenica, la stessa del budget
+    // settimanale e della striscia in Dashboard — una sola definizione).
+    let html = ''; // 1 gennaio 2024 era un lunedì: base per i nomi dei giorni
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(2024, 0, 1 + i);
+      html += `<div class="cal-intestazione">${d.toLocaleDateString(__uiLocale, { weekday: 'short' }).replace(/\.$/, '')}</div>`;
     }
+    // Caselle vuote prima del giorno 1, per allineare il mese alla settimana.
+    const dowPrimo = new Date(anno, mese, 1).getDay(); // 0=domenica
+    const vuotePrima = (dowPrimo === 0 ? 6 : dowPrimo - 1);
+    for (let i = 0; i < vuotePrima; i++) html += '<div class="cal-vuota" aria-hidden="true"></div>';
+
+    const quotaGiorno = dailyBudgetQuota(new Date(anno, mese, 1));
+    for (let g = 1; g <= giorniNelMese; g++) {
+      const amt = spends[g] || 0;
+      const data = new Date(anno, mese, g);
+      const isOggi = data.toDateString() === oggi.toDateString();
+      const futuro = data > oggi && !isOggi;
+      // Il colore dice quanto pesa il giorno sul budget di giornata; senza
+      // budget resta la scala relativa al mese, mai un giudizio inventato.
+      let livello = 0;
+      if (amt > 0) {
+        const rel = quotaGiorno > 0 ? amt / quotaGiorno : amt / 100;
+        livello = rel > 1.5 ? 4 : rel > 1 ? 3 : rel > 0.5 ? 2 : 1;
+      }
+      const etichetta = `${data.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${amt > 0 ? formatMoney(amt) : tCh('alphaHeatmapNoExpense', __uiLang)}`;
+      html += `<button type="button" class="heatmap-day cal-giorno liv-${livello}${isOggi ? ' cal-oggi' : ''}${futuro ? ' cal-futuro' : ''}" data-heatmap-day="${g}" title="${etichetta}" aria-label="${etichetta}">
+        <span class="cal-numero">${g}</span>
+        ${amt > 0 ? `<span class="cal-importo">${formatMoney(amt)}</span>` : ''}
+      </button>`;
+    }
+    grid.innerHTML = html;
     $('#heatmap-day-detail').innerHTML = '';
   }
 
@@ -10283,11 +10317,15 @@ document.addEventListener('click', (e) => {
   const day = cell.dataset.heatmapDay;
   const detailEl = $('#heatmap-day-detail');
   if (!detailEl) return;
-  document.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('ring-2', 'ring-[var(--gold)]'));
-  cell.classList.add('ring-2', 'ring-[var(--gold)]');
+  // Il giorno scelto resta marcato con l'anello indigo (mai l'oro, che qui
+  // significa già "oggi": due segni identici per due cose diverse sarebbero
+  // illeggibili proprio nel giorno che l'utente guarda più spesso).
+  document.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('is-scelto'));
+  cell.classList.add('is-scelto');
   const dayTxs = __heatmapDayTx[day] || [];
   const dateObj = new Date(VaultDAO.state.currentDate.getFullYear(), VaultDAO.state.currentDate.getMonth(), parseInt(day, 10));
-  detailEl.innerHTML = buildDayDetailHtml(dateObj, dayTxs, `${day} ${__heatmapMonthLabel}`);
+  const etichettaGiorno = dateObj.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' });
+  detailEl.innerHTML = buildDayDetailHtml(dateObj, dayTxs, etichettaGiorno);
 });
 
 // Confronto periodi (src/predict/period-compare.js): richiesto esplicitamente
