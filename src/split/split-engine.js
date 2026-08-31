@@ -29,9 +29,13 @@ function genId() { return Date.now().toString(36) + Math.random().toString(36).s
 // Crea un gruppo. members = [{id, name}] o [nomi]. Normalizza a {id, name}.
 // `id` di gruppo univoco: due copie dello STESSO gruppo (una creata, una ricevuta)
 // condividono l'id e si fondono; gruppi diversi restano distinti.
-export function createGroup({ name = 'Gruppo', members = [], id } = {}) {
+// `baseCurrency` opzionale (default EUR, retrocompatibile con i gruppi già
+// creati): Momentum è globale, non solo europea (vedi memoria di progetto),
+// quindi un utente USA/UK/qualunque Paese può creare un gruppo nella propria
+// valuta — main.js la rileva dal device alla creazione, mai hardcoded qui.
+export function createGroup({ name = 'Gruppo', members = [], id, baseCurrency = 'EUR' } = {}) {
   const norm = members.map((m, i) => typeof m === 'string' ? { id: `m${i}`, name: m } : { id: m.id || `m${i}`, name: m.name || `Membro ${i + 1}` });
-  return { id: id || genId(), name, members: norm, expenses: [] };
+  return { id: id || genId(), name, members: norm, expenses: [], baseCurrency };
 }
 
 // Aggiunge una spesa condivisa. `shares` opzionale:
@@ -40,11 +44,38 @@ export function createGroup({ name = 'Gruppo', members = [], id } = {}) {
 //  - { byId:{id:quota} } → quote ESATTE in euro (devono sommare all'importo);
 //  - { weights:{id:peso} } → ripartizione proporzionale ai pesi.
 // payer = id del membro che ha pagato. Ritorna il nuovo gruppo (immutabile).
-export function addSharedExpense(group, { payer, amount, description = '', date, shares } = {}) {
+//
+// VALUTA (gap reale trovato: un gruppo di viaggio assumeva un'unica valuta
+// condivisa mai dichiarata — chi pagava in CHF/GBP durante un viaggio non
+// aveva modo di registrarlo). `amount` resta SEMPRE l'importo vero in EUR,
+// l'UNICA cifra che saldi/settlement/SEPA leggono — zero modifiche a valle,
+// zero seconda fonte di verità. `originalAmount`/`originalCurrency`/
+// `exchangeRate` sono opzionali e servono SOLO da etichetta onesta per la UI
+// ("questo veniva da 45 CHF, tasso del 12/08"): il tasso è quello del GIORNO
+// della spesa, fissato per sempre a quel momento (mai ricalcolato dopo — un
+// saldo che cambia nel tempo perché il cambio è sceso tradirebbe la fiducia,
+// stesso principio già applicato ovunque nel progetto per i dati "quasi in
+// tempo reale"). Chi chiama (main.js) fa la conversione PRIMA di chiamare
+// questa funzione — split-engine.js resta puro, nessuna rete qui (vedi
+// commento in testa al file).
+export function addSharedExpense(group, { payer, amount, description = '', date, shares, originalAmount, originalCurrency, exchangeRate } = {}) {
   const amt = round2(amount);
   if (!(amt > 0)) throw new Error('importo non valido');
   if (!group.members.some(m => m.id === payer)) throw new Error('pagante non nel gruppo');
   const ids = group.members.map(m => m.id);
+
+  // Se dichiarata una valuta originale diversa dall'euro, l'importo
+  // convertito deve tornare col tasso dichiarato — mai accettare in silenzio
+  // due numeri che non si spiegano a vicenda (stesso principio delle quote
+  // che devono sommare esatte in shares.byId, sopra).
+  let valutaExtra = {};
+  const baseCurrency = group.baseCurrency || 'EUR';
+  if (originalCurrency && originalCurrency !== baseCurrency) {
+    if (!(originalAmount > 0) || !(exchangeRate > 0)) throw new Error('valuta originale senza importo o tasso di cambio');
+    const atteso = round2(originalAmount * exchangeRate);
+    if (Math.abs(atteso - amt) > 0.02) throw new Error('l\'importo convertito non coincide col tasso di cambio dichiarato');
+    valutaExtra = { originalAmount: round2(originalAmount), originalCurrency, exchangeRate };
+  }
 
   // id GLOBALMENTE univoco (non l'indice): cosi' le spese aggiunte da persone
   // diverse non collidono e il merge tra dispositivi e' conflict-free. Serve
@@ -55,7 +86,7 @@ export function addSharedExpense(group, { payer, amount, description = '', date,
   // La REGOLA con cui si e' diviso resta scritta nella spesa, non solo il suo
   // risultato in centesimi: serve a ricalcolare correttamente se l'importo
   // viene corretto dopo (vedi il bug documentato in editExpense).
-  const expense = { id: expenseId, payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed, split: splitRule(ids, shares), updatedAt: Date.now() };
+  const expense = { id: expenseId, payer, amount: amt, description, date: date || new Date().toISOString().slice(0, 10), owed, split: splitRule(ids, shares), updatedAt: Date.now(), ...valutaExtra };
   return { ...group, expenses: [...group.expenses, expense] };
 }
 
@@ -623,6 +654,14 @@ export function mergeGroups(a, b) {
     // Il creatore non cambia mai: e' chi ha fatto nascere il gruppo, e chi
     // arriva dopo non puo' rivendicarlo sovrascrivendolo nel merge.
     ...(a.createdBy || b.createdBy ? { createdBy: a.createdBy || b.createdBy } : {}),
+    // BUG REALE trovato verificando il merge CRDT fra due copie (non a
+    // tavolino): baseCurrency non era riportata nell'oggetto finale — un
+    // gruppo in USD, dopo il PRIMO merge (che avviene già al secondo
+    // salvataggio locale, vedi persist()/mergeIntoGroups), perdeva
+    // silenziosamente la propria valuta e ricadeva sul default EUR. Stessa
+    // regola del creatore: la valuta base si decide alla creazione e non
+    // cambia mai nel merge, mai un lato che la "vince" sull'altro.
+    ...(a.baseCurrency || b.baseCurrency ? { baseCurrency: a.baseCurrency || b.baseCurrency } : {}),
     // La chiusura e' una lapide come l'uscita: vince sulla presenza.
     ...mergeClosure(a, b),
     members: mergeMembers(a.members, b.members),
@@ -674,6 +713,13 @@ export function editExpense(group, expenseId, { amount, description } = {}) {
     if (shares !== null) owed = balanceRounding(idealShares(ids, amt, shares), amt, expenseId);
   }
   const updated = { ...old, amount: amt, description: description != null ? description : old.description, owed, updatedAt: Date.now() };
+  // Se l'importo cambia, il vecchio tasso di cambio non spiega più il nuovo
+  // amount — meglio dimenticare onestamente "veniva da 45 CHF" che tenerlo
+  // e farlo sembrare ancora valido (stesso principio della validazione in
+  // addSharedExpense: mai due numeri che non tornano l'uno con l'altro).
+  if (amount != null && amt !== old.amount && old.originalCurrency) {
+    delete updated.originalAmount; delete updated.originalCurrency; delete updated.exchangeRate;
+  }
   const expenses = group.expenses.slice(); expenses[idx] = updated;
   return { ...group, expenses };
 }
@@ -709,7 +755,12 @@ export const SPLIT_SHARE_PREFIX = 'MSPLIT1:';
 // rapporto continuativo col destinatario — vuole funzionare da solo anche
 // senza sync P2P successivo).
 export function encodeGroupShare(group) {
-  const slim = { id: group.id, name: group.name, members: group.members, expenses: group.expenses };
+  // BUG REALE trovato verificando il round-trip di condivisione (non a
+  // tavolino): baseCurrency non era nella whitelist qui sotto — un gruppo
+  // creato in USD, condiviso con un amico, sarebbe arrivato dall'altra
+  // parte silenziosamente in EUR (il fallback di default), nessun errore
+  // visibile, saldi "giusti in apparenza" ma nella valuta sbagliata.
+  const slim = { id: group.id, name: group.name, members: group.members, expenses: group.expenses, ...(group.baseCurrency ? { baseCurrency: group.baseCurrency } : {}) };
   return SPLIT_SHARE_PREFIX + b64encode(JSON.stringify(slim));
 }
 
@@ -727,7 +778,7 @@ export function encodeGroupShare(group) {
 // scade — non è un problema, il gruppo entra comunque (il link/QR da solo
 // basta) e la sincronizzazione resta quella già funzionante via merge.
 export function encodeGroupInvite(group, p2pOffer) {
-  const slim = { id: group.id, name: group.name, members: group.members, ...(p2pOffer ? { p2p: p2pOffer } : {}) };
+  const slim = { id: group.id, name: group.name, members: group.members, ...(group.baseCurrency ? { baseCurrency: group.baseCurrency } : {}), ...(p2pOffer ? { p2p: p2pOffer } : {}) };
   return SPLIT_SHARE_PREFIX + b64encode(JSON.stringify(slim));
 }
 

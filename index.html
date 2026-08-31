@@ -1122,6 +1122,55 @@
     .giorno-cat-chip b { color: var(--on-surface); font-weight: 700; }
     .giorno-cat-chip-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
     .giorno-cat-chip-icon svg { width: 9px; height: 9px; }
+    /* "Pagato in un'altra valuta?" — segnalato come poco curato (testo
+       sottolineato nudo) e il select nativo espanso si sovrapponeva alla
+       freccia disegnata globale (padding troppo stretto). Qui: un chip a
+       bordo tratteggiato (un invito discreto, non un bottone pieno — stessa
+       regola già in uso per ogni altro chip dell'app) con l'icona di cambio
+       valuta, e il pannello che si apre con la stessa fisica di profondità
+       3D leggera già validata per il dettaglio-giorno del calendario. */
+    .sg-currency-toggle {
+      display: inline-flex; align-items: center; gap: .35rem;
+      margin-top: .5rem; padding: .3rem .7rem; border-radius: 999px;
+      font-size: 10.5px; font-weight: 700; color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 6%, transparent);
+      border: 1px dashed color-mix(in srgb, var(--primary) 40%, var(--outline));
+      cursor: pointer; transition: border-color .2s ease, background .2s ease, transform .15s cubic-bezier(.34,1.56,.64,1);
+    }
+    .sg-currency-toggle svg { width: 12px; height: 12px; }
+    @media (hover: hover) { .sg-currency-toggle:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); } }
+    .sg-currency-toggle:active { transform: scale(.95); }
+    .sg-currency-panel {
+      display: flex; align-items: center; gap: .55rem; margin-top: .6rem; flex-wrap: wrap;
+      animation: giornoDettaglioIn .3s cubic-bezier(.22,1,.36,1) both;
+    }
+    .sg-currency-select {
+      appearance: none; -webkit-appearance: none; font-size: 12px; font-weight: 700;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: .6rem; padding: .45rem 2.3rem .45rem .75rem; cursor: pointer;
+      color: var(--on-surface);
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--primary) 50%),
+        linear-gradient(135deg, var(--primary) 50%, transparent 50%);
+      background-position: right 1.05rem center, right 0.75rem center;
+      background-size: 0.32rem 0.32rem, 0.32rem 0.32rem;
+      background-repeat: no-repeat;
+    }
+    .sg-currency-badge {
+      display: inline-flex; align-items: center; gap: .3rem;
+      font-size: 10px; color: var(--on-surface-secondary);
+    }
+    .sg-currency-badge svg { width: 11px; height: 11px; color: var(--primary); }
+    .sg-currency-close {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%; margin-left: auto;
+      color: var(--on-surface-secondary); background: color-mix(in srgb, var(--on-surface) 6%, transparent);
+      transition: background .18s ease, color .18s ease, transform .15s cubic-bezier(.34,1.56,.64,1);
+    }
+    .sg-currency-close svg { width: 11px; height: 11px; }
+    @media (hover: hover) { .sg-currency-close:hover { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); } }
+    .sg-currency-close:active { transform: scale(.85); }
+    @media (prefers-reduced-motion: reduce) { .sg-currency-panel { animation: none; } }
     /* La riga appena salvata: un lampo verde che si spegne da solo in poco
        più di un secondo. Non è una festa (niente coriandoli su una schermata
        di soldi): è la risposta alla domanda "dove è finita la spesa che ho

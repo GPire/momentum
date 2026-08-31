@@ -1068,3 +1068,154 @@ test('settlementVerificationLog: catena a 3 persone (A paga per B, B paga per C)
   assert.ok(log.verified);
   assert.ok(log.steps.length >= 1);
 });
+
+// ── VALUTA (gap reale: un gruppo di viaggio assumeva un'unica valuta mai
+// dichiarata) — vedi commento su addSharedExpense in split-engine.js ──
+
+test('createGroup: senza baseCurrency esplicita → EUR di default, retrocompatibile', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] });
+  assert.equal(g.baseCurrency, 'EUR');
+});
+
+test('createGroup: baseCurrency esplicita (gruppo non europeo) viene rispettata', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'], baseCurrency: 'USD' });
+  assert.equal(g.baseCurrency, 'USD');
+});
+
+test('addSharedExpense: spesa nella valuta base del gruppo → comportamento identico a prima, nessun campo valuta aggiunto', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] });
+  const g2 = addSharedExpense(g, { payer: 'm0', amount: 20 });
+  const e = g2.expenses[0];
+  assert.equal(e.originalCurrency, undefined);
+  assert.equal(e.originalAmount, undefined);
+  assert.equal(e.exchangeRate, undefined);
+});
+
+test('addSharedExpense: spesa in valuta diversa → amount resta la cifra in valuta base, originalAmount/originalCurrency/exchangeRate salvati come etichetta', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] }); // EUR di default
+  const g2 = addSharedExpense(g, { payer: 'm0', amount: 47.20, originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 47.20 / 45 });
+  const e = g2.expenses[0];
+  assert.equal(e.amount, 47.20); // usato da saldi/settlement, invariato
+  assert.equal(e.originalAmount, 45);
+  assert.equal(e.originalCurrency, 'CHF');
+  assert.ok(Math.abs(e.exchangeRate - 47.20 / 45) < 1e-9);
+  // i saldi si calcolano SOLO sull'euro convertito, mai sull'importo originale
+  const bal = computeBalances(g2);
+  assert.equal(bal.m0, round2Test(47.20 - 23.60));
+});
+
+function round2Test(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+test('addSharedExpense: valuta diversa dalla base del gruppo che NON è EUR (gruppo USA)', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'], baseCurrency: 'USD' });
+  // una spesa in EUR dentro un gruppo la cui valuta base è USD: EUR è "straniera" qui
+  const g2 = addSharedExpense(g, { payer: 'm0', amount: 22, originalAmount: 20, originalCurrency: 'EUR', exchangeRate: 1.1 });
+  assert.equal(g2.expenses[0].originalCurrency, 'EUR');
+  assert.equal(g2.expenses[0].amount, 22);
+});
+
+test('addSharedExpense: importo convertito che non torna col tasso dichiarato → errore, mai un dato silenziosamente incoerente', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] });
+  assert.throws(() => addSharedExpense(g, { payer: 'm0', amount: 100, originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 1.0677 }), /tasso/i);
+});
+
+test('addSharedExpense: valuta originale dichiarata senza tasso o importo originale → errore', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] });
+  assert.throws(() => addSharedExpense(g, { payer: 'm0', amount: 47.20, originalCurrency: 'CHF' }), /tasso di cambio/i);
+});
+
+test('editExpense: modificare l\'importo di una spesa con valuta originale rimuove l\'etichetta (il vecchio tasso non la spiega più)', () => {
+  let g = createGroup({ members: ['Anna', 'Bea'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 47.20, originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 47.20 / 45 });
+  const expenseId = g.expenses[0].id;
+  const g2 = editExpense(g, expenseId, { amount: 50 });
+  const e2 = g2.expenses[0];
+  assert.equal(e2.amount, 50);
+  assert.equal(e2.originalCurrency, undefined);
+  assert.equal(e2.originalAmount, undefined);
+  assert.equal(e2.exchangeRate, undefined);
+});
+
+test('editExpense: modificare SOLO la descrizione mantiene l\'etichetta valuta intatta', () => {
+  let g = createGroup({ members: ['Anna', 'Bea'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 47.20, description: 'cena', originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 47.20 / 45 });
+  const expenseId = g.expenses[0].id;
+  const g2 = editExpense(g, expenseId, { description: 'cena a Lugano' });
+  const e2 = g2.expenses[0];
+  assert.equal(e2.originalCurrency, 'CHF');
+  assert.equal(e2.originalAmount, 45);
+});
+
+// ── VALUTA: sync e condivisione (bug reali trovati verificando i percorsi
+// P2P, non a tavolino — vedi commenti su encodeGroupShare/mergeGroups) ──
+
+test('encodeGroupShare → decodeGroupShare: baseCurrency non-EUR sopravvive al round-trip', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'], baseCurrency: 'USD' });
+  const code = encodeGroupShare(g);
+  const decoded = decodeGroupShare(code);
+  assert.equal(decoded.baseCurrency, 'USD');
+});
+
+test('encodeGroupShare → decodeGroupShare: le spese multi-valuta mantengono originalAmount/originalCurrency/exchangeRate', () => {
+  let g = createGroup({ members: ['Anna', 'Bea'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 47.20, originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 47.20 / 45 });
+  const decoded = decodeGroupShare(encodeGroupShare(g));
+  const e = decoded.expenses[0];
+  assert.equal(e.originalCurrency, 'CHF');
+  assert.equal(e.originalAmount, 45);
+  assert.equal(e.amount, 47.20);
+});
+
+test('encodeGroupInvite (invito leggero, senza expenses): baseCurrency comunque preservata', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'], baseCurrency: 'GBP' });
+  const decoded = decodeGroupShare(encodeGroupInvite(g));
+  assert.equal(decoded.baseCurrency, 'GBP');
+});
+
+test('mergeGroups: baseCurrency NON si perde al primo merge (bug reale: mancava nell\'oggetto restituito)', () => {
+  const a = createGroup({ id: 'g1', members: ['Anna', 'Bea'], baseCurrency: 'USD' });
+  const b = { ...a }; // stesso gruppo, come arriverebbe da un altro dispositivo
+  const merged = mergeGroups(a, b);
+  assert.equal(merged.baseCurrency, 'USD');
+});
+
+test('mergeGroups: un lato senza baseCurrency (gruppo creato prima di questa feature) + un lato con → vince quella presente', () => {
+  const senzaValuta = { id: 'g2', name: 'Vecchio gruppo', members: [{ id: 'm0', name: 'Anna' }], expenses: [] }; // niente baseCurrency, come un gruppo pre-esistente
+  const conValuta = { ...senzaValuta, baseCurrency: 'CHF' };
+  assert.equal(mergeGroups(senzaValuta, conValuta).baseCurrency, 'CHF');
+  assert.equal(mergeGroups(conValuta, senzaValuta).baseCurrency, 'CHF');
+});
+
+test('mergeGroups: due gruppi che non hanno mai avuto baseCurrency → resta assente, mai un EUR inventato nel merge stesso', () => {
+  const a = { id: 'g3', name: 'g', members: [{ id: 'm0', name: 'Anna' }], expenses: [] };
+  const b = { ...a };
+  assert.equal(mergeGroups(a, b).baseCurrency, undefined);
+});
+
+// ── VALUTA: più valute diverse nello stesso gruppo, saldi coerenti ──
+
+test('Un gruppo con spese in tre valute diverse (base+CHF+USD): i saldi sommano SOLO gli importi convertiti', () => {
+  let g = createGroup({ members: ['Anna', 'Bea'] }); // EUR
+  g = addSharedExpense(g, { payer: 'm0', amount: 20 }); // spesa normale in EUR
+  g = addSharedExpense(g, { payer: 'm0', amount: 47.20, originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 47.20 / 45 });
+  g = addSharedExpense(g, { payer: 'm1', amount: 25.87, originalAmount: 30, originalCurrency: 'USD', exchangeRate: 25.87 / 30 });
+  const bal = computeBalances(g);
+  // Anna ha pagato 20+47.20=67.20, deve la metà di tutto (20+47.20+25.87)/2=46.535→46.54
+  // Bea ha pagato 25.87, deve la stessa metà.
+  const totale = 20 + 47.20 + 25.87;
+  const metaAtteso = Math.round((totale / 2) * 100) / 100;
+  assert.ok(Math.abs(bal.m0 - (67.20 - metaAtteso)) < 0.01);
+  assert.ok(Math.abs(bal.m1 - (25.87 - metaAtteso)) < 0.01);
+  // invariante: la somma dei saldi resta zero anche con valute miste
+  assert.ok(Math.abs(bal.m0 + bal.m1) < 0.01);
+});
+
+test('addSharedExpense: tolleranza di arrotondamento del tasso (2 centesimi) accetta un tasso con più decimali reali di quanti l\'importo ne mostri', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] });
+  // tasso reale con molti decimali (come arriva davvero da un'API di cambio)
+  const rate = 1.06774321;
+  const originalAmount = 45;
+  const amount = Math.round(originalAmount * rate * 100) / 100; // 48.05, quello che farebbe la UI
+  const g2 = addSharedExpense(g, { payer: 'm0', amount, originalAmount, originalCurrency: 'CHF', exchangeRate: rate });
+  assert.equal(g2.expenses[0].amount, amount);
+});

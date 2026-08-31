@@ -140,6 +140,8 @@ import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog } from './split/split-engine.js';
+import { fetchHistoricalRate } from './split/exchange-rate.js';
+import { VALUTE_ISO4217 } from './core/iso4217.js';
 // Codice d'invito corto e leggibile (src/split/invite-codec.js): il link che
 // finisce su WhatsApp era lungo 1.759 caratteri e faceva paura a chi lo
 // riceveva. Qui si comprime, il contenuto va nel fragment (mai al server) e la
@@ -8553,6 +8555,30 @@ function avatarHtml(nome, sizeClass = 'w-7 h-7 text-[11px]') {
   return `<span class="inline-flex items-center justify-center rounded-full font-black text-white shrink-0 ${sizeClass}" style="background:${avatarColore(nome)}" title="${s}">${avatarIniziali(nome)}</span>`;
 }
 
+// La valuta estera usata l'ULTIMA VOLTA in questo gruppo (non un dato salvato
+// a parte — si deriva da quello che c'è già, mai una seconda fonte di
+// verità): un gruppo di viaggio in Svizzera propone di nuovo CHF ogni volta
+// che si riapre il selettore, invece di ripartire sempre dallo stesso
+// default fisso.
+function ultimaValutaEstera(g) {
+  for (let i = (g.expenses || []).length - 1; i >= 0; i--) {
+    if (g.expenses[i].originalCurrency) return g.expenses[i].originalCurrency;
+  }
+  return null;
+}
+
+// Poche valute comuni in cima (chi viaggia in Europa le incontra quasi
+// sempre), poi l'intero standard ISO 4217 (~150 codici, src/core/iso4217.js —
+// stessa lista già usata per l'import multi-valuta, un solo elenco di
+// verità) in ordine alfabetico: nessun Paese è escluso a priori, coerente
+// con Momentum pensata globale e non solo europea.
+const VALUTE_COMUNI = ['EUR', 'USD', 'GBP', 'CHF'];
+function currencyOptionsHtml(selected, escludi) {
+  const resto = [...VALUTE_ISO4217].filter(c => !VALUTE_COMUNI.includes(c)).sort();
+  const tutte = [...VALUTE_COMUNI, ...resto].filter(c => c !== escludi);
+  return tutte.map(c => `<option value="${c}"${c === selected ? ' selected' : ''}>${c}</option>`).join('');
+}
+
 window.openSplitGroup = (openId = null) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
@@ -8572,7 +8598,11 @@ window.openSplitGroup = (openId = null) => {
   // unico, mai un cambiamento visibile a chi non è coinvolto nella collisione.
   const nameById = (g) => displayNames(g.members);
   let currentId = openId;
-  const form = { payer: null, amount: '', desc: '', involved: null }; // involved=null → tutti
+  // currency: null → spesa nella valuta base del gruppo (comportamento di
+  // sempre, zero attrito). Non-null solo quando l'utente apre esplicitamente
+  // "un'altra valuta?" — un viaggiatore che paga in CHF durante un gruppo in
+  // EUR, il caso raro, mai il default per il caso comune.
+  const form = { payer: null, amount: '', desc: '', involved: null, currency: null, showCurrency: false }; // involved=null → tutti
 
   const render = (liveSync = false) => {
     const g = currentId ? groups().find(x => x.id === currentId) : null;
@@ -8630,6 +8660,9 @@ window.openSplitGroup = (openId = null) => {
   const renderDetail = (g, liveSync = false) => {
     const names = nameById(g);
     const members = g.members;
+    // Retrocompatibile: gruppi creati prima di questa feature non hanno
+    // baseCurrency salvata, EUR era già il comportamento implicito.
+    const baseCurrency = g.baseCurrency || 'EUR';
     // BUG REALE trovato beta-testando con un SECONDO dispositivo simulato
     // (2026-08-27): "chi deve cosa a chi" confrontava i nomi con la stringa
     // letterale 'Io' — corretto SOLO per il dispositivo che ha creato il
@@ -8668,9 +8701,13 @@ window.openSplitGroup = (openId = null) => {
     const expRows = (g.expenses || []).map(e => {
       const disputed = isDisputed(g, e.id);
       const nMsg = messagesFor(g, e.id).length;
+      // Dual display: mai nascondere che la cifra viene da una conversione —
+      // "45,00 CHF → 47,20 €" è più onesto di mostrare solo l'euro come se
+      // fosse l'importo vero pagato al bar/ristorante.
+      const valutaNota = e.originalCurrency ? `<div class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${(+e.originalAmount).toFixed(2).replace('.', ',')} ${esc(e.originalCurrency)} → ${eur(e.amount)}</div>` : '';
       return `
       <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0${disputed ? ' bg-amber-500/5 -mx-1 px-1 rounded-lg' : ''}">
-        <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}${disputed ? ' <span class="text-[10px] font-bold text-amber-400">· in discussione</span>' : ''}</span>
+        <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}${disputed ? ' <span class="text-[10px] font-bold text-amber-400">· in discussione</span>' : ''}${valutaNota}</span>
         <span class="shrink-0 inline-flex items-center gap-2">
           <button data-chat="${e.id}" class="text-[11px] font-bold ${nMsg ? 'text-[var(--gold)]' : 'text-[var(--on-surface-secondary)]'} inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${nMsg || ''}</button>
           <button data-delexp="${e.id}" class="text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
@@ -8722,9 +8759,25 @@ window.openSplitGroup = (openId = null) => {
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi una spesa</div>
           <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(names[m.id])} paga</button>`).join('')}</div>
           <div class="flex gap-2">
-            <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto €" />
+            <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto ${esc(form.currency || baseCurrency)}" />
             <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="Per cosa" />
           </div>
+          <!-- Gap reale: un gruppo di viaggio assumeva un'unica valuta mai
+               dichiarata — chi pagava in una valuta diversa (CHF durante un
+               weekend in Svizzera, GBP a Londra) non aveva modo di
+               registrarlo onestamente, il numero finiva sommato come se
+               fosse già in ${esc(baseCurrency)}. Collassato di default: la
+               stragrande maggioranza delle spese di gruppo è mono-valuta,
+               zero attrito per il caso comune, un tocco per quello raro. -->
+          ${form.showCurrency ? `
+          <div class="sg-currency-panel">
+            <select id="sg-currency" class="sg-currency-select">
+              ${currencyOptionsHtml(form.currency || ultimaValutaEstera(g) || 'CHF', baseCurrency)}
+            </select>
+            <span class="sg-currency-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>convertito in ${esc(baseCurrency)}</span>
+            <button id="sg-currency-off" type="button" class="sg-currency-close" aria-label="Annulla, torna a ${esc(baseCurrency)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          </div>` : `
+          <button id="sg-currency-on" type="button" class="sg-currency-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l-3 3 3 3M4 13h13M17 14l3-3-3-3M20 11H7"/></svg>Pagato in un'altra valuta?</button>`}
           <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">Chi partecipa a questa spesa (tocca per escludere):</div>
           <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(names[m.id])}</button>`).join('')}</div>
           <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">Aggiungi la spesa</button>
@@ -8765,14 +8818,36 @@ window.openSplitGroup = (openId = null) => {
     }));
     $('#sg-amt')?.addEventListener('input', (e) => { form.amount = e.target.value; });
     $('#sg-desc')?.addEventListener('input', (e) => { form.desc = e.target.value; });
-    $('#sg-addexp')?.addEventListener('click', () => {
-      const amt = parseFloat(String(form.amount).replace(',', '.'));
-      if (!(amt > 0)) { $('#sg-amt')?.focus(); showToast('Inserisci quanto è stato speso.', 'error'); return; }
+    $('#sg-currency-on')?.addEventListener('click', () => { form.showCurrency = true; form.currency = ultimaValutaEstera(g) || (baseCurrency === 'CHF' ? 'EUR' : 'CHF'); render(); });
+    $('#sg-currency-off')?.addEventListener('click', () => { form.showCurrency = false; form.currency = null; render(); });
+    $('#sg-currency')?.addEventListener('change', (e) => { form.currency = e.target.value; render(); });
+    $('#sg-addexp')?.addEventListener('click', async (e) => {
+      const amtInserito = parseFloat(String(form.amount).replace(',', '.'));
+      if (!(amtInserito > 0)) { $('#sg-amt')?.focus(); showToast('Inserisci quanto è stato speso.', 'error'); return; }
       const inv = form.involved || members.map(m => m.id);
+      const shares = inv.length < members.length ? { equalAmong: inv } : undefined;
+      const btn = e.currentTarget;
+      // Spesa in un'altra valuta: il campo importo è quanto si è PAGATO
+      // davvero (es. 45 CHF), non ancora convertito — il tasso del giorno
+      // arriva dalla rete solo ora, un secondo prima di salvare, mai prima
+      // (un tasso recuperato all'apertura del form sarebbe già vecchio se
+      // l'utente ci mette un minuto a scrivere la descrizione).
+      if (form.showCurrency && form.currency && form.currency !== baseCurrency) {
+        btn.disabled = true; const testoOriginale = btn.textContent; btn.textContent = 'Sto convertendo…';
+        const oggiIso = new Date().toISOString().slice(0, 10);
+        const rate = await fetchHistoricalRate(form.currency, baseCurrency, oggiIso);
+        btn.disabled = false; btn.textContent = testoOriginale;
+        if (!rate) { showToast(`Non riesco a recuperare il tasso ${form.currency}→${baseCurrency} in questo momento. Riprova.`, 'error'); return; }
+        try {
+          const ng = addSharedExpense(g, { payer: form.payer, amount: amtInserito * rate, description: form.desc, shares, originalAmount: amtInserito, originalCurrency: form.currency, exchangeRate: rate });
+          persist(ng); form.amount = ''; form.desc = ''; form.involved = null; form.showCurrency = false; form.currency = null; render();
+        } catch (err) { showToast('Non ho potuto aggiungere la spesa: ' + err.message, 'error'); }
+        return;
+      }
       try {
-        const ng = addSharedExpense(g, { payer: form.payer, amount: amt, description: form.desc, shares: inv.length < members.length ? { equalAmong: inv } : undefined });
+        const ng = addSharedExpense(g, { payer: form.payer, amount: amtInserito, description: form.desc, shares });
         persist(ng); form.amount = ''; form.desc = ''; form.involved = null; render();
-      } catch (e) { showToast('Non ho potuto aggiungere la spesa: ' + e.message, 'error'); }
+      } catch (err) { showToast('Non ho potuto aggiungere la spesa: ' + err.message, 'error'); }
     });
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
     document.querySelectorAll('[data-chat]').forEach(b => b.addEventListener('click', () => window.openExpenseChat(g.id, b.dataset.chat)));
