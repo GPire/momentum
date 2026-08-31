@@ -2162,11 +2162,17 @@ function buildDayDetailHtml(dateObj, dayTxs, dayLabel) {
   // "(17% usato)" chiede all'utente di tradurre una percentuale in soldi
   // veri. Due importi affiancati non chiedono niente: quanto potevi
   // spendere in un giorno, quanto ne hai usato. La percentuale resta viva
-  // dove serve davvero — nel colore.
-  const budgetHtml = quotaGiorno > 0 ? (() => {
-    const pct = Math.round((total / quotaGiorno) * 100);
-    return `<p class="text-[10px] ${dailyBudgetPctColor(pct)} mt-1">${tCh('alphaDayBudgetCompare', __uiLang, formatMoney(quotaGiorno), formatMoney(total))}</p>`;
-  })() : '';
+  // dove serve davvero — nel colore, sia del testo sia (ora) di una barra
+  // vera: prima la comparazione era solo una frase, e per capire "quanto
+  // manca" bisognava rileggerla; una barra si legge prima di leggere.
+  // Stessa scala verde/ambra/rosso già in uso per il livello del calendario
+  // (cal-giorno.liv-N) — non un quarto colore inventato per lo stesso concetto.
+  const pctBudgetGiorno = quotaGiorno > 0 ? Math.round((total / quotaGiorno) * 100) : 0;
+  const coloreLivelloGiorno = quotaGiorno > 0 ? (pctBudgetGiorno > 100 ? 'var(--red)' : pctBudgetGiorno > 80 ? 'var(--yellow)' : 'var(--green)') : 'var(--gold)';
+  const budgetHtml = quotaGiorno > 0 ? `
+    <p class="text-[10px] ${dailyBudgetPctColor(pctBudgetGiorno)} mt-1">${tCh('alphaDayBudgetCompare', __uiLang, formatMoney(quotaGiorno), formatMoney(total))}</p>
+    <div class="budget-track" style="height:5px;margin-top:.4rem;"><div class="budget-fill" style="width:${Math.min(pctBudgetGiorno, 100)}%; background:${coloreLivelloGiorno};"></div></div>
+  ` : '';
   // L'AZIONE DEVE DIRE SU QUALE GIORNO CADE, E SEMBRARE UN'AZIONE.
   // Era un link sottolineato da 10px che diceva "questo giorno": chi lo
   // leggeva doveva ricordarsi quale aveva toccato tre secondi prima. Ora
@@ -2182,7 +2188,7 @@ function buildDayDetailHtml(dateObj, dayTxs, dayLabel) {
   </button>`;
 
   if (!uscite.length) {
-    return `<div class="p-2.5 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)]">
+    return `<div class="p-2.5 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] giorno-dettaglio-in">
       <p class="text-[10px] text-[var(--on-surface-secondary)]">${label}: ${tCh('alphaHeatmapNoExpense', __uiLang)}</p>
       ${budgetHtml}
       ${addBtnHtml}
@@ -2192,12 +2198,17 @@ function buildDayDetailHtml(dateObj, dayTxs, dayLabel) {
   const catTotalsDay = {};
   uscite.forEach(t => { catTotalsDay[t.category] = (catTotalsDay[t.category] || 0) + t.amount; });
   const catEntries = Object.entries(catTotalsDay).sort((a, b) => b[1] - a[1]);
-  const catBreakdownHtml = catEntries.length > 1 ? `<div class="flex flex-wrap gap-x-3 gap-y-1 mb-2 pb-2 border-b border-[var(--outline)]">
+  // Riepilogo per categoria: prima un pallino di 6px + testo, ora un vero
+  // chip di vetro tinto della categoria — coerente con la regola "un chip è
+  // un invito/un'informazione, mai un fondo pieno" già in uso nel resto
+  // dell'app, con una miniatura della VERA icona della categoria dentro
+  // (mai un secondo pallino quando esiste già l'icona ufficiale).
+  const catBreakdownHtml = catEntries.length > 1 ? `<div class="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-[var(--outline)]">
     ${catEntries.map(([catId, amt]) => {
       const cat = getCatById(catId);
-      return `<span class="inline-flex items-center gap-1 text-[10px] text-[var(--on-surface-secondary)]">
-        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cat?.color || '#888'}"></span>
-        ${cat?.name || catId} <span class="font-mono text-[var(--on-surface)]">${formatMoney(amt)}</span>
+      return `<span class="giorno-cat-chip" style="--chip-c:${cat?.color || '#888'}">
+        <span class="giorno-cat-chip-icon" style="background:${cat?.color || '#888'}">${cat?.icon || ''}</span>
+        ${cat?.name || catId} <b class="font-mono">${formatMoney(amt)}</b>
       </span>`;
     }).join('')}
   </div>` : '';
@@ -2205,27 +2216,29 @@ function buildDayDetailHtml(dateObj, dayTxs, dayLabel) {
   // nome della categoria: con la categoria, le righe ripetevano parola per
   // parola il riepilogo per categoria qui sopra — due volte la stessa
   // informazione e mai quella che serve davvero per riconoscere una spesa.
-  // Il colore della categoria resta, come pallino: dice a quale gruppo
-  // appartiene senza rubare il posto al nome.
-  const rows = [...uscite].sort((a, b) => b.amount - a.amount).map(t => {
+  // L'icona della categoria (la stessa .cat-icon-glow di tutta l'app, non
+  // più un pallino di 6px) dice a quale gruppo appartiene senza rubare il
+  // posto al nome — segnalato dal vivo come "bruttissimo" nella versione a
+  // pallino, questa è la stessa ricetta visiva già validata altrove.
+  const rowsConIndice = [...uscite].sort((a, b) => b.amount - a.amount).map((t, i) => {
     const cat = getCatById(t.category);
     const nome = t.description || t.note || cat?.name || t.category;
-    return `<div class="flex items-center justify-between gap-2 text-[10px] py-1 border-b border-[var(--outline)] last:border-0">
-      <span class="text-[var(--on-surface-secondary)] inline-flex items-center gap-1.5 min-w-0">
-        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cat?.color || '#888'}"></span>
-        <span class="truncate">${nome}</span>
+    return `<div class="giorno-riga-v2 giorno-riga-in" style="--i:${i}">
+      <span class="flex items-center gap-2.5 min-w-0">
+        <span class="giorno-riga-v2-icon cat-icon-glow" style="--icon-c:${cat?.color || '#888'}">${cat?.icon || ''}</span>
+        <span class="tx-desc truncate" style="font-size:11.5px">${nome}</span>
       </span>
-      <span class="font-mono text-[var(--on-surface)] shrink-0">${formatMoney(t.amount)}</span>
+      <span class="font-mono text-[11px] font-bold text-[var(--on-surface)] shrink-0">${formatMoney(t.amount)}</span>
     </div>`;
   }).join('');
-  return `<div class="p-2.5 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)]">
+  return `<div class="p-2.5 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] giorno-dettaglio-in">
     <div class="flex items-baseline justify-between mb-1.5">
       <span class="text-[11px] font-bold text-[var(--on-surface)]">${label}</span>
-      <span class="font-mono text-[13px] font-bold text-[var(--gold)]">${formatMoney(total)}</span>
+      <span class="font-mono text-[13px] font-bold" style="color:${coloreLivelloGiorno}">${formatMoney(total)}</span>
     </div>
     ${budgetHtml}
     ${catBreakdownHtml}
-    ${rows}
+    ${rowsConIndice}
     ${addBtnHtml}
   </div>`;
 }
@@ -2238,8 +2251,55 @@ let __dashWeekData = {};
 // niente da mostrare in un'app di spese già avvenute.
 let __dashWeekOffset = 0;
 
+// BUG REALE segnalato dal vivo: "12 settimane indietro" era un numero fisso
+// scelto a caso, non legato ai dati — e anche solo COME muro fisso si
+// sentiva sbagliato ("non mi sembra normale"), a prescindere da dove
+// cadesse: un calendario che ti impedisce di sfogliare mesi passati vuoti
+// non è mai stato il modello mentale di nessuno, da Google Calendar in giù.
+// Il limite resta legato ai dati (mai infinito: prima o poi serve un tetto
+// tecnico), ma generoso — 5 anni, praticamente mai raggiunto sul serio — e
+// si allunga da solo se la transazione più vecchia è ancora più indietro.
+function limiteSettimaneIndietro() {
+  const SOGLIA_GENEROSA = 260; // ~5 anni, mai un muro percepibile in uso normale
+  const tutte = displayAllTx();
+  if (!tutte.length) return -SOGLIA_GENEROSA;
+  const oggi = new Date();
+  let piuVecchia = oggi;
+  tutte.forEach(t => { const d = new Date(t.date); if (d < piuVecchia) piuVecchia = d; });
+  const giorni = Math.floor((oggi - piuVecchia) / 86400000);
+  const settimane = Math.ceil(giorni / 7) + 1;
+  return -Math.max(settimane, SOGLIA_GENEROSA);
+}
+
 function isoDay(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// "SI TOCCANO, MA NIENTE LO DICEVA" — segnalato dal vivo: i pianeti sono
+// icone pure (nessun testo, nessun bordo da bottone), e chi apre l'app non
+// ha modo di sapere che nascondono un dettaglio. Stesso pattern già in uso
+// per il "+" (renderAddHint): un suggerimento visibile SOLO le prime volte,
+// mai un ornamento che resta per sempre — un coach-mark perenne smette di
+// essere letto e diventa arredamento.
+function renderWeekTapHint() {
+  const hint = document.getElementById('week-tap-hint');
+  if (!hint) return;
+  const count = VaultDAO.state.weekTapHintShownCount || 0;
+  if (count >= 2) { hint.classList.add('hidden'); return; }
+  hint.classList.remove('hidden');
+  VaultDAO.state.weekTapHintShownCount = count + 1;
+  VaultDAO.save();
+}
+// Il tocco vero su un giorno spegne il suggerimento per sempre, prima
+// ancora che il conteggio arrivi a 2: se l'utente ha già capito, ripeterlo
+// è solo rumore.
+function spegniWeekTapHintPerSempre() {
+  const hint = document.getElementById('week-tap-hint');
+  if (hint) hint.classList.add('hidden');
+  if ((VaultDAO.state.weekTapHintShownCount || 0) < 2) {
+    VaultDAO.state.weekTapHintShownCount = 2;
+    VaultDAO.save();
+  }
 }
 
 const renderDashboardWeekStrip = () => {
@@ -2338,6 +2398,7 @@ const renderDashboardWeekStrip = () => {
   row.insertAdjacentHTML('afterbegin', `<svg class="week-orbita" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 Q 50 1 98 9" fill="none" stroke="currentColor" stroke-width="0.6" stroke-linecap="round"/></svg>`);
 
   renderDashWeekSummary(days, catWeek);
+  renderWeekTapHint();
 
   detailEl.classList.remove('is-open');
   detailEl.innerHTML = '';
@@ -2372,7 +2433,7 @@ function renderDashWeekSummary(days, catWeek) {
     ? getIsoWeekStatus(displayAllTx(), budgetMensile, days[0])
     : null;
 
-  const puoIndietro = __dashWeekOffset > -12;
+  const puoIndietro = __dashWeekOffset > limiteSettimaneIndietro();
   const puoAvanti = __dashWeekOffset < 0;
   // Sempre l'intervallo di date, mai "Questa settimana": quel titolo è già
   // l'intestazione della card, ripeterlo qui sarebbe la stessa parola due
@@ -2439,12 +2500,25 @@ function renderDashWeekSummary(days, catWeek) {
     }
   } catch (e) { console.error('weekCategoryInsight:', e); }
 
+  // "Torna a oggi": prima non esisteva alcuna via diretta per una settimana
+  // lontana — solo la freccia avanti, un clic alla volta. Lo stesso oro
+  // usato per "oggi" nel calendario mensile e nel pianeta della settimana
+  // (mai un secondo colore per lo stesso concetto): appare SOLO quando sei
+  // altrove, con un ingresso morbido, non un elemento fisso che occupa
+  // spazio anche quando è inutile.
+  const oggiChip = __dashWeekOffset !== 0
+    ? `<button type="button" class="week-oggi-chip" onclick="window.__dashWeekJumpToday(this)">
+        <span class="week-oggi-dot"></span>${tCh('dashWeekBackToToday', __uiLang)}
+      </button>`
+    : '';
+
   box.innerHTML = `
     <div class="flex items-center justify-between gap-2">
       ${freccia(-1, puoIndietro)}
       <p class="t-etichetta text-center min-w-0 truncate">${titolo}</p>
       ${freccia(1, puoAvanti)}
     </div>
+    ${oggiChip}
     ${testa}
     ${rigaCat}
     ${rigaConsiglio}`;
@@ -2461,9 +2535,33 @@ window.__toggleMeseInDashboard = (btn) => {
   haptic('light');
   const wrap = document.getElementById('dash-month-wrap');
   if (!wrap) return;
+  // La card che contiene tutta la striscia settimanale ha overflow:hidden
+  // sul markup fin dall'inizio (serve a contenere l'arco dei pianeti): se
+  // lasciato attivo anche a mese aperto, taglia pure i giorni sul bordo
+  // sinistro/destro del calendario, non solo quelli in alto/basso — bug
+  // reale, visto dal vivo, distinto da quello del wrap qui sotto.
+  const card = document.getElementById('dash-week-strip-card');
   const apri = !wrap.classList.contains('aperto');
   wrap.classList.toggle('aperto', apri);
   btn.setAttribute('aria-expanded', apri ? 'true' : 'false');
+  if (apri) {
+    // Il bordo tondo resta tagliato finché l'accordion sta ancora
+    // "crescendo" (overflow:hidden necessario per l'animazione). Una volta
+    // a regime, i giorni vicino al bordo possono sollevarsi al passaggio
+    // del mouse senza essere dimezzati.
+    const onFine = (ev) => {
+      if (ev.target !== wrap || ev.propertyName !== 'max-height') return;
+      if (wrap.classList.contains('aperto')) {
+        wrap.classList.add('overflow-libero');
+        card?.classList.add('overflow-libero-card');
+      }
+      wrap.removeEventListener('transitionend', onFine);
+    };
+    wrap.addEventListener('transitionend', onFine);
+  } else {
+    wrap.classList.remove('overflow-libero');
+    card?.classList.remove('overflow-libero-card');
+  }
   if (apri && !wrap.dataset.disegnato) {
     wrap.dataset.disegnato = '1';
     window.renderMonthCalendarInto('dash-month-grid');
@@ -2474,10 +2572,58 @@ window.__toggleMeseInDashboard = (btn) => {
 // aperto si chiude (apparterrebbe a un giorno che non è più sullo schermo).
 window.__dashWeekShift = (dir) => {
   const nuovo = __dashWeekOffset + dir;
-  if (nuovo > 0 || nuovo < -12) return;
+  if (nuovo > 0 || nuovo < limiteSettimaneIndietro()) return;
   __dashWeekOffset = nuovo;
   haptic('light');
+
+  // BUG REALE segnalato dal vivo: la striscia settimanale naviga su un
+  // proprio contatore (__dashWeekOffset), indipendente dal "mese" mostrato
+  // in cima alla Dashboard (VaultDAO.state.currentDate) e dal calendario
+  // mensile aperto sotto — due orologi separati. Tornando indietro di
+  // settimane fino a superare il confine del mese, il titolo in alto e "Il
+  // mese intero" restavano fermi sul mese corrente: la settimana mostrava
+  // giorni di febbraio sotto un titolo che diceva ancora marzo. Qui i due
+  // orologi si allineano appena la settimana visibile entra in un mese
+  // diverso — un solo cursore di tempo, non due che possono disallinearsi.
+  const oggi = new Date();
+  const dow = oggi.getDay();
+  const diff = (dow === 0 ? -6 : 1) - dow;
+  const lunedi = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() + diff + __dashWeekOffset * 7);
+  const cur = VaultDAO.state.currentDate;
+  if (lunedi.getFullYear() !== cur.getFullYear() || lunedi.getMonth() !== cur.getMonth()) {
+    VaultDAO.state.currentDate = lunedi;
+    window.__calMeseDirezione = dir;
+    renderDashboard();
+    if (VaultDAO.state.currentView === 'analysis') renderAnalysis();
+    return;
+  }
   renderDashboardWeekStrip();
+};
+
+// "Torna a oggi" dalla striscia settimanale: prima l'unica via era la
+// freccia avanti, un clic alla volta — fino a 12 settimane per chi si era
+// perso lontano. Stesso haptic+suono già usati per "torna a oggi" del mese,
+// e lo stesso respiro visibile prima del salto (vedi 'jump-today' sopra):
+// il bottone si vede rispondere al tocco per un istante prima che tutto
+// sotto cambi, non un ridisegno istantaneo senza un attimo per registrarlo.
+window.__dashWeekJumpToday = (btn) => {
+  if (__dashWeekOffset === 0) return;
+  haptic('medium');
+  try { AudioSynth.play('success'); } catch (_) {}
+  if (btn) { btn.classList.add('week-oggi-chip-attivo'); btn.disabled = true; }
+  setTimeout(() => {
+    __dashWeekOffset = 0;
+    const oggi = new Date();
+    const cur = VaultDAO.state.currentDate;
+    if (cur.getFullYear() !== oggi.getFullYear() || cur.getMonth() !== oggi.getMonth()) {
+      VaultDAO.state.currentDate = oggi;
+      window.__calMeseDirezione = 0;
+      renderDashboard();
+      if (VaultDAO.state.currentView === 'analysis') renderAnalysis();
+      return;
+    }
+    renderDashboardWeekStrip();
+  }, 180);
 };
 
 // Tap su un "pianeta" della settimana: apre/chiude il dettaglio del giorno
@@ -2488,6 +2634,7 @@ window.__toggleDashDay = (iso) => {
   const detailEl = $('#dash-week-strip-detail');
   const row = $('#dash-week-strip');
   if (!detailEl || !row) return;
+  spegniWeekTapHintPerSempre();
   const alreadyOpen = detailEl.classList.contains('is-open') && detailEl.dataset.iso === iso;
   row.querySelectorAll('.week-orb-btn').forEach(b => b.classList.remove('is-selected'));
   if (alreadyOpen) {
@@ -2498,10 +2645,22 @@ window.__toggleDashDay = (iso) => {
   const info = __dashWeekData[iso];
   if (!info) return;
   haptic('light');
+  // Simmetrico a chiudiDettaglioSettimanaDash() dentro
+  // apriDettaglioGiornoCalendario: un solo dettaglio-giorno alla volta in
+  // questa card, mai la striscia E il calendario mensile aperti insieme su
+  // due giorni diversi.
+  chiudiDettaglioMeseDash();
   detailEl.innerHTML = buildDayDetailHtml(info.date, info.txs);
   detailEl.dataset.iso = iso;
   detailEl.classList.add('is-open');
   row.querySelector(`[data-iso="${iso}"]`)?.classList.add('is-selected');
+  // Stesso attrito del calendario mensile (vedi apriDettaglioGiornoCalendario):
+  // un tocco su un pianeta lontano non deve costringere a scorrere a mano
+  // per vedere cosa si è appena aperto. Qui il pannello cresce con una
+  // transizione a fisarmonica (.week-strip-detail, 0.35s) — aspettare che
+  // finisca prima di misurare la posizione, altrimenti scrollIntoView
+  // calcolerebbe su un'altezza ancora a metà animazione.
+  setTimeout(() => detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 380);
 };
 
 const renderDashboard = () => {
@@ -10509,6 +10668,12 @@ let __heatmapDayTx = {};
 let __heatmapMonthLabel = '';
 const __heatmapGiornoApertoPer = {};   // gridId -> giorno aperto (stringa) o null
 const __heatmapMeseApertoPer = {};     // gridId -> "anno-mese" dell'ultimo render
+// Direzione dell'ultimo cambio mese (1 avanti, -1 indietro, 0 nessuna — es.
+// "torna a oggi" o un ridisegno che non è un cambio mese): letta una sola
+// volta da renderMonthCalendarInto per far "girare pagina" la griglia nel
+// verso giusto, poi azzerata subito, altrimenti un salvataggio qualunque
+// rigiocherebbe la stessa transizione senza che il mese sia cambiato.
+window.__calMeseDirezione = 0;
 
 // Costruisce la griglia del mese (intestazioni, caselle vuote di
 // allineamento, un bottone per giorno con numero+importo) e la scrive
@@ -10554,13 +10719,46 @@ window.renderMonthCalendarInto = function renderMonthCalendarInto(gridId) {
       const rel = quotaGiorno > 0 ? amt / quotaGiorno : amt / 100;
       livello = rel > 1.5 ? 4 : rel > 1 ? 3 : rel > 0.5 ? 2 : 1;
     }
-    const etichetta = `${data.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${amt > 0 ? formatMoney(amt) : tCh('alphaHeatmapNoExpense', __uiLang)}`;
-    html += `<button type="button" class="heatmap-day cal-giorno liv-${livello}${isOggi ? ' cal-oggi' : ''}${futuro ? ' cal-futuro' : ''}" data-heatmap-day="${g}" title="${etichetta}" aria-label="${etichetta}">
+    // ATTRITO segnalato dal vivo: il caso più comune per un giorno del
+    // calendario è "voglio registrare una spesa qui", ma ogni giorno — anche
+    // vuoto — apriva prima il dettaglio ("nessuna spesa"), obbligando a
+    // scorrere fino in fondo alla card per trovare il bottone "Aggiungi".
+    // Stessa soluzione già validata per i pianeti della striscia settimanale
+    // (week-orb-btn.is-vuoto, vedi sopra): un giorno passato/odierno SENZA
+    // spese porta un "+" e va DRITTO al modulo, un tocco solo, zero scroll.
+    // Un giorno CON spese continua ad aprire il dettaglio (il primo tocco lì
+    // deve mostrare cosa c'è, non presumere altro), un giorno futuro resta
+    // muto (non si registra una spesa che non è ancora successa).
+    const vuoto = amt === 0 && !futuro;
+    const etichetta = vuoto
+      ? tCh('alphaDayAddExpenseBtn', __uiLang, data.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric' }))
+      : `${data.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${amt > 0 ? formatMoney(amt) : tCh('alphaHeatmapNoExpense', __uiLang)}`;
+    const dd2 = String(g).padStart(2, '0');
+    const mm2 = String(mese + 1).padStart(2, '0');
+    html += `<button type="button" class="heatmap-day cal-giorno liv-${livello}${isOggi ? ' cal-oggi' : ''}${futuro ? ' cal-futuro' : ''}${amt > 0 ? ' ha-spesa' : ''}${vuoto ? ' is-vuoto' : ''}" style="--i:${g}" data-heatmap-day="${g}"${vuoto ? ` data-add-date="${anno}-${mm2}-${dd2}"` : ''} title="${etichetta}" aria-label="${etichetta}">
       <span class="cal-numero">${g}</span>
       ${amt > 0 ? `<span class="cal-importo">${formatMoney(amt)}</span>` : ''}
+      ${vuoto ? `<span class="cal-giorno-plus-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>` : ''}
     </button>`;
   }
   grid.innerHTML = html;
+
+  // "Gira pagina": la griglia intera entra con un filo di rotazione 3D nel
+  // verso del cambio mese (avanti = arriva da destra, indietro = da
+  // sinistra), sopra alla cascata già presente su ogni singola casella.
+  // Stessa lingua del resto (perspective + rotateY leggera, mai uno
+  // spettacolo) — un salvataggio che ridisegna senza cambiare mese non la
+  // rigioca, perché __calMeseDirezione torna a 0 subito dopo averla letta.
+  const direzione = window.__calMeseDirezione || 0;
+  if (direzione !== 0) {
+    grid.classList.remove('cal-mese-avanti', 'cal-mese-indietro');
+    void grid.offsetWidth;
+    grid.classList.add(direzione > 0 ? 'cal-mese-avanti' : 'cal-mese-indietro');
+    grid.addEventListener('animationend', () => {
+      grid.classList.remove('cal-mese-avanti', 'cal-mese-indietro');
+    }, { once: true });
+  }
+  window.__calMeseDirezione = 0;
 
   // Riapre da solo il giorno che era aperto IN QUESTA istanza, MA solo se il
   // mese è ancora lo stesso: un salvataggio ridisegna senza cambiare mese
@@ -10577,11 +10775,32 @@ window.renderMonthCalendarInto = function renderMonthCalendarInto(gridId) {
   __heatmapMeseApertoPer[gridId] = meseCorrente;
 };
 
+// CAOS VISIVO segnalato dal vivo: in Dashboard, la striscia settimanale e il
+// calendario del mese intero vivono nella STESSA card, ma finora avevano
+// dettagli-giorno indipendenti — aprire un giorno nella striscia e poi un
+// giorno diverso nel calendario mensile lasciava DUE pannelli "Aggiungi una
+// spesa a..." visibili insieme, ognuno per un giorno diverso. Un solo
+// dettaglio-giorno alla volta in questa card, chiunque lo apra per ultimo
+// vince — mai due riferimenti a giorni diversi sullo schermo insieme.
+function chiudiDettaglioSettimanaDash() {
+  const detailEl = document.getElementById('dash-week-strip-detail');
+  const row = document.getElementById('dash-week-strip');
+  if (!detailEl || !detailEl.classList.contains('is-open')) return;
+  detailEl.classList.remove('is-open');
+  detailEl.dataset.iso = '';
+  row?.querySelectorAll('.week-orb-btn').forEach(b => b.classList.remove('is-selected'));
+}
+
 function apriDettaglioGiornoCalendario(gridId, day) {
   const grid = document.getElementById(gridId);
   const cell = grid?.querySelector(`.heatmap-day[data-heatmap-day="${day}"]`);
   const detailEl = document.querySelector(`[data-detail-for="${gridId}"]`);
   if (!cell || !detailEl) return;
+  // Il calendario mensile della Dashboard convive con la striscia settimanale
+  // sopra di lui — vedi commento su chiudiDettaglioSettimanaDash(). Il
+  // calendario di Analisi Tensor (heatmap-grid) non ha questo vicino, quindi
+  // non serve toccare nulla lì.
+  if (gridId === 'dash-month-grid') chiudiDettaglioSettimanaDash();
   grid.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('is-scelto'));
   cell.classList.add('is-scelto');
   __heatmapGiornoApertoPer[gridId] = day;
@@ -10589,6 +10808,26 @@ function apriDettaglioGiornoCalendario(gridId, day) {
   const dateObj = new Date(VaultDAO.state.currentDate.getFullYear(), VaultDAO.state.currentDate.getMonth(), parseInt(day, 10));
   const etichettaGiorno = dateObj.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' });
   detailEl.innerHTML = buildDayDetailHtml(dateObj, dayTxs, etichettaGiorno);
+  // ATTRITO segnalato dal vivo: un calendario di 5-6 righe lascia il
+  // dettaglio (e il bottone "Aggiungi una spesa") ben sotto la piega — chi
+  // tocca un giorno in fondo alla griglia doveva scorrere a mano per vedere
+  // cosa aveva appena aperto. `block: 'nearest'` sposta lo stretto
+  // necessario a rendere il pannello visibile (mai uno scatto in cima alla
+  // pagina se è già a vista) — stesso pattern già in uso altrove nel
+  // progetto per un nuovo pannello che compare (vedi riga ~1284).
+  requestAnimationFrame(() => detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+}
+
+// Chiude il giorno aperto nel calendario mensile della Dashboard, simmetrica
+// a chiudiDettaglioSettimanaDash() — usata quando si apre un giorno nella
+// striscia sopra, per lo stesso motivo (mai due dettagli-giorno insieme).
+function chiudiDettaglioMeseDash() {
+  const gridId = 'dash-month-grid';
+  if (!__heatmapGiornoApertoPer[gridId]) return;
+  __heatmapGiornoApertoPer[gridId] = null;
+  document.getElementById(gridId)?.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('is-scelto'));
+  const detailEl = document.querySelector(`[data-detail-for="${gridId}"]`);
+  if (detailEl) detailEl.innerHTML = '';
 }
 document.addEventListener('click', (e) => {
   const cell = e.target.closest('.heatmap-day');
@@ -10596,8 +10835,24 @@ document.addEventListener('click', (e) => {
   const gridId = cell.closest('[id]')?.id;
   if (!gridId) return;
   const day = cell.dataset.heatmapDay;
+  // Giorno senza spese (e non futuro): zero dettaglio, zero scroll, un tocco
+  // solo dritto al modulo — vedi il commento su `vuoto` dentro
+  // renderMonthCalendarInto. Se questo giorno era già aperto come dettaglio
+  // da prima (caso raro: aveva una spesa, è stata eliminata, la cella è
+  // stata ridisegnata come vuota) lo si chiude comunque, mai lasciarlo
+  // "aperto" a vuoto dietro il modulo che sta per comparire sopra.
+  if (cell.classList.contains('is-vuoto')) {
+    if (__heatmapGiornoApertoPer[gridId] === day) {
+      __heatmapGiornoApertoPer[gridId] = null;
+      const detailEl = document.querySelector(`[data-detail-for="${gridId}"]`);
+      if (detailEl) detailEl.innerHTML = '';
+    }
+    window.openPrefilledAdd({ type: 'uscita', date: cell.dataset.addDate });
+    return;
+  }
   // Un secondo tocco sullo stesso giorno lo richiude — coerente con la
   // stessa "fisarmonica" già usata nella striscia settimanale.
+  spegniWeekTapHintPerSempre();
   if (__heatmapGiornoApertoPer[gridId] === day) {
     __heatmapGiornoApertoPer[gridId] = null;
     cell.classList.remove('is-scelto');
@@ -16586,6 +16841,7 @@ document.addEventListener('click', e => {
       if (a === 'next-month') d.setMonth(d.getMonth() + 1);
       else d.setMonth(d.getMonth() - 1);
       VaultDAO.state.currentDate = d;
+      window.__calMeseDirezione = a === 'next-month' ? 1 : -1;
       renderDashboard();
       // BUG REALE trovato dal vivo cambiando mese dentro Analisi Tensor: il
       // calendario ("Le tue spese giorno per giorno") restava fermo al mese
@@ -16603,12 +16859,19 @@ document.addEventListener('click', e => {
       const now = new Date();
       const already = VaultDAO.state.currentDate.getFullYear() === now.getFullYear() && VaultDAO.state.currentDate.getMonth() === now.getMonth();
       if (!already) {
-        VaultDAO.state.currentDate = now;
         haptic('medium');
         try { AudioSynth.play('success'); } catch (_) {}
-        renderDashboard();
-        if (VaultDAO.state.currentView === 'analysis') renderAnalysis();
-        showToast(tCh('dashJumpedToToday', __uiLang), 'success');
+        // Un piccolo respiro prima di saltare: lo stesso anello d'oro che
+        // esplode e si spegne già usato per la pillola "torna a oggi" della
+        // settimana — un salto nel tempo merita un istante che si vede, non
+        // solo un ridisegno istantaneo.
+        t.classList.add('mese-jump-attivo');
+        setTimeout(() => {
+          VaultDAO.state.currentDate = now;
+          renderDashboard();
+          if (VaultDAO.state.currentView === 'analysis') renderAnalysis();
+          showToast(tCh('dashJumpedToToday', __uiLang), 'success');
+        }, 180);
       }
     } else if (a === 'toggle-theme') {
       const applyTheme = () => {
