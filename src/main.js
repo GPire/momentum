@@ -4307,7 +4307,17 @@ function renderTaxCashBlocks(proj, regime) {
   // LIVELLO 2 — Ponte commercialista: un pacchetto che il professionista apre
   // senza account, con fatture/incassi/scadenze già pronti (T11, il pezzo che
   // trasforma il commercialista da ostacolo a canale di distribuzione).
-  if ((VaultDAO.state.invoices || []).length) {
+  // PRIMA il bottone compariva SOLO con almeno una fattura generata dentro
+  // Momentum (window.invoices) — chi fattura fuori dall'app (o non fattura
+  // affatto: dipendente con partita IVA occasionale, professionista con
+  // cassa propria) non lo vedeva mai, pur avendo entrate da lavoro
+  // autonomo registrate come transazioni normali. Ora basta un regime
+  // fiscale attivo E almeno un'entrata già riconosciuta come fattura
+  // (verificato dal vivo prima di decidere che comparisse anche senza
+  // fatture formali): il report si costruisce comunque dalle transazioni.
+  const haFattureEmesse = (VaultDAO.state.invoices || []).length > 0;
+  const haEntrateFattura = (proj?.invoicedYTD || 0) > 0;
+  if (haFattureEmesse || haEntrateFattura) {
     html += `<button onclick="window.exportAccountantReport()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Esporta riepilogo per il commercialista</button>`;
   }
   return html;
@@ -4330,9 +4340,32 @@ window.exportAccountantReport = () => {
     win.document.write(renderAccountantReportHTML(report, { emitter }));
     win.document.close();
     win.addEventListener('load', () => setTimeout(() => win.print(), 250));
-    showToast('Riepilogo pronto — scegli "Salva come PDF" nella finestra di stampa, o giralo così com\'è al commercialista.', 'success');
+    showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
   } else {
-    showToast('Popup bloccati dal browser: consenti i popup per generare il riepilogo.', 'error');
+    showToast(tCh('vaultPopupBlocked', __uiLang), 'error');
+  }
+};
+
+// Stesso "riepilogo per il commercialista" dell'Italia, per la Spagna: RETA
+// e IRPF separati (mai un totale unico, è la scomposizione che si chiede
+// per prima), stampabile allo stesso modo. Import dinamico: il modulo
+// carica solo se qualcuno tocca davvero il bottone.
+window.exportAccountantReportEs = async () => {
+  const { buildAccountantReportEs, renderAccountantReportHTMLIntl } = await import('./predict/accountant-export-intl.js');
+  const anno = new Date().getFullYear();
+  const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
+  const report = buildAccountantReportEs(VaultDAO.state.transactions || {}, anno, {
+    learned: VaultDAO.state.taxLearned, model: window.__incomeModel, baseElegida,
+  });
+  const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(renderAccountantReportHTMLIntl(report, { emitter }));
+    win.document.close();
+    win.addEventListener('load', () => setTimeout(() => win.print(), 250));
+    showToast(tCh('esExportAccountantToast', __esLang), 'success');
+  } else {
+    showToast(tCh('vaultPopupBlocked', __uiLang), 'error');
   }
 };
 
@@ -4799,6 +4832,12 @@ function renderTaxEs(monthK) {
       </div>`).join('');
     html += `<div class="mt-2 border-t border-[var(--glass-border)] pt-2"><div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">${r.uncertainCount} ${tCh('esUncertainLabel', __esLang)}</div><div class="text-xs text-[var(--on-surface-secondary)]">${rows}</div></div>`;
   }
+  // Stesso "ponte commercialista" già fatto per l'Italia, adattato: qui
+  // non ci sono fatture strutturate (nessun equivalente FatturaPA per la
+  // Spagna), quindi basta almeno una entrata già riconosciuta come fattura.
+  if (r.count > 0) {
+    html += `<button onclick="window.exportAccountantReportEs()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] block">${tCh('esExportAccountant', __esLang)}</button>`;
+  }
   html += `<button onclick="window.setEsActive(false)" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2">${tCh('esDeactivate', __esLang)}</button>`;
   if (VaultDAO.state.taxRegime) {
     html += `<button onclick="window.setTaxActiveCountry('it')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">${tCh('esShowItalyInstead', __uiLang)}</button>`;
@@ -5185,8 +5224,28 @@ window.openSwissSimulatorResult = (reddito) => {
       </div>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chCantonNote', __chLang)}</p>
       <button onclick="window.closeModal(); window.openCreateInvoiceCH();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">${tCh('chCreateInvoice', __chLang)}</button>
+      <button onclick="window.exportAccountantReportCh(${reddito})" class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">${tCh('chExportAccountant', __chLang)}</button>
       <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chRecalculate', __chLang)}</button>
     </div>`);
+};
+
+// Stesso "ponte commercialista" di Italia/Spagna, adattato: la Svizzera non
+// ha un accantonamento continuativo dalle transazioni, solo questo
+// simulatore — il riepilogo usa il reddito appena dichiarato, non ricalcola
+// dalle transazioni salvate (che potrebbero non esistere per un utente CH).
+window.exportAccountantReportCh = async (reddito) => {
+  const { buildAccountantReportCh, renderAccountantReportHTMLIntl } = await import('./predict/accountant-export-intl.js');
+  const report = buildAccountantReportCh({}, new Date().getFullYear(), { redditoManuale: reddito });
+  const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(renderAccountantReportHTMLIntl(report, { emitter }));
+    win.document.close();
+    win.addEventListener('load', () => setTimeout(() => win.print(), 250));
+    showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
+  } else {
+    showToast(tCh('vaultPopupBlocked', __uiLang), 'error');
+  }
 };
 
 // ── AUTÓNOMOS SPAGNOLI (src/predict/tax-es.js) — stesso pattern del

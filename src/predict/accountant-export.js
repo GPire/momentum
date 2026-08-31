@@ -16,9 +16,34 @@
 'use strict';
 
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, unpaidExposure } from './tax-cash-basis.js';
-import { taxSetAsideForPeriod } from './tax.js';
+import { taxSetAsideForPeriod, taxSetAside, classifyIncome } from './tax.js';
 import { taxReserveStatus } from './tax-payments.js';
 import { upcomingTaxDeadlines } from './tax-deadlines.js';
+
+// LA SCOMPOSIZIONE CHE UN COMMERCIALISTA CHIEDE PER PRIMA.
+// Verificato con ricerca reale (2026-08-31): per un forfettario, quello che
+// il commercialista vuole a fine anno è soprattutto due numeri SEPARATI —
+// i contributi previdenziali versati (deducibili dal reddito imponibile) e
+// l'imposta sostitutiva dovuta (Cassa Forense/Inarcassa/CNPADC comprese,
+// se c'è una cassa propria). Il report mostrava solo il totale aggregato
+// (`daAccantonare`), la stessa cifra che serve all'UTENTE per sapere quanto
+// mettere da parte ma inutile a chi deve compilare la dichiarazione. Qui si
+// sommano i `breakdown` che `taxSetAside` calcola già per singola
+// transazione (mai una seconda formula fiscale) e si aggregano per voce.
+function scomponiAccantonamentoAnno(transactionsFlat, regime, opts) {
+  const totali = {}; // etichetta voce -> somma
+  const ordine = []; // per mostrare le voci nell'ordine in cui compaiono
+  for (const t of transactionsFlat) {
+    const { kind } = classifyIncome(t, opts.learned, opts.model);
+    if (kind !== 'invoice') continue;
+    const { breakdown } = taxSetAside(t.amount, { regime, learned: opts.learned, model: opts.model, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, year: opts.year, rulesOverride: opts.rulesOverride });
+    for (const voce of breakdown) {
+      if (!(voce.voce in totali)) { totali[voce.voce] = 0; ordine.push(voce.voce); }
+      totali[voce.voce] += voce.importo;
+    }
+  }
+  return ordine.map(voce => ({ voce, importo: +totali[voce].toFixed(2) }));
+}
 
 // Assembla il report per un anno: SOLO calcoli già esistenti nel progetto
 // (nessuna seconda formula), messi in un unico posto leggibile. `opts`:
@@ -33,6 +58,7 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
 
   const flatTx = Object.values(allTx).flat().filter(t => t.type === 'entrata' && new Date(t.date).getFullYear() === year);
   const accantonamento = taxSetAsideForPeriod(flatTx, { regime: regime || 'forfettario', learned: opts.learned, model: opts.model });
+  const scomposizione = scomponiAccantonamentoAnno(flatTx, regime || 'forfettario', opts);
   const riserva = taxReserveStatus(accantonamento.daAccantonare, opts.taxPayments || []);
   const scadenze = upcomingTaxDeadlines(accantonamento.daAccantonare, {
     now: opts.now || new Date(), orizzonteGiorni: 400, giaVersato: riserva.versato, rulesOverride: opts.rulesOverride,
@@ -61,6 +87,10 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
       dovuto: riserva.totaleDovuto,
       versato: riserva.versato,
       mancante: riserva.daAccantonare,
+      // Contributi previdenziali (deducibili) separati dall'imposta dovuta:
+      // la scomposizione che il commercialista chiede per primo, non un
+      // totale unico — vedi scomponiAccantonamentoAnno sopra.
+      scomposizione,
     },
     scadenze: scadenze.map(s => ({ nome: s.label, data: s.date, importo: s.importo, giorniMancanti: s.giorniMancanti })),
     fattureNonIncassate: esposizione.aperte.map(a => ({ numero: a.fattura.number, cliente: a.fattura.client, imponibile: a.fattura.imponibile, giorniDaEmissione: a.giorniDaEmissione })),
@@ -111,6 +141,7 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 </div>
 <h2>Fatture (${report.fatture.length})</h2>
 <table><thead><tr><th>N.</th><th>Data</th><th>Cliente</th><th class="r">Imponibile</th><th>Stato incasso</th></tr></thead><tbody>${righeFatture || '<tr><td colspan="5">Nessuna fattura in questo anno.</td></tr>'}</tbody></table>
+${report.accantonamento.scomposizione.length ? `<h2>Come si compone l'accantonamento</h2><table><thead><tr><th>Voce</th><th class="r">Importo</th></tr></thead><tbody>${report.accantonamento.scomposizione.map(v => `<tr><td>${esc(v.voce)}</td><td class="r">${eur(v.importo)}</td></tr>`).join('')}<tr><td><b>Totale</b></td><td class="r"><b>${eur(report.accantonamento.mancante)}</b></td></tr></tbody></table>` : ''}
 ${report.scadenze.length ? `<h2>Scadenze</h2><table><thead><tr><th>Scadenza</th><th>Data</th><th class="r">Importo</th><th>Tra</th></tr></thead><tbody>${righeScadenze}</tbody></table>` : ''}
 ${report.fattureNonIncassate.length ? `<h2>Fatture non ancora incassate (${report.fattureNonIncassate.length})</h2><table><thead><tr><th>Cliente</th><th class="r">Imponibile</th><th>Giorni dall'emissione</th></tr></thead><tbody>${report.fattureNonIncassate.map(f => `<tr><td>${esc(f.cliente)}</td><td class="r">${eur(f.imponibile)}</td><td>${f.giorniDaEmissione}</td></tr>`).join('')}</tbody></table>` : ''}
 ${report.anomalie.entrateAmbigueDaConfermare ? `<h2>Da verificare</h2><p style="font-size:12px">${report.anomalie.entrateAmbigueDaConfermare} entrata/e non ancora classificate come fattura o personali (${eur(report.anomalie.totaleEntrateAmbigue)} totali) — l'utente non le ha ancora confermate nell'app.</p>` : ''}
