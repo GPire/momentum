@@ -382,7 +382,28 @@ const initWebGLOrb = (canvasId, balance=0, freqScore=0) => {
     return Math.min(Math.max(val, 0.05), 0.6);
   };
 
-  const canvas = document.getElementById(canvasId); if (!canvas || !window.THREE) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  // THREE arriva da CDN in modo asincrono: al primo disegno della Dashboard
+  // spesso NON è ancora caricato, e prima qui si usciva e basta — nessuno
+  // riprovava. Risultato: l'elemento più grande della schermata restava un
+  // rettangolo vuoto proprio all'apertura, e più la connessione è lenta più
+  // capita. Ora si riprova finché la libreria arriva, con un tetto di tempo
+  // (mai un'attesa infinita: stessa disciplina di con-timeout.js) e una sola
+  // attesa in volo per canvas.
+  if (!window.THREE) {
+    if (canvas._orbAttesa) return;
+    canvas._orbAttesa = true;
+    const scadenza = Date.now() + 15000;
+    const riprova = () => {
+      if (!document.getElementById(canvasId)) { canvas._orbAttesa = false; return; }
+      if (window.THREE) { canvas._orbAttesa = false; initWebGLOrb(canvasId, balance, freqScore); return; }
+      if (Date.now() > scadenza) { canvas._orbAttesa = false; return; } // niente 3D: resta lo sfondo, mai un errore in faccia
+      setTimeout(riprova, 250);
+    };
+    setTimeout(riprova, 250);
+    return;
+  }
   if (canvas._orbApp) { 
     try {
       canvas._orbApp.mat.uniforms.balance.value = balance; 

@@ -615,6 +615,31 @@
     .ha-altro-sotto ~ .segnale-sotto { opacity: .75; animation: frecciaGiu 2.4s ease-in-out infinite; }
     @keyframes frecciaGiu { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 4px); } }
     @media (prefers-reduced-motion: reduce) { .ha-altro-sotto ~ .segnale-sotto { animation: none; } }
+    /* ── L'ORDINE DEL COMPITO, SU DESKTOP ──
+       Il modulo nasce per il telefono, dove il tastierino disegnato sta
+       subito sotto l'importo per un motivo misurato (senza, finiva 109px
+       sotto il bordo dello schermo). Ma su desktop quel tastierino è largo
+       quattro righe e spinge le CATEGORIE sotto la piega, mentre CONFERMA
+       resta sempre visibile: misurato 542px visibili su 791 di contenuto.
+       Il risultato è che chi non conosce l'app digita l'importo e conferma
+       senza aver mai visto la domanda "per cosa?" — ed è il dato che fa
+       imparare Momentum.
+       Su desktop, quindi, l'ordine segue il compito: quanto → per cosa →
+       (se vuoi) tastierino → nota, data, dividi. Sul telefono nulla cambia:
+       lì il tastierino disegnato è già nascosto (c'è la tastiera vera) e
+       l'ordine del markup è già quello giusto. */
+    @media (min-width: 1280px) {
+      #form-container-desktop > div > * { order: 6; }
+      #form-container-desktop .ai-insight-panel { order: 0; }
+      #form-container-desktop .type-toggle-track { order: 1; }
+      #form-container-desktop #quick-add-row { order: 2; }
+      #form-container-desktop .amount-stage { order: 3; }
+      #form-container-desktop .cat-scroll-wrapper,
+      #form-container-desktop #cat-context-hint,
+      #form-container-desktop #cat-suggerisci-nuova { order: 4; }
+      #form-container-desktop .numpad-grid,
+      #form-container-desktop .form-kbd-hint { order: 5; }
+    }
     .amount-stage { text-align: center; padding: 1rem 0.5rem 0.5rem; position: relative; }
     /* ── L'IMPORTO È UN ASTRO, NON UN CAMPO DI UN MODULO ──
        Il pannello per segnare una spesa viveva in un'estetica sua: etichetta
