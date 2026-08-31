@@ -4039,7 +4039,19 @@ const renderAnalysis = (opts = {}) => {
       </button>`;
     }
     grid.innerHTML = html;
-    $('#heatmap-day-detail').innerHTML = '';
+    // Riapre da solo il giorno che era aperto, MA solo se il mese è ancora
+    // lo stesso: un salvataggio ridisegna senza cambiare mese (si riapre),
+    // cambiare mese col bottone < > invece deve chiudere — un giorno "31"
+    // riaperto per errore su un mese senza quel numero sarebbe peggio del
+    // pannello vuoto che questo fix risolve.
+    const meseCorrente = `${anno}-${mese}`;
+    if (__heatmapGiornoAperto && window.__heatmapMeseAperto === meseCorrente) {
+      apriDettaglioGiornoCalendario(__heatmapGiornoAperto);
+    } else {
+      __heatmapGiornoAperto = null;
+      $('#heatmap-day-detail').innerHTML = '';
+    }
+    window.__heatmapMeseAperto = meseCorrente;
   }
 
   // Alerts & Anomalie: prima chiamata sincrona (proiezione run-rate), poi
@@ -10385,21 +10397,38 @@ function renderRegulatoryNews() {
 // un pannello visibile con le voci reali di quel giorno — mai solo la cifra.
 let __heatmapDayTx = {};
 let __heatmapMonthLabel = '';
-document.addEventListener('click', (e) => {
-  const cell = e.target.closest('.heatmap-day');
-  if (!cell) return;
-  const day = cell.dataset.heatmapDay;
+// Giorno con il dettaglio aperto: serve a RIAPRIRLO da solo dopo un
+// salvataggio. Prima, aggiungere una spesa dal calendario chiudeva il
+// modulo, la casella del giorno si aggiornava correttamente (30,00 €), ma
+// il pannello sotto restava vuoto — l'utente doveva ritoccare lo stesso
+// giorno per vedere conferma che la spesa fosse arrivata davvero.
+let __heatmapGiornoAperto = null;
+function apriDettaglioGiornoCalendario(day) {
+  const cell = document.querySelector(`.heatmap-day[data-heatmap-day="${day}"]`);
   const detailEl = $('#heatmap-day-detail');
-  if (!detailEl) return;
-  // Il giorno scelto resta marcato con l'anello indigo (mai l'oro, che qui
-  // significa già "oggi": due segni identici per due cose diverse sarebbero
-  // illeggibili proprio nel giorno che l'utente guarda più spesso).
+  if (!cell || !detailEl) return;
   document.querySelectorAll('.heatmap-day').forEach(c => c.classList.remove('is-scelto'));
   cell.classList.add('is-scelto');
+  __heatmapGiornoAperto = day;
   const dayTxs = __heatmapDayTx[day] || [];
   const dateObj = new Date(VaultDAO.state.currentDate.getFullYear(), VaultDAO.state.currentDate.getMonth(), parseInt(day, 10));
   const etichettaGiorno = dateObj.toLocaleDateString(__uiLocale, { weekday: 'long', day: 'numeric', month: 'long' });
   detailEl.innerHTML = buildDayDetailHtml(dateObj, dayTxs, etichettaGiorno);
+}
+document.addEventListener('click', (e) => {
+  const cell = e.target.closest('.heatmap-day');
+  if (!cell) return;
+  const day = cell.dataset.heatmapDay;
+  // Un secondo tocco sullo stesso giorno lo richiude — coerente con la
+  // stessa "fisarmonica" già usata nella striscia settimanale.
+  if (__heatmapGiornoAperto === day) {
+    __heatmapGiornoAperto = null;
+    cell.classList.remove('is-scelto');
+    const detailEl = $('#heatmap-day-detail');
+    if (detailEl) detailEl.innerHTML = '';
+    return;
+  }
+  apriDettaglioGiornoCalendario(day);
 });
 
 // Confronto periodi (src/predict/period-compare.js): richiesto esplicitamente
@@ -16381,6 +16410,15 @@ document.addEventListener('click', e => {
       else d.setMonth(d.getMonth() - 1);
       VaultDAO.state.currentDate = d;
       renderDashboard();
+      // BUG REALE trovato dal vivo cambiando mese dentro Analisi Tensor: il
+      // calendario ("Le tue spese giorno per giorno") restava fermo al mese
+      // vecchio — cifre e categorie di agosto sotto un'intestazione che
+      // diceva "luglio" — perché questo bottone richiamava SOLO
+      // renderDashboard(). Il selettore del mese è lo stesso elemento
+      // condiviso da entrambe le viste; se non si aggiorna anche l'altra
+      // vista, chi sta guardando Analisi Tensor legge dati sbagliati senza
+      // nessun segnale che siano vecchi.
+      if (VaultDAO.state.currentView === 'analysis') renderAnalysis();
     } else if (a === 'jump-today') {
       // Micro-interazione: un tap sul titolo del mese riporta a OGGI quando si
       // stanno guardando mesi passati/futuri. Feedback immediato (haptic +
@@ -16392,7 +16430,8 @@ document.addEventListener('click', e => {
         haptic('medium');
         try { AudioSynth.play('success'); } catch (_) {}
         renderDashboard();
-        showToast('Tornato a oggi.', 'success');
+        if (VaultDAO.state.currentView === 'analysis') renderAnalysis();
+        showToast(tCh('dashJumpedToToday', __uiLang), 'success');
       }
     } else if (a === 'toggle-theme') {
       const applyTheme = () => {
