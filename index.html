@@ -635,10 +635,57 @@
       #form-container-desktop #quick-add-row { order: 2; }
       #form-container-desktop .amount-stage { order: 3; }
       #form-container-desktop .cat-scroll-wrapper,
+      #form-container-desktop .cat-domanda-wrap,
       #form-container-desktop #cat-context-hint,
       #form-container-desktop #cat-suggerisci-nuova { order: 4; }
       #form-container-desktop .numpad-grid,
       #form-container-desktop .form-kbd-hint { order: 5; }
+    }
+    /* Stesso ordine nel modale quando c'è un puntatore fine (tablet con
+       mouse, laptop): lì il tastierino disegnato compare, occupa mezza
+       schermata e spinge "Per cosa?" a ridosso di Conferma — con le
+       categorie sotto la piega. Su touch il tastierino non c'è e il markup
+       è già nell'ordine giusto, quindi la regola non si applica. */
+    @media (pointer: fine) {
+      #modal-body > div > * { order: 6; }
+      #modal-body .ai-insight-panel { order: 0; }
+      #modal-body .type-toggle-track { order: 1; }
+      #modal-body #quick-add-row { order: 2; }
+      #modal-body .amount-stage { order: 3; }
+      #modal-body .cat-scroll-wrapper,
+      #modal-body .cat-domanda-wrap,
+      #modal-body #cat-context-hint,
+      #modal-body #cat-suggerisci-nuova { order: 4; }
+      #modal-body .numpad-grid,
+      #modal-body .form-kbd-hint { order: 5; }
+    }
+    /* Dettagli facoltativi: una riga sola, che si apre a fisarmonica come il
+       dettaglio del giorno nel calendario — stesso meccanismo, stessa curva,
+       nessuna seconda invenzione. La freccia ruota: dice da sola se è aperto
+       o chiuso, senza cambiare la parola. */
+    .dettagli-toggle {
+      display: flex; align-items: center; gap: .5rem; width: 100%;
+      min-height: 44px; margin-top: .5rem; padding: .35rem .25rem;
+      background: none; border: none; cursor: pointer;
+      color: var(--on-surface-secondary);
+      font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    }
+    @media (hover: hover) { .dettagli-toggle:hover { color: var(--on-surface); } }
+    .dettagli-freccia { transition: transform .3s cubic-bezier(.16,1,.3,1); flex: 0 0 auto; }
+    .dettagli-toggle[aria-expanded="true"] .dettagli-freccia { transform: rotate(180deg); }
+    /* Qui NON si usa il pattern grid 0fr→1fr del calendario: questo blocco
+       vive dentro un modulo flex-col alto quanto lo schermo, dove lo spazio
+       verticale è già tutto assegnato — il grid riceveva altezza 0 e il
+       contenuto restava invisibile anche da aperto (verificato dal vivo:
+       pill di data e "dividi" alte 0px). Con max-height la misura non
+       dipende dallo spazio libero del genitore. */
+    .dettagli-extra {
+      max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height .35s cubic-bezier(.16,1,.3,1), opacity .25s ease;
+    }
+    .dettagli-extra.aperto { max-height: 260px; opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      .dettagli-freccia, .dettagli-extra { transition: none; }
     }
     .amount-stage { text-align: center; padding: 1rem 0.5rem 0.5rem; position: relative; }
     /* ── L'IMPORTO È UN ASTRO, NON UN CAMPO DI UN MODULO ──
@@ -678,7 +725,8 @@
       color: var(--on-surface-secondary);
       transition: opacity .45s ease, transform .45s cubic-bezier(.22,1,.36,1);
     }
-    .amount-stage.ha-importo .amount-domanda { opacity: 0; transform: translateY(-6px); }
+    .amount-stage.ha-importo .amount-domanda,
+    .amount-domanda.risposta-data { opacity: 0; transform: translateY(-6px); }
     /* La scintilla respira come tutto il resto: 5,5s, lo stesso battito
        dell'orb e dell'alone qui dietro. */
     .amount-domanda svg { width: 12px; height: 12px; opacity: .85; animation: scintillaRespiro 5.5s ease-in-out infinite; }

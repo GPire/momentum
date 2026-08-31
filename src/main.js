@@ -690,6 +690,16 @@ const getTxFormHTML = () => `
       ${tCh('txKbdHint', __uiLang)}
     </p>
 
+    <!-- LA SECONDA DOMANDA DEL PERCORSO. Il modulo ne fa in realtà due:
+         quanto, e per cosa. La prima era scritta, la seconda no — sopra le
+         categorie c'era solo una fila di pastiglie colorate, e chi non
+         conosce l'app non sa se deve toccarne una o se sono decorazione.
+         Stessa grammatica della prima domanda (scintilla + maiuscoletto),
+         e come quella si fa da parte appena la risposta c'è. -->
+    <p class="cat-domanda-wrap text-center mb-1 mt-1 shrink-0"><span id="cat-domanda" class="t-etichetta amount-domanda">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+      <span>${tCh('txAskCategory', __uiLang)}</span>
+    </span></p>
         <div class="cat-scroll-wrapper shrink-0">
       <div class="flex gap-2.5 px-2 w-max" id="cat-scroll">${buildCatChipsHTML('uscita')}</div>
     </div>
@@ -717,10 +727,28 @@ const getTxFormHTML = () => `
 
     ${buildNewCatPanelHTML()}
 
+    <!-- ── L'ESSENZIALE RESTA, IL RESTO SI APRE SE SERVE ──
+         Per segnare una spesa bastano due risposte: quanto, e per cosa.
+         Nota, data e "dividi con qualcuno" sono utili ma non servono quasi
+         mai: tenerli sempre aperti significa mostrare cinque comandi a chi
+         ne deve usare due — ed è così che un modulo semplice "sembra
+         difficile", per un bambino come per un ottantenne.
+         Restano a un solo tocco, con l'etichetta che dice cosa contengono
+         (mai un'icona muta), e chi li apre li trova già pronti. -->
+    <!-- La NOTA resta sempre visibile: non è obbligatoria per salvare
+         (servono importo e categoria), ma è quella che ti fa riconoscere la
+         spesa quando la rileggi fra un mese — nella lista dei movimenti è il
+         nome della riga — ed è il testo da cui Momentum impara a
+         categorizzare da solo. Nasconderla impoverirebbe entrambe le cose. -->
     <div class="desc-input-wrap mt-3 mb-2 shrink-0">
       <input type="text" id="tx-desc" class="desc-input" placeholder="${tCh('txDescPlaceholder', __uiLang)}" autocomplete="off">
     </div>
-    
+
+    <button type="button" id="dettagli-toggle" class="dettagli-toggle shrink-0" aria-expanded="false" aria-controls="dettagli-extra">
+      <svg class="dettagli-freccia" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      <span>${tCh('txMoreDetails', __uiLang)}</span>
+    </button>
+    <div id="dettagli-extra" class="dettagli-extra shrink-0"><div>
     <div class="smart-toggles-row mb-3 shrink-0">
        <div class="neuro-pill-btn" id="date-pill-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
@@ -737,6 +765,7 @@ const getTxFormHTML = () => `
           <span id="split-pill-text" class="truncate">${tCh('txSplit', __uiLang)}</span>
        </button>
     </div>
+    </div></div>
 
   </div>
 `;
@@ -1080,6 +1109,25 @@ const attachFormListeners = (container, prefill = null) => {
     });
   });
 
+  // Dettagli facoltativi (nota, data, dividi): chiusi di default perché non
+  // servono quasi mai, ma si aprono DA SOLI quando c'è già qualcosa dentro —
+  // una data diversa da oggi o una nota pre-compilata (voce, quick-add,
+  // "aggiungi una spesa a giovedì 3"). Nascondere una scelta che l'utente ha
+  // già fatto sarebbe peggio che mostrarne una in più.
+  const dettagliToggle = container.querySelector('#dettagli-toggle');
+  const dettagliExtra = container.querySelector('#dettagli-extra');
+  const apriDettagli = (apri) => {
+    if (!dettagliExtra || !dettagliToggle) return;
+    dettagliExtra.classList.toggle('aperto', apri);
+    dettagliToggle.setAttribute('aria-expanded', apri ? 'true' : 'false');
+  };
+  if (dettagliToggle) {
+    dettagliToggle.addEventListener('click', () => {
+      haptic('light');
+      apriDettagli(!dettagliExtra.classList.contains('aperto'));
+    });
+  }
+
   const attachCatClick = () => {
     container.querySelectorAll('.cat-chip').forEach(c => {
       c.addEventListener('click', () => {
@@ -1096,6 +1144,8 @@ const attachFormListeners = (container, prefill = null) => {
         catId = c.dataset.catId;
         container.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('selected'));
         c.classList.add('selected');
+        // Risposta data: la domanda si fa da parte, come quella dell'importo.
+        container.querySelector('#cat-domanda')?.classList.add('risposta-data');
         container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
         // Memoria importi (src/predict/amount-memory.js): se per questa
         // categoria/descrizione la cifra è sempre la stessa (es. sigarette),
@@ -1543,9 +1593,16 @@ const attachFormListeners = (container, prefill = null) => {
         const now = new Date();
         const isToday = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
         datePillText.textContent = isToday ? tCh('txDateToday', __uiLang) : d.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
+        // Una data diversa da oggi è una scelta già fatta (arriva dal
+        // calendario: "aggiungi una spesa a giovedì 3"): i dettagli si aprono
+        // da soli, altrimenti quella scelta resterebbe nascosta dietro una
+        // riga chiusa e l'utente non saprebbe se è stata presa davvero.
+        if (!isToday) apriDettagli(true);
       }
     }
   }
+  // Stessa regola per una nota già scritta da voce/quick-add.
+  if (prefill && (prefill.description || prefill.note)) apriDettagli(true);
 
   // Confirm Ledger Save
   formRoot.querySelector('.tx-save-btn').onclick = () => {
