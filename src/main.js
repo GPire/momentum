@@ -6945,6 +6945,40 @@ window.setQaLanguage = (lang) => {
 // "Riduci movimento" di sistema è rispettato di default in TUTTA l'app —
 // questo toggle è l'unica eccezione, esplicita e scelta dall'utente stesso
 // (mai imposta), solo per le micro-animazioni di attesa della chat generica.
+// ── LETTURA COMODA: dimensione testo + contrasto ──
+// Un moltiplicatore sulla scala tipografica esistente (--font-scale,
+// index.html) e un attributo sullo stesso meccanismo di dark/light
+// (data-contrasto): mai un secondo tema, mai una schermata "Modalità
+// Senior" separata da tradurre e mantenere a parte — la stessa identica
+// app, più leggibile per chi ne ha bisogno.
+function applyReadingEasePreferences() {
+  const scala = VaultDAO.state.fontScale || '1';
+  document.documentElement.style.setProperty('--font-scale', scala);
+  document.documentElement.toggleAttribute('data-contrasto', !!VaultDAO.state.highContrast);
+  if (VaultDAO.state.highContrast) document.documentElement.setAttribute('data-contrasto', 'alto');
+  // 'active-income' (verde) riusato per il suo unico pregio qui: è neutro
+  // e già esiste. 'active-expense' (rosso) sarebbe stato semanticamente
+  // sbagliato su un selettore che non parla di spesa.
+  document.querySelectorAll('#font-scale-toggle .type-toggle-pill').forEach(b => {
+    b.classList.toggle('active-income', b.dataset.scale === scala);
+  });
+  const cb = document.getElementById('high-contrast-toggle');
+  if (cb) cb.checked = !!VaultDAO.state.highContrast;
+}
+window.applyReadingEasePreferences = applyReadingEasePreferences;
+
+window.setFontScale = (scala) => {
+  haptic('light');
+  VaultDAO.state.fontScale = scala;
+  VaultDAO.save();
+  applyReadingEasePreferences();
+};
+window.setHighContrast = (checked) => {
+  VaultDAO.state.highContrast = checked;
+  VaultDAO.save();
+  applyReadingEasePreferences();
+};
+
 window.setForceAnimations = (checked) => {
   VaultDAO.state.forceAnimations = checked;
   document.documentElement.classList.toggle('force-anim', checked);
@@ -13097,7 +13131,7 @@ const navigate = (view) => {
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
     // accanto a #tax-settings-card, non più mescolato ai contenuti di
     // trading/investimento di Analisi Tensor.
-    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); renderAnalysisTensorPrefCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary();
+    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); renderAnalysisTensorPrefCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary(); applyReadingEasePreferences();
     { const c = document.getElementById('live-prices-card'); if (c) c.style.display = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) ? '' : 'none'; }
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
@@ -16165,6 +16199,11 @@ const initApp = () => {
     const isDark = VaultDAO.state.themeDark !== false;
     document.documentElement.classList.toggle('dark', isDark);
     document.querySelectorAll('[data-action="toggle-theme"]').forEach(btn => setThemeToggleIcon(btn, isDark));
+    // Lettura comoda: applicata qui, allo stesso punto del tema, prima del
+    // primo paint reale — altrimenti l'app si aprirebbe un istante a
+    // dimensione normale e "saltasse" a quella scelta, proprio nel momento
+    // in cui chi ha bisogno di testo grande la sta guardando.
+    applyReadingEasePreferences();
     // Modalità privacy ricordata tra le sessioni: se l'utente l'aveva
     // attivata, i numeri restano sfocati anche subito dopo il reload.
     if (VaultDAO.state.privacyMode) {

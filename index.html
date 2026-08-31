@@ -84,6 +84,18 @@
       --on-surface: #09090b; --on-surface-secondary: #52525b; --outline: rgba(0,0,0,0.08);
       --glass-bg: rgba(255,255,255,0.85); --glass-border: rgba(255,255,255,0.5);
     }
+    /* ── CONTRASTO ALTO ── stesso meccanismo di dark/light (attributo sulla
+       radice, mai un tema parallelo): solo il testo secondario diventa più
+       scuro/chiaro e i bordi più marcati. Il resto dei colori (verde/rosso/oro
+       dei dati) resta invariato — un daltonico o chi ha bisogno di contrasto
+       non deve perdere il codice colore che l'app usa per dire "bene/male",
+       solo leggere meglio le lettere intorno. */
+    html.dark[data-contrasto="alto"] {
+      --on-surface-secondary: #cbd5e1; --outline: rgba(255,255,255,0.22); --glass-border: rgba(255,255,255,0.22);
+    }
+    html:not(.dark)[data-contrasto="alto"] {
+      --on-surface-secondary: #27272a; --outline: rgba(0,0,0,0.22); --glass-border: rgba(0,0,0,0.22);
+    }
 
     *, *::before, *::after { box-sizing: border-box; }
     html, body { background: var(--bg); color: var(--on-surface); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; transition: background-color 0.5s ease, color 0.5s ease; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; letter-spacing: -0.015em; }
@@ -3150,8 +3162,21 @@
 
        Quattro gradini di dimensione e basta. Il quinto lo si aggiunge quando
        serve davvero, non "perche' qui ci stava meglio un po' piu' grande". */
+    /* ── DIMENSIONE TESTO REGOLABILE ──
+       Un moltiplicatore, non un secondo sistema tipografico: ogni gradino
+       della scala già esistente (etichetta/dato/nota, usata ovunque
+       nell'app) si legge attraverso --font-scale invece di un numero
+       fisso. Chi non tocca l'impostazione vede esattamente le stesse
+       dimensioni di sempre (default 1). Chi ne ha bisogno — una persona
+       anziana, chiunque trovi il testo piccolo — la alza da Momentum
+       Vault, ed è tutta l'app a rispondere, non una schermata isolata.
+       Il moltiplicatore vive SOLO su font-size (mai su padding/gap/radius):
+       cambiare la root font-size di Tailwind avrebbe scalato l'intero
+       layout, non solo le lettere, e con probabile rottura di allineamenti
+       fra elementi in px e in rem. */
+    :root { --font-scale: 1; }
     .t-etichetta {
-      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      font-size: calc(10px * var(--font-scale)); font-weight: 700; text-transform: uppercase;
       letter-spacing: .085em; line-height: 1.3;
       color: color-mix(in srgb, var(--on-surface-secondary) 68%, transparent);
     }
@@ -3163,9 +3188,9 @@
        riservati al numero dentro l'orb, e a nient'altro: e' la cosa che deve
        essere vista per prima, e un secondo elemento allo stesso livello la
        farebbe smettere di esserlo. Tutto il resto si ferma a 800. */
-    .t-dato-xl { font-size: clamp(1.5rem, 7.5vw, 2.5rem); font-weight: 900; }
-    .t-dato-l  { font-size: clamp(1.05rem, 4.6vw, 1.4rem); }
-    .t-dato-m  { font-size: 13px; }
+    .t-dato-xl { font-size: clamp(calc(1.5rem * var(--font-scale)), 7.5vw, calc(2.5rem * var(--font-scale))); font-weight: 900; }
+    .t-dato-l  { font-size: clamp(calc(1.05rem * var(--font-scale)), 4.6vw, calc(1.4rem * var(--font-scale))); }
+    .t-dato-m  { font-size: calc(13px * var(--font-scale)); }
 
     /* Le 4 tessere (Entrate/Uscite/Quanto avanza/Investito): BUG REALE
        segnalato dall'utente e verificato dal vivo — a 375px "1270,59 €" e
@@ -3205,7 +3230,7 @@
       #dashboard-view .tessere-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     .t-nota {
-      font-size: 10.5px; font-weight: 400; line-height: 1.45;
+      font-size: calc(10.5px * var(--font-scale)); font-weight: 400; line-height: 1.45;
       color: color-mix(in srgb, var(--on-surface-secondary) 55%, transparent);
     }
 
@@ -3217,19 +3242,19 @@
        Il totale di enfasi in una riga e' una risorsa finita: se la si spende
        tutta su ogni elemento, non ne resta per distinguerli. */
     .tx-desc {
-      font-size: 13.5px; font-weight: 600; letter-spacing: -.01em;
+      font-size: calc(13.5px * var(--font-scale)); font-weight: 600; letter-spacing: -.01em;
       color: var(--on-surface);
     }
     .tx-data {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      font-size: calc(10px * var(--font-scale)); font-weight: 600; text-transform: uppercase;
       letter-spacing: .06em; margin-top: .1rem;
       color: color-mix(in srgb, var(--on-surface-secondary) 58%, transparent);
     }
     .tx-importo {
-      font-size: 15.5px; font-weight: 700;
+      font-size: calc(15.5px * var(--font-scale)); font-weight: 700;
       font-variant-numeric: tabular-nums; letter-spacing: -.02em;
     }
-    @media (min-width: 640px) { .tx-desc { font-size: 14px; } .tx-importo { font-size: 16.5px; } }
+    @media (min-width: 640px) { .tx-desc { font-size: calc(14px * var(--font-scale)); } .tx-importo { font-size: calc(16.5px * var(--font-scale)); } }
 
     /* ── LA STESSA GERARCHIA, OVUNQUE CI SIA UN DATO ──
        Le stesse due classi valgono nelle card: una riga-dato porta il numero
@@ -5032,6 +5057,31 @@
                        bottone rosso dice prima cosa fa davvero: qui i dati
                        stanno solo su questo dispositivo, cancellarli è per
                        sempre. -->
+                  <!-- LETTURA COMODA: dimensione testo + contrasto.
+                       Un moltiplicatore sulla scala tipografica già esistente
+                       (index.html, --font-scale) e un attributo sullo stesso
+                       meccanismo di dark/light (data-contrasto) — mai un
+                       secondo tema o una schermata "Modalità Senior" a parte
+                       da mantenere: la stessa app, più leggibile, per chi ne
+                       ha bisogno. Tre gradini bastano: oltre "molto grande"
+                       il testo rompe i layout misurati per il caso normale. -->
+                  <div id="lettura-comoda-card" class="card p-6 border border-[var(--outline)]">
+                    <h3 class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg><span data-i18n-key="readEaseTitle">Lettura comoda</span></h3>
+                    <p class="t-nota mt-1" data-i18n-key="readEaseSubtitle">Testo più grande e contrasto più forte, su tutta l'app.</p>
+                    <div class="mt-3">
+                      <p class="t-etichetta mb-1.5" data-i18n-key="readEaseSizeLabel">Dimensione del testo</p>
+                      <div class="type-toggle-track" id="font-scale-toggle" role="radiogroup" aria-label="Dimensione del testo">
+                        <button type="button" class="type-toggle-pill" data-scale="1" onclick="window.setFontScale('1')" data-i18n-key="readEaseSizeNormal">Normale</button>
+                        <button type="button" class="type-toggle-pill" data-scale="1.2" onclick="window.setFontScale('1.2')" data-i18n-key="readEaseSizeBig">Grande</button>
+                        <button type="button" class="type-toggle-pill" data-scale="1.45" onclick="window.setFontScale('1.45')" data-i18n-key="readEaseSizeBigger">Molto grande</button>
+                      </div>
+                    </div>
+                    <label class="flex items-center justify-between gap-3 mt-4 cursor-pointer">
+                      <span class="t-etichetta" data-i18n-key="readEaseContrastLabel">Contrasto alto</span>
+                      <input type="checkbox" id="high-contrast-toggle" onchange="window.setHighContrast(this.checked)" class="toggle-input">
+                    </label>
+                  </div>
+
                   <div class="card p-6 border border-[var(--outline)]">
                      <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><span data-i18n-key="vaultAboutTitle">Questa app</span></h3>
                      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mt-3">
