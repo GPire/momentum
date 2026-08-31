@@ -7293,6 +7293,59 @@ window.showAssetComps = async (symbol) => {
   }
 };
 
+// CSV pronto per Excel/Fogli/un commercialista — RFC 4180 minimo (virgolette
+// raddoppiate, mai un campo che rompe il parsing su una descrizione con la
+// virgola dentro). Stessa regola già in uso per l'export comps, non una
+// seconda invenzione (non esportata da quel modulo, quindi ridefinita qui:
+// due righe, non vale un import per così poco).
+function csvCella(v) {
+  const s = v === null || v === undefined ? '' : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Esporta TUTTI i movimenti veri (mai l'esempio demo — un commercialista o
+// un foglio Excel che riceve dati finti mescolati a quelli veri sarebbe un
+// danno, non una comodità) in un CSV leggibile ovunque, senza account e
+// senza installare niente. Diverso dal backup .momentum (JSON, pensato per
+// essere riletto solo da Momentum stesso): questo è per USCIRE dall'app.
+window.exportTransactionsCsv = () => {
+  const tutte = Object.values(VaultDAO.state.transactions || {}).flat();
+  if (!tutte.length) {
+    showToast(tCh('vaultExportCsvEmpty', __uiLang), 'info');
+    return;
+  }
+  const ETICHETTA_TIPO = {
+    uscita: tCh('txTypeExpense', __uiLang),
+    entrata: tCh('txTypeIncome', __uiLang),
+    invest: tCh('txTypeInvest', __uiLang),
+  };
+  const intestazione = [
+    tCh('vaultExportCsvColDate', __uiLang), tCh('vaultExportCsvColType', __uiLang),
+    tCh('vaultExportCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang),
+    tCh('vaultExportCsvColAmount', __uiLang), tCh('vaultExportCsvColCurrency', __uiLang),
+  ];
+  const righe = [...tutte].sort((a, b) => String(a.date).localeCompare(String(b.date))).map(t => [
+    String(t.date).slice(0, 10),
+    ETICHETTA_TIPO[t.type] || t.type,
+    catName(getCatById(t.category), __uiLang),
+    t.description || '',
+    t.amount,
+    t.currency || 'EUR',
+  ]);
+  const csv = [intestazione, ...righe].map(r => r.map(csvCella).join(',')).join('\r\n');
+  // BOM UTF-8: senza, Excel su Windows apre un file con lettere accentate
+  // già rotte al primo doppio click (interpreta come Latin-1) — lo stesso
+  // problema, mai capitato per errore, che l'export comps non ha perché lì
+  // i nomi azienda sono quasi sempre ASCII.
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `momentum-movimenti-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast(tCh('vaultExportCsvDone', __uiLang, tutte.length), 'success');
+};
+
 window.downloadCompsCsv = async () => {
   const r = window.__lastCompsResult;
   if (!r?.disponibile) return;

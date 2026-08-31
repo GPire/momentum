@@ -4607,6 +4607,20 @@
                    <button onclick="document.getElementById('pdf-upload').click()" class="btn-action" data-i18n-key="vaultImportPdfBtn">PDF Banca</button>
                    <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action" data-i18n-key="vaultImportScreenshotBtn">Screenshot</button>
                  </div>
+                 <!-- L'ALTRO VERSO: portare i movimenti FUORI da Momentum, in
+                      un formato che Excel/Google Sheets/un commercialista
+                      aprono senza installare niente. Il backup .momentum
+                      esiste già più in basso, ma è JSON — illeggibile fuori
+                      dall'app. Richiesto esplicitamente più volte ("export
+                      per Excel", "portare i dati al commercialista"). Riga
+                      separata dai 3 pulsanti sopra: quelli sono import,
+                      questo è l'unico export di dati grezzi della card, e
+                      confonderli nella stessa griglia avrebbe fatto sembrare
+                      "CSV" un quarto canale di import. -->
+                 <button onclick="window.exportTransactionsCsv()" class="btn-action w-full mt-2 sm:mt-3 justify-center text-[13px]">
+                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M12 3v12"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg>
+                   <span data-i18n-key="vaultExportCsvBtn">Esporta i tuoi movimenti (CSV)</span>
+                 </button>
                  <!-- Riepilogo affidabilità canali (source-registry.js, 2026-08-28):
                       etichette semplici, mai un numero grezzo — "comprensibile
                       anche a un bambino". Vuoto (hidden) finché non c'è almeno
