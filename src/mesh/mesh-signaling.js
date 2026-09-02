@@ -391,6 +391,12 @@ class MeshNode {
         // (mergeTripLists in trips/trip-engine.js), stesso pattern di
         // split_share: qui si consegna soltanto.
         this.onBusinessTripsReceived?.(peerId, msg.trips);
+      } else if (msg.type === 'custom_categories_share') {
+        // Le CATEGORIE personalizzate. Sembrano un dettaglio e invece sono la
+        // differenza fra vedere la stessa spesa sotto "Palestra" o sotto un
+        // "Altro" grigio: le transazioni si sincronizzavano già, le categorie
+        // che usano no. Merge CRDT del ricevente (core/custom-categories-merge.js).
+        this.onCustomCategoriesReceived?.(peerId, msg.categories);
       } else if (msg.type === 'morphology_share') {
         // Federazione dei "tipi di esercente" (merchant-morphology.js): il peer
         // condivide il suo modello morfologico (SOLO parole-tipo + categorie, mai
@@ -766,6 +772,21 @@ class MeshNode {
       if (entry.channel?.readyState !== 'open') continue;
       if (!destinatario(peerId, entry)) continue;
       entry.channel.send(JSON.stringify({ type: 'trip_share', trips }));
+      inviati++;
+    }
+    return inviati;
+  }
+
+  // Le categorie personalizzate ai propri dispositivi. Stesso filtro delle
+  // trasferte (`destinatario` obbligatorio): sono dati personali, non vanno a
+  // un peer qualunque solo perché il canale è aperto.
+  shareCustomCategories(categories, destinatario = null) {
+    if (!categories || !categories.length || typeof destinatario !== 'function') return 0;
+    let inviati = 0;
+    for (const [peerId, entry] of this.peers.entries()) {
+      if (entry.channel?.readyState !== 'open') continue;
+      if (!destinatario(peerId, entry)) continue;
+      entry.channel.send(JSON.stringify({ type: 'custom_categories_share', categories }));
       inviati++;
     }
     return inviati;

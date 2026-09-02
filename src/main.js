@@ -3,6 +3,7 @@ import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } from './core/vault.js';
+import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -1351,8 +1352,13 @@ const attachFormListeners = (container, prefill = null) => {
     }
     const id = `custom-${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'cat'}-${Date.now().toString(36).slice(-4)}`;
     const nuovaCat = { id, name: nome, type, color: catColoreScelta, icon: catIconaScelta.svg };
-    VaultDAO.state.customCategories = [...(VaultDAO.state.customCategories || []), nuovaCat];
+    // Il timbro serve al merge fra dispositivi (chi ha scritto per ultimo).
+    VaultDAO.state.customCategories = [...(VaultDAO.state.customCategories || []), touchCategory(nuovaCat)];
     VaultDAO.save();
+    // Subito agli altri propri dispositivi: senza, la spesa appena creata
+    // arriverebbe là sotto un "Altro" grigio invece che sotto la categoria
+    // che l'utente ha appena inventato.
+    try { window.momentumMeshNode?.shareCustomCategories(VaultDAO.state.customCategories, soloMieiDispositivi); } catch (_) {}
     haptic('heavy'); AudioSynth.play('success');
     showToast(`Categoria "${nome}" creata.`, 'success');
     closeNewCatPanel();
@@ -18354,6 +18360,10 @@ function initMomentumRealAI() {
       // riallinea tutto, e il merge idempotente rende innocuo rimandare
       // qualcosa che l'altro ha già (stessa logica del sync transazioni).
       if ((VaultDAO.state.businessTrips || []).length) momentumMeshNode.shareBusinessTrips(VaultDAO.state.businessTrips, soloMieiDispositivi);
+      // e le categorie personalizzate: un dispositivo rimasto spento mentre se
+      // ne creava una nuova non lo saprebbe mai, e continuerebbe a mostrare
+      // "Altro" su spese che invece hanno una categoria.
+      if ((VaultDAO.state.customCategories || []).length) momentumMeshNode.shareCustomCategories(VaultDAO.state.customCategories, soloMieiDispositivi);
       // FEDERAZIONE tipi esercente: condivido il modello morfologico appreso, così
       // un dispositivo nuovo eredita subito la categorizzazione dei negozi locali.
       const mm = VaultDAO.state.mlData?.merchantMorphology;
@@ -18591,6 +18601,20 @@ function initMomentumRealAI() {
       // toast che dice che sono cambiati.
       const modaleTrasfertaAperta = !!document.getElementById('trip-save');
       if (modaleTrasfertaAperta && window.__tripLiveRefresh) { try { window.__tripLiveRefresh(); } catch (_) {} }
+    };
+    // CATEGORIE PERSONALIZZATE in arrivo da un altro dei propri dispositivi.
+    momentumMeshNode.onCustomCategoriesReceived = (peerId, incoming) => {
+      if (!Array.isArray(incoming) || !incoming.length) return;
+      const locali = VaultDAO.state.customCategories || [];
+      const prima = JSON.stringify(locali);
+      const fuse = mergeCategoryLists(locali, incoming);
+      if (JSON.stringify(fuse) === prima) return;
+      VaultDAO.state.customCategories = fuse;
+      VaultDAO.save();
+      // Si ridisegna: una spesa già a schermo può passare da "Altro" alla sua
+      // categoria vera nel momento esatto in cui questa arriva.
+      try { window.renderDashboard?.(); } catch (_) {}
+      showToast(tCh('categoriesSyncedToast', __uiLang), 'success');
     };
     momentumMeshNode.onGradientReceived = (peerId, stats) => {
       // Registro di integrità (src/mesh/update-ledger.js): ogni merge, accettato
