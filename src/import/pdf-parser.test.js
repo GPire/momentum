@@ -285,3 +285,185 @@ test('CONFERMA acquisto CRYPTO → categoria crypto', async () => {
   assert.equal(txs[0].amount, 250);
   assert.equal(txs[0].category, 'crypto');
 });
+
+// ---- BUG REALE (giustificativo trasferta di lavoro): ricevuta semplice con
+// etichetta e valore nello STESSO item di testo PDF ("Totale: 120,00 EUR",
+// un solo comando Tj per riga) — diverso da un estratto conto a colonne o da
+// una conferma Revolut dove ogni cella è già isolata. Trovato testando dal
+// vivo l'upload del giustificativo PDF di una trasferta: importo e
+// descrizione restavano sempre vuoti. ----
+
+test('parseCellAmount: etichetta e valore nello stesso item ("Totale: 120,00 EUR") si isolano dal ":"', () => {
+  assert.equal(parseCellAmount('Totale: 120,00 EUR'), 120);
+  assert.equal(parseCellAmount('Total: $45.00'), 45);
+  assert.equal(parseCellAmount('Importo: -12,50'), -12.5);
+});
+
+test('CONFERMA ricevuta semplice (hotel): etichetta+valore uniti, descrizione dalla riga del fornitore', () => {
+  const items = [
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Hotel Marriott Milano', x: 50, y: 750 },
+    { text: 'Data: 11/09/2026', x: 50, y: 720 },
+    { text: 'Totale: 120,00 EUR', x: 50, y: 690 },
+  ];
+  const txs = extractTransactionsFromItems(items);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 120);
+  assert.equal(txs[0].type, 'uscita');
+  assert.equal(txs[0].description, 'Hotel Marriott Milano');
+  assert.equal(txs[0].date.getDate(), 11);
+  assert.equal(txs[0].date.getMonth(), 8); // settembre
+});
+
+// ---- BATTERIA multi-scenario (richiesta esplicita: "test multi scenario e
+// di ogni tipo, anche con pdf... e anche una decina di questi") — una decina
+// di ricevute realistiche di trasferta, formato "etichetta+valore nello
+// stesso item" come una vera fattura/ricevuta a riga singola, lingue e
+// valute diverse, per essere sicuri che il fix regga oltre il solo caso
+// hotel già coperto sopra. ----
+
+test('ricevuta TAXI/NCC italiana: importo e fornitore riconosciuti', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Corsa NCC Aeroporto-Centro', x: 50, y: 750 },
+    { text: 'Data: 02/09/2026', x: 50, y: 720 },
+    { text: 'Totale: 35,50 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 35.5);
+  assert.equal(txs[0].description, 'Corsa NCC Aeroporto-Centro');
+});
+
+test('ricevuta RISTORANTE italiana: importo con virgola, nessuna cifra intera fuorviante nel nome', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Ricevuta fiscale', x: 50, y: 780 },
+    { text: 'Ristorante Da Mario', x: 50, y: 750 },
+    { text: 'Data: 01/09/2026', x: 50, y: 720 },
+    { text: 'Totale: 48,00 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 48);
+  assert.equal(txs[0].description, 'Ristorante Da Mario');
+});
+
+test('biglietto TRENO (Trenitalia): importo a 2 cifre decimali, fornitore con numeri nel nome ignorato come importo', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Conferma di pagamento', x: 50, y: 780 },
+    { text: 'Trenitalia Frecciarossa 9612', x: 50, y: 750 },
+    { text: 'Data: 03/09/2026', x: 50, y: 720 },
+    { text: 'Totale: 79,90 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 79.9); // non 9612 (il numero di volo), l'etichetta "Totale" vince
+  assert.equal(txs[0].description, 'Trenitalia Frecciarossa 9612');
+});
+
+test('biglietto AEREO (Ryanair): importo più alto nel documento resta quello di "Totale", non la tassa', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Conferma di pagamento', x: 50, y: 780 },
+    { text: 'Ryanair - Volo FR1234', x: 50, y: 750 },
+    { text: 'Data: 05/09/2026', x: 50, y: 720 },
+    { text: 'Tassa aeroportuale: 8,00 EUR', x: 50, y: 700 },
+    { text: 'Totale: 145,00 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 145);
+});
+
+test('ricevuta PARCHEGGIO: importo piccolo, nessun falso "sopra soglia" mancante quando c\'è scontrino', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Parcheggio Aeroporto Linate', x: 50, y: 750 },
+    { text: 'Data: 04/09/2026', x: 50, y: 720 },
+    { text: 'Totale: 22,00 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 22);
+});
+
+test('ricevuta USA (Uber, dollari): "Total: $28.75" con formato punto decimale', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Payment receipt', x: 50, y: 780 },
+    { text: 'Uber Trip', x: 50, y: 750 },
+    { text: 'Date: 09/06/2026', x: 50, y: 720 },
+    { text: 'Total: $28.75', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 28.75);
+  assert.equal(txs[0].description, 'Uber Trip');
+});
+
+test('ricevuta UK (sterline): "Total: £15.20"', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Payment receipt', x: 50, y: 780 },
+    { text: 'The Kings Arms Pub', x: 50, y: 750 },
+    { text: 'Date: 06/09/2026', x: 50, y: 720 },
+    { text: 'Total: £15.20', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 15.2);
+});
+
+test('ricevuta TEDESCA: "Betrag: 32,00 EUR" (etichetta tedesca già in whitelist)', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Zahlungsbeleg', x: 50, y: 780 },
+    { text: 'Restaurant Zur Post', x: 50, y: 750 },
+    { text: 'Datum: 07/09/2026', x: 50, y: 720 },
+    { text: 'Betrag: 32,00 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 32);
+});
+
+test('ricevuta FRANCESE: "Montant: 18,50 EUR"', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Reçu de paiement', x: 50, y: 780 },
+    { text: 'Café de Paris', x: 50, y: 750 },
+    { text: 'Date: 08/09/2026', x: 50, y: 720 },
+    { text: 'Montant: 18,50 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 18.5);
+});
+
+test('ricevuta SPAGNOLA: "Importe: 25,00 EUR"', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Recibo de pago', x: 50, y: 780 },
+    { text: 'Restaurante El Sol', x: 50, y: 750 },
+    { text: 'Fecha: 09/09/2026', x: 50, y: 720 },
+    { text: 'Importe: 25,00 EUR', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 25);
+});
+
+test('ricevuta POS scansionata: etichetta e valore su righe SEPARATE ("TOTALE" poi "120,00 €" sotto)', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Bar Centrale Stazione', x: 50, y: 750 },
+    { text: 'TOTALE', x: 50, y: 700 },
+    { text: '12,50 €', x: 50, y: 685 }, // riga sotto, non la stessa riga
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 12.5);
+  assert.equal(txs[0].description, 'Bar Centrale Stazione');
+});
+
+test('ricevuta POS scansionata: la riga sotto l\'etichetta si usa SOLO se l\'etichetta è sola sulla sua riga (mai un\'associazione a caso)', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Bar Centrale Stazione', x: 50, y: 750 },
+    { text: 'TOTALE', x: 50, y: 700 }, { text: '9,00 €', x: 300, y: 700 }, // stessa riga: già presa qui
+    { text: '99,00 €', x: 50, y: 685 }, // riga sotto: NON deve essere usata
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 9);
+});
+
+test('PDF senza alcun importo riconoscibile (solo boilerplate): mai un crash, ritorna semplicemente nessuna transazione', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Documento non fiscale', x: 50, y: 750 },
+  ]);
+  assert.deepEqual(txs, []);
+});

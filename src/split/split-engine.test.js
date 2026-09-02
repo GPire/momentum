@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createGroup, addSharedExpense, computeBalances, minimalSettlement, minimalSettlementDetailed, settlementView, settlementVerificationLog, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, encodeGroupInvite, decodeGroupShare, settlementCounts, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames } = await import('./split-engine.js');
+const { createGroup, addSharedExpense, computeBalances, minimalSettlement, minimalSettlementDetailed, settlementView, settlementVerificationLog, suggestSettleTiming, settlementToSepa, quickSplit, frequentCoSplitters, mergeGroups, mergeIntoGroups, encodeGroupShare, encodeGroupInvite, decodeGroupShare, settlementCounts, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, exportGroupData } = await import('./split-engine.js');
 
 test('SEMPLIFICAZIONE: due coppie a somma-zero → 2 bonifici (non 4)', () => {
   const bal = { A: 10, B: -10, C: 10, D: -10 };
@@ -1218,4 +1218,52 @@ test('addSharedExpense: tolleranza di arrotondamento del tasso (2 centesimi) acc
   const amount = Math.round(originalAmount * rate * 100) / 100; // 48.05, quello che farebbe la UI
   const g2 = addSharedExpense(g, { payer: 'm0', amount, originalAmount, originalCurrency: 'CHF', exchangeRate: rate });
   assert.equal(g2.expenses[0].amount, amount);
+});
+
+// ── EXPORT DI GRUPPO ──
+
+test('exportGroupData: righe spese ordinate per data, nomi risolti (non gli id grezzi)', () => {
+  let g = createGroup({ name: 'Weekend', members: ['Anna', 'Bea'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 30, description: 'Hotel', date: '2026-08-15' });
+  g = addSharedExpense(g, { payer: 'm1', amount: 10, description: 'Colazione', date: '2026-08-14' });
+  const out = exportGroupData(g);
+  assert.equal(out.groupName, 'Weekend');
+  assert.equal(out.righeSpese.length, 2);
+  assert.equal(out.righeSpese[0].descrizione, 'Colazione'); // 14 agosto prima di 15
+  assert.equal(out.righeSpese[0].pagante, 'Bea');
+  assert.equal(out.righeSpese[1].pagante, 'Anna');
+});
+
+test('exportGroupData: spesa in valuta estera porta anche l\'importo originale in chiaro', () => {
+  let g = createGroup({ members: ['Anna', 'Bea'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 47.20, description: 'Cena', originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 47.20 / 45 });
+  const out = exportGroupData(g);
+  assert.equal(out.righeSpese[0].valutaOriginale, '45 CHF');
+});
+
+test('exportGroupData: nomi duplicati risolti (displayNames, "Marco #1"/"Marco #2") non gli id grezzi', () => {
+  let g = createGroup({ members: ['Marco', 'Marco', 'Anna'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 10 });
+  const out = exportGroupData(g);
+  assert.notEqual(out.righeSpese[0].pagante, 'm0');
+  assert.match(out.righeSpese[0].pagante, /Marco/);
+});
+
+test('exportGroupData: saldi e bonifici coerenti con settlementView/minimalSettlement (nessuna seconda formula)', () => {
+  let g = createGroup({ members: ['Anna', 'Bea', 'Cesare'] });
+  g = addSharedExpense(g, { payer: 'm0', amount: 30 });
+  const out = exportGroupData(g);
+  assert.equal(out.saldi.length, 3);
+  const somma = out.saldi.reduce((s, r) => s + r.saldo, 0);
+  assert.ok(Math.abs(somma) < 0.01); // invariante: i saldi sommano zero
+  assert.ok(out.bonifici.length > 0);
+  assert.ok(out.bonifici.every(b => b.da && b.a && b.importo > 0));
+});
+
+test('exportGroupData: gruppo senza spese → righe vuote ma struttura sempre valida (mai un crash)', () => {
+  const g = createGroup({ members: ['Anna', 'Bea'] });
+  const out = exportGroupData(g);
+  assert.deepEqual(out.righeSpese, []);
+  assert.deepEqual(out.bonifici, []);
+  assert.equal(out.saldi.length, 2);
 });

@@ -22,20 +22,43 @@ const CONFIRM_INCOMING = /\b(received|incoming|top.?up|refund|rimborso|ricevut|a
 const extractConfirmationTransaction = (rows, items) => {
   const fullText = items.map(i => i.text).join(' ');
   // Deve sembrare una conferma/ricevuta con un importo, non uno statement vuoto.
-  const looksConfirmation = /(confirmation|receipt|conferma|ricevuta|transfer details|beneficiary|payment|transaction)/i.test(fullText)
-    && /(amount|importo|total|totale|€|\$|£)/i.test(fullText);
+  // Bug reale trovato dal vivo (test multi-scenario su ricevute di trasferta
+  // in altre lingue europee): le parole-chiave erano solo IT/EN — una
+  // ricevuta tedesca ("Zahlungsbeleg"/"Betrag"), francese ("Reçu"/"Montant")
+  // o spagnola ("Recibo"/"Importe") non veniva mai riconosciuta come
+  // conferma, pur avendo lo stesso layout chiave-valore. Estese entrambe le
+  // regex alle stesse 4 lingue già coperte altrove nel file (vedi valueFor).
+  const looksConfirmation = /(confirmation|receipt|conferma|ricevuta|transfer details|beneficiary|payment|transaction|zahlung|beleg|quittung|paiement|reçu|facture|recibo|factura|pago)/i.test(fullText)
+    && /(amount|importo|total|totale|importe|montant|betrag|valor|€|\$|£)/i.test(fullText);
   if (!looksConfirmation) return [];
 
   // Valore sulla stessa riga di un'etichetta: trova la riga con l'etichetta e
   // restituisce, tra gli item a x maggiore, quello che soddisfa `pick`.
   const valueFor = (labelRe, pick) => {
-    for (const row of rows) {
+    for (let ri = 0; ri < rows.length; ri++) {
+      const row = rows[ri];
       const li = row.findIndex(it => labelRe.test(it.text.trim()));
       if (li === -1) continue;
       for (let j = 0; j < row.length; j++) {
         if (j === li) continue;
         const v = pick(row[j].text.trim());
         if (v !== null && v !== undefined && v !== '') return v;
+      }
+      // Ricerca reale (ricevute da scontrino POS scansionate a PDF): l'etichetta
+      // e il valore stanno spesso su righe SEPARATE ("TOTALE" da sola, poi
+      // "120,00 €" sulla riga subito sotto), diverso sia dal caso "stesso
+      // item" (fix sopra) sia da quello "stessa riga, colonne diverse" (già
+      // gestito qui sopra). Entrambe le righe devono essere DA SOLE (un solo
+      // item): se la riga sotto ha più di un item è quasi sempre un'altra
+      // coppia etichetta:valore per conto suo (bug reale: "Beneficiary
+      // Details" da sola sopra "Name  IREN MERCATO SPA" prendeva "Name"
+      // invece del beneficiario vero — qui si riconosce come riga già
+      // strutturata e la si lascia al suo giro del ciclo).
+      if (row.length === 1 && rows[ri + 1] && rows[ri + 1].length === 1) {
+        for (const it of rows[ri + 1]) {
+          const v = pick(it.text.trim());
+          if (v !== null && v !== undefined && v !== '') return v;
+        }
       }
     }
     return null;
@@ -63,11 +86,33 @@ const extractConfirmationTransaction = (rows, items) => {
   // categorizzatore il massimo segnale ("Pagamento Bolletta - IREN MERCATO SPA").
   const ref = valueFor(/^(reference|transfer details|details|causale|descrizione|concept|motivo|payment for)$/i, (t) => t && !/^€|^\$|^\d+[.,]\d/.test(t) ? t : null);
   const beneficiary = valueFor(/^(name|beneficiary|beneficiary details|payee|to|merchant|counterparty)$/i, (t) => t && t.length > 1 ? t : null);
-  let description = [ref, beneficiary].filter(Boolean).join(' - ') || (ref || beneficiary || 'Operazione importata');
+  let description = [ref, beneficiary].filter(Boolean).join(' - ') || (ref || beneficiary || '');
+
+  // Bug reale trovato dal vivo (ricevuta/fattura semplice, es. hotel): niente
+  // etichetta "Reference/Beneficiary" — il nome del fornitore è una riga di
+  // testo a sé (es. "Hotel Marriott Milano"), non una coppia chiave-valore.
+  // Senza questo fallback la descrizione era sempre il generico "Operazione
+  // importata", inutile al categorizzatore quanto all'utente. Si prende la
+  // prima riga che non è boilerplate del documento (titolo/etichette note) e
+  // non è essa stessa una data o un importo.
+  let genericLine = null;
+  if (!description) {
+    const skipRe = /^(confirmation|receipt|conferma|ricevuta|payment|transaction|transfer|amount|importo|total|totale|date|data|reference|beneficiary|payment for|di pagamento)/i;
+    for (const row of rows) {
+      const line = row.map(it => it.text.trim()).join(' ').trim();
+      if (!line || skipRe.test(line)) continue;
+      if (parseCellDate(line)) continue;
+      if (parseCellAmount(line) !== null) continue;
+      genericLine = line;
+      break;
+    }
+    description = genericLine || 'Operazione importata';
+  }
 
   // Verso + riconoscimento investimenti/stock/crypto — SOLO sul testo
-  // significativo (ref + beneficiario), non sul boilerplate del documento.
-  const signal = [ref, beneficiary].filter(Boolean).join(' ');
+  // significativo (ref + beneficiario, o la riga generica trovata sopra),
+  // non sul boilerplate del documento.
+  const signal = [ref, beneficiary].filter(Boolean).join(' ') || genericLine || '';
   let type = 'uscita';        // una conferma di trasferimento/pagamento è in uscita
   let category = null;
   if (CONFIRM_CRYPTO.test(signal)) { category = 'crypto'; type = 'uscita'; }
@@ -340,6 +385,14 @@ const parseCellDate = (text) => {
 // legge sempre, la sua valuta si rileva a parte (vedi detectCurrency sotto).
 const parseCellAmount = (text) => {
   if (!text) return null;
+  // Bug reale trovato dal vivo (PDF di una nota spese di trasferta): una
+  // fattura/ricevuta semplice spesso scrive etichetta e valore nello STESSO
+  // item di testo ("Totale: 120,00 EUR", un solo comando Tj), diverso da un
+  // estratto conto a colonne dove ogni cella è già isolata. Senza questo
+  // taglio "Totale:" veniva letto come parte del numero e parseFloat falliva
+  // sempre. La parte prima dei ":" è sempre l'etichetta, mai una cifra
+  // significativa, quindi si isola tutto ciò che segue l'ULTIMO ":".
+  if (text.includes(':')) text = text.slice(text.lastIndexOf(':') + 1);
   let cleaned = text.replace(/["'%\s]/g, '').trim();
   cleaned = cleaned.replace(/[€$£¥₹₩₪]/g, '');
   // Il segno può stare PRIMA o DOPO il codice valuta ("-CHF 45.00" tanto

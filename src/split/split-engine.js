@@ -867,3 +867,38 @@ export function describeGroupChanges(before, after) {
   }
   return { changes, groupName: after.name };
 }
+
+// EXPORT DI GRUPPO — portare le spese di UN gruppo fuori da Momentum, non
+// solo dentro. Gap reale (Momentum aveva un export CSV solo per i movimenti
+// PERSONALI, mai per un gruppo di spese condivise). Questo NON ha niente a
+// che fare col motore fiscale (tax.js/f24.js/ravvedimento.js, partita IVA):
+// uno split è una cena o un viaggio fra amici, non materiale da
+// commercialista. Il caso d'uso reale è più semplice: un archivio personale
+// del viaggio/evento, o un riepilogo leggibile da mandare a chi è nel
+// gruppo ma non ha mai installato l'app — un membro non richiede mai un
+// account per esistere (vedi claimMember/unclaimedMembers sopra), questa è
+// la "vista guest-friendly" che gli serve, non un secondo sistema di
+// permessi da costruire.
+// Ritorna DATI strutturati, non una stringa CSV già pronta: la formattazione
+// (celle, virgole, BOM) resta a chi chiama (main.js), stessa separazione
+// già in uso per l'export dei movimenti personali — split-engine.js non sa
+// nulla di Blob/download, resta puro.
+export function exportGroupData(group) {
+  const nameById = displayNames(group.members);
+  const nome = (id) => nameById[id] || id;
+  const righeSpese = [...group.expenses]
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .map(e => ({
+      data: e.date,
+      pagante: nome(e.payer),
+      importo: e.amount,
+      descrizione: e.description || '',
+      // Dual: mai nascondere che una cifra viene da una conversione, stessa
+      // regola già in uso nel dettaglio-giorno del calendario.
+      valutaOriginale: e.originalCurrency ? `${e.originalAmount} ${e.originalCurrency}` : '',
+    }));
+  const bal = computeBalances(group);
+  const saldi = group.members.map(m => ({ persona: nome(m.id), saldo: bal[m.id] || 0 }));
+  const bonifici = minimalSettlement(bal).map(t => ({ da: nome(t.from), a: nome(t.to), importo: t.amount }));
+  return { groupName: group.name, righeSpese, saldi, bonifici };
+}

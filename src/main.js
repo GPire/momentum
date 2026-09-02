@@ -139,8 +139,9 @@ import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog, exportGroupData } from './split/split-engine.js';
 import { fetchHistoricalRate } from './split/exchange-rate.js';
+import { itemSplitShares } from './split/item-split.js';
 import { VALUTE_ISO4217 } from './core/iso4217.js';
 // Codice d'invito corto e leggibile (src/split/invite-codec.js): il link che
 // finisce su WhatsApp era lungo 1.759 caratteri e faceva paura a chi lo
@@ -222,7 +223,9 @@ import { initDriftState, observeRound, combinedWeight, detectCollusion } from '.
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
-import { handleScreenshotUpload } from './import/screenshot-parser.js';
+import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-parser.js';
+import { extractTransactionsFromItems } from './import/pdf-parser.js';
+import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt } from './trips/trip-engine.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
 import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './import/source-registry.js';
@@ -234,7 +237,7 @@ import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './impo
 // una sola mappa scritta una volta, riusata in ogni punto che osserva.
 const SOURCE_TO_CANALE = { screenshot_ocr: 'screenshot', csv: 'csv', pdf: 'pdf' };
 import { NeuroSym } from './ai/neurosym.js';
-import { importFiles, reconcileModelsWithHistory } from './import/multi-import.js';
+import { importFiles, reconcileModelsWithHistory, learnInBackground } from './import/multi-import.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
 const MODEL_SIGNATURE = 'v10-omega-nano+meso+logreg-dcgn-2026-07';
@@ -7566,6 +7569,43 @@ window.exportTransactionsCsv = () => {
   showToast(tCh('vaultExportCsvDone', __uiLang, tutte.length), 'success');
 };
 
+// Export CSV di UN gruppo di spese condivise — diverso da exportTransactionsCsv
+// (che esporta i movimenti PERSONALI): questo non tocca il motore fiscale,
+// uno split è una cena o un viaggio fra amici, non materiale da
+// commercialista. Serve come archivio dell'evento o come riepilogo
+// leggibile da mandare a un membro che non ha mai installato l'app — nessun
+// membro richiede mai un account per esistere (vedi claimMember/
+// unclaimedMembers in split-engine.js).
+window.exportSplitGroupCsv = (groupId) => {
+  const g = (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
+  if (!g) return;
+  if (!g.expenses.length) { showToast(tCh('splitExportCsvEmpty', __uiLang), 'info'); return; }
+  const { righeSpese, saldi, bonifici } = exportGroupData(g);
+  const blocchi = [];
+  blocchi.push([tCh('splitExportCsvSectionExpenses', __uiLang)]);
+  blocchi.push([tCh('vaultExportCsvColDate', __uiLang), tCh('splitExportCsvColPayer', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('splitExportCsvColOriginal', __uiLang)]);
+  righeSpese.forEach(r => blocchi.push([r.data, r.pagante, r.importo, r.descrizione, r.valutaOriginale]));
+  blocchi.push([]);
+  blocchi.push([tCh('splitExportCsvSectionBalances', __uiLang)]);
+  saldi.forEach(s => blocchi.push([s.persona, s.saldo]));
+  blocchi.push([]);
+  blocchi.push([tCh('splitExportCsvSectionSettlement', __uiLang)]);
+  if (bonifici.length) {
+    blocchi.push([tCh('splitExportCsvColFrom', __uiLang), tCh('splitExportCsvColTo', __uiLang), tCh('vaultExportCsvColAmount', __uiLang)]);
+    bonifici.forEach(b => blocchi.push([b.da, b.a, b.importo]));
+  }
+  const csv = blocchi.map(r => r.map(csvCella).join(',')).join('\r\n');
+  // Stesso BOM UTF-8 già in uso per l'export movimenti: senza, Excel su
+  // Windows rompe gli accenti (nomi persone, descrizioni) al primo doppio click.
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `momentum-${(g.name || 'gruppo').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast(tCh('splitExportCsvDone', __uiLang), 'success');
+};
+
 window.downloadCompsCsv = async () => {
   const r = window.__lastCompsResult;
   if (!r?.disponibile) return;
@@ -8778,6 +8818,11 @@ window.openSplitGroup = (openId = null) => {
             <button id="sg-currency-off" type="button" class="sg-currency-close" aria-label="Annulla, torna a ${esc(baseCurrency)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
           </div>` : `
           <button id="sg-currency-on" type="button" class="sg-currency-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l-3 3 3 3M4 13h13M17 14l3-3-3-3M20 11H7"/></svg>Pagato in un'altra valuta?</button>`}
+          <!-- Caso reale non coperto sopra: uno scontrino dove ognuno ha
+               ordinato cose diverse — dividere il totale equamente sarebbe
+               onesto ma sbagliato. Apre un editor a righe (item-split.js),
+               stesso addSharedExpense alla fine, nessuna seconda strada. -->
+          <button onclick="window.openItemSplitEditor('${g.id}')" type="button" class="sg-currency-toggle" style="margin-left:.4rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>${esc(tCh('itemSplitEntryPoint', __uiLang))}</button>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">Chi partecipa a questa spesa (tocca per escludere):</div>
           <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(names[m.id])}</button>`).join('')}</div>
           <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">Aggiungi la spesa</button>
@@ -8790,6 +8835,15 @@ window.openSplitGroup = (openId = null) => {
         </div>
         <div class="flex gap-2">
           <button id="sg-share" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
+          <!-- Gap reale: Momentum aveva un export CSV solo per i movimenti
+               PERSONALI, mai per le spese di UN gruppo. Niente a che fare
+               col motore fiscale (uno split è una cena o un viaggio, non
+               materiale da commercialista) — serve come archivio personale
+               dell'evento, o per mandare un riepilogo leggibile a un
+               membro che non ha mai installato l'app (nessun membro del
+               gruppo richiede mai un account, vedi
+               claimMember/unclaimedMembers). -->
+          <button id="sg-export" title="${tCh('splitExportCsv', __uiLang)}" aria-label="${tCh('splitExportCsv', __uiLang)}" class="px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] inline-flex items-center justify-center"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg></button>
           <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[color-mix(in_srgb,var(--red)_30%,transparent)] text-[var(--red)] text-sm">Elimina</button>
         </div>
         <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
@@ -8861,6 +8915,7 @@ window.openSplitGroup = (openId = null) => {
       VaultDAO.save(); controllaTraguardi();
     });
     $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
+    $('#sg-export')?.addEventListener('click', () => window.exportSplitGroupCsv(g.id));
   };
 
   render();
@@ -9000,6 +9055,127 @@ window.openSettlementVerification = (groupId) => {
   $('#sv-close')?.addEventListener('click', () => window.openSplitGroup(groupId));
 };
 
+// DIVIDERE PER VOCI (item-level split) — caso reale non coperto dalla
+// divisione equa/a pesi già esistente: uno scontrino dove ognuno ha
+// ordinato cose diverse ("pizza di Marco, pasta di Anna, vino diviso in
+// tre") — dividere il totale equamente sarebbe onesto ma sbagliato. Il
+// calcolo vero è in src/split/item-split.js (puro, testato); qui solo
+// l'editor a righe e la chiamata finale ad addSharedExpense — la spesa che
+// nasce da qui non è diversa da una divisione a quote esatte già esistente,
+// stesso motore, nessuna seconda strada.
+window.openItemSplitEditor = (groupId) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const g = (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
+  if (!g) { window.openSplitGroup(); return; }
+  const names = displayNames(g.members);
+  const memberIds = g.members.map(m => m.id);
+
+  const state = {
+    payer: myMemberId(g, VaultDAO.state.deviceId) || memberIds[0],
+    description: '',
+    rows: [{ description: '', amount: '', assignedTo: [] }],
+    tip: '',
+    tipMode: 'proporzionale',
+  };
+
+  const anteprima = () => {
+    try {
+      const items = state.rows.filter(r => r.description.trim() || +r.amount > 0);
+      if (!items.length) return null;
+      const tip = +String(state.tip).replace(',', '.') || 0;
+      return itemSplitShares(items, memberIds, { tip, tipMode: state.tipMode });
+    } catch (_) { return null; } // riga incompleta mentre si scrive: nessun errore mostrato finché non si salva
+  };
+
+  const render = () => {
+    const prev = anteprima();
+    const rowsHtml = state.rows.map((r, i) => `
+      <div class="p-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] mb-2">
+        <div class="flex gap-2">
+          <input data-row-desc="${i}" value="${esc(r.description)}" class="flex-1 bg-transparent border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm min-w-0" placeholder="${esc(tCh('itemSplitDescPlaceholder', __uiLang))}" />
+          <input data-row-amt="${i}" type="number" inputmode="decimal" value="${esc(r.amount)}" class="w-24 bg-transparent border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" />
+          ${state.rows.length > 1 ? `<button data-row-del="${i}" class="w-9 h-9 shrink-0 rounded-lg border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--red)] hover:border-[color-mix(in_srgb,var(--red)_40%,transparent)] inline-flex items-center justify-center"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : ''}
+        </div>
+        <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">${esc(tCh('itemSplitAssignLabel', __uiLang))}</div>
+        <div class="flex flex-wrap gap-1.5">
+          ${memberIds.map(id => `<button data-row-assign="${i}|${id}" class="text-[11px] px-2.5 py-1 rounded-full border ${r.assignedTo.includes(id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">${esc(names[id])}</button>`).join('')}
+        </div>
+      </div>`).join('');
+
+    const anteprimaHtml = prev ? `
+      <div class="card p-3 mt-1">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>${esc(tCh('itemSplitPreviewTitle', __uiLang))}</div>
+        ${Object.entries(prev.byId).map(([id, q]) => `<div class="flex items-center justify-between text-[12px] py-1"><span>${esc(names[id])}</span><span class="font-mono font-bold">${eur(q)}</span></div>`).join('')}
+        <div class="flex items-center justify-between text-[12px] py-1 mt-1 pt-1.5 border-t border-[var(--outline)] font-bold"><span>${esc(tCh('itemSplitTotalLabel', __uiLang))}</span><span class="font-mono">${eur(prev.total)}</span></div>
+      </div>` : '';
+
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div class="flex items-center gap-2">
+          <button id="is-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
+          <span class="font-black text-sm">${esc(tCh('itemSplitTitle', __uiLang))}</span>
+        </div>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] -mt-1.5">${esc(tCh('itemSplitIntro', __uiLang))}</p>
+        <input id="is-desc" value="${esc(state.description)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('itemSplitDescGeneralPlaceholder', __uiLang))}" />
+        <div class="flex flex-wrap gap-1.5">${memberIds.map(id => `<button data-payer="${id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.payer === id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('itemSplitPaidBy', __uiLang, names[id]))}</button>`).join('')}</div>
+        ${rowsHtml}
+        <button id="is-addrow" type="button" class="text-[11px] font-bold text-[var(--primary)] underline self-start">${esc(tCh('itemSplitAddRow', __uiLang))}</button>
+        <div class="flex items-center gap-2 mt-1">
+          <input id="is-tip" type="number" inputmode="decimal" value="${esc(state.tip)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm font-mono" placeholder="${esc(tCh('itemSplitTipLabel', __uiLang))}" />
+          <select id="is-tipmode" class="text-[11px] bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5">
+            <option value="proporzionale"${state.tipMode === 'proporzionale' ? ' selected' : ''}>${esc(tCh('itemSplitTipProportional', __uiLang))}</option>
+            <option value="equa"${state.tipMode === 'equa' ? ' selected' : ''}>${esc(tCh('itemSplitTipEqual', __uiLang))}</option>
+          </select>
+        </div>
+        ${anteprimaHtml}
+        <button id="is-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-1 text-sm">${esc(tCh('itemSplitSave', __uiLang))}</button>
+      </div>`);
+
+    $('#is-back')?.addEventListener('click', () => window.openSplitGroup(groupId));
+    $('#is-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
+    // BUG REALE trovato dal vivo: ri-disegnare l'intero editor a ogni
+    // carattere digitato ricrea l'input e ne fa perdere il focus — "12"
+    // diventava "1" (il secondo tasto cadeva su un campo appena ricreato,
+    // senza più il focus). L'anteprima si aggiorna su 'change' (si esce dal
+    // campo), non su ogni tasto — si digita liberamente, si vede il
+    // risultato appena si passa al campo successivo.
+    $('#is-tip')?.addEventListener('input', (e) => { state.tip = e.target.value; });
+    $('#is-tip')?.addEventListener('change', render);
+    $('#is-tipmode')?.addEventListener('change', (e) => { state.tipMode = e.target.value; render(); });
+    $('#is-addrow')?.addEventListener('click', () => { state.rows.push({ description: '', amount: '', assignedTo: [] }); render(); });
+    document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { state.payer = b.dataset.payer; render(); }));
+    document.querySelectorAll('[data-row-desc]').forEach(el => el.addEventListener('input', (e) => { state.rows[+el.dataset.rowDesc].description = e.target.value; }));
+    document.querySelectorAll('[data-row-amt]').forEach(el => {
+      el.addEventListener('input', (e) => { state.rows[+el.dataset.rowAmt].amount = e.target.value; });
+      el.addEventListener('change', render);
+    });
+    document.querySelectorAll('[data-row-del]').forEach(el => el.addEventListener('click', () => { state.rows.splice(+el.dataset.rowDel, 1); render(); }));
+    document.querySelectorAll('[data-row-assign]').forEach(el => el.addEventListener('click', () => {
+      const [riga, id] = el.dataset.rowAssign.split('|');
+      const row = state.rows[+riga];
+      const set = new Set(row.assignedTo);
+      set.has(id) ? set.delete(id) : set.add(id);
+      row.assignedTo = memberIds.filter(m => set.has(m));
+      render();
+    }));
+    $('#is-save')?.addEventListener('click', () => {
+      const items = state.rows.filter(r => r.description.trim() || +r.amount > 0);
+      const tip = +String(state.tip).replace(',', '.') || 0;
+      try {
+        const { byId, total } = itemSplitShares(items, memberIds, { tip, tipMode: state.tipMode });
+        const ng = addSharedExpense(g, { payer: state.payer, amount: total, description: state.description, shares: { byId } });
+        VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], ng);
+        VaultDAO.save();
+        try { window.momentumMeshNode?.shareSplitGroups([ng], peerAppartieneAlGruppo); } catch (_) {}
+        window.openSplitGroup(groupId);
+      } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); }
+    });
+  };
+
+  render();
+};
+
 // Piano di estinzione debiti (src/predict/debt-payoff.js) — gap trovato via
 // ricerca di mercato (RICERCA_MERCATO_2026-08-25.md): calcolo puro (valanga
 // vs palla di neve), mai un consiglio ("estingui prima questo"), le due
@@ -9096,6 +9272,549 @@ window.openDebiti = () => {
     document.querySelectorAll('[data-deldebito]').forEach(b => b.addEventListener('click', () => { persist(debiti().filter(d => d.id !== b.dataset.deldebito)); render(); }));
   };
   render();
+};
+
+// TRASFERTE DI LAVORO (src/trips/trip-engine.js) — ricerca reale fatta prima
+// di scrivere codice (SAP Concur/Expensify/Zoho Expense/Emburse Certify,
+// recensioni 2026): gli stessi problemi si ripetono ovunque — cattura
+// scontrino inaffidabile (crash, upload lenti, dati persi), split di una
+// spesa fra progetti che richiede calcoli manuali, export incompatibili con
+// l'ERP, 71% degli utenti impiega 30+ minuti per una nota spese. On-device
+// risolve strutturalmente il primo problema. Diverso dallo split "Insieme":
+// qui non si divide fra persone, si ACCUMULA per un rimborso da un solo
+// soggetto — ogni spesa è una TRANSAZIONE VERA nel Vault (mai un ledger
+// separato: i soldi sono usciti davvero dal conto prima del rimborso),
+// taggata con businessTripId/tripCategory.
+const CATEGORIA_REALE_TO_TRIP = {
+  trasporti: 'trasporto', viaggi: 'trasporto',
+  ristoranti: 'vitto', spesa: 'vitto',
+  casa: 'alloggio',
+};
+// Bug reale trovato dal vivo: l'ensemble classifica "Hotel Marriott Milano"
+// come categoria REALE "viaggi" (dominio personale: vacanza generica), che
+// la mappatura sopra traduce in "trasporto" — sbagliato per una nota spese,
+// dove un hotel è ALLOGGIO. "viaggi" è troppo ampia per distinguere le due
+// macro-voci di trasferta: si controlla prima la descrizione stessa per le
+// parole chiave di alloggio, prima di ricadere sulla categoria REALE.
+const TRIP_LODGING_KEYWORDS = /\b(hotel|albergo|b&b|bnb|resort|ostello|hostel|affittacamere|guesthouse|residence|appartamento)\b/i;
+function categoriaTripDaReale(catId, desc) {
+  if (desc && TRIP_LODGING_KEYWORDS.test(desc)) return 'alloggio';
+  return CATEGORIA_REALE_TO_TRIP[catId] || 'altro';
+}
+function allTransactionsFlat() { return Object.values(VaultDAO.state.transactions || {}).flat(); }
+// Parsing manuale (mai `new Date('yyyy-mm-dd')`, che legge la stringa come
+// UTC mezzanotte e in fusi orari indietro rispetto a UTC mostra il giorno
+// PRIMA — stesso bug già risolto altrove in questa sessione per #tx-date-input).
+function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) {
+  const [yy, mm, dd] = String(iso).split('-').map(Number);
+  if (!yy || !mm || !dd) return String(iso);
+  return new Date(yy, mm - 1, dd).toLocaleDateString(__uiLocale, opts);
+}
+
+window.openBusinessTrips = () => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const trips = () => VaultDAO.state.businessTrips || [];
+  const persist = (list) => { VaultDAO.state.businessTrips = list; VaultDAO.save(); };
+  const allTx = allTransactionsFlat();
+
+  const rows = trips().map(t => {
+    const { totale, numeroSpese } = tripTotals(t, allTx);
+    return `<button data-trip="${t.id}" class="w-full text-left p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] flex items-center justify-between mb-2">
+      <span><span class="font-bold block">${esc(t.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${esc(tCh('tripExpenseCount', __uiLang, numeroSpese))}</span></span>
+      <span class="font-mono font-bold">${eur(totale)}</span>
+    </button>`;
+  }).join('');
+
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="flex items-center gap-2">
+        <span class="font-black text-sm">${esc(tCh('tripTitle', __uiLang))}</span>
+      </div>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] -mt-1.5">${esc(tCh('tripListIntro', __uiLang))}</p>
+      ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${esc(tCh('tripEmpty', __uiLang))}</p>`}
+      <input id="trip-newname" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('tripNamePlaceholder', __uiLang))}" />
+      <button id="trip-new" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(tCh('tripNewBtn', __uiLang))}</button>
+    </div>`);
+
+  document.querySelectorAll('[data-trip]').forEach(b => b.addEventListener('click', () => window.openBusinessTrip(b.dataset.trip)));
+  $('#trip-new')?.addEventListener('click', () => {
+    const name = $('#trip-newname')?.value?.trim();
+    if (!name) { showToast(tCh('tripNameRequired', __uiLang), 'error'); return; }
+    const t = createTrip({ name });
+    persist([...trips(), t]);
+    window.openBusinessTrip(t.id);
+  });
+};
+
+window.openBusinessTrip = (tripId) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  let trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+  if (!trip) { window.openBusinessTrips(); return; }
+  // Il trip stesso ospita le voci OFFERTE (addOfferedItem/removeOfferedItem
+  // sono pure, ritornano un nuovo oggetto) — persistere significa sostituire
+  // il trip nell'elenco E aggiornare il riferimento locale, altrimenti i
+  // render successivi userebbero ancora la versione vecchia.
+  const persistTrip = (nuovoTrip) => {
+    trip = nuovoTrip;
+    VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? trip : t);
+    VaultDAO.save();
+  };
+
+  // Bug reale/limite trovato dal vivo: la data era sempre "oggi", mai
+  // scelta — ma una trasferta reale dura da un giorno a mesi (richiesta
+  // esplicita dell'utente) e QUASI NESSUNO registra ogni scontrino in tempo
+  // reale: i giustificativi si inseriscono spesso tutti insieme a fine
+  // giornata o a fine trasferta. Senza un campo data modificabile, ogni
+  // spesa dei giorni precedenti finiva registrata con la data sbagliata
+  // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
+  // il riepilogo per l'azienda.
+  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10) };
+
+  const render = () => {
+    const allTx = allTransactionsFlat();
+    const expenses = tripExpenses(trip, allTx);
+    const { totale, perCategoria } = tripTotals(trip, allTx);
+
+    const rigaSpesa = (t) => `
+      <div class="trip-row flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
+        ${t.receiptImage ? (String(t.receiptImage).startsWith('data:application/pdf') ? `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--red)] font-black text-[8px]">PDF</span>` : `<img src="${t.receiptImage}" class="w-9 h-9 rounded-lg object-cover shrink-0" alt="" />`) : `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--on-surface-secondary)]"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M3 9h18"/></svg></span>`}
+        <span class="flex-1 min-w-0">
+          <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
+          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${String(t.date).slice(0, 10)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
+        </span>
+        <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
+        <button data-tripexpdup="${t.id}" aria-label="${esc(tCh('tripDuplicateAria', __uiLang))}" title="${esc(tCh('tripDuplicateAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button data-tripexpdel="${t.id}" data-month="${monthKey(new Date(t.date))}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      </div>`;
+    // Ricerca reale richiesta esplicitamente: una trasferta dura da un
+    // giorno a mesi — sopra 1 solo giorno di spese, un elenco piatto diventa
+    // presto illeggibile (lo stesso motivo per cui la Dashboard raggruppa
+    // già le transazioni per giorno, vedi .tx-giorno più sopra). Sotto i 2
+    // giorni distinti l'intestazione non aggiunge nulla: resta la lista
+    // semplice, mai un'intestazione per una sola voce.
+    const expensesOrdinate = [...expenses].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const giorniDistinti = new Set(expensesOrdinate.map(t => String(t.date).slice(0, 10))).size;
+    let rows;
+    if (giorniDistinti > 1) {
+      let ultimoGiorno = null;
+      rows = expensesOrdinate.map(t => {
+        const giorno = String(t.date).slice(0, 10);
+        let header = '';
+        if (giorno !== ultimoGiorno) {
+          ultimoGiorno = giorno;
+          const totGiorno = expensesOrdinate.filter(e => String(e.date).slice(0, 10) === giorno).reduce((s, e) => s + e.amount, 0);
+          const etichetta = new Date(giorno).toLocaleDateString(__uiLocale, { weekday: 'short', day: 'numeric', month: 'short' });
+          header = `<div class="tx-giorno"><span>${esc(etichetta)}</span><span class="tx-giorno-tot">${eur(totGiorno)}</span></div>`;
+        }
+        return header + rigaSpesa(t);
+      }).join('');
+    } else {
+      rows = expensesOrdinate.map(rigaSpesa).join('');
+    }
+
+    const totaliCat = TRIP_CATEGORIES.map(cat => `<div class="flex items-center justify-between text-[11px] py-0.5"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('trip_' + cat, __uiLang))}</span><span class="font-mono">${eur(perCategoria[cat])}</span></div>`).join('');
+
+    // Voci OFFERTE (pasto/alloggio/trasporto pagato da un cliente o
+    // dall'azienda stessa, mai dal dipendente di tasca propria) — ricerca
+    // reale su policy standard di trasferta ("meals provided"): vanno
+    // dichiarate ma MAI sommate al totale rimborsabile qui sopra, sezione
+    // sempre separata per non confonderle con soldi che tornano indietro.
+    const offerti = trip.offeredItems || [];
+    const { totale: offertiTotale } = tripOfferedTotals(trip);
+    const offertiRows = [...offerti].sort((a, b) => String(b.date).localeCompare(String(a.date))).map(it => `
+      <div class="flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
+        <span class="flex-1 min-w-0"><span class="block text-[12px] font-bold truncate">${esc(it.description) || esc(tCh('tripNoDescription', __uiLang))}</span><span class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('trip_' + it.tripCategory, __uiLang))}${it.mealType ? ' · ' + esc(tCh('trip_meal_' + it.mealType, __uiLang)) : ''} · ${String(it.date).slice(0, 10)}</span></span>
+        <span class="font-mono font-bold shrink-0 text-[var(--on-surface-secondary)]">${eur(it.amount)}</span>
+        <button data-tripofferdel="${it.id}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      </div>`).join('');
+
+    openModal(`
+      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div class="flex items-center gap-2">
+          <button id="trip-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
+          <span class="font-black text-sm">${esc(trip.name)}</span>
+        </div>
+        <div class="card p-3">
+          <div class="text-[10px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(tCh('tripTotalLabel', __uiLang))}</div>
+          <div class="text-2xl font-black font-mono mb-2">${eur(totale)}</div>
+          ${totaliCat}
+        </div>
+        ${expenses.length ? `<div class="card p-3"><div id="trip-rows" class="trip-in">${rows}</div></div>` : ''}
+        ${offerti.length ? `<div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('tripOfferedSectionTitle', __uiLang))}</div>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-1.5">${esc(tCh('tripOfferedSectionSub', __uiLang))}</p>
+          ${offertiRows}
+          <div class="flex items-center justify-between text-[11px] pt-1.5 mt-1 border-t border-[var(--outline)] font-bold"><span>${esc(tCh('tripOfferedTotalLabel', __uiLang))}</span><span class="font-mono">${eur(offertiTotale)}</span></div>
+        </div>` : ''}
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${esc(tCh('tripAddExpense', __uiLang))}</div>
+          <label class="flex items-center justify-center gap-2 border border-dashed border-[var(--outline)] rounded-xl py-3 cursor-pointer text-[12px] font-bold text-[var(--primary)] mb-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
+            <input id="trip-receipt" type="file" accept="image/*,application/pdf" class="hidden" />
+          </label>
+          ${state.receiptDataUrl ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
+          <div class="flex gap-2 mb-2">
+            <input id="trip-amt" type="number" inputmode="decimal" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" />
+            <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" />
+          </div>
+          <!-- Bug reale/limite trovato dal vivo: la data era sempre "oggi",
+               mai scelta — quasi nessuno registra uno scontrino nell'istante
+               esatto in cui lo riceve, i giustificativi di una trasferta di
+               giorni/settimane si inseriscono spesso tutti insieme dopo.
+               Senza questo campo ogni spesa dei giorni precedenti finiva con
+               la data sbagliata, rompendo il raggruppamento per giorno. -->
+          <div class="mb-2">
+            <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripDateLabel', __uiLang))}</div>
+            <div class="neuro-pill-btn !justify-start !flex-none w-full">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
+              <span>${esc(formatDataLocale(state.data))}</span>
+              <input type="date" id="trip-data" value="${esc(state.data)}" max="${new Date().toISOString().slice(0, 10)}" class="native-date-input" />
+            </div>
+          </div>
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripCategoryLabel', __uiLang))}</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">${TRIP_CATEGORIES.map(cat => `<button data-tripcat="${cat}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.tripCategory === cat ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('trip_' + cat, __uiLang))}</button>`).join('')}</div>
+          ${state.tripCategory === 'vitto' ? `
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripMealTypeLabel', __uiLang))}</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">${MEAL_SUBTYPES.map(mt => `<button data-tripmeal="${mt}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.mealType === mt ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('trip_meal_' + mt, __uiLang))}</button>`).join('')}</div>` : ''}
+          <!-- "Offerto" — ricerca reale su policy di trasferta standard
+               ("meals provided"): quando paga un cliente o l'azienda stessa
+               invece del dipendente, la spesa va dichiarata ma MAI
+               rimborsata. Un chip, non un checkbox nascosto: è una scelta
+               che cambia cosa succede al salvataggio, deve essere visibile
+               quanto la categoria stessa. -->
+          <button id="trip-offerto-toggle" type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.offerto ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+            <span class="w-4 h-4 rounded-md border-2 ${state.offerto ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${state.offerto ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+            ${esc(tCh('tripOfferedToggle', __uiLang))}
+          </button>
+          ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
+          <button id="trip-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
+        </div>
+        ${expenses.length ? `<div class="flex gap-2">
+          <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm">${esc(tCh('tripExportCsv', __uiLang))}</button>
+          <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm">${esc(tCh('tripExportPrint', __uiLang))}</button>
+        </div>` : ''}
+        <button id="trip-del" class="px-4 py-3 font-bold rounded-xl border border-[color-mix(in_srgb,var(--red)_30%,transparent)] text-[var(--red)] text-sm">${esc(tCh('tripDelete', __uiLang))}</button>
+      </div>`);
+
+    $('#trip-back')?.addEventListener('click', () => window.openBusinessTrips());
+    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; });
+    $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
+    $('#trip-data')?.addEventListener('change', (e) => { state.data = e.target.value || new Date().toISOString().slice(0, 10); });
+    // Proposta automatica della macro-voce mentre si scrive: prima andava
+    // sempre scelta a mano, anche quando la descrizione già la suggeriva
+    // da sola ("Hotel Marriott" → Alloggio). Stesso ensemble proprietario
+    // usato al salvataggio, richiamato prima (su 'change', non 'input' —
+    // stesso bug del focus perso già risolto altrove in questa sessione).
+    // Mai sovrascrivere una scelta che l'utente ha già fatto a mano.
+    const suggerisciCategoriaTrip = () => {
+      if (state.tripCategoryManuale || !state.description.trim()) return;
+      try {
+        const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
+        const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
+        if (pred?.cat) { state.catReale = pred.cat; state.tripCategory = categoriaTripDaReale(pred.cat, state.description); render(); }
+      } catch (_) {}
+    };
+    $('#trip-desc')?.addEventListener('change', suggerisciCategoriaTrip);
+    $('#trip-amt')?.addEventListener('change', suggerisciCategoriaTrip);
+    document.querySelectorAll('[data-tripcat]').forEach(b => b.addEventListener('click', () => { state.tripCategory = b.dataset.tripcat; state.tripCategoryManuale = true; render(); }));
+    document.querySelectorAll('[data-tripmeal]').forEach(b => b.addEventListener('click', () => { state.mealType = state.mealType === b.dataset.tripmeal ? null : b.dataset.tripmeal; render(); }));
+    $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
+    $('#trip-receipt')?.addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      if (f.size > 4 * 1024 * 1024) { showToast(tCh('tripReceiptTooBig', __uiLang), 'error'); return; }
+      state.ocrBusy = true; render();
+      const reader = new FileReader();
+      reader.onload = async () => {
+        state.receiptDataUrl = reader.result;
+        // Ricerca reale: le aziende accettano come giustificativo anche PDF
+        // (fatture, biglietti aerei/hotel ricevuti per email), non solo la
+        // foto di uno scontrino cartaceo — l'input ora accetta entrambi.
+        // Un PDF ha quasi sempre un livello di testo VERO (non serve OCR):
+        // stesso estrattore già usato per l'import degli estratti conto
+        // (pdf-parser.js), che sa già riconoscere anche una singola
+        // "conferma"/fattura oltre alle tabelle a colonne — nessun
+        // secondo parser PDF scritto da zero. Se il PDF è una scansione
+        // pura (raro per una fattura ricevuta via email) non c'è testo da
+        // leggere: l'utente compila a mano, mai un blocco.
+        if (f.type === 'application/pdf') {
+          try {
+            if (typeof pdfjsLib !== 'undefined') {
+              const buf = await f.arrayBuffer();
+              const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+              const page = await pdf.getPage(1);
+              const tc = await page.getTextContent();
+              const items = tc.items.map(i => ({ text: i.str, x: i.transform[4], y: i.transform[5], width: i.width }));
+              const txs = extractTransactionsFromItems(items);
+              if (txs.length) {
+                if (txs[0].amount > 0 && !state.amount) state.amount = String(txs[0].amount);
+                if (txs[0].description && !state.description) state.description = txs[0].description;
+              }
+            }
+          } catch (_) { /* PDF scansionato o non riconosciuto: l'utente compila a mano, mai un blocco */ }
+          try {
+            const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
+            const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
+            if (pred?.cat) { state.catReale = pred.cat; if (!state.tripCategory) state.tripCategory = categoriaTripDaReale(pred.cat, state.description); }
+          } catch (_) {}
+          state.ocrBusy = false; render(); return;
+        }
+        // OCR reale (Tesseract, già in uso per l'import screenshot) legge
+        // importo/descrizione dallo scontrino — SOLO un suggerimento, mai
+        // salvato senza conferma: l'utente vede e corregge prima di salvare.
+        try {
+          const parsed = await scanScreenshot(f);
+          if (parsed?.amount > 0 && !state.amount) state.amount = String(parsed.amount);
+          if (parsed?.description && !state.description) state.description = parsed.description;
+        } catch (_) { /* OCR non disponibile o scontrino illeggibile: l'utente compila a mano, mai un blocco */ }
+        // Categoria REALE proposta dall'ensemble proprietario di Momentum
+        // (lo stesso di ogni altra spesa, mai un modello a parte) — mappata
+        // sulla macro-voce standard di trasferta.
+        try {
+          const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
+          const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
+          if (pred?.cat) { state.catReale = pred.cat; if (!state.tripCategory) state.tripCategory = categoriaTripDaReale(pred.cat, state.description); }
+        } catch (_) {}
+        state.ocrBusy = false; render();
+      };
+      reader.readAsDataURL(f);
+    });
+    $('#trip-save')?.addEventListener('click', () => {
+      const amt = parseFloat(String(state.amount).replace(',', '.'));
+      if (!(amt > 0) && !(state.offerto && amt === 0)) { showToast(tCh('tripAmountRequired', __uiLang), 'error'); return; }
+      if (!state.tripCategory) { showToast(tCh('tripCategoryRequired', __uiLang), 'error'); return; }
+      // Data scelta dall'utente (default oggi, mai un giorno futuro — vedi
+      // il campo #trip-data sopra): quasi nessuno registra uno scontrino
+      // nell'istante esatto in cui lo riceve.
+      const oggi = state.data || new Date().toISOString().slice(0, 10);
+
+      // OFFERTO — pagato da un cliente/l'azienda, mai dal dipendente: vive
+      // SOLO nel trip (addOfferedItem), MAI come transazione Vault. Se
+      // finisse anche lì, il budget/cashflow dell'utente si ridurrebbe per
+      // un euro che non è mai uscito dalle sue tasche — l'errore opposto
+      // (ma della stessa gravità) di quello che il principio "ogni spesa è
+      // una transazione vera" evita per le spese pagate davvero da lui.
+      if (state.offerto) {
+        try {
+          const nuovoTrip = addOfferedItem(trip, { description: state.description, amount: amt || 0, tripCategory: state.tripCategory, mealType: state.mealType, date: oggi });
+          persistTrip(nuovoTrip);
+        } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
+        state.amount = ''; state.description = ''; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.offerto = false; state.mealType = null;
+        render();
+        return;
+      }
+
+      // BUG REALE trovato dal vivo: la predizione dell'ensemble scattava
+      // SOLO dentro l'evento "carica scontrino" — chi scrive la spesa a
+      // mano (nessuna foto, il caso più comune per una corsa in taxi o un
+      // parcheggio) non riceveva mai una categoria reale, e il fallback
+      // fisso 'spesa' (Alimentari) risultava sbagliato per un taxi. Ora la
+      // predizione scatta anche qui, sulla descrizione appena scritta,
+      // prima di salvare — stesso ensemble proprietario di ogni altra spesa.
+      let catReale = state.catReale && getCatById(state.catReale) ? state.catReale : null;
+      if (!catReale) {
+        try {
+          const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
+          if (pred?.cat && getCatById(pred.cat)) catReale = pred.cat;
+        } catch (_) {}
+      }
+      if (!catReale) catReale = 'shopping'; // ultima rete di sicurezza, mai "Alimentari" per una spesa non alimentare
+      const tx = {
+        id: Date.now() + Math.random().toString(36).slice(2, 8),
+        type: 'uscita', amount: Math.round((amt + Number.EPSILON) * 100) / 100, category: catReale, description: state.description,
+        date: oggi, businessTripId: trip.id, tripCategory: state.tripCategory,
+        ...(state.mealType ? { mealType: state.mealType } : {}),
+        ...(state.receiptDataUrl ? { receiptImage: state.receiptDataUrl } : {}),
+      };
+      // Bug reale trovato dal vivo TESTANDO "duplica spesa": senza restringere
+      // la finestra di dedup fuzzy (default 48 ore, pensata per fondere la
+      // STESSA operazione vista da fonti diverse — SMS banca + riga CSV), la
+      // seconda spesa duplicata (stesso importo/categoria, es. lo stesso
+      // taxi il giorno dopo) veniva FUSA in quella già esistente invece di
+      // essere salvata come nuova transazione — l'utente restava con UNA sola
+      // riga anziché due, senza alcun errore visibile. Stesso fix già
+      // applicato altrove per un tocco manuale (vedi dedupWindowHours nei
+      // commenti di VaultDAO.addTransaction): un tocco consapevole sullo
+      // schermo non ha l'ambiguità cross-canale che la finestra lunga risolve.
+      VaultDAO.addTransaction(monthKey(new Date(oggi)), tx, { dedupWindowHours: 0.25 });
+      try { learnInBackground([{ description: state.description, category: catReale, amount: amt, date: oggi }]); } catch (_) {}
+      VaultDAO.save();
+      state.amount = ''; state.description = ''; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.offerto = false; state.mealType = null;
+      // BUG REALE trovato dal vivo: la spesa è una transazione vera (deve
+      // incidere sul budget), ma la Dashboard sottostante restava con lo
+      // snapshot di quando il modale si era aperto — chiudendo il modale
+      // "Taxi aeroporto" non appariva ancora nella lista movimenti finché
+      // non scattava un render per un altro motivo.
+      try { window.renderDashboard?.(); } catch (_) {}
+      try { if (VaultDAO.state.currentView === 'analysis') window.renderAnalysis?.({ skipHeavyForecast: true }); } catch (_) {}
+      render();
+    });
+    document.querySelectorAll('[data-tripexpdel]').forEach(b => b.addEventListener('click', () => {
+      window.deleteTx(b.dataset.month, b.dataset.tripexpdel);
+      try { window.renderDashboard?.(); } catch (_) {}
+      render();
+    }));
+    // "Duplica" — ricerca reale (reclami utenti SAP Concur 2026): un desiderio
+    // esplicito e ricorrente è "expense duplication", per non ridigitare da
+    // zero la stessa corsa/lo stesso pasto ogni giorno di trasferta. Precompila
+    // il form con importo/descrizione/categoria della spesa scelta, MAI lo
+    // scontrino (è un nuovo giorno, serve un giustificativo suo) e la data
+    // resta quella già impostata nel form (oggi di default, modificabile) —
+    // così due tap bastano per "stessa spesa di ieri, oggi".
+    document.querySelectorAll('[data-tripexpdup]').forEach(b => b.addEventListener('click', () => {
+      const orig = expenses.find(e => e.id === b.dataset.tripexpdup);
+      if (!orig) return;
+      state.amount = String(orig.amount);
+      state.description = orig.description || '';
+      state.tripCategory = TRIP_CATEGORIES.includes(orig.tripCategory) ? orig.tripCategory : null;
+      state.tripCategoryManuale = true;
+      state.catReale = orig.category || null;
+      state.mealType = MEAL_SUBTYPES.includes(orig.mealType) ? orig.mealType : null;
+      state.receiptDataUrl = null;
+      state.offerto = false;
+      showToast(tCh('tripDuplicated', __uiLang), 'success');
+      render();
+      document.getElementById('trip-amt')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }));
+    document.querySelectorAll('[data-tripofferdel]').forEach(b => b.addEventListener('click', () => {
+      persistTrip(removeOfferedItem(trip, b.dataset.tripofferdel));
+      render();
+    }));
+    $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
+    $('#trip-export-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
+    $('#trip-del')?.addEventListener('click', () => {
+      VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).filter(t => t.id !== trip.id);
+      VaultDAO.save();
+      window.openBusinessTrips();
+    });
+  };
+
+  render();
+};
+
+// Export CSV puro (dati, senza scontrini) — stesso standard RFC4180+BOM già
+// in uso per movimenti/gruppi split, mai un formato ERP specifico promesso:
+// un CSV leggibile ovunque, dichiarato come tale.
+window.exportTripCsv = (tripId) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+  if (!trip) return;
+  const { expenses, totale, offerti, offertiTotale } = exportTripData(trip, allTransactionsFlat());
+  if (!expenses.length && !offerti.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  const etichettaVoce = (e) => e.mealType ? `${tCh('trip_' + e.categoria, __uiLang)} · ${tCh('trip_meal_' + e.mealType, __uiLang)}` : tCh('trip_' + e.categoria, __uiLang);
+  // Colonna "giustificativo": il problema reale non è solo del dipendente
+  // che compila, è di chi in azienda deve APPROVARE — verificare a occhio,
+  // riga per riga, se manca uno scontrino sopra soglia è esattamente il
+  // lavoro che fa rimandare indietro una nota spese. Qui è già segnalato.
+  const righe = [[tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('tripCsvColReceipt', __uiLang)]];
+  expenses.forEach(e => righe.push([e.data, etichettaVoce(e), e.descrizione, e.importo, e.giustificativoMancante ? tCh('tripReceiptMissing', __uiLang) : '']));
+  righe.push([]);
+  righe.push([tCh('itemSplitTotalLabel', __uiLang), totale]);
+  // Voci OFFERTE in una sezione a parte, mai mescolate col totale
+  // rimborsabile: dichiararle non genera un euro di rimborso in più.
+  if (offerti.length) {
+    righe.push([]);
+    righe.push([tCh('tripOfferedSectionTitle', __uiLang)]);
+    offerti.forEach(e => righe.push([e.data, etichettaVoce(e), e.descrizione, e.importo]));
+    righe.push([tCh('tripOfferedTotalLabel', __uiLang), offertiTotale]);
+  }
+  const csv = righe.map(r => r.map(csvCella).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `momentum-trasferta-${(trip.name || 'viaggio').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast(tCh('tripExportDone', __uiLang), 'success');
+};
+
+// Riepilogo stampabile CON gli scontrini incorporati (stesso pattern già
+// collaudato per "Riepilogo per il commercialista": una pagina HTML che
+// l'utente stampa/salva come PDF dal proprio browser — mai un PDF binario
+// scritto a mano con embedding immagini, complessità inutile quando il
+// browser lo fa già gratis e bene).
+// Ricerca reale (Zoho Expense, Expensify — 2026): nessuno dei due risolve
+// bene "stampare il riepilogo CON i giustificativi dentro". Zoho lo dichiara
+// esplicitamente: non si può esportare in blocco spese+allegati come un
+// unico PDF (va fatto a mano, riassociando spesa e scontrino uno per uno).
+// Expensify nell'export include SOLO lo scontrino "primario" di ogni spesa.
+// Per una foto qui risolviamo già con un <img> inline (sopra); per un PDF
+// (fattura hotel/aereo ricevuta via email) un link apriva una SCHEDA A PARTE
+// — bastava chiudere quella scheda per perdere il collegamento con la
+// stampa, lo stesso identico problema lamentato per Zoho/Expensify. Si
+// renderizza quindi la prima pagina del PDF a immagine (pdfjsLib, già
+// caricato per l'estrazione automatica) e la si incorpora nella pagina
+// esattamente come una foto: ogni giustificativo, foto O PDF, stampato
+// insieme al riepilogo, nell'ordine delle spese, mai una scheda separata.
+const renderPdfReceiptToImage = async (dataUrl) => {
+  try {
+    if (typeof pdfjsLib === 'undefined') return null;
+    const res = await fetch(dataUrl);
+    const buf = await res.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1.4 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    return canvas.toDataURL('image/png');
+  } catch (_) { return null; } // scansione illeggibile: resta il link di apertura, mai un blocco
+};
+
+window.printTripSummary = async (tripId) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+  if (!trip) return;
+  const { expenses, totale, perCategoria, offerti, offertiTotale } = exportTripData(trip, allTransactionsFlat());
+  if (!expenses.length && !offerti.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const win = window.open('', '_blank');
+  if (!win) { showToast(tCh('vaultPopupBlocked', __uiLang), 'error'); return; }
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(trip.name)}</title></head><body style="font-family:system-ui,sans-serif;padding:24px"><p>${esc(tCh('tripPrintPreparing', __uiLang))}</p></body></html>`);
+  // Ogni PDF va renderizzato in immagine PRIMA di scrivere la pagina finale
+  // (operazione asincrona) — la finestra è già aperta in risposta diretta al
+  // click, quindi nessun popup-blocker scatta nel frattempo.
+  const pdfImages = await Promise.all(expenses.map(e => (e.scontrino && String(e.scontrino).startsWith('data:application/pdf')) ? renderPdfReceiptToImage(e.scontrino) : Promise.resolve(null)));
+  const etichettaVoce = (e) => e.mealType ? `${esc(tCh('trip_' + e.categoria, __uiLang))} · ${esc(tCh('trip_meal_' + e.mealType, __uiLang))}` : esc(tCh('trip_' + e.categoria, __uiLang));
+  const righeCat = TRIP_CATEGORIES.map(cat => `<tr><td>${esc(tCh('trip_' + cat, __uiLang))}</td><td style="text-align:right">${eur(perCategoria[cat])}</td></tr>`).join('');
+  // Mai emoji nell'output — solo icone SVG di design, coerenti con l'intera
+  // app (nessun'altra schermata usa emoji, tutte usano SVG inline).
+  const svgWarn = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="3" stroke-linecap="round" style="vertical-align:-1px;margin-right:3px"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>`;
+  const svgClip = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
+  const righeSpese = expenses.map((e, i) => `
+    <tr${e.giustificativoMancante ? ' style="background:#fff3cd"' : ''}><td>${esc(e.data)}</td><td>${etichettaVoce(e)}</td><td>${esc(e.descrizione)}${e.giustificativoMancante ? ` <b style="color:#92400e">${svgWarn}${esc(tCh('tripReceiptMissing', __uiLang))}</b>` : ''}</td><td style="text-align:right">${eur(e.importo)}</td></tr>
+    ${e.scontrino ? (pdfImages[i]
+        ? `<tr><td colspan="4" style="padding-top:4px;padding-bottom:16px"><div style="font-size:11px;font-weight:700;color:#4338ca;margin-bottom:4px">${svgClip}${esc(tCh('tripReceiptAttached', __uiLang))} (PDF)</div><img src="${pdfImages[i]}" style="max-width:320px;max-height:420px;border:1px solid #ccc;border-radius:6px;page-break-inside:avoid" /></td></tr>`
+        : String(e.scontrino).startsWith('data:application/pdf')
+          ? `<tr><td colspan="4" style="padding-top:4px"><a href="${e.scontrino}" target="_blank" style="color:#4338ca;font-weight:700">${svgClip}${esc(tCh('tripReceiptAttached', __uiLang))} (PDF)</a></td></tr>`
+          : `<tr><td colspan="4" style="padding-top:4px;padding-bottom:16px"><img src="${e.scontrino}" style="max-width:220px;max-height:280px;border:1px solid #ccc;border-radius:6px;page-break-inside:avoid" /></td></tr>`
+      ) : ''}
+  `).join('');
+  // Voci OFFERTE in una sezione visivamente separata (colore attenuato, mai
+  // sommate al totale rimborsabile sopra): chi legge il riepilogo deve
+  // capire a colpo d'occhio che qui non c'è nulla da rimborsare.
+  const righeOfferti = offerti.map(e => `<tr style="color:#777"><td>${esc(e.data)}</td><td>${etichettaVoce(e)}</td><td>${esc(e.descrizione)}</td><td style="text-align:right">${eur(e.importo)}</td></tr>`).join('');
+  win.document.open();
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(trip.name)}</title>
+    <style>body{font-family:system-ui,sans-serif;padding:24px;color:#111}h1{font-size:20px}table{width:100%;border-collapse:collapse;margin-top:12px}td{padding:6px 4px;border-bottom:1px solid #eee;font-size:13px}.tot{font-weight:800;font-size:18px;margin-top:16px}.tot-offerti{font-weight:700;font-size:14px;margin-top:8px;color:#777}</style>
+    </head><body>
+    <h1>${esc(trip.name)}</h1>
+    <p>${esc(tCh('tripPrintSubtitle', __uiLang))}</p>
+    <table>${righeCat}</table>
+    <div class="tot">${esc(tCh('itemSplitTotalLabel', __uiLang))}: ${eur(totale)}</div>
+    <h3 style="margin-top:24px">${esc(tCh('splitExportCsvSectionExpenses', __uiLang))}</h3>
+    <table>${righeSpese}</table>
+    ${offerti.length ? `
+    <h3 style="margin-top:24px;color:#777">${esc(tCh('tripOfferedSectionTitle', __uiLang))}</h3>
+    <p style="font-size:12px;color:#777">${esc(tCh('tripOfferedSectionSub', __uiLang))}</p>
+    <table>${righeOfferti}</table>
+    <div class="tot-offerti">${esc(tCh('tripOfferedTotalLabel', __uiLang))}: ${eur(offertiTotale)}</div>` : ''}
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  showToast(tCh('tripPrintReady', __uiLang), 'success');
 };
 
 // Conferma acquisti titoli/cripto rilevati durante l'import ma senza

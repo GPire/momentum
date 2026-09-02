@@ -1624,6 +1624,20 @@
       .tx-in > .tx-card { animation: none; }
       .tx-card.tx-leaving { animation: none; opacity: 0; }
     }
+    /* Righe spesa della trasferta di lavoro: stessa disciplina "a scaglione"
+       di .tx-in/.tx-card sopra, ma senza ereditarne il box model (le righe
+       qui usano già utility Tailwind per padding/bordo) — solo l'animazione
+       di ingresso, riusata per coerenza visiva col resto dell'app. */
+    .trip-in > .trip-row { animation: txRise .38s cubic-bezier(.22,1,.36,1) both; }
+    .trip-in > .trip-row:nth-child(1) { animation-delay: .02s; }
+    .trip-in > .trip-row:nth-child(2) { animation-delay: .05s; }
+    .trip-in > .trip-row:nth-child(3) { animation-delay: .08s; }
+    .trip-in > .trip-row:nth-child(4) { animation-delay: .11s; }
+    .trip-in > .trip-row:nth-child(5) { animation-delay: .14s; }
+    .trip-in > .trip-row:nth-child(n+6) { animation-delay: .17s; }
+    @media (prefers-reduced-motion: reduce) {
+      .trip-in > .trip-row { animation: none; }
+    }
 
     /* === FORECASTING & GRIDS === */
     .budget-track { width: 100%; height: 10px; background: var(--outline); border-radius: 5px; overflow: hidden; margin-top: 0.5rem; }
@@ -4456,6 +4470,21 @@
                    <h3 class="eyebrow" data-i18n-key="alphaDebtTitle">Debiti e prestiti</h3>
                    <p class="card-sub" data-i18n-key="alphaDebtSub">Carta di credito, prestito auto, un prestito fra amici: l'ordine per estinguerli prima, con i numeri di entrambe le strategie.</p>
                    <button onclick="window.openDebiti()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span data-i18n-key="alphaDebtBtn">Il mio piano di estinzione</span></button>
+                 </div>
+
+                 <!-- Trasferte di lavoro (src/trips/trip-engine.js): diverso
+                      dallo split "Insieme" — qui non si divide fra persone,
+                      si accumula per un rimborso da un solo soggetto (il
+                      datore di lavoro). Ricerca reale su SAP Concur/
+                      Expensify/Zoho Expense prima di scrivere codice: i
+                      problemi che si ripetono ovunque sono la cattura
+                      scontrino inaffidabile e il tempo perso a compilare la
+                      nota spese — risolti on-device (zero upload che si
+                      blocca) e con OCR+categoria automatica. -->
+                 <div class="card p-6">
+                   <h3 class="eyebrow" data-i18n-key="tripTitle">Trasferte di lavoro</h3>
+                   <p class="card-sub" data-i18n-key="tripSub">Foto dello scontrino, categoria automatica, riepilogo pronto da consegnare per il rimborso.</p>
+                   <button onclick="window.openBusinessTrips()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/></svg><span data-i18n-key="tripOpenBtn">Le mie trasferte</span></button>
                  </div>
 
                  <!-- Category Doughnut chart -->
