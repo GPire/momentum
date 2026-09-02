@@ -13960,13 +13960,42 @@ const endGenesis = () => {
     // una frase non vera è il modo peggiore di aprirlo — soprattutto in una
     // schermata che sta chiedendo di essere creduta sulla privacy.
     // Ogni riga dice una cosa che sta davvero succedendo.
-    const logs = [
-      "Apro Momentum",
-      "Preparo il tuo spazio",
-      "Accendo il motore che imparerà da te",
-      "Nessun account, nessuna password",
-      "Pronto."
-    ];
+    // CHI ARRIVA DA UN INVITO NON È ARRIVATO PER NOI.
+    // Ricerca reale (Splitwise, Tricount, Settle Up, Splid, Kittysplit —
+    // recensioni e confronti 2026): il motivo per cui le app di divisione
+    // spese perdono le persone è sempre lo stesso, "convincere gli amici a
+    // installare l'app". Chi vince su quel punto lo fa togliendo attriti —
+    // Kittysplit ("nessuna registrazione, nessuna app, tutto dal browser") e
+    // Splid ("non serve un account") sono citati esattamente per questo.
+    // Momentum è già senza account e gira nel browser, ma faceva comunque
+    // aspettare tre secondi di presentazione a chi aveva toccato un link per
+    // vedere UNA cosa precisa: quanto deve a un amico.
+    // La presentazione non sparisce — sparire del tutto lascerebbe una
+    // persona dentro un'app che non ha idea di cosa sia. Si accorcia a due
+    // righe (1,3 secondi invece di 3,2) e cambia di contenuto: dice la cosa
+    // che serve a LEI in quel momento, non la nostra. Il resto dell'app le
+    // viene presentato DOPO, quando ha già ottenuto quello per cui è venuta.
+    const arrivaDaUnInvito = (() => {
+      try { return !!(extractShareCode(location.href) || extractSharePayload(location.href)); } catch (_) { return false; }
+    })();
+    // Le due righe dell'invito dicono a uno SCONOSCIUTO le uniche due cose
+    // che gli servono in quel momento: cosa sta succedendo (un amico gli ha
+    // diviso una spesa) e che non gli sta costando niente (nessun account,
+    // niente da installare). Chi non ha mai visto Momentum non deve ritrovarsi
+    // dentro un'app senza sapere cos'è.
+    // Tradotte, come tutto il resto: questa schermata è la PRIMA cosa che
+    // vede un francese o un tedesco arrivato da un invito — e proprio quei
+    // paesi sono le roccaforti di Tricount e Splitwise. Era rimasta in
+    // italiano fisso per tutti.
+    const logs = arrivaDaUnInvito
+      ? [tCh('bootInviteLine1', __uiLang), tCh('bootInviteLine2', __uiLang)]
+      : [
+        tCh('bootLine1', __uiLang),
+        tCh('bootLine2', __uiLang),
+        tCh('bootLine3', __uiLang),
+        tCh('bootLine4', __uiLang),
+        tCh('bootLine5', __uiLang),
+      ];
     let idx = 0;
     // 640ms invece di 450: con cinque righe la schermata durava 3,1 secondi in
     // tutto — meno del tempo di accorgersi che la cupola si può toccare. Non è
