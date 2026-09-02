@@ -233,10 +233,40 @@ async function tryReadIosHandoff() {
 //     cosa manca — chi chiama decide se e come proporlo all'utente, la
 //     scrittura reale avviene solo con VaultDAO.applyTxLogRecovery(),
 //     mai automaticamente.
+// Impronta di CONTENUTO di una transazione: stessa data, stesso importo,
+// stesso verso, stessa descrizione. Serve al recupero qui sotto e non guarda
+// l'id di proposito — è esattamente il caso in cui l'id NON coincide.
+// Ritorna null quando non c'è abbastanza contenuto per un confronto sensato.
+// Bug reale trovato da un test già esistente: due transazioni ridotte al solo
+// id (nessuna data, nessun importo) producevano la stessa impronta vuota e la
+// seconda veniva scartata come "doppione" della prima. Senza data e senza
+// importo un'impronta non dimostra niente: meglio nessun confronto che un
+// confronto che butta via dati veri.
+function improntaTx(tx) {
+  const data = String(tx?.date || '').slice(0, 10);
+  const importo = Math.round((+tx?.amount || 0) * 100);
+  if (!data || !importo) return null;
+  const verso = tx?.type || '';
+  const desc = String(tx?.description || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return `${data}|${importo}|${verso}|${desc}`;
+}
+
 function reconstructMissingFromTxLog(txLogEntries, currentState) {
   const existingIds = new Set();
+  // BUG REALE trovato provando il recupero dal vivo: la protezione era solo
+  // sull'id. Ma il caso più probabile è proprio quello in cui l'id NON
+  // coincide — l'utente si accorge che manca una spesa e la reinserisce a
+  // mano (id nuovo, stesso contenuto). Al recupero successivo se la sarebbe
+  // ritrovata DUE volte, con il saldo sbagliato e nessuna spiegazione. Su
+  // dati di soldi un doppione silenzioso è peggio di un dato mancante:
+  // quello si nota, questo no.
+  const impronteEsistenti = new Set();
   for (const arr of Object.values(currentState?.transactions || {})) {
-    for (const t of (arr || [])) if (t?.id) existingIds.add(t.id);
+    for (const t of (arr || [])) {
+      if (t?.id) existingIds.add(t.id);
+      const imp = improntaTx(t);
+      if (imp) impronteEsistenti.add(imp);
+    }
   }
   // Una transazione cancellata di proposito (lapide in deletedTx) non va
   // mai fatta "resuscitare" da un log più vecchio della cancellazione.
@@ -247,6 +277,15 @@ function reconstructMissingFromTxLog(txLogEntries, currentState) {
   for (const entry of (txLogEntries || [])) {
     const tx = entry?.tx;
     if (!tx || !tx.id || existingIds.has(tx.id) || deletedIds.has(tx.id) || seen.has(tx.id)) continue;
+    const impronta = improntaTx(tx);
+    // Già presente per contenuto (o proposta due volte dallo stesso log, che
+    // append-only può contenere più volte la stessa cosa): si salta. Se
+    // l'impronta non è calcolabile resta la sola protezione per id: mai
+    // scartare un dato vero per un confronto che non prova niente.
+    if (impronta) {
+      if (impronteEsistenti.has(impronta)) continue;
+      impronteEsistenti.add(impronta);
+    }
     seen.add(tx.id);
     const month = entry.month || (tx.date ? String(tx.date).slice(0, 7) : null);
     if (!month) continue;

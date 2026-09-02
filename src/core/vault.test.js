@@ -515,3 +515,119 @@ test('DurableStore.open: caso normale (indexedDB.open() risponde subito) resta c
     globalThis.indexedDB = savedIDB;
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+// RECUPERO DATI DA tx_log — tutti gli scenari, perché qui si tocca
+// il caso peggiore: transazioni di soldi che ricompaiono dal nulla.
+// ══════════════════════════════════════════════════════════════
+// La regola è una sola e vale in ogni caso qui sotto: il recupero può SOLO
+// riportare indietro qualcosa che manca davvero. Mai un doppione, mai una
+// transazione cancellata di proposito, mai un dato toccato di quelli che
+// l'utente già vede.
+
+const voceLog = (tx, month) => ({ month: month || String(tx.date).slice(0, 7), tx, ts: Date.now() });
+
+test('recupero: propone SOLO le transazioni che mancano davvero', () => {
+  const stato = { transactions: { '2026-08': [{ id: 'a', date: '2026-08-10', amount: 10, type: 'uscita', description: 'Caffè' }] } };
+  const log = [
+    voceLog({ id: 'a', date: '2026-08-10', amount: 10, type: 'uscita', description: 'Caffè' }),   // già presente
+    voceLog({ id: 'b', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'Spesa' }), // manca
+  ];
+  const { recovered, addedCount } = reconstructMissingFromTxLog(log, stato);
+  assert.equal(addedCount, 1);
+  assert.equal(recovered['2026-08'][0].id, 'b');
+});
+
+test('recupero: una transazione cancellata di proposito NON risorge mai', () => {
+  const stato = { transactions: {}, deletedTx: { 'b': Date.now() } };
+  const log = [voceLog({ id: 'b', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'Spesa' })];
+  assert.equal(reconstructMissingFromTxLog(log, stato).addedCount, 0);
+});
+
+// Il caso più probabile di tutti, e quello che prima passava: l'utente si
+// accorge che manca una spesa e la RIMETTE A MANO. Id diverso, contenuto
+// identico. Senza il controllo per contenuto se la ritrovava due volte, con
+// il saldo sbagliato e nessuna spiegazione.
+test('recupero: una spesa già reinserita a mano non viene riproposta (id diverso, stesso contenuto)', () => {
+  const stato = { transactions: { '2026-08': [{ id: 'nuovo-id', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'Spesa supermercato' }] } };
+  const log = [voceLog({ id: 'vecchio-id', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'Spesa supermercato' })];
+  assert.equal(reconstructMissingFromTxLog(log, stato).addedCount, 0);
+});
+
+test('recupero: la descrizione si confronta ignorando maiuscole e spazi doppi', () => {
+  const stato = { transactions: { '2026-08': [{ id: 'x', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'Spesa  Supermercato' }] } };
+  const log = [voceLog({ id: 'y', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'spesa supermercato' })];
+  assert.equal(reconstructMissingFromTxLog(log, stato).addedCount, 0);
+});
+
+test('recupero: due spese uguali per importo ma di GIORNI diversi restano due spese distinte', () => {
+  const stato = { transactions: { '2026-08': [{ id: 'x', date: '2026-08-11', amount: 1.5, type: 'uscita', description: 'Caffè' }] } };
+  const log = [voceLog({ id: 'y', date: '2026-08-12', amount: 1.5, type: 'uscita', description: 'Caffè' })];
+  assert.equal(reconstructMissingFromTxLog(log, stato).addedCount, 1, 'il caffè di ieri e quello di oggi sono due caffè');
+});
+
+test('recupero: stessa spesa e stesso giorno ma VERSO diverso non è la stessa cosa', () => {
+  const stato = { transactions: { '2026-08': [{ id: 'x', date: '2026-08-11', amount: 100, type: 'uscita', description: 'Bonifico' }] } };
+  const log = [voceLog({ id: 'y', date: '2026-08-11', amount: 100, type: 'entrata', description: 'Bonifico' })];
+  assert.equal(reconstructMissingFromTxLog(log, stato).addedCount, 1);
+});
+
+test('recupero: un log append-only con la stessa voce ripetuta propone UNA sola transazione', () => {
+  const tx = { id: 'b', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'Spesa' };
+  const log = [voceLog(tx), voceLog(tx), voceLog(tx)];
+  assert.equal(reconstructMissingFromTxLog(log, { transactions: {} }).addedCount, 1);
+});
+
+test('recupero: due transazioni DIVERSE con lo stesso id nel log: si tiene la prima, mai due', () => {
+  const log = [
+    voceLog({ id: 'dup', date: '2026-08-11', amount: 10, type: 'uscita', description: 'Prima' }),
+    voceLog({ id: 'dup', date: '2026-08-12', amount: 20, type: 'uscita', description: 'Seconda' }),
+  ];
+  const { addedCount, recovered } = reconstructMissingFromTxLog(log, { transactions: {} });
+  assert.equal(addedCount, 1);
+  assert.equal(recovered['2026-08'][0].description, 'Prima');
+});
+
+test('recupero: le transazioni finiscono nel mese giusto anche se il log non lo dice', () => {
+  const log = [
+    { tx: { id: 'a', date: '2026-07-03', amount: 10, type: 'uscita', description: 'Luglio' }, ts: 1 },   // senza month
+    voceLog({ id: 'b', date: '2026-08-03', amount: 20, type: 'uscita', description: 'Agosto' }),
+  ];
+  const { recovered } = reconstructMissingFromTxLog(log, { transactions: {} });
+  assert.equal(recovered['2026-07'].length, 1);
+  assert.equal(recovered['2026-08'].length, 1);
+});
+
+test('recupero: voci sporche del log (senza id, senza data, nulle) vengono saltate senza crash', () => {
+  const log = [
+    null, undefined, {}, { tx: null }, { tx: { amount: 5 } },                    // niente id
+    { tx: { id: 'senza-data', amount: 5, type: 'uscita' }, ts: 1 },              // niente data né month
+    voceLog({ id: 'buona', date: '2026-08-11', amount: 42.5, type: 'uscita', description: 'Spesa' }),
+  ];
+  const { addedCount, recovered } = reconstructMissingFromTxLog(log, { transactions: {} });
+  assert.equal(addedCount, 1);
+  assert.equal(recovered['2026-08'][0].id, 'buona');
+});
+
+test('recupero: un log vuoto o uno stato vuoto non propongono nulla e non esplodono', () => {
+  assert.equal(reconstructMissingFromTxLog([], { transactions: {} }).addedCount, 0);
+  assert.equal(reconstructMissingFromTxLog(null, null).addedCount, 0);
+  assert.equal(reconstructMissingFromTxLog(undefined, { transactions: {} }).addedCount, 0);
+});
+
+// Scala: chi ha usato l'app per anni ha un log lungo, e il recupero non deve
+// né rallentare né proporre migliaia di doppioni.
+test('recupero a scala: 5000 voci nel log, di cui 4990 già presenti', () => {
+  const presenti = [];
+  const log = [];
+  for (let i = 0; i < 5000; i++) {
+    const tx = { id: `t${i}`, date: `2026-0${(i % 8) + 1}-1${i % 9}`, amount: 10 + (i % 90), type: i % 3 ? 'uscita' : 'entrata', description: `Spesa ${i}` };
+    log.push(voceLog(tx));
+    if (i >= 10) presenti.push(tx); // solo le prime 10 mancano davvero
+  }
+  const stato = { transactions: { tutte: presenti } };
+  const inizio = Date.now();
+  const { addedCount } = reconstructMissingFromTxLog(log, stato);
+  assert.equal(addedCount, 10);
+  assert.ok(Date.now() - inizio < 500, 'il controllo deve restare istantaneo anche su un log lungo');
+});

@@ -2477,6 +2477,33 @@
     .join-badge { animation: joinBadge 0.7s ease-out 0.15s both; }
     @keyframes joinBadge { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 
+    /* RECUPERO DATI — la schermata che dice "queste transazioni erano sparite,
+       le rivuoi?". È un momento delicato: si parla di soldi ricomparsi dal
+       nulla, e l'utente deve potersi fidare di quello che legge. Il movimento
+       qui non decora, RACCONTA: l'icona che ruota all'indietro è il gesto del
+       recupero, e le righe che salgono una dopo l'altra sono le transazioni
+       che tornano al loro posto — si vede cosa sta succedendo prima ancora di
+       leggerlo. Niente di più: nessun rimbalzo allegro su un contrattempo. */
+    .recovery-badge { animation: recoveryBadge .9s cubic-bezier(.22,1,.36,1) .05s both; }
+    @keyframes recoveryBadge {
+      0% { transform: scale(.7) rotate(28deg); opacity: 0; }
+      55% { transform: scale(1.06) rotate(-6deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+    .recovery-in > * { animation: txRise .45s cubic-bezier(.22,1,.36,1) both; }
+    .recovery-in > *:nth-child(1) { animation-delay: .04s; }
+    .recovery-in > *:nth-child(2) { animation-delay: .13s; }
+    .recovery-row { animation: txRise .4s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(.22s + var(--i, 0) * .07s); }
+    .recovery-actions > button { animation: txRise .4s cubic-bezier(.22,1,.36,1) both; }
+    .recovery-actions > button:nth-child(1) { animation-delay: .3s; }
+    /* La seconda scelta arriva un attimo dopo la prima: non è nascosta, ma
+       nemmeno equivalente — chi apre questa schermata di solito vuole
+       recuperare, e l'ordine di apparizione lo dice senza scriverlo. */
+    .recovery-actions > button:nth-child(2) { animation-delay: .38s; }
+    @media (prefers-reduced-motion: reduce) {
+      .recovery-badge, .recovery-in > *, .recovery-row, .recovery-actions > button { animation: none; }
+    }
+
     /* Chip "chi sei tu" nell'ingresso al gruppo: check-icona che compare invece
        del solo cambio colore del bordo — lo stesso principio di feedback
        immediato del resto dell'app (icona che cambia forma, non solo tinta). */

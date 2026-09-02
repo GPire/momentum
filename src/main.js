@@ -15821,14 +15821,64 @@ const initApp = () => {
   // mai un ripristino silenzioso — l'utente conferma o ignora.
   VaultDAO.checkTxLogRecovery().then(({ recovered, addedCount }) => {
     if (addedCount <= 0) return;
+    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    // COSA torna indietro, non solo QUANTO. Prima la schermata diceva "2
+    // transazioni" e chiedeva fiducia al buio: davanti a dati di soldi che
+    // ricompaiono dal nulla, un numero secco è esattamente ciò che mette a
+    // disagio. Qui si vedono importo complessivo, periodo e le prime righe
+    // per nome — la stessa cosa che chiunque vorrebbe controllare prima di
+    // dire di sì, e che rende la scelta una decisione invece di una scommessa.
+    const righe = Object.values(recovered || {}).flat()
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    // Entrate e uscite SEPARATE, mai un solo numero netto: recuperando uno
+    // stipendio e tre spese, il netto (+1.689 €) sembrerebbe che stiano
+    // tornando indietro millesettecento euro di soldi guadagnati — e non è
+    // quello che sta succedendo. Due numeri dicono la verità, uno la nasconde.
+    const entrate = righe.filter(t => t.type === 'entrata').reduce((s, t) => s + (+t.amount || 0), 0);
+    const uscite = righe.filter(t => t.type !== 'entrata').reduce((s, t) => s + (+t.amount || 0), 0);
+    const date = righe.map(t => String(t.date).slice(0, 10)).filter(Boolean).sort();
+    const periodo = date.length
+      ? (date[0] === date[date.length - 1] ? formatDataLocale(date[0], { day: 'numeric', month: 'short', year: 'numeric' })
+        : `${formatDataLocale(date[0], { day: 'numeric', month: 'short' })} → ${formatDataLocale(date[date.length - 1], { day: 'numeric', month: 'short', year: 'numeric' })}`)
+      : '';
+    const anteprima = righe.slice(0, 3).map((t, i) => `
+      <div class="recovery-row flex items-center gap-2 py-1.5 border-b border-[var(--outline)] last:border-0" style="--i:${i}">
+        <span class="w-1.5 h-1.5 rounded-full shrink-0 ${t.type === 'entrata' ? 'bg-emerald-400' : 'bg-[var(--on-surface-secondary)]'}"></span>
+        <span class="flex-1 min-w-0 text-[11px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
+        <span class="text-[11px] font-mono text-[var(--on-surface-secondary)] shrink-0">${esc(String(t.date).slice(0, 10))}</span>
+        <span class="text-[11px] font-mono font-bold shrink-0">${formatMoney(+t.amount || 0)}</span>
+      </div>`).join('');
+
     window.openModal(`
-      <div class="text-center px-2">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 mx-auto mb-3 text-[var(--primary)]"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 3v6h6"/></svg>
-        <h3 class="text-base font-black mb-2">${tCh('dataRecoveryTitle', __uiLang)}</h3>
-        <p class="text-xs text-[var(--on-surface-secondary)] leading-snug">${tCh('dataRecoveryBody', __uiLang, addedCount)}</p>
+      <div class="recovery-in flex flex-col gap-3 px-1">
+        <div class="recovery-hero flex flex-col items-center text-center gap-2 pt-1">
+          <div class="recovery-badge w-14 h-14 rounded-2xl grid place-items-center bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] border border-[color-mix(in_srgb,var(--primary)_35%,transparent)]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 text-[var(--primary)]"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 3v6h6"/></svg>
+          </div>
+          <h3 class="text-base font-black leading-tight">${esc(tCh('dataRecoveryTitle', __uiLang))}</h3>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(tCh('dataRecoveryBody', __uiLang, addedCount))}</p>
+        </div>
+        <div class="card p-3">
+          <div class="flex items-baseline justify-between mb-1">
+            <span class="text-[10px] uppercase tracking-wide text-[var(--on-surface-secondary)]">${esc(tCh('dataRecoveryWhatLabel', __uiLang))}</span>
+            ${periodo ? `<span class="text-[10px] font-mono text-[var(--on-surface-secondary)]">${esc(periodo)}</span>` : ''}
+          </div>
+          <div class="flex items-baseline gap-3 mb-1.5 flex-wrap">
+            ${entrate > 0 ? `<span class="text-lg font-black font-mono text-emerald-400">+${formatMoney(entrate)}</span>` : ''}
+            ${uscite > 0 ? `<span class="text-lg font-black font-mono">−${formatMoney(uscite)}</span>` : ''}
+          </div>
+          ${anteprima}
+          ${righe.length > 3 ? `<div class="text-[10px] text-[var(--on-surface-secondary)] pt-1.5">${esc(tCh('dataRecoveryMoreRows', __uiLang, righe.length - 3))}</div>` : ''}
+        </div>
       </div>`,
-      `<button onclick="window.applyTxLogRecovery()" class="save-btn w-full">${tCh('dataRecoveryConfirmBtn', __uiLang)}</button>
-       <button onclick="closeModal()" class="w-full mt-2 text-xs text-[var(--on-surface-secondary)] underline">${tCh('dataRecoveryDismissBtn', __uiLang)}</button>`
+      // Due scelte vere, della stessa forma: prima "Non ora" era un
+      // link sottolineato minuscolo sotto un bottone pieno — non una scelta,
+      // un ripensamento. Qui sono due pulsanti pari, e il secondo dice cosa
+      // succede davvero (resta lì, si può fare dopo) invece di un "no" secco.
+      `<div class="recovery-actions flex flex-col gap-2">
+         <button onclick="window.applyTxLogRecovery()" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('dataRecoveryConfirmBtn', __uiLang))}</button>
+         <button onclick="closeModal()" class="w-full py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('dataRecoveryDismissBtn', __uiLang))}</button>
+       </div>`
     );
     window.applyTxLogRecovery = () => {
       const added = VaultDAO.applyTxLogRecovery(recovered);
