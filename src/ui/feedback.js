@@ -39,4 +39,34 @@ const showToast = (msg, tone = 'info') => {
 
 
 
-export { showSignatureAlert, showToast };
+// Toast con un'AZIONE ("Annulla"): serve quando un gesto ha appena fatto
+// qualcosa di importante e la finestra per ripensarci è ora — cancellare una
+// nota spese di mesi, per dirne una. Stessa ricetta visiva del toast normale,
+// nessun secondo linguaggio: cambia solo il pulsante e il tempo, più lungo
+// (7 secondi invece di 3), perché tre secondi per accorgersi di un errore e
+// muovere il dito non bastano a nessuno.
+const showToastAction = (msg, actionLabel, onAction, tone = 'info') => {
+  const s = TOAST_TONE[tone] || TOAST_TONE.info;
+  const t = document.createElement('div');
+  t.className = `p-3 rounded-xl shadow-2xl border ${s.border} ${s.tint} bg-[var(--glass-bg)] backdrop-blur-xl text-[var(--on-surface)] text-xs font-bold flex items-center gap-2.5 transform transition-all duration-300 translate-y-[-20px] opacity-0 pointer-events-auto`;
+  const btn = document.createElement('button');
+  btn.className = 'shrink-0 ml-1 px-2.5 py-1 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] text-[11px] font-black active:scale-95 transition-transform';
+  btn.textContent = actionLabel;
+  t.innerHTML = `<span class="shrink-0 w-6 h-6 rounded-full ${s.badge} flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 ${s.text}">${s.icon}</svg></span><span class="min-w-0">${msg}</span>`;
+  t.appendChild(btn);
+  let chiuso = false;
+  const chiudi = () => {
+    if (chiuso) return; chiuso = true;
+    t.classList.add('translate-y-[-20px]', 'opacity-0');
+    setTimeout(() => t.remove(), 300);
+  };
+  btn.addEventListener('click', () => { chiudi(); try { onAction?.(); } catch (_) {} });
+  const toastContainer = $('#toast-container');
+  if (toastContainer) {
+    toastContainer.appendChild(t);
+    requestAnimationFrame(() => t.classList.remove('translate-y-[-20px]', 'opacity-0'));
+    setTimeout(chiudi, 7000);
+  }
+};
+
+export { showSignatureAlert, showToast, showToastAction };

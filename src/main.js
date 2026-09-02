@@ -3,7 +3,7 @@ import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } from './core/vault.js';
-import { showSignatureAlert, showToast } from './ui/feedback.js';
+import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
@@ -225,7 +225,7 @@ import { backupRisk, placementQuality, recordPlacement, placeLabel } from './cor
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-parser.js';
 import { extractTransactionsFromItems } from './import/pdf-parser.js';
-import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt } from './trips/trip-engine.js';
+import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips } from './trips/trip-engine.js';
 import { encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
@@ -9315,8 +9315,25 @@ function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month:
 window.openBusinessTrips = () => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
-  const trips = () => VaultDAO.state.businessTrips || [];
-  const persist = (list) => { VaultDAO.state.businessTrips = list; VaultDAO.save(); };
+  // Mai le trasferte cancellate: restano nel vault come lapidi (servono a non
+  // farle resuscitare da un dispositivo rimasto indietro), ma non si vedono.
+  // Le lapidi vecchie di oltre un anno perdono i dati e tengono solo l'id.
+  const trips = () => {
+    const pulite = pruneDeletedTrips(VaultDAO.state.businessTrips || []);
+    if (JSON.stringify(pulite) !== JSON.stringify(VaultDAO.state.businessTrips || [])) {
+      VaultDAO.state.businessTrips = pulite; VaultDAO.save();
+    }
+    return visibleTrips(pulite);
+  };
+  const persist = (list) => {
+    VaultDAO.state.businessTrips = list;
+    VaultDAO.save();
+    // Una trasferta creata sul telefono deve comparire anche sul portatile:
+    // senza questo, le sue spese (che si sincronizzano da sole, sono
+    // transazioni vere) arriverebbero là orfane, agganciate a una trasferta
+    // che sull'altro dispositivo non esiste.
+    try { window.momentumMeshNode?.shareBusinessTrips(list, soloMieiDispositivi); } catch (_) {}
+  };
   const allTx = allTransactionsFlat();
 
   const rows = trips().map(t => {
@@ -9358,9 +9375,14 @@ window.openBusinessTrip = (tripId) => {
   // il trip nell'elenco E aggiornare il riferimento locale, altrimenti i
   // render successivi userebbero ancora la versione vecchia.
   const persistTrip = (nuovoTrip) => {
-    trip = nuovoTrip;
+    // Il timbro dell'ultima modifica serve al merge fra dispositivi: senza,
+    // due copie della stessa trasferta non saprebbero quale è la più recente.
+    trip = touchTrip(nuovoTrip);
     VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? trip : t);
     VaultDAO.save();
+    // Sync live verso i PROPRI dispositivi soltanto (mai un peer qualunque
+    // della mesh: una nota spese è personale, vedi shareBusinessTrips).
+    try { window.momentumMeshNode?.shareBusinessTrips([trip], soloMieiDispositivi); } catch (_) {}
   };
 
   // Bug reale/limite trovato dal vivo: la data era sempre "oggi", mai
@@ -9377,6 +9399,15 @@ window.openBusinessTrip = (tripId) => {
     const allTx = allTransactionsFlat();
     const expenses = tripExpenses(trip, allTx);
     const { totale, perCategoria } = tripTotals(trip, allTx);
+    // Sync live: se arriva un aggiornamento da un altro dei propri dispositivi
+    // mentre questa schermata è aperta, si ridisegna con i dati nuovi invece
+    // di restare ferma sotto un toast che dice che sono cambiati. Si rilegge
+    // la trasferta dal Vault, perché il merge l'ha appena sostituita.
+    window.__tripLiveRefresh = () => {
+      const aggiornata = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+      if (aggiornata) trip = aggiornata;
+      render();
+    };
 
     const rigaSpesa = (t) => `
       <div class="trip-row flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
@@ -9709,9 +9740,24 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-export-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
     $('#trip-review-share')?.addEventListener('click', () => window.openTripReviewShare(trip.id));
     $('#trip-del')?.addEventListener('click', () => {
-      VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).filter(t => t.id !== trip.id);
+      // Cancellare NON toglie la trasferta dall'elenco: ci mette sopra una
+      // data. Serve a due cose insieme — un dispositivo spento non può
+      // resuscitarla alla riconnessione, e l'utente può ancora annullare
+      // (le spese, che sono soldi usciti davvero, non si toccano comunque).
+      const cancellata = deleteTrip(trip);
+      VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? cancellata : t);
       VaultDAO.save();
+      try { window.momentumMeshNode?.shareBusinessTrips([cancellata], soloMieiDispositivi); } catch (_) {}
       window.openBusinessTrips();
+      window.__annullaCancellazioneTrasferta = () => {
+        const ripristinata = restoreTrip(cancellata);
+        VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? ripristinata : t);
+        VaultDAO.save();
+        try { window.momentumMeshNode?.shareBusinessTrips([ripristinata], soloMieiDispositivi); } catch (_) {}
+        delete window.__annullaCancellazioneTrasferta;
+        window.openBusinessTrip(trip.id);
+      };
+      showToastAction(tCh('tripDeletedToast', __uiLang), tCh('tripUndoDelete', __uiLang), () => window.__annullaCancellazioneTrasferta?.());
     });
   };
 
@@ -9903,9 +9949,10 @@ window.openTripReviewShare = async (tripId) => {
   // punto è — il momento esatto in cui, su ogni prodotto concorrente, si perde
   // il filo di una nota spese.
   try {
-    const nuovo = markTripSentForReview(trip);
+    const nuovo = touchTrip(markTripSentForReview(trip));
     VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? nuovo : t);
     VaultDAO.save();
+    try { window.momentumMeshNode?.shareBusinessTrips([nuovo], soloMieiDispositivi); } catch (_) {}
   } catch (_) {}
 
   openModal(`
@@ -9959,9 +10006,12 @@ window.openTripVerdictPaste = (tripId) => {
     const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
     if (!trip) return;
     try {
-      const nuovo = applyTripVerdict(trip, verdict);
+      const nuovo = touchTrip(applyTripVerdict(trip, verdict));
       VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? nuovo : t);
       VaultDAO.save();
+      // L'esito è la notizia più importante di tutte: deve arrivare subito su
+      // ogni proprio dispositivo, non alla prossima riconnessione.
+      try { window.momentumMeshNode?.shareBusinessTrips([nuovo], soloMieiDispositivi); } catch (_) {}
     } catch (err) {
       // Caso reale: due trasferte aperte, si incolla il codice dell'altra.
       showToast(tCh('tripVerdictOtherTrip', __uiLang), 'error');
@@ -14974,6 +15024,22 @@ function offerToSendP2PAnswer(answerCode, groupName) {
 // Prudente per costruzione: se non riconosco il dispositivo, NON mando. Il
 // costo di un mancato invio è un sync in ritardo; il costo dell'errore
 // opposto è mandare nomi e importi a chi non c'entra.
+// Chiave pubblica dichiarata da ogni peer collegato (popolata in device_hello).
+// Serve a distinguere "il mio secondo telefono" da "un dispositivo qualunque
+// sulla stessa rete" quando si decide a chi mandare un dato personale.
+const __chiaviDeiPeer = new Map();
+
+// Una nota spese di trasferta va SOLO ai propri dispositivi, quelli confermati
+// una volta con le tre parole (device-trust.js). Non basta che il canale sia
+// aperto: chiunque condivida la rete può arrivare fin lì. Se la chiave non è
+// nota o non è fra quelle fidate, non si manda niente — il default sicuro su
+// un dato personale è il silenzio.
+function soloMieiDispositivi(peerId) {
+  const chiave = __chiaviDeiPeer.get(peerId);
+  if (!chiave) return false;
+  return isTrustedKey(VaultDAO.state.trustedDevices || [], chiave);
+}
+
 function peerAppartieneAlGruppo(peerId, gruppo) {
   if (!gruppo || !Array.isArray(gruppo.members)) return false;
   return gruppo.members.some((m) => m.claimedBy && m.claimedBy === peerId);
@@ -18203,6 +18269,12 @@ function initMomentumRealAI() {
       for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.requestSync(pid);
       // e i gruppi di divisione già esistenti, per allinearli subito.
       if ((VaultDAO.state.splitGroups || []).length) momentumMeshNode.shareSplitGroups(VaultDAO.state.splitGroups, peerAppartieneAlGruppo);
+      // Le trasferte di lavoro allo stesso modo: mandare solo alla modifica
+      // non basta a garantire dati aggiornati — un dispositivo spento mentre
+      // succedeva qualcosa non lo saprebbe MAI. Alla riconnessione si
+      // riallinea tutto, e il merge idempotente rende innocuo rimandare
+      // qualcosa che l'altro ha già (stessa logica del sync transazioni).
+      if ((VaultDAO.state.businessTrips || []).length) momentumMeshNode.shareBusinessTrips(VaultDAO.state.businessTrips, soloMieiDispositivi);
       // FEDERAZIONE tipi esercente: condivido il modello morfologico appreso, così
       // un dispositivo nuovo eredita subito la categorizzazione dei negozi locali.
       const mm = VaultDAO.state.mlData?.merchantMorphology;
@@ -18278,6 +18350,11 @@ function initMomentumRealAI() {
       } catch (e) { console.warn('Staffetta del sentiment non elaborata:', e); }
     };
     momentumMeshNode.onDeviceHello = (peerId, publicKey) => {
+      // La mesh non conserva la chiave di un peer (di proposito: il trasporto
+      // non deve avere opinioni sull'identità). Ma per mandare una nota spese
+      // SOLO ai propri dispositivi serve sapere chi è chi: la mappa vive qui,
+      // dove c'è anche l'elenco dei dispositivi confermati con le tre parole.
+      if (publicKey) __chiaviDeiPeer.set(peerId, publicKey);
       gestisciDeviceHello(peerId, publicKey).catch((e) => console.warn('Verifica dispositivo non riuscita:', e));
     };
     // Ricezione dei pacchetti a staffetta: si apre cio' che è per noi, si
@@ -18409,6 +18486,32 @@ function initMomentumRealAI() {
         const modalShowsSplit = !!(document.getElementById('sg-new') || document.getElementById('sg-name'));
         if (modalShowsSplit) { try { window.__splitLiveRefresh?.(); } catch (_) {} }
       }
+    };
+    // ── TRASFERTE DI LAVORO in arrivo da un altro dei PROPRI dispositivi ──
+    // Stessa difesa dei gruppi, per lo stesso motivo: filtrare in invio
+    // impedisce a NOI di mandare una nota spese a chi non c'entra, ma non ci
+    // protegge da un mittente che manda comunque. Una trasferta mai vista non
+    // viene accettata: una nota spese nasce sul proprio dispositivo, nessuno
+    // te la può spingere addosso (né riempirti il vault di trasferte finte).
+    momentumMeshNode.onBusinessTripsReceived = (peerId, incoming) => {
+      if (!Array.isArray(incoming) || !incoming.length) return;
+      const locali = VaultDAO.state.businessTrips || [];
+      const conosciute = incoming.filter(t => t && t.id && locali.some(x => x.id === t.id));
+      if (!conosciute.length) {
+        console.warn('Trasferta non richiesta ignorata: una nota spese nasce sul proprio dispositivo.');
+        return;
+      }
+      const primaJson = JSON.stringify(locali);
+      const fuse = mergeTripLists(locali, conosciute);
+      if (JSON.stringify(fuse) === primaJson) return; // niente di nuovo: nessun toast inutile
+      VaultDAO.state.businessTrips = fuse;
+      VaultDAO.save();
+      showToast(tCh('tripSyncedToast', __uiLang), 'success');
+      // Sync "live" davvero: se la trasferta è aperta ORA sullo schermo, si
+      // ridisegna subito — altrimenti l'utente vedrebbe dati vecchi sotto un
+      // toast che dice che sono cambiati.
+      const modaleTrasfertaAperta = !!document.getElementById('trip-save');
+      if (modaleTrasfertaAperta && window.__tripLiveRefresh) { try { window.__tripLiveRefresh(); } catch (_) {} }
     };
     momentumMeshNode.onGradientReceived = (peerId, stats) => {
       // Registro di integrità (src/mesh/update-ledger.js): ogni merge, accettato

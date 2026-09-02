@@ -382,6 +382,15 @@ class MeshNode {
         // wins per campo, unione per aggiunte) è del ricevente — qui si
         // consegna soltanto, stesso pattern di price_share/reliability_share.
         this.onSplitGroupsReceived?.(peerId, msg.groups);
+      } else if (msg.type === 'trip_share') {
+        // Sync LIVE delle trasferte di lavoro fra i PROPRI dispositivi. Le
+        // spese viaggiano già da sole (sono transazioni vere, `sync_txs`); qui
+        // viaggia il contenitore — nome, date, voci offerte, esito
+        // dell'approvazione — che senza questo restava su un solo telefono e
+        // lasciava le spese orfane sull'altro. Il merge CRDT è del ricevente
+        // (mergeTripLists in trips/trip-engine.js), stesso pattern di
+        // split_share: qui si consegna soltanto.
+        this.onBusinessTripsReceived?.(peerId, msg.trips);
       } else if (msg.type === 'morphology_share') {
         // Federazione dei "tipi di esercente" (merchant-morphology.js): il peer
         // condivide il suo modello morfologico (SOLO parole-tipo + categorie, mai
@@ -738,6 +747,25 @@ class MeshNode {
       const suoi = appartiene ? (groups || []).filter((g) => appartiene(peerId, g)) : groups;
       if (!suoi || !suoi.length) continue;
       entry.channel.send(JSON.stringify({ type: 'split_share', groups: suoi }));
+      inviati++;
+    }
+    return inviati;
+  }
+
+  // Manda le trasferte di lavoro ai propri dispositivi. `destinatario` decide
+  // chi ha titolo a riceverle: una nota spese è personale, non è un gruppo
+  // condiviso come lo split — non deve finire su un dispositivo qualunque
+  // della mesh solo perché il canale è aperto. Se il chiamante non passa il
+  // filtro non si manda NIENTE: su un dato personale il default sicuro è il
+  // silenzio, non la diffusione (l'opposto della scelta fatta per lo split,
+  // dove il gruppo è condiviso per definizione).
+  shareBusinessTrips(trips, destinatario = null) {
+    if (!trips || !trips.length || typeof destinatario !== 'function') return 0;
+    let inviati = 0;
+    for (const [peerId, entry] of this.peers.entries()) {
+      if (entry.channel?.readyState !== 'open') continue;
+      if (!destinatario(peerId, entry)) continue;
+      entry.channel.send(JSON.stringify({ type: 'trip_share', trips }));
       inviati++;
     }
     return inviati;
