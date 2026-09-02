@@ -83,6 +83,21 @@ test('exportTripData: righe ordinate per data, con scontrino quando presente', (
   assert.equal(out.expenses[1].scontrino, 'data:image/jpeg;base64,AAA');
   assert.equal(out.expenses[0].scontrino, null);
   assert.equal(out.totale, 75);
+  assert.equal(out.numeroGiustificativiMancanti, 1); // solo "Treno", "Cena" ha lo scontrino
+});
+
+test('exportTripData: numeroGiustificativiMancanti conta tutte le spese sopra soglia senza scontrino, zero se nessuna', () => {
+  const trip = createTrip({ name: 'Roma' });
+  const nessunGiustificativo = exportTripData(trip, [
+    { type: 'uscita', amount: 30, date: '2026-09-10', businessTripId: trip.id, tripCategory: 'vitto' },
+    { type: 'uscita', amount: 40, date: '2026-09-11', businessTripId: trip.id, tripCategory: 'trasporto' },
+  ]);
+  assert.equal(nessunGiustificativo.numeroGiustificativiMancanti, 2);
+
+  const tuttoAPosto = exportTripData(trip, [
+    { type: 'uscita', amount: 10, date: '2026-09-10', businessTripId: trip.id, tripCategory: 'vitto' }, // sotto soglia
+  ]);
+  assert.equal(tuttoAPosto.numeroGiustificativiMancanti, 0);
 });
 
 // ── SPESE "OFFERTE" (meals provided / spesa pagata da altri, mai rimborsata) ──

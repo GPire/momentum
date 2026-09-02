@@ -146,5 +146,11 @@ export function exportTripData(trip, allTransactions) {
     .map(it => ({ data: it.date, categoria: it.tripCategory, mealType: it.mealType, descrizione: it.description || '', importo: it.amount }));
   const { totale, perCategoria } = tripTotals(trip, allTransactions);
   const offertiTotali = tripOfferedTotals(trip);
-  return { tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale };
+  // Ricerca reale (SAP Concur, reclami 2026): il motivo più citato per cui una
+  // nota spese torna indietro è un giustificativo mancante scoperto TARDI,
+  // durante l'approvazione, riga per riga. Un conteggio in cima al riepilogo
+  // (CSV e stampa) lo rende visibile SUBITO a chi approva, prima di scorrere
+  // l'intero elenco — mai un blocco, solo un avviso di sintesi.
+  const numeroGiustificativiMancanti = expenses.filter(e => e.giustificativoMancante).length;
+  return { tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti };
 }

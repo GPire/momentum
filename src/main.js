@@ -9455,10 +9455,10 @@ window.openBusinessTrip = (tripId) => {
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
             <input id="trip-receipt" type="file" accept="image/*,application/pdf" class="hidden" />
           </label>
-          ${state.receiptDataUrl ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
+          ${state.receiptDataUrl ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
           <div class="flex gap-2 mb-2">
-            <input id="trip-amt" type="number" inputmode="decimal" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" />
-            <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" />
+            <input id="trip-amt" type="number" inputmode="decimal" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" />
+            <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" />
           </div>
           <!-- Bug reale/limite trovato dal vivo: la data era sempre "oggi",
                mai scelta — quasi nessuno registra uno scontrino nell'istante
@@ -9471,7 +9471,7 @@ window.openBusinessTrip = (tripId) => {
             <div class="neuro-pill-btn !justify-start !flex-none w-full">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
               <span>${esc(formatDataLocale(state.data))}</span>
-              <input type="date" id="trip-data" value="${esc(state.data)}" max="${new Date().toISOString().slice(0, 10)}" class="native-date-input" />
+              <input type="date" id="trip-data" value="${esc(state.data)}" max="${new Date().toISOString().slice(0, 10)}" class="native-date-input" aria-label="${esc(tCh('tripDateLabel', __uiLang))}" />
             </div>
           </div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripCategoryLabel', __uiLang))}</div>
@@ -9701,14 +9701,23 @@ window.openBusinessTrip = (tripId) => {
 window.exportTripCsv = (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
-  const { expenses, totale, offerti, offertiTotale } = exportTripData(trip, allTransactionsFlat());
+  const { expenses, totale, offerti, offertiTotale, numeroGiustificativiMancanti } = exportTripData(trip, allTransactionsFlat());
   if (!expenses.length && !offerti.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
   const etichettaVoce = (e) => e.mealType ? `${tCh('trip_' + e.categoria, __uiLang)} · ${tCh('trip_meal_' + e.mealType, __uiLang)}` : tCh('trip_' + e.categoria, __uiLang);
   // Colonna "giustificativo": il problema reale non è solo del dipendente
   // che compila, è di chi in azienda deve APPROVARE — verificare a occhio,
   // riga per riga, se manca uno scontrino sopra soglia è esattamente il
   // lavoro che fa rimandare indietro una nota spese. Qui è già segnalato.
-  const righe = [[tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('tripCsvColReceipt', __uiLang)]];
+  const righe = [];
+  // Ricerca reale (reclami SAP Concur 2026): il motivo più citato per cui
+  // una nota spese torna indietro è un giustificativo mancante scoperto
+  // TARDI, durante l'approvazione. Una riga di sintesi in cima al CSV lo
+  // rende visibile SUBITO, prima ancora di aprire la tabella riga per riga.
+  if (numeroGiustificativiMancanti > 0) {
+    righe.push([tCh('tripMissingReceiptsSummary', __uiLang, numeroGiustificativiMancanti)]);
+    righe.push([]);
+  }
+  righe.push([tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('tripCsvColReceipt', __uiLang)]);
   expenses.forEach(e => righe.push([e.data, etichettaVoce(e), e.descrizione, e.importo, e.giustificativoMancante ? tCh('tripReceiptMissing', __uiLang) : '']));
   righe.push([]);
   righe.push([tCh('itemSplitTotalLabel', __uiLang), totale]);
@@ -9766,7 +9775,7 @@ const renderPdfReceiptToImage = async (dataUrl) => {
 window.printTripSummary = async (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
-  const { expenses, totale, perCategoria, offerti, offertiTotale } = exportTripData(trip, allTransactionsFlat());
+  const { expenses, totale, perCategoria, offerti, offertiTotale, numeroGiustificativiMancanti } = exportTripData(trip, allTransactionsFlat());
   if (!expenses.length && !offerti.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -9802,6 +9811,7 @@ window.printTripSummary = async (tripId) => {
     </head><body>
     <h1>${esc(trip.name)}</h1>
     <p>${esc(tCh('tripPrintSubtitle', __uiLang))}</p>
+    ${numeroGiustificativiMancanti > 0 ? `<div style="display:flex;align-items:center;background:#fff3cd;border:1px solid #f5d98b;color:#92400e;font-weight:700;font-size:13px;padding:10px 14px;border-radius:8px;margin:10px 0">${svgWarn}${esc(tCh('tripMissingReceiptsSummary', __uiLang, numeroGiustificativiMancanti))}</div>` : ''}
     <table>${righeCat}</table>
     <div class="tot">${esc(tCh('itemSplitTotalLabel', __uiLang))}: ${eur(totale)}</div>
     <h3 style="margin-top:24px">${esc(tCh('splitExportCsvSectionExpenses', __uiLang))}</h3>
