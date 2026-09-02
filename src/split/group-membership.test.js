@@ -149,3 +149,52 @@ test('SCENARIO COMPLETO: esco, mi sincronizzo con due dispositivi, resto fuori',
   assert.ok(hasLeft(mio.members.find((m) => m.id === 'm1')),
     'dopo tre sync con dispositivi che non sanno dell\'uscita, deve restare uscito');
 });
+
+// ── RIAPERTURA DI UN GRUPPO CHIUSO ──
+// Prima la chiusura era una porta a senso unico: `closed` vinceva sempre nel
+// merge e in tutta l'app non esisteva un modo per riaprire. Il caso vero è
+// banalissimo — si chiude dopo aver saldato, il giorno dopo salta fuori una
+// spesa dimenticata — e l'unica via era rifare il gruppo da zero.
+
+test('riapertura: un gruppo chiuso torna aperto, e la riapertura vince nel merge', async () => {
+  const { closeGroup, reopenGroup, isClosed, mergeClosure } = await import('./group-membership.js');
+  const g = { id: 'g1', name: 'Cena', createdBy: 'dev-1', members: [] };
+  const chiuso = closeGroup(g, 'dev-1', { now: 1000 }).group;
+  assert.equal(isClosed(chiuso), true);
+
+  const riaperto = reopenGroup(chiuso, 'dev-1', { now: 2000 }).group;
+  assert.equal(isClosed(riaperto), false);
+
+  // L'altro dispositivo ha ancora la copia chiusa e continua a rimandarla:
+  // non deve poter richiudere ciò che è stato riaperto dopo.
+  assert.equal(isClosed({ ...riaperto, ...mergeClosure(riaperto, chiuso) }), false);
+  assert.equal(isClosed({ ...chiuso, ...mergeClosure(chiuso, riaperto) }), false);
+});
+
+test('riapertura: una chiusura SUCCESSIVA alla riapertura richiude davvero', async () => {
+  const { closeGroup, reopenGroup, isClosed, mergeClosure } = await import('./group-membership.js');
+  const g = { id: 'g1', name: 'Cena', createdBy: 'dev-1', members: [] };
+  const riaperto = reopenGroup(closeGroup(g, 'dev-1', { now: 1000 }).group, 'dev-1', { now: 2000 }).group;
+  const richiuso = closeGroup(riaperto, 'dev-1', { now: 3000 }).group;
+  assert.equal(isClosed(richiuso), true);
+  assert.equal(isClosed({ ...richiuso, ...mergeClosure(richiuso, riaperto) }), true);
+});
+
+test('riapertura: solo chi ha creato il gruppo può riaprirlo, e mai uno già aperto', async () => {
+  const { closeGroup, reopenGroup } = await import('./group-membership.js');
+  const g = { id: 'g1', name: 'Cena', createdBy: 'dev-1', members: [] };
+  const chiuso = closeGroup(g, 'dev-1', { now: 1000 }).group;
+
+  const daAltro = reopenGroup(chiuso, 'dev-2', { now: 2000 });
+  assert.equal(daAltro.ok, false);
+  assert.match(daAltro.motivo, /creato/i);
+
+  const giaAperto = reopenGroup(g, 'dev-1', { now: 2000 });
+  assert.equal(giaAperto.ok, false);
+  assert.match(giaAperto.motivo, /aperto/i);
+});
+
+test('riapertura: un gruppo mai chiuso resta com era, mergeClosure non inventa campi', async () => {
+  const { mergeClosure } = await import('./group-membership.js');
+  assert.deepEqual(mergeClosure({ id: 'g1' }, { id: 'g1' }), {});
+});

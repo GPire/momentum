@@ -89,6 +89,21 @@ export function closeGroup(group, byDeviceId, { now = Date.now() } = {}) {
   return { group: { ...group, closed: now, closedBy: byDeviceId }, ok: true };
 }
 
+// Riapertura: la porta di uscita da quella che era una decisione irreversibile.
+// Il caso vero è banale e frequente — si chiude il gruppo dopo aver saldato,
+// e il giorno dopo salta fuori una spesa dimenticata. Prima l'unica strada era
+// rifare tutto da capo e riaggiungere ognuno, perdendo la storia.
+// Stesse regole della chiusura: può farlo solo chi ha creato il gruppo, ed è
+// un fatto datato che vince sulla chiusura precedente (vedi mergeClosure).
+export function reopenGroup(group, byDeviceId, { now = Date.now() } = {}) {
+  if (!group) return { group, ok: false, motivo: 'gruppo mancante' };
+  if (!isClosed(group)) return { group, ok: false, motivo: 'questo gruppo è già aperto' };
+  if (!isCreator(group, byDeviceId)) {
+    return { group, ok: false, motivo: 'solo chi ha creato il gruppo può riaprirlo' };
+  }
+  return { group: { ...group, reopened: now }, ok: true };
+}
+
 // Uscita locale: il gruppo sparisce da QUESTO dispositivo e basta. È la via
 // per chi non è il creatore e non vuole più vederlo. Non è una lapide
 // condivisa: gli altri non se ne accorgono, ed è giusto così.
@@ -99,7 +114,16 @@ export function hideLocally(group, { now = Date.now() } = {}) {
 // ── Le domande che il resto dell'app fa a questo modulo ──
 
 export function hasLeft(member) { return !!(member && member.left); }
-export function isClosed(group) { return !!(group && group.closed); }
+// Chiuso solo se l'ultima parola è stata la chiusura: dal momento in cui un
+// gruppo può essere RIAPERTO (vedi mergeClosure), "ha una data di chiusura"
+// non basta più a dire che è chiuso. Aggiornata qui, dove tutta l'app già
+// chiede — invece di aggiungere una seconda funzione e lasciare in giro punti
+// che continuano a rispondere con la vecchia regola.
+export function isClosed(group) {
+  const c = +group?.closed || 0;
+  const r = +group?.reopened || 0;
+  return c > 0 && c >= r;
+}
 
 // I membri ATTIVI: chi non è uscito. È questa la lista da mostrare quando si
 // chiede "chi paga" o "fra chi si divide".
@@ -131,10 +155,29 @@ export function mergeMemberPair(prev, next) {
   return next.claimedBy && !prev.claimedBy ? next : prev;
 }
 
-// Chiusura del gruppo nel merge: vale lo stesso principio, la lapide vince.
+// Chiusura del gruppo nel merge. Prima era una porta a senso unico: `closed`
+// vinceva sempre col massimo, quindi un gruppo chiuso non poteva più tornare
+// aperto NEMMENO volendo — e infatti in tutta l'app non esisteva un modo per
+// riaprirlo. Il problema si vede quando succede la cosa più normale del
+// mondo: si chiude il gruppo dopo aver saldato, e il giorno dopo salta fuori
+// una spesa dimenticata. L'unica via era rifare il gruppo da zero e
+// riaggiungere tutti, perdendo la storia.
+// Stessa soluzione già adottata per le trasferte (trips/trip-engine.js): due
+// date che si confrontano invece di una lapide definitiva — `closed` chiude,
+// `reopened` riapre, vince la più recente. Un dispositivo rimasto indietro
+// non può riaprire un gruppo per ignoranza (non ha una data di riapertura),
+// e chi riapre davvero lo fa con un gesto esplicito e datato.
 export function mergeClosure(a, b) {
   const ac = +a?.closed || 0, bc = +b?.closed || 0;
-  if (!ac && !bc) return {};
+  const ar = +a?.reopened || 0, br = +b?.reopened || 0;
+  if (!ac && !bc && !ar && !br) return {};
   const closed = Math.max(ac, bc);
-  return { closed, closedBy: (bc > ac ? b.closedBy : a.closedBy) || a?.closedBy || b?.closedBy };
+  const reopened = Math.max(ar, br);
+  const out = {};
+  if (closed) {
+    out.closed = closed;
+    out.closedBy = (bc > ac ? b?.closedBy : a?.closedBy) || a?.closedBy || b?.closedBy;
+  }
+  if (reopened) out.reopened = reopened;
+  return out;
 }
