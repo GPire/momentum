@@ -8411,14 +8411,38 @@ window.openMomentumReveal = (g = null) => {
         <h3 class="text-lg font-black leading-tight">${tCh('revealTitle', __uiLang)}</h3>
         <p class="card-sub !mb-0">${tCh('revealSub', __uiLang)}</p>
       </div>
-      <div class="flex flex-col gap-2">
-        ${cards.map(card => `<div class="flex items-center gap-3 rounded-2xl border p-3 ${tone[card.c]}">
+      <div class="reveal-cards flex flex-col gap-2">
+        ${cards.map((card, i) => `<div class="reveal-card flex items-center gap-3 rounded-2xl border p-3 ${tone[card.c]}" style="--i:${i}">
           <div class="w-9 h-9 rounded-xl grid place-items-center border ${tone[card.c]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${card.i}</svg></div>
           <div class="min-w-0"><div class="text-[13px] font-black text-[var(--on-surface)]">${esc(card.t)}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${card.d}</div></div>
         </div>`).join('')}
+        <!-- LA DIFFERENZA, detta con fatti verificabili e non con aggettivi.
+             Ricerca reale (recensioni e confronti 2026): Splitwise ha messo un
+             tetto di ~3 spese al giorno sul piano gratuito e ha spostato dietro
+             al Pro proprio la scansione dello scontrino e la conversione di
+             valuta. Chi arriva qui da lì sta guardando esattamente quelle tre
+             cose. Dirle è onesto: sono vere, e sono vere PERCHÉ non c'è un
+             server da pagare — non per generosità. -->
+        <div class="reveal-card rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3" style="--i:${cards.length}">
+          <div class="text-[13px] font-black mb-1.5">${esc(tCh('revealDiffTitle', __uiLang))}</div>
+          <div class="flex flex-col gap-1">
+            ${[tCh('revealDiff1', __uiLang), tCh('revealDiff2', __uiLang), tCh('revealDiff3', __uiLang)].map(riga => `
+              <div class="flex items-start gap-1.5 text-[11px] text-[var(--on-surface-secondary)] leading-snug">
+                <svg class="w-3 h-3 shrink-0 mt-0.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>
+                <span>${esc(riga)}</span>
+              </div>`).join('')}
+          </div>
+          <!-- Il Pro si nomina qui, in una riga, dicendo COSA È e cosa NON è:
+               riguarda solo l'analisi degli investimenti. Tacerlo lascerebbe
+               il dubbio che prima o poi arrivi un tetto anche qui; gonfiarlo
+               sarebbe la stessa cosa che stiamo criticando. -->
+          <div class="text-[10px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(tCh('revealProLine', __uiLang))}</div>
+        </div>
       </div>
-      <button id="rev-activate" class="btn-action btn-primary w-full py-3.5 font-black rounded-xl active:scale-[0.98] transition-transform">${tCh('revealActivate', __uiLang)}</button>
-      <button id="rev-later" class="text-[12px] text-[var(--on-surface-secondary)] underline">${tCh('revealLater', __uiLang)}</button>
+      <div class="reveal-actions flex flex-col gap-2">
+        <button id="rev-activate" class="btn-action btn-primary w-full py-3.5 font-black rounded-xl active:scale-[0.98] transition-transform">${tCh('revealActivate', __uiLang)}</button>
+        <button id="rev-later" class="w-full py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${tCh('revealLater', __uiLang)}</button>
+      </div>
     </div>`);
   $('#rev-activate')?.addEventListener('click', () => window.openActivationQuestions(() => { showToast(tCh('revealToastActivated', __uiLang), 'success'); if (g) setTimeout(() => window.openSplitGroup(g.id), 300); }));
   $('#rev-later')?.addEventListener('click', () => { closeModal(); haptic('light'); if (g) setTimeout(() => window.openSplitGroup(g.id), 250); });

@@ -2484,6 +2484,20 @@
        recupero, e le righe che salgono una dopo l'altra sono le transazioni
        che tornano al loro posto — si vede cosa sta succedendo prima ancora di
        leggerlo. Niente di più: nessun rimbalzo allegro su un contrattempo. */
+    /* MOMENTUM REVEAL — il momento in cui una persona arrivata da un link
+       scopre che qui non c'è solo la divisione delle spese. È l'unico momento
+       in cui la abbiamo, e dura pochi secondi: le carte non compaiono tutte
+       insieme (un muro di testo si salta), arrivano una per volta, così
+       l'occhio le legge invece di scavalcarle. L'ultima — quella con i fatti
+       verificabili — arriva per ultima e resta, perché è quella che decide. */
+    .reveal-card { animation: txRise .42s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(.12s + var(--i, 0) * .09s); }
+    .reveal-actions > button { animation: txRise .4s cubic-bezier(.22,1,.36,1) both; }
+    .reveal-actions > button:nth-child(1) { animation-delay: .52s; }
+    .reveal-actions > button:nth-child(2) { animation-delay: .6s; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal-card, .reveal-actions > button { animation: none; }
+    }
+
     .recovery-badge { animation: recoveryBadge .9s cubic-bezier(.22,1,.36,1) .05s both; }
     @keyframes recoveryBadge {
       0% { transform: scale(.7) rotate(28deg); opacity: 0; }
