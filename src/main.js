@@ -9605,7 +9605,7 @@ window.openBusinessTrip = (tripId) => {
             <div class="neuro-pill-btn !justify-start !flex-none w-full">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
               <span>${esc(formatDataLocale(state.data))}</span>
-              <input type="date" id="trip-data" value="${esc(state.data)}" max="${new Date().toISOString().slice(0, 10)}" class="native-date-input" aria-label="${esc(tCh('tripDateLabel', __uiLang))}" />
+              <input type="date" id="trip-data" value="${esc(state.data)}" max="${new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)}" class="native-date-input" aria-label="${esc(tCh('tripDateLabel', __uiLang))}" />
             </div>
           </div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripCategoryLabel', __uiLang))}</div>
@@ -9637,7 +9637,15 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-back')?.addEventListener('click', () => window.openBusinessTrips());
     $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; });
     $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
-    $('#trip-data')?.addEventListener('change', (e) => { state.data = e.target.value || new Date().toISOString().slice(0, 10); });
+    // BUG REALE segnalato dall'utente ("la data resta fissa e non me la fa
+    // cambiare"): lo stato veniva aggiornato ma la schermata NO, e l'etichetta
+    // della pillola continuava a mostrare la data vecchia. Chi la cambiava
+    // vedeva esattamente quello che vedeva prima, e concludeva — giustamente —
+    // che il campo fosse bloccato. Il dato era corretto, la schermata mentiva.
+    $('#trip-data')?.addEventListener('change', (e) => {
+      state.data = e.target.value || new Date().toISOString().slice(0, 10);
+      render();
+    });
     // Proposta automatica della macro-voce mentre si scrive: prima andava
     // sempre scelta a mano, anche quando la descrizione già la suggeriva
     // da sola ("Hotel Marriott" → Alloggio). Stesso ensemble proprietario
