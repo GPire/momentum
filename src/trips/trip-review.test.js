@@ -94,6 +94,36 @@ test('anche una trasferta di mesi (120 spese) resta dentro i limiti di un QR', a
   assert.ok(out.expenses.every(e => e.giustificativoMancante));
 });
 
+// Caso sollevato esplicitamente: una trasferta di due mesi può avere 800
+// spese o più. Il degrado a un solo livello (per giorno) non basta, perché i
+// totali giornalieri crescono coi GIORNI: a 1500 spese su 112 giorni si
+// sforava di nuovo. Il secondo livello raggruppa per mese e il codice resta
+// piccolo per sempre, qualunque sia la durata.
+test('trasferte enormi (800, 1500, 3000 spese): il codice resta sempre dentro i limiti di un QR', async () => {
+  const mk = (n) => ({
+    tripId: 'trip-lungo', tripName: 'Progetto annuale', totale: 0, numeroGiustificativiMancanti: Math.ceil(n / 3),
+    expenses: Array.from({ length: n }, (_, i) => ({
+      data: `2026-${String(1 + (Math.floor(i / 300) % 12)).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+      categoria: ['vitto', 'trasporto', 'alloggio', 'altro'][i % 4],
+      descrizione: `Spesa numero ${i}`, importo: 10 + (i % 90), scontrino: null, giustificativoMancante: i % 3 === 0,
+    })),
+  });
+  for (const n of [800, 1500, 3000]) {
+    const code = await encodeTripReview(mk(n));
+    assert.ok(code.length < 900, `${n} spese → ${code.length} caratteri: oltre il limite di un QR`);
+    const out = await decodeTripReview(code);
+    assert.equal(out.ridotto, true);
+    assert.equal(out.raggruppamento, 'mese');
+    assert.equal(out.numeroSpeseTotali, n); // il numero vero non si perde mai
+    assert.ok(Object.keys(out.totaliPerGiorno).length <= 12); // al massimo dodici mesi
+  }
+});
+
+test('il livello di raggruppamento è sempre dichiarato: mai "per giorno" sopra dei totali mensili', async () => {
+  const corta = await decodeTripReview(await encodeTripReview(riepilogoBase()));
+  assert.equal(corta.raggruppamento, null); // dettaglio completo
+});
+
 test('trasferta corta: nessun degrado, il dettaglio completo resta tutto nel codice', async () => {
   const out = await decodeTripReview(await encodeTripReview(riepilogoBase()));
   assert.equal(out.ridotto, false);
@@ -204,6 +234,44 @@ test('markTripSentForReview: la trasferta risulta "inviata", mai muta dopo la co
   assert.equal(dopo.approval.state, 'inviata');
   assert.ok(dopo.approval.sentAt > 0);
   assert.equal(trip.approval, undefined);
+});
+
+// SCALA REALE: un manager di un'azienda vera non riceve una nota spese, ne
+// riceve cento nello stesso periodo — una per dipendente, ognuna generata su
+// un telefono diverso, senza nessun server che coordini gli identificativi.
+// Due cose devono reggere: che due trasferte non finiscano mai con lo stesso
+// id (altrimenti l'esito di uno approverebbe la trasferta di un altro), e che
+// ogni esito si applichi SOLO alla sua trasferta.
+test('cento dipendenti, cento trasferte: nessun id ripetuto e nessun esito che finisce sulla trasferta sbagliata', async () => {
+  const { createTrip } = await import('./trip-engine.js');
+  const trips = Array.from({ length: 120 }, (_, i) => createTrip({ name: `Trasferta dipendente ${i}` }));
+
+  // Nessuna collisione di identificativi fra dispositivi che non si parlano.
+  assert.equal(new Set(trips.map(t => t.id)).size, trips.length);
+
+  // Ogni esito vale per la sua trasferta e per nessun'altra.
+  for (const t of trips) {
+    const v = decodeTripVerdict(encodeTripVerdict({ tripId: t.id, state: 'approvata', reviewer: 'Manager' }));
+    assert.equal(applyTripVerdict(t, v).approval.state, 'approvata');
+    const altra = trips.find(x => x.id !== t.id);
+    assert.throws(() => applyTripVerdict(altra, v), /altra trasferta/i);
+  }
+});
+
+test('un manager che apre cento richieste di seguito le legge tutte, ognuna con i suoi dati', async () => {
+  const codici = [];
+  for (let i = 0; i < 100; i++) {
+    codici.push(await encodeTripReview({
+      tripId: `dip-${i}`, tripName: `Dipendente ${i}`, totale: 100 + i, numeroGiustificativiMancanti: i % 4,
+      expenses: [{ data: '2026-09-10', categoria: 'trasporto', descrizione: `Treno ${i}`, importo: 100 + i, scontrino: null, giustificativoMancante: i % 4 > 0 }],
+    }));
+  }
+  for (let i = 0; i < 100; i++) {
+    const out = await decodeTripReview(codici[i]);
+    assert.equal(out.tripId, `dip-${i}`);
+    assert.equal(out.totale, 100 + i);
+    assert.equal(out.expenses[0].descrizione, `Treno ${i}`);
+  }
 });
 
 test('i prefissi dei due codici sono diversi: un esito non può essere scambiato per una richiesta', async () => {

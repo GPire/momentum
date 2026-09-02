@@ -157,7 +157,23 @@ export async function encodeTripReview({ tripId, tripName, startDate, endDate, e
     cc: perCategoria,
     r: slim.r.filter(x => x.x).slice(0, 25), // solo le righe che richiedono un giustificativo
   };
-  return codifica(sintesi);
+  const ridotto = await codifica(sintesi);
+  if (ridotto.length <= maxLen) return ridotto;
+
+  // SECONDO LIVELLO — limite trovato spingendo i numeri fino a dove arrivano
+  // davvero: con 1500 spese su 112 giorni anche la sintesi giornaliera sfora
+  // (1192 caratteri), perché i totali per giorno crescono coi GIORNI, non con
+  // le spese. Una trasferta di mesi va allora riassunta per MESE: due mesi
+  // fanno due righe, un anno ne fa dodici, e il codice resta piccolo per
+  // sempre. Chi approva una trasferta lunghissima guarda comunque prima i
+  // totali di periodo — il dettaglio giorno per giorno lo apre dal
+  // collegamento diretto o dal riepilogo stampabile.
+  const perMese = {};
+  for (const [giorno, tot] of Object.entries(perGiorno)) {
+    const mese = String(giorno).slice(0, 7);
+    perMese[mese] = Math.round(((perMese[mese] || 0) + tot + Number.EPSILON) * 100) / 100;
+  }
+  return codifica({ ...sintesi, z: 2, gg: perMese, r: sintesi.r.slice(0, 10) });
 }
 
 // Estrae il payload da QUALSIASI cosa: codice nudo, link completo incollato,
@@ -219,6 +235,10 @@ export async function decodeTripReview(code) {
       // per giorno/categoria restano esatti, e il dettaglio completo arriva
       // sul collegamento diretto.
       ridotto: !!g.z,
+      // Livello del raggruppamento, così chi mostra i dati non scrive
+      // "per giorno" sopra dei totali che sono per mese (una bugia piccola
+      // ma di quelle che fanno perdere fiducia in un documento di soldi).
+      raggruppamento: g.z === 2 ? 'mese' : (g.z ? 'giorno' : null),
       numeroSpeseTotali: g.z ? (+g.q || 0) : (Array.isArray(g.r) ? g.r.length : 0),
       totaliPerGiorno: g.gg || null,
       totaliPerCategoria: g.cc || null,
