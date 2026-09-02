@@ -2516,6 +2516,48 @@
       .reveal-card, .reveal-actions > button { animation: none; }
     }
 
+    /* SELETTORE DATA DI MOMENTUM (ui/date-picker.js). Riusa le celle del
+       calendario di Analisi Tensor (.cal-giorno) invece di inventare un
+       secondo linguaggio: chi lo apre riconosce qualcosa che ha già visto.
+       Il pannello scende come un cassetto, e i giorni entrano a onda — non
+       per decorare, ma perché un mese che compare tutto insieme è un muro di
+       trenta numeri, mentre uno che si riempie in un quarto di secondo si
+       legge mentre arriva. */
+    .dp-pannello { animation: dpApri .26s cubic-bezier(.22,1,.36,1) both; transform-origin: top center; }
+    @keyframes dpApri { from { opacity: 0; transform: translateY(-6px) scaleY(.96); } to { opacity: 1; transform: none; } }
+    .dp-griglia { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .dp-intestazione { margin-bottom: 3px; }
+    .dp-intestazione span { text-align: center; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--on-surface-secondary); opacity: .7; }
+    .dp-giorno {
+      aspect-ratio: 1; display: grid; place-items: center;
+      font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+      border-radius: .6rem; color: var(--on-surface);
+      animation: dpCella .2s ease-out both; animation-delay: calc(var(--i, 0) * 4ms);
+    }
+    @keyframes dpCella { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+    /* Il giorno scelto: pieno, non solo bordato — a colpo d'occhio si vede
+       DOVE si è, senza dover cercare quale cella ha il contorno diverso. */
+    .dp-giorno.dp-scelto { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--primary) 70%, transparent); }
+    .dp-giorno.dp-off { opacity: .25; pointer-events: none; }
+    /* Giorno GIÀ COPERTO da almeno una spesa di questa trasferta. Un puntino,
+       non un colore pieno: il colore pieno è già del giorno scelto, e due
+       pieni diversi nella stessa griglia si confondono. Verde perché qui
+       "coperto" è una cosa fatta, non un allarme — e i giorni SENZA puntino
+       diventano leggibili come i buchi che sono. */
+    .dp-giorno { position: relative; }
+    .dp-punto {
+      position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--green);
+      animation: dpPunto .3s cubic-bezier(.34,1.56,.64,1) both; animation-delay: .18s;
+    }
+    .dp-giorno.dp-scelto .dp-punto { background: #fff; opacity: .9; }
+    @keyframes dpPunto { from { transform: translateX(-50%) scale(0); } to { transform: translateX(-50%) scale(1); } }
+    @media (prefers-reduced-motion: reduce) { .dp-punto { animation: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .dp-pannello, .dp-giorno { animation: none; }
+    }
+
     .recovery-badge { animation: recoveryBadge .9s cubic-bezier(.22,1,.36,1) .05s both; }
     @keyframes recoveryBadge {
       0% { transform: scale(.7) rotate(28deg); opacity: 0; }

@@ -5,6 +5,7 @@ import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } from './core/vault.js';
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
+import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -9388,6 +9389,68 @@ function allTransactionsFlat() { return Object.values(VaultDAO.state.transaction
 // Parsing manuale (mai `new Date('yyyy-mm-dd')`, che legge la stringa come
 // UTC mezzanotte e in fusi orari indietro rispetto a UTC mostra il giorno
 // PRIMA — stesso bug già risolto altrove in questa sessione per #tx-date-input).
+// Il calendario del selettore data: stesse celle, stessi neurocolori e stessa
+// aptica del calendario di Analisi Tensor — chi lo apre riconosce una cosa che
+// ha già visto, invece di trovarsi davanti il selettore del sistema operativo
+// (un pezzo di un'altra app, con altri colori e altre parole).
+function calendarioTrasfertaHtml(state, giorniCoperti = new Map()) {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const scelta = parseIso(state.data) || parseIso(new Date().toISOString().slice(0, 10));
+  const anno = state.calAnno ?? scelta.anno;
+  const mese0 = state.calMese0 ?? scelta.mese0;
+  const oggiIso = new Date().toISOString().slice(0, 10);
+  // Un anno avanti: una trasferta si pianifica (un volo pagato oggi per il
+  // mese prossimo), ma oltre non c'è caso d'uso e si eviterebbe solo di
+  // digitare per sbaglio il 2126.
+  const limiti = { max: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10) };
+  const prec = mesePrecedente(anno, mese0);
+  const succ = meseSuccessivo(anno, mese0);
+  const puoIndietro = meseHaGiorniAmmessi(prec.anno, prec.mese0, limiti);
+  const puoAvanti = meseHaGiorniAmmessi(succ.anno, succ.mese0, limiti);
+  const nomeMese = new Date(anno, mese0, 1).toLocaleDateString(__uiLocale, { month: 'long', year: 'numeric' });
+  // Iniziali dei giorni nella lingua dell'utente, lunedì per primo: mai una
+  // riga "L M M G V S D" scritta a mano che resta italiana per un tedesco.
+  const iniziali = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i)
+    .toLocaleDateString(__uiLocale, { weekday: 'narrow' }));
+  const celle = monthGrid(anno, mese0).map((g, i) => {
+    if (g === null) return '<span></span>';
+    const iso = isoDi(anno, mese0, g);
+    const ammesso = giornoAmmesso(iso, limiti);
+    const isScelto = iso === state.data;
+    const isOggi = iso === oggiIso;
+    const classi = ['dp-giorno', 'cal-giorno'];
+    if (isScelto) classi.push('dp-scelto');
+    if (isOggi && !isScelto) classi.push('cal-oggi');
+    if (!ammesso) classi.push('dp-off');
+    // GIORNO GIÀ COPERTO: in una trasferta di giorni o settimane la domanda
+    // vera non è "che giorno è", è "martedì l'ho già messo?". Un puntino sul
+    // giorno che ha già almeno una spesa risponde prima ancora di chiederlo,
+    // e mostra a colpo d'occhio i BUCHI — che sono l'errore vero: una
+    // giornata dimenticata in una nota spese la scopre chi la approva.
+    const speseDelGiorno = giorniCoperti.get(iso) || 0;
+    if (speseDelGiorno > 0) classi.push('dp-coperto');
+    const etichetta = speseDelGiorno > 0
+      ? `${g} · ${tCh('dpDayCovered', __uiLang, speseDelGiorno)}`
+      : String(g);
+    return `<button type="button" ${ammesso ? `data-dpday="${iso}"` : 'disabled'} style="--i:${i}" class="${classi.join(' ')}" aria-label="${etichetta}" ${isScelto ? 'aria-current="date"' : ''}>${g}${speseDelGiorno > 0 ? '<span class="dp-punto" aria-hidden="true"></span>' : ''}</button>`;
+  }).join('');
+  return `
+    <div id="trip-cal" class="dp-pannello card p-2.5 mt-1.5">
+      <div class="flex items-center justify-between mb-1.5">
+        <button type="button" id="dp-prec" ${puoIndietro ? '' : 'disabled'} aria-label="${esc(tCh('dpPrevMonth', __uiLang))}" class="w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <span class="text-[12px] font-black capitalize">${esc(nomeMese)}</span>
+        <button type="button" id="dp-succ" ${puoAvanti ? '' : 'disabled'} aria-label="${esc(tCh('dpNextMonth', __uiLang))}" class="w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="dp-griglia dp-intestazione">${iniziali.map(i => `<span>${esc(i)}</span>`).join('')}</div>
+      <div class="dp-griglia dp-giorni">${celle}</div>
+      <button type="button" id="dp-oggi" class="w-full mt-1.5 py-2 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] text-[11px] font-bold text-[var(--on-surface-secondary)] active:scale-[0.98] transition-transform">${esc(tCh('dpToday', __uiLang))}</button>
+    </div>`;
+}
+
 function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) {
   const [yy, mm, dd] = String(iso).split('-').map(Number);
   if (!yy || !mm || !dd) return String(iso);
@@ -9475,7 +9538,7 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10) };
+  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
@@ -9508,6 +9571,13 @@ window.openBusinessTrip = (tripId) => {
     // già le transazioni per giorno, vedi .tx-giorno più sopra). Sotto i 2
     // giorni distinti l'intestazione non aggiunge nulla: resta la lista
     // semplice, mai un'intestazione per una sola voce.
+    // Quante spese ha già ogni giorno di QUESTA trasferta: serve al calendario
+    // per mostrare i giorni coperti e, soprattutto, i buchi.
+    const giorniConSpese = new Map();
+    for (const t of expenses) {
+      const g = String(t.date).slice(0, 10);
+      giorniConSpese.set(g, (giorniConSpese.get(g) || 0) + 1);
+    }
     const expensesOrdinate = [...expenses].sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const giorniDistinti = new Set(expensesOrdinate.map(t => String(t.date).slice(0, 10))).size;
     let rows;
@@ -9602,11 +9672,18 @@ window.openBusinessTrip = (tripId) => {
                la data sbagliata, rompendo il raggruppamento per giorno. -->
           <div class="mb-2">
             <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripDateLabel', __uiLang))}</div>
-            <div class="neuro-pill-btn !justify-start !flex-none w-full">
+            <!-- Selettore data DI MOMENTUM (ui/date-picker.js). Prima qui
+                 c'era un campo data nativo reso invisibile sopra la pillola:
+                 sul telefono apriva il selettore di sistema, sul desktop
+                 NIENTE (bisognava colpire un'iconcina invisibile) — e in
+                 entrambi i casi era un pezzo di un'altra app, con altri
+                 colori e altre parole. -->
+            <button type="button" id="trip-data-apri" class="neuro-pill-btn !justify-start !flex-none w-full active:scale-[0.99] transition-transform" aria-label="${esc(tCh('tripDateLabel', __uiLang))}" aria-expanded="${state.calendarioAperto ? 'true' : 'false'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
-              <span>${esc(formatDataLocale(state.data))}</span>
-              <input type="date" id="trip-data" value="${esc(state.data)}" max="${new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)}" class="native-date-input" aria-label="${esc(tCh('tripDateLabel', __uiLang))}" />
-            </div>
+              <span class="flex-1 text-left">${esc(formatDataLocale(state.data))}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 transition-transform ${state.calendarioAperto ? 'rotate-180' : ''}"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            ${state.calendarioAperto ? calendarioTrasfertaHtml(state, giorniConSpese) : ''}
           </div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripCategoryLabel', __uiLang))}</div>
           <div class="flex flex-wrap gap-1.5 mb-2">${TRIP_CATEGORIES.map(cat => `<button data-tripcat="${cat}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.tripCategory === cat ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('trip_' + cat, __uiLang))}</button>`).join('')}</div>
@@ -9637,15 +9714,41 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-back')?.addEventListener('click', () => window.openBusinessTrips());
     $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; });
     $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
-    // BUG REALE segnalato dall'utente ("la data resta fissa e non me la fa
-    // cambiare"): lo stato veniva aggiornato ma la schermata NO, e l'etichetta
-    // della pillola continuava a mostrare la data vecchia. Chi la cambiava
-    // vedeva esattamente quello che vedeva prima, e concludeva — giustamente —
-    // che il campo fosse bloccato. Il dato era corretto, la schermata mentiva.
-    $('#trip-data')?.addEventListener('change', (e) => {
-      state.data = e.target.value || new Date().toISOString().slice(0, 10);
+    // Selettore data di Momentum: apre/chiude il calendario disegnato.
+    // (Prima qui c'era un input invisibile che sul desktop non apriva niente —
+    // il campo sembrava rotto, ed era la segnalazione da cui è nato tutto.)
+    $('#trip-data-apri')?.addEventListener('click', () => {
+      state.calendarioAperto = !state.calendarioAperto;
+      if (state.calendarioAperto) {
+        // Si apre SEMPRE sul mese della data scelta, non su quello di sistema:
+        // chi sta correggendo una spesa del mese scorso non deve ritrovarsi
+        // ogni volta a settembre.
+        const p = parseIso(state.data);
+        state.calAnno = p?.anno ?? null; state.calMese0 = p?.mese0 ?? null;
+      }
+      haptic('light');
       render();
     });
+    $('#dp-prec')?.addEventListener('click', () => {
+      const p = mesePrecedente(state.calAnno, state.calMese0);
+      state.calAnno = p.anno; state.calMese0 = p.mese0; haptic('light'); render();
+    });
+    $('#dp-succ')?.addEventListener('click', () => {
+      const s = meseSuccessivo(state.calAnno, state.calMese0);
+      state.calAnno = s.anno; state.calMese0 = s.mese0; haptic('light'); render();
+    });
+    $('#dp-oggi')?.addEventListener('click', () => {
+      state.data = new Date().toISOString().slice(0, 10);
+      state.calendarioAperto = false; haptic('medium'); render();
+    });
+    document.querySelectorAll('[data-dpday]').forEach(b => b.addEventListener('click', () => {
+      state.data = b.dataset.dpday;
+      // Si chiude da solo: la scelta è fatta, tenerlo aperto costringerebbe a
+      // un secondo gesto per tornare al modulo.
+      state.calendarioAperto = false;
+      haptic('medium');
+      render();
+    }));
     // Proposta automatica della macro-voce mentre si scrive: prima andava
     // sempre scelta a mano, anche quando la descrizione già la suggeriva
     // da sola ("Hotel Marriott" → Alloggio). Stesso ensemble proprietario
