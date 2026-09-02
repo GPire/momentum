@@ -2035,6 +2035,34 @@ function evaluateAndCelebrateAchievements() {
 const openTransactionModal = () => {
   openModal(getTxFormHTML(), getTxFormFooterHTML());
   attachFormListeners($('#modal-body'));
+  // ATTRITO SEGNALATO DA PIÙ UTENTI: si apriva il Command Center e bisognava
+  // toccare ANCORA il campo per far uscire il tastierino del telefono. Due
+  // gesti per fare la cosa più frequente dell'app — e il secondo su un
+  // bersaglio che non tutti capivano fosse toccabile.
+  // Il fuoco va messo QUI e SUBITO, non dentro un setTimeout: su iOS la
+  // tastiera si apre solo se la focus() avviene ancora dentro la catena del
+  // tocco dell'utente: un rinvio, anche di un millisecondo, la fa fallire in
+  // silenzio (il campo prende il fuoco, la tastiera no).
+  // Due volte, e non per eccesso di zelo: openModal blocca il body in
+  // `position: fixed` (per non far scorrere la pagina sotto) e anima il
+  // contenuto da `opacity: 0` — entrambe le cose fanno perdere il fuoco
+  // appena assegnato, verificato dal vivo (la selezione restava, il fuoco no).
+  // Il primo tentativo è SINCRONO perché su iOS la tastiera si apre solo se
+  // la focus() avviene ancora dentro la catena del tocco; il secondo, al
+  // frame successivo, è quello che di fatto tiene — e su iOS non fa danno,
+  // perché ri-mettere il fuoco su un campo che ce l'ha già non chiude nulla.
+  const metti = () => {
+    const amt = document.getElementById('tx-amount-display');
+    if (!amt) return;
+    try {
+      amt.focus({ preventScroll: true });
+      // Il valore parte da "0": selezionarlo fa sì che la prima cifra digitata
+      // lo sostituisca, invece di lasciare "05".
+      amt.setSelectionRange(0, String(amt.value || '').length);
+    } catch (_) { /* un browser che non lo permette non deve rompere l'apertura */ }
+  };
+  metti();
+  requestAnimationFrame(metti);
 };
 
 // Apre il form di aggiunta GIÀ pre-compilato (da una scorciatoia della
@@ -2814,10 +2842,24 @@ const renderDashboard = () => {
     .filter((mk) => mk < k)
     .some((mk) => (tuttoPerDisegnare[mk] || []).some((t) => t.type === 'entrata'));
   const entrataAncoraDaVenire = inc === 0 && exp > 0 && mesiPrecedentiConEntrate;
+  // BUG REALE segnalato da utenti: dopo "Parti dai miei dati" molti vedevano
+  // un saldo profondamente NEGATIVO (o assurdamente positivo) e concludevano
+  // che i conti fossero sbagliati. Non lo erano: avevano registrato qualche
+  // spesa e nessuna entrata, quindi "quanto avanza" era la differenza vera —
+  // ma letta come "sei in rosso" invece che "manca metà dell'informazione".
+  // La difesa che esisteva (entrataAncoraDaVenire) chiedeva mesi PRECEDENTI
+  // con entrate: non poteva scattare proprio per chi ha appena iniziato,
+  // cioè per l'unica persona che quel numero lo vede senza contesto.
+  const nessunaEntrataMai = !Object.values(tuttoPerDisegnare || {})
+    .some((arr) => (arr || []).some((t) => t.type === 'entrata'));
+  const soloUsciteFinora = inc === 0 && exp > 0 && nessunaEntrataMai;
 
   $('#total-income').textContent = formatMoney(inc);
   $('#total-expense').textContent = formatMoney(exp);
-  $('#total-liquidity').textContent = formatMoney(liquidity);
+  // Finché non c'è NESSUNA entrata registrata, "quanto avanza" non è una
+  // misura: è metà di una sottrazione. Si mostra un trattino invece di un
+  // numero che sembra un verdetto — la nota sotto la barra spiega perché.
+  $('#total-liquidity').textContent = soloUsciteFinora ? '—' : formatMoney(liquidity);
   $('#total-invest').textContent = formatMoney(inv);
   const iebInc = $('#income-expense-bar-inc'), iebExp = $('#income-expense-bar-exp'), iebNote = $('#income-expense-bar-note');
   if (iebInc && iebExp) {
@@ -2832,11 +2874,13 @@ const renderDashboard = () => {
     // Quando l'entrata deve ancora arrivare la barra si smorza e la nota dice
     // cosa sta succedendo invece di quantificare un buco che si chiudera' da
     // solo fra due settimane.
-    iebExp.style.opacity = entrataAncoraDaVenire ? '.45' : '';
+    iebExp.style.opacity = (entrataAncoraDaVenire || soloUsciteFinora) ? '.45' : '';
     if (iebNote) {
-      const notaBase = entrataAncoraDaVenire
-        ? tCh('dashSalaryPending', __uiLang)
-        : liquidity >= 0 ? tCh('dashMarginPositive', __uiLang, formatMoney(liquidity)) : tCh('dashMarginNegative', __uiLang, formatMoney(liquidity));
+      const notaBase = soloUsciteFinora
+        ? tCh('dashNoIncomeYet', __uiLang)
+        : entrataAncoraDaVenire
+          ? tCh('dashSalaryPending', __uiLang)
+          : liquidity >= 0 ? tCh('dashMarginPositive', __uiLang, formatMoney(liquidity)) : tCh('dashMarginNegative', __uiLang, formatMoney(liquidity));
       // Appesa in coda, mai al posto della nota principale: il caso normale
       // (nessuna valuta estera) resta IDENTICO a prima di questo fix.
       iebNote.textContent = notaValuta ? `${notaBase} · ${notaValuta}` : notaBase;
@@ -8047,11 +8091,18 @@ window.openSalaryEditor = (onDone = null) => {
     VaultDAO.save(); haptic('medium');
     closeModal();
     showToast(`Accredito impostato: ${eur(amt)} il giorno ${day}.`, 'success');
+    // Stesso difetto del budget: la Dashboard mostra "stipendio fra N giorni"
+    // e restava ferma sul vecchio accredito finché non si ridisegnava per
+    // altro. `onDone` aggiorna solo il pannello da cui si è arrivati.
+    try { renderDashboard(); } catch (_) {}
+    try { renderAnalysis({ skipHeavyForecast: true }); } catch (_) {}
     if (onDone) onDone();
   });
   $('#sal-reset')?.addEventListener('click', () => {
     delete VaultDAO.state.salaryProfile; VaultDAO.save();
     closeModal(); showToast('Ora lo capisco di nuovo dai tuoi movimenti.', 'info');
+    try { renderDashboard(); } catch (_) {}
+    try { renderAnalysis({ skipHeavyForecast: true }); } catch (_) {}
     if (onDone) onDone();
   });
 };
@@ -15632,6 +15683,12 @@ window.confirmBudgetEdit = () => {
   VaultDAO.save();
   closeModal();
   showToast('Budget aggiornato.', 'success');
+  // BUG REALE segnalato da utenti ("cambio il budget e resta quello vecchio"):
+  // si ridisegnava solo Analisi, ma il budget è il numero su cui è costruita
+  // la DASHBOARD — "oggi puoi spendere", quanto avanza, la traiettoria del
+  // mese. Restava il vecchio finché non scattava un render per altro motivo,
+  // e l'utente concludeva che la modifica non fosse stata salvata.
+  renderDashboard();
   renderAnalysis();
 };
 
@@ -15645,6 +15702,7 @@ window.applyBudgetSuggestion = (value) => {
   VaultDAO.state.monthlyBudgetAt = Date.now();
   VaultDAO.save();
   showToast(`Budget aggiornato a ${formatMoney(value)}.`, 'success');
+  renderDashboard(); // stesso motivo del punto sopra: il budget vive in Dashboard
   renderAnalysis();
 };
 

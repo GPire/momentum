@@ -2336,6 +2336,24 @@
     @media (min-width: 1024px) {
       #modal-content { max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
     }
+    /* BUG REALE segnalato da utenti su iPhone E Android: con la PWA installata
+       la X per chiudere finisce sotto la barra di stato del telefono (batteria,
+       segnale) e diventa INTOCCABILE — i tocchi in quella fascia li prende il
+       sistema operativo, non la pagina. Chi installa l'app resta bloccato
+       dentro una schermata che non riesce a chiudere: il peggior difetto
+       possibile, perché non è un fastidio, è un vicolo cieco.
+       La causa è che `env(safe-area-inset-top)` NON è affidabile: su molti
+       Android in standalone riporta 0 anche quando la barra copre davvero il
+       contenuto, quindi il foglio arriva fino in cima e la X ci finisce
+       sotto. Qui si smette di fidarsi di quel valore e si garantisce un
+       margine minimo REALE, ma solo quando l'app è installata: nel browser
+       normale la barra del sistema non c'è e nulla cambia. */
+    @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+      #modal-content { max-height: min(92dvh, calc(100dvh - max(env(safe-area-inset-top, 0px), 28px) - 0.5rem)); }
+      /* E in più la X si tiene lontana dal bordo per conto suo: due difese
+         indipendenti, perché questa non deve poter tornare mai. */
+      #modal-content > button[onclick="closeModal()"] { top: max(0.75rem, calc(env(safe-area-inset-top, 0px) - 0.25rem)); }
+    }
     /* BUG REALE trovato dal vivo (segnalato dall'utente come "tutto offuscato
        al primo avvio, si sblocca solo toccando lo schermo"): #modal-container
        porta insieme "hidden" (display:none) e "lg:flex" (per centrare il
@@ -5759,7 +5777,7 @@
          in conflitto. -->
     <div id="modal-content" class="absolute bottom-0 w-full lg:static lg:w-[460px] bg-[var(--surface-solid)] border border-[var(--glass-border)] rounded-t-[2.5rem] lg:rounded-[2rem] shadow-2xl transition-transform duration-300 transform translate-y-full lg:translate-y-0 lg:scale-95 opacity-0 flex flex-col max-h-[92dvh] lg:max-h-[85dvh]" style="padding-bottom: var(--safe-bottom)">
       <div class="w-12 h-1.5 bg-[var(--outline)] rounded-full mx-auto mt-3 mb-2 md:hidden shrink-0"></div>
-      <button onclick="closeModal()" class="absolute top-3 right-3 w-10 h-10 flex items-center justify-center rounded-full bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface)] shadow-lg z-10 lg:top-4 lg:right-4">✕</button>
+      <button onclick="closeModal()" aria-label="Chiudi" class="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface)] shadow-lg z-10 active:scale-90 transition-transform lg:top-4 lg:right-4"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       <div id="modal-body" class="p-3 overflow-y-auto flex-1 min-h-0"></div>
     </div>
     <!-- Piè di pagina ANCORATO ALLA FINESTRA VERA (position:fixed, stesso
