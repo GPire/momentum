@@ -4,6 +4,7 @@ import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } from './core/vault.js';
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
+import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -13360,8 +13361,9 @@ window.flagAnomalySuspect = (id) => {
 // state.subscriptions con la stessa forma usata da oracle.js (campo amount).
 window.registerDetectedSubscription = (p) => {
   VaultDAO.state.subscriptions = VaultDAO.state.subscriptions || [];
-  VaultDAO.state.subscriptions.push({ name: p.description, amount: p.amount, category: p.category, addedBy: 'auto-rilevato', addedAt: new Date().toISOString() });
+  VaultDAO.state.subscriptions.push(touchUserData({ name: p.description, amount: p.amount, category: p.category, addedBy: 'auto-rilevato', addedAt: new Date().toISOString() }));
   VaultDAO.save();
+  inviaDatiUtenteAiMieiDispositivi();
   showToast(`Abbonamento "${p.description}" registrato.`, 'success');
   renderAnalysis({ skipHeavyForecast: true });
 }
@@ -15075,6 +15077,19 @@ function soloMieiDispositivi(peerId) {
   return isTrustedKey(VaultDAO.state.trustedDevices || [], chiave);
 }
 
+// Il pacchetto dei dati utente che finora non viaggiavano affatto. Piccolo di
+// proposito: abbonamenti e budget, non l'intero vault — le transazioni hanno
+// già il loro canale differenziale, molto più efficiente di mandare tutto.
+function inviaDatiUtenteAiMieiDispositivi() {
+  try {
+    window.momentumMeshNode?.shareUserData({
+      subscriptions: VaultDAO.state.subscriptions || [],
+      monthlyBudget: VaultDAO.state.monthlyBudget,
+      monthlyBudgetAt: VaultDAO.state.monthlyBudgetAt || 0,
+    }, soloMieiDispositivi);
+  } catch (_) {}
+}
+
 function peerAppartieneAlGruppo(peerId, gruppo) {
   if (!gruppo || !Array.isArray(gruppo.members)) return false;
   return gruppo.members.some((m) => m.claimedBy && m.claimedBy === peerId);
@@ -15589,6 +15604,7 @@ window.confirmBudgetEdit = () => {
   const val = parseFloat(input?.value);
   if (!val || val <= 0) { showToast('Inserisci un importo valido.', 'error'); return; }
   VaultDAO.state.monthlyBudget = val;
+  VaultDAO.state.monthlyBudgetAt = Date.now();
   VaultDAO.save();
   closeModal();
   showToast('Budget aggiornato.', 'success');
@@ -15602,6 +15618,7 @@ window.confirmBudgetEdit = () => {
 // bug appena trovato con `opts`, evitato qui rifacendo lo stesso errore).
 window.applyBudgetSuggestion = (value) => {
   VaultDAO.state.monthlyBudget = value;
+  VaultDAO.state.monthlyBudgetAt = Date.now();
   VaultDAO.save();
   showToast(`Budget aggiornato a ${formatMoney(value)}.`, 'success');
   renderAnalysis();
@@ -18364,6 +18381,7 @@ function initMomentumRealAI() {
       // ne creava una nuova non lo saprebbe mai, e continuerebbe a mostrare
       // "Altro" su spese che invece hanno una categoria.
       if ((VaultDAO.state.customCategories || []).length) momentumMeshNode.shareCustomCategories(VaultDAO.state.customCategories, soloMieiDispositivi);
+      inviaDatiUtenteAiMieiDispositivi();
       // FEDERAZIONE tipi esercente: condivido il modello morfologico appreso, così
       // un dispositivo nuovo eredita subito la categorizzazione dei negozi locali.
       const mm = VaultDAO.state.mlData?.merchantMorphology;
@@ -18615,6 +18633,31 @@ function initMomentumRealAI() {
       // categoria vera nel momento esatto in cui questa arriva.
       try { window.renderDashboard?.(); } catch (_) {}
       showToast(tCh('categoriesSyncedToast', __uiLang), 'success');
+    };
+    // ABBONAMENTI E BUDGET in arrivo da un altro dei propri dispositivi.
+    momentumMeshNode.onUserDataReceived = (peerId, dati) => {
+      if (!dati) return;
+      let cambiato = false;
+      if (Array.isArray(dati.subscriptions) && dati.subscriptions.length) {
+        const locali = VaultDAO.state.subscriptions || [];
+        const prima = JSON.stringify(locali);
+        const fuse = mergeUserList(locali, dati.subscriptions, chiaveAbbonamento);
+        if (JSON.stringify(fuse) !== prima) { VaultDAO.state.subscriptions = fuse; cambiato = true; }
+      }
+      // Il budget è UN numero, e due dispositivi possono averlo cambiato
+      // entrambi: vince chi l'ha deciso per ultimo, non chi si collega per
+      // ultimo (è la differenza fra una scelta e il caso).
+      const esito = mergeScalar(VaultDAO.state.monthlyBudget, VaultDAO.state.monthlyBudgetAt, dati.monthlyBudget, dati.monthlyBudgetAt);
+      if (esito.valore !== VaultDAO.state.monthlyBudget) {
+        VaultDAO.state.monthlyBudget = esito.valore;
+        VaultDAO.state.monthlyBudgetAt = esito.at;
+        cambiato = true;
+      }
+      if (!cambiato) return;
+      VaultDAO.save();
+      try { window.renderDashboard?.(); } catch (_) {}
+      try { if (VaultDAO.state.currentView === 'analysis') window.renderAnalysis?.({ skipHeavyForecast: true }); } catch (_) {}
+      showToast(tCh('userDataSyncedToast', __uiLang), 'success');
     };
     momentumMeshNode.onGradientReceived = (peerId, stats) => {
       // Registro di integrità (src/mesh/update-ledger.js): ogni merge, accettato

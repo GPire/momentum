@@ -391,6 +391,12 @@ class MeshNode {
         // (mergeTripLists in trips/trip-engine.js), stesso pattern di
         // split_share: qui si consegna soltanto.
         this.onBusinessTripsReceived?.(peerId, msg.trips);
+      } else if (msg.type === 'user_data_share') {
+        // Il resto dei dati dell'utente che finora non viaggiava affatto:
+        // abbonamenti rilevati e budget mensile. Stessa regola di tutto il
+        // resto — il merge è del ricevente (core/user-data-merge.js), qui si
+        // consegna soltanto.
+        this.onUserDataReceived?.(peerId, msg.dati);
       } else if (msg.type === 'custom_categories_share') {
         // Le CATEGORIE personalizzate. Sembrano un dettaglio e invece sono la
         // differenza fra vedere la stessa spesa sotto "Palestra" o sotto un
@@ -772,6 +778,20 @@ class MeshNode {
       if (entry.channel?.readyState !== 'open') continue;
       if (!destinatario(peerId, entry)) continue;
       entry.channel.send(JSON.stringify({ type: 'trip_share', trips }));
+      inviati++;
+    }
+    return inviati;
+  }
+
+  // Abbonamenti e budget ai propri dispositivi. Stesso filtro obbligatorio:
+  // sono dati personali, non vanno a un peer qualunque.
+  shareUserData(dati, destinatario = null) {
+    if (!dati || typeof destinatario !== 'function') return 0;
+    let inviati = 0;
+    for (const [peerId, entry] of this.peers.entries()) {
+      if (entry.channel?.readyState !== 'open') continue;
+      if (!destinatario(peerId, entry)) continue;
+      entry.channel.send(JSON.stringify({ type: 'user_data_share', dati }));
       inviati++;
     }
     return inviati;
