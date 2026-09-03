@@ -7,6 +7,7 @@ import { mergeCategoryLists, touchCategory } from './core/custom-categories-merg
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
 import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo } from './trips/trip-period.js';
+import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo } from './trips/expense-bridge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -9545,6 +9546,46 @@ function periodoOrarioPannelloHtml(trip, campo) {
     </div>`;
 }
 
+// Ponte verso il sistema di nota spese dell'azienda (Concur/Expensify/Zoho/
+// altro) — vedi src/trips/expense-bridge.js per l'onestà sui limiti reali
+// (nessuna API, solo l'inoltro email che questi strumenti offrono già ai
+// propri utenti). Un solo indirizzo configurato una volta, poi un tocco per
+// spesa — niente procedura macchinosa, la richiesta esplicita dell'utente
+// era proprio di semplificare per chi già fatica con quelle piattaforme.
+function bridgeCardHtml(state) {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const bridge = VaultDAO.state.expenseBridge || null;
+  const inModifica = state.bridgeConfigAperto || !bridge?.address;
+  const iconaInvio = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>';
+  if (!inModifica) {
+    const piattaforma = trovaPiattaforma(bridge.platformId);
+    return `
+      <div class="card p-3">
+        <div class="eyebrow">${iconaInvio}${esc(tCh('bridgeTitle', __uiLang))}</div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-[var(--on-surface-secondary)] truncate">${esc(piattaforma?.nome || tCh('bridgePlatformOther', __uiLang))} → <span class="font-mono text-[var(--on-surface)]">${esc(bridge.address)}</span></span>
+          <button type="button" id="bridge-edit" class="shrink-0 text-[11px] font-bold text-[var(--primary)]">${esc(tCh('bridgeEditBtn', __uiLang))}</button>
+        </div>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">${esc(tCh('bridgeHint', __uiLang))}</p>
+      </div>`;
+  }
+  const platformIdBozza = state.bridgePlatformBozza ?? bridge?.platformId ?? null;
+  const piattaformaBozza = trovaPiattaforma(platformIdBozza);
+  const indirizzoBozza = state.bridgeAddressBozza ?? (piattaformaBozza?.indirizzoFisso || bridge?.address || '');
+  const chips = EXPENSE_PLATFORMS.map(p => `<button type="button" data-bridgeplat="${p.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${platformIdBozza === p.id ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">${esc(p.nome)}</button>`).join('');
+  return `
+    <div class="card p-3">
+      <div class="eyebrow">${iconaInvio}${esc(tCh('bridgeTitle', __uiLang))}</div>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">${esc(tCh('bridgeEmptyHint', __uiLang))}</p>
+      <div class="flex flex-wrap gap-1.5 mb-1.5">${chips}</div>
+      ${piattaformaBozza ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">${esc(piattaformaBozza.nota)}</p>` : ''}
+      <div class="flex gap-1.5">
+        <input id="bridge-address" type="email" ${piattaformaBozza?.indirizzoFisso ? 'readonly' : ''} value="${esc(indirizzoBozza)}" placeholder="${esc(tCh('bridgeAddressPlaceholder', __uiLang))}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2.5 py-2 text-[12px]" />
+        <button type="button" id="bridge-save" class="px-3.5 py-2 rounded-lg bg-[var(--primary)] text-white text-[11px] font-bold active:scale-95 transition-transform">${esc(tCh('bridgeSaveBtn', __uiLang))}</button>
+      </div>
+    </div>`;
+}
+
 function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) {
   const [yy, mm, dd] = String(iso).split('-').map(Number);
   if (!yy || !mm || !dd) return String(iso);
@@ -9632,7 +9673,7 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null };
+  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
@@ -9656,6 +9697,7 @@ window.openBusinessTrip = (tripId) => {
           <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${String(t.date).slice(0, 10)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
         </span>
         <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
+        ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(tCh('bridgeSendAria', __uiLang))}" title="${esc(tCh('bridgeSendAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></button>` : ''}
         <button data-tripexpdup="${t.id}" aria-label="${esc(tCh('tripDuplicateAria', __uiLang))}" title="${esc(tCh('tripDuplicateAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <button data-tripexpdel="${t.id}" data-month="${monthKey(new Date(t.date))}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
       </div>`;
@@ -9862,6 +9904,7 @@ window.openBusinessTrip = (tripId) => {
           ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
           <button id="trip-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
         </div>
+        ${expenses.some(t => t.receiptImage) ? bridgeCardHtml(state) : ''}
         ${expenses.length ? `<div class="flex gap-2">
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
@@ -10133,6 +10176,70 @@ window.openBusinessTrip = (tripId) => {
       const nuovoMinuto = unita === 'm' ? (((mm || 0) + delta) % 60 + 60) % 60 : (mm || 0);
       salvaCampoPeriodo(campo, `${String(nuovaOra).padStart(2, '0')}:${String(nuovoMinuto).padStart(2, '0')}`);
       render();
+    }));
+    // Ponte verso il sistema aziendale (Concur/Expensify/Zoho/altro): un
+    // indirizzo configurato una volta, poi un tocco per spesa.
+    $('#bridge-edit')?.addEventListener('click', () => {
+      const b = VaultDAO.state.expenseBridge || null;
+      state.bridgeConfigAperto = true;
+      state.bridgePlatformBozza = b?.platformId ?? null;
+      state.bridgeAddressBozza = b?.address ?? '';
+      render();
+    });
+    document.querySelectorAll('[data-bridgeplat]').forEach(b => b.addEventListener('click', () => {
+      const attuale = $('#bridge-address')?.value;
+      if (attuale != null) state.bridgeAddressBozza = attuale;
+      const id = b.dataset.bridgeplat;
+      state.bridgePlatformBozza = id;
+      const piattaforma = trovaPiattaforma(id);
+      if (piattaforma?.indirizzoFisso) state.bridgeAddressBozza = piattaforma.indirizzoFisso;
+      render();
+    }));
+    $('#bridge-save')?.addEventListener('click', () => {
+      const platformId = state.bridgePlatformBozza;
+      const indirizzo = ($('#bridge-address')?.value || '').trim();
+      if (!platformId) { showToast(tCh('bridgePickPlatformFirst', __uiLang), 'error'); return; }
+      if (!indirizzoValido(indirizzo)) { showToast(tCh('bridgeInvalidAddress', __uiLang), 'error'); return; }
+      VaultDAO.state.expenseBridge = { platformId, address: indirizzo };
+      VaultDAO.save();
+      state.bridgeConfigAperto = false;
+      render();
+      showToast(tCh('bridgeSavedToast', __uiLang), 'success');
+    });
+    document.querySelectorAll('[data-tripexpsend]').forEach(b => b.addEventListener('click', async () => {
+      const bridge = VaultDAO.state.expenseBridge;
+      if (!bridge?.address) {
+        state.bridgeConfigAperto = true;
+        render();
+        showToast(tCh('bridgeConfigureFirst', __uiLang), 'info');
+        return;
+      }
+      const t = expenses.find(e => e.id === b.dataset.tripexpsend);
+      if (!t?.receiptImage) return;
+      const isPdf = String(t.receiptImage).startsWith('data:application/pdf');
+      let file;
+      try {
+        const blob = await (await fetch(t.receiptImage)).blob();
+        file = new File([blob], nomeFileGiustificativo(t, isPdf), { type: isPdf ? 'application/pdf' : (blob.type || 'image/jpeg') });
+      } catch (_) { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          // L'indirizzo va comunque scelto a mano nel foglio di condivisione
+          // (nessuna API web imposta il destinatario di un'app di posta) —
+          // copiato negli appunti per non doverlo ridigitare.
+          try { await navigator.clipboard?.writeText(bridge.address); } catch (_) {}
+          await navigator.share({ files: [file] });
+          showToast(tCh('bridgeSentToast', __uiLang, bridge.address), 'success');
+          return;
+        }
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+      // Fallback universale (desktop senza Web Share): scarico il file già
+      // pronto da allegare e apro l'email col destinatario già compilato.
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      window.location.href = `mailto:${encodeURIComponent(bridge.address)}`;
+      showToast(tCh('bridgeFallbackToast', __uiLang), 'info');
     }));
     $('#trip-del')?.addEventListener('click', () => {
       // Cancellare NON toglie la trasferta dall'elenco: ci mette sopra una
