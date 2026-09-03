@@ -282,6 +282,46 @@ export const RELEASES = [
       },
     ],
   },
+  {
+    versione: '2026-09-04',
+    voci: [
+      {
+        colore: 'primary',
+        icona: '<path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/>',
+        titolo: 'Lo scroll torna a funzionare su ogni schermata',
+        testo: 'Su alcuni computer e tablet, muovere la rotella del mouse o il trackpad in certi punti non spostava più nulla, e il pannello per aggiungere una spesa spariva mentre si scorreva. Risolto alla radice.',
+        titoloKey: 'wn0904_0_t', testoKey: 'wn0904_0_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>',
+        titolo: 'Il modulo per aggiungere una spesa ora sta tutto a schermo',
+        testo: 'Su computer e tablet il tastierino disegnato resta chiuso di default (scrivi con la tastiera vera, resta comunque un tocco per riaprirlo) — l\'intero modulo si vede senza dover scorrere.',
+        titoloKey: 'wn0904_1_t', testoKey: 'wn0904_1_d',
+      },
+      {
+        colore: 'purple',
+        icona: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        titolo: 'Dividere una spesa non è più nascosto',
+        testo: 'Il pulsante "Dividi" ora è sempre in vista subito dopo aver scelto la categoria, non più dentro un menu da aprire prima.',
+        titoloKey: 'wn0904_2_t', testoKey: 'wn0904_2_d',
+      },
+      {
+        colore: 'green',
+        icona: '<path d="M12 2l1.9 6.3L20 10l-6.1 1.7L12 18l-1.9-6.3L4 10l6.1-1.7L12 2z"/>',
+        titolo: 'Scrivi cosa hai comprato, indovino la categoria',
+        testo: 'Il campo nota ora lo dice chiaramente: basta descrivere la spesa e Momentum prova a indovinare da solo la categoria giusta.',
+        titoloKey: 'wn0904_3_t', testoKey: 'wn0904_3_d',
+      },
+      {
+        colore: 'primary',
+        icona: '<path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>',
+        titolo: 'Ogni tocco si vede, anche la barra di scorrimento',
+        testo: 'Il selettore Essenziale/Completa mostra ora un movimento chiaro quando cambi scelta, e la barra di scorrimento segue i colori dell\'app invece della barra grigia di sistema.',
+        titoloKey: 'wn0904_4_t', testoKey: 'wn0904_4_d',
+      },
+    ],
+  },
 ];
 
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
