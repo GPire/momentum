@@ -3232,7 +3232,7 @@ const renderDashboard = () => {
   const taxDiscoverEls = document.querySelectorAll('#tax-discover-card');
   if (taxDiscoverEls.length) {
     let showDiscover = false;
-    try { showDiscover = !VaultDAO.state.taxRegime && !hasInvoiceIncome() && !VaultDAO.state.noPartitaIva; } catch (_) { showDiscover = false; }
+    try { showDiscover = !VaultDAO.state.taxRegime && !hasInvoiceIncome() && !VaultDAO.state.noPartitaIva && !VaultDAO.state.onboardingProfile?.isMinor; } catch (_) { showDiscover = false; }
     const discoverHtml = showDiscover ? `
       <div class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-left">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-[var(--gold)]"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
@@ -14044,6 +14044,13 @@ window.genesisStep = 0;
 window.genesisNext = (step, value = '') => {
   try {
     haptic('light');
+    // Fascia d'età (gate preliminare, PRIMA delle 4 domande finanziarie): un
+    // minorenne non ha stipendio né investimenti, non ha senso chiedergli
+    // liquidità/rischio/orizzonte. La fascia adulta viene comunque salvata
+    // (per uso futuro), ma oggi NON cambia le 4 domande esistenti — restano
+    // le stesse per ogni adulto, deliberato (vedi memoria di progetto).
+    if (step === 1) window.userAgeBracket = value || null;
+    if (step === 'minor-goal') { window.userIsMinor = true; window.userAgeBracket = 'under18'; }
     // "Non lo so" sulla liquidità passa '' apposta (falsy): nessun override,
     // derivePriors ricade sul valore derivato dal profilo di rischio.
     if (step === 2) window.userLiquidityMonths = value === '' ? null : Number(value);
@@ -14057,16 +14064,19 @@ window.genesisNext = (step, value = '') => {
       window.userRiskProfile = value === 'non-investe' ? 'bilanciato' : value;
     }
     if (step === 4) window.userTimeHorizon = value;
-    // Domanda 4 (regolarità entrate, 2026-08-28): '' = "preferisco non
-    // dirlo", stesso schema falsy-di-'Non lo so'-liquidità → derivePriors
-    // riceve null e non applica nessuna delle regole di 'irregolare'.
-    if (step === 5) window.userIncomeRegularity = value === '' ? null : value;
+    // Step 5 è condiviso da due percorsi diversi (adulto → domanda 4 sulla
+    // regolarità entrate; minorenne → obiettivo di risparmio), distinti da
+    // userIsMinor impostato sopra quando si è passati da 'minor-goal'.
+    if (step === 5) {
+      if (window.userIsMinor) window.userMinorGoalKey = value || null;
+      else window.userIncomeRegularity = value === '' ? null : value;
+    }
 
     // PRIMING PROGRESSIVO (anti-abbandono): a ogni risposta seminiamo i priori in
     // memoria (SENZA salvare: il save avviene solo alla conferma finale, per non
     // marcare "onboarded" a metà). Se l'utente completa, il motore è già caldo;
     // se torna indietro, l'ultima risposta ridefinisce i priori senza residui.
-    if (value !== '' && (step === 2 || step === 3 || step === 4 || step === 5)) {
+    if (!window.userIsMinor && value !== '' && (step === 2 || step === 3 || step === 4 || step === 5)) {
       try {
         const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
         VaultDAO.state.aiAggression = p.aiAggression;
@@ -14105,10 +14115,14 @@ window.genesisNext = (step, value = '') => {
 // card di 4 righe ripeterla per intero dominava visivamente sulle altre
 // (segnalato dal vivo dall'utente: "popup bruttissimo, non coerente col
 // design").
+// Etichette degli obiettivi minorenni (chiavi stabili, mai il testo del
+// bottone: un bottone tradotto in inglese non deve salvare un obiettivo
+// intitolato in italiano — vedi genesisMinorGoalOpt1/2/3 in index.html).
+const MINOR_GOAL_LABEL_KEYS = { console: 'minorGoalLabelConsole', telefono: 'minorGoalLabelTelefono', viaggio: 'minorGoalLabelViaggio' };
+
 function renderGenesisPayoff() {
   const el = document.getElementById('genesis-payoff');
   if (!el) return;
-  const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
   // Stessa card icona+testo di openMomentumReveal (sopra in questo file) —
   // riuso apposta, non un nuovo stile inventato: è il linguaggio visivo che
   // l'app usa già per "ecco cosa ho fatto per te", e deve restare coerente
@@ -14125,6 +14139,22 @@ function renderGenesisPayoff() {
       <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icona}</svg></div>
       <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${titolo}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${testo}</div></div>
     </div>`;
+  // Percorso minorenne: niente budget/freno spese/investimenti (non si
+  // applicano), un riepilogo dell'obiettivo scelto invece — mai un obiettivo
+  // vero creato qui senza una cifra reale (principio del progetto: mai un
+  // numero inventato), solo il promemoria di dove impostarlo.
+  if (window.userIsMinor) {
+    const goalKey = window.userMinorGoalKey;
+    const righeMinor = [
+      card('primary', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', tCh('payoffMinorTrackTitle', __uiLang), tCh('payoffMinorTrackSub', __uiLang)),
+      goalKey && MINOR_GOAL_LABEL_KEYS[goalKey]
+        ? card('gold', '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>', tCh('payoffMinorGoalTitle', __uiLang, tCh(MINOR_GOAL_LABEL_KEYS[goalKey], __uiLang)), tCh('payoffMinorGoalSub', __uiLang))
+        : card('gold', '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>', tCh('payoffMinorNoGoalTitle', __uiLang), tCh('payoffMinorNoGoalSub', __uiLang)),
+    ];
+    el.innerHTML = righeMinor.join('');
+    return;
+  }
+  const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
   // Etichetta e descrizione del freno vengono dalle STESSE chiavi i18n usate
   // dalle Impostazioni (vaultMode*/brakeDesc*): un secondo dizionario locale
   // qui è già costato un crash reale — `BRAKE_DESC`, rimasto scritto a mano
@@ -14442,7 +14472,7 @@ const initPrivacyProof = (scene, hint = null, autoInvito = true) => {
 // modello) da rischio+orizzonte. Unica fonte di verità: la usano sia
 // l'onboarding completo (endGenesis) sia l'attivazione "lampo" (activateLite) e
 // il potenziamento dal Reveal — così le tre strade non divergono mai.
-function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = null, invests = true, incomeRegularity = null) {
+function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = null, invests = true, incomeRegularity = null, ageBracket = null) {
   // LE DOMANDE ADDESTRANO IL CORE (src/predict/onboarding-priors.js): dai
   // profili deriviamo priori per PIÙ modelli, così Momentum parte già
   // personalizzato e predittivo dal primo tocco (nessun concorrente lo fa).
@@ -14450,9 +14480,11 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   // completo li chiede (domande 1, 2 e 4), l'attivazione "lampo" e la versione
   // compatta no — in quei percorsi restano ai default e derivePriors ricade sul
   // valore derivato dal profilo, mai un dato inventato per far tornare i conti.
+  // `ageBracket` (2026-09-03): salvata per uso futuro, non cambia ancora le 4
+  // domande esistenti — sono già indipendenti dall'età e ben tarate.
   const p = derivePriors(risk, hz, liquidityMonths, invests, incomeRegularity);
   VaultDAO.state.isFirstLaunch = false;
-  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress, incomeRegularity: p.incomeRegularity };
+  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress, incomeRegularity: p.incomeRegularity, ageBracket };
   VaultDAO.state.monthlyBudget = p.monthlyBudget;
   VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests, incomeRegularity: p.incomeRegularity };
   // Tono dei nudge di spesa personalizzato subito.
@@ -14468,6 +14500,27 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   // marcato come già visto per non mostrargli, subito dopo l'onboarding,
   // una schermata su funzioni che per lui sono semplicemente "come funziona
   // Momentum", non una novità.
+  VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
+  updateAnalysisTensorVisibility();
+}
+
+// Percorso MINORENNE (2026-09-03, richiesta esplicita): niente stipendio né
+// investimenti, non ha senso proporli. Budget di partenza modesto e
+// dichiarato come stima (stesso principio degli adulti: mai un dato reale
+// finché non arrivano transazioni vere), Analisi Tensor/P.IVA restano
+// nascosti per costruzione (invests:false, stesso meccanismo già esistente
+// per l'adulto che dice "non investo" — shouldShowAnalysisTensor in
+// onboarding-priors.js, nessun nuovo gate inventato). L'eventuale obiettivo
+// scelto NON diventa subito un savingsGoal vero: creare un obiettivo senza
+// una cifra reale (che qui non abbiamo, e non inventiamo) romperebbe la
+// barra di progresso — resta solo un promemoria nel payoff.
+function seedProfileStateMinor() {
+  VaultDAO.state.isFirstLaunch = false;
+  VaultDAO.state.onboardingProfile = { isMinor: true, ageBracket: 'under18', invests: false, minorGoalKey: window.userMinorGoalKey || null };
+  VaultDAO.state.monthlyBudget = 150;
+  VaultDAO.state.investmentPrefs = { investFraction: 0, emergencyMonths: 0, riskFloor: 0, horizon: 'breve', cashflowStress: null, liquidityMonths: null, invests: false };
+  VaultDAO.state.aiAggression = 'advisor';
+  pingFeature('onboarding_completed');
   VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
   updateAnalysisTensorVisibility();
 }
@@ -14495,8 +14548,10 @@ const endGenesis = () => {
     // Il profilo rischio+orizzonte parametrizza budget e motore investimenti.
     // Logica condivisa con l'attivazione "lampo" (seedProfileState) per non
     // divergere mai. Il campo `activatedLite` viene tolto: qui il profilo è
-    // scelto davvero dall'utente (onboarding completo).
-    seedProfileState(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
+    // scelto davvero dall'utente (onboarding completo). Percorso minorenne
+    // (2026-09-03): stesso schermo di conferma finale, dati diversi.
+    if (window.userIsMinor) seedProfileStateMinor();
+    else seedProfileState(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity, window.userAgeBracket || null);
     delete VaultDAO.state.activatedLite;
     VaultDAO.save();
     const overlay = $('#genesis-container');

@@ -3948,9 +3948,41 @@
              capisce, e dice esattamente quello che la scena ha appena fatto. -->
         <div class="privacy-claim mb-6">
           <h2 class="text-2xl font-black leading-tight mb-1" data-i18n-key="genesisPrivacyTitle">Niente esce da qui.</h2>
-          <p class="text-sm text-[var(--on-surface-secondary)] leading-snug" data-i18n-key="genesisPrivacyText">I tuoi dati provano a uscire e tornano dentro. Nessun server, nessun account: restano sul tuo telefono. Quattro domande e sei dentro.</p>
+          <p class="text-sm text-[var(--on-surface-secondary)] leading-snug" data-i18n-key="genesisPrivacyText">I tuoi dati provano a uscire e tornano dentro. Nessun server, nessun account: restano sul tuo telefono. Poche domande e sei dentro.</p>
         </div>
-        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext(1)" data-i18n-key="genesisStart">Inizia — bastano 20 secondi</button>
+        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext('age')" data-i18n-key="genesisStart">Inizia — bastano 20 secondi</button>
+      </div>
+      <!-- Step ETÀ — gate preliminare, PRIMA delle 4 domande di profilazione
+           finanziaria (che restano invariate per chi non è minorenne: nessun
+           conteggio "di 4" da tenere sincronizzato, questa è una domanda a
+           parte). Richiesta esplicita: un minorenne non ha stipendio né
+           investimenti, non ha senso proporgli quelle domande — vede invece
+           un obiettivo di risparmio (g-step-minor-goal). Le fasce adulte
+           sono salvate ma NON cambiano ancora le domande successive
+           (deliberato: le 4 domande esistenti sono già indipendenti dall'età
+           e ben tarate — vedi memoria di progetto). -->
+      <div class="genesis-step" id="g-step-age">
+        <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisAgeTitle">Quanti anni hai?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisAgeSub">Serve solo a mostrarti le funzioni giuste per te.</p>
+        <button class="g-option" style="--i:1" onclick="genesisNext('minor-goal')" data-i18n-key="genesisAgeOptUnder18">Meno di 18</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(1, '18-25')" data-i18n-key="genesisAgeOpt1825">18 – 25</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(1, '26-45')" data-i18n-key="genesisAgeOpt2645">26 – 45</button>
+        <button class="g-option" style="--i:4" onclick="genesisNext(1, '46-65')" data-i18n-key="genesisAgeOpt4665">46 – 65</button>
+        <button class="g-option" style="--i:5" onclick="genesisNext(1, '65plus')" data-i18n-key="genesisAgeOpt65plus">Più di 65</button>
+      </div>
+      <!-- Step obiettivo minorenne — sostituisce le 4 domande finanziarie per
+           chi ha detto "meno di 18": niente stipendio/investimenti, un
+           obiettivo di risparmio concreto e motivante invece. Il nome scelto
+           diventa un vero obiettivo nel sistema savingsGoals esistente (mai
+           uno nuovo) — l'importo lo aggiunge dopo chi lo vuole, mai un
+           numero inventato qui. -->
+      <div class="genesis-step" id="g-step-minor-goal">
+        <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisMinorGoalTitle">Cosa vorresti mettere da parte?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisMinorGoalSub">Momentum ti aiuta a tenere traccia, un po' alla volta.</p>
+        <button class="g-option" style="--i:1" onclick="genesisNext(5, 'console')" data-i18n-key="genesisMinorGoalOpt1">Una console o un videogioco</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext(5, 'telefono')" data-i18n-key="genesisMinorGoalOpt2">Un telefono nuovo</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext(5, 'viaggio')" data-i18n-key="genesisMinorGoalOpt3">Un viaggio con gli amici</button>
+        <button class="g-option" style="--i:4" onclick="genesisNext(5, '')" data-i18n-key="genesisMinorGoalOpt4">Non lo so ancora</button>
       </div>
       <!-- Step 1 — cuscinetto di liquidità: non derivato dal profilo di
            rischio (due persone "aggressive" possono avere situazioni di
