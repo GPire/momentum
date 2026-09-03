@@ -2054,28 +2054,43 @@ const openTransactionModal = () => {
   // la focus() avviene ancora dentro la catena del tocco; il secondo, al
   // frame successivo, è quello che di fatto tiene — e su iOS non fa danno,
   // perché ri-mettere il fuoco su un campo che ce l'ha già non chiude nulla.
-  const metti = () => {
-    const amt = document.getElementById('tx-amount-display');
-    if (!amt) return;
-    try {
-      amt.focus({ preventScroll: true });
-      // Il valore parte da "0": selezionarlo fa sì che la prima cifra digitata
-      // lo sostituisca, invece di lasciare "05".
-      amt.setSelectionRange(0, String(amt.value || '').length);
-    } catch (_) { /* un browser che non lo permette non deve rompere l'apertura */ }
-  };
-  metti();
-  requestAnimationFrame(metti);
+  focusAmountFieldTwice();
 };
 
 // Apre il form di aggiunta GIÀ pre-compilato (da una scorciatoia della
 // Dashboard). Funziona identico su mobile, tablet e desktop (stesso modale,
 // stesso flusso di conferma → stesso apprendimento del Core).
+// BUG REALE segnalato di nuovo (2026-09-03): questo è l'ingresso più usato
+// del Command Center (giorno vuoto nel calendario/striscia settimanale,
+// deep-link di quick-add...) ma mancava il doppio .focus() già scritto e
+// verificato per openTransactionModal — chi entrava da qui doveva sempre
+// toccare ANCORA il campo per far uscire la tastiera del telefono, esattamente
+// l'attrito che quel fix risolveva altrove. Stessa tecnica, stesso motivo
+// (sincrono per la catena del tocco iOS + un frame dopo perché quello che
+// tiene davvero): mai due copie divergenti della stessa funzione, quindi
+// estratta qui sotto e riusata da entrambi i punti di ingresso.
 window.openPrefilledAdd = (prefill = {}) => {
   haptic('light');
   openModal(getTxFormHTML(), getTxFormFooterHTML());
   attachFormListeners($('#modal-body'), prefill);
+  focusAmountFieldTwice();
 };
+
+// Estratta da openTransactionModal (2026-09-03): stessa tecnica, un solo
+// posto — un secondo entry point che la riscrivesse a mano avrebbe rischiato
+// di divergere in silenzio dalla prima (esattamente il bug appena trovato).
+function focusAmountFieldTwice() {
+  const metti = () => {
+    const amt = document.getElementById('tx-amount-display');
+    if (!amt) return;
+    try {
+      amt.focus({ preventScroll: true });
+      amt.setSelectionRange(0, String(amt.value || '').length);
+    } catch (_) { /* un browser che non lo permette non deve rompere l'apertura */ }
+  };
+  metti();
+  requestAnimationFrame(metti);
+}
 
 // ==========================================
 // RENDERS
