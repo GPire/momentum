@@ -4620,7 +4620,27 @@
           <div id="analysis-view" class="hidden w-full flex-grow min-w-0 space-y-6 sm:space-y-10 animate-slideUpFade">
             <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight" data-i18n-key="navAnalysis">Analisi Tensor</h2>
             <p class="text-xs text-[var(--on-surface-secondary)]" data-i18n-key="alphaSubtitle">Dove vanno i tuoi soldi e come andrà a finire il mese</p>
-            
+
+            <!-- Vista Essenziale/Completa (2026-09-03) — richiesta esplicita:
+                 troppe card istituzionali (Value at Risk, Sharpe deflazionato,
+                 grafo causale...) create pensando a chi investe attivamente
+                 creavano attrito e abbandono per chi vuole solo capire come
+                 vanno i propri soldi. Un tocco, mai un dato tolto per sempre:
+                 "Essenziale" nasconde solo le 7 card più tecniche (marcate
+                 .advanced-card), "Completa" le rimostra tutte. Il valore di
+                 partenza dipende dalla fascia d'età dichiarata in onboarding
+                 (18-25 → Essenziale) ma resta sempre cambiabile qui. -->
+            <div class="card p-3 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-[11px] font-bold" data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</p>
+                <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="analysisComplexitySub">Essenziale nasconde solo gli strumenti più tecnici — niente sparisce per sempre.</p>
+              </div>
+              <div class="segmented-control shrink-0 !w-auto">
+                <div class="segment-btn" data-ui-complexity="essenziale" onclick="window.setUiComplexity('essenziale')" data-i18n-key="analysisComplexityEssential">Essenziale</div>
+                <div class="segment-btn" data-ui-complexity="completo" onclick="window.setUiComplexity('completo')" data-i18n-key="analysisComplexityFull">Completa</div>
+              </div>
+            </div>
+
             <div class="analysis-grid gap-6 sm:gap-8">
                <div class="xl:col-span-1 space-y-6 sm:space-y-8">
                  <!-- Budget card -->
@@ -4823,7 +4843,7 @@
                       pannello mostra quanto il ciclo dei tassi USA riguardi
                       davvero il tuo Paese, e lo scarto storico col Paese di
                       riferimento (es. BTP-Bund per un utente italiano). -->
-                 <div class="card p-6 order-6" id="country-rates-card">
+                 <div class="card p-6 order-6 advanced-card" id="country-rates-card">
                     <h3 class="eyebrow" data-i18n-key="alphaRatesWorldTitle">Tassi nel mondo</h3>
                     <p class="card-sub" data-i18n-key="alphaRatesWorldSub">Quanto il ciclo dei tassi americano riguarda davvero il tuo Paese — 12 Paesi, 419 mesi, stessa fonte per tutti</p>
                     <div id="country-rates-panel" class="overflow-x-auto"></div>
@@ -4850,7 +4870,7 @@
                       linguaggio semplice, i dettagli con i numeri veri sotto
                       un tocco — mai due schermate diverse per bambino ed
                       esperto, la stessa con più o meno dettaglio aperto. -->
-                 <div class="card p-6 order-5" id="market-overview-card">
+                 <div class="card p-6 order-5 advanced-card" id="market-overview-card">
                     <h3 class="eyebrow" data-i18n-key="alphaMarketOverviewTitle">Quadro di mercato</h3>
                     <p class="card-sub" data-i18n-key="alphaMarketOverviewSub">Cosa sta succedendo adesso, in una frase — e nei numeri veri se vuoi guardare oltre</p>
                     <div id="market-overview-panel"></div>
@@ -4860,7 +4880,7 @@
                       src/alpha/posizionamento.js): indice di paura e estremi
                       di posizionamento COT, prima raggiungibili solo dalla
                       chat QA, mai come pannello da scorrere a colpo d'occhio. -->
-                 <div class="card p-6 order-12" id="trader-desk-card">
+                 <div class="card p-6 order-12 advanced-card" id="trader-desk-card">
                     <h3 class="eyebrow" data-i18n-key="alphaTraderDeskTitle">Per chi investe attivamente</h3>
                     <p class="card-sub" data-i18n-key="alphaTraderDeskSub">Indice di paura e posizionamento estremo — misurati, mai una direzione</p>
                     <div id="trader-desk-panel"></div>
@@ -4880,7 +4900,7 @@
                       posizioni" di fila per un utente nuovo. -->
                  <div class="card p-6 order-9 hidden" id="portfolio-locked-teaser"></div>
 
-                 <div class="card p-6 order-9" id="portfolio-tail-risk-card">
+                 <div class="card p-6 order-9 advanced-card" id="portfolio-tail-risk-card">
                     <h3 class="eyebrow" data-i18n-key="alphaTailRiskTitle">Quanto rischi davvero</h3>
                     <p class="card-sub" data-i18n-key="alphaTailRiskSub">Quanto perde il tuo portafoglio nei mesi peggiori, e quanto ti costa com'è composto</p>
                     <div id="portfolio-tail-risk-panel"></div>
@@ -4895,7 +4915,7 @@
                       (Sharpe deflazionato, Bailey & López de Prado — lo stesso
                       vaglio che un desk di risk management applica a un
                       trader). Mai un consiglio: solo se il numero regge. -->
-                 <div class="card p-6 order-10" id="portfolio-track-record-card">
+                 <div class="card p-6 order-10 advanced-card" id="portfolio-track-record-card">
                     <h3 class="eyebrow" data-i18n-key="alphaTrackRecordTitle">Bravura o fortuna?</h3>
                     <p class="card-sub" data-i18n-key="alphaTrackRecordSub">La tua allocazione, messa alla prova su 331 mesi reali: il risultato regge al controllo statistico o no</p>
                     <div id="portfolio-track-record-panel"></div>
@@ -4909,7 +4929,7 @@
                       del 2008, con la tua cassa e le tue spese, saresti stato
                       costretto a vendere? È il punto in cui il pannello
                       storico dei settori entra nel modello di cassa. -->
-                 <div class="card p-6 order-11" id="diagnosi-card">
+                 <div class="card p-6 order-11 advanced-card" id="diagnosi-card">
                     <h3 class="eyebrow" data-i18n-key="alphaDiagnosisTitle">La diagnosi</h3>
                     <p class="card-sub" data-i18n-key="alphaDiagnosisSub">Le domande che si fa chi gestisce patrimoni, sul tuo portafoglio — misurate, mai consigli</p>
                     <div id="diagnosi-panel"></div>
@@ -4955,7 +4975,7 @@
                       succede se spendo di più in X", mai mostrato visivamente.
                       Ora un layout a cerchio con archi reali (spessore = forza
                       della co-variazione misurata, colore = direzione). -->
-                 <div class="card p-6 order-4" id="causal-graph-card">
+                 <div class="card p-6 order-4 advanced-card" id="causal-graph-card">
                     <h3 class="eyebrow" data-i18n-key="alphaLinkedCatsTitle">Categorie collegate</h3>
                     <p class="card-sub" data-i18n-key="alphaLinkedCatsSub">Quali spese si muovono insieme nei tuoi dati (correlazione misurata, non causalità certa)</p>
                     <div id="causal-graph-viz"></div>

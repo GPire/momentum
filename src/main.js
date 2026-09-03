@@ -4079,6 +4079,11 @@ window.runAIOverflowSweep = () => {
 // — il calcolo sincrono già mostrato in UI resta valido. Risparmia CPU/batteria
 // senza cambiare cosa vede l'utente su transazioni ordinarie.
 const renderAnalysis = (opts = {}) => {
+  // Sempre in cima, a prescindere da chi ha chiamato renderAnalysis: la
+  // vista Essenziale/Completa deve restare coerente ad ogni ridisegno, non
+  // solo al primo ingresso nella schermata (main.js ha decine di punti che
+  // richiamano renderAnalysis dopo un cambio dati).
+  try { updateAnalysisComplexityVisibility(); } catch (_) {}
   const k = monthKey(VaultDAO.state.currentDate);
   const txs = VaultDAO.state.transactions[k] || [];
   // DUE SCHERMATE NON POSSONO DARE DUE RISPOSTE ALLA STESSA DOMANDA.
@@ -14543,6 +14548,16 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   const p = derivePriors(risk, hz, liquidityMonths, invests, incomeRegularity);
   VaultDAO.state.isFirstLaunch = false;
   VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress, incomeRegularity: p.incomeRegularity, ageBracket };
+  // Vista Essenziale/Completa di Analisi Tensor (2026-09-03): il DEFAULT usa
+  // due risposte già raccolte, non una nuova domanda — 18-25 (meno probabile
+  // avere già dimestichezza con strumenti istituzionali) e liquidità corta
+  // (chi ha meno di 2 mesi di cuscinetto ha più bisogno di chiarezza che di
+  // Value at Risk). Solo un DEFAULT: resta sempre cambiabile con un tocco,
+  // e non viene mai sovrascritto se l'utente lo ha già scelto lui stesso
+  // (`uiComplexitySetByUser`).
+  if (!VaultDAO.state.uiComplexitySetByUser) {
+    VaultDAO.state.uiComplexity = (ageBracket === '18-25' || p.cashflowStress === 'corto') ? 'essenziale' : 'completo';
+  }
   VaultDAO.state.monthlyBudget = p.monthlyBudget;
   VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests, incomeRegularity: p.incomeRegularity };
   // Tono dei nudge di spesa personalizzato subito.
@@ -15321,6 +15336,33 @@ function updateAnalysisTensorVisibility() {
 }
 window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
 
+// VISTA ESSENZIALE/COMPLETA di Analisi Tensor (2026-09-03) — richiesta
+// esplicita: troppe card istituzionali (Value at Risk, Sharpe deflazionato,
+// grafo causale...) creano attrito e abbandono per chi vuole solo capire
+// come vanno i propri soldi. Le 7 card più tecniche sono marcate
+// `.advanced-card` in index.html — questa funzione le nasconde/mostra, MAI
+// forzando visibile una card già nascosta per un altro motivo (es. "sblocco
+// progressivo" quando non ci sono ancora posizioni: quella logica usa la
+// classe `.hidden`, questa usa `style.display`, i due meccanismi convivono
+// senza scavalcarsi).
+function resolveUiComplexity() {
+  const v = VaultDAO.state.uiComplexity;
+  return (v === 'essenziale' || v === 'completo') ? v : 'completo';
+}
+function updateAnalysisComplexityVisibility() {
+  const essenziale = resolveUiComplexity() === 'essenziale';
+  $$('.advanced-card').forEach(card => { card.style.display = essenziale ? 'none' : ''; });
+  $$('[data-ui-complexity]').forEach(btn => btn.classList.toggle('active', btn.dataset.uiComplexity === resolveUiComplexity()));
+}
+window.setUiComplexity = (val) => {
+  if (val !== 'essenziale' && val !== 'completo') return;
+  VaultDAO.state.uiComplexity = val;
+  VaultDAO.state.uiComplexitySetByUser = true;
+  VaultDAO.save();
+  haptic('light');
+  updateAnalysisComplexityVisibility();
+};
+
 // CTA della card "sblocco progressivo" (vedi renderNetWorth): porta l'utente
 // diretto sul tab "Investi" del Command Center in Dashboard, invece di un
 // generico "vai in impostazioni" — un acquisto registrato lì (poi confermato
@@ -15419,7 +15461,7 @@ const navigate = (view) => {
     const quandoLibero = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
     quandoLibero(() => window.renderVegliaMercato?.());
   }
-  if (view === 'analysis') renderAnalysis();
+  if (view === 'analysis') { renderAnalysis(); updateAnalysisComplexityVisibility(); }
   if (view === 'settings') {
     // #tax-card/#tax-es-card vivono qui (spostate da Analisi Tensor, vedi
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
