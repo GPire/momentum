@@ -2351,8 +2351,16 @@
     @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
       #modal-content { max-height: min(92dvh, calc(100dvh - max(env(safe-area-inset-top, 0px), 28px) - 0.5rem)); }
       /* E in più la X si tiene lontana dal bordo per conto suo: due difese
-         indipendenti, perché questa non deve poter tornare mai. */
-      #modal-content > button[onclick="closeModal()"] { top: max(0.75rem, calc(env(safe-area-inset-top, 0px) - 0.25rem)); }
+         indipendenti, perché questa non deve poter tornare mai. BUG REALE
+         (segnalato di nuovo dal vivo, 2026-09-03): questa riga usava un
+         pavimento di soli 0.75rem (12px) invece dello stesso pavimento
+         REALE di 28px usato due righe sopra per l'altezza del modale — su
+         un Android dove env() mente e riporta 0, il modale si accorciava
+         correttamente ma la X restava comunque a 12px dal bordo, sotto la
+         vera barra di stato (24-59px a seconda del device). Ora usa lo
+         STESSO pavimento minimo, mai un secondo numero scelto a caso che
+         può divergere dal primo. */
+      #modal-content > button[onclick="closeModal()"] { top: max(0.75rem, calc(max(env(safe-area-inset-top, 0px), 28px) - 0.25rem)); }
     }
     /* BUG REALE trovato dal vivo (segnalato dall'utente come "tutto offuscato
        al primo avvio, si sblocca solo toccando lo schermo"): #modal-container
