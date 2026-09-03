@@ -16358,7 +16358,16 @@ const initApp = () => {
         if (after && after !== before) {
           showToast('Trovata una versione nuova — si installa da sola tra un attimo.', 'success');
         } else {
-          showToast('Hai già l\'ultima versione di Momentum.', 'success');
+          // Il controllo sul service worker da solo non basta (vedi il terzo
+          // canale poco sotto, contro l'origine canonica): su un mirror
+          // bloccato in modo autocoerente (es. il proxy Netlify legacy) anche
+          // il service worker risulterebbe "già aggiornato" perché guarda
+          // solo sé stesso. `checkAppVersionDirect` confronta anche con
+          // l'origine vera — se trova una versione diversa, ricarica da sola
+          // (il messaggio "hai già l'ultima versione" qui sotto non arriva
+          // mai a comparire in quel caso, perché la pagina si ricarica prima).
+          try { await checkAppVersionDirect(); } catch (_) {}
+          if (!reloadedForVersionCheck) showToast('Hai già l\'ultima versione di Momentum.', 'success');
         }
       } catch (_) {
         showToast('Non sono riuscito a controllare ora: ci riprovo automaticamente più tardi.', 'error');
@@ -16382,19 +16391,52 @@ const initApp = () => {
     // per costruzione, indipendentemente da cosa il SW pensa di controllare.
     // Un solo reload, mai un loop: la guardia usa lo stesso pattern di
     // `reloadedForUpdate` sopra per il flusso del service worker.
+    // TERZO CANALE, contro l'origine CANONICA (2026-09-03) — bug reale
+    // trovato con curl diretto: chi arriva dal proxy Netlify legacy
+    // (public/_redirects, per le PWA installate prima della migrazione a
+    // Cloudflare Pages) può restare bloccato su uno snapshot vecchio in modo
+    // AUTOCOERENTE — bundle JS vecchio E version.json vecchio, dello STESSO
+    // deploy passato. Il controllo sopra confronta `./version.json` (stessa
+    // origine) contro `__BUILD_VERSION__` (stesso bundle): se il mirror è
+    // fermo, i due combaciano SEMPRE fra loro, non c'è mai una discrepanza da
+    // trovare, e "Cerca aggiornamenti ora" direbbe onestamente il falso
+    // ("hai già l'ultima versione") — non perché mentisse, ma perché guarda
+    // solo sé stesso. Verificato dal vivo: il proxy Netlify serviva un
+    // version.json di 3 giorni prima di quello vero su Cloudflare Pages.
+    // Il rimedio è confrontarsi anche con l'ORIGINE VERA, sempre fresca per
+    // costruzione (nessun proxy nel mezzo) — CORS già aperto su version.json
+    // (access-control-allow-origin: *, verificato con curl -I).
+    const CANONICAL_APP_ORIGIN = 'https://momentum-finance.pages.dev';
+    const isCanonicalOrigin = location.origin === CANONICAL_APP_ORIGIN;
     let reloadedForVersionCheck = false;
     const checkAppVersionDirect = async () => {
       if (reloadedForVersionCheck) return;
       try {
         const res = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const { version } = await res.json();
+          if (version && version !== __BUILD_VERSION__) {
+            reloadedForVersionCheck = true;
+            showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info');
+            setTimeout(() => window.location.reload(), 1200); // tempo reale per leggere il toast
+            return;
+          }
+        }
+      } catch (_) { /* onesto: rete assente o version.json non ancora deployato, si ricontrolla al prossimo giro */ }
+      // Il controllo sopra non ha trovato nulla di nuovo: prova anche contro
+      // l'origine canonica, ma solo se non siamo già lì (altrimenti sarebbe
+      // la stessa identica richiesta due volte).
+      if (isCanonicalOrigin) return;
+      try {
+        const res = await fetch(`${CANONICAL_APP_ORIGIN}/version.json?t=${Date.now()}`, { cache: 'no-store', mode: 'cors' });
         if (!res.ok) return;
         const { version } = await res.json();
         if (version && version !== __BUILD_VERSION__) {
           reloadedForVersionCheck = true;
           showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info');
-          setTimeout(() => window.location.reload(), 1200); // tempo reale per leggere il toast
+          setTimeout(() => window.location.reload(), 1200);
         }
-      } catch (_) { /* onesto: rete assente o version.json non ancora deployato, si ricontrolla al prossimo giro */ }
+      } catch (_) { /* onesto: origine canonica irraggiungibile (offline, o CORS bloccato altrove) — si ricontrolla al prossimo giro */ }
     };
     checkAppVersionDirect();
     setInterval(checkAppVersionDirect, 30 * 60 * 1000);

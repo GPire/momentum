@@ -242,6 +242,46 @@ export const RELEASES = [
       },
     ],
   },
+  {
+    versione: '2026-09-03',
+    voci: [
+      {
+        colore: 'primary',
+        icona: '<path d="M3 12h18M3 6h18M3 18h18"/>',
+        titolo: 'Le trasferte ora hanno un periodo, e calcolano la diaria da sole',
+        testo: 'Imposta inizio e fine (data e ora) di una trasferta: vedi subito i giorni senza nessuna spesa registrata e, se conosci le tariffe, la diaria spettante — calcolata sulle ore, come in Germania.',
+        titoloKey: 'wn0903_0_t', testoKey: 'wn0903_0_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/>',
+        titolo: 'Un calendario tutto di Momentum per le trasferte',
+        testo: 'Scegliere la data di uno scontrino ora apre un calendario disegnato apposta — mostra i giorni già coperti e quelli dentro il periodo dichiarato, mai più il selettore del telefono.',
+        titoloKey: 'wn0903_1_t', testoKey: 'wn0903_1_d',
+      },
+      {
+        colore: 'purple',
+        icona: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>',
+        titolo: 'Invia gli scontrini direttamente al tuo sistema aziendale',
+        testo: 'Se la tua azienda usa Concur, Expensify, Zoho o un altro sistema, configuralo una volta: poi un tocco per scontrino (o "Invia tutti") prepara l\'email pronta — niente più doppia battitura.',
+        titoloKey: 'wn0903_2_t', testoKey: 'wn0903_2_d',
+      },
+      {
+        colore: 'green',
+        icona: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        titolo: 'L\'onboarding ora chiede l\'età, prima di tutto',
+        testo: 'Chi ha meno di 18 anni salta le domande su stipendio e investimenti e vede invece un obiettivo di risparmio su misura — niente sezioni che non lo riguardano.',
+        titoloKey: 'wn0903_3_t', testoKey: 'wn0903_3_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>',
+        titolo: 'La X per chiudere torna raggiungibile su telefono',
+        testo: 'Su alcuni Android, con Momentum installato come app, il pulsante per chiudere una schermata finiva sotto la barra di stato del telefono ed era impossibile da toccare — risolto.',
+        titoloKey: 'wn0903_4_t', testoKey: 'wn0903_4_d',
+      },
+    ],
+  },
 ];
 
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
