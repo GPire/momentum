@@ -7,7 +7,7 @@ import { mergeCategoryLists, touchCategory } from './core/custom-categories-merg
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
 import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo } from './trips/trip-period.js';
-import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo } from './trips/expense-bridge.js';
+import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -9552,13 +9552,25 @@ function periodoOrarioPannelloHtml(trip, campo) {
 // propri utenti). Un solo indirizzo configurato una volta, poi un tocco per
 // spesa — niente procedura macchinosa, la richiesta esplicita dell'utente
 // era proprio di semplificare per chi già fatica con quelle piattaforme.
-function bridgeCardHtml(state) {
+function bridgeCardHtml(state, expenses = []) {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const bridge = VaultDAO.state.expenseBridge || null;
   const inModifica = state.bridgeConfigAperto || !bridge?.address;
   const iconaInvio = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>';
   if (!inModifica) {
     const piattaforma = trovaPiattaforma(bridge.platformId);
+    // Un tocco per spesa va bene con 2 scontrini, diventa lavoro con 15 — la
+    // richiesta esplicita di "renderlo più intelligente e potente" era
+    // proprio questa: non far ripetere lo stesso tocco N volte quando N è
+    // grande. Non rimanda mai da solo uno scontrino già segnato inviato: la
+    // scelta di rimandarlo resta manuale (un doppio invio verso un sistema
+    // aziendale può creare un doppio rimborso, non è un dettaglio innocuo).
+    const daInviare = scontriniDaInviare(expenses);
+    const giaInviati = scontriniGiaInviati(expenses);
+    const azioneBulk = daInviare.length
+      ? `<button type="button" id="bridge-send-all" class="w-full mt-2 py-2 rounded-lg border border-[var(--primary)] text-[var(--primary)] text-[11px] font-bold active:scale-[0.98] transition-transform">${esc(tCh('bridgeSendAllBtn', __uiLang, daInviare.length))}</button>
+         <p class="text-[9px] text-[var(--on-surface-secondary)] mt-1">${esc(tCh('bridgeSendAllHint', __uiLang))}</p>`
+      : (giaInviati.length ? `<p class="text-[10px] text-emerald-400 font-bold mt-1.5">${esc(tCh('bridgeAllSentHint', __uiLang))}</p>` : '');
     return `
       <div class="card p-3">
         <div class="eyebrow">${iconaInvio}${esc(tCh('bridgeTitle', __uiLang))}</div>
@@ -9567,6 +9579,7 @@ function bridgeCardHtml(state) {
           <button type="button" id="bridge-edit" class="shrink-0 text-[11px] font-bold text-[var(--primary)]">${esc(tCh('bridgeEditBtn', __uiLang))}</button>
         </div>
         <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">${esc(tCh('bridgeHint', __uiLang))}</p>
+        ${azioneBulk}
       </div>`;
   }
   const platformIdBozza = state.bridgePlatformBozza ?? bridge?.platformId ?? null;
@@ -9697,7 +9710,7 @@ window.openBusinessTrip = (tripId) => {
           <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${String(t.date).slice(0, 10)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
         </span>
         <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
-        ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(tCh('bridgeSendAria', __uiLang))}" title="${esc(tCh('bridgeSendAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></button>` : ''}
+        ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" title="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" class="${t.bridgeSentAt ? 'text-emerald-400 opacity-70' : 'text-[var(--on-surface-secondary)] opacity-40'} hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.bridgeSentAt ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>'}</svg></button>` : ''}
         <button data-tripexpdup="${t.id}" aria-label="${esc(tCh('tripDuplicateAria', __uiLang))}" title="${esc(tCh('tripDuplicateAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <button data-tripexpdel="${t.id}" data-month="${monthKey(new Date(t.date))}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
       </div>`;
@@ -9904,7 +9917,7 @@ window.openBusinessTrip = (tripId) => {
           ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
           <button id="trip-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
         </div>
-        ${expenses.some(t => t.receiptImage) ? bridgeCardHtml(state) : ''}
+        ${expenses.some(t => t.receiptImage) ? bridgeCardHtml(state, expenses) : ''}
         ${expenses.length ? `<div class="flex gap-2">
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
@@ -10222,6 +10235,11 @@ window.openBusinessTrip = (tripId) => {
         const blob = await (await fetch(t.receiptImage)).blob();
         file = new File([blob], nomeFileGiustificativo(t, isPdf), { type: isPdf ? 'application/pdf' : (blob.type || 'image/jpeg') });
       } catch (_) { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
+      // Segnato "inviato" dopo aver avviato davvero l'invio (condivisione o
+      // email aperta) — mai in automatico prima, e mai un secondo invio
+      // silenzioso di uno scontrino già segnato: un doppio invio verso un
+      // sistema aziendale può generare un doppio rimborso, non è innocuo.
+      const segnaInviato = () => { t.bridgeSentAt = new Date().toISOString(); VaultDAO.save(); render(); };
       try {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           // L'indirizzo va comunque scelto a mano nel foglio di condivisione
@@ -10229,6 +10247,7 @@ window.openBusinessTrip = (tripId) => {
           // copiato negli appunti per non doverlo ridigitare.
           try { await navigator.clipboard?.writeText(bridge.address); } catch (_) {}
           await navigator.share({ files: [file] });
+          segnaInviato();
           showToast(tCh('bridgeSentToast', __uiLang, bridge.address), 'success');
           return;
         }
@@ -10239,8 +10258,50 @@ window.openBusinessTrip = (tripId) => {
       const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       window.location.href = `mailto:${encodeURIComponent(bridge.address)}`;
+      segnaInviato();
       showToast(tCh('bridgeFallbackToast', __uiLang), 'info');
     }));
+    // Invio multiplo: un tocco per spesa va bene con due scontrini, diventa
+    // lavoro con quindici. Un'unica condivisione con tutti gli allegati
+    // rimasti (mai quelli già segnati inviati, quello resta un tocco singolo
+    // deliberato) — con lo stesso fallback per-file su desktop.
+    $('#bridge-send-all')?.addEventListener('click', async () => {
+      const bridge = VaultDAO.state.expenseBridge;
+      if (!bridge?.address) return;
+      const daInviare = scontriniDaInviare(expenses);
+      if (!daInviare.length) return;
+      const pronte = [];
+      for (const t of daInviare) {
+        try {
+          const isPdf = String(t.receiptImage).startsWith('data:application/pdf');
+          const blob = await (await fetch(t.receiptImage)).blob();
+          pronte.push({ t, file: new File([blob], nomeFileGiustificativo(t, isPdf), { type: isPdf ? 'application/pdf' : (blob.type || 'image/jpeg') }) });
+        } catch (_) { /* uno scontrino corrotto non blocca gli altri */ }
+      }
+      if (!pronte.length) { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
+      const soloFile = pronte.map(p => p.file);
+      const segnaTuttiInviati = () => { for (const { t } of pronte) t.bridgeSentAt = new Date().toISOString(); VaultDAO.save(); render(); };
+      try {
+        if (navigator.canShare && navigator.canShare({ files: soloFile })) {
+          try { await navigator.clipboard?.writeText(bridge.address); } catch (_) {}
+          await navigator.share({ files: soloFile });
+          segnaTuttiInviati();
+          showToast(tCh('bridgeSentAllToast', __uiLang, pronte.length, bridge.address), 'success');
+          return;
+        }
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+      // Fallback desktop: mailto non allega nulla, quindi scarico ogni file
+      // (l'utente li allega tutti alla stessa email che si apre) — dichiarato
+      // nel testo del toast, mai finto un invio automatico multiplo.
+      for (const { file } of pronte) {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+      window.location.href = `mailto:${encodeURIComponent(bridge.address)}`;
+      segnaTuttiInviati();
+      showToast(tCh('bridgeFallbackAllToast', __uiLang, pronte.length), 'info');
+    });
     $('#trip-del')?.addEventListener('click', () => {
       // Cancellare NON toglie la trasferta dall'elenco: ci mette sopra una
       // data. Serve a due cose insieme — un dispositivo spento non può

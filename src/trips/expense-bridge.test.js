@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo } from './expense-bridge.js';
+import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './expense-bridge.js';
 
 test('Concur ed Expensify hanno un indirizzo fisso verificato, Zoho e Altro no', () => {
   assert.equal(trovaPiattaforma('concur').indirizzoFisso, 'receipts@concur.com');
@@ -31,11 +31,42 @@ test('indirizzoValido accetta email plausibili e rifiuta il resto', () => {
 });
 
 test('nomeFileGiustificativo usa la data della spesa, mai un nome generico che si sovrascrive', () => {
-  assert.equal(nomeFileGiustificativo({ date: '2026-09-03' }, false), 'scontrino-2026-09-03.jpg');
-  assert.equal(nomeFileGiustificativo({ date: '2026-09-03T10:00:00.000Z' }, true), 'scontrino-2026-09-03.pdf');
+  assert.equal(nomeFileGiustificativo({ id: 'abc123', date: '2026-09-03' }, false), 'scontrino-2026-09-03-c123.jpg');
+  assert.equal(nomeFileGiustificativo({ id: 'abc123', date: '2026-09-03T10:00:00.000Z' }, true), 'scontrino-2026-09-03-c123.pdf');
 });
 
 test('nomeFileGiustificativo con dati sporchi non crasha', () => {
   assert.equal(nomeFileGiustificativo({}, false), 'scontrino-senza-data.jpg');
   assert.equal(nomeFileGiustificativo(null, false), 'scontrino-senza-data.jpg');
+});
+
+test('due scontrini nello stesso giorno producono nomi file diversi (il caso reale che ha motivato il suffisso)', () => {
+  const nome1 = nomeFileGiustificativo({ id: 'taxi-001', date: '2026-09-01' }, false);
+  const nome2 = nomeFileGiustificativo({ id: 'pranzo-002', date: '2026-09-01' }, false);
+  assert.notEqual(nome1, nome2);
+});
+
+test('scontriniDaInviare: solo spese con scontrino E non ancora inviate', () => {
+  const expenses = [
+    { id: '1', receiptImage: 'data:x', bridgeSentAt: null },
+    { id: '2', receiptImage: 'data:x', bridgeSentAt: '2026-09-01T10:00:00.000Z' },
+    { id: '3', receiptImage: null },
+    { id: '4' },
+  ];
+  const risultato = scontriniDaInviare(expenses);
+  assert.deepEqual(risultato.map(e => e.id), ['1']);
+});
+
+test('scontriniGiaInviati: il complemento esatto di scontriniDaInviare fra le spese con scontrino', () => {
+  const expenses = [
+    { id: '1', receiptImage: 'data:x', bridgeSentAt: null },
+    { id: '2', receiptImage: 'data:x', bridgeSentAt: '2026-09-01T10:00:00.000Z' },
+  ];
+  assert.deepEqual(scontriniGiaInviati(expenses).map(e => e.id), ['2']);
+});
+
+test('scontriniDaInviare/scontriniGiaInviati con lista vuota o assente non crashano', () => {
+  assert.deepEqual(scontriniDaInviare([]), []);
+  assert.deepEqual(scontriniDaInviare(undefined), []);
+  assert.deepEqual(scontriniGiaInviati(undefined), []);
 });

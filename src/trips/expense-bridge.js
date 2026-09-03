@@ -55,9 +55,23 @@ export function indirizzoValido(indirizzo) {
   return typeof indirizzo === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(indirizzo.trim());
 }
 
-// Nome file per lo scontrino da allegare — data + tipo, mai un nome generico
-// che si confonde col precedente scaricato un minuto prima.
+// Nome file per lo scontrino da allegare — data + un suffisso dall'id, mai
+// solo la data: un invio multiplo con due scontrini nello stesso giorno
+// produrrebbe altrimenti due allegati con lo stesso nome (visto succedere,
+// non ipotizzato: una trasferta con taxi+pranzo lo stesso giorno).
 export function nomeFileGiustificativo(expense, isPdf) {
   const data = String(expense?.date || '').slice(0, 10) || 'senza-data';
-  return `scontrino-${data}.${isPdf ? 'pdf' : 'jpg'}`;
+  const suffisso = expense?.id ? `-${String(expense.id).slice(-4)}` : '';
+  return `scontrino-${data}${suffisso}.${isPdf ? 'pdf' : 'jpg'}`;
+}
+
+// Gli scontrini di questa trasferta non ancora mandati al sistema aziendale
+// (o mai mandati) — mai un doppio invio automatico, la scelta di rimandarne
+// uno già segnato resta sempre manuale.
+export function scontriniDaInviare(expenses = []) {
+  return expenses.filter(t => t?.receiptImage && !t.bridgeSentAt);
+}
+
+export function scontriniGiaInviati(expenses = []) {
+  return expenses.filter(t => t?.receiptImage && t.bridgeSentAt);
 }
