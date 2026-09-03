@@ -125,6 +125,28 @@ test('computeGoalProgress: risparmio negativo → pct 0, mai barre negative', ()
   assert.equal(res.saved, -300);
 });
 
+// Obiettivo SENZA cifra (2026-09-03, richiesta esplicita): un obiettivo si
+// può creare solo col nome, per non forzare un numero che l'utente magari
+// non conosce ancora. `saved` resta calcolabile (utile anche senza
+// traguardo), ma pct/remaining/onTrack devono restare `null` — MAI 0 o NaN
+// spacciati per un calcolo vero (il bug reale che ha motivato il fix: senza
+// questa distinzione `remaining` sarebbe stato `target - saved` = NaN).
+test('computeGoalProgress: senza target, saved resta calcolabile ma pct/remaining/onTrack sono null, mai NaN', () => {
+  const goal = { id: 'g2', name: 'Console', target: null, createdAt: '2026-07-01' };
+  const allTx = { '2026-07': [tx('2026-07-05', 800, 'Stipendio', 'entrata'), tx('2026-07-08', 300, 'Spese')] };
+  const res = computeGoalProgress(goal, allTx, REF);
+  assert.equal(res.saved, 500);
+  assert.equal(res.pct, null);
+  assert.equal(res.remaining, null);
+  assert.equal(res.onTrack, null);
+});
+
+test('computeGoalProgress: senza target ma con deadline, onTrack resta null (nessun ritmo calcolabile senza un traguardo)', () => {
+  const goal = { id: 'g2', name: 'Console', target: null, createdAt: '2026-07-01', deadline: '2026-07-29' };
+  const res = computeGoalProgress(goal, { '2026-07': [tx('2026-07-05', 600, 'Stipendio', 'entrata')] }, REF);
+  assert.equal(res.onTrack, null);
+});
+
 // ---- suggestSubscriptionRegistrations ----
 
 function netflixHistory() {

@@ -2169,20 +2169,45 @@ window.dismissDemo = () => {
   VaultDAO.save();
   showToast(tCh('demoDismissedToast', __uiLang), 'success');
   renderDashboard();
-  // BUG REALE segnalato dagli utenti (2026-09-03): da qui in poi budget e
-  // stipendio restano la STIMA di partenza dell'onboarding (dal profilo di
-  // rischio, mai confermata da un numero vero) — "oggi puoi spendere"/il
-  // budget settimanale la mostravano con la stessa sicurezza di un dato
-  // reale, e chi non sapeva che fosse solo una stima si sentiva preso in
-  // giro da numeri senza senso. Questo è il momento giusto per sostituirla
-  // col numero vero: riusa gli editor già esistenti (Budget mensile, Il mio
-  // accredito), mai un flusso nuovo — entrambi skippabili, mai un obbligo.
+  askRealNumbersOnce();
+};
+
+// BUG REALE segnalato dagli utenti (2026-09-03): da qui in poi budget e
+// stipendio restano la STIMA di partenza dell'onboarding (dal profilo di
+// rischio, mai confermata da un numero vero) — "oggi puoi spendere"/il
+// budget settimanale la mostravano con la stessa sicurezza di un dato
+// reale, e chi non sapeva che fosse solo una stima si sentiva preso in
+// giro da numeri senza senso. Questo è il momento giusto per sostituirla
+// col numero vero: riusa gli editor già esistenti (Budget mensile, Il mio
+// accredito), mai un flusso nuovo — entrambi skippabili, mai un obbligo.
+// UNA SOLA VOLTA per dispositivo (`freshStartPrompted`), da QUALUNQUE dei
+// due ingressi possibili: chi clicca "Parti dai miei dati" esplicitamente,
+// o chi non lo clicca mai e inizia comunque a registrare spese vere (il
+// secondo caso non aveva alcun trigger prima — un utente poteva restare
+// sulla stima per settimane senza che nessuno gliela chiedesse).
+function askRealNumbersOnce() {
+  if (VaultDAO.state.freshStartPrompted) return;
+  VaultDAO.state.freshStartPrompted = true;
+  VaultDAO.save();
   setTimeout(() => {
     window.openBudgetEditor(() => {
       window.openSalaryEditor(() => { renderDashboard(); });
     });
   }, 500);
-};
+}
+
+// Secondo ingresso: chi non tocca mai "Parti dai miei dati" ma inizia
+// comunque a usare l'app per davvero. Soglia bassa (3 spese vere, non un
+// mese intero come suggestMonthlyBudget) apposta: prima si sostituisce la
+// stima con un numero vero, meno tempo l'utente passa a fidarsi di cifre
+// senza senso. Mai durante un altro modale già aperto — un secondo modale
+// sopra il primo confonderebbe più di quanto aiuti.
+function maybeAskRealNumbersFromUsage() {
+  if (VaultDAO.state.freshStartPrompted) return;
+  if (realTxCount() < 3) return;
+  if (!$('#modal-container')?.classList.contains('hidden')) return;
+  askRealNumbersOnce();
+}
 
 // Quota di budget giornaliero (mensile/giorni del mese) e il suo confronto
 // con la spesa reale — condiviso tra l'intestazione-giorno della Dashboard
@@ -2776,6 +2801,11 @@ const renderDashboard = () => {
   const txs = displayTxForMonth(k);
   renderDemoBanner();
   renderImportCta();
+  maybeAskRealNumbersFromUsage();
+  // Anche in Dashboard (vedi index.html, #savings-goals-card-dash): chi non
+  // ha Analisi Tensor visibile (non investe, o è minorenne) deve comunque
+  // poter vedere e gestire i propri obiettivi.
+  renderSavingsGoals();
 
   // Valuta base del dispositivo: senza un tasso di cambio (nessuna fonte
   // remota per principio del progetto — vedi currency-convert.js) sommare
@@ -14529,10 +14559,22 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
 // barra di progresso — resta solo un promemoria nel payoff.
 function seedProfileStateMinor() {
   VaultDAO.state.isFirstLaunch = false;
-  VaultDAO.state.onboardingProfile = { isMinor: true, ageBracket: 'under18', invests: false, minorGoalKey: window.userMinorGoalKey || null };
+  const goalKey = window.userMinorGoalKey || null;
+  VaultDAO.state.onboardingProfile = { isMinor: true, ageBracket: 'under18', invests: false, minorGoalKey: goalKey };
   VaultDAO.state.monthlyBudget = 150;
   VaultDAO.state.investmentPrefs = { investFraction: 0, emergencyMonths: 0, riskFloor: 0, horizon: 'breve', cashflowStress: null, liquidityMonths: null, invests: false };
   VaultDAO.state.aiAggression = 'advisor';
+  // L'obiettivo scelto diventa un obiettivo VERO (richiesta esplicita
+  // dell'utente, non solo un promemoria testuale nel payoff) — riusa lo
+  // stesso sistema savingsGoals degli adulti, mai uno nuovo. Nessuna cifra:
+  // l'onboarding non la chiede per restare a zero attrito, e computeGoal-
+  // Progress/renderSavingsGoals ora gestiscono un obiettivo senza cifra
+  // come un caso di prima classe (barra assente, invito a impostarla dopo),
+  // non un valore rotto.
+  if (goalKey && MINOR_GOAL_LABEL_KEYS[goalKey]) {
+    VaultDAO.state.savingsGoals = VaultDAO.state.savingsGoals || [];
+    VaultDAO.state.savingsGoals.push({ id: Date.now(), name: tCh(MINOR_GOAL_LABEL_KEYS[goalKey], __uiLang), target: null, createdAt: new Date().toISOString(), deadline: null });
+  }
   pingFeature('onboarding_completed');
   VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
   updateAnalysisTensorVisibility();
@@ -15548,15 +15590,21 @@ document.addEventListener('keydown', (e) => {
 // ==========================================
 // OBIETTIVI DI RISPARMIO (src/predict/engagement.js)
 // ==========================================
+// Due contenitori possibili (Analisi Tensor, sempre esistito, e Dashboard,
+// 2026-09-03): STESSA funzione, STESSI dati, mai due fonti di verità — chi
+// ha Analisi Tensor nascosta (non investe, o è minorenne) vede comunque i
+// propri obiettivi, perché non sono una funzione "da investitori".
 function renderSavingsGoals() {
-  const box = $('#savings-goals-container');
-  if (!box) return;
+  const boxes = ['#savings-goals-container', '#savings-goals-container-dash']
+    .map(sel => $(sel)).filter(Boolean);
+  if (!boxes.length) return;
   const goals = VaultDAO.state.savingsGoals || [];
+  let html;
   if (goals.length === 0) {
     // Prima: solo una frase. Ora una barra-fantasma (tratteggiata, vuota) che
     // mostra COSA diventerà questa sezione appena c'è un obiettivo — lo stesso
     // linguaggio visivo delle barre reali sotto, non un'assenza silenziosa.
-    box.innerHTML = `
+    html = `
       <button onclick="window.openGoalEditor()" class="w-full text-left p-3 rounded-xl border border-dashed border-[var(--glass-border)] hover:border-[color-mix(in_srgb,var(--primary)_50%,transparent)] transition-colors">
         <div class="flex items-center gap-2 mb-2 text-[var(--on-surface-secondary)]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg>
@@ -15565,10 +15613,29 @@ function renderSavingsGoals() {
         <div class="budget-track opacity-40"><div class="budget-fill" style="width:0%; background:var(--cyan);"></div></div>
         <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${tCh('alphaGoalsCreateFirstSub', __uiLang)}</p>
       </button>`;
+    boxes.forEach(box => { box.innerHTML = html; });
     return;
   }
-  box.innerHTML = goals.map(g => {
+  html = goals.map(g => {
     const prog = computeGoalProgress(g, VaultDAO.state.transactions);
+    // Obiettivo SENZA cifra (2026-09-03): niente barra di progresso (non ci
+    // sarebbe nulla su cui misurarla, mai una barra vuota che sembra "0 su
+    // qualcosa" quando in realtà è "nessun traguardo dichiarato") — solo
+    // quanto già messo da parte, sempre calcolabile, più un invito chiaro a
+    // impostare la cifra quando la si conosce. Mai un obbligo: stesso
+    // principio "zero attrito" già seguito per l'obiettivo scelto in
+    // onboarding da un minorenne.
+    if (g.target == null) {
+      return `
+        <div class="relative">
+          <div class="flex justify-between items-baseline mb-1">
+            <p class="text-xs font-bold">${g.name}</p>
+            <button onclick="window.deleteSavingsGoal(${g.id})" class="text-[10px] text-[var(--on-surface-secondary)] opacity-60">${tCh('alphaGoalsRemove', __uiLang)}</button>
+          </div>
+          <p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('alphaGoalsNoTargetSaved', __uiLang, formatMoney(prog.saved))}</p>
+          <button onclick="window.openGoalAmountEditor(${g.id})" class="text-[11px] font-bold text-[var(--primary)] underline mt-0.5">${tCh('alphaGoalsSetTargetCta', __uiLang)}</button>
+        </div>`;
+    }
     const barColor = prog.pct >= 100 ? 'var(--green)' : (prog.onTrack === false ? 'var(--yellow)' : 'var(--cyan)');
     const trackNote = prog.onTrack === null ? '' : (prog.onTrack
       ? `<span class="text-emerald-400">${tCh('alphaGoalsOnTrack', __uiLang)}</span>`
@@ -15584,7 +15651,36 @@ function renderSavingsGoals() {
       </div>
     `;
   }).join('');
+  boxes.forEach(box => { box.innerHTML = html; });
 }
+
+// Imposta la cifra su un obiettivo creato senza — richiesta esplicita: mai
+// obbligare a scegliere un numero subito, ma renderlo facile da aggiungere
+// appena l'utente lo conosce. Riusa lo stesso stile di openGoalEditor, non
+// un modulo nuovo.
+window.openGoalAmountEditor = (id) => {
+  const goal = (VaultDAO.state.savingsGoals || []).find(g => g.id === id);
+  if (!goal) return;
+  openModal(`
+    <div class="p-4 space-y-4">
+      <h3 class="text-lg font-bold">${goal.name}</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('alphaGoalsSetTargetSub', __uiLang)}</p>
+      <input id="goal-target-only-input" type="number" inputmode="decimal" placeholder="${tCh('alphaGoalsTargetPlaceholder', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
+      <button onclick="window.confirmGoalAmount(${id})" class="btn-action w-full">${tCh('alphaGoalsSetTargetCta', __uiLang)}</button>
+    </div>
+  `);
+};
+
+window.confirmGoalAmount = (id) => {
+  const target = parseFloat(document.getElementById('goal-target-only-input')?.value);
+  if (!target || target <= 0) { showToast(tCh('alphaGoalsInvalidAmount', __uiLang), 'error'); return; }
+  const goal = (VaultDAO.state.savingsGoals || []).find(g => g.id === id);
+  if (!goal) return;
+  goal.target = Math.round(target * 100) / 100;
+  VaultDAO.save();
+  closeModal();
+  renderSavingsGoals();
+};
 
 // ==========================================
 // PAIRING MESH (mente condivisa tra dispositivi)
@@ -16163,7 +16259,7 @@ window.openGoalEditor = () => {
       <h3 class="text-lg font-bold">Nuovo obiettivo</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">Il progresso si calcola da solo: entrate meno uscite da oggi in poi.</p>
       <input id="goal-name-input" type="text" placeholder="Es. Vacanza, Fondo emergenze" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
-      <input id="goal-target-input" type="number" inputmode="decimal" placeholder="Quanto vuoi mettere da parte (€)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
+      <input id="goal-target-input" type="number" inputmode="decimal" placeholder="Quanto vuoi mettere da parte (€) — facoltativo" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
       <input id="goal-deadline-input" type="date" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
       <button onclick="window.confirmGoalCreate()" class="btn-action w-full">Crea obiettivo</button>
     </div>
@@ -16172,11 +16268,18 @@ window.openGoalEditor = () => {
 
 window.confirmGoalCreate = () => {
   const name = document.getElementById('goal-name-input')?.value?.trim();
-  const target = parseFloat(document.getElementById('goal-target-input')?.value);
+  if (!name) { showToast('Serve almeno un nome.', 'error'); return; }
+  // La cifra è OPZIONALE (richiesta esplicita, 2026-09-03): un campo vuoto è
+  // un obiettivo valido senza traguardo dichiarato ancora — mai forzare un
+  // numero indovinato solo per superare la validazione. Se scritto, deve
+  // comunque essere un importo valido: un target chiaramente sbagliato (0,
+  // negativo) resta bloccato, non un obiettivo "senza cifra" travestito.
+  const targetRaw = document.getElementById('goal-target-input')?.value;
+  const targetParsed = targetRaw ? parseFloat(targetRaw) : null;
+  if (targetRaw && (!targetParsed || targetParsed <= 0)) { showToast('L\'importo, se lo scrivi, deve essere valido.', 'error'); return; }
   const deadline = document.getElementById('goal-deadline-input')?.value || null;
-  if (!name || !target || target <= 0) { showToast('Serve un nome e un importo valido.', 'error'); return; }
   VaultDAO.state.savingsGoals = VaultDAO.state.savingsGoals || [];
-  VaultDAO.state.savingsGoals.push({ id: Date.now(), name, target, createdAt: new Date().toISOString(), deadline });
+  VaultDAO.state.savingsGoals.push({ id: Date.now(), name, target: targetParsed, createdAt: new Date().toISOString(), deadline });
   VaultDAO.save();
   closeModal();
   showToast(`Obiettivo "${name}" creato.`, 'success');

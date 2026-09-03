@@ -107,14 +107,22 @@ export function computeWeeklyRecap(allTx, referenceDate = new Date()) {
 // accumulato da quando l'obiettivo esiste. Con una deadline, `onTrack`
 // confronta il ritmo reale con quello necessario — un fatto misurato, non
 // un incoraggiamento di cortesia.
+// `goal.target` è OPZIONALE (richiesta esplicita: un obiettivo si può creare
+// senza cifra, per non forzare un numero che l'utente magari non conosce
+// ancora — zero attrito, stesso principio di "non lo so sempre disponibile"
+// già seguito nelle domande di onboarding). Senza cifra: `pct`/`remaining`/
+// `onTrack` restano `null`, MAI 0 o NaN spacciati per un calcolo vero —
+// `saved` resta comunque calcolabile e utile (quanto hai già messo da
+// parte, a prescindere dal traguardo).
 export function computeGoalProgress(goal, allTx, referenceDate = new Date()) {
   const created = new Date(goal.createdAt);
   const saved = sumInRange(allTx, created, referenceDate, 'entrata')
               - sumInRange(allTx, created, referenceDate, 'uscita');
-  const pct = goal.target > 0 ? Math.min(100, Math.max(0, (saved / goal.target) * 100)) : 0;
+  const haTarget = goal.target > 0;
+  const pct = haTarget ? Math.min(100, Math.max(0, (saved / goal.target) * 100)) : null;
 
   let onTrack = null;
-  if (goal.deadline) {
+  if (haTarget && goal.deadline) {
     const deadline = new Date(goal.deadline);
     const totalDays = Math.max(1, Math.round((deadline - created) / DAY_MS));
     const elapsedDays = Math.min(totalDays, Math.max(0, Math.round((referenceDate - created) / DAY_MS)));
@@ -124,8 +132,8 @@ export function computeGoalProgress(goal, allTx, referenceDate = new Date()) {
 
   return {
     saved: +saved.toFixed(2),
-    pct: +pct.toFixed(1),
-    remaining: +Math.max(0, goal.target - saved).toFixed(2),
+    pct: haTarget ? +pct.toFixed(1) : null,
+    remaining: haTarget ? +Math.max(0, goal.target - saved).toFixed(2) : null,
     onTrack,
   };
 }

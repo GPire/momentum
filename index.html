@@ -4057,8 +4057,19 @@
              fidarsi sulla parola. Riempito da renderGenesisPayoff() in
              main.js con gli STESSI valori reali che verranno salvati, non
              un riassunto approssimativo. -->
-        <div id="genesis-payoff" class="flex flex-col gap-2 mb-6"></div>
-        <div class="relative w-[148px] h-[148px] mx-auto flex items-center justify-center">
+        <!-- BUG REALE segnalato dal vivo (2026-09-03): il bottone "Entra" può
+             finire irraggiungibile su iPhone quando il payoff mostra più
+             righe (contraddizione cuscinetto-corto, entrate irregolari...) —
+             #genesis-ui ha un'altezza FISSA (h-96, vedi commento sopra sulla
+             stessa lezione già imparata per la scena della cupola) e il
+             contenuto in eccesso trabocca fuori dal contenitore invece di
+             spingerlo, finendo tagliato dal vero bordo schermo. Stesso
+             rimedio già usato per "Cosa c'è di nuovo" qui sotto: altezza
+             MASSIMA con scroll interno sul payoff, mai sul bottone, così il
+             totale resta limitato indipendentemente da quante righe la
+             contraddizione dichiarata aggiunge. -->
+        <div id="genesis-payoff" class="flex flex-col gap-2 mb-6 overflow-y-auto" style="max-height: min(38dvh, 280px)"></div>
+        <div class="relative w-[148px] h-[148px] mx-auto flex items-center justify-center shrink-0">
           <svg class="haptic-ring-svg" viewBox="0 0 148 148">
             <circle cx="74" cy="74" r="65" fill="none" stroke="var(--outline)" stroke-width="4"/>
             <circle class="haptic-ring-fill" id="genesis-ring-fill" cx="74" cy="74" r="65"/>
@@ -4127,14 +4138,17 @@
        <div class="starfield"><div class="star-layer sl-small"></div><div class="star-layer sl-mid"></div><div class="star-layer sl-big"></div><div class="star-layer sl-glow"></div><div class="shooting-star s1"></div><div class="shooting-star s2"></div><div class="shooting-star s3"></div></div>
     </div>
     <div class="absolute inset-0 z-[5] pointer-events-none" style="background: radial-gradient(ellipse 60% 45% at 50% 48%, rgba(5,7,15,0.82) 0%, rgba(5,7,15,0.55) 45%, rgba(5,7,15,0) 78%);"></div>
-    <div class="relative z-10 w-full max-w-md px-6 max-h-[92vh] flex flex-col items-center text-center gap-4">
+    <div class="relative z-10 w-full max-w-md px-6 max-h-[92dvh] flex flex-col items-center text-center gap-4" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px))">
       <p class="eyebrow !mb-0 text-[var(--primary)]" data-i18n-key="wnEyebrow">Momentum · Novità</p>
       <h2 class="text-2xl font-black text-white tracking-tight" data-i18n-key="wnTitle">Cosa c'è di nuovo</h2>
       <!-- Storico concatenato (più release non ancora viste, non solo
            l'ultima): con un dispositivo fermo da mesi la lista può crescere
            parecchio — scroll interno, mai un layout che rompe o un
-           bottone "Ho capito" spinto fuori schermo su un telefono piccolo. -->
-      <div id="whats-new-list" class="w-full flex flex-col gap-3 text-left overflow-y-auto pr-0.5" style="max-height: min(52vh, 420px);"></div>
+           bottone "Ho capito" spinto fuori schermo su un telefono piccolo.
+           `dvh` non `vh` (stessa lezione già imparata per #modal-content):
+           su iOS in standalone `vh` include la barra del browser che nella
+           PWA non c'è mai, sovrastimando lo spazio davvero disponibile. -->
+      <div id="whats-new-list" class="w-full flex flex-col gap-3 text-left overflow-y-auto pr-0.5" style="max-height: min(52dvh, 420px);"></div>
       <button id="whats-new-close" class="btn-action btn-primary w-full py-3 font-bold rounded-xl mt-1 shrink-0" data-i18n-key="wnClose">Ho capito</button>
     </div>
   </div>
@@ -4563,6 +4577,26 @@
                   <button id="sweep-btn" onclick="window.runAIOverflowSweep()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-500 active:scale-95 text-white font-bold rounded-lg text-[10px] tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none" data-i18n-key="jarMarkBtn">SEGNA</button>
                 </div>
               </div>
+            </div>
+
+            <!-- Obiettivi di risparmio, ANCHE in Dashboard (2026-09-03) —
+                 BUG REALE trovato dal vivo: questa card viveva SOLO dentro
+                 Analisi Tensor, ma quella schermata è nascosta per chi ha
+                 dichiarato di non investire (shouldShowAnalysisTensor) —
+                 minorenni compresi, dal nuovo onboarding per età. Un
+                 obiettivo di risparmio non è una funzione "da investitori":
+                 chi non investe (o è minorenne) restava con un obiettivo
+                 creato ma IRRAGGIUNGIBILE, senza nessun modo di vederlo o
+                 impostarne la cifra. Id diversi da quelli di Analisi Tensor
+                 (suffisso -dash): sono la STESSA funzione di rendering
+                 (renderSavingsGoals in main.js) ad aggiornare entrambi i
+                 contenitori quando esistono, mai due fonti di verità. -->
+            <div id="savings-goals-card-dash" class="card p-6 shrink-0">
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/></svg><span data-i18n-key="alphaGoalsTitle">I tuoi obiettivi</span></h3>
+                <button onclick="window.openGoalEditor()" class="text-[11px] font-bold text-[var(--primary)] underline" data-i18n-key="alphaGoalsNewBtn">+ Nuovo</button>
+              </div>
+              <div id="savings-goals-container-dash" class="space-y-3"></div>
             </div>
 
             <!-- STRISCIA SETTIMANALE: richiesta esplicita di portare il
