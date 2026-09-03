@@ -2169,6 +2169,19 @@ window.dismissDemo = () => {
   VaultDAO.save();
   showToast(tCh('demoDismissedToast', __uiLang), 'success');
   renderDashboard();
+  // BUG REALE segnalato dagli utenti (2026-09-03): da qui in poi budget e
+  // stipendio restano la STIMA di partenza dell'onboarding (dal profilo di
+  // rischio, mai confermata da un numero vero) — "oggi puoi spendere"/il
+  // budget settimanale la mostravano con la stessa sicurezza di un dato
+  // reale, e chi non sapeva che fosse solo una stima si sentiva preso in
+  // giro da numeri senza senso. Questo è il momento giusto per sostituirla
+  // col numero vero: riusa gli editor già esistenti (Budget mensile, Il mio
+  // accredito), mai un flusso nuovo — entrambi skippabili, mai un obbligo.
+  setTimeout(() => {
+    window.openBudgetEditor(() => {
+      window.openSalaryEditor(() => { renderDashboard(); });
+    });
+  }, 500);
 };
 
 // Quota di budget giornaliero (mensile/giorni del mese) e il suo confronto
@@ -16176,12 +16189,20 @@ window.deleteSavingsGoal = (id) => {
   renderSavingsGoals();
 };
 
-window.openBudgetEditor = () => {
+window.openBudgetEditor = (onDone = null) => {
+  window.__budgetEditorOnDone = onDone;
   const suggestion = suggestMonthlyBudget(VaultDAO.state.transactions, new Date());
   const current = VaultDAO.state.monthlyBudget || 0;
+  // `onDone` (2026-09-03): quando chiamato subito dopo "Parti dai miei
+  // dati" (dismissDemo), il numero mostrato qui è ancora la STIMA di
+  // partenza dell'onboarding (dal profilo di rischio, mai confermata
+  // dall'utente) — dirlo esplicitamente, altrimenti sembra un valore già
+  // deciso invece di un punto di partenza da correggere.
+  const eyebrowExtra = onDone ? `<p class="text-[11px] text-[var(--on-surface-secondary)] -mt-2">${escapeHtml(tCh('budgetEditorFreshStartHint', __uiLang))}</p>` : '';
   openModal(`
     <div class="p-4 space-y-4">
       <h3 class="text-lg font-bold">Budget mensile</h3>
+      ${eyebrowExtra}
       ${suggestion ? `
         <div class="card p-4 border border-emerald-500/30 bg-emerald-950/10 cursor-pointer" onclick="document.getElementById('budget-edit-input').value=${suggestion.suggested}">
           <p class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 mb-1">Suggerito dalla tua spesa reale</p>
@@ -16192,9 +16213,21 @@ window.openBudgetEditor = () => {
       <input id="budget-edit-input" type="number" inputmode="decimal" value="${current}" oninput="window.updateBudgetWeeklyHint()" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
       <p id="budget-edit-weekly-hint" class="text-center text-[11px] text-[var(--on-surface-secondary)]"></p>
       <button onclick="window.confirmBudgetEdit()" class="btn-action w-full">Conferma</button>
+      ${onDone ? `<button onclick="window.skipBudgetEditor()" class="w-full text-center text-[11px] text-[var(--on-surface-secondary)] underline">${escapeHtml(tCh('budgetEditorSkip', __uiLang))}</button>` : ''}
     </div>
   `);
   window.updateBudgetWeeklyHint();
+};
+
+// Salta la conferma del budget al momento di "Parti dai miei dati" — resta
+// la stima di partenza, correggibile in ogni momento da qui (Analisi Tensor
+// → Budget del mese). Mai un obbligo: stesso principio "non lo so sempre
+// disponibile" già seguito per le domande di onboarding.
+window.skipBudgetEditor = () => {
+  const onDone = window.__budgetEditorOnDone;
+  window.__budgetEditorOnDone = null;
+  closeModal();
+  if (onDone) onDone();
 };
 
 // Stima "quanto è a settimana" mentre l'utente digita il budget mensile
@@ -16226,6 +16259,9 @@ window.confirmBudgetEdit = () => {
   // e l'utente concludeva che la modifica non fosse stata salvata.
   renderDashboard();
   renderAnalysis();
+  const onDone = window.__budgetEditorOnDone;
+  window.__budgetEditorOnDone = null;
+  if (onDone) onDone();
 };
 
 // Applica direttamente il suggerimento dall'avviso "Budget da aggiornare"
