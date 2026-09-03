@@ -6,6 +6,7 @@ import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } 
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
+import { periodoTrasferta, giorniScoperti, diariaSpettante } from './trips/trip-period.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -9614,6 +9615,27 @@ window.openBusinessTrip = (tripId) => {
         <button data-tripofferdel="${it.id}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
       </div>`).join('');
 
+    // Informazioni sul periodo: buchi (giorni senza nessuna spesa, quelli che
+    // oggi scopre solo chi approva) e diaria a ore quando le tariffe sono note.
+    const periodoInfoHtml = (() => {
+      const p = periodoTrasferta(trip);
+      if (!p) return `<p class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodEmptyHint', __uiLang))}</p>`;
+      const buchi = giorniScoperti(trip, expenses);
+      const righeBuchi = buchi.length ? `<div class="flex items-start gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/10 px-2.5 py-2 mt-1.5">
+        <svg class="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+        <span class="text-[10px] font-bold text-amber-200/90">${esc(tCh('tripPeriodGaps', __uiLang, buchi.length, buchi.map(g => formatDataLocale(g, { day: 'numeric', month: 'short' })).join(', ')))}</span>
+      </div>` : `<div class="text-[10px] text-emerald-400 font-bold mt-1">${esc(tCh('tripPeriodNoGaps', __uiLang))}</div>`;
+      // La diaria è un PLUS informativo: senza tariffe impostate non si mostra
+      // un numero — mai un rimborso stimato su un dato che l'utente non ha dato.
+      const dia = (trip.perDiemFull > 0 && trip.perDiemReduced != null)
+        ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced })
+        : null;
+      const rigaDiaria = dia?.calcolabile
+        ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${eur(dia.totale)}</span></div>`
+        : '';
+      return `<div class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodHours', __uiLang, p.ore))}</div>${righeBuchi}${rigaDiaria}`;
+    })();
+
     // Stato dell'approvazione: dopo aver mandato una nota spese, il silenzio è
     // il momento in cui su ogni prodotto concorrente si perde il filo ("l'ho
     // già mandata? mi hanno risposto?"). Qui la trasferta lo dice sempre.
@@ -9640,6 +9662,33 @@ window.openBusinessTrip = (tripId) => {
           <span class="font-black text-sm">${esc(trip.name)}</span>
         </div>
         ${statoApprovazione}
+        <!-- PERIODO — richiesta esplicita, confermata dalla ricerca (SAP
+             Concur/Rydoo/Mobilexpense): la diaria pasti in Germania dipende
+             dalle ORE di assenza, non dai giorni, e "solo la data" rende
+             impossibile calcolare cosa spetta davvero. Data E ORA, inizio e
+             fine — input nativi VISIBILI di proposito: è la stessa lezione
+             appena imparata sull'input invisibile del campo data, applicata
+             qui prima ancora di ripetere l'errore. -->
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>${esc(tCh('tripPeriodTitle', __uiLang))}</div>
+          <div class="grid grid-cols-2 gap-2 mb-1.5">
+            <div>
+              <div class="text-[9px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(tCh('tripPeriodStart', __uiLang))}</div>
+              <div class="flex gap-1.5">
+                <input type="date" id="trip-period-start-date" value="${esc(trip.startDate || '')}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-2 text-[11px] font-mono" />
+                <input type="time" id="trip-period-start-time" value="${esc(trip.startTime || '')}" class="w-[4.6rem] shrink-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-1.5 py-2 text-[11px] font-mono" />
+              </div>
+            </div>
+            <div>
+              <div class="text-[9px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(tCh('tripPeriodEnd', __uiLang))}</div>
+              <div class="flex gap-1.5">
+                <input type="date" id="trip-period-end-date" value="${esc(trip.endDate || '')}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-2 text-[11px] font-mono" />
+                <input type="time" id="trip-period-end-time" value="${esc(trip.endTime || '')}" class="w-[4.6rem] shrink-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-1.5 py-2 text-[11px] font-mono" />
+              </div>
+            </div>
+          </div>
+          ${periodoInfoHtml}
+        </div>
         <div class="card p-3">
           <div class="text-[10px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(tCh('tripTotalLabel', __uiLang))}</div>
           <div class="text-2xl font-black font-mono mb-2">${eur(totale)}</div>
@@ -9932,6 +9981,18 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
     $('#trip-export-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
     $('#trip-review-share')?.addEventListener('click', () => window.openTripReviewShare(trip.id));
+    // Periodo: quattro campi indipendenti, ognuno salva per conto suo — non
+    // serve un pulsante "conferma" separato, che qui sarebbe solo un altro
+    // tocco fra l'utente e un dato già scritto nell'input.
+    const salvaPeriodo = (campo) => (e) => {
+      const nuovo = touchTrip({ ...trip, [campo]: e.target.value });
+      persistTrip(nuovo);
+      render();
+    };
+    $('#trip-period-start-date')?.addEventListener('change', salvaPeriodo('startDate'));
+    $('#trip-period-start-time')?.addEventListener('change', salvaPeriodo('startTime'));
+    $('#trip-period-end-date')?.addEventListener('change', salvaPeriodo('endDate'));
+    $('#trip-period-end-time')?.addEventListener('change', salvaPeriodo('endTime'));
     $('#trip-del')?.addEventListener('click', () => {
       // Cancellare NON toglie la trasferta dall'elenco: ci mette sopra una
       // data. Serve a due cose insieme — un dispositivo spento non può
