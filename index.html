@@ -679,22 +679,31 @@
       #form-container-desktop .form-kbd-hint { order: 5; }
     }
     /* Stesso ordine nel modale quando c'è un puntatore fine (tablet con
-       mouse, laptop): lì il tastierino disegnato compare, occupa mezza
-       schermata e spinge "Per cosa?" a ridosso di Conferma — con le
-       categorie sotto la piega. Su touch il tastierino non c'è e il markup
-       è già nell'ordine giusto, quindi la regola non si applica. */
+       mouse, laptop): serviva perché il tastierino disegnato compariva
+       sempre aperto, occupava mezza schermata e spingeva "Per cosa?" a
+       ridosso di Conferma — con le categorie sotto la piega. Su touch il
+       tastierino non c'è e il markup è già nell'ordine giusto, quindi la
+       regola non si applica.
+       2026-09-03: il tastierino ora vive chiuso di default dentro lo stesso
+       accordion "Altri dettagli" (vedi #numpad-toggle/#numpad-extra in
+       main.js) — a riposo non occupa più spazio, quindi non serve più uno
+       slot dedicato (era `order: 5`): toggle e pannello ricadono nel
+       carattere jolly `order: 6` insieme a nota/dettagli, dopo le categorie.
+       Il suggerimento da tastiera resta invece attaccato all'importo (stesso
+       `order: 3` di .amount-stage, pareggio risolto dall'ordine nel markup,
+       dove già lo segue): è la spiegazione di COME scrivere il numero appena
+       sopra, non ha senso staccarlo e spedirlo in fondo. */
     @media (pointer: fine) {
       #modal-body > div > * { order: 6; }
       #modal-body .ai-insight-panel { order: 0; }
       #modal-body .type-toggle-track { order: 1; }
       #modal-body #quick-add-row { order: 2; }
-      #modal-body .amount-stage { order: 3; }
+      #modal-body .amount-stage,
+      #modal-body .form-kbd-hint { order: 3; }
       #modal-body .cat-scroll-wrapper,
       #modal-body .cat-domanda-wrap,
       #modal-body #cat-context-hint,
       #modal-body #cat-suggerisci-nuova { order: 4; }
-      #modal-body .numpad-grid,
-      #modal-body .form-kbd-hint { order: 5; }
     }
     /* Dettagli facoltativi: una riga sola, che si apre a fisarmonica come il
        dettaglio del giorno nel calendario — stesso meccanismo, stessa curva,
@@ -721,8 +730,17 @@
       transition: max-height .35s cubic-bezier(.16,1,.3,1), opacity .25s ease;
     }
     .dettagli-extra.aperto { max-height: 260px; opacity: 1; }
+    /* Stesso accordion di .dettagli-extra, classe propria perché il
+       tastierino (4 righe di tasti) è più alto delle 260px pensate per
+       nota/data/dividi — un max-height troppo basso lo avrebbe tagliato a
+       metà da aperto. */
+    .numpad-extra {
+      max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height .35s cubic-bezier(.16,1,.3,1), opacity .25s ease;
+    }
+    .numpad-extra.aperto { max-height: 340px; opacity: 1; }
     @media (prefers-reduced-motion: reduce) {
-      .dettagli-freccia, .dettagli-extra { transition: none; }
+      .dettagli-freccia, .dettagli-extra, .numpad-extra { transition: none; }
     }
     .amount-stage { text-align: center; padding: 1rem 0.5rem 0.5rem; position: relative; }
     /* ── L'IMPORTO È UN ASTRO, NON UN CAMPO DI UN MODULO ──

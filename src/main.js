@@ -665,41 +665,39 @@ const getTxFormHTML = () => `
       </p>
     </div>
 
-    <!-- IL TASTIERINO SUBITO DOPO L'IMPORTO, non in fondo al modulo. Bug
-         reale segnalato dagli utenti: "clicco su 0 e non esce il tastierino".
-         Misurato dal vivo su un viewport di telefono realistico (497px di
-         altezza, con la barra degli indirizzi visibile): il tastierino
-         stava a partire da 477px e finiva a 606px — CENTONOVE PIXEL SOTTO IL
-         BORDO DELLO SCHERMO, raggiungibile solo scorrendo. Chi apre il
-         modulo vede l'importo "0" in alto, ci tocca sopra aspettandosi una
-         tastiera (e' un testo, non un campo — non succede niente), e non
-         immagina che il tastierino vero sia piu' in basso, fuori vista.
-         Categoria, descrizione e data restano utili ma non sono la prima
-         cosa che serve: scendono sotto, raggiungibili scorrendo DOPO aver
-         gia' scritto l'importo, non prima.
-
-         ⚠️ SU TOUCH ORA NASCOSTO (2026-08-16): da quando #tx-amount-display
-         è un vero input (tastiera nativa), avere ANCHE questo tastierino
-         disegnato sotto era una duplicazione — due modi di scrivere lo
-         stesso numero, uno dei quali (questo) costruito a mano e più
-         soggetto a bug di tocco (vedi il fix del 15/08 sull'overlay
-         invisibile che rubava i click qui vicino). Resta SOLO su desktop
-         (mouse+tastiera fisica, media query .cc-numpad-desktop-only sotto),
-         dove è comunque un modo comodo di cliccare senza toccare la
-         tastiera. -->
-    <div class="numpad-grid cc-numpad-desktop-only shrink-0" tabindex="0" aria-label="${tCh('txNumpadAria', __uiLang)}">
+    <!-- IL TASTIERINO NON È PIÙ SEMPRE APERTO SU DESKTOP (2026-09-03): era la
+         causa principale per cui il Command Center desktop "sembrava un
+         telefono ridimensionato" e non ci stava senza scorrere — 4 righe di
+         tasti pensati per un dito, quando #tx-amount-display è già un vero
+         input e la tastiera fisica scrive le cifre da sola (verificato: nessuna
+         differenza funzionale, vedi onPhysicalKey più sopra). Il suggerimento
+         da tastiera resta SEMPRE visibile e per primo (chi ha una tastiera
+         fisica lo vede subito, senza aprire nulla); il tastierino cliccabile
+         resta un'opzione per chi lo preferisce comunque, dietro lo stesso
+         accordion "Altri dettagli" già usato per nota/data/dividi qui sotto —
+         mai un secondo meccanismo di apertura inventato. Su touch (hover:none
+         o pointer:coarse) l'intero blocco, toggle compreso, resta nascosto via
+         .cc-numpad-desktop-only: lì la tastiera nativa è l'unica via, come
+         prima. Un laptop con schermo touch MA mouse/trackpad attivo resta
+         pointer:fine — vede il tastierino come qualunque desktop, non viene
+         confuso con un tablet puro (nessuna nuova logica: stessa media query
+         di sempre). -->
+    <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
+      ${tCh('txKbdHint', __uiLang)}
+    </p>
+    <button type="button" id="numpad-toggle" class="dettagli-toggle cc-numpad-desktop-only shrink-0" aria-expanded="false" aria-controls="numpad-extra">
+      <svg class="dettagli-freccia" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      <span>${tCh('txPreferNumpad', __uiLang)}</span>
+    </button>
+    <div id="numpad-extra" class="numpad-extra cc-numpad-desktop-only shrink-0"><div>
+    <div class="numpad-grid" tabindex="0" aria-label="${tCh('txNumpadAria', __uiLang)}">
       ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
       <div></div>
       <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
       <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="${tCh('txDelAria', __uiLang)}">DEL</button>
     </div>
-
-    <!-- Suggerimento visibile SOLO con puntatore/tastiera fisici (desktop/laptop):
-         su touch resta nascosto perché lì il tastierino è la via naturale. -->
-    <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
-      ${tCh('txKbdHint', __uiLang)}
-    </p>
+    </div></div>
 
     <!-- LA SECONDA DOMANDA DEL PERCORSO. Il modulo ne fa in realtà due:
          quanto, e per cosa. La prima era scritta, la seconda no — sopra le
@@ -1163,6 +1161,21 @@ const attachFormListeners = (container, prefill = null) => {
     dettagliToggle.addEventListener('click', () => {
       haptic('light');
       apriDettagli(!dettagliExtra.classList.contains('aperto'));
+    });
+  }
+
+  // Tastierino cliccabile (2026-09-03): stesso accordion di "Altri
+  // dettagli" qui sopra, stato indipendente — chiuso di default per chi ha
+  // una tastiera fisica, un tocco per chi preferisce ancora cliccare i
+  // numeri col mouse.
+  const numpadToggle = container.querySelector('#numpad-toggle');
+  const numpadExtra = container.querySelector('#numpad-extra');
+  if (numpadToggle && numpadExtra) {
+    numpadToggle.addEventListener('click', () => {
+      haptic('light');
+      const apri = !numpadExtra.classList.contains('aperto');
+      numpadExtra.classList.toggle('aperto', apri);
+      numpadToggle.setAttribute('aria-expanded', apri ? 'true' : 'false');
     });
   }
 
