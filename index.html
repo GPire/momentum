@@ -139,6 +139,24 @@
        pinch-zoom volontario. Rovina meno l'uso da app/PWA. */
     body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 60vh; background: radial-gradient(circle at 50% -10%, var(--aurora-color) 0%, transparent 70%); z-index: 0; pointer-events: none; transition: background 1.5s ease; }
 
+    /* SCROLLBAR (2026-09-04, segnalato dal vivo: "non deve mostrare lo
+       scroll di default del browser, è bruttissimo"): la barra grigia
+       squadrata di sistema è l'unico elemento dell'interfaccia rimasto
+       fuori dal linguaggio visivo dell'app (vetro, bordi sottili, colori
+       che seguono il tema). Sottile, stondata, sugli stessi var(--outline)/
+       var(--on-surface-secondary) già usati per bordi e testo secondario —
+       si adatta da sola a chiaro/scuro, mai un colore fisso. `thin` per
+       Firefox, `::-webkit-scrollbar` per Chrome/Safari/Edge: le due API non
+       si sovrappongono, ogni motore usa la propria. Non tocca
+       .cat-scroll-wrapper, che nasconde la sua di proposito (fila
+       orizzontale con dissolvenza ai bordi, una barra lì sarebbe rumore). */
+    * { scrollbar-width: thin; scrollbar-color: var(--outline) transparent; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--outline); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--on-surface-secondary); }
+    ::-webkit-scrollbar-corner { background: transparent; }
+
     /* === UI COMPONENTS === */
     /* Cambio tema: html/body sfumano su 0.5s ma le card non transizionavano
        background/border — scattavano istantanee a metà della dissolvenza
