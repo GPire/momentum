@@ -6400,7 +6400,14 @@ window.openSplitExpense = (prefill = {}) => {
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div><h3 class="text-base font-black">Dividi una spesa</h3><p class="card-sub !mb-0">Scrivi una riga, o compila sotto — ti dico io chi deve dare quanto a chi.</p></div>
-        <div>
+        <!-- TRATTAMENTO VISIVO DELLA SCORCIATOIA (2026-09-04, richiesta esplicita):
+             prima era un campo identico a un normale input di testo, senza
+             nulla che segnalasse "qui capisco una frase intera" — stesso
+             linguaggio ✧ già usato per "PER COSA?" nel modulo di spesa, non
+             un'icona nuova di zecca, più un bordo leggermente acceso per
+             distinguerla dal campo descrizione "passo per passo" sotto. -->
+        <div class="card p-3 border-[color-mix(in_srgb,var(--primary)_25%,var(--glass-border))] relative">
+          <svg class="absolute right-3 top-3 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="var(--primary)" aria-hidden="true"><path d="M12 2l1.9 6.3L20 10l-6.1 1.7L12 18l-1.9-6.3L4 10l6.1-1.7L12 2z"/></svg>
           <input id="sp-oneline" class="${inputCls}" placeholder="Prova: 60 cena io Marco Luca" autocomplete="off" />
           <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Importo, per cosa e con chi in una frase. Al resto penso io.</div>
         </div>
@@ -6414,7 +6421,7 @@ window.openSplitExpense = (prefill = {}) => {
         <!-- 1) CHI HA MESSO QUANTO: un campo € per persona, vuoto = non ha anticipato -->
         <div class="card p-3 flex flex-col gap-2">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-[var(--on-surface-secondary)]">Chi ha messo quanto</span>
+            <span class="eyebrow !mb-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1" fill="currentColor" stroke="none"/></svg>Chi ha messo quanto</span>
             <span class="text-[11px] font-bold">Totale <span class="font-mono text-emerald-400">${eur(t)}</span></span>
           </div>
           ${state.people.map((p, i) => `<div class="flex items-center gap-2">
@@ -6435,7 +6442,7 @@ window.openSplitExpense = (prefill = {}) => {
 
         <!-- 2) COME SI DIVIDE IL CONTO -->
         <div class="flex flex-col gap-2">
-          <span class="text-[11px] font-bold text-[var(--on-surface-secondary)]">Come si divide il conto</span>
+          <span class="eyebrow !mb-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.5 3.75"/></svg>Come si divide il conto</span>
           <!-- SCOPRIBILITÀ E DESIGN (2026-09-04, richiesta esplicita): prima era
                un flex gap-2 semplice — .segment-btn.active senza il suo
                contenitore .segmented-control mostra solo un cambio di colore
