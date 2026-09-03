@@ -717,6 +717,20 @@
       font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
     }
     @media (hover: hover) { .dettagli-toggle:hover { color: var(--on-surface); } }
+    /* SCOPRIBILITÀ (2026-09-03): data e divisione erano tecnicamente sempre
+       raggiungibili, ma un link grigio in maiuscoletto non si distingue da
+       una didascalia — utenti reali non lo toccavano e non sapevano che
+       esistesse. Un bordo e uno sfondo leggeri bastano a farlo leggere come
+       un vero controllo, senza competere visivamente con Conferma. Solo sul
+       toggle di data/divisione, non su quello del tastierino (#numpad-toggle
+       condivide .dettagli-toggle ma resta volutamente più discreto: è
+       un'opzione minore, non una funzione che gli utenti devono trovare). */
+    .dettagli-toggle-in-vista {
+      background: var(--surface-elevated); border: 1px solid var(--outline);
+      border-radius: 1rem; padding: .6rem .75rem; text-transform: none;
+      font-size: 12px; font-weight: 700; letter-spacing: normal;
+    }
+    @media (hover: hover) { .dettagli-toggle-in-vista:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated)); } }
     .dettagli-freccia { transition: transform .3s cubic-bezier(.16,1,.3,1); flex: 0 0 auto; }
     .dettagli-toggle[aria-expanded="true"] .dettagli-freccia { transform: rotate(180deg); }
     /* Qui NON si usa il pattern grid 0fr→1fr del calendario: questo blocco
