@@ -99,7 +99,32 @@
 
     *, *::before, *::after { box-sizing: border-box; }
     html, body { background: var(--bg); color: var(--on-surface); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; transition: background-color 0.5s ease, color 0.5s ease; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; letter-spacing: -0.015em; }
-    body { min-height: 100vh; min-height: 100dvh; overflow-x: hidden; touch-action: manipulation; }
+    /* BUG REALE, SEGNALATO DA PIÙ UTENTI (2026-09-03): "non riesco più a
+       fare lo scroll da nessuna parte, su ogni pagina". Causa: `body` ha
+       `overflow-x: hidden` ma non dichiarava `overflow-y` — per specifica
+       CSS, quando un asse è hidden/scroll/auto e l'altro resta al default
+       `visible`, il browser PROMUOVE quello lasciato implicito ad `auto`.
+       Risultato: sia `html` CHE `body` diventavano contenitori di scroll
+       indipendenti. `body` però non ha mai un'altezza propria (avvolge
+       semplicemente il contenuto, quindi il suo scrollHeight coincide
+       sempre col clientHeight, zero margine di scroll reale), e con
+       `overscroll-behavior-y: none` (riga sopra) il gesto veniva bloccato
+       PRIMA di poter "incatenarsi" verso `html`, che è l'unico dei due ad
+       avere spazio vero da scorrere. La rotella arrivava su un contenitore
+       fantasma sempre già al limite e lì moriva — su OGNI pagina, sempre.
+       Stesso motivo per cui il Command Center desktop (position: sticky)
+       spariva completamente dopo il primo scroll invece di restare
+       agganciato: sticky si aggrappava al contenitore di scroll sbagliato.
+       Primo tentativo di fix, fallito: `overflow-y: visible` esplicito su
+       `body` — non basta, perché la regola CSS di "promozione" agisce sul
+       VALORE CALCOLATO, non su quello dichiarato: `visible` dichiarato a
+       mano viene comunque ricalcolato `auto` finché l'altro asse resta
+       hidden/scroll/auto. Fix vero: `overflow-x: clip` al posto di
+       `hidden` (qui e nella regola più sotto) — taglia l'overflow
+       orizzontale SENZA quell'effetto collaterale, perché `clip` non fa
+       scattare la promozione. Resta un solo vero contenitore di scroll
+       (`html`), niente più ambiguità. */
+    body { min-height: 100vh; min-height: 100dvh; overflow-x: clip; touch-action: manipulation; }
     /* touch-action: manipulation → niente doppio-tap-zoom (iOS ignora
        user-scalable=no) e niente ritardo di 300ms, MA resta lo scroll e il
        pinch-zoom volontario. Rovina meno l'uso da app/PWA. */
@@ -1956,7 +1981,12 @@
          si troncano invece di sforare la sezione;
        - media e contenuti larghi non superano mai il contenitore;
        - i contenitori noti-larghi (heatmap, tabelle) scrollano da soli. */
-    html, body { max-width: 100%; overflow-x: hidden; }
+    <!-- overflow-x: clip, non hidden: vedi il commento sul bug di scroll
+         qui sopra (riga ~102) — `hidden` promuove sempre overflow-y ad
+         `auto` per specifica CSS, anche quando è dichiarato `visible`
+         altrove; `clip` taglia l'overflow orizzontale senza quell'effetto
+         collaterale, lasciando `html` l'unico vero contenitore di scroll. -->
+    html, body { max-width: 100%; overflow-x: clip; }
     #app-core, .card, main, section { max-width: 100%; }
     .flex > *, .grid > * { min-width: 0; }       /* fix chiave: evita overflow da contenuto largo */
     img, canvas, svg, video { max-width: 100%; height: auto; }

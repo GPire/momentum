@@ -14824,7 +14824,20 @@ const bootUI = () => {
   try {
     collegaScrollAllaPagina(document.getElementById('form-container-desktop'));
     segnalaAltroSotto(document.getElementById('form-container-desktop'));
-    collegaScrollAllaPagina(document.querySelector('#desktop-sidebar'));
+    // BUG REALE segnalato dal vivo (2026-09-03): "lo scroll dentro il Command
+    // Center non deve essere l'unico modo per muovere la finestra intera".
+    // #desktop-sidebar (l'aside INTERO) veniva agganciato qui accanto a
+    // #form-container-desktop, ma l'aside stesso NON scorre mai da solo —
+    // è `h-screen sticky flex-col`, il suo overflow vive tutto nel figlio
+    // #form-container-desktop. scrollHeight===clientHeight sempre (verificato
+    // dal vivo: 756===756) → `alLimite` in collegaScrollAllaPagina risultava
+    // SEMPRE vero, per QUALUNQUE gesto di rotella che passasse dall'aside
+    // (anche quello destinato al modulo interno, che bolle comunque fin qui):
+    // preventDefault + window.scrollBy scattavano di continuo, dirottando
+    // sulla finestra uno scroll che avrebbe dovuto restare nel pannello. Mai
+    // agganciare "isola di scroll" a un contenitore che non è lui stesso
+    // l'isola — l'unica isola vera qui è #form-container-desktop, già
+    // agganciato sopra.
     document.querySelectorAll('aside nav.overflow-y-auto').forEach(collegaScrollAllaPagina);
   } catch (e) { console.error('collegaScrollAllaPagina:', e); }
 
