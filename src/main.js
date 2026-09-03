@@ -6,7 +6,7 @@ import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } 
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
-import { periodoTrasferta, giorniScoperti, diariaSpettante } from './trips/trip-period.js';
+import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo } from './trips/trip-period.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -9394,7 +9394,7 @@ function allTransactionsFlat() { return Object.values(VaultDAO.state.transaction
 // aptica del calendario di Analisi Tensor — chi lo apre riconosce una cosa che
 // ha già visto, invece di trovarsi davanti il selettore del sistema operativo
 // (un pezzo di un'altra app, con altri colori e altre parole).
-function calendarioTrasfertaHtml(state, giorniCoperti = new Map()) {
+function calendarioTrasfertaHtml(state, giorniCoperti = new Map(), giorniPeriodo = new Set()) {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const scelta = parseIso(state.data) || parseIso(new Date().toISOString().slice(0, 10));
   const anno = state.calAnno ?? scelta.anno;
@@ -9430,9 +9430,18 @@ function calendarioTrasfertaHtml(state, giorniCoperti = new Map()) {
     // giornata dimenticata in una nota spese la scopre chi la approva.
     const speseDelGiorno = giorniCoperti.get(iso) || 0;
     if (speseDelGiorno > 0) classi.push('dp-coperto');
-    const etichetta = speseDelGiorno > 0
-      ? `${g} · ${tCh('dpDayCovered', __uiLang, speseDelGiorno)}`
-      : String(g);
+    // GIORNO DICHIARATO NEL PERIODO DELLA TRASFERTA (Sezione "Periodo" sopra,
+    // startDate/endDate): risponde a colpo d'occhio alla domanda "questa data
+    // fa parte del mio viaggio?", che prima si poteva solo leggere a parole
+    // nel riepilogo — richiesta esplicita dell'utente dopo aver aggiunto le
+    // date di inizio/fine trasferta.
+    const inPeriodo = giorniPeriodo.has(iso);
+    if (inPeriodo) classi.push('dp-in-periodo');
+    const etichetta = [
+      String(g),
+      speseDelGiorno > 0 ? tCh('dpDayCovered', __uiLang, speseDelGiorno) : '',
+      inPeriodo ? tCh('dpDayInPeriod', __uiLang) : '',
+    ].filter(Boolean).join(' · ');
     return `<button type="button" ${ammesso ? `data-dpday="${iso}"` : 'disabled'} style="--i:${i}" class="${classi.join(' ')}" aria-label="${etichetta}" ${isScelto ? 'aria-current="date"' : ''}>${g}${speseDelGiorno > 0 ? '<span class="dp-punto" aria-hidden="true"></span>' : ''}</button>`;
   }).join('');
   return `
@@ -9449,6 +9458,90 @@ function calendarioTrasfertaHtml(state, giorniCoperti = new Map()) {
       <div class="dp-griglia dp-intestazione">${iniziali.map(i => `<span>${esc(i)}</span>`).join('')}</div>
       <div class="dp-griglia dp-giorni">${celle}</div>
       <button type="button" id="dp-oggi" class="w-full mt-1.5 py-2 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] text-[11px] font-bold text-[var(--on-surface-secondary)] active:scale-[0.98] transition-transform">${esc(tCh('dpToday', __uiLang))}</button>
+    </div>`;
+}
+
+// Selettore data DI MOMENTUM per il PERIODO della trasferta (inizio/fine) —
+// stesso linguaggio visivo di calendarioTrasfertaHtml sopra, non un secondo
+// widget: qui il giorno scelto è trip.startDate/endDate invece di state.data,
+// e il periodo già dichiarato (l'ALTRO estremo) resta illuminato con
+// .dp-in-periodo mentre si sceglie questo, cosicché scegliere la fine mostra
+// subito dove cade rispetto all'inizio già fissato. Richiesta esplicita
+// dell'utente dopo l'introduzione dei campi periodo: niente calendario nativo
+// del sistema operativo, che qui sarebbe un pezzo di un'altra app.
+function periodoDataPannelloHtml(trip, state, campo) {
+  const oggiIso = new Date().toISOString().slice(0, 10);
+  const valoreCorrente = trip[campo] || oggiIso;
+  const scelta = parseIso(valoreCorrente) || parseIso(oggiIso);
+  const anno = state.periodoCalAnno ?? scelta.anno;
+  const mese0 = state.periodoCalMese0 ?? scelta.mese0;
+  const limiti = { max: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10) };
+  const prec = mesePrecedente(anno, mese0);
+  const succ = meseSuccessivo(anno, mese0);
+  const puoIndietro = meseHaGiorniAmmessi(prec.anno, prec.mese0, limiti);
+  const puoAvanti = meseHaGiorniAmmessi(succ.anno, succ.mese0, limiti);
+  const nomeMese = new Date(anno, mese0, 1).toLocaleDateString(__uiLocale, { month: 'long', year: 'numeric' });
+  const iniziali = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i)
+    .toLocaleDateString(__uiLocale, { weekday: 'narrow' }));
+  const giorniPeriodo = new Set(giorniDelPeriodo(trip));
+  const celle = monthGrid(anno, mese0).map((g, i) => {
+    if (g === null) return '<span></span>';
+    const iso = isoDi(anno, mese0, g);
+    const ammesso = giornoAmmesso(iso, limiti);
+    const isScelto = iso === valoreCorrente;
+    const isOggi = iso === oggiIso;
+    const inPeriodo = giorniPeriodo.has(iso);
+    const classi = ['dp-giorno', 'cal-giorno'];
+    if (isScelto) classi.push('dp-scelto');
+    if (isOggi && !isScelto) classi.push('cal-oggi');
+    if (!ammesso) classi.push('dp-off');
+    if (inPeriodo && !isScelto) classi.push('dp-in-periodo');
+    return `<button type="button" ${ammesso ? `data-periododay="${iso}"` : 'disabled'} style="--i:${i}" class="${classi.join(' ')}" aria-label="${g}" ${isScelto ? 'aria-current="date"' : ''}>${g}</button>`;
+  }).join('');
+  return `
+    <div class="dp-pannello card p-2.5 mt-1.5">
+      <div class="flex items-center justify-between mb-1.5">
+        <button type="button" data-periodocalnav="prec" ${puoIndietro ? '' : 'disabled'} aria-label="${tCh('dpPrevMonth', __uiLang)}" class="w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <span class="text-[12px] font-black capitalize">${nomeMese}</span>
+        <button type="button" data-periodocalnav="succ" ${puoAvanti ? '' : 'disabled'} aria-label="${tCh('dpNextMonth', __uiLang)}" class="w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="dp-griglia dp-intestazione">${iniziali.map(i => `<span>${i}</span>`).join('')}</div>
+      <div class="dp-griglia dp-giorni">${celle}</div>
+    </div>`;
+}
+
+// Selettore ORARIO di Momentum per il periodo — niente <input type=time>
+// nativo (stessa lezione del selettore data: un cursore di sistema, mai
+// coerente col resto). Chip per gli orari più comuni di partenza/rientro di
+// una trasferta più uno stepper ora/minuti per il caso non coperto dai chip.
+function periodoOrarioPannelloHtml(trip, campo) {
+  const [hh, mm] = String(trip[campo] || '09:00').split(':').map(Number);
+  const oraSicura = Number.isFinite(hh) ? hh : 9;
+  const minutoSicuro = Number.isFinite(mm) ? mm : 0;
+  const valoreAttuale = `${String(oraSicura).padStart(2, '0')}:${String(minutoSicuro).padStart(2, '0')}`;
+  const chipOrari = ['06:00', '08:00', '09:00', '12:00', '14:00', '18:00', '20:00', '22:00'];
+  const chips = chipOrari.map(t => `<button type="button" data-periodochip="${t}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border active:scale-90 transition-transform ${t === valoreAttuale ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">${t}</button>`).join('');
+  const stepBtn = (dataAttr, aria, path) => `<button type="button" data-periodoorastep="${dataAttr}" aria-label="${tCh(aria, __uiLang)}" class="w-7 h-7 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center active:scale-90 transition-transform"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg></button>`;
+  return `
+    <div class="dp-pannello card p-2.5 mt-1.5">
+      <div class="flex items-center justify-center gap-3 mb-2">
+        <div class="flex flex-col items-center gap-1">
+          ${stepBtn('h+1', 'tripPeriodHourPlus', 'm18 15-6-6-6 6')}
+          <span class="text-2xl font-black font-mono w-11 text-center tabular-nums">${String(oraSicura).padStart(2, '0')}</span>
+          ${stepBtn('h-1', 'tripPeriodHourMinus', 'm6 9 6 6 6-6')}
+        </div>
+        <span class="text-2xl font-black font-mono">:</span>
+        <div class="flex flex-col items-center gap-1">
+          ${stepBtn('m+5', 'tripPeriodMinutePlus', 'm18 15-6-6-6 6')}
+          <span class="text-2xl font-black font-mono w-11 text-center tabular-nums">${String(minutoSicuro).padStart(2, '0')}</span>
+          ${stepBtn('m-5', 'tripPeriodMinuteMinus', 'm6 9 6 6 6-6')}
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-1.5 justify-center">${chips}</div>
     </div>`;
 }
 
@@ -9539,7 +9632,7 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null };
+  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
@@ -9579,6 +9672,10 @@ window.openBusinessTrip = (tripId) => {
       const g = String(t.date).slice(0, 10);
       giorniConSpese.set(g, (giorniConSpese.get(g) || 0) + 1);
     }
+    // Giorni dichiarati nel periodo della trasferta (startDate–endDate), per
+    // illuminarli nel calendario di scelta data — vuoto se il periodo non è
+    // ancora stato compilato, mai un range inventato.
+    const giorniPeriodoTrasferta = new Set(giorniDelPeriodo(trip));
     const expensesOrdinate = [...expenses].sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const giorniDistinti = new Set(expensesOrdinate.map(t => String(t.date).slice(0, 10))).size;
     let rows;
@@ -9655,6 +9752,32 @@ window.openBusinessTrip = (tripId) => {
       </div>`;
     })();
 
+    // Pillole DATA/ORA del periodo — sostituiscono i vecchi <input type=date>/
+    // <input type=time> nativi: aprono il calendario/stepper di Momentum
+    // (sopra), stesso linguaggio visivo del resto dell'app invece del widget
+    // del sistema operativo. Richiesta esplicita dell'utente: coerenza di
+    // design fra il selettore data della spesa singola e quello del periodo.
+    const iconaCalendarioSm = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-[var(--on-surface-secondary)]"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>';
+    const iconaOrarioSm = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-[var(--on-surface-secondary)]"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+    const periodoPillHtml = (campoData, campoOra, etichetta) => {
+      const apertoData = state.periodoCampoAperto === campoData;
+      const apertoOra = state.periodoCampoAperto === campoOra;
+      return `
+        <div>
+          <div class="text-[9px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(etichetta)}</div>
+          <div class="flex gap-1.5">
+            <button type="button" data-periodopill="${campoData}" aria-expanded="${apertoData ? 'true' : 'false'}" class="flex-1 min-w-0 flex items-center gap-1.5 bg-[var(--surface-elevated)] border rounded-lg px-2 py-2 text-[11px] font-mono active:scale-[0.97] transition-transform ${apertoData ? 'border-[var(--primary)]' : 'border-[var(--outline)]'}">
+              ${iconaCalendarioSm}<span class="truncate">${trip[campoData] ? esc(formatDataLocale(trip[campoData], { day: 'numeric', month: 'short' })) : '—'}</span>
+            </button>
+            <button type="button" data-periodopill="${campoOra}" aria-expanded="${apertoOra ? 'true' : 'false'}" class="w-[4.6rem] shrink-0 flex items-center justify-center gap-1 bg-[var(--surface-elevated)] border rounded-lg px-1 py-2 text-[11px] font-mono active:scale-[0.97] transition-transform ${apertoOra ? 'border-[var(--primary)]' : 'border-[var(--outline)]'}">
+              ${iconaOrarioSm}<span>${esc(trip[campoOra] || '--:--')}</span>
+            </button>
+          </div>
+          ${apertoData ? periodoDataPannelloHtml(trip, state, campoData) : ''}
+          ${apertoOra ? periodoOrarioPannelloHtml(trip, campoOra) : ''}
+        </div>`;
+    };
+
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div class="flex items-center gap-2">
@@ -9666,26 +9789,13 @@ window.openBusinessTrip = (tripId) => {
              Concur/Rydoo/Mobilexpense): la diaria pasti in Germania dipende
              dalle ORE di assenza, non dai giorni, e "solo la data" rende
              impossibile calcolare cosa spetta davvero. Data E ORA, inizio e
-             fine — input nativi VISIBILI di proposito: è la stessa lezione
-             appena imparata sull'input invisibile del campo data, applicata
-             qui prima ancora di ripetere l'errore. -->
+             fine — selettori DI MOMENTUM (pannelli sopra), mai il calendario
+             o l'orologio del sistema operativo. -->
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>${esc(tCh('tripPeriodTitle', __uiLang))}</div>
           <div class="grid grid-cols-2 gap-2 mb-1.5">
-            <div>
-              <div class="text-[9px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(tCh('tripPeriodStart', __uiLang))}</div>
-              <div class="flex gap-1.5">
-                <input type="date" id="trip-period-start-date" value="${esc(trip.startDate || '')}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-2 text-[11px] font-mono" />
-                <input type="time" id="trip-period-start-time" value="${esc(trip.startTime || '')}" class="w-[4.6rem] shrink-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-1.5 py-2 text-[11px] font-mono" />
-              </div>
-            </div>
-            <div>
-              <div class="text-[9px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(tCh('tripPeriodEnd', __uiLang))}</div>
-              <div class="flex gap-1.5">
-                <input type="date" id="trip-period-end-date" value="${esc(trip.endDate || '')}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-2 text-[11px] font-mono" />
-                <input type="time" id="trip-period-end-time" value="${esc(trip.endTime || '')}" class="w-[4.6rem] shrink-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-1.5 py-2 text-[11px] font-mono" />
-              </div>
-            </div>
+            ${periodoPillHtml('startDate', 'startTime', tCh('tripPeriodStart', __uiLang))}
+            ${periodoPillHtml('endDate', 'endTime', tCh('tripPeriodEnd', __uiLang))}
           </div>
           ${periodoInfoHtml}
         </div>
@@ -9732,7 +9842,7 @@ window.openBusinessTrip = (tripId) => {
               <span class="flex-1 text-left">${esc(formatDataLocale(state.data))}</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 transition-transform ${state.calendarioAperto ? 'rotate-180' : ''}"><path d="m6 9 6 6 6-6"/></svg>
             </button>
-            ${state.calendarioAperto ? calendarioTrasfertaHtml(state, giorniConSpese) : ''}
+            ${state.calendarioAperto ? calendarioTrasfertaHtml(state, giorniConSpese, giorniPeriodoTrasferta) : ''}
           </div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripCategoryLabel', __uiLang))}</div>
           <div class="flex flex-wrap gap-1.5 mb-2">${TRIP_CATEGORIES.map(cat => `<button data-tripcat="${cat}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.tripCategory === cat ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('trip_' + cat, __uiLang))}</button>`).join('')}</div>
@@ -9981,18 +10091,49 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
     $('#trip-export-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
     $('#trip-review-share')?.addEventListener('click', () => window.openTripReviewShare(trip.id));
-    // Periodo: quattro campi indipendenti, ognuno salva per conto suo — non
-    // serve un pulsante "conferma" separato, che qui sarebbe solo un altro
-    // tocco fra l'utente e un dato già scritto nell'input.
-    const salvaPeriodo = (campo) => (e) => {
-      const nuovo = touchTrip({ ...trip, [campo]: e.target.value });
-      persistTrip(nuovo);
+    // Periodo: pillole DATA/ORA di Momentum (non più input nativi). Ogni
+    // scelta salva subito, senza un pulsante "conferma" separato.
+    const salvaCampoPeriodo = (campo, valore) => { persistTrip(touchTrip({ ...trip, [campo]: valore })); };
+    document.querySelectorAll('[data-periodopill]').forEach(b => b.addEventListener('click', () => {
+      const campo = b.dataset.periodopill;
+      state.periodoCampoAperto = state.periodoCampoAperto === campo ? null : campo;
+      state.periodoCalAnno = null; state.periodoCalMese0 = null;
       render();
-    };
-    $('#trip-period-start-date')?.addEventListener('change', salvaPeriodo('startDate'));
-    $('#trip-period-start-time')?.addEventListener('change', salvaPeriodo('startTime'));
-    $('#trip-period-end-date')?.addEventListener('change', salvaPeriodo('endDate'));
-    $('#trip-period-end-time')?.addEventListener('change', salvaPeriodo('endTime'));
+    }));
+    document.querySelectorAll('[data-periodocalnav]').forEach(b => b.addEventListener('click', () => {
+      const campo = state.periodoCampoAperto;
+      if (!campo) return;
+      const scelta = parseIso(trip[campo] || new Date().toISOString().slice(0, 10)) || parseIso(new Date().toISOString().slice(0, 10));
+      const anno = state.periodoCalAnno ?? scelta.anno;
+      const mese0 = state.periodoCalMese0 ?? scelta.mese0;
+      const target = b.dataset.periodocalnav === 'prec' ? mesePrecedente(anno, mese0) : meseSuccessivo(anno, mese0);
+      state.periodoCalAnno = target.anno; state.periodoCalMese0 = target.mese0;
+      render();
+    }));
+    document.querySelectorAll('[data-periododay]').forEach(b => b.addEventListener('click', () => {
+      const campo = state.periodoCampoAperto;
+      if (!campo) return;
+      salvaCampoPeriodo(campo, b.dataset.periododay);
+      state.periodoCampoAperto = null; state.periodoCalAnno = null; state.periodoCalMese0 = null;
+      render();
+    }));
+    document.querySelectorAll('[data-periodochip]').forEach(b => b.addEventListener('click', () => {
+      const campo = state.periodoCampoAperto;
+      if (!campo) return;
+      salvaCampoPeriodo(campo, b.dataset.periodochip);
+      render();
+    }));
+    document.querySelectorAll('[data-periodoorastep]').forEach(b => b.addEventListener('click', () => {
+      const campo = state.periodoCampoAperto;
+      if (!campo) return;
+      const [hh, mm] = String(trip[campo] || '09:00').split(':').map(Number);
+      const unita = b.dataset.periodoorastep[0];
+      const delta = Number(b.dataset.periodoorastep.slice(1));
+      const nuovaOra = unita === 'h' ? (((hh || 0) + delta) % 24 + 24) % 24 : (hh || 0);
+      const nuovoMinuto = unita === 'm' ? (((mm || 0) + delta) % 60 + 60) % 60 : (mm || 0);
+      salvaCampoPeriodo(campo, `${String(nuovaOra).padStart(2, '0')}:${String(nuovoMinuto).padStart(2, '0')}`);
+      render();
+    }));
     $('#trip-del')?.addEventListener('click', () => {
       // Cancellare NON toglie la trasferta dall'elenco: ci mette sopra una
       // data. Serve a due cose insieme — un dispositivo spento non può
