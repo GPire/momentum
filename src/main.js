@@ -14820,7 +14820,65 @@ function collegaScrollAllaPagina(el) {
   }, { passive: false });
 }
 
+// PILLOLA SCORREVOLE per ogni .segmented-control (2026-09-03): segnalato dal
+// vivo che il selettore Essenziale/Completa "sembrava non aver fatto niente"
+// al tocco — restava solo una dissolvenza di colore sul testo, nessun
+// movimento che confermasse la scelta. Una sola pillola per controllo,
+// posizione/larghezza MISURATE via getBoundingClientRect (mai percentuali
+// CSS fisse: i segmenti hanno testi di lunghezza diversa, "Consigliere" è
+// più largo di "Zen" — una griglia a percentuali disallineerebbe il
+// riquadro dal testo). Un MutationObserver sulla classe, non un hook nei
+// singoli onclick: funziona per QUALUNQUE controllo esistente o futuro
+// (Essenziale/Completa, Delicato/Consigliere/Deciso...) senza dover toccare
+// ogni funzione che cambia `.active`, e riusa .type-toggle-pop — la stessa
+// animazione di conferma già usata per il tipo di transazione nel Command
+// Center — invece di inventarne una nuova.
+function ensureSegmentIndicator(container) {
+  if (!container || container.dataset.indicatorReady === '1') return;
+  container.dataset.indicatorReady = '1';
+  const indicator = document.createElement('div');
+  indicator.className = 'segment-indicator';
+  container.insertBefore(indicator, container.firstChild);
+  let lastActive = null;
+  const reposition = () => {
+    const active = container.querySelector('.segment-btn.active');
+    if (!active) { indicator.style.opacity = '0'; lastActive = null; return; }
+    // BUG REALE trovato dal vivo: la prima misura girava mentre la schermata
+    // (Analisi Tensor/Vault) era ancora `display:none` (Dashboard è la vista
+    // di apertura) → offsetWidth/offsetLeft tornavano 0, pillola invisibile
+    // per sempre finché non si toccava un'altra volta il selettore. Un
+    // riquadro largo 0px non è "quasi giusto", è sbagliato: si salta la
+    // misura invece di disegnare una pillola fantasma. refreshSegmentIndicators
+    // (chiamata da navigate() ad ogni apertura di una di queste schermate)
+    // la ripete quando il contenitore è finalmente visibile davvero.
+    if (!active.offsetWidth) return;
+    indicator.style.opacity = '1';
+    indicator.style.transform = `translateX(${active.offsetLeft}px)`;
+    indicator.style.width = `${active.offsetWidth}px`;
+    indicator.classList.toggle('predator', active.classList.contains('predator'));
+    if (active !== lastActive) {
+      active.classList.remove('type-toggle-pop'); void active.offsetWidth; active.classList.add('type-toggle-pop');
+      lastActive = active;
+    }
+  };
+  container._repositionSegmentIndicator = reposition;
+  new MutationObserver(reposition).observe(container, { attributes: true, attributeFilter: ['class'], subtree: true });
+  try { new ResizeObserver(reposition).observe(container); } catch (_) {}
+  reposition();
+}
+function initSegmentIndicators() {
+  document.querySelectorAll('.segmented-control').forEach(ensureSegmentIndicator);
+}
+// Richiamata ad ogni apertura di Dashboard/Analisi Tensor/Momentum Vault
+// (vedi navigate()): ripete la misura per i controlli che al primo giro
+// erano ancora dietro una schermata `display:none` (vedi commento sopra).
+function refreshSegmentIndicators() {
+  document.querySelectorAll('.segmented-control').forEach(c => c._repositionSegmentIndicator?.());
+}
+
 const bootUI = () => {
+  try { initSegmentIndicators(); } catch (e) { console.error('initSegmentIndicators:', e); }
+
   try {
     collegaScrollAllaPagina(document.getElementById('form-container-desktop'));
     segnalaAltroSotto(document.getElementById('form-container-desktop'));
@@ -15504,8 +15562,9 @@ const navigate = (view) => {
     // Il Salvadanaio è marcata .advanced-card in index.html — stessa regola
     // generica di Analisi Tensor e Momentum Vault, mai una quarta logica.
     updateUiComplexityVisibility();
+    refreshSegmentIndicators();
   }
-  if (view === 'analysis') { renderAnalysis(); updateUiComplexityVisibility(); }
+  if (view === 'analysis') { renderAnalysis(); updateUiComplexityVisibility(); refreshSegmentIndicators(); }
   if (view === 'settings') {
     // #tax-card/#tax-es-card vivono qui (spostate da Analisi Tensor, vedi
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
@@ -15519,6 +15578,7 @@ const navigate = (view) => {
     // quindi la combina qui, un solo punto, mai due funzioni che scrivono
     // sullo stesso style.display in ordine imprevedibile.
     updateUiComplexityVisibility();
+    refreshSegmentIndicators();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei

@@ -3496,12 +3496,26 @@
       .mic-success, .mic-error { animation: none !important; }
     }
     
-    .segmented-control { display: flex; background: var(--surface-solid); border: 1px solid var(--outline); border-radius: 1rem; padding: 0.25rem; }
-    .segment-btn { flex: 1; text-align: center; padding: 0.6rem; font-size: 0.75rem; font-weight: 800; border-radius: 0.75rem; color: var(--on-surface-secondary); cursor: pointer; transition: all 0.2s;}
+    .segmented-control { display: flex; position: relative; background: var(--surface-solid); border: 1px solid var(--outline); border-radius: 1rem; padding: 0.25rem; }
+    .segment-btn { position: relative; z-index: 1; flex: 1; text-align: center; padding: 0.6rem; font-size: 0.75rem; font-weight: 800; border-radius: 0.75rem; color: var(--on-surface-secondary); cursor: pointer; transition: color 0.2s; }
     /* Contrasto testo corretto (WCAG AA, verificato: 4.04->6.05): #6366f1 su
        sfondo scuro non raggiungeva 4.5:1, #818cf8 (indigo-400) sì. */
-    .segment-btn.active { background: var(--surface-elevated); color: #818cf8; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-    .segment-btn.active.predator { color: #fb7185; box-shadow: 0 2px 10px rgba(225,29,72,0.3); }
+    .segment-btn.active { color: #818cf8; }
+    .segment-btn.active.predator { color: #fb7185; }
+    /* PILLOLA SCORREVOLE (2026-09-03): segnalato dal vivo che il cambio
+       Essenziale/Completa "sembrava non aver fatto niente" — lo sfondo si
+       limitava a un dissolvenza sul testo, senza alcun movimento che
+       confermasse la scelta. Un'unica pillola con la posizione/larghezza
+       MISURATA in JS (ensureSegmentIndicator in main.js, non percentuali
+       CSS fisse: "Delicato/Consigliere/Deciso" hanno larghezze diverse fra
+       loro, una griglia a percentuali fissa disallineerebbe il testo) che
+       scivola sotto il testo attivo — lo stesso linguaggio di conferma
+       visiva già usato altrove nell'app (mai un secondo stile inventato).
+       Z-index sotto ai bottoni (z-index:0 vs 1) cosi' il testo resta
+       sempre leggibile sopra. */
+    .segment-indicator { position: absolute; top: 0.25rem; bottom: 0.25rem; left: 0; z-index: 0; border-radius: 0.75rem; background: var(--surface-elevated); box-shadow: 0 2px 8px rgba(0,0,0,0.2); opacity: 0; transition: transform 0.35s cubic-bezier(.22,1,.36,1), width 0.35s cubic-bezier(.22,1,.36,1), box-shadow 0.2s, opacity 0.15s; pointer-events: none; }
+    .segment-indicator.predator { box-shadow: 0 2px 10px rgba(225,29,72,0.3); }
+    @media (prefers-reduced-motion: reduce) { .segment-indicator { transition: opacity 0.15s; } }
 
     .nav-btn svg { transition: transform 0.3s; }
     .nav-btn:hover svg { transform: translateY(-2px); }
