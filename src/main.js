@@ -4083,7 +4083,7 @@ const renderAnalysis = (opts = {}) => {
   // vista Essenziale/Completa deve restare coerente ad ogni ridisegno, non
   // solo al primo ingresso nella schermata (main.js ha decine di punti che
   // richiamano renderAnalysis dopo un cambio dati).
-  try { updateAnalysisComplexityVisibility(); } catch (_) {}
+  try { updateUiComplexityVisibility(); } catch (_) {}
   const k = monthKey(VaultDAO.state.currentDate);
   const txs = VaultDAO.state.transactions[k] || [];
   // DUE SCHERMATE NON POSSONO DARE DUE RISPOSTE ALLA STESSA DOMANDA.
@@ -15336,20 +15336,21 @@ function updateAnalysisTensorVisibility() {
 }
 window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
 
-// VISTA ESSENZIALE/COMPLETA di Analisi Tensor (2026-09-03) — richiesta
-// esplicita: troppe card istituzionali (Value at Risk, Sharpe deflazionato,
-// grafo causale...) creano attrito e abbandono per chi vuole solo capire
-// come vanno i propri soldi. Le 7 card più tecniche sono marcate
-// `.advanced-card` in index.html — questa funzione le nasconde/mostra, MAI
-// forzando visibile una card già nascosta per un altro motivo (es. "sblocco
-// progressivo" quando non ci sono ancora posizioni: quella logica usa la
-// classe `.hidden`, questa usa `style.display`, i due meccanismi convivono
-// senza scavalcarsi).
+// VISTA ESSENZIALE/COMPLETA (2026-09-03) — richiesta esplicita: troppe card
+// creano attrito e abbandono per chi vuole solo capire come vanno i propri
+// soldi. Nata in Analisi Tensor (le 7 card istituzionali: Value at Risk,
+// Sharpe deflazionato, grafo causale...) ed estesa a Momentum Vault e
+// Dashboard con la STESSA classe `.advanced-card` e lo STESSO stato globale
+// — un solo interruttore, non tre logiche diverse per tre schermate. Questa
+// funzione nasconde/mostra, MAI forzando visibile una card già nascosta per
+// un altro motivo (es. "sblocco progressivo" quando non ci sono ancora
+// posizioni: quella logica usa la classe `.hidden`, questa usa
+// `style.display`, i due meccanismi convivono senza scavalcarsi).
 function resolveUiComplexity() {
   const v = VaultDAO.state.uiComplexity;
   return (v === 'essenziale' || v === 'completo') ? v : 'completo';
 }
-function updateAnalysisComplexityVisibility() {
+function updateUiComplexityVisibility() {
   const essenziale = resolveUiComplexity() === 'essenziale';
   // #live-prices-card ESCLUSA di proposito: ha già una condizione propria
   // (shouldShowAnalysisTensor, poco sotto in navigate()) che scrive sullo
@@ -15374,7 +15375,7 @@ window.setUiComplexity = (val) => {
   VaultDAO.state.uiComplexitySetByUser = true;
   VaultDAO.save();
   haptic('light');
-  updateAnalysisComplexityVisibility();
+  updateUiComplexityVisibility();
 };
 
 // CTA della card "sblocco progressivo" (vedi renderNetWorth): porta l'utente
@@ -15474,8 +15475,13 @@ const navigate = (view) => {
     // Safari, quindi c'è il ripiego.
     const quandoLibero = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
     quandoLibero(() => window.renderVegliaMercato?.());
+    // Vista Essenziale/Completa arriva anche in Dashboard (2026-09-03,
+    // richiesta esplicita: "troppe card, si raggruppano o si nascondono").
+    // Il Salvadanaio è marcata .advanced-card in index.html — stessa regola
+    // generica di Analisi Tensor e Momentum Vault, mai una quarta logica.
+    updateUiComplexityVisibility();
   }
-  if (view === 'analysis') { renderAnalysis(); updateAnalysisComplexityVisibility(); }
+  if (view === 'analysis') { renderAnalysis(); updateUiComplexityVisibility(); }
   if (view === 'settings') {
     // #tax-card/#tax-es-card vivono qui (spostate da Analisi Tensor, vedi
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
@@ -15488,7 +15494,7 @@ const navigate = (view) => {
     // condizione propria in PIÙ (deve sparire anche per chi non investe),
     // quindi la combina qui, un solo punto, mai due funzioni che scrivono
     // sullo stesso style.display in ordine imprevedibile.
-    updateAnalysisComplexityVisibility();
+    updateUiComplexityVisibility();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei

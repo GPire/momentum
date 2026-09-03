@@ -4516,8 +4516,13 @@
 
             <!-- SALVADANAIO: riserva cumulata + stato sicurezza + segna-avanzo.
                  Onesto: nessun trasferimento reale, Momentum non tocca la banca —
-                 solo un'annotazione che l'utente conferma con un tocco. -->
-            <div class="card p-6 border border-[color-mix(in_srgb,var(--cyan)_20%,transparent)] relative overflow-hidden flex flex-col sm:flex-row justify-between items-stretch gap-6 shrink-0">
+                 solo un'annotazione che l'utente conferma con un tocco.
+                 .advanced-card (2026-09-03): è la card più densa di concetti
+                 della Dashboard ("mesi che potresti coprire", "avanzo
+                 stimato", sweep) — chi ha scelto "Essenziale" la vede sparire
+                 come le altre card avanzate di Analisi Tensor/Vault, con lo
+                 stesso interruttore, mai una card persa per sempre. -->
+            <div id="jar-card" class="card p-6 border border-[color-mix(in_srgb,var(--cyan)_20%,transparent)] relative overflow-hidden flex flex-col sm:flex-row justify-between items-stretch gap-6 shrink-0 advanced-card">
               <!-- Onda di riempimento: sale con lo stato di sicurezza (0-100%).
                    L'idea e' giusta — un livello che sale si capisce senza
                    leggere — ma stava dentro un riquadro largo 128px che si
