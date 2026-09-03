@@ -826,6 +826,17 @@ const attachFormListeners = (container, prefill = null) => {
   // (caso non dovrebbe capitare) resta `container` stesso.
   const formRoot = container.closest('#modal-container') || container.closest('#desktop-sidebar') || container;
 
+  // Un terzo tasto per un'opzione che non userà mai: chi ha detto "non
+  // investo" nell'onboarding vede solo Uscita/Entrata, non tre scelte per
+  // registrare due cose. Stesso segnale già usato per nascondere Analisi
+  // Tensor e la tessera "Investito" (shouldShowAnalysisTensor) — mai una
+  // quarta fonte di verità sullo stato investitore. `.type-toggle-pill` ha
+  // `flex:1`: nasconderne uno lascia gli altri due a riempire la riga senza
+  // buchi, nessun CSS extra necessario.
+  if (!shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs)) {
+    container.querySelector('.type-toggle-pill[data-type="invest"]')?.classList.add('hidden');
+  }
+
   const desc = container.querySelector('#tx-desc');
   const aiPanel = container.querySelector('#ai-insight-panel');
   const aiCatBadge = container.querySelector('#ai-cat-badge');
