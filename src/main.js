@@ -6436,9 +6436,15 @@ window.openSplitExpense = (prefill = {}) => {
         <!-- 2) COME SI DIVIDE IL CONTO -->
         <div class="flex flex-col gap-2">
           <span class="text-[11px] font-bold text-[var(--on-surface-secondary)]">Come si divide il conto</span>
-          <div class="flex gap-2">
-            <button type="button" data-splitmode="equal" class="segment-btn ${state.splitMode === 'equal' ? 'active' : ''}" style="flex:1">In parti uguali</button>
-            <button type="button" data-splitmode="custom" class="segment-btn ${state.splitMode === 'custom' ? 'active' : ''}" style="flex:1">Chi ha consumato di più</button>
+          <!-- SCOPRIBILITÀ E DESIGN (2026-09-04, richiesta esplicita): prima era
+               un flex gap-2 semplice — .segment-btn.active senza il suo
+               contenitore .segmented-control mostra solo un cambio di colore
+               sul testo, non un pulsante vero. Ora è lo STESSO componente con
+               pillola scorrevole già costruito per Essenziale/Completa e
+               Delicato/Consigliere/Deciso, non un terzo stile diverso. -->
+          <div class="segmented-control">
+            <button type="button" data-splitmode="equal" class="segment-btn ${state.splitMode === 'equal' ? 'active' : ''}">In parti uguali</button>
+            <button type="button" data-splitmode="custom" class="segment-btn ${state.splitMode === 'custom' ? 'active' : ''}">Chi ha consumato di più</button>
           </div>
           ${state.splitMode === 'equal' ? `<div class="card p-3 flex items-center justify-between">
             <span class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Ognuno deve</span>
@@ -6557,6 +6563,11 @@ window.openSplitExpense = (prefill = {}) => {
       _groupInvitePairing = p2p?.pairing || null;
       window.openShareCode({ code: await buildInviteCode(g, p2p?.offer), groupName: g.name, title: tCh('shareInviteTitle', __uiLang, g.name), sub: tCh('shareInviteSub', __uiLang), pairing: _groupInvitePairing });
     });
+    // Il markup di .segmented-control è rigenerato da zero a ogni render()
+    // (innerHTML), quindi anche la sua pillola va ri-creata da zero — l'unico
+    // guard è sul singolo nodo DOM (dataset.indicatorReady), un nodo fresco
+    // lo ignora correttamente.
+    initSegmentIndicators();
   };
   render();
 };
