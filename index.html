@@ -833,7 +833,20 @@
     
     .cat-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent); padding: 0.5rem 0; width: 100%;}
     .cat-scroll-wrapper::-webkit-scrollbar { display: none; }
-    .cat-chip { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 0.7rem 0.5rem 0.6rem; border-radius: 1.2rem; border: 2px solid transparent; background: var(--surface-elevated); cursor: pointer; transition: all var(--spring-fast); min-width: 68px; flex-shrink: 0;}
+    .cat-chip { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 0.7rem 0.5rem 0.6rem; border-radius: 1.2rem; border: 2px solid transparent; background: var(--surface-elevated); cursor: pointer; transition: all var(--spring-fast); min-width: 68px; flex-shrink: 0;
+      /* MICRO-TRANSIZIONE DI COMPARSA (2026-09-04): la fila si accende da
+         sinistra a destra invece di apparire tutta insieme di scatto, ogni
+         volta che si cambia tipo o l'AI riconosce quello giusto dalla
+         descrizione. `--i` (index in buildCatChipsHTML, main.js) guida il
+         ritardo: scala a qualunque numero di categorie senza nth-child
+         scritti a mano. Ritardo tenuto sotto i 250ms anche con tante
+         categorie (min con 30ms/chip) — un'attesa percepibile prima di poter
+         toccare l'ultima categoria sarebbe peggio dell'assenza di animazione. */
+      animation: cat-chip-in .32s cubic-bezier(.22,1,.36,1) backwards;
+      animation-delay: min(calc(var(--i, 0) * 30ms), 250ms);
+    }
+    @keyframes cat-chip-in { from { opacity: 0; transform: translateY(6px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (prefers-reduced-motion: reduce) { .cat-chip { animation: none; } }
     .cat-chip-icon { width: 40px; height: 40px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; position: relative; color: white; transition: transform 0.3s; flex-shrink: 0;}
     /* ── IL MATERIALE DELLE ICONE ──
        Un cerchio a tinta piatta e' l'ultima cosa in tutta l'app che non
@@ -2270,18 +2283,36 @@
     }
 
     /* Schermi BASSI (iPhone 1ª gen 480px, o landscape): il tastierino si comprime
-       così l'intero form d'inserimento sta senza scroll — resta a colpo d'occhio. */
-    @media (max-height: 720px) {
-      .amount-display { font-size: clamp(2rem, 9vh, 3.2rem); }
-      .numpad-grid { gap: 0.3rem; padding: 0.35rem 0.9rem; }
-      .numpad-key { min-height: clamp(2.2rem, 7vh, 3rem); }
-      .amount-stage { padding: 0.6rem 0.5rem 0.35rem; }
-    }
+       così l'intero form d'inserimento sta senza scroll — resta a colpo d'occhio.
+       html.tastiera-aperta (2026-09-04): STESSE regole, attivate anche quando è
+       la tastiera NATIVA (non lo schermo) a rubare spazio — su Chrome/Android
+       `interactive-widget=resizes-content` fa scattare già da sola la media
+       query (il viewport si accorcia per davvero), ma su iOS Safari il layout
+       viewport non si accorge della tastiera: la classe, impostata in JS da
+       --tastiera-inset, copre quel caso. Richiesta esplicita: non basta non
+       tagliare contenuto, lo spazio che resta sopra la tastiera va sfruttato —
+       comprimere l'importo libera riga in più per vedere subito le categorie,
+       senza dover scorrere con un solo pollice mentre si scrive. */
+    @media (max-height: 720px) { .amount-display { font-size: clamp(2rem, 9vh, 3.2rem); } }
+    html.tastiera-aperta .amount-display { font-size: clamp(2rem, 9vh, 3.2rem); }
+    @media (max-height: 720px) { .numpad-grid { gap: 0.3rem; padding: 0.35rem 0.9rem; } }
+    html.tastiera-aperta .numpad-grid { gap: 0.3rem; padding: 0.35rem 0.9rem; }
+    @media (max-height: 720px) { .numpad-key { min-height: clamp(2.2rem, 7vh, 3rem); } }
+    html.tastiera-aperta .numpad-key { min-height: clamp(2.2rem, 7vh, 3rem); }
+    @media (max-height: 720px) { .amount-stage { padding: 0.6rem 0.5rem 0.35rem; } }
+    html.tastiera-aperta .amount-stage { padding: 0.6rem 0.5rem 0.35rem; }
     @media (max-height: 520px) {
       .amount-display { font-size: clamp(1.7rem, 8vh, 2.4rem); }
       .numpad-grid { min-height: 0 !important; }
       .numpad-key { min-height: 2rem; font-size: 1rem; }
     }
+    /* Con la tastiera aperta il microfono è ridondante (si sta già scrivendo
+       da tastiera, non parlando) e il suo suggerimento sotto ("prova a dire
+       ...") diventa un consiglio contraddittorio proprio mentre si digita:
+       via entrambi, non solo rimpiccioliti — è spazio vero da restituire alle
+       categorie, non decorazione da conservare più piccola. */
+    html.tastiera-aperta .mic-stage,
+    html.tastiera-aperta .voice-hint-text { display: none; }
 
     /* ── L'AREA DA TOCCARE È PIÙ GRANDE DI QUELLO CHE SI VEDE ──
        Misurati dal vivo 98 elementi toccabili sotto i 44px nella sola

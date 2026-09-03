@@ -269,6 +269,11 @@ if (window.visualViewport) {
   const aggiornaTastieraInset = () => {
     const inset = Math.max(0, window.innerHeight - window.visualViewport.height);
     document.documentElement.style.setProperty('--tastiera-inset', `${inset}px`);
+    // Soglia 150px, non "> 0": un ritocco della barra indirizzi o un piccolo
+    // scroll del visual viewport (iOS lo muove anche senza tastiera) non è
+    // una tastiera aperta — solo una riduzione grande quanto un vero
+    // tastierino attiva la modalità compatta (index.html: html.tastiera-aperta).
+    document.documentElement.classList.toggle('tastiera-aperta', inset > 150);
   };
   window.visualViewport.addEventListener('resize', aggiornaTastieraInset);
   aggiornaTastieraInset();
@@ -524,9 +529,18 @@ const CAT_ICONE = [
   { chiave: 'bollette', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg>' },
 ];
 
+// MICRO-TRANSIZIONE DI COMPARSA (2026-09-04, richiesta esplicita): le
+// categorie apparivano tutte insieme, di scatto, ogni volta che si cambia
+// tipo (Uscita/Entrata/Investi) o che l'AI riconosce il tipo dalla
+// descrizione. `--i` (indice del chip) guida un ritardo scalare in CSS
+// (.cat-chip, index.html): la fila si accende da sinistra a destra invece
+// di comparire tutta insieme — un tocco di vita in più, non solo un
+// interruttore on/off. Indice via CSS var e non nth-child in CSS: il numero
+// di categorie per tipo varia, una regola per indice scala a qualunque
+// lunghezza senza dover elencare nth-child(1..N) a mano.
 const buildCatChipsHTML = (type) => {
-  const chips = getCatsByType(type).map(c => `
-    <button type="button" class="cat-chip" data-cat-id="${c.id}" style="--chip-color:${c.color};--chip-bg:${c.color}22">
+  const chips = getCatsByType(type).map((c, i) => `
+    <button type="button" class="cat-chip" data-cat-id="${c.id}" style="--chip-color:${c.color};--chip-bg:${c.color}22;--i:${i}">
       <div class="cat-chip-icon cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
       <span class="cat-chip-label">${catName(c, __uiLang)}</span>
     </button>
@@ -539,7 +553,7 @@ const buildCatChipsHTML = (type) => {
   // dentro il gesto che si stava gia' facendo (scegliere una categoria) e'
   // piu' vicino a come lo capirebbe chi non ha mai usato l'app prima.
   const aggiungi = `
-    <button type="button" class="cat-chip cat-chip-add" data-cat-id="__nuova__">
+    <button type="button" class="cat-chip cat-chip-add" data-cat-id="__nuova__" style="--i:${getCatsByType(type).length}">
       <div class="cat-chip-icon cat-chip-icon-add">+</div>
       <span class="cat-chip-label">${tCh('catNuova', __uiLang)}</span>
     </button>
