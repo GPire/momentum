@@ -253,6 +253,27 @@ import { TrainedMeso } from './ai/trained-meso.js';
 import { HashedLogReg } from './ai/hashed-logreg.js';
 import { MomentumOrchestrator } from './ai/orchestrator.js';
 
+// --tastiera-inset (2026-09-04): quanto spazio sta occupando ORA la tastiera
+// nativa, usato da #modal-content (index.html) per accorgersi di avere meno
+// spazio vero quando si apre — su Chrome/Android il meta `interactive-widget
+// =resizes-content` fa già tutto da solo (questa resta 0px, innocua); su iOS
+// Safari, che quell'attributo lo ignora, senza questa misura il modale
+// restava alto quanto il viewport INTERO anche a tastiera aperta, e mezzo
+// Command Center finiva coperto e irraggiungibile — l'utente vedeva importo
+// e microfono e nient'altro, senza capire che sotto (categorie, nota, data,
+// divisione) c'era dell'altro. `visualViewport` è l'unica API che riflette
+// lo spazio DAVVERO visibile (non il layout viewport, che la tastiera non
+// tocca): la differenza rispetto a innerHeight è quanto la tastiera sta
+// rubando in questo istante.
+if (window.visualViewport) {
+  const aggiornaTastieraInset = () => {
+    const inset = Math.max(0, window.innerHeight - window.visualViewport.height);
+    document.documentElement.style.setProperty('--tastiera-inset', `${inset}px`);
+  };
+  window.visualViewport.addEventListener('resize', aggiornaTastieraInset);
+  aggiornaTastieraInset();
+}
+
 const CalendarBridge = {
   createEvent(ev) {
     if (!VaultDAO.state.events) VaultDAO.state.events = [];

@@ -2,7 +2,16 @@
 <html lang="it" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <!-- interactive-widget=resizes-content (2026-09-04, Chrome/Android): senza
+       questo, quando si apre la tastiera nativa il layout non lo sa — resta
+       dimensionato sul viewport intero e mezzo Command Center finisce
+       coperto dalla tastiera, invisibile e irraggiungibile. Con questo, le
+       unità dvh/svh (già usate su #modal-content) si ricalcolano da sole
+       quando la tastiera occupa spazio, esattamente come un resize della
+       finestra. iOS Safari non supporta questo attributo (ignorato, non
+       rompe nulla): lì la gestione resta quella nativa di sistema, già
+       accettabile di suo per lo scroll-to-focus. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
   <meta name="theme-color" content="#000000">
   <meta name="description" content="Momentum — Neural Synapse SLM & Agnostic Wealth Core.">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2394,9 +2403,22 @@
        vinceva SEMPRE anche da desktop — il modale restava alto il 92% anche
        dove il markup chiedeva l'85%, spingendo il contenuto sotto il bordo
        reale della finestra e facendolo sparire dietro il footer fisso. */
-    #modal-content { max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
+    /* --tastiera-inset (2026-09-04): quanto spazio sta occupando in questo
+       momento la tastiera nativa, misurato in JS da visualViewport (vedi
+       main.js). Su Chrome/Android `interactive-widget=resizes-content` (meta
+       viewport) fa già il lavoro da solo — questa variabile resta 0px lì,
+       innocua. Serve per iOS Safari, che quell'attributo lo ignora: senza,
+       il modale restava alto quanto il viewport INTERO anche a tastiera
+       aperta, e mezzo Command Center finiva coperto e irraggiungibile,
+       senza che l'utente capisse che sotto c'era altro (categorie, nota,
+       data, divisione). Sottraendo l'inset, il modale si accorge di avere
+       meno spazio vero, il suo scroll interno si attiva DAVVERO, e
+       l'indicatore "c'è altro sotto" (segnalaAltroSotto, già esistente)
+       torna a funzionare anche qui — nessun meccanismo nuovo, solo la
+       misura giusta passata a quello che già c'è. */
+    #modal-content { max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem - var(--tastiera-inset, 0px))); }
     @media (min-width: 1024px) {
-      #modal-content { max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem)); }
+      #modal-content { max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem - var(--tastiera-inset, 0px))); }
     }
     /* BUG REALE segnalato da utenti su iPhone E Android: con la PWA installata
        la X per chiudere finisce sotto la barra di stato del telefono (batteria,
@@ -2411,7 +2433,7 @@
        margine minimo REALE, ma solo quando l'app è installata: nel browser
        normale la barra del sistema non c'è e nulla cambia. */
     @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
-      #modal-content { max-height: min(92dvh, calc(100dvh - max(env(safe-area-inset-top, 0px), 28px) - 0.5rem)); }
+      #modal-content { max-height: min(92dvh, calc(100dvh - max(env(safe-area-inset-top, 0px), 28px) - 0.5rem - var(--tastiera-inset, 0px))); }
       /* E in più la X si tiene lontana dal bordo per conto suo: due difese
          indipendenti, perché questa non deve poter tornare mai. BUG REALE
          (segnalato di nuovo dal vivo, 2026-09-03): questa riga usava un
