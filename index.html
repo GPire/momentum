@@ -477,6 +477,16 @@
 
     .smart-toggles-row { display: flex; gap: 0.5rem; margin: 0.5rem 1rem 0; flex-wrap: wrap; }
     .neuro-pill-btn { flex: 1; min-width: 120px; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--outline); border-radius: 1.2rem; font-size: 0.75rem; font-weight: 800; color: var(--on-surface-secondary); transition: all var(--spring-fast); position: relative; overflow: hidden; cursor: pointer; white-space: nowrap;}
+    /* "È da dividere?" fuori dall'accordion (2026-09-04): non più una delle
+       due metà di .smart-toggles-row, ma un pulsante a tutta larghezza —
+       merita più risalto di un'opzione minore, coerente con quanto l'utente
+       ha segnalato ripetutamente sull'uso frequente di questa funzione.
+       Bordo colorato invece di grigio neutro: la stessa differenza fra "un
+       controllo qualunque" e "questo è per una cosa specifica", senza
+       inventare un colore nuovo (var(--primary) è già il colore di ogni
+       azione centrale dell'app, "+"compreso). */
+    .split-pill-in-vista { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem; margin-top: 0.5rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface-elevated)); border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--outline)); border-radius: 1.2rem; font-size: 0.8rem; font-weight: 800; color: var(--primary); transition: all var(--spring-fast); cursor: pointer; }
+    @media (hover: hover) { .split-pill-in-vista:hover { background: color-mix(in srgb, var(--primary) 12%, var(--surface-elevated)); } }
 
     /* ══════════════════════════════════════════════════════════
        LA PILLOLA CHE NASCE DA UN'INTUIZIONE

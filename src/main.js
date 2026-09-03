@@ -771,14 +771,30 @@ const getTxFormHTML = () => `
 
     ${buildNewCatPanelHTML()}
 
+    <!-- "È DA DIVIDERE?" FUORI DALL'ACCORDION (2026-09-04, terzo giro sulla
+         stessa richiesta): stava dentro "Altri dettagli" insieme alla data —
+         due tocchi per arrivarci (apri l'accordion, poi tocca Dividi), e
+         l'utente continuava a non trovarlo. Segnalato esplicitamente più
+         volte: va "più vicino al tocco". A differenza della data (davvero
+         rara da cambiare), dividere una spesa è un uso frequente e
+         dichiarato importante — merita la stessa classe della NOTA qui
+         sopra: sempre visibile, mai un tocco in più per scoprirla. Resta
+         però condizionata al tipo (solo uscite, vedi renderSplitPill) e
+         MAI un nome di gruppo inventato: compare solo con un match testuale
+         reale a una spesa già divisa in passato. -->
+    <button type="button" id="split-pill-btn" class="split-pill-in-vista shrink-0">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+       <span id="split-pill-text" class="truncate">${tCh('txSplit', __uiLang)}</span>
+    </button>
+
     <!-- ── L'ESSENZIALE RESTA, IL RESTO SI APRE SE SERVE ──
-         Per segnare una spesa bastano due risposte: quanto, e per cosa.
-         Nota, data e "dividi con qualcuno" sono utili ma non servono quasi
-         mai: tenerli sempre aperti significa mostrare cinque comandi a chi
-         ne deve usare due — ed è così che un modulo semplice "sembra
+         Per segnare una spesa bastano due risposte: quanto, e per cosa. La
+         data è utile ma non serve quasi mai cambiarla: tenerla sempre
+         aperta significa mostrare un comando in più a chi deve quasi
+         sempre "oggi" — ed è così che un modulo semplice "sembra
          difficile", per un bambino come per un ottantenne.
-         Restano a un solo tocco, con l'etichetta che dice cosa contengono
-         (mai un'icona muta), e chi li apre li trova già pronti. -->
+         Resta a un solo tocco, con l'etichetta che dice cosa contiene
+         (mai un'icona muta), e chi la apre la trova già pronta. -->
     <!-- La NOTA resta sempre visibile: non è obbligatoria per salvare
          (servono importo e categoria), ma è quella che ti fa riconoscere la
          spesa quando la rileggi fra un mese — nella lista dei movimenti è il
@@ -789,34 +805,28 @@ const getTxFormHTML = () => `
     </div>
 
     <!-- SCOPRIBILITÀ (2026-09-03, segnalato dal vivo): il testo diceva già
-         cosa c'era dentro ("Cambia data, o dividi con qualcuno"), ma un
-         link grigio in maiuscoletto da 11px non si distingue da una
-         didascalia — utenti reali non lo toccavano mai e non sapevano che
-         data e divisione esistessero. Le stesse due icone già usate DENTRO
-         l'accordion (date-pill-btn/split-pill-btn) ora anticipano il
-         contenuto anche da chiuso: un'anteprima visiva, non solo testo. -->
+         cosa c'era dentro, ma un link grigio in maiuscoletto da 11px non si
+         distingue da una didascalia — utenti reali non lo toccavano mai e
+         non sapevano che il cambio data esistesse. L'icona già usata DENTRO
+         l'accordion (date-pill-btn) ora anticipa il contenuto anche da
+         chiuso: un'anteprima visiva, non solo testo.
+         "È da dividere?" NON vive più qui (2026-09-04, vedi sopra, subito
+         dopo le categorie): a differenza della data, l'utente l'ha segnalato
+         come un uso frequente — due tocchi per raggiungerlo (apri
+         l'accordion, poi tocca Dividi) erano uno di troppo per qualcosa
+         che serve così spesso. -->
     <button type="button" id="dettagli-toggle" class="dettagli-toggle dettagli-toggle-in-vista shrink-0" aria-expanded="false" aria-controls="dettagli-extra">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span>${tCh('txMoreDetails', __uiLang)}</span>
       <svg class="dettagli-freccia" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="dettagli-extra" class="dettagli-extra shrink-0"><div>
     <div class="smart-toggles-row mb-3 shrink-0">
-       <div class="neuro-pill-btn" id="date-pill-btn">
+       <div class="neuro-pill-btn" id="date-pill-btn" style="flex:1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
           <span id="date-pill-text" class="truncate">${tCh('txDateToday', __uiLang)}</span>
           <input type="date" id="tx-date-input" class="native-date-input" max="${new Date().toISOString().split('T')[0]}">
        </div>
-       <!-- "È da dividere?" (src/predict/command-center.js → splitCandidate): sempre
-            disponibile per le uscite — segnalato dall'utente che mancava. Onesto: il
-            nome del gruppo compare SOLO con un match testuale reale a una spesa già
-            divisa in passato; senza prova resta generico, mai inventato. Un tocco apre
-            la divisione (già pronta con importo/descrizione) invece di doverci pensare dopo. -->
-       <button type="button" id="split-pill-btn" class="neuro-pill-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span id="split-pill-text" class="truncate">${tCh('txSplit', __uiLang)}</span>
-       </button>
     </div>
     </div></div>
 
