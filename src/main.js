@@ -15351,8 +15351,22 @@ function resolveUiComplexity() {
 }
 function updateAnalysisComplexityVisibility() {
   const essenziale = resolveUiComplexity() === 'essenziale';
-  $$('.advanced-card').forEach(card => { card.style.display = essenziale ? 'none' : ''; });
+  // #live-prices-card ESCLUSA di proposito: ha già una condizione propria
+  // (shouldShowAnalysisTensor, poco sotto in navigate()) che scrive sullo
+  // STESSO style.display — combinarle qui rischierebbe di far vincere
+  // l'ultima funzione chiamata invece della decisione giusta. La combinazione
+  // vera vive in quell'unico punto, non qui.
+  $$('.advanced-card').forEach(card => { if (card.id !== 'live-prices-card') card.style.display = essenziale ? 'none' : ''; });
   $$('[data-ui-complexity]').forEach(btn => btn.classList.toggle('active', btn.dataset.uiComplexity === resolveUiComplexity()));
+  updateLivePricesCardVisibility();
+}
+// Estratta perché usata in DUE momenti (apertura di Momentum Vault E ogni
+// tocco del selettore Essenziale/Completa): la stessa combinazione scritta
+// due volte a mano è la stessa classe di bug appena vista per il tastierino
+// del Command Center (due copie che possono divergere in silenzio).
+function updateLivePricesCardVisibility() {
+  const c = document.getElementById('live-prices-card');
+  if (c) c.style.display = (shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) && resolveUiComplexity() !== 'essenziale') ? '' : 'none';
 }
 window.setUiComplexity = (val) => {
   if (val !== 'essenziale' && val !== 'completo') return;
@@ -15468,7 +15482,13 @@ const navigate = (view) => {
     // accanto a #tax-settings-card, non più mescolato ai contenuti di
     // trading/investimento di Analisi Tensor.
     renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); renderAnalysisTensorPrefCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary(); applyReadingEasePreferences();
-    { const c = document.getElementById('live-prices-card'); if (c) c.style.display = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) ? '' : 'none'; }
+    // Vista Essenziale/Completa (2026-09-03): anche qui, non solo in Analisi
+    // Tensor — "Come funziona Momentum" e "Chat generica" sono marcate
+    // .advanced-card e seguono la regola generica; #live-prices-card ha una
+    // condizione propria in PIÙ (deve sparire anche per chi non investe),
+    // quindi la combina qui, un solo punto, mai due funzioni che scrivono
+    // sullo stesso style.display in ordine imprevedibile.
+    updateAnalysisComplexityVisibility();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è
     // ancora popolato dal merge asincrono (IndexedDB/DurableStore) quando
     // initTelemetryToggle() gira una sola volta all'avvio — lo stato dei

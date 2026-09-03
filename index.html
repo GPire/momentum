@@ -5036,6 +5036,21 @@
           <div id="settings-view" class="hidden w-full flex-grow min-w-0 space-y-6 sm:space-y-8 animate-slideUpFade">
             <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Momentum Vault</h2>
 
+            <!-- Stessa vista Essenziale/Completa di Analisi Tensor (2026-09-03,
+                 unico stato condiviso, window.setUiComplexity): qui nasconde
+                 "Come funziona Momentum", "Prezzi live" e "Chat generica" — le
+                 impostazioni più da smanettone, non da primo utilizzo. -->
+            <div class="card p-3 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-[11px] font-bold" data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</p>
+                <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultComplexitySub">Essenziale nasconde le impostazioni più tecniche — niente sparisce per sempre.</p>
+              </div>
+              <div class="segmented-control shrink-0 !w-auto">
+                <div class="segment-btn" data-ui-complexity="essenziale" onclick="window.setUiComplexity('essenziale')" data-i18n-key="analysisComplexityEssential">Essenziale</div>
+                <div class="segment-btn" data-ui-complexity="completo" onclick="window.setUiComplexity('completo')" data-i18n-key="analysisComplexityFull">Completa</div>
+              </div>
+            </div>
+
             <!-- Responsive con CSS ESPLICITO (vault-grid): 1 colonna su desktop
                  normale (la sidebar destra mangia larghezza → card che respirano,
                  niente testi cramped/tagliati), 2 colonne solo oltre i 1700px. -->
@@ -5127,7 +5142,7 @@
               <!-- Trasparenza architettura (src/ai/neurosym.js, NeuroSym.explain):
                    cosa è ACCESO su questo dispositivo, con specs misurate —
                    mai un elenco statico uguale per tutti i device. -->
-              <div class="card p-6 flex flex-col order-10" id="neurosym-explain-card">
+              <div class="card p-6 flex flex-col order-10 advanced-card" id="neurosym-explain-card">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
                   <div>
@@ -5406,7 +5421,7 @@
                    bloccano le chiamate dirette dal browser (verificato). La chiave
                    vive SOLO in questo dispositivo: nessun server Momentum esiste a
                    cui inviarla. -->
-              <div class="card p-6 flex flex-col justify-between order-9" id="live-prices-card">
+              <div class="card p-6 flex flex-col justify-between order-9 advanced-card" id="live-prices-card">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n-key="vaultLivePricesTitle">Prezzi live (opzionale)</span></h3>
                   <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Le cripto funzionano già, senza fare nulla. Per azioni/indici serve una chiave gratuita tua (mai un account Momentum): 20 secondi su Alpha Vantage, poi incollala qui sotto.</p>
@@ -5498,7 +5513,7 @@
                    di tutto il resto dell'app, qui esce il TESTO SCRITTO
                    dall'utente (non i dati finanziari, mai allegati in
                    automatico) verso Groq — va acceso consapevolmente. -->
-              <div class="card p-6 flex flex-col justify-between order-12">
+              <div class="card p-6 flex flex-col justify-between order-12 advanced-card">
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span data-i18n-key="vaultGenericChatTitle">Chat generica (opzionale)</span></h3>
                   <p class="card-sub" data-i18n-key="vaultGenericChatSubtitle">Disattivata di default. Se la attivi, le domande fuori dai tuoi soldi (es. "che tempo fa") ricevono una risposta invece di restare senza. Di base riceve SOLO il testo che scrivi.</p>
