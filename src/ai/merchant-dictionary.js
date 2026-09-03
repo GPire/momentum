@@ -167,6 +167,32 @@ const DICTIONARY = {
   alcolici: 'alcolici', vineria: 'alcolici', liquoreria: 'alcolici', distilleria: 'alcolici',
   'cantina vini': 'alcolici', 'majestic wine': 'alcolici', weinhandlung: 'alcolici',
   'total wine': 'alcolici',
+  // risparmio (2026-09-04, gap reale trovato con bench/categorizer-bench.mjs:
+  // 47% di accuratezza, il punteggio peggiore fra tutte le categorie — zero
+  // voci qui, nonostante "risparmio" sia una categoria vera con dati di
+  // addestramento in src/ai/train/data-gen.mjs). A differenza delle altre
+  // sezioni, qui non ci sono ESERCENTI/brand ma FRASI GENERICHE ("piano di
+  // risparmio", "salvadanaio digitale") — probabilmente per questo sono
+  // sfuggite quando il dizionario è stato costruito per token di marchio.
+  // NON si usa la parola "risparmio" da sola come chiave: compare anche in
+  // frasi di TUTT'ALTRA categoria (es. "eurospin risparmio" → spesa, è
+  // marketing del discount) — un match sulla sola parola avrebbe dirottato
+  // spese normali qui dentro. Stessa cautela per "deposito" (da solo compare
+  // anche in "deposito cauzionale affitto" → casa) e "fondo"/"piano
+  // accumulo" (compaiono anche per ETF: "sottoscrizione fondo", "fondo
+  // pensione quota", "piano accumulo indice") — per questi si usano solo le
+  // frasi composte, mai il token isolato. Ogni voce verificata contro
+  // src/ai/train/data-gen.mjs riga per riga per escludere collisioni con le
+  // altre 24 categorie prima di aggiungerla.
+  salvadanaio: 'risparmio', accantonamento: 'risparmio', libretto: 'risparmio',
+  'deposito vincolato': 'risparmio', 'fondo emergenza': 'risparmio', 'round up': 'risparmio',
+  'piano di risparmio': 'risparmio', 'piano accumulo risparmio': 'risparmio',
+  'buoni fruttiferi': 'risparmio', 'buono fruttifero': 'risparmio',
+  // Europa/mondo (stesse frasi usate nei dati di addestramento multilingua)
+  spaarrekening: 'risparmio', sparkonto: 'risparmio', epargne: 'risparmio', ahorro: 'risparmio',
+  oszczednosciowe: 'risparmio', 'isa savings': 'risparmio', 'premium bonds': 'risparmio',
+  '401k': 'risparmio', 'high yield savings': 'risparmio', poupanca: 'risparmio',
+  caixinha: 'risparmio', cdb: 'risparmio',
 };
 
 // Normalizza: minuscolo, via accenti, via prefissi bancari e code carta,
