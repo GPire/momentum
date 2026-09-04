@@ -486,8 +486,13 @@ test('correzione refusi: non tocca parole già corrette o troppo diverse dal diz
 // tramite ctx.qaLearning, non solo il modulo isolato.
 // ============================================================
 
+// "quanto ho messo via" è stata sostituita qui con "quanto sono riuscito ad
+// accantonare" (2026-09-04): la prima ora la riconosce direttamente il
+// pattern fisso di 'savings' (gap reale chiuso, misurato su BANCO_PERSONALE)
+// — non è più un buon esempio di "domanda mai vista", che è proprio il
+// premesso di questo scenario di apprendimento.
 test('SCENARIO: domanda MAI riconosciuta prima della 2a conferma', () => {
-  const r = answerQuestion('quanto ho messo via questo mese', { allTx: {}, referenceDate: new Date(2026, 6, 15) });
+  const r = answerQuestion('quanto sono riuscito ad accantonare questo mese', { allTx: {}, referenceDate: new Date(2026, 6, 15) });
   assert.equal(r.intent, 'unknown');
 });
 
@@ -529,9 +534,9 @@ test('SCENARIO: `learned:true` funziona anche per gli intenti a più parole (cam
 test('SCENARIO: con UNA sola conferma, la domanda resta "unknown" — mai un\'azione automatica da n=1', () => {
   const qaLearning = {
     unknownLog: [],
-    learned: [{ question: 'quanto ho messo via questo mese', tokens: ['messo', 'via', 'questo', 'mese'], intent: 'savings', conferme: 1, ts: Date.now() }],
+    learned: [{ question: 'quanto sono riuscito ad accantonare questo mese', tokens: ['riuscito', 'accantonare', 'questo', 'mese'], intent: 'savings', conferme: 1, ts: Date.now() }],
   };
-  const r = answerQuestion('quanto ho messo via il mese', { allTx: {}, referenceDate: new Date(2026, 6, 15), qaLearning });
+  const r = answerQuestion('quanto sono riuscito ad accantonare il mese', { allTx: {}, referenceDate: new Date(2026, 6, 15), qaLearning });
   assert.equal(r.intent, 'unknown');
   assert.ok(!r.learned);
 });

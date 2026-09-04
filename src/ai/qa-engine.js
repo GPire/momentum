@@ -235,7 +235,7 @@ function correctTypos(text) {
 // misto) trova riscontro.
 const PATTERNS = {
   invest: {
-    it: /(quanto posso investire|posso investire|quanto investire|investire questo mese|dove (posso )?investire|in cosa investire|dove mettere i (miei )?soldi)/,
+    it: /(quanto posso investire|posso investire|quanto investire|investire questo mese|dove (posso )?investire|in cosa investire|dove mettere i (miei )?soldi|posso.{0,20}investiment|mettere.{0,20}investiment)/,
     en: /(how much can i invest|can i invest|invest this month)/,
     es: /(cuánto puedo invertir|puedo invertir|invertir este mes)/,
     fr: /(combien puis-je investir|puis-je investir|investir ce mois)/,
@@ -263,7 +263,7 @@ const PATTERNS = {
     de: /(wie viel (bleibt|habe ich noch)|was bleibt)/,
   },
   monthEnd: {
-    it: /(fine mese|chiudo il mese|finisco il mese|proiezione|previsione)/,
+    it: /(fine mese|chiud[oe] il mese|finisco il mese|proiezione|previsione)/,
     en: /(end of month|how will i end|month projection)/,
     es: /(fin de mes|cómo termino el mes|proyección del mes)/,
     fr: /(fin du mois|comment vais-je finir le mois|projection du mois)/,
@@ -291,14 +291,14 @@ const PATTERNS = {
     de: /(wo gebe ich aus|größte ausgabe)/,
   },
   savings: {
-    it: /(risparmiat|messo da parte|risparmio)/,
+    it: /(risparmiat|messo da parte|mett(ere|o) via|messo via|risparmio)/,
     en: /(how much (have i )?saved|savings)/,
     es: /(cuánto (he )?ahorrado|ahorro)/,
     fr: /(combien j.?ai économisé|épargne)/,
     de: /(wie viel habe ich gespart|ersparnis)/,
   },
   income: {
-    it: /(guadagnat|entrate|incassat|quanto è entrato)/,
+    it: /(guadagnat|entrate|incassat|quanto (mi )?è entrato)/,
     en: /(how much (did i )?earn|income)/,
     es: /(cuánto (he )?ganado|ingresos)/,
     fr: /(combien j.?ai gagné|revenus)/,
