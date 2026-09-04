@@ -355,6 +355,13 @@ export const RELEASES = [
         testo: 'Prima "quanto di questa cripto è merito sua" si misurava sempre contro Bitcoin. Ora puoi chiedere "confronta queste due cripto: Solana ed Ethereum" e la scomposizione è fra loro due, in chat.',
         titoloKey: 'wn0904_9_t', testoKey: 'wn0904_9_d',
       },
+      {
+        colore: 'green',
+        icona: '<path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2.3h6c0-1.1.4-1.8 1-2.3A7 7 0 0 0 12 2z"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+        titolo: 'Chiedi a Momentum capisce meglio chi è più giovane',
+        testo: 'Domande come "quanto mi hanno dato di paghetta" o "quanto tengo da parte" ora hanno una risposta vera — prima capivamo bene solo le formulazioni più formali.',
+        titoloKey: 'wn0904_10_t', testoKey: 'wn0904_10_d',
+      },
     ],
   },
 ];
