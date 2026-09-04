@@ -370,7 +370,7 @@ export const RELEASES = [
         titoloKey: 'wn0905_1_t', testoKey: 'wn0905_1_d',
       },
       {
-        colore: 'cyan',
+        colore: 'primary',
         icona: '<path d="M3 6h18"/><path d="M7 12h13"/><path d="M11 18h9"/>',
         titolo: 'La Dashboard mette davanti quello che ti serve adesso',
         testo: 'Se il cuscinetto d\'emergenza è basso, o ci sono soldi fermi in un gruppo da settimane, quella card sale in cima da sola. Quando è tutto a posto la Dashboard resta esattamente quella di sempre: si muove solo per un motivo forte, mai a ogni apertura.',
