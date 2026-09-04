@@ -199,6 +199,7 @@ import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendi
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
 import { derivePriors, seedBanditState, shouldShowAnalysisTensor, numeriDaChiedere } from './predict/onboarding-priors.js';
+import { featureVisibili } from './predict/profilo-feature.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -14276,6 +14277,10 @@ window.genesisNext = (step, value = '') => {
       window.userRiskProfile = value === 'non-investe' ? 'bilanciato' : value;
     }
     if (step === 4) window.userTimeHorizon = value;
+    // Domanda DINAMICA sull'obiettivo: si arriva qui solo da "medio"/"breve"
+    // alla domanda 3 (vedi index.html) — l'orizzonte si salva comunque qui,
+    // esattamente come farebbe lo step 4, così il percorso resta uno solo.
+    if (step === 'goal') window.userTimeHorizon = value;
     // Step 5 è condiviso da due percorsi diversi (adulto → domanda 4 sulla
     // regolarità entrate; minorenne → obiettivo di risparmio), distinti da
     // userIsMinor impostato sopra quando si è passati da 'minor-goal'.
@@ -14331,6 +14336,20 @@ window.genesisNext = (step, value = '') => {
 // bottone: un bottone tradotto in inglese non deve salvare un obiettivo
 // intitolato in italiano — vedi genesisMinorGoalOpt1/2/3 in index.html).
 const MINOR_GOAL_LABEL_KEYS = { console: 'minorGoalLabelConsole', telefono: 'minorGoalLabelTelefono', viaggio: 'minorGoalLabelViaggio' };
+
+// Obiettivo dichiarato in onboarding dall'adulto (domanda dinamica, vedi
+// #g-step-goal in index.html). Stesse chiavi stabili del percorso minorenne:
+// un bottone tradotto in inglese non deve salvare un obiettivo intitolato in
+// italiano.
+const GOAL_LABEL_KEYS = { casa: 'goalLabelCasa', viaggio: 'goalLabelViaggio', auto: 'goalLabelAuto', cuscinetto: 'goalLabelCuscinetto' };
+
+// La scelta dell'obiettivo non è la risposta a una domanda "di profilo":
+// si salva a parte e poi si prosegue alla domanda 4 come sempre, ripassando
+// l'orizzonte già scelto (idempotente, nessun percorso separato da mantenere).
+window.genesisGoalPick = (key) => {
+  window.userGoalKey = key || null;
+  window.genesisNext(4, window.userTimeHorizon || 'medio');
+};
 
 function renderGenesisPayoff() {
   const el = document.getElementById('genesis-payoff');
@@ -14709,6 +14728,16 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   }
   VaultDAO.state.monthlyBudget = p.monthlyBudget;
   VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests, incomeRegularity: p.incomeRegularity };
+  // OBIETTIVO DICHIARATO IN ONBOARDING (domanda dinamica, 2026-09-04): chi ha
+  // detto di avere un progetto concreto se lo ritrova già dentro Momentum,
+  // non deve ricrearlo a mano. Stesso sistema savingsGoals del percorso
+  // minorenne, senza cifra (si aggiunge dopo con un tocco: renderSavingsGoals
+  // e computeGoalProgress gestiscono già un obiettivo senza cifra).
+  const goalKey = window.userGoalKey || null;
+  if (goalKey && GOAL_LABEL_KEYS[goalKey]) {
+    VaultDAO.state.savingsGoals = VaultDAO.state.savingsGoals || [];
+    VaultDAO.state.savingsGoals.push({ id: Date.now(), name: tCh(GOAL_LABEL_KEYS[goalKey], __uiLang), target: null, createdAt: new Date().toISOString(), deadline: null });
+  }
   // Tono dei nudge di spesa personalizzato subito.
   VaultDAO.state.aiAggression = p.aiAggression;
   // Priori DEBOLI per il contextual bandit dell'advisor: il primo consiglio è
@@ -15565,14 +15594,24 @@ window.condividiTraguardo = async () => {
 // trova PROPRIO sulla vista che sta per sparire, lo riporta in Dashboard —
 // mai una vista vuota/inaccessibile lasciata aperta dietro un tab nascosto.
 function updateAnalysisTensorVisibility() {
-  const show = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs);
+  // Fonte unica delle regole di visibilità (src/predict/profilo-feature.js):
+  // conosce anche l'ETÀ, non solo `invests` — un minorenne resta fuori dalle
+  // sezioni investimenti anche se quel campo mancasse. Le altre voci della
+  // mappa sono applicate qui sotto, sulle stesse superfici già esistenti.
+  const feat = featureVisibili(VaultDAO.state);
+  const show = feat.analisiTensor;
   $$('.nav-btn[data-view="analysis"]').forEach(btn => btn.classList.toggle('hidden', !show));
   // La stessa dichiarazione dell'utente vale ovunque, non solo sul tab:
   // la tessera "Investito" in Dashboard mostrerebbe 0,00 € per sempre a chi
   // ha detto che gli investimenti non lo riguardano. Una griglia da 4 che
   // diventa da 3 è più leggera, non "rotta": le tessere si ridistribuiscono
   // da sole (grid-cols-2 su mobile, 4 su desktop → l'ultima riga si accorcia).
-  document.getElementById('tessera-investito')?.classList.toggle('hidden', !show);
+  document.getElementById('tessera-investito')?.classList.toggle('hidden', !feat.tesseraInvestito);
+  // La card che PROPONE la partita IVA: fuori luogo per un minorenne, e
+  // inutile per chi un regime ce l'ha già attivo (per lui ci sono le card
+  // fiscali vere). Prima era gestita solo dal gate "non investo", quindi
+  // restava visibile in casi in cui non aveva senso.
+  document.getElementById('tax-discover-card')?.classList.toggle('hidden', !feat.scopertaPartitaIva);
   if (!show && VaultDAO.state.currentView === 'analysis') navigate('dashboard');
 }
 window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;

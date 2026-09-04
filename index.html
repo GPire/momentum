@@ -4184,9 +4184,32 @@
         <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2" data-i18n-key="genesisProgress3">Domanda 3 di 4</p>
         <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisQ3Title">Fra quanto ti servono?</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisQ3Sub">Così i consigli sono cuciti su di te.</p>
+        <!-- "medio"/"breve" = c'è un progetto concreto dietro → si apre la
+             domanda dinamica sull'obiettivo (#g-step-goal). "lungo" no: chi
+             costruisce senza una data non ha un obiettivo da definire. -->
         <button class="g-option" style="--i:1" onclick="genesisNext(4, 'lungo')" data-i18n-key="genesisQ3Opt1">Fra molti anni — sto costruendo</button>
-        <button class="g-option" style="--i:2" onclick="genesisNext(4, 'medio')" data-i18n-key="genesisQ3Opt2">Fra qualche anno — un progetto</button>
-        <button class="g-option" style="--i:3" onclick="genesisNext(4, 'breve')" data-i18n-key="genesisQ3Opt3">Presto — mi servono a breve</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext('goal', 'medio')" data-i18n-key="genesisQ3Opt2">Fra qualche anno — un progetto</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext('goal', 'breve')" data-i18n-key="genesisQ3Opt3">Presto — mi servono a breve</button>
+      </div>
+      <!-- Step OBIETTIVO — DOMANDA DINAMICA (2026-09-04, richiesta esplicita:
+           "se un utente risponde che ha un obiettivo, va definito nel passo
+           successivo alla risposta"). Non è una domanda in più per tutti: la
+           vede SOLO chi alla domanda 3 ha risposto che i soldi gli servono
+           fra qualche anno o a breve — cioè chi ha dichiarato di avere un
+           progetto concreto. Chi sta costruendo "fra molti anni" salta
+           direttamente alla domanda 4, come prima.
+           L'obiettivo scelto diventa un obiettivo VERO nel sistema
+           savingsGoals (lo stesso già usato dal percorso minorenne, mai uno
+           nuovo). Nessuna cifra chiesta qui: si aggiunge dopo con un tocco,
+           e computeGoalProgress gestisce già un obiettivo senza cifra. -->
+      <div class="genesis-step" id="g-step-goal">
+        <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisGoalTitle">Per cosa, di preciso?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisGoalSub">Lo tengo d'occhio per te. La cifra la aggiungi quando vuoi.</p>
+        <button class="g-option" style="--i:1" onclick="window.genesisGoalPick('casa')" data-i18n-key="genesisGoalOptCasa">Una casa</button>
+        <button class="g-option" style="--i:2" onclick="window.genesisGoalPick('viaggio')" data-i18n-key="genesisGoalOptViaggio">Un viaggio</button>
+        <button class="g-option" style="--i:3" onclick="window.genesisGoalPick('auto')" data-i18n-key="genesisGoalOptAuto">Un'auto</button>
+        <button class="g-option" style="--i:4" onclick="window.genesisGoalPick('cuscinetto')" data-i18n-key="genesisGoalOptCuscinetto">Un cuscinetto per gli imprevisti</button>
+        <button class="g-option" style="--i:5" onclick="window.genesisGoalPick('')" data-i18n-key="genesisGoalOptNessuno">Niente di preciso, per ora</button>
       </div>
       <!-- Step 4 — regolarità entrate (2026-08-28): segnale indipendente dal
            cuscinetto dichiarato allo step 1 — un buon cuscinetto OGGI non
