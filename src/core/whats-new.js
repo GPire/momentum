@@ -369,6 +369,13 @@ export const RELEASES = [
         testo: 'Se usi Momentum con un budget ma senza stipendio dichiarato, in Dashboard rivedi quanto ti resta nella settimana, cosa è già impegnato e come chiuderai il mese di questo passo. Era sparita in un redesign di agosto.',
         titoloKey: 'wn0905_1_t', testoKey: 'wn0905_1_d',
       },
+      {
+        colore: 'cyan',
+        icona: '<path d="M3 6h18"/><path d="M7 12h13"/><path d="M11 18h9"/>',
+        titolo: 'La Dashboard mette davanti quello che ti serve adesso',
+        testo: 'Se il cuscinetto d\'emergenza è basso, o ci sono soldi fermi in un gruppo da settimane, quella card sale in cima da sola. Quando è tutto a posto la Dashboard resta esattamente quella di sempre: si muove solo per un motivo forte, mai a ogni apertura.',
+        titoloKey: 'wn0905_2_t', testoKey: 'wn0905_2_d',
+      },
     ],
   },
 ];

@@ -200,6 +200,7 @@ import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
 import { derivePriors, seedBanditState, shouldShowAnalysisTensor, numeriDaChiedere } from './predict/onboarding-priors.js';
 import { featureVisibili } from './predict/profilo-feature.js';
+import { ordineCss, motivoPromozione } from './predict/rilevanza-card.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -3409,6 +3410,9 @@ const renderDashboard = () => {
   const splitEls = document.querySelectorAll('#split-reminder');
   if (splitEls.length) {
     const sr = splitReminder(VaultDAO.state.splitGroups || [], { deviceId: VaultDAO.state.deviceId, chatSeenAt: VaultDAO.state.chatSeenAt || {} });
+    // Quanto è fermo davvero, per la priorità della card (rilevanza-card.js):
+    // solo i soldi, non i messaggi — una chat non letta non è un credito.
+    window.__splitSospeso = (sr.show && sr.direction !== 'messages') ? Math.abs(+sr.amount || 0) : 0;
     let splitHtml = '';
     if (sr.show && sr.direction === 'dispute') {
       // Soldi bloccati in una spesa contestata (2026-08-27, segnalato
@@ -3627,6 +3631,11 @@ const renderDashboard = () => {
     // risposta è nella stessa unità della domanda — i mesi che i soldi
     // messi via coprirebbero davvero.
     const mesiCoperti = safetyBasis > 0 ? cumulativeReserve / safetyBasis : 0;
+    // Lo stesso numero serve a decidere quanto in alto sta questa card
+    // (rilevanza-card.js). Si RIUSA quello appena calcolato invece di
+    // rifarlo: due calcoli dello stesso mese di cuscinetto sono due numeri
+    // che prima o poi non coincidono più.
+    window.__mesiCuscinetto = safetyBasis > 0 ? mesiCoperti : null;
     const arrotondati = mesiCoperti >= 10 ? Math.round(mesiCoperti) : Math.round(mesiCoperti * 10) / 10;
     safetyStatusText.textContent = tCh('dashMonthsCovered', __uiLang, arrotondati);
     // Mai rosso su chi sta ancora iniziando: zero mesi da parte non è una
@@ -3697,6 +3706,12 @@ const renderDashboard = () => {
 
   // Fantasmi: stipendio − impegni fissi (mutuo/prestiti/affitto/bollette).
   try { renderGhostForecast(); } catch (_) {}
+
+  // Ordine delle card per rilevanza (src/predict/rilevanza-card.js). Va DOPO
+  // gli altri render perché usa i fatti che quelli hanno appena calcolato
+  // (mesi di cuscinetto veri, giorni allo stipendio, quanto è fermo in un
+  // gruppo) — mai una seconda copia di quei calcoli, che divergerebbe.
+  try { applicaOrdineDashboard(); } catch (e) { console.error('applicaOrdineDashboard:', e); }
 
   try { renderDashboardWeekStrip(); } catch (e) { console.error('renderDashboardWeekStrip:', e); }
   // Il calendario mensile dentro la card della settimana si ridisegna SOLO
@@ -6976,6 +6991,10 @@ function renderGhostForecast() {
   const a = adaptive || f.allowance;
   const days = a ? (a.daysLeft ?? a.daysToNext) : null;
   const oggi = a ? a.perDay : null;
+  // Giorni al prossimo stipendio: serve anche alla priorità delle card
+  // (rilevanza-card.js) — restare senza rete a due giorni dallo stipendio e
+  // restare senza rete a venti giorni non sono la stessa situazione.
+  window.__giorniAlPayday = Number.isFinite(days) ? days : null;
   // Ritmo: mai un rimprovero. Verde = tranquillo, ambra = attenzione, e sempre
   // una via d'uscita ("puoi rimetterti in pari così") — anti-abbandono.
   const pace = adaptive ? adaptive.pace : null;
@@ -15681,6 +15700,74 @@ window.condividiTraguardo = async () => {
 // SEMPRE reversibile dalla card dedicata in Momentum Vault. Se l'utente si
 // trova PROPRIO sulla vista che sta per sparire, lo riporta in Dashboard —
 // mai una vista vuota/inaccessibile lasciata aperta dietro un tab nascosto.
+// ── ORDINE DELLA DASHBOARD PER RILEVANZA (src/predict/rilevanza-card.js) ────
+// profilo-feature.js decide se una card ESISTE per te; questo decide quanto
+// conta OGGI. Il modulo è puro e non sa niente del DOM: qui si limita a
+// raccogliere i fatti che gli altri render hanno già calcolato e a tradurre
+// il risultato in `style.order` — #dashboard-view è `flex flex-col`, quindi
+// riordinare non tocca il markup, non ricrea nodi e non perde lo stato di
+// niente (pannelli aperti, focus, scroll dentro le card).
+//
+// Perché `order` e non spostare i nodi: muovere elementi nel DOM a ogni
+// render distruggerebbe l'input attivo e le animazioni in corso. Qui la card
+// resta lo stesso identico nodo, cambia solo dove il browser la disegna.
+function contestoRilevanza() {
+  // SOLO fatti già misurati altrove. Quello che non sappiamo resta `null`, e
+  // il modulo lo tratta come "nessun segnale": mai una stima messa al posto
+  // di un dato mancante per far sembrare il riordino più intelligente.
+  const goals = VaultDAO.state.savingsGoals || [];
+  let giorniAllaScadenzaObiettivo = null;
+  let obiettivoARischio = false;
+  const oggi = Date.now();
+  const tutte = displayAllTx();
+  for (const g of goals) {
+    // `deadline`, non "targetDate": è il campo vero con cui gli obiettivi
+    // vengono creati (window.addSavingsGoal e i due percorsi di onboarding).
+    const scad = g.deadline ? Date.parse(g.deadline) : NaN;
+    if (Number.isFinite(scad)) {
+      const gg = Math.round((scad - oggi) / 86400000);
+      if (gg >= 0 && (giorniAllaScadenzaObiettivo === null || gg < giorniAllaScadenzaObiettivo)) giorniAllaScadenzaObiettivo = gg;
+    }
+    // "A rischio" non se lo inventa questa funzione: `onTrack` è già
+    // calcolato da computeGoalProgress (engagement.js), che confronta quanto
+    // hai messo da parte con quanto SERVIREBBE a oggi per arrivare in tempo.
+    // Vale `null` — cioè "non giudicabile" — per un obiettivo senza cifra o
+    // senza scadenza, e in quel caso non si giudica.
+    try {
+      if (computeGoalProgress(g, tutte).onTrack === false) obiettivoARischio = true;
+    } catch (_) { /* obiettivo malformato: non è un motivo per rompere la Dashboard */ }
+  }
+  return {
+    mesiCuscinetto: Number.isFinite(window.__mesiCuscinetto) ? window.__mesiCuscinetto : null,
+    giorniAlPayday: Number.isFinite(window.__giorniAlPayday) ? window.__giorniAlPayday : null,
+    sospesoSplit: +window.__splitSospeso || 0,
+    giorniSospeso: 0,
+    obiettivoARischio,
+    giorniAllaScadenzaObiettivo,
+    variazionePortafoglioPct: Number.isFinite(window.__variazionePortafoglioPct) ? window.__variazionePortafoglioPct : 0,
+    haInsight: !document.getElementById('dashboard-insight')?.classList.contains('hidden'),
+    haNudge: !!document.querySelector('#next-expense-nudge:not(.hidden)'),
+  };
+}
+
+function applicaOrdineDashboard() {
+  const root = document.getElementById('dashboard-view');
+  if (!root) return;
+  const ordini = ordineCss(VaultDAO.state, contestoRilevanza());
+  for (const [id, pos] of Object.entries(ordini)) {
+    const el = document.getElementById(id);
+    if (el) el.style.order = String(pos);
+  }
+  // Spiegabilità: perché quella card è in cima resta scritto sull'elemento,
+  // non stampato addosso all'utente. Una promozione che non si sa spiegare è
+  // una promozione che non andava fatta — e con il motivo attaccato al nodo
+  // si può leggere in due secondi anche fra sei mesi, dall'ispettore.
+  const m = motivoPromozione(VaultDAO.state, contestoRilevanza());
+  for (const id of Object.keys(ordini)) document.getElementById(id)?.removeAttribute('data-motivo-priorita');
+  if (m) document.getElementById(m.id)?.setAttribute('data-motivo-priorita', m.motivo);
+}
+window.applicaOrdineDashboard = applicaOrdineDashboard;
+
 function updateAnalysisTensorVisibility() {
   // Fonte unica delle regole di visibilità (src/predict/profilo-feature.js):
   // conosce anche l'ETÀ, non solo `invests` — un minorenne resta fuori dalle

@@ -119,6 +119,26 @@ test('GARANZIA DOM: #safe-to-spend-card sta PRIMA della Cassa Unica, e non posso
     'stsPerOrb deve restare calcolato solo con `!cassaUnicaAttiva`: è ciò che impedisce due risposte alla stessa domanda');
 });
 
+test('GARANZIA DOM: ogni card che il riordino per rilevanza pretende di spostare esiste davvero', async () => {
+  // Stessa classe di bug della card fantasma, ma peggiore: rilevanza-card.js
+  // calcolerebbe felicemente una priorità per un id inesistente e nessuno se
+  // ne accorgerebbe — l'ordine risulterebbe giusto nei test e sbagliato sullo
+  // schermo, perché una delle card non riceve mai il suo `order`.
+  const { ORDINE_BASE } = await import('../predict/rilevanza-card.js');
+  const idHtml = new Set();
+  for (const m of html.matchAll(/id=["']([\w-]+)["']/g)) idHtml.add(m[1]);
+  const mancanti = Object.keys(ORDINE_BASE).filter(i => !idHtml.has(i));
+  assert.deepEqual(mancanti, [], `rilevanza-card.js ordina card che non esistono in index.html: ${mancanti.join(', ')}`);
+});
+
+test('GARANZIA DOM: il riordino agisce su un contenitore flex, altrimenti `order` non fa niente', () => {
+  // `order` è ignorato da CSS fuori da un contesto flex o grid: senza questa
+  // classe il riordino sarebbe codice che gira, non sbaglia e non fa nulla.
+  const tag = html.match(/<div[^>]*id=["']dashboard-view["'][^>]*>/)[0];
+  assert.ok(/\bflex\b/.test(tag) && /\bflex-col\b/.test(tag),
+    `#dashboard-view deve restare flex-col perché style.order abbia effetto: ${tag}`);
+});
+
 test('GARANZIA DOM: la traiettoria di fine mese non ha altre case oltre a questa card', () => {
   // monthTrajectoryFocus è l unico sguardo in avanti sul mese. Se un giorno
   // viene usato anche altrove, questo test va aggiornato di proposito — ma
