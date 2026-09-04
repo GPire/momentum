@@ -16774,6 +16774,13 @@ window.openBudgetEditor = (onDone = null) => {
       <p id="budget-edit-weekly-hint" class="text-center text-[11px] text-[var(--on-surface-secondary)]"></p>
       <button onclick="window.confirmBudgetEdit()" class="btn-action w-full">Conferma</button>
       ${onDone ? `<button onclick="window.skipBudgetEditor()" class="w-full text-center text-[11px] text-[var(--on-surface-secondary)] underline">${escapeHtml(tCh('budgetEditorSkip', __uiLang))}</button>` : ''}
+      <!-- Richiesta esplicita da un feedback utente reale: "avete pensato
+           anche a chi non vuole mettere un budget?" — prima l'unica via
+           d'uscita era "Più tardi", che non distingue "non ora" da "mai",
+           quindi la domanda tornava. Questa è una scelta VERA, permanente,
+           mai riproposta — coerente col resto dell'app (nessun dato è
+           obbligatorio, ogni card sparisce onestamente quando manca). -->
+      <button onclick="window.declineBudget()" class="w-full text-center text-[11px] text-[var(--on-surface-secondary)] opacity-70 underline">${escapeHtml(tCh('budgetEditorDecline', __uiLang))}</button>
     </div>
   `);
   window.updateBudgetWeeklyHint();
@@ -16787,6 +16794,23 @@ window.skipBudgetEditor = () => {
   const onDone = window.__budgetEditorOnDone;
   window.__budgetEditorOnDone = null;
   closeModal();
+  if (onDone) onDone();
+};
+
+// "Non voglio un budget", scelta VERA e permanente (non "più tardi" — quella
+// resta per chi vuole solo rimandare). Segnalato da un feedback utente reale
+// ("avete pensato anche a chi non vuole mettere un budget?"): senza questo,
+// l'unica via d'uscita era "Più tardi", e la domanda sarebbe tornata al
+// prossimo giro (nuovo import, un'altra sessione). Reversibile in ogni
+// momento da Analisi Tensor → Budget del mese, mai una porta chiusa per
+// sempre — solo silenziosa finché l'utente non la riapre lui stesso.
+window.declineBudget = () => {
+  VaultDAO.state.budgetDeclined = true;
+  VaultDAO.save();
+  closeModal();
+  showToast(tCh('budgetDeclinedToast', __uiLang), 'info');
+  const onDone = window.__budgetEditorOnDone;
+  window.__budgetEditorOnDone = null;
   if (onDone) onDone();
 };
 
@@ -16809,6 +16833,7 @@ window.confirmBudgetEdit = () => {
   if (!val || val <= 0) { showToast('Inserisci un importo valido.', 'error'); return; }
   VaultDAO.state.monthlyBudget = val;
   VaultDAO.state.monthlyBudgetAt = Date.now();
+  delete VaultDAO.state.budgetDeclined; // ha cambiato idea: la scelta "non voglio un budget" non vale più
   spegniDemoDopoNumeriVeri(); // un budget vero e spese finte insieme non hanno senso
   VaultDAO.save();
   closeModal();
@@ -16833,6 +16858,7 @@ window.confirmBudgetEdit = () => {
 window.applyBudgetSuggestion = (value) => {
   VaultDAO.state.monthlyBudget = value;
   VaultDAO.state.monthlyBudgetAt = Date.now();
+  delete VaultDAO.state.budgetDeclined;
   VaultDAO.save();
   showToast(`Budget aggiornato a ${formatMoney(value)}.`, 'success');
   renderDashboard(); // stesso motivo del punto sopra: il budget vive in Dashboard

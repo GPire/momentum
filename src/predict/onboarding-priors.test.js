@@ -275,3 +275,17 @@ test('GARANZIA: la stima dell\'onboarding NON conta come budget confermato', () 
   const soloStima = { monthlyBudget: 1500 };
   assert.ok(numeriDaChiedere(soloStima, { forzato: true }).includes('budget'));
 });
+
+// ── GARANZIA: "non voglio un budget" è una scelta vera, non un rinvio ──
+// Feedback utente reale (2026-09-05): "avete pensato anche a chi non vuole
+// mettere un budget?" — prima l'unica uscita era "più tardi", e la domanda
+// sarebbe tornata al giro successivo.
+test('GARANZIA: budgetDeclined chiude la domanda sul budget quanto una conferma vera', () => {
+  const rifiutato = { budgetDeclined: true, salaryProfile: { dayOfMonth: 27, amount: 1800 } };
+  assert.deepEqual(numeriDaChiedere(rifiutato, { forzato: true }), []);
+});
+
+test('GARANZIA: chi rifiuta il budget può comunque essere interpellato sullo stipendio', () => {
+  const soloBudgetRifiutato = { budgetDeclined: true };
+  assert.deepEqual(numeriDaChiedere(soloBudgetRifiutato, { forzato: true }), ['stipendio']);
+});

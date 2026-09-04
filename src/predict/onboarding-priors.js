@@ -191,15 +191,20 @@ export function shouldShowAnalysisTensor(investmentPrefs) {
 //  · `salaryProfile` esiste solo se l'ha impostato lui.
 // Funzione pura, così la regola è testabile senza DOM: main.js la usa e basta.
 export function numeriDaChiedere(state = {}, { forzato = false } = {}) {
-  const budgetConfermato = !!state.monthlyBudgetAt;
+  // `budgetDeclined` (2026-09-05, feedback utente reale: "avete pensato
+  // anche a chi non vuole mettere un budget?"): una scelta VERA e
+  // permanente, distinta da "più tardi" — chi la fa non deve rivedere la
+  // domanda al giro successivo. Conta come "deciso" tanto quanto una
+  // conferma: la domanda è chiusa, in un modo o nell'altro.
+  const budgetDeciso = !!state.monthlyBudgetAt || !!state.budgetDeclined;
   const stipendioImpostato = !!state.salaryProfile;
-  if (budgetConfermato && stipendioImpostato) return [];
+  if (budgetDeciso && stipendioImpostato) return [];
   // L'ingresso PROATTIVO (automatico dopo qualche spesa) non deve diventare
   // assillante: lì il freno "una volta sola" resta. Il tocco esplicito
   // (`forzato`) invece non è mai bloccato da quel freno.
   if (!forzato && state.freshStartPrompted) return [];
   const da = [];
-  if (!budgetConfermato) da.push('budget');
+  if (!budgetDeciso) da.push('budget');
   if (!stipendioImpostato) da.push('stipendio');
   return da;
 }
