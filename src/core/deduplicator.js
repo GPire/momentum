@@ -75,6 +75,39 @@ const PENDING_SOURCES = new Set(['notification', 'screenshot_ocr']);
 const PENDING_WINDOW_HOURS = 120; // fino a 5 giorni: copre un weekend lungo
 const PENDING_AMOUNT_TOLERANCE_PCT = 0.15; // fino al 15% (mance/conversioni valuta)
 
+// ── MANUALE → ESTRATTO CONTO: il duplicato più comune di tutti ──────────────
+// BUG REALE segnalato (2026-09-04): chi segna le spese a mano durante il mese
+// e poi importa il CSV/PDF della banca (o uno screenshot) si ritrova TUTTO in
+// doppio. Dimostrato con dati veri prima di scrivere una riga: la dedup
+// esistente richiede una somiglianza di DESCRIZIONE ≥ 0,72, ma fra quello che
+// scrive una persona e quello che scrive una banca non c'è quasi nulla in
+// comune — misurato su casi reali:
+//   "Benzina"     vs "PAGAMENTO POS CARTA 4832 Q8 SRL MILANO" → 0,105
+//   "Spesa"       vs "PAGAMENTO POS 12345 ESSELUNGA SPA"      → 0,121
+//   "Cena fuori"  vs "POS 998877 TRATTORIA DA MARIO"          → 0,138
+//   ""            vs "ADDEBITO SEPA ENEL ENERGIA SPA"         → 0,000
+// Nessuno arriva vicino alla soglia: il duplicato non era raro, era GARANTITO.
+//
+// Su una voce scritta a mano la descrizione non è un indizio utilizzabile, ma
+// due indizi molto forti ci sono: una persona segna l'importo ESATTO che ha
+// pagato, e lo segna quel giorno (la banca può contabilizzare dopo, anche
+// dopo un weekend). Quindi qui si confronta senza descrizione, ma si stringe
+// tutto il resto: importo identico al centesimo (mai una percentuale) e
+// finestra breve. E si applica in UNA direzione sola — una riga che ARRIVA da
+// un import può riconoscersi in una voce manuale già presente, mai il
+// contrario — perché è quello lo scenario reale.
+const MANUAL_WINDOW_HOURS = 72;   // la banca contabilizza anche 2-3 giorni dopo
+const MANUAL_AMOUNT_TOLERANCE = 0.01;
+// Una voce manuale può assorbire UNA sola riga importata: senza questo, due
+// addebiti veri e identici (due caffè da 1,20 nello stesso giorno) verrebbero
+// fusi entrambi nella stessa voce e uno sparirebbe.
+function eManuale(tx) {
+  return !tx.source || tx.source === 'manual';
+}
+function daImport(tx) {
+  return !!tx.source && tx.source !== 'manual';
+}
+
 // Restituisce la transazione esistente che fa match, o null.
 // Le transazioni di questa app hanno forma: { date, amount, type, description, category }
 export function findDuplicate(newTx, existingTxs, opts = {}) {
@@ -85,6 +118,8 @@ export function findDuplicate(newTx, existingTxs, opts = {}) {
   let bestScore = 0;
   let bestPending = null;
   let bestPendingScore = 0;
+  let bestManuale = null;
+  let bestManualeDist = Infinity;
 
   for (const tx of existingTxs) {
     const timeDiffHours = Math.abs(new Date(tx.date).getTime() - newDate) / 3_600_000;
@@ -109,6 +144,21 @@ export function findDuplicate(newTx, existingTxs, opts = {}) {
       }
     }
 
+    // Ramo MANUALE → import: la descrizione non si può confrontare (vedi il
+    // commento esteso sopra), quindi si stringe tutto il resto. Solo verso una
+    // voce manuale non ancora riconciliata con un import.
+    if (sameType && daImport(newTx) && eManuale(tx) && !tx.reconciledImport
+      && timeDiffHours <= MANUAL_WINDOW_HOURS
+      && Math.abs(tx.amount - newTx.amount) <= MANUAL_AMOUNT_TOLERANCE) {
+      // A parità di importo vince la più vicina nel tempo: se una persona ha
+      // segnato due volte lo stesso importo in giorni diversi, la riga della
+      // banca appartiene a quella del giorno giusto.
+      if (timeDiffHours < bestManualeDist) {
+        bestManuale = tx;
+        bestManualeDist = timeDiffHours;
+      }
+    }
+
     // Ramo pending→posted: SOLO se la strict-match sopra non ha già trovato
     // nulla per questa tx, mai per allargare oltre quanto serve.
     if (sameType && PENDING_SOURCES.has(tx.source) && !PENDING_SOURCES.has(newTx.source || '')
@@ -125,9 +175,11 @@ export function findDuplicate(newTx, existingTxs, opts = {}) {
   }
 
   // La strict-match (finestra e tolleranza di sempre) vince sempre quando
-  // esiste: è il confronto più affidabile. Il ramo pending→posted interviene
-  // SOLO quando quello stretto non ha trovato niente.
-  return best || bestPending;
+  // esiste: è il confronto più affidabile. Gli altri due rami intervengono
+  // SOLO quando quello stretto non ha trovato niente — prima il manuale
+  // (importo identico al centesimo, il segnale più forte dopo la descrizione),
+  // poi il pending→posted (che accetta uno scarto d'importo).
+  return best || bestManuale || bestPending;
 }
 
 export function isDuplicate(newTx, existingTxs, opts = {}) {

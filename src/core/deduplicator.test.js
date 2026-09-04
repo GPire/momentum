@@ -141,3 +141,60 @@ test("pending→posted: fuzz — 2000 coppie casuali di spese REALMENTE diverse 
   }
   assert.equal(falsiPositivi, 0, "esercenti realmente diversi non devono mai essere fusi, qualunque combinazione di importo/data compatibili");
 });
+
+// ── MANUALE → ESTRATTO CONTO (2026-09-04) ───────────────────────────────────
+// Segnalazione reale: chi segna le spese a mano e poi importa il CSV della
+// banca si ritrova tutto in doppio, perché fra "Benzina" e "PAGAMENTO POS
+// CARTA 4832 Q8 SRL" la somiglianza è 0,105 contro la soglia di 0,72.
+const manuale = (over = {}) => ({ id: 1, date: '2026-09-02T10:00:00.000Z', amount: 45.30, type: 'uscita', description: 'Spesa', category: 'Alimentari', ...over });
+const daBanca = (over = {}) => ({ date: '2026-09-02T00:00:00.000Z', amount: 45.30, type: 'uscita', description: 'PAGAMENTO POS 12345 ESSELUNGA SPA', source: 'csv', ...over });
+
+test('GARANZIA: la riga della banca riconosce la voce segnata a mano, nonostante la descrizione diversa', () => {
+  const m = findDuplicate(daBanca(), [manuale()]);
+  assert.ok(m, 'duplicato non riconosciuto: l\'utente vedrebbe la stessa spesa due volte');
+  assert.equal(m.id, 1);
+});
+
+test('GARANZIA: vale per ogni descrizione umana realistica, anche vuota', () => {
+  for (const desc of ['Benzina', 'Spesa', 'Cena fuori', '', 'bar']) {
+    const m = findDuplicate(daBanca({ description: 'ADDEBITO SEPA ENEL ENERGIA SPA' }), [manuale({ description: desc })]);
+    assert.ok(m, `descrizione manuale ${JSON.stringify(desc)}: duplicato non riconosciuto`);
+  }
+});
+
+test('GARANZIA: la banca contabilizza anche giorni dopo, e la voce manuale viene comunque riconosciuta', () => {
+  const m = findDuplicate(daBanca({ date: '2026-09-04T00:00:00.000Z' }), [manuale()]); // +2 giorni
+  assert.ok(m);
+});
+
+test('GARANZIA: importo diverso = spesa diversa, mai fusa', () => {
+  assert.equal(findDuplicate(daBanca({ amount: 45.90 }), [manuale()]), null);
+});
+
+test('GARANZIA: tipo diverso (entrata vs uscita) non si fonde mai', () => {
+  assert.equal(findDuplicate(daBanca({ type: 'entrata' }), [manuale()]), null);
+});
+
+test('GARANZIA: due voci manuali gemelle non vengono entrambe assorbite dalla stessa riga', () => {
+  // Il caso pericoloso: due caffè veri da 1,20 lo stesso giorno. La prima
+  // riga importata si fonde con la prima voce; la seconda NON deve fondersi
+  // con la stessa (marcata `reconciledImport`) ma con l'altra.
+  const a = manuale({ id: 1, amount: 1.20, description: 'caffè' });
+  const b = manuale({ id: 2, amount: 1.20, description: 'caffè', date: '2026-09-02T16:00:00.000Z' });
+  const primo = findDuplicate(daBanca({ amount: 1.20, description: 'POS BAR CENTRALE' }), [a, b]);
+  assert.ok(primo);
+  const secondo = findDuplicate(daBanca({ amount: 1.20, description: 'POS BAR CENTRALE' }), [{ ...primo, reconciledImport: true }, primo.id === 1 ? b : a]);
+  assert.ok(secondo);
+  assert.notEqual(secondo.id, primo.id, 'la stessa voce manuale ha assorbito due righe: una spesa vera sparirebbe');
+});
+
+test('GARANZIA: due righe importate fra loro restano soggette alla regola di sempre (descrizione)', () => {
+  // Il ramo manuale non deve allargare la dedup fra due import: lì la
+  // descrizione c'è ed è confrontabile, e due acquisti distinti di pari
+  // importo nello stesso giorno devono restare due.
+  // Descrizioni DAVVERO diverse: "POS NEGOZIO A" e "POS NEGOZIO B"
+  // differiscono di un carattere (somiglianza 0,92) e si fondono per la
+  // regola di sempre, correttamente.
+  const importata = { id: 9, date: '2026-09-02T10:00:00.000Z', amount: 45.30, type: 'uscita', description: 'POS SUPERMERCATO ROMA EUR', source: 'csv' };
+  assert.equal(findDuplicate(daBanca({ description: 'POS FARMACIA COMUNALE 12' }), [importata]), null);
+});

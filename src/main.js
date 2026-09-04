@@ -161,7 +161,7 @@ import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
-import { resolveSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
+import { resolveSalary, detectSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
@@ -2334,6 +2334,60 @@ function spegniDemoDopoNumeriVeri() {
   VaultDAO.state.demoDismissed = true;
   VaultDAO.state.demoTransactions = [];
   return true;
+}
+
+// ── LO STIPENDIO ARRIVA DALL'IMPORT, NON DA UN'ALTRA DOMANDA ────────────────
+// Richiesta esplicita (2026-09-04): "se uno fa l'import del CSV, lo stipendio
+// deve essere preso da lì". Il riconoscimento esisteva già ed è buono
+// (`detectSalary`, income-model.js: raggruppa le entrate per descrizione
+// simile, tiene solo quelle che tornano ogni 20-40 giorni con giorno del mese
+// coerente) — ma restava muto: nessuno lo diceva all'utente, e il numero non
+// diventava mai il suo `salaryProfile`. Chi importava un anno di estratto
+// conto continuava a vedersi chiedere lo stipendio a mano, avendolo già dato.
+//
+// Perché si CHIEDE invece di scrivere e basta: il valore rilevato guida
+// "quando ti pagano" e tutta la Cassa Unica. Un accredito ricorrente che non
+// è uno stipendio (un affitto incassato, un rimborso fisso) verrebbe scambiato
+// per tale, e l'utente non avrebbe modo di accorgersene. Un tocco di conferma
+// costa poco e rende il dato suo. Se ne ha già impostato uno a mano non si
+// tocca niente: la sua scelta esplicita batte sempre una deduzione.
+function proponiStipendioDaImport() {
+  try {
+    if (VaultDAO.state.salaryProfile) return;              // l'ha già deciso lui
+    if (VaultDAO.state.stipendioPropostoDaImport) return;  // già proposto una volta
+    const rilevato = detectSalary(VaultDAO.state.transactions);
+    if (!rilevato || !(rilevato.amount > 0) || !(rilevato.dayOfMonth >= 1)) return;
+    VaultDAO.state.stipendioPropostoDaImport = true;
+    VaultDAO.save();
+    setTimeout(() => {
+      openModal(`
+        <div class="p-4 space-y-4">
+          <div>
+            <p class="eyebrow !mb-0 text-[var(--primary)]">${escapeHtml(tCh('salaryFoundEyebrow', __uiLang))}</p>
+            <h3 class="text-base font-black">${escapeHtml(tCh('salaryFoundTitle', __uiLang))}</h3>
+            <p class="card-sub !mb-0">${escapeHtml(tCh('salaryFoundSub', __uiLang, rilevato.monthsSeen || 2))}</p>
+          </div>
+          <div class="card p-3 flex items-center justify-between">
+            <div class="text-[13px] font-bold">${escapeHtml(rilevato.label || 'Stipendio')}</div>
+            <div class="text-right">
+              <div class="font-mono font-black text-emerald-400">${formatMoney(rilevato.amount)}</div>
+              <div class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(tCh('salaryFoundDay', __uiLang, rilevato.dayOfMonth))}</div>
+            </div>
+          </div>
+          <button id="sal-import-ok" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${escapeHtml(tCh('salaryFoundConfirm', __uiLang))}</button>
+          <button id="sal-import-no" class="w-full text-center text-[11px] text-[var(--on-surface-secondary)] underline">${escapeHtml(tCh('salaryFoundReject', __uiLang))}</button>
+        </div>`);
+      $('#sal-import-ok')?.addEventListener('click', () => {
+        VaultDAO.state.salaryProfile = { dayOfMonth: rilevato.dayOfMonth, amount: rilevato.amount, label: rilevato.label || 'Stipendio' };
+        spegniDemoDopoNumeriVeri();
+        VaultDAO.save();
+        closeModal();
+        showToast(tCh('salaryFoundSaved', __uiLang, formatMoney(rilevato.amount), rilevato.dayOfMonth), 'success');
+        renderDashboard();
+      });
+      $('#sal-import-no')?.addEventListener('click', () => { closeModal(); });
+    }, 700);
+  } catch (_) { /* mai bloccare la fine di un import per questo */ }
 }
 
 // Secondo ingresso: chi non tocca mai "Parti dai miei dati" ma inizia
@@ -18928,6 +18982,7 @@ const initApp = () => {
     // ticker/quantità chiari dal testo (security-purchase-detector.js) —
     // mai aggiunte al portafoglio da sole, si chiede all'utente.
     if (res.acquistiDaConfermare?.length) window.openConfermaAcquisti(res.acquistiDaConfermare);
+    if (res.added > 0) proponiStipendioDaImport();
   };
   const multiIn = $('#multi-upload'); if (multiIn) multiIn.addEventListener('change', e => runMulti(e.target.files, multiIn));
   const csvIn = $('#csv-upload'); if (csvIn) csvIn.addEventListener('change', e => runMulti(e.target.files, csvIn));

@@ -531,6 +531,13 @@ const VaultDAO = {
       // riconciliazione di un bonifico auto-avviato col rigo banca: marcalo così
       // un eventuale terzo movimento simile NON si fonde per errore (idempotenza).
       if (match.selfTransfer) merged.reconciledBank = true;
+      // Una voce scritta a mano può assorbire UNA sola riga importata: senza
+      // questo, due addebiti veri e identici (due caffè da 1,20 lo stesso
+      // giorno) finirebbero fusi entrambi nella stessa voce e uno sparirebbe.
+      // Vedi il ramo MANUALE → import in deduplicator.js.
+      if (tx.source && tx.source !== 'manual' && (!match.source || match.source === 'manual')) {
+        merged.reconciledImport = true;
+      }
       // il match può stare in un mese adiacente: aggiorna il bucket giusto.
       let home = month;
       if (!existingList.some(t => t.id === match.id)) {
