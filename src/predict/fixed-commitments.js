@@ -114,12 +114,21 @@ export function commitmentsDueBetween(commitments = [], fromMs, toMs) {
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// Prossimo giorno di stipendio a partire da una data, dato dayOfMonth.
+// "Che giorno del mese è per l'utente" è una domanda di CALENDARIO LOCALE,
+// non UTC: l'app costruisce le sue date a mezzanotte locale, e in ogni fuso
+// avanti rispetto a UTC (tutta l'Europa continentale, per dire) quella
+// mezzanotte è ancora il giorno PRIMA in UTC. Leggere il giorno con
+// `getUTCDate()` sbagliava quindi di un giorno per mezza giornata, e proprio
+// il giorno dello stipendio il ciclo collassava a 1 solo giorno: budget del
+// ciclo ~49€ invece di ~1500€, giornaliero assurdo per 24 ore ogni mese.
+// Trovato dalla batteria di garanzie (2026-09-04). Le date RESTITUITE
+// restano costruite in UTC, così `toISOString().slice(0,10)` continua a dare
+// la data di calendario giusta ovunque.
 function nextPaydayDate(dayOfMonth, from) {
   const fromD = new Date(from);
-  let y = fromD.getUTCFullYear(), m = fromD.getUTCMonth();
+  let y = fromD.getFullYear(), m = fromD.getMonth();
   const dayThis = clampDay(dayOfMonth, y, m);
-  if (dayThis < fromD.getUTCDate()) m += 1;
+  if (dayThis < fromD.getDate()) m += 1;
   const day = clampDay(dayOfMonth, y, m);
   return new Date(Date.UTC(y, m, day));
 }
@@ -127,9 +136,9 @@ function nextPaydayDate(dayOfMonth, from) {
 // Ultimo giorno di stipendio già passato (inizio del ciclo corrente).
 function prevPaydayDate(dayOfMonth, from) {
   const fromD = new Date(from);
-  let y = fromD.getUTCFullYear(), m = fromD.getUTCMonth();
+  let y = fromD.getFullYear(), m = fromD.getMonth();
   const dayThis = clampDay(dayOfMonth, y, m);
-  if (dayThis > fromD.getUTCDate()) m -= 1;
+  if (dayThis > fromD.getDate()) m -= 1;
   const day = clampDay(dayOfMonth, y, m);
   return new Date(Date.UTC(y, m, day));
 }
@@ -204,7 +213,22 @@ export function cycleAllowance(commitments = [], salary = null, { now = Date.now
   }
   spent = r2(spent);
   const remaining = Math.max(0, r2(budget - spent));
-  const perDay = r2(remaining / daysLeft);
+  // ── IL GIORNALIERO NON SI GONFIA PERCHÉ NON HAI SPESO ──
+  // BUG REALE trovato con la batteria di garanzie (2026-09-04), stessa
+  // famiglia di quello segnalato dagli utenti sulle settimane: `remaining /
+  // daysLeft` concentra TUTTO il non speso sui giorni che restano, quindi
+  // avvicinandosi allo stipendio il numero esplodeva — misurato con budget
+  // 1500 e zero spese: 56€ il primo giorno del ciclo, 211€ al ventesimo,
+  // 1478€ (l'INTERO budget mensile) il giorno prima dell'accredito, poi di
+  // colpo di nuovo ~50€. Un consiglio del genere è peggio di nessun
+  // consiglio: invita a spendere tutto proprio quando il margine sembra
+  // grande, e cambia ogni giorno senza che l'utente abbia fatto nulla.
+  // Il ritmo giusto è la quota del ciclo (budget / giorni del ciclo). Il
+  // minimo con `remaining / daysLeft` mantiene l'auto-correzione VERSO IL
+  // BASSO: chi ha speso troppo vede scendere il giornaliero, chi ha speso
+  // poco resta semplicemente al suo ritmo, senza premi che non esistono.
+  const quotaGiornaliera = budget / Math.max(1, cycleLen);
+  const perDay = r2(Math.min(quotaGiornaliera, remaining / daysLeft));
   const perWeek = r2(Math.min(remaining, perDay * 7));
   // ritmo: quanto AVRESTI dovuto aver speso a oggi con un passo uniforme.
   const idealByNow = budget * (daysElapsed / cycleLen);

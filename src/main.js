@@ -2604,8 +2604,11 @@ function renderDashWeekSummary(days, catWeek) {
   // weekly-budget.js: settimana vera lunedì→domenica, riporto reale incluso,
   // segmenti sommati quando cade a cavallo di due mesi). Nessuna seconda
   // formula qui: è lo stesso numero che alimenta "oggi puoi spendere".
+  // `days[0]` sceglie QUALE settimana mostrare; `oggi` resta il vero adesso
+  // (mai la settimana sfogliata) — passarlo esplicitamente è ciò che impedisce
+  // al calcolo di reinventare "il presente" ad ogni tocco delle frecce.
   const settimana = budgetMensile > 0
-    ? getIsoWeekStatus(displayAllTx(), budgetMensile, days[0])
+    ? getIsoWeekStatus(displayAllTx(), budgetMensile, days[0], oggi)
     : null;
 
   const puoIndietro = __dashWeekOffset > limiteSettimaneIndietro();

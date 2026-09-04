@@ -86,16 +86,23 @@ test('getUpcomingCharges: addebito leggermente in ritardo incluso con daysUntil 
 
 test('getDailySafeToSpend: senza ricorrenti = rimanente/giorni rimasti', () => {
   // Budget 3100 su luglio (31 giorni) → 100€/giorno di base.
-  // Settimana corrente 13-19 lug (7 giorni, tutti nel mese) → base 700€.
-  // Le settimane precedenti (1-5, 6-12) sono passate senza spese → riporto
-  // completo in avanti: 500 + 700 = 1200 di riporto entrante.
+  // Settimana corrente 13-19 lug (7 giorni, tutti nel mese) → quota 700€.
+  //
+  // ATTESE AGGIORNATE il 2026-09-04 (prima: 1900 di budget e 340€/giorno,
+  // per via del riporto che accumulava le settimane precedenti non spese).
+  // Quel riporto è la causa del bug segnalato da utenti veri — settimane
+  // consecutive senza spese mostravano budget completamente diversi, fino a
+  // 4× la prima settimana del mese — ed è stato tolto dalla settimana ISO:
+  // la settimana vale la sua QUOTA (giorni/giorni del mese × budget), sempre
+  // uguale a parità di budget. Il numero giusto qui è quindi 700 − 200 = 500,
+  // e 100€/giorno, che è esattamente la quota giornaliera dichiarata dal
+  // budget (3100/31) invece di un 340 gonfiato dalle settimane precedenti.
   const monthTxs = [tx('2026-07-14', 200, 'Spesa grossa')];
   const res = getDailySafeToSpend({ monthTxs, allTx: {}, monthlyBudget: 3100, referenceDate: REF });
   assert.ok(res);
-  // budget settimana = 700 (base) + 1200 (riporto) = 1900; speso 200 → restano 1700.
-  assert.equal(res.weekRemaining, 1700);
+  assert.equal(res.weekRemaining, 500);
   assert.equal(res.daysLeftInWeek, 5); // mer 15 → dom 19, oggi incluso
-  assert.equal(res.safeToday, 340); // 1700/5
+  assert.equal(res.safeToday, 100); // 500/5 — la quota giornaliera vera del budget
   assert.equal(res.reservedForCharges, 0);
   assert.equal(res.isOverBudget, false);
 });

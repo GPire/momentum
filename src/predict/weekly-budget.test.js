@@ -125,34 +125,38 @@ test('getIsoWeekStatus: settimana a cavallo di due mesi = sette giorni, budget s
 // speso: il suo ultimo giorno arrivava con l'INTERO riporto mensile ancora
 // "disponibile" (corretto isolatamente), sommato al budget FRESCO del mese
 // nuovo — fino al doppio del budget dichiarato per una sola settimana.
-test('getIsoWeekStatus: un mese vecchio già chiuso (mai speso) non raddoppia il budget della settimana-ponte', () => {
+test('getIsoWeekStatus: la settimana-ponte vale la somma delle due quote, mai un mese intero', () => {
   const w = getIsoWeekStatus({}, 1200, new Date(2026, 8, 4)); // ven 4 set, settimana 31 ago-6 set
   assert.ok(w);
-  // PRIMA del fix: 1440€ (1200 di agosto mai toccato + 240 quota fresca di
+  // PRIMA del fix: 1440€ (1200 di agosto mai toccato + 240 quota di
   // settembre) — quasi il DOPPIO del budget mensile per una sola settimana.
-  assert.ok(w.budget <= 1200, `budget settimana ${w.budget} non può superare l'intero budget mensile (1200)`);
-  // La quota di settembre per i suoi 6 giorni in questa settimana resta
-  // intatta: 1200 * 6/30 = 240. Agosto (chiuso) non aggiunge nulla.
-  assert.equal(w.budget, 240);
+  // ORA: quota vera dei giorni, 1 giorno di agosto (1200/31 = 38,71) + 6
+  // giorni di settembre (6 × 1200/30 = 240) = 278,71.
+  assert.equal(w.budget, 278.71);
+  assert.ok(w.budget < 1200 / 4, 'una settimana non può mai valere più di ~un quarto del mese');
 });
 
-test('getIsoWeekStatus: stesso confine, ma il mese vecchio è stato speso regolarmente = nessun riporto fantasma', () => {
+test('getIsoWeekStatus: lo stesso confine dà lo STESSO numero, che il mese vecchio sia speso o no', () => {
   const agosto = [];
   for (let d = 1; d <= 30; d++) agosto.push({ date: `2026-08-${String(d).padStart(2, '0')}`, amount: 38.7, type: 'uscita', category: 'spesa' });
-  const w = getIsoWeekStatus({ '2026-08': agosto }, 1200, new Date(2026, 8, 4));
-  // Anche qui: nessun euro di agosto (chiuso) deve ricomparire a settembre,
-  // che il mese vecchio fosse speso bene o per niente non deve importare —
-  // la settimana-ponte vede solo la quota fresca di settembre.
-  assert.equal(w.budget, 240);
+  const speso = getIsoWeekStatus({ '2026-08': agosto }, 1200, new Date(2026, 8, 4));
+  const vuoto = getIsoWeekStatus({}, 1200, new Date(2026, 8, 4));
+  // Il BUDGET della settimana è la sua quota di calendario: non cambia in
+  // base a quanto è stato speso PRIMA. Ciò che cambia è `spent`/`remaining`.
+  assert.equal(speso.budget, vuoto.budget);
+  assert.equal(speso.budget, 278.71);
 });
 
-test('getIsoWeekStatus: settimana tutta dentro un mese = stesso risultato del motore mensile', () => {
+test('getIsoWeekStatus: settimana tutta dentro un mese = la sua quota di giorni, senza riporto', () => {
   const allTx = { '2026-07': [{ date: '2026-07-14', amount: 200, type: 'uscita', category: 'spesa' }] };
   const iso = getIsoWeekStatus(allTx, 3100, new Date(2026, 6, 15));
-  const { currentWeek } = getWeeklyStatus(allTx['2026-07'], 3100, new Date(2026, 6, 15));
-  assert.equal(iso.budget, currentWeek.budget);
-  assert.equal(iso.spent, currentWeek.spent);
-  assert.equal(iso.remaining, currentWeek.remaining);
+  // 7 giorni su 31 di luglio: 3100 × 7/31 = 700. Il motore mensile
+  // (getWeeklyStatus) resta invece a riporto — serve alla settimana in corso,
+  // non a rispondere "quanto vale questa settimana": qui i due numeri
+  // DEVONO poter divergere, ed è voluto (vedi il commento in weekly-budget.js).
+  assert.equal(iso.budget, 700);
+  assert.equal(iso.spent, 200);
+  assert.equal(iso.remaining, 500);
 });
 
 test('getIsoWeekStatus: senza budget non inventa niente', () => {

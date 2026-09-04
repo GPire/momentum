@@ -54,7 +54,24 @@ function sumExpenses(txs, start, end) {
 // Calcola lo stato di ogni settimana del mese: budget di base (proporzionale
 // ai giorni), speso, riporto in ingresso/uscita, rimanente.
 // `monthTxs`: array delle transazioni di QUEL mese (es. VaultDAO.state.transactions[monthKey]).
-export function getWeeklyStatus(monthTxs, monthlyBudget, referenceDate = new Date()) {
+//
+// `referenceDate` sceglie QUALE mese enumerare (`monthKey(referenceDate)`);
+// `realNow` (default = referenceDate, quindi retrocompatibile con ogni
+// chiamante esistente che passa già "oggi" vero) decide invece cosa è
+// PASSATO/CORRENTE/FUTURO — sono due domande diverse, e confonderle è
+// esattamente il BUG REALE segnalato da utenti veri (2026-09-04, "il budget
+// della settimana cambia in modo assurdo tornando indietro nel calendario",
+// alcuni pronti ad abbandonare l'app): la card che mostra la settimana
+// sfogliata (Dashboard, striscia settimanale) passava il lunedì della
+// settimana SFOGLIATA anche come "oggi" — così ogni settimana passata
+// veniva ricalcolata come se FOSSE lei il presente, azzerando il riporto
+// delle settimane successive (mai viste, sempre trattate come "future") e
+// producendo numeri che saltano su e giù senza alcuna relazione con quanto
+// l'utente ha davvero speso. Con `realNow` sempre ancorato al vero adesso,
+// sfogliare il passato mostra la fotografia STORICA vera (il riporto reale
+// accumulato fino a quella settimana), mai una fotografia reinventata ad
+// ogni tocco delle frecce.
+export function getWeeklyStatus(monthTxs, monthlyBudget, referenceDate = new Date(), realNow = referenceDate) {
   const mk = monthKey(referenceDate);
   const weeks = getMonthWeeks(mk);
   const totalDays = weeks.reduce((s, w) => s + w.daysInMonth, 0) || 1;
@@ -66,7 +83,7 @@ export function getWeeklyStatus(monthTxs, monthlyBudget, referenceDate = new Dat
   for (const week of weeks) {
     const baseBudget = monthlyBudget * (week.daysInMonth / totalDays);
     // week.end è costruito a mezzanotte (solo data, vedi getMonthWeeks): un
-    // confronto diretto con `referenceDate` (che ha l'ora reale) classificava
+    // confronto diretto con `realNow` (che ha l'ora reale) classificava
     // la settimana corrente come "isPast" per tutto il giorno finale della
     // settimana (la domenica) tranne l'istante esatto di mezzanotte — bug
     // reale trovato confrontando il rendering live con l'orario reale: la
@@ -75,9 +92,9 @@ export function getWeeklyStatus(monthTxs, monthlyBudget, referenceDate = new Dat
     // isCurrent dopo la mezzanotte dell'ultimo giorno. Fix: confrontare
     // contro la fine del giorno, non contro la mezzanotte che lo apre.
     const weekEndCutoff = new Date(week.end.getFullYear(), week.end.getMonth(), week.end.getDate(), 23, 59, 59, 999);
-    const isPast = referenceDate > weekEndCutoff;
-    const isCurrent = referenceDate >= week.start && referenceDate <= weekEndCutoff;
-    const isFuture = referenceDate < week.start;
+    const isPast = realNow > weekEndCutoff;
+    const isCurrent = realNow >= week.start && realNow <= weekEndCutoff;
+    const isFuture = realNow < week.start;
 
     if (isFuture) {
       // Le settimane future non hanno ancora un riporto certo: dipende da
@@ -124,7 +141,13 @@ export function getWeeklyStatus(monthTxs, monthlyBudget, referenceDate = new Dat
 // Qui i segmenti mensili che la settimana attraversa si SOMMANO: il budget
 // resta quello del motore (riporto incluso), la settimana torna di sette
 // giorni. `allTx` è la mappa {monthKey: [tx]} già usata ovunque.
-export function getIsoWeekStatus(allTx, monthlyBudget, referenceDate = new Date()) {
+//
+// `referenceDate` sceglie QUALE settimana mostrare (qualsiasi giorno dentro
+// quella settimana); `realNow` (default = referenceDate) resta ancorato a
+// oggi VERO per decidere passato/corrente/futuro e per il riporto — vedi il
+// commento esteso su `getWeeklyStatus`, è lo stesso bug segnalato dagli
+// utenti che sfogliano le settimane all'indietro.
+export function getIsoWeekStatus(allTx, monthlyBudget, referenceDate = new Date(), realNow = referenceDate) {
   if (!monthlyBudget || monthlyBudget <= 0) return null;
   const start = mondayOf(referenceDate);
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
@@ -133,37 +156,39 @@ export function getIsoWeekStatus(allTx, monthlyBudget, referenceDate = new Date(
   for (let i = 0; i < 7; i++) giorni.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
   const mesi = [...new Set(giorni.map(d => monthKey(d)))];
 
-  // BUG REALE (segnalato dall'utente, 2026-09-04): quando la settimana vera
-  // attraversa il cambio mese, questo ciclo sommava il segmento di OGNI mese
-  // toccato — ma il segmento dell'ultimo giorno di un mese chiama
-  // `getWeeklyStatus` con QUEL giorno come riferimento, e per un mese poco
-  // speso il riporto (`rollover`) arriva lì con l'INTERO budget mensile
-  // ancora disponibile (corretto se guardato isolatamente: "non hai speso,
-  // hai ancora tutto il mese"). Sommato al budget FRESCO del mese nuovo,
-  // il risultato prometteva fino al DOPPIO del budget mensile dichiarato per
-  // una singola settimana — riprodotto dal vivo: budget 1200€, settimana
-  // 31 ago-6 set con agosto mai speso → 1440€ "liberi" quella settimana,
-  // "oggi puoi spendere" gonfiato a 480€/giorno invece di ~40€/giorno.
-  // Un mese GIÀ CHIUSO rispetto a `referenceDate` (oggi) non ha più soldi
-  // "ancora disponibili" da promettere: quel budget o è già speso (e resta
-  // comunque contato sotto in `spent`) o è semplicemente scaduto con la fine
-  // del mese — l'app non ha (né dichiara di avere) un riporto fra mesi
-  // diversi, quindi non deve inventarne uno solo per la settimana di
-  // passaggio. Contribuiscono al budget solo il mese di oggi e i mesi futuri
-  // (che comunque, essendo `isFuture`, portano già solo la quota base senza
-  // riporto — vedi getWeeklyStatus sopra).
-  const meseOggi = monthKey(referenceDate);
+  // ── IL BUDGET DELLA SETTIMANA È LA SUA QUOTA, NON UN SALDO CHE SI ACCUMULA ──
+  // BUG REALE segnalato da utenti veri, molti pronti ad abbandonare l'app
+  // (2026-09-04): "definisco il budget, sfoglio le settimane all'indietro e
+  // anche senza aver speso NIENTE il budget è ogni volta completamente
+  // diverso, anche con lo stesso stipendio" — cifre reali riportate:
+  // 621,43 / 483,87 / 348,39 / 212,20 / 690,37 su settimane consecutive.
+  // RIPRODOTTO e capito: prima questa funzione sommava, per ogni mese
+  // toccato, il segmento settimanale calcolato da `getWeeklyStatus` — che
+  // include il RIPORTO accumulato dalle settimane precedenti dello stesso
+  // mese. Con zero spese quel riporto cresce settimana dopo settimana (per
+  // costruzione: "non hai speso, quei soldi sono ancora tuoi"), quindi la
+  // 4ª settimana di un mese mostrava fino a 4 volte la 1ª — e al cambio
+  // mese ripartiva da zero, creando esattamente il saliscendi segnalato.
+  // Matematicamente coerente, ma come risposta alla domanda "quanto budget
+  // ho questa settimana?" è illeggibile e distrugge la fiducia.
+  //
+  // Ora la settimana vale la sua QUOTA REALE: per ogni mese che attraversa,
+  // (giorni della settimana in quel mese / giorni del mese) × budget mensile.
+  // Conseguenze volute: stesso budget e stesso stipendio → stesso numero
+  // ogni settimana, sempre, sfogliando avanti o indietro, quest'anno o
+  // l'anno scorso; una settimana non può mai valere più di ~un settimo del
+  // mese; il numero non dipende più da QUANDO lo guardi. Il riporto resta
+  // dove è davvero utile e non può gonfiare nulla: dentro la settimana
+  // corrente, perché `remaining = budget − speso` continua a dare più
+  // margine ai giorni rimasti se nei primi giorni non hai speso.
   let budget = 0;
   let trovato = false;
   for (const mk of mesi) {
-    const giornoNelMese = giorni.find(d => monthKey(d) === mk);
-    const { weeks } = getWeeklyStatus(allTx?.[mk] || [], monthlyBudget, giornoNelMese);
-    const seg = weeks.find(w => giornoNelMese >= w.start
-      && giornoNelMese <= new Date(w.end.getFullYear(), w.end.getMonth(), w.end.getDate(), 23, 59, 59, 999));
-    if (seg) {
-      if (mk >= meseOggi) budget += seg.budget;
-      trovato = true;
-    }
+    const giorniInQuestoMese = giorni.filter(d => monthKey(d) === mk).length;
+    const [y, m] = mk.split('-').map(Number);
+    const giorniDelMese = new Date(y, m, 0).getDate();
+    budget += monthlyBudget * (giorniInQuestoMese / giorniDelMese);
+    trovato = true;
   }
   if (!trovato) return null;
 
