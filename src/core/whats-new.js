@@ -320,6 +320,13 @@ export const RELEASES = [
         testo: 'Il selettore Essenziale/Completa mostra ora un movimento chiaro quando cambi scelta, e la barra di scorrimento segue i colori dell\'app invece della barra grigia di sistema.',
         titoloKey: 'wn0904_4_t', testoKey: 'wn0904_4_d',
       },
+      {
+        colore: 'gold',
+        icona: '<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+        titolo: 'Il budget torna a dividersi giusto, ogni giorno e ogni settimana',
+        testo: 'Corretto un calcolo che poteva mostrare più soldi disponibili di quelli scelti da te — soprattutto a cavallo di fine mese, o quando avevi impostato anche lo stipendio. Ora il numero che vedi rispetta sempre il budget che hai dichiarato.',
+        titoloKey: 'wn0904_5_t', testoKey: 'wn0904_5_d',
+      },
     ],
   },
 ];
