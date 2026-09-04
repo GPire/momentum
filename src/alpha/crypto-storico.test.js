@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   prezziARendimenti, fetchStoricoRendimentiCripto, azzeraCacheStoricoCripto, trovaCriptoInTesto,
+  trovaTutteLeCriptoInTesto,
 } from './crypto-storico.js';
 
 test('prezziARendimenti: calcolato a mano su prezzi consecutivi', () => {
@@ -62,4 +63,40 @@ test('trovaCriptoInTesto: nessuna sottostringa a caso — stesso bug già corret
   // qui non compare come parola isolata, quindi non deve scattare.
   assert.equal(trovaCriptoInTesto('connect the dots please'), null);
   assert.equal(trovaCriptoInTesto('che tempo fa oggi?'), null);
+});
+
+// ── trovaTutteLeCriptoInTesto (2026-09-05) — serve al confronto diretto
+// cripto-vs-cripto: la PRIMA cripto trovata deve essere quella nominata per
+// prima nel testo, non la prima del dizionario. ──
+test('trovaTutteLeCriptoInTesto: due cripto distinte, nell\'ordine in cui compaiono nel testo', () => {
+  const r = trovaTutteLeCriptoInTesto('confronta solana ed ethereum');
+  assert.equal(r.length, 2);
+  assert.equal(r[0].id, 'solana');
+  assert.equal(r[1].id, 'ethereum');
+});
+
+test('trovaTutteLeCriptoInTesto: ordine invertito nel testo → ordine invertito nel risultato', () => {
+  const r = trovaTutteLeCriptoInTesto('confronta ethereum e solana');
+  assert.equal(r[0].id, 'ethereum');
+  assert.equal(r[1].id, 'solana');
+});
+
+test('trovaTutteLeCriptoInTesto: stesso id nominato due volte (bitcoin/btc) non produce un duplicato', () => {
+  const r = trovaTutteLeCriptoInTesto('bitcoin è salito, il btc ha reso bene');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].id, 'bitcoin');
+});
+
+test('trovaTutteLeCriptoInTesto: una sola cripto → array con un solo elemento', () => {
+  const r = trovaTutteLeCriptoInTesto('quanto ha reso ethereum?');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].id, 'ethereum');
+});
+
+test('trovaTutteLeCriptoInTesto: nessuna cripto → array vuoto, mai null', () => {
+  assert.deepEqual(trovaTutteLeCriptoInTesto('che tempo fa oggi?'), []);
+});
+
+test('trovaCriptoInTesto resta coerente con trovaTutteLeCriptoInTesto (stessa prima cripto)', () => {
+  assert.deepEqual(trovaCriptoInTesto('confronta solana ed ethereum'), trovaTutteLeCriptoInTesto('confronta solana ed ethereum')[0]);
 });

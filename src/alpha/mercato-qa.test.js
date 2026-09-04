@@ -558,6 +558,58 @@ test('rispostaCausaleCripto: nessuna cripto nominata → null (si scende al ramo
   assert.equal(r, null);
 });
 
+// ── CONFRONTO DIRETTO CRIPTO-VS-CRIPTO (2026-09-05) — gap reale rispetto a
+// CoinStats/Delta, che lo fanno per qualunque coppia mentre Momentum prima
+// scomponeva SEMPRE contro Bitcoin, anche nominando due cripto diverse. ──
+function fetchImplCoppia({ giorni = 300, beta = 1.4 } = {}) {
+  // Serie sintetiche per ID specifico (non "bitcoin sì/no" come sopra):
+  // 'ethereum' è la base, 'solana' è ESATTAMENTE beta*ethereum + rumore.
+  const base = Array.from({ length: giorni }, (_, i) => 0.01 * Math.sin(i / 3));
+  const derivata = base.map((r, i) => beta * r + 0.0005 * Math.cos(i / 5));
+  const aPrezzi = (rend) => {
+    const p = [1000];
+    for (const r of rend) p.push(p.at(-1) * (1 + r));
+    return p.map((v, i) => [i * 86400000, v]);
+  };
+  return async (url) => ({
+    ok: true,
+    json: async () => ({ prices: aPrezzi(url.includes('/ethereum/') ? base : derivata) }),
+  });
+}
+
+test('rispostaCausaleCripto: nominando due cripto (non Bitcoin) scompone la SECONDA come riferimento, non Bitcoin', async () => {
+  const r = await rispostaCausaleCripto('confronta queste due cripto: solana ed ethereum', { fetchImpl: fetchImplCoppia({ beta: 1.4 }) });
+  assert.ok(r, 'due cripto riconosciute devono rispondere');
+  assert.equal(r.intent, 'mercato-titolo-causale');
+  assert.equal(r.data.riferimento, 'ethereum', 'la seconda cripto nominata è il riferimento, non Bitcoin');
+  assert.match(r.answer, /ethereum/i);
+  assert.ok(!/bitcoin/i.test(r.answer), 'con due cripto nominate, Bitcoin non deve comparire nella risposta');
+  // Tolleranza più larga di quella del test originale (beta contro Bitcoin,
+  // 0.15): qui la serie base è essa stessa una sinusoide (non un "mercato"
+  // con più armoniche), la regressione ci arriva vicino ma con più
+  // oscillazione — è la stessa proprietà (beta ricostruito ~ beta vero),
+  // solo misurata con un margine realistico per questa fixture.
+  assert.ok(Math.abs(r.data.scomposizione.beta - 1.4) < 0.35, `beta=${r.data.scomposizione.beta}`);
+});
+
+test('rispostaCausaleCripto: la PRIMA cripto nominata è il soggetto (target), la seconda il riferimento — l\'ordine conta', async () => {
+  // Stessa coppia, ordine invertito nel testo: ora Solana è il riferimento.
+  const r = await rispostaCausaleCripto('confronta queste due cripto: ethereum e solana', { fetchImpl: fetchImplCoppia({ beta: 1.4 }) });
+  assert.equal(r.data.riferimento, 'solana');
+});
+
+test('rispostaCausaleCripto: con una sola cripto nominata il comportamento resta quello di sempre (contro Bitcoin)', async () => {
+  const r = await rispostaCausaleCripto('è stata bravura mia o solo il mercato per Ethereum?', { fetchImpl: fetchImplCripto({ beta: 1.2 }) });
+  assert.equal(r.data.riferimento, 'Bitcoin');
+  assert.match(r.answer, /Bitcoin/);
+});
+
+test('chiediAlMercato: "confronta queste due cripto" passa dal ramo del confronto diretto', async () => {
+  assert.equal(intentoMercato('confronta queste due cripto: solana ed ethereum'), 'titolo-causale');
+  // Ma un confronto fra AZIONI non deve essere rubato da questo trigger.
+  assert.equal(intentoMercato('confronta questi due titoli, quale ha reso di più'), 'confronto-titoli');
+});
+
 test('chiediAlMercato: una domanda su Ethereum passa dal ramo cripto, non da quello azionario via settore', async () => {
   // chiediAlMercato usa fetch globale (non riceve fetchImpl): si inietta
   // temporaneamente global.fetch, stesso schema usato altrove nei test di

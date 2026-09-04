@@ -377,6 +377,17 @@ export function intentoMercato(domanda, similarity = null) {
   if (ha(q, 'bravura mia', 'merito mio', 'solo il mercato che saliva', 'solo il mercato a farlo',
     'e stato il mercato o', 'colpa mia o del mercato')) return 'titolo-causale';
 
+  // Confronto DIRETTO fra due cripto (2026-09-05): "confronta queste due
+  // cripto", "quanto si muovono insieme queste cripto" — linguaggio naturale
+  // di chi vuole la coppia, non "bravura mia o mercato". Lo stesso ramo
+  // (rispostaCausaleCripto) ora riconosce la seconda cripto nominata come
+  // riferimento invece di usare sempre Bitcoin — qui serve solo far arrivare
+  // la domanda fin lì. La parola "cripto" nel trigger stesso evita di rubare
+  // le domande di confronto fra AZIONI, che restano a 'confronto-titoli'
+  // (riga sopra) — un "confronta" da solo sarebbe stato troppo largo.
+  if (ha(q, 'confronta queste due cripto', 'confronta le due cripto', 'confronto tra cripto',
+    'quanto si muovono insieme queste cripto', 'quanto sono legate queste cripto')) return 'titolo-causale';
+
   // Screener multi-criterio (Cantiere D/G, src/alpha/screener-settore.js —
   // filtraSettore): "filtrami/classificami/ordina le aziende [del settore]
   // per X e Y insieme". PRIMA di 'comparabili' sopra non serve — le parole
@@ -1387,31 +1398,43 @@ export async function chiediAlMercato(domanda) {
 // o se qualcosa fallisce (rete assente, CoinGecko non risponde) — MAI
 // un'eccezione che rompe l'intero chiediAlMercato per un ramo opzionale.
 export async function rispostaCausaleCripto(domanda, { fetchImpl = fetch } = {}) {
-  const { trovaCriptoInTesto } = await import('./crypto-storico.js');
-  const trovata = trovaCriptoInTesto(domanda);
-  if (!trovata) return null;
-  if (trovata.id === 'bitcoin') {
+  const { trovaTutteLeCriptoInTesto, fetchStoricoRendimentiCripto } = await import('./crypto-storico.js');
+  const trovate = trovaTutteLeCriptoInTesto(domanda);
+  if (!trovate.length) return null;
+
+  // CONFRONTO DIRETTO CRIPTO-VS-CRIPTO (2026-09-05): prima si scomponeva
+  // SEMPRE contro Bitcoin, anche quando la domanda nominava già la coppia
+  // che interessa davvero ("quanto di Solana è merito suo rispetto a
+  // Ethereum?"). Gap reale rispetto a CoinStats/Delta, che lo fanno per
+  // qualunque coppia. `trovaTutteLeCriptoInTesto` torna le cripto NELL'ORDINE
+  // in cui compaiono nel testo: la prima è quella su cui si chiede
+  // ("target"), la seconda è il riferimento — stesso ruolo che Bitcoin
+  // aveva sempre avuto, solo scelto dall'utente invece che fisso.
+  const target = trovate[0];
+  const riferimento = trovate.length > 1 ? trovate[1] : { chiave: 'Bitcoin', id: 'bitcoin' };
+
+  if (target.id === riferimento.id) {
     return {
       intent: 'mercato-titolo-causale',
-      answer: 'Bitcoin è di solito il riferimento con cui si confrontano le altre cripto ("il mercato cripto"), non ha senso scomporlo contro se stesso. Chiedimi di un\'altra cripto (Ethereum, Solana, ecc.) per vedere quanto si muove insieme a Bitcoin e quanto per conto sua.',
+      answer: 'Bitcoin è di solito il riferimento con cui si confrontano le altre cripto ("il mercato cripto"), non ha senso scomporlo contro se stesso. Chiedimi di un\'altra cripto (Ethereum, Solana, ecc.) per vedere quanto si muove insieme a Bitcoin e quanto per conto sua — oppure nomina due cripto diverse per un confronto diretto fra loro.',
     };
   }
-  const { fetchStoricoRendimentiCripto } = await import('./crypto-storico.js');
-  const [btc, coin] = await Promise.all([
-    fetchStoricoRendimentiCripto('bitcoin', { fetchImpl }),
-    fetchStoricoRendimentiCripto(trovata.id, { fetchImpl }),
+
+  const [rif, coin] = await Promise.all([
+    fetchStoricoRendimentiCripto(riferimento.id, { fetchImpl }),
+    fetchStoricoRendimentiCripto(target.id, { fetchImpl }),
   ]);
   const { scomponi } = await import('./titolo-causale.js');
-  const s = scomponi(coin.rendimenti, btc.rendimenti);
+  const s = scomponi(coin.rendimenti, rif.rendimenti);
   if (!s) {
-    return { intent: 'mercato-titolo-causale', answer: `Ho lo storico di ${trovata.chiave} (${coin.giorni} giorni via CoinGecko) ma non è abbastanza per separare la sua parte da quella di Bitcoin.` };
+    return { intent: 'mercato-titolo-causale', answer: `Ho lo storico di ${target.chiave} (${coin.giorni} giorni via CoinGecko) ma non è abbastanza per separare la sua parte da quella di ${riferimento.chiave}.` };
   }
   return {
-    intent: 'mercato-titolo-causale', data: { scomposizione: s, giorni: coin.giorni, fonte: coin.fonte },
+    intent: 'mercato-titolo-causale', data: { scomposizione: s, giorni: coin.giorni, fonte: coin.fonte, riferimento: riferimento.chiave },
     // "giorni", MAI "mesi": granularità diversa dal ramo azionario (via
     // settore, 330 mesi) — dichiarare l'unità sbagliata sarebbe un'unità di
     // misura falsa, non un dettaglio stilistico.
-    answer: `Di quanto ha fatto ${trovata.chiave} in questi ${s.osservazioni} giorni (storico CoinGecko, piano gratuito — limitato a un anno), il ${s.quotaMercato}% del movimento se lo spiega Bitcoin: solo il ${s.quotaSua}% è roba sua. In tutto ha reso ${s.rendimentoTotale}%, muovendosi soltanto insieme a Bitcoin avrebbe reso ${s.rendimentoDaMercato}%. Si muove ${s.beta > 1 ? 'più' : 'meno'} di Bitcoin: quando Bitcoin fa 1, lui fa ${s.beta}. È la scomposizione di un numero che stai già guardando, non un giudizio sulla cripto e non un consiglio.`,
+    answer: `Di quanto ha fatto ${target.chiave} in questi ${s.osservazioni} giorni (storico CoinGecko, piano gratuito — limitato a un anno), il ${s.quotaMercato}% del movimento se lo spiega ${riferimento.chiave}: solo il ${s.quotaSua}% è roba sua. In tutto ha reso ${s.rendimentoTotale}%, muovendosi soltanto insieme a ${riferimento.chiave} avrebbe reso ${s.rendimentoDaMercato}%. Si muove ${s.beta > 1 ? 'più' : 'meno'} di ${riferimento.chiave}: quando ${riferimento.chiave} fa 1, lui fa ${s.beta}. È la scomposizione di un numero che stai già guardando, non un giudizio sulla cripto e non un consiglio.`,
   };
 }
 

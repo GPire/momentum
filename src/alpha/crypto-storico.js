@@ -86,11 +86,27 @@ export const CRIPTO_ID_COINGECKO = {
 // Trova UN nome/ticker cripto nel testo, a confine di parola — stessa
 // cautela di trovaAziendaInTesto (screener-settore.js): mai una sottostringa.
 export function trovaCriptoInTesto(domanda) {
+  const trovate = trovaTutteLeCriptoInTesto(domanda);
+  return trovate[0] || null;
+}
+
+// TUTTE le cripto distinte nominate nel testo, NELL'ORDINE in cui compaiono
+// (2026-09-05): serve al confronto diretto cripto-vs-cripto — "quanto di
+// Solana è merito suo rispetto a Ethereum?" deve confrontare Solana (la
+// prima nominata, quella su cui si sta chiedendo) contro Ethereum (il
+// riferimento), non il contrario. Prima esisteva solo `trovaCriptoInTesto`,
+// che si fermava alla prima corrispondenza nel DIZIONARIO (ordine di
+// inserimento, non ordine nel testo) — inadatto a un confronto fra due.
+// Deduplica per id CoinGecko (mai "bitcoin" e "btc" contati come due).
+export function trovaTutteLeCriptoInTesto(domanda) {
   const norm = (s) => String(s || '').toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '');
   const qn = norm(domanda);
+  const trovate = [];
+  const idVisti = new Set();
   for (const [chiave, id] of Object.entries(CRIPTO_ID_COINGECKO)) {
-    if (new RegExp(`\\b${chiave}\\b`).test(qn)) return { chiave, id };
+    const m = new RegExp(`\\b${chiave}\\b`).exec(qn);
+    if (m && !idVisti.has(id)) { trovate.push({ chiave, id, posizione: m.index }); idVisti.add(id); }
   }
-  return null;
+  return trovate.sort((a, b) => a.posizione - b.posizione).map(({ chiave, id }) => ({ chiave, id }));
 }
