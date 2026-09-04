@@ -286,6 +286,42 @@ test('cycleAllowance: null senza stipendio (non inventa)', () => {
   assert.equal(cycleAllowance([affitto], null, { now: Date.now() }), null);
 });
 
+// ── BUG REALE segnalato dall'utente (2026-09-04): stipendio E budget insieme
+// dovevano dividersi correttamente al giorno — il ciclo ignorava il budget ──
+test('cycleAllowance: il budget mensile dichiarato vince quando è più prudente dello stipendio', () => {
+  const salary = { dayOfMonth: 1, amount: 1800 };
+  // ciclo pieno 1 ago → 1 set (31 giorni), oggi il giorno dopo il pagamento.
+  const now = Date.parse('2026-08-02');
+  const a = cycleAllowance([], salary, { now, allTx: {}, monthlyBudget: 1200 });
+  // Senza il fix: budget = 1800 (l'intero stipendio). Con un budget mensile
+  // di 1200€ dichiarato, un ciclo di 31 giorni (leggermente più lungo della
+  // media 30,44 → quota proporzionalmente un po' più alta, ~1222€) non deve
+  // MAI avvicinarsi all'intero stipendio: il tetto resta ancorato al budget.
+  assert.ok(a.budget <= 1200 * 1.05, `budget non deve avvicinarsi allo stipendio (era ${a.budget})`);
+  assert.ok(a.budget < 1800, 'lo stipendio da solo avrebbe permesso di più: il budget deve vincere');
+});
+
+test('cycleAllowance: senza un budget mensile impostato, il comportamento resta quello di sempre (solo stipendio)', () => {
+  const salary = { dayOfMonth: 1, amount: 1800 };
+  const now = Date.parse('2026-08-02');
+  const a = cycleAllowance([], salary, { now, allTx: {}, monthlyBudget: null });
+  assert.equal(a.budget, 1800, 'retrocompatibile: senza budget dichiarato, resta lo stipendio');
+});
+
+test('cycleAllowance: lo stipendio vince quando il budget dichiarato è PIÙ generoso (mai spendere soldi che non arrivano)', () => {
+  const salary = { dayOfMonth: 1, amount: 900 };
+  const now = Date.parse('2026-08-02');
+  const a = cycleAllowance([], salary, { now, allTx: {}, monthlyBudget: 2000 });
+  assert.equal(a.budget, 900, 'un budget più alto dello stipendio non deve mai far proporre più di quanto entra davvero');
+});
+
+test('commitmentForecast: il budget mensile dichiarato limita il pool disponibile, non solo lo stipendio', () => {
+  const salary = { dayOfMonth: 1, amount: 1800 };
+  const now = Date.parse('2026-08-02');
+  const f = commitmentForecast([], salary, { now, monthlyBudget: 1200 });
+  assert.ok(f.allowance.pool <= 1200 + 1, `pool non deve superare ~1200 (era ${f.allowance.pool})`);
+});
+
 // ── riconoscimento per NOME (bolletta sottostimata) ──────────────────────────
 test('matchCommitmentInMonth: riconosce dal NOME una bolletta molto fuori banda', () => {
   const b = { id: 'b1', name: 'Luce', merchant: 'Enel', amount: 50, dayOfMonth: 12, kind: 'bolletta' };

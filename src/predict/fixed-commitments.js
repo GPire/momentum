@@ -159,7 +159,7 @@ function txMatchesAnyCommitment(t, commitments) {
 // giornaliero scende da solo — si auto-corregge ogni giorno. Dice anche se sei
 // 'in linea' o 'oltre' il ritmo che ti porterebbe a fine mese senza restare a
 // secco. Deterministico dai tuoi dati reali: nessuna invenzione.
-export function cycleAllowance(commitments = [], salary = null, { now = Date.now(), allTx = {} } = {}) {
+export function cycleAllowance(commitments = [], salary = null, { now = Date.now(), allTx = {}, monthlyBudget = null } = {}) {
   if (!salary || !(salary.amount > 0) || !(salary.dayOfMonth >= 1)) return null;
   const r2 = (n) => Math.round(n * 100) / 100;
   const next = nextPaydayDate(salary.dayOfMonth, now);
@@ -169,7 +169,26 @@ export function cycleAllowance(commitments = [], salary = null, { now = Date.now
   const daysLeft = Math.max(1, Math.round((next.getTime() - now) / 86_400_000));
   const active = commitments.filter(c => +c.amount > 0 && c.dayOfMonth >= 1 && isActive(c, now));
   const fixedTotal = active.reduce((s, c) => s + (+c.amount || 0), 0);
-  const budget = Math.max(0, r2(salary.amount - fixedTotal)); // per le spese libere del ciclo
+  const salaryBudget = Math.max(0, r2(salary.amount - fixedTotal)); // ciò che lascia lo stipendio
+  // BUG REALE (segnalato dall'utente, 2026-09-04): "Il tuo mese, senza
+  // sorprese" diventa l'UNICA fonte di "oggi puoi spendere" appena c'è uno
+  // stipendio (vedi cassaUnicaAttiva in main.js) — ma questo budget di ciclo
+  // ignorava completamente il budget mensile dichiarato dall'utente stesso.
+  // Chi impostava sia lo stipendio sia un tetto di spesa più prudente si
+  // vedeva comunque proporre l'INTERO stipendio (meno gli impegni fissi)
+  // come se il budget non fosse mai stato confermato — la divisione al
+  // giorno raccontava una cifra diversa da quella che l'utente aveva scelto.
+  // Il budget del ciclo ora è il MINIMO fra le due fonti (mai la più
+  // permissiva): quanto lascia lo stipendio, e la quota del budget mensile
+  // che spetta a un ciclo lungo `cycleLen` giorni (media 30,44 giorni/mese —
+  // il ciclo di stipendio quasi mai coincide col mese di calendario). Senza
+  // un budget dichiarato (monthlyBudget nullo/0) il comportamento resta
+  // quello di sempre, solo sullo stipendio.
+  let budget = salaryBudget;
+  if (monthlyBudget > 0) {
+    const budgetShareForCycle = Math.max(0, r2(monthlyBudget * (cycleLen / 30.44) - fixedTotal));
+    budget = Math.min(salaryBudget, budgetShareForCycle);
+  }
 
   // spesa discrezionale reale da inizio ciclo (esclude le rate degli impegni).
   let spent = 0;
@@ -339,7 +358,10 @@ export function enrichCommitmentsWithLearning(commitments = [], allTx = {}, { mi
 //  - quali impegni restano questo mese, e quanto pesano;
 //  - quali stanno per ESTINGUERSI (mutuo/prestito quasi finiti).
 // `salary` = { dayOfMonth, amount } (da income-model.resolveSalary) o null.
-export function commitmentForecast(commitments = [], salary = null, { now = Date.now(), monthTx = null } = {}) {
+// `monthlyBudget` (opzionale): il tetto di spesa che l'utente ha dichiarato
+// lui stesso (VaultDAO.state.monthlyBudget) — vedi il commento su `allowance`
+// più sotto per il perché è necessario.
+export function commitmentForecast(commitments = [], salary = null, { now = Date.now(), monthTx = null, monthlyBudget = null } = {}) {
   const active = commitments.filter(c => +c.amount > 0 && c.dayOfMonth >= 1 && isActive(c, now));
   // Riconciliazione: se abbiamo le transazioni del mese, distingui i fantasmi
   // già materializzati (pagati) da quelli ancora in sospeso — anti doppio-conteggio.
@@ -376,7 +398,21 @@ export function commitmentForecast(commitments = [], salary = null, { now = Date
   const daysToNext = payday ? Math.max(1, Math.round((payday.getTime() - now) / 86_400_000)) : null;
   let allowance = null;
   if (salary && salary.amount > 0 && daysToNext) {
-    const pool = Math.max(0, Math.round((salary.amount - pendingGhostTotal) * 100) / 100);
+    const salaryPool = Math.max(0, Math.round((salary.amount - pendingGhostTotal) * 100) / 100);
+    // BUG REALE (segnalato dall'utente, 2026-09-04): questo "disponibile"
+    // ignorava del tutto il budget mensile dichiarato — chi aveva impostato
+    // un tetto di spesa più prudente del proprio stipendio si vedeva
+    // comunque proporre l'INTERO stipendio (meno i fantasmi) come se il
+    // budget non fosse mai stato detto. Il pool ora non supera MAI la quota
+    // del budget mensile che spetta ai giorni fino al prossimo stipendio
+    // (media 30,44 giorni/mese: il ciclo di stipendio quasi mai coincide col
+    // mese di calendario) — stessa regola già in uso qui sotto per il
+    // settimanale che non può superare il pool.
+    let pool = salaryPool;
+    if (monthlyBudget > 0) {
+      const budgetShare = Math.max(0, Math.round((monthlyBudget * (daysToNext / 30.44) - pendingGhostTotal) * 100) / 100);
+      pool = Math.min(salaryPool, budgetShare);
+    }
     const perDay = pool / daysToNext;
     // il settimanale non può superare il POOL: se lo stipendio arriva tra meno
     // di 7 giorni, verrai ripagato prima — mostrare perDay×7 sarebbe una bugia.

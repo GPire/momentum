@@ -6834,7 +6834,10 @@ function renderGhostForecast() {
   // Transazioni del mese corrente → riconciliazione: ciò che è GIÀ stato pagato
   // (import CSV/estratto) non è più un fantasma, così non lo contiamo due volte.
   const monthTx = VaultDAO.state.transactions[monthKey(new Date())] || [];
-  const f = commitmentForecast(commitments, salary, { now: Date.now(), monthTx });
+  // monthlyBudget passato esplicitamente (bug reale corretto 2026-09-04): senza,
+  // "quanto puoi spendere" ignorava il tetto di spesa dichiarato dall'utente
+  // appena c'era anche uno stipendio — vedi il commento in fixed-commitments.js.
+  const f = commitmentForecast(commitments, salary, { now: Date.now(), monthTx, monthlyBudget: VaultDAO.state.monthlyBudget });
   const eur = (n) => formatMoney(n);
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -6865,7 +6868,7 @@ function renderGhostForecast() {
   // Tutto il resto (impegni, totali, spiegazioni) sta sotto, a scomparsa. La
   // card risponde a una domanda sola, con una frase che capirebbe un bambino:
   // «Oggi puoi spendere 49 €. Poi ti pagano fra 17 giorni.»
-  const adaptive = cycleAllowance(commitments, salary, { now: Date.now(), allTx: VaultDAO.state.transactions });
+  const adaptive = cycleAllowance(commitments, salary, { now: Date.now(), allTx: VaultDAO.state.transactions, monthlyBudget: VaultDAO.state.monthlyBudget });
   const a = adaptive || f.allowance;
   const days = a ? (a.daysLeft ?? a.daysToNext) : null;
   const oggi = a ? a.perDay : null;
@@ -14680,9 +14683,9 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
 // nascosti per costruzione (invests:false, stesso meccanismo già esistente
 // per l'adulto che dice "non investo" — shouldShowAnalysisTensor in
 // onboarding-priors.js, nessun nuovo gate inventato). L'eventuale obiettivo
-// scelto NON diventa subito un savingsGoal vero: creare un obiettivo senza
-// una cifra reale (che qui non abbiamo, e non inventiamo) romperebbe la
-// barra di progresso — resta solo un promemoria nel payoff.
+// scelto diventa SUBITO un savingsGoal vero (sotto), senza cifra: vedi
+// computeGoalProgress/renderSavingsGoals per come un obiettivo senza
+// cifra resta un caso di prima classe, mai una barra rotta.
 function seedProfileStateMinor() {
   VaultDAO.state.isFirstLaunch = false;
   const goalKey = window.userMinorGoalKey || null;
@@ -14831,11 +14834,33 @@ const endGenesis = () => {
           // Se l'utente è arrivato da un link "unisciti" (primo avvio), ora che
           // l'app è pronta processa l'invito rimasto in sospeso.
           consumeJoinLink();
+          const cEraUnJoinInSospeso = !!window._pendingJoin;
           if (window._pendingJoin) { const g = window._pendingJoin; window._pendingJoin = null; setTimeout(() => window.openJoinConfirm(g), 400); }
           // Stesso schema per un link "quick-add" (automazione iOS Shortcuts)
           // arrivato durante il primo avvio, prima che il form fosse pronto.
           consumeQuickAddLink();
+          const cEraUnQuickAddInSospeso = !!window._pendingQuickAdd;
           if (window._pendingQuickAdd) { const p = window._pendingQuickAdd; window._pendingQuickAdd = null; setTimeout(() => window.openPrefilledAdd(p), 400); }
+          // STIPENDIO/BUDGET VERI SUBITO DOPO L'ONBOARDING COMPLETO (2026-09-04,
+          // richiesta esplicita): fino a qui monthlyBudget resta la STIMA
+          // derivata dal profilo di rischio (derivePriors, mai un numero
+          // confermato dall'utente) — lo stesso identico problema già risolto
+          // per chi lascia il demo (dismissDemo, vedi commit "Parti dai miei
+          // dati ora chiede subito il budget e lo stipendio veri"). Riusa
+          // ESATTAMENTE la stessa catena di editor, nessun flusso nuovo:
+          // Budget mensile → Il mio accredito, entrambi skippabili con un
+          // tocco. Saltata per un minorenne (niente stipendio da chiedere,
+          // seedProfileStateMinor già imposta un budget dichiarato come stima)
+          // e per chi è arrivato da un invito/quick-add in sospeso (quei
+          // flussi hanno la priorità, aprire un editor sopra sarebbe rumore
+          // nel momento sbagliato).
+          if (!window.userIsMinor && !cEraUnJoinInSospeso && !cEraUnQuickAddInSospeso && !arrivaDaUnInvito) {
+            setTimeout(() => {
+              window.openBudgetEditor(() => {
+                window.openSalaryEditor(() => { renderDashboard(); });
+              });
+            }, 900);
+          }
         };
         setTimeout(chiudi, 1100);
       }
