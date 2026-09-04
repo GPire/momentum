@@ -894,6 +894,23 @@
         inset 0 -2px 3px rgba(0,0,0,.2);
     }
     .cat-icon-glow svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+    /* Selettore "Quanto vuoi vedere qui" (Analisi Tensor/Momentum Vault),
+       ridisegnato (2026-09-05, segnalato dal vivo: "è bruttissimo, non è
+       design"): prima una riga piatta senza alcun ancoraggio visivo. Riusa
+       ESATTAMENTE la stessa ricetta "sfera lucida" già validata per le
+       icone-categoria (.cat-icon-glow) invece di inventare un secondo
+       stile — stessa disciplina del resto del progetto. Selector dedicato
+       (non la stessa classe) perché qui l'icona è sempre indaco fisso, mai
+       colorata per categoria: nessun --icon-c da passare riga per riga. */
+    .ui-complexity-icon {
+      background:
+        radial-gradient(circle at 30% 26%, color-mix(in srgb, #fff 32%, #818cf8) 0%, #818cf8 55%, color-mix(in srgb, #000 22%, #818cf8) 100%);
+      box-shadow:
+        0 3px 10px -3px color-mix(in srgb, #818cf8 65%, transparent),
+        inset 0 1px 1px rgba(255,255,255,.3),
+        inset 0 -2px 3px rgba(0,0,0,.2);
+    }
+    .ui-complexity-icon svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
     /* PRIMA: una riga sola, max-width:60px fisso, troncata con "…" appena il
        nome superava ~9 caratteri — "Ristorazione" diventava "Ristorazio…"
        SEMPRE, a qualunque larghezza di schermo (non era un problema di
@@ -4815,10 +4832,15 @@
                  .advanced-card), "Completa" le rimostra tutte. Il valore di
                  partenza dipende dalla fascia d'età dichiarata in onboarding
                  (18-25 → Essenziale) ma resta sempre cambiabile qui. -->
-            <div class="card p-3 flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-[11px] font-bold" data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</p>
-                <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="analysisComplexitySub">Essenziale nasconde solo gli strumenti più tecnici — niente sparisce per sempre.</p>
+            <div class="card p-4 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="ui-complexity-icon w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="--icon-c:#818cf8">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[11px] font-bold" data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</p>
+                  <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="analysisComplexitySub">Essenziale nasconde solo gli strumenti più tecnici — niente sparisce per sempre.</p>
+                </div>
               </div>
               <div class="segmented-control shrink-0 !w-auto">
                 <div class="segment-btn" data-ui-complexity="essenziale" onclick="window.setUiComplexity('essenziale')" data-i18n-key="analysisComplexityEssential">Essenziale</div>
@@ -5225,10 +5247,15 @@
                  unico stato condiviso, window.setUiComplexity): qui nasconde
                  "Come funziona Momentum", "Prezzi live" e "Chat generica" — le
                  impostazioni più da smanettone, non da primo utilizzo. -->
-            <div class="card p-3 flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-[11px] font-bold" data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</p>
-                <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultComplexitySub">Essenziale nasconde le impostazioni più tecniche — niente sparisce per sempre.</p>
+            <div class="card p-4 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="ui-complexity-icon w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="--icon-c:#818cf8">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[11px] font-bold" data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</p>
+                  <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultComplexitySub">Essenziale nasconde le impostazioni più tecniche — niente sparisce per sempre.</p>
+                </div>
               </div>
               <div class="segmented-control shrink-0 !w-auto">
                 <div class="segment-btn" data-ui-complexity="essenziale" onclick="window.setUiComplexity('essenziale')" data-i18n-key="analysisComplexityEssential">Essenziale</div>

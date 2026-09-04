@@ -15744,6 +15744,13 @@ window.setUiComplexity = (val) => {
   VaultDAO.save();
   haptic('light');
   updateUiComplexityVisibility();
+  // Conferma visiva sull'INTERA card, non solo sulla pillola del selettore
+  // (segnalato dal vivo: "quando cambio stato non succede niente per
+  // l'utente"). Riusa lo stesso rimbalzo già usato per il tipo di
+  // transazione nel Command Center — mai un'animazione nuova inventata qui.
+  $$('.ui-complexity-icon').forEach(icon => {
+    icon.classList.remove('type-toggle-pop'); void icon.offsetWidth; icon.classList.add('type-toggle-pop');
+  });
 };
 
 // CTA della card "sblocco progressivo" (vedi renderNetWorth): porta l'utente
