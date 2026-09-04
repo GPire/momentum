@@ -49,6 +49,13 @@ export async function fetchStockOverview(symbol, { apiKey, fetchImpl = fetch } =
     industry: json.Industry || null,
     marketCap: Number.isFinite(+json.MarketCapitalization) ? +json.MarketCapitalization : null,
     peRatio: Number.isFinite(+json.PERatio) ? +json.PERatio : null,
+    // EPS/dividend yield (2026-09-04): la stessa risposta OVERVIEW li porta
+    // già, come marketCap/peRatio qui sopra — erano scaricati per ogni
+    // ricerca e mai mostrati. `DividendYield` arriva 0 (numero, non assente)
+    // per chi non paga dividendo: distinto onestamente da "dato mancante"
+    // (stringa 'None'/'-' che Alpha Vantage usa per i campi davvero assenti).
+    eps: Number.isFinite(+json.EPS) ? +json.EPS : null,
+    dividendYield: (json.DividendYield && json.DividendYield !== 'None' && json.DividendYield !== '-') ? +json.DividendYield : (json.DividendYield === '0' ? 0 : null),
     // Multipli di mercato per i comps (2026-08-30): la stessa risposta li
     // porta già (EVToEBITDA/EVToRevenue), scaricati per ogni ricerca e mai
     // letti finora — vedi src/alpha/comps-multipli.js. `null` onesto se

@@ -35,6 +35,25 @@ test('fetchStockOverview: forma reale Alpha Vantage → normalizza settore/indus
   assert.equal(r.marketCap, 3000000000000);
 });
 
+// ── EPS/dividend yield (2026-09-04) — la stessa risposta li porta già ──
+test('fetchStockOverview: EPS e dividend yield reali vengono normalizzati', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({
+    Name: 'Apple Inc', Description: 'x', Sector: 's', Industry: 'i', EPS: '6.13', DividendYield: '0.0044',
+  }) });
+  const r = await fetchStockOverview('AAPL', { apiKey: 'k', fetchImpl });
+  assert.equal(r.eps, 6.13);
+  assert.equal(r.dividendYield, 0.0044);
+});
+
+test('fetchStockOverview: chi non paga dividendo è 0 reale, distinto dal dato mancante', async () => {
+  const senzaCampo = await fetchStockOverview('AAPL', { apiKey: 'k', fetchImpl: async () => ({ ok: true, json: async () => ({ Name: 'x', Description: 'x' }) }) });
+  assert.equal(senzaCampo.dividendYield, null, 'campo assente: null onesto, non zero');
+  const zeroReale = await fetchStockOverview('AAPL', { apiKey: 'k', fetchImpl: async () => ({ ok: true, json: async () => ({ Name: 'x', Description: 'x', DividendYield: '0' }) }) });
+  assert.equal(zeroReale.dividendYield, 0, 'zero dichiarato dalla fonte: zero vero, non null');
+  const none = await fetchStockOverview('AAPL', { apiKey: 'k', fetchImpl: async () => ({ ok: true, json: async () => ({ Name: 'x', Description: 'x', DividendYield: 'None' }) }) });
+  assert.equal(none.dividendYield, null, '"None" di Alpha Vantage è un dato mancante, mai zero inventato');
+});
+
 test('fetchStockOverview: azienda non coperta/chiave non valida → errore, mai un riassunto vuoto camuffato', async () => {
   const fetchImpl = async () => ({ ok: true, json: async () => ({}) });
   await assert.rejects(() => fetchStockOverview('ZZZZ', { apiKey: 'k', fetchImpl }));

@@ -7718,7 +7718,30 @@ window.selectAsset = async (idx) => {
       if (isItalianDevice()) {
         try { summary = await translateText(ov.summary, { fetchImpl: fetch.bind(window) }); translatedTag = ' <span class="text-slate-600">(traduzione automatica)</span>'; } catch (_) { /* fallback: resta in inglese, mai bloccante */ }
       }
-      overviewHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[11px] text-slate-500 mt-0.5">${meta}</p>` : ''}`;
+      // Metriche di mercato (2026-09-04): P/E, capitalizzazione, EPS, dividend
+      // yield — la risposta OVERVIEW li porta già (asset-overview.js), erano
+      // scaricati per ogni ricerca e mai mostrati. Una riga sola, solo i
+      // valori REALI presenti (mai un "—" per ogni campo assente: se
+      // un'azienda non ha nulla di misurabile qui, la riga non appare
+      // affatto invece di essere un muro di trattini).
+      let metricsHtml = '';
+      if (ov.kind === 'stock') {
+        const compact = (n) => {
+          if (!Number.isFinite(n)) return null;
+          if (Math.abs(n) >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
+          if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(2)}Mld`;
+          if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}Mln`;
+          return formatMoney(n);
+        };
+        const voci = [
+          Number.isFinite(ov.peRatio) ? `P/E ${ov.peRatio.toFixed(1)}` : null,
+          compact(ov.marketCap) ? `Cap ${compact(ov.marketCap)}` : null,
+          Number.isFinite(ov.eps) ? `EPS ${formatMoney(ov.eps)}` : null,
+          Number.isFinite(ov.dividendYield) ? `Dividendo ${(ov.dividendYield * 100).toFixed(2)}%` : null,
+        ].filter(Boolean);
+        if (voci.length) metricsHtml = `<p class="text-[11px] text-slate-500 mt-0.5 font-mono">${voci.join(' · ')}</p>`;
+      }
+      overviewHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[11px] text-slate-500 mt-0.5">${meta}</p>` : ''}${metricsHtml}`;
     } catch (_) { /* riassunto opzionale: nessun errore bloccante se manca */ }
   }
   // ARCHITETTURA UNIFICATA (richiesto esplicitamente: prima questa vista
