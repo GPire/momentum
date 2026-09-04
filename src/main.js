@@ -18580,6 +18580,34 @@ const initApp = () => {
   // La cache vive nel vault come campo ADDITIVO (regola del progetto: i campi
   // nuovi non rompono uno stato salvato prima). Non contiene niente di
   // personale: sono prezzi pubblici, gli stessi per chiunque.
+  // "LA CRIPTO MI DIVERSIFICA IL PORTAFOGLIO?" (src/alpha/cripto-azioni.js)
+  // Da non confondere con la funzione qui sotto, che risponde a una domanda
+  // diversa: quella guarda DENTRO il paniere cripto ("cinque cripto sono
+  // cinque scommesse?"), questa guarda la cripto CONTRO il resto ("è davvero
+  // un'altra cosa rispetto alle mie azioni?"). Va provata per prima, perché
+  // la condizione della funzione sotto ("cripto" + "diversific") prenderebbe
+  // anche questa domanda e risponderebbe a un'altra.
+  async function tryAnswerCriptoVsAzioni(question) {
+    try {
+      const mq = await import('./alpha/mercato-qa.js');
+      showQaThinking('Confronto la cripto con l\'azionario (storico reale, un anno)...');
+      const r = await mq.rispostaCriptoDiversifica(question, {
+        fetchImpl: fetch.bind(window),
+        // Il portafoglio vero rende la risposta SUA: quanto pesa e quanto
+        // rischia davvero. Se non ci sono posizioni, il modulo lo dice invece
+        // di inventare un peso.
+        posizioni: VaultDAO.state.positions || null,
+      });
+      if (!r) return false;
+      styleQaAnswer(r);
+      return true;
+    } catch (_) {
+      // Rete assente o CoinGecko giù: si scende al percorso normale, mai un
+      // messaggio d'errore grezzo al posto di una risposta.
+      return false;
+    }
+  }
+
   async function tryAnswerCriptoDiversificazione() {
     try {
       const [cd, cc] = await Promise.all([
@@ -18933,6 +18961,17 @@ const initApp = () => {
       // e' sincrono — stessa struttura delle notizie. Qui pero' la rete serve
       // quasi solo la prima volta: la cache on-device (cripto-cache.js) fa
       // scendere le richieste a zero dal giorno dopo.
+      // CRIPTO CONTRO AZIONI — prima del ramo qui sotto, che altrimenti se la
+      // prenderebbe. Il discriminante è che questa domanda tira in ballo il
+      // RESTO del portafoglio (azioni, borsa, "oro digitale"): senza quelle
+      // parole si parla del paniere cripto, e risponde la funzione dopo.
+      if (/cripto|crypto|bitcoin|btc\b/i.test(question)
+        && /azion|borsa|s&p|sp500|oro digitale|portafoglio|mercato azionario/i.test(question)) {
+        qaAnswer.classList.remove('hidden');
+        haptic('light');
+        const handled = await tryAnswerCriptoVsAzioni(question);
+        if (handled) { window.renderQaSuggestions?.(); return; }
+      }
       if (/cripto|crypto|bitcoin|monete/i.test(question) && /diversific|scommess|correlat|si muovono insieme|stessa cosa/i.test(question)) {
         qaAnswer.classList.remove('hidden');
         haptic('light');

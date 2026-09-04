@@ -641,3 +641,98 @@ test('PRIMA che gli archivi siano pronti NON si dice "non lo so": si dice di rip
   // da qui, anche a freddo: il ponte non deve rubare le domande altrui.
   assert.equal(fresco.rispostaSincrona('quanto ho speso questo mese?'), null);
 });
+
+// ── "LA CRIPTO MI DIVERSIFICA?" (2026-09-05) ─────────────────────────────
+// L'intent più delicato aggiunto finora: convive con due rami cripto già
+// esistenti che rispondono a domande diverse, e con il confronto fra azioni.
+// Se ruba le loro domande, tre funzioni smettono di essere raggiungibili.
+
+test('cripto-diversifica: riconosce le forme in cui la domanda viene fatta davvero', async () => {
+  const { intentoMercato } = await import('./mercato-qa.js');
+  for (const d of [
+    'la cripto mi diversifica?',
+    'bitcoin diversifica il portafoglio?',
+    'bitcoin diversifica davvero o no',
+    'bitcoin si muove come le azioni?',
+    'è oro digitale bitcoin?',
+    'quanto rischio ho in cripto',
+  ]) {
+    assert.equal(intentoMercato(d), 'cripto-diversifica', `non riconosciuta: "${d}"`);
+  }
+});
+
+test('cripto-diversifica: NON ruba le domande degli altri rami cripto e azionari', async () => {
+  const { intentoMercato } = await import('./mercato-qa.js');
+  // Scomposizione cripto-vs-cripto: resta dov'era.
+  assert.equal(intentoMercato('confronta queste due cripto: solana ed ethereum'), 'titolo-causale');
+  // Questa sembrava del ramo cripto-vs-cripto (lo dice anche un commento nel
+  // modulo), ma in realtà la prende 'assorbimento' — verificato, non assunto.
+  assert.equal(intentoMercato('quanto si muovono insieme queste cripto'), 'assorbimento');
+  // E "protegge dai crolli" resta a 'cripto-rifugio', che è la risposta giusta.
+  assert.equal(intentoMercato('la cripto protegge dai crolli?'), 'cripto-rifugio');
+  assert.equal(intentoMercato('è stato il mercato o sono stato bravo io con ethereum?'), 'titolo-causale');
+  // E una domanda di spesa continua a non essere una domanda di mercato.
+  assert.notEqual(intentoMercato('quanto ho speso questo mese'), 'cripto-diversifica');
+});
+
+test('cripto-diversifica: i pesi si ricavano dal portafoglio, o non si inventano', async () => {
+  const { pesiDaPosizioni } = await import('./mercato-qa.js');
+  assert.equal(pesiDaPosizioni(null), null);
+  assert.equal(pesiDaPosizioni([]), null);
+  // Solo azioni: niente da diversificare, nessun peso finto.
+  assert.equal(pesiDaPosizioni([{ type: 'stock', value: 1000 }]), null);
+  // Solo cripto: idem.
+  assert.equal(pesiDaPosizioni([{ type: 'crypto', value: 1000 }]), null);
+  const p = pesiDaPosizioni([
+    { type: 'crypto', value: 1000 },
+    { type: 'stock', value: 9000 },
+    { type: 'etf', quantity: 10, price: 50 },
+    { type: 'crypto', value: 'spazzatura' },
+  ]);
+  assert.deepEqual(p, { cripto: 1000, azioni: 9500 });
+});
+
+test('cripto-diversifica: risponde con dati veri e dichiara sempre il riferimento', async () => {
+  const { rispostaCriptoDiversifica, RIFERIMENTO_AZIONARIO } = await import('./mercato-qa.js');
+  const { azzeraCacheStoricoCripto } = await import('./crypto-storico.js');
+  azzeraCacheStoricoCripto();
+  // Fetch finto: due serie correlate, costruite qui, nessuna rete nei test.
+  let s = 5;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 - 0.5; };
+  const comune = Array.from({ length: 400 }, () => rnd());
+  const prezzi = (mult, rumore) => {
+    let p = 100; const out = [];
+    for (let i = 0; i < 400; i++) { p *= 1 + comune[i] * mult + rnd() * rumore; out.push([i * 86400000, p]); }
+    return out;
+  };
+  const fetchImpl = async (url) => ({
+    ok: true,
+    json: async () => ({ prices: url.includes(RIFERIMENTO_AZIONARIO.id) ? prezzi(0.01, 0.002) : prezzi(0.03, 0.01) }),
+  });
+
+  const senzaPortafoglio = await rispostaCriptoDiversifica('bitcoin mi diversifica?', { fetchImpl });
+  assert.equal(senzaPortafoglio.intent, 'cripto-diversifica');
+  assert.ok(Number.isFinite(senzaPortafoglio.data.correlazioneMedia));
+  assert.ok(/carichi le tue posizioni/.test(senzaPortafoglio.answer), 'senza portafoglio deve dire cosa manca, non inventarlo');
+
+  azzeraCacheStoricoCripto();
+  const conPortafoglio = await rispostaCriptoDiversifica('bitcoin mi diversifica?', {
+    fetchImpl, posizioni: [{ type: 'crypto', value: 1000 }, { type: 'stock', value: 9000 }],
+  });
+  assert.equal(conPortafoglio.data.misurabile, true);
+  assert.ok(Math.abs(conPortafoglio.data.pesoCripto - 0.1) < 1e-6);
+  assert.ok(/S&P 500/.test(conPortafoglio.answer), 'il riferimento va dichiarato sempre');
+  assert.ok(/token/.test(conPortafoglio.answer), 'e va dichiarato che è un token, non l’indice');
+  assert.ok(/non è un consiglio/i.test(conPortafoglio.answer));
+});
+
+test('cripto-diversifica: la rete che cade non rompe la chat', async () => {
+  const { rispostaCriptoDiversifica } = await import('./mercato-qa.js');
+  const { azzeraCacheStoricoCripto } = await import('./crypto-storico.js');
+  azzeraCacheStoricoCripto();
+  const fetchImpl = async () => ({ ok: false, status: 503, json: async () => ({}) });
+  await assert.rejects(() => rispostaCriptoDiversifica('bitcoin mi diversifica?', { fetchImpl }));
+  // chiediAlMercato la avvolge in .catch(() => null) e scende al percorso
+  // normale: è quel `catch` a garantire che la chat non muoia. Qui si
+  // verifica che l'errore sia un errore vero e non un risultato finto.
+});

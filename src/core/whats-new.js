@@ -362,6 +362,20 @@ export const RELEASES = [
         testo: 'Domande come "quanto mi hanno dato di paghetta" o "quanto tengo da parte" ora hanno una risposta vera — prima capivamo bene solo le formulazioni più formali.',
         titoloKey: 'wn0904_10_t', testoKey: 'wn0904_10_d',
       },
+    ],
+  },
+  {
+    // RELEASE SEPARATA, e non è un dettaglio burocratico: `whatsNewSeen` è
+    // salvato PER VERSIONE. Queste tre voci erano finite dentro la release
+    // del 4 settembre, che moltissimi dispositivi avevano già visto — e una
+    // voce aggiunta a una release già vista non viene mostrata a nessuno di
+    // loro, mai più. Segnalato dall'utente ("non stiamo aggiornando da tanto
+    // le novità"), e aveva ragione: le novità c'erano, ma non sarebbero
+    // arrivate. È il motivo per cui la regola in cima a questo file dice di
+    // non toccare una release già pubblicata, e va rispettata anche quando
+    // la voce nuova la si sta scrivendo lo stesso giorno.
+    versione: '2026-09-05',
+    voci: [
       {
         colore: 'green',
         icona: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
@@ -375,6 +389,13 @@ export const RELEASES = [
         titolo: 'La Dashboard mette davanti quello che ti serve adesso',
         testo: 'Se il cuscinetto d\'emergenza è basso, o ci sono soldi fermi in un gruppo da settimane, quella card sale in cima da sola. Quando è tutto a posto la Dashboard resta esattamente quella di sempre: si muove solo per un motivo forte, mai a ogni apertura.',
         titoloKey: 'wn0905_2_t', testoKey: 'wn0905_2_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<circle cx="12" cy="12" r="9"/><path d="M8 14l3-3 2 2 3-4"/>',
+        titolo: 'La cripto ti sta davvero diversificando?',
+        testo: 'Chiediglielo in chat. Momentum misura quanto bitcoin si muove insieme all\'azionario, anche nei giorni peggiori di borsa, e ti dice quanta parte del TUO rischio arriva dalla cripto: quasi sempre molto più del peso che occupa.',
+        titoloKey: 'wn0905_3_t', testoKey: 'wn0905_3_d',
       },
     ],
   },

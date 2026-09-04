@@ -388,6 +388,22 @@ export function intentoMercato(domanda, similarity = null) {
   if (ha(q, 'confronta queste due cripto', 'confronta le due cripto', 'confronto tra cripto',
     'quanto si muovono insieme queste cripto', 'quanto sono legate queste cripto')) return 'titolo-causale';
 
+  // "LA CRIPTO MI DIVERSIFICA?" (2026-09-05, src/alpha/cripto-azioni.js).
+  // È la domanda che sta sotto quasi tutte le altre sulle cripto, e la
+  // risposta è cambiata: la correlazione a 30 giorni con l'S&P 500 è arrivata
+  // a 0,74, il massimo dell'anno, mentre "oro digitale" resta l'argomento con
+  // cui la gente compra. Deve stare PRIMA del ramo 'titolo-causale' qui
+  // sopra, altrimenti "quanto si muove bitcoin insieme alle azioni" finirebbe
+  // nella scomposizione cripto-vs-cripto, che risponde a un'altra domanda.
+  if (ha(q, 'mi diversifica', 'diversifica il portafoglio', 'diversifica davvero',
+    'cripto e azioni', 'cripto con le azioni', 'cripto insieme alle azioni',
+    'bitcoin e le azioni', 'bitcoin con le azioni', 'si muove come le azioni',
+    'si muovono come le azioni', 'e oro digitale', 'è oro digitale',
+    // "protegge dai crolli" NON è qui di proposito: ha già una risposta, ed è
+    // 'cripto-rifugio'. Prendersela avrebbe reso irraggiungibile una funzione
+    // che esiste, funziona ed è più adatta a quella domanda.
+    'quanto rischio ho in cripto', 'quanto rischio con le cripto')) return 'cripto-diversifica';
+
   // Screener multi-criterio (Cantiere D/G, src/alpha/screener-settore.js —
   // filtraSettore): "filtrami/classificami/ordina le aziende [del settore]
   // per X e Y insieme". PRIMA di 'comparabili' sopra non serve — le parole
@@ -1386,6 +1402,14 @@ export async function chiediAlMercato(domanda) {
   // non i mesi che il resto del modulo usa per le azioni via settore). Se
   // la domanda nomina una cripto, questo ramo risponde e basta — mai
   // provare anche il percorso azionario sulla stessa domanda.
+  // "La cripto mi diversifica?" — stesso ramo asincrono e stessa disciplina:
+  // richiede rete (due storici CoinGecko), quindi non può vivere nel percorso
+  // sincrono, e un errore di rete non deve rompere la risposta, deve solo
+  // farla scendere al percorso normale.
+  if (intentoMercato(domanda) === 'cripto-diversifica') {
+    const div = await rispostaCriptoDiversifica(domanda, { posizioni: OPZIONI_QA.posizioni }).catch(() => null);
+    if (div) return div;
+  }
   if (intentoMercato(domanda) === 'titolo-causale') {
     const cripto = await rispostaCausaleCripto(domanda).catch(() => null);
     if (cripto) return cripto;
@@ -1397,6 +1421,97 @@ export async function chiediAlMercato(domanda) {
 // domanda non nomina una cripto riconosciuta (si scende al ramo azionario)
 // o se qualcosa fallisce (rete assente, CoinGecko non risponde) — MAI
 // un'eccezione che rompe l'intero chiediAlMercato per un ramo opzionale.
+// ── "LA CRIPTO MI DIVERSIFICA DAVVERO?" ──────────────────────────────────
+// Il riferimento azionario è `sp500-xstock`: il token che replica l'S&P 500,
+// verificato dal vivo (rank 421, 366 punti giornalieri di storico su
+// CoinGecko). Non è una scorciatoia — è l'UNICO modo di avere una serie
+// azionaria giornaliera dentro un browser: Yahoo, Stooq e FRED bloccano
+// tutte le chiamate da una pagina web, come già verificato e scritto in
+// live-price.js e stock-tokenized-proxy.js. E siccome è un id CoinGecko
+// come un altro, riusa la STESSA funzione di rete già collaudata per le
+// cripto: nessuna seconda infrastruttura da mantenere.
+//
+// I LIMITI SONO DICHIARATI NELLA RISPOSTA, non nascosti qui: un token
+// tokenizzato traccia l'indice ma non è l'indice, e scambia anche quando la
+// borsa è chiusa — nei fine settimana la sua serie è quasi piatta e questo
+// spinge la correlazione misurata verso il BASSO, non verso l'alto. Cioè
+// l'errore va nella direzione prudente: se il numero dice "non ti
+// diversifica", con dati di borsa veri lo direbbe ancora più forte.
+export const RIFERIMENTO_AZIONARIO = { id: 'sp500-xstock', nome: 'S&P 500' };
+
+// Il portafoglio dell'utente non arriva fin qui da solo: questo modulo non
+// conosce il Vault e non deve conoscerlo (resta puro e testabile senza app).
+// Chi ha i dati li deposita con `impostaPosizioniQA`, e se nessuno lo fa la
+// risposta resta quella misurata sulle sole correlazioni — mai un portafoglio
+// immaginato pur di dare una risposta più personale.
+const OPZIONI_QA = { posizioni: null };
+export function impostaPosizioniQA(posizioni) {
+  OPZIONI_QA.posizioni = Array.isArray(posizioni) ? posizioni : null;
+}
+
+export async function rispostaCriptoDiversifica(domanda, { fetchImpl = fetch, posizioni = null } = {}) {
+  const { trovaTutteLeCriptoInTesto, fetchStoricoRendimentiCripto } = await import('./crypto-storico.js');
+  const trovate = trovaTutteLeCriptoInTesto(domanda);
+  // Senza una cripto nominata si parla di Bitcoin: è quello che la gente
+  // intende con "la cripto" nove volte su dieci, e viene detto nella risposta.
+  const cripto = trovate[0] || { chiave: 'Bitcoin', id: 'bitcoin' };
+
+  const [c, a] = await Promise.all([
+    fetchStoricoRendimentiCripto(cripto.id, { fetchImpl }),
+    fetchStoricoRendimentiCripto(RIFERIMENTO_AZIONARIO.id, { fetchImpl }),
+  ]);
+
+  const { esposizioneCripto, testoEsposizioneCripto, correlazione, correlazioneQuandoConta } =
+    await import('./cripto-azioni.js');
+
+  // Con il portafoglio dell'utente la risposta è SUA: quanto pesa e quanto
+  // rischia davvero. Senza, si risponde comunque — ma solo con ciò che è
+  // misurato (le due correlazioni), mai con un peso inventato per far
+  // sembrare la risposta più personale di quello che è.
+  const pesi = pesiDaPosizioni(posizioni);
+  if (pesi) {
+    const r = esposizioneCripto({ serie: { cripto: c.rendimenti, azioni: a.rendimenti }, pesi });
+    if (r.misurabile) {
+      return {
+        intent: 'cripto-diversifica', data: r,
+        answer: `${testoEsposizioneCripto(r)} Riferimento: ${RIFERIMENTO_AZIONARIO.nome} tramite il suo token (traccia l'indice da vicino ma non è l'indice, e scambia anche a borsa chiusa — se sbaglia, sbaglia sottostimando il legame). Non è un consiglio: è cosa hanno fatto i tuoi soldi finora.`,
+      };
+    }
+  }
+
+  const media = correlazione(c.rendimenti, a.rendimenti);
+  if (media === null) {
+    return { intent: 'cripto-diversifica', answer: `Ho lo storico di ${cripto.chiave} (${c.giorni} giorni via CoinGecko) ma non basta per misurare quanto si muove insieme alle azioni.` };
+  }
+  const coda = correlazioneQuandoConta(c.rendimenti, a.rendimenti);
+  const parti = [];
+  parti.push(`Su ${Math.min(c.giorni, a.giorni)} giorni, ${cripto.chiave} e l'${RIFERIMENTO_AZIONARIO.nome} si muovono insieme con una correlazione di ${media.toFixed(2)} (0 = per conto loro, 1 = la stessa cosa).`);
+  if (coda !== null) {
+    parti.push(coda > media + 0.1
+      ? `E nei giorni peggiori per le azioni salgono a ${coda.toFixed(2)}: la diversificazione si assottiglia proprio quando servirebbe.`
+      : coda < media - 0.1
+        ? `Nei giorni peggiori per le azioni invece scende a ${coda.toFixed(2)}: lì si sta staccando.`
+        : `Nei giorni peggiori per le azioni resta simile (${coda.toFixed(2)}).`);
+  }
+  parti.push('Se carichi le tue posizioni ti dico anche quanta parte del TUO rischio arriva dalla cripto, che quasi sempre è molto più del peso che occupa.');
+  return { intent: 'cripto-diversifica', data: { correlazioneMedia: +media.toFixed(3), correlazioneQuandoConta: coda === null ? null : +coda.toFixed(3), giorni: Math.min(c.giorni, a.giorni) }, answer: parti.join(' ') };
+}
+
+// Divide il portafoglio in due secchi: cripto e tutto il resto. `null` se non
+// c'è abbastanza per fare il conto — mai un peso stimato per far uscire un
+// numero comunque.
+export function pesiDaPosizioni(posizioni) {
+  if (!Array.isArray(posizioni) || !posizioni.length) return null;
+  let cripto = 0, azioni = 0;
+  for (const p of posizioni) {
+    const v = Math.abs(+p?.value || +p?.valore || (+p?.quantity * +p?.price) || 0);
+    if (!Number.isFinite(v) || v <= 0) continue;
+    const tipo = String(p?.type || p?.tipo || p?.assetClass || '').toLowerCase();
+    if (/crypt|cripto|coin/.test(tipo)) cripto += v; else azioni += v;
+  }
+  return (cripto > 0 && azioni > 0) ? { cripto, azioni } : null;
+}
+
 export async function rispostaCausaleCripto(domanda, { fetchImpl = fetch } = {}) {
   const { trovaTutteLeCriptoInTesto, fetchStoricoRendimentiCripto } = await import('./crypto-storico.js');
   const trovate = trovaTutteLeCriptoInTesto(domanda);
