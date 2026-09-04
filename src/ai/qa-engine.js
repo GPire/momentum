@@ -22,7 +22,7 @@ import { buildCausalGraph, propagateImpact, pruneNonCausal, buildCategorySeries 
 import { analyzeCausalStructure } from '../predict/causal-orchestrator.js';
 import { simulateScenario } from '../predict/causal-effects.js';
 import { investableSurplus } from '../alpha/bridge.js';
-import { commitmentForecast } from '../predict/fixed-commitments.js';
+import { commitmentForecast, cycleAllowance } from '../predict/fixed-commitments.js';
 import { bnplExposure } from '../predict/bnpl.js';
 import { computeNetWorth } from '../alpha/net-worth.js';
 import { monthKey } from '../core/constants.js';
@@ -384,6 +384,36 @@ const UNKNOWN_MSG = {
 // diversi — chirurgico, zero rischio sul resto.
 const normIntent = (s) => String(s || '').toLowerCase().replace(/-/g, '');
 
+// UNA SOLA RISPOSTA a "quanto posso spendere" (bug reale corretto 2026-09-04,
+// trovato verificando a fondo un fix precedente sullo stesso tema): la
+// Dashboard (main.js, `cassaUnicaAttiva`) passa a "Il tuo mese, senza
+// sorprese" (Cassa Unica, cycleAllowance) appena c'è uno stipendio o impegni
+// fissi noti — ma il QA continuava a rispondere SEMPRE dal motore budget-
+// puro (getDailySafeToSpend), potendo dare un numero diverso da quello che
+// l'utente vede in Dashboard nello stesso istante. Riusa qui la STESSA
+// regola/motore, mai un secondo calcolo isolato. Il campo `source` dice ai
+// chiamanti quale fonte ha risposto, così la FRASE (non solo il numero) può
+// dire la cosa giusta — con Cassa Unica attiva non esiste "questa
+// settimana" in senso calendario, esiste "fino al prossimo stipendio".
+function unifiedSafeToSpend(ctx, monthTxs, allTx, ref) {
+  const cassaUnicaAttiva = !!(ctx.salary || (ctx.fixedCommitments || []).length);
+  if (cassaUnicaAttiva) {
+    const a = cycleAllowance(ctx.fixedCommitments || [], ctx.salary, { now: ref.getTime(), allTx, monthlyBudget: ctx.monthlyBudget });
+    if (a) {
+      return {
+        safeToday: a.perDay,
+        weekRemaining: a.remaining,   // "fino allo stipendio", non una settimana di calendario
+        daysLeftInWeek: a.daysLeft,   // giorni reali fino al prossimo stipendio
+        reservedForCharges: 0,        // già dedotto dentro cycleAllowance (impegni fissi)
+        isOverBudget: !a.onTrack,
+        source: 'cassaUnica',
+      };
+    }
+  }
+  const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: ctx.monthlyBudget, referenceDate: ref });
+  return sts ? { ...sts, source: 'budget' } : null;
+}
+
 export function answerQuestion(question, ctx) {
   const risultato = answerQuestionCore(question, ctx);
   if (ctx?.qaLearning && risultato && risultato.intent !== 'unknown') {
@@ -509,47 +539,82 @@ function answerQuestionCore(question, ctx) {
   // — "posso permettermi X?" (prima di safe-to-spend: contiene un importo)
   if (matches('affordability', qMatch) && extractAmount(q) !== null) {
     const amount = extractAmount(q);
-    const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: ctx.monthlyBudget, referenceDate: ref });
-    const T = {
+    const sts = unifiedSafeToSpend(ctx, monthTxs, allTx, ref);
+    const isCiclo = sts && sts.source === 'cassaUnica';
+    // Due frasari, non solo due numeri (richiesto esplicitamente: la UX del
+    // chatbot deve dire la cosa giusta, non solo il numero giusto). Con
+    // Cassa Unica attiva "questa settimana" sarebbe falso — il pool reale è
+    // "fino al prossimo stipendio", esattamente come lo dice già la card
+    // "Il tuo mese, senza sorprese" in Dashboard ("Poi ti pagano fra N
+    // giorni") — stessa voce, mai due modi diversi di raccontare lo stesso dato.
+    const Tweek = {
       it: { noBudget: 'Per risponderti mi serve un budget mensile impostato — toccalo nella sezione Analisi e te lo dico subito.', over: n => `Meglio di no: questa settimana sei già oltre di ${n}. Se puoi, rimanda.`, yesToday: (a, r) => `Sì: ${a} rientrano nei ${r} di oggi.`, yesWeek: (a, r, d) => `Sì, ma usa il margine della settimana: dovrai stare più leggero nei prossimi ${d} giorni.`, risky: (r, a) => `Rischioso: ti restano ${r} per tutta la settimana. ${a} ti manderebbero oltre.` },
       en: { noBudget: 'I need a monthly budget set up to answer this — set it in the Analysis section and I\'ll tell you right away.', over: n => `Better not: you're already ${n} over this week. Postpone it if you can.`, yesToday: (a, r) => `Yes: ${a} fits within today's ${r}.`, yesWeek: (a, r, d) => `Yes, but use the week's margin: you'll need to go lighter for the next ${d} days.`, risky: (r, a) => `Risky: you have ${r} left for the whole week. ${a} would push you over.` },
       es: { noBudget: 'Para responderte necesito un presupuesto mensual configurado — actívalo en la sección Análisis y te digo enseguida.', over: n => `Mejor que no: esta semana ya estás ${n} por encima. Si puedes, aplázalo.`, yesToday: (a, r) => `Sí: ${a} entra dentro de los ${r} de hoy.`, yesWeek: (a, r, d) => `Sí, pero usa el margen de la semana: tendrás que ir más ligero los próximos ${d} días.`, risky: (r, a) => `Arriesgado: te quedan ${r} para toda la semana. ${a} te pasarían de largo.` },
       fr: { noBudget: 'Il me faut un budget mensuel configuré pour répondre — active-le dans la section Analyse et je te réponds tout de suite.', over: n => `Mieux vaut pas : cette semaine tu es déjà à ${n} de dépassement. Reporte si tu peux.`, yesToday: (a, r) => `Oui : ${a} rentrent dans les ${r} d'aujourd'hui.`, yesWeek: (a, r, d) => `Oui, mais utilise la marge de la semaine : il faudra lever le pied les ${d} prochains jours.`, risky: (r, a) => `Risqué : il te reste ${r} pour toute la semaine. ${a} te feraient dépasser.` },
       de: { noBudget: 'Dazu brauche ich ein eingerichtetes Monatsbudget — richte es im Bereich Analyse ein, dann sage ich es dir sofort.', over: n => `Besser nicht: diese Woche bist du schon ${n} drüber. Verschieb es wenn möglich.`, yesToday: (a, r) => `Ja: ${a} passen in die heutigen ${r}.`, yesWeek: (a, r, d) => `Ja, aber nutze den Spielraum der Woche: die nächsten ${d} Tage musst du kürzertreten.`, risky: (r, a) => `Riskant: dir bleiben ${r} für die ganze Woche. ${a} würden das überschreiten.` },
-    }[lang];
-    if (!sts) return { intent: 'affordability', answer: T.noBudget };
+    };
+    const Tciclo = {
+      it: { over: n => `Meglio di no: sei già oltre il ritmo di ${n} prima dello stipendio. Se puoi, rimanda.`, yesToday: (a, r) => `Sì: ${a} rientrano nei ${r} di oggi.`, yesWeek: (a, r, d) => `Sì, ma vai piano: dovrai stare più leggero nei prossimi ${d} giorni, fino allo stipendio.`, risky: (r, a) => `Rischioso: ti restano ${r} fino allo stipendio. ${a} ti manderebbero oltre.` },
+      en: { over: n => `Better not: you're already ${n} over pace before your next payday. Postpone it if you can.`, yesToday: (a, r) => `Yes: ${a} fits within today's ${r}.`, yesWeek: (a, r, d) => `Yes, but go easy: you'll need to spend less for the next ${d} days, until payday.`, risky: (r, a) => `Risky: you have ${r} left until payday. ${a} would push you over.` },
+      es: { over: n => `Mejor que no: ya vas ${n} por encima del ritmo antes de la nómina. Si puedes, aplázalo.`, yesToday: (a, r) => `Sí: ${a} entra dentro de los ${r} de hoy.`, yesWeek: (a, r, d) => `Sí, pero ve con calma: tendrás que gastar menos los próximos ${d} días, hasta la nómina.`, risky: (r, a) => `Arriesgado: te quedan ${r} hasta la nómina. ${a} te pasarían de largo.` },
+      fr: { over: n => `Mieux vaut pas : tu dépasses déjà le rythme de ${n} avant ton salaire. Reporte si tu peux.`, yesToday: (a, r) => `Oui : ${a} rentrent dans les ${r} d'aujourd'hui.`, yesWeek: (a, r, d) => `Oui, mais vas-y doucement : il faudra dépenser moins les ${d} prochains jours, jusqu'au salaire.`, risky: (r, a) => `Risqué : il te reste ${r} jusqu'au salaire. ${a} te feraient dépasser.` },
+      de: { over: n => `Besser nicht: du liegst schon ${n} über dem Tempo vor dem Gehalt. Verschieb es wenn möglich.`, yesToday: (a, r) => `Ja: ${a} passen in die heutigen ${r}.`, yesWeek: (a, r, d) => `Ja, aber geh es langsam an: die nächsten ${d} Tage bis zum Gehalt musst du weniger ausgeben.`, risky: (r, a) => `Riskant: dir bleiben ${r} bis zum Gehalt. ${a} würden das überschreiten.` },
+    };
+    const T = (isCiclo ? Tciclo : Tweek)[lang];
+    if (!sts) return { intent: 'affordability', answer: Tweek[lang].noBudget };
     if (sts.isOverBudget) return { intent: 'affordability', data: sts, answer: T.over(fmt(Math.abs(sts.weekRemaining))) };
     if (amount <= sts.safeToday) return { intent: 'affordability', data: sts, answer: T.yesToday(fmt(amount), fmt(sts.safeToday)) };
-    if (amount <= sts.weekRemaining - sts.reservedForCharges) return { intent: 'affordability', data: sts, answer: T.yesWeek(fmt(amount), fmt(sts.safeToday), sts.daysLeftInWeek - 1) };
+    if (amount <= sts.weekRemaining - sts.reservedForCharges) return { intent: 'affordability', data: sts, answer: T.yesWeek(fmt(amount), fmt(sts.safeToday), Math.max(0, sts.daysLeftInWeek - 1)) };
     return { intent: 'affordability', data: sts, answer: T.risky(fmt(Math.max(0, sts.weekRemaining)), fmt(amount)) };
   }
 
   // — "quanto posso spendere oggi?"
   if (matches('safeToSpend', qMatch)) {
-    const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: ctx.monthlyBudget, referenceDate: ref });
-    const T = {
+    const sts = unifiedSafeToSpend(ctx, monthTxs, allTx, ref);
+    const isCiclo = sts && sts.source === 'cassaUnica';
+    const Tweek = {
       it: { noBudget: 'Imposta prima un budget mensile (sezione Analisi): da lì calcolo quanto puoi spendere ogni giorno.', over: n => `Oggi meglio niente: questa settimana sei oltre di ${n}.`, ok: (t, w, d) => `Oggi puoi spendere ${t}. Ti restano ${w} per la settimana (${d} giorni).` },
       en: { noBudget: 'Set a monthly budget first (Analysis section): from there I can calculate how much you can spend each day.', over: n => `Better nothing today: you're ${n} over this week.`, ok: (t, w, d) => `You can spend ${t} today. You have ${w} left for the week (${d} days).` },
       es: { noBudget: 'Configura primero un presupuesto mensual (sección Análisis): desde ahí calculo cuánto puedes gastar cada día.', over: n => `Hoy mejor nada: esta semana estás ${n} por encima.`, ok: (t, w, d) => `Hoy puedes gastar ${t}. Te quedan ${w} para la semana (${d} días).` },
       fr: { noBudget: 'Configure d\'abord un budget mensuel (section Analyse) : à partir de là je calcule combien tu peux dépenser chaque jour.', over: n => `Aujourd'hui mieux vaut rien : cette semaine tu dépasses de ${n}.`, ok: (t, w, d) => `Aujourd'hui tu peux dépenser ${t}. Il te reste ${w} pour la semaine (${d} jours).` },
       de: { noBudget: 'Richte zuerst ein Monatsbudget ein (Bereich Analyse): von dort berechne ich, wie viel du täglich ausgeben kannst.', over: n => `Heute besser nichts: diese Woche bist du ${n} drüber.`, ok: (t, w, d) => `Heute kannst du ${t} ausgeben. Dir bleiben ${w} für die Woche (${d} Tage).` },
-    }[lang];
-    if (!sts) return { intent: 'safe-to-spend', answer: T.noBudget };
+    };
+    // Stessa frase della card "Il tuo mese, senza sorprese" (main.js,
+    // ghostPayInDays/ghostPayTomorrow) — mai un secondo modo di dirlo.
+    const Tciclo = {
+      it: { over: n => `Oggi meglio niente: sei oltre il ritmo di ${n} prima dello stipendio.`, ok: (t, w, d) => `Oggi puoi spendere ${t}. Poi ti pagano fra ${d} giorni — in tutto ${w} da qui allo stipendio.` },
+      en: { over: n => `Better nothing today: you're ${n} over pace before payday.`, ok: (t, w, d) => `You can spend ${t} today. Payday is in ${d} days — ${w} in total until then.` },
+      es: { over: n => `Hoy mejor nada: vas ${n} por encima del ritmo antes de la nómina.`, ok: (t, w, d) => `Hoy puedes gastar ${t}. Te pagan en ${d} días — en total ${w} hasta entonces.` },
+      fr: { over: n => `Aujourd'hui mieux vaut rien : tu dépasses le rythme de ${n} avant le salaire.`, ok: (t, w, d) => `Aujourd'hui tu peux dépenser ${t}. Tu es payé dans ${d} jours — ${w} au total jusque-là.` },
+      de: { over: n => `Heute besser nichts: du liegst ${n} über dem Tempo vor dem Gehalt.`, ok: (t, w, d) => `Heute kannst du ${t} ausgeben. Gehalt in ${d} Tagen — insgesamt ${w} bis dahin.` },
+    };
+    const T = (isCiclo ? Tciclo : Tweek)[lang];
+    if (!sts) return { intent: 'safe-to-spend', answer: Tweek[lang].noBudget };
     if (sts.isOverBudget) return { intent: 'safe-to-spend', data: sts, answer: T.over(fmt(Math.abs(sts.weekRemaining))) };
     return { intent: 'safe-to-spend', data: sts, answer: T.ok(fmt(sts.safeToday), fmt(sts.weekRemaining), sts.daysLeftInWeek) };
   }
 
   // — "quanto mi resta questa settimana / del budget?"
   if (matches('budgetLeft', qMatch)) {
-    const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget: ctx.monthlyBudget, referenceDate: ref });
-    const T = {
+    const sts = unifiedSafeToSpend(ctx, monthTxs, allTx, ref);
+    const isCiclo = sts && sts.source === 'cassaUnica';
+    const Tweek = {
       it: { noBudget: 'Non hai ancora un budget impostato: senza, "quanto resta" non ha una risposta vera.', over: n => `Sei oltre di ${n} questa settimana.`, ok: (w, t, d) => `${w} per questa settimana, ${t} se li spalmi sui ${d} giorni che mancano.` },
       en: { noBudget: 'You don\'t have a budget set yet: without one, "what\'s left" has no real answer.', over: n => `You're ${n} over this week.`, ok: (w, t, d) => `${w} for this week, ${t} if spread over the ${d} remaining days.` },
       es: { noBudget: 'Todavía no tienes un presupuesto configurado: sin él, "cuánto queda" no tiene una respuesta real.', over: n => `Estás ${n} por encima esta semana.`, ok: (w, t, d) => `${w} para esta semana, ${t} si lo repartes en los ${d} días que quedan.` },
       fr: { noBudget: 'Tu n\'as pas encore de budget configuré : sans ça, "combien reste" n\'a pas de vraie réponse.', over: n => `Tu dépasses de ${n} cette semaine.`, ok: (w, t, d) => `${w} pour cette semaine, ${t} si tu les étales sur les ${d} jours restants.` },
       de: { noBudget: 'Du hast noch kein Budget eingerichtet: ohne das hat "was bleibt" keine echte Antwort.', over: n => `Du bist diese Woche ${n} drüber.`, ok: (w, t, d) => `${w} für diese Woche, ${t} wenn du sie auf die ${d} verbleibenden Tage verteilst.` },
-    }[lang];
-    if (!sts) return { intent: 'budget-left', answer: T.noBudget };
+    };
+    const Tciclo = {
+      it: { over: n => `Sei oltre il ritmo di ${n}, prima dello stipendio.`, ok: (w, t, d) => `${w} fino allo stipendio (fra ${d} giorni), circa ${t} al giorno se li spalmi.` },
+      en: { over: n => `You're ${n} over pace, before payday.`, ok: (w, t, d) => `${w} until payday (in ${d} days), about ${t} a day if spread out.` },
+      es: { over: n => `Vas ${n} por encima del ritmo, antes de la nómina.`, ok: (w, t, d) => `${w} hasta la nómina (en ${d} días), unos ${t} al día si lo repartes.` },
+      fr: { over: n => `Tu dépasses le rythme de ${n}, avant le salaire.`, ok: (w, t, d) => `${w} jusqu'au salaire (dans ${d} jours), environ ${t} par jour si tu les étales.` },
+      de: { over: n => `Du liegst ${n} über dem Tempo, vor dem Gehalt.`, ok: (w, t, d) => `${w} bis zum Gehalt (in ${d} Tagen), etwa ${t} pro Tag verteilt.` },
+    };
+    const T = (isCiclo ? Tciclo : Tweek)[lang];
+    if (!sts) return { intent: 'budget-left', answer: Tweek[lang].noBudget };
     return { intent: 'budget-left', data: sts, answer: sts.isOverBudget ? T.over(fmt(Math.abs(sts.weekRemaining))) : T.ok(fmt(sts.weekRemaining), fmt(sts.safeToday), sts.daysLeftInWeek) };
   }
 

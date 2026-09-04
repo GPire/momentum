@@ -156,6 +156,40 @@ test('posso permettermi una cifra enorme → avvisa, non asseconda', () => {
   assert.ok(/Rischioso|Meglio di no/.test(r.answer));
 });
 
+// ── UNA SOLA RISPOSTA: QA e Dashboard devono raccontare lo stesso numero
+// (bug reale corretto 2026-09-04, trovato verificando a fondo un fix
+// precedente sullo stesso tema) — con uno stipendio impostato, la Dashboard
+// risponde dalla Cassa Unica (cycleAllowance): il QA deve rispondere dalla
+// STESSA fonte, mai dal motore budget-puro che darebbe un numero diverso
+// nello stesso istante. La frase, non solo il numero, deve cambiare: senza
+// una vera "settimana" di calendario a cui riferirsi, si parla di quanto
+// manca allo stipendio. ──
+test('con stipendio impostato, "quanto posso spendere oggi" risponde dalla Cassa Unica, non dal budget puro', () => {
+  const ctxConStipendio = { ...CTX, salary: { dayOfMonth: 27, amount: 1800 }, fixedCommitments: [], monthlyBudget: 1200 };
+  const r = answerQuestion('quanto posso spendere oggi?', ctxConStipendio);
+  assert.equal(r.intent, 'safe-to-spend');
+  assert.equal(r.data.source, 'cassaUnica');
+  assert.ok(r.data.safeToday > 0 && r.data.safeToday < 1200, `numero implausibile: ${r.data.safeToday}`);
+  assert.ok(!/settimana/i.test(r.answer), `non deve più parlare di "settimana" con lo stipendio attivo: "${r.answer}"`);
+  assert.ok(/stipendio/i.test(r.answer), `deve dire quanto manca allo stipendio: "${r.answer}"`);
+});
+
+test('senza stipendio impostato, "quanto posso spendere oggi" resta sul motore budget-puro (comportamento invariato)', () => {
+  const r = answerQuestion('quanto posso spendere oggi?', CTX);
+  assert.equal(r.data.source, 'budget');
+  assert.ok(/settimana/i.test(r.answer));
+});
+
+test('con stipendio impostato, un budget mensile più prudente vince (mai proporre più dello stipendio meno del budget dichiarato)', () => {
+  // Stipendio molto alto ma budget dichiarato modesto: il numero di oggi
+  // deve restare ancorato al budget, non allo stipendio (stesso bug del
+  // Cassa Unica di fixed-commitments.js, qui verificato end-to-end dal QA).
+  const ctxGeneroso = { ...CTX, allTx: { '2026-07': [] }, salary: { dayOfMonth: 27, amount: 5000 }, fixedCommitments: [], monthlyBudget: 300 };
+  const r = answerQuestion('quanto posso spendere oggi?', ctxGeneroso);
+  assert.equal(r.data.source, 'cassaUnica');
+  assert.ok(r.data.safeToday < 30, `con budget 300€/mese non deve mai avvicinarsi a una quota da 5000€/mese (era ${r.data.safeToday})`);
+});
+
 test('come chiudo il mese → proiezione con budget', () => {
   const r = answerQuestion('come chiudo il mese?', CTX);
   assert.equal(r.intent, 'month-end');
