@@ -348,6 +348,13 @@ export const RELEASES = [
         testo: 'Il selettore Essenziale/Completa, in Analisi Tensor e Momentum Vault, ora ha un\'identità visiva chiara invece di essere una riga anonima — e conferma il cambio con un piccolo rimbalzo, non solo la pillola che scorre.',
         titoloKey: 'wn0904_8_t', testoKey: 'wn0904_8_d',
       },
+      {
+        colore: 'gold',
+        icona: '<circle cx="8" cy="8" r="5"/><circle cx="16" cy="16" r="5"/><path d="M11.5 11.5l1-1"/>',
+        titolo: 'Confronta due cripto qualsiasi, non solo contro Bitcoin',
+        testo: 'Prima "quanto di questa cripto è merito sua" si misurava sempre contro Bitcoin. Ora puoi chiedere "confronta queste due cripto: Solana ed Ethereum" e la scomposizione è fra loro due, in chat.',
+        titoloKey: 'wn0904_9_t', testoKey: 'wn0904_9_d',
+      },
     ],
   },
 ];
