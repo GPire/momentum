@@ -334,6 +334,20 @@ export const RELEASES = [
         testo: 'Nuova domanda: "quando vado in pensione?" ora ha una risposta vera, calcolata sui tuoi numeri. E se hai lo stipendio impostato, la chat ti dice sempre lo stesso numero che vedi in Dashboard — mai due risposte diverse alla stessa domanda.',
         titoloKey: 'wn0904_6_t', testoKey: 'wn0904_6_d',
       },
+      {
+        colore: 'gold',
+        icona: '<path d="M18 6L6 18M6 6l12 12"/>',
+        titolo: 'Non vuoi un budget? Ora puoi dirlo, e basta',
+        testo: 'Nell\'editor del budget c\'è un\'opzione in più: "Non voglio impostare un budget". Una scelta vera, non un rinvio — non te la richiediamo più, e resta comunque cambiabile quando vuoi.',
+        titoloKey: 'wn0904_7_t', testoKey: 'wn0904_7_d',
+      },
+      {
+        colore: 'primary',
+        icona: '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+        titolo: '"Quanto vuoi vedere qui" ha finalmente un\'icona sua',
+        testo: 'Il selettore Essenziale/Completa, in Analisi Tensor e Momentum Vault, ora ha un\'identità visiva chiara invece di essere una riga anonima — e conferma il cambio con un piccolo rimbalzo, non solo la pillola che scorre.',
+        titoloKey: 'wn0904_8_t', testoKey: 'wn0904_8_d',
+      },
     ],
   },
 ];
