@@ -127,6 +127,24 @@ export const BANCO_PERSONALE = [
   { d: 'quanti soldi posso mettere sugli investimenti?', atteso: 'invest' },
 ];
 
+// Domande come le scriverebbe davvero un ragazzo (12-16 anni, linguaggio
+// da onboarding minorenne) — mai le formulazioni "da manuale" con cui i
+// pattern sono stati scritti (2026-09-05, gap trovato misurando: 31% di
+// copertura prima del fix, 100% dopo — vedi qa-engine.test.js per la
+// misura completa con contesto realistico).
+export const BANCO_RAGAZZO = [
+  { d: 'quanto posso spendere oggi senza fare casini', atteso: 'safeToSpend' },
+  { d: 'posso comprarmi le cuffie nuove da 60 euro?', atteso: 'affordability' },
+  { d: 'a che punto sono con l obiettivo console', atteso: 'goal' },
+  { d: 'quanto mi hanno dato questo mese', atteso: 'income' },
+  { d: 'quanto ho speso in totale sto mese', atteso: 'spent' },
+  { d: 'dove se ne vanno tutti i miei soldi', atteso: 'topCategory' },
+  { d: 'sto risparmiando abbastanza o no', atteso: 'savings' },
+  { d: 'quanto tengo da parte ogni mese', atteso: 'savings' },
+  { d: 'tra quanto arrivano i soldi della paghetta', atteso: 'payday' },
+  { d: 'sto spendendo troppo questo mese?', atteso: 'monthEnd' },
+];
+
 // ── CANTIERE F (PIANO_TASK_2026-08-21.md) — i banchi per mestiere ──
 // Non domande generiche di mercato o di cassa: domande come le pone chi fa
 // questi mestieri per lavoro. La quota da RIFIUTARE resta alta di proposito

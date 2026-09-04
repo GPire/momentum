@@ -740,3 +740,31 @@ test('nessun ciclo infinito quando il banco inietta un indizio', () => {
   const r = answerQuestion('frase che non somiglia a niente di riconoscibile', { ...CTX, semanticSimilarity: similarity });
   assert.ok(r && r.intent, 'deve comunque restituire qualcosa');
 });
+
+// ── GARANZIA: copertura misurata sul linguaggio da RAGAZZO (2026-09-05) ──
+// Trovato con l'analisi multi-profilo: un ragazzo/adolescente non scrive
+// domande "da manuale". Prima di questa sessione la copertura era 31% (4/13
+// nel banco di prova iniziale) — qui si blocca il risultato misurato, mai
+// sperato, come già fatto per BANCO_PERSONALE.
+test('GARANZIA: BANCO_RAGAZZO — copertura 100% con similarità lessicale attiva (nessuna regressione ammessa)', async () => {
+  const { valuta, BANCO_RAGAZZO } = await import('./qa-banco-prova.js');
+  const { similaritaLessicale } = await import('./similarita-lessicale.js');
+  const norm = (s) => String(s || '').toLowerCase().replace(/-/g, '');
+  const ctx = {
+    allTx: { '2026-09': [
+      { date: '2026-09-01', amount: 20, type: 'entrata', description: 'paghetta' },
+      { date: '2026-09-05', amount: 8, type: 'uscita', description: 'bar', category: 'Alimentari' },
+    ] },
+    referenceDate: new Date(2026, 8, 10),
+    monthlyBudget: 50,
+    savingsGoals: [{ id: 1, name: 'Console', target: null, createdAt: '2026-09-01' }],
+    semanticSimilarity: similaritaLessicale,
+  };
+  const riconosci = (d) => {
+    const r = answerQuestion(d, ctx);
+    return { intent: r.intent === 'unknown' ? null : norm(r.intent), rifiuta: false };
+  };
+  const banco = BANCO_RAGAZZO.map(c => ({ ...c, atteso: norm(c.atteso) }));
+  const r = valuta(banco, riconosci);
+  assert.equal(r.copertura, 100, `copertura scesa a ${r.copertura}%: ${r.dettaglio.filter(d => d.verdetto !== 'capita').map(d => d.domanda).join(' | ')}`);
+});

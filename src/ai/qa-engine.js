@@ -250,7 +250,7 @@ const PATTERNS = {
     de: /(in rente|ruhestand|finanzielle unabhängigkeit|aufhören zu arbeiten)/,
   },
   affordability: {
-    it: /(posso permettermi|posso spendere|ce la faccio a spendere|posso comprare)/,
+    it: /(posso permettermi|posso spendere|ce la faccio a spendere|posso comprare|posso comprarmi)/,
     en: /(can i afford|can i spend|can i buy)/,
     es: /(puedo permitirme|puedo gastar|puedo comprar)/,
     fr: /(puis-je me permettre|puis-je dépenser|puis-je acheter)/,
@@ -271,7 +271,7 @@ const PATTERNS = {
     de: /(wie viel (bleibt|habe ich noch)|was bleibt)/,
   },
   monthEnd: {
-    it: /(fine mese|chiud[oe] il mese|finisco il mese|proiezione|previsione)/,
+    it: /(fine mese|chiud[oe] il mese|finisco il mese|proiezione|previsione|spendendo troppo)/,
     en: /(end of month|how will i end|month projection)/,
     es: /(fin de mes|cómo termino el mes|proyección del mes)/,
     fr: /(fin du mois|comment vais-je finir le mois|projection du mois)/,
@@ -292,21 +292,21 @@ const PATTERNS = {
     de: /(was passiert wenn|wenn ich mehr ausgebe|wenn ich erhöhe)/,
   },
   topCategory: {
-    it: /(dove spendo|dove vanno|in cosa spendo|categoria più|top categor)/,
+    it: /(dove spendo|dove.{0,10}vanno|in cosa spendo|categoria più|top categor)/,
     en: /(where do i spend|biggest expense)/,
     es: /(dónde gasto|mayor gasto)/,
     fr: /(où je dépense|plus grosse dépense)/,
     de: /(wo gebe ich aus|größte ausgabe)/,
   },
   savings: {
-    it: /(risparmiat|messo da parte|mett(ere|o) via|messo via|risparmio)/,
+    it: /(risparmiat|messo da parte|mett(ere|o) via|messo via|tengo da parte|risparmio)/,
     en: /(how much (have i )?saved|savings)/,
     es: /(cuánto (he )?ahorrado|ahorro)/,
     fr: /(combien j.?ai économisé|épargne)/,
     de: /(wie viel habe ich gespart|ersparnis)/,
   },
   income: {
-    it: /(guadagnat|entrate|incassat|quanto (mi )?è entrato)/,
+    it: /(guadagnat|entrate|incassat|quanto (mi )?è entrato|mi hanno dato|paghetta)/,
     en: /(how much (did i )?earn|income)/,
     es: /(cuánto (he )?ganado|ingresos)/,
     fr: /(combien j.?ai gagné|revenus)/,
@@ -338,7 +338,7 @@ const PATTERNS = {
     de: /(vermögen|wie viel habe ich insgesamt)/,
   },
   payday: {
-    it: /(quando mi pagano|quanto manca (allo |al )?stipendio|prima dello stipendio|quando arriva lo stipendio)/,
+    it: /(quando mi pagano|quanto manca (allo |al )?stipendio|prima dello stipendio|quando arriva lo stipendio|arrivano.{0,25}paghetta|manca.{0,15}paghetta)/,
     en: /(when do i get paid|until (my )?(pay ?day|salary)|before (my )?(pay ?day|salary))/,
     es: /(cuándo me pagan|falta para (el )?sueldo)/,
     fr: /(quand suis-je payé|avant le salaire)/,
