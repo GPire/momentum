@@ -362,6 +362,13 @@ export const RELEASES = [
         testo: 'Domande come "quanto mi hanno dato di paghetta" o "quanto tengo da parte" ora hanno una risposta vera — prima capivamo bene solo le formulazioni più formali.',
         titoloKey: 'wn0904_10_t', testoKey: 'wn0904_10_d',
       },
+      {
+        colore: 'green',
+        icona: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
+        titolo: 'È tornata la traiettoria del mese',
+        testo: 'Se usi Momentum con un budget ma senza stipendio dichiarato, in Dashboard rivedi quanto ti resta nella settimana, cosa è già impegnato e come chiuderai il mese di questo passo. Era sparita in un redesign di agosto.',
+        titoloKey: 'wn0905_1_t', testoKey: 'wn0905_1_d',
+      },
     ],
   },
 ];

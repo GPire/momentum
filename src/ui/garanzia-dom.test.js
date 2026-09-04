@@ -56,16 +56,6 @@ const ORFANI_NOTI = {
   // era già duplicato parola per parola dentro "Quadro di mercato". Il
   // riferimento in main.js è codice morto innocuo (guardato da `if`).
   'macro-causality-panel': 'rimosso di proposito, contenuto duplicato altrove',
-  // TROVATO DA QUESTO TEST il 2026-09-05. In index.html restano NOVE regole
-  // CSS che lo stilizzano (#safe-to-spend-card .hero-num, ::before, gli stati
-  // [role="button"]…) ma l'elemento non esiste: `$('#safe-to-spend-card')`
-  // torna sempre null, e tutto il blocco `if (stsCard)` non gira mai.
-  // COSA SI PERDE davvero: NON il numero grande "Oggi puoi spendere" (quello
-  // lo disegna l'orb, e funziona), ma il DETTAGLIO sotto — quanto resta nella
-  // settimana, cosa è già impegnato, e la traiettoria di fine mese.
-  // NON viene reinserito qui: dove vada nel layout è una decisione di design
-  // che va vista in un browser, non indovinata da un test.
-  'safe-to-spend-card': 'DA DECIDERE: elemento mai inserito, il dettaglio settimana/traiettoria non si disegna',
   // Verdetto del kit di recupero: la funzione che lo cerca è guardata e
   // l'elemento nasce solo dentro un flusso che oggi non lo crea.
   'rk-verdict': 'guardato, nessun effetto visibile',
@@ -99,15 +89,40 @@ test('GARANZIA DOM: nessun NUOVO elemento fantasma oltre a quelli già documenta
     `main.js cerca elementi che non esistono da nessuna parte: ${fantasmi.join(', ')} — o li si crea, o si toglie il codice che li cerca, o si aggiungono a ORFANI_NOTI con il motivo`);
 });
 
-test('GARANZIA DOM: le regole CSS di #safe-to-spend-card restano, a memoria del pezzo mancante', () => {
-  // Se un giorno si decide di NON reinserire mai quella card, queste nove
-  // regole vanno tolte insieme al codice che la disegna: CSS che stilizza il
-  // nulla è esattamente ciò che ha reso invisibile il problema per settimane.
-  const regole = (html.match(/#safe-to-spend-card/g) || []).length;
-  const esisteElemento = /id=["']safe-to-spend-card["']/.test(html) || /id=[\\'"]safe-to-spend-card[\\'"]/.test(js);
-  if (esisteElemento) {
-    assert.ok(true, 'la card è stata reinserita: questo test ha esaurito il suo scopo, si può togliere');
-  } else {
-    assert.ok(regole > 0, 'coerenza: senza elemento e senza CSS, togliere anche il blocco if (stsCard) in main.js');
-  }
+// ── #safe-to-spend-card: da fantasma a regressione vera ──
+// Sparita in un redesign dell'11 agosto 2026 e reinserita il 2026-09-05, dopo
+// aver verificato nel codice che NON duplicava niente. Questi tre test la
+// tengono viva: se risparisce, si rompe qualcosa, subito.
+
+test('GARANZIA DOM: #safe-to-spend-card esiste davvero (non è più un fantasma)', () => {
+  assert.ok(/id=["']safe-to-spend-card["']/.test(html),
+    'la card è sparita di nuovo: il blocco `if (stsCard)` in main.js tornerebbe codice morto e settimana/impegnato/traiettoria non si disegnerebbero per nessuno');
+});
+
+test('GARANZIA DOM: #safe-to-spend-card nasce nascosta', () => {
+  // Non deve mai lampeggiare vuota al primo render: la riempie renderDashboard
+  // solo quando getDailySafeToSpend restituisce un numero.
+  const tag = html.match(/<div[^>]*id=["']safe-to-spend-card["'][^>]*>/)[0];
+  assert.ok(/\bhidden\b/.test(tag), `deve nascere con class hidden, invece: ${tag}`);
+});
+
+test('GARANZIA DOM: #safe-to-spend-card sta PRIMA della Cassa Unica, e non possono comparire insieme', () => {
+  // Ordine: è la risposta di riserva a "quanto posso spendere" per chi non ha
+  // dichiarato lo stipendio. Se la Cassa Unica c'è, vince lei e sta sotto.
+  const sts = html.indexOf('id="safe-to-spend-card"');
+  const ghost = html.indexOf('id="ghost-forecast"');
+  assert.ok(sts > 0 && ghost > 0 && sts < ghost,
+    'la card deve precedere #ghost-forecast, come nella posizione originale');
+  // La garanzia che non si sovrappongano non è nel layout ma nel dato: il
+  // numero che riempie la card è calcolato SOLO quando la Cassa Unica è spenta.
+  assert.ok(/!cassaUnicaAttiva[\s\S]{0,220}?getDailySafeToSpend/.test(js),
+    'stsPerOrb deve restare calcolato solo con `!cassaUnicaAttiva`: è ciò che impedisce due risposte alla stessa domanda');
+});
+
+test('GARANZIA DOM: la traiettoria di fine mese non ha altre case oltre a questa card', () => {
+  // monthTrajectoryFocus è l unico sguardo in avanti sul mese. Se un giorno
+  // viene usato anche altrove, questo test va aggiornato di proposito — ma
+  // finché è uno solo, perdere la card significa perdere la traiettoria.
+  const usi = (js.match(/monthTrajectoryFocus\s*\(/g) || []).length;
+  assert.equal(usi, 1, 'monthTrajectoryFocus è usato in più punti: verificare che la traiettoria non sia duplicata');
 });
