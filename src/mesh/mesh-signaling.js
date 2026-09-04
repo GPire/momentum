@@ -303,7 +303,23 @@ class MeshNode {
 
   _wireChannel(peerId, channel) {
     channel.onmessage = async (event) => {
-      const msg = JSON.parse(event.data);
+      // BUG REALE trovato dalla batteria di garanzia sul trasporto
+      // (2026-09-05, garanzia-trasporto.test.js): questo `JSON.parse` era
+      // nudo. Un messaggio troncato o corrotto — cosa NORMALE su una rete
+      // vera, e comunque sempre possibile da un peer con una versione più
+      // vecchia dell'app o malevolo — solleva un'eccezione dentro un
+      // handler `async`, quindi diventa una promise rifiutata che nessuno
+      // cattura: il messaggio si perde in silenzio e l'errore risale fuori
+      // dal nostro codice. Misurato: su venti messaggi alternati buoni e
+      // corrotti, ZERO buoni venivano consegnati.
+      // Un messaggio che non si riesce nemmeno a leggere non è un evento
+      // eccezionale da propagare: è spazzatura di rete, si scarta e si
+      // continua ad ascoltare. Il peer resta connesso — non è colpa sua se
+      // un pacchetto è arrivato rotto, e disconnetterlo peggiorerebbe le
+      // cose proprio su una rete già instabile.
+      let msg;
+      try { msg = JSON.parse(event.data); } catch (_) { return; }
+      if (!msg || typeof msg !== 'object') return;
       const entry = this.peers.get(peerId);
       if (entry) entry.lastSeen = Date.now();
 
@@ -758,8 +774,20 @@ class MeshNode {
       if (entry.channel?.readyState !== 'open') continue;
       const suoi = appartiene ? (groups || []).filter((g) => appartiene(peerId, g)) : groups;
       if (!suoi || !suoi.length) continue;
-      entry.channel.send(JSON.stringify({ type: 'split_share', groups: suoi }));
-      inviati++;
+      // BUG REALE trovato dalla batteria di garanzia sul trasporto
+      // (2026-09-05): `readyState === 'open'` NON garantisce che `send()`
+      // riesca. Fra il controllo e l'invio la connessione può essere già
+      // morta (il browser lancia InvalidStateError) — succede quando un
+      // telefono va in tasca, perde la rete o passa da Wi-Fi a 4G. Senza
+      // questo try/catch l'eccezione usciva dal ciclo e TUTTI i peer
+      // successivi non ricevevano più niente: un solo telefono morto
+      // interrompeva la sincronizzazione dell'intero gruppo, in silenzio.
+      // Il peer caduto verrà ripulito dal ciclo di riconnessione: qui si
+      // salta e si continua a servire gli altri.
+      try {
+        entry.channel.send(JSON.stringify({ type: 'split_share', groups: suoi }));
+        inviati++;
+      } catch (_) { /* canale morto fra il controllo e l'invio: si prosegue */ }
     }
     return inviati;
   }
