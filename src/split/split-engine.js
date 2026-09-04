@@ -616,13 +616,33 @@ export function unclaimedMembers(group) {
 // recenti (updatedAt). Prima unionById teneva sempre il primo → un importo
 // aggiornato su un telefono non arrivava mai agli altri. Ora converge in
 // entrambe le direzioni (A∪B = B∪A) e propaga davvero gli aggiornamenti.
+// BUG REALE trovato con la batteria di garanzia pre-rilascio (2026-09-05,
+// garanzia-rilascio.test.js): il criterio "a parità resta il primo" NON è
+// deterministico rispetto all'ordine dei due lati. Due dispositivi che
+// correggono la STESSA spesa nello stesso millisecondo producono
+// `updatedAt` identici, e allora merge(A,B) teneva 150 mentre merge(B,A)
+// teneva 200 — i due telefoni restavano in disaccordo per sempre, senza
+// nessun meccanismo che li riconciliasse. È esattamente la proprietà che un
+// CRDT deve garantire (A∪B = B∪A) e che il commento qui sopra dichiarava
+// già di avere: era vera solo finché i timestamp differivano.
+//
+// A parità di millisecondo NESSUNO può dire quale correzione sia arrivata
+// dopo — quindi non si finge di saperlo: si sceglie un vincitore ARBITRARIO
+// ma STABILE (confronto lessicografico della serializzazione), uguale su
+// ogni dispositivo a prescindere da chi sincronizza per primo. Meglio un
+// vincitore arbitrario su cui tutti concordano che uno "giusto" su cui i
+// dispositivi non si mettono mai d'accordo.
+function vinceATie(prev, x) {
+  try { return JSON.stringify(x) > JSON.stringify(prev); } catch (_) { return false; }
+}
 function unionByIdLWW(a = [], b = []) {
   const seen = new Map();
   const put = (x) => {
     const prev = seen.get(x.id);
     if (!prev) { seen.set(x.id, x); return; }
     const pAt = +prev.updatedAt || 0, xAt = +x.updatedAt || 0;
-    if (xAt > pAt) seen.set(x.id, x); // il più recente vince; a parità resta il primo
+    if (xAt > pAt) { seen.set(x.id, x); return; }   // il più recente vince
+    if (xAt === pAt && vinceATie(prev, x)) seen.set(x.id, x); // pari merito: scelta stabile
   };
   for (const x of a) put(x);
   for (const x of b) put(x);
