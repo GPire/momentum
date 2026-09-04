@@ -11972,6 +11972,17 @@ window.learnIncome = (description, kind) => {
 function renderInvestments() {
   const surplusEl = $('#invest-surplus'), noteEl = $('#invest-note'), regimeEl = $('#invest-regime'), fundBarEl = $('#invest-fund-bar');
   if (!surplusEl) return;
+  // "Cuscinetto in primo piano" (profilo-feature.js): chi ha dichiarato meno
+  // di due mesi di liquidità reale ha come primo problema NON restare a
+  // secco, non ottimizzare il rendimento — questa card (che contiene la
+  // barra del fondo d'emergenza) sale in cima ad Analisi Tensor invece di
+  // restare la 7ª cosa che vede. Un tocco di CSS (`order`), riusa la classe
+  // già esistente sulla card — mai un secondo layout da mantenere.
+  const investCardEl = $('#invest-card');
+  if (investCardEl) {
+    investCardEl.classList.toggle('order-1', !!featureVisibili(VaultDAO.state).cuscinettoInPrimoPiano);
+    investCardEl.classList.toggle('order-7', !featureVisibili(VaultDAO.state).cuscinettoInPrimoPiano);
+  }
   // media uscite/entrate e fondo (investimenti accumulati) dallo storico
   const months = {}; let invested = 0;
   for (const t of Object.values(VaultDAO.state.transactions || {}).flat()) {
