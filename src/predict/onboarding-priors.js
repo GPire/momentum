@@ -174,3 +174,32 @@ export function testoConsiglio(risk = 'bilanciato') {
 export function shouldShowAnalysisTensor(investmentPrefs) {
   return investmentPrefs?.invests !== false;
 }
+
+// ── COSA CHIEDERE DAVVERO (budget / stipendio) ──────────────────────────────
+// BUG REALE segnalato da utenti veri (2026-09-04): "premo «Parti dai miei
+// dati» e non mi chiede più né stipendio né budget". Causa: TRE ingressi
+// diversi (fine onboarding, 3 spese vere registrate, tocco esplicito su
+// "Parti dai miei dati") condividevano UN SOLO flag "chiedi una volta sola".
+// Bastava che uno consumasse il flag perché l'ingresso ESPLICITO — l'unico
+// che l'utente nota, e che significa "voglio i miei numeri veri adesso" — non
+// chiedesse più niente.
+//
+// La decisione non dipende più da "ho già chiesto?" ma dal fatto vero: il
+// numero è stato CONFERMATO dall'utente?
+//  · `monthlyBudgetAt` esiste SOLO se l'ha confermato nel suo editor (la
+//    stima derivata dall'onboarding non lo scrive mai);
+//  · `salaryProfile` esiste solo se l'ha impostato lui.
+// Funzione pura, così la regola è testabile senza DOM: main.js la usa e basta.
+export function numeriDaChiedere(state = {}, { forzato = false } = {}) {
+  const budgetConfermato = !!state.monthlyBudgetAt;
+  const stipendioImpostato = !!state.salaryProfile;
+  if (budgetConfermato && stipendioImpostato) return [];
+  // L'ingresso PROATTIVO (automatico dopo qualche spesa) non deve diventare
+  // assillante: lì il freno "una volta sola" resta. Il tocco esplicito
+  // (`forzato`) invece non è mai bloccato da quel freno.
+  if (!forzato && state.freshStartPrompted) return [];
+  const da = [];
+  if (!budgetConfermato) da.push('budget');
+  if (!stipendioImpostato) da.push('stipendio');
+  return da;
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { derivePriors, banditSeed, seedBanditState, testoConsiglio, shouldShowAnalysisTensor } from './onboarding-priors.js';
+import { derivePriors, banditSeed, seedBanditState, testoConsiglio, shouldShowAnalysisTensor, numeriDaChiedere } from './onboarding-priors.js';
 
 test('derivePriors: profili diversi → config diverse e sensate', () => {
   const cons = derivePriors('conservativo', 'breve');
@@ -244,4 +244,34 @@ test('shouldShowAnalysisTensor: nessun segnale (mai onboardato, undefined/null) 
   assert.equal(shouldShowAnalysisTensor(undefined), true);
   assert.equal(shouldShowAnalysisTensor(null), true);
   assert.equal(shouldShowAnalysisTensor({}), true);
+});
+
+// ── GARANZIE: "Parti dai miei dati" deve SEMPRE chiedere ciò che manca ──
+// Segnalazione di utenti veri (2026-09-04): "premo «Parti dai miei dati» e non
+// mi chiede più né stipendio né budget". Tre ingressi condividevano un solo
+// flag "una volta sola": bastava che un altro lo consumasse.
+test('GARANZIA: il tocco esplicito chiede budget e stipendio anche se il flag è già stato consumato', () => {
+  const stato = { freshStartPrompted: true }; // un altro ingresso ha già chiesto
+  assert.deepEqual(numeriDaChiedere(stato, { forzato: true }), ['budget', 'stipendio']);
+});
+
+test('GARANZIA: l\'ingresso proattivo invece rispetta il freno, per non diventare assillante', () => {
+  const stato = { freshStartPrompted: true };
+  assert.deepEqual(numeriDaChiedere(stato), []);
+});
+
+test('GARANZIA: non si richiede ciò che l\'utente ha già confermato', () => {
+  const soloStipendio = { monthlyBudgetAt: Date.now() };
+  assert.deepEqual(numeriDaChiedere(soloStipendio, { forzato: true }), ['stipendio']);
+  const soloBudget = { salaryProfile: { dayOfMonth: 27, amount: 1800 } };
+  assert.deepEqual(numeriDaChiedere(soloBudget, { forzato: true }), ['budget']);
+  const entrambi = { monthlyBudgetAt: Date.now(), salaryProfile: { dayOfMonth: 27, amount: 1800 } };
+  assert.deepEqual(numeriDaChiedere(entrambi, { forzato: true }), []);
+});
+
+test('GARANZIA: la stima dell\'onboarding NON conta come budget confermato', () => {
+  // seedProfileState scrive monthlyBudget (stima dal profilo di rischio) ma
+  // MAI monthlyBudgetAt: solo l'editor, cioè l'utente, scrive quel timestamp.
+  const soloStima = { monthlyBudget: 1500 };
+  assert.ok(numeriDaChiedere(soloStima, { forzato: true }).includes('budget'));
 });

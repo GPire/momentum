@@ -198,7 +198,7 @@ import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscripti
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
-import { derivePriors, seedBanditState, shouldShowAnalysisTensor } from './predict/onboarding-priors.js';
+import { derivePriors, seedBanditState, shouldShowAnalysisTensor, numeriDaChiedere } from './predict/onboarding-priors.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -2262,7 +2262,11 @@ window.dismissDemo = () => {
   VaultDAO.save();
   showToast(tCh('demoDismissedToast', __uiLang), 'success');
   renderDashboard();
-  askRealNumbersOnce();
+  // `forzato`: questo è un tocco ESPLICITO ("voglio i miei numeri, non
+  // l'esempio"), quindi la richiesta di budget/stipendio non può essere
+  // saltata perché un ALTRO ingresso aveva già consumato il flag "una volta
+  // sola" — vedi askRealNumbers.
+  askRealNumbers({ forzato: true });
 };
 
 // BUG REALE segnalato dagli utenti (2026-09-03): da qui in poi budget e
@@ -2278,15 +2282,57 @@ window.dismissDemo = () => {
 // o chi non lo clicca mai e inizia comunque a registrare spese vere (il
 // secondo caso non aveva alcun trigger prima — un utente poteva restare
 // sulla stima per settimane senza che nessuno gliela chiedesse).
-function askRealNumbersOnce() {
-  if (VaultDAO.state.freshStartPrompted) return;
+// BUG REALE segnalato da utenti veri (2026-09-04): "premo «Parti dai miei
+// dati» e non mi chiede più né stipendio né budget". Causa trovata leggendo
+// il codice: TRE ingressi diversi (fine onboarding, 3 spese vere registrate,
+// e questo tocco esplicito) condividevano UN SOLO flag `freshStartPrompted`
+// "chiedi una volta sola per dispositivo". Bastava che uno qualsiasi degli
+// altri due lo consumasse prima perché il tocco esplicito — l'unico che
+// l'utente NOTA, e l'unico che significa "voglio i miei numeri veri adesso" —
+// non chiedesse più nulla.
+//
+// Ora la domanda non dipende più da "ho già chiesto?" ma da "il numero è
+// stato CONFERMATO dall'utente?", che è il fatto vero:
+//  · `monthlyBudgetAt` esiste SOLO se l'utente ha confermato un budget nel
+//    suo editor (la stima dell'onboarding non lo scrive — verificato);
+//  · `salaryProfile` esiste solo se l'ha impostato lui.
+// Se sono già entrambi confermati non si chiede niente (prima si chiedeva
+// comunque, ogni volta, anche a chi aveva già risposto). Se manca solo uno,
+// si chiede solo quello.
+// `freshStartPrompted` resta, ma solo come freno all'ingresso PROATTIVO
+// (quello automatico dopo 3 spese): quello non deve mai diventare assillante.
+function askRealNumbers({ forzato = false } = {}) {
+  const da = numeriDaChiedere(VaultDAO.state, { forzato }); // regola pura e testata
+  if (!da.length) return;
   VaultDAO.state.freshStartPrompted = true;
   VaultDAO.save();
   setTimeout(() => {
-    window.openBudgetEditor(() => {
+    const chiediStipendio = () => {
+      if (!da.includes('stipendio')) { renderDashboard(); return; }
       window.openSalaryEditor(() => { renderDashboard(); });
-    });
+    };
+    if (!da.includes('budget')) { chiediStipendio(); return; }
+    window.openBudgetEditor(chiediStipendio);
   }, 500);
+}
+
+// ── I NUMERI VERI SPENGONO L'ESEMPIO ────────────────────────────────────────
+// BUG REALE segnalato da utenti veri (2026-09-04): "inserisco il budget e
+// quanto prendo al mese e non vengono usati, continua con i dati demo dopo
+// l'onboarding". Era vero e visibile: le spese di esempio restavano nel
+// display finché non si toccava "Parti dai miei dati" o non si registravano
+// abbastanza spese vere — quindi un utente che aveva appena dichiarato
+// budget 1200€ e stipendio 1800€ vedeva comunque 707€ di spese finte, un
+// "quanto avanza" negativo e una settimana piena di roba non sua. I suoi
+// numeri veri c'erano, ma erano confrontati con soldi inventati.
+// Chi conferma budget o stipendio ha già fatto la scelta che "Parti dai miei
+// dati" rappresenta: da lì in poi l'esempio non ha più senso e sparisce da
+// solo, senza chiedere una seconda volta la stessa cosa.
+function spegniDemoDopoNumeriVeri() {
+  if (VaultDAO.state.demoDismissed) return false;
+  VaultDAO.state.demoDismissed = true;
+  VaultDAO.state.demoTransactions = [];
+  return true;
 }
 
 // Secondo ingresso: chi non tocca mai "Parti dai miei dati" ma inizia
@@ -2299,7 +2345,7 @@ function maybeAskRealNumbersFromUsage() {
   if (VaultDAO.state.freshStartPrompted) return;
   if (realTxCount() < 3) return;
   if (!$('#modal-container')?.classList.contains('hidden')) return;
-  askRealNumbersOnce();
+  askRealNumbers(); // proattivo: rispetta il freno "una volta sola"
 }
 
 // Quota di budget giornaliero (mensile/giorni del mese) e il suo confronto
@@ -8256,6 +8302,7 @@ window.openSalaryEditor = (onDone = null) => {
     const amt = parseFloat(String($('#sal-amt').value).replace(',', '.'));
     if (!(day >= 1 && day <= 31) || !(amt > 0)) { showToast('Metti un giorno (1–31) e un importo validi.', 'error'); return; }
     VaultDAO.state.salaryProfile = { dayOfMonth: day, amount: Math.round(amt * 100) / 100, label: (detected && detected.label) || 'Stipendio' };
+    spegniDemoDopoNumeriVeri(); // stesso principio del budget: numeri veri, niente esempio
     VaultDAO.save(); haptic('medium');
     closeModal();
     showToast(`Accredito impostato: ${eur(amt)} il giorno ${day}.`, 'success');
@@ -14858,11 +14905,10 @@ const endGenesis = () => {
           // flussi hanno la priorità, aprire un editor sopra sarebbe rumore
           // nel momento sbagliato).
           if (!window.userIsMinor && !cEraUnJoinInSospeso && !cEraUnQuickAddInSospeso && !arrivaDaUnInvito) {
-            setTimeout(() => {
-              window.openBudgetEditor(() => {
-                window.openSalaryEditor(() => { renderDashboard(); });
-              });
-            }, 900);
+            // Stesso punto unico usato da "Parti dai miei dati" e dall'ingresso
+            // proattivo: una sola logica che decide COSA chiedere (solo ciò che
+            // non è ancora confermato), mai tre copie che possono divergere.
+            setTimeout(() => askRealNumbers({ forzato: true }), 400);
           }
         };
         setTimeout(chiudi, 1100);
@@ -16086,6 +16132,10 @@ function inviaDatiUtenteAiMieiDispositivi() {
       subscriptions: VaultDAO.state.subscriptions || [],
       monthlyBudget: VaultDAO.state.monthlyBudget,
       monthlyBudgetAt: VaultDAO.state.monthlyBudgetAt || 0,
+      // Sticky: viaggia solo quando è `true` e dall'altra parte non si annulla
+      // mai (vedi onUserDataReceived) — chi ha rifiutato l'esempio non deve
+      // ritrovarselo perché un altro suo dispositivo non lo sapeva.
+      demoDismissed: !!VaultDAO.state.demoDismissed,
     }, soloMieiDispositivi);
   } catch (_) {}
 }
@@ -16632,6 +16682,7 @@ window.confirmBudgetEdit = () => {
   if (!val || val <= 0) { showToast('Inserisci un importo valido.', 'error'); return; }
   VaultDAO.state.monthlyBudget = val;
   VaultDAO.state.monthlyBudgetAt = Date.now();
+  spegniDemoDopoNumeriVeri(); // un budget vero e spese finte insieme non hanno senso
   VaultDAO.save();
   closeModal();
   showToast('Budget aggiornato.', 'success');
@@ -19730,6 +19781,18 @@ function initMomentumRealAI() {
       if (esito.valore !== VaultDAO.state.monthlyBudget) {
         VaultDAO.state.monthlyBudget = esito.valore;
         VaultDAO.state.monthlyBudgetAt = esito.at;
+        cambiato = true;
+      }
+      // "Ho detto che non voglio più l'esempio" è una decisione che NON si
+      // annulla: basta che UN dispositivo l'abbia presa perché valga ovunque
+      // (vince sempre il `true`, mai il più recente). Prima questo flag non
+      // entrava affatto nella sincronizzazione: un secondo dispositivo che non
+      // aveva mai toccato "Parti dai miei dati" poteva far ricomparire le
+      // spese di esempio a chi le aveva già rifiutate — segnalato da utenti
+      // veri come "continuo ad avere dati simulati".
+      if (dati.demoDismissed && !VaultDAO.state.demoDismissed) {
+        VaultDAO.state.demoDismissed = true;
+        VaultDAO.state.demoTransactions = [];
         cambiato = true;
       }
       if (!cambiato) return;
