@@ -327,6 +327,13 @@ export const RELEASES = [
         testo: 'Corretto un calcolo che poteva mostrare più soldi disponibili di quelli scelti da te — soprattutto a cavallo di fine mese, o quando avevi impostato anche lo stipendio. Ora il numero che vedi rispetta sempre il budget che hai dichiarato.',
         titoloKey: 'wn0904_5_t', testoKey: 'wn0904_5_d',
       },
+      {
+        colore: 'purple',
+        icona: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6M8 11h6"/>',
+        titolo: 'Chiedi a Momentum capisce di più, e ora sa anche parlarti di pensione',
+        testo: 'Nuova domanda: "quando vado in pensione?" ora ha una risposta vera, calcolata sui tuoi numeri. E se hai lo stipendio impostato, la chat ti dice sempre lo stesso numero che vedi in Dashboard — mai due risposte diverse alla stessa domanda.',
+        titoloKey: 'wn0904_6_t', testoKey: 'wn0904_6_d',
+      },
     ],
   },
 ];
