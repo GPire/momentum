@@ -116,6 +116,36 @@ test('getIsoWeekStatus: settimana a cavallo di due mesi = sette giorni, budget s
   assert.ok(w.budget > unGiorno * 3, `budget settimana ${w.budget} troppo vicino a un giorno solo`);
 });
 
+// ── BUG REALE segnalato dall'utente (2026-09-04): "il budget non viene
+// diviso in modo corretto al giorno". Trovato con dati veri (Node, non solo
+// letto nel codice): il test sopra guarda la settimana-ponte da DENTRO il
+// mese vecchio (31 agosto, il mese vecchio è ancora "corrente" per la sua
+// stessa metà del calcolo) — il caso reale che rompeva tutto è l'opposto,
+// guardarla da OGGI nel mese NUOVO con il mese vecchio ormai chiuso e mai
+// speso: il suo ultimo giorno arrivava con l'INTERO riporto mensile ancora
+// "disponibile" (corretto isolatamente), sommato al budget FRESCO del mese
+// nuovo — fino al doppio del budget dichiarato per una sola settimana.
+test('getIsoWeekStatus: un mese vecchio già chiuso (mai speso) non raddoppia il budget della settimana-ponte', () => {
+  const w = getIsoWeekStatus({}, 1200, new Date(2026, 8, 4)); // ven 4 set, settimana 31 ago-6 set
+  assert.ok(w);
+  // PRIMA del fix: 1440€ (1200 di agosto mai toccato + 240 quota fresca di
+  // settembre) — quasi il DOPPIO del budget mensile per una sola settimana.
+  assert.ok(w.budget <= 1200, `budget settimana ${w.budget} non può superare l'intero budget mensile (1200)`);
+  // La quota di settembre per i suoi 6 giorni in questa settimana resta
+  // intatta: 1200 * 6/30 = 240. Agosto (chiuso) non aggiunge nulla.
+  assert.equal(w.budget, 240);
+});
+
+test('getIsoWeekStatus: stesso confine, ma il mese vecchio è stato speso regolarmente = nessun riporto fantasma', () => {
+  const agosto = [];
+  for (let d = 1; d <= 30; d++) agosto.push({ date: `2026-08-${String(d).padStart(2, '0')}`, amount: 38.7, type: 'uscita', category: 'spesa' });
+  const w = getIsoWeekStatus({ '2026-08': agosto }, 1200, new Date(2026, 8, 4));
+  // Anche qui: nessun euro di agosto (chiuso) deve ricomparire a settembre,
+  // che il mese vecchio fosse speso bene o per niente non deve importare —
+  // la settimana-ponte vede solo la quota fresca di settembre.
+  assert.equal(w.budget, 240);
+});
+
 test('getIsoWeekStatus: settimana tutta dentro un mese = stesso risultato del motore mensile', () => {
   const allTx = { '2026-07': [{ date: '2026-07-14', amount: 200, type: 'uscita', category: 'spesa' }] };
   const iso = getIsoWeekStatus(allTx, 3100, new Date(2026, 6, 15));

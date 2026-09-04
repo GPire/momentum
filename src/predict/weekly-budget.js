@@ -133,6 +133,26 @@ export function getIsoWeekStatus(allTx, monthlyBudget, referenceDate = new Date(
   for (let i = 0; i < 7; i++) giorni.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
   const mesi = [...new Set(giorni.map(d => monthKey(d)))];
 
+  // BUG REALE (segnalato dall'utente, 2026-09-04): quando la settimana vera
+  // attraversa il cambio mese, questo ciclo sommava il segmento di OGNI mese
+  // toccato — ma il segmento dell'ultimo giorno di un mese chiama
+  // `getWeeklyStatus` con QUEL giorno come riferimento, e per un mese poco
+  // speso il riporto (`rollover`) arriva lì con l'INTERO budget mensile
+  // ancora disponibile (corretto se guardato isolatamente: "non hai speso,
+  // hai ancora tutto il mese"). Sommato al budget FRESCO del mese nuovo,
+  // il risultato prometteva fino al DOPPIO del budget mensile dichiarato per
+  // una singola settimana — riprodotto dal vivo: budget 1200€, settimana
+  // 31 ago-6 set con agosto mai speso → 1440€ "liberi" quella settimana,
+  // "oggi puoi spendere" gonfiato a 480€/giorno invece di ~40€/giorno.
+  // Un mese GIÀ CHIUSO rispetto a `referenceDate` (oggi) non ha più soldi
+  // "ancora disponibili" da promettere: quel budget o è già speso (e resta
+  // comunque contato sotto in `spent`) o è semplicemente scaduto con la fine
+  // del mese — l'app non ha (né dichiara di avere) un riporto fra mesi
+  // diversi, quindi non deve inventarne uno solo per la settimana di
+  // passaggio. Contribuiscono al budget solo il mese di oggi e i mesi futuri
+  // (che comunque, essendo `isFuture`, portano già solo la quota base senza
+  // riporto — vedi getWeeklyStatus sopra).
+  const meseOggi = monthKey(referenceDate);
   let budget = 0;
   let trovato = false;
   for (const mk of mesi) {
@@ -140,7 +160,10 @@ export function getIsoWeekStatus(allTx, monthlyBudget, referenceDate = new Date(
     const { weeks } = getWeeklyStatus(allTx?.[mk] || [], monthlyBudget, giornoNelMese);
     const seg = weeks.find(w => giornoNelMese >= w.start
       && giornoNelMese <= new Date(w.end.getFullYear(), w.end.getMonth(), w.end.getDate(), 23, 59, 59, 999));
-    if (seg) { budget += seg.budget; trovato = true; }
+    if (seg) {
+      if (mk >= meseOggi) budget += seg.budget;
+      trovato = true;
+    }
   }
   if (!trovato) return null;
 
