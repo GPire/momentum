@@ -25,6 +25,7 @@ import { investableSurplus } from '../alpha/bridge.js';
 import { commitmentForecast, cycleAllowance } from '../predict/fixed-commitments.js';
 import { bnplExposure } from '../predict/bnpl.js';
 import { computeNetWorth } from '../alpha/net-worth.js';
+import { fireTargetCapital, yearsToFire } from '../predict/fire.js';
 import { monthKey } from '../core/constants.js';
 import { detectLanguage } from '../i18n/detect.js';
 import MEASURED from '../alpha/measured-assumptions.js';
@@ -240,6 +241,13 @@ const PATTERNS = {
     es: /(cuánto puedo invertir|puedo invertir|invertir este mes)/,
     fr: /(combien puis-je investir|puis-je investir|investir ce mois)/,
     de: /(wie viel kann ich investieren|kann ich investieren|diesen monat investieren)/,
+  },
+  fire: {
+    it: /(quando.{0,15}pensione|quanto manca.{0,10}pensione|indipendenza finanziaria|ritirarmi dal lavoro|smettere di lavorare)/,
+    en: /(retire early|retirement|financial independence|stop working)/,
+    es: /(jubila|independencia financiera|retirarme|dejar de trabajar)/,
+    fr: /(retraite|indépendance financière|arrêter de travailler)/,
+    de: /(in rente|ruhestand|finanzielle unabhängigkeit|aufhören zu arbeiten)/,
   },
   affordability: {
     it: /(posso permettermi|posso spendere|ce la faccio a spendere|posso comprare)/,
@@ -512,6 +520,49 @@ function answerQuestionCore(question, ctx) {
     if (n.invested > 0) parts.push(`investito ${fmt(n.invested)}`);
     if (n.liabilities > 0) parts.push(`debiti −${fmt(n.liabilities)}`);
     return { intent: 'net-worth', data: n, answer: `Il tuo patrimonio totale è ${fmt(n.total)} (${parts.join(', ')}).` };
+  }
+
+  // — "quanti anni mi mancano per la pensione / l'indipendenza finanziaria?"
+  // Riusa lo STESSO motore già in produzione per il pannello FIRE di Analisi
+  // Tensor (src/predict/fire.js + computeNetWorth, mai un secondo calcolo
+  // isolato). Gap trovato con l'analisi multi-profilo del 2026-09-04
+  // (persona "pensionato"): il motore esisteva solo come pannello UI,
+  // irraggiungibile dalla chat — chi chiedeva "quanto manca alla pensione?"
+  // riceveva un onesto "non lo so" anche se Momentum già lo sapeva calcolare.
+  if (matches('fire', qMatch)) {
+    const mesi = Object.keys(allTx);
+    let totalExp = 0, totalInc = 0;
+    mesi.forEach(m => (allTx[m] || []).forEach(t => {
+      if (t.type === 'uscita') totalExp += t.amount;
+      else if (t.type === 'entrata') totalInc += t.amount;
+    }));
+    const activeMonths = mesi.length || 1;
+    const annualExpenses = (totalExp / activeMonths) * 12;
+    const targetCapital = fireTargetCapital(annualExpenses);
+    const expectedAnnualReturn = MEASURED.spy?.buyHold?.mu ?? 0.09;
+    const netWorth = computeNetWorth({
+      transactions: allTx,
+      positions: ctx.positions || [],
+      currentPriceByTicker: ctx.currentPriceByTicker || {},
+      manualAssets: ctx.manualAssets || [],
+      liabilities: ctx.liabilities || 0,
+      asOf: ref,
+    });
+    // Contributo mensile: risparmio medio REALE (entrate-uscite), non una
+    // proiezione — stessa fonte onesta già usata dall'intento 'savings'.
+    const monthlyContribution = Math.max(0, (totalInc - totalExp) / activeMonths);
+    const fire = yearsToFire({ currentInvested: netWorth.invested, monthlyContribution, targetCapital, expectedAnnualReturn });
+    const pct = (expectedAnnualReturn * 100).toFixed(1);
+    const T = {
+      it: { noData: 'Per stimarlo mi servono almeno un mese di spese registrate.', noPath: (cap) => `Con un capitale obiettivo di ${cap} non vedo ancora un percorso: serve capitale investito o un risparmio mensile positivo da far crescere.`, ok: (y, cap, r) => `Con il tuo ritmo attuale, l'indipendenza finanziaria è a circa ${y} anni (capitale obiettivo ${cap}, rendimento reale misurato ${r}%/anno — regola del 4%, non una promessa).` },
+      en: { noData: 'I need at least a month of recorded expenses to estimate this.', noPath: (cap) => `With a target capital of ${cap} I don't see a path yet: you'd need invested capital or a positive monthly saving to grow.`, ok: (y, cap, r) => `At your current pace, financial independence is about ${y} years away (target capital ${cap}, measured real return ${r}%/year — the 4% rule, not a promise).` },
+      es: { noData: 'Para estimarlo necesito al menos un mes de gastos registrados.', noPath: (cap) => `Con un capital objetivo de ${cap} todavía no veo un camino: haría falta capital invertido o un ahorro mensual positivo para hacerlo crecer.`, ok: (y, cap, r) => `A tu ritmo actual, la independencia financiera está a unos ${y} años (capital objetivo ${cap}, rendimiento real medido ${r}%/año — la regla del 4%, no una promesa).` },
+      fr: { noData: 'Il me faut au moins un mois de dépenses enregistrées pour l\'estimer.', noPath: (cap) => `Avec un capital cible de ${cap} je ne vois pas encore de chemin : il faudrait un capital investi ou une épargne mensuelle positive à faire croître.`, ok: (y, cap, r) => `À ton rythme actuel, l'indépendance financière est à environ ${y} ans (capital cible ${cap}, rendement réel mesuré ${r}%/an — la règle des 4 %, pas une promesse).` },
+      de: { noData: 'Dafür brauche ich mindestens einen Monat erfasste Ausgaben.', noPath: (cap) => `Mit einem Zielkapital von ${cap} sehe ich noch keinen Weg: dafür bräuchtest du investiertes Kapital oder eine positive monatliche Sparrate zum Wachsen.`, ok: (y, cap, r) => `In deinem aktuellen Tempo ist die finanzielle Unabhängigkeit etwa ${y} Jahre entfernt (Zielkapital ${cap}, gemessene reale Rendite ${r}%/Jahr — die 4-%-Regel, kein Versprechen).` },
+    }[lang];
+    if (totalExp <= 0) return { intent: 'fire', answer: T.noData };
+    if (!fire.reachable) return { intent: 'fire', data: { targetCapital, netWorth, monthlyContribution }, answer: T.noPath(fmt(targetCapital)) };
+    return { intent: 'fire', data: { years: fire.years, targetCapital, netWorth, monthlyContribution, expectedAnnualReturn }, answer: T.ok(fire.years.toFixed(1), fmt(targetCapital), pct) };
   }
 
   // — "quando mi pagano?" / "quanto manca prima dello stipendio?" (riusa

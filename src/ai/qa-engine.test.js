@@ -190,6 +190,47 @@ test('con stipendio impostato, un budget mensile più prudente vince (mai propor
   assert.ok(r.data.safeToday < 30, `con budget 300€/mese non deve mai avvicinarsi a una quota da 5000€/mese (era ${r.data.safeToday})`);
 });
 
+// ── FIRE / pensione (2026-09-04, gap trovato con l'analisi multi-profilo:
+// il motore src/predict/fire.js esisteva solo come pannello UI, mai
+// raggiungibile dalla chat) ──
+test('quando andrò in pensione → intent fire, con anni stimati e capitale obiettivo', () => {
+  const allTx = {};
+  for (let m = 1; m <= 6; m++) {
+    const mk = `2026-0${m}`;
+    allTx[mk] = [
+      { date: `${mk}-05`, amount: 2000, type: 'entrata', description: 'Stipendio' },
+      { date: `${mk}-10`, amount: 1200, type: 'uscita', description: 'Varie', category: 'Alimentari' },
+    ];
+  }
+  const r = answerQuestion('quando andrò in pensione?', { allTx, referenceDate: new Date(2026, 5, 15), positions: [], manualAssets: [] });
+  assert.equal(r.intent, 'fire');
+  assert.ok(r.data.years > 0);
+  assert.ok(r.data.targetCapital > 0);
+  assert.ok(r.answer.includes('anni'));
+});
+
+test('indipendenza finanziaria in inglese/spagnolo/francese/tedesco → stesso intent', () => {
+  const ctxBase = { allTx: { '2026-06': [{ date: '2026-06-05', amount: 2000, type: 'entrata' }, { date: '2026-06-10', amount: 1200, type: 'uscita' }] }, referenceDate: new Date(2026, 5, 15), positions: [], manualAssets: [] };
+  assert.equal(answerQuestion('when can I retire early?', ctxBase).intent, 'fire');
+  assert.equal(answerQuestion('cuándo puedo jubilarme', ctxBase).intent, 'fire');
+  assert.equal(answerQuestion('à quel âge puis-je prendre ma retraite', ctxBase).intent, 'fire');
+  assert.equal(answerQuestion('wann kann ich in Rente gehen', ctxBase).intent, 'fire');
+});
+
+test('pensione: senza dati onestamente lo dice, mai un anno inventato', () => {
+  const r = answerQuestion('quando andrò in pensione?', { allTx: {}, referenceDate: new Date(2026, 5, 15) });
+  assert.equal(r.intent, 'fire');
+  assert.ok(!('years' in (r.data || {})));
+});
+
+test('pensione: senza capitale né risparmio positivo, nessun percorso inventato', () => {
+  const allTx = { '2026-06': [{ date: '2026-06-10', amount: 1200, type: 'uscita', description: 'solo spese' }] };
+  const r = answerQuestion('quando andrò in pensione?', { allTx, referenceDate: new Date(2026, 5, 15), positions: [], manualAssets: [] });
+  assert.equal(r.intent, 'fire');
+  assert.ok(!('years' in r.data));
+  assert.ok(/non vedo ancora un percorso/.test(r.answer));
+});
+
 test('come chiudo il mese → proiezione con budget', () => {
   const r = answerQuestion('come chiudo il mese?', CTX);
   assert.equal(r.intent, 'month-end');
