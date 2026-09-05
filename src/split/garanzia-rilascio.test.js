@@ -227,9 +227,16 @@ test('GARANZIA sync: una modifica di importo vince sul vecchio valore ovunque, s
 test('GARANZIA sync: correzioni SIMULTANEE (stesso millisecondo) convergono comunque, su ogni dispositivo', () => {
   const [viaggio] = scenarioCompleto();
   const spesa = viaggio.expenses.find(e => e.description === 'Cena porto');
-  const versioni = [150, 200, 175, 133.33, 99].map(a => editExpense(viaggio, spesa.id, { amount: a }));
-  const stessoIstante = versioni.every(v => v.expenses.find(e => e.id === spesa.id).updatedAt === versioni[0].expenses.find(e => e.id === spesa.id).updatedAt);
-  assert.ok(stessoIstante, 'presupposto del test: le correzioni devono avere lo stesso updatedAt');
+  // Stesso istante FORZATO, non affidato a quanto è veloce la macchina che
+  // esegue il test: editExpense usa Date.now(), e 5 chiamate di fila possono
+  // ricadere in millisecondi diversi su una macchina lenta o sotto carico —
+  // trovato flaky proprio così. Lo scenario "stesso updatedAt" va costruito,
+  // non sperato.
+  const istante = Date.now();
+  const versioni = [150, 200, 175, 133.33, 99].map(a => {
+    const v = editExpense(viaggio, spesa.id, { amount: a });
+    return { ...v, expenses: v.expenses.map(e => (e.id === spesa.id ? { ...e, updatedAt: istante } : e)) };
+  });
 
   const ordini = [[0,1,2,3,4],[4,3,2,1,0],[2,4,0,3,1],[3,0,4,2,1],[1,2,3,4,0]];
   const esiti = ordini.map(o => o.reduce((acc, i) => mergeGroups(acc, versioni[i]), viaggio).expenses.find(e => e.id === spesa.id).amount);
