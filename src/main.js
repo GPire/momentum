@@ -145,6 +145,7 @@ import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
 import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog, exportGroupData } from './split/split-engine.js';
+import { hideLocally, visibleGroups } from './split/group-membership.js';
 import { fetchHistoricalRate } from './split/exchange-rate.js';
 import { itemSplitShares } from './split/item-split.js';
 import { VALUTE_ISO4217 } from './core/iso4217.js';
@@ -3409,7 +3410,10 @@ const renderDashboard = () => {
   // quella nel Command Center desktop, mai una sola.
   const splitEls = document.querySelectorAll('#split-reminder');
   if (splitEls.length) {
-    const sr = splitReminder(VaultDAO.state.splitGroups || [], { deviceId: VaultDAO.state.deviceId, chatSeenAt: VaultDAO.state.chatSeenAt || {} });
+    // Un gruppo nascosto localmente (hideLocally) non deve tornare a
+    // reclamare attenzione dal promemoria della Dashboard: è proprio quello
+    // che l'utente ha chiesto smettendo di volerlo vedere.
+    const sr = splitReminder(visibleGroups(VaultDAO.state.splitGroups || []), { deviceId: VaultDAO.state.deviceId, chatSeenAt: VaultDAO.state.chatSeenAt || {} });
     // Quanto è fermo davvero, per la priorità della card (rilevanza-card.js):
     // solo i soldi, non i messaggi — una chat non letta non è un credito.
     window.__splitSospeso = (sr.show && sr.direction !== 'messages') ? Math.abs(+sr.amount || 0) : 0;
@@ -9050,7 +9054,9 @@ window.openSplitGroup = (openId = null) => {
   window.__splitLiveRefresh = () => render(true);
 
   const renderList = (liveSync = false) => {
-    const gs = groups();
+    // Mai i gruppi chiusi o nascosti localmente (group-membership.js): sono
+    // le due lapidi già progettate per questa lista, prima mai applicate qui.
+    const gs = visibleGroups(groups());
     const rows = gs.map(g => {
       const total = (g.expenses || []).reduce((s, e) => s + e.amount, 0);
       // Badge messaggi non visti (unreadCount, group-chat.js) — scoperta
@@ -9309,7 +9315,18 @@ window.openSplitGroup = (openId = null) => {
       VaultDAO.state.gruppiCondivisiCount = (VaultDAO.state.gruppiCondivisiCount || 0) + 1;
       VaultDAO.save(); controllaTraguardi();
     });
-    $('#sg-del')?.addEventListener('click', () => { VaultDAO.state.splitGroups = groups().filter(x => x.id !== g.id); VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true }); });
+    // BUG REALE corretto (2026-09-05): un filter() distruttivo sull'elenco
+    // locale non lascia traccia della cancellazione — se questo stesso gruppo
+    // arriva di nuovo (un altro dei TUOI dispositivi ancora non allineato, un
+    // pari che lo ri-condivide, la mesh che lo rigossippa) torna silenziosamente
+    // visibile. hideLocally() (group-membership.js) marca invece "nascosto QUI"
+    // in modo che sopravviva a ogni merge successivo (vedi mergeIntoGroups) —
+    // il gruppo e la sua storia restano intatti (nessun dato distrutto per gli
+    // altri membri), semplicemente non compaiono più nella TUA lista.
+    $('#sg-del')?.addEventListener('click', () => {
+      VaultDAO.state.splitGroups = groups().map(x => x.id === g.id ? hideLocally(x) : x);
+      VaultDAO.save(); currentId = null; render(); if (window.renderAnalysis) renderAnalysis({ skipHeavyForecast: true });
+    });
     $('#sg-export')?.addEventListener('click', () => window.exportSplitGroupCsv(g.id));
   };
 

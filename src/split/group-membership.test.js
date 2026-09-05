@@ -194,6 +194,35 @@ test('riapertura: solo chi ha creato il gruppo può riaprirlo, e mai uno già ap
   assert.match(giaAperto.motivo, /aperto/i);
 });
 
+// BUG REALE trovato e corretto (2026-09-05): hideLocally() esiste da tempo ma
+// non era mai collegato a nessuna UI — il bottone "Elimina" reale (main.js)
+// faceva un filter() distruttivo sull'elenco locale, senza nessuna lapide.
+// Sistemato: main.js ora chiama hideLocally(); ma hideLocally() da sola non
+// bastava comunque, perché mergeGroups (usato da OGNI merge, anche uno che
+// arriva dalla mesh per un aggiornamento qualunque dello stesso gruppo) non
+// riportava affatto il campo hiddenLocal nell'oggetto fuso — quindi un
+// gruppo nascosto tornava visibile al primo aggiornamento in arrivo. Corretto
+// in mergeIntoGroups (non in mergeGroups, che deve restare puro/commutativo:
+// hiddenLocal è per costruzione un fatto ASIMMETRICO, "la mia copia locale",
+// e quella distinzione esiste solo in mergeIntoGroups).
+test('NASCONDERE UN GRUPPO SOPRAVVIVE A UN AGGIORNAMENTO IN ARRIVO (bug reale corretto)', () => {
+  const base = gruppo();
+  const g = hideLocally(base);
+  assert.ok(g.hiddenLocal, 'presupposto: il gruppo è marcato nascosto');
+
+  // Un aggiornamento in arrivo qualunque sullo STESSO gruppo (stesso id di
+  // "base": una nuova spesa di un pari, o semplicemente la mia stessa copia
+  // che ripassa dalla mesh).
+  const aggiornato = addSharedExpense(base, { payer: 'm0', amount: 12, description: 'Caffè' });
+  const fuso = mergeIntoGroups([g], aggiornato).find((x) => x.id === g.id);
+
+  assert.ok(fuso.hiddenLocal, 'il gruppo deve restare nascosto dopo l\'aggiornamento in arrivo');
+  assert.equal(visibleGroups([fuso]).length, 0, 'e quindi non deve comparire nella lista visibile');
+  // Ma i dati restano intatti e intatta la storia — hideLocally() nasconde,
+  // non distrugge: la nuova spesa arrivata dal pari è comunque presente.
+  assert.ok(fuso.expenses.some((e) => e.description === 'Caffè'), 'i dati del gruppo restano intatti, solo nascosti dalla lista');
+});
+
 test('riapertura: un gruppo mai chiuso resta com era, mergeClosure non inventa campi', async () => {
   const { mergeClosure } = await import('./group-membership.js');
   assert.deepEqual(mergeClosure({ id: 'g1' }, { id: 'g1' }), {});

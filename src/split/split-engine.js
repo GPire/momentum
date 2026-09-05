@@ -746,11 +746,25 @@ export function editExpense(group, expenseId, { amount, description } = {}) {
 
 // Fonde un gruppo in arrivo dentro l'elenco locale: se esiste gia' (stesso id) lo
 // aggiorna col merge, altrimenti lo aggiunge. Ritorna il nuovo elenco.
+//
+// BUG REALE trovato e corretto (2026-09-05): `hiddenLocal` (group-membership.js
+// /hideLocally) è dichiarato esplicitamente "non una lapide condivisa" — deve
+// sopravvivere SOLO su questo dispositivo, mai propagarsi né tornare indietro.
+// Ma mergeGroups(a,b) è una funzione PURA e COMMUTATIVA (mergeGroups(A,B) deve
+// dare lo stesso risultato di mergeGroups(B,A), proprietà verificata altrove) —
+// un campo intrinsecamente ASIMMETRICO come "la mia copia locale" non può
+// viverci dentro senza romperla, e infatti non ci viveva: il campo spariva ad
+// ogni merge, quindi un gruppo nascosto tornava visibile al primo aggiornamento
+// in arrivo (anche solo una nuova spesa da un pari). La distinzione "locale
+// contro in arrivo" ha senso solo QUI, dove è reale — non dentro mergeGroups.
 export function mergeIntoGroups(groups = [], incoming) {
   if (!incoming || !incoming.id) return groups;
   const i = groups.findIndex(g => g.id === incoming.id);
   if (i === -1) return [...groups, incoming];
-  const out = groups.slice(); out[i] = mergeGroups(groups[i], incoming);
+  const locale = groups[i];
+  let fuso = mergeGroups(locale, incoming);
+  if (locale.hiddenLocal && !fuso.hiddenLocal) fuso = { ...fuso, hiddenLocal: locale.hiddenLocal };
+  const out = groups.slice(); out[i] = fuso;
   return out;
 }
 

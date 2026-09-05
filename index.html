@@ -4265,7 +4265,19 @@
              MASSIMA con scroll interno sul payoff, mai sul bottone, così il
              totale resta limitato indipendentemente da quante righe la
              contraddizione dichiarata aggiunge. -->
-        <div id="genesis-payoff" class="flex flex-col gap-2 mb-6 overflow-y-auto" style="max-height: min(38dvh, 280px)"></div>
+        <!-- BUG REALE trovato dal vivo (2026-09-05): un figlio flex-column con
+             overflow non-visible ha dimensione minima automatica ZERO per
+             specifica CSS (non "quanto il contenuto"), quindi su un viewport
+             con poco spazio verticale .genesis-step (flex column, altezza
+             FISSA — stessa classe di bug già vista e risolta per
+             .privacy-scene) lo schiacciava fin quasi a niente: le card c'erano
+             per intero nel DOM (misurato: 3357 caratteri, altezze reali di
+             60-75px ciascuna) ma il contenitore restava alto 12px — il "gran
+             finale" del primo avvio, per OGNI nuovo utente, sembrava vuoto.
+             min-height come pavimento: non annulla lo scroll interno sopra
+             (resta lo stesso rimedio di "Cosa c'è di nuovo"), impedisce solo
+             il collasso a zero quando lo spazio scarseggia. -->
+        <div id="genesis-payoff" class="flex flex-col gap-2 mb-6 overflow-y-auto" style="max-height: min(38dvh, 280px); min-height: min(30dvh, 140px)"></div>
         <div class="relative w-[148px] h-[148px] mx-auto flex items-center justify-center shrink-0">
           <svg class="haptic-ring-svg" viewBox="0 0 148 148">
             <circle cx="74" cy="74" r="65" fill="none" stroke="var(--outline)" stroke-width="4"/>
