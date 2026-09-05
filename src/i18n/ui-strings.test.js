@@ -575,7 +575,7 @@ test('t: vaultDeleteAllData traduce correttamente nelle 7 lingue (azione distrut
 // separato — trovato non tradotto da un test dal vivo dell'utente). ──
 
 test('t: tutte le chiavi tx*/catIconAria/catColorAria (form inserimento) esistono nelle 7 lingue', () => {
-  const chiavi = ['txCategorySuggested','txSecurityLabel','txAiThinking','txUseSuggestion','txTypeExpense','txTypeIncome','txTypeInvest','txAmountAria','txVoiceAria','txNumpadAria','txDelAria','txKbdHint','txSuggestNewCat','txDescPlaceholder','txDateToday','txSplit','txSplitWith','txConfirm','catIconAria','catColorAria','txFomoBadge','txFomoMessage'];
+  const chiavi = ['txCategorySuggested','txSecurityLabel','txAiThinking','txUseSuggestion','txTypeExpense','txTypeIncome','txTypeInvest','txAmountAria','txVoiceAria','txNumpadAria','txDelAria','txKbdHint','txSuggestNewCat','txDescPlaceholder','txDescPlaceholderIncome','txDescPlaceholderInvest','txDateToday','txSplit','txSplitWith','txConfirm','catIconAria','catColorAria','txFomoBadge','txFomoMessage','txCompetenzaLabel'];
   for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
     for (const k of chiavi) {
       const v = t(k, lang, 'X');

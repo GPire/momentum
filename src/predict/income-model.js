@@ -96,3 +96,42 @@ export function resolveSalary(state, allTx) {
   }
   return detectSalary(allTx);
 }
+
+// ── MESE DI COMPETENZA DELLO STIPENDIO (2026-09-05, richiesto esplicitamente
+// da feedback utenti reali) ──
+// In Italia (e non solo) il mese in cui lo stipendio ARRIVA spesso non è il
+// mese per cui è pagato: molti contratti versano entro il 5-12 del mese
+// SUCCESSIVO al lavoro svolto (competenza), il pubblico impiego tipicamente
+// il 27 dello STESSO mese lavorato. Verificato con ricerca web reale (non
+// assunto): la scadenza massima per molti CCNL è il 10 del mese dopo, alcuni
+// il 5; il pubblico impiego paga il 27 del mese corrente; il criterio fiscale
+// di cassa allargato (art. 51 TUIR) fissa un taglio analogo al 12 gennaio per
+// i redditi di fine anno — lo stesso principio "il giorno del mese decide a
+// quale periodo appartiene", non un caso isolato italiano. Stessa lezione
+// confermata dalla letteratura sulle app di budgeting: chi viene pagato una
+// volta al mese risolve il disallineamento con un giorno di inizio ciclo
+// personale, non con il calendario puro (fonti in coda al modulo).
+//
+// EURISTICA (dichiarata, non spacciata per certezza): pagato negli ultimi 6
+// giorni del mese (>=25) → competenza dello STESSO mese lavorato (schema
+// "pubblico impiego"). Pagato nei primi 15 giorni del mese → competenza del
+// mese PRECEDENTE (schema "CCNL versamento posticipato"). Nella zona centrale
+// (16-24) l'ambiguità è reale e non si forza nulla: nessun suggerimento,
+// mese di calendario invariato — onestà sui limiti, mai un'invenzione a metà
+// mese dove nessuno dei due schemi prevale chiaramente.
+// Ritorna null quando non c'è nulla da suggerire (nessuna correzione da fare).
+export function suggestSalaryCompetenceMonth(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  const day = d.getDate();
+  if (day >= 25) return null; // schema "fine mese": il mese di calendario è già quello giusto
+  if (day > 15) return null; // zona ambigua (16-24): nessun suggerimento, onestà sui limiti
+  // 1-15: probabile competenza del mese precedente.
+  const meseCompetenza = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  return { year: meseCompetenza.getFullYear(), month: meseCompetenza.getMonth() }; // month: 0-based
+}
+// Fonti (ricerca web, 2026-09-05): scadenze CCNL/pubblico impiego —
+// laleggepertutti.it/458583_perche-lo-stipendio-si-paga-il-27-del-mese,
+// fanpage.it (pagamento entro il 12 gennaio, art. 51 TUIR); pattern generale
+// pay-cycle-vs-calendario nelle app di budgeting — getfinny.app/blog/
+// budget-apps-custom-month-start, beyondbudgetapp.com/basics/different-pay-cycles.

@@ -162,7 +162,7 @@ import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
-import { resolveSalary, detectSalary, nextPayday, daysToNextPayday } from './predict/income-model.js';
+import { resolveSalary, detectSalary, nextPayday, daysToNextPayday, suggestSalaryCompetenceMonth } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
@@ -831,6 +831,15 @@ const getTxFormHTML = () => `
           <input type="date" id="tx-date-input" class="native-date-input" max="${new Date().toISOString().split('T')[0]}">
        </div>
     </div>
+    <!-- Competenza dello stipendio (2026-09-05, richiesto da feedback utenti
+         reali): visibile SOLO quando è un'entrata di categoria stipendio E il
+         giorno cade in una zona dove esiste un suggerimento reale (vedi
+         suggestSalaryCompetenceMonth, income-model.js) — mai un'assegnazione
+         silenziosa, sempre una scelta dichiarata e disattivabile con un tocco. -->
+    <button type="button" id="competenza-toggle" class="neuro-pill-btn mb-3 hidden" style="width:100%" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span id="competenza-toggle-text" class="truncate text-left"></span>
+    </button>
     </div></div>
 
   </div>
@@ -863,6 +872,12 @@ const attachFormListeners = (container, prefill = null) => {
   let rawVal = '';
   let catId = null;
   let selectedDate = new Date();
+  // Competenza stipendio (2026-09-05): null finché non c'è un suggerimento
+  // reale da mostrare; { year, month } quando c'è, con `accettato` a
+  // rispecchiare la scelta dell'utente — di default true (segue il
+  // suggerimento), un tocco sulla pillola lo spegne senza perdere il calcolo.
+  let competenzaSuggerita = null;
+  let competenzaAccettata = true;
   // BUG REALE TROVATO testando dal vivo in Chrome il deep-link quick-add
   // (src/import/quick-add-link.js): la valuta veniva estratta e validata
   // dall'URL, ma non arrivava mai al form — una transazione in sterline
@@ -957,6 +972,33 @@ const attachFormListeners = (container, prefill = null) => {
       : !catId ? tCh('txNeedCategory', __uiLang)
       : tCh('txConfirm', __uiLang);
   };
+
+  // Competenza stipendio (2026-09-05, feedback utenti reali via WhatsApp:
+  // "il netto me lo annulla a inizio mese anche se il mese contabile è
+  // diverso"). Ricalcolata a ogni cambio di tipo/categoria/data — mai un
+  // valore stantio dal tocco precedente. Visibile SOLO quando c'è davvero
+  // un suggerimento (giorno 1-15, vedi suggestSalaryCompetenceMonth): la
+  // zona di fine mese e quella ambigua (16-24) non mostrano nulla, onestà
+  // sui limiti invece di un'euristica forzata dove non è chiara.
+  const updateCompetenzaPill = () => {
+    const pill = formRoot.querySelector('#competenza-toggle');
+    const testo = formRoot.querySelector('#competenza-toggle-text');
+    if (!pill || !testo) return;
+    competenzaSuggerita = (type === 'entrata' && catId === 'stipendio')
+      ? suggestSalaryCompetenceMonth(selectedDate) : null;
+    if (!competenzaSuggerita) { pill.classList.add('hidden'); return; }
+    pill.classList.remove('hidden');
+    pill.classList.toggle('active', competenzaAccettata);
+    pill.setAttribute('aria-pressed', String(competenzaAccettata));
+    const nomeMese = new Date(competenzaSuggerita.year, competenzaSuggerita.month, 1)
+      .toLocaleDateString(__uiLocale, { month: 'long' });
+    testo.textContent = tCh('txCompetenzaLabel', __uiLang, nomeMese);
+  };
+  formRoot.querySelector('#competenza-toggle')?.addEventListener('click', () => {
+    haptic('light');
+    competenzaAccettata = !competenzaAccettata;
+    updateCompetenzaPill();
+  });
 
   // ── TASTIERINO VIVO E PREDITTIVO ──
   // A ogni cifra digitata mostra la CONSEGUENZA reale: quanto ti resta del tuo
@@ -1198,6 +1240,14 @@ const attachFormListeners = (container, prefill = null) => {
           if (stipChip) stipChip.classList.add('selected');
         }, 50);
       }
+      // BUG REALE segnalato dal vivo (2026-09-05): il placeholder della
+      // descrizione restava "Cosa hai comprato? Indovino la categoria" anche
+      // passando a Entrata/Investi — non ha senso per un incasso (categoria
+      // già auto-selezionata, non c'è nulla da indovinare) né lo stesso testo
+      // per un investimento (si indovina TRA i pochi tipi invest, non "cosa
+      // hai comprato"). Ora segue il tipo come già fa la domanda sopra.
+      if (desc) desc.placeholder = tCh(type === 'entrata' ? 'txDescPlaceholderIncome' : type === 'invest' ? 'txDescPlaceholderInvest' : 'txDescPlaceholder', __uiLang);
+      updateCompetenzaPill();
       updateAmount();
     });
   });
@@ -1680,6 +1730,7 @@ const attachFormListeners = (container, prefill = null) => {
           ? tCh('txDateToday', __uiLang)
           : selectedDate.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' });
       }
+      updateCompetenzaPill();
       updateAmount();
     };
   }
@@ -1764,7 +1815,15 @@ const attachFormListeners = (container, prefill = null) => {
 
     haptic('heavy');
     AudioSynth.play('success');
-    const k = monthKey(selectedDate);
+    // Competenza stipendio (2026-09-05, feedback utenti reali): se il
+    // suggerimento è visibile ED è stato accettato (default sì, un tocco lo
+    // spegne), la transazione si archivia nel mese di competenza suggerito
+    // invece che nel mese di calendario della data — la DATA vera resta
+    // intatta (sotto, `date: selectedDate.toISOString()`), cambia solo IN
+    // QUALE mese la ritrova chi guarda "quanto ho preso questo mese".
+    const k = (competenzaSuggerita && competenzaAccettata)
+      ? `${competenzaSuggerita.year}-${String(competenzaSuggerita.month + 1).padStart(2, '0')}`
+      : monthKey(selectedDate);
     const eraLaPrima = realTxCount() === 0;
 
     // Finestra di deduplica RISTRETTA a 15 minuti (non i 48h pensati per gli

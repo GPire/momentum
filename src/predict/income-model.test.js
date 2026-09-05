@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detectSalary, nextPayday, daysToNextPayday, resolveSalary } from './income-model.js';
+import { detectSalary, nextPayday, daysToNextPayday, resolveSalary, suggestSalaryCompetenceMonth } from './income-model.js';
 
 // Costruisce un mese di transazioni con un accredito stipendio.
 function tx(date, amount, type = 'entrata', description = 'Stipendio ACME') {
@@ -66,4 +66,36 @@ test('resolveSalary: override manuale vince sul rilevato (modificabile)', () => 
   assert.equal(r.source, 'manual');
   assert.equal(r.dayOfMonth, 5);
   assert.equal(r.amount, 2000);
+});
+
+// ── suggestSalaryCompetenceMonth (2026-09-05, richiesto da feedback utenti reali) ──
+test('suggestSalaryCompetenceMonth: pagato a inizio mese (1-15) → competenza del mese precedente', () => {
+  const r = suggestSalaryCompetenceMonth(new Date(2026, 8, 3)); // 3 settembre
+  assert.deepEqual(r, { year: 2026, month: 7 }); // agosto (0-based: 7)
+});
+
+test('suggestSalaryCompetenceMonth: pagato a fine mese (>=25) → nessuna correzione, il calendario è già giusto', () => {
+  assert.equal(suggestSalaryCompetenceMonth(new Date(2026, 7, 27)), null); // 27 agosto
+  assert.equal(suggestSalaryCompetenceMonth(new Date(2026, 7, 30)), null);
+});
+
+test('suggestSalaryCompetenceMonth: zona ambigua (16-24) → nessun suggerimento, onestà sui limiti', () => {
+  assert.equal(suggestSalaryCompetenceMonth(new Date(2026, 8, 16)), null);
+  assert.equal(suggestSalaryCompetenceMonth(new Date(2026, 8, 20)), null);
+  assert.equal(suggestSalaryCompetenceMonth(new Date(2026, 8, 24)), null);
+});
+
+test('suggestSalaryCompetenceMonth: il 15 è ancora dentro "inizio mese" (confine incluso)', () => {
+  const r = suggestSalaryCompetenceMonth(new Date(2026, 8, 15));
+  assert.deepEqual(r, { year: 2026, month: 7 });
+});
+
+test('suggestSalaryCompetenceMonth: gennaio scavalca l\'anno all\'indietro correttamente', () => {
+  const r = suggestSalaryCompetenceMonth(new Date(2026, 0, 5)); // 5 gennaio 2026
+  assert.deepEqual(r, { year: 2025, month: 11 }); // dicembre 2025
+});
+
+test('suggestSalaryCompetenceMonth: data non valida → null, mai un\'eccezione', () => {
+  assert.equal(suggestSalaryCompetenceMonth('non-una-data'), null);
+  assert.equal(suggestSalaryCompetenceMonth(new Date('invalid')), null);
 });
