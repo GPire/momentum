@@ -146,6 +146,11 @@ test('t: tutte le chiavi genesis esistono in IT/EN/ES/DE/FR — nessuna traduzio
     'genesisQ2Title', 'genesisQ2Sub', 'genesisQ2Opt1', 'genesisQ2Opt2', 'genesisQ2Opt3', 'genesisQ2Opt4',
     'genesisQ3Title', 'genesisQ3Sub', 'genesisQ3Opt1', 'genesisQ3Opt2', 'genesisQ3Opt3',
     'genesisQ4Title', 'genesisQ4Sub', 'genesisQ4Opt1', 'genesisQ4Opt2', 'genesisQ4Opt3', 'genesisQ4Opt4',
+    // Domanda condizionale Partita IVA (2026-09-05) + domanda opzionale reddito.
+    'genesisPivaEyebrow', 'genesisPivaTitle', 'genesisPivaSub', 'genesisPivaOptSi', 'genesisPivaOptNo', 'genesisPivaOptDopo',
+    'genesisPivaRegimeTitle', 'genesisPivaRegimeSub', 'genesisPivaRegimeForf', 'genesisPivaRegimeOrd', 'genesisPivaRegimeNonLoSo',
+    'payoffPivaTitleUnknown', 'payoffPivaSub', 'payoffPivaSubUnknown', 'payoffPivaForfettario', 'payoffPivaOrdinario',
+    'genesisIncomeTitle', 'genesisIncomeSub', 'genesisIncomePlaceholder', 'genesisIncomeConfirm', 'genesisIncomeSkip', 'payoffIncomeSub',
   ];
   for (const lang of ['it', 'en', 'es', 'de', 'fr', 'nl']) {
     for (const k of chiavi) {

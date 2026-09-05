@@ -8893,7 +8893,11 @@ const AVATAR_PALETTE = ['#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '
 // rendering.
 function showWhatsNewIfDue() {
   if (!shouldShowWhatsNew(VaultDAO.state)) return;
-  const releases = unseenReleases(VaultDAO.state);
+  // unseenReleases() torna in ordine cronologico CRESCENTE (contratto testato
+  // in whats-new.test.js, non toccato qui) — ma in questa schermata l'utente
+  // deve vedere per primo cosa è cambiato PIÙ DI RECENTE, non l'inizio di una
+  // cronologia lunga mesi. Si inverte solo qui, al momento di mostrarla.
+  const releases = unseenReleases(VaultDAO.state).slice().reverse();
   if (!releases.length) return;
   const overlay = document.getElementById('whats-new-overlay');
   const list = document.getElementById('whats-new-list');
@@ -14405,19 +14409,26 @@ window.genesisNext = (step, value = '') => {
     // alla domanda 3 (vedi index.html) — l'orizzonte si salva comunque qui,
     // esattamente come farebbe lo step 4, così il percorso resta uno solo.
     if (step === 'goal') window.userTimeHorizon = value;
-    // Step 5 è condiviso da due percorsi diversi (adulto → domanda 4 sulla
-    // regolarità entrate; minorenne → obiettivo di risparmio), distinti da
+    // Regolarità entrate (domanda 4/4): registrata qui, PRIMA del payoff,
+    // perché due passi facoltativi possono infilarsi in mezzo (Partita IVA
+    // condizionale, reddito dichiarato) — 'piva' e 'income' sono i due punti
+    // da cui ci si può ancora arrivare con quel valore (chi salta la P.IVA
+    // arriva a 'income' direttamente da g-step-4; chi la vede ripassa lo
+    // stesso valore intatto tramite genesisPivaHas/Regime). Chi risponde
+    // "preferisco non dirlo" salta ENTRAMBE le domande finali (richiesto
+    // esplicitamente: non ri-chiedere subito un dato più sensibile a chi ha
+    // appena declinato) e arriva dritto qui allo step 5.
+    if (step === 'piva' || step === 'income') window.userIncomeRegularity = value === '' ? null : value;
+    // Step 5 è condiviso da due percorsi diversi (adulto → in fondo alla
+    // catena sopra; minorenne → obiettivo di risparmio), distinti da
     // userIsMinor impostato sopra quando si è passati da 'minor-goal'.
-    if (step === 5) {
-      if (window.userIsMinor) window.userMinorGoalKey = value || null;
-      else window.userIncomeRegularity = value === '' ? null : value;
-    }
+    if (step === 5 && window.userIsMinor) window.userMinorGoalKey = value || null;
 
     // PRIMING PROGRESSIVO (anti-abbandono): a ogni risposta seminiamo i priori in
     // memoria (SENZA salvare: il save avviene solo alla conferma finale, per non
     // marcare "onboarded" a metà). Se l'utente completa, il motore è già caldo;
     // se torna indietro, l'ultima risposta ridefinisce i priori senza residui.
-    if (!window.userIsMinor && value !== '' && (step === 2 || step === 3 || step === 4 || step === 5)) {
+    if (!window.userIsMinor && value !== '' && (step === 2 || step === 3 || step === 4 || step === 'piva' || step === 'income')) {
       try {
         const p = derivePriors(window.userRiskProfile || 'bilanciato', window.userTimeHorizon || 'medio', window.userLiquidityMonths, window.userInvests !== false, window.userIncomeRegularity);
         VaultDAO.state.aiAggression = p.aiAggression;
@@ -14466,6 +14477,11 @@ const MINOR_GOAL_LABEL_KEYS = { console: 'minorGoalLabelConsole', telefono: 'min
 // un bottone tradotto in inglese non deve salvare un obiettivo intitolato in
 // italiano.
 const GOAL_LABEL_KEYS = { casa: 'goalLabelCasa', viaggio: 'goalLabelViaggio', auto: 'goalLabelAuto', cuscinetto: 'goalLabelCuscinetto' };
+// Quota del reddito VERO dichiarato in onboarding (window.userStatedIncome)
+// usata come budget di partenza, quando c'è — condivisa fra seedProfileState
+// (cosa si salva) e renderGenesisPayoff (cosa si mostra), un solo numero,
+// mai due formule che potrebbero scollegarsi. Vedi commento in seedProfileState.
+const GENESIS_BUDGET_SHARE = { conservativo: 0.55, bilanciato: 0.65, aggressivo: 0.75 };
 
 // La scelta dell'obiettivo non è la risposta a una domanda "di profilo":
 // si salva a parte e poi si prosegue alla domanda 4 come sempre, ripassando
@@ -14473,6 +14489,56 @@ const GOAL_LABEL_KEYS = { casa: 'goalLabelCasa', viaggio: 'goalLabelViaggio', au
 window.genesisGoalPick = (key) => {
   window.userGoalKey = key || null;
   window.genesisNext(4, window.userTimeHorizon || 'medio');
+};
+
+// ── Domanda condizionale Partita IVA (2026-09-05, richiesta esplicita) ──
+// Vista SOLO da chi ha appena detto che le entrate variano/cambiano molto
+// (g-step-4 in index.html manda 'variabile'/'irregolare' dritto a 'piva'
+// invece che a 'income') — zero attrito in più per chi con ogni probabilità
+// non ne ha bisogno. "Sì" apre una sotto-domanda sul regime, mai obbligatoria
+// ("non lo so" resta sempre disponibile, come ogni altra domanda qui).
+// L'attivazione vera (VaultDAO.state.taxRegime/taxActiveCountry/noPartitaIva)
+// avviene in seedProfileState, insieme a tutto il resto — mai prima della
+// conferma finale, stessa regola di ogni altra risposta di questo flusso.
+window.genesisPivaHas = (haPiva) => {
+  window.userHasPartitaIva = haPiva; // true | false | null ("non ancora, magari dopo")
+  if (haPiva) { window.genesisNext('piva-regime', ''); return; }
+  window.genesisNext('income', window.userIncomeRegularity);
+};
+window.genesisPivaRegime = (regime) => {
+  window.userPartitaIvaRegime = regime || null; // 'forfettario' | 'ordinario' | null (non lo so)
+  window.genesisNext('income', window.userIncomeRegularity);
+};
+
+// ── Domanda facoltativa sul reddito mensile reale (2026-09-05, richiesta
+// esplicita: "non mi piace dare stime se l'utente vuole dire il vero dato") ──
+// Un solo campo numerico, sempre saltabile — è la prima volta che l'onboarding
+// chiede un numero invece di un tocco, quindi l'uscita "salta" resta il più
+// visibile possibile (stesso principio "non lo so mai senza penalità" delle
+// altre domande). Il numero, se c'è, sostituisce la stima a bucket per
+// profilo di rischio con un budget calcolato sul reddito VERO (vedi
+// seedProfileState) — mai il contrario, mai una stima spacciata per reale.
+window.genesisIncomeSubmit = () => {
+  const el = document.getElementById('genesis-income-input');
+  const v = Math.round(+el?.value || 0);
+  window.userStatedIncome = v > 0 ? v : null;
+  window.genesisNext(5, '');
+};
+window.genesisIncomeSkip = () => {
+  window.userStatedIncome = null;
+  window.genesisNext(5, '');
+};
+// Chi risponde "preferisco non dirlo" alla domanda sulla regolarità entrate
+// (g-step-4) salta DIRITTO al payoff, senza P.IVA né reddito — richiesto
+// esplicitamente: non ri-chiedere subito un dato più sensibile a chi ha
+// appena declinato. Funzione dedicata invece di sovraccaricare il parametro
+// `value` di genesisNext(5, ...): sia questo percorso sia genesisIncomeSubmit
+// /Skip chiamano genesisNext(5, '') per lo stesso motivo (nessun dato utile
+// da passare a quel punto) — un `value==='' → azzera incomeRegularity`
+// dentro genesisNext avrebbe cancellato una risposta già raccolta.
+window.genesisSkipEntrate = () => {
+  window.userIncomeRegularity = null;
+  window.genesisNext(5, '');
 };
 
 function renderGenesisPayoff() {
@@ -14520,9 +14586,17 @@ function renderGenesisPayoff() {
   const CHIAVI_CONSIGLIO = { conservativo: 'payoffAdviceSaver', bilanciato: 'payoffAdviceBalanced', aggressivo: 'payoffAdviceOptimizer' };
   const modo = LABEL_FRENO_KEYS[p.aiAggression] ? p.aiAggression : 'advisor';
   const descrizioneFreno = tCh(BRAKE_DESC_KEYS[modo], __uiLang).split('.')[0] + '.';
+  // Budget: un numero vero batte una stima (stessa formula di
+  // seedProfileState, GENESIS_BUDGET_SHARE condivisa — mai due calcoli che
+  // potrebbero raccontare due cose diverse).
+  const statedIncome = +window.userStatedIncome || 0;
+  const budgetReale = statedIncome > 0 ? Math.round(statedIncome * (GENESIS_BUDGET_SHARE[p.risk] ?? 0.65)) : p.monthlyBudget;
   const righe = [
-    card('green', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-      tCh('payoffBudgetTitle', __uiLang, formatMoney(p.monthlyBudget)), tCh('payoffBudgetSub', __uiLang)),
+    statedIncome > 0
+      ? card('green', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+          tCh('payoffIncomeTitle', __uiLang, formatMoney(budgetReale)), tCh('payoffIncomeSub', __uiLang))
+      : card('green', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+          tCh('payoffBudgetTitle', __uiLang, formatMoney(budgetReale)), tCh('payoffBudgetSub', __uiLang)),
     card('gold', '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>',
       tCh('payoffBrakeTitle', __uiLang, tCh(LABEL_FRENO_KEYS[modo], __uiLang)), descrizioneFreno),
     card('primary', '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
@@ -14546,6 +14620,17 @@ function renderGenesisPayoff() {
   if (p.incomeRegularity === 'irregolare') {
     righe.push(card('gold', '<path d="M3 3v18h18M7 14l4-4 3 3 5-6"/>',
       tCh('payoffIrregularTitle', __uiLang), tCh('payoffIrregularSub', __uiLang)));
+  }
+  // Partita IVA (domanda condizionale, 2026-09-05): una riga SOLO se ha
+  // detto "sì" — "no"/"non ancora" non cambiano nulla per chi risponde così,
+  // niente da aggiungere (stesso principio delle altre righe condizionali
+  // sopra: il payoff mostra cosa È CAMBIATO, non ogni risposta data).
+  if (window.userHasPartitaIva === true) {
+    const REGIME_LABEL_KEYS = { forfettario: 'payoffPivaForfettario', ordinario: 'payoffPivaOrdinario' };
+    const regimeKey = REGIME_LABEL_KEYS[window.userPartitaIvaRegime];
+    righe.push(card('gold', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
+      regimeKey ? tCh('payoffPivaTitle', __uiLang, tCh(regimeKey, __uiLang)) : tCh('payoffPivaTitleUnknown', __uiLang),
+      regimeKey ? tCh('payoffPivaSub', __uiLang) : tCh('payoffPivaSubUnknown', __uiLang)));
   }
   el.innerHTML = righe.join('');
 }
@@ -14850,8 +14935,37 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   if (!VaultDAO.state.uiComplexitySetByUser) {
     VaultDAO.state.uiComplexity = (ageBracket === '18-25' || p.cashflowStress === 'corto') ? 'essenziale' : 'completo';
   }
-  VaultDAO.state.monthlyBudget = p.monthlyBudget;
+  // BUDGET: un numero vero batte una stima (richiesto esplicitamente, 2026-
+  // 09-05) — se l'utente ha detto il proprio reddito reale (domanda
+  // facoltativa, sempre saltabile), il budget si calcola su QUELLO invece che
+  // sul bucket fisso per profilo di rischio (1000/1500/2200€, indipendente da
+  // qualunque reddito vero). BUDGET_SHARE resta una quota dichiarata come
+  // punto di partenza (stesso "lo aggiusti quando vuoi" del bucket), non una
+  // pretesa di precisione: chi rischia di più tiene una quota più alta come
+  // discrezionale, chi è prudente ne mette via di più fin da subito.
+  const statedIncome = +window.userStatedIncome || 0;
+  if (statedIncome > 0) {
+    VaultDAO.state.monthlyBudget = Math.round(statedIncome * (GENESIS_BUDGET_SHARE[p.risk] ?? 0.65));
+    VaultDAO.state.statedMonthlyIncome = statedIncome;
+  } else {
+    VaultDAO.state.monthlyBudget = p.monthlyBudget;
+  }
   VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests, incomeRegularity: p.incomeRegularity };
+  // PARTITA IVA (domanda condizionale, 2026-09-05): riusa GLI STESSI due campi
+  // che tax.js legge ovunque (window.setTaxRegime in main.js) — un solo posto
+  // di verità, nessun secondo motore fiscale per l'onboarding. "Non lo so" sul
+  // regime lascia i campi non impostati apposta: niente forfettario indovinato,
+  // la card di scoperta già esistente (#tax-discover-card) inviterà a
+  // sceglierlo quando vuole, la stessa esperienza di chi non ha risposto a
+  // nulla. Il toast/i re-render di setTaxRegime non si chiamano qui: durante
+  // l'onboarding non c'è ancora nulla da ri-disegnare, e il payoff sotto
+  // mostra già la conferma vera.
+  if (window.userHasPartitaIva === true && (window.userPartitaIvaRegime === 'forfettario' || window.userPartitaIvaRegime === 'ordinario')) {
+    VaultDAO.state.taxRegime = window.userPartitaIvaRegime;
+    VaultDAO.state.taxActiveCountry = 'it';
+  } else if (window.userHasPartitaIva === false) {
+    VaultDAO.state.noPartitaIva = true;
+  }
   // OBIETTIVO DICHIARATO IN ONBOARDING (domanda dinamica, 2026-09-04): chi ha
   // detto di avere un progetto concreto se lo ritrova già dentro Momentum,
   // non deve ricrearlo a mano. Stesso sistema savingsGoals del percorso

@@ -2883,7 +2883,16 @@
 
     /* === GENESIS ONBOARDING === */
     #genesis-container { position: fixed; inset: 0; z-index: 9999; bg: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: #000; }
-    .genesis-step { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(30px); text-align: center; padding: 2rem; }
+    /* overflow-y:auto — rete di sicurezza (2026-09-05). #genesis-ui ha
+       un'altezza FISSA (h-96, 384px): un passo con più contenuto del solito
+       (es. il payoff con 6 righe invece delle 2 minime) può superarla, e
+       senza uno scroll proprio il contenuto in eccesso sbordava fuori dal
+       box invece di restare raggiungibile — su un viewport reale corto
+       (bug reale già segnalato una volta su iPhone in questo stesso punto,
+       vedi commento su #g-step-5 sotto) il bottone ENTRA poteva finire oltre
+       il bordo visibile dello schermo, non solo del box. Innocuo per ogni
+       passo più corto di 384px: nessuna barra di scorrimento appare mai lì. */
+    .genesis-step { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(30px); text-align: center; padding: 2rem; overflow-y: auto; }
     .genesis-step.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
     .genesis-step.past { opacity: 0; transform: translateY(-30px); }
     /* IL BOTTONE SCHIACCIATO — bug trovato dall'utente e confermato misurando
@@ -4239,10 +4248,51 @@
         <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2" data-i18n-key="genesisProgress4Last">Domanda 4 di 4 — l'ultima</p>
         <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisQ4Title">Le tue entrate, come arrivano?</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisQ4Sub">Stipendio fisso o più imprevedibili — cambia quanto cuscinetto ti serve davvero.</p>
-        <button class="g-option" style="--i:1" onclick="genesisNext(5, 'regolare')" data-i18n-key="genesisQ4Opt1">Sempre uguali, ogni mese</button>
-        <button class="g-option" style="--i:2" onclick="genesisNext(5, 'variabile')" data-i18n-key="genesisQ4Opt2">Variano un po', ma prevedibili</button>
-        <button class="g-option" style="--i:3" onclick="genesisNext(5, 'irregolare')" data-i18n-key="genesisQ4Opt3">Cambiano molto, mese per mese</button>
-        <button class="g-option" style="--i:4" onclick="genesisNext(5, '')" data-i18n-key="genesisQ4Opt4">Preferisco non dirlo</button>
+        <!-- Le due domande finali si attivano SOLO in base alla risposta data
+             qui, mai per tutti a prescindere (richiesto esplicitamente,
+             2026-09-05): 'regolare' va a 'income' (chi ha uno stipendio fisso
+             è il caso più comune, vale la pena chiedere il numero vero);
+             'variabile'/'irregolare' passano prima da 'piva' (segnale di
+             lavoro autonomo) e poi comunque a 'income'; chi ha appena detto
+             "preferisco non dirlo" qui NON viene subito ri-interrogato su un
+             dato ancora più sensibile — salta dritto al payoff. -->
+        <button class="g-option" style="--i:1" onclick="genesisNext('income', 'regolare')" data-i18n-key="genesisQ4Opt1">Sempre uguali, ogni mese</button>
+        <button class="g-option" style="--i:2" onclick="genesisNext('piva', 'variabile')" data-i18n-key="genesisQ4Opt2">Variano un po', ma prevedibili</button>
+        <button class="g-option" style="--i:3" onclick="genesisNext('piva', 'irregolare')" data-i18n-key="genesisQ4Opt3">Cambiano molto, mese per mese</button>
+        <button class="g-option" style="--i:4" onclick="window.genesisSkipEntrate()" data-i18n-key="genesisQ4Opt4">Preferisco non dirlo</button>
+      </div>
+      <!-- Step condizionale Partita IVA (2026-09-05, richiesto esplicitamente):
+           solo chi ha appena detto che le entrate variano/cambiano molto la
+           vede. "Sì" apre la sotto-domanda sul regime; "No"/"Non ancora"
+           saltano dritti alla domanda sul reddito — mai un vicolo cieco. -->
+      <div class="genesis-step" id="g-step-piva">
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-2" data-i18n-key="genesisPivaEyebrow">Un'ultima cosa</p>
+        <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisPivaTitle">Hai la Partita IVA?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisPivaSub">Se sì, attivo subito tasse e fatture su misura per te.</p>
+        <button class="g-option" style="--i:1" onclick="window.genesisPivaHas(true)" data-i18n-key="genesisPivaOptSi">Sì</button>
+        <button class="g-option" style="--i:2" onclick="window.genesisPivaHas(false)" data-i18n-key="genesisPivaOptNo">No</button>
+        <button class="g-option" style="--i:3" onclick="window.genesisPivaHas(null)" data-i18n-key="genesisPivaOptDopo">Non ancora, magari dopo</button>
+      </div>
+      <!-- Sotto-domanda: solo da "Sì" sopra — stesso pattern di g-step-goal. -->
+      <div class="genesis-step" id="g-step-piva-regime">
+        <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisPivaRegimeTitle">Che regime?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisPivaRegimeSub">Se non lo sai, va benissimo: lo scegli con calma quando vuoi.</p>
+        <button class="g-option" style="--i:1" onclick="window.genesisPivaRegime('forfettario')" data-i18n-key="genesisPivaRegimeForf">Forfettario</button>
+        <button class="g-option" style="--i:2" onclick="window.genesisPivaRegime('ordinario')" data-i18n-key="genesisPivaRegimeOrd">Ordinario</button>
+        <button class="g-option" style="--i:3" onclick="window.genesisPivaRegime(null)" data-i18n-key="genesisPivaRegimeNonLoSo">Non lo so</button>
+      </div>
+      <!-- Domanda facoltativa sul reddito reale (2026-09-05, richiesto
+           esplicitamente: "un numero vero batte una stima"). Primo (e unico)
+           campo numerico di tutto l'onboarding — l'uscita "salta" resta il
+           bottone più prominente dopo il campo, mai un obbligo di rispondere. -->
+      <div class="genesis-step" id="g-step-income">
+        <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisIncomeTitle">Quanto guadagni al mese, se vuoi dirmelo?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisIncomeSub">Un numero vero batte una stima — ma va benissimo anche saltare.</p>
+        <input type="number" inputmode="decimal" min="0" step="1" id="genesis-income-input"
+          class="w-full text-center text-2xl font-black bg-transparent border-b-2 border-[var(--outline)] focus:border-[var(--primary)] outline-none py-2 mb-4 text-[var(--on-surface)]"
+          data-i18n-placeholder="genesisIncomePlaceholder" placeholder="Es. 1800" />
+        <button class="g-option" style="--i:1" onclick="window.genesisIncomeSubmit()" data-i18n-key="genesisIncomeConfirm">Continua</button>
+        <button class="g-option" style="--i:2" onclick="window.genesisIncomeSkip()" data-i18n-key="genesisIncomeSkip">Preferisco non dirlo</button>
       </div>
       <!-- Step 5 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
       <div class="genesis-step" id="g-step-5">
