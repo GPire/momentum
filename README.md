@@ -6,7 +6,7 @@
 
 **No server. No subscription. Nothing leaves your phone.**
 
-[![tests](https://img.shields.io/badge/tests-4162%20passing-brightgreen)](#verify-it-yourself-30-seconds)
+[![tests](https://img.shields.io/badge/tests-4599%20passing-brightgreen)](#verify-it-yourself-30-seconds)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#the-one-thing-that-makes-it-different)
 [![no cloud](https://img.shields.io/badge/cloud-none-blue)](#the-one-thing-that-makes-it-different)
 [![PWA](https://img.shields.io/badge/PWA-offline%20first-blue)](#works-with-no-signal)
@@ -153,7 +153,7 @@ Don't take the claims. Run them.
 
 ```bash
 npm install
-npm test      # 4162 tests, node --test src/
+npm test      # 4599 tests, node --test src/
 ```
 
 Every capability above has tests next to the code. The Swiss QR-bill is checked against the official SIX examples; the tax rates carry the date they were verified and the source; the AI numbers regenerate with `npm run bench:*`.
@@ -163,7 +163,7 @@ Every capability above has tests next to the code. The Swiss QR-bill is checked 
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4162 tests
+npm test                  # 4599 tests
 npm run build             # multi-file PWA in dist/
 npm run build:singlefile  # single ~575KB HTML file
 ```
@@ -216,6 +216,7 @@ Trust is built by what a project admits, not by what it claims.
 
 ## Documentation
 
+- **[AGENTS.md](AGENTS.md)** — **start here if you're picking up development** (human or AI): non-negotiable rules, verified code map, declared limits, and the traps already paid for. Every claim in it is checked against the real code, never written from memory. `CLAUDE.md` points to the same file, so every tool reads one source of truth.
 - **[VERSIONI.md](VERSIONI.md)** — per-component version manifest; versions are earned with measured leaps, never with labels.
 - **[PIANO_MOMENTUM.md](PIANO_MOMENTUM.md)** — development plan, phase status, gap list.
 - **[NEUROSYM.md](NEUROSYM.md)** — the reasoning architecture, including what it explicitly is *not*.

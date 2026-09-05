@@ -6,7 +6,7 @@
 
 **Nessun server. Nessun abbonamento. Niente esce dal tuo telefono.**
 
-[![test](https://img.shields.io/badge/test-4162%20verdi-brightgreen)](#verificalo-tu-30-secondi)
+[![test](https://img.shields.io/badge/test-4599%20verdi-brightgreen)](#verificalo-tu-30-secondi)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
 [![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
 [![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
@@ -153,7 +153,7 @@ Non fidarti delle affermazioni. Eseguile.
 
 ```bash
 npm install
-npm test      # 4162 test, node --test src/
+npm test      # 4599 test, node --test src/
 ```
 
 Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizzera è confrontata con gli esempi ufficiali SIX; le aliquote portano la data in cui sono state verificate e la fonte; i numeri dell'AI si rigenerano con `npm run bench:*`.
@@ -163,7 +163,7 @@ Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizze
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4162 test
+npm test                  # 4599 test
 npm run build             # PWA multi-file in dist/
 npm run build:singlefile  # singolo file HTML ~575KB
 ```
@@ -216,6 +216,7 @@ La fiducia si costruisce con quello che un progetto ammette, non con quello che 
 
 ## Documentazione
 
+- **[AGENTS.md](AGENTS.md)** — **parti da qui se subentri nello sviluppo** (persona o AI): regole non negoziabili, mappa del codice verificata, limiti dichiarati e trappole già pagate. Ogni affermazione è controllata contro il codice reale, mai scritta a memoria. `CLAUDE.md` punta allo stesso file, così ogni strumento legge una sola fonte di verità.
 - **[VERSIONI.md](VERSIONI.md)** — manifesto delle versioni per componente: le versioni si guadagnano con salti reali misurati, mai con le etichette.
 - **[PIANO_MOMENTUM.md](PIANO_MOMENTUM.md)** — piano di sviluppo, stato delle fasi, gap list.
 - **[NEUROSYM.md](NEUROSYM.md)** — l'architettura di ragionamento, compreso ciò che dichiaratamente *non* è.
