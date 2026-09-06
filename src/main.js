@@ -4669,6 +4669,12 @@ const renderAnalysis = (opts = {}) => {
 // renderTaxCashBlocks ogni volta che la card fiscale si ridisegna, così il
 // bottone inline non deve serializzare oggetti complessi in un onclick.
 let __f24State = null;
+// Righe F24 dell'ultima apertura del modale, tenute a portata di mano per
+// window.openF24Guidato (2026-09-06): evita di ricalcolarle una seconda
+// volta con una logica duplicata solo per passare da vista-elenco a
+// vista-guidata — stessi identici oggetti, mai un secondo calcolo.
+let __f24RigheCorrenti = [];
+let __f24TotaleCorrente = 0;
 // true quando la card fiscale ha un motivo REALE di attenzione (scadenza
 // saltata o cassa a rischio prima di una scadenza) — legge renderTax per
 // accendere un piccolo segnale discreto sull'icona della card esistente,
@@ -5150,7 +5156,7 @@ window.openVersamentiFiscali = () => {
 
 window.openF24Precompilato = () => {
   const s = __f24State;
-  if (!s) { showToast('Nessuna scadenza fiscale da preparare al momento.', 'info'); return; }
+  if (!s) { showToast(tCh('f24Empty', __uiLang), 'info'); return; }
   const rigImposte = righeF24Imposte(s.deadlines, { regime: s.regime, annualizedRevenue: s.annualizedRevenue, opts: {
     cassaPropria: VaultDAO.state.taxCassaPropria || null,
     altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
@@ -5165,6 +5171,8 @@ window.openF24Precompilato = () => {
   }
   const righe = [...rigImposte, ...rigIva].sort((a, b) => new Date(a.scadenza) - new Date(b.scadenza));
   const { totale, pronto } = f24Riepilogo(righe);
+  __f24RigheCorrenti = righe;
+  __f24TotaleCorrente = totale;
 
   const testoCopiabile = righe.map((r) =>
     `${r.sezione} · codice ${r.codiceTributo} · anno ${r.annoRiferimento} · ${formatMoney(r.importo)} · scadenza ${r.scadenza} — ${r.etichetta}`
@@ -5174,10 +5182,10 @@ window.openF24Precompilato = () => {
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M9 12h6M9 16h6M9 8h1M13 8h3M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>', '--primary')}
       <div>
-        <h3 class="text-lg font-black leading-tight">F24 pronto da copiare</h3>
-        <p class="card-sub !mb-0 mt-1.5">Codici tributo veri, righe pronte per l'home banking o il modello F24 web dell'Agenzia. Momentum non trasmette nulla: lo versi tu, in un attimo invece di doverlo capire da zero.</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('f24Title', __uiLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('f24Sub', __uiLang)}</p>
       </div>
-      ${!pronto ? `<div class="text-[12px] text-[var(--on-surface-secondary)]">Niente da preparare al momento: nessuna scadenza con un importo da versare.</div>` : `
+      ${!pronto ? `<div class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('f24Empty', __uiLang)}</div>` : `
       <div class="w-full flex flex-col gap-2 text-left">
         ${righe.map((r) => `
         <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-3">
@@ -5189,23 +5197,69 @@ window.openF24Precompilato = () => {
           ${r.nota ? `<div class="text-[10px] text-amber-300/80 mt-1.5 leading-snug">${escapeHtml(r.nota)}</div>` : ''}
         </div>`).join('')}
         <div class="flex items-center justify-between px-1 pt-1">
-          <span class="text-[11px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">Totale</span>
+          <span class="text-[11px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${tCh('f24Total', __uiLang)}</span>
           <span class="font-mono font-black">${formatMoney(totale)}</span>
         </div>
       </div>
-      <button id="f24-copy" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Copia tutte le righe</button>
-      <button onclick="window.openRegistraVersamento(${totale}, 'F24 da ${formatMoney(totale)}')" class="btn-action w-full py-3 text-xs rounded-xl">L'ho versato</button>
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Sono STIME sui dati che hai in Momentum, non una dichiarazione: verificale col commercialista prima di versare, soprattutto se hai anche altre entrate o crediti d'imposta fuori dall'app.</p>
+      <button id="f24-copy" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('f24CopyBtn', __uiLang)}</button>
+      <button onclick="window.openF24Guidato(0)" class="btn-action w-full py-3 text-xs rounded-xl">${tCh('f24GuideBtn', __uiLang)}</button>
+      <button onclick="window.openRegistraVersamento(${totale}, 'F24 da ${formatMoney(totale)}')" class="btn-action w-full py-3 text-xs rounded-xl">${tCh('f24PaidBtn', __uiLang)}</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('f24Disclaimer', __uiLang)}</p>
       `}
     </div>`);
   document.getElementById('f24-copy')?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(testoCopiabile);
-      showToast('Righe F24 copiate — incollale dove preferisci per tenerle a portata di mano.', 'success');
+      showToast(tCh('f24CopiedToast', __uiLang), 'success');
     } catch {
       showToast('Copia non riuscita: seleziona il testo manualmente.', 'error');
     }
   });
+};
+
+// GUIDA CAMPO PER CAMPO (2026-09-06, il pezzo che mancava per rendere l'F24
+// davvero autonomo): mostra UNA riga alla volta con i nomi UFFICIALI dei
+// campi del modulo F24 (Sezione, Codice tributo, Rateazione/regione/prov./
+// mese rif., Anno di riferimento, Importi a debito versati — verificati via
+// specifiche tecniche Agenzia delle Entrate, mai inventati) affiancati al
+// valore esatto da scrivere. Il campo "Rateazione" non ha un valore certo
+// univoco (dipende da pagamento unico o a rate, mai indovinato: si spiega
+// la regola invece di affermare un numero) — stessa disciplina di ogni
+// altro "non lo sappiamo, ma sappiamo dirti come deciderlo tu" del progetto.
+window.openF24Guidato = (indice) => {
+  const righe = __f24RigheCorrenti;
+  const n = righe.length;
+  if (!n) { window.closeModal(); return; }
+  const i = Math.max(0, Math.min(indice, n - 1));
+  const r = righe[i];
+  const ultima = i === n - 1;
+  const campo = (label, valore, hint) => `
+    <div class="w-full rounded-xl border border-[var(--glass-border)] bg-black/20 px-4 py-3 text-left">
+      <div class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${escapeHtml(label)}</div>
+      <div class="font-mono font-black text-lg mt-0.5">${escapeHtml(String(valore))}</div>
+      ${hint ? `<div class="text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-snug">${escapeHtml(hint)}</div>` : ''}
+    </div>`;
+  window.openModal(`
+    <div class="flex flex-col gap-3 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${tl1Icon('<path d="M9 12h6M9 16h6M9 8h1M13 8h3M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>', '--primary')}
+      <div>
+        <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-1">${tCh('f24GuideRowLabel', __uiLang, i + 1, n)}</p>
+        <h3 class="text-base font-black leading-tight">${escapeHtml(r.etichetta)}</h3>
+      </div>
+      <div class="w-full flex flex-col gap-2">
+        ${campo(tCh('f24FieldSezione', __uiLang), r.sezione)}
+        ${campo(tCh('f24FieldCodice', __uiLang), r.codiceTributo)}
+        ${campo(tCh('f24FieldRateazione', __uiLang), '—', tCh('f24FieldRateazioneHint', __uiLang))}
+        ${campo(tCh('f24FieldAnno', __uiLang), r.annoRiferimento)}
+        ${campo(tCh('f24FieldImporto', __uiLang), formatMoney(r.importo))}
+      </div>
+      <div class="w-full flex items-center gap-2">
+        ${i > 0 ? `<button onclick="window.openF24Guidato(${i - 1})" class="btn-action flex-1 py-3 text-xs rounded-xl">${tCh('f24GuideBack', __uiLang)}</button>` : ''}
+        ${!ultima
+          ? `<button onclick="window.openF24Guidato(${i + 1})" class="btn-action btn-primary flex-1 py-3 text-xs rounded-xl">${tCh('f24GuideNext', __uiLang)}</button>`
+          : `<button onclick="window.openRegistraVersamento(${__f24TotaleCorrente}, 'F24 da ${formatMoney(__f24TotaleCorrente)}')" class="btn-action btn-primary flex-1 py-3 text-xs rounded-xl">${tCh('f24GuideDone', __uiLang)}</button>`}
+      </div>
+    </div>`);
 };
 
 window.removeAcquistoIva = (idx) => {
