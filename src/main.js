@@ -101,7 +101,7 @@ function translateRegionLabel(region) {
   if (!region) return region;
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
-import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL } from './predict/tax.js';
+import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL, CAUSE_ESCLUSIONE_FORFETTARIO, verificaEsclusioneForfettario } from './predict/tax.js';
 import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL } from './predict/tax-ch.js';
 import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predict/tax-es.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
@@ -5673,7 +5673,8 @@ function renderTaxSettings() {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         <button onclick="window.openCreateInvoice()" class="btn-action btn-primary justify-center font-bold"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tCh('taxCreateInvoiceBtn', __uiLang)}</button>
         <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between"><span>${tCh('taxChangeRegimeBtn', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
-      </div>`;
+      </div>
+      ${regime.startsWith('forfettario') ? `<button onclick="window.openVerificaEsclusioneForfettario()" class="btn-action w-full justify-between mt-2 sm:mt-3"><span>${tCh('esclForfBtn', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>` : ''}`;
     return;
   }
 
@@ -6579,6 +6580,60 @@ window.openTaxRegimePicker = () => {
 };
 
 window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); };
+
+// VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06, src/predict/tax.js:
+// verificaEsclusioneForfettario) — problema di mercato reale: Momentum
+// controllava solo la soglia di fatturato, mai le altre 6 cause di
+// esclusione (partecipazioni societarie, redditi da lavoro dipendente,
+// fatturazione verso l'ex datore...). Checklist SÌ/NO con la fonte
+// normativa di ognuna, mai una domanda generica "sei eleggibile?" a cui
+// l'utente non saprebbe rispondere da solo. Non cambia nulla in automatico:
+// informa, non decide al posto dell'utente (serve comunque il
+// commercialista per i casi limite, dichiarato in chiaro nel risultato).
+window.openVerificaEsclusioneForfettario = () => {
+  const cause = Object.entries(CAUSE_ESCLUSIONE_FORFETTARIO);
+  window.openModal(`
+    <div class="flex flex-col gap-3 p-1 text-left">
+      <div class="text-center mb-1">
+        <h3 class="text-lg font-black leading-tight">${tCh('esclForfTitle', __uiLang)}</h3>
+        <p class="text-xs text-[var(--on-surface-secondary)] mt-1">${tCh('esclForfSub', __uiLang)}</p>
+      </div>
+      <div class="flex flex-col gap-2">
+        ${cause.map(([chiave, c]) => `
+          <label class="flex items-start gap-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 cursor-pointer">
+            <input type="checkbox" id="escl-${chiave}" class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--primary)]" />
+            <span class="text-[12px] leading-snug text-[var(--on-surface)]">${escapeHtml(c.label)}</span>
+          </label>`).join('')}
+      </div>
+      <button onclick="window.verificaEsclusioneForfettarioSubmit()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl mt-1">${tCh('esclForfCheckBtn', __uiLang)}</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('esclForfDisclaimer', __uiLang)}</p>
+    </div>`);
+};
+
+window.verificaEsclusioneForfettarioSubmit = () => {
+  const risposte = {};
+  for (const chiave of Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO)) {
+    risposte[chiave] = !!document.getElementById(`escl-${chiave}`)?.checked;
+  }
+  const { escluso, cause } = verificaEsclusioneForfettario(risposte);
+  window.openModal(`
+    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${escluso
+        ? tl1Icon('<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>', '--red')
+        : tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/>', '--green')}
+      <div>
+        <h3 class="text-lg font-black leading-tight">${escluso ? tCh('esclForfResultBadTitle', __uiLang) : tCh('esclForfResultOkTitle', __uiLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${escluso ? tCh('esclForfResultBadSub', __uiLang) : tCh('esclForfResultOkSub', __uiLang)}</p>
+      </div>
+      ${escluso ? `<div class="w-full flex flex-col gap-2 text-left">
+        ${cause.map((c) => `<div class="rounded-xl border border-red-400/40 bg-red-400/5 p-3">
+          <div class="text-[12px] font-black text-red-300 leading-snug">${escapeHtml(c.label)}</div>
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(c.fonte)}</div>
+        </div>`).join('')}
+      </div>` : ''}
+      <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esclForfCloseBtn', __uiLang)}</button>
+    </div>`);
+};
 // "Sono dipendente, non mi serve": rispetta la scelta e smette di chiedere,
 // ma resta reversibile con un tocco (cambiare lavoro è normale, non un caso
 // limite da nascondere per sempre dietro un flag irreversibile).

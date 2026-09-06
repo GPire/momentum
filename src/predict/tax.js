@@ -241,6 +241,62 @@ export const FORFETTARIO_CEILING = 85000;
 // fiscozen.it, informazionefiscale.it, leggeinchiaro.it).
 export const FORFETTARIO_CEILING_ANTIABUSO = 100000;
 
+// ── VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06) ──
+// PROBLEMA DI MERCATO REALE, non ipotetico: Momentum controllava solo la
+// soglia di fatturato (85.000€), MAI le altre cause di esclusione — un
+// utente potrebbe essere formalmente sopra soglia e credersi a posto, o
+// SOTTO soglia e credersi a posto, mentre in realtà non è eleggibile per un
+// motivo del tutto diverso (partecipazioni societarie, redditi da lavoro
+// dipendente, fatturazione verso l'ex datore...). Verificato su più fonti
+// indipendenti concordanti (money.it, fiscomania.com, forfettari.it,
+// leggeinchiaro.it) il 2026-09-06. Ogni causa è una domanda SÌ/NO con la
+// SUA fonte — mai una domanda generica "sei eleggibile?" che l'utente non
+// saprebbe rispondere da solo.
+//
+// LIMITE ONESTO DICHIARATO: questo NON sostituisce una consulenza — alcune
+// cause (es. "controllo indiretto" di una SRL, "attività riconducibile")
+// richiedono una valutazione caso per caso che nessun software può fare da
+// solo. Il checklist serve a portare l'utente dal "non sapevo nemmeno che
+// esistesse questo problema" a "so esattamente quale domanda fare al
+// commercialista", non a sostituirlo.
+export const CAUSE_ESCLUSIONE_FORFETTARIO = {
+  regimiSpeciali: {
+    label: 'Applichi un regime speciale IVA (agricoltura, editoria, agriturismo, agenzia viaggi, vendita sali e tabacchi, ecc.)?',
+    fonte: 'Legge 190/2014, art. 1 comma 57 lett. a',
+  },
+  nonResidente: {
+    label: 'NON sei fiscalmente residente in Italia (e non rientri nell\'eccezione UE/SEE con almeno il 75% del reddito prodotto in Italia)?',
+    fonte: 'Legge 190/2014, art. 1 comma 57 lett. b',
+  },
+  controlloSrl: {
+    label: 'Controlli, direttamente o indirettamente, una SRL (o altra società) la cui attività è riconducibile alla tua attività autonoma?',
+    fonte: 'Legge 190/2014, art. 1 comma 57 lett. d, come modificato dalla Legge di Bilancio',
+  },
+  societaPersone: {
+    label: 'Partecipi CONTEMPORANEAMENTE a una società di persone, associazione professionale o impresa familiare, mentre eserciti l\'attività con questa Partita IVA?',
+    fonte: 'Legge 190/2014, art. 1 comma 57 lett. c',
+  },
+  redditoLavoroDipendente: {
+    label: 'Hai avuto, l\'anno scorso, redditi da lavoro dipendente o assimilati superiori a 35.000€?',
+    fonte: 'Legge 190/2014, art. 1 comma 57 lett. d-ter (soglia 35.000€ confermata per 2025-2026)',
+  },
+  fatturazioneExDatore: {
+    label: 'Fatturi più del 50% a chi è (o è stato, negli ultimi 2 anni) il tuo datore di lavoro, o a soggetti a lui riconducibili?',
+    fonte: 'Legge 190/2014, art. 1 comma 57 lett. d-bis ("false Partite IVA")',
+  },
+};
+
+// Pura, testabile: risposte = { regimiSpeciali: bool, nonResidente: bool, ... }
+// Qualunque `true` esclude dal forfettario — basta UNA causa, non serve
+// che siano tutte vere. Chiavi mancanti sono trattate come `false` (nessuna
+// esclusione presunta senza una risposta esplicita — mai un "sì" indovinato).
+export function verificaEsclusioneForfettario(risposte = {}) {
+  const cause = Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO)
+    .filter((chiave) => risposte[chiave] === true)
+    .map((chiave) => ({ chiave, ...CAUSE_ESCLUSIONE_FORFETTARIO[chiave] }));
+  return { escluso: cause.length > 0, cause };
+}
+
 import { rulesForYear, computeIrpef } from './tax-rules.js';
 
 // ── CONSIGLI FISCALI (come un commercialista, ma onesto) ──

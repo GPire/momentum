@@ -188,6 +188,21 @@ test('t: taxVaultTitle esiste in tutte e 7 le lingue', () => {
   }
 });
 
+// Verifica eleggibilità forfettario (2026-09-06): la UI attorno al checklist
+// va tradotta come ogni altra — le domande stesse restano in italiano
+// (riferimenti normativi italiani), stessa disciplina già in taxAdvice.
+test('t: tutte le chiavi esclForf* esistono in tutte e 7 le lingue', () => {
+  const chiavi = [
+    'esclForfBtn', 'esclForfTitle', 'esclForfSub', 'esclForfCheckBtn', 'esclForfDisclaimer',
+    'esclForfResultBadTitle', 'esclForfResultBadSub', 'esclForfResultOkTitle', 'esclForfResultOkSub', 'esclForfCloseBtn',
+  ];
+  for (const lang of ['it', 'en', 'es', 'de', 'fr', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      assert.notEqual(t(k, lang), k, `chiave "${k}" mancante in lingua "${lang}"`);
+    }
+  }
+});
+
 test('t: le chiavi genesis in tedesco e francese sono traduzioni reali, non un ripiego su EN', () => {
   assert.notEqual(t('genesisTagline', 'de'), t('genesisTagline', 'en'));
   assert.notEqual(t('genesisQ1Title', 'fr'), t('genesisQ1Title', 'en'));

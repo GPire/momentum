@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI, simulateNewPartitaIva, CASSE_PROFESSIONALI, ATECO_COMUNI, searchAtecoComuni } = await import('./tax.js');
+const { taxSetAside, taxSetAsideForPeriod, classifyIncome, learnIncomeType, suggestRegime, projectAnnualTax, inferAtecoSettore, FORFETTARIO_CEILING, REGIMI, ATECO_COEFFICIENTI, simulateNewPartitaIva, CASSE_PROFESSIONALI, ATECO_COMUNI, searchAtecoComuni, CAUSE_ESCLUSIONE_FORFETTARIO, verificaEsclusioneForfettario } = await import('./tax.js');
 
 function fattura(desc, amount = 1000, date = '2026-03-10') {
   return { type: 'entrata', description: desc, amount, date };
@@ -733,4 +733,45 @@ test('searchAtecoComuni: mestieri diversi non si confondono fra loro', () => {
 
 test('searchAtecoComuni: nessuna corrispondenza restituisce lista vuota, mai un risultato a caso', () => {
   assert.deepEqual(searchAtecoComuni('xyzxyzxyz qwqwqw'), []);
+});
+
+// ── VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06) — problema di mercato
+// reale: Momentum controllava solo la soglia di fatturato, mai le altre
+// cause di esclusione (partecipazioni societarie, redditi da lavoro
+// dipendente, fatturazione verso l'ex datore...). ──
+
+test('verificaEsclusioneForfettario: nessuna risposta true → non escluso, nessuna causa presunta', () => {
+  const r = verificaEsclusioneForfettario({});
+  assert.equal(r.escluso, false);
+  assert.deepEqual(r.cause, []);
+});
+
+test('verificaEsclusioneForfettario: chiavi mancanti trattate come false, mai un "sì" indovinato', () => {
+  const r = verificaEsclusioneForfettario({ regimiSpeciali: false });
+  assert.equal(r.escluso, false);
+});
+
+test('verificaEsclusioneForfettario: BASTA UNA causa vera per escludere, non serve che siano tutte vere', () => {
+  const r = verificaEsclusioneForfettario({ redditoLavoroDipendente: true });
+  assert.equal(r.escluso, true);
+  assert.equal(r.cause.length, 1);
+  assert.equal(r.cause[0].chiave, 'redditoLavoroDipendente');
+  assert.ok(r.cause[0].label.includes('35.000'));
+  assert.ok(r.cause[0].fonte, 'ogni causa deve avere la sua fonte normativa');
+});
+
+test('verificaEsclusioneForfettario: più cause vere → tutte riportate, nessuna persa', () => {
+  const r = verificaEsclusioneForfettario({ controlloSrl: true, fatturazioneExDatore: true });
+  assert.equal(r.escluso, true);
+  assert.equal(r.cause.length, 2);
+  const chiavi = r.cause.map(c => c.chiave);
+  assert.ok(chiavi.includes('controlloSrl'));
+  assert.ok(chiavi.includes('fatturazioneExDatore'));
+});
+
+test('CAUSE_ESCLUSIONE_FORFETTARIO: ogni causa dichiara la propria fonte normativa, mai un motivo senza fonte', () => {
+  for (const [chiave, causa] of Object.entries(CAUSE_ESCLUSIONE_FORFETTARIO)) {
+    assert.ok(typeof causa.label === 'string' && causa.label.length > 10, `${chiave}: label mancante o troppo corta`);
+    assert.ok(typeof causa.fonte === 'string' && causa.fonte.length > 5, `${chiave}: fonte mancante`);
+  }
 });
