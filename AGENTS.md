@@ -10,7 +10,7 @@
 > `npm test`) — mai a memoria. Questo progetto ha già avuto documenti
 > strategici con dati inventati, poi trovati e corretti: non ricominciamo.
 >
-> Ultimo aggiornamento verificato: **2026-09-05**.
+> Ultimo aggiornamento verificato: **2026-09-06**.
 
 ## Cos'è
 
@@ -47,7 +47,7 @@ versione in `package.json`: **50.1.0**.
 
 ```bash
 npm run dev            # server di sviluppo (Vite, :5173)
-npm test               # tutta la suite — 4599 test, tutti verdi al 2026-09-05
+npm test               # tutta la suite — 4618 test, tutti verdi al 2026-09-06
 npm run build          # build di produzione
 npm run preview        # anteprima della build
 npm run cap:android    # build + apre il progetto Android (Capacitor)
@@ -95,6 +95,15 @@ pannello dati SEC.
   `alpha/sentiment-divergence.js` (bloccato: serve uno storico prezzi
   per-titolo gratuito che oggi non esiste), `predict/tenuta-ciclo.js`.
   `ai/neurosym.js` è collegato solo al pannello "Come funziona Momentum".
+  `predict/tax-engine.js` (registro comune IT/ES/CH, verificato 2026-09-06:
+  zero import di `getTaxModule`/`listTaxModules`/`computeLiabilityCH` fuori
+  dal file stesso e dal suo test) — contiene un bug noto e NON ancora corretto
+  (`entrateAnnualizzate` somma TUTTE le entrate come se fossero reddito
+  autonomo, senza distinguere stipendio da fatturato: se un domani venisse
+  collegato alla UI così com'è, un utente con stipendio + attività indipendente
+  in Svizzera vedrebbe l'AVS calcolata su un reddito annualizzato gonfiato).
+  Non è raggiungibile da nessun utente reale oggi, ma va risolto PRIMA di
+  collegarlo, non dopo.
 - **Nano e Meso non sono riaddestrabili in questo repo**: nessuno script
   `train_*.py`, i pesi arrivano da un addestramento fatto altrove. LogReg sì
   (`bench/train-logreg.mjs`).
@@ -112,6 +121,19 @@ pannello dati SEC.
   debole altrove — un utente in Nigeria o Indonesia viene importato
   correttamente (importo + valuta) ma categorizzato male. Limite dichiarato,
   non fabbricabile con dati che non abbiamo.
+- **RETA spagnola calcolata sul fatturato lordo, non sul reddito netto**
+  (`tax-es.js:retaIrpfPeriodo`): i tramos ufficiali si basano sui
+  *rendimientos netos* (fatturato meno spese deducibili), ma Momentum non ha
+  ancora un sistema di spese deducibili per l'estero — userebbe un tramo più
+  alto del dovuto per chi ha spese significative. Limite dichiarato
+  (2026-09-06, trovato analizzando un audit esterno), non ancora risolto:
+  richiede una feature nuova (classificazione spese deducibili), non un
+  fix puntuale.
+- **Scala AVS svizzera sotto CHF 60.500/anno non stimata** (`tax-ch.js`):
+  scelta dichiarata nel file stesso ("mai un numero inventato"), non
+  riverificata il 2026-09-06 — se in futuro si trova una fonte primaria con
+  la tabella completa (non solo aliquota min/max), può diventare una tabella
+  come `RETA_TRAMOS_2026`, mai una formula indovinata.
 
 ## Trappole già pagate (leggile prima di perderci un'ora)
 

@@ -6,7 +6,7 @@
 
 **Nessun server. Nessun abbonamento. Niente esce dal tuo telefono.**
 
-[![test](https://img.shields.io/badge/test-4599%20verdi-brightgreen)](#verificalo-tu-30-secondi)
+[![test](https://img.shields.io/badge/test-4618%20verdi-brightgreen)](#verificalo-tu-30-secondi)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
 [![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
 [![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
@@ -28,7 +28,7 @@ C'è un terzo motivo, più silenzioso, per cui si abbandonano le app di finanza:
 
 **È per te se:**
 - vuoi sapere quanto puoi spendere **oggi**, non un grafico del mese scorso
-- hai la **Partita IVA** e le scadenze fiscali ti mettono ansia (Italia 🇮🇹 e Svizzera 🇨🇭)
+- hai la **Partita IVA** (o equivalente) e le scadenze fiscali ti mettono ansia (Italia 🇮🇹, Spagna 🇪🇸 e Svizzera 🇨🇭)
 - **investi** e vuoi il rendimento *dopo le tasse*, non quello della brochure
 - non vuoi la tua vita bancaria sul server di qualcun altro
 
@@ -51,7 +51,7 @@ Non è una promessa di privacy attaccata sopra: è l'architettura. I dispositivi
 
 La proiezione di fine mese usa Holt-Winters sul tuo andamento reale (ripiega sul run-rate, e ti dice sempre quale metodo ha usato).
 
-### 🧾 Partita IVA, fisco e fatturazione — Italia e Svizzera
+### 🧾 Partita IVA, fisco e fatturazione — Italia, Spagna e Svizzera
 La parte che trasforma un'app di budget in infrastruttura.
 
 **🇮🇹 Italia**
@@ -61,6 +61,11 @@ La parte che trasforma un'app di budget in infrastruttura.
 - **Liquidazione IVA periodica**, registro acquisti (IVA detraibile), **importazione fatture passive** (carichi l'XML ricevuto e si registra da solo).
 - **F24 precompilato** con codici tributo verificati (1790/1791/1792, 4033/4034/4001, 6001-6012, 6031-6034, P10), pronti da copiare in home banking.
 - **Hai saltato una scadenza?** **Ravvedimento operoso** calcolato da solo: sanzione ridotta per fascia di ritardo più interessi legali. Altrove la scadenza sparisce e basta.
+
+**🇪🇸 Spagna**
+- **RETA + IRPF per autónomos** — a ogni fattura sai cosa è tuo e cosa va accantonato. 15 tramos reali di cotización (tabla reducida + tabla general) dal BOE (Orden PJC/297/2026), aliquota di cotización 2026 verificata al 31,5% (contingencias comunes + profesionales + MEI + cese de actividad + formación profesional).
+- **Ritenuta d'acconto sulle fatture** (retención IRPF, 15% standard / 7% primi anni di attività) — calcolata sul netto che arriva davvero sul conto, non sull'importo fatturato.
+- Solo la componente **statale** dell'IRPF è stimata: quella *autonómica* varia per ognuna delle 17 comunidades autónomas e non viene indovinata — limite dichiarato in chiaro, non nascosto in un numero unico.
 
 **🇨🇭 Svizzera**
 - **AVS/AI/APG** per indipendenti, **soglia IVA** (CHF 100'000 — molti piccoli indipendenti non devono nemmeno registrarsi, e Momentum lo dice).
@@ -153,7 +158,7 @@ Non fidarti delle affermazioni. Eseguile.
 
 ```bash
 npm install
-npm test      # 4599 test, node --test src/
+npm test      # 4618 test, node --test src/
 ```
 
 Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizzera è confrontata con gli esempi ufficiali SIX; le aliquote portano la data in cui sono state verificate e la fonte; i numeri dell'AI si rigenerano con `npm run bench:*`.
@@ -163,7 +168,7 @@ Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizze
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4599 test
+npm test                  # 4618 test
 npm run build             # PWA multi-file in dist/
 npm run build:singlefile  # singolo file HTML ~575KB
 ```
@@ -175,7 +180,7 @@ npm run build:singlefile  # singolo file HTML ~575KB
 ```
 src/
   ai/        NeuralNexus, Nano, Meso, Orchestrator, motore Q&A, calibrazione
-  predict/   previsione di cassa, motore fiscale (IT + CH), liquidazione IVA,
+  predict/   previsione di cassa, motore fiscale (IT + ES + CH), liquidazione IVA,
              F24, ravvedimento, scadenze, scoperta causale, abbonamenti, BNPL
   invoice/   XML FatturaPA + predittore scarti SdI, import fatture passive,
              QR-bill svizzera, checksum fiscali, registro per Paese
@@ -189,7 +194,7 @@ src/
   voice/     parser vocale multi-azione
 ```
 
-284 moduli sorgente in 15 domini (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+307 moduli sorgente in 15 domini (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
 
 ## Limiti dichiarati
 
@@ -201,6 +206,7 @@ La fiducia si costruisce con quello che un progetto ammette, non con quello che 
 - Momentum **non può trasmettere** una fattura allo SdI al posto tuo: serve l'accreditamento come intermediario, che è una pratica societaria, non codice. Prepara il file giusto e ti guida passo passo sul portale vero.
 - La QR-bill svizzera produce un **codice corretto e scansionabile**, non ancora il layout stampabile del bollettino a norma.
 - Sotto CHF 60'500 l'AVS usa una scala degressiva che non è una formula pubblica semplice: Momentum mostra il minimo verificato e rimanda al calcolatore ufficiale, invece di inventare un numero.
+- La RETA spagnola sceglie il tramo dal **fatturato**, non ancora dal reddito netto dopo le spese deducibili (i tramos ufficiali si basano sui *rendimientos netos*): per chi ha spese significative il tramo mostrato può essere più alto del reale. Serve una feature di classificazione spese deducibili che Momentum non ha ancora.
 - **Non è consulenza fiscale.** Sono stime su aliquote pubbliche, ognuna con la sua data di verifica.
 - **Alcuni moduli AI sono ricerca, non produzione.** `src/ai/omega.js`, `neurosym.js`, `expert-adapter.js`, `executive.js` e `nb-categorizer.js` sono scritti e testati ma **nessun percorso di produzione li esegue** — il percorso di classificazione reale è `orchestrator.js` + `expert-bandit.js` + `trained-categorizer` + `hashed-logreg`. Lo diciamo qui invece di lasciare che il conteggio dei file lasci intendere altro: un modulo testato che nessuno esegue non è una funzione.
 - **Gli aggiornamenti automatici delle regole fiscali richiedono una fonte raggiungibile.** Verificato dal vivo: l'Agenzia delle Entrate e Normattiva bloccano le richieste cross-origin, quindi un browser non può leggerle, e trasformare un testo di legge in aliquote in automatico sarebbe esattamente il tipo di numero inventato che questo progetto vieta. Le regole sono verificate a mano e pubblicate come file JSON firmato che l'app scarica da sola.

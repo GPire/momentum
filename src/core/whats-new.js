@@ -399,6 +399,30 @@ export const RELEASES = [
       },
     ],
   },
+  {
+    // Analizzando un audit esterno (2026-09-06) portato dall'utente, verificato
+    // ogni claim contro il codice reale e fonti primarie prima di correggere
+    // qualunque cosa — vedi commit del 2026-09-06. Onestà (regola cardine):
+    // chi già usa la card Spagna vedrà il "da accantonare" salire leggermente
+    // da un giorno all'altro. Va detto, non nascosto in un changelog tecnico.
+    versione: '2026-09-06',
+    voci: [
+      {
+        colore: 'primary',
+        icona: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/>',
+        titolo: 'Ti chiediamo il Paese, non lo indoviniamo dalla lingua',
+        testo: 'Chi ha un\'attività autonoma ora sceglie esplicitamente il Paese (Italia, Spagna, Svizzera) durante l\'onboarding, invece di vederselo dedotto dalla lingua dell\'app. Chi parla italiano ma vive in Svizzera, o lavora in Italia parlando un\'altra lingua, vede finalmente le tasse giuste fin da subito.',
+        titoloKey: 'wn0906_1_t', testoKey: 'wn0906_1_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6M7 16h4"/>',
+        titolo: 'Numeri fiscali più precisi per Spagna e Italia',
+        testo: 'In Spagna la cuota RETA ora include due contributi che mancavano (cese de actividad e formación profesional): il "da accantonare" che vedi sale leggermente, perché ora è quello vero. In Italia, superare 85.000€ da forfettario ora ti dice chiaramente se resti nel regime fino a fine anno o se la fuoriuscita è immediata (sopra 100.000€) — due situazioni molto diverse, prima mostrate allo stesso modo.',
+        titoloKey: 'wn0906_2_t', testoKey: 'wn0906_2_d',
+      },
+    ],
+  },
 ];
 
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;

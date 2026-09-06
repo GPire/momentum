@@ -6,7 +6,7 @@
 
 **No server. No subscription. Nothing leaves your phone.**
 
-[![tests](https://img.shields.io/badge/tests-4599%20passing-brightgreen)](#verify-it-yourself-30-seconds)
+[![tests](https://img.shields.io/badge/tests-4618%20passing-brightgreen)](#verify-it-yourself-30-seconds)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#the-one-thing-that-makes-it-different)
 [![no cloud](https://img.shields.io/badge/cloud-none-blue)](#the-one-thing-that-makes-it-different)
 [![PWA](https://img.shields.io/badge/PWA-offline%20first-blue)](#works-with-no-signal)
@@ -28,7 +28,7 @@ There's a second, quieter reason people quit finance apps: every notification is
 
 **It's for you if you:**
 - want to know what you can spend **today**, not a chart of last month
-- are a **freelancer** who dreads tax deadlines (Italy 🇮🇹 and Switzerland 🇨🇭 supported)
+- are a **freelancer** who dreads tax deadlines (Italy 🇮🇹, Spain 🇪🇸 and Switzerland 🇨🇭 supported)
 - **invest** and want the return *after* tax, not the brochure number
 - don't want your bank life sitting on someone else's server
 
@@ -51,7 +51,7 @@ That isn't a privacy promise bolted on top — it's the architecture. Devices sy
 
 Month-end projection uses Holt-Winters on your actual trend (falls back to run-rate, and always tells you which method it used).
 
-### 🧾 Freelancers, VAT & invoicing — Italy and Switzerland
+### 🧾 Freelancers, VAT & invoicing — Italy, Spain and Switzerland
 The part that turns a budgeting app into infrastructure.
 
 **🇮🇹 Italy**
@@ -61,6 +61,11 @@ The part that turns a budgeting app into infrastructure.
 - **Periodic VAT settlement**, purchase register (deductible VAT), **passive invoice import** (drop in the XML you received, it books itself).
 - **Pre-filled F24** with verified tax codes (1790/1791/1792, 4033/4034/4001, 6001-6012, 6031-6034, P10) ready to copy into your bank.
 - **Missed a deadline?** *Ravvedimento operoso* calculated automatically — reduced penalty by lateness band plus legal interest. Most tools just let the deadline vanish.
+
+**🇪🇸 Spain**
+- **RETA + IRPF for autónomos** — every invoice tells you what's yours and what to set aside. 15 real cotización tramos (tabla reducida + tabla general) sourced from the BOE (Orden PJC/297/2026), 2026 contribution rate verified at 31.5% (contingencias comunes + profesionales + MEI + cese de actividad + formación profesional).
+- **Withholding on invoices** (retención IRPF, 15% standard / 7% for the first years of activity) — calculated on what actually lands in your account, not on the invoiced amount.
+- Only the **state** component of IRPF is estimated: the *autonómica* one varies across each of the 17 comunidades autónomas and is never guessed — a stated limit, not hidden in one made-up number.
 
 **🇨🇭 Switzerland**
 - **AHV/IV/EO** contributions for the self-employed, **VAT threshold** (CHF 100,000 — many freelancers don't need to register at all, and Momentum says so).
@@ -153,7 +158,7 @@ Don't take the claims. Run them.
 
 ```bash
 npm install
-npm test      # 4599 tests, node --test src/
+npm test      # 4618 tests, node --test src/
 ```
 
 Every capability above has tests next to the code. The Swiss QR-bill is checked against the official SIX examples; the tax rates carry the date they were verified and the source; the AI numbers regenerate with `npm run bench:*`.
@@ -163,7 +168,7 @@ Every capability above has tests next to the code. The Swiss QR-bill is checked 
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4599 tests
+npm test                  # 4618 tests
 npm run build             # multi-file PWA in dist/
 npm run build:singlefile  # single ~575KB HTML file
 ```
@@ -175,7 +180,7 @@ npm run build:singlefile  # single ~575KB HTML file
 ```
 src/
   ai/        NeuralNexus, Nano, Meso, Orchestrator, Q&A engine, calibration
-  predict/   cash forecast, tax engine (IT + CH), VAT settlement, F24,
+  predict/   cash forecast, tax engine (IT + ES + CH), VAT settlement, F24,
              ravvedimento, deadlines, causal discovery, subscriptions, BNPL
   invoice/   FatturaPA XML + SdI rejection predictor, passive import,
              Swiss QR-bill, fiscal-ID checksums, per-country registry
@@ -189,7 +194,7 @@ src/
   voice/     multi-action voice parser
 ```
 
-284 source modules across 15 domains (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+307 source modules across 15 domains (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
 
 ## Declared limits
 
@@ -201,6 +206,7 @@ Trust is built by what a project admits, not by what it claims.
 - Momentum **cannot transmit** an invoice to the Italian SdI for you: that needs accreditation as an intermediary, which is a corporate process, not code. It prepares the correct file and walks you through the real portal.
 - The Swiss QR-bill produces a **correct, scannable code**, not yet the fully compliant printable payment slip layout.
 - Below CHF 60,500 the Swiss AHV uses a sliding scale that isn't a simple public formula — Momentum shows the verified minimum and links the official calculator instead of inventing a number.
+- Spanish RETA picks the tramo from **invoiced revenue**, not yet from net income after deductible expenses (the official tramos are based on *rendimientos netos*): for anyone with significant expenses, the tramo shown can be higher than the real one. Needs a deductible-expense classification feature Momentum doesn't have yet.
 - **Not tax advice.** Estimates on public rates, each carrying its verification date.
 - **Some AI modules are research, not production.** `src/ai/omega.js`, `neurosym.js`, `expert-adapter.js`, `executive.js` and `nb-categorizer.js` are written and tested but **no production code path executes them** — the live classification path is `orchestrator.js` + `expert-bandit.js` + `trained-categorizer` + `hashed-logreg`. We say this here rather than let the file count imply otherwise: a tested module nobody runs is not a feature.
 - **Automatic tax-rule updates need a reachable source.** Verified live: the Agenzia delle Entrate and Normattiva block cross-origin requests, so a browser cannot read them, and turning legal text into rates automatically would be exactly the kind of invented number this project forbids. Rules are verified by hand and published as a signed-validated JSON file the app fetches on its own.
