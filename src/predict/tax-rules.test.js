@@ -31,6 +31,21 @@ test('taxAdvice: fra 85.000€ e 100.000€ → resta forfettario fino a fine an
   assert.doesNotMatch(alta.text, /fuoriuscita immediata dal forfettario/i);
 });
 
+// Titolo breve per la card (2026-09-06, richiesto dal vivo: gli avvisi
+// fiscali erano rimasti riga di testo semplice invece di una vera card con
+// icona+titolo+corpo, come ogni altra sezione dell'app) — `text` resta
+// invariato per non rompere i test sopra, `title` è un campo IN PIÙ.
+test('taxAdvice: ogni consiglio generato ha un titolo breve per la card (mai solo testo semplice)', () => {
+  const { advice } = taxAdvice({
+    regime: 'forfettario', annualizedRevenue: 150000, invoicedYTD: 20000,
+    estimatedAnnualTax: 8000, currentSetAside: 1000, year: 2026,
+  });
+  assert.ok(advice.length > 0);
+  for (const a of advice) {
+    assert.ok(typeof a.title === 'string' && a.title.length > 0, `consiglio senza titolo: ${a.text}`);
+  }
+});
+
 test('taxAdvice: sopra 100.000€ → fuoriuscita immediata nello stesso anno, IVA subito', () => {
   const { advice } = taxAdvice({ regime: 'forfettario', annualizedRevenue: 150000, year: 2026 });
   const alta = advice.find(a => a.priority === 'high');

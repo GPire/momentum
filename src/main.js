@@ -5287,6 +5287,33 @@ const TAX_ADVICE_ICONS = {
   ok: '<circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/>', // spunta in cerchio
   startup: '<path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>', // stella, stesso disegno di TL1_STRATEGY_ICONS.startup
 };
+// Tono per priorità — STESSO pattern (bordo+sfondo+testo dello stesso colore
+// via color-mix, riquadro icona a parte) già usato da `card()` in
+// renderGenesisPayoff: qui chiavi per priorità invece che per nome, mai un
+// terzo sistema di colori nuovo nello stesso file.
+const TAX_ADVICE_TONE = {
+  high: 'text-orange-300 border-orange-400/40 bg-orange-400/5',
+  medium: 'text-amber-300 border-amber-400/40 bg-amber-400/5',
+  info: 'text-emerald-300 border-emerald-400/40 bg-emerald-400/5',
+};
+// Vera card di design (icona in riquadro colorato + titolo in grassetto +
+// corpo) invece di una riga di testo con un'iconcina inline — BUG UX REALE
+// segnalato dal vivo dall'utente (2026-09-06): gli avvisi fiscali erano gli
+// unici a restare testo semplice mentre ogni altra sezione dell'app (payoff
+// onboarding, strategie P.IVA) usa già questo linguaggio visivo. `title` è
+// opzionale (retrocompatibile con qualunque chiamante di taxAdvice che non
+// lo passi ancora): senza, la card mostra solo il corpo, mai una riga vuota.
+function renderTaxAdviceCard(a) {
+  const tono = TAX_ADVICE_TONE[a.priority] || TAX_ADVICE_TONE.info;
+  const iconPath = TAX_ADVICE_ICONS[a.icon] || TAX_ADVICE_ICONS.attenzione;
+  return `<div class="flex items-start gap-2.5 rounded-2xl border p-3 mt-1.5 ${tono}">
+    <div class="w-8 h-8 rounded-xl grid place-items-center border ${tono} shrink-0"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg></div>
+    <div class="min-w-0 text-left">
+      ${a.title ? `<div class="text-[12px] font-black text-[var(--on-surface)] leading-snug">${escapeHtml(a.title)}</div>` : ''}
+      <div class="text-[11px] ${a.title ? 'text-[var(--on-surface-secondary)]' : tono.split(' ')[0]} leading-snug mt-0.5">${a.text}</div>
+    </div>
+  </div>`;
+}
 
 // Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
 // abilitato il regime P.IVA (VaultDAO.state.taxRegime) o ha entrate rilevanti.
@@ -5375,9 +5402,7 @@ function renderTax(monthK) {
           estimatedAnnualTax: proj.estimatedAnnualTax, year: new Date().getFullYear(),
         });
         for (const a of advice) {
-          const col = a.priority === 'high' ? 'text-orange-300' : a.priority === 'medium' ? 'text-amber-300' : 'text-emerald-300';
-          const iconPath = TAX_ADVICE_ICONS[a.icon] || TAX_ADVICE_ICONS.attenzione;
-          html += `<div class="flex items-start gap-1.5 text-[11px] ${col} mt-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5">${iconPath}</svg><span>${a.text}</span></div>`;
+          html += renderTaxAdviceCard(a);
         }
         html += renderTaxCashBlocks(proj, regime);
       }

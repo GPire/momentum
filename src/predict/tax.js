@@ -254,7 +254,11 @@ import { rulesForYear, computeIrpef } from './tax-rules.js';
 // negoziabile del progetto (AGENTS.md #7) già seguita da TL1_STRATEGY_ICONS
 // in main.js per le strategie di simulateNewPartitaIva: chi consuma questo
 // array la traduce in un'icona SVG disegnata (vedi TAX_ADVICE_ICONS in
-// main.js), mai in un carattere Unicode a colori.
+// main.js), mai in un carattere Unicode a colori. `title` (2026-09-06,
+// segnalato dal vivo: gli avvisi fiscali erano l'unica sezione rimasta a
+// riga di testo semplice invece di una vera card) è un'etichetta breve per
+// l'intestazione della card — `text` resta il corpo completo invariato,
+// nessun test esistente si rompe aggiungendolo.
 export function taxAdvice(input = {}) {
   const year = input.year || new Date().getFullYear();
   const rules = rulesForYear(year);
@@ -269,11 +273,11 @@ export function taxAdvice(input = {}) {
     // dettaglio — un utente a €90.000 e uno a €150.000 non sono nella stessa
     // situazione, anche se entrambi superano €85.000.
     if (input.annualizedRevenue > FORFETTARIO_CEILING_ANTIABUSO) {
-      advice.push({ priority: 'high', icon: 'urgente', text: `Hai superato ${eur(FORFETTARIO_CEILING_ANTIABUSO)}: fuoriuscita immediata dal forfettario, già in questo stesso anno. Dall'operazione che ha fatto superare la soglia scatta l'IVA. Parlane subito col commercialista.` });
+      advice.push({ priority: 'high', icon: 'urgente', title: 'Fuoriuscita immediata dal forfettario', text: `Hai superato ${eur(FORFETTARIO_CEILING_ANTIABUSO)}: fuoriuscita immediata dal forfettario, già in questo stesso anno. Dall'operazione che ha fatto superare la soglia scatta l'IVA. Parlane subito col commercialista.` });
     } else if (pct > 1) {
-      advice.push({ priority: 'high', icon: 'attenzione', text: `Hai superato ${eur(rules.forfettarioCeiling)}: puoi restare forfettario fino al 31 dicembre di quest'anno, ma dal 1° gennaio prossimo passerai all'ordinario (IVA e aliquote cambiano). Se superi anche ${eur(FORFETTARIO_CEILING_ANTIABUSO)}, la fuoriuscita diventa immediata.` });
+      advice.push({ priority: 'high', icon: 'attenzione', title: 'Resti forfettario fino a fine anno', text: `Hai superato ${eur(rules.forfettarioCeiling)}: puoi restare forfettario fino al 31 dicembre di quest'anno, ma dal 1° gennaio prossimo passerai all'ordinario (IVA e aliquote cambiano). Se superi anche ${eur(FORFETTARIO_CEILING_ANTIABUSO)}, la fuoriuscita diventa immediata.` });
     } else if (pct >= 0.8) {
-      advice.push({ priority: 'medium', icon: 'monitoraggio', text: `Sei al ${Math.round(pct * 100)}% del tetto forfettario (${eur(rules.forfettarioCeiling)}): tieni d'occhio il fatturato per non superarlo senza accorgertene.` });
+      advice.push({ priority: 'medium', icon: 'monitoraggio', title: 'Ti stai avvicinando al tetto forfettario', text: `Sei al ${Math.round(pct * 100)}% del tetto forfettario (${eur(rules.forfettarioCeiling)}): tieni d'occhio il fatturato per non superarlo senza accorgertene.` });
     }
 
     // ── QUANTO COSTEREBBE USCIRE, in euro veri (2026-09-06) ──
@@ -290,7 +294,7 @@ export function taxAdvice(input = {}) {
       const conOrdinario = taxSetAside(input.annualizedRevenue, { regime: 'ordinario', overrides: input.overrides }).setAside;
       const differenza = conOrdinario - conForfettario;
       if (differenza > 0) {
-        advice.push({ priority: 'info', icon: 'bilancia', text: `Sullo stesso fatturato annualizzato (${eur(input.annualizedRevenue)}), l'ordinario costerebbe stimativamente ~${eur(differenza)} in più all'anno rispetto al forfettario. È una stima approssimata per ordine di grandezza: l'ordinario vero deduce le tue spese reali, che qui non conosciamo — il numero esatto va verificato col commercialista.` });
+        advice.push({ priority: 'info', icon: 'bilancia', title: 'Quanto costerebbe l\'ordinario', text: `Sullo stesso fatturato annualizzato (${eur(input.annualizedRevenue)}), l'ordinario costerebbe stimativamente ~${eur(differenza)} in più all'anno rispetto al forfettario. È una stima approssimata per ordine di grandezza: l'ordinario vero deduce le tue spese reali, che qui non conosciamo — il numero esatto va verificato col commercialista.` });
       }
     }
   }
@@ -298,14 +302,14 @@ export function taxAdvice(input = {}) {
   if (input.estimatedAnnualTax > 0 && input.currentSetAside != null && input.annualizedRevenue > 0) {
     const dovutoOra = input.estimatedAnnualTax * Math.min(1, (input.invoicedYTD || 0) / input.annualizedRevenue);
     if (input.currentSetAside < dovutoOra * 0.9) {
-      advice.push({ priority: 'high', icon: 'accantona', text: `Per le tasse dovresti aver messo da parte ~${eur(dovutoOra)}: ne hai ${eur(input.currentSetAside)}. Accantona la differenza ora per non trovarti scoperto a fine anno.` });
+      advice.push({ priority: 'high', icon: 'accantona', title: 'Sei indietro con l\'accantonamento', text: `Per le tasse dovresti aver messo da parte ~${eur(dovutoOra)}: ne hai ${eur(input.currentSetAside)}. Accantona la differenza ora per non trovarti scoperto a fine anno.` });
     } else if (input.currentSetAside >= dovutoOra) {
-      advice.push({ priority: 'info', icon: 'ok', text: `Sei in pari con l'accantonamento tasse (~${eur(input.currentSetAside)}): ottimo, continua così.` });
+      advice.push({ priority: 'info', icon: 'ok', title: 'Sei in pari con le tasse', text: `Sei in pari con l'accantonamento tasse (~${eur(input.currentSetAside)}): ottimo, continua così.` });
     }
   }
 
   if (input.regime === 'forfettario_startup' && input.startupYearsLeft > 0) {
-    advice.push({ priority: 'info', icon: 'startup', text: `Sei sull'aliquota startup al ${(rules.impostaStartup * 100).toFixed(0)}% (ti restano ~${input.startupYearsLeft} anni): dal termine sale al ${(rules.impostaStd * 100).toFixed(0)}%, mettine un po' di più da parte in vista di quel salto.` });
+    advice.push({ priority: 'info', icon: 'startup', title: 'Aliquota startup in scadenza', text: `Sei sull'aliquota startup al ${(rules.impostaStartup * 100).toFixed(0)}% (ti restano ~${input.startupYearsLeft} anni): dal termine sale al ${(rules.impostaStd * 100).toFixed(0)}%, mettine un po' di più da parte in vista di quel salto.` });
   }
 
   const rank = { high: 0, medium: 1, info: 2 };
