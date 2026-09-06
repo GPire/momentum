@@ -181,6 +181,13 @@ test('t: tutte le chiavi f24* esistono in tutte e 7 le lingue', () => {
   }
 });
 
+// "Tax Vault" (2026-09-06): titolo della barra di scomposizione visiva.
+test('t: taxVaultTitle esiste in tutte e 7 le lingue', () => {
+  for (const lang of ['it', 'en', 'es', 'de', 'fr', 'nl', 'pt']) {
+    assert.notEqual(t('taxVaultTitle', lang), 'taxVaultTitle', `mancante in lingua "${lang}"`);
+  }
+});
+
 test('t: le chiavi genesis in tedesco e francese sono traduzioni reali, non un ripiego su EN', () => {
   assert.notEqual(t('genesisTagline', 'de'), t('genesisTagline', 'en'));
   assert.notEqual(t('genesisQ1Title', 'fr'), t('genesisQ1Title', 'en'));

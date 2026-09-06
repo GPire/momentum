@@ -703,18 +703,32 @@ export function taxSetAsideForPeriod(transactions, opts = {}) {
   let taxableGross = 0, totalSet = 0, excludedGross = 0, uncertainGross = 0;
   let taxableCount = 0, excludedCount = 0, uncertainCount = 0;
   const uncertain = [];
+  // Scomposizione aggregata (2026-09-06, "Tax Vault": mostrare COSA compone
+  // l'accantonamento — IVA/INPS/imposta/cassa — non solo il totale). Riusa
+  // il `breakdown` che taxSetAside calcola GIÀ per ogni transazione (mai una
+  // seconda formula): qui si somma per `voce` su tutto il periodo, stessa
+  // aritmetica del totale sopra applicata voce per voce.
+  const breakdownAgg = {};
   for (const t of entrate) {
     const { kind } = classifyIncome(t, learned, model);
     const isTaxable = kind === 'invoice' || (kind === 'uncertain' && taxUncertain);
     if (kind === 'uncertain') { uncertainGross += t.amount; uncertainCount++; uncertain.push(t); }
     if (isTaxable) {
       taxableGross += t.amount;
-      totalSet += taxSetAside(t.amount, opts).setAside;
+      const r = taxSetAside(t.amount, opts);
+      totalSet += r.setAside;
       taxableCount++;
+      for (const b of r.breakdown) {
+        breakdownAgg[b.voce] = (breakdownAgg[b.voce] || 0) + b.importo;
+      }
     } else if (kind !== 'uncertain') {
       excludedGross += t.amount; excludedCount++;
     }
   }
+  const breakdown = Object.entries(breakdownAgg)
+    .map(([voce, importo]) => ({ voce, importo: +importo.toFixed(2) }))
+    .filter((b) => b.importo > 0)
+    .sort((a, b) => b.importo - a.importo);
   const excludedTxt = excludedCount ? ` (${excludedCount} entrate non imponibili escluse: stipendio/rimborsi ~${excludedGross.toFixed(0)}€)` : '';
   const uncertainTxt = uncertainCount ? ` ${uncertainCount} entrata${uncertainCount > 1 ? 'e' : ''} da confermare (fattura?).` : '';
   return {
@@ -722,6 +736,7 @@ export function taxSetAsideForPeriod(transactions, opts = {}) {
     daAccantonare: +totalSet.toFixed(2),
     disponibileReale: +(taxableGross - totalSet).toFixed(2),
     count: taxableCount,
+    breakdown,
     excludedGross: +excludedGross.toFixed(2), excludedCount,
     uncertainGross: +uncertainGross.toFixed(2), uncertainCount, uncertain,
     note: taxableCount

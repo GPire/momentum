@@ -5315,6 +5315,48 @@ function renderTaxAdviceCard(a) {
   </div>`;
 }
 
+// Colore per voce del breakdown fiscale (src/predict/tax.js:taxSetAside) —
+// classificato per SOSTANZA (contiene "IVA"/"INPS"/"Imposta"/"Contribut...")
+// non per stringa esatta: le etichette variano (es. "Contributi INPS
+// (aliquota ridotta 24%)", "Contributo soggettivo (Cassa Forense)") ma il
+// TIPO di prelievo che rappresentano è sempre uno di questi quattro.
+function taxVaultColor(voce) {
+  if (/IVA/.test(voce)) return { bar: 'bg-sky-400', dot: 'bg-sky-400', text: 'text-sky-300' };
+  if (/Imposta/.test(voce)) return { bar: 'bg-orange-400', dot: 'bg-orange-400', text: 'text-orange-300' };
+  if (/Contribut|INPS|Cassa/.test(voce)) return { bar: 'bg-violet-400', dot: 'bg-violet-400', text: 'text-violet-300' };
+  return { bar: 'bg-slate-400', dot: 'bg-slate-400', text: 'text-slate-300' };
+}
+
+// "TAX VAULT" (2026-09-06, richiesto esplicitamente: più design, risolve un
+// problema di mercato reale e citato — chi incassa una fattura non capisce
+// a colpo d'occhio quale parte sia davvero sua). Scomposizione VISIVA prima
+// del numero finale, non solo il totale: barra segmentata (100% = somma
+// delle voci del breakdown, mai confrontata pixel-per-pixel col totale
+// daAccantonare — le due arrotondano indipendentemente, differenza di pochi
+// centesimi per costruzione, vedi commento in taxSetAsideForPeriod) +
+// legenda con l'importo esatto di ciascuna voce. Riusa `r.breakdown`, mai un
+// secondo calcolo: la barra è un modo di GUARDARE lo stesso numero, non un
+// numero nuovo.
+function renderTaxVaultBar(r) {
+  if (!r.breakdown || !r.breakdown.length) return '';
+  const totaleBarra = r.breakdown.reduce((s, b) => s + b.importo, 0);
+  if (totaleBarra <= 0) return '';
+  const segmenti = r.breakdown.map((b) => {
+    const c = taxVaultColor(b.voce);
+    const pct = Math.max(0.5, (b.importo / totaleBarra) * 100);
+    return `<div class="${c.bar} h-full" style="width:${pct}%" title="${escapeHtml(b.voce)}: ${formatMoney(b.importo)}"></div>`;
+  }).join('');
+  const legenda = r.breakdown.map((b) => {
+    const c = taxVaultColor(b.voce);
+    return `<div class="flex items-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)]"><span class="w-2 h-2 rounded-full ${c.dot} shrink-0"></span><span class="truncate">${escapeHtml(b.voce)}</span><span class="ml-auto font-mono font-bold ${c.text} shrink-0">${formatMoney(b.importo)}</span></div>`;
+  }).join('');
+  return `<div class="mt-2">
+    <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">${tCh('taxVaultTitle', __uiLang)}</div>
+    <div class="flex w-full h-2.5 rounded-full overflow-hidden bg-black/30">${segmenti}</div>
+    <div class="flex flex-col gap-1 mt-2">${legenda}</div>
+  </div>`;
+}
+
 // Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
 // abilitato il regime P.IVA (VaultDAO.state.taxRegime) o ha entrate rilevanti.
 function renderTax(monthK) {
@@ -5390,6 +5432,7 @@ function renderTax(monthK) {
 
   if (extraEl) {
     let html = '';
+    html += renderTaxVaultBar(r);
     // ── PROIEZIONE ANNUALE + CONSIGLI (come un commercialista, onesto) ──
     if (regime && everInvoice) {
       const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model: incomeModel });

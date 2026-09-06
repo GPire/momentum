@@ -286,6 +286,39 @@ test('periodo: lo STIPENDIO non viene tassato come P.IVA (fix "messe a caso")', 
   assert.equal(r.excludedGross, 1700);
 });
 
+// "Tax Vault" (2026-09-06): COSA compone l'accantonamento, non solo il
+// totale — riusa il breakdown già calcolato da taxSetAside per ogni
+// transazione (mai una seconda formula), aggregato per voce sul periodo.
+test('periodo: la scomposizione (breakdown) aggrega le stesse voci di taxSetAside, sommate su più fatture', () => {
+  const txs = [
+    { type: 'entrata', amount: 1000, description: 'Fattura cliente Rossi' },
+    { type: 'entrata', amount: 2000, description: 'Fattura cliente Bianchi' },
+  ];
+  const periodo = taxSetAsideForPeriod(txs, { regime: 'forfettario' });
+  const singola1 = taxSetAside(1000, { regime: 'forfettario' });
+  const singola2 = taxSetAside(2000, { regime: 'forfettario' });
+  const totaleAtteso = singola1.breakdown.find(b => b.voce === 'Imposta sostitutiva').importo
+    + singola2.breakdown.find(b => b.voce === 'Imposta sostitutiva').importo;
+  const voceImposta = periodo.breakdown.find(b => b.voce === 'Imposta sostitutiva');
+  assert.ok(voceImposta, 'la voce "Imposta sostitutiva" deve essere aggregata');
+  assert.equal(voceImposta.importo, +totaleAtteso.toFixed(2));
+  // Somma di tutte le voci del breakdown ≈ daAccantonare, MAI esattamente
+  // uguale per costruzione: setAside arrotonda la SOMMA grezza (iva+inps+
+  // imposta) una volta sola, mentre ogni voce del breakdown si arrotonda
+  // SINGOLARMENTE per la visualizzazione — su più transazioni le due
+  // strategie di arrotondamento possono divergere di qualche centesimo.
+  // Caratteristica nota di taxSetAside (non introdotta qui), non un bug:
+  // la tolleranza è proporzionale al numero di transazioni sommate.
+  const sommaVoci = periodo.breakdown.reduce((s, b) => s + b.importo, 0);
+  assert.ok(Math.abs(sommaVoci - periodo.daAccantonare) <= 0.01 * txs.length,
+    `breakdown (${sommaVoci}) troppo lontano da daAccantonare (${periodo.daAccantonare})`);
+});
+
+test('periodo: nessuna fattura → breakdown vuoto, mai un array con voci a zero fantasma', () => {
+  const r = taxSetAsideForPeriod([{ type: 'entrata', amount: 500, description: 'Stipendio', category: 'stipendio' }], { regime: 'forfettario' });
+  assert.deepEqual(r.breakdown, []);
+});
+
 test('interessi/dividendi/bonus bancari NON sono fatture P.IVA (fix reale su dati Revolut)', () => {
   assert.equal(classifyIncome({ description: 'Interessi', type: 'entrata' }).kind, 'personal');
   assert.equal(classifyIncome({ description: 'Dividendo ASML', type: 'entrata' }).kind, 'personal');
