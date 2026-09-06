@@ -47,7 +47,7 @@ versione in `package.json`: **50.1.0**.
 
 ```bash
 npm run dev            # server di sviluppo (Vite, :5173)
-npm test               # tutta la suite — 4618 test, tutti verdi al 2026-09-06
+npm test               # tutta la suite — 4620 test, tutti verdi al 2026-09-06
 npm run build          # build di produzione
 npm run preview        # anteprima della build
 npm run cap:android    # build + apre il progetto Android (Capacitor)
@@ -97,13 +97,12 @@ pannello dati SEC.
   `ai/neurosym.js` è collegato solo al pannello "Come funziona Momentum".
   `predict/tax-engine.js` (registro comune IT/ES/CH, verificato 2026-09-06:
   zero import di `getTaxModule`/`listTaxModules`/`computeLiabilityCH` fuori
-  dal file stesso e dal suo test) — contiene un bug noto e NON ancora corretto
-  (`entrateAnnualizzate` somma TUTTE le entrate come se fossero reddito
-  autonomo, senza distinguere stipendio da fatturato: se un domani venisse
-  collegato alla UI così com'è, un utente con stipendio + attività indipendente
-  in Svizzera vedrebbe l'AVS calcolata su un reddito annualizzato gonfiato).
-  Non è raggiungibile da nessun utente reale oggi, ma va risolto PRIMA di
-  collegarlo, non dopo.
+  dal file stesso e dal suo test). Il bug di mescolanza stipendio/reddito
+  autonomo (`entrateAnnualizzate` sommava OGNI entrata) è stato CORRETTO lo
+  stesso giorno (ora usa `classifyIncome`, come IT/ES) — resta comunque
+  orfano, non collegato a nessuna UI: chi lo collega deve comunque scrivere
+  i test di integrazione con dati reali prima, non solo fidarsi dei test
+  unitari del modulo.
 - **Nano e Meso non sono riaddestrabili in questo repo**: nessuno script
   `train_*.py`, i pesi arrivano da un addestramento fatto altrove. LogReg sì
   (`bench/train-logreg.mjs`).

@@ -55,7 +55,7 @@ test('computeLiabilityES: coincide esattamente con retaIrpfPeriodo sullo stesso 
 
 test('computeLiabilityCH: annualizza le entrate del periodo e chiama computeAvsIndipendente sul valore derivato — mai una formula AVS reinventata', () => {
   const transactions = [
-    { type: 'entrata', amount: 6000 },  // annualizzato: 72.000 CHF, sopra soglia piena (60.500)
+    { type: 'entrata', amount: 6000, description: 'fattura cliente' },  // annualizzato: 72.000 CHF, sopra soglia piena (60.500)
     { type: 'uscita', amount: 500 },    // non deve contare: solo 'entrata'
   ];
   const { annualizzato } = entrateAnnualizzate(transactions);
@@ -67,27 +67,54 @@ test('computeLiabilityCH: annualizza le entrate del periodo e chiama computeAvsI
 });
 
 test('computeLiabilityCH: sotto la soglia degressiva, contributo è null — l\'adattatore NON lo trasforma mai in zero silenzioso', () => {
-  const transactions = [{ type: 'entrata', amount: 2000 }]; // annualizzato 24.000, sotto soglia 60.500
+  const transactions = [{ type: 'entrata', amount: 2000, description: 'fattura cliente' }]; // annualizzato 24.000, sotto soglia 60.500
   const via = computeLiabilityCH(transactions);
   assert.equal(via.daAccantonare, null, 'mai uno zero inventato dove computeAvsIndipendente dichiara onestamente "non lo stimiamo"');
   assert.equal(via.disponibileReale, null);
   assert.ok(via.note.includes('ahv-iv.ch'), 'la nota onesta di tax-ch.js deve propagarsi, non sparire nell\'adattamento');
 });
 
+// BUG REALE corretto (2026-09-06, analizzando un audit esterno): prima
+// entrateAnnualizzate sommava OGNI 'entrata' come se fosse reddito
+// indipendente, mescolando stipendio e attività autonoma nello stesso
+// annualizzato — un utente con stipendio + freelance vedeva l'AVS calcolata
+// su un reddito gonfiato. Ora usa classifyIncome (STESSA funzione di IT/ES,
+// mai una seconda logica) e conta solo la quota 'invoice'.
+test('entrateAnnualizzate: conta solo le entrate da fattura (attività indipendente), MAI lo stipendio insieme', () => {
+  const r = entrateAnnualizzate([
+    { type: 'entrata', amount: 5000, description: 'stipendio mensile' }, // salary → escluso
+    { type: 'entrata', amount: 2000, description: 'fattura cliente Rossi' }, // invoice → contato
+    { type: 'uscita', amount: 5000, description: 'fattura cliente' }, // non 'entrata' → ignorato
+  ]);
+  assert.equal(r.totale, 2000, 'lo stipendio non deve mai sommarsi al reddito indipendente');
+  assert.equal(r.count, 1);
+  assert.equal(r.annualizzato, 24000);
+  assert.equal(r.excludedGross, 5000);
+  assert.equal(r.excludedCount, 1);
+});
+
 test('entrateAnnualizzate: somma solo le transazioni "entrata", ignora le uscite', () => {
   const r = entrateAnnualizzate([
-    { type: 'entrata', amount: 1000 },
+    { type: 'entrata', amount: 1000, description: 'fattura cliente' },
     { type: 'uscita', amount: 5000 },
-    { type: 'entrata', amount: 500 },
+    { type: 'entrata', amount: 500, description: 'fattura cliente Bianchi' },
   ]);
   assert.equal(r.totale, 1500);
   assert.equal(r.count, 2);
   assert.equal(r.annualizzato, 18000);
 });
 
+test('entrateAnnualizzate: entrate senza descrizione restano "uncertain", MAI sommate d\'ufficio (default prudente, stessa disciplina di taxSetAsideForPeriod)', () => {
+  const r = entrateAnnualizzate([{ type: 'entrata', amount: 1000 }]);
+  assert.equal(r.totale, 0);
+  assert.equal(r.count, 0);
+  assert.equal(r.uncertainGross, 1000);
+  assert.equal(r.uncertainCount, 1);
+});
+
 test('entrateAnnualizzate: lista vuota o assente non fa crashare', () => {
-  assert.deepEqual(entrateAnnualizzate([]), { totale: 0, count: 0, annualizzato: 0 });
-  assert.deepEqual(entrateAnnualizzate(undefined), { totale: 0, count: 0, annualizzato: 0 });
+  assert.deepEqual(entrateAnnualizzate([]), { totale: 0, count: 0, annualizzato: 0, excludedGross: 0, excludedCount: 0, uncertainGross: 0, uncertainCount: 0 });
+  assert.deepEqual(entrateAnnualizzate(undefined), { totale: 0, count: 0, annualizzato: 0, excludedGross: 0, excludedCount: 0, uncertainGross: 0, uncertainCount: 0 });
 });
 
 // ── Uso realistico del registro: un consumatore generico che non conosce

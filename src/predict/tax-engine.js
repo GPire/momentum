@@ -18,7 +18,7 @@
 // debba conoscere la forma specifica di ogni modulo fiscale.
 'use strict';
 
-import { taxSetAsideForPeriod, REGIMI } from './tax.js';
+import { taxSetAsideForPeriod, REGIMI, classifyIncome } from './tax.js';
 import { computeAvsIndipendente } from './tax-ch.js';
 import { retaIrpfPeriodo } from './tax-es.js';
 
@@ -52,12 +52,33 @@ export function listTaxModules() {
 // `taxableGross * 12`): assume reddito costante nel resto dell'anno, mai
 // spacciata per una dichiarazione fiscale definitiva. Usata SOLO
 // dall'adattatore Svizzero sotto, perché computeAvsIndipendente prende un
-// reddito annuo, non transazioni — la Svizzera non ha un concetto di
-// "fattura imponibile" da classificare come IT/ES (vedi tax-ch.js).
-function entrateAnnualizzate(transactions) {
+// reddito annuo, non transazioni.
+//
+// BUG REALE trovato e corretto (2026-09-06, analizzando un audit esterno):
+// prima sommava OGNI transazione di tipo 'entrata', senza distinguere
+// stipendio da reddito indipendente. Un utente con stipendio CHF5.000/mese
+// + attività autonoma CHF2.000/mese avrebbe visto CHF7.000 annualizzati a
+// CHF84.000 per il calcolo AVS di un'attività indipendente — concettualmente
+// sbagliato, l'AVS da dipendente la versa già il datore di lavoro. Ora usa
+// classifyIncome (tax.js, la STESSA funzione già usata da IT/ES per
+// distinguere fattura/stipendio/personale — mai una seconda logica
+// inventata solo per la Svizzera) e annualizza SOLO la quota 'invoice'.
+function entrateAnnualizzate(transactions, opts = {}) {
+  const learned = opts.learned || null;
+  const model = opts.model || null;
   const entrate = (transactions || []).filter((t) => t.type === 'entrata');
-  const totale = entrate.reduce((s, t) => s + (t.amount || 0), 0);
-  return { totale: +totale.toFixed(2), count: entrate.length, annualizzato: +(totale * 12).toFixed(2) };
+  let totale = 0, count = 0, excludedGross = 0, excludedCount = 0, uncertainGross = 0, uncertainCount = 0;
+  for (const t of entrate) {
+    const { kind } = classifyIncome(t, learned, model);
+    if (kind === 'invoice') { totale += t.amount; count++; }
+    else if (kind === 'uncertain') { uncertainGross += t.amount; uncertainCount++; }
+    else { excludedGross += t.amount; excludedCount++; } // 'salary'/'personal': mai nell'attività indipendente
+  }
+  return {
+    totale: +totale.toFixed(2), count, annualizzato: +(totale * 12).toFixed(2),
+    excludedGross: +excludedGross.toFixed(2), excludedCount,
+    uncertainGross: +uncertainGross.toFixed(2), uncertainCount,
+  };
 }
 
 // ── Adattatori: normalizzano l'output REALE di ogni modulo esistente in
@@ -97,7 +118,7 @@ function computeLiabilityES(transactions, opts = {}) {
 // transazioni — qui SOLO la trasformazione transactions→numero, mai la
 // logica AVS stessa (quella resta undividisa in tax-ch.js).
 function computeLiabilityCH(transactions, opts = {}) {
-  const { totale, count, annualizzato } = entrateAnnualizzate(transactions);
+  const { totale, count, annualizzato, excludedGross, excludedCount, uncertainGross, uncertainCount } = entrateAnnualizzate(transactions, opts);
   const avs = computeAvsIndipendente(annualizzato);
   // Sotto soglia degressiva, computeAvsIndipendente dichiara onestamente
   // "non lo stimiamo" (contributo: null) — l'adattatore non deve MAI
@@ -105,14 +126,20 @@ function computeLiabilityCH(transactions, opts = {}) {
   const daAccantonareAnnuo = avs.contributo;
   const daAccantonare = daAccantonareAnnuo != null ? +(daAccantonareAnnuo / 12).toFixed(2) : null;
   const disponibileReale = daAccantonare != null ? +(totale - daAccantonare).toFixed(2) : null;
+  // Trasparenza sull'esclusione (2026-09-06): se c'è stipendio/personale
+  // escluso, va detto — altrimenti un utente con stipendio+attività
+  // indipendente si chiederebbe perché il numero è più basso di quanto
+  // vede sull'estratto conto.
+  const excludedTxt = excludedCount ? ` (${excludedCount} entrata${excludedCount > 1 ? 'e' : ''} non da attività indipendente esclus${excludedCount > 1 ? 'e' : 'a'}: stipendio/personale ~${eurCh(excludedGross)})` : '';
   return {
     countryCode: 'CH',
     incassato: totale,
     daAccantonare,
     disponibileReale,
     count,
+    excludedGross, excludedCount, uncertainGross, uncertainCount,
     note: avs.nota || (daAccantonare != null
-      ? `Su ${eurCh(totale)} incassati questo mese, accantona ~${eurCh(daAccantonare)} di AVS/AI/APG (proiezione da reddito annualizzato ${eurCh(annualizzato)}).`
+      ? `Su ${eurCh(totale)} da attività indipendente questo mese, accantona ~${eurCh(daAccantonare)} di AVS/AI/APG (proiezione da reddito annualizzato ${eurCh(annualizzato)})${excludedTxt}.`
       : null),
     dettaglio: avs,
   };
