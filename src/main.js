@@ -5271,6 +5271,23 @@ window.removeAcquistoIva = (idx) => {
   renderAnalysis();
 };
 
+// Icone dei consigli fiscali (taxAdvice, src/predict/tax.js) — chiavi
+// semantiche mai emoji (regola non negoziabile del progetto, AGENTS.md #7),
+// stesso pattern già usato da TL1_STRATEGY_ICONS qui sotto per le strategie
+// del simulatore P.IVA. BUG REALE corretto (2026-09-06, segnalato dal vivo
+// dall'utente): taxAdvice restituiva emoji dirette ("🚨"/"⚠️"/"📊"...),
+// uniche in tutto il modulo fiscale a violare la regola — questa mappa le
+// sostituisce con le stesse icone SVG disegnate di ogni altro avviso.
+const TAX_ADVICE_ICONS = {
+  urgente: '<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>', // uscita immediata
+  attenzione: '<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>', // triangolo di avviso
+  monitoraggio: '<path d="M3 3v18h18M7 16v-5M11 16V8M15 16v-8M19 16v-3"/>', // grafico a barre
+  bilancia: '<path d="M12 3v18M7 21h10M4.5 7h3.5m7 0h3.5M4.5 7 3 12a2.5 2.5 0 005 0L6.5 7Zm11 0L16 12a2.5 2.5 0 005 0L19.5 7Z"/>', // bilancia (confronto regimi)
+  accantona: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>', // edificio/cassa, stesso disegno di TL1_STRATEGY_ICONS.cassa
+  ok: '<circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/>', // spunta in cerchio
+  startup: '<path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>', // stella, stesso disegno di TL1_STRATEGY_ICONS.startup
+};
+
 // Card Partita IVA (src/predict/tax.js): mostrata solo se l'utente ha
 // abilitato il regime P.IVA (VaultDAO.state.taxRegime) o ha entrate rilevanti.
 function renderTax(monthK) {
@@ -5359,7 +5376,8 @@ function renderTax(monthK) {
         });
         for (const a of advice) {
           const col = a.priority === 'high' ? 'text-orange-300' : a.priority === 'medium' ? 'text-amber-300' : 'text-emerald-300';
-          html += `<div class="text-[11px] ${col} mt-1">${a.icon} ${a.text}</div>`;
+          const iconPath = TAX_ADVICE_ICONS[a.icon] || TAX_ADVICE_ICONS.attenzione;
+          html += `<div class="flex items-start gap-1.5 text-[11px] ${col} mt-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5">${iconPath}</svg><span>${a.text}</span></div>`;
         }
         html += renderTaxCashBlocks(proj, regime);
       }
