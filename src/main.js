@@ -128,7 +128,7 @@ const __uiLang = resolveUiLanguage({ override: UI_LANGS.includes(__uiLangParam) 
 // ripiego onesto per qualunque valore imprevisto.
 const __LOCALE_BY_LANG = { it: 'it-IT', en: 'en-US', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', nl: 'nl-NL', pt: 'pt-BR' };
 const __uiLocale = __LOCALE_BY_LANG[__uiLang] || 'it-IT';
-import { generateDemoTransactions, fadeDemo, demoStatus, mergeDemoForDisplay, DEMO_FADE_AT } from './ui/demo-dataset.js';
+import { generateDemoTransactions, demoStatus, mergeDemoForDisplay } from './ui/demo-dataset.js';
 import { statoDelMese, stripHtml, evidenziaNumeri } from './ui/mese-strip.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
@@ -2293,9 +2293,20 @@ function ensureDemoSeeded() {
   if (realTxCount() > 0) return;
   VaultDAO.state.demoTransactions = generateDemoTransactions({ now: new Date() });
 }
+// BUG REALE corretto (2026-09-06, segnalato dal vivo): una dissolvenza
+// GRADUALE (fadeDemo/DEMO_FADE_AT) lasciava numeri per lo più finti mescolati
+// a quelli veri per diverse transazioni — proprio nel momento in cui l'avviso
+// "Parti dai miei dati" era già sparito (vedi renderDemoBanner), quindi
+// l'utente non aveva più nessun segnale che stesse ancora guardando dati in
+// parte demo. Onestà (regola cardine del progetto): la demo sparisce DEL
+// TUTTO alla primissima transazione vera, di qualunque tipo — un taglio
+// netto, mai una scia. fadeDemo/DEMO_FADE_AT restano funzioni pure testate
+// (demo-dataset.js/.test.js) per chi le richiami altrove, ma qui non si usa
+// più la dissolvenza intermedia.
 function liveDemoTx() {
   if (VaultDAO.state.demoDismissed) return [];
-  return fadeDemo(VaultDAO.state.demoTransactions || [], realTxCount());
+  if (realTxCount() > 0) return [];
+  return VaultDAO.state.demoTransactions || [];
 }
 // Transazioni di un mese PER DISEGNARE: le vere più le finte superstiti.
 function displayTxForMonth(k) {
@@ -2333,21 +2344,21 @@ function renderDemoBanner() {
   // (quanto demo resta mescolato nei totali, vedi liveDemoTx/fadeDemo) resta
   // invariata e separata — qui si nasconde solo l'avviso, non si azzera il
   // demo stesso, che continua a scomparire da solo come sempre.
+  // Taglio netto, non più graduale (2026-09-06): con liveDemoTx() che azzera
+  // la demo alla prima transazione vera, questo banner ormai è visibile SOLO
+  // quando realTxCount()===0 — la barra di avanzamento sarebbe sempre allo
+  // 0%, informazione morta. Rimossa insieme al conteggio "ne mancano N" nel
+  // testo (demoSubtitle), che diceva un processo graduale non più vero.
   if (!s.attivo || VaultDAO.state.demoDismissed || realTxCount() > 0) { el.classList.add('hidden'); el.innerHTML = ''; return; }
-  const fatte = Math.max(0, DEMO_FADE_AT - s.realiMancanti);
-  const pct = Math.round((fatte / DEMO_FADE_AT) * 100);
   el.classList.remove('hidden');
   el.innerHTML = `
     <div class="avviso" style="--accento:var(--gold);flex-direction:column;align-items:stretch;gap:.6rem">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0">
           <p class="avviso-titolo">${tCh('demoTitle', __uiLang)}</p>
-          <p class="t-nota mt-1">${tCh('demoSubtitle', __uiLang, s.realiMancanti)}</p>
+          <p class="t-nota mt-1">${tCh('demoSubtitle', __uiLang)}</p>
         </div>
         <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface)] hover:bg-white/5 transition-colors">${tCh('demoStartFresh', __uiLang)}</button>
-      </div>
-      <div class="h-[3px] rounded-full bg-black/30 overflow-hidden">
-        <div class="h-full rounded-full bg-[var(--gold)] opacity-70 transition-all duration-500" style="width:${pct}%"></div>
       </div>
     </div>`;
 }
