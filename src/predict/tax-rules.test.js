@@ -44,6 +44,30 @@ test('taxAdvice: avviso all\'80% del tetto (medium)', () => {
   assert.ok(advice.some(a => a.priority === 'medium' && /del tetto/.test(a.text)));
 });
 
+// "Quanto costerebbe uscire", in euro veri (2026-09-06): non solo un
+// avviso, il numero — riusa taxSetAside per entrambi i regimi sullo stesso
+// fatturato, mai una terza formula. Segnalato da un audit esterno come la
+// prima domanda reale di chi si avvicina alla soglia.
+test('taxAdvice: dall\'80% del tetto in su, confronta il costo reale forfettario vs ordinario sullo stesso fatturato', () => {
+  const { advice } = taxAdvice({ regime: 'forfettario', annualizedRevenue: 70000, year: 2026 });
+  const confronto = advice.find(a => a.icon === '⚖️');
+  assert.ok(confronto, 'deve esserci il confronto forfettario/ordinario');
+  assert.match(confronto.text, /costerebbe stimativamente/);
+  assert.match(confronto.text, /70\.000/);
+});
+
+test('taxAdvice: sotto l\'80% del tetto, nessun confronto forfettario/ordinario (non ancora rilevante)', () => {
+  const { advice } = taxAdvice({ regime: 'forfettario', annualizedRevenue: 30000, year: 2026 });
+  assert.ok(!advice.some(a => a.icon === '⚖️'));
+});
+
+test('taxAdvice: il confronto resta presente anche oltre la soglia (85k-100k e sopra 100k), non solo mentre ci si avvicina', () => {
+  const { advice: a1 } = taxAdvice({ regime: 'forfettario', annualizedRevenue: 95000, year: 2026 });
+  const { advice: a2 } = taxAdvice({ regime: 'forfettario', annualizedRevenue: 150000, year: 2026 });
+  assert.ok(a1.some(a => a.icon === '⚖️'));
+  assert.ok(a2.some(a => a.icon === '⚖️'));
+});
+
 test('taxAdvice: accantonamento INDIETRO → consiglio ad alta priorità', () => {
   const { advice } = taxAdvice({
     regime: 'forfettario', annualizedRevenue: 40000, invoicedYTD: 20000,

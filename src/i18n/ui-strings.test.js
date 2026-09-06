@@ -171,7 +171,7 @@ test('t: tutte le chiavi f24* esistono in tutte e 7 le lingue', () => {
     'f24Title', 'f24Sub', 'f24Empty', 'f24Total', 'f24CopyBtn', 'f24PaidBtn',
     'f24Disclaimer', 'f24CopiedToast', 'f24GuideBtn', 'f24GuideRowLabel',
     'f24FieldSezione', 'f24FieldCodice', 'f24FieldRateazione', 'f24FieldRateazioneHint',
-    'f24FieldAnno', 'f24FieldImporto', 'f24GuideBack', 'f24GuideNext', 'f24GuideDone',
+    'f24FieldAnno', 'f24FieldImporto', 'f24GuideBack', 'f24GuideNext', 'f24GuideDone', 'f24OpenPortalLink',
   ];
   for (const lang of ['it', 'en', 'es', 'de', 'fr', 'nl', 'pt']) {
     for (const k of chiavi) {

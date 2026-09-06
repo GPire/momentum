@@ -134,7 +134,7 @@ import { buildAccountantReport, renderAccountantReportHTML } from './predict/acc
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
 import { upcomingTaxDeadlines, taxCashWarning, overdueTaxDeadlines } from './predict/tax-deadlines.js';
-import { righeF24Iva, righeF24Imposte, f24Riepilogo } from './predict/f24.js';
+import { righeF24Iva, righeF24Imposte, f24Riepilogo, F24_WEB_UFFICIALE_URL } from './predict/f24.js';
 import { calcolaRavvedimento } from './predict/ravvedimento.js';
 import { taxReserveStatus, recordTaxPayment, removeTaxPayment } from './predict/tax-payments.js';
 import { rulesForYear, setActiveTaxRules } from './predict/tax-rules.js';
@@ -5253,6 +5253,7 @@ window.openF24Guidato = (indice) => {
         ${campo(tCh('f24FieldAnno', __uiLang), r.annoRiferimento)}
         ${campo(tCh('f24FieldImporto', __uiLang), formatMoney(r.importo))}
       </div>
+      ${i === 0 ? `<a href="${F24_WEB_UFFICIALE_URL}" target="_blank" rel="noopener" class="text-[11px] font-bold text-[var(--primary)] underline">${tCh('f24OpenPortalLink', __uiLang)}</a>` : ''}
       <div class="w-full flex items-center gap-2">
         ${i > 0 ? `<button onclick="window.openF24Guidato(${i - 1})" class="btn-action flex-1 py-3 text-xs rounded-xl">${tCh('f24GuideBack', __uiLang)}</button>` : ''}
         ${!ultima

@@ -26,6 +26,14 @@
 
 import { taxSetAside } from './tax.js';
 
+// Pagina ufficiale del servizio F24 Web dell'Agenzia delle Entrate (accesso
+// con SPID/CIE/CNS) — verificata via fetch diretto della pagina il
+// 2026-09-06, non un URL indovinato. Chi ha una P.IVA deve versare l'F24
+// per via telematica (home banking o un canale come questo), mai allo
+// sportello con modulo cartaceo: un link diretto e verificato toglie il
+// passo più fastidioso ("dove clicco adesso?") a chi lo fa per la prima volta.
+export const F24_WEB_UFFICIALE_URL = 'https://www.agenziaentrate.gov.it/portale/schede/pagamenti/f24/compilazione-invio-f24-via-web';
+
 export const CODICI_TRIBUTO = {
   forfettario: { primoAcconto: '1790', secondoAcconto: '1791', saldo: '1792' },
   ordinario: { primoAcconto: '4033', secondoAcconto: '4034', saldo: '4001' },

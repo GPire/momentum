@@ -269,6 +269,24 @@ export function taxAdvice(input = {}) {
     } else if (pct >= 0.8) {
       advice.push({ priority: 'medium', icon: '📊', text: `Sei al ${Math.round(pct * 100)}% del tetto forfettario (${eur(rules.forfettarioCeiling)}): tieni d'occhio il fatturato per non superarlo senza accorgertene.` });
     }
+
+    // ── QUANTO COSTEREBBE USCIRE, in euro veri (2026-09-06) ──
+    // Non solo "cambia regime": il numero. Riusa GLI STESSI due calcoli già
+    // testati (taxSetAside, mai una terza formula) sullo STESSO fatturato
+    // annualizzato, uno per regime. Approssimato per costruzione — l'ordinario
+    // vero deduce le spese reali dell'attività, che qui non sono note (stessa
+    // onestà già dichiarata su REGIMI.ordinario, "IRPEF media stimata") — il
+    // confronto resta comunque un ordine di grandezza reale, non un numero a
+    // caso, ed è la domanda che chiunque si avvicini alla soglia si fa per
+    // prima: "quanto mi cambia la vita?".
+    if (pct >= 0.8) {
+      const conForfettario = taxSetAside(input.annualizedRevenue, { regime: 'forfettario', overrides: input.overrides }).setAside;
+      const conOrdinario = taxSetAside(input.annualizedRevenue, { regime: 'ordinario', overrides: input.overrides }).setAside;
+      const differenza = conOrdinario - conForfettario;
+      if (differenza > 0) {
+        advice.push({ priority: 'info', icon: '⚖️', text: `Sullo stesso fatturato annualizzato (${eur(input.annualizedRevenue)}), l'ordinario costerebbe stimativamente ~${eur(differenza)} in più all'anno rispetto al forfettario. È una stima approssimata per ordine di grandezza: l'ordinario vero deduce le tue spese reali, che qui non conosciamo — il numero esatto va verificato col commercialista.` });
+      }
+    }
   }
 
   if (input.estimatedAnnualTax > 0 && input.currentSetAside != null && input.annualizedRevenue > 0) {
