@@ -1,5 +1,19 @@
 apply plugin: 'com.android.application'
 
+// FIRMA DI RILASCIO (obbligatoria per caricare su Play Store).
+// Le credenziali NON stanno mai nel repo: si leggono da
+// `android/keystore.properties` (git-ignored). Se il file non c'è — sviluppo
+// normale, CI senza segreti, chiunque cloni il progetto — la build continua
+// a funzionare e la variante release resta semplicemente non firmata, invece
+// di fallire con un errore oscuro.
+// Per crearlo, vedi RILASCIO.md nella radice del progetto.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasKeystore = keystorePropertiesFile.exists()
+if (hasKeystore) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace "com.momentum.vault"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +21,13 @@ android {
         applicationId "com.momentum.vault"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
+        // Allineati alla versione vera del prodotto (package.json 50.1.0):
+        // prima erano fermi a 1.0, il default dello scaffold Capacitor.
+        // `versionCode` DEVE crescere di 1 a ogni caricamento sul Play Store,
+        // anche se `versionName` non cambia — è l'unico numero che Google
+        // guarda per capire cos'è più recente.
         versionCode 1
-        versionName "1.0"
+        versionName "50.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +35,21 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

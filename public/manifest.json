@@ -1,7 +1,7 @@
 {
   "name": "Momentum Vault",
   "short_name": "Momentum",
-  "description": "Quantum Financial Ledger & Neuro-Friction Engine",
+  "description": "I tuoi soldi, finalmente chiari. Momentum ti dice quanto puoi spendere oggi e fa i conti direttamente sul tuo telefono: nessun server, nessun account, i tuoi dati non escono da qui.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#090d16",

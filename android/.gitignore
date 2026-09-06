@@ -52,10 +52,15 @@ captures/
 # Comment next line if keeping position of elements in Navigation Editor is relevant for you
 .idea/navEditor.xml
 
-# Keystore files
-# Uncomment the following lines if you do not want to check your keystore files in.
-#*.jks
-#*.keystore
+# Keystore files — MAI nel repo.
+# Erano commentati (default dello scaffold): con quelle righe spente, una
+# chiave di firma finirebbe pubblicata su GitHub al primo commit, e chiunque
+# potrebbe firmare aggiornamenti che il Play Store accetterebbe come tuoi.
+# Attivati il 2026-09-06, insieme alla configurazione di firma in
+# app/build.gradle che legge le credenziali da keystore.properties.
+*.jks
+*.keystore
+keystore.properties
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
