@@ -1,4 +1,6 @@
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
+import { haCompletatoOnboarding } from './core/onboarding-state.js';
+import { giornoLocale, meseLocale } from './core/date-utils.js';
 import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.js';
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
@@ -1000,6 +1002,41 @@ const attachFormListeners = (container, prefill = null) => {
     updateCompetenzaPill();
   });
 
+  // Il form si azzera dopo un salvataggio andato a buon fine (2026-09-06,
+  // segnalato dal vivo): importo, descrizione e categoria restavano quelli
+  // appena confermati. Per il modale MOBILE closeModal() lo distrugge comunque
+  // al prossimo tocco del "+" (una nuova attachFormListeners riparte pulita),
+  // ma il pannello DESKTOP persistente (vedi più sotto: attachFormListeners
+  // viene chiamato una volta sola su desktopForm e non è mai ricreato) restava
+  // esattamente come l'ultimo salvataggio l'aveva lasciato — chi voleva
+  // registrarne subito un'altra si ritrovava lì l'importo e la categoria di
+  // prima, pronte a essere salvate DI NUOVO per errore con un tocco distratto.
+  const resetForm = () => {
+    rawVal = '';
+    catId = null;
+    competenzaSuggerita = null;
+    competenzaAccettata = true;
+    selectedDate = new Date();
+    if (desc) { desc.value = ''; desc.placeholder = tCh('txDescPlaceholder', __uiLang); }
+    container.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('selected'));
+    container.querySelector('#cat-domanda')?.classList.remove('risposta-data');
+    container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
+    const dateInputEl = container.querySelector('#tx-date-input');
+    if (dateInputEl) dateInputEl.value = '';
+    const datePillTextEl = container.querySelector('#date-pill-text');
+    if (datePillTextEl) datePillTextEl.textContent = tCh('txDateToday', __uiLang);
+    aiPanel?.classList.remove('active');
+    aiPanel?.setAttribute('aria-hidden', 'true');
+    // Torna al tipo di default (uscita) riusando lo stesso interruttore che
+    // ricostruisce già domanda/categorie/placeholder/pillola di competenza
+    // per quel tipo — nessuna seconda copia di quella logica qui.
+    const uscitaBtn = container.querySelector('.type-toggle-pill[data-type="uscita"]');
+    uscitaBtn?.click();
+    updateAmount();
+    updateSaveBtn();
+    updateCompetenzaPill();
+  };
+
   // ── TASTIERINO VIVO E PREDITTIVO ──
   // A ogni cifra digitata mostra la CONSEGUENZA reale: quanto ti resta del tuo
   // "Oggi puoi spendere" (verde/ambra/rosso) e se è "più del solito" per la
@@ -1882,6 +1919,7 @@ const attachFormListeners = (container, prefill = null) => {
     window.__txAppenaAggiunta = duplicate ? null : idNuovaTx;
     renderDashboard();
     renderAnalysis({ skipHeavyForecast: route === 'fast' });
+    resetForm();
   };
 
   // ── PRE-COMPILAZIONE da Dashboard (safe-to-spend tappabile / nudge "prossima
@@ -2262,7 +2300,7 @@ function liveDemoTx() {
 // Transazioni di un mese PER DISEGNARE: le vere più le finte superstiti.
 function displayTxForMonth(k) {
   const reali = VaultDAO.state.transactions[k] || [];
-  const finte = liveDemoTx().filter((t) => String(t.date).slice(0, 7) === k);
+  const finte = liveDemoTx().filter((t) => meseLocale(t.date) === k);
   if (!finte.length) return reali;
   return [...reali, ...finte].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
@@ -2286,7 +2324,16 @@ function renderDemoBanner() {
   const el = document.getElementById('demo-banner');
   if (!el) return;
   const s = demoStatus(VaultDAO.state.demoTransactions || [], realTxCount());
-  if (!s.attivo || VaultDAO.state.demoDismissed) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  // Il BANNER e il suo bottone "Parti dai miei dati" spariscono appena esiste
+  // ALMENO UNA transazione vera (2026-09-06, segnalato dal vivo) — stesso
+  // principio già in uso per #import-cta qui sotto ("sparisce da sola non
+  // appena esiste almeno un movimento vero"). Chi ha già iniziato a usare
+  // Momentum con i propri dati non deve vedersi ancora proposto un invito a
+  // "partire dai suoi dati": li ha già. La DISSOLVENZA GRADUALE dei NUMERI
+  // (quanto demo resta mescolato nei totali, vedi liveDemoTx/fadeDemo) resta
+  // invariata e separata — qui si nasconde solo l'avviso, non si azzera il
+  // demo stesso, che continua a scomparire da solo come sempre.
+  if (!s.attivo || VaultDAO.state.demoDismissed || realTxCount() > 0) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   const fatte = Math.max(0, DEMO_FADE_AT - s.realiMancanti);
   const pct = Math.round((fatte / DEMO_FADE_AT) * 100);
   el.classList.remove('hidden');
@@ -2608,9 +2655,10 @@ function limiteSettimaneIndietro() {
   return -Math.max(settimane, SOGLIA_GENEROSA);
 }
 
-function isoDay(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+// Alias storico: stessa identica logica di giornoLocale (core/date-utils.js,
+// testata su più fusi orari), tenuto per non toccare le decine di chiamate
+// già esistenti nel file — un solo posto di verità, due nomi.
+const isoDay = giornoLocale;
 
 // "SI TOCCANO, MA NIENTE LO DICEVA" — segnalato dal vivo: i pianeti sono
 // icone pure (nessun testo, nessun bordo da bottone), e chi apre l'app non
@@ -2661,7 +2709,7 @@ const renderDashboardWeekStrip = () => {
   const catWeek = {};
   const dayInfo = days.map((d) => {
     const iso = isoDay(d);
-    const dayTxs = displayTxForMonth(monthKey(d)).filter(t => String(t.date).slice(0, 10) === iso);
+    const dayTxs = displayTxForMonth(monthKey(d)).filter(t => giornoLocale(t.date) === iso);
     const uscite = dayTxs.filter(t => t.type === 'uscita');
     const spend = uscite.reduce((s, t) => s + t.amount, 0);
     uscite.forEach(t => { catWeek[t.category] = (catWeek[t.category] || 0) + t.amount; });
@@ -3816,7 +3864,7 @@ const renderDashboard = () => {
   // e' stato pesante.
   const perGiorno = new Map();
   for (const t of txs) {
-    const giorno = t.date ? String(t.date).slice(0, 10) : '—';
+    const giorno = t.date ? giornoLocale(t.date) : '—';
     if (!perGiorno.has(giorno)) perGiorno.set(giorno, []);
     perGiorno.get(giorno).push(t);
   }
@@ -5080,7 +5128,7 @@ window.openVersamentiFiscali = () => {
         <div class="flex items-center justify-between gap-2 rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-2.5">
           <div class="min-w-0">
             <div class="font-mono font-bold text-sm">${formatMoney(p.amount)}</div>
-            <div class="text-[10px] text-[var(--on-surface-secondary)] truncate">${escapeHtml(String(p.date).slice(0, 10))}${p.note ? ' · ' + escapeHtml(p.note) : ''}</div>
+            <div class="text-[10px] text-[var(--on-surface-secondary)] truncate">${escapeHtml(giornoLocale(p.date) || '')}${p.note ? ' · ' + escapeHtml(p.note) : ''}</div>
           </div>
           <button onclick="window.rimuoviVersamentoFiscale('${escapeHtml(p.id)}')" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">Rimuovi</button>
         </div>`).join('')}
@@ -7974,7 +8022,7 @@ window.exportTransactionsCsv = () => {
     tCh('vaultExportCsvColAmount', __uiLang), tCh('vaultExportCsvColCurrency', __uiLang),
   ];
   const righe = [...tutte].sort((a, b) => String(a.date).localeCompare(String(b.date))).map(t => [
-    String(t.date).slice(0, 10),
+    giornoLocale(t.date),
     ETICHETTA_TIPO[t.type] || t.type,
     catName(getCatById(t.category), __uiLang),
     t.description || '',
@@ -8982,11 +9030,30 @@ function showWhatsNewIfDue() {
       return html;
     }).join('')}
   `).join('');
+  // USCITA ANIMATA (2026-09-06, richiesta esplicita). Prima si toglieva
+  // `active` e si metteva `hidden` nello stesso istante: `hidden` è
+  // display:none, quindi nessuna transizione faceva in tempo a partire e la
+  // dashboard compariva di scatto. Ora la schermata si dissolve salendo (vedi
+  // .uscita in index.html, il verso opposto della gRise con cui era entrata),
+  // e solo a fine animazione viene nascosta davvero.
+  // Lo stato si salva SUBITO, non a fine animazione: se l'utente chiude l'app
+  // durante quei 320ms, "ho capito" deve valere lo stesso — mai perdere una
+  // conferma per colpa di un'animazione.
   const chiudi = () => {
-    overlay.classList.remove('active');
-    overlay.classList.add('hidden');
     VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
     VaultDAO.save();
+    const nascondi = () => { overlay.classList.remove('active', 'uscita'); overlay.classList.add('hidden'); };
+    const menoMovimento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (menoMovimento) { nascondi(); return; }
+    overlay.classList.add('uscita');
+    // `animationend` come segnale primario, con una rete di sicurezza a tempo:
+    // se l'animazione non parte (scheda in background, animazioni disattivate
+    // dal sistema), la schermata deve sparire lo stesso — mai restare
+    // bloccata sopra l'app.
+    let fatto = false;
+    const finisci = () => { if (fatto) return; fatto = true; nascondi(); };
+    overlay.addEventListener('animationend', finisci, { once: true });
+    setTimeout(finisci, 500);
   };
   document.getElementById('whats-new-close').onclick = chiudi;
   overlay.classList.remove('hidden');
@@ -10096,7 +10163,7 @@ window.openBusinessTrip = (tripId) => {
         ${t.receiptImage ? (String(t.receiptImage).startsWith('data:application/pdf') ? `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--red)] font-black text-[8px]">PDF</span>` : `<img src="${t.receiptImage}" class="w-9 h-9 rounded-lg object-cover shrink-0" alt="" />`) : `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--on-surface-secondary)]"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M3 9h18"/></svg></span>`}
         <span class="flex-1 min-w-0">
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
-          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${String(t.date).slice(0, 10)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
+          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
         </span>
         <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
         ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" title="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" class="${t.bridgeSentAt ? 'text-emerald-400 opacity-70' : 'text-[var(--on-surface-secondary)] opacity-40'} hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.bridgeSentAt ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>'}</svg></button>` : ''}
@@ -10113,7 +10180,7 @@ window.openBusinessTrip = (tripId) => {
     // per mostrare i giorni coperti e, soprattutto, i buchi.
     const giorniConSpese = new Map();
     for (const t of expenses) {
-      const g = String(t.date).slice(0, 10);
+      const g = giornoLocale(t.date);
       giorniConSpese.set(g, (giorniConSpese.get(g) || 0) + 1);
     }
     // Giorni dichiarati nel periodo della trasferta (startDate–endDate), per
@@ -10121,16 +10188,16 @@ window.openBusinessTrip = (tripId) => {
     // ancora stato compilato, mai un range inventato.
     const giorniPeriodoTrasferta = new Set(giorniDelPeriodo(trip));
     const expensesOrdinate = [...expenses].sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    const giorniDistinti = new Set(expensesOrdinate.map(t => String(t.date).slice(0, 10))).size;
+    const giorniDistinti = new Set(expensesOrdinate.map(t => giornoLocale(t.date))).size;
     let rows;
     if (giorniDistinti > 1) {
       let ultimoGiorno = null;
       rows = expensesOrdinate.map(t => {
-        const giorno = String(t.date).slice(0, 10);
+        const giorno = giornoLocale(t.date);
         let header = '';
         if (giorno !== ultimoGiorno) {
           ultimoGiorno = giorno;
-          const totGiorno = expensesOrdinate.filter(e => String(e.date).slice(0, 10) === giorno).reduce((s, e) => s + e.amount, 0);
+          const totGiorno = expensesOrdinate.filter(e => giornoLocale(e.date) === giorno).reduce((s, e) => s + e.amount, 0);
           const etichetta = new Date(giorno).toLocaleDateString(__uiLocale, { weekday: 'short', day: 'numeric', month: 'short' });
           header = `<div class="tx-giorno"><span>${esc(etichetta)}</span><span class="tx-giorno-tot">${eur(totGiorno)}</span></div>`;
         }
@@ -10151,7 +10218,7 @@ window.openBusinessTrip = (tripId) => {
     const { totale: offertiTotale } = tripOfferedTotals(trip);
     const offertiRows = [...offerti].sort((a, b) => String(b.date).localeCompare(String(a.date))).map(it => `
       <div class="flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
-        <span class="flex-1 min-w-0"><span class="block text-[12px] font-bold truncate">${esc(it.description) || esc(tCh('tripNoDescription', __uiLang))}</span><span class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('trip_' + it.tripCategory, __uiLang))}${it.mealType ? ' · ' + esc(tCh('trip_meal_' + it.mealType, __uiLang)) : ''} · ${String(it.date).slice(0, 10)}</span></span>
+        <span class="flex-1 min-w-0"><span class="block text-[12px] font-bold truncate">${esc(it.description) || esc(tCh('tripNoDescription', __uiLang))}</span><span class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('trip_' + it.tripCategory, __uiLang))}${it.mealType ? ' · ' + esc(tCh('trip_meal_' + it.mealType, __uiLang)) : ''} · ${giornoLocale(it.date)}</span></span>
         <span class="font-mono font-bold shrink-0 text-[var(--on-surface-secondary)]">${eur(it.amount)}</span>
         <button data-tripofferdel="${it.id}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
       </div>`).join('');
@@ -17455,7 +17522,7 @@ const initApp = () => {
     // quello che sta succedendo. Due numeri dicono la verità, uno la nasconde.
     const entrate = righe.filter(t => t.type === 'entrata').reduce((s, t) => s + (+t.amount || 0), 0);
     const uscite = righe.filter(t => t.type !== 'entrata').reduce((s, t) => s + (+t.amount || 0), 0);
-    const date = righe.map(t => String(t.date).slice(0, 10)).filter(Boolean).sort();
+    const date = righe.map(t => giornoLocale(t.date)).filter(Boolean).sort();
     const periodo = date.length
       ? (date[0] === date[date.length - 1] ? formatDataLocale(date[0], { day: 'numeric', month: 'short', year: 'numeric' })
         : `${formatDataLocale(date[0], { day: 'numeric', month: 'short' })} → ${formatDataLocale(date[date.length - 1], { day: 'numeric', month: 'short', year: 'numeric' })}`)
@@ -17464,7 +17531,7 @@ const initApp = () => {
       <div class="recovery-row flex items-center gap-2 py-1.5 border-b border-[var(--outline)] last:border-0" style="--i:${i}">
         <span class="w-1.5 h-1.5 rounded-full shrink-0 ${t.type === 'entrata' ? 'bg-emerald-400' : 'bg-[var(--on-surface-secondary)]'}"></span>
         <span class="flex-1 min-w-0 text-[11px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
-        <span class="text-[11px] font-mono text-[var(--on-surface-secondary)] shrink-0">${esc(String(t.date).slice(0, 10))}</span>
+        <span class="text-[11px] font-mono text-[var(--on-surface-secondary)] shrink-0">${esc(giornoLocale(t.date) || '')}</span>
         <span class="text-[11px] font-mono font-bold shrink-0">${formatMoney(+t.amount || 0)}</span>
       </div>`).join('');
 
@@ -19485,8 +19552,19 @@ const initApp = () => {
   // sempre una promise, cosi' il boot resta identico per tutti e due i formati.
   const decodedJoin = () => joinPayload ? readGroupCode(joinPayload) : Promise.resolve(null);
 
-  // Check onboarding state
-  const hasOnboarded = localStorage.getItem('omega_core_db');
+  // Chi ha DAVVERO finito l'onboarding — non "chi ha la chiave in
+  // localStorage" (BUG REALE corretto il 2026-09-06): VaultDAO scrive
+  // `omega_core_db` già al primissimo avvio, con `isFirstLaunch: true`.
+  // Con il vecchio controllo, chi apriva l'app, non completava le domande e
+  // tornava più tardi non rivedeva mai più la hero: restava su una dashboard
+  // di esempio senza modo di arrivare all'onboarding. Il segnale vero è
+  // `isFirstLaunch === false`, scritto solo da seedProfileState al
+  // completamento. Fallback per stati molto vecchi che potrebbero non avere
+  // il campo: chi ha transazioni o un profilo salvato è dentro da tempo.
+  // Stessa identica condizione dello script inline in index.html, che
+  // impedisce alla hero di essere dipinta prima ancora che questo file venga
+  // scaricato — se cambi una, cambia l'altra.
+  const hasOnboarded = haCompletatoOnboarding(VaultDAO.state);
   if (hasOnboarded) {
     const gen = $('#genesis-container');
     if (gen) gen.remove();

@@ -28,11 +28,73 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
   <title>Momentum | Apex V50.0 Core</title>
   
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  
+  <!-- Fonts AUTO-OSPITATI (2026-09-06). Prima arrivavano da
+       fonts.googleapis.com/fonts.gstatic.com: significava che l'indirizzo IP
+       di ogni utente raggiungeva Google a ogni apertura dell'app — una
+       contraddizione con la promessa in prima pagina ("niente esce da qui") e,
+       in UE, un problema GDPR gia' sanzionato in tribunale. Ora i due font
+       sono dentro l'app (352 KB totali, solo sottoinsiemi latin/latin-ext:
+       le 7 lingue coperte sono tutte latine). Zero richieste esterne, e
+       funzionano offline dalla PRIMA apertura, non dalla seconda. -->
+  <link href="./fonts.css" rel="stylesheet">
+
+  <!-- CHI HA GIÀ FATTO L'ONBOARDING NON DEVE PIÙ VEDERE LA HERO (2026-09-06,
+       segnalato dal vivo). La logica che rimuove il genesis per un utente
+       esistente esisteva già in main.js — ma gira solo DOPO che il bundle
+       principale (~4,5 MB) è stato scaricato, analizzato ed eseguito. Fino a
+       quel momento il browser dipinge quello che trova nell'HTML, cioè la
+       hero "Inizia — bastano 20 secondi": un lampo di schermata iniziale a
+       ogni singola apertura, per chi l'ha già completata mesi fa.
+       Questo script è inline e senza dipendenze: gira PRIMA del primo paint,
+       legge la stessa identica chiave che usa main.js e nasconde la hero
+       subito. Nessuna logica duplicata (la decisione vera resta in main.js,
+       qui si evita solo che si veda una schermata destinata a sparire).
+       Difensivo per costruzione: se localStorage è inaccessibile (Safari in
+       modalità privata lancia), non fa nulla e si torna al comportamento
+       di prima. -->
+  <script>
+    try {
+      // NON basta "esiste omega_core_db": VaultDAO scrive quella chiave già al
+      // primissimo avvio, con isFirstLaunch:true. Chi apre l'app, NON finisce
+      // l'onboarding e torna più tardi non deve trovarsi la hero saltata e una
+      // dashboard di esempio senza via d'uscita (bug reale trovato provando
+      // questo stesso percorso, presente anche nel controllo di main.js).
+      // Il segnale vero è isFirstLaunch === false, scritto solo al
+      // completamento. Fallback per stati molto vecchi che potrebbero non
+      // avere il campo: se ci sono transazioni o un profilo di onboarding,
+      // quella persona è dentro da un pezzo.
+      var grezzo = localStorage.getItem('omega_core_db');
+      if (grezzo) {
+        var s = JSON.parse(grezzo);
+        var haDati = s && (s.onboardingProfile || (s.transactions && Object.keys(s.transactions).length));
+        if (s && (s.isFirstLaunch === false || haDati)) {
+          document.documentElement.classList.add('gia-onboardato');
+        }
+      }
+    } catch (e) { /* storage non accessibile o dato malformato: si prosegue come prima */ }
+  </script>
+  <style>
+    /* La hero non viene mai dipinta per chi è già dentro; l'app parte
+       visibile senza aspettare il bundle. main.js poi fa il resto. */
+    html.gia-onboardato #genesis-container { display: none !important; }
+    html.gia-onboardato #app-core { display: flex !important; opacity: 1 !important; }
+    /* MICRO-TRANSIZIONE D'INGRESSO (2026-09-06, richiesta esplicita: prima la
+       dashboard compariva di scatto). Stessa curva e stessa distanza di
+       `gRise`, il linguaggio d'ingresso che l'app usa già nell'onboarding e
+       nelle card — non una animazione nuova inventata qui. Breve apposta
+       (0.42s): deve dire "ci siamo", mai far aspettare.
+       Le keyframes sono ridichiarate qui perché questo blocco vive nel <head>
+       e deve funzionare PRIMA che carichi il resto del CSS. */
+    @keyframes appEntra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    html.gia-onboardato #app-core {
+      animation: appEntra 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    /* Chi ha chiesto meno movimento al sistema operativo non lo riceve. */
+    @media (prefers-reduced-motion: reduce) {
+      html.gia-onboardato #app-core { animation: none; }
+    }
+  </style>
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -43,22 +105,22 @@
   </script>
   
   <!-- CDNs for WebGL, Charts and PDF/OCR -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js" integrity="sha384-7NrRHqlWUj2hJl3a/dZj/a1GxuQc56mJ3aYsEnydBYrY1jR+RSt6SBvK3sHfj+mJ" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Lightweight Charts™ (TradingView, Apache 2.0, open source) — solo la
        libreria di rendering, MAI dati di TradingView: usata per disegnare i
        dati che Momentum già verifica da sé (es. andamento del percentile di
        settore su bilanci SEC reali). TradingView non ha un'API dati pubblica
        (verificato via ricerca web 2026-08-25) — questa è l'unica parte
        legittimamente utilizzabile del loro ecosistema. -->
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js" integrity="sha384-KkYqTZlM13Zya6fVUF3IGCBOQ1ehFeJVVgxaVvD/0MebineF9EI8Jkd3NnWNChqN" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     if (window.pdfjsLib) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js" integrity="sha384-Ptw8HCYAWF6vIop6WuGxfSCiDCIzUWqjrHYfx8Vd0S4CMBaicAdBh2y+Ufle664A" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <style>
     /* === OMEGA V25/V50 NEURO-IDENTITY DESIGN SYSTEM === */
@@ -2937,7 +2999,15 @@
        stesse .payoff-card in vetro — nessuna nuova animazione inventata. */
     #whats-new-overlay.active h2, #whats-new-overlay.active .eyebrow { animation: gRise 0.5s cubic-bezier(0.22,1,0.36,1) both; }
     #whats-new-overlay.active .payoff-card { animation: gRise 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay: calc(0.12s + var(--i, 0) * 0.09s); }
-    @media (prefers-reduced-motion: reduce) { .genesis-step.active .payoff-card, #whats-new-overlay.active .payoff-card, #whats-new-overlay.active h2, #whats-new-overlay.active .eyebrow { animation: none; } }
+    /* USCITA da "Ho capito" (2026-09-06, richiesta esplicita): prima era un
+       taglio netto — si toglieva .active e si metteva .hidden nello stesso
+       istante, quindi nessuna transizione faceva in tempo a partire e la
+       dashboard appariva di scatto. Ora la schermata si dissolve salendo di
+       poco (il verso opposto di gRise, stessa curva e stessa distanza: è la
+       stessa animazione che torna indietro, non una nuova). */
+    #whats-new-overlay.uscita { animation: whatsNewEsce 0.32s cubic-bezier(0.4, 0, 1, 1) both; pointer-events: none; }
+    @keyframes whatsNewEsce { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-14px); } }
+    @media (prefers-reduced-motion: reduce) { .genesis-step.active .payoff-card, #whats-new-overlay.active .payoff-card, #whats-new-overlay.active h2, #whats-new-overlay.active .eyebrow, #whats-new-overlay.uscita { animation: none; } }
     /* Le card del payoff sono vetro, non piene: lo starfield/nebulosa già
        presenti dietro OGNI step (vedi .starfield, poco sopra in questo
        file) restano visibili attraverso, invece di sparire dietro un

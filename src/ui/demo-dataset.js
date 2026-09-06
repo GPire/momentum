@@ -22,9 +22,17 @@
 'use strict';
 
 // Quante transazioni vere servono perché il demo sia completamente
-// dissolto. 12 è la soglia in cui la Dashboard ha già abbastanza materia
-// propria per essere utile da sola (circa due settimane di uso reale).
-export const DEMO_FADE_AT = 12;
+// dissolto. Era 12 ("due settimane di uso reale") ma più utenti hanno
+// segnalato lo stesso sintomo (2026-09-06): dopo aver aggiunto qualche
+// spesa vera, l'app "continua a usare i dati della demo" — non è un bug,
+// il meccanismo dissolve correttamente (verificato: con 1 transazione vera
+// su 12 restava il 91,7% del demo, matematicamente esatto ma impercettibile
+// a occhio). Chi prova l'app aggiunge in genere 3-8 voci nella prima sessione,
+// non due settimane di utilizzo continuo: con la soglia vecchia, la Dashboard
+// sembrava ferma sul demo per giorni anche a chi la stava usando davvero.
+// Dimezzata: resta abbastanza alta da non sparire per un tocco accidentale,
+// abbastanza bassa da mostrare un progresso vero entro la prima sessione.
+export const DEMO_FADE_AT = 6;
 
 // Generatore deterministico (LCG): lo stesso "mese di esempio" ad ogni
 // avvio, così i test sono stabili e l'utente non vede numeri che ballano
