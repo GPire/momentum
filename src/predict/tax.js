@@ -81,9 +81,16 @@ export const ATECO_COEFFICIENTI = {
 // Ogni voce ha `kw`: sinonimi/parole reali che una persona userebbe per
 // descrivere il proprio lavoro (mai gergo ATECO), per la ricerca libera.
 export const ATECO_COMUNI = [
-  { code: '62.01.00', label: 'Sviluppo software', categoria: 'altre', kw: 'programmatore sviluppatore app sito web coding developer' },
-  { code: '62.02.00', label: 'Consulenza informatica', categoria: 'altre', kw: 'consulente it informatico sistemista' },
-  { code: '62.09.00', label: 'Altri servizi informatici', categoria: 'altre', kw: 'assistenza computer riparazione pc informatica' },
+  // Codici aggiornati il 2026-09-06 (BUG REALE trovato analizzando un audit
+  // esterno): con la riclassificazione ATECO 2025 (in vigore dal 2025-04-01)
+  // 62.01.00/62.02.00/62.09.00 (ATECO 2007) non sono più i codici corretti —
+  // il coefficiente forfettario (categoria "altre", 67%) resta invariato,
+  // cambia solo il codice numerico. Verificato via ricerca web 2026-09-06 su
+  // più fonti indipendenti concordanti (regime-forfettario.it, flextax.it,
+  // fidocommercialista.it, codiceateco.org).
+  { code: '62.10.00', label: 'Sviluppo software', categoria: 'altre', kw: 'programmatore sviluppatore app sito web coding developer' },
+  { code: '62.20.10', label: 'Consulenza informatica', categoria: 'altre', kw: 'consulente it informatico sistemista' },
+  { code: '62.90.09', label: 'Altri servizi informatici', categoria: 'altre', kw: 'assistenza computer riparazione pc informatica' },
   { code: '63.11.00', label: 'Gestione siti web e hosting', categoria: 'altre', kw: 'hosting server siti internet webmaster' },
   { code: '63.99.00', label: 'Informazione online e blog', categoria: 'altre', kw: 'blogger content creator influencer social media' },
   { code: '96.02.00', label: 'Parrucchiere / estetista', categoria: 'altre', kw: 'parrucchiera estetica bellezza acconciature trucco' },
@@ -218,6 +225,21 @@ export function contributiCassaProfessionale(redditoImponibile, fatturato, cassa
 // Superarlo obbliga al regime ordinario: è un'informazione predittiva reale
 // e utile, non una previsione inventata.
 export const FORFETTARIO_CEILING = 85000;
+// Soglia "antiabuso" (100.000€/anno) — BUG REALE trovato e corretto
+// (2026-09-06, analizzando un audit esterno): il codice trattava €85.000
+// come un confine unico ("sopra → ordinario"), ma la normativa reale ha TRE
+// esiti diversi in base a QUANTO si supera:
+//   ≤ 85.000€            → resta forfettario, nessun cambiamento
+//   > 85.000€ e ≤ 100.000€ → resta forfettario FINO A FINE ANNO in corso,
+//                            passa a ordinario dal 1° gennaio successivo
+//   > 100.000€            → fuoriuscita IMMEDIATA nello stesso anno, con IVA
+//                            dovuta dall'operazione che fa superare la soglia
+// Prima di questa correzione un utente a €90.000 vedeva lo stesso avviso di
+// uno a €150.000 ("preparati al passaggio all'ordinario"), nascondendo la
+// differenza pratica più importante: SE e QUANDO scatta l'IVA. Verificato via
+// ricerca web 2026-09-06 su più fonti indipendenti concordanti (money.it,
+// fiscozen.it, informazionefiscale.it, leggeinchiaro.it).
+export const FORFETTARIO_CEILING_ANTIABUSO = 100000;
 
 import { rulesForYear, computeIrpef } from './tax-rules.js';
 
@@ -235,8 +257,18 @@ export function taxAdvice(input = {}) {
 
   if (input.regime && input.regime.startsWith('forfettario') && input.annualizedRevenue > 0) {
     const pct = input.annualizedRevenue / rules.forfettarioCeiling;
-    if (pct > 1) advice.push({ priority: 'high', icon: '⚠️', text: `A questo ritmo superi il tetto forfettario (${eur(rules.forfettarioCeiling)}): preparati al passaggio all'ordinario, dove cambiano IVA e aliquote.` });
-    else if (pct >= 0.8) advice.push({ priority: 'medium', icon: '📊', text: `Sei al ${Math.round(pct * 100)}% del tetto forfettario (${eur(rules.forfettarioCeiling)}): tieni d'occhio il fatturato per non superarlo senza accorgertene.` });
+    // Tre esiti reali, non due (vedi FORFETTARIO_CEILING_ANTIABUSO): la
+    // differenza fra "resti forfettario fino a fine anno" e "esci subito con
+    // IVA da questa fattura" è la cosa più importante da sapere, non un
+    // dettaglio — un utente a €90.000 e uno a €150.000 non sono nella stessa
+    // situazione, anche se entrambi superano €85.000.
+    if (input.annualizedRevenue > FORFETTARIO_CEILING_ANTIABUSO) {
+      advice.push({ priority: 'high', icon: '🚨', text: `Hai superato ${eur(FORFETTARIO_CEILING_ANTIABUSO)}: fuoriuscita immediata dal forfettario, già in questo stesso anno. Dall'operazione che ha fatto superare la soglia scatta l'IVA. Parlane subito col commercialista.` });
+    } else if (pct > 1) {
+      advice.push({ priority: 'high', icon: '⚠️', text: `Hai superato ${eur(rules.forfettarioCeiling)}: puoi restare forfettario fino al 31 dicembre di quest'anno, ma dal 1° gennaio prossimo passerai all'ordinario (IVA e aliquote cambiano). Se superi anche ${eur(FORFETTARIO_CEILING_ANTIABUSO)}, la fuoriuscita diventa immediata.` });
+    } else if (pct >= 0.8) {
+      advice.push({ priority: 'medium', icon: '📊', text: `Sei al ${Math.round(pct * 100)}% del tetto forfettario (${eur(rules.forfettarioCeiling)}): tieni d'occhio il fatturato per non superarlo senza accorgertene.` });
+    }
   }
 
   if (input.estimatedAnnualTax > 0 && input.currentSetAside != null && input.annualizedRevenue > 0) {

@@ -41,8 +41,8 @@ test('cuotaReta: default usa la base mínima del tramo, mai una base più alta i
   assert.equal(r.cuotaMensual, +(1209.15 * RETA_ALIQUOTA_2026).toFixed(2));
 });
 
-test('cuotaReta: aliquota 2026 è 30,5% (28,30 contingencias comunes + 1,30 profesionales + 0,90 MEI)', () => {
-  assert.equal(+RETA_ALIQUOTA_2026.toFixed(3), 0.305);
+test('cuotaReta: aliquota 2026 è 31,5% (28,30 contingencias comunes + 1,30 profesionales + 0,90 MEI + 0,90 cese de actividad + 0,10 formación profesional)', () => {
+  assert.equal(+RETA_ALIQUOTA_2026.toFixed(3), 0.315);
 });
 
 test('cuotaReta: base scelta esplicitamente viene rispettata, ma vincolata dentro il tramo (mai fuori range)', () => {

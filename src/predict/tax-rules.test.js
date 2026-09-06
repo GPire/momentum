@@ -19,9 +19,24 @@ test('TAX_RULES_VERSION esiste (tracciabilità aggiornamenti normativi)', () => 
   assert.ok(typeof TAX_RULES_VERSION === 'string' && TAX_RULES_VERSION.length >= 4);
 });
 
-test('taxAdvice: avvisa quando si supera il tetto forfettario', () => {
+// Tre esiti reali, non un confine unico a 85.000€ (BUG REALE corretto
+// 2026-09-06, vedi FORFETTARIO_CEILING_ANTIABUSO in tax.js): fra 85k e 100k
+// si resta forfettario fino a fine anno; sopra 100k la fuoriuscita è
+// immediata, con IVA dall'operazione che fa superare la soglia.
+test('taxAdvice: fra 85.000€ e 100.000€ → resta forfettario fino a fine anno, IVA NON immediata', () => {
   const { advice } = taxAdvice({ regime: 'forfettario', annualizedRevenue: 95000, year: 2026 });
-  assert.ok(advice.some(a => a.priority === 'high' && /superi il tetto/.test(a.text)));
+  const alta = advice.find(a => a.priority === 'high');
+  assert.ok(alta, 'deve esserci un avviso ad alta priorità');
+  assert.match(alta.text, /fino al 31 dicembre/);
+  assert.doesNotMatch(alta.text, /fuoriuscita immediata dal forfettario/i);
+});
+
+test('taxAdvice: sopra 100.000€ → fuoriuscita immediata nello stesso anno, IVA subito', () => {
+  const { advice } = taxAdvice({ regime: 'forfettario', annualizedRevenue: 150000, year: 2026 });
+  const alta = advice.find(a => a.priority === 'high');
+  assert.ok(alta, 'deve esserci un avviso ad alta priorità');
+  assert.match(alta.text, /immediata/);
+  assert.match(alta.text, /100\.000/);
 });
 
 test('taxAdvice: avviso all\'80% del tetto (medium)', () => {

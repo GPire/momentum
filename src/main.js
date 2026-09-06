@@ -14632,14 +14632,33 @@ window.genesisGoalPick = (key) => {
 // Vista SOLO da chi ha appena detto che le entrate variano/cambiano molto
 // (g-step-4 in index.html manda 'variabile'/'irregolare' dritto a 'piva'
 // invece che a 'income') — zero attrito in più per chi con ogni probabilità
-// non ne ha bisogno. "Sì" apre una sotto-domanda sul regime, mai obbligatoria
-// ("non lo so" resta sempre disponibile, come ogni altra domanda qui).
+// non ne ha bisogno. "Sì" apre una sotto-domanda sul PAESE fiscale, mai
+// obbligatoria ("non lo so" resta sempre disponibile, come ogni altra
+// domanda qui).
 // L'attivazione vera (VaultDAO.state.taxRegime/taxActiveCountry/noPartitaIva)
 // avviene in seedProfileState, insieme a tutto il resto — mai prima della
 // conferma finale, stessa regola di ogni altra risposta di questo flusso.
 window.genesisPivaHas = (haPiva) => {
   window.userHasPartitaIva = haPiva; // true | false | null ("non ancora, magari dopo")
-  if (haPiva) { window.genesisNext('piva-regime', ''); return; }
+  if (haPiva) { window.genesisNext('piva-country', ''); return; }
+  window.genesisNext('income', window.userIncomeRegularity);
+};
+// BUG REALE trovato analizzando un audit esterno (2026-09-06): questa domanda
+// era nata SOLO italiana ("Hai la Partita IVA?", tradotta letteralmente come
+// "Do you have an Italian VAT number?" in inglese, "italienische USt-IdNr."
+// in tedesco...) — la LINGUA dell'interfaccia decideva il PAESE fiscale.
+// Falso in entrambe le direzioni: un italofono può risiedere in Svizzera,
+// un francofono in Francia (non coperta) o Svizzera, uno spagnolo può vivere
+// in un altro Paese. tax.js (IT), tax-es.js (ES) e tax-ch.js (CH) sono già
+// tre motori fiscali reali e indipendenti — semplicemente l'onboarding non
+// aveva mai chiesto QUALE dei tre si applica. Questo step lo chiede
+// esplicitamente, invece di indovinarlo dalla lingua.
+window.genesisPivaCountry = (country) => {
+  window.userPivaCountry = country || null; // 'it' | 'es' | 'ch' | null (altro/non coperto)
+  if (country === 'it') { window.genesisNext('piva-regime', ''); return; }
+  // Spagna e Svizzera non hanno un "regime" da scegliere come l'Italia
+  // (RETA/AVS sono obbligatori, non un'opzione — vedi tax-es.js/tax-ch.js):
+  // si salta dritti alla domanda sul reddito, mai una sotto-domanda a vuoto.
   window.genesisNext('income', window.userIncomeRegularity);
 };
 window.genesisPivaRegime = (regime) => {
@@ -14763,11 +14782,30 @@ function renderGenesisPayoff() {
   // niente da aggiungere (stesso principio delle altre righe condizionali
   // sopra: il payoff mostra cosa È CAMBIATO, non ogni risposta data).
   if (window.userHasPartitaIva === true) {
-    const REGIME_LABEL_KEYS = { forfettario: 'payoffPivaForfettario', ordinario: 'payoffPivaOrdinario' };
-    const regimeKey = REGIME_LABEL_KEYS[window.userPartitaIvaRegime];
-    righe.push(card('gold', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
-      regimeKey ? tCh('payoffPivaTitle', __uiLang, tCh(regimeKey, __uiLang)) : tCh('payoffPivaTitleUnknown', __uiLang),
-      regimeKey ? tCh('payoffPivaSub', __uiLang) : tCh('payoffPivaSubUnknown', __uiLang)));
+    // Testo differenziato per Paese (2026-09-06, stessa correzione di
+    // genesisPivaCountry): un utente svizzero o spagnolo non deve leggere
+    // "Partita IVA attivata" né "scegli il regime" — CH/ES non hanno un
+    // regime da scegliere (AVS/RETA sono obbligatori, vedi tax-ch.js/
+    // tax-es.js), e il concetto stesso di "Partita IVA" è italiano.
+    const pivaCountry = window.userPivaCountry || null;
+    if (pivaCountry === 'es') {
+      righe.push(card('gold', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
+        tCh('payoffPivaTitleEs', __uiLang), tCh('payoffPivaSubEs', __uiLang)));
+    } else if (pivaCountry === 'ch') {
+      righe.push(card('gold', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
+        tCh('payoffPivaTitleCh', __uiLang), tCh('payoffPivaSubCh', __uiLang)));
+    } else if (pivaCountry === 'it') {
+      const REGIME_LABEL_KEYS = { forfettario: 'payoffPivaForfettario', ordinario: 'payoffPivaOrdinario' };
+      const regimeKey = REGIME_LABEL_KEYS[window.userPartitaIvaRegime];
+      righe.push(card('gold', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
+        regimeKey ? tCh('payoffPivaTitle', __uiLang, tCh(regimeKey, __uiLang)) : tCh('payoffPivaTitleUnknown', __uiLang),
+        regimeKey ? tCh('payoffPivaSub', __uiLang) : tCh('payoffPivaSubUnknown', __uiLang)));
+    } else {
+      // Paese non ancora coperto: mai spacciare un modulo fiscale che non
+      // esiste — onesto sul limite attuale, come da disciplina del progetto.
+      righe.push(card('gold', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/>',
+        tCh('payoffPivaTitleOther', __uiLang), tCh('payoffPivaSubOther', __uiLang)));
+    }
   }
   el.innerHTML = righe.join('');
 }
@@ -15088,18 +15126,30 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
     VaultDAO.state.monthlyBudget = p.monthlyBudget;
   }
   VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests, incomeRegularity: p.incomeRegularity };
-  // PARTITA IVA (domanda condizionale, 2026-09-05): riusa GLI STESSI due campi
-  // che tax.js legge ovunque (window.setTaxRegime in main.js) — un solo posto
-  // di verità, nessun secondo motore fiscale per l'onboarding. "Non lo so" sul
-  // regime lascia i campi non impostati apposta: niente forfettario indovinato,
-  // la card di scoperta già esistente (#tax-discover-card) inviterà a
+  // PARTITA IVA / attività autonoma (domanda condizionale, 2026-09-05,
+  // corretta il 2026-09-06 per separare lingua e Paese fiscale — vedi
+  // window.genesisPivaCountry): riusa GLI STESSI campi che ogni motore
+  // fiscale legge ovunque (window.setTaxRegime/setEsActive in main.js) — un
+  // solo posto di verità, nessun secondo motore fiscale per l'onboarding.
+  // "Non lo so" sul regime IT, o un Paese non ancora coperto (CH ha AVS ma
+  // nessun "regime" da scegliere come l'Italia; un quarto Paese qualunque),
+  // lasciano i campi non impostati apposta: niente regime indovinato, la
+  // card di scoperta già esistente (#tax-discover-card) inviterà a
   // sceglierlo quando vuole, la stessa esperienza di chi non ha risposto a
-  // nulla. Il toast/i re-render di setTaxRegime non si chiamano qui: durante
-  // l'onboarding non c'è ancora nulla da ri-disegnare, e il payoff sotto
-  // mostra già la conferma vera.
-  if (window.userHasPartitaIva === true && (window.userPartitaIvaRegime === 'forfettario' || window.userPartitaIvaRegime === 'ordinario')) {
-    VaultDAO.state.taxRegime = window.userPartitaIvaRegime;
-    VaultDAO.state.taxActiveCountry = 'it';
+  // nulla. Il toast/i re-render di setTaxRegime/setEsActive non si chiamano
+  // qui: durante l'onboarding non c'è ancora nulla da ri-disegnare, e il
+  // payoff sotto mostra già la conferma vera.
+  if (window.userHasPartitaIva === true) {
+    const pivaCountry = window.userPivaCountry || null;
+    if (pivaCountry === 'it' && (window.userPartitaIvaRegime === 'forfettario' || window.userPartitaIvaRegime === 'ordinario')) {
+      VaultDAO.state.taxRegime = window.userPartitaIvaRegime;
+      VaultDAO.state.taxActiveCountry = 'it';
+    } else if (pivaCountry === 'es') {
+      VaultDAO.state.esActive = true;
+      VaultDAO.state.taxActiveCountry = 'es';
+    } else if (pivaCountry === 'ch') {
+      VaultDAO.state.taxActiveCountry = 'ch';
+    }
   } else if (window.userHasPartitaIva === false) {
     VaultDAO.state.noPartitaIva = true;
   }

@@ -4343,7 +4343,19 @@
         <button class="g-option" style="--i:2" onclick="window.genesisPivaHas(false)" data-i18n-key="genesisPivaOptNo">No</button>
         <button class="g-option" style="--i:3" onclick="window.genesisPivaHas(null)" data-i18n-key="genesisPivaOptDopo">Non ancora, magari dopo</button>
       </div>
-      <!-- Sotto-domanda: solo da "Sì" sopra — stesso pattern di g-step-goal. -->
+      <!-- Sotto-domanda PAESE (2026-09-06): solo da "Sì" sopra. Corregge un
+           bug reale — la domanda era nata solo italiana e la lingua
+           dell'interfaccia decideva il Paese fiscale, falso in entrambe le
+           direzioni (vedi window.genesisPivaCountry in main.js). -->
+      <div class="genesis-step" id="g-step-piva-country">
+        <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisPivaCountryTitle">In quale Paese?</h2>
+        <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisPivaCountrySub">Le regole cambiano parecchio da un Paese all'altro.</p>
+        <button class="g-option" style="--i:1" onclick="window.genesisPivaCountry('it')" data-i18n-key="genesisPivaCountryIt">🇮🇹 Italia</button>
+        <button class="g-option" style="--i:2" onclick="window.genesisPivaCountry('es')" data-i18n-key="genesisPivaCountryEs">🇪🇸 Spagna</button>
+        <button class="g-option" style="--i:3" onclick="window.genesisPivaCountry('ch')" data-i18n-key="genesisPivaCountryCh">🇨🇭 Svizzera</button>
+        <button class="g-option" style="--i:4" onclick="window.genesisPivaCountry(null)" data-i18n-key="genesisPivaCountryOther">Un altro Paese</button>
+      </div>
+      <!-- Sotto-domanda: solo da "Sì"+Italia sopra — stesso pattern di g-step-goal. -->
       <div class="genesis-step" id="g-step-piva-regime">
         <h2 class="text-2xl font-black mb-1" data-i18n-key="genesisPivaRegimeTitle">Che regime?</h2>
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisPivaRegimeSub">Se non lo sai, va benissimo: lo scegli con calma quando vuoi.</p>

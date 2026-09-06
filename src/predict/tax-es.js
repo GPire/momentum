@@ -59,8 +59,15 @@ export const RETA_TRAMOS_2026 = [
 ];
 // Tipo di cotización 2026: contingencias comunes 28,30% + contingencias
 // profesionales 1,30% + MEI (Mecanismo de Equidad Intergeneracional) 0,90%
-// — sale dallo 0,80% del 2025, verificato su più fonti concordanti.
-export const RETA_ALIQUOTA_2026 = 0.283 + 0.013 + 0.009; // 0.305
+// + cese de actividad 0,90% + formación profesional 0,10%.
+// BUG REALE trovato e corretto (2026-09-06, analizzando un audit esterno):
+// mancavano cese de actividad e formación profesional, per un totale di
+// 30,5% invece di 31,5% — sottostimava la cuota RETA reale di ~1 punto
+// percentuale su ogni calcolo mostrato agli utenti spagnoli in #tax-es-card.
+// Verificato via ricerca web 2026-09-06 (BOE Orden PJC/297/2026, confermato
+// da più fonti indipendenti concordanti: infoautonomos.com, iberley.es,
+// laboral-social.com, asepeyo.es).
+export const RETA_ALIQUOTA_2026 = 0.283 + 0.013 + 0.009 + 0.009 + 0.001; // 0.315
 
 // Il tramo che corrisponde al reddito netto MENSILE dichiarato — chi lo
 // stima sbagliato può cambiare tramo fino a 6 volte l'anno (regola reale,
