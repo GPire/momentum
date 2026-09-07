@@ -4963,6 +4963,7 @@ window.exportAccountantReportEs = async () => {
   const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
   const report = buildAccountantReportEs(VaultDAO.state.transactions || {}, anno, {
     learned: VaultDAO.state.taxLearned, model: window.__incomeModel, baseElegida,
+    territorio: VaultDAO.state.esTerritorio || 'comun',
   });
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const win = window.open('', '_blank');
@@ -5541,10 +5542,20 @@ function renderTaxEs(monthK) {
   // di verità" già seguito nel resto del progetto).
   const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
   const monthTxs = VaultDAO.state.transactions[monthK] || [];
-  const r = retaIrpfPeriodo(monthTxs, { learned, model: incomeModel, baseElegida });
+  // Territorio foral (2026-09-06, BUG REALE): País Vasco/Navarra hanno un
+  // sistema IRPF completamente separato dal resto della Spagna (scaglioni
+  // propri delle rispettive Hacienda Foral/Diputaciones, non "statale +
+  // regionale" come altrove) — mostrare l'IRPF stimato con gli scaglioni
+  // statali a questi utenti sarebbe un numero sbagliato, non incompleto.
+  // VaultDAO.state.esTerritorio: 'comun' (default) | 'pais_vasco' | 'navarra'.
+  const territorio = VaultDAO.state.esTerritorio || 'comun';
+  const r = retaIrpfPeriodo(monthTxs, { learned, model: incomeModel, baseElegida, territorio });
   if (r.count > 0) {
-    setEl.textContent = formatMoney(r.reta.cuotaMensual + r.irpfMensual);
-    noteEl.textContent = tCh('esCardNoteFn', __esLang, r.count, Math.round(r.incassato), Math.round(r.reta.cuotaMensual + r.irpfMensual), Math.round(r.disponibleReal));
+    const aParte = r.reta.cuotaMensual + (r.irpfMensual || 0);
+    setEl.textContent = formatMoney(aParte);
+    noteEl.textContent = r.territorioForal
+      ? tCh('esCardNoteForalFn', __esLang, r.count, Math.round(r.incassato), Math.round(r.reta.cuotaMensual), Math.round(r.disponibleReal))
+      : tCh('esCardNoteFn', __esLang, r.count, Math.round(r.incassato), Math.round(aParte), Math.round(r.disponibleReal));
   } else {
     setEl.textContent = '—';
     noteEl.textContent = tCh('esCardNoInvoice', __esLang);
@@ -5555,7 +5566,7 @@ function renderTaxEs(monthK) {
   const prevKey = monthKey(new Date(new Date(monthK + '-01').setMonth(new Date(monthK + '-01').getMonth() - 1)));
   const prevTxs = VaultDAO.state.transactions[prevKey] || [];
   if (r.count > 0 && prevTxs.length) {
-    const prev = retaIrpfPeriodo(prevTxs, { learned, model: incomeModel, baseElegida });
+    const prev = retaIrpfPeriodo(prevTxs, { learned, model: incomeModel, baseElegida, territorio });
     if (prev.count > 0 && prev.reta.tramo.rendimientoHasta !== r.reta.tramo.rendimientoHasta) {
       html += `<div class="flex items-start gap-1.5 text-[11px] text-amber-300 border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>${tCh('esTramoChanged', __esLang, Number.isFinite(prev.reta.tramo.rendimientoHasta) ? prev.reta.tramo.rendimientoHasta : '6.000+', Number.isFinite(r.reta.tramo.rendimientoHasta) ? r.reta.tramo.rendimientoHasta : '6.000+')}</span></div>`;
     }
@@ -5580,6 +5591,7 @@ function renderTaxEs(monthK) {
   if (r.count > 0) {
     html += `<button onclick="window.exportAccountantReportEs()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] block">${tCh('esExportAccountant', __esLang)}</button>`;
   }
+  html += `<button onclick="window.openEsTerritorioPicker()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] block">${tCh('esTerritorioBtn', __esLang)}</button>`;
   html += `<button onclick="window.setEsActive(false)" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2">${tCh('esDeactivate', __esLang)}</button>`;
   if (VaultDAO.state.taxRegime) {
     html += `<button onclick="window.setTaxActiveCountry('it')" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2 block">${tCh('esShowItalyInstead', __uiLang)}</button>`;
@@ -5610,6 +5622,41 @@ window.setEsActive = (val) => {
   showToast(tCh(val ? 'esActivatedToast' : 'esDeactivatedToast', __esLang), val ? 'success' : 'info');
   if (val) pingFeature('spain_tax_activated');
   window.closeModal?.();
+  renderTaxEs(monthKey(new Date()));
+};
+
+// TERRITORIO FISCAL (2026-09-06, BUG REALE): País Vasco e Navarra hanno un
+// sistema IRPF foral separato, non "estatal + autonómica" come il resto
+// della Spagna — mostrare l'IRPF con gli scaglioni statali a questi utenti
+// sarebbe un numero sbagliato (vedi tax-es.js:retaIrpfPeriodo). Default
+// 'comun' (la maggioranza): mai presumere un territorio foral senza che
+// l'utente lo dica esplicitamente.
+window.openEsTerritorioPicker = () => {
+  const cur = VaultDAO.state.esTerritorio || 'comun';
+  const opzioni = [
+    { key: 'comun', label: tCh('esTerritorioComun', __esLang) },
+    { key: 'pais_vasco', label: tCh('esTerritorioPaisVasco', __esLang) },
+    { key: 'navarra', label: tCh('esTerritorioNavarra', __esLang) },
+  ];
+  window.openModal(`
+    <div class="p-1">
+      <h3 class="text-lg font-black mb-1">${tCh('esTerritorioTitle', __esLang)}</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)] mb-4">${tCh('esTerritorioSub', __esLang)}</p>
+      <div class="space-y-2">
+        ${opzioni.map((o) => `
+          <button onclick="window.setEsTerritorio('${o.key}')" class="btn-action w-full justify-between ${o.key === cur ? 'border-[var(--primary)]' : ''}">
+            <span class="text-left">${o.label}${o.key === cur ? ' · ' + tCh('esTerritorioActive', __esLang) : ''}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+          </button>`).join('')}
+      </div>
+      <button onclick="window.closeModal()" class="btn-action w-full justify-center mt-4 text-[var(--on-surface-secondary)]">${tCh('esclForfCloseBtn', __uiLang)}</button>
+    </div>`);
+};
+window.setEsTerritorio = (territorio) => {
+  VaultDAO.state.esTerritorio = territorio;
+  VaultDAO.save();
+  window.closeModal();
+  showToast(tCh('esTerritorioSetToast', __esLang), 'success');
   renderTaxEs(monthKey(new Date()));
 };
 
@@ -13739,9 +13786,9 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     if (VaultDAO.state.esActive) {
       const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
       const esR = retaIrpfPeriodo(VaultDAO.state.transactions[monthKey(realNow)] || [],
-        { learned: VaultDAO.state.taxLearned || {}, model: (typeof window !== 'undefined' && window.__incomeModel) || null, baseElegida });
+        { learned: VaultDAO.state.taxLearned || {}, model: (typeof window !== 'undefined' && window.__incomeModel) || null, baseElegida, territorio: VaultDAO.state.esTerritorio || 'comun' });
       if (esR.count > 0) {
-        const aParte = esR.reta.cuotaMensual + esR.irpfMensual;
+        const aParte = esR.reta.cuotaMensual + (esR.irpfMensual || 0);
         rawInsights.push({
           kind: 'es-tax-set-aside',
           severity: 'info',

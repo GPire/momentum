@@ -157,3 +157,52 @@ test('retaIrpfPeriodo: passa baseElegida a cuotaReta quando fornita (scelta base
   assert.equal(r.reta.baseUsata, 2030);
   assert.equal(r.reta.baseÈMinima, false);
 });
+
+// ── TERRITORIO FORAL (2026-09-06) — BUG REALE trovato analizzando un audit
+// esterno: País Vasco e Navarra hanno un sistema IRPF completamente
+// separato (scaglioni propri di ciascuna Hacienda Foral/Diputación), non
+// "estatal + autonómica" come il resto della Spagna. Applicare gli
+// scaglioni IRPF_ESTATAL_2026 a questi utenti non è impreciso, è SBAGLIATO
+// — verificato su più fonti indipendenti concordanti il 2026-09-06. ──
+
+test('retaIrpfPeriodo: territorio común (default) calcola l\'IRPF normalmente', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const r = retaIrpfPeriodo(txs, { territorio: 'comun' });
+  assert.equal(r.territorioForal, false);
+  assert.ok(r.irpfMensual > 0);
+});
+
+test('retaIrpfPeriodo: territorio País Vasco → irpfMensual è null, MAI zero (zero direbbe "non devi niente", null dice "non lo calcoliamo")', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const r = retaIrpfPeriodo(txs, { territorio: 'pais_vasco' });
+  assert.equal(r.territorioForal, true);
+  assert.equal(r.irpfMensual, null);
+});
+
+test('retaIrpfPeriodo: territorio Navarra → stesso comportamento onesto di País Vasco', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const r = retaIrpfPeriodo(txs, { territorio: 'navarra' });
+  assert.equal(r.territorioForal, true);
+  assert.equal(r.irpfMensual, null);
+});
+
+test('retaIrpfPeriodo: territorio foral → disponibleReal sottrae SOLO la RETA, mai un IRPF fantasma', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const r = retaIrpfPeriodo(txs, { territorio: 'pais_vasco' });
+  assert.equal(r.disponibleReal, +(2000 - r.reta.cuotaMensual).toFixed(2));
+});
+
+test('retaIrpfPeriodo: territorio foral → la nota avvisa esplicitamente che l\'IRPF non è incluso', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const r = retaIrpfPeriodo(txs, { territorio: 'navarra' });
+  assert.match(r.note, /foral/i);
+  assert.doesNotMatch(r.note, /RETA\+IRPF/, 'la nota foral non deve promettere un calcolo IRPF che non fa');
+});
+
+test('retaIrpfPeriodo: nessun territorio specificato → si comporta come "comun" (retrocompatibile con ogni chiamante esistente)', () => {
+  const txs = [{ type: 'entrata', amount: 2000, description: 'Factura consultoría' }];
+  const conDefault = retaIrpfPeriodo(txs);
+  const conComun = retaIrpfPeriodo(txs, { territorio: 'comun' });
+  assert.equal(conDefault.irpfMensual, conComun.irpfMensual);
+  assert.equal(conDefault.territorioForal, false);
+});

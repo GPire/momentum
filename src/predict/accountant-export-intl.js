@@ -53,17 +53,22 @@ export function buildAccountantReportCh(transactions, year, opts = {}) {
 export function buildAccountantReportEs(transactions, year, opts = {}) {
   const flat = Object.values(transactions || {}).flat()
     .filter(t => t.type === 'entrata' && new Date(t.date).getFullYear() === year);
-  const r = retaIrpfPeriodo(flat, { learned: opts.learned, model: opts.model, baseElegida: opts.baseElegida });
+  const r = retaIrpfPeriodo(flat, { learned: opts.learned, model: opts.model, baseElegida: opts.baseElegida, territorio: opts.territorio });
   const cuotaRetaAnnua = r.reta ? +(r.reta.cuotaMensual * 12).toFixed(2) : 0;
-  const irpfAnnuo = +(r.irpfMensual * 12).toFixed(2);
+  // Territorio foral (2026-09-06): irpfMensual è `null`, non 0 — MAI
+  // trasformarlo in un IRPF annuo di €0 (sarebbe un numero inventato nella
+  // direzione opposta, "non devi niente" invece di "non lo calcoliamo").
+  const irpfAnnuo = r.irpfMensual != null ? +(r.irpfMensual * 12).toFixed(2) : null;
   return {
     paese: 'ES', valuta: 'EUR', anno: year, generatoIl: (opts.now || new Date()).toISOString(),
     incassato: r.incassato, count: r.count,
     contributi: r.reta ? [{ voce: 'RETA (cuota mensual × 12)', importo: cuotaRetaAnnua }] : [],
     contributoNonCalcolabile: null,
-    imposta: r.count > 0 ? { voce: 'IRPF (solo escalón estatal)', importo: irpfAnnuo } : null,
+    imposta: r.count > 0 && irpfAnnuo != null ? { voce: 'IRPF (solo escalón estatal)', importo: irpfAnnuo } : null,
     noteOneste: [
-      'El IRPF mostrado es solo el tramo ESTATAL: falta el tramo autonómico (17 comunidades, cada una con su escala) — el importe real de la declaración será distinto.',
+      ...(r.territorioForal
+        ? ['Tu territorio (País Vasco/Navarra) tiene un sistema de IRPF foral propio: el IRPF NO está incluido en este informe, solo RETA — pídeselo a tu Hacienda Foral o gestor.']
+        : ['El IRPF mostrado es solo el tramo ESTATAL: falta el tramo autonómico (17 comunidades, cada una con su escala) — el importe real de la declaración será distinto.']),
       'La retención (7%/15%) que tus clientes ya aplican en cada factura no está restada aquí: este total es lo que se debe antes de esa retención.',
     ],
   };

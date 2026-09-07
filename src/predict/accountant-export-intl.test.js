@@ -62,6 +62,19 @@ test('buildAccountantReportEs: senza fatture non inventa un accantonamento', () 
   assert.equal(r.imposta, null);
 });
 
+// Territorio foral (2026-09-06): País Vasco/Navarra hanno un sistema IRPF
+// separato — l'export per il commercialista deve dirlo chiaro, mai
+// includere un IRPF calcolato con scaglioni che non si applicano.
+test('buildAccountantReportEs: territorio foral → nessuna voce imposta, RETA presente, nota esplicita', () => {
+  const tx = vault([
+    ['2026-02-05', 2000, 'factura cliente Bilbao'],
+  ]);
+  const r = buildAccountantReportEs(tx, 2026, { territorio: 'pais_vasco' });
+  assert.equal(r.imposta, null, 'mai un IRPF calcolato con scaglioni statali per un territorio forale');
+  assert.ok(r.contributi[0].importo > 0, 'la RETA resta corretta ovunque');
+  assert.ok(r.noteOneste.some(n => /foral/i.test(n)));
+});
+
 test('buildAccountantReportEs: dichiara sempre il limite sull\'IRPF autonómico mancante', () => {
   const tx = vault([['2026-02-05', 2000, 'factura cliente']]);
   const r = buildAccountantReportEs(tx, 2026);

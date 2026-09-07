@@ -176,17 +176,36 @@ export function retaIrpfPeriodo(transactions, opts = {}) {
     };
   }
   const reta = cuotaReta(taxableGross, { baseElegida: opts.baseElegida });
-  // IRPF: annualizza il reddito di QUESTO periodo (assume reddito costante
-  // nel resto dell'anno) — stessa semplificazione dichiarata di
-  // projectAnnualTax per l'Italia, mai spacciata per una dichiarazione
-  // fiscale vera: è una stima del mese, non un calcolo annuale definitivo.
-  const irpfAnnuo = irpfEstatal(taxableGross * 12);
-  const irpfMensual = +(irpfAnnuo / 12).toFixed(2);
-  const disponibleReal = +(taxableGross - reta.cuotaMensual - irpfMensual).toFixed(2);
+  // TERRITORIOS FORALES (2026-09-06, BUG REALE trovato analizzando un audit
+  // esterno): País Vasco e Navarra NON hanno "IRPF estatal + autonómica"
+  // come il resto della Spagna — hanno un sistema IRPF FORAL completamente
+  // separato, con scaglioni propri (Navarra: 13 scaglioni dal 13% al 52%;
+  // País Vasco: 8 scaglioni dal 23% al 49% — verificato via ricerca web
+  // 2026-09-06, fonti concordanti: bbvamijubilacion.es, guiafiscal.es,
+  // iberley.es). IRPF_ESTATAL_2026 qui sotto non è "incompleto" per questi
+  // utenti, è semplicemente SBAGLIATO — le due Diputaciones/Hacienda Foral
+  // di Navarra applicano le proprie regole, non quelle statali. RETA resta
+  // corretta ovunque (previdenza sociale, competenza statale uniforme, non
+  // toccata dai regimi forali) — solo l'IRPF si azzera onestamente qui,
+  // MAI un numero calcolato con scaglioni che non si applicano al territorio
+  // dell'utente.
+  const foral = opts.territorio === 'pais_vasco' || opts.territorio === 'navarra';
+  const irpfMensual = foral ? null : (() => {
+    // IRPF: annualizza il reddito di QUESTO periodo (assume reddito costante
+    // nel resto dell'anno) — stessa semplificazione dichiarata di
+    // projectAnnualTax per l'Italia, mai spacciata per una dichiarazione
+    // fiscale vera: è una stima del mese, non un calcolo annuale definitivo.
+    const irpfAnnuo = irpfEstatal(taxableGross * 12);
+    return +(irpfAnnuo / 12).toFixed(2);
+  })();
+  const disponibleReal = +(taxableGross - reta.cuotaMensual - (irpfMensual || 0)).toFixed(2);
+  const notaForal = ' Tu territorio (País Vasco/Navarra) tiene un sistema de IRPF foral propio que Momentum aún no calcula: el IRPF NO está incluido arriba, solo RETA — súmalo tú con tu Hacienda Foral.';
   return {
-    incassato: +taxableGross.toFixed(2), count: taxableCount, reta, irpfMensual, disponibleReal,
+    incassato: +taxableGross.toFixed(2), count: taxableCount, reta, irpfMensual, disponibleReal, territorioForal: foral,
     excludedGross: +excludedGross.toFixed(2), excludedCount,
     uncertainGross: +uncertainGross.toFixed(2), uncertainCount, uncertain,
-    note: `Sobre ${taxableCount} factura${taxableCount > 1 ? 's' : ''} (${taxableGross.toFixed(0)}€) aparta ~${(reta.cuotaMensual + irpfMensual).toFixed(0)}€ (RETA+IRPF): lo disponible real es ${disponibleReal.toFixed(0)}€.`,
+    note: foral
+      ? `Sobre ${taxableCount} factura${taxableCount > 1 ? 's' : ''} (${taxableGross.toFixed(0)}€) aparta ~${reta.cuotaMensual.toFixed(0)}€ de RETA: lo disponible (sin contar el IRPF foral) es ${disponibleReal.toFixed(0)}€.${notaForal}`
+      : `Sobre ${taxableCount} factura${taxableCount > 1 ? 's' : ''} (${taxableGross.toFixed(0)}€) aparta ~${(reta.cuotaMensual + irpfMensual).toFixed(0)}€ (RETA+IRPF): lo disponible real es ${disponibleReal.toFixed(0)}€.`,
   };
 }

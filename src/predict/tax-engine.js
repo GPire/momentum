@@ -101,7 +101,8 @@ function computeLiabilityIT(transactions, opts = {}) {
 
 function computeLiabilityES(transactions, opts = {}) {
   const r = retaIrpfPeriodo(transactions, opts);
-  const daAccantonare = r.reta ? +(r.reta.cuotaMensual + r.irpfMensual).toFixed(2) : 0;
+  // Territorio foral: irpfMensual è `null` (non stimato), mai sommato come 0.
+  const daAccantonare = r.reta ? +(r.reta.cuotaMensual + (r.irpfMensual || 0)).toFixed(2) : 0;
   return {
     countryCode: 'ES',
     incassato: r.incassato,

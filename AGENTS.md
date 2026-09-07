@@ -133,6 +133,15 @@ pannello dati SEC.
   riverificata il 2026-09-06 — se in futuro si trova una fonte primaria con
   la tabella completa (non solo aliquota min/max), può diventare una tabella
   come `RETA_TRAMOS_2026`, mai una formula indovinata.
+- **Modulo Spagna tradotto solo IT/EN/ES, non nelle altre 4 lingue**
+  (verificato 2026-09-06 contando le occorrenze di ~33 chiavi `esXxx*` in
+  `ui-strings.js`, es. `esCardNoteFn`/`esDeactivate`: 3/7 lingue ciascuna).
+  Chi usa Momentum in tedesco/francese/olandese/portoghese con la Spagna
+  attiva vede il fallback inglese per queste stringhe (mai un crash, `t()`
+  ricade su EN poi IT poi la chiave grezza) — non ideale, ma non rotto.
+  Le chiavi NUOVE aggiunte lo stesso giorno (territorio foral, `esTerritorio*`)
+  sono già nelle 7 lingue: il debito è solo sulle ~33 preesistenti, da
+  chiudere in una sessione dedicata (non una riga sola per volta).
 
 ## Trappole già pagate (leggile prima di perderci un'ora)
 

@@ -203,6 +203,19 @@ test('t: tutte le chiavi esclForf* esistono in tutte e 7 le lingue', () => {
   }
 });
 
+// Territorio foral spagnolo (2026-09-06) — a differenza del resto del
+// modulo Spagna (rimasto solo IT/EN/ES da una sessione precedente, vedi
+// AGENTS.md), queste chiavi nuove sono tradotte in tutte e 7 le lingue fin
+// da subito, come da regola del progetto.
+test('t: tutte le chiavi esTerritorio*/esCardNoteForalFn esistono in tutte e 7 le lingue', () => {
+  const chiavi = ['esTerritorioBtn', 'esTerritorioTitle', 'esTerritorioSub', 'esTerritorioComun', 'esTerritorioPaisVasco', 'esTerritorioNavarra', 'esTerritorioActive', 'esTerritorioSetToast', 'esCardNoteForalFn'];
+  for (const lang of ['it', 'en', 'es', 'de', 'fr', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      assert.notEqual(t(k, lang), k, `chiave "${k}" mancante in lingua "${lang}"`);
+    }
+  }
+});
+
 test('t: le chiavi genesis in tedesco e francese sono traduzioni reali, non un ripiego su EN', () => {
   assert.notEqual(t('genesisTagline', 'de'), t('genesisTagline', 'en'));
   assert.notEqual(t('genesisQ1Title', 'fr'), t('genesisQ1Title', 'en'));
