@@ -49,8 +49,8 @@ function detectBrowser(ua) {
 
 // `standalone` = l'app gira già installata (display-mode:standalone o
 // navigator.standalone su iOS) — se true non ha senso mostrare una guida.
-export function detectPlatform(userAgent = '', { standalone = false } = {}) {
-  const os = detectOS(userAgent);
+export function detectPlatform(userAgent = '', { standalone = false, maxTouchPoints = 0 } = {}) {
+  const os = /Macintosh/.test(userAgent) && maxTouchPoints > 1 ? 'ios' : detectOS(userAgent);
   const browser = detectBrowser(userAgent);
   const inAppBrowser = detectInAppBrowser(userAgent);
   // beforeinstallprompt (installazione con un tap) esiste SOLO su Chrome/

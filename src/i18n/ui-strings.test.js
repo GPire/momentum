@@ -349,12 +349,12 @@ test('t: catCambiaCategoriaAria (chiave-funzione) interpola il nome categoria in
 });
 
 test('t: dashImportTitle traduce correttamente in tutte le 6 lingue', () => {
-  assert.equal(t('dashImportTitle', 'it'), 'Vedi i tuoi soldi veri.');
-  assert.equal(t('dashImportTitle', 'en'), 'See your real money.');
-  assert.equal(t('dashImportTitle', 'es'), 'Mira tu dinero real.');
-  assert.equal(t('dashImportTitle', 'de'), 'Sieh dein echtes Geld.');
-  assert.equal(t('dashImportTitle', 'fr'), 'Vois ton argent réel.');
-  assert.equal(t('dashImportTitle', 'nl'), 'Bekijk je echte geld.');
+  assert.equal(t('dashImportTitle', 'it'), 'Il tuo spazio. I tuoi numeri.');
+  assert.equal(t('dashImportTitle', 'en'), 'Your space. Your numbers.');
+  assert.equal(t('dashImportTitle', 'es'), 'Tu espacio. Tus números.');
+  assert.equal(t('dashImportTitle', 'de'), 'Dein Raum. Deine Zahlen.');
+  assert.equal(t('dashImportTitle', 'fr'), 'Ton espace. Tes chiffres.');
+  assert.equal(t('dashImportTitle', 'nl'), 'Jouw ruimte. Jouw cijfers.');
 });
 
 // ── Divisione spese — invito/ingresso (2026-08-29): il loop virale vero
@@ -908,7 +908,7 @@ test('t: tutte le chiavi dinamiche alpha* (renderAnalysis: budget settimanale, f
 });
 
 test('t: chiavi dataRecovery* (recupero da tx_log dopo il bug di perdita dati) esistono nelle 7 lingue', () => {
-  const chiavi = ['dataRecoveryTitle', 'dataRecoveryBody', 'dataRecoveryConfirmBtn', 'dataRecoveryDismissBtn', 'dataRecoverySuccessToast'];
+  const chiavi = ['dataRecoveryTitle', 'dataRecoveryBody', 'dataRecoveryConfirmBtn', 'dataRecoveryDismissBtn', 'dataRecoveryWhatLabel', 'dataRecoveryPrivate', 'dataRecoverySuccessToast'];
   for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
     for (const k of chiavi) {
       const v = t(k, lang, 3);

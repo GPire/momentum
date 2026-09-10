@@ -8,6 +8,15 @@ const { answerQuestion } = await import('./qa-engine.js');
 
 const REF = new Date(2026, 6, 15); // mercoledì 15 luglio 2026
 
+test('payment answers use the date declared in the transaction planner', () => {
+  const ctx = { referenceDate: REF, allTx: {}, paymentDeclarations: [{ key:'manual:netflix', name:'Netflix', amount:12, date:'2026-07-22', kind:'recurring', cadence:'monthly', endDate:'2026-08-22' }] };
+  const result = answerQuestion('quando pago netflix?', ctx);
+  assert.equal(result.intent, 'subscriptions');
+  assert.equal(result.data[0].date, '2026-07-22');
+  assert.match(result.answer, /22/);
+  assert.match(result.answer, /indicata da te/);
+});
+
 function tx(date, amount, description, type = 'uscita', category = 'Alimentari') {
   return { date, amount, description, type, category };
 }

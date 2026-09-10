@@ -17,6 +17,8 @@
 // { allTx, monthlyBudget, savingsGoals, referenceDate, hwDailyLevel }.
 import { getDailySafeToSpend, getMonthEndProjection, getUpcomingCharges } from '../predict/advisor.js';
 import { detectRecurring } from '../predict/subscriptions.js';
+import { buildPaymentAgenda } from '../predict/payment-agenda.js';
+import { t as paymentText } from '../i18n/ui-strings.js';
 import { computeGoalProgress } from '../predict/engagement.js';
 import { buildCausalGraph, propagateImpact, pruneNonCausal, buildCategorySeries } from '../predict/causal-graph.js';
 import { analyzeCausalStructure } from '../predict/causal-orchestrator.js';
@@ -689,6 +691,14 @@ function answerQuestionCore(question, ctx) {
   if (matches('subscriptions', qMatch)) {
     const recurring = detectRecurring(allTx);
     const NONE = { it: 'Non vedo ancora addebiti ricorrenti nei tuoi dati.', en: 'I don\'t see any recurring charges in your data yet.', es: 'Todavía no veo cargos recurrentes en tus datos.', fr: 'Je ne vois pas encore de prélèvements récurrents dans tes données.', de: 'Ich sehe noch keine wiederkehrenden Belastungen in deinen Daten.' }[lang];
+    if (ctx.paymentDeclarations?.length || Object.keys(ctx.paymentOverrides || {}).length) {
+      const agenda = buildPaymentAgenda({ transactions: allTx, paymentDeclarations: ctx.paymentDeclarations, paymentOverrides: ctx.paymentOverrides, mlData: { bnplLearned: ctx.bnplLearned, bnplDismissed: ctx.bnplDismissed } }, ref)
+        .filter(item => item.date >= ref.toISOString().slice(0, 10));
+      const named = agenda.find(item => item.name.toLowerCase().split(/[^\p{L}\p{N}]+/u).some(word => word.length > 2 && q.includes(word)));
+      const selected = (named && PATTERNS.when[lang].test(q) ? [named] : agenda).slice(0, 6);
+      const locale = { it:'it-IT', en:'en-US', es:'es-ES', fr:'fr-FR', de:'de-DE' }[lang];
+      return { intent:'subscriptions', data:selected, answer:selected.length ? selected.map(item => `${item.name}: ${item.amount === null ? '—' : fmt(item.amount)} · ${new Date(item.date + 'T12:00:00').toLocaleDateString(locale)} · ${paymentText(item.source === 'declared' ? 'agendaDeclared' : 'agendaEstimated', lang)}`).join('\n') : NONE };
+    }
     if (recurring.length === 0) return { intent: 'subscriptions', answer: NONE };
     const named = recurring.find(g => q.includes(g.representative.toLowerCase().split(/[^a-z0-9]+/)[0]));
     if (named && PATTERNS.when[lang].test(q)) {

@@ -99,6 +99,24 @@ export function spendBudget(budget, now = Date.now(), costo = 1) {
 // distinguere un utente) spariscono.
 const round2 = (x) => Math.round(x * 100) / 100;
 
+// Boundary for the app's public vocabulary. A peer cannot introduce a private
+// merchant/category, additional payload fields or an arbitrary probe version.
+export function validateDistillationDigest(digest, { categories, probes = PROBE_SET, probeVersion = PROBE_VERSION } = {}) {
+  if (!digest || digest.kind !== 'distillation' || digest.probeVersion !== probeVersion
+    || Object.keys(digest).length !== 3 || !Array.isArray(categories) || !categories.length
+    || !digest.answers || typeof digest.answers !== 'object' || Array.isArray(digest.answers)) return false;
+  const allowedProbes = new Set(probes), allowedCategories = new Set(categories);
+  const answers = Object.entries(digest.answers);
+  if (answers.length > allowedProbes.size) return false;
+  return answers.every(([probe, distribution]) => {
+    if (!allowedProbes.has(probe) || !distribution || typeof distribution !== 'object' || Array.isArray(distribution)) return false;
+    const values = Object.entries(distribution);
+    return values.length > 0 && values.length <= allowedCategories.size
+      && values.every(([cat, p]) => allowedCategories.has(cat) && Number.isFinite(p) && p >= 0 && p <= 1)
+      && Math.abs(values.reduce((sum, [, p]) => sum + p, 0) - 1) <= values.length * 0.005 + 1e-9;
+  });
+}
+
 // Costruisce il digest da inviare: per ogni sonda pubblica, la distribuzione
 // di probabilità sulle categorie secondo il modello LOCALE.
 // `predictFn(testo) -> { categoria: probabilita }` — si passa il predittore

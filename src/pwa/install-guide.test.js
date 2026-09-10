@@ -15,6 +15,13 @@ const UA = {
   androidFacebook: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/450.0.0.0]',
 };
 
+test('iPad desktop mode receives Home Screen instructions, not Mac Dock instructions', () => {
+  const p = detectPlatform(UA.macSafari, { maxTouchPoints: 5 });
+  assert.equal(p.os, 'ios');
+  assert.equal(p.supportsNativePrompt, false);
+  assert.equal(detectPlatform(UA.macSafari, { maxTouchPoints: 0 }).os, 'mac');
+});
+
 test('detectPlatform: iPhone Safari → ios/safari, nessun prompt nativo (Apple non lo supporta)', () => {
   const p = detectPlatform(UA.iosSafari);
   assert.equal(p.os, 'ios');

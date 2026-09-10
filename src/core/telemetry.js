@@ -1,19 +1,5 @@
-// Conteggio ANONIMO di installazioni/utenti attivi — SOLO per dare a chi
-// gestisce il progetto un numero reale da mostrare a investitori/partner,
-// MAI per profilare l'utente. Nessun dato personale o finanziario esce dal
-// dispositivo: un id casuale (non collegato a nessuna identità, nessuna
-// transazione, nessun saldo) + "sono attivo questo mese/anno".
-//
-// ATTIVO DI DEFAULT (opt-OUT, non opt-in): un id casuale non collegabile a
-// nessuna identità reale non è "dato personale" in senso stretto — a
-// differenza delle chiavi API/dati finanziari (quelli sì restano SEMPRE
-// solo sul dispositivo, senza eccezioni). Un opt-in nascosto in
-// Impostazioni darebbe numeri quasi inutili all'inizio, quando servono di
-// più. Onestà: avviso ESPLICITO e immediato al primo avvio (mai silenzioso)
-// con un tocco per disattivare subito — non un opt-out nascosto in un
-// sottomenu. Senza endpoint configurato, ogni funzione qui è un no-op
-// silenzioso (nessun errore per chi clona il repo senza distribuire il
-// proprio server di conteggio).
+// Conteggio attivo di default, disattivabile dall'utente. Rispetta l'opt-out salvato.
+// Un ID casuale resta un identificatore pseudonimo; il trasporto espone metadati.
 'use strict';
 
 const ANON_ID_KEY = 'momentum_anon_id';
@@ -23,6 +9,15 @@ const INSTALL_SENT_KEY = 'momentum_telemetry_install_sent';
 const ACTIVE_MONTH_KEY = 'momentum_telemetry_active_month';
 const ACTIVE_DAY_KEY = 'momentum_telemetry_active_day';
 const FEATURE_SENT_KEY = 'momentum_telemetry_feature_sent';
+
+// Diagnostica tecnica minima: resta disponibile anche dopo l'opt-out dei dati
+// d'uso. Le chiavi sono chiuse e il payload non contiene mai dati finanziari,
+// testo libero o un identificatore persistente.
+export const DIAGNOSTIC_KEYS = [
+  'app_ready', 'app_error', 'vault_integrity_failed', 'update_failed',
+  'import_failed', 'model_load_failed', 'mesh_transport_failed',
+];
+const DIAGNOSTIC_KEY_SET = new Set(DIAGNOSTIC_KEYS);
 
 // Piattaforma/provenienza: SOLO categorie chiuse, mai testo libero (stesso
 // principio di FEATURE_KEYS sotto — un valore fuori da questi elenchi non
@@ -81,7 +76,7 @@ export const FEATURE_KEYS = [
 const FEATURE_KEY_SET = new Set(FEATURE_KEYS);
 
 export function isTelemetryEnabled(storage = localStorage) {
-  return storage.getItem(OPT_IN_KEY) !== '0'; // assente o '1' → attivo di default
+  return storage.getItem(OPT_IN_KEY) !== '0';
 }
 
 // true solo alla primissima chiamata di sempre (mai vista prima su questo
@@ -95,6 +90,27 @@ export function markTelemetryDisclosed(storage = localStorage) {
 
 export function setTelemetryEnabled(enabled, storage = localStorage) {
   storage.setItem(OPT_IN_KEY, enabled ? '1' : '0');
+}
+
+export async function sendEssentialDiagnostic(endpoint, key, {
+  fetchImpl = fetch, now = new Date(), platform = 'altro', appVersion = 'unknown',
+} = {}) {
+  if (!endpoint || !DIAGNOSTIC_KEY_SET.has(key)
+    || typeof appVersion !== 'string' || !/^\d+(?:\.\d+){0,3}$/.test(appVersion)
+    || !(now instanceof Date) || !Number.isFinite(now.getTime())) return { sent: false };
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const body = {
+    event: 'diagnostic', key, day,
+    platform: PLATFORMS.includes(platform) ? platform : 'altro',
+    appVersion,
+  };
+  try {
+    const response = await fetchImpl(endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!response?.ok) throw new Error('Telemetry request rejected');
+    return { sent: true };
+  } catch (_) { return { sent: false }; }
 }
 
 export function getAnonId(storage = localStorage, uuidFn = () => crypto.randomUUID()) {
@@ -118,15 +134,17 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
       const body = { id, event: 'install' };
       if (PLATFORMS.includes(platform)) body.platform = platform;
       body.source = cameFromInvite ? 'invito' : 'diretto';
-      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!response?.ok) throw new Error('Telemetry request rejected');
       storage.setItem(INSTALL_SENT_KEY, '1');
       sent.push('install');
     } catch (_) { /* riprova al prossimo avvio, mai bloccante */ }
   }
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  if (storage.getItem(ACTIVE_MONTH_KEY) !== month) {
+  if (isTelemetryEnabled(storage) && storage.getItem(ACTIVE_MONTH_KEY) !== month) {
     try {
-      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active', month }) });
+      const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active', month }) });
+      if (!response?.ok) throw new Error('Telemetry request rejected');
       storage.setItem(ACTIVE_MONTH_KEY, month);
       sent.push('active');
     } catch (_) { /* riprova al prossimo avvio */ }
@@ -136,9 +154,10 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
   // da un investitore — senza, /stats sa solo "attivo questo mese", non
   // "quanto spesso".
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  if (storage.getItem(ACTIVE_DAY_KEY) !== day) {
+  if (isTelemetryEnabled(storage) && storage.getItem(ACTIVE_DAY_KEY) !== day) {
     try {
-      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active_day', day }) });
+      const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active_day', day }) });
+      if (!response?.ok) throw new Error('Telemetry request rejected');
       storage.setItem(ACTIVE_DAY_KEY, day);
       sent.push('active_day');
     } catch (_) { /* riprova al prossimo avvio */ }
@@ -160,7 +179,8 @@ export async function sendFeatureEvent(endpoint, key, { storage = localStorage, 
   if (already.has(dedupKey)) return { sent: false };
   const id = getAnonId(storage);
   try {
-    await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'feature', key, month }) });
+    const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'feature', key, month }) });
+    if (!response?.ok) throw new Error('Telemetry request rejected');
     already.add(dedupKey);
     storage.setItem(FEATURE_SENT_KEY, JSON.stringify([...already]));
     return { sent: true };

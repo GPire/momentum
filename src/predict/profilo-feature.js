@@ -25,6 +25,12 @@
 //     mai da una decisione presa una volta e congelata.
 'use strict';
 
+// Detail is a presentation preference, never inferred from age, wealth or risk.
+// Preserve existing choices; start new users with progressive disclosure.
+export function resolveClarity(state = {}) {
+  return state.uiComplexity === 'completo' ? 'completo' : 'essenziale';
+}
+
 // Un minorenne non ha stipendio, non investe, non ha partita IVA: le sezioni
 // che parlano di quelle cose non sono "avanzate", sono proprio di un'altra
 // persona. Segnale esplicito dall'onboarding (gate età), non dedotto.

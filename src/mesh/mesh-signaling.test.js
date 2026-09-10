@@ -4,7 +4,11 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
-const { MeshNode } = await import('./mesh-signaling.js');
+const { MeshNode: TransportMeshNode } = await import('./mesh-signaling.js');
+// Protocol fixture: these peers have already passed session authentication.
+class MeshNode extends TransportMeshNode {
+  constructor(id, mind, options) { super(id, mind, { authorizePrivatePeer: () => true, ...options }); }
+}
 const { mergePeerPrices } = await import('../alpha/market-data.js');
 
 // Due canali dati finti incrociati: send su A consegna a onmessage di B e

@@ -17,6 +17,32 @@ function mockVault(totalWords = 0) {
   return { state: { mlData: { totalWords } } };
 }
 
+test('holdout: un esempio ogni dieci, senza bloccare il training a totalWords=9', () => {
+  const vault = mockVault(9);
+  const trained = [];
+  const nexus = { tokenize: t => t.split(' '), train: t => trained.push(t) };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus });
+  for (let i = 1; i <= 30; i++) orch.learn(`merchant ${i}`, 'spesa', 10, new Date());
+  assert.equal(trained.length, 27);
+  assert.deepEqual(orch._validationSet.map(s => s.text), ['merchant 10', 'merchant 20', 'merchant 30']);
+  assert.equal(vault.state.mlData.learningExamples, 30);
+  const restarted = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus });
+  for (let i = 31; i <= 40; i++) restarted.learn(`merchant ${i}`, 'spesa', 10, new Date());
+  assert.equal(trained.length, 36);
+  assert.equal(restarted._validationSet.at(-1).text, 'merchant 40');
+});
+
+test('holdout: buffer pieno resta separato dal training', () => {
+  const vault = mockVault();
+  vault.state.mlData.learningExamples = 9;
+  const nexus = { tokenize: t => [t], train: () => assert.fail('Holdout usato nel training') };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus });
+  orch._validationSet = Array.from({ length: 100 }, () => ({ tokens: ['old'], catId: 'spesa' }));
+  orch.learn('new merchant', 'spesa', 10, new Date());
+  assert.equal(orch._validationSet.length, 100);
+  assert.equal(orch._validationSet.at(-1).text, 'new merchant');
+});
+
 test("con solo NeuralNexus disponibile, classify ritorna la predizione grezza", () => {
   const nexus = { predict: () => ({ cat: "spesa", confidence: 70 }) };
   const orch = new MomentumOrchestrator({ vaultDAO: mockVault(), neuralNexus: nexus });

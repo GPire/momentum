@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentTier, hasFeature, activateLicense, deactivateLicense, TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR, FEATURES_PER_PIANO } from './subscription.js';
+import { currentTier, hasFeature, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR, FEATURES_PER_PIANO } from './subscription.js';
 
 test('currentTier: nessuna licenza -> FREE', () => {
   assert.equal(currentTier({}), TIER_FREE);
@@ -35,8 +35,24 @@ test('hasFeature: una feature PRO è disponibile con licenza PRO', () => {
   assert.equal(hasFeature({ license: { tier: TIER_PRO, exp: null } }, 'fisco_italia'), true);
 });
 
-test('hasFeature: una feature PRO_INVESTOR NON è disponibile con licenza PRO (solo il piano superiore)', () => {
-  assert.equal(hasFeature({ license: { tier: TIER_PRO, exp: null } }, 'pannello_sec_completo'), false);
+test('PRO includes advanced investing; legacy Investor licences retain access', () => {
+  assert.equal(hasFeature({ license: { tier: TIER_PRO, exp: null } }, 'pannello_sec_completo'), true);
+});
+
+test('Free keeps data portability and presentation preferences after expiry', () => {
+  const expired = { license: { tier: TIER_PRO, exp: 1 } };
+  for (const key of ['export_dati', 'vista_completa', 'calendario', 'divisione_spese', 'obiettivi_risparmio']) {
+    assert.equal(hasFeature(expired, key), true);
+  }
+});
+
+test('plan suggestions require relevant needs and never activate payment', () => {
+  assert.equal(recommendPlan({ onboardingProfile: { ageBracket: '65+', riskProfile: 'aggressivo' } }).tier, TIER_FREE);
+  assert.equal(recommendPlan({ investmentPrefs: { invests: true } }).tier, TIER_FREE);
+  const state = { taxRegime: 'forfettario' };
+  assert.deepEqual(recommendPlan(state), { tier: TIER_PRO, reasons: ['professional_tax'] });
+  assert.equal(currentTier(state), TIER_FREE);
+  assert.equal(recommendPlan({ ...state, onboardingProfile: { isMinor: true } }).tier, TIER_FREE);
 });
 
 test('hasFeature: PRO_INVESTOR include TUTTE le feature di PRO (nessun downgrade nascosto salendo di piano)', () => {

@@ -198,6 +198,8 @@ class PairingSignaling {
 // perche'. I tre server sono verificati dal vivo — vedi nat-probe.js.
 const ICE_SERVERS = STUN_POOL.map((urls) => ({ urls }));
 
+const PRIVATE_MESSAGE_TYPES = new Set(['weights', 'sync_digest', 'sync_sketch', 'sync_need_digest', 'sync_txs', 'split_share', 'trip_share', 'user_data_share', 'custom_categories_share', 'morphology_share', 'reliability_share']);
+
 class MeshNode {
   // autoDiscovery (default true): quando un peer ci segnala l'esistenza di
   // un nodo che non conoscevamo (gossip peer_list), proviamo a stabilire una
@@ -219,11 +221,13 @@ class MeshNode {
   // così i tempi di attesa non dipendono da timer veri.
   constructor(nodeId, mind, {
     autoDiscovery = true, maxAutoPeers = 6,
+    authorizePrivatePeer = () => false,
     reconnect = true, reconnectBaseMs = 1000, reconnectMaxMs = 30000, maxReconnectAttempts = 6,
     sketchFallbackMs = 4000,
     scheduleFn = (fn, ms) => setTimeout(fn, ms), randomFn = Math.random,
   } = {}) {
     this.nodeId = nodeId || crypto.randomUUID();
+    this.authorizePrivatePeer = authorizePrivatePeer;
     this.mind = mind;               // MomentumMind locale da sincronizzare
     this.peers = new Map();         // nodeId -> { pc, channel, lastSeen }
     this.knownPeerIds = new Set([this.nodeId]);
@@ -301,6 +305,13 @@ class MeshNode {
     }
   }
 
+  // A connected channel or an announced public key is not proof of identity.
+  // Authorization must be tied to the current channel and checked again after revocation.
+  _allowsPrivate(peerId, type) {
+    try { return this.authorizePrivatePeer(peerId, type, this.peers.get(peerId)) === true; }
+    catch { return false; }
+  }
+
   _wireChannel(peerId, channel) {
     channel.onmessage = async (event) => {
       // BUG REALE trovato dalla batteria di garanzia sul trasporto
@@ -320,6 +331,8 @@ class MeshNode {
       let msg;
       try { msg = JSON.parse(event.data); } catch (_) { return; }
       if (!msg || typeof msg !== 'object') return;
+      if (PRIVATE_MESSAGE_TYPES.has(msg.type)
+        && (this.peers.get(peerId)?.channel !== channel || !this._allowsPrivate(peerId, msg.type))) return;
       const entry = this.peers.get(peerId);
       if (entry) entry.lastSeen = Date.now();
 
@@ -525,6 +538,7 @@ class MeshNode {
   // Avvia il sync differenziale verso un peer: gli mando il MIO digest, lui
   // mi risponderà con ciò che mi manca (e viceversa). Scambio simmetrico.
   requestSync(peerId, { forceDigest = false } = {}) {
+    if (!this._allowsPrivate(peerId, 'sync_digest')) return;
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel.readyState !== 'open') return;
     // Si prova PRIMA lo sketch, che costa pochi byte anche con uno storico
@@ -540,7 +554,7 @@ class MeshNode {
         // al digest, che ogni versione capisce.
         this._scheduleFn(() => {
           const e = this.peers.get(peerId);
-          if (e?.channel?.readyState === 'open' && !e.sketchAnswered) {
+          if (e?.channel?.readyState === 'open' && !e.sketchAnswered && this._allowsPrivate(peerId, 'sync_digest')) {
             e.channel.send(JSON.stringify({ type: 'sync_digest', digest: this.getSyncDigest?.() }));
           }
         }, this.sketchFallbackMs);
@@ -552,6 +566,7 @@ class MeshNode {
   }
 
   _handleSyncDigest(peerId, peerDigest) {
+    if (!this._allowsPrivate(peerId, 'sync_digest')) return;
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel.readyState !== 'open' || !this.getMissingForPeer) return;
     const txs = this.getMissingForPeer(peerDigest); // { month: [tx…] } solo i delta
@@ -564,6 +579,7 @@ class MeshNode {
   // rimanda a sua volta il proprio sketch — una sola volta (`reply`), mai un
   // ping-pong infinito.
   _handleSyncSketch(peerId, msg) {
+    if (!this._allowsPrivate(peerId, 'sync_sketch')) return;
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel.readyState !== 'open') return;
     entry.sketchAnswered = true;
@@ -589,6 +605,7 @@ class MeshNode {
   }
 
   async _handleRemoteWeights(peerId, weights) {
+    if (!this._allowsPrivate(peerId, 'weights')) return;
     // Percorso webapp (nexus-adapter.js): il merge avviene sul VERO stato
     // NeuralNexus tramite l'orchestratore (FedAvg + anti-poisoning inclusi
     // lì). Il percorso standalone qui sotto resta per il motore RealMind.
@@ -716,6 +733,7 @@ class MeshNode {
   }
 
   _shareWeights(peerId) {
+    if (!this._allowsPrivate(peerId, 'weights')) return;
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel.readyState !== 'open') return;
     entry.channel.send(JSON.stringify({ type: 'weights', weights: this.mind.model.serialize() }));
@@ -744,7 +762,8 @@ class MeshNode {
   // grezzi. Stesso pattern gossip di sharePrices/pesi.
   shareReliability(digest) {
     const msg = JSON.stringify({ type: 'reliability_share', digest });
-    for (const entry of this.peers.values()) {
+    for (const [peerId, entry] of this.peers.entries()) {
+      if (!this._allowsPrivate(peerId, 'reliability_share')) continue;
       if (entry.channel?.readyState === 'open') entry.channel.send(msg);
     }
   }
@@ -771,6 +790,7 @@ class MeshNode {
   shareSplitGroups(groups, appartiene = null) {
     let inviati = 0;
     for (const [peerId, entry] of this.peers.entries()) {
+      if (!this._allowsPrivate(peerId, 'split_share')) continue;
       if (entry.channel?.readyState !== 'open') continue;
       const suoi = appartiene ? (groups || []).filter((g) => appartiene(peerId, g)) : groups;
       if (!suoi || !suoi.length) continue;
@@ -803,6 +823,7 @@ class MeshNode {
     if (!trips || !trips.length || typeof destinatario !== 'function') return 0;
     let inviati = 0;
     for (const [peerId, entry] of this.peers.entries()) {
+      if (!this._allowsPrivate(peerId, 'trip_share')) continue;
       if (entry.channel?.readyState !== 'open') continue;
       if (!destinatario(peerId, entry)) continue;
       entry.channel.send(JSON.stringify({ type: 'trip_share', trips }));
@@ -817,6 +838,7 @@ class MeshNode {
     if (!dati || typeof destinatario !== 'function') return 0;
     let inviati = 0;
     for (const [peerId, entry] of this.peers.entries()) {
+      if (!this._allowsPrivate(peerId, 'user_data_share')) continue;
       if (entry.channel?.readyState !== 'open') continue;
       if (!destinatario(peerId, entry)) continue;
       entry.channel.send(JSON.stringify({ type: 'user_data_share', dati }));
@@ -832,6 +854,7 @@ class MeshNode {
     if (!categories || !categories.length || typeof destinatario !== 'function') return 0;
     let inviati = 0;
     for (const [peerId, entry] of this.peers.entries()) {
+      if (!this._allowsPrivate(peerId, 'custom_categories_share')) continue;
       if (entry.channel?.readyState !== 'open') continue;
       if (!destinatario(peerId, entry)) continue;
       entry.channel.send(JSON.stringify({ type: 'custom_categories_share', categories }));
@@ -845,7 +868,8 @@ class MeshNode {
   // ricevente fonde con anti-poisoning (mergeMorphology). Stesso gossip dei pesi.
   shareMorphology(model) {
     const msg = JSON.stringify({ type: 'morphology_share', model });
-    for (const entry of this.peers.values()) {
+    for (const [peerId, entry] of this.peers.entries()) {
+      if (!this._allowsPrivate(peerId, 'morphology_share')) continue;
       if (entry.channel?.readyState === 'open') entry.channel.send(msg);
     }
   }
@@ -863,7 +887,8 @@ class MeshNode {
     if (!txsByMonth || !Object.keys(txsByMonth).length) return 0;
     const msg = JSON.stringify({ type: 'sync_txs', txs: txsByMonth });
     let inviati = 0;
-    for (const entry of this.peers.values()) {
+    for (const [peerId, entry] of this.peers.entries()) {
+      if (!this._allowsPrivate(peerId, 'sync_txs')) continue;
       if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
     }
     return inviati;

@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "test": "node --test src/",
+    "test": "node --test src/ && node --test server/",
     "build": "vite build",
     "build:singlefile": "vite build --mode singlefile",
     "preview": "vite preview",

@@ -643,6 +643,10 @@ const VaultDAO = {
   // presente, per costruzione (reconstructMissingFromTxLog esclude già gli
   // id noti, questo è un controllo ridondante di sicurezza in più).
   applyTxLogRecovery(recovered) {
+    // The user may have added or deleted a transaction while reviewing the notice.
+    // Recheck against the current vault, including content duplicates and tombstones.
+    const entries = Object.entries(recovered || {}).flatMap(([month, txs]) => txs.map(tx => ({ month, tx })));
+    recovered = reconstructMissingFromTxLog(entries, this.state).recovered;
     let added = 0;
     for (const [month, txs] of Object.entries(recovered || {})) {
       if (!this.state.transactions[month]) this.state.transactions[month] = [];

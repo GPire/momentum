@@ -1,3 +1,5 @@
+import { buildPaymentAgenda, validatePaymentDeclaration, validPaymentDate } from './predict/payment-agenda.js';
+import { recoveryPromptKey, shouldAutoOpenRecoveryPrompt } from './core/recovery-notice.js';
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
 import { haCompletatoOnboarding } from './core/onboarding-state.js';
 import { giornoLocale, meseLocale } from './core/date-utils.js';
@@ -62,7 +64,8 @@ import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
 import { chiediAlMercatoSync, rifiutoMotivato, precarica as precaricaMercato } from './alpha/mercato-qa.js';
-import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed, sendFeatureEvent } from './core/telemetry.js';
+import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, sendFeatureEvent, sendEssentialDiagnostic } from './core/telemetry.js';
+import './ui/dashboard-clarity.css';
 
 // Endpoint del contatore anonimo (server/telemetry-worker.js) — distribuito
 // su Cloudflare Workers il 2026-08-28 (piano gratuito). Un id casuale non
@@ -75,6 +78,7 @@ const TELEMETRY_ENDPOINT = 'https://momentum-telemetry.momentum-finance.workers.
 // qualcosa a caso). Wrapper unico per non ripetere il .catch in ogni punto
 // di chiamata: mai bloccante, mai un errore visibile all'utente.
 const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch(() => {}); };
+const sendDiagnostic = (key) => { sendEssentialDiagnostic(TELEMETRY_ENDPOINT, key, { platform: __telemetryPlatform, appVersion: '50.1.0' }).catch(() => {}); };
 // Piattaforma e provenienza per il ping "install" (2026-08-28, richiesto
 // esplicitamente: cosa chiederebbe un investitore oltre agli utenti al
 // mese). Catturati QUI, al caricamento dello script — PRIMA che
@@ -159,7 +163,7 @@ import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './spli
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement, unreadCount } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
-import { currentTier, activateLicense, deactivateLicense, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
+import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -201,8 +205,8 @@ import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscripti
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
-import { derivePriors, seedBanditState, shouldShowAnalysisTensor, numeriDaChiedere } from './predict/onboarding-priors.js';
-import { featureVisibili } from './predict/profilo-feature.js';
+import { derivePriors, seedBanditState, shouldShowAnalysisTensor, numeriDaChiedere, onboardingBudget } from './predict/onboarding-priors.js';
+import { featureVisibili, resolveClarity } from './predict/profilo-feature.js';
 import { ordineCss, motivoPromozione } from './predict/rilevanza-card.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
@@ -228,7 +232,7 @@ import { acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.
 import { loadOrCreateExchangeIdentity, openSealedAny, statoIdentita } from './mesh/exchange-identity.js';
 import { loadOrCreateDeviceIdentity } from './mesh/device-signing-identity.js';
 import { verificationWords, addTrustedDevice, isTrustedKey } from './mesh/device-trust.js';
-import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY, buildDistillationDigest, mergeDistillationDigests, roundContributions, PROBE_VERSION } from './mesh/federated-distillation.js';
+import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY, buildDistillationDigest, mergeDistillationDigests, roundContributions, PROBE_VERSION, validateDistillationDigest, spendBudget, previewOutgoing } from './mesh/federated-distillation.js';
 import { initDriftState, observeRound, combinedWeight, detectCollusion } from './mesh/contribution-drift.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
@@ -252,11 +256,6 @@ import { importFiles, reconcileModelsWithHistory, learnInBackground } from './im
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
 const MODEL_SIGNATURE = 'v10-omega-nano+meso+logreg-dcgn-2026-07';
-import { MOMENTUM_TRAINED_MODEL_DATA } from './ai/trained-model-data.js';
-import { TrainedCategorizer } from './ai/trained-categorizer.js';
-import { TrainedMeso } from './ai/trained-meso.js';
-import { HashedLogReg } from './ai/hashed-logreg.js';
-import { MomentumOrchestrator } from './ai/orchestrator.js';
 
 // --tastiera-inset (2026-09-04): quanto spazio sta occupando ORA la tastiera
 // nativa, usato da #modal-content (index.html) per accorgersi di avere meno
@@ -344,6 +343,8 @@ async function prepareSemanticSimilarity(question) {
 // usato sia dalla card "Chiedi a Momentum" sia dalla console.
 function askMomentum(text, semanticSimilarity = null) {
   const ctx = {
+    paymentDeclarations: VaultDAO.state.paymentDeclarations || [],
+    paymentOverrides: VaultDAO.state.paymentOverrides || {},
     allTx: VaultDAO.state.transactions,
     monthlyBudget: VaultDAO.state.monthlyBudget,
     savingsGoals: VaultDAO.state.savingsGoals,
@@ -498,7 +499,26 @@ const initWebGLOrb = (canvasId, balance=0, freqScore=0) => {
     document.addEventListener('mouseup', ()=>isDrag=false); document.addEventListener('touchend', ()=>isDrag=false);
     document.addEventListener('mousemove', e=>{if(isDrag){ orb.rotation.y+=(e.clientX-pX)*0.01; orb.rotation.x+=(e.clientY-pY)*0.01; pX=e.clientX; pY=e.clientY; }});
     document.addEventListener('touchmove', e=>{if(isDrag){ orb.rotation.y+=(e.touches[0].clientX-pX)*0.01; orb.rotation.x+=(e.touches[0].clientY-pY)*0.01; pX=e.touches[0].clientX; pY=e.touches[0].clientY; }}, {passive:true});
-    const clock = new THREE.Clock(); const animate = () => { requestAnimationFrame(animate); if(!canvas._orbApp || !canvas._orbApp.active) return; mat.uniforms.time.value = clock.getElapsedTime(); if(!isDrag){ orb.rotation.y+=0.002; orb.rotation.x+=0.001; } renderer.render(scene, camera); }; animate();
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let lastFrame = 0, stillSignature = '';
+    const animate = (timestamp = 0) => {
+      requestAnimationFrame(animate);
+      const elapsed = lastFrame ? Math.min((timestamp - lastFrame) / 1000, 0.05) : 0;
+      lastFrame = timestamp;
+      if (!canvas._orbApp?.active || document.hidden) return;
+      if (VaultDAO.state.uiMotion === 'reduced' || (VaultDAO.state.uiMotion !== 'full' && motion.matches)) {
+        const signature = [canvas.width, canvas.height, mat.uniforms.balance.value, mat.uniforms.disciplineFreq.value].join(':');
+        if (signature === stillSignature) return;
+        stillSignature = signature;
+        mat.uniforms.time.value = 0;
+      } else {
+        stillSignature = '';
+        mat.uniforms.time.value += elapsed;
+        if (!isDrag) { orb.rotation.y += elapsed * 0.12; orb.rotation.x += elapsed * 0.06; }
+      }
+      renderer.render(scene, camera);
+    };
+    animate();
     updateSize();
   } catch (err) {
     console.warn("WebGL initialization failed:", err);
@@ -632,6 +652,7 @@ const getTxFormHTML = () => `
     <!-- Tasti rapidi (src/predict/amount-memory.js): gli acquisti abituali
          con importo stabile — un tocco compila tutto, un secondo conferma -->
     <div id="quick-add-row" class="flex gap-2 overflow-x-auto mb-2 shrink-0 hidden"></div>
+    <button type="button" class="command-plan orbit-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="4"/><path d="M8 3v4m8-4v4M4 11h16m-8 3v4m-2-2h4"/></svg><span>${tCh('recurringUpcoming', __uiLang)}</span><span aria-hidden="true" class="orbit-action-arrow">↗</span></button>
 
     <div class="amount-stage shrink-0">
       <!-- LA DOMANDA, PRIMA DEL CAMPO. Il pannello mostrava un € , uno zero
@@ -897,6 +918,11 @@ const attachFormListeners = (container, prefill = null) => {
   // comune a form+piè di pagina in ciascun contesto; senza nessuno dei due
   // (caso non dovrebbe capitare) resta `container` stesso.
   const formRoot = container.closest('#modal-container') || container.closest('#desktop-sidebar') || container;
+  container.querySelector('.command-plan').onclick = () => {
+    const draft = { type, amount:Number(rawVal) || 0, category:catId, description:container.querySelector('#tx-desc')?.value || '', date:giornoLocale(selectedDate), currency };
+    if (container.closest('#modal-container')) commandTransactionDraft = draft;
+    window.openPaymentEditor(null, { key:'manual:' + crypto.randomUUID(), name:draft.description, amount:draft.amount || null, date:'', kind:'recurring', cadence:'monthly' });
+  };
 
   // Un terzo tasto per un'opzione che non userà mai: chi ha detto "non
   // investo" nell'onboarding vede solo Uscita/Entrata, non tre scelte per
@@ -1963,14 +1989,11 @@ function renderMeshStatus() {
   if (!el) return;
   const peers = window.momentumMeshNode?.peers?.size || 0;
   const examples = VaultDAO.state.mlData?.totalWords || 0;
-  const ledger = VaultDAO.state.updateLedger || [];
   if (peers === 0) {
     el.innerHTML = tCh('meshNoPeers', __uiLang, examples);
     return;
   }
-  const merges = ledger.filter(e => e.accepted).length;
-  const rejected = ledger.length - merges;
-  el.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 align-middle"></span>${tCh('meshConnectedStatus', __uiLang, peers, examples, merges, rejected)}`;
+  el.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 align-middle"></span>${tCh('meshPrivateBoundary', __uiLang)}`;
   updateSplitMeshDot();
   renderMeshEconomics(peers);
 }
@@ -2002,7 +2025,7 @@ function updateSplitMeshDot() {
   if (!el) return;
   const peers = window.momentumMeshNode?.peers?.size || 0;
   el.innerHTML = peers > 0
-    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${tCh('splitMeshConnected', __uiLang, peers)}`
+    ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${tCh('meshPrivateBoundary', __uiLang)}`
     : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-[var(--on-surface-secondary)] opacity-50"></span>${tCh('splitMeshDisconnected', __uiLang)}`;
 }
 
@@ -2213,9 +2236,11 @@ function evaluateAndCelebrateAchievements() {
   }
 }
 
+let commandTransactionDraft = null;
 const openTransactionModal = () => {
   openModal(getTxFormHTML(), getTxFormFooterHTML());
-  attachFormListeners($('#modal-body'));
+  attachFormListeners($('#modal-body'), commandTransactionDraft);
+  commandTransactionDraft = null;
   // ATTRITO SEGNALATO DA PIÙ UTENTI: si apriva il Command Center e bisognava
   // toccare ANCORA il campo per far uscire il tastierino del telefono. Due
   // gesti per fare la cosa più frequente dell'app — e il secondo su un
@@ -2351,16 +2376,7 @@ function renderDemoBanner() {
   // testo (demoSubtitle), che diceva un processo graduale non più vero.
   if (!s.attivo || VaultDAO.state.demoDismissed || realTxCount() > 0) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   el.classList.remove('hidden');
-  el.innerHTML = `
-    <div class="avviso" style="--accento:var(--gold);flex-direction:column;align-items:stretch;gap:.6rem">
-      <div class="flex items-start justify-between gap-3 flex-wrap">
-        <div class="min-w-0">
-          <p class="avviso-titolo">${tCh('demoTitle', __uiLang)}</p>
-          <p class="t-nota mt-1">${tCh('demoSubtitle', __uiLang)}</p>
-        </div>
-        <button onclick="window.dismissDemo()" class="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface)] hover:bg-white/5 transition-colors">${tCh('demoStartFresh', __uiLang)}</button>
-      </div>
-    </div>`;
+  el.innerHTML = `<p class="first-orbit-demo">${tCh('demoTitle', __uiLang)}</p>`;
 }
 
 // L'IMPORT ERA SEPOLTO NELLE IMPOSTAZIONI. "Carica i tuoi movimenti" stava
@@ -3062,7 +3078,90 @@ window.__toggleDashDay = (iso) => {
   setTimeout(() => detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 380);
 };
 
+let agendaItems = [];
+function orbitChoiceMarkup(id, label, choices, value) {
+  const selected = value || choices[0][0];
+  return `<fieldset class="orbit-choice-group" id="${id}-label"><legend>${label}</legend><select id="${id}" hidden>${choices.map(([key, text]) => `<option value="${key}" ${key === selected ? 'selected' : ''}>${text}</option>`).join('')}</select><div class="orbit-choices">${choices.map(([key, text]) => `<button type="button" data-choice="${key}" aria-pressed="${key === selected}" onclick="window.choosePaymentOption('${id}','${key}')"><span class="orbit-choice-dot" aria-hidden="true"></span>${text}</button>`).join('')}</div></fieldset>`;
+}
+window.choosePaymentOption = (id, value) => {
+  const select = document.getElementById(id);
+  if (!select || ![...select.options].some(option => option.value === value)) return;
+  select.value = value;
+  select.parentElement.querySelectorAll('[data-choice]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.choice === value)));
+  select.onchange?.();
+};
+function renderTransactionRecurring() {
+  const panel = document.getElementById('transaction-recurring');
+  const list = document.getElementById('transaction-recurring-list');
+  if (!panel || !list) return;
+  agendaItems = buildPaymentAgenda(VaultDAO.state);
+  const seenPlans = new Set();
+  agendaItems = agendaItems.filter(item => {
+    if (item.kind !== 'recurring' || !item.parentKey) return true;
+    if (seenPlans.has(item.parentKey)) return false;
+    seenPlans.add(item.parentKey); return true;
+  });
+  panel.classList.remove('hidden');
+  document.getElementById('recurring-count').textContent = agendaItems.length ? new Intl.NumberFormat(__uiLocale).format(agendaItems.length) : '';
+  list.innerHTML = agendaItems.map((item, index) => `<div class="recurring-row"><div><strong>${escapeHtml(item.name)}</strong><time datetime="${item.date}">${new Date(item.date + 'T12:00:00').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</time><small>${tCh(item.source === 'declared' ? 'agendaDeclared' : 'agendaEstimated', __uiLang)}</small></div><div><span>${item.amount === null ? '—' : formatMoney(item.amount)}</span><button type="button" class="agenda-edit" onclick="window.openPaymentEditor(${index})">${tCh('agendaEditDate', __uiLang)}</button></div></div>`).join('');
+}
+window.openPaymentEditor = (index = null, draft = null) => {
+  const selected = Number.isInteger(index) ? agendaItems[index] : null;
+  const item = draft || (selected?.parentKey ? (VaultDAO.state.paymentDeclarations || []).find(p => p.key === selected.parentKey) : selected);
+  if (index !== null && !item) return;
+  const predicted = item && !item.key.startsWith('manual:');
+  openModal(`<div class="payment-editor p-4 space-y-4"><h3 class="text-lg font-bold">${tCh('agendaSchedule', __uiLang)}</h3>
+    <label class="block">${tCh('agendaName', __uiLang)}<input id="payment-name" class="w-full p-3 rounded-xl" maxlength="120" value="${escapeHtml(item?.name || '')}" ${predicted ? 'readonly' : ''}></label>
+    ${predicted ? '' : orbitChoiceMarkup('payment-kind', tCh('agendaType', __uiLang), ['trial','recurring','installment','credit','payment'].map(kind => [kind,tCh('agendaKind_' + kind, __uiLang)]), item?.kind)}
+    ${predicted ? '' : `<label id="payment-months-label" class="block">${tCh('agendaMonths', __uiLang)}<input id="payment-months" class="w-full p-3 rounded-xl" type="number" min="1" max="120" step="1" value="${item?.months || 1}"></label>`}
+    <label class="block">${tCh('agendaNextDate', __uiLang)}<input id="payment-date" class="w-full p-3 rounded-xl" type="date" value="${item?.date || ''}"></label>
+    <details class="payment-options"><summary>${tCh('agendaDates', __uiLang)}</summary><div class="payment-date-grid"><label>${tCh('agendaStart', __uiLang)}<input id="payment-start" type="date" value="${item?.startDate || ''}"></label><label>${tCh('agendaEnd', __uiLang)}<input id="payment-end" type="date" value="${item?.endDate || ''}"></label></div><p class="payment-education">${tCh('agendaEducation', __uiLang)}</p></details>
+    ${predicted ? '' : orbitChoiceMarkup('payment-cadence', tCh('agendaCadence', __uiLang), ['monthly','weekly','fortnightly','quarterly','yearly'].map(c => [c,tCh('agendaCadence_' + c, __uiLang)]), item?.cadence)}
+    ${predicted ? '' : `<label class="block">${tCh('agendaAmount', __uiLang)}<input id="payment-amount" class="w-full p-3 rounded-xl" type="number" min="0" step="0.01" inputmode="decimal" value="${item?.amount ?? ''}"></label>`}
+    <p class="text-sm">${tCh('agendaNote', __uiLang)}</p></div>`, `<button type="button" class="btn-action w-full" id="payment-save">${tCh('vaultSave', __uiLang)}</button>`);
+  const kindSelect = document.getElementById('payment-kind');
+  const updateMonths = () => {
+    const label = document.getElementById('payment-months-label'); if (label) label.hidden = kindSelect?.value !== 'installment';
+    const cadence = document.getElementById('payment-cadence')?.closest('.orbit-choice-group'); if (cadence) cadence.hidden = kindSelect?.value !== 'recurring';
+  };
+  if (kindSelect) kindSelect.onchange = updateMonths;
+  updateMonths();
+  document.getElementById('payment-save').onclick = () => {
+    const date = document.getElementById('payment-date').value;
+    const startDate = document.getElementById('payment-start').value;
+    const endDate = document.getElementById('payment-end').value;
+    if (!validPaymentDate(date) || (startDate && (!validPaymentDate(startDate) || startDate > date)) || (endDate && (!validPaymentDate(endDate) || endDate < date))) { showToast(tCh('agendaInvalid', __uiLang), 'error'); return; }
+    if (predicted) {
+      VaultDAO.state.paymentOverrides ||= {};
+      VaultDAO.state.paymentOverrides[item.key] = { ...VaultDAO.state.paymentOverrides[item.key], date, startDate, endDate };
+    } else {
+      const raw = document.getElementById('payment-amount').value;
+      const value = { key: item?.key || 'manual:' + crypto.randomUUID(), name: document.getElementById('payment-name').value.trim(), date, kind: document.getElementById('payment-kind').value, months: document.getElementById('payment-kind').value === 'installment' ? Number(document.getElementById('payment-months').value) : 1, amount: raw === '' ? null : Number(raw) };
+      Object.assign(value, { startDate, endDate, cadence: document.getElementById('payment-cadence').value, sourceTxId: item?.sourceTxId });
+      if (!validatePaymentDeclaration(value)) { showToast(tCh('agendaInvalid', __uiLang), 'error'); return; }
+      VaultDAO.state.paymentDeclarations = [...(VaultDAO.state.paymentDeclarations || []).filter(p => p.key !== value.key), value];
+    }
+    VaultDAO.save(); closeModal(); renderDashboard();
+  };
+};
+window.openTransactionSchedule = (month, id) => {
+  const tx = (VaultDAO.state.transactions[month] || []).find(t => String(t.id) === String(id));
+  if (!tx || tx.type !== 'uscita') return;
+  const existing = (VaultDAO.state.paymentDeclarations || []).find(p => p.sourceTxId === String(id));
+  const predictionIndex = agendaItems.findIndex(p => !p.parentKey && p.name.trim().toLowerCase() === String(tx.description || '').trim().toLowerCase());
+  if (!existing && predictionIndex >= 0) { window.openPaymentEditor(predictionIndex); return; }
+  window.openPaymentEditor(null, existing || { key: 'manual:' + crypto.randomUUID(), name: tx.description || '', amount: tx.amount, kind: 'recurring', cadence: 'monthly', date: '', startDate: tx.date?.slice(0, 10) || '', sourceTxId: String(id) });
+};
+window.openPaymentAgenda = () => {
+  navigate('dashboard');
+  const panel = document.getElementById('transaction-recurring');
+  if (!panel) return;
+  panel.open = true;
+  panel.scrollIntoView({ behavior: motionIsReduced() ? 'instant' : 'smooth', block:'start' });
+  panel.querySelector('summary').focus({preventScroll:true});
+};
 const renderDashboard = () => {
+  try { renderTransactionRecurring(); } catch (error) { document.getElementById('transaction-recurring')?.classList.add('hidden'); console.warn('Recurring payments unavailable:', error); }
   // Ogni volta che la Dashboard si aggiorna è il momento in cui l'utente
   // vede l'effetto di quello che ha appena fatto (nuova spesa, nuova
   // categoria) — il punto giusto per controllare i traguardi (progress-
@@ -3480,7 +3579,8 @@ const renderDashboard = () => {
     let line = null;
     if (isCurrentMonth) {
       const aStats = computeStats(VaultDAO.state, realNow);
-      const nm = nextMilestone(VaultDAO.state.achievements || {}, aStats, __uiLang);
+      const candidate = nextMilestone(VaultDAO.state.achievements || {}, aStats, __uiLang);
+      const nm = candidate && !String(candidate.id || '').includes('streak') ? candidate : null;
       if (nm && nm.pct >= 0.6) {
         const manca = nm.target - nm.current;
         // Descrive il COMPORTAMENTO in parole di tutti (niente nomi-badge né
@@ -3492,7 +3592,7 @@ const renderDashboard = () => {
         // chiedono entusiasmo per una cosa che non l'ha meritato. Il fatto e'
         // lo stesso, detto senza spingere — chi vuole il traguardo lo vede
         // comunque, chi non gliene importa non viene tirato per la manica.
-        line = { icon: ICON.goal, tone: 'gold', text: `${goal}: <b>${tCh('dashInsightOf', __uiLang, nm.current, nm.target)}</b>${manca === 1 ? tCh('dashInsightMissingOne', __uiLang) : tCh('dashInsightMissingMany', __uiLang, manca)}` };
+        line = { milestone: true, icon: ICON.goal, tone: 'gold', text: `${goal}: <b>${tCh('dashInsightOf', __uiLang, nm.current, nm.target)}</b>${manca === 1 ? tCh('dashInsightMissingOne', __uiLang) : tCh('dashInsightMissingMany', __uiLang, manca)}` };
       } else {
         const life = inferLifestyle({ allTx: VaultDAO.state.transactions, referenceDate: realNow });
         if (life.patterns.length) {
@@ -3503,11 +3603,18 @@ const renderDashboard = () => {
           line = { icon: ICON[tone] || ICON.calm, tone, text: `<b>${p.label}.</b> ${p.evidence}${tail}` };
         } else if (nm && nm.pct >= 0.3) {
           const goal = String(nm.desc || '').replace(/\.$/, '');
-          line = { icon: ICON.goal, tone: 'gold', text: tCh('dashInsightNextGoal', __uiLang, goal, nm.current, nm.target) };
+          line = { milestone: true, icon: ICON.goal, tone: 'gold', text: tCh('dashInsightNextGoal', __uiLang, goal, nm.current, nm.target) };
         }
       }
     }
+    // An actionable payment takes priority over engagement achievements.
+    const nextPayment = isCurrentMonth && agendaItems.find(p => p.date >= giornoLocale(realNow));
+    if (nextPayment) {
+      const date = new Date(nextPayment.date + 'T12:00:00').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'long' });
+      line = { icon: ICON.calm, tone: 'calm', text: escapeHtml(tCh('agendaInsight', __uiLang, nextPayment.name, date)) + ` <span class="agenda-source">${tCh(nextPayment.source === 'declared' ? 'agendaDeclared' : 'agendaEstimated', __uiLang)}</span>` };
+    }
     if (line) {
+      insightEl.classList.toggle('milestone-insight', line.milestone === true);
       const t = TONE[line.tone] || TONE.calm;
       insightEl.classList.remove('hidden');
       // Stessa materia delle card: il tono resta ma diventa luce invece che
@@ -3966,6 +4073,7 @@ const renderDashboard = () => {
         <div class="flex flex-col items-end shrink-0 pl-2">
           <span class="tx-importo font-mono ${isInc ? 'text-[var(--green)]' : isInv ? 'text-[var(--gold)]' : ''}">${isInc ? '+' : isInv ? '⟳' : '−'}${formatMoney(t.amount)}</span>
           <div class="flex mt-1 items-center">
+            ${!isInc && !isInv && (VaultDAO.state.transactions[k] || []).some(real => real.id === t.id) ? `<button type="button" class="tx-schedule" onclick="window.openTransactionSchedule('${k}', ${t.id})">${tCh('agendaSchedule', __uiLang)}</button>` : ''}
             <!-- Neuro-UX + fix responsive: era "ELIMINA" testo su hover (invisibile
                  su touch → impossibile cancellare da mobile) e un muro di bottoni
                  rossi urlati. Ora: icona cestino DISCRETA (azione distruttiva a
@@ -4007,7 +4115,7 @@ window.deleteTx = (k, id) => {
       showToast("Transazione rimossa.", "info");
     };
     const card = document.querySelector(`.tx-card[data-id="${id}"]`);
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = motionIsReduced();
     if (card && !reduced) {
       card.classList.add('tx-leaving');
       setTimeout(finish, 220);
@@ -5644,15 +5752,17 @@ window.openEsTerritorioPicker = () => {
       <p class="text-xs text-[var(--on-surface-secondary)] mb-4">${tCh('esTerritorioSub', __esLang)}</p>
       <div class="space-y-2">
         ${opzioni.map((o) => `
-          <button onclick="window.setEsTerritorio('${o.key}')" class="btn-action w-full justify-between ${o.key === cur ? 'border-[var(--primary)]' : ''}">
+          <button type="button" onclick="window.setEsTerritorio('${o.key}')" class="btn-action w-full min-h-12 justify-between ${o.key === cur ? 'border-[var(--primary)]' : ''}" aria-pressed="${o.key === cur}">
             <span class="text-left">${o.label}${o.key === cur ? ' · ' + tCh('esTerritorioActive', __esLang) : ''}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
           </button>`).join('')}
       </div>
-      <button onclick="window.closeModal()" class="btn-action w-full justify-center mt-4 text-[var(--on-surface-secondary)]">${tCh('esclForfCloseBtn', __uiLang)}</button>
+      <button type="button" onclick="window.closeModal()" class="btn-action w-full min-h-12 justify-center mt-4 text-[var(--on-surface-secondary)]">${tCh('esclForfCloseBtn', __uiLang)}</button>
     </div>`);
 };
+
 window.setEsTerritorio = (territorio) => {
+  if (!['comun', 'pais_vasco', 'navarra'].includes(territorio)) return;
   VaultDAO.state.esTerritorio = territorio;
   VaultDAO.save();
   window.closeModal();
@@ -5809,7 +5919,7 @@ let __tl1SelectDelegated = false;
 function ensureTl1SelectDelegation() {
   if (__tl1SelectDelegated) return;
   __tl1SelectDelegated = true;
-  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced = () => motionIsReduced();
   const closeAll = (except) => {
     document.querySelectorAll('.tl1-select.tl1-select-open').forEach((r) => { if (r !== except) r.classList.remove('tl1-select-open'); });
   };
@@ -5923,7 +6033,7 @@ function tl1LiveValidate(id, validator) {
     if (!val) return; // campo vuoto: nessun giudizio, potrebbe essere solo non ancora compilato
     const ok = validator(val);
     el.classList.add(ok ? 'tl1-field-ok' : 'tl1-field-warn');
-    if (ok && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (ok && !motionIsReduced()) {
       el.classList.remove('tl1-field-pop'); void el.offsetWidth; el.classList.add('tl1-field-pop');
     }
   };
@@ -5934,7 +6044,7 @@ function tl1InitChecklist(id) {
   const boxes = document.querySelectorAll(`[data-tl1-checklist="${id}"] input`);
   const count = document.getElementById(`${id}-count`);
   const bar = document.getElementById(`${id}-bar`);
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced = motionIsReduced();
   boxes.forEach((box) => box.addEventListener('change', () => {
     const done = Array.from(boxes).filter((b) => b.checked).length;
     if (count) count.textContent = `${done}/${boxes.length}`;
@@ -6365,7 +6475,7 @@ window.openTaxLevel1Simulate = () => {
   // rozzi al mese) e un piccolo salto verticale nella direzione del segno,
   // così il numero si "sente" muoversi invece di cambiare di scatto.
   const bump = (dir, btn) => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (motionIsReduced()) return;
     input.style.setProperty('--bump-y', dir > 0 ? '-9px' : '9px');
     input.classList.remove('tl1-bump'); void input.offsetWidth; input.classList.add('tl1-bump');
     if (btn) { btn.classList.remove('tl1-ring'); void btn.offsetWidth; btn.classList.add('tl1-ring'); }
@@ -6444,7 +6554,7 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
     </div>`);
   // Micro-animazione: il numero arriva con un pop invece di comparire di
   // scatto, coerente col resto dell'app. Rispetta prefers-reduced-motion.
-  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (!motionIsReduced()) {
     document.getElementById('tl1-result-number')?.animate(
       [{ transform: 'scale(.85)', opacity: 0 }, { transform: 'scale(1.04)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)' }],
       { duration: 420, easing: 'cubic-bezier(.22,1.4,.36,1)' },
@@ -6575,7 +6685,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
       await navigator.clipboard.writeText(text);
       showToast('Riepilogo copiato — incollalo dove ti serve.', 'success');
       const kit = document.getElementById('tl1-kit');
-      if (kit && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (kit && !motionIsReduced()) {
         kit.classList.remove('tl1-kit-copied'); void kit.offsetWidth; kit.classList.add('tl1-kit-copied');
       }
     } catch (_) {
@@ -6593,7 +6703,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
   // rientrano a scaglione ogni volta che una scheda passa da chiusa ad
   // aperta — un <details> nasconde il contenuto con display:none, quindi
   // l'animazione d'ingresso non riparte da sola: la si rilancia a mano.
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced = motionIsReduced();
   document.querySelectorAll('#modal-content details').forEach((det) => {
     const chevron = det.querySelector('.tl1-guide-chevron');
     det.addEventListener('toggle', () => {
@@ -7770,47 +7880,20 @@ window.saveGuideKey = (provider) => {
   window.closeModal();
 };
 
-// ── CONTEGGIO ANONIMO (opt-in, disattivato di default) ──────────────────────
+// ── DATI D'USO (un solo interruttore) ───────────────────────────────────────
 window.setTelemetryOptIn = (checked) => {
   setTelemetryEnabled(checked);
-  showToast(checked ? 'Grazie: un numero anonimo aiuterà a far crescere Momentum.' : 'Conteggio disattivato.', 'success');
+  document.querySelectorAll('[data-telemetry-toggle]').forEach(input => { input.checked = checked; });
   if (checked) sendTelemetryPings(TELEMETRY_ENDPOINT, { platform: __telemetryPlatform, cameFromInvite: __telemetryCameFromInvite }).catch(() => {});
 };
 function initTelemetryToggle() {
+  document.querySelectorAll('[data-telemetry-toggle]').forEach(input => { input.checked = isTelemetryEnabled(); });
   const cb = document.getElementById('telemetry-opt-in');
   if (cb) cb.checked = isTelemetryEnabled();
   if (isTelemetryEnabled()) sendTelemetryPings(TELEMETRY_ENDPOINT, { platform: __telemetryPlatform, cameFromInvite: __telemetryCameFromInvite }).catch(() => {});
-  // Avviso ESPLICITO al primissimo avvio (mai silenzioso): attivo di
-  // default, ma l'utente lo scopre subito con un modo immediato per
-  // disattivarlo, non solo sepolto in Impostazioni.
-  // BUG REALE segnalato dal vivo ("escono molti messaggi del Momentum
-  // Vault al primo avvio"): questa e la disclosure della chat generica
-  // qui sotto partivano come DUE toast separati (a 2,5s e 4,5s) proprio nei
-  // primi istanti in cui un utente nuovo guarda l'app per la prima volta —
-  // il momento in cui è già più sensibile a "sembra complicato". Entrambe
-  // riguardano la stessa cosa (privacy/opt-out) e vanno quasi sempre
-  // insieme al primo avvio: ora si combinano in UN solo messaggio quando
-  // servono entrambe, e restano singole solo per chi ne ha già vista una
-  // (es. utente esistente che aggiorna l'app).
+  sendDiagnostic('app_ready');
   const ctxCb = document.getElementById('chat-context-optin');
-  if (ctxCb) ctxCb.checked = VaultDAO.state.chatContextOptIn !== false;
-  const needsTelemetry = needsTelemetryDisclosure();
-  const needsChatCtx = !localStorage.getItem('momentum_chatctx_disclosed');
-  if (needsTelemetry) markTelemetryDisclosed();
-  if (needsChatCtx) localStorage.setItem('momentum_chatctx_disclosed', '1');
-  if (needsTelemetry && needsChatCtx) {
-    setTimeout(() => {
-      showToast(tCh('toastAnonBoth', __uiLang), 'info');
-    }, 2500);
-  } else if (needsTelemetry) {
-    setTimeout(() => {
-      showToast(tCh('toastAnonTelemetry', __uiLang), 'info');
-    }, 2500);
-  } else if (needsChatCtx) {
-    setTimeout(() => {
-      showToast(tCh('toastAnonChatCtx', __uiLang), 'info');
-    }, 2500);
-  }
+  if (ctxCb) ctxCb.checked = VaultDAO.state.chatContextOptIn === true;
   const animCb = document.getElementById('force-anim-optin');
   if (animCb) animCb.checked = !!VaultDAO.state.forceAnimations;
   document.documentElement.classList.toggle('force-anim', !!VaultDAO.state.forceAnimations);
@@ -7977,7 +8060,7 @@ window.togglePrivacyMode = (e) => {
   // non un centro fisso) ed espande abbastanza da coprire l'angolo più
   // lontano dello schermo — collega visivamente il gesto al suo effetto.
   const ripple = $('#privacy-ripple');
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduceMotion = motionIsReduced();
   let maxDelayMs = 0;
   const nodes = document.querySelectorAll('.font-mono:not(.no-privacy-blur)');
   if (e && Number.isFinite(e.clientX) && !reduceMotion) {
@@ -9253,6 +9336,10 @@ const AVATAR_PALETTE = ['#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '
 // principio del progetto. `unseenReleases` fa il lavoro puro; qui solo il
 // rendering.
 function showWhatsNewIfDue() {
+  // Un solo messaggio importante per accesso: il controllo di integrità dei
+  // movimenti ha precedenza. Le novità restano non lette e appariranno al
+  // prossimo avvio, invece di sovrapporsi a una decisione sui dati.
+  if (window.__recoveryPromptShownThisSession) return;
   if (!shouldShowWhatsNew(VaultDAO.state)) return;
   // unseenReleases() torna in ordine cronologico CRESCENTE (contratto testato
   // in whats-new.test.js, non toccato qui) — ma in questa schermata l'utente
@@ -9297,7 +9384,7 @@ function showWhatsNewIfDue() {
     VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
     VaultDAO.save();
     const nascondi = () => { overlay.classList.remove('active', 'uscita'); overlay.classList.add('hidden'); };
-    const menoMovimento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const menoMovimento = window.matchMedia && motionIsReduced();
     if (menoMovimento) { nascondi(); return; }
     overlay.classList.add('uscita');
     // `animationend` come segnale primario, con una rete di sicurezza a tempo:
@@ -10715,7 +10802,7 @@ window.openBusinessTrip = (tripId) => {
           try {
             if (typeof pdfjsLib !== 'undefined') {
               const buf = await f.arrayBuffer();
-              const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+              const pdf = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
               const page = await pdf.getPage(1);
               const tc = await page.getTextContent();
               const items = tc.items.map(i => ({ text: i.str, x: i.transform[4], y: i.transform[5], width: i.width }));
@@ -11104,7 +11191,7 @@ const renderPdfReceiptToImage = async (dataUrl) => {
     if (typeof pdfjsLib === 'undefined') return null;
     const res = await fetch(dataUrl);
     const buf = await res.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const pdf = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
     const page = await pdf.getPage(1);
     const viewport = page.getViewport({ scale: 1.4 });
     const canvas = document.createElement('canvas');
@@ -11914,7 +12001,7 @@ window.openCreateInvoice = (prefillClient) => {
       typeBtn.textContent = next.label;
       typeBtn.title = next.title;
       amountInput.placeholder = next.type === 'eur' ? '€' : '%';
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (!motionIsReduced()) {
         typeBtn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.15)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'cubic-bezier(.34,1.56,.64,1)' });
       }
       onChange();
@@ -11958,7 +12045,7 @@ window.openCreateInvoice = (prefillClient) => {
     // Micro-animazione: il netto "risponde" a ogni cifra digitata invece di
     // cambiare di scatto — lo stesso linguaggio del resto dell'app, qui
     // applicato al numero più guardato del modulo.
-    if (prevTotale !== null && prevTotale !== inv.totaleFattura && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (prevTotale !== null && prevTotale !== inv.totaleFattura && !motionIsReduced()) {
       ['inv-prev-totale', 'inv-prev-netto'].forEach((id) => {
         document.getElementById(id)?.animate(
           [{ transform: 'scale(1.12)', color: 'var(--gold)' }, { transform: 'scale(1)' }],
@@ -12114,7 +12201,7 @@ window.openCreateInvoice = (prefillClient) => {
     if (!brandCreditChosenByUser && $('#inv-brand-credit')) $('#inv-brand-credit').checked = id !== 'minimale';
     // Micro-animazione di conferma scelta (stesso ritmo di sectionRise, mai
     // un'animazione nuova inventata), rispetta prefers-reduced-motion.
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (!motionIsReduced()) {
       btn.animate([{ transform: 'scale(.94)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'cubic-bezier(.22,1.4,.36,1)' });
     }
   };
@@ -12371,7 +12458,7 @@ window.openCreateInvoice = (prefillClient) => {
       btn.disabled = true;
       btn.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 text-emerald-100';
       btn.innerHTML = '<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Trasmessa';
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (!motionIsReduced()) {
         btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.34,1.56,.64,1)' });
       }
     });
@@ -13793,7 +13880,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
           kind: 'es-tax-set-aside',
           severity: 'info',
           title: tCh('esCardSub', __esLang),
-          body: tCh('esCardNoteFn', __esLang, esR.count, Math.round(esR.incassato), Math.round(aParte), Math.round(esR.disponibleReal)),
+          body: tCh(esR.territorioForal ? 'esCardNoteForalFn' : 'esCardNoteFn', __esLang, esR.count, Math.round(esR.incassato), Math.round(aParte), Math.round(esR.disponibleReal)),
         });
       }
     }
@@ -14820,12 +14907,18 @@ window.genesisNext = (step, value = '') => {
     const cur = $(`#g-step-${window.genesisStep}`);
     const next = $(`#g-step-${step}`);
     if (cur) {
+      cur.inert = true;
+      cur.setAttribute('aria-hidden', 'true');
       cur.classList.remove('active');
       cur.classList.add('past');
     }
     if (next) {
+      next.inert = false;
+      next.removeAttribute('aria-hidden');
       next.classList.remove('past');
       next.classList.add('active');
+      const heading = next.querySelector('h2');
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
     }
     window.genesisStep = step;
 
@@ -14857,11 +14950,7 @@ const MINOR_GOAL_LABEL_KEYS = { console: 'minorGoalLabelConsole', telefono: 'min
 // un bottone tradotto in inglese non deve salvare un obiettivo intitolato in
 // italiano.
 const GOAL_LABEL_KEYS = { casa: 'goalLabelCasa', viaggio: 'goalLabelViaggio', auto: 'goalLabelAuto', cuscinetto: 'goalLabelCuscinetto' };
-// Quota del reddito VERO dichiarato in onboarding (window.userStatedIncome)
-// usata come budget di partenza, quando c'è — condivisa fra seedProfileState
-// (cosa si salva) e renderGenesisPayoff (cosa si mostra), un solo numero,
-// mai due formule che potrebbero scollegarsi. Vedi commento in seedProfileState.
-const GENESIS_BUDGET_SHARE = { conservativo: 0.55, bilanciato: 0.65, aggressivo: 0.75 };
+
 
 // La scelta dell'obiettivo non è la risposta a una domanda "di profilo":
 // si salva a parte e poi si prosegue alla domanda 4 come sempre, ripassando
@@ -14914,9 +15003,8 @@ window.genesisPivaRegime = (regime) => {
 // Un solo campo numerico, sempre saltabile — è la prima volta che l'onboarding
 // chiede un numero invece di un tocco, quindi l'uscita "salta" resta il più
 // visibile possibile (stesso principio "non lo so mai senza penalità" delle
-// altre domande). Il numero, se c'è, sostituisce la stima a bucket per
-// profilo di rischio con un budget calcolato sul reddito VERO (vedi
-// seedProfileState) — mai il contrario, mai una stima spacciata per reale.
+// altre domande). Il reddito viene salvato separatamente dal budget:
+// dichiarare quanto si guadagna non equivale a scegliere quanto spendere.
 window.genesisIncomeSubmit = () => {
   const el = document.getElementById('genesis-income-input');
   const v = Math.round(+el?.value || 0);
@@ -14940,9 +15028,33 @@ window.genesisSkipEntrate = () => {
   window.genesisNext(5, '');
 };
 
+window.genesisClarityPick = (value) => {
+  if (value !== 'essenziale' && value !== 'completo') return;
+  window.userClarity = value;
+  updateGenesisClaritySelection();
+};
+
+function applyGenesisClarity() {
+  VaultDAO.state.uiComplexity = window.userClarity || resolveClarity(VaultDAO.state);
+  if (window.userClarity) VaultDAO.state.uiComplexitySetByUser = true;
+}
+
 function renderGenesisPayoff() {
   const el = document.getElementById('genesis-payoff');
   if (!el) return;
+  updateGenesisClaritySelection();
+  renderGenesisPayoffCards(el);
+}
+
+function updateGenesisClaritySelection() {
+  const clarity = window.userClarity || resolveClarity(VaultDAO.state);
+  document.querySelectorAll('[data-genesis-clarity]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.genesisClarity === clarity));
+    button.classList.toggle('active', button.dataset.genesisClarity === clarity);
+  });
+}
+
+function renderGenesisPayoffCards(el) {
   // Stessa card icona+testo di openMomentumReveal (sopra in questo file) —
   // riuso apposta, non un nuovo stile inventato: è il linguaggio visivo che
   // l'app usa già per "ecco cosa ho fatto per te", e deve restare coerente
@@ -14985,17 +15097,7 @@ function renderGenesisPayoff() {
   const CHIAVI_CONSIGLIO = { conservativo: 'payoffAdviceSaver', bilanciato: 'payoffAdviceBalanced', aggressivo: 'payoffAdviceOptimizer' };
   const modo = LABEL_FRENO_KEYS[p.aiAggression] ? p.aiAggression : 'advisor';
   const descrizioneFreno = tCh(BRAKE_DESC_KEYS[modo], __uiLang).split('.')[0] + '.';
-  // Budget: un numero vero batte una stima (stessa formula di
-  // seedProfileState, GENESIS_BUDGET_SHARE condivisa — mai due calcoli che
-  // potrebbero raccontare due cose diverse).
-  const statedIncome = +window.userStatedIncome || 0;
-  const budgetReale = statedIncome > 0 ? Math.round(statedIncome * (GENESIS_BUDGET_SHARE[p.risk] ?? 0.65)) : p.monthlyBudget;
   const righe = [
-    statedIncome > 0
-      ? card('green', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-          tCh('payoffIncomeTitle', __uiLang, formatMoney(budgetReale)), tCh('payoffIncomeSub', __uiLang))
-      : card('green', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-          tCh('payoffBudgetTitle', __uiLang, formatMoney(budgetReale)), tCh('payoffBudgetSub', __uiLang)),
     card('gold', '<path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/>',
       tCh('payoffBrakeTitle', __uiLang, tCh(LABEL_FRENO_KEYS[modo], __uiLang)), descrizioneFreno),
     card('primary', '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
@@ -15055,141 +15157,20 @@ function renderGenesisPayoff() {
 
 const initGenesisHold = () => {
   const btn = document.getElementById('genesis-btn');
-  const fill = document.getElementById('genesis-ring-fill');
-  if (!btn || !fill) return;
-  endGenesis._done = false; // nuovo onboarding (anche dopo un reset): riarma
-
-  let holdTimer = null;
-  let startTimeout = null;
-  let progress = 0;
-  let isHoldActive = false;
-
-  const startAction = (e) => {
-    try { e.preventDefault(); } catch(err) {}
-    haptic('light');
-    
-    isHoldActive = false;
-    progress = 0;
-    if (fill) fill.style.strokeDashoffset = 408.4;
-
-    if (holdTimer) clearInterval(holdTimer);
-    if (startTimeout) clearTimeout(startTimeout);
-
-    // Wait 150ms. If still holding, treat as a hold gesture!
-    startTimeout = setTimeout(() => {
-      isHoldActive = true;
-      holdTimer = setInterval(() => {
-        progress += 5;
-        const offset = 408.4 - (408.4 * progress) / 100;
-        if (fill) fill.style.strokeDashoffset = offset;
-        if (progress >= 100) {
-          clearInterval(holdTimer);
-          endGenesis();
-        }
-      }, 50);
-    }, 150);
+  if (!btn) return;
+  endGenesis._done = false;
+  btn.onclick = () => {
+    endGenesis();
   };
-
-  const endAction = (e) => {
-    if (startTimeout) clearTimeout(startTimeout);
-    
-    if (isHoldActive) {
-      if (holdTimer) clearInterval(holdTimer);
-      if (progress < 100) {
-        progress = 0;
-        if (fill) fill.style.strokeDashoffset = 408.4;
-      }
-    } else {
-      // Quick click/tap fallback: animate fast to 100% and unlock
-      if (holdTimer) clearInterval(holdTimer);
-      let p = 0;
-      holdTimer = setInterval(() => {
-        p += 10;
-        const offset = 408.4 - (408.4 * p) / 100;
-        if (fill) fill.style.strokeDashoffset = offset;
-        if (p >= 100) {
-          clearInterval(holdTimer);
-          endGenesis();
-        }
-      }, 30);
-    }
-  };
-
-  // ── Fix bug bloccante iOS: il "hold to Consacra" è un long-press, che su
-  // iOS Safari fa partire la selezione del testo / il menu contestuale e
-  // blocca l'utente nell'onboarding. Soluzione robusta:
-  // 1) Pointer Events unificati (niente doppio-firing touch+mouse);
-  // 2) preventDefault su pointer/touch/contextmenu → niente selezione/callout;
-  // 3) pointer capture → l'up arriva anche se il dito scivola fuori;
-  // 4) touch-action:none via CSS (#genesis-btn) → controllo pieno dal JS.
-  const cancelHold = () => {
-    if (startTimeout) clearTimeout(startTimeout);
-    if (holdTimer) clearInterval(holdTimer);
-    if (progress < 100) { progress = 0; if (fill) fill.style.strokeDashoffset = 408.4; }
-  };
-  btn.addEventListener('contextmenu', e => e.preventDefault());
-  btn.addEventListener('selectstart', e => e.preventDefault());
-  btn.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
-
-  if (window.PointerEvent) {
-    btn.addEventListener('pointerdown', (e) => {
-      try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-      startAction(e);
-    });
-    btn.addEventListener('pointerup', endAction);
-    btn.addEventListener('pointercancel', cancelHold);
-  } else {
-    // Fallback per browser molto vecchi senza Pointer Events
-    btn.addEventListener('touchstart', startAction, { passive: false });
-    btn.addEventListener('touchend', endAction);
-    btn.addEventListener('mousedown', startAction);
-    btn.addEventListener('mouseup', endAction);
-    btn.addEventListener('mouseleave', cancelHold);
-  }
-
-  // Handle Enter / Space key press on document
-  // Bug reale segnalato dall'utente: window.genesisStep non torna mai indietro
-  // dopo la consacrazione (resta 3 per SEMPRE), quindi senza il controllo su
-  // endGenesis._done questo gestore restava attaccato a `document` a vita —
-  // la prima Barra Spaziatrice digitata ovunque nell'app (es. descrizione di
-  // "Dividi spese") veniva rubata e bloccata (preventDefault) invece di finire
-  // nel campo di testo. Si rimuove esplicitamente appena la consacrazione è
-  // fatta, così il listener non sopravvive oltre l'onboarding.
-  const keyHandler = (e) => {
-    if (endGenesis._done) { document.removeEventListener('keydown', keyHandler); return; }
-    if (window.genesisStep === 5 && (e.key === 'Enter' || e.key === ' ')) {
-      try { e.preventDefault(); } catch(err) {}
-      document.removeEventListener('keydown', keyHandler);
-      if (holdTimer) clearInterval(holdTimer);
-      let p = 0;
-      holdTimer = setInterval(() => {
-        p += 10;
-        const offset = 408.4 - (408.4 * p) / 100;
-        if (fill) fill.style.strokeDashoffset = offset;
-        if (p >= 100) {
-          clearInterval(holdTimer);
-          endGenesis();
-        }
-      }, 30);
-    }
-  };
-  document.addEventListener('keydown', keyHandler);
-  endGenesis._keyHandler = keyHandler;
-
-  // TAP UNIVERSALE A PROVA DI DEVICE: il `click` è l'evento più affidabile su
-  // ogni browser/OS (desktop, iOS, Android). Se il percorso pointer/hold non
-  // scatta (bug iOS segnalato: il tap non registrava e l'utente restava
-  // bloccato), il click GARANTISCE la consacrazione. endGenesis è idempotente,
-  // quindi non c'è doppia esecuzione col percorso hold.
-  btn.addEventListener('click', (e) => {
-    try { e.preventDefault(); } catch(err) {}
-    if (!endGenesis._done) {
-      if (fill) fill.style.strokeDashoffset = 0; // anello pieno immediato
-      haptic('medium');
-      endGenesis();
-    }
-  });
 };
+
+function applyGenesisBudget() {
+  VaultDAO.state.monthlyBudget = onboardingBudget(window.userChosenBudget, VaultDAO.state);
+  if (window.userChosenBudget && VaultDAO.state.monthlyBudget > 0) {
+    VaultDAO.state.monthlyBudgetAt = Date.now();
+    VaultDAO.state.budgetDeclined = false;
+  }
+}
 
 // ==========================================
 // PROVACI TU — la promessa di privacy che l'utente può tentare di rompere
@@ -15343,31 +15324,10 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   const p = derivePriors(risk, hz, liquidityMonths, invests, incomeRegularity);
   VaultDAO.state.isFirstLaunch = false;
   VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress, incomeRegularity: p.incomeRegularity, ageBracket };
-  // Vista Essenziale/Completa di Analisi Tensor (2026-09-03): il DEFAULT usa
-  // due risposte già raccolte, non una nuova domanda — 18-25 (meno probabile
-  // avere già dimestichezza con strumenti istituzionali) e liquidità corta
-  // (chi ha meno di 2 mesi di cuscinetto ha più bisogno di chiarezza che di
-  // Value at Risk). Solo un DEFAULT: resta sempre cambiabile con un tocco,
-  // e non viene mai sovrascritto se l'utente lo ha già scelto lui stesso
-  // (`uiComplexitySetByUser`).
-  if (!VaultDAO.state.uiComplexitySetByUser) {
-    VaultDAO.state.uiComplexity = (ageBracket === '18-25' || p.cashflowStress === 'corto') ? 'essenziale' : 'completo';
-  }
-  // BUDGET: un numero vero batte una stima (richiesto esplicitamente, 2026-
-  // 09-05) — se l'utente ha detto il proprio reddito reale (domanda
-  // facoltativa, sempre saltabile), il budget si calcola su QUELLO invece che
-  // sul bucket fisso per profilo di rischio (1000/1500/2200€, indipendente da
-  // qualunque reddito vero). BUDGET_SHARE resta una quota dichiarata come
-  // punto di partenza (stesso "lo aggiusti quando vuoi" del bucket), non una
-  // pretesa di precisione: chi rischia di più tiene una quota più alta come
-  // discrezionale, chi è prudente ne mette via di più fin da subito.
+  applyGenesisClarity();
+  applyGenesisBudget();
   const statedIncome = +window.userStatedIncome || 0;
-  if (statedIncome > 0) {
-    VaultDAO.state.monthlyBudget = Math.round(statedIncome * (GENESIS_BUDGET_SHARE[p.risk] ?? 0.65));
-    VaultDAO.state.statedMonthlyIncome = statedIncome;
-  } else {
-    VaultDAO.state.monthlyBudget = p.monthlyBudget;
-  }
+  if (statedIncome > 0) VaultDAO.state.statedMonthlyIncome = statedIncome;
   VaultDAO.state.investmentPrefs = { investFraction: p.investFraction, emergencyMonths: p.emergencyMonths, riskFloor: p.riskFloor, horizon: p.horizon, cashflowStress: p.cashflowStress, liquidityMonths: p.liquidityMonths, invests: p.invests, incomeRegularity: p.incomeRegularity };
   // PARTITA IVA / attività autonoma (domanda condizionale, 2026-09-05,
   // corretta il 2026-09-06 per separare lingua e Paese fiscale — vedi
@@ -15435,9 +15395,10 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
 // cifra resta un caso di prima classe, mai una barra rotta.
 function seedProfileStateMinor() {
   VaultDAO.state.isFirstLaunch = false;
+  applyGenesisClarity();
   const goalKey = window.userMinorGoalKey || null;
   VaultDAO.state.onboardingProfile = { isMinor: true, ageBracket: 'under18', invests: false, minorGoalKey: goalKey };
-  VaultDAO.state.monthlyBudget = 150;
+  applyGenesisBudget();
   VaultDAO.state.investmentPrefs = { investFraction: 0, emergencyMonths: 0, riskFloor: 0, horizon: 'breve', cashflowStress: null, liquidityMonths: null, invests: false };
   VaultDAO.state.aiAggression = 'advisor';
   // L'obiettivo scelto diventa un obiettivo VERO (richiesta esplicita
@@ -15581,32 +15542,13 @@ const endGenesis = () => {
           // Se l'utente è arrivato da un link "unisciti" (primo avvio), ora che
           // l'app è pronta processa l'invito rimasto in sospeso.
           consumeJoinLink();
-          const cEraUnJoinInSospeso = !!window._pendingJoin;
           if (window._pendingJoin) { const g = window._pendingJoin; window._pendingJoin = null; setTimeout(() => window.openJoinConfirm(g), 400); }
           // Stesso schema per un link "quick-add" (automazione iOS Shortcuts)
           // arrivato durante il primo avvio, prima che il form fosse pronto.
           consumeQuickAddLink();
-          const cEraUnQuickAddInSospeso = !!window._pendingQuickAdd;
           if (window._pendingQuickAdd) { const p = window._pendingQuickAdd; window._pendingQuickAdd = null; setTimeout(() => window.openPrefilledAdd(p), 400); }
-          // STIPENDIO/BUDGET VERI SUBITO DOPO L'ONBOARDING COMPLETO (2026-09-04,
-          // richiesta esplicita): fino a qui monthlyBudget resta la STIMA
-          // derivata dal profilo di rischio (derivePriors, mai un numero
-          // confermato dall'utente) — lo stesso identico problema già risolto
-          // per chi lascia il demo (dismissDemo, vedi commit "Parti dai miei
-          // dati ora chiede subito il budget e lo stipendio veri"). Riusa
-          // ESATTAMENTE la stessa catena di editor, nessun flusso nuovo:
-          // Budget mensile → Il mio accredito, entrambi skippabili con un
-          // tocco. Saltata per un minorenne (niente stipendio da chiedere,
-          // seedProfileStateMinor già imposta un budget dichiarato come stima)
-          // e per chi è arrivato da un invito/quick-add in sospeso (quei
-          // flussi hanno la priorità, aprire un editor sopra sarebbe rumore
-          // nel momento sbagliato).
-          if (!window.userIsMinor && !cEraUnJoinInSospeso && !cEraUnQuickAddInSospeso && !arrivaDaUnInvito) {
-            // Stesso punto unico usato da "Parti dai miei dati" e dall'ingresso
-            // proattivo: una sola logica che decide COSA chiedere (solo ciò che
-            // non è ancora confermato), mai tre copie che possono divergere.
-            setTimeout(() => askRealNumbers({ forzato: true }), 400);
-          }
+          // Open the app without another form. Budget and salary remain available
+          // through explicit actions and the existing once-only real-data prompt.
         };
         setTimeout(chiudi, 1100);
       }
@@ -15805,6 +15747,8 @@ const bootUI = () => {
 // dentro initApp non raggiungibili da fuori — qui evitato del tutto usando
 // solo document.getElementById diretto, mai gli helper $/$$ di initApp).
 let __installPromptEvent = null;
+let __installInFlight = false;
+let __appInstalled = false;
 const INSTALL_ICON_SVG = {
   share: '<path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><rect x="4" y="12" width="16" height="9" rx="2"/>',
   plus: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
@@ -15902,8 +15846,9 @@ function catName(cat, lang) {
 function renderInstallGuide() {
   const stepsEl = document.getElementById('install-guide-steps');
   if (!stepsEl) return;
-  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
-  const platform = detectPlatform(navigator.userAgent, { standalone });
+  const standalone = __appInstalled || window.Capacitor?.isNativePlatform?.() === true || window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+  document.querySelectorAll('[data-install-entry]').forEach(button => { button.hidden = standalone; });
+  const platform = detectPlatform(navigator.userAgent, { standalone, maxTouchPoints: navigator.maxTouchPoints });
   const { title, steps } = installSteps(platform, { hasData: realTxCount() > 0, lang: __uiLang });
   const titleEl = document.getElementById('install-guide-title');
   const btnEl = document.getElementById('install-guide-btn');
@@ -15931,10 +15876,10 @@ function renderInstallGuide() {
   // l'evento beforeinstallprompt — mai un pulsante "Installa" decorativo
   // che su iOS/Firefox non farebbe nulla (l'utente lo scoprirebbe solo
   // toccandolo, la peggiore delle sorprese).
-  if (platform.supportsNativePrompt && __installPromptEvent) {
+  if (__installPromptEvent) {
     btnEl?.classList.remove('hidden');
   } else {
-    btnEl?.classList.add('hidden');
+    btnEl?.classList.remove('hidden');
   }
 }
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -15943,14 +15888,28 @@ window.addEventListener('beforeinstallprompt', (e) => {
   renderInstallGuide();
 });
 window.addEventListener('appinstalled', () => {
+  __appInstalled = true;
   __installPromptEvent = null;
   renderInstallGuide();
 });
-document.addEventListener('click', (e) => {
-  if (e.target.closest?.('#install-guide-btn') && __installPromptEvent) {
-    __installPromptEvent.prompt();
-    __installPromptEvent.userChoice.finally(() => { __installPromptEvent = null; renderInstallGuide(); });
+window.installMomentum = async () => {
+  if (__installInFlight) return;
+  const prompt = __installPromptEvent;
+  if (prompt) {
+    __installInFlight = true;
+    __installPromptEvent = null;
+    renderInstallGuide();
+    try { await prompt.prompt(); await prompt.userChoice; return; }
+    catch (_) { /* The browser refused: present its manual installation path. */ }
+    finally { __installInFlight = false; renderInstallGuide(); }
   }
+  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone === true;
+  const platform = detectPlatform(navigator.userAgent, { standalone, maxTouchPoints: navigator.maxTouchPoints });
+  const guide = installSteps(platform, { hasData: realTxCount() > 0, lang: __uiLang });
+  window.openModal(`<div class="install-flow"><h2>${escapeHtml(guide.title)}</h2><ol>${guide.steps.map((s, i) => `<li><span class="install-flow-number" aria-hidden="true">${i + 1}</span><div>${escapeHtml(s.text)}${s.action === 'exportPlainBackup' ? `<button class="btn-action w-full mt-2" onclick="window.exportPlainBackup()">${escapeHtml(tCh('instSaveExpensesBtn', __uiLang))}</button>` : ''}</div></li>`).join('')}</ol></div>`);
+};
+document.addEventListener('click', (e) => {
+  if (e.target.closest?.('#install-guide-btn')) window.installMomentum();
 });
 renderInstallGuide();
 
@@ -16035,7 +15994,7 @@ function renderProLicenseCard() {
     // chi ha detto "solo spese" non lo vede mai, non è pertinente per lui.
     const hint = document.getElementById('pro-license-profile-hint');
     if (hint) {
-      const mostra = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) && VaultDAO.state.onboardingProfile;
+      const mostra = recommendPlan(VaultDAO.state).tier !== TIER_FREE;
       hint.classList.toggle('hidden', !mostra);
       if (mostra) hint.textContent = tCh('proLicenseProfileHint', __uiLang);
     }
@@ -16343,6 +16302,8 @@ function updateAnalysisTensorVisibility() {
   // diventa da 3 è più leggera, non "rotta": le tessere si ridistribuiscono
   // da sole (grid-cols-2 su mobile, 4 su desktop → l'ultima riga si accorcia).
   document.getElementById('tessera-investito')?.classList.toggle('hidden', !feat.tesseraInvestito);
+  const dashboard = document.getElementById('dashboard-view');
+  if (dashboard) dashboard.dataset.investmentSummary = String(feat.tesseraInvestito);
   // La card che PROPONE la partita IVA: fuori luogo per un minorenne, e
   // inutile per chi un regime ce l'ha già attivo (per lui ci sono le card
   // fiscali vere). Prima era gestita solo dal gate "non investo", quindi
@@ -16363,18 +16324,21 @@ window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
 // posizioni: quella logica usa la classe `.hidden`, questa usa
 // `style.display`, i due meccanismi convivono senza scavalcarsi).
 function resolveUiComplexity() {
-  const v = VaultDAO.state.uiComplexity;
-  return (v === 'essenziale' || v === 'completo') ? v : 'completo';
+  return resolveClarity(VaultDAO.state);
 }
 function updateUiComplexityVisibility() {
+  applyMotionPreference();
   const essenziale = resolveUiComplexity() === 'essenziale';
+  document.getElementById('dashboard-view')?.setAttribute('data-clarity', essenziale ? 'essenziale' : 'completo');
   // #live-prices-card ESCLUSA di proposito: ha già una condizione propria
   // (shouldShowAnalysisTensor, poco sotto in navigate()) che scrive sullo
   // STESSO style.display — combinarle qui rischierebbe di far vincere
   // l'ultima funzione chiamata invece della decisione giusta. La combinazione
   // vera vive in quell'unico punto, non qui.
   $$('.advanced-card').forEach(card => { if (card.id !== 'live-prices-card') card.style.display = essenziale ? 'none' : ''; });
-  $$('[data-ui-complexity]').forEach(btn => btn.classList.toggle('active', btn.dataset.uiComplexity === resolveUiComplexity()));
+  $$('[data-ui-complexity]').forEach(btn => { const active = btn.dataset.uiComplexity === resolveUiComplexity(); btn.classList.toggle('active', active); btn.setAttribute('aria-pressed', String(active)); });
+  const current = document.getElementById('appearance-current');
+  if (current) current.textContent = tCh(essenziale ? 'analysisComplexityEssential' : 'analysisComplexityFull', __uiLang);
   updateLivePricesCardVisibility();
 }
 // Estratta perché usata in DUE momenti (apertura di Momentum Vault E ogni
@@ -16385,6 +16349,45 @@ function updateLivePricesCardVisibility() {
   const c = document.getElementById('live-prices-card');
   if (c) c.style.display = (shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) && resolveUiComplexity() !== 'essenziale') ? '' : 'none';
 }
+const motionMediaOriginals = new WeakMap();
+function motionIsReduced() {
+  return VaultDAO.state.uiMotion === 'reduced' || (VaultDAO.state.uiMotion !== 'full' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+function applyMotionPreference() {
+  const mode = VaultDAO.state.uiMotion || 'system';
+  document.documentElement.dataset.motion = mode;
+  const walk = rules => { for (const rule of rules) {
+    if (rule.media) {
+      const original = motionMediaOriginals.get(rule) || rule.media.mediaText;
+      if (original.includes('prefers-reduced-motion')) {
+        motionMediaOriginals.set(rule, original);
+        rule.media.mediaText = mode === 'system' ? original : original
+          .replace(/\(prefers-reduced-motion:\s*no-preference\)/g, mode === 'full' ? '(min-width: 0px)' : '(min-width: 999999px)')
+          .replace(/\(prefers-reduced-motion:\s*reduce\)/g, mode === 'reduced' ? '(min-width: 0px)' : '(min-width: 999999px)');
+      }
+    }
+    if (rule.cssRules) walk(rule.cssRules);
+  }};
+  for (const sheet of document.styleSheets) { try { walk(sheet.cssRules); } catch (_) { /* Cross-origin styles remain browser-controlled. */ } }
+  const select = document.getElementById('motion-preference');
+  if (select) {
+    select.value = mode;
+    const choices = document.getElementById('motion-choices');
+    if (choices) choices.innerHTML = ['system','full','reduced'].map(value => `<button type="button" aria-pressed="${value === mode}" onclick="window.setMotionPreference('${value}')"><span class="orbit-choice-dot" aria-hidden="true"></span>${tCh({system:'motionSystem',full:'motionFull',reduced:'motionReduced'}[value], __uiLang)}</button>`).join('');
+  }
+}
+window.setMotionPreference = mode => {
+  if (!['system','full','reduced'].includes(mode)) return;
+  VaultDAO.state.uiMotion = mode; VaultDAO.save(); applyMotionPreference();
+};
+window.openAppearancePreferences = () => {
+  navigate('settings');
+  const panel = document.getElementById('appearance-preferences');
+  if (!panel) return;
+  panel.open = true;
+  panel.scrollIntoView({ block: 'center', behavior: 'auto' });
+  panel.querySelector('summary')?.focus();
+};
 window.setUiComplexity = (val) => {
   if (val !== 'essenziale' && val !== 'completo') return;
   VaultDAO.state.uiComplexity = val;
@@ -16463,7 +16466,12 @@ window.goToInvestQuickAdd = () => {
 };
 
 const navigate = (view) => {
+  if (!['dashboard', 'analysis', 'settings'].includes(view)) return;
   haptic('light');
+  $$('.nav-btn[data-view]').forEach(button => {
+    if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
   if (view === 'analysis') pingFeature('analysis_tensor_opened');
   VaultDAO.state.currentView = view;
   ['dashboard', 'analysis', 'settings'].forEach(v => {
@@ -16583,10 +16591,41 @@ function ensureModalFooterResizeSync() {
 // chiusura ancora in sospeso, perché aprire un nuovo modale supera per
 // definizione qualunque chiusura pianificata in precedenza.
 let __modalCloseTimer = null;
+let __modalFocusReturn = null;
+let __modalInertRestore = [];
+const modalFocusable = () => [...document.querySelectorAll('#modal-container button, #modal-container a[href], #modal-container input, #modal-container select, #modal-container textarea, #modal-container [tabindex]')]
+  .filter(el => !el.disabled && el.tabIndex >= 0 && !el.closest('[inert]') && el.getClientRects().length);
+document.addEventListener('keydown', (event) => {
+  const modal = document.getElementById('modal-container');
+  if (!modal || modal.classList.contains('hidden')) return;
+  if (event.key === 'Escape') { event.preventDefault(); window.closeModal(); return; }
+  if (event.key !== 'Tab') return;
+  const items = modalFocusable();
+  const first = items[0], last = items.at(-1);
+  if (!first) { event.preventDefault(); modal.focus(); return; }
+  if (event.shiftKey && (document.activeElement === first || !items.includes(document.activeElement))) {
+    event.preventDefault(); last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !items.includes(document.activeElement))) {
+    event.preventDefault(); first.focus();
+  }
+});
+
 window.openModal = (html, footerHtml = '') => {
+  const modal = document.getElementById('modal-container');
+  if (modal.classList.contains('hidden')) {
+    __modalFocusReturn = document.activeElement;
+    __modalInertRestore = [...document.body.children].filter(el => el !== modal && !el.contains(modal)).map(el => [el, el.inert]);
+    __modalInertRestore.forEach(([el]) => { el.inert = true; });
+  }
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.tabIndex = -1;
   if (__modalCloseTimer) { clearTimeout(__modalCloseTimer); __modalCloseTimer = null; }
   const body = $('#modal-body');
   body.innerHTML = html;
+  const title = body.querySelector('h1,h2,h3');
+  if (title) { title.id ||= 'momentum-dialog-title'; modal.setAttribute('aria-labelledby', title.id); modal.removeAttribute('aria-label'); }
+  else { modal.removeAttribute('aria-labelledby'); modal.setAttribute('aria-label', 'Momentum'); }
   // Reset di default: solo chi la chiede esplicitamente (openCreateInvoice)
   // riattiva la card larga subito dopo — mai un residuo dal modale precedente.
   $('#modal-content').classList.remove('modal-wide');
@@ -16619,6 +16658,7 @@ window.openModal = (html, footerHtml = '') => {
   body.classList.remove('modal-body-in'); void body.offsetWidth; body.classList.add('modal-body-in');
   $('#modal-content').classList.remove('modal-closing');
   $('#modal-container').classList.remove('hidden');
+  requestAnimationFrame(() => { (modalFocusable()[0] || modal).focus({ preventScroll: true }); });
   // BUG REALE segnalato dal vivo: con un modale aperto, scorrere sul suo
   // contenuto scorreva ANCHE la pagina sotto (Dashboard/Analisi dietro il
   // buio) — su mobile il gesto capita facilmente sul bordo del modale e
@@ -16649,6 +16689,10 @@ window.closeModal = () => {
   __modalCloseTimer = setTimeout(() => {
     __modalCloseTimer = null;
     $('#modal-container').classList.add('hidden');
+    __modalInertRestore.forEach(([el, inert]) => { el.inert = inert; });
+    __modalInertRestore = [];
+    if (__modalFocusReturn?.isConnected) __modalFocusReturn.focus({ preventScroll: true });
+    __modalFocusReturn = null;
     // Bug reale trovato dal vivo: il piè di pagina è `position:fixed`, quindi
     // sta FUORI da #modal-container — nasconderlo qui e non solo il
     // contenitore lo lasciava visibile e cliccabile sopra la pagina anche a
@@ -16726,38 +16770,17 @@ function renderSavingsGoals() {
   }
   html = goals.map(g => {
     const prog = computeGoalProgress(g, VaultDAO.state.transactions);
-    // Obiettivo SENZA cifra (2026-09-03): niente barra di progresso (non ci
-    // sarebbe nulla su cui misurarla, mai una barra vuota che sembra "0 su
-    // qualcosa" quando in realtà è "nessun traguardo dichiarato") — solo
-    // quanto già messo da parte, sempre calcolabile, più un invito chiaro a
-    // impostare la cifra quando la si conosce. Mai un obbligo: stesso
-    // principio "zero attrito" già seguito per l'obiettivo scelto in
-    // onboarding da un minorenne.
-    if (g.target == null) {
-      return `
-        <div class="relative">
-          <div class="flex justify-between items-baseline mb-1">
-            <p class="text-xs font-bold">${g.name}</p>
-            <button onclick="window.deleteSavingsGoal(${g.id})" class="text-[10px] text-[var(--on-surface-secondary)] opacity-60">${tCh('alphaGoalsRemove', __uiLang)}</button>
-          </div>
-          <p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('alphaGoalsNoTargetSaved', __uiLang, formatMoney(prog.saved))}</p>
-          <button onclick="window.openGoalAmountEditor(${g.id})" class="text-[11px] font-bold text-[var(--primary)] underline mt-0.5">${tCh('alphaGoalsSetTargetCta', __uiLang)}</button>
-        </div>`;
-    }
-    const barColor = prog.pct >= 100 ? 'var(--green)' : (prog.onTrack === false ? 'var(--yellow)' : 'var(--cyan)');
-    const trackNote = prog.onTrack === null ? '' : (prog.onTrack
-      ? `<span class="text-emerald-400">${tCh('alphaGoalsOnTrack', __uiLang)}</span>`
-      : `<span class="text-amber-400">${tCh('alphaGoalsBehindTrack', __uiLang)}</span>`);
-    return `
-      <div class="relative">
-        <div class="flex justify-between items-baseline mb-1">
-          <p class="text-xs font-bold">${g.name}</p>
-          <button onclick="window.deleteSavingsGoal(${g.id})" class="text-[10px] text-[var(--on-surface-secondary)] opacity-60">${tCh('alphaGoalsRemove', __uiLang)}</button>
-        </div>
-        <div class="budget-track"><div class="budget-fill" style="width:${Math.min(100, prog.pct)}%; background:${barColor};"></div></div>
-        <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${tCh('alphaGoalsProgressLine', __uiLang, formatMoney(prog.saved), formatMoney(g.target), prog.pct)} ${trackNote}</p>
+    const hasTarget = g.target != null;
+    const pct = Math.max(0, Math.min(100, prog.pct || 0));
+    return `<article class="goal-orbit">
+      <div class="goal-orbit-heading">
+        <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="13"/><ellipse cx="24" cy="24" rx="22" ry="8" transform="rotate(-30 24 24)"/><circle cx="37" cy="13" r="3"/></svg>
+        <h4>${escapeHtml(g.name)}</h4>
       </div>
-    `;
+      ${hasTarget ? `<div class="budget-track"><div class="budget-fill" style="width:${pct}%"></div></div><p class="goal-orbit-note">${tCh('alphaGoalsProgressLine', __uiLang, formatMoney(prog.saved), formatMoney(g.target), prog.pct)}</p>` : `<p class="goal-orbit-note">${tCh('alphaGoalsNoTargetSaved', __uiLang, formatMoney(prog.saved))}</p>`}
+      <div class="goal-orbit-actions"><button type="button" class="goal-orbit-edit" onclick="window.openGoalAmountEditor(${g.id})"><span>${tCh(hasTarget ? 'goalEditAmount' : 'alphaGoalsSetTargetCta', __uiLang)}</span><svg class="goal-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 17L17 7M7 7h10v10"/></svg></button>
+      <button type="button" class="goal-orbit-remove" aria-label="${escapeHtml(tCh('alphaGoalsRemove', __uiLang) + ': ' + g.name)}" onclick="window.deleteSavingsGoal(${g.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 10v7m4-7v7"/></svg><span>${tCh('alphaGoalsRemove', __uiLang)}</span></button></div>
+    </article>`;
   }).join('');
   boxes.forEach(box => { box.innerHTML = html; });
 }
@@ -16770,18 +16793,18 @@ window.openGoalAmountEditor = (id) => {
   const goal = (VaultDAO.state.savingsGoals || []).find(g => g.id === id);
   if (!goal) return;
   openModal(`
-    <div class="p-4 space-y-4">
-      <h3 class="text-lg font-bold">${goal.name}</h3>
+    <div class="goal-amount-editor p-4 space-y-4">
+      <svg class="goal-editor-orbit" viewBox="0 0 160 100" fill="none" aria-hidden="true"><circle cx="80" cy="50" r="26"/><ellipse cx="80" cy="50" rx="66" ry="18" transform="rotate(-20 80 50)"/><circle cx="137" cy="30" r="5"/></svg>
+      <h3 class="text-lg font-bold">${escapeHtml(goal.name)}</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('alphaGoalsSetTargetSub', __uiLang)}</p>
-      <input id="goal-target-only-input" type="number" inputmode="decimal" placeholder="${tCh('alphaGoalsTargetPlaceholder', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
-      <button onclick="window.confirmGoalAmount(${id})" class="btn-action w-full">${tCh('alphaGoalsSetTargetCta', __uiLang)}</button>
+      <input id="goal-target-only-input" aria-label="${escapeHtml(tCh('alphaGoalsTargetPlaceholder', __uiLang))}" value="${Number.isFinite(goal.target) ? goal.target : ''}" type="number" inputmode="decimal" placeholder="${tCh('alphaGoalsTargetPlaceholder', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
     </div>
-  `);
+  `, `<button onclick="window.confirmGoalAmount(${id})" class="btn-action orbit-confirm w-full">${tCh('vaultSave', __uiLang)}</button>`);
 };
 
 window.confirmGoalAmount = (id) => {
   const target = parseFloat(document.getElementById('goal-target-only-input')?.value);
-  if (!target || target <= 0) { showToast(tCh('alphaGoalsInvalidAmount', __uiLang), 'error'); return; }
+  if (!Number.isFinite(target) || target < 0.01 || target > Number.MAX_SAFE_INTEGER / 100) { showToast(tCh('alphaGoalsInvalidAmount', __uiLang), 'error'); return; }
   const goal = (VaultDAO.state.savingsGoals || []).find(g => g.id === id);
   if (!goal) return;
   goal.target = Math.round(target * 100) / 100;
@@ -17156,11 +17179,20 @@ function runComputeUnitsLocally(workloadId, units) {
 function lexiconPool() {
   return VaultDAO.state.mlData?.lexiconPool || initLexiconPool();
 }
+function sendSharedContribution(send) {
+  if (VaultDAO.state.sharedLearningOptIn !== true || !momentumMeshNode?.peers?.size) return 0;
+  const spent = spendBudget(VaultDAO.state.sharedContributionBudget);
+  if (!spent.ok) return 0;
+  VaultDAO.state.sharedContributionBudget = spent.budget;
+  VaultDAO.save(); // Reserve before sending: a crash cannot repeat a free release.
+  return send();
+}
 function shareLexiconIfAllowed() {
   try {
     if (!VaultDAO.state.sharedLearningOptIn || !momentumMeshNode) return 0;
     const digest = buildLexiconDigest(lexiconPool(), { k: DEFAULT_K_ANONYMITY });
-    return momentumMeshNode.shareLexicon(digest);
+    if (!digest.entries?.length) return 0;
+    return sendSharedContribution(() => momentumMeshNode.shareLexicon(digest));
   } catch (e) { console.warn('Condivisione lessico non riuscita:', e); return 0; }
 }
 
@@ -17180,7 +17212,8 @@ function shareDistillationIfAllowed() {
   try {
     if (!VaultDAO.state.sharedLearningOptIn || !momentumMeshNode) return 0;
     const digest = buildDistillationDigest(localDistillationPredict);
-    return momentumMeshNode.shareDistillation(digest);
+    if (!Object.keys(digest.answers).length || !validateDistillationDigest(digest, { categories: ALL_CATS.map(c => c.id) })) return 0;
+    return sendSharedContribution(() => momentumMeshNode.shareDistillation(digest));
   } catch (e) { console.warn('Condivisione distillazione non riuscita:', e); return 0; }
 }
 window.openSharedLearning = () => {
@@ -17205,7 +17238,8 @@ window.openSharedLearning = () => {
         </div>
         ${trattenuti.length ? `<p class="text-[10px] text-emerald-300/90 mt-2 leading-snug">${trattenuti.length} voci restano ferme qui: le ha viste un solo dispositivo, e da sole potrebbero identificarti. Non escono mai.</p>` : ''}
       </div>
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Nessun peso e nessun gradiente lascia il dispositivo — da quelli si potrebbero ricostruire i tuoi dati, ed è il motivo per cui non li usiamo. Quello che ricevi viene accettato solo se almeno due dispositivi indipendenti concordano, e non sovrascrive mai una tua correzione.</p>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('sharedLearningScope', __uiLang)}</p>
+      <div class="w-full text-left text-xs">${previewOutgoing(buildDistillationDigest(localDistillationPredict), { limit: 52 }).map(line => `<p>${escapeHtml(line)}</p>`).join('')}</div>
       ${attivo
         ? `<button onclick="window.setSharedLearning(false)" class="btn-action w-full py-3 font-bold rounded-xl">Disattiva</button>`
         : `<button onclick="window.setSharedLearning(true)" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Attiva l'apprendimento condiviso</button>`}
@@ -17368,19 +17402,19 @@ window.meshAcceptAnswer = async () => {
 window.openGoalEditor = () => {
   openModal(`
     <div class="p-4 space-y-4">
-      <h3 class="text-lg font-bold">Nuovo obiettivo</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">Il progresso si calcola da solo: entrate meno uscite da oggi in poi.</p>
-      <input id="goal-name-input" type="text" placeholder="Es. Vacanza, Fondo emergenze" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
-      <input id="goal-target-input" type="number" inputmode="decimal" placeholder="Quanto vuoi mettere da parte (€) — facoltativo" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
-      <input id="goal-deadline-input" type="date" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
-      <button onclick="window.confirmGoalCreate()" class="btn-action w-full">Crea obiettivo</button>
+      <h3 class="text-lg font-bold">${tCh('goalNew', __uiLang)}</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('goalCalculation', __uiLang)}</p>
+      <input id="goal-name-input" type="text" aria-label="${escapeHtml(tCh('goalName', __uiLang))}" placeholder="${escapeHtml(tCh('goalName', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
+      <input id="goal-target-input" type="number" inputmode="decimal" aria-label="${escapeHtml(tCh('goalOptionalAmount', __uiLang))}" placeholder="${escapeHtml(tCh('goalOptionalAmount', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
+      <input id="goal-deadline-input" aria-label="${escapeHtml(tCh('goalOptionalDate', __uiLang))}" type="date" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
+      <button onclick="window.confirmGoalCreate()" class="btn-action w-full">${tCh('goalCreate', __uiLang)}</button>
     </div>
   `);
 };
 
 window.confirmGoalCreate = () => {
   const name = document.getElementById('goal-name-input')?.value?.trim();
-  if (!name) { showToast('Serve almeno un nome.', 'error'); return; }
+  if (!name) { showToast(tCh('goalNameRequired', __uiLang), 'error'); return; }
   // La cifra è OPZIONALE (richiesta esplicita, 2026-09-03): un campo vuoto è
   // un obiettivo valido senza traguardo dichiarato ancora — mai forzare un
   // numero indovinato solo per superare la validazione. Se scritto, deve
@@ -17388,13 +17422,13 @@ window.confirmGoalCreate = () => {
   // negativo) resta bloccato, non un obiettivo "senza cifra" travestito.
   const targetRaw = document.getElementById('goal-target-input')?.value;
   const targetParsed = targetRaw ? parseFloat(targetRaw) : null;
-  if (targetRaw && (!targetParsed || targetParsed <= 0)) { showToast('L\'importo, se lo scrivi, deve essere valido.', 'error'); return; }
+  if (targetRaw && (!targetParsed || targetParsed <= 0)) { showToast(tCh('alphaGoalsInvalidAmount', __uiLang), 'error'); return; }
   const deadline = document.getElementById('goal-deadline-input')?.value || null;
   VaultDAO.state.savingsGoals = VaultDAO.state.savingsGoals || [];
   VaultDAO.state.savingsGoals.push({ id: Date.now(), name, target: targetParsed, createdAt: new Date().toISOString(), deadline });
   VaultDAO.save();
   closeModal();
-  showToast(`Obiettivo "${name}" creato.`, 'success');
+  showToast(tCh('goalCreated', __uiLang), 'success');
   renderSavingsGoals();
 };
 
@@ -17807,10 +17841,20 @@ const initApp = () => {
   // perdita dati risolto in VaultDAO.init()/save(): tx_log è un log
   // IndexedDB append-only mai toccato da quel bug, può ancora avere le
   // transazioni che lo snapshot "state" aveva perso. Fire-and-forget,
-  // dopo il render iniziale (mai bloccare il primo paint): SOLO propone,
-  // mai un ripristino silenzioso — l'utente conferma o ignora.
+  // dopo il render iniziale (mai bloccare il primo paint): si apre una sola
+  // volta per quel gruppo di candidati, mai un ripristino silenzioso.
   VaultDAO.checkTxLogRecovery().then(({ recovered, addedCount }) => {
-    if (addedCount <= 0) return;
+    if (addedCount <= 0 || !haCompletatoOnboarding(VaultDAO.state)) return;
+    // Migrazione morbida: chi aveva già nascosto l'avviso della variante
+    // precedente non deve ricevere di nuovo la finestra per gli stessi dati.
+    const seenKey = VaultDAO.state.recoveryPromptSeenKey || VaultDAO.state.recoveryNoticeDismissedKey;
+    if (!shouldAutoOpenRecoveryPrompt(recovered, seenKey, VaultDAO.state.recoveryPromptSuppressed)) return;
+    // Salviamo PRIMA di aprire: anche X, backdrop, Escape o chiusura dell'app
+    // contano come visualizzazione. Al prossimo accesso non ricompare.
+    VaultDAO.state.recoveryPromptSeenKey = recoveryPromptKey(recovered);
+    VaultDAO.state.recoveryPromptSuppressed = true;
+    VaultDAO.save();
+    window.__recoveryPromptShownThisSession = true;
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     // COSA torna indietro, non solo QUANTO. Prima la schermata diceva "2
     // transazioni" e chiedeva fiducia al buio: davanti a dati di soldi che
@@ -17839,14 +17883,17 @@ const initApp = () => {
         <span class="text-[11px] font-mono font-bold shrink-0">${formatMoney(+t.amount || 0)}</span>
       </div>`).join('');
 
+    window.dismissTxLogRecovery = () => closeModal();
     window.openModal(`
       <div class="recovery-in flex flex-col gap-3 px-1">
-        <div class="recovery-hero flex flex-col items-center text-center gap-2 pt-1">
-          <div class="recovery-badge w-14 h-14 rounded-2xl grid place-items-center bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] border border-[color-mix(in_srgb,var(--primary)_35%,transparent)]">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 text-[var(--primary)]"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 3v6h6"/></svg>
+        <div class="recovery-hero flex items-start gap-3 pt-1 pr-12">
+          <div class="recovery-badge w-12 h-12 rounded-2xl grid place-items-center shrink-0 bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] border border-[color-mix(in_srgb,var(--primary)_32%,transparent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-[var(--primary)]"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 3v6h6"/></svg>
           </div>
-          <h3 class="text-base font-black leading-tight">${esc(tCh('dataRecoveryTitle', __uiLang))}</h3>
-          <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(tCh('dataRecoveryBody', __uiLang, addedCount))}</p>
+          <div class="min-w-0 pt-0.5">
+            <h3 class="text-base font-black leading-tight text-balance">${esc(tCh('dataRecoveryTitle', __uiLang))}</h3>
+            <p class="mt-1 text-xs text-[var(--on-surface-secondary)] leading-relaxed text-pretty">${esc(tCh('dataRecoveryBody', __uiLang, addedCount))}</p>
+          </div>
         </div>
         <div class="card p-3">
           <div class="flex items-baseline justify-between mb-1">
@@ -17860,17 +17907,21 @@ const initApp = () => {
           ${anteprima}
           ${righe.length > 3 ? `<div class="text-[10px] text-[var(--on-surface-secondary)] pt-1.5">${esc(tCh('dataRecoveryMoreRows', __uiLang, righe.length - 3))}</div>` : ''}
         </div>
-      </div>`,
-      // Due scelte vere, della stessa forma: prima "Non ora" era un
-      // link sottolineato minuscolo sotto un bottone pieno — non una scelta,
-      // un ripensamento. Qui sono due pulsanti pari, e il secondo dice cosa
-      // succede davvero (resta lì, si può fare dopo) invece di un "no" secco.
-      `<div class="recovery-actions flex flex-col gap-2">
-         <button onclick="window.applyTxLogRecovery()" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('dataRecoveryConfirmBtn', __uiLang))}</button>
-         <button onclick="closeModal()" class="w-full py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('dataRecoveryDismissBtn', __uiLang))}</button>
-       </div>`
+        <p class="flex items-center gap-1.5 text-[11px] text-[var(--on-surface-secondary)] leading-snug">
+          <svg aria-hidden="true" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+          <span>${esc(tCh('dataRecoveryPrivate', __uiLang))}</span>
+        </p>
+        <div class="recovery-actions flex flex-col gap-2 mt-1">
+         <button type="button" onclick="window.applyTxLogRecovery()" class="btn-action btn-primary w-full min-h-12 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('dataRecoveryConfirmBtn', __uiLang))}</button>
+         <button type="button" data-recovery-dismiss onclick="window.dismissTxLogRecovery()" class="w-full min-h-12 py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('dataRecoveryDismissBtn', __uiLang))}</button>
+        </div>
+      </div>`
     );
     window.applyTxLogRecovery = () => {
+      // Se l'utente conferma, il silenzio permanente non serve: un problema
+      // realmente diverso in futuro potrà essere proposto una volta.
+      delete VaultDAO.state.recoveryPromptSuppressed;
+      VaultDAO.save();
       const added = VaultDAO.applyTxLogRecovery(recovered);
       closeModal();
       showToast(tCh('dataRecoverySuccessToast', __uiLang, added), 'success');
@@ -19368,35 +19419,17 @@ const initApp = () => {
   function renderQaSuggestions() {
     const box = $('#qa-suggestions');
     if (!box) return;
-    const it = isItalianDevice();
+    const it = __uiLang === 'it';
     const always = [];
     const goals = VaultDAO.state.savingsGoals || [];
-    if (goals[0]) always.push(`${it ? 'come va il mio obiettivo' : "how's my goal"} ${goals[0].name}?`);
+    if (goals[0]) always.push(tCh('qaSuggestGoal', __uiLang, goals[0].name));
     const salary = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
-    if (salary) always.push(it ? 'quando mi pagano?' : 'when do I get paid?');
+    if (salary) always.push(tCh('qaSuggestSalary', __uiLang));
     const hasInvestments = (VaultDAO.state.positions || []).length > 0 || (VaultDAO.state.manualAssets || []).length > 0;
     // Pool ampio: ogni voce corrisponde a un intent reale in qa-engine.js —
     // se non risponde con dati veri risponde onestamente "non lo so ancora",
     // ma non è mai una frase decorativa senza motore dietro.
-    const pool = [
-      it ? 'quanto posso spendere oggi?' : 'how much can I spend today?',
-      it ? 'dove spendo di più?' : 'where do I spend the most?',
-      it ? 'quali abbonamenti pago?' : 'what subscriptions do I pay?',
-      it ? 'come chiudo il mese?' : 'how will I end the month?',
-      it ? 'quanto ho risparmiato?' : 'how much have I saved?',
-      it ? 'quanto vale il mio patrimonio?' : "what's my net worth?",
-      it ? 'quanto posso investire?' : 'how much can I invest?',
-      it ? 'quanto devo ancora a rate?' : 'how much do I still owe in installments?',
-      it ? 'perché ho speso di più questo mese?' : 'why did I spend more this month?',
-      it ? 'quanto vale bitcoin?' : "what's bitcoin worth?",
-      it ? 'notizie su Apple' : 'news on Apple',
-      it ? 'posso permettermi 50€?' : 'can I afford 50€?',
-    ].filter(c => hasInvestments || !/patrimonio|net worth/.test(c))
-      // Chi ha dichiarato di non investire non trova proposte di mercato
-      // nemmeno nel pool generale (bitcoin, notizie su un titolo, "quanto
-      // posso investire"): la coerenza vale per tutte le chip, non solo per
-      // quelle esplicitamente "da trader".
-      .filter(c => shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) || !/bitcoin|investire|invest|notizie su|news on/i.test(c));
+    const pool = ['qaSuggestToday', 'qaSuggestSpending', 'qaSuggestSubscriptions', 'qaSuggestMonth', 'qaSuggestSaved'].map(key => tCh(key, __uiLang));
     // Casi d'uso "mercato" — screener/qualità contabile/causale/rischio
     // (src/alpha/mercato-qa.js, sbloccati questa sessione via sic-settore-map.js
     // e il pannello SEC): senza questi in pool, un utente non scopre MAI che
@@ -19428,7 +19461,10 @@ const initApp = () => {
       'sono troppo affollato su bitcoin?',
       'qual è il funding rate di ethereum?',
     ] : [];
-    const chips = [...always, ...shuffledSample([...pool, ...poolMercato, ...poolCriptoComps], 5 - always.length)];
+    const essential = resolveUiComplexity() === 'essenziale';
+    const chips = essential
+      ? [...always, ...pool.slice(0, 3)].slice(0, 3)
+      : [...always, ...shuffledSample([...pool, ...poolMercato, ...poolCriptoComps], 5 - always.length)];
     const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     // Le chip entrano una dopo l'altra invece che tutte insieme: un blocco di
     // sei pillole che appare di colpo si legge come rumore, la stessa cosa
@@ -19643,12 +19679,9 @@ const initApp = () => {
         } catch (_) { /* onesto: se l'estrazione fallisce, prosegue sulla chat generica */ }
         try {
           const { askCloudFallbackChain, buildFinancialContextSummary } = await import('./ai/chat-fallback.js');
-          // Attivo di DEFAULT (opt-out, richiesta esplicita dell'utente
-          // 2026-07-27 — prima era opt-in): riassunto aggregato e anonimo,
-          // mai transazioni/esercenti — vedi buildFinancialContextSummary.
-          // `!== false` così solo la disattivazione ESPLICITA lo spegne.
+          // Aggregated financial data still requires an explicit, separate choice.
           let contextSummary = null;
-          if (VaultDAO.state.chatContextOptIn !== false) {
+          if (VaultDAO.state.chatContextOptIn === true) {
             try {
               const now = new Date();
               const monthTxs = VaultDAO.state.transactions[monthKey(now)] || [];
@@ -19668,7 +19701,7 @@ const initApp = () => {
               const liveRegime = detectLiveRegimeFor('indice');
               contextSummary = buildFinancialContextSummary({
                 safeToday: sts?.safeToday ?? null,
-                monthRemaining: sts?.weekRemaining ?? null,
+                monthRemaining: Number.isFinite(VaultDAO.state.monthlyBudget) ? VaultDAO.state.monthlyBudget - totalOut : null,
                 topCategory: topCat ? getCatById(topCat[0]).name : null,
                 marketRegime: liveRegime?.regime ?? null,
                 categoryBreakdown,
@@ -20118,7 +20151,7 @@ document.addEventListener('click', e => {
       // con la View Transitions API (nativa, nessuna libreria). Dove non è
       // supportata (Safari meno recenti) o con animazioni ridotte, il tema
       // cambia comunque, solo senza il cerchio.
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduceMotion = motionIsReduced();
       if (document.startViewTransition && !reduceMotion) {
         const rect = t.getBoundingClientRect();
         const x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
@@ -20182,8 +20215,21 @@ document.addEventListener('keydown', e => {
 
 let momentumOrchestrator = null;
 let momentumMeshNode = null;
-function initMomentumRealAI() {
+async function initMomentumRealAI() {
   try {
+    const [
+      { MOMENTUM_TRAINED_MODEL_DATA },
+      { TrainedCategorizer },
+      { TrainedMeso },
+      { HashedLogReg },
+      { MomentumOrchestrator },
+    ] = await Promise.all([
+      import('./ai/trained-model-data.js'),
+      import('./ai/trained-categorizer.js'),
+      import('./ai/trained-meso.js'),
+      import('./ai/hashed-logreg.js'),
+      import('./ai/orchestrator.js'),
+    ]);
     // Quantizzazione int8 (src/ai/quantize.js) estesa al Nano il 2026-08-30 —
     // stesso schema già in produzione per il Meso, ma con una soglia più
     // aggressiva: il Nano è l'UNICO modello garantito attivo sul tier
@@ -20334,7 +20380,7 @@ function initMomentumRealAI() {
     };
     momentumMeshNode.onPeerConnected = () => {
       renderMeshStatus();
-      showToast('Dispositivo collegato: dati e AI ora si sincronizzano.', 'success');
+      showToast(tCh('meshPrivateBoundary', __uiLang), 'info');
       // IL PASSO CHE MANCAVA (channel-learning.js): fino ad oggi il sistema
       // leggeva un prior corretto ma nessun punto del codice registrava un
       // esito VERO. Questo e' l'unico punto che tutti e tre i modi di aprire
@@ -20507,10 +20553,10 @@ function initMomentumRealAI() {
     momentumMeshNode.onDistillationReceived = (peerId, digest) => {
       try {
         if (!VaultDAO.state.sharedLearningOptIn) return; // chi non partecipa non riceve
-        if (!digest || digest.probeVersion !== PROBE_VERSION) return;
+        if (!validateDistillationDigest(digest, { categories: ALL_CATS.map(c => c.id) })) return;
         VaultDAO.state.mlData = VaultDAO.state.mlData || {};
         const ml = VaultDAO.state.mlData;
-        const inbox = (ml.distillationInbox || []).filter((x) => x.peerId !== peerId);
+        const inbox = (ml.distillationInbox || []).filter((x) => x.peerId !== peerId && validateDistillationDigest(x.digest, { categories: ALL_CATS.map(c => c.id) }));
         inbox.push({ peerId, digest });
         ml.distillationInbox = inbox.slice(-12); // finestra breve, come il lessico
 
@@ -20966,23 +21012,9 @@ function initMomentumRealAI() {
         .catch(e => console.warn('LogReg non disponibile, ensemble resta Nano+Meso:', e));
     }
 
-    // Warm-up OCR: Tesseract scarica wasm+traineddata da CDN solo al primo
-    // uso — senza questo giro, "OCR offline" varrebbe solo se l'utente ha già
-    // scansionato qualcosa online. Creato in idle (mai in competizione col
-    // boot), con gli stessi parametri del worker del pdf-parser così viene
-    // riusato invece di crearne un secondo. Solo online e fuori dal tier
-    // minimo: su un dispositivo debole il warm-up ruberebbe CPU al boot.
-    if (tier && tier !== 'minimo' && navigator.onLine && typeof Tesseract !== 'undefined') {
-      const idle = window.requestIdleCallback || (fn => setTimeout(fn, 3000));
-      idle(async () => {
-        try {
-          if (!window._tesseractWorker) {
-            window._tesseractWorker = await Tesseract.createWorker('ita', 1, { logger: () => {} });
-            console.log('OCR warm-up completato: Tesseract pronto anche offline.');
-          }
-        } catch (e) { console.warn('OCR warm-up saltato:', e); }
-      });
-    }
+    // OCR loads on import. The previous eager worker was never reused by
+    // the parsers and downloaded resources while onboarding was still open.
+
   } catch (e) {
     console.error('Errore inizializzazione Momentum Real AI:', e);
   }

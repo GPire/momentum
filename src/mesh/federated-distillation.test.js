@@ -2,11 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PROBE_SET, PROBE_VERSION,
-  buildDistillationDigest, mergeDistillationDigests, previewOutgoing, roundContributions,
+  buildDistillationDigest, mergeDistillationDigests, previewOutgoing, roundContributions, validateDistillationDigest,
   initPrivacyBudget, budgetStatus, spendBudget,
   initLexiconPool, observeLexicon, eligibleLexicon, heldBackLexicon,
   buildLexiconDigest, mergeLexiconDigests, originTag, DEFAULT_K_ANONYMITY,
 } from './federated-distillation.js';
+
+test('public distillation rejects private probes, unknown categories and invalid probabilities', () => {
+  const valid = { kind: 'distillation', probeVersion: PROBE_VERSION, answers: { farmacia: { salute: 1 } } };
+  const options = { categories: ['salute', 'spesa'] };
+  assert.equal(validateDistillationDigest(valid, options), true);
+  for (const answers of [{ 'private merchant': { salute: 1 } }, { farmacia: { privateCategory: 1 } }, { farmacia: { salute: -1 } }, { farmacia: { salute: Infinity } }, { farmacia: { salute: 0.2 } }]) {
+    assert.equal(validateDistillationDigest({ ...valid, answers }, options), false);
+  }
+  assert.equal(validateDistillationDigest({ ...valid, transactions: [] }, options), false);
+  assert.equal(validateDistillationDigest({ ...valid, probeVersion: 999 }, options), false);
+});
 
 // Un "modello" finto: classifica per parola chiave. Serve solo a produrre
 // distribuzioni realistiche senza tirare dentro l'orchestratore vero.

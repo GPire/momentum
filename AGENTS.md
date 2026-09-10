@@ -24,6 +24,14 @@ versione in `package.json`: **50.1.0**.
 
 ## Regole non negoziabili
 
+Aggiornamento esplicito dell'utente, 2026-09-07: la telemetria di utilizzo è
+attiva di default e disattivabile. L'opt-out già salvato va rispettato.
+Questa eccezione riguarda solo gli eventi del catalogo `core/telemetry.js`,
+non autorizza l'invio di transazioni, saldi, documenti o testo delle chat.
+La versione GitHub corrente è la base preferita; valutare separatamente
+le modifiche locali e preservare il lavoro precedente. Pubblicare solo dopo
+test completi e autorizzazione esplicita dell'utente.
+
 1. **I dati dell'utente non lasciano mai il dispositivo.** Le uniche
    eccezioni sono dichiarate e opt-in (riassunto notizie via LLM esterno con
    chiave dell'utente, mai dati finanziari; staffetta mesh di dati PUBBLICI
@@ -133,15 +141,11 @@ pannello dati SEC.
   riverificata il 2026-09-06 — se in futuro si trova una fonte primaria con
   la tabella completa (non solo aliquota min/max), può diventare una tabella
   come `RETA_TRAMOS_2026`, mai una formula indovinata.
-- **Modulo Spagna tradotto solo IT/EN/ES, non nelle altre 4 lingue**
-  (verificato 2026-09-06 contando le occorrenze di ~33 chiavi `esXxx*` in
-  `ui-strings.js`, es. `esCardNoteFn`/`esDeactivate`: 3/7 lingue ciascuna).
-  Chi usa Momentum in tedesco/francese/olandese/portoghese con la Spagna
-  attiva vede il fallback inglese per queste stringhe (mai un crash, `t()`
-  ricade su EN poi IT poi la chiave grezza) — non ideale, ma non rotto.
-  Le chiavi NUOVE aggiunte lo stesso giorno (territorio foral, `esTerritorio*`)
-  sono già nelle 7 lingue: il debito è solo sulle ~33 preesistenti, da
-  chiudere in una sessione dedicata (non una riga sola per volta).
+- **Modulo Spagna tradotto integralmente solo in IT/EN/ES**: diverse chiavi
+  preesistenti `esXxx*` ricadono sul fallback inglese in DE/FR/NL/PT. Le nuove
+  chiavi del territorio foral sono invece presenti in tutte le 7 lingue. Il
+  debito va chiuso per gruppi coerenti prima del rilascio, senza traduzioni
+  parziali sparse.
 
 ## Trappole già pagate (leggile prima di perderci un'ora)
 

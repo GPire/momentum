@@ -198,7 +198,7 @@ async function ocrPdfPage(page) {
 async function parsePdfFile(file) {
   if (typeof pdfjsLib === 'undefined') throw new Error('pdf.js non caricato');
   const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
   const out = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);

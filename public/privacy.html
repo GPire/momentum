@@ -37,15 +37,15 @@
 <p>Esiste una modalità opzionale e disattivata di default per ricollegare da remoto due dispositivi mai stati vicini fisicamente, che richiede una configurazione Firebase fornita da te stesso (non un servizio Momentum) — se non la configuri, questa modalità semplicemente non esiste per il tuo utilizzo.</p>
 
 <h2>3. Conteggio anonimo di utilizzo (telemetria)</h2>
-<p>Momentum invia un numero anonimo — un identificativo casuale generato sul dispositivo, mai collegato al tuo nome, email o dati finanziari — per sapere quante persone usano l'app. Nello specifico, solo questi eventi: "installato", "attivo questo mese", "attivo oggi", quale sistema operativo/browser stai usando in generale (es. "iOS", non il tuo modello esatto) e se sei arrivato tramite un invito o direttamente. Nessuna transazione, importo, categoria o saldo viene mai incluso.</p>
-<p>Questo conteggio è <b>attivo di default</b> (dichiarato qui, non nascosto) e va a un server che gestisco personalmente (Cloudflare Workers). Puoi disattivarlo in qualsiasi momento con un tocco in Impostazioni → "Aiuta a far crescere Momentum".</p>
+<p>Momentum invia un identificativo pseudonimo casuale generato sul dispositivo, mai collegato al tuo nome, email o dati finanziari — per sapere quante persone usano l'app. Nello specifico, solo questi eventi: "installato", "attivo questo mese", "attivo oggi", quale sistema operativo/browser stai usando in generale (es. "iOS", non il tuo modello esatto) e se sei arrivato tramite un invito o direttamente. Nessuna transazione, importo, categoria o saldo viene incluso nella telemetria. Il servizio riceve anche i metadati di connessione. Gli eventi comprendono le funzionalità usate, da un elenco chiuso e senza testo libero.</p>
+<p>I dati d’uso sono <b>attivi di default, salvo tua disattivazione</b> e possono essere disattivati in qualsiasi momento nel Momentum Vault. La diagnostica tecnica essenziale per sicurezza, integrità e affidabilità resta attiva e non contiene dati finanziari.</p>
 
 <h2>4. Feedback</h2>
 <p>Se scrivi un feedback dall'app, il testo che scrivi tu (e solo quello, mai dati finanziari automaticamente allegati) viene inviato tramite un servizio di terze parti (Formspree) alla mia casella email. Succede solo se tocchi tu stesso "Invia".</p>
 
 <h2>5. Chat generica "Chiedi a Momentum" (opzionale, disattivata di default)</h2>
 <p>Questa funzione è spenta finché non la attivi tu e non inserisci una tua chiave API personale di un fornitore a tua scelta (Gemini, Groq, DeepSeek, OpenAI o Anthropic) — Momentum non fornisce una chiave propria, quindi le richieste vanno direttamente dal tuo dispositivo al fornitore che scegli, con la tua chiave.</p>
-<p>Se attiva, viene inviato il testo della tua domanda. Di default (disattivabile) viene incluso anche un riassunto anonimo e aggregato della tua situazione (es. "oggi puoi spendere 50€") — mai transazioni, esercenti o conti singoli.</p>
+<p>Se attiva, viene inviato il testo della tua domanda. Solo se attivi la relativa opzione viene incluso anche un riepilogo finanziario aggregato della tua situazione (es. "oggi puoi spendere 50€") — mai transazioni, esercenti o conti singoli.</p>
 
 <h2>6. Dati di mercato (opzionale)</h2>
 <p>Se aggiungi una tua chiave API di un fornitore di dati finanziari (es. TwelveData, Financial Modeling Prep, Finnhub, NewsAPI), Momentum la usa per scaricare prezzi/notizie pubbliche direttamente dal tuo dispositivo a quel fornitore. Non è un dato su di te: sono prezzi di mercato pubblici.</p>

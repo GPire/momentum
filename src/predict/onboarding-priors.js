@@ -14,6 +14,15 @@ const RISKS = new Set(['conservativo', 'bilanciato', 'aggressivo']);
 const HORIZONS = new Set(['breve', 'medio', 'lungo']);
 const INCOME_REGULARITY = new Set(['regolare', 'variabile', 'irregolare']);
 
+// Income and risk do not authorize a spending limit. Zero denotes unset.
+export function onboardingBudget(value, state = {}) {
+  if (value !== '' && value != null && Number.isFinite(Number(value)) && Number(value) > 0) {
+    return Math.round(Number(value) * 100) / 100;
+  }
+  return state.monthlyBudgetAt && Number.isFinite(state.monthlyBudget) && state.monthlyBudget > 0
+    ? state.monthlyBudget : 0;
+}
+
 // Config di base derivata dal profilo (centralizza la logica prima inline in
 // seedProfileState → una sola fonte di verità, niente divergenze).
 //

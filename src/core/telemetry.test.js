@@ -1,19 +1,74 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isTelemetryEnabled, setTelemetryEnabled, getAnonId, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed, sendFeatureEvent, FEATURE_KEYS } from './telemetry.js';
+import { isTelemetryEnabled, setTelemetryEnabled, getAnonId, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed, sendFeatureEvent, sendEssentialDiagnostic, FEATURE_KEYS } from './telemetry.js';
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial));
   return { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => map.set(k, v), _map: map };
 }
 
-test('isTelemetryEnabled/setTelemetryEnabled: ATTIVO di default (opt-out, non opt-in)', () => {
+test('telemetria attiva di default, scelta di disattivazione persistente', () => {
   const s = fakeStorage();
-  assert.equal(isTelemetryEnabled(s), true); // nessuna preferenza salvata → attivo
+  assert.equal(isTelemetryEnabled(s), true);
   setTelemetryEnabled(false, s);
   assert.equal(isTelemetryEnabled(s), false);
   setTelemetryEnabled(true, s);
   assert.equal(isTelemetryEnabled(s), true);
+});
+
+test('con opt-out non crea identificatori e non invia eventi', async () => {
+  const storage = fakeStorage({ momentum_telemetry_opt_in: '0' });
+  const fetchImpl = async () => assert.fail('Richiesta senza consenso');
+  assert.deepEqual(await sendTelemetryPings('https://x.test', { storage, fetchImpl }), { sent: [] });
+  assert.deepEqual(await sendFeatureEvent('https://x.test', FEATURE_KEYS[0], { storage, fetchImpl }), { sent: false });
+  assert.equal(storage._map.size, 1);
+  assert.equal(storage.getItem('momentum_anon_id'), null);
+});
+
+test('risposte HTTP negative non consumano i tentativi di invio', async () => {
+  const storage = fakeStorage({ momentum_telemetry_opt_in: '1' });
+  for (const status of [400, 429, 500, 503]) {
+    const fetchImpl = async () => ({ ok: false, status });
+    assert.deepEqual(await sendTelemetryPings('https://x.test', { storage, fetchImpl }), { sent: [] });
+    assert.equal((await sendFeatureEvent('https://x.test', FEATURE_KEYS[0], { storage, fetchImpl })).sent, false);
+  }
+  const fetchImpl = async () => ({ ok: true });
+  assert.equal((await sendTelemetryPings('https://x.test', { storage, fetchImpl })).sent.length, 3);
+  assert.equal((await sendFeatureEvent('https://x.test', FEATURE_KEYS[0], { storage, fetchImpl })).sent, true);
+});
+
+test('la diagnostica essenziale resta disponibile dopo l\'opt-out e non usa un id persistente', async () => {
+  const storage = fakeStorage({ momentum_telemetry_opt_in: '0' });
+  let payload;
+  const r = await sendEssentialDiagnostic('https://x.test', 'vault_integrity_failed', {
+    storage, platform: 'android', appVersion: '50.1.0', now: new Date('2026-09-08'),
+    fetchImpl: async (_url, options) => { payload = JSON.parse(options.body); return { ok: true }; },
+  });
+  assert.equal(r.sent, true);
+  assert.deepEqual(payload, { event: 'diagnostic', key: 'vault_integrity_failed', day: '2026-09-08', platform: 'android', appVersion: '50.1.0' });
+  assert.equal(storage.getItem('momentum_anon_id'), null);
+});
+
+test('la diagnostica rifiuta chiavi libere e versioni non valide', async () => {
+  let called = false;
+  const fetchImpl = async () => { called = true; return { ok: true }; };
+  assert.equal((await sendEssentialDiagnostic('https://x.test', 'raw_user_text', { fetchImpl })).sent, false);
+  assert.equal((await sendEssentialDiagnostic('https://x.test', 'app_ready', { fetchImpl, appVersion: 'secret/1' })).sent, false);
+  assert.equal(called, false);
+});
+
+test('la disattivazione durante un invio impedisce gli eventi successivi', async () => {
+  const storage = fakeStorage();
+  const calls = [];
+  const fetchImpl = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    setTelemetryEnabled(false, storage);
+    return { ok: true };
+  };
+  assert.deepEqual((await sendTelemetryPings('https://x.test', { storage, fetchImpl })).sent, ['install']);
+  assert.equal(calls.length, 1);
+  assert.equal((await sendFeatureEvent('https://x.test', FEATURE_KEYS[0], { storage, fetchImpl })).sent, false);
+  assert.equal(calls.length, 1);
 });
 
 test('needsTelemetryDisclosure: vero solo prima che l\'avviso sia stato mostrato', () => {
