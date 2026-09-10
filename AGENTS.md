@@ -142,6 +142,37 @@ pannello dati SEC.
   Le chiavi NUOVE aggiunte lo stesso giorno (territorio foral, `esTerritorio*`)
   sono già nelle 7 lingue: il debito è solo sulle ~33 preesistenti, da
   chiudere in una sessione dedicata (non una riga sola per volta).
+- **Solo 4 casse professionali su 17 hanno un calcolo reale**
+  (`tax.js:CASSE_CON_REGOLE` — Forense/Inarcassa/CNPADC/CIPAG-geometri,
+  quest'ultima aggiunta 2026-09-11 — verificato contando le chiavi, non a
+  memoria: una memoria precedente diceva erroneamente "16/16 coperte"). Le
+  altre 13 restano a zero con nota onesta. **ENPAM (medici) verificata ma
+  deliberatamente NON aggiunta**: struttura a 3 componenti (Quota A fissa
+  per fascia d'età, Quota B a due aliquote, contributo maternità fisso) non
+  riducibile allo schema `aliquotaSoggettivo/minimoSoggettivo` esistente —
+  richiede un parametro età in più che `taxSetAside` non riceve oggi.
+- **Scadenze fiscali multi-Paese (2026-09-10, analisi competitiva)**:
+  `tax-deadlines.js` (Italia, maturo: cash-forecast, ravvedimento, F24
+  precompilato) esteso con `tax-deadlines-es.js` (Modelo 130 spagnolo —
+  SOLO la data è certa/verificata, l'importo è dichiarato come proiezione
+  a 3 mesi, non il 20% cumulato ufficiale). **Svizzera deliberatamente
+  assente**: l'AVS non ha una scadenza fissa nazionale, ogni Ausgleichskasse
+  cantonale fattura secondo il proprio calendario — nessuna fonte trovata
+  per una data unica, inventarne una violerebbe la stessa disciplina già
+  in uso per la scala AVS degressiva.
+- **Export commercialista, formato strutturato** (`accountant-export-structured.js`,
+  2026-09-10): CSV multi-sezione + JSON accanto all'HTML stampabile
+  esistente (`accountant-export.js`/`accountant-export-intl.js`), stesso
+  `report` già calcolato, nessuna seconda formula. Manca ancora
+  un'integrazione DIRETTA con un gestionale di studio (B.Point, TeamSystem,
+  Zucchetti): nessuna API self-serve aperta a terzi è stata confermata per
+  nessuno di questi — deliberatamente non costruita finché non si verifica
+  un accesso reale, per non costruire su un'ipotesi.
+- **Centro Fiducia** (`window.openTrustCenter()`, main.js, 2026-09-10):
+  un solo posto che elenca i limiti dichiarati sparsi nei moduli fiscali
+  (`LIMITI_DICHIARATI` in main.js) — se si aggiunge un nuovo limite fiscale
+  in futuro, aggiungerlo anche lì, altrimenti il Centro Fiducia mente per
+  omissione.
 
 ## Trappole già pagate (leggile prima di perderci un'ora)
 

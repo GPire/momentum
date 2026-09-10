@@ -122,6 +122,22 @@ test('t: esTramoChanged e esBaseChoiceNote (card RETA+IRPF con tracciamento real
   assert.equal(t('esBaseChoiceNote', 'es', 1500), 'Base elegida actual: 1500€/mes.');
 });
 
+test('t: esModelo130Text (mossa 5, scadenza fiscale spagnola 2026-09-10) interpola label/data/importo in ogni lingua coperta', () => {
+  assert.match(t('esModelo130Text', 'it', 'Modelo 130 · 1er trimestre', '2026-04-20', '450 €'), /2026-04-20/);
+  assert.match(t('esModelo130Text', 'en', 'Modelo 130 · 1er trimestre', '2026-04-20', '€450'), /2026-04-20/);
+  assert.match(t('esModelo130Text', 'es', 'Modelo 130 · 1er trimestre', '2026-04-20', '450 €'), /2026-04-20/);
+});
+
+test('t: chiavi opt-in notifiche push spagnole (esNotifyOptIn*/esModelo130NotifyTitle, 2026-09-10) esistono in it/en/es', () => {
+  const chiavi = ['esModelo130NotifyTitle', 'esNotifyOptInActive', 'esNotifyOptInDisable', 'esNotifyOptInCta', 'esNotifyOptInDismiss'];
+  for (const lang of ['it', 'en', 'es']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+    }
+  }
+});
+
 test('t: chi ha il dispositivo in tedesco/francese e finisce comunque sulla schermata spagnola ricade su EN, mai su una chiave grezza', () => {
   // Nessuna chiave esDE/esFR scritta apposta (nessun autónomo spagnolo
   // avrebbe il dispositivo in quelle lingue in pratica) — il fallback di
@@ -968,4 +984,21 @@ test('t: tutte le chiavi alphaSubsNew* (nuovo addebito ricorrente, 2026-08-30) e
     }
   }
   assert.match(t('alphaSubsNewBody', 'it', 'Disney Plus', '8,99 €'), /Disney Plus/);
+});
+
+test('t: tutte le chiavi trust* (Centro Fiducia, mosse 2+3+4 analisi competitiva 2026-09-10) esistono nelle 7 lingue', () => {
+  const chiavi = [
+    'trustCenterOpen', 'trustCenterTitle', 'trustCenterSub', 'trustLimitiTitle',
+    'trustLimitCasse', 'trustLimitSdi', 'trustLimitCantoni', 'trustLimitAvsDegressiva',
+    'trustLimitAutonomica', 'trustLimitForal', 'trustCancelTitle', 'trustCancelDesc',
+    'trustDataTitle', 'trustDataDesc', 'trustCenterClose',
+    'trustCrossBorderTitle', 'trustCrossBorderDesc',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
 });

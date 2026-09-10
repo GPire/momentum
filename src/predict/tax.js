@@ -161,12 +161,12 @@ export const CASSE_PROFESSIONALI = {
   notai: 'Cassa Nazionale del Notariato',
 };
 
-// Regole REALI delle 3 casse più numerose (ADEPP 2025: Cassa Forense 217k
-// iscritti attivi, Inarcassa 173k, CNPADC 74k — insieme ~480k professionisti
-// che finora Momentum trattava con un contributo a zero e la nota "non lo
-// calcoliamo"). Le altre 13 casse in CASSE_PROFESSIONALI restano SENZA
-// regole: stesso comportamento onesto di sempre, mai un'aliquota indovinata
-// per una cassa non verificata riga per riga.
+// Regole REALI di 4 casse (ADEPP 2025: Cassa Forense 217k iscritti attivi,
+// Inarcassa 173k, CNPADC 74k — insieme ~480k professionisti che finora
+// Momentum trattava con un contributo a zero e la nota "non lo calcoliamo";
+// CIPAG/geometri aggiunta 2026-09-11). Le altre 13 casse in
+// CASSE_PROFESSIONALI restano SENZA regole: stesso comportamento onesto di
+// sempre, mai un'aliquota indovinata per una cassa non verificata riga per riga.
 // Fonti incrociate (agosto 2026), aliquote/minimi 2026:
 //  - Cassa Forense: fiscoetasse.com, centrofiscale.com, tedeschiepartners.it
 //  - Inarcassa: money.it, centrofiscale.com, taxmanapp.it
@@ -195,7 +195,28 @@ export const CASSE_CON_REGOLE = {
     minimoSoggettivo: 3180,
     aliquotaIntegrativo: 0.04, minimoIntegrativo: null,
   },
+  // CIPAG (Cassa Geometri), 4a cassa coperta (2026-09-11, analisi
+  // competitiva — ricerca verificata su fonte primaria per soggettivo/
+  // minimo; il minimo integrativo NON ha una fonte 2026 affidabile trovata
+  // — fonti secondarie discordanti sul 2025 (1.940€ vs 1.670€), quindi
+  // resta `null` come CNPADC, mai un numero preso a caso fra i due).
+  geometri: {
+    nomeBreve: 'CIPAG',
+    aliquotaSoggettivo: 0.20, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 4205,
+    aliquotaIntegrativo: 0.05, minimoIntegrativo: null,
+  },
 };
+
+// ENPAM (medici/odontoiatri), deliberatamente ASSENTE da CASSE_CON_REGOLE
+// (verificato 2026-09-11): non ha una struttura a due aliquote come le 4
+// casse sopra — Quota A è FISSA per fascia d'età (non una % sul reddito:
+// 152,37€-2.049,83€/anno a seconda dell'età), Quota B è 19,5% fino a
+// 150.000€ + 1% oltre, più un contributo di maternità fisso (84,26€/anno).
+// Forzarla nello schema `aliquotaSoggettivo/minimoSoggettivo` produrrebbe
+// un numero sbagliato per ogni iscritto (richiede l'età, che taxSetAside
+// non riceve oggi). Serve una funzione dedicata con un parametro età in
+// più, non ancora scritta — limite dichiarato, non un'aliquota indovinata.
 
 // Contributi alla cassa professionale propria (contributo soggettivo +
 // integrativo), SOLO per le 3 casse sopra. `redditoImponibile` = base per il
@@ -418,9 +439,9 @@ export function taxSetAside(amount, opts = {}) {
     ? rInps.inpsGestioneSeparataRidotta : INPS_GESTIONE_SEPARATA_RIDOTTA;
   const aliquotaInps = opts.altraCoperturaPrevidenziale ? inpsRidotta : inpsPiena;
   const inps = cassaNome ? 0 : redditoImponibile * aliquotaInps;
-  // Cassa professionale REALE (2026-08-26): prima qui l'INPS si azzerava e
-  // basta, "vai a calcolarlo altrove" — ora, per le 3 casse più numerose
-  // (Cassa Forense/Inarcassa/CNPADC, vedi CASSE_CON_REGOLE sopra), il
+  // Cassa professionale REALE (2026-08-26, estesa 2026-09-11): prima qui
+  // l'INPS si azzerava e basta, "vai a calcolarlo altrove" — ora, per le 4
+  // casse in CASSE_CON_REGOLE sopra (Forense/Inarcassa/CNPADC/CIPAG), il
   // contributo soggettivo+integrativo è calcolato per davvero, con le
   // stesse aliquote/minimi verificati. Per le altre 13 casse resta null:
   // stesso comportamento onesto di prima, mai un numero indovinato.
@@ -847,10 +868,10 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
     });
   }
   // Cassa previdenziale propria (albo professionale): l'INPS non c'entra.
-  // Per le 3 casse più numerose (CASSE_CON_REGOLE) il numero sopra include
-  // GIÀ il contributo reale (soggettivo+integrativo, aliquote 2026
-  // verificate) — per le altre 13, resta escluso e va detto chiaramente,
-  // mai lasciato intuire da un totale più basso del previsto.
+  // Per le 4 casse in CASSE_CON_REGOLE il numero sopra include GIÀ il
+  // contributo reale (soggettivo+integrativo, aliquote 2026 verificate) —
+  // per le altre 13, resta escluso e va detto chiaramente, mai lasciato
+  // intuire da un totale più basso del previsto.
   if (cassaNome) {
     strategie.push({
       icon: 'cassa',

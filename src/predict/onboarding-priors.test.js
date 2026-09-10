@@ -132,6 +132,24 @@ test('banditSeed: cashflowStress="corto" favorisce anche es-tax-set-aside (stess
   assert.ok(mean(conStress['ok:mid|es-tax-set-aside']) > 0.5);
 });
 
+test('banditSeed: cashflowStress="corto" favorisce anche es-modelo130-deadline (2026-09-10, mossa 5 analisi competitiva)', () => {
+  const mean = (arm) => arm.a / (arm.a + arm.b);
+  const senzaStress = banditSeed('bilanciato', null);
+  const conStress = banditSeed('bilanciato', 'corto');
+  assert.equal(senzaStress['ok:mid|es-modelo130-deadline'], undefined);
+  assert.ok(conStress['ok:mid|es-modelo130-deadline']);
+  assert.ok(mean(conStress['ok:mid|es-modelo130-deadline']) > 0.5);
+});
+
+test('banditSeed: incomeRegularity="irregolare" favorisce anche es-modelo130-deadline, stesso principio di es-tax-set-aside', () => {
+  const mean = (arm) => arm.a / (arm.a + arm.b);
+  const senza = banditSeed('bilanciato', null, null);
+  const conIrregolare = banditSeed('bilanciato', null, 'irregolare');
+  assert.equal(senza['ok:mid|es-modelo130-deadline'], undefined);
+  assert.ok(conIrregolare['ok:mid|es-modelo130-deadline']);
+  assert.ok(mean(conIrregolare['ok:mid|es-modelo130-deadline']) > 0.5);
+});
+
 test('seedBanditState: da stato vuoto/nullo produce uno stato valido seminato', () => {
   const out = seedBanditState(null, 'aggressivo');
   assert.equal(out.version, 1);

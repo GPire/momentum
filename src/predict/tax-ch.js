@@ -26,6 +26,27 @@ export const AVS_SOGLIA_ALIQUOTA_PIENA = 60500;
 export const AVS_CONTRIBUTO_MINIMO_ANNUO = 530;
 export const AVS_CALCOLATORE_UFFICIALE_URL = 'https://www.ahv-iv.ch';
 
+// ATTIVITÀ PRINCIPALE vs ACCESSORIA (2026-09-06) — BUG REALE trovato
+// analizzando un audit esterno: computeAvsIndipendente presumeva SEMPRE
+// "attività principale" (contributi dovuti dal PRIMO franco, minimo
+// CHF 530 da CHF 1 in su). Per un'attività ACCESSORIA la regola è diversa
+// e verificata su fonte primaria/fonti concordanti (ahv-iv.ch, medisuisse.ch,
+// raiffeisen.ch, swisslife.ch, 2026-09-06):
+//   < CHF 2.300/anno: iscrizione FACOLTATIVA se almeno una condizione vera
+//     (già dipendente altrove, disoccupazione, o coniuge/partner registrato
+//     che copre l'economia domestica versando almeno CHF 964/anno di AVS).
+//   CHF 2.500-10.100/anno: contributo minimo CHF 530 (STESSO importo
+//     dell'attività principale, ma la soglia di ENTRATA nell'obbligo è più
+//     alta: sotto CHF 2.500 generalmente non si versa nulla per l'attività
+//     accessoria, a differenza della principale dove si versa dal 1° franco).
+// Assumere "principale" quando non specificato resta la scelta prudente
+// (mai sottostimare un obbligo), ma per chi DICE esplicitamente che è
+// un'attività accessoria e guadagna poco, dire "minimo CHF 530" sarebbe un
+// numero sbagliato nella direzione opposta: gli si chiederebbe di
+// accantonare per un obbligo che, sotto CHF 2.500, probabilmente non ha.
+export const AVS_SOGLIA_ACCESSORIA_OBBLIGO = 2500;
+export const AVS_SOGLIA_ACCESSORIA_FACOLTATIVA = 2300;
+
 export const IVA_CH = {
   standard: 0.081,
   ridotta: 0.026, // beni di prima necessità, libri, farmaci...
@@ -36,10 +57,25 @@ export const IVA_CH_SOGLIA_OBBLIGO = 100000; // fatturato annuo mondiale, CHF
 // Contributi AVS/AI/APG per un indipendente. Sopra soglia: aliquota piena
 // piatta, un calcolo reale. Sotto soglia: MAI un numero inventato — si
 // dichiara il minimo verificato e si rimanda al calcolatore ufficiale.
-export function computeAvsIndipendente(redditoAnnuo) {
+// `opts.attivitaAccessoria` (2026-09-06): di default `false` (principale,
+// la scelta prudente — mai sottostimare un obbligo quando non specificato).
+export function computeAvsIndipendente(redditoAnnuo, opts = {}) {
   const reddito = Math.max(0, +redditoAnnuo || 0);
+  const accessoria = opts.attivitaAccessoria === true;
   if (reddito === 0) {
     return { contributo: 0, aliquota: 0, fasciaPiena: false, nota: null };
+  }
+  // Attività ACCESSORIA sotto la soglia d'obbligo (CHF 2.500): a differenza
+  // della principale (dovuta dal 1° franco), qui non si presume un minimo —
+  // sotto CHF 2.300 l'iscrizione è perfino facoltativa a certe condizioni.
+  if (accessoria && reddito < AVS_SOGLIA_ACCESSORIA_OBBLIGO) {
+    return {
+      contributo: null,
+      aliquota: null,
+      fasciaPiena: false,
+      sottoSogliaAccessoria: true,
+      nota: `Come attività ACCESSORIA, sotto CHF ${AVS_SOGLIA_ACCESSORIA_OBBLIGO.toLocaleString('it-CH')}/anno generalmente non versi contributi AVS per questa attività (a differenza di un'attività principale, dovuta dal primo franco). Sotto CHF ${AVS_SOGLIA_ACCESSORIA_FACOLTATIVA.toLocaleString('it-CH')}/anno l'iscrizione è addirittura facoltativa se sei già dipendente altrove, disoccupato/a, o il tuo coniuge/partner registrato versa almeno CHF 964/anno di AVS coprendo l'economia domestica. Verifica il tuo caso su ${AVS_CALCOLATORE_UFFICIALE_URL}.`,
+    };
   }
   if (reddito >= AVS_SOGLIA_ALIQUOTA_PIENA) {
     return {

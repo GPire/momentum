@@ -156,9 +156,52 @@ Splitwise è il concorrente diretto e dominante sulla divisione spese di gruppo.
 Concorrente diretto sulla divisione spese, forte in Francia/Belgio/Paesi Bassi (da qui la priorità data a FR/NL nel catalogo multilingua di Momentum). **Lamentele ricorrenti verificate** (G2, Trustpilot, JustUseApp): bug di sincronizzazione persistenti — spese che spariscono e ricompaiono, richiedono pull-to-refresh multipli, un utente riporta la perdita totale del tracker dopo un refresh (giugno 2025); pubblicità mostrata **anche agli abbonati Premium paganti** (bug di monetizzazione, non solo fastidio); abbonamento freemium ~1$/mese con funzionalità limitate gratis.
 **Confronto strutturale**: i bug di sincronizzazione sono intrinseci a un'architettura cloud-centralizzata con un solo stato condiviso lato server — la sync P2P CRDT di Momentum (nessun server che può perdere o corrompere lo stato condiviso) è un'evidenza diretta contro questa classe di bug, non solo una scelta di principio. Nessuna pubblicità per costruzione (nessun modello di business che ne ha bisogno).
 
-### Partite IVA (Fiscozen)
-Regime forfettario: 449€/anno (49,9€/mese); regime semplificato: 1.149€/anno — include assistenza umana di un commercialista (fonte: [fiscozen.it](https://www.fiscozen.it/), [cristianiovino.com](https://cristianiovino.com/prezzi-fiscozen/)).
-**Non un gap da colmare, un segmento diverso**: il salvadanaio fiscale, l'F24 precompilato e il predittore di scarti SdI di Momentum coprono gratis, on-device, la parte "capire cosa devo" — Fiscozen vende la parte "lo fa un umano al posto tuo e lo presenta all'Agenzia delle Entrate", che richiede l'accreditamento come intermediario già dichiarato come limite non aggirabile (§ Limiti dichiarati, README). Sono complementari, non in competizione diretta sulla stessa funzione.
+### Partite IVA / complessità fiscale per liberi professionisti — 16 prodotti verificati, 2026-09-10/11
+
+Ricerca estesa oltre Fiscozen: 16 prodotti reali verificati su 6 mercati (IT/CH/ES/FR/DE/UK/NL), prezzi, cosa calcolano davvero, ponte col commercialista, problemi reali segnalati da utenti (Trustpilot/forum, con fonte) e dal lato commercialista/gestor.
+
+| Prodotto | Paese | Prezzo | Calcola contributi reali | Ponte commercialista | Accantonamento da transazioni |
+|---|---|---|---|---|---|
+| Fiscozen | IT | 449–499€/anno | Sì (commercialista umano incluso) | Umano incluso | No |
+| Fattura24 | IT | 4–24€/mese | **No** — solo fatturazione/gestionale, il "Bilancino" è margini/EBITDA, non accantonamento (verificato su fonte ufficiale, [fattura24.com/prezzi](https://www.fattura24.com/prezzi/)) | **Sì, più avanti di Momentum qui**: export dedicato per **B.Point** (software di contabilità) + condivisione diretta dell'account, zero re-inserimento manuale ([fattura24.com/export-sistemi](https://www.fattura24.com/export-sistemi/)) | No |
+| Facile Fattura / TaxMan | IT | 0–25€/mese · 199€/anno | Parziale | No | No |
+| Kontist | DE | 0–25€/mese | Sì | Nessuna (no DATEV) | **Sì, tempo reale** |
+| Accountable | DE | 18,50–33,50€/mese | Sì, invia le dichiarazioni vere | **No DATEV** (lock-in) | Parziale |
+| Lexoffice | DE | da 7,90€/mese | Sì | API diretta DATEV (bug export confermato dalla loro hotline) | No |
+| FreeAgent | UK | 19–33£/mese | Sì, MTD → HMRC | Dashboard gratuita commercialista | No |
+| QuickBooks Sole Trader | UK | 10£/mese (ex Self-Employed, ritirato) | Sì, MTD | Standard | No |
+| Coconut | UK | non pubblico | Sì, MTD → HMRC | — | No |
+| Xolo | ES | 15–99€/mese | Sì (piani Starter+) | — | No |
+| Declarando (gestoría) | ES | 25–60€/mese | Sì (umano) | Umano incluso | No |
+| Billin | ES | 6,60–24€/mese | No | — | No |
+| Indy | FR | 0–19€/mese | No | Export FEC | No |
+| Dougs | FR | da 49€/mese | Sì (umano) | Umano incluso | No |
+| Shine | FR | 0–24,90€/mese | Stima URSSAF | No export | No |
+| Moneybird | NL | 15–39€/mese | No | Standard | No |
+| **Momentum** | **IT·CH·ES** | **gratis (calcolo base)** | **Sì** | CSV/JSON strutturato (2026-09-10) | **Sì, IT/ES** |
+
+**Claim di marketing verificato e smentito su un fronte, confermato su un altro**: Fattura24 si presenta come "la più semplice e avanzata" — falso sul calcolo fiscale (non stima contributi né ritenute, a differenza di Momentum), vero sul ponte col commercialista (export B.Point + condivisione account, oggi più avanti di Momentum che offre solo CSV/JSON scaricabile, non un'integrazione diretta). Diffusione dichiarata "oltre 25.000 utenti paganti" (LinkedIn aziendale) — il claim aggiuntivo "insieme a Fatture in Cloud copre oltre il 60% del segmento freelance italiano" proviene da una sola fonte secondaria senza metodologia dichiarata, riportato qui con questa riserva esplicita.
+
+**Cinque pattern di problemi reali confermati con fonte** (Trustpilot/forum, verificato 2026-09-10, non un'impressione generica):
+1. **Sync/dati bloccati**: Coconut (bug Android che salta transazioni, irrisolto da oltre un anno), Billin (vendite che restano in bozza e non arrivano mai a Hacienda), Indy (scanner scontrini inaffidabile).
+2. **Calcoli/dichiarazioni incomplete**: Fiscozen (cedolare secca/spese sanitarie omesse in casi reali), Lexoffice (bug export DATEV confermato dalla loro stessa hotline: "sì, è un problema noto").
+3. **Supporto assente nei picchi**: Indy, Fiscozen, Dougs, Xolo, QuickBooks Self-Employed.
+4. **Prezzo che sale dopo il lock-in / cancellazioni ignorate**: Bexio (CH, +16% a marzo 2026), Moneybird (piano gratuito sparito), **Kontist** (disdette ignorate fino a 3 settimane, addebiti su carte mai richieste dopo la cancellazione), **Billin** (un cliente addebitato un anno intero dopo aver chiesto la cancellazione, rimborso rifiutato).
+5. **Lock-in dei dati verso il commercialista**: Accountable non ha nessuna compatibilità DATEV.
+
+**Lato commercialista/gestor**: confermato strutturalmente (fonte di settore, non forum diretti) il problema del doppio inserimento dati/export manuale — TeamSystem+Zucchetti coprono insieme oltre il 70% degli studi italiani ([colibryx.com](https://colibryx.com/blog/soluzioni/settori/software-commercialisti/)). In Svizzera **Run my Accounts** vende già la soluzione (collaborazione diretta col fiduciario, zero export manuale) ma da CHF 100/mese — enterprise, non accessibile al target di Momentum: conferma che il problema vale un prodotto dedicato, la soluzione oggi resta uno spazio libero per un player più economico.
+
+**Cosa Momentum ha già costruito in risposta (2026-09-10/11, verificabile nel codice)**:
+- **Export strutturato CSV/JSON** (`accountant-export-structured.js`): stesso `report` già calcolato da `accountant-export.js`/`accountant-export-intl.js`, nessuna seconda formula — riduce il re-inserimento manuale senza un'integrazione enterprise.
+- **Centro Fiducia** (`window.openTrustCenter()`, main.js): un solo posto che dichiara ogni limite fiscale reale (solo 4 casse professionali su 17 con calcolo vero — Forense/Inarcassa/CNPADC/CIPAG, la 4a aggiunta il 2026-09-11 — IRPF spagnolo solo statale, imposte cantonali svizzere non calcolate...) — nessuno dei 16 competitor verificati lo fa in un posto solo.
+- **Cancellazione sempre istantanea e dati sempre esportabili in chiaro** — comunicato esplicitamente nel Centro Fiducia, in contrasto diretto con Kontist/Billin/Accountable sopra.
+- **Scadenza Modelo 130 spagnola** (`tax-deadlines-es.js`): prima estensione multi-Paese del motore di scadenze fiscali (prima solo Italia), con notifica push opt-in — solo la data è certa/verificata, l'importo è dichiarato come proiezione, mai il calcolo ufficiale del 20% cumulato. **Svizzera deliberatamente esclusa**: l'AVS non ha una scadenza fissa nazionale (ogni Ausgleichskasse cantonale fattura secondo il proprio calendario) — nessuna fonte trovata per una data unica, dichiarato come limite invece di inventarla.
+
+**Integrazione gestionale diretta (B.Point/TeamSystem/Zucchetti): verificata il 2026-09-11, nessuna confermata self-serve**. Zucchetti richiede esplicitamente "la richiesta della documentazione a un commerciale" (non self-serve, [help.zucchetti.it](https://help.zucchetti.it/cms/kb/soluzioni/servizi-it/api-pubbliche)); TeamSystem ha un vero developer portal Azure API Management con catalogo API/chiavi self-serve ([apim-dev-apigov.developer.azure-api.net](https://apim-dev-apigov.developer.azure-api.net/)) ma prezzo/requisiti di accesso reali non confermati; B.Point (prodotto Osra, gruppo Wolters Kluwer, non TeamSystem/Zucchetti come si pensava) non ha nessuna documentazione pubblica di import trovata.
+
+**Scoperta più importante di questa ricerca**: non serve inseguire un singolo gestionale — **Momentum genera già XML FatturaPA standard e conforme** (`src/invoice/fatturapa-xml.js:buildFatturaPaXML`, usato oggi nel flusso "Crea fattura elettronica"), lo stesso formato che "qualunque software di fatturazione" italiano importa nativamente (confermato per GBsoftware, Datalog, 1C-ERP — [datalog.it](https://www.datalog.it/come-importare-le-fatture-elettroniche-in-contabilita/), [guidegbsoftware.it](https://guidegbsoftware.it/contabilita/prima-nota/importazione-file-xml-fatturazione-elettronica/)). È PIÙ compatibile di un'integrazione dedicata a un solo gestionale, perché lo standard è lo stesso per tutti — oggi disponibile per singola fattura al momento della creazione, non ancora in blocco dall'export annuale per il commercialista (§Roadmap).
+
+**Non un gap da colmare sul fronte umano, un segmento diverso**: Fiscozen/Dougs/Declarando vendono "lo fa un umano al posto tuo e lo presenta all'autorità fiscale", che richiede l'accreditamento come intermediario — limite non aggirabile già dichiarato (§ Limiti dichiarati, README). Sono complementari sul quel fronte, non in competizione diretta.
 
 ## 7. Perché il settore perde utenti — pattern verificati, e cosa Momentum ha già/può costruire (ricerca 2026-08-29)
 
