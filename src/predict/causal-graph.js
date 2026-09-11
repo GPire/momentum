@@ -153,16 +153,18 @@ export function propagateImpact(links, catId, deltaPct, opts = {}) {
   const walk = (from, incomingPct, path, depth, lagSoFar) => {
     if (depth > maxDepth) return;
     for (const link of links) {
-      if (link.from !== from) continue;
-      if (path.includes(link.to)) continue; // niente cicli
+      // Same-week co-variation has no direction: alphabetical storage order
+      // must not decide which category can show the association.
+      const to = link.from === from ? link.to : link.lagWeeks === 0 && link.to === from ? link.from : null;
+      if (to === null || path.includes(to)) continue;
       const effectPct = incomingPct * link.r;
       if (Math.abs(effectPct) < minEffect) continue;
       const lag = lagSoFar + link.lagWeeks;
-      const existing = effects.get(link.to);
+      const existing = effects.get(to);
       if (!existing || Math.abs(effectPct) > Math.abs(existing.expectedPct)) {
-        effects.set(link.to, { category: link.to, expectedPct: +effectPct.toFixed(1), path: [...path, link.to], lagWeeks: lag });
+        effects.set(to, { category: to, expectedPct: +effectPct.toFixed(1), path: [...path, to], lagWeeks: lag });
       }
-      walk(link.to, effectPct, [...path, link.to], depth + 1, lag);
+      walk(to, effectPct, [...path, to], depth + 1, lag);
     }
   };
 

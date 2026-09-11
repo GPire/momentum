@@ -423,6 +423,83 @@ export const RELEASES = [
       },
     ],
   },
+  {
+    "versione": "2026-09-11",
+    "voci": [
+      {
+        "colore": "primary",
+        "icona": "<circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 7v5l3 2\"/>",
+        "titolo": "Giorno per giorno",
+        "testo": "Disponibilità giornaliera, settimana e mese si incontrano in un unico spazio. Gli anelli distinguono il budget usato dal giorno del periodo; senza budget, nessuna percentuale di spesa inventata.",
+        "titoloKey": "wn0911_1_t",
+        "testoKey": "wn0911_1_d"
+      },
+      {
+        "colore": "green",
+        "icona": "<rect x=\"3\" y=\"3\" width=\"8\" height=\"8\" rx=\"2\"/><path d=\"M15 5h6M15 9h6M4 16h16M4 20h10\"/>",
+        "titolo": "Meno rumore, azioni vicine",
+        "testo": "Calendario e azioni rapide restano a portata di mano. Riepiloghi, risparmi e strumenti aggiuntivi sono raggruppati, con scorciatoie legate alle preferenze e ai dati presenti.",
+        "titoloKey": "wn0911_2_t",
+        "testoKey": "wn0911_2_d"
+      },
+      {
+        "colore": "purple",
+        "icona": "<circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"m8 12 3 3 5-6\"/>",
+        "titolo": "Un ingresso più semplice",
+        "testo": "Il primo accesso termina con un riepilogo breve e preferenze visive facoltative. Il budget resta una tua scelta. Chi torna in Momentum non ripete l’onboarding.",
+        "titoloKey": "wn0911_3_t",
+        "testoKey": "wn0911_3_d"
+      },
+      {
+        "colore": "gold",
+        "icona": "<path d=\"M4 5h16v15H4zM8 3v4M16 3v4M4 10h16\"/>",
+        "titolo": "Movimenti e scadenze più chiari",
+        "testo": "Obiettivi, inserimento delle spese e date dei pagamenti hanno controlli più leggibili. Le date indicate da te restano distinte dalle previsioni ricavate dallo storico.",
+        "titoloKey": "wn0911_4_t",
+        "testoKey": "wn0911_4_d"
+      },
+      {
+        "colore": "primary",
+        "icona": "<path d=\"M4 20V4M4 20h16M8 16l4-5 4 2 4-7\"/>",
+        "titolo": "Analisi e Vault, con più ordine",
+        "testo": "Dati, preferenze e strumenti sono raccolti per argomento. Simulazioni, grafici e moduli usano una gerarchia più chiara e controlli pensati anche per schermi piccoli.",
+        "titoloKey": "wn0911_5_t",
+        "testoKey": "wn0911_5_d"
+      },
+      {
+        "colore": "green",
+        "icona": "<rect x=\"6\" y=\"2\" width=\"12\" height=\"20\" rx=\"3\"/><path d=\"M10 18h4\"/>",
+        "titolo": "Un’interfaccia adatta al tuo uso",
+        "testo": "Categorie, importi e moduli hanno controlli più comodi. Puoi scegliere il tema chiaro, scuro o del dispositivo e regolare le animazioni nelle preferenze.",
+        "titoloKey": "wn0911_6_t",
+        "testoKey": "wn0911_6_d"
+      },
+      {
+        "colore": "purple",
+        "icona": "<circle cx=\"8\" cy=\"7\" r=\"3\"/><circle cx=\"17\" cy=\"9\" r=\"2\"/><path d=\"M2 20c0-8 12-8 12 0M15 15c4-1 7 1 7 5\"/>",
+        "titolo": "Dal link alla tua quota",
+        "testo": "Anche gli inviti compressi aprono la divisione al primo accesso. La scoperta delle altre funzioni è facoltativa. Saldi e importi contestati sono presentati separatamente.",
+        "titoloKey": "wn0911_7_t",
+        "testoKey": "wn0911_7_d"
+      },
+      {
+        "colore": "gold",
+        "icona": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18\"/>",
+        "titolo": "Testi e comandi più accessibili",
+        "testo": "Le nuove voci sono disponibili nelle sette lingue di Momentum. Il calendario si usa anche da tastiera; il suggerimento del + può essere chiuso e non si ripete.",
+        "titoloKey": "wn0911_8_t",
+        "testoKey": "wn0911_8_d"
+      },
+      {
+  "colore": "primary",
+  "icona": "<circle cx=\"8\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"8\" r=\"3\"/><path d=\"M3 20c0-8 10-8 10 0m1-5c4-1 7 1 7 5\"/>",
+  "titolo": "Dividere, senza dubbi",
+  "testo": "Quote esatte anche con più pagatori, persone con lo stesso nome distinte e un riepilogo centrato su di te. Controlla il messaggio di rimborso e condividi il link alla divisione.",
+  "titoloKey": "wn0911_9_t",
+  "testoKey": "wn0911_9_d"
+}
+    ]
+  },
 ];
 
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;

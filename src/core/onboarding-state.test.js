@@ -22,6 +22,15 @@ test('IL BUG: ha aperto l\'app ma NON ha finito le domande → deve rivedere l\'
   assert.equal(haCompletatoOnboarding(appenaAperta), false);
 });
 
+test('profilo predefinito del Vault non equivale a onboarding completato', () => {
+  const appenaAperta = {
+    isFirstLaunch: true,
+    transactions: {},
+    onboardingProfile: { riskProfile: 'bilanciato', horizon: 'medio' },
+  };
+  assert.equal(haCompletatoOnboarding(appenaAperta), false);
+});
+
 test('ha completato l\'onboarding → dashboard, mai più la hero', () => {
   assert.equal(haCompletatoOnboarding({ isFirstLaunch: false, transactions: {} }), true);
 });

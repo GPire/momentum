@@ -1,5 +1,16 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Stato più recente, 2026-09-11:** integrazione di main `d92a5dc` nel branch
+> UI completata per sezione; 13 conflitti risolti, casi limite dei motori corretti.
+> Suite finale su `66602c7`: **4.846 test / 317 file, zero fallimenti o skip**;
+> build web standard, Android e iOS Simulator SDK 27 passati in CI. Corretto
+> anche il reload delle anteprime e il grafo delle associazioni simmetriche.
+> Leggere prima [merge-validation-2026-09-11.md](docs/merge-validation-2026-09-11.md)
+> per i controlli sui dati e i limiti del checkpoint. I conteggi e i conflitti
+> descritti nei riquadri successivi sono precedenti a questa integrazione.
+> Nessun reset degli archivi o fusione arbitraria dei pesi ML è autorizzato.
+> Il sottodominio di anteprima ha dati separati dal dominio di produzione.
+
 > **Questo file è la fonte di verità condivisa.** Lo leggono Codex/altri agenti
 > (convenzione `AGENTS.md`) e Claude Code (via `CLAUDE.md`, che punta qui —
 > un solo file, mai due che divergono).
@@ -12,6 +23,26 @@
 >
 > Ultimo aggiornamento verificato: **2026-09-06**.
 
+> Integrazione verificata **2026-09-11**: il checkout di lavoro è sul branch
+> `codex/public-release-foundation`. Stato, modifiche e limiti dei controlli sono
+> in [release-review-2026-09-11.md](docs/release-review-2026-09-11.md). Le tabelle
+> e i conteggi storici qui sotto restano riferiti alla verifica del 6 settembre.
+> Aggiornamento: suite completa **4.767 test / 310 file passati**, inclusi i
+> quattro test di fuso con veri processi; build di produzione completata con
+> esbuild WebAssembly della stessa versione. `test:serial` e `build:portable`
+> evitano le pipe bloccate da EPERM; non modificano la sicurezza del sistema.
+> Per il merge con main `d92a5dc`, leggere
+> [integration-handoff-2026-09-11.md](docs/integration-handoff-2026-09-11.md).
+> Ingresso unico per il revisore: [merge-request-2026-09-11.md](docs/merge-request-2026-09-11.md),
+> con manifesto file per file e risultati della suite. La simulazione di merge
+> `eb86338` / `d92a5dc` rileva 13 file in conflitto: integrazione guidata necessaria.
+> Non dichiarare un merge, deploy o collaudo nativo sulla base dei test locali.
+> Prima di integrare i motori, leggere anche
+> [engine-integration-audit-2026-09-11.md](docs/engine-integration-audit-2026-09-11.md):
+> 246 test mirati di main superati, ma casi limite riprodotti in calibrazione,
+> CSV e scadenze ancora da correggere. Conservare le protezioni locali dei
+> modelli e della mesh; main non è automaticamente superiore in ogni modulo.
+
 ## Cos'è
 
 App di finanza personale + analisi di mercato **100% on-device**. PWA in
@@ -19,10 +50,18 @@ JavaScript vanilla + Vite, nessun framework UI. Il valore nasce dal **non
 ricevere mai i dati dell'utente**: nessun server proprietario, nessun cloud
 obbligatorio, nessun account.
 
-Repo: `https://github.com/GPire/momentum` · branch di lavoro `main` ·
+Repo: `https://github.com/GPire/momentum` · branch di lavoro `codex/public-release-foundation` ·
 versione in `package.json`: **50.1.0**.
 
 ## Regole non negoziabili
+
+Aggiornamento esplicito dell'utente, 2026-09-07: la telemetria di utilizzo è
+attiva di default e disattivabile. L'opt-out già salvato va rispettato.
+Questa eccezione riguarda solo gli eventi del catalogo `core/telemetry.js`,
+non autorizza l'invio di transazioni, saldi, documenti o testo delle chat.
+La versione GitHub corrente è la base preferita; valutare separatamente
+le modifiche locali e preservare il lavoro precedente. Pubblicare solo dopo
+test completi e autorizzazione esplicita dell'utente.
 
 1. **I dati dell'utente non lasciano mai il dispositivo.** Le uniche
    eccezioni sono dichiarate e opt-in (riassunto notizie via LLM esterno con
@@ -78,8 +117,10 @@ tutto il resto è puro e testabile senza browser.
 
 ## Nativo
 
-Scaffold **Capacitor** presente: `android/` (pronto), `capacitor.config.json`
-con appId `com.momentum.vault`, webDir `dist`. iOS non ancora inizializzato.
+Progetti **Capacitor** presenti: `android/`, `ios/App/App.xcodeproj`,
+`capacitor.config.json` con appId `com.momentum.vault`, webDir `dist`.
+La presenza degli scaffold non certifica il rilascio: vedere
+`docs/ios-release-verification.md` per le prove native ancora necessarie.
 
 ## Automazione
 
@@ -133,15 +174,11 @@ pannello dati SEC.
   riverificata il 2026-09-06 — se in futuro si trova una fonte primaria con
   la tabella completa (non solo aliquota min/max), può diventare una tabella
   come `RETA_TRAMOS_2026`, mai una formula indovinata.
-- **Modulo Spagna tradotto solo IT/EN/ES, non nelle altre 4 lingue**
-  (verificato 2026-09-06 contando le occorrenze di ~33 chiavi `esXxx*` in
-  `ui-strings.js`, es. `esCardNoteFn`/`esDeactivate`: 3/7 lingue ciascuna).
-  Chi usa Momentum in tedesco/francese/olandese/portoghese con la Spagna
-  attiva vede il fallback inglese per queste stringhe (mai un crash, `t()`
-  ricade su EN poi IT poi la chiave grezza) — non ideale, ma non rotto.
-  Le chiavi NUOVE aggiunte lo stesso giorno (territorio foral, `esTerritorio*`)
-  sono già nelle 7 lingue: il debito è solo sulle ~33 preesistenti, da
-  chiudere in una sessione dedicata (non una riga sola per volta).
+- **Copertura dei dizionari verificata il 2026-09-11**: le chiavi fiscali e
+  di fatturazione prima mancanti sono ora presenti direttamente nelle sette
+  lingue (`src/i18n/translation-coverage.test.js`). Restano testi italiani
+  costruiti direttamente in alcune UI: copertura delle chiavi e traduzione
+  completa delle schermate sono verifiche diverse.
 - **Solo 4 casse professionali su 17 hanno un calcolo reale**
   (`tax.js:CASSE_CON_REGOLE` — Forense/Inarcassa/CNPADC/CIPAG-geometri,
   quest'ultima aggiunta 2026-09-11 — verificato contando le chiavi, non a

@@ -49,6 +49,10 @@ const FEATURE_KEYS = new Set([
   'nudge_acted_price-hike', 'nudge_acted_budget-stale', 'nudge_acted_bnpl-exposure',
   'nudge_acted_es-tax-set-aside', 'nudge_acted_investment-readiness',
 ]);
+const DIAGNOSTIC_KEYS = new Set([
+  'app_ready', 'app_error', 'vault_integrity_failed', 'update_failed',
+  'import_failed', 'model_load_failed', 'mesh_transport_failed',
+]);
 
 async function listAllKeys(kv, prefix) {
   const keys = [];
@@ -146,7 +150,16 @@ export async function computeStats(kv, { monthsBack = 6, now = new Date() } = {}
   const totaleConProvenienza = (installsBySource.invito || 0) + (installsBySource.diretto || 0);
   const viralShare = totaleConProvenienza > 0 ? +((installsBySource.invito || 0) / totaleConProvenienza).toFixed(3) : null;
 
+  const diagnosticKeys = await listAllKeys(kv, 'diagnostic:');
+  const diagnosticByDay = {};
+  for (const entry of diagnosticKeys) {
+    const [, day, key] = entry.name.split(':');
+    if (!DIAGNOSTIC_KEYS.has(key)) continue;
+    diagnosticByDay[day] ||= {};
+    diagnosticByDay[day][key] = (diagnosticByDay[day][key] || 0) + 1;
+  }
   return {
+    diagnosticByDay,
     totalInstallsEver: installs.length,
     activeByMonth,
     currentMonthActive,
@@ -173,7 +186,15 @@ export async function handleRequest(request, env) {
   if (request.method === 'POST' && url.pathname === '/') {
     let body;
     try { body = await request.json(); } catch (_) { return new Response('JSON non valido.', { status: 400 }); }
-    const { id, event, month, day, key, platform, source } = body || {};
+    const { id, event, month, day, key, platform, source, appVersion } = body || {};
+    if (event === 'diagnostic') {
+      if (!DIAGNOSTIC_KEYS.has(key) || !/^\d{4}-\d{2}-\d{2}$/.test(day || '') || !/^\d+(?:\.\d+){0,3}$/.test(String(appVersion || ''))) {
+        return new Response('diagnostic non valido.', { status: 400 });
+      }
+      const p = PLATFORMS.has(platform) ? platform : 'altro';
+      await env.MOMENTUM_TELEMETRY.put(`diagnostic:${day}:${key}:${p}:${appVersion}:${crypto.randomUUID()}`, '1', { expirationTtl: 7776000 });
+      return new Response('ok');
+    }
     if (!id || typeof id !== 'string' || id.length > 128) return new Response('id mancante o non valido.', { status: 400 });
     if (event === 'install') {
       await env.MOMENTUM_TELEMETRY.put(`install:${id}`, String(Date.now()));

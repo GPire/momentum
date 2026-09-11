@@ -49,12 +49,6 @@ function detectBrowser(ua) {
 
 // `standalone` = l'app gira già installata (display-mode:standalone o
 // navigator.standalone su iOS) — se true non ha senso mostrare una guida.
-// `maxTouchPoints` (2026-09-11, integrato da un branch parallelo dopo
-// revisione mirata): un iPad in modalità "richiedi sito desktop" (default
-// da iPadOS 13) manda uno user-agent identico a un vero Mac — l'unico modo
-// per distinguerli è che un Mac vero non ha touch. Senza questo, un iPad
-// riceveva le istruzioni per il Dock di macOS invece che per la schermata
-// Home di iOS.
 export function detectPlatform(userAgent = '', { standalone = false, maxTouchPoints = 0 } = {}) {
   const os = /Macintosh/.test(userAgent) && maxTouchPoints > 1 ? 'ios' : detectOS(userAgent);
   const browser = detectBrowser(userAgent);

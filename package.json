@@ -5,8 +5,12 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "test": "node --test src/",
+    "test": "node scripts/run-tests.mjs",
+    "test:serial": "node scripts/run-tests.mjs --serial-files",
     "build": "vite build",
+    "build:portable:setup": "npm ci --prefix scripts/portable-tools --ignore-scripts --no-audit --no-fund",
+    "build:portable": "node scripts/build-portable.mjs",
+    "styles:build": "node scripts/portable-tools/node_modules/tailwindcss/lib/cli.js -c tailwind.config.cjs -i scripts/utility-input.css -o public/ui-utilities.css --minify",
     "build:singlefile": "vite build --mode singlefile",
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync",

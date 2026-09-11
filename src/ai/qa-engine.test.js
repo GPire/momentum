@@ -8,6 +8,15 @@ const { answerQuestion } = await import('./qa-engine.js');
 
 const REF = new Date(2026, 6, 15); // mercoledì 15 luglio 2026
 
+test('payment answers use the date declared in the transaction planner', () => {
+  const ctx = { referenceDate: REF, allTx: {}, paymentDeclarations: [{ key:'manual:netflix', name:'Netflix', amount:12, date:'2026-07-22', kind:'recurring', cadence:'monthly', endDate:'2026-08-22' }] };
+  const result = answerQuestion('quando pago netflix?', ctx);
+  assert.equal(result.intent, 'subscriptions');
+  assert.equal(result.data[0].date, '2026-07-22');
+  assert.match(result.answer, /22/);
+  assert.match(result.answer, /indicata da te/);
+});
+
 function tx(date, amount, description, type = 'uscita', category = 'Alimentari') {
   return { date, amount, description, type, category };
 }
@@ -282,7 +291,7 @@ test('senza budget: affordability chiede il budget invece di inventare', () => {
 test('ragionamento a catena: "cosa succede se spendo di più in X?" usa il grafo misurato', () => {
   // storia con legame vero: settimane alterne alte/basse per Ristorante e Trasporti insieme
   const allTx = {};
-  const monday0 = new Date(2026, 0, 5);
+  const monday0 = new Date(Date.UTC(2026, 0, 5, 12));
   for (let w = 0; w < 25; w++) {
     const d = new Date(monday0.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000).toISOString().slice(0, 10);
     const mk = d.slice(0, 7);
@@ -294,7 +303,7 @@ test('ragionamento a catena: "cosa succede se spendo di più in X?" usa il grafo
   const r = answerQuestion('cosa succede se spendo di più in ristorante?', { ...CTX, allTx });
   assert.equal(r.intent, 'causal');
   assert.ok(r.answer.includes('Trasporti'));
-  assert.ok(r.answer.includes('Non è una legge')); // onestà dichiarata nella risposta
+  assert.ok(r.answer.includes('Non è una legge'), r.answer); // onestà dichiarata nella risposta
 });
 
 // Integrazione additiva (src/predict/causal-orchestrator.js, PCMCI): con
@@ -305,7 +314,7 @@ test('ragionamento a catena: con abbastanza storia e un legame ritardato vero, a
   function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
   const rnd = rng(55);
   const allTx = {};
-  const monday0 = new Date(2026, 0, 5);
+  const monday0 = new Date(Date.UTC(2026, 0, 5, 12));
   let ristPrec = 50;
   for (let w = 0; w < 26; w++) {
     const dRist = new Date(monday0.getTime() + w * 7 * 86_400_000).toISOString().slice(0, 10);
@@ -333,11 +342,13 @@ test('ragionamento a catena: con abbastanza storia e un legame ritardato vero, a
 // resta puro/sincrono) e la diagnosi lo trova responsabile del legame, il QA
 // avvisa PRIMA di qualunque numero — mai lasciare credere una leva finta.
 test('ragionamento a catena: un legame spiegato dal macro viene segnalato prima dei numeri', () => {
+  // UTC noon keeps the generated date-only fixture on the same calendar day
+  // in CI and locally; local midnight converted to ISO shifted it to Sunday.
   function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
   const gauss = (r) => { const u1 = Math.max(1e-9, r()), u2 = r(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); };
   const rnd = rng(31);
   const allTx = {};
-  const monday0 = new Date(2026, 0, 5);
+  const monday0 = new Date(Date.UTC(2026, 0, 5, 12));
   const macroRaw = []; let m = 3;
   for (let w = 0; w < 26; w++) {
     m += 0.15 * gauss(rnd);
@@ -357,7 +368,7 @@ test('ragionamento a catena: un legame spiegato dal macro viene segnalato prima 
   // ha trovato E spiegato con successo, il messaggio deve dirlo prima dei
   // numeri; se per rumore statistico non lo trova in questo campione, la
   // risposta esistente deve comunque restare intatta (mai un crash).
-  assert.ok(r.answer.includes('Non è una legge'));
+  assert.ok(r.answer.includes('Non è una legge'), r.answer);
   if (r.answer.includes('Attenzione:')) {
     assert.match(r.answer, /tasso di riferimento BCE/);
     assert.match(r.answer, /potrebbe non spostare nulla/);
@@ -368,7 +379,7 @@ test('FALLBACK: macroContext malformato (rete assente/dati corrotti) → rispost
   function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 16777216; }; }
   const rnd = rng(55);
   const allTx = {};
-  const monday0 = new Date(2026, 0, 5);
+  const monday0 = new Date(Date.UTC(2026, 0, 5, 12));
   let ristPrec = 50;
   for (let w = 0; w < 26; w++) {
     const dRist = new Date(monday0.getTime() + w * 7 * 86_400_000).toISOString().slice(0, 10);
@@ -393,7 +404,7 @@ test('FALLBACK: macroContext malformato (rete assente/dati corrotti) → rispost
 
 test('senza macroContext, il comportamento resta quello di sempre (nessuna regressione)', () => {
   const allTx = {};
-  const monday0 = new Date(2026, 0, 5);
+  const monday0 = new Date(Date.UTC(2026, 0, 5, 12));
   for (let w = 0; w < 25; w++) {
     const d = new Date(monday0.getTime() + w * 7 * 86_400_000 + 2 * 86_400_000).toISOString().slice(0, 10);
     const mk = d.slice(0, 7);

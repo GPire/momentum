@@ -1,0 +1,2212 @@
+{
+  "date": "2026-09-11",
+  "reviewedCodeCommit": "eb863386efecb9cf11d5021933a79fb7fc148879",
+  "provenance": "Full suite ran before final UI refinements; 40 focused tests and responsive browser scenarios were rerun after those refinements. This is not a test of the merge with main.",
+  "fullSuite": {
+    "command": "npm run test:serial",
+    "runtime": "Node 24",
+    "logSha256": "4cab16308023b3de3254e4e99f39d847627ef18032fd9658a2e365d06918b348",
+    "fileCount": 310,
+    "tests": 4767,
+    "passed": 4767,
+    "failed": 0,
+    "skipped": 0,
+    "files": [
+      {
+        "path": "src/ai/calibration-gate.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/calibration.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/causal-macro-note.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/chat-fallback.test.js",
+        "tests": 41,
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/chat.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/conformal.test.js",
+        "tests": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/embed-models.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/expert-bandit.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/hashed-logreg.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/hierarchical-bandit.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/interrogazione.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/local-sentiment.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/merchant-dictionary.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/merchant-hierarchy.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/merchant-morphology.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/merge-gate.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/momentum-embed-static.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/neural-nexus.test.js",
+        "tests": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/neurosym.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/orchestrator.test.js",
+        "tests": 42,
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/pianificatore.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/progress-milestones.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/qa-banco-prova.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/qa-canonical-bank.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/qa-engine.test.js",
+        "tests": 72,
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/qa-learning.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/quantize.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/reasoning-fusion.test.js",
+        "tests": 25,
+        "passed": 25,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/rifiuto-strutturale.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/sentiment-model.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/signal-fusion.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/spazio-momentum.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/train/model-gate.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ai/trained-categorizer.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/arbiter.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/asset-overview.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/asset-search.test.js",
+        "tests": 36,
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/asset-track-record.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/assorbimento.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/bridge.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/capacita-registrate.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/causale-validita.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/cicli.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/comps-multipli.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/confronto-titoli.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/correlation-regime.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/cripto-azioni.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/cripto-cache.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/cripto-diversificazione.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/crypto-derivati.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/crypto-storico.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/daily-long.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/deterioramento.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/diagnosi-istituzionale.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/divario-comportamento.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/eventi-lunghi.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/eventi.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/factors.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/fondamentali.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/fonti.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/forced-sale-risk.test.js",
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/freschezza.test.js",
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/global-stress.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/grafici.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/historical-backtest.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/historical-panel.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/historical-sequences.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/live-price.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/macro-causality.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/macro-regime.test.js",
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/market-cycles.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/market-data.test.js",
+        "tests": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/market-stress.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/master-principles.test.js",
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/materie-prime.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/mercato-canonical-bank.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/mercato-qa.test.js",
+        "tests": 61,
+        "passed": 61,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/mercato-vivo.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/net-return.test.js",
+        "tests": 27,
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/net-worth.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/news.test.js",
+        "tests": 30,
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/notizie.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/nowcast.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/panel-settoriale.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/panoramica-incrociata.test.js",
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/portfolio-import.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/portfolio-tail-risk.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/portfolio-track-record.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/portfolio.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/posizionamento.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/previsione-condizionata.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/qa-personaggi.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/quadro-unico.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/qualita-nel-tempo.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/quality-scores.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/regime.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/rifugi.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/rischio-rovina.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/rumore-correlazione.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/screener-settore.test.js",
+        "tests": 34,
+        "passed": 34,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/sector-rotation.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/sentiment-divergence.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/sic-settore-map.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/sources.test.js",
+        "tests": 44,
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/stock-history.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/stock-tokenized-proxy.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/strategy-evolution.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/strategy-validation.test.js",
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/tassi-mondo.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/terre-rare.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/tesi-investimento.test.js",
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/titolo-causale.test.js",
+        "tests": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/translate.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/veglia.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/alpha/year-over-year.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/auto-update.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/backup-health.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/backup.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/con-timeout.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/constants.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/currency-convert.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/custom-categories-merge.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/data-freshness.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/date-utils.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/dedup-simulation.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/deduplicator.test.js",
+        "tests": 25,
+        "passed": 25,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/discovery-memory.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/download-progress.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/iso4217.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/license.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/onboarding-state.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/recovery-notice.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/recovery-shares.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/recovery-simulation.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/share-base.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/subscription.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/surface-bridge.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/telemetry.test.js",
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/update-category.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/update-locator.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/user-data-merge.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/vault-bulk.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/vault.test.js",
+        "tests": 44,
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/verify-arithmetic.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/core/whats-new.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/device/adaptive-runtime.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/device/compute-planner.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/graph/dcgn.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/graph/market-knowledge.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/graph/semantic.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/i18n/detect.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/i18n/glossario-finanziario.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/i18n/leggibilita.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/i18n/translation-coverage.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/i18n/ui-strings.test.js",
+        "tests": 86,
+        "passed": 86,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/camt053.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/categorize.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/csv-parser.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/multi-import.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/notification-parser.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/pdf-parser.test.js",
+        "tests": 44,
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/quick-add-link.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/revolut-csv.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/screenshot-parser.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/security-purchase-detector.test.js",
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/import/source-registry.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/country-invoicing.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/fatturapa-format.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/fatturapa-import.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/fatturapa-sim.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/fatturapa-xml.test.js",
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/invoice-engine.test.js",
+        "tests": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/invoice-pdf.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/it-fiscal-id.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/profili-sim.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/swiss-qr-bill.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/invoice/swiss-qr-reference.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/channel-learning.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/collective-curiosity.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/compute-market.test.js",
+        "tests": 25,
+        "passed": 25,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/compute-reliability.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/contribution-drift.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/device-signing-identity.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/device-trust.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/exchange-identity.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/federated-distillation.test.js",
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/garanzia-partizione.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/garanzia-sybil-partizione.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/garanzia-trasporto.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/iblt.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/knowledge-relay.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/mesh-economics.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/mesh-reconnect.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/mesh-signaling.test.js",
+        "tests": 51,
+        "passed": 51,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/meta-federation.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/nat-probe.test.js",
+        "tests": 33,
+        "passed": 33,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/nexus-adapter.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/private-data-boundary.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/progressive-estimate.test.js",
+        "tests": 25,
+        "passed": 25,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/relay-election.test.js",
+        "tests": 32,
+        "passed": 32,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/sdp-codec.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/sentiment-relay.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/store-forward.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/sybil-resistance.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/sync-priority.test.js",
+        "tests": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/sync.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/mesh/update-ledger.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/pay/qr-encode.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/pay/sepa-qr.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/accountant-export-intl.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/accountant-export.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/achievements.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/advisor-bandit.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/advisor.test.js",
+        "tests": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/amount-memory.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/anomaly.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/anytime-experiment.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/bnpl.test.js",
+        "tests": 41,
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/budget-advisor.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/calendar-format.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/cash-forecast.test.js",
+        "tests": 45,
+        "passed": 45,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/causal-diagnostics.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/causal-discovery.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/causal-effects.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/causal-graph.test.js",
+        "tests": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/causal-orchestrator.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/clarity.test.js",
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/command-center.test.js",
+        "tests": 47,
+        "passed": 47,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/commitment-training.test.js",
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/context-predictor.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/debt-payoff.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/dispatcher.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/engagement.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/experiment-chip.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/experiment-tracker.test.js",
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/f24.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/fire.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/fixed-commitments.test.js",
+        "tests": 46,
+        "passed": 46,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/garanzia-budget.test.js",
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/income-model.test.js",
+        "tests": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/iva-liquidazione.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/lifestyle.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/macro-context.test.js",
+        "tests": 27,
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/news-intent.test.js",
+        "tests": 29,
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/nonlinear-dependence.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/onboarding-budget.test.js",
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/onboarding-priors.test.js",
+        "tests": 41,
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/oracle.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/payment-agenda.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/period-compare.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/price-alerts.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/profilo-feature.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/ravvedimento.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/rilevanza-card.test.js",
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/sequence.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/spending-brake.test.js",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/state-space.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/subscriptions.test.js",
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-cash-basis.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-ch.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-deadlines.test.js",
+        "tests": 41,
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-engine.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-es.test.js",
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-payments.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-rules-diff.test.js",
+        "tests": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-rules.test.js",
+        "tests": 48,
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-scenarios.test.js",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax-suggestion.test.js",
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tax.test.js",
+        "tests": 89,
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/tenuta-ciclo.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/week-insight.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/weekly-budget.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/predict/what-if.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/pwa/install-guide.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/sdk/federation.test.js",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/exchange-rate.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/garanzia-rilascio.test.js",
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/group-chat.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/group-membership.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/invite-codec.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/item-split.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/payment-promise.test.js",
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/payout.test.js",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/repayment-share.test.js",
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/split-engine.test.js",
+        "tests": 104,
+        "passed": 104,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/split-intelligence.test.js",
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/split/split-predictor.test.js",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/trips/expense-bridge.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/trips/trip-cycle.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/trips/trip-engine.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/trips/trip-merge.test.js",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/trips/trip-period.test.js",
+        "tests": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/trips/trip-review.test.js",
+        "tests": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/calendar-period.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/category-icon-hints.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/dashboard-actions.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/date-picker.test.js",
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/demo-dataset.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/first-use-hint.test.js",
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/garanzia-dom.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/mese-strip.test.js",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/money-editor-values.test.js",
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/split-draft.test.js",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/split-money.test.js",
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/theme-preference.test.js",
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/ui/viewport-inset.test.js",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/voice/intent-segmenter.test.js",
+        "tests": 34,
+        "passed": 34,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/voice/voice-learning.test.js",
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "src/voice/voice.test.js",
+        "tests": 48,
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "server/telemetry-worker.test.js",
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "finalFocused": {
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0,
+    "files": [
+      "src/ui/split-draft.test.js",
+      "src/split/payout.test.js",
+      "src/split/repayment-share.test.js",
+      "src/i18n/translation-coverage.test.js",
+      "src/ui/garanzia-dom.test.js"
+    ]
+  },
+  "productionBuild": {
+    "command": "npm run build:portable",
+    "passed": true,
+    "warnings": [
+      "Chunks larger than 500 kB"
+    ],
+    "logSha256": "d9bafc58cd8830044ff064ee64cc752f4eeb04d2af0c560287158b5f3fd8286b"
+  },
+  "pending": [
+    "Merge with main d92a5dc and revalidate resulting commit",
+    "Standard test/build in CI",
+    "Physical iOS/Android, accessibility and store verification"
+  ]
+}

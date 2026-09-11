@@ -25,6 +25,7 @@
 'use strict';
 
 const r2 = (n) => Math.round(n * 100) / 100;
+const DAY_MS = 86_400_000;
 
 // Cattura i checkpoint scelti (default 7/14/30 giorni) dal `path` di un
 // `cashForecast()` già calcolato — nessun ricalcolo. `null` se il forecast
@@ -45,7 +46,7 @@ export function snapshotForecast(forecast, { now = Date.now(), checkpoints = [7,
   };
 }
 
-// Flusso netto REALE fra due date incluse — stessa convenzione di segno già
+// Flusso reale nell'intervallo [fromMs, toMs), con la stessa convenzione di segno
 // in uso ovunque nel progetto per la liquidità (entrata +, uscita/invest -,
 // vedi computeSafeSweepEstimate in main.js): NON una seconda definizione.
 function netFlowBetween(allTx, fromMs, toMs) {
@@ -54,7 +55,7 @@ function netFlowBetween(allTx, fromMs, toMs) {
     for (const t of (txs || [])) {
       if (!t || !t.date) continue;
       const d = Date.parse(t.date);
-      if (!(d >= fromMs && d <= toMs)) continue;
+      if (!(d >= fromMs && d < toMs)) continue;
       if (t.type === 'entrata') net += +t.amount || 0;
       else if (t.type === 'uscita') net -= +t.amount || 0;
       else if (t.type === 'invest') net -= +t.amount || 0;
@@ -69,13 +70,16 @@ function netFlowBetween(allTx, fromMs, toMs) {
 // (o equivalente), stessa struttura per-mese usata in tutto il progetto.
 export function evaluateSnapshot(snapshot, allTx, { now = Date.now() } = {}) {
   if (!snapshot) return [];
+  // simulateCash starts tomorrow and includes the full target UTC day.
+  // This convention also repairs legacy snapshots without rewriting them.
   const takenAtMs = Date.parse(snapshot.takenAt);
+  const fromMs = Math.floor(takenAtMs / DAY_MS) * DAY_MS + DAY_MS;
   const today = Date.parse(new Date(now).toISOString().slice(0, 10));
   const out = [];
   for (const target of snapshot.targets) {
     const targetMs = Date.parse(target.date);
-    if (targetMs > today) continue; // non ancora verificabile: si tace, non si stima
-    const actual = r2(snapshot.startBalance + netFlowBetween(allTx, takenAtMs, targetMs));
+    if (!Number.isFinite(fromMs) || !Number.isFinite(targetMs) || targetMs >= today || targetMs < fromMs) continue;
+    const actual = r2(snapshot.startBalance + netFlowBetween(allTx, fromMs, targetMs + DAY_MS));
     out.push({
       daysAhead: target.daysAhead,
       date: target.date,

@@ -314,6 +314,18 @@ test('VaultDAO.checkTxLogRecovery: legge tx_log e ritorna SOLO cosa manca, senza
   }
 });
 
+test('recupero confermato dopo una modifica: niente duplicati o transazioni cancellate', () => {
+  const previous = VaultDAO.state;
+  const save = VaultDAO.save;
+  try {
+    const tx = { id: 'log-id', amount: 20, date: '2026-09-07', type: 'uscita', description: 'Pane' };
+    VaultDAO.state = { transactions: { '2026-09': [{ ...tx, id: 'manual-id' }] }, deletedTx: { deleted: 1 } };
+    VaultDAO.save = () => assert.fail('Nessun candidato valido: non salvare');
+    assert.equal(VaultDAO.applyTxLogRecovery({ '2026-09': [tx, { ...tx, id: 'deleted', amount: 30 }] }), 0);
+    assert.equal(VaultDAO.state.transactions['2026-09'].length, 1);
+  } finally { VaultDAO.state = previous; VaultDAO.save = save; }
+});
+
 test('VaultDAO.checkTxLogRecovery: IndexedDB non disponibile/errore → nessun crash, nessuna transazione recuperata', async () => {
   const savedGetAll = DurableStore.getAll;
   try {

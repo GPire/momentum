@@ -17,6 +17,20 @@ function fakeKv() {
   };
 }
 
+test('diagnostica senza identità: viene contata separatamente dagli utenti attivi', async () => {
+  const kv = fakeKv();
+  const env = { MOMENTUM_TELEMETRY: kv };
+  const response = await handleRequest(new Request('https://x.test/', {
+    method: 'POST', body: JSON.stringify({ event: 'diagnostic', key: 'app_ready',
+      day: '2026-09-08', platform: 'ios', appVersion: '50.1.0' }),
+  }), env);
+  assert.equal(response.status, 200);
+  const stats = await computeStats(kv, { now: new Date('2026-09-08') });
+  assert.deepEqual(stats.diagnosticByDay, { '2026-09-08': { app_ready: 1 } });
+  assert.equal(stats.totalInstallsEver, 0);
+  assert.equal(stats.currentMonthActive, 0);
+});
+
 test('computeStats: nessun dato → tutto a zero, mai un numero inventato', async () => {
   const kv = fakeKv();
   const r = await computeStats(kv, { now: new Date('2026-07-27') });

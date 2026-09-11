@@ -9,6 +9,7 @@
 // dove possibile (PayPal/Revolut), così l'amico paga in un tocco. Onesto: nessun
 // dato inventato, niente movimenti (Momentum non muove soldi). Funzioni pure.
 'use strict';
+import { tPayout } from '../i18n/payout.js';
 
 export const PAYOUT_METHODS = ['iban', 'paypal', 'revolut', 'satispay', 'other'];
 export const PAYOUT_LABELS = { iban: 'IBAN (bonifico)', paypal: 'PayPal', revolut: 'Revolut', satispay: 'Satispay', other: 'Altro / link' };
@@ -16,21 +17,28 @@ export const PAYOUT_LABELS = { iban: 'IBAN (bonifico)', paypal: 'PayPal', revolu
 // Costruisce, dove esiste, un LINK di pagamento toccabile con l'importo già
 // dentro (l'amico apre e paga). Per IBAN/Satispay non c'è un link universale →
 // null (si usa il testo). Tollerante: accetta username, @handle o URL completo.
-export function buildPayoutLink(method, value, amount) {
+export function buildPayoutLink(method, value, amount, currency = 'EUR') {
   const v = String(value || '').trim();
   if (!v) return null;
+  currency = String(currency).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency) || !Number.isFinite(Number(amount)) || Number(amount) < 0) return null;
   const amt = (Math.round((+amount || 0) * 100) / 100).toFixed(2);
-  if (method === 'paypal') {
-    if (/^https?:\/\//i.test(v)) return v.replace(/\/+$/, '') + (amount > 0 ? `/${amt}EUR` : '');
-    const user = v.replace(/^@/, '').replace(/^paypal\.me\//i, '').replace(/^https?:\/\//i, '');
-    return `https://paypal.me/${user}${amount > 0 ? `/${amt}EUR` : ''}`;
+  if (method === 'paypal' || method === 'revolut') {
+    const host = method === 'paypal' ? 'paypal.me' : 'revolut.me';
+    let user = v.replace(/^@/, '');
+    if (/^https?:\/\//i.test(v) || v.toLowerCase().startsWith(host + '/')) {
+      try {
+        const url = new URL(/^https?:/i.test(v) ? v : `https://${v}`);
+        if (url.protocol !== 'https:' || ![host, `www.${host}`].includes(url.hostname) || url.username || url.password || url.port) return null;
+        user = url.pathname.split('/').filter(Boolean)[0] || '';
+      } catch { return null; }
+    }
+    if (!/^[a-z\d._-]+$/i.test(user)) return null;
+    return `https://${host}/${user}${method === 'paypal' && amount > 0 ? `/${amt}${currency}` : ''}`;
   }
-  if (method === 'revolut') {
-    if (/^https?:\/\//i.test(v)) return v;
-    const user = v.replace(/^@/, '').replace(/^revolut\.me\//i, '');
-    return `https://revolut.me/${user}`;
+  if (method === 'other') {
+    try { const url = new URL(v); if (url.protocol === 'https:' && !url.username && !url.password) return url.href; } catch { }
   }
-  if (method === 'other' && /^https?:\/\//i.test(v)) return v;
   return null;
 }
 
@@ -47,20 +55,20 @@ export const PAYOUT_BRAND_SIGNATURE = '— conto diviso con Momentum, giusto per
 // e IL MODO per pagare (payLink) e, opzionale, il link alla divisione su Momentum
 // (momentumLink) per l'amico. `brand` (default true) aggiunge la firma sobria.
 // Ritorna { message, link (=payLink), momentumLink, amount }.
-export function buildPayoutRequest({ method = 'iban', value = '', holder = '', amount = 0, note = '', fromName = '', brand = true, momentumLink = '' } = {}) {
-  const eur = `${(Math.round((+amount || 0) * 100) / 100).toFixed(2).replace('.', ',')} €`;
-  const payLink = buildPayoutLink(method, value, amount);
-  const hi = fromName ? `Ciao ${fromName}, ` : 'Ciao, ';
-  const forWhat = note ? ` per ${note}` : '';
+export function buildPayoutRequest({ method = 'iban', value = '', holder = '', amount = 0, note = '', fromName = '', brand = true, momentumLink = '', currency = 'EUR', lang = 'it' } = {}) {
+  currency = String(currency).toUpperCase();
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0 || !Number.isSafeInteger(Math.round(Number(amount) * 100)) || !/^[A-Z]{3}$/.test(currency)) throw new Error('Invalid repayment amount or currency');
+  const tr = (key, ...values) => tPayout(key, lang, ...values);
+  const money = new Intl.NumberFormat(lang, { style: 'currency', currency }).format(Number(amount)).replace(/[\u00a0\u202f]/g, ' ');
+  const payLink = buildPayoutLink(method, value, amount, currency);
   let how;
-  if (method === 'iban') how = value ? `Puoi pagarmi con un bonifico:\nIBAN ${value}${holder ? `\nIntestato a ${holder}` : ''}` : 'Mandami tu come preferisci pagare.';
-  else if (payLink) how = `Puoi pagarmi qui:\n${payLink}`;
-  else if (method === 'satispay') how = `Puoi pagarmi su Satispay${value ? ` (${value})` : ''}.`;
-  else how = value ? `Puoi pagarmi qui: ${value}` : 'Dimmi tu come preferisci pagare.';
-  const mLine = (brand && momentumLink) ? `\n\n${PAYOUT_BRAND_SIGNATURE}\nVedi la tua parte 👉 ${momentumLink}`
-    : brand ? `\n\n${PAYOUT_BRAND_SIGNATURE}` : '';
-  const message = `${hi}mi devi ${eur}${forWhat}. ${how}\nGrazie!${mLine}`;
-  return { message, link: payLink, momentumLink: momentumLink || null, amount: Math.round((+amount || 0) * 100) / 100 };
+  if (method === 'iban') how = value ? `${tr('bank')}\nIBAN ${value}${holder ? `\n${tr('holder', holder)}` : ''}` : tr('fallback');
+  else if (payLink) how = `${tr('pay')}\n${payLink}`;
+  else if (method === 'satispay') how = tr('satispay', value ? ` (${value})` : '');
+  else how = tr('fallback');
+  const mLine = brand ? `\n\n${tr('signature')}${momentumLink ? `\n${tr('details')}\n${momentumLink}` : ''}` : '';
+  const message = `${tr('request', fromName ? ` ${fromName}` : '', money, note ? tr('for', note) : '')}\n\n${how}\n${tr('thanks')}${mLine}`;
+  return { message, link: payLink, momentumLink: momentumLink || null, amount: Math.round(Number(amount) * 100) / 100, currency };
 }
 
 // Risolve il metodo di pagamento configurato: il profilo esplicito payout se

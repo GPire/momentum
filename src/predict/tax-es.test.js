@@ -43,6 +43,8 @@ test('cuotaReta: default usa la base mínima del tramo, mai una base più alta i
 
 test('cuotaReta: aliquota 2026 è 31,5% (28,30 contingencias comunes + 1,30 profesionales + 0,90 MEI + 0,90 cese de actividad + 0,10 formación profesional)', () => {
   assert.equal(+RETA_ALIQUOTA_2026.toFixed(3), 0.315);
+  // Seguridad Social 2026, tramo > 2.760 e <= 3.190: base minima 1.437,91.
+  assert.equal(cuotaReta(3000).cuotaMensual, 452.94);
 });
 
 test('cuotaReta: base scelta esplicitamente viene rispettata, ma vincolata dentro il tramo (mai fuori range)', () => {

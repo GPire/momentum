@@ -27,8 +27,10 @@ export function accountantReportToJson(report, meta = {}) {
 }
 
 function csvEscape(v) {
-  const s = v == null ? '' : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  let s = v == null ? '' : String(v);
+  // Spreadsheet formula protection applies to text, never to accounting numbers.
+  if (typeof v === 'string' && /^[\s\u0000-\u001f]*[=+@-]/.test(s)) s = "'" + s;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 function csvRow(cells) { return cells.map(csvEscape).join(',') + '\n'; }
 function csvSection(title, headerCells, rows) {
@@ -41,8 +43,8 @@ function csvSection(title, headerCells, rows) {
 // Italia: fatture/scomposizione/scadenze/fatture non incassate — la forma
 // che buildAccountantReport() produce (accountant-export.js).
 function csvIt(report, meta) {
-  let out = `# Momentum — riepilogo commercialista (${meta.emitter || ''})\n`;
-  out += `# Anno,${report.anno}\n# Regime,${report.regime || 'non impostato'}\n# Generato,${report.generatoIl}\n\n`;
+  let out = csvRow([`# Momentum — riepilogo commercialista (${meta.emitter || ''})`]);
+  out += csvRow(['# Anno', report.anno]) + csvRow(['# Regime', report.regime || 'non impostato']) + csvRow(['# Generato', report.generatoIl]) + '\n';
   out += csvSection('Riepilogo', ['Voce', 'Valore (EUR)'], [
     ['Fatturato (competenza)', report.fatturato],
     ['Incassato (cassa)', report.incassato],
@@ -77,8 +79,8 @@ function csvIt(report, meta) {
 // Svizzera/Spagna: forma più semplice, contributi[]/imposta/noteOneste —
 // buildAccountantReportCh()/buildAccountantReportEs() (accountant-export-intl.js).
 function csvIntl(report, meta) {
-  let out = `# Momentum — riepilogo commercialista/gestor (${meta.emitter || ''})\n`;
-  out += `# Paese,${report.paese}\n# Anno,${report.anno}\n# Generato,${report.generatoIl}\n\n`;
+  let out = csvRow([`# Momentum — riepilogo commercialista/gestor (${meta.emitter || ''})`]);
+  out += csvRow(['# Paese', report.paese]) + csvRow(['# Anno', report.anno]) + csvRow(['# Generato', report.generatoIl]) + '\n';
   const voci = [...report.contributi, ...(report.imposta ? [report.imposta] : [])];
   const totale = +voci.reduce((s, v) => s + v.importo, 0).toFixed(2);
   out += csvSection('Riepilogo', ['Voce', `Valore (${report.valuta})`], [

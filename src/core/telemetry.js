@@ -1,19 +1,5 @@
-// Conteggio ANONIMO di installazioni/utenti attivi — SOLO per dare a chi
-// gestisce il progetto un numero reale da mostrare a investitori/partner,
-// MAI per profilare l'utente. Nessun dato personale o finanziario esce dal
-// dispositivo: un id casuale (non collegato a nessuna identità, nessuna
-// transazione, nessun saldo) + "sono attivo questo mese/anno".
-//
-// ATTIVO DI DEFAULT (opt-OUT, non opt-in): un id casuale non collegabile a
-// nessuna identità reale non è "dato personale" in senso stretto — a
-// differenza delle chiavi API/dati finanziari (quelli sì restano SEMPRE
-// solo sul dispositivo, senza eccezioni). Un opt-in nascosto in
-// Impostazioni darebbe numeri quasi inutili all'inizio, quando servono di
-// più. Onestà: avviso ESPLICITO e immediato al primo avvio (mai silenzioso)
-// con un tocco per disattivare subito — non un opt-out nascosto in un
-// sottomenu. Senza endpoint configurato, ogni funzione qui è un no-op
-// silenzioso (nessun errore per chi clona il repo senza distribuire il
-// proprio server di conteggio).
+// Conteggio attivo di default, disattivabile dall'utente. Rispetta l'opt-out salvato.
+// Un ID casuale resta un identificatore pseudonimo; il trasporto espone metadati.
 'use strict';
 
 const ANON_ID_KEY = 'momentum_anon_id';
@@ -24,12 +10,9 @@ const ACTIVE_MONTH_KEY = 'momentum_telemetry_active_month';
 const ACTIVE_DAY_KEY = 'momentum_telemetry_active_day';
 const FEATURE_SENT_KEY = 'momentum_telemetry_feature_sent';
 
-// Diagnostica tecnica minima (2026-09-11, integrata da un branch parallelo
-// dopo revisione mirata): resta disponibile anche dopo l'opt-out dei dati
-// d'uso sopra — è un canale DIVERSO, non un modo per aggirare l'opt-out: le
-// chiavi sono chiuse (nessun testo libero) e il payload non contiene mai un
-// identificatore persistente né dati finanziari. Serve solo a sapere SE una
-// versione ha un tasso anomalo di crash/errori tecnici, mai "chi" o "cosa".
+// Diagnostica tecnica minima: resta disponibile anche dopo l'opt-out dei dati
+// d'uso. Le chiavi sono chiuse e il payload non contiene mai dati finanziari,
+// testo libero o un identificatore persistente.
 export const DIAGNOSTIC_KEYS = [
   'app_ready', 'app_error', 'vault_integrity_failed', 'update_failed',
   'import_failed', 'model_load_failed', 'mesh_transport_failed',
@@ -93,7 +76,7 @@ export const FEATURE_KEYS = [
 const FEATURE_KEY_SET = new Set(FEATURE_KEYS);
 
 export function isTelemetryEnabled(storage = localStorage) {
-  return storage.getItem(OPT_IN_KEY) !== '0'; // assente o '1' → attivo di default
+  return storage.getItem(OPT_IN_KEY) !== '0';
 }
 
 // true solo alla primissima chiamata di sempre (mai vista prima su questo
@@ -109,9 +92,6 @@ export function setTelemetryEnabled(enabled, storage = localStorage) {
   storage.setItem(OPT_IN_KEY, enabled ? '1' : '0');
 }
 
-// Diagnostica essenziale, indipendente dall'opt-out di install/active/
-// feature sopra (vedi commento su DIAGNOSTIC_KEYS): valida chiave e versione
-// PRIMA di spedire, mai un fetch con un payload fuori formato.
 export async function sendEssentialDiagnostic(endpoint, key, {
   fetchImpl = fetch, now = new Date(), platform = 'altro', appVersion = 'unknown',
 } = {}) {
@@ -154,10 +134,6 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
       const body = { id, event: 'install' };
       if (PLATFORMS.includes(platform)) body.platform = platform;
       body.source = cameFromInvite ? 'invito' : 'diretto';
-      // response.ok verificato (2026-09-11, bug reale trovato in un branch
-      // parallelo e integrato qui): un fetch che risolve con un errore HTTP
-      // (es. 500) non lanciava, quindi veniva segnato "inviato" e mai più
-      // ritentato — l'evento andava perso in silenzio per sempre.
       const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!response?.ok) throw new Error('Telemetry request rejected');
       storage.setItem(INSTALL_SENT_KEY, '1');

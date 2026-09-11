@@ -307,3 +307,21 @@ test('GARANZIA: chi rifiuta il budget può comunque essere interpellato sullo st
   const soloBudgetRifiutato = { budgetDeclined: true };
   assert.deepEqual(numeriDaChiedere(soloBudgetRifiutato, { forzato: true }), ['stipendio']);
 });
+
+test('start without import reuses a sufficiently consistent income from real transactions', () => {
+  const transactions = Object.fromEntries(['05','06','07'].map(month => [`2026-${month}`, [{type:'entrata',amount:1500,date:`2026-${month}-27`,description:'Stipendio ACME'}]]));
+  const state = {transactions,budgetDeclined:true};
+  const before = JSON.stringify(state);
+  assert.deepEqual(numeriDaChiedere(state,{forzato:true}),[]);
+  assert.equal(JSON.stringify(state),before,'recognition must not confirm or persist a financial choice');
+  assert.deepEqual(numeriDaChiedere({transactions},{forzato:true}),['budget'],'historical spending never authorizes a budget');
+});
+test('incomplete history and demo data do not count as known income', () => {
+  const income = month => ({type:'entrata',amount:1500,date:`2026-${month}-27`,description:'Stipendio ACME'});
+  for (const state of [
+    {budgetDeclined:true,transactions:{'2026-07':[income('07')]}},
+    {budgetDeclined:true,transactions:{'2026-06':[income('06')],'2026-07':[income('07')]}},
+    {budgetDeclined:true,demoTransactions:[income('05'),income('06'),income('07')]},
+    {budgetDeclined:true,transactions:{'2026-07':[{type:'uscita',amount:20,date:'2026-07-27',description:'Pane'}]}}
+  ]) assert.deepEqual(numeriDaChiedere(state,{forzato:true}),['stipendio']);
+});

@@ -65,11 +65,20 @@ test('compareModels: media che SALE ma una categoria CROLLA -> fail (il caso cri
   assert.ok(r.reasons.some(s => s.includes('crypto')));
 });
 
-test('compareModels: categoria assente in uno dei due report non blocca il confronto sulle altre', () => {
+test('compareModels: categoria non valutata impedisce la promozione', () => {
   const baseline = { acc: 90, perCat: { spesa: 90, nuova: null } };
   const candidate = { acc: 90, perCat: { spesa: 90 } }; // 'nuova' non valutata nel candidato
   const r = compareModels(baseline, candidate);
-  assert.equal(r.pass, true);
+  assert.equal(r.pass, false);
+});
+
+test('compareModels: media buona non nasconde categorie mancanti o metriche non finite', () => {
+  const baseline = { acc: 90, perCat: { spesa: 90, salute: 90 } };
+  for (const perCat of [{ spesa: 99 }, { spesa: 99, salute: NaN }, { spesa: 99, salute: Infinity }, {}]) {
+    assert.equal(compareModels(baseline, { acc: 99, perCat }).pass, false);
+  }
+  assert.equal(compareModels(baseline, { acc: Infinity, perCat: baseline.perCat }).pass, false);
+  assert.equal(compareModels(baseline, baseline, { epsilon: Infinity }).pass, false);
 });
 
 test('compareModels: dataset di valutazione vuoto (acc null) -> fail esplicito, mai un confronto finto', () => {

@@ -25,6 +25,11 @@ const FREE_FEATURES = [
   'proiezione_fine_mese',
   'patrimonio_manuale',
   'import_base',
+  'calendario',
+  'obiettivi_risparmio',
+  'divisione_spese',
+  'export_dati',
+  'vista_completa',
 ];
 
 const PRO_FEATURES = [
@@ -37,7 +42,6 @@ const PRO_FEATURES = [
   'beneish_piotroski', // src/alpha/quality-scores.js
   'sentiment_on_device', // src/ai/local-sentiment.js
   'sync_multi_dispositivo', // mesh P2P WebRTC
-  'export_dati', // CSV/PDF
 ];
 
 const PRO_INVESTOR_FEATURES = [
@@ -53,9 +57,20 @@ const PRO_INVESTOR_FEATURES = [
 
 export const FEATURES_PER_PIANO = {
   [TIER_FREE]: FREE_FEATURES,
-  [TIER_PRO]: PRO_FEATURES,
+  [TIER_PRO]: PRO_INVESTOR_FEATURES,
   [TIER_PRO_INVESTOR]: PRO_INVESTOR_FEATURES,
 };
+
+// A recommendation cannot activate a licence. Age, risk appetite and income
+// alone are never evidence that someone needs a paid plan.
+export function recommendPlan(state = {}) {
+  const profile = state.onboardingProfile || {};
+  if (profile.isMinor || profile.ageBracket === 'under18') return { tier: TIER_FREE, reasons: [] };
+  const reasons = [];
+  if (state.taxRegime || state.esActive || state.chActive || state.chAttivitaTipo) reasons.push('professional_tax');
+  if (state.investmentPrefs?.invests === true && state.positions?.length > 0) reasons.push('portfolio_analysis');
+  return { tier: reasons.length ? TIER_PRO : TIER_FREE, reasons };
+}
 
 // Il piano corrente si legge SEMPRE dalla licenza salvata nello stato, mai
 // da un flag separato che potrebbe disallinearsi — un solo posto dove

@@ -48,12 +48,13 @@ export function upcomingModelo130Deadlines(irpfMensualStimato, { now = new Date(
   const irpf = Number.isFinite(+irpfMensualStimato) ? Math.max(0, +irpfMensualStimato) : 0;
   if (irpf === 0) return [];
   const oggi = new Date(now);
+  oggi.setUTCHours(0, 0, 0, 0);
   const limite = new Date(oggi.getTime() + orizzonteGiorni * DAY_MS);
   const out = [];
   for (const anno of [oggi.getUTCFullYear(), oggi.getUTCFullYear() + 1]) {
     for (const s of MODELO_130_SCADENZE) {
       const data = slittaSeFestivo(new Date(Date.UTC(anno, s.mese - 1, s.giorno)));
-      if (data <= oggi || data > limite) continue;
+      if (data < oggi || data > limite) continue;
       out.push({
         id: `${s.id}-${anno}`,
         label: s.label,

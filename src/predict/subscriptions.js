@@ -31,11 +31,13 @@ function classificaCadenza(intervals, o) {
   if (dentroFinestra(o.intervalDays)) return 'mensile';
   if (dentroFinestra(o.quarterlyDays)) return 'trimestrale';
   if (dentroFinestra(o.annualDays)) return 'annuale';
+  if (intervals.length >= 2 && dentroFinestra({ min: 6, max: 8 })) return 'settimanale';
+  if (intervals.length >= 2 && dentroFinestra({ min: 13, max: 15 })) return 'quindicinale';
   return null;
 }
 
 function flattenTx(allTx) {
-  return Object.values(allTx || {}).flat().filter(t => t.type === 'uscita');
+  return Object.values(allTx || {}).flat().filter(t => t && t.type === 'uscita' && Number.isFinite(t.amount) && t.amount > 0 && typeof t.description === 'string' && t.description.trim() && Number.isFinite(Date.parse(t.date)));
 }
 
 // Raggruppa le transazioni per descrizione simile (stesso giudice del
@@ -68,7 +70,11 @@ export function detectRecurring(allTx, opts = {}) {
         intervals.push(days);
       }
       const avgInterval = intervals.reduce((a, b) => a + b, 0) / (intervals.length || 1);
-      const cadenza = classificaCadenza(intervals, o);
+      let cadenza = classificaCadenza(intervals, o);
+      if (cadenza === 'settimanale' || cadenza === 'quindicinale') {
+        const amounts = g.items.map(t => t.amount);
+        if (Math.max(...amounts) / Math.min(...amounts) > 1.1) cadenza = null;
+      }
       return { ...g, avgInterval, cadenza, isMonthly: cadenza === 'mensile' };
     })
     .filter(g => g.cadenza !== null);
@@ -97,6 +103,8 @@ export function subscriptionSummary(allTx, referenceDate = new Date(), opts = {}
     // avrebbe gonfiato "quanto spendi al mese" di un abbonamento annuale intero).
     const monthlyEquivalent = g.cadenza === 'annuale' ? +(amount / 12).toFixed(2)
       : g.cadenza === 'trimestrale' ? +(amount / 3).toFixed(2)
+      : g.cadenza === 'settimanale' ? +(amount * 52 / 12).toFixed(2)
+      : g.cadenza === 'quindicinale' ? +(amount * 26 / 12).toFixed(2)
       : amount;
     return { name: g.representative, category: g.category, amount, monthlyEquivalent, cadenza: g.cadenza, occurrences: items.length, lastDate: last.date, nextDate: next.toISOString(), avgInterval: Math.round(g.avgInterval || 30) };
   }).sort((a, b) => new Date(a.nextDate) - new Date(b.nextDate));
@@ -144,7 +152,8 @@ export function anticipatePriceHikes(allTx, referenceDate = new Date(), opts = {
       const avgRise = posSteps.reduce((a, b) => a + b, 0) / posSteps.length;
       predictedNext = +(current + avgRise).toFixed(2);
     }
-    const annualImpact = +((current - baseline) * 12).toFixed(2);
+    const paymentsPerYear = { settimanale: 52, quindicinale: 26, mensile: 12, trimestrale: 4, annuale: 1 }[g.cadenza];
+    const annualImpact = +((current - baseline) * paymentsPerYear).toFixed(2);
 
     // (1) CREEP silenzioso: aumento cumulato oltre soglia SENZA un singolo salto
     // grosso (quelli li prende già detectPriceHikes) → il valore aggiunto qui.

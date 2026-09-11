@@ -1,7 +1,13 @@
 # Rilascio al pubblico
 
-Stato verificato il **2026-09-06**. Ogni affermazione qui è stata controllata
+Stato verificato il **2026-09-10**. Ogni affermazione qui è stata controllata
 contro il repo reale, non scritta a memoria (stessa regola di `AGENTS.md`).
+
+**Preparazione in corso:** configurare la firma non rende l'app pronta per gli store.
+Per correzioni, verifiche e impedimenti ancora aperti, leggere
+[lo stato del rilascio](docs/public-release-status.md). Il target Android è ora 36;
+la configurazione è aggiornata, ma build native e prove su dispositivi restano da eseguire.
+Restano inoltre acquisti nativi, dichiarazioni privacy e verifica dei moduli fiscali.
 
 ## Dove siamo già pubblici
 
@@ -64,9 +70,11 @@ cd android && ./gradlew bundleRelease   # genera .aab per il Play Store
 ### 3. Scheda del Play Store — cose che servono e che nessuno può generarti
 
 - Account Google Play Developer (25 $ una tantum).
-- **Data safety form**: qui Momentum ha un vantaggio raro — la risposta onesta
-  è "nessun dato raccolto, nessun dato condiviso". Dichiaralo esattamente
-  così: è vero ed è verificabile dal codice.
+- **Data safety form**: compilare sulla build effettiva, includendo telemetria
+  opzionale, provider e SDK. Disattivare la telemetria di default non permette
+  automaticamente di dichiarare "nessun dato raccolto". Google richiede di
+  considerare anche dati pseudonimi e raccolta opzionale:
+  [guida ufficiale](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en).
 - Privacy policy raggiungibile da URL pubblico: `privacy.html` è già
   pubblicata sul sito, basta linkarla.
 - Screenshot (telefono, minimo 2), icona 512×512 (c'è già in
@@ -74,13 +82,14 @@ cd android && ./gradlew bundleRelease   # genera .aab per il Play Store
 - Descrizione breve e lunga. Usa il linguaggio del README/manifest, non il
   gergo interno.
 
-### 4. iOS — non ancora iniziato
+### 4. iOS — progetto creato, build e distribuzione da verificare
 
-`capacitor.config.json` è pronto (appId `com.momentum.vault`), ma la cartella
-`ios/` non è stata inizializzata: serve un Mac con Xcode e CocoaPods, più un
-account Apple Developer (99 $/anno). Su iOS la lettura automatica delle
-notifiche resta impossibile: il valore lì è distribuzione e notifiche push,
-non l'import automatico.
+`capacitor.config.json` è pronto (appId `com.momentum.vault`) e la cartella
+`ios/` contiene lo scaffold Capacitor SPM. Il workflow GitHub verifica la build
+simulator senza firma; archivio App Store, firma e TestFlight richiedono un Mac,
+Xcode e un account Apple Developer. Su iOS la lettura automatica delle notifiche
+resta impossibile: il valore lì è distribuzione e notifiche push, non l'import
+automatico.
 
 ## Correzioni fatte il 2026-09-06, prima di rilasciare
 

@@ -37,8 +37,16 @@ export function evalReport(model, dataset = [], categories = null) {
 // il tipo di regressione silenziosa che un test aggregato non vede.
 export function compareModels(baselineReport, candidateReport, { epsilon = 0.3, maxPerCatDrop = 3.0 } = {}) {
   const reasons = [];
-  if (baselineReport.acc == null || candidateReport.acc == null) {
+  if (baselineReport?.acc == null || candidateReport?.acc == null) {
     return { pass: false, reasons: ['dataset di valutazione vuoto: nulla da confrontare'], worstCat: null, worstDrop: 0 };
+  }
+  const percentage = value => Number.isFinite(value) && value >= 0 && value <= 100;
+  const categories = new Set([...Object.keys(baselineReport.perCat || {}), ...Object.keys(candidateReport.perCat || {})]);
+  if (![epsilon, maxPerCatDrop].every(value => Number.isFinite(value) && value >= 0)
+    || ![baselineReport.acc, candidateReport.acc].every(percentage)
+    || !categories.size
+    || [...categories].some(cat => !percentage(baselineReport.perCat?.[cat]) || !percentage(candidateReport.perCat?.[cat]))) {
+    return { pass: false, reasons: ['valutazione incompleta: categorie mancanti o metriche non valide'], worstCat: null, worstDrop: 0 };
   }
   const globalOk = candidateReport.acc >= baselineReport.acc - epsilon;
   if (!globalOk) reasons.push(`accuratezza globale scesa: ${baselineReport.acc}% → ${candidateReport.acc}% (oltre epsilon=${epsilon})`);
@@ -46,7 +54,6 @@ export function compareModels(baselineReport, candidateReport, { epsilon = 0.3, 
   let worstDrop = 0, worstCat = null;
   for (const [cat, before] of Object.entries(baselineReport.perCat)) {
     const after = candidateReport.perCat[cat];
-    if (before == null || after == null) continue; // categoria non valutabile in uno dei due: non giudicabile
     const drop = before - after;
     if (drop > worstDrop) { worstDrop = drop; worstCat = cat; }
   }

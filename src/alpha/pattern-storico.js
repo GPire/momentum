@@ -47,7 +47,11 @@ export function episodiPattern(chiave, {
 } = {}) {
   const serie = GIORNALIERO_LUNGO[chiave];
   if (!serie) return { trovato: false, motivo: `asset sconosciuto: "${chiave}"` };
-  if (soglia <= 0) return { trovato: false, motivo: 'la soglia deve essere positiva (es. 0.10 = 10%)' };
+  if (!Number.isFinite(soglia) || soglia <= 0) return { trovato: false, motivo: 'la soglia deve essere positiva (es. 0.10 = 10%)' };
+  if (!['caduta', 'salita'].includes(direzione) || !Number.isInteger(finestraGiorni) || finestraGiorni < 1
+    || !Number.isInteger(orizzonteGiorni) || orizzonteGiorni < 1) {
+    return { trovato: false, motivo: 'direzione o numero di giorni non valido' };
+  }
   const nome = NOMI_LUNGO_GIORNI[chiave] || chiave;
   const episodi = [];
   let i = finestraGiorni;

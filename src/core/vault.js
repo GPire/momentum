@@ -1,3 +1,4 @@
+import { themePreference } from '../ui/theme-preference.js';
 import { SCHEMA_VERSION, DEFAULT_CATEGORIES, ALL_CATS } from './constants.js';
 import { simpleHash } from './utils.js';
 import { findDuplicate, mergeTransaction } from './deduplicator.js';
@@ -114,9 +115,11 @@ const DurableStore = {
     const db = await this.open();
     if (!db) return;
     return new Promise((resolve, reject) => {
-      const req = db.transaction(store, 'readwrite').objectStore(store).put(value, key);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      const transaction = db.transaction(store, 'readwrite');
+      transaction.objectStore(store).put(value, key);
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted'));
+      transaction.onerror = () => reject(transaction.error);
     });
   },
   async append(store, value) {
@@ -311,6 +314,7 @@ const VaultDAO = {
     currentDate: new Date(),
     transactions: {},
     themeDark: true,
+    themePreference: 'system',
     currentView: 'dashboard',
     customCategories: [],
     subscriptions: [],
@@ -415,7 +419,7 @@ const VaultDAO = {
       }
       try {
         const p = runSchemaMigrations(best.state);
-        this.state = { ...this.state, ...p, schemaVersion: SCHEMA_VERSION, currentDate: new Date() };
+        this.state = { ...this.state, ...p, themePreference: themePreference(p), schemaVersion: SCHEMA_VERSION, currentDate: new Date() };
       } catch (e) {
         console.error('VaultDAO.init: migrazione schema fallita — parto dal default, dati NON applicati:', e);
       }
@@ -443,6 +447,14 @@ const VaultDAO = {
       tryParse(lsShadow, 'localStorage(shadow)', (raw) => decodeURIComponent(escape(atob(raw))));
       tryParse(idbPayload, 'indexedDB');
       if (candidates.length === 0) return; // nessuna copia leggibile: init() partirà dal default
+      // A one-time, separate checkpoint preserves every readable source before
+      // this release reconciles them, including learning not present in the winner.
+      if (!await DurableStore.get('state', 'upgrade-2026-09-11')) {
+        await DurableStore.put('state', {
+          format: 'momentum-upgrade-checkpoint-v1', createdAt: new Date().toISOString(),
+          sources: candidates,
+        }, 'upgrade-2026-09-11');
+      }
       let best = candidates[0];
       for (const c of candidates.slice(1)) if (this._countTx(c.state) > this._countTx(best.state)) best = c;
       if (candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {
@@ -648,6 +660,10 @@ const VaultDAO = {
   // presente, per costruzione (reconstructMissingFromTxLog esclude già gli
   // id noti, questo è un controllo ridondante di sicurezza in più).
   applyTxLogRecovery(recovered) {
+    // The user may have added or deleted a transaction while reviewing the notice.
+    // Recheck against the current vault, including content duplicates and tombstones.
+    const entries = Object.entries(recovered || {}).flatMap(([month, txs]) => txs.map(tx => ({ month, tx })));
+    recovered = reconstructMissingFromTxLog(entries, this.state).recovered;
     let added = 0;
     for (const [month, txs] of Object.entries(recovered || {})) {
       if (!this.state.transactions[month]) this.state.transactions[month] = [];

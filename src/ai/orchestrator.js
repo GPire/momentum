@@ -178,13 +178,16 @@ class MomentumOrchestrator {
       date ? new Date(date).getTime() : Date.now());
 
     const tokens = this.nexus.tokenize(description);
-    const isHoldout = (this.vault.state.mlData.totalWords || 0) % 10 === 9;
-    if (isHoldout && this._validationSet.length < 100) {
+    const observed = this.vault.state.mlData.learningExamples;
+    this.vault.state.mlData.learningExamples = (Number.isSafeInteger(observed) && observed >= 0 ? observed : 0) + 1;
+    const isHoldout = this.vault.state.mlData.learningExamples % 10 === 0;
+    if (isHoldout) {
       // `text` (la descrizione grezza, non tokenizzata) serve al DCGN: ha un
       // tokenizzatore PROPRIO (subword, namespace w:/c: — vedi src/graph/dcgn.js),
       // diverso da quello di NeuralNexus. Senza il testo grezzo il grafo non
       // potrebbe mai giudicare un merge sui propri termini.
       this._validationSet.push({ tokens, catId, text: description });
+      if (this._validationSet.length > 100) this._validationSet.shift();
     } else {
       this.nexus.train(description, catId, amount, date);
       // DCGN: apprendimento online Hebbiano — la transazione È il training.
