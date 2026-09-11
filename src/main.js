@@ -1,4 +1,6 @@
 import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
+import { validateRestoredState, prepareRestoredState, checkpointBeforeRestore, readRestoreCheckpoint, writeRestoredArchive } from './core/restore-safety.js';
+import { executePublicUnits } from './mesh/compute-protocol.js';
 import { tSplit } from './i18n/split-workspace.js';
 import { splitAmount, splitInputEdit, validSplitAmounts, buildSplitDraft } from './ui/split-draft.js';
 import { shouldShowAddHint } from './ui/first-use-hint.js';
@@ -14485,14 +14487,43 @@ window.restoreEncryptedBackup = async (file) => {
 
   if (!restored) { showToast('Il file non contiene dati da ripristinare.', 'error'); return; }
 
-  // Cosa NON torna indietro va detto PRIMA di sovrascrivere, non dopo.
-  const avvisoParziale = letto.parziale ? `\n\n${letto.parziale}` : '';
-  if (!confirm(`Ripristinare sovrascriverà i dati attuali su questo dispositivo. Procedere?${avvisoParziale}`)) return;
+  window.reviewBackupRestore(restored, !!letto.parziale);
+};
 
-  VaultDAO.state = { ...VaultDAO.state, ...restored, currentDate: new Date() };
-  VaultDAO.save();
-  showToast('Dati ripristinati. Ricarico…', 'success');
-  setTimeout(() => window.location.reload(), 1000);
+let __restoreInProgress = false;
+window.reviewBackupRestore = (restored, partial = false) => {
+  if (__restoreInProgress) return;
+  try { validateRestoredState(restored, SCHEMA_VERSION); }
+  catch (e) { showToast(tIntegration(e.message, __uiLang), 'error'); return; }
+  openModal(`<section class="money-editor p-4 space-y-4"><header class="cosmos-modal-heading"><h2>${tIntegration('restoreTitle', __uiLang)}</h2><p>${tIntegration('restoreSummary', __uiLang, VaultDAO._countTx(VaultDAO.state), VaultDAO._countTx(restored))}</p></header><p class="card-sub">${tIntegration('restoreReplace', __uiLang)}</p>${partial ? `<p class="card-sub">${tIntegration('restorePartial', __uiLang)}</p>` : ''}<p id="restore-status" role="status" aria-live="polite"></p></section>`, `<div class="flex gap-3 w-full"><button type="button" class="btn-action flex-1" onclick="window.closeModal()">${tIntegration('restoreCancel', __uiLang)}</button><button type="button" id="restore-confirm" class="btn-action btn-primary flex-1">${tIntegration('restoreConfirm', __uiLang)}</button></div>`);
+  document.getElementById('restore-confirm').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    __restoreInProgress = true;
+    const status = document.getElementById('restore-status');
+    status.textContent = tIntegration('restoreSaving', __uiLang);
+    try {
+      await checkpointBeforeRestore(VaultDAO.state, DurableStore, localStorage);
+      const next = prepareRestoredState(VaultDAO.state, restored, SCHEMA_VERSION);
+      // Await the durable write before scheduling reload: a fire-and-forget
+      // write could leave the previous larger archive winning at startup.
+      await writeRestoredArchive(VaultDAO.state, next, DurableStore, localStorage);
+      VaultDAO.state = next;
+      VaultDAO.save();
+      status.textContent = tIntegration('restoreDone', __uiLang);
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e) {
+      status.textContent = tIntegration(e.message === 'restoreCheckpointFailed' ? e.message : 'restoreWriteFailed', __uiLang);
+      button.disabled = false;
+    } finally { __restoreInProgress = false; }
+  });
+};
+
+window.exportBeforeRestore = async () => {
+  const checkpoint = await readRestoreCheckpoint(DurableStore, localStorage);
+  if (!checkpoint) { showToast(tIntegration('checkpointMissing', __uiLang)); return; }
+  downloadTextFile(JSON.stringify(exportPlain(checkpoint.data), null, 2), 'momentum-BEFORE-RESTORE-IN-CHIARO.momentum', 'application/json');
+  showToast(tIntegration('checkpointWarning', __uiLang));
 };
 
 // ---- Aggiornamento autonomo dei dati, anche senza una nuova versione ----
@@ -15062,11 +15093,7 @@ window.openRecoveryRestore = () => {
     if (!envelope) { showToast('Scegli prima il file della copia.', 'error'); return; }
     try {
       const restored = await restoreFromShares(envelope, pezzi());
-      if (!confirm('I dati di questo dispositivo verranno sostituiti da quelli della copia. Procedere?')) return;
-      VaultDAO.state = { ...VaultDAO.state, ...restored, currentDate: new Date() };
-      VaultDAO.save();
-      showToast('Ci sei. Ricarico…', 'success');
-      setTimeout(() => window.location.reload(), 1000);
+      window.reviewBackupRestore(restored);
     } catch (e) { showToast(e.message, 'error'); }
   });
 };
@@ -17403,6 +17430,7 @@ window.openModal = (html, footerHtml = '') => {
 };
 
 window.closeModal = () => {
+  if (__restoreInProgress) return;
   // In chiusura niente overshoot: curva più rapida e lineare (.modal-closing).
   $('#modal-content').classList.add('modal-closing');
   $('#modal-content').classList.add('translate-y-full', 'lg:scale-95', 'opacity-0');
@@ -17856,41 +17884,11 @@ function queueLiveSync(mese, tx) {
 // I carichi sono DETERMINISTICI: dallo stesso seme esce lo stesso numero,
 // bit per bit. È questo che rende possibile verificare chi calcola per te,
 // invece di doverti fidare.
-const COMPUTE_WORKLOADS = {
-  // Un cammino Monte Carlo su rendimenti di mercato: input pubblico, output
-  // un singolo numero. Generatore congruenziale seminato dall'unità: due
-  // dispositivi che ricevono lo stesso seme DEVONO produrre lo stesso valore,
-  // ed è esattamente ciò che il controllo incrociato verifica.
-  'montecarlo-strategie': ({ seed }, { mu = 0.05, sigma = 0.15, anni = 10 } = {}) => {
-    let s = seed >>> 0;
-    const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
-    let valore = 1;
-    for (let a = 0; a < anni; a++) {
-      // Box-Muller: da uniforme a normale, deterministico dato il seme
-      const u1 = Math.max(1e-12, rnd()), u2 = rnd();
-      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-      valore *= 1 + mu + sigma * z;
-    }
-    return +valore.toFixed(6);
-  },
-};
-
-// Esegue le unità che un peer ci ha assegnato. Ricontrolla il cancello: chi
-// esegue non si fida di chi chiede.
 function runComputeUnitsLocally(workloadId, units) {
-  try {
-    assertShareable(workloadId); // lancia se non distribuibile: si rifiuta e basta
-  } catch (e) {
-    console.warn('Richiesta di calcolo rifiutata:', e.message);
-    return null;
-  }
-  const fn = COMPUTE_WORKLOADS[workloadId];
-  if (!fn) return null;
-  const out = {};
-  for (const u of units || []) out[u.index] = fn(u);
-  return out;
+  return executePublicUnits(workloadId, units, {
+    shouldContinue: () => document.visibilityState === 'visible',
+  });
 }
-
 // ── APPRENDIMENTO CONDIVISO (src/mesh/federated-distillation.js) ──
 // Il problema del settore: quasi tutti dicono "condividiamo i pesi del
 // modello, non i dati". NON è privacy: dai gradienti si possono

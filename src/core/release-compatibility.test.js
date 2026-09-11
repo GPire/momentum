@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 globalThis.window = {};
 globalThis.navigator = { maxTouchPoints: 0 };
 globalThis.localStorage = { getItem: () => null, setItem() {} };
@@ -7,6 +8,7 @@ const { VaultDAO, DurableStore } = await import('./vault.js');
 const { exportPlain, readBackupFile, encryptBackup, decryptBackup } = await import('./backup.js');
 const { simpleHash } = await import('./utils.js');
 const defaults = structuredClone(VaultDAO.state);
+const historical = JSON.parse(readFileSync(new URL('./fixtures/historical-backups.json', import.meta.url), 'utf8'));
 
 // Synthetic persisted shapes from both branches; no real customer data.
 function fixture(branch) {
@@ -56,6 +58,42 @@ function setup(t) {
   t.after(() => { VaultDAO.state = old.state; globalThis.localStorage = old.storage; DurableStore.get = old.get; DurableStore.put = old.put; });
   return { local, durable };
 }
+
+for (const saved of historical.states) for (const source of ['main', 'shadow', 'indexedDB']) {
+  test(`${saved.tag} (${saved.revision.slice(0, 7)}) historical shape survives ${source}, save, reload and export`, async t => {
+    const { local, durable } = setup(t), payload = JSON.stringify(saved.state);
+    if (source === 'main') local.set('omega_core_db', payload);
+    if (source === 'shadow') local.set('omega_shadow_vault', Buffer.from(payload).toString('base64'));
+    if (source === 'indexedDB') durable.set('state:main', payload);
+    await VaultDAO.initDurable(); VaultDAO.init(); VaultDAO.save();
+    VaultDAO.state = structuredClone(defaults);
+    await VaultDAO.initDurable(); VaultDAO.init();
+    const exported = readBackupFile(JSON.stringify(exportPlain(VaultDAO.state))).state;
+    for (const [key, value] of Object.entries(saved.state)) {
+      if (!['currentDate', 'schemaVersion'].includes(key)) assert.deepEqual(exported[key], value, key);
+    }
+  });
+}
+
+test('the original July encrypted exporter can be decrypted by the current reader', async () => {
+  const { envelope, password, expected } = historical.encrypted;
+  const file = readBackupFile(JSON.stringify(envelope));
+  assert.equal(file.serve, 'passphrase');
+  assert.deepEqual(await decryptBackup(file.envelope, password), expected);
+  await assert.rejects(decryptBackup(file.envelope, 'wrong password'));
+});
+
+test('legacy DNA preserves all transactions but cannot supply learning it never exported', () => {
+  const file = readBackupFile(historical.dna.text);
+  assert.deepEqual(Object.values(file.state.transactions).flat(), historical.dna.expected.transactions);
+  assert.equal(file.state.monthlyBudget, historical.dna.expected.budget);
+  assert.equal(file.state.mlData, undefined);
+  assert.ok(file.parziale);
+  const existing = { mlData: { vocab: { kept: 3 } }, invoices: [{ id: 'kept' }] };
+  const restored = { ...existing, ...file.state };
+  assert.deepEqual(restored.mlData, existing.mlData);
+  assert.deepEqual(restored.invoices, existing.invoices);
+});
 
 for (const branch of ['main', 'ui']) for (const source of ['main', 'shadow', 'indexedDB', 'all']) {
   test(`${branch} persisted data survives upgrade/save/reload from ${source}`, async t => {

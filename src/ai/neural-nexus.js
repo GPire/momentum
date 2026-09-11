@@ -130,6 +130,9 @@ const NeuralNexus = {
     }
 
     const net = s.neuralNet;
+    // Onboarding priors may fill missing words, never overwrite learned vectors
+    // when a saved network is opened again (including a legacy eight-output net).
+    const learnedEmbeddings = { ...net.embeddings };
     const prof = profile || { riskProfile: 'bilanciato', horizon: 'medio' };
     if (prof.riskProfile === 'aggressivo') {
       net.embeddings['investimento'] = [0.1, -0.2, 0.4, 0.3, -0.1, 0.2, 0.5, 0.6];
@@ -163,6 +166,7 @@ const NeuralNexus = {
       net.embeddings['affitto'] = [0.55, 0.35, -0.15, -0.25, 0.15, -0.05, -0.4, -0.35];
       net.embeddings['rata'] = [0.5, 0.3, -0.1, -0.2, 0.2, 0.0, -0.3, -0.3];
     }
+    Object.assign(net.embeddings, learnedEmbeddings);
   },
   forward(tokens, net) {
     let embSum = Array.from({length: 8}, () => 0);

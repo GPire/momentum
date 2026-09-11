@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Revisione del 2026-09-12:** `main` è `adc8a66`, release precedente integrata.
+> Il branch `codex/data-learning-continuity` aggiunge test storici v7.0/v7.1,
+> protezioni del ripristino, conservazione dei pesi appresi e controlli mesh.
+> Leggere [data-learning-mesh-audit-2026-09-12.md](docs/data-learning-mesh-audit-2026-09-12.md)
+> per risultati, limiti e lavoro residuo. Non dichiarare provata ogni vecchia
+> versione o tutti i dispositivi. Non cambiare le formule fiscali per analogia.
+
 > **Stato più recente, 2026-09-11:** integrazione di main `d92a5dc` nel branch
 > UI completata per sezione; 13 conflitti risolti, casi limite dei motori corretti.
 > Suite finale su `66602c7`: **4.846 test / 317 file, zero fallimenti o skip**;

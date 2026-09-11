@@ -39,6 +39,7 @@
 'use strict';
 
 import { STUN_POOL } from './nat-probe.js';
+import { validComputeRequest, validComputeReply } from './compute-protocol.js';
 import { scegliStrada } from './relay-election.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -934,13 +935,20 @@ class MeshNode {
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel?.readyState !== 'open') return;
     if (!this.runComputeUnits) return; // questo dispositivo non offre calcolo
+    if (!validComputeRequest(msg.workloadId, msg.units)) return;
+    this._computeBusy ||= new Set();
+    if (this._computeBusy.has(peerId) || this._computeBusy.size >= 2
+      || Date.now() - (entry.lastComputeAt || 0) < 1000) return;
+    entry.lastComputeAt = Date.now();
+    this._computeBusy.add(peerId);
     Promise.resolve()
       .then(() => this.runComputeUnits(msg.workloadId, msg.units || []))
       .then((results) => {
-        if (!results) return;
+        if (!validComputeReply(msg.units, results) || this.peers.get(peerId) !== entry || entry.channel.readyState !== 'open') return;
         entry.channel.send(JSON.stringify({ type: 'compute_result', workloadId: msg.workloadId, results }));
       })
-      .catch((e) => console.warn('Calcolo per un peer non riuscito:', e));
+      .catch((e) => console.warn('Calcolo per un peer non riuscito:', e))
+      .finally(() => this._computeBusy.delete(peerId));
   }
 
   shareLexicon(digest) {

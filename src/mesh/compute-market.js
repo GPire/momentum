@@ -225,12 +225,14 @@ export function resultHash(value) {
 export function verifyResults(verifiche, risultatiPerPeer) {
   const sospetti = new Map();
   const daRicalcolare = [];
+  const inAttesa = [];
   let concordi = 0;
 
   for (const { unit, peerA, peerB } of verifiche || []) {
     const a = risultatiPerPeer?.[peerA]?.[unit.index];
     const b = risultatiPerPeer?.[peerB]?.[unit.index];
-    if (a === undefined || b === undefined) continue; // uno dei due non ha risposto: è un ritardatario, non un bugiardo
+    if (a === undefined || b === undefined) { inAttesa.push(unit); continue; }
+    if (!finiteResult(a) || !finiteResult(b)) { daRicalcolare.push(unit); continue; }
     if (resultHash(a) === resultHash(b)) { concordi++; continue; }
     for (const p of [peerA, peerB]) sospetti.set(p, (sospetti.get(p) || 0) + 1);
     daRicalcolare.push(unit);
@@ -241,10 +243,18 @@ export function verifyResults(verifiche, risultatiPerPeer) {
     discordi: daRicalcolare.length,
     sospetti: [...sospetti.entries()].map(([peerId, volte]) => ({ peerId, volte })),
     daRicalcolare,
+    inAttesa,
     // Se anche UNA sola verifica è fallita, l'intero risultato non è
     // affidabile: meglio ricalcolare che consegnare una proiezione sbagliata.
-    affidabile: daRicalcolare.length === 0,
+    affidabile: daRicalcolare.length === 0 && inAttesa.length === 0,
   };
+}
+
+function finiteResult(value, depth = 0) {
+  if (depth > 16) return false;
+  if (typeof value === 'number') return Number.isFinite(value);
+  return Array.isArray(value) && value.length > 0 && value.length <= 10000
+    && Array.from(value).every(v => finiteResult(v, depth + 1));
 }
 
 // Raccoglie i risultati in un unico array ordinato per indice. Le unità

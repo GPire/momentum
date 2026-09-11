@@ -145,7 +145,18 @@ test('un dispositivo che non risponde è un ritardatario, non un bugiardo', () =
   const verifiche = [{ unit: { index: 1 }, peerA: 'a', peerB: 'muto' }];
   const v = verifyResults(verifiche, { a: { 1: [5] } });
   assert.deepEqual(v.sospetti, []);
-  assert.equal(v.affidabile, true);
+  assert.equal(v.affidabile, false, 'nessun disaccordo non significa verifica completata');
+  assert.deepEqual(v.inAttesa, [{ index: 1 }]);
+});
+
+test('matching NaN, Infinity or null replies are not evidence of a correct calculation', () => {
+  const verifiche = [{ unit: { index: 0 }, peerA: 'a', peerB: 'b' }];
+  for (const value of [NaN, Infinity, null, [NaN], []]) {
+    const result = verifyResults(verifiche, { a: { 0: value }, b: { 0: value } });
+    assert.equal(result.affidabile, false);
+    assert.deepEqual(result.daRicalcolare, [{ index: 0 }]);
+    assert.equal(result.concordi, 0);
+  }
 });
 
 test('anche UNA sola verifica fallita basta a bloccare la consegna del risultato', () => {
