@@ -208,6 +208,20 @@ export function intentoMercato(domanda, similarity = null) {
     }
   }
 
+  // Frequenza storica condizionata per SINGOLO asset (pattern-storico.js,
+  // 2026-09-11, pannello giornaliero 40 anni) — DEVE precedere la regola
+  // generica su "petrolio"/"argento"/"rame" (materie-prime, poco sotto):
+  // trovato dal vivo che "cosa succede dopo un crollo del petrolio?" cadeva
+  // in materie-prime prima di arrivare qui, perche' materie-prime matcha
+  // "petrolio" da solo senza guardare il resto della frase — stesso errore
+  // d'ordine gia' documentato nel commento sotto per casa/oro. Diverso da
+  // 'hype' (guarda solo "e' salito troppo?" sulla griglia annuale a 10
+  // mercati) e da 'cicli' (episodi salita-poi-caduta, non un trigger
+  // generico): qui la domanda e' esplicitamente retrospettiva ("cosa e'
+  // successo le altre volte") su un pattern di caduta/salita a soglia
+  // scelta dall'utente.
+  if (ha(q, 'cosa succede dopo', 'cosa e successo dopo', 'storicamente dopo', 'quante volte dopo', 'cosa succede di solito quando', 'cosa e successo le altre volte')) return 'pattern-storico';
+
   // MATERIE PRIME E CASA, e vanno PRIMA di tutto il resto. Ci ho sbagliato
   // l'ordine una volta e ogni domanda finiva altrove: "l'oro protegge
   // dall'inflazione?" cadeva nella regola generica sull'oro e riceveva la
@@ -505,8 +519,8 @@ export function precarica() {
     import('./posizionamento.js'), import('./materie-prime.js'), import('./terre-rare.js'), import('./cicli.js'),
     import('./grafici.js'), import('./notizie.js'), import('./previsione-condizionata.js'),
     import('./historical-returns.js'), import('./panoramica-incrociata.js'), import('./long-asset-panel.js'), import('./daily-panel.js'), import('./assorbimento.js'), import('./daily-long.js'), import('./eventi-lunghi.js'), import('./tesi-investimento.js'), import('./qualita-nel-tempo.js'), import('./fondamentali-storici.js'), import('./correlation-regime.js'), import('./screener-settore.js'), import('./rischio-rovina.js'),
-    import('./confronto-titoli.js'), import('./titolo-causale.js'), import('./sic-settore-map.js'), import('./historical-panel.js'), import('./mercato-vivo.js'), import('./capacita-registrate.js'),
-  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qualMod, storici, correl, scrn, rovina, confTit, titCaus, sicMap, panSettori, mercatoVivo, capReg]) => {
+    import('./confronto-titoli.js'), import('./titolo-causale.js'), import('./sic-settore-map.js'), import('./historical-panel.js'), import('./mercato-vivo.js'), import('./capacita-registrate.js'), import('./pattern-storico.js'),
+  ]).then(async ([eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qualMod, storici, correl, scrn, rovina, confTit, titCaus, sicMap, panSettori, mercatoVivo, capReg, patStor]) => {
     // I settori si calcolano con una funzione ASINCRONA (che a sua volta
     // importa il pannello settoriale). Se non la si scalda qui, la PRIMA
     // domanda sui settori riceve "non lo so" e solo la seconda funziona.
@@ -518,7 +532,7 @@ export function precarica() {
     try { SETTORI_CACHE = await rifugi.settoriNeiCrolli(); } catch (_) { SETTORI_CACHE = null; }
     try { CONTESTO_CACHE = await storiche.contestoStorico('spy'); } catch (_) { CONTESTO_CACHE = null; }
     try { AVVISO_FRESCHEZZA = fresco.freschezzaText(await fresco.statoDeiDati()); } catch (_) { AVVISO_FRESCHEZZA = null; }
-    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual: { ...qualMod, ...storici }, correl, scrn, rovina, confTit, titCaus, sicMap, panSettori, mercatoVivo, capReg };
+    MODULI = { eventi, rifugi, globale, macro, quadro, stress, storiche, fresco, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual: { ...qualMod, ...storici }, correl, scrn, rovina, confTit, titCaus, sicMap, panSettori, mercatoVivo, capReg, patStor };
     return MODULI;
   }).catch(() => { inCorso = null; return null; });
   return inCorso;
@@ -586,7 +600,7 @@ export function rispostaSincrona(domanda, similarity = null) {
   // Si ricorda solo se si e' davvero risposto: un intento riconosciuto ma non
   // servito non deve diventare il contesto della domanda dopo.
   ULTIMO_INTENTO = intento;
-  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual, correl } = MODULI;
+  const { eventi, rifugi, globale, macro, quadro, stress, storiche, posiz, mp, tr, ci, gr, nz, prev, hr, pan, lungo, giorni, ass, lunghi, evLunghi, tesi, qual, correl, patStor } = MODULI;
   // Le risposte sul PRESENTE si portano dietro l'avviso se i dati non sono
   // freschi; quelle storiche no. La distinzione non e' cosmetica: un dato
   // vecchio invalida "come sta il mercato adesso" e non invalida "cosa
@@ -971,6 +985,41 @@ export function rispostaSincrona(domanda, similarity = null) {
       const e = ci.episodi();
       return { intent: 'mercato-cicli', data: e, answer: ci.cicliText(),
         grafico: gr.graficoConfronto(e.episodi.map((x) => ({ nome: `${x.nome} ${x.annoPicco}`, valore: x.caduta })), 'quanto hanno perso dal massimo') };
+    }
+
+    if (intento === 'pattern-storico') {
+      const n = normalizza(domanda);
+      const ASSET = [
+        ['azioniUsa', ['azioni usa', 's&p', 'sp500', 's&p 500', 'borsa americana', 'wall street']],
+        ['tecnologia', ['nasdaq', 'tecnologia', 'tech']],
+        ['piccoleAziende', ['piccole aziende', 'russell']],
+        ['oro', ['oro']], ['argento', ['argento']], ['rame', ['rame']],
+        ['petrolio', ['petrolio', 'greggio', 'brent']],
+        ['bitcoin', ['bitcoin', 'btc']],
+        ['dollaro', ['dollaro']],
+      ];
+      let chiave = null;
+      for (const [k, alias] of ASSET) if (alias.some((a) => new RegExp(`\\b${a}`).test(n))) { chiave = k; break; }
+      if (!chiave) {
+        return { intent: 'mercato-pattern-storico', answer: 'Di quale mercato? Ho quarant\'anni di dati giornalieri per azioni USA, Nasdaq, Russell 2000 (piccole aziende), oro, argento, rame, petrolio, dollaro e bitcoin.' };
+      }
+      // Radici, non parole intere (ha() e' un .includes()): "scese"/"scesa"/
+      // "scendendo" devono combaciare tutte con lo stesso stem "sces"/"scend"
+      // — trovato dal vivo che "sono scese del 10%" non veniva riconosciuto
+      // con le sole forme intere "sceso"/"scende".
+      const direzione = ha(n, 'sces', 'scend', 'crolla', 'crollo', 'ribass', 'calat', 'cala', 'cadut', 'cade') ? 'caduta' : 'salita';
+      const pctMatch = n.match(/(\d+)\s*%/);
+      const soglia = pctMatch ? Math.min(0.9, Math.max(0.01, +pctMatch[1] / 100)) : 0.10;
+      const r = patStor.cosaSuccedeDopoAsset(chiave, { direzione, soglia, finestraGiorni: 20, orizzonteGiorni: 20 });
+      return {
+        intent: 'mercato-pattern-storico', data: r, answer: patStor.patternStoricoText(r),
+        grafico: (r.trovato && r.riassunto.abbastanza)
+          ? gr.graficoPrevisione({
+              abbastanza: true, casi: r.riassunto.casi, mediano: r.riassunto.mediano,
+              andataMale: r.riassunto.peggioreDecile, andataBene: r.riassunto.miglioreDecile,
+            }, `dopo un pattern simile su ${r.nome.toLowerCase()}`)
+          : null,
+      };
     }
 
     if (intento === 'dove-siamo') {

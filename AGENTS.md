@@ -173,6 +173,51 @@ pannello dati SEC.
   (`LIMITI_DICHIARATI` in main.js) — se si aggiunge un nuovo limite fiscale
   in futuro, aggiungerlo anche lì, altrimenti il Centro Fiducia mente per
   omissione.
+- **Granger causale spesa-personale × mercato: verificato NON verificabile
+  in questo ambiente (2026-09-11)**. Il roadmap (ANALISI_COMPETITOR.md §5.3)
+  chiedeva esplicitamente di testare la potenza statistica CON DATI REALI di
+  un utente prima di costruire — questo repo di sviluppo non ha lo storico
+  transazioni di un utente reale (solo dati demo), quindi il test richiesto
+  non è eseguibile qui. Non costruito su dati sintetici per lo stesso motivo
+  per cui `bench/cash-forecast-bench.mjs` dichiara esplicitamente che i suoi
+  risultati sono relativi a un processo noto, non un'accuratezza assoluta —
+  testare un'ipotesi di potenza statistica su dati sintetici sarebbe
+  circolare (il generatore non ha bisogno di causalità mercato-spesa perché
+  non la modella). Resta un task che richiede un vault reale per essere
+  eseguito, non un dato mancante da questa sessione.
+- **La previsione si verifica da sola** (`forecast-calibration.js`,
+  2026-09-11): istantanee giornaliere della Cassa Unica (checkpoint 7/14/30
+  giorni) confrontate con quello che succede per davvero, quando la data è
+  passata — mai un ricalcolo del motore di previsione, solo osservazione.
+  Persistenza: `VaultDAO.state.forecastSnapshots` (tetto 45, FIFO) e
+  `VaultDAO.state.forecastShown` (chiavi `takenAt:daysAhead`, per non
+  ripetere lo stesso confronto). Un insight nel feed bandit-ranked
+  (`kind: 'forecast-calibration'`) compare solo quando un checkpoint è
+  appena diventato verificabile — nessuna UI aggregata di calibrazione
+  (percentuale reale dentro banda vs 80% dichiarato) ancora costruita:
+  `calibrationSummary()` esiste ed è testata, ma non è ancora mostrata da
+  nessuna parte — prossimo passo naturale, non ancora fatto.
+- **Previsioni di prezzo: deciso esplicitamente il 2026-09-11 di NON farle.**
+  Segnalato all'utente il rischio reale di consulenza finanziaria non
+  autorizzata (MiFID II/SEC) nel presentare un prezzo futuro o un segnale
+  compra/vendi a utenti reali (l'app è pronta per il Play Store) — l'utente
+  ha scelto esplicitamente la "via di mezzo": frequenza storica condizionata
+  ("dopo un pattern simile, storicamente, in N casi su M"), mai un prezzo o
+  un segnale. Costruito in `src/alpha/pattern-storico.js`, wired come intento
+  QA `'pattern-storico'` in `mercato-qa.js` (deve precedere `materie-prime`
+  nell'ordine delle regole — trovato dal vivo che "cosa succede dopo un
+  crollo del petrolio" cadeva altrimenti in materie-prime). Usa il pannello
+  40 anni (`daily-long.js`, azioni USA/Nasdaq/Russell2000/oro/argento/rame/
+  petrolio/dollaro/bitcoin), episodi NON sovrapposti per costruzione (si
+  salta l'intero orizzonte dopo un trigger), gate a 10 casi minimi. **Se in
+  futuro qualcuno propone un prezzo target o un segnale compra/vendi vero:
+  questa è la decisione esplicita che lo esclude, non un limite tecnico.**
+- **Pannello prezzi giornalieri ora auto-aggiornato** (`.github/workflows/
+  refresh-daily-long.yml`, 2026-09-11): stesso pattern del pannello SEC
+  (`refresh-panel-sec.yml`) — PR settimanale, mai un push diretto su main,
+  test+build verificati prima di proporla. `daily-panel.js` (il pannello a
+  5 anni, più vecchio) resta SENZA workflow di refresh: nessuno script npm
+  dedicato trovato per rigenerarlo, non toccato in questa sessione.
 
 ## Trappole già pagate (leggile prima di perderci un'ora)
 

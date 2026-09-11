@@ -169,6 +169,7 @@ import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, lea
 import { resolveSalary, detectSalary, nextPayday, daysToNextPayday, suggestSalaryCompetenceMonth } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
+import { snapshotForecast, evaluateAllSnapshots } from './predict/forecast-calibration.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { investmentReadiness } from './ai/reasoning-fusion.js';
@@ -13953,6 +13954,77 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
           });
         }
       }
+    }
+  } catch (_) {}
+
+  // ── LA PREVISIONE SI VERIFICA DA SOLA (forecast-calibration.js, 2026-09-11)
+  // Risolve due lacune insieme, trovate nella stessa ricerca: "Cassa Unica
+  // più intelligente" (la banda 80% dichiarata da cash-forecast.js è
+  // verificata contro il bench SINTETICO, mai contro i dati veri di QUESTO
+  // utente) e "Dashboard a valore continuativo" (§7 ANALISI_COMPETITOR.md,
+  // "effetto laurea": una volta capito il budget, niente motivo per
+  // riaprire). Stesso forecast già mostrato sulla curva Dashboard
+  // (cashCurveHtml, stessi parametri), qui salvato UNA volta al giorno e poi
+  // confrontato con quello che è successo per davvero quando un checkpoint
+  // (7/14/30 giorni) è passato. Mai un secondo motore: forecast-calibration.js
+  // non ricalcola nulla, osserva solo cash-forecast.js già esistente.
+  try {
+    const oggiIso = realNow.toISOString().slice(0, 10);
+    const snapshots = VaultDAO.state.forecastSnapshots || [];
+    if (!snapshots.length || snapshots[snapshots.length - 1].takenAt !== oggiIso) {
+      const subsCal = subscriptionSummary(VaultDAO.state.transactions, realNow);
+      const bnplEventsCal = bnplToLedgerEvents(VaultDAO.state.transactions,
+        { now: realNow.getTime(), horizonDays: 30, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true, dismissed: VaultDAO.state.mlData?.bnplDismissed || [] });
+      const fForSnapshot = cashForecast({
+        allTx: VaultDAO.state.transactions,
+        commitments: VaultDAO.state.fixedCommitments || [],
+        salary: resolveSalary(VaultDAO.state, VaultDAO.state.transactions),
+        subscriptions: (subsCal.subscriptions || []).map(s => ({ name: s.name, amount: s.amount, nextDate: s.nextDate })),
+        now: realNow.getTime(),
+        horizonDays: 30,
+        extraLedgerEvents: bnplEventsCal,
+      });
+      const snap = snapshotForecast(fForSnapshot, { now: realNow.getTime(), checkpoints: [7, 14, 30] });
+      if (snap) {
+        // Tetto a 45: basta a coprire il checkpoint più lungo (30gg) con un
+        // margine, non serve accumulare istantanee all'infinito.
+        VaultDAO.state.forecastSnapshots = [...snapshots, snap].slice(-45);
+        VaultDAO.save();
+      }
+    }
+
+    // Mostra SOLO il checkpoint appena diventato verificabile e mai mostrato
+    // prima (VaultDAO.state.forecastShown, per chiave takenAt:daysAhead) —
+    // se più checkpoint maturano insieme (l'utente non apre l'app per
+    // settimane), se ne marcano "visti" comunque tutti ma se ne SURROGA solo
+    // uno: un solo segnale alla volta, stesso principio già in uso altrove
+    // nel progetto (splitReminder, "mai più di un segnale insieme").
+    const shown = VaultDAO.state.forecastShown || {};
+    const evaluated = evaluateAllSnapshots(VaultDAO.state.forecastSnapshots || [], VaultDAO.state.transactions, { now: realNow.getTime() });
+    let daNotificare = null, shownChanged = false;
+    for (const { takenAt, evaluations } of evaluated) {
+      for (const ev of evaluations) {
+        const chiave = `${takenAt}:${ev.daysAhead}`;
+        if (shown[chiave]) continue;
+        shown[chiave] = true; shownChanged = true;
+        daNotificare = { takenAt, ...ev };
+      }
+    }
+    if (daNotificare) {
+      VaultDAO.state.forecastShown = shown;
+      VaultDAO.save();
+      const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      rawInsights.push({
+        kind: 'forecast-calibration',
+        severity: daNotificare.withinBand ? 'info' : 'warn',
+        title: daNotificare.withinBand ? 'La previsione ci aveva preso' : 'La previsione era fuori strada',
+        body: daNotificare.withinBand
+          ? `Il ${dayName(daNotificare.takenAt)} avevo previsto tra ${formatMoney(daNotificare.predicted.p10)} e ${formatMoney(daNotificare.predicted.p90)} di variazione a ${daNotificare.daysAhead} giorni: sei arrivato a ${formatMoney(daNotificare.actual)}, dentro la banda.`
+          : `Il ${dayName(daNotificare.takenAt)} avevo previsto tra ${formatMoney(daNotificare.predicted.p10)} e ${formatMoney(daNotificare.predicted.p90)} di variazione a ${daNotificare.daysAhead} giorni: sei arrivato a ${formatMoney(daNotificare.actual)}, fuori banda — è successo qualcosa di imprevisto.`,
+      });
+    } else if (shownChanged) {
+      VaultDAO.state.forecastShown = shown;
+      VaultDAO.save();
     }
   } catch (_) {}
 
