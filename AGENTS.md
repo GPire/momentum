@@ -317,6 +317,29 @@ pannello dati SEC.
   automatica ZERO** per specifica CSS: dentro un contenitore ad altezza fissa
   viene schiacciato a niente pur avendo il contenuto nel DOM. Già costato due
   bug reali (scena privacy, payoff onboarding).
+- **Ogni `window.setXxx` che tocca `VaultDAO.state` e influenza una card della
+  Dashboard deve chiamare `renderDashboard()` esplicitamente** (2026-09-11,
+  bug reale live-verificato in Chrome): `setTaxRegime`/`setNoPartitaIva` non
+  la chiamavano — dopo aver scelto un regime fiscale dal card di scoperta,
+  quel card restava visibile e ripeteva "hai la Partita IVA?" a chi aveva
+  appena risposto, come se l'app non avesse ascoltato. Nessun errore in
+  console: lo stato era corretto, solo il DOM non veniva ridisegnato. Stesso
+  fix applicato a `setEsActive`/`setChAttivitaTipo`.
+- **Una card "universale" tradotta in 7 lingue non implica un flusso
+  universale dietro** (stesso bug, 2026-09-11): la card di scoperta fiscale in
+  Dashboard chiede "sei autonomo?" in ogni lingua, ma il suo tasto chiamava
+  sempre `openTaxLevel1()` — il simulatore SOLO italiano (ATECO, INPS Gestione
+  Separata) — anche per chi aveva già detto a onboarding di essere in
+  Svizzera o Spagna, dove esistono già `openSwissSimulator`/
+  `openSpainSimulator` dedicati ma irraggiungibili da lì. Ora
+  `window.openTaxDiscover()` instrada per `VaultDAO.state.taxActiveCountry`
+  prima di aprire un modale — controllo da ripetere ogni volta che un punto
+  d'ingresso "unico" nasconde più motori fiscali dietro.
+- **`CAUSE_ESCLUSIONE_FORFETTARIO`/ATECO/CASSE_PROFESSIONALI (tax.js) non
+  passano da `tCh()`** — sono normativa italiana reale (es. "Legge 190/2014,
+  art.1 comma 57"), lasciata in italiano di proposito nell'unica riga di
+  codice che li stampa; non tradurli a caso senza aver verificato la fonte
+  normativa nella lingua target.
 
 ## Come si lavora qui
 

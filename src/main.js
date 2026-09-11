@@ -3648,11 +3648,16 @@ const renderDashboard = () => {
   const taxDiscoverEls = document.querySelectorAll('#tax-discover-card');
   if (taxDiscoverEls.length) {
     let showDiscover = false;
-    try { showDiscover = !VaultDAO.state.taxRegime && !hasInvoiceIncome() && !VaultDAO.state.noPartitaIva && !VaultDAO.state.onboardingProfile?.isMinor; } catch (_) { showDiscover = false; }
+    // BUG REALE (2026-09-11, live-verificato in Chrome): la condizione
+    // guardava solo VaultDAO.state.taxRegime, un campo SOLO italiano — un
+    // utente svizzero (chAttivitaTipo) o spagnolo (esActive) che aveva già
+    // attivato il proprio motore fiscale continuava a vedersi "sei
+    // autonomo?" per sempre, perché il regime IT non era mai stato toccato.
+    try { showDiscover = !VaultDAO.state.taxRegime && !VaultDAO.state.esActive && !VaultDAO.state.chAttivitaTipo && !hasInvoiceIncome() && !VaultDAO.state.noPartitaIva && !VaultDAO.state.onboardingProfile?.isMinor; } catch (_) { showDiscover = false; }
     const discoverHtml = showDiscover ? `
       <div class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-left">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-[var(--gold)]"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-        <span class="min-w-0 flex-1 text-[13px]">${tCh('dashTaxDiscoverQuestion', __uiLang)} <button type="button" onclick="window.openTaxLevel1()" class="font-bold text-[var(--gold)] underline">${tCh('dashTaxDiscoverCta', __uiLang)}</button></span>
+        <span class="min-w-0 flex-1 text-[13px]">${tCh('dashTaxDiscoverQuestion', __uiLang)} <button type="button" onclick="window.openTaxDiscover()" class="font-bold text-[var(--gold)] underline">${tCh('dashTaxDiscoverCta', __uiLang)}</button></span>
       </div>` : '';
     taxDiscoverEls.forEach((el) => { el.classList.toggle('hidden', !showDiscover); el.innerHTML = discoverHtml; });
   }
@@ -5771,6 +5776,7 @@ window.setEsActive = (val) => {
   if (val) pingFeature('spain_tax_activated');
   window.closeModal?.();
   renderTaxEs(monthKey(new Date()));
+  renderDashboard();
 };
 
 // TERRITORIO FISCAL (2026-09-06, BUG REALE): País Vasco e Navarra hanno un
@@ -6192,6 +6198,7 @@ window.setChAttivitaTipo = (tipo, reddito) => {
   VaultDAO.state.chAttivitaTipo = tipo === 'accessoria' ? 'accessoria' : 'principale';
   VaultDAO.save();
   window.openSwissSimulatorResult(reddito);
+  renderDashboard();
 };
 
 // Stesso "ponte commercialista" di Italia/Spagna, adattato: la Svizzera non
@@ -6410,6 +6417,22 @@ window.openCreateInvoiceCHResult = (r, meta) => {
     </div>`);
 };
 
+// Punto d'ingresso unico dalla card di scoperta in Dashboard (generica,
+// tradotta come "sei autonomo?" in 7 lingue — mai solo "Partita IVA").
+// BUG REALE (2026-09-11): prima chiamava sempre openTaxLevel1() (motore
+// italiano: ATECO, INPS Gestione Separata, forfettario/ordinario) per
+// chiunque cliccasse, incluso chi aveva già detto a onboarding di essere
+// in Svizzera o Spagna — dentro tax-ch.js/tax-es.js esistono già simulatori
+// dedicati (openSwissSimulator/openSpainSimulator), semplicemente questa
+// card non li raggiungeva mai. Instrada in base al Paese fiscale già
+// dichiarato; chi non l'ha mai detto (o ha risposto "non lo so") resta sul
+// percorso italiano, il mercato più coperto oggi.
+window.openTaxDiscover = () => {
+  const country = VaultDAO.state.taxActiveCountry;
+  if (country === 'ch') { window.openSwissSimulator(); return; }
+  if (country === 'es') { window.openSpainSimulator(); return; }
+  window.openTaxLevel1();
+};
 window.openTaxLevel1 = () => {
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
@@ -6815,7 +6838,7 @@ window.openTaxRegimePicker = () => {
     </div>`);
 };
 
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); };
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard(); };
 
 // VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06, src/predict/tax.js:
 // verificaEsclusioneForfettario) — problema di mercato reale: Momentum
@@ -6879,6 +6902,7 @@ window.setNoPartitaIva = (val) => {
   showToast(val ? 'Va bene — non te lo chiederò più. Puoi sempre riattivarlo da Momentum Vault.' : 'Fatto, te lo mostro di nuovo.', 'info');
   renderTaxSettings();
   renderTax(monthKey(new Date()));
+  renderDashboard();
 };
 // Segna una e-fattura come TRASMESSA allo SdI (dopo che l'utente l'ha caricata
 // sul portale). Chiude il ciclo: sparisce dal promemoria. Onesto: è l'utente a
