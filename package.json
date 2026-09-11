@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "test": "node --test src/ && node --test server/",
+    "test": "node scripts/run-tests.mjs",
     "build": "vite build",
     "build:singlefile": "vite build --mode singlefile",
     "preview": "vite preview",

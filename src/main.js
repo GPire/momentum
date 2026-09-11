@@ -3103,22 +3103,22 @@ function renderTransactionRecurring() {
   });
   panel.classList.remove('hidden');
   document.getElementById('recurring-count').textContent = agendaItems.length ? new Intl.NumberFormat(__uiLocale).format(agendaItems.length) : '';
-  list.innerHTML = agendaItems.map((item, index) => `<div class="recurring-row"><div><strong>${escapeHtml(item.name)}</strong><time datetime="${item.date}">${new Date(item.date + 'T12:00:00').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</time><small>${tCh(item.source === 'declared' ? 'agendaDeclared' : 'agendaEstimated', __uiLang)}</small></div><div><span>${item.amount === null ? '—' : formatMoney(item.amount)}</span><button type="button" class="agenda-edit" onclick="window.openPaymentEditor(${index})">${tCh('agendaEditDate', __uiLang)}</button></div></div>`).join('');
+  list.innerHTML = agendaItems.map((item, index) => `<article class="recurring-row"><span class="recurring-planet" aria-hidden="true"></span><div class="recurring-row-copy"><strong>${escapeHtml(item.name)}</strong><time datetime="${item.date}">${new Date(item.date + 'T12:00:00').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</time><small>${tCh(item.source === 'declared' ? 'agendaDeclared' : 'agendaEstimated', __uiLang)}</small></div><div class="recurring-row-action"><span>${item.amount === null ? '—' : formatMoney(item.amount)}</span><button type="button" class="agenda-edit" onclick="window.openPaymentEditor(${index})"><span>${tCh('agendaEditDate', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17L17 7M7 7h10v10"/></svg></button></div></article>`).join('');
 }
 window.openPaymentEditor = (index = null, draft = null) => {
   const selected = Number.isInteger(index) ? agendaItems[index] : null;
   const item = draft || (selected?.parentKey ? (VaultDAO.state.paymentDeclarations || []).find(p => p.key === selected.parentKey) : selected);
   if (index !== null && !item) return;
   const predicted = item && !item.key.startsWith('manual:');
-  openModal(`<div class="payment-editor p-4 space-y-4"><h3 class="text-lg font-bold">${tCh('agendaSchedule', __uiLang)}</h3>
-    <label class="block">${tCh('agendaName', __uiLang)}<input id="payment-name" class="w-full p-3 rounded-xl" maxlength="120" value="${escapeHtml(item?.name || '')}" ${predicted ? 'readonly' : ''}></label>
+  openModal(`<form class="payment-editor p-4 space-y-4" onsubmit="return false"><header class="cosmos-modal-heading"><svg viewBox="0 0 96 72" fill="none" aria-hidden="true"><ellipse cx="48" cy="36" rx="42" ry="13"/><circle cx="48" cy="36" r="18"/><circle cx="82" cy="19" r="4"/></svg><div><p>${tCh(item ? 'agendaEditDate' : 'agendaAdd', __uiLang)}</p><h3>${tCh('agendaSchedule', __uiLang)}</h3></div></header>
+    <label class="cosmos-form-field"><span>${tCh('agendaName', __uiLang)}</span><input id="payment-name" name="payment-name" autocomplete="off" class="w-full p-3 rounded-xl" maxlength="120" value="${escapeHtml(item?.name || '')}" ${predicted ? 'readonly' : ''}></label>
     ${predicted ? '' : orbitChoiceMarkup('payment-kind', tCh('agendaType', __uiLang), ['trial','recurring','installment','credit','payment'].map(kind => [kind,tCh('agendaKind_' + kind, __uiLang)]), item?.kind)}
-    ${predicted ? '' : `<label id="payment-months-label" class="block">${tCh('agendaMonths', __uiLang)}<input id="payment-months" class="w-full p-3 rounded-xl" type="number" min="1" max="120" step="1" value="${item?.months || 1}"></label>`}
-    <label class="block">${tCh('agendaNextDate', __uiLang)}<input id="payment-date" class="w-full p-3 rounded-xl" type="date" value="${item?.date || ''}"></label>
-    <details class="payment-options"><summary>${tCh('agendaDates', __uiLang)}</summary><div class="payment-date-grid"><label>${tCh('agendaStart', __uiLang)}<input id="payment-start" type="date" value="${item?.startDate || ''}"></label><label>${tCh('agendaEnd', __uiLang)}<input id="payment-end" type="date" value="${item?.endDate || ''}"></label></div><p class="payment-education">${tCh('agendaEducation', __uiLang)}</p></details>
+    ${predicted ? '' : `<label id="payment-months-label" class="cosmos-form-field"><span>${tCh('agendaMonths', __uiLang)}</span><input id="payment-months" name="payment-months" autocomplete="off" class="w-full p-3 rounded-xl" type="number" inputmode="numeric" min="1" max="120" step="1" value="${item?.months || 1}"></label>`}
+    <label class="cosmos-form-field"><span>${tCh('agendaNextDate', __uiLang)}</span><input id="payment-date" name="payment-date" autocomplete="off" class="w-full p-3 rounded-xl" type="date" value="${item?.date || ''}"></label>
+    <details class="payment-options"><summary><span>${tCh('agendaDates', __uiLang)}</span></summary><div class="payment-date-grid"><label class="cosmos-form-field"><span>${tCh('agendaStart', __uiLang)}</span><input id="payment-start" name="payment-start" autocomplete="off" type="date" value="${item?.startDate || ''}"></label><label class="cosmos-form-field"><span>${tCh('agendaEnd', __uiLang)}</span><input id="payment-end" name="payment-end" autocomplete="off" type="date" value="${item?.endDate || ''}"></label></div><p class="payment-education">${tCh('agendaEducation', __uiLang)}</p></details>
     ${predicted ? '' : orbitChoiceMarkup('payment-cadence', tCh('agendaCadence', __uiLang), ['monthly','weekly','fortnightly','quarterly','yearly'].map(c => [c,tCh('agendaCadence_' + c, __uiLang)]), item?.cadence)}
-    ${predicted ? '' : `<label class="block">${tCh('agendaAmount', __uiLang)}<input id="payment-amount" class="w-full p-3 rounded-xl" type="number" min="0" step="0.01" inputmode="decimal" value="${item?.amount ?? ''}"></label>`}
-    <p class="text-sm">${tCh('agendaNote', __uiLang)}</p></div>`, `<button type="button" class="btn-action w-full" id="payment-save">${tCh('vaultSave', __uiLang)}</button>`);
+    ${predicted ? '' : `<label class="cosmos-form-field"><span>${tCh('agendaAmount', __uiLang)}</span><input id="payment-amount" name="payment-amount" autocomplete="off" class="w-full p-3 rounded-xl" type="number" min="0" step="0.01" inputmode="decimal" value="${item?.amount ?? ''}"></label>`}
+    <p class="payment-trust-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l8 3v5c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-3z"/></svg><span>${tCh('agendaNote', __uiLang)}</span></p></form>`, `<button type="button" class="btn-action w-full" id="payment-save">${tCh('vaultSave', __uiLang)}</button>`);
   const kindSelect = document.getElementById('payment-kind');
   const updateMonths = () => {
     const label = document.getElementById('payment-months-label'); if (label) label.hidden = kindSelect?.value !== 'installment';
@@ -3159,6 +3159,14 @@ window.openPaymentAgenda = () => {
   panel.open = true;
   panel.scrollIntoView({ behavior: motionIsReduced() ? 'instant' : 'smooth', block:'start' });
   panel.querySelector('summary').focus({preventScroll:true});
+};
+window.openAgendaInCommandCenter = () => {
+  navigate('dashboard');
+  const input = document.getElementById('qa-input');
+  if (!input) return;
+  input.value = tCh('recurringUpcoming', __uiLang);
+  input.scrollIntoView({ behavior: motionIsReduced() ? 'instant' : 'smooth', block: 'center' });
+  input.focus({ preventScroll: true });
 };
 const renderDashboard = () => {
   try { renderTransactionRecurring(); } catch (error) { document.getElementById('transaction-recurring')?.classList.add('hidden'); console.warn('Recurring payments unavailable:', error); }
@@ -16772,12 +16780,13 @@ function renderSavingsGoals() {
     const prog = computeGoalProgress(g, VaultDAO.state.transactions);
     const hasTarget = g.target != null;
     const pct = Math.max(0, Math.min(100, prog.pct || 0));
-    return `<article class="goal-orbit">
+    const savedForDisplay = Math.max(0, prog.saved || 0);
+    return `<article class="goal-orbit" style="--goal-progress:${pct}">
       <div class="goal-orbit-heading">
         <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="13"/><ellipse cx="24" cy="24" rx="22" ry="8" transform="rotate(-30 24 24)"/><circle cx="37" cy="13" r="3"/></svg>
-        <h4>${escapeHtml(g.name)}</h4>
+        <div class="min-w-0"><h4>${escapeHtml(g.name)}</h4>${hasTarget ? `<span class="goal-progress-number">${new Intl.NumberFormat(__uiLocale, { maximumFractionDigits: 0 }).format(pct)}%</span>` : ''}</div>
       </div>
-      ${hasTarget ? `<div class="budget-track"><div class="budget-fill" style="width:${pct}%"></div></div><p class="goal-orbit-note">${tCh('alphaGoalsProgressLine', __uiLang, formatMoney(prog.saved), formatMoney(g.target), prog.pct)}</p>` : `<p class="goal-orbit-note">${tCh('alphaGoalsNoTargetSaved', __uiLang, formatMoney(prog.saved))}</p>`}
+      ${hasTarget ? `<div class="budget-track"><div class="budget-fill" style="width:${pct}%"></div></div><p class="goal-orbit-note">${tCh('alphaGoalsProgressLine', __uiLang, formatMoney(savedForDisplay), formatMoney(g.target), pct)}</p>` : `<p class="goal-orbit-note">${tCh('alphaGoalsNoTargetSaved', __uiLang, formatMoney(savedForDisplay))}</p>`}
       <div class="goal-orbit-actions"><button type="button" class="goal-orbit-edit" onclick="window.openGoalAmountEditor(${g.id})"><span>${tCh(hasTarget ? 'goalEditAmount' : 'alphaGoalsSetTargetCta', __uiLang)}</span><svg class="goal-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 17L17 7M7 7h10v10"/></svg></button>
       <button type="button" class="goal-orbit-remove" aria-label="${escapeHtml(tCh('alphaGoalsRemove', __uiLang) + ': ' + g.name)}" onclick="window.deleteSavingsGoal(${g.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 10v7m4-7v7"/></svg><span>${tCh('alphaGoalsRemove', __uiLang)}</span></button></div>
     </article>`;
@@ -16795,9 +16804,9 @@ window.openGoalAmountEditor = (id) => {
   openModal(`
     <div class="goal-amount-editor p-4 space-y-4">
       <svg class="goal-editor-orbit" viewBox="0 0 160 100" fill="none" aria-hidden="true"><circle cx="80" cy="50" r="26"/><ellipse cx="80" cy="50" rx="66" ry="18" transform="rotate(-20 80 50)"/><circle cx="137" cy="30" r="5"/></svg>
-      <h3 class="text-lg font-bold">${escapeHtml(goal.name)}</h3>
+      <p class="cosmos-modal-kicker">${tCh('alphaGoalsTitle', __uiLang)}</p><h3 class="text-lg font-bold">${escapeHtml(goal.name)}</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('alphaGoalsSetTargetSub', __uiLang)}</p>
-      <input id="goal-target-only-input" aria-label="${escapeHtml(tCh('alphaGoalsTargetPlaceholder', __uiLang))}" value="${Number.isFinite(goal.target) ? goal.target : ''}" type="number" inputmode="decimal" placeholder="${tCh('alphaGoalsTargetPlaceholder', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
+      <label class="cosmos-form-field"><span>${escapeHtml(tCh('alphaGoalsTargetPlaceholder', __uiLang))}</span><input id="goal-target-only-input" name="goal-target" autocomplete="off" value="${Number.isFinite(goal.target) ? goal.target : ''}" type="number" inputmode="decimal" placeholder="${tCh('alphaGoalsTargetPlaceholder', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" /></label>
     </div>
   `, `<button onclick="window.confirmGoalAmount(${id})" class="btn-action orbit-confirm w-full">${tCh('vaultSave', __uiLang)}</button>`);
 };
@@ -17401,15 +17410,15 @@ window.meshAcceptAnswer = async () => {
 
 window.openGoalEditor = () => {
   openModal(`
-    <div class="p-4 space-y-4">
-      <h3 class="text-lg font-bold">${tCh('goalNew', __uiLang)}</h3>
+    <form class="goal-create-editor p-4 space-y-4" onsubmit="return false">
+      <svg class="goal-editor-orbit" viewBox="0 0 160 100" fill="none" aria-hidden="true"><circle cx="80" cy="50" r="26"/><ellipse cx="80" cy="50" rx="66" ry="18" transform="rotate(-20 80 50)"/><circle cx="137" cy="30" r="5"/></svg>
+      <p class="cosmos-modal-kicker">${tCh('alphaGoalsTitle', __uiLang)}</p><h3 class="text-lg font-bold">${tCh('goalNew', __uiLang)}</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('goalCalculation', __uiLang)}</p>
-      <input id="goal-name-input" type="text" aria-label="${escapeHtml(tCh('goalName', __uiLang))}" placeholder="${escapeHtml(tCh('goalName', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
-      <input id="goal-target-input" type="number" inputmode="decimal" aria-label="${escapeHtml(tCh('goalOptionalAmount', __uiLang))}" placeholder="${escapeHtml(tCh('goalOptionalAmount', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
-      <input id="goal-deadline-input" aria-label="${escapeHtml(tCh('goalOptionalDate', __uiLang))}" type="date" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
-      <button onclick="window.confirmGoalCreate()" class="btn-action w-full">${tCh('goalCreate', __uiLang)}</button>
-    </div>
-  `);
+      <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalName', __uiLang))}</span><input id="goal-name-input" name="goal-name" autocomplete="off" type="text" placeholder="${escapeHtml(tCh('goalName', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" /></label>
+      <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalOptionalAmount', __uiLang))}</span><input id="goal-target-input" name="goal-target" autocomplete="off" type="number" inputmode="decimal" placeholder="${escapeHtml(tCh('goalOptionalAmount', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" /></label>
+      <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalOptionalDate', __uiLang))}</span><input id="goal-deadline-input" name="goal-deadline" autocomplete="off" type="date" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" /></label>
+    </form>
+  `, `<button type="button" onclick="window.confirmGoalCreate()" class="btn-action orbit-confirm w-full">${tCh('goalCreate', __uiLang)}</button>`);
 };
 
 window.confirmGoalCreate = () => {
@@ -17433,6 +17442,8 @@ window.confirmGoalCreate = () => {
 };
 
 window.deleteSavingsGoal = (id) => {
+  const goal = (VaultDAO.state.savingsGoals || []).find(g => g.id === id);
+  if (!goal || !confirm(`${tCh('alphaGoalsRemove', __uiLang)} “${goal.name}”?`)) return;
   VaultDAO.state.savingsGoals = (VaultDAO.state.savingsGoals || []).filter(g => g.id !== id);
   VaultDAO.save();
   renderSavingsGoals();
