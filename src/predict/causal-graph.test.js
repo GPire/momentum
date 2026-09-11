@@ -8,6 +8,20 @@ const { buildCategorySeries, buildCausalGraph, propagateImpact, explainChain, pr
 
 const REF = new Date(2026, 6, 6); // lunedì 6 luglio 2026
 
+test('same-week association is visible from either category, without a self-cycle', () => {
+  const links = [{ from: 'Alimentari', to: 'Ristorante', lagWeeks: 0, r: -0.8 }];
+  assert.deepEqual(propagateImpact(links, 'Ristorante', 30), [
+    { category: 'Alimentari', expectedPct: -24, path: ['Ristorante', 'Alimentari'], lagWeeks: 0 },
+  ]);
+  assert.equal(propagateImpact(links, 'Alimentari', 30)[0].category, 'Ristorante');
+});
+
+test('a delayed association is not reversed into a prediction about the past', () => {
+  const links = [{ from: 'Alimentari', to: 'Ristorante', lagWeeks: 1, r: 0.8 }];
+  assert.deepEqual(propagateImpact(links, 'Ristorante', 30), []);
+  assert.equal(propagateImpact(links, 'Alimentari', 30)[0].lagWeeks, 1);
+});
+
 // Storia sintetica con nesso VERO incorporato: nelle settimane "sociali"
 // salgono INSIEME Ristorante e Trasporti (esci a cena → taxi), e la
 // settimana DOPO sale Farmacia. Alimentari resta costante (nessun legame).

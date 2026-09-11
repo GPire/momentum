@@ -177,6 +177,7 @@ import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, ch
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
+import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -18324,6 +18325,7 @@ const initApp = () => {
       caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).catch(() => {});
     }
   } else if ('serviceWorker' in navigator) {
+    const hadControllerAtBoot = Boolean(navigator.serviceWorker.controller);
     // updateViaCache:'none' → il browser NON usa la sua cache HTTP per sw.js:
     // controlla SEMPRE se c'è un service worker nuovo (fix del problema ricorrente
     // "vedo ancora la versione vecchia"). Combinato con skipWaiting/clients.claim
@@ -18358,7 +18360,7 @@ const initApp = () => {
 
     let reloadedForUpdate = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloadedForUpdate) return;
+      if (!hadControllerAtBoot || reloadedForUpdate) return;
       reloadedForUpdate = true;
       window.location.reload();
     });
@@ -18418,8 +18420,8 @@ const initApp = () => {
     // incorporato in QUESTO bundle in esecuzione — se il dispositivo sta
     // ancora eseguendo un bundle vecchio, il valore incorporato è vecchio
     // per costruzione, indipendentemente da cosa il SW pensa di controllare.
-    // Un solo reload, mai un loop: la guardia usa lo stesso pattern di
-    // `reloadedForUpdate` sopra per il flusso del service worker.
+    // La guardia in sessionStorage sopravvive al reload: un mirror stantio
+    // non può ricaricare all'infinito lo stesso bundle.
     // TERZO CANALE, contro l'origine CANONICA (2026-09-03) — bug reale
     // trovato con curl diretto: chi arriva dal proxy Netlify legacy
     // (public/_redirects, per le PWA installate prima della migrazione a
@@ -18435,8 +18437,11 @@ const initApp = () => {
     // Il rimedio è confrontarsi anche con l'ORIGINE VERA, sempre fresca per
     // costruzione (nessun proxy nel mezzo) — CORS già aperto su version.json
     // (access-control-allow-origin: *, verificato con curl -I).
-    const CANONICAL_APP_ORIGIN = 'https://momentum-finance.pages.dev';
-    const isCanonicalOrigin = location.origin === CANONICAL_APP_ORIGIN;
+    const checkCanonical = checksCanonicalVersion(location.origin);
+    const canReloadVersion = version => {
+      try { return claimVersionReload(sessionStorage, __BUILD_VERSION__, version); }
+      catch { return false; }
+    };
     let reloadedForVersionCheck = false;
     const checkAppVersionDirect = async () => {
       if (reloadedForVersionCheck) return;
@@ -18444,7 +18449,7 @@ const initApp = () => {
         const res = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
           const { version } = await res.json();
-          if (version && version !== __BUILD_VERSION__) {
+          if (canReloadVersion(version)) {
             reloadedForVersionCheck = true;
             showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info');
             setTimeout(() => window.location.reload(), 1200); // tempo reale per leggere il toast
@@ -18452,15 +18457,14 @@ const initApp = () => {
           }
         }
       } catch (_) { /* onesto: rete assente o version.json non ancora deployato, si ricontrolla al prossimo giro */ }
-      // Il controllo sopra non ha trovato nulla di nuovo: prova anche contro
-      // l'origine canonica, ma solo se non siamo già lì (altrimenti sarebbe
-      // la stessa identica richiesta due volte).
-      if (isCanonicalOrigin) return;
+      // Solo i mirror di produzione Netlify seguono l'origine canonica.
+      // Un'anteprima Pages ha deliberatamente una versione diversa da main.
+      if (!checkCanonical) return;
       try {
         const res = await fetch(`${CANONICAL_APP_ORIGIN}/version.json?t=${Date.now()}`, { cache: 'no-store', mode: 'cors' });
         if (!res.ok) return;
         const { version } = await res.json();
-        if (version && version !== __BUILD_VERSION__) {
+        if (canReloadVersion(version)) {
           reloadedForVersionCheck = true;
           showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info');
           setTimeout(() => window.location.reload(), 1200);

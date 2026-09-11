@@ -44,6 +44,31 @@ Questo non è una garanzia contro cancellazione manuale, guasti del dispositivo,
 
 ## Cosa non attestano questi controlli
 
+### Difetti trovati nel primo deploy e nella CI
+
+Il push `88bb0dd` ha attivato la [PR #1](https://github.com/GPire/momentum/pull/1).
+Cloudflare ha completato la build standard, Android `assembleDebug lintDebug` e
+iOS Simulator con SDK 27 hanno compilato con successo nel run
+[34646966138](https://github.com/GPire/momentum/actions/runs/34646966138).
+Queste sono compilazioni, non prove d'uso su telefoni fisici.
+
+Il collaudo dell'anteprima ha però riprodotto un ciclo di reload: il controllo
+canonico trattava ogni sottodominio come un mirror della produzione. La
+correzione limita quel confronto ai mirror Netlify, conserva in sessionStorage
+il tentativo di reload del bundle e non ricarica il primo accesso quando il service
+worker prende il controllo. Cinque test dedicati coprono preview, mirror, versioni
+invalide, reload ripetuti e storage indisponibile. La regola proxy Netlify in
+`public/_redirects` resta per le installazioni storiche: Cloudflare la ignora con
+un warning perché non supporta proxy 200 verso URL esterni; non redirige la preview.
+
+La prima suite Linux ha trovato un difetto reale nel grafo: gli archi della
+stessa settimana erano memorizzati in ordine alfabetico ma percorsi in una sola
+direzione. Ora sono attraversabili da entrambi i lati; gli archi ritardati restano
+direzionali. Due test coprono simmetria/assenza di cicli e divieto di invertire
+il tempo. Le fixture QA usano date UTC deterministiche; le asserzioni sulla
+risposta non sono state rimosse. 107 test mirati passano dopo queste correzioni;
+la suite completa e il deploy vengono rieseguiti sul nuovo commit.
+
 Non sono certificazioni App Store/Play Store, test fisici Safari/iOS/Android o una revisione WCAG completa. Restano testi legacy fuori dai dizionari, dipendenze esterne e limiti fiscali esplicitati nel Centro Fiducia. Open banking e HealthKit non diventano operativi con questo merge. Nessun tasso di conversione è garantito dai test.
 
 Per la pubblicazione: push del branch integrato, verifica della build standard su Cloudflare Pages (`momentum-finance`), collaudo dell'URL effettivamente restituito e PR con questo documento. L'esito remoto va registrato solo dopo averlo osservato; le prove locali non attestano da sole un deploy.
