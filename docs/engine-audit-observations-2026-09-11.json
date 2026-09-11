@@ -1,0 +1,33 @@
+{
+  "auditedRef": "d92a5dcd9a5a9dae7649ce4c74fd6e836adb124f",
+  "kind": "defect-reproduction-not-release-validation",
+  "observations": [
+    {
+      "id": "forecast-origin",
+      "observed": 900,
+      "expectedIfBalanceAlreadyIncludesEarlierSpending": 1000
+    },
+    {
+      "id": "forecast-target-format",
+      "dateOnly": 900,
+      "timestamp": 1000,
+      "expectedSameCalendarDay": 900
+    },
+    {
+      "id": "forecast-premature",
+      "evaluatedAtFirstMinuteOfTargetDay": 1,
+      "expectedUntilDayCloses": 0
+    },
+    {
+      "id": "csv-text-boundary",
+      "formulaLikeClientPreservedAsRawCell": true,
+      "emitterNewlineEscapesHeader": true
+    },
+    {
+      "id": "deadline-today",
+      "visiblePreviousDay": true,
+      "visibleOnDueDay": false,
+      "expectedOnDueDay": true
+    }
+  ]
+}

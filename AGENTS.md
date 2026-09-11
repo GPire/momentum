@@ -26,6 +26,11 @@
 > con manifesto file per file e risultati della suite. La simulazione di merge
 > `eb86338` / `d92a5dc` rileva 13 file in conflitto: integrazione guidata necessaria.
 > Non dichiarare un merge, deploy o collaudo nativo sulla base dei test locali.
+> Prima di integrare i motori, leggere anche
+> [engine-integration-audit-2026-09-11.md](docs/engine-integration-audit-2026-09-11.md):
+> 246 test mirati di main superati, ma casi limite riprodotti in calibrazione,
+> CSV e scadenze ancora da correggere. Conservare le protezioni locali dei
+> modelli e della mesh; main non è automaticamente superiore in ogni modulo.
 
 ## Cos'è
 

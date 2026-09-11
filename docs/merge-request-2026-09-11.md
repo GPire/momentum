@@ -4,6 +4,8 @@
 
 ## Problema e risultato
 
+**Integrazione dei motori:** la [revisione estesa di main e branch](engine-integration-audit-2026-09-11.md) indica quali logiche conservare da ciascuna versione. Include 246 test mirati sul main isolato e riproduzioni di difetti in verifica previsioni, CSV e scadenze da correggere prima di attivare i nuovi percorsi. L'audit non costituisce merge né correzione già applicata a quei motori.
+
 Le schermate mostravano troppi elementi insieme, alcune scorciatoie portavano a un'altra pagina invece dell'editor e lo split rendeva difficile distinguere anticipi, quote e rimborsi. Il branch raggruppa i contenuti, apre direttamente i controlli pertinenti e rende esplicito il risultato delle scelte, mantenendo il tema grafico di Momentum e le preferenze di accessibilità.
 
 Esempio: un conto da 60 € per tre persone mostra subito 20 € a persona. Scegliendo di personalizzare le quote, i campi partono da 20/20/20: si modificano solo le differenze. Il conto di chi ha anticipato resta separato; il motore calcola i rimborsi, non effettua pagamenti.

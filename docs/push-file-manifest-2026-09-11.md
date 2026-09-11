@@ -77,3 +77,11 @@ Le aggiunte di documentazione successive a eb86338 sono elencate in fondo. Il pu
 - Questo manifesto: responsabilità di tutti i file del push.
 - `docs/release-validation-2026-09-11.json`: conteggi estratti dal log della suite, file per file, con provenienza e hash del log.
 - Aggiornati handoff, revisione e AGENTS.md al main d92a5dc, comprese le 13 collisioni rilevate.
+
+## Revisione successiva dei motori
+
+- [engine-integration-audit-2026-09-11.md](engine-integration-audit-2026-09-11.md): confronto completo del delta di main, vantaggi di entrambi i branch, contratti e rischi prima dell'integrazione.
+- [audit-main-engines-repro.mjs](audit-main-engines-repro.mjs): riproduzioni sintetiche di difetti del main isolato; non è una suite che certifica il rilascio.
+- [engine-audit-observations-2026-09-11.json](engine-audit-observations-2026-09-11.json): risultati delle riproduzioni con SHA analizzato.
+- `AGENTS.md`, handoff e descrizione PR: collegamento alla revisione e avvertenza di preservare i controlli locali dei modelli/mesh, senza sostituzioni globali.
+- Questo manifesto aggiunge il perimetro dell'audit; i 64 file di codice/release elencati sopra non cambiano per questa revisione documentale.

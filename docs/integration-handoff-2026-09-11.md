@@ -8,6 +8,8 @@ Punto di ingresso del revisore: [descrizione pronta per la PR](merge-request-202
 
 ## Simulazione del merge con main d92a5dc
 
+**Aggiornamento motori:** leggere la [matrice completa di integrazione](engine-integration-audit-2026-09-11.md). Comprende gli avanzamenti fiscali e di mercato, i controlli locali da preservare e i difetti riprodotti nel main isolato. I 246 test mirati superati non coprivano quei casi limite. Non usare “main conserva autorità” come istruzione per sovrascrivere tutte le logiche locali.
+
 `git merge-tree --write-tree --name-only eb86338 d92a5dc` ha rilevato **13 file in conflitto**, senza modificare il checkout né avviare un merge su main. Questo risultato è riferito a quei due SHA, non a futuri aggiornamenti.
 
 | File | Cosa preservare e verificare |
