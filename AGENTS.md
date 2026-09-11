@@ -2,8 +2,10 @@
 
 > **Stato più recente, 2026-09-11:** integrazione di main `d92a5dc` nel branch
 > UI completata per sezione; 13 conflitti risolti, casi limite dei motori corretti.
-> Suite integrata: **4.839 test / 316 file, zero fallimenti o skip**; build portabile
-> completata. Leggere prima [merge-validation-2026-09-11.md](docs/merge-validation-2026-09-11.md)
+> Suite finale su `66602c7`: **4.846 test / 317 file, zero fallimenti o skip**;
+> build web standard, Android e iOS Simulator SDK 27 passati in CI. Corretto
+> anche il reload delle anteprime e il grafo delle associazioni simmetriche.
+> Leggere prima [merge-validation-2026-09-11.md](docs/merge-validation-2026-09-11.md)
 > per i controlli sui dati e i limiti del checkpoint. I conteggi e i conflitti
 > descritti nei riquadri successivi sono precedenti a questa integrazione.
 > Nessun reset degli archivi o fusione arbitraria dei pesi ML è autorizzato.

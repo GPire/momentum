@@ -21,8 +21,8 @@ Nessun cambio delle chiavi attive o reset dello schema. Prima della riconciliazi
 
 ## Validazione
 
-- **4.839 test, 316/316 file passati, zero skip**, Node 24 e processi isolati, inclusi i test di fuso con sottoprocessi reali.
-- Build di produzione portabile riuscita (21,15 secondi); warning sui chunk grandi ancora presente. La build standard remota va verificata nel deploy.
+- **4.846 test, 317/317 file passati, zero skip**, Node 24 e processi isolati, inclusi i test di fuso con sottoprocessi reali.
+- Build portabile riuscita (36,90 secondi) e build standard passata in CI e Cloudflare. Android assembleDebug/lintDebug e iOS Simulator SDK 27 passati. Warning sui chunk grandi ancora presente.
 - Browser isolato: onboarding CH senza reddito/budget obbligatori, Dashboard, riavvio, Vault/Centro Fiducia e Split diretto; modale contenuta a 390 × 844, nessun errore console osservato. Prove precedenti: dieci partecipanti, omonimi, più anticipi, quote, ritorno dal rimborso e inviti.
 - `git diff --check` superato. Nessuna attestazione di test fisici iOS/Android o certificazione degli store.
 
@@ -35,3 +35,9 @@ Nessun cambio delle chiavi attive o reset dello schema. Prima della riconciliazi
 - [Audit dei motori prima delle correzioni](engine-integration-audit-2026-09-11.md)
 
 La proposta commerciale nuova di main non viene attivata implicitamente. Open banking e HealthKit restano preparazione, non funzioni operative. I controlli non promettono percentuali di conversione né compatibilità nativa non provata.
+
+## Esito del collaudo online
+
+Il commit 66602c7 corregge il confronto della preview con la produzione che causava reload continui. La guardia del reload sopravvive al riavvio della pagina. Corretto inoltre il grafo delle associazioni della stessa settimana: la risposta non dipende più dall’ordine alfabetico delle categorie; i legami ritardati restano direzionali.
+
+Anteprima verificata: https://a73b1373.momentum-finance.pages.dev/?lang=it . Primo avvio, Dashboard e accesso diretto allo Split completati senza reload ripetuti.

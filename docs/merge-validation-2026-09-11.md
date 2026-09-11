@@ -1,5 +1,15 @@
 # Integrazione verificata di UI e motori — 11 settembre 2026
 
+## Esito finale sul codice 66602c7
+
+- **4.846 test / 317 file passati**, zero skip, dopo le correzioni descritte sotto.
+- [Release checks Linux: test e build standard riusciti](https://github.com/GPire/momentum/actions/runs/34647755373).
+- [Android assembleDebug/lintDebug e iOS Simulator SDK 27: riusciti](https://github.com/GPire/momentum/actions/runs/34647755356).
+- Build portabile finale locale: riuscita in 36,90 secondi.
+- [Anteprima verificata](https://a73b1373.momentum-finance.pages.dev/?lang=it): primo avvio completo con profilo semplice, nessun budget/reddito obbligatorio, Dashboard e apertura diretta dello Split; nessun ciclo di reload. Il browser ha registrato messaggi di canale asincrono senza stack applicativo, senza interrompere questi flussi; non si dichiara una console completamente priva di segnalazioni.
+- Primo deploy `88bb0dd` e relativa suite sono storici: i difetti trovati lì sono corretti da `66602c7`. Questa revisione successiva aggiorna solo la documentazione.
+- [PR #1 con stato effettivo del merge](https://github.com/GPire/momentum/pull/1). La compilazione del simulatore non attesta test fisici, firma, TestFlight o pubblicazione negli store.
+
 ## Riferimenti e metodo
 
 Integrazione di `origin/main` **d92a5dcd9a5a9dae7649ce4c74fd6e836adb124f** nel branch `codex/public-release-foundation`, partito da **dfdd6462f48b8228c81b895be185b3218ba4662b**. I 13 conflitti sono stati risolti per funzione e sezione; nessuna sostituzione integrale di `main.js` o `index.html`. Il commit di merge contiene questo documento: per il suo SHA usare Git, non un riferimento circolare nel file.
