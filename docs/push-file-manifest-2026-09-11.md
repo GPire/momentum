@@ -1,3 +1,5 @@
+> Aggiornamento successivo: main d92a5dc è stato integrato e i casi limite corretti. Esito corrente, preservazione dei dati e 4.839 test / 316 file sono in [merge-validation-2026-09-11.md](merge-validation-2026-09-11.md). I riferimenti e i blocchi di autenticazione descritti sotto documentano la fase precedente.
+
 # Contenuto del push: file per file
 
 Diff verificato da `91f2cd8` (ultimo branch remoto osservato) a `eb86338` (codice locale revisionato): **64 file**. Include il commit precedente `52b8edd`, non ancora remoto. Non comprende dipendenze installate, dati personali o prove sintetiche del browser.

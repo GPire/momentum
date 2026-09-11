@@ -1,3 +1,5 @@
+> Aggiornamento successivo: main d92a5dc è stato integrato e i casi limite corretti. Esito corrente, preservazione dei dati e 4.839 test / 316 file sono in [merge-validation-2026-09-11.md](merge-validation-2026-09-11.md). I riferimenti e i blocchi di autenticazione descritti sotto documentano la fase precedente.
+
 # Integrazione UI con il main aggiornato
 
 Branch UI: `codex/public-release-foundation`. Codice revisionato: `eb86338`, incluso `52b8edd`. Main remoto aggiornato verificato: `d92a5dc` (successivo a `3c9b3c3`). Base comune: `a62ceeaf67fdbaed2785af80b88ca0134b1b810b` (verificare con `git merge-base` prima dell’integrazione; non usare questo testo come ref operativo).

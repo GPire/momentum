@@ -70,6 +70,7 @@ export function upcomingTaxDeadlines(totaleAnnuoStimato, {
   if (daCoprire === 0) return [];
 
   const oggi = new Date(now);
+  oggi.setUTCHours(0, 0, 0, 0);
   const limite = new Date(oggi.getTime() + orizzonteGiorni * DAY_MS);
   const out = [];
   // Due anni di finestra: basta a coprire qualunque orizzonte fino a ~400
@@ -79,7 +80,7 @@ export function upcomingTaxDeadlines(totaleAnnuoStimato, {
     // (o arrivano aggiornate da remoto), ogni anno usa le sue.
     for (const s of scadenzeForYear(anno, rulesOverride)) {
       const data = slittaSeFestivo(new Date(Date.UTC(anno, s.mese - 1, s.giorno)));
-      if (data <= oggi || data > limite) continue;
+      if (data < oggi || data > limite) continue;
       // Ogni scadenza porta con sé lo stato delle regole da cui nasce: se
       // derivano da un anno precedente, l'utente deve poterlo sapere
       // guardando la scadenza stessa, non cercandolo altrove.
@@ -102,8 +103,7 @@ export function upcomingTaxDeadlines(totaleAnnuoStimato, {
 }
 
 // SCADENZE SALTATE (colma un vuoto reale): upcomingTaxDeadlines scarta ogni
-// scadenza con `data <= oggi` — corretto per non allarmare su una scadenza
-// già versata, ma se non era stata versata la scadenza SPARIVA dalla UI
+// scadenza precedente a oggi; se non era stata versata SPARIVA dalla UI
 // senza che nessuno lo dicesse. Stessa logica di daCoprire (residuo dopo i
 // versamenti dichiarati), ma guardando ALL'INDIETRO invece che in avanti.
 export function overdueTaxDeadlines(totaleAnnuoStimato, {
@@ -116,11 +116,12 @@ export function overdueTaxDeadlines(totaleAnnuoStimato, {
 
   const oggi = new Date(now);
   const soglia = new Date(oggi.getTime() - orizzonteGiorniPassati * DAY_MS);
+  oggi.setUTCHours(0, 0, 0, 0);
   const out = [];
   for (const anno of [oggi.getUTCFullYear() - 1, oggi.getUTCFullYear()]) {
     for (const s of scadenzeForYear(anno, rulesOverride)) {
       const data = slittaSeFestivo(new Date(Date.UTC(anno, s.mese - 1, s.giorno)));
-      if (data > oggi || data < soglia) continue; // solo scadenze passate, non troppo vecchie
+      if (data >= oggi || data < soglia) continue; // oggi non è ancora in ritardo
       out.push({
         id: `${s.id}-${anno}`,
         label: s.label,

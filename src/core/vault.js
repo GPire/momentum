@@ -5,6 +5,7 @@ import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
 import { mergeTransactions, reconcileHead, markDeleted, pruneTombstones } from '../mesh/sync.js';
 import { conTimeout } from './con-timeout.js';
+import { meseLocale } from './date-utils.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -114,9 +115,11 @@ const DurableStore = {
     const db = await this.open();
     if (!db) return;
     return new Promise((resolve, reject) => {
-      const req = db.transaction(store, 'readwrite').objectStore(store).put(value, key);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      const transaction = db.transaction(store, 'readwrite');
+      transaction.objectStore(store).put(value, key);
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted'));
+      transaction.onerror = () => reject(transaction.error);
     });
   },
   async append(store, value) {
@@ -288,7 +291,11 @@ function reconstructMissingFromTxLog(txLogEntries, currentState) {
       impronteEsistenti.add(impronta);
     }
     seen.add(tx.id);
-    const month = entry.month || (tx.date ? String(tx.date).slice(0, 7) : null);
+    // meseLocale (2026-09-11, guardia strutturale): un taglio di stringa
+    // diretto leggerebbe il mese UTC — nel RECUPERO da tx_log questo
+    // significherebbe archiviare una transazione recuperata nel mese
+    // sbagliato, lo stesso bug della singola giornata ma sul mese intero.
+    const month = entry.month || meseLocale(tx.date);
     if (!month) continue;
     if (!recovered[month]) recovered[month] = [];
     recovered[month].push(tx);
@@ -440,6 +447,14 @@ const VaultDAO = {
       tryParse(lsShadow, 'localStorage(shadow)', (raw) => decodeURIComponent(escape(atob(raw))));
       tryParse(idbPayload, 'indexedDB');
       if (candidates.length === 0) return; // nessuna copia leggibile: init() partirà dal default
+      // A one-time, separate checkpoint preserves every readable source before
+      // this release reconciles them, including learning not present in the winner.
+      if (!await DurableStore.get('state', 'upgrade-2026-09-11')) {
+        await DurableStore.put('state', {
+          format: 'momentum-upgrade-checkpoint-v1', createdAt: new Date().toISOString(),
+          sources: candidates,
+        }, 'upgrade-2026-09-11');
+      }
       let best = candidates[0];
       for (const c of candidates.slice(1)) if (this._countTx(c.state) > this._countTx(best.state)) best = c;
       if (candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {

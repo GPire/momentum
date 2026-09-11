@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   computeAvsIndipendente, ivaObbligatoriaCh,
   AVS_ALIQUOTA_PIENA, AVS_SOGLIA_ALIQUOTA_PIENA, AVS_CONTRIBUTO_MINIMO_ANNUO,
+  AVS_SOGLIA_ACCESSORIA_OBBLIGO, AVS_SOGLIA_ACCESSORIA_FACOLTATIVA,
   IVA_CH, IVA_CH_SOGLIA_OBBLIGO,
 } from './tax-ch.js';
 
@@ -43,6 +44,47 @@ test('computeAvsIndipendente: reddito zero o negativo -> zero, nessun crash', ()
   assert.equal(computeAvsIndipendente(0).contributo, 0);
   assert.equal(computeAvsIndipendente(-100).contributo, 0);
   assert.equal(computeAvsIndipendente(NaN).contributo, 0);
+});
+
+// ── ATTIVITÀ ACCESSORIA (2026-09-06) — BUG REALE trovato analizzando un
+// audit esterno: la funzione presumeva sempre "attività principale"
+// (contributi dal 1° franco). Per un'attività accessoria la soglia
+// d'obbligo è CHF 2.500, verificato su fonte primaria/fonti concordanti
+// (ahv-iv.ch, medisuisse.ch, raiffeisen.ch, swisslife.ch). ──
+
+test('computeAvsIndipendente: default (nessun opts) → si comporta come attività PRINCIPALE, retrocompatibile con ogni chiamante esistente', () => {
+  const r = computeAvsIndipendente(1500);
+  assert.equal(r.contributoMinimoAnnuo, 530, 'senza specificare, resta la scelta prudente: dal 1° franco');
+  assert.equal(r.sottoSogliaAccessoria, undefined);
+});
+
+test('computeAvsIndipendente: attività accessoria SOTTO CHF 2.500 → nessun contributo presunto, MAI il minimo di 530 spacciato per dovuto', () => {
+  const r = computeAvsIndipendente(1500, { attivitaAccessoria: true });
+  assert.equal(r.contributo, null);
+  assert.equal(r.sottoSogliaAccessoria, true);
+  assert.match(r.nota, /ACCESSORIA/);
+  // 'it-CH'.toLocaleString() non aggiunge separatore di migliaia sotto le
+  // 5 cifre (verificato: 2500->"2500", 60500->"60'500") — stesso comportamento
+  // già in uso in questo file per AVS_SOGLIA_ALIQUOTA_PIENA, non un bug.
+  assert.match(r.nota, /2500/);
+  assert.match(r.nota, /2300/, 'deve citare anche la soglia di facoltatività, non solo quella di obbligo');
+});
+
+test('computeAvsIndipendente: attività accessoria DA CHF 2.500 in su → stesso trattamento della principale (minimo 530)', () => {
+  const r = computeAvsIndipendente(3000, { attivitaAccessoria: true });
+  assert.equal(r.sottoSogliaAccessoria, undefined);
+  assert.equal(r.contributoMinimoAnnuo, 530);
+});
+
+test('computeAvsIndipendente: attività accessoria SOPRA la soglia piena (CHF 60.500) → aliquota piena come chiunque altro', () => {
+  const r = computeAvsIndipendente(80000, { attivitaAccessoria: true });
+  assert.equal(r.fasciaPiena, true);
+  assert.equal(r.contributo, 8000);
+});
+
+test('costanti soglie attività accessoria verificate', () => {
+  assert.equal(AVS_SOGLIA_ACCESSORIA_OBBLIGO, 2500);
+  assert.equal(AVS_SOGLIA_ACCESSORIA_FACOLTATIVA, 2300);
 });
 
 test('ivaObbligatoriaCh: sopra CHF 100.000 -> obbligatoria', () => {

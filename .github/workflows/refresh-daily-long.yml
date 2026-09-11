@@ -1,0 +1,62 @@
+name: Aggiorna il pannello prezzi giornalieri (40 anni)
+
+# Rigenera src/alpha/daily-long.js (bench/fetch-daily-history.mjs, Yahoo
+# Finance) una volta a settimana: a differenza del pannello SEC (bilanci,
+# cambiano per trimestre) i prezzi cambiano ogni giorno di borsa, ma le
+# analisi che consumano questo pannello (pattern-storico.js, cicli.js,
+# previsione-condizionata.js...) guardano la distribuzione su 40 anni, non
+# l'ultimo tick — settimanale tiene i dati "attuali" senza bombardare Yahoo
+# Finance con run giornalieri che non cambierebbero nessuna conclusione
+# statistica. `workflow_dispatch` resta per un rilancio manuale.
+#
+# Stessa disciplina del pannello SEC: apre una PR, mai un push diretto su
+# main — dati reali che finiscono nell'app di ogni utente meritano un occhio
+# umano prima di entrare.
+on:
+  schedule:
+    - cron: '41 5 * * 1'  # ogni lunedì, 05:41 UTC — orario non tondo apposta
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Rigenera il pannello (bench/fetch-daily-history.mjs)
+        run: npm run bench:daily-long
+
+      # Prima di proporre qualunque cosa: la suite intera deve restare
+      # verde. Un pannello che rompe un test (es. un rendimento fuori scala,
+      # verificato altrove nel progetto) non diventa mai una PR.
+      - name: Verifica che i test restino verdi col pannello aggiornato
+        run: npm test
+
+      - name: Verifica che la build resti pulita
+        run: npm run build
+
+      - name: Apri una PR se il pannello è cambiato
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore: aggiorna il pannello prezzi giornalieri 40 anni (automatico)'
+          title: 'Aggiornamento settimanale pannello prezzi giornalieri'
+          body: |
+            Rigenerato da `bench/fetch-daily-history.mjs` (workflow schedulato).
+
+            Test e build verificati verdi con questo aggiornamento prima di aprire la PR.
+            Nessun push diretto su main: revisione umana richiesta come per ogni altra modifica.
+          branch: auto/refresh-daily-long
+          delete-branch: true
+          add-paths: |
+            src/alpha/daily-long.js

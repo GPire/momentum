@@ -67,7 +67,7 @@ export function recommendPlan(state = {}) {
   const profile = state.onboardingProfile || {};
   if (profile.isMinor || profile.ageBracket === 'under18') return { tier: TIER_FREE, reasons: [] };
   const reasons = [];
-  if (state.taxRegime || state.esActive || state.chActive) reasons.push('professional_tax');
+  if (state.taxRegime || state.esActive || state.chActive || state.chAttivitaTipo) reasons.push('professional_tax');
   if (state.investmentPrefs?.invests === true && state.positions?.length > 0) reasons.push('portfolio_analysis');
   return { tier: reasons.length ? TIER_PRO : TIER_FREE, reasons };
 }

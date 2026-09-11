@@ -129,14 +129,22 @@ export function derivePriors(risk = 'bilanciato', horizon = 'medio', liquidityMo
 // è un segnale dichiarato sull'onboarding, non ancora osservato sui dati
 // reali. Math.max, non somma: due segnali che puntano nella stessa
 // direzione non devono raddoppiare il bias, solo confermarlo.
+// 'es-modelo130-deadline' (2026-09-10, mossa 5 analisi competitiva): stesso
+// bias di 'es-tax-set-aside' — con un cuscinetto sottile, sapere PRIMA
+// quando cade la prossima scadenza Modelo 130 conta di più. Stesso principio
+// di separazione: il bandit decide solo la priorità nel feed, mai se
+// l'avviso esiste (quello lo decide sempre e solo nextModelo130Deadline).
 export function banditSeed(risk = 'bilanciato', cashflowStress = null, incomeRegularity = null) {
   const r = RISKS.has(risk) ? risk : 'bilanciato';
   // kind favorito e forza del bias (pseudo-successi aggiunti al prior a=1).
   const favor = r === 'conservativo' ? { sweep: 0.6, causal: 0.1 }
     : r === 'aggressivo' ? { causal: 0.6, sweep: 0.1 }
     : { sweep: 0.3, causal: 0.3 };
-  if (cashflowStress === 'corto') { favor['bnpl-exposure'] = 0.5; favor['es-tax-set-aside'] = 0.5; }
-  if (incomeRegularity === 'irregolare') { favor['es-tax-set-aside'] = Math.max(favor['es-tax-set-aside'] || 0, 0.3); }
+  if (cashflowStress === 'corto') { favor['bnpl-exposure'] = 0.5; favor['es-tax-set-aside'] = 0.5; favor['es-modelo130-deadline'] = 0.5; }
+  if (incomeRegularity === 'irregolare') {
+    favor['es-tax-set-aside'] = Math.max(favor['es-tax-set-aside'] || 0, 0.3);
+    favor['es-modelo130-deadline'] = Math.max(favor['es-modelo130-deadline'] || 0, 0.3);
+  }
   const contexts = ['ok:early', 'ok:mid', 'ok:late', 'over:early', 'over:mid', 'over:late'];
   const arms = {};
   for (const ctx of contexts) {

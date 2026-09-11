@@ -1,3 +1,5 @@
+> Aggiornamento successivo: main d92a5dc è stato integrato e i casi limite corretti. Esito corrente, preservazione dei dati e 4.839 test / 316 file sono in [merge-validation-2026-09-11.md](merge-validation-2026-09-11.md). I riferimenti e i blocchi di autenticazione descritti sotto documentano la fase precedente.
+
 # Revisione locale Momentum — 11 settembre 2026
 
 Revisione cumulativa sul branch `codex/public-release-foundation`, a partire da `52b8edd`, consolidata nel codice `eb86338`. Questo documento accompagna il codice destinato all’integrazione; non attesta un deploy o un merge su main. Le revisioni e la pubblicazione del branch sono verificabili dalla cronologia Git. Main è avanzato a `d92a5dc`: [handoff di integrazione con i 13 conflitti rilevati](integration-handoff-2026-09-11.md). Per il passaggio completo leggere la [descrizione pronta per la PR](merge-request-2026-09-11.md), il [manifesto dei file](push-file-manifest-2026-09-11.md) e i [risultati della suite](release-validation-2026-09-11.json).

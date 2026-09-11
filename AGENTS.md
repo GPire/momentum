@@ -1,5 +1,14 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Stato più recente, 2026-09-11:** integrazione di main `d92a5dc` nel branch
+> UI completata per sezione; 13 conflitti risolti, casi limite dei motori corretti.
+> Suite integrata: **4.839 test / 316 file, zero fallimenti o skip**; build portabile
+> completata. Leggere prima [merge-validation-2026-09-11.md](docs/merge-validation-2026-09-11.md)
+> per i controlli sui dati e i limiti del checkpoint. I conteggi e i conflitti
+> descritti nei riquadri successivi sono precedenti a questa integrazione.
+> Nessun reset degli archivi o fusione arbitraria dei pesi ML è autorizzato.
+> Il sottodominio di anteprima ha dati separati dal dominio di produzione.
+
 > **Questo file è la fonte di verità condivisa.** Lo leggono Codex/altri agenti
 > (convenzione `AGENTS.md`) e Claude Code (via `CLAUDE.md`, che punta qui —
 > un solo file, mai due che divergono).
@@ -168,6 +177,157 @@ pannello dati SEC.
   lingue (`src/i18n/translation-coverage.test.js`). Restano testi italiani
   costruiti direttamente in alcune UI: copertura delle chiavi e traduzione
   completa delle schermate sono verifiche diverse.
+- **Solo 4 casse professionali su 17 hanno un calcolo reale**
+  (`tax.js:CASSE_CON_REGOLE` — Forense/Inarcassa/CNPADC/CIPAG-geometri,
+  quest'ultima aggiunta 2026-09-11 — verificato contando le chiavi, non a
+  memoria: una memoria precedente diceva erroneamente "16/16 coperte"). Le
+  altre 13 restano a zero con nota onesta. **ENPAM (medici) verificata ma
+  deliberatamente NON aggiunta**: struttura a 3 componenti (Quota A fissa
+  per fascia d'età, Quota B a due aliquote, contributo maternità fisso) non
+  riducibile allo schema `aliquotaSoggettivo/minimoSoggettivo` esistente —
+  richiede un parametro età in più che `taxSetAside` non riceve oggi.
+- **Scadenze fiscali multi-Paese (2026-09-10, analisi competitiva)**:
+  `tax-deadlines.js` (Italia, maturo: cash-forecast, ravvedimento, F24
+  precompilato) esteso con `tax-deadlines-es.js` (Modelo 130 spagnolo —
+  SOLO la data è certa/verificata, l'importo è dichiarato come proiezione
+  a 3 mesi, non il 20% cumulato ufficiale). **Svizzera deliberatamente
+  assente**: l'AVS non ha una scadenza fissa nazionale, ogni Ausgleichskasse
+  cantonale fattura secondo il proprio calendario — nessuna fonte trovata
+  per una data unica, inventarne una violerebbe la stessa disciplina già
+  in uso per la scala AVS degressiva.
+- **Export commercialista, formato strutturato** (`accountant-export-structured.js`,
+  2026-09-10): CSV multi-sezione + JSON accanto all'HTML stampabile
+  esistente (`accountant-export.js`/`accountant-export-intl.js`), stesso
+  `report` già calcolato, nessuna seconda formula. Manca ancora
+  un'integrazione DIRETTA con un gestionale di studio (B.Point, TeamSystem,
+  Zucchetti): nessuna API self-serve aperta a terzi è stata confermata per
+  nessuno di questi — deliberatamente non costruita finché non si verifica
+  un accesso reale, per non costruire su un'ipotesi.
+- **Centro Fiducia** (`window.openTrustCenter()`, main.js, 2026-09-10):
+  un solo posto che elenca i limiti dichiarati sparsi nei moduli fiscali
+  (`LIMITI_DICHIARATI` in main.js) — se si aggiunge un nuovo limite fiscale
+  in futuro, aggiungerlo anche lì, altrimenti il Centro Fiducia mente per
+  omissione.
+- **Granger causale spesa-personale × mercato: verificato NON verificabile
+  in questo ambiente (2026-09-11)**. Il roadmap (ANALISI_COMPETITOR.md §5.3)
+  chiedeva esplicitamente di testare la potenza statistica CON DATI REALI di
+  un utente prima di costruire — questo repo di sviluppo non ha lo storico
+  transazioni di un utente reale (solo dati demo), quindi il test richiesto
+  non è eseguibile qui. Non costruito su dati sintetici per lo stesso motivo
+  per cui `bench/cash-forecast-bench.mjs` dichiara esplicitamente che i suoi
+  risultati sono relativi a un processo noto, non un'accuratezza assoluta —
+  testare un'ipotesi di potenza statistica su dati sintetici sarebbe
+  circolare (il generatore non ha bisogno di causalità mercato-spesa perché
+  non la modella). Resta un task che richiede un vault reale per essere
+  eseguito, non un dato mancante da questa sessione.
+- **La previsione si verifica da sola** (`forecast-calibration.js`,
+  2026-09-11): istantanee giornaliere della Cassa Unica (checkpoint 7/14/30
+  giorni) confrontate con quello che succede per davvero, quando la data è
+  passata — mai un ricalcolo del motore di previsione, solo osservazione.
+  Persistenza: `VaultDAO.state.forecastSnapshots` (tetto 45, FIFO) e
+  `VaultDAO.state.forecastShown` (chiavi `takenAt:daysAhead`, per non
+  ripetere lo stesso confronto). Un insight nel feed bandit-ranked
+  (`kind: 'forecast-calibration'`) compare solo quando un checkpoint è
+  appena diventato verificabile — nessuna UI aggregata di calibrazione
+  (percentuale reale dentro banda vs 80% dichiarato) ancora costruita:
+  `calibrationSummary()` esiste ed è testata, ma non è ancora mostrata da
+  nessuna parte — prossimo passo naturale, non ancora fatto.
+- **Previsioni di prezzo: deciso esplicitamente il 2026-09-11 di NON farle.**
+  Segnalato all'utente il rischio reale di consulenza finanziaria non
+  autorizzata (MiFID II/SEC) nel presentare un prezzo futuro o un segnale
+  compra/vendi a utenti reali (l'app è pronta per il Play Store) — l'utente
+  ha scelto esplicitamente la "via di mezzo": frequenza storica condizionata
+  ("dopo un pattern simile, storicamente, in N casi su M"), mai un prezzo o
+  un segnale. Costruito in `src/alpha/pattern-storico.js`, wired come intento
+  QA `'pattern-storico'` in `mercato-qa.js` (deve precedere `materie-prime`
+  nell'ordine delle regole — trovato dal vivo che "cosa succede dopo un
+  crollo del petrolio" cadeva altrimenti in materie-prime). Usa il pannello
+  40 anni (`daily-long.js`, azioni USA/Nasdaq/Russell2000/oro/argento/rame/
+  petrolio/dollaro/bitcoin), episodi NON sovrapposti per costruzione (si
+  salta l'intero orizzonte dopo un trigger), gate a 10 casi minimi. **Se in
+  futuro qualcuno propone un prezzo target o un segnale compra/vendi vero:
+  questa è la decisione esplicita che lo esclude, non un limite tecnico.**
+- **5 correzioni integrate da un branch parallelo dopo revisione mirata**
+  (`origin/codex/public-release-foundation`, 81 file/+3615 righe in totale —
+  revisionato con un fork dedicato, NON integrato in blocco, solo questi 5
+  pezzi isolati e verificati uno per uno il 2026-09-11):
+  1. `telemetry.js`: `response.ok` verificato su ogni invio (un POST fallito
+     con errore HTTP non veniva più ritentato, si perdeva in silenzio) +
+     nuovo canale `sendEssentialDiagnostic` (indipendente dall'opt-out,
+     chiavi chiuse, mai dati finanziari).
+  2. `onboarding-state.js` + lo script inline gemello in `index.html`:
+     `isFirstLaunch:true` esplicito ora richiede transazioni VERE, non basta
+     più un `onboardingProfile` predefinito da solo (le due copie restano
+     allineate, c'è un test dedicato che lo verifica).
+  3. `multi-import.js`: `isEvalSupported:false` su pdf.js (hardening contro
+     un PDF ostile importato dall'utente).
+  4. `install-guide.js`: un iPad in modalità "sito desktop" mandava uno
+     user-agent identico a un Mac vero — ora distinto via `maxTouchPoints`
+     (i Mac veri non hanno touch), 3 punti di chiamata in main.js aggiornati.
+  5. `recovery-notice.js` (nuovo modulo): il modale di recupero da tx_log
+     ricompariva IDENTICO ad ogni riavvio per chi lo chiudeva con "Non ora"
+     — ora un solo avviso automatico per insieme di id recuperabili, gated
+     anche su `haCompletatoOnboarding` (chi non ha finito l'onboarding non
+     vede il modale) e coordinato con `showWhatsNewIfDue` (mai due modali
+     importanti sovrapposti allo stesso avvio).
+  **NON integrato** (deliberatamente, richiede più revisione o conferma
+  dell'utente): il resto di `main.js`/`index.html`/`dashboard-clarity.css`/
+  `payment-agenda.js` (pacchetto UI/feature unico e intrecciato), `src/core/
+  subscription.js` (riga sospetta: `FEATURES_PER_PIANO[TIER_PRO]` sembra
+  concedere le feature Investor anche al solo piano Pro — da chiarire con
+  l'utente prima), `src/sdk/federation.js` (SDK B2B speculativo, dormiente),
+  `src/mesh/*` (protocollo condiviso fra device, serve revisione dedicata),
+  scaffolding nativo iOS/Android e nuovi workflow CI (decisione di prodotto,
+  non di codice). **Non risolve** il bug segnalato dall'utente (spese
+  passate non salvabili da Command Center/calendario) — quel bug resta da
+  diagnosticare direttamente su main.
+- **Bug delle date backdatate — diagnosticato e risolto strutturalmente
+  (2026-09-11)**. Causa reale (diversa da quanto sospettato all'inizio):
+  NON un problema di fuso orario nel salvataggio/lettura (quello era già
+  corretto, verificato con test multi-fuso reali) — il form spesa
+  dimenticava la data scelta ad ogni salvataggio, tornando a "oggi" per la
+  spesa successiva (`resetForm()`, mai un problema per chi registra UNA
+  spesa arretrata, sempre per chi ne registra più di fila per lo stesso
+  giorno). Fix: `rememberedTxDate()`/`setRememberedTxDate()` (main.js, vicino
+  ad `attachFormListeners`) ricordano l'ultima data scelta a mano per 30
+  minuti — sia `resetForm()` sia una nuova apertura del form (mobile, dove
+  `closeModal()` distrugge il form ad ogni salvataggio) la riusano invece di
+  azzerare a oggi. **Guardia strutturale aggiunta** (richiesta esplicita
+  dell'utente, "risolvilo definitivamente"): `date-utils.test.js` ora
+  spazzola OGNI file sorgente e vieta il pattern `t.date.slice(...)`/
+  `tx.date.slice(...)`/`String(t.date).slice(...)` (il modo in cui il bug
+  originale è nato) — ha trovato SUBITO 4 istanze reali pre-esistenti e mai
+  notate prima, tutte corrette nella stessa sessione: `backup.js` (mese
+  sbagliato ripristinando un vecchio formato), `vault.js` (**bug serio**:
+  transazioni recuperate da tx_log potevano finire nel mese sbagliato),
+  `week-insight.js` (confronto "spendi più del solito" su un giorno
+  sbagliato), `ui/mese-strip.js` (**due bug**: rilevamento del giorno di
+  paga e ritmo degli incassi entrambi basati su un giorno potenzialmente
+  shiftato). Chiunque scriva un nuovo punto che legge `t.date`/`tx.date` con
+  un taglio di stringa diretto ora fa fallire `npm test` immediatamente,
+  invece di scoprirlo mesi dopo da un utente.
+- **2 bug reali trovati e risolti VERIFICANDO DAL VIVO in Chrome** (2026-09-11,
+  prima volta in questa sessione con l'estensione collegata — prima si
+  procedeva alla cieca sul solo codice): (1) su un viewport corto reale, la
+  domanda "Quanti anni hai?" (e potenzialmente altri step con contenuto più
+  alto di 384px) aveva il titolo TAGLIATO in alto e irraggiungibile via
+  scroll (`justify-content:center` + overflow: a scrollTop 0 il pezzo che
+  sborda IN ALTO non è raggiungibile, scrollTop non può andare sotto zero)
+  — fix: `justify-content: safe center` su `.genesis-step` (index.html),
+  ripiega su flex-start solo quando centrare creerebbe overflow
+  irraggiungibile, zero differenza sui passi che già entrano in 384px.
+  (2) la scia di una stella cadente poteva attraversare visivamente il
+  titolo di una domanda — un text-shadow NON bastava (lascia passare la
+  luce nei vuoti fra le lettere): risolto con backdrop-filter (stessa
+  ricetta già usata per `.payoff-card`, vetro smerigliato — le stelle
+  restano visibili dietro, sfocate). Entrambi verificati con screenshot
+  reali prima/dopo, non solo a lettura di codice.
+- **Pannello prezzi giornalieri ora auto-aggiornato** (`.github/workflows/
+  refresh-daily-long.yml`, 2026-09-11): stesso pattern del pannello SEC
+  (`refresh-panel-sec.yml`) — PR settimanale, mai un push diretto su main,
+  test+build verificati prima di proporla. `daily-panel.js` (il pannello a
+  5 anni, più vecchio) resta SENZA workflow di refresh: nessuno script npm
+  dedicato trovato per rigenerarlo, non toccato in questa sessione.
 
 ## Trappole già pagate (leggile prima di perderci un'ora)
 
@@ -192,6 +352,29 @@ pannello dati SEC.
   automatica ZERO** per specifica CSS: dentro un contenitore ad altezza fissa
   viene schiacciato a niente pur avendo il contenuto nel DOM. Già costato due
   bug reali (scena privacy, payoff onboarding).
+- **Ogni `window.setXxx` che tocca `VaultDAO.state` e influenza una card della
+  Dashboard deve chiamare `renderDashboard()` esplicitamente** (2026-09-11,
+  bug reale live-verificato in Chrome): `setTaxRegime`/`setNoPartitaIva` non
+  la chiamavano — dopo aver scelto un regime fiscale dal card di scoperta,
+  quel card restava visibile e ripeteva "hai la Partita IVA?" a chi aveva
+  appena risposto, come se l'app non avesse ascoltato. Nessun errore in
+  console: lo stato era corretto, solo il DOM non veniva ridisegnato. Stesso
+  fix applicato a `setEsActive`/`setChAttivitaTipo`.
+- **Una card "universale" tradotta in 7 lingue non implica un flusso
+  universale dietro** (stesso bug, 2026-09-11): la card di scoperta fiscale in
+  Dashboard chiede "sei autonomo?" in ogni lingua, ma il suo tasto chiamava
+  sempre `openTaxLevel1()` — il simulatore SOLO italiano (ATECO, INPS Gestione
+  Separata) — anche per chi aveva già detto a onboarding di essere in
+  Svizzera o Spagna, dove esistono già `openSwissSimulator`/
+  `openSpainSimulator` dedicati ma irraggiungibili da lì. Ora
+  `window.openTaxDiscover()` instrada per `VaultDAO.state.taxActiveCountry`
+  prima di aprire un modale — controllo da ripetere ogni volta che un punto
+  d'ingresso "unico" nasconde più motori fiscali dietro.
+- **`CAUSE_ESCLUSIONE_FORFETTARIO`/ATECO/CASSE_PROFESSIONALI (tax.js) non
+  passano da `tCh()`** — sono normativa italiana reale (es. "Legge 190/2014,
+  art.1 comma 57"), lasciata in italiano di proposito nell'unica riga di
+  codice che li stampa; non tradurli a caso senza aver verificato la fonte
+  normativa nella lingua target.
 
 ## Come si lavora qui
 

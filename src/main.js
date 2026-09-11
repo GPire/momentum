@@ -1,3 +1,4 @@
+import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
 import { tSplit } from './i18n/split-workspace.js';
 import { splitAmount, splitInputEdit, validSplitAmounts, buildSplitDraft } from './ui/split-draft.js';
 import { shouldShowAddHint } from './ui/first-use-hint.js';
@@ -98,6 +99,7 @@ const sendDiagnostic = (key) => { sendEssentialDiagnostic(TELEMETRY_ENDPOINT, ke
 // nessuna seconda logica di rilevamento piattaforma.
 const __telemetryPlatform = detectPlatform(navigator.userAgent, {
   standalone: window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true,
+  maxTouchPoints: navigator.maxTouchPoints,
 }).os;
 const __telemetryCameFromInvite = !!extractJoinPayload();
 
@@ -115,7 +117,7 @@ function translateRegionLabel(region) {
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL, CAUSE_ESCLUSIONE_FORFETTARIO, verificaEsclusioneForfettario } from './predict/tax.js';
-import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL } from './predict/tax-ch.js';
+import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL, AVS_SOGLIA_ACCESSORIA_OBBLIGO, AVS_SOGLIA_ACCESSORIA_FACOLTATIVA } from './predict/tax-ch.js';
 import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predict/tax-es.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
@@ -144,9 +146,11 @@ const __uiLocale = __LOCALE_BY_LANG[__uiLang] || 'it-IT';
 import { generateDemoTransactions, demoStatus, mergeDemoForDisplay } from './ui/demo-dataset.js';
 import { statoDelMese, stripHtml, evidenziaNumeri } from './ui/mese-strip.js';
 import { buildAccountantReport, renderAccountantReportHTML } from './predict/accountant-export.js';
+import { accountantReportToCsv, accountantReportToJson } from './predict/accountant-export-structured.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
 import { upcomingTaxDeadlines, taxCashWarning, overdueTaxDeadlines } from './predict/tax-deadlines.js';
+import { nextModelo130Deadline } from './predict/tax-deadlines-es.js';
 import { righeF24Iva, righeF24Imposte, f24Riepilogo, F24_WEB_UFFICIALE_URL } from './predict/f24.js';
 import { calcolaRavvedimento } from './predict/ravvedimento.js';
 import { taxReserveStatus, recordTaxPayment, removeTaxPayment } from './predict/tax-payments.js';
@@ -180,6 +184,7 @@ import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, lea
 import { resolveSalary, detectSalary, nextPayday, daysToNextPayday, suggestSalaryCompetenceMonth } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
+import { snapshotForecast, evaluateAllSnapshots } from './predict/forecast-calibration.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { investmentReadiness } from './ai/reasoning-fusion.js';
@@ -387,7 +392,7 @@ function askMomentum(text, semanticSimilarity = null) {
     // pesanti (145 KB di serie storiche) vengono precaricati in sottofondo
     // dopo l'avvio: chi non chiede mai di mercati non li scarica al primo
     // colpo, e chi chiede trova tutto gia' pronto.
-    mercato: (testo) => { try { return chiediAlMercatoSync(testo); } catch (_) { return null; } },
+    mercato: (testo) => { try { const result = chiediAlMercatoSync(testo); return result?.intent === 'mercato-pattern-storico' ? { ...result, answer: formatPatternResult(result.data, __uiLang) } : result; } catch (_) { return null; } },
     // IL RIFIUTO, controllato PRIMA di ogni intento (qa-engine.js). Viveva
     // solo nel ramo dei mercati, consultato per ultimo: cosi' "dimmi tu dove
     // investire" trovava prima un intento di finanza personale e riceveva una
@@ -921,11 +926,40 @@ const getTxFormFooterHTML = () => `
   </div>
 `;
 
+// Data scelta a mano l'ultima volta nel form spesa/entrata, per tutta la
+// sessione dell'app (non solo dentro un singolo attachFormListeners) — vedi
+// il commento esteso dentro attachFormListeners per il bug che risolve.
+// Scade da sola dopo 30 minuti: mai una data dimenticata da una sessione
+// precedente che ricompare a sorpresa ore dopo.
+let __rememberedTxDate = null;
+let __rememberedTxDateAt = 0;
+const REMEMBERED_TX_DATE_TTL_MS = 30 * 60 * 1000;
+function rememberedTxDate() {
+  if (!__rememberedTxDate || Date.now() - __rememberedTxDateAt > REMEMBERED_TX_DATE_TTL_MS) return null;
+  return new Date(__rememberedTxDate.getTime());
+}
+function setRememberedTxDate(d) {
+  __rememberedTxDate = d instanceof Date && !Number.isNaN(d.getTime()) ? new Date(d.getTime()) : null;
+  __rememberedTxDateAt = Date.now();
+}
+
 const attachFormListeners = (container, prefill = null) => {
   let type = 'uscita';
   let rawVal = '';
   let catId = null;
-  let selectedDate = new Date();
+  // BUG SEGNALATO DAL VIVO (2026-09-11): chi registra PIÙ spese arretrate di
+  // fila (es. "recupero il weekend scorso") sceglieva la data una volta, ma
+  // ad ogni salvataggio successivo il form ripartiva silenziosamente da
+  // OGGI — su mobile perché closeModal() distrugge il form e la prossima
+  // apertura riparte pulita, su desktop perché resetForm() reimpostava
+  // `new Date()` a mano. La seconda spesa in poi finiva quindi sul giorno
+  // sbagliato, anche se la prima era stata scelta correttamente. Qui si
+  // ricorda l'ULTIMA data scelta a mano per la sessione corrente (scade da
+  // sola dopo 30 minuti di inattività su questo campo, così non resta
+  // "appiccicata" per sempre e non rischia di backdatare una spesa molto
+  // più tardi per dimenticanza) — `rememberedTxDate()` sotto è la sola fonte
+  // di verità, letta sia qui all'apertura sia in resetForm().
+  let selectedDate = rememberedTxDate() || new Date();
   // Competenza stipendio (2026-09-05): null finché non c'è un suggerimento
   // reale da mostrare; { year, month } quando c'è, con `accettato` a
   // rispecchiare la scelta dell'utente — di default true (segue il
@@ -1078,15 +1112,30 @@ const attachFormListeners = (container, prefill = null) => {
     catId = null;
     competenzaSuggerita = null;
     competenzaAccettata = true;
-    selectedDate = new Date();
+    // Non torna sempre a "oggi": se l'ultima scelta a mano è recente (vedi
+    // rememberedTxDate, 30 minuti), la si mantiene — chi sta registrando più
+    // spese arretrate di fila per lo stesso giorno non deve ripescare il
+    // datepicker ad ogni singola spesa.
+    selectedDate = rememberedTxDate() || new Date();
     if (desc) { desc.value = ''; desc.placeholder = tCh('txDescPlaceholder', __uiLang); }
     container.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('selected'));
     container.querySelector('#cat-domanda')?.classList.remove('risposta-data');
     container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
     const dateInputEl = container.querySelector('#tx-date-input');
-    if (dateInputEl) dateInputEl.value = '';
     const datePillTextEl = container.querySelector('#date-pill-text');
-    if (datePillTextEl) datePillTextEl.textContent = tCh('txDateToday', __uiLang);
+    const oggi = new Date();
+    const restaSuGiornoDiverso = selectedDate.getFullYear() !== oggi.getFullYear()
+      || selectedDate.getMonth() !== oggi.getMonth() || selectedDate.getDate() !== oggi.getDate();
+    if (dateInputEl) dateInputEl.value = restaSuGiornoDiverso ? giornoLocale(selectedDate) : '';
+    if (datePillTextEl) {
+      datePillTextEl.textContent = restaSuGiornoDiverso
+        ? selectedDate.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' })
+        : tCh('txDateToday', __uiLang);
+    }
+    // Stesso principio già in uso per il prefill dal calendario (poco più
+    // sotto in questo file): una data diversa da oggi mantenuta fra una
+    // spesa e l'altra non deve restare nascosta dietro l'accordion chiuso.
+    if (restaSuGiornoDiverso) apriDettagli(true);
     aiPanel?.classList.remove('active');
     aiPanel?.setAttribute('aria-hidden', 'true');
     // Torna al tipo di default (uscita) riusando lo stesso interruttore che
@@ -1879,6 +1928,7 @@ const attachFormListeners = (container, prefill = null) => {
       const [yy, mm, dd] = dateInput.value.split('-').map(Number);
       if (!yy || !mm || !dd) return;
       selectedDate = new Date(yy, mm - 1, dd);
+      setRememberedTxDate(selectedDate);
       if (datePillText) {
         const now = new Date();
         const isToday = selectedDate.getFullYear() === now.getFullYear()
@@ -3781,7 +3831,7 @@ const renderDashboard = () => {
     const discoverHtml = showDiscover ? `
       <div class="tax-discovery-orbit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-[var(--gold)]"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-        <div class="tax-discovery-copy"><strong>${tCh('vaultTaxTitle', __uiLang)}</strong><button type="button" onclick="window.openTaxLevel1()" class="tax-discovery-action"><span>${tCh('dashTaxDiscoverCta', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button></div>
+        <div class="tax-discovery-copy"><strong>${tCh('vaultTaxTitle', __uiLang)}</strong><button type="button" onclick="window.openTaxDiscover()" class="tax-discovery-action"><span>${tCh('dashTaxDiscoverCta', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button></div>
       </div>` : '';
     taxDiscoverEls.forEach((el) => { el.classList.toggle('hidden', !showDiscover); el.innerHTML = discoverHtml; });
   }
@@ -5185,8 +5235,22 @@ function renderTaxCashBlocks(proj, regime) {
   const haEntrateFattura = (proj?.invoicedYTD || 0) > 0;
   if (haFattureEmesse || haEntrateFattura) {
     html += `<button onclick="window.exportAccountantReport()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Esporta riepilogo per il commercialista</button>`;
+    html += `<div class="mt-1.5 flex items-center gap-2 text-[10.5px]"><span class="text-[var(--on-surface-secondary)]">${tCh('accExportForSoftware', __uiLang)}</span><button onclick="window.exportAccountantReportCsv()" class="font-bold text-[var(--on-surface-secondary)] underline">CSV</button><span class="text-[var(--on-surface-secondary)]">·</span><button onclick="window.exportAccountantReportJson()" class="font-bold text-[var(--on-surface-secondary)] underline">JSON</button></div>`;
   }
   return html;
+}
+
+// Scarica un file di testo generico (CSV/JSON) — stesso pattern Blob+<a
+// download> già usato altrove nel file (export movimenti, gruppi spesa,
+// trasferte): qui condiviso una sola volta perché da qui in poi serve per
+// tre Paesi (IT/CH/ES) invece di una sola esportazione.
+function downloadTextFile(content, filename, mimeType) {
+  const blob = new Blob([mimeType.startsWith('text/csv') ? '﻿' + content : content], { type: `${mimeType};charset=utf-8` });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove();
+  URL.revokeObjectURL(link.href);
 }
 
 // Genera il riepilogo per il commercialista (Livello 2, T11): apre in una
@@ -5212,6 +5276,35 @@ window.exportAccountantReport = () => {
   }
 };
 
+// Mossa 1 (analisi competitiva 2026-09-10): lo stesso identico `report` già
+// calcolato sopra per l'HTML stampabile, servito anche come CSV multi-
+// sezione o JSON — un commercialista che vuole importarlo nel proprio
+// gestionale (o anche solo in un foglio di calcolo) non deve più
+// ridigitare ogni numero a mano. Nessuna seconda formula fiscale: stesso
+// `buildAccountantReport`, solo un secondo formato di output.
+window.exportAccountantReportCsv = () => {
+  const anno = new Date().getFullYear();
+  const regime = VaultDAO.state.taxRegime || 'forfettario';
+  const report = buildAccountantReport(
+    VaultDAO.state.invoices || [], VaultDAO.state.transactions || {}, anno, regime,
+    { taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel },
+  );
+  const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
+  downloadTextFile(accountantReportToCsv(report, { emitter }), `momentum-commercialista-${anno}.csv`, 'text/csv');
+  showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
+};
+window.exportAccountantReportJson = () => {
+  const anno = new Date().getFullYear();
+  const regime = VaultDAO.state.taxRegime || 'forfettario';
+  const report = buildAccountantReport(
+    VaultDAO.state.invoices || [], VaultDAO.state.transactions || {}, anno, regime,
+    { taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel },
+  );
+  const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
+  downloadTextFile(accountantReportToJson(report, { emitter }), `momentum-commercialista-${anno}.json`, 'application/json');
+  showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
+};
+
 // Stesso "riepilogo per il commercialista" dell'Italia, per la Spagna: RETA
 // e IRPF separati (mai un totale unico, è la scomposizione che si chiede
 // per prima), stampabile allo stesso modo. Import dinamico: il modulo
@@ -5234,6 +5327,22 @@ window.exportAccountantReportEs = async () => {
   } else {
     showToast(tCh('vaultPopupBlocked', __uiLang), 'error');
   }
+};
+
+// Mossa 1, versione ES/CH: stesso `report` di buildAccountantReportEs/Ch,
+// solo un secondo formato (CSV/JSON) invece dell'unico HTML stampabile.
+window.exportAccountantReportEsCsv = async (formato) => {
+  const { buildAccountantReportEs } = await import('./predict/accountant-export-intl.js');
+  const anno = new Date().getFullYear();
+  const baseElegida = VaultDAO.state.esBaseChoice === 'maxima' ? Infinity : null;
+  const report = buildAccountantReportEs(VaultDAO.state.transactions || {}, anno, {
+    learned: VaultDAO.state.taxLearned, model: window.__incomeModel, baseElegida,
+    territorio: VaultDAO.state.esTerritorio || 'comun',
+  });
+  const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
+  if (formato === 'json') downloadTextFile(accountantReportToJson(report, { emitter }), `momentum-gestor-${anno}.json`, 'application/json');
+  else downloadTextFile(accountantReportToCsv(report, { emitter }), `momentum-gestor-${anno}.csv`, 'text/csv');
+  showToast(tCh('esExportAccountantToast', __esLang), 'success');
 };
 
 // Registro acquisti IVA (colma la lacuna dichiarata in iva-liquidazione.js):
@@ -5830,6 +5939,44 @@ function renderTaxEs(monthK) {
       html += `<div class="flex items-start gap-1.5 text-[11px] text-amber-300 border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>${tCh('esTramoChanged', __esLang, Number.isFinite(prev.reta.tramo.rendimientoHasta) ? prev.reta.tramo.rendimientoHasta : '6.000+', Number.isFinite(r.reta.tramo.rendimientoHasta) ? r.reta.tramo.rendimientoHasta : '6.000+')}</span></div>`;
     }
   }
+  // Mossa 5 (analisi competitiva 2026-09-10): Momentum aveva un motore di
+  // scadenze fiscali maturo solo per l'Italia — qui la prima estensione
+  // multi-Paese, il Modelo 130 spagnolo. Solo la DATA è certa (verificata);
+  // l'importo è dichiarato come proiezione, mai il calcolo ufficiale del
+  // 20% cumulato (vedi tax-deadlines-es.js). Niente per il territorio
+  // foral: irpfMensual è null lì, coerente con "non lo calcoliamo".
+  if (r.count > 0 && r.irpfMensual) {
+    const prossima = nextModelo130Deadline(r.irpfMensual);
+    if (prossima) {
+      html += `<div class="flex items-start gap-1.5 text-[11px] text-sky-300 border-t border-[var(--glass-border)] pt-2 mt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>${tCh('esModelo130Text', __esLang, prossima.label, prossima.date, formatMoney(prossima.importoStimato))}</span></div>`;
+      // Notifica push reale (2026-09-10, richiesto esplicitamente): stessa
+      // infrastruttura opt-in/de-dup già in uso per l'Italia
+      // (maybeNotifyTaxUrgency, funzione condivisa più sotto nel file —
+      // dichiarazione hoisted, chiamabile da qui). Solo entro 7 giorni,
+      // stessa soglia "urgenza alta" dell'avviso italiano.
+      if (prossima.giorniMancanti <= 7) {
+        maybeNotifyTaxUrgency(
+          `es-modelo130:${prossima.id}`,
+          tCh('esModelo130NotifyTitle', __esLang),
+          tCh('esModelo130Text', __esLang, prossima.label, prossima.date, formatMoney(prossima.importoStimato)),
+        );
+        // Stesso opt-in dell'Italia (VaultDAO.state.taxNotifyOptIn è un
+        // flag unico, non per Paese — enableTaxNotifications/
+        // disableTaxNotifications sono già generici): senza questo, un
+        // utente SOLO spagnolo non vedrebbe mai il permesso del browser,
+        // perché quel controllo viveva solo dentro la card italiana.
+        if (VaultDAO.state.taxNotifyOptIn) {
+          html += `<div class="flex items-center justify-between gap-2 mt-1.5"><span class="text-[10px] text-emerald-300/90">${tCh('esNotifyOptInActive', __esLang)}</span><button onclick="window.disableTaxNotifications()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">${tCh('esNotifyOptInDisable', __esLang)}</button></div>`;
+        } else {
+          const oggi2 = new Date().toISOString().slice(0, 10);
+          const giorniDaRifiuto2 = VaultDAO.state.taxNotifyDismissedAt ? Math.round((new Date(oggi2) - new Date(VaultDAO.state.taxNotifyDismissedAt)) / 86400000) : Infinity;
+          if (giorniDaRifiuto2 >= 14) {
+            html += `<div class="flex items-center gap-2 mt-1.5"><button onclick="window.enableTaxNotifications()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">${tCh('esNotifyOptInCta', __esLang)}</button><button onclick="window.dismissTaxNotifyPrompt()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">${tCh('esNotifyOptInDismiss', __esLang)}</button></div>`;
+          }
+        }
+      }
+    }
+  }
   // ── Entrate incerte: stesso tap "è fattura?" già in uso per l'Italia,
   // stesso VaultDAO.state.taxLearned (classifyIncome è condiviso, non
   // duplicato per la Spagna). ──
@@ -5849,6 +5996,7 @@ function renderTaxEs(monthK) {
   // Spagna), quindi basta almeno una entrata già riconosciuta come fattura.
   if (r.count > 0) {
     html += `<button onclick="window.exportAccountantReportEs()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] block">${tCh('esExportAccountant', __esLang)}</button>`;
+    html += `<div class="mt-1.5 flex items-center gap-2 text-[10.5px]"><span class="text-[var(--on-surface-secondary)]">${tCh('accExportForSoftware', __esLang)}</span><button onclick="window.exportAccountantReportEsCsv('csv')" class="font-bold text-[var(--on-surface-secondary)] underline">CSV</button><span class="text-[var(--on-surface-secondary)]">·</span><button onclick="window.exportAccountantReportEsCsv('json')" class="font-bold text-[var(--on-surface-secondary)] underline">JSON</button></div>`;
   }
   html += `<button onclick="window.openEsTerritorioPicker()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] block">${tCh('esTerritorioBtn', __esLang)}</button>`;
   html += `<button onclick="window.setEsActive(false)" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2">${tCh('esDeactivate', __esLang)}</button>`;
@@ -5882,6 +6030,7 @@ window.setEsActive = (val) => {
   if (val) pingFeature('spain_tax_activated');
   window.closeModal?.();
   renderTaxEs(monthKey(new Date()));
+  renderDashboard();
 };
 
 // TERRITORIO FISCAL (2026-09-06, BUG REALE): País Vasco e Navarra hanno un
@@ -6250,9 +6399,18 @@ window.openSwissSimulator = () => {
 };
 
 window.openSwissSimulatorResult = (reddito) => {
-  const avs = computeAvsIndipendente(reddito);
+  // Attività principale/accessoria (2026-09-06): scelta PERSISTENTE, stesso
+  // pattern di VaultDAO.state.esBaseChoice per la Spagna — non solo di
+  // questa simulazione, alimenta anche l'export per il commercialista.
+  const accessoria = VaultDAO.state.chAttivitaTipo === 'accessoria';
+  const avs = computeAvsIndipendente(reddito, { attivitaAccessoria: accessoria });
   const iva = ivaObbligatoriaCh(reddito);
-  const avsRigo = avs.fasciaPiena
+  const avsRigo = avs.sottoSogliaAccessoria
+    ? `<div class="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3.5 py-3 text-left">
+        <div class="text-[11px] font-bold text-emerald-300">${tCh('chAvsNoObbligoTitle', __chLang)}</div>
+        <div class="text-[11px] text-emerald-200/90 mt-1 leading-snug">${tCh('chAvsNoObbligoText', __chLang, AVS_SOGLIA_ACCESSORIA_OBBLIGO.toLocaleString('it-CH'), AVS_SOGLIA_ACCESSORIA_FACOLTATIVA.toLocaleString('it-CH'))} <a href="${AVS_CALCOLATORE_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline">${tCh('chAvsDegressiveLink', __chLang)}</a>.</div>
+      </div>`
+    : avs.fasciaPiena
     ? `<div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-3 text-left">
         <div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${tCh('chAvsLabel', __chLang)}</span><span class="font-mono font-bold text-sm">CHF ${Math.round(avs.contributo).toLocaleString('it-CH')}</span></div>
       </div>`
@@ -6268,6 +6426,14 @@ window.openSwissSimulatorResult = (reddito) => {
         <h3 class="text-lg font-black leading-tight">${tCh('chResultTitle', __chLang, Math.round(reddito).toLocaleString('it-CH'))}</h3>
         <p class="card-sub !mb-0 mt-1.5">${tCh('chResultSubtitle', __chLang)}</p>
       </div>
+      <div class="w-full flex flex-col gap-1.5 text-left">
+        <div class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)] px-1">${tCh('chAttivitaLabel', __chLang)}</div>
+        <div class="flex gap-2 w-full">
+          <button onclick="window.setChAttivitaTipo('principale', ${reddito})" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-lg border ${accessoria ? 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]' : 'border-[var(--red)] text-[var(--red)]'}">${tCh('chAttivitaPrincipale', __chLang)}</button>
+          <button onclick="window.setChAttivitaTipo('accessoria', ${reddito})" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-lg border ${accessoria ? 'border-[var(--red)] text-[var(--red)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'}">${tCh('chAttivitaAccessoria', __chLang)}</button>
+        </div>
+        <div class="text-[10px] text-[var(--on-surface-secondary)] leading-snug px-1">${tCh('chAttivitaNote', __chLang)}</div>
+      </div>
       <div class="w-full flex flex-col gap-2.5">
         ${avsRigo}
         <div class="text-[11px] text-${ivaColor} leading-snug text-left px-1">${escapeHtml(iva.messaggio)}</div>
@@ -6276,8 +6442,19 @@ window.openSwissSimulatorResult = (reddito) => {
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chCantonNote', __chLang)}</p>
       <button onclick="window.closeModal(); window.openCreateInvoiceCH();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">${tCh('chCreateInvoice', __chLang)}</button>
       <button onclick="window.exportAccountantReportCh(${reddito})" class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">${tCh('chExportAccountant', __chLang)}</button>
+      <div class="flex items-center gap-2 text-[10.5px]"><span class="text-[var(--on-surface-secondary)]">${tCh('accExportForSoftware', __chLang)}</span><button onclick="window.exportAccountantReportChCsv(${reddito}, 'csv')" class="font-bold text-[var(--on-surface-secondary)] underline">CSV</button><span class="text-[var(--on-surface-secondary)]">·</span><button onclick="window.exportAccountantReportChCsv(${reddito}, 'json')" class="font-bold text-[var(--on-surface-secondary)] underline">JSON</button></div>
       <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chRecalculate', __chLang)}</button>
     </div>`);
+};
+
+// Scelta attività principale/accessoria (2026-09-06), stesso pattern di
+// window.setEsBaseChoice: persistente su VaultDAO.state, riapre subito lo
+// stesso risultato con il nuovo trattamento AVS.
+window.setChAttivitaTipo = (tipo, reddito) => {
+  VaultDAO.state.chAttivitaTipo = tipo === 'accessoria' ? 'accessoria' : 'principale';
+  VaultDAO.save();
+  window.openSwissSimulatorResult(reddito);
+  renderDashboard();
 };
 
 // Stesso "ponte commercialista" di Italia/Spagna, adattato: la Svizzera non
@@ -6286,7 +6463,8 @@ window.openSwissSimulatorResult = (reddito) => {
 // dalle transazioni salvate (che potrebbero non esistere per un utente CH).
 window.exportAccountantReportCh = async (reddito) => {
   const { buildAccountantReportCh, renderAccountantReportHTMLIntl } = await import('./predict/accountant-export-intl.js');
-  const report = buildAccountantReportCh({}, new Date().getFullYear(), { redditoManuale: reddito });
+  const attivitaAccessoria = VaultDAO.state.chAttivitaTipo === 'accessoria';
+  const report = buildAccountantReportCh({}, new Date().getFullYear(), { redditoManuale: reddito, attivitaAccessoria });
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const win = window.open('', '_blank');
   if (win) {
@@ -6297,6 +6475,19 @@ window.exportAccountantReportCh = async (reddito) => {
   } else {
     showToast(tCh('vaultPopupBlocked', __uiLang), 'error');
   }
+};
+
+// Mossa 1, versione CH: stesso `report` di buildAccountantReportCh sopra,
+// solo un secondo formato (CSV/JSON).
+window.exportAccountantReportChCsv = async (reddito, formato) => {
+  const { buildAccountantReportCh } = await import('./predict/accountant-export-intl.js');
+  const attivitaAccessoria = VaultDAO.state.chAttivitaTipo === 'accessoria';
+  const report = buildAccountantReportCh({}, new Date().getFullYear(), { redditoManuale: reddito, attivitaAccessoria });
+  const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
+  const anno = new Date().getFullYear();
+  if (formato === 'json') downloadTextFile(accountantReportToJson(report, { emitter }), `momentum-fiduciario-${anno}.json`, 'application/json');
+  else downloadTextFile(accountantReportToCsv(report, { emitter }), `momentum-fiduciario-${anno}.csv`, 'text/csv');
+  showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
 };
 
 // ── AUTÓNOMOS SPAGNOLI (src/predict/tax-es.js) — stesso pattern del
@@ -6482,6 +6673,22 @@ window.openCreateInvoiceCHResult = (r, meta) => {
     </div>`);
 };
 
+// Punto d'ingresso unico dalla card di scoperta in Dashboard (generica,
+// tradotta come "sei autonomo?" in 7 lingue — mai solo "Partita IVA").
+// BUG REALE (2026-09-11): prima chiamava sempre openTaxLevel1() (motore
+// italiano: ATECO, INPS Gestione Separata, forfettario/ordinario) per
+// chiunque cliccasse, incluso chi aveva già detto a onboarding di essere
+// in Svizzera o Spagna — dentro tax-ch.js/tax-es.js esistono già simulatori
+// dedicati (openSwissSimulator/openSpainSimulator), semplicemente questa
+// card non li raggiungeva mai. Instrada in base al Paese fiscale già
+// dichiarato; chi non l'ha mai detto (o ha risposto "non lo so") resta sul
+// percorso italiano, il mercato più coperto oggi.
+window.openTaxDiscover = () => {
+  const country = VaultDAO.state.taxActiveCountry;
+  if (country === 'ch') { window.openSwissSimulator(); return; }
+  if (country === 'es') { window.openSpainSimulator(); return; }
+  window.openTaxLevel1();
+};
 window.openTaxLevel1 = () => {
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
@@ -6887,7 +7094,7 @@ window.openTaxRegimePicker = () => {
     </div>`);
 };
 
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); };
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard(); };
 
 // VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06, src/predict/tax.js:
 // verificaEsclusioneForfettario) — problema di mercato reale: Momentum
@@ -6951,6 +7158,7 @@ window.setNoPartitaIva = (val) => {
   showToast(val ? 'Va bene — non te lo chiederò più. Puoi sempre riattivarlo da Momentum Vault.' : 'Fatto, te lo mostro di nuovo.', 'info');
   renderTaxSettings();
   renderTax(monthKey(new Date()));
+  renderDashboard();
 };
 // Segna una e-fattura come TRASMESSA allo SdI (dopo che l'utente l'ha caricata
 // sul portale). Chiude il ciclo: sparisce dal promemoria. Onesto: è l'utente a
@@ -8851,7 +9059,7 @@ window.removePriceAlertUI = (id) => {
 window.openBnplManager = (onDone = null) => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const dismissed = () => VaultDAO.state.mlData.bnplDismissed || [];
 
   const render = () => {
@@ -13992,7 +14200,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     const bnpl = bnplExposure(VaultDAO.state.transactions,
       { now: realNow.getTime(), learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true, dismissed: VaultDAO.state.mlData?.bnplDismissed || [] });
     if (bnpl.count > 0) {
-      const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
       const providers = bnpl.byProvider.map(p => p.providerLabel).join(', ');
       rawInsights.push({
         kind: 'bnpl-exposure',
@@ -14024,6 +14232,92 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
           body: tCh(esR.territorioForal ? 'esCardNoteForalFn' : 'esCardNoteFn', __esLang, esR.count, Math.round(esR.incassato), Math.round(aParte), Math.round(esR.disponibleReal)),
         });
       }
+      // Mossa 5 (analisi competitiva 2026-09-10): stesso `esR` già calcolato
+      // sopra, nessuna seconda chiamata a retaIrpfPeriodo. Compare SOLO
+      // entro 21 giorni dalla scadenza — prima di allora la card
+      // #tax-es-card la mostra comunque, un feed che parla sempre di una
+      // scadenza lontana sarebbe rumore, non un segnale.
+      if (esR.count > 0 && esR.irpfMensual) {
+        const prossimaModelo130 = nextModelo130Deadline(esR.irpfMensual, { now: realNow });
+        if (prossimaModelo130 && prossimaModelo130.giorniMancanti <= 21) {
+          rawInsights.push({
+            kind: 'es-modelo130-deadline',
+            severity: prossimaModelo130.giorniMancanti <= 7 ? 'warn' : 'info',
+            title: prossimaModelo130.label,
+            body: tCh('esModelo130Text', __esLang, prossimaModelo130.label, prossimaModelo130.date, formatMoney(prossimaModelo130.importoStimato)),
+          });
+        }
+      }
+    }
+  } catch (_) {}
+
+  // ── LA PREVISIONE SI VERIFICA DA SOLA (forecast-calibration.js, 2026-09-11)
+  // Risolve due lacune insieme, trovate nella stessa ricerca: "Cassa Unica
+  // più intelligente" (la banda 80% dichiarata da cash-forecast.js è
+  // verificata contro il bench SINTETICO, mai contro i dati veri di QUESTO
+  // utente) e "Dashboard a valore continuativo" (§7 ANALISI_COMPETITOR.md,
+  // "effetto laurea": una volta capito il budget, niente motivo per
+  // riaprire). Stesso forecast già mostrato sulla curva Dashboard
+  // (cashCurveHtml, stessi parametri), qui salvato UNA volta al giorno e poi
+  // confrontato con quello che è successo per davvero quando un checkpoint
+  // (7/14/30 giorni) è passato. Mai un secondo motore: forecast-calibration.js
+  // non ricalcola nulla, osserva solo cash-forecast.js già esistente.
+  try {
+    const oggiIso = realNow.toISOString().slice(0, 10);
+    const snapshots = VaultDAO.state.forecastSnapshots || [];
+    if (!snapshots.length || snapshots[snapshots.length - 1].takenAt !== oggiIso) {
+      const subsCal = subscriptionSummary(VaultDAO.state.transactions, realNow);
+      const bnplEventsCal = bnplToLedgerEvents(VaultDAO.state.transactions,
+        { now: realNow.getTime(), horizonDays: 30, learned: VaultDAO.state.mlData?.bnplLearned || {}, anticipate: true, dismissed: VaultDAO.state.mlData?.bnplDismissed || [] });
+      const fForSnapshot = cashForecast({
+        allTx: VaultDAO.state.transactions,
+        commitments: VaultDAO.state.fixedCommitments || [],
+        salary: resolveSalary(VaultDAO.state, VaultDAO.state.transactions),
+        subscriptions: (subsCal.subscriptions || []).map(s => ({ name: s.name, amount: s.amount, nextDate: s.nextDate })),
+        now: realNow.getTime(),
+        horizonDays: 30,
+        extraLedgerEvents: bnplEventsCal,
+      });
+      const snap = snapshotForecast(fForSnapshot, { now: realNow.getTime(), checkpoints: [7, 14, 30] });
+      if (snap) {
+        // Tetto a 45: basta a coprire il checkpoint più lungo (30gg) con un
+        // margine, non serve accumulare istantanee all'infinito.
+        VaultDAO.state.forecastSnapshots = [...snapshots, snap].slice(-45);
+        VaultDAO.save();
+      }
+    }
+
+    // Mostra SOLO il checkpoint appena diventato verificabile e mai mostrato
+    // prima (VaultDAO.state.forecastShown, per chiave takenAt:daysAhead) —
+    // se più checkpoint maturano insieme (l'utente non apre l'app per
+    // settimane), se ne marcano "visti" comunque tutti ma se ne SURROGA solo
+    // uno: un solo segnale alla volta, stesso principio già in uso altrove
+    // nel progetto (splitReminder, "mai più di un segnale insieme").
+    const shown = VaultDAO.state.forecastShown || {};
+    const evaluated = evaluateAllSnapshots(VaultDAO.state.forecastSnapshots || [], VaultDAO.state.transactions, { now: realNow.getTime() });
+    let daNotificare = null, shownChanged = false;
+    for (const { takenAt, evaluations } of evaluated) {
+      for (const ev of evaluations) {
+        const chiave = `v2:${takenAt}:${ev.daysAhead}`;
+        if (shown[chiave]) continue;
+        shown[chiave] = true; shownChanged = true;
+        daNotificare = { takenAt, ...ev };
+      }
+    }
+    if (daNotificare) {
+      VaultDAO.state.forecastShown = shown;
+      VaultDAO.save();
+      const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      rawInsights.push({
+        kind: 'forecast-calibration',
+        severity: daNotificare.withinBand ? 'info' : 'warn',
+        title: tIntegration(daNotificare.withinBand ? 'forecastInside' : 'forecastOutside', __uiLang),
+        body: tIntegration('forecastBody', __uiLang, dayName(daNotificare.takenAt), daNotificare.daysAhead,
+          formatMoney(daNotificare.predicted.p10), formatMoney(daNotificare.predicted.p90), formatMoney(daNotificare.actual)),
+      });
+    } else if (shownChanged) {
+      VaultDAO.state.forecastShown = shown;
+      VaultDAO.save();
     }
   } catch (_) {}
 
@@ -14891,6 +15185,16 @@ window.connectWebRTCPeer = () => document.getElementById('backup-restore-input')
 // produceva un file che l'app stessa non sapeva rileggere — vedi il commento
 // esteso in backup.js. Adesso: stato COMPLETO, formato dichiarato dentro il
 // file, riapribile da restoreBackupFile, e il nome del file avvisa da solo.
+window.exportPreUpdateBackup = async () => {
+  try {
+    const checkpoint = await DurableStore.get('state', 'upgrade-2026-09-11');
+    if (!checkpoint?.sources?.length) { showToast(tIntegration('checkpointMissing', __uiLang)); return; }
+    const best = checkpoint.sources.reduce((a, b) => VaultDAO._countTx(b.state) > VaultDAO._countTx(a.state) ? b : a);
+    const envelope = exportPlain({ ...best.state, upgradeRecoveryCopies: checkpoint.sources });
+    downloadTextFile(JSON.stringify(envelope, null, 2), 'momentum-PRE-UPDATE-IN-CHIARO.momentum', 'application/json');
+    showToast(tIntegration('checkpointWarning', __uiLang));
+  } catch (_) { showToast(tIntegration('checkpointMissing', __uiLang), 'error'); }
+};
 window.exportPlainBackup = () => {
   const busta = exportPlain(VaultDAO.state);
   const blob = new Blob([JSON.stringify(busta, null, 2)], { type: 'application/json' });
@@ -15999,6 +16303,7 @@ function renderInstallGuide() {
   const stepsEl = document.getElementById('install-guide-steps');
   if (!stepsEl) return;
   const standalone = __appInstalled || window.Capacitor?.isNativePlatform?.() === true || window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+  document.querySelectorAll('[data-integration-copy]').forEach(el => { el.textContent = tIntegration(el.dataset.integrationCopy, __uiLang); });
   document.querySelectorAll('[data-install-entry]').forEach(button => { button.hidden = standalone; });
   const platform = detectPlatform(navigator.userAgent, { standalone, maxTouchPoints: navigator.maxTouchPoints });
   const { title, steps } = installSteps(platform, { hasData: realTxCount() > 0, lang: __uiLang });
@@ -16072,7 +16377,7 @@ renderInstallGuide();
 function renderQuickAddGuideCard() {
   const card = document.getElementById('quickadd-guide-card');
   if (!card) return;
-  const platform = detectPlatform(navigator.userAgent, {});
+  const platform = detectPlatform(navigator.userAgent, { maxTouchPoints: navigator.maxTouchPoints });
   if (platform.os !== 'ios') { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
   const { url, passi } = buildQuickAddSetupInstructions(location.origin);
@@ -16117,6 +16422,61 @@ function renderNeuroSymExplainCard() {
   if (honestyEl) honestyEl.textContent = info.honesty;
 }
 renderNeuroSymExplainCard();
+
+// CENTRO FIDUCIA — mosse 2+3+4 dell'analisi competitiva 2026-09-10: nessuno
+// dei 16 prodotti concorrenti verificati dichiara esplicitamente i propri
+// limiti in UN posto solo (o coprono tutto con un umano dietro, o tacciono).
+// Momentum già dichiara ogni limite modulo per modulo (tax-ch.js/tax-es.js/
+// tax.js/quality-scores.js) — qui SOLO li si rende visibili in un posto
+// solo, mai un secondo calcolo o una nuova verità: ogni riga sotto è già
+// vera nel codice, verificata qui (non a memoria) prima di scriverla:
+// CASSE_CON_REGOLE ha 4 chiavi su 17 di CASSE_PROFESSIONALI (tax.js,
+// aggiornato 2026-09-11 con CIPAG/geometri).
+const LIMITI_DICHIARATI = [
+  { paese: 'IT', key: 'trustLimitCasse' },
+  { paese: 'IT', key: 'trustLimitSdi' },
+  { paese: 'CH', key: 'trustLimitCantoni' },
+  { paese: 'CH', key: 'trustLimitAvsDegressiva' },
+  { paese: 'ES', key: 'trustLimitAutonomica' },
+  { paese: 'ES', key: 'trustLimitForal' },
+];
+
+window.openTrustCenter = () => {
+  const toneLimiti = 'text-amber-400 border-amber-400/40 bg-amber-400/5';
+  const toneCancel = 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5';
+  const toneDati = 'text-[var(--primary)] border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]';
+  const righeLimiti = LIMITI_DICHIARATI.map(l => `
+    <div class="flex items-start gap-2.5 text-[12px] text-[var(--on-surface-secondary)] leading-snug">
+      <span class="shrink-0 mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded border ${toneLimiti}">${l.paese}</span>
+      <span>${tCh(l.key, __uiLang)}</span>
+    </div>`).join('');
+  openModal(`
+    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
+      <div class="text-center">
+        <p class="eyebrow !mb-0 text-[var(--primary)]">Momentum</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('trustCenterTitle', __uiLang)}</h3>
+        <p class="card-sub !mb-0">${tCh('trustCenterSub', __uiLang)}</p>
+      </div>
+      <div class="rounded-2xl border p-3.5 ${toneLimiti}">
+        <div class="text-[13px] font-black mb-2">${tCh('trustLimitiTitle', __uiLang)}</div>
+        <div class="flex flex-col gap-2">${righeLimiti}</div>
+      </div>
+      <div class="rounded-2xl border p-3.5 ${toneCancel}">
+        <div class="text-[13px] font-black mb-1">${tCh('trustCancelTitle', __uiLang)}</div>
+        <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug">${tCh('trustCancelDesc', __uiLang)}</div>
+      </div>
+      <div class="rounded-2xl border p-3.5 ${toneDati}">
+        <div class="text-[13px] font-black mb-1">${tCh('trustDataTitle', __uiLang)}</div>
+        <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug mb-2.5">${tCh('trustDataDesc', __uiLang)}</div>
+        <button onclick="window.closeModal(); window.exportPlainBackup();" class="btn-action w-full text-xs justify-center py-2">${tCh('vaultSavePlainCopy', __uiLang)}</button>
+      </div>
+      <div class="rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3.5">
+        <div class="text-[13px] font-black mb-1">${tCh('trustCrossBorderTitle', __uiLang)}</div>
+        <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug">${tCh('trustCrossBorderDesc', __uiLang)}</div>
+      </div>
+      <button onclick="window.closeModal()" class="w-full py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] text-sm">${tCh('trustCenterClose', __uiLang)}</button>
+    </div>`);
+};
 
 // Momentum PRO (src/core/subscription.js + license.js, 2026-08-30):
 // attivazione interamente on-device, mai una chiamata di rete — la

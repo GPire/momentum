@@ -83,6 +83,17 @@ test('isFirstLaunch:true ma con transazioni reali → dashboard (i dati veri bat
   assert.equal(haCompletatoOnboarding(incoerente), true);
 });
 
+test('isFirstLaunch:true CON un onboardingProfile ma SENZA transazioni reali → onboarding, non basta un profilo predefinito (2026-09-11, integrato da un branch parallelo)', () => {
+  // Diverso dal caso sopra: qui il flag dice esplicitamente "ancora primo
+  // avvio", ma esiste già un onboardingProfile (es. seminato in anticipo
+  // durante le domande, prima della conferma finale). Un profilo predefinito
+  // da solo non prova che le domande siano state completate — solo dati
+  // veri possono farlo, altrimenti bastava aprire l'app fino alla prima
+  // domanda per non rivedere mai più l'onboarding.
+  const aMeta = { isFirstLaunch: true, onboardingProfile: { riskProfile: 'bilanciato' }, transactions: {} };
+  assert.equal(haCompletatoOnboarding(aMeta), false);
+});
+
 // ── Robustezza: mai un'eccezione al boot, qualunque cosa ci sia in memoria ──
 
 test('stato corrotto o di tipo inatteso → onboarding, mai un\'eccezione', () => {

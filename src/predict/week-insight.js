@@ -20,6 +20,8 @@
 //    valuta. Un eccesso conta solo se pesa davvero sulla settimana.
 'use strict';
 
+import { giornoLocale } from '../core/date-utils.js';
+
 function isoDay(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -43,7 +45,12 @@ function speseCategoriaFinestra(allTx, inizio, giorni) {
     const txs = allTx?.[monthKeyOf(d)] || [];
     for (const t of txs) {
       if (t.type !== 'uscita') continue;
-      if (String(t.date).slice(0, 10) !== iso) continue;
+      // giornoLocale (2026-09-11, guardia strutturale): un taglio di
+      // stringa diretto confronta il giorno UTC di t.date contro `iso`
+      // (già locale) — per transazioni salvate vicino a mezzanotte questo
+      // le esclude dal giorno giusto, sballando silenziosamente il "tuo
+      // solito" settimanale.
+      if (giornoLocale(t.date) !== iso) continue;
       totali[t.category] = (totali[t.category] || 0) + t.amount;
     }
   }

@@ -736,3 +736,48 @@ test('cripto-diversifica: la rete che cade non rompe la chat', async () => {
   // normale: è quel `catch` a garantire che la chat non muoia. Qui si
   // verifica che l'errore sia un errore vero e non un risultato finto.
 });
+
+// ── pattern-storico (mossa "via di mezzo", 2026-09-11): frequenza storica
+// condizionata per singolo asset, mai un prezzo o un segnale ──
+
+test('pattern-storico: intento riconosciuto per le forme retrospettive, non rubato da "materie-prime"', () => {
+  assert.equal(intentoMercato('cosa succede dopo un crollo del petrolio?'), 'pattern-storico');
+  assert.equal(intentoMercato('storicamente dopo che le azioni USA sono scese del 10%, cosa è successo?'), 'pattern-storico');
+  assert.equal(intentoMercato('cosa succede di solito quando il bitcoin scende del 20%?'), 'pattern-storico');
+  // Senza le frasi retrospettive, "petrolio" da solo resta materie-prime — la
+  // regola nuova non deve rubare domande che non le appartengono.
+  assert.equal(intentoMercato('quanto costa il petrolio?'), 'materie-prime');
+});
+
+test('pattern-storico: senza asset nominato chiede quale, non inventa un mercato', async () => {
+  const r = rispostaSincrona('cosa succede dopo un crollo?');
+  assert.equal(r.intent, 'mercato-pattern-storico');
+  assert.match(r.answer, /Di quale mercato/);
+});
+
+test('pattern-storico: riconosce l\'asset e la direzione (caduta) con conjugazioni diverse da quella base', async () => {
+  const r = rispostaSincrona('storicamente dopo che le azioni USA sono scese del 10%, cosa è successo?');
+  assert.equal(r.intent, 'mercato-pattern-storico');
+  assert.match(r.answer, /Azioni USA/);
+  assert.match(r.answer, /sceso/); // il testo descrive sempre la direzione rilevata
+});
+
+test('pattern-storico: riconosce la direzione di salita', async () => {
+  const r = rispostaSincrona('storicamente dopo che l\'oro è salito del 15%, cosa succede?');
+  assert.equal(r.intent, 'mercato-pattern-storico');
+  assert.match(r.answer, /Oro/);
+  assert.match(r.answer, /salito/);
+});
+
+test('pattern-storico: mai un consiglio d\'acquisto o un prezzo futuro nel testo', async () => {
+  const r = rispostaSincrona('cosa succede di solito quando il bitcoin scende del 20%?');
+  assert.equal(r.intent, 'mercato-pattern-storico');
+  assert.doesNotMatch(r.answer.toLowerCase(), /compra|vendi|dovresti|ti consiglio/);
+  assert.match(r.answer, /non una previsione/);
+});
+
+test('pattern-storico: una soglia irrealistica dichiara onestamente troppo pochi casi, mai una statistica finta', async () => {
+  const r = rispostaSincrona('cosa succede dopo che le azioni USA sono scese del 90%?');
+  assert.equal(r.intent, 'mercato-pattern-storico');
+  assert.match(r.answer, /troppo pochi/);
+});

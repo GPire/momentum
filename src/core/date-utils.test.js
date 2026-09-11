@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // Il bug era subdolo apposta: nell'uso normale (transazione di "adesso", di
 // giorno) il taglio di stringa sbagliato e la lettura corretta concordavano
 // per caso, e il difetto restava invisibile per settimane — è saltato fuori
@@ -9,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, openSync, closeSync, readFileSync, unlinkSync, rmdirSync } from 'node:fs';
+import { mkdtempSync, openSync, closeSync, readFileSync, readdirSync, unlinkSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { giornoLocale, meseLocale } from './date-utils.js';
@@ -106,4 +107,53 @@ test('UTC PURO: nessuno spostamento possibile, tutti e due i metodi concordano �
     assert.equal(r.corretta, r.atteso);
     assert.equal(r.tagliata, r.atteso, 'a UTC il taglio di stringa deve combaciare per costruzione: se non combacia, lo script di test ha un bug suo');
   }
+});
+
+// ── GUARDIA STRUTTURALE (2026-09-11, richiesta esplicita dopo che questa
+// stessa classe di bug è tornata più volte man mano che si aggiungevano
+// funzionalità): i test sopra provano che giornoLocale è corretta, ma non
+// impedivano a nessuno di scrivere un NUOVO punto di lettura che torna al
+// vecchio taglio di stringa sbagliato — il modo in cui il bug originale è
+// nato la prima volta. Qui si spazzola il sorgente vero (non un mock) e si
+// VIETA il pattern pericoloso su una transazione (`t.date`/`tx.date`,
+// convenzione di nome usata ovunque nel progetto per i movimenti reali
+// dell'utente): un taglio di stringa diretto o via String() si aspetta un
+// giorno LOCALE ma un valore salvato con `.toISOString()` porta il giorno
+// UTC — esattamente il bug già pagato. Deliberatamente ristretto a
+// `t.date`/`tx.date` (non un generico `.date.slice(`): altri campi data
+// dell'app (es. una serie storica di prezzi di mercato) sono già stringhe
+// piatte "AAAA-MM-GG" senza questa ambiguità, e un divieto troppo largo
+// darebbe falsi positivi su codice già corretto.
+const PATTERN_VIETATI = [
+  { re: /\bt\.date\.slice\(/g, label: 't.date.slice(...) diretto' },
+  { re: /\btx\.date\.slice\(/g, label: 'tx.date.slice(...) diretto' },
+  { re: /String\(\s*t\.date\s*\)\.slice\(/g, label: 'String(t.date).slice(...)' },
+  { re: /String\(\s*tx\.date\s*\)\.slice\(/g, label: 'String(tx.date).slice(...)' },
+  { re: /\bt\.date\.getUTC(?:Date|Month|FullYear)\(/g, label: 't.date...getUTC*() — legge il giorno UTC invece che locale' },
+  { re: /\btx\.date\.getUTC(?:Date|Month|FullYear)\(/g, label: 'tx.date...getUTC*() — legge il giorno UTC invece che locale' },
+];
+
+function elencaFileSorgente(dir, acc = []) {
+  for (const nome of readdirSync(dir, { withFileTypes: true })) {
+    if (nome.name === 'node_modules' || nome.name.startsWith('.')) continue;
+    const percorso = `${dir}/${nome.name}`;
+    if (nome.isDirectory()) elencaFileSorgente(percorso, acc);
+    else if (nome.isFile() && nome.name.endsWith('.js') && !nome.name.endsWith('.test.js')) acc.push(percorso);
+  }
+  return acc;
+}
+
+test('GUARDIA: nessun file sorgente legge una data-transazione col taglio di stringa sbagliato invece di giornoLocale/meseLocale', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url)).replace(/\\/g, '/').replace(/\/$/, '');
+  const file = elencaFileSorgente(`${root}/src`);
+  const trovati = [];
+  for (const f of file) {
+    if (f.endsWith('/src/core/date-utils.js')) continue; // il bug è nominato nel SUO commento, per spiegarlo
+    const testo = readFileSync(f, 'utf8');
+    for (const { re, label } of PATTERN_VIETATI) {
+      re.lastIndex = 0;
+      if (re.test(testo)) trovati.push(`${f.replace(root + '/', '')}: ${label}`);
+    }
+  }
+  assert.deepEqual(trovati, [], `Trovato il pattern del bug già pagato (giorno che scivola per fuso orario) — usa giornoLocale(t.date)/meseLocale(t.date) invece:\n${trovati.join('\n')}`);
 });

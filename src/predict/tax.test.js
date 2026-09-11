@@ -595,6 +595,20 @@ test('contributiCassaProfessionale: cassa non coperta -> null, mai un numero a c
   assert.equal(contributiCassaProfessionale(23400, 30000, 'professione_mai_sentita'), null);
 });
 
+test('taxSetAside: CIPAG (Cassa Geometri, 4a cassa coperta 2026-09-11) calcolata con aliquote/minimo reali', () => {
+  const geometri = taxSetAside(30000, { regime: 'forfettario', cassaPropria: 'geometri' });
+  // redditoImponibile=23400; soggettivo=23400*0.20=4680 (>4205, vince il calcolato)
+  assert.equal(geometri.cassaCalcolo.soggettivo, 4680);
+  // integrativo CIPAG: nessun minimo confermato per il 2026 (fonti discordanti) -> solo il calcolato, 30000*0.05=1500
+  assert.equal(geometri.cassaCalcolo.integrativo, 1500);
+});
+
+test('taxSetAside: CIPAG — un fatturato basso fa vincere il minimo soggettivo (4.205€), mai il calcolato sotto minimo', () => {
+  const r = taxSetAside(5000, { regime: 'forfettario', cassaPropria: 'geometri' });
+  // redditoImponibile = 5000*0.78=3900; soggettivo calcolato = 3900*0.20=780, molto sotto il minimo 4205
+  assert.equal(r.cassaCalcolo.soggettivo, 4205, 'vince il minimo, non il calcolato');
+});
+
 test('taxSetAside: aliquota INPS ridotta al 24% per chi ha già un\'altra copertura previdenziale (LACUNA COLMATA)', () => {
   const piena = taxSetAside(30000, { regime: 'forfettario' });
   const ridotta = taxSetAside(30000, { regime: 'forfettario', altraCoperturaPrevidenziale: true });

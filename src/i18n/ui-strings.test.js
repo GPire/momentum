@@ -131,6 +131,26 @@ test('tax country does not override the user interface language', () => {
 
 });
 
+test('t: esModelo130Text (mossa 5, scadenza fiscale spagnola 2026-09-10) interpola label/data/importo in ogni lingua coperta', () => {
+  assert.match(t('esModelo130Text', 'it', 'Modelo 130 · 1er trimestre', '2026-04-20', '450 €'), /2026-04-20/);
+  assert.match(t('esModelo130Text', 'en', 'Modelo 130 · 1er trimestre', '2026-04-20', '€450'), /2026-04-20/);
+  assert.match(t('esModelo130Text', 'es', 'Modelo 130 · 1er trimestre', '2026-04-20', '450 €'), /2026-04-20/);
+});
+
+test('t: chiavi opt-in notifiche push spagnole (esNotifyOptIn*/esModelo130NotifyTitle, 2026-09-10) esistono in it/en/es', () => {
+  const chiavi = ['esModelo130NotifyTitle', 'esNotifyOptInActive', 'esNotifyOptInDisable', 'esNotifyOptInCta', 'esNotifyOptInDismiss'];
+  for (const lang of ['it', 'en', 'es']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+    }
+  }
+});
+
+test('country-specific UI has a nonempty German translation', () => {
+  assert.notEqual(t('esSimTitle', 'de'), 'esSimTitle');
+});
+
 // ── Onboarding (g-step-0..4, index.html) — 2026-08-28, punto più ad alto
 // impatto virale: la prima cosa che vede chiunque arrivi da un link di
 // divisione. IT/EN/ES/DE/FR: tedesco e francese aggiunti dopo una ricerca
@@ -1028,4 +1048,20 @@ test('contextual view choices and task form labels exist in all seven languages'
   for (const key of ['viewChoiceIntro','viewEssentialHelp','viewCompleteHelp','viewChoiceNote','debtNameLabel','debtNameExample','debtBalanceLabel','debtRateLabel','debtPaymentLabel','tripNameLabel','tripNameShortExample','simulationHorizon']) assert.ok(t(key,lang) && t(key,lang)!==key,`${lang}: ${key}`);
   assert.ok(t('simulationYears',lang,10).includes('10'));
  }
+});
+test('t: tutte le chiavi trust* (Centro Fiducia, mosse 2+3+4 analisi competitiva 2026-09-10) esistono nelle 7 lingue', () => {
+  const chiavi = [
+    'trustCenterOpen', 'trustCenterTitle', 'trustCenterSub', 'trustLimitiTitle',
+    'trustLimitCasse', 'trustLimitSdi', 'trustLimitCantoni', 'trustLimitAvsDegressiva',
+    'trustLimitAutonomica', 'trustLimitForal', 'trustCancelTitle', 'trustCancelDesc',
+    'trustDataTitle', 'trustDataDesc', 'trustCenterClose',
+    'trustCrossBorderTitle', 'trustCrossBorderDesc',
+  ];
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    for (const k of chiavi) {
+      const v = t(k, lang);
+      assert.notEqual(v, k, `chiave "${k}" mancante in lingua "${lang}"`);
+      assert.notEqual(v, undefined, `chiave "${k}" in lingua "${lang}" ha restituito undefined`);
+    }
+  }
 });

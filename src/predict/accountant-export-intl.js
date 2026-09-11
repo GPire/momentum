@@ -33,7 +33,7 @@ export function buildAccountantReportCh(transactions, year, opts = {}) {
   const usaManuale = opts.redditoManuale != null;
   const fatture = usaManuale ? [] : entrateFatturaAnno(transactions, year, opts);
   const incassato = usaManuale ? +(+opts.redditoManuale).toFixed(2) : +fatture.reduce((s, t) => s + t.amount, 0).toFixed(2);
-  const avs = computeAvsIndipendente(incassato);
+  const avs = computeAvsIndipendente(incassato, { attivitaAccessoria: opts.attivitaAccessoria === true });
   return {
     paese: 'CH', valuta: 'CHF', anno: year, generatoIl: (opts.now || new Date()).toISOString(),
     incassato, count: usaManuale ? 1 : fatture.length,

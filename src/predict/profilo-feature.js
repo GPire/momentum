@@ -36,7 +36,7 @@ export function shouldSuggestTaxSetup(state = {}) {
   const profile = state.onboardingProfile || {};
   return !eMinorenne(profile) && profile.hasPartitaIva === true
     && !state.noPartitaIva && !state.taxDiscoveryDismissed
-    && !state.taxRegime && !state.esActive && !state.chActive
+    && !state.taxRegime && !state.esActive && !state.chActive && !state.chAttivitaTipo
     && (!state.taxActiveCountry || state.taxActiveCountry === 'it');
 }
 

@@ -140,6 +140,11 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
       sent.push('install');
     } catch (_) { /* riprova al prossimo avvio, mai bloccante */ }
   }
+  // isTelemetryEnabled ri-controllato qui (non solo all'ingresso della
+  // funzione, riga sopra): fra l'await dell'evento "install" e qui l'utente
+  // può aver disattivato la telemetria a metà esecuzione — senza questo
+  // ricontrollo, "active"/"active_day" partirebbero comunque nello stesso
+  // giro, nonostante la disattivazione appena scelta.
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   if (isTelemetryEnabled(storage) && storage.getItem(ACTIVE_MONTH_KEY) !== month) {
     try {
