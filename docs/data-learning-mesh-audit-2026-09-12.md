@@ -60,9 +60,22 @@ arbitrario con i pesi di un backup diverso.
 
 ## Risultati e limiti del collaudo
 
+- Commit applicativo verificato: `758f90c3673cba904450183aadd6faa8ff1cf3b1`.
+- CI GitHub, comandi standard `npm test` e `npm run build`: **4.889 test
+  passati, zero fallimenti e zero skip**, build completata in 11,66 secondi.
+  [Log della verifica](https://github.com/GPire/momentum/actions/runs/34652449826/job/103437455908).
+- Android: `cap sync android`, `assembleDebug` e `lintDebug` passati.
+  iOS: `cap sync ios`, controllo della presenza dell'SDK 27 e compilazione
+  per iOS Simulator passati. Sono compilazioni, non prove su dispositivi fisici
+  né approvazione degli store.
+  [Verifiche native](https://github.com/GPire/momentum/actions/runs/34652449711).
+- Cloudflare Pages ha pubblicato il commit applicativo verificato:
+  [anteprima](https://c39c810f.momentum-finance.pages.dev/?lang=it).
+  Codice e documentazione sono nella [PR #2](https://github.com/GPire/momentum/pull/2),
+  in bozza; `main` e produzione restano sulla release precedente.
 - Suite locale seriale completa: 4.888 test, 321 file, zero fallimenti o skip.
 - Successiva correzione della testa della catena del DNA: tutti i 16 test del
-  ripristino passati, incluso il nuovo caso. Totale atteso finale: 4.889.
+  ripristino passati, incluso il nuovo caso; coperto poi dalla suite CI completa.
 - Build web portabile completata; rimane l'avviso sui bundle grandi.
 - Primo avvio nel browser su origine di prova separata, profilo senza
   investimenti, obiettivo facoltativo, reddito saltato, accesso a Dashboard e
@@ -71,9 +84,9 @@ arbitrario con i pesi di un backup diverso.
   l'estensione Chrome non ha accesso ai file URL. La modale di ripristino non
   è ancora stata collaudata visivamente tramite upload. Non confondere i test
   delle funzioni con un collaudo browser completo.
-- Compilazioni Android/iOS della release precedente non certificano questa
-  revisione né dispositivi fisici. Risultati CI di questo branch da riportare
-  nella PR prima di dichiararlo pronto al merge.
+- Un successivo tentativo di verifica del layout mobile è stato bloccato da
+  una UI dell'estensione Chrome aperta. Il layout della nuova modale e il
+  ripristino tramite selettore file restano da verificare prima del merge.
 
 ## Cosa manca davvero, in ordine di impatto
 
@@ -129,7 +142,10 @@ reali se tempo/energia migliorano rispetto al solo dispositivo locale.
 
 Pesi privati fra dispositivi autorizzati, contributi condivisi fra persone e
 calcolo su dati pubblici hanno finalità e confini diversi. I gradienti non sono
-automaticamente anonimi. Ampliare la federazione richiede valutazione della
+automaticamente anonimi: la ricerca ha mostrato la ricostruzione di esempi
+privati a partire da gradienti condivisi
+([Deep Leakage from Gradients, NeurIPS 2019](https://papers.neurips.cc/paper_files/paper/2019/hash/60a6c4002cc7b29142def8871531281a-Abstract.html)).
+Ampliare la federazione richiede valutazione della
 privacy, protezione dall'avvelenamento, contributi verificabili e consenso
 coerente; questa revisione non allarga le autorizzazioni esistenti.
 
@@ -138,7 +154,10 @@ API native; il sistema può comunque limitarlo. Apple documenta i task continui
 e le risorse GPU supportate, non un'esecuzione illimitata della PWA chiusa:
 [Background Tasks](https://developer.apple.com/documentation/backgroundtasks),
 [GPU richiesta dal task](https://developer.apple.com/documentation/backgroundtasks/bgcontinuedprocessingtaskrequest/resources/gpu).
-Android richiede una strategia equivalente compatibile con i suoi limiti.
+Android richiede una strategia compatibile con tipo e durata del lavoro,
+usando le API previste per i task in background: WorkManager, API specifiche
+o servizi in primo piano quando appropriati
+([documentazione Android](https://developer.android.com/develop/background-work/background-tasks)).
 
 ### 5. Differenziazione dello split e delle scadenze
 
