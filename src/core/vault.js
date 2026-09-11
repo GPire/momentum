@@ -4,6 +4,7 @@ import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
 import { mergeTransactions, reconcileHead, markDeleted, pruneTombstones } from '../mesh/sync.js';
 import { conTimeout } from './con-timeout.js';
+import { meseLocale } from './date-utils.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -287,7 +288,11 @@ function reconstructMissingFromTxLog(txLogEntries, currentState) {
       impronteEsistenti.add(impronta);
     }
     seen.add(tx.id);
-    const month = entry.month || (tx.date ? String(tx.date).slice(0, 7) : null);
+    // meseLocale (2026-09-11, guardia strutturale): un taglio di stringa
+    // diretto leggerebbe il mese UTC — nel RECUPERO da tx_log questo
+    // significherebbe archiviare una transazione recuperata nel mese
+    // sbagliato, lo stesso bug della singola giornata ma sul mese intero.
+    const month = entry.month || meseLocale(tx.date);
     if (!month) continue;
     if (!recovered[month]) recovered[month] = [];
     recovered[month].push(tx);

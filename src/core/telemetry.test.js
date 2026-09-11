@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isTelemetryEnabled, setTelemetryEnabled, getAnonId, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed, sendFeatureEvent, FEATURE_KEYS } from './telemetry.js';
+import { isTelemetryEnabled, setTelemetryEnabled, getAnonId, sendTelemetryPings, needsTelemetryDisclosure, markTelemetryDisclosed, sendFeatureEvent, sendEssentialDiagnostic, FEATURE_KEYS } from './telemetry.js';
 
 function fakeStorage(initial = {}) {
   const map = new Map(Object.entries(initial));
@@ -14,6 +14,52 @@ test('isTelemetryEnabled/setTelemetryEnabled: ATTIVO di default (opt-out, non op
   assert.equal(isTelemetryEnabled(s), false);
   setTelemetryEnabled(true, s);
   assert.equal(isTelemetryEnabled(s), true);
+});
+
+test('sendTelemetryPings/sendFeatureEvent: una risposta HTTP negativa non segna l\'evento come inviato (2026-09-11, integrato da un branch parallelo dopo revisione mirata)', async () => {
+  const storage = fakeStorage({ momentum_telemetry_opt_in: '1' });
+  for (const status of [400, 429, 500, 503]) {
+    const fetchImpl = async () => ({ ok: false, status });
+    assert.deepEqual(await sendTelemetryPings('https://x.test', { storage, fetchImpl }), { sent: [] });
+    assert.equal((await sendFeatureEvent('https://x.test', FEATURE_KEYS[0], { storage, fetchImpl })).sent, false);
+  }
+  const fetchImpl = async () => ({ ok: true });
+  assert.equal((await sendTelemetryPings('https://x.test', { storage, fetchImpl })).sent.length, 3);
+  assert.equal((await sendFeatureEvent('https://x.test', FEATURE_KEYS[0], { storage, fetchImpl })).sent, true);
+});
+
+test('sendTelemetryPings: la disattivazione durante l\'invio dell\'evento "install" impedisce "active"/"active_day" nello stesso giro', async () => {
+  const storage = fakeStorage();
+  const calls = [];
+  const fetchImpl = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    setTelemetryEnabled(false, storage); // opt-out arriva DOPO l'await di install, PRIMA dei controlli successivi
+    return { ok: true };
+  };
+  assert.deepEqual((await sendTelemetryPings('https://x.test', { storage, fetchImpl })).sent, ['install']);
+  assert.equal(calls.length, 1);
+  assert.equal((await sendFeatureEvent('https://x.test', FEATURE_KEYS[0], { storage, fetchImpl })).sent, false);
+  assert.equal(calls.length, 1);
+});
+
+test('sendEssentialDiagnostic: resta disponibile dopo l\'opt-out e non usa/crea un id persistente', async () => {
+  const storage = fakeStorage({ momentum_telemetry_opt_in: '0' });
+  let payload;
+  const r = await sendEssentialDiagnostic('https://x.test', 'vault_integrity_failed', {
+    storage, platform: 'android', appVersion: '50.1.0', now: new Date('2026-09-08'),
+    fetchImpl: async (_url, options) => { payload = JSON.parse(options.body); return { ok: true }; },
+  });
+  assert.equal(r.sent, true);
+  assert.deepEqual(payload, { event: 'diagnostic', key: 'vault_integrity_failed', day: '2026-09-08', platform: 'android', appVersion: '50.1.0' });
+  assert.equal(storage.getItem('momentum_anon_id'), null);
+});
+
+test('sendEssentialDiagnostic: rifiuta chiavi fuori dall\'elenco chiuso e versioni malformate, mai un fetch con dati fuori formato', async () => {
+  let called = false;
+  const fetchImpl = async () => { called = true; return { ok: true }; };
+  assert.equal((await sendEssentialDiagnostic('https://x.test', 'raw_user_text', { fetchImpl })).sent, false);
+  assert.equal((await sendEssentialDiagnostic('https://x.test', 'app_ready', { fetchImpl, appVersion: 'secret/1' })).sent, false);
+  assert.equal(called, false);
 });
 
 test('needsTelemetryDisclosure: vero solo prima che l\'avviso sia stato mostrato', () => {

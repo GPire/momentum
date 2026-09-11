@@ -212,6 +212,65 @@ pannello dati SEC.
   salta l'intero orizzonte dopo un trigger), gate a 10 casi minimi. **Se in
   futuro qualcuno propone un prezzo target o un segnale compra/vendi vero:
   questa è la decisione esplicita che lo esclude, non un limite tecnico.**
+- **5 correzioni integrate da un branch parallelo dopo revisione mirata**
+  (`origin/codex/public-release-foundation`, 81 file/+3615 righe in totale —
+  revisionato con un fork dedicato, NON integrato in blocco, solo questi 5
+  pezzi isolati e verificati uno per uno il 2026-09-11):
+  1. `telemetry.js`: `response.ok` verificato su ogni invio (un POST fallito
+     con errore HTTP non veniva più ritentato, si perdeva in silenzio) +
+     nuovo canale `sendEssentialDiagnostic` (indipendente dall'opt-out,
+     chiavi chiuse, mai dati finanziari).
+  2. `onboarding-state.js` + lo script inline gemello in `index.html`:
+     `isFirstLaunch:true` esplicito ora richiede transazioni VERE, non basta
+     più un `onboardingProfile` predefinito da solo (le due copie restano
+     allineate, c'è un test dedicato che lo verifica).
+  3. `multi-import.js`: `isEvalSupported:false` su pdf.js (hardening contro
+     un PDF ostile importato dall'utente).
+  4. `install-guide.js`: un iPad in modalità "sito desktop" mandava uno
+     user-agent identico a un Mac vero — ora distinto via `maxTouchPoints`
+     (i Mac veri non hanno touch), 3 punti di chiamata in main.js aggiornati.
+  5. `recovery-notice.js` (nuovo modulo): il modale di recupero da tx_log
+     ricompariva IDENTICO ad ogni riavvio per chi lo chiudeva con "Non ora"
+     — ora un solo avviso automatico per insieme di id recuperabili, gated
+     anche su `haCompletatoOnboarding` (chi non ha finito l'onboarding non
+     vede il modale) e coordinato con `showWhatsNewIfDue` (mai due modali
+     importanti sovrapposti allo stesso avvio).
+  **NON integrato** (deliberatamente, richiede più revisione o conferma
+  dell'utente): il resto di `main.js`/`index.html`/`dashboard-clarity.css`/
+  `payment-agenda.js` (pacchetto UI/feature unico e intrecciato), `src/core/
+  subscription.js` (riga sospetta: `FEATURES_PER_PIANO[TIER_PRO]` sembra
+  concedere le feature Investor anche al solo piano Pro — da chiarire con
+  l'utente prima), `src/sdk/federation.js` (SDK B2B speculativo, dormiente),
+  `src/mesh/*` (protocollo condiviso fra device, serve revisione dedicata),
+  scaffolding nativo iOS/Android e nuovi workflow CI (decisione di prodotto,
+  non di codice). **Non risolve** il bug segnalato dall'utente (spese
+  passate non salvabili da Command Center/calendario) — quel bug resta da
+  diagnosticare direttamente su main.
+- **Bug delle date backdatate — diagnosticato e risolto strutturalmente
+  (2026-09-11)**. Causa reale (diversa da quanto sospettato all'inizio):
+  NON un problema di fuso orario nel salvataggio/lettura (quello era già
+  corretto, verificato con test multi-fuso reali) — il form spesa
+  dimenticava la data scelta ad ogni salvataggio, tornando a "oggi" per la
+  spesa successiva (`resetForm()`, mai un problema per chi registra UNA
+  spesa arretrata, sempre per chi ne registra più di fila per lo stesso
+  giorno). Fix: `rememberedTxDate()`/`setRememberedTxDate()` (main.js, vicino
+  ad `attachFormListeners`) ricordano l'ultima data scelta a mano per 30
+  minuti — sia `resetForm()` sia una nuova apertura del form (mobile, dove
+  `closeModal()` distrugge il form ad ogni salvataggio) la riusano invece di
+  azzerare a oggi. **Guardia strutturale aggiunta** (richiesta esplicita
+  dell'utente, "risolvilo definitivamente"): `date-utils.test.js` ora
+  spazzola OGNI file sorgente e vieta il pattern `t.date.slice(...)`/
+  `tx.date.slice(...)`/`String(t.date).slice(...)` (il modo in cui il bug
+  originale è nato) — ha trovato SUBITO 4 istanze reali pre-esistenti e mai
+  notate prima, tutte corrette nella stessa sessione: `backup.js` (mese
+  sbagliato ripristinando un vecchio formato), `vault.js` (**bug serio**:
+  transazioni recuperate da tx_log potevano finire nel mese sbagliato),
+  `week-insight.js` (confronto "spendi più del solito" su un giorno
+  sbagliato), `ui/mese-strip.js` (**due bug**: rilevamento del giorno di
+  paga e ritmo degli incassi entrambi basati su un giorno potenzialmente
+  shiftato). Chiunque scriva un nuovo punto che legge `t.date`/`tx.date` con
+  un taglio di stringa diretto ora fa fallire `npm test` immediatamente,
+  invece di scoprirlo mesi dopo da un utente.
 - **Pannello prezzi giornalieri ora auto-aggiornato** (`.github/workflows/
   refresh-daily-long.yml`, 2026-09-11): stesso pattern del pannello SEC
   (`refresh-panel-sec.yml`) — PR settimanale, mai un push diretto su main,

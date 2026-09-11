@@ -198,7 +198,12 @@ async function ocrPdfPage(page) {
 async function parsePdfFile(file) {
   if (typeof pdfjsLib === 'undefined') throw new Error('pdf.js non caricato');
   const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  // isEvalSupported:false (2026-09-11, integrato da un branch parallelo
+  // dopo revisione mirata): disattiva l'eval interno di pdf.js usato per
+  // certe strutture JS dentro un PDF — hardening contro un PDF ostile
+  // importato da un utente, a costo zero (pdf.js resta invariato per il
+  // resto, un solo flag di configurazione).
+  const pdf = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
   const out = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);

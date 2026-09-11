@@ -1,6 +1,7 @@
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
 import { haCompletatoOnboarding } from './core/onboarding-state.js';
 import { giornoLocale, meseLocale } from './core/date-utils.js';
+import { recoveryPromptKey, shouldAutoOpenRecoveryPrompt } from './core/recovery-notice.js';
 import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.js';
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
@@ -85,6 +86,7 @@ const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch((
 // nessuna seconda logica di rilevamento piattaforma.
 const __telemetryPlatform = detectPlatform(navigator.userAgent, {
   standalone: window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true,
+  maxTouchPoints: navigator.maxTouchPoints,
 }).os;
 const __telemetryCameFromInvite = !!extractJoinPayload();
 
@@ -872,11 +874,40 @@ const getTxFormFooterHTML = () => `
   <button type="button" class="save-btn tx-save-btn mt-3 shrink-0" disabled>${tCh('txConfirm', __uiLang)}</button>
 `;
 
+// Data scelta a mano l'ultima volta nel form spesa/entrata, per tutta la
+// sessione dell'app (non solo dentro un singolo attachFormListeners) — vedi
+// il commento esteso dentro attachFormListeners per il bug che risolve.
+// Scade da sola dopo 30 minuti: mai una data dimenticata da una sessione
+// precedente che ricompare a sorpresa ore dopo.
+let __rememberedTxDate = null;
+let __rememberedTxDateAt = 0;
+const REMEMBERED_TX_DATE_TTL_MS = 30 * 60 * 1000;
+function rememberedTxDate() {
+  if (!__rememberedTxDate || Date.now() - __rememberedTxDateAt > REMEMBERED_TX_DATE_TTL_MS) return null;
+  return new Date(__rememberedTxDate.getTime());
+}
+function setRememberedTxDate(d) {
+  __rememberedTxDate = d instanceof Date && !Number.isNaN(d.getTime()) ? new Date(d.getTime()) : null;
+  __rememberedTxDateAt = Date.now();
+}
+
 const attachFormListeners = (container, prefill = null) => {
   let type = 'uscita';
   let rawVal = '';
   let catId = null;
-  let selectedDate = new Date();
+  // BUG SEGNALATO DAL VIVO (2026-09-11): chi registra PIÙ spese arretrate di
+  // fila (es. "recupero il weekend scorso") sceglieva la data una volta, ma
+  // ad ogni salvataggio successivo il form ripartiva silenziosamente da
+  // OGGI — su mobile perché closeModal() distrugge il form e la prossima
+  // apertura riparte pulita, su desktop perché resetForm() reimpostava
+  // `new Date()` a mano. La seconda spesa in poi finiva quindi sul giorno
+  // sbagliato, anche se la prima era stata scelta correttamente. Qui si
+  // ricorda l'ULTIMA data scelta a mano per la sessione corrente (scade da
+  // sola dopo 30 minuti di inattività su questo campo, così non resta
+  // "appiccicata" per sempre e non rischia di backdatare una spesa molto
+  // più tardi per dimenticanza) — `rememberedTxDate()` sotto è la sola fonte
+  // di verità, letta sia qui all'apertura sia in resetForm().
+  let selectedDate = rememberedTxDate() || new Date();
   // Competenza stipendio (2026-09-05): null finché non c'è un suggerimento
   // reale da mostrare; { year, month } quando c'è, con `accettato` a
   // rispecchiare la scelta dell'utente — di default true (segue il
@@ -1019,15 +1050,30 @@ const attachFormListeners = (container, prefill = null) => {
     catId = null;
     competenzaSuggerita = null;
     competenzaAccettata = true;
-    selectedDate = new Date();
+    // Non torna sempre a "oggi": se l'ultima scelta a mano è recente (vedi
+    // rememberedTxDate, 30 minuti), la si mantiene — chi sta registrando più
+    // spese arretrate di fila per lo stesso giorno non deve ripescare il
+    // datepicker ad ogni singola spesa.
+    selectedDate = rememberedTxDate() || new Date();
     if (desc) { desc.value = ''; desc.placeholder = tCh('txDescPlaceholder', __uiLang); }
     container.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('selected'));
     container.querySelector('#cat-domanda')?.classList.remove('risposta-data');
     container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
     const dateInputEl = container.querySelector('#tx-date-input');
-    if (dateInputEl) dateInputEl.value = '';
     const datePillTextEl = container.querySelector('#date-pill-text');
-    if (datePillTextEl) datePillTextEl.textContent = tCh('txDateToday', __uiLang);
+    const oggi = new Date();
+    const restaSuGiornoDiverso = selectedDate.getFullYear() !== oggi.getFullYear()
+      || selectedDate.getMonth() !== oggi.getMonth() || selectedDate.getDate() !== oggi.getDate();
+    if (dateInputEl) dateInputEl.value = restaSuGiornoDiverso ? giornoLocale(selectedDate) : '';
+    if (datePillTextEl) {
+      datePillTextEl.textContent = restaSuGiornoDiverso
+        ? selectedDate.toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short' })
+        : tCh('txDateToday', __uiLang);
+    }
+    // Stesso principio già in uso per il prefill dal calendario (poco più
+    // sotto in questo file): una data diversa da oggi mantenuta fra una
+    // spesa e l'altra non deve restare nascosta dietro l'accordion chiuso.
+    if (restaSuGiornoDiverso) apriDettagli(true);
     aiPanel?.classList.remove('active');
     aiPanel?.setAttribute('aria-hidden', 'true');
     // Torna al tipo di default (uscita) riusando lo stesso interruttore che
@@ -1761,6 +1807,7 @@ const attachFormListeners = (container, prefill = null) => {
       const [yy, mm, dd] = dateInput.value.split('-').map(Number);
       if (!yy || !mm || !dd) return;
       selectedDate = new Date(yy, mm - 1, dd);
+      setRememberedTxDate(selectedDate);
       if (datePillText) {
         const now = new Date();
         const isToday = selectedDate.getFullYear() === now.getFullYear()
@@ -9395,6 +9442,12 @@ const AVATAR_PALETTE = ['#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '
 // principio del progetto. `unseenReleases` fa il lavoro puro; qui solo il
 // rendering.
 function showWhatsNewIfDue() {
+  // Un solo messaggio importante per accesso (integrato da un branch
+  // parallelo dopo revisione mirata, 2026-09-11): il recupero da tx_log ha
+  // precedenza sulle novità di rilascio — è una decisione sui SOLDI
+  // dell'utente, non deve competere con un modale di changelog allo stesso
+  // avvio. Le novità restano non lette e appariranno al prossimo avvio.
+  if (window.__recoveryPromptShownThisSession) return;
   if (!shouldShowWhatsNew(VaultDAO.state)) return;
   // unseenReleases() torna in ordine cronologico CRESCENTE (contratto testato
   // in whats-new.test.js, non toccato qui) — ma in questa schermata l'utente
@@ -16132,7 +16185,7 @@ function renderInstallGuide() {
   const stepsEl = document.getElementById('install-guide-steps');
   if (!stepsEl) return;
   const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
-  const platform = detectPlatform(navigator.userAgent, { standalone });
+  const platform = detectPlatform(navigator.userAgent, { standalone, maxTouchPoints: navigator.maxTouchPoints });
   const { title, steps } = installSteps(platform, { hasData: realTxCount() > 0, lang: __uiLang });
   const titleEl = document.getElementById('install-guide-title');
   const btnEl = document.getElementById('install-guide-btn');
@@ -16190,7 +16243,7 @@ renderInstallGuide();
 function renderQuickAddGuideCard() {
   const card = document.getElementById('quickadd-guide-card');
   if (!card) return;
-  const platform = detectPlatform(navigator.userAgent, {});
+  const platform = detectPlatform(navigator.userAgent, { maxTouchPoints: navigator.maxTouchPoints });
   if (platform.os !== 'ios') { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
   const { url, passi } = buildQuickAddSetupInstructions(location.origin);
@@ -18094,7 +18147,28 @@ const initApp = () => {
   // dopo il render iniziale (mai bloccare il primo paint): SOLO propone,
   // mai un ripristino silenzioso — l'utente conferma o ignora.
   VaultDAO.checkTxLogRecovery().then(({ recovered, addedCount }) => {
-    if (addedCount <= 0) return;
+    // haCompletatoOnboarding aggiunto (2026-09-11, stesso branch parallelo):
+    // chi non ha ancora finito l'onboarding non ha un vault vero su cui
+    // "recuperare" nulla — mostrargli comunque il modale sarebbe confuso e
+    // fuori contesto, prima ancora di sapere cos'è Momentum.
+    if (addedCount <= 0 || !haCompletatoOnboarding(VaultDAO.state)) return;
+    // BUG REALE (integrato da un branch parallelo dopo revisione mirata,
+    // 2026-09-11): senza questo cancello, lo stesso avviso di recupero
+    // ricompariva IDENTICO ad ogni riavvio dell'app per chi chiudeva con
+    // "Non ora" — nessuna memoria di "l'ho già visto". Ora un solo avviso
+    // automatico per l'intero insieme di id recuperabili: se l'utente lo
+    // chiude o lo conferma, non si ripropone; un insieme DAVVERO diverso
+    // (nuovi id, es. dopo un ulteriore recupero) può ancora aprirsi.
+    const seenKey = VaultDAO.state.recoveryPromptSeenKey;
+    if (!shouldAutoOpenRecoveryPrompt(recovered, seenKey, VaultDAO.state.recoveryPromptSuppressed)) return;
+    // Salvato PRIMA di aprire: anche una chiusura con X/sfondo/Escape conta
+    // come "visto" — al prossimo avvio non deve ricomparire comunque.
+    VaultDAO.state.recoveryPromptSeenKey = recoveryPromptKey(recovered);
+    VaultDAO.state.recoveryPromptSuppressed = true;
+    VaultDAO.save();
+    // Coordinamento con showWhatsNewIfDue() più sotto: un solo modale
+    // importante per accesso, mai due sovrapposti.
+    window.__recoveryPromptShownThisSession = true;
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     // COSA torna indietro, non solo QUANTO. Prima la schermata diceva "2
     // transazioni" e chiedeva fiducia al buio: davanti a dati di soldi che

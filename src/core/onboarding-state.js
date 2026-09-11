@@ -34,9 +34,16 @@
 export function haCompletatoOnboarding(state) {
   if (!state || typeof state !== 'object') return false;
   if (state.isFirstLaunch === false) return true;
-  // Fallback per stati storici privi del flag.
-  if (state.onboardingProfile) return true;
   const mesi = state.transactions && typeof state.transactions === 'object'
     ? Object.keys(state.transactions) : [];
+  // Integrato da un branch parallelo dopo revisione mirata (2026-09-11): se
+  // il flag esiste ed è ancora true, un profilo di onboarding predefinito da
+  // solo non prova che le domande siano state completate — solo i dati veri
+  // (transazioni) possono superare un flag incoerente dopo un ripristino
+  // parziale. Il fallback su onboardingProfile resta SOLO per gli stati
+  // storici privi del flag (sotto), non per chi il flag ce l'ha e dice true.
+  if (state.isFirstLaunch === true) return mesi.length > 0;
+  // Fallback esclusivamente per stati storici privi del flag.
+  if (state.onboardingProfile) return true;
   return mesi.length > 0;
 }

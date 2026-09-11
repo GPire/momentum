@@ -24,6 +24,18 @@ const ACTIVE_MONTH_KEY = 'momentum_telemetry_active_month';
 const ACTIVE_DAY_KEY = 'momentum_telemetry_active_day';
 const FEATURE_SENT_KEY = 'momentum_telemetry_feature_sent';
 
+// Diagnostica tecnica minima (2026-09-11, integrata da un branch parallelo
+// dopo revisione mirata): resta disponibile anche dopo l'opt-out dei dati
+// d'uso sopra — è un canale DIVERSO, non un modo per aggirare l'opt-out: le
+// chiavi sono chiuse (nessun testo libero) e il payload non contiene mai un
+// identificatore persistente né dati finanziari. Serve solo a sapere SE una
+// versione ha un tasso anomalo di crash/errori tecnici, mai "chi" o "cosa".
+export const DIAGNOSTIC_KEYS = [
+  'app_ready', 'app_error', 'vault_integrity_failed', 'update_failed',
+  'import_failed', 'model_load_failed', 'mesh_transport_failed',
+];
+const DIAGNOSTIC_KEY_SET = new Set(DIAGNOSTIC_KEYS);
+
 // Piattaforma/provenienza: SOLO categorie chiuse, mai testo libero (stesso
 // principio di FEATURE_KEYS sotto — un valore fuori da questi elenchi non
 // parte mai). Risponde a "su quale piattaforma investire per primi" e "gli
@@ -97,6 +109,30 @@ export function setTelemetryEnabled(enabled, storage = localStorage) {
   storage.setItem(OPT_IN_KEY, enabled ? '1' : '0');
 }
 
+// Diagnostica essenziale, indipendente dall'opt-out di install/active/
+// feature sopra (vedi commento su DIAGNOSTIC_KEYS): valida chiave e versione
+// PRIMA di spedire, mai un fetch con un payload fuori formato.
+export async function sendEssentialDiagnostic(endpoint, key, {
+  fetchImpl = fetch, now = new Date(), platform = 'altro', appVersion = 'unknown',
+} = {}) {
+  if (!endpoint || !DIAGNOSTIC_KEY_SET.has(key)
+    || typeof appVersion !== 'string' || !/^\d+(?:\.\d+){0,3}$/.test(appVersion)
+    || !(now instanceof Date) || !Number.isFinite(now.getTime())) return { sent: false };
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const body = {
+    event: 'diagnostic', key, day,
+    platform: PLATFORMS.includes(platform) ? platform : 'altro',
+    appVersion,
+  };
+  try {
+    const response = await fetchImpl(endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!response?.ok) throw new Error('Telemetry request rejected');
+    return { sent: true };
+  } catch (_) { return { sent: false }; }
+}
+
 export function getAnonId(storage = localStorage, uuidFn = () => crypto.randomUUID()) {
   let id = storage.getItem(ANON_ID_KEY);
   if (!id) { id = uuidFn(); storage.setItem(ANON_ID_KEY, id); }
@@ -118,15 +154,26 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
       const body = { id, event: 'install' };
       if (PLATFORMS.includes(platform)) body.platform = platform;
       body.source = cameFromInvite ? 'invito' : 'diretto';
-      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      // response.ok verificato (2026-09-11, bug reale trovato in un branch
+      // parallelo e integrato qui): un fetch che risolve con un errore HTTP
+      // (es. 500) non lanciava, quindi veniva segnato "inviato" e mai più
+      // ritentato — l'evento andava perso in silenzio per sempre.
+      const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!response?.ok) throw new Error('Telemetry request rejected');
       storage.setItem(INSTALL_SENT_KEY, '1');
       sent.push('install');
     } catch (_) { /* riprova al prossimo avvio, mai bloccante */ }
   }
+  // isTelemetryEnabled ri-controllato qui (non solo all'ingresso della
+  // funzione, riga sopra): fra l'await dell'evento "install" e qui l'utente
+  // può aver disattivato la telemetria a metà esecuzione — senza questo
+  // ricontrollo, "active"/"active_day" partirebbero comunque nello stesso
+  // giro, nonostante la disattivazione appena scelta.
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  if (storage.getItem(ACTIVE_MONTH_KEY) !== month) {
+  if (isTelemetryEnabled(storage) && storage.getItem(ACTIVE_MONTH_KEY) !== month) {
     try {
-      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active', month }) });
+      const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active', month }) });
+      if (!response?.ok) throw new Error('Telemetry request rejected');
       storage.setItem(ACTIVE_MONTH_KEY, month);
       sent.push('active');
     } catch (_) { /* riprova al prossimo avvio */ }
@@ -136,9 +183,10 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
   // da un investitore — senza, /stats sa solo "attivo questo mese", non
   // "quanto spesso".
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  if (storage.getItem(ACTIVE_DAY_KEY) !== day) {
+  if (isTelemetryEnabled(storage) && storage.getItem(ACTIVE_DAY_KEY) !== day) {
     try {
-      await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active_day', day }) });
+      const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'active_day', day }) });
+      if (!response?.ok) throw new Error('Telemetry request rejected');
       storage.setItem(ACTIVE_DAY_KEY, day);
       sent.push('active_day');
     } catch (_) { /* riprova al prossimo avvio */ }
@@ -160,7 +208,8 @@ export async function sendFeatureEvent(endpoint, key, { storage = localStorage, 
   if (already.has(dedupKey)) return { sent: false };
   const id = getAnonId(storage);
   try {
-    await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'feature', key, month }) });
+    const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'feature', key, month }) });
+    if (!response?.ok) throw new Error('Telemetry request rejected');
     already.add(dedupKey);
     storage.setItem(FEATURE_SENT_KEY, JSON.stringify([...already]));
     return { sent: true };

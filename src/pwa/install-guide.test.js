@@ -15,6 +15,17 @@ const UA = {
   androidFacebook: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/450.0.0.0]',
 };
 
+test('detectPlatform: iPad in modalità "sito desktop" (UA identico a un Mac) → ios, non mac (2026-09-11, integrato da un branch parallelo dopo revisione mirata)', () => {
+  // Da iPadOS 13, l\'UA di default è identico a un Mac vero — l\'unico modo
+  // di distinguerli è il touch: un Mac vero non ne ha, un iPad sì.
+  const iPad = detectPlatform(UA.macSafari, { maxTouchPoints: 5 });
+  assert.equal(iPad.os, 'ios');
+  assert.equal(iPad.supportsNativePrompt, false);
+  // Un vero Mac (maxTouchPoints 0, il default) non deve MAI diventare "ios".
+  assert.equal(detectPlatform(UA.macSafari, { maxTouchPoints: 0 }).os, 'mac');
+  assert.equal(detectPlatform(UA.macSafari).os, 'mac'); // default invariato, nessuna regressione
+});
+
 test('detectPlatform: iPhone Safari → ios/safari, nessun prompt nativo (Apple non lo supporta)', () => {
   const p = detectPlatform(UA.iosSafari);
   assert.equal(p.os, 'ios');

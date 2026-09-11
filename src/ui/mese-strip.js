@@ -29,6 +29,7 @@
 'use strict';
 
 import { t as tMs } from '../i18n/ui-strings.js';
+import { giornoLocale } from '../core/date-utils.js';
 
 // Quante entrate servono per dire che esiste un giorno di paga ricorrente.
 // Con due si vedono schemi ovunque; con tre si comincia a poterci contare.
@@ -41,7 +42,13 @@ export function giornoDelloStipendio(txPerMese, { meseCorrente = null } = {}) {
     if (meseCorrente && mk >= meseCorrente) continue; // il mese in corso non fa scuola
     for (const t of txPerMese[mk] || []) {
       if (t?.type !== 'entrata' || !t.date) continue;
-      const g = +String(t.date).slice(8, 10);
+      // giornoLocale (2026-09-11, guardia strutturale): un taglio a
+      // posizione fissa leggerebbe il giorno UTC di t.date, non quello
+      // locale — per entrate salvate vicino a mezzanotte lo schema del
+      // giorno di paga risulterebbe sballato di uno, o addirittura invisibile
+      // se le date shiftate si disperdono invece di concentrarsi.
+      const iso = giornoLocale(t.date);
+      const g = iso ? +iso.slice(8, 10) : NaN;
       if (g >= 1 && g <= 31) giorni.push(g);
     }
   }
@@ -75,7 +82,9 @@ export function ritmoDegliIncassi(txPerMese, { oggi = new Date() } = {}) {
   const date = [];
   for (const mk of Object.keys(txPerMese || {})) {
     for (const t of txPerMese[mk] || []) {
-      if (t?.type === 'entrata' && t.date) date.push(String(t.date).slice(0, 10));
+      // giornoLocale (2026-09-11, guardia strutturale): stesso motivo sopra
+      // in giornoDelloStipendio — mai un taglio diretto su t.date.
+      if (t?.type === 'entrata' && t.date) { const iso = giornoLocale(t.date); if (iso) date.push(iso); }
     }
   }
   if (date.length < MINIMI_INCASSI_PER_IL_RITMO) return null;

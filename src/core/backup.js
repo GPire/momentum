@@ -10,6 +10,8 @@
 // Chi ottiene il file senza la passphrase NON può leggere nulla: nemmeno noi
 // potremmo, perché la chiave non lascia mai il dispositivo.
 
+import { meseLocale } from './date-utils.js';
+
 const KDF_ITERATIONS = 210_000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -173,7 +175,11 @@ function readLegacyDna(raw) {
   // senza data finiscono in 'sconosciuto' invece di sparire in silenzio.
   const byMonth = {};
   for (const tx of obj.transactions) {
-    const key = typeof tx?.date === 'string' && tx.date.length >= 7 ? tx.date.slice(0, 7) : 'sconosciuto';
+    // meseLocale (2026-09-11, guardia strutturale): un taglio di stringa
+    // diretto sul mese leggerebbe il mese UTC, non quello locale — per
+    // transazioni salvate vicino a mezzanotte questo può finire nel mese
+    // sbagliato, esattamente il bug già pagato per le singole giornate.
+    const key = meseLocale(tx?.date) || 'sconosciuto';
     (byMonth[key] ||= []).push(tx);
   }
 

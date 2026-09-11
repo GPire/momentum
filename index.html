@@ -66,7 +66,12 @@
       var grezzo = localStorage.getItem('omega_core_db');
       if (grezzo) {
         var s = JSON.parse(grezzo);
-        var haDati = s && (s.onboardingProfile || (s.transactions && Object.keys(s.transactions).length));
+        var haTransazioni = !!(s && s.transactions && Object.keys(s.transactions).length);
+        // isFirstLaunch:true esplicito -> solo i dati veri (transazioni)
+        // possono superarlo, mai un profilo di onboarding predefinito da
+        // solo (stessa correzione di src/core/onboarding-state.js, tenute
+        // allineate dal test dedicato).
+        var haDati = s && s.isFirstLaunch === true ? haTransazioni : !!(s && (s.onboardingProfile || haTransazioni));
         if (s && (s.isFirstLaunch === false || haDati)) {
           document.documentElement.classList.add('gia-onboardato');
         }
