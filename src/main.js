@@ -136,6 +136,7 @@ const __uiLangParam = (() => {
   try { return new URLSearchParams(window.location.search).get('lang'); } catch (_) { return null; }
 })();
 const __uiLang = resolveUiLanguage({ override: UI_LANGS.includes(__uiLangParam) ? __uiLangParam : null });
+document.documentElement.lang = __uiLang;
 // Locale reale per Intl/toLocaleDateString: senza questa mappa i nomi di
 // mese/giorno (es. "agosto", "lun") restavano in italiano anche a
 // interfaccia tradotta — una traduzione di UI che si fermava all'ultimo

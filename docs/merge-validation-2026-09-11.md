@@ -2,6 +2,11 @@
 
 ## Esito finale sul codice 66602c7
 
+La successiva verifica francese ha confermato i testi tradotti ma trovato
+`html.lang` ancora italiano. Ora segue `__uiLang`, così i lettori di schermo
+ricevono la lingua effettiva. È l'unica modifica applicativa successiva alle
+prove sul commit indicato; la PR riesegue i controlli sul suo ultimo commit.
+
 - **4.846 test / 317 file passati**, zero skip, dopo le correzioni descritte sotto.
 - [Release checks Linux: test e build standard riusciti](https://github.com/GPire/momentum/actions/runs/34647755373).
 - [Android assembleDebug/lintDebug e iOS Simulator SDK 27: riusciti](https://github.com/GPire/momentum/actions/runs/34647755356).
