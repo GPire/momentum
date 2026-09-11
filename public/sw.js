@@ -6,11 +6,10 @@
 // senza questa cache l'app "offline-first" perdeva stile, grafici e OCR
 // appena mancava la rete. La cache vendor NON viene spazzata dai bump
 // dell'app: contiene anche i ~15MB di wasm/traineddata di Tesseract.
-const APP_CACHE = 'momentum-vault-v109';
+const APP_CACHE = 'momentum-vault-v110';
 const VENDOR_CACHE = 'momentum-vendor-v1';
 
 const CDN_HOSTS = [
-  'cdn.tailwindcss.com',
   'cdnjs.cloudflare.com',
   'cdn.jsdelivr.net',
   'tessdata.projectnaptha.com' // traineddata OCR, caricati a runtime da Tesseract
@@ -19,7 +18,6 @@ const CDN_HOSTS = [
 // Gli asset dichiarati in index.html. pdf.worker e i chunk Tesseract/font
 // vengono comunque catturati a runtime dal ramo cache-first qui sotto.
 const VENDOR_PRECACHE = [
-  'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
@@ -58,6 +56,7 @@ self.addEventListener('install', e => {
       // Font auto-ospitati (2026-09-06): prima erano nella cache vendor
       // perche' remoti. Ora sono asset dell'app come le icone.
       './fonts.css',
+      './ui-utilities.css',
     ])),
     precacheVendor()
   ]));

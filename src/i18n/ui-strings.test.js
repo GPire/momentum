@@ -122,12 +122,13 @@ test('t: esTramoChanged e esBaseChoiceNote (card RETA+IRPF con tracciamento real
   assert.equal(t('esBaseChoiceNote', 'es', 1500), 'Base elegida actual: 1500€/mes.');
 });
 
-test('t: chi ha il dispositivo in tedesco/francese e finisce comunque sulla schermata spagnola ricade su EN, mai su una chiave grezza', () => {
-  // Nessuna chiave esDE/esFR scritta apposta (nessun autónomo spagnolo
-  // avrebbe il dispositivo in quelle lingue in pratica) — il fallback di
-  // t() deve comunque tenere, non mostrare "esSimTitle" all'utente.
-  assert.notEqual(t('esSimTitle', 'de'), 'esSimTitle');
-  assert.equal(t('esSimTitle', 'de'), t('esSimTitle', 'en'));
+test('tax country does not override the user interface language', () => {
+  assert.equal(t('esSimTitle','de'),'Arbeitest du selbstständig in Spanien?');
+  assert.equal(t('esSimTitle','fr'),'Tu travailles à ton compte en Espagne ?');
+  assert.equal(t('chInvTitle','es'),'Factura con QR-bill');
+  // Unknown UI languages still use the documented English fallback.
+  assert.equal(t('esSimTitle','xx'),t('esSimTitle','en'));
+
 });
 
 // ── Onboarding (g-step-0..4, index.html) — 2026-08-28, punto più ad alto
@@ -968,4 +969,63 @@ test('t: tutte le chiavi alphaSubsNew* (nuovo addebito ricorrente, 2026-08-30) e
     }
   }
   assert.match(t('alphaSubsNewBody', 'it', 'Disney Plus', '8,99 €'), /Disney Plus/);
+});
+
+test('Category editor feedback is translated in all supported languages', () => {
+  for (const lang of UI_LANGS) for (const key of ['catNameRequired', 'catExistingSelected', 'catCreatedFeedback']) {
+    assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+  }
+});
+
+test('Forecast disclosure labels are translated in every supported language', () => {
+  for (const lang of UI_LANGS) for (const key of ['ghostForecastDetails','ghostEstimateShort']) {
+    assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+  }
+});
+
+test('Compact split examples are translated and parse to the stated amount', async () => {
+  const { parseSplitLine } = await import('../split/split-predictor.js');
+  for (const lang of UI_LANGS) {
+    for (const key of ['splitLineExample','splitLineLabel','splitLineHint','splitPurposeLabel','splitPurposeExample','simulationCompare']) {
+      assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+    }
+    const result = parseSplitLine(t('splitLineExample', lang));
+    assert.equal(result.amount, 60, lang);
+    assert.ok(result.people.includes('Alex'), lang);
+  }
+});
+
+test('Simulation paths and scenario labels are available in every supported language', () => {
+  for (const lang of UI_LANGS) for (const key of ['simulationIntro','simulationSaving','simulationSpending','simulationOutcome','simulationSpendingHint','importChooseFormat','simulationLow','simulationMiddle','simulationHigh','simulationEstimate']) {
+    assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+  }
+});
+
+test('reminder and maintenance controls are translated in every language', () => {
+  for (const lang of UI_LANGS) for (const key of ['reminderNew','reminderToday','reminderTomorrow','reminderNextWeek','reminderOptional','reminderSave','reminderRequired','reminderAmountError','reminderSaved','taxChooseCountry','maintenanceChecking','maintenanceUnavailable','maintenanceFound','maintenanceChecked','maintenanceError','payrollKnown']) assert.ok(t(key,lang) && t(key,lang)!==key, `${lang}: ${key}`);
+});
+
+test('payroll summary replaces values in every language', () => {
+ for (const lang of UI_LANGS) { const label=t('payrollKnown',lang,25,'1500 EUR'); assert.ok(label.includes('25') && label.includes('1500 EUR')); assert.ok(!label.includes('{0}')); }
+});
+
+test('spending focus and device transfer copy is complete in seven languages', () => {
+ for (const lang of UI_LANGS) {
+  for (const key of ['spendingTotal','spendingAll','spendingExplore','spendingEmpty','deviceTransferIntro','deviceMakeCopy','deviceOpenCopy','deviceTransferNote','deviceRecovery','deviceNetwork','deviceNetworkOpen','deviceMore','copyPassword','copyRepeat','copyPasswordHint','copyMismatch','copySave','copySaved']) assert.ok(t(key,lang) && t(key,lang)!==key,`${lang}: ${key}`);
+  const text=t('spendingShare',lang,25,3); assert.ok(text.includes('25')&&text.includes('3')&&!text.includes('{0}'));
+ }
+});
+
+test('wealth horizons and category expansion use readable translated labels', () => {
+ for (const lang of UI_LANGS) {
+  for (const key of ['wealthIntro','wealthAssumptions','spendingLess','alphaProjection1y','alphaProjection5y','alphaTargetCapitalLabel']) assert.ok(t(key,lang) && t(key,lang)!==key, `${lang}: ${key}`);
+  assert.ok(t('spendingMore',lang,7).includes('7'));
+ }
+});
+
+test('contextual view choices and task form labels exist in all seven languages', () => {
+ for (const lang of UI_LANGS) {
+  for (const key of ['viewChoiceIntro','viewEssentialHelp','viewCompleteHelp','viewChoiceNote','debtNameLabel','debtNameExample','debtBalanceLabel','debtRateLabel','debtPaymentLabel','tripNameLabel','tripNameShortExample','simulationHorizon']) assert.ok(t(key,lang) && t(key,lang)!==key,`${lang}: ${key}`);
+  assert.ok(t('simulationYears',lang,10).includes('10'));
+ }
 });

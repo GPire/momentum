@@ -1,3 +1,4 @@
+import { themePreference } from '../ui/theme-preference.js';
 import { SCHEMA_VERSION, DEFAULT_CATEGORIES, ALL_CATS } from './constants.js';
 import { simpleHash } from './utils.js';
 import { findDuplicate, mergeTransaction } from './deduplicator.js';
@@ -306,6 +307,7 @@ const VaultDAO = {
     currentDate: new Date(),
     transactions: {},
     themeDark: true,
+    themePreference: 'system',
     currentView: 'dashboard',
     customCategories: [],
     subscriptions: [],
@@ -410,7 +412,7 @@ const VaultDAO = {
       }
       try {
         const p = runSchemaMigrations(best.state);
-        this.state = { ...this.state, ...p, schemaVersion: SCHEMA_VERSION, currentDate: new Date() };
+        this.state = { ...this.state, ...p, themePreference: themePreference(p), schemaVersion: SCHEMA_VERSION, currentDate: new Date() };
       } catch (e) {
         console.error('VaultDAO.init: migrazione schema fallita — parto dal default, dati NON applicati:', e);
       }

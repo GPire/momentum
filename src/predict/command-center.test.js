@@ -2,6 +2,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './command-center.js';
 import { createGroup, addSharedExpense, claimMember } from '../split/split-engine.js';
+import { budgetAfterExpense } from './command-center.js';
+
+test('budget preview subtracts recorded expenses and draft without changing history', () => {
+  const transactions = [{ type:'uscita', amount:120 }, { type:'entrata', amount:1000 }, { type:'invest', amount:50 }];
+  const before = JSON.stringify(transactions);
+  assert.deepEqual(budgetAfterExpense({ budget:500, amount:30, transactions }), { remaining:350, overBy:0 });
+  assert.equal(JSON.stringify(transactions), before);
+});
+test('budget preview reports crossing and reaching the limit', () => {
+  assert.deepEqual(budgetAfterExpense({ budget:100, amount:120 }), { remaining:0, overBy:20 });
+  assert.deepEqual(budgetAfterExpense({ budget:100, amount:100 }), { remaining:0, overBy:0 });
+  assert.deepEqual(budgetAfterExpense({ budget:0.3, amount:0.2, transactions:[{type:'uscita',amount:0.1}] }), { remaining:0, overBy:0 });
+});
+test('budget preview does not guess missing budgets or exchange rates', () => {
+  assert.equal(budgetAfterExpense({ budget:0, amount:20 }), null);
+  assert.equal(budgetAfterExpense({ budget:100, amount:0 }), null);
+  assert.equal(budgetAfterExpense({ budget:100, amount:20, currency:'USD' }), null);
+  assert.equal(budgetAfterExpense({ budget:100, amount:20, transactions:[{type:'uscita',amount:10,currency:'GBP'}] }), null);
+  assert.equal(budgetAfterExpense({ budget:100, amount:20, transactions:[{type:'uscita',amount:NaN}] }), null);
+});
+test('weekly draft feedback includes overspending already accumulated', () => {
+  assert.deepEqual(amountEntryImpact({safeToday:-10,pendingAmount:20}), {show:true,level:'over',remaining:0,overBy:30});
+  assert.equal(amountEntryImpact({safeToday:100,pendingAmount:20}).remaining, 80);
+});
 import { addMessage, contestExpense } from '../split/group-chat.js';
 
 // Helper: costruisce N transazioni di una categoria in una data/ora fissa.

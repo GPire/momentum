@@ -79,6 +79,10 @@
        visibile senza aspettare il bundle. main.js poi fa il resto. */
     html.gia-onboardato #genesis-container { display: none !important; }
     html.gia-onboardato #app-core { display: flex !important; opacity: 1 !important; }
+    #app-startup { display: none; }
+    html.gia-onboardato:not(.app-ready) #app-core { visibility: hidden; }
+    html.gia-onboardato:not(.app-ready) #app-startup { display: flex; position: fixed; inset: 0; align-items: center; justify-content: center; flex-direction: column; gap: 16px; background: #08090e; color: #b9baff; font: 650 16px 'Plus Jakarta Sans', sans-serif; letter-spacing: .02em; z-index: 50; }
+    #app-startup svg { width: 68px; height: 68px; animation: appEntra .4s ease-out both; }
     /* MICRO-TRANSIZIONE D'INGRESSO (2026-09-06, richiesta esplicita: prima la
        dashboard compariva di scatto). Stessa curva e stessa distanza di
        `gRise`, il linguaggio d'ingresso che l'app usa già nell'onboarding e
@@ -86,7 +90,7 @@
        (0.42s): deve dire "ci siamo", mai far aspettare.
        Le keyframes sono ridichiarate qui perché questo blocco vive nel <head>
        e deve funzionare PRIMA che carichi il resto del CSS. */
-    @keyframes appEntra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes appEntra { from { opacity: 0; } to { opacity: 1; } }
     html.gia-onboardato #app-core {
       animation: appEntra 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
@@ -96,14 +100,8 @@
     }
   </style>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: { extend: { fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'], mono: ['"DM Mono"', 'monospace'] } } }
-    }
-  </script>
+  <!-- Compiled before release: no browser compiler or unstyled first paint. -->
+  <link rel="stylesheet" href="./ui-utilities.css">
   
   <!-- CDNs for WebGL, Charts and PDF/OCR -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -2533,8 +2531,7 @@
        già usati altrove nell'app. */
     .join-who-chip { transition: all var(--spring-fast, .2s ease); }
     .join-who-chip.active { border-color: var(--primary) !important; background: color-mix(in srgb, var(--primary) 16%, transparent) !important; color: var(--primary) !important; }
-      #import-progress, #pdf-progress-overlay, #ota-overlay { padding-top: env(safe-area-inset-top, 0px); }
-    }
+    #import-progress, #pdf-progress-overlay, #ota-overlay { padding-top: env(safe-area-inset-top, 0px); }
     /* I modali salgono dal basso: rispettano la home-indicator (già via
        --safe-bottom) e non superano mai l'altezza visibile reale (dvh).
        Bug reale trovato dal vivo: questa regola con selettore #id ha
@@ -4202,8 +4199,13 @@
     }
 
 </style>
+  <link rel="stylesheet" href="./src/ui/split-workspace.css">
+  <link rel="stylesheet" href="./src/ui/dashboard-clarity.css">
+  <link rel="stylesheet" href="./src/ui/financial-workspace.css">
+  <link rel="stylesheet" href="./src/ui/onboarding-ready.css">
 </head>
 <body class="min-h-screen flex flex-col md:flex-row relative">
+  <div id="app-startup" role="status" aria-label="Momentum"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="40" cy="40" r="21"/><ellipse cx="40" cy="40" rx="35" ry="12" transform="rotate(-32 40 40)"/><circle cx="66" cy="20" r="3" fill="currentColor"/></svg><span>Momentum</span></div>
 
   <!-- ===================== GENESIS ONBOARDING ===================== -->
   <div id="genesis-container" class="fixed inset-0 z-[9999] bg-[#000] flex items-center justify-center overflow-hidden">
@@ -4265,7 +4267,7 @@
           <h2 class="text-2xl font-black leading-tight mb-1" data-i18n-key="genesisPrivacyTitle">I tuoi dati, sotto il tuo controllo.</h2>
           <p class="text-sm text-[var(--on-surface-secondary)] leading-snug" data-i18n-key="genesisPrivacyText">Budget e documenti sono salvati sul dispositivo. Puoi scegliere i servizi esterni e cosa condividere, dalle impostazioni.</p>
         </div>
-        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext('age')" data-i18n-key="genesisStart">Inizia — bastano 20 secondi</button>
+        <button class="g-option !bg-[var(--primary)] !text-white !border-transparent shadow-lg shadow-indigo-500/30" onclick="genesisNext('age')" data-i18n-key="genesisStart">Inizia</button>
       </div>
       <!-- Step ETÀ — gate preliminare, PRIMA delle 4 domande di profilazione
            finanziaria (che restano invariate per chi non è minorenne: nessun
@@ -4427,27 +4429,46 @@
         <p class="text-sm text-[var(--on-surface-secondary)] mb-6" data-i18n-key="genesisIncomeSub">Un numero vero batte una stima — ma va benissimo anche saltare.</p>
         <input type="number" inputmode="decimal" min="0" step="1" id="genesis-income-input"
           class="w-full text-center text-2xl font-black bg-transparent border-b-2 border-[var(--outline)] focus:border-[var(--primary)] outline-none py-2 mb-4 text-[var(--on-surface)]"
-          data-i18n-placeholder="genesisIncomePlaceholder" placeholder="Es. 1800" />
+          data-i18n-placeholder="genesisIncomePlaceholder" placeholder="Es. 1800" name="genesis-income-input" aria-label="genesisIncomePlaceholder" data-i18n-aria="genesisIncomePlaceholder" />
         <button class="g-option" style="--i:1" onclick="window.genesisIncomeSubmit()" data-i18n-key="genesisIncomeConfirm">Continua</button>
         <button class="g-option" style="--i:2" onclick="window.genesisIncomeSkip()" data-i18n-key="genesisIncomeSkip">Preferisco non dirlo</button>
       </div>
       <!-- Step 5 — conferma finale, calda e chiara (prima "Consacra/Tieni premuto"). -->
       <div class="genesis-step" id="g-step-5" inert aria-hidden="true">
-        <h2 class="text-2xl font-black mb-2 text-center" data-i18n-key="genesisFinishTitle">Il tuo punto di partenza.</h2>
-        <p class="text-sm text-[var(--on-surface-secondary)] mb-4 text-center" data-i18n-key="genesisFinishSub">Momentum è pronto. Puoi cambiare le preferenze quando vuoi.</p>
-        <button type="button" id="genesis-btn" class="genesis-enter" data-i18n-key="genesisEnter">Apri Momentum</button>
-        <details class="genesis-profile-details">
-          <summary data-i18n-key="genesisProfileDetails">Vedi come abbiamo adattato Momentum</summary>
-          <div id="genesis-payoff"></div>
-        <fieldset class="w-full mb-3 shrink-0">
-          <legend class="text-sm font-bold mb-1" data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</legend>
-          <p class="text-xs text-[var(--on-surface-secondary)] mb-2" data-i18n-key="analysisComplexitySub">Essenziale nasconde solo gli strumenti più tecnici — niente sparisce per sempre.</p>
-          <div class="segmented-control">
-            <button type="button" class="segment-btn" data-genesis-clarity="essenziale" aria-pressed="true" onclick="window.genesisClarityPick('essenziale')" data-i18n-key="analysisComplexityEssential">Essenziale</button>
-            <button type="button" class="segment-btn" data-genesis-clarity="completo" aria-pressed="false" onclick="window.genesisClarityPick('completo')" data-i18n-key="analysisComplexityFull">Completa</button>
+        <div class="genesis-ready-content">
+          <div id="genesis-ready-view">
+            <div class="genesis-ready-mark" aria-hidden="true"><span></span><i></i><svg viewBox="0 0 32 32" fill="none"><path d="m8 19 5-9 4 8 4-5 3 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h2 tabindex="-1" data-i18n-key="genesisFinishTitle">Il tuo Momentum.</h2>
+            <p class="genesis-ready-sub" data-i18n-key="genesisFinishSub">Un posto per le spese. Più spazio per i tuoi progetti.</p>
+            <div id="genesis-ready-summary"></div>
+            <button type="button" id="genesis-personalize" class="genesis-personalize" aria-controls="genesis-preferences-view" onclick="window.genesisPreferences(true)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg>
+              <span><strong data-i18n-key="genesisPersonalize">Le tue preferenze</strong><small id="genesis-current-view"></small></span>
+              <span class="genesis-action-end" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg></span>
+            </button>
           </div>
-        </fieldset>
-        </details>
+          <div id="genesis-preferences-view" hidden>
+            <button type="button" class="genesis-ready-back" onclick="window.genesisPreferences(false)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg><span data-i18n-key="genesisReadyBack">Indietro</span></button>
+            <h2 tabindex="-1" data-i18n-key="genesisViewTitle">Come lo vuoi vedere?</h2>
+            <p class="genesis-ready-sub" data-i18n-key="genesisViewSub">Scegli la vista che ti aiuta. Puoi cambiarla anche dopo.</p>
+            <div class="genesis-view-choices" role="group" data-i18n-aria="genesisViewTitle" aria-label="Come lo vuoi vedere?">
+              <button type="button" data-genesis-clarity="essenziale" aria-pressed="true" onclick="window.genesisClarityPick('essenziale')">
+                <span class="genesis-view-preview" aria-hidden="true"><i></i><i></i><i></i></span><span class="genesis-view-check" aria-hidden="true"></span>
+                <strong data-i18n-key="genesisViewSimple">Semplice</strong><small data-i18n-key="genesisViewSimpleSub">Le cose di ogni giorno, subito in vista.</small>
+              </button>
+              <button type="button" data-genesis-clarity="completo" aria-pressed="false" onclick="window.genesisClarityPick('completo')">
+                <span class="genesis-view-preview genesis-view-preview-full" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="genesis-view-check" aria-hidden="true"></span>
+                <strong data-i18n-key="genesisViewDetailed">Approfondita</strong><small data-i18n-key="genesisViewDetailedSub">Più dettagli e strumenti già aperti.</small>
+              </button>
+            </div>
+            <h3 class="genesis-profile-heading" data-i18n-key="genesisFromAnswers">Dalle tue risposte</h3>
+            <div id="genesis-payoff"></div>
+          </div>
+        </div>
+        <div class="genesis-ready-footer">
+          <button type="button" id="genesis-btn" class="genesis-enter"><span data-i18n-key="genesisEnter">Apri Momentum</span><span class="genesis-action-end" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></button>
+          <p data-i18n-key="genesisNoBudget">Il budget lo decidi tu, quando vuoi.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -4590,7 +4611,7 @@
 
   <div id="app-core" class="hidden opacity-0 flex flex-col md:flex-row min-h-screen w-full relative">
     <!-- DESKTOP SIDEBAR -->
-    <aside class="theme-fade hidden md:flex flex-col w-64 lg:w-80 border-r border-[var(--glass-border)] fixed h-full p-4 lg:p-6 bg-[var(--glass-bg)] backdrop-blur-[40px] z-[60]">
+    <aside class="app-navigation theme-fade hidden md:flex flex-col w-64 lg:w-80 border-r border-[var(--glass-border)] fixed h-full p-4 lg:p-6 bg-[var(--glass-bg)] backdrop-blur-[40px] z-[60]">
       <div class="flex items-center gap-4 mb-10 px-2 mt-4 shrink-0">
         <!-- Logo omega_sap: stesso file dell'icona PWA — un solo brand mark
              coerente tra header in-app e home screen, non due segni diversi. -->
@@ -4622,12 +4643,13 @@
           <span class="truncate">Momentum Vault</span>
         </button>
       </nav>
+<div class="rail-appearance" role="group" data-i18n-aria="navTheme" aria-label="Tema"><span class="rail-appearance-label" data-i18n-key="navTheme">Tema</span><div class="rail-appearance-choices"><button type="button" data-action="set-theme" data-theme-choice="light" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg><span data-i18n-key="themeLightLabel">Chiaro</span></button><button type="button" data-action="set-theme" data-theme-choice="dark" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 15A8 8 0 0 1 9 4a8.5 8.5 0 1 0 11 11Z"/></svg><span data-i18n-key="themeDarkLabel">Scuro</span></button><button type="button" data-action="set-theme" data-theme-choice="system" data-i18n-aria="themeDeviceLabel" aria-label="Come il dispositivo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v16"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></svg><span data-i18n-key="themeSystemLabel">Auto</span></button></div></div>
     </aside>
 
     <!-- MAIN APP SCREEN -->
     <main class="flex-1 md:ml-64 lg:ml-80 min-h-screen" style="padding-top:calc(var(--safe-top) + 3rem)">
-      <div class="xl:grid xl:grid-cols-[1fr_420px] 2xl:grid-cols-[1fr_460px] min-h-full">
-        <div class="p-4 sm:p-6 lg:p-10 lg:pt-4 pb-28 sm:pb-32 w-full max-w-7xl mx-auto relative flex flex-col">
+      <div class="app-workspace xl:grid xl:grid-cols-[1fr_420px] 2xl:grid-cols-[1fr_460px] min-h-full">
+        <div class="app-content p-4 sm:p-6 lg:p-10 lg:pt-4 pb-28 sm:pb-32 w-full max-w-7xl mx-auto relative flex flex-col">
           
           <!-- DASHBOARD VIEW -->
           <div id="dashboard-view" class="space-y-6 sm:space-y-10 animate-slideUpFade flex-grow flex flex-col">
@@ -4676,7 +4698,7 @@
                  mai nascosto in un angolo. Ambra = "momento consapevole",
                  mai rosso-colpa. -->
             <section id="import-cta" class="first-orbit shrink-0 hidden" aria-labelledby="first-orbit-title">
-              <svg class="first-orbit-art" viewBox="0 0 360 120" fill="none" aria-hidden="true"><ellipse cx="180" cy="60" rx="166" ry="35" transform="rotate(-12 180 60)"/><ellipse cx="180" cy="60" rx="119" ry="22" transform="rotate(-12 180 60)"/><circle class="orbit-planet" cx="180" cy="60" r="8"/><circle cx="72" cy="100" r="3"/><path d="M168 34v10m-5-5h10"/></svg>
+              <div class="first-orbit-art" aria-hidden="true"><div class="arrival-system"><div class="arrival-halo"></div><div class="arrival-core"></div><div class="arrival-ring arrival-ring-one"></div><div class="arrival-ring arrival-ring-two"></div><div class="arrival-spark"></div></div></div>
               <div id="demo-banner" class="hidden"></div>
               <div class="first-orbit-copy">
                 <h3 id="first-orbit-title" data-i18n-key="dashImportTitle">Il tuo spazio. I tuoi numeri.</h3>
@@ -4728,22 +4750,13 @@
                  linguaggio visivo del grande orb (bagliore, nucleo luminoso),
                  mai una seconda estetica scollegata dal resto. -->
             <div class="card p-5 sm:p-6 relative overflow-hidden shrink-0" id="dash-week-strip-card">
-              <div class="flex items-center justify-between gap-2">
-                <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span data-i18n-key="dashWeekStripTitle">Questa settimana</span></h3>
-                <!-- "Il mese intero" apre il calendario QUI, non cambia
-                     schermata: mandare a un'altra vista per vedere un mese
-                     è comunque un salto, anche se automatico (segnalato
-                     esplicitamente). Chiama LA STESSA funzione che disegna
-                     il calendario di Analisi Tensor (window.
-                     renderMonthCalendarInto) su un contenitore diverso: un
-                     solo motore, mai due formule che possono disallinearsi
-                     — lo stesso bug già trovato e risolto in questa sessione
-                     per il selettore del mese. -->
-                <button type="button" class="week-month-link" aria-expanded="false" aria-controls="dash-month-wrap" onclick="window.__toggleMeseInDashboard(this)">
-                  <svg class="week-month-cal" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><circle class="week-month-cal-dot" cx="8" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>
-                  <span data-i18n-key="dashSeeFullMonth">Il mese intero</span>
-                  <svg class="week-month-freccia" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-                </button>
+              <div class="home-calendar-head">
+                <h3 data-i18n-key="homeCalendarTitle">Le tue spese</h3>
+                <div class="home-calendar-switch" role="tablist" aria-label="Vista calendario" data-i18n-aria="homeCalendarView">
+                  <span class="home-calendar-thumb" aria-hidden="true"></span>
+                  <button id="home-week-tab" type="button" role="tab" data-calendar-view="week" aria-selected="true" tabindex="0" aria-controls="dash-week-panel" onclick="window.__setDashboardCalendarView('week')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg><span data-i18n-key="homeViewWeek">Settimana</span></button>
+                  <button id="home-month-tab" type="button" role="tab" data-calendar-view="month" aria-selected="false" tabindex="-1" aria-controls="dash-month-wrap" onclick="window.__setDashboardCalendarView('month')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="4"/><path d="M8 3v4M16 3v4M4 10h16M8 14h2M14 14h2M8 17h2M14 17h2"/></svg><span data-i18n-key="homeViewMonth">Mese</span></button>
+                </div>
               </div>
               <div id="dash-week-summary" class="mt-1"></div>
               <div id="dash-week-strip" class="week-strip-row"></div>
@@ -4887,8 +4900,8 @@
               <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg><span data-i18n-key="qaTitle">Chiedi a Momentum</span></h3>
               <div class="flex gap-2">
                 <input id="qa-input" type="text" enterkeyhint="send" placeholder='Chiedi: "quanto posso spendere oggi?"' data-i18n-placeholder="qaPlaceholder"
-                       class="flex-grow bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0" />
-                <button id="qa-send" class="btn-action px-4 shrink-0" aria-label="Chiedi" data-i18n-aria="qaSendAria">→</button>
+                       class="flex-grow bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0" name="qa-input" aria-label='Chiedi: "quanto posso spendere oggi?"' data-i18n-aria="qaPlaceholder" />
+                <button id="qa-send" class="btn-action px-4 shrink-0" aria-label="Chiedi" data-i18n-aria="qaSendAria"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7M12 5v14"/></svg></button>
               </div>
               <div id="qa-suggestions" class="flex flex-wrap gap-1.5 mt-2.5"></div>
               <div id="qa-answer" class="text-xs mt-3 hidden p-3 rounded-xl"></div>
@@ -4902,7 +4915,7 @@
                  stimato", sweep) — chi ha scelto "Essenziale" la vede sparire
                  come le altre card avanzate di Analisi Tensor/Vault, con lo
                  stesso interruttore, mai una card persa per sempre. -->
-            <div id="jar-card" class="card p-6 border border-[color-mix(in_srgb,var(--cyan)_20%,transparent)] relative overflow-hidden flex flex-col sm:flex-row justify-between items-stretch gap-6 shrink-0 advanced-card">
+            <div id="jar-card" class="card p-6 border border-[color-mix(in_srgb,var(--cyan)_20%,transparent)] relative overflow-hidden flex flex-col justify-between items-stretch gap-4 shrink-0 advanced-card">
               <!-- Onda di riempimento: sale con lo stato di sicurezza (0-100%).
                    L'idea e' giusta — un livello che sale si capisce senza
                    leggere — ma stava dentro un riquadro largo 128px che si
@@ -4918,6 +4931,7 @@
                 </div>
               </div>
 
+              <div class="reserve-planet" aria-hidden="true"><i></i><b></b></div>
               <!-- Main Content Info -->
               <div class="z-10 flex flex-col justify-between pl-4 flex-1 min-w-0">
                 <div>
@@ -4948,7 +4962,7 @@
               </div>
 
               <!-- Sweeper Interaction Card/Button -->
-              <div class="z-10 bg-black/30 border border-[var(--outline)] p-4 rounded-xl flex flex-col justify-between shrink-0 sm:w-64">
+              <details class="reserve-actions"><summary><span data-i18n-key="jarSweepTitle">Metti al sicuro quello che avanza</span><span aria-hidden="true">+</span></summary><div class="reserve-actions-body">
                 <div>
                   <h4 class="t-etichetta" data-i18n-key="jarSweepTitle">Metti al sicuro quello che avanza</h4>
                   <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-relaxed" data-i18n-html="jarSweepSubtitle">Segna quanto dell'avanzo destinare al risparmio. <b>Il trasferimento sul tuo conto lo fai tu</b>: Momentum non tocca la banca, tiene solo il conto.</p>
@@ -4961,7 +4975,7 @@
                   </div>
                   <button id="sweep-btn" onclick="window.runAIOverflowSweep()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-500 active:scale-95 text-white font-bold rounded-lg text-[10px] tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none" data-i18n-key="jarMarkBtn">SEGNA</button>
                 </div>
-              </div>
+              </div></details>
             </div>
 
             <!-- Obiettivi di risparmio, ANCHE in Dashboard (2026-09-03) —
@@ -4999,7 +5013,7 @@
               <div id="committed-reserve" class="hidden shrink-0 mb-3"></div>
               <details id="transaction-recurring" class="transaction-recurring hidden" open>
                 <summary><span class="recurring-summary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7h-5m5 0V2M4 17h5m-5 0v5M5 8a8 8 0 0 1 13-3l2 2M4 17l2 2a8 8 0 0 0 13-3"/></svg></span><span class="recurring-summary-copy"><strong data-i18n-key="recurringUpcoming">Pagamenti che potrebbero ripetersi</strong><small data-i18n-key="recurringEstimate">Date e importi stimati dal tuo storico, nei prossimi 31 giorni. Non sono addebiti confermati.</small></span><span id="recurring-count"></span></summary>
-                <div class="agenda-actions"><button type="button" class="goal-orbit-edit agenda-add" onclick="window.openPaymentEditor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n-key="agendaAdd">Aggiungi scadenza</span></button><button type="button" class="agenda-ask" onclick="window.openAgendaInCommandCenter()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span data-i18n-key="qaTitle">Chiedi a Momentum</span></button></div><div id="transaction-recurring-list"></div>
+                <div class="agenda-actions"><button type="button" class="agenda-add" onclick="window.openPaymentEditor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-i18n-key="agendaAdd">Aggiungi scadenza</span></button><button type="button" class="agenda-ask" onclick="window.openAgendaInCommandCenter()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span data-i18n-key="qaTitle">Chiedi a Momentum</span></button></div><div id="transaction-recurring-list"></div>
               </details>
               <div id="transaction-list-container" class="flex-grow"></div>
             </div>
@@ -5018,13 +5032,13 @@
                  .advanced-card), "Completa" le rimostra tutte. Il valore di
                  partenza dipende dalla fascia d'età dichiarata in onboarding
                  (18-25 → Essenziale) ma resta sempre cambiabile qui. -->
-            <button type="button" class="appearance-link" onclick="window.openAppearancePreferences()"><span data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</span><span aria-hidden="true">→</span></button>
+            <button type="button" class="appearance-link" onclick="window.openAppearancePreferences()"><span data-i18n-key="analysisCustomize">Personalizza Analisi</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--surface-solid)"/><circle cx="15" cy="17" r="3" fill="var(--surface-solid)"/></svg></button>
 
             <div class="analysis-grid gap-6 sm:gap-8">
                <div class="xl:col-span-1 space-y-6 sm:space-y-8">
                  <!-- Budget card -->
-                 <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] relative overflow-hidden cursor-pointer" onclick="window.openBudgetEditor()">
-                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg><span data-i18n-key="alphaBudgetTitle">Budget del mese</span><span class="eyebrow-extra" data-i18n-key="alphaBudgetTapHint">tocca per modificare</span></h3>
+                 <div id="monthly-budget-card" class="card p-6 finance-detail-card">
+                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg><span data-i18n-key="alphaBudgetTitle">Budget del mese</span></h3>
                    <div class="flex flex-wrap justify-between items-end gap-x-2 gap-y-0 mb-2">
                      <p class="text-3xl font-black font-mono tracking-tighter min-w-0 truncate" id="budget-spent">€0</p>
                      <p class="text-xs font-bold text-[var(--on-surface-secondary)] shrink-0" id="budget-limit">su €0</p>
@@ -5032,7 +5046,7 @@
                    <div class="budget-track">
                      <div id="budget-progress" class="budget-fill" style="width: 0%; background: var(--green);"></div>
                    </div>
-                   <div id="weekly-budget-container" class="mt-4 pt-4 border-t border-[var(--glass-border)]"></div>
+                   <div id="weekly-budget-container" class="mt-4 pt-4 border-t border-[var(--glass-border)]"></div><button type="button" class="finance-card-action" onclick="window.openBudgetEditor()"><span data-i18n-key="alphaBudgetTapHint">tocca per modificare</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4-1L20 7l-3-3L5 16z"/></svg></button>
                  </div>
 
                  <!-- Obiettivi di risparmio (src/predict/engagement.js):
@@ -5045,12 +5059,11 @@
                    <div id="savings-goals-container" class="space-y-3"></div>
                  </div>
 
-                 <details class="analysis-tools card">
-                   <summary data-i18n-key="analysisPracticalTools">Strumenti per debiti e trasferte</summary>
+                 <div class="analysis-tools journey-tools">
                  <!-- Estinzione debiti (src/predict/debt-payoff.js): valanga
                       vs palla di neve, calcolo puro, mai un consiglio -->
-                 <div class="card p-6">
-                   <h3 class="eyebrow" data-i18n-key="alphaDebtTitle">Debiti e prestiti</h3>
+                 <div id="debt-entry-card" class="card p-6 journey-entry-card">
+                   <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 7h6M9 11h4"/></svg><h3 class="eyebrow" data-i18n-key="alphaDebtTitle">Debiti e prestiti</h3></div>
                    <p class="card-sub" data-i18n-key="alphaDebtSub">Carta di credito, prestito auto, un prestito fra amici: l'ordine per estinguerli prima, con i numeri di entrambe le strategie.</p>
                    <button onclick="window.openDebiti()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span data-i18n-key="alphaDebtBtn">Il mio piano di estinzione</span></button>
                  </div>
@@ -5064,24 +5077,24 @@
                       scontrino inaffidabile e il tempo perso a compilare la
                       nota spese — risolti on-device (zero upload che si
                       blocca) e con OCR+categoria automatica. -->
-                 <div class="card p-6">
-                   <h3 class="eyebrow" data-i18n-key="tripTitle">Trasferte di lavoro</h3>
+                 <div id="trip-entry-card" class="card p-6 journey-entry-card">
+                   <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></svg><h3 class="eyebrow" data-i18n-key="tripTitle">Trasferte di lavoro</h3></div>
                    <p class="card-sub" data-i18n-key="tripSub">Foto dello scontrino, categoria automatica, riepilogo pronto da consegnare per il rimborso.</p>
-                   <button onclick="window.openBusinessTrips()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/></svg><span data-i18n-key="tripOpenBtn">Le mie trasferte</span></button>
+                   <button onclick="window.openBusinessTrips()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></svg><span data-i18n-key="tripOpenBtn">Le mie trasferte</span></button>
                  </div>
 
-                 </details>
+                 </div>
                  <!-- Category Doughnut chart -->
-                 <div class="card p-6">
+                 <div class="card p-6 finance-detail-card" id="spending-orbit-card">
                    <h3 class="eyebrow" data-i18n-key="alphaWhereGoesTitle">Dove vanno i tuoi soldi</h3>
                    <p class="card-sub" data-i18n-key="alphaWhereGoesSub">La torta delle tue spese: più grande la fetta, più ci spendi</p>
-                   <div class="h-48 relative flex items-center justify-center"><canvas id="category-chart"></canvas></div>
-                   <div id="category-chart-legend" class="mt-3 space-y-1.5"></div>
+                   <div class="spending-orbit-layout"><div class="spending-orbit-stage"><div class="spending-orbit-halo" aria-hidden="true"></div><canvas id="category-chart" aria-hidden="true"></canvas><div class="spending-orbit-center"><span id="category-chart-label"></span><strong id="category-chart-total"></strong></div></div>
+                   <div class="spending-category-browser"><div id="spending-focus" class="spending-focus" role="status"></div><button type="button" id="spending-focus-reset" class="spending-focus-reset" hidden data-i18n-key="spendingAll">Tutte le categorie</button><div id="category-chart-legend" class="spending-orbit-legend"></div><button type="button" id="spending-show-more" class="spending-show-more" hidden></button></div></div>
                  </div>
 
                  <!-- Insieme: dividi una spesa (split P2P on-device) -->
-                 <div class="card p-6">
-                   <h3 class="eyebrow" data-i18n-key="alphaTogetherTitle">Insieme</h3>
+                 <div id="together-entry-card" class="card p-6 journey-entry-card">
+                   <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 4v3"/></svg><h3 class="eyebrow" data-i18n-key="alphaTogetherTitle">Insieme</h3></div>
                    <p class="card-sub" data-i18n-key="alphaTogetherSub">Cena, vacanza, casa: dividi una spesa e sai subito chi deve cosa a chi — senza account, tutto sul tuo telefono.</p>
                    <button onclick="window.openSplitGroup()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7h6M9 12h6M9 17h3"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg><span data-i18n-key="alphaTogetherGroupsBtn">I miei gruppi (dividi le spese)</span></button>
                    <!-- Era bg-black/20 + text-[var(--on-surface-secondary)]: colori fissi pensati solo per
@@ -5094,77 +5107,39 @@
                
                <div class="xl:col-span-2 flex flex-col gap-6 sm:gap-8">
                  <!-- ML Projections with compound SVG Jar -->
-                 <div class="card p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between order-2">
-                   <div class="flex justify-between items-start mb-4">
-                     <div>
-                       <h3 class="eyebrow" data-i18n-key="alphaWealthGrowthTitle">Come cresce il tuo patrimonio</h3>
-                       <p class="text-xs text-[var(--on-surface-secondary)] mt-1" id="forecast-cagr">Crescita media stimata: 5.0%</p>
-                     </div>
-                     <span id="discipline-score" class="text-xs font-mono bg-black/40 px-2.5 py-1.5 rounded-lg border border-[var(--outline)] text-[var(--on-surface-secondary)]">Costanza: 50/100</span>
+                 <div id="wealth-growth-card" class="card finance-detail-card wealth-observatory order-2">
+                   <header class="wealth-heading"><h3 data-i18n-key="alphaWealthGrowthTitle">Come cresce il tuo patrimonio</h3><p data-i18n-key="wealthIntro"></p></header>
+                   <div class="wealth-horizons">
+                     <div class="wealth-horizon wealth-horizon-near"><span class="wealth-marker" aria-hidden="true"></span><p data-i18n-key="alphaProjection1y"></p><strong id="forecast-1y">—</strong></div>
+                     <div class="wealth-horizon wealth-horizon-far"><span class="wealth-planet" aria-hidden="true"><i></i></span><p data-i18n-key="alphaProjection5y"></p><strong id="forecast-5y">—</strong></div>
                    </div>
-                   
-                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <div class="bg-[var(--surface-elevated)] p-4 rounded-xl border border-[var(--outline)]">
-                       <p class="text-[11px] font-bold text-[var(--on-surface-secondary)] uppercase" data-i18n-key="alphaProjection1y">Proiezione 1 Anno</p>
-                       <p class="text-xl font-bold font-mono" id="forecast-1y">€0</p>
-                     </div>
-                     <div class="bg-[var(--surface-elevated)] p-4 rounded-xl border border-[var(--outline)]">
-                       <p class="text-[11px] font-bold text-[var(--gold)] uppercase" data-i18n-key="alphaProjection5y">Proiezione 5 Anni</p>
-                       <p class="text-xl font-bold font-mono text-[var(--gold)]" id="forecast-5y">€0</p>
-                     </div>
-                   </div>
-                   <p id="forecast-band-display" class="text-[10px] text-[var(--on-surface-secondary)] font-mono mt-3 text-center bg-black/25 py-2 rounded-lg border border-[var(--outline)]">Calcolo simulazione Monte Carlo in corso...</p>
-
-                   <!-- FIRE & Compound Jar row -->
-                   <div class="flex items-center gap-6 mt-6 pt-4 border-t border-[var(--outline)]">
-                     <div class="jar-container shrink-0">
-                       <div class="jar-liquid" id="forecast-jar-fill" style="height: 50%;"></div>
-                     </div>
-                     <div class="flex-grow">
-                       <p class="text-xs font-bold text-[var(--on-surface-secondary)]" data-i18n-key="alphaFireTitle">Quando potresti vivere di rendita</p>
-                       <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="alphaFireSub">Tra quanti anni i tuoi risparmi potrebbero mantenerti, al ritmo attuale</p>
-                       <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">
-                         <span data-i18n-key="alphaFireYearsLabel">Anni stimati:</span> <span id="fire-years" class="text-[var(--gold)] font-bold" data-i18n-key="alphaCalculating">Calcolo...</span>
-                       </div>
-                       <div class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5"><span data-i18n-key="alphaTargetCapitalLabel">Target Capital:</span> <span id="fire-target-val">€0</span></div>
-                       <div class="text-[11px] text-slate-500 mt-0.5" id="fire-coast-note"></div>
-                     </div>
-                   </div>
+                   <p class="wealth-estimate-note" data-i18n-key="simulationEstimate"></p>
+                   <p id="forecast-band-display" class="wealth-band"></p>
+                   <details class="calm-disclosure wealth-assumptions"><summary data-i18n-key="wealthAssumptions"></summary><div><p id="forecast-cagr"></p><p id="discipline-score"></p></div></details>
+                   <details class="calm-disclosure wealth-independence"><summary data-i18n-key="alphaFireTitle"></summary><div><p data-i18n-key="alphaFireSub"></p><div class="wealth-fact"><span data-i18n-key="alphaFireYearsLabel"></span><strong id="fire-years"></strong></div><div class="wealth-fact"><span data-i18n-key="alphaTargetCapitalLabel"></span><strong id="fire-target-val"></strong></div><p id="fire-coast-note"></p></div></details>
                  </div>
 
-                 <!-- Scenario What-If Slider -->
-                 <div class="card p-6 order-3">
-                    <h3 class="eyebrow" data-i18n-key="alphaWhatIfTitle">E se… (simulatore)</h3>
-                    <p class="card-sub" data-i18n-key="alphaWhatIfSub">"E se risparmiassi X in più al mese?" — muovi la barra e guarda</p>
-                    <div class="bg-black/30 p-4 rounded-xl border border-[var(--outline)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div class="flex-grow">
-                        <span class="text-xs font-bold text-[var(--on-surface-secondary)] block mb-1" data-i18n-key="alphaIncreaseSavingsLabel">Aumenta risparmio mensile:</span>
-                        <input type="range" id="scenario-slider" min="0" max="1000" step="50" value="0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
-                      </div>
-                      <div class="text-right shrink-0">
-                        <span class="text-lg font-bold font-mono text-[var(--green)] block" id="scenario-extra-val">+€0/m</span>
-                        <span class="text-[11px] text-[var(--on-surface-secondary)]" id="scenario-future-impact">5 Anni: +€0</span>
-                        <span class="text-[10px] text-slate-600 block" data-i18n-key="alphaMonteCarloRange">se va male – tipico – se va bene (Monte Carlo)</span>
-                      </div>
-                    </div>
-                    <!-- Confronto strategie per QUESTO risparmio extra: stesso
-                         motore Monte Carlo (projectNetWorthByStrategy) della
-                         tabella "Strategia (10 anni)" di Analisi Tensor — mai
-                         un secondo motore isolato per lo stesso calcolo.
-                         Risponde a "e con questo risparmio, quale strategia
-                         conviene di più?" invece di una sola strategia fissa. -->
-                    <div id="scenario-strategy-compare" class="mt-3 hidden"></div>
-                    <!-- What-If v2 per categoria (src/predict/what-if.js): taglia/aumenta
-                         una categoria e vedi l'effetto reale, compresa la catena causale -->
-                    <div class="bg-black/30 p-4 rounded-xl border border-[var(--outline)] mt-3">
-                      <span class="text-xs font-bold text-[var(--on-surface-secondary)] block mb-2" data-i18n-key="alphaWhatIfCategoryLabel">Oppure: e se cambiassi una categoria?</span>
-                      <div class="flex gap-2 items-center mb-2">
-                        <select id="whatif-cat" class="bg-black/40 border border-[var(--glass-border)] rounded-lg p-2 text-xs flex-grow min-w-0"></select>
-                        <input type="range" id="whatif-slider" min="-50" max="50" step="10" value="-20" class="flex-grow h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
-                        <span id="whatif-pct" class="text-xs font-mono font-bold w-12 text-right">-20%</span>
-                      </div>
-                      <p id="whatif-result" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
-                    </div>
+                 <div class="card p-6 order-3 simulation-studio" id="simulation-studio">
+                   <header class="simulation-heading"><span class="simulation-emblem" aria-hidden="true"><svg viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="15"/><ellipse cx="36" cy="36" rx="31" ry="11" transform="rotate(-30 36 36)"/><circle cx="62" cy="21" r="3"/></svg></span><div><h3 data-i18n-key="alphaWhatIfTitle">E se…</h3><p data-i18n-key="simulationIntro">Scegli cosa vuoi provare. I tuoi soldi non cambiano.</p></div></header>
+                   <div class="simulation-tabs" role="tablist" data-i18n-aria="alphaWhatIfTitle" aria-label="E se…">
+                     <button type="button" id="simulation-saving-tab" role="tab" aria-selected="true" aria-controls="simulation-saving" data-simulation-pane="simulation-saving" data-i18n-key="simulationSaving">Risparmiare di più</button>
+                     <button type="button" id="simulation-spending-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="simulation-spending" data-simulation-pane="simulation-spending" data-i18n-key="simulationSpending">Cambiare una spesa</button>
+                   </div>
+                   <div id="simulation-saving" class="simulation-pane" role="tabpanel" aria-labelledby="simulation-saving-tab">
+                     <label id="scenario-label" for="scenario-slider" data-i18n-key="alphaIncreaseSavingsLabel">Quanto metti da parte ogni mese?</label>
+                     <output id="scenario-extra-val" for="scenario-slider" class="simulation-amount">0,00 €</output>
+                     <input type="range" id="scenario-slider" aria-labelledby="scenario-label" aria-describedby="scenario-extra-val scenario-future-impact" min="0" max="1000" step="50" value="0" name="scenario-slider">
+                     <div class="simulation-presets" id="simulation-presets" role="group" aria-labelledby="scenario-label"></div>
+                     <fieldset class="simulation-horizon"><legend data-i18n-key="simulationHorizon">Per quanti anni?</legend><div id="simulation-years"></div></fieldset><div class="simulation-outcome"><span id="simulation-horizon-label" class="simulation-outcome-label"></span><output id="scenario-future-impact" for="scenario-slider">Scegli un importo per vedere una stima.</output><p data-i18n-key="simulationEstimate">Sono scenari possibili, non promesse.</p></div>
+                     <details class="simulation-comparison"><summary data-i18n-key="simulationCompare">Confronta gli scenari</summary><div id="scenario-strategy-compare" class="mt-3 hidden"></div></details>
+                   </div>
+                   <div id="simulation-spending" class="simulation-pane" role="tabpanel" aria-labelledby="simulation-spending-tab" hidden>
+                     <p id="whatif-label" data-i18n-key="alphaWhatIfCategoryLabel">Quale spesa vuoi cambiare?</p>
+                     <div id="whatif-choices" class="whatif-choices" role="group" aria-labelledby="whatif-label"></div><select id="whatif-cat" name="whatif-cat" hidden></select>
+                     <div class="simulation-adjustment"><input type="range" id="whatif-slider" aria-labelledby="whatif-label" aria-describedby="whatif-pct whatif-result" min="-50" max="50" step="10" value="-20" name="whatif-slider"><output id="whatif-pct" for="whatif-slider">-20%</output></div>
+                     <p class="simulation-help" data-i18n-key="simulationSpendingHint">Verso sinistra spendi meno. Verso destra spendi di più.</p>
+                     <p id="whatif-result" role="status"></p><button type="button" id="whatif-import" class="simulation-next-action" data-i18n-key="vaultImportTitle" hidden>Carica i tuoi movimenti</button>
+                   </div>
                  </div>
 
                  <!-- Partita IVA (Italia/Spagna): spostata in Momentum Vault (2026-08-27,
@@ -5174,7 +5149,7 @@
                       accanto a #tax-settings-card nella schermata Momentum Vault. -->
 
                  <!-- Investimenti (src/alpha/): quanto puoi investire + regime -->
-                 <div class="card p-6 order-7" id="invest-card">
+                 <div class="card p-6 order-7 finance-detail-card" id="invest-card">
                     <h3 class="eyebrow" data-i18n-key="alphaInvestTitle">Investimenti</h3>
                     <p class="card-sub" data-i18n-key="alphaInvestSub">Quanto puoi mettere sul mercato senza rompere il budget — prima il fondo d'emergenza</p>
                     <p id="invest-surplus" class="text-2xl font-black font-mono text-[var(--gold)] mb-1">—</p>
@@ -5187,7 +5162,7 @@
                  <!-- Patrimonio netto unificato (src/alpha/net-worth.js): UN numero
                       = contante + investimenti − debiti. Sotto: proiezione Monte Carlo
                       per strategia (ipotesi dichiarate, mai promesse). -->
-                 <div class="card p-6 order-1" id="net-worth-card">
+                 <div class="card p-6 order-1 finance-detail-card" id="net-worth-card">
                     <h3 class="eyebrow" data-i18n-key="alphaNetWorthTitle">Patrimonio netto</h3>
                     <p class="card-sub" data-i18n-key="alphaNetWorthSub">Tutto quello che hai, in un numero: contante + investimenti</p>
                     <p id="net-worth-total" class="text-3xl font-black font-mono text-[var(--gold)] mb-1">—</p>
@@ -5252,7 +5227,7 @@
                       linguaggio semplice, i dettagli con i numeri veri sotto
                       un tocco — mai due schermate diverse per bambino ed
                       esperto, la stessa con più o meno dettaglio aperto. -->
-                 <div class="card p-6 order-5 advanced-card" id="market-overview-card">
+                 <div class="card p-6 order-5 advanced-card finance-detail-card" id="market-overview-card">
                     <h3 class="eyebrow" data-i18n-key="alphaMarketOverviewTitle">Quadro di mercato</h3>
                     <p class="card-sub" data-i18n-key="alphaMarketOverviewSub">Cosa sta succedendo adesso, in una frase — e nei numeri veri se vuoi guardare oltre</p>
                     <div id="market-overview-panel"></div>
@@ -5262,7 +5237,7 @@
                       src/alpha/posizionamento.js): indice di paura e estremi
                       di posizionamento COT, prima raggiungibili solo dalla
                       chat QA, mai come pannello da scorrere a colpo d'occhio. -->
-                 <div class="card p-6 order-12 advanced-card" id="trader-desk-card">
+                 <div class="card p-6 order-12 advanced-card finance-detail-card" id="trader-desk-card">
                     <h3 class="eyebrow" data-i18n-key="alphaTraderDeskTitle">Per chi investe attivamente</h3>
                     <p class="card-sub" data-i18n-key="alphaTraderDeskSub">Indice di paura e posizionamento estremo — misurati, mai una direzione</p>
                     <div id="trader-desk-panel"></div>
@@ -5367,17 +5342,17 @@
                       Vantage/CoinGecko) + avvisi di prezzo. Tutto on-device, mai
                       un consiglio di acquisto — solo dati e la possibilità di
                       essere avvisati quando un prezzo tocca una soglia scelta. -->
-                 <div class="card p-6 order-8" id="asset-search-card">
-                    <h3 class="eyebrow" data-i18n-key="alphaAssetSearchTitle">Cerca un asset</h3>
+                 <div class="card p-6 order-8 finance-detail-card" id="asset-search-card">
+                    <h3 class="eyebrow" id="asset-search-heading" data-i18n-key="alphaAssetSearchTitle">Cerca un asset</h3>
                     <p class="card-sub" data-i18n-key="alphaAssetSearchSub">Cripto, azioni o ETF: prezzo, notizie reali e avvisi di prezzo</p>
-                    <div class="flex gap-2 mt-2">
-                      <input type="text" id="asset-search-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Es. bitcoin, Apple, XLK..." data-i18n-placeholder="alphaAssetSearchPlaceholder" onkeydown="if(event.key==='Enter') window.runAssetSearch()" />
-                      <button onclick="window.runAssetSearch()" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="alphaSearchBtn">Cerca</button>
+                    <div class="asset-search-form">
+                      <input type="search" id="asset-search-input" aria-labelledby="asset-search-heading" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Es. bitcoin, Apple, XLK..." data-i18n-placeholder="alphaAssetSearchPlaceholder" onkeydown="if(event.key==='Enter') window.runAssetSearch()" name="asset-search-input" aria-label="alphaAssetSearchPlaceholder" data-i18n-aria="alphaAssetSearchPlaceholder" />
+                      <button onclick="window.runAssetSearch()" class="finance-search-action" data-i18n-key="alphaSearchBtn">Cerca</button>
                     </div>
                     <!-- Suggerimenti rapidi: una casella vuota non invita a nulla —
                          un tocco su un asset comune parte subito, utile anche solo
                          per capire cosa si può cercare qui. -->
-                    <div class="flex flex-wrap gap-1.5 mt-2">
+                    <div class="asset-search-examples">
                       <button type="button" onclick="window.quickAssetSearch('Bitcoin')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.0s">Bitcoin</button>
                       <button type="button" onclick="window.quickAssetSearch('S&amp;P 500')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.05s">S&amp;P 500</button>
                       <button type="button" onclick="window.quickAssetSearch('Apple')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.1s">Apple</button>
@@ -5424,7 +5399,7 @@
                  "Come funziona Momentum", "Prezzi live" e "Chat generica" — le
                  impostazioni più da smanettone, non da primo utilizzo. -->
             <details id="appearance-preferences" class="appearance-preferences card">
-              <summary><span data-i18n-key="analysisComplexityTitle">Quanto vuoi vedere qui</span><span id="appearance-current" class="appearance-current"></span></summary>
+              <summary><span data-i18n-key="appearanceReading">Aspetto e lettura</span><span id="appearance-current" class="appearance-current"></span></summary>
               <div class="appearance-options">
                 <p data-i18n-key="vaultComplexitySub">Essenziale nasconde le impostazioni più tecniche — niente sparisce per sempre.</p>
                 <div class="segmented-control" role="group" data-i18n-aria="analysisComplexityTitle" aria-label="Quanto vuoi vedere qui">
@@ -5432,7 +5407,8 @@
                   <button type="button" class="segment-btn" data-ui-complexity="completo" onclick="window.setUiComplexity('completo')" data-i18n-key="analysisComplexityFull">Completa</button>
                 </div>
               </div>
-              <fieldset class="motion-preference"><legend data-i18n-key="motionLabel">Movimento</legend><select id="motion-preference" hidden onchange="window.setMotionPreference(this.value)"><option value="system" data-i18n-key="motionSystem">Come il dispositivo</option><option value="full" data-i18n-key="motionFull">Animazioni complete</option><option value="reduced" data-i18n-key="motionReduced">Movimento ridotto</option></select><div id="motion-choices" class="orbit-choices"></div></fieldset>
+              <fieldset class="theme-preference"><legend data-i18n-key="navTheme">Tema</legend><div class="theme-choice-grid" role="group" data-i18n-aria="navTheme" aria-label="Tema"><button type="button" data-action="set-theme" data-theme-choice="light"><span class="theme-preview theme-preview-light" aria-hidden="true"><i></i><b></b></span><span data-i18n-key="themeLightLabel">Chiaro</span></button><button type="button" data-action="set-theme" data-theme-choice="dark"><span class="theme-preview theme-preview-dark" aria-hidden="true"><i></i><b></b></span><span data-i18n-key="themeDarkLabel">Scuro</span></button><button type="button" data-action="set-theme" data-theme-choice="system" class="theme-system-choice"><span data-i18n-key="themeDeviceLabel">Come il dispositivo</span></button></div></fieldset>
+              <fieldset class="motion-preference"><legend data-i18n-key="motionLabel">Movimento</legend><select id="motion-preference" hidden onchange="window.setMotionPreference(this.value)" name="motion-preference"><option value="system" data-i18n-key="motionSystem">Come il dispositivo</option><option value="full" data-i18n-key="motionFull">Animazioni complete</option><option value="reduced" data-i18n-key="motionReduced">Movimento ridotto</option></select><div id="motion-choices" class="orbit-choices"></div></fieldset>
             </details>
 
             <!-- Responsive con CSS ESPLICITO (vault-grid): 1 colonna su desktop
@@ -5492,7 +5468,7 @@
                        quando il profilo dichiarato usa davvero i mercati —
                        vedi renderProLicenseCard() in main.js. -->
                   <p id="pro-license-profile-hint" class="hidden text-[11px] text-[var(--gold)] mb-1"></p>
-                  <input type="text" id="pro-license-input" class="modal-input !mb-0" placeholder="Incolla il codice di attivazione" autocomplete="off" spellcheck="false" />
+                  <input type="text" id="pro-license-input" class="modal-input !mb-0" placeholder="Incolla il codice di attivazione" autocomplete="off" spellcheck="false" name="pro-license-input" aria-label="Incolla il codice di attivazione" />
                   <button id="pro-license-activate-btn" class="btn-action w-full font-bold text-sm">Attiva</button>
                   <p id="pro-license-error" class="hidden text-xs text-rose-300"></p>
                 </div>
@@ -5569,13 +5545,13 @@
                  
                  <div class="etl-terminal mb-4" id="etl-log-box"></div>
 
-                 <input type="file" id="csv-upload" accept=".csv" multiple class="hidden">
-                 <input type="file" id="pdf-upload" accept=".pdf" multiple class="hidden">
-                 <input type="file" id="screenshot-upload" accept="image/*" multiple class="hidden">
+                 <input type="file" id="csv-upload" accept=".csv" multiple class="hidden" name="csv-upload">
+                 <input type="file" id="pdf-upload" accept=".pdf" multiple class="hidden" name="pdf-upload">
+                 <input type="file" id="screenshot-upload" accept="image/*" multiple class="hidden" name="screenshot-upload">
                  <!-- Import UNIFICATO: N file di formato MISTO (CSV+PDF+screenshot+CAMT.053) in una sola selezione.
                       .xml è ammesso qui ma non nell'input CSV/PDF dedicato: il tipo si decide
                       dal CONTENUTO (isCamt053 in camt053.js), mai dall'estensione da sola. -->
-                 <input type="file" id="multi-upload" accept=".csv,.pdf,.xml,image/*" multiple class="hidden">
+                 <input type="file" id="multi-upload" accept=".csv,.pdf,.xml,image/*" multiple class="hidden" name="multi-upload">
                  <!-- Il pulsante diceva "(CSV · PDF · Screenshot · CAMT.053 —
                       anche 50 insieme)" su UNA riga dentro il bottone: CAMT.053
                       è il nome di uno standard bancario che nessun utente
@@ -5588,11 +5564,11 @@
                       questa fila ed era un EXPORT: sembrava un formato da
                       caricare, e il file che produceva non si poteva nemmeno
                       rileggere. Ora sta con gli altri backup, più in basso. -->
-                 <div class="grid grid-cols-3 gap-2 sm:gap-3 mt-auto">
+                 <details class="import-format-options"><summary data-i18n-key="importChooseFormat">Scegli un formato</summary><div class="import-format-grid">
                    <button onclick="document.getElementById('csv-upload').click()" class="btn-action">CSV</button>
                    <button onclick="document.getElementById('pdf-upload').click()" class="btn-action" data-i18n-key="vaultImportPdfBtn">PDF Banca</button>
                    <button onclick="document.getElementById('screenshot-upload').click()" class="btn-action" data-i18n-key="vaultImportScreenshotBtn">Screenshot</button>
-                 </div>
+                 </div></details>
                  <!-- L'ALTRO VERSO: portare i movimenti FUORI da Momentum, in
                       un formato che Excel/Google Sheets/un commercialista
                       aprono senza installare niente. Il backup .momentum
@@ -5603,7 +5579,7 @@
                       questo è l'unico export di dati grezzi della card, e
                       confonderli nella stessa griglia avrebbe fatto sembrare
                       "CSV" un quarto canale di import. -->
-                 <button onclick="window.exportTransactionsCsv()" class="btn-action w-full mt-2 sm:mt-3 justify-center text-[13px]">
+                 <button onclick="window.exportTransactionsCsv()" class="portal-export btn-action w-full mt-2 sm:mt-3 justify-center text-[13px]">
                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M12 3v12"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg>
                    <span data-i18n-key="vaultExportCsvBtn">Esporta i tuoi movimenti (CSV)</span>
                  </button>
@@ -5615,11 +5591,11 @@
               </div>
 
               <!-- Accredito (stipendio) + come farti pagare — centrale, riusato ovunque -->
-              <div class="card p-6 flex flex-col order-2">
+              <div id="payroll-settings-card" class="card p-6 flex flex-col order-2 finance-detail-card">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
                   <div>
-                    <h3 class="font-bold text-base" data-i18n-key="vaultPayrollTitle">Il tuo accredito e i pagamenti</h3>
+                    <h3 class="font-bold text-base" data-i18n-key="vaultPayrollTitle">Il tuo accredito e i pagamenti</h3><p id="payroll-known-summary" class="payroll-known-summary" hidden></p>
                     <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultPayrollSubtitle">Quando ti arriva lo stipendio (lo capisco dai movimenti) e come vuoi essere pagato.</p>
                   </div>
                 </div>
@@ -5647,7 +5623,7 @@
                    un simulatore AVS — restano 3 motori distinti per scelta
                    dichiarata, qui si unifica solo dove si TROVANO, non come
                    funzionano). -->
-              <div class="card p-6 flex flex-col order-7" id="tax-settings-card">
+              <div class="card p-6 flex flex-col order-7 finance-detail-card" id="tax-settings-card">
                 <div class="flex items-center gap-4 mb-1">
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
                   <div class="min-w-0 flex-1">
@@ -5667,7 +5643,7 @@
                            pattern di colore anche senza saper leggere le
                            lettere, resta comunque un'icona "di design" e non
                            un pittogramma di sistema. -->
-                      <span class="shrink-0 inline-flex items-center gap-1.5">
+                      <details class="calm-disclosure tax-country-picker"><summary data-i18n-key="taxChooseCountry">Scegli il Paese</summary><span class="tax-country-actions">
                         <button type="button" onclick="window.openTaxRegimePicker()" title="Italia" data-i18n-title="vaultTaxItalyTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
                           <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(90deg,#009246 0 33%,#fff 33% 66%,#ce2b37 66% 100%)"></span>
                           <span class="font-mono text-[10px] font-bold">IT</span>
@@ -5684,7 +5660,7 @@
                           <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(180deg,#c60b1e 0 25%,#ffc400 25% 75%,#c60b1e 75% 100%)"></span>
                           <span class="font-mono text-[10px] font-bold">ES</span>
                         </button>
-                      </span>
+                      </span></details>
                     </div>
                     <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultTaxSubtitle">Se fatturi (qui o altrove), calcolo io quanto mettere da parte — un solo posto per i tre Paesi.</p>
                   </div>
@@ -5713,84 +5689,16 @@
               </div>
 
               <!-- P2P Sincronizzazione Serverless -->
-              <div class="card p-6 border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] flex flex-col justify-between order-8">
-                <div>
-                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 6H15M6 8.5v7M8 18h7.5"/></svg><span data-i18n-key="vaultSyncTitle">Sincronizza tra i tuoi dispositivi</span></h3>
-                  <p class="card-sub" data-i18n-key="vaultSyncSubtitle">I tuoi dati passano da un tuo dispositivo all'altro direttamente, senza server: restano solo tuoi.</p>
-
-                  <div class="space-y-3">
-                    <!-- Mente condivisa (mesh federata, src/mesh/): l'AI impara
-                         da tutti i tuoi dispositivi collegati, i dati restano su ognuno -->
-                    <button onclick="window.openMeshPairing()" class="btn-action w-full justify-between">
-                      <span class="inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg><span data-i18n-key="vaultLinkDevice">Collega un dispositivo (AI condivisa)</span></span>
-                      <span class="text-[var(--on-surface-secondary)]">→</span>
-                    </button>
-                    <p class="text-xs text-[var(--on-surface-secondary)]" data-i18n-key="meshPrivateBoundary">Collegamento disponibile per dati pubblici. La sincronizzazione privata diretta è sospesa finché non sarà verificata l’identità della sessione.</p>
-                    <p id="mesh-status" class="text-[10px] text-[var(--on-surface-secondary)]">Nessun dispositivo collegato: l'AI impara solo da questo.</p>
-                    <!-- Quanto la rete conta DAVVERO (src/mesh/mesh-economics.js):
-                         il tetto di Amdahl coi dispositivi collegati adesso, non
-                         una promessa di "potenza illimitata" mai misurata. -->
-                    <p id="mesh-economics-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
-                    <button onclick="generateSyncQR()" class="btn-action w-full justify-between">
-                      <span data-i18n-key="vaultGenerateQrSync">Genera QR-Sync</span>
-                      <span class="text-indigo-400">→</span>
-                    </button>
-
-                    <!-- Backup cifrato "DNA" (src/core/backup.js): salva/ripristina
-                         tutti i dati protetti da passphrase — risposta alla perdita
-                         del dispositivo, senza mai mettere i dati su un server -->
-                    <div class="border-t border-[var(--outline)] pt-3 mt-3 space-y-2">
-                      <!-- Copia di sicurezza a pezzi (src/core/recovery-shares.js):
-                           niente password da ricordare, tre fogli in posti diversi.
-                           Il pannello qui sotto dice quanto lavoro esiste in un solo
-                           posto al mondo, con il numero vero (src/core/backup-health.js). -->
-                      <div id="backup-health-card"></div>
-                      <div class="flex gap-2">
-                        <button onclick="window.openRecoveryKit()" class="btn-action btn-primary flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span data-i18n-key="vaultSecureBackup">Metti al sicuro</span></button>
-                        <button onclick="window.openRecoveryRestore()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg><span data-i18n-key="vaultRestoreBackup">Torna dentro</span></button>
-                      </div>
-                      <details class="mt-1">
-                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer" data-i18n-key="vaultPreferOwnPassword">Preferisco una password mia</summary>
-                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2" data-i18n-key="vaultPasswordWarning">Funziona lo stesso, ma se la dimentichi i dati non tornano più: è la ragione per cui non è più il modo consigliato.</p>
-                      <div class="flex gap-2">
-                        <button onclick="window.exportEncryptedBackup()" class="btn-action flex-1 text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span data-i18n-key="vaultExportEncrypted">Esporta (cifrato)</span></button>
-                        <label class="btn-action flex-1 text-xs justify-center cursor-pointer text-center gap-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg><span data-i18n-key="vaultRestoreLabel">Ripristina</span>
-                          <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" />
-                        </label>
-                      </div>
-                      </details>
-                      <!-- Copia IN CHIARO. Esiste perché c'è chi non vuole né una
-                           password da ricordare né tre fogli da custodire — ma qui
-                           è dichiarata per quello che è, sta insieme agli altri
-                           backup (non fra gli import), e il file prodotto si
-                           riapre davvero da "Ripristina". -->
-                      <details class="mt-1">
-                        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer" data-i18n-key="vaultPlainCopyOption">Voglio solo una copia leggibile, senza password</summary>
-                        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-2" data-i18n-html="vaultPlainCopyWarning">Il file <strong>non è cifrato</strong>: chiunque lo apra legge tutti i tuoi dati. Va bene solo se lo tieni in un posto che consideri già sicuro.</p>
-                        <button onclick="window.exportPlainBackup()" class="btn-action w-full text-xs justify-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg><span data-i18n-key="vaultSavePlainCopy">Salva una copia in chiaro</span></button>
-                      </details>
-                      <button onclick="window.exportTrainingData()" class="text-[10px] text-[var(--on-surface-secondary)] underline" data-i18n-key="vaultExportTrainingData">Esporta dati per riaddestrare il modello (per gli sviluppatori)</button>
-                    </div>
-
-                    <!-- Aggiornamento autonomo (src/core/auto-update.js + data-freshness.js):
-                         l'app sa quanto sono vecchi i propri dati e, se configurata,
-                         va a controllarli da sola — anche senza una nuova versione. -->
-                    <div id="data-freshness-card"></div>
-
-                    <div class="border-t border-[var(--outline)] pt-3 mt-3">
-                      <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2" data-i18n-key="vaultWebrtcLabel">Inserisci codice WebRTC Peer-Id per sincronizzare in tempo reale:</p>
-                      <div class="flex gap-2">
-                        <input type="text" id="webrtc-peer-input" class="modal-input !mb-0 py-2 text-xs" placeholder="Inserisci Peer ID..." data-i18n-placeholder="vaultPeerIdPlaceholder" />
-                        <button onclick="connectWebRTCPeer()" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold">Connect</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="text-[11px] text-[var(--on-surface-secondary)] mt-4 leading-relaxed" data-i18n-key="vaultWebrtcFooter">
-                  WebRTC P2P direct data channel. Sincronizzazione locale e remota cifrata end-to-end.
-                </div>
+              <div id="device-transfer-card" class="card p-6 finance-detail-card order-8">
+                <h3 class="eyebrow" data-i18n-key="vaultSyncTitle">I tuoi dispositivi</h3>
+                <p class="card-sub" data-i18n-key="deviceTransferIntro"></p>
+                <div class="device-transfer-map" aria-hidden="true"><svg viewBox="0 0 180 64"><rect x="8" y="12" width="35" height="46" rx="7"/><path d="M19 49h13"/><path class="device-transfer-path" d="M53 33h65"/><path d="m108 27 10 6-10 6"/><rect x="128" y="10" width="44" height="32" rx="4"/><path d="M136 55h28M150 42v13"/><circle cx="84" cy="33" r="5"/></svg></div>
+                <div class="device-transfer-actions"><button type="button" onclick="window.exportEncryptedBackup()"><span class="device-step" aria-hidden="true">1</span><span data-i18n-key="deviceMakeCopy"></span></button><button type="button" onclick="document.getElementById('backup-restore-input').click()"><span class="device-step" aria-hidden="true">2</span><span data-i18n-key="deviceOpenCopy"></span></button></div>
+                <p class="device-transfer-note" data-i18n-key="deviceTransferNote"></p>
+                <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" name="backup-restore-input" />
+                <details class="calm-disclosure"><summary data-i18n-key="deviceRecovery"></summary><div class="device-options"><div id="backup-health-card"></div><button class="btn-action" onclick="window.openRecoveryKit()" data-i18n-key="vaultSecureBackup"></button><button class="btn-action" onclick="window.openRecoveryRestore()" data-i18n-key="vaultRestoreBackup"></button></div></details>
+                <details class="calm-disclosure"><summary data-i18n-key="deviceNetwork"></summary><div class="device-options"><p data-i18n-key="meshPrivateBoundary"></p><button type="button" class="btn-action" onclick="window.openMeshPairing()" data-i18n-key="deviceNetworkOpen"></button><p id="mesh-status"></p><p id="mesh-economics-status"></p></div></details>
+                <details class="calm-disclosure"><summary data-i18n-key="deviceMore"></summary><div class="device-options"><p data-i18n-html="vaultPlainCopyWarning"></p><button onclick="window.exportPlainBackup()" class="btn-action" data-i18n-key="vaultSavePlainCopy"></button><button onclick="window.exportTrainingData()" class="btn-action" data-i18n-key="vaultExportTrainingData"></button><div id="data-freshness-card"></div></div></details>
               </div>
 
               <!-- Cosa ti interessa di Momentum (profilazione reversibile,
@@ -5812,7 +5720,7 @@
                   <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Le cripto funzionano già, senza fare nulla. Per azioni/indici serve una chiave gratuita tua (mai un account Momentum): 20 secondi su Alpha Vantage, poi incollala qui sotto.</p>
                   <div class="space-y-2 mt-3">
                     <div class="flex gap-2">
-                      <input type="password" id="alphavantage-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Alpha Vantage..." data-i18n-placeholder="vaultKeyPlaceholderAV" />
+                      <input type="password" id="alphavantage-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Alpha Vantage..." data-i18n-placeholder="vaultKeyPlaceholderAV" name="alphavantage-key-input" aria-label="La tua chiave Alpha Vantage..." data-i18n-aria="vaultKeyPlaceholderAV" />
                       <button onclick="window.saveLiveDataKey('alphavantage')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
                     <button onclick="window.openApiKeyGuide('alphavantage')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
@@ -5824,7 +5732,7 @@
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
                     <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBStocks">Piano B per azioni/ETF (quota più generosa, se Alpha Vantage non basta):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="twelvedata-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Twelve Data..." data-i18n-placeholder="vaultKeyPlaceholderTD" />
+                      <input type="password" id="twelvedata-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Twelve Data..." data-i18n-placeholder="vaultKeyPlaceholderTD" name="twelvedata-key-input" aria-label="La tua chiave Twelve Data..." data-i18n-aria="vaultKeyPlaceholderTD" />
                       <button onclick="window.saveLiveDataKey('twelvedata')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
                     <button onclick="window.openApiKeyGuide('twelvedata')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
@@ -5833,7 +5741,7 @@
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
                     <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBUsStocks">Terzo piano B, solo azioni USA (250 richieste/giorno gratis, storico fino al 1985):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="fmp-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Financial Modeling Prep..." data-i18n-placeholder="vaultKeyPlaceholderFMP" />
+                      <input type="password" id="fmp-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Financial Modeling Prep..." data-i18n-placeholder="vaultKeyPlaceholderFMP" name="fmp-key-input" aria-label="La tua chiave Financial Modeling Prep..." data-i18n-aria="vaultKeyPlaceholderFMP" />
                       <button onclick="window.saveLiveDataKey('fmp')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
                     <button onclick="window.openApiKeyGuide('fmp')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
@@ -5845,7 +5753,7 @@
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
                     <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBNews">Piano B per le notizie (quota molto più generosa, 60/minuto):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="finnhub-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Finnhub..." data-i18n-placeholder="vaultKeyPlaceholderFinnhub" />
+                      <input type="password" id="finnhub-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Finnhub..." data-i18n-placeholder="vaultKeyPlaceholderFinnhub" name="finnhub-key-input" aria-label="La tua chiave Finnhub..." data-i18n-aria="vaultKeyPlaceholderFinnhub" />
                       <button onclick="window.saveLiveDataKey('finnhub')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
                     <button onclick="window.openApiKeyGuide('finnhub')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
@@ -5856,7 +5764,7 @@
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
                     <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBGeneralNews">Notizie generaliste, non solo finanza (opzionale):</p>
                     <div class="flex gap-2">
-                      <input type="password" id="newsapi-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave NewsAPI.org..." data-i18n-placeholder="vaultKeyPlaceholderNewsApi" />
+                      <input type="password" id="newsapi-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave NewsAPI.org..." data-i18n-placeholder="vaultKeyPlaceholderNewsApi" name="newsapi-key-input" aria-label="La tua chiave NewsAPI.org..." data-i18n-aria="vaultKeyPlaceholderNewsApi" />
                       <button onclick="window.saveLiveDataKey('newsapi')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
                     <button onclick="window.openApiKeyGuide('newsapi')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
@@ -5883,7 +5791,7 @@
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span data-i18n-key="vaultTelemetryTitle">Aiuta a far crescere Momentum</span></h3>
                   <p class="card-sub" data-i18n-key="vaultTelemetrySubtitle">Attiva di default: invia un identificatore casuale ed eventi di utilizzo per migliorare Momentum, senza transazioni o saldi. Il servizio riceve anche metadati di connessione. Puoi disattivarla qui.</p>
                   <label class="flex items-center gap-2 mt-3 text-xs cursor-pointer select-none">
-                    <input type="checkbox" id="telemetry-opt-in" data-telemetry-toggle checked onchange="window.setTelemetryOptIn(this.checked)" class="toggle-input" />
+                    <input type="checkbox" id="telemetry-opt-in" data-telemetry-toggle checked onchange="window.setTelemetryOptIn(this.checked)" class="toggle-input" name="telemetry-opt-in" />
                     <span data-i18n-key="vaultTelemetryToggle">Conta anche il mio utilizzo (anonimo)</span>
                   </label>
                 </div>
@@ -5917,7 +5825,7 @@
                        nascosto) — prima era opt-in. Resta SOLO aggregato/anonimo,
                        mai transazioni/esercenti/conti; disattivabile con un tocco. -->
                   <label class="flex items-start gap-2 mt-3 text-xs cursor-pointer select-none">
-                    <input type="checkbox" id="chat-context-optin" checked onchange="window.setChatContextOptIn(this.checked)" class="toggle-input mt-0.5" />
+                    <input type="checkbox" id="chat-context-optin" checked onchange="window.setChatContextOptIn(this.checked)" class="toggle-input mt-0.5" name="chat-context-optin" />
                     <span data-i18n-key="vaultChatContextToggle">Invia al provider della chat anche un riepilogo finanziario aggregato. È facoltativo e disattivato di default; contiene importi e categorie, senza singole transazioni.</span>
                   </label>
                   <!-- Il sistema/browser di alcuni utenti ha "Riduci movimento"
@@ -5927,7 +5835,7 @@
                        esplicita e consapevole: solo per l'attesa della chat
                        generica, solo se l'utente lo accende lui stesso. -->
                   <label class="flex items-start gap-2 mt-2 text-xs cursor-pointer select-none">
-                    <input type="checkbox" id="force-anim-optin" onchange="window.setForceAnimations(this.checked)" class="toggle-input mt-0.5" />
+                    <input type="checkbox" id="force-anim-optin" onchange="window.setForceAnimations(this.checked)" class="toggle-input mt-0.5" name="force-anim-optin" />
                     <span data-i18n-key="vaultForceAnimToggle">Mostra le micro-animazioni di attesa anche se il dispositivo ha "Riduci movimento" attivo (di base le rispettiamo, per chi le preferisce spente)</span>
                   </label>
                   <!-- Lingua di "Chiedi a Momentum": di default segue quella
@@ -5936,7 +5844,7 @@
                        vince SEMPRE su tutto il resto. -->
                   <div class="mt-3">
                     <label class="text-[11px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultQaLanguageLabel">Lingua di "Chiedi a Momentum"</label>
-                    <select id="qa-language-select" onchange="window.setQaLanguage(this.value)" class="modal-input !mb-0 mt-1 text-xs py-2">
+                    <select id="qa-language-select" onchange="window.setQaLanguage(this.value)" class="modal-input !mb-0 mt-1 text-xs py-2" name="qa-language-select" aria-label="vaultQaLanguageLabel" data-i18n-aria="vaultQaLanguageLabel">
                       <option value="" data-i18n-key="vaultQaLanguageAuto">Automatica (segue il dispositivo)</option>
                       <option value="it">Italiano</option>
                       <option value="en">English</option>
@@ -5944,6 +5852,7 @@
                       <option value="fr">Français</option>
                       <option value="de">Deutsch</option>
                       <option value="pt">Português</option>
+                                          <option value="nl">Nederlands</option>
                     </select>
                   </div>
                   <details class="mt-2">
@@ -5992,7 +5901,7 @@
                   <div class="card p-6">
                     <div class="flex items-center justify-between">
                       <h3 class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span data-i18n-key="vaultGhostRadarTitle">Trova abbonamenti dimenticati</span></h3>
-                      <input type="checkbox" id="settings-ghost-radar" onchange="toggleGhostRadar()" class="toggle-input" />
+                      <input type="checkbox" id="settings-ghost-radar" onchange="toggleGhostRadar()" class="toggle-input" name="settings-ghost-radar" aria-label="vaultGhostRadarTitle" data-i18n-aria="vaultGhostRadarTitle" />
                     </div>
                     <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2" data-i18n-key="vaultGhostRadarSubtitle">Controlla in background le spese che si ripetono ogni mese.</p>
                   </div>
@@ -6016,7 +5925,7 @@
                     </div>
                     <div class="flex items-center justify-between gap-3 mt-3">
                       <span class="text-[12px] text-[var(--on-surface)]" data-i18n-key="vaultSoundsTitle">Suoni</span>
-                      <input type="checkbox" id="settings-sound" onchange="toggleSound()" class="toggle-input" checked />
+                      <input type="checkbox" id="settings-sound" onchange="toggleSound()" class="toggle-input" checked name="settings-sound" aria-label="vaultSoundsTitle" data-i18n-aria="vaultSoundsTitle" />
                     </div>
                     <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1" data-i18n-key="vaultSoundsSubtitle">Un piccolo suono quando salvi un movimento o superi un limite.</p>
                     <div class="mt-4 pt-4 border-t border-[var(--outline)]">
@@ -6024,15 +5933,15 @@
                       <div class="flex flex-col gap-3 mt-3">
                         <div class="flex items-center justify-between gap-3">
                           <span class="text-[12px] text-[var(--on-surface)]" data-i18n-key="vaultNotifyTaxDeadlines">Scadenze fiscali urgenti</span>
-                          <input type="checkbox" id="notify-pref-fiscale" onchange="window.setNotifyPref('fiscale', this.checked)" class="toggle-input" checked />
+                          <input type="checkbox" id="notify-pref-fiscale" onchange="window.setNotifyPref('fiscale', this.checked)" class="toggle-input" checked name="notify-pref-fiscale" aria-label="vaultNotifyTaxDeadlines" data-i18n-aria="vaultNotifyTaxDeadlines" />
                         </div>
                         <div class="flex items-center justify-between gap-3">
                           <span class="text-[12px] text-[var(--on-surface)]" data-i18n-key="vaultNotifyTaxLaw">Cambi di normativa fiscale</span>
-                          <input type="checkbox" id="notify-pref-normativa" onchange="window.setNotifyPref('normativa', this.checked)" class="toggle-input" checked />
+                          <input type="checkbox" id="notify-pref-normativa" onchange="window.setNotifyPref('normativa', this.checked)" class="toggle-input" checked name="notify-pref-normativa" aria-label="vaultNotifyTaxLaw" data-i18n-aria="vaultNotifyTaxLaw" />
                         </div>
                         <div class="flex items-center justify-between gap-3">
                           <span class="text-[12px] text-[var(--on-surface)]" data-i18n-key="vaultNotifyPriceAlerts">Avvisi di prezzo (asset seguiti)</span>
-                          <input type="checkbox" id="notify-pref-prezzi" onchange="window.setNotifyPref('prezzi', this.checked)" class="toggle-input" checked />
+                          <input type="checkbox" id="notify-pref-prezzi" onchange="window.setNotifyPref('prezzi', this.checked)" class="toggle-input" checked name="notify-pref-prezzi" aria-label="vaultNotifyPriceAlerts" data-i18n-aria="vaultNotifyPriceAlerts" />
                         </div>
                       </div>
                     </div>
@@ -6056,7 +5965,7 @@
                     <p class="card-sub" data-i18n-key="vaultSemanticQaSubtitle">Il QA riconosce il SIGNIFICATO di una domanda, non solo le parole esatte — utile quando gli insegni una domanda in un modo e poi gliela fai in un altro.</p>
                     <div class="flex items-center justify-between gap-3 mt-3">
                       <span class="text-[12px] text-[var(--on-surface)]" id="semantic-qa-label" data-i18n-key="semanticQaActivateLabel">Attiva (scarica ~197MB una volta, poi resta offline)</span>
-                      <input type="checkbox" id="semantic-qa-optin" onchange="window.setSemanticQaOptIn(this.checked)" class="toggle-input" />
+                      <input type="checkbox" id="semantic-qa-optin" aria-labelledby="semantic-qa-label" onchange="window.setSemanticQaOptIn(this.checked)" class="toggle-input" name="semantic-qa-optin" />
                     </div>
                     <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2" data-i18n-key="vaultSemanticQaFooter">Modello EmbeddingGemma di Google (open-source, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. Le tue domande non lasciano mai il dispositivo.</p>
                     <div class="mt-4 pt-4 border-t border-[var(--outline)]" id="sentiment-local-card">
@@ -6064,13 +5973,13 @@
                       <p class="card-sub mt-1" data-i18n-key="vaultSentimentSubtitle">Un punteggio bullish/bearish calcolato sul TUO dispositivo per le notizie senza chiave API (Hacker News, Federal Register, Fed/BCE) — oggi quelle notizie non hanno mai un sentiment, solo Alpha Vantage lo fornisce a chi ha una chiave.</p>
                       <div class="flex items-center justify-between gap-3 mt-3">
                         <span class="text-[12px] text-[var(--on-surface)]" id="sentiment-local-label" data-i18n-key="sentimentActivateLabel">Attiva (scarica ~82MB una volta, poi resta offline)</span>
-                        <input type="checkbox" id="sentiment-local-optin" onchange="window.setSentimentLocalOptIn(this.checked)" class="toggle-input" />
+                        <input type="checkbox" id="sentiment-local-optin" aria-labelledby="sentiment-local-label" onchange="window.setSentimentLocalOptIn(this.checked)" class="toggle-input" name="sentiment-local-optin" />
                       </div>
                       <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2" data-i18n-key="vaultSentimentFooter">Modello DistilRoBERTa affinato su notizie finanziarie (Apache-2.0, nessun account richiesto), scaricato dal tuo dispositivo direttamente da Hugging Face SOLO se attivi questa opzione. I titoli restano sul dispositivo, mai inviati altrove per essere valutati.</p>
                     </div>
                   </div>
 
-                  <div class="card p-6 flex flex-col vault-reminders-card">
+                  <div class="card p-6 flex flex-col vault-reminders-card finance-detail-card">
                     <div class="flex items-center justify-between mb-4">
                       <div>
                         <h3 class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg><span data-i18n-key="vaultRemindersTitle">Scadenze e promemoria</span></h3>
@@ -6079,26 +5988,19 @@
                       <button onclick="exportEventsToICS()" class="px-2.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-100 border border-indigo-500/30 rounded-lg text-[10px] font-bold transition-all" data-i18n-key="vaultSyncIcs">Sincronizza (.ics)</button>
                     </div>
 
-                    <!-- Add Event Form — importo FACOLTATIVO (un appuntamento non
-                         ha un importo) + NOTA/descrizione estesa. -->
-                    <div class="space-y-2.5 mb-4">
-                      <input type="text" id="ev-title" class="modal-input !mb-0 py-2 text-xs w-full" placeholder="Cosa? (es. Dentista, Bolletta luce)" data-i18n-placeholder="vaultEventTitlePlaceholder" />
-                      <input type="text" id="ev-note" class="modal-input !mb-0 py-2 text-xs w-full" placeholder="Nota (facoltativa, es. portare la tessera)" data-i18n-placeholder="vaultEventNotePlaceholder" />
-                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <input type="number" id="ev-amount" class="modal-input !mb-0 py-2 text-xs" placeholder="Importo € (facoltativo)" data-i18n-placeholder="vaultEventAmountPlaceholder" />
-                        <div class="flex gap-2">
-                          <input type="date" id="ev-date" class="modal-input !mb-0 py-2 text-xs flex-grow" style="color-scheme: dark;" />
-                          <button onclick="addCalendarEvent()" class="px-3 bg-emerald-700 hover:bg-emerald-500 text-white rounded-lg text-xs font-black transition-colors" aria-label="Aggiungi" data-i18n-aria="vaultAddEventAria">+</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Event List — area più alta e scrollabile: gestibile anche
-                         con molti eventi (oltre i 5), non più una fessura. -->
-                    <button type="button" class="goal-orbit-edit" onclick="window.openPaymentAgenda()" data-i18n-key="recurringUpcoming">Pagamenti e scadenze</button>
-                    <div id="calendar-events-list" class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-                      <!-- Rendered dynamically -->
-                    </div>
+                    <div id="calendar-events-list" class="reminder-timeline"></div>
+                    <details id="reminder-composer" class="calm-disclosure reminder-composer">
+                      <summary><span data-i18n-key="reminderNew">Aggiungi un promemoria</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+                      <form onsubmit="event.preventDefault();window.addCalendarEvent()" class="reminder-form">
+                        <label class="vault-field-label"><span data-i18n-key="agendaName"></span><input id="ev-title" name="event-title" class="modal-input" maxlength="160" data-i18n-placeholder="vaultEventTitlePlaceholder" aria-describedby="reminder-error" /></label>
+                        <label class="vault-field-label"><span data-i18n-key="agendaDate"></span><input id="ev-date" name="event-date" type="date" class="modal-input" aria-describedby="reminder-error" onchange="window.updateReminderQuickDates()" /></label>
+                        <div class="reminder-quick-dates" role="group" data-i18n-aria="agendaDate"><button type="button" onclick="window.setReminderQuickDate(0)" data-reminder-offset="0" data-i18n-key="reminderToday">Oggi</button><button type="button" onclick="window.setReminderQuickDate(1)" data-reminder-offset="1" data-i18n-key="reminderTomorrow">Domani</button><button type="button" onclick="window.setReminderQuickDate(7)" data-reminder-offset="7" data-i18n-key="reminderNextWeek">Fra 7 giorni</button></div>
+                        <details class="calm-disclosure reminder-optional"><summary data-i18n-key="reminderOptional">Aggiungi importo o nota</summary><label class="vault-field-label"><span data-i18n-key="vaultEventAmountPlaceholder"></span><input id="ev-amount" name="event-amount" type="text" inputmode="decimal" placeholder="0,00" class="modal-input" aria-describedby="reminder-error" /></label><label class="vault-field-label"><span data-i18n-key="txDescriptionLabel"></span><input id="ev-note" name="event-note" maxlength="500" class="modal-input" data-i18n-placeholder="vaultEventNotePlaceholder" /></label></details>
+                        <p id="reminder-error" class="money-editor-error" role="alert" hidden></p>
+                        <button type="submit" class="finance-card-action" data-i18n-key="reminderSave">Salva promemoria</button>
+                      </form>
+                    </details>
+                    <button type="button" class="reminder-agenda-link" onclick="window.openPaymentAgenda()" data-i18n-key="recurringUpcoming">Pagamenti e scadenze</button>
                   </div>
 
                   <!-- Questa card conteneva le due azioni più delicate dell'app
@@ -6133,24 +6035,15 @@
                     </div>
                     <label class="flex items-center justify-between gap-3 mt-4 cursor-pointer">
                       <span class="t-etichetta" data-i18n-key="readEaseContrastLabel">Contrasto alto</span>
-                      <input type="checkbox" id="high-contrast-toggle" onchange="window.setHighContrast(this.checked)" class="toggle-input">
+                      <input type="checkbox" id="high-contrast-toggle" onchange="window.setHighContrast(this.checked)" class="toggle-input" name="high-contrast-toggle">
                     </label>
                   </div>
 
-                  <div class="card p-6 border border-[var(--outline)]">
-                     <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><span data-i18n-key="vaultAboutTitle">Questa app</span></h3>
-                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mt-3">
-                       <div class="min-w-0">
-                         <p class="text-xs font-mono no-privacy-blur font-bold text-[var(--on-surface-secondary)] mb-1" id="version-display">Momentum V50</p>
-                         <button onclick="window.checkForAppUpdate?.(event)" id="check-update-btn" class="mt-1.5 text-[10px] font-bold text-[var(--on-surface-secondary)] underline underline-offset-2 inline-flex items-center gap-1">
-                           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg><span data-i18n-key="vaultCheckUpdates">Cerca aggiornamenti ora</span>
-                         </button>
-                       </div>
-                       <div class="sm:text-right shrink-0">
-                         <p class="t-nota mb-1.5 sm:max-w-[220px]" data-i18n-key="vaultDeleteAllWarn">I tuoi dati sono solo su questo dispositivo: cancellarli qui non si può annullare.</p>
-                         <button onclick="nukeVault()" class="px-4 py-3 bg-[#be123c] text-white font-bold rounded-xl text-xs transition-transform active:scale-95 shadow-md" data-i18n-key="vaultDeleteAllData">Cancella tutti i dati</button>
-                       </div>
-                     </div>
+                  <div id="app-maintenance-card" class="card p-6 finance-detail-card">
+                    <header class="app-maintenance-heading"><span class="app-maintenance-emblem" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="10"/><ellipse cx="20" cy="20" rx="18" ry="7" transform="rotate(-30 20 20)"/><circle cx="34" cy="12" r="2"/></svg></span><div><h3 data-i18n-key="vaultAboutTitle">Questa app</h3><p id="version-display" class="no-privacy-blur">Momentum V50</p></div></header>
+                    <button type="button" onclick="window.checkForAppUpdate?.(event)" id="check-update-btn" class="finance-card-action"><span data-i18n-key="vaultCheckUpdates">Cerca aggiornamenti ora</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg></button>
+                    <p id="app-update-status" class="maintenance-status" role="status"></p>
+                    <details class="calm-disclosure maintenance-delete"><summary data-i18n-key="vaultDeleteAllData">Cancella tutti i dati</summary><p data-i18n-key="vaultDeleteAllWarn">I tuoi dati sono solo su questo dispositivo: cancellarli qui non si può annullare.</p><button type="button" onclick="nukeVault()" class="maintenance-delete-action" data-i18n-key="vaultDeleteAllData">Cancella tutti i dati</button></details>
                   </div>
               </div>
             </div>
@@ -6243,9 +6136,9 @@
 
     <!-- NEURO BUTTON -->
     <div class="absolute left-1/2 -translate-x-1/2 -top-7 z-[999] pointer-events-auto">
-      <div id="mobile-add-btn" class="neuro-add-btn">
+      <button type="button" id="mobile-add-btn" class="neuro-add-btn" data-i18n-aria="addMovementAction" aria-label="Aggiungi movimento">
         <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-      </div>
+      </button>
       <!-- Spiegazione del "+" (main.js: renderAddHint) — nascosta di
            default, mostrata dal JS solo ai primi due avvii reali. -->
       <!-- Posizione CSS fissa (non calcolata dinamicamente via JS: tentato,
@@ -6258,7 +6151,7 @@
            dell'utente (non lo stato demo) quella zona di solito ha meno
            roba, il gap resta ragionevole in entrambi i casi. -->
       <div id="add-hint-bubble" class="hidden" style="position:absolute; left:50%; margin-left:-105px; top:-7.8rem; width:210px; z-index:998; pointer-events:none;">
-        <div class="add-hint-card"><p data-i18n-key="addHintText">Il tasto "+" qui sotto aggiunge una spesa o un'entrata</p></div>
+        <div class="add-hint-card"><span class="add-hint-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></span><div><p data-i18n-key="addHintTitle">Una spesa? Parti da qui.</p><small data-i18n-key="addHintText">Aggiungi spese o entrate, a mano o a voce.</small></div><button type="button" onclick="window.dismissAddHint()" data-i18n-aria="addHintDismiss" aria-label="Chiudi suggerimento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 7 10 10M7 17 17 7"/></svg></button></div>
         <div class="add-hint-arrow"></div>
       </div>
     </div>
@@ -6268,7 +6161,7 @@
       <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       <span class="nav-etichetta">Vault</span>
     </button>
-    <button data-action="toggle-theme" data-i18n-aria="navThemeAria" aria-label="Cambia tema chiaro/scuro" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-0.5 w-16 h-full">
+    <button data-action="toggle-theme" aria-label="Cambia tema chiaro/scuro" class="nav-btn pointer-events-auto relative flex flex-col items-center justify-center text-[var(--on-surface-secondary)] gap-0.5 w-16 h-full">
       <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
       <span class="nav-etichetta" data-i18n-key="navTheme">Tema</span>
     </button>
@@ -6291,7 +6184,7 @@
   <button id="tablet-fab" onclick="document.getElementById('mobile-add-btn').click()"
     class="pulsa-anello hidden md:flex xl:hidden fixed z-[70] items-center justify-center w-16 h-16 rounded-full text-white active:scale-90 transition-transform"
     style="right: max(1.5rem, env(safe-area-inset-right)); bottom: max(1.5rem, env(safe-area-inset-bottom)); background: var(--apex-gradient); box-shadow: 0 10px 30px -6px rgba(99,102,241,.7), 0 0 0 1px rgba(129,140,248,.4); animation: neuroPulse 3s infinite;"
-    aria-label="Aggiungi una spesa">
+    data-i18n-aria="addMovementAction" aria-label="Aggiungi movimento">
     <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
   </button>
   <!-- Stesso hint del bottone mobile (main.js: renderAddHint), riposizionato
@@ -6301,7 +6194,7 @@
        hidden/remove) non possono vivere sulla stessa classe "hidden". -->
   <div class="hidden md:block xl:hidden">
     <div id="add-hint-bubble-tablet" class="hidden" style="position:fixed; right: max(1.5rem, env(safe-area-inset-right)); bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 76px); width:210px; z-index:998; pointer-events:none;">
-      <div class="add-hint-card"><p data-i18n-key="addHintText">Il tasto "+" qui sotto aggiunge una spesa o un'entrata</p></div>
+      <div class="add-hint-card"><span class="add-hint-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></span><div><p data-i18n-key="addHintTitle">Una spesa? Parti da qui.</p><small data-i18n-key="addHintText">Aggiungi spese o entrate, a mano o a voce.</small></div><button type="button" onclick="window.dismissAddHint()" data-i18n-aria="addHintDismiss" aria-label="Chiudi suggerimento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 7 10 10M7 17 17 7"/></svg></button></div>
       <div class="add-hint-arrow" style="left:auto; right:22px; margin-left:0;"></div>
     </div>
   </div>

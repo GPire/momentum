@@ -12,6 +12,18 @@
 >
 > Ultimo aggiornamento verificato: **2026-09-06**.
 
+> Integrazione verificata **2026-09-11**: il checkout di lavoro è sul branch
+> `codex/public-release-foundation`. Stato, modifiche e limiti dei controlli sono
+> in [release-review-2026-09-11.md](docs/release-review-2026-09-11.md). Le tabelle
+> e i conteggi storici qui sotto restano riferiti alla verifica del 6 settembre.
+> Aggiornamento: suite completa **4.767 test / 310 file passati**, inclusi i
+> quattro test di fuso con veri processi; build di produzione completata con
+> esbuild WebAssembly della stessa versione. `test:serial` e `build:portable`
+> evitano le pipe bloccate da EPERM; non modificano la sicurezza del sistema.
+> Per il merge con main `3c9b3c3`, leggere
+> [integration-handoff-2026-09-11.md](docs/integration-handoff-2026-09-11.md).
+> Non dichiarare un merge, deploy o collaudo nativo sulla base dei test locali.
+
 ## Cos'è
 
 App di finanza personale + analisi di mercato **100% on-device**. PWA in
@@ -19,7 +31,7 @@ JavaScript vanilla + Vite, nessun framework UI. Il valore nasce dal **non
 ricevere mai i dati dell'utente**: nessun server proprietario, nessun cloud
 obbligatorio, nessun account.
 
-Repo: `https://github.com/GPire/momentum` · branch di lavoro `main` ·
+Repo: `https://github.com/GPire/momentum` · branch di lavoro `codex/public-release-foundation` ·
 versione in `package.json`: **50.1.0**.
 
 ## Regole non negoziabili
@@ -86,8 +98,10 @@ tutto il resto è puro e testabile senza browser.
 
 ## Nativo
 
-Scaffold **Capacitor** presente: `android/` (pronto), `capacitor.config.json`
-con appId `com.momentum.vault`, webDir `dist`. iOS non ancora inizializzato.
+Progetti **Capacitor** presenti: `android/`, `ios/App/App.xcodeproj`,
+`capacitor.config.json` con appId `com.momentum.vault`, webDir `dist`.
+La presenza degli scaffold non certifica il rilascio: vedere
+`docs/ios-release-verification.md` per le prove native ancora necessarie.
 
 ## Automazione
 
@@ -141,11 +155,11 @@ pannello dati SEC.
   riverificata il 2026-09-06 — se in futuro si trova una fonte primaria con
   la tabella completa (non solo aliquota min/max), può diventare una tabella
   come `RETA_TRAMOS_2026`, mai una formula indovinata.
-- **Modulo Spagna tradotto integralmente solo in IT/EN/ES**: diverse chiavi
-  preesistenti `esXxx*` ricadono sul fallback inglese in DE/FR/NL/PT. Le nuove
-  chiavi del territorio foral sono invece presenti in tutte le 7 lingue. Il
-  debito va chiuso per gruppi coerenti prima del rilascio, senza traduzioni
-  parziali sparse.
+- **Copertura dei dizionari verificata il 2026-09-11**: le chiavi fiscali e
+  di fatturazione prima mancanti sono ora presenti direttamente nelle sette
+  lingue (`src/i18n/translation-coverage.test.js`). Restano testi italiani
+  costruiti direttamente in alcune UI: copertura delle chiavi e traduzione
+  completa delle schermate sono verifiche diverse.
 
 ## Trappole già pagate (leggile prima di perderci un'ora)
 

@@ -29,6 +29,11 @@ const js = readFileSync(join(radice, 'src', 'main.js'), 'utf8');
 const espostiSuWindow = new Set();
 for (const m of js.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=/g)) espostiSuWindow.add(m[1]);
 
+test('first-launch invitations use the shared reader for compressed and legacy links', () => {
+  assert.match(js, /const urlJoin = extractJoinPayload\(\)/);
+  assert.match(js, /return extractShareCode\(location.href\) \|\| extractSharePayload\(location.href\)/);
+});
+
 test('GARANZIA DOM: ogni handler inline di index.html punta a una funzione che esiste davvero', () => {
   const usati = new Set();
   for (const m of html.matchAll(/window\.([A-Za-z_$][\w$]*)\s*\(/g)) usati.add(m[1]);
@@ -71,6 +76,10 @@ test('GARANZIA DOM: nessun NUOVO elemento fantasma oltre a quelli già documenta
   // Id creati da main.js (template letterali, con o senza escape).
   const idJs = new Set();
   for (const m of js.matchAll(/id=[\\'"]([\w-]+)[\\'"]/g)) idJs.add(m[1]);
+  // Nodes created with createElement and an explicit .id assignment also exist.
+  for (const m of js.matchAll(/\.id\s*=\s*['"]([\w-]+)['"]/g)) idJs.add(m[1]);
+  // Dashboard sections are generated from [id, titleKey, hintKey, children, gate].
+  for (const m of js.matchAll(/\['(dashboard-[\w-]+)'\s*,\s*'home\w+'\s*,\s*'home\w+'\s*,\s*\[/g)) idJs.add(m[1]);
   // Id passati come PARAMETRO a un helper che li genera (es. tl1Select('x', …)):
   // l'elemento esiste, ma il suo id non appare mai come stringa `id="x"`.
   const idDaHelper = new Set();

@@ -192,6 +192,19 @@ export function splitReminder(groups = [], opts = {}) {
 // spendere". Non è un numero decorativo: è safeToday − importo, con soglie
 // semantiche (verde = ok, ambra = stai per esaurire, rosso = sfori). Onesto:
 // senza budget (safeToday null) o importo 0 → non mostra nulla. Pura, testabile.
+export function budgetAfterExpense({ budget, amount, transactions = [], currency = 'EUR' } = {}) {
+  if (!Number.isFinite(budget) || budget <= 0 || !Number.isFinite(amount) || amount <= 0 || currency !== 'EUR') return null;
+  if (!Number.isSafeInteger(Math.round(budget * 100)) || !Number.isSafeInteger(Math.round(amount * 100))) return null;
+  let remaining = Math.round(budget * 100) - Math.round(amount * 100);
+  for (const tx of transactions) {
+    if (tx?.type !== 'uscita') continue;
+    if (!Number.isFinite(tx.amount) || tx.amount < 0 || (tx.currency && tx.currency !== 'EUR')) return null;
+    remaining -= Math.round(tx.amount * 100);
+  }
+  if (!Number.isSafeInteger(remaining)) return null;
+  return { remaining:Math.max(0, remaining) / 100, overBy:Math.max(0, -remaining) / 100 };
+}
+
 export function amountEntryImpact({ safeToday = null, isOverBudget = false, pendingAmount = 0 } = {}) {
   if (safeToday == null || !(pendingAmount > 0)) return { show: false };
   if (isOverBudget) {

@@ -9,6 +9,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, openSync, closeSync, readFileSync, unlinkSync, rmdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { giornoLocale, meseLocale } from './date-utils.js';
 
 test('giornoLocale: un Date costruito da componenti locali torna intatto (nessuna eccezione dal fuso della macchina che esegue il test)', () => {
@@ -40,7 +43,7 @@ test('input non valido → null, mai un\'eccezione al boot', () => {
 // (corretto, quello a cui i 13 punti sono stati portati).
 function spazzolaFuso(tz, giorni) {
   const codice = `
-    import { giornoLocale } from ${JSON.stringify(new URL('./date-utils.js', import.meta.url).pathname)};
+    import { giornoLocale } from ${JSON.stringify(new URL('./date-utils.js', import.meta.url).href)};
     const giorni = ${JSON.stringify(giorni)};
     const risultati = giorni.map(([y, m, g]) => {
       const scelto = new Date(y, m, g);           // mezzanotte locale, come il date-picker
@@ -51,11 +54,20 @@ function spazzolaFuso(tz, giorni) {
     });
     process.stdout.write(JSON.stringify(risultati));
   `;
-  const out = execFileSync(process.execPath, ['--input-type=module', '-e', codice], {
-    env: { ...process.env, TZ: tz },
-    encoding: 'utf8',
-  });
-  return JSON.parse(out);
+  const directory = mkdtempSync(join(tmpdir(), 'momentum-timezone-'));
+  const output = join(directory, 'result.json');
+  const descriptor = openSync(output, 'w');
+  try {
+    execFileSync(process.execPath, ['--input-type=module', '-e', codice], {
+      env: { ...process.env, TZ: tz },
+      stdio: ['ignore', descriptor, 'inherit'],
+    });
+    return JSON.parse(readFileSync(output, 'utf8'));
+  } finally {
+    closeSync(descriptor);
+    unlinkSync(output);
+    rmdirSync(directory);
+  }
 }
 
 // Un mese intero di giorni scelti, incluso il cambio dell'ora legale

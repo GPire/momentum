@@ -27,7 +27,7 @@ jobs:
       - run: ./gradlew assembleDebug lintDebug
         working-directory: android
   ios-simulator:
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +36,24 @@ jobs:
           node-version: '24'
           cache: npm
       - run: xcodebuild -version
+      - name: Require the iOS 27 SDK
+        run: xcodebuild -showsdks | grep -E 'iphonesimulator27([.]|[[:space:]]|$)'
+      - name: Record installed SDKs and simulator runtimes
+        run: |
+          mkdir -p native-qa
+          xcodebuild -version > native-qa/xcode.txt
+          xcodebuild -showsdks > native-qa/sdks.txt
+          xcrun simctl list runtimes --json > native-qa/runtimes.json
+          xcrun simctl list devices available --json > native-qa/devices.json
       - run: npm ci
       - run: npm run build
       - run: npx cap sync ios
-      - run: xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+      - name: Build for installed iOS Simulator SDK
+        run: xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -resultBundlePath native-qa/build.xcresult CODE_SIGNING_ALLOWED=NO build
+      - name: Preserve native verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-evidence
+          path: native-qa
+          if-no-files-found: warn

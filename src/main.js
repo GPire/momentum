@@ -1,4 +1,14 @@
+import { tSplit } from './i18n/split-workspace.js';
+import { splitAmount, splitInputEdit, validSplitAmounts, buildSplitDraft } from './ui/split-draft.js';
+import { shouldShowAddHint } from './ui/first-use-hint.js';
+import { formatSplitMoney } from './ui/split-money.js';
+import { shiftCalendarMonth, weekOffsetForMonth, calendarViewForKey, calendarPosition } from './ui/calendar-period.js';
+import { dashboardActions } from './ui/dashboard-actions.js';
+import { themePreference, themeIsDark } from './ui/theme-preference.js';
 import { buildPaymentAgenda, validatePaymentDeclaration, validPaymentDate } from './predict/payment-agenda.js';
+import { suggestCategoryIcon } from './ui/category-icon-hints.js';
+import { keyboardViewportInset } from './ui/viewport-inset.js';
+import { parseSalaryDraft, parseReminderDraft } from './ui/money-editor-values.js';
 import { recoveryPromptKey, shouldAutoOpenRecoveryPrompt } from './core/recovery-notice.js';
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
 import { haCompletatoOnboarding } from './core/onboarding-state.js';
@@ -65,7 +75,6 @@ import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/
 import { isItalianDevice } from './alpha/translate.js';
 import { chiediAlMercatoSync, rifiutoMotivato, precarica as precaricaMercato } from './alpha/mercato-qa.js';
 import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, sendFeatureEvent, sendEssentialDiagnostic } from './core/telemetry.js';
-import './ui/dashboard-clarity.css';
 
 // Endpoint del contatore anonimo (server/telemetry-worker.js) — distribuito
 // su Cloudflare Workers il 2026-08-28 (piano gratuito). Un id casuale non
@@ -199,15 +208,16 @@ function detectLiveRegimeFor(assetKey) {
   } catch (_) { return null; }
 }
 import { fetchLiveCryptoPrice, fetchLiveStockPrice, STOCK_PROVIDER_IDS } from './alpha/live-price.js';
-import { buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
+import { buildPayoutRequest, buildPayoutLink, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
+import { tPayout } from './i18n/payout.js';
+import { buildRepaymentCode } from './split/repayment-share.js';
 import { buildShareUrl, recordOrigin } from './core/share-base.js';
 import { touchStreak, computeWeeklyRecap, computeGoalProgress, suggestSubscriptionRegistrations } from './predict/engagement.js';
 import { banditContext, rankNudges, banditObserve, settleImpressions, mergePendingSameDay, phaseOfMonth, dailySeed, makeRng } from './predict/advisor-bandit.js';
 import { inferLifestyle } from './predict/lifestyle.js';
 import { buildCalendarRows, calendarSummary } from './predict/calendar-format.js';
 import { derivePriors, seedBanditState, shouldShowAnalysisTensor, numeriDaChiedere, onboardingBudget } from './predict/onboarding-priors.js';
-import { featureVisibili, resolveClarity } from './predict/profilo-feature.js';
-import { ordineCss, motivoPromozione } from './predict/rilevanza-card.js';
+import { featureVisibili, resolveClarity, shouldSuggestTaxSetup } from './predict/profilo-feature.js';
 import { evaluateBrake } from './predict/spending-brake.js';
 import { ACHIEVEMENTS, computeStats, evaluateAchievements, nextMilestone, achievementLabel } from './predict/achievements.js';
 import { answerQuestion } from './ai/qa-engine.js';
@@ -219,7 +229,7 @@ import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANG
 import { detectNewsIntent, looksLikeBareAssetQuery } from './predict/news-intent.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
-import { nextExpenseNudge, splitReminder, amountEntryImpact, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './predict/command-center.js';
+import { nextExpenseNudge, splitReminder, amountEntryImpact, budgetAfterExpense, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './predict/command-center.js';
 import { simulateCategoryChange } from './predict/what-if.js';
 import { MeshNode, PairingSignaling } from './mesh/mesh-signaling.js';
 import { createNexusMeshMind } from './mesh/nexus-adapter.js';
@@ -271,7 +281,7 @@ const MODEL_SIGNATURE = 'v10-omega-nano+meso+logreg-dcgn-2026-07';
 // rubando in questo istante.
 if (window.visualViewport) {
   const aggiornaTastieraInset = () => {
-    const inset = Math.max(0, window.innerHeight - window.visualViewport.height);
+    const inset = keyboardViewportInset(window.innerHeight, window.visualViewport.height, window.visualViewport.scale);
     document.documentElement.style.setProperty('--tastiera-inset', `${inset}px`);
     // Soglia 150px, non "> 0": un ritocco della barra indirizzi o un piccolo
     // scroll del visual viewport (iOS lo muove anche senza tastiera) non è
@@ -280,6 +290,7 @@ if (window.visualViewport) {
     document.documentElement.classList.toggle('tastiera-aperta', inset > 150);
   };
   window.visualViewport.addEventListener('resize', aggiornaTastieraInset);
+  window.addEventListener('resize', aggiornaTastieraInset);
   aggiornaTastieraInset();
 }
 
@@ -534,7 +545,7 @@ const initWebGLOrb = (canvasId, balance=0, freqScore=0) => {
 // puo' finire con un colore illeggibile o stonato — meno scelta, meno modi
 // di sbagliare, piu' vicino a "comprensibile anche da un bambino".
 const CAT_PALETTE = ['#e11d48', '#f97316', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6', '#10b981', '#eab308', '#06b6d4', '#a855f7'];
-// Dieci icone disegnate nello STESSO stile delle cinque di fabbrica — tratto
+// Icone SVG nello stesso linguaggio visivo delle categorie di fabbrica — tratto
 // 2.5, angoli arrotondati, viewBox 24x24 — non emoji di sistema. L'utente lo
 // ha chiesto esplicitamente: un'emoji cambia disegno da un telefono
 // all'altro (il font emoji e' del sistema operativo, non dell'app) e non ha
@@ -542,6 +553,14 @@ const CAT_PALETTE = ['#e11d48', '#f97316', '#ec4899', '#8b5cf6', '#3b82f6', '#14
 // Coprono le voci di spesa piu' comuni che non sono gia' fra le cinque di
 // fabbrica (cibo, ristoranti, shopping, abbonamenti, trasporti ci sono gia').
 const CAT_ICONE = [
+  { chiave: 'alcolici', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8l1 6a5 5 0 0 1-10 0l1-6ZM12 14v7M8 21h8M8 8h8"/></svg>' },
+  { chiave: 'tabacco', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="14" width="18" height="5" rx="1"/><path d="M16 14v5M18 10V8c0-2-3-2-3-4M21 10V7c0-2-2-2-2-4"/></svg>' },
+  { chiave: 'snack', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3 3 1 3-1 3 1 3-1-1 6 2 12-4-1-3 1-3-1-4 1 2-12-1-6Z"/><ellipse cx="12" cy="13" rx="3" ry="4"/></svg>' },
+  { chiave: 'trasporto', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="16" rx="3"/><path d="M5 11h14M8 19l-2 3M16 19l2 3M9 6h6"/><circle cx="8.5" cy="15.5" r=".5"/><circle cx="15.5" cy="15.5" r=".5"/></svg>' },
+  { chiave: 'caffe', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9ZM17 10h2a3 3 0 0 1 0 6h-2M7 3v3M11 2v4M15 3v3"/></svg>' },
+  { chiave: 'carburante', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="10" height="18" rx="2"/><path d="M4 10h10M7 6h4M14 12h2v5a2 2 0 0 0 4 0V9l-3-3M20 9h-2v3M2 21h14"/></svg>' },
+  { chiave: 'sport', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8v8M7 5v14M17 5v14M21 8v8M7 12h10M3 12h4M17 12h4"/></svg>' },
+  { chiave: 'bellezza', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="m8 15 10-12M16 15 10 8 6 3M12 10l2 3"/></svg>' },
   { chiave: 'cinema', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></svg>' },
   { chiave: 'gioco', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="10" rx="5"/><path d="M8 11v4M6 13h4"/><circle cx="16" cy="12" r="1"/><circle cx="18" cy="15" r="1"/></svg>' },
   { chiave: 'libri', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' },
@@ -553,6 +572,9 @@ const CAT_ICONE = [
   { chiave: 'musica', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' },
   { chiave: 'bollette', svg: '<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg>' },
 ];
+
+const categoryIconOrder = ['cinema','snack','caffe','trasporto','carburante','sport','bellezza','gioco','libri','viaggi','animali','salute','regali','casa','musica','bollette','alcolici','tabacco'];
+CAT_ICONE.sort((a, b) => categoryIconOrder.indexOf(a.chiave) - categoryIconOrder.indexOf(b.chiave));
 
 // MICRO-TRANSIZIONE DI COMPARSA (2026-09-04, richiesta esplicita): le
 // categorie apparivano tutte insieme, di scatto, ogni volta che si cambia
@@ -577,42 +599,40 @@ const buildCatChipsHTML = (type) => {
   // fondo alla stessa fascia di categorie, non un'altra schermata: restare
   // dentro il gesto che si stava gia' facendo (scegliere una categoria) e'
   // piu' vicino a come lo capirebbe chi non ha mai usato l'app prima.
-  const aggiungi = `
-    <button type="button" class="cat-chip cat-chip-add" data-cat-id="__nuova__" style="--i:${getCatsByType(type).length}">
-      <div class="cat-chip-icon cat-chip-icon-add">+</div>
-      <span class="cat-chip-label">${tCh('catNuova', __uiLang)}</span>
-    </button>
-  `;
-  return chips + aggiungi;
+  return chips;
 };
 
-// Il pannello di creazione: nome, un'emoji, un colore, un'anteprima che si
+// Il pannello di creazione: nome, un'icona SVG, un colore, un'anteprima che si
 // aggiorna mentre si sceglie. Si apre DENTRO il modulo che si sta gia'
 // compilando — niente modale sopra il modale, che su mobile avrebbe dovuto
 // far sparire (o salvare da qualche parte) l'importo gia' digitato.
 const buildNewCatPanelHTML = () => `
-  <div id="new-cat-panel" class="new-cat-panel hidden shrink-0">
+  <div id="new-cat-panel" tabindex="-1" aria-label="${tCh('catNuovaCategoria', __uiLang)}" class="new-cat-panel hidden shrink-0">
     <div class="new-cat-head">
       <span class="t-etichetta">${tCh('catNuovaCategoria', __uiLang)}</span>
-      <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="${tCh('catAnnulla', __uiLang)}">✕</button>
+      <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="${tCh('catAnnulla', __uiLang)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
     </div>
     <div class="new-cat-anteprima">
       <div class="cat-chip-icon cat-icon-glow" id="new-cat-preview-icon" style="--icon-c:${CAT_PALETTE[0]}">${CAT_ICONE[0].svg}</div>
       <span id="new-cat-preview-nome" class="new-cat-anteprima-nome">${tCh('catNomeCategoria', __uiLang)}</span>
     </div>
-    <input type="text" id="new-cat-nome" class="desc-input" maxlength="24" placeholder="${tCh('catComeChiami', __uiLang)}" autocomplete="off">
-    <div class="new-cat-griglia" id="new-cat-emoji-grid" role="radiogroup" aria-label="${tCh('catIconAria', __uiLang)}">
-      ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-label="Icona ${ic.chiave}">${ic.svg}</button>`).join('')}
+    <label class="new-cat-label" for="new-cat-nome">${tCh('catNomeCategoria', __uiLang)}</label>
+    <input type="text" id="new-cat-nome" class="desc-input" maxlength="24" placeholder="${tCh('catComeChiami', __uiLang)}" aria-label="${tCh('catNomeCategoria', __uiLang)}" required aria-describedby="new-cat-error" autocomplete="off" name="new-cat-nome">
+    <p id="new-cat-error" class="new-cat-error" role="status"></p>
+    <p class="new-cat-label">${tCh('catColorAria', __uiLang)}</p>
+    <div class="new-cat-griglia new-cat-griglia-colori" id="new-cat-color-grid" role="group" aria-label="${tCh('catColorAria', __uiLang)}">
+      ${CAT_PALETTE.map((c, i) => `<button type="button" class="new-cat-colore${i === 0 ? ' selected' : ''}" data-colore="${c}" style="background:${c}" aria-pressed="${i === 0}" aria-label="${tCh('catColorAria', __uiLang)} ${i + 1}"></button>`).join('')}
     </div>
-    <div class="new-cat-griglia new-cat-griglia-colori" id="new-cat-color-grid" role="radiogroup" aria-label="${tCh('catColorAria', __uiLang)}">
-      ${CAT_PALETTE.map((c, i) => `<button type="button" class="new-cat-colore${i === 0 ? ' selected' : ''}" data-colore="${c}" style="background:${c}" aria-label="${tCh('catColorAria', __uiLang)}"></button>`).join('')}
+    <p class="new-cat-label">${tCh('catIconAria', __uiLang)}</p>
+    <div class="new-cat-griglia" id="new-cat-emoji-grid" role="group" aria-label="${tCh('catIconAria', __uiLang)}">
+      ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-pressed="${i === 0}">${ic.svg}<span>${tCh('catIcon_' + ic.chiave, __uiLang)}</span></button>`).join('')}
     </div>
     <button type="button" id="new-cat-crea" class="new-cat-crea-btn">${tCh('catCreaCategoria', __uiLang)}</button>
   </div>
 `;
 
 const getTxFormHTML = () => `
-  <div class="flex flex-col h-full bg-[var(--surface-solid)] lg:bg-[var(--surface)] p-3 sm:p-5 lg:p-0 rounded-2xl relative min-h-0">
+  <div class="command-form flex flex-col h-full bg-[var(--surface-solid)] lg:bg-[var(--surface)] p-3 sm:p-5 lg:p-0 rounded-2xl relative min-h-0">
     
     <!-- NLP Prediction preview & AntiFOMO warnings -->
     <!-- aria-hidden finché non è attivo: il pannello è invisibile agli occhi
@@ -652,7 +672,7 @@ const getTxFormHTML = () => `
     <!-- Tasti rapidi (src/predict/amount-memory.js): gli acquisti abituali
          con importo stabile — un tocco compila tutto, un secondo conferma -->
     <div id="quick-add-row" class="flex gap-2 overflow-x-auto mb-2 shrink-0 hidden"></div>
-    <button type="button" class="command-plan orbit-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="4"/><path d="M8 3v4m8-4v4M4 11h16m-8 3v4m-2-2h4"/></svg><span>${tCh('recurringUpcoming', __uiLang)}</span><span aria-hidden="true" class="orbit-action-arrow">↗</span></button>
+
 
     <div class="amount-stage shrink-0">
       <!-- LA DOMANDA, PRIMA DEL CAMPO. Il pannello mostrava un € , uno zero
@@ -664,7 +684,7 @@ const getTxFormHTML = () => `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
         <span id="amount-domanda-testo">${tCh('txAskExpense', __uiLang)}</span>
       </span></p>
-      <div class="flex items-center justify-center">
+      <div class="command-amount-line flex items-center justify-center">
         <span class="text-2xl font-mono text-[var(--on-surface-secondary)] mr-1">€</span>
         <!-- Tastiera nativa del dispositivo (richiesta reale di più utenti,
              2026-08-16): prima questo era un <div>, quindi su mobile toccarlo
@@ -680,12 +700,12 @@ const getTxFormHTML = () => `
         <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
           class="amount-display amount-vuoto text-center p-0"
           style="width: 100%; max-width: 280px; background: none; border: none; outline: none; box-shadow: none; -webkit-appearance: none; appearance: none; border-radius: 0;"
-          id="tx-amount-display" value="0" aria-label="${tCh('txAmountAria', __uiLang)}" />
+          id="tx-amount-display" value="0" aria-label="${tCh('txAmountAria', __uiLang)}" name="tx-amount-display" />
       </div>
       <!-- Tastierino VIVO (src/predict/command-center.js): mentre digiti, la
            conseguenza reale sul tuo "Oggi puoi spendere" + "più del solito?".
            Calcolato sui tuoi dati, non decorativo. Nascosto senza budget/importo. -->
-      <div id="amount-impact" class="mt-2 min-h-[1.25rem] text-[12px] font-bold flex items-center justify-center gap-1.5 opacity-0 transition-opacity duration-200" aria-live="polite"></div>
+      <div id="amount-impact" class="mt-2 min-h-[1.25rem] text-[12px] font-bold flex items-center justify-center gap-1.5 opacity-0 transition-opacity duration-200" aria-live="polite" aria-atomic="true"></div>
       <!-- Microfono SEMPRE visibile (richiesta esplicita 2026-08-16: niente
            duplicazione tastierino/tastiera nativa su touch — il tastierino
            disegnato sotto sparisce lì, ma la dettatura vocale deve restare
@@ -695,7 +715,8 @@ const getTxFormHTML = () => `
            della schermata, non più uno fra tanti) è più grande e ha due
            punti che gli orbitano attorno — stessa grammatica visiva della
            hero (stelle, orbite, l'orb finanziario), non un'icona isolata. -->
-      <div class="mic-stage relative mt-2 mx-auto" style="width:fit-content">
+      <div class="mic-stage relative mt-2 mx-auto" >
+        <div class="command-voice-orb">
         <span class="mic-orbit-dot mic-orbit-dot-1" aria-hidden="true"></span>
         <span class="mic-orbit-dot mic-orbit-dot-2" aria-hidden="true"></span>
         <!-- A riposo NON è rosso: un microfono rosso significa "sto
@@ -711,19 +732,12 @@ const getTxFormHTML = () => `
           <span class="mic-swirl-2" aria-hidden="true"></span>
           <svg class="w-5 h-5 stroke-current relative" fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
         </button>
-      </div>
-      <!-- SCOPRIBILITÀ (richiesta esplicita 2026-08-17): chi non ha mai
-           usato la voce non sa cosa può dire — un microfono muto, per
-           quanto bello, resta un'icona indovinello. Un esempio vero,
-           sempre visibile, non un tooltip che nessuno apre. Due frasi che
-           cambiano da sole ogni pochi secondi (spesa + promemoria, i due
-           usi più comuni), in italiano o inglese a seconda della lingua
-           già rilevata per la voce (stessa logica di VoiceCore, mai due
-           fonti di verità sulla lingua). -->
+        </div>
       <p id="voice-hint-example" class="voice-hint-text text-[10px] text-center mt-2 px-4 min-h-[2.2em] flex items-center justify-center gap-1.5" aria-live="off">
         <svg class="w-3 h-3 shrink-0 opacity-70" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.3L20 10l-6.1 1.7L12 18l-1.9-6.3L4 10l6.1-1.7L12 2z"/></svg>
-        <span id="voice-hint-example-text"></span>
+        <span class="command-voice-caption">${tCh('txVoicePrompt', __uiLang)}</span><span id="voice-hint-example-text"></span>
       </p>
+      </div>
     </div>
 
     <!-- IL TASTIERINO NON È PIÙ SEMPRE APERTO SU DESKTOP (2026-09-03): era la
@@ -743,22 +757,7 @@ const getTxFormHTML = () => `
          pointer:fine — vede il tastierino come qualunque desktop, non viene
          confuso con un tablet puro (nessuna nuova logica: stessa media query
          di sempre). -->
-    <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
-      ${tCh('txKbdHint', __uiLang)}
-    </p>
-    <button type="button" id="numpad-toggle" class="dettagli-toggle cc-numpad-desktop-only shrink-0" aria-expanded="false" aria-controls="numpad-extra">
-      <svg class="dettagli-freccia" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      <span>${tCh('txPreferNumpad', __uiLang)}</span>
-    </button>
-    <div id="numpad-extra" class="numpad-extra cc-numpad-desktop-only shrink-0"><div>
-    <div class="numpad-grid" tabindex="0" aria-label="${tCh('txNumpadAria', __uiLang)}">
-      ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
-      <div></div>
-      <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
-      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="${tCh('txDelAria', __uiLang)}">DEL</button>
-    </div>
-    </div></div>
+
 
     <!-- LA SECONDA DOMANDA DEL PERCORSO. Il modulo ne fa in realtà due:
          quanto, e per cosa. La prima era scritta, la seconda no — sopra le
@@ -766,6 +765,13 @@ const getTxFormHTML = () => `
          conosce l'app non sa se deve toccarne una o se sono decorazione.
          Stessa grammatica della prima domanda (scintilla + maiuscoletto),
          e come quella si fa da parte appena la risposta c'è. -->
+    <div class="desc-input-wrap mt-3 mb-2 shrink-0">
+      <label class="command-field-label" for="tx-desc">${tCh('txDescriptionLabel', __uiLang)}</label>
+      <input type="text" id="tx-desc" class="desc-input" placeholder="${tCh('txDescPlaceholder', __uiLang)}" autocomplete="off" name="tx-desc" aria-label="${tCh('txDescriptionLabel', __uiLang)}">
+    </div>
+    <div class="command-category">
+      <div class="command-category-heading"><span>${tCh('txCategoryLabel', __uiLang)}</span><span class="command-category-value"></span><button type="button" class="command-new-category" aria-label="${tCh('catNuovaCategoria', __uiLang)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${tCh('catNuova', __uiLang)}</button></div>
+      <div class="command-category-options">
     <p class="cat-domanda-wrap text-center mb-1 mt-1 shrink-0"><span id="cat-domanda" class="t-etichetta amount-domanda">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
       <span>${tCh('txAskCategory', __uiLang)}</span>
@@ -795,6 +801,8 @@ const getTxFormHTML = () => `
          si dice esplicitamente che puo' crearne una su misura. -->
     <button type="button" id="cat-suggerisci-nuova" class="cat-suggerisci-nuova hidden">${tCh('txSuggestNewCat', __uiLang)}</button>
 
+      </div>
+    </div>
     ${buildNewCatPanelHTML()}
 
     <!-- "È DA DIVIDERE?" FUORI DALL'ACCORDION (2026-09-04, terzo giro sulla
@@ -808,10 +816,7 @@ const getTxFormHTML = () => `
          però condizionata al tipo (solo uscite, vedi renderSplitPill) e
          MAI un nome di gruppo inventato: compare solo con un match testuale
          reale a una spesa già divisa in passato. -->
-    <button type="button" id="split-pill-btn" class="split-pill-in-vista shrink-0">
-       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-       <span id="split-pill-text" class="truncate">${tCh('txSplit', __uiLang)}</span>
-    </button>
+
 
     <!-- ── L'ESSENZIALE RESTA, IL RESTO SI APRE SE SERVE ──
          Per segnare una spesa bastano due risposte: quanto, e per cosa. La
@@ -826,9 +831,7 @@ const getTxFormHTML = () => `
          spesa quando la rileggi fra un mese — nella lista dei movimenti è il
          nome della riga — ed è il testo da cui Momentum impara a
          categorizzare da solo. Nasconderla impoverirebbe entrambe le cose. -->
-    <div class="desc-input-wrap mt-3 mb-2 shrink-0">
-      <input type="text" id="tx-desc" class="desc-input" placeholder="${tCh('txDescPlaceholder', __uiLang)}" autocomplete="off">
-    </div>
+
 
     <!-- SCOPRIBILITÀ (2026-09-03, segnalato dal vivo): il testo diceva già
          cosa c'era dentro, ma un link grigio in maiuscoletto da 11px non si
@@ -841,17 +844,24 @@ const getTxFormHTML = () => `
          come un uso frequente — due tocchi per raggiungerlo (apri
          l'accordion, poi tocca Dividi) erano uno di troppo per qualcosa
          che serve così spesso. -->
+    <button type="button" id="split-pill-btn" class="split-pill-in-vista shrink-0">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+       <span id="split-pill-text" class="truncate">${tCh('txSplit', __uiLang)}</span>
+    </button>
+    <details class="command-more"><summary>${tCh('txOptions', __uiLang)}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary><div class="command-more-body">
+    <div class="command-utilities">
     <button type="button" id="dettagli-toggle" class="dettagli-toggle dettagli-toggle-in-vista shrink-0" aria-expanded="false" aria-controls="dettagli-extra">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
       <span>${tCh('txMoreDetails', __uiLang)}</span>
       <svg class="dettagli-freccia" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div id="dettagli-extra" class="dettagli-extra shrink-0"><div>
+    </div>
+    <div id="dettagli-extra" class="dettagli-extra shrink-0" inert><div>
     <div class="smart-toggles-row mb-3 shrink-0">
        <div class="neuro-pill-btn" id="date-pill-btn" style="flex:1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
           <span id="date-pill-text" class="truncate">${tCh('txDateToday', __uiLang)}</span>
-          <input type="date" id="tx-date-input" class="native-date-input" max="${new Date().toISOString().split('T')[0]}">
+          <input type="date" id="tx-date-input" class="native-date-input" max="${new Date().toISOString().split('T')[0]}" name="tx-date-input">
        </div>
     </div>
     <!-- Competenza dello stipendio (2026-09-05, richiesto da feedback utenti
@@ -865,6 +875,24 @@ const getTxFormHTML = () => `
     </button>
     </div></div>
 
+    <button type="button" class="command-plan orbit-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="4"/><path d="M8 3v4m8-4v4M4 11h16m-8 3v4m-2-2h4"/></svg><span>${tCh('recurringUpcoming', __uiLang)}</span><span aria-hidden="true" class="orbit-action-arrow">↗</span></button>
+    <p class="form-kbd-hint items-center justify-center gap-1.5 text-[10px] text-[var(--on-surface-secondary)] mt-1.5 shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
+      ${tCh('txKbdHint', __uiLang)}
+    </p>
+    <button type="button" id="numpad-toggle" class="dettagli-toggle cc-numpad-desktop-only shrink-0" aria-expanded="false" aria-controls="numpad-extra">
+      <svg class="dettagli-freccia" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      <span>${tCh('txPreferNumpad', __uiLang)}</span>
+    </button>
+    <div id="numpad-extra" class="numpad-extra cc-numpad-desktop-only shrink-0" inert><div>
+    <div class="numpad-grid" tabindex="0" aria-label="${tCh('txNumpadAria', __uiLang)}">
+      ${[7,8,9,4,5,6,1,2,3].map(n=>`<button type="button" class="numpad-key h-full min-h-0" data-num="${n}">${n}</button>`).join('')}
+      <div></div>
+      <button type="button" class="numpad-key h-full min-h-0" data-num="0">0</button>
+      <button type="button" class="numpad-key text-[var(--red)] font-black h-full min-h-0" data-num="DEL" aria-label="${tCh('txDelAria', __uiLang)}">DEL</button>
+    </div>
+    </div></div>
+    </div></details>
   </div>
 `;
 
@@ -887,7 +915,10 @@ const getTxFormHTML = () => `
 // differenza di `.save-btn` che è solo lo stile condiviso — vedi "Copia
 // Token" più sotto nel file, stessa classe di stile, bottone diverso).
 const getTxFormFooterHTML = () => `
+  <div class="command-footer-actions">
+  <button type="button" class="command-cancel">${tCh('catAnnulla', __uiLang)}</button>
   <button type="button" class="save-btn tx-save-btn mt-3 shrink-0" disabled>${tCh('txConfirm', __uiLang)}</button>
+  </div>
 `;
 
 const attachFormListeners = (container, prefill = null) => {
@@ -918,6 +949,7 @@ const attachFormListeners = (container, prefill = null) => {
   // comune a form+piè di pagina in ciascun contesto; senza nessuno dei due
   // (caso non dovrebbe capitare) resta `container` stesso.
   const formRoot = container.closest('#modal-container') || container.closest('#desktop-sidebar') || container;
+  formRoot.querySelector('.command-cancel')?.addEventListener('click', () => closeModal());
   container.querySelector('.command-plan').onclick = () => {
     const draft = { type, amount:Number(rawVal) || 0, category:catId, description:container.querySelector('#tx-desc')?.value || '', date:giornoLocale(selectedDate), currency };
     if (container.closest('#modal-container')) commandTransactionDraft = draft;
@@ -994,6 +1026,10 @@ const attachFormListeners = (container, prefill = null) => {
   const updateSaveBtn = () => {
     const btn = formRoot.querySelector('.tx-save-btn');
     if (!btn) return;
+    container.querySelectorAll('.type-toggle-pill').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === type)));
+    const selectedCategory = catId ? getCatById(catId) : null;
+    const categoryValue = container.querySelector('.command-category-value');
+    if (categoryValue) categoryValue.textContent = selectedCategory ? catName(selectedCategory, __uiLang) : '';
     const importoOk = parseFloat(rawVal) > 0;
     btn.disabled = !(importoOk && catId);
     btn.textContent = !importoOk ? tCh('txNeedAmount', __uiLang)
@@ -1067,15 +1103,15 @@ const attachFormListeners = (container, prefill = null) => {
   // A ogni cifra digitata mostra la CONSEGUENZA reale: quanto ti resta del tuo
   // "Oggi puoi spendere" (verde/ambra/rosso) e se è "più del solito" per la
   // categoria (dai tuoi dati). Calcolato FRESCO ad ogni tocco (mai stale, anche
-  // sul form desktop persistente). Solo uscite di OGGI e con budget: altrimenti
-  // tace (onestà: niente numeri fuori contesto). Non addestra da solo — è la
+  // sul form desktop persistente). Il residuo riguarda il mese selezionato;
+  // la stima giornaliera solo OGGI. Non addestra da solo — è la
   // conferma a farlo — ma rende l'inserimento una decisione informata.
   const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   const renderAmountImpact = () => {
     const el = container.querySelector('#amount-impact');
     if (!el) return;
     const amt = parseFloat(rawVal) || 0;
-    const hide = () => { el.style.opacity = '0'; el.innerHTML = ''; };
+    const hide = () => { el.classList.add('opacity-0'); el.style.opacity = '0'; el.innerHTML = ''; };
     if (type !== 'uscita' || amt <= 0) return hide();
     const parts = [];
     const now = new Date();
@@ -1084,13 +1120,13 @@ const attachFormListeners = (container, prefill = null) => {
     // dai segnali REALI del Core — safe-to-spend di oggi, PROIEZIONE di fine mese,
     // importo tipico per categoria. Cambiare modalità cambia DAVVERO cosa vedi.
     const mode = VaultDAO.state.aiAggression || 'advisor';
-    const budget = VaultDAO.state.monthlyBudget;
-    let safeToday = null, monthEndDelta = null, typical = null;
+    const budget = VaultDAO.state.budgetDeclined ? 0 : Number(VaultDAO.state.monthlyBudget);
+    let safeToday = null, weekRemaining = null, monthEndDelta = null, typical = null;
     if (sameDay(selectedDate, now)) {
       try {
         const monthTxs = VaultDAO.state.transactions[monthKey(now)] || [];
         const sts = getDailySafeToSpend({ monthTxs, allTx: VaultDAO.state.transactions, monthlyBudget: budget, referenceDate: now });
-        if (sts) safeToday = sts.safeToday;
+        if (sts) { safeToday = sts.safeToday; weekRemaining = sts.weekRemaining; }
         const proj = getMonthEndProjection({ monthTxs, monthlyBudget: budget, referenceDate: now });
         if (proj && typeof proj.projectedDelta === 'number') monthEndDelta = proj.projectedDelta;
       } catch (_) { /* nessun segnale giornaliero */ }
@@ -1098,13 +1134,28 @@ const attachFormListeners = (container, prefill = null) => {
     if (catId) {
       try { const hint = predictAmount(catId, desc?.value || '', VaultDAO.state.transactions); if (hint && hint.amount) typical = hint.amount; } catch (_) {}
     }
+    const budgetPreview = budgetAfterExpense({ budget, amount:amt, transactions:VaultDAO.state.transactions[monthKey(selectedDate)] || [], currency:currency || 'EUR' });
+    const money = value => new Intl.NumberFormat(__uiLocale, {style:'currency',currency:'EUR'}).format(value);
+    if (budgetPreview) {
+      const over = budgetPreview.overBy > 0;
+      parts.push(`<span class="command-budget-result" data-level="${over ? 'over' : 'ok'}"><span>${tCh(over ? 'txBudgetAfterOver' : 'txBudgetAfterLeft', __uiLang)}</span><strong>${money(over ? budgetPreview.overBy : budgetPreview.remaining)}</strong></span>`);
+      if (sameDay(selectedDate, now)) {
+        const impact = amountEntryImpact({safeToday,pendingAmount:amt});
+        if (impact.show) parts.push(`<span class="command-budget-daily" data-level="${impact.level === 'over' ? 'over' : 'ok'}">${tCh(impact.level === 'over' ? 'txDailyAfterOver' : 'txDailyAfterLeft', __uiLang)} ${money(impact.level === 'over' ? impact.overBy : impact.remaining)}</span>`);
+      }
+    }
+    if (budgetPreview && Number.isFinite(weekRemaining) && sameDay(selectedDate, now)) {
+      const week = amountEntryImpact({safeToday:weekRemaining,pendingAmount:amt});
+      if (week.show) parts.push(`<span class="command-budget-daily" data-level="${week.level === 'over' ? 'over' : 'ok'}">${tCh(week.level === 'over' ? 'txWeekAfterOver' : 'txWeekAfterLeft', __uiLang)} ${money(week.level === 'over' ? week.overBy : week.remaining)}</span>`);
+    }
     const brake = evaluateBrake(mode, { amount: amt, safeToday, monthEndDelta, typical, budget });
     if (brake.level !== 'ok' && brake.message) {
       const COL = brake.level === 'warn' ? 'text-rose-400' : 'text-amber-400';
       parts.push(`<span class="${COL}">${brake.message}</span>`);
     }
     if (!parts.length) return hide();
-    el.innerHTML = parts.join('<span class="opacity-40 mx-0.5">·</span>');
+    el.innerHTML = parts.join('');
+    el.classList.remove('opacity-0');
     el.style.opacity = '1';
   };
 
@@ -1225,11 +1276,11 @@ const attachFormListeners = (container, prefill = null) => {
         aiPanel.setAttribute('aria-hidden', 'false');
         aiPanel.classList.remove('anomalous');
         aiBtn.style.display = 'block';
-        
+
         // Real-time dynamic auto-categorization
         const predictedCatId = pred.cat;
         const predictedType = pCat.type;
-        
+
         if (type !== predictedType) {
           type = predictedType;
           container.querySelectorAll('.type-toggle-pill').forEach(b => b.classList.remove('active-expense','active-income','active-invest'));
@@ -1253,7 +1304,7 @@ const attachFormListeners = (container, prefill = null) => {
           chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }
         updateAmount();
-        
+
         aiBtn.onclick = () => {
           aiPanel.classList.remove('active');
         aiPanel.setAttribute('aria-hidden', 'true');
@@ -1325,6 +1376,8 @@ const attachFormListeners = (container, prefill = null) => {
   const apriDettagli = (apri) => {
     if (!dettagliExtra || !dettagliToggle) return;
     dettagliExtra.classList.toggle('aperto', apri);
+    dettagliExtra.inert = !apri;
+    if (apri) { const more = dettagliExtra.closest('.command-more'); if (more) more.open = true; }
     dettagliToggle.setAttribute('aria-expanded', apri ? 'true' : 'false');
   };
   if (dettagliToggle) {
@@ -1345,12 +1398,30 @@ const attachFormListeners = (container, prefill = null) => {
       haptic('light');
       const apri = !numpadExtra.classList.contains('aperto');
       numpadExtra.classList.toggle('aperto', apri);
+      numpadExtra.inert = !apri;
       numpadToggle.setAttribute('aria-expanded', apri ? 'true' : 'false');
     });
   }
 
+  container.querySelector('.command-new-category').onclick = () => { haptic('light'); openNewCatPanel(suggerisciNomeCategoria(desc?.value)); };
   const attachCatClick = () => {
     container.querySelectorAll('.cat-chip').forEach(c => {
+      if (c.dataset.catId !== '__nuova__') c.setAttribute('aria-pressed', String(c.classList.contains('selected')));
+      c.addEventListener('keydown', event => {
+        if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) return;
+        const list = c.parentElement;
+        const chips = [...list.querySelectorAll('.cat-chip')].filter(el => el.getClientRects().length > 0);
+        const index = chips.indexOf(c);
+        const layout = getComputedStyle(list);
+        const columns = layout.display === 'grid' ? layout.gridTemplateColumns.split(' ').length : 1;
+        const columnFlow = layout.display === 'grid' && layout.gridAutoFlow.includes('column');
+        const rows = columnFlow ? layout.gridTemplateRows.split(' ').length : 1;
+        const step = {ArrowLeft:-rows,ArrowRight:rows,ArrowUp:columnFlow ? -1 : -columns,ArrowDown:columnFlow ? 1 : columns}[event.key];
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? chips.length - 1 : Math.max(0, Math.min(chips.length - 1, index + step));
+        event.preventDefault();
+        chips[next].focus({preventScroll:true});
+        chips[next].scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
+      });
       c.addEventListener('click', () => {
         // "+ Nuova" non e' una categoria: apre il pannello di creazione ed
         // esce, prima di toccare `catId` — altrimenti si "selezionerebbe"
@@ -1363,7 +1434,10 @@ const attachFormListeners = (container, prefill = null) => {
         haptic('light');
         AudioSynth.play('click');
         catId = c.dataset.catId;
-        container.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('selected'));
+        container.querySelectorAll('.cat-chip').forEach(el => {
+          el.classList.remove('selected');
+          if (el.dataset.catId !== '__nuova__') el.setAttribute('aria-pressed', String(el === c));
+        });
         c.classList.add('selected');
         // Risposta data: la domanda si fa da parte, come quella dell'importo.
         container.querySelector('#cat-domanda')?.classList.add('risposta-data');
@@ -1399,6 +1473,16 @@ const attachFormListeners = (container, prefill = null) => {
     const nomeInput = container.querySelector('#new-cat-nome');
     if (icona) { icona.innerHTML = catIconaScelta.svg; icona.style.setProperty('--icon-c', catColoreScelta); }
     if (nome) nome.textContent = (nomeInput?.value || '').trim() || tCh('catNomeCategoria', __uiLang);
+    container.querySelectorAll('.new-cat-emoji').forEach(button => {
+      const selected = button.dataset.icona === catIconaScelta.chiave;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    container.querySelectorAll('.new-cat-colore').forEach(button => {
+      const selected = button.dataset.colore === catColoreScelta;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
   };
 
   // ── SUGGERIMENTO PREDITTIVO ──
@@ -1407,29 +1491,14 @@ const attachFormListeners = (container, prefill = null) => {
   // Un piccolo dizionario di parole chiave, non un modello: onesto, e
   // funziona SOLO finche' l'utente non ha scelto un'icona di persona (da
   // quel momento la sua scelta vince sempre, la predizione tace).
-  const CAT_SUGGERIMENTI = {
-    cinema: ['cinema', 'film', 'netflix', 'streaming'],
-    gioco: ['gioco', 'giochi', 'videogioch', 'playstation', 'xbox', 'steam'],
-    libri: ['libro', 'libri', 'lettura', 'kindle'],
-    viaggi: ['viaggio', 'viaggi', 'volo', 'aereo', 'hotel', 'vacanz', 'treno'],
-    animali: ['cane', 'gatto', 'animal', 'veterinari', 'pet'],
-    salute: ['farmacia', 'medico', 'dentista', 'salute', 'palestra', 'medicin'],
-    regali: ['regalo', 'regali', 'compleanno', 'natale'],
-    casa: ['affitto', 'mutuo', 'casa', 'condomini', 'bolletta luce', 'bolletta gas'],
-    musica: ['musica', 'concerto', 'spotify', 'strument'],
-    bollette: ['bolletta', 'bollette', 'fattura', 'utenz', 'internet', 'telefono'],
-  };
   let iconaScelaManuale = false;
   // Fattorizzato: serve sia mentre si digita a mano, sia per suggerire
   // subito l'icona quando il pannello si apre gia' precompilato con un nome
   // preso dalla descrizione della spesa (vedi openNewCatPanel piu' sotto).
   const suggerisciIconaDaTesto = (testoGrezzo) => {
     if (iconaScelaManuale) return;
-    const testo = (testoGrezzo || '').toLowerCase();
-    if (!testo) return;
-    const trovata = Object.entries(CAT_SUGGERIMENTI).find(([, parole]) => parole.some((p) => testo.includes(p)));
-    if (!trovata) return;
-    const ic = CAT_ICONE.find((x) => x.chiave === trovata[0]);
+    const key = suggestCategoryIcon(testoGrezzo);
+    const ic = CAT_ICONE.find((x) => x.chiave === key) || CAT_ICONE[0];
     if (!ic || ic === catIconaScelta) return;
     catIconaScelta = ic;
     container.querySelectorAll('.new-cat-emoji').forEach((b) => b.classList.toggle('selected', b.dataset.icona === ic.chiave));
@@ -1467,11 +1536,13 @@ const attachFormListeners = (container, prefill = null) => {
     container.querySelector('.desc-input-wrap'),
     container.querySelector('.smart-toggles-row'),
     formRoot.querySelector('.tx-save-btn'),
+    formRoot.querySelector('.command-cancel'),
   ].filter(Boolean);
 
   const openNewCatPanel = (nomeSuggerito = '') => {
     const panel = container.querySelector('#new-cat-panel');
     if (!panel) return;
+    panel.parentElement.classList.add('category-editing');
     container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
     elementiDaNascondere().forEach((el) => el.classList.add('hidden'));
     const nomeInput = container.querySelector('#new-cat-nome');
@@ -1486,14 +1557,19 @@ const attachFormListeners = (container, prefill = null) => {
     // Reflow forzato per far ripartire l'animazione di apertura ogni volta,
     // anche se il pannello era gia' stato aperto e richiuso in questa sessione.
     panel.classList.remove('new-cat-in'); void panel.offsetWidth; panel.classList.add('new-cat-in');
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    panel.scrollIntoView({ behavior: 'instant', block: 'start' });
     // Se il nome e' gia' precompilato, si seleziona il testo invece di
     // limitarsi a mettere il cursore: chi vuole scrivere un nome diverso
     // lo fa con un tocco solo, non deve prima cancellare a mano.
-    setTimeout(() => { const el = container.querySelector('#new-cat-nome'); el?.focus(); el?.select(); }, 250);
+    if (window.matchMedia('(pointer:fine)').matches) {
+      nomeInput?.focus({ preventScroll: true });
+      nomeInput?.select();
+    } else panel.focus({ preventScroll: true });
   };
   const closeNewCatPanel = () => {
-    container.querySelector('#new-cat-panel')?.classList.add('hidden');
+    const panel = container.querySelector('#new-cat-panel');
+    panel?.classList.add('hidden');
+    panel?.parentElement.classList.remove('category-editing');
     elementiDaNascondere().forEach((el) => el.classList.remove('hidden'));
   };
 
@@ -1525,12 +1601,21 @@ const attachFormListeners = (container, prefill = null) => {
       aggiornaAnteprimaCat();
     });
   });
-  container.querySelector('#new-cat-nome')?.addEventListener('input', aggiornaAnteprimaCat);
+  container.querySelector('#new-cat-nome')?.addEventListener('input', () => {
+    container.querySelector('#new-cat-nome')?.removeAttribute('aria-invalid');
+    container.querySelector('#new-cat-error').textContent = '';
+    aggiornaAnteprimaCat();
+  });
+  container.querySelector('#new-cat-nome')?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); container.querySelector('#new-cat-crea')?.click(); }
+  });
 
   container.querySelector('#new-cat-crea')?.addEventListener('click', () => {
     const nomeInput = container.querySelector('#new-cat-nome');
-    const nome = (nomeInput?.value || '').trim();
+    const nome = (nomeInput?.value || '').trim().replace(/\s+/g, ' ');
     if (!nome) {
+      nomeInput?.setAttribute('aria-invalid', 'true');
+      container.querySelector('#new-cat-error').textContent = tCh('catNameRequired', __uiLang);
       // Niente inventato al posto del nome: si chiede di scriverlo, con un
       // piccolo scatto che dice "manca qualcosa" senza un testo d'errore.
       nomeInput?.classList.add('new-cat-shake');
@@ -1541,9 +1626,9 @@ const attachFormListeners = (container, prefill = null) => {
     // Un doppione silenzioso confonderebbe piu' di un avviso: se esiste gia'
     // una categoria con lo stesso nome (per questo tipo), non se ne crea
     // una seconda identica — si seleziona quella che c'e' gia'.
-    const esistente = getCatsByType(type).find((c) => c.name.toLowerCase() === nome.toLowerCase());
+    const esistente = getCatsByType(type).find((c) => [c.name, catName(c, __uiLang)].some(label => label.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase(__uiLocale) === nome.normalize('NFKC').toLocaleLowerCase(__uiLocale)));
     if (esistente) {
-      showToast(`Hai gia' una categoria "${esistente.name}".`, 'info');
+      showToast(tCh('catExistingSelected', __uiLang), 'info');
       closeNewCatPanel();
       container.querySelector(`[data-cat-id="${esistente.id}"]`)?.click();
       return;
@@ -1558,7 +1643,7 @@ const attachFormListeners = (container, prefill = null) => {
     // che l'utente ha appena inventato.
     try { window.momentumMeshNode?.shareCustomCategories(VaultDAO.state.customCategories, soloMieiDispositivi); } catch (_) {}
     haptic('heavy'); AudioSynth.play('success');
-    showToast(`Categoria "${nome}" creata.`, 'success');
+    showToast(tCh('catCreatedFeedback', __uiLang), 'success');
     closeNewCatPanel();
     if (nomeInput) nomeInput.value = '';
     catIconaScelta = CAT_ICONE[0]; catColoreScelta = CAT_PALETTE[0]; iconaScelaManuale = false;
@@ -1690,6 +1775,11 @@ const attachFormListeners = (container, prefill = null) => {
   };
   const amountInputEl = container.querySelector('#tx-amount-display');
   if (amountInputEl) {
+    amountInputEl.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      const save = formRoot.querySelector('.tx-save-btn');
+      if (save && !save.disabled) { event.preventDefault(); save.click(); }
+    });
     amountInputEl.addEventListener('input', () => {
       const pulito = sanitizeAmountInput(amountInputEl.value);
       if (pulito !== rawVal) { rawVal = pulito; haptic('light'); updateAmount(); }
@@ -1731,11 +1821,16 @@ const attachFormListeners = (container, prefill = null) => {
     // sparivano/venivano bloccate in "Dividi spese"). Senza il proprio form
     // (marker #tx-amount-display) il gestore deve tacere del tutto.
     if (!container.querySelector('#tx-amount-display')) { document.removeEventListener('keydown', onPhysicalKey); return; }
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     const modalContainer = document.getElementById('modal-container');
     const modalOpen = modalContainer && !modalContainer.classList.contains('hidden');
     const inModal = !!container.closest('#modal-container');
     const ae = document.activeElement;
+    // Native inputs own text editing, selection and cursor movement. Buttons
+    // own Enter/Space; neither must accidentally submit a transaction.
+    if (ae?.matches('input,textarea,select,button,a,summary,[contenteditable="true"],[role="button"]')) return;
+    if (container.querySelector('.category-editing') || container.closest('.category-editing')) return;
+    if (!container.getClientRects().length) return;
     const typingText = ae && ae.id === 'tx-desc';
     // Un ALTRO campo (fuori da questo form) ha il focus — es. "Chiedi a Momentum",
     // campi in Impostazioni: lì le cifre devono restare testo, non dirottarle.
@@ -1971,13 +2066,10 @@ const attachFormListeners = (container, prefill = null) => {
     updateAmount();
   }
   renderSplitPill(); // stato iniziale (con o senza prefill)
+  updateSaveBtn();
 
-  // Nel MODALE (mobile/tablet/desktop-shortcut) porto il focus sul tastierino:
-  // così la tastiera fisica scrive l'importo da subito e appare l'anello di
-  // focus (a11y). Nel form desktop persistente NON rubo il focus all'avvio.
-  if (container.closest('#modal-container')) {
-    setTimeout(() => { try { container.querySelector('.numpad-grid')?.focus({ preventScroll: true }); } catch (_) {} }, 60);
-  }
+  // The opener focuses the native amount input; no delayed focus may steal
+  // editing from the user or send it to the optional, collapsed keypad.
 };
 
 // Stato del "modello globale emergente" (src/mesh/update-ledger.js): rende
@@ -2283,9 +2375,11 @@ window.openPrefilledAdd = (prefill = {}) => {
 // posto — un secondo entry point che la riscrivesse a mano avrebbe rischiato
 // di divergere in silenzio dalla prima (esattamente il bug appena trovato).
 function focusAmountFieldTwice() {
+  const amt = document.querySelector('#modal-body #tx-amount-display');
+  if (!amt) return;
+  const initialValue = amt.value;
   const metti = () => {
-    const amt = document.getElementById('tx-amount-display');
-    if (!amt) return;
+    if (!amt.isConnected || !amt.getClientRects().length || document.activeElement === amt || amt.value !== initialValue) return;
     try {
       amt.focus({ preventScroll: true });
       amt.setSelectionRange(0, String(amt.value || '').length);
@@ -2396,13 +2490,12 @@ window.dismissDemo = () => {
   VaultDAO.state.demoDismissed = true;
   VaultDAO.state.demoTransactions = [];
   VaultDAO.save();
-  showToast(tCh('demoDismissedToast', __uiLang), 'success');
   renderDashboard();
   // `forzato`: questo è un tocco ESPLICITO ("voglio i miei numeri, non
   // l'esempio"), quindi la richiesta di budget/stipendio non può essere
   // saltata perché un ALTRO ingresso aveva già consumato il flag "una volta
   // sola" — vedi askRealNumbers.
-  askRealNumbers({ forzato: true });
+  if (!askRealNumbers({ forzato: true, onComplete: openTransactionModal })) openTransactionModal();
 };
 
 // BUG REALE segnalato dagli utenti (2026-09-03): da qui in poi budget e
@@ -2437,19 +2530,21 @@ window.dismissDemo = () => {
 // si chiede solo quello.
 // `freshStartPrompted` resta, ma solo come freno all'ingresso PROATTIVO
 // (quello automatico dopo 3 spese): quello non deve mai diventare assillante.
-function askRealNumbers({ forzato = false } = {}) {
+function askRealNumbers({ forzato = false, onComplete = null } = {}) {
   const da = numeriDaChiedere(VaultDAO.state, { forzato }); // regola pura e testata
-  if (!da.length) return;
+  if (!da.length) return false;
   VaultDAO.state.freshStartPrompted = true;
   VaultDAO.save();
   setTimeout(() => {
+    const finish = () => { renderDashboard(); if (onComplete) onComplete(); };
     const chiediStipendio = () => {
-      if (!da.includes('stipendio')) { renderDashboard(); return; }
-      window.openSalaryEditor(() => { renderDashboard(); });
+      if (!da.includes('stipendio')) { finish(); return; }
+      window.openSalaryEditor(finish);
     };
     if (!da.includes('budget')) { chiediStipendio(); return; }
     window.openBudgetEditor(chiediStipendio);
   }, 500);
+  return true;
 }
 
 // ── I NUMERI VERI SPENGONO L'ESEMPIO ────────────────────────────────────────
@@ -2696,6 +2791,7 @@ const isoDay = giornoLocale;
 function renderWeekTapHint() {
   const hint = document.getElementById('week-tap-hint');
   if (!hint) return;
+  if (__addHintRenderedThisLoad || shouldShowAddHint(VaultDAO.state)) { hint.classList.add('hidden'); return; }
   const count = VaultDAO.state.weekTapHintShownCount || 0;
   if (count >= 2) { hint.classList.add('hidden'); return; }
   hint.classList.remove('hidden');
@@ -2712,6 +2808,20 @@ function spegniWeekTapHintPerSempre() {
     VaultDAO.state.weekTapHintShownCount = 2;
     VaultDAO.save();
   }
+}
+
+function calendarPeriodSummary(spent, budget, week = false, selected = VaultDAO.state.currentDate) {
+  const position = calendarPosition(selected, new Date(), week);
+  const knownBudget = Number.isFinite(budget) && budget > 0;
+  const remaining = budget - spent;
+  const over = knownBudget && remaining < 0;
+  const progress = knownBudget ? Math.max(0, Math.min(100, spent / budget * 100)) : null;
+  const label = knownBudget ? (over ? 'dashWeekOverLabel' : week ? 'dashWeekLeftLabel' : 'homeMonthLeft') : 'dashWeekSpent';
+  const value = knownBudget ? Math.abs(remaining) : spent;
+  return `<div class="calendar-period-summary" data-budget="${knownBudget}" data-over="${over}">
+    <div class="calendar-budget-orbit" aria-hidden="true"><svg viewBox="0 0 104 104" fill="none"><circle class="calendar-time-track" cx="52" cy="52" r="27"/><circle class="calendar-time-progress" cx="52" cy="52" r="27" pathLength="100" stroke-dasharray="${position.progress} 100" transform="rotate(-90 52 52)"/>${knownBudget ? `<circle class="calendar-orbit-track" cx="52" cy="52" r="40"/><circle class="calendar-orbit-progress" cx="52" cy="52" r="40" pathLength="100" stroke-dasharray="${progress} 100" transform="rotate(-90 52 52)"/>` : ''}<text class="calendar-ring-day" x="52" y="58" text-anchor="middle">${position.day}</text></svg></div>
+    <div class="calendar-period-value"><p class="t-etichetta">${tCh(label,__uiLang)}</p><p class="t-dato week-num font-mono">${formatMoney(value)}</p><p class="calendar-budget-caption">${knownBudget ? tCh('dashWeekSpentOf',__uiLang,formatMoney(spent),formatMoney(budget)) : tCh('homeBudgetUnset',__uiLang)}</p><div class="calendar-ring-legend">${knownBudget ? `<span class="calendar-ring-budget-label">${tCh('calendarBudgetUsed',__uiLang)} ${new Intl.NumberFormat(__uiLocale,{style:'percent',maximumFractionDigits:0}).format(spent/budget)}</span>` : ''}<span class="calendar-ring-time-label">${tCh('calendarDayPosition',__uiLang,position.day,position.total)}</span></div></div>
+  </div>`;
 }
 
 const renderDashboardWeekStrip = () => {
@@ -2872,21 +2982,7 @@ function renderDashWeekSummary(days, catWeek) {
   // Qui la domanda è una sola — "quanto mi resta per questa settimana" — e
   // il resto scende a nota. Chi non ha un budget vede l'unico numero che
   // esiste per lui: quanto ha speso.
-  let testa;
-  if (settimana && settimana.budget > 0) {
-    const sforato = settimana.remaining < 0;
-    const pct = Math.min(Math.round((settimana.spent / settimana.budget) * 100), 100);
-    const colore = sforato ? '#f43f5e' : (pct > 75 ? '#f59e0b' : '#10b981');
-    testa = `
-      <p class="t-etichetta mt-2">${sforato ? tCh('dashWeekOverLabel', __uiLang) : tCh('dashWeekLeftLabel', __uiLang)}</p>
-      <p class="t-dato t-dato-l week-num ${sforato ? 'text-rose-400' : 'text-emerald-400'}">${formatMoney(Math.abs(settimana.remaining))}</p>
-      <div class="budget-track" style="height:8px; margin-top:0.5rem;"><div class="budget-fill" style="width:${pct}%; background:${colore};"></div></div>
-      <p class="t-nota mt-1.5">${evidenziaNumeri(tCh('dashWeekSpentOf', __uiLang, formatMoney(speso), formatMoney(settimana.budget)))}</p>`;
-  } else {
-    testa = `
-      <p class="t-etichetta mt-2">${tCh('dashWeekSpent', __uiLang)}</p>
-      <p class="t-dato t-dato-l week-num">${formatMoney(speso)}</p>`;
-  }
+  const testa = calendarPeriodSummary(speso, settimana?.budget, true, days[0]);
 
   const catTop = Object.entries(catWeek).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const rigaCat = catTop.length ? `<div class="flex flex-wrap gap-x-3 gap-y-1 mt-2.5">
@@ -2946,40 +3042,29 @@ function renderDashWeekSummary(days, catWeek) {
 // (window.renderMonthCalendarInto), la prima volta che si apre — non ad ogni
 // render della Dashboard, che gira spesso e ridisegnerebbe un pannello
 // magari già aperto dall'utente per niente.
-window.__toggleMeseInDashboard = (btn) => {
-  haptic('light');
-  const wrap = document.getElementById('dash-month-wrap');
-  if (!wrap) return;
-  // La card che contiene tutta la striscia settimanale ha overflow:hidden
-  // sul markup fin dall'inizio (serve a contenere l'arco dei pianeti): se
-  // lasciato attivo anche a mese aperto, taglia pure i giorni sul bordo
-  // sinistro/destro del calendario, non solo quelli in alto/basso — bug
-  // reale, visto dal vivo, distinto da quello del wrap qui sotto.
+window.__setDashboardCalendarView = (view) => {
   const card = document.getElementById('dash-week-strip-card');
-  const apri = !wrap.classList.contains('aperto');
-  wrap.classList.toggle('aperto', apri);
-  btn.setAttribute('aria-expanded', apri ? 'true' : 'false');
-  if (apri) {
-    // Il bordo tondo resta tagliato finché l'accordion sta ancora
-    // "crescendo" (overflow:hidden necessario per l'animazione). Una volta
-    // a regime, i giorni vicino al bordo possono sollevarsi al passaggio
-    // del mouse senza essere dimezzati.
-    const onFine = (ev) => {
-      if (ev.target !== wrap || ev.propertyName !== 'max-height') return;
-      if (wrap.classList.contains('aperto')) {
-        wrap.classList.add('overflow-libero');
-        card?.classList.add('overflow-libero-card');
-      }
-      wrap.removeEventListener('transitionend', onFine);
-    };
-    wrap.addEventListener('transitionend', onFine);
-  } else {
-    wrap.classList.remove('overflow-libero');
-    card?.classList.remove('overflow-libero-card');
-  }
-  if (apri && !wrap.dataset.disegnato) {
-    wrap.dataset.disegnato = '1';
+  const month = document.getElementById('dash-month-wrap');
+  const week = document.getElementById('dash-week-panel');
+  if (!card || !month || !week || !['week','month'].includes(view)) return;
+  if (card.dataset.calendarView === view) return;
+  haptic('light');
+  card.dataset.calendarView = view;
+  week.hidden = view !== 'week';
+  month.hidden = view !== 'month';
+  month.classList.toggle('aperto', view === 'month');
+  card.querySelectorAll('[data-calendar-view]').forEach(button => {
+    const selected = button.dataset.calendarView === view;
+    button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
+  });
+  if (view === 'month') {
+    month.dataset.disegnato = '1';
     window.renderMonthCalendarInto('dash-month-grid');
+  }
+  const activePanel = view === 'month' ? month : week;
+  if (!motionIsReduced() && activePanel.animate) {
+    for (const animation of activePanel.getAnimations?.() || []) animation.cancel();
+    activePanel.animate([{opacity:0,transform: `translateX(${view === 'month' ? 8 : -8}px)`},{opacity:1,transform:'translateX(0)'}],{duration:240,easing:'cubic-bezier(.22,.8,.25,1)'});
   }
 };
 
@@ -3153,14 +3238,11 @@ window.openTransactionSchedule = (month, id) => {
   window.openPaymentEditor(null, existing || { key: 'manual:' + crypto.randomUUID(), name: tx.description || '', amount: tx.amount, kind: 'recurring', cadence: 'monthly', date: '', startDate: tx.date?.slice(0, 10) || '', sourceTxId: String(id) });
 };
 window.openPaymentAgenda = () => {
-  navigate('dashboard');
-  const panel = document.getElementById('transaction-recurring');
-  if (!panel) return;
-  panel.open = true;
-  panel.scrollIntoView({ behavior: motionIsReduced() ? 'instant' : 'smooth', block:'start' });
-  panel.querySelector('summary').focus({preventScroll:true});
+  renderTransactionRecurring();
+  window.openWorkspacePanel('transaction-recurring', 'recurringUpcoming');
 };
 window.openAgendaInCommandCenter = () => {
+  window.closeModal();
   navigate('dashboard');
   const input = document.getElementById('qa-input');
   if (!input) return;
@@ -3168,6 +3250,52 @@ window.openAgendaInCommandCenter = () => {
   input.scrollIntoView({ behavior: motionIsReduced() ? 'instant' : 'smooth', block: 'center' });
   input.focus({ preventScroll: true });
 };
+function renderSplitReminder() {
+  // ── PROMEMORIA DIVISIONE SPESE (integrazione intelligente, non invasiva):
+  // mostrato SOLO se c'è un saldo aperto in un gruppo. Verde = ti devono (bello,
+  // soldi in arrivo); ambra = devi tu (promemoria gentile, mai rosso/vergogna).
+  // Un tocco apre "I miei gruppi" per saldare. Nascosto quando non c'è nulla. ──
+  // Stesso schema del blocco sopra: aggiorna insieme la copia mobile e
+  // quella nel Command Center desktop, mai una sola.
+  const splitEls = document.querySelectorAll('#split-reminder');
+  if (splitEls.length) {
+    // Un gruppo nascosto localmente (hideLocally) non deve tornare a
+    // reclamare attenzione dal promemoria della Dashboard: è proprio quello
+    // che l'utente ha chiesto smettendo di volerlo vedere.
+    const sr = splitReminder(visibleGroups(VaultDAO.state.splitGroups || []), { deviceId: VaultDAO.state.deviceId, chatSeenAt: VaultDAO.state.chatSeenAt || {} });
+    // Quanto è fermo davvero, per la priorità della card (rilevanza-card.js):
+    // solo i soldi, non i messaggi — una chat non letta non è un credito.
+    window.__splitSospeso = (sr.show && sr.direction !== 'messages') ? Math.abs(+sr.amount || 0) : 0;
+    let splitHtml = '';
+    if (sr.show) {
+      const group = (VaultDAO.state.splitGroups || []).find(g => g.id === sr.groupId);
+      const money = formatSplitMoney(sr.amount, group, __uiLocale);
+      const message = sr.direction === 'messages';
+      const dispute = sr.direction === 'dispute';
+      const title = message ? tCh('dashSplitMsgCount',__uiLang,sr.count) : tCh(dispute ? 'splitNoticeDispute' : sr.direction === 'owed' ? 'splitNoticeOwed' : 'splitNoticeOwe',__uiLang);
+      const openDisputes = group ? chatStatus(group).discussioniAperte : 0;
+      const icons = {
+        owed:'<path d="M5 6v12h14M18 5l-8 8m0-6v6h6"/>',
+        owe:'<path d="M5 6v12h14M10 13l8-8m-6 0h6v6"/>',
+        dispute:'<path d="M5 4h14v13H9l-4 4zM12 8v4m0 2h.01"/>',
+        messages:'<path d="M5 4h14v13H9l-4 4zM8 8h8M8 12h5"/>',
+      };
+      const note = dispute ? tCh('splitNoticeGroupTotal',__uiLang) : !message && openDisputes > 0 ? tCh('splitNoticeExcluded',__uiLang) : '';
+      splitHtml = `<button type="button" class="split-notice" data-direction="${sr.direction}" data-action="open-split" data-split-group="${escapeHtml(sr.groupId)}">
+        <span class="split-notice-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icons[sr.direction] || icons.messages}</svg></span>
+        <span class="split-notice-main"><span class="split-notice-label">${escapeHtml(title)}</span>${message ? '' : `<strong class="split-notice-amount">${escapeHtml(money)}</strong>`}<span class="split-notice-group">${escapeHtml(sr.groupName)}${sr.groups > 1 ? `<small>${tCh('dashSplitOtherGroups',__uiLang,sr.groups-1)}</small>` : ''}</span>${note ? `<small class="split-notice-note">${escapeHtml(note)}</small>` : ''}</span>
+        <span class="split-notice-open" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg></span>
+        <span class="split-notice-footer"><span>${openDisputes > 0 ? escapeHtml(tCh('splitNoticePending',__uiLang,openDisputes)) : tCh('joinEyebrow',__uiLang)}</span><span>${tCh('splitNoticeOpen',__uiLang)}</span></span>
+      </button>`;
+    }
+    splitEls.forEach((splitEl) => {
+      splitEl.classList.toggle('hidden', !sr.show);
+      splitEl.innerHTML = splitHtml;
+    });
+  }
+
+}
+
 const renderDashboard = () => {
   try { renderTransactionRecurring(); } catch (error) { document.getElementById('transaction-recurring')?.classList.add('hidden'); console.warn('Recurring payments unavailable:', error); }
   // Ogni volta che la Dashboard si aggiorna è il momento in cui l'utente
@@ -3635,71 +3763,7 @@ const renderDashboard = () => {
     }
   }
 
-  // ── PROMEMORIA DIVISIONE SPESE (integrazione intelligente, non invasiva):
-  // mostrato SOLO se c'è un saldo aperto in un gruppo. Verde = ti devono (bello,
-  // soldi in arrivo); ambra = devi tu (promemoria gentile, mai rosso/vergogna).
-  // Un tocco apre "I miei gruppi" per saldare. Nascosto quando non c'è nulla. ──
-  // Stesso schema del blocco sopra: aggiorna insieme la copia mobile e
-  // quella nel Command Center desktop, mai una sola.
-  const splitEls = document.querySelectorAll('#split-reminder');
-  if (splitEls.length) {
-    // Un gruppo nascosto localmente (hideLocally) non deve tornare a
-    // reclamare attenzione dal promemoria della Dashboard: è proprio quello
-    // che l'utente ha chiesto smettendo di volerlo vedere.
-    const sr = splitReminder(visibleGroups(VaultDAO.state.splitGroups || []), { deviceId: VaultDAO.state.deviceId, chatSeenAt: VaultDAO.state.chatSeenAt || {} });
-    // Quanto è fermo davvero, per la priorità della card (rilevanza-card.js):
-    // solo i soldi, non i messaggi — una chat non letta non è un credito.
-    window.__splitSospeso = (sr.show && sr.direction !== 'messages') ? Math.abs(+sr.amount || 0) : 0;
-    let splitHtml = '';
-    if (sr.show && sr.direction === 'dispute') {
-      // Soldi bloccati in una spesa contestata (2026-08-27, segnalato
-      // dall'utente): il saldo qui sopra li esclude finché non è risolta,
-      // ma "invisibile in Dashboard" sarebbe peggio di "saldo zero" — sono
-      // soldi in sospeso, non soldi risolti. Stessa icona di allerta già
-      // usata nel dettaglio gruppo per le contestazioni, priorità sopra un
-      // semplice messaggio (qui riguarda soldi, non solo una chat).
-      splitHtml = `
-        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${tCh('dashSplitDisputeAria', __uiLang, formatMoney(sr.amount), sr.groupName)}"
-          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-amber-500/30 bg-amber-950/10 text-amber-100 active:scale-[0.98] transition-transform text-left">
-          <svg class="notify-pulse w-4 h-4 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-          <span class="min-w-0 flex-1 text-[13px]">${tCh('dashSplitDisputeText', __uiLang, formatMoney(sr.amount), sr.groupName, tCh('dashSplitDisputeCount', __uiLang, sr.count))}</span>
-          <span class="shrink-0 text-[11px] font-bold text-amber-400">${tCh('dashSplitSeeArrow', __uiLang)}</span>
-        </button>`;
-    } else if (sr.show && sr.direction === 'messages') {
-      // Nessun saldo aperto ma un messaggio mai visto (unreadCount,
-      // group-chat.js — scritta e testata ma mai collegata finora): stesso
-      // linguaggio visivo già usato per i contatori messaggi sulle righe
-      // spesa (icona fumetto + colore gold), non un nuovo stile.
-      splitHtml = `
-        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${tCh('dashSplitMsgAria', __uiLang, sr.groupName)}"
-          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-amber-100 active:scale-[0.98] transition-transform text-left">
-          <svg class="unread-badge-pop notify-pulse w-4 h-4 shrink-0 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          <span class="min-w-0 flex-1 text-[13px]">${tCh('dashSplitMsgCount', __uiLang, sr.count)} in <b>${sr.groupName}</b></span>
-          <span class="shrink-0 text-[11px] font-bold text-[var(--gold)]">${tCh('dashSplitReadArrow', __uiLang)}</span>
-        </button>`;
-    } else if (sr.show) {
-      const owed = sr.direction === 'owed';
-      const tone = owed
-        ? { bd: 'border-emerald-500/30', bg: 'bg-emerald-950/10', tx: 'text-emerald-200', ic: 'text-emerald-400' }
-        : { bd: 'border-amber-500/30', bg: 'bg-amber-950/10', tx: 'text-amber-200', ic: 'text-amber-400' };
-      const verb = owed ? tCh('dashSplitOwedVerb', __uiLang) : tCh('dashSplitOweVerb', __uiLang);
-      const extra = sr.groups > 1 ? `<span class="opacity-60">${tCh('dashSplitOtherGroups', __uiLang, sr.groups - 1)}</span>` : '';
-      const ico = owed
-        ? '<path d="M12 19V5M5 12l7-7 7 7"/>'        // freccia su = entra a te
-        : '<path d="M12 5v14M5 12l7 7 7-7"/>';       // freccia giù = esce da te
-      splitHtml = `
-        <button type="button" data-action="open-split" data-split-group="${sr.groupId}" aria-label="${tCh('dashSplitBalanceAria', __uiLang, verb, formatMoney(sr.amount), sr.groupName)}"
-          class="w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${tone.bd} ${tone.bg} ${tone.tx} active:scale-[0.98] transition-transform text-left">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 ${tone.ic}">${ico}</svg>
-          <span class="min-w-0 flex-1 text-[13px]"><b>${verb} ${formatMoney(sr.amount)}</b> in <b>${sr.groupName}</b>${extra}</span>
-          <span class="shrink-0 text-[11px] font-bold ${tone.ic}">${tCh('dashSplitSettleArrow', __uiLang)}</span>
-        </button>`;
-    }
-    splitEls.forEach((splitEl) => {
-      splitEl.classList.toggle('hidden', !sr.show);
-      splitEl.innerHTML = splitHtml;
-    });
-  }
+  renderSplitReminder();
 
   // ── SCOPERTA PARTITA IVA (2026-08-27) ────────────────────────────────────
   // Il dettaglio/calcolo vive in Momentum Vault (spostato via da Analisi
@@ -3713,11 +3777,11 @@ const renderDashboard = () => {
   const taxDiscoverEls = document.querySelectorAll('#tax-discover-card');
   if (taxDiscoverEls.length) {
     let showDiscover = false;
-    try { showDiscover = !VaultDAO.state.taxRegime && !hasInvoiceIncome() && !VaultDAO.state.noPartitaIva && !VaultDAO.state.onboardingProfile?.isMinor; } catch (_) { showDiscover = false; }
+    try { showDiscover = shouldSuggestTaxSetup(VaultDAO.state) && !hasInvoiceIncome(); } catch (_) { showDiscover = false; }
     const discoverHtml = showDiscover ? `
-      <div class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--gold)]/30 bg-amber-950/10 text-left">
+      <div class="tax-discovery-orbit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-[var(--gold)]"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-        <span class="min-w-0 flex-1 text-[13px]">${tCh('dashTaxDiscoverQuestion', __uiLang)} <button type="button" onclick="window.openTaxLevel1()" class="font-bold text-[var(--gold)] underline">${tCh('dashTaxDiscoverCta', __uiLang)}</button></span>
+        <div class="tax-discovery-copy"><strong>${tCh('vaultTaxTitle', __uiLang)}</strong><button type="button" onclick="window.openTaxLevel1()" class="tax-discovery-action"><span>${tCh('dashTaxDiscoverCta', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button></div>
       </div>` : '';
     taxDiscoverEls.forEach((el) => { el.classList.toggle('hidden', !showDiscover); el.innerHTML = discoverHtml; });
   }
@@ -3867,7 +3931,7 @@ const renderDashboard = () => {
     // un obiettivo (sei mesi) che da nessuna parte veniva detto. Ora la
     // risposta è nella stessa unità della domanda — i mesi che i soldi
     // messi via coprirebbero davvero.
-    const mesiCoperti = safetyBasis > 0 ? cumulativeReserve / safetyBasis : 0;
+    const mesiCoperti = safetyBasis > 0 ? Math.max(0, cumulativeReserve) / safetyBasis : 0;
     // Lo stesso numero serve a decidere quanto in alto sta questa card
     // (rilevanza-card.js). Si RIUSA quello appena calcolato invece di
     // rifarlo: due calcoli dello stesso mese di cuscinetto sono due numeri
@@ -4209,21 +4273,41 @@ window.toggleSound = () => {
   showToast("Feedback sonoro aggiornato.", "success");
 };
 
+function reminderDateAt(offset) {
+  const date = new Date(); date.setHours(12,0,0,0); date.setDate(date.getDate()+offset);
+  return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+}
+window.updateReminderQuickDates = () => {
+  document.querySelectorAll('[data-reminder-offset]').forEach(button => button.setAttribute('aria-pressed', String(document.getElementById('ev-date')?.value === reminderDateAt(Number(button.dataset.reminderOffset)))));
+};
+window.setReminderQuickDate = offset => {
+  if (![0,1,7].includes(offset)) return;
+  document.getElementById('ev-date').value = reminderDateAt(offset);
+  window.updateReminderQuickDates();
+};
+function renderPayrollSummary() {
+  const element = document.getElementById('payroll-known-summary');
+  const salary = VaultDAO.state.salaryProfile;
+  if (!element) return;
+  element.hidden = !(salary?.dayOfMonth && Number.isFinite(salary?.amount));
+  element.textContent = element.hidden ? '' : tCh('payrollKnown', __uiLang, salary.dayOfMonth, formatMoney(salary.amount));
+}
 window.addCalendarEvent = () => {
   try {
-    const title = $('#ev-title').value.trim();
-    const note = ($('#ev-note')?.value || '').trim();
-    const amountRaw = parseFloat($('#ev-amount').value);
-    const amount = (!isNaN(amountRaw) && amountRaw > 0) ? amountRaw : 0; // importo FACOLTATIVO
-    const dateStr = $('#ev-date').value;
-
-    // Serve almeno un cosa + una data. L'importo NON è obbligatorio: un
-    // appuntamento (dentista, riunione) è valido senza cifra.
-    if (!title || !dateStr) {
-      showToast("Scrivi cosa e quando (l'importo è facoltativo).", "error");
-      AudioSynth.play('friction');
+    const draft = parseReminderDraft({ title: $('#ev-title').value, date: $('#ev-date').value, amount: $('#ev-amount').value });
+    const errorEl = document.getElementById('reminder-error');
+    for (const id of ['ev-title','ev-date','ev-amount']) document.getElementById(id)?.removeAttribute('aria-invalid');
+    if (draft.error) {
+      const field = document.getElementById(draft.error === 'amount' ? 'ev-amount' : !$('#ev-title').value.trim() ? 'ev-title' : 'ev-date');
+      if (draft.error === 'amount') document.querySelector('.reminder-optional').open = true;
+      errorEl.hidden = false;
+      errorEl.textContent = tCh(draft.error === 'amount' ? 'reminderAmountError' : 'reminderRequired', __uiLang);
+      field?.setAttribute('aria-invalid','true'); field?.focus();
       return;
     }
+    errorEl.hidden = true;
+    const { title, amount, date: dateStr } = draft;
+    const note = ($('#ev-note')?.value || '').trim();
 
     const ev = {
       id: Date.now() + Math.random(),
@@ -4248,7 +4332,10 @@ window.addCalendarEvent = () => {
 
     window.renderCalendarEvents();
     AudioSynth.play('success');
-    showToast(amount > 0 ? "Scadenza pianificata." : "Appuntamento aggiunto.", "success");
+    showToast(tCh('reminderSaved', __uiLang), "success");
+    const composer = document.getElementById('reminder-composer');
+    if (composer) { composer.open = false; composer.querySelector('summary')?.focus(); }
+    window.updateReminderQuickDates();
   } catch(err) { console.error(err); }
 };
 
@@ -4542,9 +4629,12 @@ const renderAnalysis = (opts = {}) => {
 
   const budgetLimit = VaultDAO.state.monthlyBudget;
   $('#budget-spent').textContent = formatMoney(exp);
-  $('#budget-limit').textContent = tCh('alphaOfBudget', __uiLang, formatMoney(budgetLimit));
+  $('#budget-limit').textContent = budgetLimit > 0
+    ? tCh('alphaOfBudget', __uiLang, formatMoney(budgetLimit))
+    : tCh('alphaBudgetUnset', __uiLang);
   
   const bBar = $('#budget-progress');
+  bBar.parentElement.hidden = !(budgetLimit > 0);
   if (budgetLimit > 0) {
     const perc = Math.min((exp / budgetLimit) * 100, 100);
     bBar.style.width = `${perc}%`;
@@ -4613,22 +4703,23 @@ const renderAnalysis = (opts = {}) => {
     const ctx = chartEl.getContext('2d');
     if (window.catChart) {
       try { window.catChart.destroy(); } catch(e) {}
+      window.catChart = null;
     }
-    const labels = Object.keys(catTotals).map(id => getCatById(id).name);
+    const labels = Object.keys(catTotals).map(id => catName(getCatById(id), __uiLang));
     const data = Object.values(catTotals);
     const colors = Object.keys(catTotals).map(id => getCatById(id).color);
     if (data.length > 0 && typeof Chart !== 'undefined') {
       try {
         window.catChart = new Chart(ctx, {
           type: 'doughnut',
-          data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+          data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: getComputedStyle(chartEl).getPropertyValue('--surface-solid').trim() || '#15151c', borderRadius: 5, spacing: 2, hoverOffset: 8 }] },
           options: {
             responsive: true, maintainAspectRatio: false, cutout: '75%',
             plugins: { legend: { display: false } },
             // Ogni cambio mese ricrea il chart (destroy+new) → senza questo
             // l'animazione d'entrata sparisce dal secondo render in poi e i
             // segmenti "scattano". Curva morbida esplicita, sempre viva.
-            animation: { duration: 650, easing: 'easeOutQuart' },
+            animation: { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650, easing: 'easeOutQuart' },
             transitions: { active: { animation: { duration: 200 } } },
           }
         });
@@ -4644,16 +4735,68 @@ const renderAnalysis = (opts = {}) => {
   const legendEl = $('#category-chart-legend');
   if (legendEl) {
     const total = Object.values(catTotals).reduce((s, v) => s + v, 0);
-    const rows = Object.keys(catTotals).map(id => ({ id, name: getCatById(id).name, color: getCatById(id).color, amount: catTotals[id] }))
+    const rows = Object.keys(catTotals).map(id => ({ id, name: catName(getCatById(id), __uiLang), color: getCatById(id).color, amount: catTotals[id] }))
       .sort((a, b) => b.amount - a.amount);
+    const totalEl = document.getElementById('category-chart-total');
+    if (totalEl) totalEl.textContent = formatMoney(total);
     legendEl.innerHTML = rows.map(r => `
-      <div class="flex items-center gap-2 text-[11px]">
-        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${r.color}"></span>
-        <span class="text-[var(--on-surface-secondary)] truncate flex-grow">${r.name}</span>
-        <span class="text-slate-500 shrink-0">${total > 0 ? Math.round((r.amount / total) * 100) : 0}%</span>
-        <span class="font-mono font-bold shrink-0 w-16 text-right">${formatMoney(r.amount)}</span>
-      </div>`).join('');
+      <button type="button" class="spending-category-row" data-spending-category="${escapeHtml(r.id)}" aria-pressed="false" style="--category-accent:${escapeHtml(r.color)}">
+        <span class="spending-category-dot" style="background:${escapeHtml(r.color)}"></span>
+        <span class="spending-category-name">${escapeHtml(r.name)}</span>
+        <strong>${formatMoney(r.amount)}</strong>
+        <span class="spending-category-share">${total > 0 ? Math.round(r.amount / total * 100) : 0}%</span>
+        <span class="spending-category-track" aria-hidden="true"><span style="width:${total > 0 ? r.amount / total * 100 : 0}%;background:${escapeHtml(r.color)}"></span></span>
+        <span class="spending-row-insight">${tCh('spendingShare', __uiLang, Math.round(r.amount / (total || 1) * 100), txsVista.filter(tx => tx.type === 'uscita' && tx.category === r.id).length)}</span>
+      </button>`).join('');
   }
+
+  const selectSpendingCategory = id => {
+    if (id != null && categoryButtons.findIndex(button => button.dataset.spendingCategory === id) >= 5) {
+      expandedCategories = true;
+      updateCategoryList();
+    }
+    const category = id == null ? null : getCatById(id);
+    const total = Object.values(catTotals).reduce((sum, value) => sum + value, 0);
+    const amount = category ? catTotals[id] : total;
+    const label = document.getElementById('category-chart-label');
+    if (label) label.textContent = category ? catName(category, __uiLang) : tCh('spendingTotal', __uiLang);
+    if (document.getElementById('category-chart-total')) document.getElementById('category-chart-total').textContent = formatMoney(amount || 0);
+    legendEl?.querySelectorAll('[data-spending-category]').forEach(button => button.setAttribute('aria-pressed',String(button.dataset.spendingCategory === id)));
+    const detail = document.getElementById('spending-focus');
+    const count = txsVista.filter(tx => tx.type === 'uscita' && (!category || tx.category === id)).length;
+    if (detail) detail.textContent = category
+      ? tCh('spendingShare', __uiLang, Math.round((amount || 0) / (total || 1) * 100), count)
+      : tCh(total > 0 ? 'spendingExplore' : 'spendingEmpty', __uiLang);
+    const reset = document.getElementById('spending-focus-reset');
+    if (reset) reset.hidden = !category;
+    if (window.catChart) {
+      window.catChart.setActiveElements(category ? [{datasetIndex:0,index:Object.keys(catTotals).indexOf(id)}] : []);
+      window.catChart.update('none');
+    }
+  };
+  if (legendEl) legendEl.onclick = event => {
+    const button = event.target.closest('[data-spending-category]');
+    if (button) selectSpendingCategory(button.getAttribute('aria-pressed') === 'true' ? null : button.dataset.spendingCategory);
+  };
+  const resetSpending = document.getElementById('spending-focus-reset');
+  if (resetSpending) resetSpending.onclick = () => { selectSpendingCategory(null); legendEl?.querySelector('button')?.focus(); };
+  if (window.catChart) window.catChart.options.onClick = (_event, elements) => {
+    if (elements.length) selectSpendingCategory(Object.keys(catTotals)[elements[0].index]);
+  };
+  let expandedCategories = false;
+  const categoryButtons = [...(legendEl?.querySelectorAll('[data-spending-category]') || [])];
+  const moreCategories = document.getElementById('spending-show-more');
+  const updateCategoryList = () => {
+    categoryButtons.forEach((button,index) => { button.hidden = !expandedCategories && index >= 5; });
+    if (moreCategories) { moreCategories.hidden = categoryButtons.length <= 5; moreCategories.setAttribute('aria-expanded',String(expandedCategories)); moreCategories.textContent = tCh(expandedCategories ? 'spendingLess' : 'spendingMore', __uiLang, categoryButtons.length - 5); }
+  };
+  if (moreCategories) moreCategories.onclick = () => {
+    expandedCategories = !expandedCategories;
+    if (!expandedCategories && categoryButtons.slice(5).some(button => button.getAttribute('aria-pressed') === 'true')) selectSpendingCategory(null);
+    updateCategoryList();
+  };
+  updateCategoryList();
+  selectSpendingCategory(null);
 
   // Predictions & Jar Fill
   const proj = PredictiveOracle.calculateProjections();
@@ -4665,7 +4808,7 @@ const renderAnalysis = (opts = {}) => {
     bandDisplay.textContent = tCh('alphaScenarios5y', __uiLang, formatMoney(proj.sim5y.p5), formatMoney(proj.sim5y.p95));
   }
   $('#discipline-score').textContent = tCh('alphaDiscipline', __uiLang, proj.discipline);
-  $('#forecast-jar-fill').style.height = `${proj.discipline}%`;
+
 
   // Aggiornamento progressivo: il worker ricalcola con l'ensemble
   // (linreg+AR2 pesati per backtest), Holt-Winters, GARCH e Monte Carlo
@@ -5107,10 +5250,10 @@ window.openRegistraAcquistoIva = () => {
         <p class="card-sub !mb-0 mt-1.5">Una spesa con fattura e IVA detraibile (materiali, strumenti, servizi) riduce davvero l'IVA da versare — non solo un promemoria.</p>
       </div>
       <div class="w-full flex flex-col gap-2.5 text-left">
-        <input id="acq-desc" type="text" placeholder="Cosa hai comprato (es. Laptop, hosting)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <input id="acq-desc" type="text" placeholder="Cosa hai comprato (es. Laptop, hosting)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="acq-desc" aria-label="Cosa hai comprato (es. Laptop, hosting)" />
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="acq-imponibile" type="number" inputmode="decimal" placeholder="Imponibile €" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
-          <input id="acq-data" type="date" value="${oggi}" max="${oggi}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="acq-imponibile" type="number" inputmode="decimal" placeholder="Imponibile €" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" name="acq-imponibile" aria-label="Imponibile €" />
+          <input id="acq-data" type="date" value="${oggi}" max="${oggi}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="acq-data" />
         </div>
         <div>
           <span class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Aliquota IVA sull'acquisto</span>
@@ -5126,7 +5269,7 @@ window.openRegistraAcquistoIva = () => {
       <div class="w-full flex items-center gap-2 text-[10px] text-[var(--on-surface-secondary)] uppercase tracking-wide">
         <div class="flex-1 h-px bg-[var(--glass-border)]"></div>oppure<div class="flex-1 h-px bg-[var(--glass-border)]"></div>
       </div>
-      <input id="acq-xml-input" type="file" accept=".xml" class="hidden" />
+      <input id="acq-xml-input" type="file" accept=".xml" class="hidden" name="acq-xml-input" />
       <button id="acq-xml-btn" type="button" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] text-sm">Importa fattura ricevuta (XML)</button>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug -mt-1">Il file che scarichi dal cassetto fiscale o ricevi dal fornitore: Momentum legge fornitore, data, imponibile e aliquota, e li registra da solo — resta sul tuo dispositivo, nessun upload.</p>
       ${(VaultDAO.state.acquistiIva || []).length ? `
@@ -5239,8 +5382,8 @@ window.openRegistraVersamento = (importoProposto = 0, etichetta = '') => {
         <h3 class="text-lg font-black leading-tight">L'hai versato?</h3>
         <p class="card-sub !mb-0 mt-1.5">${etichetta ? escapeHtml(etichetta) + '. ' : ''}Segnandolo qui smetto di contarlo fra quelli da mettere da parte, e sparisce dagli avvisi di ritardo.</p>
       </div>
-      <input id="vers-importo" type="number" inputmode="decimal" step="0.01" value="${escapeHtml(val)}" placeholder="Quanto hai versato (€)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
-      <input id="vers-nota" type="text" maxlength="60" placeholder="Nota (facoltativa): es. F24 giugno" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" />
+      <input id="vers-importo" type="number" inputmode="decimal" step="0.01" value="${escapeHtml(val)}" placeholder="Quanto hai versato (€)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" name="vers-importo" aria-label="Quanto hai versato (€)" />
+      <input id="vers-nota" type="text" maxlength="60" placeholder="Nota (facoltativa): es. F24 giugno" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" name="vers-nota" aria-label="Nota (facoltativa): es. F24 giugno" />
       <button onclick="window.registraVersamentoFiscale(document.getElementById('vers-importo').value, document.getElementById('vers-nota').value)" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Sì, l'ho versato</button>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Se hai versato solo una parte, scrivi quella: il resto continuo a tenerlo da conto.</p>
     </div>`);
@@ -6089,7 +6232,7 @@ window.openSwissSimulator = () => {
       </div>
       <div class="w-full flex items-center gap-2">
         <button type="button" id="ch-step-down" aria-label="-" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
-        <input id="ch-amount" type="number" inputmode="decimal" placeholder="${tCh('chSimPlaceholder', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+        <input id="ch-amount" type="number" inputmode="decimal" placeholder="${tCh('chSimPlaceholder', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" name="ch-amount" aria-label="${tCh('chSimPlaceholder', __chLang)}" />
         <button type="button" id="ch-step-up" aria-label="+" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
       <button id="ch-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('chSimCta', __chLang)}</button>
@@ -6178,7 +6321,7 @@ window.openSpainSimulator = () => {
       </div>
       <div class="w-full flex items-center gap-2">
         <button type="button" id="es-step-down" aria-label="-" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
-        <input id="es-amount" type="number" inputmode="decimal" placeholder="${tCh('esSimPlaceholder', __esLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+        <input id="es-amount" type="number" inputmode="decimal" placeholder="${tCh('esSimPlaceholder', __esLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" name="es-amount" aria-label="${tCh('esSimPlaceholder', __esLang)}" />
         <button type="button" id="es-step-up" aria-label="+" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
       <button id="es-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esSimCta', __esLang)}</button>
@@ -6268,21 +6411,21 @@ window.openCreateInvoiceCH = () => {
       </div>
       <div class="w-full flex flex-col gap-2.5 text-left">
         <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">${tCh('chInvYourData', __chLang)}</div>
-        <input id="ch-inv-iban" type="text" placeholder="${tCh('chInvIban', __chLang)}" value="${escapeHtml(prof.iban || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
-        <input id="ch-inv-name" type="text" placeholder="${tCh('chInvName', __chLang)}" value="${escapeHtml(prof.name || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <input id="ch-inv-iban" type="text" placeholder="${tCh('chInvIban', __chLang)}" value="${escapeHtml(prof.iban || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" name="ch-inv-iban" aria-label="${tCh('chInvIban', __chLang)}" />
+        <input id="ch-inv-name" type="text" placeholder="${tCh('chInvName', __chLang)}" value="${escapeHtml(prof.name || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="ch-inv-name" aria-label="${tCh('chInvName', __chLang)}" />
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="ch-inv-street" type="text" placeholder="${tCh('chInvStreet', __chLang)}" value="${escapeHtml(prof.street || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
-          <input id="ch-inv-bld" type="text" placeholder="${tCh('chInvBuilding', __chLang)}" value="${escapeHtml(prof.buildingNo || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-street" type="text" placeholder="${tCh('chInvStreet', __chLang)}" value="${escapeHtml(prof.street || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="ch-inv-street" aria-label="${tCh('chInvStreet', __chLang)}" />
+          <input id="ch-inv-bld" type="text" placeholder="${tCh('chInvBuilding', __chLang)}" value="${escapeHtml(prof.buildingNo || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="ch-inv-bld" aria-label="${tCh('chInvBuilding', __chLang)}" />
         </div>
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="ch-inv-cap" type="text" placeholder="${tCh('chInvCap', __chLang)}" value="${escapeHtml(prof.postalCode || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
-          <input id="ch-inv-city" type="text" placeholder="${tCh('chInvCity', __chLang)}" value="${escapeHtml(prof.town || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-cap" type="text" placeholder="${tCh('chInvCap', __chLang)}" value="${escapeHtml(prof.postalCode || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="ch-inv-cap" aria-label="${tCh('chInvCap', __chLang)}" />
+          <input id="ch-inv-city" type="text" placeholder="${tCh('chInvCity', __chLang)}" value="${escapeHtml(prof.town || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="ch-inv-city" aria-label="${tCh('chInvCity', __chLang)}" />
         </div>
         <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mt-1">${tCh('chInvClientSection', __chLang)}</div>
-        <input id="ch-inv-client" type="text" placeholder="${tCh('chInvClientName', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+        <input id="ch-inv-client" type="text" placeholder="${tCh('chInvClientName', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="ch-inv-client" aria-label="${tCh('chInvClientName', __chLang)}" />
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="ch-inv-amount" type="number" inputmode="decimal" placeholder="${tCh('chInvAmount', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" />
-          <input id="ch-inv-desc" type="text" placeholder="${tCh('chInvDesc', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" />
+          <input id="ch-inv-amount" type="number" inputmode="decimal" placeholder="${tCh('chInvAmount', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" name="ch-inv-amount" aria-label="${tCh('chInvAmount', __chLang)}" />
+          <input id="ch-inv-desc" type="text" placeholder="${tCh('chInvDesc', __chLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="ch-inv-desc" aria-label="${tCh('chInvDesc', __chLang)}" />
         </div>
       </div>
       <button id="ch-inv-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('chInvGenerate', __chLang)}</button>
@@ -6384,7 +6527,7 @@ window.openTaxLevel1Simulate = () => {
            browser (grigie, cambiano forma per OS, mai in stile con l'app). -->
       <div class="w-full flex items-center gap-2">
         <button type="button" id="tl1-step-down" aria-label="Diminuisci" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
-        <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" />
+        <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" name="tl1-amount" />
         <button type="button" id="tl1-step-up" aria-label="Aumenta" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
       <!-- Facoltativo: il coefficiente cambia molto il risultato per chi fa
@@ -6399,7 +6542,7 @@ window.openTaxLevel1Simulate = () => {
              sempre visibile, mai un'unica fonte di verità nostra. -->
         <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 mb-1">Descrivi in due parole cosa farai (es. "vendo online", "faccio l'elettricista") e trovo io il codice ATECO più vicino:</p>
         <div class="relative">
-          <input id="tl1-ateco-search" type="text" placeholder="Es. faccio consulenza informatica…" autocomplete="off" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" />
+          <input id="tl1-ateco-search" type="text" placeholder="Es. faccio consulenza informatica…" autocomplete="off" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" name="tl1-ateco-search" />
           <div id="tl1-ateco-hits" class="hidden mt-1.5 rounded-xl border border-[var(--glass-border)] bg-[var(--surface-elevated)] shadow-xl overflow-hidden max-h-56 overflow-y-auto"></div>
         </div>
         <div id="tl1-ateco-picked" class="hidden mt-2 rounded-xl border border-[var(--primary)] bg-[var(--primary)]/10 px-3 py-2 text-[11px] text-[var(--on-surface)] flex items-center justify-between gap-2">
@@ -6419,7 +6562,7 @@ window.openTaxLevel1Simulate = () => {
            ...Object.entries(CASSE_PROFESSIONALI).map(([k, v]) => ({ value: k, label: `${k.replace(/_/g, '/')} — ${v}` }))],
           '')}</div>
         <label class="flex items-center gap-2 mt-2 text-[11px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
-          <input type="checkbox" id="tl1-dipendente" class="w-3.5 h-3.5 rounded accent-[var(--primary)]" />
+          <input type="checkbox" id="tl1-dipendente" class="w-3.5 h-3.5 rounded accent-[var(--primary)]" name="tl1-dipendente" />
           Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria) — INPS al 24% invece di 26,07%
         </label>
       </details>
@@ -6886,9 +7029,26 @@ window.openSepaTransfer = (d = {}) => {
 // prefill (additivo, default vuoto): { amount, description } — dallo shortcut
 // "Dividi" nel form di aggiunta spesa, così chi ha già digitato importo e nota
 // non li ridigita qui (anti-attrito, stesso principio di openPrefilledAdd).
+function bindSplitMoneyInput(input, onChange) {
+  if (!input) return;
+  input.type = 'text'; input.inputMode = 'decimal'; input.autocomplete = 'off';
+  input.setAttribute('pattern', '[0-9]*[.,]?[0-9]{0,2}');
+  input.setAttribute('autocapitalize', 'off'); input.spellcheck = false;
+  let accepted = input.value;
+  input.addEventListener('input', () => {
+    const result = splitInputEdit(input.value, accepted);
+    if (input.value !== result.value) input.value = result.value;
+    input.setAttribute('aria-invalid', String(result.rejected));
+    if (result.rejected) { showToast(tSplit('invalid', __uiLang), 'error'); return; }
+    accepted = result.value; onChange(result.value);
+  });
+}
+
 window.openSplitExpense = (prefill = {}) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const eur = (n) => esc(formatSplitMoney(n, { baseCurrency: 'EUR' }, __uiLocale));
+  const tr = (key, ...values) => tSplit(key, __uiLang, ...values);
+
   const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
   const past = VaultDAO.state.splitGroups || [];
   // MODELLO INTUITIVO (feedback utente): due domande separate e chiare, non una
@@ -6898,50 +7058,42 @@ window.openSplitExpense = (prefill = {}) => {
   // quote diverse (chi ha consumato di più). Il totale è la somma dei versamenti.
   // Persone pre-compilate (es. da un comando vocale "dividi con Marco e Luca"):
   // "Io" c'è sempre e resta in testa; i nomi dettati arrivano già capitalizzati.
-  const prePeople = Array.isArray(prefill.people) && prefill.people.length
-    ? Array.from(new Set(['Io', ...prefill.people])) : ['Io'];
   const state = {
-    description: prefill.description || '',
-    people: prePeople,
-    paid: prefill.amount > 0 ? { Io: String(prefill.amount) } : {}, // quanto ha messo ciascuno
-    splitMode: 'equal',  // 'equal' | 'custom' — come si divide il COSTO
-    owed: {},            // per split custom: quanto DEVE (ha consumato) ciascuno
+    description: prefill.description || '', quickOpen: false, quickLine: '', stage: 'people',
+    people: ['Io'], names: {Io:'Io'},
+    paid: prefill.amount > 0 ? { Io: String(prefill.amount) } : {},
+    splitMode: 'equal', owed: {},
   };
+  const addDraftPerson = name => {
+    const clean = String(name ?? '').trim().slice(0,40);
+    if (!clean) return;
+    const id = crypto.randomUUID();
+    state.people.push(id); state.names[id] = clean;
+  };
+  for (const name of Array.isArray(prefill.people) ? prefill.people : []) if (name !== 'Io') addDraftPerson(name);
+  const participantNames = () => state.people.map(id => state.names[id]);
+  const personLabel = id => displayNames(state.people.map(key => ({id:key, name:key === 'Io' ? tr('me') : state.names[key]})))[id];
   const inputCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm min-w-0';
-  const num = (v) => parseFloat(String(v ?? '').replace(',', '.')) || 0;
+  const num = (v) => splitAmount(v) ?? 0;
   const paidOf = (p) => num(state.paid[p]);
   const total = () => state.people.reduce((s, p) => s + paidOf(p), 0);
   const owedSum = () => state.people.reduce((s, p) => s + num(state.owed[p]), 0);
   // Il conto è valido se qualcuno ha messo qualcosa e (per split a quote) le
   // quote di consumo tornano al totale.
-  const splitValid = () => {
-    const t = total(); if (!(t > 0)) return false;
-    if (state.splitMode === 'custom') return Math.abs(Math.round((owedSum() - t) * 100) / 100) < 0.01;
-    return true;
-  };
+  const splitValid = () => validSplitAmounts(state.people, state.paid, state.owed, state.splitMode);
 
+  const draftGroupId = crypto.randomUUID();
+  let groupCache = null;
+  let groupSignature = '';
   const buildGroup = () => {
-    let g = createGroup({ name: state.description || 'Spesa', members: state.people });
-    const t = total();
-    if (!(t > 0) || !splitValid()) return g;
-    const idOf = (p) => g.members[state.people.indexOf(p)].id;
-    // Frazione di COSTO dovuta da ciascuno (somma 1): equa o dai consumi.
-    const owedFrac = {};
-    if (state.splitMode === 'custom') state.people.forEach(p => owedFrac[p] = num(state.owed[p]) / t);
-    else state.people.forEach(p => owedFrac[p] = 1 / state.people.length);
-    // Una spesa per OGNI persona che ha messo qualcosa, ripartita per owedFrac.
-    // Sommando tutte: saldo = messo − dovuto (chi ha anticipato di più recupera).
-    state.people.forEach(p => {
-      const a = Math.round(paidOf(p) * 100) / 100;
-      if (a <= 0) return;
-      const byId = {}; let acc = 0;
-      state.people.forEach(q => { const s = Math.round(a * owedFrac[q] * 100) / 100; byId[idOf(q)] = s; acc += s; });
-      // Aggiusta il residuo di arrotondamento sull'ultima persona (somma esatta = a).
-      const diff = Math.round((a - acc) * 100) / 100;
-      if (Math.abs(diff) >= 0.01) { const last = idOf(state.people[state.people.length - 1]); byId[last] = Math.round((byId[last] + diff) * 100) / 100; }
-      g = addSharedExpense(g, { payer: idOf(p), amount: a, description: state.description, shares: { byId } });
+    const signature = JSON.stringify([state.people,state.names,state.paid,state.owed,state.splitMode,state.description]);
+    if (groupCache && groupSignature === signature) return groupCache;
+    groupCache = buildSplitDraft({
+      members: state.people.map(id => ({id,name:state.names[id]})), paid:state.paid, owed:state.owed,
+      mode:state.splitMode, name:state.description || tr('title'), id:draftGroupId, deviceId:VaultDAO.state.deviceId,
     });
-    return g;
+    groupSignature = signature;
+    return groupCache;
   };
 
   // La MIA parte reale (quanto ho consumato) = la somma di quanto devo in tutte
@@ -6951,24 +7103,49 @@ window.openSplitExpense = (prefill = {}) => {
     return g.expenses.reduce((s, e) => s + (e.owed?.[myId] || 0), 0);
   };
 
-  const render = () => {
+  const bindPreviewActions = () => {
+    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', async () => {
+      // Link alla divisione reale (brandizzato Momentum): l'amico apre e vede la
+      // sua parte. Generato dal gruppo corrente, distinto dal link "paga qui".
+      const group = buildGroup();
+      let mLink = ''; try { mLink = buildJoinLink(await buildRepaymentCode(group), group.name); } catch (_) {}
+      window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: state.description || tr('title'), momentumLink: mLink, onBack: () => render() });
+    }));
+    document.querySelectorAll('[data-tellamt]').forEach(b => b.addEventListener('click', async () => {
+      const group = buildGroup();
+      let mLink = ''; try { mLink = buildJoinLink(await buildRepaymentCode(group), group.name); } catch (_) { }
+      window.openRequestPayment({ amount: +b.dataset.tellamt, fromName: b.dataset.tellwho, note: state.description, momentumLink: mLink, direction: 'owe', onBack: () => render() });
+    }));
+    // Correggi/imposta lo stipendio usato per il timing (sempre modificabile).
+    $('#modal-body [data-editsalary]')?.addEventListener('click', () => window.openSalaryEditor(() => render()));
+  };
+
+  const render = (keepInputs = false) => {
     const t = total();
     // PREDITTIVO (proprietario): chi dividi di solito per QUESTO tipo di spesa,
     // in questo giorno — non la sola frequenza. Fallback a frequenza pura.
-    const ctx = predictCoSplitters(past, { description: state.description, date: new Date() }).filter(f => !state.people.includes(f.name));
-    const freq = (ctx.length ? ctx : frequentCoSplitters(past).filter(f => !state.people.includes(f.name))).slice(0, 4);
+    const ctx = predictCoSplitters(past, { description: state.description, date: new Date() }).filter(f => !participantNames().includes(f.name));
+    const freq = (ctx.length ? ctx : frequentCoSplitters(past).filter(f => !participantNames().includes(f.name))).slice(0, 4);
     // Posizione netta cross-gruppo con le persone già nel gruppo (il gap di Splitwise).
     const nets = netAcrossGroups(past).filter(n => state.people.includes(n.name));
     // Se con QUESTE persone dividi di solito NON equo (affitto 25/75), lo propongo.
-    const sharePred = state.people.length > 1 ? predictShares(past, state.people) : null;
+    const hasDuplicateNames = new Set(participantNames()).size !== state.people.length;
+    const unambiguousPast = past.filter(g => new Set(g.members.map(m => m.name)).size === g.members.length);
+    const sharePred = state.people.length > 1 && !hasDuplicateNames ? predictShares(unambiguousPast, participantNames()) : null;
     const canPreview = state.people.length > 1 && splitValid();
     const owedRemaining = Math.round((t - owedSum()) * 100) / 100;
-    const perHead = state.people.length ? Math.round((t / state.people.length) * 100) / 100 : 0;
+    const perHead = canPreview ? myShareFrom(buildGroup()) : 0;
+    const totalCents = Math.round(t * 100);
+    const equalFloor = Math.floor(totalCents / state.people.length) / 100;
+    const hasRemainder = totalCents % state.people.length !== 0;
+    const equalPreview = hasRemainder ? tr('shareRange', eur(equalFloor), eur(equalFloor + .01)) : eur(equalFloor);
+    const modeChoices = ['equal', 'custom'].map(mode => `<button type="button" class="split-mode-choice" data-splitmode="${mode}" aria-pressed="${state.splitMode === mode}"><span class="split-mode-symbol" data-kind="${mode}" aria-hidden="true"><i></i><i></i><i></i></span><span class="split-mode-copy"><strong>${tr(mode)}</strong><small id="sp-${mode}-caption" data-split-live>${mode === 'equal' ? tr('equalPreview', equalPreview) : tr('customPreview')}</small></span><span class="split-mode-check" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 10 3.5 3.5L15 6.5"/></svg></span></button>`).join('');
     let settleHtml = '';
     if (canPreview) {
       const g = buildGroup();
       const counts = settlementCounts(g);
-      const { transfers } = settlementView(g);
+      const transferNames = displayNames(g.members);
+      const transfers = settlementView(g).transfers.map(transfer => ({ ...transfer, fromName: transferNames[transfer.from], toName: transferNames[transfer.to] }));
       // PREDITTIVO (proprietario): con che cadenza dividi con ciascuno → per i
       // rimborsi PICCOLI con chi rivedi spesso, consiglio di NON inseguirli:
       // si compensano alla prossima divisione. Nessun concorrente lo fa.
@@ -6981,200 +7158,147 @@ window.openSplitExpense = (prefill = {}) => {
       const spentThisMonth = monthTxsNow.filter(x => x.type === 'uscita').reduce((s, x) => s + (+x.amount || 0), 0);
       const available = VaultDAO.state.monthlyBudget > 0 ? Math.round((VaultDAO.state.monthlyBudget - spentThisMonth) * 100) / 100 : null;
       const payDays = salary ? daysToNextPayday(salary, new Date()) : null;
-      const payLabel = salary ? nextPayday(salary, new Date()).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' }) : null;
+      const payLabel = salary ? nextPayday(salary, new Date()).toLocaleDateString(__uiLocale, { day: 'numeric', month: 'long' }) : null;
+      const otherRows = [];
       settleHtml = transfers.map(tr => {
-        const line = tr.toName === 'Io' ? `<b>${esc(tr.fromName)}</b> ti deve <b>${eur(tr.amount)}</b>`
-          : tr.fromName === 'Io' ? `Devi <b>${eur(tr.amount)}</b> a <b>${esc(tr.toName)}</b>`
-            : `<b>${esc(tr.fromName)}</b> deve ${eur(tr.amount)} a <b>${esc(tr.toName)}</b>`;
+        const line = tr.to === 'Io' ? tSplit('owesMe', __uiLang, `<b>${esc(tr.fromName)}</b>`, `<b>${eur(tr.amount)}</b>`)
+          : tr.from === 'Io' ? tSplit('iOwe', __uiLang, `<b>${eur(tr.amount)}</b>`, `<b>${esc(tr.toName)}</b>`)
+            : tSplit('owes', __uiLang, `<b>${esc(tr.fromName)}</b>`, eur(tr.amount), `<b>${esc(tr.toName)}</b>`);
         // Consiglio solo per i rimborsi che coinvolgono ME (la mia prospettiva).
-        const counter = tr.toName === 'Io' ? tr.fromName : tr.fromName === 'Io' ? tr.toName : null;
-        const adv = counter ? settleAdvice(intel, counter, tr.amount) : { tone: 'now' };
-        const iOwe = tr.fromName === 'Io';
+        const counter = tr.to === 'Io' ? tr.fromName : tr.from === 'Io' ? tr.toName : null;
+        const adv = counter && !hasDuplicateNames ? settleAdvice(intel, counter, tr.amount) : { tone: 'now' };
+        const iOwe = tr.from === 'Io';
         // Timing sul MIO debito quando non è il caso "aspetta si compensa".
         let timing = null;
         if (iOwe && adv.tone !== 'wait' && available != null) {
           const st = suggestSettleTiming({ amountDue: tr.amount, currentAvailable: available, nextIncome: (payLabel && salary) ? { date: payLabel } : null });
-          if (st.when === 'ora') timing = { txt: 'Puoi saldarlo ora senza restare a secco', tone: 'ok' };
-          else if (payLabel) timing = { txt: `Meglio dal ${payLabel}${payDays != null ? ` (tra ${payDays}g, l'accredito)` : ''}`, tone: 'wait' };
-          else timing = { txt: 'Meglio quando hai margine', tone: 'wait' };
+          if (st.when === 'ora') timing = { txt: tSplit('nowHint', __uiLang), tone: 'ok' };
+          else if (payLabel) timing = { txt: tSplit('laterHint', __uiLang, payLabel), tone: 'wait' };
+          else timing = { txt: tSplit('marginHint', __uiLang), tone: 'wait' };
         }
-        const act = adv.tone === 'wait'
-          ? `<span class="shrink-0 text-[11px] font-bold text-[var(--primary)]">✨ aspetta</span>`
-          : tr.toName === 'Io' ? `<button data-ask="${tr.amount}" data-who="${esc(tr.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
-            : tr.fromName === 'Io' ? `<button data-tellamt="${tr.amount}" data-tellwho="${esc(tr.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
+        const act = tr.to === 'Io' ? `<button data-ask="${tr.amount}" data-who="${esc(tr.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">${tSplit('ask', __uiLang)}</button>`
+            : tr.from === 'Io' ? `<button data-tellamt="${tr.amount}" data-tellwho="${esc(tr.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">${tSplit('notify', __uiLang)}</button>` : '';
         let hint = '';
-        if (adv.tone === 'wait') hint = `<div class="text-[10px] text-[var(--primary)] -mt-0.5 mb-1">${esc(adv.label)}</div>`;
-        else if (timing) hint = `<div class="text-[10px] -mt-0.5 mb-1 ${timing.tone === 'ok' ? 'text-emerald-400' : 'text-amber-400'}">${esc(timing.txt)}${salary ? ` · <button data-editsalary class="underline">${salary.source === 'manual' ? 'stipendio' : 'è giusto?'}</button>` : ''}</div>`;
-        return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] text-slate-200">${line}${act}</div>${hint}`;
+        if (adv.tone === 'wait') hint = `<div class="text-[10px] text-[var(--primary)] -mt-0.5 mb-1">${tSplit('waitHint', __uiLang)}</div>`;
+        else if (timing) hint = `<div class="text-[10px] -mt-0.5 mb-1 ${timing.tone === 'ok' ? 'text-emerald-400' : 'text-amber-400'}">${esc(timing.txt)}${salary ? ` · <button data-editsalary class="underline">${tSplit('editIncome', __uiLang)}</button>` : ''}</div>`;
+        const row = `<div class="split-settlement-row"><div>${line}</div>${act}${hint ? `<small>${hint}</small>` : ''}</div>`;
+        if (tr.to !== 'Io' && tr.from !== 'Io') { otherRows.push(row); return ''; }
+        return row;
       }).join('');
-      if (counts.saved > 0) settleHtml = `<div class="text-[11px] font-bold text-emerald-300 mb-1">Semplificato: ${counts.simplified} pagament${counts.simplified === 1 ? 'o' : 'i'} invece di ${counts.raw} (${counts.saved} in meno).</div>` + settleHtml;
+      if (otherRows.length) settleHtml += `<details class="split-fold split-other-transfers"><summary><span>${tr('others')}</span><span class="split-fold-count">${otherRows.length}</span><i aria-hidden="true"></i></summary><div class="split-fold-body">${otherRows.join('')}</div></details>`;
+      if (counts.saved > 0) settleHtml = `<div class="text-[11px] font-bold text-emerald-300 mb-1">${tr('simplified', counts.simplified, counts.raw)}</div>` + settleHtml;
     }
-    openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-        <div><h3 class="text-base font-black">Dividi una spesa</h3><p class="card-sub !mb-0">Scrivi una riga, o compila sotto — ti dico io chi deve dare quanto a chi.</p></div>
-        <!-- TRATTAMENTO VISIVO DELLA SCORCIATOIA (2026-09-04, richiesta esplicita):
-             prima era un campo identico a un normale input di testo, senza
-             nulla che segnalasse "qui capisco una frase intera" — stesso
-             linguaggio ✧ già usato per "PER COSA?" nel modulo di spesa, non
-             un'icona nuova di zecca, più un bordo leggermente acceso per
-             distinguerla dal campo descrizione "passo per passo" sotto. -->
-        <div class="card p-3 border-[color-mix(in_srgb,var(--primary)_25%,var(--glass-border))] relative">
-          <svg class="absolute right-3 top-3 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="var(--primary)" aria-hidden="true"><path d="M12 2l1.9 6.3L20 10l-6.1 1.7L12 18l-1.9-6.3L4 10l6.1-1.7L12 2z"/></svg>
-          <input id="sp-oneline" class="${inputCls}" placeholder="Prova: 60 cena io Marco Luca" autocomplete="off" />
-          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Importo, per cosa e con chi in una frase. Al resto penso io.</div>
-        </div>
-        <div class="flex items-center gap-2 text-[10px] text-[var(--on-surface-secondary)]"><span class="flex-1 h-px bg-[var(--glass-border)]"></span>oppure passo per passo<span class="flex-1 h-px bg-[var(--glass-border)]"></span></div>
-        <input id="sp-desc" value="${esc(state.description)}" class="${inputCls}" placeholder="Per cosa? (es. Cena, Casa al mare)" />
-        ${nets.length ? `<div class="card p-2.5 flex flex-col gap-1">
-          <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">In totale, con questi amici</div>
-          ${nets.map(n => `<div class="flex items-center justify-between text-[12px]"><span>${esc(n.name)}${n.groups > 1 ? ` <span class="opacity-50">(${n.groups} gruppi)</span>` : ''}</span><span class="font-bold ${n.net > 0 ? 'text-emerald-400' : 'text-amber-400'}">${n.net > 0 ? `ti deve ${eur(n.net)}` : `gli devi ${eur(-n.net)}`}</span></div>`).join('')}
-        </div>` : ''}
+    const invalidAmount = state.people.some(p => splitAmount(state.paid[p]) === null || (state.splitMode === 'custom' && splitAmount(state.owed[p]) === null));
+    const preview = `<div id="sp-preview" class="split-result" data-split-live aria-live="polite" aria-atomic="true"><span class="split-step-label">${tr('result')}</span>${canPreview ? (settleHtml || `<p>${tr('balanced')}</p>`) : `<p>${invalidAmount ? tr('invalid') : t > 0 && state.people.length > 1 ? tr('mismatch') : tr('incomplete')}</p>`}</div>`;
+    const html = `
+      <div class="split-expense-modal split-workspace task-editor" data-stage="${state.stage}">
+        <header class="split-header"><span class="split-emblem" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="24" cy="24" rx="22" ry="9" transform="rotate(-28 24 24)"/><circle cx="18" cy="20" r="5"/><circle cx="32" cy="23" r="4"/><path d="M9 35c0-9 18-9 18 0m1-1c0-5 12-5 12 0"/><circle cx="43" cy="15" r="2" fill="currentColor"/></svg></span><div><h3>${tr('title')}</h3><p>${tr('intro')}</p></div></header>
+        <div class="split-people-stage"><button id="sp-quick-toggle" type="button" class="split-quick-toggle" aria-expanded="${state.quickOpen}" aria-controls="sp-quick-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m12 3 2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2Z"/></svg>${tCh('splitLineLabel', __uiLang)}</button>
+        <div id="sp-quick-panel" class="split-quick-panel" ${state.quickOpen ? '' : 'hidden'}><label for="sp-oneline">${tCh('splitLineLabel', __uiLang)}</label><div class="split-inline-input"><input id="sp-oneline" class="${inputCls}" value="${esc(state.quickLine)}" placeholder="${esc(tCh('splitLineExample', __uiLang))}" autocomplete="off"/><button id="sp-apply-line" type="button">${tr('calculate')}</button></div><small>${tCh('splitLineHint', __uiLang)}</small></div>
+        <div class="split-purpose"><label class="split-field-label" for="sp-desc">${tCh('splitPurposeLabel', __uiLang)}</label><input id="sp-desc" maxlength="160" value="${esc(state.description)}" class="${inputCls}" placeholder="${esc(tCh('splitPurposeExample', __uiLang))}" name="sp-desc"/></div>
+        <section class="split-step"><header><h4><span aria-hidden="true">1</span>${tr('paid')}</h4><span id="sp-total" data-split-live class="split-total"><small>${tr('total')}</small><strong>${eur(t)}</strong></span></header>
+          <div class="split-people">${state.people.map((p,i) => `<div class="split-person-row"><span class="split-avatar" aria-hidden="true">${esc(personLabel(p).slice(0,1).toUpperCase())}</span><label for="sp-paid-${i}">${esc(personLabel(p))}</label><div class="split-money-input"><input id="sp-paid-${i}" data-paid="${esc(p)}" aria-label="${esc(tCh('splitPaidLabel', __uiLang))}: ${esc(personLabel(p))}" type="text" inputmode="decimal" value="${esc(state.paid[p] ?? '')}" placeholder="0"/><span aria-hidden="true">€</span></div>${p !== 'Io' ? `<button type="button" data-rm="${i}" class="split-remove" aria-label="${esc(tr('remove',personLabel(p)))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button>` : '<span class="split-remove-space"></span>'}</div>`).join('')}</div>
+          <div class="split-add-person"><label for="sp-newname">${tr('person')}</label><div class="split-inline-input"><input id="sp-newname" type="text" maxlength="40" placeholder="${tr('nameExample')}" autocomplete="off" enterkeyhint="done"/><button id="sp-add-person" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${tr('add')}</button></div></div>
+          <div id="sp-suggestions" data-split-live>${freq.length ? `<small>${tr('suggested')}</small><div class="split-people-suggestions">${freq.map(f => `<button type="button" data-add="${esc(f.name)}">${esc(f.name)}</button>`).join('')}</div>` : ''}</div><small>${tr('zeroHint')}</small>${hasDuplicateNames ? `<p class="split-identity-note">${tr('duplicates')}</p>` : ''}
+        </section>
+        </div><div class="split-result-stage"><button id="sp-edit-people" class="split-edit-people" type="button">${tr('editPeople')}</button><div id="sp-result-summary" data-split-live class="split-result-summary"><span>${tr('peopleCount',state.people.length)}</span><strong>${eur(t)}</strong></div><section class="split-step"><header><h4 id="sp-how-title"><span aria-hidden="true">2</span>${tr('how')}</h4></header><div class="split-mode-choices" role="group" aria-labelledby="sp-how-title">${modeChoices}</div><p class="split-share-meaning">${tr('shareMeaning')}</p>
+        ${state.splitMode === 'equal' ? `<div id="sp-per-head" class="split-per-head" data-split-live><span>${tr('yourShare')}</span><strong>${eur(perHead)}</strong></div>${hasRemainder ? `<small>${tr('roundingHint')}</small>` : ''}` : `<div class="split-custom"><p id="sp-shares-hint" data-split-live>${tr('sharesHint',eur(t))}</p>${sharePred ? `<button id="sp-usepred" type="button" class="split-usual">${tr('usual')} · ${state.people.map(p => `${esc(personLabel(p))} ${Math.round((sharePred.shares[state.names[p]] || 0) * 100)}%`).join(' · ')}</button>` : ''}${state.people.map((p,i) => `<div class="split-person-row split-custom-row"><label for="sp-owed-${i}">${esc(personLabel(p))}</label><div class="split-money-input"><input id="sp-owed-${i}" data-owed="${esc(p)}" aria-label="${esc(tr('shareLabel', personLabel(p)))}" type="text" inputmode="decimal" value="${esc(state.owed[p] ?? '')}" placeholder="0"/><span aria-hidden="true">€</span></div></div>`).join('')}<p id="sp-remaining" data-split-live class="split-remaining" data-valid="${splitValid()}">${invalidAmount ? tr('invalid') : Math.abs(owedRemaining) < 0.01 ? tr('exact') : owedRemaining > 0 ? tr('missing',eur(owedRemaining)) : tr('excess',eur(-owedRemaining))}</p></div>`}</section>
+        ${preview}
+        <div class="split-submit"><button id="sp-save" type="button" class="btn-action btn-primary" ${canPreview ? '' : 'disabled'} aria-describedby="sp-preview">${tr('save')}</button><button id="sp-share" type="button" ${canPreview ? '' : 'disabled'}>${tr('invite')}</button></div><p class="split-privacy-note">${tr('note')}</p></div><div class="split-next"><button id="sp-next" type="button" class="btn-action btn-primary" ${validSplitAmounts(state.people,state.paid,{},'equal') && state.people.length > 1 ? '' : 'disabled'}>${tr('next')}</button><small id="sp-next-total" data-split-live>${tr('peopleCount',state.people.length)} · ${eur(t)}</small></div>
+      </div>`;
+    if (keepInputs && document.querySelector('.split-expense-modal')) {
+      const template = document.createElement('template'); template.innerHTML = html;
+      for (const fresh of template.content.querySelectorAll('[data-split-live]')) document.getElementById(fresh.id)?.replaceWith(fresh);
+      for (const id of ['sp-save','sp-share']) document.getElementById(id).disabled = !canPreview;
+      $('#sp-next').disabled = !(validSplitAmounts(state.people,state.paid,{},'equal') && state.people.length > 1);
+      for (const input of document.querySelectorAll('[data-paid],[data-owed]')) input.setAttribute('aria-invalid', String(splitAmount(input.value) === null));
+      document.querySelectorAll('#sp-suggestions [data-add]').forEach(b => b.addEventListener('click', () => { addDraftPerson(b.dataset.add); render(); }));
+      bindPreviewActions();
+      return;
+    }
+    const oldScroll = document.querySelector('.split-expense-modal') ? $('#modal-body').scrollTop : 0;
+    openModal(html);
+    $('#modal-body').scrollTop = oldScroll;
+    $('#sp-next')?.addEventListener('click', () => { state.stage = 'result'; render(); $('#modal-body').scrollTop = 0; });
+    $('#sp-edit-people')?.addEventListener('click', () => { state.stage = 'people'; render(); $('#modal-body').scrollTop = 0; });
 
-        <!-- 1) CHI HA MESSO QUANTO: un campo € per persona, vuoto = non ha anticipato -->
-        <div class="card p-3 flex flex-col gap-2">
-          <div class="flex items-center justify-between">
-            <span class="eyebrow !mb-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1" fill="currentColor" stroke="none"/></svg>Chi ha messo quanto</span>
-            <span class="text-[11px] font-bold">Totale <span class="font-mono text-emerald-400">${eur(t)}</span></span>
-          </div>
-          ${state.people.map((p, i) => `<div class="flex items-center gap-2">
-            <span class="text-[13px] flex-1 truncate ${p === 'Io' ? 'font-bold' : ''}">${esc(p)}</span>
-            <div class="flex items-center gap-1 bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 focus-within:border-[var(--primary)]">
-              <input data-paid="${esc(p)}" type="text" inputmode="decimal" value="${esc(state.paid[p] ?? '')}" placeholder="0" class="w-16 bg-transparent py-1.5 text-sm font-mono text-right outline-none" />
-              <span class="text-[11px] text-[var(--on-surface-secondary)]">€</span>
-            </div>
-            ${p !== 'Io' ? `<button data-rm="${i}" class="text-[var(--on-surface-secondary)] opacity-60 hover:opacity-100 w-6 text-center" title="Togli ${esc(p)}">✕</button>` : '<span class="w-6"></span>'}
-          </div>`).join('')}
-          <div class="flex flex-wrap gap-2 mt-1 items-center">
-            ${freq.map(f => `<button data-add="${esc(f.name)}" title="${f.reason ? esc(f.reason) : 'Aggiungi'}" class="text-[11px] px-2.5 py-1 rounded-full border active:scale-95 transition-transform ${f.reason ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]' : 'border-dashed border-[var(--glass-border)] text-[var(--on-surface-secondary)]'}">+ ${esc(f.name)}${f.reason ? ' ✨' : ''}</button>`).join('')}
-            <input id="sp-newname" class="text-[12px] bg-black/30 border border-[var(--glass-border)] rounded-full px-3 py-1 w-28 min-w-0" placeholder="+ altra persona" />
-          </div>
-          ${freq.some(f => f.reason) ? `<div class="text-[10px] text-[var(--primary)]">✨ = suggerito dal contesto (${esc(freq.find(f => f.reason).reason)})</div>` : ''}
-          <div class="text-[10px] text-[var(--on-surface-secondary)]">Chi non ha anticipato niente? Lascia il suo campo a 0.</div>
-        </div>
-
-        <!-- 2) COME SI DIVIDE IL CONTO -->
-        <div class="flex flex-col gap-2">
-          <span class="eyebrow !mb-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.5 3.75"/></svg>Come si divide il conto</span>
-          <!-- SCOPRIBILITÀ E DESIGN (2026-09-04, richiesta esplicita): prima era
-               un flex gap-2 semplice — .segment-btn.active senza il suo
-               contenitore .segmented-control mostra solo un cambio di colore
-               sul testo, non un pulsante vero. Ora è lo STESSO componente con
-               pillola scorrevole già costruito per Essenziale/Completa e
-               Delicato/Consigliere/Deciso, non un terzo stile diverso. -->
-          <div class="segmented-control">
-            <button type="button" data-splitmode="equal" class="segment-btn ${state.splitMode === 'equal' ? 'active' : ''}">In parti uguali</button>
-            <button type="button" data-splitmode="custom" class="segment-btn ${state.splitMode === 'custom' ? 'active' : ''}">Chi ha consumato di più</button>
-          </div>
-          ${state.splitMode === 'equal' ? `<div class="card p-3 flex items-center justify-between">
-            <span class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 20c0-2 1.5-3.5 4-3.5"/></svg>Ognuno deve</span>
-            <span class="font-mono font-black text-lg text-emerald-400">${eur(perHead)}</span>
-          </div>` : `<div class="card p-3 flex flex-col gap-2">
-            <div class="text-[11px] text-[var(--on-surface-secondary)]">Quanto ha consumato ciascuno (deve tornare al totale ${eur(t)})</div>
-            ${sharePred ? `<button id="sp-usepred" class="text-[11px] font-bold text-[var(--primary)] text-left active:scale-95 transition-transform">✨ Usa le quote di sempre (${state.people.map(p => `${esc(p)} ${Math.round((sharePred.shares[p] || 0) * 100)}%`).join(' · ')})</button>` : ''}
-            ${state.people.map(p => `<div class="flex items-center gap-2"><span class="text-[13px] flex-1 truncate">${esc(p)}</span><div class="flex items-center gap-1 bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 focus-within:border-[var(--primary)]"><input data-owed="${esc(p)}" type="text" inputmode="decimal" value="${esc(state.owed[p] ?? '')}" placeholder="0" class="w-16 bg-transparent py-1.5 text-sm font-mono text-right outline-none" /><span class="text-[11px] text-[var(--on-surface-secondary)]">€</span></div></div>`).join('')}
-            ${t > 0 ? `<div class="text-[11px] font-bold text-right ${Math.abs(owedRemaining) < 0.01 ? 'text-emerald-400' : 'text-amber-400'}">${Math.abs(owedRemaining) < 0.01 ? 'Torna esatto ✓' : owedRemaining > 0 ? `Mancano ${eur(owedRemaining)}` : `${eur(-owedRemaining)} di troppo`}</div>` : ''}
-          </div>`}
-        </div>
-
-        ${canPreview && settleHtml ? `<div class="card p-3"><div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">Chi dà quanto a chi</div>${settleHtml}</div>` : ''}
-
-        <div class="flex gap-2">
-          <button id="sp-save" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva la divisione</button>
-          <button id="sp-share" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Invita</button>
-        </div>
-        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">100% sul tuo telefono, senza account. Invita un amico (anche lontano) con un link: le spese si uniscono senza server. I rimborsi li fai tu (QR, WhatsApp, IBAN) — Momentum non muove soldi.</p>
-      </div>`);
 
     // ── bind: ogni input a testo (type=text) così il ripristino del cursore
     // funziona su Chrome (i number non supportano selectionStart). ──
     const descEl = $('#sp-desc');
     descEl?.addEventListener('input', () => {
       state.description = descEl.value;
-      const caret = descEl.selectionStart; render();
-      const fresh = $('#sp-desc'); if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
+      render(true);
     });
     const oneLine = $('#sp-oneline');
-    oneLine?.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return; e.preventDefault();
+    const applyLine = () => {
       const parsed = parseSplitLine(oneLine.value);
-      if (!parsed) { showToast('Scrivi almeno un importo, es. "60 cena io Marco".', 'error'); return; }
+      if (!parsed) { showToast(tr('lineError'), 'error'); return; }
       if (parsed.description) state.description = parsed.description;
-      for (const p of parsed.people) if (!state.people.includes(p)) state.people.push(p);
+      for (const p of parsed.people) if (p !== 'Io' && !participantNames().includes(p)) addDraftPerson(p);
       // Chi scrive di solito è chi ha anticipato: metto il totale su "Io".
       if (parsed.amount > 0) state.paid['Io'] = String(parsed.amount);
-      render();
-    });
+      state.quickLine = oneLine.value; render();
+    };
+    oneLine?.addEventListener('input', () => { state.quickLine = oneLine.value; });
+    oneLine?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyLine(); } });
+    $('#sp-apply-line')?.addEventListener('click', applyLine);
+    $('#sp-quick-toggle')?.addEventListener('click', e => { state.quickOpen = !state.quickOpen; e.currentTarget.setAttribute('aria-expanded', String(state.quickOpen)); $('#sp-quick-panel').hidden = !state.quickOpen; if (state.quickOpen) oneLine.focus(); });
     {
-      // BUG REALE segnalato dal vivo (2026-08-17): il nome si salvava SOLO
-      // premendo Invio. Su touch non c'è un tasto Invio fisico ovvio — si
-      // scrive un nome, si tocca altrove (la prossima persona, l'importo,
-      // qualunque cosa) e il nome spariva in silenzio, senza nessun avviso.
-      // Ora si salva anche quando il campo perde il focus per qualunque
-      // motivo (tocco altrove), non solo su Invio esplicito. Il controllo
-      // `!state.people.includes(n)` evita un doppio inserimento se Invio e
-      // blur dovessero mai scattare entrambi per lo stesso nome.
+      // Aggiunta esplicita da touch o tastiera. Il blur non ricrea il modulo
+      // mentre un altro controllo sta ricevendo il tocco. Gli omonimi hanno ID diversi.
       const commitNewName = (e) => {
         const n = e.target.value.trim();
         if (!n) return;
-        if (!state.people.includes(n)) state.people.push(n);
+        e.target.value = '';
+        addDraftPerson(n);
         render();
       };
       const newNameInput = $('#sp-newname');
-      newNameInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') commitNewName(e); });
-      newNameInput?.addEventListener('blur', commitNewName);
+      newNameInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commitNewName(e); $('#sp-newname')?.focus({preventScroll:true}); } });
+      $('#sp-add-person')?.addEventListener('click', () => { commitNewName({target:newNameInput}); $('#sp-newname')?.focus({preventScroll:true}); });
     }
-    // Campi "ha messo €" — re-render live (aggiorna totale/anteprima) con cursore.
-    document.querySelectorAll('[data-paid]').forEach(inp => inp.addEventListener('input', () => {
-      state.paid[inp.dataset.paid] = inp.value;
-      const caret = inp.selectionStart; render();
-      const fresh = document.querySelector(`[data-paid="${CSS.escape(inp.dataset.paid)}"]`);
-      if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
-    }));
-    // Campi "ha consumato €" (split custom).
-    document.querySelectorAll('[data-owed]').forEach(inp => inp.addEventListener('input', () => {
-      state.owed[inp.dataset.owed] = inp.value;
-      const caret = inp.selectionStart; render();
-      const fresh = document.querySelector(`[data-owed="${CSS.escape(inp.dataset.owed)}"]`);
-      if (fresh) { fresh.focus(); try { fresh.setSelectionRange(caret, caret); } catch (_) {} }
-    }));
+    document.querySelectorAll('[data-paid]').forEach(inp => bindSplitMoneyInput(inp, value => { state.paid[inp.dataset.paid] = value; render(true); }));
+    document.querySelectorAll('[data-owed]').forEach(inp => bindSplitMoneyInput(inp, value => { state.owed[inp.dataset.owed] = value; render(true); }));
     $('#sp-usepred')?.addEventListener('click', () => {
       const t2 = total();
-      if (sharePred && t2 > 0) { state.people.forEach(p => { state.owed[p] = (Math.round((sharePred.shares[p] || 0) * t2 * 100) / 100).toFixed(2); }); render(); }
+      if (sharePred && t2 > 0) { state.people.forEach(p => { state.owed[p] = (Math.round((sharePred.shares[state.names[p]] || 0) * t2 * 100) / 100).toFixed(2); }); render(); }
     });
-    document.querySelectorAll('[data-splitmode]').forEach(b => b.addEventListener('click', () => { state.splitMode = b.dataset.splitmode; render(); }));
-    document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { if (!state.people.includes(b.dataset.add)) state.people.push(b.dataset.add); render(); }));
-    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; const removed = state.people[i]; delete state.paid[removed]; delete state.owed[removed]; state.people.splice(i, 1); render(); }));
-    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => {
-      // Link alla divisione reale (brandizzato Momentum): l'amico apre e vede la
-      // sua parte. Generato dal gruppo corrente, distinto dal link "paga qui".
-      let mLink = ''; try { mLink = buildJoinLink(encodeGroupShare(buildGroup())); } catch (_) {}
-      window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: state.description || 'la spesa divisa', momentumLink: mLink });
+    document.querySelectorAll('[data-splitmode]').forEach(b => b.addEventListener('click', () => {
+      const mode = b.dataset.splitmode;
+      if (mode === state.splitMode) return;
+      // Start from the exact equal allocation, including remainder cents.
+      // Switching away and back never overwrites a person's explicit shares.
+      if (mode === 'custom' && !Object.keys(state.owed).length && validSplitAmounts(state.people, state.paid, {}, 'equal')) {
+        const equalGroup = buildGroup();
+        state.owed = Object.fromEntries(state.people.map(id => [id, (equalGroup.expenses.reduce((sum, expense) => sum + Math.round((expense.owed[id] || 0) * 100), 0) / 100).toFixed(2)]));
+      }
+      state.splitMode = mode;
+      render();
+      document.querySelector(`[data-splitmode="${mode}"]`)?.focus({preventScroll:true});
     }));
-    document.querySelectorAll('[data-tellamt]').forEach(b => b.addEventListener('click', async () => {
-      const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tellamt)} per ${state.description || 'la spesa'}. Mandami l'IBAN così ti giro il bonifico!`;
-      try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { }
-    }));
-    // Correggi/imposta lo stipendio usato per il timing (sempre modificabile).
-    $('#modal-body [data-editsalary]')?.addEventListener('click', () => window.openSalaryEditor(() => render()));
+    document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { if (!participantNames().includes(b.dataset.add)) addDraftPerson(b.dataset.add); render(); }));
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.rm; const removed = state.people[i]; delete state.paid[removed]; delete state.owed[removed]; delete state.names[removed]; state.people.splice(i, 1); render(); }));
+    bindPreviewActions();
     $('#sp-save')?.addEventListener('click', () => {
-      if (total() <= 0 || state.people.length < 2) { showToast('Metti almeno un importo e due persone.', 'error'); return; }
-      if (!splitValid()) { showToast('Le quote di consumo non tornano al totale.', 'error'); return; }
+      if (total() <= 0 || state.people.length < 2) { showToast(tr('incomplete'), 'error'); return; }
+      if (!splitValid()) { showToast(tr('mismatch'), 'error'); return; }
       const g = buildGroup();
       VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
       // La MIA parte reale (quanto ho consumato) come spesa personale + addestra
       // il Core (categoria). learnFromSplit vive nel modulo split, testato.
       const { category, mine } = learnFromSplit(window.momentumOrchestrator, { description: state.description, myShare: myShareFrom(g), date: new Date() });
       const desc = state.description ? `${state.description} (la mia parte)` : 'Spesa condivisa (la mia parte)';
-      const res = VaultDAO.addTransaction(monthKey(new Date()), { id: Date.now(), amount: mine, type: 'uscita', category, description: desc, date: new Date().toISOString() }, { dedupWindowHours: 0.25 });
+      const res = mine > 0 ? VaultDAO.addTransaction(monthKey(new Date()), { id: Date.now(), amount: mine, type: 'uscita', category, description: desc, date: new Date().toISOString() }, { dedupWindowHours: 0.25 }) : { duplicate: true };
       try { if (!res.duplicate && window.momentumOrchestrator) window.momentumOrchestrator.learn(desc, category, mine, new Date()); } catch (_) { }
       VaultDAO.save();
       closeModal();
-      showToast(`Divisione salvata. La tua parte (${eur(mine)}) è nelle spese.`, 'success');
+      showToast(tr('saved', eur(mine)), 'success');
       renderDashboard(); renderAnalysis({ skipHeavyForecast: true });
     });
     $('#sp-share')?.addEventListener('click', async () => {
-      if (total() <= 0 || state.people.length < 2) { showToast('Metti almeno un importo e due persone prima di invitare.', 'error'); return; }
-      if (!splitValid()) { showToast('Le quote di consumo non tornano al totale.', 'error'); return; }
+      if (total() <= 0 || state.people.length < 2) { showToast(tr('incomplete'), 'error'); return; }
+      if (!splitValid()) { showToast(tr('mismatch'), 'error'); return; }
       const g = buildGroup();
       VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], { ...g, date: new Date().toISOString().slice(0, 10) });
       VaultDAO.save();
@@ -7231,23 +7355,6 @@ function catmullRomPath(points) {
 // QUANTO hai speso. Se l'interna "supera" l'esterna a colpo d'occhio, stai
 // correndo — nessuna parola necessaria, leggibile anche da un bambino.
 // Nessun'invenzione: senza `adaptive` (dati insufficienti) non si disegna nulla.
-function paceRingHtml(pctSpent, pctTime, [c1, c2]) {
-  const size = 64, stroke = 6.5, rOuter = 27, rInner = 18.5;
-  const cOuter = 2 * Math.PI * rOuter, cInner = 2 * Math.PI * rInner;
-  const offOuter = cOuter * (1 - Math.min(100, pctTime) / 100);
-  const offInner = cInner * (1 - Math.min(100, pctSpent) / 100);
-  return `
-    <svg viewBox="0 0 ${size} ${size}" class="ghost-ring w-14 h-14 shrink-0" aria-hidden="true">
-      <defs><linearGradient id="ghostRingGrad" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/>
-      </linearGradient></defs>
-      <circle cx="${size / 2}" cy="${size / 2}" r="${rOuter}" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="${stroke}"/>
-      <circle cx="${size / 2}" cy="${size / 2}" r="${rInner}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="${stroke}"/>
-      <circle cx="${size / 2}" cy="${size / 2}" r="${rOuter}" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${cOuter.toFixed(1)}" stroke-dashoffset="${offOuter.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>
-      <circle cx="${size / 2}" cy="${size / 2}" r="${rInner}" fill="none" stroke="url(#ghostRingGrad)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${cInner.toFixed(1)}" stroke-dashoffset="${offInner.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>
-    </svg>`;
-}
-
 // Icone di design coerenti con lo stile stroke dell'app (nessuna emoji).
 const ICON_IDEA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3 inline-block align-[-1px] mr-1"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2.3h6c0-1.1.4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg>`;
 const ICON_CHECK_SM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" class="w-2.5 h-2.5 inline-block align-[-1px]"><path d="M20 6L9 17l-5-5"/></svg>`;
@@ -7281,7 +7388,7 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
   } catch (_) { return ''; }
   if (!f || !f.known || !f.path?.length) return '';
 
-  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const eur = (n) => formatMoney(n);
   const [t1, t2] = tone;
 
@@ -7299,16 +7406,17 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
   // pieno = più tranquillo, si legge senza numeri. La banda prudente/fortunato
   // resta ma come guida sottile tratteggiata SOPRA, non come forma a sé che
   // competeva visivamente con l'area piena.
-  const W = 100, H = 52, PAD = 4;
+  const W = 640, H = 220, PAD = 16;
   const x = (i) => (i / (pts.length - 1)) * W;
   const y = (v) => PAD + (H - PAD * 2) - ((v - min) / span) * (H - PAD * 2);
 
   // curve MORBIDE (Catmull-Rom): continue come un'app finanziaria vera, non un
   // elettrocardiogramma di segmenti dritti.
   const medPts = pts.map((p, i) => ({ x: x(i), y: y(p.p50) }));
-  const lineD = catmullRomPath(medPts);
-  const topGuideD = catmullRomPath(pts.map((p, i) => ({ x: x(i), y: y(p.p90) })));
-  const botGuideD = catmullRomPath(pts.map((p, i) => ({ x: x(i), y: y(p.p10) })));
+  const plotPath = values => values.map((p,i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
+  const lineD = plotPath(medPts);
+  const topGuideD = plotPath(pts.map((p, i) => ({ x: x(i), y: y(p.p90) })));
+  const botGuideD = plotPath(pts.map((p, i) => ({ x: x(i), y: y(p.p10) })));
   // area piena: dalla linea mediana fino al fondo del grafico.
   const areaD = `${lineD} L${x(pts.length - 1).toFixed(2)},${(H - PAD).toFixed(2)} L${x(0).toFixed(2)},${(H - PAD).toFixed(2)} Z`;
 
@@ -7326,9 +7434,9 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
   // comunque nella frase sopra il grafico.
   if (valleIdx >= 0 && (valleIdx <= 1 || Math.abs(valleIdx - paydayIdx) <= 1)) valleIdx = -1;
   // posizioni in PERCENTUALE (W=100 e H coincidono con lo spazio del
-  // contenitore grazie a preserveAspectRatio="none"): le etichette-pillola
+  // contenitore grazie a preserveAspectRatio="xMidYMid meet"): le etichette-pillola
   // fuori dall'SVG si posizionano con le STESSE coordinate, senza conversioni.
-  const xPct = (i) => x(i);
+  const xPct = (i) => x(i) / W * 100;
   const yPct = (i) => (y(pts[i].p50) / H) * 100;
 
   // La leva si mostra solo se serve DAVVERO: quando c'è un giorno critico da
@@ -7351,7 +7459,8 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
   const lowConfidence = (f.confidence || 0) < 0.7
     ? `<p class="text-[11px] text-[var(--on-surface-secondary)] opacity-80 mt-1">Sto ancora imparando le tue abitudini: più giorni importi, più questa stima diventa precisa.</p>` : '';
 
-  const wrapOpen = standalone ? `<div class="mt-3 pt-3 border-t border-[var(--glass-border)]">` : `<div class="mt-2.5">`;
+  const riskAttribute = !f.relative && f.riskDay ? ' data-cash-risk="true"' : '';
+  const wrapOpen = standalone ? `<div class="cash-observatory"${riskAttribute}>` : `<div class="cash-observatory"${riskAttribute}>`;
   return `
     ${wrapOpen}
       <p class="text-[11.5px] leading-snug mb-2">${testa}</p>
@@ -7360,7 +7469,7 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
            percentuali di posizione delle pillole (calcolate su W/H dell'SVG)
            corrispondono esattamente ai suoi pixel, senza sfasamenti col padding. -->
       <div class="ghost-curve-wrap rounded-xl bg-black/15 pt-7 pb-5 px-0.5">
-        <div class="relative">
+        <div class="ghost-curve-plot relative">
         <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-24 ghost-curve-svg" aria-hidden="true">
           <defs>
             <linearGradient id="ghostAreaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -7371,14 +7480,15 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
               <stop offset="0%" stop-color="${t1}"/><stop offset="100%" stop-color="${t2}"/>
             </linearGradient>
           </defs>
-          <path d="${topGuideD}" fill="none" stroke="currentColor" stroke-width="0.3" opacity="0.22" stroke-dasharray="1.4 1.8" vector-effect="non-scaling-stroke"/>
-          <path d="${botGuideD}" fill="none" stroke="currentColor" stroke-width="0.3" opacity="0.22" stroke-dasharray="1.4 1.8" vector-effect="non-scaling-stroke"/>
-          ${paydayIdx > 0 ? `<line x1="${x(paydayIdx).toFixed(1)}" y1="${PAD}" x2="${x(paydayIdx).toFixed(1)}" y2="${(H - PAD).toFixed(1)}" stroke="#34d399" stroke-width="0.35" opacity="0.4" stroke-dasharray="1 1.6"/>` : ''}
+          <path d="${topGuideD}" fill="none" stroke="currentColor" stroke-width="1" opacity="0.22" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"/>
+          <path d="${botGuideD}" fill="none" stroke="currentColor" stroke-width="1" opacity="0.22" stroke-dasharray="1.4 1.8" vector-effect="non-scaling-stroke"/>
+          ${paydayIdx > 0 ? `<line x1="${x(paydayIdx).toFixed(1)}" y1="${PAD}" x2="${x(paydayIdx).toFixed(1)}" y2="${(H - PAD).toFixed(1)}" stroke="#34d399" stroke-width="1" opacity="0.4" stroke-dasharray="1 1.6"/>` : ''}
           <path d="${areaD}" fill="url(#ghostAreaGrad)"/>
+          <line data-cash-marker x1="0" x2="0" y1="0" y2="${H}" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4 4"/>
           <path d="${lineD}" fill="none" stroke="url(#ghostLineGrad)" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" class="ghost-curve-line"/>
-          <circle cx="${x(0).toFixed(1)}" cy="${y(pts[0].p50).toFixed(1)}" r="1.6" fill="var(--on-surface)"/>
-          ${valleIdx > 0 ? `<circle cx="${x(valleIdx).toFixed(1)}" cy="${y(pts[valleIdx].p50).toFixed(1)}" r="1.8" fill="#fbbf24" class="ghost-curve-dot"/>` : ''}
-          ${paydayIdx > 0 ? `<circle cx="${x(paydayIdx).toFixed(1)}" cy="${y(pts[paydayIdx].p50).toFixed(1)}" r="1.8" fill="#34d399" class="ghost-curve-dot"/>` : ''}
+          <circle cx="${x(0).toFixed(1)}" cy="${y(pts[0].p50).toFixed(1)}" r="4" fill="var(--on-surface)"/>
+          ${valleIdx > 0 ? `<circle cx="${x(valleIdx).toFixed(1)}" cy="${y(pts[valleIdx].p50).toFixed(1)}" r="4" fill="#fbbf24" class="ghost-curve-dot"/>` : ''}
+          ${paydayIdx > 0 ? `<circle cx="${x(paydayIdx).toFixed(1)}" cy="${y(pts[paydayIdx].p50).toFixed(1)}" r="4" fill="#34d399" class="ghost-curve-dot"/>` : ''}
         </svg>
         <!-- etichette-pillola posizionate SULLA curva, non in una riga a parte:
              si legge dove succede la cosa, non un legenda da decifrare. -->
@@ -7390,6 +7500,12 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
       </div>
       ${lever ? `<p class="text-[10.5px] mt-2 text-[var(--primary)]">${ICON_IDEA}${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
       ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se saldi subito i ${eur(f.withSplit.owed)} delle divisioni, chiudi a ${eur(f.withSplit.endP50)}.</p>` : ''}
+      <div class="cash-explorer" data-cash-points="${escapeHtml(JSON.stringify(pts.map(p => ({date:dayName(p.date),mid:eur(p.p50),low:eur(p.p10),high:eur(p.p90)}))))}">
+        <div class="cash-reading"><span data-cash-date>${dayName(pts[0].date)}</span><strong data-cash-value>${eur(pts[0].p50)}</strong></div>
+        <p class="cash-reading-kind">${tCh(f.relative ? 'cashRelative' : 'cashEstimated', __uiLang)}</p>
+        <input type="range" min="0" max="${pts.length - 1}" step="1" value="0" data-cash-scrub aria-label="${tCh('cashExplore', __uiLang)}" aria-valuetext="${escapeHtml(dayName(pts[0].date) + ': ' + eur(pts[0].p50))}" />
+        <p data-cash-band>${tCh('cashRange', __uiLang)}: ${eur(pts[0].p10)} – ${eur(pts[0].p90)}</p>
+      </div>
       ${lowConfidence}
       <details class="ghost-details mt-1">
         <summary class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">Cosa vuol dire il tratteggio?</summary>
@@ -7397,6 +7513,22 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
       </details>
     </div>`;
 }
+
+// The scrubber only reads the displayed forecast; it never writes financial state.
+document.addEventListener('input', event => {
+  if (!event.target.matches('[data-cash-scrub]')) return;
+  const root = event.target.closest('.cash-explorer');
+  const points = JSON.parse(root.dataset.cashPoints);
+  const point = points[Number(event.target.value)];
+  if (!point) return;
+  root.querySelector('[data-cash-date]').textContent = point.date;
+  root.querySelector('[data-cash-value]').textContent = point.mid;
+  root.querySelector('[data-cash-band]').textContent = tCh('cashRange', __uiLang) + ': ' + point.low + ' – ' + point.high;
+  event.target.setAttribute('aria-valuetext', point.date + ': ' + point.mid);
+  const marker = root.closest('.cash-observatory').querySelector('[data-cash-marker]');
+  const x = Number(event.target.value) / Math.max(1, points.length - 1) * 640;
+  marker?.setAttribute('x1', x); marker?.setAttribute('x2', x);
+});
 
 function renderGhostForecast() {
   const el = document.getElementById('ghost-forecast');
@@ -7485,14 +7617,9 @@ function renderGhostForecast() {
   const toneColor = { calm: 'text-emerald-400', soft: 'text-amber-300', warn: 'text-amber-400' }[paceTone];
   const toneHex = { calm: ['#34d399', '#5eead4'], soft: ['#fcd34d', '#fdba74'], warn: ['#fbbf24', '#fb7185'] }[paceTone];
   const toneBorder = { calm: 'border-emerald-500/25', soft: 'border-amber-500/25', warn: 'border-amber-500/35' }[paceTone];
-  // quanto del ciclo è già passato / già speso: due corone concentriche invece
-  // di una barra + tacca — lo stesso dato, ma come ICONA DI DESIGN (l'anello
-  // esterno = tempo passato, l'interno = quanto speso) invece di un'emoji o
-  // di testo da leggere. Nessuna invenzione: senza `adaptive` l'anello non si
-  // disegna (mostreremmo un dato non misurato).
-  const pctSpent = adaptive && adaptive.budget > 0 ? Math.min(100, Math.round((adaptive.spent / adaptive.budget) * 100)) : 0;
+  // Cycle timing remains in the forecast details; calendar rings use their own period.
   const pctTime = adaptive && adaptive.cycleLen > 0 ? Math.min(100, Math.round((adaptive.daysElapsed / adaptive.cycleLen) * 100)) : 0;
-  const ringHtml = adaptive ? paceRingHtml(pctSpent, pctTime, toneHex) : '';
+
 
   const paceLine = adaptive
     ? (adaptive.onTrack
@@ -7500,31 +7627,25 @@ function renderGhostForecast() {
       : `<b class="${toneColor}">${tCh('ghostRunningFast', __uiLang)}</b> <span class="text-[var(--on-surface-secondary)]">${tCh('ghostRunningFastDetail', __uiLang, eur(adaptive.spent), eur(adaptive.budget), eur(oggi))}</span>`)
     : `<span class="text-[var(--on-surface-secondary)]">${tCh('ghostNoAdaptive', __uiLang)}</span>`;
 
+  const curve = cashCurveHtml(commitments, salary, { standalone: false, tone: oggi !== null ? toneHex : undefined });
+  const overviewWasOpen = el.querySelector('.home-forecast-more')?.open;
+  const curveWasOpen = el.querySelector('.ghost-forecast-details')?.open;
   el.classList.remove('hidden');
   el.innerHTML = `
     <div class="ghost-card rounded-2xl border ${oggi !== null ? toneBorder : 'border-[var(--glass-border)]'} bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] p-4">
       <div class="flex items-center justify-between gap-2 mb-3">
-        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M9 14l2 2 4-4"/></svg>${tCh('ghostSectionTitle', __uiLang)}</span>
-        <button id="ghost-manage" class="text-[11px] font-bold text-[var(--primary)] px-2 py-1 -mr-1 rounded-lg min-h-[32px]">${tCh('ghostManageBtn', __uiLang)}</button>
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--on-surface-secondary)]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M9 14l2 2 4-4"/></svg>${tCh('homeToday', __uiLang)} · ${new Date().toLocaleDateString(__uiLocale, { day:'numeric', month:'short' })}</span>
+        <button id="ghost-manage" class="ghost-manage-control">${tCh('ghostManageBtn', __uiLang)}</button>
       </div>
 
       ${oggi !== null ? `
         <!-- IL NUMERO: uno solo, grande, accanto all'anello di ritmo. Il colore
              e il riempimento delle corone si leggono prima ancora del numero. -->
-        <div class="flex items-center justify-center gap-3">
-          ${ringHtml}
-          <div class="text-left">
-            <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">${tCh('dashOggiPuoiSpendere', __uiLang)}</div>
-            <div class="ghost-hero font-mono font-black text-[2.4rem] leading-none ${toneColor}">${eur(oggi)}</div>
-          </div>
+        <div class="allowance-orbit">
+          <div class="allowance-value"><span>${tCh('dashOggiPuoiSpendere', __uiLang)}</span><strong class="ghost-hero font-mono ${toneColor}">${eur(oggi)}</strong><p>${days === 1 ? tCh('ghostPayTomorrow', __uiLang) : tCh('ghostPayInDays', __uiLang, days)}</p></div>
+
         </div>
-        <div class="text-[11.5px] text-[var(--on-surface-secondary)] text-center mt-1.5">${days === 1 ? tCh('ghostPayTomorrow', __uiLang) : tCh('ghostPayInDays', __uiLang, days)}</div>
-        ${adaptive ? `<div class="flex items-center justify-center gap-3 mt-1.5 text-[11px] text-[var(--on-surface-secondary)]">
-          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full" style="background:linear-gradient(135deg,${toneHex[0]},${toneHex[1]})"></span>${tCh('ghostSpentLegend', __uiLang)}</span>
-          <span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-white/60"></span>${tCh('ghostTimeLegend', __uiLang)}</span>
-        </div>` : ''}
-        <p class="text-[10.5px] mt-2 leading-snug text-center">${paceLine}</p>
-        ${a.perWeek ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1 text-center">${tCh('ghostPerWeek', __uiLang, eur(a.perWeek))}</p>` : ''}
+        <p class="allowance-status">${tCh(adaptive ? (adaptive.onTrack ? 'ghostOnTrack' : 'ghostRunningFast') : 'ghostNoAdaptive', __uiLang)}</p>
       ` : stip !== null ? `
         <div class="text-center">
           <div class="text-[11px] text-[var(--on-surface-secondary)] mb-0.5">${tCh('ghostRemainingThisMonth', __uiLang)}</div>
@@ -7541,7 +7662,11 @@ function renderGhostForecast() {
         </div>
       `}
 
-      ${cashCurveHtml(commitments, salary, { standalone: false, tone: oggi !== null ? toneHex : undefined })}
+      <p class="ghost-estimate-note">${tCh('ghostEstimateShort', __uiLang)}</p>
+      <details class="home-forecast-more" ${overviewWasOpen || curve.includes('data-cash-risk="true"') ? 'open' : ''}><summary>${tCh('homePlanning', __uiLang)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary>
+      ${curve ? `<section class="cash-primary"><h4>${tCh('ghostForecastDetails', __uiLang)}</h4>${curve}</section><details class="ghost-forecast-details" ${curveWasOpen ? 'open' : ''}><summary>${tCh('cashDetails', __uiLang)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary><div class="allowance-rhythm"><p>${paceLine}</p>
+          ${adaptive ? `<div class="rhythm-facts"><span>${tCh('ghostSpentLegend', __uiLang)}<b>${adaptive.budget > 0 ? Math.round(adaptive.spent / adaptive.budget * 100) : 0}%</b></span><span>${tCh('ghostTimeLegend', __uiLang)}<b>${pctTime}%</b></span></div>` : ''}
+        </div>${a?.perWeek ? `<p class="ghost-week-comparison">${tCh('ghostPerWeek', __uiLang, eur(a.perWeek))}</p>` : ''}</details>` : ''}
 
       <!-- TUTTO IL RESTO A SCOMPARSA: c'è, ma non pesa sull'occhio -->
       <details class="ghost-details mt-3 group">
@@ -7560,6 +7685,7 @@ function renderGhostForecast() {
           ${endingMsg}
           <p class="text-[11px] text-[var(--on-surface-secondary)] mt-2 opacity-75">${tCh('ghostEstimateDisclaimer', __uiLang)}</p>
         </div>
+      </details>
       </details>
     </div>`;
   document.getElementById('ghost-manage')?.addEventListener('click', () => openCommitmentsManager(renderDashboard));
@@ -7599,15 +7725,15 @@ window.openCommitmentsManager = (onDone = null) => {
         ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('fcNoCommitments', __uiLang)}</p>`}
         <div class="card p-3 flex flex-col gap-2">
           <div class="eyebrow !mb-0"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${tCh('fcAddOne', __uiLang)}</div>
-          <div class="flex flex-wrap gap-1.5" id="fc-kinds">${KINDS.map((k, i) => `<button data-kind="${k[0]}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${i === 0 ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${k[1]}</button>`).join('')}</div>
-          <input id="fc-name" placeholder="${tCh('fcNamePlaceholder', __uiLang)}" class="bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm" />
-          <div class="flex gap-2">
-            <input id="fc-amt" inputmode="decimal" placeholder="${tCh('fcAmountPlaceholder', __uiLang)}" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
-            <input id="fc-day" inputmode="numeric" placeholder="${tCh('fcDayPlaceholder', __uiLang)}" class="w-24 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+          <div class="flex flex-wrap gap-1.5" id="fc-kinds">${KINDS.map((k, i) => `<button data-kind="${k[0]}" aria-pressed="${i === 0}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${i === 0 ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'} bg-black/20">${k[1]}</button>`).join('')}</div>
+          <label class="cosmos-form-field"><span>${tCh('agendaName', __uiLang)}</span><input id="fc-name" name="commitment-name" autocomplete="off" placeholder="${tCh('fcNamePlaceholder', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm" /></label>
+          <div class="commitment-fields">
+            <label class="cosmos-form-field"><span>${tCh('fcAmountPlaceholder', __uiLang)}</span><input id="fc-amt" name="commitment-amount" autocomplete="off" inputmode="decimal" placeholder="${new Intl.NumberFormat(__uiLang,{minimumFractionDigits:2}).format(0)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" /></label>
+            <label class="cosmos-form-field"><span>${tCh('fcDayPlaceholder', __uiLang)}</span><input id="fc-day" name="commitment-day" autocomplete="off" inputmode="numeric" placeholder="15" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" /></label>
           </div>
-          <div id="fc-term-wrap" class="hidden flex gap-2">
-            <input id="fc-start" type="date" class="flex-1 min-w-0 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-[13px] font-mono" />
-            <input id="fc-months" inputmode="numeric" placeholder="${tCh('fcTotalInstallmentsPlaceholder', __uiLang)}" class="w-28 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
+          <div id="fc-term-wrap" class="hidden commitment-fields">
+            <label class="cosmos-form-field"><span>${tCh('agendaStart', __uiLang)}</span><input id="fc-start" name="commitment-start" type="date" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm" /></label>
+            <label class="cosmos-form-field"><span>${tCh('fcTotalInstallmentsPlaceholder', __uiLang)}</span><input id="fc-months" name="commitment-months" autocomplete="off" inputmode="numeric" placeholder="12" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" /></label>
           </div>
           <button id="fc-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl">${tCh('fcAddBtn', __uiLang)}</button>
         </div>
@@ -7618,7 +7744,7 @@ window.openCommitmentsManager = (onDone = null) => {
     const syncTerm = () => document.getElementById('fc-term-wrap').classList.toggle('hidden', !(kind === 'mutuo' || kind === 'prestito'));
     const selectKind = (k) => {
       kind = k;
-      document.querySelectorAll('#fc-kinds [data-kind]').forEach(x => { x.className = x.className.replace(/border-\[var\(--gold\)\] text-\[var\(--gold\)\]/, 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'); if (x.dataset.kind === k) x.className = x.className.replace('border-[var(--glass-border)] text-[var(--on-surface-secondary)]', 'border-[var(--gold)] text-[var(--gold)]'); });
+      document.querySelectorAll('#fc-kinds [data-kind]').forEach(x => { x.setAttribute('aria-pressed', String(x.dataset.kind === k)); x.className = x.className.replace(/border-\[var\(--gold\)\] text-\[var\(--gold\)\]/, 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'); if (x.dataset.kind === k) x.className = x.className.replace('border-[var(--glass-border)] text-[var(--on-surface-secondary)]', 'border-[var(--gold)] text-[var(--gold)]'); });
       syncTerm();
     };
     // Modifica: precarica i valori dell'impegno nel form (importi cambiati,
@@ -7631,8 +7757,9 @@ window.openCommitmentsManager = (onDone = null) => {
       document.getElementById('fc-amt').value = c.amount;
       document.getElementById('fc-day').value = c.dayOfMonth;
       selectKind(c.kind || 'affitto');
-      if (c.startDate) document.getElementById('fc-start').value = c.startDate;
-      if (c.termMonths) document.getElementById('fc-months').value = c.termMonths;
+      document.getElementById('fc-start').value = c.startDate || '';
+      document.getElementById('fc-start').dispatchEvent(new Event('change',{bubbles:true}));
+      document.getElementById('fc-months').value = c.termMonths || '';
       const addBtn = document.getElementById('fc-add'); if (addBtn) addBtn.textContent = tCh('fcSaveChangesBtn', __uiLang);
       document.getElementById('fc-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }));
@@ -7871,7 +7998,7 @@ window.openApiKeyGuide = (provider) => {
     </ol>
     <a href="${g.url}" target="_blank" rel="noopener" class="btn-action w-full justify-center mb-3">Apri il sito →</a>
     <div class="flex gap-2">
-      <input type="password" id="guide-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Incolla qui la chiave copiata..." />
+      <input type="password" id="guide-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Incolla qui la chiave copiata..." name="guide-key-input" aria-label="Incolla qui la chiave copiata..." />
       <button onclick="window.saveGuideKey('${provider}')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
     </div>
   `);
@@ -8039,6 +8166,7 @@ const EYE_CLOSED_PATH = '<path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-1
 function setPrivacyToggleIcon(btn, active) {
   const svg = btn?.querySelector('svg');
   if (svg) svg.innerHTML = active ? EYE_CLOSED_PATH : EYE_OPEN_PATH;
+  if (btn) { btn.setAttribute('aria-pressed', String(active)); btn.setAttribute('aria-label', tCh(active ? 'privacyShowNumbers' : 'privacyHideNumbers', __uiLang)); btn.title = btn.getAttribute('aria-label'); }
 }
 
 // Stesso principio dell'occhio privacy: il pulsante tema mostrava SEMPRE la
@@ -8050,71 +8178,42 @@ const THEME_SUN_PATH = '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12
 function setThemeToggleIcon(btn, dark) {
   const svg = btn?.querySelector('svg');
   if (svg) svg.innerHTML = dark ? THEME_MOON_PATH : THEME_SUN_PATH;
+  btn?.setAttribute('aria-label', tCh(dark ? 'themeSwitchLight' : 'themeSwitchDark', __uiLang));
+  btn?.querySelector('[data-theme-state]')?.replaceChildren(document.createTextNode(tCh(dark ? 'themeSwitchLight' : 'themeSwitchDark', __uiLang)));
 }
 
-window.togglePrivacyMode = (e) => {
+function syncThemeChoices(dark) {
+  document.querySelectorAll('[data-action="toggle-theme"]').forEach(button => setThemeToggleIcon(button, dark));
+  document.querySelectorAll('[data-theme-choice]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === themePreference(VaultDAO.state))));
+}
+
+const deviceThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+function applyThemeAppearance(dark) {
+  document.documentElement.classList.toggle('dark', dark);
+  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#09090b' : '#f5f7fb');
+  syncThemeChoices(dark);
+}
+function followDeviceTheme() {
+  if (themePreference(VaultDAO.state) !== 'system') return;
+  const dark = deviceThemeQuery.matches;
+  VaultDAO.state.themeDark = dark;
+  applyThemeAppearance(dark);
+}
+if (deviceThemeQuery.addEventListener) deviceThemeQuery.addEventListener('change', followDeviceTheme);
+else deviceThemeQuery.addListener(followDeviceTheme);
+window.addEventListener('focus', followDeviceTheme);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) followDeviceTheme(); });
+
+window.togglePrivacyMode = () => {
   const active = document.body.classList.toggle('privacy-mode');
+  // Apply masking immediately; animation belongs to the control, not disclosure of data.
+  document.body.classList.remove('privacy-flash');
   [$('#privacy-toggle-mobile'), $('#privacy-toggle-desktop')].forEach(btn => {
     if (!btn) return;
     btn.classList.toggle('active', active);
     setPrivacyToggleIcon(btn, active);
-    // Lampo dell'anello + scatto dell'icona: conferma visiva immediata del
-    // tocco, non solo un cambio di stato silenzioso.
-    btn.classList.remove('just-toggled');
-    void btn.offsetWidth;
-    btn.classList.add('just-toggled');
   });
-  // Onda che nasce dal punto esatto del tocco (coordinate reali dell'evento,
-  // non un centro fisso) ed espande abbastanza da coprire l'angolo più
-  // lontano dello schermo — collega visivamente il gesto al suo effetto.
-  const ripple = $('#privacy-ripple');
-  const reduceMotion = motionIsReduced();
-  let maxDelayMs = 0;
-  const nodes = document.querySelectorAll('.font-mono:not(.no-privacy-blur)');
-  if (e && Number.isFinite(e.clientX) && !reduceMotion) {
-    const x = e.clientX, y = e.clientY;
-    if (ripple) {
-      const maxDist = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-      const size = maxDist * 2.3;
-      ripple.style.left = `${x}px`;
-      ripple.style.top = `${y}px`;
-      ripple.style.width = `${size}px`;
-      ripple.style.height = `${size}px`;
-      ripple.style.background = `radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, transparent) 0%, transparent 70%)`;
-      ripple.style.display = 'block';
-      ripple.classList.remove('active');
-      void ripple.offsetWidth;
-      ripple.classList.add('active');
-    }
-    // Propagazione reale e UNIFICATA: sia lo sfocamento (transition-delay)
-    // sia il "poof" di scala (animation-delay) usano lo STESSO ritardo per
-    // ogni numero, calcolato dalla sua distanza reale dal punto toccato.
-    // Prima erano due tempistiche scollegate (poof istantaneo ovunque +
-    // blur ritardato) che si leggevano come due animazioni in conflitto
-    // invece di un'unica onda che si allarga dal dito.
-    // Velocità ricalibrata: con 2.6px/ms due numeri distanti 200px sullo
-    // stesso schermo (il caso comune su mobile) differivano di appena 77ms
-    // — sotto la soglia a cui l'occhio umano distingue "in sequenza" da
-    // "insieme" (circa 100ms). Risultato: la propagazione era REALE ma
-    // impercettibile, si leggeva come un blur generico invece che un'onda.
-    const speed = 1.1; // px di distanza per ms di ritardo
-    nodes.forEach(n => {
-      const r = n.getBoundingClientRect();
-      const d = Math.hypot((r.left + r.width / 2) - x, (r.top + r.height / 2) - y);
-      const delay = Math.min(d / speed, 420);
-      n.style.transitionDelay = `${delay.toFixed(0)}ms`;
-      n.style.animationDelay = `${delay.toFixed(0)}ms`;
-      if (delay > maxDelayMs) maxDelayMs = delay;
-    });
-  }
-  // "Poof" sui numeri nel momento esatto del cambio, in entrambe le
-  // direzioni — un gesto percepibile invece di un blur che sale/scende piano.
-  document.body.classList.add('privacy-flash');
-  const cleanupMs = maxDelayMs + 420; // copre il ritardo più lungo + la durata delle animazioni
-  setTimeout(() => {
-    document.body.classList.remove('privacy-flash');
-    nodes.forEach(n => { n.style.transitionDelay = ''; n.style.animationDelay = ''; });
-  }, cleanupMs);
   VaultDAO.state.privacyMode = active;
   VaultDAO.save();
 };
@@ -8271,8 +8370,8 @@ window.selectAsset = async (idx) => {
     : '';
   detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}${compsBtn}${derivatiBtn}
     <div class="flex gap-1.5 mt-2">
-      <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
-      <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" />
+      <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]" name="alert-direction"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
+      <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" name="alert-threshold" aria-label="Soglia €" />
       <button onclick="window.addPriceAlert('${asset.symbol}','${asset.kind}')" class="px-2.5 bg-indigo-600 rounded-lg text-[10px] font-bold whitespace-nowrap">Avvisami</button>
     </div>
     <button onclick="window.addToWatchlist('${asset.symbol}','${asset.kind}','${asset.id}','${(asset.name || '').replace(/'/g, "\\'")}')" class="mt-1.5 text-[10px] text-[var(--primary)] underline">Segui questo asset (aggiorna il prezzo da solo, senza rifare la ricerca)</button>
@@ -8828,37 +8927,28 @@ window.openSalaryEditor = (onDone = null) => {
   const detected = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
   const isAuto = detected && detected.source === 'auto';
   openModal(`
-    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-      <div>
-        <p class="eyebrow !mb-0 text-[var(--primary)]">Il tuo accredito</p>
-        <h3 class="text-base font-black">Quando e quanto prendi</h3>
-        <p class="card-sub !mb-0">${detected ? (isAuto ? `L'ho capito dai tuoi movimenti. Se non è giusto, correggilo.` : `Lo hai impostato tu. Puoi cambiarlo quando vuoi.`) : `Non ho ancora abbastanza accrediti per capirlo da solo. Impostalo tu (bastano pochi mesi importati e lo riconosco).`}</p>
+    <form class="money-editor salary-editor" onsubmit="return false">
+      <header class="money-editor-heading"><div class="money-editor-planet" aria-hidden="true"></div><h3>${tCh('moneySalaryTitle', __uiLang)}</h3><p>${tCh(isAuto ? 'moneySalaryAuto' : 'moneySalaryHint', __uiLang)}</p></header>
+      ${detected && isAuto ? `<div class="money-detection"><span>${esc(detected.label || tCh('moneySalaryLabel', __uiLang))}</span><strong>${formatMoney(detected.amount)}</strong></div>` : ''}
+      <div class="money-editor-fields">
+        <label class="cosmos-form-field"><span>${tCh('moneyDay', __uiLang)}</span><input id="sal-day" name="salary-day" autocomplete="off" type="text" inputmode="numeric" value="${detected ? detected.dayOfMonth : ''}" placeholder="27" aria-describedby="salary-error" /></label>
+        <label class="cosmos-form-field"><span>${tCh('moneyNet', __uiLang)}</span><input id="sal-amt" name="salary-amount" autocomplete="off" type="text" inputmode="decimal" value="${detected ? new Intl.NumberFormat(__uiLang,{useGrouping:false,maximumFractionDigits:2}).format(detected.amount) : ''}" placeholder="1500" aria-describedby="salary-error" /></label>
       </div>
-      ${detected && isAuto ? `<div class="card p-3 flex items-center justify-between">
-        <div><div class="text-[13px] font-bold">${esc(detected.label || 'Stipendio')}</div><div class="text-[11px] text-[var(--on-surface-secondary)]">Rilevato · fiducia ${Math.round((detected.confidence || 0) * 100)}%</div></div>
-        <div class="text-right"><div class="font-mono font-black text-emerald-400">${eur(detected.amount)}</div><div class="text-[11px] text-[var(--on-surface-secondary)]">il giorno ${detected.dayOfMonth}</div></div>
-      </div>` : ''}
-      <div class="flex gap-2">
-        <label class="flex-1 text-[11px] font-bold text-[var(--on-surface-secondary)]">Giorno del mese
-          <input id="sal-day" type="text" inputmode="numeric" value="${detected ? detected.dayOfMonth : ''}" placeholder="es. 27" class="w-full mt-1 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
-        </label>
-        <label class="flex-1 text-[11px] font-bold text-[var(--on-surface-secondary)]">Importo netto
-          <input id="sal-amt" type="text" inputmode="decimal" value="${detected ? detected.amount : ''}" placeholder="es. 1500" class="w-full mt-1 bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm font-mono" />
-        </label>
-      </div>
-      <button id="sal-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva</button>
-      ${VaultDAO.state.salaryProfile ? `<button id="sal-reset" class="text-[11px] text-[var(--on-surface-secondary)] underline">Torna a farlo capire da Momentum</button>` : ''}
-      <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">Resta sul tuo dispositivo. Serve solo a dirti quando puoi saldare senza restare a secco.</p>
-    </div>`);
+      <p id="salary-error" class="money-editor-error" role="alert" hidden></p>
+      <p class="money-editor-note">${tCh('moneyLocalHint', __uiLang)}</p>
+      ${VaultDAO.state.salaryProfile ? `<button type="button" id="sal-reset" class="money-editor-secondary">${tCh('moneyReset', __uiLang)}</button>` : ''}
+    </form>`, `<button type="button" id="sal-save" class="btn-action orbit-confirm w-full">${tCh('vaultSave', __uiLang)}</button>`);
+  for (const field of [$('#sal-day'),$('#sal-amt')]) field.addEventListener('input', () => { field.removeAttribute('aria-invalid'); $('#salary-error').hidden = true; });
   $('#sal-save')?.addEventListener('click', () => {
-    const day = parseInt(String($('#sal-day').value).replace(/\D/g, ''), 10);
-    const amt = parseFloat(String($('#sal-amt').value).replace(',', '.'));
-    if (!(day >= 1 && day <= 31) || !(amt > 0)) { showToast('Metti un giorno (1–31) e un importo validi.', 'error'); return; }
-    VaultDAO.state.salaryProfile = { dayOfMonth: day, amount: Math.round(amt * 100) / 100, label: (detected && detected.label) || 'Stipendio' };
+    const draft = parseSalaryDraft($('#sal-day').value, $('#sal-amt').value);
+    if (draft.error) { const error = $('#salary-error'); error.textContent = tCh('moneySalaryInvalid', __uiLang); error.hidden = false; const field = draft.error === 'day' ? $('#sal-day') : $('#sal-amt'); field.setAttribute('aria-invalid','true'); field.focus(); return; }
+    const {day,amount:amt} = draft;
+    VaultDAO.state.salaryProfile = { dayOfMonth: day, amount: Math.round(amt * 100) / 100, label: (detected && detected.label) || tCh('moneySalaryLabel', __uiLang) };
+    renderPayrollSummary();
     spegniDemoDopoNumeriVeri(); // stesso principio del budget: numeri veri, niente esempio
     VaultDAO.save(); haptic('medium');
     closeModal();
-    showToast(`Accredito impostato: ${eur(amt)} il giorno ${day}.`, 'success');
+    showToast(tCh('moneySalarySaved', __uiLang), 'success');
     // Stesso difetto del budget: la Dashboard mostra "stipendio fra N giorni"
     // e restava ferma sul vecchio accredito finché non si ridisegnava per
     // altro. `onDone` aggiorna solo il pannello da cui si è arrivati.
@@ -8867,8 +8957,8 @@ window.openSalaryEditor = (onDone = null) => {
     if (onDone) onDone();
   });
   $('#sal-reset')?.addEventListener('click', () => {
-    delete VaultDAO.state.salaryProfile; VaultDAO.save();
-    closeModal(); showToast('Ora lo capisco di nuovo dai tuoi movimenti.', 'info');
+    delete VaultDAO.state.salaryProfile; VaultDAO.save(); renderPayrollSummary();
+    closeModal(); showToast(tCh('moneySalaryReset', __uiLang), 'info');
     try { renderDashboard(); } catch (_) {}
     try { renderAnalysis({ skipHeavyForecast: true }); } catch (_) {}
     if (onDone) onDone();
@@ -8880,33 +8970,39 @@ window.openSalaryEditor = (onDone = null) => {
 // PayPal, Revolut, Satispay, o un link tuo), Momentum lo ricorda e prepara la
 // richiesta giusta. onDone() prosegue l'azione che l'aveva richiesto.
 window.openPayoutSetup = (onDone = null) => {
-  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const cur = VaultDAO.state.payoutProfile || (resolvePayout(VaultDAO.state) || {});
-  let method = cur.method || 'paypal';
-  const placeholders = { iban: 'IT60 X054 2811 1010 0000 0123 456', paypal: 'il tuo nome PayPal (o link paypal.me/...)', revolut: 'il tuo @ Revolut (o link revolut.me/...)', satispay: 'il tuo numero/nome Satispay', other: 'un link o un recapito per pagarti' };
+  const saved = VaultDAO.state.payoutProfile || resolvePayout(VaultDAO.state) || {};
+  let method = PAYOUT_METHODS.includes(saved.method) ? saved.method : 'paypal';
+  const drafts = { [method]: { value: saved.value || '', holder: saved.holder || '' } };
+  const label = m => m === 'iban' ? 'IBAN' : m === 'other' ? tCh('payoutOther', __uiLang) : PAYOUT_LABELS[m];
   const draw = () => {
+    const draft = drafts[method] || { value: '', holder: '' };
+    const fieldLabel = method === 'iban' ? 'IBAN' : tCh('payoutContact', __uiLang);
+    const example = method === 'iban' ? 'IT60…' : method === 'paypal' ? 'paypal.me/…' : method === 'revolut' ? '@…' : method === 'other' ? 'https://…' : '+39…';
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-        <div>
-          <p class="eyebrow !mb-0 text-[var(--primary)]">Come farti pagare</p>
-          <h3 class="text-base font-black">Scegli una volta, lo ricordo io</h3>
-          <p class="card-sub !mb-0">Quando chiedi un rimborso, preparo il messaggio giusto — con un link toccabile dove si può. Niente conti, niente movimenti: paghi e ricevi tu.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          ${PAYOUT_METHODS.map(m => `<button data-pm="${m}" class="text-[12px] font-bold px-3 py-2 rounded-full border active:scale-95 transition-transform ${m === method ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]' : 'border-[var(--glass-border)] text-[var(--on-surface-secondary)]'}">${esc(PAYOUT_LABELS[m])}</button>`).join('')}
-        </div>
-        <input id="po-value" value="${esc(cur.value || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="${esc(placeholders[method])}" />
-        ${method === 'iban' ? `<input id="po-holder" value="${esc(cur.holder || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" placeholder="Intestatario (facoltativo)" />` : ''}
-        <button id="po-save" class="btn-action btn-primary w-full py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">Salva</button>
-        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">Resta sul tuo dispositivo. Puoi cambiarlo quando vuoi.</p>
-      </div>`);
-    document.querySelectorAll('[data-pm]').forEach(b => b.addEventListener('click', () => { cur.value = $('#po-value')?.value || cur.value; method = b.dataset.pm; draw(); }));
-    $('#po-save')?.addEventListener('click', () => {
-      const value = String($('#po-value').value || '').trim();
-      if (!value) { showToast('Scrivi come vuoi essere pagato.', 'error'); return; }
-      VaultDAO.state.payoutProfile = { method, value, holder: method === 'iban' ? (String($('#po-holder')?.value || '').trim()) : '' };
+      <form class="money-editor payout-editor" onsubmit="return false">
+        <header class="money-editor-heading"><div class="money-editor-planet" aria-hidden="true"></div><h3>${tCh('vaultHowToBePaid', __uiLang)}</h3><p>${tCh('payoutIntro', __uiLang)}</p></header>
+        <div class="payout-methods" role="group" aria-label="${tCh('vaultHowToBePaid', __uiLang)}">${PAYOUT_METHODS.map(m => `<button type="button" data-pm="${m}" aria-pressed="${m === method}"><span class="payout-choice-dot" aria-hidden="true"></span>${escapeHtml(label(m))}</button>`).join('')}</div>
+        <label class="cosmos-form-field"><span>${fieldLabel}</span><input id="po-value" name="payout-contact" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" value="${escapeHtml(draft.value)}" placeholder="${example}" aria-describedby="payout-error" /></label>
+        ${method === 'iban' ? `<label class="cosmos-form-field"><span>${tCh('payoutHolder', __uiLang)}</span><input id="po-holder" name="payout-holder" autocomplete="name" value="${escapeHtml(draft.holder)}" /></label>` : ''}
+        <p id="payout-error" class="money-editor-error" role="alert" hidden></p>
+        <p class="money-editor-note">${tCh('payoutLocal', __uiLang)}</p>
+      </form>`, `<button type="button" id="po-save" class="btn-action orbit-confirm w-full">${tCh('vaultSave', __uiLang)}</button>`);
+    document.querySelectorAll('[data-pm]').forEach(button => button.addEventListener('click', () => {
+      if (button.dataset.pm === method) return;
+      drafts[method] = { value: $('#po-value').value, holder: $('#po-holder')?.value || '' };
+      method = button.dataset.pm; draw();
+      document.querySelector('[data-pm="' + method + '"]')?.focus();
+    }));
+    $('#po-value').addEventListener('input', () => { $('#payout-error').hidden = true; $('#po-value').removeAttribute('aria-invalid'); });
+    $('#po-save').addEventListener('click', () => {
+      const value = $('#po-value').value.trim();
+      if (!value) { $('#payout-error').textContent = tCh('payoutMissing', __uiLang); $('#payout-error').hidden = false; $('#po-value').setAttribute('aria-invalid', 'true'); $('#po-value').focus(); return; }
+      if ((method === 'iban' && !isValidIBAN(value)) || (['paypal', 'revolut', 'other'].includes(method) && !buildPayoutLink(method, value, 0))) {
+        $('#payout-error').textContent = tPayout('linkInvalid', __uiLang); $('#payout-error').hidden = false; $('#po-value').setAttribute('aria-invalid', 'true'); $('#po-value').focus(); return;
+      }
+      VaultDAO.state.payoutProfile = { method, value, holder: method === 'iban' ? ($('#po-holder')?.value || '').trim() : '' };
       VaultDAO.save(); haptic('medium'); closeModal();
-      showToast('Metodo di pagamento salvato.', 'success');
+      showToast(tCh('payoutSaved', __uiLang), 'success');
       if (onDone) onDone();
     });
   };
@@ -8916,33 +9012,50 @@ window.openPayoutSetup = (onDone = null) => {
 // ── CHIEDI UN RIMBORSO (intelligente): usa il metodo salvato, o lo imposta una
 // volta. IBAN → QR SEPA (ricco); PayPal/Revolut/altro → messaggio con LINK
 // toccabile. Fine del vicolo cieco "IBAN vuoto". ──
-window.openRequestPayment = ({ amount = 0, fromName = '', note = '', momentumLink = '' } = {}) => {
-  const payout = resolvePayout(VaultDAO.state);
-  if (!payout) { window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note, momentumLink })); return; }
-  if (payout.method === 'iban') {
-    window.openSepaTransfer({ mode: 'request', brand: true, momentumLink, name: payout.holder || 'Io', iban: payout.value, amount, remittance: note.slice(0, 140), title: `Chiedi ${(+amount).toFixed(2).replace('.', ',')} € a ${fromName || ''}`.trim() });
-    return;
-  }
+async function copySplitText(text, success = tPayout('copied', __uiLang)) {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(text); showToast(success, 'success'); haptic('light');
+  } catch { showToast(tPayout('copyFailed', __uiLang), 'error'); }
+}
+
+window.openRequestPayment = ({ amount = 0, fromName = '', note = '', momentumLink = '', currency = 'EUR', direction = 'request', onBack = null } = {}) => {
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0 || !/^[A-Z]{3}$/.test(currency)) { showToast(tSplit('invalid', __uiLang), 'error'); return; }
+  const payout = direction === 'owe' ? { method: null } : resolvePayout(VaultDAO.state);
+  const reopen = () => window.openRequestPayment({ amount, fromName, note, momentumLink, currency, direction, onBack });
+  if (!payout) { window.openPayoutSetup(reopen); return; }
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const { message, link } = buildPayoutRequest({ ...payout, amount, note, fromName, momentumLink });
-  let qr = '';
-  try { if (link && link.length <= 300) qr = qrSvg(link, { moduleSize: 4, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
+  const tr = (key, ...values) => tPayout(key, __uiLang, ...values);
+  const { message, link } = direction === 'owe' ? { message: `${tr('owe', fromName ? ` ${fromName}` : '', formatSplitMoney(Number(amount), { baseCurrency: currency }, __uiLocale), note ? tr('for', note) : '')}\n\n${tr('signature')}${momentumLink ? `\n${tr('details')}\n${momentumLink}` : ''}`, link: null }
+    : buildPayoutRequest({ ...payout, amount, note, fromName, momentumLink, currency, lang: __uiLang });
+  const shareSuffix = momentumLink ? `\n${tr('details')}\n${momentumLink}` : '';
+  const messageBody = shareSuffix ? message.slice(0, -shareSuffix.length) : message;
+  let shareHost = ''; try { shareHost = new URL(momentumLink).host; } catch { }
+  const provider = direction === 'owe' ? 'Momentum' : ['iban', 'other'].includes(payout.method) ? (payout.method === 'iban' ? 'IBAN' : tr('details')) : PAYOUT_LABELS[payout.method];
   openModal(`
-    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-      <div><h3 class="text-base font-black">Chiedi ${esc((+amount).toFixed(2).replace('.', ','))} €${fromName ? ` a ${esc(fromName)}` : ''}</h3><p class="card-sub !mb-0">Via ${esc(PAYOUT_LABELS[payout.method])}. Mando io il messaggio pronto — l'amico ${link ? 'tocca il link e paga' : 'paga come gli dici'}.</p></div>
-      ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(200px,60vw)">${qr}</div><p class="text-[10px] text-center text-[var(--on-surface-secondary)]">Inquadra per pagare, o manda il messaggio sotto.</p>` : ''}
-      <div class="rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-[12px] whitespace-pre-line select-all">${esc(message)}</div>
-      <div class="grid grid-cols-2 gap-2">
-        <button id="rp-wa" class="btn-action btn-primary py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">WhatsApp</button>
-        <button id="rp-copy" class="py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-sm active:scale-[0.98] transition-transform">Copia</button>
-      </div>
-      ${link ? `<button id="rp-open" class="text-[11px] text-[var(--primary)] underline">Apri ${esc(PAYOUT_LABELS[payout.method])}</button>` : ''}
-      <button id="rp-change" class="text-[11px] text-[var(--on-surface-secondary)] underline">Cambia come farti pagare</button>
-    </div>`);
-  $('#rp-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener'));
-  $('#rp-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(message); showToast('Messaggio copiato.', 'success'); });
-  $('#rp-open')?.addEventListener('click', () => window.open(link, '_blank', 'noopener'));
-  $('#rp-change')?.addEventListener('click', () => window.openPayoutSetup(() => window.openRequestPayment({ amount, fromName, note, momentumLink })));
+    <section class="split-workspace payout-request">
+      ${typeof onBack === 'function' ? `<button id="rp-back" class="split-back" type="button">${tr('back')}</button>` : ''}
+      <header class="split-header"><span class="split-emblem" aria-hidden="true"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="28" cy="28" r="17"/><ellipse cx="28" cy="28" rx="26" ry="9" transform="rotate(-32 28 28)"/><path d="M21 28h14m-5-5 5 5-5 5"/></svg></span><div><h3>${tr(direction === 'owe' ? 'oweTitle' : 'title')}</h3><p>${fromName ? esc(tr(direction === 'owe' ? 'recipient' : 'to', fromName)) : esc(provider)}</p></div></header>
+      <div class="payout-amount">${esc(formatSplitMoney(Number(amount), { baseCurrency: currency }, __uiLocale))}<span>${esc(provider)}</span></div>
+      <p class="payout-hint">${tr('hint')}</p>
+      <label class="payout-message-label" for="rp-message">${tr('message')}<textarea id="rp-message" rows="7" spellcheck="false">${esc(messageBody)}</textarea></label>
+      ${momentumLink ? `<a class="payout-group-link" href="${esc(momentumLink)}" target="_blank" rel="noopener noreferrer">Momentum · ${tr('details')}<small>${esc(shareHost)}</small></a>` : ''}
+      <div class="payout-share-actions"><a id="rp-wa" class="btn-action orbit-confirm" href="https://wa.me/?text=${encodeURIComponent(message)}" target="_blank" rel="noopener noreferrer">WhatsApp</a><button id="rp-share" class="btn-action">${tr('other')}</button><button id="rp-copy" class="btn-action">${tr('copy')}</button></div>
+      ${link ? `<a class="payout-provider-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(tr('open', provider))}</a>` : ''}
+      ${payout.method === 'iban' && currency === 'EUR' ? `<button id="rp-sepa" class="btn-action">QR · IBAN</button>` : ''}
+      ${direction === 'request' ? `<button id="rp-change" class="payout-change">${tr('change')}</button>` : ''}
+    </section>`);
+  const currentMessage = () => { const body = $('#rp-message').value.trim(); return body ? body + shareSuffix : ''; };
+  $('#rp-back')?.addEventListener('click', onBack);
+  $('#rp-message').addEventListener('input', () => { const text = currentMessage(); $('#rp-wa').href = `https://wa.me/?text=${encodeURIComponent(text)}`; $('#rp-copy').disabled = !text; $('#rp-share').disabled = !text; $('#rp-wa').setAttribute('aria-disabled', String(!text)); });
+  $('#rp-wa').addEventListener('click', event => { if (!currentMessage()) event.preventDefault(); });
+  $('#rp-copy').addEventListener('click', () => copySplitText(currentMessage()));
+  $('#rp-share').addEventListener('click', async () => {
+    try { if (navigator.share) await navigator.share({ title: 'Momentum', text: currentMessage() }); else await copySplitText(currentMessage()); }
+    catch (error) { if (error.name !== 'AbortError') showToast(tr('copyFailed'), 'error'); }
+  });
+  $('#rp-sepa')?.addEventListener('click', () => window.openSepaTransfer({ mode: 'request', brand: true, momentumLink, name: payout.holder || 'Io', iban: payout.value, amount, remittance: note.slice(0, 140) }));
+  $('#rp-change')?.addEventListener('click', () => window.openPayoutSetup(reopen));
 };
 
 // ── CONDIVIDI UN CODICE (gruppo spese) — a distanza, senza server: il codice
@@ -8998,8 +9111,8 @@ window.openShareCode = ({ code, title = tCh('shareDefaultTitle', __uiLang), sub 
         <button id="sc-email" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</button>
         <button id="sc-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[10px] font-bold active:scale-95 transition-transform"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>${tCh('shareOther', __uiLang)}</button>
       </div>
-      <details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">${tCh('shareCodeFallback', __uiLang)}</summary><textarea readonly class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono select-all" id="sc-code">${esc(code)}</textarea></details>
-      ${pairing ? `<details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">${tCh('shareP2pSummary', __uiLang)}</summary><p class="mt-2 opacity-80">${tCh('shareP2pText', __uiLang)}</p><textarea id="sc-p2p-in" placeholder="${tCh('shareP2pPlaceholder', __uiLang)}" class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono"></textarea><button id="sc-p2p-go" class="btn-action w-full py-2 mt-2 text-[11px] font-bold rounded-xl">${tCh('shareP2pConnect', __uiLang)}</button></details>` : ''}
+      <details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">${tCh('shareCodeFallback', __uiLang)}</summary><textarea readonly class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono select-all" id="sc-code" name="sc-code">${esc(code)}</textarea></details>
+      ${pairing ? `<details class="text-[10px] text-[var(--on-surface-secondary)]"><summary class="cursor-pointer opacity-70">${tCh('shareP2pSummary', __uiLang)}</summary><p class="mt-2 opacity-80">${tCh('shareP2pText', __uiLang)}</p><textarea id="sc-p2p-in" placeholder="${tCh('shareP2pPlaceholder', __uiLang)}" class="w-full h-16 mt-2 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-2 text-[10px] font-mono" name="sc-p2p-in" aria-label="${tCh('shareP2pPlaceholder', __uiLang)}"></textarea><button id="sc-p2p-go" class="btn-action w-full py-2 mt-2 text-[11px] font-bold rounded-xl">${tCh('shareP2pConnect', __uiLang)}</button></details>` : ''}
     </div>`);
   // Il messaggio che arriva su WhatsApp. Riscritto perché il precedente
   // metteva il link in mezzo al testo e usava parole da app ("si uniscono",
@@ -9014,10 +9127,10 @@ window.openShareCode = ({ code, title = tCh('shareDefaultTitle', __uiLang), sub 
   //  · si dice subito che è gratis e senza registrazione, che è la prima
   //    domanda di chiunque riceva un link del genere.
   const msg = tCh('shareWaMsg', __uiLang, groupName, link);
-  $('#sc-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(link); showToast(tCh('shareToastCopied', __uiLang), 'success'); haptic('light'); });
+  $('#sc-copy')?.addEventListener('click', () => copySplitText(link, tCh('shareToastCopied', __uiLang)));
   $('#sc-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'));
   $('#sc-email')?.addEventListener('click', () => { window.location.href = `mailto:?subject=${encodeURIComponent(tCh('shareEmailSubject', __uiLang, groupName))}&body=${encodeURIComponent(msg)}`; });
-  $('#sc-share')?.addEventListener('click', async () => { try { if (navigator.share) await navigator.share({ title: 'Momentum', text: msg }); else { navigator.clipboard?.writeText(link); showToast(tCh('shareToastCopied', __uiLang), 'info'); } } catch (_) { } });
+  $('#sc-share')?.addEventListener('click', async () => { try { if (navigator.share) await navigator.share({ title: 'Momentum', text: msg }); else await copySplitText(msg); } catch (error) { if (error.name !== 'AbortError') showToast(tPayout('copyFailed', __uiLang), 'error'); } });
   $('#sc-p2p-go')?.addEventListener('click', async (e) => {
     const answerCode = $('#sc-p2p-in')?.value?.trim();
     if (!answerCode || !pairing) { showToast(tCh('shareToastNeedPaste', __uiLang), 'error'); return; }
@@ -9082,7 +9195,7 @@ window.receiveSplitGroup = () => {
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">${tCh('receiveTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('receiveSub', __uiLang)}</p></div>
-      <textarea id="rg-code" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-[11px] font-mono" placeholder="${tCh('receivePlaceholder', __uiLang)}"></textarea>
+      <textarea id="rg-code" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-[11px] font-mono" placeholder="${tCh('receivePlaceholder', __uiLang)}" name="rg-code" aria-label="${tCh('receivePlaceholder', __uiLang)}"></textarea>
       <button id="rg-merge" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${tCh('receiveBtn', __uiLang)}</button>
     </div>`);
   $('#rg-merge')?.addEventListener('click', async () => {
@@ -9099,7 +9212,7 @@ window.receiveSplitGroup = () => {
 // animazione d'ingresso (join-pop) per dare il feedback che "è successo".
 window.openJoinConfirm = (g) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const eur = (n) => esc(formatSplitMoney(n, g, __uiLocale));
   const already = (VaultDAO.state.splitGroups || []).find(x => x.id === g.id);
   const total = (g.expenses || []).reduce((s, e) => s + (+e.amount || 0), 0);
   // displayNames (split-engine.js): se due slot liberi hanno lo stesso nome
@@ -9129,13 +9242,13 @@ window.openJoinConfirm = (g) => {
       <div>
         <p class="text-[11px] font-bold text-center mb-2">${tCh('joinWhoAreYou', __uiLang)}</p>
         <div id="join-who-chips" class="flex flex-wrap justify-center gap-2">
-          ${freeSlots.map(m => `<button type="button" data-who="${esc(m.id)}" class="join-who-chip px-4 py-2 rounded-full border border-[var(--outline)] bg-[var(--surface-elevated)] text-[13px] font-bold"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${esc(nameById[m.id])}</button>`).join('')}
-          <button type="button" id="join-who-new" class="join-who-chip px-4 py-2 rounded-full border border-dashed border-[var(--outline)] text-[13px] font-bold text-[var(--on-surface-secondary)]"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${tCh('joinNotThere', __uiLang)}</button>
+          ${freeSlots.map(m => `<button type="button" data-who="${esc(m.id)}" aria-pressed="false" class="join-who-chip px-4 py-2 rounded-full border border-[var(--outline)] bg-[var(--surface-elevated)] text-[13px] font-bold"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${esc(nameById[m.id])}</button>`).join('')}
+          <button type="button" id="join-who-new" aria-pressed="false" class="join-who-chip px-4 py-2 rounded-full border border-dashed border-[var(--outline)] text-[13px] font-bold text-[var(--on-surface-secondary)]"><svg class="join-who-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${tCh('joinNotThere', __uiLang)}</button>
         </div>
-        <input id="join-who-name" type="text" placeholder="${tCh('joinNamePlaceholder', __uiLang)}" class="hidden modal-input mt-2 w-full" maxlength="30" />
+        <input id="join-who-name" type="text" placeholder="${tCh('joinNamePlaceholder', __uiLang)}" class="hidden modal-input mt-2 w-full" maxlength="30" name="join-who-name" aria-label="${tCh('joinNamePlaceholder', __uiLang)}" />
       </div>` : ''}
       <button id="join-go" class="btn-action btn-primary w-full py-3.5 font-black rounded-xl" ${needsIdentity ? 'disabled' : ''}>${already ? tCh('joinBtnUpdate', __uiLang) : tCh('joinBtnNew', __uiLang)}</button>
-      <p class="text-[10px] text-center text-[var(--on-surface-secondary)] opacity-70">${tCh('joinFooterBase', __uiLang)}${needsIdentity ? tCh('joinFooterExtra', __uiLang) : ''}</p>
+      <p class="join-privacy-note">${tCh('joinSimplePrivacy', __uiLang)}</p>
     </div>`);
 
   let pickedMemberId = null; // slot esistente scelto (null = "aggiungi il mio nome")
@@ -9147,15 +9260,17 @@ window.openJoinConfirm = (g) => {
     chip.addEventListener('click', () => {
       pickedMemberId = chip.dataset.who;
       $('#join-who-name')?.classList.add('hidden');
-      document.querySelectorAll('.join-who-chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.join-who-chip').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
       chip.classList.add('active');
+      chip.setAttribute('aria-pressed', 'true');
       enableJoin();
     });
   });
   $('#join-who-new')?.addEventListener('click', () => {
     pickedMemberId = null;
-    document.querySelectorAll('.join-who-chip').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.join-who-chip').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
     $('#join-who-new')?.classList.add('active');
+    $('#join-who-new')?.setAttribute('aria-pressed', 'true');
     const nameInput = $('#join-who-name');
     nameInput?.classList.remove('hidden');
     nameInput?.focus();
@@ -9180,6 +9295,7 @@ window.openJoinConfirm = (g) => {
       }
     }
     VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], incoming);
+    renderSplitReminder();
     VaultDAO.save();
     haptic('heavy');
     closeModal();
@@ -9192,14 +9308,8 @@ window.openJoinConfirm = (g) => {
     if (g.p2p) {
       tryAutoAcceptP2P(g.p2p).then(answer => { if (answer) offerToSendP2PAnswer(answer, g.name); });
     }
-    // Chi è appena arrivato dal link (attivazione lampo) e non ha ancora
-    // personalizzato: dopo aver visto la divisione, il Reveal gli mostra cosa
-    // fa il resto di Momentum e offre l'attivazione. Altrimenti apre il gruppo.
-    if (VaultDAO.state.activatedLite && !VaultDAO.state.revealSeen) {
-      setTimeout(() => window.openMomentumReveal(g), 450);
-    } else {
-      setTimeout(() => window.openSplitGroup(g.id), 350);
-    }
+    // Fulfil the invitation first; discovery stays an explicit group action.
+    setTimeout(() => window.openSplitGroup(g.id), 350);
   });
 };
 
@@ -9242,21 +9352,17 @@ window.openMomentumReveal = (g = null) => {
              valuta. Chi arriva qui da lì sta guardando esattamente quelle tre
              cose. Dirle è onesto: sono vere, e sono vere PERCHÉ non c'è un
              server da pagare — non per generosità. -->
-        <div class="reveal-card rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3" style="--i:${cards.length}">
-          <div class="text-[13px] font-black mb-1.5">${esc(tCh('revealDiffTitle', __uiLang))}</div>
-          <div class="flex flex-col gap-1">
-            ${[tCh('revealDiff1', __uiLang), tCh('revealDiff2', __uiLang), tCh('revealDiff3', __uiLang)].map(riga => `
-              <div class="flex items-start gap-1.5 text-[11px] text-[var(--on-surface-secondary)] leading-snug">
-                <svg class="w-3 h-3 shrink-0 mt-0.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>
-                <span>${esc(riga)}</span>
-              </div>`).join('')}
+        <section class="reveal-benefits" aria-labelledby="reveal-benefits-title">
+          <div class="reveal-benefits-head"><span class="reveal-free-label">Momentum Free</span><h4 id="reveal-benefits-title">${tCh('revealDiffTitle', __uiLang)}</h4></div>
+          <div class="reveal-benefit-rows">
+            ${[
+              ['revealDiff1','<path d="M12 6v12M6 12h12"/><circle cx="12" cy="12" r="9"/>'],
+              ['revealDiff2','<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h4"/>'],
+              ['revealDiff3','<circle cx="9" cy="9" r="6"/><path d="M14 9a6 6 0 1 1-5 5M7 7h4M7 10h3"/>'],
+            ].map(([key,icon],i)=>`<div class="reveal-benefit-row" style="--i:${i}"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span><p>${tCh(key, __uiLang)}</p></div>`).join('')}
           </div>
-          <!-- Il Pro si nomina qui, in una riga, dicendo COSA È e cosa NON è:
-               riguarda solo l'analisi degli investimenti. Tacerlo lascerebbe
-               il dubbio che prima o poi arrivi un tetto anche qui; gonfiarlo
-               sarebbe la stessa cosa che stiamo criticando. -->
-          <div class="text-[10px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(tCh('revealProLine', __uiLang))}</div>
-        </div>
+          <p class="reveal-pro-note">${tCh('revealProScope', __uiLang)}</p>
+        </section>
       </div>
       <div class="reveal-actions flex flex-col gap-2">
         <button id="rev-activate" class="btn-action btn-primary w-full py-3.5 font-black rounded-xl active:scale-[0.98] transition-transform">${tCh('revealActivate', __uiLang)}</button>
@@ -9499,7 +9605,6 @@ function currencyOptionsHtml(selected, escludi) {
 
 window.openSplitGroup = (openId = null) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
   const groups = () => VaultDAO.state.splitGroups || [];
   // Ogni modifica locale (rename, nuova spesa, nuova persona) si propaga SUBITO
@@ -9508,6 +9613,7 @@ window.openSplitGroup = (openId = null) => {
   // il link statico resta comunque il modo per il PRIMO aggancio.
   const persist = (g) => {
     VaultDAO.state.splitGroups = mergeIntoGroups(groups(), g);
+    renderSplitReminder();
     VaultDAO.save();
     try { window.momentumMeshNode?.shareSplitGroups([g], peerAppartieneAlGruppo); } catch (_) {}
   };
@@ -9556,18 +9662,19 @@ window.openSplitGroup = (openId = null) => {
       const badge = unread > 0 ? `<span class="unread-badge-pop shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--gold)] text-[10px] font-black text-black">${unread > 9 ? '9+' : unread}</span>` : '';
       return `<button data-open="${g.id}" class="split-row w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-left">
         <span class="min-w-0 inline-flex items-center gap-2"><span class="min-w-0"><span class="font-bold text-sm block truncate">${esc(g.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${g.members.length} persone · ${(g.expenses || []).length} spese</span></span>${badge}</span>
-        <span class="font-mono font-black text-sm shrink-0">${eur(total)}</span></button>`;
+        <span class="font-mono font-black text-sm shrink-0">${esc(formatSplitMoney(total, g, __uiLocale))}</span></button>`;
     }).join('');
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-        <div><h3 class="text-base font-black">Insieme — i tuoi gruppi</h3><p class="card-sub !mb-0">Cena, vacanza, casa: crea un gruppo, aggiungi le spese di tutti e vedi chi deve cosa a chi. Senza account, senza limiti di persone.</p><p id="split-mesh-status" class="text-[10px] text-[var(--on-surface-secondary)] mt-1 inline-flex items-center gap-1.5"></p></div>
-        <div class="flex flex-col gap-2 split-rows-in${liveSync ? ' split-sync-pulse' : ''}">${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun gruppo ancora. Creane uno qui sotto.</p>'}</div>
-        <button id="sg-new" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuovo gruppo</button>
-        <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[12px] text-[var(--on-surface-secondary)]">Ricevi un gruppo da un amico</button>
+      <div class="split-group-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div><h3 class="text-base font-black">${tSplit('groupTitle',__uiLang)}</h3><p class="card-sub !mb-0">${tSplit('groupIntro',__uiLang)}</p><p id="split-mesh-status" class="text-[10px] text-[var(--on-surface-secondary)] mt-1 inline-flex items-center gap-1.5"></p></div>
+        <div class="flex flex-col gap-2 split-rows-in${liveSync ? ' split-sync-pulse' : ''}">${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tSplit('noGroups',__uiLang)}</p>`}</div>
+        <button id="sg-new" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tSplit('newGroup',__uiLang)}</button>
+        <button id="sg-payout" class="split-payout-entry"><span>${tCh('vaultHowToBePaid', __uiLang)}</span><small>${tCh(resolvePayout(VaultDAO.state) ? 'payoutReady' : 'payoutOptional', __uiLang)}</small></button>
+        <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[12px] text-[var(--on-surface-secondary)]">${tSplit('receive',__uiLang)}</button>
       </div>`);
     document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { currentId = b.dataset.open; render(); }));
     $('#sg-new')?.addEventListener('click', () => {
-      let g = createGroup({ name: 'Nuovo gruppo', members: ['Io'] });
+      let g = createGroup({ name: tSplit('newGroup',__uiLang), members: ['Io'] });
       // Il creatore rivendica SUBITO il proprio slot ("Io") con l'id di questo
       // dispositivo: da qui in poi nessun altro dispositivo che entra dal
       // link potrà mai scegliere di essere "Io" — vedi claimMember.
@@ -9575,9 +9682,12 @@ window.openSplitGroup = (openId = null) => {
       persist(g); currentId = g.id; render();
     });
     $('#sg-receive')?.addEventListener('click', () => window.receiveSplitGroup());
+    $('#sg-payout')?.addEventListener('click', () => window.openPayoutSetup(() => renderList()));
   };
 
   const renderDetail = (g, liveSync = false) => {
+    const eur = (n) => esc(formatSplitMoney(n, g, __uiLocale));
+    const expandedPanels = new Set(form.expandedPanels || []);
     const names = nameById(g);
     const members = g.members;
     // Retrocompatibile: gruppi creati prima di questa feature non hanno
@@ -9594,18 +9704,20 @@ window.openSplitGroup = (openId = null) => {
     // nome letterale — corretto per chiunque apra il gruppo, non solo per
     // chi lo ha creato.
     const myId = myMemberId(g, VaultDAO.state.deviceId);
+    for (const member of members) if (member.id === 'Io' && member.name === 'Io' && member.id !== myId) names[member.id] = tSplit('organizer', __uiLang);
     // Aprire il gruppo = leggerlo (stessa convenzione di qualunque chat):
     // segna il "visto fin qui" per questo dispositivo. Non un salvataggio a
     // parte per ogni apertura — si aggancia al normale VaultDAO.save() che
     // già gira nel resto del flusso di questa schermata.
     if (!VaultDAO.state.chatSeenAt) VaultDAO.state.chatSeenAt = {};
     VaultDAO.state.chatSeenAt[g.id] = Date.now();
+    renderSplitReminder();
     VaultDAO.save();
     // Le spese contestate (group-chat.js) restano fuori dal saldo finché non
     // sono risolte — la conversazione cambia i conti, non corre solo a fianco.
     const gSaldo = groupForSettlement(g);
     const bal = computeBalances(gSaldo);
-    const { transfers } = settlementView(gSaldo);
+    const transfers = settlementView(gSaldo).transfers.map(t => ({...t,fromName:names[t.from],toName:names[t.to]}));
     const cstat = chatStatus(g);
     // Il default di "chi paga" era SEMPRE il primo membro dell'array — per chi
     // entra in un gruppo dopo la creazione (mai in posizione 0), il form si
@@ -9629,7 +9741,7 @@ window.openSplitGroup = (openId = null) => {
       <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0${disputed ? ' bg-amber-500/5 -mx-1 px-1 rounded-lg' : ''}">
         <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}${disputed ? ' <span class="text-[10px] font-bold text-amber-400">· in discussione</span>' : ''}${valutaNota}</span>
         <span class="shrink-0 inline-flex items-center gap-2">
-          <button data-chat="${e.id}" class="text-[11px] font-bold ${nMsg ? 'text-[var(--gold)]' : 'text-[var(--on-surface-secondary)]'} inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${nMsg || ''}</button>
+          <button data-chat="${e.id}" aria-label="${esc(tSplit('message',__uiLang))}: ${esc(e.description || names[e.payer])}" class="text-[11px] font-bold ${nMsg ? 'text-[var(--gold)]' : 'text-[var(--on-surface-secondary)]'} inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${nMsg || ''}</button>
           <button data-delexp="${e.id}" class="text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
         </span>
       </div>`;
@@ -9640,47 +9752,59 @@ window.openSplitGroup = (openId = null) => {
     // persone/spese (split-rows-in/.split-row, sopra): un vuoto reale,
     // non un'aggiunta per l'estetica. Stesso meccanismo, nessun nuovo
     // keyframe.
-    const settleRowsInner = transfers.map(t => {
-      const line = t.to === myId ? `<b>${esc(t.fromName)}</b> deve darti <b>${eur(t.amount)}</b>`
-        : t.from === myId ? `Devi <b>${eur(t.amount)}</b> a <b>${esc(t.toName)}</b>`
-          : `<b>${esc(t.fromName)}</b> → <b>${esc(t.toName)}</b>: ${eur(t.amount)}`;
-      const act = t.to === myId ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">Chiedi</button>`
-        : t.from === myId ? `<button data-tell="${t.amount}" data-tellwho="${esc(t.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">Avvisa</button>` : '';
-      return `<div class="split-row flex items-center justify-between gap-2 py-1.5 text-[13px]">${line}${act}</div>`;
-    }).join('');
+    const transferRow = t => {
+      const line = t.to === myId ? tSplit('owesMe', __uiLang, esc(t.fromName), eur(t.amount))
+        : t.from === myId ? tSplit('iOwe', __uiLang, eur(t.amount), esc(t.toName))
+          : tSplit('owes', __uiLang, esc(t.fromName), eur(t.amount), esc(t.toName));
+      const act = t.to === myId ? `<button data-ask="${t.amount}" data-who="${esc(t.fromName)}">${tSplit('ask', __uiLang)}</button>`
+        : t.from === myId ? `<button data-tell="${t.amount}" data-tellwho="${esc(t.toName)}">${tSplit('notify', __uiLang)}</button>` : '';
+      return `<div class="split-row split-transfer"><span>${line}</span>${act}</div>`;
+    };
+    const ownTransfers = myId ? transfers.filter(t => t.from === myId || t.to === myId) : transfers;
+    const otherTransfers = myId ? transfers.filter(t => t.from !== myId && t.to !== myId) : [];
+    const settleRowsInner = ownTransfers.map(transferRow).join('');
     const settleRows = settleRowsInner
       ? `<div class="split-rows-in">${settleRowsInner}</div>`
+      : cstat.discussioniAperte > 0
+        ? `<div class="split-pending-balance"><strong>${tCh('splitNoticeDispute', __uiLang)}</strong><p>${tCh('splitNoticeExcluded', __uiLang)}</p></div>`
       : `<div class="split-row flex items-center gap-2 py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
       <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-      <span class="text-[12px] font-bold text-emerald-400">Tutto in pari — nessuno deve niente a nessuno</span>
+      <span class="text-[12px] font-bold text-emerald-400">${tSplit(otherTransfers.length ? 'mineSettled' : 'allSettled',__uiLang)}</span>
     </div>`;
 
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="split-group-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div class="flex items-center gap-2">
-          <button id="sg-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
-          <input id="sg-name" value="${esc(g.name)}" class="flex-1 bg-transparent text-base font-black min-w-0 outline-none" />
+          <button aria-label="${tSplit('back',__uiLang)}" id="sg-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
+          <input aria-label="${tSplit('groupName',__uiLang)}" id="sg-name" value="${esc(g.name)}" class="flex-1 bg-transparent text-base font-black min-w-0 outline-none" name="sg-name" />
         </div>
         <p id="split-mesh-status" class="text-[10px] text-[var(--on-surface-secondary)] -mt-1.5 inline-flex items-center gap-1.5"></p>
-        <div class="${liveSync ? 'split-sync-pulse' : ''}">
-          <div class="text-[11px] font-bold text-[var(--on-surface-secondary)] mb-1.5">Persone (${members.length}) · saldo</div>
+        <div class="card p-3 split-group-result">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tSplit('result',__uiLang)}</div>
+          ${myId ? `<div class="split-balance-hero"><span class="split-balance-orbit" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none"><circle cx="40" cy="40" r="21"/><ellipse cx="40" cy="40" rx="36" ry="12" transform="rotate(-32 40 40)"/><circle cx="65" cy="20" r="3"/></svg></span><div><span>${tSplit((bal[myId] || 0) > .005 ? 'toReceive' : (bal[myId] || 0) < -.005 ? 'toPay' : 'allSettled', __uiLang)}</span><strong>${eur(Math.abs(bal[myId] || 0))}</strong></div></div>` : ''}
+          ${(() => { const c = settlementCounts(gSaldo); return c.saved > 0 ? `<p class="split-simplified">${tSplit('simplified', __uiLang, c.simplified, c.raw)}</p>` : ''; })()}
+          ${settleRows}
+          ${otherTransfers.length ? `<details data-split-fold="others" ${expandedPanels.has('others') ? 'open' : ''} class="split-fold split-other-transfers"><summary><span>${tSplit('others', __uiLang)}</span><span class="split-fold-count">${otherTransfers.length}</span><i aria-hidden="true"></i></summary><div class="split-fold-body">${otherTransfers.map(transferRow).join('')}</div></details>` : ''}
+          ${transfers.length ? `<button onclick="window.openSettlementVerification('${g.id}')" class="text-[11px] text-[var(--primary)] underline mt-2">${tCh('settleVerifyCta', __uiLang)}</button>` : ''}
+        </div>
+        <details data-split-fold="people" ${expandedPanels.has('people') ? 'open' : ''} class="split-fold ${liveSync ? 'split-sync-pulse' : ''}"><summary><span>${tSplit('peopleBalances', __uiLang)}</span><span class="split-fold-count">${members.length}</span><i aria-hidden="true"></i></summary><div class="split-fold-body">
           <div class="flex flex-col gap-1 split-rows-in">
-            ${members.map(m => `<div class="split-row flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--outline)]"><span class="inline-flex items-center gap-2 min-w-0">${avatarHtml(names[m.id])}<span class="font-bold truncate">${esc(names[m.id])}</span></span><span class="font-mono shrink-0 ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
+            ${members.map(m => `<div class="split-row flex items-center justify-between text-[12px] px-3 py-1.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--outline)]"><span class="inline-flex items-center gap-2 min-w-0">${avatarHtml(names[m.id])}<span class="font-bold truncate">${esc(names[m.id])}</span></span><span class="font-mono shrink-0 ${bal[m.id] > 0.005 ? 'text-emerald-400' : bal[m.id] < -0.005 ? 'text-[var(--red)]' : 'text-[var(--on-surface-secondary)]'}">${bal[m.id] > 0.005 ? 'recupera ' : bal[m.id] < -0.005 ? 'deve ' : cstat.discussioniAperte > 0 ? tCh('splitNoticeDispute', __uiLang) + ' · ' : 'in pari '}${eur(Math.abs(bal[m.id] || 0))}</span></div>`).join('')}
           </div>
           <div class="flex flex-wrap gap-2 mt-2">
             ${frequentCoSplitters(groups()).filter(f => !members.some(m => m.name === f.name)).slice(0, 4).map(f => `<button data-addmember="${esc(f.name)}" class="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-[var(--outline)] text-[var(--on-surface-secondary)]">+ ${esc(f.name)}</button>`).join('')}
-            <input id="sg-newmember" class="text-[12px] bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="+ aggiungi persona" />
+            <input id="sg-newmember" class="text-[12px] bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-full px-3 py-1 w-32 min-w-0" placeholder="${tSplit('nameExample',__uiLang)}" name="sg-newmember" aria-label="${tSplit('person',__uiLang)}" maxlength="40" /><button id="sg-add-member" type="button">${tSplit('add',__uiLang)}</button>
           </div>
-        </div>
-        ${cstat.testo ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">${esc(cstat.testo)}</span></div>` : ''}
-        ${(g.expenses || []).length ? `<div class="card p-3${liveSync ? ' split-sync-pulse' : ''}"><div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Spese (${g.expenses.length})</div><div class="split-rows-in">${expRows}</div></div>` : ''}
+        </div></details>
+        ${cstat.testo ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">${esc(tCh('splitNoticePending', __uiLang, cstat.discussioniAperte))} · ${eur(cstat.importoInDiscussione)}. ${tCh('splitNoticeExcluded', __uiLang)}</span></div>` : ''}
+        ${(g.expenses || []).length ? `<details data-split-fold="expenses" ${expandedPanels.has('expenses') ? 'open' : ''} class="split-fold${liveSync ? ' split-sync-pulse' : ''}"><summary><span>${tSplit('showExpenses', __uiLang)}</span><span class="split-fold-count">${g.expenses.length}</span><i aria-hidden="true"></i></summary><div class="split-fold-body split-rows-in">${expRows}</div></details>` : ''}
         ${renderSplitForesight(g, names)}
-        <div class="card p-3">
-          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi una spesa</div>
-          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(names[m.id])} paga</button>`).join('')}</div>
+        <button id="sg-show-expense" class="btn-action btn-primary" type="button" aria-expanded="${form.showExpense === true || !g.expenses.length}" aria-controls="sg-expense-form">${tSplit('addExpense',__uiLang)}</button><div id="sg-expense-form" class="card p-3 split-group-form" ${form.showExpense === true || !g.expenses.length ? '' : 'hidden'}>
+          <h4>${tSplit('addExpense',__uiLang)}</h4>
+          <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" aria-pressed="${form.payer === m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(names[m.id])} paga</button>`).join('')}</div>
           <div class="flex gap-2">
-            <input id="sg-amt" type="number" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Quanto ${esc(form.currency || baseCurrency)}" />
-            <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="Per cosa" />
+            <input id="sg-amt" type="text" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="0,00" name="sg-amt" aria-label="${tSplit('amount',__uiLang)} ${esc(form.currency || baseCurrency)}" />
+            <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${tCh('splitPurposeExample',__uiLang)}" name="sg-desc" aria-label="${tCh('splitPurposeLabel',__uiLang)}" />
           </div>
           <!-- Gap reale: un gruppo di viaggio assumeva un'unica valuta mai
                dichiarata — chi pagava in una valuta diversa (CHF durante un
@@ -9691,7 +9815,7 @@ window.openSplitGroup = (openId = null) => {
                zero attrito per il caso comune, un tocco per quello raro. -->
           ${form.showCurrency ? `
           <div class="sg-currency-panel">
-            <select id="sg-currency" class="sg-currency-select">
+            <select id="sg-currency" class="sg-currency-select" name="sg-currency">
               ${currencyOptionsHtml(form.currency || ultimaValutaEstera(g) || 'CHF', baseCurrency)}
             </select>
             <span class="sg-currency-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>convertito in ${esc(baseCurrency)}</span>
@@ -9703,16 +9827,11 @@ window.openSplitGroup = (openId = null) => {
                onesto ma sbagliato. Apre un editor a righe (item-split.js),
                stesso addSharedExpense alla fine, nessuna seconda strada. -->
           <button onclick="window.openItemSplitEditor('${g.id}')" type="button" class="sg-currency-toggle" style="margin-left:.4rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>${esc(tCh('itemSplitEntryPoint', __uiLang))}</button>
-          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">Chi partecipa a questa spesa (tocca per escludere):</div>
-          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(names[m.id])}</button>`).join('')}</div>
-          <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">Aggiungi la spesa</button>
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">${tSplit('participants',__uiLang)}</div>
+          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" aria-pressed="${involved.includes(m.id)}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(names[m.id])}</button>`).join('')}</div>
+          <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">${tSplit('addExpense',__uiLang)}</button>
         </div>
-        <div class="card p-3">
-          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>Chi deve cosa a chi (meno bonifici possibili)</div>
-          ${(() => { const c = settlementCounts(g); return c.saved > 0 ? `<div class="text-[11px] text-emerald-300 mb-1.5">Semplificato: <b>${c.simplified} pagament${c.simplified === 1 ? 'o' : 'i'}</b> invece di ${c.raw} — ${c.saved} in meno.</div>` : ''; })()}
-          ${settleRows}
-          ${transfers.length ? `<button onclick="window.openSettlementVerification('${g.id}')" class="text-[11px] text-[var(--primary)] underline mt-2">${tCh('settleVerifyCta', __uiLang)}</button>` : ''}
-        </div>
+
         <div class="flex gap-2">
           <button id="sg-share" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Condividi</button>
           <!-- Gap reale: Momentum aveva un export CSV solo per i movimenti
@@ -9728,12 +9847,17 @@ window.openSplitGroup = (openId = null) => {
         </div>
         <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
         <button onclick="window.inviteToMomentum()" class="text-[11px] text-[var(--on-surface-secondary)] underline self-start">${tCh('inviteFromGroupCta', __uiLang)}</button>
+        ${VaultDAO.state.activatedLite ? `<button id="sg-discover" class="split-payout-entry">${tCh('joinDiscover', __uiLang)}</button>` : ''}
       </div>`);
 
     // bind
+    $('#sg-show-expense')?.addEventListener('click', e => { const formNode=$('#sg-expense-form'); formNode.hidden=!formNode.hidden; form.showExpense=!formNode.hidden; e.currentTarget.setAttribute('aria-expanded',String(!formNode.hidden)); if(!formNode.hidden) $('#sg-amt')?.focus({preventScroll:true}); });
+    $('#sg-discover')?.addEventListener('click', () => window.openMomentumReveal(g));
     $('#sg-back')?.addEventListener('click', () => { currentId = null; render(); });
     $('#sg-name')?.addEventListener('change', (e) => { persist(renameGroup(g, e.target.value)); render(); });
-    $('#sg-newmember')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { const ng = { ...g, members: [...g.members, { id: `m${g.members.length}_${Math.random().toString(36).slice(2, 6)}`, name: e.target.value.trim() }] }; persist(ng); render(); } });
+    const addMemberFromInput = () => { const input=$('#sg-newmember'); const name=input?.value.trim(); if(!name) return; persist({...g,members:[...g.members,{id:crypto.randomUUID(),name}]}); render(); };
+    $('#sg-newmember')?.addEventListener('keydown', e => {if(e.key==='Enter'){e.preventDefault();addMemberFromInput();}});
+    $('#sg-add-member')?.addEventListener('click',addMemberFromInput);
     document.querySelectorAll('[data-addmember]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, members: [...g.members, { id: `m${g.members.length}_${Math.random().toString(36).slice(2, 6)}`, name: b.dataset.addmember }] }; persist(ng); render(); }));
     document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { form.payer = b.dataset.payer; render(); }));
     document.querySelectorAll('[data-involve]').forEach(b => b.addEventListener('click', () => {
@@ -9750,13 +9874,14 @@ window.openSplitGroup = (openId = null) => {
       const nuovoChip = document.querySelector(`[data-involve="${toccato}"]`);
       if (nuovoChip) { nuovoChip.classList.add('type-toggle-pop'); }
     }));
-    $('#sg-amt')?.addEventListener('input', (e) => { form.amount = e.target.value; });
+    document.querySelectorAll('[data-split-fold]').forEach(panel => panel.addEventListener('toggle', () => { form.expandedPanels = [...document.querySelectorAll('[data-split-fold][open]')].map(open => open.dataset.splitFold); }));
+    bindSplitMoneyInput($('#sg-amt'), value => { form.amount = value; });
     $('#sg-desc')?.addEventListener('input', (e) => { form.desc = e.target.value; });
     $('#sg-currency-on')?.addEventListener('click', () => { form.showCurrency = true; form.currency = ultimaValutaEstera(g) || (baseCurrency === 'CHF' ? 'EUR' : 'CHF'); render(); });
     $('#sg-currency-off')?.addEventListener('click', () => { form.showCurrency = false; form.currency = null; render(); });
     $('#sg-currency')?.addEventListener('change', (e) => { form.currency = e.target.value; render(); });
     $('#sg-addexp')?.addEventListener('click', async (e) => {
-      const amtInserito = parseFloat(String(form.amount).replace(',', '.'));
+      const amtInserito = splitAmount(form.amount);
       if (!(amtInserito > 0)) { $('#sg-amt')?.focus(); showToast('Inserisci quanto è stato speso.', 'error'); return; }
       const inv = form.involved || members.map(m => m.id);
       const shares = inv.length < members.length ? { equalAmong: inv } : undefined;
@@ -9785,8 +9910,8 @@ window.openSplitGroup = (openId = null) => {
     });
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
     document.querySelectorAll('[data-chat]').forEach(b => b.addEventListener('click', () => window.openExpenseChat(g.id, b.dataset.chat)));
-    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => { let mLink = ''; try { mLink = buildJoinLink(encodeGroupShare(g)); } catch (_) {} window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: g.name, momentumLink: mLink }); }));
-    document.querySelectorAll('[data-tell]').forEach(b => b.addEventListener('click', async () => { const msg = `Ciao ${b.dataset.tellwho}, ti devo ${eur(+b.dataset.tell)} per ${g.name}. Mandami l'IBAN così ti giro il bonifico!`; try { if (navigator.share) await navigator.share({ text: msg }); else { navigator.clipboard?.writeText(msg); showToast('Messaggio copiato.', 'success'); } } catch (_) { } }));
+    document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', async () => { let mLink = ''; try { mLink = buildJoinLink(await buildRepaymentCode(g), g.name); } catch (_) {} window.openRequestPayment({ amount: +b.dataset.ask, fromName: b.dataset.who, note: g.name, momentumLink: mLink, currency: g.baseCurrency || 'EUR' }); }));
+    document.querySelectorAll('[data-tell]').forEach(b => b.addEventListener('click', async () => { let mLink = ''; try { mLink = buildJoinLink(await buildRepaymentCode(g), g.name); } catch (_) { } window.openRequestPayment({ amount: +b.dataset.tell, fromName: b.dataset.tellwho, note: g.name, currency: g.baseCurrency || 'EUR', momentumLink: mLink, direction: 'owe' }); }));
     $('#sg-share')?.addEventListener('click', async () => {
       const p2p = await tryCreateP2POffer();
       _groupInvitePairing = p2p?.pairing || null;
@@ -9821,10 +9946,10 @@ window.openSplitGroup = (openId = null) => {
 window.openExpenseChat = (groupId, expenseId) => {
   pingFeature('group_chat_used');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const findGroup = () => (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
   const persist = (ng) => {
     VaultDAO.state.splitGroups = mergeIntoGroups(VaultDAO.state.splitGroups || [], ng);
+    renderSplitReminder();
     VaultDAO.save();
     try { window.momentumMeshNode?.shareSplitGroups([ng], peerAppartieneAlGruppo); } catch (_) {}
   };
@@ -9832,6 +9957,7 @@ window.openExpenseChat = (groupId, expenseId) => {
   const render = () => {
     const g = findGroup();
     if (!g) { window.openSplitGroup(); return; }
+    const eur = (n) => esc(formatSplitMoney(n, g, __uiLocale));
     const exp = (g.expenses || []).find(e => e.id === expenseId);
     if (!exp) { window.openSplitGroup(groupId); return; }
     const names = displayNames(g.members);
@@ -9870,7 +9996,7 @@ window.openExpenseChat = (groupId, expenseId) => {
         </div>` : ''}
         <div class="card p-3">${msgRows}</div>
         <div class="flex gap-2">
-          <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder='es. "il conto era 120 non 100"' />
+          <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder='es. "il conto era 120 non 100"' name="ec-text" />
           <button id="ec-send" class="btn-action btn-primary px-4 py-2.5 font-bold rounded-xl text-sm">Invia</button>
         </div>
         <button id="ec-toggle" class="w-full py-2.5 font-bold rounded-xl border ${disputed ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400'} text-[12px]">${disputed ? 'Segna come risolto' : 'Contesta questa spesa'}</button>
@@ -9956,9 +10082,9 @@ window.openSettlementVerification = (groupId) => {
 // stesso motore, nessuna seconda strada.
 window.openItemSplitEditor = (groupId) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const g = (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
   if (!g) { window.openSplitGroup(); return; }
+  const eur = (n) => esc(formatSplitMoney(n, g, __uiLocale));
   const names = displayNames(g.members);
   const memberIds = g.members.map(m => m.id);
 
@@ -9972,20 +10098,21 @@ window.openItemSplitEditor = (groupId) => {
 
   const anteprima = () => {
     try {
-      const items = state.rows.filter(r => r.description.trim() || +r.amount > 0);
+      const items = state.rows.filter(r => r.description.trim() || r.amount).map(r => ({ ...r, amount: splitAmount(r.amount) }));
       if (!items.length) return null;
-      const tip = +String(state.tip).replace(',', '.') || 0;
+      const tip = splitAmount(state.tip);
+      if (tip === null) return null;
       return itemSplitShares(items, memberIds, { tip, tipMode: state.tipMode });
     } catch (_) { return null; } // riga incompleta mentre si scrive: nessun errore mostrato finché non si salva
   };
 
-  const render = () => {
+  const render = (keepInputs = false) => {
     const prev = anteprima();
     const rowsHtml = state.rows.map((r, i) => `
       <div class="p-2.5 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] mb-2">
         <div class="flex gap-2">
-          <input data-row-desc="${i}" value="${esc(r.description)}" class="flex-1 bg-transparent border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm min-w-0" placeholder="${esc(tCh('itemSplitDescPlaceholder', __uiLang))}" />
-          <input data-row-amt="${i}" type="number" inputmode="decimal" value="${esc(r.amount)}" class="w-24 bg-transparent border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" />
+          <input data-row-desc="${i}" value="${esc(r.description)}" class="flex-1 bg-transparent border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm min-w-0" placeholder="${esc(tCh('itemSplitDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitDescPlaceholder', __uiLang))}" />
+          <input data-row-amt="${i}" type="text" inputmode="decimal" value="${esc(r.amount)}" class="w-24 bg-transparent border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" />
           ${state.rows.length > 1 ? `<button data-row-del="${i}" class="w-9 h-9 shrink-0 rounded-lg border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--red)] hover:border-[color-mix(in_srgb,var(--red)_40%,transparent)] inline-flex items-center justify-center"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : ''}
         </div>
         <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">${esc(tCh('itemSplitAssignLabel', __uiLang))}</div>
@@ -10001,26 +10128,27 @@ window.openItemSplitEditor = (groupId) => {
         <div class="flex items-center justify-between text-[12px] py-1 mt-1 pt-1.5 border-t border-[var(--outline)] font-bold"><span>${esc(tCh('itemSplitTotalLabel', __uiLang))}</span><span class="font-mono">${eur(prev.total)}</span></div>
       </div>` : '';
 
+    if (keepInputs && $('#is-preview')) { $('#is-preview').innerHTML = anteprimaHtml; $('#is-save').disabled = !prev; return; }
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="split-group-workspace split-item-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div class="flex items-center gap-2">
           <button id="is-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
           <span class="font-black text-sm">${esc(tCh('itemSplitTitle', __uiLang))}</span>
         </div>
         <p class="text-[11px] text-[var(--on-surface-secondary)] -mt-1.5">${esc(tCh('itemSplitIntro', __uiLang))}</p>
-        <input id="is-desc" value="${esc(state.description)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('itemSplitDescGeneralPlaceholder', __uiLang))}" />
+        <input id="is-desc" value="${esc(state.description)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('itemSplitDescGeneralPlaceholder', __uiLang))}" name="is-desc" aria-label="${esc(tCh('itemSplitDescGeneralPlaceholder', __uiLang))}" />
         <div class="flex flex-wrap gap-1.5">${memberIds.map(id => `<button data-payer="${id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.payer === id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('itemSplitPaidBy', __uiLang, names[id]))}</button>`).join('')}</div>
         ${rowsHtml}
         <button id="is-addrow" type="button" class="text-[11px] font-bold text-[var(--primary)] underline self-start">${esc(tCh('itemSplitAddRow', __uiLang))}</button>
         <div class="flex items-center gap-2 mt-1">
-          <input id="is-tip" type="number" inputmode="decimal" value="${esc(state.tip)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm font-mono" placeholder="${esc(tCh('itemSplitTipLabel', __uiLang))}" />
-          <select id="is-tipmode" class="text-[11px] bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5">
+          <input id="is-tip" type="text" inputmode="decimal" value="${esc(state.tip)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2.5 py-2 text-sm font-mono" placeholder="${esc(tCh('itemSplitTipLabel', __uiLang))}" name="is-tip" aria-label="${esc(tCh('itemSplitTipLabel', __uiLang))}" />
+          <select id="is-tipmode" class="text-[11px] bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5" name="is-tipmode">
             <option value="proporzionale"${state.tipMode === 'proporzionale' ? ' selected' : ''}>${esc(tCh('itemSplitTipProportional', __uiLang))}</option>
             <option value="equa"${state.tipMode === 'equa' ? ' selected' : ''}>${esc(tCh('itemSplitTipEqual', __uiLang))}</option>
           </select>
         </div>
-        ${anteprimaHtml}
-        <button id="is-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-1 text-sm">${esc(tCh('itemSplitSave', __uiLang))}</button>
+        <div id="is-preview" aria-live="polite">${anteprimaHtml}</div>
+        <button id="is-save" ${prev ? '' : 'disabled'} class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-1 text-sm">${esc(tCh('itemSplitSave', __uiLang))}</button>
       </div>`);
 
     $('#is-back')?.addEventListener('click', () => window.openSplitGroup(groupId));
@@ -10031,15 +10159,13 @@ window.openItemSplitEditor = (groupId) => {
     // senza più il focus). L'anteprima si aggiorna su 'change' (si esce dal
     // campo), non su ogni tasto — si digita liberamente, si vede il
     // risultato appena si passa al campo successivo.
-    $('#is-tip')?.addEventListener('input', (e) => { state.tip = e.target.value; });
-    $('#is-tip')?.addEventListener('change', render);
+    bindSplitMoneyInput($('#is-tip'), value => { state.tip = value; render(true); });
     $('#is-tipmode')?.addEventListener('change', (e) => { state.tipMode = e.target.value; render(); });
     $('#is-addrow')?.addEventListener('click', () => { state.rows.push({ description: '', amount: '', assignedTo: [] }); render(); });
     document.querySelectorAll('[data-payer]').forEach(b => b.addEventListener('click', () => { state.payer = b.dataset.payer; render(); }));
     document.querySelectorAll('[data-row-desc]').forEach(el => el.addEventListener('input', (e) => { state.rows[+el.dataset.rowDesc].description = e.target.value; }));
     document.querySelectorAll('[data-row-amt]').forEach(el => {
-      el.addEventListener('input', (e) => { state.rows[+el.dataset.rowAmt].amount = e.target.value; });
-      el.addEventListener('change', render);
+      bindSplitMoneyInput(el, value => { state.rows[+el.dataset.rowAmt].amount = value; render(true); });
     });
     document.querySelectorAll('[data-row-del]').forEach(el => el.addEventListener('click', () => { state.rows.splice(+el.dataset.rowDel, 1); render(); }));
     document.querySelectorAll('[data-row-assign]').forEach(el => el.addEventListener('click', () => {
@@ -10051,8 +10177,9 @@ window.openItemSplitEditor = (groupId) => {
       render();
     }));
     $('#is-save')?.addEventListener('click', () => {
-      const items = state.rows.filter(r => r.description.trim() || +r.amount > 0);
-      const tip = +String(state.tip).replace(',', '.') || 0;
+      const items = state.rows.filter(r => r.description.trim() || r.amount).map(r => ({ ...r, amount: splitAmount(r.amount) }));
+      const tip = splitAmount(state.tip);
+      if (tip === null) { showToast(tSplit('invalid', __uiLang), 'error'); return; }
       try {
         const { byId, total } = itemSplitShares(items, memberIds, { tip, tipMode: state.tipMode });
         const ng = addSharedExpense(g, { payer: state.payer, amount: total, description: state.description, shares: { byId } });
@@ -10115,25 +10242,25 @@ window.openDebiti = () => {
     }
 
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="debt-planner-modal task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div><h3 class="text-base font-black">Debiti e prestiti</h3><p class="card-sub !mb-0">Il quadro, mai un consiglio: i numeri di entrambe le strategie, decidi tu.</p></div>
         <div class="card p-3">${righeForm}${listaRighe}</div>
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi un debito</div>
           <div class="flex flex-col gap-2">
-            <input id="dt-nome" value="${esc(form.nome)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="Es. Carta di credito" />
-            <div class="flex gap-2">
-              <input id="dt-saldo" type="number" inputmode="decimal" value="${esc(form.saldo)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Saldo €" />
-              <input id="dt-tasso" type="number" inputmode="decimal" value="${esc(form.tasso)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="Tasso %" />
+            <label class="task-field"><span>${tCh('debtNameLabel', __uiLang)}</span><input id="dt-nome" value="${esc(form.nome)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${tCh('debtNameExample',__uiLang)}" name="dt-nome" /></label>
+            <div class="task-field-pair">
+              <label class="task-field"><span>${tCh('debtBalanceLabel', __uiLang)}</span><input id="dt-saldo" type="number" inputmode="decimal" value="${esc(form.saldo)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="1000" name="dt-saldo" /></label>
+              <label class="task-field"><span>${tCh('debtRateLabel', __uiLang)}</span><input id="dt-tasso" type="number" inputmode="decimal" value="${esc(form.tasso)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="5" name="dt-tasso" /></label>
             </div>
-            <input id="dt-min" type="number" inputmode="decimal" value="${esc(form.pagamentoMinimo)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="Pagamento minimo mensile €" />
+            <label class="task-field"><span>${tCh('debtPaymentLabel', __uiLang)}</span><input id="dt-min" type="number" inputmode="decimal" value="${esc(form.pagamentoMinimo)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="50" name="dt-min" /></label>
             <button id="dt-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">Aggiungi</button>
           </div>
         </div>
         ${ds.length ? `
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Extra mensile disponibile</div>
-          <input id="dt-extra" type="number" inputmode="decimal" value="${extraMensile || ''}" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="Oltre i pagamenti minimi, € al mese" />
+          <input id="dt-extra" type="number" inputmode="decimal" value="${extraMensile || ''}" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="Oltre i pagamenti minimi, € al mese" name="dt-extra" aria-label="Oltre i pagamenti minimi, € al mese" />
           <div class="flex gap-2 mt-2">
             <button data-strat="valanga" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'valanga' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">Valanga (meno interessi)</button>
             <button data-strat="palla-di-neve" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'palla-di-neve' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">Palla di neve (vittorie rapide)</button>
@@ -10398,7 +10525,7 @@ function bridgeCardHtml(state, expenses = []) {
       <div class="flex flex-wrap gap-1.5 mb-1.5">${chips}</div>
       ${piattaformaBozza ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">${esc(piattaformaBozza.nota)}</p>` : ''}
       <div class="flex gap-1.5">
-        <input id="bridge-address" type="email" ${piattaformaBozza?.indirizzoFisso ? 'readonly' : ''} value="${esc(indirizzoBozza)}" placeholder="${esc(tCh('bridgeAddressPlaceholder', __uiLang))}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2.5 py-2 text-[12px]" />
+        <input id="bridge-address" type="email" ${piattaformaBozza?.indirizzoFisso ? 'readonly' : ''} value="${esc(indirizzoBozza)}" placeholder="${esc(tCh('bridgeAddressPlaceholder', __uiLang))}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2.5 py-2 text-[12px]" name="bridge-address" aria-label="${esc(tCh('bridgeAddressPlaceholder', __uiLang))}" />
         <button type="button" id="bridge-save" class="px-3.5 py-2 rounded-lg bg-[var(--primary)] text-white text-[11px] font-bold active:scale-95 transition-transform">${esc(tCh('bridgeSaveBtn', __uiLang))}</button>
       </div>
     </div>`;
@@ -10443,13 +10570,13 @@ window.openBusinessTrips = () => {
   }).join('');
 
   openModal(`
-    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+    <div class="trip-list-modal task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div class="flex items-center gap-2">
-        <span class="font-black text-sm">${esc(tCh('tripTitle', __uiLang))}</span>
+        <h3 class="font-black text-sm">${esc(tCh('tripTitle', __uiLang))}</h3>
       </div>
       <p class="text-[11px] text-[var(--on-surface-secondary)] -mt-1.5">${esc(tCh('tripListIntro', __uiLang))}</p>
       ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${esc(tCh('tripEmpty', __uiLang))}</p>`}
-      <input id="trip-newname" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('tripNamePlaceholder', __uiLang))}" />
+      <label class="task-field"><span>${tCh('tripNameLabel', __uiLang)}</span><input id="trip-newname" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('tripNameShortExample', __uiLang))}" name="trip-newname" /></label>
       <button id="trip-new" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(tCh('tripNewBtn', __uiLang))}</button>
     </div>`);
 
@@ -10676,12 +10803,12 @@ window.openBusinessTrip = (tripId) => {
           <label class="flex items-center justify-center gap-2 border border-dashed border-[var(--outline)] rounded-xl py-3 cursor-pointer text-[12px] font-bold text-[var(--primary)] mb-2">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
-            <input id="trip-receipt" type="file" accept="image/*,application/pdf" class="hidden" />
+            <input id="trip-receipt" type="file" accept="image/*,application/pdf" class="hidden" name="trip-receipt" />
           </label>
           ${state.receiptDataUrl ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
           <div class="flex gap-2 mb-2">
-            <input id="trip-amt" type="number" inputmode="decimal" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" />
-            <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" />
+            <input id="trip-amt" type="number" inputmode="decimal" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
+            <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" name="trip-desc" />
           </div>
           <!-- Bug reale/limite trovato dal vivo: la data era sempre "oggi",
                mai scelta — quasi nessuno registra uno scontrino nell'istante
@@ -11362,7 +11489,7 @@ window.openTripVerdictPaste = (tripId) => {
         <h3 class="text-base font-black">${esc(tCh('tripVerdictPasteTitle', __uiLang))}</h3>
         <p class="card-sub !mb-0">${esc(tCh('tripVerdictPasteSub', __uiLang))}</p>
       </div>
-      <textarea id="trv-code" rows="3" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-[12px] font-mono" placeholder="MTRIPV1:..." aria-label="${esc(tCh('tripVerdictPasteTitle', __uiLang))}"></textarea>
+      <textarea id="trv-code" rows="3" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-[12px] font-mono" placeholder="MTRIPV1:..." aria-label="${esc(tCh('tripVerdictPasteTitle', __uiLang))}" name="trv-code"></textarea>
       <button id="trv-apply" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripVerdictApplyBtn', __uiLang))}</button>
     </div>`, `<button id="trv-back" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
 
@@ -11440,8 +11567,8 @@ window.openTripReviewScreen = (rev) => {
       </div>` : ''}
       <div class="card p-3">
         <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('tripReviewDecisionTitle', __uiLang))}</div>
-        <input id="trv-reviewer" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" />
-        <textarea id="trv-note" rows="2" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}"></textarea>
+        <input id="trv-reviewer" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" name="trv-reviewer" />
+        <textarea id="trv-note" rows="2" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" name="trv-note"></textarea>
         <div class="grid grid-cols-2 gap-2">
           <button id="trv-ok" class="btn-action btn-primary py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripReviewApproveBtn', __uiLang))}</button>
           <button id="trv-ko" class="py-3 font-bold rounded-xl border border-amber-400/50 text-amber-300 bg-amber-500/10 text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripReviewChangesBtn', __uiLang))}</button>
@@ -11525,8 +11652,8 @@ window.openConfermaAcquisti = (lista) => {
         <div class="card p-3" data-riga="${a.idx}">
           <p class="text-[12px] text-[var(--on-surface-secondary)] mb-2">${esc(a.description || 'Transazione')} · ${eur(a.amount)}${a.date ? ` · ${new Date(a.date).toLocaleDateString('it-IT')}` : ''}</p>
           <div class="flex gap-2">
-            <input data-ticker="${a.idx}" value="${esc(a.ticker)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono uppercase" placeholder="Ticker" />
-            <input data-qty="${a.idx}" type="number" inputmode="decimal" value="${esc(a.quantity)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono min-w-0" placeholder="Quante ne hai comprate" />
+            <input data-ticker="${a.idx}" value="${esc(a.ticker)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono uppercase" placeholder="Ticker" aria-label="Ticker" />
+            <input data-qty="${a.idx}" type="number" inputmode="decimal" value="${esc(a.quantity)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono min-w-0" placeholder="Quante ne hai comprate" aria-label="Quante ne hai comprate" />
           </div>
           <div class="flex gap-2 mt-2">
             <button data-conferma="${a.idx}" class="btn-action btn-primary flex-1 py-2 font-bold rounded-xl text-[12px]">Conferma</button>
@@ -11743,13 +11870,13 @@ function getInvoiceFormHTML() {
   // serve davvero); il PDF di cortesia funziona anche senza.
   const emitterFiscalHTML = `
         <div class="grid grid-cols-2 gap-2">
-          <input id="inv-piva" inputmode="numeric" class="${smallCls}" placeholder="Partita IVA (11 cifre)" value="${v(fis.partitaIva)}" />
-          <input id="inv-cf" class="${smallCls}" placeholder="Codice Fiscale (se diverso)" value="${v(fis.codiceFiscale)}" />
-          <input id="inv-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo (via e numero)" value="${v(fis.indirizzo)}" />
-          <input id="inv-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" value="${v(fis.cap)}" />
-          <input id="inv-comune" class="${smallCls}" placeholder="Comune" value="${v(fis.comune)}" />
-          <input id="inv-prov" maxlength="2" class="${smallCls}" placeholder="Prov. (es. MI)" value="${v(fis.provincia)}" />
-          <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" />
+          <input id="inv-piva" inputmode="numeric" class="${smallCls}" placeholder="Partita IVA (11 cifre)" value="${v(fis.partitaIva)}" name="inv-piva" aria-label="Partita IVA (11 cifre)" />
+          <input id="inv-cf" class="${smallCls}" placeholder="Codice Fiscale (se diverso)" value="${v(fis.codiceFiscale)}" name="inv-cf" aria-label="Codice Fiscale (se diverso)" />
+          <input id="inv-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo (via e numero)" value="${v(fis.indirizzo)}" name="inv-indirizzo" aria-label="Indirizzo (via e numero)" />
+          <input id="inv-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" value="${v(fis.cap)}" name="inv-cap" />
+          <input id="inv-comune" class="${smallCls}" placeholder="Comune" value="${v(fis.comune)}" name="inv-comune" aria-label="Comune" />
+          <input id="inv-prov" maxlength="2" class="${smallCls}" placeholder="Prov. (es. MI)" value="${v(fis.provincia)}" name="inv-prov" aria-label="Prov. (es. MI)" />
+          <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" name="inv-iban" aria-label="IBAN (per il pagamento)" />
         </div>`;
   return `
   <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
@@ -11766,15 +11893,15 @@ function getInvoiceFormHTML() {
     <details ${hasProfile ? '' : 'open'} class="rounded-xl border border-[var(--glass-border)] bg-black/20">
       <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">I tuoi dati e logo ${hasProfile ? `· <span class="text-emerald-400">${(prof.emitter || '').slice(0, 24)}</span>` : '(compila una volta)'}</summary>
       <div class="flex flex-col gap-2 p-3 pt-0">
-        <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${v(prof.emitter)}" />
+        <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${v(prof.emitter)}" name="inv-emitter" aria-label="Il tuo nome / ragione sociale" />
         ${emitterFiscalHTML}
         <div class="flex items-center gap-3">
-          <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">Carica logo<input id="inv-logo" type="file" accept="image/*" class="hidden" /></label>
+          <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">Carica logo<input id="inv-logo" type="file" accept="image/*" class="hidden" name="inv-logo" /></label>
           <span id="inv-logo-status" class="text-[10px] text-[var(--on-surface-secondary)]">${prof.logo ? 'logo salvato ✓' : 'nessun logo'}</span>
-          <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="Paese (regole fattura)">
+          <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="Paese (regole fattura)" name="inv-country">
             ${selectableInvoiceCountries().map(c => `<option value="${c.code}" ${(prof.country || 'IT') === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
           </select>
-          <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="Colore accento" />
+          <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="Colore accento" name="inv-accent" />
         </div>
         ${(() => {
           // Tre stili, tre pubblici diversi (non decorazione a caso): "minimale"
@@ -11811,7 +11938,7 @@ function getInvoiceFormHTML() {
                  per la sobrietà istituzionale, un marchio in fondo
                  contraddirebbe la sua stessa promessa a un cliente enterprise. -->
             <label class="flex items-center gap-2 mt-2.5 text-[10px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
-              <input type="checkbox" id="inv-brand-credit" ${(prof.brandCredit !== undefined ? prof.brandCredit : cur !== 'minimale') ? 'checked' : ''} class="w-3.5 h-3.5 rounded accent-[var(--primary)]" />
+              <input type="checkbox" id="inv-brand-credit" ${(prof.brandCredit !== undefined ? prof.brandCredit : cur !== 'minimale') ? 'checked' : ''} class="w-3.5 h-3.5 rounded accent-[var(--primary)]" name="inv-brand-credit" />
               Aggiungi una piccola nota "Creato con Momentum" in fondo (facoltativo, mai sull'XML ufficiale)
             </label>
           </div>`;
@@ -11838,31 +11965,31 @@ function getInvoiceFormHTML() {
              stessa filosofia della voce. "fattura a Rossi Srl 500 per
              consulenza" compila cliente, importo e causale con un tocco. -->
         <div class="flex gap-2">
-          <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" />
+          <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" name="inv-oneline" aria-label='Scrivila a parole: "a Rossi Srl 500 per consulenza"' />
           <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">Compila</button>
         </div>
-        <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" />
+        <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" name="inv-client" aria-label="Cliente (es. Studio Rossi)" />
         <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
         <!-- Dati fiscali del CLIENTE: servono solo alla fattura elettronica. A scomparsa,
              si aprono da soli quando serve. Ricordati per cliente (riuso intelligente). -->
         <details id="inv-client-fiscal" class="rounded-xl border border-[var(--glass-border)] bg-black/20">
           <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">Dati del cliente per la fattura elettronica <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
           <div class="grid grid-cols-2 gap-2 p-3 pt-0">
-            <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="P.IVA cliente" />
-            <input id="inv-cli-cf" class="${smallCls}" placeholder="Codice Fiscale cliente" />
-            <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo cliente" />
-            <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" />
-            <input id="inv-cli-comune" class="${smallCls}" placeholder="Comune" />
-            <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="Prov." />
-            <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="Codice SdI (7) — se ce l'ha" />
-            <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="oppure PEC del cliente" />
+            <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="P.IVA cliente" name="inv-cli-piva" aria-label="P.IVA cliente" />
+            <input id="inv-cli-cf" class="${smallCls}" placeholder="Codice Fiscale cliente" name="inv-cli-cf" aria-label="Codice Fiscale cliente" />
+            <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo cliente" name="inv-cli-indirizzo" aria-label="Indirizzo cliente" />
+            <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" name="inv-cli-cap" />
+            <input id="inv-cli-comune" class="${smallCls}" placeholder="Comune" name="inv-cli-comune" aria-label="Comune" />
+            <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="Prov." name="inv-cli-prov" aria-label="Prov." />
+            <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="Codice SdI (7) — se ce l'ha" name="inv-cli-sdi" aria-label="Codice SdI (7) — se ce l'ha" />
+            <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="oppure PEC del cliente" name="inv-cli-pec" aria-label="oppure PEC del cliente" />
             <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">Non hai il Codice SdI né la PEC? Nessun problema: la fattura arriva nel cassetto fiscale del cliente (useremo <b>0000000</b>).</p>
           </div>
         </details>
       </div>
       <div class="flex flex-col gap-3">
-        <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" />
-        <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" />
+        <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" name="inv-amount" aria-label="Quanto (imponibile €)" />
+        <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" name="inv-desc" aria-label="Per cosa (es. Consulenza marzo)" />
         <!-- Voci multiple: una fattura spesso NON è un solo importo indistinto
              ("4000 di sviluppo, 399 di hosting") — qui si scompone senza
              obbligare nessuno, resta un dettaglio apribile come gli altri.
@@ -11872,9 +11999,9 @@ function getInvoiceFormHTML() {
         <div id="inv-voci-total" class="hidden flex items-center justify-between text-[11px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2">
           <span>Totale imponibile</span><span id="inv-voci-total-val" class="font-mono font-bold text-[var(--on-surface)]"></span>
         </div>
-        <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" />
+        <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" name="inv-email" aria-label="Email cliente (per inviarla)" />
         <label class="block cursor-pointer select-none">
-          <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" />
+          <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" name="inv-recurring" />
           <span class="recur-row">
             <span class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] min-w-0">
               ${REPEAT_ICON}
@@ -11978,7 +12105,7 @@ window.openCreateInvoice = (prefillClient) => {
     row.dataset.voceType = 'eur';
     row.innerHTML = `
       <div class="flex gap-2 items-center">
-        <input type="text" class="${voceInputCls} inv-voce-desc flex-1" placeholder="Descrizione voce" />
+        <input type="text" class="${voceInputCls} inv-voce-desc flex-1" placeholder="Descrizione voce" aria-label="Descrizione voce" />
         <input type="number" inputmode="decimal" class="${voceInputCls} font-mono inv-voce-amount w-20 shrink-0" placeholder="€" />
         <button type="button" class="inv-voce-type shrink-0 w-11 h-9 rounded-xl border border-[var(--glass-border)] text-[11px] font-bold text-[var(--on-surface-secondary)]" title="${VOCE_TYPES[0].title}">${VOCE_TYPES[0].label}</button>
         <button type="button" class="inv-voce-remove shrink-0 w-9 h-9 rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)]" aria-label="Rimuovi voce">✕</button>
@@ -12660,7 +12787,7 @@ function renderNetWorth() {
               <div class="absolute inset-y-0 left-0 rounded-full bg-[color-mix(in_srgb,var(--gold)_25%,transparent)]" style="width:${p95Pct}%"></div>
               <div class="absolute inset-y-0 left-0 rounded-full bg-[var(--gold)]" style="width:${p50Pct}%"></div>
               <div class="absolute inset-y-0 w-0.5 bg-rose-300/80" style="left:${p5Pct}%"></div>
-            </div>
+            </div><p class="net-worth-range">${escapeHtml(tCh('nwBarTooltip', __uiLang, formatMoney(r.p5), formatMoney(r.p50), formatMoney(r.p95)))}</p>
           </div>`;
         }).join('')}</div>
         ${vaglio ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-2.5 leading-relaxed">${escapeHtml(vaglio.riassunto)}${tCh('nwTrialsNote', __uiLang, vaglio.trials)}</p>` : ''}
@@ -13142,7 +13269,7 @@ function renderRegulatoryNews() {
   if (!voci.length) { el.innerHTML = ''; return; }
   el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Fed, BCE e Registro Federale — fonti ufficiali</p>` +
     voci.slice(0, 5).map(v => `
-      <a href="${v.link || '#'}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
+      <a href="${v.link || '#'}" target="_blank" rel="noopener" class="momentum-news-item block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="font-semibold leading-snug text-[11px]">${escapeHtml(v.titolo)}</div>
         <div class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(v.ente || v.nomeFonte || '')}${v.data ? ' · ' + escapeHtml(v.data) : ''}${v.viaRelay ? ' · via relay pubblico (CORS)' : ''}</div>
       </a>`).join('');
@@ -13181,6 +13308,12 @@ window.renderMonthCalendarInto = function renderMonthCalendarInto(gridId) {
   const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
   const oggi = new Date();
   const txsVista = displayTxForMonth(monthKey(VaultDAO.state.currentDate));
+  if (gridId === 'dash-month-grid') {
+    let summary = document.getElementById('dash-month-summary');
+    if (!summary) { summary = document.createElement('div'); summary.id = 'dash-month-summary'; grid.before(summary); }
+    const spent = txsVista.filter(tx => tx.type === 'uscita').reduce((sum,tx) => sum + tx.amount,0);
+    summary.innerHTML = calendarPeriodSummary(spent, VaultDAO.state.monthlyBudget);
+  }
 
   const spends = {};
   __heatmapDayTx = {};
@@ -14007,19 +14140,25 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
 // Backup cifrato "DNA" (src/core/backup.js): esporta tutto lo stato del
 // vault in un file .momentum protetto da passphrase. Risposta alla perdita
 // del dispositivo senza tradire il principio "nessun dato su server".
-window.exportEncryptedBackup = async () => {
-  const pass = prompt('Scegli una passphrase per proteggere il backup (ricordala: senza, i dati non si recuperano):');
-  if (!pass) return;
-  try {
-    const envelope = await encryptBackup(VaultDAO.state, pass);
-    const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `momentum-backup-${new Date().toISOString().slice(0, 10)}.momentum`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Backup cifrato salvato. Conservalo al sicuro.', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
+window.exportEncryptedBackup = () => {
+  openModal(`<form class="money-editor protected-copy-form" onsubmit="return false"><header class="money-editor-heading"><div class="money-editor-planet" aria-hidden="true"></div><h3>${tCh('copySave',__uiLang)}</h3><p>${tCh('copyPasswordHint',__uiLang)}</p></header><label class="cosmos-form-field"><span>${tCh('copyPassword',__uiLang)}</span><input id="copy-password" type="password" autocomplete="new-password" aria-describedby="copy-error" /></label><label class="cosmos-form-field"><span>${tCh('copyRepeat',__uiLang)}</span><input id="copy-password-repeat" type="password" autocomplete="new-password" aria-describedby="copy-error" /></label><p id="copy-error" class="money-editor-error" role="alert" hidden></p></form>`,`<button type="button" id="copy-save" class="btn-action orbit-confirm w-full">${tCh('copySave',__uiLang)}</button>`);
+  document.getElementById('copy-save').onclick = async event => {
+    const password = document.getElementById('copy-password').value;
+    const repeated = document.getElementById('copy-password-repeat').value;
+    const error = document.getElementById('copy-error');
+    if (!password || password !== repeated) { error.hidden=false; error.textContent=tCh('copyMismatch',__uiLang); document.getElementById('copy-password-repeat').focus(); return; }
+    const button=event.currentTarget; button.disabled=true; button.setAttribute('aria-busy','true'); error.hidden=true;
+    try {
+      const envelope = await encryptBackup(VaultDAO.state, password);
+      const blob = new Blob([JSON.stringify(envelope, null, 2)], { type:'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `momentum-backup-${new Date().toISOString().slice(0,10)}.momentum`;
+      link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      closeModal(); showToast(tCh('copySaved',__uiLang),'success');
+    } catch (e) { error.hidden=false; error.textContent=e.message; }
+    finally { button.disabled=false; button.removeAttribute('aria-busy'); }
+  };
 };
 
 // Ripristino di QUALUNQUE file .momentum prodotto da quest'app.
@@ -14220,8 +14359,8 @@ window.renderDataFreshnessCard = () => {
       <details class="mt-2">
         <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Configura una fonte (avanzato)</summary>
         <div class="mt-2 space-y-1.5">
-          <input id="dsu-tax" type="url" placeholder="URL regole fiscali (opzionale)" value="${escapeHtml(urls.taxRules || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]">
-          <input id="dsu-format" type="url" placeholder="URL tracciato fattura (opzionale)" value="${escapeHtml(urls.fatturaPaFormat || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]">
+          <input id="dsu-tax" type="url" placeholder="URL regole fiscali (opzionale)" value="${escapeHtml(urls.taxRules || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-tax" aria-label="URL regole fiscali (opzionale)">
+          <input id="dsu-format" type="url" placeholder="URL tracciato fattura (opzionale)" value="${escapeHtml(urls.fatturaPaFormat || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-format" aria-label="URL tracciato fattura (opzionale)">
           <p class="text-[9px] text-[var(--on-surface-secondary)]">Il payload viene comunque verificato (struttura + valori plausibili) prima di essere usato: una fonte configurata male o malevola viene scartata, mai adottata.</p>
           <div class="flex gap-1.5">
             <button id="dsu-save" class="btn-action flex-1 text-[10px] py-1.5">Salva</button>
@@ -14588,9 +14727,9 @@ window.openRecoveryRestore = () => {
       </div>
       <label class="btn-action w-full py-3 font-bold rounded-xl text-center border border-[var(--outline)] cursor-pointer">
         <span id="rr-filename">Scegli il file della copia</span>
-        <input id="rr-file" type="file" accept=".momentum,application/json" class="hidden">
+        <input id="rr-file" type="file" accept=".momentum,application/json" class="hidden" name="rr-file">
       </label>
-      <textarea id="rr-shares" rows="5" placeholder="Incolla qui il primo foglio, vai a capo, incolla il secondo." class="w-full text-[11px] font-mono rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)] p-3"></textarea>
+      <textarea id="rr-shares" rows="5" placeholder="Incolla qui il primo foglio, vai a capo, incolla il secondo." class="w-full text-[11px] font-mono rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)] p-3" name="rr-shares" aria-label="Incolla qui il primo foglio, vai a capo, incolla il secondo."></textarea>
       <div id="rr-status" class="text-[11px] text-[var(--on-surface-secondary)]">Ancora nessun foglio.</div>
       <button id="rr-go" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Riporta i miei dati</button>
     </div>`);
@@ -14744,37 +14883,9 @@ window.registerDetectedSubscription = (p) => {
 // ==========================================
 // P2P SYNC CODES
 // ==========================================
-window.generateSyncQR = () => {
-  const stateString = localStorage.getItem('omega_core_db');
-  if (!stateString) return;
-  const compressed = btoa(stateString);
-  // Simulating visual QR / text code modal
-  openModal(`
-    <div class="p-4 space-y-4">
-      <h3 class="text-lg font-bold">Node Sync Token</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">Copia questo token e incollalo sulla scheda dell'altro dispositivo per sincronizzare:</p>
-      <textarea class="w-full h-32 p-2 bg-black border border-[var(--outline)] text-xs font-mono rounded-lg" readonly>${compressed}</textarea>
-      <button onclick="navigator.clipboard.writeText('${compressed}'); showToast('Token copiato!', 'success');" class="save-btn w-full !m-0">Copia Token</button>
-    </div>
-  `);
-};
-
-window.connectWebRTCPeer = () => {
-  const token = $('#webrtc-peer-input').value.trim();
-  if (!token) return;
-  try {
-    const decoded = atob(token);
-    JSON.parse(decoded); // validate JSON
-    localStorage.setItem('omega_core_db', decoded);
-    VaultDAO.init();
-    renderDashboard();
-    renderAnalysis();
-    closeModal();
-    showToast("Sincronizzazione P2P Completata!", "success");
-  } catch(e) {
-    showToast("Token non valido.", "error");
-  }
-};
+// Legacy entry points now use verified backup flows; never replace a Vault with raw Base64.
+window.generateSyncQR = () => window.exportEncryptedBackup();
+window.connectWebRTCPeer = () => document.getElementById('backup-restore-input')?.click();
 
 // Export in chiaro (src/core/backup.js: exportPlain). Era `exportOmegaDNA`, e
 // produceva un file che l'app stessa non sapeva rileggere — vedi il commento
@@ -15040,6 +15151,22 @@ window.genesisClarityPick = (value) => {
   if (value !== 'essenziale' && value !== 'completo') return;
   window.userClarity = value;
   updateGenesisClaritySelection();
+  haptic('light');
+};
+
+window.genesisPreferences = (open) => {
+  const ready = document.getElementById('genesis-ready-view');
+  const preferences = document.getElementById('genesis-preferences-view');
+  if (!ready || !preferences) return;
+  ready.hidden = !!open;
+  preferences.hidden = !open;
+  const content = ready.parentElement;
+  content.scrollTop = 0;
+  (open ? preferences.querySelector('h2') : document.getElementById('genesis-personalize'))?.focus({ preventScroll: true });
+  if (!motionIsReduced()) {
+    for (const animation of content.getAnimations?.() || []) animation.cancel();
+    content.animate([{ opacity: .3, transform: `translateX(${open ? 8 : -8}px)` }, { opacity: 1, transform: 'translateX(0)' }], { duration: 240, easing: 'cubic-bezier(.22,1,.36,1)' });
+  }
 };
 
 function applyGenesisClarity() {
@@ -15052,10 +15179,19 @@ function renderGenesisPayoff() {
   if (!el) return;
   updateGenesisClaritySelection();
   renderGenesisPayoffCards(el);
+  const summary = document.getElementById('genesis-ready-summary');
+  if (!summary) return;
+  const minor = window.userIsMinor === true;
+  const goalKey = minor ? MINOR_GOAL_LABEL_KEYS[window.userMinorGoalKey] : GOAL_LABEL_KEYS[window.userGoalKey];
+  const row = (icon, title, sub) => `<div class="genesis-ready-row"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span><div><strong>${escapeHtml(title)}</strong><p>${escapeHtml(sub)}</p></div></div>`;
+  summary.innerHTML = row('<rect x="4" y="3" width="16" height="18" rx="4"/><path d="M8 8h8M8 12h5M8 16h3"/>', tCh('genesisReadySpending', __uiLang), tCh(minor || window.userInvests === false ? 'genesisReadySpendingSub' : 'genesisReadyInvestSub', __uiLang))
+    + row('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="m12 12 7-7m-3 0h3v3"/>', goalKey ? tCh(goalKey, __uiLang) : tCh('genesisReadyGoal', __uiLang), tCh(goalKey ? 'genesisReadyGoalSub' : 'genesisReadyNoGoalSub', __uiLang));
 }
 
 function updateGenesisClaritySelection() {
   const clarity = window.userClarity || resolveClarity(VaultDAO.state);
+  const currentView = document.getElementById('genesis-current-view');
+  if (currentView) currentView.textContent = tCh(clarity === 'completo' ? 'genesisCurrentDetailed' : 'genesisCurrentSimple', __uiLang);
   document.querySelectorAll('[data-genesis-clarity]').forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.genesisClarity === clarity));
     button.classList.toggle('active', button.dataset.genesisClarity === clarity);
@@ -15331,7 +15467,7 @@ function seedProfileState(risk = 'bilanciato', hz = 'medio', liquidityMonths = n
   // domande esistenti — sono già indipendenti dall'età e ben tarate.
   const p = derivePriors(risk, hz, liquidityMonths, invests, incomeRegularity);
   VaultDAO.state.isFirstLaunch = false;
-  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress, incomeRegularity: p.incomeRegularity, ageBracket };
+  VaultDAO.state.onboardingProfile = { riskProfile: p.risk, horizon: p.horizon, invests: p.invests, cashflowStress: p.cashflowStress, incomeRegularity: p.incomeRegularity, ageBracket, hasPartitaIva: window.userHasPartitaIva === true };
   applyGenesisClarity();
   applyGenesisBudget();
   const statedIncome = +window.userStatedIncome || 0;
@@ -15616,8 +15752,15 @@ function collegaScrollAllaPagina(el) {
   if (!el || el.dataset.scrollCollegato === '1') return;
   el.dataset.scrollCollegato = '1';
   el.addEventListener('wheel', (e) => {
-    if (e.ctrlKey) return; // zoom del browser, mai intercettato
+    if (e.ctrlKey || e.shiftKey || e.defaultPrevented || !e.deltaY || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     const giu = e.deltaY > 0;
+    // A nested category/icon grid gets first use of the wheel. Forwarding
+    // here used to steal its scroll whenever the outer form reached an edge.
+    for (let child = e.target instanceof Element ? e.target : null; child && child !== el; child = child.parentElement) {
+      const range = child.scrollHeight - child.clientHeight;
+      if (range > 1 && /auto|scroll/.test(getComputedStyle(child).overflowY) &&
+        (giu ? child.scrollTop < range - 1 : child.scrollTop > 0)) return;
+    }
     const spazio = el.scrollHeight - el.clientHeight;
     const alLimite = spazio <= 1 || (giu ? Math.ceil(el.scrollTop) >= spazio - 1 : el.scrollTop <= 0);
     if (!alLimite) return;
@@ -15738,6 +15881,7 @@ const bootUI = () => {
   try {
     renderDashboard();
   } catch(e) { console.error(e); }
+  document.documentElement.classList.add('app-ready');
 
   try {
     renderAnalysis();
@@ -16228,71 +16372,107 @@ window.condividiTraguardo = async () => {
 // SEMPRE reversibile dalla card dedicata in Momentum Vault. Se l'utente si
 // trova PROPRIO sulla vista che sta per sparire, lo riporta in Dashboard —
 // mai una vista vuota/inaccessibile lasciata aperta dietro un tab nascosto.
-// ── ORDINE DELLA DASHBOARD PER RILEVANZA (src/predict/rilevanza-card.js) ────
-// profilo-feature.js decide se una card ESISTE per te; questo decide quanto
-// conta OGGI. Il modulo è puro e non sa niente del DOM: qui si limita a
-// raccogliere i fatti che gli altri render hanno già calcolato e a tradurre
-// il risultato in `style.order` — #dashboard-view è `flex flex-col`, quindi
-// riordinare non tocca il markup, non ricrea nodi e non perde lo stato di
-// niente (pannelli aperti, focus, scroll dentro le card).
-//
-// Perché `order` e non spostare i nodi: muovere elementi nel DOM a ogni
-// render distruggerebbe l'input attivo e le animazioni in corso. Qui la card
-// resta lo stesso identico nodo, cambia solo dove il browser la disegna.
-function contestoRilevanza() {
-  // SOLO fatti già misurati altrove. Quello che non sappiamo resta `null`, e
-  // il modulo lo tratta come "nessun segnale": mai una stima messa al posto
-  // di un dato mancante per far sembrare il riordino più intelligente.
-  const goals = VaultDAO.state.savingsGoals || [];
-  let giorniAllaScadenzaObiettivo = null;
-  let obiettivoARischio = false;
-  const oggi = Date.now();
-  const tutte = displayAllTx();
-  for (const g of goals) {
-    // `deadline`, non "targetDate": è il campo vero con cui gli obiettivi
-    // vengono creati (window.addSavingsGoal e i due percorsi di onboarding).
-    const scad = g.deadline ? Date.parse(g.deadline) : NaN;
-    if (Number.isFinite(scad)) {
-      const gg = Math.round((scad - oggi) / 86400000);
-      if (gg >= 0 && (giorniAllaScadenzaObiettivo === null || gg < giorniAllaScadenzaObiettivo)) giorniAllaScadenzaObiettivo = gg;
+// Stable dashboard sections with direct, profile-aware actions.
+function renderHomeQuickActions(root) {
+  let bar = document.getElementById('home-quick-actions');
+  if (!bar) { bar = document.createElement('div'); bar.id = 'home-quick-actions'; bar.className = 'home-quick-actions'; root.insertBefore(bar, root.querySelector('.momentum-question')); }
+  const actions = dashboardActions(VaultDAO.state);
+  const signature = actions.join('|') + __uiLang;
+  if (bar.dataset.signature === signature) return;
+  bar.dataset.signature = signature;
+  const labels = {split:'homeQuickSplit',agenda:'homeQuickAgenda',trips:'tripOpenBtn',invest:'homeQuickInvest',goals:'alphaGoalsTitle'};
+  const paths = {split:'<circle cx="8" cy="7" r="3"/><path d="M2 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 4 5"/>',agenda:'<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 11h16"/>',trips:'<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18"/>',invest:'<path d="M4 20h16M5 16l5-5 4 3 6-10"/>',goals:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'};
+  bar.innerHTML = actions.map(action => `<button type="button" data-home-quick="${action}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">${paths[action]}</svg><span>${tCh(labels[action],__uiLang)}</span></button>`).join('');
+  bar.querySelectorAll('button').forEach(button => button.addEventListener('click', () => {
+    const action = button.dataset.homeQuick;
+    if (action === 'split') return window.openSplitExpense();
+    if (action === 'agenda') return window.openPaymentAgenda();
+    if (action === 'trips') return window.openBusinessTrips();
+    if (action === 'goals') {
+      return window.openWorkspacePanel('savings-goals-card-dash', 'alphaGoalsTitle');
     }
-    // "A rischio" non se lo inventa questa funzione: `onTrack` è già
-    // calcolato da computeGoalProgress (engagement.js), che confronta quanto
-    // hai messo da parte con quanto SERVIREBBE a oggi per arrivare in tempo.
-    // Vale `null` — cioè "non giudicabile" — per un obiettivo senza cifra o
-    // senza scadenza, e in quel caso non si giudica.
-    try {
-      if (computeGoalProgress(g, tutte).onTrack === false) obiettivoARischio = true;
-    } catch (_) { /* obiettivo malformato: non è un motivo per rompere la Dashboard */ }
-  }
-  return {
-    mesiCuscinetto: Number.isFinite(window.__mesiCuscinetto) ? window.__mesiCuscinetto : null,
-    giorniAlPayday: Number.isFinite(window.__giorniAlPayday) ? window.__giorniAlPayday : null,
-    sospesoSplit: +window.__splitSospeso || 0,
-    giorniSospeso: 0,
-    obiettivoARischio,
-    giorniAllaScadenzaObiettivo,
-    variazionePortafoglioPct: Number.isFinite(window.__variazionePortafoglioPct) ? window.__variazionePortafoglioPct : 0,
-    haInsight: !document.getElementById('dashboard-insight')?.classList.contains('hidden'),
-    haNudge: !!document.querySelector('#next-expense-nudge:not(.hidden)'),
-  };
+    if (action === 'invest') {
+      return window.openWorkspacePanel('asset-search-card', 'homeQuickInvest');
+    }
+  }));
 }
 
 function applicaOrdineDashboard() {
   const root = document.getElementById('dashboard-view');
   if (!root) return;
-  const ordini = ordineCss(VaultDAO.state, contestoRilevanza());
-  for (const [id, pos] of Object.entries(ordini)) {
-    const el = document.getElementById(id);
-    if (el) el.style.order = String(pos);
+  renderHomeQuickActions(root);
+  if (root.dataset.organized === 'true') return;
+  root.dataset.organized = 'true';
+  // Move existing nodes once: IDs, listeners and the user’s open/input state survive.
+  const qa = root.querySelector('.momentum-question');
+  const definitions = [
+    ['dashboard-spending','homeSpending','homeSpendingHint',[],root.querySelector('.financial-summary')],
+    ['dashboard-saving','homeSaving','homeSavingHint',['jar-card','savings-goals-card-dash'],null],
+    ['dashboard-extras','homeExtras','homeExtrasHint',['tax-discover-card','veglia-mercato'],null],
+  ];
+  const groups = [];
+  for (const [id,title,hint,ids,extra] of definitions) {
+    const items = ids.map(id => document.getElementById(id)).filter(Boolean);
+    if (extra) items.push(extra);
+    if (!items.length) continue;
+    const section = document.createElement('details'); section.id = id; section.className = 'home-section';
+    section.innerHTML = `<summary><span class="home-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">${id === 'dashboard-spending' ? '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 11h16"/>' : id === 'dashboard-planning' ? '<path d="M4 19h16M5 15l5-5 4 3 5-8"/><circle cx="19" cy="5" r="2"/>' : id === 'dashboard-saving' ? '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>' : '<path d="M5 7h14M5 12h14M5 17h9"/>'}</svg></span><span class="home-section-copy"><strong data-i18n-key="${title}">${tCh(title,__uiLang)}</strong><small data-i18n-key="${hint}">${tCh(hint,__uiLang)}</small></span><svg class="home-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary><div class="home-section-body"></div>`;
+    const body = section.lastElementChild;
+    items.forEach(item => { item.style.order = ''; body.append(item); });
+    groups.push(section);
+    const sync = () => { section.hidden = !items.some(item => !item.hidden && !item.classList.contains('hidden') && item.style.display !== 'none' && (item.textContent.trim() || item.children.length)); };
+    const observer = new MutationObserver(sync);
+    items.forEach(item => observer.observe(item,{attributes:true,attributeFilter:['class','style','hidden'],childList:true}));
+    sync();
+    section.addEventListener('toggle', () => { if (section.open) requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); });
   }
-  // Spiegabilità: perché quella card è in cima resta scritto sull'elemento,
-  // non stampato addosso all'utente. Una promozione che non si sa spiegare è
-  // una promozione che non andava fatta — e con il motivo attaccato al nodo
-  // si può leggere in due secondi anche fra sei mesi, dall'ispettore.
-  const m = motivoPromozione(VaultDAO.state, contestoRilevanza());
-  for (const id of Object.keys(ordini)) document.getElementById(id)?.removeAttribute('data-motivo-priorita');
-  if (m) document.getElementById(m.id)?.setAttribute('data-motivo-priorita', m.motivo);
+  // Stable DOM order also makes keyboard order match the visual order.
+  for (const item of root.children) item.style.order = '';
+  const anchor = qa || root.lastElementChild;
+  const quick = document.getElementById('home-quick-actions');
+  let month = root.querySelector('#current-month-display');
+  while (month && month.parentElement !== root) month = month.parentElement;
+  if (quick && month) root.insertBefore(quick, month);
+  const calendar = document.getElementById('dash-week-strip-card');
+  if (calendar && month) {
+    const space = document.createElement('section');
+    space.id = 'home-money-calendar'; space.setAttribute('aria-labelledby','home-money-title');
+    space.innerHTML = `<header class="home-money-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-25 12 12)"/><circle cx="12" cy="12" r="6"/><circle cx="21" cy="8" r="1.5" fill="currentColor"/></svg><h2 id="home-money-title" data-i18n-key="homeMoneyTitle">${tCh('homeMoneyTitle',__uiLang)}</h2></header><div class="home-time-grid"><div class="home-today"></div><div class="home-recorded"></div></div>`;
+    root.insertBefore(space, month);
+    if ('IntersectionObserver' in window) {
+      const motionObserver = new IntersectionObserver(([entry]) => { space.dataset.motionVisible = String(entry.isIntersecting); });
+      motionObserver.observe(space);
+    }
+    const today = space.querySelector('.home-today');
+    for (const id of ['safe-to-spend-card','ghost-forecast']) { const card = document.getElementById(id); if (card) today.append(card); }
+    const syncToday = () => { today.hidden = ![...today.children].some(item => !item.hidden && !item.classList.contains('hidden') && item.style.display !== 'none'); space.dataset.hasToday = String(!today.hidden); };
+    const todayObserver = new MutationObserver(syncToday);
+    [...today.children].forEach(item => todayObserver.observe(item,{attributes:true,attributeFilter:['class','hidden','style']}));
+    syncToday();
+    const monthWrap = document.getElementById('dash-month-wrap');
+    monthWrap.prepend(month);
+    const week = document.createElement('div'); week.id = 'dash-week-panel';
+    calendar.insertBefore(week, document.getElementById('dash-week-summary'));
+    for (const id of ['dash-week-summary','dash-week-strip','week-tap-hint','dash-week-strip-detail']) { const node = document.getElementById(id); if (node) week.append(node); }
+    week.setAttribute('role','tabpanel'); week.setAttribute('aria-labelledby','home-week-tab'); week.tabIndex = 0;
+    monthWrap.setAttribute('role','tabpanel'); monthWrap.setAttribute('aria-labelledby','home-month-tab'); monthWrap.tabIndex = 0;
+    calendar.dataset.calendarView = 'week'; monthWrap.hidden = true;
+    calendar.querySelector('.home-calendar-switch').addEventListener('keydown', event => {
+      const tab = event.target.closest('[data-calendar-view]');
+      if (!tab || event.altKey || event.ctrlKey || event.metaKey) return;
+      const next = calendarViewForKey(tab.dataset.calendarView,event.key);
+      if (!next) return;
+      event.preventDefault();
+      window.__setDashboardCalendarView(next);
+      calendar.querySelector(`[data-calendar-view="${next}"]`).focus({preventScroll:true});
+    });
+    space.querySelector('.home-recorded').append(calendar);
+  }
+  for (const group of groups) root.insertBefore(group, anchor);
+  // Keep actionable notices outside the folded planning surfaces.
+  for (const id of ['next-expense-nudge','dashboard-insight','split-reminder']) {
+    const notice = document.getElementById(id); if (notice) root.insertBefore(notice, groups[0] || anchor);
+  }
 }
 window.applicaOrdineDashboard = applicaOrdineDashboard;
 
@@ -16316,7 +16496,7 @@ function updateAnalysisTensorVisibility() {
   // inutile per chi un regime ce l'ha già attivo (per lui ci sono le card
   // fiscali vere). Prima era gestita solo dal gate "non investo", quindi
   // restava visibile in casi in cui non aveva senso.
-  document.getElementById('tax-discover-card')?.classList.toggle('hidden', !feat.scopertaPartitaIva);
+  document.getElementById('tax-discover-card')?.classList.toggle('hidden', !shouldSuggestTaxSetup(VaultDAO.state) || hasInvoiceIncome());
   if (!show && VaultDAO.state.currentView === 'analysis') navigate('dashboard');
 }
 window.updateAnalysisTensorVisibility = updateAnalysisTensorVisibility;
@@ -16389,12 +16569,12 @@ window.setMotionPreference = mode => {
   VaultDAO.state.uiMotion = mode; VaultDAO.save(); applyMotionPreference();
 };
 window.openAppearancePreferences = () => {
-  navigate('settings');
-  const panel = document.getElementById('appearance-preferences');
-  if (!panel) return;
-  panel.open = true;
-  panel.scrollIntoView({ block: 'center', behavior: 'auto' });
-  panel.querySelector('summary')?.focus();
+  const current = resolveUiComplexity();
+  openModal(`<div class="view-preference-editor"><header><h3>${tCh('analysisComplexityTitle', __uiLang)}</h3><p>${tCh('viewChoiceIntro', __uiLang)}</p></header><div class="view-choice-list" role="group" aria-label="${tCh('analysisComplexityTitle', __uiLang)}">${[['essenziale','analysisComplexityEssential','viewEssentialHelp'],['completo','analysisComplexityFull','viewCompleteHelp']].map(([value,title,help]) => `<button type="button" data-view-choice="${value}" aria-pressed="${value === current}"><span class="view-choice-indicator" aria-hidden="true"></span><span><strong>${tCh(title,__uiLang)}</strong><small>${tCh(help,__uiLang)}</small></span></button>`).join('')}</div><p class="view-choice-note">${tCh('viewChoiceNote', __uiLang)}</p></div>`);
+  document.querySelectorAll('[data-view-choice]').forEach(button => button.addEventListener('click', () => {
+    window.setUiComplexity(button.dataset.viewChoice);
+    document.querySelectorAll('[data-view-choice]').forEach(choice => choice.setAttribute('aria-pressed', String(choice.dataset.viewChoice === resolveUiComplexity())));
+  }));
 };
 window.setUiComplexity = (val) => {
   if (val !== 'essenziale' && val !== 'completo') return;
@@ -16438,30 +16618,28 @@ function setActivityLocked(key, isLocked, label) {
 
 // Spiegazione del "+" ai primi avvii (richiesto esplicitamente, 2026-08-30:
 // "molti utenti si sono lamentati che non si capisce dove si aggiungono le
-// transazioni"). Mostrata per le prime 2 aperture reali dell'app
+// transazioni"). Mostrata una sola volta, dopo l'onboarding e senza dati propri
 // (VaultDAO.state.addHintShownCount, persistente), mai più dopo — un solo
 // avviso per volta a schermo, coerente col principio "mai più segnali
 // insieme" già seguito altrove nel progetto (command-center.js). Guardia
 // __addHintRenderedThisLoad: renderDashboard() gira più volte per sessione,
 // questo deve decidere una volta sola per apertura dell'app.
 let __addHintRenderedThisLoad = false;
+window.dismissAddHint = () => {
+  for (const id of ['add-hint-bubble','add-hint-bubble-tablet']) document.getElementById(id)?.classList.add('hidden');
+};
 function renderAddHint() {
-  if (__addHintRenderedThisLoad) return;
+  if (__addHintRenderedThisLoad || !shouldShowAddHint(VaultDAO.state)) return;
+  if (document.getElementById('genesis-container') || document.getElementById('app-core')?.classList.contains('hidden')) return;
+  const anchors = ['mobile-add-btn','tablet-fab'].map(id => document.getElementById(id));
+  if (!anchors.some(el => el && el.getBoundingClientRect().width > 0)) return;
   __addHintRenderedThisLoad = true;
-  // Niente controllo su VaultDAO.state.currentView: può restare "stale" da
-  // una sessione precedente (il boot non richiama mai navigate() per
-  // ripristinare l'ultima vista, la Dashboard è sempre quella mostrata
-  // all'avvio) — essere dentro renderDashboard() è già la garanzia giusta.
-  const count = VaultDAO.state.addHintShownCount || 0;
-  const bubbles = [document.getElementById('add-hint-bubble'), document.getElementById('add-hint-bubble-tablet')].filter(Boolean);
-  if (!bubbles.length || count >= 2) return;
+  const bubbles = ['add-hint-bubble','add-hint-bubble-tablet'].map(id => document.getElementById(id)).filter(Boolean);
   bubbles.forEach(b => { b.classList.remove('hidden'); b.classList.add('add-hint-in'); });
-  VaultDAO.state.addHintShownCount = count + 1;
+  document.getElementById('week-tap-hint')?.classList.add('hidden');
+  VaultDAO.state.addHintShownCount = 1;
   VaultDAO.save();
-  const dismiss = () => bubbles.forEach(b => b.classList.add('hidden'));
-  setTimeout(dismiss, 6000);
-  document.getElementById('mobile-add-btn')?.addEventListener('click', dismiss, { once: true });
-  document.getElementById('tablet-fab')?.addEventListener('click', dismiss, { once: true });
+  anchors.forEach(el => el?.addEventListener('click', window.dismissAddHint, {once:true}));
 }
 window.renderAddHint = renderAddHint;
 
@@ -16473,8 +16651,70 @@ window.goToInvestQuickAdd = () => {
   }, 150);
 };
 
+// Move existing nodes, preserving listeners, IDs, financial state and profile gates.
+function initCalmWorkspace(view) {
+  const grid = document.querySelector(view === 'analysis' ? '.analysis-grid' : '.vault-grid');
+  if (!grid || grid.dataset.calmReady) return;
+  const cards = view === 'analysis'
+    ? [...grid.children].flatMap(column => [...column.children])
+    : [...grid.children].flatMap(card => card.classList.contains('vault-preferences-stack') ? [...card.children] : [card]);
+  if (view === 'settings') {
+    const appearance = document.getElementById('appearance-preferences');
+    if (appearance) cards.push(appearance);
+  }
+  const groups = new Map();
+  const primary = [];
+  for (const card of cards) {
+    const has = key => !!card.querySelector(`[data-i18n-key="${key}"]`);
+    let group;
+    if (view === 'analysis') {
+      if (has('alphaBudgetTitle') || has('alphaWhereGoesTitle')) { primary.push(card); continue; }
+      group = card.classList.contains('advanced-card') || ['net-worth-card','invest-card','asset-search-card','divario-comportamento-card'].includes(card.id)
+        ? 'workspaceMarkets' : has('alphaGoalsTitle') || has('alphaTogetherTitle') || card.classList.contains('analysis-tools')
+          ? 'workspacePlans' : 'workspacePatterns';
+    } else {
+      if (card.classList.contains('vault-data-portal')) { primary.push(card); continue; }
+      group = has('vaultSyncTitle') || ['install-guide-card','quickadd-guide-card'].includes(card.id)
+        ? 'workspaceDevices' : card.id === 'tax-settings-card' || has('vaultPayrollTitle') || has('vaultRemindersTitle')
+          ? 'workspacePayments' : card.classList.contains('advanced-card') || ['semantic-qa-card','pro-license-card','momentum-traguardi-card'].includes(card.id)
+            ? 'workspaceMore' : 'workspacePreferences';
+    }
+    if (!groups.has(group)) groups.set(group, []);
+    // These tools already live inside a named workspace: avoid a second
+    // disclosure before the user can reach the debt or reimbursement action.
+    if (card.classList.contains('analysis-tools')) {
+      groups.get(group).push(...[...card.children].filter(child => child.classList.contains('card')));
+    } else groups.get(group).push(card);
+  }
+  grid.replaceChildren(...primary);
+  grid.dataset.calmReady = 'true';
+  grid.classList.add('calm-workspace');
+  const order = view === 'analysis' ? ['workspacePlans','workspacePatterns','workspaceMarkets'] : ['workspacePayments','workspaceDevices','workspacePreferences','workspaceMore'];
+  for (const key of order) {
+    const items = groups.get(key);
+    if (!items?.length) continue;
+    const section = document.createElement('details');
+    section.className = 'workspace-section';
+    section.dataset.workspaceSection = key;
+    section.innerHTML = `<summary><span class="workspace-planet" aria-hidden="true"></span><span class="workspace-section-copy"><strong data-i18n-key="${key}">${tCh(key, __uiLang)}</strong><small data-i18n-key="${key}Sub">${tCh(key + 'Sub', __uiLang)}</small></span><svg class="workspace-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></summary><div class="workspace-section-body"></div>`;
+    const body = section.lastElementChild;
+    body.append(...items);
+    grid.append(section);
+    // Never show an empty group or make a profile/Pro-hidden card visible.
+    const sync = () => { section.hidden = !items.some(card => !card.hidden && !card.classList.contains('hidden') && card.style.display !== 'none'); };
+    const observer = new MutationObserver(sync);
+    items.forEach(card => observer.observe(card, { attributes:true, attributeFilter:['class','style','hidden'] }));
+    sync();
+    section.addEventListener('toggle', () => {
+      if (section.open) requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    });
+  }
+}
+
 const navigate = (view) => {
   if (!['dashboard', 'analysis', 'settings'].includes(view)) return;
+  const changedView = VaultDAO.state.currentView !== view || document.getElementById(`${view}-view`)?.classList.contains('hidden');
+  if (changedView) window.dismissAddHint?.();
   haptic('light');
   $$('.nav-btn[data-view]').forEach(button => {
     if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
@@ -16521,13 +16761,13 @@ const navigate = (view) => {
     updateUiComplexityVisibility();
     refreshSegmentIndicators();
   }
-  if (view === 'analysis') { renderAnalysis(); updateUiComplexityVisibility(); refreshSegmentIndicators(); }
+  if (view === 'analysis') { renderAnalysis(); updateUiComplexityVisibility(); initCalmWorkspace('analysis'); refreshSegmentIndicators(); }
   if (view === 'settings') {
     // #tax-card/#tax-es-card vivono qui (spostate da Analisi Tensor, vedi
     // index.html): il dettaglio mensile dell'accantonamento fiscale sta
     // accanto a #tax-settings-card, non più mescolato ai contenuti di
     // trading/investimento di Analisi Tensor.
-    renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); renderAnalysisTensorPrefCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary(); applyReadingEasePreferences();
+    renderPayrollSummary(); window.updateReminderQuickDates(); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); renderAnalysisTensorPrefCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary(); applyReadingEasePreferences();
     // Vista Essenziale/Completa (2026-09-03): anche qui, non solo in Analisi
     // Tensor — "Come funziona Momentum" e "Chat generica" sono marcate
     // .advanced-card e seguono la regola generica; #live-prices-card ha una
@@ -16549,6 +16789,7 @@ const navigate = (view) => {
     renderKeyStatusDot('finnhub-status', 'finnhub');
     renderKeyStatusDot('newsapi-status', 'newsapi');
     renderCloudFallbackLogPanel();
+    initCalmWorkspace('settings');
   }
   function renderCloudFallbackLogPanel() {
     const box = document.getElementById('cloud-fallback-log');
@@ -16570,7 +16811,17 @@ const navigate = (view) => {
   // Ingresso SCAGLIONATO del contenuto della sezione (ri-attiva l'animazione ad
   // ogni cambio vista togliendo/rimettendo la classe: reflow forzato in mezzo).
   const shown = $(`#${view}-view`);
-  if (shown) { shown.classList.remove('view-in'); void shown.offsetWidth; shown.classList.add('view-in'); }
+  if (shown && changedView) { shown.classList.remove('view-in'); void shown.offsetWidth; shown.classList.add('view-in'); }
+  if (changedView) {
+    const resetViewScroll = () => {
+      if (VaultDAO.state.currentView !== view) return;
+      for (let node = shown; node && node !== document.documentElement; node = node.parentElement) node.scrollTop = 0;
+      if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+      window.scrollTo({ top:0, left:0, behavior:'instant' });
+    };
+    resetViewScroll();
+    requestAnimationFrame(resetViewScroll);
+  }
 };
 
 // `footerHtml` (opzionale): contenuto SEMPRE VISIBILE, fuori dall'area che
@@ -16618,7 +16869,101 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+function enhancePlanningDates(container) {
+  container.querySelectorAll('.payment-editor input[type="date"],#goal-deadline-input,#fc-start').forEach(input => {
+    const fieldLabel = input.closest('label')?.querySelector('span')?.textContent || tCh('agendaDate', __uiLang);
+    input.hidden = true;
+    const wrap = document.createElement('div');
+    wrap.className = 'orbit-date-control';
+    input.after(wrap);
+    const initial = parseIso(input.value) || parseIso(giornoLocale(new Date()));
+    let { anno, mese0 } = initial;
+    let expanded = false;
+    const dateText = iso => {
+      const d = parseIso(iso);
+      return d ? new Date(d.anno,d.mese0,d.giorno).toLocaleDateString(__uiLocale,{day:'numeric',month:'long',year:'numeric'}) : tCh('orbitDateChoose', __uiLang);
+    };
+    const draw = () => {
+      const limits = {min:input.min || null,max:input.max || null};
+      const days = monthGrid(anno,mese0).map(day => {
+        if (!day) return '<span></span>';
+        const iso = isoDi(anno,mese0,day);
+        return `<button type="button" class="dp-giorno ${iso === input.value ? 'dp-scelto' : ''}" data-day="${iso}" aria-label="${escapeHtml(dateText(iso))}" aria-pressed="${iso === input.value}" ${giornoAmmesso(iso,limits) ? '' : 'disabled'}>${day}</button>`;
+      }).join('');
+      const weekdays = Array.from({length:7},(_,i) => `<span aria-hidden="true">${new Date(2024,0,1+i).toLocaleDateString(__uiLocale,{weekday:'narrow'})}</span>`).join('');
+      wrap.innerHTML = `<button type="button" class="orbit-date-trigger" aria-label="${escapeHtml(fieldLabel + ': ' + dateText(input.value))}" aria-expanded="${expanded}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>${escapeHtml(dateText(input.value))}</span></button>${expanded ? `<div class="orbit-date-panel dp-pannello"><div class="orbit-date-nav"><button type="button" data-nav="-1" aria-label="${tCh('dpPrevMonth', __uiLang)}">‹</button><strong aria-live="polite">${new Date(anno,mese0,1).toLocaleDateString(__uiLocale,{month:'long',year:'numeric'})}</strong><button type="button" data-nav="1" aria-label="${tCh('dpNextMonth', __uiLang)}">›</button></div><div class="orbit-date-grid">${weekdays}${days}</div><button type="button" class="orbit-date-clear">${tCh('orbitDateClear', __uiLang)}</button></div>` : ''}`;
+    };
+    const commit = value => {
+      input.value = value;
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+      expanded = false;
+      draw();
+      wrap.querySelector('.orbit-date-trigger').focus({preventScroll:true});
+    };
+    wrap.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      event.preventDefault();
+      if (button.classList.contains('orbit-date-trigger')) {
+        expanded = !expanded; draw();
+        (wrap.querySelector('.dp-scelto:not(:disabled),[data-day]:not(:disabled)') || wrap.querySelector('button')).focus({preventScroll:true});
+      } else if (button.dataset.nav) {
+        const direction = button.dataset.nav;
+        ({anno,mese0} = direction === '-1' ? mesePrecedente(anno,mese0) : meseSuccessivo(anno,mese0));
+        draw(); wrap.querySelector(`[data-nav="${direction}"]`).focus({preventScroll:true});
+      } else if (button.dataset.day) commit(button.dataset.day);
+      else if (button.classList.contains('orbit-date-clear')) commit('');
+    });
+    wrap.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && expanded) {
+        event.preventDefault(); event.stopPropagation(); expanded = false; draw(); wrap.querySelector('button').focus();
+      }
+      const steps = {ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7};
+      if (event.target.dataset.day && steps[event.key]) {
+        event.preventDefault(); event.stopPropagation();
+        const buttons = [...wrap.querySelectorAll('[data-day]')];
+        const next = buttons[buttons.indexOf(event.target) + steps[event.key]];
+        if (next && !next.disabled) next.focus();
+      }
+    });
+    input.addEventListener('change', () => {
+      const selected = parseIso(input.value);
+      if (selected) ({anno,mese0} = selected);
+      draw();
+    });
+    draw();
+  });
+}
+
+let restoreWorkspacePanel = null;
+function returnWorkspacePanel() {
+  const restore = restoreWorkspacePanel;
+  restoreWorkspacePanel = null;
+  restore?.();
+}
+
+// A single live node keeps existing handlers and model integration intact.
+// Restore before replacing the modal body, including nested editors.
+window.openWorkspacePanel = (id, titleKey) => {
+  returnWorkspacePanel();
+  const panel = document.getElementById(id);
+  if (!panel) return;
+  const marker = document.createComment(`workspace:${id}`);
+  panel.before(marker);
+  const wasOpen = panel.open;
+  window.openModal(`<section class="workspace-dialog" aria-labelledby="workspace-title"><h3 id="workspace-title">${tCh(titleKey, __uiLang)}</h3><div class="workspace-dialog-content"></div></section>`);
+  document.querySelector('.workspace-dialog-content').append(panel);
+  if (panel.tagName === 'DETAILS') panel.open = true;
+  restoreWorkspacePanel = () => {
+    if (marker.parentNode) marker.replaceWith(panel);
+    if (panel.tagName === 'DETAILS') panel.open = wasOpen;
+  };
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+};
+
 window.openModal = (html, footerHtml = '') => {
+  returnWorkspacePanel();
   const modal = document.getElementById('modal-container');
   if (modal.classList.contains('hidden')) {
     __modalFocusReturn = document.activeElement;
@@ -16631,6 +16976,7 @@ window.openModal = (html, footerHtml = '') => {
   if (__modalCloseTimer) { clearTimeout(__modalCloseTimer); __modalCloseTimer = null; }
   const body = $('#modal-body');
   body.innerHTML = html;
+  enhancePlanningDates(body);
   const title = body.querySelector('h1,h2,h3');
   if (title) { title.id ||= 'momentum-dialog-title'; modal.setAttribute('aria-labelledby', title.id); modal.removeAttribute('aria-label'); }
   else { modal.removeAttribute('aria-labelledby'); modal.setAttribute('aria-label', 'Momentum'); }
@@ -16666,7 +17012,12 @@ window.openModal = (html, footerHtml = '') => {
   body.classList.remove('modal-body-in'); void body.offsetWidth; body.classList.add('modal-body-in');
   $('#modal-content').classList.remove('modal-closing');
   $('#modal-container').classList.remove('hidden');
-  requestAnimationFrame(() => { (modalFocusable()[0] || modal).focus({ preventScroll: true }); });
+  requestAnimationFrame(() => {
+    // Respect focus selected by the new form (or by the user) before this frame.
+    if (!modal.classList.contains('hidden') && !modal.contains(document.activeElement)) {
+      (modalFocusable()[0] || modal).focus({ preventScroll: true });
+    }
+  });
   // BUG REALE segnalato dal vivo: con un modale aperto, scorrere sul suo
   // contenuto scorreva ANCHE la pagina sotto (Dashboard/Analisi dietro il
   // buio) — su mobile il gesto capita facilmente sul bordo del modale e
@@ -16697,6 +17048,7 @@ window.closeModal = () => {
   __modalCloseTimer = setTimeout(() => {
     __modalCloseTimer = null;
     $('#modal-container').classList.add('hidden');
+    returnWorkspacePanel();
     __modalInertRestore.forEach(([el, inert]) => { el.inert = inert; });
     __modalInertRestore = [];
     if (__modalFocusReturn?.isConnected) __modalFocusReturn.focus({ preventScroll: true });
@@ -16806,7 +17158,7 @@ window.openGoalAmountEditor = (id) => {
       <svg class="goal-editor-orbit" viewBox="0 0 160 100" fill="none" aria-hidden="true"><circle cx="80" cy="50" r="26"/><ellipse cx="80" cy="50" rx="66" ry="18" transform="rotate(-20 80 50)"/><circle cx="137" cy="30" r="5"/></svg>
       <p class="cosmos-modal-kicker">${tCh('alphaGoalsTitle', __uiLang)}</p><h3 class="text-lg font-bold">${escapeHtml(goal.name)}</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('alphaGoalsSetTargetSub', __uiLang)}</p>
-      <label class="cosmos-form-field"><span>${escapeHtml(tCh('alphaGoalsTargetPlaceholder', __uiLang))}</span><input id="goal-target-only-input" name="goal-target" autocomplete="off" value="${Number.isFinite(goal.target) ? goal.target : ''}" type="number" inputmode="decimal" placeholder="${tCh('alphaGoalsTargetPlaceholder', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" /></label>
+      <label class="cosmos-form-field"><span>${escapeHtml(tCh('alphaGoalsTargetPlaceholder', __uiLang))}</span><input id="goal-target-only-input" name="goal-target" autocomplete="off" value="${Number.isFinite(goal.target) && goal.target > 0 ? goal.target : ''}" type="number" inputmode="decimal" placeholder="${new Intl.NumberFormat(__uiLang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(0)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" /></label>
     </div>
   `, `<button onclick="window.confirmGoalAmount(${id})" class="btn-action orbit-confirm w-full">${tCh('vaultSave', __uiLang)}</button>`);
 };
@@ -17286,10 +17638,10 @@ window.openMeshPairing = () => {
       <div class="flex gap-2">
         <button onclick="window.meshCreateInvite()" class="btn-action flex-1 text-xs">1a. Crea invito (questo dispositivo)</button>
       </div>
-      <textarea id="mesh-code-out" readonly placeholder="Il codice da copiare sull'altro dispositivo apparirà qui..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20"></textarea>
+      <textarea id="mesh-code-out" readonly placeholder="Il codice da copiare sull'altro dispositivo apparirà qui..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20" name="mesh-code-out" aria-label="Il codice da copiare sull'altro dispositivo apparirà qui..."></textarea>
       <div class="border-t border-[var(--outline)] pt-3">
         <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2">Incolla qui il codice ricevuto dall'altro dispositivo:</p>
-        <textarea id="mesh-code-in" placeholder="Codice dall'altro dispositivo..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20"></textarea>
+        <textarea id="mesh-code-in" placeholder="Codice dall'altro dispositivo..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20" name="mesh-code-in" aria-label="Codice dall'altro dispositivo..."></textarea>
         <div class="flex gap-2 mt-2">
           <button onclick="window.meshJoin()" class="btn-action flex-1 text-xs">1b. Ho ricevuto un INVITO</button>
           <button onclick="window.meshAcceptAnswer()" class="btn-action flex-1 text-xs">2a. Ho ricevuto la RISPOSTA</button>
@@ -17414,8 +17766,8 @@ window.openGoalEditor = () => {
       <svg class="goal-editor-orbit" viewBox="0 0 160 100" fill="none" aria-hidden="true"><circle cx="80" cy="50" r="26"/><ellipse cx="80" cy="50" rx="66" ry="18" transform="rotate(-20 80 50)"/><circle cx="137" cy="30" r="5"/></svg>
       <p class="cosmos-modal-kicker">${tCh('alphaGoalsTitle', __uiLang)}</p><h3 class="text-lg font-bold">${tCh('goalNew', __uiLang)}</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('goalCalculation', __uiLang)}</p>
-      <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalName', __uiLang))}</span><input id="goal-name-input" name="goal-name" autocomplete="off" type="text" placeholder="${escapeHtml(tCh('goalName', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" /></label>
-      <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalOptionalAmount', __uiLang))}</span><input id="goal-target-input" name="goal-target" autocomplete="off" type="number" inputmode="decimal" placeholder="${escapeHtml(tCh('goalOptionalAmount', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" /></label>
+      <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalName', __uiLang))}</span><input id="goal-name-input" name="goal-name" autocomplete="off" type="text" placeholder="${escapeHtml(tCh('goalNameExample', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" /></label>
+      <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalOptionalAmount', __uiLang))}</span><input id="goal-target-input" name="goal-target" autocomplete="off" type="number" inputmode="decimal" placeholder="${new Intl.NumberFormat(__uiLang,{minimumFractionDigits:2}).format(0)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" /></label>
       <label class="cosmos-form-field"><span>${escapeHtml(tCh('goalOptionalDate', __uiLang))}</span><input id="goal-deadline-input" name="goal-deadline" autocomplete="off" type="date" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" /></label>
     </form>
   `, `<button type="button" onclick="window.confirmGoalCreate()" class="btn-action orbit-confirm w-full">${tCh('goalCreate', __uiLang)}</button>`);
@@ -17453,36 +17805,15 @@ window.openBudgetEditor = (onDone = null) => {
   window.__budgetEditorOnDone = onDone;
   const suggestion = suggestMonthlyBudget(VaultDAO.state.transactions, new Date());
   const current = VaultDAO.state.monthlyBudget || 0;
-  // `onDone` (2026-09-03): quando chiamato subito dopo "Parti dai miei
-  // dati" (dismissDemo), il numero mostrato qui è ancora la STIMA di
-  // partenza dell'onboarding (dal profilo di rischio, mai confermata
-  // dall'utente) — dirlo esplicitamente, altrimenti sembra un valore già
-  // deciso invece di un punto di partenza da correggere.
-  const eyebrowExtra = onDone ? `<p class="text-[11px] text-[var(--on-surface-secondary)] -mt-2">${escapeHtml(tCh('budgetEditorFreshStartHint', __uiLang))}</p>` : '';
   openModal(`
-    <div class="p-4 space-y-4">
-      <h3 class="text-lg font-bold">Budget mensile</h3>
-      ${eyebrowExtra}
-      ${suggestion ? `
-        <div class="card p-4 border border-emerald-500/30 bg-emerald-950/10 cursor-pointer" onclick="document.getElementById('budget-edit-input').value=${suggestion.suggested}">
-          <p class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 mb-1">Suggerito dalla tua spesa reale</p>
-          <p class="text-2xl font-black font-mono">${formatMoney(suggestion.suggested)}</p>
-          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">Media ultimi ${suggestion.basedOnMonths} mesi (${formatMoney(suggestion.rawAverage)}) + margine di sicurezza. Tocca per usarlo.</p>
-        </div>
-      ` : `<p class="text-xs text-[var(--on-surface-secondary)]">Non c'è ancora abbastanza storico per un suggerimento — imposta un valore di partenza, lo affineremo appena avrai qualche mese di spese registrate.</p>`}
-      <input id="budget-edit-input" type="number" inputmode="decimal" value="${current}" oninput="window.updateBudgetWeeklyHint()" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" />
-      <p id="budget-edit-weekly-hint" class="text-center text-[11px] text-[var(--on-surface-secondary)]"></p>
-      <button onclick="window.confirmBudgetEdit()" class="btn-action w-full">Conferma</button>
-      ${onDone ? `<button onclick="window.skipBudgetEditor()" class="w-full text-center text-[11px] text-[var(--on-surface-secondary)] underline">${escapeHtml(tCh('budgetEditorSkip', __uiLang))}</button>` : ''}
-      <!-- Richiesta esplicita da un feedback utente reale: "avete pensato
-           anche a chi non vuole mettere un budget?" — prima l'unica via
-           d'uscita era "Più tardi", che non distingue "non ora" da "mai",
-           quindi la domanda tornava. Questa è una scelta VERA, permanente,
-           mai riproposta — coerente col resto dell'app (nessun dato è
-           obbligatorio, ogni card sparisce onestamente quando manca). -->
-      <button onclick="window.declineBudget()" class="w-full text-center text-[11px] text-[var(--on-surface-secondary)] opacity-70 underline">${escapeHtml(tCh('budgetEditorDecline', __uiLang))}</button>
-    </div>
-  `);
+    <form class="money-editor budget-editor" onsubmit="return false">
+      <header class="money-editor-heading"><div class="money-editor-planet" aria-hidden="true"></div><h3>${tCh('moneyBudgetTitle', __uiLang)}</h3><p>${tCh('moneyBudgetHint', __uiLang)}</p></header>
+      <label class="cosmos-form-field money-budget-field"><span>${tCh('fcAmountPlaceholder', __uiLang)}</span><input id="budget-edit-input" name="monthly-budget" autocomplete="off" type="number" inputmode="decimal" min="0.01" step="0.01" value="${current > 0 ? current : ''}" placeholder="${new Intl.NumberFormat(__uiLang,{minimumFractionDigits:2}).format(0)}" oninput="window.updateBudgetWeeklyHint()" aria-describedby="budget-edit-weekly-hint budget-error" /></label>
+      <p id="budget-edit-weekly-hint" class="money-editor-note" aria-live="polite"></p>
+      <p id="budget-error" class="money-editor-error" role="alert" hidden></p>
+      ${suggestion ? `<button type="button" class="money-budget-suggestion" onclick="document.getElementById('budget-edit-input').value=${suggestion.suggested};window.updateBudgetWeeklyHint()"><span>${tCh('moneyUseSuggestion', __uiLang)}</span><strong>${formatMoney(suggestion.suggested)}</strong></button>` : ''}
+      <div class="money-editor-options">${onDone ? `<button type="button" onclick="window.skipBudgetEditor()" class="money-editor-secondary">${tCh('budgetEditorSkip', __uiLang)}</button>` : ''}<button type="button" onclick="window.declineBudget()" class="money-editor-secondary">${tCh('budgetEditorDecline', __uiLang)}</button></div>
+    </form>`, `<button type="button" onclick="window.confirmBudgetEdit()" class="btn-action orbit-confirm w-full">${tCh('vaultSave', __uiLang)}</button>`);
   window.updateBudgetWeeklyHint();
 };
 
@@ -17523,6 +17854,9 @@ window.updateBudgetWeeklyHint = () => {
   const input = document.getElementById('budget-edit-input');
   const hint = document.getElementById('budget-edit-weekly-hint');
   if (!input || !hint) return;
+  input.removeAttribute('aria-invalid');
+  const error = document.getElementById('budget-error');
+  if (error) error.hidden = true;
   const val = parseFloat(input.value);
   hint.textContent = val > 0 ? tCh('alphaBudgetPerWeekHint', __uiLang, formatMoney(val / 4.345)) : '';
 };
@@ -17530,14 +17864,14 @@ window.updateBudgetWeeklyHint = () => {
 window.confirmBudgetEdit = () => {
   const input = document.getElementById('budget-edit-input');
   const val = parseFloat(input?.value);
-  if (!val || val <= 0) { showToast('Inserisci un importo valido.', 'error'); return; }
+  if (!Number.isFinite(val) || val <= 0) { const error = document.getElementById('budget-error'); if (error) { error.hidden = false; error.textContent = tCh('alphaGoalsInvalidAmount', __uiLang); } input?.setAttribute('aria-invalid','true'); input?.focus(); return; }
   VaultDAO.state.monthlyBudget = val;
   VaultDAO.state.monthlyBudgetAt = Date.now();
   delete VaultDAO.state.budgetDeclined; // ha cambiato idea: la scelta "non voglio un budget" non vale più
   spegniDemoDopoNumeriVeri(); // un budget vero e spese finte insieme non hanno senso
   VaultDAO.save();
   closeModal();
-  showToast('Budget aggiornato.', 'success');
+  showToast(tCh('moneyBudgetSaved', __uiLang), 'success');
   // BUG REALE segnalato da utenti ("cambio il budget e resta quello vecchio"):
   // si ridisegnava solo Analisi, ma il budget è il numero su cui è costruita
   // la DASHBOARD — "oggi puoi spendere", quanto avanza, la traiettoria del
@@ -17616,7 +17950,13 @@ const initApp = () => {
   // versione vecchia"), rendendo impossibile vedere i cambiamenti. Su localhost
   // il dev server (vite) è già sempre fresco. In produzione il SW resta (offline
   // + PWA). Se un SW era già registrato in dev, lo si rimuove.
-  const isLocalDev = ['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname);
+  window.checkForAppUpdate = () => {
+    const message = tCh('maintenanceUnavailable', __uiLang);
+    const status = document.getElementById('app-update-status');
+    if (status) status.textContent = message;
+    showToast(message, 'info');
+  };
+  const isLocalDev = import.meta.env.DEV || ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'].includes(location.hostname) || location.hostname.endsWith('.localhost');
   if ('serviceWorker' in navigator && isLocalDev) {
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
     if (navigator.serviceWorker.controller) {
@@ -17670,7 +18010,12 @@ const initApp = () => {
     // scatta da solo; se non c'è, lo diciamo onestamente invece di far finta.
     window.checkForAppUpdate = async (e) => {
       const btn = e?.currentTarget || document.getElementById('check-update-btn');
-      if (!window.momentumSWReg) { showToast('Il controllo automatico è già attivo su questo dispositivo.', 'info'); return; }
+      if (btn?.disabled) return;
+      const status = document.getElementById('app-update-status');
+      const report = (key, tone = 'info') => { const message = tCh(key, __uiLang); if (status) status.textContent = message; showToast(message, tone); };
+      if (!window.momentumSWReg) { report('maintenanceUnavailable'); return; }
+      if (btn) { btn.disabled = true; btn.setAttribute('aria-busy','true'); }
+      if (status) status.textContent = tCh('maintenanceChecking', __uiLang);
       btn?.classList.add('checking-update');
       haptic('light');
       try {
@@ -17679,7 +18024,7 @@ const initApp = () => {
         await new Promise(r => setTimeout(r, 800)); // tempo reale perché il browser scarichi e valuti sw.js
         const after = window.momentumSWReg.installing || window.momentumSWReg.waiting;
         if (after && after !== before) {
-          showToast('Trovata una versione nuova — si installa da sola tra un attimo.', 'success');
+          report('maintenanceFound', 'success');
         } else {
           // Il controllo sul service worker da solo non basta (vedi il terzo
           // canale poco sotto, contro l'origine canonica): su un mirror
@@ -17690,12 +18035,13 @@ const initApp = () => {
           // (il messaggio "hai già l'ultima versione" qui sotto non arriva
           // mai a comparire in quel caso, perché la pagina si ricarica prima).
           try { await checkAppVersionDirect(); } catch (_) {}
-          if (!reloadedForVersionCheck) showToast('Hai già l\'ultima versione di Momentum.', 'success');
+          if (!reloadedForVersionCheck) report('maintenanceChecked', 'success');
         }
       } catch (_) {
-        showToast('Non sono riuscito a controllare ora: ci riprovo automaticamente più tardi.', 'error');
+        report('maintenanceError', 'error');
       } finally {
         btn?.classList.remove('checking-update');
+        if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
       }
     };
 
@@ -17790,7 +18136,7 @@ const initApp = () => {
         <div id="fb-stars" class="flex gap-1.5 my-1">
           ${[1, 2, 3, 4, 5].map(n => `<button type="button" data-star="${n}" class="fb-star p-1" aria-label="${n} stelle"><svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l2.7 5.9 6.3.6-4.8 4.3 1.4 6.2-5.6-3.3-5.6 3.3 1.4-6.2-4.8-4.3 6.3-.6z"/></svg></button>`).join('')}
         </div>
-        <textarea id="fb-text" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-sm" placeholder="Cosa funziona, cosa no, cosa vorresti diverso… (facoltativo)"></textarea>
+        <textarea id="fb-text" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-sm" placeholder="Cosa funziona, cosa no, cosa vorresti diverso… (facoltativo)" name="fb-text" aria-label="Cosa funziona, cosa no, cosa vorresti diverso… (facoltativo)"></textarea>
         <button id="fb-send" class="btn-action btn-primary w-full py-3 font-bold rounded-xl" disabled>Invia</button>
         <button id="fb-skip" class="text-[11px] text-[var(--on-surface-secondary)]">Non ora</button>
       </div>`);
@@ -19734,8 +20080,14 @@ const initApp = () => {
         renderQaLearnPrompt(question);
       }
     };
-    qaSend.onclick = ask;
-    qaInput.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+    let qaPending = false;
+    const submitQuestion = async () => {
+      if (qaPending || !qaInput.value.trim()) { if (!qaPending) qaInput.focus(); return; }
+      qaPending = true; qaSend.disabled = true; qaSend.setAttribute('aria-busy', 'true');
+      try { await ask(); } finally { qaPending = false; qaSend.disabled = false; qaSend.removeAttribute('aria-busy'); }
+    };
+    qaSend.onclick = submitQuestion;
+    qaInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submitQuestion(); } });
   }
 
   // Ingest listeners
@@ -19792,19 +20144,69 @@ const initApp = () => {
   });
   const screenshotIn = $('#screenshot-upload'); if (screenshotIn) screenshotIn.addEventListener('change', e => runMulti(e.target.files, screenshotIn));
 
+
+  document.getElementById('scenario-extra-val').textContent = formatMoney(0);
+  document.getElementById('scenario-future-impact').textContent = tCh('alphaScenario5yZero', __uiLang);
+  const simulationTabs = [...document.querySelectorAll('[data-simulation-pane]')];
+  const selectSimulationPane = (tab) => {
+    simulationTabs.forEach(button => {
+      const selected = button === tab;
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      document.getElementById(button.dataset.simulationPane).hidden = !selected;
+    });
+  };
+  simulationTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectSimulationPane(tab));
+    tab.addEventListener('keydown', event => {
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? simulationTabs.length - 1
+        : event.key === 'ArrowRight' ? (index + 1) % simulationTabs.length
+        : event.key === 'ArrowLeft' ? (index + simulationTabs.length - 1) % simulationTabs.length : null;
+      if (next === null) return;
+      event.preventDefault(); selectSimulationPane(simulationTabs[next]); simulationTabs[next].focus();
+    });
+  });
+  const presets = document.getElementById('simulation-presets');
+  if (presets) {
+    presets.innerHTML = [0,50,100,200].map(value => `<button type="button" data-simulation-amount="${value}" aria-pressed="${value === 0}">${formatMoney(value)}</button>`).join('');
+    presets.addEventListener('click', event => {
+      const button = event.target.closest('[data-simulation-amount]');
+      if (!button) return;
+      const slider = document.getElementById('scenario-slider');
+      slider.value = button.dataset.simulationAmount;
+      slider.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    document.getElementById('scenario-slider')?.addEventListener('input', event => {
+      presets.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.simulationAmount === event.target.value)));
+    });
+  }
+
   // What-If v2 per categoria (src/predict/what-if.js): select + slider →
   // effetto diretto + catena causale, in linguaggio semplice.
   const wCat = document.getElementById('whatif-cat');
   const wSlider = document.getElementById('whatif-slider');
   const wPct = document.getElementById('whatif-pct');
   const wResult = document.getElementById('whatif-result');
+  const whatIfImport = document.getElementById('whatif-import');
+  whatIfImport?.addEventListener('click', () => navigate('settings'));
   if (wCat && wSlider && wResult) {
     const usedCats = [...new Set(Object.values(VaultDAO.state.transactions).flat().filter(t => t.type === 'uscita').map(t => t.category))];
-    wCat.innerHTML = usedCats.map(c => `<option value="${c}">${getCatById(c).name}</option>`).join('');
+    wCat.innerHTML = usedCats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(catName(getCatById(c), __uiLang))}</option>`).join('');
+    const choices = document.getElementById('whatif-choices');
+    choices.innerHTML = usedCats.map(c => `<button type="button" data-category="${escapeHtml(c)}" aria-pressed="${c === wCat.value}">${escapeHtml(catName(getCatById(c), __uiLang))}</button>`).join('');
+    choices.addEventListener('click', event => {
+      const button = event.target.closest('button[data-category]');
+      if (!button) return;
+      wCat.value = button.dataset.category;
+      choices.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      runWhatIf();
+    });
+    wSlider.disabled = usedCats.length === 0;
     const runWhatIf = () => {
       const pct = parseInt(wSlider.value);
       wPct.textContent = `${pct > 0 ? '+' : ''}${pct}%`;
       const sim = simulateCategoryChange({ allTx: VaultDAO.state.transactions, catId: wCat.value, deltaPct: pct });
+      if (whatIfImport) whatIfImport.hidden = !!sim;
       if (!sim) { wResult.textContent = tCh('alphaWhatIfNoHistory', __uiLang); return; }
       const verb = sim.directMonthly >= 0 ? tCh('alphaWhatIfVerbSave', __uiLang) : tCh('alphaWhatIfVerbSpendMore', __uiLang);
       let txt = tCh('alphaWhatIfResultLine', __uiLang, verb, formatMoney(Math.abs(sim.directMonthly)));
@@ -19812,7 +20214,7 @@ const initApp = () => {
         const e = sim.chainEffects[0];
         const direction = e.pct < 0 ? tCh('alphaWhatIfDirectionDown', __uiLang) : tCh('alphaWhatIfDirectionUp', __uiLang);
         const lagSuffix = e.lagWeeks > 0 ? tCh('alphaWhatIfLagWeek', __uiLang) : '';
-        txt += tCh('alphaWhatIfChainLine', __uiLang, getCatById(e.category).name, direction, `${e.monthlyEur > 0 ? '+' : ''}${formatMoney(e.monthlyEur)}`, lagSuffix);
+        txt += tCh('alphaWhatIfChainLine', __uiLang, catName(getCatById(e.category), __uiLang), direction, `${e.monthlyEur > 0 ? '+' : ''}${formatMoney(e.monthlyEur)}`, lagSuffix);
         txt += tCh('alphaWhatIfTotalEstimate', __uiLang, formatMoney(sim.totalMonthly));
       } else {
         txt += '.';
@@ -19821,7 +20223,7 @@ const initApp = () => {
     };
     wSlider.addEventListener('input', runWhatIf);
     wCat.addEventListener('change', runWhatIf);
-    if (usedCats.length > 0) runWhatIf();
+    runWhatIf();
   }
 
   // What-if simulator live updates. PRIMA: una formula di interesse composto
@@ -19832,18 +20234,33 @@ const initApp = () => {
   // un unico valore che finge certezza — stessa disciplina già applicata
   // alla tabella "Strategia (10 anni)" più sopra in questa vista.
   const slider = document.getElementById('scenario-slider');
+  let simulationYears = 5;
+  const yearsControls = document.getElementById('simulation-years');
+  const horizonLabel = document.getElementById('simulation-horizon-label');
+  const updateYears = () => {
+    yearsControls.innerHTML = [1,3,5,10].map(years => `<button type="button" data-simulation-years="${years}" aria-pressed="${years === simulationYears}">${years === 1 ? tCh('alphaProjection1y',__uiLang) : tCh('simulationYears',__uiLang,years)}</button>`).join('');
+    horizonLabel.textContent = simulationYears === 1 ? tCh('alphaProjection1y',__uiLang) : tCh('simulationAtYear',__uiLang,simulationYears);
+  };
+  updateYears();
+  yearsControls.addEventListener('click', event => {
+    const button = event.target.closest('[data-simulation-years]'); if (!button) return;
+    simulationYears = Number(button.dataset.simulationYears);
+    updateYears();
+    yearsControls.querySelector(`[data-simulation-years="${simulationYears}"]`)?.focus();
+    document.getElementById('scenario-slider').dispatchEvent(new Event('input',{bubbles:true}));
+  });
   const compareEl = document.getElementById('scenario-strategy-compare');
   if (slider) {
     slider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value) || 0;
-      $('#scenario-extra-val').textContent = tCh('alphaScenarioExtraVal', __uiLang, val);
+      $('#scenario-extra-val').textContent = formatMoney(val);
       try {
         const a = measuredAssumptions.spy?.buyHold;
         const mu = a?.mu ?? 0.09, sigma = a?.sigma ?? 0.15;
-        const r = projectStrategy({ start: 0, monthlyContribution: val, years: 5, mu, sigma, paths: 500 });
-        $('#scenario-future-impact').textContent = val > 0
-          ? tCh('alphaScenario5yResult', __uiLang, formatMoney(r.p5), formatMoney(r.p50), formatMoney(r.p95))
-          : tCh('alphaScenario5yZero', __uiLang);
+        const r = projectStrategy({ start: 0, monthlyContribution: val, years: simulationYears, mu, sigma, paths: 500 });
+        $('#scenario-future-impact').innerHTML = val > 0
+          ? [['simulationLow',r.p5],['simulationMiddle',r.p50],['simulationHigh',r.p95]].map(([key,amount]) => `<span class="simulation-range-cell"><span>${tCh(key,__uiLang)}</span><strong>${formatMoney(amount)}</strong></span>`).join('')
+          : escapeHtml(tCh('alphaScenario5yZero', __uiLang));
         // Confronto tra le 8 strategie per QUESTO risparmio extra (richiesto
         // esplicitamente: "e con questo risparmio, quale strategia conviene
         // di più?") — stesso motore già usato per la tabella "Strategia (10
@@ -19852,7 +20269,7 @@ const initApp = () => {
         // non un ranking statico.
         if (compareEl) {
           if (val > 0) {
-            const cmp = projectNetWorthByStrategy({ start: 0, monthlyContribution: val, years: 5, paths: 400 });
+            const cmp = projectNetWorthByStrategy({ start: 0, monthlyContribution: val, years: simulationYears, paths: 400 });
             const top = cmp.rows.slice(0, 4);
             const maxP50 = Math.max(1, ...top.map(row => row.p50));
             compareEl.classList.remove('hidden');
@@ -19890,7 +20307,7 @@ const initApp = () => {
   // reload lo perderebbe e l'utente finirebbe sull'onboarding invece che sulla
   // divisione (l'anti-abbandono saltava). Lo parcheggiamo in sessionStorage così
   // sopravvive a qualunque reload, e lo consumiamo UNA sola volta (clearJoin).
-  const urlJoin = extractSharePayload(location.href);
+  const urlJoin = extractJoinPayload();
   if (urlJoin) { try { sessionStorage.setItem('__mJoin', urlJoin); } catch (_) {} }
   let joinPayload = urlJoin;
   if (!joinPayload) { try { joinPayload = sessionStorage.getItem('__mJoin'); } catch (_) {} }
@@ -19923,9 +20340,9 @@ const initApp = () => {
     // VaultDAO.state.themeDark — il tema scelto veniva salvato ma MAI
     // riapplicato al riavvio, quindi ogni reload tornava silenziosamente
     // al tema scuro qualunque cosa l'utente avesse scelto l'ultima volta.
-    const isDark = VaultDAO.state.themeDark !== false;
-    document.documentElement.classList.toggle('dark', isDark);
-    document.querySelectorAll('[data-action="toggle-theme"]').forEach(btn => setThemeToggleIcon(btn, isDark));
+    const isDark = themeIsDark(themePreference(VaultDAO.state), deviceThemeQuery.matches);
+    VaultDAO.state.themeDark = isDark;
+    applyThemeAppearance(isDark);
     // Lettura comoda: applicata qui, allo stesso punto del tema, prima del
     // primo paint reale — altrimenti l'app si aprirebbe un istante a
     // dimensione normale e "saltasse" a quella scelta, proprio nel momento
@@ -19933,6 +20350,7 @@ const initApp = () => {
     applyReadingEasePreferences();
     // Modalità privacy ricordata tra le sessioni: se l'utente l'aveva
     // attivata, i numeri restano sfocati anche subito dopo il reload.
+    [$('#privacy-toggle-mobile'), $('#privacy-toggle-desktop')].forEach(btn => setPrivacyToggleIcon(btn, !!VaultDAO.state.privacyMode));
     if (VaultDAO.state.privacyMode) {
       document.body.classList.add('privacy-mode');
       [$('#privacy-toggle-mobile'), $('#privacy-toggle-desktop')].forEach(btn => {
@@ -20106,12 +20524,12 @@ document.addEventListener('click', e => {
 
   try {
     if (a === 'switch-view') {
+      if (t.dataset.view === VaultDAO.state.currentView && !document.getElementById(`${t.dataset.view}-view`)?.classList.contains('hidden')) return;
       navigate(t.dataset.view);
     } else if (a === 'prev-month' || a === 'next-month') {
-      const d = new Date(VaultDAO.state.currentDate);
-      if (a === 'next-month') d.setMonth(d.getMonth() + 1);
-      else d.setMonth(d.getMonth() - 1);
+      const d = shiftCalendarMonth(VaultDAO.state.currentDate, a === 'next-month' ? 1 : -1);
       VaultDAO.state.currentDate = d;
+      __dashWeekOffset = weekOffsetForMonth(d, new Date());
       window.__calMeseDirezione = a === 'next-month' ? 1 : -1;
       renderDashboard();
       // BUG REALE trovato dal vivo cambiando mese dentro Analisi Tensor: il
@@ -20139,23 +20557,27 @@ document.addEventListener('click', e => {
         t.classList.add('mese-jump-attivo');
         setTimeout(() => {
           VaultDAO.state.currentDate = now;
+          __dashWeekOffset = 0;
           renderDashboard();
           if (VaultDAO.state.currentView === 'analysis') renderAnalysis();
           showToast(tCh('dashJumpedToToday', __uiLang), 'success');
         }, 180);
       }
-    } else if (a === 'toggle-theme') {
+    } else if (a === 'toggle-theme' || a === 'set-theme') {
+      const preference = a === 'set-theme' ? t.dataset.themeChoice : (document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+      const targetDark = themeIsDark(preference, deviceThemeQuery.matches);
+      if (preference === themePreference(VaultDAO.state) && targetDark === document.documentElement.classList.contains('dark')) return;
       const applyTheme = () => {
-        VaultDAO.state.themeDark = !VaultDAO.state.themeDark;
-        document.documentElement.classList.toggle('dark', VaultDAO.state.themeDark);
-        setThemeToggleIcon(t, VaultDAO.state.themeDark);
+        VaultDAO.state.themePreference = preference;
+        VaultDAO.state.themeDark = targetDark;
+        applyThemeAppearance(targetDark);
         // Stesso scatto usato per l'icona privacy: conferma il cambio invece
         // di lasciare che l'utente lo scopra solo dal colore dello schermo.
         t.classList.remove('just-toggled');
         void t.offsetWidth;
         t.classList.add('just-toggled');
         VaultDAO.save();
-        showToast("Tema aggiornato.", "success");
+        showToast(tCh(VaultDAO.state.themeDark ? 'themeDarkLabel' : 'themeLightLabel', __uiLang), 'success');
       };
       // Cerchio che si espande dal punto toccato e "rivela" il nuovo tema
       // sotto — stesso principio della propagazione privacy, applicato qui
@@ -21031,7 +21453,7 @@ async function initMomentumRealAI() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+const startMomentum = () => {
   // Riconcilia IndexedDB <-> localStorage prima di leggere lo stato;
   // se IndexedDB fallisce si parte comunque (fallback localStorage puro,
   // vedi il timeout su DurableStore.open() in vault.js — un IndexedDB
@@ -21042,7 +21464,9 @@ document.addEventListener('DOMContentLoaded', () => {
   Promise.allSettled([VaultDAO.initDurable(), initDeviceProfile()]).finally(() => {
     try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
   });
-});
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startMomentum, { once: true });
+else startMomentum();
 // Esposizione globale per handler inline nell'HTML (onclick="...")
 window.showToast = showToast;
 window.showSignatureAlert = showSignatureAlert;
@@ -21101,4 +21525,3 @@ window.registerQuickAdd = (hit) => {
   renderDashboard();
   renderAnalysis({ skipHeavyForecast: route === 'fast' });
 };
-

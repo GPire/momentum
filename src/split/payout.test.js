@@ -1,6 +1,36 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPayoutLink, buildPayoutRequest, resolvePayout, PAYOUT_METHODS, PAYOUT_BRAND_SIGNATURE } from './payout.js';
+import { payoutCopy } from '../i18n/payout.js';
+
+test('repayment translations cover seven languages and preserve every parameter', () => {
+  const tokens = text => [...text.matchAll(/\{\d+\}/g)].map(match => match[0]).sort();
+  for (const [key, row] of Object.entries(payoutCopy)) {
+    assert.equal(row.length, 7, key);
+    for (const text of row) { assert.ok(text.trim(), key); assert.deepEqual(tokens(text), tokens(row[0]), key); }
+  }
+});
+
+test('repayment retains currency, localization and distinct provider/detail URLs', () => {
+  for (const lang of ['it','en','de','fr','es','nl','pt']) {
+    const request = buildPayoutRequest({ method: 'paypal', value: '@anna', amount: 12.50, currency: 'USD', lang, note: 'Cena & amici', fromName: 'Marco #2', momentumLink: 'https://example.com/#join=test' });
+    assert.equal(request.currency, 'USD');
+    assert.equal(request.link, 'https://paypal.me/anna/12.50USD');
+    assert.ok(!request.message.includes('€'));
+    assert.ok(request.message.includes('Marco #2'));
+    const wa = new URL(`https://wa.me/?text=${encodeURIComponent(request.message)}`);
+    assert.equal(wa.searchParams.get('text'), request.message);
+    assert.ok(request.message.includes('Momentum'));
+  }
+});
+
+test('payment links reject impersonated hosts and replace stale PayPal amounts', () => {
+  for (const value of ['https://paypal.me.evil.test/name', 'https://evil.test/name', 'javascript:alert(1)', 'https://name:secret@paypal.me/name', 'http://paypal.me/name']) assert.equal(buildPayoutLink('paypal', value, 10), null, value);
+  assert.equal(buildPayoutLink('paypal', 'https://paypal.me/anna/20EUR', 12.5, 'USD'), 'https://paypal.me/anna/12.50USD');
+  assert.equal(buildPayoutLink('other', 'javascript:alert(1)', 10), null);
+  assert.equal(buildPayoutLink('revolut', 'https://revolut.me/anna', 10), 'https://revolut.me/anna');
+  for (const amount of [NaN, Infinity, -1, 0, 'words']) assert.throws(() => buildPayoutRequest({ amount }));
+});
 
 test('buildPayoutLink: PayPal.me con importo, da username/@handle/URL', () => {
   assert.equal(buildPayoutLink('paypal', 'giorgio', 12.5), 'https://paypal.me/giorgio/12.50EUR');
@@ -47,7 +77,7 @@ test('buildPayoutRequest: con momentumLink → 2 link ETICHETTATI e distinti (pa
   // pay-link sotto "Puoi pagarmi qui:"
   assert.match(r.message, /Puoi pagarmi qui:\nhttps:\/\/paypal\.me\/giorgio\/20\.00EUR/);
   // link Momentum etichettato e separato
-  assert.match(r.message, /Vedi la tua parte 👉 https:\/\/x\.y\/\?join=/);
+  assert.match(r.message, /Vedi la tua parte\nhttps:\/\/x\.y\/\?join=/);
   const urls = r.message.match(/https?:\/\/\S+/g) || [];
   assert.equal(urls.length, 2);
   assert.equal(r.momentumLink, 'https://x.y/?join=MSPLIT1:abc');

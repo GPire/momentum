@@ -9,6 +9,7 @@
 // superano in fretta (il bandit decade verso il prior + osservazioni). Funzioni
 // PURE e testabili: nessun DOM, nessuno stato globale.
 'use strict';
+import { detectSalary } from './income-model.js';
 
 const RISKS = new Set(['conservativo', 'bilanciato', 'aggressivo']);
 const HORIZONS = new Set(['breve', 'medio', 'lungo']);
@@ -193,11 +194,11 @@ export function shouldShowAnalysisTensor(investmentPrefs) {
 // che l'utente nota, e che significa "voglio i miei numeri veri adesso" — non
 // chiedesse più niente.
 //
-// La decisione non dipende più da "ho già chiesto?" ma dal fatto vero: il
-// numero è stato CONFERMATO dall'utente?
+// La decisione distingue numeri confermati e informazioni già riconoscibili:
 //  · `monthlyBudgetAt` esiste SOLO se l'ha confermato nel suo editor (la
 //    stima derivata dall'onboarding non lo scrive mai);
-//  · `salaryProfile` esiste solo se l'ha impostato lui.
+//  · `salaryProfile` esiste solo se l'ha impostato lui; uno storico reale
+//    sufficientemente coerente evita di richiederlo senza confermare la stima.
 // Funzione pura, così la regola è testabile senza DOM: main.js la usa e basta.
 export function numeriDaChiedere(state = {}, { forzato = false } = {}) {
   // `budgetDeclined` (2026-09-05, feedback utente reale: "avete pensato
@@ -206,7 +207,11 @@ export function numeriDaChiedere(state = {}, { forzato = false } = {}) {
   // domanda al giro successivo. Conta come "deciso" tanto quanto una
   // conferma: la domanda è chiusa, in un modo o nell'altro.
   const budgetDeciso = !!state.monthlyBudgetAt || !!state.budgetDeclined;
-  const stipendioImpostato = !!state.salaryProfile;
+  // Reuse the same income model as the app, using real history only.
+  // Three consistent monthly payments reach .75; this skips re-entry,
+  // without persisting the estimate as a manually confirmed salary.
+  const detected = state.salaryProfile ? null : detectSalary(state.transactions);
+  const stipendioImpostato = !!state.salaryProfile || !!(detected && detected.confidence >= .75 && Number.isFinite(detected.amount) && detected.amount > 0);
   if (budgetDeciso && stipendioImpostato) return [];
   // L'ingresso PROATTIVO (automatico dopo qualche spesa) non deve diventare
   // assillante: lì il freno "una volta sola" resta. Il tocco esplicito

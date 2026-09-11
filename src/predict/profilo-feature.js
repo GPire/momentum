@@ -31,6 +31,15 @@ export function resolveClarity(state = {}) {
   return state.uiComplexity === 'completo' ? 'completo' : 'essenziale';
 }
 
+// A dashboard suggestion needs explicit relevance; tax tools remain in Vault.
+export function shouldSuggestTaxSetup(state = {}) {
+  const profile = state.onboardingProfile || {};
+  return !eMinorenne(profile) && profile.hasPartitaIva === true
+    && !state.noPartitaIva && !state.taxDiscoveryDismissed
+    && !state.taxRegime && !state.esActive && !state.chActive
+    && (!state.taxActiveCountry || state.taxActiveCountry === 'it');
+}
+
 // Un minorenne non ha stipendio, non investe, non ha partita IVA: le sezioni
 // che parlano di quelle cose non sono "avanzate", sono proprio di un'altra
 // persona. Segnale esplicito dall'onboarding (gate età), non dedotto.
