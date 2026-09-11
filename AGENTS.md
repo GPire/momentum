@@ -271,6 +271,22 @@ pannello dati SEC.
   shiftato). Chiunque scriva un nuovo punto che legge `t.date`/`tx.date` con
   un taglio di stringa diretto ora fa fallire `npm test` immediatamente,
   invece di scoprirlo mesi dopo da un utente.
+- **2 bug reali trovati e risolti VERIFICANDO DAL VIVO in Chrome** (2026-09-11,
+  prima volta in questa sessione con l'estensione collegata — prima si
+  procedeva alla cieca sul solo codice): (1) su un viewport corto reale, la
+  domanda "Quanti anni hai?" (e potenzialmente altri step con contenuto più
+  alto di 384px) aveva il titolo TAGLIATO in alto e irraggiungibile via
+  scroll (`justify-content:center` + overflow: a scrollTop 0 il pezzo che
+  sborda IN ALTO non è raggiungibile, scrollTop non può andare sotto zero)
+  — fix: `justify-content: safe center` su `.genesis-step` (index.html),
+  ripiega su flex-start solo quando centrare creerebbe overflow
+  irraggiungibile, zero differenza sui passi che già entrano in 384px.
+  (2) la scia di una stella cadente poteva attraversare visivamente il
+  titolo di una domanda — un text-shadow NON bastava (lascia passare la
+  luce nei vuoti fra le lettere): risolto con backdrop-filter (stessa
+  ricetta già usata per `.payoff-card`, vetro smerigliato — le stelle
+  restano visibili dietro, sfocate). Entrambi verificati con screenshot
+  reali prima/dopo, non solo a lettura di codice.
 - **Pannello prezzi giornalieri ora auto-aggiornato** (`.github/workflows/
   refresh-daily-long.yml`, 2026-09-11): stesso pattern del pannello SEC
   (`refresh-panel-sec.yml`) — PR settimanale, mai un push diretto su main,

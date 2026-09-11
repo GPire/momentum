@@ -241,6 +241,34 @@ Fonti: [Vocal Media](https://vocal.media/education/why-digital-budgets-fail-unde
 
 Nessuno di questi tre è implementato: sono proposte con la fonte che le motiva, da valutare e pianificare come cantiere a parte — coerente con la disciplina "mai un annuncio prima del codice" di questo documento.
 
-## 8. Come si tiene aggiornato questo documento
+## 8. Strategia piani a pagamento — proposta (2026-09-11, non ancora implementata)
+
+Richiesta esplicita dell'utente: valutare 2-3 livelli di piano, pensati per battere i competitor già mappati sopra e "prendersi i loro utenti", coprendo budgeting + fiscale (IT/CH/ES, ponte commercialista) + trading/cripto avanzato. Qui SOLO la proposta — nessuna riga di `subscription.js` toccata in questa sessione, per scelta esplicita.
+
+### Stato reale verificato (non un'ipotesi)
+
+`src/core/subscription.js` ha già 3 livelli codificati — `FREE` / `PRO` / `PRO_INVESTOR` — con un elenco chiuso di feature per piano (`FEATURES_PER_PIANO`). **Scoperta rilevante verificata con `grep`**: `hasFeature()` non è chiamata da **nessun punto** di `main.js` — zero risultati. Il file lo dichiara onestamente nel proprio commento di testa ("l'elenco non è ancora agganciato a ogni schermata... questo file è l'infrastruttura, non ancora il gating completo"): oggi **nessuna funzionalità è davvero bloccata per nessun piano**, la licenza si attiva/verifica ma non ha conseguenze pratiche in UI. Prima di qualunque redesign dei piani, questo è il vero gap da chiudere — non "quali piani", ma "i piani esistono già, semplicemente non fanno ancora nulla".
+
+### Il conflitto da risolvere prima di tutto
+
+Il Centro Fiducia (oggi in produzione, `window.openTrustCenter()`) dichiara esplicitamente all'utente: *"Nessun abbonamento per il calcolo base — quasi tutti [i competitor] fanno pagare anche solo per stimare le tasse"*. Ma `FEATURES_PER_PIANO[TIER_PRO]` include OGGI `fisco_italia`/`fisco_svizzera`/`fisco_spagna` (i motori fiscali) — se il gating venisse attivato così com'è scritto ora, quella frase diventerebbe falsa. **Va risolto in un modo, non nell'altro**: o il calcolo fiscale BASE (l'accantonamento stimato, senza F24/fattura elettronica/export) resta gratis per davvero, o si toglie la frase dal Centro Fiducia. La prima opzione è coerente con tutta la ricerca di oggi (è esattamente il differenziatore trovato contro Fiscozen/Fattura24/Kontist) — la propongo come base del piano FREE sotto.
+
+### Proposta: 3 livelli, stessa struttura di oggi, confini spostati
+
+**FREE** (oggi: solo budgeting) → aggiungere **il calcolo fiscale di base** (accantonamento stimato IT/CH/ES, senza F24/e-fattura/export commercialista): è l'amo per chi oggi usa Fiscozen (449-499€/anno), Fattura24 (4-24€/mese) o Kontist (0-25€/mese) solo per sapere quanto mettere da parte — nessuno dei 16 competitor verificati lo offre gratis. Include: budgeting base (già oggi), calcolo fiscale stimato (nuovo), Centro Fiducia, export dati in chiaro.
+
+**PRO** (budgeting+fisco "da freelance/P.IVA") → tutto FREE + F24 precompilato/ravvedimento, fattura elettronica (FatturaPA), QR-bill svizzera, ponte commercialista (CSV/JSON strutturato + HTML, `accountant-export-structured.js`), scadenze fiscali con notifica push (oggi solo IT + Modelo 130 ES), sync multi-dispositivo, screener SEC base (600 aziende). Compete diretto con Fiscozen/Fattura24/Kontist/Xolo — con un prezzo che può permettersi di essere molto più basso (zero costi server, verificato più volte in questo documento).
+
+**PRO INVESTOR** (trading/cripto avanzato) → tutto PRO + pannello SEC completo (11.304 aziende), analisi causale per titolo/cripto, comps multipli, posizionamento derivati crypto, Monte Carlo, regime di mercato, risk parity, **pattern-storico.js** (frequenza storica condizionata, 2026-09-11) e l'insight di calibrazione della Cassa Unica. Compete con la fascia CoinStats Degen (62,91$/mese)/Bloomberg-per-retail — stesso principio, prezzo drasticamente più basso perché niente dati istituzionali a pagamento, solo dati pubblici + calcolo on-device.
+
+**Perché NON unificare PRO e PRO_INVESTOR** (rispetto alla riga trovata nel branch parallelo che li fondeva): sono due persone diverse con bisogni diversi — un libero professionista che vuole solo gestire le tasse non deve pagare per Monte Carlo/derivati crypto che non userà mai, e viceversa un trader non ha bisogno del ponte commercialista. Fonderli abbassa il prezzo medio pagato per PRO_INVESTOR senza aumentare le conversioni da FREE — il contrario di "prendersi gli utenti".
+
+### Cosa NON è ancora deciso (richiede l'utente, non solo il codice)
+
+- **I prezzi veri**: questo documento ha i prezzi dei competitor (sopra, §6), non ancora un prezzo Momentum. Va deciso con margine reale in testa, non indovinato qui.
+- **Come/quando attivare il gating**: `hasFeature()` esiste ma non è chiamata — attivarla su un'app già in uso (anche solo internamente) cambia il comportamento per chi la usa oggi. Serve una migrazione esplicita (es. tutti gli utenti esistenti restano PRO_INVESTOR per un periodo), non un interruttore silenzioso.
+- **Onboarding con gating per profilo** (richiesto esplicitamente dall'utente, presente nel branch parallelo non ancora integrato): quali domande, quali feature/sezioni/card si attivano — dipende dai 3 livelli sopra essendo confermati prima.
+
+## 9. Come si tiene aggiornato questo documento
 
 Ogni claim qui sopra è verificabile con `grep`/lettura diretta del file citato o `node --test`. Se una funzione citata viene rimossa o cambia comportamento, questo documento va aggiornato nella stessa sessione — mai lasciato a raccontare qualcosa che il codice non fa più.

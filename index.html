@@ -2959,7 +2959,35 @@
        vedi commento su #g-step-5 sotto) il bottone ENTRA poteva finire oltre
        il bordo visibile dello schermo, non solo del box. Innocuo per ogni
        passo più corto di 384px: nessuna barra di scorrimento appare mai lì. */
-    .genesis-step { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(30px); text-align: center; padding: 2rem; overflow-y: auto; }
+    /* justify-content: safe center (2026-09-11, bug trovato dal vivo su un
+       viewport corto reale): con `center` puro, un passo più alto dei 384px
+       disponibili (qui: la domanda sull'età, 5 bottoni) si centra
+       includendo l'overflow — a scrollTop 0 il pezzo che sborda IN ALTO
+       (il titolo della domanda) resta tagliato e IRRAGGIUNGIBILE, perché
+       scrollTop non può andare sotto zero. `safe` dice al motore di
+       allineamento: se centrare crea overflow non raggiungibile, ripiega
+       sull'inizio (flex-start) invece — il titolo si vede sempre per
+       intero da subito, la parte in eccesso resta scrollabile in fondo
+       come già previsto da overflow-y:auto sopra. Nessun effetto sui passi
+       che entrano già in 384px (che sono la maggioranza): lì `safe center`
+       si comporta come `center` puro, zero differenza visiva. */
+    .genesis-step { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: safe center; align-items: center; opacity: 0; pointer-events: none; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(30px); text-align: center; padding: 2rem; overflow-y: auto; }
+    /* LEGGIBILITÀ SOPRA LO STARFIELD — bug trovato dal vivo (2026-09-11,
+       verificato in Chrome, screenshot reale): la scia luminosa di una
+       stella cadente può attraversare il titolo di una domanda (il
+       contenuto è centrato verticalmente in un box ad altezza variabile,
+       quindi la posizione esatta cambia da uno step all'altro e può cadere
+       vicino al bordo, dove lo scrim radiale sfuma verso il trasparente).
+       PRIMA PROVA (text-shadow) verificata dal vivo e NON bastava: un'ombra
+       per-glifo lascia passare la luce nei vuoti fra le lettere (l'occhiello
+       di una "a", lo spazio fra due parole) — lì non c'è testo su cui
+       ancorare l'ombra. La vera soluzione, verificata funzionare già altrove
+       nel progetto per lo stesso identico problema (il payoff finale
+       dell'onboarding, `.payoff-card`): un vetro smerigliato dietro al testo
+       (backdrop-filter, stessa ricetta di --glass-blur già in uso in tutta
+       l'app) — le stelle restano visibili dietro, sfocate, mai un blocco
+       opaco che le nasconderebbe del tutto. */
+    .genesis-step h1, .genesis-step h2, .genesis-step > p { position: relative; z-index: 1; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 0.5rem; padding: 0.15em 0.4em; margin-left: -0.4em; margin-right: -0.4em; }
     .genesis-step.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
     .genesis-step.past { opacity: 0; transform: translateY(-30px); }
     /* IL BOTTONE SCHIACCIATO — bug trovato dall'utente e confermato misurando
