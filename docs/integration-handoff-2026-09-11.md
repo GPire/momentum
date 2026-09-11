@@ -1,8 +1,36 @@
 # Integrazione UI con il main aggiornato
 
-Branch UI: `codex/public-release-foundation`. Base locale prima di questa revisione: `52b8edd`. Main remoto verificato: `3c9b3c3`. Base comune: `a62ceeaf67fdbaed2785af80b88ca0134b1b810b` (verificare con `git merge-base` prima dell’integrazione; non usare questo testo come ref operativo).
+Branch UI: `codex/public-release-foundation`. Codice revisionato: `eb86338`, incluso `52b8edd`. Main remoto aggiornato verificato: `d92a5dc` (successivo a `3c9b3c3`). Base comune: `a62ceeaf67fdbaed2785af80b88ca0134b1b810b` (verificare con `git merge-base` prima dell’integrazione; non usare questo testo come ref operativo).
 
 Il branch contiene il lavoro cumulativo richiesto, non soltanto l’ultimo restyling dello split. Il push del branch non costituisce merge su main né deploy. Leggere anche [revisione del rilascio](release-review-2026-09-11.md).
+
+Punto di ingresso del revisore: [descrizione pronta per la PR](merge-request-2026-09-11.md), [manifesto file per file](push-file-manifest-2026-09-11.md), [risultati dei test](release-validation-2026-09-11.json).
+
+## Simulazione del merge con main d92a5dc
+
+`git merge-tree --write-tree --name-only eb86338 d92a5dc` ha rilevato **13 file in conflitto**, senza modificare il checkout né avviare un merge su main. Questo risultato è riferito a quei due SHA, non a futuri aggiornamenti.
+
+| File | Cosa preservare e verificare |
+|---|---|
+| `AGENTS.md` | Unire il contesto operativo e le nuove correzioni documentate da main; conservare l'indice dei documenti di questa consegna. |
+| `index.html` | Nuovo layout e CSS statico della UI; preservare `safe center` e leggibilità dei titoli sopra le stelle di f126526. Verificare l'ordine degli stili e il risultato su viewport corto. |
+| `src/core/date-utils.test.js` | Conservare controlli di main sulle date e trasporto stdout/URL Windows del branch, senza saltare sottoprocessi. |
+| `src/core/onboarding-state.js` | I corpi attuali differiscono per commenti: flag esplicito `isFirstLaunch` prioritario, profilo storico come fallback solo in assenza del flag. |
+| `src/core/recovery-notice.js` | Le implementazioni corrispondono, differiscono commenti/direttiva. Tenere una sola definizione e la memoria del rifiuto. |
+| `src/core/recovery-notice.test.js` | Test equivalenti con nomi/variabili diversi: evitare duplicazioni, mantenere i quattro scenari. |
+| `src/core/telemetry.js` | Preservare whitelist, controllo HTTP, verifica opt-out dopo gli await e diagnostica separata. Descrivere l'ID casuale come pseudonimo, senza confonderlo con anonimato garantito. Non ampliare la raccolta durante il merge. |
+| `src/core/telemetry.test.js` | Unire i controlli: il branch include test espliciti per opt-out senza creazione ID e disattivazione durante l'invio. |
+| `src/i18n/ui-strings.test.js` | Conservare nuovi test ES/CH di main e copertura multilingue del branch; il Paese fiscale non determina la lingua della UI. |
+| `src/import/multi-import.js` | La differenza osservata è documentale: mantenere `isEvalSupported: false` nel caricamento PDF. |
+| `src/main.js` | Integrare per editor/render: main conserva autorità fiscale/modelli; UI conserva accessi diretti, controlli, split, focus e contratti dei nodi. Verificare anche funzioni che non producono conflitti testuali. |
+| `src/pwa/install-guide.js` | Mantenere il riconoscimento iPad con UA Macintosh e `maxTouchPoints > 1`; la differenza osservata è nei commenti. |
+| `src/pwa/install-guide.test.js` | Conservare copertura iPad con sito desktop, dispositivo già installato e istruzioni corrette per browser; evitare test duplicati per sola traduzione del nome. |
+
+### Nuove correzioni di main da non perdere
+
+- `f126526`: allineamento `safe center` dell'onboarding corto e sfondo sfocato dietro al testo, per evitare che stelle e scie riducano la leggibilità. Contiene anche aggiornamenti alla strategia dei piani in `ANALISI_COMPETITOR.md`.
+- `d92a5dc`: `openTaxDiscover` instrada verso IT/ES/CH usando il Paese dichiarato; le azioni fiscali aggiornano Dashboard e la card sparisce dopo la risposta. Il segnale svizzero reale è `chAttivitaTipo`, non presumere che `chActive` lo sostituisca.
+- La proposta fiscale UI usa una pertinenza più restrittiva (risposta esplicita). Riconciliare questa regola con l'instradamento di main; non rimettere una chiamata diretta sempre al simulatore italiano.
 
 ## Priorità nella risoluzione dei conflitti
 

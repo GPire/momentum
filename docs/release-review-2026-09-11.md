@@ -1,6 +1,6 @@
 # Revisione locale Momentum — 11 settembre 2026
 
-Revisione cumulativa sul branch `codex/public-release-foundation`, a partire da `52b8edd`. Questo documento accompagna il codice destinato all’integrazione; non attesta un deploy o un merge su main. Le revisioni e la pubblicazione del branch sono verificabili dalla cronologia Git. Contratti e conflitti con main `3c9b3c3`: [handoff di integrazione](integration-handoff-2026-09-11.md).
+Revisione cumulativa sul branch `codex/public-release-foundation`, a partire da `52b8edd`, consolidata nel codice `eb86338`. Questo documento accompagna il codice destinato all’integrazione; non attesta un deploy o un merge su main. Le revisioni e la pubblicazione del branch sono verificabili dalla cronologia Git. Main è avanzato a `d92a5dc`: [handoff di integrazione con i 13 conflitti rilevati](integration-handoff-2026-09-11.md). Per il passaggio completo leggere la [descrizione pronta per la PR](merge-request-2026-09-11.md), il [manifesto dei file](push-file-manifest-2026-09-11.md) e i [risultati della suite](release-validation-2026-09-11.json).
 
 ## Dashboard e calendario
 

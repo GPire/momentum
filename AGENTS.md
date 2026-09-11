@@ -20,8 +20,11 @@
 > quattro test di fuso con veri processi; build di produzione completata con
 > esbuild WebAssembly della stessa versione. `test:serial` e `build:portable`
 > evitano le pipe bloccate da EPERM; non modificano la sicurezza del sistema.
-> Per il merge con main `3c9b3c3`, leggere
+> Per il merge con main `d92a5dc`, leggere
 > [integration-handoff-2026-09-11.md](docs/integration-handoff-2026-09-11.md).
+> Ingresso unico per il revisore: [merge-request-2026-09-11.md](docs/merge-request-2026-09-11.md),
+> con manifesto file per file e risultati della suite. La simulazione di merge
+> `eb86338` / `d92a5dc` rileva 13 file in conflitto: integrazione guidata necessaria.
 > Non dichiarare un merge, deploy o collaudo nativo sulla base dei test locali.
 
 ## Cos'è
