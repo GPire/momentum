@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || {};
-globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
+if (!globalThis.navigator) Object.defineProperty(globalThis, 'navigator', { value: { maxTouchPoints: 0 }, configurable: true });
 globalThis.document = globalThis.document || { querySelector: () => null, addEventListener: () => {}, getElementById: () => null };
 const { VaultDAO } = await import('./vault.js');
 
@@ -51,6 +51,18 @@ test('noDedup: due transazioni distinte di pari importo/giorno NON vengono fuse 
   const r = VaultDAO.addTransaction('2024-10', { ...b, externalId: '' }, { bulk: true });
   assert.equal(r.duplicate, true);
   assert.equal(VaultDAO.state.transactions['2024-10'].length, 1);
+});
+
+test('noDedup: un retry con lo stesso riferimento bancario resta idempotente senza usare la dedup fuzzy', () => {
+  VaultDAO.state.transactions = {};
+  VaultDAO.state.lastHash = 'GENESIS';
+  VaultDAO.save = () => {};
+  const ref = { provider: 'sandbox', accountId: 'conto-a', transactionId: 'tx-42', status: 'booked' };
+  VaultDAO.addTransaction('2026-09', { id: 'locale-1', amount: 40, category: 'spesa', type: 'uscita', description: 'Prima descrizione', date: '2026-09-01', bankRef: ref }, { bulk: true, noDedup: true });
+  const retry = VaultDAO.addTransaction('2026-09', { id: 'locale-2', amount: 41, category: 'altro', type: 'uscita', description: 'Testo corretto', date: '2026-09-04', bankRef: ref }, { bulk: true, noDedup: true });
+  assert.equal(retry.duplicate, true);
+  assert.equal(VaultDAO.state.transactions['2026-09'].length, 1);
+  assert.equal(VaultDAO.state.transactions['2026-09'][0].category, 'spesa');
 });
 
 // ── LA FINESTRA DI DEDUPLICA RISTRETTA PER I TOCCHI MANUALI ──

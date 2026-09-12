@@ -518,8 +518,10 @@ const VaultDAO = {
     // cavallo di due mesi (31/1 23:00 vs 1/2 00:30, entro la finestra 48h) finirebbe
     // in bucket diversi e sfuggirebbe. Candidati = mese corrente + precedente + successivo.
     // opts.noDedup: la sorgente ha già un ID univoco (es. transaction_id Revolut)
-    // → si SALTA la dedup fuzzy (che fonderebbe due acquisti DISTINTI di pari
-    // importo/giorno). La dedup fuzzy resta per screenshot/manuale.
+    // → si salta la dedup fuzzy (che fonderebbe due acquisti distinti di pari
+    // importo/giorno), ma si conserva il match esatto provider+conto+operazione.
+    // Così un retry di una pagina bancaria resta idempotente senza fondere due
+    // acquisti reali con ID esterni diversi.
     const candMonths = adjacentMonthKeys(month);
     const candidates = [];
     for (const mk of candMonths) { const b = this.state.transactions[mk]; if (b) for (const t of b) candidates.push(t); }
@@ -539,7 +541,10 @@ const VaultDAO = {
     // funzioni? non vedo suggerimenti" ed era la domanda giusta.
     // opts.dedupWindowHours permette a chi chiama di restringere la finestra
     // senza toccare il comportamento di import/CSV, che restano a 48 ore.
-    const match = opts.noDedup ? null : findDuplicate(tx, candidates, opts.dedupWindowHours != null ? { windowHours: opts.dedupWindowHours } : {});
+    const match = findDuplicate(tx, candidates, {
+      ...(opts.dedupWindowHours != null ? { windowHours: opts.dedupWindowHours } : {}),
+      identityOnly: Boolean(opts.noDedup),
+    });
     if (match) {
       const merged = mergeTransaction(match, tx);
       merged.amount = match.amount;

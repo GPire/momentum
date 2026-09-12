@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isDuplicate, findDuplicate, mergeTransaction, reconcileTransaction, descriptionSimilarity } from "./deduplicator.js";
+import { bankTransactionKey, isDuplicate, findDuplicate, mergeTransaction, reconcileTransaction, descriptionSimilarity } from "./deduplicator.js";
 
 test("rileva duplicato tra notifica push e import PDF con testo diverso", () => {
   const pushTx = { id: "p1", date: "2026-07-01T08:15:00Z", amount: 15, type: "uscita", description: "BAR ROMA", source: "push" };
@@ -56,6 +56,45 @@ test("reconcileTransaction inserisce transazioni genuinamente nuove", () => {
 
   const result = reconcileTransaction(incoming, existing);
   assert.equal(result.action, "insert");
+});
+
+test("riferimento bancario stabile: un retry si riconcilia anche se il provider corregge data, testo e importo", () => {
+  const existing = {
+    id: "locale-1", date: "2026-09-01", amount: 19.99, type: "uscita", description: "Autorizzazione carta", category: "Alimentari",
+    bankRef: { provider: "sandbox", accountId: "conto-a", transactionId: "tx-42", status: "pending" },
+  };
+  const retry = {
+    date: "2026-09-04", amount: 20.49, type: "uscita", description: "SUPERMERCATO ROMA", source: "open_banking",
+    bankRef: { provider: "sandbox", accountId: "conto-a", transactionId: "tx-42", status: "booked" },
+  };
+  const result = reconcileTransaction(retry, [existing]);
+  assert.equal(result.action, "merge");
+  assert.equal(result.targetId, "locale-1");
+  assert.equal(result.transaction.category, "Alimentari", "una correzione scelta dall'utente resta sua");
+  assert.equal(result.transaction.bankRef.status, "pending", "lo stesso riferimento non riscrive una riga già salvata");
+});
+
+test("riferimento bancario: stesso transactionId su due conti diversi resta una spesa distinta", () => {
+  const existing = [{ id: "locale-a", date: "2026-09-01", amount: 19.99, type: "uscita", description: "Spesa", bankRef: { provider: "sandbox", accountId: "conto-a", transactionId: "tx-42" } }];
+  const incoming = { date: "2026-09-01", amount: 19.99, type: "uscita", description: "Spesa", bankRef: { provider: "sandbox", accountId: "conto-b", transactionId: "tx-42" } };
+  assert.equal(findDuplicate(incoming, existing, { identityOnly: true }), null);
+  assert.notEqual(bankTransactionKey(existing[0]), bankTransactionKey(incoming));
+});
+
+test("pending→booked con legame esplicito aggiorna solo il riferimento bancario", () => {
+  const pending = {
+    id: "locale-1", date: "2026-09-01", amount: 19.99, type: "uscita", category: "Alimentari", description: "Spesa",
+    bankRef: { provider: "sandbox", accountId: "conto-a", transactionId: "pending-42", status: "pending" },
+  };
+  const booked = {
+    date: "2026-09-03", amount: 20.49, type: "uscita", description: "SUPERMERCATO ROMA", source: "open_banking",
+    bankRef: { provider: "sandbox", accountId: "conto-a", transactionId: "booked-99", replacesTransactionId: "pending-42", status: "booked" },
+  };
+  const result = reconcileTransaction(booked, [pending]);
+  assert.equal(result.action, "merge");
+  assert.equal(result.transaction.category, "Alimentari");
+  assert.equal(result.transaction.bankRef.transactionId, "booked-99");
+  assert.equal(result.transaction.bankRef.status, "booked");
 });
 
 test("descriptionSimilarity è simmetrica e limitata a [0,1]", () => {

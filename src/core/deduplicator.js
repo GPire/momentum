@@ -53,6 +53,55 @@ const DEFAULT_OPTS = {
   descriptionThreshold: 0.72,
 };
 
+// Riferimento stabile di un movimento proveniente da una banca. L'ID del
+// Vault resta l'identità locale e non va sostituito: questo riferimento è
+// soltanto il contratto comune per CSV arricchiti, gateway futuri e provider.
+// Non basta un transactionId: alcuni provider lo rendono univoco solo dentro
+// un conto, quindi provider e accountId fanno parte della chiave.
+function bankRefOf(tx) {
+  const ref = tx?.bankRef;
+  if (!ref || typeof ref !== 'object') return null;
+  const provider = String(ref.provider || '').trim();
+  const accountId = String(ref.accountId || '').trim();
+  const transactionId = String(ref.transactionId || '').trim();
+  if (!provider || !accountId || !transactionId) return null;
+  return { ...ref, provider, accountId, transactionId };
+}
+
+export function bankTransactionKey(tx) {
+  const ref = bankRefOf(tx);
+  return ref ? JSON.stringify([ref.provider, ref.accountId, ref.transactionId]) : null;
+}
+
+function bankReferenceMatch(newTx, existingTxs) {
+  const incoming = bankRefOf(newTx);
+  if (!incoming) return null;
+  const incomingKey = bankTransactionKey(newTx);
+
+  for (const tx of existingTxs) {
+    const current = bankRefOf(tx);
+    if (!current || current.provider !== incoming.provider || current.accountId !== incoming.accountId) continue;
+    if (bankTransactionKey(tx) === incomingKey) return tx;
+
+    // Pending e contabilizzato possono avere ID diversi. Un adattatore può
+    // dichiarare il legame esplicito con replacesTransactionId; senza quel
+    // segnale non si indovina mai in base a importo/data/testo.
+    const incomingReplaces = String(incoming.replacesTransactionId || '').trim();
+    const currentReplaces = String(current.replacesTransactionId || '').trim();
+    if (incomingReplaces === current.transactionId || currentReplaces === incoming.transactionId) return tx;
+  }
+  return null;
+}
+
+function shouldUseIncomingBankRef(existingTx, newTx) {
+  const existing = bankRefOf(existingTx);
+  const incoming = bankRefOf(newTx);
+  if (!incoming) return false;
+  if (!existing) return true;
+  return incoming.replacesTransactionId === existing.transactionId
+    || (existing.replacesTransactionId === incoming.transactionId && incoming.status === 'booked');
+}
+
 // PENDING → POSTED (2026-08-28): verificato via ricerca (non ipotizzato) —
 // la causa più citata di duplicati sfuggiti in un tracker di spese multi-
 // canale è proprio questa: una notifica bancaria/uno screenshot cattura
@@ -111,6 +160,12 @@ function daImport(tx) {
 // Restituisce la transazione esistente che fa match, o null.
 // Le transazioni di questa app hanno forma: { date, amount, type, description, category }
 export function findDuplicate(newTx, existingTxs, opts = {}) {
+  // Il riferimento stabile vince su ogni euristica, anche con data/importo
+  // cambiati dal provider. In questo ramo due conti diversi non coincidono.
+  const bankMatch = bankReferenceMatch(newTx, existingTxs);
+  if (bankMatch) return bankMatch;
+  if (opts.identityOnly) return null;
+
   const { windowHours, amountTolerance, descriptionThreshold } = { ...DEFAULT_OPTS, ...opts };
   const newDate = new Date(newTx.date).getTime();
 
@@ -199,6 +254,7 @@ export function mergeTransaction(existingTx, newTx) {
   merged.sources = Array.from(
     new Set([...(existingTx.sources || [existingTx.source].filter(Boolean)), newTx.source].filter(Boolean))
   );
+  if (shouldUseIncomingBankRef(existingTx, newTx)) merged.bankRef = newTx.bankRef;
   return merged;
 }
 
