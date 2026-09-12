@@ -85,6 +85,16 @@ try {
     const draftAmount=await page.locator('#modal-body #tx-amount-display').inputValue();
     await page.locator('#modal-body .command-new-category').click();
     await page.locator('#modal-body #new-cat-panel').waitFor({state:'visible'});
+    const categoryActionVisible=async()=>{
+      const bounds=await page.locator('#modal-body #new-cat-crea').evaluate(button=>{
+        const r=button.getBoundingClientRect(), fields=button.parentElement.querySelector('.category-editor-fields').getBoundingClientRect();
+        return {visible:r.top>=0 && r.bottom<=innerHeight && r.left>=0 && r.right<=innerWidth, separate:fields.bottom<=r.top};
+      });
+      assert(bounds.visible && bounds.separate,JSON.stringify(bounds));
+    };
+    await categoryActionVisible();
+    await page.locator('#modal-body .new-cat-emoji').last().click();
+    await categoryActionVisible();
     await page.locator('#modal-body #new-cat-cancel').click();
     assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),false);
     assert.equal(await page.locator('#modal-body #tx-amount-display').inputValue(),draftAmount);

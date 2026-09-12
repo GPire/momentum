@@ -635,6 +635,7 @@ const buildNewCatPanelHTML = () => `
       <span class="t-etichetta" id="category-editor-title">${tCh('catNuovaCategoria', __uiLang)}</span>
       <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="${tCh('catAnnulla', __uiLang)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
     </div>
+    <div class="category-editor-fields">
     <div class="new-cat-anteprima">
       <div class="cat-chip-icon cat-icon-glow" id="new-cat-preview-icon" style="--icon-c:${CAT_PALETTE[0]}">${CAT_ICONE[0].svg}</div>
       <span id="new-cat-preview-nome" class="new-cat-anteprima-nome">${tCh('catNomeCategoria', __uiLang)}</span>
@@ -662,6 +663,7 @@ const buildNewCatPanelHTML = () => `
     <input type="search" class="category-icon-search" placeholder="${tIntegration('categoryIconSearch',__uiLang)}" aria-label="${tIntegration('categoryIconSearch',__uiLang)}" autocomplete="off" />
     <div class="new-cat-griglia" id="new-cat-emoji-grid" role="group" aria-label="${tCh('catIconAria', __uiLang)}">
       ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-pressed="${i === 0}" aria-label="${categoryIconLabel(ic.chiave)}" title="${categoryIconLabel(ic.chiave)}">${ic.svg}</button>`).join('')}
+    </div>
     </div>
     <button type="button" id="new-cat-crea" class="new-cat-crea-btn">${tCh('catCreaCategoria', __uiLang)}</button>
   </div>
@@ -1692,6 +1694,7 @@ const attachFormListeners = (container, prefill = null) => {
     }
     panel.hidden = false;
     panel.classList.remove('hidden');
+    panel.querySelector('.category-editor-fields').scrollTop=0;
     // Reflow forzato per far ripartire l'animazione di apertura ogni volta,
     // anche se il pannello era gia' stato aperto e richiuso in questa sessione.
     panel.classList.remove('new-cat-in'); void panel.offsetWidth; panel.classList.add('new-cat-in');
