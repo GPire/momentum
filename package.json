@@ -45,6 +45,7 @@
     "bench:research-universe": "node bench/fetch-research-universe.mjs",
     "bench:research-eval": "node bench/research-universe-eval.mjs",
     "bench:causal-calibration": "node bench/causal-calibration.mjs",
+    "bench:ofr-stress": "node bench/fetch-ofr-stress.mjs",
     "bench:sectors": "node bench/fetch-sector-history.mjs",
     "bench:measured": "node bench/generate-measured-assumptions.mjs",
     "bench:mesh": "node bench/mesh-sync-bench.mjs"

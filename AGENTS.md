@@ -1,5 +1,13 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Ricerca dataset multi-scenario, 2026-09-12:** leggere
+> [advanced-datasets-research-2026-09-12.md](docs/advanced-datasets-research-2026-09-12.md).
+> `bench:ofr-stress` acquisisce 9 serie OFR e confronta 4 finestre con
+> `eventi-lunghi`: 6.755 date / 60.795 valori verificati. Dati locali di ricerca,
+> non nella UI o nel training; snapshot revisionato, non point-in-time.
+> Fonti OECD/BIS/GSCPI/JST/Coin Metrics e commerciali selezionate, non tutte
+> acquisite. Archivi avanzati dell’app invariati; non promettere ogni scenario.
+
 > **Acquisizione SEC verificata, 2026-09-12:** leggere
 > [sec-refresh-audit-2026-09-12.md](docs/sec-refresh-audit-2026-09-12.md).
 > 82 aziende / 45.488 osservazioni con provenienza scaricate in artefatti locali.
