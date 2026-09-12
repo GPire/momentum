@@ -209,6 +209,35 @@ test('simulateCash: gli eventi del giorno sono esposti nel percorso', () => {
 });
 
 // ── leve controfattuali ─────────────────────────────────────────────────────
+test('split timing: uno stipendio insufficiente non diventa una promessa di copertura', () => {
+  const ledger = [{ ms: NOW + 5 * 86400000, date: '2026-07-25', amount: 100, kind: 'stipendio', certain: true }];
+  const opts = { ledger, startBalance: 10, now: NOW, horizonDays: 15, splitOwed: 500 };
+  const levers = bestLevers(simulateCash(opts), opts);
+  assert.equal(levers.some(l => l.id === 'split-after-payday'), false);
+});
+
+test('split timing: confronta saldo immediato e rimborso dopo accredito senza inventare risparmio', () => {
+  const ledger = [{ ms: NOW + 5 * 86400000, date: '2026-07-25', amount: 1000, kind: 'stipendio', certain: true }];
+  const opts = { ledger, startBalance: 100, now: NOW, horizonDays: 15, splitOwed: 500 };
+  const lever = bestLevers(simulateCash(opts), opts).find(l => l.id === 'split-after-payday');
+  assert.ok(lever);
+  assert.ok(lever.daysGained > 0);
+  assert.equal(lever.endDelta, 0);
+  assert.equal(lever.comparison.immediateEnd, lever.comparison.deferredEnd);
+  assert.ok(lever.comparison.deferredMinimum >= 0);
+});
+
+test('split timing: considera anche una bolletta dopo lo stipendio e non propone rinvii inutili', () => {
+  const ledger = [
+    { ms: NOW + 5 * 86400000, amount: 1000, kind: 'stipendio', certain: true },
+    { ms: NOW + 6 * 86400000, amount: -900, kind: 'impegno', certain: true },
+  ];
+  for (const startBalance of [100, 2000]) {
+    const opts = { ledger, startBalance, now: NOW, horizonDays: 15, splitOwed: 500 };
+    assert.equal(bestLevers(simulateCash(opts), opts).some(l => l.id === 'split-after-payday'), false);
+  }
+});
+
 test('bestLevers: la riduzione di spesa sposta DAVVERO il giorno di rischio', () => {
   const profile = { dailyMean: 30, dailyMedian: 30, sigma: 5, dowFactor: [1, 1, 1, 1, 1, 1, 1], observedDays: 90, coverage: 1 };
   const base = simulateCash({ startBalance: 600, profile, ledger: [], now: NOW, horizonDays: 45 });

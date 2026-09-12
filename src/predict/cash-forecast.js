@@ -410,14 +410,32 @@ export function bestLevers(base, { profile = null, ledger = [], startBalance = 0
   }
 
   // (d) saldare i debiti di divisione DOPO lo stipendio invece che subito
-  if (splitOwed > 0) {
-    const payday = ledger.find(e => e.kind === 'stipendio');
+  if (Number.isFinite(splitOwed) && splitOwed > 0) {
+    const today = dayStart(now);
+    const payday = ledger.filter(e => e.kind === 'stipendio' && Number.isFinite(e.amount) && e.amount > 0
+      && e.certain !== false && dayStart(e.ms ?? Date.parse(e.date)) > today
+      && dayStart(e.ms ?? Date.parse(e.date)) <= today + horizonDays * DAY_MS)
+      .sort((a, b) => (a.ms ?? Date.parse(a.date)) - (b.ms ?? Date.parse(b.date)))[0];
     if (payday) {
-      candidates.push({
+      const paymentDay = dayStart(payday.ms ?? Date.parse(payday.date));
+      const immediate = sim({ startBalance: startBalance - splitOwed, splitOwed: 0 });
+      const deferred = sim({ splitOwed: 0, ledger: [...ledger, {
+        ms: paymentDay, date: iso(paymentDay), amount: -splitOwed,
+        kind: 'divisione', label: 'Divisione', certain: true,
+      }] });
+      // Compare two hypothetical payment dates on the same cash path. A
+      // salary alone does not establish affordability: later bills count too.
+      const immediateRiskDays = immediate.path.filter(p => p.p10 < cushion).length;
+      const deferredRiskDays = deferred.path.filter(p => p.p10 < cushion).length;
+      if (immediateRiskDays > 0 && deferredRiskDays === 0) candidates.push({
         id: 'split-after-payday',
-        label: `Salda i ${eur(splitOwed)} della divisione dopo il ${payday.date}`,
-        daysGained: 0, endDelta: 0, kind: 'divisione',
-        note: 'lo stipendio copre il rimborso senza toccare il mese in corso',
+        label: `Salda i ${eur(splitOwed)} della divisione dopo il ${iso(paymentDay)}`,
+        daysGained: immediateRiskDays - deferredRiskDays, endDelta: 0, kind: 'divisione',
+        comparison: {
+          immediateEnd: immediate.end.p50, deferredEnd: deferred.end.p50,
+          deferredMinimum: Math.min(...deferred.path.map(p => p.p10)),
+          paymentDate: iso(paymentDay), hypothetical: true,
+        },
       });
     }
   }
@@ -466,7 +484,8 @@ export function cashForecast({
     return { known: false, reason: 'Non ho ancora abbastanza dati: né movimenti né impegni o stipendio noti.' };
   }
   const base = simulateCash({ startBalance: start, profile, ledger, now, horizonDays, cushion, splitOwed });
-  const levers = bestLevers(base, { profile, ledger, startBalance: start, now, horizonDays, cushion, splitOwed });
+  const levers = bestLevers(base, { profile, ledger, startBalance: start, now, horizonDays, cushion,
+    splitOwed: relative ? 0 : splitOwed });
 
   const money = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   let headline;
