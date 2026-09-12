@@ -79,6 +79,7 @@ try {
         const amount=input.getBoundingClientRect(), impact=document.querySelector('#modal-body #amount-impact').getBoundingClientRect();
         return input.scrollWidth<=input.clientWidth+1 && (impact.height===0 || impact.top>=amount.bottom-1);
       });
+      if (value==='6556655') await page.screenshot({path:resolve(artifacts,`amount-${width}${empty ? '-first-use' : ''}.png`)});
     }
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
     await page.locator('#modal-body .command-edit-category').click();
