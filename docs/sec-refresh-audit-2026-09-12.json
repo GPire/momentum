@@ -1,0 +1,118 @@
+{
+  "companies": 82,
+  "revisionRecords": 45488,
+  "bytes": 18874885,
+  "lostCompanies": [],
+  "lostYears": 0,
+  "missingValues": 96,
+  "changedValues": 901,
+  "addedYears": 2,
+  "coveragePassed": false,
+  "missingByTicker": {
+    "IBM": 10,
+    "NOW": 1,
+    "GS": 10,
+    "MS": 2,
+    "JNJ": 16,
+    "KMB": 1,
+    "COP": 10,
+    "CAT": 10,
+    "DE": 12,
+    "MMM": 10,
+    "NEE": 14
+  },
+  "changesByMetric": {
+    "ricavi": 17,
+    "margine": 21,
+    "utileNetto": 5,
+    "patrimonioNetto": 446,
+    "roe": 407,
+    "roa": 5
+  },
+  "examples": [
+    {
+      "ticker": "AAPL",
+      "year": 2007,
+      "key": "ricavi",
+      "before": 24006000000,
+      "after": 24578000000
+    },
+    {
+      "ticker": "AAPL",
+      "year": 2007,
+      "key": "margine",
+      "before": 0.1456,
+      "after": 0.1422
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2017,
+      "key": "utileNetto",
+      "before": 1784000000,
+      "after": 1692000000
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2017,
+      "key": "patrimonioNetto",
+      "before": 23186000000,
+      "after": 20285000000
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2017,
+      "key": "roe",
+      "before": 0.0769,
+      "after": 0.0834
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2017,
+      "key": "margine",
+      "before": 0.1012,
+      "after": 0.0959
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2017,
+      "key": "roa",
+      "before": 0.0328,
+      "after": 0.0311
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2018,
+      "key": "utileNetto",
+      "before": 12610000000,
+      "after": 12259000000
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2018,
+      "key": "roe",
+      "before": 0.473,
+      "after": 0.4599
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2018,
+      "key": "margine",
+      "before": 0.6049,
+      "after": 0.588
+    },
+    {
+      "ticker": "AVGO",
+      "year": 2018,
+      "key": "roa",
+      "before": 0.2516,
+      "after": 0.2446
+    },
+    {
+      "ticker": "ORCL",
+      "year": 2009,
+      "key": "patrimonioNetto",
+      "before": 25445000000,
+      "after": 25090000000
+    }
+  ]
+}

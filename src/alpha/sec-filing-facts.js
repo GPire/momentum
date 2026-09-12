@@ -28,7 +28,7 @@ export function annualSecFacts(json, concepts, { flow, unit = 'USD' } = {}) {
 
 // Input is one economic measure (its XBRL aliases), never unrelated concepts.
 // End-of-day filing knowledge only: not an intraday availability guarantee.
-export function secFactsAt(records, asOf) {
+export function secFactsAt(records, asOf, { conceptPriority = [] } = {}) {
   if (!date(asOf) || !Array.isArray(records)) return [];
   const selected = new Map();
   for (const r of [...records].filter(r => r && date(r.end) && date(r.filed)
@@ -37,10 +37,29 @@ export function secFactsAt(records, asOf) {
       && (r.start === null || date(r.start)) && Number.isFinite(r.value)).sort(order)) {
     const key = `${r.unit}|${r.start || ''}|${r.end}`;
     const prev = selected.get(key);
-    if (!prev || r.filed > prev.filed) selected.set(key, { ...r, conflict: false });
+    const rank = concept => {
+      const index = conceptPriority.indexOf(concept);
+      return index < 0 ? Infinity : index;
+    };
+    if (prev && rank(r.concept) > rank(prev.concept)) continue;
+    if (!prev || rank(r.concept) < rank(prev.concept) || r.filed > prev.filed) selected.set(key, { ...r, conflict: false });
     else if (r.filed === prev.filed && r.value !== prev.value) {
       selected.set(key, { ...prev, value: null, conflict: true });
     }
   }
   return [...selected.values()].sort(order);
+}
+
+export function annualSecValues(records, asOf, { conceptPriority = [], periodEnds = null } = {}) {
+  const years = new Map();
+  for (const r of secFactsAt(records, asOf, { conceptPriority })) {
+    if (periodEnds && !periodEnds.has(r.end)) continue;
+    const year = Number(r.end.slice(0, 4));
+    const previous = years.get(year);
+    // Fiscal changes may create two annual periods in one calendar year.
+    // A year-only consumer cannot distinguish them: retain a missing value.
+    years.set(year, previous ? { ...previous, value: null, conflict: true } : r);
+  }
+  return [...years].sort(([a], [b]) => a - b)
+    .map(([anno, r]) => ({ anno, valore: r.value, provenienza: r }));
 }

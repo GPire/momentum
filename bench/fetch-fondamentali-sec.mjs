@@ -1,5 +1,6 @@
 // Scarica DIECI ANNI di bilanci REALI dalla SEC e genera
-// src/alpha/fondamentali-storici.js — "npm run bench:sec".
+// un candidato separato per fondamentali-storici.js — "npm run bench:sec".
+// La promozione nell'app richiede audit, confronto contabile e test.
 //
 // ── PERCHE' QUESTO CAMBIA IL FRONTE INVESTIMENTI ──
 // `fondamentali.js` legge i numeri di OGGI da Alpha Vantage e dichiara da
@@ -30,10 +31,10 @@
 // La SEC chiede un User-Agent che identifichi chi chiama e un massimo di 10
 // richieste al secondo: entrambe rispettate. Sono le loro regole, e usarle
 // gratis significa rispettarle.
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { annualSecFacts, secFactsAt } from '../src/alpha/sec-filing-facts.js';
+import { annualSecFacts, annualSecValues } from '../src/alpha/sec-filing-facts.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // LA SEC PRETENDE UN CONTATTO IN FORMA DI EMAIL, e non e' una formalita':
@@ -158,19 +159,12 @@ const FLUSSI = new Set(['utileNetto', 'ricavi', 'costoVenduto', 'speseSga', 'flu
 // lo stesso esercizio vince quello depositato piu' di recente. Un cambio di
 // etichetta contabile non e' un buco nei dati, e trattarlo come tale
 // cancellava mezza azienda.
-function perAnno(fatti, nomi, { flusso }) {
+function perAnno(fatti, nomi, { flusso, periodEnds }) {
   const revisioni = annualSecFacts(fatti, nomi, { flow: flusso });
-  const snapshot = secFactsAt(revisioni, new Date().toISOString().slice(0, 10));
-  const perAnnoMap = new Map();
-  for (const x of snapshot) {
-    const anno = Number(x.end.slice(0, 4));
-    const prec = perAnnoMap.get(anno);
-    // Never silently combine two fiscal periods ending in the same year.
-    perAnnoMap.set(anno, prec ? { ...prec, value: null, conflict: true } : x);
-  }
-  if (perAnnoMap.size < 3) return null;
-  const anni = [...perAnnoMap.entries()].sort((a, b) => a[0] - b[0])
-    .map(([anno, x]) => ({ anno, valore: x.value, provenienza: x }));
+  const anni = annualSecValues(revisioni, new Date().toISOString().slice(0, 10), {
+    conceptPriority: nomi, periodEnds: flusso ? null : periodEnds,
+  });
+  if (anni.length < 3) return null;
   return { concetti: [...new Set(revisioni.map(r => r.concept))], anni, revisioni };
 }
 
@@ -204,9 +198,10 @@ const CIK_OVERRIDE = { XOM: { cik: '0000034088', nome: 'Exxon Mobil Corporation'
   for (const a of AZIENDE) {
     try {
       const f = await fatti(a.cik);
+      const periodEnds = new Set(annualSecFacts(f, [...CONCETTI.utileNetto, ...CONCETTI.ricavi], { flow: true }).map(r => r.end));
       const voci = {};
       for (const [chiave, nomi] of Object.entries(CONCETTI)) {
-        const v = perAnno(f, nomi, { flusso: FLUSSI.has(chiave) });
+        const v = perAnno(f, nomi, { flusso: FLUSSI.has(chiave), periodEnds });
         if (v) voci[chiave] = v;
       }
       const anni = voci.patrimonioNetto?.anni?.length || 0;
@@ -308,7 +303,12 @@ export function anniCoperti(ticker) {
 }
 `;
 
-  const dest = join(root, 'src/alpha/fondamentali-storici.js');
+  // Always stage first. A successful HTTP download is not a validated archive.
+  const dest = process.env.SEC_OUTPUT || join(root, 'bench/data/research-universe/sec-candidate.mjs');
+  if (Object.keys(serie).length !== AZIENDE.length || senzaCik.length) {
+    throw new Error('Acquisizione incompleta: archivio precedente conservato, nessuna pubblicazione.');
+  }
+  mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(dest, contenuto);
   console.log(`\\nScritto ${dest} (${Math.round(Buffer.byteLength(contenuto) / 1024)} KB, ${Object.keys(serie).length} aziende)`);
 })();

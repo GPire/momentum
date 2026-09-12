@@ -1,5 +1,13 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Acquisizione SEC verificata, 2026-09-12:** leggere
+> [sec-refresh-audit-2026-09-12.md](docs/sec-refresh-audit-2026-09-12.md).
+> 82 aziende / 45.488 osservazioni con provenienza scaricate in artefatti locali.
+> Candidato NON promosso: dopo le correzioni restano 96 valori mancanti e
+> 901 differenze da spiegare. L’archivio app e tutti gli storici sono invariati.
+> `bench:sec` ora scrive un candidato separato per default; audit esce 2 se
+> perde copertura. Non copiare il candidato nell’app sulla sola base dei test.
+
 > **Revisioni SEC, 2026-09-12:** leggere
 > [sec-filing-vintages-2026-09-12.md](docs/sec-filing-vintages-2026-09-12.md).
 > `bench:sec` conserva provenienza e revisioni tramite `sec-filing-facts.js`.

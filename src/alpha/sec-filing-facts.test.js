@@ -40,3 +40,19 @@ test('periodi fiscali distinti restano distinti anche se finiscono nello stesso 
   assert.equal(secFactsAt(r, '2023-12-31').length, 2);
   assert.deepEqual(secFactsAt([...r].reverse(), '2023-12-31'), secFactsAt(r, '2023-12-31'));
 });
+
+test('priorità esplicita dei concetti, senza scambiare misure diverse per revisioni', () => {
+  const input = data([row()]);
+  input.facts['us-gaap'].SalesRevenueNet = { units: { USD: [row({val: 0, filed: '2024-02-15'})] } };
+  const r = annualSecFacts(input, ['Revenues','SalesRevenueNet'], {flow:true});
+  assert.equal(secFactsAt(r, '2024-03-01', {conceptPriority:['Revenues','SalesRevenueNet']})[0].value, 100);
+});
+
+test('fotografie trimestrali nel 10-K escluse dai valori annuali', async () => {
+  const { annualSecValues } = await import('./sec-filing-facts.js');
+  const r = annualSecFacts(data([row({start:undefined}), row({start:undefined,end:'2022-03-31',val:50})]), ['Revenues'], {flow:false});
+  const y = annualSecValues(r, '2023-12-31', {periodEnds:new Set(['2022-12-31'])});
+  assert.equal(y.length,1);
+  assert.equal(y[0].valore,100);
+  assert.equal(y[0].provenienza.end,'2022-12-31');
+});
