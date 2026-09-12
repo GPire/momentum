@@ -101,7 +101,12 @@ try {
     await page.locator('#modal-body .new-cat-emoji[data-icona="taxi"]').click();
     await page.locator('#modal-body .category-icon-search').fill('');
     await page.locator('#modal-body .category-custom-toggle').click();
+    await page.locator('#modal-body .category-hex').fill('#oops');
+    await page.locator('#modal-body #new-cat-crea').click();
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),true);
+    assert.equal(await page.locator('#modal-body .category-hex').getAttribute('aria-invalid'),'true');
     await page.locator('#modal-body .category-hex').fill('#12abef');
+    await page.screenshot({path:resolve(artifacts,`category-editor-${width}${empty ? '-first-use' : ''}.png`)});
     assert.equal(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji span').count(),0);
     assert.ok(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji').first().getAttribute('aria-label'));
     await page.locator('#modal-body #new-cat-nome').fill('Spesa di casa');

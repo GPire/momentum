@@ -1,6 +1,6 @@
 import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
-import { normalizeHex, hexToHsl, hslToHex } from './ui/category-color.js';
+import { normalizeHex, hexToHsl, hslToHex, categoryInk } from './ui/category-color.js';
 window.addEventListener('resize', fitVisibleAmounts);
 window.visualViewport?.addEventListener('resize', fitVisibleAmounts);
 document.fonts?.ready.then(fitVisibleAmounts);
@@ -611,7 +611,7 @@ const categoryIconLabel = key => EXTRA_CATEGORY_ICONS.some(ic => ic.chiave === k
 const buildCatChipsHTML = (type) => {
   const chips = getCatsByType(type).map((c, i) => `
     <button type="button" class="cat-chip" data-cat-id="${c.id}" style="--chip-color:${c.color};--chip-bg:${c.color}22;--i:${i}">
-      <div class="cat-chip-icon cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
+      <div class="cat-chip-icon cat-icon-glow" style="--icon-c:${c.color};color:${categoryInk(c.color)}">${c.icon}</div>
       <span class="cat-chip-label">${escapeHtml(catName(c, __uiLang))}</span>
     </button>
   `).join('');
@@ -1568,7 +1568,7 @@ const attachFormListeners = (container, prefill = null) => {
     const icona = container.querySelector('#new-cat-preview-icon');
     const nome = container.querySelector('#new-cat-preview-nome');
     const nomeInput = container.querySelector('#new-cat-nome');
-    if (icona) { icona.innerHTML = catIconaScelta.svg; icona.style.setProperty('--icon-c', catColoreScelta); }
+    if (icona) { icona.innerHTML = catIconaScelta.svg; icona.style.setProperty('--icon-c', catColoreScelta); icona.style.color=categoryInk(catColoreScelta); }
     if (nome) nome.textContent = (nomeInput?.value || '').trim() || tCh('catNomeCategoria', __uiLang);
     container.querySelectorAll('.new-cat-emoji').forEach(button => {
       const selected = button.dataset.icona === catIconaScelta.chiave;
@@ -1734,6 +1734,7 @@ const attachFormListeners = (container, prefill = null) => {
   });
   container.querySelector('.category-custom-toggle').addEventListener('click', event => {
     const panel=container.querySelector('.category-custom-color');
+    if (!panel.hidden) syncCustomColor();
     panel.hidden=!panel.hidden;
     event.currentTarget.setAttribute('aria-expanded',String(!panel.hidden));
   });
