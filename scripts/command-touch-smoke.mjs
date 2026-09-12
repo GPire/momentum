@@ -64,7 +64,8 @@ try {
       const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
       return {amount:box('#modal-body .command-amount-line'),impact:box('#modal-body #amount-impact'),content:box('#modal-content'),viewport:innerWidth};
     });
-    assert(layout.impact.y>=layout.amount.bottom-1,JSON.stringify(layout));
+    if (empty) assert.equal(await page.locator('#modal-body #amount-impact').innerText(),'');
+    else assert(layout.impact.y>=layout.amount.bottom-1,JSON.stringify(layout));
     assert(layout.content.x>=-1 && layout.content.right<=width+1,JSON.stringify(layout));
     assert(layout.content.y>=-1 && layout.content.bottom<=height+1,JSON.stringify(layout));
     for (const value of ['1','6556655','123456789012.34']) {
@@ -72,7 +73,7 @@ try {
       await page.waitForFunction(()=>{
         const input=document.querySelector('#modal-body #tx-amount-display');
         const amount=input.getBoundingClientRect(), impact=document.querySelector('#modal-body #amount-impact').getBoundingClientRect();
-        return input.scrollWidth<=input.clientWidth+1 && impact.top>=amount.bottom-1;
+        return input.scrollWidth<=input.clientWidth+1 && (impact.height===0 || impact.top>=amount.bottom-1);
       });
     }
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
