@@ -13049,14 +13049,13 @@ function renderInvestments() {
     investCardEl.classList.toggle('order-1', !!featureVisibili(VaultDAO.state).cuscinettoInPrimoPiano);
     investCardEl.classList.toggle('order-7', !featureVisibili(VaultDAO.state).cuscinettoInPrimoPiano);
   }
-  // media uscite/entrate e fondo (investimenti accumulati) dallo storico
-  const months = {}; let invested = 0;
+  // Flussi dallo storico; la liquidità di emergenza deve essere esplicita.
+  const months = {};
   for (const t of Object.values(VaultDAO.state.transactions || {}).flat()) {
     const mk = (t.date || '').slice(0, 7); if (!mk) continue;
     const m = months[mk] = months[mk] || { inc: 0, out: 0 };
     if (t.type === 'entrata') m.inc += t.amount;
     else if (t.type === 'uscita') m.out += t.amount;
-    else if (t.type === 'invest') invested += t.amount;
   }
   const keys = Object.keys(months); const n = keys.length || 1;
   const avgExp = keys.reduce((s, kk) => s + months[kk].out, 0) / n;
@@ -13064,8 +13063,9 @@ function renderInvestments() {
   const cur = months[nowMk] || { inc: 0, out: 0 };
   // Preferenze dal profilo di onboarding (le domande iniziali che ora servono):
   const prefs = VaultDAO.state.investmentPrefs || {};
-  const r = investableSurplus({ netMonthlyFlow: cur.inc - cur.out, avgMonthlyExpense: avgExp, currentEmergencyFund: invested, emergencyMonths: prefs.emergencyMonths ?? 6, investFraction: prefs.investFraction ?? 0.7 });
-  surplusEl.textContent = r.investable > 0 ? formatMoney(r.investable) : (r.toEmergencyFund ? formatMoney(r.toEmergencyFund) : '0€');
+  const emergencyFund = VaultDAO.state.emergencyFund;
+  const r = investableSurplus({ netMonthlyFlow: cur.inc - cur.out, avgMonthlyExpense: avgExp, currentEmergencyFund: emergencyFund, emergencyMonths: prefs.emergencyMonths ?? 6, investFraction: prefs.investFraction ?? 0.7, lang: __uiLang });
+  surplusEl.textContent = r.reason === 'insufficient-data' ? '—' : formatMoney(r.investable);
   // Uscita esplicita "non investo" (onboarding, domanda 2): investFraction è
   // già a 0 da derivePriors, quindi investableSurplus() torna "il 0%
   // dell'avanzo" — vero ma detto male. Qui si sostituisce SOLO la frase,
@@ -13077,14 +13077,18 @@ function renderInvestments() {
   // Fondo d'emergenza: barra (non un secondo numero da leggere) — il vero
   // "perché" dietro il testo, pieno = puoi investire, altrimenti quanto manca.
   if (fundBarEl) {
-    const target = Math.max(1, r.targetEmergency || 0);
-    const pct = Math.min(100, Math.round((invested / target) * 100));
-    const full = invested >= target;
+    if (!Number.isFinite(r.targetEmergency) || r.targetEmergency <= 0 || !Number.isFinite(emergencyFund)) {
+      fundBarEl.replaceChildren();
+      return;
+    }
+    const target = r.targetEmergency;
+    const pct = Math.min(100, Math.round((emergencyFund / target) * 100));
+    const full = emergencyFund >= target;
     const barColor = full ? 'bg-emerald-400/80' : 'bg-[color-mix(in_srgb,var(--gold)_80%,transparent)]';
     fundBarEl.innerHTML = `
       <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
         <span>Fondo d'emergenza</span>
-        <span>${formatMoney(invested)} / ${formatMoney(target)}</span>
+        <span>${formatMoney(emergencyFund)} / ${formatMoney(target)}</span>
       </div>
       <div class="h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full ${barColor}" style="width:${pct}%"></div></div>`;
   }

@@ -12,7 +12,7 @@
 import { detectLanguage, isSupported } from '../i18n/detect.js';
 import { getDailySafeToSpend, getMonthEndProjection } from '../predict/advisor.js';
 import { taxSetAsideForPeriod } from '../predict/tax.js';
-import { investableSurplus } from '../alpha/bridge.js';
+import { investableSurplus, investmentDataMissing } from '../alpha/bridge.js';
 import { ground } from '../graph/semantic.js';
 import { monthKey } from '../core/constants.js';
 
@@ -216,9 +216,10 @@ export function chat(message, ctx = {}) {
     }
     case 'invest': {
       const f = monthlyFinance(allTx, ref);
-      const r = investableSurplus({ netMonthlyFlow: f.netMonthlyFlow, avgMonthlyExpense: f.avgMonthlyExpense, currentEmergencyFund: ctx.emergencyFund ?? f.invested });
+      const r = investableSurplus({ netMonthlyFlow: f.netMonthlyFlow, avgMonthlyExpense: f.avgMonthlyExpense, currentEmergencyFund: ctx.emergencyFund });
       const inv = INV[lang] || INV.en;
-      if (r.reason === 'flow-negative') answer = inv.neg;
+      if (r.reason === 'insufficient-data') answer = investmentDataMissing(lang);
+      else if (r.reason === 'flow-negative') answer = inv.neg;
       else if (r.reason === 'building-emergency') answer = inv.build(fmt(r.targetEmergency), fmt(r.toEmergencyFund ?? 0));
       else answer = inv.ok(fmt(r.investable), Math.round((r.investable / Math.max(1, f.netMonthlyFlow)) * 100));
       break;

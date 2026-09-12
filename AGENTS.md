@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Priorità rilascio, 2026-09-12:** l’utente chiede di fermare l’espansione
+> continua delle infrastrutture e chiudere le altre parti. Leggere
+> [release-focus-2026-09-12.md](docs/release-focus-2026-09-12.md).
+> Corretto il ponte investimenti: riserva non dedotta dagli investimenti,
+> nessun target artificiale 1€, astensione se dati insufficienti. UI locale
+> verificata; resta da completare il percorso per confermare la liquidità.
+
 > **SDK dati, 2026-09-12:** leggere
 > [dataset-sdk-2026-09-12.md](docs/dataset-sdk-2026-09-12.md) e README SDK.
 > `prepareDataset` / `prepareScenarioDataset` validano policy esterna, metadati,

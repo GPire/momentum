@@ -8,17 +8,35 @@
 // dell'avanzo, mai se il flusso è negativo. Funzioni pure.
 'use strict';
 
+export function investmentDataMissing(lang = 'en') {
+  return ({
+    it: 'Non ho abbastanza dati sulle spese e sulla liquidità di emergenza per stimare quanto investire. Gli investimenti non sono denaro subito disponibile.',
+    en: 'I need more information about expenses and emergency cash to estimate how much you could invest. Investments are not immediately available cash.',
+    de: 'Für eine Schätzung fehlen Angaben zu Ausgaben und Notfallreserven. Anlagen sind kein sofort verfügbares Geld.',
+    fr: 'Il manque des informations sur les dépenses et la réserve de précaution pour estimer combien investir. Les placements ne sont pas des liquidités immédiatement disponibles.',
+    es: 'Faltan datos sobre gastos y efectivo de emergencia para estimar cuánto invertir. Las inversiones no son dinero disponible de inmediato.',
+    nl: 'Er ontbreken gegevens over uitgaven en je noodbuffer om te schatten hoeveel je kunt beleggen. Beleggingen zijn niet direct beschikbaar geld.',
+    pt: 'Faltam dados sobre despesas e dinheiro de emergência para estimar quanto investir. Os investimentos não são dinheiro imediatamente disponível.',
+  })[lang] || investmentDataMissing('en');
+}
+
 // Quanto è prudente investire questo mese.
 // input: { netMonthlyFlow, avgMonthlyExpense, currentEmergencyFund,
 //          emergencyMonths=6, investFraction=0.7 }
 export function investableSurplus(input) {
   const netMonthlyFlow = input.netMonthlyFlow ?? 0;          // entrate - uscite del mese
   const avgMonthlyExpense = input.avgMonthlyExpense ?? 0;
-  const currentEmergencyFund = input.currentEmergencyFund ?? 0;
+  const currentEmergencyFund = input.currentEmergencyFund;
   const emergencyMonths = input.emergencyMonths ?? 6;
   const investFraction = input.investFraction ?? 0.7;
 
   const targetEmergency = avgMonthlyExpense * emergencyMonths;
+
+  if (!Number.isFinite(avgMonthlyExpense) || avgMonthlyExpense <= 0 || !Number.isFinite(currentEmergencyFund)
+      || currentEmergencyFund < 0 || !Number.isFinite(netMonthlyFlow) || !Number.isFinite(emergencyMonths)
+      || emergencyMonths <= 0 || !Number.isFinite(investFraction) || investFraction < 0 || investFraction > 1) {
+    return { investable: 0, reason: 'insufficient-data', targetEmergency: null, note: investmentDataMissing(input.lang || 'it') };
+  }
 
   // 1) Flusso negativo → non si investe (si difende il budget).
   if (netMonthlyFlow <= 0) {

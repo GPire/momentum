@@ -38,3 +38,8 @@ test('nessun candidato o importo nullo → nessuna allocazione', () => {
   assert.equal(allocateInvestment(0, [{ ticker: 'X', verdict: 'compra', score: 1 }]).invested, 0);
   assert.equal(allocateInvestment(500, [{ ticker: 'X', verdict: 'evita', score: 1 }]).allocations.length, 0);
 });
+
+test('unknown reserve and missing expense history never imply money available to invest', () => {
+  assert.equal(investableSurplus({netMonthlyFlow:500,avgMonthlyExpense:100}).reason,'insufficient-data');
+  assert.equal(investableSurplus({netMonthlyFlow:500,avgMonthlyExpense:0,currentEmergencyFund:1000}).reason,'insufficient-data');
+});

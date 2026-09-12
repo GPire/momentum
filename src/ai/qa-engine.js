@@ -504,8 +504,9 @@ function answerQuestionCore(question, ctx) {
     const r = investableSurplus({
       netMonthlyFlow: f.netMonthlyFlow,
       avgMonthlyExpense: f.avgMonthlyExpense,
-      currentEmergencyFund: ctx.emergencyFund ?? f.invested,
+      currentEmergencyFund: ctx.emergencyFund,
       emergencyMonths: ctx.emergencyMonths ?? 6,
+      lang,
     });
     const enrich = r.reason === 'ok' ? topMeasuredStrategiesNote() : '';
     return { intent: 'invest', data: r, answer: r.note + enrich };
