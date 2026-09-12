@@ -1,5 +1,15 @@
 // Local, explainable name matching. The caller always preserves a manual choice.
 const hints = {
+  parcheggio: ['parcheggio','parking','parkeren','aparcamiento','estacionamento','stationnement','parken'],
+  assicurazione: ['assicurazione','assicurazioni','insurance','versicherung','assurance','seguros','seguro','verzekering'],
+  scuola: ['scuola','universita','school','education','schule','ecole','escuela','escola','onderwijs'],
+  bambini: ['bambini','asilo','childcare','nursery','kinderbetreuung','creche','guarderia','kinderopvang'],
+  spesa: ['supermercato','supermarket','groceries','supermarkt','supermarche','supermercado','boodschappen'],
+  consegne: ['consegna','consegne','delivery','deliveries','lieferung','livraison','entrega','bezorging'],
+  donazioni: ['donazione','donazioni','donation','donations','spenden','donaciones','donaties','donativos'],
+  manutenzione: ['manutenzione','maintenance','wartung','entretien','mantenimiento','onderhoud','manutencao'],
+  abbigliamento: ['abbigliamento','clothing','kleidung','vetements','ropa','kleding','roupa'],
+  tecnologia: ['tecnologia','technology','technik','technologie','computer','laptop','smartphone'],
   alcolici: ['alcolici','alcool','alcohol','alcoholic','birra','beer','bier','biere','cerveza','cerveja','vino','wine','vin','vinho','wein'],
   tabacco: ['tabacco','tabaco','tabac','tobacco','tabak','sigarette','sigaretten','cigarettes','cigarette','cigarrillos','cigarros','zigaretten'],
   snack: ['snack','snacks','merenda','spuntino','chips','crisps','patatine','gouter','aperitivo','lanche'],

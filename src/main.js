@@ -10,7 +10,9 @@ import { dashboardActions } from './ui/dashboard-actions.js';
 import { themePreference, themeIsDark } from './ui/theme-preference.js';
 import { buildPaymentAgenda, validatePaymentDeclaration, validPaymentDate } from './predict/payment-agenda.js';
 import { suggestCategoryIcon } from './ui/category-icon-hints.js';
-import { keyboardViewportInset } from './ui/viewport-inset.js';
+import { keyboardViewportInset, modalViewport } from './ui/viewport-inset.js';
+import { editCategoryAppearance } from './core/category-appearance.js';
+import { EXTRA_CATEGORY_ICONS } from './ui/category-icons.js';
 import { parseSalaryDraft, parseReminderDraft } from './ui/money-editor-values.js';
 import { recoveryPromptKey, shouldAutoOpenRecoveryPrompt } from './core/recovery-notice.js';
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
@@ -291,6 +293,9 @@ const MODEL_SIGNATURE = 'v10-omega-nano+meso+logreg-dcgn-2026-07';
 if (window.visualViewport) {
   const aggiornaTastieraInset = () => {
     const inset = keyboardViewportInset(window.innerHeight, window.visualViewport.height, window.visualViewport.scale);
+    const viewport = modalViewport(window.innerHeight, window.visualViewport.height, window.visualViewport.offsetTop, window.visualViewport.scale);
+    document.documentElement.style.setProperty('--modal-visible-height', `${viewport.height}px`);
+    document.documentElement.style.setProperty('--modal-visible-top', `${viewport.top}px`);
     document.documentElement.style.setProperty('--tastiera-inset', `${inset}px`);
     // Soglia 150px, non "> 0": un ritocco della barra indirizzi o un piccolo
     // scroll del visual viewport (iOS lo muove anche senza tastiera) non è
@@ -299,6 +304,7 @@ if (window.visualViewport) {
     document.documentElement.classList.toggle('tastiera-aperta', inset > 150);
   };
   window.visualViewport.addEventListener('resize', aggiornaTastieraInset);
+  window.visualViewport.addEventListener('scroll', aggiornaTastieraInset);
   window.addEventListener('resize', aggiornaTastieraInset);
   aggiornaTastieraInset();
 }
@@ -584,6 +590,9 @@ const CAT_ICONE = [
 
 const categoryIconOrder = ['cinema','snack','caffe','trasporto','carburante','sport','bellezza','gioco','libri','viaggi','animali','salute','regali','casa','musica','bollette','alcolici','tabacco'];
 CAT_ICONE.sort((a, b) => categoryIconOrder.indexOf(a.chiave) - categoryIconOrder.indexOf(b.chiave));
+CAT_ICONE.push(...EXTRA_CATEGORY_ICONS);
+const categoryIconLabel = key => EXTRA_CATEGORY_ICONS.some(ic => ic.chiave === key)
+  ? tIntegration('catIcon_' + key, __uiLang) : tCh('catIcon_' + key, __uiLang);
 
 // MICRO-TRANSIZIONE DI COMPARSA (2026-09-04, richiesta esplicita): le
 // categorie apparivano tutte insieme, di scatto, ogni volta che si cambia
@@ -598,7 +607,7 @@ const buildCatChipsHTML = (type) => {
   const chips = getCatsByType(type).map((c, i) => `
     <button type="button" class="cat-chip" data-cat-id="${c.id}" style="--chip-color:${c.color};--chip-bg:${c.color}22;--i:${i}">
       <div class="cat-chip-icon cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
-      <span class="cat-chip-label">${catName(c, __uiLang)}</span>
+      <span class="cat-chip-label">${escapeHtml(catName(c, __uiLang))}</span>
     </button>
   `).join('');
   // L'ULTIMA FASCIA, "+ NUOVA": la possibilita' di aggiungere una categoria
@@ -618,7 +627,7 @@ const buildCatChipsHTML = (type) => {
 const buildNewCatPanelHTML = () => `
   <div id="new-cat-panel" tabindex="-1" aria-label="${tCh('catNuovaCategoria', __uiLang)}" class="new-cat-panel hidden shrink-0">
     <div class="new-cat-head">
-      <span class="t-etichetta">${tCh('catNuovaCategoria', __uiLang)}</span>
+      <span class="t-etichetta" id="category-editor-title">${tCh('catNuovaCategoria', __uiLang)}</span>
       <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="${tCh('catAnnulla', __uiLang)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
     </div>
     <div class="new-cat-anteprima">
@@ -634,7 +643,7 @@ const buildNewCatPanelHTML = () => `
     </div>
     <p class="new-cat-label">${tCh('catIconAria', __uiLang)}</p>
     <div class="new-cat-griglia" id="new-cat-emoji-grid" role="group" aria-label="${tCh('catIconAria', __uiLang)}">
-      ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-pressed="${i === 0}">${ic.svg}<span>${tCh('catIcon_' + ic.chiave, __uiLang)}</span></button>`).join('')}
+      ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-pressed="${i === 0}">${ic.svg}<span>${categoryIconLabel(ic.chiave)}</span></button>`).join('')}
     </div>
     <button type="button" id="new-cat-crea" class="new-cat-crea-btn">${tCh('catCreaCategoria', __uiLang)}</button>
   </div>
@@ -780,6 +789,7 @@ const getTxFormHTML = () => `
     </div>
     <div class="command-category">
       <div class="command-category-heading"><span>${tCh('txCategoryLabel', __uiLang)}</span><span class="command-category-value"></span><button type="button" class="command-new-category" aria-label="${tCh('catNuovaCategoria', __uiLang)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${tCh('catNuova', __uiLang)}</button></div>
+      <button type="button" class="command-edit-category" disabled>${tIntegration('categoryEdit', __uiLang)}</button>
       <div class="command-category-options">
     <p class="cat-domanda-wrap text-center mb-1 mt-1 shrink-0"><span id="cat-domanda" class="t-etichetta amount-domanda">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
@@ -1030,7 +1040,8 @@ const attachFormListeners = (container, prefill = null) => {
     const vuoto = !rawVal || parseFloat(rawVal) === 0;
     const classeColore = vuoto ? 'amount-vuoto'
       : (type === 'entrata' ? 'amount-positive' : type === 'invest' ? 'amount-invest' : 'amount-negative');
-    d.className = `amount-display ${classeColore} truncate px-2`;
+    d.className = `amount-display ${classeColore}`;
+    d.style.setProperty('--amount-size', `${Math.max(24, 42 - Math.max(0, String(rawVal).length - 7) * 2)}px`);
     // L'alone dietro l'importo (stesso respiro dell'orb, 5,5s) si accende
     // solo quando un importo esiste: su un campo vuoto sarebbe decorazione.
     const palco = d.closest('.amount-stage');
@@ -1066,6 +1077,8 @@ const attachFormListeners = (container, prefill = null) => {
     if (!btn) return;
     container.querySelectorAll('.type-toggle-pill').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === type)));
     const selectedCategory = catId ? getCatById(catId) : null;
+    const editCategoryButton = container.querySelector('.command-edit-category');
+    if (editCategoryButton) editCategoryButton.disabled = !selectedCategory;
     const categoryValue = container.querySelector('.command-category-value');
     if (categoryValue) categoryValue.textContent = selectedCategory ? catName(selectedCategory, __uiLang) : '';
     const importoOk = parseFloat(rawVal) > 0;
@@ -1592,9 +1605,23 @@ const attachFormListeners = (container, prefill = null) => {
     formRoot.querySelector('.command-cancel'),
   ].filter(Boolean);
 
-  const openNewCatPanel = (nomeSuggerito = '') => {
+  let categoryBeingEdited = null;
+  const openNewCatPanel = (nomeSuggerito = '', category = null) => {
+    categoryBeingEdited = category;
     const panel = container.querySelector('#new-cat-panel');
     if (!panel) return;
+    container.querySelector('#category-editor-title').textContent = category ? tIntegration('categoryEdit', __uiLang) : tCh('catNuovaCategoria', __uiLang);
+    container.querySelector('#new-cat-crea').textContent = category ? tIntegration('categorySave', __uiLang) : tCh('catCreaCategoria', __uiLang);
+    panel.setAttribute('aria-label', container.querySelector('#category-editor-title').textContent);
+    container.querySelector('#new-cat-error').textContent = '';
+    container.querySelector('#new-cat-nome').removeAttribute('aria-invalid');
+    container.querySelector('#new-cat-nome').value = category ? catName(category, __uiLang) : nomeSuggerito;
+    catColoreScelta = category?.color || CAT_PALETTE[0];
+    catIconaScelta = category ? { svg: category.icon, chiave: CAT_ICONE.find(ic => ic.svg === category.icon)?.chiave } : CAT_ICONE[0];
+    iconaScelaManuale = Boolean(category);
+    container.querySelectorAll('.new-cat-emoji').forEach(b => { const selected = b.dataset.icona === catIconaScelta.chiave; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
+    container.querySelectorAll('.new-cat-colore').forEach(b => { const selected = b.dataset.colore === catColoreScelta; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
+    aggiornaAnteprimaCat();
     panel.parentElement.classList.add('category-editing');
     container.querySelector('#cat-suggerisci-nuova')?.classList.add('hidden');
     elementiDaNascondere().forEach((el) => el.classList.add('hidden'));
@@ -1627,6 +1654,7 @@ const attachFormListeners = (container, prefill = null) => {
   };
 
   container.querySelector('#new-cat-cancel')?.addEventListener('click', () => { haptic('light'); closeNewCatPanel(); });
+  container.querySelector('.command-edit-category')?.addEventListener('click', () => { if (catId) openNewCatPanel('', getCatById(catId)); });
   // Il paragrafo "nessuna di queste?" e' anche un tasto: un tocco solo porta
   // dritti al pannello gia' precompilato, invece di dover prima leggere il
   // consiglio e poi andare a cercare "+ Nuova" in fondo alla fascia.
@@ -1639,17 +1667,21 @@ const attachFormListeners = (container, prefill = null) => {
     btn.addEventListener('click', () => {
       haptic('light');
       iconaScelaManuale = true;
-      container.querySelectorAll('.new-cat-emoji').forEach((b) => b.classList.remove('selected'));
+      container.querySelectorAll('.new-cat-emoji').forEach((b) => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
       btn.classList.add('selected');
+      btn.setAttribute('aria-pressed', 'true');
       catIconaScelta = CAT_ICONE.find((ic) => ic.chiave === btn.dataset.icona) || CAT_ICONE[0];
+      const name = container.querySelector('#new-cat-nome');
+      if (!categoryBeingEdited && !name.value.trim()) name.value = categoryIconLabel(catIconaScelta.chiave);
       aggiornaAnteprimaCat();
     });
   });
   container.querySelectorAll('.new-cat-colore').forEach((btn) => {
     btn.addEventListener('click', () => {
       haptic('light');
-      container.querySelectorAll('.new-cat-colore').forEach((b) => b.classList.remove('selected'));
+      container.querySelectorAll('.new-cat-colore').forEach((b) => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
       btn.classList.add('selected');
+      btn.setAttribute('aria-pressed', 'true');
       catColoreScelta = btn.dataset.colore;
       aggiornaAnteprimaCat();
     });
@@ -1666,9 +1698,9 @@ const attachFormListeners = (container, prefill = null) => {
   container.querySelector('#new-cat-crea')?.addEventListener('click', () => {
     const nomeInput = container.querySelector('#new-cat-nome');
     const nome = (nomeInput?.value || '').trim().replace(/\s+/g, ' ');
-    if (!nome) {
+    if (!nome || [...nome].length > 24 || /[<>\u0000-\u001f]/u.test(nome)) {
       nomeInput?.setAttribute('aria-invalid', 'true');
-      container.querySelector('#new-cat-error').textContent = tCh('catNameRequired', __uiLang);
+      container.querySelector('#new-cat-error').textContent = tIntegration('categoryInvalidName', __uiLang);
       // Niente inventato al posto del nome: si chiede di scriverlo, con un
       // piccolo scatto che dice "manca qualcosa" senza un testo d'errore.
       nomeInput?.classList.add('new-cat-shake');
@@ -1680,23 +1712,30 @@ const attachFormListeners = (container, prefill = null) => {
     // una categoria con lo stesso nome (per questo tipo), non se ne crea
     // una seconda identica — si seleziona quella che c'e' gia'.
     const esistente = getCatsByType(type).find((c) => [c.name, catName(c, __uiLang)].some(label => label.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase(__uiLocale) === nome.normalize('NFKC').toLocaleLowerCase(__uiLocale)));
-    if (esistente) {
+    if (esistente && esistente.id !== categoryBeingEdited?.id) {
+      if (categoryBeingEdited) {
+        nomeInput.setAttribute('aria-invalid', 'true');
+        container.querySelector('#new-cat-error').textContent = tIntegration('categoryDuplicate', __uiLang);
+        return;
+      }
       showToast(tCh('catExistingSelected', __uiLang), 'info');
       closeNewCatPanel();
       container.querySelector(`[data-cat-id="${esistente.id}"]`)?.click();
       return;
     }
-    const id = `custom-${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'cat'}-${Date.now().toString(36).slice(-4)}`;
+    const id = categoryBeingEdited?.id || `custom-${crypto.randomUUID()}`;
     const nuovaCat = { id, name: nome, type, color: catColoreScelta, icon: catIconaScelta.svg };
     // Il timbro serve al merge fra dispositivi (chi ha scritto per ultimo).
-    VaultDAO.state.customCategories = [...(VaultDAO.state.customCategories || []), touchCategory(nuovaCat)];
+    VaultDAO.state.customCategories = categoryBeingEdited
+      ? editCategoryAppearance(VaultDAO.state.customCategories || [], categoryBeingEdited, nome, catColoreScelta, catIconaScelta.svg)
+      : [...(VaultDAO.state.customCategories || []), touchCategory(nuovaCat)];
     VaultDAO.save();
     // Subito agli altri propri dispositivi: senza, la spesa appena creata
     // arriverebbe là sotto un "Altro" grigio invece che sotto la categoria
     // che l'utente ha appena inventato.
     try { window.momentumMeshNode?.shareCustomCategories(VaultDAO.state.customCategories, soloMieiDispositivi); } catch (_) {}
     haptic('heavy'); AudioSynth.play('success');
-    showToast(tCh('catCreatedFeedback', __uiLang), 'success');
+    showToast(categoryBeingEdited ? tIntegration('categorySaved', __uiLang) : tCh('catCreatedFeedback', __uiLang), 'success');
     closeNewCatPanel();
     if (nomeInput) nomeInput.value = '';
     catIconaScelta = CAT_ICONE[0]; catColoreScelta = CAT_PALETTE[0]; iconaScelaManuale = false;
@@ -1711,6 +1750,7 @@ const attachFormListeners = (container, prefill = null) => {
       nuovoChip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       nuovoChip?.click();
     }
+    renderDashboard();
   });
 
   // Tasti rapidi: un tocco compila tipo+categoria+descrizione+importo,
@@ -2429,6 +2469,11 @@ window.openPrefilledAdd = (prefill = {}) => {
 // posto — un secondo entry point che la riscrivesse a mano avrebbe rischiato
 // di divergere in silenzio dalla prima (esattamente il bug appena trovato).
 function focusAmountFieldTwice() {
+  // A touch opens the sheet first. Only tapping the amount opens the keyboard.
+  if (!window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
+    document.getElementById('modal-container')?.focus({ preventScroll: true });
+    return;
+  }
   const amt = document.querySelector('#modal-body #tx-amount-display');
   if (!amt) return;
   const initialValue = amt.value;
@@ -3350,6 +3395,7 @@ function renderSplitReminder() {
 
 }
 
+let ledgerPage = { month: null, limit: 8 };
 const renderDashboard = () => {
   try { renderTransactionRecurring(); } catch (error) { document.getElementById('transaction-recurring')?.classList.add('hidden'); console.warn('Recurring payments unavailable:', error); }
   // Ogni volta che la Dashboard si aggiorna è il momento in cui l'utente
@@ -4084,6 +4130,7 @@ const renderDashboard = () => {
 
   // Ledger list
   const list = $('#transaction-list-container');
+  if (ledgerPage.month !== k) ledgerPage = { month: k, limit: 8 };
   list.innerHTML = '';
   if (txs.length === 0) {
     list.innerHTML = `<p class="text-center text-xs text-[var(--on-surface-secondary)] py-6">${tCh('dashNoTx', __uiLang)}</p>`;
@@ -4114,9 +4161,11 @@ const renderDashboard = () => {
   }
   const giorniOrdinati = [...perGiorno.keys()].sort((a, b) => b.localeCompare(a));
   let corpo = '';
+  let shown = 0;
   const oggiISO = realNow.toISOString().slice(0, 10);
   const ieriISO = new Date(realNow.getTime() - 86400000).toISOString().slice(0, 10);
   for (const giorno of giorniOrdinati) {
+    if (shown >= ledgerPage.limit) break;
     const righe = perGiorno.get(giorno).sort((a, b) => b.id - a.id);
     const nettoGiorno = righe.reduce((s2, t) => s2 + (t.type === 'entrata' ? t.amount : t.type === 'invest' ? 0 : -t.amount), 0);
     let etichettaGiorno;
@@ -4151,9 +4200,16 @@ const renderDashboard = () => {
       <span>${escTx(etichettaGiorno)}${budgetPctHtml}</span>
       <span class="tx-giorno-tot ${nettoGiorno < 0 ? 'neg' : nettoGiorno > 0 ? 'pos' : ''}">${nettoGiorno === 0 ? '' : `${nettoGiorno > 0 ? '+' : ''}${formatMoney(nettoGiorno)}`}</span>
     </div>`;
-    for (const t of righe) corpo += rigaTx(t);
+    for (const t of righe.slice(0, ledgerPage.limit - shown)) { corpo += rigaTx(t); shown++; }
   }
   list.innerHTML = corpo;
+  list.insertAdjacentHTML('beforeend', `<div class="ledger-pagination"><p role="status">${tIntegration('ledgerCount', __uiLang, shown, txs.length)}</p>${shown < txs.length ? `<button type="button" data-ledger-more>${tIntegration('ledgerMore', __uiLang, Math.min(8, txs.length - shown))}</button>` : ''}${ledgerPage.limit > 8 ? `<button type="button" data-ledger-less>${tIntegration('ledgerLess', __uiLang)}</button>` : ''}</div>`);
+  list.querySelector('[data-ledger-more]')?.addEventListener('click', () => {
+    const before = shown; ledgerPage.limit += 8; renderDashboard();
+    const next = list.querySelectorAll('.tx-card')[before]?.querySelector('button');
+    next?.focus({ preventScroll: true });
+  });
+  list.querySelector('[data-ledger-less]')?.addEventListener('click', () => { ledgerPage.limit = 8; renderDashboard(); list.scrollIntoView({ block: 'start', behavior: 'instant' }); list.querySelector('[data-ledger-more]')?.focus({ preventScroll: true }); });
   // Ingresso scaglionato (stesso principio di .view-in): reflow forzato per
   // ri-attivare l'animazione a ogni render (nuovo mese, nuova tx, eliminazione).
   list.classList.remove('tx-in'); void list.offsetWidth; list.classList.add('tx-in');
@@ -16323,6 +16379,7 @@ function applyUiTranslations() {
 // categorie personalizzate (create dall'utente, nessuna chiave 'cat_<id>'
 // corrispondente) ricadono sul loro nome reale, mai su una chiave grezza.
 function catName(cat, lang) {
+  if (cat.displayName) return cat.displayName;
   const key = 'cat_' + cat.id;
   const v = tCh(key, lang);
   return v === key ? cat.name : v;

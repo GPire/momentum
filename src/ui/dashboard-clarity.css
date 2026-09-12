@@ -778,7 +778,7 @@ html.tastiera-aperta .category-editing .new-cat-griglia:not(.new-cat-griglia-col
   #modal-body .command-form { padding:8px 4px 16px; gap:8px; }
   #modal-body .command-form .amount-stage { display:grid; grid-template-columns:minmax(0,1fr) 48px; align-items:center; gap:4px 8px; padding-top:4px; }
   #modal-body .command-form .amount-stage > * { grid-column:1/-1; margin:0; }
-  #modal-body .command-form .amount-stage > div.flex { grid-column:1; grid-row:2; }
+  #modal-body .command-form .amount-stage > .command-amount-line { grid-column:1; grid-row:2; }
   #modal-body .command-form .amount-stage > .mic-stage { grid-column:2; grid-row:2; }
   #modal-body .command-form #voice-rec-btn { width:44px; height:44px; }
   #modal-body .command-form #amount-impact.opacity-0 { display:none; }

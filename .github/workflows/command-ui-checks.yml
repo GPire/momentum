@@ -1,0 +1,30 @@
+name: Command Center UI checks
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  command-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install isolated browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/momentum-ui" --no-package-lock --no-audit --no-fund playwright@1.62.1
+          "$RUNNER_TEMP/momentum-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Test responsive transaction and category flows
+        run: MOMENTUM_PLAYWRIGHT_PATH="$RUNNER_TEMP/momentum-ui/node_modules/playwright/index.mjs" node scripts/command-touch-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: command-ui-evidence
+          path: ui-smoke-artifacts
+          if-no-files-found: ignore
