@@ -51,6 +51,7 @@
 .category-custom-color input[type=range]::-moz-range-thumb { width:24px; height:24px; border-radius:50%; border:3px solid var(--surface-solid); background:var(--on-surface); }
 .command-form .category-hex,.command-form .category-icon-search { box-sizing:border-box; width:100%; min-width:0; min-height:48px; padding:12px; border:1px solid var(--outline); border-radius:14px; background:var(--surface-elevated); color:var(--on-surface); font:inherit; font-size:16px; }
 .command-form .category-hex { margin-top:8px; font-family:monospace; }
+.command-form #new-cat-crea { position:relative; bottom:auto; flex:none; margin-top:16px; box-shadow:none; }
 .command-form .category-hex[aria-invalid=true] { border-color:var(--red); }
 .category-color-error { color:var(--red); font-size:13px; overflow-wrap:anywhere; }
 .category-custom-color input:focus-visible,.category-custom-toggle:focus-visible,.category-icon-search:focus-visible { outline:2px solid var(--primary); outline-offset:3px; }
