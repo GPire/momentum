@@ -21834,7 +21834,7 @@ async function initMomentumRealAI() {
             // condivisa Momentum) — senza chiave la fonte si salta da sola
             // (fetchVerified lo dichiara), niente crash, niente invenzione.
             const params = assetKind === 'stock' ? { apiKey: VaultDAO.state.liveDataKeys?.alphavantage } : {};
-            const r = await fetchVerified({ symbol: p.ticker.toLowerCase(), kind, fetchImpl: fetch.bind(window), cache: cacheAdapter, params });
+            const r = await fetchVerified({ symbol: p.ticker.toLowerCase(), kind, assetKind, fetchImpl: fetch.bind(window), cache: cacheAdapter, params });
             const last = r.prices && r.prices[r.prices.length - 1];
             if (last && trainingEligible(r)) {
               (window.__livePrices = window.__livePrices || {})[p.ticker] = last.close;

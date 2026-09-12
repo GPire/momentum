@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Fonti e apprendimento, 2026-09-12:** il ciclo attivo `idleFetchPrices`
+> passa `assetKind` a `fetchVerified`; cache e fonti crypto/stock separate.
+> Gate training con rivalidazione delle serie e blocco dati sintetici/stimati.
+> Leggere [learning-source-boundary-2026-09-12.md](docs/learning-source-boundary-2026-09-12.md).
+> Suite 328/328 file e build portable passati. Nessun nuovo peso addestrato;
+> il nuovo rischio multiasset non è ancora collegato alla card visibile.
+
 > **Rischio multiasset, 2026-09-12:** leggere
 > [portfolio-risk-snapshot-2026-09-12.md](docs/portfolio-risk-snapshot-2026-09-12.md).
 > Valutazione con quantità, quote datate, valute e cambi verificati; ingresso

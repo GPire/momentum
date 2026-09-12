@@ -17,6 +17,7 @@
 'use strict';
 
 import { parseStooqCsv, parseCoinGeckoJson, parseAlphaVantageDailyJson } from './market-data.js';
+import { cleanPriceSeries } from './market-series-quality.js';
 
 // ── Parser FRED (JSON: /fred/series/observations?…&file_type=json) ──
 // { observations: [{ date:'YYYY-MM-DD', value:'123.4' }, …] }
@@ -140,7 +141,7 @@ export function parseEurostatJsonStat(json) {
 // del deliverable: dire chiaramente cosa NON possiamo usare è metà dell'onestà. ──
 export const SOURCE_REGISTRY = [
   {
-    id: 'coingecko', kind: 'prices', name: 'CoinGecko', trust: 'primary',
+    id: 'coingecko', kind: 'prices', assetKinds: ['crypto'], currency: 'EUR', name: 'CoinGecko', trust: 'primary',
     cors: 'yes', type: 'json', parse: parseCoinGeckoJson,
     urlFor: (s, { days = 180 } = {}) => `https://api.coingecko.com/api/v3/coins/${s}/market_chart?vs_currency=eur&days=${days}`,
     note: 'Crypto. Già usata da market-data.js; CORS aperto, rate-limit ~10-30 req/min senza chiave.',
@@ -159,7 +160,7 @@ export const SOURCE_REGISTRY = [
     note: 'VERIFICATO BLOCCATO (nessun header CORS) — esclusa, si usa la fallback chain. Parser tenuto per un eventuale import CSV manuale.',
   },
   {
-    id: 'alphavantage', kind: 'prices', name: 'Alpha Vantage', trust: 'primary',
+    id: 'alphavantage', kind: 'prices', assetKinds: ['stock'], name: 'Alpha Vantage', trust: 'primary',
     cors: 'key', type: 'json', parse: parseAlphaVantageDailyJson,
     urlFor: (s, { apiKey } = {}) => `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(s)}&apikey=${encodeURIComponent(apiKey)}&outputsize=compact`,
     note: 'Azioni/indici/ETF. VERIFICATO chiamabile direttamente dal browser (CORS aperto) con una chiave gratuita ottenuta dall\'utente stesso (mai una chiave condivisa Momentum). Senza chiave: saltata, dichiarato. Limite gratuito: 25 richieste/giorno.',
@@ -339,6 +340,7 @@ export function plausibility(series, { maxDailyJumpPct = 50, maxDailyJumpAbs = 5
   const seen = new Map();
   for (let i = 0; i < s.length; i++) {
     const p = s[i] || {};
+    if (!cleanPriceSeries([{ date: p.date, price: 1 }]).length) reasons.push('data non valida');
     const prev = i > 0 ? (s[i - 1] || {}) : null;
     if (!Number.isFinite(p.close) || (richiedePositivo && p.close <= 0)) { reasons.push(`close ${richiedePositivo ? 'non positivo' : 'non numerico'} (${p.close}) al ${p.date}`); continue; }
     if (prev && typeof prev.date === 'string' && p.date < prev.date) reasons.push(`date non monotone: ${prev.date} → ${p.date}`);
@@ -367,11 +369,12 @@ export function plausibility(series, { maxDailyJumpPct = 50, maxDailyJumpAbs = 5
 // `source` = fonti consultate (es. 'coingecko+stooq'); `priceSource` = fonte
 // della serie effettivamente ritornata. `params` (es. apiKey per FRED) è
 // opzionale e passato a urlFor: senza chiave la fonte è saltata, dichiarandolo.
-export async function fetchVerified({ symbol, kind = 'prices', fetchImpl, cache, sources = SOURCE_REGISTRY, params = {} }) {
-  const cacheKey = `vrf:${kind}:${symbol}`;
+export async function fetchVerified({ symbol, kind = 'prices', assetKind = null, fetchImpl, cache, sources = SOURCE_REGISTRY, params = {} }) {
+  const cacheKey = assetKind ? `vrf:${kind}:${assetKind}:${symbol}` : `vrf:${kind}:${symbol}`;
   const errors = [];
   const usable = (sources || []).filter(s =>
     s && !s.excluded && s.cors !== 'no' && s.kind === kind &&
+    (!assetKind || s.assetKinds?.includes(assetKind)) &&
     typeof s.parse === 'function' && typeof s.urlFor === 'function');
   // le fonti 'primary' prima delle 'secondary'; a parità, ordine di registro
   const ordered = [...usable].sort((x, y) => (x.trust === 'primary' ? 0 : 1) - (y.trust === 'primary' ? 0 : 1));
@@ -379,6 +382,7 @@ export async function fetchVerified({ symbol, kind = 'prices', fetchImpl, cache,
   const successes = [];
   for (const src of ordered) {
     if (successes.length >= 2) break; // due fonti indipendenti bastano per il cross-check
+    if (successes.some(x => x.src.id === src.id)) continue;
     if (src.cors === 'key' && !params.apiKey) { errors.push(`${src.id}: chiave API mancante — saltata, non simulata`); continue; }
     try {
       const res = await fetchImpl(src.urlFor(symbol, params));
@@ -394,24 +398,28 @@ export async function fetchVerified({ symbol, kind = 'prices', fetchImpl, cache,
   }
 
   const asOf = new Date().toISOString();
+  const metadata = { kind, assetKind, symbol };
 
   if (successes.length >= 2) {
     const [a, b] = successes;
     const chk = crossCheck(a.prices, b.prices);
     const pl = plausibility(a.prices, { richiedePositivo: kind !== 'macro' }); // un tasso può essere zero o negativo; un prezzo di mercato no
-    if (chk.confirmed && pl.plausible) {
-      const out = { prices: a.prices, source: `${a.src.id}+${b.src.id}`, asOf, verified: 'confirmed', priceSource: a.src.id, note: `Confermato da due fonti indipendenti (${chk.reason}).` };
+    const otherPlausible = plausibility(b.prices, { richiedePositivo: kind !== 'macro' }).plausible;
+    const sameCurrency = !a.src.currency || !b.src.currency || a.src.currency === b.src.currency;
+    if (chk.confirmed && pl.plausible && otherPlausible && sameCurrency) {
+      const out = { ...metadata, prices: a.prices, source: `${a.src.id}+${b.src.id}`, asOf, verified: 'confirmed', priceSource: a.src.id, note: `Confermato da due fonti indipendenti (${chk.reason}).` };
       if (cache) await cache.put(cacheKey, out);
       return out;
     }
-    return { prices: a.prices, source: `${a.src.id}+${b.src.id}`, asOf, verified: 'unconfirmed', priceSource: a.src.id, note: `NON confermato: ${chk.confirmed ? pl.reasons.join('; ') : chk.reason}. Dati mostrati solo a scopo informativo, esclusi dall'addestramento.` };
+    const reason = !sameCurrency ? 'valute diverse' : !otherPlausible ? 'seconda serie non plausibile' : chk.confirmed ? pl.reasons.join('; ') : chk.reason;
+    return { prices: a.prices, source: `${a.src.id}+${b.src.id}`, asOf, verified: 'unconfirmed', priceSource: a.src.id, note: `NON confermato: ${reason}. Dati mostrati solo a scopo informativo, esclusi dall'addestramento.` };
   }
 
   if (successes.length === 1) {
     const { src, prices } = successes[0];
     const pl = plausibility(prices, { richiedePositivo: kind !== 'macro' });
     if (pl.plausible) {
-      const out = { prices, source: src.id, asOf, verified: 'single-source', priceSource: src.id, note: `Fonte singola (${src.name}) plausibile; cross-check non possibile (${errors.join('; ') || 'nessun’altra fonte per questo simbolo'}).` };
+      const out = { ...metadata, ...(src.currency ? { currency: src.currency } : {}), prices, source: src.id, asOf, verified: 'single-source', priceSource: src.id, note: `Fonte singola (${src.name}) plausibile; cross-check non possibile (${errors.join('; ') || 'nessun’altra fonte per questo simbolo'}).` };
       if (cache) await cache.put(cacheKey, out);
       return out;
     }
@@ -435,5 +443,9 @@ export async function fetchVerified({ symbol, kind = 'prices', fetchImpl, cache,
 // Questa funzione è l'unico punto di decisione: lo scheduler DEVE passarci. ──
 export function trainingEligible(result) {
   return !!(result && Array.isArray(result.prices) && result.prices.length &&
-    (result.verified === 'confirmed' || result.verified === 'single-source'));
+    (result.verified === 'confirmed' || result.verified === 'single-source') &&
+    result.synthetic !== true && result.estimated !== true &&
+    (!result.asOf || (typeof result.asOf === 'string' && cleanPriceSeries([{ date: result.asOf.slice(0, 10), price: 1 }]).length &&
+      result.prices.every(p => typeof p?.date === 'string' && p.date <= result.asOf.slice(0, 10)))) &&
+    plausibility(result.prices, { richiedePositivo: result.kind !== 'macro' }).plausible);
 }
