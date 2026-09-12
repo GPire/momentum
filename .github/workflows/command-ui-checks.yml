@@ -6,6 +6,10 @@ permissions:
   contents: read
 jobs:
   command-ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -19,12 +23,12 @@ jobs:
       - name: Install isolated browser test tools
         run: |
           npm install --prefix "$RUNNER_TEMP/momentum-ui" --no-package-lock --no-audit --no-fund playwright@1.62.1
-          "$RUNNER_TEMP/momentum-ui/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/momentum-ui/node_modules/.bin/playwright" install --with-deps ${{ matrix.browser }}
       - name: Test responsive transaction and category flows
-        run: MOMENTUM_PLAYWRIGHT_PATH="$RUNNER_TEMP/momentum-ui/node_modules/playwright/index.mjs" node scripts/command-touch-smoke.mjs
+        run: MOMENTUM_BROWSER=${{ matrix.browser }} MOMENTUM_PLAYWRIGHT_PATH="$RUNNER_TEMP/momentum-ui/node_modules/playwright/index.mjs" node scripts/command-touch-smoke.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: command-ui-evidence
+          name: command-ui-evidence-${{ matrix.browser }}
           path: ui-smoke-artifacts
           if-no-files-found: ignore

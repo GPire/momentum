@@ -1,4 +1,8 @@
 import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
+import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
+window.addEventListener('resize', fitVisibleAmounts);
+window.visualViewport?.addEventListener('resize', fitVisibleAmounts);
+document.fonts?.ready.then(fitVisibleAmounts);
 import { validateRestoredState, prepareRestoredState, checkpointBeforeRestore, readRestoreCheckpoint, writeRestoredArchive } from './core/restore-safety.js';
 import { executePublicUnits } from './mesh/compute-protocol.js';
 import { tSplit } from './i18n/split-workspace.js';
@@ -625,7 +629,7 @@ const buildCatChipsHTML = (type) => {
 // compilando — niente modale sopra il modale, che su mobile avrebbe dovuto
 // far sparire (o salvare da qualche parte) l'importo gia' digitato.
 const buildNewCatPanelHTML = () => `
-  <div id="new-cat-panel" tabindex="-1" aria-label="${tCh('catNuovaCategoria', __uiLang)}" class="new-cat-panel hidden shrink-0">
+  <div id="new-cat-panel" hidden tabindex="-1" aria-label="${tCh('catNuovaCategoria', __uiLang)}" class="new-cat-panel hidden shrink-0">
     <div class="new-cat-head">
       <span class="t-etichetta" id="category-editor-title">${tCh('catNuovaCategoria', __uiLang)}</span>
       <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="${tCh('catAnnulla', __uiLang)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
@@ -1049,7 +1053,8 @@ const attachFormListeners = (container, prefill = null) => {
     const classeColore = vuoto ? 'amount-vuoto'
       : (type === 'entrata' ? 'amount-positive' : type === 'invest' ? 'amount-invest' : 'amount-negative');
     d.className = `amount-display ${classeColore}`;
-    d.style.setProperty('--amount-size', `${Math.max(24, 42 - Math.max(0, String(rawVal).length - 7) * 2)}px`);
+    fitAmountInput(d);
+    requestAnimationFrame(() => fitAmountInput(d));
     // L'alone dietro l'importo (stesso respiro dell'orb, 5,5s) si accende
     // solo quando un importo esiste: su un campo vuoto sarebbe decorazione.
     const palco = d.closest('.amount-stage');
@@ -1061,7 +1066,7 @@ const attachFormListeners = (container, prefill = null) => {
         : 'color-mix(in srgb, var(--red) 26%, transparent)');
     }
     // Micro-pop sul numero a ogni cifra digitata: feedback tattile immediato.
-    d.classList.remove('amount-pop'); void d.offsetWidth; d.classList.add('amount-pop');
+    // Do not transform an editable input: WebKit can detach its caret/text layer.
 
     const amt = parseFloat(rawVal) || 0;
     const saveBtn = formRoot.querySelector('.tx-save-btn');
@@ -1223,9 +1228,9 @@ const attachFormListeners = (container, prefill = null) => {
       if (week.show) parts.push(`<span class="command-budget-daily" data-level="${week.level === 'over' ? 'over' : 'ok'}">${tCh(week.level === 'over' ? 'txWeekAfterOver' : 'txWeekAfterLeft', __uiLang)} ${money(week.level === 'over' ? week.overBy : week.remaining)}</span>`);
     }
     const brake = evaluateBrake(mode, { amount: amt, safeToday, monthEndDelta, typical, budget });
-    if (brake.level !== 'ok' && brake.message) {
+    if (!budgetPreview && brake.level !== 'ok' && brake.message) {
       const COL = brake.level === 'warn' ? 'text-rose-400' : 'text-amber-400';
-      parts.push(`<span class="${COL}">${brake.message}</span>`);
+      parts.push(`<span class="${COL}">${tIntegration('commandReviewAmount', __uiLang)}</span>`);
     }
     if (!parts.length) return hide();
     el.innerHTML = parts.join('');
@@ -1283,7 +1288,7 @@ const attachFormListeners = (container, prefill = null) => {
   };
   const aggiornaEsempioVoce = () => {
     if (!hintTextEl) return;
-    const perLingua = ESEMPI_VOCE[linguaVoceAttiva()] || ESEMPI_VOCE.it;
+    const perLingua = ESEMPI_VOCE[__uiLang] || ESEMPI_VOCE.en;
     hintTextEl.textContent = `“${perLingua[type] || perLingua.uscita}”`;
   };
   aggiornaEsempioVoce();
@@ -1614,10 +1619,13 @@ const attachFormListeners = (container, prefill = null) => {
   ].filter(Boolean);
 
   let categoryBeingEdited = null;
+  let categoryReturnFocus = null;
   const openNewCatPanel = (nomeSuggerito = '', category = null) => {
     categoryBeingEdited = category;
     const panel = container.querySelector('#new-cat-panel');
     if (!panel) return;
+    categoryReturnFocus = container.contains(document.activeElement) ? document.activeElement : null;
+    container.querySelectorAll('.command-new-category,.command-edit-category').forEach(button => button.setAttribute('aria-expanded','true'));
     container.querySelector('#category-editor-title').textContent = category ? tIntegration('categoryEdit', __uiLang) : tCh('catNuovaCategoria', __uiLang);
     container.querySelector('#new-cat-crea').textContent = category ? tIntegration('categorySave', __uiLang) : tCh('catCreaCategoria', __uiLang);
     panel.setAttribute('aria-label', container.querySelector('#category-editor-title').textContent);
@@ -1641,6 +1649,7 @@ const attachFormListeners = (container, prefill = null) => {
       suggerisciIconaDaTesto(nomeSuggerito);
       aggiornaAnteprimaCat();
     }
+    panel.hidden = false;
     panel.classList.remove('hidden');
     // Reflow forzato per far ripartire l'animazione di apertura ogni volta,
     // anche se il pannello era gia' stato aperto e richiuso in questa sessione.
@@ -1656,10 +1665,17 @@ const attachFormListeners = (container, prefill = null) => {
   };
   const closeNewCatPanel = () => {
     const panel = container.querySelector('#new-cat-panel');
+    if (panel) panel.hidden = true;
     panel?.classList.add('hidden');
     panel?.parentElement.classList.remove('category-editing');
     elementiDaNascondere().forEach((el) => el.classList.remove('hidden'));
+    container.querySelectorAll('.command-new-category,.command-edit-category').forEach(button => button.setAttribute('aria-expanded','false'));
+    categoryReturnFocus?.focus({preventScroll:true});
   };
+  container.querySelectorAll('.command-new-category,.command-edit-category').forEach(button => button.setAttribute('aria-expanded','false'));
+  container.querySelector('#new-cat-panel')?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeNewCatPanel(); }
+  });
 
   container.querySelector('#new-cat-cancel')?.addEventListener('click', () => { haptic('light'); closeNewCatPanel(); });
   container.querySelector('.command-edit-category')?.addEventListener('click', () => { if (catId) openNewCatPanel('', getCatById(catId)); });
@@ -1885,7 +1901,12 @@ const attachFormListeners = (container, prefill = null) => {
       else if (amountInputEl.value !== rawVal) updateAmount(); // riscrive per scartare caratteri non validi
     });
     // Un tocco seleziona tutto: si scrive lo zero iniziale, non lo si cancella a mano.
-    amountInputEl.addEventListener('focus', () => { try { amountInputEl.select(); } catch (_) {} });
+    amountInputEl.addEventListener('focus', () => {
+      if (!rawVal || Number(rawVal) === 0) amountInputEl.value = '';
+      else if (window.matchMedia('(hover:hover) and (pointer:fine)').matches) amountInputEl.select();
+      fitAmountInput(amountInputEl);
+    });
+    amountInputEl.addEventListener('blur', () => { if (!rawVal) amountInputEl.value = '0'; });
   }
 
   // Numpad key triggers
@@ -2476,7 +2497,7 @@ window.openPrefilledAdd = (prefill = {}) => {
 // di divergere in silenzio dalla prima (esattamente il bug appena trovato).
 function focusAmountFieldTwice() {
   // A touch opens the sheet first. Only tapping the amount opens the keyboard.
-  if (!window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
+  if (navigator.maxTouchPoints > 0 || !window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
     document.getElementById('modal-container')?.focus({ preventScroll: true });
     return;
   }

@@ -5,7 +5,9 @@ import { pathToFileURL } from 'node:url';
 import { simpleHash } from '../src/core/utils.js';
 import { LATEST_WHATS_NEW_VERSION } from '../src/core/whats-new.js';
 import assert from 'node:assert/strict';
-const { chromium } = await import(process.env.MOMENTUM_PLAYWRIGHT_PATH ? pathToFileURL(process.env.MOMENTUM_PLAYWRIGHT_PATH).href : 'playwright');
+const engines = await import(process.env.MOMENTUM_PLAYWRIGHT_PATH ? pathToFileURL(process.env.MOMENTUM_PLAYWRIGHT_PATH).href : 'playwright');
+const engine = engines[process.env.MOMENTUM_BROWSER || 'chromium'];
+const language = process.env.MOMENTUM_BROWSER === 'webkit' ? 'en' : 'it';
 const artifacts = resolve('ui-smoke-artifacts');
 mkdirSync(artifacts, {recursive:true});
 const root = resolve('dist');
@@ -18,8 +20,8 @@ const server = createServer((req,res) => {
 });
 await new Promise(r => server.listen(4176,'127.0.0.1',r));
 const browser = process.env.MOMENTUM_CDP
-  ? await chromium.connectOverCDP(process.env.MOMENTUM_CDP)
-  : await chromium.launch({ headless:true, ...(process.env.MOMENTUM_BROWSER_EXECUTABLE ? { executablePath:process.env.MOMENTUM_BROWSER_EXECUTABLE } : {}) });
+  ? await engine.connectOverCDP(process.env.MOMENTUM_CDP)
+  : await engine.launch({ headless:true, ...(process.env.MOMENTUM_BROWSER_EXECUTABLE ? { executablePath:process.env.MOMENTUM_BROWSER_EXECUTABLE } : {}) });
 const fixture = JSON.parse(readFileSync('src/core/fixtures/historical-backups.json')).states[0].state;
 const date = new Date(), month = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
 let prev = 'GENESIS';
@@ -29,26 +31,34 @@ const rows = Array.from({length:30}, (_,i) => {
 });
 const state={...fixture,isFirstLaunch:false,whatsNewSeen:LATEST_WHATS_NEW_VERSION,freshStartPrompted:true,currentDate:date.toISOString(),transactions:{[month]:rows},lastHash:prev,monthlyBudget:1500,budgetDeclined:false,customCategories:[],demoTransactions:{}};
 try {
-  for (const [width,height,touch] of [[393,852,true],[430,932,true],[768,1024,true],[1024,768,true],[1366,900,false]]) {
+  for (const [width,height,touch,empty] of [[393,852,true,true],[393,852,true],[430,932,true],[768,1024,true],[1024,768,true],[1366,900,false]]) {
+    const activeState=empty ? {...state,transactions:{},monthlyBudget:0,budgetDeclined:true,demoDismissed:true,lastHash:'GENESIS'} : state;
     const context = await browser.newContext({viewport:{width,height},isMobile:touch,hasTouch:touch,deviceScaleFactor:1});
-    await context.addInitScript(s => localStorage.setItem('omega_core_db',JSON.stringify(s)),state);
+    // UI fixtures must never send telemetry or depend on live market providers.
+    await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:4176'
+      ? route.continue()
+      : route.fulfill({status:route.request().method()==='OPTIONS' ? 204 : 503,body:'',headers:{'access-control-allow-origin':'*','access-control-allow-methods':'GET, POST, OPTIONS','access-control-allow-headers':'*'}}));
+    await context.addInitScript(s => localStorage.setItem('omega_core_db',JSON.stringify(s)),activeState);
     const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     try {
-    await page.goto('http://127.0.0.1:4176/?lang=it');
+    await page.goto(`http://127.0.0.1:4176/?lang=${language}`);
     await page.waitForFunction(()=>typeof document.getElementById('mobile-add-btn')?.onclick === 'function');
+    if (!empty) {
     await page.locator('#transaction-list-container .tx-card').first().waitFor({state:'visible'});
     assert.equal(await page.locator('#transaction-list-container .tx-card').count(),8);
     const editCategory = page.locator('#transaction-list-container .tx-category-edit').first();
     await editCategory.waitFor({state:'visible'});
-    assert.match(await editCategory.innerText(),/Cambia categoria/i);
+    assert.match(await editCategory.innerText(),/Cambia categoria|Change category/i);
     await editCategory.click();
     await page.locator('#modal-body button[onclick*="setTxCategory"]').first().waitFor({state:'visible'});
     await page.evaluate(()=>window.closeModal());
     await page.locator('[data-ledger-more]').click();
     assert.equal(await page.locator('#transaction-list-container .tx-card').count(),16);
     await page.locator('[data-ledger-less]').click();
+    }
     await page.locator('#mobile-add-btn:visible, #tablet-fab:visible').first().click();
     await page.locator('#modal-body #tx-amount-display').waitFor({state:'visible'});
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),false);
     if(touch) assert.notEqual(await page.evaluate(()=>document.activeElement?.id),'tx-amount-display');
     await page.locator('#modal-body #tx-amount-display').fill('1234567,89');
     await page.waitForFunction(()=>{
@@ -59,15 +69,32 @@ try {
       const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
       return {amount:box('#modal-body .command-amount-line'),impact:box('#modal-body #amount-impact'),content:box('#modal-content'),viewport:innerWidth};
     });
-    assert(layout.impact.y>=layout.amount.bottom-1,JSON.stringify(layout));
+    if (empty) assert.equal(await page.locator('#modal-body #amount-impact').innerText(),'');
+    else assert(layout.impact.y>=layout.amount.bottom-1,JSON.stringify(layout));
     assert(layout.content.x>=-1 && layout.content.right<=width+1,JSON.stringify(layout));
     assert(layout.content.y>=-1 && layout.content.bottom<=height+1,JSON.stringify(layout));
+    for (const value of ['1','6556655','123456789012.34']) {
+      await page.locator('#modal-body #tx-amount-display').fill(value);
+      await page.waitForFunction(()=>{
+        const input=document.querySelector('#modal-body #tx-amount-display');
+        const amount=input.getBoundingClientRect(), impact=document.querySelector('#modal-body #amount-impact').getBoundingClientRect();
+        return input.scrollWidth<=input.clientWidth+1 && (impact.height===0 || impact.top>=amount.bottom-1);
+      });
+      if (value==='6556655') await page.screenshot({path:resolve(artifacts,`amount-${width}${empty ? '-first-use' : ''}.png`)});
+    }
+    const draftAmount=await page.locator('#modal-body #tx-amount-display').inputValue();
+    await page.locator('#modal-body .command-new-category').click();
+    await page.locator('#modal-body #new-cat-panel').waitFor({state:'visible'});
+    await page.locator('#modal-body #new-cat-cancel').click();
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),false);
+    assert.equal(await page.locator('#modal-body #tx-amount-display').inputValue(),draftAmount);
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
     await page.locator('#modal-body .command-edit-category').click();
     assert.equal(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji span').count(),0);
     assert.ok(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji').first().getAttribute('aria-label'));
     await page.locator('#modal-body #new-cat-nome').fill('Spesa di casa');
     await page.locator('#modal-body #new-cat-crea').click();
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),false);
     assert.equal(await page.locator('#modal-body [data-cat-id="spesa"] .cat-chip-label').innerText(),'Spesa di casa');
     const categoryLayout = await page.evaluate(()=>{
       const body=document.querySelector('#modal-body'), form=body.querySelector('.command-form');
@@ -76,14 +103,14 @@ try {
     assert.equal(categoryLayout.scrollLeft,0,JSON.stringify(categoryLayout));
     assert(categoryLayout.formLeft>=categoryLayout.bodyLeft-1,JSON.stringify(categoryLayout));
     const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('omega_core_db')));
-    assert.deepEqual(after.transactions,state.transactions);
+    assert.deepEqual(after.transactions,activeState.transactions);
     assert.equal(after.customCategories.filter(c=>c.id==='spesa').length,1);
     if(touch) {
       await page.evaluate(()=>{document.documentElement.style.setProperty('--modal-visible-height','440px');document.documentElement.style.setProperty('--modal-visible-top','40px');document.documentElement.classList.add('tastiera-aperta');});
       const bounds=await page.evaluate(()=>['#modal-content','#modal-footer'].map(s=>{const r=document.querySelector(s).getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};}));
       for(const b of bounds) assert(b.top>=39 && b.bottom<=481,JSON.stringify(bounds));
     }
-    await page.screenshot({path:resolve(artifacts,`command-touch-${width}.png`)});
+    await page.screenshot({path:resolve(artifacts,`command-touch-${width}${empty ? '-first-use' : ''}.png`)});
     console.log(JSON.stringify({width,height,touch,layout,errors}));
     assert.equal(errors.length,0);
     } catch (error) {
