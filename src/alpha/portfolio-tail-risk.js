@@ -184,6 +184,11 @@ export function settoriEquivalenti(pesi) {
   return h > 0 ? +(1 / h).toFixed(2) : 0;
 }
 
+export function portfolioRiskCacheKey(positions = [], { priceByTicker = {}, sectorByTicker = {} } = {}) {
+  return JSON.stringify(positions.map(p => [p.ticker, p.quantity, p.avgPrice, p.assetClass,
+    p.currency, priceByTicker[p.ticker], sectorByTicker[p.ticker]]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+}
+
 // ── IL CALCOLO: ES del portafoglio vero contro ES di un equipesato ──
 // Gli scenari sono gli STESSI per entrambi (stesso seme, stesso ricampionamento):
 // e' l'unico modo perche' la differenza fra i due numeri sia attribuibile alla
@@ -193,6 +198,12 @@ export function tailRiskPortafoglio(positions = [], {
   orizzonteMesi = 12, percorsi = 2000, seed = 4242, livello = LIVELLO_ES,
 } = {}) {
   const mappa = mappaPortafoglio(positions, { priceByTicker, sectorByTicker });
+  if (!Number.isInteger(percorsi) || percorsi < 100 || percorsi > 10000
+      || !Number.isInteger(orizzonteMesi) || orizzonteMesi < 1 || orizzonteMesi > 120
+      || !Number.isFinite(livello) || livello < 0.9 || livello >= 1
+      || Math.floor((1 - livello) * percorsi) < 2) {
+    return { valutabile: false, mappa, motivo: 'parametri della simulazione non validi o troppo pochi scenari in coda' };
+  }
   if (!mappa.sufficiente) {
     return {
       valutabile: false, mappa,
@@ -219,8 +230,16 @@ export function tailRiskPortafoglio(positions = [], {
     const cumMio = cum(mio);
     mioCumulati.push(cumMio);
     equiCumulati.push(cum(equi));
+    const pesoTotale = Object.values(mappa.pesi).reduce((sum, w) => sum + w, 0);
     for (const s of scenario.perSettore) {
-      perditaPerSettore[s.simbolo].push({ cum: cumMio, contributo: (mappa.pesi[s.simbolo] || 0) * (cum(s.r)) });
+      // Attribute each month's gain to starting portfolio wealth. This
+      // telescopes to the same monthly-rebalanced return used above.
+      let capitale = 1, contributo = 0;
+      for (let t = 0; t < mio.length; t++) {
+        contributo += capitale * (mappa.pesi[s.simbolo] || 0) / pesoTotale * s.r[t];
+        capitale *= 1 + mio[t];
+      }
+      perditaPerSettore[s.simbolo].push(contributo);
     }
   }
 
@@ -230,14 +249,16 @@ export function tailRiskPortafoglio(positions = [], {
   // Contributo alla coda: si guarda SOLO nei percorsi che sono finiti nella
   // coda del portafoglio dell'utente, e li' si somma quanto ha perso ciascun
   // settore. E' la scomposizione di quella perdita, non una media generale.
-  const sogliaCoda = mioES.var;
+  // Exactly the same observations as expectedShortfall; a rounded VaR
+  // threshold can drop a boundary observation or include extra tied paths.
+  const indiciCoda = mioCumulati.map((cum, index) => ({ cum, index }))
+    .sort((a, b) => a.cum - b.cum).slice(0, mioES.osservazioniInCoda).map(x => x.index);
   const contributi = SETTORI.map((s) => {
-    const inCoda = perditaPerSettore[s].filter((x) => x.cum <= sogliaCoda);
-    const somma = inCoda.reduce((a, x) => a + x.contributo, 0);
-    return { settore: s, nome: NOMI_SETTORI[s], peso: mappa.pesi[s] || 0, perditaMedia: inCoda.length ? +(somma / inCoda.length).toFixed(5) : 0 };
+    const somma = indiciCoda.reduce((a, index) => a + perditaPerSettore[s][index], 0);
+    return { settore: s, nome: NOMI_SETTORI[s], peso: mappa.pesi[s] || 0, perditaMedia: +(somma / indiciCoda.length).toFixed(5) };
   }).filter((c) => c.peso > 0);
-  const perditaTotaleCoda = contributi.reduce((a, c) => a + Math.abs(c.perditaMedia), 0) || 1;
-  for (const c of contributi) c.quotaDellaPerdita = +(Math.abs(c.perditaMedia) / perditaTotaleCoda).toFixed(4);
+  const perditaTotaleCoda = contributi.reduce((a, c) => a + Math.max(0, -c.perditaMedia), 0) || 1;
+  for (const c of contributi) c.quotaDellaPerdita = +(Math.max(0, -c.perditaMedia) / perditaTotaleCoda).toFixed(4);
   contributi.sort((a, b) => b.quotaDellaPerdita - a.quotaDellaPerdita);
 
   const costoConcentrazione = +(mioES.es - equiES.es).toFixed(5);
@@ -262,7 +283,7 @@ export function tailRiskText(r) {
   if (!r?.valutabile) return null;
   const pct = (x) => `${(Math.abs(x) * 100).toFixed(1).replace('.', ',')}%`;
   const parti = [];
-  parti.push(`Nei dodici mesi peggiori su cento, il tuo portafoglio perde in media il ${pct(r.es)}.`);
+  parti.push(`Nel ${((1 - r.livello) * 100).toFixed(1).replace('.', ',')}% degli scenari peggiori a ${r.orizzonteMesi} mesi, la variazione media della parte misurata è ${r.es < 0 ? '-' : '+'}${pct(r.es)}.`);
   if (r.piuFragileDelMercato) {
     parti.push(`Un portafoglio spalmato su tutti i settori, negli stessi identici mesi simulati, ne perderebbe il ${pct(r.esDiversificato)}: la differenza di ${pct(r.costoConcentrazione)} e' il prezzo di come e' composto il tuo.`);
   } else {

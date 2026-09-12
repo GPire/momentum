@@ -5,6 +5,26 @@ const tr = await import('./portfolio-tail-risk.js');
 
 const pos = (ticker, quantity, avgPrice = 100, assetClass = 'stock') => ({ ticker, quantity, avgPrice, assetClass });
 
+test('tail attribution reconciles with the rebalanced portfolio expected shortfall', () => {
+  const r = tr.tailRiskPortafoglio([pos('XLK', 6), pos('XLE', 4)], { percorsi: 400, seed: 5 });
+  const sum = r.contributi.reduce((total, c) => total + c.perditaMedia, 0);
+  assert.ok(Math.abs(sum - r.es) < 0.00003, `contributions ${sum}, ES ${r.es}`);
+});
+
+test('invalid simulation controls are refused before allocating scenarios', () => {
+  for (const options of [{ percorsi: 0 }, { percorsi: Infinity }, { orizzonteMesi: -1 }, { livello: 1 }]) {
+    assert.equal(tr.tailRiskPortafoglio([pos('XLK', 1)], options).valutabile, false);
+  }
+});
+
+test('cache identity changes with price, cost, class and sector', () => {
+  const positions = [pos('XLK', 1)];
+  const original = tr.portfolioRiskCacheKey(positions);
+  assert.notEqual(original, tr.portfolioRiskCacheKey(positions, { priceByTicker: { XLK: 120 } }));
+  assert.notEqual(original, tr.portfolioRiskCacheKey([pos('XLK', 1, 200)]));
+  assert.notEqual(original, tr.portfolioRiskCacheKey(positions, { sectorByTicker: { XLK: 'FINANCE' } }));
+});
+
 test('mappaPortafoglio: ETF settoriale → mappatura esatta, copertura piena', () => {
   const m = tr.mappaPortafoglio([pos('XLK', 10)]);
   assert.equal(m.pesi.XLK, 1);

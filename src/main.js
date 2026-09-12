@@ -75,7 +75,7 @@ import { announcePresence, bridgeStatus } from './core/surface-bridge.js';
 import { refertoCausale } from './alpha/macro-causality.js';
 import { stressIndex, stressText } from './alpha/market-stress.js';
 import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento.js';
-import { tailRiskPortafoglio, tailRiskText } from './alpha/portfolio-tail-risk.js';
+import { tailRiskPortafoglio, tailRiskText, portfolioRiskCacheKey } from './alpha/portfolio-tail-risk.js';
 import { trackRecordPortafoglio } from './alpha/portfolio-track-record.js';
 import { diagnosiIstituzionale, diagnosiTextSemplice } from './alpha/diagnosi-istituzionale.js';
 import { divarioComportamento, tempismoDeiVersamenti, divarioText, fonteDivario } from './alpha/divario-comportamento.js';
@@ -13282,7 +13282,7 @@ function renderNetWorth() {
   // cambia (la chiave include tickers e quantità).
   const tailEl = $('#portfolio-tail-risk-panel');
   if (tailEl) {
-    const chiave = (positions || []).map(p => `${p.ticker}:${p.quantity}`).sort().join('|');
+    const chiave = portfolioRiskCacheKey(positions || [], { priceByTicker: window.__livePrices || {}, sectorByTicker: VaultDAO.state.sectorByTicker || {} });
     if (window.__tailRiskCache?.chiave !== chiave) {
       try {
         const r = tailRiskPortafoglio(positions || [], {
@@ -13331,7 +13331,7 @@ function renderNetWorth() {
   // titolo cercato — la domanda che Bloomberg e Yahoo Finance non fanno mai.
   const trackEl = $('#portfolio-track-record-panel');
   if (trackEl) {
-    const chiaveT = (positions || []).map(p => `${p.ticker}:${p.quantity}`).sort().join('|');
+    const chiaveT = portfolioRiskCacheKey(positions || [], { priceByTicker: window.__livePrices || {}, sectorByTicker: VaultDAO.state.sectorByTicker || {} });
     if (window.__trackRecordCache?.chiave !== chiaveT) {
       try {
         const r = trackRecordPortafoglio(positions || [], {
