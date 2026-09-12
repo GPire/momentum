@@ -1,5 +1,6 @@
 import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
+import { normalizeHex, hexToHsl, hslToHex } from './ui/category-color.js';
 window.addEventListener('resize', fitVisibleAmounts);
 window.visualViewport?.addEventListener('resize', fitVisibleAmounts);
 document.fonts?.ready.then(fitVisibleAmounts);
@@ -645,7 +646,14 @@ const buildNewCatPanelHTML = () => `
     <div class="new-cat-griglia new-cat-griglia-colori" id="new-cat-color-grid" role="group" aria-label="${tCh('catColorAria', __uiLang)}">
       ${CAT_PALETTE.map((c, i) => `<button type="button" class="new-cat-colore${i === 0 ? ' selected' : ''}" data-colore="${c}" style="background:${c}" aria-pressed="${i === 0}" aria-label="${tCh('catColorAria', __uiLang)} ${i + 1}"></button>`).join('')}
     </div>
+    <button type="button" class="category-custom-toggle" aria-expanded="false">${tIntegration('categoryCustomColor', __uiLang)}<span aria-hidden="true">+</span></button>
+    <div class="category-custom-color" hidden>
+      ${['categoryHue','categorySaturation','categoryLightness'].map((key,i) => `<label><span>${tIntegration(key,__uiLang)}</span><input type="range" data-color-channel="${i}" min="0" max="${i===0 ? 359 : 100}" value="${i===0 ? 340 : 50}" aria-label="${tIntegration(key,__uiLang)}" /></label>`).join('')}
+      <label class="category-hex-label"><span>${tIntegration('categoryColorCode',__uiLang)}</span><input type="text" class="category-hex" value="${CAT_PALETTE[0]}" maxlength="7" autocomplete="off" spellcheck="false" aria-label="${tIntegration('categoryColorCode',__uiLang)}" placeholder="#4f46e5" /></label>
+      <p class="category-color-error" role="status" hidden>${tIntegration('categoryColorInvalid',__uiLang)}</p>
+    </div>
     <p class="new-cat-label">${tCh('catIconAria', __uiLang)}</p>
+    <input type="search" class="category-icon-search" placeholder="${tIntegration('categoryIconSearch',__uiLang)}" aria-label="${tIntegration('categoryIconSearch',__uiLang)}" autocomplete="off" />
     <div class="new-cat-griglia" id="new-cat-emoji-grid" role="group" aria-label="${tCh('catIconAria', __uiLang)}">
       ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-pressed="${i === 0}" aria-label="${categoryIconLabel(ic.chiave)}" title="${categoryIconLabel(ic.chiave)}">${ic.svg}</button>`).join('')}
     </div>
@@ -1545,8 +1553,18 @@ const attachFormListeners = (container, prefill = null) => {
   // si tocca una categoria gia' esistente, solo che questa e' appena nata.
   let catIconaScelta = CAT_ICONE[0];
   let catColoreScelta = CAT_PALETTE[0];
+  const syncCustomColor = () => {
+    const hsl=hexToHsl(catColoreScelta);
+    container.querySelectorAll('[data-color-channel]').forEach((input,i) => { input.value=hsl[i]; });
+    container.querySelector('.category-hex').value=catColoreScelta;
+    container.querySelector('.category-color-error').hidden=true;
+    container.querySelector('.category-hex').removeAttribute('aria-invalid');
+  };
 
   const aggiornaAnteprimaCat = () => {
+    const [h]=hexToHsl(catColoreScelta);
+    const gradients=['linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)',`linear-gradient(to right,hsl(${h} 0% 50%),hsl(${h} 100% 50%))`,`linear-gradient(to right,#000,hsl(${h} 100% 50%),#fff)`];
+    container.querySelectorAll('[data-color-channel]').forEach((input,i)=>{input.style.backgroundImage=gradients[i];});
     const icona = container.querySelector('#new-cat-preview-icon');
     const nome = container.querySelector('#new-cat-preview-nome');
     const nomeInput = container.querySelector('#new-cat-nome');
@@ -1633,6 +1651,11 @@ const attachFormListeners = (container, prefill = null) => {
     container.querySelector('#new-cat-nome').removeAttribute('aria-invalid');
     container.querySelector('#new-cat-nome').value = category ? catName(category, __uiLang) : nomeSuggerito;
     catColoreScelta = category?.color || CAT_PALETTE[0];
+    syncCustomColor();
+    container.querySelector('.category-custom-color').hidden=true;
+    container.querySelector('.category-custom-toggle').setAttribute('aria-expanded','false');
+    container.querySelector('.category-icon-search').value='';
+    container.querySelectorAll('.new-cat-emoji').forEach(button => { button.hidden=false; });
     catIconaScelta = category ? { svg: category.icon, chiave: CAT_ICONE.find(ic => ic.svg === category.icon)?.chiave } : CAT_ICONE[0];
     iconaScelaManuale = Boolean(category);
     container.querySelectorAll('.new-cat-emoji').forEach(b => { const selected = b.dataset.icona === catIconaScelta.chiave; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
@@ -1705,8 +1728,32 @@ const attachFormListeners = (container, prefill = null) => {
       btn.classList.add('selected');
       btn.setAttribute('aria-pressed', 'true');
       catColoreScelta = btn.dataset.colore;
+      syncCustomColor();
       aggiornaAnteprimaCat();
     });
+  });
+  container.querySelector('.category-custom-toggle').addEventListener('click', event => {
+    const panel=container.querySelector('.category-custom-color');
+    panel.hidden=!panel.hidden;
+    event.currentTarget.setAttribute('aria-expanded',String(!panel.hidden));
+  });
+  container.querySelectorAll('[data-color-channel]').forEach(input => input.addEventListener('input', () => {
+    catColoreScelta=hslToHex(...[...container.querySelectorAll('[data-color-channel]')].map(el=>el.value));
+    container.querySelector('.category-hex').value=catColoreScelta;
+    container.querySelector('.category-hex').removeAttribute('aria-invalid');
+    container.querySelector('.category-color-error').hidden=true;
+    aggiornaAnteprimaCat();
+  }));
+  container.querySelector('.category-hex').addEventListener('input', event => {
+    const color=normalizeHex(event.target.value);
+    event.target.setAttribute('aria-invalid',String(!color));
+    container.querySelector('.category-color-error').hidden=Boolean(color);
+    if(color) { catColoreScelta=color; const hsl=hexToHsl(color); container.querySelectorAll('[data-color-channel]').forEach((input,i)=>{input.value=hsl[i];}); aggiornaAnteprimaCat(); }
+  });
+  container.querySelector('.category-icon-search').addEventListener('input', event => {
+    const normalize=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const query=normalize(event.target.value);
+    container.querySelectorAll('.new-cat-emoji').forEach(button=>{button.hidden=!normalize(button.getAttribute('aria-label')).includes(query);});
   });
   container.querySelector('#new-cat-nome')?.addEventListener('input', () => {
     container.querySelector('#new-cat-nome')?.removeAttribute('aria-invalid');
@@ -1718,6 +1765,9 @@ const attachFormListeners = (container, prefill = null) => {
   });
 
   container.querySelector('#new-cat-crea')?.addEventListener('click', () => {
+    if (container.querySelector('.category-hex').getAttribute('aria-invalid') === 'true') {
+      container.querySelector('.category-hex').focus(); return;
+    }
     const nomeInput = container.querySelector('#new-cat-nome');
     const nome = (nomeInput?.value || '').trim().replace(/\s+/g, ' ');
     if (!nome || [...nome].length > 24 || /[<>\u0000-\u001f]/u.test(nome)) {
