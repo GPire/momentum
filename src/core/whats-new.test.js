@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shouldShowWhatsNew, unseenReleases, RELEASES, LATEST_WHATS_NEW_VERSION } from './whats-new.js';
+import { UI_LANGS, t } from '../i18n/ui-strings.js';
 
 test('shouldShowWhatsNew: utente che non ha mai visto nessuna versione → true', () => {
   assert.equal(shouldShowWhatsNew({}), true);
@@ -38,6 +39,16 @@ test('RELEASES: ogni voce delle release esistenti ha titoloKey e testoKey (nessu
     for (const v of r.voci) {
       assert.ok(v.titoloKey, `voce "${v.titolo}" (${r.versione}) senza titoloKey`);
       assert.ok(v.testoKey, `voce "${v.titolo}" (${r.versione}) senza testoKey`);
+    }
+  }
+});
+
+test('RELEASES: ogni novità del rilascio corrente è tradotta nelle sette lingue', () => {
+  const current = RELEASES.at(-1);
+  for (const voce of current.voci) {
+    for (const lang of UI_LANGS) {
+      assert.notEqual(t(voce.titoloKey, lang), voce.titoloKey, `${voce.titoloKey} manca in ${lang}`);
+      assert.notEqual(t(voce.testoKey, lang), voce.testoKey, `${voce.testoKey} manca in ${lang}`);
     }
   }
 });

@@ -500,6 +500,32 @@ export const RELEASES = [
 }
     ]
   },
+  {
+    versione: '2026-09-12',
+    voci: [
+      {
+        colore: 'primary',
+        icona: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>',
+        titolo: 'Categorie davvero tue',
+        testo: 'Scegli tra 40 icone, cercale per nome, rinomina quelle esistenti e dai a ogni categoria un colore tuo. La scelta rapida mostra tre varianti; i controlli precisi restano disponibili quando ti servono.',
+        titoloKey: 'wn0912_1_t', testoKey: 'wn0912_1_d',
+      },
+      {
+        colore: 'green',
+        icona: '<path d="M4 4h16v16H4z"/><path d="M8 12h8M12 8v8"/>',
+        titolo: 'Crea senza perdere il punto',
+        testo: 'Mentre scegli un’icona, il pulsante per creare o salvare la categoria resta sempre visibile. Il pannello si apre solo quando lo chiedi e funziona anche sugli schermi più piccoli.',
+        titoloKey: 'wn0912_2_t', testoKey: 'wn0912_2_d',
+      },
+      {
+        colore: 'gold',
+        icona: '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+        titolo: 'Command Center più stabile sul telefono',
+        testo: 'Importi lunghi, tastiera del telefono e avvisi del budget hanno uno spazio separato: il modulo resta leggibile e non si apre più la tastiera da solo.',
+        titoloKey: 'wn0912_3_t', testoKey: 'wn0912_3_d',
+      },
+    ],
+  },
 ];
 
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
