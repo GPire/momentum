@@ -40,6 +40,11 @@ di accuratezza predittiva né una simulazione di esecuzione sul mercato.
 
 ## Stato dell'integrazione
 
+Aggiornamento: aggiunto l'adattatore di valutazione datata e l'ingresso
+opzionale nell'API di analisi. Leggere
+[portfolio-risk-snapshot-2026-09-12.md](portfolio-risk-snapshot-2026-09-12.md).
+Il benchmark usa ora l'adattatore; il collegamento visibile resta da completare.
+
 Motore implementato, sei test mirati e collegamento al benchmark reale.
 NON ancora collegato alla card dell'app: le posizioni esistenti non hanno
 sempre una valuta verificata e gli storici di ricerca non sono distribuiti.

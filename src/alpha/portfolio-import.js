@@ -15,6 +15,7 @@ import { riskScore, momentumScore, reflexivityScore } from './factors.js';
 import { detectRegime } from './regime.js';
 import { arbitrate } from './arbiter.js';
 import { computeNetReturn } from './net-return.js';
+import { portfolioRiskSnapshot } from './portfolio-risk-snapshot.js';
 
 // ── Import posizioni da CSV. Colonne riconosciute (IT/EN, ordine libero):
 // ticker/simbolo, classe/asset/tipo, quantità/quantity, prezzomedio/avgprice/pmc,
@@ -32,6 +33,7 @@ export function parsePortfolioCsv(text) {
   const qi = col('quant', 'quantity', 'shares', 'azioni', 'numero');
   const pi = col('prezzomedio', 'avgprice', 'avg', 'pmc', 'carico', 'costo');
   const cpi = col('prezzoattuale', 'currentprice', 'prezzoora', 'prezzoattual', 'current');
+  const currencyIndex = H.findIndex(h => ['currency', 'valuta'].includes(h));
   if (ti < 0 || qi < 0) return [];
   const num = s => parseFloat(String(s || '').replace(/[^\d.,-]/g, '').replace(',', '.'));
   const out = [];
@@ -42,9 +44,11 @@ export function parsePortfolioCsv(text) {
     const rawClass = ci >= 0 ? (c[ci] || '').trim().toLowerCase() : '';
     const assetClass = /crypto|btc|eth/.test(rawClass) ? 'crypto' : /etf|fund|fondo/.test(rawClass) ? 'etf' : /bond|obblig/.test(rawClass) ? 'bond' : 'stock';
     const currentPrice = cpi >= 0 ? num(c[cpi]) : NaN;
+    const currency = currencyIndex >= 0 ? (c[currencyIndex] || '').trim().toUpperCase() : '';
     out.push({
       ticker, assetClass, quantity: num(c[qi]) || 0, avgPrice: pi >= 0 ? (num(c[pi]) || 0) : 0,
       ...(Number.isFinite(currentPrice) && currentPrice > 0 ? { currentPrice } : {}),
+      ...(currency ? { currency } : {}),
     });
   }
   return out;
@@ -53,7 +57,7 @@ export function parsePortfolioCsv(text) {
 // ── Analisi completa. `positions` = da parsePortfolioCsv/manuale;
 // `pricesByTicker` = { TICKER: [{date,close}…] } da market-data.js (opz.);
 // `currentPriceByTicker` opzionale se non c'è la serie completa.
-export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceByTicker = {}, referenceDate = new Date(), country = 'IT', netReturnProfilesOverride = null } = {}) {
+export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceByTicker = {}, referenceDate = new Date(), country = 'IT', netReturnProfilesOverride = null, riskContext = null } = {}) {
   const rows = positions.map(p => {
     const series = pricesByTicker[p.ticker];
     const price = p.currentPrice ?? currentPriceByTicker[p.ticker] ?? (series?.length ? series[series.length - 1].close : p.avgPrice);
@@ -122,6 +126,7 @@ export function analyzePortfolio(positions, { pricesByTicker = {}, currentPriceB
     allocation, topWeight: +topWeight.toFixed(3),
     stats, rebalance, regime: regime.regime, regimeNote: regime.explanation, reflexive,
     advice, netReturn,
+    historicalRisk: riskContext ? portfolioRiskSnapshot(positions, riskContext) : { available: false, reason: 'missing-risk-context' },
     disclaimer: 'Non è consulenza finanziaria: sono proprietà calcolate sui dati forniti e strategie pubbliche. Le performance passate non garantiscono quelle future.',
   };
 }

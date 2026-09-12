@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Rischio multiasset, 2026-09-12:** leggere
+> [portfolio-risk-snapshot-2026-09-12.md](docs/portfolio-risk-snapshot-2026-09-12.md).
+> Valutazione con quantità, quote datate, valute e cambi verificati; ingresso
+> opzionale `analyzePortfolio(..., {riskContext})`. Il wrapper NeuroSym non è
+> il percorso della card: provider e UI restano da collegare. Benchmark reale
+> passato; suite 327/327 file e build portable passati. Nessuna migrazione Vault.
+
 > **Dataset e apprendimento, 2026-09-12:** leggere
 > [market-data-research-2026-09-12.md](docs/market-data-research-2026-09-12.md).
 > Archivio locale verificato: 43 strumenti, 230.626 righe; non incluso nell'app,

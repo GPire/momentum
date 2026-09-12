@@ -2,12 +2,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { validateStrategySet } from '../src/alpha/strategy-validation.js';
-import { portfolioHistoryRisk } from '../src/alpha/portfolio-history-risk.js';
+import { portfolioRiskSnapshot } from '../src/alpha/portfolio-risk-snapshot.js';
 
 const root = new URL('./data/research-universe/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8'));
 const strategies = [], skipped = [];
 const histories = {};
+const quotes = {};
 const evaluationFrom = '2022-01-01';
 const transactionCost = 0.001; // declared assumption: 10 bps per traded notional
 for (const asset of manifest.assets) {
@@ -21,6 +22,8 @@ for (const asset of manifest.assets) {
   const prices = rows.map(row => row.adjustedClose);
   histories[asset.symbol] = { currency: asset.currency, source: manifest.provider,
     points: rows.map(row => ({ date: row.date, price: row.adjustedClose })) };
+  const last = rows.at(-1);
+  quotes[asset.symbol] = { price: last.close, date: last.date, currency: asset.currency, source: manifest.provider };
   for (const window of [20, 60, 120]) {
     // Signal is known at previous close; execution is at today's open. Open
     // is adjusted by the same session's close ratio. No same-close fill claim.
@@ -52,7 +55,8 @@ const report = {
     ['AAPL', 'MSFT', 'JPM', 'BTC-USD', 'ETH-USD'],
   ].map(tickers => ({
     hypothetical: true, tickers, equalValuesUSD: 1000,
-    risk: portfolioHistoryRisk(tickers.map(ticker => ({ ticker, valueBase: 1000 })), { histories, baseCurrency: 'USD', horizon: 5 }),
+    risk: portfolioRiskSnapshot(tickers.map(ticker => ({ ticker, quantity: 1000 / quotes[ticker].price, currency: 'USD' })),
+      { quotes, histories, baseCurrency: 'USD', horizon: 5, asOf: manifest.generatedAt.slice(0, 10) }),
   })),
 };
 writeFileSync(new URL('evaluation.json', root), JSON.stringify(report, null, 2));
