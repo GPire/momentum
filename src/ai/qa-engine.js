@@ -34,6 +34,7 @@ import MEASURED from '../alpha/measured-assumptions.js';
 import { findMacroConfounderWarning, macroConfounderNote } from './causal-macro-note.js';
 import { suggestLearnedIntent } from './qa-learning.js';
 import { matchCanonico } from './qa-canonical-bank.js';
+import { isPortfolioRiskQuestion, answerPortfolioRisk } from './portfolio-risk-answer.js';
 
 // Una frase-innesco letterale per intento, garantita dal test dedicato a
 // combaciare col pattern italiano corrispondente in PATTERNS più sotto.
@@ -42,6 +43,7 @@ import { matchCanonico } from './qa-canonical-bank.js';
 // aiuta a essere riconosciuta aggiungendo questa frase a `qMatch` — mai al
 // testo `q` che alimenta importi/categorie/periodi.
 const CANONICAL_TRIGGER = {
+  portfolioRisk: 'rischio del portafoglio',
   invest: 'quanto posso investire',
   affordability: 'posso permettermi',
   safeToSpend: 'quanto posso spendere oggi',
@@ -493,6 +495,8 @@ function answerQuestionCore(question, ctx) {
   // NOTA: il banco canonico NON viene consultato qui. Vedi il fondo della
   // funzione, dopo il ramo dei mercati — e il perche' e' una regressione
   // grave trovata provando l'app come la userebbe un trader.
+
+  if (isPortfolioRiskQuestion(qMatch)) return answerPortfolioRisk(ctx, ctx.uiLanguage || detectLanguage(q).lang || 'en');
 
   // — "quanto posso investire?"
   if (matches('invest', qMatch)) {

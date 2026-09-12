@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Rischio nel Q&A, 2026-09-12:** leggere
+> [portfolio-risk-qa-integration-2026-09-12.md](docs/portfolio-risk-qa-integration-2026-09-12.md).
+> Collegamento attivo da `idleFetchPrices` a `askMomentum`, risposta in sette
+> lingue e intento insegnabile con conferme esplicite. Browser locale verificato
+> per portafoglio vuoto. Card settoriale invariata; storico/FX insufficienti
+> producono astensione. Nessun nuovo peso neurale o migrazione dei dati.
+
 > **Fonti e apprendimento, 2026-09-12:** il ciclo attivo `idleFetchPrices`
 > passa `assetKind` a `fetchVerified`; cache e fonti crypto/stock separate.
 > Gate training con rivalidazione delle serie e blocco dati sintetici/stimati.

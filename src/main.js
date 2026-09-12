@@ -374,6 +374,8 @@ async function prepareSemanticSimilarity(question) {
 // usato sia dalla card "Chiedi a Momentum" sia dalla console.
 function askMomentum(text, semanticSimilarity = null) {
   const ctx = {
+    uiLanguage: __uiLang,
+    marketRiskSources: window.__marketRiskSources || {},
     paymentDeclarations: VaultDAO.state.paymentDeclarations || [],
     paymentOverrides: VaultDAO.state.paymentOverrides || {},
     allTx: VaultDAO.state.transactions,
@@ -19422,6 +19424,7 @@ const initApp = () => {
   // trigger fallirebbe in silenzio, lo stesso genere di bug appena
   // corretto per `learned:true`).
   const QA_LEARN_TOPICS = [
+    { intent: 'portfolioRisk', label: tCh('qaPortfolioRiskTopic', __uiLang) },
     { intent: 'spent', label: 'Quanto ho speso' },
     { intent: 'savings', label: 'Quanto ho risparmiato' },
     { intent: 'subscriptions', label: 'I miei abbonamenti' },
@@ -21837,6 +21840,7 @@ async function initMomentumRealAI() {
             const r = await fetchVerified({ symbol: p.ticker.toLowerCase(), kind, assetKind, fetchImpl: fetch.bind(window), cache: cacheAdapter, params });
             const last = r.prices && r.prices[r.prices.length - 1];
             if (last && trainingEligible(r)) {
+              (window.__marketRiskSources = window.__marketRiskSources || {})[p.ticker] = r;
               (window.__livePrices = window.__livePrices || {})[p.ticker] = last.close;
               (window.__liveSeries = window.__liveSeries || {})[p.ticker] = r.prices.slice(-30);
               shared[p.ticker] = { kind: assetKind, asOf: r.asOf, source: r.source, series: r.prices.slice(-30) };

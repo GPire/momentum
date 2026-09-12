@@ -46,6 +46,10 @@ export function resolveUiLanguage({ override = null, navigatorLike } = {}) {
 
 const S = {
   it: {
+    qaPortfolioRiskTopic: "Rischio del portafoglio",
+    qaPortfolioRiskEmpty: "Aggiungi prima le tue posizioni in Investimenti: userò quelle per analizzare il rischio.",
+    qaPortfolioRiskMissing: "Non ho ancora prezzi con valuta e data verificabili o abbastanza storico comune. Non posso calcolare una stima affidabile del rischio.",
+    qaPortfolioRiskResult: (...args) => "Variazione media nei peggiori {1} dei periodi storici: {0}, su {2} osservazioni comuni per periodo. Copertura: {3}. Ultimo dato: {4}. Riguarda solo la parte coperta: non è una previsione né una perdita massima.".replace(/\{(\d)\}/g, (_, i) => args[Number(i)]),
     wn0911_1_t: "Giorno per giorno",
     wn0911_1_d: "Disponibilità giornaliera, settimana e mese si incontrano in un unico spazio. Gli anelli distinguono il budget usato dal giorno del periodo; senza budget, nessuna percentuale di spesa inventata.",
     wn0911_2_t: "Meno rumore, azioni vicine",
@@ -1778,6 +1782,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> ti ha addebitato per la seconda volta ${amount} — è confermato ricorrente. Se non lo aspettavi, controllalo subito.`,
   },
   en: {
+    qaPortfolioRiskTopic: "Portfolio risk",
+    qaPortfolioRiskEmpty: "First add your holdings in Investments: I will use them to analyse risk.",
+    qaPortfolioRiskMissing: "I do not yet have prices with verifiable currency and date, or enough shared history. I cannot calculate a reliable risk estimate.",
+    qaPortfolioRiskResult: (...args) => "Average change in the worst {1} of historical periods: {0}, over {2} shared observations per period. Coverage: {3}. Latest observation: {4}. This applies only to the covered portion: it is not a forecast or a maximum loss.".replace(/\{(\d)\}/g, (_, i) => args[Number(i)]),
     wn0911_1_t: "Day by day",
     wn0911_1_d: "Daily availability, week and month share one space. Rings separate budget used from the day in the period; without a budget, no spending percentage is invented.",
     wn0911_2_t: "Less clutter, closer actions",
@@ -3400,6 +3408,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> has charged you ${amount} for the second time — it's confirmed recurring. If you weren't expecting it, check it right away.`,
   },
   de: {
+    qaPortfolioRiskTopic: "Portfoliorisiko",
+    qaPortfolioRiskEmpty: "Füge zuerst deine Positionen unter Anlagen hinzu, damit ich das Risiko analysieren kann.",
+    qaPortfolioRiskMissing: "Mir fehlen noch Preise mit überprüfbarer Währung und Datum oder genügend gemeinsame Historie. Eine verlässliche Risikoschätzung ist noch nicht möglich.",
+    qaPortfolioRiskResult: (...args) => "Durchschnittliche Veränderung in den schlechtesten {1} der historischen Zeiträume: {0}, über jeweils {2} gemeinsame Beobachtungen. Abdeckung: {3}. Letzter Datenpunkt: {4}. Gilt nur für den abgedeckten Anteil: keine Prognose oder maximale Verlustgrenze.".replace(/\{(\d)\}/g, (_, i) => args[Number(i)]),
     esModelo130Text: (...args) => "{0} am {1}: geschätzt etwa {2} (Hochrechnung dieses Monats, nicht die offizielle kumulierte 20%-Berechnung).".replace(/\{(\d+)\}/g, (_, i) => String(args[i])),
     esModelo130NotifyTitle: "Modelo 130 steht an",
     esNotifyOptInActive: "Bei nahender Frist erhältst du auch bei geschlossener App eine Benachrichtigung.",
@@ -5025,6 +5037,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> hat dich zum zweiten Mal mit ${amount} belastet — bestätigt wiederkehrend. Falls unerwartet, sofort prüfen.`,
   },
   fr: {
+    qaPortfolioRiskTopic: "Risque du portefeuille",
+    qaPortfolioRiskEmpty: "Ajoute d’abord tes positions dans Investissements pour que je puisse analyser le risque.",
+    qaPortfolioRiskMissing: "Il manque des prix avec une devise et une date vérifiables, ou un historique commun suffisant. Je ne peux pas encore calculer une estimation fiable du risque.",
+    qaPortfolioRiskResult: (...args) => "Variation moyenne dans les pires {1} des périodes historiques : {0}, sur {2} observations communes par période. Couverture : {3}. Dernière observation : {4}. Cela concerne uniquement la part couverte : ni prévision ni perte maximale.".replace(/\{(\d)\}/g, (_, i) => args[Number(i)]),
     esModelo130Text: (...args) => "{0} le {1} : estimation ~{2} (projection du mois en cours, pas le calcul officiel cumulé à 20 %).".replace(/\{(\d+)\}/g, (_, i) => String(args[i])),
     esModelo130NotifyTitle: "Échéance Modelo 130",
     esNotifyOptInActive: "Tu recevras une notification à l’approche de l’échéance, même si l’app est fermée.",
@@ -6653,6 +6669,10 @@ const S = {
   // svizzera (chXxx) qui: nessun autónomo spagnolo la vedrebbe mai, e
   // t() ricade comunque su EN poi IT per una chiave assente.
   es: {
+    qaPortfolioRiskTopic: "Riesgo de la cartera",
+    qaPortfolioRiskEmpty: "Añade primero tus posiciones en Inversiones para que pueda analizar el riesgo.",
+    qaPortfolioRiskMissing: "Todavía faltan precios con moneda y fecha verificables, o suficiente historial común. No puedo calcular una estimación fiable del riesgo.",
+    qaPortfolioRiskResult: (...args) => "Variación media en el peor {1} de los periodos históricos: {0}, sobre {2} observaciones comunes por periodo. Cobertura: {3}. Último dato: {4}. Solo corresponde a la parte cubierta: no es una previsión ni una pérdida máxima.".replace(/\{(\d)\}/g, (_, i) => args[Number(i)]),
     chAttivitaLabel: "Tipo de actividad",
     chAttivitaPrincipale: "Principal",
     chAttivitaAccessoria: "Secundaria (segundo trabajo)",
@@ -8284,6 +8304,10 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale nei
   // Paesi Bassi, aggiungerle sarebbe stato inventato, non tradotto.
   nl: {
+    qaPortfolioRiskTopic: "Risico van je portefeuille",
+    qaPortfolioRiskEmpty: "Voeg eerst je posities toe bij Beleggingen, zodat ik het risico kan analyseren.",
+    qaPortfolioRiskMissing: "Er ontbreken nog prijzen met een controleerbare valuta en datum, of voldoende gezamenlijke historie. Ik kan nog geen betrouwbare risicoschatting berekenen.",
+    qaPortfolioRiskResult: (...args) => "Gemiddelde verandering in de slechtste {1} van de historische perioden: {0}, over {2} gezamenlijke waarnemingen per periode. Dekking: {3}. Laatste waarneming: {4}. Geldt alleen voor het gedekte deel: geen voorspelling of maximaal verlies.".replace(/\{(\d)\}/g, (_, i) => args[Number(i)]),
     esModelo130Text: (...args) => "{0} op {1}: schatting ~{2} (projectie van deze maand, niet de officiële cumulatieve berekening van 20%).".replace(/\{(\d+)\}/g, (_, i) => String(args[i])),
     esModelo130NotifyTitle: "Modelo 130 komt eraan",
     esNotifyOptInActive: "Je krijgt bij een naderende deadline ook een melding als de app gesloten is.",
@@ -9925,6 +9949,10 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale per
   // il pubblico brasiliano.
   pt: {
+    qaPortfolioRiskTopic: "Risco da carteira",
+    qaPortfolioRiskEmpty: "Adiciona primeiro as tuas posições em Investimentos para eu analisar o risco.",
+    qaPortfolioRiskMissing: "Ainda faltam preços com moeda e data verificáveis, ou histórico comum suficiente. Não posso calcular uma estimativa fiável do risco.",
+    qaPortfolioRiskResult: (...args) => "Variação média nos piores {1} dos períodos históricos: {0}, com {2} observações comuns por período. Cobertura: {3}. Último dado: {4}. Aplica-se apenas à parte coberta: não é uma previsão nem uma perda máxima.".replace(/\{(\d)\}/g, (_, i) => args[Number(i)]),
     esModelo130Text: (...args) => "{0} em {1}: estimativa ~{2} (projeção deste mês, não o cálculo oficial acumulado de 20%).".replace(/\{(\d+)\}/g, (_, i) => String(args[i])),
     esModelo130NotifyTitle: "Modelo 130 a aproximar-se",
     esNotifyOptInActive: "Receberás um aviso quando o prazo se aproximar, mesmo com a app fechada.",
