@@ -7,6 +7,7 @@ import { LATEST_WHATS_NEW_VERSION } from '../src/core/whats-new.js';
 import assert from 'node:assert/strict';
 const engines = await import(process.env.MOMENTUM_PLAYWRIGHT_PATH ? pathToFileURL(process.env.MOMENTUM_PLAYWRIGHT_PATH).href : 'playwright');
 const engine = engines[process.env.MOMENTUM_BROWSER || 'chromium'];
+const language = process.env.MOMENTUM_BROWSER === 'webkit' ? 'en' : 'it';
 const artifacts = resolve('ui-smoke-artifacts');
 mkdirSync(artifacts, {recursive:true});
 const root = resolve('dist');
@@ -36,14 +37,14 @@ try {
     await context.addInitScript(s => localStorage.setItem('omega_core_db',JSON.stringify(s)),activeState);
     const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     try {
-    await page.goto('http://127.0.0.1:4176/?lang=it');
+    await page.goto(`http://127.0.0.1:4176/?lang=${language}`);
     await page.waitForFunction(()=>typeof document.getElementById('mobile-add-btn')?.onclick === 'function');
     if (!empty) {
     await page.locator('#transaction-list-container .tx-card').first().waitFor({state:'visible'});
     assert.equal(await page.locator('#transaction-list-container .tx-card').count(),8);
     const editCategory = page.locator('#transaction-list-container .tx-category-edit').first();
     await editCategory.waitFor({state:'visible'});
-    assert.match(await editCategory.innerText(),/Cambia categoria/i);
+    assert.match(await editCategory.innerText(),/Cambia categoria|Change category/i);
     await editCategory.click();
     await page.locator('#modal-body button[onclick*="setTxCategory"]').first().waitFor({state:'visible'});
     await page.evaluate(()=>window.closeModal());
