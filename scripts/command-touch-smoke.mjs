@@ -34,6 +34,10 @@ try {
   for (const [width,height,touch,empty] of [[393,852,true,true],[393,852,true],[430,932,true],[768,1024,true],[1024,768,true],[1366,900,false]]) {
     const activeState=empty ? {...state,transactions:{},monthlyBudget:0,budgetDeclined:true,demoDismissed:true,lastHash:'GENESIS'} : state;
     const context = await browser.newContext({viewport:{width,height},isMobile:touch,hasTouch:touch,deviceScaleFactor:1});
+    // UI fixtures must never send telemetry or depend on live market providers.
+    await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:4176'
+      ? route.continue()
+      : route.fulfill({status:route.request().method()==='OPTIONS' ? 204 : 503,body:'',headers:{'access-control-allow-origin':'*','access-control-allow-methods':'GET, POST, OPTIONS','access-control-allow-headers':'*'}}));
     await context.addInitScript(s => localStorage.setItem('omega_core_db',JSON.stringify(s)),activeState);
     const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     try {
