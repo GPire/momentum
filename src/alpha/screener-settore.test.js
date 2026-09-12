@@ -289,3 +289,15 @@ test('trovaAziendeInTesto: rispetta il limite richiesto', () => {
 test('trovaAziendeInTesto: nessuna azienda nel testo → array vuoto, mai null', () => {
   assert.deepEqual(trovaAziendeInTesto('che tempo fa oggi?'), []);
 });
+
+test('comparabili confronta lo stesso anno e rende verificabile la distanza', () => {
+  const r = comparabili('AAPL');
+  assert.ok(r.disponibile);
+  for (const c of r.comparabili) {
+    assert.equal(c.anno, r.anno);
+    assert.ok(c.ricavi > 0);
+    assert.equal(c.distanzaRicavi, Math.abs(Math.log(c.rapportoRicavi)));
+  }
+  assert.equal(comparabili('AAPL', { anno: 1800 }).disponibile, false);
+  assert.equal(comparabili('AAPL', { limite: -1 }).comparabili.length, 0);
+});

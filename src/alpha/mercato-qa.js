@@ -687,7 +687,7 @@ export function rispostaSincrona(domanda, similarity = null) {
       ULTIMO_TICKER = az;
       const r = MODULI.scrn.comparabili(az.ticker);
       const testo = r.disponibile
-        ? `Comparabili di ${az.nome} (${az.sicDescription}), per taglia di ricavi: ${r.comparabili.slice(0, 5).map((c) => c.nome.split(/[ ,]/)[0]).join(', ')}. Stesso settore E taglia simile — non solo "stesso settore", che da solo confronterebbe una big cap con una micro cap.`
+        ? `Comparabili di ${az.nome} (${az.sicDescription}), bilanci ${r.anno}: ${r.comparabili.slice(0, 5).map((c) => `${c.nome.split(/[ ,]/)[0]} (ricavi ${c.rapportoRicavi.toFixed(2)} volte quelli di ${az.ticker})`).join(', ')}. Stesso gruppo di settore e stesso anno, ordinati per vicinanza dei ricavi. Anche il più vicino può avere dimensioni molto diverse. Questo confronto contabile non dimostra che i prezzi si muoveranno insieme o che convenga investire.`
         : `Non ho comparabili per ${az.nome}: il suo settore ha troppe poche aziende nel pannello per un confronto onesto.`;
       return { intent: 'mercato-comparabili', data: r, answer: testo };
     }

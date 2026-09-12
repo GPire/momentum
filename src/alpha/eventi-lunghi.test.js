@@ -32,7 +32,7 @@ test('le serie che NON esistevano vengono OMESSE e dichiarate, non mostrate a ze
   const f = finestraLunga('2008-01-01', '2008-12-31');
   assert.ok(!f.perSerie.some((s) => s.chiave === 'bitcoin'), 'Bitcoin non esisteva nel 2008');
   assert.ok(f.assenti.some((n) => /bitcoin/i.test(n)), 'e va dichiarato fra gli assenti');
-  assert.match(finestraLungaText(f, 'il 2008'), /non esistevano ancora/);
+  assert.match(finestraLungaText(f, 'il 2008'), /dati sono insufficienti/);
 });
 
 test('IL VIX NON È "LA MIGLIORE": è l\'indice della paura', () => {
@@ -76,4 +76,16 @@ test('il testo dichiara che sono fatti, non spiegazioni delle cause', () => {
   const t = finestraLungaText(finestraLunga('2008-01-01', '2008-12-31'), 'il 2008');
   assert.match(t, /non una spiegazione delle cause/);
   assert.ok(!/\b(compra|vendi|conviene|dovresti)\b/i.test(t));
+});
+
+test('tassi e copertura parziale non diventano il migliore investimento', () => {
+  const f = { trovato: true, da: '2020-01-01', a: '2020-01-31', giorniDiBorsa: 20, assenti: [], perSerie: [
+    { chiave: 'azioniUsa', nome: 'Azioni USA', totale: 2, completa: true, peggiorGiorno: -1, dataPeggiorGiorno: '2020-01-03' },
+    { chiave: 'oro', nome: 'Oro', totale: 50, completa: false, giorni: 18 },
+    { chiave: 'tasso10a', nome: 'Tasso decennale', totale: 100, completa: true },
+  ] };
+  const t = finestraLungaText(f);
+  assert.ok(!t.includes("La migliore e' stata"));
+  assert.match(t, /18\/20 giorni/);
+  assert.match(t, /non è il rendimento di un’obbligazione/);
 });

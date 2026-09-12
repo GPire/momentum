@@ -285,19 +285,32 @@ export function comparabili(ticker, { anno = null, limite = 8 } = {}) {
   if (!az) return { disponibile: false, motivo: `"${ticker}" non è fra le aziende con settore noto in questo pannello.` };
   const gruppo = gruppoSic(az.sic);
   const rigaTicker = anno ? az.anni.find((a) => a.anno === anno) : az.anni.at(-1);
-  const ricaviTicker = rigaTicker?.ricavi ?? 0;
+  const ricaviTicker = rigaTicker?.ricavi;
+  if (!gruppo || !Number.isFinite(ricaviTicker) || ricaviTicker <= 0) {
+    return { disponibile: false, motivo: 'Mancano settore o ricavi positivi per l’anno richiesto: non posso misurare la somiglianza.' };
+  }
+  const annoConfronto = rigaTicker.anno;
+  const numero = Number.isInteger(limite) ? Math.max(0, Math.min(50, limite)) : 8;
 
   const candidati = AZIENDE_PANEL
     .filter((a) => a.ticker !== az.ticker && gruppoSic(a.sic) === gruppo)
     .map((a) => {
-      const riga = anno ? a.anni.find((x) => x.anno === anno) : a.anni.at(-1);
-      return riga ? { ticker: a.ticker, nome: a.nome, settore: a.sicDescription, anno: riga.anno, ricavi: riga.ricavi, margine: riga.margine, roe: riga.roe } : null;
+      const riga = a.anni.find((x) => x.anno === annoConfronto);
+      return riga && Number.isFinite(riga.ricavi) && riga.ricavi > 0 ? {
+        ticker: a.ticker, nome: a.nome, settore: a.sicDescription, anno: riga.anno,
+        ricavi: riga.ricavi, margine: riga.margine, roe: riga.roe,
+        rapportoRicavi: riga.ricavi / ricaviTicker,
+        distanzaRicavi: Math.abs(Math.log(riga.ricavi / ricaviTicker)),
+        differenzaMargine: Number.isFinite(riga.margine) && Number.isFinite(rigaTicker.margine)
+          ? riga.margine - rigaTicker.margine : null,
+      } : null;
     })
     .filter(Boolean)
-    .sort((a, b) => Math.abs(Math.log((a.ricavi || 1) / (ricaviTicker || 1))) - Math.abs(Math.log((b.ricavi || 1) / (ricaviTicker || 1))))
-    .slice(0, limite);
+    .sort((a, b) => a.distanzaRicavi - b.distanzaRicavi || a.ticker.localeCompare(b.ticker))
+    .slice(0, numero);
 
-  return { disponibile: candidati.length > 0, ticker: az.ticker, settore: az.sicDescription, comparabili: candidati };
+  return { disponibile: candidati.length > 0, ticker: az.ticker, settore: az.sicDescription,
+    anno: annoConfronto, metodo: 'same-sector-year-log-revenue', comparabili: candidati };
 }
 
 // Popola `peers` per factors.js.valueScore()/growthScore(): un array di

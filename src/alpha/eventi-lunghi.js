@@ -34,14 +34,14 @@ export function finestraLunga(da, a) {
   const perSerie = [];
   for (const [chiave, serie] of Object.entries(GIORNALIERO_LUNGO)) {
     const pezzo = serie.slice(iDa, iA + 1);
-    const validi = pezzo.filter((x) => x !== null);
+    const validi = pezzo.filter(Number.isFinite);
     // Una serie che in quel periodo non esisteva non va mostrata a zero: va
     // omessa. Uno zero direbbe "e' rimasta ferma", che e' un'altra cosa.
     if (validi.length < pezzo.length * 0.8 || validi.length < 3) continue;
     let comp = 1, peggiore = 0, iPeggiore = -1;
     for (let i = 0; i < pezzo.length; i++) {
       const v = pezzo[i];
-      if (v === null) continue;
+      if (!Number.isFinite(v)) continue;
       comp *= (1 + v);
       if (v < peggiore) { peggiore = v; iPeggiore = iDa + i; }
     }
@@ -51,6 +51,8 @@ export function finestraLunga(da, a) {
       peggiorGiorno: +(100 * peggiore).toFixed(1),
       dataPeggiorGiorno: iPeggiore >= 0 ? DATE_LUNGO[iPeggiore] : null,
       giorni: validi.length,
+      copertura: validi.length / pezzo.length,
+      completa: validi.length === pezzo.length,
     });
   }
 
@@ -74,11 +76,11 @@ export function finestraLunga(da, a) {
 // quando le cose vanno male. Chiamarlo il migliore dell'anno del crollo e'
 // esattamente il tipo di errore che fa perdere fiducia in tutto il resto.
 // Trovato leggendo la risposta vera, non da un test.
-const NON_INVESTIBILI = new Set(['paura']);
+const NON_INVESTIBILI = new Set(['paura', 'tasso10a']);
 
 export function finestraLungaText(f, etichetta = 'quel periodo') {
   if (!f?.trovato) return f?.motivo || null;
-  const investibili = f.perSerie.filter((s) => !NON_INVESTIBILI.has(s.chiave));
+  const investibili = f.perSerie.filter((s) => !NON_INVESTIBILI.has(s.chiave) && s.completa !== false);
   const peggio = investibili[0];
   const meglio = investibili[investibili.length - 1];
   const righe = [];
@@ -98,7 +100,11 @@ export function finestraLungaText(f, etichetta = 'quel periodo') {
   const vix = f.perSerie.find((s) => s.chiave === 'paura');
   if (vix) righe.push(`L'indice della paura e' ${vix.totale > 0 ? `salito del ${vix.totale}%` : `sceso del ${Math.abs(vix.totale)}%`}: non e' un investimento, misura quanta paura c'era.`);
 
-  if (f.assenti.length) righe.push(`Non compaiono ${f.assenti.join(', ').toLowerCase()}: in quel periodo non esistevano ancora, e mostrarle a zero direbbe che erano ferme.`);
+  const tasso = f.perSerie.find((s) => s.chiave === 'tasso10a');
+  if (tasso) righe.push(`La variazione relativa del tasso decennale USA è ${tasso.totale}%: non è il rendimento di un’obbligazione né una variazione in punti percentuali.`);
+  const parziali = f.perSerie.filter((s) => s.completa === false);
+  if (parziali.length) righe.push(`Copertura incompleta per ${parziali.map((s) => `${s.nome} (${s.giorni}/${f.giorniDiBorsa} giorni)`).join(', ')}: esclusi dal confronto migliore/peggiore.`);
+  if (f.assenti.length) righe.push(`Non compaiono ${f.assenti.join(', ').toLowerCase()}: i dati sono insufficienti in questo archivio per il periodo richiesto; non significa che fossero ferme o che non esistessero.`);
 
   righe.push('Sono fatti misurati sui prezzi di quei giorni, non una spiegazione delle cause.');
   return righe.join(' ');

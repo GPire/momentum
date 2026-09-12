@@ -1,5 +1,13 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Archivi e comparabili, 2026-09-12:** leggere
+> [history-reuse-and-comparables-2026-09-12.md](docs/history-reuse-and-comparables-2026-09-12.md).
+> Riutilizzare storia giornaliera dal 1985, materie prime dal 1960 e pannelli SEC.
+> Comparabili allineati per anno, rapporti dimensionali espliciti; tassi e
+> copertura incompleta separati dai rendimenti confrontabili. Il pannello macro
+> ha 533 valori per serie ma estremi dichiarati che implicano 534 mesi:
+> non correggere le date a intuito, verificare fonte e allineamento.
+
 > **Revisioni macro, 2026-09-12:** leggere
 > [macro-vintages-2026-09-12.md](docs/macro-vintages-2026-09-12.md).
 > Snapshot per data di conoscibilità e parser FRED/ALFRED; allineamenti
