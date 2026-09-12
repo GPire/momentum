@@ -1,8 +1,7 @@
 // ============================================================
 // PONTE CASHFLOW ↔ INVESTIMENTI — il vero moat (privacy-preserving)
 // ============================================================
-// Onestà tecnica (regola #1): nessun competitor cloud può copiarlo perché non
-// riceve i tuoi dati. Collega il cashflow personale (safe-to-spend, avanzi) al
+// Collega il cashflow personale (safe-to-spend, avanzi) al
 // motore Alpha: "quanto puoi investire questo mese SENZA rompere il budget?".
 // Regole prudenti e dichiarate: prima il fondo d'emergenza, poi solo una quota
 // dell'avanzo, mai se il flusso è negativo. Funzioni pure.
@@ -58,15 +57,31 @@ export function investableSurplus(input) {
 // proporzionalmente al punteggio dell'arbitro. Ignora 'evita'/'astengo'.
 // assets: [{ ticker, verdict, score }] (da arbiter.js).
 export function allocateInvestment(amount, assets, opts = {}) {
-  const buyable = (assets || []).filter(a => a.verdict === 'compra' || (opts.includeHold && a.verdict === 'tieni'));
-  if (amount <= 0 || buyable.length === 0) return { allocations: [], invested: 0, note: 'Nessuna allocazione: importo o candidati assenti.' };
-  const totalScore = buyable.reduce((s, a) => s + (a.score || 0), 0) || 1;
-  const allocations = buyable.map(a => ({
+  const buyable = (Array.isArray(assets) ? assets : []).filter(a => a && Number.isFinite(a.score) && a.score > 0
+    && (a.verdict === 'compra' || (opts.includeHold && a.verdict === 'tieni')));
+  const cents = Math.round(amount * 100);
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(cents) || cents <= 0 || buyable.length === 0) {
+    return { allocations: [], invested: 0, note: 'Nessuna allocazione: importo o candidati assenti o non validi.' };
+  }
+  const scale = buyable.reduce((max, a) => Math.max(max, a.score), 0);
+  const totalScore = buyable.reduce((sum, a) => sum + a.score / scale, 0);
+  const shares = buyable.map(a => cents * (a.score / scale / totalScore));
+  const allocated = shares.map(Math.floor);
+  let remaining = cents - allocated.reduce((sum, value) => sum + value, 0);
+  const order = shares.map((value, i) => ({ i, remainder: value - allocated[i] }))
+    .sort((a, b) => b.remainder - a.remainder || a.i - b.i);
+  // Largest remainders conserve the budget; input order breaks equal-score ties.
+  for (let i = 0; remaining > 0; i++, remaining--) allocated[order[i % order.length].i]++;
+  // Floating-point rounding near the safe-integer limit can over-allocate a cent.
+  for (let i = order.length - 1; remaining < 0; i = (i + order.length - 1) % order.length) {
+    if (allocated[order[i].i] > 0) { allocated[order[i].i]--; remaining++; }
+  }
+  const allocations = buyable.map((a, i) => ({
     ticker: a.ticker,
-    weight: +((a.score || 0) / totalScore).toFixed(4),
-    amount: +(amount * (a.score || 0) / totalScore).toFixed(2),
+    weight: +(a.score / scale / totalScore).toFixed(4),
+    amount: allocated[i] / 100,
     verdict: a.verdict,
   }));
-  const invested = +allocations.reduce((s, a) => s + a.amount, 0).toFixed(2);
+  const invested = cents / 100;
   return { allocations, invested, note: `Allocati ${invested.toFixed(0)}€ su ${allocations.length} asset, pesati per convinzione.` };
 }

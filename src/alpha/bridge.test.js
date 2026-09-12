@@ -2,6 +2,31 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { investableSurplus, allocateInvestment } from './bridge.js';
 
+test('allocation preserves cents with many assets and tiny budgets', () => {
+  for (const count of [3, 6, 10, 100]) {
+    const assets = Array.from({ length: count }, (_, i) => ({ ticker: `A${i}`, verdict: 'compra', score: 1 }));
+    for (const amount of [0.01, 0.05, 1, 100]) {
+      const r = allocateInvestment(amount, assets);
+      assert.equal(r.invested, amount);
+      assert.equal(r.allocations.reduce((sum, a) => sum + Math.round(a.amount * 100), 0), Math.round(amount * 100));
+      assert.ok(r.allocations.every(a => a.amount >= 0));
+    }
+  }
+});
+
+test('allocation excludes unusable scores and rejects non-finite budgets', () => {
+  const assets = [0, -1, NaN, Infinity, '2', 1].map((score, i) => ({ ticker: `A${i}`, verdict: 'compra', score }));
+  assert.deepEqual(allocateInvestment(10, assets).allocations.map(a => a.ticker), ['A5']);
+  for (const amount of [NaN, Infinity, -1, '10', Number.MAX_VALUE]) {
+    assert.equal(allocateInvestment(amount, assets).invested, 0);
+  }
+});
+
+test('large finite scores remain proportional without overflowing their sum', () => {
+  const r = allocateInvestment(10, ['A', 'B'].map(ticker => ({ ticker, verdict: 'compra', score: Number.MAX_VALUE })));
+  assert.deepEqual(r.allocations.map(a => a.amount), [5, 5]);
+});
+
 test('flusso negativo → non si investe (difende il budget)', () => {
   const r = investableSurplus({ netMonthlyFlow: -50, avgMonthlyExpense: 1000, currentEmergencyFund: 10000 });
   assert.equal(r.investable, 0);

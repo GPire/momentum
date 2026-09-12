@@ -19,10 +19,18 @@ Verifica UI locale: adesso compare un trattino con spiegazione dei dati mancanti
 
 Obiettivo: chiudere blocchi verificabili, senza aprire continuamente nuove feature. Le verifiche locali non certificano iPhone, App Store, Play Store o produzione.
 
+## Controllo allocazioni del motore
+`allocateInvestment` arrotondava ogni quota indipendentemente: con molti asset poteva perdere centesimi o superare il budget. Accettava inoltre punteggi negativi/non numerici e poteva produrre NaN sommando punteggi molto grandi. Ora distribuisce i centesimi con i resti maggiori, esclude punteggi non finiti o non positivi e rifiuta importi non rappresentabili in centesimi sicuri. I punteggi sono normalizzati prima della somma. A parità di resto prevale l'ordine dei candidati ricevuti.
+
+Tre nuovi test di regressione, prima falliti e poi superati, coprono budget piccoli, fino a 100 candidati, input non validi e punteggi estremi; i sei test preesistenti restano superati. Questo helper non ha attualmente chiamanti nell'app: nessuna allocazione reale, ordine o nuova raccomandazione è stata attivata. Il calcolo assume una valuta con due decimali; quantità negoziabili, commissioni, lotti minimi e altre precisioni valutarie restano fuori dal suo contratto. Non modificati Vault, UI, dataset o pesi di apprendimento.
+
 ## Verifiche eseguite
 - Suite completa: 333/333 file superati con esecuzione seriale.
 - Dopo l'ultimo passaggio della lingua al motore: Q&A 72/72 test superati.
 - Build di produzione portable completata in 17,62 secondi; restano gli avvisi sulle dimensioni dei bundle.
 - git diff --check superato; verifica DOM dell'anteprima locale completata.
 - Nessuna verifica su iPhone fisico o Safari nativo in questo blocco. Nessun push o deploy incluso.
+
+
+Verifica successiva al controllo allocazioni: suite completa 333/333 file superati; build portable completata in 23,15 secondi con avvisi di dimensione bundle. Nessun push/deploy in questo blocco.
 
