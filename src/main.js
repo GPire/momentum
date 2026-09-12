@@ -958,6 +958,14 @@ function setRememberedTxDate(d) {
 }
 
 const attachFormListeners = (container, prefill = null) => {
+  // Scroll only the category strip, never its modal/page ancestors.
+  const revealCategoryChip = chip => {
+    const strip = chip?.closest('#cat-scroll');
+    if (!strip) return;
+    const item = chip.getBoundingClientRect(), frame = strip.getBoundingClientRect();
+    strip.scrollTo({ left: strip.scrollLeft + item.left - frame.left - (strip.clientWidth - item.width) / 2,
+      behavior: motionIsReduced() ? 'instant' : 'smooth' });
+  };
   let type = 'uscita';
   let rawVal = '';
   let catId = null;
@@ -1367,7 +1375,7 @@ const attachFormListeners = (container, prefill = null) => {
         if (chip) {
           container.querySelectorAll('.cat-chip').forEach(el=>el.classList.remove('selected'));
           chip.classList.add('selected');
-          chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          revealCategoryChip(chip);
         }
         updateAmount();
 
@@ -1486,7 +1494,7 @@ const attachFormListeners = (container, prefill = null) => {
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? chips.length - 1 : Math.max(0, Math.min(chips.length - 1, index + step));
         event.preventDefault();
         chips[next].focus({preventScroll:true});
-        chips[next].scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
+        revealCategoryChip(chips[next]);
       });
       c.addEventListener('click', () => {
         // "+ Nuova" non e' una categoria: apre il pannello di creazione ed
@@ -1637,7 +1645,7 @@ const attachFormListeners = (container, prefill = null) => {
     // Reflow forzato per far ripartire l'animazione di apertura ogni volta,
     // anche se il pannello era gia' stato aperto e richiuso in questa sessione.
     panel.classList.remove('new-cat-in'); void panel.offsetWidth; panel.classList.add('new-cat-in');
-    panel.scrollIntoView({ behavior: 'instant', block: 'start' });
+    container.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     // Se il nome e' gia' precompilato, si seleziona il testo invece di
     // limitarsi a mettere il cursore: chi vuole scrivere un nome diverso
     // lo fa con un tocco solo, non deve prima cancellare a mano.
@@ -1745,7 +1753,7 @@ const attachFormListeners = (container, prefill = null) => {
       scroll.innerHTML = buildCatChipsHTML(type);
       attachCatClick();
       const nuovoChip = container.querySelector(`[data-cat-id="${id}"]`);
-      nuovoChip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      revealCategoryChip(nuovoChip);
       nuovoChip?.click();
     }
     renderDashboard();
@@ -1835,7 +1843,7 @@ const attachFormListeners = (container, prefill = null) => {
         const spiegazione = `Di solito ${ctx.topPick.reason}: <b>${cNome}</b>${ctx.topPick.typicalAmount ? `, circa <b>${formatMoney(ctx.topPick.typicalAmount)}</b>` : ''}.`;
         chip.setAttribute('title', spiegazione.replace(/<\/?b>/g, ''));
         if (hintEl) { hintEl.innerHTML = spiegazione; hintEl.classList.remove('hidden'); }
-        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        revealCategoryChip(chip);
         // al tocco: se non hai ancora scritto un importo, pre-compilo quello tipico
         chip.addEventListener('click', () => {
           if ((!rawVal || rawVal === '0') && ctx.topPick.typicalAmount) {
@@ -2150,7 +2158,7 @@ const attachFormListeners = (container, prefill = null) => {
       container.querySelectorAll('.cat-chip').forEach(el =>
         el.classList.toggle('selected', el.dataset.catId === prefill.category));
       const chip = container.querySelector(`[data-cat-id="${prefill.category}"]`);
-      if (chip) chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      if (chip) revealCategoryChip(chip);
     }
     if (prefill.amount > 0) rawVal = String(prefill.amount);
     if (prefill.description && desc) desc.value = prefill.description;

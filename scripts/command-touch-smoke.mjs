@@ -69,6 +69,12 @@ try {
     await page.locator('#modal-body #new-cat-nome').fill('Spesa di casa');
     await page.locator('#modal-body #new-cat-crea').click();
     assert.equal(await page.locator('#modal-body [data-cat-id="spesa"] .cat-chip-label').innerText(),'Spesa di casa');
+    const categoryLayout = await page.evaluate(()=>{
+      const body=document.querySelector('#modal-body'), form=body.querySelector('.command-form');
+      return {scrollLeft:body.scrollLeft,formLeft:form.getBoundingClientRect().left,bodyLeft:body.getBoundingClientRect().left};
+    });
+    assert.equal(categoryLayout.scrollLeft,0,JSON.stringify(categoryLayout));
+    assert(categoryLayout.formLeft>=categoryLayout.bodyLeft-1,JSON.stringify(categoryLayout));
     const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('omega_core_db')));
     assert.deepEqual(after.transactions,state.transactions);
     assert.equal(after.customCategories.filter(c=>c.id==='spesa').length,1);
