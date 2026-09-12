@@ -41,6 +41,7 @@
     "bench:sec": "node bench/fetch-fondamentali-sec.mjs",
     "bench:panel": "node bench/fetch-panel-sec.mjs",
     "bench:daily-long": "node bench/fetch-daily-history.mjs",
+    "bench:daily-panel": "node bench/fetch-daily-panel.mjs",
     "bench:sectors": "node bench/fetch-sector-history.mjs",
     "bench:measured": "node bench/generate-measured-assumptions.mjs",
     "bench:mesh": "node bench/mesh-sync-bench.mjs"

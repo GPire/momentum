@@ -98,10 +98,11 @@ test('SUI DATI GIORNALIERI VERI: la misura NON si conferma, e va detto', () => {
     orizzonte: 63, rng: seme(11), permutazioni: 299,
   });
   assert.equal(v.disponibile, true);
-  // L'effetto grezzo è grande e nel verso giusto...
-  assert.ok(v.differenza < 0, `differenza ${v.differenza}`);
-  assert.equal(v.versoAtteso, true);
-  // ...ma le osservazioni indipendenti sono pochissime, e quindi non regge.
+  // Il verso dell'effetto su cinque anni cambia quando entrano nuovi giorni:
+  // non è una proprietà da fissare in un test. Quello che deve restare vero è
+  // che poche osservazioni indipendenti non autorizzano una previsione.
+  assert.ok(Number.isFinite(v.differenza), `differenza ${v.differenza}`);
+  // Le osservazioni indipendenti sono pochissime, e quindi non regge.
   assert.ok(v.osservazioniIndipendenti < 15, `indipendenti ${v.osservazioniIndipendenti}`);
   assert.equal(v.funziona, false, `p=${v.p}`);
   assert.match(v.messaggio, /NON è distinguibile dal caso/);
