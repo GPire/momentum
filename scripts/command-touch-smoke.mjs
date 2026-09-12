@@ -51,12 +51,17 @@ try {
     await page.locator('#modal-body #tx-amount-display').waitFor({state:'visible'});
     if(touch) assert.notEqual(await page.evaluate(()=>document.activeElement?.id),'tx-amount-display');
     await page.locator('#modal-body #tx-amount-display').fill('1234567,89');
+    await page.waitForFunction(()=>{
+      const r=document.querySelector('#modal-content').getBoundingClientRect();
+      return r.top>=-1 && r.bottom<=innerHeight+1;
+    });
     const layout=await page.evaluate(()=>{
       const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
       return {amount:box('#modal-body .command-amount-line'),impact:box('#modal-body #amount-impact'),content:box('#modal-content'),viewport:innerWidth};
     });
     assert(layout.impact.y>=layout.amount.bottom-1,JSON.stringify(layout));
     assert(layout.content.x>=-1 && layout.content.right<=width+1,JSON.stringify(layout));
+    assert(layout.content.y>=-1 && layout.content.bottom<=height+1,JSON.stringify(layout));
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
     await page.locator('#modal-body .command-edit-category').click();
     assert.equal(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji span').count(),0);
