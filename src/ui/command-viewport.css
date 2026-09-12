@@ -27,8 +27,9 @@
 .command-budget-result strong { max-width:100%; white-space:normal; }
 .command-category-heading { flex-wrap:wrap; gap:6px 10px; }
 .command-edit-category,.ledger-pagination button { min-height:44px; padding:10px 14px; border:1px solid var(--outline); border-radius:14px; color:var(--on-surface); background:var(--surface-elevated); font:inherit; font-size:13px; cursor:pointer; }
-.command-edit-category { margin-top:8px; }
-.command-edit-category:disabled { display:none; }
+.command-edit-category { margin-top:8px; display:inline-flex; align-items:center; gap:8px; max-width:100%; }
+.command-edit-category svg { flex-shrink:0; }
+.command-edit-category:disabled { opacity:.5; cursor:default; }
 .category-editing .command-edit-category { display:none; }
 .ledger-pagination { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; padding:16px 0 4px; }
 .ledger-pagination p { width:100%; text-align:center; font-size:12px; color:var(--on-surface-secondary); }

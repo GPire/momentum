@@ -813,7 +813,7 @@ const getTxFormHTML = () => `
     </div>
     <div class="command-category">
       <div class="command-category-heading"><span>${tCh('txCategoryLabel', __uiLang)}</span><span class="command-category-value"></span><button type="button" class="command-new-category" aria-label="${tCh('catNuovaCategoria', __uiLang)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${tCh('catNuova', __uiLang)}</button></div>
-      <button type="button" class="command-edit-category" disabled>${tIntegration('categoryEdit', __uiLang)}</button>
+      <button type="button" class="command-edit-category" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5"/></svg>${tIntegration('categoryRename', __uiLang)}</button>
       <div class="command-category-options">
     <p class="cat-domanda-wrap text-center mb-1 mt-1 shrink-0"><span id="cat-domanda" class="t-etichetta amount-domanda">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
@@ -1111,7 +1111,13 @@ const attachFormListeners = (container, prefill = null) => {
     container.querySelectorAll('.type-toggle-pill').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === type)));
     const selectedCategory = catId ? getCatById(catId) : null;
     const editCategoryButton = container.querySelector('.command-edit-category');
-    if (editCategoryButton) editCategoryButton.disabled = !selectedCategory;
+    if (editCategoryButton) {
+      editCategoryButton.disabled = !selectedCategory;
+      editCategoryButton.setAttribute('aria-label', selectedCategory
+        ? `${tIntegration('categoryRename', __uiLang)}: ${catName(selectedCategory, __uiLang)}`
+        : `${tIntegration('categoryRename', __uiLang)} — ${tCh('txNeedCategory', __uiLang)}`);
+      editCategoryButton.title = selectedCategory ? catName(selectedCategory, __uiLang) : tCh('txNeedCategory', __uiLang);
+    }
     const categoryValue = container.querySelector('.command-category-value');
     if (categoryValue) categoryValue.textContent = selectedCategory ? catName(selectedCategory, __uiLang) : '';
     const importoOk = parseFloat(rawVal) > 0;

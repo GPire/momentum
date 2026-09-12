@@ -27,6 +27,7 @@ const copy = {
   catIcon_giardino: ['Giardino','Garden','Garten','Jardin','Jardín','Tuin','Jardim'],
   commandReviewAmount: ['Verifica l’importo prima di confermare.', 'Check the amount before confirming.', 'Prüfe den Betrag vor dem Bestätigen.', 'Vérifie le montant avant de confirmer.', 'Revisa el importe antes de confirmar.', 'Controleer het bedrag voordat je bevestigt.', 'Confere o valor antes de confirmar.'],
   categoryEdit: ['Modifica categoria', 'Edit category', 'Kategorie bearbeiten', 'Modifier la catégorie', 'Editar categoría', 'Categorie bewerken', 'Editar categoria'],
+  categoryRename: ['Rinomina', 'Rename', 'Umbenennen', 'Renommer', 'Renombrar', 'Hernoemen', 'Renomear'],
   categorySave: ['Salva categoria', 'Save category', 'Kategorie speichern', 'Enregistrer la catégorie', 'Guardar categoría', 'Categorie opslaan', 'Guardar categoria'],
   categorySaved: ['Categoria aggiornata', 'Category updated', 'Kategorie aktualisiert', 'Catégorie mise à jour', 'Categoría actualizada', 'Categorie bijgewerkt', 'Categoria atualizada'],
   categoryMoved: ['Spostata in “{0}”.', 'Moved to “{0}”.', 'Nach „{0}“ verschoben.', 'Déplacée dans « {0} ».', 'Movida a «{0}».', 'Verplaatst naar ‘{0}’.', 'Movida para “{0}”.'],
