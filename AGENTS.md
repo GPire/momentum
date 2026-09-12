@@ -1,5 +1,14 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Dataset e apprendimento, 2026-09-12:** leggere
+> [market-data-research-2026-09-12.md](docs/market-data-research-2026-09-12.md).
+> Archivio locale verificato: 43 strumenti, 230.626 righe; non incluso nell'app,
+> licenze di redistribuzione non verificate. AVAX escluso dal quality gate.
+> `bench:research-universe` lo rigenera; `bench:research-eval` verifica 129
+> strategie (0 promosse). Quality gate collegato allo storico provider e al
+> generatore daily-panel; apprendimento fattori ignora esiti non confermati.
+> Suite: 325/325 file, build portable passata. Nessun nuovo peso neurale addestrato.
+
 > **Ultima integrazione 2026-09-12:** commit `06f778f` sopra `443c23a`
 > ed `e7b1736`: lista da 8 movimenti, correzioni viewport/tastiera/importo,
 > rinomina delle categorie senza cambiare ID, 10 icone nuove, selettore solo

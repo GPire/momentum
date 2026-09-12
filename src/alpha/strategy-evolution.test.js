@@ -4,6 +4,22 @@ const { createStrategyPerf, updateStrategyPerf, factorReliability, personalizeWe
 const { reflexivityScore } = await import('./factors.js');
 const { arbitrate, REGIME_WEIGHTS } = await import('./arbiter.js');
 
+test('unconfirmed outcomes and invalid scores never train the factor model', () => {
+  const perf = createStrategyPerf();
+  updateStrategyPerf(perf, { value: 0.9 }, null);
+  updateStrategyPerf(perf, { value: Infinity, growth: 2, momentum: -1 }, true);
+  assert.deepEqual(perf, createStrategyPerf());
+});
+
+test('one correct outcome has little influence and corrupted counters remain neutral', () => {
+  const perf = createStrategyPerf();
+  updateStrategyPerf(perf, { value: 0.9 }, true);
+  assert.ok(factorReliability(perf, 'value') > 0.5);
+  assert.ok(factorReliability(perf, 'value') < 0.55);
+  assert.equal(factorReliability({ value: { right: -1, wrong: 2 } }, 'value'), 0.5);
+  assert.equal(factorReliability({ value: { right: Infinity, wrong: 0 } }, 'value'), 0.5);
+});
+
 test('reflexivityScore: trend auto-alimentato in accelerazione → score alto', () => {
   const p = []; let x = 100;
   for (let i = 0; i < 30; i++) { x *= 1 + 0.002 * i; p.push(x); } // rendimenti crescenti (loop che si rinforza)

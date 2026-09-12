@@ -23,22 +23,30 @@ export function createStrategyPerf() {
 // se sfavorevole; i fattori neutri non muovono il loro record.
 export function updateStrategyPerf(perf, factorScores, favorable) {
   const p = perf || createStrategyPerf();
+  if (typeof favorable !== 'boolean') return p;
   for (const f of Object.keys(p)) {
-    const s = factorScores[f];
-    if (typeof s !== 'number') continue;
+    const s = factorScores?.[f];
+    if (!Number.isFinite(s) || s < 0 || s > 1 || !validCounts(p[f])) continue;
     if (s > 0.55) { if (favorable) p[f].right++; else p[f].wrong++; }
     else if (s < 0.45) { if (!favorable) p[f].right++; else p[f].wrong++; } // "evita" corretto = giusto
   }
   return p;
 }
 
-// Affidabilità misurata di un fattore per questo utente (Laplace): senza
+function validCounts(c) {
+  return c && Number.isSafeInteger(c.right) && c.right >= 0 && Number.isSafeInteger(c.wrong) && c.wrong >= 0
+    && Number.isSafeInteger(c.right + c.wrong + 1);
+}
+
+// Beta(10,10) shrinks scarce observations toward neutral. This is a design
+// prior, not a measured accuracy claim; stored observations remain intact.
+// Affidabilità misurata di un fattore per questo utente: senza
 // dati = 0.5 (neutro). Il moltiplicatore (0.5 + affidabilità) lascia i pesi
 // ESATTAMENTE invariati finché non c'è storia — l'evoluzione non inventa.
 export function factorReliability(perf, factor) {
   const c = perf?.[factor];
-  if (!c) return 0.5;
-  return (c.right + 1) / (c.right + c.wrong + 2);
+  if (!validCounts(c)) return 0.5;
+  return (c.right + 10) / (c.right + c.wrong + 20);
 }
 
 // Pesi personalizzati: parte dai pesi-per-regime (REGIME_WEIGHTS) e li

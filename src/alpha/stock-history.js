@@ -8,6 +8,7 @@
 'use strict';
 
 import { conTimeout } from '../core/con-timeout.js';
+import { cleanPriceSeries } from './market-series-quality.js';
 
 // Stesso buco già trovato e corretto in src/ai/local-sentiment.js: un
 // provider a chiave reale che resta "pending" senza mai rispondere né
@@ -33,7 +34,7 @@ async function fetchFromAlphaVantage(symbol, { apiKey, fetchImpl, yearsBack }) {
   const series = json?.['Monthly Time Series'];
   if (!series || typeof series !== 'object') return [];
   const entries = Object.entries(series)
-    .map(([date, v]) => ({ date, price: parseFloat(v['4. close']) }))
+    .map(([date, v]) => ({ date, price: Number(v['4. close']) }))
     .filter(p => Number.isFinite(p.price))
     .sort((a, b) => a.date.localeCompare(b.date));
   return filterByYearsBack(entries, yearsBack);
@@ -46,7 +47,7 @@ async function fetchFromTwelveData(symbol, { apiKey, fetchImpl, yearsBack }) {
   const json = await res.json();
   if (json?.status === 'error' || !Array.isArray(json?.values)) return [];
   const entries = json.values
-    .map(v => ({ date: v.datetime, price: parseFloat(v.close) }))
+    .map(v => ({ date: v.datetime, price: Number(v.close) }))
     .filter(p => Number.isFinite(p.price))
     .sort((a, b) => a.date.localeCompare(b.date));
   return filterByYearsBack(entries, yearsBack);
@@ -65,7 +66,7 @@ async function fetchFromFMP(symbol, { apiKey, fetchImpl, yearsBack }) {
   const hist = json?.historical;
   if (!Array.isArray(hist)) return [];
   const entries = hist
-    .map(v => ({ date: v.date, price: parseFloat(v.close) }))
+    .map(v => ({ date: v.date, price: Number(v.close) }))
     .filter(p => Number.isFinite(p.price))
     .sort((a, b) => a.date.localeCompare(b.date));
   return filterByYearsBack(entries, yearsBack);
@@ -77,7 +78,7 @@ export async function fetchStockMonthlySeries(symbol, { apiKey, fetchImpl = fetc
   if (!symbol || !apiKey) return [];
   const fn = PROVIDERS[provider];
   if (!fn) return [];
-  try { return await fn(symbol, { apiKey, fetchImpl, yearsBack }); } catch (_) { return []; }
+  try { return cleanPriceSeries(await fn(symbol, { apiKey, fetchImpl, yearsBack })); } catch (_) { return []; }
 }
 
 // A CASCATA (stesso principio già usato per la chat generica): prova ogni

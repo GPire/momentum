@@ -3,6 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { commonReturns } from '../src/alpha/market-series-quality.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DA = '2021-08-01';
@@ -44,15 +45,14 @@ for (const [chiave, [simbolo]] of Object.entries(SERIE)) {
 
 // Il calendario comune impedisce confronti fra giorni diversi. Le crypto hanno
 // anche weekend, ma qui restano solo i giorni in cui tutti i mercati quotavano.
-const date = [...dati.azioniUsa.keys()].filter((d) => Object.values(dati).every((m) => m.has(d)));
+const aligned = commonReturns(Object.fromEntries(Object.entries(dati).map(([key, map]) =>
+  [key, [...map].map(([date, price]) => ({ date, price }))])), { levels: ['vix'] });
+const date = aligned.dates;
 if (date.length < 200) throw new Error(`calendario comune troppo corto: ${date.length}`);
 
 const valori = {};
 for (const chiave of Object.keys(SERIE)) {
-  const prezzi = date.map((d) => dati[chiave].get(d));
-  valori[chiave] = chiave === 'vix'
-    ? prezzi.map(round)
-    : prezzi.map((p, i) => round(i ? p / prezzi[i - 1] - 1 : 0));
+  valori[chiave] = aligned.series[chiave].map(round);
 }
 
 const nomi = Object.fromEntries(Object.entries(SERIE).map(([k, [, nome]]) => [k, nome]));

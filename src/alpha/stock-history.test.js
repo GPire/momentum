@@ -10,6 +10,18 @@ const SAMPLE_SERIES = {
   },
 };
 
+test('invalid history triggers the configured fallback provider', async () => {
+  let calls = 0;
+  const result = await fetchStockMonthlySeriesCascade('AAPL', {
+    keys: { alphavantage: 'test', twelvedata: 'test' },
+    fetchImpl: async () => ({ ok: true, json: async () => ++calls === 1
+      ? { 'Monthly Time Series': { '2026-02-30': { '4. close': '100' }, '2026-01-01': { '4. close': '12junk' } } }
+      : { values: [{ datetime: '2026-01-01', close: '100' }] } }),
+  });
+  assert.equal(result.provider, 'twelvedata');
+  assert.deepEqual(result.series, [{ date: '2026-01-01', price: 100 }]);
+});
+
 test('fetchStockMonthlySeries: mappa e ordina la serie reale per data', async () => {
   const fetchImpl = async () => ({ ok: true, json: async () => SAMPLE_SERIES });
   const r = await fetchStockMonthlySeries('NVDA', { apiKey: 'k', fetchImpl });
