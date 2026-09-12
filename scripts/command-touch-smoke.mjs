@@ -3,6 +3,7 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { simpleHash } from '../src/core/utils.js';
+import { LATEST_WHATS_NEW_VERSION } from '../src/core/whats-new.js';
 import assert from 'node:assert/strict';
 const { chromium } = await import(process.env.MOMENTUM_PLAYWRIGHT_PATH ? pathToFileURL(process.env.MOMENTUM_PLAYWRIGHT_PATH).href : 'playwright');
 const artifacts = resolve('ui-smoke-artifacts');
@@ -26,7 +27,7 @@ const rows = Array.from({length:30}, (_,i) => {
   const tx={id:9000+i,amount:12.5,type:'uscita',category:'spesa',description:`Spesa di prova ${i+1}`,date:`${month}-${String(1+Math.floor(i/3)).padStart(2,'0')}T12:00:00`,prevHash:prev};
   tx.hash=simpleHash(tx.id+tx.amount+tx.category+tx.prevHash); prev=tx.hash; return tx;
 });
-const state={...fixture,isFirstLaunch:false,currentDate:date.toISOString(),transactions:{[month]:rows},lastHash:prev,monthlyBudget:1500,budgetDeclined:false,customCategories:[],demoTransactions:{}};
+const state={...fixture,isFirstLaunch:false,whatsNewSeen:LATEST_WHATS_NEW_VERSION,freshStartPrompted:true,currentDate:date.toISOString(),transactions:{[month]:rows},lastHash:prev,monthlyBudget:1500,budgetDeclined:false,customCategories:[],demoTransactions:{}};
 try {
   for (const [width,height,touch] of [[393,852,true],[430,932,true],[768,1024,true],[1024,768,true],[1366,900,false]]) {
     const context = await browser.newContext({viewport:{width,height},isMobile:touch,hasTouch:touch,deviceScaleFactor:1});
@@ -34,7 +35,7 @@ try {
     const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     try {
     await page.goto('http://127.0.0.1:4176/?lang=it');
-    await page.waitForFunction(()=>typeof window.openTransactionModal === 'function');
+    await page.waitForFunction(()=>typeof document.getElementById('mobile-add-btn')?.onclick === 'function');
     await page.locator('#transaction-list-container .tx-card').first().waitFor({state:'visible'});
     assert.equal(await page.locator('#transaction-list-container .tx-card').count(),8);
     const editCategory = page.locator('#transaction-list-container .tx-category-edit').first();
@@ -46,7 +47,7 @@ try {
     await page.locator('[data-ledger-more]').click();
     assert.equal(await page.locator('#transaction-list-container .tx-card').count(),16);
     await page.locator('[data-ledger-less]').click();
-    await page.evaluate(()=>window.openTransactionModal());
+    await page.locator('#mobile-add-btn:visible, #tablet-fab:visible').first().click();
     await page.locator('#modal-body #tx-amount-display').waitFor({state:'visible'});
     if(touch) assert.notEqual(await page.evaluate(()=>document.activeElement?.id),'tx-amount-display');
     await page.locator('#modal-body #tx-amount-display').fill('1234567,89');
