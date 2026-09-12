@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Revisioni macro, 2026-09-12:** leggere
+> [macro-vintages-2026-09-12.md](docs/macro-vintages-2026-09-12.md).
+> Snapshot per data di conoscibilità e parser FRED/ALFRED; allineamenti
+> settimanali/mensili rispettano `availableAt` quando presente. Gli storici
+> legacy non diventano point-in-time. Suite 331/331 file e build passati.
+> Nessun nuovo download di 40 anni o addestramento neurale dichiarato.
+
 > **Percorsi causali, 2026-09-12:** leggere
 > [causal-paths-calibration-2026-09-12.md](docs/causal-paths-calibration-2026-09-12.md).
 > Interventi congiunti distinti da shock additivi; SE dei percorsi con archi

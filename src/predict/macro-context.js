@@ -23,6 +23,7 @@
 'use strict';
 
 import { partialCorrelationTest } from './causal-discovery.js';
+import { macroVintageSnapshot } from './macro-vintages.js';
 
 const WEEK_MS = 7 * 86_400_000;
 
@@ -31,12 +32,13 @@ const WEEK_MS = 7 * 86_400_000;
 // si porta avanti l'ultimo valore noto (un tasso di riferimento resta quello
 // finché non cambia — è così che funziona davvero, non un'approssimazione di
 // comodo). Settimane precedenti al primo dato noto restano null, dichiarate.
-export function alignMacroToWeeks(macroSeries, { weeks, referenceDate = new Date() } = {}) {
+export function alignMacroToWeeks(macroSeries, { weeks, referenceDate = new Date(), timing = macroSeries?.some(p => p?.availableAt) ? 'release' : 'observation' } = {}) {
+  if (!Number.isInteger(weeks) || weeks <= 0 || weeks > 10400) return { values: [], copertura: 0 };
   const points = (macroSeries || [])
     .filter((p) => Number.isFinite(p?.close) && /^\d{4}-\d{2}-\d{2}$/.test(p?.date))
     .map((p) => ({ t: Date.parse(p.date + 'T00:00:00Z'), close: p.close }))
     .sort((a, b) => a.t - b.t);
-  if (!points.length || !Number.isFinite(weeks)) return { values: [], copertura: 0 };
+  if (!points.length && timing !== 'release') return { values: [], copertura: 0 };
 
   const monday = new Date(referenceDate);
   const day = monday.getDay();
@@ -55,11 +57,16 @@ export function alignMacroToWeeks(macroSeries, { weeks, referenceDate = new Date
     // confronto giusto è con la FINE della settimana: un valore noto in
     // un giorno qualsiasi della settimana vale per quella settimana.
     const fineSettimana = start + (w + 1) * WEEK_MS;
+    if (timing === 'release') {
+      const asOf = new Date(fineSettimana - 1).toISOString().slice(0, 10);
+      values[w] = macroVintageSnapshot(macroSeries, asOf).at(-1)?.close ?? null;
+      continue;
+    }
     while (idx < points.length && points[idx].t < fineSettimana) { ultimo = points[idx].close; idx++; }
     values[w] = ultimo;
   }
   const copertura = values.filter((v) => v !== null).length / weeks;
-  return { values, copertura: +copertura.toFixed(2) };
+  return { values, copertura: +copertura.toFixed(2), ...(timing === 'release' ? { knowledgeBasis: 'release' } : {}) };
 }
 
 // Come alignMacroToWeeks ma su griglia MENSILE — serve per spiegare la parte
@@ -69,12 +76,13 @@ export function alignMacroToWeeks(macroSeries, { weeks, referenceDate = new Date
 // `mesi` quanti mesi indietro copre la griglia — stesso principio "porta
 // avanti l'ultimo valore noto", stessa onestà: mesi prima del primo dato
 // noto restano null, mai un'interpolazione inventata.
-export function alignMacroToMonths(macroSeries, { mesi, meseFinale } = {}) {
+export function alignMacroToMonths(macroSeries, { mesi, meseFinale, timing = macroSeries?.some(p => p?.availableAt) ? 'release' : 'observation' } = {}) {
+  if (!Number.isInteger(mesi) || mesi <= 0 || mesi > 2400) return { values: [], copertura: 0 };
   const points = (macroSeries || [])
     .filter((p) => Number.isFinite(p?.close) && /^\d{4}-\d{2}$/.test(String(p?.date).slice(0, 7)))
     .map((p) => ({ ym: String(p.date).slice(0, 7), close: p.close }))
     .sort((a, b) => a.ym.localeCompare(b.ym));
-  if (!points.length || !Number.isFinite(mesi) || !/^\d{4}-\d{2}$/.test(meseFinale || '')) return { values: [], copertura: 0 };
+  if ((!points.length && timing !== 'release') || !/^\d{4}-(0[1-9]|1[0-2])$/.test(meseFinale || '')) return { values: [], copertura: 0 };
 
   const [annoFin, meseFin] = meseFinale.split('-').map(Number);
   const ymAt = (offset) => { // offset 0 = meseFinale, offset -1 = mese prima, ecc.
@@ -87,11 +95,17 @@ export function alignMacroToMonths(macroSeries, { mesi, meseFinale } = {}) {
   let idx = 0, ultimo = null;
   for (let w = 0; w < mesi; w++) {
     const ymCorrente = ymAt(w - (mesi - 1)); // dal più vecchio al più recente
+    if (timing === 'release') {
+      const [year, month] = ymCorrente.split('-').map(Number);
+      const asOf = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+      values[w] = macroVintageSnapshot(macroSeries, asOf).at(-1)?.close ?? null;
+      continue;
+    }
     while (idx < points.length && points[idx].ym <= ymCorrente) { ultimo = points[idx].close; idx++; }
     values[w] = ultimo;
   }
   const copertura = values.filter((v) => v !== null).length / mesi;
-  return { values, copertura: +copertura.toFixed(2) };
+  return { values, copertura: +copertura.toFixed(2), ...(timing === 'release' ? { knowledgeBasis: 'release' } : {}) };
 }
 
 // Dato un residuo (già calcolato da detectLatentConfounders, MAI ricalcolato
