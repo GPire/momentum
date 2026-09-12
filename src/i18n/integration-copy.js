@@ -1,5 +1,11 @@
 const langs = ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt'];
 const copy = {
+  categoryColorGuide: ['Scegli un colore. Guardalo sulla tua icona.','Pick a color. See it on your icon.','Wähle eine Farbe. Sieh sie auf deinem Symbol.','Choisis une couleur. Vois-la sur ton icône.','Elige un color. Míralo en tu icono.','Kies een kleur. Bekijk je icoon.','Escolhe uma cor. Vê como fica no ícone.'],
+  categoryColorSoft: ['Delicato','Soft','Sanft','Doux','Suave','Zacht','Suave'],
+  categoryColorVivid: ['Vivace','Vivid','Lebendig','Vif','Vivo','Levendig','Vivo'],
+  categoryColorDeep: ['Profondo','Deep','Tief','Profond','Profundo','Diep','Profundo'],
+  categoryColorFine: ['Regola i dettagli','Fine-tune','Fein einstellen','Ajuster les détails','Ajustar detalles','Fijn afstellen','Ajustar detalhes'],
+  categoryColorReset: ['Colore iniziale','Original color','Ursprüngliche Farbe','Couleur initiale','Color inicial','Oorspronkelijke kleur','Cor inicial'],
   categoryCustomColor: ['Colore personalizzato','Custom color','Eigene Farbe','Couleur personnalisée','Color personalizado','Eigen kleur','Cor personalizada'],
   categoryHue: ['Tonalità','Hue','Farbton','Teinte','Tono','Tint','Tom'],
   categorySaturation: ['Intensità','Intensity','Intensität','Intensité','Intensidad','Intensiteit','Intensidade'],

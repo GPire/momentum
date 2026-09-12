@@ -101,6 +101,25 @@ try {
     await page.locator('#modal-body .new-cat-emoji[data-icona="taxi"]').click();
     await page.locator('#modal-body .category-icon-search').fill('');
     await page.locator('#modal-body .category-custom-toggle').click();
+    assert.equal(await page.locator('#modal-body .category-hex').isVisible(),false);
+    const initialColor=await page.locator('#modal-body .category-hex').inputValue();
+    await page.locator('#modal-body [data-color-tone="1"]').click();
+    assert.equal(await page.locator('#modal-body [data-color-tone="1"]').getAttribute('aria-pressed'),'true');
+    await page.locator('#modal-body .category-color-reset').click();
+    assert.equal(await page.locator('#modal-body .category-hex').inputValue(),initialColor);
+    await page.locator('#modal-body .category-color-stage').scrollIntoViewIfNeeded();
+    await page.screenshot({path:resolve(artifacts,`category-color-simple-${width}${empty ? '-first-use' : ''}.png`)});
+    await page.locator('#modal-body .category-color-fine').click();
+    await page.locator('#modal-body .category-hex').fill('#fff');
+    await page.locator('#modal-body [data-color-channel="0"]').press('ArrowRight');
+    assert.notEqual(await page.locator('#modal-body .category-hex').inputValue(),'#ffffff');
+    const colorContained=await page.locator('#modal-body .category-custom-color').evaluate(panel=>{
+      const box=panel.getBoundingClientRect();
+      return [...panel.querySelectorAll('input,button')].filter(el=>el.getClientRects().length).every(el=>{
+        const r=el.getBoundingClientRect(); return r.left>=box.left && r.right<=box.right && r.height>=44;
+      });
+    });
+    assert(colorContained,'Custom color controls must stay contained and touch-sized');
     await page.locator('#modal-body .category-hex').fill('#oops');
     await page.locator('#modal-body #new-cat-crea').click();
     assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),true);

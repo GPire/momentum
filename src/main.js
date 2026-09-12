@@ -648,9 +648,15 @@ const buildNewCatPanelHTML = () => `
     </div>
     <button type="button" class="category-custom-toggle" aria-expanded="false">${tIntegration('categoryCustomColor', __uiLang)}<span aria-hidden="true">+</span></button>
     <div class="category-custom-color" hidden>
-      ${['categoryHue','categorySaturation','categoryLightness'].map((key,i) => `<label><span>${tIntegration(key,__uiLang)}</span><input type="range" data-color-channel="${i}" min="0" max="${i===0 ? 359 : 100}" value="${i===0 ? 340 : 50}" aria-label="${tIntegration(key,__uiLang)}" /></label>`).join('')}
+      <div class="category-color-stage"><div class="category-color-planet" aria-hidden="true">${CAT_ICONE[0].svg}</div><p>${tIntegration('categoryColorGuide',__uiLang)}</p></div>
+      <label><span>${tCh('catColorAria',__uiLang)}</span><input type="range" data-color-channel="0" min="0" max="359" value="340" aria-label="${tIntegration('categoryHue',__uiLang)}" /></label>
+      <div class="category-color-tones" role="group" aria-label="${tIntegration('categorySaturation',__uiLang)}">${['Soft','Vivid','Deep'].map((tone,i)=>`<button type="button" data-color-tone="${i}" aria-pressed="false"><span aria-hidden="true"></span>${tIntegration('categoryColor'+tone,__uiLang)}</button>`).join('')}</div>
+      <div class="category-color-actions"><button type="button" class="category-color-fine" aria-expanded="false">${tIntegration('categoryColorFine',__uiLang)}<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg></button><button type="button" class="category-color-reset">${tIntegration('categoryColorReset',__uiLang)}</button></div>
+      <div class="category-color-details" hidden>
+      ${['categorySaturation','categoryLightness'].map((key,i) => `<label><span>${tIntegration(key,__uiLang)}</span><input type="range" data-color-channel="${i+1}" min="0" max="100" value="50" aria-label="${tIntegration(key,__uiLang)}" /></label>`).join('')}
       <label class="category-hex-label"><span>${tIntegration('categoryColorCode',__uiLang)}</span><input type="text" class="category-hex" value="${CAT_PALETTE[0]}" maxlength="7" autocomplete="off" spellcheck="false" aria-label="${tIntegration('categoryColorCode',__uiLang)}" placeholder="#4f46e5" /></label>
       <p class="category-color-error" role="status" hidden>${tIntegration('categoryColorInvalid',__uiLang)}</p>
+      </div>
     </div>
     <p class="new-cat-label">${tCh('catIconAria', __uiLang)}</p>
     <input type="search" class="category-icon-search" placeholder="${tIntegration('categoryIconSearch',__uiLang)}" aria-label="${tIntegration('categoryIconSearch',__uiLang)}" autocomplete="off" />
@@ -1553,6 +1559,8 @@ const attachFormListeners = (container, prefill = null) => {
   // si tocca una categoria gia' esistente, solo che questa e' appena nata.
   let catIconaScelta = CAT_ICONE[0];
   let catColoreScelta = CAT_PALETTE[0];
+  let initialCustomColor = catColoreScelta;
+  const colorTones = [[55,78],[78,55],[60,32]];
   const syncCustomColor = () => {
     const hsl=hexToHsl(catColoreScelta);
     container.querySelectorAll('[data-color-channel]').forEach((input,i) => { input.value=hsl[i]; });
@@ -1563,6 +1571,16 @@ const attachFormListeners = (container, prefill = null) => {
 
   const aggiornaAnteprimaCat = () => {
     const [h]=hexToHsl(catColoreScelta);
+    const planet=container.querySelector('.category-color-planet');
+    planet.innerHTML=catIconaScelta.svg;
+    planet.style.setProperty('--planet-color',catColoreScelta);
+    planet.style.color=categoryInk(catColoreScelta);
+    container.querySelector('.category-color-reset').disabled=catColoreScelta===initialCustomColor;
+    container.querySelectorAll('[data-color-tone]').forEach((button,i)=>{
+      const color=hslToHex(h,...colorTones[i]);
+      button.style.setProperty('--tone-color',color);
+      button.setAttribute('aria-pressed',String(color===catColoreScelta));
+    });
     const gradients=['linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)',`linear-gradient(to right,hsl(${h} 0% 50%),hsl(${h} 100% 50%))`,`linear-gradient(to right,#000,hsl(${h} 100% 50%),#fff)`];
     container.querySelectorAll('[data-color-channel]').forEach((input,i)=>{input.style.backgroundImage=gradients[i];});
     const icona = container.querySelector('#new-cat-preview-icon');
@@ -1735,10 +1753,39 @@ const attachFormListeners = (container, prefill = null) => {
   container.querySelector('.category-custom-toggle').addEventListener('click', event => {
     const panel=container.querySelector('.category-custom-color');
     if (!panel.hidden) syncCustomColor();
+    else {
+      initialCustomColor=catColoreScelta;
+      container.querySelector('.category-color-details').hidden=true;
+      container.querySelector('.category-color-fine').setAttribute('aria-expanded','false');
+      aggiornaAnteprimaCat();
+    }
     panel.hidden=!panel.hidden;
     event.currentTarget.setAttribute('aria-expanded',String(!panel.hidden));
   });
+  container.querySelector('.category-color-fine').addEventListener('click', event=>{
+    const details=container.querySelector('.category-color-details');
+    if (!details.hidden) syncCustomColor();
+    details.hidden=!details.hidden;
+    event.currentTarget.setAttribute('aria-expanded',String(!details.hidden));
+  });
+  container.querySelector('.category-color-reset').addEventListener('click',()=>{
+    catColoreScelta=initialCustomColor;
+    syncCustomColor(); aggiornaAnteprimaCat();
+  });
+  container.querySelectorAll('[data-color-tone]').forEach((button,i)=>button.addEventListener('click',()=>{
+    const hue=container.querySelector('[data-color-channel="0"]').value;
+    catColoreScelta=hslToHex(hue,...colorTones[i]);
+    syncCustomColor(); aggiornaAnteprimaCat();
+  }));
   container.querySelectorAll('[data-color-channel]').forEach(input => input.addEventListener('input', () => {
+    // A hue change on gray/black must produce a visible color, not a motionless preview.
+    if (input.dataset.colorChannel==='0') {
+      const saturation=container.querySelector('[data-color-channel="1"]');
+      const lightness=container.querySelector('[data-color-channel="2"]');
+      if (+saturation.value===0 || +lightness.value===0 || +lightness.value===100) {
+        saturation.value=78; lightness.value=55;
+      }
+    }
     catColoreScelta=hslToHex(...[...container.querySelectorAll('[data-color-channel]')].map(el=>el.value));
     container.querySelector('.category-hex').value=catColoreScelta;
     container.querySelector('.category-hex').removeAttribute('aria-invalid');
