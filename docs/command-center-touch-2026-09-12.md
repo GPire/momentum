@@ -1,10 +1,11 @@
 # Command Center e movimenti — 12 settembre 2026
 
 Questa integrazione risponde ai feedback su tastiera mobile, importi sovrapposti,
-lista troppo lunga e modifica delle categorie. È destinata alla PR #2, ma il
-push non è riuscito in questa sessione: rete Git bloccata e connettore GitHub
-senza autenticazione in scrittura. Il codice è nel commit locale `443c23a`;
-né anteprima online né produzione contengono ancora queste modifiche.
+lista troppo lunga e modifica delle categorie. I commit fino a `06f778f` sono
+stati pubblicati nella PR #2 e nell'anteprima Cloudflare
+https://ee54e391.momentum-finance.pages.dev. Test/build, Android e iOS Simulator
+sono passati in CI. La pubblicazione di un'anteprima non implica il merge:
+lo stato aggiornato è in https://github.com/GPire/momentum/pull/2.
 
 - Dashboard: 8 movimenti iniziali, altri 8 per tocco, contatore e Mostra meno.
   Il cambio mese riparte da 8; totali del mese e del giorno usano tutti i dati,
@@ -53,6 +54,9 @@ file runtime. Nessuna sicurezza del browser è stata disattivata.
 archivi sintetici isolati a 393, 430, 768, 1024 e 1366 pixel, producendo screenshot.
 Lo smoke verifica anche che l'azione di modifica sia visibile e che il selettore
 icone non mostri nomi. Può usare Playwright, un Chrome/Edge locale o una sessione
-CDP; su questo host l'avvio del browser è fermato da `spawn EPERM`. La nuova CI
-non è stata eseguita perché il push è bloccato. La simulazione dell'area della tastiera
+CDP; su questo host l'avvio del browser è fermato da `spawn EPERM`. La prima CI
+si è fermata prima delle interazioni: il test cercava `window.openTransactionModal`,
+che è una funzione interna al modulo. `3f92f1a` usa il pulsante reale e un archivio
+di utente già informato sulle novità, senza disabilitare controlli di layout o dati.
+La simulazione dell'area della tastiera
 non certifica la tastiera fisica iOS, il focus Safari o tutti gli iPhone.

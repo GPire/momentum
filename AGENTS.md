@@ -1,12 +1,15 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
-> **Ultima integrazione locale 2026-09-12:** commit `37b9462` sopra `443c23a`
+> **Ultima integrazione 2026-09-12:** commit `06f778f` sopra `443c23a`
 > ed `e7b1736`: lista da 8 movimenti, correzioni viewport/tastiera/importo,
 > rinomina delle categorie senza cambiare ID, 10 icone nuove, selettore solo
 > iconografico, azione esplicita per correggere una categoria e consolidamento
 > delle notizie duplicate prima del sentiment. 4.897 test / 323 file e build
-> passati localmente. Push bloccato dal proxy Git `127.0.0.1:9`; non è ancora
-> nell'anteprima online. Lo smoke browser è pronto anche per Chrome/Edge locale,
+> passati localmente. Push riuscito; Cloudflare ha pubblicato `06f778f` su
+> `https://ee54e391.momentum-finance.pages.dev`. Test/build, Android e iOS Simulator
+> passati in CI. Lo smoke browser iniziale cercava una funzione non globale;
+> `3f92f1a` lo corregge usando il pulsante reale. Consultare la PR #2 per l'esito
+> aggiornato e lo stato di merge, senza dedurlo dalla sola anteprima. Lo smoke è pronto anche per Chrome/Edge locale,
 > ma l'avvio del browser su questo host resta fermato da `spawn EPERM`.
 > Leggere [command-center-touch-2026-09-12.md](docs/command-center-touch-2026-09-12.md).
 

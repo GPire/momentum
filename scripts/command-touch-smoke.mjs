@@ -59,10 +59,10 @@ try {
     assert(layout.content.x>=-1 && layout.content.right<=width+1,JSON.stringify(layout));
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
     await page.locator('#modal-body .command-edit-category').click();
-    assert.equal(await page.locator('#new-cat-emoji-grid .new-cat-emoji span').count(),0);
-    assert.ok(await page.locator('#new-cat-emoji-grid .new-cat-emoji').first().getAttribute('aria-label'));
-    await page.locator('#new-cat-nome').fill('Spesa di casa');
-    await page.locator('#new-cat-crea').click();
+    assert.equal(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji span').count(),0);
+    assert.ok(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji').first().getAttribute('aria-label'));
+    await page.locator('#modal-body #new-cat-nome').fill('Spesa di casa');
+    await page.locator('#modal-body #new-cat-crea').click();
     assert.equal(await page.locator('#modal-body [data-cat-id="spesa"] .cat-chip-label').innerText(),'Spesa di casa');
     const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('omega_core_db')));
     assert.deepEqual(after.transactions,state.transactions);
