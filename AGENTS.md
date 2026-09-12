@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Revisioni SEC, 2026-09-12:** leggere
+> [sec-filing-vintages-2026-09-12.md](docs/sec-filing-vintages-2026-09-12.md).
+> `bench:sec` conserva provenienza e revisioni tramite `sec-filing-facts.js`.
+> Snapshot per data di deposito, conflitti mancanti, annuali separati dai trimestri.
+> L’archivio incorporato NON è stato rigenerato: non dichiararlo point-in-time.
+> La tesi storica ora dichiara esplicitamente il carattere retrospettivo.
+
 > **Archivi e comparabili, 2026-09-12:** leggere
 > [history-reuse-and-comparables-2026-09-12.md](docs/history-reuse-and-comparables-2026-09-12.md).
 > Riutilizzare storia giornaliera dal 1985, materie prime dal 1960 e pannelli SEC.

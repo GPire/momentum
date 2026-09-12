@@ -192,7 +192,7 @@ test('LA COSA PIÙ SCOMODA: comprata quando i conti non la giustificavano', () =
   assert.equal(t.disponibile, true);
   assert.equal(t.nessunaRagione, true, 'nel 2015 Tesla perdeva soldi');
   const s = storiaDellaTesi('TSLA', 2015);
-  assert.match(testoStoriaTesi(s), /non c'e' una tesi che si sia rotta/i);
+  assert.match(testoStoriaTesi(s), /non dimostra che mancassero altre ragioni/i);
 });
 
 test('un anno fuori archivio si dichiara, non si inventa', () => {
@@ -207,4 +207,12 @@ test('il testo storico non dice mai cosa fare', () => {
   assert.ok(!/(^|[.!?]\s+)(vendi|compra|esci|entra)\b/i.test(t), t);
   assert.ok(!/\b(dovresti|ti consiglio|ti conviene)\b/i.test(t), t);
   assert.match(t, /bilanci depositati, non stime/);
+});
+
+test('la ricostruzione dai bilanci legacy dichiara il senno di poi', () => {
+  const t = tesiDaiBilanci('AAPL', 2015);
+  assert.equal(t.knowledgeBasis, 'latest-restated-history');
+  const s = storiaDellaTesi('AAPL', 2015);
+  assert.match(testoStoriaTesi(s), /retrospettiva/);
+  assert.ok(!testoStoriaTesi(s).includes('bilanci depositati quell'));
 });

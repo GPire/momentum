@@ -255,6 +255,7 @@ export function tesiDaiBilanci(ticker, annoAcquisto) {
   return {
     disponibile: true,
     ticker: t, nome: dati.nome, anno: annoAcquisto,
+    knowledgeBasis: 'latest-restated-history',
     ragioni,
     // Il caso scomodo: comprata quando i conti NON la giustificavano.
     nessunaRagione: ragioni.length === 0,
@@ -311,12 +312,13 @@ const pc = (x) => `${Math.round(x * 100)}%`;
 
 export function testoStoriaTesi(s) {
   if (!s?.disponibile) return s?.motivo || null;
-  const righe = [];
+  const avviso = 'Ricostruzione retrospettiva con i bilanci presenti nell’archivio, incluse eventuali revisioni: non certifica quali dati fossero pubblici alla data di acquisto.';
+  const righe = [avviso];
 
   if (s.nessunaRagione) {
     // La cosa piu' scomoda che questo modulo puo' dire, e per questo va detta
     // per prima e senza attenuarla.
-    return `Nel ${s.annoAcquisto} i conti di ${s.nome} non soddisfacevano nessuno dei criteri: ne' il rendimento sul capitale, ne' il margine, ne' il rendimento sulle attivita'. Non c'e' una tesi che si sia rotta — non ce n'era una, e questo lo dicono i bilanci depositati quell'anno, non un giudizio a posteriori.`;
+    return `${avviso} Per l’esercizio ${s.annoAcquisto}, i dati disponibili di ${s.nome} non mostrano criteri sopra soglia. Questo non dimostra che mancassero altre ragioni per investire.`;
   }
 
   righe.push(`Comprata nel ${s.annoAcquisto}, quando ${s.nome} soddisfaceva ${s.esiti.length} ${s.esiti.length === 1 ? 'criterio' : 'criteri'}. Da allora sono passati ${s.anniOsservati} esercizi.`);

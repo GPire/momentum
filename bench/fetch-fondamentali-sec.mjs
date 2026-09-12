@@ -33,6 +33,7 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { annualSecFacts, secFactsAt } from '../src/alpha/sec-filing-facts.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // LA SEC PRETENDE UN CONTATTO IN FORMA DI EMAIL, e non e' una formalita':
@@ -158,36 +159,19 @@ const FLUSSI = new Set(['utileNetto', 'ricavi', 'costoVenduto', 'speseSga', 'flu
 // etichetta contabile non e' un buco nei dati, e trattarlo come tale
 // cancellava mezza azienda.
 function perAnno(fatti, nomi, { flusso }) {
-  const us = fatti?.facts?.['us-gaap'] || {};
+  const revisioni = annualSecFacts(fatti, nomi, { flow: flusso });
+  const snapshot = secFactsAt(revisioni, new Date().toISOString().slice(0, 10));
   const perAnnoMap = new Map();
-  const usati = [];
-
-  for (const nome of nomi) {
-    const unita = us[nome]?.units?.USD;
-    if (!Array.isArray(unita) || !unita.length) continue;
-
-    const buone = unita.filter((x) => {
-      if (x.form !== '10-K' || !Number.isFinite(x.val) || !x.end) return false;
-      if (flusso) {
-        if (!x.start) return false;
-        const giorni = (new Date(x.end) - new Date(x.start)) / 86400000;
-        return giorni >= 340 && giorni <= 400; // un esercizio, non un trimestre
-      }
-      return !x.start; // uno stock non ha un periodo di accumulo
-    });
-    if (!buone.length) continue;
-    usati.push(nome);
-
-    for (const x of buone) {
-      const anno = +String(x.end).slice(0, 4);
-      const prec = perAnnoMap.get(anno);
-      if (!prec || (x.filed || '') > (prec.filed || '')) perAnnoMap.set(anno, x);
-    }
+  for (const x of snapshot) {
+    const anno = Number(x.end.slice(0, 4));
+    const prec = perAnnoMap.get(anno);
+    // Never silently combine two fiscal periods ending in the same year.
+    perAnnoMap.set(anno, prec ? { ...prec, value: null, conflict: true } : x);
   }
-
   if (perAnnoMap.size < 3) return null;
-  const anni = [...perAnnoMap.entries()].sort((a, b) => a[0] - b[0]).map(([anno, x]) => ({ anno, valore: x.val }));
-  return { concetti: usati, anni };
+  const anni = [...perAnnoMap.entries()].sort((a, b) => a[0] - b[0])
+    .map(([anno, x]) => ({ anno, valore: x.value, provenienza: x }));
+  return { concetti: [...new Set(revisioni.map(r => r.concept))], anni, revisioni };
 }
 
 // BUG REALE TROVATO: l'elenco ufficiale SEC ticker→CIK non e' statico — una
@@ -253,8 +237,12 @@ const CIK_OVERRIDE = { XOM: { cik: '0000034088', nome: 'Exxon Mobil Corporation'
     const anni = [...pn.keys()].filter((y) => un.has(y)).sort((a, b) => a - b);
     serie[t] = {
       nome: d.nome,
+      cik: d.cik,
+      revisioni: Object.fromEntries(Object.entries(d.voci).map(([k, v]) => [k, v.revisioni])),
       anni: anni.map((y) => ({
         anno: y,
+        provenienza: Object.fromEntries(Object.entries(d.voci).map(([k, v]) =>
+          [k, v.anni.find(x => x.anno === y)?.provenienza || null])),
         // ── IL ROE NON SIGNIFICA NIENTE SE IL PATRIMONIO E' QUASI ZERO ──
         // Con 82 aziende invece di 14 e' saltato fuori il problema: in cima
         // alla classifica per "costanza del ROE" finivano Colgate (688%),
@@ -270,10 +258,10 @@ const CIK_OVERRIDE = { XOM: { cik: '0000034088', nome: 'Exxon Mobil Corporation'
         // La soglia: il patrimonio deve valere almeno il 5% dell'attivo. Sotto,
         // il ROE resta NULL — assente, non zero, perche' non e' "basso": e'
         // non calcolabile.
-        roe: (pn.get(y) > 0 && at.get(y) > 0 && pn.get(y) / at.get(y) >= 0.05)
+        roe: (Number.isFinite(un.get(y)) && pn.get(y) > 0 && at.get(y) > 0 && pn.get(y) / at.get(y) >= 0.05)
           ? +(un.get(y) / pn.get(y)).toFixed(4) : null,
-        margine: rv.get(y) > 0 ? +(un.get(y) / rv.get(y)).toFixed(4) : null,
-        roa: at.get(y) > 0 ? +(un.get(y) / at.get(y)).toFixed(4) : null,
+        margine: Number.isFinite(un.get(y)) && rv.get(y) > 0 ? +(un.get(y) / rv.get(y)).toFixed(4) : null,
+        roa: Number.isFinite(un.get(y)) && at.get(y) > 0 ? +(un.get(y) / at.get(y)).toFixed(4) : null,
         utileNetto: un.get(y),
         ricavi: rv.get(y) ?? null,
         patrimonioNetto: pn.get(y),
