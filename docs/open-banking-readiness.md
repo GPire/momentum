@@ -1,5 +1,7 @@
 # Open banking: decisione di integrazione
 
+Aggiornamento prezzi e shortlist: [ricerca del 12 settembre 2026](open-banking-cost-research-2026-09-12.md). Include finAPI e separa costo API, copertura AIS, sviluppo gratuito e produzione.
+
 Verifica del codice e delle fonti: 11 settembre 2026. Questo documento è un piano tecnico, non un connettore attivo né una certificazione di rilascio.
 
 ## Stato verificato
