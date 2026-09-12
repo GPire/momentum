@@ -125,6 +125,7 @@ test('UTC PURO: nessuno spostamento possibile, tutti e due i metodi concordano �
 // piatte "AAAA-MM-GG" senza questa ambiguità, e un divieto troppo largo
 // darebbe falsi positivi su codice già corretto.
 const PATTERN_VIETATI = [
+  { re: /\b(?:t|tx)\.date\?\.slice\(/g, label: 'data-transazione con optional chaining e taglio UTC' },
   { re: /\bt\.date\.slice\(/g, label: 't.date.slice(...) diretto' },
   { re: /\btx\.date\.slice\(/g, label: 'tx.date.slice(...) diretto' },
   { re: /String\(\s*t\.date\s*\)\.slice\(/g, label: 'String(t.date).slice(...)' },

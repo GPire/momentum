@@ -34,3 +34,7 @@ Tre nuovi test di regressione, prima falliti e poi superati, coprono budget picc
 
 Verifica successiva al controllo allocazioni: suite completa 333/333 file superati; build portable completata in 23,15 secondi con avvisi di dimensione bundle. Nessun push/deploy in questo blocco.
 
+
+## Collegamento movimenti-scadenze
+Corretto openTransactionSchedule: le date con orario vengono lette con giornoLocale, quelle di calendario restano invariate. La guardia sulle date ora intercetta anche optional chaining (test fallito prima della correzione). Il pulsante della scadenza serializza gli ID testuali anziché interpretarli come codice JavaScript. 19 test su date e agenda superati, build portable 19,97 secondi. Browser: apertura editor, cadenze, inizio/fine verificati senza salvataggi; non verificato end-to-end un movimento importato con UUID. Non modificati storico, schema Vault o motori di rilevamento. Nessun push/deploy.
+

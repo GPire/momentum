@@ -3472,7 +3472,7 @@ window.openTransactionSchedule = (month, id) => {
   const existing = (VaultDAO.state.paymentDeclarations || []).find(p => p.sourceTxId === String(id));
   const predictionIndex = agendaItems.findIndex(p => !p.parentKey && p.name.trim().toLowerCase() === String(tx.description || '').trim().toLowerCase());
   if (!existing && predictionIndex >= 0) { window.openPaymentEditor(predictionIndex); return; }
-  window.openPaymentEditor(null, existing || { key: 'manual:' + crypto.randomUUID(), name: tx.description || '', amount: tx.amount, kind: 'recurring', cadence: 'monthly', date: '', startDate: tx.date?.slice(0, 10) || '', sourceTxId: String(id) });
+  window.openPaymentEditor(null, existing || { key: 'manual:' + crypto.randomUUID(), name: tx.description || '', amount: tx.amount, kind: 'recurring', cadence: 'monthly', date: '', startDate: validPaymentDate(tx.date) ? tx.date : giornoLocale(tx.date) || '', sourceTxId: String(id) });
 };
 window.openPaymentAgenda = () => {
   renderTransactionRecurring();
@@ -4397,7 +4397,7 @@ const renderDashboard = () => {
         <div class="flex flex-col items-end shrink-0 pl-2">
           <span class="tx-importo font-mono ${isInc ? 'text-[var(--green)]' : isInv ? 'text-[var(--gold)]' : ''}">${isInc ? '+' : isInv ? '⟳' : '−'}${formatMoney(t.amount)}</span>
           <div class="flex mt-1 items-center">
-            ${!isInc && !isInv && (VaultDAO.state.transactions[k] || []).some(real => real.id === t.id) ? `<button type="button" class="tx-schedule" onclick="window.openTransactionSchedule('${k}', ${t.id})">${tCh('agendaSchedule', __uiLang)}</button>` : ''}
+            ${!isInc && !isInv && (VaultDAO.state.transactions[k] || []).some(real => String(real.id) === String(t.id)) ? `<button type="button" class="tx-schedule" onclick="window.openTransactionSchedule(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(String(t.id)))})">${tCh('agendaSchedule', __uiLang)}</button>` : ''}
             <!-- Neuro-UX + fix responsive: era "ELIMINA" testo su hover (invisibile
                  su touch → impossibile cancellare da mobile) e un muro di bottoni
                  rossi urlati. Ora: icona cestino DISCRETA (azione distruttiva a
