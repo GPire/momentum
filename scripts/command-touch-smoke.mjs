@@ -16,7 +16,9 @@ const server = createServer((req,res) => {
   catch { res.writeHead(404); res.end(); }
 });
 await new Promise(r => server.listen(4176,'127.0.0.1',r));
-const browser = process.env.MOMENTUM_CDP ? await chromium.connectOverCDP(process.env.MOMENTUM_CDP) : await chromium.launch({headless:true});
+const browser = process.env.MOMENTUM_CDP
+  ? await chromium.connectOverCDP(process.env.MOMENTUM_CDP)
+  : await chromium.launch({ headless:true, ...(process.env.MOMENTUM_BROWSER_EXECUTABLE ? { executablePath:process.env.MOMENTUM_BROWSER_EXECUTABLE } : {}) });
 const fixture = JSON.parse(readFileSync('src/core/fixtures/historical-backups.json')).states[0].state;
 const date = new Date(), month = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
 let prev = 'GENESIS';
@@ -35,6 +37,12 @@ try {
     await page.waitForFunction(()=>typeof window.openTransactionModal === 'function');
     await page.locator('#transaction-list-container .tx-card').first().waitFor({state:'visible'});
     assert.equal(await page.locator('#transaction-list-container .tx-card').count(),8);
+    const editCategory = page.locator('#transaction-list-container .tx-category-edit').first();
+    await editCategory.waitFor({state:'visible'});
+    assert.match(await editCategory.innerText(),/Cambia categoria/i);
+    await editCategory.click();
+    await page.locator('#modal-body button[onclick*="setTxCategory"]').first().waitFor({state:'visible'});
+    await page.evaluate(()=>window.closeModal());
     await page.locator('[data-ledger-more]').click();
     assert.equal(await page.locator('#transaction-list-container .tx-card').count(),16);
     await page.locator('[data-ledger-less]').click();
@@ -50,6 +58,8 @@ try {
     assert(layout.content.x>=-1 && layout.content.right<=width+1,JSON.stringify(layout));
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
     await page.locator('#modal-body .command-edit-category').click();
+    assert.equal(await page.locator('#new-cat-emoji-grid .new-cat-emoji span').count(),0);
+    assert.ok(await page.locator('#new-cat-emoji-grid .new-cat-emoji').first().getAttribute('aria-label'));
     await page.locator('#new-cat-nome').fill('Spesa di casa');
     await page.locator('#new-cat-crea').click();
     assert.equal(await page.locator('#modal-body [data-cat-id="spesa"] .cat-chip-label').innerText(),'Spesa di casa');

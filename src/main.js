@@ -643,7 +643,7 @@ const buildNewCatPanelHTML = () => `
     </div>
     <p class="new-cat-label">${tCh('catIconAria', __uiLang)}</p>
     <div class="new-cat-griglia" id="new-cat-emoji-grid" role="group" aria-label="${tCh('catIconAria', __uiLang)}">
-      ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-pressed="${i === 0}">${ic.svg}<span>${categoryIconLabel(ic.chiave)}</span></button>`).join('')}
+      ${CAT_ICONE.map((ic, i) => `<button type="button" class="new-cat-emoji${i === 0 ? ' selected' : ''}" data-icona="${ic.chiave}" aria-pressed="${i === 0}" aria-label="${categoryIconLabel(ic.chiave)}" title="${categoryIconLabel(ic.chiave)}">${ic.svg}</button>`).join('')}
     </div>
     <button type="button" id="new-cat-crea" class="new-cat-crea-btn">${tCh('catCreaCategoria', __uiLang)}</button>
   </div>
@@ -1671,8 +1671,6 @@ const attachFormListeners = (container, prefill = null) => {
       btn.classList.add('selected');
       btn.setAttribute('aria-pressed', 'true');
       catIconaScelta = CAT_ICONE.find((ic) => ic.chiave === btn.dataset.icona) || CAT_ICONE[0];
-      const name = container.querySelector('#new-cat-nome');
-      if (!categoryBeingEdited && !name.value.trim()) name.value = categoryIconLabel(catIconaScelta.chiave);
       aggiornaAnteprimaCat();
     });
   });
@@ -4249,7 +4247,11 @@ const renderDashboard = () => {
                   ogni riga: in una lista di trenta, se tutto grida non spicca
                   niente e scorrerla diventa faticoso. -->
              <p class="tx-desc truncate flex items-center"><span class="truncate">${escTx(descLabel)}</span></p>
-             <button onclick="window.openCategoryPicker('${k}', ${t.id})" class="tx-data truncate text-left hover:underline decoration-dotted underline-offset-2">${escTx(dateLabel)}</button>
+             <button onclick="window.openCategoryPicker('${k}', ${t.id})" class="tx-category-edit" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(dateLabel))}">
+               <span class="tx-category-name truncate">${escTx(dateLabel)}</span>
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+               <span class="tx-category-action">${tCh('catCambiaCategoria', __uiLang)}</span>
+             </button>
           </div>
         </div>
         <div class="flex flex-col items-end shrink-0 pl-2">
@@ -4323,14 +4325,14 @@ window.openCategoryPicker = (month, id) => {
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 modal-section-in">
       <div class="text-center">
-        <h3 class="text-lg font-black leading-tight">Che categoria è?</h3>
+        <h3 class="text-lg font-black leading-tight">${tIntegration('transactionCategoryQuestion', __uiLang)}</h3>
         <p class="card-sub !mb-0 mt-1.5">${escapeHtml(tx.description || '')} · ${formatMoney(tx.amount)}</p>
       </div>
       <div class="grid grid-cols-3 gap-2.5 w-full">
         ${scelte.map(c => `
           <button onclick="window.setTxCategory('${month}', ${id}, '${c.id}')" class="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border ${c.id === tx.category ? 'border-[var(--primary)] bg-white/5' : 'border-[var(--glass-border)]'} hover:bg-white/5 transition">
             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
-            <span class="text-[10px] font-bold text-center leading-tight">${escapeHtml(c.name)}</span>
+            <span class="text-[10px] font-bold text-center leading-tight">${escapeHtml(catName(c, __uiLang))}</span>
           </button>
         `).join('')}
       </div>
@@ -4369,11 +4371,8 @@ window.setTxCategory = (month, id, newCat) => {
   }
   renderDashboard();
   renderAnalysis();
-  const nomeCat = getCatById(newCat).name;
-  showToast(
-    imparato ? `Spostata in "${nomeCat}" — imparato, la riconoscerò meglio la prossima volta.` : `Spostata in "${nomeCat}".`,
-    'success'
-  );
+  const nomeCat = catName(getCatById(newCat), __uiLang);
+  showToast(tIntegration(imparato ? 'categoryMovedLearned' : 'categoryMoved', __uiLang, nomeCat), 'success');
 };
 
 window.toggleSound = () => {
@@ -19581,7 +19580,7 @@ const initApp = () => {
     if (!scored.length) return null;
     const avg = scored.reduce((s, n) => s + n.sentimentScore, 0) / scored.length;
     const label = avg >= 0.35 ? 'bullish' : avg >= 0.15 ? 'somewhat-bullish' : avg >= -0.15 ? 'neutral' : avg >= -0.35 ? 'somewhat-bearish' : 'bearish';
-    const labelText = { bullish: 'positivo', 'somewhat-bullish': 'leggermente positivo', neutral: 'neutro', 'somewhat-bearish': 'leggermente negativo', bearish: 'negativo' }[label];
+    const labelText = tIntegration(`newsSentiment_${label.replaceAll('-', '_')}`, __uiLang);
     // Onestà sulla PROVENIENZA: se anche un solo punteggio nella media viene
     // dal modello on-device (sentimentSource:'on-device', src/ai/local-
     // sentiment.js) invece che da Alpha Vantage, va detto — un punteggio
@@ -19589,22 +19588,23 @@ const initApp = () => {
     // servizio dedicato con più segnali, e presentarli come indistinguibili
     // sarebbe suonare più sicuri di quanto si sia.
     const onDevice = scored.some(n => n.sentimentSource === 'on-device');
-    const nota = onDevice ? ' (in parte stimato on-device dai soli titoli)' : '';
-    return { avg: +avg.toFixed(3), label, n: scored.length, testo: `Sentiment recente ${labelText} (media ${avg.toFixed(2)} su ${scored.length} articoli con punteggio)${nota}.` };
+    const nota = onDevice ? tIntegration('newsSentimentDeviceNote', __uiLang) : '';
+    return { avg: +avg.toFixed(3), label, n: scored.length, testo: `${tIntegration('newsSentimentSummary', __uiLang, labelText, avg.toFixed(2), scored.length)}${nota}` };
   }
   function buildNewsItemsHtml(items) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-[var(--on-surface-secondary)]', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
     const escNews = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const safeNewsUrl = (raw) => { try { const u = new URL(raw); return /^https?:$/.test(u.protocol) ? escNews(u.href) : '#'; } catch (_) { return '#'; } };
     const synth = summarizeNewsSentiment(items);
     const synthHtml = synth ? `<p class="text-[11px] font-semibold ${labelColor[synth.label]} mb-1">${escNews(synth.testo)}</p>` : '';
-    const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">Notizie</h5>${synthHtml}` : '';
+    const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">${tIntegration('newsTitle', __uiLang)}</h5>${synthHtml}` : '';
     const itemsHtml = items.map(n => `
-      <a href="${n.url}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
+      <a href="${safeNewsUrl(n.url)}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="flex items-start gap-1.5">
           <span class="${labelColor[n.sentimentLabel] || 'text-[var(--on-surface-secondary)]'} mt-0.5 shrink-0">●</span>
           <div class="min-w-0">
             <div class="font-semibold leading-snug">${escNews(n.title)}</div>
-            <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}${n.sentimentSource === 'on-device' ? ' · sentiment on-device' : ''}</div>
+            <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}${n.corroborationCount > 1 ? ` · ${tIntegration('newsOtherSources', __uiLang, n.corroborationCount - 1)}` : ''}${n.sentimentSource === 'on-device' ? ` · ${tIntegration('newsOnDevice', __uiLang)}` : ''}</div>
             ${n.summary ? `<div class="text-[var(--on-surface-secondary)] text-[10px] mt-1 leading-snug">${escNews(n.summary)}</div>` : ''}
           </div>
         </div>
@@ -19769,6 +19769,12 @@ const initApp = () => {
         const r = await fetchHackerNewsMentions(asset.name || asset.symbol, { cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
         items = r.items || []; stale = r.stale;
       } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
+    }
+    if (items.length) {
+      try {
+        const { consolidateNewsItems } = await import('./alpha/news.js');
+        items = consolidateNewsItems(items, { limit: 6 });
+      } catch (_) { /* il feed originale resta utilizzabile */ }
     }
     // Ultimo fallback (grounding Gemini): se non ci sono notizie reali E
     // l'utente ha configurato Gemini, usa il grounding Google Search per

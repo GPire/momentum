@@ -22,10 +22,20 @@ né anteprima online né produzione contengono ancora queste modifiche.
   finché non si assegna un nome personale, mostrato poi così come scelto.
 - Dieci icone SVG aggiunte: parcheggio, assicurazioni, scuola, bambini,
   spesa alimentare, consegne, donazioni, manutenzione, abbigliamento, tecnologia.
-  Toccando un'icona con il nome vuoto si propone il suo nome nella lingua attiva.
-  Nessuna aggiunta automatica alla lista dell'utente. Controlli su nomi vuoti,
-  duplicati, lunghezza e caratteri di markup; selezione accessibile delle icone.
+  Il selettore mostra solo le icone: il nome resta una scelta dell'utente e non
+  viene compilato dall'icona. Le etichette tradotte restano disponibili a screen
+  reader e tooltip. Nessuna aggiunta automatica alla lista dell'utente. Controlli
+  su nomi vuoti, duplicati, lunghezza e caratteri di markup.
+- Ogni riga della lista mostra ora un controllo esplicito “Cambia categoria”,
+  oltre all'icona interattiva. La correzione mantiene importo, descrizione, data,
+  ID e hash, e alimenta il motore di apprendimento già esistente.
 - Tutte le nuove etichette sono in IT, EN, DE, FR, ES, NL e PT.
+
+Per investitori e trader, il flusso condiviso delle notizie consolida lo stesso
+articolo ripetuto con URL di tracciamento o titolo equivalente. Una notizia viene
+quindi contata una sola volta nel sentiment; fonti distinte sono conservate e
+mostrate come corroborazione. Il confronto è conservativo: eventi soltanto simili
+non vengono fusi. I link sono limitati ai protocolli HTTP/HTTPS.
 
 Le aree proposte rispondono a spese comuni presenti anche nei
 [modelli pubblici YNAB](https://www.ynab.com/templates/non-monthly-expenses),
@@ -33,7 +43,7 @@ non a una classifica misurata delle richieste degli utenti Momentum.
 La gestione della tastiera segue la distinzione documentata fra viewport
 visivo e di layout: [MDN VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport).
 
-Verifica locale: 4.893 test / 322 file passati, zero fallimenti o skip; build
+Verifica locale: tutti i test in 323 file passati, zero fallimenti o skip; build
 portabile completata. Il runner standard con sottoprocessi resta bloccato da
 EPERM su questo Windows; il runner seriale mantiene processi separati per file.
 Chrome headless locale non parte per Access denied; CUA non inizializza i suoi
@@ -41,5 +51,8 @@ file runtime. Nessuna sicurezza del browser è stata disattivata.
 
 `scripts/command-touch-smoke.mjs` e la CI dedicata eseguono i percorsi con
 archivi sintetici isolati a 393, 430, 768, 1024 e 1366 pixel, producendo screenshot.
-La nuova CI non è stata eseguita perché il push è bloccato. La simulazione dell'area della tastiera
+Lo smoke verifica anche che l'azione di modifica sia visibile e che il selettore
+icone non mostri nomi. Può usare Playwright, un Chrome/Edge locale o una sessione
+CDP; su questo host l'avvio del browser è fermato da `spawn EPERM`. La nuova CI
+non è stata eseguita perché il push è bloccato. La simulazione dell'area della tastiera
 non certifica la tastiera fisica iOS, il focus Safari o tutti gli iPhone.

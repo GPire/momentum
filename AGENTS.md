@@ -1,10 +1,13 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
-> **Ultima integrazione locale 2026-09-12:** commit applicativo `443c23a`,
-> lista da 8 movimenti, correzioni viewport/tastiera/importo, rinomina delle
-> categorie senza cambiare ID e 10 icone nuove. 4.893 test / 322 file e build
-> passati localmente. Push bloccato (rete Git e autenticazione connettore);
-> non è ancora nell'anteprima online. Collaudo UI/browser non completato.
+> **Ultima integrazione locale 2026-09-12:** commit `37b9462` sopra `443c23a`
+> ed `e7b1736`: lista da 8 movimenti, correzioni viewport/tastiera/importo,
+> rinomina delle categorie senza cambiare ID, 10 icone nuove, selettore solo
+> iconografico, azione esplicita per correggere una categoria e consolidamento
+> delle notizie duplicate prima del sentiment. 4.897 test / 323 file e build
+> passati localmente. Push bloccato dal proxy Git `127.0.0.1:9`; non è ancora
+> nell'anteprima online. Lo smoke browser è pronto anche per Chrome/Edge locale,
+> ma l'avvio del browser su questo host resta fermato da `spawn EPERM`.
 > Leggere [command-center-touch-2026-09-12.md](docs/command-center-touch-2026-09-12.md).
 
 > **Revisione del 2026-09-12:** `main` è `adc8a66`, release precedente integrata.

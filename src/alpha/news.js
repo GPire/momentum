@@ -49,6 +49,59 @@ function shortSummary(text) {
   return clean.length > 160 ? `${clean.slice(0, 157)}...` : clean;
 }
 
+// Una stessa notizia può comparire più volte nello stesso feed (URL con
+// parametri di tracciamento diversi o titolo ripubblicato). Mostrarla più
+// volte aumenta il rumore e falserebbe anche il sentiment medio. Il merge è
+// volutamente conservativo: stesso URL canonico oppure stesso titolo dopo la
+// sola normalizzazione tipografica. Eventi simili ma distinti restano separati.
+function canonicalNewsUrl(raw) {
+  try {
+    const url = new URL(raw);
+    if (!/^https?:$/.test(url.protocol)) return '';
+    url.hash = '';
+    [...url.searchParams.keys()].forEach((key) => {
+      if (/^(utm_.+|fbclid|gclid|mc_cid|mc_eid)$/i.test(key)) url.searchParams.delete(key);
+    });
+    url.searchParams.sort();
+    url.hostname = url.hostname.toLowerCase();
+    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, '');
+    return url.toString();
+  } catch (_) { return ''; }
+}
+
+function canonicalNewsTitle(title) {
+  return String(title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+export function consolidateNewsItems(items, { limit = 8 } = {}) {
+  const clusters = [];
+  for (const original of Array.isArray(items) ? items : []) {
+    if (!original?.title) continue;
+    const item = { ...original };
+    const urlKey = canonicalNewsUrl(item.url);
+    const titleKey = canonicalNewsTitle(item.title);
+    const existing = clusters.find((cluster) =>
+      (urlKey && cluster._urlKey === urlKey) || (titleKey && cluster._titleKey === titleKey));
+    if (!existing) {
+      const sources = item.source ? [String(item.source)] : [];
+      clusters.push({ ...item, corroborationSources: sources, corroborationCount: sources.length, _urlKey: urlKey, _titleKey: titleKey });
+      continue;
+    }
+    if (item.source && !existing.corroborationSources.includes(String(item.source))) {
+      existing.corroborationSources.push(String(item.source));
+    }
+    existing.corroborationCount = existing.corroborationSources.length;
+    if (!existing.summary && item.summary) existing.summary = item.summary;
+    if (!Number.isFinite(existing.sentimentScore) && Number.isFinite(item.sentimentScore)) {
+      existing.sentimentScore = item.sentimentScore;
+      existing.sentimentLabel = item.sentimentLabel;
+      existing.sentimentSource = item.sentimentSource;
+    }
+  }
+  return clusters.slice(0, Math.max(0, limit)).map(({ _urlKey, _titleKey, ...item }) => item);
+}
+
 // `cache` (opzionale, { get(key), put(key,val) } come in market-data.js):
 // se la rete è assente o la fonte fallisce, si ripiega sull'ultimo risultato
 // salvato per quel simbolo, dichiarato `stale:true` — mai un crash, mai un
