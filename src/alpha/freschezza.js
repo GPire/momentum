@@ -147,7 +147,7 @@ export function leggiCsvFred(testo) {
 // FONTI_AGGIORNABILI restano come ripiego per cio' che il registro non copre.
 export const CORRISPONDENZE_REGISTRO = {
   nfci: 'condizioniFinanziarie',
-  curva: 'tassoDecennaleUsa',
+  curva: 'curvaDecennaleTreMesiUsa',
   cambio: 'cambioEuroDollaro',
   tassoEuro: 'tassoDecennaleAreaEuro',
 };

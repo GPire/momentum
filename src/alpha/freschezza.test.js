@@ -194,3 +194,19 @@ test('senza rete l\'aggiornamento con ricaduta fallisce in modo pulito', async (
   assert.equal(r.code.length, 0);
   assert.ok(r.falliti[0].tentativi.length >= 1, 'deve registrare cosa ha provato');
 });
+
+test('la curva aggiornata è lo spread T10Y3M, mai il livello DGS10', async () => {
+  const { aggiornaConRicaduta } = await import('./freschezza.js');
+  const richieste = [];
+  const r = await aggiornaConRicaduta(['curva'], {
+    fetchImpl: async (url) => {
+      richieste.push(String(url));
+      return { ok: true, text: async () => 'observation_date,T10Y3M\n2026-09-01,-0.42\n2026-09-02,0.00\n' };
+    },
+  });
+  assert.ok(r.riuscito);
+  assert.ok(richieste.every((url) => new URL(url).searchParams.get('id') === 'T10Y3M'));
+  assert.equal(r.code[0].chiave, 'curva');
+  assert.equal(r.code[0].punti[0].valore, -0.42);
+  assert.equal(r.code[0].ultimo.valore, 0);
+});

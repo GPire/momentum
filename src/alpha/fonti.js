@@ -111,6 +111,12 @@ export function leggiJsonYahoo(testo) {
 // L'ordine è deliberato: prima le fonti con licenza pulita, poi le comode.
 // Cambiare l'ordine è una decisione, non un dettaglio.
 export const REGISTRO = {
+  curvaDecennaleTreMesiUsa: {
+    etichetta: 'curva USA: decennale meno tre mesi (punti percentuali)',
+    catena: [
+      { fonte: 'fred', url: () => 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=T10Y3M', leggi: leggiCsvSemplice },
+    ],
+  },
   tassoDecennaleUsa: {
     etichetta: 'rendimento decennale Stati Uniti',
     catena: [
