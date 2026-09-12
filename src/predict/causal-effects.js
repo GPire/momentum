@@ -44,8 +44,12 @@ import { buildLaggedFrame, partialCorrelationTest } from './causal-discovery.js'
 // ── Minimi quadrati con errori standard ──
 // Serve la diagonale di (XᵀX)⁻¹ per gli errori standard: si inverte con
 // Gauss-Jordan. Ritorna null sui sistemi degeneri, mai una stima inventata.
-export function olsWithSE(y, X = []) {
+export function olsWithSE(y, X = [], { hacLag = null } = {}) {
+  if (!Array.isArray(y) || !Array.isArray(X) || !y.every(Number.isFinite)
+      || X.some(c => !Array.isArray(c) || c.length !== y.length || !c.every(Number.isFinite))) return null;
   const n = y.length;
+  const lag = hacLag ?? Math.floor(4 * (n / 100) ** (2 / 9));
+  if (!Number.isInteger(lag) || lag < 0 || lag >= n) return null;
   const cols = [new Array(n).fill(1), ...X.map((c) => c.slice(0, n))];
   const k = cols.length;
   if (n <= k + 1) return null;
@@ -78,7 +82,22 @@ export function olsWithSE(y, X = []) {
   const dof = n - k;
   const sigma2 = rss / dof;
   const se = inv.map((row, i) => Math.sqrt(Math.max(0, sigma2 * row[i])));
-  return { beta, se, dof, rss, sigma2, resid, n };
+  // Newey–West sandwich diagonal, Bartlett kernel, n/(n-k) correction.
+  // Project scores through the inverse before accumulating: same sandwich
+  // covariance without allocating a full n-by-n time covariance matrix.
+  // Reference: https://www.nber.org/papers/t0055 (not proof of causation).
+  const seHac = inv.map(row => {
+    const influence = resid.map((e, t) => e * row.reduce((s, v, j) => s + v * cols[j][t], 0));
+    let variance = influence.reduce((s, v) => s + v * v, 0);
+    for (let h = 1; h <= lag; h++) {
+      let cross = 0;
+      for (let t = h; t < n; t++) cross += influence[t] * influence[t - h];
+      variance += 2 * (1 - h / (lag + 1)) * cross;
+    }
+    return Math.sqrt(Math.max(0, variance * n / dof));
+  });
+  if (![...beta, ...se, ...seHac, rss].every(Number.isFinite)) return null;
+  return { beta, se, seHac, hacLag: lag, dof, rss, sigma2, resid, n };
 }
 
 // ── Effetto diretto di una variabile ritardata su un target ──
@@ -99,7 +118,7 @@ export function directEffect(frame, parentsByTarget, fromKey, toName, { z = 1.96
   const fit = olsWithSE(y, [x, ...controlli]);
   if (!fit) return null;
   const beta = fit.beta[1];        // beta[0] è l'intercetta
-  const se = fit.se[1];
+  const se = Math.max(fit.se[1], fit.seHac[1]);
   const t = se > 0 ? beta / se : 0;
   const p = 2 * (1 - normalCdf(Math.abs(t)));
 
@@ -111,6 +130,7 @@ export function directEffect(frame, parentsByTarget, fromKey, toName, { z = 1.96
     p: +p.toFixed(6),
     n: fit.n,
     controlliUsati: controlli.length,
+    uncertainty: 'max-classical-hac', hacLag: fit.hacLag,
   };
 }
 
@@ -131,7 +151,7 @@ export function interactionEffect(frame, fromKey, toName, moderatorKey, { z = 1.
 
   const fit = olsWithSE(y.slice(0, n), [xc, mc, inter]);
   if (!fit) return null;
-  const beta = fit.beta[3], se = fit.se[3];
+  const beta = fit.beta[3], se = Math.max(fit.se[3], fit.seHac[3]);
   const t = se > 0 ? beta / se : 0;
   const p = 2 * (1 - normalCdf(Math.abs(t)));
 
@@ -141,6 +161,7 @@ export function interactionEffect(frame, fromKey, toName, moderatorKey, { z = 1.
   return {
     from: fromKey.split('@')[0], to: toName, moderatore: moderatorKey.split('@')[0],
     betaInterazione: +beta.toFixed(4),
+    uncertainty: 'max-classical-hac', hacLag: fit.hacLag,
     p: +p.toFixed(6),
     significativa: p < 0.05,
     effettoQuandoBasso: +(fit.beta[1] - beta * sdM).toFixed(4),

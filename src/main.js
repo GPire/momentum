@@ -76,6 +76,8 @@ import { refertoCausale } from './alpha/macro-causality.js';
 import { stressIndex, stressText } from './alpha/market-stress.js';
 import { quadroPosizionamento, posizionamentoText } from './alpha/posizionamento.js';
 import { tailRiskPortafoglio, tailRiskText, portfolioRiskCacheKey } from './alpha/portfolio-tail-risk.js';
+import { portfolioProviderRisk } from './alpha/portfolio-provider-risk.js';
+import { describePortfolioRisk } from './ai/portfolio-risk-answer.js';
 import { trackRecordPortafoglio } from './alpha/portfolio-track-record.js';
 import { diagnosiIstituzionale, diagnosiTextSemplice } from './alpha/diagnosi-istituzionale.js';
 import { divarioComportamento, tempismoDeiVersamenti, divarioText, fonteDivario } from './alpha/divario-comportamento.js';
@@ -13284,8 +13286,11 @@ function renderNetWorth() {
   // cambia (la chiave include tickers e quantità).
   const tailEl = $('#portfolio-tail-risk-panel');
   if (tailEl) {
+    const historical = portfolioProviderRisk(positions || [], window.__marketRiskSources || {}, {
+      asOf: new Date().toISOString().slice(0, 10),
+    });
     const chiave = portfolioRiskCacheKey(positions || [], { priceByTicker: window.__livePrices || {}, sectorByTicker: VaultDAO.state.sectorByTicker || {} });
-    if (window.__tailRiskCache?.chiave !== chiave) {
+    if (!historical.available && window.__tailRiskCache?.chiave !== chiave) {
       try {
         const r = tailRiskPortafoglio(positions || [], {
           priceByTicker: window.__livePrices || {},
@@ -13298,6 +13303,12 @@ function renderNetWorth() {
     document.getElementById('portfolio-tail-risk-card')?.classList.toggle('hidden', !positions.length);
     if (!positions.length) {
       tailEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('nwTailRiskEmpty', __uiLang)}</p>`;
+    } else if (historical.available) {
+      const amount = new Intl.NumberFormat(__uiLocale, { style: 'currency', currency: historical.baseCurrency, signDisplay: 'always' }).format(historical.changeBase);
+      tailEl.innerHTML = `<p class="eyebrow">${escapeHtml(tCh('portfolioRiskDirect', __uiLang))}</p>
+        <p class="text-2xl font-black font-mono my-2" style="overflow-wrap:anywhere">${escapeHtml(amount)}</p>
+        <p class="card-sub">${escapeHtml(describePortfolioRisk(historical, __uiLang))}</p>
+        <p class="text-xs text-[var(--on-surface-secondary)]">${escapeHtml(tCh('portfolioRiskSources', __uiLang))}: ${escapeHtml([...new Set(historical.contributions.map(c => c.source))].join(', '))}</p>`;
     } else if (!r?.valutabile) {
       // Rifiuto MOTIVATO, mai un pannello vuoto senza spiegazione.
       tailEl.innerHTML = motivoNonMisurabileHtml(r?.motivo);
@@ -13325,6 +13336,9 @@ function renderNetWorth() {
         }).join('')}</div>
         <p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('nwTailRiskEquivSectors', __uiLang, r.settoriEquivalenti, Math.round(r.mappa.copertura * 100))}${r.mappa.nonCoperti.length ? tCh('nwTailRiskUncovered', __uiLang, escapeHtml(r.mappa.nonCoperti.map(n => n.ticker).join(', '))) : ''}</p>
         <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-1">${tCh('nwTailRiskMethodNote', __uiLang)}</p>`;
+    }
+    if (positions.length && !historical.available) {
+      tailEl.insertAdjacentHTML('afterbegin', `<p class="card-sub">${escapeHtml(tCh('qaPortfolioRiskMissing', __uiLang))}</p>${r?.valutabile ? `<p class="eyebrow">${escapeHtml(tCh('portfolioRiskSector', __uiLang))}</p>` : ''}`);
     }
   }
   // BRAVURA O FORTUNA? (src/alpha/portfolio-track-record.js): stesso vaglio

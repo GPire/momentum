@@ -46,6 +46,10 @@ export function resolveUiLanguage({ override = null, navigatorLike } = {}) {
 
 const S = {
   it: {
+    portfolioRiskDirect: "Sui tuoi strumenti",
+    portfolioRiskSector: "Simulazione per settori · metodo diverso",
+    portfolioRiskSources: "Fonti",
+    portfolioRiskIntro: "Una misura storica, con i suoi limiti e i dati utilizzati.",
     qaPortfolioRiskTopic: "Rischio del portafoglio",
     qaPortfolioRiskEmpty: "Aggiungi prima le tue posizioni in Investimenti: userò quelle per analizzare il rischio.",
     qaPortfolioRiskMissing: "Non ho ancora prezzi con valuta e data verificabili o abbastanza storico comune. Non posso calcolare una stima affidabile del rischio.",
@@ -1782,6 +1786,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> ti ha addebitato per la seconda volta ${amount} — è confermato ricorrente. Se non lo aspettavi, controllalo subito.`,
   },
   en: {
+    portfolioRiskDirect: "Your actual holdings",
+    portfolioRiskSector: "Sector simulation · different method",
+    portfolioRiskSources: "Sources",
+    portfolioRiskIntro: "A historical measure, with its limits and the data used.",
     qaPortfolioRiskTopic: "Portfolio risk",
     qaPortfolioRiskEmpty: "First add your holdings in Investments: I will use them to analyse risk.",
     qaPortfolioRiskMissing: "I do not yet have prices with verifiable currency and date, or enough shared history. I cannot calculate a reliable risk estimate.",
@@ -3408,6 +3416,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> has charged you ${amount} for the second time — it's confirmed recurring. If you weren't expecting it, check it right away.`,
   },
   de: {
+    portfolioRiskDirect: "Deine tatsächlichen Positionen",
+    portfolioRiskSector: "Sektorsimulation · andere Methode",
+    portfolioRiskSources: "Quellen",
+    portfolioRiskIntro: "Eine historische Messung mit ihren Grenzen und verwendeten Daten.",
     qaPortfolioRiskTopic: "Portfoliorisiko",
     qaPortfolioRiskEmpty: "Füge zuerst deine Positionen unter Anlagen hinzu, damit ich das Risiko analysieren kann.",
     qaPortfolioRiskMissing: "Mir fehlen noch Preise mit überprüfbarer Währung und Datum oder genügend gemeinsame Historie. Eine verlässliche Risikoschätzung ist noch nicht möglich.",
@@ -5037,6 +5049,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> hat dich zum zweiten Mal mit ${amount} belastet — bestätigt wiederkehrend. Falls unerwartet, sofort prüfen.`,
   },
   fr: {
+    portfolioRiskDirect: "Tes positions réelles",
+    portfolioRiskSector: "Simulation sectorielle · autre méthode",
+    portfolioRiskSources: "Sources",
+    portfolioRiskIntro: "Une mesure historique, avec ses limites et les données utilisées.",
     qaPortfolioRiskTopic: "Risque du portefeuille",
     qaPortfolioRiskEmpty: "Ajoute d’abord tes positions dans Investissements pour que je puisse analyser le risque.",
     qaPortfolioRiskMissing: "Il manque des prix avec une devise et une date vérifiables, ou un historique commun suffisant. Je ne peux pas encore calculer une estimation fiable du risque.",
@@ -6669,6 +6685,10 @@ const S = {
   // svizzera (chXxx) qui: nessun autónomo spagnolo la vedrebbe mai, e
   // t() ricade comunque su EN poi IT per una chiave assente.
   es: {
+    portfolioRiskDirect: "Tus posiciones reales",
+    portfolioRiskSector: "Simulación sectorial · otro método",
+    portfolioRiskSources: "Fuentes",
+    portfolioRiskIntro: "Una medida histórica, con sus límites y los datos utilizados.",
     qaPortfolioRiskTopic: "Riesgo de la cartera",
     qaPortfolioRiskEmpty: "Añade primero tus posiciones en Inversiones para que pueda analizar el riesgo.",
     qaPortfolioRiskMissing: "Todavía faltan precios con moneda y fecha verificables, o suficiente historial común. No puedo calcular una estimación fiable del riesgo.",
@@ -8304,6 +8324,10 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale nei
   // Paesi Bassi, aggiungerle sarebbe stato inventato, non tradotto.
   nl: {
+    portfolioRiskDirect: "Je werkelijke posities",
+    portfolioRiskSector: "Sectorsimulatie · andere methode",
+    portfolioRiskSources: "Bronnen",
+    portfolioRiskIntro: "Een historische maatstaf, met beperkingen en gebruikte gegevens.",
     qaPortfolioRiskTopic: "Risico van je portefeuille",
     qaPortfolioRiskEmpty: "Voeg eerst je posities toe bij Beleggingen, zodat ik het risico kan analyseren.",
     qaPortfolioRiskMissing: "Er ontbreken nog prijzen met een controleerbare valuta en datum, of voldoende gezamenlijke historie. Ik kan nog geen betrouwbare risicoschatting berekenen.",
@@ -9949,6 +9973,10 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale per
   // il pubblico brasiliano.
   pt: {
+    portfolioRiskDirect: "As tuas posições reais",
+    portfolioRiskSector: "Simulação setorial · outro método",
+    portfolioRiskSources: "Fontes",
+    portfolioRiskIntro: "Uma medida histórica, com os seus limites e os dados utilizados.",
     qaPortfolioRiskTopic: "Risco da carteira",
     qaPortfolioRiskEmpty: "Adiciona primeiro as tuas posições em Investimentos para eu analisar o risco.",
     qaPortfolioRiskMissing: "Ainda faltam preços com moeda e data verificáveis, ou histórico comum suficiente. Não posso calcular uma estimativa fiável do risco.",

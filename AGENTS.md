@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Causalità e card rischio, 2026-09-12:** leggere
+> [causal-uncertainty-and-risk-card-2026-09-12.md](docs/causal-uncertainty-and-risk-card-2026-09-12.md).
+> Effetti diretti/interazioni usano max(SE classico, HAC Newey–West), non
+> una prova causale. Card esistente collegata al rischio multiasset quando
+> disponibile; fallback settoriale etichettato. Suite finale 330/330 file e
+> build portable passati. Ramo numerico della card non verificato visivamente.
+
 > **Rischio nel Q&A, 2026-09-12:** leggere
 > [portfolio-risk-qa-integration-2026-09-12.md](docs/portfolio-risk-qa-integration-2026-09-12.md).
 > Collegamento attivo da `idleFetchPrices` a `askMomentum`, risposta in sette

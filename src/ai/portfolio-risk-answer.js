@@ -12,10 +12,14 @@ export function answerPortfolioRisk(ctx, lang) {
   let answer;
   if (!ctx.positions?.length) answer = t('qaPortfolioRiskEmpty', lang);
   else if (!data.available) answer = t('qaPortfolioRiskMissing', lang);
-  else {
+  else answer = describePortfolioRisk(data, lang);
+  return { intent: 'portfolio-risk', data, answer };
+}
+
+// Shared by the local answer and Analysis: identical method and coverage.
+export function describePortfolioRisk(data, lang) {
+  if (!data?.available) return t('qaPortfolioRiskMissing', lang);
     const percent = x => new Intl.NumberFormat(lang, { style: 'percent', maximumFractionDigits: 1 }).format(x);
     const amount = new Intl.NumberFormat(lang, { style: 'currency', currency: data.baseCurrency, signDisplay: 'always' }).format(data.changeBase);
-    answer = t('qaPortfolioRiskResult', lang, amount, percent(1 - data.level), data.horizon, percent(data.coverage), data.last);
-  }
-  return { intent: 'portfolio-risk', data, answer };
+    return t('qaPortfolioRiskResult', lang, amount, percent(1 - data.level), data.horizon, percent(data.coverage), data.last);
 }
