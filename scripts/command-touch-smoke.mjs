@@ -31,7 +31,7 @@ const rows = Array.from({length:30}, (_,i) => {
 });
 const state={...fixture,isFirstLaunch:false,whatsNewSeen:LATEST_WHATS_NEW_VERSION,freshStartPrompted:true,currentDate:date.toISOString(),transactions:{[month]:rows},lastHash:prev,monthlyBudget:1500,budgetDeclined:false,customCategories:[],demoTransactions:{}};
 try {
-  for (const [width,height,touch,empty] of [[393,852,true,true],[393,852,true],[430,932,true],[768,1024,true],[1024,768,true],[1366,900,false]]) {
+  for (const [width,height,touch,empty] of [[320,740,true],[393,852,true,true],[393,852,true],[430,932,true],[768,1024,true],[1024,768,true],[1366,900,false]]) {
     const activeState=empty ? {...state,transactions:{},monthlyBudget:0,budgetDeclined:true,demoDismissed:true,lastHash:'GENESIS'} : state;
     const context = await browser.newContext({viewport:{width,height},isMobile:touch,hasTouch:touch,deviceScaleFactor:1});
     // UI fixtures must never send telemetry or depend on live market providers.
@@ -90,6 +90,23 @@ try {
     assert.equal(await page.locator('#modal-body #tx-amount-display').inputValue(),draftAmount);
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
     await page.locator('#modal-body .command-edit-category').click();
+    const palette=await page.evaluate(()=>{
+      const panel=document.querySelector('#modal-body #new-cat-panel').getBoundingClientRect();
+      return [...document.querySelectorAll('#modal-body .new-cat-colore')].every(el=>{const r=el.getBoundingClientRect();return r.left>=panel.left && r.right<=panel.right && r.width>=43;});
+    });
+    assert(palette,'Color swatches must fit inside the editor and remain touch-sized');
+    assert((await page.locator('#modal-body .new-cat-emoji').count())>=40);
+    await page.locator('#modal-body .category-icon-search').fill('taxi');
+    assert.equal(await page.locator('#modal-body .new-cat-emoji:visible').count(),1);
+    await page.locator('#modal-body .new-cat-emoji[data-icona="taxi"]').click();
+    await page.locator('#modal-body .category-icon-search').fill('');
+    await page.locator('#modal-body .category-custom-toggle').click();
+    await page.locator('#modal-body .category-hex').fill('#oops');
+    await page.locator('#modal-body #new-cat-crea').click();
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),true);
+    assert.equal(await page.locator('#modal-body .category-hex').getAttribute('aria-invalid'),'true');
+    await page.locator('#modal-body .category-hex').fill('#12abef');
+    await page.screenshot({path:resolve(artifacts,`category-editor-${width}${empty ? '-first-use' : ''}.png`)});
     assert.equal(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji span').count(),0);
     assert.ok(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji').first().getAttribute('aria-label'));
     await page.locator('#modal-body #new-cat-nome').fill('Spesa di casa');
@@ -105,6 +122,7 @@ try {
     const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('omega_core_db')));
     assert.deepEqual(after.transactions,activeState.transactions);
     assert.equal(after.customCategories.filter(c=>c.id==='spesa').length,1);
+    assert.equal(after.customCategories.find(c=>c.id==='spesa').color,'#12abef');
     if(touch) {
       await page.evaluate(()=>{document.documentElement.style.setProperty('--modal-visible-height','440px');document.documentElement.style.setProperty('--modal-visible-top','40px');document.documentElement.classList.add('tastiera-aperta');});
       const bounds=await page.evaluate(()=>['#modal-content','#modal-footer'].map(s=>{const r=document.querySelector(s).getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};}));

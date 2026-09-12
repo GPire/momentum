@@ -1,5 +1,17 @@
 // Same 24px, rounded-stroke vocabulary as Momentum's existing category icons.
 const paths = {
+  pizza: '<path d="M3 5c6-4 12-4 18 0l-9 17L3 5Zm2 4c5-3 9-3 14 0"/><circle cx="10" cy="11" r="1"/><circle cx="13" cy="15" r="1"/>',
+  gelato: '<path d="m7 12 5 10 5-10M5 12h14a3 3 0 0 0-1-5 6 6 0 0 0-12 0 3 3 0 0 0-1 5Z"/>',
+  bici: '<circle cx="5" cy="16" r="4"/><circle cx="19" cy="16" r="4"/><path d="m5 16 5-9 5 9H5m5-9h7l2 9M8 4h4M16 4h3"/>',
+  taxi: '<path d="m4 10 2-5h12l2 5M3 10h18v9H3v-9ZM6 19v2M18 19v2M8 5V2h8v3M6 14h2M16 14h2"/>',
+  hotel: '<path d="M3 21V4h12v17M15 10h6v11M7 8h4M7 12h4M7 16h4M18 14h1M18 18h1M1 21h22"/>',
+  dentista: '<path d="M12 5C3-2 2 7 5 13c2 4 1 8 4 8 2 0 1-7 3-7s1 7 3 7c3 0 2-4 4-8 3-6 2-15-7-8Z"/>',
+  lavanderia: '<rect x="4" y="2" width="16" height="20" rx="3"/><circle cx="12" cy="14" r="5"/><path d="M8 5h1M12 5h4M7 14c3-3 7 3 10 0"/>',
+  risparmio: '<path d="M5 8c4-5 13-3 14 3h3v5h-3l-2 4h-3v-3H9v3H6l-2-5c-3-1-3-4-1-5M9 6V3h6v3M16 10h.01"/>',
+  carte: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M16 15h2"/>',
+  tasse: '<path d="M5 2h14v20l-3-2-4 2-4-2-3 2V2ZM9 7h6M9 11h6M9 15h3"/>',
+  lavoro: '<rect x="2" y="7" width="20" height="14" rx="3"/><path d="M8 7V3h8v4M2 12c6 4 14 4 20 0M10 13h4v4h-4z"/>',
+  giardino: '<path d="M12 22V10M12 15C2 15 2 7 2 7s10-1 10 8Zm0-5C12 2 22 2 22 2s0 9-10 8ZM6 22h12"/>',
   parcheggio: '<rect x="4" y="3" width="16" height="18" rx="5"/><path d="M10 17V7h3a3 3 0 0 1 0 6h-3"/>',
   assicurazione: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>',
   scuola: '<path d="m2 9 10-5 10 5-10 5-10-5Zm4 2v6c4 3 8 3 12 0v-6M22 9v7"/>',
