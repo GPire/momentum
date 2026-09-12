@@ -214,6 +214,7 @@ export function monotoneCheck(frame, fromKey, toName, controlKeys = []) {
 // 50% sul totale. Prima qui c'era una costante scelta a mano (0,25 per passo):
 // un numero non misurato, esattamente ciò che questo progetto non ammette.
 const REL_SE_DEFAULT = 0.35; // usato SOLO se un arco non porta il proprio errore standard
+const edgeStandardError = e => Number.isFinite(e.se) ? Math.abs(e.se) : Math.abs(e.beta) * REL_SE_DEFAULT;
 
 export function totalEffect(edges, fromName, toName, { maxDepth = 3 } = {}) {
   const out = new Map();
@@ -224,7 +225,6 @@ export function totalEffect(edges, fromName, toName, { maxDepth = 3 } = {}) {
   }
 
   const cammini = [], gradients = new Map();
-  const edgeSE = e => Number.isFinite(e.se) ? Math.abs(e.se) : Math.abs(e.beta) * REL_SE_DEFAULT;
   const dfs = (nodo, prodotto, lag, visitati, percorso, pathEdges) => {
     if (percorso.length >= maxDepth) return;
     for (const e of out.get(nodo) || []) {
@@ -238,7 +238,7 @@ export function totalEffect(edges, fromName, toName, { maxDepth = 3 } = {}) {
           const edge = newEdges[j];
           const derivative = newEdges.reduce((v, other, k) => k === j ? v : v * other.beta, 1);
           gradients.set(edge.index, (gradients.get(edge.index) || 0) + derivative);
-          pathVariance += (derivative * edgeSE(edge)) ** 2;
+          pathVariance += (derivative * edgeStandardError(edge)) ** 2;
         }
         cammini.push({
           percorso: nuovoPercorso, beta: +p.toFixed(4), lagTotale: lag + e.lag,
@@ -255,13 +255,16 @@ export function totalEffect(edges, fromName, toName, { maxDepth = 3 } = {}) {
   const totale = cammini.reduce((s, c) => s + c.beta, 0);
   // Shared edges are the same estimated coefficient, not independent copies.
   // Sum path derivatives first; distinct edge covariances remain unmodelled.
-  const se = Math.sqrt([...gradients].reduce((s, [index, derivative]) => s + (derivative * edgeSE(edges[index])) ** 2, 0));
+  const se = Math.sqrt([...gradients].reduce((s, [index, derivative]) => s + (derivative * edgeStandardError(edges[index])) ** 2, 0));
   return {
     from: fromName, to: toName,
     diretto: +diretto.toFixed(4),
     indiretto: +(totale - diretto).toFixed(4),
     totale: +totale.toFixed(4),
     se: +se.toFixed(4),
+    // Sensibilità al singolo arco: serve a una simulazione con più interventi
+    // per non trattare due percorsi che condividono un arco come indipendenti.
+    sensitivitaArchi: [...gradients].map(([index, peso]) => ({ index, peso })),
     cammini: cammini.sort((a, b) => Math.abs(b.beta) - Math.abs(a.beta)),
     // Se l'indiretto conta quanto o più del diretto, un consiglio basato sulla
     // sola coppia sarebbe fuorviante: va segnalato a chi mostra il risultato.
@@ -286,7 +289,7 @@ export function simulateScenario(edges, interventi, { targets = null, maxDepth =
   const risultati = [];
   for (const to of obiettivi) {
     let effettoTotale = 0;
-    let varianza = 0;
+    const sensibilitaCombinata = new Map();
     const contributi = [];
     for (const [from, delta] of Object.entries(interventi || {})) {
       if (from === to) continue;
@@ -294,13 +297,21 @@ export function simulateScenario(edges, interventi, { targets = null, maxDepth =
       if (!te.cammini.length) continue;
       const contributo = te.totale * delta;
       effettoTotale += contributo;
-      // Incertezza propagata dagli errori standard veri (metodo delta), non da
-      // una costante: interventi diversi sono indipendenti, le varianze si sommano.
-      varianza += (te.se * Math.abs(delta)) ** 2;
+      // Si accumula prima la sensibilità di ogni arco. Due interventi possono
+      // condividere un tratto del grafo: sommare due varianze come se fossero
+      // indipendenti sottostimerebbe proprio gli scenari multi-causa.
+      for (const { index, peso } of te.sensitivitaArchi) {
+        sensibilitaCombinata.set(index, (sensibilitaCombinata.get(index) || 0) + peso * delta);
+      }
       const passiMedi = te.cammini.reduce((s, c) => s + c.passi * Math.abs(c.beta), 0) / Math.max(1e-9, te.cammini.reduce((s, c) => s + Math.abs(c.beta), 0));
       contributi.push({ from, delta, effetto: +contributo.toFixed(4), passiMedi: +passiMedi.toFixed(2), viaIndiretta: te.dominatoDaIndiretto });
     }
     if (!contributi.length) continue;
+    // Metodo delta sull'intero scenario. Gli archi condivisi entrano una volta
+    // sola con la loro sensibilità complessiva; le covarianze tra stime di
+    // archi distinti restano non osservate e quindi non vengono inventate.
+    const varianza = [...sensibilitaCombinata].reduce((totale, [index, peso]) =>
+      totale + (peso * edgeStandardError(activeEdges[index])) ** 2, 0);
     // Banda al 95%: due errori standard. Se contiene lo zero, la risposta
     // onesta è "non lo so" — e viene detta, non nascosta dietro un numero.
     const banda = 1.96 * Math.sqrt(varianza);

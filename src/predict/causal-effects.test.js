@@ -203,6 +203,20 @@ test('joint interventions cut incoming paths to variables explicitly fixed by th
   assert.equal(simulateScenario(edges, { A: 1, B: 4 }, { targets: ['Z'], mode: 'additive' })[0].effetto, 18);
 });
 
+test('multi-scenario: interventi che condividono un arco usano la sensibilità combinata, non una falsa indipendenza', () => {
+  const edges = [
+    { from: 'A', to: 'B', beta: 2, se: 1, lag: 1 },
+    { from: 'B', to: 'Z', beta: 3, se: 2, lag: 1 },
+  ];
+  const soloA = simulateScenario(edges, { A: 1 }, { targets: ['Z'], mode: 'additive' })[0];
+  const soloB = simulateScenario(edges, { B: 1 }, { targets: ['Z'], mode: 'additive' })[0];
+  const insieme = simulateScenario(edges, { A: 1, B: 1 }, { targets: ['Z'], mode: 'additive' })[0];
+  const indipendente = Math.sqrt(soloA.se ** 2 + soloB.se ** 2);
+  assert.equal(insieme.effetto, 9);
+  assert.ok(insieme.se > indipendente, `l'incertezza condivisa (${insieme.se}) non può ridursi a ${indipendente}`);
+  assert.equal(insieme.certo, false, 'una banda che contiene zero non diventa certa sommando azioni');
+});
+
 test('path depth is a strict edge limit and unrelated targets are not invented', () => {
   const edges = [{ from: 'A', to: 'B', beta: 1, lag: 1 }, { from: 'B', to: 'C', beta: 1, lag: 1 }];
   assert.equal(totalEffect(edges, 'A', 'C', { maxDepth: 1 }).cammini.length, 0);
