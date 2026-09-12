@@ -136,6 +136,19 @@ test('un legame monotono ma curvo viene segnalato come non lineare', () => {
 
 // ── Vie indirette ──
 
+test('shared edges contribute joint uncertainty across branching paths', () => {
+  const edges = [
+    { from: 'C', to: 'A', beta: 2, se: 1, lag: 1 },
+    { from: 'A', to: 'B', beta: 3, se: 0, lag: 1 },
+    { from: 'A', to: 'D', beta: 4, se: 0, lag: 1 },
+    { from: 'B', to: 'Z', beta: 1, se: 0, lag: 1 },
+    { from: 'D', to: 'Z', beta: 1, se: 0, lag: 1 },
+  ];
+  assert.equal(totalEffect(edges, 'C', 'Z').se, 7);
+  edges[2].beta = -3;
+  assert.equal(totalEffect(edges, 'C', 'Z').se, 0);
+});
+
 test('VIE INDIRETTE: A→B→C, l\'effetto totale include il cammino lungo', () => {
   const edges = [
     { from: 'A', to: 'B', beta: 0.5, lag: 1 },
@@ -167,6 +180,35 @@ test('senza alcun cammino, l\'effetto totale è zero e non si inventa nulla', ()
 });
 
 // ── Scenari con più cambiamenti insieme ──
+
+test('a branching change reaches downstream nodes with reinforcing and opposing paths', () => {
+  const edges = [
+    { from: 'C', to: 'B', beta: 2, se: 0.1, lag: 1 },
+    { from: 'C', to: 'D', beta: -1, se: 0.1, lag: 1 },
+    { from: 'B', to: 'A', beta: 0.5, se: 0.1, lag: 1 },
+    { from: 'A', to: 'Z', beta: 3, se: 0.1, lag: 1 },
+    { from: 'D', to: 'E', beta: 2, se: 0.1, lag: 1 },
+    { from: 'E', to: 'Z', beta: 0.5, se: 0.1, lag: 1 },
+  ];
+  const result = Object.fromEntries(simulateScenario(edges, { C: 1 }).map(x => [x.target, x.effetto]));
+  assert.deepEqual(result, { B: 2, D: -1, A: 1, Z: 2, E: -2 });
+  assert.equal(totalEffect(edges, 'C', 'Z').cammini.length, 2);
+});
+
+test('joint interventions cut incoming paths to variables explicitly fixed by the scenario', () => {
+  const edges = [{ from: 'A', to: 'B', beta: 2, se: 0.1, lag: 1 }, { from: 'B', to: 'Z', beta: 3, se: 0.1, lag: 1 }];
+  const joint = simulateScenario(edges, { A: 1, B: 4 }, { targets: ['Z'], mode: 'joint' });
+  assert.equal(joint[0].effetto, 12);
+  assert.equal(joint[0].contributi.length, 1);
+  assert.equal(simulateScenario(edges, { A: 1, B: 4 }, { targets: ['Z'], mode: 'additive' })[0].effetto, 18);
+});
+
+test('path depth is a strict edge limit and unrelated targets are not invented', () => {
+  const edges = [{ from: 'A', to: 'B', beta: 1, lag: 1 }, { from: 'B', to: 'C', beta: 1, lag: 1 }];
+  assert.equal(totalEffect(edges, 'A', 'C', { maxDepth: 1 }).cammini.length, 0);
+  assert.equal(totalEffect(edges, 'A', 'C', { maxDepth: 2 }).cammini.length, 1);
+  assert.deepEqual(simulateScenario(edges, { A: 1 }, { targets: ['Z'] }), []);
+});
 
 test('SCENARIO: due interventi insieme si sommano lungo il grafo', () => {
   const edges = [

@@ -215,44 +215,47 @@ export function monotoneCheck(frame, fromKey, toName, controlKeys = []) {
 // un numero non misurato, esattamente ciò che questo progetto non ammette.
 const REL_SE_DEFAULT = 0.35; // usato SOLO se un arco non porta il proprio errore standard
 
-const relSeOf = (e) => {
-  if (Number.isFinite(e.se) && Number.isFinite(e.beta) && Math.abs(e.beta) > 1e-9) {
-    return Math.abs(e.se / e.beta);
-  }
-  return REL_SE_DEFAULT;
-};
-
 export function totalEffect(edges, fromName, toName, { maxDepth = 3 } = {}) {
   const out = new Map();
-  for (const e of edges) {
+  for (const [index, original] of edges.entries()) {
+    const e = { ...original, index };
     if (!out.has(e.from)) out.set(e.from, []);
     out.get(e.from).push(e);
   }
 
-  const cammini = [];
-  const dfs = (nodo, prodotto, relVar, lag, visitati, percorso) => {
-    if (percorso.length > maxDepth) return;
+  const cammini = [], gradients = new Map();
+  const edgeSE = e => Number.isFinite(e.se) ? Math.abs(e.se) : Math.abs(e.beta) * REL_SE_DEFAULT;
+  const dfs = (nodo, prodotto, lag, visitati, percorso, pathEdges) => {
+    if (percorso.length >= maxDepth) return;
     for (const e of out.get(nodo) || []) {
       if (visitati.has(e.to)) continue; // niente cicli: un cammino non ripassa da dove è già stato
       const p = prodotto * e.beta;
-      const rv = relVar + relSeOf(e) ** 2;
       const nuovoPercorso = [...percorso, `${e.from}→${e.to}`];
+      const newEdges = [...pathEdges, e];
       if (e.to === toName) {
+        let pathVariance = 0;
+        for (let j = 0; j < newEdges.length; j++) {
+          const edge = newEdges[j];
+          const derivative = newEdges.reduce((v, other, k) => k === j ? v : v * other.beta, 1);
+          gradients.set(edge.index, (gradients.get(edge.index) || 0) + derivative);
+          pathVariance += (derivative * edgeSE(edge)) ** 2;
+        }
         cammini.push({
           percorso: nuovoPercorso, beta: +p.toFixed(4), lagTotale: lag + e.lag,
-          passi: nuovoPercorso.length, se: +(Math.abs(p) * Math.sqrt(rv)).toFixed(4),
+          passi: nuovoPercorso.length, se: +Math.sqrt(pathVariance).toFixed(4),
         });
       } else {
-        dfs(e.to, p, rv, lag + e.lag, new Set([...visitati, e.to]), nuovoPercorso);
+        dfs(e.to, p, lag + e.lag, new Set([...visitati, e.to]), nuovoPercorso, newEdges);
       }
     }
   };
-  dfs(fromName, 1, 0, 0, new Set([fromName]), []);
+  dfs(fromName, 1, 0, new Set([fromName]), [], []);
 
   const diretto = cammini.filter((c) => c.passi === 1).reduce((s, c) => s + c.beta, 0);
   const totale = cammini.reduce((s, c) => s + c.beta, 0);
-  // Cammini distinti sono stime largamente indipendenti: le varianze si sommano.
-  const se = Math.sqrt(cammini.reduce((s, c) => s + c.se ** 2, 0));
+  // Shared edges are the same estimated coefficient, not independent copies.
+  // Sum path derivatives first; distinct edge covariances remain unmodelled.
+  const se = Math.sqrt([...gradients].reduce((s, [index, derivative]) => s + (derivative * edgeSE(edges[index])) ** 2, 0));
   return {
     from: fromName, to: toName,
     diretto: +diretto.toFixed(4),
@@ -271,7 +274,11 @@ export function totalEffect(edges, fromName, toName, { maxDepth = 3 } = {}) {
 // al supermercato. Gli effetti si sommano lungo il grafo, e l'incertezza
 // cresce con la lunghezza dei cammini — un effetto a tre passi è molto meno
 // certo di uno diretto, e mostrarli con la stessa faccia sarebbe disonesto.
-export function simulateScenario(edges, interventi, { targets = null, maxDepth = 3 } = {}) {
+export function simulateScenario(edges, interventi, { targets = null, maxDepth = 3, mode = 'joint' } = {}) {
+  if (!['joint', 'additive'].includes(mode) || Object.values(interventi || {}).some(x => !Number.isFinite(x))) return [];
+  // A joint intervention fixes each declared variable: incoming effects no
+  // longer move it. Additive shocks remain explicitly available separately.
+  const activeEdges = mode === 'joint' ? edges.filter(e => !Object.hasOwn(interventi || {}, e.to)) : edges;
   const nodi = new Set();
   for (const e of edges) { nodi.add(e.from); nodi.add(e.to); }
   const obiettivi = targets || [...nodi];
@@ -283,7 +290,7 @@ export function simulateScenario(edges, interventi, { targets = null, maxDepth =
     const contributi = [];
     for (const [from, delta] of Object.entries(interventi || {})) {
       if (from === to) continue;
-      const te = totalEffect(edges, from, to, { maxDepth });
+      const te = totalEffect(activeEdges, from, to, { maxDepth });
       if (!te.cammini.length) continue;
       const contributo = te.totale * delta;
       effettoTotale += contributo;
@@ -299,6 +306,7 @@ export function simulateScenario(edges, interventi, { targets = null, maxDepth =
     const banda = 1.96 * Math.sqrt(varianza);
     risultati.push({
       target: to,
+      mode,
       effetto: +effettoTotale.toFixed(4),
       se: +Math.sqrt(varianza).toFixed(4),
       intervallo: [+(effettoTotale - banda).toFixed(4), +(effettoTotale + banda).toFixed(4)],

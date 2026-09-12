@@ -11,6 +11,18 @@ const gauss = (rnd) => {
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 };
 
+test('serious diagnostics suppress intervention scenarios at the shared API boundary', () => {
+  const rnd = rng(13), n = 200;
+  const U = Array.from({ length: n }, () => gauss(rnd));
+  const A = U.map(u => u + 0.2 * gauss(rnd));
+  const B = U.map((u, i) => u + (i ? 0.8 * A[i - 1] : 0) + 0.2 * gauss(rnd));
+  const result = analyzeCausalStructure({ A, B }, { maxLag: 2, interventi: { A: -1 } });
+  assert.equal(result.diagnosi.perDecidere, false);
+  assert.equal(result.scenarioStatus, 'blocked-diagnostics');
+  assert.deepEqual(result.scenari, []);
+  assert.ok(result.scenarioBlockReasons.length > 0);
+});
+
 // ── Degradazione onesta ──
 
 test('con poche settimane si passa al motore base, DICHIARATO', () => {

@@ -1,5 +1,13 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Percorsi causali, 2026-09-12:** leggere
+> [causal-paths-calibration-2026-09-12.md](docs/causal-paths-calibration-2026-09-12.md).
+> Interventi congiunti distinti da shock additivi; SE dei percorsi con archi
+> condivisi corretto, profondità rigorosa, scenari bloccati da diagnostica grave.
+> Benchmark 2.000 regressioni: confondenti nascosti restano un limite misurato.
+> Suite 330/330 file passata; dopo l'ultimo affinamento 34 test causali e build
+> finale passati. Nessuna nuova copertura macro di 40 anni dichiarata.
+
 > **Causalità e card rischio, 2026-09-12:** leggere
 > [causal-uncertainty-and-risk-card-2026-09-12.md](docs/causal-uncertainty-and-risk-card-2026-09-12.md).
 > Effetti diretti/interazioni usano max(SE classico, HAC Newey–West), non
