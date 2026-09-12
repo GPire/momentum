@@ -60,4 +60,5 @@ const server = createServer((req, res) => {
     res.end(body);
   } catch { res.writeHead(404); res.end(); }
 });
-server.listen(4181, '127.0.0.1', () => console.log('Isolated UUID import test: http://127.0.0.1:4181/?lang=it'));
+const port = Number(process.env.MOMENTUM_TEST_PORT || 4181);
+server.listen(port, '127.0.0.1', () => console.log(`Isolated UUID import test: http://127.0.0.1:${port}/?lang=it`));

@@ -4372,14 +4372,14 @@ const renderDashboard = () => {
     // inserito una spesa la vede arrivare invece di cercarla.
     const appenaAggiunta = window.__txAppenaAggiunta && String(t.id) === String(window.__txAppenaAggiunta);
     return `
-      <div class="tx-card group${appenaAggiunta ? ' tx-appena-aggiunta' : ''}" data-id="${t.id}">
+      <div class="tx-card group${appenaAggiunta ? ' tx-appena-aggiunta' : ''}" data-id="${escTx(t.id)}">
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <!-- Prima era un &lt;div&gt; muto: l'unica azione sulla riga era il
                cestino. Ora l'icona e' un bottone che apre il cambio categoria —
                senza, dopo un import imperfetto l'unica scelta era eliminare, e
                l'apprendimento dalle correzioni (orchestrator.learn) restava
                alimentato solo dal form di aggiunta manuale. -->
-          <button onclick="window.openCategoryPicker('${k}', ${t.id})" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(catName(c, __uiLang)))}" title="${tCh('catCambiaCategoria', __uiLang)}" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</button>
+          <button onclick="window.openCategoryPicker(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(t.id))})" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(catName(c, __uiLang)))}" title="${tCh('catCambiaCategoria', __uiLang)}" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</button>
           <div class="min-w-0 pr-2 flex-1">
              <!-- La descrizione e' quello che si LEGGE per riconoscere il
                   movimento; l'importo e' il dato. Prima erano entrambi al
@@ -4387,7 +4387,7 @@ const renderDashboard = () => {
                   ogni riga: in una lista di trenta, se tutto grida non spicca
                   niente e scorrerla diventa faticoso. -->
              <p class="tx-desc truncate flex items-center"><span class="truncate">${escTx(descLabel)}</span></p>
-             <button onclick="window.openCategoryPicker('${k}', ${t.id})" class="tx-category-edit" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(dateLabel))}">
+             <button onclick="window.openCategoryPicker(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(t.id))})" class="tx-category-edit" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(dateLabel))}">
                <span class="tx-category-name truncate">${escTx(dateLabel)}</span>
                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
                <span class="tx-category-action">${tCh('catCambiaCategoria', __uiLang)}</span>
@@ -4403,7 +4403,7 @@ const renderDashboard = () => {
                  rossi urlati. Ora: icona cestino DISCRETA (azione distruttiva a
                  bassa prominenza, principio "non rendere facile lo sbaglio") ma
                  SEMPRE accessibile su ogni dispositivo, area tocco adeguata. -->
-            <button onclick="deleteTx('${k}', ${t.id})" aria-label="${tCh('txEliminaAria', __uiLang)}" title="${tCh('txElimina', __uiLang)}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] focus:opacity-100 active:text-[var(--red)] transition p-2 -m-1">
+            <button onclick="deleteTx(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(t.id))})" aria-label="${tCh('txEliminaAria', __uiLang)}" title="${tCh('txElimina', __uiLang)}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] focus:opacity-100 active:text-[var(--red)] transition p-2 -m-1">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
             </button>
           </div>
@@ -4470,7 +4470,7 @@ window.openCategoryPicker = (month, id) => {
       </div>
       <div class="grid grid-cols-3 gap-2.5 w-full">
         ${scelte.map(c => `
-          <button onclick="window.setTxCategory('${month}', ${id}, '${c.id}')" class="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border ${c.id === tx.category ? 'border-[var(--primary)] bg-white/5' : 'border-[var(--glass-border)]'} hover:bg-white/5 transition">
+          <button onclick="window.setTxCategory(${escapeHtml(JSON.stringify(month))}, ${escapeHtml(JSON.stringify(id))}, ${escapeHtml(JSON.stringify(c.id))})" class="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border ${c.id === tx.category ? 'border-[var(--primary)] bg-white/5' : 'border-[var(--glass-border)]'} hover:bg-white/5 transition">
             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</div>
             <span class="text-[10px] font-bold text-center leading-tight">${escapeHtml(catName(c, __uiLang))}</span>
           </button>

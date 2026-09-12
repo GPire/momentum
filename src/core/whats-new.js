@@ -528,6 +528,14 @@ export const RELEASES = [
   },
 ];
 
+RELEASES.push({
+  versione: '2026-09-12.1',
+  voci: [
+    { colore: 'primary', icona: '<path d="m16 3 5 5-12 12-6 1 1-6Z"/>', titolo: 'Correggi i movimenti importati', testo: 'Cambia categoria e pianifica una scadenza anche per i movimenti con identificativi testuali. Il comando Rinomina è più riconoscibile nel Command Center.', titoloKey: 'wn0912b_t', testoKey: 'wn0912b_d' },
+    { colore: 'green', icona: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 11h18"/>', titolo: 'Le date restano al loro posto', testo: 'Dal movimento alla scadenza: la data iniziale rispetta il giorno locale. Le modifiche al piano non riscrivono la spesa originale.', titoloKey: 'wn0912c_t', testoKey: 'wn0912c_d' },
+  ],
+});
+
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

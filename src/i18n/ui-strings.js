@@ -46,6 +46,10 @@ export function resolveUiLanguage({ override = null, navigatorLike } = {}) {
 
 const S = {
   it: {
+    wn0912b_t: "Correggi i movimenti importati",
+    wn0912b_d: "Cambia categoria e pianifica una scadenza anche per i movimenti con identificativi testuali. Il comando Rinomina è più riconoscibile nel Command Center.",
+    wn0912c_t: "Le date restano al loro posto",
+    wn0912c_d: "Dal movimento alla scadenza: la data iniziale rispetta il giorno locale. Le modifiche al piano non riscrivono la spesa originale.",
     portfolioRiskDirect: "Sui tuoi strumenti",
     portfolioRiskSector: "Simulazione per settori · metodo diverso",
     portfolioRiskSources: "Fonti",
@@ -1786,6 +1790,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> ti ha addebitato per la seconda volta ${amount} — è confermato ricorrente. Se non lo aspettavi, controllalo subito.`,
   },
   en: {
+    wn0912b_t: "Edit imported transactions",
+    wn0912b_d: "Change categories and schedule payments for transactions with text identifiers too. Rename is easier to find in the Command Center.",
+    wn0912c_t: "Dates stay in place",
+    wn0912c_d: "From transaction to schedule: the start date follows your local calendar day. Editing a plan does not rewrite the original expense.",
     portfolioRiskDirect: "Your actual holdings",
     portfolioRiskSector: "Sector simulation · different method",
     portfolioRiskSources: "Sources",
@@ -3416,6 +3424,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> has charged you ${amount} for the second time — it's confirmed recurring. If you weren't expecting it, check it right away.`,
   },
   de: {
+    wn0912b_t: "Importierte Buchungen bearbeiten",
+    wn0912b_d: "Ändere Kategorien und plane Zahlungen auch bei Buchungen mit Textkennungen. Umbenennen ist im Command Center leichter zu finden.",
+    wn0912c_t: "Das Datum bleibt richtig",
+    wn0912c_d: "Von der Buchung zum Plan: Das Startdatum entspricht dem lokalen Kalendertag. Änderungen am Plan verändern die ursprüngliche Ausgabe nicht.",
     portfolioRiskDirect: "Deine tatsächlichen Positionen",
     portfolioRiskSector: "Sektorsimulation · andere Methode",
     portfolioRiskSources: "Quellen",
@@ -5049,6 +5061,10 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> hat dich zum zweiten Mal mit ${amount} belastet — bestätigt wiederkehrend. Falls unerwartet, sofort prüfen.`,
   },
   fr: {
+    wn0912b_t: "Modifier les opérations importées",
+    wn0912b_d: "Changez la catégorie et planifiez les paiements, même pour les opérations à identifiant textuel. Renommer est plus facile à trouver dans le Command Center.",
+    wn0912c_t: "Les dates restent correctes",
+    wn0912c_d: "De l’opération au calendrier : la date de début respecte le jour local. Modifier le plan ne réécrit pas la dépense d’origine.",
     portfolioRiskDirect: "Tes positions réelles",
     portfolioRiskSector: "Simulation sectorielle · autre méthode",
     portfolioRiskSources: "Sources",
@@ -6685,6 +6701,10 @@ const S = {
   // svizzera (chXxx) qui: nessun autónomo spagnolo la vedrebbe mai, e
   // t() ricade comunque su EN poi IT per una chiave assente.
   es: {
+    wn0912b_t: "Edita los movimientos importados",
+    wn0912b_d: "Cambia categorías y programa pagos también en movimientos con identificadores de texto. Renombrar es más fácil de encontrar en el Command Center.",
+    wn0912c_t: "Las fechas se mantienen",
+    wn0912c_d: "Del movimiento al calendario: la fecha de inicio respeta el día local. Cambiar el plan no modifica el gasto original.",
     portfolioRiskDirect: "Tus posiciones reales",
     portfolioRiskSector: "Simulación sectorial · otro método",
     portfolioRiskSources: "Fuentes",
@@ -8324,6 +8344,10 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale nei
   // Paesi Bassi, aggiungerle sarebbe stato inventato, non tradotto.
   nl: {
+    wn0912b_t: "Bewerk geïmporteerde transacties",
+    wn0912b_d: "Wijzig categorieën en plan betalingen ook voor transacties met tekst-ID’s. Hernoemen is makkelijker te vinden in het Command Center.",
+    wn0912c_t: "Datums blijven correct",
+    wn0912c_d: "Van transactie naar planning: de begindatum volgt de lokale kalenderdag. Een wijziging aan het plan verandert de oorspronkelijke uitgave niet.",
     portfolioRiskDirect: "Je werkelijke posities",
     portfolioRiskSector: "Sectorsimulatie · andere methode",
     portfolioRiskSources: "Bronnen",
@@ -9973,6 +9997,10 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale per
   // il pubblico brasiliano.
   pt: {
+    wn0912b_t: "Edite movimentos importados",
+    wn0912b_d: "Altere categorias e planeie pagamentos também em movimentos com identificadores de texto. Renomear é mais fácil de encontrar no Command Center.",
+    wn0912c_t: "As datas ficam certas",
+    wn0912c_d: "Do movimento ao plano: a data inicial respeita o dia local. Alterar o plano não modifica a despesa original.",
     portfolioRiskDirect: "As tuas posições reais",
     portfolioRiskSector: "Simulação setorial · outro método",
     portfolioRiskSources: "Fontes",
