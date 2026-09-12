@@ -629,7 +629,7 @@ const buildCatChipsHTML = (type) => {
 // compilando — niente modale sopra il modale, che su mobile avrebbe dovuto
 // far sparire (o salvare da qualche parte) l'importo gia' digitato.
 const buildNewCatPanelHTML = () => `
-  <div id="new-cat-panel" tabindex="-1" aria-label="${tCh('catNuovaCategoria', __uiLang)}" class="new-cat-panel hidden shrink-0">
+  <div id="new-cat-panel" hidden tabindex="-1" aria-label="${tCh('catNuovaCategoria', __uiLang)}" class="new-cat-panel hidden shrink-0">
     <div class="new-cat-head">
       <span class="t-etichetta" id="category-editor-title">${tCh('catNuovaCategoria', __uiLang)}</span>
       <button type="button" id="new-cat-cancel" class="new-cat-chiudi" aria-label="${tCh('catAnnulla', __uiLang)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
@@ -1619,10 +1619,13 @@ const attachFormListeners = (container, prefill = null) => {
   ].filter(Boolean);
 
   let categoryBeingEdited = null;
+  let categoryReturnFocus = null;
   const openNewCatPanel = (nomeSuggerito = '', category = null) => {
     categoryBeingEdited = category;
     const panel = container.querySelector('#new-cat-panel');
     if (!panel) return;
+    categoryReturnFocus = container.contains(document.activeElement) ? document.activeElement : null;
+    container.querySelectorAll('.command-new-category,.command-edit-category').forEach(button => button.setAttribute('aria-expanded','true'));
     container.querySelector('#category-editor-title').textContent = category ? tIntegration('categoryEdit', __uiLang) : tCh('catNuovaCategoria', __uiLang);
     container.querySelector('#new-cat-crea').textContent = category ? tIntegration('categorySave', __uiLang) : tCh('catCreaCategoria', __uiLang);
     panel.setAttribute('aria-label', container.querySelector('#category-editor-title').textContent);
@@ -1646,6 +1649,7 @@ const attachFormListeners = (container, prefill = null) => {
       suggerisciIconaDaTesto(nomeSuggerito);
       aggiornaAnteprimaCat();
     }
+    panel.hidden = false;
     panel.classList.remove('hidden');
     // Reflow forzato per far ripartire l'animazione di apertura ogni volta,
     // anche se il pannello era gia' stato aperto e richiuso in questa sessione.
@@ -1661,10 +1665,17 @@ const attachFormListeners = (container, prefill = null) => {
   };
   const closeNewCatPanel = () => {
     const panel = container.querySelector('#new-cat-panel');
+    if (panel) panel.hidden = true;
     panel?.classList.add('hidden');
     panel?.parentElement.classList.remove('category-editing');
     elementiDaNascondere().forEach((el) => el.classList.remove('hidden'));
+    container.querySelectorAll('.command-new-category,.command-edit-category').forEach(button => button.setAttribute('aria-expanded','false'));
+    categoryReturnFocus?.focus({preventScroll:true});
   };
+  container.querySelectorAll('.command-new-category,.command-edit-category').forEach(button => button.setAttribute('aria-expanded','false'));
+  container.querySelector('#new-cat-panel')?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeNewCatPanel(); }
+  });
 
   container.querySelector('#new-cat-cancel')?.addEventListener('click', () => { haptic('light'); closeNewCatPanel(); });
   container.querySelector('.command-edit-category')?.addEventListener('click', () => { if (catId) openNewCatPanel('', getCatById(catId)); });

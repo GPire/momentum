@@ -58,6 +58,7 @@ try {
     }
     await page.locator('#mobile-add-btn:visible, #tablet-fab:visible').first().click();
     await page.locator('#modal-body #tx-amount-display').waitFor({state:'visible'});
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),false);
     if(touch) assert.notEqual(await page.evaluate(()=>document.activeElement?.id),'tx-amount-display');
     await page.locator('#modal-body #tx-amount-display').fill('1234567,89');
     await page.waitForFunction(()=>{
@@ -81,12 +82,19 @@ try {
       });
       if (value==='6556655') await page.screenshot({path:resolve(artifacts,`amount-${width}${empty ? '-first-use' : ''}.png`)});
     }
+    const draftAmount=await page.locator('#modal-body #tx-amount-display').inputValue();
+    await page.locator('#modal-body .command-new-category').click();
+    await page.locator('#modal-body #new-cat-panel').waitFor({state:'visible'});
+    await page.locator('#modal-body #new-cat-cancel').click();
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),false);
+    assert.equal(await page.locator('#modal-body #tx-amount-display').inputValue(),draftAmount);
     await page.locator('#modal-body [data-cat-id="spesa"]').click();
     await page.locator('#modal-body .command-edit-category').click();
     assert.equal(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji span').count(),0);
     assert.ok(await page.locator('#modal-body #new-cat-emoji-grid .new-cat-emoji').first().getAttribute('aria-label'));
     await page.locator('#modal-body #new-cat-nome').fill('Spesa di casa');
     await page.locator('#modal-body #new-cat-crea').click();
+    assert.equal(await page.locator('#modal-body #new-cat-panel').isVisible(),false);
     assert.equal(await page.locator('#modal-body [data-cat-id="spesa"] .cat-chip-label').innerText(),'Spesa di casa');
     const categoryLayout = await page.evaluate(()=>{
       const body=document.querySelector('#modal-body'), form=body.querySelector('.command-form');
