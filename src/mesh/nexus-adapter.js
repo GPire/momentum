@@ -17,6 +17,8 @@
 // il grafo che impara online da ogni transazione confermata restava chiuso
 // sul singolo dispositivo. Un peer di formato più vecchio semplicemente non
 // manda `graph`: skip silenzioso, mai un crash.
+import { validNeuralModel, validGraphModel, validCategoryCounts } from '../ai/model-shape.js';
+
 export function createNexusMeshMind(orchestrator, vaultDAO) {
   return {
     get validationSet() { return orchestrator._validationSet || []; },
@@ -43,12 +45,17 @@ export function createNexusMeshMind(orchestrator, vaultDAO) {
       if (!weights || weights.format !== 'nexus-v1' || !weights.net) {
         return { accepted: false, reason: 'formato sconosciuto' };
       }
+      if (!validNeuralModel(weights.net)
+        || (weights.trainedExamples !== undefined && (!Number.isSafeInteger(weights.trainedExamples) || weights.trainedExamples < 1))
+        || (weights.catCounts !== undefined && !validCategoryCounts(weights.catCounts))) {
+        return { accepted: false, reason: 'struttura del modello o conteggi non validi' };
+      }
       let risultato;
       if (!vaultDAO.state.mlData.neuralNet) {
         // Dispositivo nuovo: nessuna rete locale da fondere → ADOTTA quella
         // del peer fidato. È il valore del pairing: il secondo dispositivo
         // nasce già addestrato invece di ripartire da zero.
-        vaultDAO.state.mlData.neuralNet = weights.net;
+        vaultDAO.state.mlData.neuralNet = structuredClone(weights.net);
         vaultDAO.state.mlData.totalWords = weights.trainedExamples || 1;
         vaultDAO.save();
         risultato = { accepted: true, adopted: true, totalExamples: weights.trainedExamples || 1 };
@@ -60,10 +67,14 @@ export function createNexusMeshMind(orchestrator, vaultDAO) {
       // (accettato/rifiutato/adottato) non deve mai alterare quello della
       // rete neurale sopra, per questo vive annidato in `risultato.graph`.
       if (weights.graph) {
+        if (!validGraphModel(weights.graph)) {
+          risultato.graph = { accepted: false, reason: 'struttura del grafo non valida' };
+          return risultato;
+        }
         const graphLocale = vaultDAO.state.mlData.dcgn;
         if (!graphLocale || !graphLocale.docs) {
-          vaultDAO.state.mlData.dcgn = weights.graph;
-          orchestrator.graph = weights.graph;
+          vaultDAO.state.mlData.dcgn = structuredClone(weights.graph);
+          orchestrator.graph = vaultDAO.state.mlData.dcgn;
           vaultDAO.save();
           risultato.graph = { accepted: true, adopted: true };
         } else {

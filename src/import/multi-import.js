@@ -19,6 +19,7 @@ import { parseScreenshotTransactions } from './screenshot-parser.js';
 import { safeCategorize } from './categorize.js';
 import { parseCamt053, isCamt053 } from './camt053.js';
 import { rilevaAcquistoTitolo } from './security-purchase-detector.js';
+import { simpleHash } from '../core/utils.js';
 
 // Categorizza (MCC/asset dal parser, altrimenti ML) e aggiunge in BULK una lista
 // di transazioni normalizzate. `seenIds` = dedup esatta condivisa tra i file.
@@ -64,34 +65,68 @@ export const KIND_TO_SOURCE = { csv: 'csv', pdf: 'pdf', xml: 'camt053', image: '
 // dell'utente → convergenza. I dati (transazioni) sono la fonte di verità e
 // sopravvivono via le migrazioni schema; i modelli ci si riallineano da soli.
 // "Gli utenti non possono perdere dati tra una versione e 50 dopo."
+let activeReplay = null;
 export function reconcileModelsWithHistory(currentSignature) {
   if (typeof window === 'undefined' || !VaultDAO.state) return { reconciled: false };
   const ml = VaultDAO.state.mlData = VaultDAO.state.mlData || {};
   if (ml.modelSignature === currentSignature) return { reconciled: false };
+  if (!window.momentumOrchestrator) return { reconciled: false, pending: true };
+  if (activeReplay?.ml === ml && activeReplay.signature === currentSignature) return { reconciled: false, pending: true };
   const pairs = [];
   for (const m of Object.values(VaultDAO.state.transactions || {}))
     for (const tx of m) if (tx.description && tx.category) pairs.push({ description: tx.description, category: tx.category, amount: tx.amount, date: new Date(tx.date) });
-  learnInBackground(pairs);                 // ri-apprende in background (non blocca)
-  ml.modelSignature = currentSignature;
-  try { VaultDAO.save(); } catch (_) {}
-  return { reconciled: true, count: pairs.length };
+  const history = simpleHash(JSON.stringify(pairs));
+  const previous = ml.historyReplay;
+  const start = previous?.signature === currentSignature && previous.history === history
+    && Number.isInteger(previous.next) && previous.next >= 0 && previous.next <= pairs.length ? previous.next : 0;
+  const job = activeReplay = { ml, signature: currentSignature };
+  const current = () => activeReplay === job && VaultDAO.state.mlData === ml;
+  ml.historyReplay = { signature: currentSignature, history, next: start, total: pairs.length };
+  const completion = learnInBackground(pairs.slice(start), 40, {
+    shouldContinue: current,
+    onProgress: ({ processed }) => {
+      ml.historyReplay.next = start + processed;
+      // Cursor and learned weights are saved together after each bounded batch.
+      VaultDAO.save();
+    },
+  }).then(result => {
+    if (!current()) return { ...result, cancelled: true };
+    if (result.complete) {
+      ml.modelSignature = currentSignature;
+      delete ml.historyReplay;
+      VaultDAO.save();
+    }
+    activeReplay = null;
+    return result;
+  });
+  return { reconciled: true, count: pairs.length, resumedFrom: start, completion };
 }
 
-export function learnInBackground(pairs, chunk = 40) {
-  if (typeof window === 'undefined' || !window.momentumOrchestrator || !pairs || !pairs.length) return;
+export function learnInBackground(pairs, chunk = 40, { shouldContinue = () => true, onProgress = () => {} } = {}) {
+  if (typeof window === 'undefined' || !window.momentumOrchestrator) return Promise.resolve({ complete: false, processed: 0 });
+  if (!pairs?.length) return Promise.resolve({ complete: true, processed: 0 });
   const orch = window.momentumOrchestrator;
+  const size = Number.isSafeInteger(chunk) && chunk > 0 ? Math.min(chunk, 100) : 40;
   let i = 0;
   const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 30));
-  const step = () => {
-    let n = 0;
-    while (i < pairs.length && n < chunk) {
-      const p = pairs[i++];
-      try { orch.learn(p.description, p.category, p.amount, p.date); } catch (_) {}
-      n++;
-    }
-    if (i < pairs.length) idle(step);
-  };
-  idle(step);
+  return new Promise(resolve => {
+    const step = () => {
+      if (!shouldContinue() || window.momentumOrchestrator !== orch) return resolve({ complete: false, processed: i, cancelled: true });
+      try {
+        for (let n = 0; i < pairs.length && n < size; n++) {
+          const p = pairs[i];
+          orch.learn(p.description, p.category, p.amount, p.date);
+          i++;
+        }
+        onProgress({ processed: i });
+      } catch (error) {
+        return resolve({ complete: false, processed: i, error });
+      }
+      if (i < pairs.length) idle(step);
+      else resolve({ complete: true, processed: i });
+    };
+    idle(step);
+  });
 }
 
 // CSV di PORTAFOGLIO (posizioni: ticker+quantità) vs CSV di MOVIMENTI: si

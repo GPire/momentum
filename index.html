@@ -4231,6 +4231,7 @@
   <link rel="stylesheet" href="./src/ui/dashboard-clarity.css">
   <link rel="stylesheet" href="./src/ui/financial-workspace.css">
   <link rel="stylesheet" href="./src/ui/onboarding-ready.css">
+  <link rel="stylesheet" href="./src/ui/command-viewport.css">
 </head>
 <body class="min-h-screen flex flex-col md:flex-row relative">
   <div id="app-startup" role="status" aria-label="Momentum"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="40" cy="40" r="21"/><ellipse cx="40" cy="40" rx="35" ry="12" transform="rotate(-32 40 40)"/><circle cx="66" cy="20" r="3" fill="currentColor"/></svg><span>Momentum</span></div>
@@ -5724,7 +5725,7 @@
                 <div class="device-transfer-actions"><button type="button" onclick="window.exportEncryptedBackup()"><span class="device-step" aria-hidden="true">1</span><span data-i18n-key="deviceMakeCopy"></span></button><button type="button" onclick="document.getElementById('backup-restore-input').click()"><span class="device-step" aria-hidden="true">2</span><span data-i18n-key="deviceOpenCopy"></span></button></div>
                 <p class="device-transfer-note" data-i18n-key="deviceTransferNote"></p>
                 <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" name="backup-restore-input" />
-                <details class="calm-disclosure"><summary data-i18n-key="deviceRecovery"></summary><div class="device-options"><div id="backup-health-card"></div><button class="btn-action" onclick="window.openRecoveryKit()" data-i18n-key="vaultSecureBackup"></button><button class="btn-action" onclick="window.openRecoveryRestore()" data-i18n-key="vaultRestoreBackup"></button></div></details>
+                <details class="calm-disclosure"><summary data-i18n-key="deviceRecovery"></summary><div class="device-options"><div id="backup-health-card"></div><button type="button" class="btn-action" onclick="window.exportBeforeRestore()" data-integration-copy="restorePrevious"></button><button class="btn-action" onclick="window.openRecoveryKit()" data-i18n-key="vaultSecureBackup"></button><button class="btn-action" onclick="window.openRecoveryRestore()" data-i18n-key="vaultRestoreBackup"></button></div></details>
                 <details class="calm-disclosure"><summary data-i18n-key="deviceNetwork"></summary><div class="device-options"><p data-i18n-key="meshPrivateBoundary"></p><button type="button" class="btn-action" onclick="window.openMeshPairing()" data-i18n-key="deviceNetworkOpen"></button><p id="mesh-status"></p><p id="mesh-economics-status"></p></div></details>
                 <details class="calm-disclosure"><summary data-i18n-key="deviceMore"></summary><div class="device-options"><p data-i18n-html="vaultPlainCopyWarning"></p><button onclick="window.exportPlainBackup()" class="btn-action" data-i18n-key="vaultSavePlainCopy"></button><button onclick="window.exportTrainingData()" class="btn-action" data-i18n-key="vaultExportTrainingData"></button><div id="data-freshness-card"></div><button type="button" onclick="window.exportPreUpdateBackup()" class="btn-action" data-integration-copy="checkpoint"></button><button type="button" onclick="window.openTrustCenter()" class="btn-action" data-i18n-key="trustCenterOpen"></button></div></details>
               </div>

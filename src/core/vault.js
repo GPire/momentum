@@ -1,4 +1,5 @@
 import { themePreference } from '../ui/theme-preference.js';
+import { resolveCategories } from './category-appearance.js';
 import { SCHEMA_VERSION, DEFAULT_CATEGORIES, ALL_CATS } from './constants.js';
 import { simpleHash } from './utils.js';
 import { findDuplicate, mergeTransaction } from './deduplicator.js';
@@ -52,8 +53,8 @@ function runSchemaMigrations(loadedState, migrations = MIGRATIONS) {
 // buco grigio nella lista movimenti. Il ripiego ha una sua icona vera, così una
 // riga resta leggibile a colpo d'occhio anche quando la categoria non esiste più.
 const FALLBACK_CAT_ICON = `<svg class="w-6 h-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>`;
-const getCatById = (id) => { const custom = VaultDAO.state.customCategories || []; return [...ALL_CATS, ...custom].find(c => c.id === id) || { name: 'Altro', emoji: '✨', type: 'uscita', color: '#64748b', icon: FALLBACK_CAT_ICON }; };
-const getCatsByType = (type) => { const base = type === 'uscita' ? DEFAULT_CATEGORIES.expense : (type === 'entrata' ? DEFAULT_CATEGORIES.income : DEFAULT_CATEGORIES.invest); const custom = (VaultDAO.state.customCategories || []).filter(c => c.type === type); return [...base, ...custom]; };
+const getCatById = (id) => resolveCategories(ALL_CATS, VaultDAO.state.customCategories).find(c => c.id === id) || { name: 'Altro', type: 'uscita', color: '#64748b', icon: FALLBACK_CAT_ICON };
+const getCatsByType = (type) => resolveCategories(ALL_CATS, VaultDAO.state.customCategories).filter(c => c.type === type);
 
 // ==========================================
 // DURABLE STORE — IndexedDB (primario) + localStorage (cache di compatibilità)

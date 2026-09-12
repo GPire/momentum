@@ -1,6 +1,29 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
-> **Stato più recente, 2026-09-11:** integrazione di main `d92a5dc` nel branch
+> **Ultima integrazione 2026-09-12:** commit `06f778f` sopra `443c23a`
+> ed `e7b1736`: lista da 8 movimenti, correzioni viewport/tastiera/importo,
+> rinomina delle categorie senza cambiare ID, 10 icone nuove, selettore solo
+> iconografico, azione esplicita per correggere una categoria e consolidamento
+> delle notizie duplicate prima del sentiment. 4.897 test / 323 file e build
+> passati localmente. Push riuscito; Cloudflare ha pubblicato `06f778f` su
+> `https://ee54e391.momentum-finance.pages.dev`. Test/build, Android e iOS Simulator
+> passati in CI. Lo smoke browser iniziale cercava una funzione non globale;
+> `3f92f1a` lo corregge usando il pulsante reale. Consultare la PR #2 per l'esito
+> aggiornato e lo stato di merge, senza dedurlo dalla sola anteprima. Lo smoke è pronto anche per Chrome/Edge locale,
+> ma l'avvio del browser su questo host resta fermato da `spawn EPERM`.
+> Leggere [command-center-touch-2026-09-12.md](docs/command-center-touch-2026-09-12.md).
+
+> **Revisione del 2026-09-12:** `main` è `adc8a66`, release precedente integrata.
+> Il branch `codex/data-learning-continuity` aggiunge test storici v7.0/v7.1,
+> protezioni del ripristino, conservazione dei pesi appresi e controlli mesh.
+> Commit applicativo `758f90c`: **4.889 test, zero fallimenti/skip**, build web,
+> Android build/lint e iOS Simulator con SDK 27 passati in CI. PR #2 in bozza:
+> manca il collaudo visivo del ripristino tramite upload, bloccato dal browser.
+> Leggere [data-learning-mesh-audit-2026-09-12.md](docs/data-learning-mesh-audit-2026-09-12.md)
+> per risultati, limiti e lavoro residuo. Non dichiarare provata ogni vecchia
+> versione o tutti i dispositivi. Non cambiare le formule fiscali per analogia.
+
+> **Integrazione precedente, 2026-09-11:** integrazione di main `d92a5dc` nel branch
 > UI completata per sezione; 13 conflitti risolti, casi limite dei motori corretti.
 > Suite finale su `66602c7`: **4.846 test / 317 file, zero fallimenti o skip**;
 > build web standard, Android e iOS Simulator SDK 27 passati in CI. Corretto
@@ -50,7 +73,7 @@ JavaScript vanilla + Vite, nessun framework UI. Il valore nasce dal **non
 ricevere mai i dati dell'utente**: nessun server proprietario, nessun cloud
 obbligatorio, nessun account.
 
-Repo: `https://github.com/GPire/momentum` · branch di lavoro `codex/public-release-foundation` ·
+Repo: `https://github.com/GPire/momentum` · branch di lavoro `codex/data-learning-continuity` ·
 versione in `package.json`: **50.1.0**.
 
 ## Regole non negoziabili

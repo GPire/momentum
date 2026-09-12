@@ -19,6 +19,22 @@ function resetVault() {
   VaultDAO.save = () => {};
 }
 
+test('opening saved neural learning never reseeds learned onboarding words', () => {
+  resetVault();
+  NeuralNexus.initPriorWeights({ riskProfile: 'aggressivo' });
+  const net = VaultDAO.state.mlData.neuralNet;
+  net.embeddings.crypto = Array(8).fill(0.723);
+  net.embeddings.bolletta = Array(8).fill(-0.481);
+  const weights = structuredClone({ W1: net.W1, W2: net.W2, b1: net.b1, b2: net.b2 });
+  delete net.catIndex; delete net.indexToCat; // original saved network format
+  NeuralNexus.initPriorWeights({ riskProfile: 'aggressivo', invests: false, cashflowStress: 'corto' });
+  assert.deepEqual(net.embeddings.crypto, Array(8).fill(0.723));
+  assert.deepEqual(net.embeddings.bolletta, Array(8).fill(-0.481));
+  assert.deepEqual({ W1: net.W1, W2: net.W2, b1: net.b1, b2: net.b2 }, weights);
+  assert.equal(net.catIndex.crypto, 7);
+  assert.equal(net.embeddings.affitto.length, 8);
+});
+
 // ── Cantiere C4 (PIANO_TASK_2026-08-21.md): l'output della rete cresce da
 // solo invece di restare bloccato a 8 categorie fisse ──────────────────────
 

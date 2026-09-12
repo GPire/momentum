@@ -1,4 +1,5 @@
 import { evaluateMerge, evaluateMergePerCategoria } from './merge-gate.js';
+import { validNeuralModel, validGraphModel, validCategoryCounts } from './model-shape.js';
 import { monthKey } from '../core/constants.js';
 import { VaultDAO } from '../core/vault.js';
 import { NeuralNexus, fondiOutputPerNome } from './neural-nexus.js';
@@ -546,6 +547,11 @@ class MomentumOrchestrator {
   // qui opera direttamente su VaultDAO.state.mlData.neuralNet.
   mergeRemoteNeuralNet(remoteNet, remoteExampleCount, remoteCatCounts = null) {
     const localNet = this.vault.state.mlData.neuralNet;
+    if (!validNeuralModel(remoteNet) || !validNeuralModel(localNet)
+      || !Number.isSafeInteger(remoteExampleCount) || remoteExampleCount < 1
+      || (remoteCatCounts !== null && !validCategoryCounts(remoteCatCounts))) {
+      return { accepted: false, reason: 'struttura del modello o conteggi non validi' };
+    }
     const localExampleCount = this.vault.state.mlData.totalWords || 1;
     const total = localExampleCount + remoteExampleCount;
     const wLocal = localExampleCount / total;
@@ -583,6 +589,9 @@ class MomentumOrchestrator {
       b1: mergeVector(localNet.b1, remoteNet.b1),
       W2, b2, catIndex, indexToCat,
     };
+    if (!Number.isSafeInteger(total) || !validNeuralModel(mergedNet)) {
+      return { accepted: false, reason: 'fusione numericamente non valida' };
+    }
 
     // CANCELLO DI MERGE (src/ai/merge-gate.js). Il controllo precedente
     // rifiutava solo oltre +10% sulla singola fusione, e sotto 5 esempi di
@@ -641,6 +650,9 @@ class MomentumOrchestrator {
   // che il cancello di NeuralNexus era nato per correggere.
   mergeRemoteGraph(remoteGraph) {
     const localGraph = this.graph;
+    if (!validGraphModel(remoteGraph) || !validGraphModel(localGraph)) {
+      return { accepted: false, reason: 'struttura del grafo non valida' };
+    }
     const validationSet = this._validationSet
       .filter(v => v.text)
       .map(v => ({ text: v.text, category: v.catId }));

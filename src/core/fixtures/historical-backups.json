@@ -1,0 +1,217 @@
+{
+  "provenance": "Synthetic states built from actual tagged Vault defaults. Encrypted envelope produced by the original exporter. Not customer backups.",
+  "states": [
+    {
+      "tag": "v7.0",
+      "revision": "c6b6c0cf8088ed893b1a3667a412f53a4d94ddf4",
+      "schema": 50,
+      "state": {
+        "schemaVersion": 50,
+        "isFirstLaunch": false,
+        "currentDate": "2026-07-07T12:00:00.000Z",
+        "transactions": {
+          "2026-07": [
+            {
+              "id": 7001,
+              "amount": 12.5,
+              "type": "uscita",
+              "category": "spesa",
+              "date": "2026-07-05T12:00:00.000Z",
+              "description": "Caffè di prova"
+            }
+          ]
+        },
+        "themeDark": true,
+        "currentView": "dashboard",
+        "customCategories": [],
+        "subscriptions": [],
+        "monthlyBudget": 420.25,
+        "aiAggression": "advisor",
+        "ghostRadarActive": true,
+        "soundActive": true,
+        "onboardingProfile": {
+          "riskProfile": "bilanciato",
+          "horizon": "medio"
+        },
+        "mlData": {
+          "vocab": {
+            "caffè": {
+              "spesa": 3
+            }
+          },
+          "catCounts": {
+            "spesa": 3
+          },
+          "totalWords": 3,
+          "lastTraining": 1783425600000
+        },
+        "lastHash": "GENESIS",
+        "events": [],
+        "engagement": {
+          "lastActiveDay": "2026-07-07",
+          "streak": 4,
+          "bestStreak": 8
+        },
+        "savingsGoals": [
+          {
+            "id": "historic-trip",
+            "name": "Viaggio",
+            "target": 800,
+            "saved": 21
+          }
+        ]
+      }
+    },
+    {
+      "tag": "v7.1",
+      "revision": "3dd922f80deaf7fee72eb8b40c359e7df1eb7162",
+      "schema": 50,
+      "state": {
+        "schemaVersion": 50,
+        "isFirstLaunch": false,
+        "currentDate": "2026-07-07T12:00:00.000Z",
+        "transactions": {
+          "2026-07": [
+            {
+              "id": 7001,
+              "amount": 12.5,
+              "type": "uscita",
+              "category": "spesa",
+              "date": "2026-07-05T12:00:00.000Z",
+              "description": "Caffè di prova"
+            }
+          ]
+        },
+        "themeDark": true,
+        "currentView": "dashboard",
+        "customCategories": [],
+        "subscriptions": [],
+        "monthlyBudget": 420.25,
+        "aiAggression": "advisor",
+        "ghostRadarActive": true,
+        "soundActive": true,
+        "onboardingProfile": {
+          "riskProfile": "bilanciato",
+          "horizon": "medio"
+        },
+        "mlData": {
+          "vocab": {
+            "caffè": {
+              "spesa": 3
+            }
+          },
+          "catCounts": {
+            "spesa": 3
+          },
+          "totalWords": 3,
+          "lastTraining": 1783425600000
+        },
+        "lastHash": "GENESIS",
+        "events": [],
+        "engagement": {
+          "lastActiveDay": "2026-07-07",
+          "streak": 4,
+          "bestStreak": 8
+        },
+        "savingsGoals": [
+          {
+            "id": "historic-trip",
+            "name": "Viaggio",
+            "target": 800,
+            "saved": 21
+          }
+        ]
+      }
+    }
+  ],
+  "encrypted": {
+    "revision": "57a70d733ca04775dbf30329626d715a86839978",
+    "password": "Synthetic historical fixture only",
+    "envelope": {
+      "format": "momentum-backup-v1",
+      "kdf": {
+        "name": "PBKDF2",
+        "hash": "SHA-256",
+        "iterations": 210000
+      },
+      "cipher": "AES-GCM-256",
+      "salt": "UvVdkTQBEEuWKlBrc79JYQ==",
+      "iv": "tOKZWqAXwSIcdo4n",
+      "data": "8k1R107Ch2yCw5ZEF8k1lteCUjofRifWIYROyC1O8hkDIObbTS4v1TQPyVrllunnt1h4bLWwZYcnDsxvWF74G2CqUoYhAzbHxjYu/mpCdGH031oouZB16IreFuC/9bUjYWBbjzCun1zRu3sdANZnArzIBQfZEBT/aOg3KVreV2PfAMicYJ4eoU6Kyfj077GdF/G2PMeqGpueQVznwQiKjpzNUgpcPVsLW1ZvgoADh2M2gi5Vp0hOnSP8nFx2uxwF9Xc3eCqFIUu0OARch8PQd8fVYemn+sRPZs3F07uCfqP9Z17TiBAGp3p03kuI9N3JO0slIX75We+D81RlAd9ynIpFYBtzD62nlwRugpO0LzCMo3rHS9+kFAZ0n7URxOKNTY+sAEH+OB3lhRqQt1d+unEyRVENqkVZdWIV81CFsFksgi7+lkC6vokebz+vd8OBSPDyys/V9FnJYbCz7o23knCKXC4JUlG6W0p76Oc02HIECnmErIfE1isYiLb6c4LNBjsn7L9omIUWXM5Zln78bv4fibE/N+TQ5Hym59E1YnxRbocQ771Sry9UEX07yMWhX7lw5chEeZTfPfY/JSmMj0cnAOVO+7NcmFOS5lsPLf3ITzB7yFng3ZGU8TIF23DNzFyyKYG8d/rgw8gkuI4UgHNhD87I03z7g4xrGyrKZGQNcg7Pxnl1z6Xj8YZTQ5iIZ2RC9KdPuh/H/dk+V5hFRZTzLjyZoBSmm+5QM+YrGb3UmLD3Y5DMiyZjd0aqXCa3tPFDDsUYbEvx5vc3EPWBbSsc3doUqxShorUx2dHAXB2xBDTgGwXsDVkguffRSYpoMguIFINvthSRbhaOz+0KYJ11pGarPCJrA4s/4k9a+Pwo66dqcf5+fHQrvZ/bSrnSpazUpV+WDhX/mWB1wKAtsPwg94Fh7ENkqG4FKQIf+SWnOF7PPYV8iZwfS9WrMwMzsWaHcb2pZ48PaKmDre2oEJV6XihfzoqnZFMj9OwZiZ6gbVQ6XB8JQLFXAn2jdaKwzxf4DLrs/jbiToGXs8hQiadNxZ7z+qU=",
+      "createdAt": "2026-09-11T21:41:04.310Z"
+    },
+    "expected": {
+      "schemaVersion": 50,
+      "isFirstLaunch": false,
+      "currentDate": "2026-07-07T12:00:00.000Z",
+      "transactions": {
+        "2026-07": [
+          {
+            "id": 7001,
+            "amount": 12.5,
+            "type": "uscita",
+            "category": "spesa",
+            "date": "2026-07-05T12:00:00.000Z",
+            "description": "Caffè di prova"
+          }
+        ]
+      },
+      "themeDark": true,
+      "currentView": "dashboard",
+      "customCategories": [],
+      "subscriptions": [],
+      "monthlyBudget": 420.25,
+      "aiAggression": "advisor",
+      "ghostRadarActive": true,
+      "soundActive": true,
+      "onboardingProfile": {
+        "riskProfile": "bilanciato",
+        "horizon": "medio"
+      },
+      "mlData": {
+        "vocab": {
+          "caffè": {
+            "spesa": 3
+          }
+        },
+        "catCounts": {
+          "spesa": 3
+        },
+        "totalWords": 3,
+        "lastTraining": 1783425600000
+      },
+      "lastHash": "GENESIS",
+      "events": [],
+      "engagement": {
+        "lastActiveDay": "2026-07-07",
+        "streak": 4,
+        "bestStreak": 8
+      },
+      "savingsGoals": [
+        {
+          "id": "historic-trip",
+          "name": "Viaggio",
+          "target": 800,
+          "saved": 21
+        }
+      ]
+    }
+  },
+  "dna": {
+    "text": "eyJ0cmFuc2FjdGlvbnMiOlt7ImlkIjo3MDAxLCJhbW91bnQiOjEyLjUsInR5cGUiOiJ1c2NpdGEiLCJjYXRlZ29yeSI6InNwZXNhIiwiZGF0ZSI6IjIwMjYtMDctMDVUMTI6MDA6MDAuMDAwWiIsImRlc2NyaXB0aW9uIjoiQ2FmZsOoIGRpIHByb3ZhIn1dLCJidWRnZXQiOjQyMC4yNSwiYWdncmVzc2lvbiI6ImFkdmlzb3IifQ==",
+    "expected": {
+      "transactions": [
+        {
+          "id": 7001,
+          "amount": 12.5,
+          "type": "uscita",
+          "category": "spesa",
+          "date": "2026-07-05T12:00:00.000Z",
+          "description": "Caffè di prova"
+        }
+      ],
+      "budget": 420.25,
+      "aggression": "advisor"
+    }
+  }
+}
