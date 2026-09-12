@@ -1,5 +1,6 @@
 const langs = ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt'];
 const copy = {
+  commandReviewAmount: ['Verifica l’importo prima di confermare.', 'Check the amount before confirming.', 'Prüfe den Betrag vor dem Bestätigen.', 'Vérifie le montant avant de confirmer.', 'Revisa el importe antes de confirmar.', 'Controleer het bedrag voordat je bevestigt.', 'Confere o valor antes de confirmar.'],
   categoryEdit: ['Modifica categoria', 'Edit category', 'Kategorie bearbeiten', 'Modifier la catégorie', 'Editar categoría', 'Categorie bewerken', 'Editar categoria'],
   categorySave: ['Salva categoria', 'Save category', 'Kategorie speichern', 'Enregistrer la catégorie', 'Guardar categoría', 'Categorie opslaan', 'Guardar categoria'],
   categorySaved: ['Categoria aggiornata', 'Category updated', 'Kategorie aktualisiert', 'Catégorie mise à jour', 'Categoría actualizada', 'Categorie bijgewerkt', 'Categoria atualizada'],
