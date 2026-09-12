@@ -2,10 +2,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { validateStrategySet } from '../src/alpha/strategy-validation.js';
+import { portfolioHistoryRisk } from '../src/alpha/portfolio-history-risk.js';
 
 const root = new URL('./data/research-universe/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8'));
 const strategies = [], skipped = [];
+const histories = {};
 const evaluationFrom = '2022-01-01';
 const transactionCost = 0.001; // declared assumption: 10 bps per traded notional
 for (const asset of manifest.assets) {
@@ -17,6 +19,8 @@ for (const asset of manifest.assets) {
     continue;
   }
   const prices = rows.map(row => row.adjustedClose);
+  histories[asset.symbol] = { currency: asset.currency, source: manifest.provider,
+    points: rows.map(row => ({ date: row.date, price: row.adjustedClose })) };
   for (const window of [20, 60, 120]) {
     // Signal is known at previous close; execution is at today's open. Open
     // is adjusted by the same session's close ratio. No same-close fill claim.
@@ -43,6 +47,14 @@ const report = {
   passingStatisticalGate: validation.solide.length, skipped,
   limitations: [...manifest.limitations, 'no-order-book-or-execution-simulation', 'fixed-cost-assumption', 'historical-adjustments-may-be-revised', 'not-proof-of-future-performance'],
   results: validation.esiti,
+  examplePortfolios: [
+    ['SPY', 'QQQ', 'TLT', 'GLD'],
+    ['AAPL', 'MSFT', 'JPM', 'BTC-USD', 'ETH-USD'],
+  ].map(tickers => ({
+    hypothetical: true, tickers, equalValuesUSD: 1000,
+    risk: portfolioHistoryRisk(tickers.map(ticker => ({ ticker, valueBase: 1000 })), { histories, baseCurrency: 'USD', horizon: 5 }),
+  })),
 };
 writeFileSync(new URL('evaluation.json', root), JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ tested: report.tested, passingStatisticalGate: report.passingStatisticalGate, skipped }));
+console.log(JSON.stringify({ tested: report.tested, passingStatisticalGate: report.passingStatisticalGate, skipped,
+  portfolios: report.examplePortfolios.map(p => ({ tickers: p.tickers, available: p.risk.available, windows: p.risk.windows, coverage: p.risk.coverage, reason: p.risk.reason })) }));
