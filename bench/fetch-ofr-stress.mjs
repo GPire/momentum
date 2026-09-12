@@ -2,6 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { finestraLunga } from '../src/alpha/eventi-lunghi.js';
+import { prepareScenarioDataset } from '../src/sdk/datasets.js';
 
 const url = 'https://www.financialresearch.gov/financial-stress-index/data/fsi.json';
 const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
@@ -33,6 +34,14 @@ const manifest = { source: url, retrievedAt: new Date().toISOString(), sha256: c
   knowledgeBasis: 'latest-revised-snapshot', publicationLag: 'two-business-days-per-OFR',
   use: 'local-research-only-redistribution-not-cleared', missingSeries: [],
   limitations: ['not-point-in-time', 'stress-is-not-a-causal-effect', 'components-not-independent-observations'] };
+const datasets = keys.map(id => ({ id, source: url, unit: 'OFR-index-points', frequency: 'daily',
+  knowledgeBasis: 'latest-revised-snapshot', observations: series[id] }));
+// Local research policy. It does not grant redistribution or training rights.
+const policies = Object.fromEntries(keys.map(id => [id, { source: url, unit: 'OFR-index-points',
+  frequency: 'daily', knowledgeBasis: 'latest-revised-snapshot', allowedPurposes: ['research'] }]));
+const matrix = prepareScenarioDataset(datasets, { asOf: manifest.retrievedAt.slice(0, 10), policies });
+if (!matrix.available) throw new Error(`SDK data contract failed: ${matrix.reason}`);
+manifest.sdkContract = { version: 1, sharedDates: matrix.rows.length, columns: Object.keys(matrix.columns).length };
 const episodes = [
   ['global-financial-crisis', '2008-01-01', '2009-12-31'],
   ['pandemic', '2020-02-01', '2020-06-30'],

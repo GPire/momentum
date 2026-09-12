@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **SDK dati, 2026-09-12:** leggere
+> [dataset-sdk-2026-09-12.md](docs/dataset-sdk-2026-09-12.md) e README SDK.
+> `prepareDataset` / `prepareScenarioDataset` validano policy esterna, metadati,
+> conoscibilità e date comuni; riusano macroVintageSnapshot. Collegamento reale
+> nel benchmark OFR: matrice 6.755 × 9. Snapshot revisionati solo ricerca.
+> Nessun endpoint distribuito, nessuna modifica ai dati app o ai pesi neurali.
+
 > **Ricerca dataset multi-scenario, 2026-09-12:** leggere
 > [advanced-datasets-research-2026-09-12.md](docs/advanced-datasets-research-2026-09-12.md).
 > `bench:ofr-stress` acquisisce 9 serie OFR e confronta 4 finestre con
