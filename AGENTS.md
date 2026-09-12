@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Ultima integrazione locale 2026-09-12:** commit applicativo `443c23a`,
+> lista da 8 movimenti, correzioni viewport/tastiera/importo, rinomina delle
+> categorie senza cambiare ID e 10 icone nuove. 4.893 test / 322 file e build
+> passati localmente. Push bloccato (rete Git e autenticazione connettore);
+> non è ancora nell'anteprima online. Collaudo UI/browser non completato.
+> Leggere [command-center-touch-2026-09-12.md](docs/command-center-touch-2026-09-12.md).
+
 > **Revisione del 2026-09-12:** `main` è `adc8a66`, release precedente integrata.
 > Il branch `codex/data-learning-continuity` aggiunge test storici v7.0/v7.1,
 > protezioni del ripristino, conservazione dei pesi appresi e controlli mesh.

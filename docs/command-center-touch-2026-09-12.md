@@ -1,8 +1,10 @@
 # Command Center e movimenti — 12 settembre 2026
 
 Questa integrazione risponde ai feedback su tastiera mobile, importi sovrapposti,
-lista troppo lunga e modifica delle categorie. Si aggiunge alla PR #2 senza
-promuovere automaticamente il branch in produzione.
+lista troppo lunga e modifica delle categorie. È destinata alla PR #2, ma il
+push non è riuscito in questa sessione: rete Git bloccata e connettore GitHub
+senza autenticazione in scrittura. Il codice è nel commit locale `443c23a`;
+né anteprima online né produzione contengono ancora queste modifiche.
 
 - Dashboard: 8 movimenti iniziali, altri 8 per tocco, contatore e Mostra meno.
   Il cambio mese riparte da 8; totali del mese e del giorno usano tutti i dati,
@@ -39,5 +41,5 @@ file runtime. Nessuna sicurezza del browser è stata disattivata.
 
 `scripts/command-touch-smoke.mjs` e la CI dedicata eseguono i percorsi con
 archivi sintetici isolati a 393, 430, 768, 1024 e 1366 pixel, producendo screenshot.
-I risultati della CI vanno letti nella PR; la simulazione dell'area della tastiera
+La nuova CI non è stata eseguita perché il push è bloccato. La simulazione dell'area della tastiera
 non certifica la tastiera fisica iOS, il focus Safari o tutti gli iPhone.
