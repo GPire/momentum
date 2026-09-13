@@ -1,5 +1,16 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Sciame — scoperta senza server, 2026-09-13:** leggere
+> [sciame-discovery-2026-09-13.md](docs/sciame-discovery-2026-09-13.md).
+> Quattro ricerche verificate (scoperta locale cross-OS in Capacitor, rendezvous
+> internet senza server nostro, canale acustico ggwave, prior art/brevettabilità).
+> Costruito solo `src/mesh/pairing-commitment.js` (impegno pubblico legato al
+> fingerprint DTLS, 8 test): il canale laterale è autenticato, mai segreto.
+> Numeri che decidono le promesse: hole punching senza TURN ~70% (fonti nel doc);
+> iPhone in background non fa mai da ponte; Nearby iOS↔Android offline non
+> esiste (parola di Google). Nessun plugin nativo installato, nessuna UI toccata.
+> Il "nodo aiutante" opt-in unifica ponte + calcolo condiviso + staffetta dati.
+
 > **Priorità rilascio, 2026-09-12:** l’utente chiede di fermare l’espansione
 > continua delle infrastrutture e chiudere le altre parti. Leggere
 > [release-focus-2026-09-12.md](docs/release-focus-2026-09-12.md).
