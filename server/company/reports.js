@@ -57,5 +57,10 @@ export async function reportRequest(request, env, subject) {
     AND EXISTS(SELECT 1 FROM memberships WHERE company_id=? AND subject=? AND active=1)
     AND ?=(SELECT MAX(version) FROM policies WHERE company_id=?)`)
     .bind(reportId,company,subject,trip.id,revision,policy.version,review.reportFingerprint,JSON.stringify(body),new Date().toISOString(),company,subject,trip.id,Number(previous[1]),company,subject,policy.version,company).run();
-  return result.meta?.changes?json({reportId,revision,fingerprint:review.reportFingerprint,checks},201):json({error:'revision_or_access_changed'},409);
+  if(result.meta?.changes)return json({reportId,revision,fingerprint:review.reportFingerprint,checks},201);
+  const retry=await db.prepare(`SELECT id,revision,fingerprint FROM reports r WHERE company_id=? AND submitter=? AND trip_id=? AND revision=? AND fingerprint=?
+    AND revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
+    AND EXISTS(SELECT 1 FROM memberships WHERE company_id=r.company_id AND subject=? AND active=1)`)
+    .bind(company,subject,trip.id,revision,review.reportFingerprint,subject).first();
+  return retry?json({reportId:retry.id,revision:retry.revision,fingerprint:retry.fingerprint,checks}):json({error:'revision_or_access_changed'},409);
 }

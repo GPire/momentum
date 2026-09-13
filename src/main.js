@@ -23,6 +23,8 @@ import { policyDetailsCopy } from './i18n/policy-details.js';
 import { tripPolicyFromTemplate } from './trips/policy-template.js';
 import { loadCompanyPolicy, applyCompanyPolicy } from './trips/company-policy.js';
 import { companyTripCopy } from './i18n/company-trip.js';
+import { submitCompanyReport } from './trips/company-submit.js';
+import { companySubmitCopy, companySubmitError } from './i18n/company-submit.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
 import { parseTripAmount } from './trips/trip-engine.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
@@ -12050,6 +12052,31 @@ function buildTripReviewLink(code, tripName = '') {
   }
 }
 
+function openCompanySubmission(trip) {
+  const archive = buildTripArchive(trip, allTransactionsFlat());
+  const snapshot = tripReviewSnapshot(trip, archive.transactions);
+  const text = key => companySubmitCopy(__uiLang, key);
+  openModal(`<section class="task-editor p-4"><h3>${text(0)}</h3><p class="card-sub">${text(1)}</p><p id="company-send-status" role="status" aria-live="polite"></p><button id="company-send" class="btn-action btn-primary w-full py-3">${text(0)}</button></section>`, `<button id="company-send-close" class="btn-action w-full py-3">${text(10)}</button>`);
+  const button = $('#company-send'); const status = $('#company-send-status');
+  $('#company-send-close').onclick = () => closeModal();
+  button.onclick = async () => {
+    if (button.disabled) return;
+    const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+    if (!current || !visibleTrips([current]).length || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot) { status.textContent = companySubmitError(__uiLang, 'changed'); return; }
+    button.disabled = true; status.textContent = text(2);
+    try {
+      if (trip.companySubmission?.fingerprint === await fingerprintTripSnapshot(snapshot)) { status.textContent = text(3); return; }
+      const receipt = await submitCompanyReport(archive, trip.companySubmission?.revision || 0);
+      const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+      if (latest) {
+        VaultDAO.state.businessTrips = VaultDAO.state.businessTrips.map(item => item.id === trip.id ? { ...item, companySubmission: receipt } : item);
+        VaultDAO.save();
+      }
+      status.textContent = text(3);
+    } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); button.disabled = false; }
+  };
+}
+
 window.openTripReviewShare = async (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
@@ -12064,6 +12091,7 @@ window.openTripReviewShare = async (tripId) => {
   }
   const dati = exportTripData(trip, allTransactionsFlat());
   if (!dati.expenses.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  if (trip.companyPolicy) { openCompanySubmission(trip); return; }
 
   const reviewSnapshot = tripReviewSnapshot(trip, allTransactionsFlat());
   let code, reportFingerprint;

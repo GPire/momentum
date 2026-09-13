@@ -45,7 +45,7 @@ test('edited rules and stale policy cannot be submitted; decisions recheck curre
 });
 test('revocation and duplicate submission do not create extra records',async()=>{
  const{sql,call}=fixture();try{
- const report=await(await call()).json();assert.equal((await call()).status,409);
+ const report=await(await call()).json();assert.equal((await call()).status,200);
  sql.exec("UPDATE memberships SET active=0 WHERE subject='manager'");
  assert.equal((await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'manager',report.fingerprint)).status,403);
  assert.equal(sql.prepare('SELECT count(*) n FROM reports').get().n,1);
