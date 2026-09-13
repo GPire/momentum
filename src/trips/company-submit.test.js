@@ -14,3 +14,18 @@ test('actionable failures never pretend a report was received',async()=>{
  await assert.rejects(submitCompanyReport({...archive,extra:'x'.repeat(300000)},0,()=>{throw new Error('must not send')}),/large/);
  await assert.rejects(submitCompanyReport(archive,0,async()=>{throw new Error('offline')}),/network/);
 });
+
+import { readCompanyReportStatus } from './company-submit.js';
+test('company approval applies only to unchanged local data and current server revision',async()=>{
+ const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,[]));
+ const receipt={reportId:'r',revision:1,fingerprint};
+ const report={id:'r',company_id:'a',trip_id:'t',revision:1,fingerprint,superseded:false,policyStale:false,decision:'approved',note:null};
+ const fetcher=async()=>Response.json(report);
+ assert.equal((await readCompanyReportStatus(archive,receipt,fetcher)).state,'approved');
+ const edited=structuredClone(archive);edited.trip.name='Edited';
+ assert.equal((await readCompanyReportStatus(edited,receipt,fetcher)).state,'changed');
+ report.superseded=true;assert.equal((await readCompanyReportStatus(archive,receipt,fetcher)).state,'changed');
+ report.superseded=false;report.policyStale=true;assert.equal((await readCompanyReportStatus(archive,receipt,fetcher)).state,'policy');
+ report.company_id='other';await assert.rejects(readCompanyReportStatus(archive,receipt,fetcher),/network/);
+ await assert.rejects(readCompanyReportStatus(archive,receipt,async()=>{throw Error('offline')}),/network/);
+});

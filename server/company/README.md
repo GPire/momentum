@@ -177,3 +177,18 @@ Fixture riproducibile: `node scripts/company-invite-preview.mjs --inbox` (4197).
 Identita sintetiche: NON un collaudo SSO, Cloudflare distribuito o dispositivi fisici.
 Restano distribuzione, autenticazione aziendale reale, allegati oltre 256 KiB,
 ritorno dell'esito nell'app personale e connettori esterni autenticati.
+
+## Risposta al dipendente (13 settembre 2026)
+
+La modale di invio nell'app include Controlla risposta aziendale per documenti
+con ricevuta salvata. Legge l'esito con accesso same-origin e valida azienda,
+trasferta, revisione e fingerprint. Modifiche locali, revisioni superate e policy
+cambiate non mostrano una vecchia approvazione come valida. Le note sono testo,
+non HTML; nessuna decisione viene salvata come approvazione locale automatica.
+Un nuovo tocco su Invia per la stessa ricevuta consulta la risposta.
+
+23 test mirati superati; build portable completata. Chrome locale verificato con
+richiesta di modifica sintetica e motivazione. Fixture: trip-receipt-preview.mjs
+4198, query ?lang=it&company-status=1. Il mock non prova SSO o un servizio remoto.
+Il ritorno manuale dell'esito e implementato; notifiche e aggiornamento automatico,
+riconciliazione di revisioni da altri dispositivi restano da completare.

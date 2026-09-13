@@ -26,18 +26,25 @@ const preflightExpense = preflightState.transactions[month][0];
 preflightExpense.amount = 30; preflightExpense.receiptImage = null;
 preflightExpense.hash = simpleHash(preflightExpense.id + preflightExpense.amount + preflightExpense.category + preflightExpense.prevHash);
 preflightState.lastHash = preflightExpense.hash;
+const companyState=structuredClone(state);
+companyState.businessTrips[0].companyPolicy={companyId:'demo',version:3,companyName:'Demo'};
+companyState.businessTrips[0].receiptPolicy={currency:'EUR',receiptThreshold:0,expenseLimits:{},dailyLimits:{}};
+const companyReview=await readReviewArchive(JSON.stringify(buildTripArchive(companyState.businessTrips[0],[tx])));
+companyState.businessTrips[0].companySubmission={reportId:'fixture-report',revision:1,fingerprint:companyReview.reportFingerprint};
 const driver = `localStorage.setItem('omega_core_db', new URLSearchParams(location.search).has('preflight') ? ${JSON.stringify(JSON.stringify(preflightState))} : ${JSON.stringify(JSON.stringify(state))});
 if(new URLSearchParams(location.search).has('company-send')){const value=JSON.parse(localStorage.getItem('omega_core_db'));value.businessTrips[0].companyPolicy={companyId:'demo',version:3,companyName:'Azienda di prova'};value.businessTrips[0].receiptPolicy={currency:'EUR',receiptThreshold:0,expenseLimits:{},dailyLimits:{}};localStorage.setItem('omega_core_db',JSON.stringify(value));}
+if(new URLSearchParams(location.search).has('company-status'))localStorage.setItem('omega_core_db',${JSON.stringify(JSON.stringify(companyState))});
 addEventListener('load', () => {
   const button = document.createElement('button'); button.textContent = 'Apri trasferta di prova';
   button.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;background:white;color:black;padding:12px';
-  button.onclick = () => { const params = new URLSearchParams(location.search); if(params.has('company-send')) window.openTripReviewShare('trip-test'); else if (params.has('company')) { window.openBusinessTrips(); document.getElementById('trip-newname').value='Milano - prova aziendale'; } else if (params.has('history')) window.openTripReviewHistory(); else if (params.has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
+  button.onclick = () => { const params = new URLSearchParams(location.search); if(params.has('company-send')||params.has('company-status')) window.openTripReviewShare('trip-test'); else if (params.has('company')) { window.openBusinessTrips(); document.getElementById('trip-newname').value='Milano - prova aziendale'; } else if (params.has('history')) window.openTripReviewHistory(); else if (params.has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
   document.body.append(button);
 });`;
 createServer((req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
   if (pathname === '/v1/companies/demo/policies') { res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({companyId:'demo',companyName:'Azienda di prova',version:3,rules:{currency:'EUR',receiptThreshold:0,expenseLimits:{vitto:30},dailyLimits:{vitto:60}}})); return; }
   if (pathname === '/v1/companies/demo/reports') { res.writeHead(503,{'Content-Type':'application/json'}); res.end(JSON.stringify({error:'service_unavailable'})); return; }
+  if(pathname==='/v1/companies/demo/reports/fixture-report'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({id:'fixture-report',company_id:'demo',trip_id:'trip-test',revision:1,fingerprint:companyReview.reportFingerprint,decision:'changes_requested',note:'Verificare la ricevuta del pranzo.',superseded:false,policyStale:false}));return;}
   if (pathname === '/receipt-driver.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(driver); return; }
   const path = resolve(root, '.' + (pathname === '/' ? '/index.html' : decodeURIComponent(pathname)));
   if (!path.startsWith(root + sep)) { res.writeHead(403); res.end(); return; }

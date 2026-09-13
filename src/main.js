@@ -23,7 +23,8 @@ import { policyDetailsCopy } from './i18n/policy-details.js';
 import { tripPolicyFromTemplate } from './trips/policy-template.js';
 import { loadCompanyPolicy, applyCompanyPolicy } from './trips/company-policy.js';
 import { companyTripCopy } from './i18n/company-trip.js';
-import { submitCompanyReport } from './trips/company-submit.js';
+import { submitCompanyReport, readCompanyReportStatus } from './trips/company-submit.js';
+import { companyStatusCopy } from './i18n/company-status.js';
 import { companySubmitCopy, companySubmitError } from './i18n/company-submit.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
 import { parseTripAmount } from './trips/trip-engine.js';
@@ -12056,23 +12057,38 @@ function openCompanySubmission(trip) {
   const archive = buildTripArchive(trip, allTransactionsFlat());
   const snapshot = tripReviewSnapshot(trip, archive.transactions);
   const text = key => companySubmitCopy(__uiLang, key);
-  openModal(`<section class="task-editor p-4"><h3>${text(0)}</h3><p class="card-sub">${text(1)}</p><p id="company-send-status" role="status" aria-live="polite"></p><button id="company-send" class="btn-action btn-primary w-full py-3">${text(0)}</button></section>`, `<button id="company-send-close" class="btn-action w-full py-3">${text(10)}</button>`);
+  openModal(`<section class="task-editor p-4"><h3>${text(0)}</h3><p class="card-sub">${text(1)}</p><p id="company-send-status" role="status" aria-live="polite"></p><button id="company-send" class="btn-action btn-primary w-full py-3">${text(0)}</button><button id="company-status-check" class="btn-action w-full py-3" ${trip.companySubmission ? "" : "hidden"}>${companyStatusCopy(__uiLang, 0)}</button></section>`, `<button id="company-send-close" class="btn-action w-full py-3">${text(10)}</button>`);
   const button = $('#company-send'); const status = $('#company-send-status');
   $('#company-send-close').onclick = () => closeModal();
+  const checkButton = $('#company-status-check');
+  checkButton.onclick = async () => {
+    if (checkButton.disabled || button.disabled) return;
+    const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+    if (!latest || !visibleTrips([latest]).length || !latest.companySubmission) { status.textContent = companySubmitError(__uiLang, 'changed'); return; }
+    checkButton.disabled = true; button.disabled = true; status.textContent = companyStatusCopy(__uiLang, 1);
+    const captured = buildTripArchive(latest, allTransactionsFlat());
+    try {
+      const result = await readCompanyReportStatus(captured, latest.companySubmission);
+      const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+      if (!current || tripReviewSnapshot(current, allTransactionsFlat()) !== tripReviewSnapshot(captured.trip, captured.transactions)) { status.textContent = companyStatusCopy(__uiLang, 'changed'); return; }
+      status.textContent = companyStatusCopy(__uiLang, result.state) + (result.note ? ' ' + result.note : '');
+    } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); }
+    finally { checkButton.disabled = false; button.disabled = false; }
+  };
   button.onclick = async () => {
     if (button.disabled) return;
     const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
     if (!current || !visibleTrips([current]).length || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot) { status.textContent = companySubmitError(__uiLang, 'changed'); return; }
     button.disabled = true; status.textContent = text(2);
     try {
-      if (trip.companySubmission?.fingerprint === await fingerprintTripSnapshot(snapshot)) { status.textContent = text(3); return; }
-      const receipt = await submitCompanyReport(archive, trip.companySubmission?.revision || 0);
+      if (current.companySubmission?.fingerprint === await fingerprintTripSnapshot(snapshot)) { button.disabled = false; await checkButton.onclick(); return; }
+      const receipt = await submitCompanyReport(archive, current.companySubmission?.revision || 0);
       const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
       if (latest) {
         VaultDAO.state.businessTrips = VaultDAO.state.businessTrips.map(item => item.id === trip.id ? { ...item, companySubmission: receipt } : item);
         VaultDAO.save();
       }
-      status.textContent = text(3);
+      status.textContent = text(3); checkButton.hidden = false; button.disabled = false;
     } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); button.disabled = false; }
   };
 }
