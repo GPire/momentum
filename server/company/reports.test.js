@@ -5,9 +5,10 @@ import { readFileSync } from 'node:fs';
 import { reportRequest } from './reports.js';
 const rules={currency:'EUR',receiptThreshold:25,expenseLimits:{},dailyLimits:{vitto:50}};
 function fixture(){
- const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','attachment-quota.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('a','A'),('b','B'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('b','other','owner',1)");
  sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('a',1,JSON.stringify(rules),'admin','2026-09-13');
+ sql.exec("INSERT INTO company_storage_limits VALUES('a',33554432),('b',33554432)");
  const env={APP_ORIGIN:'https://momentum.test',COMPANY_DB:{prepare(query){return{bind(...args){return{async first(){return sql.prepare(query).get(...args)||null},async all(){return {results:sql.prepare(query).all(...args)}},async run(){return{meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}}}}}}};
  const archive={format:'momentum-trip-archive',version:1,trip:{id:'t',companyPolicy:{companyId:'a',version:1},receiptPolicy:rules},transactions:[{id:'uuid',businessTripId:'t',type:'uscita',tripCategory:'vitto',amount:10,date:'2026-09-13'}]};
  const call=(path='',body=archive,subject='employee',version='0',method='POST')=>reportRequest(new Request('https://momentum.test/v1/companies/a/reports'+path,{method,headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json','If-Match':`"${version}"`},...(method==='POST'?{body:JSON.stringify(body)}:{})}),env,subject);
@@ -113,6 +114,26 @@ test('legacy attachment spelling round-trips and altered storage bytes fail clos
  const {envelope,blobs}=await prepareCompanyAttachments(archive);
  const restored=await restoreCompanyAttachments(envelope,async ref=>blobs.get(ref.hash));assert.deepEqual(restored,archive);
  await assert.rejects(restoreCompanyAttachments(envelope,async ref=>new Uint8Array(ref.size)),/attachment_missing/);
+ }finally{sql.close()}
+});
+
+test('company quota serializes competing uploads and keeps failed reservations retryable',async()=>{
+ const {sql,env}=fixture();const objects=new Map();let fail=false;
+ env.COMPANY_FILES={async head(k){return objects.has(k)?{size:objects.get(k).length}:null},async put(k,b){if(fail)throw new Error('storage interrupted');objects.set(k,b)}};
+ const {digestBytes}=await import('../../src/trips/company-attachments.js');
+ const put=async(bytes)=>attachmentRequest(new Request(env.APP_ORIGIN+'/v1/companies/a/attachments/'+await digestBytes(bytes),{method:'PUT',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/octet-stream'},body:bytes}),env,'employee');
+ try{
+ sql.exec("UPDATE company_storage_limits SET limit_bytes=3 WHERE company_id='a'");
+ const a=new Uint8Array([1,2,3]),b=new Uint8Array([4,5,6]);
+ const responses=await Promise.all([put(a),put(b)]);assert.deepEqual(responses.map(r=>r.status).sort(),[201,507]);assert.equal(objects.size,1);
+ const accepted=responses[0].status===201?a:b;
+ assert.equal((await put(accepted)).status,201);assert.equal(sql.prepare('SELECT SUM(size) n FROM company_attachment_reservations').get().n,3);
+ sql.exec("UPDATE company_storage_limits SET limit_bytes=6 WHERE company_id='a'");
+ fail=true;await assert.rejects(put(new Uint8Array([7,8,9])),/interrupted/);
+ assert.equal(sql.prepare('SELECT SUM(size) n FROM company_attachment_reservations').get().n,6);
+ assert.equal((await put(new Uint8Array([10]))).status,507);
+ fail=false;assert.equal((await put(new Uint8Array([7,8,9]))).status,201);
+ sql.exec("DELETE FROM company_storage_limits WHERE company_id='a'");assert.equal((await put(a)).status,503);
  }finally{sql.close()}
 });
 

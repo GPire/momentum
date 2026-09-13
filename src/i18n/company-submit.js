@@ -8,4 +8,13 @@ const copy={
  pt:['Enviar à empresa','Uma cópia do relatório e dos anexos será enviada à sua empresa.','A enviar…','Recebido pela empresa. Aguarda revisão, ainda não aprovado.','Sem confirmação. Os dados continuam aqui: tente novamente sem duplicar o envio.','Volte a entrar no espaço empresarial.','Os anexos excedem o limite atual (8 MiB/ficheiro, 32 MiB no total). Os dados são conservados.','As regras mudaram. Atualize o relatório antes de enviar.','O relatório mudou. Abra-o novamente antes de enviar.','Verifique os dados antes de tentar novamente.','Fechar'],
 };
 export const companySubmitCopy=(lang,key)=>(copy[lang]||copy.en)[key];
-export const companySubmitError=(lang,code)=>companySubmitCopy(lang,({network:4,access:5,large:6,policy:7,changed:8,invalid:9})[code]??9);
+const quotaCopy={
+ it:'Lo spazio aziendale per gli allegati è esaurito. Chiedi al responsabile di ampliarlo. I tuoi dati restano qui.',
+ en:'Company attachment storage is full. Ask your administrator to increase it. Your data is still here.',
+ de:'Der Unternehmensspeicher für Belege ist voll. Bitte die Verwaltung um mehr Speicher. Deine Daten bleiben hier.',
+ fr:'Le stockage des justificatifs de l’entreprise est plein. Demandez à votre administrateur de l’augmenter. Vos données restent ici.',
+ es:'El espacio de adjuntos de la empresa está lleno. Pide a tu administrador que lo amplíe. Tus datos siguen aquí.',
+ nl:'De bedrijfsopslag voor bijlagen is vol. Vraag je beheerder om meer ruimte. Je gegevens blijven hier.',
+ pt:'O armazenamento de anexos da empresa está cheio. Peça ao administrador para o aumentar. Os seus dados continuam aqui.'
+};
+export const companySubmitError=(lang,code)=>code==='quota'?(quotaCopy[lang]||quotaCopy.en):companySubmitCopy(lang,({network:4,access:5,large:6,policy:7,changed:8,invalid:9})[code]??9);

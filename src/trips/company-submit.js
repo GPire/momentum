@@ -12,7 +12,7 @@ export async function submitCompanyReport(archive, revision=0, fetcher=fetch) {
       if(found.ok){const ref=await found.json();if(ref.hash!==hash||ref.size!==bytes.length)throw new Error('network');continue}
       if(found.status!==404)throw new Error([401,403].includes(found.status)?'access':'network');
       let sent;try{sent=await fetcher(path,{method:'PUT',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/octet-stream'},body:bytes,signal:AbortSignal.timeout(60000)})}catch{throw new Error('network')}
-      if(!sent.ok)throw new Error([401,403].includes(sent.status)?'access':sent.status===413?'large':'network');
+      if(!sent.ok)throw new Error([401,403].includes(sent.status)?'access':sent.status===507?'quota':sent.status===413?'large':'network');
       const ref=await sent.json();if(ref.hash!==hash||ref.size!==bytes.length)throw new Error('network');
     }
     body=JSON.stringify(envelope);

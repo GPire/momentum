@@ -34,7 +34,20 @@ export async function attachmentRequest(request,env,subject){
   const bytes=new Uint8Array(size);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.length}
   if(await digestBytes(bytes)!==hash)return json({error:'hash_mismatch'},400);
   if(!await member())return json({error:'forbidden'},403);
+  // One SQL statement serializes quota checks and reservations, including parallel uploads.
+  const limit=await db.prepare('SELECT limit_bytes FROM company_storage_limits WHERE company_id=?').bind(company).first();
+  if(!limit)return json({error:'storage_not_configured'},503);
+  await db.prepare(`INSERT OR IGNORE INTO company_attachment_reservations(company_id,object_key,size)
+    SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM company_storage_limits l WHERE l.company_id=?
+      AND ? <= l.limit_bytes-COALESCE((SELECT SUM(size) FROM company_attachment_reservations WHERE company_id=?),0))
+      AND EXISTS(SELECT 1 FROM memberships WHERE company_id=? AND subject=? AND active=1)`)
+    .bind(company,key,size,company,size,company,company,subject).run();
+  const reservation=await db.prepare('SELECT size FROM company_attachment_reservations WHERE company_id=? AND object_key=?').bind(company,key).first();
+  if(!reservation)return json({error:'storage_quota_exceeded'},507);
+  if(reservation.size!==size)return json({error:'attachment_conflict'},409);
+  if(!await member())return json({error:'forbidden'},403);
   // Content-addressed private object: repeated uploads cannot replace different bytes.
+  // Keep the reservation on failure: a timed-out PUT may still have stored the object.
   if(!await env.COMPANY_FILES.head(key))await env.COMPANY_FILES.put(key,bytes,{httpMetadata:{contentType:'application/octet-stream'}});
   return json({hash,size},201);
 }

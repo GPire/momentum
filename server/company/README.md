@@ -223,3 +223,19 @@ backup e conservazione, verifica del contenuto/antimalware, prove prestazionali
 sul runtime reale e collaudo mobile. La validazione attuale e strutturale e di
 integrita dei byte, non una garanzia di leggibilita o autenticita della ricevuta.
 Notifiche, connettori e deployment rimangono separati e non sono stati attivati.
+
+### Quote allegati (2026-09-14)
+Applicare anche attachment-quota.sql prima di abilitare COMPANY_FILES e configurare
+company_storage_limits per ogni azienda (byte; nessuna quota implicita gratuita).
+Una riserva SQL atomica precede ciascun nuovo oggetto. Retry dello stesso oggetto
+non consuma una seconda quota. Errori ambigui mantengono la riserva: un PUT scaduto
+potrebbe essere stato completato. Quota esaurita: HTTP 507 e messaggio in 7 lingue.
+Nessuna cancellazione automatica o modifica dei resoconti storici.
+
+Per storage preesistente, inventariare e registrare TUTTI gli oggetti prima di
+abilitare gli upload: il registro non ricostruisce automaticamente un bucket.
+Non rimuovere riserve per recuperare spazio senza riconciliare bucket e tutti i
+resoconti. La pulizia degli orfani richiede ancora un protocollo che impedisca
+conflitti con invii in corso. La quota comprende riserve interrotte e allegati
+separati, non database, archivi inline, backup o traffico.
+Verifica locale: 27 test, SQLite reale e storage simulato; nessun servizio cloud attivato.
