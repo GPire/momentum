@@ -260,3 +260,17 @@ carico prima dell'uso su grandi archivi aziendali. Il pannello UI resta da colle
 29 test locali passati, inclusi riferimenti storici, revoca durante la lettura,
 separazione aziende/ruoli, errori storage e paginazione. Storage simulato;
 nessun deployment né collaudo del servizio cloud reale in questa verifica.
+
+### Pannello spazio documenti (2026-09-14)
+Il titolare trova «Spazio per i documenti» nello spazio aziendale.
+/company/storage?company=ID&lang=it visualizza disponibile, riservato, capacità,
+allegati e relativi stati; aggiornamento manuale e paginazione da 25 elementi.
+Sette lingue, feedback live, controlli da 48px, layout fluido e reduced-motion.
+Non espone chiavi tecniche né aggiunge azioni distruttive. I numeri degli allegati
+sono posizioni nell'inventario, non nomi dei documenti o identificativi persistenti.
+
+Verificato in Chrome desktop: collegamento owner, riepilogo e due pagine per 28
+allegati sintetici. Fixture loopback: node scripts/company-invite-preview.mjs
+--storage (porta 4201). Non equivale a test fisico iOS/Android o accesso cloud.
+Il pannello è implementato ma non distribuito; le credenziali della fixture
+sono sintetiche e non vanno usate in produzione.
