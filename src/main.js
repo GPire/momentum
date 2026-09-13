@@ -11,6 +11,8 @@ import { receiptDeliveryCopy } from './i18n/receipt-delivery.js';
 import { prepareReceiptDelivery } from './trips/expense-bridge.js';
 import { tripEditCopy, tripReviewStaleCopy } from './i18n/trip-edit.js';
 import { tripReviewSnapshot, fingerprintTripSnapshot } from './trips/review-fingerprint.js';
+import { readReviewArchive, isReviewAttachment, MAX_REVIEW_ARCHIVE_BYTES } from './trips/review-archive.js';
+import { reviewImportCopy } from './i18n/review-import.js';
 import { revisionDigest, revisionHeads } from './trips/expense-revisions.js';
 import { tripPolicyCopy } from './i18n/trip-policy.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
@@ -12085,12 +12087,24 @@ window.openTripReviewHistory = () => {
   const history = VaultDAO.state.tripReviewHistory || [];
   openModal(`<div class="trip-list-modal task-editor"><h3>${esc(reviewHistoryCopy(__uiLang, 0))}</h3>
     <p class="card-sub">${esc(reviewHistoryCopy(__uiLang, 3))}</p>
+    <button id="review-import" class="btn-action btn-primary w-full py-3 rounded-xl">${esc(reviewImportCopy(__uiLang, 0))}</button>
+    <p class="card-sub">${esc(reviewImportCopy(__uiLang, 1))}</p>
+    <input id="review-import-file" type="file" accept=".json,application/json" hidden />
     ${history.length ? history.map((entry, index) => `<button data-review-history="${index}" class="card w-full text-left p-4 mb-3">
       <strong class="block">${esc(entry.review.tripName)}</strong>
       <span class="block">${esc(entry.review.mittente || '')}</span>
       <span>${esc(new Date(entry.savedAt).toLocaleDateString(__uiLocale))} · ${esc(entry.decision ? tCh(entry.decision.state === 'approvata' ? 'tripVerdictStateApproved' : 'tripVerdictStateChanges', __uiLang) : tCh('tripReviewIncomingLabel', __uiLang))}</span>
     </button>`).join('') : `<p>${esc(reviewHistoryCopy(__uiLang, 2))}</p>`}</div>`);
   document.querySelectorAll('[data-review-history]').forEach(button => button.addEventListener('click', () => window.openTripReviewScreen(history[Number(button.dataset.reviewHistory)].review)));
+  $('#review-import')?.addEventListener('click', () => $('#review-import-file')?.click());
+  $('#review-import-file')?.addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > MAX_REVIEW_ARCHIVE_BYTES) throw new Error('size');
+      window.openTripReviewScreen(await readReviewArchive(await file.text()));
+    } catch { showToast(reviewImportCopy(__uiLang, 2), 'error'); }
+  });
 };
 
 window.openTripReviewScreen = (rev) => {
@@ -12098,10 +12112,11 @@ window.openTripReviewScreen = (rev) => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const etichetta = (e) => e.mealType ? `${esc(tCh('trip_' + e.categoria, __uiLang))} · ${esc(tCh('trip_meal_' + e.mealType, __uiLang))}` : esc(tCh('trip_' + (TRIP_CATEGORIES.includes(e.categoria) ? e.categoria : 'altro'), __uiLang));
 
-  const righe = rev.expenses.map(e => `
+  const righe = rev.expenses.map((e, index) => `
     <div class="trip-row flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
       <span class="flex-1 min-w-0">
         <span class="block text-[12px] font-bold truncate">${esc(e.descrizione) || esc(tCh('tripNoDescription', __uiLang))}</span>
+        ${isReviewAttachment(e.scontrino) ? `<button data-review-receipt="${index}" class="btn-action text-xs px-3 py-2 my-2 rounded-xl">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
         <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${etichetta(e)} · ${esc(String(e.data).slice(0, 10))}${e.giustificativoMancante ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
       </span>
       <span class="font-mono font-bold shrink-0">${eur(e.importo)}</span>
@@ -12150,6 +12165,24 @@ window.openTripReviewScreen = (rev) => {
     </div>`, `<button id="trv-rev-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
 
   $('#trv-rev-close')?.addEventListener('click', () => closeModal());
+  document.querySelectorAll('[data-review-receipt]').forEach(button => button.addEventListener('click', () => {
+    const data = rev.expenses[Number(button.dataset.reviewReceipt)]?.scontrino;
+    if (!isReviewAttachment(data)) return;
+    const dialog = document.createElement('dialog');
+    dialog.style.cssText = 'width:min(94vw,900px);max-height:90dvh;border:1px solid var(--outline);border-radius:20px;padding:16px;background:var(--surface-elevated);color:var(--on-surface)';
+    const close = document.createElement('button');
+    close.textContent = tCh('vaultCloseBtn', __uiLang);
+    close.className = 'btn-action px-4 py-3 mb-3 rounded-xl';
+    close.onclick = () => dialog.close();
+    const pdf = data.startsWith('data:application/pdf');
+    const viewer = document.createElement(pdf ? 'iframe' : 'img');
+    viewer.src = data; viewer.title = tCh('tripOpenReceipt', __uiLang);
+    if (!pdf) viewer.alt = viewer.title;
+    viewer.style.cssText = pdf ? 'width:100%;height:65dvh;border:0' : 'width:100%;max-height:65dvh;object-fit:contain';
+    dialog.append(close, viewer);
+    dialog.addEventListener('close', () => { dialog.remove(); button.focus(); }, { once: true });
+    document.body.append(dialog); dialog.showModal(); close.focus();
+  }));
   const saveHistory = decision => {
     VaultDAO.state.tripReviewHistory = rememberReview(VaultDAO.state.tripReviewHistory, rev, decision);
     VaultDAO.save();
