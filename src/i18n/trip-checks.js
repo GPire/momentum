@@ -1,4 +1,5 @@
 import { tripEditCopy } from './trip-edit.js';
+import { tripAttachmentCopy } from './trip-attachment.js';
 const copy = {
   it: ['Controllo del resoconto', 'voci', 'allegati', 'Da verificare', 'Allegato assente', 'Identificativo assente', 'Identificativo ripetuto', 'Importo non valido', 'Data non valida', 'Puoi comunque scaricare tutti i dati. Un allegato assente non significa che la spesa non sia rimborsabile.'],
   en: ['Report check', 'entries', 'attachments', 'Review needed', 'No attachment', 'Missing ID', 'Repeated ID', 'Invalid amount', 'Invalid date', 'You can still download all data. A missing attachment does not mean the expense cannot be reimbursed.'],
@@ -9,4 +10,4 @@ const copy = {
   pt: ['Verificação do relatório', 'registos', 'anexos', 'A verificar', 'Sem anexo', 'Identificador em falta', 'Identificador repetido', 'Valor inválido', 'Data inválida', 'Pode descarregar todos os dados. Um anexo em falta não significa que a despesa não possa ser reembolsada.'],
 };
 export const tripChecksCopy = (lang, key) => (copy[lang] || copy.en)[key];
-export const tripIssueLabel = (lang, code) => code === 'revision_conflict' ? tripEditCopy(lang, 3) : tripChecksCopy(lang, ({ missing_attachment: 4, missing_id: 5, duplicate_id: 6, invalid_amount: 7, invalid_date: 8 })[code]);
+export const tripIssueLabel = (lang, code) => code === 'invalid_attachment' ? tripAttachmentCopy(lang, 0) : code === 'revision_conflict' ? tripEditCopy(lang, 3) : tripChecksCopy(lang, ({ missing_attachment: 4, missing_id: 5, duplicate_id: 6, invalid_amount: 7, invalid_date: 8 })[code]);

@@ -1,5 +1,6 @@
 // Portable evidence package, not a vendor-specific API payload or Vault backup.
 import { needsReceipt } from './trip-engine.js';
+import { isTripAttachment } from './attachment-format.js';
 
 export function isTripDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) || !Number.isFinite(Date.parse(value))) return false;
@@ -21,6 +22,7 @@ export function inspectTripArchive(transactions, policy) {
     if (typeof tx.amount !== 'number' || !Number.isFinite(tx.amount) || tx.amount < 0 || !Number.isSafeInteger(Math.round(tx.amount * 100))) issue('invalid_amount');
     if (!isTripDate(tx.date)) issue('invalid_date');
     if (!tx.receiptImage) issue('missing_attachment', needsReceipt(tx, policy) ? 'warning' : 'info');
+    else if (!isTripAttachment(tx.receiptImage)) issue('invalid_attachment');
   });
   return { transactionCount: transactions.length, attachmentCount: transactions.filter(tx => tx?.receiptImage).length,
     blockingCount: new Set(issues.filter(issue => issue.severity === 'blocking').map(issue => issue.index)).size,

@@ -1,9 +1,10 @@
 import { exportTripData } from './trip-engine.js';
 import { isTripDate } from './trip-archive.js';
+import { isTripAttachment as isReviewAttachment } from './attachment-format.js';
+export { isTripAttachment as isReviewAttachment } from './attachment-format.js';
 import { tripReviewSnapshot, fingerprintTripSnapshot } from './review-fingerprint.js';
 
 export const MAX_REVIEW_ARCHIVE_BYTES = 50 * 1024 * 1024;
-export const isReviewAttachment = value => typeof value === 'string' && /^data:(image\/(png|jpeg|webp|gif)|application\/pdf);base64,[A-Za-z0-9+/=\s]+$/.test(value);
 
 // Produces a review, never transactions for the reviewer's personal ledger.
 export async function readReviewArchive(text) {

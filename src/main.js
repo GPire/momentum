@@ -7,6 +7,7 @@ import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
 import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
 import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
+import { tripAttachmentCopy } from './i18n/trip-attachment.js';
 import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
 import { tripExportCopy } from './i18n/trip-export.js';
 import { receiptDeliveryCopy } from './i18n/receipt-delivery.js';
@@ -11069,7 +11070,7 @@ window.openBusinessTrip = (tripId) => {
 
     const rigaSpesa = (t) => `
       <div class="trip-row flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
-        ${t.receiptImage ? (String(t.receiptImage).startsWith('data:application/pdf') ? `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--red)] font-black text-[8px]">PDF</span>` : `<img src="${t.receiptImage}" class="w-9 h-9 rounded-lg object-cover shrink-0" alt="" />`) : `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--on-surface-secondary)]"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M3 9h18"/></svg></span>`}
+        ${isReviewAttachment(t.receiptImage) ? (String(t.receiptImage).startsWith('data:application/pdf') ? `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--red)] font-black text-[8px]">PDF</span>` : `<img src="${t.receiptImage}" class="w-9 h-9 rounded-lg object-cover shrink-0" alt="" />`) : `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--on-surface-secondary)]"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M3 9h18"/></svg></span>`}
         <span class="flex-1 min-w-0">
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
           <button type="button" data-trip-edit="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px]">${esc(tripEditCopy(__uiLang, t.tripRevisionConflict ? 3 : 0))}</button>
@@ -11264,9 +11265,10 @@ window.openBusinessTrip = (tripId) => {
           <label class="flex items-center justify-center gap-2 border border-dashed border-[var(--outline)] rounded-xl py-3 cursor-pointer text-[12px] font-bold text-[var(--primary)] mb-2">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
-            <input id="trip-receipt" type="file" accept="image/*,application/pdf" class="hidden" name="trip-receipt" />
+            <input id="trip-receipt" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" class="hidden" name="trip-receipt" />
           </label>
-          ${state.receiptDataUrl ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
+          ${isReviewAttachment(state.receiptDataUrl) ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
+          ${state.receiptDataUrl ? `<button id="trip-remove-receipt" ${state.ocrBusy ? 'disabled' : ''} type="button" class="btn-action px-4 py-3 mb-3 rounded-xl">${esc(tripAttachmentCopy(__uiLang, 1))}</button>` : ''}
           <div class="flex gap-2 mb-2">
             <input id="trip-amt" type="text" inputmode="decimal" autocomplete="off" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
             <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" name="trip-desc" />
@@ -11309,7 +11311,7 @@ window.openBusinessTrip = (tripId) => {
           </button>
           ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
           ${state.editingId !== null ? '<button id="trip-edit-cancel" class="btn-action w-full py-3 mb-2">' + esc(tripEditCopy(__uiLang, 2)) + '</button>' : ''}
-          <button id="trip-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.editingId !== null ? tripEditCopy(__uiLang, 1) : state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
+          <button id="trip-save" ${state.ocrBusy ? 'disabled' : ''} class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.editingId !== null ? tripEditCopy(__uiLang, 1) : state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
         </div>
         ${state.editingId !== null && expenses.find(tx => tx.id === state.editingId)?.tripRevisionConflict ? '<section class="trip-company"><h4>' + esc(tripEditCopy(__uiLang, 3)) + '</h4><p>' + esc(tripEditCopy(__uiLang, 5)) + '</p>' + (() => { const tx = expenses.find(tx => tx.id === state.editingId); const heads = new Set(revisionHeads(tx)); return tx.tripRevisions.filter(row => heads.has(row.id)).map(row => '<p>' + esc(row.values.date) + ' · ' + eur(row.values.amount) + ' · ' + esc(row.values.description || '') + '</p>').join(''); })() + '</section>' : ''}
         ${expenses.some(t => t.receiptImage) ? `<details class="trip-company" ${state.bridgeConfigAperto ? 'open' : ''}><summary>${esc(tCh('bridgeTitle', __uiLang))}</summary>${bridgeCardHtml(state, expenses)}</details>` : ''}
@@ -11425,6 +11427,7 @@ window.openBusinessTrip = (tripId) => {
     document.querySelectorAll('[data-tripcat]').forEach(b => b.addEventListener('click', () => { state.tripCategory = b.dataset.tripcat; state.tripCategoryManuale = true; render(); }));
     document.querySelectorAll('[data-tripmeal]').forEach(b => b.addEventListener('click', () => { state.mealType = state.mealType === b.dataset.tripmeal ? null : b.dataset.tripmeal; render(); }));
     $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
+    $('#trip-remove-receipt')?.addEventListener('click', () => { if (state.ocrBusy) return; state.receiptDataUrl = null; render(); });
     $('#trip-receipt')?.addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
@@ -11432,6 +11435,7 @@ window.openBusinessTrip = (tripId) => {
       state.ocrBusy = true; render();
       const reader = new FileReader();
       reader.onload = async () => {
+        if (!isReviewAttachment(reader.result)) { state.ocrBusy = false; render(); showToast(tripAttachmentCopy(__uiLang, 0), 'error'); return; }
         state.receiptDataUrl = reader.result;
         // Ricerca reale: le aziende accettano come giustificativo anche PDF
         // (fatture, biglietti aerei/hotel ricevuti per email), non solo la
@@ -11483,6 +11487,8 @@ window.openBusinessTrip = (tripId) => {
         } catch (_) {}
         state.ocrBusy = false; render();
       };
+      reader.onerror = () => { state.ocrBusy = false; render(); showToast(tripAttachmentCopy(__uiLang, 2), 'error'); };
+      reader.onabort = reader.onerror;
       reader.readAsDataURL(f);
     });
     const resetEdit = () => {
@@ -11498,6 +11504,8 @@ window.openBusinessTrip = (tripId) => {
       $('#trip-amt')?.focus();
     }));
     $('#trip-save')?.addEventListener('click', () => {
+      if (state.ocrBusy) return;
+      if (state.receiptDataUrl && !isReviewAttachment(state.receiptDataUrl)) { showToast(tripAttachmentCopy(__uiLang, 0), 'error'); return; }
       const amt = parseTripAmount(state.amount);
       if (amt === null || (!(amt > 0) && !(state.offerto && amt === 0))) {
         const input = $('#trip-amt');
@@ -11516,7 +11524,7 @@ window.openBusinessTrip = (tripId) => {
           const result = VaultDAO.reviseTripTransaction(state.editingId, trip.id, {
             amount: amt, description: state.description, date: oggi,
             tripCategory: state.tripCategory, mealType: state.mealType,
-            ...(state.receiptDataUrl ? { receiptImage: state.receiptDataUrl } : {}),
+            receiptImage: state.receiptDataUrl || null,
           }, crypto.randomUUID(), state.editingDigest);
           if (!result) { showToast(tripEditCopy(__uiLang, 4), 'error'); return; }
           try { queueLiveSync(result.date.slice(0, 7), result); } catch (_) {}
