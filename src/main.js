@@ -3,7 +3,8 @@ import './ui/trip-workspace.css';
 import { tripStatusCopy } from './i18n/trip-status.js';
 import { tripApprovalCopy } from './i18n/trip-approval.js';
 import { reviewHistoryCopy } from './i18n/review-history.js';
-import { rememberReview } from './trips/review-history.js';
+import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
+import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
 import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
 import { tripExportCopy } from './i18n/trip-export.js';
@@ -12085,18 +12086,27 @@ window.openTripVerdictPaste = (tripId) => {
 // approva viene toccato o salvato: legge, decide, rimanda l'esito.
 window.openTripReviewHistory = () => {
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const history = VaultDAO.state.tripReviewHistory || [];
-  openModal(`<div class="trip-list-modal task-editor"><h3>${esc(reviewHistoryCopy(__uiLang, 0))}</h3>
+  const copy = key => esc(reviewWorkspaceCopy(__uiLang, key));
+  let query = '', filter = 'all', limit = 20;
+  openModal(`<div class="trip-list-modal task-editor review-workspace"><h3>${esc(reviewHistoryCopy(__uiLang, 0))}</h3>
     <p class="card-sub">${esc(reviewHistoryCopy(__uiLang, 3))}</p>
     <button id="review-import" class="btn-action btn-primary w-full py-3 rounded-xl">${esc(reviewImportCopy(__uiLang, 0))}</button>
     <p class="card-sub">${esc(reviewImportCopy(__uiLang, 1))}</p>
     <input id="review-import-file" type="file" accept=".json,application/json" hidden />
-    ${history.length ? history.map((entry, index) => `<button data-review-history="${index}" class="card w-full text-left p-4 mb-3">
-      <strong class="block">${esc(entry.review.tripName)}</strong>
-      <span class="block">${esc(entry.review.mittente || '')}</span>
-      <span>${esc(new Date(entry.savedAt).toLocaleDateString(__uiLocale))} · ${esc(entry.decision ? tCh(entry.decision.state === 'approvata' ? 'tripVerdictStateApproved' : 'tripVerdictStateChanges', __uiLang) : tCh('tripReviewIncomingLabel', __uiLang))}</span>
-    </button>`).join('') : `<p>${esc(reviewHistoryCopy(__uiLang, 2))}</p>`}</div>`);
-  document.querySelectorAll('[data-review-history]').forEach(button => button.addEventListener('click', () => window.openTripReviewScreen(history[Number(button.dataset.reviewHistory)].review)));
+    <form id="review-search-form" class="review-search"><label for="review-query">${copy(3)}</label><div><input id="review-query" type="search" autocomplete="off" /><button class="btn-action" type="submit">${copy(4)}</button></div></form>
+    <div id="review-filters" class="review-filters"></div>
+    <div id="review-results"></div></div>`);
+  const renderResults = () => {
+    const page = reviewHistoryPage(VaultDAO.state.tripReviewHistory, { query, filter, limit });
+    $('#review-filters').innerHTML = ['all','pending','prepared'].map((key, i) => `<button type="button" data-review-filter="${key}" aria-pressed="${filter === key}">${copy(i)} <span>${page.counts[key]}</span></button>`).join('');
+    $('#review-results').innerHTML = page.entries.length ? page.entries.map((entry, index) => `<article class="review-history-entry"><button data-review-history="${index}" class="review-open"><span><strong>${esc(entry.review.tripName)}</strong><span>${esc(entry.review.mittente || '')}</span><small>${esc(new Date(entry.savedAt).toLocaleDateString(__uiLocale))}</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+      ${entry.decision ? `<div class="review-decisions"><h4>${copy(7)}</h4><ol>${(entry.decisions?.length ? entry.decisions : [entry.decision]).map(d => `<li><strong>${esc(tCh(d.state === 'approvata' ? 'tripVerdictStateApproved' : 'tripVerdictStateChanges', __uiLang))}</strong>${d.reviewer ? `<span> · ${esc(d.reviewer)}</span>` : ''}${d.note ? `<p>${esc(d.note)}</p>` : ''}</li>`).join('')}</ol></div>` : ''}</article>`).join('') + (page.total > page.entries.length ? `<button id="review-more" class="btn-action w-full py-3">${copy(5)}</button>` : '') : `<p role="status" class="card-sub">${query ? copy(6) : esc(reviewHistoryCopy(__uiLang, 2))}</p>`;
+    document.querySelectorAll('[data-review-filter]').forEach(button => button.onclick = () => { filter = button.dataset.reviewFilter; limit = 20; renderResults(); document.querySelector('[data-review-filter="' + filter + '"]')?.focus(); });
+    document.querySelectorAll('[data-review-history]').forEach(button => button.onclick = () => window.openTripReviewScreen(page.entries[Number(button.dataset.reviewHistory)].review));
+    $('#review-more')?.addEventListener('click', () => { limit += 20; renderResults(); document.querySelector('[data-review-history="' + (limit - 20) + '"]')?.focus(); });
+  };
+  renderResults();
+  $('#review-search-form').addEventListener('submit', event => { event.preventDefault(); query = $('#review-query').value; limit = 20; renderResults(); });
   $('#review-import')?.addEventListener('click', () => $('#review-import-file')?.click());
   $('#review-import-file')?.addEventListener('change', async event => {
     const file = event.target.files?.[0];

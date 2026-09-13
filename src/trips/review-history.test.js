@@ -1,7 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rememberReview } from './review-history.js';
+import { rememberReview, reviewHistoryPage } from './review-history.js';
 const review = { tripId: 'trip-uuid', tripName: 'Paris', expenses: [], totale: 15 };
+test('manager finds pending reports across names and accents, without mutating history', () => {
+  const rows = Array.from({ length: 35 }, (_, i) => ({ review: { ...review, tripId: String(i), mittente: i === 2 ? 'José' : 'Marta' }, savedAt: i, decision: i % 2 ? { state: 'approvata' } : null }));
+  const original = JSON.stringify(rows);
+  assert.equal(reviewHistoryPage(rows).entries.length, 20);
+  assert.equal(reviewHistoryPage(rows, { limit: 40 }).entries.length, 35);
+  const result = reviewHistoryPage(rows, { query: 'jose', filter: 'pending' });
+  assert.equal(result.total, 1);
+  assert.equal(result.entries[0].review.tripId, '2');
+  assert.deepEqual(result.counts, { all: 35, pending: 18, prepared: 17 });
+  assert.equal(reviewHistoryPage(rows, { query: 'jose', filter: 'prepared' }).total, 0);
+  assert.equal(JSON.stringify(rows), original);
+});
 test('changing a decision retains the earlier decision and note, including legacy histories', () => {
   const previous = { state: 'modifiche', note: 'Receipt missing', preparedAt: 1 };
   const history = [{ review, savedAt: 1, decision: previous }];

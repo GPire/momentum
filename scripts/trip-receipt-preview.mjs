@@ -20,11 +20,12 @@ const state = { ...base, transactions: { [month]: [tx] }, demoTransactions: {}, 
   currentDate: now.toISOString(), lastHash: tx.hash,
   businessTrips: [{ id: 'trip-test', name: 'Trasferta di prova', createdAt: Date.now(), offeredItems: [] }] };
 const review = await readReviewArchive(JSON.stringify(buildTripArchive({ ...state.businessTrips[0], offeredItems: [{ amount: 80, date: now.toISOString(), tripCategory: 'alloggio', description: 'Hotel pagato dall’azienda' }] }, [{ ...tx, tripRevisionConflict: true }])));
+state.tripReviewHistory = Array.from({ length: 35 }, (_, i) => ({ review: { ...review, tripId: 'fixture-' + i, tripName: 'Trasferta ' + (i + 1), mittente: i % 2 ? 'José' : 'Marta' }, savedAt: Date.now() - i * 1000, decision: i % 2 ? { state: 'modifiche', note: 'Verificare la ricevuta dell’albergo', reviewer: 'Responsabile di prova' } : null }));
 const driver = `localStorage.setItem('omega_core_db', ${JSON.stringify(JSON.stringify(state))});
 addEventListener('load', () => {
   const button = document.createElement('button'); button.textContent = 'Apri trasferta di prova';
   button.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;background:white;color:black;padding:12px';
-  button.onclick = () => { if (new URLSearchParams(location.search).has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
+  button.onclick = () => { const params = new URLSearchParams(location.search); if (params.has('history')) window.openTripReviewHistory(); else if (params.has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
   document.body.append(button);
 });`;
 createServer((req, res) => {
