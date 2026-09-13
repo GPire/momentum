@@ -4,10 +4,12 @@ import { tripStatusCopy } from './i18n/trip-status.js';
 import { tripApprovalCopy } from './i18n/trip-approval.js';
 import { reviewHistoryCopy } from './i18n/review-history.js';
 import { rememberReview } from './trips/review-history.js';
-import { buildTripArchive } from './trips/trip-archive.js';
+import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
+import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
 import { tripExportCopy } from './i18n/trip-export.js';
 import { receiptDeliveryCopy } from './i18n/receipt-delivery.js';
 import { prepareReceiptDelivery } from './trips/expense-bridge.js';
+import { parseTripAmount } from './trips/trip-engine.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
 import { normalizeHex, hexToHsl, hslToHex, categoryInk } from './ui/category-color.js';
 window.addEventListener('resize', fitVisibleAmounts);
@@ -11042,6 +11044,8 @@ window.openBusinessTrip = (tripId) => {
   const render = () => {
     const allTx = allTransactionsFlat();
     const expenses = tripExpenses(trip, allTx);
+    const exportRows = allTx.filter(tx => tx?.businessTripId === trip.id);
+    const exportChecks = inspectTripArchive(exportRows);
     const { totale, perCategoria } = tripTotals(trip, allTx);
     // Sync live: se arriva un aggiornamento da un altro dei propri dispositivi
     // mentre questa schermata è aperta, si ridisegna con i dati nuovi invece
@@ -11239,7 +11243,7 @@ window.openBusinessTrip = (tripId) => {
           </label>
           ${state.receiptDataUrl ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
           <div class="flex gap-2 mb-2">
-            <input id="trip-amt" type="number" inputmode="decimal" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
+            <input id="trip-amt" type="text" inputmode="decimal" autocomplete="off" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
             <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" name="trip-desc" />
           </div>
           <!-- Bug reale/limite trovato dal vivo: la data era sempre "oggi",
@@ -11287,6 +11291,9 @@ window.openBusinessTrip = (tripId) => {
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
         </div>
         <div class="trip-company">
+          <h4 class="font-bold mb-2">${esc(tripChecksCopy(__uiLang, 0))}</h4>
+          <p class="text-sm mb-3">${esc(tripChecksCopy(__uiLang, 1))}: ${exportChecks.transactionCount} · ${esc(tripChecksCopy(__uiLang, 2))}: ${exportChecks.attachmentCount}</p>
+          ${exportChecks.issues.length ? `<details class="trip-export-checks mb-3"><summary>${esc(tripChecksCopy(__uiLang, 3))} · ${exportChecks.reviewCount}</summary><ul>${exportChecks.issues.map(issue => `<li>${esc(exportRows[issue.index].description || String(issue.index + 1))}: ${esc(tripIssueLabel(__uiLang, issue.code))}</li>`).join('')}</ul><p>${esc(tripChecksCopy(__uiLang, 9))}</p></details>` : ''}
           <button id="trip-export-archive" class="btn-action w-full px-4 py-3 rounded-xl" aria-describedby="trip-export-archive-hint">${esc(tripExportCopy(__uiLang, 0))}</button>
           <p id="trip-export-archive-hint" class="text-xs mt-2 text-[var(--on-surface-secondary)]">${esc(tripExportCopy(__uiLang, 1))}</p>
         </div>
@@ -11304,7 +11311,7 @@ window.openBusinessTrip = (tripId) => {
       $('#trip-period-panel')?.scrollIntoView({ block: 'start', behavior: 'instant' });
       document.querySelector('[data-periodopill="startDate"]')?.focus({ preventScroll: true });
     });
-    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; });
+    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; e.target.removeAttribute('aria-invalid'); });
     $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
     // Selettore data di Momentum: apre/chiude il calendario disegnato.
     // (Prima qui c'era un input invisibile che sul desktop non apriva niente —
@@ -11434,8 +11441,13 @@ window.openBusinessTrip = (tripId) => {
       reader.readAsDataURL(f);
     });
     $('#trip-save')?.addEventListener('click', () => {
-      const amt = parseFloat(String(state.amount).replace(',', '.'));
-      if (!(amt > 0) && !(state.offerto && amt === 0)) { showToast(tCh('tripAmountRequired', __uiLang), 'error'); return; }
+      const amt = parseTripAmount(state.amount);
+      if (amt === null || (!(amt > 0) && !(state.offerto && amt === 0))) {
+        const input = $('#trip-amt');
+        input?.setAttribute('aria-invalid', 'true');
+        input?.focus();
+        showToast(tCh('tripAmountRequired', __uiLang), 'error'); return;
+      }
       if (!state.tripCategory) { showToast(tCh('tripCategoryRequired', __uiLang), 'error'); return; }
       // Data scelta dall'utente (default oggi, mai un giorno futuro — vedi
       // il campo #trip-data sopra): quasi nessuno registra uno scontrino
@@ -11516,7 +11528,7 @@ window.openBusinessTrip = (tripId) => {
     // resta quella già impostata nel form (oggi di default, modificabile) —
     // così due tap bastano per "stessa spesa di ieri, oggi".
     document.querySelectorAll('[data-tripexpdup]').forEach(b => b.addEventListener('click', () => {
-      const orig = expenses.find(e => e.id === b.dataset.tripexpdup);
+      const orig = expenses.find(e => String(e.id) === b.dataset.tripexpdup);
       if (!orig) return;
       state.amount = String(orig.amount);
       state.description = orig.description || '';

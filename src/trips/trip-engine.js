@@ -58,6 +58,13 @@ export const MEAL_SUBTYPES = ['colazione', 'pranzo', 'cena'];
 // classico va-e-vieni "nota spese rimandata indietro" lamentato ovunque
 // nelle recensioni dei prodotti concorrenti.
 const SOGLIA_GIUSTIFICATIVO = 25;
+export function parseTripAmount(value) {
+  const text = String(value ?? '').trim();
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(text)) return null;
+  const amount = Number(text.replace(',', '.'));
+  return Number.isSafeInteger(Math.round(amount * 100)) ? amount : null;
+}
+
 export function needsReceipt(expense) {
   return expense.amount >= SOGLIA_GIUSTIFICATIVO && !expense.receiptImage;
 }

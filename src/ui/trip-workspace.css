@@ -1,4 +1,15 @@
 /* Trip controls share Momentum's surfaces; motion never delays an action. */
+.trip-export-checks{border:1px solid var(--outline);border-radius:16px;padding:4px 14px;background:color-mix(in srgb,var(--primary) 5%,transparent)}
+.trip-export-checks summary{min-height:44px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;font-weight:700;font-size:14px}
+.trip-export-checks summary::-webkit-details-marker{display:none}
+.trip-export-checks summary:after{content:'+';font-size:22px}
+.trip-export-checks[open] summary:after{content:'−'}
+.trip-export-checks ul{max-height:200px;overflow:auto;overscroll-behavior:contain;padding:0;list-style:none}
+.trip-export-checks li{padding:8px 0;border-top:1px solid var(--outline);font-size:13px;overflow-wrap:anywhere}
+.trip-export-checks p{font-size:12px;color:var(--on-surface-secondary);margin:12px 0}
+.trip-export-checks[open] ul{animation:trip-reveal 180ms ease-out}
+.trip-export-checks summary:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:8px}
+.trip-workspace input[aria-invalid=true]{border-color:var(--red)}
 .trip-summary{position:relative;isolation:isolate;overflow:hidden;padding:26px;border-radius:26px;border:1px solid color-mix(in srgb,var(--primary) 30%,var(--outline));background:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--primary) 19%,transparent),transparent 70%),var(--surface-elevated)}
 .trip-summary-copy{position:relative;z-index:1;max-width:100%}
 .trip-summary-label{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--on-surface-secondary)}
