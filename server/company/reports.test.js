@@ -3,7 +3,45 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { reportRequest } from './reports.js';
+import { storageAuditRequest } from './storage-audit.js';
 const rules={currency:'EUR',receiptThreshold:25,expenseLimits:{},dailyLimits:{vitto:50}};
+
+test('storage inventory protects historic references and distinguishes missing or unavailable objects',async()=>{
+ const {sql,env}=fixture();
+ try{
+ sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");
+ const {digestBytes}=await import('../../src/trips/company-attachments.js');
+ const subjectHash=await digestBytes(new TextEncoder().encode('employee'));
+ const hashes=['1','2','3','4'].map(x=>x.repeat(64));
+ for(const hash of hashes)sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size) VALUES(?,?,?)').run('a',`a/${subjectHash}/${hash}`,3);
+ // Even superseded revisions retain their attachments.
+ const archive={format:'momentum-company-upload',archive:{transactions:[{receiptRef:{hash:hashes[0]}}]}};
+ for(const [id,revision,body]of [['old',1,archive],['new',2,{transactions:[]}]])sql.prepare('INSERT INTO reports VALUES(?,?,?,?,?,?,?,?,?)').run(id,'a','employee','t',revision,1,'f'.repeat(64),JSON.stringify(body),'2026-09-14');
+ env.COMPANY_FILES={async head(key){if(key.endsWith(hashes[2]))throw new Error('offline');return key.endsWith(hashes[1])?null:{size:key.endsWith(hashes[3])?4:3}}};
+ const get=(subject='owner',suffix='')=>storageAuditRequest(new Request(env.APP_ORIGIN+'/v1/companies/a/storage'+suffix),env,subject);
+ assert.equal((await get('employee')).status,403);assert.equal((await get('manager')).status,403);assert.equal((await get('other')).status,403);
+ const response=await get();assert.equal(response.status,200);assert.match(response.headers.get('Cache-Control'),/no-store/);
+ const data=await response.json();assert.equal(data.reservedBytes,12);assert.equal(data.readOnly,true);
+ assert.deepEqual(data.entries.map(x=>x.reference),['report','unlinked','unlinked','unlinked']);
+ assert.deepEqual(data.entries.map(x=>x.object),['present','missing','unavailable','size_mismatch']);
+ assert.equal((await get('owner','?after=b%2F'+'a'.repeat(64)+'%2F'+'b'.repeat(64))).status,400);
+ env.COMPANY_FILES.head=async()=>{sql.exec("UPDATE memberships SET active=0 WHERE subject='owner'");return null};
+ assert.equal((await get()).status,403);
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM company_attachment_reservations').get().n,4);
+ }finally{sql.close()}
+});
+
+test('storage inventory paginates without dropping reservations and refuses writes',async()=>{
+ const {sql,env}=fixture();try{
+ sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");env.COMPANY_FILES={async head(){return null}};
+ for(let i=0;i<28;i++)sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size) VALUES(?,?,?)').run('a',`a/${'a'.repeat(64)}/${i.toString(16).padStart(64,'0')}`,1);
+ const url=env.APP_ORIGIN+'/v1/companies/a/storage';
+ const first=await(await storageAuditRequest(new Request(url),env,'owner')).json();assert.equal(first.entries.length,25);assert.ok(first.nextCursor);
+ const second=await(await storageAuditRequest(new Request(url+'?after='+encodeURIComponent(first.nextCursor)),env,'owner')).json();assert.equal(second.entries.length,3);assert.equal(second.nextCursor,null);
+ assert.equal(new Set([...first.entries,...second.entries].map(x=>x.key)).size,28);
+ assert.equal((await storageAuditRequest(new Request(url,{method:'DELETE'}),env,'owner')).status,405);
+ }finally{sql.close()}
+});
 function fixture(){
  const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','attachment-quota.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('a','A'),('b','B'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('b','other','owner',1)");

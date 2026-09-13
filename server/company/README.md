@@ -239,3 +239,24 @@ resoconti. La pulizia degli orfani richiede ancora un protocollo che impedisca
 conflitti con invii in corso. La quota comprende riserve interrotte e allegati
 separati, non database, archivi inline, backup o traffico.
 Verifica locale: 27 test, SQLite reale e storage simulato; nessun servizio cloud attivato.
+
+### Inventario protetto dello storage (2026-09-14)
+GET /v1/companies/:company/storage: solo owner attivo, risposta no-store,
+25 prenotazioni per pagina; proseguire con after=nextCursor codificato nell'URL.
+Riepiloga limite, byte riservati e spazio disponibile. Per ciascuna prenotazione:
+reference=report/unlinked; object=present/missing/size_mismatch/unavailable.
+La ricerca comprende tutte le revisioni storiche e verifica anche il mittente:
+lo stesso hash di un altro dipendente non costituisce un collegamento.
+I permessi sono ricontrollati dopo le letture dello storage.
+
+È una fotografia in sola lettura, NON un'autorizzazione alla cancellazione.
+Unlinked può essere un invio ancora in corso. Missing può essere un PUT non
+concluso; unavailable indica errore dello storage, non assenza del file.
+Nessun oggetto viene cancellato e nessuna quota viene liberata. Non enumera
+oggetti del bucket privi di prenotazione, né contabilizza archivi inline o backup.
+Le ricerche JSON sulle revisioni richiedono ancora indici dedicati e prove di
+carico prima dell'uso su grandi archivi aziendali. Il pannello UI resta da collegare.
+
+29 test locali passati, inclusi riferimenti storici, revoca durante la lettura,
+separazione aziende/ruoli, errori storage e paginazione. Storage simulato;
+nessun deployment né collaudo del servizio cloud reale in questa verifica.
