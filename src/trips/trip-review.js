@@ -96,11 +96,12 @@ export const VERDICT_STATES = ['approvata', 'modifiche'];
 // Chiavi corte nel payload: un QR più corto è un QR che si legge al primo
 // colpo, su carta stampata e su uno schermo sporco. Nomi lunghi qui
 // costerebbero centinaia di byte per una trasferta di venti spese.
-export async function encodeTripReview({ tripId, tripName, startDate, endDate, expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '' }, p2pOffer, { maxLen = 900 } = {}) {
+export async function encodeTripReview({ tripId, tripName, startDate, endDate, expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '', reportFingerprint }, p2pOffer, { maxLen = 900 } = {}) {
   if (!tripId) throw new Error('serve l identificativo della trasferta');
   const slim = {
     v: 1,
     i: tripId,
+    ...(reportFingerprint ? { h: reportFingerprint } : {}),
     n: tripName || '',
     ...(startDate ? { s: startDate } : {}),
     ...(endDate ? { e: endDate } : {}),
@@ -213,6 +214,7 @@ export async function decodeTripReview(code) {
     if (!g || !g.i || !Array.isArray(g.r)) return null;
     return {
       tripId: g.i,
+      ...(g.h ? { reportFingerprint: g.h } : {}),
       tripName: g.n || '',
       startDate: g.s || null,
       endDate: g.e || null,
@@ -249,10 +251,10 @@ export async function decodeTripReview(code) {
 // L'ESITO che torna indietro. Minuscolo di proposito: deve stare in un SMS,
 // in un messaggio, in un QR letto al volo — spesso chi approva è di fretta e
 // non ha voglia di installare niente.
-export function encodeTripVerdict({ tripId, state, note = '', reviewer = '' }) {
+export function encodeTripVerdict({ tripId, state, note = '', reviewer = '', reportFingerprint }) {
   if (!tripId) throw new Error('serve l identificativo della trasferta');
   if (!VERDICT_STATES.includes(state)) throw new Error('esito non valido');
-  const slim = { v: 1, i: tripId, s: state, ...(note ? { n: String(note).slice(0, 200) } : {}), ...(reviewer ? { b: String(reviewer).slice(0, 40) } : {}), t: Date.now() };
+  const slim = { v: 1, i: tripId, s: state, ...(reportFingerprint ? { h: reportFingerprint } : {}), ...(note ? { n: String(note).slice(0, 200) } : {}), ...(reviewer ? { b: String(reviewer).slice(0, 40) } : {}), t: Date.now() };
   return TRIP_VERDICT_PREFIX + b64encode(JSON.stringify(slim));
 }
 
@@ -274,17 +276,18 @@ export function decodeTripVerdict(code) {
     const body = s.startsWith(TRIP_VERDICT_PREFIX) ? s.slice(TRIP_VERDICT_PREFIX.length) : s;
     const g = JSON.parse(b64decode(body));
     if (!g || !g.i || !VERDICT_STATES.includes(g.s)) return null;
-    return { tripId: g.i, state: g.s, note: g.n || '', reviewer: g.b || '', reviewedAt: +g.t || null };
+    return { tripId: g.i, state: g.s, note: g.n || '', reviewer: g.b || '', reviewedAt: +g.t || null, ...(g.h ? { reportFingerprint: g.h } : {}) };
   } catch (_) { return null; }
 }
 
 // Applica l'esito al viaggio (funzione pura: ritorna un nuovo oggetto).
 // Un esito che riguarda un'ALTRA trasferta non viene mai applicato per errore:
 // è il caso reale di chi incolla il codice sbagliato fra due trasferte aperte.
-export function applyTripVerdict(trip, verdict) {
+export function applyTripVerdict(trip, verdict, expectedFingerprint) {
   if (!trip || !verdict) return trip;
   if (verdict.tripId !== trip.id) throw new Error('questo esito riguarda un altra trasferta');
-  return { ...trip, approval: { state: verdict.state, note: verdict.note || '', reviewer: verdict.reviewer || '', reviewedAt: verdict.reviewedAt || Date.now() } };
+  if (expectedFingerprint !== undefined && verdict.reportFingerprint !== expectedFingerprint) throw new Error('TRIP_REVIEW_VERSION_MISMATCH');
+  return { ...trip, approval: { state: verdict.state, note: verdict.note || '', reviewer: verdict.reviewer || '', reviewedAt: verdict.reviewedAt || Date.now(), ...(verdict.reportFingerprint ? { reportFingerprint: verdict.reportFingerprint } : {}) } };
 }
 
 // Segna la trasferta come "mandata in approvazione" (lato dipendente), così

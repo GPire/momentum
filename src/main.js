@@ -9,7 +9,8 @@ import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
 import { tripExportCopy } from './i18n/trip-export.js';
 import { receiptDeliveryCopy } from './i18n/receipt-delivery.js';
 import { prepareReceiptDelivery } from './trips/expense-bridge.js';
-import { tripEditCopy } from './i18n/trip-edit.js';
+import { tripEditCopy, tripReviewStaleCopy } from './i18n/trip-edit.js';
+import { tripReviewSnapshot, fingerprintTripSnapshot } from './trips/review-fingerprint.js';
 import { revisionDigest, revisionHeads } from './trips/expense-revisions.js';
 import { tripPolicyCopy } from './i18n/trip-policy.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
@@ -11157,6 +11158,15 @@ window.openBusinessTrip = (tripId) => {
     // il momento in cui su ogni prodotto concorrente si perde il filo ("l'ho
     // già mandata? mi hanno risposto?"). Qui la trasferta lo dice sempre.
     const appr = trip.approval || null;
+    if (appr?.reportFingerprint && !appr.invalidatedAt) {
+      const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
+      fingerprintTripSnapshot(snapshot).then(hash => {
+        const current = (VaultDAO.state.businessTrips || []).find(t => t.id === trip.id);
+        if (!current || current.approval?.reportFingerprint !== appr.reportFingerprint || current.approval?.invalidatedAt || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot || hash === appr.reportFingerprint) return;
+        persistTrip({ ...current, approval: { ...current.approval, invalidatedAt: Date.now() } });
+        if (document.querySelector('[data-rendered-trip]')?.dataset.renderedTrip === String(trip.id)) render();
+      }).catch(() => {});
+    }
     const statoApprovazione = !appr ? '' : (() => {
       const S = appr.invalidatedAt
         ? { box: 'border-amber-400/40 bg-amber-500/10', txt: 'text-amber-300', icona: '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>', label: tripEditCopy(__uiLang, 3) }
@@ -11199,7 +11209,7 @@ window.openBusinessTrip = (tripId) => {
     };
 
     openModal(`
-      <div class="trip-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div data-rendered-trip="${esc(String(trip.id))}" class="trip-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div class="flex items-center gap-2">
           <button id="trip-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
           <span class="font-black text-sm">${esc(trip.name)}</span>
@@ -11949,9 +11959,12 @@ window.openTripReviewShare = async (tripId) => {
   const dati = exportTripData(trip, allTransactionsFlat());
   if (!dati.expenses.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
 
-  let code;
+  const reviewSnapshot = tripReviewSnapshot(trip, allTransactionsFlat());
+  let code, reportFingerprint;
   try {
+    reportFingerprint = await fingerprintTripSnapshot(reviewSnapshot);
     code = await encodeTripReview({
+      reportFingerprint,
       tripId: trip.id, tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate,
       expenses: dati.expenses, totale: dati.totale,
       numeroGiustificativiMancanti: dati.numeroGiustificativiMancanti,
@@ -12004,7 +12017,9 @@ window.openTripReviewShare = async (tripId) => {
     if (!requestedReviewer) { $('#trv-status').textContent = tripApprovalCopy(__uiLang, 5); $('#trv-recipient')?.focus(); return; }
     const current = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
     if (!current) return;
+    if (tripReviewSnapshot(current, allTransactionsFlat()) !== reviewSnapshot) { showToast(tripReviewStaleCopy(__uiLang), 'error'); return; }
     const sent = markTripSentForReview(current);
+    sent.approval.reportFingerprint = reportFingerprint;
     const next = touchTrip({ ...sent, approval: { ...sent.approval, requestedReviewer, deliveryVerified: false } });
     VaultDAO.state.businessTrips = VaultDAO.state.businessTrips.map(t => t.id === tripId ? next : t);
     VaultDAO.save();
@@ -12033,14 +12048,20 @@ window.openTripVerdictPaste = (tripId) => {
     </div>`, `<button id="trv-back" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
 
   $('#trv-back')?.addEventListener('click', () => window.openBusinessTrip(tripId));
-  $('#trv-apply')?.addEventListener('click', () => {
+  $('#trv-apply')?.addEventListener('click', async () => {
     const raw = document.getElementById('trv-code')?.value || '';
     const verdict = decodeTripVerdict(raw);
     if (!verdict) { showToast(tCh('tripVerdictInvalid', __uiLang), 'error'); return; }
     const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
     if (!trip) return;
     try {
-      const nuovo = touchTrip(applyTripVerdict(trip, verdict));
+      const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
+      const expected = await fingerprintTripSnapshot(snapshot);
+      const current = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+      if (!current || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot || verdict.reportFingerprint !== expected) {
+        showToast(tripReviewStaleCopy(__uiLang), 'error'); return;
+      }
+      const nuovo = touchTrip(applyTripVerdict(current, verdict, expected));
       VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? nuovo : t);
       VaultDAO.save();
       // L'esito è la notizia più importante di tutte: deve arrivare subito su
@@ -12145,7 +12166,7 @@ window.openTripReviewScreen = (rev) => {
     // fa odiare le note spese: la nota qui è obbligatoria solo in quel caso.
     if (state === 'modifiche' && !note) { showToast(tCh('tripReviewNoteRequired', __uiLang), 'error'); return; }
     let code;
-    try { code = encodeTripVerdict({ tripId: rev.tripId, state, note, reviewer }); }
+    try { code = encodeTripVerdict({ tripId: rev.tripId, state, note, reviewer, reportFingerprint: rev.reportFingerprint }); }
     catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
     saveHistory({ state, note, reviewer, preparedAt: Date.now() });
     const messaggio = tCh('tripVerdictMessage', __uiLang, rev.tripName || '', state === 'approvata' ? tCh('tripVerdictStateApproved', __uiLang) : tCh('tripVerdictStateChanges', __uiLang), code);
