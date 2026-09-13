@@ -16,7 +16,8 @@ Roles: employee, reviewer and auditor can read company policy; policy_admin
 and owner can also publish. These permissions apply ONLY to policy endpoints,
 not report approval. Company and membership provisioning currently require
 an authorized database operator. There is no public self-enrollment or role
-assignment endpoint. No assumption that a supplied company ID grants access.
+assignment endpoint. Owners can now issue scoped invitations (see below).
+No assumption that a supplied company ID grants access.
 
 ## API
 
@@ -67,6 +68,38 @@ Still required: member administration with audit, organization hierarchy and
 delegation, shared report inbox, server-side report-version approval, app UI
 integration, region/currency policy assignment, connector credentials and
 delivery reconciliation, monitoring, backup restore and load testing.
+
+## Named invitations
+
+Apply invitations.sql after schema.sql. Owners may POST
+`/v1/companies/{id}/invitations` with `{email, role}`. The role is limited to
+employee/reviewer/auditor/policy_admin; ownership cannot be granted by invite.
+The response includes invitationId and a seven-day link. No email is sent.
+Owners may POST `{invitationId}` to the same path plus `/revoke` while pending.
+Revoking a pending invite does not revoke an already accepted membership.
+
+`/company/join` is an Access-protected landing page in seven languages.
+Include it in Worker routing along with `/v1/*`, on the app's origin. It
+previews the company/role then requires a deliberate acceptance. The raw
+256-bit token stays in the URL fragment until acceptance; only its SHA-256
+hash is stored. Configure the identity provider so the signed Access email
+is authoritative and verified. An explicit email_verified=false is rejected;
+the service cannot independently verify the provider's email ownership policy.
+The email in the signed token, not a client field, must match the invitation.
+
+Acceptance creates membership using a database trigger in the same update.
+An existing membership, including a revoked one, is never overwritten. A
+retry by the same accepted, still-active subject returns success without a
+second insertion. Revocation of the issuing owner's membership also makes
+pending invitations unusable. Staff and other-company owners cannot invite.
+
+11 service tests passed on SQLite and WebCrypto. Chrome loopback fixture
+verified preview and accept through real handlers with a synthetic identity;
+no live Access login, emails, deployed D1 or physical-device tests performed.
+`scripts/company-invite-preview.mjs` is a loopback-only synthetic fixture,
+never a production entry point. The final Open Momentum action returns to
+the app root; the personal app does not yet discover company membership or
+automatically apply its policy. There is not yet an owner invitation UI.
 
 Sources consulted:
 - https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/

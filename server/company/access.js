@@ -1,6 +1,6 @@
 // Only the configured Access issuer supplies keys. Never follow URLs in a JWT.
 const decode = value => Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-export async function accessSubject(request, env, fetchKeys = fetch) {
+export async function accessIdentity(request, env, fetchKeys = fetch) {
   if (!/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.ACCESS_ISSUER || '') || !env.ACCESS_AUD) throw new Error('Access not configured');
   const token = request.headers.get('Cf-Access-Jwt-Assertion');
   if (!token || token.length > 16384) throw new Error('Missing identity');
@@ -21,5 +21,6 @@ export async function accessSubject(request, env, fetchKeys = fetch) {
   if (!jwk) throw new Error('Unknown identity key');
   const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   if (!await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, decode(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`))) throw new Error('Invalid signature');
-  return claims.sub;
+  return { subject: claims.sub, email: claims.email_verified !== false && typeof claims.email === 'string' ? claims.email.trim().toLowerCase() : null };
 }
+export async function accessSubject(request, env, fetchKeys = fetch) { return (await accessIdentity(request, env, fetchKeys)).subject; }

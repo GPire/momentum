@@ -1,4 +1,6 @@
-import { accessSubject } from './access.js';
+import { accessIdentity } from './access.js';
+import { invitationRequest } from './invitations.js';
+import { joinPage } from './join-page.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
@@ -12,8 +14,8 @@ export function validateCompanyRules(rules) {
     return limits && typeof limits === 'object' && !Array.isArray(limits) && Object.entries(limits).every(([key, value]) => categories.includes(key) && amount(value));
   });
 }
-const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
-async function readBody(request) {
+export const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
+export async function readBody(request) {
   if (!request.body) throw new Error('Empty body');
   const reader = request.body.getReader();
   const chunks = []; let size = 0;
@@ -74,8 +76,13 @@ export async function companyRequest(request, env, subject) {
 
 export default {
   async fetch(request, env) {
-    let subject;
-    try { subject = await accessSubject(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
-    try { return await companyRequest(request, env, subject); } catch { return json({ error: 'service_unavailable' }, 503); }
+    let identity;
+    try { identity = await accessIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
+    try {
+      const path = new URL(request.url).pathname;
+      if (path === '/company/join' && request.method === 'GET') return joinPage();
+      if (path.includes('/invitations')) return await invitationRequest(request, env, identity);
+      return await companyRequest(request, env, identity.subject);
+    } catch { return json({ error: 'service_unavailable' }, 503); }
   },
 };
