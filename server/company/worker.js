@@ -2,6 +2,7 @@ import { accessIdentity } from './access.js';
 import { invitationRequest } from './invitations.js';
 import { joinPage } from './join-page.js';
 import { workspacePage } from './workspace-page.js';
+import { reportRequest } from './reports.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
@@ -16,7 +17,7 @@ export function validateCompanyRules(rules) {
   });
 }
 export const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
-export async function readBody(request) {
+export async function readBody(request, limit = 8192) {
   if (!request.body) throw new Error('Empty body');
   const reader = request.body.getReader();
   const chunks = []; let size = 0;
@@ -25,7 +26,7 @@ export async function readBody(request) {
       const { value, done } = await reader.read();
       if (done) break;
       size += value.length;
-      if (size > 8192) { await reader.cancel(); throw new Error('Too large'); }
+      if (size > limit) { await reader.cancel(); throw new Error('Too large'); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
@@ -95,6 +96,7 @@ export default {
       if (path === '/company/join' && request.method === 'GET') return joinPage();
       if (path === '/company/workspace' && request.method === 'GET') return workspacePage();
       if (path.includes('/invitations')) return await invitationRequest(request, env, identity);
+      if (/^\/v1\/companies\/[^/]+\/reports(?:\/|$)/.test(path)) return await reportRequest(request, env, identity.subject);
       return await companyRequest(request, env, identity.subject);
     } catch { return json({ error: 'service_unavailable' }, 503); }
   },

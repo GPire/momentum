@@ -122,6 +122,41 @@ does not deploy the service or make the personal PWA automatically connected.
 The next integration is explicit company selection when creating a trip,
 pinning the server policy version, and server revalidation at submission.
 
+## Versioned report submission and decisions (not connected to UI yet)
+
+Apply reports.sql after schema.sql. The worker now exposes:
+
+- POST `/v1/companies/{id}/reports`: full momentum-trip-archive body,
+  `If-Match: "0"` initially, then the last submitted revision number.
+  Validates the archive, active membership, company binding and exact current
+  published policy rules. Unknown/changed policy requires a new submission.
+- GET `/v1/companies/{id}/reports/{reportId}`: submitter, owner, reviewer or
+  auditor may read; others are denied. Returns `superseded` when a newer
+  revision exists, even if the earlier revision was previously approved.
+- POST `/v1/companies/{id}/reports/{reportId}/decision`: owner or reviewer,
+  never the submitter. `If-Match` must contain the exact fingerprint in quotes;
+  JSON `{decision: "approved" | "changes_requested", note: "..."}`. A request
+  for changes requires a nonempty reason. Approval also requires the policy
+  version still be current. An older-policy report can be sent back for changes.
+
+Publication and decisions use conditional SQL writes with membership checks.
+Records and decisions cannot be overwritten through UPDATE/DELETE. Original
+approvals remain historical facts when a newer revision supersedes them.
+Local changes not submitted to the server are not remotely detectable.
+
+The current prototype accepts at most 256 KiB per report, INCLUDING attachments;
+larger reports are rejected explicitly, never silently stripped. This is not
+adequate for many real receipt bundles. Object storage/attachment manifests,
+malware/file-content checks, explicit retention and backup policy remain
+required before real company rollout. File validation checks the envelope,
+not proof of a genuine or readable financial document.
+
+18 service tests passed on SQLite/WebCrypto. No cloud submission, real company
+account, report inbox UI or mobile-device submission has been tested. The PWA
+still uses its existing file/link review flow; these endpoints do not silently
+upload user data. These are implemented server operations, not a deployed
+or end-to-end production approval system.
+
 Sources consulted:
 - https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
 - https://developers.cloudflare.com/d1/worker-api/prepared-statements/
