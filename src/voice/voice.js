@@ -89,9 +89,11 @@ const VoiceCore = {
     this.recognition.interimResults = false;
     this._lingua = linguaVoceAttiva();
     this.recognition.lang = SPEECH_LOCALE[this._lingua] || 'it-IT';
+    const processedResults = new Set();
     
     this.recognition.onstart = () => {
       if (session !== this._session) return;
+      processedResults.clear();
       this._starting = false;
       this.isListening = true;
       const btn = container.querySelector('#voice-rec-btn');
@@ -146,14 +148,7 @@ const VoiceCore = {
       if (msg) { AudioSynth.play('friction'); showToast(msg, 'error'); }
     };
 
-    this.recognition.onresult = (e) => {
-      if (session !== this._session) return;
-      // Con continuous=true, e.results accumula TUTTE le frasi pronunciate
-      // nella sessione — va processata solo l'ultima appena finalizzata,
-      // non sempre la prima (bug che avrebbe ripetuto in loop il primo comando).
-      const lastIdx = e.results.length - 1;
-      if (!e.results[lastIdx].isFinal) return;
-      const text = e.results[lastIdx][0].transcript;
+    const processTranscript = (text) => {
       logETL(`Dettatura Vocale: "${text}"`);
 
       // Domanda vocale → motore Q&A (src/ai/qa-engine.js): risposta
@@ -323,6 +318,19 @@ const VoiceCore = {
         AudioSynth.play('friction');
         flashMic('no');
         showToast(tVoice('voiceParseError', this._lingua), "error");
+      }
+    };
+    this.recognition.onresult = (event) => {
+      if (session !== this._session) return;
+      // A browser may finalize several phrases together, followed by an
+      // interim phrase. Track result indices, not text: repeated purchases
+      // with the same words are legitimate separate utterances.
+      for (let index = event.resultIndex ?? 0; index < event.results.length; index++) {
+        const result = event.results[index];
+        if (!result.isFinal || processedResults.has(index)) continue;
+        processedResults.add(index);
+        const text = result[0]?.transcript?.trim();
+        if (text) processTranscript(text);
       }
     };
   },
@@ -583,7 +591,7 @@ const VoiceParser = {
       desc = desc.replace(reg, '');
     });
 
-    desc = rimuoviElisioni(desc).replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '').replace(/\s+/g, ' ').trim();
+    desc = rimuoviElisioni(desc).replace(/[^\p{L}\p{M}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
     // Un connettivo isolato a fine descrizione ("Magliette e") è sempre un
     // residuo del taglio fra due clausole (es. "ho comprato magliette e ho
     // speso…", assorbito da _resolveAmountlessPurchase sopra), mai una

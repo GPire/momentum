@@ -1,4 +1,5 @@
 import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
+import './ui/trip-workspace.css';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
 import { normalizeHex, hexToHsl, hslToHex, categoryInk } from './ui/category-color.js';
 window.addEventListener('resize', fitVisibleAmounts);
@@ -11169,13 +11170,11 @@ window.openBusinessTrip = (tripId) => {
               ${iconaOrarioSm}<span>${esc(trip[campoOra] || '--:--')}</span>
             </button>
           </div>
-          ${apertoData ? periodoDataPannelloHtml(trip, state, campoData) : ''}
-          ${apertoOra ? periodoOrarioPannelloHtml(trip, campoOra) : ''}
         </div>`;
     };
 
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="trip-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div class="flex items-center gap-2">
           <button id="trip-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
           <span class="font-black text-sm">${esc(trip.name)}</span>
@@ -11193,6 +11192,8 @@ window.openBusinessTrip = (tripId) => {
             ${periodoPillHtml('startDate', 'startTime', tCh('tripPeriodStart', __uiLang))}
             ${periodoPillHtml('endDate', 'endTime', tCh('tripPeriodEnd', __uiLang))}
           </div>
+          ${['startDate', 'endDate'].includes(state.periodoCampoAperto) ? periodoDataPannelloHtml(trip, state, state.periodoCampoAperto) : ''}
+          ${['startTime', 'endTime'].includes(state.periodoCampoAperto) ? periodoOrarioPannelloHtml(trip, state.periodoCampoAperto) : ''}
           ${periodoInfoHtml}
         </div>
         <div class="card p-3">
@@ -11258,7 +11259,7 @@ window.openBusinessTrip = (tripId) => {
           ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
           <button id="trip-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
         </div>
-        ${expenses.some(t => t.receiptImage) ? bridgeCardHtml(state, expenses) : ''}
+        ${expenses.some(t => t.receiptImage) ? `<details class="trip-company" ${state.bridgeConfigAperto ? 'open' : ''}><summary>${esc(tCh('bridgeTitle', __uiLang))}</summary>${bridgeCardHtml(state, expenses)}</details>` : ''}
         ${expenses.length ? `<div class="flex gap-2">
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
@@ -11316,7 +11317,20 @@ window.openBusinessTrip = (tripId) => {
       try {
         const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
         const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
-        if (pred?.cat) { state.catReale = pred.cat; state.tripCategory = categoriaTripDaReale(pred.cat, state.description); render(); }
+        if (pred?.cat) {
+          state.catReale = pred.cat;
+          state.tripCategory = categoriaTripDaReale(pred.cat, state.description);
+          // Do not replace the form during blur: that removes the calendar
+          // or save button under the user's pointer before its click fires.
+          document.querySelectorAll('[data-tripcat]').forEach(button => {
+            const selected = button.dataset.tripcat === state.tripCategory;
+            button.setAttribute('aria-pressed', String(selected));
+            button.classList.toggle('border-[var(--gold)]', selected);
+            button.classList.toggle('text-[var(--gold)]', selected);
+            button.classList.toggle('border-[var(--outline)]', !selected);
+            button.classList.toggle('text-[var(--on-surface-secondary)]', !selected);
+          });
+        }
       } catch (_) {}
     };
     $('#trip-desc')?.addEventListener('change', suggerisciCategoriaTrip);

@@ -63,3 +63,33 @@ test('a final voice expense reaches the Vault and refreshes the visible list', (
     delete window.renderDashboard;
   }
 });
+
+test('batched final results are processed once; identical later utterances remain valid', () => {
+  const original = VoiceParser.parse;
+  const seen = [];
+  VoiceParser.parse = text => { seen.push(text); return []; };
+  document.createElement = () => ({});
+  const final = text => ({ isFinal: true, 0: { transcript: text } });
+  try {
+    VoiceCore.init(container);
+    const results = [final('taxi 15'), final('pranzo 20'), { isFinal: false, 0: { transcript: 'hotel' } }];
+    VoiceCore.recognition.onresult({ resultIndex: 0, results });
+    VoiceCore.recognition.onresult({ resultIndex: 0, results });
+    results[2] = final('taxi 15');
+    VoiceCore.recognition.onresult({ resultIndex: 2, results });
+    assert.deepEqual(seen, ['taxi 15', 'pranzo 20', 'taxi 15']);
+    VoiceCore.recognition.onstart();
+    VoiceCore.recognition.onresult({ resultIndex: 0, results: [final('taxi 15')] });
+    assert.equal(seen.length, 4);
+  } finally { VoiceParser.parse = original; }
+});
+
+test('spoken custom category keeps international letters through the actual parser', () => {
+  const previous = VaultDAO.state.customCategories;
+  VaultDAO.state.customCategories = [{ id: 'office-test', name: 'Büro', type: 'uscita', icon: 'briefcase', color: '#888888' }];
+  try {
+    const result = VoiceParser.parse('ho speso 15 euro per Büro')[0];
+    assert.equal(result.description, 'Büro');
+    assert.equal(result.category, 'office-test');
+  } finally { VaultDAO.state.customCategories = previous; }
+});
