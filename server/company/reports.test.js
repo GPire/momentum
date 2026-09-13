@@ -5,7 +5,44 @@ import { readFileSync } from 'node:fs';
 import { reportRequest } from './reports.js';
 import { storageAuditRequest } from './storage-audit.js';
 import { cleanupAttachmentRequest,lockAttachment,attachmentKey } from './attachment-lifecycle.js';
+import { attachmentRecoveryRequest } from './attachment-recovery.js';
 const rules={currency:'EUR',receiptThreshold:25,expenseLimits:{},dailyLimits:{vitto:50}};
+
+test('confirmed deletion recovers after database failure without deleting twice; journal is immutable',async()=>{
+ const {sql,env}=fixture();try{
+ sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");
+ const key=await attachmentKey('a','employee','d'.repeat(64));const release=await lockAttachment(env.COMPANY_DB,'a',key);await release();
+ sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size,created_at) VALUES(?,?,?,?)').run('a',key,3,'2000-01-01');
+ let deletes=0;env.COMPANY_FILES={async delete(){deletes++}};
+ const original=env.COMPANY_DB;let fail=true;
+ env.COMPANY_DB={prepare(query){if(fail&&query.startsWith("UPDATE company_attachment_lifecycle SET state='active',cleanup_id=NULL")&&query.includes('EXISTS')){fail=false;throw Error('database unavailable')}return original.prepare(query)}};
+ const req=(action,method='POST')=>new Request(env.APP_ORIGIN+'/v1/companies/a/storage/'+action,{method,headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify({key})}:{})});
+ assert.equal((await cleanupAttachmentRequest(req('cleanup'),env,'owner')).status,503);assert.equal(deletes,1);
+ assert.equal(sql.prepare('SELECT SUM(size) n FROM company_attachment_reservations').get().n,3);
+ assert.equal((await attachmentRecoveryRequest(req('reconcile'),env,'employee')).status,403);
+ const recovered=await attachmentRecoveryRequest(req('reconcile'),env,'owner');assert.equal(recovered.status,200);assert.equal((await recovered.json()).state,'reconciled');assert.equal(deletes,1);
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM company_attachment_reservations').get().n,0);
+ assert.equal((await attachmentRecoveryRequest(req('reconcile'),env,'owner')).status,409);
+ const journal=await(await attachmentRecoveryRequest(req('journal','GET'),env,'owner')).json();assert.deepEqual(journal.events.map(e=>e.event),['requested','confirmed','uncertain']);
+ assert.ok(journal.events.every(e=>e.actor==='owner'));assert.equal(new Set(journal.events.map(e=>e.attempt)).size,1);
+ assert.throws(()=>sql.exec('DELETE FROM company_attachment_journal'),/Immutable/);assert.throws(()=>sql.exec("UPDATE company_attachment_journal SET actor='other'"),/Immutable/);
+ }finally{sql.close()}
+});
+
+test('missing storage object does not prove completion of an uncertain deletion',async()=>{
+ const {sql,env}=fixture();try{
+ sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");
+ const key=await attachmentKey('a','employee','e'.repeat(64));const release=await lockAttachment(env.COMPANY_DB,'a',key);await release();
+ sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size,created_at) VALUES(?,?,?,?)').run('a',key,3,'2000-01-01');
+ env.COMPANY_FILES={async delete(){throw Error('timeout')},async head(){return null}};
+ const req=action=>new Request(env.APP_ORIGIN+'/v1/companies/a/storage/'+action,{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({key})});
+ assert.equal((await cleanupAttachmentRequest(req('cleanup'),env,'owner')).status,503);
+ const response=await attachmentRecoveryRequest(req('reconcile'),env,'owner');assert.equal(response.status,409);assert.equal((await response.json()).observation,'observed_missing');
+ assert.equal(sql.prepare('SELECT SUM(size) n FROM company_attachment_reservations').get().n,3);
+ await assert.rejects(lockAttachment(env.COMPANY_DB,'a',key),/busy/);
+ assert.deepEqual(sql.prepare('SELECT event FROM company_attachment_journal ORDER BY id').all().map(x=>x.event),['requested','uncertain','observed_missing']);
+ }finally{sql.close()}
+});
 
 test('cleanup excludes active operations and historical reports; successful deletion frees quota',async()=>{
  const {sql,env}=fixture();try{
@@ -97,7 +134,7 @@ test('storage inventory paginates without dropping reservations and refuses writ
  }finally{sql.close()}
 });
 function fixture(){
- const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','attachment-quota.sql','attachment-lifecycle.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('a','A'),('b','B'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('b','other','owner',1)");
  sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('a',1,JSON.stringify(rules),'admin','2026-09-13');
  sql.exec("INSERT INTO company_storage_limits VALUES('a',33554432),('b',33554432)");

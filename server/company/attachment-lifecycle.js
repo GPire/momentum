@@ -1,5 +1,6 @@
 import { digestBytes } from '../../src/trips/company-attachments.js';
 import { json,readBody } from './worker.js';
+import { recordCleanup,finishCleanup } from './attachment-recovery.js';
 
 export async function attachmentKey(company,subject,hash){return `${company}/${await digestBytes(new TextEncoder().encode(subject))}/${hash}`}
 export async function lockAttachment(db,company,key){
@@ -43,24 +44,28 @@ export async function cleanupAttachmentRequest(request,env,subject){
  const key=body?.key;
  if(typeof key!=='string'||!key.startsWith(company+'/')||!/^[-a-zA-Z0-9_]{1,80}\/[a-f0-9]{64}\/[a-f0-9]{64}$/.test(key))return json({error:'invalid_key'},400);
  // Only objects observed by the new locking protocol can be collected.
- const claim=await db.prepare(`UPDATE company_attachment_lifecycle SET state='deleting' WHERE company_id=? AND object_key=? AND state='active'
+ const attempt=crypto.randomUUID();
+ const claim=await db.prepare(`UPDATE company_attachment_lifecycle SET state='deleting',cleanup_id=? WHERE company_id=? AND object_key=? AND state='active'
  AND NOT EXISTS(SELECT 1 FROM company_attachment_operations WHERE company_id=? AND object_key=?)
  AND EXISTS(SELECT 1 FROM company_attachment_reservations WHERE company_id=? AND object_key=? AND julianday(created_at)<julianday('now','-7 days'))
  AND EXISTS(SELECT 1 FROM memberships WHERE company_id=? AND subject=? AND role='owner' AND active=1)`)
- .bind(company,key,company,key,company,key,company,subject).run();
+ .bind(attempt,company,key,company,key,company,key,company,subject).run();
  if(!claim.meta?.changes)return json({error:'attachment_busy_recent_or_untracked'},409);
- const unlock=()=>db.prepare("UPDATE company_attachment_lifecycle SET state='active' WHERE company_id=? AND object_key=?").bind(company,key).run();
+ const unlock=()=>db.prepare("UPDATE company_attachment_lifecycle SET state='active',cleanup_id=NULL WHERE company_id=? AND object_key=? AND cleanup_id=?").bind(company,key,attempt).run();
  // A report cannot start using the object after the claim. Inspect all historical revisions.
  try{
-  if(await attachmentReferenced(db,company,key)){await unlock();return json({error:'attachment_referenced'},409)}
-  if(!await owner()){await unlock();return json({error:'forbidden'},403)}
+  await recordCleanup(db,company,key,attempt,subject,'requested');
+  if(await attachmentReferenced(db,company,key)){await recordCleanup(db,company,key,attempt,subject,'retained');await unlock();return json({error:'attachment_referenced'},409)}
+  if(!await owner()){await recordCleanup(db,company,key,attempt,subject,'retained');await unlock();return json({error:'forbidden'},403)}
  }catch{return json({error:'cleanup_requires_review'},503)}
  try{
   await env.COMPANY_FILES.delete(key);
-  await db.prepare('DELETE FROM company_attachment_reservations WHERE company_id=? AND object_key=?').bind(company,key).run();
-  await unlock();return json({deleted:true});
+  await recordCleanup(db,company,key,attempt,subject,'confirmed');
+  const finished=await finishCleanup(db,company,key,attempt);
+  return finished.meta?.changes?json({deleted:true,attempt}):json({error:'cleanup_requires_review',attempt},503);
  }catch{
   // A timed-out deletion may still finish later. Keep the key blocked until reconciled.
-  return json({error:'cleanup_requires_review'},503);
+  try{await recordCleanup(db,company,key,attempt,subject,'uncertain')}catch{}
+  return json({error:'cleanup_requires_review',attempt},503);
  }
 }

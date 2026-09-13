@@ -304,3 +304,29 @@ cancellazioni e collaudo R2/D1 reale prima di esporre la pulizia agli utenti.
 32 test locali passati con SQLite reale e storage simulato: blocchi concorrenti,
 file recenti, resoconti storici, esito DELETE incerto e invio completo mentre si
 tenta la pulizia. Nessun documento utente cancellato, nessun deployment eseguito.
+
+### Registro e riconciliazione cancellazioni (2026-09-14)
+Applicare attachment-journal.sql UNA volta, dopo attachment-lifecycle.sql.
+Il registro append-only conserva azienda, chiave, tentativo UUID, attore, evento
+ed orario. Trigger rifiutano UPDATE/DELETE ordinari; non è una garanzia contro
+un amministratore del database che rimuova i trigger.
+
+GET /v1/companies/:company/storage/journal: owner, paginazione di 50 eventi,
+after=nextCursor. POST /v1/companies/:company/storage/reconcile con JSON {key}
+ha gli stessi vincoli di identità/origin del cleanup. Nessuna nuova DELETE.
+Una conferma persistita permette di completare quota e sblocco con una singola
+transazione SQL (trigger). Il tentativo deve corrispondere al cleanup ancora
+attivo: eventi vecchi non autorizzano lo sblocco di un tentativo successivo.
+
+Senza conferma vengono registrate osservazioni present/missing/unavailable;
+quota e blocco restano conservati. HEAD missing NON prova che una DELETE
+precedente non possa ancora completarsi. Il registro viene scritto prima della
+DELETE e dopo il suo esito confermato; se la scrittura del registro fallisce
+prima, nessuna DELETE viene chiamata. Una conferma non persistita richiede ancora
+verifica operativa. I blocchi PUT/invio resoconto incerti non sono sbloccati da
+questa API: richiedono un protocollo di recupero distinto.
+
+34 test locali passati, inclusi errore DB dopo DELETE confermata, recupero senza
+seconda cancellazione, irreversibilità ordinaria del registro e oggetto assente
+con cancellazione ancora incerta. Nessun rollout cloud; API non ancora collegata
+ai controlli UI. La verifica su R2/D1 reali resta necessaria.

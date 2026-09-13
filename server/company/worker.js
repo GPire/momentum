@@ -2,6 +2,7 @@ import { accessIdentity } from './access.js';
 import { storageAuditRequest } from './storage-audit.js';
 import { storagePage } from './storage-page.js';
 import { cleanupAttachmentRequest } from './attachment-lifecycle.js';
+import { attachmentRecoveryRequest } from './attachment-recovery.js';
 import { invitationRequest } from './invitations.js';
 import { joinPage } from './join-page.js';
 import { workspacePage } from './workspace-page.js';
@@ -98,6 +99,7 @@ export default {
     try { identity = await accessIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
     try {
       const path = new URL(request.url).pathname;
+      if (/^\/v1\/companies\/[^/]+\/storage\/(journal|reconcile)$/.test(path)) return await attachmentRecoveryRequest(request, env, identity.subject);
       if (/^\/v1\/companies\/[^/]+\/storage\/cleanup$/.test(path)) return await cleanupAttachmentRequest(request, env, identity.subject);
       if (path === '/company/storage' && request.method === 'GET') return storagePage();
       if (/^\/v1\/companies\/[^/]+\/storage$/.test(path)) return await storageAuditRequest(request, env, identity.subject);
