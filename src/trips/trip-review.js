@@ -96,7 +96,7 @@ export const VERDICT_STATES = ['approvata', 'modifiche'];
 // Chiavi corte nel payload: un QR più corto è un QR che si legge al primo
 // colpo, su carta stampata e su uno schermo sporco. Nomi lunghi qui
 // costerebbero centinaia di byte per una trasferta di venti spese.
-export async function encodeTripReview({ tripId, tripName, startDate, endDate, expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '', reportFingerprint }, p2pOffer, { maxLen = 900 } = {}) {
+export async function encodeTripReview({ tripId, tripName, startDate, endDate, expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '', reportFingerprint, offerti = [], offertiTotale = 0 }, p2pOffer, { maxLen = 900 } = {}) {
   if (!tripId) throw new Error('serve l identificativo della trasferta');
   const slim = {
     v: 1,
@@ -108,6 +108,8 @@ export async function encodeTripReview({ tripId, tripName, startDate, endDate, e
     ...(mittente ? { m: mittente } : {}),
     t: Math.round((+totale + Number.EPSILON) * 100) / 100,
     k: numeroGiustificativiMancanti,
+    j: expenses.filter(x => x.revisionConflict).length,
+    ...(offerti.length ? { u: offerti.map(x => ({ d: x.data, c: x.categoria, p: x.mealType, w: String(x.descrizione || '').slice(0, 80), a: x.importo })), ut: offertiTotale } : {}),
     // Le righe: data, categoria, descrizione, importo, e SOLO un flag per il
     // giustificativo (c'è / non c'è) — mai l'immagine, vedi il limite in testa.
     r: expenses.map(x => ({
@@ -153,6 +155,8 @@ export async function encodeTripReview({ tripId, tripName, startDate, endDate, e
   const sintesi = {
     ...slim,
     z: 1,                                   // riepilogo ridotto, non l'elenco completo
+    u: slim.u?.slice(0, 10),
+    uq: slim.u?.length,
     q: slim.r.length,                       // quante spese ci sono in tutto
     gg: perGiorno,
     cc: perCategoria,
@@ -221,6 +225,10 @@ export async function decodeTripReview(code) {
       mittente: g.m || '',
       totale: +g.t || 0,
       numeroGiustificativiMancanti: +g.k || 0,
+      revisionConflictCount: +g.j || 0,
+      offerti: Array.isArray(g.u) ? g.u.map(x => ({ data: x.d, categoria: x.c, mealType: x.p, descrizione: x.w || '', importo: +x.a || 0 })) : [],
+      offertiTotale: +g.ut || 0,
+      numeroOffertiTotali: +g.uq || g.u?.length || 0,
       expenses: g.r.map(x => ({
         data: x.d,
         categoria: x.c,
@@ -283,8 +291,13 @@ export function decodeTripVerdict(code) {
 // Applica l'esito al viaggio (funzione pura: ritorna un nuovo oggetto).
 // Un esito che riguarda un'ALTRA trasferta non viene mai applicato per errore:
 // è il caso reale di chi incolla il codice sbagliato fra due trasferte aperte.
-export function applyTripVerdict(trip, verdict, expectedFingerprint) {
+export function assertReviewDecision(review, state) {
+  if (state === 'approvata' && (review.revisionConflictCount > 0 || review.expenses?.some(e => e.revisionConflict))) throw new Error('TRIP_REVIEW_CONFLICT');
+}
+
+export function applyTripVerdict(trip, verdict, expectedFingerprint, review = {}) {
   if (!trip || !verdict) return trip;
+  assertReviewDecision(review, verdict.state);
   if (verdict.tripId !== trip.id) throw new Error('questo esito riguarda un altra trasferta');
   if (expectedFingerprint !== undefined && verdict.reportFingerprint !== expectedFingerprint) throw new Error('TRIP_REVIEW_VERSION_MISMATCH');
   return { ...trip, approval: { state: verdict.state, note: verdict.note || '', reviewer: verdict.reviewer || '', reviewedAt: verdict.reviewedAt || Date.now(), ...(verdict.reportFingerprint ? { reportFingerprint: verdict.reportFingerprint } : {}) } };

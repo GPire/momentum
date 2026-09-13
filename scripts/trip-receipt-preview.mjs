@@ -4,6 +4,8 @@ import { createServer } from 'node:http';
 import { resolve, sep, extname } from 'node:path';
 import { simpleHash } from '../src/core/utils.js';
 import { LATEST_WHATS_NEW_VERSION } from '../src/core/whats-new.js';
+import { buildTripArchive } from '../src/trips/trip-archive.js';
+import { readReviewArchive } from '../src/trips/review-archive.js';
 
 const root = resolve('dist');
 const base = JSON.parse(readFileSync('src/core/fixtures/historical-backups.json')).states[0].state;
@@ -17,11 +19,12 @@ const state = { ...base, transactions: { [month]: [tx] }, demoTransactions: {}, 
   isFirstLaunch: false, freshStartPrompted: true, whatsNewSeen: LATEST_WHATS_NEW_VERSION,
   currentDate: now.toISOString(), lastHash: tx.hash,
   businessTrips: [{ id: 'trip-test', name: 'Trasferta di prova', createdAt: Date.now(), offeredItems: [] }] };
+const review = await readReviewArchive(JSON.stringify(buildTripArchive({ ...state.businessTrips[0], offeredItems: [{ amount: 80, date: now.toISOString(), tripCategory: 'alloggio', description: 'Hotel pagato dall’azienda' }] }, [{ ...tx, tripRevisionConflict: true }])));
 const driver = `localStorage.setItem('omega_core_db', ${JSON.stringify(JSON.stringify(state))});
 addEventListener('load', () => {
   const button = document.createElement('button'); button.textContent = 'Apri trasferta di prova';
   button.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;background:white;color:black;padding:12px';
-  button.onclick = () => { window.openBusinessTrip('trip-test'); button.remove(); };
+  button.onclick = () => { if (new URLSearchParams(location.search).has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
   document.body.append(button);
 });`;
 createServer((req, res) => {
@@ -36,4 +39,4 @@ createServer((req, res) => {
     res.setHeader('Content-Security-Policy', "connect-src 'self' blob: data:");
     res.end(body);
   } catch { res.writeHead(404); res.end(); }
-}).listen(4184, '127.0.0.1', () => console.log('Receipt fixture: http://127.0.0.1:4184/?lang=it'));
+}).listen(Number(process.argv[2]) || 4184, '127.0.0.1', () => console.log('Receipt fixture ready'));

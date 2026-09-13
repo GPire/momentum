@@ -294,6 +294,7 @@ export function exportTripData(trip, allTransactions) {
       importo: t.amount,
       scontrino: t.receiptImage || null,
       giustificativoMancante: needsReceipt(t, trip.receiptPolicy),
+      ...(t.tripRevisionConflict ? { revisionConflict: true } : {}),
     }));
   const offerti = [...(trip.offeredItems || [])]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))

@@ -286,7 +286,8 @@ import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js
 import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-parser.js';
 import { extractTransactionsFromItems } from './import/pdf-parser.js';
 import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips } from './trips/trip-engine.js';
-import { encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
+import { assertReviewDecision, encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
+import { reviewConflictCopy } from './i18n/review-conflict.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
 import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './import/source-registry.js';
@@ -11968,7 +11969,7 @@ window.openTripReviewShare = async (tripId) => {
     code = await encodeTripReview({
       reportFingerprint,
       tripId: trip.id, tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate,
-      expenses: dati.expenses, totale: dati.totale,
+      expenses: dati.expenses, totale: dati.totale, offerti: dati.offerti, offertiTotale: dati.offertiTotale,
       numeroGiustificativiMancanti: dati.numeroGiustificativiMancanti,
       mittente: VaultDAO.state.profile?.name || '',
     });
@@ -12063,7 +12064,7 @@ window.openTripVerdictPaste = (tripId) => {
       if (!current || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot || verdict.reportFingerprint !== expected) {
         showToast(tripReviewStaleCopy(__uiLang), 'error'); return;
       }
-      const nuovo = touchTrip(applyTripVerdict(current, verdict, expected));
+      const nuovo = touchTrip(applyTripVerdict(current, verdict, expected, exportTripData(current, allTransactionsFlat())));
       VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? nuovo : t);
       VaultDAO.save();
       // L'esito è la notizia più importante di tutte: deve arrivare subito su
@@ -12071,7 +12072,7 @@ window.openTripVerdictPaste = (tripId) => {
       try { window.momentumMeshNode?.shareBusinessTrips([nuovo], soloMieiDispositivi); } catch (_) {}
     } catch (err) {
       // Caso reale: due trasferte aperte, si incolla il codice dell'altra.
-      showToast(tCh('tripVerdictOtherTrip', __uiLang), 'error');
+      showToast(err.message === 'TRIP_REVIEW_CONFLICT' ? reviewConflictCopy(__uiLang) : tCh('tripVerdictOtherTrip', __uiLang), 'error');
       return;
     }
     showToast(verdict.state === 'approvata' ? tCh('tripVerdictAppliedOk', __uiLang) : tCh('tripVerdictAppliedChanges', __uiLang), 'success');
@@ -12112,6 +12113,8 @@ window.openTripReviewScreen = (rev) => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const etichetta = (e) => e.mealType ? `${esc(tCh('trip_' + e.categoria, __uiLang))} · ${esc(tCh('trip_meal_' + e.mealType, __uiLang))}` : esc(tCh('trip_' + (TRIP_CATEGORIES.includes(e.categoria) ? e.categoria : 'altro'), __uiLang));
 
+  const hasConflicts = rev.revisionConflictCount > 0 || rev.expenses.some(e => e.revisionConflict);
+  const offeredRows = (rev.offerti || []).map(e => `<div class="trip-row flex items-center gap-3 py-3 border-b border-[var(--outline)] last:border-0"><span class="flex-1 min-w-0"><span class="block text-sm font-bold break-words">${esc(e.descrizione) || esc(tCh('tripNoDescription', __uiLang))}</span><span class="text-xs text-[var(--on-surface-secondary)]">${etichetta(e)} · ${esc(String(e.data || '').slice(0, 10))}</span></span><span class="font-mono shrink-0">${eur(e.importo)}</span></div>`).join('');
   const righe = rev.expenses.map((e, index) => `
     <div class="trip-row flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
       <span class="flex-1 min-w-0">
@@ -12153,12 +12156,14 @@ window.openTripReviewScreen = (rev) => {
         ${rev.ridotto ? `<div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReviewMissingOnlyTitle', __uiLang))}</div>` : ''}
         <div class="trip-in">${righe}</div>
       </div>` : ''}
+      ${offeredRows ? `<section class="card p-3"><h4 class="font-bold text-sm">${esc(tCh('tripOfferedSectionTitle', __uiLang))}</h4><p class="card-sub">${esc(tCh('tripOfferedSectionSub', __uiLang))}</p>${offeredRows}<div class="flex justify-between gap-3 py-3 font-bold"><span>${esc(tCh('tripOfferedTotalLabel', __uiLang))}</span><span class="font-mono">${eur(rev.offertiTotale)}</span></div>${rev.numeroOffertiTotali > rev.offerti.length ? `<p class="card-sub">${esc(tCh('tripReviewReducedHint', __uiLang, rev.numeroOffertiTotali))}</p>` : ''}</section>` : ''}
       <div class="card p-3">
         <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('tripReviewDecisionTitle', __uiLang))}</div>
+        ${hasConflicts ? `<p id="review-conflict" role="status" class="p-3 mb-3 rounded-xl border border-amber-400/40">${esc(reviewConflictCopy(__uiLang))}</p>` : ''}
         <input id="trv-reviewer" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" name="trv-reviewer" />
         <textarea id="trv-note" rows="2" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" name="trv-note"></textarea>
         <div class="grid grid-cols-2 gap-2">
-          <button id="trv-ok" class="btn-action btn-primary py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripReviewApproveBtn', __uiLang))}</button>
+          <button id="trv-ok" ${hasConflicts ? 'disabled aria-describedby="review-conflict"' : ''} class="btn-action btn-primary py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform disabled:opacity-40">${esc(tCh('tripReviewApproveBtn', __uiLang))}</button>
           <button id="trv-ko" class="py-3 font-bold rounded-xl border border-amber-400/50 text-amber-300 bg-amber-500/10 text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripReviewChangesBtn', __uiLang))}</button>
         </div>
       </div>
@@ -12193,6 +12198,7 @@ window.openTripReviewScreen = (rev) => {
   saveButton.onclick = () => { saveHistory(null); showToast(reviewHistoryCopy(__uiLang, 4), 'success'); };
   document.getElementById('modal-body')?.append(saveButton);
   const mandaEsito = (state) => {
+    try { assertReviewDecision(rev, state); } catch { showToast(reviewConflictCopy(__uiLang), 'error'); return; }
     const reviewer = document.getElementById('trv-reviewer')?.value?.trim() || '';
     const note = document.getElementById('trv-note')?.value?.trim() || '';
     // "Serve una modifica" senza dire COSA è esattamente il va-e-vieni che
