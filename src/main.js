@@ -12061,6 +12061,7 @@ function openCompanySubmission(trip) {
   const button = $('#company-send'); const status = $('#company-send-status');
   $('#company-send-close').onclick = () => closeModal();
   const checkButton = $('#company-status-check');
+  checkButton.style.display = trip.companySubmission ? '' : 'none';
   checkButton.onclick = async () => {
     if (checkButton.disabled || button.disabled) return;
     const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
@@ -12088,7 +12089,7 @@ function openCompanySubmission(trip) {
         VaultDAO.state.businessTrips = VaultDAO.state.businessTrips.map(item => item.id === trip.id ? { ...item, companySubmission: receipt } : item);
         VaultDAO.save();
       }
-      status.textContent = text(3); checkButton.hidden = false; button.disabled = false;
+      status.textContent = text(3); checkButton.hidden = false; checkButton.style.display = ''; button.disabled = false;
     } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); button.disabled = false; }
   };
 }

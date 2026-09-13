@@ -1,9 +1,22 @@
+import { prepareCompanyAttachments, MANIFEST_LIMIT } from './company-attachments.js';
 import { tripReviewSnapshot, fingerprintTripSnapshot } from './review-fingerprint.js';
 export async function submitCompanyReport(archive, revision=0, fetcher=fetch) {
   const company=archive?.trip?.companyPolicy?.companyId;
   if(!/^[a-zA-Z0-9_-]{1,80}$/.test(company||'')||!Number.isSafeInteger(revision)||revision<0)throw new Error('invalid');
-  const body=JSON.stringify(archive);
-  if(new TextEncoder().encode(body).length>256*1024)throw new Error('large');
+  let body=JSON.stringify(archive);
+  if(new TextEncoder().encode(body).length>MANIFEST_LIMIT){
+    const {envelope,blobs}=await prepareCompanyAttachments(archive);
+    for(const [hash,bytes] of blobs){
+      const path=`/v1/companies/${encodeURIComponent(company)}/attachments/${hash}`;
+      let found;try{found=await fetcher(path,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)})}catch{throw new Error('network')}
+      if(found.ok){const ref=await found.json();if(ref.hash!==hash||ref.size!==bytes.length)throw new Error('network');continue}
+      if(found.status!==404)throw new Error([401,403].includes(found.status)?'access':'network');
+      let sent;try{sent=await fetcher(path,{method:'PUT',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/octet-stream'},body:bytes,signal:AbortSignal.timeout(60000)})}catch{throw new Error('network')}
+      if(!sent.ok)throw new Error([401,403].includes(sent.status)?'access':sent.status===413?'large':'network');
+      const ref=await sent.json();if(ref.hash!==hash||ref.size!==bytes.length)throw new Error('network');
+    }
+    body=JSON.stringify(envelope);
+  }
   const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,archive.transactions));
   let response;
   try{response=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports`,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','If-Match':`"${revision}"`},body,signal:AbortSignal.timeout(20000)})}catch{throw new Error('network')}

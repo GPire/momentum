@@ -14,3 +14,8 @@ APP_ORIGIN = "https://REPLACE-WITH-APP-HOST"
 binding = "COMPANY_DB"
 database_name = "momentum-company"
 database_id = "REPLACE-WITH-D1-ID"
+
+# Private object storage for detached receipts. Create/configure before enabling.
+# [[r2_buckets]]
+# binding = "COMPANY_FILES"
+# bucket_name = "REPLACE-WITH-PRIVATE-COMPANY-BUCKET"

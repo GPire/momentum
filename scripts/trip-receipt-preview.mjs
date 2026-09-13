@@ -1,3 +1,4 @@
+import { companyFileFixture } from './company-file-fixture.mjs';
 // Isolated synthetic receipt preview. Never runs against the user's app origin.
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,6 +8,7 @@ import { LATEST_WHATS_NEW_VERSION } from '../src/core/whats-new.js';
 import { buildTripArchive } from '../src/trips/trip-archive.js';
 import { readReviewArchive } from '../src/trips/review-archive.js';
 
+const fileFixture=process.argv.includes('--company-files')?companyFileFixture('http://127.0.0.1:'+process.argv[2]):null;
 const root = resolve('dist');
 const base = JSON.parse(readFileSync('src/core/fixtures/historical-backups.json')).states[0].state;
 const now = new Date();
@@ -35,14 +37,16 @@ const driver = `localStorage.setItem('omega_core_db', new URLSearchParams(locati
 if(new URLSearchParams(location.search).has('company-send')){const value=JSON.parse(localStorage.getItem('omega_core_db'));value.businessTrips[0].companyPolicy={companyId:'demo',version:3,companyName:'Azienda di prova'};value.businessTrips[0].receiptPolicy={currency:'EUR',receiptThreshold:0,expenseLimits:{},dailyLimits:{}};localStorage.setItem('omega_core_db',JSON.stringify(value));}
 if(new URLSearchParams(location.search).has('company-status'))localStorage.setItem('omega_core_db',${JSON.stringify(JSON.stringify(companyState))});
 if(new URLSearchParams(location.search).has('clarity')){const value=JSON.parse(localStorage.getItem('omega_core_db'));value.investmentPrefs={...value.investmentPrefs,invests:false};value.uiComplexity='essenziale';value.uiComplexitySetByUser=true;localStorage.setItem('omega_core_db',JSON.stringify(value));}
+if(new URLSearchParams(location.search).has('company-files')){const value=${JSON.stringify(companyState)};delete value.businessTrips[0].companySubmission;Object.values(value.transactions)[0][0].receiptImage+=' '.repeat(300000);localStorage.setItem('omega_core_db',JSON.stringify(value));}
 addEventListener('load', () => {
   const button = document.createElement('button'); button.textContent = 'Apri trasferta di prova';
   button.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;background:white;color:black;padding:12px';
-  button.onclick = () => { const params = new URLSearchParams(location.search); if(params.has('clarity')) window.openAppearancePreferences(); else if(params.has('company-send')||params.has('company-status')) window.openTripReviewShare('trip-test'); else if (params.has('company')) { window.openBusinessTrips(); document.getElementById('trip-newname').value='Milano - prova aziendale'; } else if (params.has('history')) window.openTripReviewHistory(); else if (params.has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
+  button.onclick = () => { const params = new URLSearchParams(location.search); if(params.has('clarity')) window.openAppearancePreferences(); else if(params.has('company-send')||params.has('company-status')||params.has('company-files')) window.openTripReviewShare('trip-test'); else if (params.has('company')) { window.openBusinessTrips(); document.getElementById('trip-newname').value='Milano - prova aziendale'; } else if (params.has('history')) window.openTripReviewHistory(); else if (params.has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
   document.body.append(button);
 });`;
-createServer((req, res) => {
+createServer(async (req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+  if(fileFixture&&pathname.startsWith('/v1/companies/demo/')){try{const parts=[];for await(const part of req)parts.push(part);const response=await fileFixture(new Request('http://127.0.0.1:'+process.argv[2]+req.url,{method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method)?{}:{body:Buffer.concat(parts)})}));res.writeHead(response.status,Object.fromEntries(response.headers));res.end(await response.text());}catch{res.writeHead(503).end('{}')}return;}
   if (pathname === '/v1/companies/demo/policies') { res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({companyId:'demo',companyName:'Azienda di prova',version:3,rules:{currency:'EUR',receiptThreshold:0,expenseLimits:{vitto:30},dailyLimits:{vitto:60}}})); return; }
   if (pathname === '/v1/companies/demo/reports') { res.writeHead(503,{'Content-Type':'application/json'}); res.end(JSON.stringify({error:'service_unavailable'})); return; }
   if(pathname==='/v1/companies/demo/reports/fixture-report'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({id:'fixture-report',company_id:'demo',trip_id:'trip-test',revision:1,fingerprint:companyReview.reportFingerprint,decision:'changes_requested',note:'Verificare la ricevuta del pranzo.',superseded:false,policyStale:false}));return;}

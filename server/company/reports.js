@@ -1,3 +1,4 @@
+import { hydrateCompanyArchive } from './attachments.js';
 import { json, readBody, validateCompanyRules } from './worker.js';
 import { readReviewArchive } from '../../src/trips/review-archive.js';
 import { inspectTripArchive } from '../../src/trips/trip-archive.js';
@@ -21,7 +22,7 @@ export async function reportRequest(request, env, subject) {
     const canReadAll=canReview||member.role==='auditor';
     const anchor=after?await db.prepare('SELECT created_at FROM reports WHERE company_id=? AND id=? AND (submitter=? OR ?=1)').bind(company,after,subject,canReadAll?1:0).first():null;
     if(after&&!anchor)return json({error:'invalid_cursor'},400);
-    const result=await db.prepare(`SELECT r.id,r.trip_id,r.revision,r.created_at,json_extract(r.archive,'$.trip.name') AS name,d.decision
+    const result=await db.prepare(`SELECT r.id,r.trip_id,r.revision,r.created_at,COALESCE(json_extract(r.archive,'$.trip.name'),json_extract(r.archive,'$.archive.trip.name')) AS name,d.decision
       FROM reports r LEFT JOIN report_decisions d ON d.report_id=r.id
       WHERE r.company_id=? AND (r.submitter=? OR ?=1)
       AND r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
@@ -35,7 +36,7 @@ export async function reportRequest(request, env, subject) {
       WHERE r.company_id=? AND r.id=? AND (r.submitter=? OR ?=1)` ).bind(company,id,subject,canReview||member.role==='auditor'?1:0).first();
     if(!row)return json({error:'not_found'},404);
     const latest=await db.prepare('SELECT MAX(revision) AS revision FROM reports WHERE company_id=? AND submitter=? AND trip_id=?').bind(company,row.submitter,row.trip_id).first();
-    const archive=JSON.parse(row.archive);const policy=await db.prepare('SELECT MAX(version) AS version FROM policies WHERE company_id=?').bind(company).first();
+    const archive=await hydrateCompanyArchive(JSON.parse(row.archive),env,company,row.submitter);const policy=await db.prepare('SELECT MAX(version) AS version FROM policies WHERE company_id=?').bind(company).first();
     const superseded=row.revision!==latest.revision;
     return json({...row,archive,superseded,policyStale:row.policy_version!==policy.version,canDecide:canReview&&row.submitter!==subject&&!row.decision&&!superseded,checks:inspectTripArchive(archive.transactions,archive.trip.receiptPolicy)});
   }
@@ -47,6 +48,10 @@ export async function reportRequest(request, env, subject) {
     if(!body || !['approved','changes_requested'].includes(body.decision) || typeof body.note!=='string' || body.note.length>1000 || (body.decision==='changes_requested'&&!body.note.trim()))return json({error:'invalid_decision'},400);
     const fingerprint=/^"([a-f0-9]{64})"$/.exec(request.headers.get('If-Match')||'')?.[1];
     if(!fingerprint)return json({error:'fingerprint_required'},428);
+    if(body.decision==='approved'){
+      const candidate=await db.prepare('SELECT archive,submitter FROM reports WHERE company_id=? AND id=?').bind(company,id).first();
+      if(candidate){try{await hydrateCompanyArchive(JSON.parse(candidate.archive),env,company,candidate.submitter)}catch{return json({error:'attachment_unavailable'},409)}}
+    }
     const result=await db.prepare(`INSERT INTO report_decisions(report_id,reviewer,decision,note,created_at)
       SELECT r.id,?,?,?,? FROM reports r WHERE r.company_id=? AND r.id=? AND r.fingerprint=? AND r.submitter<>?
       AND r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
@@ -59,6 +64,8 @@ export async function reportRequest(request, env, subject) {
   if(id)return json({error:'method_not_allowed'},405);
   const previous=/^"(0|[1-9][0-9]{0,8})"$/.exec(request.headers.get('If-Match')||'');
   if(!previous)return json({error:'revision_required'},428);
+  const storedBody=body;
+  try{body=await hydrateCompanyArchive(body,env,company,subject)}catch{return json({error:'attachment_unavailable'},409)}
   let review;try{review=await readReviewArchive(JSON.stringify(body))}catch{return json({error:'invalid_report'},400)}
   const trip=body.trip;
   if(typeof trip.id!=='string'||trip.id.length>100||!trip.id.trim()||!body.transactions.length||trip.companyPolicy?.companyId!==company)return json({error:'invalid_company_report'},400);
@@ -73,7 +80,7 @@ export async function reportRequest(request, env, subject) {
     SELECT ?,?,?,?,?,?,?,?,? WHERE COALESCE((SELECT MAX(revision) FROM reports WHERE company_id=? AND submitter=? AND trip_id=?),0)=?
     AND EXISTS(SELECT 1 FROM memberships WHERE company_id=? AND subject=? AND active=1)
     AND ?=(SELECT MAX(version) FROM policies WHERE company_id=?)`)
-    .bind(reportId,company,subject,trip.id,revision,policy.version,review.reportFingerprint,JSON.stringify(body),new Date().toISOString(),company,subject,trip.id,Number(previous[1]),company,subject,policy.version,company).run();
+    .bind(reportId,company,subject,trip.id,revision,policy.version,review.reportFingerprint,JSON.stringify(storedBody),new Date().toISOString(),company,subject,trip.id,Number(previous[1]),company,subject,policy.version,company).run();
   if(result.meta?.changes)return json({reportId,revision,fingerprint:review.reportFingerprint,checks},201);
   const retry=await db.prepare(`SELECT id,revision,fingerprint FROM reports r WHERE company_id=? AND submitter=? AND trip_id=? AND revision=? AND fingerprint=?
     AND revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)

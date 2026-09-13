@@ -3,6 +3,7 @@ import { invitationRequest } from './invitations.js';
 import { joinPage } from './join-page.js';
 import { workspacePage } from './workspace-page.js';
 import { reportRequest } from './reports.js';
+import { attachmentRequest } from './attachments.js';
 import { inboxPage } from './inbox-page.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
@@ -97,6 +98,7 @@ export default {
       if (path === '/company/join' && request.method === 'GET') return joinPage();
       if (path === '/company/workspace' && request.method === 'GET') return workspacePage();
       if (path === '/company/reports' && request.method === 'GET') return inboxPage();
+      if (/^\/v1\/companies\/[^/]+\/attachments\//.test(path)) return await attachmentRequest(request, env, identity.subject);
       if (path.includes('/invitations')) return await invitationRequest(request, env, identity);
       if (/^\/v1\/companies\/[^/]+\/reports(?:\/|$)/.test(path)) return await reportRequest(request, env, identity.subject);
       return await companyRequest(request, env, identity.subject);

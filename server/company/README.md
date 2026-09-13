@@ -192,3 +192,34 @@ richiesta di modifica sintetica e motivazione. Fixture: trip-receipt-preview.mjs
 4198, query ?lang=it&company-status=1. Il mock non prova SSO o un servizio remoto.
 Il ritorno manuale dell'esito e implementato; notifiche e aggiornamento automatico,
 riconciliazione di revisioni da altri dispositivi restano da completare.
+
+## Allegati separati (14 settembre 2026)
+
+Il client usa il nuovo percorso quando il JSON supera 256 KiB. Carica gli
+allegati separatamente tramite PUT e invia un manifesto piccolo. Limiti attuali:
+8 MiB per file, 32 MiB complessivi (conteggiati per riferimento), 64 allegati e
+256 KiB per manifesto. Le ricevute canoniche sono binarie; codifiche legacy non
+canoniche sono conservate esattamente per non cambiare il fingerprint storico.
+
+Binding opzionale privato COMPANY_FILES (interfaccia R2 head/get/put), ancora
+NON configurato su cloud. Le chiavi sono separate per azienda e mittente; non
+viene esposto un endpoint pubblico di download. Il revisore legge gli allegati
+attraverso il resoconto autorizzato. Il database conserva il manifesto, non le
+immagini grandi. I resoconti piccoli e i vecchi archivi mantengono il percorso v1.
+
+Un ritentativo salta i file gia caricati; NON riprende un singolo file a meta
+upload. Hash e dimensioni sono verificati e l'approvazione controlla nuovamente
+che gli oggetti siano disponibili. Nessuna conferma prima del salvataggio finale.
+
+26 test mirati superati: invio grande con SQLite reale e object store in memoria,
+interruzione prima della finalizzazione, retry senza doppio upload, riferimenti
+altrui, hash errato, revoca, allegati mancanti, compatibilita della codifica legacy.
+Build portable passata; Chrome locale verificato su invio sopra il vecchio limite.
+Fixture: node scripts/trip-receipt-preview.mjs 4200 --company-files, query
+?lang=it&company-files=1. Identita sintetica: NON un test di Access o R2 reali.
+
+Prima del rollout: quote cumulative per azienda, scadenza degli oggetti orfani,
+backup e conservazione, verifica del contenuto/antimalware, prove prestazionali
+sul runtime reale e collaudo mobile. La validazione attuale e strutturale e di
+integrita dei byte, non una garanzia di leggibilita o autenticita della ricevuta.
+Notifiche, connettori e deployment rimangono separati e non sono stati attivati.
