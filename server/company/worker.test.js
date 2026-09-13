@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import worker, { companyRequest, validateCompanyRules } from './worker.js';
 import { accessSubject } from './access.js';
+import { workspacePage } from './workspace-page.js';
 
 const rules = { currency: 'EUR', receiptThreshold: 25, expenseLimits: { vitto: 30 }, dailyLimits: { vitto: 60 } };
 function fixture() {
@@ -12,6 +13,7 @@ function fixture() {
   sql.exec("INSERT INTO companies VALUES ('a','Company A'),('b','Company B'); INSERT INTO memberships VALUES ('a','admin','owner',1),('a','employee','employee',1),('a','reviewer','reviewer',1),('a','auditor','auditor',1),('a','editor','policy_admin',1),('b','outsider','owner',1)");
   const db = { prepare(query) { return { bind(...args) { return {
     async first() { return sql.prepare(query).get(...args) || null; },
+    async all() { return { results: sql.prepare(query).all(...args) }; },
     async run() { return { meta: { changes: Number(sql.prepare(query).run(...args).changes) } }; },
   }; } }; } };
   const env = { COMPANY_DB: db, APP_ORIGIN: 'https://momentum.test' };
@@ -31,6 +33,26 @@ test('company policy publishes to actual SQLite and supports immutable version r
     assert.throws(() => sql.exec('UPDATE policies SET version=3'), /immutable/);
     assert.throws(() => sql.exec('DELETE FROM policies'), /immutable/);
   } finally { sql.close(); }
+});
+test('company discovery returns only active memberships and paginates without duplicates', async () => {
+  const { sql, env } = fixture();
+  try {
+    for (let n=0;n<55;n++) { const id='c'+String(n).padStart(2,'0'); sql.prepare('INSERT INTO companies VALUES(?,?)').run(id,id); sql.prepare('INSERT INTO memberships VALUES(?,?,?,1)').run(id,'employee','employee'); }
+    const first = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'employee')).json();
+    assert.equal(first.companies.length,50);
+    assert.ok(!first.companies.some(c=>c.id==='b'));
+    const second = await (await companyRequest(new Request('https://momentum.test/v1/me/companies?after='+first.nextCursor), env, 'employee')).json();
+    assert.equal(second.companies.length,6);
+    assert.equal(new Set([...first.companies,...second.companies].map(c=>c.id)).size,56);
+    sql.exec("UPDATE memberships SET active=0 WHERE subject='employee'");
+    assert.deepEqual((await (await companyRequest(new Request('https://momentum.test/v1/me/companies'),env,'employee')).json()).companies,[]);
+  } finally { sql.close(); }
+});
+test('workspace page provides translated labels and a restrictive content policy', async () => {
+  const response=workspacePage();const html=await response.text();
+  assert.match(response.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
+  for (const lang of ['it','en','de','fr','es','nl','pt']) assert.ok(html.includes(`"${lang}":`));
+  assert.ok(html.includes("company.role!=='owner'"));
 });
 test('tenant boundaries and roles are enforced on reads and writes', async () => {
   const { sql, env, request } = fixture();

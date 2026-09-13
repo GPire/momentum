@@ -12,6 +12,7 @@ function fixture() {
   sql.exec("INSERT INTO companies VALUES('a','Company A'),('b','Company B'); INSERT INTO memberships VALUES('a','owner','owner',1),('a','staff','employee',1),('b','other','owner',1)");
   const db = { prepare(query) { return { bind(...args) { return {
     async first() { return sql.prepare(query).get(...args) || null; },
+    async all() { return { results: sql.prepare(query).all(...args) }; },
     async run() { return { meta: { changes: Number(sql.prepare(query).run(...args).changes) } }; },
   }; } }; } };
   const env = { COMPANY_DB: db, APP_ORIGIN: 'https://momentum.test' };

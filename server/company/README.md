@@ -98,8 +98,29 @@ verified preview and accept through real handlers with a synthetic identity;
 no live Access login, emails, deployed D1 or physical-device tests performed.
 `scripts/company-invite-preview.mjs` is a loopback-only synthetic fixture,
 never a production entry point. The final Open Momentum action returns to
-the app root; the personal app does not yet discover company membership or
-automatically apply its policy. There is not yet an owner invitation UI.
+the company workspace after acceptance. The personal trip editor does not yet
+automatically apply company policy to a trip.
+
+## Company workspace
+
+`GET /v1/me/companies` lists only the verified subject's active memberships,
+50 per page with an `after` cursor. `/company/workspace` provides a seven-language
+company chooser, current policy readout and an owner-only invitation form.
+The form offers employee or reviewer; privileged roles remain API-only.
+The server, not the hidden form, enforces ownership. No email is sent;
+the owner copies the generated link. Preview/accept now leads here.
+
+13 tests passed including a 56-membership pagination case and revocation.
+Chrome owner fixture verified company selection, EUR policy readout and
+invitation form visibility. Form submission/copy were not exercised in the
+browser this turn; invitation handler creation/acceptance has SQLite tests.
+The fixture is available with `node scripts/company-invite-preview.mjs --owner`
+on loopback port 4194. Neither fixture uses a real corporate identity.
+
+Add `/company/workspace` to the deployment's Access-protected routes. This
+does not deploy the service or make the personal PWA automatically connected.
+The next integration is explicit company selection when creating a trip,
+pinning the server policy version, and server revalidation at submission.
 
 Sources consulted:
 - https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/

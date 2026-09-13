@@ -1,6 +1,7 @@
 import { accessIdentity } from './access.js';
 import { invitationRequest } from './invitations.js';
 import { joinPage } from './join-page.js';
+import { workspacePage } from './workspace-page.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
@@ -37,6 +38,17 @@ export async function readBody(request) {
 export async function companyRequest(request, env, subject) {
   if (typeof subject !== 'string' || !subject) return json({ error: 'unauthenticated' }, 401);
   const url = new URL(request.url);
+  if (url.pathname === '/v1/me/companies') {
+    if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+    if (!env.COMPANY_DB) return json({ error: 'not_configured' }, 503);
+    const cursor = url.searchParams.get('after') || '';
+    if (cursor && !/^[a-zA-Z0-9_-]{1,80}$/.test(cursor)) return json({ error: 'invalid_cursor' }, 400);
+    const db = env.COMPANY_DB.withSession ? env.COMPANY_DB.withSession('first-primary') : env.COMPANY_DB;
+    const result = await db.prepare(`SELECT c.id,c.name,m.role,(SELECT MAX(version) FROM policies p WHERE p.company_id=c.id) AS policyVersion
+      FROM companies c JOIN memberships m ON m.company_id=c.id WHERE m.subject=? AND m.active=1 AND c.id>? ORDER BY c.id LIMIT 51`).bind(subject, cursor).all();
+    const rows = result.results || [];
+    return json({ companies: rows.slice(0, 50), nextCursor: rows.length > 50 ? rows[49].id : null });
+  }
   const match = /^\/v1\/companies\/([a-zA-Z0-9_-]{1,80})\/policies(?:\/([1-9][0-9]{0,8}))?$/.exec(url.pathname);
   if (!match) return json({ error: 'not_found' }, 404);
   if (!['GET', 'POST'].includes(request.method)) return json({ error: 'method_not_allowed' }, 405);
@@ -81,6 +93,7 @@ export default {
     try {
       const path = new URL(request.url).pathname;
       if (path === '/company/join' && request.method === 'GET') return joinPage();
+      if (path === '/company/workspace' && request.method === 'GET') return workspacePage();
       if (path.includes('/invitations')) return await invitationRequest(request, env, identity);
       return await companyRequest(request, env, identity.subject);
     } catch { return json({ error: 'service_unavailable' }, 503); }
