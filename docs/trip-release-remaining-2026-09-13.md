@@ -42,8 +42,25 @@ reale finché non si esegue un test autenticato.
   distinti, comprese revisioni concorrenti e rimborso.
 - Modifica completa delle spese già registrate con aggiornamento coerente
   del registro Vault; non sostituire o perdere UUID e allegati.
-- Policy ricevute configurabile per organizzazione: il motore esistente usa
-  ancora una soglia fissa 25, che non rappresenta tutte le aziende.
+- Policy configurabile per organizzazione: ora è disponibile la soglia per
+  singola trasferta (fallback storico 25), applicata a righe ed export.
+  Restano gestione centralizzata e autorizzazioni aziendali.
+
+## Invio e policy: verifica successiva
+
+- Unificati i percorsi singolo/multiplo in receipt-sharing.js.
+- Annullamento e rifiuto della condivisione non aprono automaticamente email.
+- Nessuna attesa degli appunti prima di invocare Web Share; nessun esito di
+  ricezione del gestionale viene inventato.
+- 53 test mirati passati e build portable riuscita. Chrome mostra le regole.
+- Playwright non ha il browser bundled; il tentativo con Chrome installato
+  fallisce con spawn EPERM. Non eseguita la matrice di viewport automatizzata.
+- Nessun dispositivo fisico iOS/Android collegato agli strumenti disponibili:
+  invio nativo e ricezione fra dispositivi reali restano non verificati.
+- Trovato un prerequisito per modificare spese: il sync corrente scambia solo
+  ID mancanti, ignora revisioni di ID esistenti. Una semplice modifica locale
+  non convergerebbe sugli altri dispositivi. Implementare e testare un protocollo
+  di revisione prima di dichiarare completa la modifica sincronizzata.
 
 Questa lista è esplicita per evitare che il passaggio dei test venga presentato
 come completamento delle integrazioni o sostituzione universale dei gestionali.

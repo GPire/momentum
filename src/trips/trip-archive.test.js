@@ -2,6 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTripArchive, inspectTripArchive } from './trip-archive.js';
 import { parseTripAmount } from './trip-engine.js';
+import { needsReceipt, exportTripData } from './trip-engine.js';
+
+test('trip receipt policy drives export without changing saved expenses', () => {
+  const tx = { id: 'x', businessTripId: 't', type: 'uscita', amount: 10 };
+  assert.equal(needsReceipt(tx), false);
+  assert.equal(needsReceipt(tx, { receiptThreshold: 0 }), true);
+  assert.equal(needsReceipt(tx, { receiptThreshold: 50 }), false);
+  assert.equal(needsReceipt(tx, { receiptThreshold: -1 }), false);
+  const report = exportTripData({ id: 't', receiptPolicy: { receiptThreshold: 0 } }, [tx]);
+  assert.equal(report.numeroGiustificativiMancanti, 1);
+  assert.equal(tx.receiptImage, undefined);
+});
 
 test('trip amount accepts decimal keyboards and rejects partial or unsafe values', () => {
   assert.equal(parseTripAmount('12,50'), 12.5);

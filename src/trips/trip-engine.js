@@ -65,8 +65,10 @@ export function parseTripAmount(value) {
   return Number.isSafeInteger(Math.round(amount * 100)) ? amount : null;
 }
 
-export function needsReceipt(expense) {
-  return expense.amount >= SOGLIA_GIUSTIFICATIVO && !expense.receiptImage;
+export function needsReceipt(expense, policy) {
+  const threshold = typeof policy?.receiptThreshold === 'number' && Number.isFinite(policy.receiptThreshold) && policy.receiptThreshold >= 0
+    ? policy.receiptThreshold : SOGLIA_GIUSTIFICATIVO;
+  return expense.amount >= threshold && !expense.receiptImage;
 }
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -291,7 +293,7 @@ export function exportTripData(trip, allTransactions) {
       descrizione: t.description || '',
       importo: t.amount,
       scontrino: t.receiptImage || null,
-      giustificativoMancante: needsReceipt(t),
+      giustificativoMancante: needsReceipt(t, trip.receiptPolicy),
     }));
   const offerti = [...(trip.offeredItems || [])]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))

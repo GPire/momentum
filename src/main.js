@@ -9,6 +9,8 @@ import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
 import { tripExportCopy } from './i18n/trip-export.js';
 import { receiptDeliveryCopy } from './i18n/receipt-delivery.js';
 import { prepareReceiptDelivery } from './trips/expense-bridge.js';
+import { tripPolicyCopy } from './i18n/trip-policy.js';
+import { shareTripReceipts } from './trips/receipt-sharing.js';
 import { parseTripAmount } from './trips/trip-engine.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
 import { normalizeHex, hexToHsl, hslToHex, categoryInk } from './ui/category-color.js';
@@ -11063,7 +11065,7 @@ window.openBusinessTrip = (tripId) => {
         <span class="flex-1 min-w-0">
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
           ${t.receiptImage ? `<button type="button" data-tripreceipt="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px] underline underline-offset-4 active:scale-95 transition-transform">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
-          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
+          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
         </span>
         <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
         ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" title="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" class="${t.bridgeSentAt ? 'text-emerald-400 opacity-70' : 'text-[var(--on-surface-secondary)] opacity-40'} hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.bridgeSentAt ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>'}</svg></button>` : ''}
@@ -11290,6 +11292,13 @@ window.openBusinessTrip = (tripId) => {
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
         </div>
+        <details class="trip-company">
+          <summary>${esc(tripPolicyCopy(__uiLang, 0))}</summary>
+          <label for="trip-receipt-threshold" class="block text-sm mt-3 mb-2">${esc(tripPolicyCopy(__uiLang, 1))}</label>
+          <input id="trip-receipt-threshold" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.receiptThreshold ?? 25))}" class="w-full rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" aria-describedby="trip-policy-hint" />
+          <p id="trip-policy-hint" class="text-xs my-3">${esc(tripPolicyCopy(__uiLang, 2))}</p>
+          <button id="trip-policy-save" class="btn-action w-full py-3 rounded-xl">${esc(tripPolicyCopy(__uiLang, 3))}</button>
+        </details>
         <div class="trip-company">
           <h4 class="font-bold mb-2">${esc(tripChecksCopy(__uiLang, 0))}</h4>
           <p class="text-sm mb-3">${esc(tripChecksCopy(__uiLang, 1))}: ${exportChecks.transactionCount} · ${esc(tripChecksCopy(__uiLang, 2))}: ${exportChecks.attachmentCount}</p>
@@ -11546,6 +11555,13 @@ window.openBusinessTrip = (tripId) => {
       persistTrip(removeOfferedItem(trip, b.dataset.tripofferdel));
       render();
     }));
+    $('#trip-policy-save')?.addEventListener('click', () => {
+      const input = $('#trip-receipt-threshold');
+      const threshold = parseTripAmount(input.value);
+      if (threshold === null) { input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+      persistTrip({ ...trip, receiptPolicy: { ...trip.receiptPolicy, receiptThreshold: threshold } });
+      render();
+    });
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
     $('#trip-export-archive')?.addEventListener('click', () => {
       const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
@@ -11651,6 +11667,26 @@ window.openBusinessTrip = (tripId) => {
       dialog.showModal();
       close.focus();
     }));
+    const preparaInvioScontrini = async (pronte, address) => {
+      try {
+        const result = await shareTripReceipts({
+          files: pronte.map(item => item.file), address, navigator,
+          download: file => {
+            const url = URL.createObjectURL(file);
+            const link = document.createElement('a');
+            link.href = url; link.download = file.name;
+            document.body.append(link); link.click(); link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+          },
+          openEmail: address => { window.location.href = 'mailto:' + encodeURIComponent(address); },
+        });
+        if (result.status === 'cancelled') return;
+        if (result.status === 'failed') { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
+        for (const { t } of pronte) Object.assign(t, prepareReceiptDelivery(t, result.channel));
+        VaultDAO.save(); render();
+        showToast(result.channel === 'share' ? receiptDeliveryCopy(__uiLang) : tCh('bridgeFallbackAllToast', __uiLang, pronte.length), 'info');
+      } catch { showToast(tCh('bridgeSendError', __uiLang), 'error'); }
+    };
     document.querySelectorAll('[data-tripexpsend]').forEach(b => b.addEventListener('click', async () => {
       const bridge = VaultDAO.state.expenseBridge;
       if (!bridge?.address) {
@@ -11667,27 +11703,7 @@ window.openBusinessTrip = (tripId) => {
         const blob = await (await fetch(t.receiptImage)).blob();
         file = new File([blob], nomeFileGiustificativo(t, isPdf), { type: isPdf ? 'application/pdf' : (blob.type || 'image/jpeg') });
       } catch (_) { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
-      const segnaPreparato = channel => { Object.assign(t, prepareReceiptDelivery(t, channel)); VaultDAO.save(); render(); };
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          // L'indirizzo va comunque scelto a mano nel foglio di condivisione
-          // (nessuna API web imposta il destinatario di un'app di posta) —
-          // copiato negli appunti per non doverlo ridigitare.
-          try { await navigator.clipboard?.writeText(bridge.address); } catch (_) {}
-          await navigator.share({ files: [file] });
-          segnaPreparato('share');
-          showToast(receiptDeliveryCopy(__uiLang), 'info');
-          return;
-        }
-      } catch (e) { if (e && e.name === 'AbortError') return; }
-      // Fallback universale (desktop senza Web Share): scarico il file già
-      // pronto da allegare e apro l'email col destinatario già compilato.
-      const url = URL.createObjectURL(file);
-      const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      window.location.href = `mailto:${encodeURIComponent(bridge.address)}`;
-      segnaPreparato('email');
-      showToast(tCh('bridgeFallbackToast', __uiLang), 'info');
+      await preparaInvioScontrini([{ t, file }], bridge.address);
     }));
     // Invio multiplo: un tocco per spesa va bene con due scontrini, diventa
     // lavoro con quindici. Un'unica condivisione con tutti gli allegati
@@ -11707,28 +11723,7 @@ window.openBusinessTrip = (tripId) => {
         } catch (_) { /* uno scontrino corrotto non blocca gli altri */ }
       }
       if (!pronte.length) { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
-      const soloFile = pronte.map(p => p.file);
-      const segnaTuttiPreparati = channel => { for (const { t } of pronte) Object.assign(t, prepareReceiptDelivery(t, channel)); VaultDAO.save(); render(); };
-      try {
-        if (navigator.canShare && navigator.canShare({ files: soloFile })) {
-          try { await navigator.clipboard?.writeText(bridge.address); } catch (_) {}
-          await navigator.share({ files: soloFile });
-          segnaTuttiPreparati('share');
-          showToast(receiptDeliveryCopy(__uiLang), 'info');
-          return;
-        }
-      } catch (e) { if (e && e.name === 'AbortError') return; }
-      // Fallback desktop: mailto non allega nulla, quindi scarico ogni file
-      // (l'utente li allega tutti alla stessa email che si apre) — dichiarato
-      // nel testo del toast, mai finto un invio automatico multiplo.
-      for (const { file } of pronte) {
-        const url = URL.createObjectURL(file);
-        const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-      }
-      window.location.href = `mailto:${encodeURIComponent(bridge.address)}`;
-      segnaTuttiPreparati('email');
-      showToast(tCh('bridgeFallbackAllToast', __uiLang, pronte.length), 'info');
+      await preparaInvioScontrini(pronte, bridge.address);
     });
     $('#trip-del')?.addEventListener('click', () => {
       // Cancellare NON toglie la trasferta dall'elenco: ci mette sopra una
