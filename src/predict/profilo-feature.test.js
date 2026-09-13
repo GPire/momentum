@@ -116,3 +116,13 @@ test('automazioni: nessuna conferma per ogni singola spesa, in nessun profilo', 
     assert.equal(automazioni(s).confermaPerOgniSpesa, false);
   }
 });
+
+test('explicit complete view restores analysis without changing investment preferences', () => {
+ const state={investmentPrefs:{invests:false},uiComplexity:'completo',uiComplexitySetByUser:true};
+ assert.equal(featureVisibili(state).analisiTensor,true);
+ assert.equal(featureVisibili(state).tesseraInvestito,false);
+ assert.equal(state.investmentPrefs.invests,false);
+ assert.equal(featureVisibili({...state,uiComplexity:'essenziale'}).analisiTensor,false);
+ assert.equal(featureVisibili({...state,uiComplexitySetByUser:false}).analisiTensor,false);
+ assert.equal(featureVisibili({...state,onboardingProfile:{isMinor:true}}).analisiTensor,false);
+});

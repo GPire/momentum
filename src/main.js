@@ -17559,6 +17559,7 @@ window.setUiComplexity = (val) => {
   VaultDAO.save();
   haptic('light');
   updateUiComplexityVisibility();
+  updateAnalysisTensorVisibility();
   // Conferma visiva sull'INTERA card, non solo sulla pillola del selettore
   // (segnalato dal vivo: "quando cambio stato non succede niente per
   // l'utente"). Riusa lo stesso rimbalzo già usato per il tipo di
