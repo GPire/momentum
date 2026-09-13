@@ -323,6 +323,7 @@ const CalendarBridge = {
     VaultDAO.save();
   }
 };
+window.createVoiceCalendarEvent = ev => CalendarBridge.createEvent(ev);
 
 // Comprensione semantica locale opt-in (src/ai/semantic-embed.js — modello
 // scelto dal profilo hardware fra quelli in src/ai/embed-models.js: di norma
@@ -11046,6 +11047,7 @@ window.openBusinessTrip = (tripId) => {
         ${t.receiptImage ? (String(t.receiptImage).startsWith('data:application/pdf') ? `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--red)] font-black text-[8px]">PDF</span>` : `<img src="${t.receiptImage}" class="w-9 h-9 rounded-lg object-cover shrink-0" alt="" />`) : `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--on-surface-secondary)]"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M3 9h18"/></svg></span>`}
         <span class="flex-1 min-w-0">
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
+          ${t.receiptImage ? `<button type="button" data-tripreceipt="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px] underline underline-offset-4 active:scale-95 transition-transform">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
           <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
         </span>
         <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
@@ -11558,6 +11560,30 @@ window.openBusinessTrip = (tripId) => {
       render();
       showToast(tCh('bridgeSavedToast', __uiLang), 'success');
     });
+    document.querySelectorAll('[data-tripreceipt]').forEach(button => button.addEventListener('click', () => {
+      const expense = expenses.find(e => String(e.id) === button.dataset.tripreceipt);
+      const data = expense?.receiptImage;
+      if (typeof data !== 'string' || !/^data:(image\/(png|jpeg|webp|gif)|application\/pdf);base64,[a-z0-9+/=\r\n]+$/i.test(data)) {
+        showToast(tCh('bridgeSendError', __uiLang), 'error'); return;
+      }
+      const dialog = document.createElement('dialog');
+      dialog.style.cssText = 'width:min(92vw,900px);max-height:90dvh;padding:16px;border:1px solid var(--outline);border-radius:24px;background:var(--surface-elevated);color:var(--on-surface)';
+      const close = document.createElement('button');
+      close.textContent = '×'; close.ariaLabel = tCh('vaultCloseBtn', __uiLang);
+      close.style.cssText = 'display:block;margin-left:auto;min-width:44px;min-height:44px;font-size:28px';
+      close.onclick = () => dialog.close();
+      const pdf = data.startsWith('data:application/pdf');
+      const viewer = document.createElement(pdf ? 'iframe' : 'img');
+      viewer.title = tCh('tripOpenReceipt', __uiLang);
+      if (!pdf) viewer.alt = expense.description || viewer.title;
+      viewer.src = data;
+      viewer.style.cssText = pdf ? 'width:100%;height:70dvh;border:0' : 'width:100%;max-height:75dvh;object-fit:contain';
+      dialog.append(close, viewer);
+      dialog.addEventListener('close', () => { dialog.remove(); button.focus(); }, { once: true });
+      document.body.append(dialog);
+      dialog.showModal();
+      close.focus();
+    }));
     document.querySelectorAll('[data-tripexpsend]').forEach(b => b.addEventListener('click', async () => {
       const bridge = VaultDAO.state.expenseBridge;
       if (!bridge?.address) {

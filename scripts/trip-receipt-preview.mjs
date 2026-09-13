@@ -1,0 +1,39 @@
+// Isolated synthetic receipt preview. Never runs against the user's app origin.
+import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { resolve, sep, extname } from 'node:path';
+import { simpleHash } from '../src/core/utils.js';
+import { LATEST_WHATS_NEW_VERSION } from '../src/core/whats-new.js';
+
+const root = resolve('dist');
+const base = JSON.parse(readFileSync('src/core/fixtures/historical-backups.json')).states[0].state;
+const now = new Date();
+const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+const tx = { id: 'receipt-uuid-fixture', amount: 15, type: 'uscita', category: 'spesa',
+  description: 'Ricevuta di prova', date: now.toISOString(), businessTripId: 'trip-test', tripCategory: 'vitto',
+  receiptImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6RZkAAAAASUVORK5CYII=', prevHash: 'GENESIS' };
+tx.hash = simpleHash(tx.id + tx.amount + tx.category + tx.prevHash);
+const state = { ...base, transactions: { [month]: [tx] }, demoTransactions: {}, demoDismissed: true,
+  isFirstLaunch: false, freshStartPrompted: true, whatsNewSeen: LATEST_WHATS_NEW_VERSION,
+  currentDate: now.toISOString(), lastHash: tx.hash,
+  businessTrips: [{ id: 'trip-test', name: 'Trasferta di prova', createdAt: Date.now(), offeredItems: [] }] };
+const driver = `localStorage.setItem('omega_core_db', ${JSON.stringify(JSON.stringify(state))});
+addEventListener('load', () => {
+  const button = document.createElement('button'); button.textContent = 'Apri trasferta di prova';
+  button.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;background:white;color:black;padding:12px';
+  button.onclick = () => { window.openBusinessTrip('trip-test'); button.remove(); };
+  document.body.append(button);
+});`;
+createServer((req, res) => {
+  const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+  if (pathname === '/receipt-driver.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(driver); return; }
+  const path = resolve(root, '.' + (pathname === '/' ? '/index.html' : decodeURIComponent(pathname)));
+  if (!path.startsWith(root + sep)) { res.writeHead(403); res.end(); return; }
+  try {
+    let body = readFileSync(path);
+    if (path.endsWith('index.html')) body = body.toString().replace('<head>', '<head><script src="/receipt-driver.js"></script>');
+    res.setHeader('Content-Type', ({ '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' })[extname(path)] || 'application/octet-stream');
+    res.setHeader('Content-Security-Policy', "connect-src 'self' blob: data:");
+    res.end(body);
+  } catch { res.writeHead(404); res.end(); }
+}).listen(4184, '127.0.0.1', () => console.log('Receipt fixture: http://127.0.0.1:4184/?lang=it'));
