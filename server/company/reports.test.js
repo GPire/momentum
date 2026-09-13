@@ -7,6 +7,16 @@ import { storageAuditRequest } from './storage-audit.js';
 import { cleanupAttachmentRequest,lockAttachment,attachmentKey } from './attachment-lifecycle.js';
 import { attachmentRecoveryRequest } from './attachment-recovery.js';
 const rules={currency:'EUR',receiptThreshold:25,expenseLimits:{},dailyLimits:{vitto:50}};
+test('receipt lookup is scoped to the submitter and exact historical revision and fingerprint',async()=>{
+ const{sql,env,call}=fixture();try{
+ const saved=await(await call()).json();
+ const params=new URLSearchParams({resolve:saved.fingerprint,trip:'t',revision:'1'});
+ const lookup=subject=>reportRequest(new Request(env.APP_ORIGIN+'/v1/companies/a/reports?'+params),env,subject);
+ assert.equal((await lookup('employee')).status,200);assert.equal((await lookup('manager')).status,404);assert.equal((await lookup('other')).status,403);
+ params.set('resolve','a'.repeat(64));assert.equal((await lookup('employee')).status,404);
+ assert.equal(sql.prepare('SELECT count(*) n FROM reports').get().n,1);
+ }finally{sql.close()}
+});
 
 test('confirmed deletion recovers after database failure without deleting twice; journal is immutable',async()=>{
  const {sql,env}=fixture();try{

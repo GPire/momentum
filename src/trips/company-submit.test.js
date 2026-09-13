@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { submitCompanyReport } from './company-submit.js';
 import { tripReviewSnapshot,fingerprintTripSnapshot } from './review-fingerprint.js';
 const archive={trip:{id:'t',companyPolicy:{companyId:'a',version:1}},transactions:[]};
+test('lost submission response recovers the exact receipt without another POST',async()=>{
+ const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,[]));let writes=0,reads=0;
+ const fetcher=async(url,options)=>{if(options.method==='POST'){writes++;throw Error('response lost')}reads++;const query=new URL(url,'https://momentum.test').searchParams;assert.equal(query.get('resolve'),fingerprint);assert.equal(query.get('revision'),'1');return Response.json({reportId:'saved',revision:1,fingerprint})};
+ assert.equal((await submitCompanyReport(archive,0,fetcher)).reportId,'saved');assert.equal(writes,1);assert.equal(reads,1);
+ await assert.rejects(submitCompanyReport(archive,0,async(url,options)=>options.method==='POST'?Response.json({}, {status:503}):Response.json({reportId:'wrong',revision:2,fingerprint})),/network/);
+});
 test('submission validates server receipt and uses optimistic revision',async()=>{
  const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,[]));
  const result=await submitCompanyReport(archive,2,async(url,options)=>{assert.equal(url,'/v1/companies/a/reports');assert.equal(options.headers['If-Match'],'"2"');return Response.json({reportId:'r',revision:3,fingerprint})});

@@ -18,6 +18,15 @@ export async function reportRequest(request, env, subject) {
   if(!member)return json({error:'forbidden'},403);
   const canReview=['owner','reviewer'].includes(member.role);
   if(request.method==='GET'&&!id){
+    const query=new URL(request.url).searchParams;
+    if(query.has('resolve')){
+      const fingerprint=query.get('resolve'),tripId=query.get('trip'),revision=query.get('revision');
+      if(!/^[a-f0-9]{64}$/.test(fingerprint||'')||!tripId||tripId.length>100||! /^[1-9][0-9]{0,8}$/.test(revision||''))return json({error:'invalid_lookup'},400);
+      const receipt=await db.prepare(`SELECT id AS reportId,revision,fingerprint FROM reports WHERE company_id=? AND submitter=? AND trip_id=? AND revision=? AND fingerprint=?
+        AND EXISTS(SELECT 1 FROM memberships WHERE company_id=? AND subject=? AND active=1)`)
+        .bind(company,subject,tripId,Number(revision),fingerprint,company,subject).first();
+      return receipt?json(receipt):json({error:'submission_not_found'},404);
+    }
     const params=new URL(request.url).searchParams;const after=params.get('after')||'';const filter=params.get('filter')||'pending';
     if(!['pending','all'].includes(filter)||after&&!/^[a-zA-Z0-9-]{1,80}$/.test(after))return json({error:'invalid_filter'},400);
     const canReadAll=canReview||member.role==='auditor';

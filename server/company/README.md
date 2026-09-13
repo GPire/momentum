@@ -330,3 +330,24 @@ questa API: richiedono un protocollo di recupero distinto.
 seconda cancellazione, irreversibilità ordinaria del registro e oggetto assente
 con cancellazione ancora incerta. Nessun rollout cloud; API non ancora collegata
 ai controlli UI. La verifica su R2/D1 reali resta necessaria.
+
+### Recupero nell'interfaccia e ricevuta d'invio (2026-09-14)
+Nel pannello spazio documenti sono ora presenti Apri registro e Verifica esito,
+prima della lista allegati. Sette lingue; feedback inline, richieste con timeout,
+blocco del doppio click e disabilitazione del controllo dopo recupero riuscito.
+Il pulsante riconcilia una cancellazione già confermata: NON avvia una DELETE.
+
+Se la risposta POST del resoconto si perde o restituisce errore server, il client
+esegue una sola lettura per utente, viaggio, revisione e fingerprint esatti.
+Una ricevuta valida recupera la conferma senza altro POST; assenza o incongruenza
+restano errore, mai falsa conferma. La ricerca non espone ricevute di colleghi.
+Non risolve automaticamente blocchi di operazioni cloud senza esito certo.
+
+36 test passati e build portable riuscita. Chrome locale verificato con fixture
+--recovery su porta 4202: registro, verifica esito, quota da 28 a 27 MiB e nuovo
+posizionamento prima degli allegati. SQLite reale, identità/storage sintetici.
+
+Cloudflare verificato in Chrome: account accessibile; R2 mostra la pagina di
+attivazione di una sottoscrizione con quota gratuita e addebiti oltre soglia.
+Attivazione lasciata in attesa della scelta dell'utente. Nessun test R2/D1/Access
+end-to-end reale dichiarato e nessun deployment del servizio aziendale eseguito.

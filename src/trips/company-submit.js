@@ -18,9 +18,19 @@ export async function submitCompanyReport(archive, revision=0, fetcher=fetch) {
     body=JSON.stringify(envelope);
   }
   const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,archive.transactions));
+  const recover=async()=>{
+    try{
+      const params=new URLSearchParams({resolve:fingerprint,trip:archive.trip.id,revision:String(revision+1)});
+      const found=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports?${params}`,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)});
+      if(!found.ok)throw Error();const receipt=await found.json();
+      if(typeof receipt.reportId!=='string'||!receipt.reportId||receipt.revision!==revision+1||receipt.fingerprint!==fingerprint)throw Error();
+      return receipt;
+    }catch{throw new Error('network')}
+  };
   let response;
-  try{response=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports`,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','If-Match':`"${revision}"`},body,signal:AbortSignal.timeout(20000)})}catch{throw new Error('network')}
-  let result;try{result=await response.json()}catch{throw new Error('network')}
+  try{response=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports`,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','If-Match':`"${revision}"`},body,signal:AbortSignal.timeout(20000)})}catch{return recover()}
+  if(response.status>=500)return recover();
+  let result;try{result=await response.json()}catch{return recover()}
   if(!response.ok)throw new Error(response.status===401||response.status===403?'access':response.status===413?'large':result.error==='policy_update_required'?'policy':response.status===409?'changed':response.status>=500?'network':'invalid');
   if(typeof result.reportId!=='string'||!result.reportId||result.revision!==revision+1||result.fingerprint!==fingerprint)throw new Error('network');
   return {reportId:result.reportId,revision:result.revision,fingerprint};
