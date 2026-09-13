@@ -1,11 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { tripExpenses, touchTrip } from './trip-engine.js';
 import {
   periodoTrasferta, giorniDelPeriodo, speseFuoriPeriodo, giorniScoperti,
   diariaSpettante, riduzioniPerPastiOfferti, RIDUZIONE_PASTO,
 } from './trip-period.js';
 
 const trip = (extra = {}) => ({ id: 't1', name: 'Milano', offeredItems: [], ...extra });
+
+test('expense entered before the period is counted on its local day without mutation', () => {
+  const expenses = [{ id: 'uuid-expense', date: new Date(2026, 8, 10, 0, 15).toISOString(), amount: 15 }];
+  const before = JSON.stringify(expenses);
+  const dated = trip({ startDate: '2026-09-10', endDate: '2026-09-10' });
+  assert.deepEqual(giorniScoperti(dated, expenses), []);
+  assert.deepEqual(speseFuoriPeriodo(dated, expenses), []);
+  assert.equal(JSON.stringify(expenses), before);
+});
+
+test('adding or changing a trip period never filters its existing expenses', () => {
+  const original = trip();
+  const expense = { id: 'uuid-123', businessTripId: original.id, type: 'uscita', amount: 15, date: '2026-09-01' };
+  const dated = touchTrip({ ...original, startDate: '2026-09-10', endDate: '2026-09-13' });
+  assert.deepEqual(tripExpenses(dated, [expense]), [expense]);
+  assert.deepEqual(speseFuoriPeriodo(dated, [expense]), [expense]);
+});
 
 test('senza date complete il periodo non è definito, mai una durata inventata', () => {
   assert.equal(periodoTrasferta(trip()), null);
