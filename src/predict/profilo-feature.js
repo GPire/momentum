@@ -32,9 +32,19 @@ export function resolveClarity(state = {}) {
 }
 
 // A dashboard suggestion needs explicit relevance; tax tools remain in Vault.
+// BUG REALE (2026-09-13): controllava `profile.hasPartitaIva === true`, ma
+// in onboarding "Non ancora, magari dopo" collassa nello stesso booleano
+// `false` di un "No" esplicito (main.js: `hasPartitaIva: window.userHasPartitaIva
+// === true`) — quindi il freelance indeciso, il pubblico che questa card
+// esiste apposta per raggiungere, veniva trattato come chi ha già detto no e
+// spariva dalla Dashboard. Viola direttamente il PRINCIPIO 1 dichiarato sopra
+// in questo stesso file ("finché non ha detto niente, resta visibile"): un
+// "non ancora" non è un segnale esplicito di disinteresse. `state.noPartitaIva`
+// esiste già come UNICO segnale esplicito di "no" (scritto solo quando
+// `userHasPartitaIva === false`) — è lui il vero cancello, non hasPartitaIva.
 export function shouldSuggestTaxSetup(state = {}) {
   const profile = state.onboardingProfile || {};
-  return !eMinorenne(profile) && profile.hasPartitaIva === true
+  return !eMinorenne(profile)
     && !state.noPartitaIva && !state.taxDiscoveryDismissed
     && !state.taxRegime && !state.esActive && !state.chActive && !state.chAttivitaTipo
     && (!state.taxActiveCountry || state.taxActiveCountry === 'it');
