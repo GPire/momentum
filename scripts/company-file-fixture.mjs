@@ -5,7 +5,7 @@ import { reportRequest } from '../server/company/reports.js';
 import { attachmentRequest } from '../server/company/attachments.js';
 export function companyFileFixture(origin){
   const sql=new DatabaseSync(':memory:'),objects=new Map();
-  for(const file of ['schema.sql','reports.sql','attachment-quota.sql'])sql.exec(readFileSync(new URL('../server/company/'+file,import.meta.url),'utf8'));
+  for(const file of ['schema.sql','reports.sql','attachment-quota.sql','attachment-lifecycle.sql'])sql.exec(readFileSync(new URL('../server/company/'+file,import.meta.url),'utf8'));
   sql.exec("INSERT INTO companies VALUES('demo','Demo');INSERT INTO memberships VALUES('demo','staff','employee',1)");
   sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('demo',3,JSON.stringify({currency:'EUR',receiptThreshold:0,expenseLimits:{},dailyLimits:{}}),'admin','2026-09-14');
   sql.exec("INSERT INTO company_storage_limits VALUES('demo',33554432)");

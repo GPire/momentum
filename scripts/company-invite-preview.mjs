@@ -15,7 +15,7 @@ const inboxMode=process.argv.includes('--inbox');
 const ownerMode=storageMode||inboxMode||process.argv.includes('--owner');
 const port=storageMode?4201:inboxMode?4197:ownerMode?4194:4193;
 const sql = new DatabaseSync(':memory:');
-for (const file of ['schema.sql', 'invitations.sql','reports.sql','attachment-quota.sql']) sql.exec(readFileSync(new URL(`../server/company/${file}`, import.meta.url), 'utf8'));
+for (const file of ['schema.sql', 'invitations.sql','reports.sql','attachment-quota.sql','attachment-lifecycle.sql']) sql.exec(readFileSync(new URL(`../server/company/${file}`, import.meta.url), 'utf8'));
 sql.exec("INSERT INTO companies VALUES('demo','Azienda di prova'); INSERT INTO memberships VALUES('demo','owner','owner',1)");
 const db = { prepare(query) { return { bind(...args) { return {
   async first() { return sql.prepare(query).get(...args) || null; },

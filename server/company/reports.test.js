@@ -4,7 +4,61 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { reportRequest } from './reports.js';
 import { storageAuditRequest } from './storage-audit.js';
+import { cleanupAttachmentRequest,lockAttachment,attachmentKey } from './attachment-lifecycle.js';
 const rules={currency:'EUR',receiptThreshold:25,expenseLimits:{},dailyLimits:{vitto:50}};
+
+test('cleanup excludes active operations and historical reports; successful deletion frees quota',async()=>{
+ const {sql,env}=fixture();try{
+ sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");
+ const hash='a'.repeat(64),key=await attachmentKey('a','employee',hash);let deletes=0;
+ env.COMPANY_FILES={async delete(){deletes++}};
+ sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size,created_at) VALUES(?,?,?,?)').run('a',key,3,'2000-01-01');
+ const cleanup=(subject='owner',origin=env.APP_ORIGIN)=>cleanupAttachmentRequest(new Request(env.APP_ORIGIN+'/v1/companies/a/storage/cleanup',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({key})}),env,subject);
+ assert.equal((await cleanup()).status,409); // Pre-protocol objects are not collected.
+ const release=await lockAttachment(env.COMPANY_DB,'a',key);
+ assert.equal((await cleanup()).status,409);assert.equal(deletes,0);await release();
+ assert.equal((await cleanup('employee')).status,403);assert.equal((await cleanup('owner','https://evil.test')).status,403);
+ const archive={format:'momentum-company-upload',archive:{transactions:[{receiptRef:{hash}}]}};
+ sql.prepare('INSERT INTO reports VALUES(?,?,?,?,?,?,?,?,?)').run('old','a','employee','t',1,1,'f'.repeat(64),JSON.stringify(archive),'2000-01-01');
+ assert.equal((await cleanup()).status,409);assert.equal(deletes,0);
+ const second=await attachmentKey('a','employee','b'.repeat(64));const releaseSecond=await lockAttachment(env.COMPANY_DB,'a',second);await releaseSecond();
+ sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size,created_at) VALUES(?,?,?,?)').run('a',second,3,'2000-01-01');
+ const response=await cleanupAttachmentRequest(new Request(env.APP_ORIGIN+'/v1/companies/a/storage/cleanup',{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({key:second})}),env,'owner');
+ assert.equal(response.status,200);assert.equal(deletes,1);assert.equal(sql.prepare('SELECT SUM(size) n FROM company_attachment_reservations').get().n,3);
+ const reuse=await lockAttachment(env.COMPANY_DB,'a',second);await reuse();
+ }finally{sql.close()}
+});
+
+test('deletion blocks simultaneous upload locks and ambiguous deletion never frees quota',async()=>{
+ const {sql,env}=fixture();try{
+ sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");
+ const key=await attachmentKey('a','employee','c'.repeat(64)),release=await lockAttachment(env.COMPANY_DB,'a',key);await release();
+ sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size,created_at) VALUES(?,?,?,?)').run('a',key,3,'2000-01-01');
+ let deletes=0;env.COMPANY_FILES={async delete(){deletes++;await assert.rejects(lockAttachment(env.COMPANY_DB,'a',key),/busy/);throw Error('ambiguous')}};
+ const req=()=>new Request(env.APP_ORIGIN+'/v1/companies/a/storage/cleanup',{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({key})});
+ assert.equal((await cleanupAttachmentRequest(req(),env,'owner')).status,503);
+ assert.equal((await cleanupAttachmentRequest(req(),env,'owner')).status,409);assert.equal(deletes,1);
+ assert.equal(sql.prepare('SELECT SUM(size) n FROM company_attachment_reservations').get().n,3);
+ await assert.rejects(lockAttachment(env.COMPANY_DB,'a',key),/busy/);
+ }finally{sql.close()}
+});
+
+test('report submission holds attachment protection through hydration and persistence',async()=>{
+ const {sql,env,archive,call}=fixture();try{
+ sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");
+ archive.transactions[0].receiptImage='data:image/png;base64,YQ==';
+ const {envelope,blobs}=await prepareCompanyAttachments(archive),[hash,bytes]=[...blobs][0];
+ const key=await attachmentKey('a','employee',hash);const release=await lockAttachment(env.COMPANY_DB,'a',key);await release();
+ sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size) VALUES(?,?,?)').run('a',key,bytes.length);
+ const cleanup=()=>cleanupAttachmentRequest(new Request(env.APP_ORIGIN+'/v1/companies/a/storage/cleanup',{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({key})}),env,'owner');
+ env.COMPANY_FILES={async delete(){assert.fail('Receipt must survive')},async get(){assert.equal((await cleanup()).status,409);return{size:bytes.length,async arrayBuffer(){return bytes.slice().buffer}}}};
+ assert.equal((await cleanup()).status,409); // Recent uploads are retained even without a report.
+ sql.exec("UPDATE company_attachment_reservations SET created_at='2000-01-01'");
+ assert.equal((await call('',envelope)).status,201);
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM company_attachment_operations').get().n,0);
+ assert.equal((await cleanup()).status,409);assert.equal(sql.prepare('SELECT COUNT(*) n FROM reports').get().n,1);
+ }finally{sql.close()}
+});
 
 test('storage inventory protects historic references and distinguishes missing or unavailable objects',async()=>{
  const {sql,env}=fixture();
@@ -43,7 +97,7 @@ test('storage inventory paginates without dropping reservations and refuses writ
  }finally{sql.close()}
 });
 function fixture(){
- const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','attachment-quota.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','attachment-quota.sql','attachment-lifecycle.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('a','A'),('b','B'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('b','other','owner',1)");
  sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('a',1,JSON.stringify(rules),'admin','2026-09-13');
  sql.exec("INSERT INTO company_storage_limits VALUES('a',33554432),('b',33554432)");

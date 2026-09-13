@@ -1,4 +1,5 @@
 import { hydrateCompanyArchive } from './attachments.js';
+import { lockArchive } from './attachment-lifecycle.js';
 import { json, readBody, validateCompanyRules } from './worker.js';
 import { readReviewArchive } from '../../src/trips/review-archive.js';
 import { inspectTripArchive } from '../../src/trips/trip-archive.js';
@@ -65,6 +66,9 @@ export async function reportRequest(request, env, subject) {
   const previous=/^"(0|[1-9][0-9]{0,8})"$/.exec(request.headers.get('If-Match')||'');
   if(!previous)return json({error:'revision_required'},428);
   const storedBody=body;
+  let release;try{release=await lockArchive(db,company,subject,storedBody)}catch{return json({error:'attachment_busy'},409)}
+  let uncertainWrite=false;
+  try{
   try{body=await hydrateCompanyArchive(body,env,company,subject)}catch{return json({error:'attachment_unavailable'},409)}
   let review;try{review=await readReviewArchive(JSON.stringify(body))}catch{return json({error:'invalid_report'},400)}
   const trip=body.trip;
@@ -76,15 +80,18 @@ export async function reportRequest(request, env, subject) {
   const checks=inspectTripArchive(body.transactions,JSON.parse(policy.rules));
   if(checks.blockingCount)return json({error:'report_errors',checks},400);
   const reportId=crypto.randomUUID();const revision=Number(previous[1])+1;
+  uncertainWrite=true;
   const result=await db.prepare(`INSERT INTO reports(id,company_id,submitter,trip_id,revision,policy_version,fingerprint,archive,created_at)
     SELECT ?,?,?,?,?,?,?,?,? WHERE COALESCE((SELECT MAX(revision) FROM reports WHERE company_id=? AND submitter=? AND trip_id=?),0)=?
     AND EXISTS(SELECT 1 FROM memberships WHERE company_id=? AND subject=? AND active=1)
     AND ?=(SELECT MAX(version) FROM policies WHERE company_id=?)`)
     .bind(reportId,company,subject,trip.id,revision,policy.version,review.reportFingerprint,JSON.stringify(storedBody),new Date().toISOString(),company,subject,trip.id,Number(previous[1]),company,subject,policy.version,company).run();
+  uncertainWrite=false;
   if(result.meta?.changes)return json({reportId,revision,fingerprint:review.reportFingerprint,checks},201);
   const retry=await db.prepare(`SELECT id,revision,fingerprint FROM reports r WHERE company_id=? AND submitter=? AND trip_id=? AND revision=? AND fingerprint=?
     AND revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
     AND EXISTS(SELECT 1 FROM memberships WHERE company_id=r.company_id AND subject=? AND active=1)`)
     .bind(company,subject,trip.id,revision,review.reportFingerprint,subject).first();
   return retry?json({reportId:retry.id,revision:retry.revision,fingerprint:retry.fingerprint,checks}):json({error:'revision_or_access_changed'},409);
+  }finally{if(!uncertainWrite)await release()}
 }

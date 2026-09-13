@@ -1,7 +1,8 @@
 import { json } from './worker.js';
 import { digestBytes, FILE_LIMIT, restoreCompanyAttachments } from '../../src/trips/company-attachments.js';
+import { attachmentKey,lockAttachment } from './attachment-lifecycle.js';
 
-async function objectKey(company,subject,hash){return `${company}/${await digestBytes(new TextEncoder().encode(subject))}/${hash}`}
+const objectKey=attachmentKey;
 export async function hydrateCompanyArchive(stored,env,company,subject){
   if(stored?.format!=='momentum-company-upload')return stored;
   if(!env.COMPANY_FILES)throw new Error('Attachment storage unavailable');
@@ -34,6 +35,9 @@ export async function attachmentRequest(request,env,subject){
   const bytes=new Uint8Array(size);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.length}
   if(await digestBytes(bytes)!==hash)return json({error:'hash_mismatch'},400);
   if(!await member())return json({error:'forbidden'},403);
+  let release;try{release=await lockAttachment(db,company,key)}catch{return json({error:'attachment_busy'},409)}
+  let uncertain=false;
+  try{
   // One SQL statement serializes quota checks and reservations, including parallel uploads.
   const limit=await db.prepare('SELECT limit_bytes FROM company_storage_limits WHERE company_id=?').bind(company).first();
   if(!limit)return json({error:'storage_not_configured'},503);
@@ -48,6 +52,7 @@ export async function attachmentRequest(request,env,subject){
   if(!await member())return json({error:'forbidden'},403);
   // Content-addressed private object: repeated uploads cannot replace different bytes.
   // Keep the reservation on failure: a timed-out PUT may still have stored the object.
-  if(!await env.COMPANY_FILES.head(key))await env.COMPANY_FILES.put(key,bytes,{httpMetadata:{contentType:'application/octet-stream'}});
+  if(!await env.COMPANY_FILES.head(key)){uncertain=true;await env.COMPANY_FILES.put(key,bytes,{httpMetadata:{contentType:'application/octet-stream'}});uncertain=false}
   return json({hash,size},201);
+  }finally{if(!uncertain)await release()}
 }

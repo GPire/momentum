@@ -274,3 +274,33 @@ allegati sintetici. Fixture loopback: node scripts/company-invite-preview.mjs
 --storage (porta 4201). Non equivale a test fisico iOS/Android o accesso cloud.
 Il pannello è implementato ma non distribuito; le credenziali della fixture
 sono sintetiche e non vanno usate in produzione.
+
+### Pulizia protetta degli allegati (2026-09-14)
+Nuova migrazione: attachment-lifecycle.sql, dopo attachment-quota.sql.
+POST /v1/companies/:company/storage/cleanup con JSON {"key":"..."}, Origin
+uguale ad APP_ORIGIN e identità owner attiva. Nessuna esecuzione automatica.
+Il servizio accetta solo una prenotazione più vecchia di sette giorni, già
+registrata dal protocollo di blocco, senza operazioni attive e senza riferimenti
+in alcuna revisione di resoconto. Il controllo storico avviene DOPO aver
+impedito l'acquisizione di nuovi blocchi sul file.
+
+Caricamenti e invii di resoconti acquisiscono blocchi SQL prima di usare gli
+oggetti. Un errore ambiguo di PUT o scrittura del resoconto conserva il blocco.
+La pulizia prende possesso esclusivo del file; rimuove la prenotazione solo dopo
+DELETE confermato dallo storage. Una DELETE incerta conserva stato deleting e
+quota: niente ritentativi automatici o riuso della chiave, per evitare una
+cancellazione tardiva su un nuovo caricamento. Un tentativo concorrente è rifiutato.
+I blocchi non scadono automaticamente: riconciliazione amministrativa necessaria
+per operazioni interrotte o esiti incerti. Non cancellare righe di blocco a tempo.
+
+Prima di abilitare: applicare migrazione, assicurarsi che TUTTE le istanze che
+scrivono allegati/resoconti usino questo protocollo e attendere che le vecchie
+richieste siano concluse. Non abilitare durante un rollout misto. Inventariare
+lo storage precedente; il protocollo non ne deduce automaticamente lo stato.
+La UI resta in sola lettura: non è ancora presente un pulsante di pulizia.
+Mancano ancora workflow di riconciliazione, registro amministrativo delle
+cancellazioni e collaudo R2/D1 reale prima di esporre la pulizia agli utenti.
+
+32 test locali passati con SQLite reale e storage simulato: blocchi concorrenti,
+file recenti, resoconti storici, esito DELETE incerto e invio completo mentre si
+tenta la pulizia. Nessun documento utente cancellato, nessun deployment eseguito.
