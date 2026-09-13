@@ -1,0 +1,5 @@
+employees,receipts_per_employee_month,receipt_MB_decimal,retention_months,new_receipts_month,steady_state_GB,free_GB_month_assumed,USD_per_GB_month,storage_only_USD_month,exclusions,source
+30,10,0.5,12,300,1.8,10,0.015,0.0,operations; identity; compute; backups; previews; file checks; support; tax,https://developers.cloudflare.com/r2/pricing/
+300,10,0.5,12,3000,18.0,10,0.015,0.12,operations; identity; compute; backups; previews; file checks; support; tax,https://developers.cloudflare.com/r2/pricing/
+3000,10,0.5,12,30000,180.0,10,0.015,2.55,operations; identity; compute; backups; previews; file checks; support; tax,https://developers.cloudflare.com/r2/pricing/
+30000,10,0.5,12,300000,1800.0,10,0.015,26.85,operations; identity; compute; backups; previews; file checks; support; tax,https://developers.cloudflare.com/r2/pricing/
