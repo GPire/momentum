@@ -4,6 +4,7 @@ export function inspectTripArchive(transactions) {
   const issues = [];
   transactions.forEach((tx, index) => {
     const issue = code => issues.push({ index, transactionId: tx.id ?? null, code });
+    if (tx.tripRevisionConflict) issue('revision_conflict');
     const id = String(tx.id ?? '').trim();
     if (!id) issue('missing_id');
     else if (seen.has(id)) issue('duplicate_id');

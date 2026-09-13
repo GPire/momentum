@@ -158,7 +158,7 @@ export function mergeTrips(a, b) {
   // rispondere due volte (prima "serve una modifica", poi "approvata") e
   // l'ultima parola è quella che conta.
   const apA = a.approval, apB = b.approval;
-  const tsAp = (x) => (x ? (+x.reviewedAt || +x.sentAt || 0) : -1);
+  const tsAp = (x) => (x ? Math.max(+x.reviewedAt || 0, +x.sentAt || 0, +x.invalidatedAt || 0) : -1);
   const approval = tsAp(apB) > tsAp(apA) ? apB : apA;
   return {
     ...recente,

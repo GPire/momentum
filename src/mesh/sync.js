@@ -12,11 +12,13 @@
 //  - DETERMINISTICO / order-independent (stile CRDT): il merge è una UNIONE
 //    per id; converge allo stesso stato su tutti i device qualunque sia
 //    l'ordine di sync. Nessun conflitto sulle tx esistenti.
-//  - INTEGRO: non riscrive MAI amount/category/hash/prevHash di una tx già
-//    presente (la hash chain resta valida). Una tx nuova arriva col suo hash.
+//  - Le transazioni legacy esistenti non vengono sovrascritte. Le revisioni
+//    esplicite delle trasferte preservano origine e storia; hash/prevHash
+//    restano riferiti all'origine, non attestano i valori corretti.
 //  - RECUPERO: device nuovo = merge da stato vuoto → ripristino completo.
 // Funzioni PURE (nessun DOM/IndexedDB): testabili, riusabili nel worker.
 'use strict';
+import { mergeTripExpenseRevisions, revisionDigest } from '../trips/expense-revisions.js';
 
 // ── CANCELLAZIONI (lapidi) ───────────────────────────────────────────────────
 // BUG REALE, dimostrato prima di essere corretto: cancellare una spesa sul
@@ -61,7 +63,7 @@ export function pruneTombstones(tombstones = {}, maxAgeDays = 365, now = Date.no
 export function computeSyncDigest(transactions, tombstones = {}) {
   const digest = {};
   for (const [month, list] of Object.entries(transactions || {})) {
-    digest[month] = (list || []).map(t => ({ id: t.id, hash: t.hash }));
+    digest[month] = (list || []).map(t => ({ id: t.id, hash: t.hash, ...(t.tripRevisions?.length ? { revisions: revisionDigest(t) } : {}) }));
   }
   if (tombstones && Object.keys(tombstones).length) digest[TOMBSTONE_KEY] = { ...tombstones };
   return digest;
@@ -78,15 +80,15 @@ export function tombstonesFromDigest(peerDigest) {
 // le transazioni che non ha, e le lapidi che non conosce. Non gli si mandano
 // MAI transazioni che lui ha gia' cancellato: sarebbe farle risorgere da capo.
 export function transactionsMissingFromPeer(myTransactions, peerDigest, myTombstones = {}) {
-  const peerIds = new Set();
+  const peerIds = new Map();
   for (const [k, list] of Object.entries(peerDigest || {})) {
     if (k === TOMBSTONE_KEY) continue;
-    for (const e of (list || [])) peerIds.add(String(e.id));
+    for (const e of (list || [])) peerIds.set(String(e.id), e.revisions || '');
   }
   const peerTomb = tombstonesFromDigest(peerDigest);
   const toSend = {};
   for (const [month, list] of Object.entries(myTransactions || {})) {
-    const missing = (list || []).filter(t => !peerIds.has(String(t.id)) && !(String(t.id) in peerTomb));
+    const missing = (list || []).filter(t => (!peerIds.has(String(t.id)) || (t.tripRevisions?.length && revisionDigest(t) !== peerIds.get(String(t.id)))) && !(String(t.id) in peerTomb));
     if (missing.length) toSend[month] = missing;
   }
   // Lapidi che il peer non ha ancora (comprese quelle su spese che lui ha
@@ -98,14 +100,15 @@ export function transactionsMissingFromPeer(myTransactions, peerDigest, myTombst
 }
 
 // Merge deterministico: aggiunge le transazioni in arrivo che non sono già
-// presenti (per id); NON tocca quelle esistenti (hash chain intatta) e non
+// presenti (per id); unisce le revisioni esplicite delle trasferte e non
 // resuscita quelle cancellate. Applica anche le lapidi ricevute, togliendo le
 // spese corrispondenti. Ritorna { merged, added, skipped, tombstones, removed }.
 // Order-independent: A.merge(B) e B.merge(A) convergono allo stesso stato.
 export function mergeTransactions(localTransactions, incomingByMonth, localTombstones = {}) {
   const merged = {};
   for (const [m, list] of Object.entries(localTransactions || {})) merged[m] = [...list];
-  let added = 0, skipped = 0, removed = 0;
+  let added = 0, skipped = 0, removed = 0, updated = 0;
+  const locations = new Map(Object.entries(merged).flatMap(([month, rows]) => rows.map(row => [String(row.id), { month, row }])));
 
   // Le lapidi (mie + ricevute) si applicano PRIMA di aggiungere: una spesa
   // cancellata non deve rientrare nemmeno per un istante.
@@ -117,13 +120,25 @@ export function mergeTransactions(localTransactions, incomingByMonth, localTombs
   for (const [month, incoming] of Object.entries(incomingByMonth || {})) {
     if (month === TOMBSTONE_KEY) continue;
     if (!merged[month]) merged[month] = [];
-    const known = new Set(merged[month].map(t => String(t.id)));
     for (const tx of incoming) {
       const id = String(tx.id);
       if (id in tombstones) { skipped++; continue; } // cancellata: non risorge
-      if (known.has(id)) { skipped++; continue; }
+      const location = locations.get(id);
+      if (location) {
+        const existingMonth = location.month;
+        const existing = location.row;
+        const next = mergeTripExpenseRevisions(existing, tx);
+        if (next !== existing) {
+          merged[existingMonth].splice(merged[existingMonth].indexOf(existing), 1);
+          const target = next.date.slice(0, 7);
+          (merged[target] ||= []).push(next);
+          locations.set(id, { month: target, row: next });
+          updated++;
+        } else skipped++;
+        continue;
+      }
       merged[month].push(tx);        // arriva col SUO hash/prevHash — non ricalcolato
-      known.add(id);
+      locations.set(id, { month, row: tx });
       added++;
     }
     // ordine stabile per data → viste identiche su ogni device
@@ -137,7 +152,7 @@ export function mergeTransactions(localTransactions, incomingByMonth, localTombs
     merged[month] = merged[month].filter(t => !(String(t.id) in tombstones));
     removed += prima - merged[month].length;
   }
-  return { merged, added, skipped, tombstones, removed };
+  return { merged, added, skipped, tombstones, removed, updated };
 }
 
 // Riconcilia i lastHash: dopo un merge, lastHash è quello della tx più recente
