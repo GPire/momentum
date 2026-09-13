@@ -3,6 +3,7 @@ import { invitationRequest } from './invitations.js';
 import { joinPage } from './join-page.js';
 import { workspacePage } from './workspace-page.js';
 import { reportRequest } from './reports.js';
+import { inboxPage } from './inbox-page.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
@@ -95,6 +96,7 @@ export default {
       const path = new URL(request.url).pathname;
       if (path === '/company/join' && request.method === 'GET') return joinPage();
       if (path === '/company/workspace' && request.method === 'GET') return workspacePage();
+      if (path === '/company/reports' && request.method === 'GET') return inboxPage();
       if (path.includes('/invitations')) return await invitationRequest(request, env, identity);
       if (/^\/v1\/companies\/[^/]+\/reports(?:\/|$)/.test(path)) return await reportRequest(request, env, identity.subject);
       return await companyRequest(request, env, identity.subject);

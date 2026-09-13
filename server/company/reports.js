@@ -15,12 +15,29 @@ export async function reportRequest(request, env, subject) {
   const member=await db.prepare('SELECT role FROM memberships WHERE company_id=? AND subject=? AND active=1').bind(company,subject).first();
   if(!member)return json({error:'forbidden'},403);
   const canReview=['owner','reviewer'].includes(member.role);
+  if(request.method==='GET'&&!id){
+    const params=new URL(request.url).searchParams;const after=params.get('after')||'';const filter=params.get('filter')||'pending';
+    if(!['pending','all'].includes(filter)||after&&!/^[a-zA-Z0-9-]{1,80}$/.test(after))return json({error:'invalid_filter'},400);
+    const canReadAll=canReview||member.role==='auditor';
+    const anchor=after?await db.prepare('SELECT created_at FROM reports WHERE company_id=? AND id=? AND (submitter=? OR ?=1)').bind(company,after,subject,canReadAll?1:0).first():null;
+    if(after&&!anchor)return json({error:'invalid_cursor'},400);
+    const result=await db.prepare(`SELECT r.id,r.trip_id,r.revision,r.created_at,json_extract(r.archive,'$.trip.name') AS name,d.decision
+      FROM reports r LEFT JOIN report_decisions d ON d.report_id=r.id
+      WHERE r.company_id=? AND (r.submitter=? OR ?=1)
+      AND r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
+      AND (?='all' OR d.report_id IS NULL)
+      AND (?='' OR r.created_at<? OR (r.created_at=? AND r.id<?))
+      ORDER BY r.created_at DESC,r.id DESC LIMIT 31`).bind(company,subject,canReadAll?1:0,filter,after,anchor?.created_at||'',anchor?.created_at||'',after).all();
+    const rows=result.results||[];return json({reports:rows.slice(0,30),nextCursor:rows.length>30?rows[29].id:null});
+  }
   if(request.method==='GET' && id && !decisionPath){
     const row=await db.prepare(`SELECT r.*,d.decision,d.note,d.reviewer FROM reports r LEFT JOIN report_decisions d ON d.report_id=r.id
       WHERE r.company_id=? AND r.id=? AND (r.submitter=? OR ?=1)` ).bind(company,id,subject,canReview||member.role==='auditor'?1:0).first();
     if(!row)return json({error:'not_found'},404);
     const latest=await db.prepare('SELECT MAX(revision) AS revision FROM reports WHERE company_id=? AND submitter=? AND trip_id=?').bind(company,row.submitter,row.trip_id).first();
-    return json({...row,archive:JSON.parse(row.archive),superseded:row.revision!==latest.revision});
+    const archive=JSON.parse(row.archive);const policy=await db.prepare('SELECT MAX(version) AS version FROM policies WHERE company_id=?').bind(company).first();
+    const superseded=row.revision!==latest.revision;
+    return json({...row,archive,superseded,policyStale:row.policy_version!==policy.version,canDecide:canReview&&row.submitter!==subject&&!row.decision&&!superseded,checks:inspectTripArchive(archive.transactions,archive.trip.receiptPolicy)});
   }
   if(request.method!=='POST')return json({error:'method_not_allowed'},405);
   if(request.headers.get('Origin')!==env.APP_ORIGIN || !env.APP_ORIGIN || request.headers.get('Content-Type')?.split(';')[0].trim()!=='application/json')return json({error:'invalid_origin_or_type'},403);

@@ -161,3 +161,19 @@ Sources consulted:
 - https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
 - https://developers.cloudflare.com/d1/worker-api/prepared-statements/
 - https://developers.cloudflare.com/d1/worker-api/d1-database/
+
+## Casella resoconti (13 settembre 2026)
+
+`/company/reports?company=<id>&lang=it`, collegata allo spazio aziendale,
+mostra le ultime revisioni con filtri Da verificare/Tutti e pagine da 30.
+Dipendenti vedono solo i propri documenti; reviewer/owner/auditor quelli aziendali.
+Il dettaglio espone spese, allegati scaricabili, elementi pagati dall'azienda,
+controlli ed eccezioni. Solo reviewer/owner diversi dal mittente possono decidere;
+richiedere modifiche esige un motivo. La decisione usa il fingerprint esatto.
+
+Verifica: 20 test del servizio superati su SQLite reale. Chrome locale verificato
+per dettaglio, spese aziendali, motivo mancante e approvazione persistita.
+Fixture riproducibile: `node scripts/company-invite-preview.mjs --inbox` (4197).
+Identita sintetiche: NON un collaudo SSO, Cloudflare distribuito o dispositivi fisici.
+Restano distribuzione, autenticazione aziendale reale, allegati oltre 256 KiB,
+ritorno dell'esito nell'app personale e connettori esterni autenticati.
