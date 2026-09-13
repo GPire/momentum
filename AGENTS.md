@@ -1,5 +1,13 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Servizio policy aziendali, 2026-09-13:** vedere
+> [server/company/README.md](server/company/README.md). Worker separato con
+> verifica JWT Access, membership per azienda e policy versionate su D1.
+> Test locali su SQLite reale e firme RSA; NON distribuito, NON collegato
+> alla UI, nessun SSO aziendale o carico multinazionale collaudato.
+> Non riutilizzare la telemetria per dati aziendali. Le policy locali
+> dell'app non sono diventate automaticamente policy aziendali autorizzate.
+
 > **Sciame — scoperta senza server, 2026-09-13:** leggere
 > [sciame-discovery-2026-09-13.md](docs/sciame-discovery-2026-09-13.md).
 > Quattro ricerche verificate (scoperta locale cross-OS in Capacitor, rendezvous
