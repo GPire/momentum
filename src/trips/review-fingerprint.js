@@ -8,6 +8,7 @@ export function tripReviewSnapshot(trip, transactions) {
   return JSON.stringify(canonical({
     id: trip.id, name: trip.name, startDate: trip.startDate, endDate: trip.endDate,
     startTime: trip.startTime, endTime: trip.endTime, receiptPolicy: trip.receiptPolicy,
+    companyPolicy: trip.companyPolicy,
     offeredItems: sorted(trip.offeredItems || []),
     expenses: sorted(transactions.filter(tx => tx.businessTripId === trip.id).map(tx => Object.fromEntries(fields.filter(key => tx[key] !== undefined).map(key => [key, tx[key]])))),
   }));

@@ -30,11 +30,12 @@ const driver = `localStorage.setItem('omega_core_db', new URLSearchParams(locati
 addEventListener('load', () => {
   const button = document.createElement('button'); button.textContent = 'Apri trasferta di prova';
   button.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;background:white;color:black;padding:12px';
-  button.onclick = () => { const params = new URLSearchParams(location.search); if (params.has('history')) window.openTripReviewHistory(); else if (params.has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
+  button.onclick = () => { const params = new URLSearchParams(location.search); if (params.has('company')) { window.openBusinessTrips(); document.getElementById('trip-newname').value='Milano - prova aziendale'; } else if (params.has('history')) window.openTripReviewHistory(); else if (params.has('review')) window.openTripReviewScreen(${JSON.stringify(review)}); else window.openBusinessTrip('trip-test'); button.remove(); };
   document.body.append(button);
 });`;
 createServer((req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+  if (pathname === '/v1/companies/demo/policies') { res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({companyId:'demo',companyName:'Azienda di prova',version:3,rules:{currency:'EUR',receiptThreshold:0,expenseLimits:{vitto:30},dailyLimits:{vitto:60}}})); return; }
   if (pathname === '/receipt-driver.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(driver); return; }
   const path = resolve(root, '.' + (pathname === '/' ? '/index.html' : decodeURIComponent(pathname)));
   if (!path.startsWith(root + sep)) { res.writeHead(403); res.end(); return; }

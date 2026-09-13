@@ -21,6 +21,8 @@ import { tripPolicyCopy } from './i18n/trip-policy.js';
 import { expensePolicyCopy } from './i18n/expense-policy.js';
 import { policyDetailsCopy } from './i18n/policy-details.js';
 import { tripPolicyFromTemplate } from './trips/policy-template.js';
+import { loadCompanyPolicy, applyCompanyPolicy } from './trips/company-policy.js';
+import { companyTripCopy } from './i18n/company-trip.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
 import { parseTripAmount } from './trips/trip-engine.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
@@ -10971,6 +10973,7 @@ function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month:
 }
 
 window.openBusinessTrips = () => {
+  const requestedCompany = new URLSearchParams(location.search).get('company');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   // Mai le trasferte cancellate: restano nel vault come lapidi (servono a non
@@ -11011,17 +11014,33 @@ window.openBusinessTrips = () => {
       ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${esc(tCh('tripEmpty', __uiLang))}</p>`}
       <label class="task-field"><span>${tCh('tripNameLabel', __uiLang)}</span><input id="trip-newname" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('tripNameShortExample', __uiLang))}" name="trip-newname" /></label>
       <button id="trip-new" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(tCh('tripNewBtn', __uiLang))}</button>
+      ${requestedCompany ? `<p id="trip-company-status" role="status">${esc(companyTripCopy(__uiLang, 0))}</p>` : ''}
       <button id="trip-review-history" class="btn-action w-full py-3 rounded-xl">${esc(reviewHistoryCopy(__uiLang, 0))}</button>
     </div>`);
 
   document.querySelectorAll('[data-trip]').forEach(b => b.addEventListener('click', () => window.openBusinessTrip(b.dataset.trip)));
   $('#trip-review-history')?.addEventListener('click', () => window.openTripReviewHistory());
-  $('#trip-new')?.addEventListener('click', () => {
+  $('#trip-new')?.addEventListener('click', async () => {
     const name = $('#trip-newname')?.value?.trim();
     if (!name) { showToast(tCh('tripNameRequired', __uiLang), 'error'); return; }
-    const t = createTrip({ name });
-    const defaults = tripPolicyFromTemplate(VaultDAO.state.tripPolicyTemplate);
-    if (defaults) t.receiptPolicy = defaults;
+    const button = $('#trip-new');
+    let t = createTrip({ name });
+    if (requestedCompany) {
+      button.disabled = true;
+      const status = $('#trip-company-status');
+      status.textContent = companyTripCopy(__uiLang, 1);
+      try {
+        const policy = await loadCompanyPolicy(requestedCompany);
+        if (!button.isConnected) return;
+        t = applyCompanyPolicy(t, policy);
+      } catch {
+        if (button.isConnected) { status.textContent = companyTripCopy(__uiLang, 2); button.disabled = false; }
+        return;
+      }
+    } else {
+      const defaults = tripPolicyFromTemplate(VaultDAO.state.tripPolicyTemplate);
+      if (defaults) t.receiptPolicy = defaults;
+    }
     persist([...trips(), t]);
     window.openBusinessTrip(t.id);
   });
@@ -11646,6 +11665,10 @@ window.openBusinessTrip = (tripId) => {
       render();
     }));
     $('#trip-policy-save')?.addEventListener('click', () => {
+      if (trip.companyPolicy) {
+        persistTrip({ ...trip, receiptPolicy: { ...trip.receiptPolicy, exceptionReason: $('#trip-policy-reason').value.trim().slice(0, 500) } });
+        render(); return;
+      }
       const input = $('#trip-receipt-threshold');
       const threshold = parseTripAmount(input.value);
       if (threshold === null) { input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
@@ -11669,6 +11692,16 @@ window.openBusinessTrip = (tripId) => {
       render();
     });
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
+    if (trip.companyPolicy) {
+      document.querySelectorAll('#trip-receipt-threshold,[data-policy-limit],[data-policy-daily],#trip-policy-default').forEach(input => { input.disabled = true; });
+      const hint = $('#trip-policy-hint');
+      const companyText = `${trip.companyPolicy.companyName || trip.companyPolicy.companyId} · v${trip.companyPolicy.version} · ${companyTripCopy(__uiLang, 3)}`;
+      if (hint) hint.textContent = companyText;
+      else {
+        const notice = document.createElement('p'); notice.className = 'text-sm p-3'; notice.textContent = companyText;
+        $('#modal-body')?.prepend(notice);
+      }
+    }
     $('#trip-export-archive')?.addEventListener('click', () => window.exportTripArchive(trip.id));
     $('#trip-export-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
     $('#trip-review-share')?.addEventListener('click', () => window.openTripReviewShare(trip.id));
@@ -21253,7 +21286,7 @@ const initApp = () => {
     // mai prima — non deve competere col primo paint né sembrare un
     // blocco. Un ritardo breve, non zero: l'utente deve prima vedere "sono
     // arrivato", poi eventualmente "cosa è cambiato".
-    setTimeout(() => { try { showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
+    setTimeout(() => { try { if (new URLSearchParams(location.search).has('company')) window.openBusinessTrips(); else showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
     // Ponte iOS Safari→PWA (2026-08-28, vedi vault.js): appena aperta una
     // PWA installata su iOS SENZA transazioni proprie, controlla se Safari
     // ha lasciato un'istantanea recente in Cache Storage — best-effort, mai

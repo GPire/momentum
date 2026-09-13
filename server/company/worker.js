@@ -57,13 +57,13 @@ export async function companyRequest(request, env, subject) {
   // recently revoked user to read or publish company policy.
   const db = env.COMPANY_DB.withSession ? env.COMPANY_DB.withSession('first-primary') : env.COMPANY_DB;
   const company = match[1];
-  const member = await db.prepare('SELECT role FROM memberships WHERE company_id = ? AND subject = ? AND active = 1').bind(company, subject).first();
+  const member = await db.prepare('SELECT m.role,c.name AS companyName FROM memberships m JOIN companies c ON c.id=m.company_id WHERE company_id = ? AND subject = ? AND active = 1').bind(company, subject).first();
   if (!member) return json({ error: 'forbidden' }, 403);
   if (request.method === 'GET') {
     const row = match[2]
       ? await db.prepare('SELECT * FROM policies WHERE company_id = ? AND version = ?').bind(company, Number(match[2])).first()
       : await db.prepare('SELECT * FROM policies WHERE company_id = ? ORDER BY version DESC LIMIT 1').bind(company).first();
-    return row ? json({ companyId: company, version: row.version, rules: JSON.parse(row.rules), author: row.author, createdAt: row.created_at }, 200, { ETag: `"${row.version}"` }) : json({ error: 'not_found' }, 404);
+    return row ? json({ companyId: company, companyName: member.companyName, version: row.version, rules: JSON.parse(row.rules), author: row.author, createdAt: row.created_at }, 200, { ETag: `"${row.version}"` }) : json({ error: 'not_found' }, 404);
   }
   if (match[2]) return json({ error: 'method_not_allowed' }, 405);
   if (!['owner', 'policy_admin'].includes(member.role)) return json({ error: 'forbidden' }, 403);
