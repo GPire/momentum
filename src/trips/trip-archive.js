@@ -21,6 +21,12 @@ export function inspectTripArchive(transactions, policy) {
     else if (ids.get(id) > 1) issue('duplicate_id');
     if (typeof tx.amount !== 'number' || !Number.isFinite(tx.amount) || tx.amount < 0 || !Number.isSafeInteger(Math.round(tx.amount * 100))) issue('invalid_amount');
     if (!isTripDate(tx.date)) issue('invalid_date');
+    const limit = policy?.expenseLimits?.[tx.tripCategory];
+    if (limit !== undefined && limit !== null) {
+      if (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 0 || !Number.isSafeInteger(Math.round(limit * 100))) issue('invalid_policy');
+      else if ((tx.currency || 'EUR') !== (policy.currency || 'EUR')) issue('policy_currency', 'warning');
+      else if (Math.round(tx.amount * 100) > Math.round(limit * 100)) issue('policy_limit', 'warning');
+    }
     if (!tx.receiptImage) issue('missing_attachment', needsReceipt(tx, policy) ? 'warning' : 'info');
     else if (!isTripAttachment(tx.receiptImage)) issue('invalid_attachment');
   });

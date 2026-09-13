@@ -18,6 +18,7 @@ import { readReviewArchive, isReviewAttachment, MAX_REVIEW_ARCHIVE_BYTES } from 
 import { reviewImportCopy } from './i18n/review-import.js';
 import { revisionDigest, revisionHeads } from './trips/expense-revisions.js';
 import { tripPolicyCopy } from './i18n/trip-policy.js';
+import { expensePolicyCopy } from './i18n/expense-policy.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
 import { parseTripAmount } from './trips/trip-engine.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
@@ -11324,6 +11325,10 @@ window.openBusinessTrip = (tripId) => {
           <label for="trip-receipt-threshold" class="block text-sm mt-3 mb-2">${esc(tripPolicyCopy(__uiLang, 1))}</label>
           <input id="trip-receipt-threshold" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.receiptThreshold ?? 25))}" class="w-full rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" aria-describedby="trip-policy-hint" />
           <p id="trip-policy-hint" class="text-xs my-3">${esc(tripPolicyCopy(__uiLang, 2))}</p>
+          <fieldset class="my-3"><legend class="font-bold text-sm">${esc(expensePolicyCopy(__uiLang, 0))}</legend>
+            <p class="text-xs my-2">${esc(expensePolicyCopy(__uiLang, 1))}</p>
+            <div class="grid grid-cols-2 gap-3">${TRIP_CATEGORIES.map(cat => `<label class="min-w-0 text-sm">${esc(tCh('trip_' + cat, __uiLang))}<input data-policy-limit="${cat}" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.expenseLimits?.[cat] ?? ''))}" placeholder="${esc(expensePolicyCopy(__uiLang, 2))}" class="w-full min-w-0 mt-1 rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" /></label>`).join('')}</div>
+          </fieldset>
           <button id="trip-policy-save" class="btn-action w-full py-3 rounded-xl">${esc(tripPolicyCopy(__uiLang, 3))}</button>
         </details>
         <div class="trip-company">
@@ -11632,7 +11637,14 @@ window.openBusinessTrip = (tripId) => {
       const input = $('#trip-receipt-threshold');
       const threshold = parseTripAmount(input.value);
       if (threshold === null) { input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
-      persistTrip({ ...trip, receiptPolicy: { ...trip.receiptPolicy, receiptThreshold: threshold } });
+      const expenseLimits = {};
+      for (const field of document.querySelectorAll('[data-policy-limit]')) {
+        if (!field.value.trim()) continue;
+        const value = parseTripAmount(field.value);
+        if (value === null) { field.setAttribute('aria-invalid', 'true'); field.focus(); return; }
+        expenseLimits[field.dataset.policyLimit] = value;
+      }
+      persistTrip({ ...trip, receiptPolicy: { ...trip.receiptPolicy, receiptThreshold: threshold, expenseLimits, currency: 'EUR' } });
       render();
     });
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
