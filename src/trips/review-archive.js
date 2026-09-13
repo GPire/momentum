@@ -1,4 +1,5 @@
 import { exportTripData } from './trip-engine.js';
+import { isTripDate } from './trip-archive.js';
 import { tripReviewSnapshot, fingerprintTripSnapshot } from './review-fingerprint.js';
 
 export const MAX_REVIEW_ARCHIVE_BYTES = 50 * 1024 * 1024;
@@ -11,8 +12,8 @@ export async function readReviewArchive(text) {
   if (archive?.format !== 'momentum-trip-archive' || archive.version !== 1 || !archive.trip?.id || !Array.isArray(archive.transactions)) throw new TypeError('Invalid trip archive');
   const ids = new Set();
   for (const tx of archive.transactions) {
-    if (!tx || tx.businessTripId !== archive.trip.id || tx.id === undefined || tx.id === null || ids.has(String(tx.id)) || typeof tx.amount !== 'number' || !Number.isFinite(tx.amount) || tx.amount < 0 || typeof tx.date !== 'string' || !Number.isFinite(Date.parse(tx.date)) || (tx.receiptImage && !isReviewAttachment(tx.receiptImage))) throw new TypeError('Invalid expense');
-    ids.add(String(tx.id));
+    if (!tx || tx.businessTripId !== archive.trip.id || tx.id === undefined || tx.id === null || !String(tx.id).trim() || ids.has(String(tx.id).trim()) || typeof tx.amount !== 'number' || !Number.isFinite(tx.amount) || tx.amount < 0 || !Number.isSafeInteger(Math.round(tx.amount * 100)) || !isTripDate(tx.date) || (tx.receiptImage && !isReviewAttachment(tx.receiptImage))) throw new TypeError('Invalid expense');
+    ids.add(String(tx.id).trim());
   }
   if (archive.trip.offeredItems !== undefined && (!Array.isArray(archive.trip.offeredItems) || archive.trip.offeredItems.some(item => !item || !Number.isFinite(item.amount) || item.amount < 0))) throw new TypeError('Invalid offered expenses');
   const reportFingerprint = await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip, archive.transactions));

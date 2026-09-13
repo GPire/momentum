@@ -1,8 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTripArchive, inspectTripArchive } from './trip-archive.js';
+import { buildTripArchive, inspectTripArchive, isTripDate } from './trip-archive.js';
 import { parseTripAmount } from './trip-engine.js';
 import { needsReceipt, exportTripData } from './trip-engine.js';
+test('preflight separates optional receipts from warnings and blocks every duplicate identity', () => {
+  const rows = [{ id: 'a', amount: 5, date: '2026-09-13' }, { id: 'b', amount: 30, date: '2026-09-13' }];
+  const check = inspectTripArchive(rows, { receiptThreshold: 25 });
+  assert.equal(check.blockingCount, 0);
+  assert.equal(check.warningCount, 1);
+  assert.equal(check.issues[0].severity, 'info');
+  assert.equal(check.issues[1].severity, 'warning');
+  assert.equal(inspectTripArchive(rows, { receiptThreshold: 0 }).warningCount, 2);
+  const duplicate = inspectTripArchive([...rows, { ...rows[0] }]);
+  assert.equal(duplicate.blockingCount, 2);
+  assert.deepEqual(duplicate.issues.filter(x => x.code === 'duplicate_id').map(x => x.index), [0, 2]);
+});
+test('preflight rejects negative and unsafe amounts and impossible dates without dropping evidence', () => {
+  const rows = [{ id: 'a', amount: -5, date: '2026-02-30' }, { id: 'b', amount: Number.MAX_SAFE_INTEGER, date: '2026-09-13' }];
+  const copy = JSON.stringify(rows);
+  assert.equal(inspectTripArchive(rows).blockingCount, 2);
+  assert.equal(JSON.stringify(rows), copy);
+  assert.equal(isTripDate('2024-02-29T20:00:00Z'), true);
+  assert.equal(isTripDate('2026-02-29'), false);
+  assert.equal(isTripDate('2026-09-13T23:00:00-05:00'), true);
+});
 
 test('trip receipt policy drives export without changing saved expenses', () => {
   const tx = { id: 'x', businessTripId: 't', type: 'uscita', amount: 10 };

@@ -21,7 +21,12 @@ const state = { ...base, transactions: { [month]: [tx] }, demoTransactions: {}, 
   businessTrips: [{ id: 'trip-test', name: 'Trasferta di prova', createdAt: Date.now(), offeredItems: [] }] };
 const review = await readReviewArchive(JSON.stringify(buildTripArchive({ ...state.businessTrips[0], offeredItems: [{ amount: 80, date: now.toISOString(), tripCategory: 'alloggio', description: 'Hotel pagato dall’azienda' }] }, [{ ...tx, tripRevisionConflict: true }])));
 state.tripReviewHistory = Array.from({ length: 35 }, (_, i) => ({ review: { ...review, tripId: 'fixture-' + i, tripName: 'Trasferta ' + (i + 1), mittente: i % 2 ? 'José' : 'Marta' }, savedAt: Date.now() - i * 1000, decision: i % 2 ? { state: 'modifiche', note: 'Verificare la ricevuta dell’albergo', reviewer: 'Responsabile di prova' } : null }));
-const driver = `localStorage.setItem('omega_core_db', ${JSON.stringify(JSON.stringify(state))});
+const preflightState = JSON.parse(JSON.stringify(state));
+const preflightExpense = preflightState.transactions[month][0];
+preflightExpense.amount = 30; preflightExpense.receiptImage = null;
+preflightExpense.hash = simpleHash(preflightExpense.id + preflightExpense.amount + preflightExpense.category + preflightExpense.prevHash);
+preflightState.lastHash = preflightExpense.hash;
+const driver = `localStorage.setItem('omega_core_db', new URLSearchParams(location.search).has('preflight') ? ${JSON.stringify(JSON.stringify(preflightState))} : ${JSON.stringify(JSON.stringify(state))});
 addEventListener('load', () => {
   const button = document.createElement('button'); button.textContent = 'Apri trasferta di prova';
   button.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;background:white;color:black;padding:12px';

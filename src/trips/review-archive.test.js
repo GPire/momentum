@@ -38,7 +38,7 @@ test('employee archive becomes a complete review with the same fingerprint and r
 });
 test('rejects another archive type, unrelated rows, duplicate IDs and remote attachments', async () => {
   await assert.rejects(readReviewArchive('{}'));
-  for (const patch of [{ businessTripId: 'other' }, { amount: '12' }, { receiptImage: 'https://example.com/tracker' }]) {
+  for (const patch of [{ businessTripId: 'other' }, { amount: '12' }, { amount: Number.MAX_SAFE_INTEGER }, { date: '2026-02-30' }, { id: ' ' }, { receiptImage: 'https://example.com/tracker' }]) {
     await assert.rejects(readReviewArchive(JSON.stringify({ ...buildTripArchive(trip, rows), transactions: [{ ...rows[0], ...patch }] })));
   }
   await assert.rejects(readReviewArchive(JSON.stringify({ ...buildTripArchive(trip, rows), transactions: [...rows, ...rows] })));

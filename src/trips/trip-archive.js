@@ -1,19 +1,30 @@
 // Portable evidence package, not a vendor-specific API payload or Vault backup.
-export function inspectTripArchive(transactions) {
-  const seen = new Set();
+import { needsReceipt } from './trip-engine.js';
+
+export function isTripDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) || !Number.isFinite(Date.parse(value))) return false;
+  const day = value.slice(0, 10);
+  return Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
+}
+
+export function inspectTripArchive(transactions, policy) {
+  const ids = new Map();
+  for (const tx of transactions) { const id = String(tx?.id ?? '').trim(); if (id) ids.set(id, (ids.get(id) || 0) + 1); }
   const issues = [];
   transactions.forEach((tx, index) => {
-    const issue = code => issues.push({ index, transactionId: tx.id ?? null, code });
+    tx = tx || {};
+    const issue = (code, severity = 'blocking') => issues.push({ index, transactionId: tx.id ?? null, code, severity });
     if (tx.tripRevisionConflict) issue('revision_conflict');
     const id = String(tx.id ?? '').trim();
     if (!id) issue('missing_id');
-    else if (seen.has(id)) issue('duplicate_id');
-    seen.add(id);
-    if (typeof tx.amount !== 'number' || !Number.isFinite(tx.amount)) issue('invalid_amount');
-    if (typeof tx.date !== 'string' || !Number.isFinite(Date.parse(tx.date))) issue('invalid_date');
-    if (!tx.receiptImage) issue('missing_attachment');
+    else if (ids.get(id) > 1) issue('duplicate_id');
+    if (typeof tx.amount !== 'number' || !Number.isFinite(tx.amount) || tx.amount < 0 || !Number.isSafeInteger(Math.round(tx.amount * 100))) issue('invalid_amount');
+    if (!isTripDate(tx.date)) issue('invalid_date');
+    if (!tx.receiptImage) issue('missing_attachment', needsReceipt(tx, policy) ? 'warning' : 'info');
   });
-  return { transactionCount: transactions.length, attachmentCount: transactions.filter(tx => tx.receiptImage).length,
+  return { transactionCount: transactions.length, attachmentCount: transactions.filter(tx => tx?.receiptImage).length,
+    blockingCount: new Set(issues.filter(issue => issue.severity === 'blocking').map(issue => issue.index)).size,
+    warningCount: new Set(issues.filter(issue => issue.severity === 'warning').map(issue => issue.index)).size,
     reviewCount: new Set(issues.map(issue => issue.index)).size, issues };
 }
 
@@ -24,6 +35,6 @@ export function buildTripArchive(trip, transactions, exportedAt = new Date().toI
     format: 'momentum-trip-archive', version: 1, exportedAt,
     trip,
     transactions: selected,
-    checks: inspectTripArchive(selected),
+    checks: inspectTripArchive(selected, trip.receiptPolicy),
   }));
 }

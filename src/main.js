@@ -6,6 +6,7 @@ import { reviewHistoryCopy } from './i18n/review-history.js';
 import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
 import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
+import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
 import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
 import { tripExportCopy } from './i18n/trip-export.js';
 import { receiptDeliveryCopy } from './i18n/receipt-delivery.js';
@@ -11054,7 +11055,7 @@ window.openBusinessTrip = (tripId) => {
     const allTx = allTransactionsFlat();
     const expenses = tripExpenses(trip, allTx);
     const exportRows = allTx.filter(tx => tx?.businessTripId === trip.id);
-    const exportChecks = inspectTripArchive(exportRows);
+    const exportChecks = inspectTripArchive(exportRows, trip.receiptPolicy);
     const { totale, perCategoria } = tripTotals(trip, allTx);
     // Sync live: se arriva un aggiornamento da un altro dei propri dispositivi
     // mentre questa schermata è aperta, si ridisegna con i dati nuovi invece
@@ -11073,7 +11074,7 @@ window.openBusinessTrip = (tripId) => {
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
           <button type="button" data-trip-edit="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px]">${esc(tripEditCopy(__uiLang, t.tripRevisionConflict ? 3 : 0))}</button>
           ${t.receiptImage ? `<button type="button" data-tripreceipt="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px] underline underline-offset-4 active:scale-95 transition-transform">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
-          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
+          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tripReadinessCopy(__uiLang, 2))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
         </span>
         <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
         ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" title="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" class="${t.bridgeSentAt ? 'text-emerald-400 opacity-70' : 'text-[var(--on-surface-secondary)] opacity-40'} hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.bridgeSentAt ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>'}</svg></button>` : ''}
@@ -11163,6 +11164,9 @@ window.openBusinessTrip = (tripId) => {
     // già mandata? mi hanno risposto?"). Qui la trasferta lo dice sempre.
     const appr = trip.approval || null;
     if (appr?.reportFingerprint && !appr.invalidatedAt) {
+      if (verdict.state === 'approvata' && inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy).blockingCount) {
+        showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
+      }
       const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
       fingerprintTripSnapshot(snapshot).then(hash => {
         const current = (VaultDAO.state.businessTrips || []).find(t => t.id === trip.id);
@@ -11323,7 +11327,18 @@ window.openBusinessTrip = (tripId) => {
         <div class="trip-company">
           <h4 class="font-bold mb-2">${esc(tripChecksCopy(__uiLang, 0))}</h4>
           <p class="text-sm mb-3">${esc(tripChecksCopy(__uiLang, 1))}: ${exportChecks.transactionCount} · ${esc(tripChecksCopy(__uiLang, 2))}: ${exportChecks.attachmentCount}</p>
-          ${exportChecks.issues.length ? `<details class="trip-export-checks mb-3"><summary>${esc(tripChecksCopy(__uiLang, 3))} · ${exportChecks.reviewCount}</summary><ul>${exportChecks.issues.map(issue => `<li>${esc(exportRows[issue.index].description || String(issue.index + 1))}: ${esc(tripIssueLabel(__uiLang, issue.code))}</li>`).join('')}</ul><p>${esc(tripChecksCopy(__uiLang, 9))}</p></details>` : ''}
+          <section id="trip-preflight" tabindex="-1" class="trip-preflight">
+            <h4>${esc(tripReadinessCopy(__uiLang, 0))}</h4>
+            <p>${exportChecks.blockingCount ? esc(tripReadinessCopy(__uiLang, 1)) + ': ' + exportChecks.blockingCount : esc(tripReadinessCopy(__uiLang, 3))}</p>
+            ${exportChecks.warningCount ? `<p>${esc(tripReadinessCopy(__uiLang, 2))}: ${exportChecks.warningCount}</p>` : ''}
+            <ul>${exportChecks.issues.filter(issue => issue.severity !== 'info').map(issue => {
+              const tx = exportRows[issue.index];
+              const editable = tx.id !== undefined && tx.id !== null && exportRows.filter(row => String(row.id).trim() === String(tx.id).trim()).length === 1 && tx.type === 'uscita';
+              return `<li><span><strong>${esc(tx.description || String(issue.index + 1))}</strong><span>${esc(tripIssueLabel(__uiLang, issue.code))}</span></span>${editable ? `<button type="button" data-trip-edit="${esc(String(tx.id))}" class="btn-action">${esc(tripReadinessCopy(__uiLang, 4))}</button>` : ''}</li>`;
+            }).join('')}</ul>
+            ${exportChecks.blockingCount ? `<p>${esc(tripReadinessCopy(__uiLang, 5))}</p>` : ''}
+            ${exportChecks.warningCount ? `<p>${esc(tripChecksCopy(__uiLang, 9))}</p>` : ''}
+          </section>
           <button id="trip-export-archive" class="btn-action w-full px-4 py-3 rounded-xl" aria-describedby="trip-export-archive-hint">${esc(tripExportCopy(__uiLang, 0))}</button>
           <p id="trip-export-archive-hint" class="text-xs mt-2 text-[var(--on-surface-secondary)]">${esc(tripExportCopy(__uiLang, 1))}</p>
         </div>
@@ -11613,12 +11628,7 @@ window.openBusinessTrip = (tripId) => {
       render();
     });
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
-    $('#trip-export-archive')?.addEventListener('click', () => {
-      const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
-      if (!current) return;
-      const archive = buildTripArchive(current, allTransactionsFlat());
-      downloadTextFile(JSON.stringify(archive, null, 2), 'momentum-trip.json', 'application/json');
-    });
+    $('#trip-export-archive')?.addEventListener('click', () => window.exportTripArchive(trip.id));
     $('#trip-export-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
     $('#trip-review-share')?.addEventListener('click', () => window.openTripReviewShare(trip.id));
     // Periodo: pillole DATA/ORA di Momentum (non più input nativi). Ogni
@@ -11803,6 +11813,16 @@ window.openBusinessTrip = (tripId) => {
 // Export CSV puro (dati, senza scontrini) — stesso standard RFC4180+BOM già
 // in uso per movimenti/gruppi split, mai un formato ERP specifico promesso:
 // un CSV leggibile ovunque, dichiarato come tale.
+window.exportTripArchive = (tripId, expectedSnapshot) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(item => item.id === tripId);
+  if (!trip) return;
+  const transactions = allTransactionsFlat();
+  if (expectedSnapshot !== undefined && tripReviewSnapshot(trip, transactions) !== expectedSnapshot) {
+    showToast(tripReviewStaleCopy(__uiLang), 'error'); return;
+  }
+  downloadTextFile(JSON.stringify(buildTripArchive(trip, transactions), null, 2), 'momentum-trip.json', 'application/json');
+};
+
 window.exportTripCsv = (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
@@ -11960,6 +11980,14 @@ window.openTripReviewShare = async (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const checks = inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy);
+  if (checks.blockingCount) {
+    window.openBusinessTrip(trip.id);
+    const panel = document.getElementById('trip-preflight');
+    panel?.scrollIntoView({ block: 'center', behavior: 'instant' });
+    panel?.focus({ preventScroll: true });
+    showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
+  }
   const dati = exportTripData(trip, allTransactionsFlat());
   if (!dati.expenses.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
 
@@ -12006,8 +12034,9 @@ window.openTripReviewShare = async (tripId) => {
            pagina: nel link non ci sono le foto degli scontrini. Chi approva
            vede importi e cosa manca; per i giustificativi veri c'è il
            riepilogo stampabile, che li porta tutti dentro. -->
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${esc(tCh('tripReviewNoPhotosHint', __uiLang))}</p>
-      <button id="trv-print" class="text-[11px] text-[var(--primary)] underline">${esc(tCh('tripExportPrint', __uiLang))}</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${esc(tripArchiveShareCopy(__uiLang))}</p>
+      <button id="trv-archive" class="btn-action py-3 rounded-xl">${esc(tripExportCopy(__uiLang, 0))}</button>
+      <button id="trv-print" class="btn-action py-3 rounded-xl">${esc(tCh('tripExportPrint', __uiLang))}</button>
       <button id="trv-esito" class="py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripVerdictPasteBtn', __uiLang))}</button>
     </div>`, `<button id="trv-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
 
@@ -12031,6 +12060,7 @@ window.openTripReviewShare = async (tripId) => {
     $('#trv-status').textContent = tripApprovalCopy(__uiLang, 6);
     $('#trv-sent').disabled = true;
   });
+  $('#trv-archive')?.addEventListener('click', () => window.exportTripArchive(trip.id, reviewSnapshot));
   $('#trv-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
   $('#trv-esito')?.addEventListener('click', () => window.openTripVerdictPaste(trip.id));
   $('#trv-close')?.addEventListener('click', () => window.openBusinessTrip(trip.id));
