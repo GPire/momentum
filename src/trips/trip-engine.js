@@ -10,8 +10,11 @@
 // su TUTTI i prodotti sono la cattura scontrino inaffidabile (crash, upload
 // lenti, dati persi), lo split di una spesa fra progetti che richiede
 // calcoli manuali, gli export in formati incompatibili con l'ERP
-// dell'azienda, e il tempo (71% degli utenti impiega 30+ minuti per UNA
-// nota spese). On-device risolve strutturalmente il primo problema (zero
+// dell'azienda, e il tempo (71% dei travel & finance manager — chi
+// APPROVA le note spese, non genericamente "gli utenti" — impiega 30+
+// minuti per UNA nota spese: "The State of Corporate Travel and Expense
+// 2026", Skift/Navan, verificato 2026-09-13). On-device risolve
+// strutturalmente il primo problema (zero
 // upload che può bloccarsi, la foto resta sul device) e il terzo in parte
 // (nessuna integrazione cloud fragile da rompere) — ma NON possiamo
 // promettere un'integrazione diretta con un ERP che non conosciamo: l'export
