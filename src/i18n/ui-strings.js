@@ -46,6 +46,12 @@ export function resolveUiLanguage({ override = null, navigatorLike } = {}) {
 
 const S = {
   it: {
+    wn0913_0: "Trasferte, senza ricominciare",
+    wn0913_1: "Modifica le spese già inserite, apri gli allegati e conserva le revisioni. Le spese restano visibili anche quando imposti le date del viaggio dopo averle registrate.",
+    wn0913_2: "Un resoconto da verificare",
+    wn0913_3: "Condividi il riepilogo o esporta il file completo con gli allegati. Chi lo riceve può aprirlo in Momentum e salvare lo storico sul proprio dispositivo.",
+    wn0913_4: "Approvazioni legate ai dati",
+    wn0913_5: "Se cambi dati o allegati, serve una nuova revisione. Le versioni in conflitto bloccano l’approvazione. I costi offerti dall’azienda restano separati dal rimborso.",
     wn0912b_t: "Correggi i movimenti importati",
     wn0912b_d: "Cambia categoria e pianifica una scadenza anche per i movimenti con identificativi testuali. Il comando Rinomina è più riconoscibile nel Command Center.",
     wn0912c_t: "Le date restano al loro posto",
@@ -1791,6 +1797,12 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> ti ha addebitato per la seconda volta ${amount} — è confermato ricorrente. Se non lo aspettavi, controllalo subito.`,
   },
   en: {
+    wn0913_0: "Business trips, without starting over",
+    wn0913_1: "Edit recorded expenses, open attachments and retain revisions. Expenses stay visible when you set travel dates after recording them.",
+    wn0913_2: "A report ready for review",
+    wn0913_3: "Share a summary or export the complete file with attachments. The recipient can open it in Momentum and save the history on their device.",
+    wn0913_4: "Decisions tied to the data",
+    wn0913_5: "Changing data or attachments requires a new review. Conflicting versions block approval. Company-paid costs remain separate from reimbursement.",
     wn0912b_t: "Edit imported transactions",
     wn0912b_d: "Change categories and schedule payments for transactions with text identifiers too. Rename is easier to find in the Command Center.",
     wn0912c_t: "Dates stay in place",
@@ -3426,6 +3438,12 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> has charged you ${amount} for the second time — it's confirmed recurring. If you weren't expecting it, check it right away.`,
   },
   de: {
+    wn0913_0: "Dienstreisen ohne Neustart",
+    wn0913_1: "Bearbeiten Sie erfasste Ausgaben, öffnen Sie Belege und behalten Sie Versionen. Ausgaben bleiben sichtbar, wenn Reisedaten erst später festgelegt werden.",
+    wn0913_2: "Ein Bericht zur Prüfung",
+    wn0913_3: "Teilen Sie die Zusammenfassung oder exportieren Sie die vollständige Datei mit Belegen. Empfänger können sie in Momentum öffnen und lokal im Verlauf speichern.",
+    wn0913_4: "Entscheidungen passend zu den Daten",
+    wn0913_5: "Geänderte Daten oder Belege erfordern eine neue Prüfung. Widersprüchliche Versionen verhindern die Freigabe. Firmenkosten bleiben vom Erstattungsbetrag getrennt.",
     wn0912b_t: "Importierte Buchungen bearbeiten",
     wn0912b_d: "Ändere Kategorien und plane Zahlungen auch bei Buchungen mit Textkennungen. Umbenennen ist im Command Center leichter zu finden.",
     wn0912c_t: "Das Datum bleibt richtig",
@@ -5064,6 +5082,12 @@ const S = {
     alphaSubsNewBody: (name, amount) => `<b>${name}</b> hat dich zum zweiten Mal mit ${amount} belastet — bestätigt wiederkehrend. Falls unerwartet, sofort prüfen.`,
   },
   fr: {
+    wn0913_0: "Déplacements, sans recommencer",
+    wn0913_1: "Modifiez les dépenses, ouvrez les justificatifs et conservez les versions. Les dépenses restent visibles même si les dates du voyage sont définies après leur saisie.",
+    wn0913_2: "Un rapport à vérifier",
+    wn0913_3: "Partagez le résumé ou exportez le fichier complet avec les justificatifs. Le destinataire peut l’ouvrir dans Momentum et enregistrer l’historique sur son appareil.",
+    wn0913_4: "Des décisions liées aux données",
+    wn0913_5: "Modifier les données ou les justificatifs exige une nouvelle vérification. Les versions contradictoires bloquent la validation. Les frais payés par l’entreprise restent séparés du remboursement.",
     wn0912b_t: "Modifier les opérations importées",
     wn0912b_d: "Changez la catégorie et planifiez les paiements, même pour les opérations à identifiant textuel. Renommer est plus facile à trouver dans le Command Center.",
     wn0912c_t: "Les dates restent correctes",
@@ -6705,6 +6729,12 @@ const S = {
   // svizzera (chXxx) qui: nessun autónomo spagnolo la vedrebbe mai, e
   // t() ricade comunque su EN poi IT per una chiave assente.
   es: {
+    wn0913_0: "Viajes de trabajo, sin empezar de nuevo",
+    wn0913_1: "Edita gastos, abre justificantes y conserva las versiones. Los gastos siguen visibles aunque definas las fechas del viaje después de registrarlos.",
+    wn0913_2: "Un informe para revisar",
+    wn0913_3: "Comparte el resumen o exporta el archivo completo con justificantes. El destinatario puede abrirlo en Momentum y guardar el historial en su dispositivo.",
+    wn0913_4: "Decisiones vinculadas a los datos",
+    wn0913_5: "Cambiar datos o justificantes requiere una nueva revisión. Las versiones en conflicto bloquean la aprobación. Los gastos pagados por la empresa se separan del reembolso.",
     wn0912b_t: "Edita los movimientos importados",
     wn0912b_d: "Cambia categorías y programa pagos también en movimientos con identificadores de texto. Renombrar es más fácil de encontrar en el Command Center.",
     wn0912c_t: "Las fechas se mantienen",
@@ -8349,6 +8379,12 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale nei
   // Paesi Bassi, aggiungerle sarebbe stato inventato, non tradotto.
   nl: {
+    wn0913_0: "Zakenreizen, zonder opnieuw te beginnen",
+    wn0913_1: "Bewerk uitgaven, open bijlagen en bewaar versies. Uitgaven blijven zichtbaar als je de reisdatums pas later instelt.",
+    wn0913_2: "Een rapport om te beoordelen",
+    wn0913_3: "Deel de samenvatting of exporteer het volledige bestand met bijlagen. De ontvanger kan het in Momentum openen en de geschiedenis op het eigen apparaat bewaren.",
+    wn0913_4: "Besluiten gekoppeld aan de gegevens",
+    wn0913_5: "Gewijzigde gegevens of bijlagen vereisen een nieuwe beoordeling. Tegenstrijdige versies blokkeren goedkeuring. Bedrijfskosten blijven gescheiden van de vergoeding.",
     wn0912b_t: "Bewerk geïmporteerde transacties",
     wn0912b_d: "Wijzig categorieën en plan betalingen ook voor transacties met tekst-ID’s. Hernoemen is makkelijker te vinden in het Command Center.",
     wn0912c_t: "Datums blijven correct",
@@ -10003,6 +10039,12 @@ const S = {
   // schermate (fisco Svizzera/Spagna) non hanno equivalente concettuale per
   // il pubblico brasiliano.
   pt: {
+    wn0913_0: "Viagens de trabalho, sem recomeçar",
+    wn0913_1: "Edite despesas, abra comprovativos e preserve as versões. As despesas continuam visíveis mesmo que defina as datas da viagem depois de as registar.",
+    wn0913_2: "Um relatório para verificar",
+    wn0913_3: "Partilhe o resumo ou exporte o ficheiro completo com comprovativos. O destinatário pode abri-lo no Momentum e guardar o histórico no seu dispositivo.",
+    wn0913_4: "Decisões ligadas aos dados",
+    wn0913_5: "Alterar dados ou comprovativos exige nova revisão. Versões em conflito bloqueiam a aprovação. Os custos pagos pela empresa ficam separados do reembolso.",
     wn0912b_t: "Edite movimentos importados",
     wn0912b_d: "Altere categorias e planeie pagamentos também em movimentos com identificadores de texto. Renomear é mais fácil de encontrar no Command Center.",
     wn0912c_t: "As datas ficam certas",
