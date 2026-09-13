@@ -307,5 +307,5 @@ export function exportTripData(trip, allTransactions) {
   // (CSV e stampa) lo rende visibile SUBITO a chi approva, prima di scorrere
   // l'intero elenco — mai un blocco, solo un avviso di sintesi.
   const numeroGiustificativiMancanti = expenses.filter(e => e.giustificativoMancante).length;
-  return { tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti };
+  return { policyExceptionReason: trip.receiptPolicy?.exceptionReason || '', tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti };
 }

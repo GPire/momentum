@@ -12,6 +12,12 @@ export function inspectTripArchive(transactions, policy) {
   const ids = new Map();
   for (const tx of transactions) { const id = String(tx?.id ?? '').trim(); if (id) ids.set(id, (ids.get(id) || 0) + 1); }
   const issues = [];
+  const daily = new Map();
+  for (const tx of transactions) {
+    if (!tx || !isTripDate(tx.date) || !Number.isFinite(tx.amount) || tx.amount < 0 || (tx.currency || 'EUR') !== (policy?.currency || 'EUR')) continue;
+    const key = JSON.stringify([tx.date.slice(0, 10), tx.tripCategory]);
+    daily.set(key, (daily.get(key) || 0) + Math.round(tx.amount * 100));
+  }
   transactions.forEach((tx, index) => {
     tx = tx || {};
     const issue = (code, severity = 'blocking') => issues.push({ index, transactionId: tx.id ?? null, code, severity });
@@ -21,6 +27,12 @@ export function inspectTripArchive(transactions, policy) {
     else if (ids.get(id) > 1) issue('duplicate_id');
     if (typeof tx.amount !== 'number' || !Number.isFinite(tx.amount) || tx.amount < 0 || !Number.isSafeInteger(Math.round(tx.amount * 100))) issue('invalid_amount');
     if (!isTripDate(tx.date)) issue('invalid_date');
+    const dayLimit = policy?.dailyLimits?.[tx.tripCategory];
+    if (dayLimit !== undefined && dayLimit !== null) {
+      if (typeof dayLimit !== 'number' || !Number.isFinite(dayLimit) || dayLimit < 0 || !Number.isSafeInteger(Math.round(dayLimit * 100))) issue('invalid_policy');
+      else if ((tx.currency || 'EUR') !== (policy.currency || 'EUR')) issue('policy_currency', 'warning');
+      else if (isTripDate(tx.date) && daily.get(JSON.stringify([tx.date.slice(0, 10), tx.tripCategory])) > Math.round(dayLimit * 100)) issue('policy_daily', 'warning');
+    }
     const limit = policy?.expenseLimits?.[tx.tripCategory];
     if (limit !== undefined && limit !== null) {
       if (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 0 || !Number.isSafeInteger(Math.round(limit * 100))) issue('invalid_policy');

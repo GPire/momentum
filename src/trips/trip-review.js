@@ -96,12 +96,13 @@ export const VERDICT_STATES = ['approvata', 'modifiche'];
 // Chiavi corte nel payload: un QR più corto è un QR che si legge al primo
 // colpo, su carta stampata e su uno schermo sporco. Nomi lunghi qui
 // costerebbero centinaia di byte per una trasferta di venti spese.
-export async function encodeTripReview({ tripId, tripName, startDate, endDate, expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '', reportFingerprint, offerti = [], offertiTotale = 0 }, p2pOffer, { maxLen = 900 } = {}) {
+export async function encodeTripReview({ tripId, tripName, startDate, endDate, expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '', reportFingerprint, policyExceptionReason = '', offerti = [], offertiTotale = 0 }, p2pOffer, { maxLen = 900 } = {}) {
   if (!tripId) throw new Error('serve l identificativo della trasferta');
   const slim = {
     v: 1,
     i: tripId,
     ...(reportFingerprint ? { h: reportFingerprint } : {}),
+    ...(policyExceptionReason ? { x: String(policyExceptionReason).slice(0, 500) } : {}),
     n: tripName || '',
     ...(startDate ? { s: startDate } : {}),
     ...(endDate ? { e: endDate } : {}),
@@ -219,6 +220,7 @@ export async function decodeTripReview(code) {
     return {
       tripId: g.i,
       ...(g.h ? { reportFingerprint: g.h } : {}),
+      policyExceptionReason: typeof g.x === 'string' ? g.x.slice(0, 500) : '',
       tripName: g.n || '',
       startDate: g.s || null,
       endDate: g.e || null,

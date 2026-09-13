@@ -19,6 +19,8 @@ import { reviewImportCopy } from './i18n/review-import.js';
 import { revisionDigest, revisionHeads } from './trips/expense-revisions.js';
 import { tripPolicyCopy } from './i18n/trip-policy.js';
 import { expensePolicyCopy } from './i18n/expense-policy.js';
+import { policyDetailsCopy } from './i18n/policy-details.js';
+import { tripPolicyFromTemplate } from './trips/policy-template.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
 import { parseTripAmount } from './trips/trip-engine.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
@@ -11018,6 +11020,8 @@ window.openBusinessTrips = () => {
     const name = $('#trip-newname')?.value?.trim();
     if (!name) { showToast(tCh('tripNameRequired', __uiLang), 'error'); return; }
     const t = createTrip({ name });
+    const defaults = tripPolicyFromTemplate(VaultDAO.state.tripPolicyTemplate);
+    if (defaults) t.receiptPolicy = defaults;
     persist([...trips(), t]);
     window.openBusinessTrip(t.id);
   });
@@ -11329,6 +11333,14 @@ window.openBusinessTrip = (tripId) => {
             <p class="text-xs my-2">${esc(expensePolicyCopy(__uiLang, 1))}</p>
             <div class="grid grid-cols-2 gap-3">${TRIP_CATEGORIES.map(cat => `<label class="min-w-0 text-sm">${esc(tCh('trip_' + cat, __uiLang))}<input data-policy-limit="${cat}" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.expenseLimits?.[cat] ?? ''))}" placeholder="${esc(expensePolicyCopy(__uiLang, 2))}" class="w-full min-w-0 mt-1 rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" /></label>`).join('')}</div>
           </fieldset>
+          <fieldset style="margin:16px 0"><legend class="font-bold text-sm">${esc(policyDetailsCopy(__uiLang, 0))}</legend>
+            <div class="grid grid-cols-2 gap-3">${TRIP_CATEGORIES.map(cat => `<label class="min-w-0 text-sm">${esc(tCh('trip_' + cat, __uiLang))}<input data-policy-daily="${cat}" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.dailyLimits?.[cat] ?? ''))}" placeholder="${esc(expensePolicyCopy(__uiLang, 2))}" class="w-full min-w-0 mt-1 rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" /></label>`).join('')}</div>
+          </fieldset>
+          <label class="block text-sm" for="trip-policy-reason">${esc(policyDetailsCopy(__uiLang, 1))}</label>
+          <textarea id="trip-policy-reason" maxlength="500" rows="2" placeholder="${esc(policyDetailsCopy(__uiLang, 2))}" class="w-full rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]">${esc(trip.receiptPolicy?.exceptionReason || '')}</textarea>
+          <p class="text-xs">${esc(policyDetailsCopy(__uiLang, 3))}</p>
+          <label class="flex gap-3 items-center" style="min-height:48px;margin-top:12px"><input id="trip-policy-default" type="checkbox" />${esc(policyDetailsCopy(__uiLang, 4))}</label>
+          <p class="text-xs">${esc(policyDetailsCopy(__uiLang, 5))}</p>
           <button id="trip-policy-save" class="btn-action w-full py-3 rounded-xl">${esc(tripPolicyCopy(__uiLang, 3))}</button>
         </details>
         <div class="trip-company">
@@ -11644,7 +11656,16 @@ window.openBusinessTrip = (tripId) => {
         if (value === null) { field.setAttribute('aria-invalid', 'true'); field.focus(); return; }
         expenseLimits[field.dataset.policyLimit] = value;
       }
-      persistTrip({ ...trip, receiptPolicy: { ...trip.receiptPolicy, receiptThreshold: threshold, expenseLimits, currency: 'EUR' } });
+      const dailyLimits = {};
+      for (const field of document.querySelectorAll('[data-policy-daily]')) {
+        if (!field.value.trim()) continue;
+        const value = parseTripAmount(field.value);
+        if (value === null) { field.setAttribute('aria-invalid', 'true'); field.focus(); return; }
+        dailyLimits[field.dataset.policyDaily] = value;
+      }
+      const receiptPolicy = { ...trip.receiptPolicy, receiptThreshold: threshold, expenseLimits, dailyLimits, currency: 'EUR', exceptionReason: $('#trip-policy-reason').value.trim().slice(0, 500) };
+      if ($('#trip-policy-default').checked) VaultDAO.state.tripPolicyTemplate = { version: crypto.randomUUID(), rules: tripPolicyFromTemplate({ rules: receiptPolicy }) };
+      persistTrip({ ...trip, receiptPolicy });
       render();
     });
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
@@ -12020,6 +12041,7 @@ window.openTripReviewShare = async (tripId) => {
       tripId: trip.id, tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate,
       expenses: dati.expenses, totale: dati.totale, offerti: dati.offerti, offertiTotale: dati.offertiTotale,
       numeroGiustificativiMancanti: dati.numeroGiustificativiMancanti,
+      policyExceptionReason: dati.policyExceptionReason,
       mittente: VaultDAO.state.profile?.name || '',
     });
   } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
@@ -12220,6 +12242,7 @@ window.openTripReviewScreen = (rev) => {
       <div class="card p-3">
         <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('tripReviewDecisionTitle', __uiLang))}</div>
         ${hasConflicts ? `<p id="review-conflict" role="status" class="p-3 mb-3 rounded-xl border border-amber-400/40">${esc(reviewConflictCopy(__uiLang))}</p>` : ''}
+        ${rev.policyExceptionReason ? `<section class="p-3"><h4>${esc(policyDetailsCopy(__uiLang, 7))}</h4><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(rev.policyExceptionReason)}</p><small>${esc(policyDetailsCopy(__uiLang, 3))}</small></section>` : ''}
         <input id="trv-reviewer" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" name="trv-reviewer" />
         <textarea id="trv-note" rows="2" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" name="trv-note"></textarea>
         <div class="grid grid-cols-2 gap-2">
