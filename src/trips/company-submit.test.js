@@ -22,6 +22,27 @@ test('actionable failures never pretend a report was received',async()=>{
 });
 
 import { readCompanyReportStatus } from './company-submit.js';
+test('HTML gateway errors preserve access and size feedback without recovery requests',async()=>{
+ for(const [status,message] of [[401,'access'],[403,'access'],[413,'large']]){
+  let requests=0;
+  await assert.rejects(submitCompanyReport(archive,0,async()=>{requests++;return new Response('<html>gateway</html>',{status})}),new RegExp(`^Error: ${message}$`));
+  assert.equal(requests,1);
+ }
+ const receipt={reportId:'r',revision:1,fingerprint:'hash'};
+ for(const [status,message] of [[401,'access'],[403,'access'],[404,'changed']]){
+  await assert.rejects(readCompanyReportStatus(archive,receipt,async()=>new Response('<html>gateway</html>',{status})),new RegExp(`^Error: ${message}$`));
+ }
+});
+
+test('uncertain delivery recovery preserves access loss and rejects malformed receipts',async()=>{
+ for(const status of [401,403]){
+  await assert.rejects(submitCompanyReport(archive,0,async(url,options)=>{
+   if(options.method==='POST')throw Error('connection lost');
+   return new Response('Login required',{status});
+  }),/^Error: access$/);
+ }
+ await assert.rejects(submitCompanyReport(archive,0,async()=>new Response('<html>unavailable</html>',{status:200})),/^Error: network$/);
+});
 test('company approval applies only to unchanged local data and current server revision',async()=>{
  const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,[]));
  const receipt={reportId:'r',revision:1,fingerprint};

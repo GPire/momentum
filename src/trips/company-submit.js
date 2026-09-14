@@ -29,9 +29,13 @@ export async function submitCompanyReport(archive, revision=0, fetcher=fetch) {
   }
   const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,archive.transactions));
   const recover=async()=>{
+    let found;
     try{
       const params=new URLSearchParams({resolve:fingerprint,trip:archive.trip.id,revision:String(revision+1)});
-      const found=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports?${params}`,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)});
+      found=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports?${params}`,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)});
+    }catch{throw new Error('network')}
+    if([401,403].includes(found.status))throw new Error('access');
+    try{
       if(!found.ok)throw Error();const receipt=await found.json();
       if(typeof receipt.reportId!=='string'||!receipt.reportId||receipt.revision!==revision+1||receipt.fingerprint!==fingerprint)throw Error();
       return receipt;
@@ -40,6 +44,8 @@ export async function submitCompanyReport(archive, revision=0, fetcher=fetch) {
   let response;
   try{response=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports`,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','If-Match':`"${revision}"`},body,signal:AbortSignal.timeout(20000)})}catch{return recover()}
   if(response.status>=500)return recover();
+  if([401,403].includes(response.status))throw new Error('access');
+  if(response.status===413)throw new Error('large');
   let result;try{result=await response.json()}catch{return recover()}
   if(!response.ok)throw new Error(response.status===401||response.status===403?'access':response.status===413?'large':result.error==='policy_update_required'?'policy':response.status===409?'changed':response.status>=500?'network':'invalid');
   if(typeof result.reportId!=='string'||!result.reportId||result.revision!==revision+1||result.fingerprint!==fingerprint)throw new Error('network');
@@ -51,8 +57,9 @@ export async function readCompanyReportStatus(archive, receipt, fetcher=fetch) {
   const company=archive?.trip?.companyPolicy?.companyId;
   if(!/^[a-zA-Z0-9_-]{1,80}$/.test(company||'')||!/^[a-zA-Z0-9-]{1,80}$/.test(receipt?.reportId||'')||!Number.isSafeInteger(receipt?.revision)||receipt.revision<1)throw new Error('invalid');
   let response,result;
-  try{response=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports/${receipt.reportId}?view=status`,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)});result=await response.json()}catch{throw new Error('network')}
+  try{response=await fetcher(`/v1/companies/${encodeURIComponent(company)}/reports/${receipt.reportId}?view=status`,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)})}catch{throw new Error('network')}
   if(!response.ok)throw new Error([401,403].includes(response.status)?'access':response.status===404?'changed':'network');
+  try{result=await response.json()}catch{throw new Error('network')}
   if(result.id!==receipt.reportId||result.company_id!==company||result.trip_id!==archive.trip.id||result.revision!==receipt.revision||result.fingerprint!==receipt.fingerprint||typeof result.superseded!=='boolean'||typeof result.policyStale!=='boolean'||![null,'approved','changes_requested'].includes(result.decision)||!(result.note===null||typeof result.note==='string'&&result.note.length<=1000))throw new Error('network');
   const local=await fingerprintTripSnapshot(tripReviewSnapshot(archive.trip,archive.transactions));
   return {state:local!==result.fingerprint||result.superseded?'changed':result.policyStale?'policy':result.decision||'pending',note:result.note||''};
