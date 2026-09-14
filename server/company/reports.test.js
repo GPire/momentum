@@ -241,7 +241,18 @@ test('large report uploads once, preserves approval fingerprint and rejects miss
  const {envelope}=await prepareCompanyAttachments(archive);
  sql.exec("INSERT INTO memberships VALUES('a','colleague','employee',1)");
  assert.equal((await call('',envelope,'colleague')).status,409);
+ const originalGet=env.COMPANY_FILES.get;let reads=0;env.COMPANY_FILES.get=async key=>{reads++;return originalGet(key)};
+ const summary=await(await call('/'+sent.reportId+'?view=summary',null,'manager','0','GET')).json();
+ assert.equal(reads,0);assert.equal(summary.checks,null);assert.equal(summary.attachmentContentsVerified,false);
+ assert.equal(summary.archive.transactions[0].hasAttachment,true);assert.equal(summary.archive.transactions[0].receiptImage,undefined);
+ assert.ok(JSON.stringify(summary).length<JSON.stringify(detail).length/10);
+ const single=await(await call('/'+sent.reportId+'?attachment=0',null,'manager','0','GET')).json();
+ assert.equal(reads,1);assert.equal(single.receiptImage,archive.transactions[0].receiptImage);
+ assert.equal((await call('/'+sent.reportId+'?attachment=0',null,'colleague','0','GET')).status,404);
+ assert.equal((await call('/'+sent.reportId+'?attachment=-1',null,'manager','0','GET')).status,400);
  const backup=new Map(objects);objects.clear();
+ assert.equal((await call('/'+sent.reportId+'?view=summary',null,'manager','0','GET')).status,200);
+ assert.equal((await call('/'+sent.reportId+'?attachment=0',null,'manager','0','GET')).status,409);
  assert.equal((await call('/'+sent.reportId+'/decision',{decision:'approved',note:''},'manager',sent.fingerprint)).status,409);
  for(const [key,value]of backup)objects.set(key,value);
  assert.equal((await call('/'+sent.reportId+'/decision',{decision:'approved',note:''},'manager',sent.fingerprint)).status,201);

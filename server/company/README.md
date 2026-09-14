@@ -461,3 +461,19 @@ Test locale: 100 risoluzioni concorrenti della stessa chiave pubblica = 1 fetch
 invece di 100, stesso CryptoKey importato. Non significa 100x utenti: ogni
 richiesta Worker e verifica di firma continua a esistere. Cache in memoria per
 istanza, non globale, persa ai riavvii. Suite aziendale: 46 test passati.
+
+### Lettura progressiva resoconti — API (2026-09-14)
+GET /v1/companies/:company/reports/:id?view=summary evita hydration e letture
+storage: transactions espone hasAttachment, senza receiptImage/receiptRef.
+checks=null e attachmentContentsVerified=false: non trattare la risposta come
+una verifica documentale. GET con ?attachment=0 recupera soltanto il documento
+alla posizione indicata nella revisione immutabile e restituisce fingerprint.
+Stessi controlli di azienda/ruolo della lettura completa; nessuna URL pubblica.
+La lettura completa precedente resta disponibile. L'approvazione verifica
+ancora tutti gli allegati. I client devono collegare queste API mantenendo
+visibili i controlli finanziari/documentali: inbox-page usa ancora il percorso
+completo e non riceve automaticamente questa ottimizzazione.
+Test locale: allegato sintetico 300 KB, riepilogo >10x più piccolo, zero letture
+storage, download singolo = una lettura, collega non autorizzato rifiutato,
+file mancante segnalato e approvazione bloccata. Suite 46 test passati.
+Nessun login Better Auth installato; nessun deploy o test cloud di queste API.

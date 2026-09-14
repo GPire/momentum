@@ -45,10 +45,23 @@ export async function reportRequest(request, env, subject) {
     const row=await db.prepare(`SELECT r.*,d.decision,d.note,d.reviewer FROM reports r LEFT JOIN report_decisions d ON d.report_id=r.id
       WHERE r.company_id=? AND r.id=? AND (r.submitter=? OR ?=1)` ).bind(company,id,subject,canReview||member.role==='auditor'?1:0).first();
     if(!row)return json({error:'not_found'},404);
+    const query=new URL(request.url).searchParams;
+    const stored=JSON.parse(row.archive),source=stored.format==='momentum-company-upload'?stored.archive:stored;
+    if(query.has('attachment')){
+      const index=query.get('attachment');
+      if(!/^(0|[1-9][0-9]{0,4})$/.test(index||''))return json({error:'invalid_attachment_index'},400);
+      const tx=source.transactions?.[Number(index)];
+      if(!tx||(!tx.receiptImage&&!tx.receiptRef))return json({error:'not_found'},404);
+      try{
+        const one=stored.format==='momentum-company-upload'?await hydrateCompanyArchive({...stored,archive:{...source,transactions:[tx]}},env,company,row.submitter):{transactions:[tx]};
+        return json({reportId:row.id,fingerprint:row.fingerprint,index:Number(index),receiptImage:one.transactions[0].receiptImage});
+      }catch{return json({error:'attachment_unavailable'},409)}
+    }
+    const summary=query.get('view')==='summary';
     const latest=await db.prepare('SELECT MAX(revision) AS revision FROM reports WHERE company_id=? AND submitter=? AND trip_id=?').bind(company,row.submitter,row.trip_id).first();
-    const archive=await hydrateCompanyArchive(JSON.parse(row.archive),env,company,row.submitter);const policy=await db.prepare('SELECT MAX(version) AS version FROM policies WHERE company_id=?').bind(company).first();
+    const archive=summary?{...source,transactions:source.transactions.map(({receiptImage,receiptRef,...tx})=>({...tx,hasAttachment:Boolean(receiptImage||receiptRef)}))}:await hydrateCompanyArchive(stored,env,company,row.submitter);const policy=await db.prepare('SELECT MAX(version) AS version FROM policies WHERE company_id=?').bind(company).first();
     const superseded=row.revision!==latest.revision;
-    return json({...row,archive,superseded,policyStale:row.policy_version!==policy.version,canDecide:canReview&&row.submitter!==subject&&!row.decision&&!superseded,checks:inspectTripArchive(archive.transactions,archive.trip.receiptPolicy)});
+    return json({...row,archive,superseded,policyStale:row.policy_version!==policy.version,canDecide:canReview&&row.submitter!==subject&&!row.decision&&!superseded,attachmentContentsVerified:!summary,checks:summary?null:inspectTripArchive(archive.transactions,archive.trip.receiptPolicy)});
   }
   if(request.method!=='POST')return json({error:'method_not_allowed'},405);
   if(request.headers.get('Origin')!==env.APP_ORIGIN || !env.APP_ORIGIN || request.headers.get('Content-Type')?.split(';')[0].trim()!=='application/json')return json({error:'invalid_origin_or_type'},403);
