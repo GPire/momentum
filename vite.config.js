@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import { personalBundleBoundary } from './scripts/personal-bundle-boundary.mjs';
 
 // BUG DI SETTORE, non solo nostro (verificato via ricerca web 2026-08-30):
 // su iOS Safari in modalità standalone (PWA installata), WebKit può
@@ -33,5 +34,5 @@ export default defineConfig(({ mode }) => ({
     outDir: mode === 'singlefile' ? 'dist-singlefile' : 'dist',
     target: 'es2020',
   },
-  plugins: [versionJsonPlugin(), ...(mode === 'singlefile' ? [viteSingleFile()] : [])],
+  plugins: [versionJsonPlugin(), personalBundleBoundary(mode === 'singlefile'), ...(mode === 'singlefile' ? [viteSingleFile()] : [])],
 }));

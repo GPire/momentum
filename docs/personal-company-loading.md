@@ -19,13 +19,18 @@ dedicati pesano rispettivamente 1.262 e 5.336 byte minificati in questa build.
 Non è una misura del risparmio complessivo, perché dipendenze condivise restano
 nel bundle principale. Non è stato eseguito un nuovo collaudo browser o fisico.
 
-## Lavoro ancora necessario
+## Trasferte personali: mantenere disponibili
 
-L'interfaccia trasferte e varie utility sono ancora importate staticamente.
-Separarle richiede estrarre i relativi controller da `main.js` e verificare
-apertura diretta, inviti, offline e cambio delle preferenze. Non nascondere
+L'interfaccia trasferte, spese, allegati, riepiloghi ed esportazione rimane
+disponibile anche senza servizio aziendale. Non è prevista la sua rimozione
+dall'app personale. Non nascondere
 funzioni permanentemente in base all'onboarding, né cancellare dati quando una
 funzione viene disattivata.
+
+La build Vite verifica il grafo dei chunk: impedisce import statici, anche
+transitivi, dei client policy/invio/allegati aziendali e qualsiasi inclusione
+del server aziendale o Better Auth nel client. Le traduzioni e le utility
+condivise rimangono disponibili senza ulteriori richieste di rete.
 
 Nel pacchetto Capacitor standard tutti i chunk di `dist` vengono inclusi: il
 caricamento differito riduce esecuzione iniziale, non la dimensione installata.
