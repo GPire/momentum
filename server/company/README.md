@@ -413,3 +413,34 @@ scritture; verificare D1 rows_read/rows_written, dimensione database e CPU del
 Worker con carichi reali prima di aumentare capacità dichiarata.
 Questa migrazione non è ancora applicata al cloud. Nessun limite contrattuale
 sulle identità viene modificato o aggirato.
+
+### Identità diretta opzionale (2026-09-14)
+Il Worker usa companyIdentity: default Access invariato. IDENTITY_DRIVER=oidc
+abilita esclusivamente Authorization: Bearer per token API RS256. Configurare
+OIDC_ISSUER, OIDC_JWKS_URL (HTTPS stesso origin, URL fissi senza redirect),
+OIDC_AUDIENCE dedicata all'API e OIDC_SCOPE dedicato. Supporta typ at+jwt oppure
+header JWT con claim typ Bearer (Keycloak); non è un adapter universale OIDC.
+Firma, issuer, audience, exp, nbf e scope vengono controllati. Non usare ID token.
+Email utilizzabile per inviti soltanto con email_verified=true.
+Subject = oidc:SHA256(JSON([issuer,sub])): nessuna fusione automatica tramite
+email o con i precedenti subject Access. Provisionare membership esplicitamente
+prima della transizione; nessun dato, storico o diritto viene migrato a intuito.
+Un token rigettato non ricade mai su Access. Ruoli restano nel database Momentum,
+non vengono copiati dai claim. Revoca membership verificata sul percorso esistente;
+revoca token presso IdP non è introspezionata: usare token brevi, revocare membership
+per blocco immediato lato Momentum. Le chiavi vengono richieste al provider per
+ogni verifica: caching/rotazione ottimizzati restano da sviluppare.
+
+Stato: adapter API integrato nel Worker e testato con vere firme RSA locali.
+Non attivato, nessun account/provider nuovo creato. Le pagine attuali usano la
+sessione Access: mancano login authorization-code/PKCE o sessione BFF, logout,
+recupero accesso e test reali. Non togliere la protezione Access al deployment
+esistente prima del collaudo completo del percorso alternativo.
+
+Questo consente in futuro un deployment senza posti Cloudflare Access usando
+l'IdP aziendale o un'istanza gestita da noi, non estende la quota Access.
+Restano licenze IdP, hosting, sicurezza, backup e supporto. Keycloak open source
+non significa gestione gratuita; nessun account condiviso o suddivisione fittizia
+per aggirare limiti. Documentazione primaria del protocollo:
+https://www.keycloak.org/securing-apps/oidc-layers
+Piani Access: https://www.cloudflare.com/plans/zero-trust-services/

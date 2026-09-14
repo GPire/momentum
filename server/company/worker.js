@@ -1,4 +1,4 @@
-import { accessIdentity } from './access.js';
+import { companyIdentity } from './identity.js';
 import { companyStorageEnvironment } from './d1-files.js';
 import { storageAuditRequest } from './storage-audit.js';
 import { storagePage } from './storage-page.js';
@@ -42,7 +42,7 @@ export async function readBody(request, limit = 8192) {
   return JSON.parse(new TextDecoder().decode(buffer));
 }
 
-// Exported separately for tests; production always calls accessSubject first.
+// Exported separately for tests; production always verifies companyIdentity first.
 export async function companyRequest(request, env, subject) {
   if (typeof subject !== 'string' || !subject) return json({ error: 'unauthenticated' }, 401);
   const url = new URL(request.url);
@@ -97,7 +97,7 @@ export async function companyRequest(request, env, subject) {
 export default {
   async fetch(request, env) {
     let identity;
-    try { identity = await accessIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
+    try { identity = await companyIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
     try {
       env=companyStorageEnvironment(env);
       const path = new URL(request.url).pathname;

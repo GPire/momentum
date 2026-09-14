@@ -23,3 +23,12 @@ database_id = "REPLACE-WITH-D1-ID"
 # [[r2_buckets]]
 # binding = "COMPANY_FILES"
 # bucket_name = "REPLACE-WITH-PRIVATE-COMPANY-BUCKET"
+
+# Optional API-only direct identity. Do not enable until login and memberships
+# have been provisioned and tested; current browser pages still use Access.
+# Configure these under [vars], not inside the d1_databases table:
+# IDENTITY_DRIVER = "oidc"
+# OIDC_ISSUER = "https://YOUR-IDENTITY-HOST/realms/momentum"
+# OIDC_JWKS_URL = "https://YOUR-IDENTITY-HOST/realms/momentum/protocol/openid-connect/certs"
+# OIDC_AUDIENCE = "momentum-company-api"
+# OIDC_SCOPE = "momentum:company"
