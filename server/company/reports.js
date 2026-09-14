@@ -42,6 +42,15 @@ export async function reportRequest(request, env, subject) {
     const rows=result.results||[];return json({reports:rows.slice(0,30),nextCursor:rows.length>30?rows[29].id:null});
   }
   if(request.method==='GET' && id && !decisionPath){
+    if(new URL(request.url).searchParams.get('view')==='status'){
+      const state=await db.prepare(`SELECT r.id,r.company_id,r.trip_id,r.revision,r.fingerprint,d.decision,d.note,
+        r.revision<>(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id) AS superseded,
+        r.policy_version<>(SELECT MAX(p.version) FROM policies p WHERE p.company_id=r.company_id) AS policyStale
+        FROM reports r LEFT JOIN report_decisions d ON d.report_id=r.id
+        WHERE r.company_id=? AND r.id=? AND (r.submitter=? OR ?=1)`)
+        .bind(company,id,subject,canReview||member.role==='auditor'?1:0).first();
+      return state?json({...state,superseded:Boolean(state.superseded),policyStale:Boolean(state.policyStale)}):json({error:'not_found'},404);
+    }
     const row=await db.prepare(`SELECT r.*,d.decision,d.note,d.reviewer FROM reports r LEFT JOIN report_decisions d ON d.report_id=r.id
       WHERE r.company_id=? AND r.id=? AND (r.submitter=? OR ?=1)` ).bind(company,id,subject,canReview||member.role==='auditor'?1:0).first();
     if(!row)return json({error:'not_found'},404);

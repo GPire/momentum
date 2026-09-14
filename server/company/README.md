@@ -486,3 +486,14 @@ fixture sintetica: lista, apertura riepilogo, pulsante Approva disabilitato,
 verifica completa e sblocco. Download singolo coperto dalle API, non ancora
 collaudato nel browser su dispositivi fisici. Test aziendali: 46 passati.
 Questa implementazione sostituisce la precedente nota di UI non collegata.
+
+### Controllo esito minimale (2026-09-14)
+GET reports/:id?view=status è ora usato da readCompanyReportStatus nell'app.
+Non seleziona archive dal database e non legge allegati: restituisce soltanto
+identificativi, fingerprint, versione, decisione/nota e indicatori di superamento
+e policy. Due statement: membership e stato con confronti di versione indicizzati.
+Nessuna cache dei permessi. Test su revoca, vecchia versione e accesso esterno;
+47 test aziendali passati. Non modifica né rivalida un'approvazione storica:
+verifica disponibilità degli allegati resta nel percorso di approvazione/download.
+I piccoli invii legacy restano supportati senza storage separato; renderli tutti
+deduplicati richiede prima configurazione storage e compatibilità del deploy.

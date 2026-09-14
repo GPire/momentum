@@ -316,3 +316,21 @@ test('indexed inbox seeks within a company or employee without a temporary sort'
  }
  }finally{sql.close()}
 });
+
+test('status-only lookup avoids archive and storage while preserving revision and access checks',async()=>{
+ const {sql,call,env}=fixture();try{
+ const saved=await(await call()).json();
+ env.COMPANY_FILES={get(){throw Error('must not read attachments')}};
+ const original=env.COMPANY_DB.prepare;let statements=0;
+ env.COMPANY_DB.prepare=query=>{statements++;assert.doesNotMatch(query,/SELECT r\.\*|SELECT archive|hydrate/);return original(query)};
+ const result=await(await call('/'+saved.reportId+'?view=status',null,'employee','0','GET')).json();
+ assert.equal(statements,2);assert.equal(result.archive,undefined);assert.equal(result.fingerprint,saved.fingerprint);
+ assert.equal(result.superseded,false);assert.equal(result.policyStale,false);assert.equal(result.decision,null);
+ assert.equal((await call('/'+saved.reportId+'?view=status',null,'other','0','GET')).status,403);
+ env.COMPANY_DB.prepare=original;
+ await call('',undefined,'employee','1');
+ assert.equal((await(await call('/'+saved.reportId+'?view=status',null,'employee','0','GET')).json()).superseded,true);
+ sql.exec("UPDATE memberships SET active=0 WHERE subject='employee'");
+ assert.equal((await call('/'+saved.reportId+'?view=status',null,'employee','0','GET')).status,403);
+ }finally{sql.close()}
+});
