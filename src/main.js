@@ -21,9 +21,7 @@ import { tripPolicyCopy } from './i18n/trip-policy.js';
 import { expensePolicyCopy } from './i18n/expense-policy.js';
 import { policyDetailsCopy } from './i18n/policy-details.js';
 import { tripPolicyFromTemplate } from './trips/policy-template.js';
-import { loadCompanyPolicy, applyCompanyPolicy } from './trips/company-policy.js';
 import { companyTripCopy } from './i18n/company-trip.js';
-import { submitCompanyReport, readCompanyReportStatus } from './trips/company-submit.js';
 import { companyStatusCopy } from './i18n/company-status.js';
 import { companySubmitCopy, companySubmitError } from './i18n/company-submit.js';
 import { shareTripReceipts } from './trips/receipt-sharing.js';
@@ -11033,6 +11031,7 @@ window.openBusinessTrips = () => {
       const status = $('#trip-company-status');
       status.textContent = companyTripCopy(__uiLang, 1);
       try {
+        const { loadCompanyPolicy, applyCompanyPolicy } = await import('./trips/company-policy.js');
         const policy = await loadCompanyPolicy(requestedCompany);
         if (!button.isConnected) return;
         t = applyCompanyPolicy(t, policy);
@@ -12069,6 +12068,7 @@ function openCompanySubmission(trip) {
     checkButton.disabled = true; button.disabled = true; status.textContent = companyStatusCopy(__uiLang, 1);
     const captured = buildTripArchive(latest, allTransactionsFlat());
     try {
+      const { readCompanyReportStatus } = await import('./trips/company-submit.js');
       const result = await readCompanyReportStatus(captured, latest.companySubmission);
       const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
       if (!current || tripReviewSnapshot(current, allTransactionsFlat()) !== tripReviewSnapshot(captured.trip, captured.transactions)) { status.textContent = companyStatusCopy(__uiLang, 'changed'); return; }
@@ -12083,6 +12083,7 @@ function openCompanySubmission(trip) {
     button.disabled = true; status.textContent = text(2);
     try {
       if (current.companySubmission?.fingerprint === await fingerprintTripSnapshot(snapshot)) { button.disabled = false; await checkButton.onclick(); return; }
+      const { submitCompanyReport } = await import('./trips/company-submit.js');
       const receipt = await submitCompanyReport(archive, current.companySubmission?.revision || 0);
       const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
       if (latest) {
