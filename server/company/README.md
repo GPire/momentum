@@ -428,8 +428,13 @@ prima della transizione; nessun dato, storico o diritto viene migrato a intuito.
 Un token rigettato non ricade mai su Access. Ruoli restano nel database Momentum,
 non vengono copiati dai claim. Revoca membership verificata sul percorso esistente;
 revoca token presso IdP non Ã¨ introspezionata: usare token brevi, revocare membership
-per blocco immediato lato Momentum. Le chiavi vengono richieste al provider per
-ogni verifica: caching/rotazione ottimizzati restano da sviluppare.
+per blocco immediato lato Momentum. Le chiavi pubbliche sono riutilizzate per massimo 60 secondi per istanza,
+rispettando no-store/no-cache e max-age inferiore. Le richieste concorrenti
+condividono il download; le chiavi importate vengono riutilizzate. Un kid
+sconosciuto non forza richieste ripetute: la rotazione diventa visibile alla
+scadenza della cache (ritardo massimo 60 secondi). Nessuna chiave scaduta
+viene usata quando il provider non risponde. Revoche chiavi hanno lo stesso
+ritardo massimo. Permessi e identità verificate non sono memorizzati in cache.
 
 Stato: adapter API integrato nel Worker e testato con vere firme RSA locali.
 Non attivato, nessun account/provider nuovo creato. Le pagine attuali usano la
@@ -444,3 +449,15 @@ non significa gestione gratuita; nessun account condiviso o suddivisione fittizi
 per aggirare limiti. Documentazione primaria del protocollo:
 https://www.keycloak.org/securing-apps/oidc-layers
 Piani Access: https://www.cloudflare.com/plans/zero-trust-services/
+
+
+### Vincolo di costo e risparmio identità
+Nessun piano a pagamento o nuovo account attivato. Software di autenticazione
+open source gestito da Momentum è una possibilità, non un servizio completato.
+Non equivale a infrastruttura gratuita illimitata e non aumenta i limiti del
+piano Workers. La PWA personale resta locale; l'accesso centrale riguarda il
+percorso condiviso aziendale. Nessun dato aziendale spostato su dispositivi altrui.
+Test locale: 100 risoluzioni concorrenti della stessa chiave pubblica = 1 fetch
+invece di 100, stesso CryptoKey importato. Non significa 100x utenti: ogni
+richiesta Worker e verifica di firma continua a esistere. Cache in memoria per
+istanza, non globale, persa ai riavvii. Suite aziendale: 46 test passati.

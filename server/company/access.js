@@ -1,3 +1,4 @@
+import { publicSigningKey } from './signing-keys.js';
 // Only the configured Access issuer supplies keys. Never follow URLs in a JWT.
 const decode = value => Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 export async function accessIdentity(request, env, fetchKeys = fetch) {
@@ -21,12 +22,7 @@ export async function verifyIdentityToken(token,issuer,audience,jwksUrl,fetchKey
       !Number.isFinite(claims.exp) || claims.exp <= now ||
       (claims.nbf !== undefined && (!Number.isFinite(claims.nbf) || claims.nbf > now)) ||
       typeof claims.sub !== 'string' || !claims.sub || claims.sub.length > 255) throw new Error('Invalid identity');
-  const response = await fetchKeys(jwksUrl, { redirect: 'error', signal: AbortSignal.timeout(5000) });
-  if (!response.ok) throw new Error('Identity unavailable');
-  const jwks = await response.json();
-  const jwk = jwks.keys?.find(key => key.kid === header.kid && key.kty === 'RSA');
-  if (!jwk) throw new Error('Unknown identity key');
-  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const key = await publicSigningKey(jwksUrl,header.kid,fetchKeys);
   if (!await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, decode(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`))) throw new Error('Invalid signature');
   return claims;
 }
