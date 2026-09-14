@@ -35,3 +35,16 @@ test('company approval applies only to unchanged local data and current server r
  report.company_id='other';await assert.rejects(readCompanyReportStatus(archive,receipt,fetcher),/network/);
  await assert.rejects(readCompanyReportStatus(archive,receipt,async()=>{throw Error('offline')}),/network/);
 });
+test('batch preflight skips existing files and falls back on legacy servers',async()=>{
+ const data={trip:{id:'t',companyPolicy:{companyId:'a',version:1}},transactions:[1,2].map(i=>({id:String(i),amount:i,receiptImage:'data:image/png;base64,'+Buffer.alloc(110000,i).toString('base64')}))};
+ const fingerprint=await fingerprintTripSnapshot(tripReviewSnapshot(data.trip,data.transactions));
+ let checks=0,heads=0,puts=0,known;
+ const run=legacy=>submitCompanyReport(data,0,async(url,options={})=>{
+  if(url.endsWith('/check')){checks++;known=JSON.parse(options.body).hashes;return legacy?new Response('',{status:404}):Response.json({files:known.map(hash=>({hash,size:110000}))})}
+  if(url.includes('/attachments/')){if(options.method==='PUT')puts++;else heads++;return Response.json({hash:url.split('/').pop(),size:110000})}
+  return Response.json({reportId:'saved',revision:1,fingerprint});
+ });
+ await run(false);assert.equal(checks,1);assert.equal(heads,0);assert.equal(puts,0);
+ await run(true);assert.equal(heads,2);assert.equal(puts,0);
+ await assert.rejects(submitCompanyReport(data,0,async()=>Response.json({files:[{hash:'forged',size:110000}]})),/network/);
+});

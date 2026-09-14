@@ -334,3 +334,15 @@ test('status-only lookup avoids archive and storage while preserving revision an
  assert.equal((await call('/'+saved.reportId+'?view=status',null,'employee','0','GET')).status,403);
  }finally{sql.close()}
 });
+test('batch attachment check requires active membership and trusted origin',async()=>{
+ const {sql,env}=fixture();try{
+ const hash='a'.repeat(64);let calls=0;
+ env.COMPANY_FILES={async headMany(keys){calls++;assert.deepEqual(keys,[await attachmentKey('a','employee',hash)]);return new Map([[keys[0],{size:7}]])}};
+ const req=(origin=env.APP_ORIGIN,hashes=[hash])=>new Request(env.APP_ORIGIN+'/v1/companies/a/attachments/check',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({hashes})});
+ assert.deepEqual(await(await attachmentRequest(req(),env,'employee')).json(),{files:[{hash,size:7}]});
+ assert.equal((await attachmentRequest(req('https://evil.test'),env,'employee')).status,403);
+ assert.equal((await attachmentRequest(req(env.APP_ORIGIN,['invalid']),env,'employee')).status,400);
+ sql.exec("UPDATE memberships SET active=0 WHERE subject='employee'");
+ assert.equal((await attachmentRequest(req(),env,'employee')).status,403);assert.equal(calls,1);
+ }finally{sql.close()}
+});

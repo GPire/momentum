@@ -20,6 +20,11 @@ export function d1Files(binding){
  const db=binding.withSession?binding.withSession('first-primary'):binding;
  const check=key=>{if(!validKey(key))throw Error('Invalid object key')};
  return {
+  async headMany(keys){
+   if(!Array.isArray(keys)||keys.length>64)throw Error('Too many files');for(const key of keys)check(key);
+   const rows=await db.prepare('SELECT object_key,size FROM company_file_objects WHERE object_key IN (SELECT value FROM json_each(?))').bind(JSON.stringify(keys)).all();
+   return new Map((rows.results||[]).map(row=>[row.object_key,{size:row.size}]));
+  },
   async head(key){check(key);return db.prepare('SELECT size FROM company_file_objects WHERE object_key=?').bind(key).first()},
   async getMany(keys){
    if(!Array.isArray(keys)||keys.length>64)throw Error('Too many files');

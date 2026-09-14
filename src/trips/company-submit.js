@@ -6,11 +6,21 @@ export async function submitCompanyReport(archive, revision=0, fetcher=fetch) {
   let body=JSON.stringify(archive);
   if(new TextEncoder().encode(body).length>MANIFEST_LIMIT){
     const {envelope,blobs}=await prepareCompanyAttachments(archive);
+    let existing=null;
+    if(blobs.size>1){
+      let response;try{response=await fetcher(`/v1/companies/${encodeURIComponent(company)}/attachments/check`,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:[...blobs.keys()]}),signal:AbortSignal.timeout(20000)})}catch{throw Error('network')}
+      if(response.ok){
+        let result;try{result=await response.json()}catch{throw Error('network')}
+        if(!Array.isArray(result.files)||result.files.length>blobs.size)throw Error('network');
+        existing=new Set();for(const ref of result.files){if(!ref||!blobs.has(ref.hash)||blobs.get(ref.hash).length!==ref.size||existing.has(ref.hash))throw Error('network');existing.add(ref.hash)}
+      }else if(![404,501].includes(response.status))throw Error([401,403].includes(response.status)?'access':'network');
+    }
     for(const [hash,bytes] of blobs){
       const path=`/v1/companies/${encodeURIComponent(company)}/attachments/${hash}`;
-      let found;try{found=await fetcher(path,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)})}catch{throw new Error('network')}
+      if(existing?.has(hash))continue;
+      if(!existing){let found;try{found=await fetcher(path,{credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(20000)})}catch{throw new Error('network')}
       if(found.ok){const ref=await found.json();if(ref.hash!==hash||ref.size!==bytes.length)throw new Error('network');continue}
-      if(found.status!==404)throw new Error([401,403].includes(found.status)?'access':'network');
+      if(found.status!==404)throw new Error([401,403].includes(found.status)?'access':'network');}
       let sent;try{sent=await fetcher(path,{method:'PUT',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/octet-stream'},body:bytes,signal:AbortSignal.timeout(60000)})}catch{throw new Error('network')}
       if(!sent.ok)throw new Error([401,403].includes(sent.status)?'access':sent.status===507?'quota':sent.status===413?'large':'network');
       const ref=await sent.json();if(ref.hash!==hash||ref.size!==bytes.length)throw new Error('network');

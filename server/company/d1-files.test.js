@@ -81,3 +81,10 @@ test('incompressible data stays uncompressed without increasing stored payload',
  assert.deepEqual(new Uint8Array(await(await files.get(path)).arrayBuffer()),bytes);
  }finally{sql.close()}
 });
+test('D1 batch metadata reads use one query and do not expose another owner',async()=>{
+ const f=fixture();try{
+ const bytes=new Uint8Array([8,9]),path=await key(bytes);await f.files.put(path,bytes);
+ const before=f.queries(),found=await f.files.headMany([path,path.replace('/'+ 'a'.repeat(64)+'/', '/'+ 'b'.repeat(64)+'/')]);
+ assert.equal(f.queries()-before,1);assert.equal(found.size,1);assert.equal(found.get(path).size,2);
+ }finally{f.sql.close()}
+});

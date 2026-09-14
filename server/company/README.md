@@ -497,3 +497,23 @@ Nessuna cache dei permessi. Test su revoca, vecchia versione e accesso esterno;
 verifica disponibilità degli allegati resta nel percorso di approvazione/download.
 I piccoli invii legacy restano supportati senza storage separato; renderli tutti
 deduplicati richiede prima configurazione storage e compatibilità del deploy.
+
+### Controllo allegati raggruppato (2026-09-14)
+POST attachments/check accetta fino a 64 hash, con origine e membership verificate.
+Il driver D1 headMany legge le dimensioni in una query; non legge i file. Le chiavi
+sono derivate lato server da azienda e subject, mai accettate dal client.
+submitCompanyReport usa il batch per più file nel percorso manifest e carica
+solo i mancanti. Su 404/501 ritorna ai controlli singoli per server/driver vecchi.
+Gli altri errori non attivano fallback che aggiri i permessi. Risposte con hash
+estranei, duplicati o dimensioni errate vengono rifiutate. Il controllo non
+riserva i file: upload e invio continuano a usare lock/verifica originali.
+Risparmio fino a 63 richieste di esistenza per 64 file, non 64x capacità totale.
+Non include le richieste di upload o la validazione finale. 50 test passati.
+
+Scelte operative: tenere in Momentum deduplicazione, sincronizzazione, policy,
+autorizzazioni e UX. Riutilizzare software open source per l'autenticazione,
+non inventare protocolli crittografici. Evitare un server o un provider per ogni
+cliente senza requisito concreto. Storage autonomo su hardware già disponibile
+è una scelta da misurare includendo backup, disponibilità, aggiornamenti e
+ripristino; non è automaticamente più economico di object storage gestito.
+Nessun nuovo provider, piano a pagamento o servizio di identità attivato.

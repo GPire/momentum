@@ -1,4 +1,4 @@
-import { json } from './worker.js';
+import { json,readBody } from './worker.js';
 import { digestBytes, FILE_LIMIT, BUNDLE_LIMIT,validAttachmentRef,restoreCompanyAttachments } from '../../src/trips/company-attachments.js';
 import { attachmentKey,lockAttachment } from './attachment-lifecycle.js';
 
@@ -24,12 +24,22 @@ export async function hydrateCompanyArchive(stored,env,company,subject){
 export async function attachmentRequest(request,env,subject){
   if(!subject)return json({error:'unauthenticated'},401);
   if(!env.COMPANY_DB||!env.COMPANY_FILES)return json({error:'not_configured'},503);
-  const route=/^\/v1\/companies\/([a-zA-Z0-9_-]{1,80})\/attachments\/([a-f0-9]{64})$/.exec(new URL(request.url).pathname);
+  const route=/^\/v1\/companies\/([a-zA-Z0-9_-]{1,80})\/attachments\/([a-f0-9]{64}|check)$/.exec(new URL(request.url).pathname);
   if(!route)return json({error:'not_found'},404);
   const [,company,hash]=route;
   const db=env.COMPANY_DB.withSession?env.COMPANY_DB.withSession('first-primary'):env.COMPANY_DB;
   const member=()=>db.prepare('SELECT role FROM memberships WHERE company_id=? AND subject=? AND active=1').bind(company,subject).first();
   if(!await member())return json({error:'forbidden'},403);
+  if(hash==='check'){
+    if(request.method!=='POST')return json({error:'method_not_allowed'},405);
+    if(!env.APP_ORIGIN||request.headers.get('Origin')!==env.APP_ORIGIN||request.headers.get('Content-Type')!=='application/json')return json({error:'invalid_origin_or_type'},403);
+    if(!env.COMPANY_FILES.headMany)return json({error:'batch_not_supported'},501);
+    let body;try{body=await readBody(request,8192)}catch{return json({error:'invalid_body'},400)}
+    if(!Array.isArray(body?.hashes)||body.hashes.length>64||body.hashes.some(h=>typeof h!=='string'||! /^[a-f0-9]{64}$/.test(h)))return json({error:'invalid_hashes'},400);
+    const hashes=[...new Set(body.hashes)],keys=await Promise.all(hashes.map(h=>objectKey(company,subject,h)));
+    const found=await env.COMPANY_FILES.headMany(keys);
+    return json({files:hashes.flatMap((h,i)=>found.has(keys[i])?[{hash:h,size:found.get(keys[i]).size}]:[])});
+  }
   const key=await objectKey(company,subject,hash);
   if(request.method==='GET'){
     const object=await env.COMPANY_FILES.head(key);
