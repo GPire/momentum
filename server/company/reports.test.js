@@ -144,7 +144,7 @@ test('storage inventory paginates without dropping reservations and refuses writ
  }finally{sql.close()}
 });
 function fixture(){
- const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','report-navigation.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('a','A'),('b','B'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('b','other','owner',1)");
  sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('a',1,JSON.stringify(rules),'admin','2026-09-13');
  sql.exec("INSERT INTO company_storage_limits VALUES('a',33554432),('b',33554432)");
@@ -285,5 +285,23 @@ test('attachment uploads reject forged content, hostile origin and revoked acces
  assert.equal((await attachmentRequest(request('https://other.test'),env,'employee')).status,403);
  sql.exec("UPDATE memberships SET active=0 WHERE subject='employee'");
  assert.equal((await attachmentRequest(request(),env,'employee')).status,403);assert.equal(objects.size,0);
+ }finally{sql.close()}
+});
+
+test('indexed inbox seeks within a company or employee without a temporary sort',()=>{
+ const sql=new DatabaseSync(':memory:');try{
+ sql.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
+ sql.exec(readFileSync(new URL('./reports.sql',import.meta.url),'utf8'));
+ sql.exec(readFileSync(new URL('./report-navigation.sql',import.meta.url),'utf8'));
+ sql.exec(readFileSync(new URL('./report-navigation.sql',import.meta.url),'utf8'));
+ for(const employee of [false,true]){
+ const query=`SELECT r.id FROM reports r LEFT JOIN report_decisions d ON d.report_id=r.id
+ WHERE r.company_id=? ${employee?'AND r.submitter=?':''}
+ AND r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
+ AND d.report_id IS NULL AND (r.created_at,r.id)<(?,?) ORDER BY r.created_at DESC,r.id DESC LIMIT 31`;
+ const plan=sql.prepare('EXPLAIN QUERY PLAN '+query).all('a',...(employee?['staff']:[]),'2026-09-14','z').map(r=>r.detail).join('\n');
+ assert.match(plan,new RegExp(employee?'reports_employee_recent':'reports_company_recent'));
+ assert.doesNotMatch(plan,/USE TEMP B-TREE|SCAN r\b/);
+ }
  }finally{sql.close()}
 });

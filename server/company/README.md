@@ -396,3 +396,20 @@ possono non offrire alcun risparmio. Non promettere 2x/5x utenti sulla sola base
 compressione. Per stimare la capacità usare dimensione reale del database,
 indici, storico revisioni e carico, oltre ai byte degli allegati.
 Collaudo della compressione locale; nuova migrazione e Worker non distribuiti.
+
+### Navigazione aziendale indicizzata (2026-09-14)
+Applicare `report-navigation.sql` dopo `reports.sql`: migrazione additiva e
+ripetibile, nessuna modifica a resoconti o decisioni. Due indici servono le
+liste di azienda e dipendente ordinate per data/id. Il cursore usa il confronto
+di coppia (created_at,id); il vincolo dipendente viene omesso soltanto per i
+ruoli già autorizzati alla lettura aziendale. Valori sempre parametrizzati.
+Test di piano SQLite: ricerca indicizzata senza ordinamento temporaneo.
+Misura locale sintetica: 10.000 resoconti, 100 dipendenti, una revisione per
+trasferta, nessuna decisione, ricerca di 31 ID per dipendente; 4.800 istruzioni
+VM senza indici dedicati, 1.413 con indici (3,4x meno lavoro), stessi risultati.
+Non equivale a 3,4x utenti o richieste: storico revisioni e filtri possono
+richiedere più scansioni. Gli indici consumano spazio e aumentano il costo delle
+scritture; verificare D1 rows_read/rows_written, dimensione database e CPU del
+Worker con carichi reali prima di aumentare capacità dichiarata.
+Questa migrazione non è ancora applicata al cloud. Nessun limite contrattuale
+sulle identità viene modificato o aggirato.
