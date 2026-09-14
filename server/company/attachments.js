@@ -1,13 +1,22 @@
 import { json } from './worker.js';
-import { digestBytes, FILE_LIMIT, restoreCompanyAttachments } from '../../src/trips/company-attachments.js';
+import { digestBytes, FILE_LIMIT, BUNDLE_LIMIT,validAttachmentRef,restoreCompanyAttachments } from '../../src/trips/company-attachments.js';
 import { attachmentKey,lockAttachment } from './attachment-lifecycle.js';
 
 const objectKey=attachmentKey;
 export async function hydrateCompanyArchive(stored,env,company,subject){
   if(stored?.format!=='momentum-company-upload')return stored;
   if(!env.COMPANY_FILES)throw new Error('Attachment storage unavailable');
+  let batch=null;
+  if(env.COMPANY_FILES.getMany){
+    const transactions=stored.archive?.transactions;if(!Array.isArray(transactions))throw Error('invalid');
+    const refs=transactions.filter(t=>t?.receiptRef).map(t=>t.receiptRef);
+    if(refs.length>64||refs.some(r=>!validAttachmentRef(r))||refs.reduce((sum,r)=>sum+r.size,0)>BUNDLE_LIMIT)throw Error('invalid');
+    const keys=await Promise.all([...new Set(refs.map(r=>r.hash))].map(hash=>objectKey(company,subject,hash)));
+    batch=await env.COMPANY_FILES.getMany(keys);
+  }
   return restoreCompanyAttachments(stored,async ref=>{
-    const object=await env.COMPANY_FILES.get(await objectKey(company,subject,ref.hash));
+    const key=await objectKey(company,subject,ref.hash);
+    const object=batch?batch.get(key):await env.COMPANY_FILES.get(key);
     if(!object||object.size!==ref.size||object.size>FILE_LIMIT)throw new Error('Attachment unavailable');
     return new Uint8Array(await object.arrayBuffer());
   });

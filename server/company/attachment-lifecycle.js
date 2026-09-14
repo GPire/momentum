@@ -10,16 +10,17 @@ export async function lockAttachment(db,company,key){
  return ()=>db.prepare('DELETE FROM company_attachment_operations WHERE token=?').bind(token).run();
 }
 export async function lockArchive(db,company,subject,body){
- const releases=[];
- try{
-  if(body?.format==='momentum-company-upload'){
+ if(body?.format!=='momentum-company-upload')return async()=>{};
    if(!Array.isArray(body.archive?.transactions)||body.archive.transactions.length>10000)throw Error('invalid archive');
    const hashes=new Set(body.archive.transactions.map(t=>t?.receiptRef?.hash).filter(Boolean));
    if(hashes.size>64)throw Error('too many attachments');
-   for(const hash of hashes){if(!/^[a-f0-9]{64}$/.test(hash))throw Error('invalid hash');releases.push(await lockAttachment(db,company,await attachmentKey(company,subject,hash)))}
-  }
- }catch(error){for(const release of releases)await release();throw error}
- return async()=>{for(const release of releases)await release()};
+ const entries=[];for(const hash of hashes){if(!/^[a-f0-9]{64}$/.test(hash))throw Error('invalid hash');entries.push({key:await attachmentKey(company,subject,hash),token:crypto.randomUUID()})}
+ if(!entries.length)return async()=>{};
+ const payload=JSON.stringify(entries);
+ await db.prepare("INSERT OR IGNORE INTO company_attachment_lifecycle(company_id,object_key) SELECT ?,json_extract(value,'$.key') FROM json_each(?)").bind(company,payload).run();
+ // One guarded INSERT is atomic across the entire set: a busy file rolls it all back.
+ await db.prepare("INSERT INTO company_attachment_operations(token,company_id,object_key) SELECT json_extract(value,'$.token'),?,json_extract(value,'$.key') FROM json_each(?)").bind(company,payload).run();
+ return ()=>db.prepare("DELETE FROM company_attachment_operations WHERE token IN (SELECT json_extract(value,'$.token') FROM json_each(?))").bind(payload).run();
 }
 export async function attachmentReferenced(db,company,key){
  const [,ownerHash,hash]=key.split('/');

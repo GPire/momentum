@@ -1,4 +1,4 @@
-import { digestBytes,FILE_LIMIT } from '../../src/trips/company-attachments.js';
+import { digestBytes,FILE_LIMIT,BUNDLE_LIMIT } from '../../src/trips/company-attachments.js';
 const CHUNK=1000000;
 const validKey=key=>typeof key==='string'&&/^[-a-zA-Z0-9_]{1,80}\/[a-f0-9]{64}\/[a-f0-9]{64}$/.test(key);
 // Implements the private object operations used by the corporate service.
@@ -9,6 +9,25 @@ export function d1Files(binding){
  const check=key=>{if(!validKey(key))throw Error('Invalid object key')};
  return {
   async head(key){check(key);return db.prepare('SELECT size FROM company_file_objects WHERE object_key=?').bind(key).first()},
+  async getMany(keys){
+   if(!Array.isArray(keys)||keys.length>64)throw Error('Too many files');
+   const found=new Map();for(const key of keys)check(key);
+   const sizes=await db.prepare('SELECT size FROM company_file_objects WHERE object_key IN (SELECT value FROM json_each(?))').bind(JSON.stringify(keys)).all();
+   if((sizes.results||[]).some(r=>!Number.isSafeInteger(r.size)||r.size<1||r.size>FILE_LIMIT)||(sizes.results||[]).reduce((sum,r)=>sum+r.size,0)>BUNDLE_LIMIT)throw Error('File bundle too large');
+   // Eight keys per query; bounded by the caller's 32 MiB aggregate limit.
+   for(let i=0;i<keys.length;i+=8){
+    const rows=await db.prepare(`SELECT o.object_key,o.size,o.chunks,c.part,c.bytes FROM company_file_objects o JOIN company_file_chunks c ON c.object_key=o.object_key
+      WHERE o.object_key IN (SELECT value FROM json_each(?)) ORDER BY o.object_key,c.part`).bind(JSON.stringify(keys.slice(i,i+8))).all();
+    for(const row of rows.results||[]){let file=found.get(row.object_key);if(!file){if(row.size<1||row.size>FILE_LIMIT)throw Error('Corrupt file');file={size:row.size,chunks:row.chunks,parts:[]};found.set(row.object_key,file)}file.parts.push(row)}
+   }
+   const result=new Map();for(const [key,file]of found){
+    if(file.parts.length!==file.chunks)throw Error('Incomplete file');const bytes=new Uint8Array(file.size);let offset=0;
+    for(const [index,row]of file.parts.entries()){const chunk=new Uint8Array(row.bytes);if(row.part!==index||chunk.length!==Math.min(CHUNK,file.size-offset))throw Error('Corrupt file');bytes.set(chunk,offset);offset+=chunk.length}
+    if(offset!==file.size||await digestBytes(bytes)!==key.split('/')[2])throw Error('Corrupt file');
+    result.set(key,{size:file.size,async arrayBuffer(){return bytes.slice().buffer}});
+   }
+   return result;
+  },
   async put(key,value){
    check(key);const bytes=value instanceof Uint8Array?value:new Uint8Array(value);
    if(!bytes.length||bytes.length>FILE_LIMIT||await digestBytes(bytes)!==key.split('/')[2])throw Error('Invalid file content');
