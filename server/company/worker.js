@@ -94,10 +94,10 @@ export async function companyRequest(request, env, subject) {
   return json({ companyId: company, version: previous + 1 }, 201, { ETag: `"${previous + 1}"` });
 }
 
-export default {
+export function createCompanyWorker(resolveIdentity = companyIdentity) { return {
   async fetch(request, env) {
     let identity;
-    try { identity = await companyIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
+    try { identity = await resolveIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
     try {
       env=companyStorageEnvironment(env);
       const path = new URL(request.url).pathname;
@@ -114,4 +114,5 @@ export default {
       return await companyRequest(request, env, identity.subject);
     } catch { return json({ error: 'service_unavailable' }, 503); }
   },
-};
+}; }
+export default createCompanyWorker();
