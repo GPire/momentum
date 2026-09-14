@@ -377,3 +377,22 @@ configurazione Access e attivazione controllata del pilota. Il driver non rende
 automaticamente compatibili col Free i resoconti con 64 allegati: le attuali
 operazioni di blocco/lettura per allegato richiedono ancora riduzione o batching.
 Non usare questa alternativa come promessa di capacità enterprise gratuita.
+
+### Compressione senza perdita del pilota D1 (2026-09-14)
+Prima di distribuire il nuovo driver applicare **una volta**
+`d1-files-compression.sql`, dopo `d1-files.sql`. La migrazione aggiunge encoding
+con default identity: i file precedenti restano leggibili e non vengono riscritti.
+Non tornare al vecchio reader dopo avere scritto chunk gzip.
+I nuovi chunk da almeno 1 KiB usano gzip solo con risparmio >=10%; gli altri
+restano originali. Decompressione limitata alla dimensione attesa e SHA-256
+sui byte originali preservano integrità e fingerprint delle approvazioni.
+Nessuna ricodifica con perdita di foto, PDF o documenti firmati.
+
+Il risparmio riguarda il payload fisico, non le quote logiche di upload che
+continuano a contare i byte originali per prevenire abusi. Non cambia limiti di
+utenti/identità, CPU o richieste del provider. Test sintetici comprimibili
+superano 5x, ma non sono un benchmark di ricevute reali: JPEG/PDF già compressi
+possono non offrire alcun risparmio. Non promettere 2x/5x utenti sulla sola base
+compressione. Per stimare la capacità usare dimensione reale del database,
+indici, storico revisioni e carico, oltre ai byte degli allegati.
+Collaudo della compressione locale; nuova migrazione e Worker non distribuiti.

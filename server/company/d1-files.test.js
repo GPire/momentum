@@ -8,7 +8,7 @@ import { prepareCompanyAttachments } from '../../src/trips/company-attachments.j
 import { reportRequest } from './reports.js';
 import { lockArchive } from './attachment-lifecycle.js';
 function fixture(){
- const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('./d1-files.sql',import.meta.url),'utf8'));let failAt=-1,queries=0;
+ const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('./d1-files.sql',import.meta.url),'utf8'));sql.exec(readFileSync(new URL('./d1-files-compression.sql',import.meta.url),'utf8'));let failAt=-1,queries=0;
  const db={prepare(query){return {bind(...values){const args=values.map(x=>x instanceof ArrayBuffer?new Uint8Array(x):x);return {
   async first(){queries++;return sql.prepare(query).get(...args)||null},async all(){queries++;return {results:sql.prepare(query).all(...args)}},run(){queries++;return {meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}
  }}}},async batch(statements){sql.exec('BEGIN');try{for(const [i,s]of statements.entries()){if(i===failAt)throw Error('interrupted');s.run()}sql.exec('COMMIT')}catch(error){sql.exec('ROLLBACK');throw error}}};
@@ -38,7 +38,7 @@ test('D1 stores 8 MiB in bounded chunks, deduplicates retries and deletes atomic
  const bytes=new Uint8Array(8*1024*1024);bytes[0]=43;bytes[bytes.length-1]=99;const path=await key(bytes);
  await files.put(path,bytes);await files.put(path,bytes);
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM company_file_objects').get().n,1);
- assert.equal(sql.prepare('SELECT COUNT(*) n,MAX(length(bytes)) largest FROM company_file_chunks').get().largest,1000000);
+ assert.ok(sql.prepare('SELECT SUM(length(bytes)) stored FROM company_file_chunks').get().stored<bytes.length/5);
  assert.equal((await files.head(path)).size,bytes.length);assert.deepEqual(new Uint8Array(await(await files.get(path)).arrayBuffer()),bytes);
  await files.delete(path);assert.equal(await files.head(path),null);assert.equal(await files.get(path),null);assert.equal(sql.prepare('SELECT COUNT(*) n FROM company_file_chunks').get().n,0);
  }finally{sql.close()}
@@ -53,5 +53,31 @@ test('failed chunk batch exposes no partial object and corruption is rejected',a
 test('D1 storage requires explicit selection and never silently overrides R2',()=>{
  const {sql,db}=fixture();try{const env={COMPANY_DB:db};assert.equal(companyStorageEnvironment(env),env);assert.ok(companyStorageEnvironment({...env,COMPANY_FILES_DRIVER:'d1'}).COMPANY_FILES);
  assert.throws(()=>companyStorageEnvironment({...env,COMPANY_FILES_DRIVER:'d1',COMPANY_FILES:{}}),/one/);
+ }finally{sql.close()}
+});
+
+test('compression migration preserves legacy bytes; mixed reads and expansion bounds are safe',async()=>{
+ const {sql,files}=fixture();try{
+ const old=new Uint8Array([12,34,56]),path=await key(old);
+ sql.prepare('INSERT INTO company_file_objects VALUES(?,?,?)').run(path,old.length,1);
+ sql.prepare('INSERT INTO company_file_chunks(object_key,part,bytes) VALUES(?,?,?)').run(path,0,old);
+ const text=new TextEncoder().encode('Expense receipt: EUR 25.00, business travel. '.repeat(4000)),compressed=await key(text);
+ await files.put(compressed,text);
+ const all=await files.getMany([path,compressed]);
+ assert.deepEqual(new Uint8Array(await all.get(path).arrayBuffer()),old);
+ assert.deepEqual(new Uint8Array(await all.get(compressed).arrayBuffer()),text);
+ sql.prepare('UPDATE company_file_objects SET size=1 WHERE object_key=?').run(compressed);
+ await assert.rejects(files.get(compressed),/Corrupt/);
+ await assert.rejects(files.getMany([compressed]),/Corrupt/);
+ }finally{sql.close()}
+});
+
+test('incompressible data stays uncompressed without increasing stored payload',async()=>{
+ const {sql,files}=fixture();try{
+ const bytes=crypto.getRandomValues(new Uint8Array(32000)),path=await key(bytes);
+ await files.put(path,bytes);
+ const row=sql.prepare('SELECT encoding,length(bytes) size FROM company_file_chunks').get();
+ assert.equal(row.encoding,'identity');assert.equal(row.size,bytes.length);
+ assert.deepEqual(new Uint8Array(await(await files.get(path)).arrayBuffer()),bytes);
  }finally{sql.close()}
 });
