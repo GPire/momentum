@@ -477,3 +477,12 @@ Test locale: allegato sintetico 300 KB, riepilogo >10x più piccolo, zero lettur
 storage, download singolo = una lettura, collega non autorizzato rifiutato,
 file mancante segnalato e approvazione bloccata. Suite 46 test passati.
 Nessun login Better Auth installato; nessun deploy o test cloud di queste API.
+
+Aggiornamento UI: inbox-page ora apre view=summary, recupera il documento
+selezionato e offre Verifica tutti i documenti. Approva resta disabilitato prima
+della lettura completa; la decisione server continua a rivalidare gli allegati.
+La nota viene conservata durante la verifica. Test browser Chrome locale con
+fixture sintetica: lista, apertura riepilogo, pulsante Approva disabilitato,
+verifica completa e sblocco. Download singolo coperto dalle API, non ancora
+collaudato nel browser su dispositivi fisici. Test aziendali: 46 passati.
+Questa implementazione sostituisce la precedente nota di UI non collegata.
