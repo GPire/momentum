@@ -351,3 +351,29 @@ Cloudflare verificato in Chrome: account accessibile; R2 mostra la pagina di
 attivazione di una sottoscrizione con quota gratuita e addebiti oltre soglia.
 Attivazione lasciata in attesa della scelta dell'utente. Nessun test R2/D1/Access
 end-to-end reale dichiarato e nessun deployment del servizio aziendale eseguito.
+
+### Alternativa senza carta: pilota D1 (2026-09-14)
+Fonti ufficiali: https://www.cloudflare.com/products/d1/
+https://developers.cloudflare.com/d1/platform/limits/
+https://developers.cloudflare.com/d1/platform/pricing/
+D1 disponibile gratuitamente senza carta; quote finite. D1 Free: 500 MB/database,
+5 GB/account e 50 query per invocazione alla data della verifica. Nessuna
+attivazione R2 o modifica del piano fatturato eseguita.
+
+Nuovo driver d1-files.js, selezione esplicita COMPANY_FILES_DRIVER=d1, migrazione
+opzionale d1-files.sql. Binding COMPANY_FILES_DB o COMPANY_DB; non mescolare con
+il binding R2 COMPANY_FILES. Blocchi binari da 1.000.000 byte, fino a 8 MiB/file,
+transazione batch per scrittura/cancellazione; lettura con verifica SHA-256.
+Mantiene la stessa interfaccia privata head/get/put/delete. Non migra
+automaticamente oggetti già su un altro provider. L'inventario passa a 16 righe
+per pagina per contenere le query del piano Free.
+
+39 test locali passati su SQLite, incluso file da 8 MiB, retry, rollback di un
+batch interrotto e dati corrotti. Verifica dashboard: D1 disponibile nell'account,
+nessun database presente, form di creazione raggiungibile senza richiesta carta.
+Nessun database creato e nessun Worker aziendale distribuito in questa sessione.
+Restano collaudo del binding D1 reale, budget CPU/query con molti allegati,
+configurazione Access e attivazione controllata del pilota. Il driver non rende
+automaticamente compatibili col Free i resoconti con 64 allegati: le attuali
+operazioni di blocco/lettura per allegato richiedono ancora riduzione o batching.
+Non usare questa alternativa come promessa di capacità enterprise gratuita.

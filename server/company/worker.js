@@ -1,4 +1,5 @@
 import { accessIdentity } from './access.js';
+import { companyStorageEnvironment } from './d1-files.js';
 import { storageAuditRequest } from './storage-audit.js';
 import { storagePage } from './storage-page.js';
 import { cleanupAttachmentRequest } from './attachment-lifecycle.js';
@@ -98,6 +99,7 @@ export default {
     let identity;
     try { identity = await accessIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
     try {
+      env=companyStorageEnvironment(env);
       const path = new URL(request.url).pathname;
       if (/^\/v1\/companies\/[^/]+\/storage\/(journal|reconcile)$/.test(path)) return await attachmentRecoveryRequest(request, env, identity.subject);
       if (/^\/v1\/companies\/[^/]+\/storage\/cleanup$/.test(path)) return await cleanupAttachmentRequest(request, env, identity.subject);

@@ -9,6 +9,10 @@ workers_dev = false
 ACCESS_ISSUER = "https://YOUR-TEAM.cloudflareaccess.com"
 ACCESS_AUD = "REPLACE-WITH-ACCESS-APPLICATION-AUDIENCE"
 APP_ORIGIN = "https://REPLACE-WITH-APP-HOST"
+# Optional no-card D1 pilot: apply d1-files.sql and explicitly enable this driver.
+# Uses COMPANY_DB unless a separate COMPANY_FILES_DB binding is provided.
+# Never enable together with the COMPANY_FILES R2 binding below.
+# COMPANY_FILES_DRIVER = "d1"
 
 [[d1_databases]]
 binding = "COMPANY_DB"

@@ -16,9 +16,9 @@ export async function storageAuditRequest(request,env,subject){
   const limit=await db.prepare('SELECT limit_bytes FROM company_storage_limits WHERE company_id=?').bind(company).first();
   if(!limit)return json({error:'storage_not_configured'},503);
   const usage=await db.prepare('SELECT COALESCE(SUM(size),0) AS bytes,COUNT(*) AS objects FROM company_attachment_reservations WHERE company_id=?').bind(company).first();
-  const page=await db.prepare('SELECT object_key,size,created_at FROM company_attachment_reservations WHERE company_id=? AND object_key>? ORDER BY object_key LIMIT 26').bind(company,after).all();
+  const page=await db.prepare('SELECT object_key,size,created_at FROM company_attachment_reservations WHERE company_id=? AND object_key>? ORDER BY object_key LIMIT 17').bind(company,after).all();
   const entries=[];
-  for(const row of (page.results||[]).slice(0,25)){
+  for(const row of (page.results||[]).slice(0,16)){
     const parts=row.object_key.split('/'),hash=parts[2];
     const refs=await db.prepare(`SELECT DISTINCT r.submitter FROM reports r,json_each(r.archive,'$.archive.transactions') t
       WHERE r.company_id=? AND json_extract(r.archive,'$.format')='momentum-company-upload'
@@ -35,5 +35,5 @@ export async function storageAuditRequest(request,env,subject){
   if(!await owner())return json({error:'forbidden'},403);
   return json({companyId:company,limitBytes:limit.limit_bytes,reservedBytes:usage.bytes,reservations:usage.objects,
     availableBytes:Math.max(0,limit.limit_bytes-usage.bytes),entries,
-    nextCursor:(page.results||[]).length>25?entries.at(-1).key:null,readOnly:true});
+    nextCursor:(page.results||[]).length>16?entries.at(-1).key:null,readOnly:true});
 }

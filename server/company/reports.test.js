@@ -137,8 +137,8 @@ test('storage inventory paginates without dropping reservations and refuses writ
  sql.exec("INSERT INTO memberships VALUES('a','owner','owner',1)");env.COMPANY_FILES={async head(){return null}};
  for(let i=0;i<28;i++)sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size) VALUES(?,?,?)').run('a',`a/${'a'.repeat(64)}/${i.toString(16).padStart(64,'0')}`,1);
  const url=env.APP_ORIGIN+'/v1/companies/a/storage';
- const first=await(await storageAuditRequest(new Request(url),env,'owner')).json();assert.equal(first.entries.length,25);assert.ok(first.nextCursor);
- const second=await(await storageAuditRequest(new Request(url+'?after='+encodeURIComponent(first.nextCursor)),env,'owner')).json();assert.equal(second.entries.length,3);assert.equal(second.nextCursor,null);
+ const first=await(await storageAuditRequest(new Request(url),env,'owner')).json();assert.equal(first.entries.length,16);assert.ok(first.nextCursor);
+ const second=await(await storageAuditRequest(new Request(url+'?after='+encodeURIComponent(first.nextCursor)),env,'owner')).json();assert.equal(second.entries.length,12);assert.equal(second.nextCursor,null);
  assert.equal(new Set([...first.entries,...second.entries].map(x=>x.key)).size,28);
  assert.equal((await storageAuditRequest(new Request(url,{method:'DELETE'}),env,'owner')).status,405);
  }finally{sql.close()}
