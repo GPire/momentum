@@ -1085,3 +1085,92 @@ div:has(> .whatif-choices) { flex-wrap:wrap; }
  @keyframes workspace-drift { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-2px); } }
  @keyframes workspace-orbit { from { transform:perspective(140px) rotateX(35deg) rotateZ(-28deg); } to { transform:perspective(140px) rotateX(35deg) rotateZ(332deg); } }
 }
+
+/* P.IVA FLOW — una grammatica unica per ingresso, stima, risultato e guida.
+   La logica fiscale resta nei moduli predict; qui si riduce il carico visivo:
+   una domanda, una gerarchia e un'azione primaria alla volta. */
+.tax-flow {
+  --tax-flow-accent:var(--primary);
+  width:100%;
+  max-width:38rem;
+  min-width:0;
+  margin-inline:auto;
+  align-items:stretch!important;
+  text-align:left;
+  gap:clamp(.75rem,2.8vw,1rem)!important;
+}
+.tax-flow .tl1-icon-pulse { align-self:center; margin-inline:auto; width:60px; height:60px; border-radius:20px; }
+.tax-flow .tl1-icon-pulse svg { width:28px; height:28px; }
+.tax-flow-heading { display:grid; gap:.3rem; min-width:0; }
+.tax-flow-heading h3 { margin:0; font-size:clamp(1.15rem,4.6vw,1.45rem); line-height:1.16; letter-spacing:-.035em; text-wrap:balance; }
+.tax-flow-heading .card-sub { max-width:42ch; margin-inline:auto; line-height:1.55; }
+.tax-flow-kicker { display:block; color:var(--on-surface-secondary); font-size:.62rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+.tax-flow-choice-stack { gap:.65rem!important; }
+.tax-flow-choice { min-height:56px; padding:.9rem 1rem!important; border-radius:18px!important; border-color:var(--outline); background:color-mix(in srgb,var(--surface-elevated) 84%,transparent); color:var(--on-surface); line-height:1.35; }
+.tax-flow-choice.btn-primary { border-color:color-mix(in srgb,var(--primary) 58%,var(--outline)); }
+.tax-flow-choice:focus-visible,.tax-flow-cta:focus-visible,.tax-flow-secondary:focus-visible { outline:2px solid var(--primary); outline-offset:3px; }
+.tax-flow-choice svg { flex:none; transition:transform 220ms var(--orbit-ease),opacity 220ms ease; }
+.tax-flow-choice:hover svg { transform:translateX(2px); }
+.tax-flow-period { width:100%; max-width:22rem; margin-inline:auto; padding:.3rem!important; border-radius:16px!important; background:var(--surface-solid)!important; border-color:var(--outline)!important; }
+.tax-flow-period button { min-height:42px; border-radius:12px; font-size:.75rem; }
+.tax-flow-stepper { width:100%; max-width:30rem; margin-inline:auto; gap:.5rem!important; }
+.tax-flow-stepper .tl1-step-btn { width:50px; min-width:50px; min-height:50px; border-radius:16px; border-color:var(--outline); background:var(--surface-elevated); color:var(--on-surface); }
+.tax-flow-amount { min-height:60px; min-width:0; border-radius:18px!important; border-color:var(--outline)!important; background:var(--surface-solid)!important; color:var(--on-surface)!important; font-size:clamp(1.75rem,8vw,2.35rem)!important; line-height:1; font-variant-numeric:tabular-nums; box-shadow:inset 0 1px 0 color-mix(in srgb,var(--on-surface) 7%,transparent); }
+.tax-flow-amount:focus-visible { outline:2px solid var(--primary); outline-offset:3px; }
+.tax-flow-optional { width:100%; border-top:1px solid var(--outline); padding-top:.25rem; }
+.tax-flow-optional > summary { display:flex; align-items:center; justify-content:space-between; gap:.75rem; min-height:46px; padding:.35rem .1rem; color:var(--on-surface-secondary); font-size:.75rem; font-weight:650; line-height:1.4; cursor:pointer; list-style:none; }
+.tax-flow-optional > summary::-webkit-details-marker { display:none; }
+.tax-flow-optional > summary::after { content:'+'; color:var(--primary); font-size:1.2rem; font-weight:500; transition:transform 220ms var(--orbit-ease); }
+.tax-flow-optional[open] > summary::after { transform:rotate(45deg); }
+.tax-flow-optional > :not(summary) { min-width:0; }
+.tax-flow-cta { min-height:56px!important; border-radius:18px!important; font-size:.9rem; }
+.tax-flow-secondary { min-height:44px!important; border-radius:14px!important; }
+.tax-flow-result .tax-flow-heading { text-align:center; }
+.tax-result-summary { position:relative; overflow:hidden; padding:1.15rem!important; border-radius:22px!important; border-color:color-mix(in srgb,var(--green) 32%,var(--outline))!important; background:radial-gradient(ellipse at 100% 0,color-mix(in srgb,var(--green) 14%,transparent),transparent 62%),var(--surface-elevated)!important; }
+.tax-result-summary::after { content:''; position:absolute; inset:auto 12% 0; height:1px; background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--green) 48%,transparent),transparent); opacity:.7; }
+.tax-result-number { font-size:clamp(2.4rem,11vw,3.6rem)!important; line-height:1; letter-spacing:-.065em; font-variant-numeric:tabular-nums; }
+.tax-result-recommendation { padding:.9rem 1rem; border-left:3px solid var(--primary); border-radius:0 14px 14px 0; background:color-mix(in srgb,var(--primary) 7%,transparent); line-height:1.55!important; }
+.tax-result-warning { border-radius:16px!important; border-color:color-mix(in srgb,var(--gold) 42%,var(--outline))!important; background:color-mix(in srgb,var(--gold) 9%,var(--surface-solid))!important; line-height:1.55; }
+.tax-result-strategies { display:grid; gap:.55rem; }
+.tax-result-strategy { min-width:0; border-radius:16px!important; background:var(--surface-elevated)!important; line-height:1.55; }
+.tax-result-strategy svg { color:var(--gold); }
+.tax-result-disclaimer { max-width:48ch; text-align:center; line-height:1.5; margin-inline:auto; }
+.tax-result-kit { border-radius:18px!important; background:var(--surface-elevated)!important; }
+.tax-guide-choice { border-radius:18px!important; background:var(--surface-elevated)!important; transition:border-color 220ms var(--orbit-ease),background-color 220ms ease; }
+.tax-guide-choice > summary { min-height:62px; padding:1rem!important; }
+.tax-guide-choice > summary:focus-visible { outline:2px solid var(--primary); outline-offset:-3px; border-radius:16px; }
+.tax-flow-guide .tax-flow-expert-toggle { min-height:44px; padding:.5rem; border-radius:12px; text-underline-offset:3px; }
+.tax-flow-regime .tax-flow-heading { text-align:left; }
+.tax-flow-regime > p { max-width:48ch; line-height:1.55; }
+.tax-flow-check label { min-height:48px; align-items:center!important; border-radius:16px!important; background:var(--surface-elevated)!important; }
+.tax-flow-check label:focus-within { border-color:var(--primary); }
+#modal-content:has(.tax-flow) { width:min(100%,600px); max-width:calc(100vw - 1rem); }
+#modal-content:has(.tax-flow) #modal-body { min-width:0; overflow-y:auto; overscroll-behavior:contain; }
+@media (max-width:480px) {
+  #modal-content:has(.tax-flow) { max-width:100%; }
+  .tax-flow { padding-inline:clamp(.85rem,4vw,1.25rem)!important; }
+  .tax-flow-choice { min-height:54px; padding-inline:.85rem!important; }
+  .tax-flow-heading .card-sub { font-size:.82rem; }
+  .tax-result-summary { padding:1rem!important; }
+  .tax-result-warning,.tax-result-strategy { font-size:.72rem!important; }
+  .tax-flow-guide .tax-guide-choice > summary { padding:.85rem!important; }
+}
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+  .tax-flow-choice:hover { transform:translateY(-1px); border-color:color-mix(in srgb,var(--primary) 48%,var(--outline)); box-shadow:0 10px 24px -18px var(--primary); }
+  .tax-flow-choice,.tax-flow-cta,.tax-flow-secondary,.tax-flow-stepper .tl1-step-btn { transition:transform 180ms var(--orbit-ease),border-color 180ms ease,background-color 180ms ease,box-shadow 180ms ease; }
+}
+@media (prefers-reduced-motion:no-preference) {
+  .tax-flow > :not(.tl1-icon-pulse) { animation:tax-flow-arrive 360ms var(--orbit-ease) both; }
+  .tax-flow > :nth-child(3) { animation-delay:40ms; }
+  .tax-flow > :nth-child(4) { animation-delay:80ms; }
+  .tax-flow > :nth-child(5) { animation-delay:120ms; }
+  .tax-result-strategy { animation:tax-result-rise 300ms var(--orbit-ease) both; }
+  .tax-result-strategy:nth-child(2) { animation-delay:55ms; }
+  .tax-result-strategy:nth-child(3) { animation-delay:110ms; }
+  @keyframes tax-flow-arrive { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes tax-result-rise { from { opacity:0; transform:perspective(600px) translateY(8px) rotateX(1deg); } to { opacity:1; transform:perspective(600px) translateY(0) rotateX(0); } }
+}
+@media (prefers-reduced-motion:reduce) {
+  .tax-flow-choice svg,.tax-flow-optional > summary::after,.tax-guide-choice { transition:none; }
+  .tax-flow > :not(.tl1-icon-pulse),.tax-result-strategy { animation:none!important; }
+}

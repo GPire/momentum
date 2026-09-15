@@ -83,18 +83,81 @@ function taxOptions(input, year, atecoInfo) {
 }
 
 function syntheticMatchedTransactions(matches) {
-  return (matches || []).map((match, index) => ({
-    id: match.fattura?.number != null
-      ? `invoice-payment-${match.fattura.number}-${match.fattura.year || ''}-${index}`
-      : `invoice-payment-${index}`,
-    type: 'entrata',
-    amount: Number(match.importoIncassato),
-    date: match.incassoData,
-    // "fattura" è un segnale semantico già riconosciuto da classifyIncome;
-    // non viene mostrato né salvato come movimento dell'utente.
-    description: 'fattura incassata',
-    source: 'invoice-payment-match',
-  }));
+  return (matches || []).flatMap((match, index) => {
+    const payments = match.parziale && !match.paymentLevel && Array.isArray(match.pagamenti)
+      ? match.pagamenti
+      : [{ amount: match.importoIncassato, date: match.incassoData }];
+    return payments.map((payment, paymentIndex) => ({
+      id: match.fattura?.number != null
+        ? `invoice-payment-${match.fattura.number}-${match.fattura.year || ''}-${index}-${paymentIndex}`
+        : `invoice-payment-${index}-${paymentIndex}`,
+      type: 'entrata',
+      amount: Number(payment.amount),
+      date: payment.date,
+      // "fattura" è un segnale semantico già riconosciuto da classifyIncome;
+      // non viene mostrato né salvato come movimento dell'utente.
+      description: 'fattura incassata',
+      source: 'invoice-payment-match',
+    }));
+  });
+}
+
+function paymentMatchesForYear(match, year) {
+  const intere = (match?.incassate || [])
+    .filter((item) => item.annoIncasso === year)
+    .map((item) => ({ ...item, parziale: false }));
+  const rate = (match?.parziali || []).flatMap((item) => (item.pagamenti || [])
+    .filter((payment) => yearOf(payment.date) === year)
+    .map((payment) => ({
+      ...item,
+      parziale: true,
+      paymentLevel: true,
+      importoIncassato: Number(payment.amount),
+      incassoData: payment.date,
+      annoIncasso: year,
+    })));
+  return [...intere, ...rate];
+}
+
+function invoiceMatchesForYear(match, year) {
+  const out = [];
+  const viste = new Set();
+  const add = (item) => {
+    const invoice = item?.fattura;
+    if (!invoice || viste.has(invoice)) return;
+    viste.add(invoice);
+    out.push(item);
+  };
+  for (const item of match?.incassate || []) if (item.annoIncasso === year) add(item);
+  for (const item of match?.parziali || []) {
+    if ((item.pagamenti || []).some((payment) => yearOf(payment.date) === year)) add(item);
+  }
+  return out;
+}
+
+function buildRegimeComparison(annualizedRevenue, options, regime, year, rules) {
+  if (!annualizedRevenue || !String(regime || '').startsWith('forfettario')) return null;
+  const ceiling = Number(rules?.forfettarioCeiling);
+  if (!Number.isFinite(ceiling) || annualizedRevenue / ceiling < 0.8) return null;
+  const common = {
+    year,
+    rulesOverride: options.rulesOverride,
+    cassaPropria: options.cassaPropria,
+    altraCoperturaPrevidenziale: options.altraCoperturaPrevidenziale,
+    overrides: options.overrides,
+  };
+  const forfettario = taxSetAside(annualizedRevenue, { ...common, regime: 'forfettario' });
+  const ordinario = taxSetAside(annualizedRevenue, { ...common, regime: 'ordinario' });
+  const differenza = money(ordinario.setAside - forfettario.setAside);
+  return {
+    sogliaAttivazione: 0.8,
+    fatturatoAnnualizzato: money(annualizedRevenue),
+    forfettario: { daAccantonare: money(forfettario.setAside), netto: money(forfettario.net), aliquotaEffettiva: forfettario.effectiveRate },
+    ordinario: { daAccantonare: money(ordinario.setAside), netto: money(ordinario.net), aliquotaEffettiva: ordinario.effectiveRate },
+    differenzaOrdinarioMenoForfettario: differenza,
+    regimeConAccantonamentoMinore: ordinario.setAside < forfettario.setAside ? 'ordinario' : 'forfettario',
+    notaKey: 'regime_comparison_estimate',
+  };
 }
 
 function aggregateBreakdown(resultList) {
@@ -210,8 +273,10 @@ export function buildItalianTaxPosition(input = {}) {
   const invalidInvoiceCount = rawInvoices.length - invoices.length;
   const classification = classifyYearTransactions(yearTransactions, input);
   const transactionSource = Array.isArray(input.transactions) ? { all: input.transactions } : (input.transactions || {});
-  const match = matchInvoicePayments(invoices, transactionSource, input.matchOptions || {});
-  const matchesYear = match.incassate.filter((item) => item.annoIncasso === year);
+  const matchOptions = { allowPartialPayments: true, ...(input.matchOptions || {}) };
+  const match = matchInvoicePayments(invoices, transactionSource, matchOptions);
+  const matchesYear = invoiceMatchesForYear(match, year);
+  const matchesYearPayments = paymentMatchesForYear(match, year);
   const fatturato = accrualRevenue(invoices, year);
   const incassato = cashBasisRevenue(match, year);
   const rulesOverride = input.rulesOverride || null;
@@ -230,10 +295,10 @@ export function buildItalianTaxPosition(input = {}) {
   // vengono trasformati in reddito per magia. Senza fatture, resta il
   // percorso esistente basato sulle entrate confermate.
   const cashTax = regime
-    ? cashTaxEstimate(matchesYear, calculableYearTransactions, options, isForfettario && invoices.length > 0)
+    ? cashTaxEstimate(matchesYearPayments, calculableYearTransactions, options, isForfettario && invoices.length > 0)
     : null;
   const projectionInput = regime && isForfettario && invoices.length > 0
-    ? syntheticMatchedTransactions(matchesYear)
+    ? syntheticMatchedTransactions(matchesYearPayments)
     : calculableYearTransactions;
   const projection = regime
     ? projectAnnualTax(projectionInput, { ...options, referenceDate, basis: isForfettario && invoices.length > 0 ? 'cash' : undefined })
@@ -258,6 +323,9 @@ export function buildItalianTaxPosition(input = {}) {
     : [];
   const exposure = unpaidExposure(match, { now: referenceDate.getTime() });
   const matchedCurrentInvoices = matchesYear.filter((item) => yearOf(item.fattura?.date) === year);
+  const regimeComparison = projection
+    ? buildRegimeComparison(projection.annualizedRevenue, options, regime, year, rules)
+    : null;
   const ceiling = isForfettario && invoices.length > 0
     ? ceilingStatusByCash(incassato, fatturato, rules.forfettarioCeiling)
     : null;
@@ -338,7 +406,10 @@ export function buildItalianTaxPosition(input = {}) {
       invoicesConsidered: invoices.length,
       invalidInvoiceCount,
       matched: matchesYear.length,
-      unmatchedCurrentYear: match.nonIncassate.filter((item) => yearOf(item.fattura?.date) === year).length,
+      paymentCount: matchesYearPayments.length,
+      partial: matchesYear.filter((item) => item.parziale).length,
+      unmatchedCurrentYear: match.nonIncassate.filter((item) => yearOf(item.fattura?.date) === year).length
+        + (match.parziali || []).filter((item) => yearOf(item.fattura?.date) === year && item.residuo > item.fattura.imponibile * (match.tolleranza || 0.05)).length,
       confidence: {
         high: matchesYear.filter((item) => item.confidenza === 'alta').length,
         medium: matchesYear.filter((item) => item.confidenza === 'media').length,
@@ -351,6 +422,7 @@ export function buildItalianTaxPosition(input = {}) {
         periodClassified: periodTax,
         breakdown: aggregateBreakdown([cashTax]),
         projection,
+        comparison: regimeComparison,
         reserve,
         deadlines,
         overdue,

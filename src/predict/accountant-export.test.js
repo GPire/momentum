@@ -56,6 +56,26 @@ test('buildAccountantReport: un incasso dell’anno paga anche una fattura emess
   assert.equal(report.posizione.stato, 'needs-confirmation');
 });
 
+test('buildAccountantReport: le rate sono leggibili e il report mostra solo il residuo aperto', () => {
+  const report = buildAccountantReport(
+    [fattura(4, 'Studio Rate', 1000, '2026-03-10')],
+    { '2026-03': [
+      { ...entrata('2026-03-25', 300, 'prima rata', 'r1'), invoiceNumber: 4, invoiceYear: 2026 },
+      { ...entrata('2026-04-25', 400, 'seconda rata', 'r2'), invoiceNumber: 4, invoiceYear: 2026 },
+    ] },
+    2026,
+    'forfettario',
+    { now: new Date(Date.UTC(2026, 4, 1)) },
+  );
+  const invoiceRow = report.fatture[0];
+  assert.equal(report.incassato, 700);
+  assert.equal(invoiceRow.stato, 'parziale');
+  assert.equal(invoiceRow.importoIncassato, 700);
+  assert.equal(invoiceRow.residuo, 300);
+  assert.equal(report.fattureNonIncassate[0].imponibile, 300);
+  assert.match(renderAccountantReportHTML(report), /Parziale: 700,00/);
+});
+
 test('buildAccountantReport: entrate ambigue non confermate segnalate come anomalia, non tassate d\'ufficio', () => {
   const transactions = { '2026-04': [{ id: 'x', type: 'entrata', date: '2026-04-01', amount: 800, description: 'bonifico ricevuto', category: 'stipendio' }] };
   const report = buildAccountantReport([], transactions, 2026, 'forfettario');

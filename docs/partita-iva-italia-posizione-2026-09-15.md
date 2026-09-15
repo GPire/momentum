@@ -27,6 +27,21 @@ La funzione restituisce anche `status`, `confidence`, `missingInputs`,
 metadati adatti alla UI multilingue: le frasi possono essere tradotte nel
 percorso attivo senza mettere testo italiano dentro il contratto dati.
 
+Quando la fonte porta un riferimento esplicito (`invoiceNumber`/`fatturaNumero`
+o `invoiceId`), l'abbinamento riceve un segnale forte oltre all'importo. Il
+percorso applicativo abilita anche le rate con una guardia conservativa: più
+pagamenti vengono uniti solo con quel riferimento oppure quando esiste una
+sola fattura aperta per quel cliente e il nome del cliente compare nel
+movimento. Ogni rata conserva data, importo e confidenza; il residuo entra
+nell'esposizione aperta e solo il pagamento dell'anno entra nella cassa di
+quell'anno. Un pagamento ambiguo resta da verificare.
+
+Se la proiezione annualizzata raggiunge almeno l'80% del tetto, `estimate.comparison`
+espone il confronto strutturato tra accantonamento e netto dei due regimi,
+riusando `taxSetAside` e riportando la soglia che ha attivato il confronto. È
+un supporto decisionale dichiarato come stima, non un passaggio automatico di
+regime.
+
 ## Collegamento nell'app
 
 `main.js` usa `buildItalianTaxPosition` per la proiezione della card fiscale e
@@ -80,7 +95,9 @@ attivato da questa revisione.
 
 ## Verifica
 
-`src/predict/tax-position.test.js` copre fatturato/incassato, incasso di una
-fattura dell'anno precedente, tetto misurato sugli incassi, fatture aperte,
-input malformati e propagazione delle regole. La suite mirata fiscale e il
-registro comune passano senza modificare i test esistenti.
+`src/predict/tax-cash-basis.test.js` copre riferimenti espliciti, rate,
+residui e protezione dall'aggregazione ambigua. `src/predict/tax-position.test.js`
+copre anche la posizione con rate e il confronto strutturato tra regimi;
+`src/predict/accountant-export.test.js` verifica che le rate siano leggibili
+nel report e che l'esposizione mostri solo il residuo. La suite fiscale mirata
+e il registro comune passano senza modificare i test esistenti.

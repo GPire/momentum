@@ -53,6 +53,16 @@ function invoiceYear(invoice) {
   return Number.isInteger(y) ? y : null;
 }
 
+function paymentMatchesForYear(matched, year) {
+  const intere = (matched?.incassate || [])
+    .filter(m => m.annoIncasso === year)
+    .map(m => ({ ...m, parziale: false }));
+  const rate = (matched?.parziali || []).flatMap(m => (m.pagamenti || [])
+    .filter(p => invoiceYear({ date: p.date }) === year)
+    .map(p => ({ ...m, parziale: true, importoIncassato: Number(p.amount), incassoData: p.date, annoIncasso: year })));
+  return [...intere, ...rate];
+}
+
 // Assembla il report per un anno: SOLO calcoli già esistenti nel progetto
 // (nessuna seconda formula), messi in un unico posto leggibile. `opts`:
 // { transactions (tutte, per mese), taxPayments, learned, model, rulesOverride }.
@@ -70,12 +80,15 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
   // December can be paid in January: the cash basis for the requested year
   // must see that payment even though the visible invoice list stays scoped
   // to `year`.
-  const matched = matchInvoicePayments(allInvoices, allTx, opts.matchOptions || {});
+  const matchOptions = { allowPartialPayments: true, ...(opts.matchOptions || {}) };
+  const matched = matchInvoicePayments(allInvoices, allTx, matchOptions);
   const fatturato = accrualRevenue(invoicesYear, year);
   const incassato = cashBasisRevenue(matched, year);
   const matchedCurrent = {
     incassate: matched.incassate.filter(m => invoiceYear(m.fattura) === year),
+    parziali: (matched.parziali || []).filter(m => invoiceYear(m.fattura) === year),
     nonIncassate: matched.nonIncassate.filter(m => invoiceYear(m.fattura) === year),
+    tolleranza: matched.tolleranza,
   };
   const esposizione = unpaidExposure(matchedCurrent, { now: now.getTime() });
 
@@ -108,7 +121,7 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
     rulesOverride: opts.rulesOverride,
     overrides: opts.overrides,
     taxUncertain: opts.taxUncertain === true,
-    matchOptions: opts.matchOptions,
+    matchOptions,
   });
   // For the cash regime, a matched bank payment is stronger evidence than
   // the invoice description. Reuse the position's already calculated period
@@ -118,8 +131,7 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
   const accantonamento = usesCashMatches
     ? posizione.estimate.period
     : taxSetAsideForPeriod(flatTx, taxOptions);
-  const matchedYearTransactions = matched.incassate
-    .filter(m => m.annoIncasso === year)
+  const matchedYearTransactions = paymentMatchesForYear(matched, year)
     .map((m, index) => ({
       id: `invoice-payment-${m.fattura?.number ?? index}-${m.fattura?.year ?? ''}-${index}`,
       type: 'entrata', amount: m.importoIncassato, date: m.incassoData,
@@ -142,12 +154,18 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
   const fattureRiepilogo = invoicesYear.map(f => {
     const inc = matched.incassate.find(m => m.fattura === f
       || (m.fattura?.number === f.number && invoiceYear(m.fattura) === invoiceYear(f)));
+    const parziale = (matched.parziali || []).find(m => m.fattura === f
+      || (m.fattura?.number === f.number && invoiceYear(m.fattura) === invoiceYear(f)));
+    const importoIncassato = inc?.importoIncassato ?? parziale?.importoIncassato ?? 0;
+    const stato = inc || parziale?.completa ? 'incassata' : parziale ? 'parziale' : 'non incassata';
     return {
       numero: f.number, anno: f.year, data: f.date, cliente: f.client, imponibile: f.imponibile,
       descrizione: f.description || '',
-      stato: inc ? 'incassata' : 'non incassata',
-      dataIncasso: inc?.incassoData || null,
-      confidenzaIncasso: inc?.confidenza || null,
+      stato,
+      importoIncassato: importoIncassato ? +importoIncassato.toFixed(2) : 0,
+      residuo: parziale ? parziale.residuo : 0,
+      dataIncasso: inc?.incassoData || parziale?.incassoData || null,
+      confidenzaIncasso: inc?.confidenza || parziale?.confidenza || null,
     };
   }).sort((a, b) => new Date(a.data) - new Date(b.data));
 
@@ -201,7 +219,11 @@ export function renderAccountantReportHTML(report, meta = {}) {
   const righeFatture = report.fatture.map(f => `<tr>
     <td>${esc(f.numero)}/${esc(f.anno)}</td><td>${esc(f.data)}</td><td>${esc(f.cliente)}</td>
     <td class="r">${eur(f.imponibile)}</td>
-    <td>${f.stato === 'incassata' ? `Incassata ${esc(f.dataIncasso || '')}${f.confidenzaIncasso === 'media' ? ' (da confermare)' : ''}` : 'Non incassata'}</td>
+    <td>${f.stato === 'incassata'
+      ? `Incassata ${esc(f.dataIncasso || '')}${f.confidenzaIncasso === 'media' ? ' (da confermare)' : ''}`
+      : f.stato === 'parziale'
+        ? `Parziale: ${eur(f.importoIncassato)} · residuo ${eur(f.residuo)}`
+        : 'Non incassata'}</td>
   </tr>`).join('');
   const righeScadenze = report.scadenze.map(s => `<tr><td>${esc(s.nome)}</td><td>${esc(s.data)}</td><td class="r">${eur(s.importo)}</td><td>tra ${esc(s.giorniMancanti)} giorni</td></tr>`).join('');
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Riepilogo ${esc(meta.emitter || '')} — ${esc(report.anno)}</title>

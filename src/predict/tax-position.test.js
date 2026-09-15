@@ -96,6 +96,43 @@ test('posizione IT: importi numerici arrivati come stringhe vengono normalizzati
   assert.doesNotMatch(JSON.stringify(result), /NaN|Infinity/);
 });
 
+test('posizione IT: le rate collegate alla fattura entrano nella cassa e mostrano il residuo', () => {
+  const result = buildItalianTaxPosition({
+    invoices: [invoice(3, 'Studio Rate', 1000, '2026-03-10')],
+    transactions: { '2026-03': [
+      { type: 'entrata', amount: 300, date: '2026-03-25', invoiceNumber: 3, invoiceYear: 2026 },
+      { type: 'entrata', amount: 400, date: '2026-04-25', invoiceNumber: 3, invoiceYear: 2026 },
+    ] },
+    regime: 'forfettario',
+    ateco: 'professionisti',
+    forfettarioAnswers: { residente: true },
+    now: new Date('2026-05-01T12:00:00Z'),
+  });
+
+  assert.equal(result.cashBasis.incassato, 700);
+  assert.equal(result.matching.matched, 1);
+  assert.equal(result.matching.partial, 1);
+  assert.equal(result.matching.paymentCount, 2);
+  assert.equal(result.cashBasis.unpaid.totale, 300);
+  assert.equal(result.estimate.period.incassato, 700);
+});
+
+test('posizione IT: vicino al tetto espone il confronto tra regimi già usati dal motore', () => {
+  const result = buildItalianTaxPosition({
+    transactions: { '2026-01': [{ type: 'entrata', amount: 70000, date: '2026-01-31', description: 'fattura consulenza' }] },
+    regime: 'forfettario',
+    ateco: 'professionisti',
+    forfettarioAnswers: { residente: true },
+    now: new Date('2026-01-31T12:00:00Z'),
+  });
+
+  assert.ok(result.estimate.comparison, 'il confronto compare solo quando la proiezione supera l’80% del tetto');
+  assert.equal(result.estimate.comparison.sogliaAttivazione, 0.8);
+  assert.ok(result.estimate.comparison.forfettario.daAccantonare > 0);
+  assert.ok(result.estimate.comparison.ordinario.daAccantonare > 0);
+  assert.match(result.estimate.comparison.notaKey, /estimate/);
+});
+
 test('projectAnnualTax: anno, ATECO/cassa e regole aggiornate arrivano davvero al calcolo', () => {
   const rulesOverride = {
     version: '2027-01',

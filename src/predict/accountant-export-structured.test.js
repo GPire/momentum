@@ -49,6 +49,20 @@ test('accountantReportToCsv (IT): un campo con virgola viene quotato, non spezza
   assert.match(csv, /"Alfa, Beta e Gamma Srl"/);
 });
 
+test('accountantReportToCsv (IT): una rata conserva importo incassato e residuo', () => {
+  const report = buildAccountantReport(
+    [fattura(4, 'Studio Rate', 1000, '2026-03-10')],
+    { '2026-03': [
+      { ...entrata('2026-03-25', 300, 'prima rata', 'r1'), invoiceNumber: 4, invoiceYear: 2026 },
+      { ...entrata('2026-04-25', 400, 'seconda rata', 'r2'), invoiceNumber: 4, invoiceYear: 2026 },
+    ] },
+    2026, 'forfettario', { now: new Date(Date.UTC(2026, 4, 1)) },
+  );
+  const csv = accountantReportToCsv(report, {});
+  assert.match(csv, /Importo incassato,Residuo/);
+  assert.match(csv, /parziale,700,300/);
+});
+
 test('accountantReportToCsv (IT): anno vuoto -> intestazioni presenti ma nessuna riga fattura, mai un crash', () => {
   const report = buildAccountantReport([], {}, 2026, 'forfettario');
   const csv = accountantReportToCsv(report, {});

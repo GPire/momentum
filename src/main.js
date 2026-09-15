@@ -5234,7 +5234,9 @@ function renderTaxCashBlocks(proj, regime, taxPosition = null) {
     // 1 + 2: servono le fatture emesse. Senza, questi blocchi non hanno
     // materia — e non si inventa nulla.
     if (invoices.length) {
-      const matched = matchInvoicePayments(invoices, VaultDAO.state.transactions || {});
+      // Le rate vengono collegate solo con segnali verificabili (riferimento
+      // fattura o cliente non ambiguo), come nella posizione fiscale unica.
+      const matched = matchInvoicePayments(invoices, VaultDAO.state.transactions || {}, { allowPartialPayments: true });
       if (regime && String(regime).startsWith('forfettario')) {
         const tetto = rulesForYear(anno).forfettarioCeiling;
         const stato = ceilingStatusByCash(cashBasisRevenue(matched, anno), accrualRevenue(invoices, anno), tetto);
@@ -5581,9 +5583,9 @@ window.exportAccountantReportEsCsv = async (formato) => {
 window.openRegistraAcquistoIva = () => {
   const oggi = new Date().toISOString().slice(0, 10);
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-purchase flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/><path d="M9 9h1M14 9h1M9 13h1M14 13h1"/>', '--primary')}
-      <div>
+      <div class="tax-flow-heading">
         <h3 class="text-lg font-black leading-tight">Registra un acquisto</h3>
         <p class="card-sub !mb-0 mt-1.5">Una spesa con fattura e IVA detraibile (materiali, strumenti, servizi) riduce davvero l'IVA da versare — non solo un promemoria.</p>
       </div>
@@ -6993,18 +6995,19 @@ window.openTaxDiscover = () => {
 };
 window.openTaxLevel1 = () => {
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-start flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1z"/><path d="M9 7V5h6v2"/>')}
-      <div>
+      <div class="tax-flow-heading">
+        <span class="tax-flow-kicker">Momentum · primo passo</span>
         <h3 class="text-lg font-black leading-tight">Partita IVA</h3>
         <p class="card-sub !mb-0 mt-1.5">Una domanda per volta — dimmi solo questo, il resto lo capisco io.</p>
       </div>
-      <div class="w-full flex flex-col gap-2.5">
-        <button onclick="window.closeModal(); window.openTaxRegimePicker();" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl justify-between">
+      <div class="tax-flow-choice-stack w-full flex flex-col gap-2.5">
+        <button onclick="window.closeModal(); window.openTaxRegimePicker();" class="tax-flow-choice btn-action btn-primary w-full py-3.5 font-bold rounded-xl justify-between">
           <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Sì, ce l'ho già</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
         </button>
-        <button onclick="window.openTaxLevel1Simulate()" class="btn-action w-full py-3.5 font-bold rounded-xl justify-between">
+        <button onclick="window.openTaxLevel1Simulate()" class="tax-flow-choice btn-action w-full py-3.5 font-bold rounded-xl justify-between">
           <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Non ancora, la sto valutando</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
         </button>
@@ -7016,10 +7019,11 @@ window.openTaxLevel1 = () => {
 // cassa) chiesta qui — sarebbe gergo proprio a chi ancora non sa cosa sia.
 window.openTaxLevel1Simulate = () => {
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-input flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', '--gold')}
       ${tl1Dots(1)}
-      <div>
+      <div class="tax-flow-heading">
+        <span class="tax-flow-kicker">Momentum · stima rapida</span>
         <h3 class="text-lg font-black leading-tight">Se aprissi la Partita IVA…</h3>
         <p class="card-sub !mb-0 mt-1.5">Quanto pensi di fatturare? Anche una stima approssimativa va bene.</p>
       </div>
@@ -7028,22 +7032,22 @@ window.openTaxLevel1Simulate = () => {
            moltiplicazione a mente è attrito puro. Il numero sotto resta
            sempre annuale per il calcolo, il testo del bottone dice cosa sta
            per convertire, mai un cambio silenzioso. -->
-      <div class="flex gap-1.5 p-1 rounded-full bg-black/30 border border-[var(--glass-border)]">
+      <div class="tax-flow-period flex gap-1.5 p-1 rounded-full bg-black/30 border border-[var(--glass-border)]">
         <button type="button" id="tl1-periodo-anno" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all bg-[var(--primary)] text-white">All'anno</button>
         <button type="button" id="tl1-periodo-mese" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all text-[var(--on-surface-secondary)]">Al mese</button>
       </div>
       <!-- Stepper +/- disegnato apposta invece delle frecce native del
            browser (grigie, cambiano forma per OS, mai in stile con l'app). -->
-      <div class="w-full flex items-center gap-2">
+      <div class="tax-flow-stepper w-full flex items-center gap-2">
         <button type="button" id="tl1-step-down" aria-label="Diminuisci" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
-        <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" name="tl1-amount" />
+        <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="tax-flow-amount w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" name="tl1-amount" />
         <button type="button" id="tl1-step-up" aria-label="Aumenta" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
       <!-- Facoltativo: il coefficiente cambia molto il risultato per chi fa
            commercio invece di consulenza, ma chiederlo come domanda obbligata
            sarebbe gergo per chi sta ancora decidendo — resta un dettaglio
            apribile, mai un campo che blocca il passo successivo. -->
-      <details class="w-full text-left">
+      <details class="tax-flow-optional w-full text-left">
         <summary class="cursor-pointer text-[11px] text-[var(--on-surface-secondary)] underline">Cosa farai, di preciso? (facoltativo, cambia la stima)</summary>
         <!-- Non "cerca il tuo codice ATECO" (gergo), ma "descrivi il lavoro"
              — la ricerca trova lei il codice, l'utente non deve saperlo a
@@ -7075,7 +7079,7 @@ window.openTaxLevel1Simulate = () => {
           Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria) — INPS al 24% invece di 26,07%
         </label>
       </details>
-      <button id="tl1-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
+      <button id="tl1-go" class="tax-flow-cta btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
       <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Torna indietro</button>
     </div>`);
   const input = document.getElementById('tl1-amount');
@@ -7179,32 +7183,32 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
   // fatto certo — l'eleggibilità reale dipende dalla storia dell'utente, che
   // Momentum non conosce.
   const strategieHTML = s.strategie.length ? `
-    <div class="w-full text-left">
+    <div class="tax-result-strategies w-full text-left">
       <div class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wide mb-1.5">Strategie da valutare</div>
       <div class="flex flex-col gap-2">
-        ${s.strategie.map(t => `<div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[11px] text-[var(--on-surface-secondary)] flex items-start gap-2">
+        ${s.strategie.map(t => `<div class="tax-result-strategy rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[11px] text-[var(--on-surface-secondary)] flex items-start gap-2">
           <svg class="w-4 h-4 shrink-0 mt-0.5 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${TL1_STRATEGY_ICONS[t.icon] || TL1_STRATEGY_ICONS.timing}</svg>
           <span>${t.testo}</span>
         </div>`).join('')}
       </div>
     </div>` : '';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-result flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', '--gold')}
       ${tl1Dots(2)}
-      <h3 class="text-base font-black leading-tight">Con ~${Math.round(fatturato).toLocaleString('it-IT')}€/anno${s.atecoLabel ? ` <span class="font-normal text-[var(--on-surface-secondary)] text-xs">(${s.atecoLabel.split('(')[0].trim()})</span>` : ''}</h3>
-      <div class="w-full rounded-2xl border border-[var(--glass-border)] bg-[color-mix(in_srgb,#10b981_8%,var(--surface-elevated))] p-4">
+      <h3 class="tax-flow-heading text-base font-black leading-tight">Con ~${Math.round(fatturato).toLocaleString('it-IT')}€/anno${s.atecoLabel ? ` <span class="font-normal text-[var(--on-surface-secondary)] text-xs">(${s.atecoLabel.split('(')[0].trim()})</span>` : ''}</h3>
+      <div class="tax-result-summary w-full rounded-2xl border border-[var(--glass-border)] bg-[color-mix(in_srgb,#10b981_8%,var(--surface-elevated))] p-4">
         <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Ti resterebbero circa</div>
-        <div id="tl1-result-number" class="text-4xl font-black text-emerald-400 my-1">${Math.round(s.netMensile).toLocaleString('it-IT')}€<span class="text-sm font-bold text-[var(--on-surface-secondary)]">/mese</span></div>
+        <div id="tl1-result-number" class="tax-result-number text-4xl font-black text-emerald-400 my-1">${Math.round(s.netMensile).toLocaleString('it-IT')}€<span class="text-sm font-bold text-[var(--on-surface-secondary)]">/mese</span></div>
         <div class="text-[11px] text-[var(--on-surface-secondary)]">${Math.round(s.netAnnuo).toLocaleString('it-IT')}€/anno, dopo tasse e contributi</div>
       </div>
-      <div class="text-xs text-[var(--on-surface-secondary)] text-left w-full">Regime consigliato: <b class="text-[var(--on-surface)]">${s.regimeLabel}</b>. ${s.suggestion.reason}</div>
-      <div class="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-200 text-left flex items-start gap-2">
+      <div class="tax-result-recommendation text-xs text-[var(--on-surface-secondary)] text-left w-full">Regime consigliato: <b class="text-[var(--on-surface)]">${s.regimeLabel}</b>. ${s.suggestion.reason}</div>
+      <div class="tax-result-warning w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-200 text-left flex items-start gap-2">
         <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
         <span>${s.primoAnnoNote}</span>
       </div>
       ${strategieHTML}
-      <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Stima, non consulenza fiscale: verifica sempre col commercialista prima di aprire la Partita IVA.</div>
+      <div class="tax-result-disclaimer text-[10px] text-[var(--on-surface-secondary)] opacity-70">Stima, non consulenza fiscale: verifica sempre col commercialista prima di aprire la Partita IVA.</div>
       <button onclick="window.openTaxLevel1HowToOpen()" class="btn-action w-full py-3.5 font-bold rounded-xl justify-between">
         <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>Ok, come si apre davvero?</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
@@ -7260,7 +7264,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
   const ateco = atecoArg || last?.ateco || 'professionisti';
   const consigliaImpresa = TL1_IMPRESA_ATECO.has(ateco);
   const kitHTML = last ? `
-      <div id="tl1-kit" class="w-full text-left rounded-2xl border border-[var(--glass-border)] bg-black/20 p-3.5">
+      <div id="tl1-kit" class="tax-result-kit w-full text-left rounded-2xl border border-[var(--glass-border)] bg-black/20 p-3.5">
         <div class="flex items-center justify-between gap-2 mb-2">
           <div class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wide">Il tuo riepilogo, pronto da incollare</div>
         </div>
@@ -7271,9 +7275,10 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
         </button>
       </div>` : '';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-guide flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M9 12l2 2 4-4M7.8 3.6a9 9 0 1 1-4.2 4.2"/>', '--primary')}
-      <div>
+      <div class="tax-flow-heading">
+        <span class="tax-flow-kicker">Momentum · percorso guidato</span>
         <h3 class="text-lg font-black leading-tight">Come si apre, davvero</h3>
         <p class="card-sub !mb-0 mt-1.5">Due strade diverse, in base a cosa farai. Scegli la tua — Momentum ti indica quella esatta, tu premi invio dalla tua PEC o firma digitale.</p>
       </div>
@@ -7282,9 +7287,9 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
            contenuto per entrambi, ma i riferimenti normativi restano un
            dettaglio apribile, mai il default che intimidisce chi non è del
            mestiere. -->
-      <button type="button" id="tl1-expert-toggle" class="text-[10px] font-bold text-[var(--on-surface-secondary)] underline self-end -mt-2">Sei del mestiere? Mostra i riferimenti normativi</button>
+      <button type="button" id="tl1-expert-toggle" class="tax-flow-expert-toggle text-[10px] font-bold text-[var(--on-surface-secondary)] underline self-end -mt-2">Sei del mestiere? Mostra i riferimenti normativi</button>
       <div class="w-full flex flex-col gap-2.5">
-        <details class="w-full text-left rounded-2xl border ${!consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${!consigliaImpresa ? 'open' : ''}>
+        <details class="tax-guide-choice w-full text-left rounded-2xl border ${!consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${!consigliaImpresa ? 'open' : ''}>
           <summary class="cursor-pointer list-none p-3.5 flex items-center gap-3">
             <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[color-mix(in_srgb,var(--primary)_16%,transparent)]">
               <svg class="w-4.5 h-4.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1z"/><path d="M9 7V5h6v2"/></svg>
@@ -7309,7 +7314,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
             <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: obbligo di dichiarazione di inizio attività IVA — art. 35, DPR 633/1972.</div>
           </div>
         </details>
-        <details class="w-full text-left rounded-2xl border ${consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${consigliaImpresa ? 'open' : ''}>
+        <details class="tax-guide-choice w-full text-left rounded-2xl border ${consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${consigliaImpresa ? 'open' : ''}>
           <summary class="cursor-pointer list-none p-3.5 flex items-center gap-3">
             <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[color-mix(in_srgb,var(--primary)_16%,transparent)]">
               <svg class="w-4.5 h-4.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
@@ -7382,17 +7387,20 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
 window.openTaxRegimePicker = () => {
   const cur = VaultDAO.state.taxRegime;
   window.openModal(`
-    <div class="p-1">
-      <h3 class="text-lg font-black mb-1">Regime fiscale</h3>
+    <div class="tax-flow tax-flow-regime p-1">
+      <div class="tax-flow-heading">
+        <span class="tax-flow-kicker">Momentum · configurazione</span>
+        <h3 class="text-lg font-black mb-1">Regime fiscale</h3>
+      </div>
       <p class="text-xs text-[var(--on-surface-secondary)] mb-4">Scegli il tuo: cambia come calcolo imposta e contributi. Puoi modificarlo quando vuoi.</p>
-      <div class="space-y-2">
+      <div class="tax-flow-choice-stack space-y-2">
         ${Object.entries(REGIMI).map(([k, v]) => `
-          <button onclick="window.setTaxRegime('${k}'); window.closeModal();" class="btn-action w-full justify-between ${k === cur ? 'border-[var(--primary)]' : ''}">
+          <button onclick="window.setTaxRegime('${k}'); window.closeModal();" class="tax-flow-choice btn-action w-full justify-between ${k === cur ? 'border-[var(--primary)]' : ''}">
             <span class="text-left">${v.label}${k === cur ? ' · attivo' : ''}</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
           </button>`).join('')}
       </div>
-      <button onclick="window.closeModal()" class="btn-action w-full justify-center mt-4 text-[var(--on-surface-secondary)]">Chiudi</button>
+      <button onclick="window.closeModal()" class="tax-flow-secondary btn-action w-full justify-center mt-4 text-[var(--on-surface-secondary)]">Chiudi</button>
     </div>`);
 };
 
@@ -7410,8 +7418,9 @@ window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.
 window.openVerificaEsclusioneForfettario = () => {
   const cause = Object.entries(CAUSE_ESCLUSIONE_FORFETTARIO);
   window.openModal(`
-    <div class="flex flex-col gap-3 p-1 text-left">
-      <div class="text-center mb-1">
+    <div class="tax-flow tax-flow-check flex flex-col gap-3 p-1 text-left">
+      <div class="tax-flow-heading text-center mb-1">
+        <span class="tax-flow-kicker">Momentum · controllo guidato</span>
         <h3 class="text-lg font-black leading-tight">${tCh('esclForfTitle', __uiLang)}</h3>
         <p class="text-xs text-[var(--on-surface-secondary)] mt-1">${tCh('esclForfSub', __uiLang)}</p>
       </div>
@@ -7422,7 +7431,7 @@ window.openVerificaEsclusioneForfettario = () => {
             <span class="text-[12px] leading-snug text-[var(--on-surface)]">${escapeHtml(c.label)}</span>
           </label>`).join('')}
       </div>
-      <button onclick="window.verificaEsclusioneForfettarioSubmit()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl mt-1">${tCh('esclForfCheckBtn', __uiLang)}</button>
+      <button onclick="window.verificaEsclusioneForfettarioSubmit()" class="tax-flow-cta btn-action btn-primary w-full py-3.5 font-bold rounded-xl mt-1">${tCh('esclForfCheckBtn', __uiLang)}</button>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('esclForfDisclaimer', __uiLang)}</p>
     </div>`);
 };
@@ -7434,21 +7443,21 @@ window.verificaEsclusioneForfettarioSubmit = () => {
   }
   const { escluso, cause } = verificaEsclusioneForfettario(risposte);
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-check-result flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${escluso
         ? tl1Icon('<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>', '--red')
         : tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/>', '--green')}
-      <div>
+      <div class="tax-flow-heading">
         <h3 class="text-lg font-black leading-tight">${escluso ? tCh('esclForfResultBadTitle', __uiLang) : tCh('esclForfResultOkTitle', __uiLang)}</h3>
         <p class="card-sub !mb-0 mt-1.5">${escluso ? tCh('esclForfResultBadSub', __uiLang) : tCh('esclForfResultOkSub', __uiLang)}</p>
       </div>
-      ${escluso ? `<div class="w-full flex flex-col gap-2 text-left">
+      ${escluso ? `<div class="tax-result-strategies w-full flex flex-col gap-2 text-left">
         ${cause.map((c) => `<div class="rounded-xl border border-red-400/40 bg-red-400/5 p-3">
           <div class="text-[12px] font-black text-red-300 leading-snug">${escapeHtml(c.label)}</div>
           <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(c.fonte)}</div>
         </div>`).join('')}
       </div>` : ''}
-      <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esclForfCloseBtn', __uiLang)}</button>
+      <button onclick="window.closeModal()" class="tax-flow-cta btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esclForfCloseBtn', __uiLang)}</button>
     </div>`);
 };
 // "Sono dipendente, non mi serve": rispetta la scelta e smette di chiedere,

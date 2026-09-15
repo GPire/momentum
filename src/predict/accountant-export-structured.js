@@ -72,8 +72,8 @@ function csvIt(report, meta) {
       ['Anno regole applicato', report.posizione.regole?.appliedYear ?? ''],
     ]);
   }
-  out += csvSection('Fatture', ['Numero', 'Anno', 'Data', 'Cliente', 'Imponibile', 'Stato', 'Data incasso', 'Confidenza incasso'],
-    report.fatture.map(f => [f.numero, f.anno, f.data, f.cliente, f.imponibile, f.stato, f.dataIncasso || '', f.confidenzaIncasso || '']));
+  out += csvSection('Fatture', ['Numero', 'Anno', 'Data', 'Cliente', 'Imponibile', 'Stato', 'Importo incassato', 'Residuo', 'Data incasso', 'Confidenza incasso'],
+    report.fatture.map(f => [f.numero, f.anno, f.data, f.cliente, f.imponibile, f.stato, f.importoIncassato ?? '', f.residuo ?? '', f.dataIncasso || '', f.confidenzaIncasso || '']));
   if (report.accantonamento.scomposizione.length) {
     out += csvSection('Composizione accantonamento', ['Voce', 'Importo (EUR)'],
       report.accantonamento.scomposizione.map(v => [v.voce, v.importo]));

@@ -60,6 +60,46 @@ test('piccole differenze (bollo, arrotondamenti) restano abbinate entro la tolle
   assert.equal(m.incassate.length, 1);
 });
 
+test('riferimento fattura esplicito: vince sul solo importo e alza la confidenza', () => {
+  const invoices = [fattura(12, 'Studio Rossi', 1000, '2026-03-10')];
+  const allTx = { '2026-03': [
+    { ...entrata('2026-03-25', 1000, 'bonifico ricevuto', 'a'), invoiceNumber: 12, invoiceYear: 2026 },
+  ] };
+  const m = matchInvoicePayments(invoices, allTx);
+  assert.equal(m.incassate.length, 1);
+  assert.equal(m.incassate[0].confidenza, 'alta');
+  assert.deepEqual(m.incassate[0].segnali, ['importo', 'riferimento-fattura']);
+});
+
+test('rate con riferimento esplicito: somma i pagamenti, conserva il residuo e non doppia la cassa', () => {
+  const invoices = [fattura(7, 'Studio Rossi', 1000, '2026-03-10')];
+  const allTx = { '2026-03': [
+    { ...entrata('2026-03-25', 300, 'prima rata', 'a'), invoiceNumber: 7, invoiceYear: 2026 },
+    { ...entrata('2026-04-25', 400, 'seconda rata', 'b'), invoiceNumber: 7, invoiceYear: 2026 },
+  ] };
+  const m = matchInvoicePayments(invoices, allTx, { allowPartialPayments: true });
+  assert.equal(m.incassate.length, 0);
+  assert.equal(m.parziali.length, 1);
+  assert.equal(m.parziali[0].importoIncassato, 700);
+  assert.equal(m.parziali[0].residuo, 300);
+  assert.equal(m.parziali[0].confidenza, 'alta');
+  assert.equal(cashBasisRevenue(m, 2026), 700);
+  const exposure = unpaidExposure(m, { now: Date.UTC(2026, 4, 1) });
+  assert.equal(exposure.totale, 300);
+  assert.equal(exposure.numero, 1);
+});
+
+test('rate senza riferimento non vengono aggregate se lo stesso cliente ha più fatture aperte', () => {
+  const invoices = [
+    fattura(1, 'Studio Rossi', 1000, '2026-03-10'),
+    fattura(2, 'Studio Rossi', 1000, '2026-04-10'),
+  ];
+  const allTx = { '2026-03': [entrata('2026-03-25', 300, 'rata Studio Rossi', 'a')] };
+  const m = matchInvoicePayments(invoices, allTx, { allowPartialPayments: true });
+  assert.equal(m.parziali.length, 0, 'senza riferimento il cliente non è disambiguato');
+  assert.equal(m.nonIncassate.length, 2);
+});
+
 test('una differenza grande NON viene abbinata (non è quella fattura)', () => {
   const invoices = [fattura(1, 'Studio Rossi', 1000, '2026-03-10')];
   const allTx = { '2026-03': [entrata('2026-03-25', 1400, 'bonifico Studio Rossi', 'a')] };
