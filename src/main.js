@@ -16718,6 +16718,18 @@ window.openTrustCenter = () => {
         <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug mb-2.5">${tCh('trustDataDesc', __uiLang)}</div>
         <button onclick="window.closeModal(); window.exportPlainBackup();" class="btn-action w-full text-xs justify-center py-2">${tCh('vaultSavePlainCopy', __uiLang)}</button>
       </div>
+      <!-- Aggiunta 2026-09-15, dopo lo studio Saturn (14/09/2026, 18 modelli
+           AI, 57% di risposte finanziarie sbagliate — vedi ANALISI_COMPETITOR.md
+           sezione "Il fallimento strutturale dei chatbot AI generalisti sulla
+           finanza"): l'unica card del Centro Fiducia che cita un dato ESTERNO,
+           non solo un limite di Momentum — mai un attacco a un competitor
+           nominato, solo il confronto architetturale già vero nel codice
+           (tax.js/tax-ch.js/tax-es.js sono tabelle+calcolo deterministico,
+           mai testo generato da un LLM su un'aliquota). -->
+      <div class="rounded-2xl border p-3.5 ${toneDati}">
+        <div class="text-[13px] font-black mb-1">${tCh('trustAiTitle', __uiLang)}</div>
+        <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug">${tCh('trustAiDesc', __uiLang)}</div>
+      </div>
       <div class="rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3.5">
         <div class="text-[13px] font-black mb-1">${tCh('trustCrossBorderTitle', __uiLang)}</div>
         <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug">${tCh('trustCrossBorderDesc', __uiLang)}</div>

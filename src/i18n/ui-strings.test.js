@@ -1056,6 +1056,7 @@ test('t: tutte le chiavi trust* (Centro Fiducia, mosse 2+3+4 analisi competitiva
     'trustLimitAutonomica', 'trustLimitForal', 'trustCancelTitle', 'trustCancelDesc',
     'trustDataTitle', 'trustDataDesc', 'trustCenterClose',
     'trustCrossBorderTitle', 'trustCrossBorderDesc',
+    'trustAiTitle', 'trustAiDesc',
   ];
   for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
     for (const k of chiavi) {
