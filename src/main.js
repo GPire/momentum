@@ -205,6 +205,7 @@ import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline } from './predict/debt-payoff.js';
+import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
@@ -10782,6 +10783,51 @@ function categoriaTripDaReale(catId, desc) {
   return CATEGORIA_REALE_TO_TRIP[catId] || 'altro';
 }
 function allTransactionsFlat() { return Object.values(VaultDAO.state.transactions || {}).flat(); }
+
+// Commissioni bancarie (src/predict/bank-fees.js, 2026-09-16) — solo lettura,
+// nessun form: il dato esiste già nelle transazioni reali dell'utente, qui
+// si mostra soltanto. Confronto anno corrente/precedente SOLO se esistono
+// davvero transazioni nell'anno precedente (mai un confronto con zero dati
+// travestito da "hai risparmiato tutto l'anno scorso").
+window.openBankFees = () => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const txs = allTransactionsFlat();
+  const annoCorrente = new Date().getFullYear();
+  const sCorrente = bankFeesSummary(txs, { year: annoCorrente });
+  const sPrecedente = bankFeesSummary(txs, { year: annoCorrente - 1 });
+  const haDatiAnnoPrec = txs.some(t => String(t.date || '').startsWith(String(annoCorrente - 1)));
+
+  const righeTipo = sCorrente.perTipo.map(t => `
+    <div class="flex items-center justify-between gap-2 py-1.5 text-[12.5px] border-b border-[var(--outline)] last:border-0">
+      <span>${esc(t.label)} <span class="text-[var(--on-surface-secondary)]">×${t.conteggio}</span></span>
+      <span class="font-mono">${eur(t.totale)}</span>
+    </div>`).join('');
+
+  const confrontoHtml = haDatiAnnoPrec ? `<p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(tCh('bankFeesYearCompare', __uiLang, annoCorrente - 1, eur(sPrecedente.totaleCommissioni)))}</p>` : '';
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('bankFeesModalTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('bankFeesModalSub', __uiLang)}</p></div>
+      ${sCorrente.conteggioCommissioni === 0 ? `
+        <p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('bankFeesEmptyHint', __uiLang)}</p>
+      ` : `
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="9" rx="1"/><path d="M3 10 12 4l9 6"/></svg>${tCh('bankFeesTotalLabel', __uiLang, annoCorrente)}</div>
+          <p class="text-2xl font-black font-mono">${eur(sCorrente.totaleCommissioni)}</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('bankFeesCountLabel', __uiLang, sCorrente.conteggioCommissioni)}</p>
+          ${confrontoHtml}
+        </div>
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('bankFeesBreakdownTitle', __uiLang)}</div>
+          ${righeTipo}
+        </div>
+      `}
+      ${sCorrente.totaleTasseStato > 0 ? `<div class="rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3.5">
+        <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(tCh('bankFeesStateTaxNote', __uiLang, eur(sCorrente.totaleTasseStato)))}</p>
+      </div>` : ''}
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+};
 // Parsing manuale (mai `new Date('yyyy-mm-dd')`, che legge la stringa come
 // UTC mezzanotte e in fusi orari indietro rispetto a UTC mostra il giorno
 // PRIMA — stesso bug già risolto altrove in questa sessione per #tx-date-input).

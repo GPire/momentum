@@ -5097,6 +5097,18 @@
                    <button onclick="window.openDebiti()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span data-i18n-key="alphaDebtBtn">Il mio piano di estinzione</span></button>
                  </div>
 
+                 <!-- Commissioni bancarie (src/predict/bank-fees.js, 2026-09-16):
+                      nato da una ricerca di mercato reale — le commissioni
+                      nascoste sono il reclamo #1 dei clienti bancari (fonti
+                      nel modulo). Momentum vede TUTTE le transazioni reali
+                      dell'utente, su ogni conto: è l'unico posto dove questo
+                      numero si vede senza dover fidarsi della banca stessa. -->
+                 <div id="bank-fees-entry-card" class="card p-6 journey-entry-card">
+                   <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="18" height="9" rx="1"/><path d="M3 10 12 4l9 6M6 10v9M12 10v9M18 10v9"/></svg><h3 class="eyebrow" data-i18n-key="bankFeesTitle">Quanto ti costa la banca</h3></div>
+                   <p class="card-sub" data-i18n-key="bankFeesSub">Canoni, commissioni bonifico/prelievo, spese di tenuta conto: rilevate dalle tue transazioni reali, mai da un dato che la banca sceglie di mostrarti.</p>
+                   <button onclick="window.openBankFees()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="9" rx="1"/><path d="M3 10 12 4l9 6"/></svg><span data-i18n-key="bankFeesBtn">Vedi il totale</span></button>
+                 </div>
+
                  <!-- Trasferte di lavoro (src/trips/trip-engine.js): diverso
                       dallo split "Insieme" — qui non si divide fra persone,
                       si accumula per un rimborso da un solo soggetto (il
