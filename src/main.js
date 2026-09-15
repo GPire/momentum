@@ -16671,8 +16671,15 @@ renderNeuroSymExplainCard();
 // tax.js/quality-scores.js) — qui SOLO li si rende visibili in un posto
 // solo, mai un secondo calcolo o una nuova verità: ogni riga sotto è già
 // vera nel codice, verificata qui (non a memoria) prima di scriverla:
-// CASSE_CON_REGOLE ha 4 chiavi su 17 di CASSE_PROFESSIONALI (tax.js,
-// aggiornato 2026-09-11 con CIPAG/geometri).
+// CASSE_CON_REGOLE ha 10 chiavi su 17 di CASSE_PROFESSIONALI (tax.js,
+// aggiornato 2026-09-15 con consulenti_lavoro/ENPACL e biologi/ENPAB,
+// entrambe struttura soggettivo/integrativo+contributoFisso come ENPAP;
+// veterinari/ENPAV e periti_industriali/EPPI aggiunte lo stesso giorno,
+// entrambe struttura a due parametri senza contributoFisso — maternità non
+// confermata/definita dalla fonte primaria, mai inclusa);
+// ENPAM (medici) è un'11a cassa coperta ma con una funzione a sé
+// (contributoEnpam, non CASSE_CON_REGOLE, struttura età+reddito diversa
+// dalle altre) — aggiornato 2026-09-14.
 const LIMITI_DICHIARATI = [
   { paese: 'IT', key: 'trustLimitCasse' },
   { paese: 'IT', key: 'trustLimitSdi' },
@@ -16952,13 +16959,18 @@ controllaTraguardi();
 // Condivide l'ULTIMO livello completato (mai numeri finanziari, mai dati
 // personali — solo il nome del livello, un fatto pubblico sul modello,
 // stesso principio già seguito per gli inviti gruppo-spese: navigator.share
-// con ripiego su copia negli appunti). Nessun link incluso: l'app non ha
-// ancora una pagina pubblica/store da linkare — onestà, non un URL
-// inventato solo per sembrare completo (da aggiungere qui appena esiste).
+// con ripiego su copia negli appunti). Link aggiunto (2026-09-15): la pagina
+// pubblica esiste davvero da tempo (momentum-finance.pages.dev, deploy
+// automatico via Cloudflare Pages, verificato in produzione — sezione 9 di
+// project_momentum.md) — riusa la STESSA formula già in uso per
+// inviteToMomentum (location.origin+pathname, mai un dominio hardcoded che
+// romperebbe un fork/deploy diverso), qui la nota di "nessun link" era
+// diventata stale rispetto al deploy reale, non un URL inventato.
 window.condividiTraguardo = async () => {
   const l = window.__ultimoLivelloCompletato;
   if (!l) return;
-  const msg = tCh('lvlShareMsg', __uiLang, l.numero, l.nome, l.sottotitolo);
+  const link = `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
+  const msg = tCh('lvlShareMsg', __uiLang, l.numero, l.nome, l.sottotitolo, link);
   pingFeature('milestone_shared');
   try {
     if (navigator.share) await navigator.share({ text: msg });
