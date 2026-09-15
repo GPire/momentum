@@ -19,12 +19,34 @@
 //    "la scelta giusta" — è l'utente a decidere cosa conta di più per sé).
 'use strict';
 
+// Bug reale segnalato dall'utente (2026-09-15, feedback diretto): la
+// schermata "Debiti e prestiti" era per metà tradotta (le etichette del
+// form passavano da tCh in main.js) e per metà sempre in italiano — ogni
+// testo generato QUI (motivo di irrisolvibilità, confronto fra strategie)
+// non riceveva mai la lingua dell'utente. Stesso pattern già in uso in
+// `achievements.js` per un modulo puro che genera testo: importa `t()` da
+// ui-strings.js, il chiamante passa sempre `lang` esplicito (mai un default
+// silenzioso su 'it' che nasconderebbe la stessa regressione altrove).
+import { t as tDebt } from '../i18n/ui-strings.js';
+
 const MESI_MASSIMI = 600; // 50 anni: oltre, dichiariamo che il debito non si estingue, non giriamo all'infinito
 
 function normalizzaDebito(d) {
   return {
     id: d.id, nome: d.nome || 'Debito', saldo: +d.saldo || 0,
     tasso: +d.tasso || 0, pagamentoMinimo: +d.pagamentoMinimo || 0,
+    // Richiesto esplicitamente dall'utente (2026-09-15): "rendi più avanzata
+    // la logica, anche per mutui". Un mutuo con penale di estinzione
+    // anticipata (comune in Italia sui tassi fissi, e su molti mutui a tasso
+    // variabile nei primi anni) è strutturalmente diverso da una carta di
+    // credito: destinargli l'extra mensile potrebbe costare una penale che
+    // vanifica il risparmio di interessi — quindi qui NON è un consiglio
+    // ("non estinguerlo") ma un dato che lo stato passa alla simulazione:
+    // un debito con `penaleEstinzione:true` non riceve MAI l'extra in
+    // cascata, riceve solo il proprio pagamento minimo, esattamente come nella
+    // realtà se l'utente sceglie di rispettare il vincolo contrattuale.
+    tipo: d.tipo || 'altro',
+    penaleEstinzione: !!d.penaleEstinzione,
   };
 }
 
@@ -48,7 +70,7 @@ export function pagamentoInsufficiente(d) {
 // intero sul debito in cima all'ordine — quando quello si estingue, il suo
 // intero pagamento (minimo + extra residuo) si sposta sul prossimo
 // ("effetto valanga/palla di neve" vero, non solo il nome).
-export function simulaEstinzione(debiti, { strategia = 'valanga', extraMensile = 0 } = {}) {
+export function simulaEstinzione(debiti, { strategia = 'valanga', extraMensile = 0, lang = 'it', riallocaMinimi = true } = {}) {
   const ordine = ordinaDebiti(debiti, strategia);
   if (!ordine.length) return { debiti: [], mesiTotali: 0, interesseTotale: 0, dataLibero: null, irrisolvibile: false };
 
@@ -57,7 +79,7 @@ export function simulaEstinzione(debiti, { strategia = 'valanga', extraMensile =
     return {
       debiti: ordine, mesiTotali: null, interesseTotale: null, dataLibero: null,
       irrisolvibile: true,
-      motivo: `${insufficienti.map((d) => d.nome).join(', ')}: il pagamento minimo non copre nemmeno l'interesse — questo debito non si estinguerà mai a queste condizioni, serve un pagamento più alto.`,
+      motivo: tDebt('debtMotivoInsufficiente', lang, insufficienti.map((d) => d.nome).join(', ')),
     };
   }
 
@@ -84,19 +106,30 @@ export function simulaEstinzione(debiti, { strategia = 'valanga', extraMensile =
     // 3. L'extra va in CASCATA sui debiti aperti, nell'ordine di priorità:
     // se il primo si estingue con margine, il resto passa al secondo nello
     // STESSO mese — la vera "valanga"/"palla di neve", non un'approssimazione.
+    // I debiti con `penaleEstinzione` (tipicamente un mutuo) sono SALTATI
+    // qui: ricevono sempre solo il proprio minimo, mai l'extra — l'ordine
+    // di priorità passa al prossimo debito senza vincoli, mai bloccato da
+    // uno che l'utente ha dichiarato di non voler/poter estinguere prima.
     let pool = disponibileExtra;
     for (const d of stato) {
       if (pool <= 0.005) break;
       if (d.saldoResiduo <= 0.005) continue;
+      if (d.penaleEstinzione) continue;
       const pagatoOra = Math.min(pool, d.saldoResiduo);
       d.saldoResiduo -= pagatoOra;
       pool -= pagatoOra;
     }
-    // 4. Ogni debito estinto QUESTO mese libera il suo minimo per i mesi dopo.
+    // 4. Ogni debito estinto QUESTO mese libera il suo minimo per i mesi
+    // dopo — SOLO se `riallocaMinimi` (default sì): la baseline "cosa
+    // succede senza fare nulla in più" (nessuna strategia, nessun extra)
+    // passa `riallocaMinimi:false` per mostrare il vero scenario passivo,
+    // dove ogni pagamento resta fisso al proprio minimo per sempre, mai
+    // automaticamente redistribuito — altrimenti anche extraMensile=0
+    // finirebbe comunque per comportarsi come una palla di neve blanda.
     for (const d of stato) {
       if (d.saldoResiduo <= 0.005 && d.mesePagato === null) {
         d.mesePagato = mese;
-        disponibileExtra += d.pagamentoMinimo;
+        if (riallocaMinimi) disponibileExtra += d.pagamentoMinimo;
       }
     }
   }
@@ -111,31 +144,54 @@ export function simulaEstinzione(debiti, { strategia = 'valanga', extraMensile =
     interesseTotale: irrisolvibile ? null : +interesseTotale.toFixed(2),
     dataLibero,
     irrisolvibile,
-    motivo: irrisolvibile ? `Con ${extraMensile.toFixed ? extraMensile.toFixed(2) : extraMensile}€/mese extra, alcuni debiti non si estinguono entro 50 anni: serve un extra più alto.` : null,
+    motivo: irrisolvibile ? tDebt('debtMotivoTroppoLungo', lang, extraMensile.toFixed ? extraMensile.toFixed(2) : extraMensile) : null,
   };
 }
 
 // Confronta le due strategie sugli stessi debiti/extra — mai una preferenza,
 // solo i due risultati affiancati, coerente con "il quadro, non l'ordine".
-export function confrontaStrategie(debiti, extraMensile = 0) {
-  const valanga = simulaEstinzione(debiti, { strategia: 'valanga', extraMensile });
-  const pallaDiNeve = simulaEstinzione(debiti, { strategia: 'palla-di-neve', extraMensile });
+export function confrontaStrategie(debiti, extraMensile = 0, lang = 'it') {
+  const valanga = simulaEstinzione(debiti, { strategia: 'valanga', extraMensile, lang });
+  const pallaDiNeve = simulaEstinzione(debiti, { strategia: 'palla-di-neve', extraMensile, lang });
   const differenzaInteresse = (!valanga.irrisolvibile && !pallaDiNeve.irrisolvibile)
     ? +(pallaDiNeve.interesseTotale - valanga.interesseTotale).toFixed(2) : null;
   const differenzaMesi = (!valanga.irrisolvibile && !pallaDiNeve.irrisolvibile)
     ? pallaDiNeve.mesiTotali - valanga.mesiTotali : null;
-  return { valanga, pallaDiNeve, differenzaInteresse, differenzaMesi };
+  // Baseline "cosa succede senza fare nulla in più" (richiesto esplicitamente
+  // dall'utente, 2026-09-15): nessun extra, nessuna riallocazione dei minimi
+  // liberati — il vero scenario passivo, non una terza strategia. Serve a
+  // mostrare in euro/mesi QUANTO valgono le due strategie sopra, non solo
+  // il confronto fra loro. Confrontabile solo se le strategie sopra sono
+  // risolvibili (altrimenti la baseline lo è ancora meno, stesso motivo).
+  const baseline = simulaEstinzione(debiti, { extraMensile: 0, riallocaMinimi: false, lang });
+  return { valanga, pallaDiNeve, differenzaInteresse, differenzaMesi, baseline };
 }
 
 // Testo onesto per l'interfaccia: fatti, non un consiglio.
-export function testoConfronto(confronto) {
+export function testoConfronto(confronto, lang = 'it') {
   const { valanga, pallaDiNeve, differenzaInteresse, differenzaMesi } = confronto;
   if (valanga.irrisolvibile || pallaDiNeve.irrisolvibile) {
-    return (valanga.motivo || pallaDiNeve.motivo || 'Con questi numeri, il debito non si estingue in un tempo ragionevole.');
+    return (valanga.motivo || pallaDiNeve.motivo || tDebt('debtCompareUnresolvable', lang));
   }
   if (differenzaInteresse <= 0.01 && differenzaMesi === 0) {
-    return 'Con un solo debito, valanga e palla di neve danno lo stesso risultato — la scelta della strategia conta solo con più di un debito.';
+    return tDebt('debtCompareSameResult', lang);
   }
   const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
-  return `Valanga (priorità al tasso più alto) ti fa risparmiare ${eur(differenzaInteresse)} di interessi rispetto a palla di neve, ma palla di neve estingue il primo debito prima (${differenzaMesi > 0 ? `${differenzaMesi} mes${Math.abs(differenzaMesi) === 1 ? 'e' : 'i'} di differenza sul totale` : 'stesso tempo totale'}) — quale conta di più per te, i soldi o la vittoria rapida, lo decidi tu.`;
+  return tDebt('debtCompareDiff', lang, eur(differenzaInteresse), differenzaMesi);
+}
+
+// Testo onesto sul valore della baseline (2026-09-15, richiesto
+// esplicitamente): quanto vale DAVVERO la strategia scelta rispetto a non
+// fare nulla in più — fatti, non un invito a mettere più extra di quanto
+// l'utente possa permettersi.
+export function testoBaseline(simScelta, baseline, lang = 'it') {
+  const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
+  if (baseline.irrisolvibile && !simScelta.irrisolvibile) {
+    return tDebt('debtBaselineUnresolvable', lang);
+  }
+  if (simScelta.irrisolvibile || baseline.irrisolvibile) return null; // niente da confrontare onestamente
+  const eurSaved = +(baseline.interesseTotale - simScelta.interesseTotale).toFixed(2);
+  const mesiSaved = baseline.mesiTotali - simScelta.mesiTotali;
+  if (eurSaved <= 0.01 && mesiSaved <= 0) return tDebt('debtBaselineNoDiff', lang);
+  return tDebt('debtBaselineSaving', lang, eur(eurSaved), mesiSaved);
 }

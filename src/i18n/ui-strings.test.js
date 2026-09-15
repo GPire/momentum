@@ -1045,7 +1045,7 @@ test('wealth horizons and category expansion use readable translated labels', ()
 
 test('contextual view choices and task form labels exist in all seven languages', () => {
  for (const lang of UI_LANGS) {
-  for (const key of ['viewChoiceIntro','viewEssentialHelp','viewCompleteHelp','viewChoiceNote','debtNameLabel','debtNameExample','debtBalanceLabel','debtRateLabel','debtPaymentLabel','tripNameLabel','tripNameShortExample','simulationHorizon']) assert.ok(t(key,lang) && t(key,lang)!==key,`${lang}: ${key}`);
+  for (const key of ['viewChoiceIntro','viewEssentialHelp','viewCompleteHelp','viewChoiceNote','debtNameLabel','debtNameExample','debtBalanceLabel','debtRateLabel','debtPaymentLabel','tripNameLabel','tripNameShortExample','simulationHorizon','debtScreenTitle','debtScreenSub','debtEmptyHint','debtRowSummary','debtDeleteBtn','debtAddSectionTitle','debtAddBtn','debtExtraTitle','debtExtraPlaceholder','debtStratAvalancheBtn','debtStratSnowballBtn','debtStratAvalancheLabel','debtStratSnowballLabel','debtOrderTitle','debtFreeFromLabel','debtTotalInterestLabel','debtFormError','debtMotivoInsufficiente','debtMotivoTroppoLungo','debtCompareUnresolvable','debtCompareSameResult','debtCompareDiff','debtBaselineUnresolvable','debtBaselineNoDiff','debtBaselineSaving','debtTypeLabel','debtTypeCard','debtTypeLoan','debtTypeMortgage','debtTypeOther','debtMortgagePenaltyLabel','debtMortgagePenaltyHint','debtPaidOffOn']) assert.ok(t(key,lang) && t(key,lang)!==key,`${lang}: ${key}`);
   assert.ok(t('simulationYears',lang,10).includes('10'));
  }
 });

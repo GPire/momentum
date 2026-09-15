@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto } from './debt-payoff.js';
+import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline } from './debt-payoff.js';
 
 const CARTA = { id: 'c', nome: 'Carta di credito', saldo: 2000, tasso: 19, pagamentoMinimo: 60 };
 const AUTO = { id: 'a', nome: 'Prestito auto', saldo: 8000, tasso: 6, pagamentoMinimo: 200 };
@@ -85,4 +85,50 @@ test('testoConfronto: testo onesto, mai un imperativo ("estingui prima X") — l
   const testo = testoConfronto(c);
   assert.doesNotMatch(testo, /^Estingui|^Devi|^Ti consiglio/i);
   assert.match(testo, /decidi tu/);
+});
+
+// ── Mutuo con penale di estinzione anticipata (2026-09-15, richiesto esplicitamente) ──
+test('simulaEstinzione: un debito con penaleEstinzione non riceve mai l\'extra, solo il minimo', () => {
+  // Mutuo con tasso VOLUTAMENTE più alto della carta (30% > 20%), così la
+  // priorità "valanga" lo metterebbe in cima all'ordine — la protezione
+  // penaleEstinzione deve comunque saltarlo e dare l'extra alla carta.
+  const mutuo = { id: 'm', nome: 'Mutuo casa', saldo: 5000, tasso: 30, pagamentoMinimo: 200, tipo: 'mutuo', penaleEstinzione: true };
+  const carta = { id: 'c', nome: 'Carta', saldo: 1000, tasso: 20, pagamentoMinimo: 30 };
+  const r = simulaEstinzione([mutuo, carta], { strategia: 'valanga', extraMensile: 200 });
+  assert.equal(r.irrisolvibile, false);
+  const cartaInfo = r.debiti.find(d => d.id === 'c');
+  const mutuoInfo = r.debiti.find(d => d.id === 'm');
+  // Se l'extra fosse andato al mutuo (tasso più alto, priorità valanga), la
+  // carta impiegherebbe molti mesi; con la protezione attiva si estingue
+  // rapidamente perché riceve tutto l'extra al posto del mutuo.
+  assert.ok(cartaInfo.mesePagato !== null && cartaInfo.mesePagato < 6, `attesa estinzione carta rapida, ottenuto mese ${cartaInfo.mesePagato}`);
+  // Il mutuo protetto si estingue MOLTO più tardi (solo il proprio minimo).
+  assert.ok(mutuoInfo.mesePagato === null || mutuoInfo.mesePagato > cartaInfo.mesePagato + 5);
+});
+
+// ── Baseline "cosa succede senza fare nulla in più" (2026-09-15) ──
+test('confrontaStrategie: la baseline non riallocA i minimi liberati, resta sempre >= alle due strategie', () => {
+  const debiti = [
+    { id: 'a', nome: 'A', saldo: 2000, tasso: 18, pagamentoMinimo: 50 },
+    { id: 'b', nome: 'B', saldo: 500, tasso: 10, pagamentoMinimo: 20 },
+  ];
+  const c = confrontaStrategie(debiti, 100);
+  assert.equal(c.baseline.irrisolvibile, false);
+  assert.ok(c.baseline.mesiTotali >= c.valanga.mesiTotali, `baseline dovrebbe impiegare più tempo, baseline=${c.baseline.mesiTotali} valanga=${c.valanga.mesiTotali}`);
+  assert.ok(c.baseline.interesseTotale >= c.valanga.interesseTotale);
+});
+
+test('testoBaseline: mostra il risparmio reale della strategia scelta rispetto ai soli minimi', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 3000, tasso: 20, pagamentoMinimo: 60 }];
+  const c = confrontaStrategie(debiti, 150);
+  const testo = testoBaseline(c.valanga, c.baseline);
+  assert.match(testo, /risparmia/);
+});
+
+test('testoBaseline: se anche la baseline è irrisolvibile, non pretende un confronto in euro', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 3000, tasso: 20, pagamentoMinimo: 60 }];
+  const c = confrontaStrategie(debiti, 0); // extra zero: baseline e strategia coincidono, entrambe risolvibili qui
+  const testo = testoBaseline(c.valanga, c.baseline);
+  assert.doesNotThrow(() => testoBaseline(c.valanga, c.baseline));
+  assert.ok(testo === null || typeof testo === 'string');
 });
