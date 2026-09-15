@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso } from './debt-payoff.js';
+import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento } from './debt-payoff.js';
 
 const CARTA = { id: 'c', nome: 'Carta di credito', saldo: 2000, tasso: 19, pagamentoMinimo: 60 };
 const AUTO = { id: 'a', nome: 'Prestito auto', saldo: 8000, tasso: 6, pagamentoMinimo: 200 };
@@ -173,4 +173,55 @@ test('testoBaseline: se anche la baseline è irrisolvibile, non pretende un conf
   const testo = testoBaseline(c.valanga, c.baseline);
   assert.doesNotThrow(() => testoBaseline(c.valanga, c.baseline));
   assert.ok(testo === null || typeof testo === 'string');
+});
+
+// ── Consolidamento debiti (2026-09-16) — la trappola "rata più bassa ma
+// costo/tempo totale più alto", l'errore più citato nella ricerca di
+// mercato su questo tema ──
+test('confrontaConsolidamento: rileva la trappola (rata più bassa, MA più mesi e più interessi totali)', () => {
+  const debiti = [
+    { id: 'a', nome: 'Carta A', saldo: 5000, tasso: 22, pagamentoMinimo: 250 },
+    { id: 'b', nome: 'Carta B', saldo: 3000, tasso: 18, pagamentoMinimo: 150 },
+  ];
+  // Rata più bassa (150 vs 400 minimi attuali) ma termine molto più lungo:
+  // costa DI PIÙ nonostante il tasso nominale più basso (10% vs 18-22%).
+  const proposta = { tasso: 10, pagamentoMinimo: 150, commissioneApertura: 200 };
+  const c = confrontaConsolidamento(debiti, proposta);
+  assert.equal(c.attuale.mesiTotali, 25);
+  assert.equal(c.consolidato.mesiTotali, 74);
+  assert.ok(c.differenzaInteresse > 0, 'il consolidato deve costare di più in questo scenario');
+  assert.ok(c.differenzaMesi > 0, 'il consolidato deve impiegare più tempo in questo scenario');
+});
+
+test('confrontaConsolidamento: testoConsolidamento segnala la trappola, mai "risparmi" quando in realtà costa di più', () => {
+  const debiti = [
+    { id: 'a', nome: 'Carta A', saldo: 5000, tasso: 22, pagamentoMinimo: 250 },
+    { id: 'b', nome: 'Carta B', saldo: 3000, tasso: 18, pagamentoMinimo: 150 },
+  ];
+  const proposta = { tasso: 10, pagamentoMinimo: 150, commissioneApertura: 200 };
+  const c = confrontaConsolidamento(debiti, proposta);
+  const testo = testoConsolidamento(c);
+  assert.doesNotMatch(testo, /risparmi/i);
+  assert.match(testo, /910,91/); // numero reale della trappola presente nel testo
+  assert.match(testo, /49 mesi/);
+});
+
+test('confrontaConsolidamento: un consolidamento davvero conveniente riduce SIA interessi SIA mesi', () => {
+  const debiti = [
+    { id: 'a', nome: 'Carta A', saldo: 5000, tasso: 22, pagamentoMinimo: 250 },
+    { id: 'b', nome: 'Carta B', saldo: 3000, tasso: 18, pagamentoMinimo: 150 },
+  ];
+  const propostaBuona = { tasso: 8, pagamentoMinimo: 400, commissioneApertura: 100 };
+  const c = confrontaConsolidamento(debiti, propostaBuona);
+  assert.ok(c.differenzaInteresse < 0, 'deve costare meno');
+  assert.ok(c.differenzaMesi <= 0, 'non deve impiegare più tempo');
+  assert.match(testoConsolidamento(c), /1247,85/);
+});
+
+test('confrontaConsolidamento: mai un\'eccezione se il nuovo prestito è irrisolvibile', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 5000, tasso: 20, pagamentoMinimo: 200 }];
+  const propostaImpossibile = { tasso: 50, pagamentoMinimo: 50, commissioneApertura: 0 };
+  const c = confrontaConsolidamento(debiti, propostaImpossibile);
+  assert.equal(c.consolidato.irrisolvibile, true);
+  assert.doesNotThrow(() => testoConsolidamento(c));
 });

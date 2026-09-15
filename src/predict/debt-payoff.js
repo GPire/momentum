@@ -250,3 +250,59 @@ export function testoStressTasso(risultati, lang = 'it') {
   const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
   return tDebt('debtStressTassoImpact', lang, r.incremento, r.differenzaMesi, eur(r.differenzaInteresse));
 }
+
+// ── CONSOLIDAMENTO DEBITI (2026-09-16, richiesto esplicitamente) ──
+// Ricerca di mercato (LendingTree, PrimeRates, usetoya.com 2026): il
+// consolidamento fa risparmiare in media 1.750$ di interessi e libera 6 mesi
+// prima — MA l'errore più comune è fidarsi della rata mensile più bassa come
+// prova automatica del miglioramento: una rata più bassa a un termine più
+// lungo può costare PIÙ interessi totali, e le spese di apertura (tipico
+// 3-8 mesi per recuperarle) possono azzerare il beneficio. Qui si confronta
+// SEMPRE il totale reale (interessi + mesi), mai solo la rata mensile — la
+// stessa disciplina "il quadro, non un numero isolato" di tutto il modulo.
+//
+// `proposta`: { tasso, pagamentoMinimo, commissioneApertura = 0 }. La
+// commissione è sommata al saldo del nuovo prestito (assunzione dichiarata:
+// finanziata dentro il prestito, il caso più comune — se l'utente la paga
+// cash separatamente, il confronto sui soli interessi resta comunque valido,
+// solo il "saldo iniziale" del consolidato andrebbe letto senza la commissione).
+// Il confronto usa SEMPRE la strategia valanga per lo scenario attuale (è
+// il minimo interesse possibile con quei debiti separati — il confronto più
+// onesto e favorevole possibile per lo status quo, mai una strategia peggiore
+// scelta ad arte per far vincere il consolidamento).
+export function confrontaConsolidamento(debitiEsistenti, proposta, { extraMensile = 0, lang = 'it' } = {}) {
+  const attuale = simulaEstinzione(debitiEsistenti, { strategia: 'valanga', extraMensile, lang });
+  const saldoTotale = (debitiEsistenti || []).reduce((s, d) => s + (+d.saldo || 0), 0);
+  const nuovoDebito = {
+    id: 'consolidato', nome: 'Prestito di consolidamento',
+    saldo: saldoTotale + (+proposta.commissioneApertura || 0),
+    tasso: +proposta.tasso || 0, pagamentoMinimo: +proposta.pagamentoMinimo || 0,
+  };
+  const consolidato = simulaEstinzione([nuovoDebito], { extraMensile, lang });
+  const confrontabile = !attuale.irrisolvibile && !consolidato.irrisolvibile;
+  return {
+    attuale, consolidato,
+    differenzaInteresse: confrontabile ? +(consolidato.interesseTotale - attuale.interesseTotale).toFixed(2) : null,
+    differenzaMesi: confrontabile ? consolidato.mesiTotali - attuale.mesiTotali : null,
+  };
+}
+
+// Testo onesto: la TRAPPOLA più comune (rata più bassa ma costo totale più
+// alto o tempo più lungo) va segnalata sempre in chiaro, mai nascosta dietro
+// "risparmi X€ al mese" — è esattamente l'errore di valutazione più citato
+// nella ricerca di mercato su questo tema.
+export function testoConsolidamento(confronto, lang = 'it') {
+  const { attuale, consolidato, differenzaInteresse, differenzaMesi } = confronto;
+  if (consolidato.irrisolvibile) return tDebt('debtConsolidationUnviable', lang, consolidato.motivo || '');
+  if (attuale.irrisolvibile) return tDebt('debtConsolidationCurrentUnresolvable', lang);
+  const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
+  const costaDiPiu = differenzaInteresse > 0.01;
+  const ciMetteDiPiu = differenzaMesi > 0;
+  if (costaDiPiu || ciMetteDiPiu) {
+    return tDebt('debtConsolidationTrap', lang, eur(Math.abs(differenzaInteresse)), Math.abs(differenzaMesi));
+  }
+  if (differenzaInteresse < -0.01 || differenzaMesi < 0) {
+    return tDebt('debtConsolidationBetter', lang, eur(Math.abs(differenzaInteresse)), Math.abs(differenzaMesi));
+  }
+  return tDebt('debtConsolidationNoDiff', lang);
+}

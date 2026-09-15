@@ -204,7 +204,7 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
-import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso } from './predict/debt-payoff.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -10751,7 +10751,8 @@ window.openDebiti = () => {
             <button data-strat="palla-di-neve" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'palla-di-neve' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${tCh('debtStratSnowballBtn', __uiLang)}</button>
           </div>
         </div>
-        <div id="dt-risultato-wrap">${calcolaRisultato(ds)}</div>` : ''}
+        <div id="dt-risultato-wrap">${calcolaRisultato(ds)}</div>
+        ${ds.length >= 2 ? `<button onclick="window.openConsolidamento()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtConsolidationBtn', __uiLang)}</button>` : ''}` : ''}
       </div>`, `<button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
 
     $('#dt-close')?.addEventListener('click', () => closeModal());
@@ -10780,6 +10781,51 @@ window.openDebiti = () => {
     document.querySelectorAll('[data-deldebito]').forEach(b => b.addEventListener('click', () => { persist(debiti().filter(d => d.id !== b.dataset.deldebito)); render(); }));
   };
   render();
+};
+
+// Valuta un consolidamento (src/predict/debt-payoff.js, 2026-09-16) —
+// ricerca di mercato: la trappola più comune è fidarsi della rata mensile
+// più bassa come prova automatica del vantaggio, quando può in realtà
+// costare di più (tasso più basso ma termine molto più lungo). Modale
+// separato da openDebiti (stesso pattern di openExpenseChat/openSplitGroup):
+// legge i debiti esistenti dal Vault, non li duplica.
+window.openConsolidamento = () => {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const debitiEsistenti = () => VaultDAO.state.debiti || [];
+  const proposta = { tasso: '', pagamentoMinimo: '', commissioneApertura: '' };
+  let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
+
+  const calcolaEsito = () => {
+    const tasso = parseFloat(String(proposta.tasso).replace(',', '.'));
+    const pagamentoMinimo = parseFloat(String(proposta.pagamentoMinimo).replace(',', '.'));
+    const commissioneApertura = parseFloat(String(proposta.commissioneApertura).replace(',', '.')) || 0;
+    if (!(tasso >= 0) || !(pagamentoMinimo > 0)) return '';
+    const c = confrontaConsolidamento(debitiEsistenti(), { tasso, pagamentoMinimo, commissioneApertura }, { extraMensile, lang: __uiLang });
+    const testo = testoConsolidamento(c, __uiLang);
+    const tono = (c.differenzaInteresse > 0.01 || c.differenzaMesi > 0) ? 'text-amber-400' : (c.differenzaInteresse < -0.01 ? 'text-emerald-400' : 'text-[var(--on-surface-secondary)]');
+    return `<p class="text-[12.5px] leading-snug ${tono} font-bold">${esc(testo)}</p>`;
+  };
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const aggiornaEsito = () => { const el = document.getElementById('dc-esito'); if (el) el.innerHTML = calcolaEsito(); };
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('debtConsolidationTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtConsolidationSub', __uiLang)}</p></div>
+      <div class="card p-3">
+        <div class="flex flex-col gap-2">
+          <div class="task-field-pair">
+            <label class="task-field"><span>${tCh('debtRateLabel', __uiLang)}</span><input id="dc-tasso" type="number" inputmode="decimal" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="8" name="dc-tasso" /></label>
+            <label class="task-field"><span>${tCh('debtPaymentLabel', __uiLang)}</span><input id="dc-min" type="number" inputmode="decimal" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="300" name="dc-min" /></label>
+          </div>
+          <label class="task-field"><span>${tCh('debtConsolidationFeeLabel', __uiLang)}</span><input id="dc-fee" type="number" inputmode="decimal" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="0" name="dc-fee" /></label>
+        </div>
+      </div>
+      <div id="dc-esito">${calcolaEsito()}</div>
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+
+  $('#dc-tasso')?.addEventListener('input', (e) => { proposta.tasso = e.target.value; aggiornaEsito(); });
+  $('#dc-min')?.addEventListener('input', (e) => { proposta.pagamentoMinimo = e.target.value; aggiornaEsito(); });
+  $('#dc-fee')?.addEventListener('input', (e) => { proposta.commissioneApertura = e.target.value; aggiornaEsito(); });
 };
 
 // TRASFERTE DI LAVORO (src/trips/trip-engine.js) — ricerca reale fatta prima
