@@ -94,6 +94,11 @@ test('bankFeesSummary: nessuna transazione, mai un\'eccezione, tutto a zero ones
   assert.deepEqual(s.perTipo, []);
 });
 
+test('classificaCommissione: riconosce la commissione di conversione valuta (DCC)', () => {
+  assert.equal(classificaCommissione('Foreign transaction fee').id, 'conversione_valuta');
+  assert.equal(classificaCommissione('Commissione di conversione valuta').id, 'conversione_valuta');
+});
+
 test('BANK_FEE_PATTERNS: ogni regola dichiara se è una tassa di stato, mai un valore implicito', () => {
   for (const r of BANK_FEE_PATTERNS) {
     assert.equal(typeof r.tassaStatale, 'boolean', `${r.id} deve dichiarare tassaStatale esplicitamente`);

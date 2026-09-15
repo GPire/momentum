@@ -78,6 +78,22 @@ export const BANK_FEE_PATTERNS = [
     tassaStatale: false,
     kw: ['spese invio estratto conto', 'spese invio documenti', 'statement fee', 'paper statement fee'],
   },
+  // Conversione valuta (aggiunta 2026-09-16, ricerca di mercato): la Dynamic
+  // Currency Conversion (DCC) — pagare in valuta di casa invece che in
+  // valuta locale all'estero — applica un markup tipico 3-7% sopra il
+  // cambio interbancario reale (fonti concordanti: beancount.io,
+  // bankrate.com, signaturepayments.com 2026); i viaggiatori britannici da
+  // soli perdono ~500 milioni di sterline/anno solo di DCC (Bankrate/
+  // Signature Payments 2026). Qui si intercetta solo la voce ESPLICITA in
+  // estratto conto quando la banca la separa (non tutte lo fanno — limite
+  // dichiarato, la DCC nascosta dentro un cambio già applicato al momento
+  // dell'acquisto non lascia una riga propria e non è rilevabile da qui).
+  {
+    id: 'conversione_valuta',
+    label: 'Commissione conversione valuta',
+    tassaStatale: false,
+    kw: ['commissione di conversione valuta', 'commissione conversione valuta', 'foreign transaction fee', 'currency conversion fee', 'cross-currency fee', 'comisión de conversión de divisa', 'comision de conversion de divisa'],
+  },
   {
     id: 'commissione_generica',
     label: 'Altra commissione',

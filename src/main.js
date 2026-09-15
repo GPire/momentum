@@ -14663,6 +14663,25 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     }
   } catch (_) {}
 
+  // ── Commissioni bancarie (src/predict/bank-fees.js, 2026-09-16) ──
+  // Richiesto esplicitamente dall'utente: non basta che il dato esista in
+  // una schermata da aprire apposta, deve emergere DA SOLO — stesso feed
+  // unificato degli altri insight, mai una superficie nuova da scoprire.
+  // Mostrato solo quando c'è davvero qualcosa (mai "0€ di commissioni" come
+  // insight, sarebbe rumore) — un tocco apre il dettaglio completo.
+  try {
+    const feeSummary = bankFeesSummary(allTransactionsFlat(), { year: new Date().getFullYear() });
+    if (feeSummary.totaleCommissioni > 0) {
+      rawInsights.push({
+        kind: 'bank-fees',
+        severity: 'info',
+        title: tCh('bankFeesTotalLabel', __uiLang, new Date().getFullYear()),
+        body: `${formatMoney(feeSummary.totaleCommissioni)} — ${tCh('bankFeesCountLabel', __uiLang, feeSummary.conteggioCommissioni)}`,
+        action: { label: tCh('bankFeesBtn', __uiLang), handler: 'openBankFees', payload: null },
+      });
+    }
+  } catch (_) {}
+
   // ── Advisor bandit (Wave 1 v10, src/predict/advisor-bandit.js): impara
   // per-contesto quale nudge fa AGIRE l'utente e lo mostra prima. Onesto e
   // additivo: senza dati (bandit vuoto) l'ordine resta quello dell'advisor
