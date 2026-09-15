@@ -47,6 +47,18 @@ function normalizzaDebito(d) {
     // realtà se l'utente sceglie di rispettare il vincolo contrattuale.
     tipo: d.tipo || 'altro',
     penaleEstinzione: !!d.penaleEstinzione,
+    // Richiesto esplicitamente dall'utente (2026-09-16): "risolvere i
+    // problemi degli utenti con mutui e tassi di interesse". Ricerca di
+    // mercato reale (CMHC 2026, Canada — il dato più recente e concreto
+    // trovato su questo tema): il 39% dei mutuatari resta preoccupato per la
+    // rata, il 35% dei rinnovi registra un aumento reale (~375$/mese medio),
+    // e per una quota di chi ha un tasso variabile l'aumento può superare il
+    // 40% — il problema si chiama "payment shock", ed è quasi sempre una
+    // sorpresa perché nessuno strumento lo mostra PRIMA che accada. Un
+    // debito a tasso variabile dichiarato tale abilita `stressTestTasso`
+    // sotto — mai un consiglio ("cambia mutuo"), solo il numero prima che
+    // diventi una sorpresa.
+    tassoVariabile: !!d.tassoVariabile,
   };
 }
 
@@ -194,4 +206,47 @@ export function testoBaseline(simScelta, baseline, lang = 'it') {
   const mesiSaved = baseline.mesiTotali - simScelta.mesiTotali;
   if (eurSaved <= 0.01 && mesiSaved <= 0) return tDebt('debtBaselineNoDiff', lang);
   return tDebt('debtBaselineSaving', lang, eur(eurSaved), mesiSaved);
+}
+
+// ── STRESS TEST TASSO VARIABILE (2026-09-16, richiesto esplicitamente) ──
+// Simula QUESTO SOLO debito (mai gli altri: il punto è "cosa cambia per un
+// mutuo/prestito preciso", non ricalcolare l'intero piano) con lo STESSO
+// pagamento minimo dichiarato dall'utente, ma un tasso più alto — è
+// esattamente ciò che succede a un tasso variabile quando il mercato sale:
+// la rata contrattuale spesso resta fissa nel breve periodo, ma l'interesse
+// dovuto cresce, quindi la stessa rata estingue il debito più lentamente (o,
+// nei casi più seri, non basta più nemmeno a coprire l'interesse). Riusa
+// simulaEstinzione così com'è, isolando il debito (extraMensile:0, un solo
+// elemento nell'array) — nessuna nuova formula di ammortamento inventata.
+export function stressTestTasso(debito, incrementi = [1, 2, 3], lang = 'it') {
+  const base = simulaEstinzione([debito], { extraMensile: 0, lang });
+  return incrementi.map((incremento) => {
+    const conTassoAlto = simulaEstinzione([{ ...debito, tasso: (+debito.tasso || 0) + incremento }], { extraMensile: 0, lang });
+    const confrontabile = !base.irrisolvibile && !conTassoAlto.irrisolvibile;
+    return {
+      incremento,
+      irrisolvibile: conTassoAlto.irrisolvibile,
+      motivo: conTassoAlto.motivo,
+      mesiTotali: conTassoAlto.mesiTotali,
+      interesseTotale: conTassoAlto.interesseTotale,
+      differenzaMesi: confrontabile ? conTassoAlto.mesiTotali - base.mesiTotali : null,
+      differenzaInteresse: confrontabile ? +(conTassoAlto.interesseTotale - base.interesseTotale).toFixed(2) : null,
+    };
+  });
+}
+
+// Testo onesto: il caso più grave PRIMA (se anche solo un incremento rende
+// il debito irrisolvibile con la rata attuale, è l'unica cosa che conta
+// davvero — mai un numero "in media" che nasconda quel rischio). Altrimenti
+// l'impatto del PRIMO incremento (il più vicino/realistico da comunicare).
+export function testoStressTasso(risultati, lang = 'it') {
+  const primoIrrisolvibile = risultati.find((r) => r.irrisolvibile);
+  if (primoIrrisolvibile) {
+    return tDebt('debtStressTassoWarning', lang, primoIrrisolvibile.incremento);
+  }
+  const r = risultati[0];
+  if (!r || r.differenzaMesi == null) return null;
+  if (r.differenzaMesi <= 0 && r.differenzaInteresse <= 0.01) return null; // nessun impatto reale, mai un allarme vuoto
+  const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
+  return tDebt('debtStressTassoImpact', lang, r.incremento, r.differenzaMesi, eur(r.differenzaInteresse));
 }

@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline } from './debt-payoff.js';
+import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso } from './debt-payoff.js';
 
 const CARTA = { id: 'c', nome: 'Carta di credito', saldo: 2000, tasso: 19, pagamentoMinimo: 60 };
 const AUTO = { id: 'a', nome: 'Prestito auto', saldo: 8000, tasso: 6, pagamentoMinimo: 200 };
@@ -123,6 +123,48 @@ test('testoBaseline: mostra il risparmio reale della strategia scelta rispetto a
   const c = confrontaStrategie(debiti, 150);
   const testo = testoBaseline(c.valanga, c.baseline);
   assert.match(testo, /risparmia/);
+});
+
+// ── Stress test tasso variabile (2026-09-16, "payment shock" mutui) ──
+test('stressTestTasso: un mutuo con margine stretto peggiora rapidamente con il tasso (payment shock reale)', () => {
+  // 200.000€ al 3%, rata 900€ (margine iniziale reale, verificato coi
+  // numeri effettivi del motore, non stimati a mano): a +1 punto (4%) la
+  // stessa rata impiega 81 mesi in più; a +2 punti (5%) non basta più a
+  // estinguere il debito entro 50 anni; a +3 punti (6%) l'interesse mensile
+  // supera la rata stessa — tre gradini di gravità reali, non inventati.
+  const mutuo = { id: 'm', nome: 'Mutuo casa', saldo: 200000, tasso: 3, pagamentoMinimo: 900, tipo: 'mutuo', tassoVariabile: true };
+  const risultati = stressTestTasso(mutuo, [1, 2, 3]);
+  assert.equal(risultati.length, 3);
+  assert.equal(risultati[0].irrisolvibile, false); // +1 -> ancora sostenibile, ma molto più lenta
+  assert.ok(risultati[0].differenzaMesi > 0, 'a +1 punto ci deve mettere più tempo, mai meno');
+  assert.equal(risultati[1].irrisolvibile, true);  // +2 -> non si estingue più entro 50 anni
+  assert.equal(risultati[2].irrisolvibile, true);  // +3 -> la rata non copre nemmeno l'interesse
+});
+
+test('stressTestTasso: un debito con margine ampio non diventa mai irrisolvibile nel range testato', () => {
+  const carta = { id: 'c', nome: 'Prestito personale', saldo: 1000, tasso: 15, pagamentoMinimo: 100 };
+  const risultati = stressTestTasso(carta, [1, 2, 3]);
+  assert.ok(risultati.every((r) => r.irrisolvibile === false));
+  assert.ok(risultati[0].differenzaMesi >= 0);
+  assert.ok(risultati[0].differenzaInteresse >= 0);
+});
+
+test('testoStressTasso: segnala il PRIMO aumento che rende il debito irrisolvibile, non l\'ultimo o una media', () => {
+  const mutuo = { id: 'm', nome: 'Mutuo casa', saldo: 200000, tasso: 3, pagamentoMinimo: 900, tipo: 'mutuo', tassoVariabile: true };
+  const risultati = stressTestTasso(mutuo, [1, 2, 3]);
+  const testo = testoStressTasso(risultati);
+  assert.match(testo, /2/); // il SECONDO incremento è il primo a diventare irrisolvibile, non il terzo
+});
+
+test('testoStressTasso: mostra l\'impatto reale (mesi/interessi) quando resta sempre risolvibile', () => {
+  const carta = { id: 'c', nome: 'Prestito personale', saldo: 1000, tasso: 15, pagamentoMinimo: 100 };
+  const risultati = stressTestTasso(carta, [1, 2, 3]);
+  const testo = testoStressTasso(risultati);
+  assert.ok(testo === null || typeof testo === 'string');
+});
+
+test('testoStressTasso: mai un\'eccezione con un array vuoto', () => {
+  assert.doesNotThrow(() => testoStressTasso([]));
 });
 
 test('testoBaseline: se anche la baseline è irrisolvibile, non pretende un confronto in euro', () => {

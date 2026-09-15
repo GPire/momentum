@@ -204,7 +204,7 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
-import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline } from './predict/debt-payoff.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -10625,7 +10625,7 @@ window.openDebiti = () => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const debiti = () => VaultDAO.state.debiti || [];
   const persist = (d) => { VaultDAO.state.debiti = d; VaultDAO.save(); };
-  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false };
+  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false, tassoVariabile: false };
   let strategia = 'valanga';
   let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
   const dataFraMesi = (n) => {
@@ -10680,10 +10680,26 @@ window.openDebiti = () => {
   const render = () => {
     const ds = debiti();
     const righeForm = ds.length ? '' : `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('debtEmptyHint', __uiLang)}</p>`;
+    // Stress test tasso variabile (2026-09-16): SOLO per i debiti dichiarati
+    // a tasso variabile, mai calcolato per gli altri (nessun allarme su un
+    // tasso fisso, che per definizione non ha questo rischio). Il primo
+    // scenario davvero grave (irrisolvibile) vince sempre sulla media —
+    // vedi testoStressTasso in debt-payoff.js.
+    const noteStress = {};
+    for (const d of ds) {
+      if (!d.tassoVariabile) continue;
+      try {
+        const testo = testoStressTasso(stressTestTasso(d, [1, 2, 3], __uiLang), __uiLang);
+        if (testo) noteStress[d.id] = testo;
+      } catch (_) {}
+    }
     const listaRighe = ds.map(d => `
-      <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0">
-        <span class="min-w-0"><b>${esc(d.nome)}</b> · <span class="text-[var(--on-surface-secondary)]">${esc(tCh('debtRowSummary', __uiLang, eur(d.saldo), d.tasso, eur(d.pagamentoMinimo)))}</span></span>
-        <button data-deldebito="${d.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">${tCh('debtDeleteBtn', __uiLang)}</button>
+      <div class="split-row flex flex-col gap-1 py-1.5 border-b border-[var(--outline)] last:border-0">
+        <div class="flex items-center justify-between gap-2">
+          <span class="min-w-0"><b>${esc(d.nome)}</b> · <span class="text-[var(--on-surface-secondary)]">${esc(tCh('debtRowSummary', __uiLang, eur(d.saldo), d.tasso, eur(d.pagamentoMinimo)))}</span></span>
+          <button data-deldebito="${d.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">${tCh('debtDeleteBtn', __uiLang)}</button>
+        </div>
+        ${noteStress[d.id] ? `<p class="text-[11px] text-amber-400 leading-snug">${esc(noteStress[d.id])}</p>` : ''}
       </div>`).join('');
 
     openModal(`
@@ -10702,6 +10718,16 @@ window.openDebiti = () => {
             <div class="task-field"><span>${tCh('debtTypeLabel', __uiLang)}</span>
               <div class="flex flex-wrap gap-1.5 mt-1">${TIPI.map(([k, lbl]) => `<button type="button" data-debttipo="${k}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.tipo === k ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(lbl())}</button>`).join('')}</div>
             </div>
+            <!-- "Tasso variabile" richiesto esplicitamente (2026-09-16, gap
+                 di mercato reale: "payment shock" da rialzo tassi su mutui/
+                 prestiti — vedi commento in debt-payoff.js normalizzaDebito).
+                 Visibile per QUALUNQUE tipo (non solo mutuo: anche un
+                 prestito auto/personale può essere a tasso variabile). -->
+            <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
+              <input id="dt-tasso-var" type="checkbox" ${form.tassoVariabile ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
+              <span>${tCh('debtVariableRateLabel', __uiLang)}</span>
+            </label>
+            ${form.tassoVariabile ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtVariableRateHint', __uiLang)}</p>` : ''}
             ${form.tipo === 'mutuo' ? `
             <!-- Richiesto esplicitamente dall'utente (2026-09-15): per un
                  mutuo la logica di "extra sempre al tasso/saldo migliore"
@@ -10734,6 +10760,7 @@ window.openDebiti = () => {
     $('#dt-tasso')?.addEventListener('input', (e) => { form.tasso = e.target.value; });
     $('#dt-min')?.addEventListener('input', (e) => { form.pagamentoMinimo = e.target.value; });
     $('#dt-penale')?.addEventListener('change', (e) => { form.penaleEstinzione = e.target.checked; });
+    $('#dt-tasso-var')?.addEventListener('change', (e) => { form.tassoVariabile = e.target.checked; render(); });
     document.querySelectorAll('[data-debttipo]').forEach(b => b.addEventListener('click', () => { form.tipo = b.dataset.debttipo; render(); }));
     $('#dt-add')?.addEventListener('click', () => {
       const saldo = parseFloat(String(form.saldo).replace(',', '.'));
@@ -10742,8 +10769,8 @@ window.openDebiti = () => {
       if (!form.nome.trim() || !(saldo > 0) || !(pagamentoMinimo > 0) || !(tasso >= 0)) {
         showToast(tCh('debtFormError', __uiLang), 'error'); return;
       }
-      persist([...debiti(), { id: `d${Date.now().toString(36)}`, nome: form.nome.trim(), saldo, tasso, pagamentoMinimo, tipo: form.tipo, penaleEstinzione: form.tipo === 'mutuo' && form.penaleEstinzione }]);
-      form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = ''; form.tipo = 'altro'; form.penaleEstinzione = false;
+      persist([...debiti(), { id: `d${Date.now().toString(36)}`, nome: form.nome.trim(), saldo, tasso, pagamentoMinimo, tipo: form.tipo, penaleEstinzione: form.tipo === 'mutuo' && form.penaleEstinzione, tassoVariabile: form.tassoVariabile }]);
+      form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = ''; form.tipo = 'altro'; form.penaleEstinzione = false; form.tassoVariabile = false;
       render();
     });
     // Solo aggiornaRisultato() qui, MAI render(): vedi commento su
