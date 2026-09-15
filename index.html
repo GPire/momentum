@@ -5653,57 +5653,55 @@
                    dichiarata, qui si unifica solo dove si TROVANO, non come
                    funzionano). -->
               <div class="card p-6 flex flex-col order-7 finance-detail-card" id="tax-settings-card">
-                <div class="flex items-center gap-4 mb-1">
-                  <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--on-surface-secondary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
+                <div class="tax-card-header">
+                  <div class="tax-card-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg></div>
                   <div class="min-w-0 flex-1">
-                    <div class="flex items-center justify-between gap-2">
-                      <h3 class="font-bold text-base" data-i18n-key="vaultTaxTitle">Tasse · Partita IVA</h3>
-                      <!-- Badge ISO invece di emoji bandiera (2026-08-27, feedback
-                           utente: "ci devono essere icone di design"): stesso
-                           linguaggio già usato ovunque nell'app per valuta/paese
-                           (font-mono, pillola con bordo — vedi ISO 4217 in
-                           iso4217.js), coerente con lo stroke-style del resto
-                           della UI invece di un font emoji che varia per OS. -->
-                      <!-- 2026-08-27, secondo giro di feedback: il solo codice
-                           ISO era troppo astratto ("comprensibile anche a un
-                           bambino" — principio del progetto). Aggiunta una
-                           piccola striscia di colore per Paese (disegnata in
-                           CSS, non un font emoji): un bambino riconosce un
-                           pattern di colore anche senza saper leggere le
-                           lettere, resta comunque un'icona "di design" e non
-                           un pittogramma di sistema. -->
-                      <details class="calm-disclosure tax-country-picker"><summary data-i18n-key="taxChooseCountry">Scegli il Paese</summary><span class="tax-country-actions">
-                        <button type="button" onclick="window.openTaxRegimePicker()" title="Italia" data-i18n-title="vaultTaxItalyTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
-                          <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(90deg,#009246 0 33%,#fff 33% 66%,#ce2b37 66% 100%)"></span>
-                          <span class="font-mono text-[10px] font-bold">IT</span>
-                        </button>
-                        <button type="button" onclick="window.openSwissSimulator()" title="Svizzera" data-i18n-title="vaultTaxSwissTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
-                          <!-- Croce bianca disegnata in CSS (2 barre a
-                               gradiente) invece di un pallino rosso pieno,
-                               che non si leggeva come Svizzera (feedback
-                               utente) — niente immagine, resta un'icona. -->
-                          <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background: linear-gradient(#fff,#fff) center/58% 20% no-repeat, linear-gradient(#fff,#fff) center/20% 58% no-repeat, #d52b1e"></span>
-                          <span class="font-mono text-[10px] font-bold">CH</span>
-                        </button>
-                        <button type="button" onclick="window.openSpainSimulator()" title="España" data-i18n-title="vaultTaxSpainTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
-                          <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:linear-gradient(180deg,#c60b1e 0 25%,#ffc400 25% 75%,#c60b1e 75% 100%)"></span>
-                          <span class="font-mono text-[10px] font-bold">ES</span>
-                        </button>
-                      </span></details>
-                    </div>
+                    <h3 class="font-bold text-base" data-i18n-key="vaultTaxTitle">Tasse · Partita IVA</h3>
                     <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" data-i18n-key="vaultTaxSubtitle">Se fatturi (qui o altrove), calcolo io quanto mettere da parte — un solo posto per i tre Paesi.</p>
                   </div>
+                </div>
+                <!-- La scelta del Paese è un'azione primaria, quindi resta
+                     sempre visibile e separata dal titolo: nessun controllo
+                     compresso nella stessa riga su mobile. -->
+                <div class="tax-country-picker" role="group" data-i18n-aria="taxChooseCountry" aria-label="Scegli il Paese">
+                  <div class="tax-country-picker-head">
+                    <span class="tax-country-label" data-i18n-key="taxChooseCountry">Scegli il Paese</span>
+                    <span class="tax-country-hint" data-i18n-key="taxCountryHint">Scelto da te · puoi cambiarlo quando vuoi.</span>
+                  </div>
+                  <span class="tax-country-actions">
+                    <!-- Badge ISO invece di emoji bandiera: il colore e il
+                         codice restano leggibili su ogni sistema operativo. -->
+                    <button type="button" data-tax-country="it" aria-pressed="false" onclick="window.openTaxRegimePicker()" title="Italia" data-i18n-title="vaultTaxItalyTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                      <span class="tax-country-orb tax-country-orb-it" aria-hidden="true"></span>
+                      <span class="tax-country-name" data-i18n-key="vaultTaxItalyTitle">Italia</span>
+                      <span class="tax-country-code">IT</span>
+                    </button>
+                    <button type="button" data-tax-country="ch" aria-pressed="false" onclick="window.openSwissSimulator()" title="Svizzera" data-i18n-title="vaultTaxSwissTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                      <span class="tax-country-orb tax-country-orb-ch" aria-hidden="true"></span>
+                      <span class="tax-country-name" data-i18n-key="vaultTaxSwissTitle">Svizzera</span>
+                      <span class="tax-country-code">CH</span>
+                    </button>
+                    <button type="button" data-tax-country="es" aria-pressed="false" onclick="window.openSpainSimulator()" title="España" data-i18n-title="vaultTaxSpainTitle" class="tax-flag-pop flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border border-[var(--outline)] text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)] hover:border-[var(--primary)] active:scale-90 transition-transform">
+                      <span class="tax-country-orb tax-country-orb-es" aria-hidden="true"></span>
+                      <span class="tax-country-name" data-i18n-key="vaultTaxSpainTitle">Spagna</span>
+                      <span class="tax-country-code">ES</span>
+                    </button>
+                  </span>
                 </div>
                 <div id="tax-settings-body" class="mt-3"></div>
 
                 <!-- Dettaglio Italia (src/predict/tax.js): stessi ID di sempre,
                      ora dentro la card unica invece che in una propria. -->
                 <div class="hidden pt-3 mt-3 border-t border-[var(--outline)]" id="tax-card">
-                   <p class="card-sub !mb-1" data-i18n-key="vaultTaxItLabel">Su ogni incasso, quanto mettere via per fisco e contributi — il tuo vero disponibile</p>
-                   <p id="tax-setaside" class="text-2xl font-black font-mono text-[var(--red)] mb-1">—</p>
-                   <p id="tax-note" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
+                   <div class="tax-detail-overview">
+                     <div class="tax-detail-copy">
+                       <p class="tax-detail-label" data-i18n-key="vaultTaxItLabel">Su ogni incasso, quanto mettere via per fisco e contributi — il tuo vero disponibile</p>
+                       <p id="tax-note" class="tax-detail-note"></p>
+                     </div>
+                     <p id="tax-setaside" class="tax-detail-amount font-black font-mono">—</p>
+                   </div>
                    <div id="tax-extra" class="mt-3"></div>
-                   <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="vaultTaxItDisclaimer">Non è consulenza fiscale: stime su aliquote dichiarate. Verifica col tuo commercialista.</p>
+                   <p class="tax-detail-disclaimer" data-i18n-key="vaultTaxItDisclaimer">Non è consulenza fiscale: stime su aliquote dichiarate. Verifica col tuo commercialista.</p>
                 </div>
 
                 <!-- Dettaglio Spagna (src/predict/tax-es.js): idem, stessi ID. -->

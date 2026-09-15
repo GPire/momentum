@@ -6004,20 +6004,12 @@ function renderTax(monthK) {
     card.classList.add('hidden');
     return;
   }
+  // Il contenitore principale (#tax-settings-card) gestisce già l'invito e la
+  // scelta del regime. Il dettaglio numerico resta nascosto finché il regime
+  // non è una scelta reale: evitare una seconda copia delle stesse domande
+  // riduce il carico cognitivo proprio nel primo momento.
+  if (!regime) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
-
-  // ── INTELLIGENZA REGIME: senza regime NON si inventa un numero (IRPEF/INPS/
-  // coefficiente dipendono dal regime). Se ci sono fatture ma manca il regime,
-  // si CHIEDE con un tocco — poi il calcolo diventa reale.
-  if (everInvoice && !regime) {
-    setEl.textContent = '?';
-    noteEl.textContent = tCh('taxAskRegimeNote', __uiLang);
-    if (extraEl) {
-      extraEl.innerHTML = `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
-        `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] hover:border-[var(--red)]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
-    }
-    return;
-  }
 
   // Il riepilogo mensile deve usare lo stesso anno/regole/cassa della
   // posizione annuale: prima questo punto chiamava il motore con i soli
@@ -6132,8 +6124,10 @@ function renderTax(monthK) {
         </div>
       </div>`;
     }
-    // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
-    html += `<button onclick="window.openCreateInvoice()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tCh('taxCreateInvoiceBtn', __uiLang)}</button>`;
+    // “Crea fattura” vive già nella testata della card, sempre nello stesso
+    // punto. Non lo ripetiamo nel dettaglio: una sola azione primaria è più
+    // prevedibile su mobile e impedisce di confondere il riepilogo con un
+    // secondo percorso.
     // Entrambi i Paesi attivi (raro, ma reale): l'Italia si mostra per
     // default, uno switch esplicito porta alla Spagna — mai le due insieme.
     if (VaultDAO.state.esActive) {
@@ -6277,6 +6271,7 @@ function renderTaxEs(monthK) {
 window.setTaxActiveCountry = (paese) => {
   VaultDAO.state.taxActiveCountry = paese;
   VaultDAO.save();
+  syncTaxCountryPicker();
   renderTax(monthKey(new Date()));
   renderTaxEs(monthKey(new Date()));
 };
@@ -6294,6 +6289,7 @@ window.setEsActive = (val) => {
   showToast(tCh(val ? 'esActivatedToast' : 'esDeactivatedToast', __esLang), val ? 'success' : 'info');
   if (val) pingFeature('spain_tax_activated');
   window.closeModal?.();
+  syncTaxCountryPicker();
   renderTaxEs(monthKey(new Date()));
   renderDashboard();
 };
@@ -6385,9 +6381,24 @@ function readItalianTaxPosition(now = new Date()) {
 //    regime e calcolo tasse+contributi giusti" (mai un numero inventato).
 //  · niente di tutto ciò → invito discreto per chi HA la Partita IVA ad
 //    attivarla, senza imporla a chi non fattura.
+function syncTaxCountryPicker() {
+  const active = ['it', 'ch', 'es'].includes(VaultDAO.state.taxActiveCountry)
+    ? VaultDAO.state.taxActiveCountry
+    : 'it';
+  document.querySelectorAll('#tax-settings-card [data-tax-country]').forEach((button) => {
+    const selected = button.dataset.taxCountry === active;
+    button.setAttribute('aria-pressed', String(selected));
+    button.classList.toggle('is-selected', selected);
+  });
+}
+window.syncTaxCountryPicker = syncTaxCountryPicker;
+
 function renderTaxSettings() {
   const body = $('#tax-settings-body');
   if (!body) return;
+  // La pillola attiva è un orientamento, non un dato nuovo: si riallinea ad
+  // ogni render così il Paese mostrato resta sempre quello realmente scelto.
+  syncTaxCountryPicker();
   const regime = VaultDAO.state.taxRegime;
   const everInvoice = hasInvoiceIncome();
   const regimeButtons = (accent) => `<div class="tax-settings-regimes flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
@@ -7407,7 +7418,7 @@ window.openTaxRegimePicker = () => {
     </div>`);
 };
 
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard(); };
+window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); syncTaxCountryPicker(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard(); };
 
 // VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06, src/predict/tax.js:
 // verificaEsclusioneForfettario) — problema di mercato reale: Momentum
@@ -7463,6 +7474,134 @@ window.verificaEsclusioneForfettarioSubmit = () => {
       <button onclick="window.closeModal()" class="tax-flow-cta btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esclForfCloseBtn', __uiLang)}</button>
     </div>`);
 };
+
+// Revisione UX del controllo forfettario: la logica precedente resta sopra
+// come compatibilità per vecchi chiamanti, ma il percorso visibile usa una
+// domanda per schermata. Sei periodi normativi diventano sei decisioni brevi,
+// con stato reversibile e un risultato prudente se l'utente sceglie "Non lo so".
+let __taxEligibilitySession = null;
+function renderTaxEligibilityStep() {
+  const entries = Object.entries(CAUSE_ESCLUSIONE_FORFETTARIO);
+  const session = __taxEligibilitySession;
+  if (!session || !entries.length) return;
+  const index = Math.min(Math.max(0, session.index), entries.length - 1);
+  session.index = index;
+  const [chiave, c] = entries[index];
+  const storedAnswer = session.answers[chiave];
+  const current = storedAnswer === true ? 'yes' : storedAnswer === false ? 'no' : storedAnswer === null ? 'unknown' : undefined;
+  const total = entries.length;
+  const progress = index + 1;
+  const keyAttr = JSON.stringify(chiave);
+  const answerButton = (value, label, hint, tone) => {
+    const selected = current === value;
+    const mark = value === 'yes'
+      ? '<path d="m5 12 4 4L19 6"/>'
+      : value === 'no'
+        ? '<path d="M6 6l12 12M18 6 6 18"/>'
+        : '<path d="M12 8v4M12 16h.01"/>';
+    return `<button type="button" class="tax-answer-choice tax-answer-${tone}${selected ? ' is-selected' : ''}" aria-pressed="${selected}" onclick='window.answerTaxEligibility(${keyAttr}, ${JSON.stringify(value)})'>
+      <span class="tax-answer-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${mark}</svg></span>
+      <span class="tax-answer-copy"><strong>${label}</strong><small>${hint}</small></span>
+    </button>`;
+  };
+  window.openModal(`
+    <div class="tax-flow tax-flow-check tax-flow-check-step flex flex-col gap-3 p-1 text-left" data-tax-step="${progress}" data-tax-total="${total}">
+      <div class="tax-check-intro">
+        <div class="tax-check-intro-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.3c0 4.7 3.2 8.2 7.5 9.7 4.3-1.5 7.5-5 7.5-9.7V6L12 3Z"/><path d="m8.8 12 2.1 2.1 4.4-4.4"/></svg></div>
+        <div class="tax-flow-heading tax-check-heading">
+          <span class="tax-flow-kicker">${tCh('taxEligibilityKicker', __uiLang)}</span>
+          <div class="tax-check-progress-row">
+            <span class="tax-check-progress">${tCh('taxEligibilityProgress', __uiLang, progress, total)}</span>
+            <span class="tax-check-progress-value" aria-hidden="true">${progress}/${total}</span>
+          </div>
+          <h3 class="text-lg font-black leading-tight">${tCh('taxEligibilityStepTitle', __uiLang)}</h3>
+          <p class="text-xs text-[var(--on-surface-secondary)] mt-1">${tCh('taxEligibilityPrompt', __uiLang)}</p>
+        </div>
+      </div>
+      <div class="tax-check-track" role="progressbar" aria-valuemin="1" aria-valuemax="${total}" aria-valuenow="${progress}" aria-label="${tCh('taxEligibilityProgress', __uiLang, progress, total)}"><span style="width:${(progress / total) * 100}%"></span></div>
+      <article class="tax-question-card" aria-labelledby="tax-question-title">
+        <span class="tax-question-number">${progress}</span>
+        <p id="tax-question-title">${escapeHtml(c.label)}</p>
+        <details class="tax-question-source">
+          <summary>${tCh('taxEligibilityWhy', __uiLang)}</summary>
+          <p>${escapeHtml(c.fonte)}</p>
+        </details>
+      </article>
+      <div class="tax-answer-grid" role="group" aria-label="${tCh('taxEligibilityPrompt', __uiLang)}">
+        ${answerButton('yes', tCh('taxEligibilityYes', __uiLang), tCh('taxEligibilityYesHint', __uiLang), 'yes')}
+        ${answerButton('no', tCh('taxEligibilityNo', __uiLang), tCh('taxEligibilityNoHint', __uiLang), 'no')}
+        ${answerButton('unknown', tCh('taxEligibilityUnknown', __uiLang), tCh('taxEligibilityUnknownHint', __uiLang), 'unknown')}
+      </div>
+      <div class="tax-check-navigation">
+        ${progress > 1 ? `<button type="button" class="tax-flow-secondary btn-action" onclick="window.backTaxEligibility()">${tCh('taxEligibilityBack', __uiLang)}</button>` : '<span></span>'}
+        <span class="tax-check-navigation-hint">${tCh('taxEligibilityTapHint', __uiLang)}</span>
+      </div>
+      <p class="tax-check-disclaimer">${tCh('esclForfDisclaimer', __uiLang)}</p>
+    </div>`);
+}
+
+window.openVerificaEsclusioneForfettario = () => {
+  __taxEligibilitySession = { index: 0, answers: {} };
+  renderTaxEligibilityStep();
+};
+
+window.answerTaxEligibility = (chiave, valore) => {
+  const session = __taxEligibilitySession;
+  if (!session || !Object.prototype.hasOwnProperty.call(CAUSE_ESCLUSIONE_FORFETTARIO, chiave)) return;
+  if (!['yes', 'no', 'unknown'].includes(valore)) return;
+  session.answers[chiave] = valore === 'yes' ? true : valore === 'no' ? false : null;
+  const total = Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO).length;
+  if (session.index >= total - 1) {
+    window.verificaEsclusioneForfettarioSubmit();
+    return;
+  }
+  session.index += 1;
+  renderTaxEligibilityStep();
+};
+
+window.backTaxEligibility = () => {
+  if (!__taxEligibilitySession || __taxEligibilitySession.index <= 0) return;
+  __taxEligibilitySession.index -= 1;
+  renderTaxEligibilityStep();
+};
+
+window.verificaEsclusioneForfettarioSubmit = () => {
+  const session = __taxEligibilitySession;
+  const risposte = session
+    ? Object.fromEntries(Object.entries(session.answers).map(([k, v]) => [k, v === true ? true : v === false ? false : null]))
+    : {};
+  // Chiamanti storici con checkbox: nessuna regressione se ne resta uno.
+  if (!session) {
+    for (const chiave of Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO)) {
+      risposte[chiave] = !!document.getElementById(`escl-${chiave}`)?.checked;
+    }
+  }
+  const nonRisposte = Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO)
+    .filter((chiave) => risposte[chiave] === null || risposte[chiave] === undefined).length;
+  const { escluso, cause } = verificaEsclusioneForfettario(risposte);
+  __taxEligibilitySession = null;
+  const controlloIncompleto = !escluso && nonRisposte > 0;
+  window.openModal(`
+    <div class="tax-flow tax-flow-check-result tax-flow-result ${controlloIncompleto ? 'tax-flow-check-unknown' : escluso ? 'tax-flow-check-bad' : 'tax-flow-check-ok'} flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+      ${controlloIncompleto
+        ? tl1Icon('<path d="M12 8v4M12 16h.01"/><circle cx="12" cy="12" r="9"/>', '--gold')
+        : escluso
+          ? tl1Icon('<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>', '--red')
+          : tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/>', '--green')}
+      <div class="tax-flow-heading">
+        <h3 class="text-lg font-black leading-tight">${controlloIncompleto ? tCh('taxEligibilityUnknownTitle', __uiLang) : escluso ? tCh('esclForfResultBadTitle', __uiLang) : tCh('esclForfResultOkTitle', __uiLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${controlloIncompleto ? tCh('taxEligibilityUnknownSub', __uiLang, nonRisposte) : escluso ? tCh('esclForfResultBadSub', __uiLang) : tCh('esclForfResultOkSub', __uiLang)}</p>
+      </div>
+      ${escluso ? `<div class="tax-result-strategies w-full flex flex-col gap-2 text-left">
+        ${cause.map((c) => `<div class="rounded-xl border border-red-400/40 bg-red-400/5 p-3">
+          <div class="text-[12px] font-black text-red-300 leading-snug">${escapeHtml(c.label)}</div>
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(c.fonte)}</div>
+        </div>`).join('')}
+      </div>` : ''}
+      <button onclick="window.closeModal()" class="tax-flow-cta btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esclForfCloseBtn', __uiLang)}</button>
+    </div>`);
+};
+
 // "Sono dipendente, non mi serve": rispetta la scelta e smette di chiedere,
 // ma resta reversibile con un tocco (cambiare lavoro è normale, non un caso
 // limite da nascondere per sempre dietro un flag irreversibile).
@@ -12735,43 +12874,49 @@ function getInvoiceFormHTML() {
   const smallCls = 'w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3 py-2.5 text-sm min-w-0';
   const hasProfile = !!(prof.emitter && prof.emitter.trim());
   const v = (s) => String(s || '').replace(/"/g, '&quot;');
+  const invoiceLocale = ({ it: 'it-IT', en: 'en-GB', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', nl: 'nl-NL', pt: 'pt-PT' }[__uiLang] || 'en-GB');
   // Sezione dati fiscali (P.IVA/indirizzo): serve alla FATTURA ELETTRONICA XML.
-  // Compilata una volta e ricordata. Per l'Italia si apre da sola (è quello che
-  // serve davvero); il PDF di cortesia funziona anche senza.
+  // Compilata una volta e ricordata. Parte richiusa per lasciare subito spazio
+  // a cliente/importo/causale; il controllo XML la riapre e mette a fuoco il
+  // primo dato mancante quando serve. Il PDF di cortesia funziona anche senza.
   const emitterFiscalHTML = `
         <div class="grid grid-cols-2 gap-2">
-          <input id="inv-piva" inputmode="numeric" class="${smallCls}" placeholder="Partita IVA (11 cifre)" value="${v(fis.partitaIva)}" name="inv-piva" aria-label="Partita IVA (11 cifre)" />
-          <input id="inv-cf" class="${smallCls}" placeholder="Codice Fiscale (se diverso)" value="${v(fis.codiceFiscale)}" name="inv-cf" aria-label="Codice Fiscale (se diverso)" />
-          <input id="inv-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo (via e numero)" value="${v(fis.indirizzo)}" name="inv-indirizzo" aria-label="Indirizzo (via e numero)" />
+          <input id="inv-piva" inputmode="numeric" class="${smallCls}" placeholder="${tCh('invoiceVatIdPlaceholder', __uiLang)}" value="${v(fis.partitaIva)}" name="inv-piva" aria-label="${tCh('invoiceVatIdPlaceholder', __uiLang)}" />
+          <input id="inv-cf" class="${smallCls}" placeholder="${tCh('invoiceTaxCodePlaceholder', __uiLang)}" value="${v(fis.codiceFiscale)}" name="inv-cf" aria-label="${tCh('invoiceTaxCodePlaceholder', __uiLang)}" />
+          <input id="inv-indirizzo" class="${smallCls} col-span-2" placeholder="${tCh('invoiceAddressPlaceholder', __uiLang)}" value="${v(fis.indirizzo)}" name="inv-indirizzo" aria-label="${tCh('invoiceAddressPlaceholder', __uiLang)}" />
           <input id="inv-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" value="${v(fis.cap)}" name="inv-cap" />
-          <input id="inv-comune" class="${smallCls}" placeholder="Comune" value="${v(fis.comune)}" name="inv-comune" aria-label="Comune" />
-          <input id="inv-prov" maxlength="2" class="${smallCls}" placeholder="Prov. (es. MI)" value="${v(fis.provincia)}" name="inv-prov" aria-label="Prov. (es. MI)" />
-          <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" name="inv-iban" aria-label="IBAN (per il pagamento)" />
+          <input id="inv-comune" class="${smallCls}" placeholder="${tCh('invoiceTownPlaceholder', __uiLang)}" value="${v(fis.comune)}" name="inv-comune" aria-label="${tCh('invoiceTownPlaceholder', __uiLang)}" />
+          <input id="inv-prov" maxlength="2" class="${smallCls}" placeholder="${tCh('invoiceProvincePlaceholder', __uiLang)}" value="${v(fis.provincia)}" name="inv-prov" aria-label="${tCh('invoiceProvincePlaceholder', __uiLang)}" />
+          <input id="inv-iban" class="${smallCls}" placeholder="${tCh('invoiceIbanPlaceholder', __uiLang)}" value="${v(fis.iban)}" name="inv-iban" aria-label="${tCh('invoiceIbanPlaceholder', __uiLang)}" />
         </div>`;
   return `
   <div class="tax-flow tax-flow-invoice flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
-    <div class="flex items-center gap-3">
+    <div class="invoice-flow-header">
       ${tl1Icon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/>', '--primary')}
       <div class="flex-1 min-w-0">
-        <h3 class="text-lg font-black leading-tight">Crea fattura</h3>
-        <p class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Date().toLocaleDateString('it-IT')}</p>
+        <h3 class="font-black leading-tight">${tCh('invoiceTitle', __uiLang)}</h3>
+        <p class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Intl.DateTimeFormat(invoiceLocale).format(new Date())}</p>
       </div>
     </div>
     <!-- CONSULENTE-GUIDA: dice in parole semplici quale documento serve. Aggiornato live. -->
-    <div id="inv-guidance" class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-4 py-3 text-[12px] leading-snug"></div>
+    <div id="inv-guidance" class="invoice-guidance" role="status" aria-live="polite"></div>
+    <div class="inv-core-hint" role="note">
+      <strong>${tCh('invoiceCoreKicker', __uiLang)}</strong>
+      <span>${tCh('invoiceCoreHint', __uiLang)}</span>
+    </div>
     <!-- I tuoi dati (emittente + dati fiscali + logo): compilati UNA volta e ricordati -->
-    <details ${hasProfile ? '' : 'open'} class="rounded-xl border border-[var(--glass-border)] bg-black/20">
-      <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">I tuoi dati e logo ${hasProfile ? `· <span class="text-emerald-400">${(prof.emitter || '').slice(0, 24)}</span>` : '(compila una volta)'}</summary>
+    <details class="invoice-identity-panel rounded-xl border border-[var(--glass-border)] bg-black/20">
+      <summary><span>${tCh('invoiceIdentityTitle', __uiLang)}</span><span class="inv-identity-state">${hasProfile ? `<span class="text-emerald-400">${tCh('invoiceIdentityReady', __uiLang)} · ${(prof.emitter || '').slice(0, 24)}</span>` : tCh('invoiceIdentityNeedsSetup', __uiLang)}</span></summary>
       <div class="flex flex-col gap-2 p-3 pt-0">
-        <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${v(prof.emitter)}" name="inv-emitter" aria-label="Il tuo nome / ragione sociale" />
+        <input id="inv-emitter" class="${inputCls}" placeholder="${tCh('invoiceEmitterPlaceholder', __uiLang)}" value="${v(prof.emitter)}" name="inv-emitter" aria-label="${tCh('invoiceEmitterPlaceholder', __uiLang)}" />
         ${emitterFiscalHTML}
         <div class="flex items-center gap-3">
-          <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">Carica logo<input id="inv-logo" type="file" accept="image/*" class="hidden" name="inv-logo" /></label>
-          <span id="inv-logo-status" class="text-[10px] text-[var(--on-surface-secondary)]">${prof.logo ? 'logo salvato ✓' : 'nessun logo'}</span>
-          <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="Paese (regole fattura)" name="inv-country">
+          <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">${tCh('invoiceUploadLogo', __uiLang)}<input id="inv-logo" type="file" accept="image/*" class="hidden" name="inv-logo" /></label>
+          <span id="inv-logo-status" class="text-[10px] text-[var(--on-surface-secondary)]">${prof.logo ? `${tCh('invoiceLogoSaved', __uiLang)} ✓` : tCh('invoiceNoLogo', __uiLang)}</span>
+          <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="${tCh('invoiceCountryRulesTitle', __uiLang)}" aria-label="${tCh('invoiceCountryRulesTitle', __uiLang)}" name="inv-country">
             ${selectableInvoiceCountries().map(c => `<option value="${c.code}" ${(prof.country || 'IT') === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
           </select>
-          <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="Colore accento" name="inv-accent" />
+          <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="${tCh('invoiceAccentTitle', __uiLang)}" aria-label="${tCh('invoiceAccentTitle', __uiLang)}" name="inv-accent" />
         </div>
         ${(() => {
           // Tre stili, tre pubblici diversi (non decorazione a caso): "minimale"
@@ -12781,16 +12926,16 @@ function getInvoiceFormHTML() {
           // un'altra azienda; "vivace" per chi fattura al pubblico/creator,
           // dove farsi riconoscere vale più della formalità.
           const THEMES = [
-            { id: 'minimale', label: 'Minimale', hint: 'Aziende grandi, commercialisti — la sobrietà è credibilità', grad: 'linear-gradient(135deg,#fbfaf7,#e7e2d8)' },
-            { id: 'tecnico', label: 'Tecnico', hint: 'Consulenza IT/dev verso altre aziende', grad: 'linear-gradient(135deg,#0f172a,#1e293b)' },
-            { id: 'vivace', label: 'Vivace', hint: 'Clienti privati, creator, freelance — si fa ricordare', grad: 'linear-gradient(135deg,#e11d48,#7c3aed)' },
+            { id: 'minimale', label: tCh('invoiceThemeMinimal', __uiLang), hint: tCh('invoiceThemeMinimalHint', __uiLang), grad: 'linear-gradient(135deg,#fbfaf7,#e7e2d8)' },
+            { id: 'tecnico', label: tCh('invoiceThemeTechnical', __uiLang), hint: tCh('invoiceThemeTechnicalHint', __uiLang), grad: 'linear-gradient(135deg,#0f172a,#1e293b)' },
+            { id: 'vivace', label: tCh('invoiceThemeBold', __uiLang), hint: tCh('invoiceThemeBoldHint', __uiLang), grad: 'linear-gradient(135deg,#e11d48,#7c3aed)' },
           ];
           // Predittivo: se l'utente non ha MAI scelto un tema (nessun profilo
           // salvato) si parte già dal suggerimento più sensato invece che da
           // un default fisso — mai deciso al posto suo dopo la prima scelta.
           const cur = INVOICE_THEMES.includes(prof.theme) ? prof.theme : suggestInvoiceTheme('', '', 0);
           return `<div class="pt-1">
-            <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">Stile del documento</div>
+            <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">${tCh('invoiceDocumentStyle', __uiLang)}</div>
             <div id="inv-theme-picker" class="grid grid-cols-3 gap-2">
               ${THEMES.map(t => `
                 <button type="button" data-theme="${t.id}" title="${t.hint}"
@@ -12809,7 +12954,7 @@ function getInvoiceFormHTML() {
                  contraddirebbe la sua stessa promessa a un cliente enterprise. -->
             <label class="flex items-center gap-2 mt-2.5 text-[10px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
               <input type="checkbox" id="inv-brand-credit" ${(prof.brandCredit !== undefined ? prof.brandCredit : cur !== 'minimale') ? 'checked' : ''} class="w-3.5 h-3.5 rounded accent-[var(--primary)]" name="inv-brand-credit" />
-              Aggiungi una piccola nota "Creato con Momentum" in fondo (facoltativo, mai sull'XML ufficiale)
+              ${tCh('invoiceMomentumCredit', __uiLang)}
             </label>
           </div>`;
         })()}
@@ -12829,59 +12974,62 @@ function getInvoiceFormHTML() {
          (cliente a sinistra, importo/invio a destra) invece di restare
          un'unica colonna lunghissima identica a quella del telefono. Su
          mobile resta una singola colonna, invariato. -->
-    <div class="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-3 lg:items-start">
+    <div class="inv-core-layout flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-3 lg:items-start">
       <div class="flex flex-col gap-3">
         <!-- RIGA UNICA (NL): scrivi la fattura come la diresti — anti-attrito,
              stessa filosofia della voce. "fattura a Rossi Srl 500 per
              consulenza" compila cliente, importo e causale con un tocco. -->
-        <div class="flex gap-2">
-          <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" name="inv-oneline" aria-label='Scrivila a parole: "a Rossi Srl 500 per consulenza"' />
-          <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">Compila</button>
-        </div>
-        <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" name="inv-client" aria-label="Cliente (es. Studio Rossi)" />
+        <details class="inv-smart-entry">
+          <summary>${tCh('invoiceSmartEntryKicker', __uiLang)}</summary>
+          <div class="inv-smart-entry-body flex gap-2">
+          <input id="inv-oneline" class="${inputCls} flex-1" placeholder="${tCh('invoiceOneLinePlaceholder', __uiLang)}" autocomplete="off" name="inv-oneline" aria-label="${tCh('invoiceOneLinePlaceholder', __uiLang)}" />
+          <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">${tCh('invoiceSmartEntryButton', __uiLang)}</button>
+          </div>
+        </details>
+        <input id="inv-client" class="${inputCls}" placeholder="${tCh('invoiceClientPlaceholder', __uiLang)}" autocomplete="off" list="inv-clients" name="inv-client" aria-label="${tCh('invoiceClientPlaceholder', __uiLang)}" />
         <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
         <!-- Dati fiscali del CLIENTE: servono solo alla fattura elettronica. A scomparsa,
              si aprono da soli quando serve. Ricordati per cliente (riuso intelligente). -->
         <details id="inv-client-fiscal" class="rounded-xl border border-[var(--glass-border)] bg-black/20">
-          <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">Dati del cliente per la fattura elettronica <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
+          <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">${tCh('invoiceClientFiscalSummary', __uiLang)} <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
           <div class="grid grid-cols-2 gap-2 p-3 pt-0">
-            <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="P.IVA cliente" name="inv-cli-piva" aria-label="P.IVA cliente" />
-            <input id="inv-cli-cf" class="${smallCls}" placeholder="Codice Fiscale cliente" name="inv-cli-cf" aria-label="Codice Fiscale cliente" />
-            <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo cliente" name="inv-cli-indirizzo" aria-label="Indirizzo cliente" />
+            <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="${tCh('invoiceClientVatPlaceholder', __uiLang)}" name="inv-cli-piva" aria-label="${tCh('invoiceClientVatPlaceholder', __uiLang)}" />
+            <input id="inv-cli-cf" class="${smallCls}" placeholder="${tCh('invoiceClientTaxCodePlaceholder', __uiLang)}" name="inv-cli-cf" aria-label="${tCh('invoiceClientTaxCodePlaceholder', __uiLang)}" />
+            <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="${tCh('invoiceClientAddressPlaceholder', __uiLang)}" name="inv-cli-indirizzo" aria-label="${tCh('invoiceClientAddressPlaceholder', __uiLang)}" />
             <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" name="inv-cli-cap" />
-            <input id="inv-cli-comune" class="${smallCls}" placeholder="Comune" name="inv-cli-comune" aria-label="Comune" />
-            <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="Prov." name="inv-cli-prov" aria-label="Prov." />
-            <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="Codice SdI (7) — se ce l'ha" name="inv-cli-sdi" aria-label="Codice SdI (7) — se ce l'ha" />
-            <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="oppure PEC del cliente" name="inv-cli-pec" aria-label="oppure PEC del cliente" />
-            <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">Non hai il Codice SdI né la PEC? Nessun problema: la fattura arriva nel cassetto fiscale del cliente (useremo <b>0000000</b>).</p>
+            <input id="inv-cli-comune" class="${smallCls}" placeholder="${tCh('invoiceClientTownPlaceholder', __uiLang)}" name="inv-cli-comune" aria-label="${tCh('invoiceClientTownPlaceholder', __uiLang)}" />
+            <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="${tCh('invoiceClientProvincePlaceholder', __uiLang)}" name="inv-cli-prov" aria-label="${tCh('invoiceClientProvincePlaceholder', __uiLang)}" />
+            <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="${tCh('invoiceClientSdiPlaceholder', __uiLang)}" name="inv-cli-sdi" aria-label="${tCh('invoiceClientSdiPlaceholder', __uiLang)}" />
+            <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="${tCh('invoiceClientPecPlaceholder', __uiLang)}" name="inv-cli-pec" aria-label="${tCh('invoiceClientPecPlaceholder', __uiLang)}" />
+            <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('invoiceNoClientSdi', __uiLang)}</p>
           </div>
         </details>
       </div>
       <div class="flex flex-col gap-3">
-        <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" name="inv-amount" aria-label="Quanto (imponibile €)" />
-        <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" name="inv-desc" aria-label="Per cosa (es. Consulenza marzo)" />
+        <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="${tCh('invoiceAmountPlaceholder', __uiLang)}" name="inv-amount" aria-label="${tCh('invoiceAmountPlaceholder', __uiLang)}" />
+        <input id="inv-desc" class="${inputCls}" placeholder="${tCh('invoiceDescriptionPlaceholder', __uiLang)}" name="inv-desc" aria-label="${tCh('invoiceDescriptionPlaceholder', __uiLang)}" />
         <!-- Voci multiple: una fattura spesso NON è un solo importo indistinto
              ("4000 di sviluppo, 399 di hosting") — qui si scompone senza
              obbligare nessuno, resta un dettaglio apribile come gli altri.
              Ogni voce diventa una riga vera nell'XML, non solo un'annotazione. -->
         <div id="inv-extra-voci" class="flex flex-col gap-2"></div>
-        <button type="button" id="inv-add-voce" class="self-start text-[11px] font-bold text-[var(--primary)] underline">+ Scomponi in più voci</button>
+        <button type="button" id="inv-add-voce" class="self-start text-[11px] font-bold text-[var(--primary)] underline">+ ${tCh('invoiceLineItems', __uiLang)}</button>
         <div id="inv-voci-total" class="hidden flex items-center justify-between text-[11px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2">
-          <span>Totale imponibile</span><span id="inv-voci-total-val" class="font-mono font-bold text-[var(--on-surface)]"></span>
+          <span>${tCh('invoiceTotalTaxable', __uiLang)}</span><span id="inv-voci-total-val" class="font-mono font-bold text-[var(--on-surface)]"></span>
         </div>
-        <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" name="inv-email" aria-label="Email cliente (per inviarla)" />
+        <input id="inv-email" type="email" class="${inputCls}" placeholder="${tCh('invoiceEmailPlaceholder', __uiLang)}" autocomplete="off" name="inv-email" aria-label="${tCh('invoiceEmailPlaceholder', __uiLang)}" />
         <label class="block cursor-pointer select-none">
           <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" name="inv-recurring" />
           <span class="recur-row">
             <span class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] min-w-0">
               ${REPEAT_ICON}
-              <span class="min-w-0"><b>Ricorrente ogni mese</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— te lo ricordo io</span></span>
+              <span class="min-w-0"><b>${tCh('invoiceRecurring', __uiLang)}</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— ${tCh('invoiceRecurringHint', __uiLang)}</span></span>
             </span>
             <span class="recur-switch"></span>
           </span>
         </label>
         <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
-          <span class="shrink-0">Regime:</span>
+          <span class="shrink-0">${tCh('invoiceRegimeLabel', __uiLang)}:</span>
           <div class="flex-1 min-w-0">${tl1Select('inv-regime', Object.entries(REGIMI).map(([k, v]) => ({ value: k, label: v.label.split('(')[0].trim() })), regime)}</div>
         </div>
       </div>
@@ -13112,12 +13260,24 @@ window.openCreateInvoice = (prefillClient) => {
     const isIT = country === 'IT';
     const rec = recommendInvoiceType({ emitterCountry: isIT ? 'IT' : 'ES', emitterHasVat: true, clientCountry: isIT ? 'IT' : 'ES' });
     const g = $('#inv-guidance');
-    if (g) g.innerHTML = `<div class="font-bold mb-0.5">${rec.title}</div><div class="text-[var(--on-surface-secondary)]">${rec.reason}</div>`;
-    $('#inv-xml')?.classList.toggle('hidden', !rec.needsFatturaPa);
-    if ($('#inv-generate')) $('#inv-generate').textContent = rec.needsFatturaPa ? 'PDF di cortesia' : 'Scarica PDF';
-    if ($('#inv-foot')) $('#inv-foot').textContent = rec.needsFatturaPa
-      ? 'La fattura elettronica (XML) è quella ufficiale: la carichi sul portale Fatture e Corrispettivi dell’Agenzia o la giri al commercialista. Il PDF è una copia leggibile di cortesia.'
-      : 'Documento generato on-device, valido dove non c’è obbligo di fattura elettronica.';
+    if (g) {
+      const title = isIT ? tCh('invoiceGuidanceElectronicTitle', __uiLang) : tCh('invoiceGuidanceDocumentTitle', __uiLang);
+      const reason = isIT ? tCh('invoiceGuidanceElectronicReason', __uiLang) : tCh('invoiceGuidanceDocumentReason', __uiLang);
+      const icon = isIT
+        ? '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m8.5 15 2 2 4.5-5"/>'
+        : '<path d="M6 2h9l3 3v17H6z"/><path d="M15 2v4h4M9 13h6M9 17h4"/>';
+      g.className = `invoice-guidance ${isIT ? 'is-electronic' : 'is-document'}`;
+      g.innerHTML = `<span class="invoice-guidance-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span><span class="invoice-guidance-copy"><strong>${title}</strong><span>${reason}</span></span>`;
+    }
+    const xmlButton = $('#inv-xml');
+    xmlButton?.classList.toggle('hidden', !rec.needsFatturaPa);
+    if (xmlButton) xmlButton.innerHTML = `<svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>${tCh('invoiceDownloadXml', __uiLang)}`;
+    const sendButton = $('#inv-email-send');
+    if (sendButton) sendButton.innerHTML = `<svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>${tCh('invoiceSendAttachment', __uiLang)}`;
+    const payButton = $('#inv-request-pay');
+    if (payButton) payButton.innerHTML = `<svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>${tCh('invoiceRequestPayment', __uiLang)}`;
+    if ($('#inv-generate')) $('#inv-generate').textContent = rec.needsFatturaPa ? tCh('invoicePdfCourtesy', __uiLang) : tCh('invoiceDownloadPdf', __uiLang);
+    if ($('#inv-foot')) $('#inv-foot').textContent = rec.needsFatturaPa ? tCh('invoiceFooterElectronic', __uiLang) : tCh('invoiceFooterDocument', __uiLang);
     // BUG REALE trovato testando (2026-08-06): il pulsante XML sopra compare
     // solo qui, DOPO l'apertura del modale — cambia l'altezza del piè di
     // pagina fisso, ma lo spazio riservato sotto era stato calcolato una
@@ -13182,7 +13342,11 @@ window.openCreateInvoice = (prefillClient) => {
   // Selettore di stile: tre pubblici diversi, non tre colori a caso (spiegato
   // nella card sopra). Un tap sceglie, l'anteprima testuale sotto conferma la
   // scelta in parole — mai lasciare l'utente a indovinare cosa cambia.
-  const THEME_HINTS = { minimale: 'Aziende grandi, commercialisti — la sobrietà è credibilità', tecnico: 'Consulenza IT/dev verso altre aziende', vivace: 'Clienti privati, creator, freelance — si fa ricordare' };
+  const THEME_HINTS = {
+    minimale: tCh('invoiceThemeMinimalHint', __uiLang),
+    tecnico: tCh('invoiceThemeTechnicalHint', __uiLang),
+    vivace: tCh('invoiceThemeBoldHint', __uiLang),
+  };
   let themeChosenByUser = INVOICE_THEMES.includes((VaultDAO.state.invoiceProfile || {}).theme);
   let brandCreditChosenByUser = (VaultDAO.state.invoiceProfile || {}).brandCredit !== undefined;
   const applyTheme = (id, { fromClick = false } = {}) => {
@@ -13233,7 +13397,7 @@ window.openCreateInvoice = (prefillClient) => {
     if (!f) return;
     if (f.size > 400 * 1024) { showToast('Logo troppo grande (max 400KB).', 'error'); return; }
     const reader = new FileReader();
-    reader.onload = () => { logoData = reader.result; $('#inv-logo-status').textContent = 'logo caricato ✓'; };
+    reader.onload = () => { logoData = reader.result; $('#inv-logo-status').textContent = `${tCh('invoiceLogoSaved', __uiLang)} ✓`; };
     reader.readAsDataURL(f);
   });
   // Crea+salva la fattura (riusata da "Genera e stampa" e "Email al cliente").
@@ -18041,6 +18205,13 @@ window.openModal = (html, footerHtml = '') => {
   if (__modalCloseTimer) { clearTimeout(__modalCloseTimer); __modalCloseTimer = null; }
   const body = $('#modal-body');
   body.innerHTML = html;
+  // Ogni nuova schermata parte dall'inizio. Il contenitore della modale è
+  // riusato tra un passo e l'altro: senza questo reset, un form lungo (come
+  // "Crea fattura") poteva riaprire il vecchio scroll in fondo e nascondere
+  // proprio la prima istruzione. Il gesto dell'utente resta libero dopo
+  // l'apertura, ma non eredita una posizione che non ha scelto.
+  body.scrollTop = 0;
+  body.scrollLeft = 0;
   // Ogni superficie fiscale (Italia, Svizzera, Spagna, fatture, F24 e SdI)
   // riceve la stessa pelle responsiva anche quando una pagina storica non ha
   // ancora un nome di classe dedicato. Il rilevamento usa solo prefissi/id
@@ -18049,6 +18220,7 @@ window.openModal = (html, footerHtml = '') => {
   const modalContent = $('#modal-content');
   modalContent.classList.toggle('tax-modal', taxSurface);
   body.classList.toggle('tax-modal-body', taxSurface);
+  modal.classList.toggle('tax-modal-shell', taxSurface);
   enhancePlanningDates(body);
   const title = body.querySelector('h1,h2,h3');
   if (title) { title.id ||= 'momentum-dialog-title'; modal.setAttribute('aria-labelledby', title.id); modal.removeAttribute('aria-label'); }
