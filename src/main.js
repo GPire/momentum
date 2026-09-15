@@ -5716,7 +5716,7 @@ window.rimuoviVersamentoFiscale = (id) => {
 window.openRegistraVersamento = (importoProposto = 0, etichetta = '') => {
   const val = Number.isFinite(+importoProposto) && +importoProposto > 0 ? (+importoProposto).toFixed(2) : '';
   openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-payment flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 6 9 17l-5-5"/>', '--positive')}
       <div>
         <h3 class="text-lg font-black leading-tight">L'hai versato?</h3>
@@ -5733,7 +5733,7 @@ window.openRegistraVersamento = (importoProposto = 0, etichetta = '') => {
 window.openVersamentiFiscali = () => {
   const versamenti = VaultDAO.state.taxPayments || [];
   openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-payments flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M3 6h18M3 12h18M3 18h12"/>', '--primary')}
       <div>
         <h3 class="text-lg font-black leading-tight">Versamenti che hai dichiarato</h3>
@@ -5779,7 +5779,7 @@ window.openF24Precompilato = () => {
   ).join('\n');
 
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-f24 flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M9 12h6M9 16h6M9 8h1M13 8h3M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>', '--primary')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('f24Title', __uiLang)}</h3>
@@ -5840,7 +5840,7 @@ window.openF24Guidato = (indice) => {
       ${hint ? `<div class="text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-snug">${escapeHtml(hint)}</div>` : ''}
     </div>`;
   window.openModal(`
-    <div class="flex flex-col gap-3 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-f24-guide flex flex-col gap-3 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M9 12h6M9 16h6M9 8h1M13 8h3M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>', '--primary')}
       <div>
         <p class="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)] mb-1">${tCh('f24GuideRowLabel', __uiLang, i + 1, n)}</p>
@@ -6312,8 +6312,11 @@ window.openEsTerritorioPicker = () => {
     { key: 'navarra', label: tCh('esTerritorioNavarra', __esLang) },
   ];
   window.openModal(`
-    <div class="p-1">
-      <h3 class="text-lg font-black mb-1">${tCh('esTerritorioTitle', __esLang)}</h3>
+    <div class="tax-flow tax-flow-territory p-1">
+      <div class="tax-flow-heading">
+        <span class="tax-flow-kicker">Momentum · scelta del territorio</span>
+        <h3 class="text-lg font-black mb-1">${tCh('esTerritorioTitle', __esLang)}</h3>
+      </div>
       <p class="text-xs text-[var(--on-surface-secondary)] mb-4">${tCh('esTerritorioSub', __esLang)}</p>
       <div class="space-y-2">
         ${opzioni.map((o) => `
@@ -6387,8 +6390,8 @@ function renderTaxSettings() {
   if (!body) return;
   const regime = VaultDAO.state.taxRegime;
   const everInvoice = hasInvoiceIncome();
-  const regimeButtons = (accent) => `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
-    `<button onclick="window.setTaxRegime('${k}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] hover:border-[${accent}]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
+  const regimeButtons = (accent) => `<div class="tax-settings-regimes flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
+    `<button onclick="window.setTaxRegime('${k}')" class="tax-settings-choice text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] bg-[color-mix(in_srgb,var(--surface-elevated)_40%,transparent)] hover:border-[${accent}]">${v.label.split('(')[0].trim()}</button>`).join('')}</div>`;
 
   if (regime) {
     const label = (REGIMI[regime] && REGIMI[regime].label.split('(')[0].trim()) || regime;
@@ -6413,12 +6416,12 @@ function renderTaxSettings() {
         });
       if (proj && proj.invoicedYTD > 0) {
         const eur = (n) => `${Math.round(n).toLocaleString('it-IT')}€`;
-        predLine = `<div class="grid grid-cols-2 gap-2 mb-3">
-          <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2">
+        predLine = `<div class="tax-settings-projection grid grid-cols-2 gap-2 mb-3">
+          <div class="tax-settings-stat rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2">
             <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">${tCh('taxYearPaceLabel', __uiLang)}</p>
             <p class="text-base font-black font-mono text-white">~${eur(proj.annualizedRevenue)}</p>
           </div>
-          <div class="rounded-xl border border-[color-mix(in_srgb,var(--red)_25%,transparent)] bg-[color-mix(in_srgb,var(--red)_5%,transparent)] px-3 py-2">
+          <div class="tax-settings-stat rounded-xl border border-[color-mix(in_srgb,var(--red)_25%,transparent)] bg-[color-mix(in_srgb,var(--red)_5%,transparent)] px-3 py-2">
             <p class="text-[10px] uppercase tracking-wider text-[var(--on-surface-secondary)]">${tCh('taxToSetAsideLabel', __uiLang)}</p>
             <p class="text-base font-black font-mono text-[var(--red)]">~${eur(proj.estimatedAnnualTax)}</p>
           </div>
@@ -6426,14 +6429,14 @@ function renderTaxSettings() {
       }
     } catch (_) { /* niente proiezione: si mostra comunque il resto */ }
     body.innerHTML = `
-      <div class="flex items-center gap-2 text-xs text-emerald-300 mb-3">
+      <div class="tax-settings-state flex items-center gap-2 text-xs text-emerald-300 mb-3">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
         <span>${tCh('taxActiveRegimeLine', __uiLang, label)}</span>
       </div>
       ${predLine}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-        <button onclick="window.openCreateInvoice()" class="btn-action btn-primary justify-center font-bold"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tCh('taxCreateInvoiceBtn', __uiLang)}</button>
-        <button onclick="window.openTaxRegimePicker()" class="btn-action justify-between"><span>${tCh('taxChangeRegimeBtn', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
+      <div class="tax-settings-actions grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+        <button onclick="window.openCreateInvoice()" class="tax-settings-cta btn-action btn-primary justify-center font-bold"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tCh('taxCreateInvoiceBtn', __uiLang)}</button>
+        <button onclick="window.openTaxRegimePicker()" class="tax-settings-cta btn-action justify-between"><span>${tCh('taxChangeRegimeBtn', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>
       </div>
       ${regime.startsWith('forfettario') ? `<button onclick="window.openVerificaEsclusioneForfettario()" class="btn-action w-full justify-between mt-2 sm:mt-3"><span>${tCh('esclForfBtn', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 18l6-6-6-6"/></svg></button>` : ''}`;
     return;
@@ -6677,7 +6680,7 @@ const __chLang = __uiLang;
 window.openSwissSimulator = () => {
   pingFeature('swiss_tax_opened');
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-country tax-flow-ch flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chSimTitle', __chLang)}</h3>
@@ -6724,7 +6727,7 @@ window.openSwissSimulatorResult = (reddito) => {
       </div>`;
   const ivaColor = iva.obbligatoria ? 'orange-300' : 'emerald-300';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-country tax-flow-ch tax-flow-result flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chResultTitle', __chLang, Math.round(reddito).toLocaleString('it-CH'))}</h3>
@@ -6808,7 +6811,7 @@ const __esLang = __uiLang;
 
 window.openSpainSimulator = () => {
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-country tax-flow-es flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--gold')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('esSimTitle', __esLang)}</h3>
@@ -6846,7 +6849,7 @@ window.openSpainSimulatorResult = (rendimientoNetoMensual) => {
   const netoMensile = rendimientoNetoMensual - reta.cuotaMensual - irpfMensile;
   const esMaxima = VaultDAO.state.esBaseChoice === 'maxima';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-country tax-flow-es tax-flow-result flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--gold')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('esResultTitle', __esLang, Math.round(rendimientoNetoMensual).toLocaleString('es-ES'))}</h3>
@@ -6898,7 +6901,7 @@ window.setEsBaseChoice = (choice, rendimientoNetoMensual) => {
 window.openCreateInvoiceCH = () => {
   const prof = VaultDAO.state.chInvoiceProfile || {};
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-invoice tax-flow-ch flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chInvTitle', __chLang)}</h3>
@@ -6964,7 +6967,7 @@ window.openCreateInvoiceCH = () => {
 window.openCreateInvoiceCHResult = (r, meta) => {
   const svg = qrSvg(r.payload, { moduleSize: 5, quiet: 3 });
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-invoice tax-flow-ch tax-flow-result flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 6L9 17l-5-5"/>', '--green')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chResTitle', __chLang)}</h3>
@@ -12674,7 +12677,7 @@ window.openSdiWalkthrough = (filename, number, year) => {
     const isLast = step === SDI_WALKTHROUGH_STEPS.length - 1;
     const dirClass = dir === 'back' ? 'sdi-wt-back' : 'sdi-wt-forward';
     window.openModal(`
-      <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center ${dirClass}">
+      <div class="tax-flow tax-flow-sdi flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center ${dirClass}">
         ${tl1Icon(`<path d="M5 3l14 9-14 9V3z"/>`, '--primary')}
         ${tl1Dots(step + 1, SDI_WALKTHROUGH_STEPS.length)}
         <div class="tl1-icon-pulse w-16 h-16 rounded-2xl flex items-center justify-center mx-auto bg-[color-mix(in_srgb,var(--gold)_16%,transparent)]" style="--tl1-icon-color:var(--gold)">
@@ -12704,7 +12707,7 @@ window.openSdiWalkthrough = (filename, number, year) => {
 };
 window.openSdiWalkthroughDone = (number, year) => {
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-flow tax-flow-sdi tax-flow-sdi-done flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 6L9 17l-5-5"/>', '--green')}
       <div>
         <h3 class="text-lg font-black leading-tight">L'hai trasmessa?</h3>
@@ -12746,7 +12749,7 @@ function getInvoiceFormHTML() {
           <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" name="inv-iban" aria-label="IBAN (per il pagamento)" />
         </div>`;
   return `
-  <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
+  <div class="tax-flow tax-flow-invoice flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
     <div class="flex items-center gap-3">
       ${tl1Icon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/>', '--primary')}
       <div class="flex-1 min-w-0">
@@ -18038,6 +18041,14 @@ window.openModal = (html, footerHtml = '') => {
   if (__modalCloseTimer) { clearTimeout(__modalCloseTimer); __modalCloseTimer = null; }
   const body = $('#modal-body');
   body.innerHTML = html;
+  // Ogni superficie fiscale (Italia, Svizzera, Spagna, fatture, F24 e SdI)
+  // riceve la stessa pelle responsiva anche quando una pagina storica non ha
+  // ancora un nome di classe dedicato. Il rilevamento usa solo prefissi/id
+  // propri del percorso fiscale: nessun altro modale eredita questi limiti.
+  const taxSurface = !!body.querySelector('.tax-flow, [id^="acq-"], [id^="vers-"], [id^="f24-"], [id^="es-"], [id^="ch-"], [id^="inv-"], [id^="sdi-"]');
+  const modalContent = $('#modal-content');
+  modalContent.classList.toggle('tax-modal', taxSurface);
+  body.classList.toggle('tax-modal-body', taxSurface);
   enhancePlanningDates(body);
   const title = body.querySelector('h1,h2,h3');
   if (title) { title.id ||= 'momentum-dialog-title'; modal.setAttribute('aria-labelledby', title.id); modal.removeAttribute('aria-label'); }

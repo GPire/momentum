@@ -1174,3 +1174,292 @@ div:has(> .whatif-choices) { flex-wrap:wrap; }
   .tax-flow-choice svg,.tax-flow-optional > summary::after,.tax-guide-choice { transition:none; }
   .tax-flow > :not(.tl1-icon-pulse),.tax-result-strategy { animation:none!important; }
 }
+
+/* P.IVA SURFACES — stessa esperienza per ogni paese e ogni passo.
+   Questo strato copre anche le modali storiche (acquisti, versamenti, F24,
+   fatture e SdI) tramite .tax-modal aggiunto da openModal(): una sola regola
+   evita che un flusso vecchio torni a usare input nativi o spaziature strette.
+   Il risultato deve essere leggibile a colpo d'occhio, utilizzabile con un
+   pollice e comprensibile senza conoscere il gergo fiscale. */
+#modal-content.tax-modal {
+  width:min(100%, 640px)!important;
+  max-width:calc(100vw - 1rem)!important;
+  border-radius:clamp(1.25rem,4vw,1.75rem);
+  border-color:color-mix(in srgb,var(--primary) 18%,var(--outline));
+}
+#modal-content.tax-modal #modal-body {
+  min-width:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+#modal-content.tax-modal .tax-flow {
+  max-width:40rem;
+  min-width:0;
+  padding-inline:clamp(.85rem,3vw,1.25rem)!important;
+}
+#modal-content.tax-modal .tax-flow > * { min-width:0; max-width:100%; }
+#modal-content.tax-modal .tax-flow > :is(p,small) { overflow-wrap:anywhere; }
+#modal-content.tax-modal .tax-flow-heading { width:100%; }
+#modal-content.tax-modal .tax-flow-heading h3 { text-wrap:balance; }
+#modal-content.tax-modal .tax-flow-heading .card-sub,
+#modal-content.tax-modal .card-sub { max-width:48ch; line-height:1.6; text-wrap:pretty; }
+#modal-content.tax-modal :is(input,textarea,select) {
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  min-height:52px;
+  padding:.8rem .95rem;
+  border:1px solid var(--outline)!important;
+  border-radius:1rem!important;
+  background:var(--surface-elevated)!important;
+  color:var(--on-surface)!important;
+  font-family:inherit;
+  font-size:16px;
+  line-height:1.35;
+  accent-color:var(--primary);
+}
+#modal-content.tax-modal input[type="number"] {
+  font-variant-numeric:tabular-nums;
+}
+#modal-content.tax-modal input[type="date"] { color-scheme:light dark; }
+#modal-content.tax-modal select {
+  appearance:none;
+  -webkit-appearance:none;
+  padding-right:2.6rem;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23a8b1cc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;
+  background-position:right .85rem center!important;
+  background-size:1rem!important;
+}
+#modal-content.tax-modal :is(input,textarea,select)::placeholder {
+  color:var(--on-surface-secondary);
+  opacity:.82;
+  font-size:.9rem;
+}
+#modal-content.tax-modal :is(input,textarea,select):focus-visible {
+  outline:2px solid var(--primary);
+  outline-offset:3px;
+  border-color:color-mix(in srgb,var(--primary) 68%,var(--outline))!important;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 13%,transparent);
+}
+#modal-content.tax-modal :is(input,textarea,select)[aria-invalid="true"] {
+  border-color:var(--red)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 13%,transparent);
+}
+#modal-content.tax-modal label {
+  min-width:0;
+  line-height:1.45;
+}
+#modal-content.tax-modal :is(button,a.btn-action) {
+  min-width:44px;
+  min-height:48px;
+  max-width:100%;
+  border-radius:1rem;
+  line-height:1.35;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  touch-action:manipulation;
+}
+#modal-content.tax-modal :is(button,a.btn-action):focus-visible {
+  outline:2px solid var(--primary);
+  outline-offset:3px;
+}
+#modal-content.tax-modal .btn-primary,
+#modal-content.tax-modal .tax-flow-cta {
+  min-height:54px;
+  border-radius:1.125rem;
+  box-shadow:0 10px 28px -22px var(--primary);
+}
+#modal-content.tax-modal .tl1-select { width:100%; min-width:0; }
+#modal-content.tax-modal .tl1-select-trigger {
+  width:100%;
+  min-height:52px;
+  padding:.8rem .95rem;
+  border:1px solid var(--outline);
+  border-radius:1rem;
+  background:var(--surface-elevated);
+  color:var(--on-surface);
+  text-align:left;
+  line-height:1.4;
+}
+#modal-content.tax-modal .tl1-select-trigger:focus-visible {
+  outline:2px solid var(--primary);
+  outline-offset:3px;
+}
+#modal-content.tax-modal .tl1-select-panel {
+  z-index:40;
+  width:100%;
+  max-height:min(18rem,45dvh);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:.35rem;
+  border:1px solid var(--outline);
+  border-radius:1rem;
+  background:var(--surface-elevated);
+  box-shadow:0 18px 50px -28px #000b;
+}
+#modal-content.tax-modal .tl1-select-opt {
+  width:100%;
+  min-height:48px;
+  padding:.7rem .75rem;
+  border-radius:.75rem;
+  color:var(--on-surface);
+  text-align:left;
+  line-height:1.4;
+}
+#modal-content.tax-modal .tl1-select-opt:hover,
+#modal-content.tax-modal .tl1-select-opt:focus-visible,
+#modal-content.tax-modal .tl1-select-opt[aria-selected="true"] {
+  background:color-mix(in srgb,var(--primary) 13%,var(--surface-elevated));
+}
+#modal-content.tax-modal .tl1-step-btn {
+  flex:0 0 50px;
+  width:50px;
+  min-height:50px;
+  border-radius:1rem;
+  border-color:var(--outline);
+  background:var(--surface-elevated);
+  color:var(--on-surface);
+  font-size:1.15rem;
+}
+#modal-content.tax-modal .tax-inline-grid,
+#modal-content.tax-modal .tax-field-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.65rem;
+  width:100%;
+}
+#modal-content.tax-modal .tax-list {
+  display:grid;
+  gap:.55rem;
+  width:100%;
+  max-height:min(18rem,42dvh);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:.15rem;
+}
+#modal-content.tax-modal .tax-list > * {
+  min-width:0;
+  border:1px solid var(--outline);
+  border-radius:1rem;
+  background:var(--surface-solid);
+}
+#modal-content.tax-modal .tax-empty {
+  width:100%;
+  padding:1rem;
+  border:1px dashed var(--outline);
+  border-radius:1rem;
+  background:color-mix(in srgb,var(--surface-elevated) 70%,transparent);
+  color:var(--on-surface-secondary);
+  line-height:1.6;
+  text-align:center;
+}
+#modal-content.tax-modal .tax-note,
+#modal-content.tax-modal .tax-disclaimer {
+  color:var(--on-surface-secondary);
+  font-size:.75rem;
+  line-height:1.6;
+  text-wrap:pretty;
+}
+#modal-content.tax-modal .tax-action-row {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.65rem;
+  width:100%;
+}
+
+/* Casa P.IVA in Momentum Vault: un riepilogo breve, poi le azioni. */
+#tax-settings-card {
+  overflow:clip;
+  border-color:color-mix(in srgb,var(--primary) 22%,var(--outline));
+  background:radial-gradient(ellipse at 100% 0,color-mix(in srgb,var(--primary) 9%,transparent),transparent 56%),var(--surface-solid);
+}
+#tax-settings-card #tax-settings-body {
+  display:grid;
+  gap:.75rem;
+  min-width:0;
+  margin-top:1rem;
+}
+#tax-settings-card #tax-settings-body > * { min-width:0; }
+#tax-settings-card #tax-settings-body > :is(.grid,.flex) { width:100%; }
+#tax-settings-card #tax-settings-body .grid > div {
+  min-width:0;
+  border-color:var(--outline);
+  border-radius:1rem;
+  background:color-mix(in srgb,var(--surface-elevated) 78%,transparent);
+}
+#tax-settings-card #tax-settings-body button {
+  min-height:50px;
+  border-radius:1rem;
+  line-height:1.4;
+  white-space:normal;
+}
+#tax-settings-card #tax-settings-body > button {
+  width:100%;
+  justify-content:space-between;
+}
+#tax-settings-card :is(#tax-card,#tax-es-card) {
+  min-width:0;
+  padding:1rem 0 0;
+  border-color:var(--outline);
+}
+#tax-settings-card :is(#tax-card,#tax-es-card) :is(#tax-extra,#tax-es-extra) {
+  display:grid;
+  gap:.65rem;
+  min-width:0;
+}
+#tax-settings-card :is(#tax-extra,#tax-es-extra) > :is(div,button) {
+  min-width:0;
+  max-width:100%;
+  line-height:1.55;
+  overflow-wrap:anywhere;
+}
+#tax-settings-card :is(#tax-extra,#tax-es-extra) button {
+  min-height:44px;
+  border-radius:.9rem;
+  white-space:normal;
+}
+#tax-settings-card .tax-country-picker {
+  border-color:var(--outline);
+  border-radius:1rem;
+}
+#tax-settings-card .tax-country-picker > summary {
+  min-height:48px;
+  border-radius:1rem;
+}
+
+@media (max-width:480px) {
+  #modal-content.tax-modal { max-width:100%!important; border-radius:1.25rem; }
+  #modal-content.tax-modal .tax-flow { padding-inline:.75rem!important; }
+  #modal-content.tax-modal .tax-inline-grid,
+  #modal-content.tax-modal .tax-field-grid,
+  #modal-content.tax-modal .tax-action-row { grid-template-columns:minmax(0,1fr); }
+  #modal-content.tax-modal .tax-flow-heading h3 { font-size:1.22rem; }
+  #modal-content.tax-modal .tax-flow-heading .card-sub,
+  #modal-content.tax-modal .card-sub { font-size:.84rem; }
+  #modal-content.tax-modal :is(input,textarea,select) { min-height:50px; }
+  #modal-content.tax-modal .tl1-select-panel { max-height:36dvh; }
+  #tax-settings-card { padding:1rem!important; }
+  #tax-settings-card > div:first-child { gap:.7rem; }
+}
+@media (min-width:720px) {
+  #modal-content.tax-modal .tax-flow { padding-inline:1.5rem!important; }
+  #modal-content.tax-modal .tax-field-grid.tax-field-grid-wide { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+  #modal-content.tax-modal :is(button,a.btn-action,.tl1-select-trigger) {
+    transition:transform 180ms var(--orbit-ease),border-color 180ms ease,background-color 180ms ease,box-shadow 180ms ease;
+  }
+  #modal-content.tax-modal :is(button,a.btn-action,.tl1-select-trigger):hover {
+    border-color:color-mix(in srgb,var(--primary) 46%,var(--outline));
+  }
+  #modal-content.tax-modal :is(button,a.btn-action):active { transform:scale(.985); }
+  #tax-settings-card #tax-settings-body > * { animation:tax-surface-rise 320ms var(--orbit-ease) both; }
+  @keyframes tax-surface-rise { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+}
+@media (prefers-reduced-motion:reduce) {
+  #modal-content.tax-modal :is(button,a.btn-action,.tl1-select-trigger) { transition:none!important; }
+  #tax-settings-card #tax-settings-body > * { animation:none!important; }
+}
