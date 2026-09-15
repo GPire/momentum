@@ -240,6 +240,13 @@ test('importo zero → nessun accantonamento, mai NaN', () => {
   assert.equal(r.net, 0);
 });
 
+test('taxSetAside: importo non numerico o input nullo resta sicuro', () => {
+  const r = taxSetAside('non-numero');
+  assert.equal(r.setAside, 0);
+  assert.equal(r.net, 0);
+  assert.doesNotThrow(() => taxSetAside(null));
+});
+
 test('periodo: entrate ambigue NON tassate d\'ufficio (default prudente), solo segnalate', () => {
   const txs = [
     { type: 'entrata', amount: 2000 },
@@ -250,6 +257,18 @@ test('periodo: entrate ambigue NON tassate d\'ufficio (default prudente), solo s
   assert.equal(r.count, 0);            // nessuna fattura chiara → niente tasse a caso
   assert.equal(r.daAccantonare, 0);
   assert.equal(r.uncertainCount, 2);   // segnalate per conferma
+});
+
+test('periodo: importi serializzati come stringhe vengono normalizzati e i valori rotti restano espliciti', () => {
+  const r = taxSetAsideForPeriod([
+    { type: 'entrata', amount: '1000', description: 'Fattura cliente' },
+    { type: 'entrata', amount: 'non-numero', description: 'Fattura cliente' },
+  ], { regime: 'forfettario' });
+  assert.equal(r.incassato, 1000);
+  assert.equal(r.count, 1);
+  assert.equal(r.invalidCount, 1);
+  assert.equal(r.invalidAmount, 0);
+  assert.doesNotMatch(JSON.stringify(r), /NaN|Infinity/);
 });
 
 test('periodo: modalità cautelativa taxUncertain=true tassa anche le ambigue', () => {
@@ -414,6 +433,15 @@ test('projectAnnualTax: nessuna fattura → nessuna proiezione inventata', () =>
   const r = projectAnnualTax([{ type: 'entrata', amount: 500, description: 'rimborso', date: '2026-02-01' }], { referenceDate: new Date(2026, 5, 1) });
   assert.equal(r.invoicedYTD, 0);
   assert.equal(r.estimatedAnnualTax, 0);
+});
+
+test('projectAnnualTax: una data di riferimento serializzata o non valida non interrompe la stima', () => {
+  const fromString = projectAnnualTax([{ type: 'entrata', amount: 1000, description: 'fattura cliente', date: '2026-01-15' }], { regime: 'forfettario', referenceDate: '2026-01-31T12:00:00Z' });
+  assert.equal(fromString.year, 2026);
+  assert.ok(fromString.estimatedAnnualTax > 0);
+  const invalid = projectAnnualTax([{ type: 'entrata', amount: 1000, description: 'fattura cliente', date: '2026-01-15' }], { regime: 'forfettario', referenceDate: 'not-a-date' });
+  assert.equal(invalid.year, new Date().getFullYear());
+  assert.doesNotThrow(() => JSON.stringify(invalid));
 });
 
 test('taxSetAsideForPeriod: usa la memoria appresa per classificare', () => {

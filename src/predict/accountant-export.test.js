@@ -42,6 +42,20 @@ test('buildAccountantReport: filtra SOLO le fatture dell\'anno richiesto', () =>
   assert.equal(report.fatture[0].cliente, 'Beta');
 });
 
+test('buildAccountantReport: un incasso dell’anno paga anche una fattura emessa a dicembre precedente', () => {
+  const report = buildAccountantReport(
+    [fattura(9, 'Cliente storico', 2400, '2025-12-20')],
+    { '2026-01': [entrata('2026-01-10', 2400, 'bonifico Cliente storico', 'p9')] },
+    2026,
+    'forfettario',
+    { now: new Date(Date.UTC(2026, 1, 1)) },
+  );
+  assert.equal(report.fatturato, 0, 'la fattura resta nel suo anno di competenza');
+  assert.equal(report.incassato, 2400, 'la cassa segue la data dell’incasso');
+  assert.equal(report.posizione.baseStima, 'incassi-abbinati-alle-fatture');
+  assert.equal(report.posizione.stato, 'needs-confirmation');
+});
+
 test('buildAccountantReport: entrate ambigue non confermate segnalate come anomalia, non tassate d\'ufficio', () => {
   const transactions = { '2026-04': [{ id: 'x', type: 'entrata', date: '2026-04-01', amount: 800, description: 'bonifico ricevuto', category: 'stipendio' }] };
   const report = buildAccountantReport([], transactions, 2026, 'forfettario');
@@ -61,4 +75,5 @@ test('renderAccountantReportHTML: documento valido, dati presenti, input escapat
   assert.doesNotMatch(html, /Cliente <XSS>/);
   assert.match(html, /non un documento fiscale ufficiale/);
   assert.match(html, /Incassata/);
+  assert.match(html, /Base della stima/);
 });

@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Posizione P.IVA Italia, 2026-09-15:** leggere
+> [docs/partita-iva-italia-posizione-2026-09-15.md](docs/partita-iva-italia-posizione-2026-09-15.md).
+> `buildItalianTaxPosition` compone fatturato, incassato, stima, versamenti,
+> scadenze e copertura senza duplicare formule né scrivere nel Vault. La card
+> fiscale usa la posizione quando le fatture sono disponibili; resta una
+> stima, non un invio F24/SdI né una dichiarazione ufficiale.
+
 > **Servizio policy aziendali, 2026-09-13:** vedere
 > [server/company/README.md](server/company/README.md). Worker separato con
 > verifica JWT Access, membership per azienda e policy versionate su D1.

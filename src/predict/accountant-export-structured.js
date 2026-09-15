@@ -53,6 +53,25 @@ function csvIt(report, meta) {
     ['Accantonamento già versato', report.accantonamento.versato],
     ['Accantonamento mancante', report.accantonamento.mancante],
   ]);
+  // Tracciare la base del calcolo nello stesso file evita che un CSV venga
+  // separato dal JSON/HTML e perda il contesto: il commercialista vede subito
+  // se il numero è osservato o proiettato, quali dati mancano e quale set di
+  // regole è stato applicato. Nessuna formula nuova, solo audit metadata già
+  // prodotto da buildItalianTaxPosition.
+  if (report.posizione) {
+    const confidenza = report.posizione.confidenza?.level
+      ? `${report.posizione.confidenza.level} (${report.posizione.confidenza.score ?? ''})`
+      : '';
+    out += csvSection('Controllo posizione', ['Voce', 'Valore'], [
+      ['Base della stima', report.posizione.baseStima || ''],
+      ['Stato dati', report.posizione.stato || ''],
+      ['Proiezione annuale (EUR)', report.posizione.stimaAnnuale ?? ''],
+      ['Confidenza', confidenza],
+      ['Dati da confermare', (report.posizione.datiMancanti || []).join(' | ')],
+      ['Versione regole', report.posizione.regole?.version || ''],
+      ['Anno regole applicato', report.posizione.regole?.appliedYear ?? ''],
+    ]);
+  }
   out += csvSection('Fatture', ['Numero', 'Anno', 'Data', 'Cliente', 'Imponibile', 'Stato', 'Data incasso', 'Confidenza incasso'],
     report.fatture.map(f => [f.numero, f.anno, f.data, f.cliente, f.imponibile, f.stato, f.dataIncasso || '', f.confidenzaIncasso || '']));
   if (report.accantonamento.scomposizione.length) {

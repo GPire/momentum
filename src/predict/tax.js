@@ -338,7 +338,7 @@ import { rulesForYear, computeIrpef } from './tax-rules.js';
 // nessun test esistente si rompe aggiungendolo.
 export function taxAdvice(input = {}) {
   const year = input.year || new Date().getFullYear();
-  const rules = rulesForYear(year);
+  const rules = rulesForYear(year, input.rulesOverride);
   const advice = [];
   const eur = (n) => `${Math.round(n).toLocaleString('it-IT')}€`;
 
@@ -367,8 +367,9 @@ export function taxAdvice(input = {}) {
     // caso, ed è la domanda che chiunque si avvicini alla soglia si fa per
     // prima: "quanto mi cambia la vita?".
     if (pct >= 0.8) {
-      const conForfettario = taxSetAside(input.annualizedRevenue, { regime: 'forfettario', overrides: input.overrides }).setAside;
-      const conOrdinario = taxSetAside(input.annualizedRevenue, { regime: 'ordinario', overrides: input.overrides }).setAside;
+      const commonOpts = { year, rulesOverride: input.rulesOverride, cassaPropria: input.cassaPropria, altraCoperturaPrevidenziale: input.altraCoperturaPrevidenziale, overrides: input.overrides };
+      const conForfettario = taxSetAside(input.annualizedRevenue, { ...commonOpts, regime: 'forfettario' }).setAside;
+      const conOrdinario = taxSetAside(input.annualizedRevenue, { ...commonOpts, regime: 'ordinario' }).setAside;
       const differenza = conOrdinario - conForfettario;
       if (differenza > 0) {
         advice.push({ priority: 'info', icon: 'bilancia', title: 'Quanto costerebbe l\'ordinario', text: `Sullo stesso fatturato annualizzato (${eur(input.annualizedRevenue)}), l'ordinario costerebbe stimativamente ~${eur(differenza)} in più all'anno rispetto al forfettario. È una stima approssimata per ordine di grandezza: l'ordinario vero deduce le tue spese reali, che qui non conosciamo — il numero esatto va verificato col commercialista.` });
@@ -401,7 +402,8 @@ export function taxAdvice(input = {}) {
 export function taxSetAside(amount, opts = {}) {
   const regimeKey = opts.regime || 'forfettario';
   const r = { ...REGIMI[regimeKey] || REGIMI.forfettario, ...opts.overrides };
-  const gross = Math.max(0, amount || 0);
+  const numericAmount = Number(amount);
+  const gross = Number.isFinite(numericAmount) ? Math.max(0, numericAmount) : 0;
   if (gross === 0) return { setAside: 0, net: 0, breakdown: [], regime: r.label };
 
   // Chi ha una CASSA PREVIDENZIALE PROPRIA (albo professionale) è esente per
@@ -721,28 +723,35 @@ export function inferAtecoSettore(transactions = [], opts = {}) {
 // Suggerisce il regime in base al fatturato ANNUO imponibile: sopra il tetto
 // forfettario (85.000€) non si può stare nel forfettario → ordinario. Sotto,
 // il forfettario è tipicamente più conveniente. Informazione reale, con caveat.
-export function suggestRegime(annualInvoiced = 0) {
-  if (annualInvoiced > FORFETTARIO_CEILING) {
-    return { suggested: 'ordinario', reason: `Fatturato annuo ~${Math.round(annualInvoiced).toLocaleString('it-IT')}€ oltre il tetto forfettario (${FORFETTARIO_CEILING.toLocaleString('it-IT')}€): serve il regime ordinario.`, overCeiling: true };
+export function suggestRegime(annualInvoiced = 0, opts = {}) {
+  const year = opts.year || new Date().getFullYear();
+  const rules = rulesForYear(year, opts.rulesOverride);
+  const ceiling = Number.isFinite(rules.forfettarioCeiling) ? rules.forfettarioCeiling : FORFETTARIO_CEILING;
+  if (annualInvoiced > ceiling) {
+    return { suggested: 'ordinario', reason: `Fatturato annuo ~${Math.round(annualInvoiced).toLocaleString('it-IT')}€ oltre il tetto forfettario (${ceiling.toLocaleString('it-IT')}€): serve il regime ordinario.`, overCeiling: true, year: rules.year, ceiling };
   }
-  const pct = Math.round((annualInvoiced / FORFETTARIO_CEILING) * 100);
-  return { suggested: 'forfettario', reason: `Fatturato annuo ~${Math.round(annualInvoiced).toLocaleString('it-IT')}€ (${pct}% del tetto forfettario): il forfettario è di solito più conveniente. Verifica col commercialista.`, overCeiling: false, pctOfCeiling: pct };
+  const pct = Math.round((annualInvoiced / ceiling) * 100);
+  return { suggested: 'forfettario', reason: `Fatturato annuo ~${Math.round(annualInvoiced).toLocaleString('it-IT')}€ (${pct}% del tetto forfettario): il forfettario è di solito più conveniente. Verifica col commercialista.`, overCeiling: false, pctOfCeiling: pct, year: rules.year, ceiling };
 }
 
 // Proiezione fiscale annuale PREDITTIVA: dalle fatture dell'anno in corso
 // annualizza il fatturato e stima le tasse di fine anno + avviso tetto. Onesto:
 // è una proiezione lineare sul ritmo attuale, dichiarata tale, non una certezza.
 export function projectAnnualTax(transactions = [], opts = {}) {
-  const ref = opts.referenceDate || new Date();
+  const refRaw = opts.referenceDate || new Date();
+  const refCandidate = refRaw instanceof Date ? new Date(refRaw.getTime()) : new Date(refRaw);
+  const ref = Number.isFinite(refCandidate.getTime()) ? refCandidate : new Date();
   const learned = opts.learned || null;
   const model = opts.model || null;
-  const year = ref.getFullYear();
+  const year = Number.isInteger(opts.year) ? opts.year : ref.getFullYear();
   let invoicedYTD = 0;
-  for (const t of transactions) {
-    if (t.type !== 'entrata') continue;
+  for (const t of (Array.isArray(transactions) ? transactions : [])) {
+    if (!t || t.type !== 'entrata') continue;
     const d = new Date(t.date);
     if (d.getFullYear() !== year) continue;
-    if (classifyIncome(t, learned, model).kind === 'invoice') invoicedYTD += t.amount;
+    const amount = Number(t.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    if (classifyIncome(t, learned, model).kind === 'invoice') invoicedYTD += amount;
   }
   // mesi trascorsi = mesi pieni prima del corrente + frazione del mese corrente
   // (giorno / giorni-del-mese). Più accurato del +1 fisso.
@@ -750,16 +759,26 @@ export function projectAnnualTax(transactions = [], opts = {}) {
   const monthsElapsed = ref.getMonth() + (ref.getDate() / daysInMonth);
   const annualized = monthsElapsed > 0 ? invoicedYTD * (12 / monthsElapsed) : 0;
   const regime = opts.regime || 'forfettario';
-  const taxOnAnnual = taxSetAside(annualized, { regime, overrides: opts.overrides }).setAside;
-  const suggestion = suggestRegime(annualized);
+  const taxOnAnnual = taxSetAside(annualized, {
+    regime,
+    year,
+    rulesOverride: opts.rulesOverride,
+    cassaPropria: opts.cassaPropria,
+    altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale,
+    overrides: opts.overrides,
+  }).setAside;
+  const suggestion = suggestRegime(annualized, { year, rulesOverride: opts.rulesOverride });
+  const baseLabel = opts.basis === 'cash' ? 'incassi' : 'fatturi';
   return {
     invoicedYTD: +invoicedYTD.toFixed(2),
     annualizedRevenue: +annualized.toFixed(2),
     estimatedAnnualTax: +taxOnAnnual.toFixed(2),
     monthsElapsed: +monthsElapsed.toFixed(1),
+    year,
+    basis: opts.basis || 'classified-transactions',
     regimeSuggestion: suggestion,
     note: invoicedYTD > 0
-      ? `A questo ritmo fatturi ~${Math.round(annualized).toLocaleString('it-IT')}€ nel ${year}: metti da parte ~${Math.round(taxOnAnnual).toLocaleString('it-IT')}€ di tasse totali (proiezione lineare, non una certezza).`
+      ? `A questo ritmo ${baseLabel} ~${Math.round(annualized).toLocaleString('it-IT')}€ nel ${year}: metti da parte ~${Math.round(taxOnAnnual).toLocaleString('it-IT')}€ di tasse totali (proiezione lineare, non una certezza).`
       : `Nessuna fattura nel ${year}: nessuna proiezione fiscale.`,
   };
 }
@@ -776,9 +795,10 @@ export function taxSetAsideForPeriod(transactions, opts = {}) {
   const taxUncertain = opts.taxUncertain === true;
   const learned = opts.learned || null;
   const model = opts.model || null;
-  const entrate = (transactions || []).filter(t => t.type === 'entrata');
+  const entrate = (Array.isArray(transactions) ? transactions : []).filter(t => t && t.type === 'entrata');
   let taxableGross = 0, totalSet = 0, excludedGross = 0, uncertainGross = 0;
-  let taxableCount = 0, excludedCount = 0, uncertainCount = 0;
+  let taxableCount = 0, excludedCount = 0, uncertainCount = 0, invalidCount = 0;
+  let invalidAmount = 0;
   const uncertain = [];
   // Scomposizione aggregata (2026-09-06, "Tax Vault": mostrare COSA compone
   // l'accantonamento — IVA/INPS/imposta/cassa — non solo il totale). Riusa
@@ -787,19 +807,31 @@ export function taxSetAsideForPeriod(transactions, opts = {}) {
   // aritmetica del totale sopra applicata voce per voce.
   const breakdownAgg = {};
   for (const t of entrate) {
-    const { kind } = classifyIncome(t, learned, model);
+    // Importazioni e vecchi Vault possono serializzare gli importi come
+    // stringhe. Normalizzarli prima di ogni somma evita il classico `0 +
+    // "500"` e mantiene il percorso storico sicuro quanto la posizione
+    // unificata. Un importo non numerico/non finito non viene mai trasformato
+    // in reddito: resta una lacuna esplicita per la UI e per l'export.
+    const amount = Number(t.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      invalidCount++;
+      if (Number.isFinite(amount)) invalidAmount += Math.max(0, amount);
+      continue;
+    }
+    const normalized = amount === t.amount ? t : { ...t, amount };
+    const { kind } = classifyIncome(normalized, learned, model);
     const isTaxable = kind === 'invoice' || (kind === 'uncertain' && taxUncertain);
-    if (kind === 'uncertain') { uncertainGross += t.amount; uncertainCount++; uncertain.push(t); }
+    if (kind === 'uncertain') { uncertainGross += amount; uncertainCount++; uncertain.push(normalized); }
     if (isTaxable) {
-      taxableGross += t.amount;
-      const r = taxSetAside(t.amount, opts);
+      taxableGross += amount;
+      const r = taxSetAside(amount, opts);
       totalSet += r.setAside;
       taxableCount++;
       for (const b of r.breakdown) {
         breakdownAgg[b.voce] = (breakdownAgg[b.voce] || 0) + b.importo;
       }
     } else if (kind !== 'uncertain') {
-      excludedGross += t.amount; excludedCount++;
+      excludedGross += amount; excludedCount++;
     }
   }
   const breakdown = Object.entries(breakdownAgg)
@@ -816,6 +848,7 @@ export function taxSetAsideForPeriod(transactions, opts = {}) {
     breakdown,
     excludedGross: +excludedGross.toFixed(2), excludedCount,
     uncertainGross: +uncertainGross.toFixed(2), uncertainCount, uncertain,
+    invalidCount, invalidAmount: +invalidAmount.toFixed(2),
     note: taxableCount
       ? `Su ${taxableCount} fattur${taxableCount > 1 ? 'e' : 'a'} (${taxableGross.toFixed(0)}€) metti da parte ~${totalSet.toFixed(0)}€ per il fisco: il "vero" disponibile è ${(taxableGross - totalSet).toFixed(0)}€${excludedTxt}.${uncertainTxt}`
       : (excludedCount || uncertainCount ? `Nessuna fattura imponibile qui${excludedTxt}.${uncertainTxt}` : 'Nessun incasso registrato in questo periodo.'),
@@ -834,7 +867,7 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   if (fatturato <= 0) {
     return { fatturato: 0, regime: null, setAside: 0, netAnnuo: 0, netMensile: 0, primoAnnoNote: null, note: 'Inserisci quanto pensi di fatturare in un anno per vedere una stima.' };
   }
-  const suggestion = suggestRegime(fatturato);
+  const suggestion = suggestRegime(fatturato, { year: opts.year, rulesOverride: opts.rulesOverride });
   const regimeKey = suggestion.overCeiling ? 'ordinario' : (opts.startup ? 'forfettario_startup' : 'forfettario');
   // Il coefficiente di redditività dipende dal settore ATECO (tabella già
   // verificata in ATECO_COEFFICIENTI): un commerciante paga su una base
@@ -843,7 +876,8 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   const atecoInfo = regimeKey.startsWith('forfettario') && opts.ateco
     ? coefficienteAteco(opts.ateco, { year: opts.year, rulesOverride: opts.rulesOverride }) : null;
   const atecoCoeff = atecoInfo ? { coeffRedditivita: atecoInfo.coeff } : null;
-  const { setAside, net, cassaNome, cassaCalcolo } = taxSetAside(fatturato, { regime: regimeKey, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, overrides: { ...atecoCoeff, ...opts.overrides } });
+  const taxOpts = { regime: regimeKey, year: opts.year, rulesOverride: opts.rulesOverride, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, overrides: { ...atecoCoeff, ...opts.overrides } };
+  const { setAside, net, cassaNome, cassaCalcolo } = taxSetAside(fatturato, taxOpts);
   const netMensile = net / 12;
   // Strategie legittime, non trucchi: entrambe verificate su fonte ufficiale
   // (Agenzia delle Entrate), mai un'ottimizzazione inventata. L'eleggibilità
@@ -854,7 +888,7 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
     // Non un avviso generico: il NUMERO vero della differenza, calcolato con
     // la stessa aritmetica (taxSetAside), non un fattore "circa la metà"
     // buttato lì. Così si vede subito perché vale la pena chiederlo.
-    const startupCalc = taxSetAside(fatturato, { regime: 'forfettario_startup', cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, overrides: { ...atecoCoeff, ...opts.overrides } });
+    const startupCalc = taxSetAside(fatturato, { ...taxOpts, regime: 'forfettario_startup' });
     const nettoStartupMensile = startupCalc.net / 12;
     strategie.push({
       icon: 'startup',

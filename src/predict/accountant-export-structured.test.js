@@ -35,6 +35,8 @@ test('accountantReportToCsv (IT): sezioni multiple, intestazioni presenti, numer
   assert.match(csv, /## Fatture/);
   assert.match(csv, /Alfa Spa/);
   assert.match(csv, /Beta Srl/);
+  assert.match(csv, /## Controllo posizione/);
+  assert.match(csv, /Versione regole/);
   assert.match(csv, new RegExp(String(report.fatturato)));
 });
 

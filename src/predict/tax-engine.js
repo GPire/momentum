@@ -21,6 +21,7 @@
 import { taxSetAsideForPeriod, REGIMI, classifyIncome } from './tax.js';
 import { computeAvsIndipendente } from './tax-ch.js';
 import { retaIrpfPeriodo } from './tax-es.js';
+import { buildItalianTaxPosition } from './tax-position.js';
 
 const registry = new Map();
 
@@ -45,6 +46,17 @@ export function getTaxModule(countryCode) {
 
 export function listTaxModules() {
   return [...registry.keys()];
+}
+
+// Vista ricca opzionale per i paesi che la supportano. Il calcolo comune
+// resta `computeLiability`; questa API aggiuntiva permette alla UI/export di
+// chiedere anche provenienza, copertura e dati mancanti senza conoscere la
+// forma interna del modulo italiano. Nessun paese viene costretto a
+// implementarla prima di avere regole verificate.
+export function buildTaxPosition(countryCode, input = {}) {
+  const modulo = getTaxModule(countryCode);
+  if (typeof modulo?.buildPosition !== 'function') return null;
+  return modulo.buildPosition(input);
 }
 
 // Somma le entrate di un periodo e le annualizza — stessa semplificazione
@@ -154,6 +166,7 @@ function eurCh(n) { return `CHF ${Math.round(n).toLocaleString('it-CH')}`; }
 // quindi restano array vuoti — mai un dato inventato per riempire un campo.
 registerTaxModule('IT', {
   computeLiability: computeLiabilityIT,
+  buildPosition: buildItalianTaxPosition,
   regimeOptions: Object.keys(REGIMI || {}),
 });
 registerTaxModule('CH', {

@@ -19,6 +19,7 @@ import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, unpaidExposure 
 import { taxSetAsideForPeriod, taxSetAside, classifyIncome } from './tax.js';
 import { taxReserveStatus } from './tax-payments.js';
 import { upcomingTaxDeadlines } from './tax-deadlines.js';
+import { buildItalianTaxPosition } from './tax-position.js';
 
 // LA SCOMPOSIZIONE CHE UN COMMERCIALISTA CHIEDE PER PRIMA.
 // Verificato con ricerca reale (2026-08-31): per un forfettario, quello che
@@ -45,27 +46,102 @@ function scomponiAccantonamentoAnno(transactionsFlat, regime, opts) {
   return ordine.map(voce => ({ voce, importo: +totali[voce].toFixed(2) }));
 }
 
+function invoiceYear(invoice) {
+  const date = new Date(invoice?.date);
+  if (Number.isFinite(date.getTime())) return date.getFullYear();
+  const y = Number(invoice?.year);
+  return Number.isInteger(y) ? y : null;
+}
+
 // Assembla il report per un anno: SOLO calcoli già esistenti nel progetto
 // (nessuna seconda formula), messi in un unico posto leggibile. `opts`:
 // { transactions (tutte, per mese), taxPayments, learned, model, rulesOverride }.
 export function buildAccountantReport(invoices = [], transactions = {}, year, regime, opts = {}) {
-  const allTx = transactions || {};
-  const invoicesYear = (invoices || []).filter(i => i.year === year);
-  const matched = matchInvoicePayments(invoicesYear, allTx);
+  const allTx = Array.isArray(transactions)
+    ? { all: transactions }
+    : (transactions && typeof transactions === 'object' ? transactions : {});
+  const nowDate = opts.now instanceof Date
+    ? new Date(opts.now.getTime())
+    : new Date(opts.now || Date.now());
+  const now = Number.isFinite(nowDate.getTime()) ? nowDate : new Date();
+  const allInvoices = Array.isArray(invoices) ? invoices : [];
+  const invoicesYear = allInvoices.filter(i => invoiceYear(i) === year);
+  // Match against the complete invoice history. An invoice issued in
+  // December can be paid in January: the cash basis for the requested year
+  // must see that payment even though the visible invoice list stays scoped
+  // to `year`.
+  const matched = matchInvoicePayments(allInvoices, allTx, opts.matchOptions || {});
   const fatturato = accrualRevenue(invoicesYear, year);
   const incassato = cashBasisRevenue(matched, year);
-  const esposizione = unpaidExposure(matched);
+  const matchedCurrent = {
+    incassate: matched.incassate.filter(m => invoiceYear(m.fattura) === year),
+    nonIncassate: matched.nonIncassate.filter(m => invoiceYear(m.fattura) === year),
+  };
+  const esposizione = unpaidExposure(matchedCurrent, { now: now.getTime() });
 
-  const flatTx = Object.values(allTx).flat().filter(t => t.type === 'entrata' && new Date(t.date).getFullYear() === year);
-  const accantonamento = taxSetAsideForPeriod(flatTx, { regime: regime || 'forfettario', learned: opts.learned, model: opts.model });
-  const scomposizione = scomponiAccantonamentoAnno(flatTx, regime || 'forfettario', opts);
+  const flatTx = Object.values(allTx).flatMap(list => Array.isArray(list) ? list : [])
+    .filter(t => t?.type === 'entrata' && new Date(t.date).getFullYear() === year);
+  const taxOptions = {
+    regime: regime || 'forfettario',
+    year,
+    learned: opts.learned,
+    model: opts.model,
+    rulesOverride: opts.rulesOverride,
+    cassaPropria: opts.cassaPropria,
+    altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale,
+    overrides: opts.overrides,
+    taxUncertain: opts.taxUncertain === true,
+  };
+  const posizione = buildItalianTaxPosition({
+    invoices: allInvoices,
+    transactions: allTx,
+    taxPayments: opts.taxPayments || [],
+    regime: regime || null,
+    year,
+    now,
+    learned: opts.learned,
+    model: opts.model,
+    ateco: opts.ateco,
+    cassaPropria: opts.cassaPropria,
+    altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale,
+    forfettarioAnswers: opts.forfettarioAnswers,
+    rulesOverride: opts.rulesOverride,
+    overrides: opts.overrides,
+    taxUncertain: opts.taxUncertain === true,
+    matchOptions: opts.matchOptions,
+  });
+  // For the cash regime, a matched bank payment is stronger evidence than
+  // the invoice description. Reuse the position's already calculated period
+  // result; the fallback remains the historical classifier for old exports.
+  const usesCashMatches = String(regime || '').startsWith('forfettario')
+    && posizione?.estimate?.basis === 'incassi-abbinati-alle-fatture';
+  const accantonamento = usesCashMatches
+    ? posizione.estimate.period
+    : taxSetAsideForPeriod(flatTx, taxOptions);
+  const matchedYearTransactions = matched.incassate
+    .filter(m => m.annoIncasso === year)
+    .map((m, index) => ({
+      id: `invoice-payment-${m.fattura?.number ?? index}-${m.fattura?.year ?? ''}-${index}`,
+      type: 'entrata', amount: m.importoIncassato, date: m.incassoData,
+      description: 'fattura incassata', taxable: true,
+    }));
+  const breakdownTransactions = usesCashMatches && matchedYearTransactions.length
+    ? matchedYearTransactions
+    : flatTx;
+  const scomposizione = scomponiAccantonamentoAnno(breakdownTransactions, regime || 'forfettario', taxOptions);
   const riserva = taxReserveStatus(accantonamento.daAccantonare, opts.taxPayments || []);
+  // Keep the report's existing meaning for `accantonamento`: the amount
+  // calculated on the year's observed receipts. The unified position also
+  // exposes an annual projection in `posizione.stimaAnnuale`, but it must not
+  // silently replace the observed-period number or make the breakdown and
+  // the reserve disagree.
   const scadenze = upcomingTaxDeadlines(accantonamento.daAccantonare, {
-    now: opts.now || new Date(), orizzonteGiorni: 400, giaVersato: riserva.versato, rulesOverride: opts.rulesOverride,
+    now, orizzonteGiorni: 400, giaVersato: riserva.versato, rulesOverride: opts.rulesOverride,
   });
 
   const fattureRiepilogo = invoicesYear.map(f => {
-    const inc = matched.incassate.find(m => m.fattura.number === f.number && m.fattura.year === f.year);
+    const inc = matched.incassate.find(m => m.fattura === f
+      || (m.fattura?.number === f.number && invoiceYear(m.fattura) === invoiceYear(f)));
     return {
       numero: f.number, anno: f.year, data: f.date, cliente: f.client, imponibile: f.imponibile,
       descrizione: f.description || '',
@@ -78,10 +154,21 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
   return {
     anno: year,
     regime: regime || null,
-    generatoIl: (opts.now || new Date()).toISOString(),
+    generatoIl: now.toISOString(),
     fatturato: +fatturato.toFixed(2),
     incassato: +incassato.toFixed(2),
     differenzaFatturatoIncassato: +(fatturato - incassato).toFixed(2),
+    // Audit trail for the professional: every number in this export can be
+    // traced back to the same unified tax position used by the app UI.
+    posizione: posizione ? {
+      versione: posizione.version,
+      stato: posizione.status,
+      baseStima: posizione.estimate?.basis || null,
+      stimaAnnuale: posizione.estimate?.projection?.estimatedAnnualTax ?? null,
+      confidenza: posizione.confidence,
+      datiMancanti: posizione.missingInputs,
+      regole: posizione.rules,
+    } : null,
     fatture: fattureRiepilogo,
     accantonamento: {
       dovuto: riserva.totaleDovuto,
@@ -108,6 +195,9 @@ export function buildAccountantReport(invoices = [], transactions = {}, year, re
 export function renderAccountantReportHTML(report, meta = {}) {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const posizioneNota = report.posizione
+    ? `<div class="sub">Base della stima: ${esc(report.posizione.baseStima || 'movimenti classificati')} · Stato dati: ${esc(report.posizione.stato || 'da verificare')}${Number.isFinite(Number(report.posizione.stimaAnnuale)) ? ` · Proiezione annuale: ${eur(report.posizione.stimaAnnuale)}` : ''}</div>`
+    : '';
   const righeFatture = report.fatture.map(f => `<tr>
     <td>${esc(f.numero)}/${esc(f.anno)}</td><td>${esc(f.data)}</td><td>${esc(f.cliente)}</td>
     <td class="r">${eur(f.imponibile)}</td>
@@ -134,6 +224,7 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 </style></head><body>
 <h1>Riepilogo fiscale ${esc(meta.emitter || '')}</h1>
 <div class="sub">Anno ${esc(report.anno)} · Regime: ${esc(report.regime || 'non impostato')} · Generato il ${new Date(report.generatoIl).toLocaleDateString('it-IT')}</div>
+${posizioneNota}
 <div class="grid">
   <div class="box"><div class="lbl">Fatturato (competenza)</div><div class="val">${eur(report.fatturato)}</div></div>
   <div class="box"><div class="lbl">Incassato (cassa)</div><div class="val">${eur(report.incassato)}</div></div>

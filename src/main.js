@@ -155,6 +155,7 @@ function translateRegionLabel(region) {
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL, CAUSE_ESCLUSIONE_FORFETTARIO, verificaEsclusioneForfettario } from './predict/tax.js';
+import { buildItalianTaxPosition } from './predict/tax-position.js';
 import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL, AVS_SOGLIA_ACCESSORIA_OBBLIGO, AVS_SOGLIA_ACCESSORIA_FACOLTATIVA } from './predict/tax-ch.js';
 import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predict/tax-es.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
@@ -5223,12 +5224,12 @@ let __taxCardUrgent = false;
 // usato dal chiamante per un piccolo segnale visivo discreto sulla card
 // esistente, mai un popup o una nuova schermata. Niente allarme per il solo
 // fatto di avere una scadenza futura tranquilla: sarebbe rumore, non un segnale.
-function renderTaxCashBlocks(proj, regime) {
+function renderTaxCashBlocks(proj, regime, taxPosition = null) {
   let html = '';
   let urgent = false;
   try {
     const invoices = VaultDAO.state.invoices || [];
-    const anno = new Date().getFullYear();
+    const anno = taxPosition?.year || new Date().getFullYear();
 
     // 1 + 2: servono le fatture emesse. Senza, questi blocchi non hanno
     // materia — e non si inventa nulla.
@@ -5277,14 +5278,14 @@ function renderTaxCashBlocks(proj, regime) {
     // versato" viene dai versamenti che l'utente ha dichiarato
     // (tax-payments.js): mai dare per scontato che non abbia pagato nulla.
     const versamenti = VaultDAO.state.taxPayments || [];
-    const riserva = taxReserveStatus(proj.estimatedAnnualTax, versamenti);
-    const deadlines = upcomingTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
+    const riserva = taxPosition?.estimate?.reserve || taxReserveStatus(proj.estimatedAnnualTax, versamenti);
+    const deadlines = taxPosition?.estimate?.deadlines || upcomingTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
 
     // SCADENZE SALTATE (colma un vuoto reale): prima una scadenza non
     // versata spariva semplicemente dalla lista al giorno dopo, come se non
     // fosse mai esistita. Ora si vede, col ravvedimento operoso già calcolato
     // — il momento più delicato per chi non ha un commercialista.
-    const overdue = overdueTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
+    const overdue = taxPosition?.estimate?.overdue || overdueTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
     if (overdue.length) {
       const o = overdue[0];
       const rav = calcolaRavvedimento(o.importo, o.giorniDiRitardo);
@@ -6016,7 +6017,25 @@ function renderTax(monthK) {
     return;
   }
 
-  const r = taxSetAsideForPeriod(monthTxs, { regime: regime || 'forfettario', learned, model: incomeModel });
+  // Il riepilogo mensile deve usare lo stesso anno/regole/cassa della
+  // posizione annuale: prima questo punto chiamava il motore con i soli
+  // `regime`, quindi una cassa professionale o un aggiornamento normativo
+  // potevano mostrare un accantonamento diverso nella stessa schermata.
+  const meseDate = /^\d{4}-\d{2}$/.test(String(monthK || ''))
+    ? new Date(`${monthK}-01T12:00:00`)
+    : new Date();
+  const meseYear = Number.isFinite(meseDate.getTime()) ? meseDate.getFullYear() : new Date().getFullYear();
+  const r = taxSetAsideForPeriod(monthTxs, {
+    regime: regime || 'forfettario',
+    learned,
+    model: incomeModel,
+    year: meseYear,
+    rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
+    cassaPropria: VaultDAO.state.taxCassaPropria || null,
+    altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
+    taxUncertain: VaultDAO.state.taxUncertain === true,
+  });
+  const taxPosition = readItalianTaxPosition(new Date());
   if (r.count > 0) {
     setEl.textContent = formatMoney(r.daAccantonare);
     noteEl.textContent = r.note;
@@ -6032,19 +6051,35 @@ function renderTax(monthK) {
     html += renderTaxVaultBar(r);
     // ── PROIEZIONE ANNUALE + CONSIGLI (come un commercialista, onesto) ──
     if (regime && everInvoice) {
-      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model: incomeModel });
+      // Quando esistono fatture importate, la posizione unica abbina gli
+      // incassi anche a fatture di un anno precedente e usa quella cassa per
+      // la proiezione forfettaria. Il fallback mantiene compatibilità con
+      // archivi storici privi del formato atteso.
+      const proj = taxPosition?.estimate?.projection
+        || projectAnnualTax(allFlat, {
+          regime,
+          referenceDate: new Date(),
+          learned,
+          model: incomeModel,
+          rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
+          cassaPropria: VaultDAO.state.taxCassaPropria || null,
+          altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
+        });
       if (proj.invoicedYTD > 0) {
         html += `<div class="flex items-start gap-1.5 text-[11px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg><span>${proj.note}</span></div>`;
         // Consigli prioritizzati con neurocolori: high=ambra (attenzione),
         // info positivo=verde (rinforzo). Regole dell'anno pertinente.
         const { advice } = taxAdvice({
           regime, annualizedRevenue: proj.annualizedRevenue, invoicedYTD: proj.invoicedYTD,
-          estimatedAnnualTax: proj.estimatedAnnualTax, year: new Date().getFullYear(),
+          estimatedAnnualTax: proj.estimatedAnnualTax, year: proj.year || new Date().getFullYear(),
+          cassaPropria: VaultDAO.state.taxCassaPropria || null,
+          altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
+          rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
         });
         for (const a of advice) {
           html += renderTaxAdviceCard(a);
         }
-        html += renderTaxCashBlocks(proj, regime);
+        html += renderTaxCashBlocks(proj, regime, taxPosition);
       }
     }
     // ── CONFERMA APPRESA: le entrate incerte diventano un tap "è una fattura?" ──
@@ -6304,7 +6339,36 @@ function hasInvoiceIncome() {
   const learned = VaultDAO.state.taxLearned || {};
   const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
   const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
-  return allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned, incomeModel).kind === 'invoice');
+  // Una fattura già creata/importata è già un segnale sufficiente per aprire
+  // la sezione: prima si guardavano solo le descrizioni dei movimenti e un
+  // utente con fatture senza un accredito ancora arrivato vedeva la card
+  // sparire. Nessun numero viene calcolato senza un regime confermato.
+  return (VaultDAO.state.invoices || []).length > 0
+    || allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned, incomeModel).kind === 'invoice');
+}
+
+// Composizione unica della posizione P.IVA usata da Analisi, Impostazioni ed
+// export. Il fallback resta il vecchio proiettore se un archivio storico ha
+// una forma inattesa: la UI non deve bloccarsi per un campo opzionale.
+function readItalianTaxPosition(now = new Date()) {
+  try {
+    return buildItalianTaxPosition({
+      invoices: VaultDAO.state.invoices || [],
+      transactions: VaultDAO.state.transactions || {},
+      taxPayments: VaultDAO.state.taxPayments || [],
+      regime: VaultDAO.state.taxRegime || null,
+      learned: VaultDAO.state.taxLearned || {},
+      model: (typeof window !== 'undefined' && window.__incomeModel) || null,
+      ateco: VaultDAO.state.taxAteco || VaultDAO.state.taxAtecoSettore || null,
+      cassaPropria: VaultDAO.state.taxCassaPropria || null,
+      altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
+      forfettarioAnswers: VaultDAO.state.taxForfettarioAnswers || null,
+      rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
+      now,
+    });
+  } catch (_) {
+    return null;
+  }
 }
 
 // CASA PERMANENTE della Partita IVA in Impostazioni. Prima l'unico accesso a
@@ -6334,7 +6398,17 @@ function renderTaxSettings() {
       const learned = VaultDAO.state.taxLearned || {};
       const model = (typeof window !== 'undefined' && window.__incomeModel) || null;
       const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
-      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model });
+      const taxPosition = readItalianTaxPosition(new Date());
+      const proj = taxPosition?.estimate?.projection
+        || projectAnnualTax(allFlat, {
+          regime,
+          referenceDate: new Date(),
+          learned,
+          model,
+          rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
+          cassaPropria: VaultDAO.state.taxCassaPropria || null,
+          altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
+        });
       if (proj && proj.invoicedYTD > 0) {
         const eur = (n) => `${Math.round(n).toLocaleString('it-IT')}€`;
         predLine = `<div class="grid grid-cols-2 gap-2 mb-3">

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { registerTaxModule, getTaxModule, listTaxModules, computeLiabilityIT, computeLiabilityES, computeLiabilityCH, entrateAnnualizzate } = await import('./tax-engine.js');
+const { registerTaxModule, getTaxModule, listTaxModules, buildTaxPosition, computeLiabilityIT, computeLiabilityES, computeLiabilityCH, entrateAnnualizzate } = await import('./tax-engine.js');
 const { taxSetAsideForPeriod } = await import('./tax.js');
 const { retaIrpfPeriodo } = await import('./tax-es.js');
 const { computeAvsIndipendente } = await import('./tax-ch.js');
@@ -136,4 +136,18 @@ test('regimeOptions: Italia espone i regimi reali esistenti (REGIMI), CH/ES dich
   assert.ok(it.regimeOptions.includes('ordinario'));
   assert.deepEqual(getTaxModule('CH').regimeOptions, []);
   assert.deepEqual(getTaxModule('ES').regimeOptions, []);
+});
+
+test('buildTaxPosition: l’adattatore espone la posizione ricca IT senza alterare il calcolo comune', () => {
+  const posizione = buildTaxPosition('IT', {
+    invoices: [{ number: 1, year: 2026, client: 'Rossi', imponibile: 1000, date: '2026-01-02' }],
+    transactions: { '2026-01': [{ id: 'p1', type: 'entrata', amount: 1000, date: '2026-01-10', description: 'bonifico Rossi' }] },
+    regime: 'forfettario',
+    ateco: 'professionisti',
+    now: new Date('2026-01-31T12:00:00Z'),
+  });
+  assert.equal(posizione.countryCode, 'IT');
+  assert.equal(posizione.cashBasis.incassato, 1000);
+  assert.equal(posizione.estimate.basis, 'incassi-abbinati-alle-fatture');
+  assert.equal(buildTaxPosition('ES', {}), null, 'un modulo senza vista ricca non deve inventarla');
 });
