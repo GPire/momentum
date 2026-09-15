@@ -603,10 +603,262 @@ test('taxSetAside: CIPAG (Cassa Geometri, 4a cassa coperta 2026-09-11) calcolata
   assert.equal(geometri.cassaCalcolo.integrativo, 1500);
 });
 
+// ── ENPAM (medici/odontoiatri), 5a cassa coperta, 2026-09-14 ──
+// Struttura DIVERSA dalle altre 4 (mai forzata nello schema aliquota/minimo,
+// come dichiarato il 2026-09-11): Quota A fissa per fascia d'età, Quota B
+// proporzionale al reddito netto. Fonti: finom.co, money.it, fiscozen.it,
+// centrofiscale.com, camicecapitale.com (concordanti su Quota A e aliquota
+// ordinaria Quota B 19,5%, verificate 2026-09-14).
+
+test('contributoEnpam: Quota A per fascia d\'età, valori 2026 verificati', async () => {
+  const { contributoEnpam } = await import('./tax.js');
+  assert.equal(contributoEnpam(0, 26).quotaA, 304.73); // under 30
+  assert.equal(contributoEnpam(0, 32).quotaA, 591.47); // 30-35
+  assert.equal(contributoEnpam(0, 37).quotaA, 1109.92); // 35-40
+  assert.equal(contributoEnpam(0, 45).quotaA, 2049.83); // 40+
+});
+
+test('contributoEnpam: Quota B = 19,5% del reddito netto (aliquota ordinaria, mai una ridotta indovinata)', async () => {
+  const { contributoEnpam } = await import('./tax.js');
+  const r = contributoEnpam(50000, 45);
+  assert.equal(r.quotaB, 9750); // 50000 * 0.195
+  assert.equal(r.totale, 9750 + 2049.83);
+});
+
+test('contributoEnpam: senza età -> null, mai un\'assunzione sulla fascia', async () => {
+  const { contributoEnpam } = await import('./tax.js');
+  assert.equal(contributoEnpam(50000, null), null);
+  assert.equal(contributoEnpam(50000, undefined), null);
+});
+
+test('contributoEnpam: età fuori dai limiti plausibili (0, 120) -> null, mai un\'estrapolazione', async () => {
+  const { contributoEnpam } = await import('./tax.js');
+  assert.equal(contributoEnpam(50000, 5), null);
+  assert.equal(contributoEnpam(50000, 130), null);
+});
+
+test('contributoEnpam: il contributo maternità NON è incluso nel totale (importo con fonti discordanti, 84,26€ vs 95,54€, mai scelto a caso)', async () => {
+  const { contributoEnpam } = await import('./tax.js');
+  const r = contributoEnpam(50000, 45);
+  assert.equal(r.contributoMaternitaNonIncluso, true);
+  assert.equal(r.totale, r.quotaA + r.quotaB); // il totale non include la maternità
+});
+
+test('contributoEnpam: aliquota Quota B ridotta al 9,5% con altra copertura previdenziale obbligatoria (fonte: fiscozen.it, verificato 2026-09-14)', async () => {
+  const { contributoEnpam } = await import('./tax.js');
+  const r = contributoEnpam(50000, 45, { altraCoperturaPrevidenziale: true });
+  assert.equal(r.quotaB, 4750); // 50000 * 0.095
+  assert.equal(r.aliquotaQuotaB, 0.095);
+});
+
+test('contributoEnpam: senza altra copertura -> aliquota ordinaria 19,5% (default invariato)', async () => {
+  const { contributoEnpam } = await import('./tax.js');
+  const r = contributoEnpam(50000, 45);
+  assert.equal(r.aliquotaQuotaB, 0.195);
+});
+
+// ── Integrazione in taxSetAside, 2026-09-14: sia Quota A sia Quota B sono
+// INTERAMENTE deducibili dal reddito imponibile (art. 10 comma 1 lett. e
+// TUIR, verificato fiscozen.it) — diverso dalle altre 4 casse, dove solo il
+// "soggettivo" è deducibile e l'"integrativo" è un pass-through come l'IVA.
+// Verifica che taxSetAside NON riusi ciecamente quello schema per ENPAM. ──
+
+test('taxSetAside: ENPAM (medici_odontoiatri) con età -> Quota A+B entrambe dedotte dalla base imponibile', () => {
+  const conEta = taxSetAside(60000, { regime: 'ordinario', cassaPropria: 'medici_odontoiatri', eta: 45 });
+  const senzaCassa = taxSetAside(60000, { regime: 'ordinario' });
+  // La base imponibile con ENPAM deve essere PIÙ BASSA di quella senza
+  // cassa di un importo pari all'INTERO contributo ENPAM (quotaA+quotaB),
+  // non solo una parte — altrimenti la deduzione sarebbe sbagliata per
+  // difetto e l'utente pagherebbe più IRPEF del dovuto.
+  assert.ok(conEta.cassaCalcolo);
+  assert.equal(conEta.cassaCalcolo.nomeBreve, 'ENPAM');
+  const redditoImponibile60k = 60000; // regime ordinario: imponibile = fatturato (nessun coefficiente ATECO)
+  const enpamAtteso = 2049.83 + redditoImponibile60k * 0.195; // fascia 40+, aliquota ordinaria
+  assert.equal(conEta.cassaCalcolo.totale, +enpamAtteso.toFixed(2));
+  assert.equal(conEta.setAside < senzaCassa.setAside, true); // deduzione reale, meno da accantonare per l'IRPEF
+});
+
+test('taxSetAside: ENPAM senza età -> cassaCalcolo null, mai un numero indovinato sulla fascia', () => {
+  const s = taxSetAside(60000, { regime: 'ordinario', cassaPropria: 'medici_odontoiatri' });
+  assert.equal(s.cassaCalcolo, null);
+});
+
+test('simulateNewPartitaIva: propaga eta a taxSetAside (chi non ha ancora la P.IVA, stesso motore di chi ce l\'ha già)', async () => {
+  const { simulateNewPartitaIva } = await import('./tax.js');
+  const s = simulateNewPartitaIva(60000, { cassaPropria: 'medici_odontoiatri', eta: 45 });
+  assert.ok(s.cassaCalcolo);
+  assert.equal(s.cassaCalcolo.nomeBreve, 'ENPAM');
+});
+
 test('taxSetAside: CIPAG — un fatturato basso fa vincere il minimo soggettivo (4.205€), mai il calcolato sotto minimo', () => {
   const r = taxSetAside(5000, { regime: 'forfettario', cassaPropria: 'geometri' });
   // redditoImponibile = 5000*0.78=3900; soggettivo calcolato = 3900*0.20=780, molto sotto il minimo 4205
   assert.equal(r.cassaCalcolo.soggettivo, 4205, 'vince il minimo, non il calcolato');
+});
+
+// ── ENPAP (psicologi), 6a cassa coperta, 2026-09-15 ──
+// Struttura soggettivo/integrativo come le altre 4 in CASSE_CON_REGOLE, PIÙ
+// un contributo di maternità FISSO che le altre non hanno — qui le fonti
+// concordano (centrofiscale.com + fiscoetasse.com, verificato 2026-09-15,
+// diverso da ENPAM dove le fonti discordavano ed è stato lasciato fuori).
+test('taxSetAside: ENPAP (psicologi, 6a cassa coperta) — soggettivo 10%, integrativo 2%, minimi reali', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'psicologi' });
+  // redditoImponibile forfettario = 60000*0.78 = 46800; soggettivo = 46800*0.10 = 4680 (>856, vince il calcolato)
+  assert.equal(r.cassaCalcolo.soggettivo, 4680);
+  // integrativo = 60000*0.02 = 1200 (>66, vince il calcolato)
+  assert.equal(r.cassaCalcolo.integrativo, 1200);
+});
+
+test('taxSetAside: ENPAP — fatturato basso fa vincere i minimi (856€ soggettivo, 66€ integrativo)', () => {
+  const r = taxSetAside(3000, { regime: 'forfettario', cassaPropria: 'psicologi' });
+  // redditoImponibile = 3000*0.78=2340; soggettivo calcolato = 234, sotto minimo 856
+  assert.equal(r.cassaCalcolo.soggettivo, 856);
+  // integrativo calcolato = 3000*0.02=60, sotto minimo 66
+  assert.equal(r.cassaCalcolo.integrativo, 66);
+});
+
+test('taxSetAside: ENPAP — il contributo di maternità fisso (110€) è incluso nel totale della cassa, dichiarato nel nomeBreve/campo dedicato', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'psicologi' });
+  assert.equal(r.cassaCalcolo.contributoFisso, 110);
+  assert.equal(r.cassaCalcolo.totale, +(4680 + 1200 + 110).toFixed(2));
+});
+
+// ── ENPAPI (infermieri liberi professionisti), 7a cassa coperta, 2026-09-15 ──
+// Struttura soggettivo/integrativo standard, come le altre 5 in
+// CASSE_CON_REGOLE, nessun campo aggiuntivo. Fonti concordanti
+// (fiscoetasse.com + centrofiscale.com, verificato 2026-09-15): soggettivo
+// 16% del reddito netto (min 1.600€/anno), integrativo 4% del fatturato
+// (min 150€/anno) — l'aliquota integrativa ridotta al 2% per prestazioni
+// verso la PA NON è gestita (Momentum non distingue i clienti PA dagli
+// altri): limite dichiarato, non un'approssimazione silenziosa.
+test('taxSetAside: ENPAPI (infermieri, 7a cassa coperta) — soggettivo 16%, integrativo 4%, minimi reali', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'infermieri' });
+  // redditoImponibile forfettario = 60000*0.78 = 46800; soggettivo = 46800*0.16 = 7488 (>1600, vince il calcolato)
+  assert.equal(r.cassaCalcolo.soggettivo, 7488);
+  // integrativo = 60000*0.04 = 2400 (>150, vince il calcolato)
+  assert.equal(r.cassaCalcolo.integrativo, 2400);
+});
+
+test('taxSetAside: ENPAPI — fatturato basso fa vincere i minimi (1.600€ soggettivo, 150€ integrativo)', () => {
+  const r = taxSetAside(3000, { regime: 'forfettario', cassaPropria: 'infermieri' });
+  // redditoImponibile = 3000*0.78=2340; soggettivo calcolato = 374,4, sotto minimo 1600
+  assert.equal(r.cassaCalcolo.soggettivo, 1600);
+  // integrativo calcolato = 3000*0.04=120, sotto minimo 150
+  assert.equal(r.cassaCalcolo.integrativo, 150);
+});
+
+test('taxSetAside: ENPAPI — nessun contributoFisso (a differenza di ENPAP), il campo resta assente', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'infermieri' });
+  assert.equal(r.cassaCalcolo.contributoFisso, undefined);
+  assert.equal(r.cassaCalcolo.totale, +(7488 + 2400).toFixed(2));
+});
+
+// ── ENPACL (consulenti del lavoro), 8a cassa coperta, 2026-09-15 ──
+// Struttura soggettivo/integrativo + contributo fisso, come ENPAP. Fonti
+// concordanti (fiscoetasse.com + centrofiscale.com/partitaiva.it, fonte
+// primaria enpacl.it, verificato 2026-09-15): soggettivo 12% del reddito
+// netto (min 2.620€/anno — l'aliquota/il minimo agevolati per neoiscritti
+// under 35, 6%/1.310€, NON sono gestiti: Momentum non conosce l'anno di
+// iscrizione alla cassa, limite dichiarato), integrativo 4% del volume
+// d'affari (min 380€/anno), contributo fisso di maternità 52,98€/anno.
+test('taxSetAside: ENPACL (consulenti del lavoro, 8a cassa coperta) — soggettivo 12%, integrativo 4%, minimi reali', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'consulenti_lavoro' });
+  // redditoImponibile forfettario = 60000*0.78 = 46800; soggettivo = 46800*0.12 = 5616 (>2620, vince il calcolato)
+  assert.equal(r.cassaCalcolo.soggettivo, 5616);
+  // integrativo = 60000*0.04 = 2400 (>380, vince il calcolato)
+  assert.equal(r.cassaCalcolo.integrativo, 2400);
+});
+
+test('taxSetAside: ENPACL — fatturato basso fa vincere i minimi (2.620€ soggettivo, 380€ integrativo)', () => {
+  const r = taxSetAside(5000, { regime: 'forfettario', cassaPropria: 'consulenti_lavoro' });
+  // redditoImponibile = 5000*0.78=3900; soggettivo calcolato = 468, sotto minimo 2620
+  assert.equal(r.cassaCalcolo.soggettivo, 2620);
+  // integrativo calcolato = 5000*0.04=200, sotto minimo 380
+  assert.equal(r.cassaCalcolo.integrativo, 380);
+});
+
+test('taxSetAside: ENPACL — il contributo di maternità fisso (52,98€) è incluso nel totale della cassa', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'consulenti_lavoro' });
+  assert.equal(r.cassaCalcolo.contributoFisso, 52.98);
+  assert.equal(r.cassaCalcolo.totale, +(5616 + 2400 + 52.98).toFixed(2));
+});
+
+// ── ENPAB (biologi), 9a cassa coperta, 2026-09-15 ──
+// Struttura soggettivo/integrativo + contributo fisso, come ENPAP/ENPACL.
+// Fonti concordanti (fiscoetasse.com + partitaiva.it, fonte primaria
+// enpab.it, verificato 2026-09-15): soggettivo 15% del reddito netto
+// (elevabile volontariamente fino al 36%, mai usato di default — stesso
+// principio già applicato a CNPADC/ENPACL), minimo 1.309€/anno; integrativo
+// 4% del volume d'affari (anche per prestazioni verso la PA, nessuna
+// riduzione da gestire qui), minimo 106€/anno; contributo fisso di
+// maternità 136€/anno.
+test('taxSetAside: ENPAB (biologi, 9a cassa coperta) — soggettivo 15%, integrativo 4%, minimi reali', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'biologi' });
+  // redditoImponibile forfettario = 60000*0.78 = 46800; soggettivo = 46800*0.15 = 7020 (>1309, vince il calcolato)
+  assert.equal(r.cassaCalcolo.soggettivo, 7020);
+  // integrativo = 60000*0.04 = 2400 (>106, vince il calcolato)
+  assert.equal(r.cassaCalcolo.integrativo, 2400);
+});
+
+test('taxSetAside: ENPAB — fatturato basso fa vincere i minimi (1.309€ soggettivo, 106€ integrativo)', () => {
+  const r = taxSetAside(2000, { regime: 'forfettario', cassaPropria: 'biologi' });
+  // redditoImponibile = 2000*0.78=1560; soggettivo calcolato = 234, sotto minimo 1309
+  assert.equal(r.cassaCalcolo.soggettivo, 1309);
+  // integrativo calcolato = 2000*0.04=80, sotto minimo 106
+  assert.equal(r.cassaCalcolo.integrativo, 106);
+});
+
+test('taxSetAside: ENPAB — il contributo di maternità fisso (136€) è incluso nel totale della cassa', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'biologi' });
+  assert.equal(r.cassaCalcolo.contributoFisso, 136);
+  assert.equal(r.cassaCalcolo.totale, +(7020 + 2400 + 136).toFixed(2));
+});
+
+// ── ENPAV (veterinari), 10a cassa coperta, 2026-09-15 ──
+// Struttura a due scaglioni come Cassa Forense: soggettivo 10% del reddito
+// netto fino a 18.500€/anno, 3% sulla parte eccedente. Fonte primaria
+// enpav.it (pagina "contributi minimi") per i minimi 2026 (soggettivo
+// 3.542,85€, integrativo 574,50€), incrociata con fidocommercialista.it/
+// partitaiva.it/fiscoetasse.com per aliquote e soglia. Maternità (100€,
+// dichiarata "in attesa di approvazione ministeriale" dalla fonte stessa)
+// deliberatamente NON inclusa — non confermata.
+test('taxSetAside: ENPAV (veterinari, 10a cassa coperta) — due scaglioni (10%/3%), integrativo 2%', () => {
+  const r = taxSetAside(150000, { regime: 'forfettario', cassaPropria: 'veterinari' });
+  // redditoImponibile = 150000*0.78 = 117000; entro=18500*0.10=1850, oltre=(117000-18500)*0.03=2955 -> 4805
+  assert.equal(r.cassaCalcolo.soggettivo, 4805);
+  // integrativo = 150000*0.02 = 3000 (>574.50, vince il calcolato)
+  assert.equal(r.cassaCalcolo.integrativo, 3000);
+  assert.equal(r.cassaCalcolo.contributoFisso, undefined); // maternità non confermata, mai inclusa
+});
+
+test('taxSetAside: ENPAV — fatturato basso fa vincere i minimi (3.542,85€ soggettivo, 574,50€ integrativo)', () => {
+  const r = taxSetAside(2000, { regime: 'forfettario', cassaPropria: 'veterinari' });
+  // redditoImponibile = 2000*0.78=1560, tutto sotto soglia: soggettivo calcolato = 156, sotto minimo
+  assert.equal(r.cassaCalcolo.soggettivo, 3542.85);
+  // integrativo calcolato = 2000*0.02=40, sotto minimo 574.50
+  assert.equal(r.cassaCalcolo.integrativo, 574.50);
+});
+
+// ── EPPI (periti industriali), 11a cassa coperta, 2026-09-15 ──
+// Fonte primaria eppi.it ("la contribuzione", valori 2026): soggettivo 18%
+// del reddito netto (min 2.392€/anno), integrativo 5% del fatturato (min
+// 664€/anno). Maternità "da definire" per il 2026 secondo la fonte stessa
+// — deliberatamente NON inclusa, non un numero mancante per pigrizia.
+test('taxSetAside: EPPI (periti industriali, 11a cassa coperta) — soggettivo 18%, integrativo 5%, minimi reali', () => {
+  const r = taxSetAside(60000, { regime: 'forfettario', cassaPropria: 'periti_industriali' });
+  // redditoImponibile = 60000*0.78 = 46800; soggettivo = 46800*0.18 = 8424 (>2392, vince il calcolato)
+  assert.equal(r.cassaCalcolo.soggettivo, 8424);
+  // integrativo = 60000*0.05 = 3000 (>664, vince il calcolato)
+  assert.equal(r.cassaCalcolo.integrativo, 3000);
+  assert.equal(r.cassaCalcolo.contributoFisso, undefined); // maternità non definita, mai inclusa
+});
+
+test('taxSetAside: EPPI — fatturato basso fa vincere i minimi (2.392€ soggettivo, 664€ integrativo)', () => {
+  const r = taxSetAside(3000, { regime: 'forfettario', cassaPropria: 'periti_industriali' });
+  // redditoImponibile = 3000*0.78=2340; soggettivo calcolato = 421.20, sotto minimo 2392
+  assert.equal(r.cassaCalcolo.soggettivo, 2392);
+  // integrativo calcolato = 3000*0.05=150, sotto minimo 664
+  assert.equal(r.cassaCalcolo.integrativo, 664);
 });
 
 test('taxSetAside: aliquota INPS ridotta al 24% per chi ha già un\'altra copertura previdenziale (LACUNA COLMATA)', () => {
@@ -666,6 +918,21 @@ test('simulateNewPartitaIva: cassa NON coperta (ENPAM) — il simulatore avvisa 
   const tip = s.strategie.find(t => t.icon === 'cassa');
   assert.match(tip.testo, /non all'INPS/);
   assert.match(tip.testo, /NON li include/);
+});
+
+// Bug reale trovato dal vivo in Chrome, 2026-09-14: con l'età fornita ENPAM
+// VIENE calcolata, ma il messaggio riusava .soggettivo/.integrativo (campi
+// che ENPAM non ha, ha quotaA/quotaB) — mostrava "NaN€" all'utente.
+test('simulateNewPartitaIva: cassa ENPAM CON età — messaggio con Quota A/B reali, mai NaN', () => {
+  const s = simulateNewPartitaIva(60000, { cassaPropria: 'medici_odontoiatri', eta: 45 });
+  assert.ok(s.cassaCalcolo);
+  const tip = s.strategie.find(t => t.icon === 'cassa');
+  assert.ok(tip);
+  assert.doesNotMatch(tip.testo, /NaN/);
+  assert.match(tip.testo, /include già/);
+  assert.match(tip.testo, /Quota A/);
+  assert.match(tip.testo, /Quota B/);
+  assert.match(tip.testo, /maternità/i); // il limite dichiarato va detto qui, non solo nel Centro Fiducia
 });
 
 test('simulateNewPartitaIva: dipendente che apre anche la P.IVA -> aliquota INPS ridotta al 24%, verificata e applicata davvero', () => {
